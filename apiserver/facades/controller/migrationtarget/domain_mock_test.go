@@ -16,8 +16,6 @@ import (
 	controller "github.com/juju/juju/controller"
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	life "github.com/juju/juju/core/life"
-	status "github.com/juju/juju/core/status"
-	unit "github.com/juju/juju/core/unit"
 	modelmigration "github.com/juju/juju/domain/modelmigration"
 	state "github.com/juju/juju/state"
 	version "github.com/juju/version/v2"
@@ -496,80 +494,40 @@ func (m *MockStatusService) EXPECT() *MockStatusServiceMockRecorder {
 	return m.recorder
 }
 
-// GetUnitAgentStatus mocks base method.
-func (m *MockStatusService) GetUnitAgentStatus(arg0 context.Context, arg1 unit.Name) (*status.StatusInfo, error) {
+// CheckUnitStatusesReadyForMigration mocks base method.
+func (m *MockStatusService) CheckUnitStatusesReadyForMigration(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitAgentStatus", arg0, arg1)
-	ret0, _ := ret[0].(*status.StatusInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "CheckUnitStatusesReadyForMigration", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
-// GetUnitAgentStatus indicates an expected call of GetUnitAgentStatus.
-func (mr *MockStatusServiceMockRecorder) GetUnitAgentStatus(arg0, arg1 any) *MockStatusServiceGetUnitAgentStatusCall {
+// CheckUnitStatusesReadyForMigration indicates an expected call of CheckUnitStatusesReadyForMigration.
+func (mr *MockStatusServiceMockRecorder) CheckUnitStatusesReadyForMigration(arg0 any) *MockStatusServiceCheckUnitStatusesReadyForMigrationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitAgentStatus", reflect.TypeOf((*MockStatusService)(nil).GetUnitAgentStatus), arg0, arg1)
-	return &MockStatusServiceGetUnitAgentStatusCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckUnitStatusesReadyForMigration", reflect.TypeOf((*MockStatusService)(nil).CheckUnitStatusesReadyForMigration), arg0)
+	return &MockStatusServiceCheckUnitStatusesReadyForMigrationCall{Call: call}
 }
 
-// MockStatusServiceGetUnitAgentStatusCall wrap *gomock.Call
-type MockStatusServiceGetUnitAgentStatusCall struct {
+// MockStatusServiceCheckUnitStatusesReadyForMigrationCall wrap *gomock.Call
+type MockStatusServiceCheckUnitStatusesReadyForMigrationCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStatusServiceGetUnitAgentStatusCall) Return(arg0 *status.StatusInfo, arg1 error) *MockStatusServiceGetUnitAgentStatusCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockStatusServiceCheckUnitStatusesReadyForMigrationCall) Return(arg0 error) *MockStatusServiceCheckUnitStatusesReadyForMigrationCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStatusServiceGetUnitAgentStatusCall) Do(f func(context.Context, unit.Name) (*status.StatusInfo, error)) *MockStatusServiceGetUnitAgentStatusCall {
+func (c *MockStatusServiceCheckUnitStatusesReadyForMigrationCall) Do(f func(context.Context) error) *MockStatusServiceCheckUnitStatusesReadyForMigrationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStatusServiceGetUnitAgentStatusCall) DoAndReturn(f func(context.Context, unit.Name) (*status.StatusInfo, error)) *MockStatusServiceGetUnitAgentStatusCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetUnitWorkloadStatus mocks base method.
-func (m *MockStatusService) GetUnitWorkloadStatus(arg0 context.Context, arg1 unit.Name) (*status.StatusInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitWorkloadStatus", arg0, arg1)
-	ret0, _ := ret[0].(*status.StatusInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUnitWorkloadStatus indicates an expected call of GetUnitWorkloadStatus.
-func (mr *MockStatusServiceMockRecorder) GetUnitWorkloadStatus(arg0, arg1 any) *MockStatusServiceGetUnitWorkloadStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitWorkloadStatus", reflect.TypeOf((*MockStatusService)(nil).GetUnitWorkloadStatus), arg0, arg1)
-	return &MockStatusServiceGetUnitWorkloadStatusCall{Call: call}
-}
-
-// MockStatusServiceGetUnitWorkloadStatusCall wrap *gomock.Call
-type MockStatusServiceGetUnitWorkloadStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStatusServiceGetUnitWorkloadStatusCall) Return(arg0 *status.StatusInfo, arg1 error) *MockStatusServiceGetUnitWorkloadStatusCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStatusServiceGetUnitWorkloadStatusCall) Do(f func(context.Context, unit.Name) (*status.StatusInfo, error)) *MockStatusServiceGetUnitWorkloadStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStatusServiceGetUnitWorkloadStatusCall) DoAndReturn(f func(context.Context, unit.Name) (*status.StatusInfo, error)) *MockStatusServiceGetUnitWorkloadStatusCall {
+func (c *MockStatusServiceCheckUnitStatusesReadyForMigrationCall) DoAndReturn(f func(context.Context) error) *MockStatusServiceCheckUnitStatusesReadyForMigrationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -1214,6 +1214,252 @@ func (s *serviceSuite) TestDeleteUnitPresenceInvalidName(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
 }
 
+func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationEmptyModel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetAllFullUnitStatuses(gomock.Any()).Return(status.FullUnitStatuses{}, nil)
+
+	err := s.service.CheckUnitStatusesReadyForMigration(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestCheckUnitStatusesReadyForMigration(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	fullStatus := status.FullUnitStatuses{
+		"foo/650": {
+			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusIdle,
+				Message: "boink",
+			},
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "doink",
+			},
+			Present: true,
+		},
+		"foo/667": {
+			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusExecuting,
+				Message: "boink",
+			},
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusMaintenance,
+				Message: "doink",
+			},
+			Present: true,
+		},
+		"foo/668": {
+			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusExecuting,
+				Message: "boink",
+			},
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusWaiting,
+				Message: "doink",
+			},
+			Present: true,
+		},
+	}
+	s.state.EXPECT().GetAllFullUnitStatuses(gomock.Any()).Return(fullStatus, nil)
+
+	err := s.service.CheckUnitStatusesReadyForMigration(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyPresence(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	fullStatus := status.FullUnitStatuses{
+		"foo/650": {
+			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusIdle,
+				Message: "boink",
+			},
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "doink",
+			},
+			Present: true,
+		},
+		"foo/667": {
+			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusIdle,
+				Message: "boink",
+			},
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "doink",
+			},
+		},
+		"foo/668": {
+			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusIdle,
+				Message: "boink",
+			},
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "doink",
+			},
+		},
+	}
+	s.state.EXPECT().GetAllFullUnitStatuses(gomock.Any()).Return(fullStatus, nil)
+
+	err := s.service.CheckUnitStatusesReadyForMigration(context.Background())
+	c.Assert(err, gc.ErrorMatches, `(?m).*
+- unit "foo/66\d" is not logged into the controller
+- unit "foo/66\d" is not logged into the controller`)
+}
+
+func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyAgentStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	fullStatus := status.FullUnitStatuses{
+		"foo/650": {
+			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusIdle,
+				Message: "boink",
+			},
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "doink",
+			},
+			Present: true,
+		},
+		"foo/667": {
+			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusAllocating,
+				Message: "boink",
+			},
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "doink",
+			},
+			Present: true,
+		},
+		"foo/668": {
+			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusRebooting,
+				Message: "boink",
+			},
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "doink",
+			},
+			Present: true,
+		},
+	}
+	s.state.EXPECT().GetAllFullUnitStatuses(gomock.Any()).Return(fullStatus, nil)
+
+	err := s.service.CheckUnitStatusesReadyForMigration(context.Background())
+	c.Assert(err, gc.ErrorMatches, `(?m).*
+- unit "foo/66\d" agent not idle or executing
+- unit "foo/66\d" agent not idle or executing`)
+}
+
+func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyWorkload(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	fullStatus := status.FullUnitStatuses{
+		"foo/650": {
+			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusIdle,
+				Message: "boink",
+			},
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "doink",
+			},
+			Present: true,
+		},
+		"foo/667": {
+			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusIdle,
+				Message: "boink",
+			},
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusBlocked,
+				Message: "doink",
+			},
+			Present: true,
+		},
+		"foo/668": {
+			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusIdle,
+				Message: "boink",
+			},
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusError,
+				Message: "doink",
+			},
+			Present: true,
+		},
+	}
+	s.state.EXPECT().GetAllFullUnitStatuses(gomock.Any()).Return(fullStatus, nil)
+
+	err := s.service.CheckUnitStatusesReadyForMigration(context.Background())
+	c.Assert(err, gc.ErrorMatches, `(?m).*
+- unit "foo/66\d" workload not active or viable
+- unit "foo/66\d" workload not active or viable`)
+}
+
+func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyWorkloadMessage(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	fullStatus := status.FullUnitStatuses{
+		"foo/650": {
+			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusIdle,
+				Message: "boink",
+			},
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusWaiting,
+				Message: "doink",
+			},
+			Present: true,
+		},
+		"foo/651": {
+			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusIdle,
+				Message: "boink",
+			},
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusMaintenance,
+				Message: "doink",
+			},
+			Present: true,
+		},
+		"foo/666": {
+			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusIdle,
+				Message: "boink",
+			},
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusWaiting,
+				Message: corestatus.MessageInstallingAgent,
+			},
+			Present: true,
+		},
+		"foo/667": {
+			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusIdle,
+				Message: "boink",
+			},
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusMaintenance,
+				Message: corestatus.MessageInstallingCharm,
+			},
+			Present: true,
+		},
+	}
+	s.state.EXPECT().GetAllFullUnitStatuses(gomock.Any()).Return(fullStatus, nil)
+
+	err := s.service.CheckUnitStatusesReadyForMigration(context.Background())
+	c.Assert(err, gc.ErrorMatches, `(?m).*
+- unit "foo/66\d" workload not active or viable
+- unit "foo/66\d" workload not active or viable`)
+}
+
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

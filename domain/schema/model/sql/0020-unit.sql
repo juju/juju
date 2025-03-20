@@ -282,3 +282,23 @@ SELECT
     ) AS present
 FROM unit AS u
 JOIN unit_workload_status AS uws ON u.uuid = uws.unit_uuid;
+
+CREATE VIEW v_full_unit_status AS
+SELECT
+    u.uuid AS unit_uuid,
+    u.name AS unit_name,
+    uws.status_id AS workload_status_id,
+    uws.message AS workload_message,
+    uws.data AS workload_data,
+    uws.updated_at AS workload_updated_at,
+    uas.status_id AS agent_status_id,
+    uas.message AS agent_message,
+    uas.data AS agent_data,
+    uas.updated_at AS agent_updated_at,
+    EXISTS(
+        SELECT 1 FROM unit_agent_presence AS uap
+        WHERE u.uuid = uap.unit_uuid
+    ) AS present
+FROM unit AS u
+LEFT JOIN unit_workload_status AS uws ON u.uuid = uws.unit_uuid
+LEFT JOIN unit_agent_status AS uas ON u.uuid = uas.unit_uuid;

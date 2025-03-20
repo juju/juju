@@ -343,6 +343,45 @@ func decodeUnitWorkloadStatus(s *status.UnitStatusInfo[status.WorkloadStatusType
 	}, nil
 }
 
+func decodeFullUnitStatus(s status.FullUnitStatus) (bool, corestatus.StatusInfo, corestatus.StatusInfo, error) {
+	decodedAgentStatus, err := decodeUnitAgentStatusType(s.AgentStatus.Status)
+	if err != nil {
+		return false, corestatus.StatusInfo{}, corestatus.StatusInfo{}, err
+	}
+	decodedWorkloadStatus, err := decodeWorkloadStatusType(s.WorkloadStatus.Status)
+	if err != nil {
+		return false, corestatus.StatusInfo{}, corestatus.StatusInfo{}, err
+	}
+
+	var agentData map[string]interface{}
+	if len(s.AgentStatus.Data) > 0 {
+		if err := json.Unmarshal(s.AgentStatus.Data, &agentData); err != nil {
+			return false, corestatus.StatusInfo{}, corestatus.StatusInfo{}, errors.Errorf("unmarshalling agent status data: %w", err)
+		}
+	}
+
+	var workloadData map[string]interface{}
+	if len(s.WorkloadStatus.Data) > 0 {
+		if err := json.Unmarshal(s.WorkloadStatus.Data, &workloadData); err != nil {
+			return false, corestatus.StatusInfo{}, corestatus.StatusInfo{}, errors.Errorf("unmarshalling workload status data: %w", err)
+		}
+	}
+
+	return s.Present,
+		corestatus.StatusInfo{
+			Status:  decodedAgentStatus,
+			Message: s.AgentStatus.Message,
+			Data:    agentData,
+			Since:   s.AgentStatus.Since,
+		},
+		corestatus.StatusInfo{
+			Status:  decodedWorkloadStatus,
+			Message: s.WorkloadStatus.Message,
+			Data:    workloadData,
+			Since:   s.WorkloadStatus.Since,
+		}, nil
+}
+
 func decodeApplicationStatus(s *status.StatusInfo[status.WorkloadStatusType]) (*corestatus.StatusInfo, error) {
 	if s == nil {
 		return nil, nil

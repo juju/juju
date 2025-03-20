@@ -5,8 +5,10 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/juju/clock"
 
@@ -111,6 +113,11 @@ type State interface {
 	// returning an error satisfying [statuserrors.UnitNotFound] if the
 	// unit doesn't exist.
 	SetUnitAgentStatus(context.Context, coreunit.UUID, *status.StatusInfo[status.UnitAgentStatusType]) error
+
+	// GetAllFullUnitStatuses retrieves the presence, workload status, and agent status
+	// of every unit in the model. Returns an error satisfying [statuserrors.UnitStatusNotFound]
+	// if any units do not have statuses.
+	GetAllFullUnitStatuses(context.Context) (status.FullUnitStatuses, error)
 
 	// SetUnitPresence marks the presence of the specified unit, returning an error
 	// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
@@ -592,6 +599,38 @@ func (s *Service) DeleteUnitPresence(ctx context.Context, unitName coreunit.Name
 		return errors.Capture(err)
 	}
 	return s.st.DeleteUnitPresence(ctx, unitName)
+}
+
+// CheckUnitStatusesReadyForMigration returns an error if the statuses of any units
+// in the model indicate they cannot be migrated.
+func (s *Service) CheckUnitStatusesReadyForMigration(ctx context.Context) error {
+	fullStatuses, err := s.st.GetAllFullUnitStatuses(ctx)
+	if err != nil {
+		return errors.Errorf("getting unit statuses: %w", err)
+	}
+
+	failedChecks := []string{}
+	for unitName, fullStatus := range fullStatuses {
+		present, agentStatus, workloadStatus, err := decodeFullUnitStatus(fullStatus)
+		if err != nil {
+			return errors.Errorf("decoding full unit status for unit %q: %w", unitName, err)
+		}
+		if !present {
+			failedChecks = append(failedChecks, fmt.Sprintf("- unit %q is not logged into the controller", unitName))
+		}
+		if !corestatus.IsAgentPresent(agentStatus) {
+			failedChecks = append(failedChecks, fmt.Sprintf("- unit %q agent not idle or executing", unitName))
+		}
+		if !corestatus.IsUnitWorkloadPresent(workloadStatus) {
+			failedChecks = append(failedChecks, fmt.Sprintf("- unit %q workload not active or viable", unitName))
+		}
+	}
+
+	if len(failedChecks) > 0 {
+		return errors.Errorf(
+			"model unit(s) are not ready for migration:\n%s", strings.Join(failedChecks, "\n"))
+	}
+	return nil
 }
 
 func ptr[T any](v T) *T {
