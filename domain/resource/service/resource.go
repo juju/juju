@@ -90,16 +90,15 @@ type State interface {
 	//     found.
 	GetResourceType(ctx context.Context, resourceUUID coreresource.UUID) (charmresource.Type, error)
 
-	// RecordStoredResource records a stored resource along with who retrieved it.
-	//
-	// If recording a stored blob for a resource that already has a blob associated
-	// with it, this association is removed and the hash of this blob returned in
-	// droppedHash. If there was no blob associated, droppedHash is empty.
+	// RecordStoredResource records a stored resource along with who retrieved
+	// it.
 	//
 	// The following error types can be expected to be returned:
 	// - [resourceerrors.StoredResourceNotFound] if the stored resource at the
 	//   storageID cannot be found.
-	RecordStoredResource(ctx context.Context, args resource.RecordStoredResourceArgs) (droppedHash string, err error)
+	// - [resourceerrors.StoredResourceAlreadyExists] if a resource is already
+	// stored for this resource UUID.
+	RecordStoredResource(ctx context.Context, args resource.RecordStoredResourceArgs) error
 
 	// SetUnitResource sets the resource metadata for a specific unit.
 	//
@@ -123,27 +122,26 @@ type State interface {
 	// application/resource combination will be overwritten.
 	SetRepositoryResources(ctx context.Context, config resource.SetRepositoryResourcesArgs) error
 
-	// UpdateResourceRevisionAndDeletePriorVersion deletes a reference to the old
-	// stored blob, saving the hash to return. Adds a new row in the resource
-	// table with a Store origin and new revision which indicates the resource will
-	// be updated. Next, it sets it on the application_resource table, removing the
-	// old resource for this charm resource. Lastly the charm modified version is
+	// UpdateResourceRevisionAndDeletePriorVersion deletes a reference to the
+	// old stored blob. It adds a new row in the resource table with a Store
+	// origin and new revision which indicates the resource will be updated.
+	// Next, it sets it on the application_resource table, removing the old
+	// resource for this charm resource. Lastly the charm modified version is
 	// updated to enable the resource upgrade.
 	UpdateResourceRevisionAndDeletePriorVersion(
 		ctx context.Context,
 		arg resource.UpdateResourceRevisionArgs,
 		resType charmresource.Type,
-	) (string, coreresource.UUID, error)
+	) (coreresource.UUID, error)
 
 	// UpdateUploadResourceAndDeletePriorVersion deletes a reference to the old
-	// stored blob, saving the hash to return. Adds a new row in the resource
-	// table which indicates the resource will be updated. Next, it sets it on the
-	// application_resource table, removing the old resource for this charm
-	// resource.
+	// stored blob. Adds a new row in the resource table which indicates the
+	// resource will be updated. Next, it sets it on the application_resource
+	// table, removing the old resource for this charm resource.
 	UpdateUploadResourceAndDeletePriorVersion(
 		ctx context.Context,
 		arg resource.StateUpdateUploadResourceArgs,
-	) (string, coreresource.UUID, error)
+	) (coreresource.UUID, error)
 
 	// ImportResources sets resources imported in migration. It first builds all the
 	// resources to insert from the arguments, then inserts them at the end so as to
@@ -362,14 +360,13 @@ func (s *Service) GetResource(
 // The Size and Fingerprint should be validated against the resource blob before
 // the resource is passed in.
 //
-// If storing a blob for a resource that already has a blob stored, the old blob
-// will be replaced and removed from the store.
-//
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ResourceNotFound] if the resource UUID cannot be
 //     found.
 //   - [resourceerrors.RetrievedByTypeNotValid] if the retrieved by type is
 //     invalid.
+//   - [resourceerrors.StoredResourceAlreadyExists] if a resource is already
+//     stored for this resource UUID.
 func (s *Service) StoreResource(
 	ctx context.Context,
 	args resource.StoreResourceArgs,
@@ -433,7 +430,7 @@ func (s *Service) storeResource(
 		return errors.Errorf("getting resource store for %s: %w", res.Type.String(), err)
 	}
 
-	path := blobPath(args.ResourceUUID, args.Fingerprint.String())
+	path := args.ResourceUUID.String()
 	storageUUID, err := store.Put(
 		ctx,
 		path,
@@ -457,7 +454,7 @@ func (s *Service) storeResource(
 		}
 	}()
 
-	droppedHash, err := s.st.RecordStoredResource(
+	err = s.st.RecordStoredResource(
 		ctx,
 		resource.RecordStoredResourceArgs{
 			ResourceUUID:                  args.ResourceUUID,
@@ -474,14 +471,6 @@ func (s *Service) storeResource(
 		return errors.Errorf("recording stored resource %q: %w", res.Name, err)
 	}
 
-	// If the resource was updated and an old resource blob was dropped, remove
-	// the old blob from the store.
-	if droppedHash != "" {
-		err = store.Remove(ctx, blobPath(args.ResourceUUID, droppedHash))
-		if err != nil {
-			s.logger.Errorf(ctx, "failed to remove resource with ID %s from the store", droppedHash)
-		}
-	}
 	return err
 }
 
@@ -513,7 +502,7 @@ func (s *Service) OpenResource(
 	// TODO(aflynn): ideally this would be finding the resource via the
 	// resources storageID, however the object store does not currently have a
 	// method for this.
-	reader, _, err := store.Get(ctx, blobPath(resourceUUID, res.Fingerprint.String()))
+	reader, _, err := store.Get(ctx, resourceUUID.String())
 	if errors.Is(err, objectstoreerrors.ObjectNotFound) ||
 		errors.Is(err, containerimageresourcestoreerrors.ContainerImageMetadataNotFound) {
 		return coreresource.Resource{}, nil, resourceerrors.StoredResourceNotFound
@@ -667,7 +656,7 @@ func (s *Service) UpdateResourceRevision(
 		return "", err
 	}
 
-	droppedHash, newUUID, err := s.st.UpdateResourceRevisionAndDeletePriorVersion(
+	newUUID, err := s.st.UpdateResourceRevisionAndDeletePriorVersion(
 		ctx,
 		resource.UpdateResourceRevisionArgs{
 			ResourceUUID: arg.ResourceUUID,
@@ -678,7 +667,7 @@ func (s *Service) UpdateResourceRevision(
 	if err != nil {
 		return "", err
 	}
-	if err = s.removeDroppedHashFromStore(ctx, arg.ResourceUUID, droppedHash, resType); err != nil {
+	if err = s.removeDroppedResourceFromStore(ctx, arg.ResourceUUID, resType); err != nil {
 		return "", err
 	}
 	return newUUID, err
@@ -707,34 +696,33 @@ func (s *Service) UpdateUploadResource(
 		ResourceType: resType,
 		ResourceUUID: resourceToUpdate,
 	}
-	droppedHash, newResourceUUID, err := s.st.UpdateUploadResourceAndDeletePriorVersion(ctx, stateArgs)
+	newResourceUUID, err := s.st.UpdateUploadResourceAndDeletePriorVersion(ctx, stateArgs)
 	if err != nil {
 		return "", err
 	}
 
-	if err = s.removeDroppedHashFromStore(ctx, resourceToUpdate, droppedHash, resType); err != nil {
+	if err = s.removeDroppedResourceFromStore(ctx, resourceToUpdate, resType); err != nil {
 		return "", err
 	}
 	return newResourceUUID, err
 }
 
-// removeDroppedHashFromStore removes the resource blob on its store.
-func (s *Service) removeDroppedHashFromStore(
+// removeDroppedResourceFromStore removes the resource blob from its resource
+// store. If the blob does not exist then this is a no-op.
+func (s *Service) removeDroppedResourceFromStore(
 	ctx context.Context,
 	resourceUUID coreresource.UUID,
-	droppedHash string,
 	resType charmresource.Type,
 ) error {
-	if droppedHash == "" {
-		return nil
-	}
 	store, err := s.resourceStoreGetter.GetResourceStore(ctx, resType)
 	if err != nil {
 		return errors.Errorf("getting resource store for %s: %w", resType.String(), err)
 	}
 
-	err = store.Remove(ctx, blobPath(resourceUUID, droppedHash))
-	if err != nil {
+	err = store.Remove(ctx, resourceUUID.String())
+	if err != nil &&
+		!errors.Is(err, objectstoreerrors.ObjectNotFound) &&
+		!errors.Is(err, containerimageresourcestoreerrors.ContainerImageMetadataNotFound) {
 		s.logger.Errorf(ctx, "failed to remove resource with ID %s from the store", resourceUUID)
 	}
 	return nil
@@ -797,13 +785,6 @@ func (s *Service) DeleteImportedResources(
 	appNames []string,
 ) error {
 	return s.st.DeleteImportedResources(ctx, appNames)
-}
-
-// Store the resource with a path made up of the UUID and the resource
-// hash, this ensures that different resource blobs are stored in
-// different locations.
-func blobPath(uuid coreresource.UUID, hash string) string {
-	return "resource-" + uuid.String() + "#" + hash
 }
 
 // isValidApplicationName returns whether name is a valid application name.
