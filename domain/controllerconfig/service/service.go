@@ -88,9 +88,6 @@ func (s *Service) ControllerConfig(ctx context.Context) (controller.Config, erro
 	if err != nil {
 		return nil, errors.Errorf("unable to create controller config: %w", err)
 	}
-	if err != nil {
-		return ctrlConfig, errors.Errorf("getting controller config state: %w", err)
-	}
 	return ctrlConfig, nil
 }
 
