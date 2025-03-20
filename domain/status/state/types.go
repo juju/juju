@@ -49,6 +49,14 @@ type applicationStatusInfo struct {
 	UpdatedAt     *time.Time         `db:"updated_at"`
 }
 
+type applicationNameStatusInfo struct {
+	ApplicationName string     `db:"name"`
+	StatusID        int        `db:"status_id"`
+	Message         string     `db:"message"`
+	Data            []byte     `db:"data"`
+	UpdatedAt       *time.Time `db:"updated_at"`
+}
+
 type unitStatusInfo struct {
 	UnitUUID  coreunit.UUID `db:"unit_uuid"`
 	StatusID  int           `db:"status_id"`

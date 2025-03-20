@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/resource"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/domain/status"
 	statusstate "github.com/juju/juju/domain/status/state"
 	domainstorage "github.com/juju/juju/domain/storage"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -124,10 +125,10 @@ func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
 
 	// Status should be unset.
 	statusState := statusstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	status, err := statusState.GetApplicationStatus(context.Background(), id)
+	sts, err := statusState.GetApplicationStatus(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(status, gc.DeepEquals, &application.StatusInfo[application.WorkloadStatusType]{
-		Status: application.WorkloadStatusUnset,
+	c.Check(sts, gc.DeepEquals, &status.StatusInfo[status.WorkloadStatusType]{
+		Status: status.WorkloadStatusUnset,
 	})
 }
 
@@ -231,12 +232,11 @@ func (s *applicationStateSuite) TestCreateApplicationWithStatus(c *gc.C) {
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)
 
-	// Status should be unset.
 	statusState := statusstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	status, err := statusState.GetApplicationStatus(context.Background(), id)
+	sts, err := statusState.GetApplicationStatus(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(status, gc.DeepEquals, &application.StatusInfo[application.WorkloadStatusType]{
-		Status:  application.WorkloadStatusActive,
+	c.Check(sts, gc.DeepEquals, &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusActive,
 		Message: "test",
 		Data:    []byte(`{"foo": "bar"}`),
 		Since:   ptr(now),

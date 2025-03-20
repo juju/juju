@@ -16,7 +16,6 @@ import (
 	charm "github.com/juju/juju/core/charm"
 	config "github.com/juju/juju/core/config"
 	constraints "github.com/juju/juju/core/constraints"
-	status "github.com/juju/juju/core/status"
 	unit "github.com/juju/juju/core/unit"
 	application "github.com/juju/juju/domain/application"
 	charm0 "github.com/juju/juju/domain/application/charm"
@@ -265,45 +264,6 @@ func (c *MockExportServiceGetApplicationScaleStateCall) DoAndReturn(f func(conte
 	return c
 }
 
-// GetApplicationStatus mocks base method.
-func (m *MockExportService) GetApplicationStatus(arg0 context.Context, arg1 string) (*status.StatusInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationStatus", arg0, arg1)
-	ret0, _ := ret[0].(*status.StatusInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetApplicationStatus indicates an expected call of GetApplicationStatus.
-func (mr *MockExportServiceMockRecorder) GetApplicationStatus(arg0, arg1 any) *MockExportServiceGetApplicationStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationStatus", reflect.TypeOf((*MockExportService)(nil).GetApplicationStatus), arg0, arg1)
-	return &MockExportServiceGetApplicationStatusCall{Call: call}
-}
-
-// MockExportServiceGetApplicationStatusCall wrap *gomock.Call
-type MockExportServiceGetApplicationStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockExportServiceGetApplicationStatusCall) Return(arg0 *status.StatusInfo, arg1 error) *MockExportServiceGetApplicationStatusCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockExportServiceGetApplicationStatusCall) Do(f func(context.Context, string) (*status.StatusInfo, error)) *MockExportServiceGetApplicationStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockExportServiceGetApplicationStatusCall) DoAndReturn(f func(context.Context, string) (*status.StatusInfo, error)) *MockExportServiceGetApplicationStatusCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetCharmByApplicationName mocks base method.
 func (m *MockExportService) GetCharmByApplicationName(arg0 context.Context, arg1 string) (charm1.Charm, charm0.CharmLocator, error) {
 	m.ctrl.T.Helper()
@@ -383,45 +343,6 @@ func (c *MockExportServiceGetCharmIDCall) DoAndReturn(f func(context.Context, ch
 	return c
 }
 
-// GetUnitAgentStatus mocks base method.
-func (m *MockExportService) GetUnitAgentStatus(arg0 context.Context, arg1 unit.UUID) (*status.StatusInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitAgentStatus", arg0, arg1)
-	ret0, _ := ret[0].(*status.StatusInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUnitAgentStatus indicates an expected call of GetUnitAgentStatus.
-func (mr *MockExportServiceMockRecorder) GetUnitAgentStatus(arg0, arg1 any) *MockExportServiceGetUnitAgentStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitAgentStatus", reflect.TypeOf((*MockExportService)(nil).GetUnitAgentStatus), arg0, arg1)
-	return &MockExportServiceGetUnitAgentStatusCall{Call: call}
-}
-
-// MockExportServiceGetUnitAgentStatusCall wrap *gomock.Call
-type MockExportServiceGetUnitAgentStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockExportServiceGetUnitAgentStatusCall) Return(arg0 *status.StatusInfo, arg1 error) *MockExportServiceGetUnitAgentStatusCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockExportServiceGetUnitAgentStatusCall) Do(f func(context.Context, unit.UUID) (*status.StatusInfo, error)) *MockExportServiceGetUnitAgentStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockExportServiceGetUnitAgentStatusCall) DoAndReturn(f func(context.Context, unit.UUID) (*status.StatusInfo, error)) *MockExportServiceGetUnitAgentStatusCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetUnitUUIDByName mocks base method.
 func (m *MockExportService) GetUnitUUIDByName(arg0 context.Context, arg1 unit.Name) (unit.UUID, error) {
 	m.ctrl.T.Helper()
@@ -457,45 +378,6 @@ func (c *MockExportServiceGetUnitUUIDByNameCall) Do(f func(context.Context, unit
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockExportServiceGetUnitUUIDByNameCall) DoAndReturn(f func(context.Context, unit.Name) (unit.UUID, error)) *MockExportServiceGetUnitUUIDByNameCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetUnitWorkloadStatus mocks base method.
-func (m *MockExportService) GetUnitWorkloadStatus(arg0 context.Context, arg1 unit.UUID) (*status.StatusInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitWorkloadStatus", arg0, arg1)
-	ret0, _ := ret[0].(*status.StatusInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUnitWorkloadStatus indicates an expected call of GetUnitWorkloadStatus.
-func (mr *MockExportServiceMockRecorder) GetUnitWorkloadStatus(arg0, arg1 any) *MockExportServiceGetUnitWorkloadStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitWorkloadStatus", reflect.TypeOf((*MockExportService)(nil).GetUnitWorkloadStatus), arg0, arg1)
-	return &MockExportServiceGetUnitWorkloadStatusCall{Call: call}
-}
-
-// MockExportServiceGetUnitWorkloadStatusCall wrap *gomock.Call
-type MockExportServiceGetUnitWorkloadStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockExportServiceGetUnitWorkloadStatusCall) Return(arg0 *status.StatusInfo, arg1 error) *MockExportServiceGetUnitWorkloadStatusCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockExportServiceGetUnitWorkloadStatusCall) Do(f func(context.Context, unit.UUID) (*status.StatusInfo, error)) *MockExportServiceGetUnitWorkloadStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockExportServiceGetUnitWorkloadStatusCall) DoAndReturn(f func(context.Context, unit.UUID) (*status.StatusInfo, error)) *MockExportServiceGetUnitWorkloadStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

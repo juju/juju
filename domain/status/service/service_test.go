@@ -1363,6 +1363,136 @@ func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyWorkloadMes
 - unit "foo/66\d" workload not active or viable`)
 }
 
+func (s *serviceSuite) TestExportUnitStatusesEmpty(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetAllFullUnitStatuses(gomock.Any()).Return(map[coreunit.Name]status.FullUnitStatus{}, nil)
+
+	workloadStatuses, agentStatuses, err := s.service.ExportUnitStatuses(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(workloadStatuses, gc.HasLen, 0)
+	c.Check(agentStatuses, gc.HasLen, 0)
+}
+
+func (s *serviceSuite) TestExportUnitStatuses(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	fullStatus := map[coreunit.Name]status.FullUnitStatus{
+		"foo/66": {
+			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusIdle,
+				Message: "it's idle",
+				Data:    []byte(`{"bar":"foo"}`),
+				Since:   &now,
+			},
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "it's active",
+				Data:    []byte(`{"foo":"bar"}`),
+				Since:   &now,
+			},
+			Present: true,
+		},
+		"foo/67": {
+			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusAllocating,
+				Message: "it's allocating",
+				Data:    []byte(`{"foo":"baz"}`),
+				Since:   &now,
+			},
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusBlocked,
+				Message: "it's blocked",
+				Data:    []byte(`{"baz":"foo"}`),
+				Since:   &now,
+			},
+		},
+	}
+	s.state.EXPECT().GetAllFullUnitStatuses(gomock.Any()).Return(fullStatus, nil)
+
+	workloadStatuses, agentStatuses, err := s.service.ExportUnitStatuses(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(workloadStatuses, gc.DeepEquals, map[coreunit.Name]corestatus.StatusInfo{
+		"foo/66": {
+			Status:  corestatus.Active,
+			Message: "it's active",
+			Data:    map[string]interface{}{"foo": "bar"},
+			Since:   &now,
+		},
+		"foo/67": {
+			Status:  corestatus.Blocked,
+			Message: "it's blocked",
+			Data:    map[string]interface{}{"baz": "foo"},
+			Since:   &now,
+		},
+	})
+	c.Check(agentStatuses, gc.DeepEquals, map[coreunit.Name]corestatus.StatusInfo{
+		"foo/66": {
+			Status:  corestatus.Idle,
+			Message: "it's idle",
+			Data:    map[string]interface{}{"bar": "foo"},
+			Since:   &now,
+		},
+		"foo/67": {
+			Status:  corestatus.Allocating,
+			Message: "it's allocating",
+			Data:    map[string]interface{}{"foo": "baz"},
+			Since:   &now,
+		},
+	})
+}
+
+func (s *serviceSuite) TestExportApplicationStatusesEmpty(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetAllApplicationStatuses(gomock.Any()).Return(map[string]status.StatusInfo[status.WorkloadStatusType]{}, nil)
+
+	statuses, err := s.service.ExportApplicationStatuses(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(statuses, gc.HasLen, 0)
+}
+
+func (s *serviceSuite) TestExportApplicationStatuses(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
+
+	statuses := map[string]status.StatusInfo[status.WorkloadStatusType]{
+		"foo": {
+			Status:  status.WorkloadStatusActive,
+			Message: "it's active",
+			Data:    []byte(`{"foo": "bar"}`),
+			Since:   &now,
+		},
+		"bar": {
+			Status:  status.WorkloadStatusBlocked,
+			Message: "it's blocked",
+			Data:    []byte(`{"bar": "foo"}`),
+			Since:   &now,
+		},
+	}
+	s.state.EXPECT().GetAllApplicationStatuses(gomock.Any()).Return(statuses, nil)
+
+	exported, err := s.service.ExportApplicationStatuses(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(exported, gc.DeepEquals, map[string]corestatus.StatusInfo{
+		"foo": {
+			Status:  corestatus.Active,
+			Message: "it's active",
+			Data:    map[string]interface{}{"foo": "bar"},
+			Since:   &now,
+		},
+		"bar": {
+			Status:  corestatus.Blocked,
+			Message: "it's blocked",
+			Data:    map[string]interface{}{"bar": "foo"},
+			Since:   &now,
+		},
+	})
+}
+
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

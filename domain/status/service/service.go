@@ -117,6 +117,10 @@ type State interface {
 	// if any units do not have statuses.
 	GetAllFullUnitStatuses(context.Context) (status.FullUnitStatuses, error)
 
+	// GetAllApplicationStatuses returns the statuses of all the applications in the model,
+	// indexed by application name, if they have a status set.
+	GetAllApplicationStatuses(context.Context) (map[string]status.StatusInfo[status.WorkloadStatusType], error)
+
 	// SetUnitPresence marks the presence of the specified unit, returning an error
 	// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 	// The unit life is not considered when making this query.
@@ -588,6 +592,47 @@ func (s *Service) CheckUnitStatusesReadyForMigration(ctx context.Context) error 
 			"model unit(s) are not ready for migration:\n%s", strings.Join(failedChecks, "\n"))
 	}
 	return nil
+}
+
+// ExportUnitStatuses returns the workload and agent statuses of all the units in
+// in the model, indexed by unit name.
+func (s *Service) ExportUnitStatuses(ctx context.Context) (map[coreunit.Name]corestatus.StatusInfo, map[coreunit.Name]corestatus.StatusInfo, error) {
+	fullStatuses, err := s.st.GetAllFullUnitStatuses(ctx)
+	if err != nil {
+		return nil, nil, errors.Errorf("getting unit statuses: %w", err)
+	}
+
+	workloadStatuses := make(map[coreunit.Name]corestatus.StatusInfo, len(fullStatuses))
+	agentStatuses := make(map[coreunit.Name]corestatus.StatusInfo, len(fullStatuses))
+	for unitName, fullStatus := range fullStatuses {
+		_, agentStatus, workloadStatus, err := decodeFullUnitStatus(fullStatus)
+		if err != nil {
+			return nil, nil, errors.Errorf("decoding full unit status for unit %q: %w", unitName, err)
+		}
+		workloadStatuses[unitName] = workloadStatus
+		agentStatuses[unitName] = agentStatus
+	}
+	return workloadStatuses, agentStatuses, nil
+}
+
+// ExportApplicationStatuses returns the statuses of all applications in the model,
+// indexed by application name, if they have a status set.
+func (s *Service) ExportApplicationStatuses(ctx context.Context) (map[string]corestatus.StatusInfo, error) {
+	appStatuses, err := s.st.GetAllApplicationStatuses(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ret := make(map[string]corestatus.StatusInfo, len(appStatuses))
+	for name, status := range appStatuses {
+		decoded, err := decodeApplicationStatus(&status)
+		if err != nil {
+			return nil, errors.Errorf("decoding application status for %q: %w", name, err)
+		}
+		ret[name] = *decoded
+	}
+
+	return ret, nil
 }
 
 func ptr[T any](v T) *T {

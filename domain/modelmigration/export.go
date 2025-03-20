@@ -23,6 +23,7 @@ import (
 	network "github.com/juju/juju/domain/network/modelmigration"
 	resource "github.com/juju/juju/domain/resource/modelmigration"
 	secret "github.com/juju/juju/domain/secret/modelmigration"
+	status "github.com/juju/juju/domain/status/modelmigration"
 	storage "github.com/juju/juju/domain/storage/modelmigration"
 	unitstate "github.com/juju/juju/domain/unitstate/modelmigration"
 )
@@ -72,6 +73,7 @@ func (e *Exporter) ExportOperations(registry corestorage.ModelStorageRegistryGet
 	storage.RegisterExport(e.coordinator, registry, e.logger.Child("storage"))
 	secret.RegisterExport(e.coordinator, e.logger.Child("secret"))
 	application.RegisterExport(e.coordinator, e.storageRegistryGetter, e.clock, e.logger.Child("application"))
+	status.RegisterExport(e.coordinator, e.clock, e.logger.Child("status"))
 	resource.RegisterExport(e.coordinator, e.clock, e.logger.Child("resource"))
 	cloudimagemetadata.RegisterExport(e.coordinator, e.logger.Child("cloudimagemetadata"), e.clock)
 	model.RegisterExport(e.coordinator, e.logger.Child("model"))

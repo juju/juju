@@ -27,6 +27,7 @@ import (
 	port "github.com/juju/juju/domain/port/modelmigration"
 	resource "github.com/juju/juju/domain/resource/modelmigration"
 	secret "github.com/juju/juju/domain/secret/modelmigration"
+	status "github.com/juju/juju/domain/status/modelmigration"
 	storage "github.com/juju/juju/domain/storage/modelmigration"
 	unitstate "github.com/juju/juju/domain/unitstate/modelmigration"
 )
@@ -70,6 +71,7 @@ func ImportOperations(
 	network.RegisterImport(coordinator, logger.Child("network"))
 	machine.RegisterImport(coordinator, clock, logger.Child("machine"))
 	application.RegisterImport(coordinator, storageRegistryGetter, clock, logger.Child("application"))
+	status.RegisterImport(coordinator)
 	resource.RegisterImport(coordinator, clock, logger.Child("resource"))
 	port.RegisterImport(coordinator, logger.Child("port"))
 	blockdevice.RegisterImport(coordinator, logger.Child("blockdevice"))

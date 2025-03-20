@@ -109,14 +109,14 @@ func (st *State) GetApplicationStatus(ctx context.Context, appID coreapplication
 
 	identID := applicationID{ID: appID}
 	query, err := st.Prepare(`
-SELECT &applicationStatusInfo.*
+SELECT &statusInfo.*
 FROM application_status
 WHERE application_uuid = $applicationID.uuid;
-`, identID, applicationStatusInfo{})
+`, identID, statusInfo{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	var sts applicationStatusInfo
+	var sts statusInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkApplicationNotDead(ctx, tx, identID); err != nil {
 			return errors.Capture(err)
@@ -542,6 +542,51 @@ func (st *State) GetAllFullUnitStatuses(ctx context.Context) (status.FullUnitSta
 				Since:   s.AgentUpdatedAt,
 			},
 			Present: s.Present,
+		}
+	}
+	return ret, nil
+}
+
+// GetAllApplicationStatuses returns the statuses of all the applications in the model,
+// indexed by application name, if they have a status set.
+func (st *State) GetAllApplicationStatuses(ctx context.Context) (map[string]status.StatusInfo[status.WorkloadStatusType], error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	query, err := st.Prepare(`
+SELECT &applicationNameStatusInfo.*
+FROM application_status
+JOIN application ON application.uuid = application_status.application_uuid
+`, applicationNameStatusInfo{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var statuses []applicationNameStatusInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, query).GetAll(&statuses)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ret := make(map[string]status.StatusInfo[status.WorkloadStatusType], len(statuses))
+	for _, s := range statuses {
+		statusType, err := decodeWorkloadStatus(s.StatusID)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		ret[s.ApplicationName] = status.StatusInfo[status.WorkloadStatusType]{
+			Status:  statusType,
+			Message: s.Message,
+			Data:    s.Data,
+			Since:   s.UpdatedAt,
 		}
 	}
 	return ret, nil

@@ -875,6 +875,59 @@ func (s *stateSuite) TestGetAllFullUnitStatuses(c *gc.C) {
 	c.Check(u3Full.Present, gc.Equals, false)
 }
 
+func (s *stateSuite) TestGetAllApplicationStatusesEmptyModel(c *gc.C) {
+	statuses, err := s.state.GetAllApplicationStatuses(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(statuses, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestGetAllApplicationStatusesUnsetStatuses(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u1)
+	s.createApplication(c, "bar", life.Alive)
+
+	statuses, err := s.state.GetAllApplicationStatuses(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(statuses, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestGetAllApplicationStatuses(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	app1ID, _ := s.createApplication(c, "foo", life.Alive, u1)
+	app2ID, _ := s.createApplication(c, "bar", life.Alive)
+	s.createApplication(c, "goo", life.Alive)
+
+	app1Status := &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusActive,
+		Message: "it's active",
+		Data:    []byte(`{"foo": "bar"}`),
+		Since:   ptr(time.Now()),
+	}
+	app2Status := &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusBlocked,
+		Message: "it's blocked",
+		Data:    []byte(`{"bar": "foo"}`),
+		Since:   ptr(time.Now()),
+	}
+	s.state.SetApplicationStatus(context.Background(), app1ID, app1Status)
+	s.state.SetApplicationStatus(context.Background(), app2ID, app2Status)
+
+	statuses, err := s.state.GetAllApplicationStatuses(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	res1, ok := statuses["foo"]
+	c.Assert(ok, jc.IsTrue)
+	assertStatusInfoEqual(c, &res1, app1Status)
+
+	res2, ok := statuses["bar"]
+	c.Assert(ok, jc.IsTrue)
+	assertStatusInfoEqual(c, &res2, app2Status)
+}
+
 func (s *stateSuite) TestSetUnitPresence(c *gc.C) {
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
