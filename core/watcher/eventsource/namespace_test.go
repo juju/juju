@@ -390,6 +390,28 @@ func (s *namespaceSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 	c.Check(err, jc.ErrorIs, ErrSubscriptionClosed)
 }
 
+func (s *namespaceSuite) TestNilOption(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewNamespaceWatcher(
+		s.newBaseWatcher(c),
+		InitialNamespaceChanges("SELECT uuid FROM external_controller"),
+		nil,
+	)
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
+}
+
+func (s *namespaceSuite) TestNilPredicate(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewNamespaceWatcher(
+		s.newBaseWatcher(c),
+		InitialNamespaceChanges("SELECT uuid FROM external_controller"),
+		PredicateFilter("random_namespace", changestream.All, nil),
+	)
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
+}
+
 type schemaDDLApplier struct{}
 
 func (schemaDDLApplier) Apply(c *gc.C, ctx context.Context, runner database.TxnRunner) {

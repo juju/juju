@@ -373,6 +373,13 @@ func (s *notifySuite) TestEnsureCloseOnDirtyKill(c *gc.C) {
 	}
 }
 
+func (s *notifySuite) TestNilOption(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewNotifyWatcher(s.newBaseWatcher(c), nil)
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
+}
+
 func (s *notifySuite) TestNilPredicate(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
