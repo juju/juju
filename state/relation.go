@@ -424,7 +424,6 @@ func (r *Relation) removeOps(ignoreApplication string, departingUnitName string,
 		ops = append(ops, epOps...)
 	}
 	ops = append(ops, removeStatusOp(r.st, r.globalScope()))
-	ops = append(ops, removeRelationNetworksOps(r.st, r.doc.Key)...)
 
 	// Reimplement in dqlite.
 	//secretPermissionsOps, err := r.st.removeScopedSecretPermissionOps(r.Tag())

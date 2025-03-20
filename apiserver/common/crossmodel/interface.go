@@ -76,10 +76,10 @@ type Backend interface {
 	ImportRemoteEntity(entity names.Tag, token string) error
 
 	// SaveIngressNetworks stores in state the ingress networks for the relation.
-	SaveIngressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error)
+	SaveIngressNetworks(relationKey string, cidrs []string) (RelationNetworks, error)
 
 	// IngressNetworks returns the networks for the specified relation.
-	IngressNetworks(relationKey string) (state.RelationNetworks, error)
+	IngressNetworks(relationKey string) (RelationNetworks, error)
 
 	// ApplicationOfferForUUID returns the application offer for the UUID.
 	ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error)
@@ -172,6 +172,14 @@ type Relation interface {
 	// units of the named application will establish relations. If the application
 	// is not part of the relation r, an error will be returned.
 	RelatedEndpoints(name string) ([]relation.Endpoint, error)
+}
+
+// RelationNetworks instances describe the ingress or egress
+// networks required for a cross model relation.
+type RelationNetworks interface {
+	Id() string
+	RelationKey() string
+	CIDRS() []string
 }
 
 // RelationUnit provides access to the settings of a single unit in a relation,

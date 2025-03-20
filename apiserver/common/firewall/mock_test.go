@@ -373,13 +373,6 @@ func (u *mockUnit) AssignedMachineId() (string, error) {
 	return u.machineId, nil
 }
 
-func (u *mockUnit) updateAddress(value string) {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-
-	u.publicAddress = network.NewSpaceAddress(value)
-}
-
 type mockMachine struct {
 	firewall.Machine
 

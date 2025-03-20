@@ -127,7 +127,7 @@ func (st *mockState) AddOfferConnection(arg commoncrossmodel.AddOfferConnectionP
 	return oc, nil
 }
 
-func (st *mockState) SaveIngressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error) {
+func (st *mockState) SaveIngressNetworks(relationKey string, cidrs []string) (commoncrossmodel.RelationNetworks, error) {
 	st.ingressNetworks[relationKey] = cidrs
 	return nil, nil
 }

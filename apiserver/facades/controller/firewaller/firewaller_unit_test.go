@@ -97,6 +97,7 @@ func (s *RemoteFirewallerSuite) setupAPI(c *gc.C) {
 }
 
 func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *gc.C) {
+	c.Skip("Re-enable this test whenever CMR will be fully implemented and the related watcher rewired.")
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)

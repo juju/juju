@@ -50,8 +50,6 @@ type Relation interface {
 	status.StatusSetter
 	Endpoints() []relation.Endpoint
 	WatchUnits(applicationName string) (state.RelationUnitsWatcher, error)
-	WatchRelationIngressNetworks() state.StringsWatcher
-	WatchRelationEgressNetworks() state.StringsWatcher
 }
 
 type relationShim struct {

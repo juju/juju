@@ -560,10 +560,10 @@ func (c *MockRemoteRelationsStateImportRemoteEntityCall) DoAndReturn(f func(name
 }
 
 // IngressNetworks mocks base method.
-func (m *MockRemoteRelationsState) IngressNetworks(arg0 string) (state.RelationNetworks, error) {
+func (m *MockRemoteRelationsState) IngressNetworks(arg0 string) (crossmodel.RelationNetworks, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IngressNetworks", arg0)
-	ret0, _ := ret[0].(state.RelationNetworks)
+	ret0, _ := ret[0].(crossmodel.RelationNetworks)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -581,19 +581,19 @@ type MockRemoteRelationsStateIngressNetworksCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockRemoteRelationsStateIngressNetworksCall) Return(arg0 state.RelationNetworks, arg1 error) *MockRemoteRelationsStateIngressNetworksCall {
+func (c *MockRemoteRelationsStateIngressNetworksCall) Return(arg0 crossmodel.RelationNetworks, arg1 error) *MockRemoteRelationsStateIngressNetworksCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemoteRelationsStateIngressNetworksCall) Do(f func(string) (state.RelationNetworks, error)) *MockRemoteRelationsStateIngressNetworksCall {
+func (c *MockRemoteRelationsStateIngressNetworksCall) Do(f func(string) (crossmodel.RelationNetworks, error)) *MockRemoteRelationsStateIngressNetworksCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoteRelationsStateIngressNetworksCall) DoAndReturn(f func(string) (state.RelationNetworks, error)) *MockRemoteRelationsStateIngressNetworksCall {
+func (c *MockRemoteRelationsStateIngressNetworksCall) DoAndReturn(f func(string) (crossmodel.RelationNetworks, error)) *MockRemoteRelationsStateIngressNetworksCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -793,10 +793,10 @@ func (c *MockRemoteRelationsStateRemoveRemoteEntityCall) DoAndReturn(f func(name
 }
 
 // SaveIngressNetworks mocks base method.
-func (m *MockRemoteRelationsState) SaveIngressNetworks(arg0 string, arg1 []string) (state.RelationNetworks, error) {
+func (m *MockRemoteRelationsState) SaveIngressNetworks(arg0 string, arg1 []string) (crossmodel.RelationNetworks, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SaveIngressNetworks", arg0, arg1)
-	ret0, _ := ret[0].(state.RelationNetworks)
+	ret0, _ := ret[0].(crossmodel.RelationNetworks)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -814,19 +814,19 @@ type MockRemoteRelationsStateSaveIngressNetworksCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockRemoteRelationsStateSaveIngressNetworksCall) Return(arg0 state.RelationNetworks, arg1 error) *MockRemoteRelationsStateSaveIngressNetworksCall {
+func (c *MockRemoteRelationsStateSaveIngressNetworksCall) Return(arg0 crossmodel.RelationNetworks, arg1 error) *MockRemoteRelationsStateSaveIngressNetworksCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRemoteRelationsStateSaveIngressNetworksCall) Do(f func(string, []string) (state.RelationNetworks, error)) *MockRemoteRelationsStateSaveIngressNetworksCall {
+func (c *MockRemoteRelationsStateSaveIngressNetworksCall) Do(f func(string, []string) (crossmodel.RelationNetworks, error)) *MockRemoteRelationsStateSaveIngressNetworksCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoteRelationsStateSaveIngressNetworksCall) DoAndReturn(f func(string, []string) (state.RelationNetworks, error)) *MockRemoteRelationsStateSaveIngressNetworksCall {
+func (c *MockRemoteRelationsStateSaveIngressNetworksCall) DoAndReturn(f func(string, []string) (crossmodel.RelationNetworks, error)) *MockRemoteRelationsStateSaveIngressNetworksCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

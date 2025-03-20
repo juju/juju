@@ -5,7 +5,6 @@ package state
 
 import (
 	"github.com/juju/description/v9"
-	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 )
 
@@ -34,15 +33,6 @@ type DocModelNamespace interface {
 	DocID(string) string
 }
 
-type stateModelNamspaceShim struct {
-	description.Model
-	st *State
-}
-
-func (s stateModelNamspaceShim) DocID(localID string) string {
-	return s.st.docID(localID)
-}
-
 // StateDocumentFactory creates documents that are useful with in the state
 // package. In essence this just allows us to model our dependencies correctly
 // without having to construct dependencies everywhere.
@@ -50,49 +40,4 @@ func (s stateModelNamspaceShim) DocID(localID string) string {
 type StateDocumentFactory interface {
 	MakeStatusDoc(description.Status) statusDoc
 	MakeStatusOp(string, statusDoc) txn.Op
-}
-
-// RelationNetworksDescription defines an in-place usage for reading relation networks.
-type RelationNetworksDescription interface {
-	RelationNetworks() []description.RelationNetwork
-}
-
-// RelationNetworksInput describes the input used for migrating relation
-// networks.
-type RelationNetworksInput interface {
-	DocModelNamespace
-	RelationNetworksDescription
-}
-
-// ImportRelationNetworks describes a way to import relation networks from a
-// description.
-type ImportRelationNetworks struct{}
-
-// Execute the import on the relation networks description, carefully modelling
-// the dependencies we have.
-func (ImportRelationNetworks) Execute(src RelationNetworksInput, runner TransactionRunner) error {
-	relationNetworks := src.RelationNetworks()
-	if len(relationNetworks) == 0 {
-		return nil
-	}
-
-	ops := make([]txn.Op, len(relationNetworks))
-	for i, entity := range relationNetworks {
-		docID := src.DocID(entity.ID())
-		ops[i] = txn.Op{
-			C:      relationNetworksC,
-			Id:     docID,
-			Assert: txn.DocMissing,
-			Insert: relationNetworksDoc{
-				Id:          docID,
-				RelationKey: entity.RelationKey(),
-				CIDRS:       entity.CIDRS(),
-			},
-		}
-	}
-
-	if err := runner.RunTransaction(ops); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }

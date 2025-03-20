@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/crossmodel"
@@ -163,7 +164,7 @@ func (c *Client) WatchRemoteApplications(ctx context.Context) (watcher.StringsWa
 	// todo(gfouillet): re-enable this watcher call whenever CMR will be fully
 	//   implemented in the new domain. It is required to disable that way
 	//   because this watcher is required to allows the uniter to run.
-	return newDisabledWatcher(), nil
+	return common.NewDisabledWatcher(), nil
 }
 
 // WatchRemoteApplicationRelations returns remote relations watchers that delivers
@@ -175,7 +176,7 @@ func (c *Client) WatchRemoteApplicationRelations(ctx context.Context, applicatio
 	// todo(gfouillet): re-enable this watcher call whenever CMR will be fully
 	//   implemented in the new domain. It is required to disable that way
 	//   because this watcher is required to allows the uniter to run.
-	return newDisabledWatcher(), nil
+	return common.NewDisabledWatcher(), nil
 }
 
 // WatchLocalRelationChanges returns a watcher that emits
@@ -211,7 +212,7 @@ func (c *Client) WatchRemoteRelations(ctx context.Context) (watcher.StringsWatch
 	// todo(gfouillet): re-enable this watcher call whenever CMR will be fully
 	//   implemented in the new domain. It is required to disable that way
 	//   because this watcher is required to allows the uniter to run.
-	return newDisabledWatcher(), nil
+	return common.NewDisabledWatcher(), nil
 }
 
 // ConsumeRemoteRelationChange consumes a change to settings originating

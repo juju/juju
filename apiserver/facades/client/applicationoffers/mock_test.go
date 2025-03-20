@@ -220,7 +220,7 @@ type mockState struct {
 	applicationOffers map[string]jujucrossmodel.ApplicationOffer
 	relations         map[string]crossmodel.Relation
 	connections       []applicationoffers.OfferConnection
-	relationNetworks  state.RelationNetworks
+	relationNetworks  crossmodel.RelationNetworks
 }
 
 func (m *mockState) GetAddressAndCertGetter() common.APIAddressAccessor {
@@ -284,14 +284,14 @@ func (m *mockState) OfferConnections(offerUUID string) ([]applicationoffers.Offe
 }
 
 type mockRelationNetworks struct {
-	state.RelationNetworks
+	crossmodel.RelationNetworks
 }
 
 func (m *mockRelationNetworks) CIDRS() []string {
 	return []string{"192.168.1.0/32", "10.0.0.0/8"}
 }
 
-func (m *mockState) IngressNetworks(relationKey string) (state.RelationNetworks, error) {
+func (m *mockState) IngressNetworks(relationKey string) (crossmodel.RelationNetworks, error) {
 	if m.relationNetworks == nil {
 		return nil, errors.NotFoundf("ingress networks")
 	}

@@ -235,19 +235,8 @@ func (n *NetworkInfoBase) maybeGetUnitAddress(
 func (n *NetworkInfoBase) getEgressForRelation(
 	rel *state.Relation, ingress network.SpaceAddresses,
 ) ([]string, error) {
-	egressSubnets, err := state.NewRelationEgressNetworks(n.st).Networks(rel.Tag().Id())
-	if err != nil {
-		if !errors.Is(err, errors.NotFound) {
-			return nil, errors.Trace(err)
-		}
-	}
-
-	if egressSubnets != nil {
-		egress := egressSubnets.CIDRS()
-		if len(egress) > 0 {
-			return egress, nil
-		}
-	}
+	// todo(gfouillet): cross model relation disabled and removed from state,
+	//    no egress networks available until moved to dqlite.
 
 	if len(n.defaultEgress) > 0 {
 		return n.defaultEgress, nil

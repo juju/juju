@@ -158,14 +158,14 @@ func (st stateShim) ApplicationOfferForUUID(offerUUID string) (*crossmodel.Appli
 		"backend functionality is moved to domain")
 }
 
-func (s stateShim) SaveIngressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error) {
-	api := state.NewRelationIngressNetworks(s.State)
-	return api.Save(relationKey, false, cidrs)
+func (s stateShim) SaveIngressNetworks(relationKey string, cidrs []string) (RelationNetworks, error) {
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
 
-func (s stateShim) IngressNetworks(relationKey string) (state.RelationNetworks, error) {
-	api := state.NewRelationIngressNetworks(s.State)
-	return api.Networks(relationKey)
+func (s stateShim) IngressNetworks(relationKey string) (RelationNetworks, error) {
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
 
 func (s stateShim) AllRemoteApplications() ([]RemoteApplication, error) {
