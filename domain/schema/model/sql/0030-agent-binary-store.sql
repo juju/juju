@@ -2,8 +2,8 @@
 -- including their version, SHA, architecture, and object store information.
 CREATE TABLE agent_binary_store (
     version TEXT NOT NULL,
-    object_store_uuid TEXT NOT NULL,
     architecture_id INT NOT NULL,
+    object_store_uuid TEXT NOT NULL,
     PRIMARY KEY (version, architecture_id),
     CONSTRAINT fk_agent_binary_metadata_object_store_metadata
     FOREIGN KEY (object_store_uuid)
