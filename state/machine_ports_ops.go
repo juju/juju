@@ -50,7 +50,9 @@ func (op *openClosePortRangesOperation) Build(attempt int) ([]txn.Op, error) {
 
 	ops := []txn.Op{
 		assertModelNotDeadOp(op.mpr.st.ModelUUID()),
-		assertMachineNotDeadOp(op.mpr.st, op.mpr.doc.MachineID),
+	}
+	if op.mpr.machineExists {
+		ops = append(ops, assertMachineNotDeadOp(op.mpr.st, op.mpr.doc.MachineID))
 	}
 
 	// Start with a clean copy of the existing opened port ranges and set
@@ -98,22 +100,24 @@ func (op *openClosePortRangesOperation) Build(attempt int) ([]txn.Op, error) {
 
 	// Ensure that none of the units with open port ranges are dead and
 	// that all are assigned to this machine.
-	for unitName := range op.updatedUnitPortRanges {
-		ops = append(ops,
-			assertUnitNotDeadOp(op.mpr.st, unitName),
-			assertUnitAssignedToMachineOp(op.mpr.st, unitName, op.mpr.doc.MachineID),
-		)
+	if op.mpr.machineExists {
+		for unitName := range op.updatedUnitPortRanges {
+			ops = append(ops,
+				assertUnitNotDeadOp(op.mpr.st, unitName),
+				assertUnitAssignedToMachineOp(op.mpr.st, unitName, op.mpr.doc.MachineID),
+			)
+		}
 	}
 
 	if createDoc {
 		assert := txn.DocMissing
-		ops = append(ops, insertPortsDocOps(op.mpr.st, &op.mpr.doc, assert, op.updatedUnitPortRanges)...)
+		ops = append(ops, insertPortsDocOps(&op.mpr.doc, assert, op.updatedUnitPortRanges)...)
 	} else if len(op.updatedUnitPortRanges) == 0 {
 		// Port list is empty; get rid of ports document.
 		ops = append(ops, op.mpr.removeOps()...)
 	} else {
 		assert := bson.D{{"txn-revno", op.mpr.doc.TxnRevno}}
-		ops = append(ops, updatePortsDocOps(op.mpr.st, &op.mpr.doc, assert, op.updatedUnitPortRanges)...)
+		ops = append(ops, updatePortsDocOps(&op.mpr.doc, assert, op.updatedUnitPortRanges)...)
 	}
 
 	return ops, nil
