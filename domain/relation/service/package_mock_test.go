@@ -80,6 +80,84 @@ func (c *MockStateGetRelationEndpointUUIDCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// GetRelationID mocks base method.
+func (m *MockState) GetRelationID(arg0 context.Context, arg1 relation.UUID) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelationID", arg0, arg1)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRelationID indicates an expected call of GetRelationID.
+func (mr *MockStateMockRecorder) GetRelationID(arg0, arg1 any) *MockStateGetRelationIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationID", reflect.TypeOf((*MockState)(nil).GetRelationID), arg0, arg1)
+	return &MockStateGetRelationIDCall{Call: call}
+}
+
+// MockStateGetRelationIDCall wrap *gomock.Call
+type MockStateGetRelationIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetRelationIDCall) Return(arg0 int, arg1 error) *MockStateGetRelationIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetRelationIDCall) Do(f func(context.Context, relation.UUID) (int, error)) *MockStateGetRelationIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetRelationIDCall) DoAndReturn(f func(context.Context, relation.UUID) (int, error)) *MockStateGetRelationIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetRelationUUIDByID mocks base method.
+func (m *MockState) GetRelationUUIDByID(arg0 context.Context, arg1 int) (relation.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelationUUIDByID", arg0, arg1)
+	ret0, _ := ret[0].(relation.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRelationUUIDByID indicates an expected call of GetRelationUUIDByID.
+func (mr *MockStateMockRecorder) GetRelationUUIDByID(arg0, arg1 any) *MockStateGetRelationUUIDByIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUUIDByID", reflect.TypeOf((*MockState)(nil).GetRelationUUIDByID), arg0, arg1)
+	return &MockStateGetRelationUUIDByIDCall{Call: call}
+}
+
+// MockStateGetRelationUUIDByIDCall wrap *gomock.Call
+type MockStateGetRelationUUIDByIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetRelationUUIDByIDCall) Return(arg0 relation.UUID, arg1 error) *MockStateGetRelationUUIDByIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetRelationUUIDByIDCall) Do(f func(context.Context, int) (relation.UUID, error)) *MockStateGetRelationUUIDByIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetRelationUUIDByIDCall) DoAndReturn(f func(context.Context, int) (relation.UUID, error)) *MockStateGetRelationUUIDByIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // WatcherApplicationSettingsNamespace mocks base method.
 func (m *MockState) WatcherApplicationSettingsNamespace() string {
 	m.ctrl.T.Helper()

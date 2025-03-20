@@ -50,6 +50,50 @@ func (s *relationSuite) SetUpTest(c *gc.C) {
 	s.addApplication(c, s.constants.fakeApplicationUUID1, s.constants.fakeApplicationName1)
 }
 
+func (s *relationSuite) TestGetRelationID(c *gc.C) {
+	// Arrange.
+	relationUUID := corerelation.UUID("fake-relation-uuid")
+	relationID := 1
+	s.addRelationWithID(c, relationUUID.String(), relationID)
+
+	// Act.
+	id, err := s.state.GetRelationID(context.Background(), relationUUID)
+
+	// Assert.
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(id, gc.Equals, relationID)
+}
+
+func (s *relationSuite) TestGetRelationIDNotFound(c *gc.C) {
+	// Act.
+	_, err := s.state.GetRelationID(context.Background(), corerelation.UUID("fake-relation-uuid"))
+
+	// Assert.
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *relationSuite) TestGetRelationUUIDByID(c *gc.C) {
+	// Arrange.
+	relationUUID := corerelation.UUID("fake-relation-uuid")
+	relationID := 1
+	s.addRelationWithID(c, relationUUID.String(), relationID)
+
+	// Act.
+	uuid, err := s.state.GetRelationUUIDByID(context.Background(), relationID)
+
+	// Assert.
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uuid, gc.Equals, relationUUID)
+}
+
+func (s *relationSuite) TestGetRelationUUIDByIDNotFound(c *gc.C) {
+	// Act.
+	_, err := s.state.GetRelationUUIDByID(context.Background(), 1)
+
+	// Assert.
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+}
+
 // TestGetRelationEndpointUUID validates that the correct relation endpoint UUID
 // is retrieved for given application and relation ids.
 func (s *relationSuite) TestGetRelationEndpointUUID(c *gc.C) {
@@ -163,6 +207,15 @@ func (s *relationSuite) addRelation(c *gc.C, relationUUID string) {
 INSERT INTO relation (uuid, life_id, relation_id) 
 VALUES (?,0,?)
 `, relationUUID, 1)
+}
+
+// addRelationWithID inserts a new relation into the database with the given
+// UUID, ID, and default life ID.
+func (s *relationSuite) addRelationWithID(c *gc.C, relationUUID string, relationID int) {
+	s.query(c, `
+INSERT INTO relation (uuid, life_id, relation_id) 
+VALUES (?,0,?)
+`, relationUUID, relationID)
 }
 
 // addRelationEndpoint inserts a relation endpoint into the database using the provided UUIDs for relation and endpoint.

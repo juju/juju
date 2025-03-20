@@ -92,6 +92,52 @@ func (s *relationServiceSuite) TestGetRelationEndpointUUID_RelationUUIDNotValid(
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid, gc.Commentf("(Act) unexpected error: %v", err))
 }
 
+func (s *relationServiceSuite) TestGetRelationID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange.
+	relationUUID, err := corerelation.NewUUID()
+	c.Assert(err, gc.IsNil, gc.Commentf("(Arrange) can't generate relationUUID: %v", err))
+	expectedRelationID := 1
+
+	s.state.EXPECT().GetRelationID(gomock.Any(), relationUUID).Return(expectedRelationID, nil)
+
+	// Act.
+	relationID, err := s.service.GetRelationID(ctx.Background(), relationUUID)
+
+	// Assert.
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relationID, gc.Equals, expectedRelationID)
+}
+
+func (s *relationServiceSuite) TestGetRelationID_RelationUUIDNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Act.
+	_, err := s.service.GetRelationID(ctx.Background(), "bad-relation-uuid")
+
+	// Assert.
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
+}
+
+func (s *relationServiceSuite) TestGetRelationUUIDByID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange.
+	expectedRelationUUID, err := corerelation.NewUUID()
+	c.Assert(err, gc.IsNil, gc.Commentf("(Arrange) can't generate relationUUID: %v", err))
+	relationID := 1
+
+	s.state.EXPECT().GetRelationUUIDByID(gomock.Any(), relationID).Return(expectedRelationUUID, nil)
+
+	// Act.
+	relationUUID, err := s.service.GetRelationUUIDByID(ctx.Background(), relationID)
+
+	// Assert.
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relationUUID, gc.Equals, expectedRelationUUID)
+}
+
 func (s *relationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
