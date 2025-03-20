@@ -134,9 +134,12 @@ INSERT INTO ip_address_config_type VALUES
 
 CREATE TABLE ip_address (
     uuid TEXT NOT NULL PRIMARY KEY,
+    -- the link layer device this address belongs to.
+    device_uuid TEXT NOT NULL,
     -- The value of the configured IP address.
     -- e.g. 192.168.1.2 or 2001:db8:0000:0000:0000:0000:0000:00001.
     address_value TEXT NOT NULL,
+    subnet_uuid TEXT NOT NULL,
     -- one of ipv4, ipv6 etc.
     type_id INT NOT NULL,
     -- one of dhcp, static, manual, loopback etc.
@@ -145,12 +148,13 @@ CREATE TABLE ip_address (
     origin_id INT NOT NULL,
     -- one of public, local-cloud, local-machine, link-local etc.
     scope_id INT NOT NULL,
-    -- the link layer device this address belongs to.
-    device_uuid TEXT NOT NULL,
 
     CONSTRAINT fk_ip_address_link_layer_device
     FOREIGN KEY (device_uuid)
     REFERENCES link_layer_device (uuid),
+    CONSTRAINT fk_ip_address_subnet
+    FOREIGN KEY (subnet_uuid)
+    REFERENCES subnet (uuid),
     CONSTRAINT fk_ip_address_origin
     FOREIGN KEY (origin_id)
     REFERENCES ip_address_origin (id),
@@ -217,11 +221,8 @@ CREATE UNIQUE INDEX idx_network_address_scope_name
 ON network_address_scope (name);
 
 INSERT INTO network_address_scope VALUES
--- eg "foo"
 (0, 'local-host'),
--- eg "foo.local", "foo.namespace.cluster.local"
 (1, 'local-cloud'),
--- "eg "foo.example.com"
 (2, 'public');
 
 CREATE TABLE fqdn_address (
@@ -305,17 +306,6 @@ CREATE TABLE ip_address_provider (
     provider_id TEXT NOT NULL PRIMARY KEY,
     address_uuid TEXT NOT NULL,
     CONSTRAINT fk_provider_ip_address_ip_address
-    FOREIGN KEY (address_uuid)
-    REFERENCES ip_address (uuid)
-);
-
-CREATE TABLE ip_address_subnet (
-    address_uuid TEXT NOT NULL PRIMARY KEY,
-    subnet_uuid TEXT NOT NULL,
-    CONSTRAINT fk_ip_address_subnet_subnet
-    FOREIGN KEY (subnet_uuid)
-    REFERENCES subnet (uuid),
-    CONSTRAINT fk_ip_address_subnet_ip_address
     FOREIGN KEY (address_uuid)
     REFERENCES ip_address (uuid)
 );

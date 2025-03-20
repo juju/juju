@@ -99,7 +99,6 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"ip_address_origin",
 		"ip_address_config_type",
 		"ip_address_provider",
-		"ip_address_subnet",
 		"ip_address_gateway",
 		"ip_address_dns_search_domain",
 		"ip_address_dns_server_address",
