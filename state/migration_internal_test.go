@@ -148,6 +148,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// We don't import any of the migration collections.
 		migrationsC,
 		migrationsStatusC,
+		migrationsStatusMessageC,
 		migrationsActiveC,
 		migrationsMinionSyncC,
 

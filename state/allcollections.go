@@ -106,6 +106,11 @@ func allCollections() CollectionSchema {
 		// This collection tracks the progress of model migrations.
 		migrationsStatusC: {global: true},
 
+		// This collection holds messages about the progress of model
+		// migrations. It is split from migrationsStatusC to prevent the
+		// messages triggering the status watcher.
+		migrationsStatusMessageC: {global: true},
+
 		// This collection records the model migrations which
 		// are currently in progress. It is used to ensure that only
 		// one model migration document exists per model.
@@ -724,6 +729,7 @@ const (
 	migrationsC                = "migrations"
 	migrationsMinionSyncC      = "migrations.minionsync"
 	migrationsStatusC          = "migrations.status"
+	migrationsStatusMessageC   = "migrations.statusmessage"
 	modelUserLastConnectionC   = "modelUserLastConnection"
 	modelUsersC                = "modelusers"
 	modelsC                    = "models"
