@@ -1,9 +1,9 @@
 -- The agent_binary_metadata table in the controller database records information about
 -- the agent binaries stored in the controller's object store, including their version, SHA,
--- architecture, and the object store information.
--- This table primarily tracks custom-built agent binaries, while the simple stream agent
--- binaries are tracked in the corresponding table in the model database.
-CREATE TABLE agent_binary_metadata (
+-- architecture, and the object store reference.
+-- This table tracks agent binaries available across the whole Juju controller
+-- for use by any model.
+CREATE TABLE agent_binary_store (
     uuid TEXT NOT NULL PRIMARY KEY,
     version TEXT NOT NULL,
     object_store_uuid TEXT NOT NULL,
