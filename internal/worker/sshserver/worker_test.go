@@ -4,6 +4,8 @@
 package sshserver_test
 
 import (
+	"sync/atomic"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -172,12 +174,12 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 		).
 		Times(1)
 
-	serverStarted := false
+	var serverStarted int32
 	cfg := sshserver.ServerWrapperWorkerConfig{
 		ControllerConfigService: controllerConfigService,
 		Logger:                  loggertesting.WrapCheckLog(c),
 		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
-			serverStarted = true
+			atomic.StoreInt32(&serverStarted, 1)
 			c.Check(swc.Port, gc.Equals, 22)
 			return serverWorker, nil
 		},
@@ -192,7 +194,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	workertest.CheckAlive(c, serverWorker)
 	workertest.CheckAlive(c, controllerConfigWatcher)
 
-	c.Check(serverStarted, gc.Equals, true)
+	c.Check(atomic.LoadInt32(&serverStarted), gc.Equals, int32(1))
 
 	// Send some changes to restart the server (expect no changes).
 	ch <- nil
