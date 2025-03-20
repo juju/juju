@@ -41,14 +41,14 @@ juju integrate telegraf:prometheus2-client promed:target
 An offer stems from an application endpoint. This is how an offer is created:
 
 ```text
-juju offer <application>:<application endpoint
+juju offer <application>:<application endpoint>
 ```
 
 
 By default, an offer is named after its underlying application but you may also choose to give it a different name:
 
 ```text
-juju offer <application>:<application endpoint> <offer name
+juju offer <application>:<application endpoint> <offer name>
 ```
 
 Example:
@@ -56,10 +56,10 @@ Example:
 ```text
 juju deploy mysql
 juju offer mysql:database hosted-mysql
-``
+```
 
 To view the available application endpoints use `juju show-application` and  check the list below `endpoint-bindings`. Example:
-``text
+```text
 juju show-application mysql 
 mysql:
   charm: mysql
