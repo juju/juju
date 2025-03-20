@@ -1,4 +1,4 @@
--- The agent_binary_metadata table in the controller database records information about
+-- The agent_binary_store table in the controller database records information about
 -- the agent binaries stored in the controller's object store, including their version, SHA,
 -- architecture, and the object store reference.
 -- This table tracks agent binaries available across the whole Juju controller
