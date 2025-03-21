@@ -113,11 +113,11 @@ func (s *SSHReqConnReqSuite) TestSSHConnReqWatcher(c *gc.C) {
 	wc.AssertChange()
 	wc.AssertNoChange()
 
-	// assert a connection request on another unit is not notified.
+	// assert a connection request on another machine is not notified.
 	err := s.State.InsertSSHConnRequest(
 		state.SSHConnRequestArg{
 			ModelUUID:          s.Model.UUID(),
-			MachineId:          "other-unit",
+			MachineId:          "other-machine",
 			Expires:            time.Now(),
 			Username:           "test",
 			Password:           "test-password",
@@ -128,7 +128,7 @@ func (s *SSHReqConnReqSuite) TestSSHConnReqWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	// assert a connection request regarding the right unit is notified.
+	// assert a connection request regarding the right machine is notified.
 	err = s.State.InsertSSHConnRequest(
 		state.SSHConnRequestArg{
 			TunnelID:           "uuid",

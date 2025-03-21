@@ -4,7 +4,7 @@
 package state
 
 import (
-	"strings"
+	"regexp"
 	"time"
 
 	"github.com/juju/errors"
@@ -38,23 +38,19 @@ type SSHConnRequestArg struct {
 	TunnelID string
 	// ModelUUID holds the model UUID.
 	ModelUUID string
-	// MachineId holds the machine ID that we are going to SSH into.
+	// MachineId holds the ID of the machine to which this request is addressed.
 	MachineId string
 	// Expires holds the time when the request will expire.
 	Expires time.Time
-	// Username holds the username that the machine agent will use to perform reverse SSH back
-	// to the controller's SSH server.
+	// Username holds the username to be used by the machine agent when opening an ssh connection to the controller.
 	Username string
-	// Password holds the password (a JWT) that the machine agent will use to perform reverse SSH back
-	// to the controller's SSH server.
+	// Password holds the password to be used by the machine agent when opening an ssh connection to the controller.
 	Password string
-	// ControllerAddress holds the specific address for this instance of the controller
-	// to route correctly back to from the machine agent when performing the reverse SSH call.
+	// ControllerAddress holds the IP of the controller unit to be used by the machine agent when opening an ssh connection.
 	ControllerAddress network.SpaceAddresses
-
+	// UnitPort holds the unit port, to be used in remote forwarding.
 	UnitPort int
-	// EphemeralPublicKey holds the ephemeral public key that will be added to the machine's
-	// authorized_keys for the lifetime of this connection.
+	// EphemeralPublicKey holds the public key to be added to machine's authorized_keys for the lifetime of the ssh connection.
 	EphemeralPublicKey []byte
 }
 
@@ -66,7 +62,7 @@ type SSHConnRequestRemoveArg struct {
 }
 
 func sshReqConnKeyID(machineId string, tunnelID string) string {
-	return "unit" + "-" + machineId + "-" + "sshreqconn" + "-" + tunnelID
+	return "machine" + "-" + machineId + "-" + "sshreqconn" + "-" + tunnelID
 }
 
 func newSSHConnRequestDoc(arg SSHConnRequestArg) (sshConnRequestDoc, error) {
@@ -161,9 +157,13 @@ func (st *State) WatchSSHConnRequest(machineId string) StringsWatcher {
 				return false
 			}
 			id := st.localID(sKey)
-			if !strings.Contains(id, machineId) {
+
+			re := regexp.MustCompile(`^machine-\d+-sshreqconn-`)
+			match := re.FindString(id)
+			if match == "" {
 				return false
 			}
+
 			return true
 		},
 	})
