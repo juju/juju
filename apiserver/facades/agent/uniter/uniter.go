@@ -2004,19 +2004,19 @@ func (u *UniterAPI) destroySubordinates(ctx context.Context, principal *state.Un
 }
 
 func (u *UniterAPI) watchOneRelationUnit(relUnit *state.RelationUnit) (params.RelationUnitsWatchResult, error) {
-	stateWatcher := relUnit.Watch()
-	watch, err := common.RelationUnitsWatcherFromState(stateWatcher)
-	if err != nil {
-		return params.RelationUnitsWatchResult{}, errors.Trace(err)
-	}
-	// Consume the initial event and forward it to the result.
-	if changes, ok := <-watch.Changes(); ok {
-		return params.RelationUnitsWatchResult{
-			RelationUnitsWatcherId: u.resources.Register(watch),
-			Changes:                changes,
-		}, nil
-	}
-	return params.RelationUnitsWatchResult{}, statewatcher.EnsureErr(watch)
+	//stateWatcher := relUnit.Watch()
+	//watch, err := common.RelationUnitsWatcherFromDomain(stateWatcher)
+	//if err != nil {
+	//	return params.RelationUnitsWatchResult{}, errors.Trace(err)
+	//}
+	//// Consume the initial event and forward it to the result.
+	//if changes, ok := <-watch.Changes(); ok {
+	//	return params.RelationUnitsWatchResult{
+	//		RelationUnitsWatcherId: u.resources.Register(watch),
+	//		Changes:                changes,
+	//	}, nil
+	//}
+	return params.RelationUnitsWatchResult{}, nil
 }
 
 // NetworkInfo returns network interfaces/addresses for specified bindings.
