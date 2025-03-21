@@ -261,9 +261,7 @@ func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return(appID, nil)
-	s.statusService.EXPECT().SetApplicationStatus(gomock.Any(), appID, &status.StatusInfo{Status: status.Started})
+	s.statusService.EXPECT().SetApplicationStatus(gomock.Any(), "gitlab", &status.StatusInfo{Status: status.Started})
 
 	result, err := s.api.SetOperatorStatus(context.Background(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{{
@@ -478,10 +476,8 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 		CloudContainerStatus: &status.StatusInfo{Status: status.Running, Message: "another message"},
 	})
 
-	appID := applicationtesting.GenApplicationUUID(c)
 	now := s.clock.Now()
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return(appID, nil)
-	s.statusService.EXPECT().SetApplicationStatus(gomock.Any(), appID, &status.StatusInfo{
+	s.statusService.EXPECT().SetApplicationStatus(gomock.Any(), "gitlab", &status.StatusInfo{
 		Status:  status.Active,
 		Message: "working",
 		Since:   &now,

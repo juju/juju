@@ -75,7 +75,7 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeader(c *gc.C) {
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
 	}
-	appID := s.createApplication(c, "foo", u1)
+	s.createApplication(c, "foo", u1)
 
 	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/666", &status.StatusInfo{
 		Status: status.Active,
@@ -84,7 +84,7 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeader(c *gc.C) {
 
 	close(done)
 
-	appStatus, err := svc.GetApplicationDisplayStatus(context.Background(), appID)
+	appStatus, err := svc.GetApplicationDisplayStatus(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(appStatus.Status, gc.Equals, status.Active)
 }

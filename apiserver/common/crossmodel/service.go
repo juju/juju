@@ -32,5 +32,5 @@ type StatusService interface {
 	// derived from the unit display statuses.
 	// If no application is found, an error satisfying [applicationerrors.ApplicationNotFound]
 	// is returned.
-	GetApplicationDisplayStatus(context.Context, application.ID) (*status.StatusInfo, error)
+	GetApplicationDisplayStatus(context.Context, string) (*status.StatusInfo, error)
 }
