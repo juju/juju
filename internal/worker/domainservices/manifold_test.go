@@ -243,7 +243,7 @@ func (s *manifoldSuite) TestNewDomainServicesGetter(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.loggerContextGetter.EXPECT().GetLoggerContext(gomock.Any(), coremodel.UUID("model")).Return(s.loggerContext, nil)
-	s.loggerContext.EXPECT().GetLogger("juju.services").Return(s.logger)
+	s.loggerContext.EXPECT().GetLogger("juju.services", logger.DATABASE).Return(s.logger)
 
 	ctrlFactory := NewControllerDomainServices(s.dbGetter, s.dbDeleter, s.modelObjectStoreGetter, s.clock, s.logger)
 	factory := NewDomainServicesGetter(

@@ -232,7 +232,7 @@ func (s *domainServicesGetter) ServicesForModel(ctx context.Context, modelUUID c
 				manager:   s.leaseManager,
 			},
 			s.clock,
-			loggerContext.GetLogger("juju.services"),
+			loggerContext.GetLogger("juju.services", logger.DATABASE),
 		),
 	}, nil
 }

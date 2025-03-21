@@ -41,4 +41,7 @@ const (
 
 	// STATUS_HISTORY defines a common tag for dealing with status history.
 	STATUS_HISTORY Tag = "status-history"
+
+	// DATABASE defines a common tag for dealing with database operations.
+	DATABASE Tag = "database"
 )
