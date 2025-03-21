@@ -2019,8 +2019,15 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 
 	s.state.EXPECT().NamespaceForWatchSecretRevisionObsolete().Return("secret_revision_obsolete")
 	s.state.EXPECT().NamespaceForWatchSecretMetadata().Return("secret_metadata")
-	mockWatcherFactory.EXPECT().NewNotifyMapperWatcher(gomock.Any(), gomock.Any()).Return(mockObsoleteWatcher, nil)
-	mockWatcherFactory.EXPECT().NewNotifyMapperWatcher(gomock.Any(), gomock.Any()).Return(mockAutoPruneWatcher, nil)
+
+	mockWatcherFactory.EXPECT().NewNotifyMapperWatcher(gomock.Any(), gomock.Any()).DoAndReturn(func(_ eventsource.Mapper, fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
+		c.Assert(fo.Namespace(), gc.Equals, "secret_revision_obsolete")
+		return mockObsoleteWatcher, nil
+	})
+	mockWatcherFactory.EXPECT().NewNotifyMapperWatcher(gomock.Any(), gomock.Any()).DoAndReturn(func(_ eventsource.Mapper, fo eventsource.FilterOption, _ ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
+		c.Assert(fo.Namespace(), gc.Equals, "secret_metadata")
+		return mockAutoPruneWatcher, nil
+	})
 
 	svc := NewWatchableService(
 		s.state, s.secretBackendState, s.ensurer, mockWatcherFactory, loggertesting.WrapCheckLog(c))
