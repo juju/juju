@@ -67,10 +67,11 @@ type applicationName struct {
 }
 
 type applicationDetails struct {
-	UUID    coreapplication.ID `db:"uuid"`
-	Name    string             `db:"name"`
-	CharmID string             `db:"charm_uuid"`
-	LifeID  life.Life          `db:"life_id"`
+	UUID      coreapplication.ID `db:"uuid"`
+	Name      string             `db:"name"`
+	CharmID   string             `db:"charm_uuid"`
+	LifeID    life.Life          `db:"life_id"`
+	SpaceUUID string             `db:"space_uuid"`
 }
 
 type applicationScale struct {

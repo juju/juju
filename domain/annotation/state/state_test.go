@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/annotation"
 	annotationerrors "github.com/juju/juju/domain/annotation/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -373,8 +374,8 @@ VALUES (?, 'myapp')`, uuid)
 		}
 
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO application (uuid, charm_uuid, name, life_id)
-VALUES (?, ?, ?, "0")`, uuid, uuid, name)
+INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
+VALUES (?, ?, ?, "0", ?)`, uuid, uuid, name, network.AlphaSpaceId)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

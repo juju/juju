@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/charm/testing"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	coreresource "github.com/juju/juju/core/resource"
@@ -93,9 +94,10 @@ func (s *resourceSuite) SetUpTest(c *gc.C) {
 			return errors.Capture(err)
 		}
 
-		_, err = tx.ExecContext(ctx, `INSERT INTO application (uuid, name, life_id, charm_uuid) VALUES (?, ?, ?, ?),(?, ?, ?, ?)`,
-			s.constants.fakeApplicationUUID1, s.constants.fakeApplicationName1, 0 /* alive */, fakeCharmUUID,
-			s.constants.fakeApplicationUUID2, s.constants.fakeApplicationName2, 0 /* alive */, fakeCharmUUID)
+		_, err = tx.ExecContext(ctx, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?,
+?, ?),(?, ?, ?, ?, ?)`,
+			s.constants.fakeApplicationUUID1, s.constants.fakeApplicationName1, 0 /* alive */, fakeCharmUUID, network.AlphaSpaceId,
+			s.constants.fakeApplicationUUID2, s.constants.fakeApplicationName2, 0 /* alive */, fakeCharmUUID, network.AlphaSpaceId)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -3064,8 +3066,8 @@ INSERT INTO charm (uuid, reference_name, source_id) VALUES (?, 'app', 0 /* local
 			return errors.Capture(err)
 		}
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO application (uuid, name, life_id, charm_uuid) VALUES (?, ?, 0, ?)
-`, appUUID, appName, charmUUID,
+INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, 0, ?, ?)
+`, appUUID, appName, charmUUID, network.AlphaSpaceId,
 		)
 		if err != nil {
 			return errors.Capture(err)

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/network"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/constraints"
@@ -246,8 +247,8 @@ func (s *modelSuite) TestGetModelMetrics(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.DB().ExecContext(context.Background(), `
-		INSERT INTO application (uuid, name, life_id, charm_uuid) VALUES ('123', 'foo', 0, '456');
-		`)
+		INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES ('123', 'foo', 0, '456', ?);
+		`, network.AlphaSpaceId)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that it was written correctly.

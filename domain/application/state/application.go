@@ -92,10 +92,11 @@ func (st *State) CreateApplication(
 	}
 
 	appDetails := applicationDetails{
-		UUID:    appUUID,
-		Name:    name,
-		CharmID: charmID.String(),
-		LifeID:  life.Alive,
+		UUID:      appUUID,
+		Name:      name,
+		CharmID:   charmID.String(),
+		LifeID:    life.Alive,
+		SpaceUUID: network.AlphaSpaceId,
 	}
 
 	createApplication := `INSERT INTO application (*) VALUES ($applicationDetails.*)`

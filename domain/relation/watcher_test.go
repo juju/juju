@@ -14,6 +14,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
@@ -121,9 +122,9 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 // addApplication adds a new application to the database with the specified UUID and name.
 func (s *watcherSuite) addApplication(c *gc.C, charmUUID, appUUID, appName string) {
 	s.arrange(c, `
-INSERT INTO application (uuid, name, life_id, charm_uuid) 
-VALUES (?, ?, ?, ?)
-`, appUUID, appName, 0 /* alive */, charmUUID)
+INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) 
+VALUES (?, ?, ?, ?, ?)
+`, appUUID, appName, 0 /* alive */, charmUUID, network.AlphaSpaceId)
 }
 
 // addApplicationEndpoint inserts a new application endpoint into the database with the specified UUIDs and relation data.
