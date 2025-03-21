@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/errors"
+	internalrelation "github.com/juju/juju/internal/relation"
 )
 
 type State struct {
@@ -180,6 +181,52 @@ AND    re.relation_uuid = $relationEndpointArgs.relation_uuid
 	})
 
 	return corerelation.EndpointUUID(relationEndpoint.UUID), errors.Capture(err)
+}
+
+// GetRelationEndpoints retrieves the endpoints of a given relation specified via its UUID.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID is not
+//     found.
+func (st *State) GetRelationEndpoints(ctx context.Context, uuid corerelation.UUID) ([]internalrelation.Endpoint, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	id := relationUUID{
+		UUID: uuid.String(),
+	}
+	stmt, err := st.Prepare(`
+SELECT &endpoint.*
+FROM   v_relation_endpoint
+WHERE  relation_uuid = $relationUUID.uuid
+`, id, endpoint{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var endpoints []endpoint
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, id).GetAll(&endpoints)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return relationerrors.RelationNotFound
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	if l := len(endpoints); l > 2 {
+		return nil, errors.Errorf("internal error: expected 1 or 2 endpoints in relation, got %d", l)
+	}
+
+	var relationEndpoints []internalrelation.Endpoint
+	for _, e := range endpoints {
+		relationEndpoints = append(relationEndpoints, e.toRelationEndpoint())
+	}
+
+	return relationEndpoints, nil
 }
 
 // WatcherApplicationSettingsNamespace returns the namespace string used for
