@@ -27,6 +27,21 @@ const (
 	defaultFileDirectory = "objectstore"
 )
 
+// FallBackStrategy is the strategy to use when there is no local file to
+// retrieve.
+type FallbackStrategy string
+
+const (
+	// RemoteFallback defines that the fallback strategy is to retrieve the
+	// file from a remote source. It doesn't guarantee that there will be any
+	// remote request, as the controller might not be configured to be in
+	// high-availability mode.
+	RemoteFallback FallbackStrategy = "remote"
+
+	// NoFallback defines that there is no fallback strategy.
+	NoFallback FallbackStrategy = "none"
+)
+
 // FileObjectStoreConfig is the configuration for the file object store.
 type FileObjectStoreConfig struct {
 	// RootDir is the root directory for the file object store.
@@ -84,7 +99,9 @@ func (t *fileObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, 
 	// Optimistically try to get the file from the file system. If it doesn't
 	// exist, then we'll get an error, and we'll try to get it when sequencing
 	// the get request with the put and remove requests.
-	if reader, size, err := t.get(ctx, path); err == nil {
+	// Do not attempt to fallback to a remote source, as we're only trying to
+	// get the file from the local file system.
+	if reader, size, err := t.get(ctx, path, NoFallback); err == nil {
 		return reader, size, nil
 	}
 
@@ -162,7 +179,9 @@ func (t *fileObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix st
 	// Optimistically try to get the file from the file system. If it doesn't
 	// exist, then we'll get an error, and we'll try to get it when sequencing
 	// the get request with the put and remove requests.
-	if reader, size, err := t.getBySHA256Prefix(ctx, sha256Prefix); err == nil {
+	// Do not attempt to fallback to a remote source, as we're only trying to
+	// get the file from the local file system.
+	if reader, size, err := t.getBySHA256Prefix(ctx, sha256Prefix, NoFallback); err == nil {
 		return reader, size, nil
 	}
 
@@ -312,7 +331,7 @@ func (t *fileObjectStore) loop() error {
 		case req := <-t.requests:
 			switch req.op {
 			case opGet:
-				reader, size, err := t.get(ctx, req.path)
+				reader, size, err := t.get(ctx, req.path, RemoteFallback)
 
 				select {
 				case <-t.tomb.Dying():
@@ -340,7 +359,7 @@ func (t *fileObjectStore) loop() error {
 				}
 
 			case opGetBySHA256Prefix:
-				reader, size, err := t.getBySHA256Prefix(ctx, req.sha256)
+				reader, size, err := t.getBySHA256Prefix(ctx, req.sha256, RemoteFallback)
 
 				select {
 				case <-t.tomb.Dying():
@@ -394,7 +413,7 @@ func (t *fileObjectStore) loop() error {
 	}
 }
 
-func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
+func (t *fileObjectStore) get(ctx context.Context, path string, fallbackStrategy FallbackStrategy) (io.ReadCloser, int64, error) {
 	t.logger.Debugf(ctx, "getting object %q from file storage", path)
 
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
@@ -404,7 +423,7 @@ func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, 
 		return nil, -1, errors.Errorf("get metadata: %w", err)
 	}
 
-	return t.getWithMetadata(ctx, metadata)
+	return t.getWithMetadata(ctx, metadata, fallbackStrategy)
 }
 
 func (t *fileObjectStore) getBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
@@ -417,10 +436,19 @@ func (t *fileObjectStore) getBySHA256(ctx context.Context, sha256 string) (io.Re
 		return nil, -1, errors.Errorf("get metadata by SHA256: %w", err)
 	}
 
-	return t.getWithMetadata(ctx, metadata)
+	// Getting a file by SHA256 implies that we're looking for a file that
+	// has a specific hash. If we can't find the file, then we should return
+	// an error, as we can't fallback to a remote source. This is a hard
+	// back stop.
+	// If we do want to allow for a remote fallback, we should expose that
+	// configuration option all the way to the objectstore interface. For now,
+	// this is non-configurable.
+	// The added benefit is that this prevents infinite loops, where we keep
+	// trying to get the file from the remote source, but it doesn't exist.
+	return t.getWithMetadata(ctx, metadata, NoFallback)
 }
 
-func (t *fileObjectStore) getBySHA256Prefix(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
+func (t *fileObjectStore) getBySHA256Prefix(ctx context.Context, sha256 string, fallbackStrategy FallbackStrategy) (io.ReadCloser, int64, error) {
 	t.logger.Debugf(ctx, "getting object with SHA256 %q from file storage", sha256)
 
 	metadata, err := t.metadataService.GetMetadataBySHA256Prefix(ctx, sha256)
@@ -430,17 +458,19 @@ func (t *fileObjectStore) getBySHA256Prefix(ctx context.Context, sha256 string) 
 		return nil, -1, errors.Errorf("get metadata by SHA256 prefix: %w", err)
 	}
 
-	return t.getWithMetadata(ctx, metadata)
+	return t.getWithMetadata(ctx, metadata, fallbackStrategy)
 }
 
-func (t *fileObjectStore) getWithMetadata(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
+func (t *fileObjectStore) getWithMetadata(ctx context.Context, metadata objectstore.Metadata, fallbackStrategy FallbackStrategy) (io.ReadCloser, int64, error) {
 	hash := selectFileHash(metadata)
 
 	file, err := t.fs.Open(hash)
 	if errors.Is(err, os.ErrNotExist) {
+		if fallbackStrategy == RemoteFallback {
+			// TODO (stickupkid): Implement remote fallback.
+		}
 		return nil, -1, objectstoreerrors.ObjectNotFound
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, -1, errors.Errorf("opening file %q encoded as %q: %w", metadata.Path, hash, err)
 	}
 
