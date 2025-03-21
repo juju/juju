@@ -10,15 +10,16 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Service provides the API for working with spaces.
@@ -40,14 +41,14 @@ func NewService(st State, logger logger.Logger) *Service {
 // AddSpace creates and returns a new space.
 func (s *Service) AddSpace(ctx context.Context, space network.SpaceInfo) (network.Id, error) {
 	if !names.IsValidSpace(string(space.Name)) {
-		return "", errors.NotValidf("space name %q%w", space.Name, errors.Hide(networkerrors.SpaceNameNotValid))
+		return "", errors.Errorf("space name %q not valid", space.Name).Add(networkerrors.SpaceNameNotValid)
 	}
 
 	spaceID := space.ID
 	if spaceID == "" {
 		uuid, err := uuid.NewV7()
 		if err != nil {
-			return "", errors.Annotatef(err, "creating uuid for new space %q", space.Name)
+			return "", errors.Errorf("creating uuid for new space %q: %w", space.Name, err)
 		}
 		spaceID = uuid.String()
 	}
@@ -57,7 +58,7 @@ func (s *Service) AddSpace(ctx context.Context, space network.SpaceInfo) (networ
 		subnetIDs[i] = subnet.ID.String()
 	}
 	if err := s.st.AddSpace(ctx, spaceID, string(space.Name), space.ProviderId, subnetIDs); err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Capture(err)
 	}
 	return network.Id(spaceID), nil
 }
@@ -66,7 +67,7 @@ func (s *Service) AddSpace(ctx context.Context, space network.SpaceInfo) (networ
 // space is not found, an error is returned matching
 // [github.com/juju/juju/domain/network/errors.SpaceNotFound].
 func (s *Service) UpdateSpace(ctx context.Context, uuid string, name string) error {
-	return errors.Trace(s.st.UpdateSpace(ctx, uuid, name))
+	return errors.Capture(s.st.UpdateSpace(ctx, uuid, name))
 }
 
 // Space returns a space from state that matches the input ID. If the space is
@@ -75,7 +76,7 @@ func (s *Service) UpdateSpace(ctx context.Context, uuid string, name string) err
 func (s *Service) Space(ctx context.Context, uuid string) (*network.SpaceInfo, error) {
 	sp, err := s.st.GetSpace(ctx, uuid)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	return sp, nil
 }
@@ -86,7 +87,7 @@ func (s *Service) Space(ctx context.Context, uuid string) (*network.SpaceInfo, e
 func (s *Service) SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error) {
 	sp, err := s.st.GetSpaceByName(ctx, name)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	return sp, nil
 }
@@ -95,7 +96,7 @@ func (s *Service) SpaceByName(ctx context.Context, name string) (*network.SpaceI
 func (s *Service) GetAllSpaces(ctx context.Context) (network.SpaceInfos, error) {
 	spaces, err := s.st.GetAllSpaces(ctx)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	return spaces, nil
 }
@@ -104,7 +105,7 @@ func (s *Service) GetAllSpaces(ctx context.Context) (network.SpaceInfos, error) 
 // found, an error is returned matching
 // [github.com/juju/juju/domain/network/errors.SpaceNotFound].
 func (s *Service) RemoveSpace(ctx context.Context, uuid string) error {
-	return errors.Trace(s.st.DeleteSpace(ctx, uuid))
+	return errors.Capture(s.st.DeleteSpace(ctx, uuid))
 }
 
 // ProviderService provides the API for working with network spaces.
@@ -133,33 +134,33 @@ func (s *ProviderService) ReloadSpaces(ctx context.Context) error {
 	callContext := envcontext.WithoutCredentialInvalidator(ctx)
 
 	networkProvider, err := s.provider(ctx)
-	if errors.Is(err, errors.NotSupported) {
-		return errors.NotSupportedf("spaces discovery in a non-networking environ")
+	if errors.Is(err, coreerrors.NotSupported) {
+		return errors.Errorf("spaces discovery in a non-networking environ %w", coreerrors.NotSupported)
 	}
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	canDiscoverSpaces, err := networkProvider.SupportsSpaceDiscovery()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	if canDiscoverSpaces {
 		spaces, err := networkProvider.Spaces(callContext)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		s.Service.logger.Infof(ctx, "discovered spaces: %s", spaces.String())
 
 		providerSpaces := NewProviderSpaces(s, s.logger)
 		if err := providerSpaces.saveSpaces(ctx, spaces); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		warnings, err := providerSpaces.deleteSpaces(ctx)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		for _, warning := range warnings {
 			s.Service.logger.Tracef(ctx, warning)
@@ -170,11 +171,11 @@ func (s *ProviderService) ReloadSpaces(ctx context.Context) error {
 	s.Service.logger.Debugf(ctx, "environ does not support space discovery, falling back to subnet discovery")
 	subnets, err := networkProvider.Subnets(callContext, instance.UnknownId, nil)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	// TODO(nvinuesa): Here, the alpha space is scaffolding, it should be
 	// replaced with the model's default space.
-	return errors.Trace(s.saveProviderSubnets(ctx, subnets, network.AlphaSpaceId))
+	return errors.Capture(s.saveProviderSubnets(ctx, subnets, network.AlphaSpaceId))
 }
 
 // SaveProviderSubnets loads subnets into state.
@@ -190,7 +191,7 @@ func (s *ProviderService) saveProviderSubnets(
 	for _, subnet := range subnets {
 		ip, _, err := net.ParseCIDR(subnet.CIDR)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		if ip.IsInterfaceLocalMulticast() || ip.IsLinkLocalMulticast() || ip.IsLinkLocalUnicast() {
 			continue
@@ -203,7 +204,7 @@ func (s *ProviderService) saveProviderSubnets(
 	}
 
 	if len(subnetsToUpsert) > 0 {
-		return errors.Trace(s.upsertProviderSubnets(ctx, subnetsToUpsert))
+		return errors.Capture(s.upsertProviderSubnets(ctx, subnetsToUpsert))
 	}
 
 	return nil
@@ -217,14 +218,14 @@ func (s *ProviderService) upsertProviderSubnets(ctx context.Context, subnetsToUp
 		if sn.ID.String() == "" {
 			uuid, err := uuid.NewV7()
 			if err != nil {
-				return errors.Trace(err)
+				return errors.Capture(err)
 			}
 			subnetsToUpsert[i].ID = network.Id(uuid.String())
 		}
 
 	}
-	if err := s.st.UpsertSubnets(ctx, subnetsToUpsert); err != nil && !errors.Is(err, errors.AlreadyExists) {
-		return errors.Trace(err)
+	if err := s.st.UpsertSubnets(ctx, subnetsToUpsert); err != nil && !errors.Is(err, coreerrors.AlreadyExists) {
+		return errors.Capture(err)
 	}
 	return nil
 }
@@ -232,10 +233,10 @@ func (s *ProviderService) upsertProviderSubnets(ctx context.Context, subnetsToUp
 // SupportsSpaces returns whether the provider supports spaces.
 func (s *ProviderService) SupportsSpaces(ctx context.Context) (bool, error) {
 	networkProvider, err := s.provider(ctx)
-	if errors.Is(err, errors.NotSupported) {
+	if errors.Is(err, coreerrors.NotSupported) {
 		return false, nil
 	} else if err != nil {
-		return false, errors.Trace(err)
+		return false, errors.Capture(err)
 	}
 	return networkProvider.SupportsSpaces()
 }
@@ -244,10 +245,10 @@ func (s *ProviderService) SupportsSpaces(ctx context.Context) (bool, error) {
 // spaces from the provider.
 func (s *ProviderService) SupportsSpaceDiscovery(ctx context.Context) (bool, error) {
 	networkProvider, err := s.provider(ctx)
-	if errors.Is(err, errors.NotSupported) {
+	if errors.Is(err, coreerrors.NotSupported) {
 		return false, nil
 	} else if err != nil {
-		return false, errors.Trace(err)
+		return false, errors.Capture(err)
 	}
 	return networkProvider.SupportsSpaceDiscovery()
 }
@@ -279,7 +280,7 @@ func NewProviderSpaces(spaceService *ProviderService, logger logger.Logger) *Pro
 func (s *ProviderSpaces) saveSpaces(ctx context.Context, providerSpaces []network.SpaceInfo) error {
 	stateSpaces, err := s.spaceService.GetAllSpaces(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	spaceNames := set.NewStrings()
 	for _, space := range stateSpaces {
@@ -308,7 +309,7 @@ func (s *ProviderSpaces) saveSpaces(ctx context.Context, providerSpaces []networ
 				},
 			)
 			if err != nil {
-				return errors.Trace(err)
+				return errors.Capture(err)
 			}
 
 			spaceNames.Add(spaceName)
@@ -325,7 +326,7 @@ func (s *ProviderSpaces) saveSpaces(ctx context.Context, providerSpaces []networ
 
 		err = s.spaceService.saveProviderSubnets(ctx, spaceInfo.Subnets, spaceID)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		s.updatedSpaces.Add(spaceInfo.ProviderId)
@@ -397,7 +398,7 @@ func (s *ProviderSpaces) deleteSpaces(ctx context.Context) ([]string, error) {
 		// ignore them for now.
 
 		if err := s.spaceService.RemoveSpace(ctx, space.ID); err != nil {
-			return warnings, errors.Trace(err)
+			return warnings, errors.Capture(err)
 		}
 	}
 

@@ -5,11 +5,9 @@ package modelmigration
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -17,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/config"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -25,6 +24,7 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -98,7 +98,7 @@ func (s *importSuite) TestRollbackForMultipleApplicationsRollbacksAll(c *gc.C) {
 	}
 
 	gomock.InOrder(
-		s.importService.EXPECT().RemoveImportedApplication(gomock.Any(), "prometheus").Return(fmt.Errorf("boom")),
+		s.importService.EXPECT().RemoveImportedApplication(gomock.Any(), "prometheus").Return(errors.Errorf("boom")),
 		s.importService.EXPECT().RemoveImportedApplication(gomock.Any(), "grafana").Return(nil),
 	)
 
@@ -441,7 +441,7 @@ func (s *importSuite) TestImportCharmMetadataEmpty(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(nil)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *importSuite) TestImportCharmMetadataInvalidUser(c *gc.C) {
@@ -455,7 +455,7 @@ func (s *importSuite) TestImportCharmMetadataInvalidUser(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *importSuite) TestImportCharmMetadataInvalidAssumes(c *gc.C) {
@@ -470,7 +470,7 @@ func (s *importSuite) TestImportCharmMetadataInvalidAssumes(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *importSuite) TestImportCharmMetadataInvalidMinJujuVersion(c *gc.C) {
@@ -486,7 +486,7 @@ func (s *importSuite) TestImportCharmMetadataInvalidMinJujuVersion(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *importSuite) TestImportCharmMetadataInvalidRelationRole(c *gc.C) {
@@ -509,7 +509,7 @@ func (s *importSuite) TestImportCharmMetadataInvalidRelationRole(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *importSuite) TestImportCharmMetadataInvalidRelationScope(c *gc.C) {
@@ -533,7 +533,7 @@ func (s *importSuite) TestImportCharmMetadataInvalidRelationScope(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *importSuite) TestImportCharmMetadataInvalidStorage(c *gc.C) {
@@ -569,7 +569,7 @@ func (s *importSuite) TestImportCharmMetadataInvalidStorage(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *importSuite) TestImportCharmMetadataInvalidResource(c *gc.C) {
@@ -617,7 +617,7 @@ func (s *importSuite) TestImportCharmMetadataInvalidResource(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmMetadata(s.charmMetadata)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *importSuite) TestImportCharmMetadata(c *gc.C) {
@@ -829,7 +829,7 @@ func (s *importSuite) TestImportCharmManifestWithInvalidBase(c *gc.C) {
 	}
 
 	_, err := importOp.importCharmManifest(s.charmManifest)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *importSuite) TestImportEmptyCharmLXDProfile(c *gc.C) {

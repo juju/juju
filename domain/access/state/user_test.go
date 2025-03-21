@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
@@ -26,6 +25,7 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -107,7 +107,7 @@ func (s *userStateSuite) TestSingletonActiveUser(c *gc.C) {
 func generateActivationKey() ([]byte, error) {
 	var activationKey [32]byte
 	if _, err := rand.Read(activationKey[:]); err != nil {
-		return nil, errors.Annotate(err, "generating activation key")
+		return nil, errors.Errorf("generating activation key: %w", err)
 	}
 	return activationKey[:], nil
 }

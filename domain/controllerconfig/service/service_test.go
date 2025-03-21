@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"errors"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/internal/errors"
 )
 
 type serviceSuite struct {

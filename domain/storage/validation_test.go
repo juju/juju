@@ -5,9 +5,7 @@ package storage_test
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -16,6 +14,7 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 )
@@ -70,13 +69,13 @@ func (mockStoragePoolGetter) GetStoragePoolByName(_ context.Context, name string
 	case "tmp":
 		return domainstorage.StoragePoolDetails{Name: name, Provider: "tmpfs", Attrs: map[string]string{"storage-medium": "foo"}}, nil
 	}
-	return domainstorage.StoragePoolDetails{}, fmt.Errorf("storage pool %q not found%w", name, errors.Hide(storageerrors.PoolNotFoundError))
+	return domainstorage.StoragePoolDetails{}, errors.Errorf("storage pool %q not found", name).Add(storageerrors.PoolNotFoundError)
 }
 
 func (s *validationSuite) validateStorageDirectives(storage map[string]storage.Directive) error {
 	validator, err := domainstorage.NewStorageDirectivesValidator(s.modelType, provider.CommonStorageProviders(), mockStoragePoolGetter{})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	return validator.ValidateStorageDirectivesAgainstCharm(
 		context.Background(),

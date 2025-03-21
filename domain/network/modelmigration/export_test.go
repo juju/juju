@@ -7,11 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -95,7 +95,7 @@ func (s *exportSuite) TestExportSpacesNotFound(c *gc.C) {
 	dst := description.NewModel(description.ModelArgs{})
 
 	s.exportService.EXPECT().GetAllSpaces(gomock.Any()).
-		Return(nil, errors.NotFound)
+		Return(nil, coreerrors.NotFound)
 
 	op := s.newExportOperation(c)
 	err := op.Execute(context.Background(), dst)
@@ -110,7 +110,7 @@ func (s *exportSuite) TestExportSubnetsNotFound(c *gc.C) {
 	s.exportService.EXPECT().GetAllSpaces(gomock.Any()).
 		Return(nil, nil)
 	s.exportService.EXPECT().GetAllSubnets(gomock.Any()).
-		Return(nil, errors.NotFound)
+		Return(nil, coreerrors.NotFound)
 
 	op := s.newExportOperation(c)
 	err := op.Execute(context.Background(), dst)

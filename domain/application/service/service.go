@@ -5,13 +5,11 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"regexp"
 	"sort"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
-	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -37,7 +35,7 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	internalcharm "github.com/juju/juju/internal/charm"
-	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -212,11 +210,11 @@ func (s *WatchableService) WatchApplicationUnitLife(appName string) (watcher.Str
 func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName string) (watcher.NotifyWatcher, error) {
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	scaleState, err := s.st.GetApplicationScaleState(ctx, appID)
 	if err != nil {
-		return nil, internalerrors.Errorf("getting scaling state for %q: %w", appName, err)
+		return nil, errors.Errorf("getting scaling state for %q: %w", appName, err)
 	}
 	currentScale := scaleState.Scale
 
@@ -224,7 +222,7 @@ func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName st
 	mapper := func(ctx context.Context, db database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		newScaleState, err := s.st.GetApplicationScaleState(ctx, appID)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		newScale := newScaleState.Scale
 		// Only dispatch if the scale has changed.
@@ -329,7 +327,7 @@ type indexedChanged struct {
 func (s *WatchableService) WatchApplication(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
 	uuid, err := s.GetApplicationIDByName(ctx, name)
 	if err != nil {
-		return nil, internalerrors.Errorf("getting ID of application %s: %w", name, err)
+		return nil, errors.Errorf("getting ID of application %s: %w", name, err)
 	}
 	return s.watcherFactory.NewValueWatcher(
 		s.st.NamespaceForWatchApplication(),
@@ -349,7 +347,7 @@ func (s *WatchableService) WatchApplication(ctx context.Context, name string) (w
 func (s *WatchableService) WatchApplicationConfig(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
 	uuid, err := s.GetApplicationIDByName(ctx, name)
 	if err != nil {
-		return nil, internalerrors.Errorf("getting ID of application %s: %w", name, err)
+		return nil, errors.Errorf("getting ID of application %s: %w", name, err)
 	}
 
 	return s.watcherFactory.NewValueWatcher(
@@ -372,7 +370,7 @@ func (s *WatchableService) WatchApplicationConfig(ctx context.Context, name stri
 func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name string) (watcher.StringsWatcher, error) {
 	appID, err := s.GetApplicationIDByName(ctx, name)
 	if err != nil {
-		return nil, internalerrors.Errorf("getting ID of application %s: %w", name, err)
+		return nil, errors.Errorf("getting ID of application %s: %w", name, err)
 	}
 
 	// sha256 is the current config hash for the application. This will
@@ -385,11 +383,11 @@ func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name 
 		func(ctx context.Context, txn database.TxnRunner) ([]string, error) {
 			initialResults, err := query(ctx, txn)
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Capture(err)
 			}
 
 			if num := len(initialResults); num > 1 {
-				return nil, internalerrors.Errorf("too many config hashes for application %q", name)
+				return nil, errors.Errorf("too many config hashes for application %q", name)
 			} else if num == 1 {
 				sha256 = initialResults[0]
 			}
@@ -404,7 +402,7 @@ func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name 
 
 			currentSHA256, err := s.st.GetApplicationConfigHash(ctx, appID)
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Capture(err)
 			}
 			// If the hash hasn't changed, return no changes. The first sha256
 			// might be empty, so if that's the case the currentSHA256 will not
@@ -467,7 +465,7 @@ func addDefaultStorageDirectives(
 ) (map[string]storage.Directive, error) {
 	defaults, err := state.StorageDefaults(ctx)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting storage defaults")
+		return nil, errors.Errorf("getting storage defaults: %w", err)
 	}
 	return domainstorage.StorageDirectivesWithDefaults(storage, modelType, defaults, allDirectives)
 }
@@ -482,22 +480,22 @@ func validateStorageDirectives(
 ) error {
 	registry, err := storageRegistryGetter.GetStorageRegistry(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	validator, err := domainstorage.NewStorageDirectivesValidator(modelType, registry, state)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	err = validator.ValidateStorageDirectivesAgainstCharm(ctx, allDirectives, meta)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	// Ensure all stores have directives specified. Defaults should have
 	// been set by this point, if the user didn't specify any.
 	for name, charmStorage := range meta.Storage {
 		if _, ok := allDirectives[name]; !ok && charmStorage.CountMin > 0 {
-			return fmt.Errorf("%w for store %q", applicationerrors.MissingStorageDirective, name)
+			return errors.Errorf("%w for store %q", applicationerrors.MissingStorageDirective, name)
 		}
 	}
 	return nil
@@ -506,12 +504,12 @@ func validateStorageDirectives(
 func encodeChannelAndPlatform(origin corecharm.Origin) (*application.Channel, application.Platform, error) {
 	channel, err := encodeChannel(origin.Channel)
 	if err != nil {
-		return nil, application.Platform{}, errors.Trace(err)
+		return nil, application.Platform{}, errors.Capture(err)
 	}
 
 	platform, err := encodePlatform(origin.Platform)
 	if err != nil {
-		return nil, application.Platform{}, errors.Trace(err)
+		return nil, application.Platform{}, errors.Capture(err)
 	}
 
 	return channel, platform, nil
@@ -525,7 +523,7 @@ func encodeCharmSource(source corecharm.Source) (charm.CharmSource, error) {
 	case corecharm.CharmHub:
 		return charm.CharmHubSource, nil
 	default:
-		return "", internalerrors.Errorf("unknown source %q, expected local or charmhub: %w", source, applicationerrors.CharmSourceNotValid)
+		return "", errors.Errorf("unknown source %q, expected local or charmhub: %w", source, applicationerrors.CharmSourceNotValid)
 	}
 }
 
@@ -543,7 +541,7 @@ func encodeChannel(ch *internalcharm.Channel) (*application.Channel, error) {
 
 	risk, err := encodeChannelRisk(normalize.Risk)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	return &application.Channel{
@@ -571,7 +569,7 @@ func encodeChannelRisk(risk internalcharm.Risk) (application.ChannelRisk, error)
 func encodePlatform(platform corecharm.Platform) (application.Platform, error) {
 	ostype, err := encodeOSType(platform.OS)
 	if err != nil {
-		return application.Platform{}, errors.Trace(err)
+		return application.Platform{}, errors.Capture(err)
 	}
 
 	return application.Platform{

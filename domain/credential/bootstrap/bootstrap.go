@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
 	corecredential "github.com/juju/juju/core/credential"
@@ -15,6 +14,7 @@ import (
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/credential/state"
 	internaldatabase "github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -27,9 +27,9 @@ func InsertCredential(key corecredential.Key, cred cloud.Credential) internaldat
 
 		credentialUUID, err := uuid.NewUUID()
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
-		return errors.Trace(controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Capture(controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			if err := state.CreateCredential(ctx, tx, credentialUUID.String(), key, credential.CloudCredentialInfo{
 				AuthType:      string(cred.AuthType()),
 				Attributes:    cred.Attributes(),
@@ -38,9 +38,10 @@ func InsertCredential(key corecredential.Key, cred cloud.Credential) internaldat
 				Invalid:       cred.Invalid,
 				InvalidReason: cred.InvalidReason,
 			}); err != nil {
-				return errors.Annotate(err, "creating bootstrap credential")
+				return errors.Errorf("creating bootstrap credential: %w", err)
 			}
 			return nil
 		}))
+
 	}
 }

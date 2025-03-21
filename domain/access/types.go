@@ -4,10 +4,10 @@
 package access
 
 import (
-	"github.com/juju/errors"
-
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/internal/errors"
 )
 
 // UpdatePermissionArgs are necessary arguments to run
@@ -25,13 +25,13 @@ type UpdatePermissionArgs struct {
 
 func (args UpdatePermissionArgs) Validate() error {
 	if args.Subject.IsZero() {
-		return errors.Trace(errors.NotValidf("empty subject"))
+		return errors.Errorf("empty subject %w", coreerrors.NotValid)
 	}
 	if err := args.AccessSpec.Validate(); err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	if args.Change != permission.Grant && args.Change != permission.Revoke {
-		return errors.Trace(errors.NotValidf("change %q", args.Change))
+		return errors.Errorf("change %q %w", args.Change, coreerrors.NotValid)
 	}
 	return nil
 }

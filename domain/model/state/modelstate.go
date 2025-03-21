@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/version/v2"
@@ -85,7 +84,7 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.New("model does not exist").Add(modelerrors.NotFound)
 		} else if err != nil && !internaldatabase.IsExtendedErrorCode(err) {
-			return fmt.Errorf("deleting model trigger %w", err)
+			return errors.Errorf("deleting model trigger %w", err)
 		}
 
 		var outcome sqlair.Outcome
@@ -814,11 +813,11 @@ func InsertModelInfo(
 	}
 
 	if err := tx.Query(ctx, roStmt, m).Run(); err != nil {
-		return fmt.Errorf("creating model read-only record for %q: %w", args.UUID, err)
+		return errors.Errorf("creating model read-only record for %q: %w", args.UUID, err)
 	}
 
 	if err := tx.Query(ctx, vStmt, v).Run(); err != nil {
-		return fmt.Errorf("creating agent_version record for %q: %w", args.UUID, err)
+		return errors.Errorf("creating agent_version record for %q: %w", args.UUID, err)
 	}
 
 	return nil

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain/blockcommand"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
-	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // State defines an interface for interacting with the underlying state.
@@ -64,10 +64,10 @@ func (s *Service) SwitchBlockOn(ctx context.Context, t blockcommand.BlockType, m
 	}
 
 	if len(message) > blockcommand.DefaultMaxMessageLength {
-		return internalerrors.Errorf("message length exceeds maximum allowed length of %d", blockcommand.DefaultMaxMessageLength)
+		return errors.Errorf("message length exceeds maximum allowed length of %d", blockcommand.DefaultMaxMessageLength)
 	}
 
-	if err := s.st.SetBlock(ctx, t, message); internalerrors.Is(err, blockcommanderrors.AlreadyExists) {
+	if err := s.st.SetBlock(ctx, t, message); errors.Is(err, blockcommanderrors.AlreadyExists) {
 		s.logger.Debugf(ctx, "block already exists for type %q", t)
 		return nil
 	} else if err != nil {

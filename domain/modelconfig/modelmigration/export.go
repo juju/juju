@@ -7,13 +7,14 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/errors"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/modelconfig/service"
 	"github.com/juju/juju/domain/modelconfig/state"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/errors"
 )
 
 // RegisterExport registers the export operations with the given coordinator.
@@ -57,14 +58,14 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 func (e *exportOperation) Execute(ctx context.Context, model description.Model) error {
 	config, err := e.service.ModelConfig(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	// If the config is empty we don't want to export it, mark it as an error.
 	// If we do export with an empty model config, then the import will fail,
 	// which will put us in a worse state than when we started.
 	if config == nil || len(config.AllAttrs()) == 0 {
-		return errors.NotValidf("empty model config")
+		return errors.Errorf("empty model config %w", coreerrors.NotValid)
 	}
 
 	model.UpdateConfig(config.AllAttrs())
@@ -77,5 +78,5 @@ type noopModelDefaultsProvider struct{}
 // ModelDefaults will return the default config values to be used for a model
 // and its config.
 func (noopModelDefaultsProvider) ModelDefaults(context.Context) (modeldefaults.Defaults, error) {
-	return modeldefaults.Defaults{}, errors.NotSupportedf("model defaults")
+	return modeldefaults.Defaults{}, errors.Errorf("model defaults %w", coreerrors.NotSupported)
 }

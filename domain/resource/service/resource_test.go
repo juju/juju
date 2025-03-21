@@ -9,7 +9,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -17,6 +16,7 @@ import (
 
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	charmtesting "github.com/juju/juju/core/charm/testing"
+	coreerrors "github.com/juju/juju/core/errors"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	coreresource "github.com/juju/juju/core/resource"
 	coreresourcestore "github.com/juju/juju/core/resource/store"
@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
 )
@@ -142,7 +143,7 @@ func (s *resourceServiceSuite) TestGetApplicationResourceIDBadID(c *gc.C) {
 		Name:          "test-resource",
 	}
 	_, err := s.service.GetApplicationResourceID(context.Background(), args)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *resourceServiceSuite) TestGetApplicationResourceIDBadName(c *gc.C) {
@@ -266,7 +267,7 @@ func (s *resourceServiceSuite) TestGetResource(c *gc.C) {
 func (s *resourceServiceSuite) TestGetResourceBadID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	_, err := s.service.GetResource(context.Background(), "")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 var fingerprint = []byte("123456789012345678901234567890123456789012345678")
@@ -288,7 +289,7 @@ func (s *resourceServiceSuite) TestSetApplicationResourceBadResourceUUID(c *gc.C
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.SetApplicationResource(context.Background(), "bad-uuid")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *resourceServiceSuite) TestStoreResource(c *gc.C) {
@@ -505,7 +506,7 @@ func (s *resourceServiceSuite) TestStoreResourceBadUUID(c *gc.C) {
 			ResourceUUID: "bad-uuid",
 		},
 	)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *resourceServiceSuite) TestStoreResourceNilReader(c *gc.C) {
@@ -655,7 +656,7 @@ func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersion
 			ResourceUUID: "bad-uuid",
 		},
 	)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *resourceServiceSuite) TestStoreResourceAndIncrementCharmModifiedVersionNilReader(c *gc.C) {
@@ -727,7 +728,7 @@ func (s *resourceServiceSuite) TestSetUnitResourceBadResourceUUID(c *gc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 
 	err := s.service.SetUnitResource(context.Background(), "bad-uuid", unitUUID)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *resourceServiceSuite) TestSetUnitResourceBadUnitUUID(c *gc.C) {
@@ -736,7 +737,7 @@ func (s *resourceServiceSuite) TestSetUnitResourceBadUnitUUID(c *gc.C) {
 	resourceUUID := resourcetesting.GenResourceUUID(c)
 
 	err := s.service.SetUnitResource(context.Background(), resourceUUID, "bad-uuid")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *resourceServiceSuite) TestOpenResource(c *gc.C) {
@@ -831,7 +832,7 @@ func (s *resourceServiceSuite) TestOpenResourceBadID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, _, err := s.service.OpenResource(context.Background(), "id")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *resourceServiceSuite) TestSetRepositoryResources(c *gc.C) {
@@ -1085,7 +1086,7 @@ func (s *resourceServiceSuite) TestUpdateResourceRevisionNotValid(c *gc.C) {
 	}
 
 	_, err := s.service.UpdateResourceRevision(context.Background(), args)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 // TestUpdateResourceRevisionFailValidate tests that a NotValid error is returned
@@ -1269,7 +1270,7 @@ func (s *resourceServiceSuite) TestDeleteResourcesAddedBeforeApplicationNotValid
 	resourceUUIDs := []coreresource.UUID{resourcetesting.GenResourceUUID(c), "deadbeef"}
 
 	err := s.service.DeleteResourcesAddedBeforeApplication(context.Background(), resourceUUIDs)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *resourceServiceSuite) TestImportResources(c *gc.C) {

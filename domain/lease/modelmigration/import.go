@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/lease/service"
 	"github.com/juju/juju/domain/lease/state"
+	"github.com/juju/juju/internal/errors"
 )
 
 const (
@@ -75,7 +75,7 @@ func (o *importOperation) Execute(ctx context.Context, model description.Model) 
 			Duration: LeadershipGuarantee,
 		}
 		if err := o.service.ClaimLease(ctx, key, req); err != nil {
-			return errors.Annotatef(err, "claiming lease for %q", key)
+			return errors.Errorf("claiming lease for %q: %w", key, err)
 		}
 	}
 

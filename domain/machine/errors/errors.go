@@ -3,9 +3,7 @@
 
 package errors
 
-import (
-	"github.com/juju/juju/internal/errors"
-)
+import "github.com/juju/juju/internal/errors"
 
 const (
 	// MachineNotFound describes an error that occurs when the machine being

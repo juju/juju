@@ -3,9 +3,7 @@
 
 package errors
 
-import (
-	"github.com/juju/juju/internal/errors"
-)
+import "github.com/juju/juju/internal/errors"
 
 const (
 	// ApplicationIDNotValid describes an error when the application ID is

@@ -5,7 +5,6 @@ package modelmigration
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/juju/description/v9"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )

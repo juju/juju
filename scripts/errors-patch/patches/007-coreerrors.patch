@@ -1,0 +1,142 @@
+@@
+var errors identifier
+var errMsg expression
+@@
+import errors "github.com/juju/errors"
++import coreerrors "github.com/juju/juju/core/errors"
++import interrors "github.com/juju/juju/internal/errors"
+
+-errors.NewNotImplemented(nil, errMsg) 
++interrors.Errorf(errMsg + " %w", coreerrors.NotImplemented)
+
+@@
+var errors identifier
+var fmtStr expression
+@@
+import errors "github.com/juju/errors"
++import coreerrors "github.com/juju/juju/core/errors"
++import interrors "github.com/juju/juju/internal/errors"
+
+-errors.NotSupportedf(fmtStr, ...)
++interrors.Errorf(fmtStr + " %w", ..., coreerrors.NotSupported)
+
+@@
+var errors identifier
+@@
+import errors "github.com/juju/errors"
++import coreerrors "github.com/juju/juju/core/errors"
+
+- errors.NotSupported
++ coreerrors.NotSupported
+
+@@
+var errors identifier
+var fmtStr expression
+@@
+import errors "github.com/juju/errors"
++import coreerrors "github.com/juju/juju/core/errors"
++import interrors "github.com/juju/juju/internal/errors"
+
+-errors.NotFoundf(fmtStr, ...)
++interrors.Errorf(fmtStr + " %w", ..., coreerrors.NotFound)
+
+@@
+var errors identifier
+@@
+import errors "github.com/juju/errors"
++import coreerrors "github.com/juju/juju/core/errors"
+
+- errors.NotFound
++ coreerrors.NotFound
+
+@@
+var errors identifier
+var fmtStr expression
+@@
+import errors "github.com/juju/errors"
++import coreerrors "github.com/juju/juju/core/errors"
++import interrors "github.com/juju/juju/internal/errors"
+
+-errors.NotYetAvailablef(fmtStr, ...)
++interrors.Errorf(fmtStr + " %w", ..., coreerrors.NotYetAvailable)
+
+@@
+var errors identifier
+var fmtStr expression
+@@
+import errors "github.com/juju/errors"
++import coreerrors "github.com/juju/juju/core/errors"
++import interrors "github.com/juju/juju/internal/errors"
+
+-errors.NotValidf(fmtStr, ...)
++interrors.Errorf(fmtStr + " %w", ..., coreerrors.NotValid)
+
+@@
+var errors identifier
+@@
+import errors "github.com/juju/errors"
++import coreerrors "github.com/juju/juju/core/errors"
+
+- errors.NotValid
++ coreerrors.NotValid
+
+@@
+var errors identifier
+var fmtStr expression
+@@
+import errors "github.com/juju/errors"
++import coreerrors "github.com/juju/juju/core/errors"
++import interrors "github.com/juju/juju/internal/errors"
+
+-errors.AlreadyExistsf(fmtStr, ...)
++interrors.Errorf(fmtStr + " %w", ..., coreerrors.AlreadyExists)
+
+@@
+var errors identifier
+@@
+import errors "github.com/juju/errors"
++import coreerrors "github.com/juju/juju/core/errors"
+
+- errors.AlreadyExists
++ coreerrors.AlreadyExists
+
+@@
+var errors identifier
+var fmtStr expression
+@@
+import errors "github.com/juju/errors"
++import coreerrors "github.com/juju/juju/core/errors"
++import interrors "github.com/juju/juju/internal/errors"
+
+-errors.NotImplementedf(fmtStr, ...)
++interrors.Errorf(fmtStr + " %w", ..., coreerrors.NotImplemented)
+
+@@
+var errors identifier
+@@
+import errors "github.com/juju/errors"
++import coreerrors "github.com/juju/juju/core/errors"
+
+- errors.NotImplemented
++ coreerrors.NotImplemented
+
+@@
+var errors identifier
+var fmtStr expression
+@@
+import errors "github.com/juju/errors"
+
++import coreerrors "github.com/juju/juju/core/errors"
++import interrors "github.com/juju/juju/internal/errors"
+
+-errors.NotProvisionedf(fmtStr, ...)
++interrors.Errorf(fmtStr + " %w", ..., coreerrors.NotProvisioned)
+
+@@
+var errors identifier
+@@
+import errors "github.com/juju/errors"
++import coreerrors "github.com/juju/juju/core/errors"
+
+- errors.NotProvisioned
++ coreerrors.NotProvisioned

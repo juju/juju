@@ -5,16 +5,15 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
 	coreconstraints "github.com/juju/juju/core/constraints"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -27,7 +26,7 @@ import (
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/envcontext"
 	internalcharm "github.com/juju/juju/internal/charm"
-	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -90,16 +89,16 @@ func (s *Service) poolStorageProvider(
 		if registryErr != nil {
 			// The name can't be resolved as a storage provider type,
 			// so return the original "pool not found" error.
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		return aProvider, nil
 	} else if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	providerType := storage.ProviderType(pool.Provider)
 	aProvider, err := registry.StorageProvider(providerType)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	return aProvider, nil
 }
@@ -122,20 +121,20 @@ func (s *ProviderService) CreateApplication(
 		origin,
 		args.DownloadInfo,
 	); err != nil {
-		return "", errors.Annotatef(err, "invalid application args")
+		return "", errors.Errorf("invalid application args: %w", err)
 	}
 
 	if err := validateCreateApplicationResourceParams(charm, args.ResolvedResources, args.PendingResources); err != nil {
-		return "", errors.Annotatef(err, "create application")
+		return "", errors.Errorf("create application: %w", err)
 	}
 
 	modelType, err := s.st.GetModelType(ctx)
 	if err != nil {
-		return "", errors.Annotatef(err, "getting model type")
+		return "", errors.Errorf("getting model type: %w", err)
 	}
 	appArg, err := makeCreateApplicationArgs(ctx, s.st, s.storageRegistryGetter, modelType, charm, origin, args)
 	if err != nil {
-		return "", errors.Annotatef(err, "creating application args")
+		return "", errors.Errorf("creating application args: %w", err)
 	}
 	// We know that the charm name is valid, so we can use it as the application
 	// name if that is not provided.
@@ -151,7 +150,7 @@ func (s *ProviderService) CreateApplication(
 
 	cons, err := s.mergeApplicationAndModelConstraints(ctx, constraints.DecodeConstraints(args.Constraints))
 	if err != nil {
-		return "", errors.Annotatef(err, "merging application and model constraints")
+		return "", errors.Errorf("merging application and model constraints: %w", err)
 	}
 
 	// Adding units with storage needs to know the kind of storage supported
@@ -164,7 +163,7 @@ func (s *ProviderService) CreateApplication(
 
 	unitArgs, err := s.makeUnitArgs(modelType, units, constraints.DecodeConstraints(cons))
 	if err != nil {
-		return "", errors.Annotatef(err, "making unit args")
+		return "", errors.Errorf("making unit args: %w", err)
 	}
 
 	if len(appArg.Storage) > 0 {
@@ -184,7 +183,7 @@ func (s *ProviderService) CreateApplication(
 	}
 	appID, err := s.st.CreateApplication(ctx, name, appArg, unitArgs)
 	if err != nil {
-		return "", errors.Annotatef(err, "creating application %q", name)
+		return "", errors.Errorf("creating application %q: %w", name, err)
 	}
 
 	s.logger.Infof(ctx, "created application %q with ID %q", name, appID)
@@ -216,7 +215,7 @@ func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.Fea
 	})
 
 	supportedFeatureProvider, err := s.supportedFeatureProvider(ctx)
-	if errors.Is(err, errors.NotSupported) {
+	if errors.Is(err, coreerrors.NotSupported) {
 		return fs, nil
 	} else if err != nil {
 		return fs, err
@@ -224,7 +223,7 @@ func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.Fea
 
 	envFs, err := supportedFeatureProvider.SupportedFeatures()
 	if err != nil {
-		return fs, fmt.Errorf("enumerating features supported by environment: %w", err)
+		return fs, errors.Errorf("enumerating features supported by environment: %w", err)
 	}
 
 	fs.Merge(envFs)
@@ -242,7 +241,7 @@ func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.Fea
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *ProviderService) SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons coreconstraints.Value) error {
 	if err := appID.Validate(); err != nil {
-		return internalerrors.Errorf("application ID: %w", err)
+		return errors.Errorf("application ID: %w", err)
 	}
 	if err := s.validateConstraints(ctx, cons); err != nil {
 		return err
@@ -253,16 +252,16 @@ func (s *ProviderService) SetApplicationConstraints(ctx context.Context, appID c
 
 func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstraints.Validator, error) {
 	provider, err := s.provider(ctx)
-	if errors.Is(err, errors.NotSupported) {
+	if errors.Is(err, coreerrors.NotSupported) {
 		// Not validating constraints, as the provider doesn't support it.
 		return nil, nil
 	} else if err != nil {
-		return nil, internalerrors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	validator, err := provider.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(ctx))
 	if err != nil {
-		return nil, internalerrors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	return validator, nil
@@ -283,27 +282,27 @@ func (s *ProviderService) AddUnits(ctx context.Context, storageParentDir, appNam
 
 	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
-		return internalerrors.Errorf("getting application %q id: %w", appName, err)
+		return errors.Errorf("getting application %q id: %w", appName, err)
 	}
 
 	modelType, err := s.st.GetModelType(ctx)
 	if err != nil {
-		return internalerrors.Errorf("getting model type: %w", err)
+		return errors.Errorf("getting model type: %w", err)
 	}
 
 	appCons, err := s.st.GetApplicationConstraints(ctx, appUUID)
 	if err != nil {
-		return internalerrors.Errorf("getting application %q constraints: %w", appName, err)
+		return errors.Errorf("getting application %q constraints: %w", appName, err)
 	}
 
 	cons, err := s.mergeApplicationAndModelConstraints(ctx, appCons)
 	if err != nil {
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	args, err := s.makeUnitArgs(modelType, units, constraints.DecodeConstraints(cons))
 	if err != nil {
-		return internalerrors.Errorf("making unit args: %w", err)
+		return errors.Errorf("making unit args: %w", err)
 	}
 
 	if modelType == coremodel.IAAS {
@@ -312,7 +311,7 @@ func (s *ProviderService) AddUnits(ctx context.Context, storageParentDir, appNam
 		err = s.st.AddCAASUnits(ctx, storageParentDir, appUUID, args...)
 	}
 	if err != nil {
-		return internalerrors.Errorf("adding units to application %q: %w", appName, err)
+		return errors.Errorf("adding units to application %q: %w", appName, err)
 	}
 
 	for _, arg := range args {
@@ -321,7 +320,7 @@ func (s *ProviderService) AddUnits(ctx context.Context, storageParentDir, appNam
 		// The agent and workload status are required to be provided when adding
 		// a unit.
 		if arg.AgentStatus == nil || arg.WorkloadStatus == nil {
-			return internalerrors.Errorf("unit %q status not provided", unitName)
+			return errors.Errorf("unit %q status not provided", unitName)
 		}
 
 		// Force the presence to be recorded as true, as the unit has just been
@@ -353,17 +352,17 @@ func (s *ProviderService) mergeApplicationAndModelConstraints(ctx context.Contex
 	// just return the zero value.
 	validator, err := s.constraintsValidator(ctx)
 	if err != nil || validator == nil {
-		return coreconstraints.Value{}, internalerrors.Capture(err)
+		return coreconstraints.Value{}, errors.Capture(err)
 	}
 
 	modelCons, err := s.st.GetModelConstraints(ctx)
 	if err != nil && !errors.Is(err, modelerrors.ConstraintsNotFound) {
-		return coreconstraints.Value{}, internalerrors.Errorf("retrieving model constraints constraints: %w	", err)
+		return coreconstraints.Value{}, errors.Errorf("retrieving model constraints constraints: %w	", err)
 	}
 
 	res, err := validator.Merge(constraints.EncodeConstraints(appCons), constraints.EncodeConstraints(modelCons))
 	if err != nil {
-		return coreconstraints.Value{}, internalerrors.Errorf("merging application and model constraints: %w", err)
+		return coreconstraints.Value{}, errors.Errorf("merging application and model constraints: %w", err)
 	}
 
 	return res, nil
@@ -372,7 +371,7 @@ func (s *ProviderService) mergeApplicationAndModelConstraints(ctx context.Contex
 func (s *ProviderService) validateConstraints(ctx context.Context, cons coreconstraints.Value) error {
 	validator, err := s.constraintsValidator(ctx)
 	if err != nil {
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	} else if validator == nil {
 		return nil
 	}
@@ -382,7 +381,7 @@ func (s *ProviderService) validateConstraints(ctx context.Context, cons corecons
 		s.logger.Warningf(ctx,
 			"unsupported constraints: %v", strings.Join(unsupported, ","))
 	} else if err != nil {
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	return nil

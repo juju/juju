@@ -16,6 +16,7 @@ import (
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -23,6 +24,7 @@ import (
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
+	interrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -341,6 +343,10 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 
 		// Get User
 		user, err := api.accessService.GetUserByName(ctx, coreuser.NameFromTag(userTag))
+		if errors.Is(err, accesserrors.UserNotFound) {
+			err = interrors.Errorf("user %q not found", userTag.Name()).Add(coreerrors.UserNotFound)
+		}
+
 		if err != nil {
 			results.Results = append(results.Results, params.UserInfoResult{Error: apiservererrors.ServerError(err)})
 			continue

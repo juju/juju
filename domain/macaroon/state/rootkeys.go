@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/errors"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/macaroon"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
 	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/errors"
 )
 
 // RootKeyState describes the persistence layer for
@@ -35,12 +35,12 @@ func NewRootKeyState(factory coredatabase.TxnRunnerFactory) *RootKeyState {
 func (st *RootKeyState) GetKey(ctx context.Context, id []byte, now time.Time) (macaroon.RootKey, error) {
 	db, err := st.DB()
 	if err != nil {
-		return macaroon.RootKey{}, errors.Trace(err)
+		return macaroon.RootKey{}, errors.Capture(err)
 	}
 	key := rootKeyID{ID: id}
 	getKeyStmt, err := st.Prepare("SELECT &rootKey.* FROM macaroon_root_key WHERE id = $rootKeyID.id", rootKey{}, key)
 	if err != nil {
-		return macaroon.RootKey{}, errors.Annotate(err, "preparing get root key statement")
+		return macaroon.RootKey{}, errors.Errorf("preparing get root key statement: %w", err)
 	}
 
 	var result rootKey
@@ -51,7 +51,7 @@ func (st *RootKeyState) GetKey(ctx context.Context, id []byte, now time.Time) (m
 		}
 		err = tx.Query(ctx, getKeyStmt, key).Get(&result)
 		if database.IsErrNotFound(err) {
-			return errors.Annotatef(macaroonerrors.KeyNotFound, "key with id %s", string(id))
+			return errors.Errorf("key with id %s: %w", string(id), macaroonerrors.KeyNotFound)
 		}
 		return err
 	})
@@ -60,7 +60,7 @@ func (st *RootKeyState) GetKey(ctx context.Context, id []byte, now time.Time) (m
 		Created: result.Created,
 		Expires: result.Expires,
 		RootKey: result.RootKey,
-	}, errors.Trace(err)
+	}, errors.Capture(err)
 }
 
 // FindLatestKey returns the most recently created root key k following all
@@ -74,7 +74,7 @@ func (st *RootKeyState) GetKey(ctx context.Context, id []byte, now time.Time) (m
 func (st *RootKeyState) FindLatestKey(ctx context.Context, createdAfter, expiresAfter, expiresBefore, now time.Time) (macaroon.RootKey, error) {
 	db, err := st.DB()
 	if err != nil {
-		return macaroon.RootKey{}, errors.Trace(err)
+		return macaroon.RootKey{}, errors.Capture(err)
 	}
 
 	m := sqlair.M{
@@ -93,7 +93,7 @@ ORDER BY created_at DESC
 `
 	stmt, err := st.Prepare(q, rootKey{}, m)
 	if err != nil {
-		return macaroon.RootKey{}, errors.Annotatef(err, "preparing get latest key statement")
+		return macaroon.RootKey{}, errors.Errorf("preparing get latest key statement: %w", err)
 	}
 
 	var result rootKey
@@ -109,7 +109,7 @@ ORDER BY created_at DESC
 		return err
 	})
 	if err != nil {
-		return macaroon.RootKey{}, errors.Trace(err)
+		return macaroon.RootKey{}, errors.Capture(err)
 	}
 	return macaroon.RootKey{
 		ID:      result.ID,
@@ -124,7 +124,7 @@ ORDER BY created_at DESC
 func (st *RootKeyState) InsertKey(ctx context.Context, key macaroon.RootKey) error {
 	db, err := st.DB()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	row := rootKey{
@@ -135,16 +135,16 @@ func (st *RootKeyState) InsertKey(ctx context.Context, key macaroon.RootKey) err
 	}
 	insertKeyStmt, err := st.Prepare("INSERT INTO macaroon_root_key (*) VALUES ($rootKey.*)", row)
 	if err != nil {
-		return errors.Annotate(err, "preparing insert root key statement")
+		return errors.Errorf("preparing insert root key statement: %w", err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, insertKeyStmt, row).Run()
 		if database.IsErrConstraintPrimaryKey(err) {
-			return errors.Annotatef(macaroonerrors.KeyAlreadyExists, "key with id %s", string(key.ID))
+			return errors.Errorf("key with id %s: %w", string(key.ID), macaroonerrors.KeyAlreadyExists)
 		}
 		return err
 	})
-	return errors.Trace(err)
+	return errors.Capture(err)
 }
 
 // removeKeysExpiredBefore removes all root keys from state with an expiry
@@ -156,7 +156,7 @@ func (st *RootKeyState) removeKeysExpiredBefore(ctx context.Context, tx *sqlair.
 
 	removeExpiredStmt, err := st.Prepare("DELETE FROM macaroon_root_key WHERE expires_at < $M.cutoff", m)
 	if err != nil {
-		return errors.Annotatef(err, "preparing remove expired root key statement")
+		return errors.Errorf("preparing remove expired root key statement: %w", err)
 	}
 	return tx.Query(ctx, removeExpiredStmt, m).Run()
 }

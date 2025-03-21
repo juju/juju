@@ -8,13 +8,14 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v9"
-	"github.com/juju/errors"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/modelconfig/service"
 	"github.com/juju/juju/domain/modelconfig/state"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -76,7 +77,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	// If we don't have any model config, then there is something seriously
 	// wrong. In this case, we should return an error.
 	if len(attrs) == 0 {
-		return errors.NotValidf("model config")
+		return errors.Errorf("model config %w", coreerrors.NotValid)
 	}
 
 	// Models imported from older controllers may contain config attributes
@@ -84,7 +85,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	// any incoming attributes not in the default list.
 	defaults, err := i.defaultsProvider.ModelDefaults(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	defaultAttrs := set.NewStrings()
 	for k := range defaults {
@@ -99,7 +100,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	}
 
 	if err := i.service.SetModelConfig(ctx, attrs); err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	return nil
 }

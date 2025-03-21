@@ -7,12 +7,12 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	coressh "github.com/juju/juju/core/ssh"
@@ -86,7 +86,7 @@ func (s *serviceSuite) TestAddKeysForInvalidUser(c *gc.C) {
 
 	err := NewService(s.modelUUID, s.state).
 		AddPublicKeysForUser(context.Background(), user.UUID("notvalid"), "key")
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 // TestAddKeysForNonExistentUser is testing that if a user id doesn't exist that
@@ -289,7 +289,7 @@ func (s *serviceSuite) TestListKeysForInvalidUserId(c *gc.C) {
 	svc := NewService(s.modelUUID, s.state)
 
 	_, err := svc.ListPublicKeysForUser(context.Background(), user.UUID("not-valid"))
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 // TestListKeysForNonExistentUser is testing that if we ask for the keys for a
@@ -335,7 +335,7 @@ func (s *serviceSuite) TestDeleteKeysForInvalidUser(c *gc.C) {
 
 	err := NewService(s.modelUUID, s.state).
 		DeleteKeysForUser(context.Background(), user.UUID("notvalid"), "key")
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 // TestDeleteKeysForUserNotFound is asserting that if the state layer

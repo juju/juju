@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -17,6 +16,7 @@ import (
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
@@ -28,6 +28,7 @@ import (
 	domainconstraints "github.com/juju/juju/domain/constraints"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -607,7 +608,7 @@ func (s *migrationServiceSuite) TestGetUnitWorkloadStatusInvalidUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetUnitWorkloadStatus(context.Background(), "!!!!!!!!")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *migrationServiceSuite) TestGetUnitAgentStatus(c *gc.C) {
@@ -641,7 +642,7 @@ func (s *migrationServiceSuite) TestGetUnitAgentStatusInvalidUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetUnitAgentStatus(context.Background(), "!!!!!!!!")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *migrationServiceSuite) TestGetApplicationsForExport(c *gc.C) {

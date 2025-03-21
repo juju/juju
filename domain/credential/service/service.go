@@ -9,18 +9,19 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	corecredential "github.com/juju/juju/core/credential"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/credential"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // WatcherFactory instances return a watcher for a specified credential UUID,
@@ -96,11 +97,11 @@ func (s *Service) WithLegacyRemover(remover func(tag names.CloudCredentialTag) e
 // CloudCredential returns the cloud credential for the given tag.
 func (s *Service) CloudCredential(ctx context.Context, key corecredential.Key) (cloud.Credential, error) {
 	if err := key.Validate(); err != nil {
-		return cloud.Credential{}, errors.Annotate(err, "invalid id getting cloud credential")
+		return cloud.Credential{}, errors.Errorf("invalid id getting cloud credential: %w", err)
 	}
 	credInfo, err := s.st.CloudCredential(ctx, key)
 	if err != nil {
-		return cloud.Credential{}, errors.Trace(err)
+		return cloud.Credential{}, errors.Capture(err)
 	}
 	cred := cloud.NewNamedCredential(credInfo.Label, cloud.AuthType(credInfo.AuthType), credInfo.Attributes, credInfo.Revoked)
 	cred.Invalid = credInfo.Invalid
@@ -113,7 +114,7 @@ func (s *Service) CloudCredential(ctx context.Context, key corecredential.Key) (
 func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner user.Name) (map[corecredential.Key]cloud.Credential, error) {
 	creds, err := s.st.AllCloudCredentialsForOwner(ctx, owner)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	result := make(map[corecredential.Key]cloud.Credential)
 	for id, c := range creds {
@@ -127,7 +128,7 @@ func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner user.Na
 func (s *Service) CloudCredentialsForOwner(ctx context.Context, owner user.Name, cloudName string) (map[string]cloud.Credential, error) {
 	creds, err := s.st.CloudCredentialsForOwner(ctx, owner, cloudName)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	result := make(map[string]cloud.Credential)
 	for name, credInfoResult := range creds {
@@ -139,7 +140,7 @@ func (s *Service) CloudCredentialsForOwner(ctx context.Context, owner user.Name,
 // UpdateCloudCredential adds or updates a cloud credential with the given tag.
 func (s *Service) UpdateCloudCredential(ctx context.Context, key corecredential.Key, cred cloud.Credential) error {
 	if err := key.Validate(); err != nil {
-		return errors.Annotatef(err, "invalid id updating cloud credential")
+		return errors.Errorf("invalid id updating cloud credential: %w", err)
 	}
 	_, err := s.st.UpsertCloudCredential(ctx, key, credentialInfoFromCloudCredential(cred))
 	return err
@@ -148,7 +149,7 @@ func (s *Service) UpdateCloudCredential(ctx context.Context, key corecredential.
 // RemoveCloudCredential removes a cloud credential with the given tag.
 func (s *Service) RemoveCloudCredential(ctx context.Context, key corecredential.Key) error {
 	if err := key.Validate(); err != nil {
-		return errors.Annotatef(err, "invalid id removing cloud credential")
+		return errors.Errorf("invalid id removing cloud credential: %w", err)
 	}
 	return s.st.RemoveCloudCredential(ctx, key)
 }
@@ -156,15 +157,15 @@ func (s *Service) RemoveCloudCredential(ctx context.Context, key corecredential.
 // InvalidateCredential marks the cloud credential for the given name, cloud, owner as invalid.
 func (s *Service) InvalidateCredential(ctx context.Context, key corecredential.Key, reason string) error {
 	if err := key.Validate(); err != nil {
-		return errors.Annotatef(err, "invalid id invalidating cloud credential")
+		return errors.Errorf("invalid id invalidating cloud credential: %w", err)
 	}
 	return s.st.InvalidateCloudCredential(ctx, key, reason)
 }
 
 func (s *Service) modelsUsingCredential(ctx context.Context, key corecredential.Key) (map[coremodel.UUID]string, error) {
 	models, err := s.st.ModelsUsingCloudCredential(ctx, key)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, errors.Trace(err)
+	if err != nil && !errors.Is(err, coreerrors.NotFound) {
+		return nil, errors.Capture(err)
 	}
 	return models, nil
 }
@@ -179,12 +180,12 @@ func (s *Service) modelsUsingCredential(ctx context.Context, key corecredential.
 // but before validation can complete.
 func (s *Service) CheckAndUpdateCredential(ctx context.Context, key corecredential.Key, cred cloud.Credential, force bool) ([]UpdateCredentialModelResult, error) {
 	if err := key.Validate(); err != nil {
-		return nil, errors.Annotatef(err, "invalid id updating cloud credential")
+		return nil, errors.Errorf("invalid id updating cloud credential: %w", err)
 	}
 
 	models, err := s.modelsUsingCredential(ctx, key)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	var (
@@ -213,10 +214,10 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, key corecredenti
 
 	existingInvalid, err := s.st.UpsertCloudCredential(ctx, key, credentialInfoFromCloudCredential(cred))
 	if err != nil {
-		if errors.Is(err, errors.NotFound) {
-			err = fmt.Errorf("%w %q for credential %q", credentialerrors.UnknownCloud, key.Name, key.Cloud)
+		if errors.Is(err, coreerrors.NotFound) {
+			err = errors.Errorf("%w %q for credential %q", credentialerrors.UnknownCloud, key.Name, key.Cloud)
 		}
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	if s.legacyUpdater == nil || cred.Invalid {
 		return modelsResult, nil
@@ -231,10 +232,10 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, key corecredenti
 	if existingInvalid != nil && *existingInvalid {
 		tag, err := key.Tag()
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		if err := s.legacyUpdater(tag); err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 	}
 	return modelsResult, nil
@@ -247,12 +248,12 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, key corecredenti
 // but before validation can complete.
 func (s *Service) CheckAndRevokeCredential(ctx context.Context, key corecredential.Key, force bool) error {
 	if err := key.Validate(); err != nil {
-		return errors.Annotatef(err, "invalid id revoking cloud credential")
+		return errors.Errorf("invalid id revoking cloud credential: %w", err)
 	}
 
 	models, err := s.modelsUsingCredential(ctx, key)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	if len(models) != 0 {
 		opMessage := "cannot be deleted as"
@@ -271,15 +272,15 @@ func (s *Service) CheckAndRevokeCredential(ctx context.Context, key corecredenti
 	}
 	err = s.st.RemoveCloudCredential(ctx, key)
 	if err != nil || s.legacyRemover == nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	} else {
 		// If credential was successfully removed, we also want to clear all references to it from the models.
 		tag, err := key.Tag()
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		if err := s.legacyRemover(tag); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 	}
 	return nil
@@ -307,7 +308,7 @@ func NewWatchableService(st State, watcherFactory WatcherFactory, logger logger.
 // credential.
 func (s *WatchableService) WatchCredential(ctx context.Context, key corecredential.Key) (watcher.NotifyWatcher, error) {
 	if err := key.Validate(); err != nil {
-		return nil, errors.Annotatef(err, "invalid id watching cloud credential")
+		return nil, errors.Errorf("invalid id watching cloud credential: %w", err)
 	}
 	return s.st.WatchCredential(ctx, s.watcherFactory.NewValueWatcher, key)
 }

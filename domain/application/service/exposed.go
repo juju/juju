@@ -9,7 +9,7 @@ import (
 	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/domain/application"
-	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // ApplicationExposed returns whether the provided application is exposed or not.
@@ -19,7 +19,7 @@ import (
 func (s *Service) ApplicationExposed(ctx context.Context, appName string) (bool, error) {
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
-		return false, internalerrors.Capture(err)
+		return false, errors.Capture(err)
 	}
 
 	return s.st.ApplicationExposed(ctx, appID)
@@ -35,7 +35,7 @@ func (s *Service) ApplicationExposed(ctx context.Context, appName string) (bool,
 func (s *Service) GetExposedEndpoints(ctx context.Context, appName string) (map[string]application.ExposedEndpoint, error) {
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
-		return nil, internalerrors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	return s.st.GetExposedEndpoints(ctx, appID)
@@ -51,7 +51,7 @@ func (s *Service) GetExposedEndpoints(ctx context.Context, appName string) (map[
 func (s *Service) UnsetExposeSettings(ctx context.Context, appName string, exposedEndpoints set.Strings) error {
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	return s.st.UnsetExposeSettings(ctx, appID, exposedEndpoints)
@@ -66,7 +66,7 @@ func (s *Service) UnsetExposeSettings(ctx context.Context, appName string, expos
 func (s *Service) MergeExposeSettings(ctx context.Context, appName string, exposedEndpoints map[string]application.ExposedEndpoint) error {
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	return s.st.MergeExposeSettings(ctx, appID, exposedEndpoints)

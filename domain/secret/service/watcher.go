@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
@@ -19,6 +18,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/internal/errors"
 )
 
 // WatchableService provides the API for working with the secret service.
@@ -53,14 +53,14 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 		eventsource.NamespaceFilter(tableLocal, changestream.Changed),
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	processLocalChanges := func(ctx context.Context, revisionUUIDs ...string) ([]string, error) {
 		return s.secretState.GetConsumedSecretURIsWithChanges(ctx, unitName, revisionUUIDs...)
 	}
 	sWLocal, err := newSecretStringWatcher(wLocal, s.logger, processLocalChanges)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	tableRemote, queryRemote := s.secretState.InitialWatchStatementForConsumedRemoteSecretsChange(unitName)
@@ -70,14 +70,14 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 		eventsource.NamespaceFilter(tableRemote, changestream.All),
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	processRemoteChanges := func(ctx context.Context, secretIDs ...string) ([]string, error) {
 		return s.secretState.GetConsumedRemoteSecretURIsWithChanges(ctx, unitName, secretIDs...)
 	}
 	sWRemote, err := newSecretStringWatcher(wRemote, s.logger, processRemoteChanges)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	return eventsource.NewMultiStringsWatcher(ctx, sWLocal, sWRemote)
 }
@@ -92,7 +92,7 @@ func (s *WatchableService) WatchRemoteConsumedSecretsChanges(_ context.Context, 
 		eventsource.NamespaceFilter(table, changestream.All),
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	processChanges := func(ctx context.Context, secretIDs ...string) ([]string, error) {
 		return s.secretState.GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx, appName, secretIDs...)
@@ -119,7 +119,7 @@ func (s *WatchableService) WatchObsolete(_ context.Context, owners ...CharmSecre
 		eventsource.NamespaceFilter(table, changestream.Changed),
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	processChanges := func(ctx context.Context, revisionUUIDs ...string) ([]string, error) {
 		return s.secretState.GetRevisionIDsForObsolete(ctx, appOwners, unitOwners, revisionUUIDs...)
@@ -140,12 +140,12 @@ func (s *WatchableService) WatchSecretRevisionsExpiryChanges(_ context.Context, 
 		eventsource.NamespaceFilter(table, changestream.All),
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	processChanges := func(ctx context.Context, revisionUUIDs ...string) ([]watcher.SecretTriggerChange, error) {
 		result, err := s.secretState.GetSecretsRevisionExpiryChanges(ctx, appOwners, unitOwners, revisionUUIDs...)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		changes := make([]watcher.SecretTriggerChange, len(result))
 		for i, r := range result {
@@ -173,12 +173,12 @@ func (s *WatchableService) WatchSecretsRotationChanges(_ context.Context, owners
 		eventsource.NamespaceFilter(table, changestream.All),
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	processChanges := func(ctx context.Context, secretIDs ...string) ([]watcher.SecretTriggerChange, error) {
 		result, err := s.secretState.GetSecretsRotationChanges(ctx, appOwners, unitOwners, secretIDs...)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		changes := make([]watcher.SecretTriggerChange, len(result))
 		for i, r := range result {
@@ -201,7 +201,7 @@ func (s *WatchableService) WatchObsoleteUserSecretsToPrune(ctx context.Context) 
 		}
 		obsoleteRevs, err := s.secretState.GetObsoleteUserSecretRevisionsReadyToPrune(ctx)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		if len(obsoleteRevs) == 0 {
 			return nil, nil
@@ -215,14 +215,14 @@ func (s *WatchableService) WatchObsoleteUserSecretsToPrune(ctx context.Context) 
 		s.secretState.NamespaceForWatchSecretRevisionObsolete(), changestream.Changed, mapper,
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	wAutoPrune, err := s.watcherFactory.NewNamespaceNotifyMapperWatcher(
 		s.secretState.NamespaceForWatchSecretMetadata(), changestream.Changed, mapper,
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	return eventsource.NewMultiNotifyWatcher(ctx, wObsolete, wAutoPrune)
 }
@@ -253,7 +253,7 @@ func newSecretStringWatcher[T any](
 		Work: w.loop,
 		Init: []worker.Worker{sourceWatcher},
 	})
-	return w, errors.Trace(err)
+	return w, errors.Capture(err)
 }
 
 func (w *secretWatcher[T]) scopedContext() (context.Context, context.CancelFunc) {
@@ -277,7 +277,7 @@ func (w *secretWatcher[T]) loop() error {
 		processed, err := w.processChanges(ctx, events.Values()...)
 		cancel()
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		if len(processed) == 0 {
 			return nil
@@ -308,7 +308,7 @@ func (w *secretWatcher[T]) loop() error {
 				return errors.Errorf("event watcher closed")
 			}
 			if err := addChanges(set.NewStrings(events...)); err != nil {
-				return errors.Trace(err)
+				return errors.Capture(err)
 			}
 		case out <- changes:
 			changes = nil

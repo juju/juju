@@ -14,7 +14,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	cloudmetadataerrors "github.com/juju/juju/domain/cloudimagemetadata/errors"
 	dberrors "github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -105,7 +105,7 @@ func (s *State) SaveMetadata(ctx context.Context, metadata []cloudimagemetadata.
 
 	db, err := s.DB()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	return InsertMetadata(ctx, db, metadata, s.clock.Now())
@@ -131,7 +131,7 @@ func InsertMetadata(ctx context.Context, db domain.TxnRunner, metadata []cloudim
 
 		mUUID, err := uuid.NewUUID()
 		if err != nil {
-			return errors.Annotatef(err, "failed to generate metadata uuid")
+			return errors.Errorf("failed to generate metadata uuid: %w", err)
 		}
 		values = append(values, inputMetadata{
 			UUID:            mUUID.String(),
@@ -161,7 +161,7 @@ AND root_storage_type = $inputMetadata.root_storage_type
 AND source = $inputMetadata.source
 `, metadataUUID{}, inputMetadata{})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	// Prepare a statement to update only the image from a specific UUID
@@ -170,7 +170,7 @@ UPDATE cloud_image_metadata
 SET image_id = $inputMetadata.image_id
 WHERE cloud_image_metadata.uuid = $inputMetadata.uuid;`, inputMetadata{})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	// Prepare statement to insert a batch of image in db. In case of conflict on unique constraint,
@@ -179,10 +179,10 @@ WHERE cloud_image_metadata.uuid = $inputMetadata.uuid;`, inputMetadata{})
 INSERT INTO cloud_image_metadata (*)
 VALUES ($inputMetadata.*)`, inputMetadata{})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
-	return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		toInsert := make([]inputMetadata, 0, len(values))
 		for _, m := range values {
 			var out metadataUUID
@@ -195,10 +195,10 @@ VALUES ($inputMetadata.*)`, inputMetadata{})
 				m.UUID = out.UUID
 				err = tx.Query(ctx, updateMetadataStmt, m).Run()
 				if err != nil {
-					return errors.Trace(err)
+					return errors.Capture(err)
 				}
 			} else {
-				return errors.Trace(err)
+				return errors.Capture(err)
 			}
 		}
 
@@ -209,30 +209,32 @@ VALUES ($inputMetadata.*)`, inputMetadata{})
 		if err := tx.Query(ctx, insertMetadataStmt, toInsert).Run(); dberrors.IsErrConstraintUnique(err) {
 			return cloudmetadataerrors.ImageMetadataAlreadyExists
 		} else if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		return nil
 	}))
+
 }
 
 // DeleteMetadataWithImageID deletes all metadata associated with the given image ID from the database.
 func (s *State) DeleteMetadataWithImageID(ctx context.Context, imageID string) error {
 	db, err := s.DB()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	deleteMetadataStmt, err := sqlair.Prepare(`
 DELETE FROM cloud_image_metadata 
 WHERE image_id = $metadataImageID.image_id`, metadataImageID{})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
-	return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, deleteMetadataStmt, metadataImageID{imageID}).Run()
 		return err
 	}))
+
 }
 
 // FindMetadata retrieves cloud image metadata from the database based on specified filter criteria.
@@ -241,7 +243,7 @@ WHERE image_id = $metadataImageID.image_id`, metadataImageID{})
 func (s *State) FindMetadata(ctx context.Context, criteria cloudimagemetadata.MetadataFilter) ([]cloudimagemetadata.Metadata, error) {
 	db, err := s.DB()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	filter := metadataFilter{
@@ -307,7 +309,7 @@ WHERE %s;`, strings.Join(clauses, ` AND `))
 
 	findMetadataStmt, err := sqlair.Prepare(findMetadataQuery, append([]any{outputMetadata{}}, inputArgs...)...)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	var metadata []outputMetadata
@@ -319,7 +321,7 @@ WHERE %s;`, strings.Join(clauses, ` AND `))
 		return err
 	})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	result := make([]cloudimagemetadata.Metadata, len(metadata))
@@ -350,7 +352,7 @@ func (s *State) AllCloudImageMetadata(ctx context.Context) ([]cloudimagemetadata
 	if errors.Is(err, cloudmetadataerrors.NotFound) {
 		return nil, nil
 	}
-	return result, errors.Trace(err)
+	return result, errors.Capture(err)
 }
 
 // tryCleanUpExpiredMetadata removes metadata records from the cloud_image_metadata table that are older than [ExpirationDelay].
@@ -359,7 +361,7 @@ func (s *State) AllCloudImageMetadata(ctx context.Context) ([]cloudimagemetadata
 func (s *State) tryCleanUpExpiredMetadata(ctx context.Context) error {
 	db, err := s.DB()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	// Injection of the expiration time
@@ -375,11 +377,12 @@ DELETE FROM cloud_image_metadata
 WHERE source != $inputMetadata.source AND  
 created_at < $ttl.expires_at;`, expirationTime, customSource)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
-	return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, deleteMetadataStmt, expirationTime, customSource).Run()
 		return err
 	}))
+
 }

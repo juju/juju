@@ -5,11 +5,9 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/os/v2"
 
 	"github.com/juju/juju/caas"
@@ -18,6 +16,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	coreconstraints "github.com/juju/juju/core/constraints"
+	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -36,7 +35,7 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
-	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/storage"
 )
@@ -331,7 +330,7 @@ func validateCharmAndApplicationParams(
 
 	// If the reference name is provided, it must be valid.
 	if !isValidReferenceName(referenceName) {
-		return fmt.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
+		return errors.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
 	}
 
 	// If the origin is from charmhub, then we require the download info.
@@ -340,13 +339,13 @@ func validateCharmAndApplicationParams(
 			return applicationerrors.CharmDownloadInfoNotFound
 		}
 		if err := downloadInfo.Validate(); err != nil {
-			return fmt.Errorf("download info: %w", err)
+			return errors.Errorf("download info: %w", err)
 		}
 	}
 
 	// Validate the origin of the charm.
 	if err := origin.Validate(); err != nil {
-		return fmt.Errorf("%w: %v", applicationerrors.CharmOriginNotValid, err)
+		return errors.Errorf("%w: %v", applicationerrors.CharmOriginNotValid, err)
 	}
 
 	return nil
@@ -361,12 +360,12 @@ func validateCreateApplicationResourceParams(
 
 	switch {
 	case len(charmResources) == 0 && (len(resolvedResources) != 0 || len(pendingResources) != 0):
-		return internalerrors.Errorf("charm has resources which have not provided: %w",
+		return errors.Errorf("charm has resources which have not provided: %w",
 			applicationerrors.InvalidResourceArgs)
 	case len(charmResources) == 0:
 		return nil
 	case len(pendingResources) != 0 && len(resolvedResources) != 0:
-		return internalerrors.Errorf("cannot have both pending and resolved resources: %w",
+		return errors.Errorf("cannot have both pending and resolved resources: %w",
 			applicationerrors.InvalidResourceArgs)
 	case len(pendingResources) > 0:
 		// resolvedResources and pendingResources are mutually exclusive.
@@ -377,14 +376,14 @@ func validateCreateApplicationResourceParams(
 	case len(resolvedResources) > 0:
 		return validateResolvedResources(charmResources, resolvedResources)
 	default:
-		return internalerrors.Errorf("charm has resources which have not provided: %w",
+		return errors.Errorf("charm has resources which have not provided: %w",
 			applicationerrors.InvalidResourceArgs)
 	}
 }
 
 func validatePendingResource(charmResourceCount int, pendingResources []resource.UUID) error {
 	if len(pendingResources) != charmResourceCount {
-		return internalerrors.Errorf("pending and charm resource counts are different: %w",
+		return errors.Errorf("pending and charm resource counts are different: %w",
 			applicationerrors.InvalidResourceArgs)
 	}
 	return nil
@@ -410,13 +409,13 @@ func validateResolvedResources(charmResources map[string]charmresource.Meta, res
 	if !unexpectedResources.IsEmpty() {
 		// This needs to be an error because it will cause a foreign constraint
 		// failure on insert, which is less easy to understand.
-		return internalerrors.Errorf("unexpected resources %v: %w", unexpectedResources.Values(),
+		return errors.Errorf("unexpected resources %v: %w", unexpectedResources.Values(),
 			applicationerrors.InvalidResourceArgs)
 	}
 	if !missingResources.IsEmpty() {
 		// Some resources are defined in the charm but not given when trying
 		// to create the application.
-		return internalerrors.Errorf("charm resources not resolved %v: %w", missingResources.Values(),
+		return errors.Errorf("charm resources not resolved %v: %w", missingResources.Values(),
 			applicationerrors.InvalidResourceArgs)
 	}
 
@@ -441,17 +440,17 @@ func makeCreateApplicationArgs(
 
 	var err error
 	if storageDirectives, err = addDefaultStorageDirectives(ctx, state, modelType, storageDirectives, meta.Storage); err != nil {
-		return application.AddApplicationArg{}, errors.Annotate(err, "adding default storage directives")
+		return application.AddApplicationArg{}, errors.Errorf("adding default storage directives: %w", err)
 	}
 	if err := validateStorageDirectives(ctx, state, storageRegistryGetter, modelType, storageDirectives, meta); err != nil {
-		return application.AddApplicationArg{}, errors.Annotate(err, "invalid storage directives")
+		return application.AddApplicationArg{}, errors.Errorf("invalid storage directives: %w", err)
 	}
 
 	// When encoding the charm, this will also validate the charm metadata,
 	// when parsing it.
 	ch, _, err := encodeCharm(charm)
 	if err != nil {
-		return application.AddApplicationArg{}, fmt.Errorf("encoding charm: %w", err)
+		return application.AddApplicationArg{}, errors.Errorf("encoding charm: %w", err)
 	}
 
 	revision := -1
@@ -461,7 +460,7 @@ func makeCreateApplicationArgs(
 
 	source, err := encodeCharmSource(origin.Source)
 	if err != nil {
-		return application.AddApplicationArg{}, fmt.Errorf("encoding charm source: %w", err)
+		return application.AddApplicationArg{}, errors.Errorf("encoding charm source: %w", err)
 	}
 
 	ch.Source = source
@@ -480,17 +479,17 @@ func makeCreateApplicationArgs(
 
 	channelArg, platformArg, err := encodeChannelAndPlatform(origin)
 	if err != nil {
-		return application.AddApplicationArg{}, fmt.Errorf("encoding charm origin: %w", err)
+		return application.AddApplicationArg{}, errors.Errorf("encoding charm origin: %w", err)
 	}
 
 	applicationConfig, err := encodeApplicationConfig(args.ApplicationConfig, ch.Config)
 	if err != nil {
-		return application.AddApplicationArg{}, fmt.Errorf("encoding application config: %w", err)
+		return application.AddApplicationArg{}, errors.Errorf("encoding application config: %w", err)
 	}
 
 	applicationStatus, err := encodeWorkloadStatus(args.ApplicationStatus)
 	if err != nil {
-		return application.AddApplicationArg{}, fmt.Errorf("encoding application status: %w", err)
+		return application.AddApplicationArg{}, errors.Errorf("encoding application status: %w", err)
 	}
 
 	return application.AddApplicationArg{
@@ -517,7 +516,7 @@ func (s *Service) GetApplicationIDByUnitName(
 ) (coreapplication.ID, error) {
 	id, err := s.st.GetApplicationIDByUnitName(ctx, unitName)
 	if err != nil {
-		return "", internalerrors.Errorf("getting application id: %w", err)
+		return "", errors.Errorf("getting application id: %w", err)
 	}
 	return id, nil
 }
@@ -556,7 +555,7 @@ func makeStorageArgs(storage map[string]storage.Directive) []application.Applica
 func (s *Service) DeleteApplication(ctx context.Context, name string) error {
 	err := s.st.DeleteApplication(ctx, name)
 	if err != nil {
-		return errors.Annotatef(err, "deleting application %q", name)
+		return errors.Errorf("deleting application %q: %w", name, err)
 	}
 	return nil
 }
@@ -569,12 +568,12 @@ func (s *Service) DestroyApplication(ctx context.Context, appName string) error 
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil
 	} else if err != nil {
-		return internalerrors.Errorf("getting application ID: %w", err)
+		return errors.Errorf("getting application ID: %w", err)
 	}
 	// For now, all we do is advance the application's life to Dying.
 	err = s.st.SetApplicationLife(ctx, appID, life.Dying)
 	if err != nil {
-		return internalerrors.Errorf("destroying application %q: %w", appName, err)
+		return errors.Errorf("destroying application %q: %w", appName, err)
 	}
 	return nil
 }
@@ -585,11 +584,11 @@ func (s *Service) DestroyApplication(ctx context.Context, appName string) error 
 func (s *Service) MarkApplicationDead(ctx context.Context, appName string) error {
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
-		return internalerrors.Errorf("getting application ID: %w", err)
+		return errors.Errorf("getting application ID: %w", err)
 	}
 	err = s.st.SetApplicationLife(ctx, appID, life.Dead)
 	if err != nil {
-		return internalerrors.Errorf("setting application %q life to Dead: %w", appName, err)
+		return errors.Errorf("setting application %q life to Dead: %w", appName, err)
 	}
 	return nil
 }
@@ -613,7 +612,7 @@ func (s *Service) GetApplicationIDByName(ctx context.Context, name string) (core
 
 	appID, err := s.st.GetApplicationIDByName(ctx, name)
 	if err != nil {
-		return "", internalerrors.Capture(err)
+		return "", errors.Capture(err)
 	}
 	return appID, nil
 }
@@ -633,11 +632,11 @@ func (s *Service) GetCharmLocatorByApplicationName(ctx context.Context, name str
 
 	charmID, err := s.st.GetCharmIDByApplicationName(ctx, name)
 	if err != nil {
-		return charm.CharmLocator{}, internalerrors.Capture(err)
+		return charm.CharmLocator{}, errors.Capture(err)
 	}
 
 	locator, err := s.getCharmLocatorByID(ctx, charmID)
-	return locator, internalerrors.Capture(err)
+	return locator, errors.Capture(err)
 }
 
 // GetCharmModifiedVersion looks up the charm modified version of the given
@@ -647,7 +646,7 @@ func (s *Service) GetCharmLocatorByApplicationName(ctx context.Context, name str
 func (s *Service) GetCharmModifiedVersion(ctx context.Context, id coreapplication.ID) (int, error) {
 	charmModifiedVersion, err := s.st.GetCharmModifiedVersion(ctx, id)
 	if err != nil {
-		return -1, internalerrors.Errorf("getting the application charm modified version: %w", err)
+		return -1, errors.Errorf("getting the application charm modified version: %w", err)
 	}
 	return charmModifiedVersion, nil
 }
@@ -667,39 +666,39 @@ func (s *Service) GetCharmByApplicationID(ctx context.Context, id coreapplicatio
 	error,
 ) {
 	if err := id.Validate(); err != nil {
-		return nil, charm.CharmLocator{}, internalerrors.Errorf("application ID: %w%w", err, errors.Hide(applicationerrors.ApplicationIDNotValid))
+		return nil, charm.CharmLocator{}, errors.Errorf("application ID: %w", err).Add(applicationerrors.ApplicationIDNotValid)
 	}
 
 	ch, err := s.st.GetCharmByApplicationID(ctx, id)
 	if err != nil {
-		return nil, charm.CharmLocator{}, internalerrors.Capture(err)
+		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
 	// The charm needs to be decoded into the internalcharm.Charm type.
 
 	metadata, err := decodeMetadata(ch.Metadata)
 	if err != nil {
-		return nil, charm.CharmLocator{}, internalerrors.Capture(err)
+		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
 	manifest, err := decodeManifest(ch.Manifest)
 	if err != nil {
-		return nil, charm.CharmLocator{}, internalerrors.Capture(err)
+		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
 	actions, err := decodeActions(ch.Actions)
 	if err != nil {
-		return nil, charm.CharmLocator{}, internalerrors.Capture(err)
+		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
 	config, err := decodeConfig(ch.Config)
 	if err != nil {
-		return nil, charm.CharmLocator{}, internalerrors.Capture(err)
+		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
 	lxdProfile, err := decodeLXDProfile(ch.LXDProfile)
 	if err != nil {
-		return nil, charm.CharmLocator{}, internalerrors.Capture(err)
+		return nil, charm.CharmLocator{}, errors.Capture(err)
 	}
 
 	locator := charm.CharmLocator{
@@ -722,7 +721,7 @@ func (s *Service) GetCharmByApplicationID(ctx context.Context, id coreapplicatio
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 func (s *Service) UpdateCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error {
 	if providerID == "" {
-		return errors.NotValidf("empty provider ID")
+		return errors.Errorf("empty provider ID %w", coreerrors.NotValid)
 	}
 	return s.st.UpsertCloudService(ctx, appName, providerID, sAddrs)
 }
@@ -739,10 +738,10 @@ type Broker interface {
 func (s *Service) GetApplicationLife(ctx context.Context, appName string) (corelife.Value, error) {
 	_, appLife, err := s.st.GetApplicationLife(ctx, appName)
 	if err != nil {
-		return "", internalerrors.Errorf("getting life for %q: %w", appName, err)
+		return "", errors.Errorf("getting life for %q: %w", appName, err)
 	}
 	result := appLife.Value()
-	return result, internalerrors.Capture(err)
+	return result, errors.Capture(err)
 }
 
 // SetApplicationScale sets the application's desired scale value, returning an error
@@ -750,22 +749,22 @@ func (s *Service) GetApplicationLife(ctx context.Context, appName string) (corel
 // This is used on CAAS models.
 func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale int) error {
 	if scale < 0 {
-		return fmt.Errorf("application scale %d not valid%w", scale, errors.Hide(applicationerrors.ScaleChangeInvalid))
+		return errors.Errorf("application scale %d not valid", scale).Add(applicationerrors.ScaleChangeInvalid)
 	}
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}
 	appScale, err := s.st.GetApplicationScaleState(ctx, appID)
 	if err != nil {
-		return errors.Annotatef(err, "getting application scale state for app %q", appID)
+		return errors.Errorf("getting application scale state for app %q: %w", appID, err)
 	}
 	s.logger.Tracef(ctx,
 		"SetScale DesiredScale %v -> %v", appScale.Scale, scale,
 	)
 	err = s.st.SetDesiredApplicationScale(ctx, appID, scale)
 	if err != nil {
-		return internalerrors.Errorf("setting scale for application %q: %w", appName, err)
+		return errors.Errorf("setting scale for application %q: %w", appName, err)
 	}
 	return nil
 }
@@ -776,11 +775,11 @@ func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale
 func (s *Service) GetApplicationScale(ctx context.Context, appName string) (int, error) {
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
-		return -1, internalerrors.Capture(err)
+		return -1, errors.Capture(err)
 	}
 	scaleState, err := s.st.GetApplicationScaleState(ctx, appID)
 	if err != nil {
-		return -1, errors.Annotatef(err, "getting scaling state for %q", appName)
+		return -1, errors.Errorf("getting scaling state for %q: %w", appName, err)
 	}
 	return scaleState.Scale, nil
 }
@@ -792,12 +791,12 @@ func (s *Service) GetApplicationScale(ctx context.Context, appName string) (int,
 func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, scaleChange int) (int, error) {
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
-		return -1, internalerrors.Capture(err)
+		return -1, errors.Capture(err)
 	}
 
 	newScale, err := s.st.UpdateApplicationScale(ctx, appID, scaleChange)
 	if err != nil {
-		return -1, internalerrors.Errorf("changing scaling state for %q: %w", appName, err)
+		return -1, errors.Errorf("changing scaling state for %q: %w", appName, err)
 	}
 	return newScale, nil
 }
@@ -807,7 +806,7 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 // This is used on CAAS models.
 func (s *Service) SetApplicationScalingState(ctx context.Context, appName string, scaleTarget int, scaling bool) error {
 	if err := s.st.SetApplicationScalingState(ctx, appName, scaleTarget, scaling); err != nil {
-		return internalerrors.Errorf("updating scaling state for %q: %w", appName, err)
+		return errors.Errorf("updating scaling state for %q: %w", appName, err)
 	}
 	return nil
 }
@@ -818,11 +817,11 @@ func (s *Service) SetApplicationScalingState(ctx context.Context, appName string
 func (s *Service) GetApplicationScalingState(ctx context.Context, appName string) (ScalingState, error) {
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
-		return ScalingState{}, internalerrors.Capture(err)
+		return ScalingState{}, errors.Capture(err)
 	}
 	scaleState, err := s.st.GetApplicationScaleState(ctx, appID)
 	if err != nil {
-		return ScalingState{}, errors.Annotatef(err, "getting scaling state for %q", appName)
+		return ScalingState{}, errors.Errorf("getting scaling state for %q: %w", appName, err)
 	}
 	return ScalingState{
 		ScaleTarget: scaleState.ScaleTarget,
@@ -847,7 +846,7 @@ func (s *Service) GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context,
 // digest.
 func (s *Service) GetAsyncCharmDownloadInfo(ctx context.Context, appID coreapplication.ID) (application.CharmDownloadInfo, error) {
 	if err := appID.Validate(); err != nil {
-		return application.CharmDownloadInfo{}, internalerrors.Errorf("application ID: %w", err)
+		return application.CharmDownloadInfo{}, errors.Errorf("application ID: %w", err)
 	}
 
 	return s.st.GetAsyncCharmDownloadInfo(ctx, appID)
@@ -860,7 +859,7 @@ func (s *Service) GetAsyncCharmDownloadInfo(ctx context.Context, appID coreappli
 // the same as the one that was reserved.
 func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplication.ID, resolve application.ResolveCharmDownload) error {
 	if err := appID.Validate(); err != nil {
-		return internalerrors.Errorf("application ID: %w", err)
+		return errors.Errorf("application ID: %w", err)
 	}
 
 	// Although, we're resolving the charm download, we're calling the
@@ -874,7 +873,7 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplicatio
 		errors.Is(err, applicationerrors.CharmAlreadyResolved) {
 		return nil
 	} else if err != nil {
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	// If the charm UUID doesn't match, what was downloaded then we need to
@@ -894,14 +893,14 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplicatio
 	// Make sure it's actually a valid charm.
 	charm, err := internalcharm.ReadCharmArchive(resolve.Path)
 	if err != nil {
-		return errors.Annotatef(err, "reading charm archive %q", resolve.Path)
+		return errors.Errorf("reading charm archive %q: %w", resolve.Path, err)
 	}
 
 	// Encode the charm before we even attempt to store it. The charm storage
 	// backend could be the other side of the globe.
 	domainCharm, warnings, err := encodeCharm(charm)
 	if err != nil {
-		return errors.Annotatef(err, "encoding charm %q", resolve.Path)
+		return errors.Errorf("encoding charm %q: %w", resolve.Path, err)
 	} else if len(warnings) > 0 {
 		s.logger.Debugf(ctx, "encoding charm %q: %v", resolve.Path, warnings)
 	}
@@ -916,12 +915,12 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appID coreapplicatio
 		// we'll return an error.
 		return applicationerrors.CharmAlreadyExistsWithDifferentSize
 	} else if err != nil {
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	// We must ensure that the objectstore UUID is valid.
 	if err := result.ObjectStoreUUID.Validate(); err != nil {
-		return internalerrors.Errorf("invalid object store UUID: %w", err)
+		return errors.Errorf("invalid object store UUID: %w", err)
 	}
 
 	// Resolve the charm download, which will set itself to available.
@@ -942,7 +941,7 @@ func (s *Service) ResolveControllerCharmDownload(ctx context.Context, resolve ap
 	// Make sure it's actually a valid charm.
 	charm, err := internalcharm.ReadCharmArchive(resolve.Path)
 	if err != nil {
-		return application.ResolvedControllerCharmDownload{}, errors.Annotatef(err, "reading charm archive %q", resolve.Path)
+		return application.ResolvedControllerCharmDownload{}, errors.Errorf("reading charm archive %q: %w", resolve.Path, err)
 	}
 
 	// Use the hash from the reservation, incase the caller has the wrong hash.
@@ -955,12 +954,12 @@ func (s *Service) ResolveControllerCharmDownload(ctx context.Context, resolve ap
 		// we'll return an error.
 		return application.ResolvedControllerCharmDownload{}, applicationerrors.CharmAlreadyExistsWithDifferentSize
 	} else if err != nil {
-		return application.ResolvedControllerCharmDownload{}, internalerrors.Capture(err)
+		return application.ResolvedControllerCharmDownload{}, errors.Capture(err)
 	}
 
 	// We must ensure that the objectstore UUID is valid.
 	if err := result.ObjectStoreUUID.Validate(); err != nil {
-		return application.ResolvedControllerCharmDownload{}, internalerrors.Errorf("invalid object store UUID: %w", err)
+		return application.ResolvedControllerCharmDownload{}, errors.Errorf("invalid object store UUID: %w", err)
 	}
 
 	// Resolve the charm download, which will set itself to available.
@@ -989,12 +988,12 @@ func (s *Service) GetApplicationsForRevisionUpdater(ctx context.Context) ([]appl
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *Service) GetApplicationConfig(ctx context.Context, appID coreapplication.ID) (config.ConfigAttributes, error) {
 	if err := appID.Validate(); err != nil {
-		return nil, internalerrors.Errorf("application ID: %w", err)
+		return nil, errors.Errorf("application ID: %w", err)
 	}
 
 	cfg, settings, err := s.st.GetApplicationConfigAndSettings(ctx, appID)
 	if err != nil {
-		return nil, internalerrors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	result := make(config.ConfigAttributes)
@@ -1013,7 +1012,7 @@ func (s *Service) GetApplicationConfig(ctx context.Context, appID coreapplicatio
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *Service) GetApplicationTrustSetting(ctx context.Context, appID coreapplication.ID) (bool, error) {
 	if err := appID.Validate(); err != nil {
-		return false, internalerrors.Errorf("application ID: %w", err)
+		return false, errors.Errorf("application ID: %w", err)
 	}
 
 	return s.st.GetApplicationTrustSetting(ctx, appID)
@@ -1023,12 +1022,12 @@ func (s *Service) GetApplicationTrustSetting(ctx context.Context, appID coreappl
 // specified application ID.
 func (s *Service) GetApplicationAndCharmConfig(ctx context.Context, appID coreapplication.ID) (ApplicationConfig, error) {
 	if err := appID.Validate(); err != nil {
-		return ApplicationConfig{}, internalerrors.Errorf("application ID: %w", err)
+		return ApplicationConfig{}, errors.Errorf("application ID: %w", err)
 	}
 
 	appConfig, settings, err := s.st.GetApplicationConfigAndSettings(ctx, appID)
 	if err != nil {
-		return ApplicationConfig{}, internalerrors.Capture(err)
+		return ApplicationConfig{}, errors.Capture(err)
 	}
 
 	result := make(config.ConfigAttributes)
@@ -1038,27 +1037,27 @@ func (s *Service) GetApplicationAndCharmConfig(ctx context.Context, appID coreap
 
 	charmID, charmConfig, err := s.st.GetCharmConfigByApplicationID(ctx, appID)
 	if err != nil {
-		return ApplicationConfig{}, internalerrors.Capture(err)
+		return ApplicationConfig{}, errors.Capture(err)
 	}
 
 	decodedCharmConfig, err := decodeConfig(charmConfig)
 	if err != nil {
-		return ApplicationConfig{}, internalerrors.Errorf("decoding charm config: %w", err)
+		return ApplicationConfig{}, errors.Errorf("decoding charm config: %w", err)
 	}
 
 	subordinate, err := s.st.IsSubordinateCharm(ctx, charmID)
 	if err != nil {
-		return ApplicationConfig{}, internalerrors.Errorf("checking if charm is subordinate: %w", err)
+		return ApplicationConfig{}, errors.Errorf("checking if charm is subordinate: %w", err)
 	}
 
 	origin, err := s.st.GetApplicationCharmOrigin(ctx, appID)
 	if err != nil {
-		return ApplicationConfig{}, internalerrors.Errorf("getting charm origin: %w", err)
+		return ApplicationConfig{}, errors.Errorf("getting charm origin: %w", err)
 	}
 
 	decodedCharmOrigin, err := decodeCharmOrigin(origin)
 	if err != nil {
-		return ApplicationConfig{}, internalerrors.Errorf("decoding charm origin: %w", err)
+		return ApplicationConfig{}, errors.Errorf("decoding charm origin: %w", err)
 	}
 
 	return ApplicationConfig{
@@ -1077,7 +1076,7 @@ func (s *Service) GetApplicationAndCharmConfig(ctx context.Context, appID coreap
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *Service) UnsetApplicationConfigKeys(ctx context.Context, appID coreapplication.ID, keys []string) error {
 	if err := appID.Validate(); err != nil {
-		return internalerrors.Errorf("application ID: %w", err)
+		return errors.Errorf("application ID: %w", err)
 	}
 	if len(keys) == 0 {
 		return nil
@@ -1098,7 +1097,7 @@ func (s *Service) UnsetApplicationConfigKeys(ctx context.Context, appID coreappl
 // [applicationerrors.CharmConfigNotValid] is returned.
 func (s *Service) SetApplicationConfig(ctx context.Context, appID coreapplication.ID, newConfig map[string]string) error {
 	if err := appID.Validate(); err != nil {
-		return internalerrors.Errorf("application ID: %w", err)
+		return errors.Errorf("application ID: %w", err)
 	}
 
 	// Get the charm config. This should be safe to do outside of a singular
@@ -1113,32 +1112,32 @@ func (s *Service) SetApplicationConfig(ctx context.Context, appID coreapplicatio
 
 	charmID, cfg, err := s.st.GetCharmConfigByApplicationID(ctx, appID)
 	if err != nil {
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	charmConfig, err := decodeConfig(cfg)
 	if err != nil {
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	// Grab the application settings, which is currently just the trust setting.
 	trust, err := getTrustSettingFromConfig(newConfig)
 	if err != nil {
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	// Everything else from the newConfig is just application config. Treat it
 	// as such.
 	coercedConfig, err := charmConfig.ParseSettingsStrings(newConfig)
 	if errors.Is(err, internalcharm.ErrUnknownOption) {
-		return internalerrors.Errorf("%w: %w", applicationerrors.InvalidCharmConfig, err)
+		return errors.Errorf("%w: %w", applicationerrors.InvalidCharmConfig, err)
 	} else if err != nil {
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	// Validate the secret config.
 	if err := validateSecretConfig(charmConfig, coercedConfig); err != nil {
-		return internalerrors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	// The encoded config is the application config, with the type of the
@@ -1150,12 +1149,12 @@ func (s *Service) SetApplicationConfig(ctx context.Context, appID coreapplicatio
 		if !ok {
 			// This should never happen, as we've verified the config is valid.
 			// But if it does, then we should return an error.
-			return internalerrors.Errorf("missing charm config, expected %q", k)
+			return errors.Errorf("missing charm config, expected %q", k)
 		}
 
 		optionType, err := encodeOptionType(option.Type)
 		if err != nil {
-			return internalerrors.Capture(err)
+			return errors.Capture(err)
 		}
 
 		encodedConfig[k] = application.ApplicationConfig{
@@ -1177,11 +1176,11 @@ func (s *Service) SetApplicationConfig(ctx context.Context, appID coreapplicatio
 // [applicationerrors.ApplicationNotFound] is returned.
 func (s *Service) GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (coreconstraints.Value, error) {
 	if err := appID.Validate(); err != nil {
-		return coreconstraints.Value{}, internalerrors.Errorf("application ID: %w", err)
+		return coreconstraints.Value{}, errors.Errorf("application ID: %w", err)
 	}
 
 	cons, err := s.st.GetApplicationConstraints(ctx, appID)
-	return constraints.EncodeConstraints(cons), internalerrors.Capture(err)
+	return constraints.EncodeConstraints(cons), errors.Capture(err)
 }
 
 func getTrustSettingFromConfig(cfg map[string]string) (bool, error) {
@@ -1200,7 +1199,7 @@ func getTrustSettingFromConfig(cfg map[string]string) (bool, error) {
 
 	b, err := strconv.ParseBool(trust)
 	if err != nil {
-		return false, internalerrors.Errorf("parsing trust setting: %w", err)
+		return false, errors.Errorf("parsing trust setting: %w", err)
 	}
 	return b, nil
 }
@@ -1217,7 +1216,7 @@ func encodeApplicationConfig(cfg config.ConfigAttributes, charmConfig charm.Conf
 		if !ok {
 			// This should never happen, as we've verified the config is valid.
 			// But if it does, then we should return an error.
-			return nil, internalerrors.Errorf("missing charm config, expected %q", k)
+			return nil, errors.Errorf("missing charm config, expected %q", k)
 		}
 
 		encodedConfig[k] = application.ApplicationConfig{
@@ -1233,7 +1232,7 @@ func validateSecretConfig(chCfg internalcharm.Config, cfg internalcharm.Settings
 		option, ok := chCfg.Options[name]
 		if !ok {
 			// This should never happen.
-			return errors.NotValidf("unsupported option %q", name)
+			return errors.Errorf("unsupported option %q %w", name, coreerrors.NotValid)
 		}
 		if option.Type == "secret" {
 			uriStr, ok := value.(string)
@@ -1244,7 +1243,10 @@ func validateSecretConfig(chCfg internalcharm.Config, cfg internalcharm.Settings
 				return nil
 			}
 			_, err := secrets.ParseURI(uriStr)
-			return errors.Annotatef(err, "invalid secret URI for option %q", name)
+			if err != nil {
+				return errors.Errorf("invalid secret URI for option %q: %w", name, err)
+			}
+			return nil
 		}
 	}
 	return nil
@@ -1253,17 +1255,17 @@ func validateSecretConfig(chCfg internalcharm.Config, cfg internalcharm.Settings
 func decodeCharmOrigin(origin application.CharmOrigin) (corecharm.Origin, error) {
 	decodedSource, err := decodeCharmSource(origin.Source)
 	if err != nil {
-		return corecharm.Origin{}, internalerrors.Errorf("decoding charm source: %w", err)
+		return corecharm.Origin{}, errors.Errorf("decoding charm source: %w", err)
 	}
 
 	decodePlatform, err := decodePlatform(origin.Platform)
 	if err != nil {
-		return corecharm.Origin{}, internalerrors.Errorf("decoding platform: %w", err)
+		return corecharm.Origin{}, errors.Errorf("decoding platform: %w", err)
 	}
 
 	decodedChannel, err := decodeChannel(origin.Channel)
 	if err != nil {
-		return corecharm.Origin{}, internalerrors.Errorf("decoding channel: %w", err)
+		return corecharm.Origin{}, errors.Errorf("decoding channel: %w", err)
 	}
 
 	return corecharm.Origin{
@@ -1280,19 +1282,19 @@ func decodeCharmSource(source charm.CharmSource) (corecharm.Source, error) {
 	case charm.LocalSource:
 		return corecharm.Local, nil
 	default:
-		return "", internalerrors.Errorf("unsupported charm source type %q", source)
+		return "", errors.Errorf("unsupported charm source type %q", source)
 	}
 }
 
 func decodePlatform(platform application.Platform) (corecharm.Platform, error) {
 	decodedArch, err := decodeArchitecture(platform.Architecture)
 	if err != nil {
-		return corecharm.Platform{}, internalerrors.Errorf("decoding architecture: %w", err)
+		return corecharm.Platform{}, errors.Errorf("decoding architecture: %w", err)
 	}
 
 	decodedOS, err := decodeOS(platform.OSType)
 	if err != nil {
-		return corecharm.Platform{}, internalerrors.Errorf("decoding OS: %w", err)
+		return corecharm.Platform{}, errors.Errorf("decoding OS: %w", err)
 	}
 
 	return corecharm.Platform{
@@ -1315,7 +1317,7 @@ func decodeArchitecture(a architecture.Architecture) (arch.Arch, error) {
 	case architecture.S390X:
 		return arch.S390X, nil
 	default:
-		return "", internalerrors.Errorf("unsupported architecture %q", a)
+		return "", errors.Errorf("unsupported architecture %q", a)
 	}
 }
 
@@ -1324,7 +1326,7 @@ func decodeOS(osType application.OSType) (os.OSType, error) {
 	case application.Ubuntu:
 		return os.Ubuntu, nil
 	default:
-		return -1, internalerrors.Errorf("unsupported OS type %q", osType)
+		return -1, errors.Errorf("unsupported OS type %q", osType)
 	}
 }
 
@@ -1335,12 +1337,12 @@ func decodeChannel(channel *application.Channel) (*internalcharm.Channel, error)
 
 	risk, err := decodeRisk(channel.Risk)
 	if err != nil {
-		return nil, internalerrors.Errorf("decoding risk: %w", err)
+		return nil, errors.Errorf("decoding risk: %w", err)
 	}
 
 	ch, err := internalcharm.MakeChannel(channel.Track, risk.String(), channel.Branch)
 	if err != nil {
-		return nil, internalerrors.Errorf("making channel: %w", err)
+		return nil, errors.Errorf("making channel: %w", err)
 	}
 	return &ch, nil
 }
@@ -1356,6 +1358,6 @@ func decodeRisk(r application.ChannelRisk) (internalcharm.Risk, error) {
 	case application.RiskEdge:
 		return internalcharm.Edge, nil
 	default:
-		return "", internalerrors.Errorf("unsupported risk %q", r)
+		return "", errors.Errorf("unsupported risk %q", r)
 	}
 }

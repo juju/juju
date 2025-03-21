@@ -6,12 +6,12 @@ package service
 import (
 	"context"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/internal/errors"
 )
 
 func (s *serviceSuite) TestRetrieveHardwareCharacteristics(c *gc.C) {

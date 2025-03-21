@@ -1,0 +1,8 @@
+@@
+var errors identifier
+var x expression
+@@
+import errors "github.com/juju/errors"
+
+-errors.Cause(x)
++x

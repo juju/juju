@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v9"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
@@ -16,6 +15,7 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/domain/storage/state"
+	"github.com/juju/juju/internal/errors"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
@@ -59,12 +59,12 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 func (e *exportOperation) Execute(ctx context.Context, model description.Model) error {
 	poolConfigs, err := e.service.AllStoragePools(ctx)
 	if err != nil {
-		return errors.Annotate(err, "listing pools")
+		return errors.Errorf("listing pools: %w", err)
 	}
 
 	builtIn, err := domainstorage.BuiltInStoragePools()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	builtInNames := set.Strings{}
 	for _, p := range builtIn {

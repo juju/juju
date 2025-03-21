@@ -7,11 +7,11 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain/life"
 	internaldatabase "github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -26,25 +26,25 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.name, $M.life_id)
 `
 		createMachineStmt, err := sqlair.Prepare(createMachine, sqlair.M{})
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		createNode := `INSERT INTO net_node (uuid) VALUES ($M.net_node_uuid)`
 		createNodeStmt, err := sqlair.Prepare(createNode, sqlair.M{})
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		nodeUUID, err := uuid.NewUUID()
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		machineUUID, err := uuid.NewUUID()
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
-		return errors.Trace(model.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Capture(model.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			createParams := sqlair.M{
 				"machine_uuid":  machineUUID.String(),
 				"net_node_uuid": nodeUUID.String(),
@@ -52,12 +52,13 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.name, $M.life_id)
 				"life_id":       life.Alive,
 			}
 			if err := tx.Query(ctx, createNodeStmt, createParams).Run(); err != nil {
-				return errors.Annotatef(err, "creating net node row for bootstrap machine %q", machineId)
+				return errors.Errorf("creating net node row for bootstrap machine %q: %w", machineId, err)
 			}
 			if err := tx.Query(ctx, createMachineStmt, createParams).Run(); err != nil {
-				return errors.Annotatef(err, "creating machine row for bootstrap machine %q", machineId)
+				return errors.Errorf("creating machine row for bootstrap machine %q: %w", machineId, err)
 			}
 			return nil
 		}))
+
 	}
 }

@@ -6,12 +6,12 @@ package service
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/errors"
 )
 
 type secretBackendRotateWatcher struct {
@@ -39,7 +39,7 @@ func newSecretBackendRotateWatcher(
 		Work: w.loop,
 		Init: []worker.Worker{sourceWatcher},
 	})
-	return w, errors.Trace(err)
+	return w, errors.Capture(err)
 }
 
 func (w *secretBackendRotateWatcher) scopedContext() (context.Context, context.CancelFunc) {
@@ -68,7 +68,7 @@ func (w *secretBackendRotateWatcher) loop() (err error) {
 			var err error
 			changes, err = w.processChanges(ctx, backendIDs...)
 			if err != nil {
-				return errors.Trace(err)
+				return errors.Capture(err)
 			}
 			if len(changes) > 0 {
 				out = w.out

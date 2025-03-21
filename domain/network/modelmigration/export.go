@@ -7,13 +7,13 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network/service"
 	"github.com/juju/juju/domain/network/state"
+	"github.com/juju/juju/internal/errors"
 )
 
 // RegisterExport registers the export operations with the given coordinator.
@@ -57,7 +57,7 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 func (e *exportOperation) Execute(ctx context.Context, model description.Model) error {
 	spaces, err := e.exportService.GetAllSpaces(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	for _, space := range spaces {
 		// We do not export the alpha space because it is created by default
@@ -77,7 +77,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 	// Export subnets.
 	subnets, err := e.exportService.GetAllSubnets(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	for _, subnet := range subnets {
 		args := description.SubnetArgs{

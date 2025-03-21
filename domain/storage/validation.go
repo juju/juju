@@ -8,11 +8,12 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/juju/collections/transform"
-	"github.com/juju/errors"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -70,7 +71,7 @@ func (v storageDirectivesValidator) ValidateStorageDirectivesAgainstCharm(
 				count = arg.Count
 			}
 			if charmStorage.CountMin > 0 || count > 0 {
-				return errors.NotSupportedf("block storage on a container model")
+				return errors.Errorf("block storage on a container model %w", coreerrors.NotSupported)
 			}
 		}
 	}
@@ -84,19 +85,19 @@ func (v storageDirectivesValidator) ValidateStorageDirectivesAgainstCharm(
 			// TODO(axw) implement shared storage support.
 			return errors.Errorf(
 				"charm %q store %q: shared storage support not implemented",
-				meta.Name, name,
-			)
+				meta.Name, name)
+
 		}
 		if err := v.validateCharmStorageCount(charmStorage, directive.Count); err != nil {
-			return errors.Annotatef(err, "charm %q store %q", meta.Name, name)
+			return errors.Errorf("charm %q store %q: %w", meta.Name, name, err)
 		}
 		if charmStorage.MinimumSize > 0 && directive.Size < charmStorage.MinimumSize {
 			return errors.Errorf(
 				"charm %q store %q: minimum storage size is %s, %s specified",
 				meta.Name, name,
 				humanize.Bytes(charmStorage.MinimumSize*humanize.MByte),
-				humanize.Bytes(directive.Size*humanize.MByte),
-			)
+				humanize.Bytes(directive.Size*humanize.MByte))
+
 		}
 		kind := storageKind(charmStorage.Type)
 		if err := v.validateStoragePool(ctx, directive.Pool, kind); err != nil {
@@ -113,14 +114,14 @@ func (v storageDirectivesValidator) validateCharmStorageCount(charmStorage charm
 	if count < uint64(charmStorage.CountMin) {
 		return errors.Errorf(
 			"%d instances required, %d specified",
-			charmStorage.CountMin, count,
-		)
+			charmStorage.CountMin, count)
+
 	}
 	if charmStorage.CountMax >= 0 && count > uint64(charmStorage.CountMax) {
 		return errors.Errorf(
 			"at most %d instances supported, %d specified",
-			charmStorage.CountMax, count,
-		)
+			charmStorage.CountMax, count)
+
 	}
 	return nil
 }
@@ -135,7 +136,7 @@ func (v storageDirectivesValidator) validateStoragePool(
 	}
 	providerType, aProvider, poolConfig, err := v.poolStorageProvider(ctx, poolName)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	// Ensure the storage provider supports the specified kind.
@@ -152,7 +153,7 @@ func (v storageDirectivesValidator) validateStoragePool(
 
 	if v.modelType == coremodel.CAAS {
 		if err := aProvider.ValidateForK8s(poolConfig); err != nil {
-			return errors.Annotatef(err, "invalid storage config")
+			return errors.Errorf("invalid storage config: %w", err)
 		}
 	}
 	return nil
@@ -171,16 +172,16 @@ func (v storageDirectivesValidator) poolStorageProvider(
 		if err1 != nil {
 			// The name can't be resolved as a storage provider type,
 			// so return the original "pool not found" error.
-			return "", nil, nil, errors.Trace(err)
+			return "", nil, nil, errors.Capture(err)
 		}
 		return providerType, aProvider, nil, nil
 	} else if err != nil {
-		return "", nil, nil, errors.Trace(err)
+		return "", nil, nil, errors.Capture(err)
 	}
 	providerType := storage.ProviderType(pool.Provider)
 	aProvider, err := v.registry.StorageProvider(providerType)
 	if err != nil {
-		return "", nil, nil, errors.Trace(err)
+		return "", nil, nil, errors.Capture(err)
 	}
 	attrs := transform.Map(pool.Attrs, func(k, v string) (string, any) { return k, v })
 	return providerType, aProvider, attrs, nil

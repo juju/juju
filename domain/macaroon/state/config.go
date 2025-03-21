@@ -9,12 +9,12 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/juju/errors"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 	macroonerrors "github.com/juju/juju/domain/macaroon/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/errors"
 )
 
 // BakeryConfigState describes the persistence layer for
@@ -40,7 +40,7 @@ func (st *BakeryConfigState) InitialiseBakeryConfig(
 ) error {
 	db, err := st.DB()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	cfg := FullConfig{
@@ -56,7 +56,7 @@ func (st *BakeryConfigState) InitialiseBakeryConfig(
 
 	initialiseConfigStmt, err := st.Prepare("INSERT INTO bakery_config (*) VALUES ($FullConfig.*)", FullConfig{})
 	if err != nil {
-		return errors.Annotate(err, "preparing initialise bakery config statement")
+		return errors.Errorf("preparing initialise bakery config statement: %w", err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, initialiseConfigStmt, cfg).Run()
@@ -65,19 +65,19 @@ func (st *BakeryConfigState) InitialiseBakeryConfig(
 		}
 		return err
 	})
-	return errors.Trace(err)
+	return errors.Capture(err)
 }
 
 // GetLocalUsersKey returns the key pair used with the local users bakery.
 func (st *BakeryConfigState) GetLocalUsersKey(ctx context.Context) (*bakery.KeyPair, error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	loadKeyStmt, err := st.Prepare("SELECT &LocalUsersKeyPair.* FROM bakery_config", LocalUsersKeyPair{})
 	if err != nil {
-		return nil, errors.Annotatef(err, "preparing local users key statement")
+		return nil, errors.Errorf("preparing local users key statement: %w", err)
 	}
 
 	var keyPair LocalUsersKeyPair
@@ -89,7 +89,7 @@ func (st *BakeryConfigState) GetLocalUsersKey(ctx context.Context) (*bakery.KeyP
 		return err
 	})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	return &bakery.KeyPair{
@@ -102,12 +102,12 @@ func (st *BakeryConfigState) GetLocalUsersKey(ctx context.Context) (*bakery.KeyP
 func (st *BakeryConfigState) GetLocalUsersThirdPartyKey(ctx context.Context) (*bakery.KeyPair, error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	loadKeyStmt, err := st.Prepare("SELECT &LocalUsersThirdPartyKeyPair.* FROM bakery_config", LocalUsersThirdPartyKeyPair{})
 	if err != nil {
-		return nil, errors.Annotatef(err, "preparing local users third party key statement")
+		return nil, errors.Errorf("preparing local users third party key statement: %w", err)
 	}
 
 	var keyPair LocalUsersThirdPartyKeyPair
@@ -120,7 +120,7 @@ func (st *BakeryConfigState) GetLocalUsersThirdPartyKey(ctx context.Context) (*b
 	})
 
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	return &bakery.KeyPair{
@@ -133,12 +133,12 @@ func (st *BakeryConfigState) GetLocalUsersThirdPartyKey(ctx context.Context) (*b
 func (st *BakeryConfigState) GetExternalUsersThirdPartyKey(ctx context.Context) (*bakery.KeyPair, error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	loadKeyStmt, err := st.Prepare("SELECT &ExternalUsersThirdPartyKeyPair.* FROM bakery_config", ExternalUsersThirdPartyKeyPair{})
 	if err != nil {
-		return nil, errors.Annotatef(err, "preparing external users third party key statement")
+		return nil, errors.Errorf("preparing external users third party key statement: %w", err)
 	}
 
 	var keyPair ExternalUsersThirdPartyKeyPair
@@ -151,7 +151,7 @@ func (st *BakeryConfigState) GetExternalUsersThirdPartyKey(ctx context.Context) 
 	})
 
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	return &bakery.KeyPair{
@@ -164,12 +164,12 @@ func (st *BakeryConfigState) GetExternalUsersThirdPartyKey(ctx context.Context) 
 func (st *BakeryConfigState) GetOffersThirdPartyKey(ctx context.Context) (*bakery.KeyPair, error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	loadKeyStmt, err := st.Prepare("SELECT &OffersThirdPartyKeyPair.* FROM bakery_config", OffersThirdPartyKeyPair{})
 	if err != nil {
-		return nil, errors.Annotatef(err, "preparing offers third party key statement")
+		return nil, errors.Errorf("preparing offers third party key statement: %w", err)
 	}
 
 	var keyPair OffersThirdPartyKeyPair
@@ -181,7 +181,7 @@ func (st *BakeryConfigState) GetOffersThirdPartyKey(ctx context.Context) (*baker
 		return err
 	})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	return &bakery.KeyPair{

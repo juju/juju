@@ -5,7 +5,6 @@ package modelmigration
 
 import (
 	"context"
-	"errors"
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
@@ -14,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/cloudimagemetadata"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 

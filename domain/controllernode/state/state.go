@@ -5,15 +5,14 @@ package state
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // State represents database interactions dealing with controller nodes.
@@ -34,7 +33,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 func (st *State) CurateNodes(ctx context.Context, insert, delete []string) error {
 	db, err := st.DB()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	// Single dbControllerNode object created here and reused.
@@ -45,34 +44,36 @@ func (st *State) CurateNodes(ctx context.Context, insert, delete []string) error
 INSERT INTO controller_node (controller_id)
 VALUES      ($dbControllerNode.*)`, controllerNode)
 	if err != nil {
-		return errors.Annotate(err, "preparing insert controller node statement")
+		return errors.Errorf("preparing insert controller node statement: %w", err)
 	}
 	deleteStmt, err := st.Prepare(`
 DELETE FROM controller_node 
 WHERE       controller_id = $dbControllerNode.controller_id`, controllerNode)
 	if err != nil {
-		return errors.Annotate(err, "preparing delete controller node statement")
+		return errors.Errorf("preparing delete controller node statement: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		for _, cID := range insert {
 			controllerNode.ControllerID = cID
 			if err := tx.Query(ctx, insertStmt, controllerNode).Run(); err != nil {
-				return errors.Annotatef(err, "inserting controller node %q", cID)
+				return errors.Errorf("inserting controller node %q: %w", cID, err)
 			}
 		}
 
 		for _, cID := range delete {
 			controllerNode.ControllerID = cID
 			if err := tx.Query(ctx, deleteStmt, controllerNode).Run(); err != nil {
-				return errors.Annotatef(err, "deleting controller node %q", cID)
+				return errors.Errorf("deleting controller node %q: %w", cID, err)
 			}
 		}
 
 		return nil
 	})
-
-	return errors.Annotate(err, "curating controller nodes")
+	if err != nil {
+		return errors.Errorf("curating controller nodes: %w", err)
+	}
+	return nil
 }
 
 // UpdateDqliteNode sets the Dqlite node ID and bind address for the input
@@ -80,7 +81,7 @@ WHERE       controller_id = $dbControllerNode.controller_id`, controllerNode)
 func (st *State) UpdateDqliteNode(ctx context.Context, controllerID string, nodeID uint64, addr string) error {
 	db, err := st.DB()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	// uint64 values with the high bit set cause the driver to throw an error,
@@ -102,13 +103,14 @@ WHERE  controller_id = $dbControllerNode.controller_id
 AND    (dqlite_node_id != $dbControllerNode.dqlite_node_id OR bind_address != $dbControllerNode.bind_address)`
 	stmt, err := st.Prepare(q, controllerNode)
 	if err != nil {
-		return errors.Annotate(err, "preparing update controller node statement")
+		return errors.Errorf("preparing update controller node statement: %w", err)
 	}
 
-	return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, controllerNode).Run()
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}))
+
 }
 
 // SelectDatabaseNamespace is responsible for selecting and returning the
@@ -117,7 +119,7 @@ AND    (dqlite_node_id != $dbControllerNode.dqlite_node_id OR bind_address != $d
 func (st *State) SelectDatabaseNamespace(ctx context.Context, namespace string) (string, error) {
 	db, err := st.DB()
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Capture(err)
 	}
 
 	dbNamespace := dbNamespace{Namespace: namespace}
@@ -126,20 +128,20 @@ func (st *State) SelectDatabaseNamespace(ctx context.Context, namespace string) 
 SELECT &dbNamespace.* from namespace_list 
 WHERE  namespace = $dbNamespace.namespace`, dbNamespace)
 	if err != nil {
-		return "", fmt.Errorf("preparing select namespace statement")
+		return "", errors.Errorf("preparing select namespace statement")
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, db *sqlair.TX) error {
 		err := db.Query(ctx, stmt, dbNamespace).Get(&dbNamespace)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("namespace %q %w", namespace, controllernodeerrors.NotFound)
+			return errors.Errorf("namespace %q %w", namespace, controllernodeerrors.NotFound)
 		} else if err != nil {
-			return fmt.Errorf("selecting namespace %q: %w", namespace, err)
+			return errors.Errorf("selecting namespace %q: %w", namespace, err)
 		}
 		return nil
 	})
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Capture(err)
 	}
 
 	return namespace, nil

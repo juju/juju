@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/domain/machine/state"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -65,7 +65,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		// We need skeleton machines in dqlite.
 		machineUUID, err := i.service.CreateMachine(ctx, machine.Name(m.Id()))
 		if err != nil {
-			return errors.Annotatef(err, "importing machine %q", m.Id())
+			return errors.Errorf("importing machine %q: %w", m.Id(), err)
 		}
 
 		// Import the machine's cloud instance.
@@ -91,7 +91,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 				cloudInstance.DisplayName(),
 				hardwareCharacteristics,
 			); err != nil {
-				return errors.Annotatef(err, "importing machine cloud instance %q", m.Id())
+				return errors.Errorf("importing machine cloud instance %q: %w", m.Id(), err)
 			}
 		}
 	}

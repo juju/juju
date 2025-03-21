@@ -10,8 +10,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
-	jujuerrors "github.com/juju/errors"
-
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
 	corestorage "github.com/juju/juju/core/storage"
@@ -544,7 +542,7 @@ WHERE  uuid = $storageInstance.uuid
 `
 	queryStmt, err := st.Prepare(query, inst)
 	if err != nil {
-		return storageInstance{}, jujuerrors.Trace(err)
+		return storageInstance{}, errors.Capture(err)
 	}
 
 	err = tx.Query(ctx, queryStmt, inst).Get(&inst)
@@ -581,7 +579,7 @@ AND    cs.name = $appCharmStorage.name
 		return result, charmStorageNotFound
 	}
 	if err != nil {
-		return result, fmt.Errorf("failed to select charm storage: %w", err)
+		return result, errors.Errorf("failed to select charm storage: %w", err)
 	}
 
 	return result, nil
@@ -605,7 +603,7 @@ AND    cs.name = $unitCharmStorage.name
 	}
 
 	if err := tx.Query(ctx, stmt, storageSpec).Get(&result); err != nil {
-		return result, fmt.Errorf("failed to select charm storage: %w", err)
+		return result, errors.Errorf("failed to select charm storage: %w", err)
 	}
 
 	return result, nil

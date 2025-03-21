@@ -6,7 +6,6 @@ package domain
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/watcher/eventsource"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/errors"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 

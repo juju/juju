@@ -4,8 +4,7 @@
 package storage
 
 import (
-	"github.com/juju/errors"
-
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 )
@@ -43,7 +42,7 @@ var (
 func BuiltInStoragePools() ([]StoragePoolDetails, error) {
 	providerTypes, err := provider.CommonStorageProviders().StorageProviderTypes()
 	if err != nil {
-		return nil, errors.Annotate(err, "getting built in storage provider types")
+		return nil, errors.Errorf("getting built in storage provider types: %w", err)
 	}
 	result := make([]StoragePoolDetails, len(providerTypes))
 	for i, pType := range providerTypes {
@@ -61,12 +60,12 @@ func DefaultStoragePools(registry storage.ProviderRegistry) ([]*storage.Config, 
 	var result []*storage.Config
 	providerTypes, err := registry.StorageProviderTypes()
 	if err != nil {
-		return nil, errors.Annotate(err, "getting storage provider types")
+		return nil, errors.Errorf("getting storage provider types: %w", err)
 	}
 	for _, providerType := range providerTypes {
 		p, err := registry.StorageProvider(providerType)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		result = append(result, p.DefaultPools()...)
 	}

@@ -6,12 +6,11 @@ package modelmigration
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/errors"
 
 	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
 )
 
 func (e *exportOperation) exportCharm(ctx context.Context, app description.Application, charm internalcharm.Charm) error {
@@ -19,28 +18,28 @@ func (e *exportOperation) exportCharm(ctx context.Context, app description.Appli
 	if profiler, ok := charm.(internalcharm.LXDProfiler); ok {
 		var err error
 		if lxdProfile, err = e.exportLXDProfile(profiler.LXDProfile()); err != nil {
-			return fmt.Errorf("cannot export LXD profile: %v", err)
+			return errors.Errorf("cannot export LXD profile: %v", err)
 		}
 	}
 
 	metadata, err := e.exportCharmMetadata(charm.Meta(), lxdProfile)
 	if err != nil {
-		return fmt.Errorf("cannot export charm metadata: %v", err)
+		return errors.Errorf("cannot export charm metadata: %v", err)
 	}
 
 	manifest, err := e.exportCharmManifest(charm.Manifest())
 	if err != nil {
-		return fmt.Errorf("cannot export charm manifest: %v", err)
+		return errors.Errorf("cannot export charm manifest: %v", err)
 	}
 
 	config, err := e.exportCharmConfig(charm.Config())
 	if err != nil {
-		return fmt.Errorf("cannot export charm config: %v", err)
+		return errors.Errorf("cannot export charm config: %v", err)
 	}
 
 	actions, err := e.exportCharmActions(charm.Actions())
 	if err != nil {
-		return fmt.Errorf("cannot export charm actions: %v", err)
+		return errors.Errorf("cannot export charm actions: %v", err)
 	}
 
 	app.SetCharmMetadata(metadata)
@@ -63,50 +62,50 @@ func (e *exportOperation) exportCharmMetadata(metadata *internalcharm.Meta, lxdP
 		var err error
 		assumesBytes, err = json.Marshal(expr)
 		if err != nil {
-			return description.CharmMetadataArgs{}, fmt.Errorf("cannot marshal assumes: %v", err)
+			return description.CharmMetadataArgs{}, errors.Errorf("cannot marshal assumes: %v", err)
 		}
 	}
 
 	runAs, err := exportCharmUser(metadata.CharmUser)
 	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
+		return description.CharmMetadataArgs{}, errors.Capture(err)
 	}
 
 	provides, err := exportRelations(metadata.Provides)
 	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
+		return description.CharmMetadataArgs{}, errors.Capture(err)
 	}
 
 	requires, err := exportRelations(metadata.Requires)
 	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
+		return description.CharmMetadataArgs{}, errors.Capture(err)
 	}
 
 	peers, err := exportRelations(metadata.Peers)
 	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
+		return description.CharmMetadataArgs{}, errors.Capture(err)
 	}
 
 	extraBindings := exportExtraBindings(metadata.ExtraBindings)
 
 	storage, err := exportStorage(metadata.Storage)
 	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
+		return description.CharmMetadataArgs{}, errors.Capture(err)
 	}
 
 	devices, err := exportDevices(metadata.Devices)
 	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
+		return description.CharmMetadataArgs{}, errors.Capture(err)
 	}
 
 	containers, err := exportContainers(metadata.Containers)
 	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
+		return description.CharmMetadataArgs{}, errors.Capture(err)
 	}
 
 	resources, err := exportResources(metadata.Resources)
 	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Trace(err)
+		return description.CharmMetadataArgs{}, errors.Capture(err)
 	}
 
 	return description.CharmMetadataArgs{
@@ -142,7 +141,7 @@ func (e *exportOperation) exportLXDProfile(profile *internalcharm.LXDProfile) (s
 	// YAML.
 	data, err := json.Marshal(profile)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Capture(err)
 	}
 
 	return string(data), nil
@@ -155,7 +154,7 @@ func (e *exportOperation) exportCharmManifest(manifest *internalcharm.Manifest) 
 
 	bases, err := exportManifestBases(manifest.Bases)
 	if err != nil {
-		return description.CharmManifestArgs{}, errors.Trace(err)
+		return description.CharmManifestArgs{}, errors.Capture(err)
 	}
 
 	return description.CharmManifestArgs{

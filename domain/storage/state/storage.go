@@ -5,10 +5,10 @@ package state
 
 import (
 	"context"
-	"errors"
 
 	"github.com/juju/juju/core/storage"
 	domainstorage "github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/internal/errors"
 )
 
 func (s State) GetModelDetails() (domainstorage.ModelDetails, error) {

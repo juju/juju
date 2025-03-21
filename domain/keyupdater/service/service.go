@@ -128,7 +128,7 @@ func NewWatchableService(
 
 // GetAuthorisedKeysForMachine is responsible for fetching the authorised keys
 // that should be available on a machine. The following errors can be expected:
-// - [github.com/juju/errors.NotValid] if the machine id is not valid.
+// - [github.com/juju/juju/core/errors.NotValid] if the machine id is not valid.
 // - [github.com/juju/juju/domain/machine/errors.NotFound] if the machine does
 // not exist.
 func (s *Service) GetAuthorisedKeysForMachine(
@@ -183,7 +183,7 @@ func (s *Service) GetAuthorisedKeysForMachine(
 
 // WatchAuthorisedKeysForMachine will watch for authorised key changes for a
 // give machine name. The following errors can be expected:
-// - [github.com/juju/errors.NotValid] if the machine id is not valid.
+// - [github.com/juju/juju/core/errors.NotValid] if the machine id is not valid.
 // - [machineerrors.MachineNotFound] if no machine exists for the provided name.
 func (s *WatchableService) WatchAuthorisedKeysForMachine(
 	ctx context.Context,

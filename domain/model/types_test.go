@@ -4,13 +4,13 @@
 package model
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -46,7 +46,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				Name:        "",
 				Owner:       userUUID,
 			},
-			ErrTest: errors.NotValid,
+			ErrTest: coreerrors.NotValid,
 		},
 		{
 			Name: "Test invalid owner",
@@ -56,7 +56,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				Name:        "my-awesome-model",
 				Owner:       "",
 			},
-			ErrTest: errors.NotValid,
+			ErrTest: coreerrors.NotValid,
 		},
 		{
 			Name: "Test invalid cloud",
@@ -66,7 +66,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				Name:        "my-awesome-model",
 				Owner:       userUUID,
 			},
-			ErrTest: errors.NotValid,
+			ErrTest: coreerrors.NotValid,
 		},
 		{
 			Name: "Test invalid cloud region",
@@ -89,7 +89,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				Name:  "my-awesome-model",
 				Owner: userUUID,
 			},
-			ErrTest: errors.NotValid,
+			ErrTest: coreerrors.NotValid,
 		},
 		{
 			Name: "Test happy path without credential key",
@@ -173,7 +173,7 @@ func (*typesSuite) TestModelImportArgsValidation(c *gc.C) {
 				},
 				ID: "not valid",
 			},
-			ErrTest: errors.NotValid,
+			ErrTest: coreerrors.NotValid,
 		},
 	}
 

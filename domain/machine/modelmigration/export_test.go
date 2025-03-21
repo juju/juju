@@ -5,7 +5,6 @@ package modelmigration
 
 import (
 	"context"
-	"errors"
 
 	"github.com/juju/description/v9"
 	jc "github.com/juju/testing/checkers"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 

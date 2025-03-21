@@ -5,12 +5,10 @@ package service
 
 import (
 	"context"
-	"fmt"
-
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
@@ -20,7 +18,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
-	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // UnitState describes retrieval and persistence methods for
@@ -149,7 +147,7 @@ func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg
 func (s *Service) SetUnitPassword(ctx context.Context, unitName coreunit.Name, password string) error {
 	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	return s.st.SetUnitPassword(ctx, unitUUID, application.PasswordInfo{
 		PasswordHash:  password,
@@ -164,25 +162,25 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName coreunit.Name, p
 // [applicationerrors.UnitAlreadyExists] is returned.
 func (s *Service) RegisterCAASUnit(ctx context.Context, appName string, args application.RegisterCAASUnitArg) error {
 	if args.PasswordHash == "" {
-		return errors.NotValidf("password hash")
+		return errors.Errorf("password hash %w", coreerrors.NotValid)
 	}
 	if args.ProviderID == "" {
-		return errors.NotValidf("provider id")
+		return errors.Errorf("provider id %w", coreerrors.NotValid)
 	}
 	if !args.OrderedScale {
-		return errors.NewNotImplemented(nil, "registering CAAS units not supported without ordered unit IDs")
+		return errors.Errorf("registering CAAS units not supported without ordered unit IDs").Add(coreerrors.NotImplemented)
 	}
 	if args.UnitName == "" {
-		return errors.NotValidf("missing unit name")
+		return errors.Errorf("missing unit name %w", coreerrors.NotValid)
 	}
 
 	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
-		return internalerrors.Errorf("getting application ID: %w", err)
+		return errors.Errorf("getting application ID: %w", err)
 	}
 	err = s.st.RegisterCAASUnit(ctx, appUUID, args)
 	if err != nil {
-		return internalerrors.Errorf("saving caas unit %q: %w", args.UnitName, err)
+		return errors.Errorf("saving caas unit %q: %w", args.UnitName, err)
 	}
 	return nil
 }
@@ -194,23 +192,23 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 	appName := unitName.Application()
 	_, appLife, err := s.st.GetApplicationLife(ctx, appName)
 	if err != nil {
-		return internalerrors.Errorf("getting application %q life: %w", appName, err)
+		return errors.Errorf("getting application %q life: %w", appName, err)
 	}
 	if appLife != life.Alive {
-		return internalerrors.Errorf("application %q is not alive%w", appName, errors.Hide(applicationerrors.ApplicationNotAlive))
+		return errors.Errorf("application %q is not alive", appName).Add(applicationerrors.ApplicationNotAlive)
 	}
 
 	agentStatus, err := encodeUnitAgentStatus(params.AgentStatus)
 	if err != nil {
-		return internalerrors.Errorf("encoding agent status: %w", err)
+		return errors.Errorf("encoding agent status: %w", err)
 	}
 	workloadStatus, err := encodeWorkloadStatus(params.WorkloadStatus)
 	if err != nil {
-		return internalerrors.Errorf("encoding workload status: %w", err)
+		return errors.Errorf("encoding workload status: %w", err)
 	}
 	cloudContainerStatus, err := encodeCloudContainerStatus(params.CloudContainerStatus)
 	if err != nil {
-		return internalerrors.Errorf("encoding cloud container status: %w", err)
+		return errors.Errorf("encoding cloud container status: %w", err)
 	}
 
 	cassUnitUpdate := application.UpdateCAASUnitParams{
@@ -223,7 +221,7 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 	}
 
 	if err := s.st.UpdateCAASUnit(ctx, unitName, cassUnitUpdate); err != nil {
-		return internalerrors.Errorf("updating caas unit %q: %w", unitName, err)
+		return errors.Errorf("updating caas unit %q: %w", unitName, err)
 	}
 	return nil
 }
@@ -239,14 +237,14 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 func (s *Service) RemoveUnit(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error {
 	unitLife, err := s.st.GetUnitLife(ctx, unitName)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	if unitLife == life.Alive {
-		return fmt.Errorf("cannot remove unit %q: %w", unitName, applicationerrors.UnitIsAlive)
+		return errors.Errorf("cannot remove unit %q: %w", unitName, applicationerrors.UnitIsAlive)
 	}
 	_, err = s.st.DeleteUnit(ctx, unitName)
 	if err != nil {
-		return errors.Annotatef(err, "removing unit %q", unitName)
+		return errors.Errorf("removing unit %q: %w", unitName, err)
 	}
 	appName := unitName.Application()
 	if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
@@ -262,7 +260,7 @@ func (s *Service) DestroyUnit(ctx context.Context, unitName coreunit.Name) error
 	// For now, all we do is advance the unit's life to Dying.
 	err := s.st.SetUnitLife(ctx, unitName, life.Dying)
 	if err != nil {
-		return internalerrors.Errorf("destroying unit %q: %w", unitName, err)
+		return errors.Errorf("destroying unit %q: %w", unitName, err)
 	}
 	return nil
 }
@@ -278,7 +276,7 @@ func (s *Service) DestroyUnit(ctx context.Context, unitName coreunit.Name) error
 func (s *Service) EnsureUnitDead(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error {
 	unitLife, err := s.st.GetUnitLife(ctx, unitName)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	if unitLife == life.Dead {
 		return nil
@@ -287,7 +285,7 @@ func (s *Service) EnsureUnitDead(ctx context.Context, unitName coreunit.Name, le
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return nil
 	} else if err != nil {
-		return errors.Annotatef(err, "marking unit %q is dead", unitName)
+		return errors.Errorf("marking unit %q is dead: %w", unitName, err)
 	}
 	appName := unitName.Application()
 	if err := leadershipRevoker.RevokeLeadership(appName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
@@ -301,7 +299,7 @@ func (s *Service) EnsureUnitDead(ctx context.Context, unitName coreunit.Name, le
 func (s *Service) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error) {
 	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
-		return "", internalerrors.Errorf("getting UUID of unit %q: %w", unitName, err)
+		return "", errors.Errorf("getting UUID of unit %q: %w", unitName, err)
 	}
 	return unitUUID, nil
 }
@@ -311,7 +309,7 @@ func (s *Service) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (core
 func (s *Service) GetUnitLife(ctx context.Context, unitName coreunit.Name) (corelife.Value, error) {
 	unitLife, err := s.st.GetUnitLife(ctx, unitName)
 	if err != nil {
-		return "", internalerrors.Errorf("getting life for %q: %w", unitName, err)
+		return "", errors.Errorf("getting life for %q: %w", unitName, err)
 	}
 	return unitLife.Value(), nil
 }
@@ -326,7 +324,7 @@ func (s *Service) DeleteUnit(ctx context.Context, unitName coreunit.Name) error 
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return nil
 	} else if err != nil {
-		return errors.Annotatef(err, "deleting unit %q", unitName)
+		return errors.Errorf("deleting unit %q: %w", unitName, err)
 	}
 	if isLast {
 		// TODO(units): schedule application cleanup
@@ -351,15 +349,15 @@ func (s *Service) CAASUnitTerminating(ctx context.Context, appName string, unitN
 		caasApp := broker.Application(appName, caas.DeploymentStateful)
 		appState, err := caasApp.State()
 		if err != nil {
-			return false, errors.Trace(err)
+			return false, errors.Capture(err)
 		}
 		appID, err := s.st.GetApplicationIDByName(ctx, appName)
 		if err != nil {
-			return false, errors.Trace(err)
+			return false, errors.Capture(err)
 		}
 		scaleInfo, err := s.st.GetApplicationScaleState(ctx, appID)
 		if err != nil {
-			return false, errors.Trace(err)
+			return false, errors.Capture(err)
 		}
 		if unitNum >= scaleInfo.Scale || unitNum >= appState.DesiredReplicas {
 			restart = false
@@ -368,7 +366,7 @@ func (s *Service) CAASUnitTerminating(ctx context.Context, appName string, unitN
 		// Both handled the same way.
 		restart = true
 	default:
-		return false, errors.NotSupportedf("unknown deployment type")
+		return false, errors.Errorf("unknown deployment type %w", coreerrors.NotSupported)
 	}
 	return restart, nil
 }
