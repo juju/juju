@@ -42,6 +42,12 @@ const (
 	NoFallback FallbackStrategy = "none"
 )
 
+// RemoteRetriever is the interface for retrieving objects from a remote source.
+type RemoteRetriever interface {
+	// Get retrieves the object from the remote source.
+	Get(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error)
+}
+
 // FileObjectStoreConfig is the configuration for the file object store.
 type FileObjectStoreConfig struct {
 	// RootDir is the root directory for the file object store.
@@ -52,18 +58,22 @@ type FileObjectStoreConfig struct {
 	// MetadataService is the metadata service for translating paths to
 	// hashes.
 	MetadataService objectstore.ObjectStoreMetadata
+	// RemoteRetriever is the remote retriever for the file object store.
+	RemoteRetriever RemoteRetriever
 	// Claimer is the claimer for the file object store.
 	Claimer Claimer
-
+	// Logger is the logger for the file object store.
 	Logger logger.Logger
-	Clock  clock.Clock
+	// Clock is the clock for the file object store.
+	Clock clock.Clock
 }
 
 type fileObjectStore struct {
 	baseObjectStore
-	fs        fs.FS
-	namespace string
-	requests  chan request
+	fs              fs.FS
+	remoteRetriever RemoteRetriever
+	namespace       string
+	requests        chan request
 }
 
 // NewFileObjectStore returns a new object store worker based on the file
@@ -79,8 +89,9 @@ func NewFileObjectStore(cfg FileObjectStoreConfig) (TrackedObjectStore, error) {
 			logger:          cfg.Logger,
 			clock:           cfg.Clock,
 		},
-		fs:        os.DirFS(path),
-		namespace: cfg.Namespace,
+		fs:              os.DirFS(path),
+		remoteRetriever: cfg.RemoteRetriever,
+		namespace:       cfg.Namespace,
 
 		requests: make(chan request),
 	}
@@ -466,9 +477,13 @@ func (t *fileObjectStore) getWithMetadata(ctx context.Context, metadata objectst
 
 	file, err := t.fs.Open(hash)
 	if errors.Is(err, os.ErrNotExist) {
+		// If the file doesn't exist locally, attempt to retrieve it from a
+		// remote source if we have the correct fallback strategy.
 		if fallbackStrategy == RemoteFallback {
-			// TODO (stickupkid): Implement remote fallback.
+			return t.remoteGetWithMetadata(ctx, metadata)
 		}
+
+		// No fallback strategy, and the file doesn't exist locally.
 		return nil, -1, objectstoreerrors.ObjectNotFound
 	} else if err != nil {
 		return nil, -1, errors.Errorf("opening file %q encoded as %q: %w", metadata.Path, hash, err)
@@ -486,6 +501,65 @@ func (t *fileObjectStore) getWithMetadata(ctx context.Context, metadata objectst
 		return nil, -1, errors.Errorf("size mismatch for %q: expected %d, got %d", metadata.Path, metadata.Size, size)
 	}
 
+	return file, size, nil
+}
+
+func (t *fileObjectStore) remoteGetWithMetadata(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
+	// Retrieve the file from the remote source.
+	reader, size, err := t.remoteRetriever.Get(ctx, metadata)
+	if err != nil {
+		return nil, -1, errors.Errorf("remote get: %w", err)
+	} else if size != metadata.Size {
+		return nil, -1, errors.Errorf("size mismatch for %q: expected %d, got %d", metadata.Path, metadata.Size, size)
+	}
+
+	// Write the file to the local file system, so that we can retrieve it
+	// locally next time.
+
+	// We only need one hash, apposed to the two, is that we've already computed
+	// this once before, so we just need to verify that we're reading what we
+	// previously wrote.
+	hash384 := sha512.New384()
+
+	// We need to write this to a temp file, because if the client retries
+	// then we need seek back to the beginning of the file.
+	tmpFileName, tmpFileCleanup, err := t.writeToTmpFile(t.path, io.TeeReader(reader, hash384), size)
+	if err != nil {
+		return nil, -1, errors.Capture(err)
+	}
+
+	// Ensure that we remove the temporary file if we fail to persist it.
+	defer func() { _ = tmpFileCleanup() }()
+
+	encoded384 := hex.EncodeToString(hash384.Sum(nil))
+
+	if encoded384 != metadata.SHA384 {
+		return nil, -1, errors.Errorf("hash mismatch for %q: expected %q, got %q: %w", metadata.Path, metadata.SHA256, encoded384, objectstore.ErrHashMismatch)
+	}
+
+	// Lock the file with the given hash, so that we can't remove the file
+	// while we're writing it.
+	if err := t.withLock(ctx, encoded384, func(ctx context.Context) error {
+		// Persist the temporary file to the final location.
+		if err := t.persistTmpFile(ctx, tmpFileName, encoded384, size); err != nil {
+			return errors.Capture(err)
+		}
+
+		// If we've successfully written the file to the local file system, clean
+		// up the temporary file as we no longer need it.
+		_ = tmpFileCleanup()
+
+		return nil
+	}); err != nil {
+		return nil, -1, errors.Capture(err)
+	}
+
+	// Open the file so we can send it back to the client.
+	filePath := t.filePath(encoded384)
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, -1, errors.Errorf("opening persisted remote file %q: %w", filePath, err)
+	}
 	return file, size, nil
 }
 
