@@ -146,11 +146,13 @@ run_deploy_exported_charmhub_bundle_with_fixed_revisions() {
 	# no need to wait for the bundle to finish deploying to
 	# check the export.
 	echo "Compare export-bundle with telegraf_bundle"
-	juju export-bundle --filename "${TEST_DIR}/exported_bundle.yaml"
-	# Sort keys in both yaml files to get a fair comparison.
-	yq -i 'sort_keys(..)' "${TEST_DIR}/telegraf_bundle.yaml"
-	yq -i 'sort_keys(..)' "${TEST_DIR}/exported_bundle.yaml"
-	diff -u "${TEST_DIR}/telegraf_bundle.yaml" "${TEST_DIR}/exported_bundle.yaml"
+
+# TODO(gfouillet) - recover from 3.6, delete whenever export bundle is restored or deleted
+    got=$(juju export-bundle 2>&1 1>/dev/null)
+    if [[ "$got" != *"not implemented"* ]]; then
+        echo "ERROR: export-bundle should return 'not implemented'."
+        exit 1
+    fi
 
 	destroy_model "test-export-bundles-deploy-with-fixed-revisions"
 }
@@ -221,11 +223,13 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 	# The model should be updated immediately, so we can export the bundle before
 	# everything is done deploying
 	echo "Compare export-bundle with telegraf_bundle_with_revisions"
-	juju export-bundle --filename "${TEST_DIR}/exported_bundle.yaml"
-	# Sort keys in both yaml files to get a fair comparison.
-	yq -i 'sort_keys(..)' "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
-	yq -i 'sort_keys(..)' "${TEST_DIR}/exported_bundle.yaml"
-	diff -u "${TEST_DIR}/telegraf_bundle_with_revisions.yaml" "${TEST_DIR}/exported_bundle.yaml"
+
+# TODO(gfouillet) - recover from 3.6, delete whenever export bundle is restored or deleted
+    got=$(juju export-bundle 2>&1 1>/dev/null)
+    if [[ "$got" != *"not implemented"* ]]; then
+        echo "ERROR: export-bundle should return 'not implemented'."
+        exit 1
+    fi
 
 	destroy_model "test-export-bundles-deploy-with-float-revisions"
 }

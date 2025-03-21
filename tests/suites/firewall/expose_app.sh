@@ -66,31 +66,15 @@ assert_ingress_cidrs_for_exposed_app() {
 }
 
 assert_export_bundle_output_includes_exposed_endpoints() {
+
 	echo "==> Checking that export-bundle output contains the exposed endpoint settings"
 
-	got=$(juju export-bundle | sed -n '/---/,$p' | tail +1)
-	exp=$(
-		cat <<-EOF
-			--- # overlay.yaml
-			applications:
-			  ubuntu-lite:
-			    exposed-endpoints:
-			      "":
-			        expose-to-cidrs:
-			        - 10.0.0.0/24
-			        - 192.168.0.0/24
-			      ubuntu:
-			        expose-to-cidrs:
-			        - 10.42.0.0/16
-			        - 2002:0:0:1234::/64
-		EOF
-	)
-
-	if [ "$got" != "$exp" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "expected exported bundle to be:\n${exp}\nGOT:\n${got}")
-		exit 1
-	fi
+# TODO(gfouillet) - recover from 3.6, delete whenever export bundle is restored or deleted
+    got=$(juju export-bundle 2>&1 1>/dev/null)
+    if [[ "$got" != *"not implemented"* ]]; then
+        echo "ERROR: export-bundle should return 'not implemented'."
+        exit 1
+    fi
 }
 
 test_expose_app_ec2() {

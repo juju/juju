@@ -8,31 +8,20 @@ run_cmr_bundles_export_overlay() {
 	juju add-user bar
 	juju deploy ./tests/suites/deploy/bundles/bundle-with-overlays/easyrsa.yaml
 
-	OUT=$(juju export-bundle 2>&1)
-	echo "${OUT}"
-
-	# ensure that overlay.yaml is exported
-	echo "${OUT}" | grep -- "--- # overlay.yaml"
-
-	juju add-model test1
-
-	echo -n 'my-include' >example.log
-	cat >overlay.yaml <<EOT
-applications:
-  etcd:
-    annotations:
-      raw: include-file://example.log
-      enc: include-base64://example.log
-EOT
+# TODO(gfouillet) - recover from 3.6, delete whenever export bundle is restored or deleted
+    got=$(juju export-bundle 2>&1 1>/dev/null)
+    if [[ "$got" != *"not implemented"* ]]; then
+        echo "ERROR: export-bundle should return 'not implemented'."
+        exit 1
+    fi
 
 	juju deploy ./tests/suites/deploy/bundles/bundle-with-overlays/easyrsa-etcd.yaml --overlay overlay.yaml
-	OUT=$(juju export-bundle 2>&1)
-	echo "${OUT}"
-
-	# did the annotations and overlay get exported?
-	echo "${OUT}" | grep -- "--- # overlay.yaml"
-	echo "${OUT}" | check "enc: bXktaW5jbHVkZQ=="
-	echo "${OUT}" | check "raw: my-include"
+# TODO(gfouillet) - recover from 3.6, delete whenever export bundle is restored or deleted
+    got=$(juju export-bundle 2>&1 1>/dev/null)
+    if [[ "$got" != *"not implemented"* ]]; then
+        echo "ERROR: export-bundle should return 'not implemented'."
+        exit 1
+    fi
 
 	destroy_model "cmr-bundles-test-export-overlay"
 	destroy_model "test1"
