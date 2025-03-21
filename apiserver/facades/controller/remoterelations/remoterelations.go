@@ -20,7 +20,6 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/watcher"
 )
 
 // ExternalControllerService provides a subset of the external controller domain
@@ -283,7 +282,7 @@ func (api *API) WatchLocalRelationChanges(ctx context.Context, args params.Entit
 		}
 		change, ok := <-w.Changes()
 		if !ok {
-			return nil, empty, watcher.EnsureErr(w)
+			return nil, empty, errors.New("relation units watcher closed channel")
 		}
 		fullChange, err := commoncrossmodel.ExpandChange(api.st, relationToken, appToken, change)
 		if err != nil {

@@ -385,7 +385,7 @@ func (api *CrossModelRelationsAPIv3) WatchRelationChanges(ctx context.Context, r
 		}
 		change, ok := <-w.Changes()
 		if !ok {
-			return nil, empty, watcher.EnsureErr(w)
+			return nil, empty, errors.New("relation units watcher closed channel")
 		}
 		fullChange, err := commoncrossmodel.ExpandChange(api.st, relationToken, offerToken, change)
 		if err != nil {
