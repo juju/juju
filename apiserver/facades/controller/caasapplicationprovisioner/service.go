@@ -100,5 +100,5 @@ type StatusService interface {
 	// SetApplicationStatus saves the given application status, overwriting any
 	// current status data. If returns an error satisfying
 	// [statuserrors.ApplicationNotFound] if the application doesn't exist.
-	SetApplicationStatus(context.Context, coreapplication.ID, *status.StatusInfo) error
+	SetApplicationStatus(context.Context, string, *status.StatusInfo) error
 }

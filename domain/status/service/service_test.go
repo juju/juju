@@ -40,6 +40,7 @@ func (s *serviceSuite) TestSetApplicationStatus(c *gc.C) {
 	now := time.Now()
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return(applicationUUID, nil)
 	s.state.EXPECT().SetApplicationStatus(gomock.Any(), applicationUUID, &status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "doink",
@@ -47,7 +48,7 @@ func (s *serviceSuite) TestSetApplicationStatus(c *gc.C) {
 		Since:   &now,
 	})
 
-	err := s.service.SetApplicationStatus(context.Background(), applicationUUID, &corestatus.StatusInfo{
+	err := s.service.SetApplicationStatus(context.Background(), "gitlab", &corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -66,16 +67,26 @@ func (s *serviceSuite) TestSetApplicationStatus(c *gc.C) {
 	}})
 }
 
+func (s *serviceSuite) TestSetApplicationStatusNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return("", statuserrors.ApplicationNotFound)
+
+	err := s.service.SetApplicationStatus(context.Background(), "gitlab", &corestatus.StatusInfo{
+		Status: corestatus.Active,
+	})
+	c.Assert(err, jc.ErrorIs, statuserrors.ApplicationNotFound)
+}
+
 func (s *serviceSuite) TestSetApplicationStatusInvalidStatus(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	applicationUUID := applicationtesting.GenApplicationUUID(c)
-	err := s.service.SetApplicationStatus(context.Background(), applicationUUID, &corestatus.StatusInfo{
+	err := s.service.SetApplicationStatus(context.Background(), "gitlab", &corestatus.StatusInfo{
 		Status: corestatus.Status("invalid"),
 	})
 	c.Assert(err, gc.ErrorMatches, `.*unknown workload status "invalid"`)
 
-	err = s.service.SetApplicationStatus(context.Background(), applicationUUID, &corestatus.StatusInfo{
+	err = s.service.SetApplicationStatus(context.Background(), "gitlab", &corestatus.StatusInfo{
 		Status: corestatus.Allocating,
 	})
 	c.Assert(err, gc.ErrorMatches, `.*unknown workload status "allocating"`)
@@ -170,12 +181,22 @@ func (s *serviceSuite) TestSetApplicationStatusForUnitLeaderNoUnitFound(c *gc.C)
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
 }
 
+func (s *serviceSuite) TestGetApplicationDisplayStatusNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return("", statuserrors.ApplicationNotFound)
+
+	_, err := s.service.GetApplicationDisplayStatus(context.Background(), "gitlab")
+	c.Assert(err, jc.ErrorIs, statuserrors.ApplicationNotFound)
+}
+
 func (s *serviceSuite) TestGetApplicationDisplayStatusApplicationStatusSet(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now()
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 	s.state.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
 		&status.StatusInfo[status.WorkloadStatusType]{
 			Status:  status.WorkloadStatusActive,
@@ -184,7 +205,7 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusApplicationStatusSet(c *gc
 			Since:   &now,
 		}, nil)
 
-	obtained, err := s.service.GetApplicationDisplayStatus(context.Background(), applicationUUID)
+	obtained, err := s.service.GetApplicationDisplayStatus(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(obtained, jc.DeepEquals, &corestatus.StatusInfo{
 		Status:  corestatus.Active,
@@ -198,6 +219,7 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusFallbackToUnitsNoUnits(c *
 	defer s.setupMocks(c).Finish()
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 	s.state.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
 		&status.StatusInfo[status.WorkloadStatusType]{
 			Status: status.WorkloadStatusUnset,
@@ -205,7 +227,7 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusFallbackToUnitsNoUnits(c *
 
 	s.state.EXPECT().GetUnitWorkloadAndCloudContainerStatusesForApplication(gomock.Any(), applicationUUID).Return(nil, nil, nil)
 
-	obtained, err := s.service.GetApplicationDisplayStatus(context.Background(), applicationUUID)
+	obtained, err := s.service.GetApplicationDisplayStatus(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(obtained, jc.DeepEquals, &corestatus.StatusInfo{
 		Status: corestatus.Unknown,
@@ -218,6 +240,7 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusFallbackToUnitsNoContainer
 	now := time.Now()
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 	s.state.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
 		&status.StatusInfo[status.WorkloadStatusType]{
 			Status: status.WorkloadStatusUnset,
@@ -246,7 +269,7 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusFallbackToUnitsNoContainer
 		},
 		status.UnitCloudContainerStatuses{}, nil)
 
-	obtained, err := s.service.GetApplicationDisplayStatus(context.Background(), applicationUUID)
+	obtained, err := s.service.GetApplicationDisplayStatus(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(obtained, jc.DeepEquals, &corestatus.StatusInfo{
 		Status:  corestatus.Active,

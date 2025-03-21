@@ -314,17 +314,16 @@ type StatusService interface {
 	// derived from the unit display statuses.
 	// If no application is found, an error satisfying [applicationerrors.ApplicationNotFound]
 	// is returned.
-	GetApplicationDisplayStatus(context.Context, coreapplication.ID) (*corestatus.StatusInfo, error)
+	GetApplicationDisplayStatus(context.Context, string) (*corestatus.StatusInfo, error)
 }
 
 // srvOfferStatusWatcher defines the API wrapping a
 // crossmodelrelations.OfferStatusWatcher.
 type srvOfferStatusWatcher struct {
 	watcherCommon
-	st                 *state.State
-	applicationService ApplicationService
-	statusService      StatusService
-	watcher            crossmodelrelations.OfferWatcher
+	st            *state.State
+	statusService StatusService
+	watcher       crossmodelrelations.OfferWatcher
 }
 
 func newOfferStatusWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
@@ -343,11 +342,10 @@ func newOfferStatusWatcher(_ context.Context, context facade.ModelContext) (faca
 		return nil, apiservererrors.ErrUnknownWatcher
 	}
 	return &srvOfferStatusWatcher{
-		watcherCommon:      newWatcherCommon(context),
-		st:                 context.State(),
-		applicationService: context.DomainServices().Application(),
-		statusService:      context.DomainServices().Status(),
-		watcher:            watcher,
+		watcherCommon: newWatcherCommon(context),
+		st:            context.State(),
+		statusService: context.DomainServices().Status(),
+		watcher:       watcher,
 	}, nil
 }
 
@@ -360,7 +358,7 @@ func (w *srvOfferStatusWatcher) Next(ctx context.Context) (params.OfferStatusWat
 		return params.OfferStatusWatchResult{}, errors.Trace(err)
 	}
 	change, err := crossmodel.GetOfferStatusChange(ctx,
-		crossmodel.GetBackend(w.st), w.applicationService, w.statusService,
+		crossmodel.GetBackend(w.st), w.statusService,
 		w.watcher.OfferUUID(), w.watcher.OfferName())
 	if err != nil {
 		// For the specific case where we are informed that a migration is

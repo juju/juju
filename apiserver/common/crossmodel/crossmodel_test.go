@@ -15,10 +15,9 @@ import (
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	mocks "github.com/juju/juju/apiserver/common/crossmodel/mocks"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	corecrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
+	statuserrors "github.com/juju/juju/domain/status/errors"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -26,7 +25,6 @@ import (
 type crossmodelSuite struct {
 	coretesting.BaseSuite
 
-	appService    *mocks.MockApplicationService
 	statusService *mocks.MockStatusService
 }
 
@@ -34,7 +32,6 @@ var _ = gc.Suite(&crossmodelSuite{})
 
 func (s *crossmodelSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.appService = mocks.NewMockApplicationService(ctrl)
 	s.statusService = mocks.NewMockStatusService(ctrl)
 	return ctrl
 }
@@ -67,7 +64,7 @@ func (s *crossmodelSuite) TestGetOfferStatusChangeOfferGoneNotMigrating(c *gc.C)
 	defer s.setupMocks(c).Finish()
 
 	st := &mockBackend{}
-	ch, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.appService, s.statusService, "uuid", "mysql")
+	ch, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.statusService, "uuid", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch, gc.DeepEquals, &params.OfferStatusChange{
 		OfferName: "mysql",
@@ -82,7 +79,7 @@ func (s *crossmodelSuite) TestGetOfferStatusChangeOfferGoneMigrating(c *gc.C) {
 		migrating: true,
 	}
 
-	_, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.appService, s.statusService, "uuid", "mysql")
+	_, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.statusService, "uuid", "mysql")
 	c.Assert(err, gc.ErrorMatches, "model is being migrated")
 }
 
@@ -92,9 +89,9 @@ func (s *crossmodelSuite) TestGetOfferStatusChangeApplicationGoneNotMigrating(c 
 	st := &mockBackend{
 		appName: "mysql-app",
 	}
-	s.appService.EXPECT().GetApplicationIDByName(gomock.Any(), "mysql-app").Return("", applicationerrors.ApplicationNotFound)
+	s.statusService.EXPECT().GetApplicationDisplayStatus(gomock.Any(), "mysql-app").Return(nil, statuserrors.ApplicationNotFound)
 
-	ch, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.appService, s.statusService, "deadbeef", "mysql")
+	ch, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.statusService, "deadbeef", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch, gc.DeepEquals, &params.OfferStatusChange{
 		OfferName: "mysql",
@@ -109,21 +106,19 @@ func (s *crossmodelSuite) TestGetOfferStatusChangeApplicationGoneMigrating(c *gc
 		migrating: true,
 		appName:   "mysql-app",
 	}
-	s.appService.EXPECT().GetApplicationIDByName(gomock.Any(), "mysql-app").Return("", applicationerrors.ApplicationNotFound)
+	s.statusService.EXPECT().GetApplicationDisplayStatus(gomock.Any(), "mysql-app").Return(nil, statuserrors.ApplicationNotFound)
 
-	_, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.appService, s.statusService, "deadbeef", "mysql")
+	_, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.statusService, "deadbeef", "mysql")
 	c.Assert(err, gc.ErrorMatches, "model is being migrated")
 }
 
 func (s *crossmodelSuite) TestGetOfferStatusChange(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID := applicationtesting.GenApplicationUUID(c)
-	s.appService.EXPECT().GetApplicationIDByName(gomock.Any(), "mysql-app").Return(appID, nil)
-	s.statusService.EXPECT().GetApplicationDisplayStatus(gomock.Any(), appID).Return(&status.StatusInfo{Status: status.Active}, nil)
+	s.statusService.EXPECT().GetApplicationDisplayStatus(gomock.Any(), "mysql-app").Return(&status.StatusInfo{Status: status.Active}, nil)
 
 	st := &mockBackend{appName: "mysql-app"}
-	ch, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.appService, s.statusService, "deadbeef", "mysql")
+	ch, err := crossmodel.GetOfferStatusChange(context.Background(), st, s.statusService, "deadbeef", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch, gc.DeepEquals, &params.OfferStatusChange{
 		OfferName: "mysql",

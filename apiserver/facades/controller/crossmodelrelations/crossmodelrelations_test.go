@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -49,7 +48,6 @@ type crossmodelRelationsSuite struct {
 	coretesting.BaseSuite
 
 	modelConfigService *MockModelConfigService
-	applicationService *MockApplicationService
 	statusService      *MockStatusService
 
 	resources     *common.Resources
@@ -68,7 +66,6 @@ func (s *crossmodelRelationsSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelConfigService = NewMockModelConfigService(ctrl)
-	s.applicationService = NewMockApplicationService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
 
 	return ctrl
@@ -142,7 +139,7 @@ func (s *crossmodelRelationsSuite) setupAPI(c *gc.C) {
 	api, err := crossmodelrelations.NewCrossModelRelationsAPI(
 		model.UUID(coretesting.ModelTag.Id()),
 		s.st, fw, s.resources, s.authorizer,
-		authContext, s.secretService, s.modelConfigService, s.applicationService, s.statusService, egressAddressWatcher, relationStatusWatcher,
+		authContext, s.secretService, s.modelConfigService, s.statusService, egressAddressWatcher, relationStatusWatcher,
 		offerStatusWatcher, consumedSecretsWatcher,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -684,9 +681,7 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 		},
 	}
 
-	appID := applicationtesting.GenApplicationUUID(c)
-	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "mysql").Return(appID, nil)
-	s.statusService.EXPECT().GetApplicationDisplayStatus(gomock.Any(), appID).Return(&status.StatusInfo{
+	s.statusService.EXPECT().GetApplicationDisplayStatus(gomock.Any(), "mysql").Return(&status.StatusInfo{
 		Status: status.Waiting,
 	}, nil)
 

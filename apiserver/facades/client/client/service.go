@@ -6,7 +6,6 @@ package client
 import (
 	"context"
 
-	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
@@ -34,11 +33,6 @@ type ApplicationService interface {
 	// latest created at date is returned first.
 	GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch arch.Arch) (charm.CharmLocator, error)
 
-	// GetApplicationIDByName returns an application ID by application name. It
-	// returns an error if the application can not be found by the name. Returns
-	// [applicationerrors.ApplicationNotFound] if the application is not found.
-	GetApplicationIDByName(ctx context.Context, name string) (application.ID, error)
-
 	// GetApplicationScale returns the desired scale of an application, returning an error
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 	// This is used on CAAS models.
@@ -51,7 +45,7 @@ type StatusService interface {
 	// is set, otherwise it is derived from the unit display statuses. If no
 	// application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	GetApplicationDisplayStatus(context.Context, application.ID) (*status.StatusInfo, error)
+	GetApplicationDisplayStatus(context.Context, string) (*status.StatusInfo, error)
 
 	// GetUnitDisplayStatus returns the display status of the specified unit.
 	// The display status a function of both the unit workload status and the

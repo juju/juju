@@ -163,13 +163,9 @@ func NewService(
 // [statuserrors.ApplicationNotFound] if the application doesn't exist.
 func (s *Service) SetApplicationStatus(
 	ctx context.Context,
-	applicationID coreapplication.ID,
+	applicationName string,
 	status *corestatus.StatusInfo,
 ) error {
-	if err := applicationID.Validate(); err != nil {
-		return errors.Errorf("application ID: %w", err)
-	}
-
 	if status == nil {
 		return nil
 	}
@@ -184,6 +180,11 @@ func (s *Service) SetApplicationStatus(
 	encodedStatus, err := encodeWorkloadStatus(status)
 	if err != nil {
 		return errors.Errorf("encoding workload status: %w", err)
+	}
+
+	applicationID, err := s.st.GetApplicationIDByName(ctx, applicationName)
+	if err != nil {
+		return errors.Capture(err)
 	}
 
 	if err := s.st.SetApplicationStatus(ctx, applicationID, encodedStatus); err != nil {
@@ -252,11 +253,11 @@ func (s *Service) SetApplicationStatusForUnitLeader(
 // derived from the unit display statuses.
 // If no application is found, an error satisfying [statuserrors.ApplicationNotFound]
 // is returned.
-func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appID coreapplication.ID) (*corestatus.StatusInfo, error) {
-	if err := appID.Validate(); err != nil {
-		return nil, errors.Errorf("application ID: %w", err)
+func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appName string) (*corestatus.StatusInfo, error) {
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return nil, errors.Capture(err)
 	}
-
 	applicationStatus, err := s.st.GetApplicationStatus(ctx, appID)
 	if err != nil {
 		return nil, errors.Capture(err)

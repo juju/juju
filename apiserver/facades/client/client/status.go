@@ -1180,27 +1180,10 @@ func (context *statusContext) processApplication(ctx context.Context, applicatio
 		processedStatus.Units = context.processUnits(ctx, units, applicationCharm.URL())
 	}
 
-	applicationStatus := status.StatusInfo{Status: status.Unknown}
-	var appUnits []*state.Unit
-	for _, u := range units {
-		appUnits = append(appUnits, u)
-	}
-
 	// NOTE(jack-w-shaw): If there is an error retrieving the application status,
 	// instead of returning an error we return the application status as unknown.
-	// To me, it is ambiguous if we should do the same retrieving the application
-	// ID. But, but the time the transition to DQLite is completed, this method
-	// will surely take the application ID as a parameter, so we do not need to
-	// worry about this case.
-	applicationId, err := context.applicationService.GetApplicationIDByName(ctx, application.Name())
-	if internalerrors.Is(err, applicationerrors.ApplicationNotFound) {
-		return params.ApplicationStatus{Err: apiservererrors.ServerError(internalerrors.Errorf("application %q: %w",
-			application.Name(), errors.NotFound))}
-	} else if err != nil {
-		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
-	}
-
-	displayStatus, err := context.statusService.GetApplicationDisplayStatus(ctx, applicationId)
+	applicationStatus := status.StatusInfo{Status: status.Unknown}
+	displayStatus, err := context.statusService.GetApplicationDisplayStatus(ctx, application.Name())
 	if err == nil && displayStatus != nil {
 		applicationStatus = *displayStatus
 	}
