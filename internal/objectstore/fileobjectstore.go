@@ -45,7 +45,7 @@ const (
 // RemoteRetriever is the interface for retrieving objects from a remote source.
 type RemoteRetriever interface {
 	// Get retrieves the object from the remote source.
-	Get(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error)
+	Retrieve(ctx context.Context, sha256 string) (io.ReadCloser, int64, error)
 }
 
 // FileObjectStoreConfig is the configuration for the file object store.
@@ -506,7 +506,7 @@ func (t *fileObjectStore) getWithMetadata(ctx context.Context, metadata objectst
 
 func (t *fileObjectStore) remoteGetWithMetadata(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
 	// Retrieve the file from the remote source.
-	reader, size, err := t.remoteRetriever.Get(ctx, metadata)
+	reader, size, err := t.remoteRetriever.Retrieve(ctx, metadata.SHA256)
 	if err != nil {
 		return nil, -1, errors.Errorf("remote get: %w", err)
 	} else if size != metadata.Size {
