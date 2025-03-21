@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"time"
 
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
@@ -28,7 +27,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
@@ -130,9 +128,6 @@ func (ctrl *Controller) Import(
 	}
 	if err := restore.applications(controllerConfig); err != nil {
 		return nil, nil, errors.Annotate(err, "applications")
-	}
-	if err := restore.relations(); err != nil {
-		return nil, nil, errors.Annotate(err, "relations")
 	}
 	if err := restore.linklayerdevices(); err != nil {
 		return nil, nil, errors.Annotate(err, "linklayerdevices")
@@ -1051,115 +1046,6 @@ func (i *importer) unitStorageAttachmentCount(unitName string) int {
 		}
 	}
 	return count
-}
-
-func (i *importer) relations() error {
-	i.logger.Debugf(context.TODO(), "importing relations")
-	for _, r := range i.model.Relations() {
-		if err := i.relation(r); err != nil {
-			i.logger.Errorf(context.TODO(), "error importing relation %s: %s", r.Key(), err)
-			return errors.Annotate(err, r.Key())
-		}
-	}
-
-	i.logger.Debugf(context.TODO(), "importing relations succeeded")
-	return nil
-}
-
-func (i *importer) relation(rel description.Relation) error {
-	relationDoc := i.makeRelationDoc(rel)
-	ops := []txn.Op{
-		{
-			C:      relationsC,
-			Id:     relationDoc.Key,
-			Assert: txn.DocMissing,
-			Insert: relationDoc,
-		},
-	}
-
-	var relStatusDoc statusDoc
-	relStatus := rel.Status()
-	if relStatus != nil {
-		relStatusDoc = i.makeStatusDoc(relStatus)
-	} else {
-		// Relations are marked as either
-		// joining or joined, depending on
-		// whether there are any units in scope.
-		relStatusDoc = statusDoc{
-			Status:  status.Joining,
-			Updated: time.Now().UnixNano(),
-		}
-		if relationDoc.UnitCount > 0 {
-			relStatusDoc.Status = status.Joined
-		}
-	}
-	ops = append(ops, createStatusOp(i.st, relationGlobalScope(rel.Id()), relStatusDoc))
-
-	dbRelation := newRelation(i.st, relationDoc)
-	// Add an op that adds the relation scope document for each
-	// unit of the application, and an op that adds the relation settings
-	// for each unit.
-	for _, endpoint := range rel.Endpoints() {
-		appKey := relationApplicationSettingsKey(dbRelation.Id(), endpoint.ApplicationName())
-		appSettings := endpoint.ApplicationSettings()
-		ops = append(ops, createSettingsOp(settingsC, appKey, appSettings))
-
-		units := i.applicationUnits[endpoint.ApplicationName()]
-		for unitName, settings := range endpoint.AllSettings() {
-			var ru *RelationUnit
-			var err error
-
-			if unit, ok := units[unitName]; ok {
-				ru, err = dbRelation.Unit(unit)
-				if err != nil {
-					return errors.Trace(err)
-				}
-			}
-
-			ruKey := ru.key()
-			ops = append(ops, txn.Op{
-				C:      relationScopesC,
-				Id:     ruKey,
-				Assert: txn.DocMissing,
-				Insert: relationScopeDoc{
-					Key: ruKey,
-				},
-			},
-				createSettingsOp(settingsC, ruKey, settings),
-			)
-		}
-	}
-
-	if err := i.st.db().RunTransaction(ops); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
-func (i *importer) makeRelationDoc(rel description.Relation) *relationDoc {
-	endpoints := rel.Endpoints()
-	doc := &relationDoc{
-		Key:       rel.Key(),
-		Id:        rel.Id(),
-		Endpoints: make([]relation.Endpoint, len(endpoints)),
-		Life:      Alive,
-	}
-	for i, ep := range endpoints {
-		doc.Endpoints[i] = relation.Endpoint{
-			ApplicationName: ep.ApplicationName(),
-			Relation: charm.Relation{
-				Name:      ep.Name(),
-				Role:      charm.RelationRole(ep.Role()),
-				Interface: ep.Interface(),
-				Optional:  ep.Optional(),
-				Limit:     ep.Limit(),
-				Scope:     charm.RelationScope(ep.Scope()),
-			},
-		}
-		doc.UnitCount += ep.UnitCount()
-	}
-	return doc
 }
 
 func (i *importer) linklayerdevices() error {

@@ -63,15 +63,8 @@ func (s *precheckShim) AllApplications() ([]PrecheckApplication, error) {
 }
 
 func (s *precheckShim) AllRelations() ([]PrecheckRelation, error) {
-	rels, err := s.State.AllRelations()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	out := make([]PrecheckRelation, len(rels))
-	for i, rel := range rels {
-		out[i] = &precheckRelationShim{rel}
-	}
-	return out, nil
+	// TODO(gfouillet) - implement it when wire up relation domain.
+	return nil, nil
 }
 
 // ControllerBackend implements PrecheckBackend.
@@ -120,23 +113,17 @@ func (s *precheckAppShim) AllUnits() ([]PrecheckUnit, error) {
 
 // precheckRelationShim implements PrecheckRelation.
 type precheckRelationShim struct {
-	*state.Relation
 }
 
 // Unit implements PreCheckRelation.
 func (s *precheckRelationShim) Unit(pu PrecheckUnit) (PrecheckRelationUnit, error) {
-	u, ok := pu.(*state.Unit)
-	if !ok {
-		return nil, errors.Errorf("got %T instead of *state.Unit", pu)
-	}
-	ru, err := s.Relation.Unit(u)
-	return ru, errors.Trace(err)
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
 
 // AllRemoteUnits implements PreCheckRelation.
 func (s *precheckRelationShim) AllRemoteUnits(appName string) ([]PrecheckRelationUnit, error) {
-	return nil, errors.NotImplementedf("cross model relations are disabled until " +
-		"backend functionality is moved to domain")
+	return nil, errors.NotImplementedf("implmement me when wiring relation domain to migration")
 }
 
 // RemoteApplication implements PreCheckRelation.
