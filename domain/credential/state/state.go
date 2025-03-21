@@ -743,7 +743,10 @@ func (st *State) WatchCredential(
 			return s == id.String()
 		}),
 	)
-	return result, errors.Errorf("watching credential: %w", err)
+	if err != nil {
+		return result, errors.Errorf("watching credential: %w", err)
+	}
+	return result, nil
 }
 
 // ModelsUsingCloudCredential returns a map of uuid->name for models which use the credential.
