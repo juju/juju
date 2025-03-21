@@ -127,28 +127,12 @@ type unitCount struct {
 	Count             int       `db:"count"`
 }
 
-type applicationStatusInfo struct {
-	ApplicationID coreapplication.ID `db:"application_uuid"`
-	StatusID      int                `db:"status_id"`
-	Message       string             `db:"message"`
-	Data          []byte             `db:"data"`
-	UpdatedAt     *time.Time         `db:"updated_at"`
-}
-
 type unitStatusInfo struct {
 	UnitUUID  coreunit.UUID `db:"unit_uuid"`
 	StatusID  int           `db:"status_id"`
 	Message   string        `db:"message"`
 	Data      []byte        `db:"data"`
 	UpdatedAt *time.Time    `db:"updated_at"`
-}
-
-type unitPresentStatusInfo struct {
-	StatusID  int        `db:"status_id"`
-	Message   string     `db:"message"`
-	Data      []byte     `db:"data"`
-	UpdatedAt *time.Time `db:"updated_at"`
-	Present   bool       `db:"present"`
 }
 
 type cloudContainer struct {
@@ -845,27 +829,6 @@ func encodeAgentStatus(s application.UnitAgentStatusType) (int, error) {
 	}
 }
 
-func decodeAgentStatus(s int) (application.UnitAgentStatusType, error) {
-	switch s {
-	case 0:
-		return application.UnitAgentStatusAllocating, nil
-	case 1:
-		return application.UnitAgentStatusExecuting, nil
-	case 2:
-		return application.UnitAgentStatusIdle, nil
-	case 3:
-		return application.UnitAgentStatusError, nil
-	case 4:
-		return application.UnitAgentStatusFailed, nil
-	case 5:
-		return application.UnitAgentStatusLost, nil
-	case 6:
-		return application.UnitAgentStatusRebooting, nil
-	default:
-		return -1, errors.Errorf("unknown status %d", s)
-	}
-}
-
 func encodeWorkloadStatus(s application.WorkloadStatusType) (int, error) {
 	switch s {
 	case application.WorkloadStatusUnset:
@@ -884,27 +847,6 @@ func encodeWorkloadStatus(s application.WorkloadStatusType) (int, error) {
 		return 6, nil
 	default:
 		return -1, errors.Errorf("unknown status %q", s)
-	}
-}
-
-func decodeWorkloadStatus(s int) (application.WorkloadStatusType, error) {
-	switch s {
-	case 0:
-		return application.WorkloadStatusUnset, nil
-	case 1:
-		return application.WorkloadStatusUnknown, nil
-	case 2:
-		return application.WorkloadStatusMaintenance, nil
-	case 3:
-		return application.WorkloadStatusWaiting, nil
-	case 4:
-		return application.WorkloadStatusBlocked, nil
-	case 5:
-		return application.WorkloadStatusActive, nil
-	case 6:
-		return application.WorkloadStatusTerminated, nil
-	default:
-		return -1, errors.Errorf("unknown status %d", s)
 	}
 }
 

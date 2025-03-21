@@ -248,11 +248,6 @@ type ApplicationState interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons constraints.Constraints) error
 
-	// GetApplicationStatus looks up the status of the specified application,
-	// returning an error satisfying [applicationerrors.ApplicationNotFound] if the
-	// application is not found.
-	GetApplicationStatus(ctx context.Context, appID coreapplication.ID) (*application.StatusInfo[application.WorkloadStatusType], error)
-
 	// GetApplicationCharmOrigin returns the platform and channel for the
 	// specified application ID.
 	// If no application is found, an error satisfying

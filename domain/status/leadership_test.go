@@ -84,7 +84,7 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeader(c *gc.C) {
 
 	close(done)
 
-	appStatus, err := svc.GetApplicationStatus(context.Background(), appID)
+	appStatus, err := svc.GetApplicationDisplayStatus(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(appStatus.Status, gc.Equals, status.Active)
 }

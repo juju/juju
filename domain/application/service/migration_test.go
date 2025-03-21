@@ -16,7 +16,6 @@ import (
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
-	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
@@ -575,74 +574,6 @@ func (s *migrationServiceSuite) TestGetUnitUUIDByNameInvalidName(c *gc.C) {
 
 	_, err := s.service.GetUnitUUIDByName(context.Background(), unit.Name("!!!!!!!!!!"))
 	c.Assert(err, jc.ErrorIs, unit.InvalidUnitName)
-}
-
-func (s *migrationServiceSuite) TestGetUnitWorkloadStatus(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	uuid := unittesting.GenUnitUUID(c)
-
-	now := s.clock.Now().UTC()
-
-	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), uuid).Return(&application.UnitStatusInfo[application.WorkloadStatusType]{
-		StatusInfo: application.StatusInfo[application.WorkloadStatusType]{
-			Status:  application.WorkloadStatusActive,
-			Message: "workload status",
-			Data:    []byte(`{"foo":"bar"}`),
-			Since:   ptr(now),
-		},
-		Present: true,
-	}, nil)
-
-	statusInfo, err := s.service.GetUnitWorkloadStatus(context.Background(), uuid)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(statusInfo, gc.DeepEquals, &corestatus.StatusInfo{
-		Status:  corestatus.Active,
-		Message: "workload status",
-		Data:    map[string]interface{}{"foo": "bar"},
-		Since:   ptr(now),
-	})
-}
-
-func (s *migrationServiceSuite) TestGetUnitWorkloadStatusInvalidUUID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.service.GetUnitWorkloadStatus(context.Background(), "!!!!!!!!")
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
-}
-
-func (s *migrationServiceSuite) TestGetUnitAgentStatus(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	uuid := unittesting.GenUnitUUID(c)
-
-	now := s.clock.Now().UTC()
-
-	s.state.EXPECT().GetUnitAgentStatus(gomock.Any(), uuid).Return(&application.UnitStatusInfo[application.UnitAgentStatusType]{
-		StatusInfo: application.StatusInfo[application.UnitAgentStatusType]{
-			Status:  application.UnitAgentStatusIdle,
-			Message: "agent status",
-			Data:    []byte(`{"foo":"bar"}`),
-			Since:   ptr(now),
-		},
-		Present: true,
-	}, nil)
-
-	statusInfo, err := s.service.GetUnitAgentStatus(context.Background(), uuid)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(statusInfo, gc.DeepEquals, &corestatus.StatusInfo{
-		Status:  corestatus.Idle,
-		Message: "agent status",
-		Data:    map[string]interface{}{"foo": "bar"},
-		Since:   ptr(now),
-	})
-}
-
-func (s *migrationServiceSuite) TestGetUnitAgentStatusInvalidUUID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.service.GetUnitAgentStatus(context.Background(), "!!!!!!!!")
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *migrationServiceSuite) TestGetApplicationsForExport(c *gc.C) {

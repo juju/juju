@@ -300,28 +300,3 @@ func decodeUnitWorkloadStatus(s *application.UnitStatusInfo[application.Workload
 		Since:   s.Since,
 	}, nil
 }
-
-func decodeApplicationStatus(s *application.StatusInfo[application.WorkloadStatusType]) (*status.StatusInfo, error) {
-	if s == nil {
-		return nil, nil
-	}
-
-	decodedStatus, err := decodeWorkloadStatusType(s.Status)
-	if err != nil {
-		return nil, err
-	}
-
-	var data map[string]interface{}
-	if len(s.Data) > 0 {
-		if err := json.Unmarshal(s.Data, &data); err != nil {
-			return nil, errors.Errorf("unmarshalling status data: %w", err)
-		}
-	}
-
-	return &status.StatusInfo{
-		Status:  decodedStatus,
-		Message: s.Message,
-		Data:    data,
-		Since:   s.Since,
-	}, nil
-}

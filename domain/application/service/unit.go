@@ -59,22 +59,6 @@ type UnitState interface {
 	// SetUnitPassword updates the password for the specified unit UUID.
 	SetUnitPassword(context.Context, coreunit.UUID, application.PasswordInfo) error
 
-	// GetUnitWorkloadStatus returns the workload status of the specified unit,
-	// returning:
-	// - an error satisfying [applicationerrors.UnitNotFound] if the unit
-	//   doesn't exist or;
-	// - an error satisfying [applicationerrors.UnitStatusNotFound] if the
-	//   status is not set.
-	GetUnitWorkloadStatus(context.Context, coreunit.UUID) (*application.UnitStatusInfo[application.WorkloadStatusType], error)
-
-	// GetUnitAgentStatus returns the workload status of the specified unit,
-	// returning:
-	// - an error satisfying [applicationerrors.UnitNotFound] if the unit
-	//   doesn't exist or;
-	// - an error satisfying [applicationerrors.UnitStatusNotFound] if the
-	//   status is not set.
-	GetUnitAgentStatus(context.Context, coreunit.UUID) (*application.UnitStatusInfo[application.UnitAgentStatusType], error)
-
 	// DeleteUnit deletes the specified unit. If the unit's application is Dying
 	// and no other references to it exist, true is returned to indicate the
 	// application could be safely deleted. It will fail if the unit is not

@@ -16,9 +16,6 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	corestatus "github.com/juju/juju/core/status"
-	coreunit "github.com/juju/juju/core/unit"
-	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -65,8 +62,6 @@ func (s *exportApplicationSuite) TestApplicationExportConstraints(c *gc.C) {
 		Name: "prometheus/0",
 	})
 
-	s.expectApplicationStatus()
-	s.expectApplicationUnitStatus(c)
 	s.expectMinimalCharm()
 	s.expectApplicationConfig()
 	cons := constraints.Value{
@@ -129,8 +124,6 @@ func (s *exportApplicationSuite) TestExportScalingState(c *gc.C) {
 		Name: "prometheus/0",
 	})
 
-	s.expectApplicationStatus()
-	s.expectApplicationUnitStatus(c)
 	s.expectMinimalCharm()
 	s.expectApplicationConfig()
 	s.expectApplicationConstraints(constraints.Value{})
@@ -194,25 +187,6 @@ func (s *exportSuite) expectApplicationConfig() {
 func (s *exportSuite) expectGetApplicationScaleState(scaleState application.ScaleState) {
 	exp := s.exportService.EXPECT()
 	exp.GetApplicationScaleState(gomock.Any(), "prometheus").Return(scaleState, nil)
-}
-
-func (s *exportSuite) expectApplicationStatus() {
-	s.exportService.EXPECT().GetApplicationStatus(gomock.Any(), "prometheus").Return(&corestatus.StatusInfo{
-		Status: corestatus.Running,
-	}, nil)
-}
-
-func (s *exportSuite) expectApplicationUnitStatus(c *gc.C) {
-	uuid := unittesting.GenUnitUUID(c)
-
-	exp := s.exportService.EXPECT()
-	exp.GetUnitUUIDByName(gomock.Any(), coreunit.Name("prometheus/0")).Return(uuid, nil)
-	exp.GetUnitWorkloadStatus(gomock.Any(), uuid).Return(&corestatus.StatusInfo{
-		Status: corestatus.Active,
-	}, nil)
-	exp.GetUnitAgentStatus(gomock.Any(), uuid).Return(&corestatus.StatusInfo{
-		Status: corestatus.Idle,
-	}, nil)
 }
 
 func (s *exportSuite) expectApplicationConstraints(cons constraints.Value) {
