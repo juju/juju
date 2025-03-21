@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/worker/v4"
+
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
-	corewatcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 )
@@ -103,30 +105,10 @@ type RelationUnitStatusResult struct {
 	Suspended bool
 }
 
-// Watcher is implemented by all watchers; the actual
-// changes channel is returned by a watcher-specific
-// Changes method.
-type Watcher interface {
-	// Kill asks the watcher to stop without waiting for it do so.
-	Kill()
-	// Wait waits for the watcher to die and returns any
-	// error encountered when it was running.
-	Wait() error
-	// Stop kills the watcher, then waits for it to die.
-	Stop() error
-	// Err returns any error encountered while the watcher
-	// has been running.
-	Err() error
-}
-
 // RelationUnitsWatcher generates signals when units enter or leave
 // the scope of a RelationUnit, and changes to the settings of those
 // units known to have entered.
-type RelationUnitsWatcher interface {
-	Watcher
-
-	Changes() corewatcher.RelationUnitsChannel
-}
+type RelationUnitsWatcher = watcher.Watcher[watcher.RelationUnitsChange]
 
 // TODO: uncomment the below types when the methods are implemented,
 // copied from state for use.
@@ -141,7 +123,7 @@ type RelationUnitsWatcher interface {
 // RelationScopeWatcher observes changes to the set of units
 // in a particular relation scope.
 type RelationScopeWatcher struct {
-	Watcher
+	worker.Worker
 	//prefix string
 	//ignore string
 	//out    chan *RelationScopeChange

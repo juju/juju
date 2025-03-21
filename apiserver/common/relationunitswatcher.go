@@ -9,28 +9,20 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
-// RelationUnitsWatcher represents a state.RelationUnitsWatcher at the
+// RelationUnitsWatcher represents a relation.RelationUnitsWatcher at the
 // apiserver level (different type for changes).
 type RelationUnitsWatcher interface {
 	watcher.Watcher[params.RelationUnitsChange]
-
-	// Stop is needed to implement facade.Resource.
-	// Deprecated: use Kill and Wait instead.
-	Stop() error
-
-	// Err implements watcher.Errer.
-	// Deprecated: use Kill and Wait instead.
-	Err() error
 }
 
-// RelationUnitsWatcherFromState wraps a state-level
-// RelationUnitsWatcher in an equivalent apiserver-level one, taking
-// responsibility for the source watcher's lifetime.
-func RelationUnitsWatcherFromState(source state.RelationUnitsWatcher) (RelationUnitsWatcher, error) {
+// RelationUnitsWatcherFromDomain wraps a domain level RelationUnitsWatcher
+// in an equivalent apiserver level one, taking responsibility for the source
+// watcher's lifetime.
+func RelationUnitsWatcherFromDomain(source relation.RelationUnitsWatcher) (RelationUnitsWatcher, error) {
 	w := &relationUnitsWatcher{
 		source: source,
 		out:    make(chan params.RelationUnitsChange),
@@ -44,7 +36,7 @@ func RelationUnitsWatcherFromState(source state.RelationUnitsWatcher) (RelationU
 }
 
 type relationUnitsWatcher struct {
-	source   state.RelationUnitsWatcher
+	source   relation.RelationUnitsWatcher
 	out      chan params.RelationUnitsChange
 	catacomb catacomb.Catacomb
 }
@@ -100,15 +92,4 @@ func (w *relationUnitsWatcher) Kill() {
 // Wait is part of worker.Worker.
 func (w *relationUnitsWatcher) Wait() error {
 	return w.catacomb.Wait()
-}
-
-// Stop is part of facade.Resource.
-func (w *relationUnitsWatcher) Stop() error {
-	w.Kill()
-	return w.Wait()
-}
-
-// Err is part of state/watcher.Errer.
-func (w *relationUnitsWatcher) Err() error {
-	return w.catacomb.Err()
 }
