@@ -9,8 +9,8 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // RelationUnitsWatcher represents a state.RelationUnitsWatcher at the
@@ -30,7 +30,7 @@ type RelationUnitsWatcher interface {
 // RelationUnitsWatcherFromState wraps a state-level
 // RelationUnitsWatcher in an equivalent apiserver-level one, taking
 // responsibility for the source watcher's lifetime.
-func RelationUnitsWatcherFromState(source state.RelationUnitsWatcher) (RelationUnitsWatcher, error) {
+func RelationUnitsWatcherFromState(source relation.RelationUnitsWatcher) (RelationUnitsWatcher, error) {
 	w := &relationUnitsWatcher{
 		source: source,
 		out:    make(chan params.RelationUnitsChange),
@@ -44,7 +44,7 @@ func RelationUnitsWatcherFromState(source state.RelationUnitsWatcher) (RelationU
 }
 
 type relationUnitsWatcher struct {
-	source   state.RelationUnitsWatcher
+	source   relation.RelationUnitsWatcher
 	out      chan params.RelationUnitsChange
 	catacomb catacomb.Catacomb
 }
