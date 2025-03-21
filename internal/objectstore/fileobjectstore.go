@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/clock"
+	jujuerrors "github.com/juju/errors"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
@@ -507,7 +508,9 @@ func (t *fileObjectStore) getWithMetadata(ctx context.Context, metadata objectst
 func (t *fileObjectStore) remoteGetWithMetadata(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
 	// Retrieve the file from the remote source.
 	reader, size, err := t.remoteRetriever.Retrieve(ctx, metadata.SHA256)
-	if err != nil {
+	if errors.Is(err, jujuerrors.NotFound) {
+		return nil, -1, objectstoreerrors.ObjectNotFound
+	} else if err != nil {
 		return nil, -1, errors.Errorf("remote get: %w", err)
 	} else if size != metadata.Size {
 		return nil, -1, errors.Errorf("size mismatch for %q: expected %d, got %d", metadata.Path, metadata.Size, size)

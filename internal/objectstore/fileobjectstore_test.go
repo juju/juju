@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	jujuerrors "github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -75,7 +76,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataFoundNoFile(c *gc.C) {
 	}, nil).Times(2)
 
 	s.remote.EXPECT().Retrieve(gomock.Any(), "blah").
-		Return(nil, -1, objectstoreerrors.ObjectNotFound)
+		Return(nil, -1, jujuerrors.NotFoundf("not found"))
 
 	_, _, err := store.Get(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ObjectNotFound)
@@ -116,7 +117,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFile(c *gc.C)
 	}, nil).Times(2)
 
 	s.remote.EXPECT().Retrieve(gomock.Any(), "0263829989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f").
-		Return(nil, -1, objectstoreerrors.ObjectNotFound)
+		Return(nil, -1, jujuerrors.NotFoundf("not found"))
 
 	_, _, err := store.GetBySHA256Prefix(context.Background(), "0263829")
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ObjectNotFound)
