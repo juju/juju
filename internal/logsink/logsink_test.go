@@ -626,6 +626,95 @@ func (s *logSinkSuite) TestLogAndWriteInterleaved(c *gc.C) {
 	s.expectWriterClosed(c)
 }
 
+func (s *logSinkSuite) TestLogAndWriteInterleavedNoSynchronization(c *gc.C) {
+	// Ensure that the internal states don't accientally synchronize the
+	// interleaved writes and logs and prevent a race.
+
+	buffer := new(bytes.Buffer)
+	writer := &bufferCloser{Buffer: buffer, fn: func() {
+		atomic.AddInt64(&s.closed, 1)
+	}}
+
+	sink := NewLogSink(writer, 50, time.Millisecond*100, clock.WallClock)
+	defer workertest.DirtyKill(c, sink)
+
+	total := 100
+
+	entries := make([]loggo.Entry, total)
+	for i := range total {
+		entries[i] = loggo.Entry{
+			Level:   loggo.INFO,
+			Message: "h",
+			Module:  "m",
+		}
+	}
+
+	for i, entry := range entries {
+		if i%2 == 0 {
+			sink.Write(entry)
+		} else {
+			sink.Log([]logger.LogRecord{{
+				Module:  entry.Module,
+				Level:   logger.Level(entry.Level),
+				Message: entry.Message,
+			}})
+		}
+	}
+
+	// Calculate how many bytes we expect to be written.
+	bytes, err := json.Marshal(&logRecord{
+		Time:    entries[0].Timestamp,
+		Level:   entries[0].Level.String(),
+		Message: entries[0].Message,
+		Module:  entries[0].Module,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newLineLength := 1
+	expectedWritten := (len(bytes) + newLineLength) * total
+
+	// We have no synchronization points, so we need check if the buffer has
+	// been written to.
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+
+		for {
+			select {
+			case <-time.After(testing.ShortWait):
+				if writer.Written() == int64(expectedWritten) {
+					return
+				}
+
+			case <-time.After(testing.LongWait):
+				// We didn't see the buffer writes, so give up!
+				return
+			}
+		}
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for buffer to be written to")
+	}
+
+	lines := parseLog(c, buffer)
+	c.Assert(lines, gc.HasLen, total, gc.Commentf("expected %d lines, got %d", total, len(lines)))
+
+	expected := make([]logRecord, total)
+	for k, entry := range entries {
+		expected[k] = logRecord{
+			Level:   entry.Level.String(),
+			Message: entry.Message,
+			Module:  entry.Module,
+		}
+	}
+	c.Check(lines, gc.DeepEquals, expected)
+
+	workertest.CleanKill(c, sink)
+}
+
 func (s *logSinkSuite) newLogSink(c *gc.C, batchSize int) (*LogSink, *bytes.Buffer) {
 	s.states = make(chan string, 1)
 
@@ -710,9 +799,28 @@ func parseLog(c *gc.C, reader io.Reader) []logRecord {
 
 type bufferCloser struct {
 	*bytes.Buffer
-	fn func()
+	written int64
+	fn      func()
 }
 
+// Write writes to the buffer and increments the written counter.
+func (b *bufferCloser) Write(p []byte) (int, error) {
+	written, err := b.Buffer.Write(p)
+	if err != nil {
+		return -1, err
+	}
+
+	atomic.AddInt64(&b.written, int64(written))
+
+	return written, nil
+}
+
+// Written returns the number of bytes written to the buffer.
+func (b *bufferCloser) Written() int64 {
+	return atomic.LoadInt64(&b.written)
+}
+
+// Close closes the buffer and calls the close function.
 func (b *bufferCloser) Close() error {
 	b.fn()
 	return nil
