@@ -4,7 +4,7 @@
 package service
 
 import (
-	ctx "context"
+	"context"
 
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -12,7 +12,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
+	coreapplicationtesting "github.com/juju/juju/core/application/testing"
 	corerelation "github.com/juju/juju/core/relation"
+	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -35,8 +37,7 @@ func (s *relationServiceSuite) TestGetRelationEndpointUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	appUUID, err := coreapplication.NewID()
 	c.Assert(err, gc.IsNil, gc.Commentf("(Arrange) can't generate appUUID: %v", err))
-	relationUUID, err := corerelation.NewUUID()
-	c.Assert(err, gc.IsNil, gc.Commentf("(Arrange) can't generate relationUUID: %v", err))
+	relationUUID := corerelationtesting.GenRelationUUID(c)
 
 	args := relation.GetRelationEndpointUUIDArgs{
 		ApplicationID: appUUID,
@@ -45,20 +46,19 @@ func (s *relationServiceSuite) TestGetRelationEndpointUUID(c *gc.C) {
 	s.state.EXPECT().GetRelationEndpointUUID(gomock.Any(), args).Return("some-uuid", nil)
 
 	// Act
-	obtained, err := s.service.getRelationEndpointUUID(ctx.Background(), args)
+	obtained, err := s.service.getRelationEndpointUUID(context.Background(), args)
 	c.Assert(err, gc.IsNil, gc.Commentf("(Act) unexpected error: %v", err))
 
 	// Assert
-	c.Check(obtained, gc.Equals, corerelation.EndpointUUID("some-uuid"), gc.Commentf("(Act) unexpected result: %v", obtained))
+	c.Check(obtained, gc.Equals, corerelation.EndpointUUID("some-uuid"), gc.Commentf("(Assert) unexpected result: %v", obtained))
 }
 
-// TestGetRelationEndpointUUID_ApplicationIDNotValid tests the failure case
+// TestGetRelationEndpointUUIDApplicationIDNotValid tests the failure case
 // where the ApplicationID is not a valid UUID.
-func (s *relationServiceSuite) TestGetRelationEndpointUUID_ApplicationIDNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationEndpointUUIDApplicationIDNotValid(c *gc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
-	relationUUID, err := corerelation.NewUUID()
-	c.Assert(err, gc.IsNil, gc.Commentf("(Arrange) can't generate relationUUID: %v", err))
+	relationUUID := corerelationtesting.GenRelationUUID(c)
 
 	args := relation.GetRelationEndpointUUIDArgs{
 		ApplicationID: "not-valid-uuid",
@@ -66,19 +66,18 @@ func (s *relationServiceSuite) TestGetRelationEndpointUUID_ApplicationIDNotValid
 	}
 
 	// Act
-	_, err = s.service.getRelationEndpointUUID(ctx.Background(), args)
+	_, err := s.service.getRelationEndpointUUID(context.Background(), args)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationIDNotValid, gc.Commentf("(Act) unexpected error: %v", err))
+	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationIDNotValid, gc.Commentf("(Assert) unexpected error: %v", err))
 }
 
-// TestGetRelationEndpointUUID_RelationUUIDNotValid tests the failure scenario
+// TestGetRelationEndpointUUIDRelationUUIDNotValid tests the failure scenario
 // where the provided RelationUUID is not valid.
-func (s *relationServiceSuite) TestGetRelationEndpointUUID_RelationUUIDNotValid(c *gc.C) {
+func (s *relationServiceSuite) TestGetRelationEndpointUUIDRelationUUIDNotValid(c *gc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
-	appUUID, err := coreapplication.NewID()
-	c.Assert(err, gc.IsNil, gc.Commentf("(Arrange) can't generate appUUID: %v", err))
+	appUUID := coreapplicationtesting.GenApplicationUUID(c)
 
 	args := relation.GetRelationEndpointUUIDArgs{
 		ApplicationID: appUUID,
@@ -86,10 +85,55 @@ func (s *relationServiceSuite) TestGetRelationEndpointUUID_RelationUUIDNotValid(
 	}
 
 	// Act
-	_, err = s.service.getRelationEndpointUUID(ctx.Background(), args)
+	_, err := s.service.getRelationEndpointUUID(context.Background(), args)
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid, gc.Commentf("(Act) unexpected error: %v", err))
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid, gc.Commentf("(Assert) unexpected error: %v", err))
+}
+
+func (s *relationServiceSuite) TestGetRelationID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange.
+	relationUUID, err := corerelation.NewUUID()
+	c.Assert(err, gc.IsNil, gc.Commentf("(Arrange) can't generate relationUUID: %v", err))
+	expectedRelationID := 1
+
+	s.state.EXPECT().GetRelationID(gomock.Any(), relationUUID).Return(expectedRelationID, nil)
+
+	// Act.
+	relationID, err := s.service.GetRelationID(context.Background(), relationUUID)
+
+	// Assert.
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relationID, gc.Equals, expectedRelationID)
+}
+
+func (s *relationServiceSuite) TestGetRelationIDRelationUUIDNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Act.
+	_, err := s.service.GetRelationID(context.Background(), "bad-relation-uuid")
+
+	// Assert.
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
+}
+
+func (s *relationServiceSuite) TestGetRelationUUIDByID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange.
+	expectedRelationUUID := corerelationtesting.GenRelationUUID(c)
+	relationID := 1
+
+	s.state.EXPECT().GetRelationUUIDByID(gomock.Any(), relationID).Return(expectedRelationUUID, nil)
+
+	// Act.
+	relationUUID, err := s.service.GetRelationUUIDByID(context.Background(), relationID)
+
+	// Assert.
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relationUUID, gc.Equals, expectedRelationUUID)
 }
 
 func (s *relationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {

@@ -23,6 +23,20 @@ import (
 
 // State describes retrieval and persistence methods for relations.
 type State interface {
+	// GetRelationID returns the relation ID for the given relation UUID.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+	//     is not found.
+	GetRelationID(ctx context.Context, relationUUID corerelation.UUID) (int, error)
+
+	// GetRelationUUIDByID returns the relation UUID based on the relation ID.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+	//     relating to the relation ID cannot be found.
+	GetRelationUUIDByID(ctx context.Context, relationID int) (corerelation.UUID, error)
+
 	// GetRelationEndpointUUID retrieves the unique identifier for a specific
 	// relation endpoint based on the provided arguments.
 	GetRelationEndpointUUID(ctx context.Context, args relation.GetRelationEndpointUUIDArgs) (corerelation.EndpointUUID, error)
@@ -201,8 +215,18 @@ func (s *Service) getRelationEndpointUUID(ctx context.Context, args relation.Get
 }
 
 // GetRelationID returns the relation ID for the given relation UUID.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+//     is not found.
+//   - [relationerrors.RelationUUIDNotValid] is returned if the relation UUID
+//     is not valid.
 func (s *Service) GetRelationID(ctx context.Context, relationUUID corerelation.UUID) (int, error) {
-	return -1, coreerrors.NotImplemented
+	if err := relationUUID.Validate(); err != nil {
+		return 0, errors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+	return s.st.GetRelationID(ctx, relationUUID)
 }
 
 // GetRelationKey returns a key identifier for the given relation UUID.
@@ -258,9 +282,13 @@ func (s *Service) GetRelationUnitSettings(
 	return nil, coreerrors.NotImplemented
 }
 
-// GetRelationUUIDByID returns the relation uuid based on the relation ID.
+// GetRelationUUIDByID returns the relation UUID based on the relation ID.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+//     relating to the relation ID cannot be found.
 func (s *Service) GetRelationUUIDByID(ctx context.Context, relationID int) (corerelation.UUID, error) {
-	return "", coreerrors.NotImplemented
+	return s.st.GetRelationUUIDByID(ctx, relationID)
 }
 
 // GetRelationUUIDFromKey returns a relation UUID for the given Key.

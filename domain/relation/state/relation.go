@@ -34,6 +34,80 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 	}
 }
 
+// GetRelationID returns the relation ID for the given relation UUID.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+//     is not found.
+func (st *State) GetRelationID(ctx context.Context, relationUUID corerelation.UUID) (int, error) {
+	db, err := st.DB()
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	id := relationIDAndUUID{
+		UUID: relationUUID.String(),
+	}
+	stmt, err := st.Prepare(`
+SELECT &relationIDAndUUID.relation_id
+FROM   relation
+WHERE  uuid = $relationIDAndUUID.uuid
+`, id)
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, id).Get(&id)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return relationerrors.RelationNotFound
+		}
+		return err
+	})
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	return id.ID, nil
+}
+
+// GetRelationUUIDByID returns the relation UUID based on the relation ID.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+//     relating to the relation ID cannot be found.
+func (st *State) GetRelationUUIDByID(ctx context.Context, relationID int) (corerelation.UUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	id := relationIDAndUUID{
+		ID: relationID,
+	}
+	stmt, err := st.Prepare(`
+SELECT &relationIDAndUUID.uuid
+FROM   relation
+WHERE  relation_id = $relationIDAndUUID.relation_id
+`, id)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, id).Get(&id)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return relationerrors.RelationNotFound
+		}
+		return err
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return corerelation.UUID(id.UUID), nil
+}
+
 // GetRelationEndpointUUID retrieves the endpoint UUID of a given relation
 // for a specific application.
 // It queries the database using the provided application ID and relation UUID
@@ -42,9 +116,9 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 // The following error types can be expected to be returned:
 //   - [relationerrors.ApplicationNotFound] is returned if the application
 //     is not found.
-//   - [relationerrors.RelationEndpointNotFound] is returned is the relation
+//   - [relationerrors.RelationEndpointNotFound] is returned if the relation
 //     Endpoint is not found.
-//   - [relationerrors.RelationNotFound] is returned is the relation UUID
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID
 //     is not found.
 func (st *State) GetRelationEndpointUUID(ctx context.Context, args relation.GetRelationEndpointUUIDArgs) (
 	corerelation.EndpointUUID, error) {
