@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
+	"github.com/juju/juju/core/watcher"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/relation"
@@ -279,6 +280,7 @@ type uniterRelationSuite struct {
 	applicationService *MockApplicationService
 	modelInfoService   *MockModelInfoService
 	relationService    *MockRelationService
+	watcherRegistry    *MockWatcherRegistry
 
 	uniter *UniterAPI
 }
@@ -1010,7 +1012,111 @@ func (s *uniterRelationSuite) TestLeaveScopeFails(c *gc.C) {
 			{&params.Error{Message: `"application-wordpress" is not a valid unit tag`}},
 		},
 	})
+}
 
+func (s *uniterRelationSuite) TestWatchUnitRelations(c *gc.C) {
+	c.Skip("Until WatchUnitRelations no longer requires a state unit. ")
+}
+
+func (s *uniterRelationSuite) TestWatchSubordinateUnitRelations(c *gc.C) {
+	c.Skip("Until WatchUnitRelations no longer requires a state unit. ")
+}
+
+func (s *uniterRelationSuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(c *gc.C) {
+	c.Skip("Until WatchUnitRelations no longer requires a state unit. ")
+	// A subordinate unit should still be notified about changes to
+	// relations with applications that aren't the one this unit is
+	// attached to if they have global scope.
+	// The logging charm is subordinate (and the info endpoint is scope=container).
+
+	// Should be notified about the relation to logging frontend, since it's global scope.
+}
+
+func (s *uniterRelationSuite) TestWatchUnitRelationsWithSubSubRelation(c *gc.C) {
+	c.Skip("Until WatchUnitRelations no longer requires a state unit. ")
+	// We should be notified about relations to other subordinates
+	// (since it's possible that they'll be colocated in the same
+	// container).
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+
+	// We should be told about the new logging-monitoring relation.
+}
+
+func (s *uniterRelationSuite) TestWatchRelationUnits(c *gc.C) {
+	// arrange
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	relUUID := relationtesting.GenRelationUUID(c)
+	relUnitUUID := relationtesting.GenRelationUnitUUID(c)
+	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
+	relKey, err := corerelation.ParseKeyFromTagString(relTag.String())
+	c.Assert(err, jc.ErrorIsNil)
+	s.expectGetRelationUUIDFromKey(relKey, relUUID, nil)
+	s.expectGetRelationUnit(relUUID, relUnitUUID, s.wordpressUnitTag.Id())
+
+	mockWatcher := NewMockRelationUnitsWatcher(ctrl)
+	channel := make(chan watcher.RelationUnitsChange, 1)
+	channel <- watcher.RelationUnitsChange{Departed: []string{"unit-mysql-0"}}
+	mockWatcher.EXPECT().Changes().Return(channel).AnyTimes()
+	mockWatcher.EXPECT().Wait().Return(nil)
+	s.relationService.EXPECT().WatchRelationUnit(gomock.Any(), relUnitUUID).Return(mockWatcher, nil)
+	watcherID := "watch1"
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return(watcherID, nil)
+
+	expectedResult := params.RelationUnitsWatchResults{Results: []params.RelationUnitsWatchResult{
+		{
+			RelationUnitsWatcherId: "watch1",
+			Changes:                params.RelationUnitsChange{Departed: []string{"unit-mysql-0"}},
+		},
+	}}
+
+	// act
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{relTag.String(), s.wordpressUnitTag.String()}},
+	}
+	result, err := s.uniter.WatchRelationUnits(context.Background(), args)
+
+	// assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, expectedResult)
+}
+
+// TestWatchRelationUnitsFails tests for unauthorized errors, unit tag
+// validation, and ensures the method works in bulk.
+func (s *uniterRelationSuite) TestWatchRelationUnitsFails(c *gc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
+	failRelTag := names.NewRelationTag("postgresql:database wordpress:mysql")
+	s.expectGetRelationUUIDFromKey(corerelation.Key(failRelTag.Id()), "",
+		relationerrors.RelationNotFound)
+
+	// act
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		// Not the authorized unit
+		{Relation: "relation-42", Unit: "unit-foo-0"},
+		// Invalid relation tag
+		{Relation: "relation-42", Unit: s.wordpressUnitTag.String()},
+		// Relation key not found
+		{Relation: failRelTag.String(), Unit: s.wordpressUnitTag.String()},
+		// Invalid unit tag
+		{Relation: relTag.String(), Unit: "application-wordpress"},
+	}}
+	result, err := s.uniter.WatchRelationUnits(context.Background(), args)
+
+	// assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.RelationUnitsWatchResults{
+		Results: []params.RelationUnitsWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
 }
 
 func (s *uniterRelationSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -1019,6 +1125,7 @@ func (s *uniterRelationSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.modelInfoService = NewMockModelInfoService(ctrl)
 	s.relationService = NewMockRelationService(ctrl)
+	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
 
 	unitAuthFunc := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
@@ -1043,6 +1150,7 @@ func (s *uniterRelationSuite) setupMocks(c *gc.C) *gomock.Controller {
 		auth:              authorizer,
 		logger:            loggertesting.WrapCheckLog(c),
 
+		watcherRegistry:    s.watcherRegistry,
 		applicationService: s.applicationService,
 		modelInfoService:   s.modelInfoService,
 		relationService:    s.relationService,

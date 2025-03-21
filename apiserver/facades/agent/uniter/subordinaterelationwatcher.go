@@ -7,19 +7,88 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/worker/v4/catacomb"
 
+	coreapplication "github.com/juju/juju/core/application"
 	corelogger "github.com/juju/juju/core/logger"
+	corerelation "github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/watcher"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
+	internalrelation "github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/state"
 )
 
+// LegacyBackend describes state methods still required by the
+// subordinateRelationWatcher.
+type LegacyBackend interface {
+	Application(string) (LegacyApplicationBackend, error)
+}
+
+// LegacyApplicationBackend describes state application methods still required
+// by the subordinateRelationWatcher.
+type LegacyApplicationBackend interface {
+	IsPrincipal() bool
+}
+
+type legacyBackendShim struct {
+	st *state.State
+}
+
+func (l *legacyBackendShim) Application(name string) (LegacyApplicationBackend, error) {
+	return l.st.Application(name)
+}
+
+// SRWApplicationService describes methods required from the application domain
+// by the subordinateRelationWatcher.
+type SRWApplicationService interface {
+	// GetApplicationIDByName returns an application ID by application name. It
+	// returns an error if the application can not be found by the name.
+	//
+	// Returns [applicationerrors.ApplicationNameNotValid] if the name is not valid,
+	// and [applicationerrors.ApplicationNotFound] if the application is not found.
+	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
+}
+
+// SRWRelationService describes methods required from the relation domain
+// by the subordinateRelationWatcher.
+type SRWRelationService interface {
+	// GetRelatedEndpoints returns the endpoints of the relation with which
+	// units of the named application will establish relations.
+	GetRelatedEndpoints(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		applicationName string,
+	) ([]internalrelation.Endpoint, error)
+
+	// GetRelationEndpoint returns the endpoint for the given application and
+	// relation identifier combination.
+	GetRelationEndpoint(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		applicationID coreapplication.ID,
+	) (internalrelation.Endpoint, error)
+
+	// GetRelationUUIDFromKey returns a relation UUID for the given relation
+	// Key. The relation key is a ordered space separated string of the
+	// endpoint names of a the relation.
+	GetRelationUUIDFromKey(ctx context.Context, relationKey corerelation.Key) (corerelation.UUID, error)
+
+	// WatchLifeSuspendedStatus returns a watcher that notifies of changes to the life
+	// or suspended status any relation the application is part of.
+	WatchLifeSuspendedStatus(ctx context.Context, applicationID coreapplication.ID) (watcher.StringsWatcher, error)
+}
+
 type subRelationsWatcher struct {
-	catacomb      catacomb.Catacomb
-	backend       *state.State
-	app           *state.Application
-	principalName string
+	catacomb        catacomb.Catacomb
+	principalName   string
+	subordinateName string
+
+	backend LegacyBackend
+
+	applicationService SRWApplicationService
+	relationService    SRWRelationService
 
 	// Maps relation keys to whether that relation should be
 	// included. Needed particularly for when the relation goes away.
@@ -34,29 +103,48 @@ type subRelationsWatcher struct {
 // principalName app. Global relations will be included, but only
 // container-scoped relations for the principal application will be
 // emitted - other container-scoped relations will be filtered out.
-func newSubordinateRelationsWatcher(backend *state.State, subordinateApp *state.Application, principalName string, logger corelogger.Logger) (
+func newSubordinateRelationsWatcher(
+	ctx context.Context,
+	backend LegacyBackend,
+	applicationService SRWApplicationService,
+	relationService SRWRelationService,
+	subordinateName, principalName string,
+	logger corelogger.Logger) (
 	state.StringsWatcher, error,
 ) {
+
 	w := &subRelationsWatcher{
-		backend:       backend,
-		app:           subordinateApp,
-		principalName: principalName,
-		relations:     make(map[string]bool),
-		out:           make(chan []string),
-		logger:        logger,
+		backend:            backend,
+		applicationService: applicationService,
+		relationService:    relationService,
+		subordinateName:    subordinateName,
+		principalName:      principalName,
+		relations:          make(map[string]bool),
+		out:                make(chan []string),
+		logger:             logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
-		Work: w.loop,
+		Work: func() error {
+			return w.loop(ctx)
+		},
 	})
-	return w, errors.Trace(err)
+	return w, errors.Capture(err)
 }
 
-func (w *subRelationsWatcher) loop() error {
+func (w *subRelationsWatcher) loop(ctx context.Context) error {
 	defer close(w.out)
-	relationsw := w.app.WatchRelations()
+	subordinateAppID, err := w.applicationService.GetApplicationIDByName(ctx, w.principalName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	relationsw, err := w.relationService.WatchLifeSuspendedStatus(ctx, subordinateAppID)
+	if err != nil {
+		return errors.Capture(err)
+	}
 	if err := w.catacomb.Add(relationsw); err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	var (
 		sentInitial bool
@@ -80,9 +168,9 @@ func (w *subRelationsWatcher) loop() error {
 				if currentRelations.Contains(relation) {
 					continue
 				}
-				shouldSend, err := w.shouldSend(relation)
+				shouldSend, err := w.shouldSend(ctx, relation)
 				if err != nil {
-					return errors.Trace(err)
+					return errors.Capture(err)
 				}
 				if shouldSend {
 					currentRelations.Add(relation)
@@ -95,30 +183,34 @@ func (w *subRelationsWatcher) loop() error {
 	}
 }
 
-func (w *subRelationsWatcher) shouldSend(key string) (bool, error) {
+func (w *subRelationsWatcher) shouldSend(ctx context.Context, key string) (bool, error) {
 	if shouldSend, found := w.relations[key]; found {
 		return shouldSend, nil
 	}
-	result, err := w.shouldSendCheck(key)
+	result, err := w.shouldSendCheck(ctx, key)
 	if err == nil {
 		w.relations[key] = result
 	}
-	return result, errors.Trace(err)
+	return result, errors.Capture(err)
 }
 
-func (w *subRelationsWatcher) shouldSendCheck(key string) (bool, error) {
-	rel, err := w.backend.KeyRelation(key)
-	if errors.Is(err, errors.NotFound) {
+func (w *subRelationsWatcher) shouldSendCheck(ctx context.Context, key string) (bool, error) {
+	relUUID, err := w.relationService.GetRelationUUIDFromKey(ctx, corerelation.Key(key))
+	if errors.Is(err, relationerrors.RelationNotFound) {
 		// We never saw it, and it's already gone away, so we can drop it.
 		w.logger.Debugf(context.TODO(), "couldn't find unknown relation %q", key)
 		return false, nil
 	} else if err != nil {
-		return false, errors.Trace(err)
+		return false, errors.Capture(err)
 	}
 
-	thisEnd, err := rel.Endpoint(w.app.Name())
+	subordinateAppID, err := w.applicationService.GetApplicationIDByName(ctx, w.subordinateName)
 	if err != nil {
-		return false, errors.Trace(err)
+		return false, errors.Capture(err)
+	}
+	thisEnd, err := w.relationService.GetRelationEndpoint(ctx, relUUID, subordinateAppID)
+	if err != nil {
+		return false, errors.Capture(err)
 	}
 	if thisEnd.Scope == charm.ScopeGlobal {
 		return true, nil
@@ -126,9 +218,9 @@ func (w *subRelationsWatcher) shouldSendCheck(key string) (bool, error) {
 
 	// Only allow container relations if the other end is our
 	// principal or the other end is a subordinate.
-	otherEnds, err := rel.RelatedEndpoints(w.app.Name())
+	otherEnds, err := w.relationService.GetRelatedEndpoints(ctx, relUUID, w.subordinateName)
 	if err != nil {
-		return false, errors.Trace(err)
+		return false, errors.Capture(err)
 	}
 	for _, otherEnd := range otherEnds {
 		if otherEnd.ApplicationName == w.principalName {
@@ -136,7 +228,7 @@ func (w *subRelationsWatcher) shouldSendCheck(key string) (bool, error) {
 		}
 		otherApp, err := w.backend.Application(otherEnd.ApplicationName)
 		if err != nil {
-			return false, errors.Trace(err)
+			return false, errors.Capture(err)
 		}
 		if !otherApp.IsPrincipal() {
 			return true, nil
