@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/blockdevice"
-	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -16,9 +15,8 @@ import (
 )
 
 type getWatcherFunc = func(
-	namespace, changeValue string,
-	changeMask changestream.ChangeType,
-	mapper eventsource.Mapper,
+	filter eventsource.FilterOption,
+	filterOpts ...eventsource.FilterOption,
 ) (watcher.NotifyWatcher, error)
 
 // State defines an interface for interacting with the underlying state.
@@ -40,10 +38,12 @@ type State interface {
 
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
-	NewValueMapperWatcher(
-		namespace, changeValue string,
-		changeMask changestream.ChangeType,
-		mapper eventsource.Mapper,
+	// NewNotifyWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided.
+	NewNotifyWatcher(
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
 }
 
@@ -114,5 +114,5 @@ func (s *WatchableService) WatchBlockDevices(
 	ctx context.Context,
 	machineId string,
 ) (watcher.NotifyWatcher, error) {
-	return s.st.WatchBlockDevices(ctx, s.watcherFactory.NewValueMapperWatcher, machineId)
+	return s.st.WatchBlockDevices(ctx, s.watcherFactory.NewNotifyWatcher, machineId)
 }

@@ -14,6 +14,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/errors"
@@ -33,10 +34,12 @@ type State interface {
 
 // WatcherFactory instances return watchers for a given namespace and UUID.
 type WatcherFactory interface {
-	// NewValueWatcher creates a watcher for the specified namespace and UUID,
-	// observing changes matching the provided mask.
-	NewValueWatcher(
-		namespace, uuid string, changeMask changestream.ChangeType,
+	// NewNotifyWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided.
+	NewNotifyWatcher(
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
 }
 
@@ -409,9 +412,15 @@ func (s *WatchableService) WatchApplicationSettings(
 	if err != nil {
 		return nil, errors.Capture(errors.Errorf("watch application settings: %w", err))
 	}
-	return s.watcherFactory.NewValueWatcher(
-		s.st.WatcherApplicationSettingsNamespace(), relationEndpointUUID.String(),
-		changestream.All)
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter(
+			s.st.WatcherApplicationSettingsNamespace(),
+			changestream.All,
+			func(s string) bool {
+				return s == relationEndpointUUID.String()
+			},
+		),
+	)
 }
 
 // WatchLifeSuspendedStatus returns a watcher that notifies of changes to the life

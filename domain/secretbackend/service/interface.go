@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/juju/core/changestream"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -50,9 +49,13 @@ type WatcherFactory interface {
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
 
-	// NewValueWatcher returns a watcher for a particular change
-	// value in a namespace, based on the input change mask.
-	NewValueWatcher(namespace, changeValue string, changeMask changestream.ChangeType) (watcher.NotifyWatcher, error)
+	// NewNotifyWatcher returns a new watcher that filters changes from the input
+	// base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided.
+	NewNotifyWatcher(
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error)
 }
 
 // AdminBackendConfigGetterFunc returns a function that gets the

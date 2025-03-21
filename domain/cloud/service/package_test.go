@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	jujutesting "github.com/juju/testing"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 )
 

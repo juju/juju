@@ -22,6 +22,8 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// WatchableService is a service that can be watched for updates to machine
+// values.
 type WatchableService struct {
 	ProviderService
 	watcherFactory WatcherFactory
@@ -42,10 +44,12 @@ type WatcherFactory interface {
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
 
-	// NewNamespaceNotifyMapperWatcher returns a new namespace notify watcher
-	// for events based on the input change mask and mapper.
-	NewNamespaceNotifyMapperWatcher(
-		namespace string, changeMask changestream.ChangeType, mapper eventsource.Mapper,
+	// NewNotifyWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided.
+	NewNotifyWatcher(
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
 }
 
@@ -84,12 +88,14 @@ func (s *WatchableService) WatchModelMachines() (watcher.StringsWatcher, error) 
 // the changes in the machine_cloud_instance table in the model, for the given
 // machine UUID.
 func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context, machineUUID string) (watcher.NotifyWatcher, error) {
-	return s.watcherFactory.NewNamespaceNotifyMapperWatcher(
-		s.st.NamespaceForWatchMachineCloudInstance(),
-		changestream.All,
-		eventsource.FilterEvents(func(event changestream.ChangeEvent) bool {
-			return event.Changed() == machineUUID
-		}),
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter(
+			s.st.NamespaceForWatchMachineCloudInstance(),
+			changestream.All,
+			func(s string) bool {
+				return s == machineUUID
+			},
+		),
 	)
 }
 
@@ -99,12 +105,14 @@ func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context, machi
 // fired from `SetAppliedLXDProfileNames()` instead of the `machine_lxd_profile`
 // table, which could become noisy.
 func (s *WatchableService) WatchLXDProfiles(ctx context.Context, machineUUID string) (watcher.NotifyWatcher, error) {
-	return s.watcherFactory.NewNamespaceNotifyMapperWatcher(
-		s.st.NamespaceForWatchMachineLXDProfiles(),
-		changestream.All,
-		eventsource.FilterEvents(func(event changestream.ChangeEvent) bool {
-			return event.Changed() == machineUUID
-		}),
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter(
+			s.st.NamespaceForWatchMachineLXDProfiles(),
+			changestream.All,
+			func(s string) bool {
+				return s == machineUUID
+			},
+		),
 	)
 }
 
@@ -117,12 +125,14 @@ func (s *WatchableService) WatchMachineReboot(ctx context.Context, uuid string) 
 		return nil, errors.Capture(err)
 	}
 	machines := set.NewStrings(uuids...)
-	return s.watcherFactory.NewNamespaceNotifyMapperWatcher(
-		s.st.NamespaceForWatchMachineReboot(),
-		changestream.All,
-		eventsource.FilterEvents(func(event changestream.ChangeEvent) bool {
-			return machines.Contains(event.Changed())
-		}),
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter(
+			s.st.NamespaceForWatchMachineReboot(),
+			changestream.All,
+			func(s string) bool {
+				return machines.Contains(s)
+			},
+		),
 	)
 }
 

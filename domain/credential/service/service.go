@@ -12,13 +12,13 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/changestream"
 	corecredential "github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/credential"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	"github.com/juju/juju/internal/errors"
@@ -26,8 +26,12 @@ import (
 
 // WatcherFactory instances return a watcher for a specified credential UUID,
 type WatcherFactory interface {
-	NewValueWatcher(
-		namespace, uuid string, changeMask changestream.ChangeType,
+	// NewNotifyWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided.
+	NewNotifyWatcher(
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
 }
 
@@ -310,7 +314,7 @@ func (s *WatchableService) WatchCredential(ctx context.Context, key corecredenti
 	if err := key.Validate(); err != nil {
 		return nil, errors.Errorf("invalid id watching cloud credential: %w", err)
 	}
-	return s.st.WatchCredential(ctx, s.watcherFactory.NewValueWatcher, key)
+	return s.st.WatchCredential(ctx, s.watcherFactory.NewNotifyWatcher, key)
 }
 
 // WithLegacyUpdater configures the service to use the specified function

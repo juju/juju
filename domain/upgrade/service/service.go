@@ -36,9 +36,16 @@ type State interface {
 
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
-	// NewValueMapperWatcher returns a new namespace watcher
-	// for events based on the input change mask and predicate.
-	NewValueMapperWatcher(string, string, changestream.ChangeType, eventsource.Mapper) (watcher.NotifyWatcher, error)
+	// NewNotifyMapperWatcher returns a new watcher that receives changes from
+	// the input base watcher's db/queue. A single filter option is required,
+	// though additional filter options can be provided. Filtering of values is
+	// done first by the filter, and then subsequently by the mapper. Based on
+	// the mapper's logic a subset of them (or none) may be emitted.
+	NewNotifyMapperWatcher(
+		mapper eventsource.Mapper,
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error)
 }
 
 // Service provides the API for working with upgrade info
@@ -169,7 +176,16 @@ func (s *WatchableService) WatchForUpgradeReady(ctx context.Context, upgradeUUID
 		}
 		return nil, nil
 	}
-	return s.watcherFactory.NewValueMapperWatcher(s.st.NamespaceForWatchUpgradeReady(), upgradeUUID.String(), changestream.Changed, mapper)
+	return s.watcherFactory.NewNotifyMapperWatcher(
+		mapper,
+		eventsource.PredicateFilter(
+			s.st.NamespaceForWatchUpgradeReady(),
+			changestream.Changed,
+			func(s string) bool {
+				return s == upgradeUUID.String()
+			},
+		),
+	)
 }
 
 // WatchForUpgradeState creates a watcher which notifies when the upgrade
@@ -189,5 +205,14 @@ func (s *WatchableService) WatchForUpgradeState(ctx context.Context, upgradeUUID
 		}
 		return nil, nil
 	}
-	return s.watcherFactory.NewValueMapperWatcher(s.st.NamespaceForWatchUpgradeState(), upgradeUUID.String(), changestream.Changed, mapper)
+	return s.watcherFactory.NewNotifyMapperWatcher(
+		mapper,
+		eventsource.PredicateFilter(
+			s.st.NamespaceForWatchUpgradeState(),
+			changestream.Changed,
+			func(s string) bool {
+				return s == upgradeUUID.String()
+			},
+		),
+	)
 }

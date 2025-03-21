@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/application"
@@ -276,7 +275,7 @@ func decodeUnitWorkloadStatus(s *application.UnitStatusInfo[application.Workload
 		s.Status == application.WorkloadStatusTerminated) {
 		return &status.StatusInfo{
 			Status:  status.Unknown,
-			Message: fmt.Sprintf("agent lost, see `juju debug-logs` or `juju show-status-log` for more information"),
+			Message: "agent lost, see `juju debug-logs` or `juju show-status-log` for more information",
 			Since:   s.Since,
 		}, nil
 	}

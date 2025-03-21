@@ -211,15 +211,23 @@ func (s *WatchableService) WatchObsoleteUserSecretsToPrune(ctx context.Context) 
 		return changes[:1], nil
 	}
 
-	wObsolete, err := s.watcherFactory.NewNamespaceNotifyMapperWatcher(
-		s.secretState.NamespaceForWatchSecretRevisionObsolete(), changestream.Changed, mapper,
+	wObsolete, err := s.watcherFactory.NewNotifyMapperWatcher(
+		mapper,
+		eventsource.NamespaceFilter(
+			s.secretState.NamespaceForWatchSecretRevisionObsolete(),
+			changestream.Changed,
+		),
 	)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	wAutoPrune, err := s.watcherFactory.NewNamespaceNotifyMapperWatcher(
-		s.secretState.NamespaceForWatchSecretMetadata(), changestream.Changed, mapper,
+	wAutoPrune, err := s.watcherFactory.NewNotifyMapperWatcher(
+		mapper,
+		eventsource.NamespaceFilter(
+			s.secretState.NamespaceForWatchSecretMetadata(),
+			changestream.Changed,
+		),
 	)
 	if err != nil {
 		return nil, errors.Capture(err)

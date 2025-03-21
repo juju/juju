@@ -119,11 +119,15 @@ type WatcherFactory interface {
 		namespace string, changeMask changestream.ChangeType,
 	) (watcher.StringsWatcher, error)
 
-	NewValueWatcher(
-		namespace, changeValue string, changeMask changestream.ChangeType,
+	NewNotifyWatcher(
+		filterOption eventsource.FilterOption,
+		filterOptions ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
 
-	NewValueMapperWatcher(string, string, changestream.ChangeType, eventsource.Mapper,
+	NewNotifyMapperWatcher(
+		mapper eventsource.Mapper,
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
 
 	// NewNamespaceMapperWatcher returns a new watcher that receives changes
@@ -232,11 +236,15 @@ func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName st
 		}
 		return nil, nil
 	}
-	return s.watcherFactory.NewValueMapperWatcher(
-		s.st.NamespaceForWatchApplicationScale(),
-		appID.String(),
-		mask,
+	return s.watcherFactory.NewNotifyMapperWatcher(
 		mapper,
+		eventsource.PredicateFilter(
+			s.st.NamespaceForWatchApplicationScale(),
+			mask,
+			func(s string) bool {
+				return s == appID.String()
+			},
+		),
 	)
 }
 
@@ -329,10 +337,14 @@ func (s *WatchableService) WatchApplication(ctx context.Context, name string) (w
 	if err != nil {
 		return nil, errors.Errorf("getting ID of application %s: %w", name, err)
 	}
-	return s.watcherFactory.NewValueWatcher(
-		s.st.NamespaceForWatchApplication(),
-		uuid.String(),
-		changestream.All,
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter(
+			s.st.NamespaceForWatchApplication(),
+			changestream.All,
+			func(s string) bool {
+				return s == uuid.String()
+			},
+		),
 	)
 }
 
@@ -350,10 +362,14 @@ func (s *WatchableService) WatchApplicationConfig(ctx context.Context, name stri
 		return nil, errors.Errorf("getting ID of application %s: %w", name, err)
 	}
 
-	return s.watcherFactory.NewValueWatcher(
-		s.st.NamespaceForWatchApplicationConfig(),
-		uuid.String(),
-		changestream.All,
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter(
+			s.st.NamespaceForWatchApplicationConfig(),
+			changestream.All,
+			func(s string) bool {
+				return s == uuid.String()
+			},
+		),
 	)
 }
 

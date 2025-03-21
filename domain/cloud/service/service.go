@@ -7,17 +7,21 @@ import (
 	"context"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
 // WatcherFactory instances return a watcher for a specified credential UUID,
 type WatcherFactory interface {
-	NewValueWatcher(
-		namespace, uuid string, changeMask changestream.ChangeType,
+	// NewNotifyWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided.
+	NewNotifyWatcher(
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
 }
 
@@ -108,5 +112,5 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 
 // WatchCloud returns a watcher that observes changes to the specified cloud.
 func (s *WatchableService) WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
-	return s.st.WatchCloud(ctx, s.watcherFactory.NewValueWatcher, name)
+	return s.st.WatchCloud(ctx, s.watcherFactory.NewNotifyWatcher, name)
 }

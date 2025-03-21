@@ -6,26 +6,18 @@ package state
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"regexp"
-	"time"
 
-	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/changestream"
 	corecredential "github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/eventsource"
-	"github.com/juju/juju/core/watcher/watchertest"
 	userstate "github.com/juju/juju/domain/access/state"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
@@ -58,39 +50,6 @@ func (s *credentialSuite) SetUpTest(c *gc.C) {
 		Type:      "ec2",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
 	})
-}
-
-func (s *credentialSuite) addOwner(c *gc.C, name user.Name) user.UUID {
-	userUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	userState := userstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err = userState.AddUserWithPermission(
-		context.Background(),
-		userUUID,
-		name,
-		"test user",
-		false,
-		userUUID,
-		permission.AccessSpec{
-			Access: permission.SuperuserAccess,
-			Target: permission.ID{
-				ObjectType: permission.Controller,
-				Key:        s.controllerUUID,
-			},
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	return userUUID
-}
-
-func (s *credentialSuite) addCloud(c *gc.C, userName user.Name, cloud cloud.Cloud) string {
-	cloudSt := dbcloud.NewState(s.TxnRunnerFactory())
-	ctx := context.Background()
-	cloudUUID := uuid.MustNewUUID().String()
-	err := cloudSt.CreateCloud(ctx, userName, cloudUUID, cloud)
-	c.Assert(err, jc.ErrorIsNil)
-
-	return cloudUUID
 }
 
 func (s *credentialSuite) TestUpdateCloudCredentialNew(c *gc.C) {
@@ -409,23 +368,6 @@ func (s *credentialSuite) TestAllCloudCredentialsNotFound(c *gc.C) {
 	c.Assert(out, gc.IsNil)
 }
 
-func (s *credentialSuite) createCloudCredential(c *gc.C, st *State, key corecredential.Key) credential.CloudCredentialInfo {
-	authType := cloud.AccessKeyAuthType
-	attributes := map[string]string{
-		"foo": "foo val",
-		"bar": "bar val",
-	}
-
-	credInfo := credential.CloudCredentialInfo{
-		Label:      key.Name,
-		AuthType:   string(authType),
-		Attributes: attributes,
-	}
-	_, err := st.UpsertCloudCredential(context.Background(), key, credInfo)
-	c.Assert(err, jc.ErrorIsNil)
-	return credInfo
-}
-
 func (s *credentialSuite) TestAllCloudCredentials(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -492,76 +434,6 @@ func (s *credentialSuite) TestInvalidateCloudCredentialNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 }
 
-type watcherFunc func(namespace, changeValue string, changeMask changestream.ChangeType) (watcher.NotifyWatcher, error)
-
-func (f watcherFunc) NewValueWatcher(
-	namespace, changeValue string, changeMask changestream.ChangeType,
-) (watcher.NotifyWatcher, error) {
-	return f(namespace, changeValue, changeMask)
-}
-
-func (s *credentialSuite) watcherFunc(c *gc.C, expectedChangeValue string) watcherFunc {
-	return func(namespace, changeValue string, changeMask changestream.ChangeType) (watcher.NotifyWatcher, error) {
-		c.Assert(namespace, gc.Equals, "cloud_credential")
-		c.Assert(changeMask, gc.Equals, changestream.All)
-		c.Assert(changeValue, gc.Equals, expectedChangeValue)
-
-		db, err := s.GetWatchableDB(namespace)
-		c.Assert(err, jc.ErrorIsNil)
-
-		base := eventsource.NewBaseWatcher(db, loggertesting.WrapCheckLog(c))
-		return eventsource.NewValueWatcher(base, namespace, changeValue, changeMask), nil
-	}
-}
-
-func (s *credentialSuite) TestWatchCredentialNotFound(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	key := corecredential.Key{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
-	ctx := context.Background()
-	_, err := st.WatchCredential(ctx, s.watcherFunc(c, ""), key)
-	c.Assert(err, jc.ErrorIs, credentialerrors.NotFound)
-}
-
-func (s *credentialSuite) TestWatchCredential(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-	key := corecredential.Key{Cloud: "stratus", Owner: s.userName, Name: "foobar"}
-	s.createCloudCredential(c, st, key)
-
-	var uuid corecredential.UUID
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		uuid, err = st.credentialUUIDForKey(ctx, tx, key)
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	w, err := st.WatchCredential(context.Background(), s.watcherFunc(c, uuid.String()), key)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
-
-	wc := watchertest.NewNotifyWatcherC(c, w)
-	wc.AssertChanges(time.Second) // Initial event.
-
-	credInfo := credential.CloudCredentialInfo{
-		AuthType: string(cloud.AccessKeyAuthType),
-		Attributes: map[string]string{
-			"foo": "foo val",
-			"bar": "bar val",
-		},
-		Revoked: true,
-		Label:   "foobar",
-	}
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, err := st.UpsertCloudCredential(ctx, key, credInfo)
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	workertest.CleanKill(c, w)
-}
-
 func (s *credentialSuite) TestNoModelsUsingCloudCredential(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -583,12 +455,13 @@ func (s *credentialSuite) TestModelsUsingCloudCredential(c *gc.C) {
 	c.Assert(one.Invalid, jc.IsFalse)
 
 	insertOne := func(ctx context.Context, tx *sql.Tx, modelUUID, name string) error {
-		result, err := tx.ExecContext(ctx, fmt.Sprintf(`
-		INSERT INTO model (uuid, name, owner_uuid, life_id, model_type_id, activated, cloud_uuid, cloud_credential_uuid)
-		SELECT %q, %q, %q, 0, 0, true,
-			(SELECT uuid FROM cloud WHERE cloud.name="stratus"),
-			(SELECT uuid FROM cloud_credential cc WHERE cc.name="foobar")`,
-			modelUUID, name, s.userUUID),
+		result, err := tx.ExecContext(ctx, `
+INSERT INTO model (uuid, name, owner_uuid, life_id, model_type_id, activated, cloud_uuid, cloud_credential_uuid)
+SELECT ?, ?, ?, 0, 0, true,
+	(SELECT uuid FROM cloud WHERE cloud.name="stratus"),
+	(SELECT uuid FROM cloud_credential cc WHERE cc.name="foobar")
+			`,
+			modelUUID, name, s.userUUID,
 		)
 		if err != nil {
 			return err
@@ -656,4 +529,54 @@ func (s *credentialSuite) TestGetCloudCredentialNonExistent(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	_, err = st.GetCloudCredential(context.Background(), id)
 	c.Check(err, jc.ErrorIs, credentialerrors.NotFound)
+}
+
+func (s *credentialSuite) addOwner(c *gc.C, name user.Name) user.UUID {
+	userUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	userState := userstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = userState.AddUserWithPermission(
+		context.Background(),
+		userUUID,
+		name,
+		"test user",
+		false,
+		userUUID,
+		permission.AccessSpec{
+			Access: permission.SuperuserAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        s.controllerUUID,
+			},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	return userUUID
+}
+
+func (s *credentialSuite) addCloud(c *gc.C, userName user.Name, cloud cloud.Cloud) string {
+	cloudSt := dbcloud.NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+	cloudUUID := uuid.MustNewUUID().String()
+	err := cloudSt.CreateCloud(ctx, userName, cloudUUID, cloud)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return cloudUUID
+}
+
+func (s *credentialSuite) createCloudCredential(c *gc.C, st *State, key corecredential.Key) credential.CloudCredentialInfo {
+	authType := cloud.AccessKeyAuthType
+	attributes := map[string]string{
+		"foo": "foo val",
+		"bar": "bar val",
+	}
+
+	credInfo := credential.CloudCredentialInfo{
+		Label:      key.Name,
+		AuthType:   string(authType),
+		Attributes: attributes,
+	}
+	_, err := st.UpsertCloudCredential(context.Background(), key, credInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	return credInfo
 }
