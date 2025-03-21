@@ -374,12 +374,18 @@ func (a *API) WatchProvisioningInfo(ctx context.Context, args params.Entities) (
 
 func (a *API) watchProvisioningInfo(ctx context.Context, appName names.ApplicationTag) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
+
+	appWatcher, err := a.applicationService.WatchApplication(ctx, appName.Id())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
 	app, err := a.state.Application(appName.Id())
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	appWatcher := app.Watch()
+	legacyAppWatcher := app.Watch()
 	controllerConfigWatcher, err := a.controllerConfigService.WatchControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)
@@ -400,8 +406,14 @@ func (a *API) watchProvisioningInfo(ctx context.Context, appName names.Applicati
 		return result, errors.Trace(err)
 	}
 
+	// TODO: Either this needs to be a watcher in the application domain that covers
+	// all the required values in ProvisioningInfo, or we need to refactor the worker
+	// to watch what it needs. Currently we are missing when the charm is available,
+	// which leads to the caasapplicationprovisioner worker not progressing with the
+	// provisioning of k8s resources.
 	multiWatcher, err := eventsource.NewMultiNotifyWatcher(ctx,
 		appWatcher,
+		legacyAppWatcher,
 		controllerConfigNotifyWatcher,
 		controllerAPIHostPortsWatcher,
 		modelConfigNotifyWatcher,
@@ -440,6 +452,8 @@ func (a *API) ProvisioningInfo(ctx context.Context, args params.Entities) (param
 }
 
 func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag) (*params.CAASApplicationProvisioningInfo, error) {
+	// TODO: Either this needs to be implemented in the application domain or the worker
+	// needs to be refactored to fetch each value individually.
 	appName := appTag.Id()
 	app, err := a.state.Application(appName)
 	if err != nil {
@@ -461,6 +475,7 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	} else if !isAvailable {
+		// TODO: WatchProvisioningInfo needs to fire when this changes.
 		return nil, errors.NotProvisionedf("charm for application %q", appName)
 	}
 
@@ -1469,7 +1484,6 @@ func updateStatus(params params.ApplicationUnitParams) (
 	agentStatus *status.StatusInfo,
 	cloudContainerStatus *status.StatusInfo,
 ) {
-	var containerStatus status.Status
 	switch status.Status(params.Status) {
 	case status.Unknown:
 		// The container runtime can spam us with unimportant
@@ -1481,30 +1495,41 @@ func updateStatus(params params.ApplicationUnitParams) (
 			Status:  status.Allocating,
 			Message: params.Info,
 		}
-		containerStatus = status.Waiting
+		cloudContainerStatus = &status.StatusInfo{
+			Status:  status.Waiting,
+			Message: params.Info,
+			Data:    params.Data,
+		}
 	case status.Running:
 		// A pod has finished starting so the workload is now active.
 		agentStatus = &status.StatusInfo{
 			Status: status.Idle,
 		}
-		containerStatus = status.Running
+		cloudContainerStatus = &status.StatusInfo{
+			Status:  status.Running,
+			Message: params.Info,
+			Data:    params.Data,
+		}
 	case status.Error:
 		agentStatus = &status.StatusInfo{
 			Status:  status.Error,
 			Message: params.Info,
 			Data:    params.Data,
 		}
-		containerStatus = status.Error
+		cloudContainerStatus = &status.StatusInfo{
+			Status:  status.Error,
+			Message: params.Info,
+			Data:    params.Data,
+		}
 	case status.Blocked:
-		containerStatus = status.Blocked
 		agentStatus = &status.StatusInfo{
 			Status: status.Idle,
 		}
-	}
-	cloudContainerStatus = &status.StatusInfo{
-		Status:  containerStatus,
-		Message: params.Info,
-		Data:    params.Data,
+		cloudContainerStatus = &status.StatusInfo{
+			Status:  status.Blocked,
+			Message: params.Info,
+			Data:    params.Data,
+		}
 	}
 	return agentStatus, cloudContainerStatus
 }

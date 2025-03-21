@@ -88,6 +88,9 @@ type ApplicationService interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (constraints.Value, error)
+
+	// WatchApplication returns a NotifyWatcher for changes to the application.
+	WatchApplication(ctx context.Context, name string) (watcher.NotifyWatcher, error)
 }
 
 type StatusService interface {
