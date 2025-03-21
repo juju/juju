@@ -13,6 +13,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -604,7 +605,7 @@ func (s *logSinkSuite) newLogSink(c *gc.C, batchSize int) (*LogSink, *bytes.Buff
 
 	buffer := new(bytes.Buffer)
 
-	sink := newLogSink(buffer, batchSize, time.Millisecond*100, s.states)
+	sink := newLogSink(buffer, batchSize, time.Millisecond*100, clock.WallClock, s.states)
 	return sink, buffer
 }
 

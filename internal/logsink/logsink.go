@@ -11,10 +11,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/loggo/v2"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/errors"
 )
 
 const (
@@ -39,6 +41,8 @@ type LogSink struct {
 	inLogRecords chan []logger.LogRecord
 
 	out chan []logRecord
+
+	clock clock.Clock
 }
 
 // NewLogSink creates a new log sink that writes log messages to a file. There
@@ -48,12 +52,17 @@ type LogSink struct {
 // message is multiline. The batchSize parameter specifies the minimum number of
 // log messages to batch before writing to the underlying writer. The number of
 // entires can far exceed the batchSize if the log messages are large.
-func NewLogSink(writer io.Writer, batchSize int, flushInterval time.Duration) *LogSink {
-	return newLogSink(writer, batchSize, flushInterval, nil)
+func NewLogSink(writer io.Writer, batchSize int, flushInterval time.Duration, clock clock.Clock) *LogSink {
+	return newLogSink(writer, batchSize, flushInterval, clock, nil)
 }
 
 // newLogSink creates a new log sink that writes log messages to a file.
-func newLogSink(writer io.Writer, batchSize int, flushInterval time.Duration, internalStates chan string) *LogSink {
+func newLogSink(
+	writer io.Writer,
+	batchSize int, flushInterval time.Duration,
+	clock clock.Clock,
+	internalStates chan string,
+) *LogSink {
 	w := &LogSink{
 		internalStates: internalStates,
 
@@ -66,6 +75,8 @@ func newLogSink(writer io.Writer, batchSize int, flushInterval time.Duration, in
 		inLogRecords: make(chan []logger.LogRecord),
 
 		out: make(chan []logRecord),
+
+		clock: clock,
 	}
 	w.tomb.Go(w.loop)
 	return w
@@ -102,7 +113,10 @@ func (w *LogSink) Wait() error {
 }
 
 func (w *LogSink) loop() error {
+	closing := make(chan struct{})
 	w.tomb.Go(func() error {
+		defer close(closing)
+
 		buffer := new(bytes.Buffer)
 		encoder := json.NewEncoder(buffer)
 
@@ -151,6 +165,18 @@ func (w *LogSink) loop() error {
 		select {
 		case <-w.tomb.Dying():
 			if len(entries) > 0 {
+				// Ensure that we write the remaining log messages before we
+				// exit the loop. It requires the write goroutine to be
+				// finished before we attempt to write any remaining log
+				// messages.
+				// If the write goroutine is still writing after a second, we
+				// can't wait forever, so we return an error.
+				select {
+				case <-closing:
+				case <-w.clock.After(time.Second):
+					return errors.Errorf("failed to write %d log messages: %w", len(entries), tomb.ErrDying)
+				}
+
 				// To prevent a race, we need our own buffer and encoder to
 				// write the remaining log messages that weren't written yet.
 				buffer := new(bytes.Buffer)
