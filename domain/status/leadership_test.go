@@ -149,12 +149,12 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderCancelled(c *gc.C
 	c.Assert(err, jc.ErrorIs, context.Canceled)
 }
 
-func (s *leadershipSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) *service.Service {
+func (s *leadershipSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) *service.LeadershipService {
 	modelDB := func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}
 
-	return service.NewService(
+	return service.NewLeadershipService(
 		state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
 		domain.NewLeaseService(leaseGetter{
 			Checker: s.leadership,

@@ -98,7 +98,7 @@ type ModelDomainServices interface {
 	// Application returns the application service.
 	Application() *applicationservice.WatchableService
 	// Status returns the application status service.
-	Status() *statusservice.Service
+	Status() *statusservice.LeadershipService
 	// KeyManager returns the key manager service.
 	KeyManager() *keymanagerservice.Service
 	// KeyManagerWithImporter returns they manager service that is capable of importing keys

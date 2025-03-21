@@ -5,7 +5,6 @@ package modelmigration
 
 import (
 	"context"
-	"time"
 
 	"github.com/juju/description/v9"
 	"github.com/juju/testing"
@@ -18,7 +17,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/service"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -111,13 +109,12 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 
 	model := description.NewModel(description.ModelArgs{})
 
-	updatedAt := time.Now().UTC()
 	appArgs := description.ApplicationArgs{
 		Name:     "prometheus",
 		CharmURL: "ch:prometheus-1",
 	}
 	app := model.AddApplication(appArgs)
-	u := app.AddUnit(description.UnitArgs{
+	app.AddUnit(description.UnitArgs{
 		Name:         "prometheus/0",
 		PasswordHash: "passwordhash",
 		CloudContainer: &description.CloudContainerArgs{
@@ -131,24 +128,6 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 			},
 			Ports: []string{"6666"},
 		},
-	})
-	u.SetAgentStatus(description.StatusArgs{
-		Value:   "idle",
-		Message: "agent status",
-		Data:    map[string]any{"foo": "bar"},
-		Updated: updatedAt,
-	})
-	u.SetWorkloadStatus(description.StatusArgs{
-		Value:   "waiting",
-		Message: "workload status",
-		Data:    map[string]any{"foo": "bar"},
-		Updated: updatedAt,
-	})
-	app.SetStatus(description.StatusArgs{
-		Value:   "running",
-		Message: "application status",
-		Data:    map[string]any{"foo": "bar"},
-		Updated: updatedAt,
 	})
 	app.SetCharmMetadata(description.CharmMetadataArgs{
 		Name: "prometheus",
@@ -188,12 +167,6 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(importArgs.Charm.Meta().Name, gc.Equals, "prometheus")
-	c.Check(importArgs.ApplicationStatus, gc.DeepEquals, &status.StatusInfo{
-		Status:  "running",
-		Message: "application status",
-		Data:    map[string]any{"foo": "bar"},
-		Since:   ptr(updatedAt),
-	})
 	c.Check(importArgs.Units, gc.DeepEquals, []service.ImportUnitArg{{
 		UnitName:     "prometheus/0",
 		PasswordHash: ptr("passwordhash"),
@@ -210,18 +183,6 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 			AddressOrigin: ptr(network.OriginProvider),
 			Ports:         ptr([]string{"6666"}),
 		}),
-		AgentStatus: status.StatusInfo{
-			Status:  "idle",
-			Message: "agent status",
-			Data:    map[string]any{"foo": "bar"},
-			Since:   ptr(updatedAt),
-		},
-		WorkloadStatus: status.StatusInfo{
-			Status:  "waiting",
-			Message: "workload status",
-			Data:    map[string]any{"foo": "bar"},
-			Since:   ptr(updatedAt),
-		},
 	}})
 }
 
@@ -289,69 +250,6 @@ func (s *importSuite) TestApplicationImportWithApplicationConfigAndSettings(c *g
 	})
 	c.Check(importArgs.ApplicationSettings, jc.DeepEquals, application.ApplicationSettings{
 		Trust: true,
-	})
-}
-
-func (s *importSuite) TestApplicationImportWithApplicationStatusNotSet(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	model := description.NewModel(description.ModelArgs{})
-
-	appArgs := description.ApplicationArgs{
-		Name:     "prometheus",
-		CharmURL: "ch:prometheus-1",
-		CharmConfig: map[string]interface{}{
-			"foo": "bar",
-		},
-		ApplicationConfig: map[string]interface{}{
-			"trust": true,
-		},
-	}
-	app := model.AddApplication(appArgs)
-	app.SetCharmMetadata(description.CharmMetadataArgs{
-		Name: "prometheus",
-	})
-	app.SetCharmConfigs(description.CharmConfigsArgs{
-		Configs: map[string]description.CharmConfig{
-			"foo": charmConfig{ConfigType: "string", DefaultValue: "baz"},
-		},
-	})
-	app.SetCharmManifest(description.CharmManifestArgs{
-		Bases: []description.CharmManifestBase{baseType{
-			name:          "ubuntu",
-			channel:       "24.04",
-			architectures: []string{"amd64"},
-		}},
-	})
-	app.SetCharmOrigin(description.CharmOriginArgs{
-		Source:   "charm-hub",
-		ID:       "1234",
-		Hash:     "deadbeef",
-		Revision: 1,
-		Channel:  "666/stable",
-		Platform: "arm64/ubuntu/24.04",
-	})
-
-	var importArgs service.ImportApplicationArgs
-	s.importService.EXPECT().ImportApplication(
-		gomock.Any(),
-		"prometheus",
-		gomock.Any(),
-	).DoAndReturn(func(_ context.Context, _ string, args service.ImportApplicationArgs) error {
-		importArgs = args
-		return nil
-	})
-
-	importOp := importOperation{
-		service: s.importService,
-		logger:  loggertesting.WrapCheckLog(c),
-	}
-
-	err := importOp.Execute(context.Background(), model)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(importArgs.ApplicationStatus, jc.DeepEquals, &status.StatusInfo{
-		Status: status.Unset,
 	})
 }
 

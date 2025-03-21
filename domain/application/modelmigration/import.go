@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
-	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -121,8 +120,6 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 				}
 				arg.CloudContainer = cldContainer
 			}
-			arg.WorkloadStatus = i.importStatus(unit.WorkloadStatus())
-			arg.AgentStatus = i.importStatus(unit.AgentStatus())
 			unitArgs = append(unitArgs, arg)
 		}
 
@@ -156,7 +153,6 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			return errors.Errorf("importing application settings: %w", err)
 		}
 
-		applicationStatus := i.importStatus(app.Status())
 		scaleState := application.ScaleState{
 			Scale: app.DesiredScale(),
 		}
@@ -172,7 +168,6 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			Units:                  unitArgs,
 			ApplicationConfig:      applicationConfig,
 			ApplicationSettings:    applicationSettings,
-			ApplicationStatus:      &applicationStatus,
 			ApplicationConstraints: i.importApplicationConstraints(app),
 			ScaleState:             scaleState,
 
@@ -280,25 +275,6 @@ func (i *importOperation) importApplicationSettings(app description.Application)
 	return application.ApplicationSettings{
 		Trust: trust,
 	}, nil
-}
-
-func (i *importOperation) importStatus(s description.Status) corestatus.StatusInfo {
-	// Older versions of Juju would pass through NeverSet() on the status
-	// description for application statuses that hadn't been explicitly
-	// set by the lead unit. If that is the case, we make the status what
-	// the new code expects.
-	if s == nil || s.NeverSet() {
-		return corestatus.StatusInfo{
-			Status: corestatus.Unset,
-		}
-	}
-
-	return corestatus.StatusInfo{
-		Status:  corestatus.Status(s.Value()),
-		Message: s.Message(),
-		Data:    s.Data(),
-		Since:   ptr(s.Updated()),
-	}
 }
 
 func (i *importOperation) importApplicationConstraints(app description.Application) constraints.Value {

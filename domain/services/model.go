@@ -199,9 +199,9 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 }
 
 // Status returns the application status service.
-func (s *ModelServices) Status() *statusservice.Service {
+func (s *ModelServices) Status() *statusservice.LeadershipService {
 	logger := s.logger.Child("status")
-	return statusservice.NewService(
+	return statusservice.NewLeadershipService(
 		statusstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger),
 		domain.NewLeaseService(s.leaseManager),
 		s.clock,

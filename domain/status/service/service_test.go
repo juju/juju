@@ -29,7 +29,7 @@ type serviceSuite struct {
 	leadership    *MockEnsurer
 	statusHistory *statusHistoryRecorder
 
-	service *Service
+	service *LeadershipService
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -1523,7 +1523,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.leadership = NewMockEnsurer(ctrl)
 	s.statusHistory = &statusHistoryRecorder{}
 
-	s.service = NewService(
+	s.service = NewLeadershipService(
 		s.state,
 		s.leadership,
 		clock.WallClock,

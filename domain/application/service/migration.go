@@ -244,7 +244,6 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 		DownloadInfo:        args.DownloadInfo,
 		ApplicationConfig:   args.ApplicationConfig,
 		ApplicationSettings: args.ApplicationSettings,
-		ApplicationStatus:   args.ApplicationStatus,
 	})
 	if err != nil {
 		return errors.Errorf("creating application args: %w", err)
@@ -286,21 +285,9 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 func makeUnitArgs(units []ImportUnitArg) ([]application.InsertUnitArg, error) {
 	unitArgs := make([]application.InsertUnitArg, len(units))
 	for i, u := range units {
-		agentStatus, err := encodeUnitAgentStatus(&u.AgentStatus)
-		if err != nil {
-			return nil, errors.Errorf("encoding agent status for unit %q: %w", u.UnitName, err)
-		}
-		workloadStatus, err := encodeWorkloadStatus(&u.WorkloadStatus)
-		if err != nil {
-			return nil, errors.Errorf("encoding workload status for unit %q: %w", u.UnitName, err)
-		}
 
 		arg := application.InsertUnitArg{
-			UnitName: u.UnitName,
-			UnitStatusArg: application.UnitStatusArg{
-				AgentStatus:    agentStatus,
-				WorkloadStatus: workloadStatus,
-			},
+			UnitName:         u.UnitName,
 			StorageParentDir: application.StorageParentDir,
 		}
 		if u.CloudContainer != nil {

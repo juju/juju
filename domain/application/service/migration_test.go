@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
-	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
@@ -377,7 +376,6 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 
 	id := applicationtesting.GenApplicationUUID(c)
 
-	now := ptr(s.clock.Now())
 	ch := domaincharm.Charm{
 		Metadata: domaincharm.Metadata{
 			Name:  "ubuntu",
@@ -467,20 +465,8 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", args, nil).Return(id, nil)
 
 	unitArg := ImportUnitArg{
-		UnitName:     "ubuntu/666",
-		PasswordHash: ptr("passwordhash"),
-		AgentStatus: corestatus.StatusInfo{
-			Status:  corestatus.Idle,
-			Message: "agent status",
-			Data:    map[string]interface{}{"foo": "bar"},
-			Since:   now,
-		},
-		WorkloadStatus: corestatus.StatusInfo{
-			Status:  corestatus.Waiting,
-			Message: "workload status",
-			Data:    map[string]interface{}{"foo": "bar"},
-			Since:   now,
-		},
+		UnitName:       "ubuntu/666",
+		PasswordHash:   ptr("passwordhash"),
 		CloudContainer: nil,
 	}
 
@@ -531,20 +517,6 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 			PasswordHash:  "passwordhash",
 			HashAlgorithm: 0,
 		}),
-		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
-				Status:  application.UnitAgentStatusIdle,
-				Message: "agent status",
-				Data:    []byte(`{"foo":"bar"}`),
-				Since:   now,
-			},
-			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
-				Status:  application.WorkloadStatusWaiting,
-				Message: "workload status",
-				Data:    []byte(`{"foo":"bar"}`),
-				Since:   now,
-			},
-		},
 		StorageParentDir: application.StorageParentDir,
 	}}
 	c.Check(receivedUnitArgs, gc.DeepEquals, expectedUnitArgs)

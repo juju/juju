@@ -71,7 +71,7 @@ func ImportOperations(
 	network.RegisterImport(coordinator, logger.Child("network"))
 	machine.RegisterImport(coordinator, clock, logger.Child("machine"))
 	application.RegisterImport(coordinator, storageRegistryGetter, clock, logger.Child("application"))
-	status.RegisterImport(coordinator)
+	status.RegisterImport(coordinator, clock, logger.Child("status"))
 	resource.RegisterImport(coordinator, clock, logger.Child("resource"))
 	port.RegisterImport(coordinator, logger.Child("port"))
 	blockdevice.RegisterImport(coordinator, logger.Child("blockdevice"))
