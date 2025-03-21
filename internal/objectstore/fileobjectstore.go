@@ -509,7 +509,7 @@ func (t *fileObjectStore) remoteGetWithMetadata(ctx context.Context, metadata ob
 	// Retrieve the file from the remote source.
 	reader, size, err := t.remoteRetriever.Retrieve(ctx, metadata.SHA256)
 	if errors.Is(err, jujuerrors.NotFound) {
-		return nil, -1, objectstoreerrors.ObjectNotFound
+		return nil, -1, errors.Errorf("%w: %w", err, objectstoreerrors.ObjectNotFound)
 	} else if err != nil {
 		return nil, -1, errors.Errorf("remote get: %w", err)
 	} else if size != metadata.Size {
