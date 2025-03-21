@@ -24,15 +24,12 @@ const (
 	stateTicked  = "ticked"
 )
 
-// NewWriterFunc is a function that creates a new writer.
-type NewWriterFunc func() (io.WriteCloser, error)
-
 // LogSink is a loggo.Writer that writes log messages to a file.
 type LogSink struct {
 	tomb           tomb.Tomb
 	internalStates chan string
 
-	writer io.Writer
+	writer io.WriteCloser
 
 	batchSize     int
 	flushInterval time.Duration
@@ -52,13 +49,15 @@ type LogSink struct {
 // message is multiline. The batchSize parameter specifies the minimum number of
 // log messages to batch before writing to the underlying writer. The number of
 // entires can far exceed the batchSize if the log messages are large.
-func NewLogSink(writer io.Writer, batchSize int, flushInterval time.Duration, clock clock.Clock) *LogSink {
+// LogSink will take ownership of the writer, and will close it when the worker
+// is killed.
+func NewLogSink(writer io.WriteCloser, batchSize int, flushInterval time.Duration, clock clock.Clock) *LogSink {
 	return newLogSink(writer, batchSize, flushInterval, clock, nil)
 }
 
 // newLogSink creates a new log sink that writes log messages to a file.
 func newLogSink(
-	writer io.Writer,
+	writer io.WriteCloser,
 	batchSize int, flushInterval time.Duration,
 	clock clock.Clock,
 	internalStates chan string,
@@ -113,6 +112,11 @@ func (w *LogSink) Wait() error {
 }
 
 func (w *LogSink) loop() error {
+	// When all is said and done we need to close the writer. The LogSink has
+	// taken ownership of the writer, and will close it when the worker is
+	// killed.
+	defer func() { _ = w.writer.Close() }()
+
 	closing := make(chan struct{})
 	w.tomb.Go(func() error {
 		defer close(closing)

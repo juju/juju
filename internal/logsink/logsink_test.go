@@ -11,6 +11,7 @@ import (
 	"io"
 	"math/rand"
 	"sort"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/clock"
@@ -27,6 +28,7 @@ type logSinkSuite struct {
 	testing.IsolationSuite
 
 	states chan string
+	closed int64
 }
 
 var _ = gc.Suite(&logSinkSuite{})
@@ -50,6 +52,8 @@ func (s *logSinkSuite) TestWriteWithNoBatching(c *gc.C) {
 	}})
 
 	workertest.CleanKill(c, sink)
+
+	s.expectWriterClosed(c)
 }
 
 func (s *logSinkSuite) TestWriteWithMultiline(c *gc.C) {
@@ -78,6 +82,8 @@ rld
 	}})
 
 	workertest.CleanKill(c, sink)
+
+	s.expectWriterClosed(c)
 }
 
 func (s *logSinkSuite) TestWriteWithLargeBatching(c *gc.C) {
@@ -102,6 +108,8 @@ func (s *logSinkSuite) TestWriteWithLargeBatching(c *gc.C) {
 	}})
 
 	workertest.CleanKill(c, sink)
+
+	s.expectWriterClosed(c)
 }
 
 func (s *logSinkSuite) TestWriteWithLogsBatching(c *gc.C) {
@@ -159,6 +167,8 @@ func (s *logSinkSuite) TestWriteWithLogsBatching(c *gc.C) {
 	c.Check(lines, gc.DeepEquals, expected)
 
 	workertest.CleanKill(c, sink)
+
+	s.expectWriterClosed(c)
 }
 
 func (s *logSinkSuite) TestWriteWithLogsUnderBatchSize(c *gc.C) {
@@ -213,6 +223,8 @@ func (s *logSinkSuite) TestWriteWithLogsUnderBatchSize(c *gc.C) {
 	c.Check(lines, gc.DeepEquals, expected)
 
 	workertest.CleanKill(c, sink)
+
+	s.expectWriterClosed(c)
 }
 
 func (s *logSinkSuite) TestWriteLogsConcurrently(c *gc.C) {
@@ -282,9 +294,9 @@ func (s *logSinkSuite) TestWriteLogsConcurrently(c *gc.C) {
 	c.Check(lines, gc.DeepEquals, expected)
 
 	workertest.CleanKill(c, sink)
-}
 
-/////////////////////////////////////////////////////////////////////////////////
+	s.expectWriterClosed(c)
+}
 
 func (s *logSinkSuite) TestLogWithNoBatching(c *gc.C) {
 	sink, buffer := s.newLogSink(c, 1)
@@ -305,6 +317,8 @@ func (s *logSinkSuite) TestLogWithNoBatching(c *gc.C) {
 	}})
 
 	workertest.CleanKill(c, sink)
+
+	s.expectWriterClosed(c)
 }
 
 func (s *logSinkSuite) TestLogWithMultiline(c *gc.C) {
@@ -332,6 +346,8 @@ rld
 	}})
 
 	workertest.CleanKill(c, sink)
+
+	s.expectWriterClosed(c)
 }
 
 func (s *logSinkSuite) TestLogWithLargeBatching(c *gc.C) {
@@ -356,6 +372,8 @@ func (s *logSinkSuite) TestLogWithLargeBatching(c *gc.C) {
 	}})
 
 	workertest.CleanKill(c, sink)
+
+	s.expectWriterClosed(c)
 }
 
 func (s *logSinkSuite) TestLogWithLogsBatching(c *gc.C) {
@@ -410,6 +428,8 @@ func (s *logSinkSuite) TestLogWithLogsBatching(c *gc.C) {
 	c.Check(lines, gc.DeepEquals, expected)
 
 	workertest.CleanKill(c, sink)
+
+	s.expectWriterClosed(c)
 }
 
 func (s *logSinkSuite) TestLogWithLogsUnderBatchSize(c *gc.C) {
@@ -462,6 +482,8 @@ func (s *logSinkSuite) TestLogWithLogsUnderBatchSize(c *gc.C) {
 	c.Check(lines, gc.DeepEquals, expected)
 
 	workertest.CleanKill(c, sink)
+
+	s.expectWriterClosed(c)
 }
 
 func (s *logSinkSuite) TestLogLogsConcurrently(c *gc.C) {
@@ -529,6 +551,8 @@ func (s *logSinkSuite) TestLogLogsConcurrently(c *gc.C) {
 	c.Check(lines, gc.DeepEquals, expected)
 
 	workertest.CleanKill(c, sink)
+
+	s.expectWriterClosed(c)
 }
 
 func (s *logSinkSuite) TestLogAndWriteInterleaved(c *gc.C) {
@@ -598,14 +622,21 @@ func (s *logSinkSuite) TestLogAndWriteInterleaved(c *gc.C) {
 	c.Check(lines, gc.DeepEquals, expected)
 
 	workertest.CleanKill(c, sink)
+
+	s.expectWriterClosed(c)
 }
 
 func (s *logSinkSuite) newLogSink(c *gc.C, batchSize int) (*LogSink, *bytes.Buffer) {
 	s.states = make(chan string, 1)
 
-	buffer := new(bytes.Buffer)
+	atomic.StoreInt64(&s.closed, 0)
 
-	sink := newLogSink(buffer, batchSize, time.Millisecond*100, clock.WallClock, s.states)
+	buffer := new(bytes.Buffer)
+	writerCloser := &bufferCloser{Buffer: buffer, fn: func() {
+		atomic.AddInt64(&s.closed, 1)
+	}}
+
+	sink := newLogSink(writerCloser, batchSize, time.Millisecond*100, clock.WallClock, s.states)
 	return sink, buffer
 }
 
@@ -659,6 +690,10 @@ func (s *logSinkSuite) expectTick(c *gc.C) {
 	}
 }
 
+func (s *logSinkSuite) expectWriterClosed(c *gc.C) {
+	c.Assert(atomic.LoadInt64(&s.closed), gc.Equals, int64(1))
+}
+
 func parseLog(c *gc.C, reader io.Reader) []logRecord {
 	var records []logRecord
 
@@ -671,4 +706,14 @@ func parseLog(c *gc.C, reader io.Reader) []logRecord {
 	}
 
 	return records
+}
+
+type bufferCloser struct {
+	*bytes.Buffer
+	fn func()
+}
+
+func (b *bufferCloser) Close() error {
+	b.fn()
+	return nil
 }
