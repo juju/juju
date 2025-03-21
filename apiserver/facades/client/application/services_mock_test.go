@@ -30,6 +30,7 @@ import (
 	relation "github.com/juju/juju/domain/relation"
 	config "github.com/juju/juju/environs/config"
 	charm1 "github.com/juju/juju/internal/charm"
+	relation0 "github.com/juju/juju/internal/relation"
 	storage "github.com/juju/juju/internal/storage"
 	params "github.com/juju/juju/rpc/params"
 	state "github.com/juju/juju/state"
@@ -1936,11 +1937,11 @@ func (m *MockRelationService) EXPECT() *MockRelationServiceMockRecorder {
 }
 
 // AddRelation mocks base method.
-func (m *MockRelationService) AddRelation(arg0 context.Context, arg1, arg2 string) (relation.Endpoint, relation.Endpoint, error) {
+func (m *MockRelationService) AddRelation(arg0 context.Context, arg1, arg2 string) (relation0.Endpoint, relation0.Endpoint, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddRelation", arg0, arg1, arg2)
-	ret0, _ := ret[0].(relation.Endpoint)
-	ret1, _ := ret[1].(relation.Endpoint)
+	ret0, _ := ret[0].(relation0.Endpoint)
+	ret1, _ := ret[1].(relation0.Endpoint)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
@@ -1958,19 +1959,19 @@ type MockRelationServiceAddRelationCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockRelationServiceAddRelationCall) Return(arg0, arg1 relation.Endpoint, arg2 error) *MockRelationServiceAddRelationCall {
+func (c *MockRelationServiceAddRelationCall) Return(arg0, arg1 relation0.Endpoint, arg2 error) *MockRelationServiceAddRelationCall {
 	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationServiceAddRelationCall) Do(f func(context.Context, string, string) (relation.Endpoint, relation.Endpoint, error)) *MockRelationServiceAddRelationCall {
+func (c *MockRelationServiceAddRelationCall) Do(f func(context.Context, string, string) (relation0.Endpoint, relation0.Endpoint, error)) *MockRelationServiceAddRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationServiceAddRelationCall) DoAndReturn(f func(context.Context, string, string) (relation.Endpoint, relation.Endpoint, error)) *MockRelationServiceAddRelationCall {
+func (c *MockRelationServiceAddRelationCall) DoAndReturn(f func(context.Context, string, string) (relation0.Endpoint, relation0.Endpoint, error)) *MockRelationServiceAddRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

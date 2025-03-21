@@ -1903,7 +1903,7 @@ func (u *UniterAPI) prepareRelationResult(
 ) (params.RelationResultV2, error) {
 	var (
 		otherAppName string
-		unitEp       relation.Endpoint
+		unitEp       internalrelation.Endpoint
 	)
 	for _, v := range rel.Endpoint {
 		if v.ApplicationName == applicationName {

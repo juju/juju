@@ -22,10 +22,10 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
-	"github.com/juju/juju/domain/relation"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	internalrelation "github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -684,7 +684,7 @@ func (s *applicationSuite) TestAddRelation(c *gc.C) {
 	epStr2 := "postgresql:db"
 	appName1 := "mattermost"
 	appName2 := "postgresql"
-	ep1 := relation.Endpoint{
+	ep1 := internalrelation.Endpoint{
 		ApplicationName: appName1,
 		Relation: internalcharm.Relation{
 			Name:      "relation-1",
@@ -693,7 +693,7 @@ func (s *applicationSuite) TestAddRelation(c *gc.C) {
 			Scope:     internalcharm.ScopeGlobal,
 		},
 	}
-	ep2 := relation.Endpoint{
+	ep2 := internalrelation.Endpoint{
 		ApplicationName: appName2,
 		Relation: internalcharm.Relation{
 			Name:      "relation-1",
@@ -731,7 +731,7 @@ func (s *applicationSuite) TestAddRelationError(c *gc.C) {
 	epStr2 := "postgresql:db"
 	boom := errors.Errorf("boom")
 	s.relationService.EXPECT().AddRelation(gomock.Any(), epStr1, epStr2).Return(
-		relation.Endpoint{}, relation.Endpoint{}, boom,
+		internalrelation.Endpoint{}, internalrelation.Endpoint{}, boom,
 	)
 
 	// Act:

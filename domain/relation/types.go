@@ -8,7 +8,6 @@ import (
 	"github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
 	corewatcher "github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/internal/charm"
 	internalrelation "github.com/juju/juju/internal/relation"
 )
 
@@ -30,13 +29,7 @@ type RelationDetails struct {
 	UUID     corerelation.UUID
 	ID       int
 	Key      string
-	Endpoint []Endpoint
-}
-
-// Endpoint represents one endpoint of a relation.
-type Endpoint struct {
-	ApplicationName string
-	charm.Relation
+	Endpoint []internalrelation.Endpoint
 }
 
 // RelationData holds information about a unit's relation.

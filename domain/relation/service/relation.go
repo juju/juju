@@ -81,8 +81,8 @@ func NewService(
 //
 // If the identifiers do not uniquely specify a relation, an error will be
 // returned.
-func (s *Service) AddRelation(ctx context.Context, ep1, ep2 string) (relation.Endpoint, relation.Endpoint, error) {
-	return relation.Endpoint{}, relation.Endpoint{}, coreerrors.NotImplemented
+func (s *Service) AddRelation(ctx context.Context, ep1, ep2 string) (internalrelation.Endpoint, internalrelation.Endpoint, error) {
+	return internalrelation.Endpoint{}, internalrelation.Endpoint{}, coreerrors.NotImplemented
 }
 
 // AllRelations return all uuid of all relation for the current model.

@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
+	internalrelation "github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -292,7 +293,7 @@ type RelationService interface {
 	//
 	// If the identifiers do not uniquely specify a relation, an error will be
 	// returned.
-	AddRelation(ctx context.Context, ep1, ep2 string) (relation.Endpoint, relation.Endpoint, error)
+	AddRelation(ctx context.Context, ep1, ep2 string) (internalrelation.Endpoint, internalrelation.Endpoint, error)
 
 	// ApplicationRelationsInfo returns all EndpointRelationData for an application.
 	ApplicationRelationsInfo(ctx context.Context, applicationID coreapplication.ID) ([]relation.EndpointRelationData, error)
