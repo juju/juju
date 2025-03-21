@@ -181,7 +181,7 @@ func (s *relationSuite) TestGetRelationEndpointUUIDRelationEndPointNotFound(c *g
 }
 
 func (s *relationSuite) TestGetRelationEndpoints(c *gc.C) {
-	// Arrange: Add two endpoints and a relation over them.
+	// Arrange: Add two endpoints and a relation on them.
 	relationUUID := "fake-relation-uuid"
 
 	charmRelationUUID1 := "fake-charm-relation-uuid-1"
@@ -190,7 +190,7 @@ func (s *relationSuite) TestGetRelationEndpoints(c *gc.C) {
 	endpoint1 := internalrelation.Endpoint{
 		ApplicationName: s.constants.fakeApplicationName1,
 		Relation: internalcharm.Relation{
-			Name:      "fake-endpoint-name",
+			Name:      "fake-endpoint-name-1",
 			Role:      internalcharm.RoleProvider,
 			Interface: "database",
 			Optional:  true,
@@ -205,7 +205,7 @@ func (s *relationSuite) TestGetRelationEndpoints(c *gc.C) {
 	endpoint2 := internalrelation.Endpoint{
 		ApplicationName: s.constants.fakeApplicationName2,
 		Relation: internalcharm.Relation{
-			Name:      "fake-endpoint-name",
+			Name:      "fake-endpoint-name-2",
 			Role:      internalcharm.RoleRequirer,
 			Interface: "database",
 			Optional:  false,
@@ -381,7 +381,7 @@ VALUES (?, ?, 0, 'fake-provides')
 }
 
 // addCharmRelation inserts a new charm relation into the database with the given UUID and attributes.
-func (s *relationSuite) addCharmRelation(c *gc.C, charmUUID string, charmRelationUUID string, r internalcharm.Relation) {
+func (s *relationSuite) addCharmRelation(c *gc.C, charmUUID, charmRelationUUID string, r internalcharm.Relation) {
 	s.query(c, `
 INSERT INTO charm_relation (uuid, charm_uuid, kind_id, name, role_id, interface, optional, capacity, scope_id) 
 VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?)

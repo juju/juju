@@ -1079,7 +1079,7 @@ func (context *statusContext) processRelations(ctx context.Context) []params.Rel
 		}
 		relStatus := params.RelationStatus{
 			Id:        current.ID,
-			Key:       relation.NaturalKey(current.Endpoints),
+			Key:       relation.NaturalKey(current.Endpoints).String(),
 			Interface: relationInterface,
 			Scope:     string(scope),
 			Endpoints: eps,

@@ -15,6 +15,7 @@ import (
 
 	relation "github.com/juju/juju/core/relation"
 	relation0 "github.com/juju/juju/domain/relation"
+	relation1 "github.com/juju/juju/internal/relation"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -76,6 +77,45 @@ func (c *MockStateGetRelationEndpointUUIDCall) Do(f func(context.Context, relati
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetRelationEndpointUUIDCall) DoAndReturn(f func(context.Context, relation0.GetRelationEndpointUUIDArgs) (relation.EndpointUUID, error)) *MockStateGetRelationEndpointUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetRelationEndpoints mocks base method.
+func (m *MockState) GetRelationEndpoints(arg0 context.Context, arg1 relation.UUID) ([]relation1.Endpoint, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelationEndpoints", arg0, arg1)
+	ret0, _ := ret[0].([]relation1.Endpoint)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRelationEndpoints indicates an expected call of GetRelationEndpoints.
+func (mr *MockStateMockRecorder) GetRelationEndpoints(arg0, arg1 any) *MockStateGetRelationEndpointsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationEndpoints", reflect.TypeOf((*MockState)(nil).GetRelationEndpoints), arg0, arg1)
+	return &MockStateGetRelationEndpointsCall{Call: call}
+}
+
+// MockStateGetRelationEndpointsCall wrap *gomock.Call
+type MockStateGetRelationEndpointsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetRelationEndpointsCall) Return(arg0 []relation1.Endpoint, arg1 error) *MockStateGetRelationEndpointsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetRelationEndpointsCall) Do(f func(context.Context, relation.UUID) ([]relation1.Endpoint, error)) *MockStateGetRelationEndpointsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetRelationEndpointsCall) DoAndReturn(f func(context.Context, relation.UUID) ([]relation1.Endpoint, error)) *MockStateGetRelationEndpointsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

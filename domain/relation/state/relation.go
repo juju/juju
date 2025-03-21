@@ -193,6 +193,7 @@ func (st *State) GetRelationEndpoints(ctx context.Context, uuid corerelation.UUI
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
+
 	id := relationUUID{
 		UUID: uuid.String(),
 	}

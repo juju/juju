@@ -171,10 +171,10 @@ SELECT
     cr.capacity,
     crr.name AS role,
     crs.name AS scope
-FROM relation r
-JOIN relation_endpoint re ON r.uuid = re.relation_uuid
-JOIN application_endpoint ae ON re.endpoint_uuid = ae.uuid
-JOIN charm_relation cr ON ae.charm_relation_uuid = cr.uuid
-JOIN charm_relation_role crr ON cr.role_id = crr.id
-JOIN charm_relation_scope crs ON cr.scope_id = crs.id
-JOIN application a ON ae.application_uuid = a.uuid
+FROM relation AS r
+JOIN relation_endpoint AS re ON r.uuid = re.relation_uuid
+JOIN application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+JOIN charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
+JOIN charm_relation_role AS crr ON cr.role_id = crr.id
+JOIN charm_relation_scope AS crs ON cr.scope_id = crs.id
+JOIN application AS a ON ae.application_uuid = a.uuid

@@ -38,6 +38,8 @@ type endpoint struct {
 	ApplicationName string `db:"application_name"`
 }
 
+// toRelationEndpoint converts an endpoint read out of the database to a
+// relation.Endpoint.
 func (e endpoint) toRelationEndpoint() relation.Endpoint {
 	return relation.Endpoint{
 		ApplicationName: e.ApplicationName,
