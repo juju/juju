@@ -163,7 +163,7 @@ func (s *ModelServices) Config() *modelconfigservice.WatchableService {
 // Machine returns the model's machine service.
 func (s *ModelServices) Machine() *machineservice.WatchableService {
 	return machineservice.NewWatchableService(
-		machinestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, s.logger),
+		machinestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, s.loggerFor("machine")),
 		s.modelWatcherFactory(),
 		providertracker.ProviderRunner[machineservice.Provider](s.providerFactory, s.modelUUID.String()),
 	)
@@ -174,14 +174,16 @@ func (s *ModelServices) BlockDevice() *blockdeviceservice.WatchableService {
 	return blockdeviceservice.NewWatchableService(
 		blockdevicestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.modelWatcherFactory(),
-		s.logger,
+		s.loggerFor("blockdevice"),
 	)
 }
 
 // Application returns the model's application service.
 func (s *ModelServices) Application() *applicationservice.WatchableService {
+	logger := s.loggerFor("application")
+
 	return applicationservice.NewWatchableService(
-		applicationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, s.logger),
+		applicationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger),
 		domain.NewLeaseService(s.leaseManager),
 		s.storageRegistry,
 		s.modelUUID,
@@ -189,21 +191,23 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[applicationservice.SupportedFeatureProvider](s.providerFactory, s.modelUUID.String()),
-		charmstore.NewCharmStore(s.objectstore, s.logger),
-		domain.NewStatusHistory(s.logger, s.clock),
+		charmstore.NewCharmStore(s.objectstore, logger),
+		domain.NewStatusHistory(logger, s.clock),
 		s.clock,
-		s.logger,
+		logger,
 	)
 }
 
 // Status returns the application status service.
 func (s *ModelServices) Status() *statusservice.LeadershipService {
+	logger := s.loggerFor("status")
+
 	return statusservice.NewLeadershipService(
-		statusstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, s.logger),
+		statusstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger),
 		domain.NewLeaseService(s.leaseManager),
 		s.clock,
-		s.logger,
-		domain.NewStatusHistory(s.logger, s.clock),
+		logger,
+		domain.NewStatusHistory(logger, s.clock),
 	)
 }
 
@@ -243,11 +247,13 @@ func (s *ModelServices) KeyUpdater() *keyupdaterservice.WatchableService {
 
 // Network returns the model's network service.
 func (s *ModelServices) Network() *networkservice.WatchableService {
+	logger := s.loggerFor("network")
+
 	return networkservice.NewWatchableService(
-		networkstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger),
+		networkstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), logger),
 		providertracker.ProviderRunner[networkservice.Provider](s.providerFactory, s.modelUUID.String()),
 		s.modelWatcherFactory(),
-		s.logger,
+		logger,
 	)
 }
 
@@ -260,21 +266,25 @@ func (s *ModelServices) Annotation() *annotationService.Service {
 
 // Storage returns the model's storage service.
 func (s *ModelServices) Storage() *storageservice.Service {
+	logger := s.loggerFor("storage")
+
 	return storageservice.NewService(
 		storagestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		s.logger,
+		logger,
 		s.storageRegistry,
 	)
 }
 
 // Secret returns the model's secret service.
 func (s *ModelServices) Secret() *secretservice.WatchableService {
+	logger := s.loggerFor("secret")
+
 	return secretservice.NewWatchableService(
-		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger),
-		secretbackendstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), s.logger),
+		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), logger),
+		secretbackendstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), logger),
 		domain.NewLeaseService(s.leaseManager),
 		s.modelWatcherFactory(),
-		s.logger,
+		logger,
 	)
 }
 
@@ -292,7 +302,7 @@ func (s *ModelServices) ModelMigration() *modelmigrationservice.Service {
 func (s *ModelServices) ModelSecretBackend() *secretbackendservice.ModelSecretBackendService {
 	state := secretbackendstate.NewState(
 		changestream.NewTxnRunnerFactory(s.controllerDB),
-		s.logger,
+		s.loggerFor("secretbackend"),
 	)
 	return secretbackendservice.NewModelSecretBackendService(s.modelUUID, state)
 }
@@ -310,7 +320,7 @@ func (s *ModelServices) ModelInfo() *modelservice.ProviderModelService {
 	return modelservice.NewProviderModelService(
 		s.modelUUID,
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		modelstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger),
+		modelstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), s.loggerFor("modelinfo")),
 		modelservice.EnvironVersionProviderGetter(),
 		providertracker.ProviderRunner[modelservice.ModelResourcesProvider](s.providerFactory, s.modelUUID.String()),
 		modelservice.DefaultAgentBinaryFinder(),
@@ -340,7 +350,7 @@ func (s *ModelServices) CloudImageMetadata() *cloudimagemetadataservice.Service 
 		cloudimagemetadatastate.NewState(
 			changestream.NewTxnRunnerFactory(s.controllerDB),
 			s.clock,
-			s.logger,
+			s.loggerFor("cloudimagemetadata"),
 		),
 	)
 }
@@ -350,7 +360,7 @@ func (s *ModelServices) Port() *portservice.WatchableService {
 	return portservice.NewWatchableService(
 		portstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.modelWatcherFactory(),
-		s.logger,
+		s.loggerFor("port"),
 	)
 }
 
@@ -358,20 +368,22 @@ func (s *ModelServices) Port() *portservice.WatchableService {
 func (s *ModelServices) BlockCommand() *blockcommandservice.Service {
 	return blockcommandservice.NewService(
 		blockcommandstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		s.logger,
+		s.loggerFor("blockcommand"),
 	)
 }
 
 // Resource returns the service for persisting and retrieving application
 // resources for the current model.
 func (s *ModelServices) Resource() *resourceservice.Service {
+	logger := s.loggerFor("containerimageresourcestore")
+
 	containerImageResourceStoreGetter := func() coreresourcestore.ResourceStore {
 		return containerimageresourcestoreservice.NewService(
 			containerimageresourcestorestate.NewState(
 				changestream.NewTxnRunnerFactory(s.modelDB),
-				s.logger,
+				logger,
 			),
-			s.logger,
+			logger,
 		)
 	}
 	resourceStoreFactory := store.NewResourceStoreFactory(
@@ -382,35 +394,39 @@ func (s *ModelServices) Resource() *resourceservice.Service {
 		resourcestate.NewState(
 			changestream.NewTxnRunnerFactory(s.modelDB),
 			s.clock,
-			s.logger,
+			logger,
 		),
 		resourceStoreFactory,
-		s.logger,
+		logger,
 	)
 }
 
 // Relation returns the service for persisting and retrieving relations
 // for the current model.
 func (s *ModelServices) Relation() *relationservice.WatchableService {
+	logger := s.loggerFor("relation")
+
 	return relationservice.NewWatchableService(
 		relationstate.NewState(
 			changestream.NewTxnRunnerFactory(s.controllerDB),
 			s.clock,
-			s.logger,
+			logger,
 		),
 		s.modelWatcherFactory(),
-		s.logger,
+		logger,
 	)
 }
 
 // Removal returns the service for working
 // with entity removals in the current model.
 func (s *ModelServices) Removal() *removalservice.WatchableService {
+	logger := s.loggerFor("removal")
+
 	return removalservice.NewWatchableService(
-		removalstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger),
+		removalstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), logger),
 		s.modelWatcherFactory(),
 		s.clock,
-		s.logger,
+		logger,
 	)
 }
 

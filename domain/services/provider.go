@@ -44,7 +44,7 @@ func (s *ProviderServices) Model() *modelservice.ProviderService {
 	return modelservice.NewProviderService(
 		modelstate.NewModelState(
 			changestream.NewTxnRunnerFactory(s.modelDB),
-			s.logger,
+			s.loggerFor("model"),
 		),
 	)
 }

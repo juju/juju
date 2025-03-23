@@ -94,7 +94,7 @@ func (s *ControllerServices) Model() *modelservice.WatchableService {
 	return modelservice.NewWatchableService(
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.dbDeleter,
-		s.logger,
+		s.loggerFor("model"),
 		s.controllerWatcherFactory(),
 	)
 }
@@ -120,7 +120,7 @@ func (s *ControllerServices) Credential() *credentialservice.WatchableService {
 	return credentialservice.NewWatchableService(
 		credentialstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.controllerWatcherFactory(),
-		s.logger,
+		s.loggerFor("credential"),
 	)
 }
 
@@ -136,7 +136,7 @@ func (s *ControllerServices) Cloud() *cloudservice.WatchableService {
 func (s *ControllerServices) AutocertCache() *autocertcacheservice.Service {
 	return autocertcacheservice.NewService(
 		autocertcachestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		s.logger,
+		s.loggerFor("autocert"),
 	)
 }
 
@@ -151,21 +151,23 @@ func (s *ControllerServices) Upgrade() *upgradeservice.WatchableService {
 // Flag returns the flag service.
 func (s *ControllerServices) Flag() *flagservice.Service {
 	return flagservice.NewService(
-		flagstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), s.logger),
+		flagstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), s.loggerFor("flag")),
 	)
 }
 
 // Access returns the access service, this includes users and permissions.
 func (s *ControllerServices) Access() *accessservice.Service {
 	return accessservice.NewService(
-		accessstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), s.logger),
+		accessstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), s.loggerFor("access")),
 	)
 }
 
 func (s *ControllerServices) SecretBackend() *secretbackendservice.WatchableService {
+	logger := s.loggerFor("secretbackend")
+
 	return secretbackendservice.NewWatchableService(
-		secretbackendstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), s.logger),
-		s.logger,
+		secretbackendstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), logger),
+		logger,
 		s.controllerWatcherFactory(),
 	)
 }

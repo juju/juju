@@ -24,6 +24,12 @@ func (s *serviceFactoryBase) controllerWatcherFactory() *domain.WatcherFactory {
 	)
 }
 
+// loggerFor returns a logger with the given name as a child of the factory's
+// logger.
+func (s *serviceFactoryBase) loggerFor(name string) logger.Logger {
+	return s.logger.Child(name)
+}
+
 // modelServiceFactoryBase is the foundation for model-scoped service factories.
 // It includes the ability to supply runners and watchers backed by a model
 // database in addition to those backed by the controller database.
