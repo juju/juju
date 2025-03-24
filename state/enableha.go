@@ -104,12 +104,13 @@ func (st *State) EnableHA(
 
 	// TODO(wallyworld) - only need until we transition away from enable-ha
 	controllerApp, err := st.Application(bootstrap.ControllerApplicationName)
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return ControllersChanges{}, errors.Annotate(err, "getting controller application")
 	}
 
 	enableHAOp := &enableHAOperation{
 		controllerApp:  controllerApp,
+		st:             st,
 		numControllers: numControllers,
 		cons:           cons,
 		base:           base,
@@ -132,8 +133,9 @@ type ControllersChanges struct {
 }
 
 type enableHAOperation struct {
-	controllerApp *Application
-
+	// controllerApp may be nil if the controller application is not present.
+	controllerApp  *Application
+	st             *State
 	numControllers int
 	cons           constraints.Value
 	base           Base
@@ -144,7 +146,7 @@ type enableHAOperation struct {
 
 func (e *enableHAOperation) Build(attempt int) ([]txn.Op, error) {
 	desiredControllerCount := e.numControllers
-	votingCount, err := e.controllerApp.st.getVotingControllerCount()
+	votingCount, err := e.st.getVotingControllerCount()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -159,11 +161,11 @@ func (e *enableHAOperation) Build(attempt int) ([]txn.Op, error) {
 		return nil, errors.New("cannot remove controllers with enable-ha, use remove-machine and chose the controller(s) to remove")
 	}
 
-	controllerIds, err := e.controllerApp.st.ControllerIds()
+	controllerIds, err := e.st.ControllerIds()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	intent, err := e.controllerApp.st.enableHAIntentions(controllerIds, e.placement)
+	intent, err := e.st.enableHAIntentions(controllerIds, e.placement)
 	if err != nil {
 		return nil, err
 	}
@@ -187,16 +189,16 @@ func (e *enableHAOperation) Build(attempt int) ([]txn.Op, error) {
 	logger.Infof("%d new machines; converting %v", intent.newCount, intent.convert)
 
 	var ops []txn.Op
-	ops, e.change, err = enableHAIntentionOps(attempt, e.controllerApp, intent, e.cons, e.base)
+	ops, e.change, err = e.st.enableHAIntentionOps(attempt, e.controllerApp, intent, e.cons, e.base)
 	return ops, err
 }
 
-func (e *enableHAOperation) Done(error) error {
-	return nil
+func (e *enableHAOperation) Done(err error) error {
+	return err
 }
 
 // enableHAIntentionOps returns operations to fulfil the desired intent.
-func enableHAIntentionOps(
+func (st *State) enableHAIntentionOps(
 	attempt int,
 	controllerApp *Application,
 	intent *enableHAIntent,
@@ -206,23 +208,24 @@ func enableHAIntentionOps(
 	var ops []txn.Op
 	var change ControllersChanges
 
-	st := controllerApp.st
 	for _, m := range intent.convert {
 		ops = append(ops, convertControllerOps(m)...)
 		change.Converted = append(change.Converted, m.Id())
 		// Add a controller charm unit to the promoted machine.
-		unitName, unitOps, err := st.addControllerUnitOps(attempt, controllerApp, AddUnitParams{machineID: m.Id()})
-		if err != nil {
-			return nil, ControllersChanges{}, errors.Annotate(err, "composing controller unit operations")
+		if controllerApp != nil {
+			unitName, unitOps, err := st.addControllerUnitOps(attempt, controllerApp, AddUnitParams{machineID: m.Id()})
+			if err != nil {
+				return nil, ControllersChanges{}, errors.Annotate(err, "composing controller unit operations")
+			}
+			ops = append(ops, unitOps...)
+			addToMachineOp := txn.Op{
+				C:      machinesC,
+				Id:     m.doc.DocID,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$addToSet", bson.D{{"principals", unitName}}}, {"$set", bson.D{{"clean", false}}}},
+			}
+			ops = append(ops, addToMachineOp)
 		}
-		ops = append(ops, unitOps...)
-		addToMachineOp := txn.Op{
-			C:      machinesC,
-			Id:     m.doc.DocID,
-			Assert: txn.DocExists,
-			Update: bson.D{{"$addToSet", bson.D{{"principals", unitName}}}, {"$set", bson.D{{"clean", false}}}},
-		}
-		ops = append(ops, addToMachineOp)
 	}
 
 	// Use any placement directives that have been provided when adding new
@@ -258,12 +261,15 @@ func enableHAIntentionOps(
 		}
 		// Set up the new controller to have a controller charm unit.
 		// The unit itself is created below.
-		controllerUnitName, err := controllerApp.newUnitName()
-		if err != nil {
-			return nil, ControllersChanges{}, errors.Trace(err)
+		var controllerUnitName string
+		if controllerApp != nil {
+			controllerUnitName, err = controllerApp.newUnitName()
+			if err != nil {
+				return nil, ControllersChanges{}, errors.Trace(err)
+			}
+			template.Dirty = true
+			template.principals = []string{controllerUnitName}
 		}
-		template.Dirty = true
-		template.principals = []string{controllerUnitName}
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
 			return nil, ControllersChanges{}, errors.Trace(err)
@@ -273,14 +279,16 @@ func enableHAIntentionOps(
 		}
 		ops = append(ops, addOps...)
 		change.Added = append(change.Added, mdoc.Id)
-		_, unitOps, err := st.addControllerUnitOps(attempt, controllerApp, AddUnitParams{
-			UnitName:  &controllerUnitName,
-			machineID: mdoc.Id,
-		})
-		if err != nil {
-			return nil, ControllersChanges{}, errors.Trace(err)
+		if controllerApp != nil {
+			_, unitOps, err := st.addControllerUnitOps(attempt, controllerApp, AddUnitParams{
+				UnitName:  &controllerUnitName,
+				machineID: mdoc.Id,
+			})
+			if err != nil {
+				return nil, ControllersChanges{}, errors.Trace(err)
+			}
+			ops = append(ops, unitOps...)
 		}
-		ops = append(ops, unitOps...)
 	}
 
 	for _, m := range intent.maintain {
