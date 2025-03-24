@@ -13,11 +13,13 @@ import (
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
+	modelservice "github.com/juju/juju/domain/model/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
@@ -31,14 +33,14 @@ import (
 type ManifoldSuite struct {
 	jujutesting.BaseSuite
 
-	authority              pki.Authority
-	manifold               dependency.Manifold
-	getter                 dependency.Getter
-	stateTracker           stubStateTracker
-	logSinkGetter          dummyLogSinkGetter
-	domainServicesGetter   services.DomainServicesGetter
-	providerServicesGetter services.ProviderServicesGetter
-	httpClientGetter       http.HTTPClientGetter
+	authority                pki.Authority
+	manifold                 dependency.Manifold
+	getter                   dependency.Getter
+	logSinkGetter            dummyLogSinkGetter
+	domainServicesGetter     services.DomainServicesGetter
+	controllerDomainServices services.ControllerDomainServices
+	providerServicesGetter   services.ProviderServicesGetter
+	httpClientGetter         http.HTTPClientGetter
 
 	logger logger.Logger
 
@@ -51,6 +53,7 @@ type ManifoldSuite struct {
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+	ctrl := gomock.NewController(c)
 	var err error
 	s.authority, err = pkitest.NewTestAuthority()
 	c.Assert(err, jc.ErrorIsNil)
@@ -59,10 +62,10 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.state = &state.State{}
 	s.pool = &state.StatePool{}
-	s.stateTracker = stubStateTracker{pool: s.pool, state: s.state}
-	s.domainServicesGetter = stubDomainServicesGetter{}
+	s.domainServicesGetter = NewMockDomainServicesGetter(ctrl)
+	s.controllerDomainServices = stubControllerDomainServices{}
 	s.providerServicesGetter = stubProviderServicesGetter{}
-	s.httpClientGetter = stubHTTPclientGetter{}
+	s.httpClientGetter = stubHTTPClientGetter{}
 	s.stub.ResetCalls()
 
 	s.logSinkGetter = dummyLogSinkGetter{}
@@ -71,7 +74,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.getter = s.newGetter(nil)
 	s.manifold = modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 		AuthorityName:                "authority",
-		StateName:                    "state",
 		LogSinkName:                  "log-sink",
 		DomainServicesName:           "domain-services",
 		ProviderServiceFactoriesName: "provider-services",
@@ -96,9 +98,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
 		"authority":         s.authority,
-		"state":             &s.stateTracker,
 		"log-sink":          s.logSinkGetter,
-		"domain-services":   s.domainServicesGetter,
+		"domain-services":   []any{s.domainServicesGetter, s.controllerDomainServices},
 		"provider-services": s.providerServicesGetter,
 		"http-client":       s.httpClientGetter,
 	}
@@ -124,7 +125,7 @@ func (s *ManifoldSuite) newModelWorker(config modelworkermanager.NewModelConfig)
 	return worker.NewRunner(worker.RunnerParams{}), nil
 }
 
-var expectedInputs = []string{"authority", "state", "log-sink", "domain-services", "provider-services", "http-client"}
+var expectedInputs = []string{"authority", "log-sink", "domain-services", "provider-services", "http-client"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -136,7 +137,7 @@ func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
 			input: dependency.ErrMissing,
 		})
 		_, err := s.manifold.Start(context.Background(), getter)
-		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing, gc.Commentf("failed for input: %v", input))
 	}
 }
 
@@ -154,6 +155,8 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(config.NewModelWorker, gc.NotNil)
 	modelConfig := modelworkermanager.NewModelConfig{
 		Authority:    s.authority,
+		ModelName:    "test",
+		ModelOwner:   "owner",
 		ModelUUID:    "foo",
 		ModelType:    state.ModelTypeIAAS,
 		ModelMetrics: dummyMetricSink{},
@@ -168,16 +171,13 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.GetControllerConfig = nil
 
 	c.Assert(config, jc.DeepEquals, modelworkermanager.Config{
-		Authority:    s.authority,
-		ModelWatcher: s.state,
-		ModelMetrics: dummyModelMetrics{},
-		Controller: modelworkermanager.StatePoolController{
-			StatePool: s.pool,
-		},
+		Authority:              s.authority,
+		ModelMetrics:           dummyModelMetrics{},
 		ErrorDelay:             jworker.RestartDelay,
 		Logger:                 s.logger,
 		LogSinkGetter:          dummyLogSinkGetter{},
 		ProviderServicesGetter: providerServicesGetter{},
+		ModelService:           s.controllerDomainServices.Model(),
 		DomainServicesGetter:   s.domainServicesGetter,
 		HTTPClientGetter:       s.httpClientGetter,
 	})
@@ -187,10 +187,7 @@ func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
 	w := s.startWorkerClean(c)
 	defer workertest.CleanKill(c, w)
 
-	s.stateTracker.CheckCallNames(c, "Use")
-
 	workertest.CleanKill(c, w)
-	s.stateTracker.CheckCallNames(c, "Use", "Done")
 }
 
 func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
@@ -198,39 +195,6 @@ func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
-}
-
-type stubStateTracker struct {
-	testing.Stub
-	pool  *state.StatePool
-	state *state.State
-}
-
-func (s *stubStateTracker) Use() (*state.StatePool, *state.State, error) {
-	s.MethodCall(s, "Use")
-	return s.pool, s.state, s.NextErr()
-}
-
-func (s *stubStateTracker) Done() error {
-	s.MethodCall(s, "Done")
-	return s.NextErr()
-}
-
-func (s *stubStateTracker) Report() map[string]any {
-	s.MethodCall(s, "Report")
-	return nil
-}
-
-type stubLogger struct {
-	logger.LogWriterCloser
-}
-
-func (stubLogger) Close() error {
-	return nil
-}
-
-type stubDomainServicesGetter struct {
-	services.DomainServicesGetter
 }
 
 type stubProviderServicesGetter struct {
@@ -245,6 +209,14 @@ func (s providerServicesGetter) ServicesForModel(_ string) modelworkermanager.Pr
 	return nil
 }
 
-type stubHTTPclientGetter struct {
+type stubHTTPClientGetter struct {
 	http.HTTPClientGetter
+}
+
+type stubControllerDomainServices struct {
+	services.ControllerDomainServices
+}
+
+func (s stubControllerDomainServices) Model() *modelservice.WatchableService {
+	return &modelservice.WatchableService{}
 }
