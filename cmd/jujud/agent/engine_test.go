@@ -152,6 +152,8 @@ var (
 		"secret-backend-rotate",
 		"ssh-authkeys-updater",
 		"ssh-server",
+		"ssh-tunneler",
+		"ssh-tunneler-secret",
 		"state",
 		"state-config-watcher",
 		"storage-provisioner",

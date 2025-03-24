@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/lestrrat-go/jwx/v2/jwa"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/network"
@@ -36,12 +35,12 @@ type State interface {
 
 // ControllerInfo defines an interface to fetch the controller's address.
 type ControllerInfo interface {
-	Addresses() network.SpaceAddresses
+	Addresses() (network.SpaceAddresses, error)
 }
 
 // SSHDialer defines an interface to establish an SSH connection over a provided connection.
 type SSHDial interface {
-	Dial(conn net.Conn, username string, privateKey gossh.Signer) (*gossh.Client, error)
+	Dial(conn net.Conn, username string, privateKey gossh.Signer, hostKeyCallback gossh.HostKeyCallback) (*gossh.Client, error)
 }
 
 // TunnelTracker is an object that tracks a request for an SSH connection
@@ -73,19 +72,13 @@ type TunnelTrackerArgs struct {
 	ControllerInfo ControllerInfo
 	Dialer         SSHDial
 	Clock          clock.Clock
-
-	// SharedSecret is the secret used to sign and validate JWTs.
-	SharedSecret []byte
-	// JWTAlg is the algorithm used to sign JWTs and should match
-	// the strength (number of bytes) of the SharedSecret.
-	JWTAlg jwa.KeyAlgorithm
+	TunnelSecret   TunnelSecret
 }
 
 // NewTunnelTracker creates a new tunnel tracker.
 func NewTunnelTracker(args TunnelTrackerArgs) (*TunnelTracker, error) {
 	authn := tunnelAuthentication{
-		jwtAlg:       args.JWTAlg,
-		sharedSecret: args.SharedSecret,
+		TunnelSecret: args.TunnelSecret,
 		clock:        args.Clock,
 	}
 
@@ -144,6 +137,11 @@ func (tt *TunnelTracker) RequestTunnel(req RequestArgs) (*TunnelRequest, error) 
 		return nil, err
 	}
 
+	controllerAddresses, err := tt.controller.Addresses()
+	if err != nil {
+		return nil, err
+	}
+
 	args := state.SSHConnRequestArg{
 		TunnelID:            tunnelID.String(),
 		ModelUUID:           req.ModelUUID,
@@ -151,7 +149,7 @@ func (tt *TunnelTracker) RequestTunnel(req RequestArgs) (*TunnelRequest, error) 
 		Expires:             expiry,
 		Username:            reverseTunnelUser,
 		Password:            password,
-		ControllerAddresses: tt.controller.Addresses(),
+		ControllerAddresses: controllerAddresses,
 		UnitPort:            22,
 		EphemeralPublicKey:  publicKey.Marshal(),
 	}
@@ -250,7 +248,12 @@ func (tr *TunnelRequest) Wait(ctx context.Context) (*gossh.Client, error) {
 	case conn := <-tr.recv:
 		// We now have ownership of the connection, so we should close it
 		// if the SSH dial fails.
-		sshClient, err := tr.dialer.Dial(conn, defaultUser, tr.privateKey)
+		//
+		// Safely ignore the host key since we are connecting through an
+		// SSH tunnel that the machine agent has established to the controller.
+		// We have already authenticated that this connection came from
+		// a specific machine, so we opt not to verify the host key.
+		sshClient, err := tr.dialer.Dial(conn, defaultUser, tr.privateKey, gossh.InsecureIgnoreHostKey())
 		if err != nil {
 			conn.Close()
 			return nil, err

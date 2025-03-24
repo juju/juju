@@ -5,6 +5,7 @@ package agent
 
 import (
 	stdcontext "context"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
+	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -65,6 +67,7 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/sshtunneler"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/deployer"
 	"github.com/juju/juju/internal/worker/gate"
@@ -591,6 +594,17 @@ func (a *MachineAgent) makeEngineCreator(
 		charmhubLogger := loggo.GetLoggerWithLabels("juju.charmhub", corelogger.CHARMHUB)
 		charmhubHTTPClient := charmhub.DefaultHTTPClient(charmhubLogger)
 
+		// Create an in-memory secret for signing JWTs used by the SSH tunneler.
+		// Restarts to the controller machine are expected to generate a new secret.
+		tunnelerSharedSecret := make([]byte, 64) // 64 bytes for HS512
+		if _, err := rand.Read(tunnelerSharedSecret); err != nil {
+			return nil, errors.Annotate(err, "failed to read random bytes")
+		}
+		tunnelerSecret := sshtunneler.TunnelSecret{
+			SharedSecret: tunnelerSharedSecret,
+			JWTAlgorithm: jwa.HS512,
+		}
+
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:    previousAgentVersion,
 			AgentName:               agentName,
@@ -634,6 +648,7 @@ func (a *MachineAgent) makeEngineCreator(
 			SetupLogging:            agentconf.SetupAgentLogging,
 			DependencyEngineMetrics: metrics,
 			CharmhubHTTPClient:      charmhubHTTPClient,
+			TunnelerSecret:          &tunnelerSecret,
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasAgent {
