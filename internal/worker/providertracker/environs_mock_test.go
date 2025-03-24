@@ -319,44 +319,6 @@ func (c *MockEnvironControllerInstancesCall) DoAndReturn(f func(envcontext.Provi
 	return c
 }
 
-// Create mocks base method.
-func (m *MockEnviron) Create(arg0 envcontext.ProviderCallContext, arg1 environs.CreateParams) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Create indicates an expected call of Create.
-func (mr *MockEnvironMockRecorder) Create(arg0, arg1 any) *MockEnvironCreateCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockEnviron)(nil).Create), arg0, arg1)
-	return &MockEnvironCreateCall{Call: call}
-}
-
-// MockEnvironCreateCall wrap *gomock.Call
-type MockEnvironCreateCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockEnvironCreateCall) Return(arg0 error) *MockEnvironCreateCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockEnvironCreateCall) Do(f func(envcontext.ProviderCallContext, environs.CreateParams) error) *MockEnvironCreateCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironCreateCall) DoAndReturn(f func(envcontext.ProviderCallContext, environs.CreateParams) error) *MockEnvironCreateCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Destroy mocks base method.
 func (m *MockEnviron) Destroy(arg0 envcontext.ProviderCallContext) error {
 	m.ctrl.T.Helper()

@@ -101,11 +101,6 @@ func (e *manualEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, contr
 	return nil // noop
 }
 
-// Create is part of the Environ interface.
-func (e *manualEnviron) Create(envcontext.ProviderCallContext, environs.CreateParams) error {
-	return nil
-}
-
 // Bootstrap is part of the Environ interface.
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	provisioned, err := sshprovisioner.CheckProvisioned(e.host, e.user)

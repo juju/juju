@@ -758,7 +758,7 @@ func (s *K8sBrokerSuite) TestGetCurrentNamespace(c *gc.C) {
 	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.getNamespace())
 }
 
-func (s *K8sBrokerSuite) TestCreate(c *gc.C) {
+func (s *K8sBrokerSuite) TestCreateModelResources(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -768,19 +768,30 @@ func (s *K8sBrokerSuite) TestCreate(c *gc.C) {
 			Name:   "test",
 		},
 	})
-	gomock.InOrder(
-		s.mockNamespaces.EXPECT().Create(gomock.Any(), ns, v1.CreateOptions{}).
-			Return(ns, nil),
-	)
+	s.mockNamespaces.EXPECT().Create(gomock.Any(), ns, v1.CreateOptions{}).
+		Return(ns, nil)
 
-	err := s.broker.Create(
-		envcontext.WithoutCredentialInvalidator(context.Background()),
+	err := s.broker.CreateModelResources(
+		context.Background(),
 		environs.CreateParams{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestCreateAlreadyExists(c *gc.C) {
+func (s *K8sBrokerSuite) TestValidateProviderForNewModel(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).
+		Return(nil, s.k8sNotFoundError())
+
+	err := s.broker.ValidateProviderForNewModel(
+		context.Background(),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestValidateProviderForNewModelAlreadyExists(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -790,14 +801,11 @@ func (s *K8sBrokerSuite) TestCreateAlreadyExists(c *gc.C) {
 			Name:   "test",
 		},
 	})
-	gomock.InOrder(
-		s.mockNamespaces.EXPECT().Create(gomock.Any(), ns, v1.CreateOptions{}).
-			Return(nil, s.k8sAlreadyExistsError()),
-	)
+	s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).
+		Return(ns, nil)
 
-	err := s.broker.Create(
-		envcontext.WithoutCredentialInvalidator(context.Background()),
-		environs.CreateParams{},
+	err := s.broker.ValidateProviderForNewModel(
+		context.Background(),
 	)
 	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 }

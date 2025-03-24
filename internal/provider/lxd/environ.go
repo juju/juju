@@ -211,11 +211,6 @@ func (env *environ) PrepareForBootstrap(_ environs.BootstrapContext, _ string) e
 	return nil
 }
 
-// Create implements environs.Environ.
-func (env *environ) Create(envcontext.ProviderCallContext, environs.CreateParams) error {
-	return nil
-}
-
 // Bootstrap implements environs.Environ.
 func (env *environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	ctx.Infof("%s", bootstrapMessage)

@@ -345,23 +345,6 @@ func (s *environSuite) TestPrepareForBootstrap(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "got error")
 }
 
-func (s *environSuite) TestCreate(c *gc.C) {
-	ctrl := s.patchEnv(c)
-	defer ctrl.Finish()
-
-	s.setupAvailabilityDomainsExpectations(1)
-	s.ident.EXPECT().ListAvailabilityDomains(
-		gomock.Any(), gomock.Any()).Return(
-		ociIdentity.ListAvailabilityDomainsResponse{}, errors.New("got error"))
-
-	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
-	err := s.env.Create(ctx, environs.CreateParams{})
-	c.Assert(err, gc.IsNil)
-
-	err = s.env.Create(ctx, environs.CreateParams{})
-	c.Assert(err, gc.ErrorMatches, "got error")
-}
-
 func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 	validator, err := s.env.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, jc.ErrorIsNil)

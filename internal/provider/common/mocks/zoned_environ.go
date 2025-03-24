@@ -358,44 +358,6 @@ func (c *MockZonedEnvironControllerInstancesCall) DoAndReturn(f func(envcontext.
 	return c
 }
 
-// Create mocks base method.
-func (m *MockZonedEnviron) Create(arg0 envcontext.ProviderCallContext, arg1 environs.CreateParams) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Create indicates an expected call of Create.
-func (mr *MockZonedEnvironMockRecorder) Create(arg0, arg1 any) *MockZonedEnvironCreateCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockZonedEnviron)(nil).Create), arg0, arg1)
-	return &MockZonedEnvironCreateCall{Call: call}
-}
-
-// MockZonedEnvironCreateCall wrap *gomock.Call
-type MockZonedEnvironCreateCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockZonedEnvironCreateCall) Return(arg0 error) *MockZonedEnvironCreateCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockZonedEnvironCreateCall) Do(f func(envcontext.ProviderCallContext, environs.CreateParams) error) *MockZonedEnvironCreateCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockZonedEnvironCreateCall) DoAndReturn(f func(envcontext.ProviderCallContext, environs.CreateParams) error) *MockZonedEnvironCreateCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // DeriveAvailabilityZones mocks base method.
 func (m *MockZonedEnviron) DeriveAvailabilityZones(arg0 envcontext.ProviderCallContext, arg1 environs.StartInstanceParams) ([]string, error) {
 	m.ctrl.T.Helper()

@@ -232,14 +232,6 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controlle
 	return nil
 }
 
-// Create implements environs.Environ.
-func (env *environ) Create(ctx envcontext.ProviderCallContext, p environs.CreateParams) error {
-	if err := env.gce.VerifyCredentials(); err != nil {
-		return env.HandleCredentialError(ctx, err)
-	}
-	return nil
-}
-
 // Bootstrap creates a new instance, choosing the series and arch out of
 // available tools. The series and arch are returned along with a func
 // that must be called to finalize the bootstrap process by transferring

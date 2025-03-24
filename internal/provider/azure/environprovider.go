@@ -175,7 +175,7 @@ func validateCloudSpec(spec environscloudspec.CloudSpec) error {
 // verify the configured credentials. If verification fails, a user-friendly
 // error will be returned, and the original error will be logged at debug
 // level.
-var verifyCredentials = func(e *azureEnviron, ctx context.Context) error {
+var verifyCredentials = func(ctx context.Context, e *azureEnviron) error {
 	// This is used at bootstrap - the ctx invalid credential callback will log
 	// a suitable message.
 	_, err := e.credential.GetToken(ctx, policy.TokenRequestOptions{

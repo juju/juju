@@ -339,8 +339,17 @@ type BootstrapEnviron interface {
 	// StorageProviders returned from Environ.StorageProvider will
 	// be scoped specifically to that Environ.
 	storage.ProviderRegistry
+}
 
-	// Create creates the environment for a new hosted model.
+// ModelResources provides the API for checking and instantiating models
+// and their resources in a provider.
+type ModelResources interface {
+	// ValidateProviderForNewModel returns an error if a new model
+	// cannot be created owing to issues such as incompatible or
+	// otherwise invalid model configuration.
+	ValidateProviderForNewModel(context.Context) error
+
+	// CreateModelResources creates resources needed for a new hosted model.
 	//
 	// This will be called before any workers begin operating on the
 	// Environ, to give an Environ a chance to perform operations that
@@ -348,7 +357,7 @@ type BootstrapEnviron interface {
 	//
 	// Create is not called for the initial controller model; it is
 	// the Bootstrap method's job to create the controller model.
-	Create(envcontext.ProviderCallContext, CreateParams) error
+	CreateModelResources(context.Context, CreateParams) error
 }
 
 // CloudDestroyer provides the API to cleanup cloud resources.
@@ -585,7 +594,7 @@ type JujuUpgradePrechecker interface {
 	// PreparePrechecker is called to to give an Environ a chance to
 	// perform interactive operations that are required for prechecking
 	// an upgrade.
-	PreparePrechecker() error
+	PreparePrechecker(context.Context) error
 
 	// PrecheckUpgradeOperations returns a list of
 	// PrecheckJujuUpgradeOperations for checking if juju can be upgrade.

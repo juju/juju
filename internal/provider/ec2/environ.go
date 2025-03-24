@@ -177,8 +177,8 @@ func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerN
 	return nil
 }
 
-// Create is part of the Environ interface.
-func (e *environ) Create(ctx envcontext.ProviderCallContext, args environs.CreateParams) error {
+// ValidateProviderForNewModel is part of the [environs.ModelResources] interface.
+func (e *environ) ValidateProviderForNewModel(ctx context.Context) error {
 	if err := verifyCredentials(ctx, e.CredentialInvalidator, e.ec2Client); err != nil {
 		return err
 	}
@@ -186,6 +186,11 @@ func (e *environ) Create(ctx envcontext.ProviderCallContext, args environs.Creat
 	if err := validateModelVPC(ctx, e.ec2Client, e.name, vpcID); err != nil {
 		return errors.Trace(e.HandleCredentialError(ctx, err))
 	}
+	return nil
+}
+
+// CreateModelResources is part of the [environs.ModelResources] interface.
+func (e *environ) CreateModelResources(ctx context.Context, args environs.CreateParams) error {
 	return nil
 }
 

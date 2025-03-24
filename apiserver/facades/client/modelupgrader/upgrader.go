@@ -305,7 +305,7 @@ func preCheckEnvironForUpgradeModel(
 		return false
 	}
 
-	if err := precheckEnv.PreparePrechecker(); err != nil {
+	if err := precheckEnv.PreparePrechecker(ctx); err != nil {
 		return err
 	}
 

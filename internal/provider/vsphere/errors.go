@@ -45,7 +45,7 @@ func IsAuthorisationFailure(err error) bool {
 
 // handleCredentialError marks the current credential as invalid if
 // the passed vsphere error indicates it should be.
-func (env *sessionEnviron) handleCredentialError(ctx context.Context, err error) error {
+func (senv *sessionEnviron) handleCredentialError(ctx context.Context, err error) error {
 	if err == nil {
 		return nil
 	}
@@ -54,10 +54,10 @@ func (env *sessionEnviron) handleCredentialError(ctx context.Context, err error)
 	// Resource Pool that it has no permissions on using "zone" on add-machine.
 	// To discover if the credentials are valid, run a command that MUST return
 	// OK: find folder defined on vm-folder credentials
-	_, errFind := env.client.FindFolder(env.ctx, env.getVMFolder())
+	_, errFind := senv.client.FindFolder(senv.ctx, senv.getVMFolder())
 	if errFind != nil {
 		// This is a credential issue. Now, move to mark credentials as invalid
-		return env.HandleCredentialError(ctx, err)
+		return senv.HandleCredentialError(ctx, err)
 	}
 	return err
 }

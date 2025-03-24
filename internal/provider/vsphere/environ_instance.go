@@ -21,20 +21,20 @@ func (env *environ) Instances(ctx context.Context, ids []instance.Id) (instances
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
-	err = env.withSession(ctx, func(env *sessionEnviron) error {
-		instances, err = env.Instances(ctx, ids)
+	err = env.withSession(ctx, func(senv *sessionEnviron) error {
+		instances, err = senv.Instances(ctx, ids)
 		return err
 	})
 	return instances, err
 }
 
 // Instances is part of the environs.Environ interface.
-func (env *sessionEnviron) Instances(ctx context.Context, ids []instance.Id) ([]instances.Instance, error) {
+func (senv *sessionEnviron) Instances(ctx context.Context, ids []instance.Id) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
 
-	allInstances, err := env.AllRunningInstances(ctx)
+	allInstances, err := senv.AllRunningInstances(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to get instances")
 	}
@@ -65,16 +65,16 @@ func (env *sessionEnviron) Instances(ctx context.Context, ids []instance.Id) ([]
 
 // ControllerInstances is part of the environs.Environ interface.
 func (env *environ) ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) (ids []instance.Id, err error) {
-	err = env.withSession(ctx, func(env *sessionEnviron) error {
-		ids, err = env.ControllerInstances(ctx, controllerUUID)
+	err = env.withSession(ctx, func(senv *sessionEnviron) error {
+		ids, err = senv.ControllerInstances(ctx, controllerUUID)
 		return err
 	})
 	return ids, err
 }
 
 // ControllerInstances is part of the environs.Environ interface.
-func (env *sessionEnviron) ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
-	instances, err := env.AllRunningInstances(ctx)
+func (senv *sessionEnviron) ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+	instances, err := senv.AllRunningInstances(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -104,7 +104,7 @@ func (env *sessionEnviron) ControllerInstances(ctx envcontext.ProviderCallContex
 // parsePlacement extracts the availability zone from the placement
 // string and returns it. If no zone is found there then an error is
 // returned.
-func (env *sessionEnviron) parsePlacement(ctx envcontext.ProviderCallContext, placement string) (*vmwareAvailZone, error) {
+func (senv *sessionEnviron) parsePlacement(ctx envcontext.ProviderCallContext, placement string) (*vmwareAvailZone, error) {
 	if placement == "" {
 		return nil, nil
 	}
@@ -116,7 +116,7 @@ func (env *sessionEnviron) parsePlacement(ctx envcontext.ProviderCallContext, pl
 
 	switch key, value := placement[:pos], placement[pos+1:]; key {
 	case "zone":
-		zone, err := env.availZone(ctx, value)
+		zone, err := senv.availZone(ctx, value)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -125,7 +125,7 @@ func (env *sessionEnviron) parsePlacement(ctx envcontext.ProviderCallContext, pl
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }
 
-func (env *sessionEnviron) modelFolderName() string {
-	cfg := env.Config()
+func (senv *sessionEnviron) modelFolderName() string {
+	cfg := senv.Config()
 	return modelFolderName(cfg.UUID(), cfg.Name())
 }

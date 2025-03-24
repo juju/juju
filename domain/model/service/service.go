@@ -164,7 +164,7 @@ func NewService(
 
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
-	// NewNamespaceWatcher returns a new namespace watcher for events based on the input change mask.
+	// NewNamespaceMapperWatcher returns a new namespace watcher for events based on the input change mask.
 	// The initialStateQuery ensures the watcher starts with the current state of the system,
 	// preventing data loss from prior events.
 	NewNamespaceMapperWatcher(
