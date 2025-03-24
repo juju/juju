@@ -75,7 +75,6 @@ func (s *baseSuite) createApplicationWithRelations(c *gc.C, appName string, rela
 	for _, relation := range relations {
 		relationsMap[relation] = charm.Relation{
 			Name:  relation,
-			Key:   relation,
 			Role:  charm.RoleRequirer,
 			Scope: charm.ScopeGlobal,
 		}

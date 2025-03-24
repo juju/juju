@@ -199,13 +199,11 @@ func (s *leadershipSuite) createApplication(c *gc.C, name string, units ...appli
 				Provides: map[string]charm.Relation{
 					"endpoint": {
 						Name:  "endpoint",
-						Key:   "endpoint",
 						Role:  charm.RoleProvider,
 						Scope: charm.ScopeGlobal,
 					},
 					"misc": {
 						Name:  "misc",
-						Key:   "misc",
 						Role:  charm.RoleProvider,
 						Scope: charm.ScopeGlobal,
 					},

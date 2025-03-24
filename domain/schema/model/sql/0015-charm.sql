@@ -263,8 +263,7 @@ CREATE TABLE charm_relation (
     uuid TEXT NOT NULL PRIMARY KEY,
     charm_uuid TEXT NOT NULL,
     kind_id TEXT NOT NULL,
-    "key" TEXT NOT NULL,
-    name TEXT,
+    name TEXT NOT NULL,
     role_id INT,
     interface TEXT,
     optional BOOLEAN,
@@ -285,13 +284,12 @@ CREATE TABLE charm_relation (
 );
 
 CREATE UNIQUE INDEX idx_charm_relation_charm_key
-ON charm_relation (charm_uuid, "key");
+ON charm_relation (charm_uuid, name);
 
 CREATE VIEW v_charm_relation AS
 SELECT
     cr.charm_uuid,
     crk.name AS kind,
-    cr."key",
     cr.name,
     crr.name AS role,
     cr.interface,

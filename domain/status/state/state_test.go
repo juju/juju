@@ -1025,13 +1025,11 @@ func (s *stateSuite) createApplication(c *gc.C, name string, l life.Life, units 
 				Provides: map[string]charm.Relation{
 					"endpoint": {
 						Name:  "endpoint",
-						Key:   "endpoint",
 						Role:  charm.RoleProvider,
 						Scope: charm.ScopeGlobal,
 					},
 					"misc": {
 						Name:  "misc",
-						Key:   "misc",
 						Role:  charm.RoleProvider,
 						Scope: charm.ScopeGlobal,
 					},

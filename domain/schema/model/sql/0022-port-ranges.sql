@@ -41,7 +41,7 @@ SELECT
     pr.unit_uuid,
     u.name AS unit_name,
     protocol.protocol,
-    cr."key" AS endpoint
+    cr.name AS endpoint
 FROM port_range AS pr
 LEFT JOIN protocol ON pr.protocol_id = protocol.id
 LEFT JOIN charm_relation AS cr ON pr.relation_uuid = cr.uuid
@@ -51,7 +51,7 @@ CREATE VIEW v_endpoint
 AS
 SELECT
     cr.uuid,
-    cr."key" AS endpoint,
+    cr.name AS endpoint,
     u.uuid AS unit_uuid
 FROM unit AS u
 LEFT JOIN application AS a ON u.application_uuid = a.uuid

@@ -106,7 +106,6 @@ var metadataDecodeTestCases = [...]struct {
 		inputArgs: decodeMetadataArgs{
 			relations: []charmRelation{
 				{
-					Key:       "mysql",
 					Kind:      "provides",
 					Name:      "db1",
 					Role:      "provider",
@@ -116,7 +115,6 @@ var metadataDecodeTestCases = [...]struct {
 					Scope:     "global",
 				},
 				{
-					Key:       "postgres",
 					Kind:      "provides",
 					Name:      "db2",
 					Role:      "provider",
@@ -126,7 +124,6 @@ var metadataDecodeTestCases = [...]struct {
 					Scope:     "global",
 				},
 				{
-					Key:       "wordpress",
 					Kind:      "requires",
 					Name:      "blog",
 					Role:      "requirer",
@@ -136,7 +133,6 @@ var metadataDecodeTestCases = [...]struct {
 					Scope:     "container",
 				},
 				{
-					Key:       "vault",
 					Kind:      "peers",
 					Name:      "enclave",
 					Role:      "peer",
@@ -150,8 +146,7 @@ var metadataDecodeTestCases = [...]struct {
 		output: charm.Metadata{
 			RunAs: charm.RunAsDefault,
 			Provides: map[string]charm.Relation{
-				"mysql": {
-					Key:       "mysql",
+				"db1": {
 					Name:      "db1",
 					Role:      charm.RoleProvider,
 					Interface: "mysql",
@@ -159,8 +154,7 @@ var metadataDecodeTestCases = [...]struct {
 					Limit:     1,
 					Scope:     charm.ScopeGlobal,
 				},
-				"postgres": {
-					Key:       "postgres",
+				"db2": {
 					Name:      "db2",
 					Role:      charm.RoleProvider,
 					Interface: "postgres",
@@ -170,8 +164,7 @@ var metadataDecodeTestCases = [...]struct {
 				},
 			},
 			Requires: map[string]charm.Relation{
-				"wordpress": {
-					Key:       "wordpress",
+				"blog": {
 					Name:      "blog",
 					Role:      charm.RoleRequirer,
 					Interface: "wordpress",
@@ -181,8 +174,7 @@ var metadataDecodeTestCases = [...]struct {
 				},
 			},
 			Peers: map[string]charm.Relation{
-				"vault": {
-					Key:       "vault",
+				"enclave": {
 					Name:      "enclave",
 					Role:      charm.RolePeer,
 					Interface: "vault",

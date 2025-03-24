@@ -196,7 +196,7 @@ VALUES (?, 'app', 0)
 // addCharmRelation inserts a new charm relation into the database with the given UUID and predefined attributes.
 func (s *relationSuite) addCharmRelation(c *gc.C, charmRelationUUID string) {
 	s.query(c, `
-INSERT INTO charm_relation (uuid, charm_uuid, kind_id, "key") 
+INSERT INTO charm_relation (uuid, charm_uuid, kind_id, name) 
 VALUES (?, ?, 0, 'fake-provides')
 `, charmRelationUUID, fakeCharmUUID)
 }

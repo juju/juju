@@ -733,12 +733,12 @@ func (s *charmStateSuite) TestGetCharmMetadataWithRelation(c *gc.C) {
 		}
 
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_relation (uuid, charm_uuid, kind_id, key, name, role_id, scope_id)
+INSERT INTO charm_relation (uuid, charm_uuid, kind_id, name, role_id, scope_id)
 VALUES
-    (?, ?, 0, 'foo', 'baz', 0, 0),
-    (?, ?, 0, 'fred', 'bar', 0, 1),
-    (?, ?, 1, 'faa', 'baz', 1, 1),
-    (?, ?, 2, 'fee', 'baz', 2, 0);`,
+    (?, ?, 0, 'foo', 0, 0),
+    (?, ?, 0, 'fred', 0, 1),
+    (?, ?, 1, 'faa', 1, 1),
+    (?, ?, 2, 'fee', 2, 0);`,
 			uuid.MustNewUUID().String(), charmUUID,
 			uuid.MustNewUUID().String(), charmUUID,
 			uuid.MustNewUUID().String(), charmUUID,
@@ -758,30 +758,26 @@ VALUES
 	assertCharmMetadata(c, metadata, func() charm.Metadata {
 		expected.Provides = map[string]charm.Relation{
 			"foo": {
-				Key:   "foo",
-				Name:  "baz",
+				Name:  "foo",
 				Role:  charm.RoleProvider,
 				Scope: charm.ScopeGlobal,
 			},
 			"fred": {
-				Key:   "fred",
-				Name:  "bar",
+				Name:  "fred",
 				Role:  charm.RoleProvider,
 				Scope: charm.ScopeContainer,
 			},
 		}
 		expected.Requires = map[string]charm.Relation{
 			"faa": {
-				Key:   "faa",
-				Name:  "baz",
+				Name:  "faa",
 				Role:  charm.RoleRequirer,
 				Scope: charm.ScopeContainer,
 			},
 		}
 		expected.Peers = map[string]charm.Relation{
 			"fee": {
-				Key:   "fee",
-				Name:  "baz",
+				Name:  "fee",
 				Role:  charm.RolePeer,
 				Scope: charm.ScopeGlobal,
 			},
@@ -1915,30 +1911,26 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithRelations(c *gc.C)
 		Assumes:        []byte("null"),
 		Provides: map[string]charm.Relation{
 			"foo": {
-				Key:   "foo",
-				Name:  "baz",
+				Name:  "foo",
 				Role:  charm.RoleProvider,
 				Scope: charm.ScopeGlobal,
 			},
 			"fred": {
-				Key:   "fred",
-				Name:  "bar",
+				Name:  "fred",
 				Role:  charm.RoleProvider,
 				Scope: charm.ScopeContainer,
 			},
 		},
 		Requires: map[string]charm.Relation{
 			"fee": {
-				Key:   "fee",
-				Name:  "baz",
+				Name:  "fee",
 				Role:  charm.RoleRequirer,
 				Scope: charm.ScopeContainer,
 			},
 		},
 		Peers: map[string]charm.Relation{
 			"faa": {
-				Key:   "faa",
-				Name:  "baz",
+				Name:  "faa",
 				Role:  charm.RolePeer,
 				Scope: charm.ScopeGlobal,
 			},
@@ -2874,16 +2866,14 @@ func (s *charmStateSuite) TestSetCharmWithDuplicatedEndpointNames(c *gc.C) {
 		Metadata: charm.Metadata{
 			Provides: map[string]charm.Relation{
 				"foo": {
-					Key:   "foo",
-					Name:  "baz",
+					Name:  "foo",
 					Role:  charm.RoleProvider,
 					Scope: charm.ScopeGlobal,
 				},
 			},
 			Requires: map[string]charm.Relation{
 				"foo": {
-					Key:   "foo",
-					Name:  "baz",
+					Name:  "foo",
 					Role:  charm.RoleProvider,
 					Scope: charm.ScopeGlobal,
 				},
