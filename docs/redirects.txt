@@ -3,3 +3,4 @@
 user/reference/charm/channel/ user/reference/charm/
 user/reference/charm/revision/ user/reference/charm/
 user/reference/charm/charm-taxonomy/ user/reference/charm/
+contributor/unsorted/bootstrapping/ contributor/index
