@@ -113,7 +113,10 @@ type UnitState interface {
 	SetUnitConstraints(ctx context.Context, inUnitUUID coreunit.UUID, cons constraints.Constraints) error
 
 	// SetRunningAgentBinaryVersion sets the running agent version for the unit.
-	// A [applicationerrors.UnitNotFound] error will be returned if the unit does not exist.
+	// The following error types can be expected:
+	// - [applicationerrors.UnitNotFound] - when the unit does not exist.
+	// - [applicationerrors.UnitIsDead] - when the unit is dead.
+	// - [coreerrors.NotSupported] - when the architecture is not supported.
 	SetRunningAgentBinaryVersion(context.Context, coreunit.UUID, agentbinary.Version) error
 }
 
@@ -236,8 +239,8 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 // binary on this unit has reported it is running.
 //
 // The following errors are possible:
-// - [coreerrors.NotValid] if the reportedVersion is not valid.
-// - [coreerrors.NotSupported] if the architecture is not supported.
+// - [coreerrors.NotValid] - when the reportedVersion is not valid.
+// - [coreerrors.NotSupported] - when the architecture is not supported.
 // - [applicationerrors.UnitNotFound] - when the unit does not exist.
 // - [applicationerrors.UnitIsDead] - when the unit is dead.
 func (s *Service) SetReportedUnitAgentVersion(ctx context.Context, unitUUID coreunit.UUID, reportedVersion agentbinary.Version) error {

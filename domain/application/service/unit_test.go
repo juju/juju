@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type unitServiceSuite struct {
@@ -219,10 +218,9 @@ func (s *unitServiceSuite) TestUpdateCAASUnitNotAlive(c *gc.C) {
 func (s *unitServiceSuite) TestSetReportedUnitAgentVersionInvalid(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
 
-	err = s.service.SetReportedUnitAgentVersion(
+	err := s.service.SetReportedUnitAgentVersion(
 		context.Background(),
 		coreunit.UUID(unitUUID.String()),
 		coreagentbinary.Version{
@@ -240,8 +238,7 @@ func (s *unitServiceSuite) TestSetReportedUnitAgentVersionInvalid(c *gc.C) {
 func (s *unitServiceSuite) TestSetReportedUnitAgentVersionNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
 
 	s.state.EXPECT().SetRunningAgentBinaryVersion(
 		gomock.Any(),
@@ -252,7 +249,7 @@ func (s *unitServiceSuite) TestSetReportedUnitAgentVersionNotFound(c *gc.C) {
 		},
 	).Return(applicationerrors.UnitNotFound)
 
-	err = s.service.SetReportedUnitAgentVersion(
+	err := s.service.SetReportedUnitAgentVersion(
 		context.Background(),
 		coreunit.UUID(unitUUID.String()),
 		coreagentbinary.Version{
@@ -269,8 +266,7 @@ func (s *unitServiceSuite) TestSetReportedUnitAgentVersionNotFound(c *gc.C) {
 func (s *unitServiceSuite) TestSetReportedUnitAgentVersionDead(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
 
 	s.state.EXPECT().SetRunningAgentBinaryVersion(
 		gomock.Any(),
@@ -281,7 +277,7 @@ func (s *unitServiceSuite) TestSetReportedUnitAgentVersionDead(c *gc.C) {
 		},
 	).Return(applicationerrors.UnitIsDead)
 
-	err = s.service.SetReportedUnitAgentVersion(
+	err := s.service.SetReportedUnitAgentVersion(
 		context.Background(),
 		coreunit.UUID(unitUUID.String()),
 		coreagentbinary.Version{Number: version.MustParse("1.2.3"), Arch: corearch.ARM64},
@@ -294,8 +290,7 @@ func (s *unitServiceSuite) TestSetReportedUnitAgentVersionDead(c *gc.C) {
 func (s *unitServiceSuite) TestSetReportedUnitAgentVersion(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	unitUUID := unittesting.GenUnitUUID(c)
 
 	s.state.EXPECT().SetRunningAgentBinaryVersion(
 		gomock.Any(),
@@ -306,7 +301,7 @@ func (s *unitServiceSuite) TestSetReportedUnitAgentVersion(c *gc.C) {
 		},
 	).Return(nil)
 
-	err = s.service.SetReportedUnitAgentVersion(
+	err := s.service.SetReportedUnitAgentVersion(
 		context.Background(),
 		coreunit.UUID(unitUUID.String()),
 		coreagentbinary.Version{

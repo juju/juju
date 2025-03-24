@@ -612,24 +612,15 @@ UPDATE SET version = excluded.version,
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 
-		// Check if unit exists
+		// Check if unit exists and is not dead.
 		err := st.checkUnitNotDead(ctx, tx, unitUUID)
-		switch {
-		case errors.Is(err, applicationerrors.UnitNotFound):
+		if err != nil {
 			return errors.Errorf(
-				"unit %q does not exist", unitUUID,
-			).Add(applicationerrors.UnitNotFound)
-		case errors.Is(err, applicationerrors.UnitIsDead):
-			return errors.Errorf(
-				"unit %q is dead", unitUUID,
-			).Add(applicationerrors.UnitIsDead)
-		case err != nil:
-			return errors.Errorf(
-				"checking unit %q exists: %w", unitUUID, err,
+				"checking unit %q exists: %w", uuid, err,
 			)
 		}
 
-		// Look up architecture ID
+		// Look up architecture ID.
 		err = tx.Query(ctx, archMapStmt, archMap).Get(&archMap)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(

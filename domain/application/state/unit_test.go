@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
+	unittesting "github.com/juju/juju/core/unit/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -964,7 +965,7 @@ func deptr[T any](v *T) T {
 // running agent binary version for a unit that doesn't exist we get back
 // an error that satisfies [applicationerrors.UnitNotFound].
 func (s *unitStateSuite) TestSetRunningAgentBinaryVersionUnitNotFound(c *gc.C) {
-	var unitUUID coreunit.UUID
+	unitUUID := unittesting.GenUnitUUID(c)
 
 	err := s.state.SetRunningAgentBinaryVersion(
 		context.Background(),
@@ -982,16 +983,13 @@ func (s *unitStateSuite) TestSetRunningAgentBinaryVersionUnitNotFound(c *gc.C) {
 // that satisfies [coreerrors.NotSupported].
 func (s *unitStateSuite) TestSetRunningAgentBinaryVersionNotSupportedArch(c *gc.C) {
 	u := application.InsertUnitArg{
-		UnitName: "666",
+		UnitName: "foo/666",
 	}
-	s.createApplication(c, "666", life.Alive, u)
+	s.createApplication(c, "foo", life.Alive, u)
 	var unitUUID coreunit.UUID
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
 	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	unitUUID, err = s.state.GetUnitUUIDByName(context.Background(), coreunit.Name("666"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.SetRunningAgentBinaryVersion(
@@ -1009,16 +1007,13 @@ func (s *unitStateSuite) TestSetRunningAgentBinaryVersionNotSupportedArch(c *gc.
 // version (happy path).
 func (s *unitStateSuite) TestSetRunningAgentBinaryVersion(c *gc.C) {
 	u := application.InsertUnitArg{
-		UnitName: "666",
+		UnitName: "foo/666",
 	}
-	s.createApplication(c, "666", life.Alive, u)
+	s.createApplication(c, "foo", life.Alive, u)
 	var unitUUID coreunit.UUID
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
 	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	unitUUID, err = s.state.GetUnitUUIDByName(context.Background(), coreunit.Name("666"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.SetRunningAgentBinaryVersion(
@@ -1062,16 +1057,13 @@ WHERE unit_uuid = ?
 // version (happy path) and then updating the value.
 func (s *unitStateSuite) TestSetRunningAgentBinaryVersionUpdate(c *gc.C) {
 	u := application.InsertUnitArg{
-		UnitName: "666",
+		UnitName: "foo/666",
 	}
-	s.createApplication(c, "666", life.Alive, u)
+	s.createApplication(c, "foo", life.Alive, u)
 	var unitUUID coreunit.UUID
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
 	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	unitUUID, err = s.state.GetUnitUUIDByName(context.Background(), coreunit.Name("666"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.SetRunningAgentBinaryVersion(
@@ -1110,14 +1102,36 @@ WHERE unit_uuid = ?
 	c.Check(obtainedVersion, gc.Equals, jujuversion.Current.String())
 
 	// Update
+	newVersion := jujuversion.Current
+	newVersion.Patch++
 	err = s.state.SetRunningAgentBinaryVersion(
 		context.Background(),
 		unitUUID,
 		coreagentbinary.Version{
-			Number: jujuversion.Current,
+			Number: newVersion,
 			Arch:   corearch.ARM64,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		stmt := `
+SELECT unit_uuid,
+       version,
+       name
+FROM unit_agent_version
+INNER JOIN architecture ON unit_agent_version.architecture_id = architecture.id
+WHERE unit_uuid = ?
+	`
+
+		return tx.QueryRowContext(ctx, stmt, unitUUID).Scan(
+			&obtainedUnitUUID,
+			&obtainedVersion,
+			&obtainedArch,
+		)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedUnitUUID, gc.Equals, unitUUID.String())
+	c.Check(obtainedVersion, gc.Equals, newVersion.String())
 	c.Check(obtainedArch, gc.Equals, corearch.ARM64)
 }
