@@ -742,7 +742,7 @@ func (s *State) ListCharmLocatorsByNames(ctx context.Context, names []string) ([
 	query := `
 SELECT &charmLocator.*
 FROM v_charm_locator
-WHERE name IN ($nameSelector[:]);
+WHERE reference_name IN ($nameSelector[:]);
 `
 	stmt, err := s.Prepare(query, charmLocator{}, nameSelector(names))
 	if err != nil {
@@ -978,7 +978,7 @@ func (s *State) GetLatestPendingCharmhubCharm(ctx context.Context, name string, 
 	}
 
 	query := `
-SELECT v.name AS &charmLocator.name, 
+SELECT
     v.reference_name AS &charmLocator.reference_name,
     v.source_id AS &charmLocator.source_id,
     v.architecture_id AS &charmLocator.architecture_id,

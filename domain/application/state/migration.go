@@ -34,6 +34,9 @@ func (st *State) GetApplicationsForExport(ctx context.Context) ([]application.Ex
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		modelType, err = st.getModelType(ctx, tx)
+		if err != nil {
+			return err
+		}
 
 		err := tx.Query(ctx, stmt).GetAll(&apps)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -58,6 +61,11 @@ func (st *State) GetApplicationsForExport(ctx context.Context) ([]application.Ex
 			return nil, err
 		}
 
+		var providerID *string
+		if app.K8sServiceProviderID.Valid {
+			providerID = ptr(app.K8sServiceProviderID.String)
+		}
+
 		exportApps[i] = application.ExportApplication{
 			UUID:                 app.UUID,
 			Name:                 app.Name,
@@ -76,6 +84,7 @@ func (st *State) GetApplicationsForExport(ctx context.Context) ([]application.Ex
 				Source:       locator.Source,
 				Architecture: locator.Architecture,
 			},
+			K8sServiceProviderID: providerID,
 		}
 	}
 	return exportApps, nil
