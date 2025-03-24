@@ -1,6 +1,5 @@
-(managing-complexity)=
-# Managing complexity
-
+(on-managing-complexity)=
+# On managing complexity
 
 Complexity kills software. Successfully developing software for the long term
 is an exercise in managing complexity; once the whole picture becomes too big

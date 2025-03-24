@@ -107,7 +107,7 @@ a [Checker](/doc/dev/reference/testing/unit-testing/checker.md)):
 
 ```go
 // GIVEN a equals 5 AND b equals 3
-// WHEN a and b are summed 
+// WHEN a and b are summed
 // THEN we get 8
 func (s *magicSuite) TestSum(c *gc.C) {
 a := 5
@@ -139,5 +139,21 @@ go test github.com/juju/juju/x/y/magic/ -check.f magicSuite.TestSum # run the te
 [note type=information]
 See more here [`gocheck` > Selecting which tests to run](https://labix.org/gocheck) .
 [/note]
+
+
+## Debug a test
+
+If you need to reproduce a failing test but can’t reproduce it easily, use this script: `juju/scripts/unit-test/stress-race.bash`.
+
+```{tip}
+**Where to run?** Running on a small or medium instance on AWS will likely help trigger races more quickly than your local hardware. Particularly useful are instances that shares CPU time -- `t._n_` instances currently. If you locally build the test to
+stress you may still need to rsync over the build environment as some tests look for files in the build tree. You'll also need to install mongo.
+```
+
+```{tip}
+**How many times to run?** It has been noticed that, if the test runs 100 times without failure, things are probably all right.
+```
+
+
 
 
