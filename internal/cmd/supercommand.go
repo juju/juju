@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	stderr "errors"
 	"fmt"
 	"io/ioutil"
 	"sort"
@@ -19,6 +20,11 @@ import (
 )
 
 var logger = internallogger.GetLogger("cmd")
+
+// ErrCommandMissing can be returned during the Init() method
+// of a command to trigger the super command's missingCallback
+// if one is set.
+var ErrCommandMissing = stderr.New("missing command")
 
 type topic struct {
 	short string
@@ -461,24 +467,30 @@ func (c *SuperCommand) Init(args []string) error {
 	}
 	found := false
 
+	setupMissingCallback := func() {
+		c.action = commandReference{
+			command: &missingCommand{
+				callback:  c.missingCallback,
+				superName: c.Name,
+				name:      args[0],
+				args:      args[1:],
+			},
+		}
+	}
+
 	// Look for the command.
 	if c.action, found = c.subcmds[args[0]]; !found {
 		if c.missingCallback != nil {
-			c.action = commandReference{
-				command: &missingCommand{
-					callback:  c.missingCallback,
-					superName: c.Name,
-					name:      args[0],
-					args:      args[1:],
-				},
-			}
+			setupMissingCallback()
 			// Yes return here, no Init called on missing Command.
 			return nil
 		}
 		return fmt.Errorf("unrecognized command: %s %s", c.Name, args[0])
 	}
 
-	args = args[1:]
+	// Keep the original args
+	cleanArgs := make([]string, len(args[1:]))
+	copy(cleanArgs, args[1:])
 	subcmd := c.action.command
 	if subcmd.IsSuperCommand() {
 		f := gnuflag.NewFlagSetWithFlagKnownAs(c.Info().Name, gnuflag.ContinueOnError, FlagAlias(subcmd, "flag"))
@@ -487,17 +499,27 @@ func (c *SuperCommand) Init(args []string) error {
 	} else {
 		subcmd.SetFlags(c.commonflags)
 	}
-	if err := c.commonflags.Parse(subcmd.AllowInterspersedFlags(), args); err != nil {
+	if err := c.commonflags.Parse(subcmd.AllowInterspersedFlags(), cleanArgs); err != nil {
 		return err
 	}
 
-	args = c.commonflags.Args()
+	cleanArgs = c.commonflags.Args()
 	if c.showHelp {
 		// We want to treat help for the command the same way we would if we went "help foo".
-		args = []string{c.action.name}
+		cleanArgs = []string{c.action.name}
 		c.action = c.subcmds["help"]
 	}
-	return c.action.command.Init(args)
+
+	err := c.action.command.Init(cleanArgs)
+
+	// Commands may intentionally return a command missing
+	// error during init to trigger their missing callback.
+	if !stderr.Is(err, ErrCommandMissing) || c.missingCallback == nil {
+		return err
+	}
+
+	setupMissingCallback()
+	return nil
 }
 
 // Run executes the subcommand that was selected in Init.
