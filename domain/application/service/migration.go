@@ -151,6 +151,22 @@ func (s *MigrationService) GetApplicationsForExport(ctx context.Context) ([]appl
 	return s.st.GetApplicationsForExport(ctx)
 }
 
+// GetApplicationCharmOrigin returns the charm origin for the specified
+// application name. If the application does not exist, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (s *MigrationService) GetApplicationCharmOrigin(ctx context.Context, name string) (application.CharmOrigin, error) {
+	if !isValidApplicationName(name) {
+		return application.CharmOrigin{}, applicationerrors.ApplicationNameNotValid
+	}
+
+	appID, err := s.st.GetApplicationIDByName(ctx, name)
+	if err != nil {
+		return application.CharmOrigin{}, errors.Capture(err)
+	}
+
+	return s.st.GetApplicationCharmOrigin(ctx, appID)
+}
+
 // GetApplicationConfigAndSettings returns the application config and settings
 // for the specified application. This will return the application config and
 // the settings in one config.ConfigAttributes object.

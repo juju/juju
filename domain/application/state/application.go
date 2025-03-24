@@ -48,22 +48,31 @@ func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) 
 		return "", errors.Capture(err)
 	}
 
+	var modelType coremodel.ModelType
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		modelType, err = st.getModelType(ctx, tx)
+		return err
+	}); err != nil {
+		return "", errors.Errorf("querying model type: %w", err)
+
+	}
+	return modelType, nil
+}
+
+func (st *State) getModelType(ctx context.Context, tx *sqlair.TX) (coremodel.ModelType, error) {
 	var result modelInfo
 	stmt, err := st.Prepare("SELECT &modelInfo.type FROM model", result)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt).Get(&result)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return modelerrors.NotFound
-		}
-		return err
-	})
-	if err != nil {
+	if err := tx.Query(ctx, stmt).Get(&result); errors.Is(err, sql.ErrNoRows) {
+		return "", modelerrors.NotFound
+	} else if err != nil {
 		return "", errors.Errorf("querying model type: %w", err)
 	}
+
 	return coremodel.ModelType(result.ModelType), nil
 }
 
@@ -1912,11 +1921,19 @@ WHERE application_uuid = $applicationID.uuid;
 		return application.CharmOrigin{}, errors.Errorf("decoding channel: %w", err)
 	}
 
+	var revision = -1
+	if appOrigin.Revision.Valid {
+		revision = int(appOrigin.Revision.Int64)
+	}
+
 	return application.CharmOrigin{
-		Name:     appOrigin.ReferenceName,
-		Source:   source,
-		Platform: platform,
-		Channel:  channel,
+		Name:               appOrigin.ReferenceName,
+		Source:             source,
+		Platform:           platform,
+		Channel:            channel,
+		Revision:           revision,
+		Hash:               appOrigin.Hash,
+		CharmhubIdentifier: appOrigin.CharmhubIdentifier,
 	}, nil
 }
 

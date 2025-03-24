@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/paths"
@@ -124,10 +125,13 @@ type Architecture = architecture.Architecture
 
 // CharmOrigin represents the origin of a charm.
 type CharmOrigin struct {
-	Name     string
-	Source   domaincharm.CharmSource
-	Channel  *Channel
-	Platform Platform
+	Name               string
+	Source             domaincharm.CharmSource
+	Channel            *Channel
+	Platform           Platform
+	Revision           int
+	Hash               string
+	CharmhubIdentifier string
 }
 
 // ScaleState describes the scale status of a k8s application.
@@ -347,13 +351,18 @@ type UpdateApplicationSettingsArg struct {
 
 // ExportApplication contains parameters for exporting an application.
 type ExportApplication struct {
-	UUID         application.ID
-	Name         string
-	CharmUUID    charm.ID
-	Life         life.Life
-	PasswordHash string
-	Exposed      bool
-	Subordinate  bool
+	UUID                 application.ID
+	Name                 string
+	ModelType            model.ModelType
+	CharmUUID            charm.ID
+	Life                 life.Life
+	PasswordHash         string
+	Placement            string
+	Exposed              bool
+	Subordinate          bool
+	CharmModifiedVersion int
+	CharmUpgradeOnError  bool
+	CharmLocator         domaincharm.CharmLocator
 }
 
 // ExposedEndpoint encapsulates the expose-related details of a particular

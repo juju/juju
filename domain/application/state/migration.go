@@ -8,7 +8,9 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -26,8 +28,13 @@ func (st *State) GetApplicationsForExport(ctx context.Context) ([]application.Ex
 		return nil, err
 	}
 
-	var apps []exportApplication
+	var (
+		modelType model.ModelType
+		apps      []exportApplication
+	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		modelType, err = st.getModelType(ctx, tx)
+
 		err := tx.Query(ctx, stmt).GetAll(&apps)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
@@ -41,14 +48,34 @@ func (st *State) GetApplicationsForExport(ctx context.Context) ([]application.Ex
 
 	exportApps := make([]application.ExportApplication, len(apps))
 	for i, app := range apps {
+		locator, err := decodeCharmLocator(charmLocator{
+			ReferenceName:  app.CharmReferenceName,
+			Revision:       app.CharmRevision,
+			SourceID:       app.CharmSourceID,
+			ArchitectureID: app.CharmArchitectureID,
+		})
+		if err != nil {
+			return nil, err
+		}
+
 		exportApps[i] = application.ExportApplication{
-			UUID:         app.UUID,
-			Name:         app.Name,
-			CharmUUID:    app.CharmUUID,
-			Life:         app.Life,
-			PasswordHash: app.PasswordHash,
-			Exposed:      app.Exposed,
-			Subordinate:  app.Subordinate,
+			UUID:                 app.UUID,
+			Name:                 app.Name,
+			ModelType:            modelType,
+			CharmUUID:            app.CharmUUID,
+			Life:                 app.Life,
+			PasswordHash:         app.PasswordHash,
+			Placement:            app.Placement,
+			Exposed:              app.Exposed,
+			Subordinate:          app.Subordinate,
+			CharmModifiedVersion: app.CharmModifiedVersion,
+			CharmUpgradeOnError:  app.CharmUpgradeOnError,
+			CharmLocator: charm.CharmLocator{
+				Name:         locator.Name,
+				Revision:     locator.Revision,
+				Source:       locator.Source,
+				Architecture: locator.Architecture,
+			},
 		}
 	}
 	return exportApps, nil
