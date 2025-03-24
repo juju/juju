@@ -8,4 +8,5 @@ contributor/unsorted/managing-complexity/ contributor/explanation/on-managing-co
 contributor/unsorted/commands/ contributor/unsorted/styleguide/
 contributor/unsorted/hacking-state/ contributor/unsorted/styleguide/
 contributor/unsorted/cross-platform-development/ contributor/howto/compile-and-run-juju-agents-on-different-architectures.md
-contributor/unsorted/FAQ/ /contributor/index
+contributor/unsorted/FAQ/ contributor/index
+contributor/unsorted/debugging-races/ contributor/howto/write-a-unit-test/
