@@ -252,9 +252,14 @@ CREATE VIEW v_application_origin AS
 SELECT
     a.uuid,
     c.reference_name,
-    c.source_id
+    c.source_id,
+    c.revision,
+    cdi.charmhub_identifier,
+    ch.hash
 FROM application AS a
-JOIN charm AS c ON a.charm_uuid = c.uuid;
+JOIN charm AS c ON a.charm_uuid = c.uuid
+JOIN charm_download_info AS cdi ON c.uuid = cdi.charm_uuid
+JOIN charm_hash AS ch ON c.uuid = ch.charm_uuid;
 
 CREATE VIEW v_application_export AS
 SELECT
@@ -267,7 +272,11 @@ SELECT
     a.exposed,
     a.placement,
     a.password_hash,
-    cm.subordinate
+    cm.subordinate,
+    c.reference_name,
+    c.source_id,
+    c.revision,
+    c.architecture_id
 FROM application AS a
 JOIN charm AS c ON a.charm_uuid = c.uuid
 JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid;
