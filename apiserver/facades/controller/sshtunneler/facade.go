@@ -4,8 +4,11 @@
 package sshtunneler
 
 import (
+	"github.com/juju/names/v5"
+
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -14,6 +17,7 @@ import (
 type Backend interface {
 	InsertSSHConnRequest(arg state.SSHConnRequestArg) error
 	RemoveSSHConnRequest(arg state.SSHConnRequestRemoveArg) error
+	Machine(id string) (*state.Machine, error)
 }
 
 // Facade is the interface exposing the SSHTunneler methods.
@@ -44,4 +48,19 @@ func (f *Facade) RemoveSSHConnRequest(arg params.SSHConnRequestRemoveArg) (param
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil
+}
+
+// ControllerAddresses returns the specified machine's public addresses.
+func (f *Facade) ControllerAddresses(machine params.Entity) (params.StringsResult, error) {
+	mt, err := names.ParseMachineTag(machine.Tag)
+	if err != nil {
+		return params.StringsResult{}, err
+	}
+	m, err := f.backend.Machine(mt.Id())
+	if err != nil {
+		return params.StringsResult{}, err
+	}
+	var result params.StringsResult
+	result.Result = append(result.Result, m.Addresses().AllMatchingScope(network.ScopeMatchPublic).Values()...)
+	return result, nil
 }

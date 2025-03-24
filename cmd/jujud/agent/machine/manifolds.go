@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/internal/sshtunneler"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/agentconfigupdater"
@@ -88,6 +89,7 @@ import (
 	"github.com/juju/juju/internal/worker/secretbackendrotate"
 	"github.com/juju/juju/internal/worker/singular"
 	"github.com/juju/juju/internal/worker/sshserver"
+	tunnelerworker "github.com/juju/juju/internal/worker/sshtunneler"
 	workerstate "github.com/juju/juju/internal/worker/state"
 	"github.com/juju/juju/internal/worker/stateconfigwatcher"
 	"github.com/juju/juju/internal/worker/stateconverter"
@@ -264,6 +266,10 @@ type ManifoldsConfig struct {
 
 	// CharmhubHTTPClient is the HTTP client used for Charmhub API requests.
 	CharmhubHTTPClient HTTPClient
+
+	// TunnelerSecret is an in-memory secret used as part of authenticating
+	// SSH tunnels from machines.
+	TunnelerSecret *sshtunneler.TunnelSecret
 }
 
 type HTTPClient interface {
@@ -799,6 +805,19 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		jwtParserName: ifController(jwtparser.Manifold(jwtparser.ManifoldConfig{
 			StateName: stateName,
 		})),
+
+		sshTunnelerSecretName: ifController(dependency.Manifold{
+			Start: func(_ dependency.Context) (worker.Worker, error) {
+				return engine.NewValueWorker(config.TunnelerSecret)
+			},
+			Output: engine.ValueWorkerOutput,
+		}),
+
+		sshTunnelerName: ifController(tunnelerworker.Manifold(tunnelerworker.ManifoldConfig{
+			AgentName:      agentName,
+			APICallerName:  apiCallerName,
+			TunnelerSecret: sshTunnelerSecretName,
+		})),
 	}
 
 	return manifolds
@@ -1214,4 +1233,8 @@ const (
 	sshServerName = "ssh-server"
 
 	jwtParserName = "jwt-parser"
+
+	sshTunnelerName = "ssh-tunneler"
+
+	sshTunnelerSecretName = "ssh-tunneler-secret"
 )

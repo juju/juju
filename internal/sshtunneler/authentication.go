@@ -13,14 +13,22 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
+// TunnelSecret holds the shared secret and JWT algorithm used for tunnel authentication.
+type TunnelSecret struct {
+	// SharedSecret is the secret used to sign and validate JWTs.
+	SharedSecret []byte
+	// JWTAlg is the algorithm used to sign JWTs and should match
+	// the strength (number of bytes) of the SharedSecret.
+	JWTAlgorithm jwa.KeyAlgorithm
+}
+
 // tunnelAuthentication provides a way of creating
 // and validating passwords for SSH connections
 // from machines to the Juju controller.
 // The password is a JWT with an expiry.
 type tunnelAuthentication struct {
-	sharedSecret []byte
-	jwtAlg       jwa.KeyAlgorithm
-	clock        clock.Clock
+	TunnelSecret
+	clock clock.Clock
 }
 
 func (tAuth *tunnelAuthentication) generatePassword(tunnelID string, expiry time.Time) (string, error) {
@@ -35,7 +43,7 @@ func (tAuth *tunnelAuthentication) generatePassword(tunnelID string, expiry time
 		return "", errors.Annotate(err, "failed to build token")
 	}
 
-	signedToken, err := jwt.Sign(token, jwt.WithKey(tAuth.jwtAlg, tAuth.sharedSecret))
+	signedToken, err := jwt.Sign(token, jwt.WithKey(tAuth.JWTAlgorithm, tAuth.SharedSecret))
 	if err != nil {
 		return "", errors.Annotate(err, "failed to sign token")
 	}
@@ -50,7 +58,7 @@ func (tAuth *tunnelAuthentication) validatePassword(password string) (string, er
 	}
 
 	token, err := jwt.Parse(decodedToken,
-		jwt.WithKey(tAuth.jwtAlg, tAuth.sharedSecret),
+		jwt.WithKey(tAuth.JWTAlgorithm, tAuth.SharedSecret),
 		jwt.WithClock(tAuth.clock),
 	)
 	if err != nil {
