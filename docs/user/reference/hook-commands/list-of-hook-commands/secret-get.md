@@ -1,6 +1,5 @@
 (hook-command-secret-get)=
 # `secret-get`
-
 ## Summary
 Get the content of a secret.
 

@@ -1,6 +1,5 @@
 (hook-command-status-set)=
 # `status-set`
-
 ## Summary
 Set status information.
 

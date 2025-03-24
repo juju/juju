@@ -2,6 +2,8 @@
 # `juju default-region`
 > See also: [add-credential](#add-credential)
 
+**Aliases:** set-default-region
+
 ## Summary
 Sets the default region for a cloud.
 

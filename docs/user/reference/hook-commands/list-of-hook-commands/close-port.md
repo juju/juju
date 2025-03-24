@@ -1,6 +1,5 @@
 (hook-command-close-port)=
 # `close-port`
-
 ## Summary
 Register a request to close a port or port range.
 

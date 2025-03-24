@@ -2,6 +2,8 @@
 # `juju users`
 > See also: [add-user](#add-user), [register](#register), [show-user](#show-user), [disable-user](#disable-user), [enable-user](#enable-user)
 
+**Aliases:** list-users
+
 ## Summary
 Lists Juju users allowed to connect to a controller or model.
 

@@ -1,6 +1,5 @@
 (hook-command-status-get)=
 # `status-get`
-
 ## Summary
 Print status information.
 

@@ -1,6 +1,5 @@
 (hook-command-secret-remove)=
 # `secret-remove`
-
 ## Summary
 Remove an existing secret.
 

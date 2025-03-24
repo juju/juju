@@ -1,6 +1,5 @@
 (hook-command-add-metric)=
 # `add-metric`
-
 ## Summary
 Add metrics.
 

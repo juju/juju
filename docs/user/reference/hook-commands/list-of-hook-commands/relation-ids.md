@@ -1,6 +1,5 @@
 (hook-command-relation-ids)=
 # `relation-ids`
-
 ## Summary
 List all relation IDs for the given endpoint.
 

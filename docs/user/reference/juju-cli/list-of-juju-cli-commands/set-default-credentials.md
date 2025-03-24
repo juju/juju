@@ -1,13 +1,14 @@
 (command-juju-set-default-credentials)=
 # `juju set-default-credentials`
 > See also: [credentials](#credentials), [add-credential](#add-credential), [remove-credential](#remove-credential), [autoload-credentials](#autoload-credentials)
-**Alias:** default-credential
+
+**Aliases:** set-default-credentials
 
 ## Summary
 Sets local default credentials for a cloud on this client.
 
 ## Usage
-```juju set-default-credentials [options] <cloud name> [<credential name>]```
+```juju default-credential [options] <cloud name> [<credential name>]```
 
 ### Options
 | Flag | Default | Usage |

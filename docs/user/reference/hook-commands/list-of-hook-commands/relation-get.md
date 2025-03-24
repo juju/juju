@@ -1,6 +1,5 @@
 (hook-command-relation-get)=
 # `relation-get`
-
 ## Summary
 Get relation settings.
 

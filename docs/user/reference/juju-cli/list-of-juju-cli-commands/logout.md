@@ -5,6 +5,9 @@
 ## Summary
 Logs a Juju user out of a controller.
 
+## Usage
+```juju logout [options] ```
+
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

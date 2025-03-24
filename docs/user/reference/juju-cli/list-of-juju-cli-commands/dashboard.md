@@ -1,8 +1,10 @@
 (command-juju-dashboard)=
 # `juju dashboard`
-
 ## Summary
 Print the Juju Dashboard URL, or open the Juju Dashboard in the default browser.
+
+## Usage
+```juju dashboard [options] ```
 
 ### Options
 | Flag | Default | Usage |
@@ -32,3 +34,6 @@ Open the Juju Dashboard in the default browser without printing the login creden
 	juju dashboard --hide-credential --browser
 
 An error is returned if the Juju Dashboard is not running.
+
+
+## Details

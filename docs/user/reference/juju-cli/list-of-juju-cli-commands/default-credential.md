@@ -2,6 +2,8 @@
 # `juju default-credential`
 > See also: [credentials](#credentials), [add-credential](#add-credential), [remove-credential](#remove-credential), [autoload-credentials](#autoload-credentials)
 
+**Aliases:** set-default-credentials
+
 ## Summary
 Sets local default credentials for a cloud on this client.
 

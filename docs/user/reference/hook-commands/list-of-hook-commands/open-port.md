@@ -1,6 +1,5 @@
 (hook-command-open-port)=
 # `open-port`
-
 ## Summary
 Register a request to open a port or port range.
 

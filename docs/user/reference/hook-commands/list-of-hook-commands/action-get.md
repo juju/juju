@@ -1,6 +1,5 @@
 (hook-command-action-get)=
 # `action-get`
-
 ## Summary
 Get action parameters.
 

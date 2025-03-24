@@ -1,6 +1,5 @@
 (hook-command-leader-get)=
 # `leader-get`
-
 ## Summary
 Print application leadership settings.
 

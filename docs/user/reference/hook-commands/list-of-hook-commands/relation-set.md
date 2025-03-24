@@ -1,6 +1,5 @@
 (hook-command-relation-set)=
 # `relation-set`
-
 ## Summary
 Set relation settings.
 

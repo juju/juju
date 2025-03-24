@@ -5,6 +5,9 @@
 ## Summary
 Displays log messages for a model.
 
+## Usage
+```juju debug-log [options] ```
+
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

@@ -5,6 +5,9 @@
 ## Summary
 Enable destroy-controller by removing disabled commands in the controller.
 
+## Usage
+```juju enable-destroy-controller [options] ```
+
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

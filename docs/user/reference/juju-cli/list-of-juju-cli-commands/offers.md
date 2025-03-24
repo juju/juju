@@ -2,6 +2,8 @@
 # `juju offers`
 > See also: [find-offers](#find-offers), [show-offer](#show-offer)
 
+**Aliases:** list-offers
+
 ## Summary
 Lists shared endpoints.
 

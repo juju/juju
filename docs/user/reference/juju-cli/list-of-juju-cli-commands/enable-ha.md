@@ -1,8 +1,10 @@
 (command-juju-enable-ha)=
 # `juju enable-ha`
-
 ## Summary
 Ensure that sufficient controllers exist to provide redundancy.
+
+## Usage
+```juju enable-ha [options] ```
 
 ### Options
 | Flag | Default | Usage |

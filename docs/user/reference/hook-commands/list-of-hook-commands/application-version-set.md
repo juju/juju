@@ -1,6 +1,5 @@
 (hook-command-application-version-set)=
 # `application-version-set`
-
 ## Summary
 Specify which version of the application is deployed.
 

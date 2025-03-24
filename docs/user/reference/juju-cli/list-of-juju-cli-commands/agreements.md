@@ -2,8 +2,13 @@
 # `juju agreements`
 > See also: [agree](#agree)
 
+**Aliases:** list-agreements
+
 ## Summary
 List user's agreements.
+
+## Usage
+```juju agreements [options] ```
 
 ### Options
 | Flag | Default | Usage |

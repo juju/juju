@@ -1,6 +1,5 @@
 (hook-command-payload-register)=
 # `payload-register`
-
 ## Summary
 Register a charm payload with Juju.
 

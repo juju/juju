@@ -1,8 +1,10 @@
 (hook-command-relation-list)=
 # `relation-list`
-
 ## Summary
 List relation units.
+
+## Usage
+``` relation-list [options] ```
 
 ### Options
 | Flag | Default | Usage |

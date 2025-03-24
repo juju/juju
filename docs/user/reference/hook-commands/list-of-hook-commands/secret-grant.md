@@ -1,6 +1,5 @@
 (hook-command-secret-grant)=
 # `secret-grant`
-
 ## Summary
 Grant access to a secret.
 

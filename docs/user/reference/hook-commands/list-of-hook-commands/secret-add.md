@@ -1,6 +1,5 @@
 (hook-command-secret-add)=
 # `secret-add`
-
 ## Summary
 Add a new secret.
 

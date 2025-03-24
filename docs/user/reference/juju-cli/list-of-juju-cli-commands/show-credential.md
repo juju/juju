@@ -2,6 +2,8 @@
 # `juju show-credential`
 > See also: [credentials](#credentials), [add-credential](#add-credential), [update-credential](#update-credential), [remove-credential](#remove-credential), [autoload-credentials](#autoload-credentials)
 
+**Aliases:** show-credentials
+
 ## Summary
 Shows credential information stored either on this client or on a controller.
 

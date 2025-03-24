@@ -1,6 +1,5 @@
 (hook-command-leader-set)=
 # `leader-set`
-
 ## Summary
 Write application leadership settings.
 

@@ -5,6 +5,9 @@
 ## Summary
 Print the Juju CLI client version.
 
+## Usage
+```juju version [options] ```
+
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
