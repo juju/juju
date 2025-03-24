@@ -26,7 +26,7 @@ type relationUUIDAndRole struct {
 	Role string `db:"scope"`
 }
 
-// endpointIdentifier is the natural key of a relation endpoint.
+// endpointIdentifier is an identifier for a relation endpoint.
 type endpointIdentifier struct {
 	// ApplicationName is the name of the application the endpoint belongs to.
 	ApplicationName string `db:"application_name"`

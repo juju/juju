@@ -284,7 +284,7 @@ AND    e2.endpoint_name    = $endpointIdentifier2.endpoint_name
 	}
 
 	if len(uuid) > 1 {
-		return "", errors.Errorf("found multiple relations for endpoints")
+		return "", errors.Errorf("found multiple relations for endpoint pair")
 	}
 
 	return corerelation.UUID(uuid[0].UUID), nil
@@ -334,7 +334,7 @@ AND    e.endpoint_name    = $endpointIdentifier.endpoint_name
 	}
 
 	if len(uuidAndRole) > 1 {
-		return "", errors.Errorf("found multiple relations for endpoint")
+		return "", errors.Errorf("found multiple relations for peer application endpoint combination")
 	}
 
 	// Verify that the role is peer. Endpoint names are unique per charm, so if

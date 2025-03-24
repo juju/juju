@@ -1351,7 +1351,7 @@ func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc
 		return apiservererrors.ErrPerm
 	}
 
-	relUUID, err := u.relationService.GetRelationUUIDFromKey(ctx, relKey)
+	relUUID, err := u.relationService.GetRelationUUIDByKey(ctx, relKey)
 	if internalerrors.Is(err, relationerrors.RelationNotFound) {
 		return apiservererrors.ErrPerm
 	} else if err != nil {
@@ -1401,7 +1401,7 @@ func (u *UniterAPI) oneLeaveScope(ctx context.Context, canAccess common.AuthFunc
 	if err != nil {
 		return apiservererrors.ErrPerm
 	}
-	relUUID, err := u.relationService.GetRelationUUIDFromKey(ctx, relKey)
+	relUUID, err := u.relationService.GetRelationUUIDByKey(ctx, relKey)
 	if internalerrors.Is(err, relationerrors.RelationNotFound) {
 		return apiservererrors.ErrPerm
 	} else if err != nil {
@@ -1449,7 +1449,7 @@ func (u UniterAPI) readOneUnitSettings(
 	if err != nil {
 		return nil, apiservererrors.ErrPerm
 	}
-	relUUID, err := u.relationService.GetRelationUUIDFromKey(ctx, relKey)
+	relUUID, err := u.relationService.GetRelationUUIDByKey(ctx, relKey)
 	if errors.Is(err, relationerrors.RelationNotFound) {
 		return nil, apiservererrors.ErrPerm
 	} else if err != nil {
@@ -1557,7 +1557,7 @@ func (u *UniterAPI) ReadLocalApplicationSettings(ctx context.Context, arg params
 		return res, errors.NotSupportedf("reading local application settings after authenticating as %q", authTag.Kind())
 	}
 
-	relUUID, err := u.relationService.GetRelationUUIDFromKey(ctx, relKey)
+	relUUID, err := u.relationService.GetRelationUUIDByKey(ctx, relKey)
 	if errors.Is(err, relationerrors.RelationNotFound) {
 		return res, apiservererrors.ErrPerm
 	} else if err != nil {
@@ -1644,7 +1644,7 @@ func (u *UniterAPI) readOneRemoteSettings(ctx context.Context, canAccess common.
 		return nil, apiservererrors.ErrPerm
 	}
 
-	relUUID, err := u.relationService.GetRelationUUIDFromKey(ctx, relationKey)
+	relUUID, err := u.relationService.GetRelationUUIDByKey(ctx, relationKey)
 	if err != nil {
 		return nil, err
 	}
@@ -1950,7 +1950,7 @@ func (u *UniterAPI) getOneRelation(
 	if err != nil {
 		return nothing, apiservererrors.ErrPerm
 	}
-	relUUID, err := u.relationService.GetRelationUUIDFromKey(ctx, corerelation.Key(relTag.Id()))
+	relUUID, err := u.relationService.GetRelationUUIDByKey(ctx, corerelation.Key(relTag.Id()))
 	if errors.Is(err, relationerrors.RelationNotFound) {
 		return nothing, apiservererrors.ErrPerm
 	} else if err != nil {

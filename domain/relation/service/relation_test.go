@@ -221,6 +221,90 @@ func (s *relationServiceSuite) TestGetRelationKeyRelationUUIDNotValid(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
 }
 
+func (s *relationServiceSuite) TestGetRelationUUIDByKeyPeer(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	key := corerelation.Key("app-1:fake-endpoint-name-1")
+
+	endpointID := relation.EndpointIdentifier{
+		ApplicationName: "app-1",
+		EndpointName:    "fake-endpoint-name-1",
+	}
+
+	expectedRelationUUID := corerelationtesting.GenRelationUUID(c)
+
+	s.state.EXPECT().GetPeerRelationUUIDByEndpointIdentifiers(
+		gomock.Any(), endpointID,
+	).Return(expectedRelationUUID, nil)
+
+	// Act:
+	uuid, err := s.service.GetRelationUUIDByKey(context.Background(), key)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(uuid, gc.Equals, expectedRelationUUID)
+}
+
+func (s *relationServiceSuite) TestGetRelationUUIDByKeyRegular(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	key := corerelation.Key("app-1:fake-endpoint-name-1 app-2:fake-endpoint-name-2")
+	endpointID1 := relation.EndpointIdentifier{
+		ApplicationName: "app-1",
+		EndpointName:    "fake-endpoint-name-1",
+	}
+	endpointID2 := relation.EndpointIdentifier{
+		ApplicationName: "app-2",
+		EndpointName:    "fake-endpoint-name-2",
+	}
+
+	expectedRelationUUID := corerelationtesting.GenRelationUUID(c)
+
+	s.state.EXPECT().GetRegularRelationUUIDByEndpointIdentifiers(
+		gomock.Any(), endpointID1, endpointID2,
+	).Return(expectedRelationUUID, nil)
+
+	// Act:
+	uuid, err := s.service.GetRelationUUIDByKey(context.Background(), key)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(uuid, gc.Equals, expectedRelationUUID)
+}
+
+func (s *relationServiceSuite) TestGetRelationUUIDByKeyRelationNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	s.state.EXPECT().GetRegularRelationUUIDByEndpointIdentifiers(
+		gomock.Any(), gomock.Any(), gomock.Any(),
+	).Return("", relationerrors.RelationNotFound)
+
+	// Act:
+	_, err := s.service.GetRelationUUIDByKey(
+		context.Background(),
+		"app-1:fake-endpoint-name-1 app-2:fake-endpoint-name-2",
+	)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *relationServiceSuite) TestGetRelationUUIDByKeyRelationKeyNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	key := corerelation.Key("invalid-key")
+
+	// Act:
+	_, err := s.service.GetRelationUUIDByKey(context.Background(), key)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationKeyNotValid)
+}
+
 func (s *relationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -274,10 +358,12 @@ func (s *parseKeySuite) TestParseRelationKey(c *gc.C) {
 		},
 	}}
 
+	count := len(tests)
 	for i, test := range tests {
-		result, err := parseRelationKey(corerelation.Key(test.relationKey))
-		c.Check(err, jc.ErrorIsNil, gc.Commentf("failed on key: %s", test.relationKey))
-		c.Check(result, gc.DeepEquals, test.endpointIdentifiers, gc.Commentf("failed on test %d, key: %s, summary: %s", i, test.relationKey, test.summary))
+		result, err := parseRelationKeyEndpoints(corerelation.Key(test.relationKey))
+		c.Logf("test %d of %d, key: %s, summary: %s", i+1, count, test.relationKey, test.summary)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(result, gc.DeepEquals, test.endpointIdentifiers)
 	}
 }
 
@@ -300,8 +386,10 @@ func (s *parseKeySuite) TestParseRelationKeyError(c *gc.C) {
 		errorRegex:  "expected endpoints of form <application-name>:<endpoint-name>, got.*",
 	}}
 
+	count := len(tests)
 	for i, test := range tests {
-		_, err := parseRelationKey(corerelation.Key(test.relationKey))
-		c.Check(err, gc.ErrorMatches, test.errorRegex, gc.Commentf("failed on test %d, key: %s, summary: %s", i, test.relationKey, test.summary))
+		_, err := parseRelationKeyEndpoints(corerelation.Key(test.relationKey))
+		c.Logf("test %d of %d, key: %s, summary: %s", i+1, count, test.relationKey, test.summary)
+		c.Check(err, gc.ErrorMatches, test.errorRegex)
 	}
 }

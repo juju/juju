@@ -50,6 +50,28 @@ type State interface {
 	// relation endpoint based on the provided arguments.
 	GetRelationEndpointUUID(ctx context.Context, args relation.GetRelationEndpointUUIDArgs) (corerelation.EndpointUUID, error)
 
+	// GetRegularRelationUUIDByEndpointIdentifiers gets the UUID of a regular
+	// relation specified by two endpoint identifiers.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationNotFound] is returned if endpoints cannot be
+	//     found.
+	GetRegularRelationUUIDByEndpointIdentifiers(
+		ctx context.Context,
+		endpoint1, endpoint2 relation.EndpointIdentifier,
+	) (corerelation.UUID, error)
+
+	// GetPeerRelationUUIDByEndpointIdentifiers gets the UUID of a peer
+	// relation specified by a single endpoint identifier.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationNotFound] is returned if endpoint cannot be
+	//     found.
+	GetPeerRelationUUIDByEndpointIdentifiers(
+		ctx context.Context,
+		endpoint relation.EndpointIdentifier,
+	) (corerelation.UUID, error)
+
 	// WatcherApplicationSettingsNamespace provides the table name to set up
 	// watchers for relation application settings.
 	WatcherApplicationSettingsNamespace() string
@@ -315,13 +337,42 @@ func (s *Service) GetRelationUUIDByID(ctx context.Context, relationID int) (core
 	return s.st.GetRelationUUIDByID(ctx, relationID)
 }
 
-// GetRelationUUIDFromKey returns a relation UUID for the given Key.
+// GetRelationUUIDByKey returns a relation UUID for the given Key.
 //
 // The following error types can be expected:
 //   - [relationerrors.RelationNotFound]: when no relation exists for the given
 //     key.
-func (s *Service) GetRelationUUIDFromKey(ctx context.Context, relationKey corerelation.Key) (corerelation.UUID, error) {
-	return "", coreerrors.NotImplemented
+//   - [relationerrors.RelationKeyNotValid]: when the relation key is not valid.
+func (s *Service) GetRelationUUIDByKey(ctx context.Context, relationKey corerelation.Key) (corerelation.UUID, error) {
+	endpointIdentifiers, err := parseRelationKeyEndpoints(relationKey)
+	if err != nil {
+		return "", errors.Errorf("parsing relation key %q: %w", relationKey, err).Add(relationerrors.RelationKeyNotValid)
+	}
+
+	var uuid corerelation.UUID
+	switch len(endpointIdentifiers) {
+	case 1:
+		uuid, err = s.st.GetPeerRelationUUIDByEndpointIdentifiers(
+			ctx,
+			endpointIdentifiers[0],
+		)
+		if err != nil {
+			return "", errors.Errorf("getting peer relation by key: %w", err)
+		}
+		return uuid, nil
+	case 2:
+		uuid, err = s.st.GetRegularRelationUUIDByEndpointIdentifiers(
+			ctx,
+			endpointIdentifiers[0],
+			endpointIdentifiers[1],
+		)
+		if err != nil {
+			return "", errors.Errorf("getting regular relation by key: %w", err)
+		}
+		return uuid, nil
+	default:
+		return "", errors.Errorf("expected 1 or 2 endpoints in relation key, got %d", len(endpointIdentifiers))
+	}
 }
 
 // GetRemoteRelationApplicationSettings returns the application settings
@@ -504,11 +555,11 @@ func (s *WatchableService) WatchUnitRelations(
 	return nil, coreerrors.NotImplemented
 }
 
-// parseRelationKey parses a relation key into EndpointIdentifiers. It expects a
+// parseRelationKeyEndpoints parses a relation key into EndpointIdentifiers. It expects a
 // key of one of the following forms:
 // - "<application-name>:<endpoint-name> <application-name>:<endpoint-name>"
 // - "<application-name>:<endpoint-name>"
-func parseRelationKey(relationKey corerelation.Key) ([]relation.EndpointIdentifier, error) {
+func parseRelationKeyEndpoints(relationKey corerelation.Key) ([]relation.EndpointIdentifier, error) {
 	endpoints := strings.Fields(relationKey.String())
 	if l := len(endpoints); l > 2 || l < 1 {
 		return nil, errors.Errorf("expected 1 or 2 endpoints in relation key, found %d: %q", len(endpoints), relationKey)
