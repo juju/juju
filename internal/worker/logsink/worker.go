@@ -14,20 +14,12 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
-	modelerrors "github.com/juju/juju/domain/model/errors"
-	internalworker "github.com/juju/juju/internal/worker"
 )
 
 const (
 	// States which report the state of the worker.
 	stateStarted = "started"
 )
-
-// ModelService is an interface that provides model information.
-type ModelService interface {
-	// Model returns the model information.
-	Model(ctx context.Context, modelUUID model.UUID) (model.ModelInfo, error)
-}
 
 // LogSinkWriter is a writer that writes log records to a log sink.
 type LogSinkWriter interface {
@@ -37,13 +29,10 @@ type LogSinkWriter interface {
 
 // Config defines the attributes used to create a log sink worker.
 type Config struct {
-	Logger                logger.Logger
-	Clock                 clock.Clock
-	LogSinkConfig         LogSinkConfig
-	MachineID             string
-	NewModelLogger        NewModelLoggerFunc
-	LogWriterForModelFunc logger.LogWriterForModelFunc
-	ModelService          ModelService
+	LogSink        logger.LogSink
+	Clock          clock.Clock
+	MachineID      string
+	NewModelLogger NewModelLoggerFunc
 }
 
 // request is used to pass requests for LogSink
@@ -77,16 +66,10 @@ func newWorker(cfg Config, internalState chan string) (worker.Worker, error) {
 				return false
 			},
 			ShouldRestart: func(err error) bool {
-				if errors.Is(err, logger.ErrLoggerDying) {
-					return false
-				} else if errors.Is(err, modelerrors.NotFound) {
-					return false
-				}
-				return true
+				return !errors.Is(err, logger.ErrLoggerDying)
 			},
 			RestartDelay: time.Second,
 			Clock:        cfg.Clock,
-			Logger:       internalworker.WrapLogger(cfg.Logger),
 		}),
 		requests:       make(chan request),
 		internalStates: internalState,
@@ -243,42 +226,12 @@ func (w *LogSink) workerFromCache(modelUUID model.UUID) (LogSinkWriter, error) {
 
 func (w *LogSink) initLogger(modelUUID model.UUID) error {
 	err := w.runner.StartWorker(modelUUID.String(), func() (worker.Worker, error) {
-		ctx, cancel := w.scopedContext()
-		defer cancel()
-
-		model, err := w.cfg.ModelService.Model(ctx, modelUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		return w.cfg.NewModelLogger(
-			ctx,
-			logger.LoggerKey{
-				ModelUUID:  modelUUID.String(),
-				ModelName:  model.Name,
-				ModelOwner: model.CredentialOwner.Name(),
-			},
-			ModelLoggerConfig{
-				MachineID:     w.cfg.MachineID,
-				NewLogWriter:  w.cfg.LogWriterForModelFunc,
-				BufferSize:    w.cfg.LogSinkConfig.LoggerBufferSize,
-				FlushInterval: w.cfg.LogSinkConfig.LoggerFlushInterval,
-				Clock:         w.cfg.Clock,
-			},
-		)
+		return w.cfg.NewModelLogger(w.cfg.LogSink)
 	})
 	if errors.Is(err, errors.AlreadyExists) {
 		return nil
 	}
 	return errors.Trace(err)
-}
-
-// scopedContext returns a context that is in the scope of the worker lifetime.
-// It returns a cancellable context that is cancelled when the action has
-// completed.
-func (w *LogSink) scopedContext() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	return w.catacomb.Context(ctx), cancel
 }
 
 func (w *LogSink) reportInternalState(state string) {

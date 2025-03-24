@@ -18,9 +18,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type workerSuite struct {
@@ -29,8 +27,6 @@ type workerSuite struct {
 	states    chan string
 	called    int64
 	logWriter *MockLogWriterCloser
-
-	modelService *MockModelService
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -89,8 +85,6 @@ func (s *workerSuite) TestGetLogWriter(c *gc.C) {
 
 	id := modeltesting.GenModelUUID(c)
 
-	s.expectModel(c, id)
-
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
@@ -108,8 +102,6 @@ func (s *workerSuite) TestGetLogWriterIsCached(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := modeltesting.GenModelUUID(c)
-
-	s.expectModel(c, id)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -134,8 +126,6 @@ func (s *workerSuite) TestGetLoggerContext(c *gc.C) {
 
 	id := modeltesting.GenModelUUID(c)
 
-	s.expectModel(c, id)
-
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
@@ -154,8 +144,6 @@ func (s *workerSuite) TestGetLoggerContextIsCached(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := modeltesting.GenModelUUID(c)
-
-	s.expectModel(c, id)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -179,8 +167,6 @@ func (s *workerSuite) TestGetLogWriterAndGetLoggerContextIsCachedTogether(c *gc.
 	defer s.setupMocks(c).Finish()
 
 	id := modeltesting.GenModelUUID(c)
-
-	s.expectModel(c, id)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -215,30 +201,17 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	ctrl := gomock.NewController(c)
 
-	s.modelService = NewMockModelService(ctrl)
-
 	return ctrl
-}
-
-func (s *workerSuite) expectModel(c *gc.C, id model.UUID) {
-	s.modelService.EXPECT().Model(gomock.Any(), id).Return(model.ModelInfo{
-		Name: "foo",
-	}, nil)
 }
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	w, err := newWorker(Config{
-		LogSinkConfig: DefaultLogSinkConfig(),
-		NewModelLogger: func(ctx context.Context, key logger.LoggerKey, cfg ModelLoggerConfig) (worker.Worker, error) {
+		NewModelLogger: func(logSink logger.LogSink) (worker.Worker, error) {
 			atomic.AddInt64(&s.called, 1)
 			return newLoggerWorker(), nil
 		},
-		LogWriterForModelFunc: func(ctx context.Context, key logger.LoggerKey) (logger.LogWriterCloser, error) {
-			return s.logWriter, nil
-		},
-		ModelService: s.modelService,
-		Logger:       loggertesting.WrapCheckLog(c),
-		Clock:        clock.WallClock,
+
+		Clock: clock.WallClock,
 	}, s.states)
 	c.Assert(err, jc.ErrorIsNil)
 	return w
