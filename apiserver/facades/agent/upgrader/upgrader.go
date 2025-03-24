@@ -244,8 +244,8 @@ func (u *UpgraderAPI) setEntityToolVersion(
 
 	var err error
 	switch tag.Kind() {
-	case names.ControllerTagKind:
-		err = u.controllerNodeService.SetReportedAgentVersion(
+	case names.ControllerAgentTagKind:
+		err = u.controllerNodeService.SetReportedControllerAgentVersion(
 			ctx,
 			tag.Id(),
 			reportedVersion,
