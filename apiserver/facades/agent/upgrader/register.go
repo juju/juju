@@ -59,7 +59,13 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 	domainServices := ctx.DomainServices()
 	modelAgentService := domainServices.Agent()
 	if tag.Kind() == names.UnitTagKind && model.Type() != state.ModelTypeCAAS {
-		return NewUnitUpgraderAPI(ctx, modelAgentService, ctx.WatcherRegistry())
+		return NewUnitUpgraderAPI(
+			st,
+			auth,
+			modelAgentService,
+			ctx.WatcherRegistry(),
+			nil,
+		), nil
 	}
 
 	ctrlSt, err := ctx.StatePool().SystemState()
