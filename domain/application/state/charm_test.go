@@ -795,6 +795,8 @@ func (s *charmStateSuite) TestGetCharmMetadataWithExtraBindings(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
+	uuid2 := charmtesting.GenCharmID(c).String()
+	uuid3 := charmtesting.GenCharmID(c).String()
 
 	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -804,11 +806,11 @@ func (s *charmStateSuite) TestGetCharmMetadataWithExtraBindings(c *gc.C) {
 		}
 
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_extra_binding (charm_uuid, key, name)
+INSERT INTO charm_extra_binding (uuid, charm_uuid, name)
 VALUES
-    (?, 'foo', 'bar'),
-    (?, 'fred', 'baz');`,
-			uuid, uuid)
+    (?, ?, 'bar'),
+    (?, ?, 'baz');`,
+			uuid2, uuid, uuid3, uuid)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -822,10 +824,10 @@ VALUES
 
 	assertCharmMetadata(c, metadata, func() charm.Metadata {
 		expected.ExtraBindings = map[string]charm.ExtraBinding{
-			"foo": {
+			"bar": {
 				Name: "bar",
 			},
-			"fred": {
+			"baz": {
 				Name: "baz",
 			},
 		}
@@ -1980,10 +1982,10 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithExtraBindings(c *g
 		MinJujuVersion: version.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 		ExtraBindings: map[string]charm.ExtraBinding{
-			"foo": {
+			"bar": {
 				Name: "bar",
 			},
-			"fred": {
+			"baz": {
 				Name: "baz",
 			},
 		},

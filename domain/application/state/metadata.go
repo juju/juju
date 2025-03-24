@@ -215,7 +215,7 @@ func decodeExtraBindings(bindings []charmExtraBinding) map[string]charm.ExtraBin
 
 	result := make(map[string]charm.ExtraBinding)
 	for _, binding := range bindings {
-		result[binding.Key] = charm.ExtraBinding{
+		result[binding.Name] = charm.ExtraBinding{
 			Name: binding.Name,
 		}
 	}
@@ -552,16 +552,20 @@ func encodeRelationScope(scope charm.RelationScope) (int, error) {
 	}
 }
 
-func encodeExtraBindings(id corecharm.ID, extraBindings map[string]charm.ExtraBinding) []setCharmExtraBinding {
+func encodeExtraBindings(id corecharm.ID, extraBindings map[string]charm.ExtraBinding) ([]setCharmExtraBinding, error) {
 	var result []setCharmExtraBinding
-	for key, binding := range extraBindings {
+	for _, binding := range extraBindings {
+		newUUID, err := uuid.NewUUID()
+		if err != nil {
+			return nil, err
+		}
 		result = append(result, setCharmExtraBinding{
+			UUID:      newUUID.String(),
 			CharmUUID: id.String(),
-			Key:       key,
 			Name:      binding.Name,
 		})
 	}
-	return result
+	return result, nil
 }
 
 func encodeStorage(id corecharm.ID, storage map[string]charm.Storage) ([]setCharmStorage, []setCharmStorageProperty, error) {

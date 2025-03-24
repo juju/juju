@@ -395,13 +395,17 @@ func (s *State) setCharmExtraBindings(ctx context.Context, tx *sqlair.TX, id cor
 		return nil
 	}
 
+	encodedBindings, err := encodeExtraBindings(id, extraBindings)
+	if err != nil {
+		return errors.Errorf("encoding charm extra bindings: %w", err)
+	}
 	query := `INSERT INTO charm_extra_binding (*) VALUES ($setCharmExtraBinding.*);`
 	stmt, err := s.Prepare(query, setCharmExtraBinding{})
 	if err != nil {
 		return errors.Errorf("preparing query: %w", err)
 	}
 
-	if err := tx.Query(ctx, stmt, encodeExtraBindings(id, extraBindings)).Run(); err != nil {
+	if err := tx.Query(ctx, stmt, encodedBindings).Run(); err != nil {
 		return errors.Errorf("inserting charm extra bindings: %w", err)
 	}
 

@@ -1,15 +1,15 @@
 -- Copyright 2024 Canonical Ltd.
 -- Licensed under the AGPLv3, see LICENCE file for details.
 
--- The application_endpoint ties an application's relation
--- definition to an endpoint binding via a space. Each relation
--- has 2 endpoints, unless it is a peer relation. The space
--- and charm relation combine represent the endpoint binding
--- of this application endpoint.
+-- The application_endpoint ties an application's relation definition to an
+-- endpoint binding via a space. Only endpoint bindings which differ from the
+-- application default binding will be listed. Each relation has 2 endpoints,
+-- unless it is a peer relation. The space and charm relation combine represent
+-- the endpoint binding of this application endpoint.
 CREATE TABLE application_endpoint (
     uuid TEXT NOT NULL PRIMARY KEY,
     application_uuid TEXT NOT NULL,
-    space_uuid TEXT NOT NULL,
+    space_uuid TEXT,
     charm_relation_uuid TEXT NOT NULL,
     CONSTRAINT fk_application_uuid
     FOREIGN KEY (application_uuid)
@@ -20,6 +20,25 @@ CREATE TABLE application_endpoint (
     CONSTRAINT fk_charm_relation_uuid
     FOREIGN KEY (charm_relation_uuid)
     REFERENCES charm_relation (uuid)
+);
+
+-- The application_endpoint ties an application's relation definition to an
+-- endpoint binding via a space. Only endpoint bindings which differ from the
+-- application default binding will be listed.
+CREATE TABLE application_extra_endpoint (
+    application_uuid TEXT NOT NULL,
+    space_uuid TEXT,
+    charm_extra_binding_uuid TEXT NOT NULL,
+    CONSTRAINT fk_application_uuid
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid),
+    CONSTRAINT fk_space_uuid
+    FOREIGN KEY (space_uuid)
+    REFERENCES space (uuid),
+    CONSTRAINT fk_charm_extra_binding_uuid
+    FOREIGN KEY (charm_extra_binding_uuid)
+    REFERENCES charm_extra_binding (uuid),
+    PRIMARY KEY (application_uuid, charm_extra_binding_uuid)
 );
 
 -- The relation_endpoint table links a relation to a single
