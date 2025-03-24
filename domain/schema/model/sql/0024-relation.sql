@@ -177,4 +177,14 @@ JOIN application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
 JOIN charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
 JOIN charm_relation_role AS crr ON cr.role_id = crr.id
 JOIN charm_relation_scope AS crs ON cr.scope_id = crs.id
+JOIN application AS a ON ae.application_uuid = a.uuid;
+
+CREATE VIEW v_relation_endpoint_identifier AS
+SELECT
+    re.relation_uuid,
+    a.name AS application_name,
+    cr.name AS endpoint_name
+FROM relation_endpoint AS re
+JOIN application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+JOIN charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
 JOIN application AS a ON ae.application_uuid = a.uuid
