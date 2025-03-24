@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"strings"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
@@ -501,4 +502,29 @@ func (s *WatchableService) WatchUnitRelations(
 	relationUnit corerelation.UnitUUID,
 ) (relation.RelationUnitsWatcher, error) {
 	return nil, coreerrors.NotImplemented
+}
+
+// parseRelationKey parses a relation key into EndpointIdentifiers. It expects a
+// key of one of the following forms:
+// - "<application-name>:<endpoint-name> <application-name>:<endpoint-name>"
+// - "<application-name>:<endpoint-name>"
+func parseRelationKey(relationKey corerelation.Key) ([]relation.EndpointIdentifier, error) {
+	endpoints := strings.Fields(relationKey.String())
+	if l := len(endpoints); l > 2 || l < 1 {
+		return nil, errors.Errorf("expected 1 or 2 endpoints in relation key, found %d: %q", len(endpoints), relationKey)
+	}
+	var identifiers []relation.EndpointIdentifier
+	for _, endpoint := range endpoints {
+		parts := strings.Split(endpoint, ":")
+		if len(parts) != 2 {
+			return nil, errors.Errorf("expected endpoints of form <application-name>:<endpoint-name>, got %q", relationKey)
+		}
+
+		identifiers = append(identifiers, relation.EndpointIdentifier{
+			ApplicationName: parts[0],
+			EndpointName:    parts[1],
+		})
+	}
+
+	return identifiers, nil
 }

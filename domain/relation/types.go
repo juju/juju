@@ -116,3 +116,11 @@ type RelationScopeWatcher struct {
 	//ignore string
 	//out    chan *RelationScopeChange
 }
+
+// EndpointIdentifier is the natural key of a relation endpoint.
+type EndpointIdentifier struct {
+	// ApplicationName is the name of the application the endpoint belongs to.
+	ApplicationName string
+	// EndpointName is the name of the endpoint.
+	EndpointName string
+}

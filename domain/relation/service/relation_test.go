@@ -229,3 +229,79 @@ func (s *relationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	return ctrl
 }
+
+type parseKeySuite struct{}
+
+var _ = gc.Suite(&parseKeySuite{})
+
+func (s *parseKeySuite) TestParseRelationKey(c *gc.C) {
+	tests := []struct {
+		summary             string
+		relationKey         string
+		endpointIdentifiers []relation.EndpointIdentifier
+	}{{
+		summary:     "regular relation",
+		relationKey: "app1:end1 app2:end2",
+		endpointIdentifiers: []relation.EndpointIdentifier{
+			{
+				ApplicationName: "app1",
+				EndpointName:    "end1",
+			}, {
+				ApplicationName: "app2",
+				EndpointName:    "end2",
+			},
+		},
+	}, {
+		summary:     "peer relation",
+		relationKey: "app1:end1",
+		endpointIdentifiers: []relation.EndpointIdentifier{
+			{
+				ApplicationName: "app1",
+				EndpointName:    "end1",
+			},
+		},
+	}, {
+		summary:     "regular relation with many spaces",
+		relationKey: "app_1:end_1              app_2:end_2",
+		endpointIdentifiers: []relation.EndpointIdentifier{
+			{
+				ApplicationName: "app_1",
+				EndpointName:    "end_1",
+			}, {
+				ApplicationName: "app_2",
+				EndpointName:    "end_2",
+			},
+		},
+	}}
+
+	for i, test := range tests {
+		result, err := parseRelationKey(corerelation.Key(test.relationKey))
+		c.Check(err, jc.ErrorIsNil, gc.Commentf("failed on key: %s", test.relationKey))
+		c.Check(result, gc.DeepEquals, test.endpointIdentifiers, gc.Commentf("failed on test %d, key: %s, summary: %s", i, test.relationKey, test.summary))
+	}
+}
+
+func (s *parseKeySuite) TestParseRelationKeyError(c *gc.C) {
+	tests := []struct {
+		summary     string
+		relationKey string
+		errorRegex  string
+	}{{
+		summary:     "too many endpoints",
+		relationKey: "app1:end1 app2:end2 app3:end3",
+		errorRegex:  "expected 1 or 2 endpoints in relation key, found 3.*",
+	}, {
+		summary:     "zero endpoints",
+		relationKey: "",
+		errorRegex:  "expected 1 or 2 endpoints in relation key, found 0.*",
+	}, {
+		summary:     "no space",
+		relationKey: "app_1:end_1app2:end2",
+		errorRegex:  "expected endpoints of form <application-name>:<endpoint-name>, got.*",
+	}}
+
+	for i, test := range tests {
+		_, err := parseRelationKey(corerelation.Key(test.relationKey))
+		c.Check(err, gc.ErrorMatches, test.errorRegex, gc.Commentf("failed on test %d, key: %s, summary: %s", i, test.relationKey, test.summary))
+	}
+}
