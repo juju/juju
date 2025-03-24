@@ -202,7 +202,7 @@ func (p EnvironProvider) getEnvironNetworkingFirewaller(ctx context.Context, e *
 	// thus causing failures and panics in the setup of the majority of
 	// provider unit tests.  Or a rewrite of code and/or tests.
 	// See LP:1855343
-	if err := authenticateClient(e.client()); err != nil {
+	if err := authenticateClient(ctx, e.client()); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	if !e.supportsNeutron() {
@@ -717,7 +717,7 @@ func (e *Environ) PrecheckInstance(ctx envcontext.ProviderCallContext, args envi
 // PrepareForBootstrap is part of the Environ interface.
 func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext, _ string) error {
 	// Verify credentials.
-	if err := authenticateClient(e.client()); err != nil {
+	if err := authenticateClient(ctx, e.client()); err != nil {
 		return err
 	}
 	if !e.supportsNeutron() {
@@ -734,22 +734,11 @@ func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext, _ string) e
 	return nil
 }
 
-// Create is part of the Environ interface.
-func (e *Environ) Create(ctx envcontext.ProviderCallContext, args environs.CreateParams) error {
-	// Verify credentials.
-	if err := authenticateClient(e.client()); err != nil {
-		return e.HandleCredentialError(ctx, err)
-	}
-	// TODO(axw) 2016-08-04 #1609643
-	// Create global security group(s) here.
-	return nil
-}
-
 func (e *Environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
-	if err := authenticateClient(e.client()); err != nil {
+	if err := authenticateClient(ctx, e.client()); err != nil {
 		return nil, e.HandleCredentialError(ctx, err)
 	}
 	result, err := common.Bootstrap(ctx, e, callCtx, args)
@@ -848,13 +837,13 @@ type authenticator interface {
 	Authenticate() error
 }
 
-var authenticateClient = func(auth authenticator) error {
+var authenticateClient = func(ctx context.Context, auth authenticator) error {
 	err := auth.Authenticate()
 	if err != nil {
 		// Log the error in case there are any useful hints,
 		// but provide a readable and helpful error message
 		// to the user.
-		logger.Debugf(context.TODO(), "Authenticate() failed: %v", err)
+		logger.Debugf(ctx, "Authenticate() failed: %v", err)
 		if gooseerrors.IsUnauthorised(err) {
 			return errors.Errorf("authentication failed : %v\n"+
 				"Please ensure the credentials are correct. A common mistake is\n"+
@@ -964,7 +953,7 @@ func getKeystoneImageSource(env environs.Environ) (simplestreams.DataSource, err
 	if !ok {
 		return nil, errors.NotSupportedf("non-openstack model")
 	}
-	return e.getKeystoneDataSource(&e.keystoneImageDataSourceMutex, &e.keystoneImageDataSource, "product-streams")
+	return e.getKeystoneDataSource(context.TODO(), &e.keystoneImageDataSourceMutex, &e.keystoneImageDataSource, "product-streams")
 }
 
 // getKeystoneToolsSource is a tools.ToolsDataSourceFunc that
@@ -974,10 +963,10 @@ func getKeystoneToolsSource(env environs.Environ) (simplestreams.DataSource, err
 	if !ok {
 		return nil, errors.NotSupportedf("non-openstack model")
 	}
-	return e.getKeystoneDataSource(&e.keystoneToolsDataSourceMutex, &e.keystoneToolsDataSource, "juju-tools")
+	return e.getKeystoneDataSource(context.TODO(), &e.keystoneToolsDataSourceMutex, &e.keystoneToolsDataSource, "juju-tools")
 }
 
-func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestreams.DataSource, keystoneName string) (simplestreams.DataSource, error) {
+func (e *Environ) getKeystoneDataSource(ctx context.Context, mu *sync.Mutex, datasource *simplestreams.DataSource, keystoneName string) (simplestreams.DataSource, error) {
 	mu.Lock()
 	defer mu.Unlock()
 	if *datasource != nil {
@@ -986,7 +975,7 @@ func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 
 	cl := e.client()
 	if !cl.IsAuthenticated() {
-		if err := authenticateClient(cl); err != nil {
+		if err := authenticateClient(ctx, cl); err != nil {
 			return nil, err
 		}
 	}

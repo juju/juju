@@ -146,11 +146,6 @@ func (env *maasEnviron) PrepareForBootstrap(_ environs.BootstrapContext, _ strin
 	return nil
 }
 
-// Create is part of the Environ interface.
-func (env *maasEnviron) Create(_ envcontext.ProviderCallContext, _ environs.CreateParams) error {
-	return nil
-}
-
 // Bootstrap is part of the Environ interface.
 func (env *maasEnviron) Bootstrap(
 	ctx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, args environs.BootstrapParams,

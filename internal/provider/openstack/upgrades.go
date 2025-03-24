@@ -4,6 +4,8 @@
 package openstack
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
@@ -14,8 +16,8 @@ import (
 // interface. It is called to to give an Environ a chance to perform
 // interactive operations that are required for prechecking
 // an upgrade.
-func (e *Environ) PreparePrechecker() error {
-	return authenticateClient(e.client())
+func (e *Environ) PreparePrechecker(ctx context.Context) error {
+	return authenticateClient(ctx, e.client())
 }
 
 // PrecheckUpgradeOperations is part of the environs.JujuUpgradePrechecker

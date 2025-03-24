@@ -118,15 +118,24 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controlle
 	return nil
 }
 
-// Create implements environs.Environ.
-func (env *environ) Create(ctx callcontext.ProviderCallContext, args environs.CreateParams) error {
+// ValidateModelCreation is part of the [environs.ModelResources] interface.
+func (env *environ) ValidateModelCreation(ctx context.Context) error {
+	return nil
+}
+
+// CreateModelResources is part of the [environs.ModelResources] interface.
+func (env *environ) CreateModelResources(ctx context.Context, args environs.CreateParams) error {
 	return env.withSession(ctx, func(env *sessionEnviron) error {
-		return env.Create(ctx, args)
+		return env.CreateModelResources(ctx, args)
 	})
 }
 
-// Create implements environs.Environ.
-func (env *sessionEnviron) Create(ctx callcontext.ProviderCallContext, args environs.CreateParams) error {
+func (env *sessionEnviron) ValidateModelCreation(ctx context.Context) error {
+	return nil
+}
+
+// CreateModelResources is part of the [environs.ModelResources] interface.
+func (env *sessionEnviron) CreateModelResources(ctx context.Context, args environs.CreateParams) error {
 	return env.ensureVMFolder(args.ControllerUUID, ctx)
 }
 
@@ -158,7 +167,7 @@ func (env *sessionEnviron) Bootstrap(
 	return nil, errors.Errorf("sessionEnviron.Bootstrap should never be called")
 }
 
-func (env *sessionEnviron) ensureVMFolder(controllerUUID string, ctx callcontext.ProviderCallContext) error {
+func (env *sessionEnviron) ensureVMFolder(controllerUUID string, ctx context.Context) error {
 	_, err := env.client.EnsureVMFolder(env.ctx, env.getVMFolder(), path.Join(
 		controllerFolderName(controllerUUID),
 		env.modelFolderName(),

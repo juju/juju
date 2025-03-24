@@ -168,14 +168,6 @@ func (s *environSuite) TestBootstrapCommon(c *gc.C) {
 	}})
 }
 
-func (s *environSuite) TestCreateInvalidCredentialError(c *gc.C) {
-	s.FakeConn.Err = gce.InvalidCredentialError
-	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	err := s.Env.Create(s.CallCtx, environs.CreateParams{})
-	c.Check(err, gc.NotNil)
-	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
-}
-
 func (s *environSuite) TestDestroyInvalidCredentialError(c *gc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)

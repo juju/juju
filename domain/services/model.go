@@ -318,7 +318,7 @@ func (s *ModelServices) ModelInfo() *modelservice.ProviderModelService {
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		modelstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("modelinfo")),
 		modelservice.EnvironVersionProviderGetter(),
-		providertracker.ProviderRunner[modelservice.ResourceCreationProvider](s.providerFactory, s.modelUUID.String()),
+		providertracker.ProviderRunner[modelservice.ModelResourcesProvider](s.providerFactory, s.modelUUID.String()),
 		modelservice.DefaultAgentBinaryFinder(),
 	)
 }

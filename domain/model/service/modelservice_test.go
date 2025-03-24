@@ -577,14 +577,14 @@ func (s *modelServiceSuite) TestGetEnvironVersionFailedModelNotFound(c *gc.C) {
 
 type providerModelServiceSuite struct {
 	modelServiceSuite
-	mockProvider *MockResourceCreationProvider
+	mockProvider *MockModelResourcesProvider
 }
 
 var _ = gc.Suite(&providerModelServiceSuite{})
 
 func (s *providerModelServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.modelServiceSuite.setupMocks(c)
-	s.mockProvider = NewMockResourceCreationProvider(ctrl)
+	s.mockProvider = NewMockModelResourcesProvider(ctrl)
 	return ctrl
 }
 
@@ -613,14 +613,15 @@ func (s *providerModelServiceSuite) TestCreateModel(c *gc.C) {
 		AgentVersion:   jujuversion.Current,
 	}).Return(nil)
 
-	s.mockProvider.EXPECT().Create(gomock.Any(), environs.CreateParams{ControllerUUID: controllerUUID.String()}).Return(nil)
+	s.mockProvider.EXPECT().ValidateModelCreation(gomock.Any()).Return(nil)
+	s.mockProvider.EXPECT().CreateModelResources(gomock.Any(), environs.CreateParams{ControllerUUID: controllerUUID.String()}).Return(nil)
 
 	svc := NewProviderModelService(
 		modelUUID,
 		s.mockControllerState,
 		s.mockModelState,
 		s.environVersionProviderGetter(),
-		func(context.Context) (ResourceCreationProvider, error) { return s.mockProvider, nil },
+		func(context.Context) (ModelResourcesProvider, error) { return s.mockProvider, nil },
 		DefaultAgentBinaryFinder(),
 	)
 	err := svc.CreateModel(context.Background(), controllerUUID)
@@ -657,7 +658,7 @@ func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *g
 		s.mockControllerState,
 		s.mockModelState,
 		s.environVersionProviderGetter(),
-		func(context.Context) (ResourceCreationProvider, error) { return s.mockProvider, nil },
+		func(context.Context) (ModelResourcesProvider, error) { return s.mockProvider, nil },
 		DefaultAgentBinaryFinder(),
 	)
 	err := svc.CreateModel(context.Background(), controllerUUID)

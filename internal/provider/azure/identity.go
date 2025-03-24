@@ -35,9 +35,12 @@ func (env *azureEnviron) CreateAutoInstanceRole(
 	args environs.BootstrapParams,
 ) (string, error) {
 	controllerUUID := args.ControllerConfig.ControllerUUID()
-	err := env.initResourceGroup(ctx, controllerUUID, env.config.resourceGroupName != "", true)
-	if err != nil {
-		return "", errors.Annotate(err, "creating resource group for managed identity")
+	needResourceGroup := env.config.resourceGroupName == ""
+	if needResourceGroup {
+		resourceTags := env.resourceTags(controllerUUID)
+		if err := env.createResourceGroup(ctx, resourceTags); err != nil {
+			return "", errors.Annotate(err, "creating resource group  for managed identity")
+		}
 	}
 
 	instProfileName, err := env.ensureControllerManagedIdentity(

@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
-	environsContext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -81,18 +80,13 @@ type AgentBinaryFinder interface {
 	HasBinariesForVersion(version.Number) (bool, error)
 }
 
-// ResourceCreationProvider is an subset of the [environs.Environ] interface that is used for the model service
-// to create resources for a new model.
-type ResourceCreationProvider interface {
-	// Create creates the environment for a new hosted model.
-	//
-	// This will be called before any workers begin operating on the
-	// Environ, to give an Environ a chance to perform operations that
-	// are required for further use.
-	//
-	// Create is not called for the initial controller model; it is
-	// the Bootstrap method's job to create the controller model.
-	Create(environsContext.ProviderCallContext, environs.CreateParams) error
+// ModelResourcesProvider mirrors the [environs.ModelResources] interface that is
+// used by the model service when creating a new model.
+type ModelResourcesProvider interface {
+	// ValidateModelCreation is part of the [environs.ModelResources] interface.
+	ValidateModelCreation(ctx context.Context) error
+	// CreateModelResources is part of the [environs.ModelResources] interface.
+	CreateModelResources(context.Context, environs.CreateParams) error
 }
 
 // ModelService defines a service for interacting with the underlying model
@@ -283,7 +277,7 @@ func (s *ModelService) GetEnvironVersion(ctx context.Context) (int, error) {
 // state, as opposed to the controller state and the provider.
 type ProviderModelService struct {
 	ModelService
-	providerGetter providertracker.ProviderGetter[ResourceCreationProvider]
+	providerGetter providertracker.ProviderGetter[ModelResourcesProvider]
 }
 
 // NewProviderModelService returns a new Service for interacting with a models state.
@@ -292,7 +286,7 @@ func NewProviderModelService(
 	controllerSt ControllerState,
 	modelSt ModelState,
 	environProviderGetter EnvironVersionProviderFunc,
-	providerGetter providertracker.ProviderGetter[ResourceCreationProvider],
+	providerGetter providertracker.ProviderGetter[ModelResourcesProvider],
 	agentBinaryFinder AgentBinaryFinder,
 ) *ProviderModelService {
 	return &ProviderModelService{
@@ -330,8 +324,10 @@ func (s *ProviderModelService) CreateModel(
 		return errors.Errorf("opening environ: %w", err)
 	}
 
-	callCtx := environsContext.WithoutCredentialInvalidator(ctx)
-	if err := env.Create(callCtx, environs.CreateParams{ControllerUUID: controllerUUID.String()}); err != nil {
+	if err := env.ValidateModelCreation(ctx); err != nil {
+		return errors.Errorf("creating model %q: %w", s.modelUUID, err)
+	}
+	if err := env.CreateModelResources(ctx, environs.CreateParams{ControllerUUID: controllerUUID.String()}); err != nil {
 		// TODO: we should cleanup the model related data created above from database.
 		return errors.Errorf("creating model resources for %q: %w", s.modelUUID, err)
 	}

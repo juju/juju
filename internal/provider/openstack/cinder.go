@@ -709,7 +709,7 @@ type endpointResolver interface {
 
 func getVolumeEndpointURL(ctx context.Context, client endpointResolver, region string) (*url.URL, error) {
 	if !client.IsAuthenticated() {
-		if err := authenticateClient(client); err != nil {
+		if err := authenticateClient(ctx, client); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}

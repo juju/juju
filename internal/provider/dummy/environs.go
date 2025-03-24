@@ -357,8 +357,13 @@ func (*environ) PrecheckInstance(ctx envcontext.ProviderCallContext, args enviro
 	return nil
 }
 
-// Create is part of the Environ interface.
-func (e *environ) Create(ctx envcontext.ProviderCallContext, args environs.CreateParams) error {
+// ValidateModelCreation is part of the [environs.ModelResources] interface.
+func (e *environ) ValidateModelCreation(ctx context.Context) error {
+	return nil
+}
+
+// CreateModelResources is part of the [environs.ModelResources] interface.
+func (e *environ) CreateModelResources(ctx context.Context, args environs.CreateParams) error {
 	dummy.mu.Lock()
 	defer dummy.mu.Unlock()
 	dummy.state[e.modelUUID] = newState(e.name, dummy.ops)

@@ -299,14 +299,6 @@ func (e *Environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.Pr
 	return common.Bootstrap(ctx, e, callCtx, params)
 }
 
-// Create implements environs.Environ.
-func (e *Environ) Create(ctx envcontext.ProviderCallContext, params environs.CreateParams) error {
-	if err := e.ping(); err != nil {
-		return e.HandleCredentialError(ctx, err)
-	}
-	return nil
-}
-
 // AdoptResources implements environs.Environ.
 func (e *Environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	// TODO(cderici): implement AdoptResources for oci

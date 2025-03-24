@@ -233,19 +233,64 @@ func (env *azureEnviron) initEnviron(ctx context.Context) error {
 // PrepareForBootstrap is part of the Environ interface.
 func (env *azureEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, _ string) error {
 	if ctx.ShouldVerifyCredentials() {
-		if err := verifyCredentials(env, ctx); err != nil {
+		if err := verifyCredentials(ctx, env); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-// Create is part of the Environ interface.
-func (env *azureEnviron) Create(ctx envcontext.ProviderCallContext, args environs.CreateParams) error {
-	if err := verifyCredentials(env, ctx); err != nil {
+// ValidateModelCreation is part of the [environs.ModelResources] interface.
+func (env *azureEnviron) ValidateModelCreation(ctx context.Context) error {
+	if env.config.resourceGroupName == "" {
+		return nil
+	}
+	return env.validateResourceGroup(ctx, env.resourceGroup)
+}
+
+func (env *azureEnviron) validateResourceGroup(ctx context.Context, resourceGroupName string) error {
+	resourceGroups, err := env.resourceGroupsClient()
+	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(env.initResourceGroup(ctx, args.ControllerUUID, env.config.resourceGroupName != "", false))
+	logger.Debugf(ctx, "validating existing resource group %q for model %q", resourceGroupName, env.modelName)
+	g, err := resourceGroups.Get(ctx, resourceGroupName, nil)
+	if err != nil {
+		return env.HandleCredentialError(ctx, errors.Annotatef(err, "checking resource group %q", resourceGroupName))
+	}
+	if region := toValue(g.Location); region != env.location {
+		return errors.Errorf("cannot use resource group in region %q when operating in region %q", region, env.location)
+	}
+	modelTag := names.NewModelTag(env.config.Config.UUID())
+	if err := env.checkResourceGroup(g.ResourceGroup, modelTag); err != nil {
+		return env.HandleCredentialError(ctx, errors.Annotate(err, "validating resource group"))
+	}
+	return nil
+}
+
+// CreateModelResources is part of the [environs.ModelResources] interface.
+func (env *azureEnviron) CreateModelResources(ctx context.Context, args environs.CreateParams) error {
+	if err := verifyCredentials(ctx, env); err != nil {
+		return errors.Trace(err)
+	}
+
+	resourceTags := env.resourceTags(args.ControllerUUID)
+	needResourceGroup := env.config.resourceGroupName == ""
+	if needResourceGroup {
+		if err := env.createResourceGroup(ctx, resourceTags); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	// When we create a resource group for a non-controller model,
+	// we must create the common resources up-front. This is so
+	// that parallel deployments do not affect dynamic changes,
+	// e.g. those made by the firewaller. For the controller model,
+	// we fold the creation of these resources into the bootstrap
+	// machine's deployment.
+	if err := env.createCommonResourceDeployment(ctx, resourceTags, nil); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // Bootstrap is part of the Environ interface.
@@ -254,18 +299,26 @@ func (env *azureEnviron) Bootstrap(
 	callCtx envcontext.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
-	existingResourceGroup := env.config.resourceGroupName != ""
-	if !existingResourceGroup && (args.BootstrapConstraints.HasInstanceRole() || env.cloud.Credential.AuthType() == cloud.ManagedIdentityAuthType) {
+	needResourceGroup := env.config.resourceGroupName == ""
+	if needResourceGroup && (args.BootstrapConstraints.HasInstanceRole() || env.cloud.Credential.AuthType() == cloud.ManagedIdentityAuthType) {
 		var instanceRole string
 		if args.BootstrapConstraints.HasInstanceRole() {
 			instanceRole = *args.BootstrapConstraints.InstanceRole
 		} else {
 			instanceRole = env.cloud.Credential.Attributes()[credManagedIdentity]
 		}
-		existingResourceGroup = env.managedIdentityGroup(instanceRole) == env.resourceGroup
+		needResourceGroup = env.managedIdentityGroup(instanceRole) != env.resourceGroup
 	}
-	if err := env.initResourceGroup(callCtx, args.ControllerConfig.ControllerUUID(), existingResourceGroup, true); err != nil {
-		return nil, errors.Annotate(err, "creating controller resource group")
+
+	if needResourceGroup {
+		resourceTags := env.resourceTags(args.ControllerConfig.ControllerUUID())
+		if err := env.createResourceGroup(ctx, resourceTags); err != nil {
+			return nil, errors.Annotate(err, "creating controller resource group")
+		}
+	} else {
+		if err := env.validateResourceGroup(ctx, env.resourceGroup); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	result, err := common.Bootstrap(ctx, env, callCtx, args)
 	if err != nil {
@@ -297,60 +350,35 @@ func (env *azureEnviron) Bootstrap(
 	return result, nil
 }
 
-// initResourceGroup creates a resource group for this environment.
-func (env *azureEnviron) initResourceGroup(ctx envcontext.ProviderCallContext, controllerUUID string, existingResourceGroup, controller bool) error {
+func (env *azureEnviron) resourceTags(controllerUUID string) map[string]string {
 	env.mu.Lock()
+	defer env.mu.Unlock()
 	modelTag := names.NewModelTag(env.config.Config.UUID())
-	resourceTags := tags.ResourceTags(
+	return tags.ResourceTags(
 		modelTag,
 		names.NewControllerTag(controllerUUID),
 		env.config,
 	)
-	env.mu.Unlock()
+}
 
+// createResourceGroup creates a resource group for this environment.
+func (env *azureEnviron) createResourceGroup(ctx context.Context, resourceTags map[string]string) error {
 	resourceGroups, err := env.resourceGroupsClient()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if existingResourceGroup {
-		logger.Debugf(ctx, "using existing resource group %q for model %q", env.resourceGroup, env.modelName)
-		g, err := resourceGroups.Get(ctx, env.resourceGroup, nil)
-		if err != nil {
-			return env.HandleCredentialError(ctx, errors.Annotatef(err, "checking resource group %q", env.resourceGroup))
-		}
-		if region := toValue(g.Location); region != env.location {
-			return errors.Errorf("cannot use resource group in region %q when operating in region %q", region, env.location)
-		}
-		if err := env.checkResourceGroup(g.ResourceGroup, modelTag); err != nil {
-			return env.HandleCredentialError(ctx, errors.Annotate(err, "validating resource group"))
-		}
-	} else {
-		logger.Debugf(ctx, "creating resource group %q for model %q", env.resourceGroup, env.modelName)
-		if _, err := resourceGroups.CreateOrUpdate(ctx, env.resourceGroup, armresources.ResourceGroup{
-			Location: to.Ptr(env.location),
-			Tags:     toMapPtr(resourceTags),
-		}, nil); err != nil {
-			return env.HandleCredentialError(ctx, errors.Annotate(err, "creating resource group"))
-		}
+	logger.Debugf(ctx, "creating resource group %q for model %q", env.resourceGroup, env.modelName)
+	if _, err := resourceGroups.CreateOrUpdate(ctx, env.resourceGroup, armresources.ResourceGroup{
+		Location: to.Ptr(env.location),
+		Tags:     toMapPtr(resourceTags),
+	}, nil); err != nil {
+		return env.HandleCredentialError(ctx, errors.Annotate(err, "creating resource group"))
 	}
-
-	if !controller {
-		// When we create a resource group for a non-controller model,
-		// we must create the common resources up-front. This is so
-		// that parallel deployments do not affect dynamic changes,
-		// e.g. those made by the firewaller. For the controller model,
-		// we fold the creation of these resources into the bootstrap
-		// machine's deployment.
-		if err := env.createCommonResourceDeployment(ctx, resourceTags, nil); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
 	return nil
 }
 
 func (env *azureEnviron) createCommonResourceDeployment(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	tags map[string]string,
 	rules []*armnetwork.SecurityRule,
 	commonResources ...armtemplates.Resource,
