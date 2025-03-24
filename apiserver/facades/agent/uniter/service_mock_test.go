@@ -1298,6 +1298,45 @@ func (c *MockRelationServiceSetRelationStatusCall) DoAndReturn(f func(context.Co
 	return c
 }
 
+// WatchRelationUnit mocks base method.
+func (m *MockRelationService) WatchRelationUnit(arg0 context.Context, arg1 relation.UnitUUID) (relation0.RelationUnitsWatcher, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchRelationUnit", arg0, arg1)
+	ret0, _ := ret[0].(relation0.RelationUnitsWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchRelationUnit indicates an expected call of WatchRelationUnit.
+func (mr *MockRelationServiceMockRecorder) WatchRelationUnit(arg0, arg1 any) *MockRelationServiceWatchRelationUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRelationUnit", reflect.TypeOf((*MockRelationService)(nil).WatchRelationUnit), arg0, arg1)
+	return &MockRelationServiceWatchRelationUnitCall{Call: call}
+}
+
+// MockRelationServiceWatchRelationUnitCall wrap *gomock.Call
+type MockRelationServiceWatchRelationUnitCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRelationServiceWatchRelationUnitCall) Return(arg0 relation0.RelationUnitsWatcher, arg1 error) *MockRelationServiceWatchRelationUnitCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRelationServiceWatchRelationUnitCall) Do(f func(context.Context, relation.UnitUUID) (relation0.RelationUnitsWatcher, error)) *MockRelationServiceWatchRelationUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRelationServiceWatchRelationUnitCall) DoAndReturn(f func(context.Context, relation.UnitUUID) (relation0.RelationUnitsWatcher, error)) *MockRelationServiceWatchRelationUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockModelInfoService is a mock of ModelInfoService interface.
 type MockModelInfoService struct {
 	ctrl     *gomock.Controller

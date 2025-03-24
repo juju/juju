@@ -469,9 +469,9 @@ func (s *WatchableService) WatchUnitScopes(
 	return relation.RelationScopeWatcher{}, coreerrors.NotImplemented
 }
 
-// WatchUnitRelations returns a watcher that notifies of changes to counterpart units in
+// WatchRelationUnit returns a watcher that notifies of changes to counterpart units in
 // the relation.
-func (s *WatchableService) WatchUnitRelations(
+func (s *WatchableService) WatchRelationUnit(
 	ctx context.Context,
 	relationUnit corerelation.UnitUUID,
 ) (relation.RelationUnitsWatcher, error) {
