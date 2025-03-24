@@ -258,12 +258,15 @@ func (s *baseSuite) createApplication(c *gc.C, name string, l life.Life, units .
 			DownloadURL:        "https://example.com",
 			DownloadSize:       42,
 		},
-		Scale: len(units),
+		Scale:        len(units),
+		PasswordHash: "password",
+		Placement:    "placement",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelType, err := state.GetModelType(ctx)
 	c.Assert(err, jc.ErrorIsNil)
+
 	db, err := state.DB()
 	c.Assert(err, jc.ErrorIsNil)
 	for _, u := range units {
