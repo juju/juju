@@ -568,7 +568,7 @@ func (st *State) InsertMigratingCAASUnits(ctx context.Context, appUUID coreappli
 // The following errors can be expected:
 // - [errors.UnitNotFound] if the unit does not exist.
 // - [coreerrors.NotSupported] if the architecture is not known to the database.
-func (st *State) SetRunningAgentBinaryVersion(ctx context.Context, uuid string, version coreagentbinary.Version) error {
+func (st *State) SetRunningAgentBinaryVersion(ctx context.Context, uuid coreunit.UUID, version coreagentbinary.Version) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
@@ -587,13 +587,15 @@ SELECT id AS &ArchitectureMap.id FROM architecture WHERE name = $ArchitectureMap
 		return errors.Capture(err)
 	}
 
+	unitUUID := unitUUID{UnitUUID: uuid}
+
 	type UnitAgentVersion struct {
 		UnitUUID      string `db:"unit_uuid"`
 		Version       string `db:"version"`
 		ArchtectureID int    `db:"architecture_id"`
 	}
 	unitAgentVersion := UnitAgentVersion{
-		UnitUUID: uuid,
+		UnitUUID: unitUUID.UnitUUID.String(),
 		Version:  version.Number.String(),
 	}
 
@@ -611,11 +613,20 @@ UPDATE SET version = excluded.version,
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 
 		// Check if unit exists
-		err := st.checkUnitNotDead(ctx, tx, unitUUID{UnitUUID: coreunit.UUID(uuid)})
-		if err != nil {
+		err := st.checkUnitNotDead(ctx, tx, unitUUID)
+		switch {
+		case errors.Is(err, applicationerrors.UnitNotFound):
 			return errors.Errorf(
-				"unit %q does not exist", uuid,
+				"unit %q does not exist", unitUUID,
 			).Add(applicationerrors.UnitNotFound)
+		case errors.Is(err, applicationerrors.UnitIsDead):
+			return errors.Errorf(
+				"unit %q is dead", unitUUID,
+			).Add(applicationerrors.UnitIsDead)
+		case err != nil:
+			return errors.Errorf(
+				"checking unit %q exists: %w", unitUUID, err,
+			)
 		}
 
 		// Look up architecture ID

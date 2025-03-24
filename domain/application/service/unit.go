@@ -114,7 +114,7 @@ type UnitState interface {
 
 	// SetRunningAgentBinaryVersion sets the running agent version for the unit.
 	// A [applicationerrors.UnitNotFound] error will be returned if the unit does not exist.
-	SetRunningAgentBinaryVersion(context.Context, string, agentbinary.Version) error
+	SetRunningAgentBinaryVersion(context.Context, coreunit.UUID, agentbinary.Version) error
 }
 
 func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
@@ -239,24 +239,16 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 // - [coreerrors.NotValid] if the reportedVersion is not valid.
 // - [coreerrors.NotSupported] if the architecture is not supported.
 // - [applicationerrors.UnitNotFound] - when the unit does not exist.
-func (s *Service) SetReportedUnitAgentVersion(ctx context.Context, unitName coreunit.Name, reportedVersion agentbinary.Version) error {
+// - [applicationerrors.UnitIsDead] - when the unit is dead.
+func (s *Service) SetReportedUnitAgentVersion(ctx context.Context, unitUUID coreunit.UUID, reportedVersion agentbinary.Version) error {
 	if err := reportedVersion.Validate(); err != nil {
 		return errors.Errorf("reported agent version %v is not valid: %w", reportedVersion, err)
 	}
 
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
-	if err != nil {
-		return errors.Errorf(
-			"getting unit UUID for unit %q: %w",
-			unitName,
-			err,
-		)
-	}
-
-	if err := s.st.SetRunningAgentBinaryVersion(ctx, unitUUID.String(), reportedVersion); err != nil {
+	if err := s.st.SetRunningAgentBinaryVersion(ctx, unitUUID, reportedVersion); err != nil {
 		return errors.Errorf(
 			"setting unit %q reported agent version (%s) in state: %w",
-			unitName,
+			unitUUID.String(),
 			reportedVersion.Number.String(),
 			err,
 		)

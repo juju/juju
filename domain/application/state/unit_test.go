@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/domain/linklayerdevice"
 	portstate "github.com/juju/juju/domain/port/state"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type unitStateSuite struct {
@@ -965,12 +964,11 @@ func deptr[T any](v *T) T {
 // running agent binary version for a unit that doesn't exist we get back
 // an error that satisfies [applicationerrors.UnitNotFound].
 func (s *unitStateSuite) TestSetRunningAgentBinaryVersionUnitNotFound(c *gc.C) {
-	unitUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	var unitUUID coreunit.UUID
 
-	err = s.state.SetRunningAgentBinaryVersion(
+	err := s.state.SetRunningAgentBinaryVersion(
 		context.Background(),
-		unitUUID.String(),
+		unitUUID,
 		coreagentbinary.Version{
 			Number: jujuversion.Current,
 			Arch:   corearch.ARM64,
@@ -998,7 +996,7 @@ func (s *unitStateSuite) TestSetRunningAgentBinaryVersionNotSupportedArch(c *gc.
 
 	err = s.state.SetRunningAgentBinaryVersion(
 		context.Background(),
-		unitUUID.String(),
+		unitUUID,
 		coreagentbinary.Version{
 			Number: jujuversion.Current,
 			Arch:   corearch.Arch("noexist"),
@@ -1025,7 +1023,7 @@ func (s *unitStateSuite) TestSetRunningAgentBinaryVersion(c *gc.C) {
 
 	err = s.state.SetRunningAgentBinaryVersion(
 		context.Background(),
-		unitUUID.String(),
+		unitUUID,
 		coreagentbinary.Version{
 			Number: jujuversion.Current,
 			Arch:   corearch.ARM64,
@@ -1078,7 +1076,7 @@ func (s *unitStateSuite) TestSetRunningAgentBinaryVersionUpdate(c *gc.C) {
 
 	err = s.state.SetRunningAgentBinaryVersion(
 		context.Background(),
-		unitUUID.String(),
+		unitUUID,
 		coreagentbinary.Version{
 			Number: jujuversion.Current,
 			Arch:   corearch.ARM64,
@@ -1114,7 +1112,7 @@ WHERE unit_uuid = ?
 	// Update
 	err = s.state.SetRunningAgentBinaryVersion(
 		context.Background(),
-		unitUUID.String(),
+		unitUUID,
 		coreagentbinary.Version{
 			Number: jujuversion.Current,
 			Arch:   corearch.ARM64,
