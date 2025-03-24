@@ -403,3 +403,7 @@ user/reference/zone reference/zone
 user/tutorial tutorial
 
 
+
+contributor/unsorted/death-and-destruction/ contributor/reference/entity-lifecycle/
+contributor/unsorted/entity-creation/ contributor/reference/entity-lifecycle/
+contributor/unsorted/lifecycles/ contributor/reference/entity-lifecycle/
