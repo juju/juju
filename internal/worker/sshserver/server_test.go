@@ -21,6 +21,8 @@ import (
 	jujutesting "github.com/juju/juju/testing"
 )
 
+const maxConcurrentConnections = 10
+
 type sshServerSuite struct {
 	testing.IsolationSuite
 
@@ -94,10 +96,11 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 	listener := bufconn.Listen(8 * 1024)
 
 	server, err := sshserver.NewServerWorker(sshserver.ServerWorkerConfig{
-		Logger:               loggo.GetLogger("test"),
-		Listener:             listener,
-		JumpHostKey:          jujutesting.SSHServerHostKey,
-		NewSSHServerListener: newTestingSSHServerListener,
+		Logger:                   loggo.GetLogger("test"),
+		Listener:                 listener,
+		MaxConcurrentConnections: maxConcurrentConnections,
+		JumpHostKey:              jujutesting.SSHServerHostKey,
+		NewSSHServerListener:     newTestingSSHServerListener,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, server)
@@ -154,7 +157,6 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 	// Firstly, start the server on an in-memory listener
 	listener := bufconn.Listen(8 * 1024)
-	maxConcurrentConnections := 10
 	_, err := sshserver.NewServerWorker(sshserver.ServerWorkerConfig{
 		Logger:                   loggo.GetLogger("test"),
 		Listener:                 listener,
@@ -205,4 +207,32 @@ func inMemoryDial(c *gc.C, listener *bufconn.Listener, config *ssh.ClientConfig)
 	sshConn, newChan, reqs, err := ssh.NewClientConn(jumpServerConn, "", config)
 	c.Assert(err, jc.ErrorIsNil)
 	return ssh.NewClient(sshConn, newChan, reqs)
+}
+
+func (s *sshServerSuite) TestSSHWorkerReport(c *gc.C) {
+	// Firstly, start the server on an in-memory listener
+	listener := bufconn.Listen(8 * 1024)
+	worker, err := sshserver.NewServerWorker(sshserver.ServerWorkerConfig{
+		Logger:                   loggo.GetLogger("test"),
+		Listener:                 listener,
+		MaxConcurrentConnections: maxConcurrentConnections,
+		JumpHostKey:              jujutesting.SSHServerHostKey,
+		NewSSHServerListener:     newTestingSSHServerListener,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	report := worker.(*sshserver.ServerWorker).Report()
+	c.Assert(report, gc.DeepEquals, map[string]interface{}{
+		"concurrent_connections": int32(0),
+	})
+
+	// Dial the in-memory listener
+	conn, err := listener.Dial()
+	c.Assert(err, jc.ErrorIsNil)
+	defer conn.Close()
+
+	report = worker.(*sshserver.ServerWorker).Report()
+	c.Assert(report, gc.DeepEquals, map[string]interface{}{
+		"concurrent_connections": int32(1),
+	})
 }

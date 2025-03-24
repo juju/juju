@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/canonical/lxd/shared/logger"
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
@@ -69,6 +70,9 @@ type ServerWorker struct {
 
 	// config holds the configuration required by the server worker.
 	config ServerWorkerConfig
+
+	// concurrentConnections holds the number of concurrent connections.
+	concurrentConnections atomic.Int32
 }
 
 // NewServerWorker returns a running embedded SSH server.
@@ -76,10 +80,9 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	s := &ServerWorker{config: config}
 	s.Server = &ssh.Server{
-		ConnCallback: connCallback(config.MaxConcurrentConnections, config.Logger),
+		ConnCallback: s.connCallback(),
 		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
 			return true
 		},
@@ -251,15 +254,10 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 }
 
 // connCallback returns a connCallback function that limits the number of concurrent connections.
-func connCallback(maxConcurrentConnections int, logger Logger) ssh.ConnCallback {
-	n := atomic.Int32{}
+func (s *ServerWorker) connCallback() ssh.ConnCallback {
 	return func(ctx ssh.Context, conn net.Conn) net.Conn {
-		current := n.Add(1)
-		go func() {
-			<-ctx.Done()
-			n.Add(-1)
-		}()
-		if int(current) > maxConcurrentConnections {
+		current := s.concurrentConnections.Add(1)
+		if int(current) > s.config.MaxConcurrentConnections {
 			// set the deadline because we don't want to block the connection to write an error.
 			err := conn.SetWriteDeadline(time.Now().Add(100 * time.Millisecond))
 			if err != nil {
@@ -272,8 +270,20 @@ func connCallback(maxConcurrentConnections int, logger Logger) ssh.ConnCallback 
 			// The connection is close before returning, otherwise
 			// the context is not cancelled and the counter is not decremented.
 			conn.Close()
+			s.concurrentConnections.Add(-1)
 			return conn
 		}
+		go func() {
+			<-ctx.Done()
+			s.concurrentConnections.Add(-1)
+		}()
 		return conn
+	}
+}
+
+// Report returns a map of metrics from the server worker.
+func (s *ServerWorker) Report() map[string]any {
+	return map[string]any{
+		"concurrent_connections": s.concurrentConnections.Load(),
 	}
 }

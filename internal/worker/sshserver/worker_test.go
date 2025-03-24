@@ -135,7 +135,6 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 	workertest.CheckAlive(c, w)
 	workertest.CheckAlive(c, serverWorker)
 	workertest.CheckAlive(c, controllerConfigWatcher)
-
 	// Kill the wrapper worker.
 	workertest.CleanKill(c, w)
 
@@ -286,4 +285,69 @@ func (s *workerSuite) TestSSHServerWrapperWorkerErrorsOnMissingHostKey(c *gc.C) 
 
 	err = workertest.CheckKilled(c, w2)
 	c.Assert(err, gc.ErrorMatches, "state failed")
+}
+
+func (s *workerSuite) TestWrapperWorkerReport(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeClient := NewMockFacadeClient(ctrl)
+
+	serverWorker := workertest.NewErrorWorker(nil)
+	defer workertest.DirtyKill(c, serverWorker)
+
+	controllerConfigWatcher := watchertest.NewMockNotifyWatcher(make(<-chan struct{}))
+	defer workertest.DirtyKill(c, controllerConfigWatcher)
+
+	// Expect SSHServerHostKey to be retrieved
+	mockFacadeClient.EXPECT().SSHServerHostKey().Return("key", nil).Times(1)
+	// Expect WatchControllerConfig call
+	mockFacadeClient.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher, nil)
+
+	// Expect config to be called just the once.
+	ctrlCfg := controller.Config{
+		controller.SSHServerPort:               22,
+		controller.SSHMaxConcurrentConnections: 10,
+	}
+	mockFacadeClient.EXPECT().ControllerConfig().Return(ctrlCfg, nil).Times(1)
+
+	cfg := sshserver.ServerWrapperWorkerConfig{
+		FacadeClient: mockFacadeClient,
+		Logger:       loggo.GetLogger("test"),
+		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
+			return &reportWorker{serverWorker}, nil
+		},
+		NewSSHServerListener: newTestingSSHServerListener,
+	}
+	w, err := sshserver.NewServerWrapperWorker(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	// Check all workers alive properly.
+	workertest.CheckAlive(c, w)
+	workertest.CheckAlive(c, serverWorker)
+	workertest.CheckAlive(c, controllerConfigWatcher)
+
+	// Check the wrapper worker is a reporter.
+	reporter, ok := w.(worker.Reporter)
+	c.Assert(ok, jc.IsTrue)
+
+	c.Assert(reporter.Report(), jc.DeepEquals, map[string]interface{}{
+		"workers": map[string]any{
+			"ssh-server": map[string]any{
+				"test": "test",
+			},
+		},
+	})
+}
+
+// reportWorker is a mock worker that implements the Reporter interface.
+type reportWorker struct {
+	worker.Worker
+}
+
+func (r *reportWorker) Report() map[string]interface{} {
+	return map[string]interface{}{
+		"test": "test",
+	}
 }
