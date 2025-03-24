@@ -44,8 +44,10 @@ func (s *sshTunnelerSuite) newTunnelTracker(c *gc.C) *TunnelTracker {
 		ControllerInfo: s.controller,
 		Dialer:         s.dialer,
 		Clock:          s.clock,
-		SharedSecret:   []byte("test-secret"),
-		JWTAlg:         jwa.HS256,
+		TunnelSecret: TunnelSecret{
+			SharedSecret: []byte("test-secret"),
+			JWTAlgorithm: jwa.HS256,
+		},
 	}
 	tunnelTracker, err := NewTunnelTracker(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -63,14 +65,14 @@ func (s *sshTunnelerSuite) TestTunneler(c *gc.C) {
 
 	s.controller.EXPECT().Addresses().Return([]network.SpaceAddress{
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
-	})
+	}, nil)
 	s.state.EXPECT().InsertSSHConnRequest(gomock.Any()).DoAndReturn(
 		func(sra state.SSHConnRequestArg) error {
 			sshConnArgs = sra
 			return nil
 		},
 	)
-	s.dialer.EXPECT().Dial(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
+	s.dialer.EXPECT().Dial(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
 	s.clock.EXPECT().Now().AnyTimes().Return(now)
 
 	tunnelReqArgs := RequestArgs{
@@ -192,7 +194,7 @@ func (s *sshTunnelerSuite) TestRequestTunnel(c *gc.C) {
 	s.clock.EXPECT().Now().AnyTimes().Return(now)
 	s.controller.EXPECT().Addresses().Return([]network.SpaceAddress{
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
-	})
+	}, nil)
 	s.state.EXPECT().InsertSSHConnRequest(gomock.Any()).Return(nil)
 
 	tunnelReqArgs := RequestArgs{

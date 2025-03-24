@@ -30,9 +30,11 @@ func (s *authenticationSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *authenticationSuite) newAuthn(_ *gc.C) tunnelAuthentication {
 	return tunnelAuthentication{
-		sharedSecret: []byte("test-secret"),
-		jwtAlg:       jwa.HS256,
-		clock:        s.clock,
+		TunnelSecret: TunnelSecret{
+			SharedSecret: []byte("test-secret"),
+			JWTAlgorithm: jwa.HS256,
+		},
+		clock: s.clock,
 	}
 }
 
@@ -52,7 +54,7 @@ func (s *authenticationSuite) TestGeneratePassword(c *gc.C) {
 	rawToken, err := base64.StdEncoding.DecodeString(token)
 	c.Assert(err, jc.ErrorIsNil)
 
-	parsedToken, err := jwt.Parse(rawToken, jwt.WithKey(authn.jwtAlg, authn.sharedSecret))
+	parsedToken, err := jwt.Parse(rawToken, jwt.WithKey(authn.JWTAlgorithm, authn.SharedSecret))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(parsedToken.Subject(), gc.Equals, tokenSubject)
 	c.Assert(parsedToken.PrivateClaims()[tunnelIDClaimKey], gc.Equals, tunnelID)
