@@ -66,7 +66,7 @@ func (s *sshTunnelerSuite) TestTunneler(c *gc.C) {
 
 	s.controller.EXPECT().Addresses().Return([]network.SpaceAddress{
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
-	})
+	}, nil)
 	s.state.EXPECT().InsertSSHConnRequest(gomock.Any()).DoAndReturn(
 		func(sra state.SSHConnRequestArg) error {
 			sshConnArgs = sra
@@ -74,7 +74,7 @@ func (s *sshTunnelerSuite) TestTunneler(c *gc.C) {
 			return nil
 		},
 	)
-	s.dialer.EXPECT().Dial(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
+	s.dialer.EXPECT().Dial(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
 	s.clock.EXPECT().Now().AnyTimes().Return(now)
 
 	tunnelReqArgs := RequestArgs{
@@ -148,7 +148,7 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *gc.C) {
 
 	s.controller.EXPECT().Addresses().Return([]network.SpaceAddress{
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
-	})
+	}, nil)
 	s.state.EXPECT().InsertSSHConnRequest(gomock.Any()).DoAndReturn(
 		func(sra state.SSHConnRequestArg) error {
 			sshConnArgs = sra
@@ -156,7 +156,7 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *gc.C) {
 			return nil
 		},
 	)
-	s.dialer.EXPECT().Dial(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("failed-to-connect"))
+	s.dialer.EXPECT().Dial(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("failed-to-connect"))
 	s.clock.EXPECT().Now().AnyTimes().Return(now)
 
 	tunnelReqArgs := RequestArgs{
@@ -299,7 +299,7 @@ func (s *sshTunnelerSuite) TestRequestTunnelTimeout(c *gc.C) {
 	s.clock.EXPECT().Now().Times(1).Return(now)
 	s.controller.EXPECT().Addresses().Return([]network.SpaceAddress{
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
-	})
+	}, nil)
 	s.state.EXPECT().InsertSSHConnRequest(gomock.Any()).Return(nil)
 
 	tunnelReqArgs := RequestArgs{
@@ -327,7 +327,7 @@ func (s *sshTunnelerSuite) TestRequestTunnelDeadline(c *gc.C) {
 	s.clock.EXPECT().Now().Times(1).Return(now)
 	s.controller.EXPECT().Addresses().Return([]network.SpaceAddress{
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
-	})
+	}, nil)
 	s.state.EXPECT().InsertSSHConnRequest(gomock.Any()).Return(nil)
 
 	tunnelReqArgs := RequestArgs{

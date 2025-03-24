@@ -38,12 +38,12 @@ type State interface {
 
 // ControllerInfo defines an interface to fetch the controller's address.
 type ControllerInfo interface {
-	Addresses() network.SpaceAddresses
+	Addresses() (network.SpaceAddresses, error)
 }
 
 // SSHDialer defines an interface to establish an SSH connection over a provided connection.
 type SSHDial interface {
-	Dial(conn net.Conn, username string, privateKey gossh.Signer) (*gossh.Client, error)
+	Dial(conn net.Conn, username string, privateKey gossh.Signer, hostKeyCallback gossh.HostKeyCallback) (*gossh.Client, error)
 }
 
 // Tracker provides methods to create SSH tunnels to machine units.
@@ -153,6 +153,11 @@ func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.C
 		return nil, err
 	}
 
+	controllerAddresses, err := tt.controller.Addresses()
+	if err != nil {
+		return nil, err
+	}
+
 	// Make sure to use an unbuffered channel to ensure someone always
 	// has responsibility of the connection passed around.
 	connRecv := make(chan (net.Conn))
@@ -167,7 +172,7 @@ func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.C
 		Expires:             deadline,
 		Username:            reverseTunnelUser,
 		Password:            password,
-		ControllerAddresses: tt.controller.Addresses(),
+		ControllerAddresses: controllerAddresses,
 		UnitPort:            0, // Allow the unit worker to determine the port.
 		EphemeralPublicKey:  publicKey.Marshal(),
 	}
@@ -253,7 +258,12 @@ func (tt *Tracker) wait(ctx context.Context, recv chan (net.Conn), privateKey go
 	case conn := <-recv:
 		// We now have ownership of the connection, so we should close it
 		// if the SSH dial fails.
-		sshClient, err := tt.dialer.Dial(conn, defaultUser, privateKey)
+		//
+		// Safely ignore the host key since we are connecting through an
+		// SSH tunnel that the machine agent has established to the controller.
+		// We have already authenticated that this connection came from
+		// a specific machine, so we opt not to verify the host key.
+		sshClient, err := tt.dialer.Dial(conn, defaultUser, privateKey, gossh.InsecureIgnoreHostKey())
 		if err != nil {
 			conn.Close()
 			return nil, err

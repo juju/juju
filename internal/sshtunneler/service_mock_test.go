@@ -104,11 +104,12 @@ func (m *MockControllerInfo) EXPECT() *MockControllerInfoMockRecorder {
 }
 
 // Addresses mocks base method.
-func (m *MockControllerInfo) Addresses() network.SpaceAddresses {
+func (m *MockControllerInfo) Addresses() (network.SpaceAddresses, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Addresses")
 	ret0, _ := ret[0].(network.SpaceAddresses)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Addresses indicates an expected call of Addresses.
@@ -124,19 +125,19 @@ type MockControllerInfoAddressesCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerInfoAddressesCall) Return(arg0 network.SpaceAddresses) *MockControllerInfoAddressesCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockControllerInfoAddressesCall) Return(arg0 network.SpaceAddresses, arg1 error) *MockControllerInfoAddressesCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerInfoAddressesCall) Do(f func() network.SpaceAddresses) *MockControllerInfoAddressesCall {
+func (c *MockControllerInfoAddressesCall) Do(f func() (network.SpaceAddresses, error)) *MockControllerInfoAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerInfoAddressesCall) DoAndReturn(f func() network.SpaceAddresses) *MockControllerInfoAddressesCall {
+func (c *MockControllerInfoAddressesCall) DoAndReturn(f func() (network.SpaceAddresses, error)) *MockControllerInfoAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -165,18 +166,18 @@ func (m *MockSSHDial) EXPECT() *MockSSHDialMockRecorder {
 }
 
 // Dial mocks base method.
-func (m *MockSSHDial) Dial(arg0 net.Conn, arg1 string, arg2 ssh.Signer) (*ssh.Client, error) {
+func (m *MockSSHDial) Dial(arg0 net.Conn, arg1 string, arg2 ssh.Signer, arg3 ssh.HostKeyCallback) (*ssh.Client, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Dial", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Dial", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*ssh.Client)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Dial indicates an expected call of Dial.
-func (mr *MockSSHDialMockRecorder) Dial(arg0, arg1, arg2 any) *MockSSHDialDialCall {
+func (mr *MockSSHDialMockRecorder) Dial(arg0, arg1, arg2, arg3 any) *MockSSHDialDialCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dial", reflect.TypeOf((*MockSSHDial)(nil).Dial), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dial", reflect.TypeOf((*MockSSHDial)(nil).Dial), arg0, arg1, arg2, arg3)
 	return &MockSSHDialDialCall{Call: call}
 }
 
@@ -192,13 +193,13 @@ func (c *MockSSHDialDialCall) Return(arg0 *ssh.Client, arg1 error) *MockSSHDialD
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSSHDialDialCall) Do(f func(net.Conn, string, ssh.Signer) (*ssh.Client, error)) *MockSSHDialDialCall {
+func (c *MockSSHDialDialCall) Do(f func(net.Conn, string, ssh.Signer, ssh.HostKeyCallback) (*ssh.Client, error)) *MockSSHDialDialCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSSHDialDialCall) DoAndReturn(f func(net.Conn, string, ssh.Signer) (*ssh.Client, error)) *MockSSHDialDialCall {
+func (c *MockSSHDialDialCall) DoAndReturn(f func(net.Conn, string, ssh.Signer, ssh.HostKeyCallback) (*ssh.Client, error)) *MockSSHDialDialCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
