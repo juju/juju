@@ -669,7 +669,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 			AuthorityName:                certificateWatcherName,
-			StateName:                    stateName,
 			LogSinkName:                  logSinkName,
 			DomainServicesName:           domainServicesName,
 			HTTPClientName:               httpClientName,

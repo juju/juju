@@ -17,8 +17,6 @@ import (
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/services"
 	jworker "github.com/juju/juju/internal/worker"
-	"github.com/juju/juju/internal/worker/common"
-	workerstate "github.com/juju/juju/internal/worker/state"
 )
 
 // GetProviderServicesGetterFunc returns a ProviderServicesGetter
@@ -30,9 +28,6 @@ type GetProviderServicesGetterFunc func(getter dependency.Getter, name string) (
 type ManifoldConfig struct {
 	// AuthorityName is the name of the pki.Authority dependency.
 	AuthorityName string
-	// StateName is the name of the workerstate.StateTracker dependency.
-	// Deprecated: Migration to domain services.
-	StateName string
 	// DomainServicesName is used to get the controller domain services
 	// dependency.
 	DomainServicesName string
@@ -69,9 +64,6 @@ type ManifoldConfig struct {
 func (config ManifoldConfig) Validate() error {
 	if config.AuthorityName == "" {
 		return errors.NotValidf("empty AuthorityName")
-	}
-	if config.StateName == "" {
-		return errors.NotValidf("empty StateName")
 	}
 	if config.DomainServicesName == "" {
 		return errors.NotValidf("empty DomainServicesName")
@@ -111,7 +103,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AuthorityName,
-			config.StateName,
 			config.LogSinkName,
 			config.DomainServicesName,
 			config.ProviderServiceFactoriesName,
@@ -142,6 +133,11 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
+	var controllerDomainServices services.ControllerDomainServices
+	if err := getter.Get(config.DomainServicesName, &controllerDomainServices); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var httpClientGetter http.HTTPClientGetter
 	if err := getter.Get(config.HTTPClientName, &httpClientGetter); err != nil {
 		return nil, errors.Trace(err)
@@ -152,36 +148,23 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	var stTracker workerstate.StateTracker
-	if err := getter.Get(config.StateName, &stTracker); err != nil {
-		return nil, errors.Trace(err)
-	}
-	statePool, systemState, err := stTracker.Use()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	w, err := config.NewWorker(Config{
-		Authority:    authority,
-		Logger:       config.Logger,
-		ModelWatcher: systemState,
-		ModelMetrics: config.ModelMetrics,
-		Controller: StatePoolController{
-			StatePool: statePool,
-		},
+		Authority:              authority,
+		Logger:                 config.Logger,
+		ModelMetrics:           config.ModelMetrics,
 		LogSinkGetter:          logSinkGetter,
 		NewModelWorker:         config.NewModelWorker,
 		ErrorDelay:             jworker.RestartDelay,
 		DomainServicesGetter:   domainServicesGetter,
+		ModelService:           controllerDomainServices.Model(),
 		ProviderServicesGetter: providerServicesGetter,
 		HTTPClientGetter:       httpClientGetter,
 		GetControllerConfig:    config.GetControllerConfig,
 	})
 	if err != nil {
-		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
-	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
+	return w, nil
 }
 
 // GetProviderServicesGetter returns a ProviderServicesGetter from
