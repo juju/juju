@@ -111,6 +111,14 @@ func (w *LogSink) Wait() error {
 	return w.tomb.Wait()
 }
 
+// Close stops LogSink and closes the underlying writer.
+// This is a convenience method that calls Kill and Wait, preventing the
+// exposing of the worker type.
+func (w *LogSink) Close() error {
+	w.Kill()
+	return w.Wait()
+}
+
 func (w *LogSink) loop() error {
 	// When all is said and done we need to close the writer. The LogSink has
 	// taken ownership of the writer, and will close it when the worker is

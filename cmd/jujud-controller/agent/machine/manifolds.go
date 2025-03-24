@@ -88,7 +88,6 @@ import (
 	leasemanager "github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/juju/internal/worker/leaseexpiry"
 	"github.com/juju/juju/internal/worker/logger"
-	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/logsink"
 	"github.com/juju/juju/internal/worker/logsinkservices"
 	"github.com/juju/juju/internal/worker/machineactions"
@@ -190,9 +189,8 @@ type ManifoldsConfig struct {
 	// worker to perform the upgrade steps.
 	UpgradeSteps upgrades.UpgradeStepsFunc
 
-	// LogSource defines the channel type used to send log message
-	// structs within the machine agent.
-	LogSource logsender.LogRecordCh
+	// LogSink defines an interface for writing log records to a log sink.
+	LogSink corelogger.LogSink
 
 	// NewDeployContext gives the tests the opportunity to create a
 	// deployer.Context that can be used for testing.
@@ -561,19 +559,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpdateAgentFunc: config.UpdateLoggerConfig,
 		})),
 
-		// The log sender is a leaf worker that sends log messages to some
-		// API server, when configured so to do. We should only need one of
-		// these in a consolidated agent.
-		//
-		// NOTE: the LogSource will buffer a large number of messages as an upgrade
-		// runs; it currently seems better to fill the buffer and send when stable,
-		// optimising for stable controller upgrades rather than up-to-the-moment
-		// observable normal-machine upgrades.
-		logSenderName: ifNotMigrating(logsender.Manifold(logsender.ManifoldConfig{
-			APICallerName: apiCallerName,
-			LogSource:     config.LogSource,
-		})),
-
 		identityFileWriterName: ifNotMigrating(identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
@@ -620,13 +605,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		logSinkName: ifDatabaseUpgradeComplete(logsink.Manifold(logsink.ManifoldConfig{
-			ClockName:          clockName,
-			LogSinkServices:    logSinkServicesName,
-			AgentName:          agentName,
-			DebugLogger:        internallogger.GetLogger("juju.worker.logsink"),
-			NewWorker:          logsink.NewWorker,
-			NewModelLogger:     logsink.NewModelLogger,
-			ModelServiceGetter: logsink.NewModelService,
+			Clock:          config.Clock,
+			NewWorker:      logsink.NewWorker,
+			NewModelLogger: logsink.NewModelLogger,
+			LogSink:        config.LogSink,
 		})),
 
 		logSinkServicesName: logsinkservices.Manifold(logsinkservices.ManifoldConfig{

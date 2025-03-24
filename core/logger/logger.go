@@ -7,12 +7,10 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/juju/loggo/v2"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/errors"
@@ -237,19 +235,13 @@ type ModelLogSinkGetter interface {
 	LoggerContextGetter
 }
 
-// LogWriterForModelFunc is a function which returns a log writer for a given
-// model.
-type LogWriterForModelFunc func(ctx context.Context, key LoggerKey) (LogWriterCloser, error)
-
 // LoggerKey is a key used to identify a logger.
 type LoggerKey struct {
-	ModelUUID  string
-	ModelName  string
-	ModelOwner string
+	ModelUUID string
 }
 
-// ModelLogFile makes an absolute model log file path.
-func ModelLogFile(logDir string, key LoggerKey) string {
-	filename := fmt.Sprintf("%s-%s-%s.log", key.ModelOwner, key.ModelName, names.NewModelTag(key.ModelUUID).ShortId())
-	return filepath.Join(logDir, "models", filename)
+// LogSink provides a log sink that writes log messages to a file.
+type LogSink interface {
+	LogWriter
+	loggo.Writer
 }

@@ -9,8 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package logsink -destination logger_mock_test.go github.com/juju/juju/core/logger Logger,LogWriterCloser,LoggerContextGetter,ModelLogger
-//go:generate go run go.uber.org/mock/mockgen -typed -package logsink -destination services_mock_test.go github.com/juju/juju/internal/worker/logsink ModelService
+//go:generate go run go.uber.org/mock/mockgen -typed -package logsink -destination logger_mock_test.go github.com/juju/juju/core/logger Logger,LogWriterCloser,LoggerContextGetter,ModelLogger,LogSink
 
 func Test(t *testing.T) {
 	gc.TestingT(t)

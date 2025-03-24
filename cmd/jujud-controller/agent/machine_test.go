@@ -155,13 +155,13 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 	create := func() (cmd.Command, agentconf.AgentConf) {
 		aCfg := agentconf.NewAgentConf(s.DataDir)
 		s.PrimeAgent(c, names.NewMachineTag("42"), initialMachinePassword)
-		logger := s.newBufferedLogWriter()
+
 		newDBWorkerFunc := func(context.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
 			return databasetesting.NewTrackedDB(s.TxnRunnerFactory()), nil
 		}
 		a := NewMachineAgentCommand(
 			nil,
-			NewTestMachineAgentFactory(c, aCfg, logger, newDBWorkerFunc, c.MkDir(), s.cmdRunner),
+			NewTestMachineAgentFactory(c, aCfg, newDBWorkerFunc, c.MkDir(), s.cmdRunner),
 			aCfg,
 			aCfg,
 		)
@@ -174,7 +174,6 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	agentConf := FakeAgentConfig{}
-	logger := s.newBufferedLogWriter()
 
 	ctrl := gomock.NewController(c)
 	s.cmdRunner = mocks.NewMockCommandRunner(ctrl)
@@ -184,7 +183,7 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 	}
 	a := NewMachineAgentCommand(
 		ctx,
-		NewTestMachineAgentFactory(c, &agentConf, logger, newDBWorkerFunc, c.MkDir(), s.cmdRunner),
+		NewTestMachineAgentFactory(c, &agentConf, newDBWorkerFunc, c.MkDir(), s.cmdRunner),
 		agentConf,
 		agentConf,
 	)
@@ -205,7 +204,6 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	agentConf := FakeAgentConfig{}
-	logger := s.newBufferedLogWriter()
 
 	ctrl := gomock.NewController(c)
 	s.cmdRunner = mocks.NewMockCommandRunner(ctrl)
@@ -215,7 +213,7 @@ func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 	}
 	a := NewMachineAgentCommand(
 		ctx,
-		NewTestMachineAgentFactory(c, &agentConf, logger, newDBWorkerFunc, c.MkDir(), s.cmdRunner),
+		NewTestMachineAgentFactory(c, &agentConf, newDBWorkerFunc, c.MkDir(), s.cmdRunner),
 		agentConf,
 		agentConf,
 	)
