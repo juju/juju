@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
@@ -15,17 +14,20 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/controller"
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/objectstore"
+	coremachine "github.com/juju/juju/core/machine"
+	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // ControllerConfigGetter defines a method for getting the controller config.
@@ -43,55 +45,41 @@ type Upgrader interface {
 // UpgraderAPI provides access to the Upgrader API facade.
 type UpgraderAPI struct {
 	*common.ToolsGetter
-	*common.ToolsSetter
 
-	st                *state.State
-	m                 *state.Model
-	authorizer        facade.Authorizer
-	logger            corelogger.Logger
-	modelAgentService ModelAgentService
-	watcherRegistry   facade.WatcherRegistry
+	st              *state.State
+	authorizer      facade.Authorizer
+	logger          corelogger.Logger
+	watcherRegistry facade.WatcherRegistry
+
+	controllerNodeService ControllerNodeService
+	machineService        MachineService
+	modelAgentService     ModelAgentService
+	unitService           UnitService
 }
 
 // NewUpgraderAPI creates a new server-side UpgraderAPI facade.
 func NewUpgraderAPI(
-	controllerConfigGetter ControllerConfigGetter,
-	ctrlSt *state.State,
+	toolsGetter *common.ToolsGetter,
 	st *state.State,
 	authorizer facade.Authorizer,
 	logger corelogger.Logger,
-	cloudService common.CloudService,
-	credentialService CredentialService,
-	modelConfigService ModelConfigService,
 	modelAgentService ModelAgentService,
-	controllerStore objectstore.ObjectStore,
 	watcherRegistry facade.WatcherRegistry,
-) (*UpgraderAPI, error) {
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthApplicationAgent() && !authorizer.AuthModelAgent() && !authorizer.AuthUnitAgent() {
-		return nil, apiservererrors.ErrPerm
-	}
-	getCanReadWrite := func() (common.AuthFunc, error) {
-		return authorizer.AuthOwner, nil
-	}
-	model, err := st.Model()
-	if err != nil {
-		return nil, err
-	}
-	urlGetter := common.NewToolsURLGetter(model.UUID(), ctrlSt)
-	configGetter := stateenvirons.EnvironConfigGetter{
-		Model: model, ModelConfigService: modelConfigService, CloudService: cloudService, CredentialService: credentialService}
-	newEnviron := common.EnvironFuncForModel(model, cloudService, credentialService, configGetter)
-	toolsFinder := common.NewToolsFinder(controllerConfigGetter, st, urlGetter, newEnviron, controllerStore)
+	controllerNodeService ControllerNodeService,
+	machineService MachineService,
+	unitService UnitService,
+) *UpgraderAPI {
 	return &UpgraderAPI{
-		ToolsGetter:       common.NewToolsGetter(st, modelAgentService, st, urlGetter, toolsFinder, getCanReadWrite),
-		ToolsSetter:       common.NewToolsSetter(st, getCanReadWrite),
-		st:                st,
-		m:                 model,
-		authorizer:        authorizer,
-		logger:            logger,
-		modelAgentService: modelAgentService,
-		watcherRegistry:   watcherRegistry,
-	}, nil
+		ToolsGetter:           toolsGetter,
+		st:                    st,
+		authorizer:            authorizer,
+		logger:                logger,
+		watcherRegistry:       watcherRegistry,
+		controllerNodeService: controllerNodeService,
+		machineService:        machineService,
+		modelAgentService:     modelAgentService,
+		unitService:           unitService,
+	}
 }
 
 // WatchAPIVersion starts a watcher to track if there is a new version
@@ -117,7 +105,7 @@ func (u *UpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entities)
 		case names.ControllerTagKind, names.ModelTagKind:
 			upgraderAPIWatcher, err = u.modelAgentService.WatchModelTargetAgentVersion(ctx)
 		case names.MachineTagKind:
-			upgraderAPIWatcher, err = u.modelAgentService.WatchMachineTargetAgentVersion(ctx, machine.Name(tagID))
+			upgraderAPIWatcher, err = u.modelAgentService.WatchMachineTargetAgentVersion(ctx, coremachine.Name(tagID))
 		case names.UnitTagKind:
 			// Used in kubernetes models.
 			upgraderAPIWatcher, err = u.modelAgentService.WatchUnitTargetAgentVersion(ctx, tagID)
@@ -211,4 +199,97 @@ func (u *UpgraderAPI) DesiredVersion(ctx context.Context, args params.Entities) 
 		results[i].Error = apiservererrors.ServerError(err)
 	}
 	return params.VersionResults{Results: results}, nil
+}
+
+// SetTools is responsible for updating a a set of entities reported agent
+// version.
+func (u *UpgraderAPI) SetTools(
+	ctx context.Context,
+	args params.EntitiesVersion,
+) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.AgentTools)),
+	}
+
+	for i, entityVersion := range args.AgentTools {
+		tag, err := names.ParseTag(entityVersion.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		if !u.authorizer.AuthOwner(tag) {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		err = u.setEntityToolVersion(ctx, tag, entityVersion)
+		results.Results[i].Error = apiservererrors.ServerError(err)
+	}
+
+	return results, nil
+}
+
+// setEntityToolVersion is responsible for taking a Juju entity identified by
+// tag and setting it's reported agent version in the relevant domain.
+func (u *UpgraderAPI) setEntityToolVersion(
+	ctx context.Context,
+	tag names.Tag,
+	arg params.EntityVersion,
+) error {
+	reportedVersion := coreagentbinary.Version{
+		Number: arg.Tools.Version.Number,
+		Arch:   arg.Tools.Version.Arch,
+	}
+
+	var err error
+	switch tag.Kind() {
+	case names.ControllerTagKind:
+		err = u.controllerNodeService.SetReportedAgentVersion(
+			ctx,
+			tag.Id(),
+			reportedVersion,
+		)
+	case names.MachineTagKind:
+		err = u.machineService.SetReportedMachineAgentVersion(
+			ctx,
+			coremachine.Name(tag.Id()),
+			reportedVersion,
+		)
+	case names.UnitTagKind:
+		err = u.unitService.SetReportedUnitAgentVersion(
+			ctx,
+			coreunit.Name(tag.Id()),
+			reportedVersion,
+		)
+	default:
+		return apiservererrors.NotSupportedError(tag, "agent binaries")
+	}
+
+	switch {
+	case errors.Is(err, coreerrors.NotValid):
+		return errors.Errorf(
+			"agent version %q supplied is not valid for tag %q",
+			arg.Tools.Version, tag,
+		).Add(coreerrors.NotValid)
+	case errors.Is(err, coreerrors.NotSupported):
+		return errors.Errorf(
+			"architecture %q not support for tag %q",
+			arg.Tools.Version.Arch, tag,
+		).Add(coreerrors.NotSupported)
+	case errors.Is(err, machineerrors.MachineNotFound):
+		return errors.Errorf(
+			"machine for tag %q not found", tag,
+		).Add(coreerrors.NotFound)
+	case errors.Is(err, applicationerrors.UnitNotFound):
+		return errors.Errorf(
+			"unit for tag %q not found", tag,
+		).Add(coreerrors.NotFound)
+	case errors.Is(err, controllernodeerrors.NotFound):
+		return errors.Errorf(
+			"controller for tag %q not found", tag,
+		).Add(coreerrors.NotFound)
+	}
+
+	return nil
 }

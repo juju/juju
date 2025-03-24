@@ -7,9 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/juju/cloud"
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/semversion"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
 )
@@ -61,6 +63,34 @@ type ModelAgentService interface {
 // CredentialService provides access to credentials.
 type CredentialService interface {
 	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
+}
+
+type ControllerNodeService interface {
+	SetReportedAgentVersion(context.Context, string, coreagentbinary.Version) error
+}
+
+type MachineService interface {
+	// SetReportedMachineAgentVersion sets the reported agent version for the
+	// supplied machine name. Reported agent version is the version that the agent
+	// binary on this machine has reported it is running.
+	//
+	// The following errors are possible:
+	// - [coreerrors.NotValid] if the reportedVersion is not valid.
+	// - [coreerrors.NotSupported] if the architecture is not supported.
+	// - [machineerrors.MachineNotFound] - when the machine does not exist.
+	SetReportedMachineAgentVersion(context.Context, machine.Name, coreagentbinary.Version) error
+}
+
+type UnitService interface {
+	// SetReportedUnitAgentVersion sets the reported agent version for the
+	// supplied unit name. Reported agent version is the version that the agent
+	// binary on this unit has reported it is running.
+	//
+	// The following errors are possible:
+	// - [coreerrors.NotValid] if the reportedVersion is not valid.
+	// - [coreerrors.NotSupported] if the architecture is not supported.
+	// - [applicationerrors.UnitNotFound] - when the unit does not exist.
+	SetReportedUnitAgentVersion(context.Context, coreunit.Name, coreagentbinary.Version) error
 }
 
 // ModelConfigService is an interface that provides access to the
