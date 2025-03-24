@@ -619,7 +619,6 @@ type countResult struct {
 // charmLocator is used to get the locator of a charm. The locator is purely
 // to reconstruct the charm URL.
 type charmLocator struct {
-	Name           string        `db:"name"`
 	ReferenceName  string        `db:"reference_name"`
 	Revision       int           `db:"revision"`
 	SourceID       int           `db:"source_id"`
@@ -1127,16 +1126,26 @@ type applicationPlatformAndChannel struct {
 }
 
 type applicationOrigin struct {
-	ReferenceName string `db:"reference_name"`
-	SourceID      int    `db:"source_id"`
+	ReferenceName      string        `db:"reference_name"`
+	SourceID           int           `db:"source_id"`
+	Revision           sql.NullInt64 `db:"revision"`
+	CharmhubIdentifier string        `db:"charmhub_identifier"`
+	Hash               string        `db:"hash"`
 }
 
 type exportApplication struct {
-	UUID         coreapplication.ID `db:"uuid"`
-	Name         string             `db:"name"`
-	CharmUUID    corecharm.ID       `db:"charm_uuid"`
-	Life         life.Life          `db:"life_id"`
-	PasswordHash string             `db:"password_hash"`
-	Exposed      bool               `db:"exposed"`
-	Subordinate  bool               `db:"subordinate"`
+	UUID                 coreapplication.ID `db:"uuid"`
+	Name                 string             `db:"name"`
+	CharmUUID            corecharm.ID       `db:"charm_uuid"`
+	Life                 life.Life          `db:"life_id"`
+	PasswordHash         string             `db:"password_hash"`
+	Placement            string             `db:"placement"`
+	Exposed              bool               `db:"exposed"`
+	Subordinate          bool               `db:"subordinate"`
+	CharmModifiedVersion int                `db:"charm_modified_version"`
+	CharmUpgradeOnError  bool               `db:"charm_upgrade_on_error"`
+	CharmReferenceName   string             `db:"reference_name"`
+	CharmSourceID        int                `db:"source_id"`
+	CharmRevision        int                `db:"revision"`
+	CharmArchitectureID  sql.NullInt64      `db:"architecture_id"`
 }
