@@ -35,12 +35,12 @@ type State interface {
 
 // ControllerInfo defines an interface to fetch the controller's address.
 type ControllerInfo interface {
-	Addresses() network.SpaceAddresses
+	Addresses() (network.SpaceAddresses, error)
 }
 
 // SSHDialer defines an interface to establish an SSH connection over a provided connection.
 type SSHDial interface {
-	Dial(conn net.Conn, username string, privateKey gossh.Signer) (*gossh.Client, error)
+	Dial(conn net.Conn, username string, privateKey gossh.Signer, hostKeyCallback gossh.HostKeyCallback) (*gossh.Client, error)
 }
 
 // Request tracks a request for an SSH connection to
@@ -156,6 +156,11 @@ func (tt *Tracker) RequestTunnel(req RequestArgs) (*Request, error) {
 		return nil, err
 	}
 
+	controllerAddresses, err := tt.controller.Addresses()
+	if err != nil {
+		return nil, err
+	}
+
 	args := state.SSHConnRequestArg{
 		TunnelID:            tunnelID.String(),
 		ModelUUID:           req.ModelUUID,
@@ -163,7 +168,7 @@ func (tt *Tracker) RequestTunnel(req RequestArgs) (*Request, error) {
 		Expires:             now.Add(maxTimeout),
 		Username:            reverseTunnelUser,
 		Password:            password,
-		ControllerAddresses: tt.controller.Addresses(),
+		ControllerAddresses: controllerAddresses,
 		UnitPort:            0, // Allow the unit worker to determine the port.
 		EphemeralPublicKey:  publicKey.Marshal(),
 	}
@@ -262,7 +267,12 @@ func (r *Request) Wait(ctx context.Context) (*gossh.Client, error) {
 	case conn := <-r.recv:
 		// We now have ownership of the connection, so we should close it
 		// if the SSH dial fails.
-		sshClient, err := r.dialer.Dial(conn, defaultUser, r.privateKey)
+		//
+		// Safely ignore the host key since we are connecting through an
+		// SSH tunnel that the machine agent has established to the controller.
+		// We have already authenticated that this connection came from
+		// a specific machine, so we opt not to verify the host key.
+		sshClient, err := r.dialer.Dial(conn, defaultUser, r.privateKey, gossh.InsecureIgnoreHostKey())
 		if err != nil {
 			conn.Close()
 			return nil, err
