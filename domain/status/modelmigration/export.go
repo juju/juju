@@ -13,11 +13,13 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/status/service"
 	"github.com/juju/juju/domain/status/state"
 	"github.com/juju/juju/internal/errors"
 )
 
+// RegisterExport registers the export operations with the given coordinator.
 func RegisterExport(
 	coordinator Coordinator,
 	clock clock.Clock,
@@ -29,6 +31,8 @@ func RegisterExport(
 	})
 }
 
+// ExportService provides a subset of the status domain
+// service methods needed for status export.
 type ExportService interface {
 	// ExportUnitStatuses returns the workload and agent statuses of all the units in
 	// in the model, indexed by unit name.
@@ -58,10 +62,13 @@ func (e *exportOperation) Name() string {
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	e.service = service.NewService(
 		state.NewState(scope.ModelDB(), e.clock, e.logger),
-		nil,
 		e.clock,
 		e.logger,
-		nil,
+		// TODO(jack): This is currently the wrong logger. We should construct
+		// the StatusHistory using the model logger, however, at the moment, we
+		// cannot get the model logger until the model has been imported. Once
+		// this has changed, refactor this to use the model logger.
+		domain.NewStatusHistory(e.logger, e.clock),
 	)
 	return nil
 }

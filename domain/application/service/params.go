@@ -91,8 +91,6 @@ type AddUnitArg struct {
 type ImportUnitArg struct {
 	UnitName       coreunit.Name
 	PasswordHash   *string
-	AgentStatus    status.StatusInfo
-	WorkloadStatus status.StatusInfo
 	CloudContainer *application.CloudContainerParams
 }
 
@@ -207,10 +205,6 @@ type ImportApplicationArgs struct {
 
 	// ApplicationSettings contains the application settings.
 	ApplicationSettings application.ApplicationSettings
-
-	// ApplicationStatus contains the application status. It's optional
-	// and if not provided, the application will be started with no status.
-	ApplicationStatus *status.StatusInfo
 
 	// ResolvedResources contains a list of ResolvedResource instances,
 	// TODO (stickupkid): This isn't currently wired up.

@@ -1,0 +1,159 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package modelmigration
+
+import (
+	"context"
+	"time"
+
+	"github.com/juju/clock"
+	"github.com/juju/description/v9"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
+	gc "gopkg.in/check.v1"
+
+	corestatus "github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
+)
+
+type importSuite struct {
+	testing.IsolationSuite
+
+	importService *MockImportService
+}
+
+var _ = gc.Suite(&importSuite{})
+
+func (s *importSuite) TestImportBlank(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	importOp := importOperation{
+		service: s.importService,
+		clock:   clock.WallClock,
+	}
+
+	err := importOp.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportApplicationStatus(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	now := time.Now().UTC()
+
+	model := description.NewModel(description.ModelArgs{})
+	app := model.AddApplication(description.ApplicationArgs{
+		Name: "foo",
+	})
+	app.SetStatus(description.StatusArgs{
+		Value:   "foo",
+		Message: "bar",
+		Data:    map[string]any{"baz": "qux"},
+		Updated: now,
+	})
+
+	s.importService.EXPECT().SetApplicationStatus(gomock.Any(), "foo", &corestatus.StatusInfo{
+		Status:  corestatus.Status("foo"),
+		Message: "bar",
+		Data:    map[string]any{"baz": "qux"},
+		Since:   ptr(now),
+	})
+
+	importOp := importOperation{
+		service: s.importService,
+		clock:   clock.WallClock,
+	}
+
+	err := importOp.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportUnitStatus(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	now := time.Now().UTC()
+
+	model := description.NewModel(description.ModelArgs{})
+	app := model.AddApplication(description.ApplicationArgs{
+		Name: "foo",
+	})
+	u0 := app.AddUnit(description.UnitArgs{
+		Name: "foo/0",
+	})
+	u0.SetAgentStatus(description.StatusArgs{
+		Value:   "idle",
+		Message: "agent is idle",
+		Data:    map[string]any{"baz": "qux"},
+		Updated: now,
+	})
+	u0.SetWorkloadStatus(description.StatusArgs{
+		Value:   "active",
+		Message: "unit is active",
+		Data:    map[string]any{"biz": "qax"},
+		Updated: now,
+	})
+
+	u1 := app.AddUnit(description.UnitArgs{
+		Name: "foo/1",
+	})
+	u1.SetAgentStatus(description.StatusArgs{
+		Value:   "executing",
+		Message: "agent is executing",
+		Data:    map[string]any{"buz": "qix"},
+		Updated: now,
+	})
+	u1.SetWorkloadStatus(description.StatusArgs{
+		Value:   "blocked",
+		Message: "unit is blocked",
+		Data:    map[string]any{"boz": "qox"},
+		Updated: now,
+	})
+
+	s.importService.EXPECT().SetApplicationStatus(gomock.Any(), "foo", &corestatus.StatusInfo{
+		Status: corestatus.Unset,
+	})
+	s.importService.EXPECT().SetUnitAgentStatus(gomock.Any(), coreunit.Name("foo/0"), &corestatus.StatusInfo{
+		Status:  corestatus.Status("idle"),
+		Message: "agent is idle",
+		Data:    map[string]any{"baz": "qux"},
+		Since:   ptr(now),
+	})
+	s.importService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), coreunit.Name("foo/0"), &corestatus.StatusInfo{
+		Status:  corestatus.Status("active"),
+		Message: "unit is active",
+		Data:    map[string]any{"biz": "qax"},
+		Since:   ptr(now),
+	})
+	s.importService.EXPECT().SetUnitAgentStatus(gomock.Any(), coreunit.Name("foo/1"), &corestatus.StatusInfo{
+		Status:  corestatus.Status("executing"),
+		Message: "agent is executing",
+		Data:    map[string]any{"buz": "qix"},
+		Since:   ptr(now),
+	})
+	s.importService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), coreunit.Name("foo/1"), &corestatus.StatusInfo{
+		Status:  corestatus.Status("blocked"),
+		Message: "unit is blocked",
+		Data:    map[string]any{"boz": "qox"},
+		Since:   ptr(now),
+	})
+
+	importOp := importOperation{
+		service: s.importService,
+		clock:   clock.WallClock,
+	}
+
+	err := importOp.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *importSuite) setUpMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.importService = NewMockImportService(ctrl)
+
+	return ctrl
+}
