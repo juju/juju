@@ -90,25 +90,25 @@ func (s *sshTunnelerSuite) TestTunneler(c *gc.C) {
 	c.Assert(tunnelTracker.tracker, gc.HasLen, 0)
 }
 
-func (s *sshTunnelerSuite) TestGenerateBase64JWT(c *gc.C) {
+func (s *sshTunnelerSuite) TestGeneratePassword(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tunnelTracker, err := NewTunnelTracker(s.state, s.controller, s.dialer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	tunnelID := "test-tunnel-id"
-	token, err := tunnelTracker.generateBase64JWT(tunnelID)
+	token, err := tunnelTracker.authn.generatePassword(tunnelID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(token, gc.Not(gc.Equals), "")
 
 	rawToken, err := base64.StdEncoding.DecodeString(token)
 	c.Assert(err, jc.ErrorIsNil)
 
-	parsedToken, err := jwt.Parse(rawToken, jwt.WithKey(tunnelTracker.jwtAlg, tunnelTracker.sharedSecret))
+	parsedToken, err := jwt.Parse(rawToken, jwt.WithKey(tunnelTracker.authn.jwtAlg, tunnelTracker.authn.sharedSecret))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(parsedToken.Subject(), gc.Equals, "reverse-tunnel")
-	c.Assert(parsedToken.PrivateClaims()["tunnelID"], gc.Equals, tunnelID)
-	c.Assert(parsedToken.Issuer(), gc.Equals, "sshtunneler")
+	c.Assert(parsedToken.Subject(), gc.Equals, tokenSubject)
+	c.Assert(parsedToken.PrivateClaims()[tunnelIDClaim], gc.Equals, tunnelID)
+	c.Assert(parsedToken.Issuer(), gc.Equals, tokenIssuer)
 	c.Assert(parsedToken.Expiration().Sub(parsedToken.IssuedAt()), gc.Equals, maxTimeout)
 }
 
@@ -131,10 +131,10 @@ func (s *sshTunnelerSuite) TestAuthenticateTunnel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	tunnelID := "test-tunnel-id"
-	token, err := tunnelTracker.generateBase64JWT(tunnelID)
+	token, err := tunnelTracker.authn.generatePassword(tunnelID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	authTunnelID, err := tunnelTracker.AuthenticateTunnel("reverse-tunnel", token)
+	authTunnelID, err := tunnelTracker.AuthenticateTunnel(reverseTunnelUser, token)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(authTunnelID, gc.Equals, tunnelID)
 }
@@ -246,15 +246,15 @@ func (s *sshTunnelerSuite) TestAuthenticateTunnelExpiredToken(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	token, err := jwt.NewBuilder().
-		Issuer("sshtunneler").
-		Subject("reverse-tunnel").
+		Issuer(tokenIssuer).
+		Subject(tokenSubject).
 		IssuedAt(time.Now()).
 		Expiration(time.Now().Add(-1*maxTimeout)).
-		Claim("tunnelID", "foo").
+		Claim(tunnelIDClaim, "foo").
 		Build()
 	c.Assert(err, jc.ErrorIsNil)
 
-	signedToken, err := jwt.Sign(token, jwt.WithKey(tunnelTracker.jwtAlg, tunnelTracker.sharedSecret))
+	signedToken, err := jwt.Sign(token, jwt.WithKey(tunnelTracker.authn.jwtAlg, tunnelTracker.authn.sharedSecret))
 	c.Assert(err, jc.ErrorIsNil)
 
 	b64Token := base64.StdEncoding.EncodeToString(signedToken)

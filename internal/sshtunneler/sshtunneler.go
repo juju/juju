@@ -23,7 +23,11 @@ import (
 )
 
 const (
-	maxTimeout = 60 * time.Second
+	maxTimeout        = 60 * time.Second
+	reverseTunnelUser = "reverse-tunnel"
+	tokenIssuer       = "sshtunneler"
+	tokenSubject      = "reverse-tunnel"
+	tunnelIDClaim     = "tunnelID"
 )
 
 // State writes requests for tunnels to state.
@@ -41,6 +45,11 @@ type SSHDial interface {
 	Dial(conn net.Conn, username string, privateKey gossh.Signer) (*gossh.Client, error)
 }
 
+type tunnelAuthentication struct {
+	sharedSecret []byte
+	jwtAlg       jwa.KeyAlgorithm
+}
+
 type tunnelRequest struct {
 	privateKey gossh.Signer
 	dialer     SSHDial
@@ -49,13 +58,12 @@ type tunnelRequest struct {
 }
 
 type tunnelTracker struct {
-	sharedSecret []byte
-	jwtAlg       jwa.KeyAlgorithm
-	state        State
-	controller   ControllerInfo
-	dialer       SSHDial
-	mu           sync.Mutex
-	tracker      map[string]*tunnelRequest
+	authn      tunnelAuthentication
+	state      State
+	controller ControllerInfo
+	dialer     SSHDial
+	mu         sync.Mutex
+	tracker    map[string]*tunnelRequest
 }
 
 // NewTunnelTracker creates a new tunnel tracker.
@@ -71,13 +79,17 @@ func NewTunnelTracker(state State, controllerInfo ControllerInfo, dialer SSHDial
 		return nil, errors.Annotate(err, "failed to generate shared secret")
 	}
 
-	return &tunnelTracker{
-		tracker:      make(map[string]*tunnelRequest),
+	authn := tunnelAuthentication{
 		jwtAlg:       jwa.HS512,
 		sharedSecret: key,
-		controller:   controllerInfo,
-		state:        state,
-		dialer:       dialer,
+	}
+
+	return &tunnelTracker{
+		tracker:    make(map[string]*tunnelRequest),
+		authn:      authn,
+		controller: controllerInfo,
+		state:      state,
+		dialer:     dialer,
 	}, nil
 }
 
@@ -87,19 +99,19 @@ type RequestArgs struct {
 	modelUUID string
 }
 
-func (t *tunnelTracker) generateBase64JWT(tunnelID string) (string, error) {
+func (tAuth *tunnelAuthentication) generatePassword(tunnelID string) (string, error) {
 	token, err := jwt.NewBuilder().
-		Issuer("sshtunneler").
-		Subject("reverse-tunnel").
+		Issuer(tokenIssuer).
+		Subject(tokenSubject).
 		IssuedAt(time.Now()).
 		Expiration(time.Now().Add(maxTimeout)).
-		Claim("tunnelID", tunnelID).
+		Claim(tunnelIDClaim, tunnelID).
 		Build()
 	if err != nil {
 		return "", errors.Annotate(err, "failed to build token")
 	}
 
-	signedToken, err := jwt.Sign(token, jwt.WithKey(t.jwtAlg, t.sharedSecret))
+	signedToken, err := jwt.Sign(token, jwt.WithKey(tAuth.jwtAlg, tAuth.sharedSecret))
 	if err != nil {
 		return "", errors.Annotate(err, "failed to sign token")
 	}
@@ -107,7 +119,25 @@ func (t *tunnelTracker) generateBase64JWT(tunnelID string) (string, error) {
 	return base64.StdEncoding.EncodeToString(signedToken), nil
 }
 
-func (t *tunnelTracker) generateEphemeralSSHKey() (gossh.Signer, gossh.PublicKey, error) {
+func (tAuth *tunnelAuthentication) validatePassword(password string) (string, error) {
+	decodedToken, err := base64.StdEncoding.DecodeString(password)
+	if err != nil {
+		return "", errors.Annotate(err, "failed to decode token")
+	}
+
+	token, err := jwt.Parse(decodedToken, jwt.WithKey(tAuth.jwtAlg, tAuth.sharedSecret))
+	if err != nil {
+		return "", errors.Annotate(err, "failed to parse token")
+	}
+
+	tunnelID, ok := token.PrivateClaims()[tunnelIDClaim].(string)
+	if !ok {
+		return "", errors.New("invalid token")
+	}
+	return tunnelID, nil
+}
+
+func (tt *tunnelTracker) generateEphemeralSSHKey() (gossh.Signer, gossh.PublicKey, error) {
 	privKey, err := ssh.ED25519()
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to generate key")
@@ -125,18 +155,18 @@ func (t *tunnelTracker) generateEphemeralSSHKey() (gossh.Signer, gossh.PublicKey
 //
 // The returned tunnelRequest should be used to wait for the tunnel to be established.
 // See Wait() for more information.
-func (t *tunnelTracker) RequestTunnel(req RequestArgs) (*tunnelRequest, error) {
+func (tt *tunnelTracker) RequestTunnel(req RequestArgs) (*tunnelRequest, error) {
 	tunnelID, err := uuid.NewRandom()
 	if err != nil {
 		return nil, err
 	}
 
-	jwtPassword, err := t.generateBase64JWT(tunnelID.String())
+	password, err := tt.authn.generatePassword(tunnelID.String())
 	if err != nil {
 		return nil, err
 	}
 
-	privateKey, publicKey, err := t.generateEphemeralSSHKey()
+	privateKey, publicKey, err := tt.generateEphemeralSSHKey()
 	if err != nil {
 		return nil, err
 	}
@@ -146,20 +176,20 @@ func (t *tunnelTracker) RequestTunnel(req RequestArgs) (*tunnelRequest, error) {
 		ModelUUID:          req.modelUUID,
 		UnitName:           req.unitName,
 		Expires:            time.Now().Add(maxTimeout),
-		Username:           "reverse-tunnel",
-		Password:           jwtPassword,
-		ControllerAddress:  t.controller.Addresses(),
+		Username:           reverseTunnelUser,
+		Password:           password,
+		ControllerAddress:  tt.controller.Addresses(),
 		UnitPort:           22,
 		EphemeralPublicKey: gossh.MarshalAuthorizedKey(publicKey),
 	}
 
-	err = t.state.InsertSSHConnRequest(args)
+	err = tt.state.InsertSSHConnRequest(args)
 	if err != nil {
 		return nil, err
 	}
 
 	cleanup := func() {
-		t.delete(tunnelID.String())
+		tt.delete(tunnelID.String())
 	}
 	// Make sure to use an unbuffered channel to ensure someone always
 	// has responsibility of the connection passed around.
@@ -167,27 +197,27 @@ func (t *tunnelTracker) RequestTunnel(req RequestArgs) (*tunnelRequest, error) {
 		recv:       make(chan (net.Conn)),
 		privateKey: privateKey,
 		cleanup:    cleanup,
-		dialer:     t.dialer,
+		dialer:     tt.dialer,
 	}
 
-	t.mu.Lock()
-	t.tracker[tunnelID.String()] = tunnelReq
-	t.mu.Unlock()
+	tt.mu.Lock()
+	tt.tracker[tunnelID.String()] = tunnelReq
+	tt.mu.Unlock()
 
 	return tunnelReq, nil
 }
 
-func (t *tunnelTracker) getTunnel(tunnelID string) (*tunnelRequest, bool) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	req, ok := t.tracker[tunnelID]
+func (tt *tunnelTracker) getTunnel(tunnelID string) (*tunnelRequest, bool) {
+	tt.mu.Lock()
+	defer tt.mu.Unlock()
+	req, ok := tt.tracker[tunnelID]
 	return req, ok
 }
 
-func (t *tunnelTracker) delete(tunnelID string) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	delete(t.tracker, tunnelID)
+func (tt *tunnelTracker) delete(tunnelID string) {
+	tt.mu.Lock()
+	defer tt.mu.Unlock()
+	delete(tt.tracker, tunnelID)
 }
 
 // AuthenticateTunnel authenticates an SSH request for a tunnel.
@@ -197,26 +227,12 @@ func (t *tunnelTracker) delete(tunnelID string) {
 //
 // If the request is valid, the provided tunnelID should be
 // stored and provided alongside the network connection to PushTunnel.
-func (t *tunnelTracker) AuthenticateTunnel(username, password string) (tunnelID string, err error) {
-	if username != "reverse-tunnel" {
+func (tt *tunnelTracker) AuthenticateTunnel(username, password string) (tunnelID string, err error) {
+	if username != reverseTunnelUser {
 		return "", errors.New("invalid username")
 	}
 
-	decodedToken, err := base64.StdEncoding.DecodeString(password)
-	if err != nil {
-		return "", errors.Annotate(err, "failed to decode token")
-	}
-
-	token, err := jwt.Parse(decodedToken, jwt.WithKey(t.jwtAlg, t.sharedSecret))
-	if err != nil {
-		return "", errors.Annotate(err, "failed to parse token")
-	}
-
-	tunnelID, ok := token.PrivateClaims()["tunnelID"].(string)
-	if !ok {
-		return "", errors.New("invalid token")
-	}
-	return tunnelID, nil
+	return tt.authn.validatePassword(password)
 }
 
 // PushTunnel publishes a network connection for a tunnel.
@@ -229,8 +245,8 @@ func (t *tunnelTracker) AuthenticateTunnel(username, password string) (tunnelID 
 // This method blocks until a consumer runs Wait() on the
 // appropriate tunnel request. Use context.WithTimeout to control
 // the maximum time to wait.
-func (t *tunnelTracker) PushTunnel(ctx context.Context, tunnelID string, conn net.Conn) error {
-	req, ok := t.getTunnel(tunnelID)
+func (tt *tunnelTracker) PushTunnel(ctx context.Context, tunnelID string, conn net.Conn) error {
+	req, ok := tt.getTunnel(tunnelID)
 	if !ok {
 		return errors.New("tunnel not found")
 	}
@@ -251,11 +267,11 @@ func (t *tunnelTracker) PushTunnel(ctx context.Context, tunnelID string, conn ne
 //
 // Use context.WithTimeout to control the maximum time to wait for the tunnel
 // to be established.
-func (t *tunnelRequest) Wait(ctx context.Context) (*gossh.Client, error) {
-	defer t.cleanup()
+func (tr *tunnelRequest) Wait(ctx context.Context) (*gossh.Client, error) {
+	defer tr.cleanup()
 	select {
-	case conn := <-t.recv:
-		return t.dialer.Dial(conn, "ubuntu", t.privateKey)
+	case conn := <-tr.recv:
+		return tr.dialer.Dial(conn, "ubuntu", tr.privateKey)
 	case <-ctx.Done():
 		return nil, errors.Annotate(ctx.Err(), "waiting for tunnel")
 	}
