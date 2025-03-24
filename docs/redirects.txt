@@ -7,3 +7,4 @@ contributor/unsorted/bootstrapping/ contributor/index
 contributor/unsorted/managing-complexity/ contributor/explanation/on-managing-complexity/
 contributor/unsorted/commands/ contributor/unsorted/styleguide/
 contributor/unsorted/hacking-state/ contributor/unsorted/styleguide/
+contributor/unsorted/cross-platform-development/ contributor/unsorted/compile-and-run-juju-agents-on-different-architectures.md
