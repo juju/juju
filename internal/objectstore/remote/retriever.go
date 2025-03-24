@@ -356,12 +356,12 @@ func (t *retriever) retrieve(ctx context.Context, namespace, sha256 string) (io.
 	err := t.remote.Connection(ctx, func(ctx context.Context, conn api.Connection) error {
 		httpClient, err := conn.RootHTTPClient()
 		if err != nil {
-			return errors.Errorf("failed to get root HTTP client: %v", err)
+			return errors.Errorf("failed to get root HTTP client: %w", err)
 		}
 
 		client, err := t.newBlobsClient(httpClient.BaseURL, newHTTPClient(httpClient), t.logger)
 		if err != nil {
-			return errors.Errorf("failed to create object client: %v", err)
+			return errors.Errorf("failed to create object client: %w", err)
 		}
 
 		if namespace == database.ControllerNS {
@@ -370,7 +370,12 @@ func (t *retriever) retrieve(ctx context.Context, namespace, sha256 string) (io.
 		}
 
 		reader, size, err = client.GetObject(ctx, namespace, sha256)
-		return err
+		if errors.Is(err, jujuerrors.NotFound) {
+			return errors.Errorf("blob %q not found: %w", sha256, err).Add(BlobNotFound)
+		} else if err != nil {
+			return errors.Errorf("failed to get object %q: %w", sha256, err)
+		}
+		return nil
 	})
 	return reader, size, err
 }
