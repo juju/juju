@@ -357,8 +357,8 @@ func (*environ) PrecheckInstance(ctx envcontext.ProviderCallContext, args enviro
 	return nil
 }
 
-// ValidateModelCreation is part of the [environs.ModelResources] interface.
-func (e *environ) ValidateModelCreation(ctx context.Context) error {
+// ValidateProviderForNewModel is part of the [environs.ModelResources] interface.
+func (e *environ) ValidateProviderForNewModel(ctx context.Context) error {
 	return nil
 }
 

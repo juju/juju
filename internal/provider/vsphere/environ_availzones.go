@@ -37,31 +37,31 @@ func (z *vmwareAvailZone) Available() bool {
 
 // AvailabilityZones is part of the common.ZonedEnviron interface.
 func (env *environ) AvailabilityZones(ctx context.Context) (zones network.AvailabilityZones, err error) {
-	err = env.withSession(ctx, func(env *sessionEnviron) error {
-		zones, err = env.AvailabilityZones(ctx)
+	err = env.withSession(ctx, func(senv *sessionEnviron) error {
+		zones, err = senv.AvailabilityZones(ctx)
 		return err
 	})
 	return zones, err
 }
 
 // AvailabilityZones is part of the common.ZonedEnviron interface.
-func (env *sessionEnviron) AvailabilityZones(ctx context.Context) (network.AvailabilityZones, error) {
-	if len(env.zones) > 0 {
+func (senv *sessionEnviron) AvailabilityZones(ctx context.Context) (network.AvailabilityZones, error) {
+	if len(senv.zones) > 0 {
 		// This is relatively expensive to compute, so cache it on the session
-		return env.zones, nil
+		return senv.zones, nil
 	}
 
-	folders, err := env.client.Folders(env.ctx)
+	folders, err := senv.client.Folders(senv.ctx)
 	if err != nil {
-		return nil, env.handleCredentialError(ctx, err)
+		return nil, senv.handleCredentialError(ctx, err)
 	}
 	logger.Tracef(ctx, "host folder InventoryPath=%q, Name=%q",
 		folders.HostFolder.InventoryPath, folders.HostFolder.Name())
 	hostFolder := folders.HostFolder.InventoryPath
 
-	computeResources, err := env.client.ComputeResources(env.ctx)
+	computeResources, err := senv.client.ComputeResources(senv.ctx)
 	if err != nil {
-		return nil, env.handleCredentialError(ctx, err)
+		return nil, senv.handleCredentialError(ctx, err)
 	}
 	var zones network.AvailabilityZones
 	for _, cr := range computeResources {
@@ -72,9 +72,9 @@ func (env *sessionEnviron) AvailabilityZones(ctx context.Context) (network.Avail
 
 		// Add an availability zone for each resource pool under this compute
 		// resource
-		pools, err := env.client.ResourcePools(env.ctx, cr.Path+"/...")
+		pools, err := senv.client.ResourcePools(senv.ctx, cr.Path+"/...")
 		if err != nil {
-			return nil, env.handleCredentialError(ctx, err)
+			return nil, senv.handleCredentialError(ctx, err)
 		}
 		for _, pool := range pools {
 			zone := &vmwareAvailZone{
@@ -97,8 +97,8 @@ func (env *sessionEnviron) AvailabilityZones(ctx context.Context) (network.Avail
 		logger.Debugf(ctx, "fetched availability zones: %q", zoneNames)
 	}
 
-	env.zones = zones
-	return env.zones, nil
+	senv.zones = zones
+	return senv.zones, nil
 }
 
 // makeAvailZoneName constructs a Vsphere availability zone name from the
@@ -124,20 +124,20 @@ func makeAvailZoneName(hostFolder, crPath, poolPath string) string {
 
 // InstanceAvailabilityZoneNames is part of the common.ZonedEnviron interface.
 func (env *environ) InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallContext, ids []instance.Id) (names map[instance.Id]string, err error) {
-	err = env.withSession(ctx, func(env *sessionEnviron) error {
-		names, err = env.InstanceAvailabilityZoneNames(ctx, ids)
+	err = env.withSession(ctx, func(senv *sessionEnviron) error {
+		names, err = senv.InstanceAvailabilityZoneNames(ctx, ids)
 		return err
 	})
 	return names, err
 }
 
 // InstanceAvailabilityZoneNames is part of the common.ZonedEnviron interface.
-func (env *sessionEnviron) InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
-	zones, err := env.AvailabilityZones(ctx)
+func (senv *sessionEnviron) InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
+	zones, err := senv.AvailabilityZones(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	instances, err := env.Instances(ctx, ids)
+	instances, err := senv.Instances(ctx, ids)
 	switch err {
 	case nil, environs.ErrPartialInstances:
 		break
@@ -172,18 +172,18 @@ func (env *sessionEnviron) InstanceAvailabilityZoneNames(ctx envcontext.Provider
 
 // DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
 func (env *environ) DeriveAvailabilityZones(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (names []string, err error) {
-	err = env.withSession(ctx, func(env *sessionEnviron) error {
-		names, err = env.DeriveAvailabilityZones(ctx, args)
+	err = env.withSession(ctx, func(senv *sessionEnviron) error {
+		names, err = senv.DeriveAvailabilityZones(ctx, args)
 		return err
 	})
 	return names, err
 }
 
 // DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
-func (env *sessionEnviron) DeriveAvailabilityZones(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
+func (senv *sessionEnviron) DeriveAvailabilityZones(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
 	if args.Placement != "" {
 		// args.Placement will always be a zone name or empty.
-		placement, err := env.parsePlacement(ctx, args.Placement)
+		placement, err := senv.parsePlacement(ctx, args.Placement)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -194,8 +194,8 @@ func (env *sessionEnviron) DeriveAvailabilityZones(ctx envcontext.ProviderCallCo
 	return nil, nil
 }
 
-func (env *sessionEnviron) availZone(ctx envcontext.ProviderCallContext, name string) (*vmwareAvailZone, error) {
-	zones, err := env.AvailabilityZones(ctx)
+func (senv *sessionEnviron) availZone(ctx envcontext.ProviderCallContext, name string) (*vmwareAvailZone, error) {
+	zones, err := senv.AvailabilityZones(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

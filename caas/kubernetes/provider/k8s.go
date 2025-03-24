@@ -391,8 +391,8 @@ Please bootstrap again and choose a different controller name.`, controllerName)
 	return errors.Trace(err)
 }
 
-// ValidateModelCreation is part of the [environs.ModelResources] interface.
-func (k *kubernetesClient) ValidateModelCreation(ctx context.Context) error {
+// ValidateProviderForNewModel is part of the [environs.ModelResources] interface.
+func (k *kubernetesClient) ValidateProviderForNewModel(ctx context.Context) error {
 	_, err := k.client().CoreV1().Namespaces().Get(ctx, k.namespace, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil

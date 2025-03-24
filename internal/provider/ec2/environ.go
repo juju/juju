@@ -177,8 +177,8 @@ func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerN
 	return nil
 }
 
-// ValidateModelCreation is part of the [environs.ModelResources] interface.
-func (e *environ) ValidateModelCreation(ctx context.Context) error {
+// ValidateProviderForNewModel is part of the [environs.ModelResources] interface.
+func (e *environ) ValidateProviderForNewModel(ctx context.Context) error {
 	if err := verifyCredentials(ctx, e.CredentialInvalidator, e.ec2Client); err != nil {
 		return err
 	}

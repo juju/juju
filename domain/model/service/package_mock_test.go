@@ -1401,40 +1401,40 @@ func (c *MockModelResourcesProviderCreateModelResourcesCall) DoAndReturn(f func(
 	return c
 }
 
-// ValidateModelCreation mocks base method.
-func (m *MockModelResourcesProvider) ValidateModelCreation(arg0 context.Context) error {
+// ValidateProviderForNewModel mocks base method.
+func (m *MockModelResourcesProvider) ValidateProviderForNewModel(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateModelCreation", arg0)
+	ret := m.ctrl.Call(m, "ValidateProviderForNewModel", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// ValidateModelCreation indicates an expected call of ValidateModelCreation.
-func (mr *MockModelResourcesProviderMockRecorder) ValidateModelCreation(arg0 any) *MockModelResourcesProviderValidateModelCreationCall {
+// ValidateProviderForNewModel indicates an expected call of ValidateProviderForNewModel.
+func (mr *MockModelResourcesProviderMockRecorder) ValidateProviderForNewModel(arg0 any) *MockModelResourcesProviderValidateProviderForNewModelCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateModelCreation", reflect.TypeOf((*MockModelResourcesProvider)(nil).ValidateModelCreation), arg0)
-	return &MockModelResourcesProviderValidateModelCreationCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateProviderForNewModel", reflect.TypeOf((*MockModelResourcesProvider)(nil).ValidateProviderForNewModel), arg0)
+	return &MockModelResourcesProviderValidateProviderForNewModelCall{Call: call}
 }
 
-// MockModelResourcesProviderValidateModelCreationCall wrap *gomock.Call
-type MockModelResourcesProviderValidateModelCreationCall struct {
+// MockModelResourcesProviderValidateProviderForNewModelCall wrap *gomock.Call
+type MockModelResourcesProviderValidateProviderForNewModelCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelResourcesProviderValidateModelCreationCall) Return(arg0 error) *MockModelResourcesProviderValidateModelCreationCall {
+func (c *MockModelResourcesProviderValidateProviderForNewModelCall) Return(arg0 error) *MockModelResourcesProviderValidateProviderForNewModelCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelResourcesProviderValidateModelCreationCall) Do(f func(context.Context) error) *MockModelResourcesProviderValidateModelCreationCall {
+func (c *MockModelResourcesProviderValidateProviderForNewModelCall) Do(f func(context.Context) error) *MockModelResourcesProviderValidateProviderForNewModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelResourcesProviderValidateModelCreationCall) DoAndReturn(f func(context.Context) error) *MockModelResourcesProviderValidateModelCreationCall {
+func (c *MockModelResourcesProviderValidateProviderForNewModelCall) DoAndReturn(f func(context.Context) error) *MockModelResourcesProviderValidateProviderForNewModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -17,20 +17,20 @@ func (env *environ) PrecheckInstance(ctx envcontext.ProviderCallContext, args en
 	if args.Placement == "" && args.Constraints.String() == "" {
 		return nil
 	}
-	return env.withSession(ctx, func(env *sessionEnviron) error {
-		return env.PrecheckInstance(ctx, args)
+	return env.withSession(ctx, func(senv *sessionEnviron) error {
+		return senv.PrecheckInstance(ctx, args)
 	})
 }
 
 // PrecheckInstance is part of the environs.Environ interface.
-func (env *sessionEnviron) PrecheckInstance(ctx envcontext.ProviderCallContext, args environs.PrecheckInstanceParams) error {
-	if _, err := env.parsePlacement(ctx, args.Placement); err != nil {
+func (senv *sessionEnviron) PrecheckInstance(ctx envcontext.ProviderCallContext, args environs.PrecheckInstanceParams) error {
+	if _, err := senv.parsePlacement(ctx, args.Placement); err != nil {
 		return errors.Trace(err)
 	}
-	if err := env.checkZones(ctx, args.Constraints.Zones); err != nil {
+	if err := senv.checkZones(ctx, args.Constraints.Zones); err != nil {
 		return errors.Trace(err)
 	}
-	if err := env.checkDatastore(ctx, args.Constraints.RootDiskSource); err != nil {
+	if err := senv.checkDatastore(ctx, args.Constraints.RootDiskSource); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -38,11 +38,11 @@ func (env *sessionEnviron) PrecheckInstance(ctx envcontext.ProviderCallContext, 
 
 // checkZones ensures all the zones (in the constraints) are valid
 // availability zones.
-func (env *sessionEnviron) checkZones(ctx envcontext.ProviderCallContext, zones *[]string) error {
+func (senv *sessionEnviron) checkZones(ctx envcontext.ProviderCallContext, zones *[]string) error {
 	if zones == nil || len(*zones) == 0 {
 		return nil
 	}
-	foundZones, err := env.AvailabilityZones(ctx)
+	foundZones, err := senv.AvailabilityZones(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -58,12 +58,12 @@ constraintZones:
 	return nil
 }
 
-func (env *sessionEnviron) checkDatastore(ctx envcontext.ProviderCallContext, datastore *string) error {
+func (senv *sessionEnviron) checkDatastore(ctx envcontext.ProviderCallContext, datastore *string) error {
 	if datastore == nil || *datastore == "" {
 		return nil
 	}
 	name := *datastore
-	datastores, err := env.accessibleDatastores(ctx)
+	datastores, err := senv.accessibleDatastores(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}

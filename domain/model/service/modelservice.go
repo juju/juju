@@ -83,8 +83,8 @@ type AgentBinaryFinder interface {
 // ModelResourcesProvider mirrors the [environs.ModelResources] interface that is
 // used by the model service when creating a new model.
 type ModelResourcesProvider interface {
-	// ValidateModelCreation is part of the [environs.ModelResources] interface.
-	ValidateModelCreation(ctx context.Context) error
+	// ValidateProviderForNewModel is part of the [environs.ModelResources] interface.
+	ValidateProviderForNewModel(ctx context.Context) error
 	// CreateModelResources is part of the [environs.ModelResources] interface.
 	CreateModelResources(context.Context, environs.CreateParams) error
 }
@@ -324,7 +324,7 @@ func (s *ProviderModelService) CreateModel(
 		return errors.Errorf("opening environ: %w", err)
 	}
 
-	if err := env.ValidateModelCreation(ctx); err != nil {
+	if err := env.ValidateProviderForNewModel(ctx); err != nil {
 		return errors.Errorf("creating model %q: %w", s.modelUUID, err)
 	}
 	if err := env.CreateModelResources(ctx, environs.CreateParams{ControllerUUID: controllerUUID.String()}); err != nil {

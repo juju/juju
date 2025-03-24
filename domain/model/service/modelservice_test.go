@@ -613,7 +613,7 @@ func (s *providerModelServiceSuite) TestCreateModel(c *gc.C) {
 		AgentVersion:   jujuversion.Current,
 	}).Return(nil)
 
-	s.mockProvider.EXPECT().ValidateModelCreation(gomock.Any()).Return(nil)
+	s.mockProvider.EXPECT().ValidateProviderForNewModel(gomock.Any()).Return(nil)
 	s.mockProvider.EXPECT().CreateModelResources(gomock.Any(), environs.CreateParams{ControllerUUID: controllerUUID.String()}).Return(nil)
 
 	svc := NewProviderModelService(

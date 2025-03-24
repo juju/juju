@@ -778,7 +778,7 @@ func (s *K8sBrokerSuite) TestCreateModelResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestValidateModelCreationAlreadyExists(c *gc.C) {
+func (s *K8sBrokerSuite) TestValidateProviderForNewModelAlreadyExists(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -791,7 +791,7 @@ func (s *K8sBrokerSuite) TestValidateModelCreationAlreadyExists(c *gc.C) {
 	s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).
 		Return(ns, nil)
 
-	err := s.broker.ValidateModelCreation(
+	err := s.broker.ValidateProviderForNewModel(
 		context.Background(),
 	)
 	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)

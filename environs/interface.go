@@ -341,12 +341,13 @@ type BootstrapEnviron interface {
 	storage.ProviderRegistry
 }
 
-// ModelResources provides the API to use when creating new models.
+// ModelResources provides the API for checking and instantiating models
+// and their resources in a provider.
 type ModelResources interface {
-	// ValidateModelCreation returns an error if a new model
+	// ValidateProviderForNewModel returns an error if a new model
 	// cannot be created owing to issues such as incompatible or
 	// otherwise invalid model configuration.
-	ValidateModelCreation(context.Context) error
+	ValidateProviderForNewModel(context.Context) error
 
 	// CreateModelResources creates resources needed for a new hosted model.
 	//

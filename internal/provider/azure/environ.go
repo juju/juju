@@ -240,8 +240,8 @@ func (env *azureEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, _ st
 	return nil
 }
 
-// ValidateModelCreation is part of the [environs.ModelResources] interface.
-func (env *azureEnviron) ValidateModelCreation(ctx context.Context) error {
+// ValidateProviderForNewModel is part of the [environs.ModelResources] interface.
+func (env *azureEnviron) ValidateProviderForNewModel(ctx context.Context) error {
 	if env.config.resourceGroupName == "" {
 		return nil
 	}
@@ -261,8 +261,7 @@ func (env *azureEnviron) validateResourceGroup(ctx context.Context, resourceGrou
 	if region := toValue(g.Location); region != env.location {
 		return errors.Errorf("cannot use resource group in region %q when operating in region %q", region, env.location)
 	}
-	modelTag := names.NewModelTag(env.config.Config.UUID())
-	if err := env.checkResourceGroup(g.ResourceGroup, modelTag); err != nil {
+	if err := env.checkResourceGroup(g.ResourceGroup, env.config.Config.UUID()); err != nil {
 		return env.HandleCredentialError(ctx, errors.Annotate(err, "validating resource group"))
 	}
 	return nil
@@ -270,10 +269,6 @@ func (env *azureEnviron) validateResourceGroup(ctx context.Context, resourceGrou
 
 // CreateModelResources is part of the [environs.ModelResources] interface.
 func (env *azureEnviron) CreateModelResources(ctx context.Context, args environs.CreateParams) error {
-	if err := verifyCredentials(ctx, env); err != nil {
-		return errors.Trace(err)
-	}
-
 	resourceTags := env.resourceTags(args.ControllerUUID)
 	needResourceGroup := env.config.resourceGroupName == ""
 	if needResourceGroup {
@@ -2305,13 +2300,13 @@ func (env *azureEnviron) resourceGroupName(ctx context.Context, modelTag names.M
 }
 
 // checkResourceGroup ensures the resource group is not tagged for a different model.
-func (env *azureEnviron) checkResourceGroup(g armresources.ResourceGroup, modelTag names.ModelTag) error {
+func (env *azureEnviron) checkResourceGroup(g armresources.ResourceGroup, modelUUID string) error {
 	mTag, ok := g.Tags[tags.JujuModel]
 	tagValue := toValue(mTag)
-	if ok && tagValue != "" && tagValue != modelTag.Id() {
+	if ok && tagValue != "" && tagValue != modelUUID {
 		// This should never happen in practice - combination of model name and first 8
 		// digits of UUID should be unique.
-		return errors.Errorf("unexpected model UUID on resource group %q; expected %q, got %q", env.resourceGroup, modelTag.Id(), tagValue)
+		return errors.Errorf("unexpected model UUID on resource group %q; expected %q, got %q", env.resourceGroup, modelUUID, tagValue)
 	}
 	return nil
 }
