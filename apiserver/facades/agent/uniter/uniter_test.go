@@ -281,7 +281,6 @@ type uniterRelationSuite struct {
 	wordpressUnitTag names.UnitTag
 
 	applicationService *MockApplicationService
-	modelInfoService   *MockModelInfoService
 	relationService    *MockRelationService
 	statusService      *MockStatusService
 	watcherRegistry    *MockWatcherRegistry
@@ -942,7 +941,75 @@ func (s *uniterRelationSuite) TestLeaveScopeFails(c *gc.C) {
 			{&params.Error{Message: `"application-wordpress" is not a valid unit tag`}},
 		},
 	})
+}
 
+func (s *uniterRelationSuite) TestWatchRelationUnits(c *gc.C) {
+	// arrange
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	relUUID := relationtesting.GenRelationUUID(c)
+	relUnitUUID := relationtesting.GenRelationUnitUUID(c)
+	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
+	relKey, err := corerelation.ParseKeyFromTagString(relTag.String())
+	c.Assert(err, jc.ErrorIsNil)
+	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
+	s.expectGetRelationUnit(relUUID, relUnitUUID, s.wordpressUnitTag.Id())
+	watcherID := "watch1"
+	departed := []string{"unit-mysql-0"}
+	s.expectWatchRelationUnitsChange(ctrl, relUnitUUID, departed, watcherID)
+
+	expectedResult := params.RelationUnitsWatchResults{Results: []params.RelationUnitsWatchResult{
+		{
+			RelationUnitsWatcherId: watcherID,
+			Changes:                params.RelationUnitsChange{Departed: departed},
+		},
+	}}
+
+	// act
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{relTag.String(), s.wordpressUnitTag.String()}},
+	}
+	result, err := s.uniter.WatchRelationUnits(context.Background(), args)
+
+	// assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, expectedResult)
+}
+
+// TestWatchRelationUnitsFails tests for unauthorized errors, unit tag
+// validation, and ensures the method works in bulk.
+func (s *uniterRelationSuite) TestWatchRelationUnitsFails(c *gc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
+	failRelTag := names.NewRelationTag("postgresql:database wordpress:mysql")
+	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, failRelTag.Id()), "",
+		relationerrors.RelationNotFound)
+
+	// act
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		// Not the authorized unit
+		{Relation: "relation-42", Unit: "unit-foo-0"},
+		// Invalid relation tag
+		{Relation: "relation-42", Unit: s.wordpressUnitTag.String()},
+		// Relation key not found
+		{Relation: failRelTag.String(), Unit: s.wordpressUnitTag.String()},
+		// Invalid unit tag
+		{Relation: relTag.String(), Unit: "application-wordpress"},
+	}}
+	result, err := s.uniter.WatchRelationUnits(context.Background(), args)
+
+	// assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.RelationUnitsWatchResults{
+		Results: []params.RelationUnitsWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
 }
 
 func (s *uniterRelationSuite) TestWatchUnitRelations(c *gc.C) {
@@ -1007,7 +1074,6 @@ func (s *uniterRelationSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.applicationService = NewMockApplicationService(ctrl)
-	s.modelInfoService = NewMockModelInfoService(ctrl)
 	s.relationService = NewMockRelationService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
 	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
@@ -1038,7 +1104,6 @@ func (s *uniterRelationSuite) setupMocks(c *gc.C) *gomock.Controller {
 		logger:            loggertesting.WrapCheckLog(c),
 
 		applicationService: s.applicationService,
-		modelInfoService:   s.modelInfoService,
 		relationService:    s.relationService,
 		statusService:      s.statusService,
 		watcherRegistry:    s.watcherRegistry,
@@ -1169,6 +1234,20 @@ func (s *uniterRelationSuite) expectWatchLifeSuspendedStatus(unitUUID coreunit.U
 
 func (s *uniterRelationSuite) expectWatcherRegistry(watchID string, watch *watchertest.MockStringsWatcher, err error) {
 	s.watcherRegistry.EXPECT().Register(watch).Return(watchID, err).AnyTimes()
+}
+
+func (s *uniterRelationSuite) expectWatchRelationUnitsChange(
+	ctrl *gomock.Controller,
+	relUnitUUID corerelation.UnitUUID,
+	departed []string,
+	watcherID string,
+) {
+	mockWatcher := NewMockRelationUnitsWatcher(ctrl)
+	channel := make(chan watcher.RelationUnitsChange, 1)
+	channel <- watcher.RelationUnitsChange{Departed: departed}
+	mockWatcher.EXPECT().Changes().Return(channel).AnyTimes()
+	s.relationService.EXPECT().WatchRelationUnit(gomock.Any(), relUnitUUID).Return(mockWatcher, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return(watcherID, nil)
 }
 
 type commitHookChangesSuite struct {

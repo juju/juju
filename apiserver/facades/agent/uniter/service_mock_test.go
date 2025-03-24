@@ -17,8 +17,8 @@ import (
 	config "github.com/juju/juju/core/config"
 	leadership "github.com/juju/juju/core/leadership"
 	life "github.com/juju/juju/core/life"
-	model "github.com/juju/juju/core/model"
 	relation "github.com/juju/juju/core/relation"
+	model "github.com/juju/juju/core/model"
 	status "github.com/juju/juju/core/status"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
@@ -1385,6 +1385,15 @@ func (m *MockRelationService) WatchLifeSuspendedStatus(arg0 context.Context, arg
 	return ret0, ret1
 }
 
+// WatchRelationUnit mocks base method.
+func (m *MockRelationService) WatchRelationUnit(arg0 context.Context, arg1 relation.UnitUUID) (relation0.RelationUnitsWatcher, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchRelationUnit", arg0, arg1)
+	ret0, _ := ret[0].(relation0.RelationUnitsWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
 // WatchLifeSuspendedStatus indicates an expected call of WatchLifeSuspendedStatus.
 func (mr *MockRelationServiceMockRecorder) WatchLifeSuspendedStatus(arg0, arg1 any) *MockRelationServiceWatchLifeSuspendedStatusCall {
 	mr.mock.ctrl.T.Helper()
@@ -1397,8 +1406,25 @@ type MockRelationServiceWatchLifeSuspendedStatusCall struct {
 	*gomock.Call
 }
 
+// WatchRelationUnit indicates an expected call of WatchRelationUnit.
+func (mr *MockRelationServiceMockRecorder) WatchRelationUnit(arg0, arg1 any) *MockRelationServiceWatchRelationUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRelationUnit", reflect.TypeOf((*MockRelationService)(nil).WatchRelationUnit), arg0, arg1)
+	return &MockRelationServiceWatchRelationUnitCall{Call: call}
+}
+
+// MockRelationServiceWatchRelationUnitCall wrap *gomock.Call
+type MockRelationServiceWatchRelationUnitCall struct {
+	*gomock.Call
+}
+
 // Return rewrite *gomock.Call.Return
 func (c *MockRelationServiceWatchLifeSuspendedStatusCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockRelationServiceWatchLifeSuspendedStatusCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+func (c *MockRelationServiceWatchRelationUnitCall) Return(arg0 relation0.RelationUnitsWatcher, arg1 error) *MockRelationServiceWatchRelationUnitCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
@@ -1409,8 +1435,18 @@ func (c *MockRelationServiceWatchLifeSuspendedStatusCall) Do(f func(context.Cont
 	return c
 }
 
+func (c *MockRelationServiceWatchRelationUnitCall) Do(f func(context.Context, relation.UnitUUID) (relation0.RelationUnitsWatcher, error)) *MockRelationServiceWatchRelationUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockRelationServiceWatchLifeSuspendedStatusCall) DoAndReturn(f func(context.Context, unit.UUID) (watcher.Watcher[[]string], error)) *MockRelationServiceWatchLifeSuspendedStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+func (c *MockRelationServiceWatchRelationUnitCall) DoAndReturn(f func(context.Context, relation.UnitUUID) (relation0.RelationUnitsWatcher, error)) *MockRelationServiceWatchRelationUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

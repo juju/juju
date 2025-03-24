@@ -1699,7 +1699,7 @@ func (u *UniterAPI) updateUnitAndApplicationSettings(ctx context.Context, arg pa
 
 // WatchRelationUnits returns a RelationUnitsWatcher for observing
 // changes to every unit in the supplied relation that is visible to
-// the supplied unit. See also state/watcher.go:RelationUnit.Watch().
+// the supplied unit.
 func (u *UniterAPI) WatchRelationUnits(ctx context.Context, args params.RelationUnits) (params.RelationUnitsWatchResults, error) {
 	result := params.RelationUnitsWatchResults{
 		Results: make([]params.RelationUnitsWatchResult, len(args.RelationUnits)),
@@ -1709,18 +1709,61 @@ func (u *UniterAPI) WatchRelationUnits(ctx context.Context, args params.Relation
 		return params.RelationUnitsWatchResults{}, err
 	}
 	for i, arg := range args.RelationUnits {
-		unit, err := names.ParseUnitTag(arg.Unit)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		relUnit, err := u.getRelationUnit(ctx, canAccess, arg.Relation, unit)
-		if err == nil {
-			result.Results[i], err = u.watchOneRelationUnit(relUnit)
-		}
+		result.Results[i], err = u.watchOneRelationUnit(ctx, canAccess, arg)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
+}
+
+func (u *UniterAPI) watchOneRelationUnit(ctx context.Context, canAccess common.AuthFunc, arg params.RelationUnit) (params.RelationUnitsWatchResult, error) {
+	unit, err := names.ParseUnitTag(arg.Unit)
+	if err != nil {
+		return params.RelationUnitsWatchResult{}, apiservererrors.ErrPerm
+	}
+	if !canAccess(unit) {
+		return params.RelationUnitsWatchResult{}, apiservererrors.ErrPerm
+	}
+	relKey, err := corerelation.ParseKeyFromTagString(arg.Relation)
+	if err != nil {
+		return params.RelationUnitsWatchResult{}, apiservererrors.ErrPerm
+	}
+	relUUID, err := u.relationService.GetRelationUUIDByKey(ctx, relKey)
+	if internalerrors.Is(err, relationerrors.RelationNotFound) {
+		return params.RelationUnitsWatchResult{}, apiservererrors.ErrPerm
+	} else if err != nil {
+		return params.RelationUnitsWatchResult{}, internalerrors.Capture(err)
+	}
+
+	relUnitUUID, err := u.relationService.GetRelationUnit(ctx, relUUID, coreunit.Name(unit.Id()))
+	if err != nil {
+		return params.RelationUnitsWatchResult{}, internalerrors.Capture(err)
+	}
+
+	serviceWatcher, err := u.relationService.WatchRelationUnit(ctx, relUnitUUID)
+	if err != nil {
+		return params.RelationUnitsWatchResult{},
+			internalerrors.Capture(internalerrors.Errorf("starting relation unit watcher: %w", err))
+	}
+	watch, err := common.RelationUnitsWatcherFromDomain(serviceWatcher)
+	if err != nil {
+		return params.RelationUnitsWatchResult{},
+			internalerrors.Capture(internalerrors.Errorf("transforming relation unit watcher: %w", err))
+	}
+
+	// Consume the initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		id, err := u.watcherRegistry.Register(watch)
+		if err != nil {
+			return params.RelationUnitsWatchResult{},
+				internalerrors.Capture(internalerrors.Errorf("registering relation unit watcher : %w", err))
+		}
+		return params.RelationUnitsWatchResult{
+			RelationUnitsWatcherId: id,
+			Changes:                changes,
+		}, nil
+	}
+
+	return params.RelationUnitsWatchResult{}, nil
 }
 
 // SetRelationStatus updates the status of the specified relations.
@@ -1775,14 +1818,6 @@ func (u *UniterAPI) oneSetRelationStatus(
 
 func (u *UniterAPI) getLegacyUnit(ctx context.Context, tag names.UnitTag) (*state.Unit, error) {
 	return u.st.Unit(tag.Id())
-}
-
-func (u *UniterAPI) getRelationUnit(ctx context.Context, canAccess common.AuthFunc, relTag string, unitTag names.UnitTag) (*state.RelationUnit, error) {
-	rel, unit, err := u.getRelationAndUnit(ctx, canAccess, relTag, unitTag)
-	if err != nil {
-		return nil, err
-	}
-	return rel.Unit(unit)
 }
 
 func (u *UniterAPI) getOneRelationById(ctx context.Context, relID int) (params.RelationResultV2, error) {
@@ -1950,22 +1985,6 @@ func (u *UniterAPI) destroySubordinates(ctx context.Context, principal *state.Un
 		}
 	}
 	return nil
-}
-
-func (u *UniterAPI) watchOneRelationUnit(relUnit *state.RelationUnit) (params.RelationUnitsWatchResult, error) {
-	//stateWatcher := relUnit.Watch()
-	//watch, err := common.RelationUnitsWatcherFromDomain(stateWatcher)
-	//if err != nil {
-	//	return params.RelationUnitsWatchResult{}, errors.Trace(err)
-	//}
-	//// Consume the initial event and forward it to the result.
-	//if changes, ok := <-watch.Changes(); ok {
-	//	return params.RelationUnitsWatchResult{
-	//		RelationUnitsWatcherId: u.resources.Register(watch),
-	//		Changes:                changes,
-	//	}, nil
-	//}
-	return params.RelationUnitsWatchResult{}, nil
 }
 
 // NetworkInfo returns network interfaces/addresses for specified bindings.
