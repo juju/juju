@@ -6,3 +6,4 @@ user/reference/charm/charm-taxonomy/ user/reference/charm/
 contributor/unsorted/bootstrapping/ contributor/index
 contributor/unsorted/managing-complexity/ contributor/explanation/on-managing-complexity/
 contributor/unsorted/commands/ contributor/unsorted/styleguide/
+contributor/unsorted/hacking-state/ contributor/unsorted/styleguide/
