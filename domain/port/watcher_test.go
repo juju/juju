@@ -93,7 +93,6 @@ func (s *watcherSuite) createApplicationWithRelations(c *gc.C, appName string, r
 	for _, relation := range relations {
 		relationsMap[relation] = charm.Relation{
 			Name:  relation,
-			Key:   relation,
 			Role:  charm.RoleRequirer,
 			Scope: charm.ScopeGlobal,
 		}

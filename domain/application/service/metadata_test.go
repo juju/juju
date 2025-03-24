@@ -88,7 +88,6 @@ var metadataTestCases = [...]struct {
 			RunAs: charm.RunAsDefault,
 			Provides: map[string]charm.Relation{
 				"baz": {
-					Key:       "baz",
 					Name:      "baz",
 					Role:      charm.RoleProvider,
 					Interface: "mysql",
@@ -119,7 +118,6 @@ var metadataTestCases = [...]struct {
 			RunAs: charm.RunAsDefault,
 			Requires: map[string]charm.Relation{
 				"baz": {
-					Key:       "baz",
 					Name:      "baz",
 					Role:      charm.RoleRequirer,
 					Interface: "mysql",
@@ -150,7 +148,6 @@ var metadataTestCases = [...]struct {
 			RunAs: charm.RunAsDefault,
 			Peers: map[string]charm.Relation{
 				"baz": {
-					Key:       "baz",
 					Name:      "baz",
 					Role:      charm.RolePeer,
 					Interface: "mysql",

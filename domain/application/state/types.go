@@ -353,7 +353,6 @@ type setCharmTerm struct {
 type charmRelation struct {
 	CharmUUID string `db:"charm_uuid"`
 	Kind      string `db:"kind"`
-	Key       string `db:"key"`
 	Name      string `db:"name"`
 	Role      string `db:"role"`
 	Interface string `db:"interface"`
@@ -367,7 +366,6 @@ type setCharmRelation struct {
 	UUID      string `db:"uuid"`
 	CharmUUID string `db:"charm_uuid"`
 	KindID    int    `db:"kind_id"`
-	Key       string `db:"key"`
 	Name      string `db:"name"`
 	RoleID    int    `db:"role_id"`
 	Interface string `db:"interface"`

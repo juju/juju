@@ -143,7 +143,6 @@ func decodeRelations(relations []charmRelation) (map[string]charm.Relation, map[
 		}
 
 		return charm.Relation{
-			Key:       relation.Key,
 			Name:      relation.Name,
 			Interface: relation.Interface,
 			Optional:  relation.Optional,
@@ -165,17 +164,17 @@ func decodeRelations(relations []charmRelation) (map[string]charm.Relation, map[
 			if provides == nil {
 				provides = make(map[string]charm.Relation)
 			}
-			provides[relation.Key] = rel
+			provides[relation.Name] = rel
 		case relationKindRequires:
 			if requires == nil {
 				requires = make(map[string]charm.Relation)
 			}
-			requires[relation.Key] = rel
+			requires[relation.Name] = rel
 		case relationKindPeers:
 			if peers == nil {
 				peers = make(map[string]charm.Relation)
 			}
-			peers[relation.Key] = rel
+			peers[relation.Name] = rel
 		default:
 			return nil, nil, nil, errors.Errorf("unknown relation role %q", relation.Kind)
 		}
@@ -499,7 +498,6 @@ func encodeRelation(id corecharm.ID, kind string, relation charm.Relation) (setC
 		UUID:      relationUUID.String(),
 		CharmUUID: id.String(),
 		KindID:    kindID,
-		Key:       relation.Key,
 		Name:      relation.Name,
 		RoleID:    roleID,
 		Interface: relation.Interface,
