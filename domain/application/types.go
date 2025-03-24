@@ -66,6 +66,10 @@ type AddApplicationArg struct {
 	StoragePoolKind map[string]storage.StorageKind
 	// StorageParentDir is the parent directory for mounting charm storage.
 	StorageParentDir string
+	// PasswordHash is the password hash for the application.
+	PasswordHash string
+	// Placement is the placement directive for the application.
+	Placement string
 	// EndpointBindings is a map to bind application endpoint by name to a
 	// specific space. The default space is referenced by an empty key, if any.
 	EndpointBindings map[string]network.SpaceName
@@ -363,6 +367,7 @@ type ExportApplication struct {
 	CharmModifiedVersion int
 	CharmUpgradeOnError  bool
 	CharmLocator         domaincharm.CharmLocator
+	K8sServiceProviderID *string
 }
 
 // ExposedEndpoint encapsulates the expose-related details of a particular

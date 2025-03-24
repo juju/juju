@@ -110,7 +110,7 @@ CREATE TABLE charm_download_info (
     -- charmhub_identifier is the identifier that charmhub uses to identify the
     -- charm. This is used to refresh the charm from charmhub. The
     -- reference_name can change but the charmhub_identifier will not.
-    charmhub_identifier TEXT NOT NULL,
+    charmhub_identifier TEXT,
 
     download_url TEXT NOT NULL,
     download_size INT NOT NULL,
@@ -633,7 +633,5 @@ SELECT
     c.reference_name,
     c.revision,
     c.source_id,
-    c.architecture_id,
-    cm.name
-FROM charm AS c
-JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid;
+    c.architecture_id
+FROM charm AS c;

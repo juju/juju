@@ -210,6 +210,15 @@ func (e *exportOperation) createApplicationArgs(ctx context.Context, app applica
 		return description.ApplicationArgs{}, errors.Capture(err)
 	}
 
+	var cloudService *description.CloudServiceArgs
+	if app.K8sServiceProviderID != nil {
+		cloudService = &description.CloudServiceArgs{
+			ProviderId: *app.K8sServiceProviderID,
+			// TODO (stickupkid): Get the provider addresses from the net node.
+			// This needs to be done with link layer addressing.
+		}
+	}
+
 	return description.ApplicationArgs{
 		Name:                 app.Name,
 		Type:                 modelType,
@@ -220,6 +229,7 @@ func (e *exportOperation) createApplicationArgs(ctx context.Context, app applica
 		Exposed:              app.Exposed,
 		PasswordHash:         app.PasswordHash,
 		Placement:            app.Placement,
+		CloudService:         cloudService,
 	}, nil
 }
 

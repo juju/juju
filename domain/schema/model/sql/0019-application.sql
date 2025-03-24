@@ -276,10 +276,12 @@ SELECT
     c.reference_name,
     c.source_id,
     c.revision,
-    c.architecture_id
+    c.architecture_id,
+    k8s.provider_id AS k8s_provider_id
 FROM application AS a
 JOIN charm AS c ON a.charm_uuid = c.uuid
-JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid;
+JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid
+LEFT JOIN k8s_service AS k8s ON a.uuid = k8s.application_uuid;
 
 CREATE VIEW v_application_endpoint_uuid AS
 SELECT

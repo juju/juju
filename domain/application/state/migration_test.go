@@ -11,7 +11,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/life"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -35,8 +37,18 @@ func (s *migrationStateSuite) TestExportApplications(c *gc.C) {
 		{
 			UUID:      id,
 			CharmUUID: charmID,
+			ModelType: model.IAAS,
 			Name:      "foo",
 			Life:      life.Alive,
+			CharmLocator: charm.CharmLocator{
+				Name:     "foo",
+				Revision: 42,
+				Source:   charm.CharmHubSource,
+			},
+			PasswordHash: "password",
+			Placement:    "placement",
+			Subordinate:  false,
+			Exposed:      false,
 		},
 	})
 }
@@ -55,8 +67,18 @@ func (s *migrationStateSuite) TestExportApplicationsMany(c *gc.C) {
 		want = append(want, application.ExportApplication{
 			UUID:      id,
 			CharmUUID: charmID,
+			ModelType: model.IAAS,
 			Name:      name,
 			Life:      life.Alive,
+			CharmLocator: charm.CharmLocator{
+				Name:     name,
+				Revision: 42,
+				Source:   charm.CharmHubSource,
+			},
+			PasswordHash: "password",
+			Placement:    "placement",
+			Subordinate:  false,
+			Exposed:      false,
 		})
 	}
 
@@ -85,14 +107,34 @@ func (s *migrationStateSuite) TestExportApplicationsDeadOrDying(c *gc.C) {
 		{
 			UUID:      id0,
 			CharmUUID: charmID0,
+			ModelType: model.IAAS,
 			Name:      "foo0",
 			Life:      life.Dying,
+			CharmLocator: charm.CharmLocator{
+				Name:     "foo0",
+				Revision: 42,
+				Source:   charm.CharmHubSource,
+			},
+			PasswordHash: "password",
+			Placement:    "placement",
+			Subordinate:  false,
+			Exposed:      false,
 		},
 		{
 			UUID:      id1,
 			CharmUUID: charmID1,
+			ModelType: model.IAAS,
 			Name:      "foo1",
 			Life:      life.Dead,
+			CharmLocator: charm.CharmLocator{
+				Name:     "foo1",
+				Revision: 42,
+				Source:   charm.CharmHubSource,
+			},
+			PasswordHash: "password",
+			Placement:    "placement",
+			Subordinate:  false,
+			Exposed:      false,
 		},
 	}
 
