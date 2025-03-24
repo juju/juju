@@ -152,9 +152,9 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		if err := h.handle(clock, maxDuration, params, socket, logTailerFunc, h.ctxt.stop(), st.Removing()); err != nil {
 			if isBrokenPipe(err) {
-				logger.Tracef(context.TODO(), "debug-log handler stopped (client disconnected)")
+				logger.Tracef(req.Context(), "debug-log handler stopped (client disconnected)")
 			} else {
-				logger.Errorf(context.TODO(), "debug-log handler error: %v", err)
+				logger.Errorf(req.Context(), "debug-log handler error: %v", err)
 			}
 		}
 	}
