@@ -344,7 +344,7 @@ WHERE  relation_uuid = $relationUUID.uuid
 //     found.
 func (st *State) GetRegularRelationUUIDByEndpointIdentifiers(
 	ctx context.Context,
-	endpoint1, endpoint2 relation.EndpointIdentifier,
+	endpoint1, endpoint2 corerelation.EndpointIdentifier,
 ) (corerelation.UUID, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -403,7 +403,7 @@ AND    e2.endpoint_name    = $endpointIdentifier2.endpoint_name
 //     found.
 func (st *State) GetPeerRelationUUIDByEndpointIdentifiers(
 	ctx context.Context,
-	endpoint relation.EndpointIdentifier,
+	endpoint corerelation.EndpointIdentifier,
 ) (corerelation.UUID, error) {
 	db, err := st.DB()
 	if err != nil {

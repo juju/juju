@@ -5,8 +5,6 @@ package relation
 
 import (
 	"fmt"
-	"slices"
-	"strings"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
@@ -147,23 +145,6 @@ type RelationScopeWatcher struct {
 	//out    chan *RelationScopeChange
 }
 
-// EndpointIdentifier is the natural key of a relation endpoint.
-type EndpointIdentifier struct {
-	// ApplicationName is the name of the application the endpoint belongs to.
-	ApplicationName string
-	// EndpointName is the name of the endpoint.
-	EndpointName string
-}
-
-// roleOrder maps RelationRole values to integers to define their order
-// of precedence in relation endpoints. This is used to compute the relation's
-// natural key.
-var roleOrder = map[charm.RelationRole]int{
-	charm.RoleRequirer: 0,
-	charm.RoleProvider: 1,
-	charm.RolePeer:     2,
-}
-
 // CounterpartRole returns the RelationRole that this RelationRole
 // can relate to.
 // This should remain an internal method because the relation
@@ -201,19 +182,11 @@ func (ep Endpoint) CanRelateTo(other Endpoint) bool {
 		CounterpartRole(ep.Role) == other.Role
 }
 
-// NaturalKey generates a unique sorted string representation of relation
-// endpoints based on their roles and identifiers. It can be used as a natural key
-// for relations.
-func NaturalKey(endpoints []Endpoint) corerelation.Key {
-	eps := slices.SortedFunc(slices.Values(endpoints), func(ep1 Endpoint, ep2 Endpoint) int {
-		if ep1.Role != ep2.Role {
-			return roleOrder[ep1.Role] - roleOrder[ep2.Role]
-		}
-		return strings.Compare(ep1.String(), ep2.String())
-	})
-	endpointNames := make([]string, 0, len(eps))
-	for _, ep := range eps {
-		endpointNames = append(endpointNames, ep.String())
+// EndpointIdentifier returns the endpoint identifier for this endpoint.
+func (ep Endpoint) EndpointIdentifier() corerelation.EndpointIdentifier {
+	return corerelation.EndpointIdentifier{
+		ApplicationName: ep.ApplicationName,
+		EndpointName:    ep.Name,
+		Role:            ep.Role,
 	}
-	return corerelation.Key(strings.Join(endpointNames, " "))
 }

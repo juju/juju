@@ -1886,11 +1886,11 @@ func (u *UniterAPI) getOneRelation(
 	if !canAccess(unitTag) {
 		return nothing, apiservererrors.ErrPerm
 	}
-	relTag, err := names.ParseRelationTag(relTagStr)
+	relationKey, err := corerelation.ParseKeyFromTagString(relTagStr)
 	if err != nil {
 		return nothing, apiservererrors.ErrPerm
 	}
-	relUUID, err := u.relationService.GetRelationUUIDByKey(ctx, corerelation.Key(relTag.Id()))
+	relUUID, err := u.relationService.GetRelationUUIDByKey(ctx, relationKey)
 	if errors.Is(err, relationerrors.RelationNotFound) {
 		return nothing, apiservererrors.ErrPerm
 	} else if err != nil {
