@@ -38,6 +38,20 @@ run_domain_imports() {
 	done
 }
 
+run_juju_errors_imports() {
+    pkgs=("domain")
+
+    for pkg in "${pkgs[@]}"; do
+        dirs=$(find ${pkg} -mindepth 1 -maxdepth 10 -type d | sort -u)
+        for subdir in $dirs; do
+            echo "$subdir"
+            imports=$(go list -json -e -test "./${subdir}" 2>/dev/null | jq -r ".Imports // [] | .[]")
+            disallowed="github.com/juju/errors"
+            python3 tests/suites/static_analysis/lint_go.py -d "${disallowed}" -g "${imports}" || (echo "Error: pkg $subdir contains juju/errors imports" && exit 1)
+        done
+    done
+}
+
 run_go() {
 	VER=$(golangci-lint --version | tr -s ' ' | cut -d ' ' -f 4 | cut -d '.' -f 1,2)
 	if [[ ${VER} != "1.64" ]] && [[ ${VER} != "v1.64" ]]; then
@@ -132,6 +146,7 @@ test_static_analysis_go() {
 
 		cd .. || exit
 
+		run "run_juju_errors_imports"
 		run "run_api_imports"
 		run "run_domain_imports"
 
