@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
@@ -1184,4 +1185,129 @@ func (s *uniterRelationSuite) expectGetRelationStatus(uuid corerelation.UUID, cu
 
 func (s *uniterRelationSuite) expectEnterScope(uuid corerelation.UUID, name coreunit.Name, err error) {
 	s.relationService.EXPECT().EnterScope(gomock.Any(), uuid, name).Return(err)
+}
+
+type commitHookChangesSuite struct {
+	testing.IsolationSuite
+
+	applicationService *MockApplicationService
+	relationService    *MockRelationService
+
+	uniter *UniterAPI
+}
+
+var _ = gc.Suite(&commitHookChangesSuite{})
+
+func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettings(c *gc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	unitTag := names.NewUnitTag("wordpress/0")
+	relTag := names.NewRelationTag("wordpress:db mysql:db")
+	relUUID := relationtesting.GenRelationUUID(c)
+	appID := applicationtesting.GenApplicationUUID(c)
+	relUnitUUID := relationtesting.GenRelationUnitUUID(c)
+	appSettings := map[string]string{"wanda": "firebaugh", "deleteme": ""}
+	unitSettings := map[string]string{"wanda": "firebaugh", "deleteme": ""}
+	s.expectGetRelationUUIDByKey(corerelation.Key(relTag.Id()), relUUID)
+	s.expectGetApplicationIDByName("wordpress", appID)
+	s.expectGetRelationUnit(relUUID, relUnitUUID, unitTag.Id())
+	s.expectedUpdateRelationApplicationSettings(relUUID, appID, appSettings)
+	s.expectedUpdateRelationUnitSettings(relUnitUUID, unitSettings)
+	canAccess := func(tag names.Tag) bool {
+		return true
+	}
+	arg := params.RelationUnitSettings{
+		Relation:            relTag.String(),
+		Unit:                unitTag.String(),
+		Settings:            unitSettings,
+		ApplicationSettings: appSettings,
+	}
+
+	// act
+	err := s.uniter.updateUnitAndApplicationSettings(context.Background(), arg, canAccess)
+
+	// assert
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsBadUnitTag(c *gc.C) {
+	// arrange
+	arg := params.RelationUnitSettings{
+		Unit: "machine-9",
+	}
+
+	// act
+	err := s.uniter.updateUnitAndApplicationSettings(context.Background(), arg, nil)
+
+	// assert
+	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
+}
+
+func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsFailCanAccess(c *gc.C) {
+	// arrange
+	canAccess := func(tag names.Tag) bool {
+		return false
+	}
+	arg := params.RelationUnitSettings{
+		Unit: "unit-failauth-2",
+	}
+
+	// act
+	err := s.uniter.updateUnitAndApplicationSettings(context.Background(), arg, canAccess)
+
+	// assert
+	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
+}
+
+func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettingsBadRelationTag(c *gc.C) {
+	// arrange
+	canAccess := func(tag names.Tag) bool {
+		return true
+	}
+	arg := params.RelationUnitSettings{
+		Unit:     "unit-wordpress-2",
+		Relation: "failme",
+	}
+
+	// act
+	err := s.uniter.updateUnitAndApplicationSettings(context.Background(), arg, canAccess)
+
+	// assert
+	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
+}
+
+func (s *commitHookChangesSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.applicationService = NewMockApplicationService(ctrl)
+	s.relationService = NewMockRelationService(ctrl)
+
+	s.uniter = &UniterAPI{
+		logger: loggertesting.WrapCheckLog(c),
+
+		applicationService: s.applicationService,
+		relationService:    s.relationService,
+	}
+
+	return ctrl
+}
+
+func (s *commitHookChangesSuite) expectGetRelationUUIDByKey(key corerelation.Key, relUUID corerelation.UUID) {
+	s.relationService.EXPECT().GetRelationUUIDByKey(gomock.Any(), key).Return(relUUID, nil)
+}
+
+func (s *commitHookChangesSuite) expectGetApplicationIDByName(appName string, id coreapplication.ID) {
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(id, nil)
+}
+
+func (s *commitHookChangesSuite) expectGetRelationUnit(relUUID corerelation.UUID, uuid corerelation.UnitUUID, unitTagID string) {
+	s.relationService.EXPECT().GetRelationUnit(gomock.Any(), relUUID, coreunit.Name(unitTagID)).Return(uuid, nil)
+}
+
+func (s *commitHookChangesSuite) expectedUpdateRelationApplicationSettings(uuid corerelation.UUID, id coreapplication.ID, settings map[string]string) {
+	s.relationService.EXPECT().UpdateRelationApplicationSettings(gomock.Any(), uuid, id, settings).Return(nil)
+}
+
+func (s *commitHookChangesSuite) expectedUpdateRelationUnitSettings(uuid corerelation.UnitUUID, settings map[string]string) {
+	s.relationService.EXPECT().UpdateRelationUnitSettings(gomock.Any(), uuid, settings).Return(nil)
 }

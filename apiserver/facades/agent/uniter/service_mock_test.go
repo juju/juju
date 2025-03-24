@@ -1298,6 +1298,82 @@ func (c *MockRelationServiceSetRelationStatusCall) DoAndReturn(f func(context.Co
 	return c
 }
 
+// UpdateRelationApplicationSettings mocks base method.
+func (m *MockRelationService) UpdateRelationApplicationSettings(arg0 context.Context, arg1 relation.UUID, arg2 application.ID, arg3 map[string]string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateRelationApplicationSettings", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateRelationApplicationSettings indicates an expected call of UpdateRelationApplicationSettings.
+func (mr *MockRelationServiceMockRecorder) UpdateRelationApplicationSettings(arg0, arg1, arg2, arg3 any) *MockRelationServiceUpdateRelationApplicationSettingsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRelationApplicationSettings", reflect.TypeOf((*MockRelationService)(nil).UpdateRelationApplicationSettings), arg0, arg1, arg2, arg3)
+	return &MockRelationServiceUpdateRelationApplicationSettingsCall{Call: call}
+}
+
+// MockRelationServiceUpdateRelationApplicationSettingsCall wrap *gomock.Call
+type MockRelationServiceUpdateRelationApplicationSettingsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRelationServiceUpdateRelationApplicationSettingsCall) Return(arg0 error) *MockRelationServiceUpdateRelationApplicationSettingsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRelationServiceUpdateRelationApplicationSettingsCall) Do(f func(context.Context, relation.UUID, application.ID, map[string]string) error) *MockRelationServiceUpdateRelationApplicationSettingsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRelationServiceUpdateRelationApplicationSettingsCall) DoAndReturn(f func(context.Context, relation.UUID, application.ID, map[string]string) error) *MockRelationServiceUpdateRelationApplicationSettingsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UpdateRelationUnitSettings mocks base method.
+func (m *MockRelationService) UpdateRelationUnitSettings(arg0 context.Context, arg1 relation.UnitUUID, arg2 map[string]string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateRelationUnitSettings", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateRelationUnitSettings indicates an expected call of UpdateRelationUnitSettings.
+func (mr *MockRelationServiceMockRecorder) UpdateRelationUnitSettings(arg0, arg1, arg2 any) *MockRelationServiceUpdateRelationUnitSettingsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRelationUnitSettings", reflect.TypeOf((*MockRelationService)(nil).UpdateRelationUnitSettings), arg0, arg1, arg2)
+	return &MockRelationServiceUpdateRelationUnitSettingsCall{Call: call}
+}
+
+// MockRelationServiceUpdateRelationUnitSettingsCall wrap *gomock.Call
+type MockRelationServiceUpdateRelationUnitSettingsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRelationServiceUpdateRelationUnitSettingsCall) Return(arg0 error) *MockRelationServiceUpdateRelationUnitSettingsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRelationServiceUpdateRelationUnitSettingsCall) Do(f func(context.Context, relation.UnitUUID, map[string]string) error) *MockRelationServiceUpdateRelationUnitSettingsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRelationServiceUpdateRelationUnitSettingsCall) DoAndReturn(f func(context.Context, relation.UnitUUID, map[string]string) error) *MockRelationServiceUpdateRelationUnitSettingsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockModelInfoService is a mock of ModelInfoService interface.
 type MockModelInfoService struct {
 	ctrl     *gomock.Controller

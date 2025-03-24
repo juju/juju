@@ -315,4 +315,21 @@ type RelationService interface {
 		relationUUID corerelation.UUID,
 		info corestatus.StatusInfo,
 	) error
+
+	// UpdateRelationApplicationSettings updates settings for a specific application
+	// relation combination.
+	UpdateRelationApplicationSettings(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		applicationID coreapplication.ID,
+		settings map[string]string,
+	) error
+
+	// UpdateRelationUnitSettings updates settings for a specific unit
+	// relation combination.
+	UpdateRelationUnitSettings(
+		ctx context.Context,
+		relationUnitUUID corerelation.UnitUUID,
+		settings map[string]string,
+	) error
 }
