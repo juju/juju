@@ -395,11 +395,11 @@ func (s *relationSuite) TestGetRegularRelationUUIDByEndpointIdentifiers(c *gc.C)
 	// Act: Get relation UUID from endpoints.
 	uuid, err := s.state.GetRegularRelationUUIDByEndpointIdentifiers(
 		context.Background(),
-		relation.EndpointIdentifier{
+		corerelation.EndpointIdentifier{
 			ApplicationName: endpoint1.ApplicationName,
 			EndpointName:    endpoint1.Name,
 		},
-		relation.EndpointIdentifier{
+		corerelation.EndpointIdentifier{
 			ApplicationName: endpoint2.ApplicationName,
 			EndpointName:    endpoint2.Name,
 		},
@@ -440,11 +440,11 @@ func (s *relationSuite) TestGetRegularRelationUUIDByEndpointIdentifiersRelationN
 	// Act: Try and get relation UUID from endpoints.
 	_, err := s.state.GetRegularRelationUUIDByEndpointIdentifiers(
 		context.Background(),
-		relation.EndpointIdentifier{
+		corerelation.EndpointIdentifier{
 			ApplicationName: endpoint1.ApplicationName,
 			EndpointName:    endpoint1.Name,
 		},
-		relation.EndpointIdentifier{
+		corerelation.EndpointIdentifier{
 			ApplicationName: "fake-application-2",
 			EndpointName:    "fake-endpoint-name-2",
 		},
@@ -458,11 +458,11 @@ func (s *relationSuite) TestGetRegularRelationUUIDByEndpointIdentifiersRelationN
 	// Act: Try and get relation UUID from endpoints.
 	_, err := s.state.GetRegularRelationUUIDByEndpointIdentifiers(
 		context.Background(),
-		relation.EndpointIdentifier{
+		corerelation.EndpointIdentifier{
 			ApplicationName: "fake-application-1",
 			EndpointName:    "fake-endpoint-name-1",
 		},
-		relation.EndpointIdentifier{
+		corerelation.EndpointIdentifier{
 			ApplicationName: "fake-application-2",
 			EndpointName:    "fake-endpoint-name-2",
 		},
@@ -499,7 +499,7 @@ func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiers(c *gc.C) {
 	// Act: Get relation UUID from endpoint.
 	_, err := s.state.GetPeerRelationUUIDByEndpointIdentifiers(
 		context.Background(),
-		relation.EndpointIdentifier{
+		corerelation.EndpointIdentifier{
 			ApplicationName: endpoint1.ApplicationName,
 			EndpointName:    endpoint1.Name,
 		},
@@ -556,7 +556,7 @@ func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiersRelationNotF
 	// Act: Try and get relation UUID from endpoint.
 	_, err := s.state.GetPeerRelationUUIDByEndpointIdentifiers(
 		context.Background(),
-		relation.EndpointIdentifier{
+		corerelation.EndpointIdentifier{
 			ApplicationName: endpoint1.ApplicationName,
 			EndpointName:    endpoint1.Name,
 		},
@@ -570,7 +570,7 @@ func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiersNotFound(c *
 	// Act: Try and get relation UUID from endpoint.
 	_, err := s.state.GetPeerRelationUUIDByEndpointIdentifiers(
 		context.Background(),
-		relation.EndpointIdentifier{
+		corerelation.EndpointIdentifier{
 			ApplicationName: "fake-application-1",
 			EndpointName:    "fake-endpoint-name-1",
 		},

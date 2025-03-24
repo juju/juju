@@ -27,3 +27,12 @@ func GenRelationUnitUUID(c *gc.C) relation.UnitUUID {
 	c.Assert(err, jc.ErrorIsNil)
 	return id
 }
+
+// GenNewKey can be used in testing to generate a relation key from its string
+// representation. It is checked for errors using the test suite's go check
+// instance.
+func GenNewKey(c *gc.C, keyString string) relation.Key {
+	key, err := relation.NewKeyFromString(keyString)
+	c.Assert(err, jc.ErrorIsNil)
+	return key
+}

@@ -467,6 +467,7 @@ type applicationStatusInfo struct {
 type relationStatus struct {
 	UUID      corerelation.UUID
 	ID        int
+	Key       corerelation.Key
 	Endpoints []relation.Endpoint
 	Status    status.StatusInfo
 }
@@ -853,9 +854,19 @@ func fetchRelations(ctx context.Context, relationService RelationService) (map[s
 			logger.Warningf(ctx, "failed to get relation status for %q: %v", uuid, err)
 			continue
 		}
+		var eids []corerelation.EndpointIdentifier
+		for _, ep := range eps {
+			eids = append(eids, ep.EndpointIdentifier())
+		}
+		key, err := corerelation.NewKey(eids)
+		if err != nil {
+			logger.Warningf(ctx, "failed to generate relation key for %q: %v", uuid, err)
+			continue
+		}
 		r := relationStatus{
 			UUID:      uuid,
 			ID:        id,
+			Key:       key,
 			Endpoints: eps,
 			Status:    relStatus,
 		}
@@ -1079,7 +1090,7 @@ func (context *statusContext) processRelations(ctx context.Context) []params.Rel
 		}
 		relStatus := params.RelationStatus{
 			Id:        current.ID,
-			Key:       relation.NaturalKey(current.Endpoints).String(),
+			Key:       current.Key.String(),
 			Interface: relationInterface,
 			Scope:     string(scope),
 			Endpoints: eps,
