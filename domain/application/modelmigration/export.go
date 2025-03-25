@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/os/ostype"
 	corestorage "github.com/juju/juju/core/storage"
@@ -183,17 +183,21 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			return errors.Capture(err)
 		}
 
+		err = e.exportApplicationUnits(ctx, descriptionApp)
+		if err != nil {
+			return errors.Errorf("exporting application units %q: %w", app.Name, err)
+		}
+
+		if app.ModelType != coremodel.CAAS {
+			continue
+		}
+
 		scaleState, err := e.service.GetApplicationScaleState(ctx, app.Name)
 		if err != nil {
 			return errors.Errorf("getting application scale state for %q: %w", app.Name, err)
 		}
 		descriptionApp.SetProvisioningState(exportApplicationScaleState(scaleState))
 		descriptionApp.SetDesiredScale(scaleState.Scale)
-
-		err = e.exportApplicationUnits(ctx, descriptionApp)
-		if err != nil {
-			return errors.Errorf("exporting application units %q: %w", app.Name, err)
-		}
 	}
 
 	return nil
@@ -207,7 +211,7 @@ func (e *exportOperation) createApplicationArgs(ctx context.Context, app applica
 
 	charmURL, err := exportCharmURL(app.CharmLocator)
 	if err != nil {
-		return description.ApplicationArgs{}, errors.Capture(err)
+		return description.ApplicationArgs{}, errors.Errorf("exporting charm URL: %w", err)
 	}
 
 	var cloudService *description.CloudServiceArgs
@@ -227,17 +231,21 @@ func (e *exportOperation) createApplicationArgs(ctx context.Context, app applica
 		CharmModifiedVersion: app.CharmModifiedVersion,
 		ForceCharm:           app.CharmUpgradeOnError,
 		Exposed:              app.Exposed,
-		PasswordHash:         app.PasswordHash,
 		Placement:            app.Placement,
 		CloudService:         cloudService,
+
+		// Create a provisioning state for the application, incase a non-scaling
+		// application is being exported and someone tries to access the
+		// provisioning state, which will cause a panic.
+		ProvisioningState: &description.ProvisioningStateArgs{},
 	}, nil
 }
 
-func (e *exportOperation) exportModelType(modelType model.ModelType) (string, error) {
+func (e *exportOperation) exportModelType(modelType coremodel.ModelType) (string, error) {
 	switch modelType {
-	case model.IAAS:
+	case coremodel.IAAS:
 		return "iaas", nil
-	case model.CAAS:
+	case coremodel.CAAS:
 		return "caas", nil
 	default:
 		return "", errors.Errorf("unsupported model type %q", modelType)

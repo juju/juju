@@ -85,23 +85,15 @@ type applicationScale struct {
 	ScaleTarget   int                `db:"scale_target"`
 }
 
-func (as applicationScale) toScaleState() application.ScaleState {
-	return application.ScaleState{
-		Scaling:     as.Scaling,
-		Scale:       as.Scale,
-		ScaleTarget: as.ScaleTarget,
-	}
-}
-
 type architectureMap struct {
 	ID   int    `db:"id"`
 	Name string `db:"name"`
 }
 
 type unitAgentVersion struct {
-	UnitUUID      string `db:"unit_uuid"`
-	Version       string `db:"version"`
-	ArchtectureID int    `db:"architecture_id"`
+	UnitUUID       string `db:"unit_uuid"`
+	Version        string `db:"version"`
+	ArchitectureID int    `db:"architecture_id"`
 }
 
 type unitUUID struct {

@@ -624,7 +624,7 @@ UPDATE SET version = excluded.version,
 			)
 		}
 
-		unitAgentVersion.ArchtectureID = archMap.ID
+		unitAgentVersion.ArchitectureID = archMap.ID
 		return tx.Query(ctx, upsertRunningVersionStmt, unitAgentVersion).Run()
 	})
 

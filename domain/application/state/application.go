@@ -586,13 +586,16 @@ WHERE application_uuid = $applicationScale.application_uuid
 	}
 
 	err = tx.Query(ctx, queryScaleStmt, appScale).Get(&appScale)
-	if err != nil {
-		if !errors.Is(err, sqlair.ErrNoRows) {
-			return application.ScaleState{}, errors.Errorf("querying application %q scale: %w", appUUID, err)
-		}
+	if errors.Is(err, sql.ErrNoRows) {
 		return application.ScaleState{}, errors.Errorf("%w: %s", applicationerrors.ApplicationNotFound, appUUID)
+	} else if err != nil {
+		return application.ScaleState{}, errors.Errorf("querying application %q scale: %w", appUUID, err)
 	}
-	return appScale.toScaleState(), nil
+	return application.ScaleState{
+		Scaling:     appScale.Scaling,
+		Scale:       appScale.Scale,
+		ScaleTarget: appScale.ScaleTarget,
+	}, nil
 }
 
 // GetApplicationLife looks up the life of the specified application, returning
