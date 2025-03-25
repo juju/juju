@@ -8,24 +8,19 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"go.uber.org/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/config"
+	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
-	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
 )
-
-type exportSuite struct {
-	testing.IsolationSuite
-
-	exportService *MockExportService
-}
 
 type exportApplicationSuite struct {
 	exportSuite
@@ -36,32 +31,131 @@ var _ = gc.Suite(&exportApplicationSuite{})
 func (s *exportApplicationSuite) TestApplicationExportEmpty(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	model := description.NewModel(description.ModelArgs{})
+	s.exportService.EXPECT().GetApplicationsForExport(gomock.Any()).Return(nil, nil)
 
 	exportOp := exportOperation{
 		service: s.exportService,
 		clock:   clock.WallClock,
 	}
 
+	model := description.NewModel(description.ModelArgs{})
 	err := exportOp.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(model.Applications(), gc.HasLen, 0)
 }
 
+func (s *exportApplicationSuite) TestApplicationExportError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.exportService.EXPECT().GetApplicationsForExport(gomock.Any()).Return(nil, errors.Errorf("boom"))
+
+	exportOp := exportOperation{
+		service: s.exportService,
+		clock:   clock.WallClock,
+	}
+
+	model := description.NewModel(description.ModelArgs{})
+	err := exportOp.Execute(context.Background(), model)
+	c.Assert(err, gc.ErrorMatches, ".*boom")
+	c.Check(model.Applications(), gc.HasLen, 0)
+}
+
+func (s *exportApplicationSuite) TestApplicationExportNoLocator(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	charmUUID := charmtesting.GenCharmID(c)
+
+	s.exportService.EXPECT().GetApplicationsForExport(gomock.Any()).Return([]application.ExportApplication{{
+		Name:      "prometheus",
+		ModelType: model.IAAS,
+		CharmUUID: charmUUID,
+	}}, nil)
+
+	exportOp := exportOperation{
+		service: s.exportService,
+		clock:   clock.WallClock,
+	}
+
+	model := description.NewModel(description.ModelArgs{})
+	err := exportOp.Execute(context.Background(), model)
+	c.Assert(err, gc.ErrorMatches, `.*exporting charm URL: unsupported source ""`)
+	c.Check(model.Applications(), gc.HasLen, 0)
+}
+
+func (s *exportApplicationSuite) TestApplicationExportMultipleApplications(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	charmUUID := charmtesting.GenCharmID(c)
+
+	s.exportService.EXPECT().GetApplicationsForExport(gomock.Any()).Return([]application.ExportApplication{{
+		Name:      "prometheus",
+		ModelType: model.IAAS,
+		CharmUUID: charmUUID,
+		CharmLocator: charm.CharmLocator{
+			Source:       charm.CharmHubSource,
+			Name:         "prometheus",
+			Revision:     42,
+			Architecture: architecture.AMD64,
+		},
+	}, {
+		Name:      "prometheus-k8s",
+		ModelType: model.CAAS,
+		CharmUUID: charmUUID,
+		CharmLocator: charm.CharmLocator{
+			Source:       charm.CharmHubSource,
+			Name:         "prometheus-k8s",
+			Revision:     42,
+			Architecture: architecture.PPC64EL,
+		},
+	}}, nil)
+
+	s.expectCharmOriginFor("prometheus")
+	s.expectApplicationConfigFor("prometheus")
+	s.expectMinimalCharmFor("prometheus")
+	s.expectApplicationConstraintsFor("prometheus", constraints.Value{})
+
+	s.expectCharmOriginFor("prometheus-k8s")
+	s.expectApplicationConfigFor("prometheus-k8s")
+	s.expectMinimalCharmFor("prometheus-k8s")
+	s.expectApplicationConstraintsFor("prometheus-k8s", constraints.Value{})
+	s.expectGetApplicationScaleStateFor("prometheus-k8s", application.ScaleState{
+		Scaling:     true,
+		Scale:       1,
+		ScaleTarget: 2,
+	})
+
+	exportOp := exportOperation{
+		service: s.exportService,
+		clock:   clock.WallClock,
+	}
+
+	model := description.NewModel(description.ModelArgs{})
+	err := exportOp.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Applications(), gc.HasLen, 2)
+
+	apps := model.Applications()
+	c.Check(apps[0].Name(), gc.Equals, "prometheus")
+	c.Check(apps[1].Name(), gc.Equals, "prometheus-k8s")
+
+	c.Check(apps[0].CharmURL(), gc.Equals, "ch:amd64/prometheus-42")
+	c.Check(apps[1].CharmURL(), gc.Equals, "ch:ppc64el/prometheus-k8s-42")
+
+	// Check that the scaling state is not set for the first application.
+	c.Check(apps[0].ProvisioningState().ScaleTarget(), gc.Equals, 0)
+	c.Check(apps[0].ProvisioningState().Scaling(), jc.IsFalse)
+	c.Check(apps[0].DesiredScale(), gc.Equals, 0)
+
+	// Check that the scaling state is set for the second application.
+	c.Check(apps[1].ProvisioningState().ScaleTarget(), gc.Equals, 2)
+	c.Check(apps[1].ProvisioningState().Scaling(), jc.IsTrue)
+	c.Check(apps[1].DesiredScale(), gc.Equals, 1)
+}
+
 func (s *exportApplicationSuite) TestApplicationExportConstraints(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	model := description.NewModel(description.ModelArgs{})
-
-	appArgs := description.ApplicationArgs{
-		Name:     "prometheus",
-		CharmURL: "ch:prometheus-1",
-	}
-	app := model.AddApplication(appArgs)
-	app.AddUnit(description.UnitArgs{
-		Name: "prometheus/0",
-	})
-
+	s.expectApplication(c)
 	s.expectMinimalCharm()
 	s.expectApplicationConfig()
 	cons := constraints.Value{
@@ -82,18 +176,19 @@ func (s *exportApplicationSuite) TestApplicationExportConstraints(c *gc.C) {
 		Zones:            ptr([]string{"zone0", "zone1"}),
 	}
 	s.expectApplicationConstraints(cons)
-	s.expectGetApplicationScaleState(application.ScaleState{})
 
 	exportOp := exportOperation{
 		service: s.exportService,
 		clock:   clock.WallClock,
 	}
 
+	model := description.NewModel(description.ModelArgs{})
+
 	err := exportOp.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Applications(), gc.HasLen, 1)
 
-	app = model.Applications()[0]
+	app := model.Applications()[0]
 	c.Check(app.Constraints().AllocatePublicIP(), gc.Equals, true)
 	c.Check(app.Constraints().Architecture(), gc.Equals, "amd64")
 	c.Check(app.Constraints().Container(), gc.Equals, "lxd")
@@ -113,21 +208,33 @@ func (s *exportApplicationSuite) TestApplicationExportConstraints(c *gc.C) {
 func (s *exportApplicationSuite) TestExportScalingState(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	model := description.NewModel(description.ModelArgs{})
+	charmUUID := charmtesting.GenCharmID(c)
 
-	appArgs := description.ApplicationArgs{
-		Name:     "prometheus",
-		CharmURL: "ch:prometheus-1",
-	}
-	app := model.AddApplication(appArgs)
-	app.AddUnit(description.UnitArgs{
-		Name: "prometheus/0",
-	})
+	s.exportService.EXPECT().GetApplicationsForExport(gomock.Any()).Return([]application.ExportApplication{{
+		Name:      "prometheus-k8s",
+		ModelType: model.CAAS,
+		CharmUUID: charmUUID,
+		CharmLocator: charm.CharmLocator{
+			Source:       charm.CharmHubSource,
+			Name:         "prometheus-k8s",
+			Revision:     42,
+			Architecture: architecture.AMD64,
+		},
+	}}, nil)
+	s.exportService.EXPECT().GetApplicationCharmOrigin(gomock.Any(), "prometheus-k8s").Return(application.CharmOrigin{
+		Name:   "prometheus-k8s",
+		Source: charm.CharmHubSource,
+		Platform: application.Platform{
+			OSType:       application.Ubuntu,
+			Channel:      "24.04",
+			Architecture: architecture.AMD64,
+		},
+	}, nil)
 
-	s.expectMinimalCharm()
-	s.expectApplicationConfig()
-	s.expectApplicationConstraints(constraints.Value{})
-	s.expectGetApplicationScaleState(application.ScaleState{
+	s.expectMinimalCharmFor("prometheus-k8s")
+	s.expectApplicationConfigFor("prometheus-k8s")
+	s.expectApplicationConstraintsFor("prometheus-k8s", constraints.Value{})
+	s.expectGetApplicationScaleStateFor("prometheus-k8s", application.ScaleState{
 		Scaling:     true,
 		ScaleTarget: 42,
 		Scale:       1,
@@ -138,57 +245,14 @@ func (s *exportApplicationSuite) TestExportScalingState(c *gc.C) {
 		clock:   clock.WallClock,
 	}
 
+	model := description.NewModel(description.ModelArgs{})
+
 	err := exportOp.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Applications(), gc.HasLen, 1)
-	app = model.Applications()[0]
+
+	app := model.Applications()[0]
 	c.Check(app.ProvisioningState().ScaleTarget(), gc.Equals, 42)
 	c.Check(app.ProvisioningState().Scaling(), jc.IsTrue)
 	c.Check(app.DesiredScale(), gc.Equals, 1)
-}
-
-func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.exportService = NewMockExportService(ctrl)
-
-	return ctrl
-}
-
-func (s *exportSuite) expectMinimalCharm() {
-	meta := &internalcharm.Meta{
-		Name: "prometheus",
-	}
-	cfg := &internalcharm.Config{
-		Options: map[string]internalcharm.Option{
-			"foo": {
-				Type:    "string",
-				Default: "baz",
-			},
-		},
-	}
-	ch := internalcharm.NewCharmBase(meta, nil, cfg, nil, nil)
-	locator := charm.CharmLocator{
-		Revision: 1,
-	}
-	s.exportService.EXPECT().GetCharmByApplicationName(gomock.Any(), "prometheus").Return(ch, locator, nil)
-}
-
-func (s *exportSuite) expectApplicationConfig() {
-	config := config.ConfigAttributes{
-		"foo": "bar",
-	}
-	settings := application.ApplicationSettings{
-		Trust: true,
-	}
-	s.exportService.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), "prometheus").Return(config, settings, nil)
-}
-
-func (s *exportSuite) expectGetApplicationScaleState(scaleState application.ScaleState) {
-	exp := s.exportService.EXPECT()
-	exp.GetApplicationScaleState(gomock.Any(), "prometheus").Return(scaleState, nil)
-}
-
-func (s *exportSuite) expectApplicationConstraints(cons constraints.Value) {
-	s.exportService.EXPECT().GetApplicationConstraints(gomock.Any(), "prometheus").Return(cons, nil)
 }
