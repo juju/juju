@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/names/v6"
@@ -342,11 +343,6 @@ func (z maasAvailabilityZone) Available() bool {
 // AvailabilityZones returns a slice of availability zones
 // for the configured region.
 func (env *maasEnviron) AvailabilityZones(ctx context.Context) (corenetwork.AvailabilityZones, error) {
-	zones, err := env.availabilityZones(ctx)
-	return zones, errors.Trace(err)
-}
-
-func (env *maasEnviron) availabilityZones(ctx context.Context) (corenetwork.AvailabilityZones, error) {
 	zones, err := env.maasController.Zones()
 	if err != nil {
 		return nil, env.HandleCredentialError(ctx, err)
@@ -1137,22 +1133,43 @@ func (env *maasEnviron) Spaces(ctx envcontext.ProviderCallContext) (corenetwork.
 	if err != nil {
 		return nil, env.HandleCredentialError(ctx, err)
 	}
+
 	var result []corenetwork.SpaceInfo
+
+	if len(spaces) == 0 {
+		return result, nil
+	}
+
+	// At the time of writing, MAAS zones are effectively just labels.
+	// They do not indicate subnet availability as on say, AWS.
+	// Here, we indicate that all subnets are available in all zones,
+	// and leave it up to the provisioner to see if it can provision
+	// a suitable instance.
+	zones, err := env.maasController.Zones()
+	if err != nil {
+		return nil, env.HandleCredentialError(ctx, err)
+	}
+	zoneNames := transform.Slice(zones, func(zone gomaasapi.Zone) string { return zone.Name() })
+
 	for _, space := range spaces {
-		if len(space.Subnets()) == 0 {
+		subs := space.Subnets()
+		if len(subs) == 0 {
 			continue
 		}
+
 		outSpace := corenetwork.SpaceInfo{
 			Name:       corenetwork.SpaceName(space.Name()),
 			ProviderId: corenetwork.Id(strconv.Itoa(space.ID())),
-			Subnets:    make([]corenetwork.SubnetInfo, len(space.Subnets())),
+			Subnets:    make([]corenetwork.SubnetInfo, len(subs)),
 		}
-		for i, subnet := range space.Subnets() {
+
+		for i, subnet := range subs {
 			subnetInfo := corenetwork.SubnetInfo{
-				ProviderId:      corenetwork.Id(strconv.Itoa(subnet.ID())),
-				VLANTag:         subnet.VLAN().VID(),
-				CIDR:            subnet.CIDR(),
-				ProviderSpaceId: corenetwork.Id(strconv.Itoa(space.ID())),
+				ProviderId:        corenetwork.Id(strconv.Itoa(subnet.ID())),
+				VLANTag:           subnet.VLAN().VID(),
+				CIDR:              subnet.CIDR(),
+				ProviderSpaceId:   corenetwork.Id(strconv.Itoa(space.ID())),
+				AvailabilityZones: zoneNames,
 			}
 			outSpace.Subnets[i] = subnetInfo
 		}
