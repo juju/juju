@@ -149,6 +149,6 @@ type minJujuVersionErr struct {
 // IsMinVersionError returns true if the given error was caused by the charm
 // having a minjujuversion higher than the juju model's version.
 func IsMinVersionError(err error) bool {
-	_, ok := err.(minJujuVersionErr)
+	_, ok := errors.AsType[minJujuVersionErr](err)
 	return ok
 }
