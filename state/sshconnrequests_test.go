@@ -9,7 +9,6 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
@@ -25,12 +24,13 @@ type SSHReqConnReqSuite struct {
 var _ = gc.Suite(&SSHReqConnReqSuite{})
 
 func (s *SSHReqConnReqSuite) TestInsertSSHConnReq(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, nil)
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{InstanceId: "instance-id"})
+
 	err := s.State.InsertSSHConnRequest(
 		state.SSHConnRequestArg{
 			TunnelID:           "uuid",
 			ModelUUID:          s.Model.UUID(),
-			UnitName:           unit.Name(),
+			MachineId:          machine.Id(),
 			Expires:            time.Now(),
 			Username:           "test",
 			Password:           "test-password",
@@ -39,17 +39,18 @@ func (s *SSHReqConnReqSuite) TestInsertSSHConnReq(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.GetSSHConnRequest(state.SSHReqConnKeyID(unit.Name(), "uuid"))
+	_, err = s.State.GetSSHConnRequest(state.SSHReqConnKeyID(machine.Id(), "uuid"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *SSHReqConnReqSuite) TestRemoveSSHConnReq(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, nil)
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{InstanceId: "instance-id"})
+
 	err := s.State.InsertSSHConnRequest(
 		state.SSHConnRequestArg{
 			TunnelID:           "uuid",
 			ModelUUID:          s.Model.UUID(),
-			UnitName:           unit.Name(),
+			MachineId:          machine.Id(),
 			Expires:            time.Now(),
 			Username:           "test",
 			Password:           "test-password",
@@ -58,14 +59,14 @@ func (s *SSHReqConnReqSuite) TestRemoveSSHConnReq(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	id := state.SSHReqConnKeyID(unit.Name(), "uuid")
+	id := state.SSHReqConnKeyID(machine.Id(), "uuid")
 	_, err = s.State.GetSSHConnRequest(id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.RemoveSSHConnRequest(state.SSHConnRequestRemoveArg{
 		TunnelID:  "uuid",
 		ModelUUID: s.Model.UUID(),
-		UnitName:  unit.Name(),
+		MachineId: machine.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	// assert it is actually deleted.
@@ -74,12 +75,13 @@ func (s *SSHReqConnReqSuite) TestRemoveSSHConnReq(c *gc.C) {
 }
 
 func (s *SSHReqConnReqSuite) TestGetSSHConnReq(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, nil)
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{InstanceId: "instance-id"})
+
 	err := s.State.InsertSSHConnRequest(
 		state.SSHConnRequestArg{
 			TunnelID:           "uuid",
 			ModelUUID:          s.Model.UUID(),
-			UnitName:           unit.Name(),
+			MachineId:          machine.Id(),
 			Expires:            time.Now(),
 			Username:           "test",
 			Password:           "test-password",
@@ -88,10 +90,10 @@ func (s *SSHReqConnReqSuite) TestGetSSHConnReq(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.GetSSHConnRequest(state.SSHReqConnKeyID(unit.Name(), "uuid"))
+	_, err = s.State.GetSSHConnRequest(state.SSHReqConnKeyID(machine.Id(), "uuid"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	req, err := s.State.GetSSHConnRequest(state.SSHReqConnKeyID(unit.Name(), "uuid"))
+	req, err := s.State.GetSSHConnRequest(state.SSHReqConnKeyID(machine.Id(), "uuid"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(req.Username, gc.Equals, "test")
 	c.Assert(req.Password, gc.Equals, "test-password")
@@ -101,12 +103,9 @@ func (s *SSHReqConnReqSuite) TestGetSSHConnReq(c *gc.C) {
 }
 
 func (s *SSHReqConnReqSuite) TestSSHConnReqWatcher(c *gc.C) {
-	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Name:  utils.RandomString(10, utils.LowerAlpha),
-		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: app})
-	w := s.State.WatchSSHConnRequest(unit.Name())
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{InstanceId: "instance-id"})
+
+	w := s.State.WatchSSHConnRequest(machine.Id())
 	defer testing.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, w)
 
@@ -114,11 +113,11 @@ func (s *SSHReqConnReqSuite) TestSSHConnReqWatcher(c *gc.C) {
 	wc.AssertChange()
 	wc.AssertNoChange()
 
-	// assert a connection request on another unit is not notified.
+	// assert a connection request on another machine is not notified.
 	err := s.State.InsertSSHConnRequest(
 		state.SSHConnRequestArg{
 			ModelUUID:          s.Model.UUID(),
-			UnitName:           "other-unit",
+			MachineId:          "other-machine",
 			Expires:            time.Now(),
 			Username:           "test",
 			Password:           "test-password",
@@ -129,12 +128,12 @@ func (s *SSHReqConnReqSuite) TestSSHConnReqWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	// assert a connection request regarding the right unit is notified.
+	// assert a connection request regarding the right machine is notified.
 	err = s.State.InsertSSHConnRequest(
 		state.SSHConnRequestArg{
 			TunnelID:           "uuid",
 			ModelUUID:          s.Model.UUID(),
-			UnitName:           unit.Name(),
+			MachineId:          machine.Id(),
 			Expires:            time.Now(),
 			Username:           "test",
 			Password:           "test-password",
@@ -143,25 +142,25 @@ func (s *SSHReqConnReqSuite) TestSSHConnReqWatcher(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	id := state.SSHReqConnKeyID(unit.Name(), "uuid")
+	id := state.SSHReqConnKeyID(machine.Id(), "uuid")
 	wc.AssertChange(id)
 
 	// assert deleting the document don't produce a notification.
 	err = s.State.RemoveSSHConnRequest(state.SSHConnRequestRemoveArg{
 		TunnelID:  "uuid",
 		ModelUUID: s.Model.UUID(),
-		UnitName:  unit.Name(),
+		MachineId: machine.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
 
 func (s *SSHReqConnReqSuite) TestCleanupExpiredSSHConnRequest(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, nil)
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{InstanceId: "instance-id"})
 	req1 := state.SSHConnRequestArg{
 		TunnelID:           "tunnelid-1",
 		ModelUUID:          s.Model.UUID(),
-		UnitName:           unit.Name(),
+		MachineId:          machine.Id(),
 		Expires:            time.Now().Add(-time.Minute),
 		Username:           "test",
 		Password:           "test-password",
@@ -175,7 +174,7 @@ func (s *SSHReqConnReqSuite) TestCleanupExpiredSSHConnRequest(c *gc.C) {
 	req2 := state.SSHConnRequestArg{
 		TunnelID:           "tunnelid-2",
 		ModelUUID:          s.Model.UUID(),
-		UnitName:           unit.Name(),
+		MachineId:          machine.Id(),
 		Expires:            time.Now().Add(time.Minute),
 		Username:           "test",
 		Password:           "test-password",
@@ -189,8 +188,8 @@ func (s *SSHReqConnReqSuite) TestCleanupExpiredSSHConnRequest(c *gc.C) {
 
 	err = s.State.Cleanup(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.GetSSHConnRequest(state.SSHReqConnKeyID(req1.UnitName, req1.TunnelID))
+	_, err = s.State.GetSSHConnRequest(state.SSHReqConnKeyID(req1.MachineId, req1.TunnelID))
 	c.Assert(err, gc.ErrorMatches, "sshreqconn key \".*\" not found")
-	_, err = s.State.GetSSHConnRequest(state.SSHReqConnKeyID(req2.UnitName, req2.TunnelID))
+	_, err = s.State.GetSSHConnRequest(state.SSHReqConnKeyID(req2.MachineId, req2.TunnelID))
 	c.Assert(err, jc.ErrorIsNil)
 }
