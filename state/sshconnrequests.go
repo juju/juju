@@ -4,7 +4,7 @@
 package state
 
 import (
-	"regexp"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -158,13 +158,7 @@ func (st *State) WatchSSHConnRequest(machineId string) StringsWatcher {
 			}
 			id := st.localID(sKey)
 
-			re := regexp.MustCompile(`^machine-\d+-sshreqconn-`)
-			match := re.FindString(id)
-			if match == "" {
-				return false
-			}
-
-			return true
+			return strings.HasPrefix(id, "machine-"+machineId)
 		},
 	})
 }
