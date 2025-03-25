@@ -1178,7 +1178,7 @@ func (env *maasEnviron) Subnets(
 		}
 	} else {
 		var err error
-		subnets, err = env.filteredSubnets2(ctx, instId)
+		subnets, err = env.filteredSubnets(ctx, instId)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1205,7 +1205,7 @@ func (env *maasEnviron) Subnets(
 	return result, checkNotFound(subnetMap)
 }
 
-func (env *maasEnviron) filteredSubnets2(
+func (env *maasEnviron) filteredSubnets(
 	ctx envcontext.ProviderCallContext, instId instance.Id,
 ) ([]corenetwork.SubnetInfo, error) {
 	args := gomaasapi.MachinesArgs{
