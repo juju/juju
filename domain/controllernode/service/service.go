@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreerrors "github.com/juju/juju/core/errors"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	"github.com/juju/juju/internal/errors"
@@ -17,6 +18,7 @@ type State interface {
 	CurateNodes(context.Context, []string, []string) error
 	UpdateDqliteNode(context.Context, string, uint64, string) error
 	SelectDatabaseNamespace(context.Context, string) (string, error)
+	SetRunningAgentBinaryVersion(context.Context, string, coreagentbinary.Version) error
 }
 
 // Service provides the API for working with controller nodes.
@@ -65,4 +67,28 @@ func (s *Service) IsKnownDatabaseNamespace(ctx context.Context, namespace string
 	}
 
 	return ns == namespace, nil
+}
+
+// SetControllerNodeAgentVersion sets the agent version for the
+// supplied controllerID. Version represents the version of the controller node's agent binary.
+//
+// The following errors are possible:
+// - [coreerrors.NotValid] if the version is not valid.
+// - [coreerrors.NotSupported] if the architecture is not supported.
+// - [controllernodeerrors.NotFound] if the controller node does not exist.
+func (s *Service) SetControllerNodeAgentVersion(ctx context.Context, controllerID string, version coreagentbinary.Version) error {
+	if err := version.Validate(); err != nil {
+		return errors.Errorf("agent version %+v is not valid: %w", version, err)
+	}
+
+	if err := s.st.SetRunningAgentBinaryVersion(ctx, controllerID, version); err != nil {
+		return errors.Errorf(
+			"setting controller node %q agent version (%s): %w",
+			controllerID,
+			version.Number.String(),
+			err,
+		)
+	}
+
+	return nil
 }

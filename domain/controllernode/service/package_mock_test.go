@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	agentbinary "github.com/juju/juju/core/agentbinary"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -112,6 +113,44 @@ func (c *MockStateSelectDatabaseNamespaceCall) Do(f func(context.Context, string
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateSelectDatabaseNamespaceCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockStateSelectDatabaseNamespaceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetRunningAgentBinaryVersion mocks base method.
+func (m *MockState) SetRunningAgentBinaryVersion(arg0 context.Context, arg1 string, arg2 agentbinary.Version) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetRunningAgentBinaryVersion", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetRunningAgentBinaryVersion indicates an expected call of SetRunningAgentBinaryVersion.
+func (mr *MockStateMockRecorder) SetRunningAgentBinaryVersion(arg0, arg1, arg2 any) *MockStateSetRunningAgentBinaryVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRunningAgentBinaryVersion", reflect.TypeOf((*MockState)(nil).SetRunningAgentBinaryVersion), arg0, arg1, arg2)
+	return &MockStateSetRunningAgentBinaryVersionCall{Call: call}
+}
+
+// MockStateSetRunningAgentBinaryVersionCall wrap *gomock.Call
+type MockStateSetRunningAgentBinaryVersionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetRunningAgentBinaryVersionCall) Return(arg0 error) *MockStateSetRunningAgentBinaryVersionCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetRunningAgentBinaryVersionCall) Do(f func(context.Context, string, agentbinary.Version) error) *MockStateSetRunningAgentBinaryVersionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetRunningAgentBinaryVersionCall) DoAndReturn(f func(context.Context, string, agentbinary.Version) error) *MockStateSetRunningAgentBinaryVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

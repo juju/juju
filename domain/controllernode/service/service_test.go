@@ -8,9 +8,13 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	corearch "github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/errors"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 )
 
@@ -21,6 +25,14 @@ type serviceSuite struct {
 }
 
 var _ = gc.Suite(&serviceSuite{})
+
+func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.state = NewMockState(ctrl)
+
+	return ctrl
+}
 
 func (s *serviceSuite) TestUpdateExternalControllerSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -63,10 +75,70 @@ func (s *serviceSuite) TestIsModelKnownToController(c *gc.C) {
 	c.Check(known, jc.IsTrue)
 }
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
+func (s *serviceSuite) TestSetControllerNodeAgentVersionSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 
-	s.state = NewMockState(ctrl)
+	controllerID := "1"
+	ver := coreagentbinary.Version{
+		Number: version.MustParse("1.2.3"),
+		Arch:   corearch.ARM64,
+	}
 
-	return ctrl
+	s.state.EXPECT().SetRunningAgentBinaryVersion(gomock.Any(), controllerID, ver).Return(nil)
+
+	svc := NewService(s.state)
+	err := svc.SetControllerNodeAgentVersion(
+		context.Background(),
+		controllerID,
+		ver,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetControllerNodeAgentVersionNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state)
+
+	controllerID := "1"
+
+	ver := coreagentbinary.Version{
+		Number: version.Zero,
+	}
+	err := svc.SetControllerNodeAgentVersion(
+		context.Background(),
+		controllerID,
+		ver,
+	)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+
+	ver = coreagentbinary.Version{
+		Number: version.MustParse("1.2.3"),
+		Arch:   corearch.UnsupportedArches[0],
+	}
+	err = svc.SetControllerNodeAgentVersion(
+		context.Background(),
+		controllerID,
+		ver,
+	)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
+func (s *serviceSuite) TestSetControllerNodeAgentVersionNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state)
+
+	controllerID := "1"
+	ver := coreagentbinary.Version{
+		Number: version.MustParse("1.2.3"),
+		Arch:   corearch.ARM64,
+	}
+
+	s.state.EXPECT().SetRunningAgentBinaryVersion(gomock.Any(), controllerID, ver).Return(controllernodeerrors.NotFound)
+
+	err := svc.SetControllerNodeAgentVersion(
+		context.Background(),
+		controllerID,
+		ver,
+	)
+	c.Assert(err, jc.ErrorIs, controllernodeerrors.NotFound)
 }

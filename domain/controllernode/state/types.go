@@ -19,3 +19,16 @@ type dbControllerNode struct {
 type dbNamespace struct {
 	Namespace string `db:"namespace"`
 }
+
+// architecture is the database representation of an architecture id-name pair.
+type architecture struct {
+	ID   int    `db:"id"`
+	Name string `db:"name"`
+}
+
+// controllerNodeAgentVersion is the database representation of a controller node agent version.
+type controllerNodeAgentVersion struct {
+	ControllerID   string `db:"controller_id"`
+	Version        string `db:"version"`
+	ArchitectureID int    `db:"architecture_id"`
+}

@@ -4,6 +4,8 @@
 package agentbinary
 
 import (
+	"fmt"
+
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/arch"
@@ -39,4 +41,10 @@ func (v Version) Validate() error {
 		).Add(coreerrors.NotValid)
 	}
 	return nil
+}
+
+// String returns the version as a string.
+// It formats the version number and architecture in the <version>-<arch> format.
+func (v Version) String() string {
+	return fmt.Sprintf("%s-%s", v.Number.String(), v.Arch)
 }
