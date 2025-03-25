@@ -378,7 +378,7 @@ def get_juju_version():
 
 
 def generate_cli_docs():
-    cli_dir = "user/reference/juju-cli/"
+    cli_dir = "reference/juju-cli/"
     generated_cli_docs_dir = cli_dir + "list-of-juju-cli-commands/"
     cli_index_header = cli_dir + 'cli_index'
 
@@ -418,7 +418,7 @@ def generate_cli_docs():
 
 
 def generate_controller_config_docs():
-    config_reference_dir = 'user/reference/configuration/'
+    config_reference_dir = 'reference/configuration/'
     controller_config_file = config_reference_dir + 'list-of-controller-configuration-keys.md'
     controller_config_header = config_reference_dir + 'list-of-controller-configuration-keys.header'
 
@@ -445,7 +445,7 @@ def generate_controller_config_docs():
 
 
 def generate_hook_command_docs():
-    hook_commands_reference_dir = 'user/reference/hook-commands/'
+    hook_commands_reference_dir = 'reference/hook-commands/'
     generated_hook_commands_dir = hook_commands_reference_dir + 'list-of-hook-commands/'
     hook_index_header = hook_commands_reference_dir + 'hook_index'
 
