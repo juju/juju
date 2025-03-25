@@ -430,14 +430,14 @@ WHERE value = $dbContainerTypeValue.value
 	}
 
 	if cons.Spaces != nil {
-		err = insertContraintSpaces(ctx, preparer, tx, constraintsUUID, *cons.Spaces)
+		err = insertConstraintSpaces(ctx, preparer, tx, constraintsUUID, *cons.Spaces)
 		if err != nil {
 			return errors.Errorf("setting constraint spaces for model: %w", err)
 		}
 	}
 
 	if cons.Zones != nil {
-		err = insertContraintZones(ctx, preparer, tx, constraintsUUID, *cons.Zones)
+		err = insertConstraintZones(ctx, preparer, tx, constraintsUUID, *cons.Zones)
 		if err != nil {
 			return errors.Errorf("setting constraint zones for model: %w", err)
 		}
@@ -511,7 +511,7 @@ func insertConstraintTags(
 // handled.
 // If one or more of the spaces provided does not exist an error satisfying
 // [networkerrors.SpaceNotFound] will be returned.
-func insertContraintSpaces(
+func insertConstraintSpaces(
 	ctx context.Context,
 	preparer domain.Preparer,
 	tx *sqlair.TX,
@@ -581,7 +581,7 @@ WHERE name in ($S[:])
 // constraints on the provided constraint uuid. Any previously set zones for the
 // constraint UUID will not be removed. Any conflicts that exist between what
 // has been set to be set will result in an error and not be handled.
-func insertContraintZones(
+func insertConstraintZones(
 	ctx context.Context,
 	preparer domain.Preparer,
 	tx *sqlair.TX,
