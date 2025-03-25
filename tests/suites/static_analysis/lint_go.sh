@@ -16,26 +16,36 @@ run_api_imports() {
 run_domain_imports() {
 	dirs=$(find ./domain -mindepth 1 -maxdepth 3 -type d | grep -E "/service$|/state$" | awk '{split($0,a,"/"); print "./"a[2]"/"a[3]}' | sort -u)
 	for dir in $dirs; do
-		if [[ ! -d $dir ]]; then
-			continue
-		fi
-
 		echo "Checking $dir"
 
 		if [[ -d "$dir/service" ]]; then
 			# Serice domain packages should not import state domain packages.
 			got=$(go run ./scripts/import-inspector "$dir/service" 2>/dev/null | jq -r ".[]")
 			disallowed="github.com/juju/juju/${dir#*/}/state"
-			python3 tests/suites/static_analysis/lint_go.py -d "${disallowed}" -g "${got}" || (echo "Error: domain service import failure in $dir" && exit 1)
+			python3 tests/suites/static_analysis/lint_go.py -d "${disallowed}" -g "${got}" || (echo "Error: domain service imports it's state pkg' $dir" && exit 1)
 		fi
 
 		if [[ -d "$dir/state" ]]; then
 			# State domain packages should not import service domain packages.
 			got=$(go run ./scripts/import-inspector "$dir/state" 2>/dev/null | jq -r ".[]")
 			disallowed="github.com/juju/juju/${dir#*/}/service"
-			python3 tests/suites/static_analysis/lint_go.py -d "${disallowed}" -g "${got}" || (echo "Error: domain state import failure in $dir" && exit 1)
+			python3 tests/suites/static_analysis/lint_go.py -d "${disallowed}" -g "${got}" || (echo "Error: domain state imports it's service pkg' $dir" && exit 1)
 		fi
 	done
+}
+
+run_juju_errors_imports() {
+    pkgs=("domain")
+
+    for pkg in "${pkgs[@]}"; do
+        dirs=$(find ${pkg} -mindepth 1 -maxdepth 10 -type d | sort -u)
+        for dir in $dirs; do
+            echo "Checking $dir"
+            imports=$(go list -json -e -test "./${dir}" 2>/dev/null | jq -r ".Imports // [] | .[]")
+            disallowed="github.com/juju/errors"
+            python3 tests/suites/static_analysis/lint_go.py -d "${disallowed}" -g "${imports}" || (echo "Error: pkg $dir contains juju/errors imports" && exit 1)
+        done
+    done
 }
 
 run_go() {
@@ -132,6 +142,7 @@ test_static_analysis_go() {
 
 		cd .. || exit
 
+		run "run_juju_errors_imports"
 		run "run_api_imports"
 		run "run_domain_imports"
 
