@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
+	internalrelation "github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -1902,9 +1903,9 @@ func (u *UniterAPI) prepareRelationResult(
 ) (params.RelationResultV2, error) {
 	var (
 		otherAppName string
-		unitEp       relation.Endpoint
+		unitEp       internalrelation.Endpoint
 	)
-	for _, v := range rel.Endpoint {
+	for _, v := range rel.Endpoints {
 		if v.ApplicationName == applicationName {
 			unitEp = v
 		} else {
@@ -1922,7 +1923,7 @@ func (u *UniterAPI) prepareRelationResult(
 	}
 	return params.RelationResultV2{
 		Id:   rel.ID,
-		Key:  rel.Key,
+		Key:  rel.Key.String(),
 		Life: rel.Life,
 		Endpoint: params.Endpoint{
 			ApplicationName: unitEp.ApplicationName,

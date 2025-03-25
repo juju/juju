@@ -30,6 +30,7 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internalrelation "github.com/juju/juju/internal/relation"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -301,8 +302,8 @@ func (s *uniterRelationSuite) TestRelation(c *gc.C) {
 		Life: life.Alive,
 		UUID: relUUID,
 		ID:   relID,
-		Key:  relTag.Id(),
-		Endpoint: []relation.Endpoint{
+		Key:  corerelation.Key(relTag.Id()),
+		Endpoints: []internalrelation.Endpoint{
 			{
 				ApplicationName: "wordpress",
 				Relation: charm.Relation{
@@ -1067,8 +1068,8 @@ func (s *uniterRelationSuite) expectGetRelationDetails(relUUID corerelation.UUID
 		Life: life.Alive,
 		UUID: relUUID,
 		ID:   relID,
-		Key:  relTag.Id(),
-		Endpoint: []relation.Endpoint{
+		Key:  corerelation.Key(relTag.Id()),
+		Endpoints: []internalrelation.Endpoint{
 			{
 				ApplicationName: "wordpress",
 				Relation: charm.Relation{
@@ -1108,7 +1109,7 @@ func (s *uniterRelationSuite) expectGetRelationDetailsUnexpectedAppName(c *gc.C,
 		Life: life.Alive,
 		UUID: relationtesting.GenRelationUUID(c),
 		ID:   relID,
-		Endpoint: []relation.Endpoint{
+		Endpoints: []internalrelation.Endpoint{
 			{
 				ApplicationName: "failure-application",
 				Relation: charm.Relation{

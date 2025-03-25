@@ -9,6 +9,7 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/relation"
 )
 
 // GetRelationEndpointUUIDArgs represents the arguments required to retrieve
@@ -25,11 +26,29 @@ type GetRelationEndpointUUIDArgs struct {
 
 // RelationDetails represents the current application's view of a relation.
 type RelationDetails struct {
-	Life     life.Value
-	UUID     corerelation.UUID
-	ID       int
-	Key      string
-	Endpoint []Endpoint
+	// Life is the current life value of the relation.
+	Life life.Value
+	// UUID is the unique identifier of the relation.
+	UUID corerelation.UUID
+	// ID is the sequential ID of the relation.
+	ID int
+	// Key is the natural key of the relation.
+	Key corerelation.Key
+	// Endpoints are the endpoints of the relation.
+	Endpoints []relation.Endpoint
+}
+
+// RelationDetailsResult represents the current application's view of a
+// relation. This struct is used for passing results from state to the service.
+type RelationDetailsResult struct {
+	// Life is the current life value of the relation.
+	Life life.Value
+	// UUID is the unique identifier of the relation.
+	UUID corerelation.UUID
+	// ID is the sequential ID of the relation.
+	ID int
+	// Endpoints are the endpoints of the relation.
+	Endpoints []relation.Endpoint
 }
 
 // Endpoint represents one endpoint of a relation.

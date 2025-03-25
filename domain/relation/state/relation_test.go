@@ -14,6 +14,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	coreapplicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/charm/testing"
+	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
@@ -576,6 +577,71 @@ func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiersNotFound(c *
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
+func (s *relationSuite) TestGetRelationDetails(c *gc.C) {
+	// Arrange: Add two endpoints and a relation on them.
+	relationUUID := corerelationtesting.GenRelationUUID(c).String()
+	relationID := 7
+
+	charmRelationUUID1 := "fake-charm-relation-uuid-1"
+	applicationEndpointUUID1 := "fake-application-endpoint-uuid-1"
+	relationEndpointUUID1 := "fake-relation-endpoint-uuid-1"
+	endpoint1 := internalrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      internalcharm.RoleProvider,
+			Interface: "database",
+			Optional:  true,
+			Limit:     20,
+			Scope:     internalcharm.ScopeGlobal,
+		},
+	}
+
+	charmRelationUUID2 := "fake-charm-relation-uuid-2"
+	applicationEndpointUUID2 := "fake-application-endpoint-uuid-2"
+	relationEndpointUUID2 := "fake-relation-endpoint-uuid-2"
+	endpoint2 := internalrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      internalcharm.RoleRequirer,
+			Interface: "database",
+			Optional:  false,
+			Limit:     10,
+			Scope:     internalcharm.ScopeGlobal,
+		},
+	}
+	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID1, endpoint1.Relation)
+	s.addCharmRelation(c, s.fakeCharmUUID2, charmRelationUUID2, endpoint2.Relation)
+	s.addApplicationEndpoint(c, applicationEndpointUUID1, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, applicationEndpointUUID2, s.fakeApplicationUUID2, charmRelationUUID2)
+	s.addRelationWithLifeAndID(c, relationUUID, corelife.Dying, relationID)
+	s.addRelationEndpoint(c, relationEndpointUUID1, relationUUID, applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationEndpointUUID2, relationUUID, applicationEndpointUUID2)
+
+	expectedDetails := relation.RelationDetailsResult{
+		Life:      corelife.Dying,
+		UUID:      corerelation.UUID(relationUUID),
+		ID:        relationID,
+		Endpoints: []internalrelation.Endpoint{endpoint1, endpoint2},
+	}
+
+	// Act: Get relation details.
+	details, err := s.state.GetRelationDetails(context.Background(), relationID)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(details, gc.DeepEquals, expectedDetails)
+}
+
+func (s *relationSuite) TestGetRelationDetailsNotFound(c *gc.C) {
+	// Act: Get relation details.
+	_, err := s.state.GetRelationDetails(context.Background(), 7)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+}
+
 // addApplication adds a new application to the database with the specified UUID and name.
 func (s *relationSuite) addApplication(c *gc.C, charmUUID, appUUID, appName string) {
 	s.query(c, `
@@ -637,6 +703,16 @@ func (s *relationSuite) encodeScopeID(role internalcharm.RelationScope) int {
 	}[role]
 }
 
+// encodeLifeID returns the ID used in the database for the given life. This
+// reflects the contents of the life table.
+func (s *relationSuite) encodeLifeID(life corelife.Value) int {
+	return map[corelife.Value]int{
+		corelife.Alive: 0,
+		corelife.Dying: 1,
+		corelife.Dead:  2,
+	}[life]
+}
+
 // addRelation inserts a new relation into the database with the given UUID and default relation and life IDs.
 func (s *relationSuite) addRelation(c *gc.C, relationUUID string) {
 	s.query(c, `
@@ -652,6 +728,15 @@ func (s *relationSuite) addRelationWithID(c *gc.C, relationUUID string, relation
 INSERT INTO relation (uuid, life_id, relation_id) 
 VALUES (?,0,?)
 `, relationUUID, relationID)
+}
+
+// addRelationWithLifeAndID inserts a new relation into the database with the
+// given details.
+func (s *relationSuite) addRelationWithLifeAndID(c *gc.C, relationUUID string, life corelife.Value, relationID int) {
+	s.query(c, `
+INSERT INTO relation (uuid, life_id, relation_id) 
+VALUES (?,?,?)
+`, relationUUID, s.encodeLifeID(life), relationID)
 }
 
 // addRelationEndpoint inserts a relation endpoint into the database using the provided UUIDs for relation and endpoint.
