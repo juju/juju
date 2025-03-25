@@ -391,6 +391,52 @@ func (s *SuperCommandSuite) TestMissingCallbackContextWiredIn(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(s.ctx), gc.Equals, "this is std err")
 }
 
+type simpleWithInitError struct {
+	cmd.CommandBase
+	name      string
+	initError error
+}
+
+var _ cmd.Command = (*simpleWithInitError)(nil)
+
+func (s *simpleWithInitError) Info() *cmd.Info {
+	return &cmd.Info{Name: s.name, Purpose: "to be simple"}
+}
+
+func (s *simpleWithInitError) Init(args []string) error {
+	return s.initError
+}
+
+func (s *simpleWithInitError) Run(_ *cmd.Context) error {
+	return errors.New("unexpected-error")
+}
+
+func (s *SuperCommandSuite) TestMissingCallbackSetOnError(c *gc.C) {
+	callback := func(ctx *cmd.Context, subcommand string, args []string) error {
+		fmt.Fprint(ctx.Stdout, "reached callback: "+strings.Join(args, " "))
+		return nil
+	}
+
+	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name:            "jujutest",
+		Log:             &cmd.Log{},
+		MissingCallback: callback,
+	})
+	jc.Register(&simpleWithInitError{name: "foo", initError: cmd.ErrCommandMissing})
+	jc.Register(&simpleWithInitError{name: "bar", initError: errors.New("my-fake-error")})
+
+	code := cmd.Main(jc, s.ctx, []string{"bar"})
+	c.Assert(code, gc.Equals, 2)
+	c.Assert(cmdtesting.Stderr(s.ctx), gc.Equals, "ERROR my-fake-error\n")
+
+	// Verify that a call to foo, which returns a ErrCommandMissing error
+	// triggers the command missing callback and ensure all expected
+	// args were correctly sent to the callback.
+	code = cmd.Main(jc, s.ctx, []string{"foo", "bar", "baz", "--debug"})
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(cmdtesting.Stdout(s.ctx), gc.Equals, "reached callback: bar baz --debug")
+}
+
 func (s *SuperCommandSuite) TestSupercommandAliases(c *gc.C) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:        "jujutest",
