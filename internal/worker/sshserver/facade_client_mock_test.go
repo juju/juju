@@ -14,6 +14,7 @@ import (
 
 	controller "github.com/juju/juju/controller"
 	watcher "github.com/juju/juju/core/watcher"
+	params "github.com/juju/juju/rpc/params"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -53,6 +54,21 @@ func (m *MockFacadeClient) ControllerConfig() (controller.Config, error) {
 func (mr *MockFacadeClientMockRecorder) ControllerConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockFacadeClient)(nil).ControllerConfig))
+}
+
+// HostKeyForTarget mocks base method.
+func (m *MockFacadeClient) HostKeyForTarget(arg0 params.SSHHostKeyRequestArg) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HostKeyForTarget", arg0)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HostKeyForTarget indicates an expected call of HostKeyForTarget.
+func (mr *MockFacadeClientMockRecorder) HostKeyForTarget(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HostKeyForTarget", reflect.TypeOf((*MockFacadeClient)(nil).HostKeyForTarget), arg0)
 }
 
 // SSHServerHostKey mocks base method.

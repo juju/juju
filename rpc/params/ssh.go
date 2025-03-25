@@ -116,3 +116,9 @@ type SSHConnRequestResult struct {
 	Error          *Error         `json:"error,omitempty"`
 	SSHConnRequest SSHConnRequest `json:"ssh-conn-request"`
 }
+
+// SSHHostKeyResult holds the private host key.
+type SSHHostKeyResult struct {
+	Error   *Error `json:"error,omitempty"`
+	HostKey []byte `json:"host-key"`
+}

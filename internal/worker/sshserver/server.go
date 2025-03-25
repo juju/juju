@@ -4,8 +4,6 @@
 package sshserver
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
 	"fmt"
 	"io"
 	"net"
@@ -19,6 +17,9 @@ import (
 	"github.com/juju/worker/v3"
 	gossh "golang.org/x/crypto/ssh"
 	"gopkg.in/tomb.v2"
+
+	jujussh "github.com/juju/juju/pki/ssh"
+	"github.com/juju/juju/rpc/params"
 )
 
 // ServerWorkerConfig holds the configuration required by the server worker.
@@ -45,6 +46,9 @@ type ServerWorkerConfig struct {
 	// NewSSHServerListener is a function that returns a listener and a
 	// closeAllowed channel.
 	NewSSHServerListener func(net.Listener, time.Duration) net.Listener
+
+	// FacadeClient holds the SSH server's facade client.
+	FacadeClient FacadeClient
 }
 
 // Validate validates the workers configuration is as expected.
@@ -57,6 +61,9 @@ func (c ServerWorkerConfig) Validate() error {
 	}
 	if c.NewSSHServerListener == nil {
 		return errors.NotValidf("missing NewSSHServerListener")
+	}
+	if c.FacadeClient == nil {
+		return errors.NotValidf("missing FacadeClient")
 	}
 	return nil
 }
@@ -178,8 +185,20 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 		return
 	}
 
+	signer, err := s.hostKeySignerForTarget(d.DestAddr)
+	if err != nil {
+		s.config.Logger.Errorf("failed to get host key signer for target %q: %v", d.DestAddr, err)
+		err := newChan.Reject(gossh.ConnectionFailed, fmt.Sprintf("Failed to get host key for target %s", d.DestAddr))
+		if err != nil {
+			s.config.Logger.Errorf("failed to reject channel: %v", err)
+		}
+		return
+	}
+
 	ch, reqs, err := newChan.Accept()
 	if err != nil {
+		ch.Close()
+		s.config.Logger.Errorf("failed to accept channel: %v", err)
 		return
 	}
 
@@ -211,7 +230,6 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 
 		return nil
 	})
-
 	forwardHandler := &ssh.ForwardedTCPHandler{}
 	server := &ssh.Server{
 		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
@@ -237,20 +255,27 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 		},
 	}
 
-	// TODO(ale8k): Update later to generate host keys per unit.
-	terminatingHostKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		s.config.Logger.Errorf("failed to generate host key: %v", err)
-		return
-	}
-	signer, err := gossh.NewSignerFromKey(terminatingHostKey)
-	if err != nil {
-		s.config.Logger.Errorf("failed to create signer: %v", err)
-		return
-	}
-
 	server.AddHostKey(signer)
 	server.HandleConn(terminatingServerPipe)
+}
+
+// hostKeySignerForTarget returns a signer for the target hostname, by calling the facade client.
+func (s *ServerWorker) hostKeySignerForTarget(hostname string) (gossh.Signer, error) {
+	key, err := s.config.FacadeClient.HostKeyForTarget(params.SSHHostKeyRequestArg{Hostname: hostname})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	privateKey, err := jujussh.UnmarshalPrivateKey(key)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	signer, err := gossh.NewSignerFromKey(privateKey)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return signer, nil
 }
 
 // connCallback returns a connCallback function that limits the number of concurrent connections.

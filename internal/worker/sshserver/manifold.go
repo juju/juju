@@ -15,6 +15,7 @@ import (
 	sshserverapi "github.com/juju/juju/api/controller/sshserver"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 )
 
 // Logger holds the methods required to log messages.
@@ -28,6 +29,7 @@ type FacadeClient interface {
 	ControllerConfig() (controller.Config, error)
 	WatchControllerConfig() (watcher.NotifyWatcher, error)
 	SSHServerHostKey() (string, error)
+	HostKeyForTarget(arg params.SSHHostKeyRequestArg) ([]byte, error)
 }
 
 // ManifoldConfig holds the information necessary to run an embedded SSH server

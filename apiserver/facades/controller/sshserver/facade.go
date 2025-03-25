@@ -4,9 +4,12 @@
 package sshserver
 
 import (
+	"github.com/juju/errors"
+
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -15,8 +18,9 @@ import (
 // Backend provides required state for the Facade.
 type Backend interface {
 	ControllerConfig() (controller.Config, error)
-	WatchControllerConfig() state.NotifyWatcher
+	WatchControllerConfig() (state.NotifyWatcher, error)
 	SSHServerHostKey() (string, error)
+	HostKeyForVirtualHostname(info virtualhostname.Info) ([]byte, error)
 }
 
 // Facade allows model config manager clients to watch controller config changes and fetch controller config.
@@ -49,7 +53,10 @@ func (f *Facade) ControllerConfig() (params.ControllerConfigResult, error) {
 // WatchControllerConfig creates a watcher and returns it's ID for watching upon.
 func (f *Facade) WatchControllerConfig() (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	w := f.backend.WatchControllerConfig()
+	w, err := f.backend.WatchControllerConfig()
+	if err != nil {
+		return result, err
+	}
 	if _, ok := <-w.Changes(); ok {
 		result.NotifyWatcherId = f.resources.Register(w)
 	} else {
@@ -67,4 +74,23 @@ func (f *Facade) SSHServerHostKey() (params.StringResult, error) {
 	}
 	result.Result = key
 	return result, nil
+}
+
+// HostKeyForTarget returns the private host key for the target virtual hostname.
+func (facade *Facade) HostKeyForTarget(arg params.SSHHostKeyRequestArg) (params.SSHHostKeyResult, error) {
+	var res params.SSHHostKeyResult
+
+	info, err := virtualhostname.Parse(arg.Hostname)
+	if err != nil {
+		res.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to parse hostname"))
+		return res, nil
+	}
+
+	key, err := facade.backend.HostKeyForVirtualHostname(info)
+	if err != nil {
+		res.Error = apiservererrors.ServerError(err)
+		return res, nil
+	}
+
+	return params.SSHHostKeyResult{HostKey: key}, nil
 }
