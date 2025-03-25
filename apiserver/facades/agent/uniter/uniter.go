@@ -2010,49 +2010,38 @@ func (u *UniterAPI) WatchUnitRelations(ctx context.Context, args params.Entities
 		}
 		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
-			result.Results[i], err = u.watchOneUnitRelations(tag)
+			result.Results[i], err = u.watchOneUnitRelations(ctx, tag)
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
 
-func (u *UniterAPI) watchOneUnitRelations(tag names.UnitTag) (params.StringsWatchResult, error) {
+func (u *UniterAPI) watchOneUnitRelations(ctx context.Context, tag names.UnitTag) (params.StringsWatchResult, error) {
 	nothing := params.StringsWatchResult{}
-	unit, err := u.getUnit(tag)
+
+	unitName, err := coreunit.NewName(tag.Id())
 	if err != nil {
 		return nothing, err
 	}
-	app, err := unit.Application()
+
+	unitUUID, err := u.applicationService.GetUnitUUID(ctx, unitName)
 	if err != nil {
 		return nothing, err
 	}
-	principalName, isSubordinate := unit.PrincipalName()
-	var watch state.StringsWatcher
-	if isSubordinate {
-		principalUnit, err := u.st.Unit(principalName)
-		if err != nil {
-			return nothing, errors.Trace(err)
-		}
-		principalApp, err := principalUnit.Application()
-		if err != nil {
-			return nothing, errors.Trace(err)
-		}
-		watch, err = newSubordinateRelationsWatcher(u.st, app, principalApp.Name(), u.logger)
-		if err != nil {
-			return nothing, errors.Trace(err)
-		}
-	} else {
-		watch = app.WatchRelations()
+
+	watch, err := u.relationService.WatchLifeSuspendedStatus(ctx, unitUUID)
+	if err != nil {
+		updatedError := internalerrors.Errorf("WatchUnitRelations for %q: %w",
+			unitName, err)
+		return nothing, internalerrors.Capture(updatedError)
 	}
-	// Consume the initial event and forward it to the result.
-	if changes, ok := <-watch.Changes(); ok {
-		return params.StringsWatchResult{
-			StringsWatcherId: u.resources.Register(watch),
-			Changes:          changes,
-		}, nil
+
+	watcherId, initial, err := internal.EnsureRegisterWatcher[[]string](ctx, u.watcherRegistry, watch)
+	if err != nil {
+		return nothing, nil
 	}
-	return nothing, statewatcher.EnsureErr(watch)
+	return params.StringsWatchResult{StringsWatcherId: watcherId, Changes: initial}, nil
 }
 
 func makeAppAuthChecker(authTag names.Tag) common.AuthFunc {
