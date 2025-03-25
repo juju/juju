@@ -508,7 +508,7 @@ UPDATE SET version = excluded.version, architecture_id = excluded.architecture_i
 }
 
 // checkMachineNotDead checks if the machine with the given uuid exists and that
-// it's current life status is not one of dead. This is meant as a helper func
+// its current life status is not one of dead. This is meant as a helper func
 // to assert that a machine can be operated on inside of a transaction.
 // The following errors can be expected:
 // - [machineerrors.MachineNotFound] if the machine does not exist.
