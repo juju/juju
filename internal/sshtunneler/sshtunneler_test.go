@@ -11,6 +11,7 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -23,6 +24,7 @@ type sshTunnelerSuite struct {
 	state      *MockState
 	controller *MockControllerInfo
 	dialer     *MockSSHDial
+	clock      *MockClock
 }
 
 var _ = gc.Suite(&sshTunnelerSuite{})
@@ -33,17 +35,33 @@ func (s *sshTunnelerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.state = NewMockState(ctrl)
 	s.controller = NewMockControllerInfo(ctrl)
 	s.dialer = NewMockSSHDial(ctrl)
+	s.clock = NewMockClock(ctrl)
 
 	return ctrl
+}
+
+func (s *sshTunnelerSuite) newTunnelTracker(c *gc.C) *tunnelTracker {
+	args := TunnelTrackerArgs{
+		State:          s.state,
+		ControllerInfo: s.controller,
+		Dialer:         s.dialer,
+		Clock:          s.clock,
+		SharedSecret:   []byte("test-secret"),
+		JWTAlg:         jwa.HS256,
+	}
+	tunnelTracker, err := NewTunnelTracker(args)
+	c.Assert(err, jc.ErrorIsNil)
+	return tunnelTracker
 }
 
 func (s *sshTunnelerSuite) TestTunneler(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	tunnelTracker, err := NewTunnelTracker(s.state, s.controller, s.dialer)
-	c.Assert(err, jc.ErrorIsNil)
+	tunnelTracker := s.newTunnelTracker(c)
 
 	sshConnArgs := state.SSHConnRequestArg{}
+
+	now := time.Now()
 
 	s.controller.EXPECT().Addresses().Return([]network.SpaceAddress{
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
@@ -55,6 +73,7 @@ func (s *sshTunnelerSuite) TestTunneler(c *gc.C) {
 		},
 	)
 	s.dialer.EXPECT().Dial(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
+	s.clock.EXPECT().Now().AnyTimes().Return(now)
 
 	tunnelReqArgs := RequestArgs{
 		unitName:  "foo/0",
@@ -93,8 +112,10 @@ func (s *sshTunnelerSuite) TestTunneler(c *gc.C) {
 func (s *sshTunnelerSuite) TestGeneratePassword(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	tunnelTracker, err := NewTunnelTracker(s.state, s.controller, s.dialer)
-	c.Assert(err, jc.ErrorIsNil)
+	tunnelTracker := s.newTunnelTracker(c)
+
+	now := time.Now()
+	s.clock.EXPECT().Now().AnyTimes().Return(now)
 
 	tunnelID := "test-tunnel-id"
 	token, err := tunnelTracker.authn.generatePassword(tunnelID)
@@ -115,8 +136,7 @@ func (s *sshTunnelerSuite) TestGeneratePassword(c *gc.C) {
 func (s *sshTunnelerSuite) TestGenerateEphemeralSSHKey(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	tunnelTracker, err := NewTunnelTracker(s.state, s.controller, s.dialer)
-	c.Assert(err, jc.ErrorIsNil)
+	tunnelTracker := s.newTunnelTracker(c)
 
 	privateKey, publicKey, err := tunnelTracker.generateEphemeralSSHKey()
 	c.Assert(err, jc.ErrorIsNil)
@@ -127,8 +147,10 @@ func (s *sshTunnelerSuite) TestGenerateEphemeralSSHKey(c *gc.C) {
 func (s *sshTunnelerSuite) TestAuthenticateTunnel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	tunnelTracker, err := NewTunnelTracker(s.state, s.controller, s.dialer)
-	c.Assert(err, jc.ErrorIsNil)
+	tunnelTracker := s.newTunnelTracker(c)
+
+	now := time.Now()
+	s.clock.EXPECT().Now().AnyTimes().Return(now)
 
 	tunnelID := "test-tunnel-id"
 	token, err := tunnelTracker.authn.generatePassword(tunnelID)
@@ -142,8 +164,7 @@ func (s *sshTunnelerSuite) TestAuthenticateTunnel(c *gc.C) {
 func (s *sshTunnelerSuite) TestPushTunnel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	tunnelTracker, err := NewTunnelTracker(s.state, s.controller, s.dialer)
-	c.Assert(err, jc.ErrorIsNil)
+	tunnelTracker := s.newTunnelTracker(c)
 
 	tunnelID := "test-tunnel-id"
 	tunnelReq := &tunnelRequest{
@@ -162,7 +183,7 @@ func (s *sshTunnelerSuite) TestPushTunnel(c *gc.C) {
 		}
 	}()
 
-	err = tunnelTracker.PushTunnel(context.Background(), tunnelID, conn)
+	err := tunnelTracker.PushTunnel(context.Background(), tunnelID, conn)
 	c.Check(err, jc.ErrorIsNil)
 
 }
@@ -170,8 +191,7 @@ func (s *sshTunnelerSuite) TestPushTunnel(c *gc.C) {
 func (s *sshTunnelerSuite) TestDeleteTunnel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	tunnelTracker, err := NewTunnelTracker(s.state, s.controller, s.dialer)
-	c.Assert(err, jc.ErrorIsNil)
+	tunnelTracker := s.newTunnelTracker(c)
 
 	tunnelID := "test-tunnel-id"
 	tunnelReq := &tunnelRequest{}
@@ -185,9 +205,10 @@ func (s *sshTunnelerSuite) TestDeleteTunnel(c *gc.C) {
 func (s *sshTunnelerSuite) TestRequestTunnel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	tunnelTracker, err := NewTunnelTracker(s.state, s.controller, s.dialer)
-	c.Assert(err, jc.ErrorIsNil)
+	tunnelTracker := s.newTunnelTracker(c)
 
+	now := time.Now()
+	s.clock.EXPECT().Now().AnyTimes().Return(now)
 	s.controller.EXPECT().Addresses().Return([]network.SpaceAddress{
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
 	})
@@ -204,72 +225,48 @@ func (s *sshTunnelerSuite) TestRequestTunnel(c *gc.C) {
 	c.Check(req.privateKey, gc.Not(gc.IsNil))
 }
 
-func (s *sshTunnelerSuite) TestGetTunnel(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	tunnelTracker, err := NewTunnelTracker(s.state, s.controller, s.dialer)
-	c.Assert(err, jc.ErrorIsNil)
-
-	tunnelID := "test-tunnel-id"
-	tunnelReq := &tunnelRequest{}
-	tunnelTracker.tracker[tunnelID] = tunnelReq
-
-	req, ok := tunnelTracker.getTunnel(tunnelID)
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(req, gc.Equals, tunnelReq)
-}
-
 func (s *sshTunnelerSuite) TestAuthenticateTunnelInvalidUsername(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	tunnelTracker, err := NewTunnelTracker(s.state, s.controller, s.dialer)
-	c.Assert(err, jc.ErrorIsNil)
+	tunnelTracker := s.newTunnelTracker(c)
 
-	_, err = tunnelTracker.AuthenticateTunnel("invalid-username", "some-password")
+	_, err := tunnelTracker.AuthenticateTunnel("invalid-username", "some-password")
 	c.Assert(err, gc.ErrorMatches, "invalid username")
 }
 
 func (s *sshTunnelerSuite) TestAuthenticateTunnelInvalidToken(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	tunnelTracker, err := NewTunnelTracker(s.state, s.controller, s.dialer)
-	c.Assert(err, jc.ErrorIsNil)
+	tunnelTracker := s.newTunnelTracker(c)
 
-	_, err = tunnelTracker.AuthenticateTunnel("reverse-tunnel", "invalid-token")
+	_, err := tunnelTracker.AuthenticateTunnel("reverse-tunnel", "invalid-token")
 	c.Assert(err, gc.ErrorMatches, "failed to decode token: .*")
 }
 
 func (s *sshTunnelerSuite) TestAuthenticateTunnelExpiredToken(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	tunnelTracker, err := NewTunnelTracker(s.state, s.controller, s.dialer)
+	tunnelTracker := s.newTunnelTracker(c)
+
+	now := time.Now()
+	s.clock.EXPECT().Now().Times(2).Return(now)
+
+	tunnelID := "test-tunnel-id"
+	token, err := tunnelTracker.authn.generatePassword(tunnelID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	token, err := jwt.NewBuilder().
-		Issuer(tokenIssuer).
-		Subject(tokenSubject).
-		IssuedAt(time.Now()).
-		Expiration(time.Now().Add(-1*maxTimeout)).
-		Claim(tunnelIDClaim, "foo").
-		Build()
-	c.Assert(err, jc.ErrorIsNil)
+	s.clock.EXPECT().Now().AnyTimes().Return(now.Add(maxTimeout))
 
-	signedToken, err := jwt.Sign(token, jwt.WithKey(tunnelTracker.authn.jwtAlg, tunnelTracker.authn.sharedSecret))
-	c.Assert(err, jc.ErrorIsNil)
-
-	b64Token := base64.StdEncoding.EncodeToString(signedToken)
-
-	_, err = tunnelTracker.AuthenticateTunnel("reverse-tunnel", b64Token)
+	_, err = tunnelTracker.AuthenticateTunnel(reverseTunnelUser, token)
 	c.Assert(err, gc.ErrorMatches, `failed to parse token: "exp" not satisfied`)
 }
 
 func (s *sshTunnelerSuite) TestPushTunnelInvalidTunnelID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	tunnelTracker, err := NewTunnelTracker(s.state, s.controller, s.dialer)
-	c.Assert(err, jc.ErrorIsNil)
+	tunnelTracker := s.newTunnelTracker(c)
 
-	err = tunnelTracker.PushTunnel(context.Background(), "invalid-tunnel-id", nil)
+	err := tunnelTracker.PushTunnel(context.Background(), "invalid-tunnel-id", nil)
 	c.Assert(err, gc.ErrorMatches, "tunnel not found")
 }
 
