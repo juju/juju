@@ -1013,6 +1013,14 @@ func (s *uniterRelationSuite) TestLeaveScopeFails(c *gc.C) {
 
 }
 
+func (s *uniterRelationSuite) TestWatchUnitRelations(c *gc.C) {
+	c.Skip("Implemented when WatchUnitRelations no longer requires state")
+}
+
+func (s *uniterRelationSuite) TestWatchUnitRelationsPermissionDenied(c *gc.C) {
+	// Implement me
+}
+
 func (s *uniterRelationSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
