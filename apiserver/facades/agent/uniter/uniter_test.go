@@ -24,6 +24,8 @@ import (
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/relation"
@@ -281,6 +283,7 @@ type uniterRelationSuite struct {
 	applicationService *MockApplicationService
 	modelInfoService   *MockModelInfoService
 	relationService    *MockRelationService
+	watcherRegistry    *MockWatcherRegistry
 
 	uniter *UniterAPI
 }
@@ -995,12 +998,71 @@ func (s *uniterRelationSuite) TestLeaveScopeFails(c *gc.C) {
 
 }
 
+func (s *uniterRelationSuite) TestWatchUnitRelations(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	unitUUID := unittesting.GenUnitUUID(c)
+	watcherID := "watcher-id"
+	relationKey := relationtesting.GenNewKey(c, "wordpress:db mysql:db")
+	relationChanges := make(chan []string, 1)
+	change := []string{relationKey.String()}
+	relationChanges <- change
+	watch := watchertest.NewMockStringsWatcher(relationChanges)
+	s.expectGetUnitUUID(s.wordpressUnitTag.Id(), unitUUID, nil)
+	s.expectWatchLifeSuspendedStatus(unitUUID, watch, nil)
+	s.expectWatcherRegistry(watcherID, watch, nil)
+
+	// Act
+	results, err := s.uniter.WatchUnitRelations(context.Background(),
+		params.Entities{
+			Entities: []params.Entity{
+				{Tag: s.wordpressUnitTag.String()},
+			}})
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{
+				StringsWatcherId: watcherID,
+				Changes:          change,
+				Error:            nil,
+			},
+		},
+	})
+}
+
+func (s *uniterRelationSuite) TestWatchUnitRelationsErrUnauthorized(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	args := params.Entities{Entities: []params.Entity{
+		// Bad unit tag.
+		{Tag: "application"},
+		// Not the authorized unit
+		{Tag: "unit-mysql-4"},
+	}}
+
+	// Act
+	results, err := s.uniter.WatchUnitRelations(context.Background(), args)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+}
+
 func (s *uniterRelationSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.modelInfoService = NewMockModelInfoService(ctrl)
 	s.relationService = NewMockRelationService(ctrl)
+	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
 
 	unitAuthFunc := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
@@ -1030,6 +1092,7 @@ func (s *uniterRelationSuite) setupMocks(c *gc.C) *gomock.Controller {
 		applicationService: s.applicationService,
 		modelInfoService:   s.modelInfoService,
 		relationService:    s.relationService,
+		watcherRegistry:    s.watcherRegistry,
 	}
 
 	return ctrl
@@ -1153,6 +1216,14 @@ func (s *uniterRelationSuite) expectGetRelationStatus(uuid corerelation.UUID, cu
 
 func (s *uniterRelationSuite) expectEnterScope(uuid corerelation.UUID, name coreunit.Name, err error) {
 	s.relationService.EXPECT().EnterScope(gomock.Any(), uuid, name).Return(err)
+}
+
+func (s *uniterRelationSuite) expectWatchLifeSuspendedStatus(unitUUID coreunit.UUID, watch watcher.StringsWatcher, err error) {
+	s.relationService.EXPECT().WatchLifeSuspendedStatus(gomock.Any(), unitUUID).Return(watch, err)
+}
+
+func (s *uniterRelationSuite) expectWatcherRegistry(watchID string, watch *watchertest.MockStringsWatcher, err error) {
+	s.watcherRegistry.EXPECT().Register(watch).Return(watchID, err).AnyTimes()
 }
 
 type commitHookChangesSuite struct {

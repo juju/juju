@@ -1415,6 +1415,45 @@ func (c *MockRelationServiceUpdateRelationUnitSettingsCall) DoAndReturn(f func(c
 	return c
 }
 
+// WatchLifeSuspendedStatus mocks base method.
+func (m *MockRelationService) WatchLifeSuspendedStatus(arg0 context.Context, arg1 unit.UUID) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchLifeSuspendedStatus", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchLifeSuspendedStatus indicates an expected call of WatchLifeSuspendedStatus.
+func (mr *MockRelationServiceMockRecorder) WatchLifeSuspendedStatus(arg0, arg1 any) *MockRelationServiceWatchLifeSuspendedStatusCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLifeSuspendedStatus", reflect.TypeOf((*MockRelationService)(nil).WatchLifeSuspendedStatus), arg0, arg1)
+	return &MockRelationServiceWatchLifeSuspendedStatusCall{Call: call}
+}
+
+// MockRelationServiceWatchLifeSuspendedStatusCall wrap *gomock.Call
+type MockRelationServiceWatchLifeSuspendedStatusCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRelationServiceWatchLifeSuspendedStatusCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockRelationServiceWatchLifeSuspendedStatusCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRelationServiceWatchLifeSuspendedStatusCall) Do(f func(context.Context, unit.UUID) (watcher.Watcher[[]string], error)) *MockRelationServiceWatchLifeSuspendedStatusCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRelationServiceWatchLifeSuspendedStatusCall) DoAndReturn(f func(context.Context, unit.UUID) (watcher.Watcher[[]string], error)) *MockRelationServiceWatchLifeSuspendedStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockModelInfoService is a mock of ModelInfoService interface.
 type MockModelInfoService struct {
 	ctrl     *gomock.Controller
