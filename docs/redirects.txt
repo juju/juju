@@ -42,7 +42,6 @@ user/howto/manage-ssh-keys howto/manage-ssh-keys
 user/howto/manage-storage-pools howto/manage-storage-pools
 user/howto/manage-storage howto/manage-storage
 user/howto/manage-subnets howto/manage-subnets
-user/howto/manage-the-juju-dashboard-upgrade howto/manage-the-juju-dashboard-upgrade
 user/howto/manage-the-juju-dashboard howto/manage-the-juju-dashboard
 user/howto/manage-units howto/manage-units
 user/howto/manage-users howto/manage-users
@@ -386,7 +385,6 @@ user/reference/resource-compute/list-of-commands-available-on-a-compute-resource
 user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_stop_unit reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_stop_unit
 user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_unit_agent_name reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_unit_agent_name
 user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_unit_status reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_unit_status
-user/reference/rockcraft https://documentation.ubuntu.com/rockcraft
 user/reference/scaling reference/scaling
 user/reference/script reference/script
 user/reference/secret reference/secret
