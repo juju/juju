@@ -6,10 +6,10 @@ package quota_test
 import (
 	"time"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/quota"
 )
 
@@ -23,7 +23,7 @@ func (s *MapKeyValueCheckerSuite) TestNonMapValue(c *gc.C) {
 	chk.Check("not-a-map")
 
 	err := chk.Outcome()
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotImplemented)
 }
 
 func (s *MapKeyValueCheckerSuite) TestMapWithMixedValueTypes(c *gc.C) {
@@ -69,7 +69,7 @@ func (s *MapKeyValueCheckerSuite) TestExceedMaxKeySize(c *gc.C) {
 	})
 
 	err := chk.Outcome()
-	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded)
+	c.Assert(err, jc.ErrorIs, coreerrors.QuotaLimitExceeded)
 	c.Assert(err, gc.ErrorMatches, "max allowed key length.*", gc.Commentf("expected error about exceeding max key length"))
 }
 
@@ -81,6 +81,6 @@ func (s *MapKeyValueCheckerSuite) TestExceedMaxValueSize(c *gc.C) {
 	})
 
 	err := chk.Outcome()
-	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded)
+	c.Assert(err, jc.ErrorIs, coreerrors.QuotaLimitExceeded)
 	c.Assert(err, gc.ErrorMatches, "max allowed value length.*", gc.Commentf("expected error about exceeding max value length"))
 }

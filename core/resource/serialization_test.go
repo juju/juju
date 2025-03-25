@@ -6,11 +6,11 @@ package resource_test
 import (
 	"strings"
 
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 )
@@ -35,7 +35,7 @@ func (s *SerializationSuite) TestDeserializeFingerprintOkay(c *gc.C) {
 func (s *SerializationSuite) TestDeserializeFingerprintInvalid(c *gc.C) {
 	_, err := resource.DeserializeFingerprint([]byte("<too short>"))
 
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *SerializationSuite) TestDeserializeFingerprintZeroValue(c *gc.C) {

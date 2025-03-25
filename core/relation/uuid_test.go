@@ -4,11 +4,11 @@
 package relation
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -27,11 +27,11 @@ func (*relationUUIDSuite) TestUUIDValidate(c *gc.C) {
 	}{
 		{
 			uuid: "",
-			err:  errors.NotValid,
+			err:  coreerrors.NotValid,
 		},
 		{
 			uuid: "invalid",
-			err:  errors.NotValid,
+			err:  coreerrors.NotValid,
 		},
 		{
 			uuid: uuid.MustNewUUID().String(),
@@ -66,11 +66,11 @@ func (*relationUnitUUIDSuite) TestUUIDValidate(c *gc.C) {
 	}{
 		{
 			uuid: "",
-			err:  errors.NotValid,
+			err:  coreerrors.NotValid,
 		},
 		{
 			uuid: "invalid",
-			err:  errors.NotValid,
+			err:  coreerrors.NotValid,
 		},
 		{
 			uuid: uuid.MustNewUUID().String(),
@@ -105,11 +105,11 @@ func (*relationEndpointUUIDSuite) TestUUIDValidate(c *gc.C) {
 	}{
 		{
 			uuid: "",
-			err:  errors.NotValid,
+			err:  coreerrors.NotValid,
 		},
 		{
 			uuid: "invalid",
-			err:  errors.NotValid,
+			err:  coreerrors.NotValid,
 		},
 		{
 			uuid: uuid.MustNewUUID().String(),

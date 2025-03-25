@@ -4,9 +4,10 @@
 package machine
 
 import (
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	coreerrors "github.com/juju/juju/core/errors"
 )
 
 type machineSuite struct {
@@ -23,7 +24,7 @@ func (*machineSuite) TestNameValidate(c *gc.C) {
 	}{
 		{
 			name: "",
-			err:  errors.NotValid,
+			err:  coreerrors.NotValid,
 		},
 		{
 			name: "40",

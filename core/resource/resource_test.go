@@ -6,11 +6,11 @@ package resource_test
 import (
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/resource"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 )
@@ -52,7 +52,7 @@ func (ResourceSuite) TestValidateZeroValue(c *gc.C) {
 
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, gc.ErrorMatches, `.*bad info.*`)
 }
 
@@ -66,7 +66,7 @@ func (ResourceSuite) TestValidateBadInfo(c *gc.C) {
 
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, gc.ErrorMatches, `.*bad info.*`)
 }
 
@@ -93,7 +93,7 @@ func (ResourceSuite) TestValidateMissingApplicationName(c *gc.C) {
 
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, gc.ErrorMatches, `.*missing application name.*`)
 }
 
@@ -122,7 +122,7 @@ func (ResourceSuite) TestValidateMissingTimestamp(c *gc.C) {
 
 	err := res.Validate()
 
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, gc.ErrorMatches, `.*missing timestamp.*`)
 }
 

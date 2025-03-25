@@ -8,11 +8,12 @@ import (
 	"net"
 	"sort"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -895,7 +896,7 @@ func (s *AddressSuite) TestProviderAddressesToSpaceAddressesByName(c *gc.C) {
 	// Add an address in a space that the lookup will not resolve.
 	addrs = append(addrs, network.NewMachineAddress("4.5.6.7").AsProviderAddress(network.WithSpaceName("space-denied")))
 	_, err = addrs.ToSpaceAddresses(allSpaces)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 }
 
 func (s *AddressSuite) TestProviderAddressesToSpaceAddressesBySubnet(c *gc.C) {
@@ -954,7 +955,7 @@ func (s *AddressSuite) TestSpaceAddressesToProviderAddresses(c *gc.C) {
 	addrs = append(addrs, network.NewSpaceAddress("4.5.6.7"))
 	addrs[3].SpaceID = "3"
 	_, err = addrs.ToProviderAddresses(allSpaces)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 }
 
 func (s *AddressSuite) TestSpaceAddressesValues(c *gc.C) {
@@ -965,10 +966,10 @@ func (s *AddressSuite) TestSpaceAddressesValues(c *gc.C) {
 
 func (s *AddressSuite) TestAddressValueForCIDR(c *gc.C) {
 	_, err := network.NewMachineAddress("172.31.37.53").ValueWithMask()
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 
 	_, err = network.NewMachineAddress("", network.WithCIDR("172.31.37.0/20")).ValueWithMask()
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 
 	val, err := network.NewMachineAddress("172.31.37.53", network.WithCIDR("172.31.37.0/20")).ValueWithMask()
 	c.Assert(err, jc.ErrorIsNil)

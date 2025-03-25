@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/errors"
 )
 
 const randomPasswordBytes = 18
@@ -170,7 +171,7 @@ func RandomBytes(n int) ([]byte, error) {
 	buf := make([]byte, n)
 	_, err := io.ReadFull(rand.Reader, buf)
 	if err != nil {
-		return nil, fmt.Errorf("cannot read random bytes: %v", err)
+		return nil, errors.Errorf("cannot read random bytes: %v", err)
 	}
 	return buf, nil
 }

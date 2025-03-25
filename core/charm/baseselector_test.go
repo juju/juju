@@ -169,7 +169,7 @@ func (s *baseSelectorSuite) TestValidate(c *gc.C) {
 		selector: BaseSelector{
 			usingImageID: true,
 		},
-		err: "base must be explicitly provided when image-id constraint is used",
+		err: "base must be explicitly provided when image-id constraint is used forbidden",
 	}, {
 		title: "should return no errors when using image-id and base flag",
 		selector: BaseSelector{

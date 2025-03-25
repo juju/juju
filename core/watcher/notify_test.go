@@ -8,13 +8,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/errors"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 

@@ -4,11 +4,11 @@
 package permission_test
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/permission"
 )
 
@@ -258,7 +258,7 @@ func (*accessSuite) TestValidateAccessForObjectType(c *gc.C) {
 		id := permission.ID{ObjectType: test.objectType}
 		err := id.ValidateAccess(test.access)
 		if test.fail {
-			c.Assert(err, jc.ErrorIs, errors.NotValid, gc.Commentf("test %d", i))
+			c.Assert(err, jc.ErrorIs, coreerrors.NotValid, gc.Commentf("test %d", i))
 		} else {
 			c.Check(err, jc.ErrorIsNil, gc.Commentf("test %d", i))
 		}
@@ -273,7 +273,7 @@ func (*accessSuite) TestParseTagForID(c *gc.C) {
 
 func (*accessSuite) TestParseTagForIDFail(c *gc.C) {
 	_, err := permission.ParseTagForID(nil)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 	_, err = permission.ParseTagForID(names.NewUserTag("testcloud"))
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotSupported)
 }

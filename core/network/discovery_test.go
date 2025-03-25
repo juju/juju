@@ -4,7 +4,6 @@
 package network_test
 
 import (
-	"errors"
 	"net"
 
 	"github.com/juju/collections/set"
@@ -14,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/errors"
 )
 
 type networkConfigSuite struct {

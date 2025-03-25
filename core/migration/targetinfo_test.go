@@ -4,12 +4,12 @@
 package migration_test
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/migration"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -102,7 +102,7 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 		if test.errorPattern == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
-			c.Check(err, jc.ErrorIs, errors.NotValid)
+			c.Check(err, jc.ErrorIs, coreerrors.NotValid)
 			c.Check(err, gc.ErrorMatches, test.errorPattern)
 		}
 	}

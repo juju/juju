@@ -26,6 +26,7 @@ func (*ImportTest) TestImports(c *gc.C) {
 
 	c.Assert(found, jc.SameContents, []string{
 		"core/credential",
+		"core/errors",
 		"core/life",
 		"core/logger",
 		"core/model",

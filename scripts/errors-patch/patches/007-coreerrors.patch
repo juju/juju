@@ -22,6 +22,17 @@ import errors "github.com/juju/errors"
 
 @@
 var errors identifier
+var errMsg expression
+@@
+import errors "github.com/juju/errors"
++import coreerrors "github.com/juju/juju/core/errors"
++import interrors "github.com/juju/juju/internal/errors"
+
+-errors.NewNotSupported(nil, errMsg)
++interrors.New(errMsg).Add(coreerrors.NotSupported)
+
+@@
+var errors identifier
 @@
 import errors "github.com/juju/errors"
 +import coreerrors "github.com/juju/juju/core/errors"
@@ -39,6 +50,17 @@ import errors "github.com/juju/errors"
 
 -errors.NotFoundf(fmtStr, ...)
 +interrors.Errorf(fmtStr + " %w", ..., coreerrors.NotFound)
+
+@@
+var errors identifier
+var errMsg expression
+@@
+import errors "github.com/juju/errors"
++import coreerrors "github.com/juju/juju/core/errors"
++import interrors "github.com/juju/juju/internal/errors"
+
+-errors.NewNotFound(nil, errMsg)
++interrors.New(errMsg).Add(coreerrors.NotFound)
 
 @@
 var errors identifier
@@ -70,6 +92,28 @@ import errors "github.com/juju/errors"
 
 -errors.NotValidf(fmtStr, ...)
 +interrors.Errorf(fmtStr + " %w", ..., coreerrors.NotValid)
+
+@@
+var errors identifier
+var errMsg expression
+@@
+import errors "github.com/juju/errors"
++import coreerrors "github.com/juju/juju/core/errors"
++import interrors "github.com/juju/juju/internal/errors"
+
+-errors.NewNotValid(nil, errMsg)
++interrors.New(errMsg).Add(coreerrors.NotValid)
+
+@@
+var errors identifier
+var err, errMsg expression
+@@
+import errors "github.com/juju/errors"
++import coreerrors "github.com/juju/juju/core/errors"
++import interrors "github.com/juju/juju/internal/errors"
+
+-errors.NewNotValid(err, errMsg)
++interrors.Errorf(errMsg + ": %w", err).Add(coreerrors.NotValid)
 
 @@
 var errors identifier
@@ -140,3 +184,66 @@ import errors "github.com/juju/errors"
 
 - errors.NotProvisioned
 + coreerrors.NotProvisioned
+
+@@
+var errors identifier
+var fmtStr expression
+@@
+import errors "github.com/juju/errors"
+
++import coreerrors "github.com/juju/juju/core/errors"
++import interrors "github.com/juju/juju/internal/errors"
+
+-errors.BadRequestf(fmtStr, ...)
++interrors.Errorf(fmtStr, ...).Add(coreerrors.BadRequest)
+
+@@
+var errors identifier
+@@
+import errors "github.com/juju/errors"
++import coreerrors "github.com/juju/juju/core/errors"
+
+- errors.BadRequest
++ coreerrors.BadRequest
+
+@@
+var errors identifier
+var fmtStr expression
+@@
+import errors "github.com/juju/errors"
+
++import coreerrors "github.com/juju/juju/core/errors"
++import interrors "github.com/juju/juju/internal/errors"
+
+-errors.Forbiddenf(fmtStr, ...)
++interrors.Errorf(fmtStr + " %w", ..., coreerrors.Forbidden)
+
+@@
+var errors identifier
+@@
+import errors "github.com/juju/errors"
++import coreerrors "github.com/juju/juju/core/errors"
+
+- errors.Forbidden
++ coreerrors.Forbidden
+
+@@
+var errors identifier
+var fmtStr expression
+@@
+import errors "github.com/juju/errors"
+
++import coreerrors "github.com/juju/juju/core/errors"
++import interrors "github.com/juju/juju/internal/errors"
+
+-errors.QuotaLimitExceededf(fmtStr, ...)
++interrors.Errorf(fmtStr + " %w", ..., coreerrors.QuotaLimitExceeded)
+
+@@
+var errors identifier
+@@
+import errors "github.com/juju/errors"
++import coreerrors "github.com/juju/juju/core/errors"
+
+- errors.QuotaLimitExceeded
++ coreerrors.QuotaLimitExceeded

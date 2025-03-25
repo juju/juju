@@ -4,13 +4,13 @@
 package constraints_test
 
 import (
-	"fmt"
 	"regexp"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/internal/errors"
 )
 
 type validationSuite struct{}
@@ -193,7 +193,7 @@ func (s *validationSuite) TestConstraintResolver(c *gc.C) {
 		if attrValues["arch"] == "amd64" && attrValues["instance-type"] == "foo-amd64" {
 			return nil
 		}
-		return fmt.Errorf("instance-type=%q and arch=%q are incompatible", attrValues["instance-type"], attrValues["arch"])
+		return errors.Errorf("instance-type=%q and arch=%q are incompatible", attrValues["instance-type"], attrValues["arch"])
 	})
 	_, err = validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)

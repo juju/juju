@@ -4,11 +4,11 @@
 package life_test
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
 )
 
@@ -35,7 +35,7 @@ func (*LifeSuite) TestValidateInvalid(c *gc.C) {
 	} {
 		c.Logf("test %d: %s", i, test)
 		err := test.Validate()
-		c.Check(err, jc.ErrorIs, errors.NotValid)
+		c.Check(err, jc.ErrorIs, coreerrors.NotValid)
 		c.Check(err, gc.ErrorMatches, `life value ".*" not valid`)
 	}
 }

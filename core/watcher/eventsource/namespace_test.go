@@ -6,7 +6,6 @@ package eventsource
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/database/schema"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testing"
 )
 

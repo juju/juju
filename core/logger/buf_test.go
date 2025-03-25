@@ -4,7 +4,6 @@
 package logger_test
 
 import (
-	"errors"
 	"fmt"
 	"math/rand"
 	"time"
@@ -17,6 +16,7 @@ import (
 
 	corelogger "github.com/juju/juju/core/logger"
 	coretesting "github.com/juju/juju/core/testing"
+	"github.com/juju/juju/internal/errors"
 )
 
 type BufferedLogWriterSuite struct {

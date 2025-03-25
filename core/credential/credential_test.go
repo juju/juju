@@ -4,11 +4,11 @@
 package credential
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -58,7 +58,7 @@ func (s *typeSuite) TestCredentialKeyValidate(c *gc.C) {
 				Name:  "wallyworld",
 				Owner: usertesting.GenNewName(c, "wallyworld"),
 			},
-			Err: errors.NotValid,
+			Err: coreerrors.NotValid,
 		},
 		{
 			Key: Key{
@@ -66,7 +66,7 @@ func (s *typeSuite) TestCredentialKeyValidate(c *gc.C) {
 				Name:  "",
 				Owner: usertesting.GenNewName(c, "wallyworld"),
 			},
-			Err: errors.NotValid,
+			Err: coreerrors.NotValid,
 		},
 		{
 			Key: Key{
@@ -74,7 +74,7 @@ func (s *typeSuite) TestCredentialKeyValidate(c *gc.C) {
 				Name:  "wallyworld",
 				Owner: user.Name{},
 			},
-			Err: errors.NotValid,
+			Err: coreerrors.NotValid,
 		},
 		{
 			Key: Key{
@@ -103,11 +103,11 @@ func (*typeSuite) TestUUIDValidate(c *gc.C) {
 	}{
 		{
 			id:  "",
-			err: errors.NotValid,
+			err: coreerrors.NotValid,
 		},
 		{
 			id:  "invalid",
-			err: errors.NotValid,
+			err: coreerrors.NotValid,
 		},
 		{
 			id: uuid.MustNewUUID().String(),

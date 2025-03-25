@@ -6,11 +6,11 @@ package network_test
 import (
 	"net"
 
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
 )
 
@@ -33,7 +33,7 @@ func (*subnetSuite) TestFindSubnetIDsForAZ(c *gc.C) {
 			zoneName:       "",
 			subnetsToZones: make(map[network.Id][]string),
 			expected:       make([]network.Id, 0),
-			expectedErr:    errors.NotFound,
+			expectedErr:    coreerrors.NotFound,
 		},
 		{
 			name:     "no match",
@@ -42,7 +42,7 @@ func (*subnetSuite) TestFindSubnetIDsForAZ(c *gc.C) {
 				"bar": {"foo", "baz"},
 			},
 			expected:    make([]network.Id, 0),
-			expectedErr: errors.NotFound,
+			expectedErr: coreerrors.NotFound,
 		},
 		{
 			name:     "match",
@@ -195,7 +195,7 @@ func (*subnetSuite) TestSubnetInfosGetByCIDR(c *gc.C) {
 	}
 
 	_, err := s.GetByCIDR("invalid")
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
 
 	subs, err := s.GetByCIDR("30.30.30.0/25")
 	c.Assert(err, jc.ErrorIsNil)
@@ -244,7 +244,7 @@ func (*subnetSuite) TestSubnetInfosGetByAddress(c *gc.C) {
 	}
 
 	_, err := s.GetByAddress("invalid")
-	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
 
 	subs, err := s.GetByAddress("10.10.10.5")
 	c.Assert(err, jc.ErrorIsNil)

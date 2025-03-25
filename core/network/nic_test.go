@@ -6,10 +6,10 @@ package network_test
 import (
 	"strings"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
 )
 
@@ -73,17 +73,17 @@ func (s *nicSuite) TestAdditionalFields(c *gc.C) {
 
 func (*nicSuite) TestInterfaceInfoValidate(c *gc.C) {
 	dev := network.InterfaceInfo{InterfaceName: ""}
-	c.Check(dev.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(dev.Validate(), jc.ErrorIs, coreerrors.NotValid)
 
 	dev = network.InterfaceInfo{MACAddress: "do you even MAC bro?"}
-	c.Check(dev.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(dev.Validate(), jc.ErrorIs, coreerrors.NotValid)
 
 	dev = network.InterfaceInfo{
 		InterfaceName: "eth0",
 		MACAddress:    network.GenerateVirtualMACAddress(),
 		InterfaceType: "invalid",
 	}
-	c.Check(dev.Validate(), jc.ErrorIs, errors.NotValid)
+	c.Check(dev.Validate(), jc.ErrorIs, coreerrors.NotValid)
 
 	dev = network.InterfaceInfo{
 		InterfaceName: "not#valid",

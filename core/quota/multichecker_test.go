@@ -4,10 +4,10 @@
 package quota_test
 
 import (
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/quota"
 )
 
@@ -42,5 +42,5 @@ func (s *MultiCheckerSuite) TestExceedMaxSize(c *gc.C) {
 	})
 
 	err := chk.Outcome()
-	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded)
+	c.Assert(err, jc.ErrorIs, coreerrors.QuotaLimitExceeded)
 }

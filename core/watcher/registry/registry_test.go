@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -16,6 +15,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 )
@@ -111,7 +111,7 @@ func (s *registrySuite) TestRegisterNamedRepeatedError(c *gc.C) {
 
 	err = reg.RegisterNamed("foo", w)
 	c.Assert(err, gc.ErrorMatches, `worker "foo" already exists`)
-	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
+	c.Assert(err, jc.ErrorIs, coreerrors.AlreadyExists)
 
 	workertest.CheckKill(c, reg)
 }
@@ -129,7 +129,7 @@ func (s *registrySuite) TestRegisterNamedIntegerName(c *gc.C) {
 
 	err := reg.RegisterNamed("0", w)
 	c.Assert(err, gc.ErrorMatches, `namespace "0" not valid`)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 
 	workertest.CheckKill(c, reg)
 }

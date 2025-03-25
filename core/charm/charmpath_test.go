@@ -7,11 +7,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/charm"
 	charmtesting "github.com/juju/juju/internal/charm/testing"
 	"github.com/juju/juju/testcharms"
@@ -33,7 +33,7 @@ func (s *charmPathSuite) cloneCharmDir(path, name string) string {
 
 func (s *charmPathSuite) TestNoPath(c *gc.C) {
 	_, _, err := corecharm.NewCharmAtPath("")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *charmPathSuite) TestInvalidPath(c *gc.C) {
@@ -63,14 +63,14 @@ func (s *charmPathSuite) TestRelativePath(c *gc.C) {
 
 func (s *charmPathSuite) TestNoCharmAtPath(c *gc.C) {
 	_, _, err := corecharm.NewCharmAtPath(c.MkDir())
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotSupported)
 }
 
 func (s *charmPathSuite) TestCharmFromDirectoryNotSupported(c *gc.C) {
 	charmDir := filepath.Join(s.repoPath, "dummy")
 	s.cloneCharmDir(s.repoPath, "dummy")
 	_, _, err := corecharm.NewCharmAtPath(charmDir)
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotSupported)
 }
 
 func (s *charmPathSuite) TestCharmArchive(c *gc.C) {

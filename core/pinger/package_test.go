@@ -6,6 +6,7 @@ package pinger_test
 import (
 	"testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/internal/testing"
@@ -25,5 +26,8 @@ func (*ImportTest) TestImports(c *gc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/pinger")
 
 	// This package brings in nothing else from juju/juju
-	c.Assert(found, gc.HasLen, 0)
+	c.Assert(found, jc.SameContents, []string{
+		"core/errors",
+		"internal/errors",
+	})
 }

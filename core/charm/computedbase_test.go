@@ -4,13 +4,13 @@
 package charm
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/base"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/charm"
 )
 
@@ -58,7 +58,7 @@ func (s *computedBaseSuite) TestComputedBaseNilManifest(c *gc.C) {
 	}).AnyTimes()
 	cm.EXPECT().Manifest().Return(nil).AnyTimes()
 	_, err := ComputedBases(cm)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *computedBaseSuite) TestComputedBaseError(c *gc.C) {
@@ -82,7 +82,7 @@ func (s *computedBaseSuite) TestComputedBaseError(c *gc.C) {
 		Description: "c",
 	}).AnyTimes()
 	_, err := ComputedBases(cm)
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *computedBaseSuite) TestBaseToUse(c *gc.C) {
@@ -174,5 +174,5 @@ func (s *computedBaseSuite) TestOSIsCompatibleWithCharm(c *gc.C) {
 	}).AnyTimes()
 
 	c.Assert(OSIsCompatibleWithCharm("ubuntu", cm), jc.ErrorIsNil)
-	c.Assert(OSIsCompatibleWithCharm("centos", cm), jc.ErrorIs, errors.NotSupported)
+	c.Assert(OSIsCompatibleWithCharm("centos", cm), jc.ErrorIs, coreerrors.NotSupported)
 }
