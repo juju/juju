@@ -75,6 +75,13 @@ type State interface {
 	// the unit is part of.
 	GetRelationsStatusForUnit(ctx context.Context, unitUUID unit.UUID) ([]relation.RelationUnitStatusResult, error)
 
+	// GetRelationDetails returns relation details for the given relationID.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+	//     is not found.
+	GetRelationDetails(ctx context.Context, relationID int) (relation.RelationDetailsResult, error)
+
 	// WatcherApplicationSettingsNamespace provides the table name to set up
 	// watchers for relation application settings.
 	WatcherApplicationSettingsNamespace() string
@@ -200,8 +207,23 @@ func (s *Service) GetRelatedEndpoints(
 }
 
 // GetRelationDetails returns RelationDetails for the given relationID.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+//     is not found.
 func (s *Service) GetRelationDetails(ctx context.Context, relationID int) (relation.RelationDetails, error) {
-	return relation.RelationDetails{}, coreerrors.NotImplemented
+	relationDetails, err := s.st.GetRelationDetails(ctx, relationID)
+	if err != nil {
+		return relation.RelationDetails{}, errors.Capture(err)
+	}
+
+	return relation.RelationDetails{
+		Life:      relationDetails.Life,
+		UUID:      relationDetails.UUID,
+		ID:        relationDetails.ID,
+		Key:       relation.NaturalKey(relationDetails.Endpoints),
+		Endpoints: relationDetails.Endpoints,
+	}, nil
 }
 
 // GetRelationDetailsForUnit RelationDetails for the given relationID

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
@@ -265,7 +266,6 @@ func (st *State) GetRelationEndpoints(ctx context.Context, uuid corerelation.UUI
 		endpoints, err = st.getEndpoints(ctx, tx, uuid)
 		return err
 	})
-
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -423,6 +423,62 @@ AND    e.endpoint_name    = $endpointIdentifier.endpoint_name
 	}
 
 	return corerelation.UUID(uuidAndRole[0].UUID), nil
+}
+
+// GetRelationDetails returns relation details for the given relationID.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+//     is not found.
+func (st *State) GetRelationDetails(ctx context.Context, relationID int) (relation.RelationDetailsResult, error) {
+	db, err := st.DB()
+	if err != nil {
+		return relation.RelationDetailsResult{}, errors.Capture(err)
+	}
+
+	type getRelation struct {
+		UUID corerelation.UUID `db:"uuid"`
+		ID   int               `db:"relation_id"`
+		Life life.Value        `db:"value"`
+	}
+	rel := getRelation{
+		ID: relationID,
+	}
+	stmt, err := st.Prepare(`
+SELECT (r.uuid, r.relation_id, l.value) AS (&getRelation.*)
+FROM   relation r
+JOIN   life l ON r.life_id = l.id
+WHERE  relation_id = $getRelation.relation_id
+`, rel)
+	if err != nil {
+		return relation.RelationDetailsResult{}, errors.Capture(err)
+	}
+
+	var endpoints []relation.Endpoint
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, rel).Get(&rel)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return relationerrors.RelationNotFound
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+
+		endpoints, err = st.getEndpoints(ctx, tx, corerelation.UUID(rel.UUID))
+		if err != nil {
+			return errors.Errorf("getting relation endpoints: %w", err)
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return relation.RelationDetailsResult{}, errors.Capture(err)
+	}
+
+	return relation.RelationDetailsResult{
+		Life:      rel.Life,
+		UUID:      rel.UUID,
+		ID:        rel.ID,
+		Endpoints: endpoints,
+	}, nil
 }
 
 // WatcherApplicationSettingsNamespace returns the namespace string used for

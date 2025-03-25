@@ -13,6 +13,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreapplicationtesting "github.com/juju/juju/core/application/testing"
+	corelife "github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
@@ -378,6 +379,45 @@ func (s *relationServiceSuite) TestGetRelationsStatusForUnitStateError(c *gc.C) 
 
 	// Assert.
 	c.Assert(err, jc.ErrorIs, boom)
+}
+
+func (s *relationServiceSuite) TestGetRelationDetails(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationID := 7
+
+	endpoint1 := relation.Endpoint{
+		ApplicationName: "app-1",
+		Relation: internalcharm.Relation{
+			Name: "fake-endpoint-name-1",
+		},
+	}
+
+	relationDetailsResult := relation.RelationDetailsResult{
+		Life:      corelife.Alive,
+		UUID:      relationUUID,
+		ID:        relationID,
+		Endpoints: []relation.Endpoint{endpoint1},
+	}
+
+	s.state.EXPECT().GetRelationDetails(gomock.Any(), relationID).Return(relationDetailsResult, nil)
+
+	expectedRelationDetails := relation.RelationDetails{
+		Life:      relationDetailsResult.Life,
+		UUID:      relationDetailsResult.UUID,
+		ID:        relationDetailsResult.ID,
+		Key:       corerelation.Key("app-1:fake-endpoint-name-1"),
+		Endpoints: relationDetailsResult.Endpoints,
+	}
+
+	// Act:
+	relationDetails, err := s.service.GetRelationDetails(context.Background(), relationID)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(relationDetails, gc.DeepEquals, expectedRelationDetails)
 }
 
 func (s *relationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
