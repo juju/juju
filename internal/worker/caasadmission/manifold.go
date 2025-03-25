@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/internal/worker/caasrbacmapper"
 	"github.com/juju/juju/internal/worker/muxhttpserver"
 	"github.com/juju/juju/pki"
@@ -19,12 +20,18 @@ import (
 // K8sBroker describes a Kubernetes broker interface this worker needs to
 // function.
 type K8sBroker interface {
-	// CurrentModel returns the current model the broker is targeting
-	CurrentModel() string
+	// ModelName returns the model the broker is targeting
+	ModelName() string
 
-	// GetCurrentNamespace returns the current namespace being targeted on the
+	// ModelUUID returns the model the broker is targeting
+	ModelUUID() string
+
+	// ControllerUUID returns the controller the broker is on
+	ControllerUUID() string
+
+	// Namespace returns the current namespace being targeted on the
 	// broker
-	GetCurrentNamespace() string
+	Namespace() string
 
 	// EnsureMutatingWebhookConfiguration make the supplied webhook config exist
 	// inside the k8s cluster if it currently does not. Return values is a
@@ -33,9 +40,9 @@ type K8sBroker interface {
 	// not nil then no other return values should be considered valid.
 	EnsureMutatingWebhookConfiguration(*admission.MutatingWebhookConfiguration) (func(), error)
 
-	// IsLegacyLabels reports if the k8s broker requires legacy labels to be
+	// LabelVersion reports if the k8s broker requires legacy labels to be
 	// used for the broker model/namespace
-	IsLegacyLabels() bool
+	LabelVersion() constants.LabelVersion
 }
 
 // Logger represents the methods used by the worker to log details
@@ -127,8 +134,9 @@ func (c ManifoldConfig) Start(context dependency.Context) (worker.Worker, error)
 	currentConfig := agent.CurrentConfig()
 	admissionPath := AdmissionPathForModel(currentConfig.Model().Id())
 	admissionCreator, err := NewAdmissionCreator(authority,
-		broker.GetCurrentNamespace(), broker.CurrentModel(),
-		broker.IsLegacyLabels(),
+		broker.Namespace(), broker.ModelName(),
+		broker.ModelUUID(), broker.ControllerUUID(),
+		broker.LabelVersion(),
 		broker.EnsureMutatingWebhookConfiguration,
 		&admission.ServiceReference{
 			Name:      c.ServiceName,
@@ -145,7 +153,7 @@ func (c ManifoldConfig) Start(context dependency.Context) (worker.Worker, error)
 		c.Logger,
 		mux,
 		AdmissionPathForModel(currentConfig.Model().Id()),
-		broker.IsLegacyLabels(),
+		broker.LabelVersion(),
 		admissionCreator,
 		rbacMapper)
 }

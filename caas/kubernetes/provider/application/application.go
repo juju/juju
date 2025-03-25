@@ -91,7 +91,7 @@ type app struct {
 	namespace      string
 	modelUUID      string
 	modelName      string
-	legacyLabels   bool
+	labelVersion   constants.LabelVersion
 	deploymentType caas.DeploymentType
 	client         kubernetes.Interface
 	newWatcher     k8swatcher.NewK8sWatcherFunc
@@ -109,7 +109,7 @@ func NewApplication(
 	namespace string,
 	modelUUID string,
 	modelName string,
-	legacyLabels bool,
+	labelVersion constants.LabelVersion,
 	deploymentType caas.DeploymentType,
 	client kubernetes.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
@@ -121,7 +121,7 @@ func NewApplication(
 		namespace,
 		modelUUID,
 		modelName,
-		legacyLabels,
+		labelVersion,
 		deploymentType,
 		client,
 		newWatcher,
@@ -136,7 +136,7 @@ func newApplication(
 	namespace string,
 	modelUUID string,
 	modelName string,
-	legacyLabels bool,
+	labelVersion constants.LabelVersion,
 	deploymentType caas.DeploymentType,
 	client kubernetes.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
@@ -149,7 +149,7 @@ func newApplication(
 		namespace:      namespace,
 		modelUUID:      modelUUID,
 		modelName:      modelName,
-		legacyLabels:   legacyLabels,
+		labelVersion:   labelVersion,
 		deploymentType: deploymentType,
 		client:         client,
 		newWatcher:     newWatcher,
@@ -281,7 +281,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 					Namespace: a.namespace,
 					Labels:    a.labels(),
 					Annotations: a.annotations(config).
-						Add(utils.AnnotationKeyApplicationUUID(false), storageUniqueID),
+						Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), storageUniqueID),
 				},
 				Spec: appsv1.StatefulSetSpec{
 					Replicas: numPods,
@@ -347,7 +347,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 					Namespace: a.namespace,
 					Labels:    a.labels(),
 					Annotations: a.annotations(config).
-						Add(utils.AnnotationKeyApplicationUUID(false), storageUniqueID),
+						Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), storageUniqueID),
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: numPods,
@@ -384,7 +384,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 					Namespace: a.namespace,
 					Labels:    a.labels(),
 					Annotations: a.annotations(config).
-						Add(utils.AnnotationKeyApplicationUUID(false), storageUniqueID),
+						Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), storageUniqueID),
 				},
 				Spec: appsv1.DaemonSetSpec{
 					Selector: &metav1.LabelSelector{
@@ -1852,26 +1852,26 @@ func (a *app) applyImagePullSecrets(applier resources.Applier, config caas.Appli
 }
 
 func (a *app) annotations(config caas.ApplicationConfig) annotations.Annotation {
-	return utils.ResourceTagsToAnnotations(config.ResourceTags, a.legacyLabels).
-		Merge(utils.AnnotationsForVersion(config.AgentVersion.String(), a.legacyLabels))
+	return utils.ResourceTagsToAnnotations(config.ResourceTags, a.labelVersion).
+		Merge(utils.AnnotationsForVersion(config.AgentVersion.String(), a.labelVersion))
 }
 
 func (a *app) upgradeAnnotations(anns annotations.Annotation, ver version.Number) annotations.Annotation {
-	return anns.Merge(utils.AnnotationsForVersion(ver.String(), a.legacyLabels))
+	return anns.Merge(utils.AnnotationsForVersion(ver.String(), a.labelVersion))
 }
 
 func (a *app) labels() labels.Set {
 	// TODO: add modelUUID for global resources?
-	return utils.LabelsForApp(a.name, a.legacyLabels)
+	return utils.LabelsForApp(a.name, a.labelVersion)
 }
 
 func (a *app) selectorLabels() labels.Set {
-	return utils.SelectorLabelsForApp(a.name, a.legacyLabels)
+	return utils.SelectorLabelsForApp(a.name, a.labelVersion)
 }
 
 func (a *app) labelSelector() string {
 	return utils.LabelsToSelector(
-		utils.SelectorLabelsForApp(a.name, a.legacyLabels),
+		utils.SelectorLabelsForApp(a.name, a.labelVersion),
 	).String()
 }
 
@@ -1914,7 +1914,7 @@ type annotationGetter interface {
 func (a *app) getStorageUniqPrefix(getMeta func() (annotationGetter, error)) (string, error) {
 	if r, err := getMeta(); err == nil {
 		// TODO: remove this function with existing one once we consolidated the annotation keys.
-		if uniqID := r.GetAnnotations()[utils.AnnotationKeyApplicationUUID(false)]; len(uniqID) > 0 {
+		if uniqID := r.GetAnnotations()[utils.AnnotationKeyApplicationUUID(a.labelVersion)]; len(uniqID) > 0 {
 			return uniqID, nil
 		}
 	} else if !errors.IsNotFound(err) {
@@ -2096,13 +2096,13 @@ func (a *app) filesystemToVolumeInfo(
 	} else if _, ok := storageClasses[qualifiedStorageClassName]; ok {
 		params.StorageConfig.StorageClass = qualifiedStorageClassName
 	} else {
-		sp := storage.StorageProvisioner(a.namespace, a.modelName, *params)
-		newStorageClass = storage.StorageClassSpec(sp, a.legacyLabels)
+		sp := storage.StorageProvisioner(a.namespace, a.modelName, a.modelUUID, *params)
+		newStorageClass = storage.StorageClassSpec(sp, a.labelVersion)
 		params.StorageConfig.StorageClass = newStorageClass.Name
 	}
 
 	labels := utils.LabelsMerge(
-		utils.LabelsForStorage(fs.StorageName, a.legacyLabels),
+		utils.LabelsForStorage(fs.StorageName, a.labelVersion),
 		utils.LabelsJuju)
 
 	pvcSpec := storage.PersistentVolumeClaimSpec(*params)
@@ -2110,8 +2110,8 @@ func (a *app) filesystemToVolumeInfo(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   params.Name,
 			Labels: labels,
-			Annotations: utils.ResourceTagsToAnnotations(fs.ResourceTags, a.legacyLabels).
-				Merge(utils.AnnotationsForStorage(fs.StorageName, a.legacyLabels)).
+			Annotations: utils.ResourceTagsToAnnotations(fs.ResourceTags, a.labelVersion).
+				Merge(utils.AnnotationsForStorage(fs.StorageName, a.labelVersion)).
 				ToMap(),
 		},
 		Spec: *pvcSpec,

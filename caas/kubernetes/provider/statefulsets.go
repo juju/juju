@@ -68,14 +68,14 @@ func (k *kubernetesClient) configureStatefulSet(
 		return errors.Trace(err)
 	}
 
-	selectorLabels := utils.SelectorLabelsForApp(appName, k.IsLegacyLabels())
+	selectorLabels := utils.SelectorLabelsForApp(appName, k.LabelVersion())
 	statefulSet := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName,
-			Labels: utils.LabelsForApp(appName, k.IsLegacyLabels()),
+			Labels: utils.LabelsForApp(appName, k.LabelVersion()),
 			Annotations: k8sannotations.New(nil).
 				Merge(annotations).
-				Add(utils.AnnotationKeyApplicationUUID(k.IsLegacyLabels()), storageUniqueID).ToMap(),
+				Add(utils.AnnotationKeyApplicationUUID(k.LabelVersion()), storageUniqueID).ToMap(),
 		},
 		Spec: apps.StatefulSetSpec{
 			Replicas: replicas,
@@ -216,7 +216,7 @@ func (k *kubernetesClient) deleteStatefulSets(appName string) error {
 	if k.namespace == "" {
 		return errNoNamespace
 	}
-	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
+	labels := utils.LabelsForApp(appName, k.LabelVersion())
 	err := k.client().AppsV1().StatefulSets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{

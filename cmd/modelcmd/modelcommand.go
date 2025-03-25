@@ -83,6 +83,10 @@ type ModelCommand interface {
 	// the model returned by ModelIdentifier().
 	ControllerName() (string, error)
 
+	// ControllerDetails returns the details of the controller that contains
+	// the model returned by ModelIdentifier().
+	ControllerDetails() (*jujuclient.ControllerDetails, error)
+
 	// maybeInitModel initializes the model name, resolving empty
 	// model or controller parts to the current model or controller if
 	// needed. It fails a model cannot be determined.
@@ -290,6 +294,19 @@ func (c *ModelCommandBase) ControllerName() (string, error) {
 		return "", errors.Trace(err)
 	}
 	return c._controllerName, nil
+}
+
+// ControllerDetails implements the ModelCommand interface.
+func (c *ModelCommandBase) ControllerDetails() (*jujuclient.ControllerDetails, error) {
+	c.assertRunStarted()
+	if err := c.maybeInitModel(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	controllerDetails, err := c.store.ControllerByName(c._controllerName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return controllerDetails, nil
 }
 
 func (c *ModelCommandBase) BakeryClient() (*httpbakery.Client, error) {

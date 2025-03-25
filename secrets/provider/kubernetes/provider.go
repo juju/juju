@@ -47,8 +47,8 @@ const (
 )
 
 var (
-	controllerIdKey = utils.AnnotationControllerUUIDKey(false)
-	modelIdKey      = utils.AnnotationModelUUIDKey(false)
+	controllerIdKey = utils.AnnotationControllerUUIDKey(constants.LabelVersion1)
+	modelIdKey      = utils.AnnotationModelUUIDKey(constants.LabelVersion1)
 )
 
 // These are patched for testing.

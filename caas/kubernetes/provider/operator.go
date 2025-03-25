@@ -26,6 +26,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
@@ -52,15 +53,17 @@ func GetOperatorPodName(
 	nsAPI typedcorev1.NamespaceInterface,
 	appName,
 	namespace,
-	model string,
+	modelName,
+	modelUUID,
+	controllerUUID string,
 ) (string, error) {
-	legacyLabels, err := utils.IsLegacyModelLabels(namespace, model, nsAPI)
+	labelVersion, err := utils.DetectModelLabelVersion(namespace, modelName, modelUUID, controllerUUID, nsAPI)
 	if err != nil {
-		return "", errors.Annotatef(err, "determining legacy label status for model %s", model)
+		return "", errors.Annotatef(err, "determining legacy label status for model %s", modelName)
 	}
 
 	podsList, err := podAPI.List(context.TODO(), v1.ListOptions{
-		LabelSelector: operatorSelector(appName, legacyLabels),
+		LabelSelector: operatorSelector(appName, labelVersion),
 	})
 	if err != nil {
 		return "", errors.Trace(err)
@@ -73,7 +76,7 @@ func GetOperatorPodName(
 
 func (k *kubernetesClient) deleteOperatorRBACResources(operatorName string) error {
 	selector := utils.LabelsToSelector(
-		utils.LabelsForOperator(operatorName, OperatorAppTarget, k.IsLegacyLabels()),
+		utils.LabelsForOperator(operatorName, OperatorAppTarget, k.LabelVersion()),
 	)
 
 	if err := k.deleteRoleBindings(selector); err != nil {
@@ -188,15 +191,15 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 
 	operatorName := k.operatorName(appName)
 
-	selectorLabels := utils.LabelsForOperator(appName, OperatorAppTarget, k.IsLegacyLabels())
+	selectorLabels := utils.LabelsForOperator(appName, OperatorAppTarget, k.LabelVersion())
 	labels := selectorLabels
 
-	if !k.IsLegacyLabels() {
+	if k.LabelVersion() != constants.LegacyLabelVersion {
 		labels = utils.LabelsMerge(selectorLabels, utils.LabelsJuju)
 	}
 
-	annotations := utils.ResourceTagsToAnnotations(config.ResourceTags, k.IsLegacyLabels()).
-		Merge(utils.AnnotationsForVersion(config.Version.String(), k.IsLegacyLabels()))
+	annotations := utils.ResourceTagsToAnnotations(config.ResourceTags, k.LabelVersion()).
+		Merge(utils.AnnotationsForVersion(config.Version.String(), k.LabelVersion()))
 
 	var cleanups []func()
 	defer func() {
@@ -252,7 +255,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		}
 	} else {
 		configMapLabels := labels
-		if k.IsLegacyLabels() {
+		if k.LabelVersion() == 0 {
 			configMapLabels = k.getConfigMapLabels(appName)
 		}
 		cmCleanUp, err := k.ensureConfigMapLegacy(
@@ -318,9 +321,9 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	return errors.Annotatef(err, "creating or updating %v operator StatefulSet", appName)
 }
 
-func operatorSelector(appName string, legacyLabels bool) string {
+func operatorSelector(appName string, labelVersion constants.LabelVersion) string {
 	return utils.LabelsToSelector(
-		utils.LabelsForOperator(appName, OperatorAppTarget, legacyLabels)).
+		utils.LabelsForOperator(appName, OperatorAppTarget, labelVersion)).
 		String()
 }
 
@@ -372,7 +375,7 @@ func (k *kubernetesClient) operatorVolumeClaim(
 	return &core.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        params.Name,
-			Annotations: utils.ResourceTagsToAnnotations(storageParams.ResourceTags, k.IsLegacyLabels()).ToMap()},
+			Annotations: utils.ResourceTagsToAnnotations(storageParams.ResourceTags, k.LabelVersion()).ToMap()},
 		Spec: *pvcSpec,
 	}, nil
 }
@@ -559,7 +562,7 @@ func (k *kubernetesClient) operatorPodExists(appName string) (exists bool, termi
 	}
 	pods := k.client().CoreV1().Pods(k.namespace)
 	podList, err := pods.List(context.TODO(), v1.ListOptions{
-		LabelSelector: operatorSelector(appName, k.IsLegacyLabels()),
+		LabelSelector: operatorSelector(appName, k.LabelVersion()),
 	})
 	if err != nil {
 		return false, false, errors.Trace(err)
@@ -613,7 +616,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 	}
 	pods := k.client().CoreV1().Pods(k.namespace)
 	podsList, err := pods.List(context.TODO(), v1.ListOptions{
-		LabelSelector: operatorSelector(appName, k.IsLegacyLabels()),
+		LabelSelector: operatorSelector(appName, k.LabelVersion()),
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -662,7 +665,7 @@ func (k *kubernetesClient) WatchOperator(appName string) (watcher.NotifyWatcher,
 	factory := informers.NewSharedInformerFactoryWithOptions(k.client(), 0,
 		informers.WithNamespace(k.namespace),
 		informers.WithTweakListOptions(func(o *v1.ListOptions) {
-			o.LabelSelector = operatorSelector(appName, k.IsLegacyLabels())
+			o.LabelSelector = operatorSelector(appName, k.LabelVersion())
 		}),
 	)
 	return k.newWatcher(factory.Core().V1().Pods().Informer(), appName, k.clock)
@@ -674,7 +677,7 @@ func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 		k.namespace,
 		k.operatorName(appName),
 		appName,
-		k.IsLegacyLabels(),
+		k.LabelVersion(),
 		k.clock.Now())
 }
 
@@ -682,7 +685,7 @@ func operator(client kubernetes.Interface,
 	namespace string,
 	operatorName string,
 	appName string,
-	legacyLabels bool,
+	labelVersion constants.LabelVersion,
 	now time.Time) (*caas.Operator, error) {
 	if namespace == "" {
 		return nil, errNoNamespace
@@ -698,7 +701,7 @@ func operator(client kubernetes.Interface,
 
 	pods := client.CoreV1().Pods(namespace)
 	podsList, err := pods.List(context.TODO(), v1.ListOptions{
-		LabelSelector: operatorSelector(appName, legacyLabels),
+		LabelSelector: operatorSelector(appName, labelVersion),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -721,7 +724,7 @@ func operator(client kubernetes.Interface,
 	}
 
 	cfg := caas.OperatorConfig{}
-	if ver, ok := opPod.Annotations[utils.AnnotationVersionKey(legacyLabels)]; ok {
+	if ver, ok := opPod.Annotations[utils.AnnotationVersionKey(labelVersion)]; ok {
 		cfg.Version, err = version.Parse(ver)
 		if err != nil {
 			return nil, errors.Trace(err)

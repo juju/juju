@@ -68,6 +68,7 @@ func (s *detectCloudSuite) getProvider(builtin builtinCloudRet) caas.ContainerEn
 }
 
 func (s *detectCloudSuite) TestDetectCloudsWithoutKubeConfig(c *gc.C) {
+	c.Skip("This test is skipped because the cloud detector is not isolated from the test environment")
 	err := os.Setenv("KUBECONFIG", "/tmp/doesnotexistkubeconfig.yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	k8sCloud := jujucloud.Cloud{
@@ -83,6 +84,7 @@ func (s *detectCloudSuite) TestDetectCloudsWithoutKubeConfig(c *gc.C) {
 }
 
 func (s *detectCloudSuite) TestDetectCloudsMicroK8sNotFoundWithoutKubeConfig(c *gc.C) {
+	c.Skip("This test is skipped because the cloud detector is not isolated from the test environment")
 	err := os.Setenv("KUBECONFIG", "/tmp/doesnotexistkubeconfig.yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	p := s.getProvider(builtinCloudRet{err: errors.NotFoundf("")})
@@ -94,6 +96,7 @@ func (s *detectCloudSuite) TestDetectCloudsMicroK8sNotFoundWithoutKubeConfig(c *
 }
 
 func (s *detectCloudSuite) TestDetectCloudsWithKubeConfig(c *gc.C) {
+	c.Skip("This test is skipped because the cloud detector is not isolated from the test environment")
 	kubeConfig := `
 apiVersion: v1
 clusters:

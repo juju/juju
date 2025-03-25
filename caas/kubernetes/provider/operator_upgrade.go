@@ -19,6 +19,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/cloudconfig/podcfg"
 )
@@ -27,7 +28,7 @@ type upgradeCAASOperatorBridge struct {
 	clientFn         func() kubernetes.Interface
 	clockFn          func() clock.Clock
 	deploymentNameFn func(string, bool) string
-	isLegacyFn       func() bool
+	labelVersionFn   func() constants.LabelVersion
 	namespaceFn      func() string
 	operatorFn       func(string) (*caas.Operator, error)
 	operatorNameFn   func(string) string
@@ -45,8 +46,9 @@ type UpgradeCAASOperatorBroker interface {
 	// finding legacy deployment names if set to True.
 	DeploymentName(string, bool) string
 
-	// IsLegacyLabels indicates if this provider is operating on a legacy label schema
-	IsLegacyLabels() bool
+	// LabelVersion returns the detected label version for k8s resources created
+	// for this model.
+	LabelVersion() constants.LabelVersion
 
 	Namespace() string
 
@@ -72,8 +74,8 @@ func (u *upgradeCAASOperatorBridge) DeploymentName(n string, l bool) string {
 	return u.deploymentNameFn(n, l)
 }
 
-func (u *upgradeCAASOperatorBridge) IsLegacyLabels() bool {
-	return u.isLegacyFn()
+func (u *upgradeCAASOperatorBridge) LabelVersion() constants.LabelVersion {
+	return u.labelVersionFn()
 }
 
 func (u *upgradeCAASOperatorBridge) Operator(n string) (*caas.Operator, error) {
@@ -231,7 +233,7 @@ func operatorUpgrade(
 					operatorImagePath,
 					baseImagePath,
 					vers,
-					broker.IsLegacyLabels(),
+					broker.LabelVersion(),
 					broker.Client().AppsV1().StatefulSets(broker.Namespace())))
 			}
 		}
@@ -243,8 +245,8 @@ func (k *kubernetesClient) upgradeOperator(agentTag names.Tag, vers version.Numb
 		clientFn:         k.client,
 		clockFn:          func() clock.Clock { return k.clock },
 		deploymentNameFn: k.deploymentName,
-		isLegacyFn:       k.IsLegacyLabels,
-		namespaceFn:      k.GetCurrentNamespace,
+		labelVersionFn:   k.LabelVersion,
+		namespaceFn:      k.Namespace,
 		operatorFn:       k.Operator,
 		operatorNameFn:   k.operatorName,
 	}

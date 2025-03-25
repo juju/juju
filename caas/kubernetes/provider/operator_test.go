@@ -1295,7 +1295,7 @@ func (s *K8sBrokerSuite) TestGetOperatorPodName(c *gc.C) {
 			}}, nil),
 	)
 
-	name, err := provider.GetOperatorPodName(s.mockPods, s.mockNamespaces, "mariadb-k8s", s.getNamespace(), "test")
+	name, err := provider.GetOperatorPodName(s.mockPods, s.mockNamespaces, "mariadb-k8s", s.getNamespace(), "test", s.getModelUUID(), s.getControllerUUID())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, jc.DeepEquals, `mariadb-k8s-operator-0`)
 }
@@ -1311,6 +1311,6 @@ func (s *K8sBrokerSuite) TestGetOperatorPodNameNotFound(c *gc.C) {
 			Return(&core.PodList{Items: []core.Pod{}}, nil),
 	)
 
-	_, err := provider.GetOperatorPodName(s.mockPods, s.mockNamespaces, "mariadb-k8s", s.getNamespace(), "test")
+	_, err := provider.GetOperatorPodName(s.mockPods, s.mockNamespaces, "mariadb-k8s", s.getNamespace(), "test", s.getModelUUID(), s.getControllerUUID())
 	c.Assert(err, gc.ErrorMatches, `operator pod for application "mariadb-k8s" not found`)
 }
