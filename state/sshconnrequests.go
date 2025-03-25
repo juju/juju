@@ -29,7 +29,12 @@ type sshConnRequestDoc struct {
 // that it may be watched by the machine agent to know when to perform a reverse SSH call
 // back to the controller and contains the details to perform such connection.
 type SSHConnRequest struct {
-	*sshConnRequestDoc
+	Expires             time.Time              `bson:"expires"`
+	Username            string                 `bson:"username"`
+	Password            string                 `bson:"password"`
+	ControllerAddresses network.SpaceAddresses `bson:"addresses"`
+	UnitPort            int                    `bson:"unit_port"`
+	EphemeralPublicKey  []byte                 `json:"ephemeral-public-key"`
 }
 
 // SSHConnRequestArg holds the necessary info to create a ssh connection requests.
@@ -139,7 +144,14 @@ func (st *State) GetSSHConnRequest(docID string) (SSHConnRequest, error) {
 	if err != nil {
 		return SSHConnRequest{}, errors.Annotatef(err, "getting sshreqconn key %q", docID)
 	}
-	return SSHConnRequest{&doc}, nil
+	return SSHConnRequest{
+		Expires:             doc.Expires,
+		Username:            doc.Username,
+		Password:            doc.Password,
+		ControllerAddresses: networkAddresses(doc.ControllerAddresses),
+		UnitPort:            doc.UnitPort,
+		EphemeralPublicKey:  doc.EphemeralPublicKey,
+	}, nil
 }
 
 // WatchSSHConnRequest creates a watcher to get notified on documents being
