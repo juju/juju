@@ -6,6 +6,10 @@ package modelmigration
 import (
 	"testing"
 
+	jujutesting "github.com/juju/testing"
+	gomock "go.uber.org/mock/gomock"
+	gc "gopkg.in/check.v1"
+
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -14,9 +18,6 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
-	jujutesting "github.com/juju/testing"
-	gomock "go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/application/modelmigration ImportService,ExportService
@@ -116,10 +117,6 @@ func (s *exportSuite) expectApplicationConfigFor(name string) {
 		Trust: true,
 	}
 	s.exportService.EXPECT().GetApplicationConfigAndSettings(gomock.Any(), name).Return(config, settings, nil)
-}
-
-func (s *exportSuite) expectGetApplicationScaleState(scaleState application.ScaleState) {
-	s.expectGetApplicationScaleStateFor("prometheus", scaleState)
 }
 
 func (s *exportSuite) expectGetApplicationScaleStateFor(name string, scaleState application.ScaleState) {
