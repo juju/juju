@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/internal/charm"
 )
 
@@ -60,7 +61,7 @@ func (ep Endpoint) CanRelateTo(other Endpoint) bool {
 // NaturalKey generates a unique sorted string representation of relation
 // endpoints based on their roles and identifiers. It can be used as a natural key
 // for relations.
-func NaturalKey(endpoints []Endpoint) string {
+func NaturalKey(endpoints []Endpoint) corerelation.Key {
 	eps := slices.SortedFunc(slices.Values(endpoints), func(ep1 Endpoint, ep2 Endpoint) int {
 		if ep1.Role != ep2.Role {
 			return roleOrder[ep1.Role] - roleOrder[ep2.Role]
@@ -71,5 +72,5 @@ func NaturalKey(endpoints []Endpoint) string {
 	for _, ep := range eps {
 		endpointNames = append(endpointNames, ep.String())
 	}
-	return strings.Join(endpointNames, " ")
+	return corerelation.Key(strings.Join(endpointNames, " "))
 }

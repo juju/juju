@@ -321,6 +321,7 @@ func (s *modelSchemaSuite) TestModelViews(c *gc.C) {
 		"v_model_metrics",
 		"v_object_store_metadata",
 		"v_port_range",
+		"v_relation_endpoint",
 		"v_resource",
 		"v_revision_updater_application_unit",
 		"v_revision_updater_application",

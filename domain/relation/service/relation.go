@@ -37,6 +37,14 @@ type State interface {
 	//     relating to the relation ID cannot be found.
 	GetRelationUUIDByID(ctx context.Context, relationID int) (corerelation.UUID, error)
 
+	// GetRelationEndpoints returns all relation endpoints for the given
+	// relation UUID.
+	//
+	// The following error types can be expected:
+	//   - [relationerrors.RelationNotFound]: when no relation exists for the
+	//     given UUID.
+	GetRelationEndpoints(ctx context.Context, relationUUID corerelation.UUID) ([]internalrelation.Endpoint, error)
+
 	// GetRelationEndpointUUID retrieves the unique identifier for a specific
 	// relation endpoint based on the provided arguments.
 	GetRelationEndpointUUID(ctx context.Context, args relation.GetRelationEndpointUUIDArgs) (corerelation.EndpointUUID, error)
@@ -231,9 +239,24 @@ func (s *Service) GetRelationID(ctx context.Context, relationUUID corerelation.U
 
 // GetRelationKey returns a key identifier for the given relation UUID.
 // The key describes the relation defined by endpoints in sorted order.
-// Note: See the state.relationKey() function.
+//
+// The following error types can be expected:
+//   - [relationerrors.RelationNotFound]: when no relation exists for the given
+//     UUID.
+//   - [relationerrors.RelationUUIDNotValid] is returned if the relation UUID
+//     is not valid.
 func (s *Service) GetRelationKey(ctx context.Context, relationUUID corerelation.UUID) (corerelation.Key, error) {
-	return "", nil
+	if err := relationUUID.Validate(); err != nil {
+		return "", errors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+
+	endpoints, err := s.st.GetRelationEndpoints(ctx, relationUUID)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return internalrelation.NaturalKey(endpoints), nil
 }
 
 // GetRelationStatus returns the status of the given relation.
@@ -292,8 +315,10 @@ func (s *Service) GetRelationUUIDByID(ctx context.Context, relationID int) (core
 }
 
 // GetRelationUUIDFromKey returns a relation UUID for the given Key.
+//
 // The following error types can be expected:
-// - [relationerrors.RelationNotFound]: when no relation exists for the given key.
+//   - [relationerrors.RelationNotFound]: when no relation exists for the given
+//     key.
 func (s *Service) GetRelationUUIDFromKey(ctx context.Context, relationKey corerelation.Key) (corerelation.UUID, error) {
 	return "", coreerrors.NotImplemented
 }
