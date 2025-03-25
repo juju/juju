@@ -4,7 +4,8 @@
 package quota
 
 import (
-	"github.com/juju/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 var _ Checker = (*BSONTotalSizeChecker)(nil)
@@ -38,7 +39,7 @@ func (c *BSONTotalSizeChecker) Check(v interface{}) {
 		c.lastErr = err
 		return
 	} else if c.maxSize > 0 && c.total+size > c.maxSize {
-		c.lastErr = errors.QuotaLimitExceededf("max allowed size (%d) exceeded", c.maxSize)
+		c.lastErr = errors.Errorf("max allowed size (%d) exceeded %w", c.maxSize, coreerrors.QuotaLimitExceeded)
 	}
 
 	c.total += size

@@ -6,10 +6,10 @@ package eventsource
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/internal/errors"
 )
 
 // NotifyWatcher watches for events associated with a single value from a
@@ -84,7 +84,7 @@ func (w *NotifyWatcher) loop() error {
 
 	subscription, err := w.watchableDB.Subscribe(w.filterOpts...)
 	if err != nil {
-		return errors.Annotatef(err, "subscribing to namespaces")
+		return errors.Errorf("subscribing to namespaces: %w", err)
 	}
 	defer subscription.Unsubscribe()
 
@@ -114,7 +114,7 @@ func (w *NotifyWatcher) loop() error {
 			// Allow the possibility of the mapper to drop/filter events.
 			changed, err := w.mapper(ctx, w.watchableDB, changes)
 			if err != nil {
-				return errors.Trace(err)
+				return errors.Capture(err)
 			}
 			// If the mapper has dropped all events, we don't need to do
 			// anything.

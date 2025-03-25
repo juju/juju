@@ -3,6 +3,6 @@
 
 package eventsource
 
-import "github.com/juju/errors"
+import "github.com/juju/juju/internal/errors"
 
 const ErrSubscriptionClosed = errors.ConstError("watcher subscription closed")

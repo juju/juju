@@ -7,11 +7,12 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/errors"
 )
 
 // BaseOperation is a base implementation of the Operation interface.
@@ -21,13 +22,13 @@ type BaseOperation struct{}
 // Setup returns not implemented. It is expected that the operation will
 // override this method.
 func (b *BaseOperation) Setup(Scope) error {
-	return errors.NotImplementedf("setup")
+	return errors.Errorf("setup %w", coreerrors.NotImplemented)
 }
 
 // Execute returns not implemented. It is expected that the operation will
 // override this method.
 func (b *BaseOperation) Execute(context.Context, description.Model) error {
-	return errors.NotImplementedf("execute")
+	return errors.Errorf("execute %w", coreerrors.NotImplemented)
 }
 
 // Rollback is a no-op by default.
@@ -145,7 +146,7 @@ func (m *Coordinator) Perform(ctx context.Context, scope Scope, model descriptio
 				m.logger.Infof(context.TODO(), "rolling back operation: %s", op.Name())
 				if rollbackErr := op.Rollback(ctx, model); rollbackErr != nil {
 					m.logger.Errorf(context.TODO(), "rollback operation for %s failed: %s", op.Name(), rollbackErr)
-					err = errors.Annotatef(err, "rollback operation at %d with %v", current, rollbackErr)
+					err = errors.Errorf("rollback operation at %d with %v: %w", current, rollbackErr, err)
 				}
 			}
 		}
@@ -157,13 +158,13 @@ func (m *Coordinator) Perform(ctx context.Context, scope Scope, model descriptio
 		m.logger.Infof(context.TODO(), "running operation: %s", opName)
 
 		if err := op.Setup(scope); err != nil {
-			return errors.Annotatef(err, "setup operation %s", opName)
+			return errors.Errorf("setup operation %s: %w", opName, err)
 		}
 		if err := op.Execute(ctx, model); err != nil {
-			return errors.Annotatef(err, "execute operation %s", opName)
+			return errors.Errorf("execute operation %s: %w", opName, err)
 		}
 		if err := m.hook(op); err != nil {
-			return errors.Annotatef(err, "hook operation %s", opName)
+			return errors.Errorf("hook operation %s: %w", opName, err)
 		}
 	}
 	return nil

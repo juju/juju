@@ -4,10 +4,8 @@
 package containermetadataresource
 
 import (
-	"fmt"
-
-	"github.com/juju/errors"
-
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -27,7 +25,7 @@ func NewUUID() (UUID, error) {
 // valid uuid an error satisfying [errors.NotValid] will be returned.
 func ParseUUID(value string) (UUID, error) {
 	if !uuid.IsValidUUIDString(value) {
-		return "", fmt.Errorf("id %q %w", value, errors.NotValid)
+		return "", errors.Errorf("id %q %w", value, coreerrors.NotValid)
 	}
 	return UUID(value), nil
 }
@@ -41,10 +39,10 @@ func (u UUID) String() string {
 // satisfying [errors.NotValid] will be returned.
 func (u UUID) Validate() error {
 	if u == "" {
-		return fmt.Errorf("%wuuid cannot be empty", errors.Hide(errors.NotValid))
+		return errors.Errorf("uuid cannot be empty").Add(coreerrors.NotValid)
 	}
 	if !uuid.IsValidUUIDString(string(u)) {
-		return fmt.Errorf("uuid %q %w", u, errors.NotValid)
+		return errors.Errorf("uuid %q %w", u, coreerrors.NotValid)
 	}
 	return nil
 }

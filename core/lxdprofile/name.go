@@ -9,7 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // AppName here is used as the application prefix name. We can't use names.Juju
@@ -85,7 +86,7 @@ type nameIndex struct {
 // profile name.
 func ProfileRevision(profile string) (int, error) {
 	if !IsValidName(profile) {
-		return 0, errors.BadRequestf("not a juju profile name: %q", profile)
+		return 0, errors.Errorf("not a juju profile name: %q", profile).Add(coreerrors.BadRequest)
 	}
 	split := strings.Split(profile, "-")
 	rev := split[len(split)-1:]
@@ -96,7 +97,7 @@ func ProfileRevision(profile string) (int, error) {
 // in the profile.
 func ProfileReplaceRevision(profile string, rev int) (string, error) {
 	if !IsValidName(profile) {
-		return "", errors.BadRequestf("not a juju profile name: %q", profile)
+		return "", errors.Errorf("not a juju profile name: %q", profile).Add(coreerrors.BadRequest)
 	}
 	split := strings.Split(profile, "-")
 	notRev := split[:len(split)-1]
@@ -108,14 +109,14 @@ func ProfileReplaceRevision(profile string, rev int) (string, error) {
 // Assumes there is not more than one profile for the same application.
 func MatchProfileNameByAppName(names []string, appName string) (string, error) {
 	if appName == "" {
-		return "", errors.BadRequestf("no application name specified")
+		return "", errors.Errorf("no application name specified").Add(coreerrors.BadRequest)
 	}
 	var foundProfile string
 	for _, p := range FilterLXDProfileNames(names) {
 		rev, err := ProfileRevision(p)
 		if err != nil {
 			// "Shouldn't" happen since we used FilterLXDProfileNames...
-			if errors.Is(err, errors.BadRequest) {
+			if errors.Is(err, coreerrors.BadRequest) {
 				continue
 			}
 			return "", err

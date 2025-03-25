@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
+
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // StatusHistoryFilter holds arguments that can be use to filter a status history backlog.
@@ -31,13 +33,13 @@ func (f *StatusHistoryFilter) Validate() error {
 
 	switch {
 	case !(s || t || d):
-		return errors.NotValidf("missing filter parameters")
+		return errors.Errorf("missing filter parameters %w", coreerrors.NotValid)
 	case s && t:
-		return errors.NotValidf("Size and Date together")
+		return errors.Errorf("Size and Date together %w", coreerrors.NotValid)
 	case s && d:
-		return errors.NotValidf("Size and Delta together")
+		return errors.Errorf("Size and Delta together %w", coreerrors.NotValid)
 	case t && d:
-		return errors.NotValidf("Date and Delta together")
+		return errors.Errorf("Date and Delta together %w", coreerrors.NotValid)
 	}
 	return nil
 }

@@ -6,7 +6,8 @@ package instance
 import (
 	"strings"
 
-	"github.com/juju/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // VirtType represents the type of virtualisation used by a container.
@@ -51,7 +52,7 @@ func ParseVirtType(s string) (VirtType, error) {
 		// adding a machine without specifying a virt-type.
 		return DefaultInstanceType, nil
 	}
-	return "", errors.NotValidf("LXD VirtType %q", s)
+	return "", errors.Errorf("LXD VirtType %q %w", s, coreerrors.NotValid)
 }
 
 // MustParseVirtType returns the VirtType for the given string, or panics if

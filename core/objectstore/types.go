@@ -8,7 +8,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/juju/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // BackendType is the type to identify the backend to use for the object store.
@@ -33,7 +34,7 @@ func ParseObjectStoreType(s string) (BackendType, error) {
 	case string(S3Backend):
 		return S3Backend, nil
 	default:
-		return "", errors.NotValidf("object store type %q", s)
+		return "", errors.Errorf("object store type %q %w", s, coreerrors.NotValid)
 	}
 }
 
@@ -44,14 +45,14 @@ func ParseObjectStoreType(s string) (BackendType, error) {
 // if they change the naming rules.
 func ParseObjectStoreBucketName(s string) (string, error) {
 	if s == "" {
-		return "", errors.NotValidf("bucket name %q", s)
+		return "", errors.Errorf("bucket name %q %w", s, coreerrors.NotValid)
 	}
 
 	// Bucket names must be between 3 (min) and 63 (max) characters long.
 	if num := len(s); num < 3 {
-		return "", errors.NewNotValid(nil, fmt.Sprintf("bucket name %q: too short", s))
+		return "", errors.New(fmt.Sprintf("bucket name %q: too short", s)).Add(coreerrors.NotValid)
 	} else if num > 63 {
-		return "", errors.NewNotValid(nil, fmt.Sprintf("bucket name %q: too long", s))
+		return "", errors.New(fmt.Sprintf("bucket name %q: too long", s)).Add(coreerrors.NotValid)
 	}
 
 	// Bucket names can consist only of lowercase letters, numbers, dots (.),
@@ -65,7 +66,7 @@ func ParseObjectStoreBucketName(s string) (string, error) {
 	// for virtual hosting of buckets don't work for buckets with dots in
 	// their names.
 	if !nameRegex.MatchString(s) {
-		return "", errors.NewNotValid(nil, fmt.Sprintf("bucket name %q: invalid characters", s))
+		return "", errors.New(fmt.Sprintf("bucket name %q: invalid characters", s)).Add(coreerrors.NotValid)
 	}
 
 	// Note: We don't allow dots so these test isn't required.
@@ -77,13 +78,13 @@ func ParseObjectStoreBucketName(s string) (string, error) {
 	// prefix sthree-configurator
 	// Note: the later isn't possible because of the last prefix check.
 	if strings.HasPrefix(s, "xn--") || strings.HasPrefix(s, "sthree-") {
-		return "", errors.NewNotValid(nil, fmt.Sprintf("bucket name %q: invalid prefix", s))
+		return "", errors.New(fmt.Sprintf("bucket name %q: invalid prefix", s)).Add(coreerrors.NotValid)
 	}
 
 	// Bucket names must not end with the suffix -s3alias. This suffix is
 	// reserved for access point alias names.
 	if strings.HasSuffix(s, "-s3alias") {
-		return "", errors.NewNotValid(nil, fmt.Sprintf("bucket name %q: invalid suffix", s))
+		return "", errors.New(fmt.Sprintf("bucket name %q: invalid suffix", s)).Add(coreerrors.NotValid)
 	}
 
 	return s, nil

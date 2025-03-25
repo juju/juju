@@ -7,10 +7,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/errors"
 	"golang.org/x/sys/windows/registry"
 
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/errors"
 )
 
 var (
@@ -82,12 +82,12 @@ var (
 func getVersionFromRegistry() (string, error) {
 	k, err := registry.OpenKey(registry.LOCAL_MACHINE, currentVersionKey, registry.QUERY_VALUE)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Capture(err)
 	}
 	defer k.Close()
 	s, _, err := k.GetStringValue("ProductName")
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Capture(err)
 	}
 
 	return s, nil
@@ -96,14 +96,14 @@ func getVersionFromRegistry() (string, error) {
 func readBase() (corebase.Base, error) {
 	ver, err := getVersionFromRegistry()
 	if err != nil {
-		return corebase.Base{}, errors.Trace(err)
+		return corebase.Base{}, errors.Capture(err)
 	}
 
 	var lookAt = windowsVersions
 
 	isNano, err := isWindowsNano()
 	if err != nil && os.IsNotExist(err) {
-		return corebase.Base{}, errors.Trace(err)
+		return corebase.Base{}, errors.Capture(err)
 	}
 	if isNano {
 		lookAt = windowsNanoVersions
@@ -122,13 +122,13 @@ func readBase() (corebase.Base, error) {
 func isWindowsNano() (bool, error) {
 	k, err := registry.OpenKey(registry.LOCAL_MACHINE, isNanoKey, registry.QUERY_VALUE)
 	if err != nil {
-		return false, errors.Trace(err)
+		return false, errors.Capture(err)
 	}
 	defer k.Close()
 
 	s, _, err := k.GetIntegerValue("NanoServer")
 	if err != nil {
-		return false, errors.Trace(err)
+		return false, errors.Capture(err)
 	}
 	return s == 1, nil
 }

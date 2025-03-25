@@ -9,7 +9,8 @@ import (
 	"net"
 	"strings"
 
-	"github.com/juju/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // VirtualPortType defines the list of known port types for virtual NICs.
@@ -36,7 +37,7 @@ func (r Route) Validate() error {
 	// Make sure the CIDR is actually a CIDR not just an IP or hostname
 	destinationIP, _, err := net.ParseCIDR(r.DestinationCIDR)
 	if err != nil {
-		return errors.Annotate(err, "DestinationCIDR not valid")
+		return errors.Errorf("DestinationCIDR not valid: %w", err)
 	}
 	// Make sure the Gateway is just an IP, not a CIDR, etc.
 	gatewayIP := net.ParseIP(r.GatewayIP)
@@ -213,12 +214,12 @@ func (i *InterfaceInfo) IsVLAN() bool {
 func (i *InterfaceInfo) Validate() error {
 	if i.MACAddress != "" {
 		if _, err := net.ParseMAC(i.MACAddress); err != nil {
-			return errors.NotValidf("link-layer device hardware address %q", i.MACAddress)
+			return errors.Errorf("link-layer device hardware address %q %w", i.MACAddress, coreerrors.NotValid)
 		}
 	}
 
 	if i.InterfaceName == "" {
-		return errors.NotValidf("link-layer device %q, empty name", i.MACAddress)
+		return errors.Errorf("link-layer device %q, empty name %w", i.MACAddress, coreerrors.NotValid)
 	}
 
 	if !IsValidLinkLayerDeviceName(i.InterfaceName) {
@@ -228,7 +229,7 @@ func (i *InterfaceInfo) Validate() error {
 	}
 
 	if !IsValidLinkLayerDeviceType(string(i.InterfaceType)) {
-		return errors.NotValidf("link-layer device %q, type %q", i.InterfaceName, i.InterfaceType)
+		return errors.Errorf("link-layer device %q, type %q %w", i.InterfaceName, i.InterfaceType, coreerrors.NotValid)
 	}
 
 	return nil
@@ -256,7 +257,7 @@ type InterfaceInfos []InterfaceInfo
 func (s InterfaceInfos) Validate() error {
 	for _, dev := range s {
 		if err := dev.Validate(); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 	}
 	return nil

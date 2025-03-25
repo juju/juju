@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Store manipulates leases directly, and is most likely to be seen set on a
@@ -99,7 +99,7 @@ type Request struct {
 // Validate returns an error if any fields are invalid or inconsistent.
 func (request Request) Validate() error {
 	if err := ValidateString(request.Holder); err != nil {
-		return errors.Annotatef(err, "invalid holder")
+		return errors.Errorf("invalid holder: %w", err)
 	}
 	if request.Duration <= 0 {
 		return errors.Errorf("invalid duration")

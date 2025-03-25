@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/juju/errors"
-
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -51,7 +51,7 @@ type UUID string
 func NewUUID() (UUID, error) {
 	uuid, err := uuid.NewUUID()
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Capture(err)
 	}
 	return UUID(uuid.String()), nil
 }
@@ -60,10 +60,10 @@ func NewUUID() (UUID, error) {
 // satisfies [errors.NotValid].
 func (u UUID) Validate() error {
 	if u == "" {
-		return fmt.Errorf("empty uuid%w", errors.Hide(errors.NotValid))
+		return errors.Errorf("empty uuid").Add(coreerrors.NotValid)
 	}
 	if !uuid.IsValidUUIDString(string(u)) {
-		return fmt.Errorf("invalid uuid: %q%w", u, errors.Hide(errors.NotValid))
+		return errors.Errorf("invalid uuid: %q", u).Add(coreerrors.NotValid)
 	}
 	return nil
 }
@@ -91,7 +91,7 @@ var (
 func NewName(name string) (Name, error) {
 	parts := validName.FindStringSubmatch(name)
 	if len(parts) != 3 {
-		return Name{}, errors.NotValidf("user name %q", name)
+		return Name{}, errors.Errorf("user name %q %w", name, coreerrors.NotValid)
 	}
 	domain := parts[2]
 	if domain == LocalUserDomain {

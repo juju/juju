@@ -8,8 +8,9 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+
+	"github.com/juju/juju/internal/errors"
 )
 
 const (
@@ -62,11 +63,11 @@ func NewInfoUnitTarget(modelUUID string, unit string) (Info, error) {
 	}
 	unitNumber, err := names.UnitNumber(unit)
 	if err != nil {
-		return Info{}, errors.Trace(err)
+		return Info{}, errors.Capture(err)
 	}
 	applicationName, err := names.UnitApplication(unit)
 	if err != nil {
-		return Info{}, errors.Trace(err)
+		return Info{}, errors.Capture(err)
 	}
 	return newInfo(UnitTarget, modelUUID, 0, unitNumber, applicationName, "")
 }
@@ -81,11 +82,11 @@ func NewInfoContainerTarget(modelUUID string, unit string, container string) (In
 	}
 	unitNumber, err := names.UnitNumber(unit)
 	if err != nil {
-		return Info{}, errors.Trace(err)
+		return Info{}, errors.Capture(err)
 	}
 	applicationName, err := names.UnitApplication(unit)
 	if err != nil {
-		return Info{}, errors.Trace(err)
+		return Info{}, errors.Capture(err)
 	}
 	return newInfo(ContainerTarget, modelUUID, 0, unitNumber, applicationName, container)
 }
@@ -207,7 +208,7 @@ func Parse(hostname string) (Info, error) {
 	// unit number and machine number come from the same matching group.
 	unitNumber, err := strconv.Atoi(result["unitnumber"])
 	if err != nil {
-		return Info{}, errors.Annotatef(err, "failed to parse unit/machine number")
+		return Info{}, errors.Errorf("failed to parse unit/machine number: %w", err)
 	}
 
 	res := Info{}

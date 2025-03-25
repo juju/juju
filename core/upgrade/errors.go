@@ -3,7 +3,7 @@
 
 package upgrade
 
-import "github.com/juju/errors"
+import "github.com/juju/juju/internal/errors"
 
 const (
 	// ErrUpgradeInProgress indicates that an upgrade is already in progress.

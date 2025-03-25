@@ -11,9 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/errors"
-
 	semversion "github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/internal/errors"
 )
 
 // The presence and format of this constant is very important.
@@ -137,19 +136,19 @@ func CheckJujuMinVersion(toCheck semversion.Number, jujuVersion semversion.Numbe
 }
 
 func minVersionError(minver, jujuver semversion.Number) error {
-	err := errors.NewErr("charm's min version (%s) is higher than this juju model's version (%s)",
+	err := errors.Errorf("charm's min version (%s) is higher than this juju model's version (%s)",
 		minver, jujuver)
-	err.SetLocation(1)
-	return minJujuVersionErr{&err}
+
+	return minJujuVersionErr{err}
 }
 
 type minJujuVersionErr struct {
-	*errors.Err
+	error
 }
 
 // IsMinVersionError returns true if the given error was caused by the charm
 // having a minjujuversion higher than the juju model's version.
 func IsMinVersionError(err error) bool {
-	_, ok := errors.Cause(err).(minJujuVersionErr)
+	_, ok := err.(minJujuVersionErr)
 	return ok
 }

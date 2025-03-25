@@ -6,9 +6,8 @@ package settings
 import (
 	"fmt"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
 )
 
 const (
@@ -105,7 +104,7 @@ type ItemChanges []ItemChange
 func (c ItemChanges) ApplyDeltaSource(oldChanges ItemChanges) (ItemChanges, error) {
 	m, err := oldChanges.Map()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	res := make(ItemChanges, len(c))

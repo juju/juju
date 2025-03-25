@@ -3,7 +3,10 @@
 
 package objectstore
 
-import "github.com/juju/errors"
+import (
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
+)
 
 const (
 	// ObjectStoreLeaseHolderName is the name of the lease holder for the
@@ -19,5 +22,5 @@ func ParseLeaseHolderName(name string) error {
 	if name == ObjectStoreLeaseHolderName {
 		return nil
 	}
-	return errors.NotValidf("lease holder name %q", name)
+	return errors.Errorf("lease holder name %q %w", name, coreerrors.NotValid)
 }

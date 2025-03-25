@@ -10,11 +10,12 @@ import (
 	"sync/atomic"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 )
 
@@ -84,7 +85,7 @@ func NewRegistry(clock clock.Clock, opts ...Option) (*Registry, error) {
 			r.runner,
 		},
 	}); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	return r, nil
 }
@@ -94,7 +95,7 @@ func NewRegistry(clock clock.Clock, opts ...Option) (*Registry, error) {
 func (r *Registry) Get(id string) (worker.Worker, error) {
 	w, err := r.runner.Worker(id, r.catacomb.Dying())
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	if lw, ok := w.(watcherUnwrapper); ok {
 		return lw.Unwrap(), nil
@@ -111,7 +112,7 @@ func (r *Registry) Register(w worker.Worker) (string, error) {
 
 	err := r.register(namespace, w)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Capture(err)
 	}
 	return namespace, nil
 }
@@ -123,7 +124,7 @@ func (r *Registry) Register(w worker.Worker) (string, error) {
 // collides with the auto-naming from Register.
 func (r *Registry) RegisterNamed(namespace string, w worker.Worker) error {
 	if _, err := strconv.Atoi(namespace); err == nil {
-		return errors.NotValidf("namespace %q", namespace)
+		return errors.Errorf("namespace %q %w", namespace, coreerrors.NotValid)
 	}
 
 	return r.register(namespace, w)
@@ -134,7 +135,7 @@ func (r *Registry) register(namespace string, w worker.Worker) error {
 		return r.watcherWrapper(w)
 	})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	atomic.AddInt64(&r.counter, 1)
 	return nil
@@ -146,7 +147,7 @@ func (r *Registry) register(namespace string, w worker.Worker) error {
 // been unregistered.
 func (r *Registry) Stop(id string) error {
 	if err := r.runner.StopAndRemoveWorker(id, r.catacomb.Dying()); err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	atomic.AddInt64(&r.counter, -1)
 	return nil
@@ -217,7 +218,7 @@ func (l *LoggingWatcher) Wait() error {
 	if l.logger.IsLevelEnabled(logger.TRACE) {
 		l.logger.Tracef(context.TODO(), "watcher %T finished with error %v", l.worker, err)
 	}
-	return errors.Trace(err)
+	return errors.Capture(err)
 }
 
 // Unwrap returns the wrapped worker.

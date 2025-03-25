@@ -4,7 +4,8 @@
 package base
 
 import (
-	"github.com/juju/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // ValidateBase attempts to validate a base if one is found, otherwise it
@@ -35,7 +36,7 @@ func ValidateBase(supportedBases []Base, base, fallbackPreferredBase Base) (Base
 		}
 	}
 	if !found {
-		return requestedBase, errors.NotSupportedf("%s", requestedBase.String())
+		return requestedBase, errors.Errorf("%s %w", requestedBase.String(), coreerrors.NotSupported)
 	}
 	return requestedBase, nil
 }

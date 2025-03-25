@@ -7,7 +7,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/juju/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 const (

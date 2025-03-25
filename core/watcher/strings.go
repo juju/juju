@@ -6,9 +6,11 @@ package watcher
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
+
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // StringsChannel is a channel that receives a baseline set of values, and
@@ -53,7 +55,7 @@ type StringsConfig struct {
 // Validate returns ann error if the config cannot start a StringsWorker.
 func (config StringsConfig) Validate() error {
 	if config.Handler == nil {
-		return errors.NotValidf("nil Handler")
+		return errors.Errorf("nil Handler %w", coreerrors.NotValid)
 	}
 	return nil
 }
@@ -61,7 +63,7 @@ func (config StringsConfig) Validate() error {
 // NewStringsWorker starts a new worker that runs a StringsHandler.
 func NewStringsWorker(config StringsConfig) (*StringsWorker, error) {
 	if err := config.Validate(); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	sw := &StringsWorker{
 		config: config,
@@ -71,7 +73,7 @@ func NewStringsWorker(config StringsConfig) (*StringsWorker, error) {
 		Work: sw.loop,
 	})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	return sw, nil
 }

@@ -6,8 +6,10 @@ package annotations
 import (
 	"fmt"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Kind identifies different kinds of entities that'll get associated with
@@ -32,14 +34,14 @@ type ID struct {
 // Validate checks if the ID is valid or not.
 func (i ID) Validate() error {
 	if i.Name == "" {
-		return errors.NotValidf("name cannot be empty")
+		return errors.Errorf("name cannot be empty %w", coreerrors.NotValid)
 	}
 
 	switch i.Kind {
 	case KindApplication, KindMachine, KindUnit, KindModel, KindStorage:
 		return nil
 	default:
-		return errors.NotValidf("unknown kind %d", i.Kind)
+		return errors.Errorf("unknown kind %d %w", i.Kind, coreerrors.NotValid)
 	}
 }
 
@@ -73,7 +75,7 @@ func ConvertTagToID(n names.Tag) (ID, error) {
 			Name: n.Id(),
 		}, nil
 	default:
-		return ID{}, fmt.Errorf("unknown kind %q", n.Kind())
+		return ID{}, errors.Errorf("unknown kind %q", n.Kind())
 	}
 }
 
@@ -163,10 +165,10 @@ func (a Annotation) CheckKeysNonEmpty(keys ...string) error {
 	for _, k := range keys {
 		v, ok := a.getVal(k)
 		if !ok {
-			return errors.NotFoundf("annotation key %q", k)
+			return errors.Errorf("annotation key %q %w", k, coreerrors.NotFound)
 		}
 		if v == "" {
-			return errors.NotValidf("annotation key %q has empty value", k)
+			return errors.Errorf("annotation key %q has empty value %w", k, coreerrors.NotValid)
 		}
 	}
 	return nil

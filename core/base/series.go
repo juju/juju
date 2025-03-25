@@ -4,7 +4,8 @@
 package base
 
 import (
-	"github.com/juju/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // seriesBaseMapping is a hard-coded set of pairs
@@ -53,5 +54,5 @@ func GetSeriesFromBase(v Base) (string, error) {
 			return pair.series, nil
 		}
 	}
-	return "", errors.NotFoundf("os %q version %q", v.OS, v.Channel.Track)
+	return "", errors.Errorf("os %q version %q %w", v.OS, v.Channel.Track, coreerrors.NotFound)
 }

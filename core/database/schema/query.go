@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 const schemaTable = `
@@ -28,7 +28,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_schema_version ON schema (version);
 // Create the schema table.
 func createSchemaTable(ctx context.Context, tx *sql.Tx) error {
 	_, err := tx.ExecContext(ctx, schemaTable)
-	return errors.Trace(err)
+	return errors.Capture(err)
 }
 
 // queryCurrentVersion returns the highest patch version currently applied.
@@ -42,10 +42,10 @@ func queryCurrentVersion(ctx context.Context, tx *sql.Tx, computedHashes []strin
 	var current int
 	if len(versions) > 0 {
 		if err := checkSchemaVersionsHaveNoHoles(versions); err != nil {
-			return -1, errors.Trace(err)
+			return -1, errors.Capture(err)
 		}
 		if err := checkSchemaHashesMatch(versions, computedHashes); err != nil {
-			return -1, errors.Trace(err)
+			return -1, errors.Capture(err)
 		}
 
 		// Highest recorded version
@@ -65,7 +65,7 @@ func selectSchemaVersions(ctx context.Context, tx *sql.Tx) ([]versionHash, error
 	statement := `SELECT version, hash FROM schema ORDER BY version;`
 	rows, err := tx.QueryContext(ctx, statement)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	defer rows.Close()
 
@@ -74,13 +74,13 @@ func selectSchemaVersions(ctx context.Context, tx *sql.Tx) ([]versionHash, error
 		var version versionHash
 		err := rows.Scan(&version.version, &version.hash)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		values = append(values, version)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	return values, nil
 }
@@ -112,8 +112,8 @@ func ensurePatchesAreApplied(ctx context.Context, tx *sql.Tx, current int, patch
 	if current > len(patches) {
 		return errors.Errorf(
 			"schema version '%d' is more recent than expected '%d'",
-			current, len(patches),
-		)
+			current, len(patches))
+
 	}
 
 	// If there are no patches, there's nothing to do.
@@ -130,11 +130,11 @@ func ensurePatchesAreApplied(ctx context.Context, tx *sql.Tx, current int, patch
 	for _, patch := range patches[current:] {
 		// If the context has any underlying errors, close out immediately.
 		if err := ctx.Err(); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		if err := hook(current, patch.stmt); err != nil {
-			return errors.Annotatef(err, "failed to execute hook (version %d)", current)
+			return errors.Errorf("failed to execute hook (version %d): %w", current, err)
 		}
 
 		if err := patch.run(ctx, tx); err != nil {
@@ -157,7 +157,7 @@ func ensurePatchesAreApplied(ctx context.Context, tx *sql.Tx, current int, patch
 func insertSchemaVersion(ctx context.Context, tx *sql.Tx, new versionHash) error {
 	statement := `INSERT INTO schema (version, hash, updated_at) VALUES (?, ?, strftime("%s"));`
 	_, err := tx.ExecContext(ctx, statement, new.version, new.hash)
-	return errors.Trace(err)
+	return errors.Capture(err)
 }
 
 const seedHash = "WUBMFo6cr9oo+WDQUqJigD6fH3znpMhWwy/FOwzHfY0="

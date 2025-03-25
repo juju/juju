@@ -4,12 +4,12 @@
 package os
 
 import (
-	"errors"
 	stdos "os"
 	"strings"
 	"sync"
 
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/internal/errors"
 )
 
 var (

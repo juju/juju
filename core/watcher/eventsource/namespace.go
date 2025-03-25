@@ -8,12 +8,12 @@ import (
 	"database/sql"
 
 	"github.com/juju/collections/transform"
-	"github.com/juju/errors"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/errors"
 )
 
 // NamespaceQuery is a function that returns the initial state of a
@@ -99,14 +99,13 @@ func (w *NamespaceWatcher) loop() error {
 
 	subscription, err := w.watchableDB.Subscribe(w.filterOpts...)
 	if err != nil {
-		return errors.Annotatef(err, "subscribing to namespaces")
+		return errors.Errorf("subscribing to namespaces: %w", err)
 	}
 	defer subscription.Unsubscribe()
 
 	changes, err := w.initialQuery(ctx, w.watchableDB)
 	if err != nil {
-		return errors.Annotatef(
-			err, "retrieving initial watcher state")
+		return errors.Errorf("retrieving initial watcher state: %w", err)
 	}
 
 	// By reassigning the in and out channels, we effectively ticktock between
@@ -137,7 +136,7 @@ func (w *NamespaceWatcher) loop() error {
 			// Allow the possibility of the mapper to drop/filter events.
 			changed, err := w.mapper(ctx, w.watchableDB, subChanges)
 			if err != nil {
-				return errors.Trace(err)
+				return errors.Capture(err)
 			}
 			// If the mapper has dropped all events, we don't need to do
 			// anything.
@@ -175,25 +174,25 @@ func InitialNamespaceChanges(selectAll string) NamespaceQuery {
 				if errors.Is(err, sql.ErrNoRows) {
 					return nil
 				}
-				return errors.Trace(err)
+				return errors.Capture(err)
 			}
 			defer func() { _ = rows.Close() }()
 
 			for i := 0; rows.Next(); i++ {
 				var key string
 				if err := rows.Scan(&key); err != nil {
-					return errors.Trace(err)
+					return errors.Capture(err)
 				}
 				keys = append(keys, key)
 			}
 
 			if err := rows.Err(); err != nil {
-				return errors.Trace(err)
+				return errors.Capture(err)
 			}
-			return errors.Trace(rows.Close())
+			return errors.Capture(rows.Close())
 		})
 
-		return keys, errors.Trace(err)
+		return keys, errors.Capture(err)
 	}
 }
 

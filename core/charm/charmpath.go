@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/core/base"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
 )
 
 // NewCharmAtPath returns the charm represented by this path,
@@ -20,7 +20,7 @@ import (
 // Deploying from a directory is no longer supported.
 func NewCharmAtPath(path string) (charm.Charm, *charm.URL, error) {
 	if path == "" {
-		return nil, nil, errors.NotValidf("empty charm path")
+		return nil, nil, errors.Errorf("empty charm path %w", coreerrors.NotValid)
 	}
 
 	if info, err := os.Stat(path); isNotExistsError(err) {
@@ -28,7 +28,7 @@ func NewCharmAtPath(path string) (charm.Charm, *charm.URL, error) {
 	} else if err == nil && !isValidCharmOrBundlePath(path) {
 		return nil, nil, InvalidPath(path)
 	} else if info.IsDir() {
-		return nil, nil, errors.NotSupportedf("deploying from directory")
+		return nil, nil, errors.Errorf("deploying from directory %w", coreerrors.NotSupported)
 	}
 
 	ch, err := charm.ReadCharmArchive(path)
@@ -39,7 +39,7 @@ func NewCharmAtPath(path string) (charm.Charm, *charm.URL, error) {
 		return nil, nil, err
 	}
 	if err := charm.CheckMeta(ch); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, errors.Capture(err)
 	}
 
 	url := &charm.URL{
@@ -51,7 +51,7 @@ func NewCharmAtPath(path string) (charm.Charm, *charm.URL, error) {
 }
 
 func isNotExistsError(err error) bool {
-	if os.IsNotExist(errors.Cause(err)) {
+	if os.IsNotExist(err) {
 		return true
 	}
 	// On Windows, we get a path error due to a GetFileAttributesEx syscall.
@@ -71,7 +71,7 @@ func isValidCharmOrBundlePath(path string) bool {
 // CharmNotFound returns an error indicating that the
 // charm at the specified URL does not exist.
 func CharmNotFound(url string) error {
-	return errors.NewNotFound(nil, "charm not found: "+url)
+	return errors.New("charm not found: " + url).Add(coreerrors.NotFound)
 }
 
 // InvalidPath returns an invalidPathError.

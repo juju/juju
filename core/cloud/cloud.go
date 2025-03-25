@@ -4,10 +4,8 @@
 package cloud
 
 import (
-	"fmt"
-
-	"github.com/juju/errors"
-
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -18,7 +16,7 @@ type UUID string
 func NewUUID() (UUID, error) {
 	uuid, err := uuid.NewUUID()
 	if err != nil {
-		return UUID(""), fmt.Errorf("creating new cloud id: %w", err)
+		return UUID(""), errors.Errorf("creating new cloud id: %w", err)
 	}
 	return UUID(uuid.String()), nil
 }
@@ -33,11 +31,11 @@ func (u UUID) String() string {
 // satisfying [errors.NotValid] will be returned.
 func (u UUID) Validate() error {
 	if u == "" {
-		return fmt.Errorf("cloud uuid cannot be empty%w", errors.Hide(errors.NotValid))
+		return errors.Errorf("cloud uuid cannot be empty").Add(coreerrors.NotValid)
 	}
 
 	if !uuid.IsValidUUIDString(string(u)) {
-		return fmt.Errorf("cloud uuid %q %w", u, errors.NotValid)
+		return errors.Errorf("cloud uuid %q %w", u, coreerrors.NotValid)
 	}
 	return nil
 }

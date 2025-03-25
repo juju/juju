@@ -22,7 +22,6 @@ var _ = gc.Suite(&ImportTest{})
 
 func (*ImportTest) TestImports(c *gc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/status")
-	c.Assert(found, gc.HasLen, 0)
 	c.Check(found, jc.SameContents, []string{
 		"core/errors",
 		"internal/errors",

@@ -8,8 +8,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // OfferURL represents the location of an offered application and its
@@ -147,13 +149,13 @@ func parseOfferURLParts(urlStr string, allowIncomplete bool) (*OfferURLParts, er
 	appName := strings.Split(result.ApplicationName, ":")[0]
 	// Validate the resulting URL part values.
 	if result.User != "" && !names.IsValidUser(result.User) {
-		return nil, errors.NotValidf("user name %q", result.User)
+		return nil, errors.Errorf("user name %q %w", result.User, coreerrors.NotValid)
 	}
 	if result.ModelName != "" && !names.IsValidModelName(result.ModelName) {
-		return nil, errors.NotValidf("model name %q", result.ModelName)
+		return nil, errors.Errorf("model name %q %w", result.ModelName, coreerrors.NotValid)
 	}
 	if appName != "" && !names.IsValidApplication(appName) {
-		return nil, errors.NotValidf("application name %q", appName)
+		return nil, errors.Errorf("application name %q %w", appName, coreerrors.NotValid)
 	}
 	return &result, nil
 }

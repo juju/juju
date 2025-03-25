@@ -8,7 +8,8 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/errors"
+
+	"github.com/juju/juju/internal/errors"
 )
 
 // TxnRunner defines an interface for running transactions against a database.
@@ -33,6 +34,6 @@ type TxnRunnerFactory = func() (TxnRunner, error)
 func NewTxnRunnerFactoryForNamespace[T TxnRunner](f func(string) (T, error), ns string) TxnRunnerFactory {
 	return func() (TxnRunner, error) {
 		r, err := f(ns)
-		return r, errors.Trace(err)
+		return r, errors.Capture(err)
 	}
 }

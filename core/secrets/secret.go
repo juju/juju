@@ -10,8 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/rs/xid"
+
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // SecretConfig is used when creating a secret.
@@ -27,7 +29,7 @@ type SecretConfig struct {
 // Validate returns an error if params are invalid.
 func (c *SecretConfig) Validate() error {
 	if c.RotatePolicy != nil && !c.RotatePolicy.IsValid() {
-		return errors.NotValidf("secret rotate policy %q", c.RotatePolicy)
+		return errors.Errorf("secret rotate policy %q %w", c.RotatePolicy, coreerrors.NotValid)
 	}
 	if c.RotatePolicy.WillRotate() && c.NextRotateTime == nil {
 		return errors.New("cannot specify a secret rotate policy without a next rotate time")
@@ -62,15 +64,15 @@ var secretURIParse = regexp.MustCompile(`^` +
 func ParseURI(str string) (*URI, error) {
 	u, err := url.Parse(str)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	if u.Scheme == "" {
 		u.Scheme = SecretScheme
 	} else if u.Scheme != SecretScheme {
-		return nil, errors.NotValidf("secret URI scheme %q", u.Scheme)
+		return nil, errors.Errorf("secret URI scheme %q %w", u.Scheme, coreerrors.NotValid)
 	}
 	if u.Host != "" && !validUUID.MatchString(u.Host) {
-		return nil, errors.NotValidf("host controller UUID %q", u.Host)
+		return nil, errors.Errorf("host controller UUID %q %w", u.Host, coreerrors.NotValid)
 	}
 
 	idStr := strings.TrimLeft(u.Path, "/")
@@ -79,7 +81,7 @@ func ParseURI(str string) (*URI, error) {
 	}
 	valid := secretURIParse.MatchString(idStr)
 	if !valid {
-		return nil, errors.NotValidf("secret URI %q", str)
+		return nil, errors.Errorf("secret URI %q %w", str, coreerrors.NotValid)
 	}
 	sourceUUID := secretURIParse.ReplaceAllString(idStr, "$source")
 	if sourceUUID == "" {
@@ -88,7 +90,7 @@ func ParseURI(str string) (*URI, error) {
 	idPart := secretURIParse.ReplaceAllString(idStr, "$id")
 	id, err := xid.FromString(idPart)
 	if err != nil {
-		return nil, errors.NotValidf("secret URI %q", str)
+		return nil, errors.Errorf("secret URI %q %w", str, coreerrors.NotValid)
 	}
 	result := &URI{
 		SourceUUID: sourceUUID,

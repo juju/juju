@@ -4,11 +4,12 @@
 package migration
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/errors"
 )
 
 // TargetInfo holds the details required to connect to a
@@ -49,25 +50,25 @@ type TargetInfo struct {
 // is returned otherwise.
 func (info *TargetInfo) Validate() error {
 	if !names.IsValidModel(info.ControllerTag.Id()) {
-		return errors.NotValidf("ControllerTag")
+		return errors.Errorf("ControllerTag %w", coreerrors.NotValid)
 	}
 
 	if len(info.Addrs) < 1 {
-		return errors.NotValidf("empty Addrs")
+		return errors.Errorf("empty Addrs %w", coreerrors.NotValid)
 	}
 	for _, addr := range info.Addrs {
 		_, err := network.ParseMachineHostPort(addr)
 		if err != nil {
-			return errors.NotValidf("%q in Addrs", addr)
+			return errors.Errorf("%q in Addrs %w", addr, coreerrors.NotValid)
 		}
 	}
 
 	if info.AuthTag.Id() == "" && len(info.Macaroons) == 0 {
-		return errors.NotValidf("empty AuthTag")
+		return errors.Errorf("empty AuthTag %w", coreerrors.NotValid)
 	}
 
 	if info.Password == "" && len(info.Macaroons) == 0 {
-		return errors.NotValidf("missing Password & Macaroons")
+		return errors.Errorf("missing Password & Macaroons %w", coreerrors.NotValid)
 	}
 
 	return nil

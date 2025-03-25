@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 const (
@@ -30,7 +32,7 @@ const (
 
 func suffix(modelUUID string, suffixLength uint) (string, error) {
 	if !names.IsValidModel(modelUUID) {
-		return "", errors.NotValidf("model UUID %q", modelUUID)
+		return "", errors.Errorf("model UUID %q %w", modelUUID, coreerrors.NotValid)
 	}
 	// The suffix is the last six hex digits of the model uuid.
 	modelUUIDDigitsOnly := strings.ReplaceAll(modelUUID, "-", "")
@@ -53,14 +55,14 @@ func DisambiguateResourceName(modelUUID string, name string, maxLength uint) (st
 // The default suffix length [DefaultSuffixDigits] is used.
 func DisambiguateResourceNameWithSuffixLength(modelUUID string, name string, maxNameLength, suffixLength uint) (string, error) {
 	if maxNameLength < minMaxNameLength {
-		return "", fmt.Errorf("maxNameLength (%d) must be greater than %d", maxNameLength, minMaxNameLength)
+		return "", errors.Errorf("maxNameLength (%d) must be greater than %d", maxNameLength, minMaxNameLength)
 	}
 	var maxAllowedSuffixLength uint = maxSuffixLength
 	if maxAllowedSuffixLength > maxNameLength-minResourceNameComponentLength {
 		maxAllowedSuffixLength = maxNameLength - minResourceNameComponentLength
 	}
 	if suffixLength < DefaultSuffixDigits || suffixLength > maxAllowedSuffixLength {
-		return "", fmt.Errorf("suffixLength (%d) must be between %d and %d", suffixLength, DefaultSuffixDigits, maxAllowedSuffixLength)
+		return "", errors.Errorf("suffixLength (%d) must be between %d and %d", suffixLength, DefaultSuffixDigits, maxAllowedSuffixLength)
 	}
 	if overflow := len(name) + 1 + int(suffixLength) - int(maxNameLength); overflow > 0 {
 		name = name[0 : len(name)-overflow]

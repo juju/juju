@@ -8,9 +8,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Task represents a unit of work which should be executed by the pool workers.

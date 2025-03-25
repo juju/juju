@@ -9,7 +9,8 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
+
+	"github.com/juju/juju/internal/errors"
 )
 
 // BufferedLogWriter wraps a LogWriter, providing a buffer that
@@ -81,7 +82,7 @@ func (b *BufferedLogWriter) Log(in []LogRecord) error {
 		in = in[n:]
 		if len(b.buf) >= cap(b.buf) {
 			if err := b.flush(); err != nil {
-				return errors.Trace(err)
+				return errors.Capture(err)
 			}
 		}
 	}
@@ -116,7 +117,7 @@ func (b *BufferedLogWriter) flush() error {
 	}
 	if len(b.buf) > 0 {
 		if err := b.l.Log(b.buf); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		b.buf = b.buf[:0]
 	}

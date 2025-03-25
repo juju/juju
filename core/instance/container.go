@@ -3,9 +3,7 @@
 
 package instance
 
-import (
-	"fmt"
-)
+import "github.com/juju/juju/internal/errors"
 
 // ContainerType defines different container technologies known to juju.
 type ContainerType string
@@ -39,5 +37,5 @@ func ParseContainerType(ctype string) (ContainerType, error) {
 			return supportedType, nil
 		}
 	}
-	return "", fmt.Errorf("invalid container type %q", ctype)
+	return "", errors.Errorf("invalid container type %q", ctype)
 }

@@ -6,8 +6,9 @@
 package transientfile
 
 import (
-	"github.com/juju/errors"
 	"golang.org/x/sys/windows"
+
+	"github.com/juju/juju/internal/errors"
 )
 
 // ensureDeleteAfterReboot arranges for the specified file to be removed once
@@ -22,7 +23,7 @@ import (
 func ensureDeleteAfterReboot(file string) error {
 	from, err := windows.UTF16PtrFromString(file)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	return windows.MoveFileEx(from, nil, windows.MOVEFILE_DELAY_UNTIL_REBOOT)
 }

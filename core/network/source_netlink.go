@@ -9,9 +9,10 @@ import (
 	"net"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
+
+	"github.com/juju/juju/internal/errors"
 )
 
 // netlinkAddr implements ConfigSourceAddr based on the
@@ -88,7 +89,7 @@ func (n netlinkNIC) HardwareAddr() net.HardwareAddr {
 func (n netlinkNIC) Addresses() ([]ConfigSourceAddr, error) {
 	rawAddrs, err := n.getAddrs(n.nic)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	addrs := make([]ConfigSourceAddr, len(rawAddrs))
@@ -117,7 +118,7 @@ type netlinkConfigSource struct {
 func (s *netlinkConfigSource) Interfaces() ([]ConfigSourceNIC, error) {
 	links, err := s.linkList()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	getAddrs := func(l netlink.Link) ([]netlink.Addr, error) {

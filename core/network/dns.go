@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // DNSConfig holds a list of DNS nameserver addresses
@@ -40,7 +40,7 @@ func ParseResolvConf(path string) (*DNSConfig, error) {
 		logger.Debugf(context.TODO(), "%q does not exist - not parsing", path)
 		return nil, nil
 	} else if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	defer file.Close()
 
@@ -56,14 +56,14 @@ func ParseResolvConf(path string) (*DNSConfig, error) {
 
 		values, err := parseResolvStanza(line, "nameserver")
 		if err != nil {
-			return nil, errors.Annotatef(err, "parsing %q, line %d", path, lineNum)
+			return nil, errors.Errorf("parsing %q, line %d: %w", path, lineNum, err)
 		}
 
 		if numValues := len(values); numValues > 1 {
 			return nil, errors.Errorf(
 				"parsing %q, line %d: one value expected for \"nameserver\", got %d",
-				path, lineNum, numValues,
-			)
+				path, lineNum, numValues)
+
 		} else if numValues == 1 {
 			nameservers = append(nameservers, values[0])
 			continue
@@ -71,7 +71,7 @@ func ParseResolvConf(path string) (*DNSConfig, error) {
 
 		values, err = parseResolvStanza(line, "search")
 		if err != nil {
-			return nil, errors.Annotatef(err, "parsing %q, line %d", path, lineNum)
+			return nil, errors.Errorf("parsing %q, line %d: %w", path, lineNum, err)
 		}
 
 		if len(values) > 0 {
@@ -81,7 +81,7 @@ func ParseResolvConf(path string) (*DNSConfig, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, errors.Annotatef(err, "reading %q", path)
+		return nil, errors.Errorf("reading %q: %w", path, err)
 	}
 
 	return &DNSConfig{

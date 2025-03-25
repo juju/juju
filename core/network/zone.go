@@ -3,7 +3,10 @@
 
 package network
 
-import "github.com/juju/errors"
+import (
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
+)
 
 // AvailabilityZone describes the common methods
 // for general interaction with an AZ.
@@ -30,5 +33,5 @@ func (a AvailabilityZones) Validate(zoneName string) error {
 			return errors.Errorf("zone %q is unavailable", zoneName)
 		}
 	}
-	return errors.NotValidf("availability zone %q", zoneName)
+	return errors.Errorf("availability zone %q %w", zoneName, coreerrors.NotValid)
 }

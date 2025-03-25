@@ -42,7 +42,7 @@ func (s platformSuite) TestParsePlatform(c *gc.C) {
 	}{{
 		Name:        "empty",
 		Value:       "",
-		ExpectedErr: "platform cannot be empty bad request",
+		ExpectedErr: "platform cannot be empty",
 	}, {
 		Name:        "empty components",
 		Value:       "//",

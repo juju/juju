@@ -12,7 +12,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/juju/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // SecretValue holds the value of a secret.
@@ -92,7 +93,7 @@ func (v secretValue) Values() (map[string]string, error) {
 	for k, v := range dataCopy {
 		data, err := base64.StdEncoding.DecodeString(v)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		dataCopy[k] = string(data)
 	}
@@ -108,7 +109,7 @@ func (v secretValue) KeyValue(key string) (string, error) {
 	}
 	val, ok := v.data[key]
 	if !ok {
-		return "", errors.NotFoundf("secret key value %q", key)
+		return "", errors.Errorf("secret key value %q %w", key, coreerrors.NotFound)
 	}
 	// The stored value is always base64 encoded.
 	if useBase64 {
@@ -117,7 +118,7 @@ func (v secretValue) KeyValue(key string) (string, error) {
 	b64 := base64.NewDecoder(base64.StdEncoding, bytes.NewReader(val))
 	result, err := io.ReadAll(b64)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Capture(err)
 	}
 	return string(result), nil
 }
@@ -126,12 +127,12 @@ func (v secretValue) KeyValue(key string) (string, error) {
 func (v secretValue) Checksum() (string, error) {
 	data, err := json.Marshal(v.EncodedValues())
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Capture(err)
 	}
 	hash := sha256.New()
 	_, err = hash.Write(data)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Capture(err)
 	}
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }

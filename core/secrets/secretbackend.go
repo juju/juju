@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/utils/v4"
+
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // IsInternalSecretBackendID returns true if the supplied backend ID is the internal backend ID.
@@ -41,7 +43,7 @@ func (r *ValueRef) String() string {
 // given the supplied rotate interval.
 func NextBackendRotateTime(now time.Time, rotateInterval time.Duration) (*time.Time, error) {
 	if rotateInterval > 0 && rotateInterval < time.Hour {
-		return nil, errors.NotValidf("token rotate interval %q less than 1h", rotateInterval)
+		return nil, errors.Errorf("token rotate interval %q less than 1h %w", rotateInterval, coreerrors.NotValid)
 	}
 	// Rotate a reasonable time before the token is due to expire.
 	const maxInterval = 24 * time.Hour

@@ -6,7 +6,7 @@ package globalclock
 import (
 	"time"
 
-	"github.com/juju/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 var (

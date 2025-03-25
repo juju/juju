@@ -6,8 +6,7 @@ package storage
 import (
 	"context"
 
-	"github.com/juju/errors"
-
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
 

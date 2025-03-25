@@ -4,9 +4,8 @@
 package resource
 
 import (
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/errors"
 )
 
 // DeserializeFingerprint converts the serialized fingerprint back into
@@ -17,7 +16,7 @@ func DeserializeFingerprint(fpSum []byte) (resource.Fingerprint, error) {
 		var err error
 		fp, err = resource.NewFingerprint(fpSum)
 		if err != nil {
-			return fp, errors.Trace(err)
+			return fp, errors.Capture(err)
 		}
 	}
 	return fp, nil

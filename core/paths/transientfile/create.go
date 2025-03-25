@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Create a transient file with the specified name inside transientDir. The
@@ -39,7 +39,7 @@ func Create(transientDir, name string) (*os.File, error) {
 	for attempt := 0; ; attempt++ {
 		if err := os.MkdirAll(baseDir, os.ModePerm); err != nil {
 			if attempt == 10 {
-				return nil, errors.Annotatef(err, "unable to create directory path for transient file %q", transientFilePath)
+				return nil, errors.Errorf("unable to create directory path for transient file %q: %w", transientFilePath, err)
 			}
 			continue
 		}
@@ -49,7 +49,7 @@ func Create(transientDir, name string) (*os.File, error) {
 
 	f, err := os.Create(transientFilePath)
 	if err != nil {
-		return nil, errors.Annotatef(err, "unable to create transient file %q", transientFilePath)
+		return nil, errors.Errorf("unable to create transient file %q: %w", transientFilePath, err)
 	}
 
 	// Invoke platform-specific code to ensure that the file is removed
@@ -57,7 +57,7 @@ func Create(transientDir, name string) (*os.File, error) {
 	if err = ensureDeleteAfterReboot(transientFilePath); err != nil {
 		_ = f.Close()
 		_ = os.Remove(transientFilePath)
-		return nil, errors.Annotatef(err, "unable to schedule deletion of transient file %q after reboot", transientFilePath)
+		return nil, errors.Errorf("unable to schedule deletion of transient file %q after reboot: %w", transientFilePath, err)
 	}
 
 	return f, nil

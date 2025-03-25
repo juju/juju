@@ -200,7 +200,7 @@ func (*LXDProfileNameSuite) TestMatchProfileNameByAppName(c *gc.C) {
 		{
 			input:    []string{},
 			inputApp: "",
-			err:      "no application name specified bad request",
+			err:      "no application name specified",
 		},
 		{
 			input:    []string{"default"},

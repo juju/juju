@@ -4,9 +4,9 @@
 package assumes
 
 import (
-	"github.com/juju/errors"
-
+	coreerrors "github.com/juju/juju/core/errors"
 	chassumes "github.com/juju/juju/internal/charm/assumes"
+	"github.com/juju/juju/internal/errors"
 )
 
 // satisfyExpr checks whether the feature set contents satisfy the provided
@@ -19,7 +19,7 @@ func satisfyExpr(fs FeatureSet, expr chassumes.Expression, exprTreeDepth int) er
 	case chassumes.CompositeExpression:
 		return satisfyCompositeExpr(fs, expr, exprTreeDepth)
 	default:
-		return errors.NotSupportedf("assumes expression type %q", expr.Type())
+		return errors.Errorf("assumes expression type %q %w", expr.Type(), coreerrors.NotSupported)
 	}
 }
 

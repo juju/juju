@@ -11,9 +11,8 @@ import (
 	"text/scanner"
 	"unicode"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/internal/errors"
 )
 
 // HardwareCharacteristics represents the characteristics of the instance (if known).
@@ -132,7 +131,7 @@ func ParseHardware(args ...string) (HardwareCharacteristics, error) {
 			var err error
 			arg, err = hc.parseField(arg)
 			if err != nil {
-				return hc, errors.Trace(err)
+				return hc, errors.Capture(err)
 			}
 			arg = strings.TrimSpace(arg)
 		}
@@ -198,7 +197,7 @@ func parseSingle(s string, seps string) (value, rest string, err error) {
 	if len(s) > 0 && s[0] == '"' {
 		value, rest, err = parseQuotedString(s)
 		if err != nil {
-			return "", rest, errors.Trace(err)
+			return "", rest, errors.Capture(err)
 		}
 	} else {
 		sepPos := strings.IndexAny(s, seps)
@@ -227,7 +226,7 @@ func parseMulti(s string) (values []string, rest string, err error) {
 		var value string
 		value, rest, err = parseSingle(rest, ", ")
 		if err != nil {
-			return values, rest, errors.Trace(err)
+			return values, rest, errors.Capture(err)
 		}
 		if value != "" {
 			values = append(values, value)
@@ -354,7 +353,7 @@ func (hc *HardwareCharacteristics) setVirtType(str string) error {
 		return nil
 	}
 	if _, err := ParseVirtType(str); err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	hc.VirtType = &str
 	return nil

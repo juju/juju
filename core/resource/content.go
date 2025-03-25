@@ -9,10 +9,10 @@ import (
 	"io"
 	"os"
 
-	"github.com/juju/errors"
 	"github.com/juju/utils/v4"
 
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Content holds a reader for the content of a resource along
@@ -34,10 +34,10 @@ func GenerateContent(reader io.ReadSeeker) (Content, error) {
 	sizingReader := io.TeeReader(reader, &sizer)
 	fp, err := charmresource.GenerateFingerprint(sizingReader)
 	if err != nil {
-		return Content{}, errors.Trace(err)
+		return Content{}, errors.Capture(err)
 	}
 	if _, err := reader.Seek(0, os.SEEK_SET); err != nil {
-		return Content{}, errors.Trace(err)
+		return Content{}, errors.Capture(err)
 	}
 	size := sizer.Size()
 

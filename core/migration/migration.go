@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/internal/errors"
 )
 
 // MigrationStatus returns the details for a migration as needed by
@@ -75,16 +76,21 @@ type SourceControllerInfo struct {
 
 func (i *ModelInfo) Validate() error {
 	if i.UUID == "" {
-		return errors.NotValidf("empty UUID")
+		return errors.Errorf("empty UUID %w", coreerrors.NotValid)
 	}
 	if i.Owner.Name() == "" {
-		return errors.NotValidf("empty Owner")
+		return errors.Errorf("empty Owner %w", coreerrors.NotValid)
 	}
 	if i.Name == "" {
-		return errors.NotValidf("empty Name")
+		return errors.Errorf("empty Name %w", coreerrors.NotValid)
 	}
+<<<<<<< HEAD
 	if i.AgentVersion.Compare(semversion.Number{}) == 0 {
 		return errors.NotValidf("empty Version")
+=======
+	if i.AgentVersion.Compare(version.Number{}) == 0 {
+		return errors.Errorf("empty Version %w", coreerrors.NotValid)
+>>>>>>> bd7c573581 (refactor: remove juju/errors from core)
 	}
 	return nil
 }

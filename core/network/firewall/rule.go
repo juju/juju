@@ -11,9 +11,9 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/errors"
 )
 
 // AllNetworksIPV4CIDR represents the zero address (quad-zero) CIDR for an IPV4
@@ -49,12 +49,12 @@ func NewIngressRule(portRange network.PortRange, sourceCIDRs ...string) IngressR
 // parameters.
 func (r IngressRule) Validate() error {
 	if err := r.PortRange.Validate(); err != nil {
-		return errors.Annotatef(err, "invalid destination for ingress rule")
+		return errors.Errorf("invalid destination for ingress rule: %w", err)
 	}
 
 	for srcCIDR := range r.SourceCIDRs {
 		if _, _, err := net.ParseCIDR(srcCIDR); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 	}
 

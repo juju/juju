@@ -3,7 +3,7 @@
 
 package database
 
-import "github.com/juju/errors"
+import "github.com/juju/juju/internal/errors"
 
 const (
 	// ErrChangeStreamDying is used to indicate to *third parties* that the

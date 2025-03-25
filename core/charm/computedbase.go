@@ -9,10 +9,11 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/base"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
 )
 
 // BaseForCharm takes a requested base and a list of bases supported by a
@@ -49,13 +50,13 @@ var MissingBaseError = errors.ConstError("charm does not define any bases")
 func ComputedBases(c charm.CharmMeta) ([]base.Base, error) {
 	manifest := c.Manifest()
 	if manifest == nil {
-		return nil, errors.NotValidf("charm without manifest")
+		return nil, errors.Errorf("charm without manifest %w", coreerrors.NotValid)
 	}
 	computedBases := make([]base.Base, len(manifest.Bases))
 	for i, b := range manifest.Bases {
 		computedBase, err := base.ParseBase(b.Name, b.Channel.String())
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		computedBases[i] = computedBase
 	}
@@ -67,7 +68,7 @@ func ComputedBases(c charm.CharmMeta) ([]base.Base, error) {
 func BaseIsCompatibleWithCharm(b base.Base, c charm.CharmMeta) error {
 	supportedBases, err := ComputedBases(c)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	_, err = BaseForCharm(b, supportedBases)
 	return err
@@ -78,7 +79,7 @@ func BaseIsCompatibleWithCharm(b base.Base, c charm.CharmMeta) error {
 func OSIsCompatibleWithCharm(os string, c charm.CharmMeta) error {
 	supportedBases, err := ComputedBases(c)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	if len(supportedBases) == 0 {
 		return MissingBaseError
@@ -89,5 +90,5 @@ func OSIsCompatibleWithCharm(os string, c charm.CharmMeta) error {
 	}
 	osesStr := strings.Join(oses.SortedValues(), "")
 	errStr := fmt.Sprintf("OS %q not supported by charm %q, supported OSes are: %s", os, c.Meta().Name, osesStr)
-	return errors.NewNotSupported(nil, errStr)
+	return errors.New(errStr).Add(coreerrors.NotSupported)
 }

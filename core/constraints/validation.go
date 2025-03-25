@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/collections/set"
 
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/stringcompare"
 )
 
@@ -111,7 +112,7 @@ func (v *validator) RegisterVocabulary(attributeName string, allowedValues inter
 var checkIsCollection = func(coll interface{}) {
 	k := reflect.TypeOf(coll).Kind()
 	if k != reflect.Slice && k != reflect.Array {
-		panic(fmt.Errorf("invalid vocab: %v of type %T is not a slice", coll, coll))
+		panic(errors.Errorf("invalid vocab: %v of type %T is not a slice", coll, coll))
 	}
 }
 
@@ -181,11 +182,11 @@ func (v *validator) checkConflicts(cons Value) error {
 			if resolver, ok := v.conflictResolvers[id]; ok {
 				err := resolver(attrValues)
 				if err != nil {
-					return fmt.Errorf("ambiguous constraints: %q overlaps with %q: %w", attrTag, conflict, err)
+					return errors.Errorf("ambiguous constraints: %q overlaps with %q: %w", attrTag, conflict, err)
 				}
 				continue
 			}
-			return fmt.Errorf("ambiguous constraints: %q overlaps with %q", attrTag, conflict)
+			return errors.Errorf("ambiguous constraints: %q overlaps with %q", attrTag, conflict)
 		}
 	}
 	return nil
