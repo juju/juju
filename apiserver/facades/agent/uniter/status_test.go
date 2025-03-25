@@ -84,7 +84,7 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewUnitTag("foo/0")
-	s.statusService.EXPECT().SetApplicationStatusForUnitLeader(gomock.Any(), coreunit.Name("foo/0"), &status.StatusInfo{
+	s.statusService.EXPECT().SetApplicationStatusForUnitLeader(gomock.Any(), coreunit.Name("foo/0"), status.StatusInfo{
 		Status:  status.Active,
 		Message: "it's active",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -139,7 +139,7 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusUnitNotLeader(c *gc.
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewUnitTag("foo/0")
-	s.statusService.EXPECT().SetApplicationStatusForUnitLeader(gomock.Any(), coreunit.Name("foo/0"), &status.StatusInfo{
+	s.statusService.EXPECT().SetApplicationStatusForUnitLeader(gomock.Any(), coreunit.Name("foo/0"), status.StatusInfo{
 		Status:  status.Active,
 		Message: "it's active",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -162,7 +162,7 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatus(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	tag := names.NewUnitTag("foo/0")
-	s.statusService.EXPECT().SetApplicationStatusForUnitLeader(gomock.Any(), coreunit.Name("foo/0"), &status.StatusInfo{
+	s.statusService.EXPECT().SetApplicationStatusForUnitLeader(gomock.Any(), coreunit.Name("foo/0"), status.StatusInfo{
 		Status:  status.Active,
 		Message: "it's active",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -208,7 +208,7 @@ func (s *ApplicationStatusAPISuite) TesApplicationStatustNotATag(c *gc.C) {
 func (s *ApplicationStatusAPISuite) TesApplicationStatustNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.statusService.EXPECT().GetApplicationAndUnitStatusesForUnitWithLeader(gomock.Any(), coreunit.Name("foo/0")).Return(nil, nil, statuserrors.ApplicationNotFound)
+	s.statusService.EXPECT().GetApplicationAndUnitStatusesForUnitWithLeader(gomock.Any(), coreunit.Name("foo/0")).Return(status.StatusInfo{}, nil, statuserrors.ApplicationNotFound)
 
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: names.NewUnitTag("foo/0").String(),
@@ -251,7 +251,7 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatusUnitNotLeader(c *gc.C) 
 
 	unitTag := names.NewUnitTag("foo/0")
 
-	s.statusService.EXPECT().GetApplicationAndUnitStatusesForUnitWithLeader(gomock.Any(), coreunit.Name("foo/0")).Return(nil, nil, statuserrors.UnitNotLeader)
+	s.statusService.EXPECT().GetApplicationAndUnitStatusesForUnitWithLeader(gomock.Any(), coreunit.Name("foo/0")).Return(status.StatusInfo{}, nil, statuserrors.UnitNotLeader)
 
 	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: unitTag.String(),
@@ -265,7 +265,7 @@ func (s *ApplicationStatusAPISuite) TestApplicationStatus(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.statusService.EXPECT().GetApplicationAndUnitStatusesForUnitWithLeader(gomock.Any(), coreunit.Name("foo/3")).Return(
-		&status.StatusInfo{
+		status.StatusInfo{
 			Status: status.Maintenance,
 		},
 		map[coreunit.Name]status.StatusInfo{
@@ -383,7 +383,7 @@ func (s *UnitStatusAPISuite) TestSetUnitStatus(c *gc.C) {
 		Since: &s.now,
 	}
 
-	s.statusService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), coreunit.Name("ubuntu/42"), &sInfo).Return(nil)
+	s.statusService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), coreunit.Name("ubuntu/42"), sInfo).Return(nil)
 
 	result, err := s.api.SetUnitStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    tag.String(),
@@ -440,7 +440,7 @@ func (s *UnitStatusAPISuite) TestUnitStatusUnitNotFound(c *gc.C) {
 
 	tag := names.NewUnitTag("ubuntu/42")
 
-	s.statusService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), coreunit.Name("ubuntu/42")).Return(nil, statuserrors.UnitNotFound)
+	s.statusService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), coreunit.Name("ubuntu/42")).Return(status.StatusInfo{}, statuserrors.UnitNotFound)
 
 	result, err := s.api.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: tag.String(),
@@ -464,7 +464,7 @@ func (s *UnitStatusAPISuite) TestUnitStatus(c *gc.C) {
 		Since: &s.now,
 	}
 
-	s.statusService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), coreunit.Name("ubuntu/42")).Return(&sInfo, nil)
+	s.statusService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), coreunit.Name("ubuntu/42")).Return(sInfo, nil)
 
 	result, err := s.api.UnitStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: tag.String(),

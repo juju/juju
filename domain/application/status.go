@@ -45,7 +45,8 @@ const (
 type CloudContainerStatusType int
 
 const (
-	CloudContainerStatusWaiting CloudContainerStatusType = iota
+	CloudContainerStatusUnset CloudContainerStatusType = iota
+	CloudContainerStatusWaiting
 	CloudContainerStatusBlocked
 	CloudContainerStatusRunning
 )

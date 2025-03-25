@@ -11,7 +11,7 @@ import (
 
 // StatusID represents the status of an entity.
 type StatusID interface {
-	UnsetStatusType | CloudContainerStatusType | UnitAgentStatusType | WorkloadStatusType
+	CloudContainerStatusType | UnitAgentStatusType | WorkloadStatusType
 }
 
 // StatusInfo holds details about the status of an entity.
@@ -43,19 +43,13 @@ type FullUnitStatus struct {
 	Present bool
 }
 
-// UnsetStatusType represents the status of an entity that has not been set.
-type UnsetStatusType int
-
-const (
-	UnsetStatus UnsetStatusType = iota
-)
-
 // CloudContainerStatusType represents the status of a cloud container
 // as recorded in the k8s_pod_status_value lookup table.
 type CloudContainerStatusType int
 
 const (
-	CloudContainerStatusWaiting CloudContainerStatusType = iota
+	CloudContainerStatusUnset CloudContainerStatusType = iota
+	CloudContainerStatusWaiting
 	CloudContainerStatusBlocked
 	CloudContainerStatusRunning
 )

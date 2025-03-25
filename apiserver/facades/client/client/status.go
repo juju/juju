@@ -1184,8 +1184,8 @@ func (context *statusContext) processApplication(ctx context.Context, applicatio
 	// instead of returning an error we return the application status as unknown.
 	applicationStatus := status.StatusInfo{Status: status.Unknown}
 	displayStatus, err := context.statusService.GetApplicationDisplayStatus(ctx, application.Name())
-	if err == nil && displayStatus != nil {
-		applicationStatus = *displayStatus
+	if err == nil {
+		applicationStatus = displayStatus
 	}
 	processedStatus.Status.Status = applicationStatus.Status.String()
 	processedStatus.Status.Info = applicationStatus.Message

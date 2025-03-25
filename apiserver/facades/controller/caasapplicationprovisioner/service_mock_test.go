@@ -457,7 +457,7 @@ func (mr *MockStatusServiceMockRecorder) GetUnitWorkloadStatusesForApplication(a
 }
 
 // SetApplicationStatus mocks base method.
-func (m *MockStatusService) SetApplicationStatus(arg0 context.Context, arg1 string, arg2 *status.StatusInfo) error {
+func (m *MockStatusService) SetApplicationStatus(arg0 context.Context, arg1 string, arg2 status.StatusInfo) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetApplicationStatus", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

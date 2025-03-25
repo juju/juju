@@ -22,41 +22,41 @@ var now = time.Now()
 
 func (s *statusSuite) TestEncodeCloudContainerStatus(c *gc.C) {
 	testCases := []struct {
-		input  *corestatus.StatusInfo
-		output *status.StatusInfo[status.CloudContainerStatusType]
+		input  corestatus.StatusInfo
+		output status.StatusInfo[status.CloudContainerStatusType]
 	}{
 		{
-			input: &corestatus.StatusInfo{
+			input: corestatus.StatusInfo{
 				Status: corestatus.Waiting,
 			},
-			output: &status.StatusInfo[status.CloudContainerStatusType]{
+			output: status.StatusInfo[status.CloudContainerStatusType]{
 				Status: status.CloudContainerStatusWaiting,
 			},
 		},
 		{
-			input: &corestatus.StatusInfo{
+			input: corestatus.StatusInfo{
 				Status: corestatus.Blocked,
 			},
-			output: &status.StatusInfo[status.CloudContainerStatusType]{
+			output: status.StatusInfo[status.CloudContainerStatusType]{
 				Status: status.CloudContainerStatusBlocked,
 			},
 		},
 		{
-			input: &corestatus.StatusInfo{
+			input: corestatus.StatusInfo{
 				Status: corestatus.Running,
 			},
-			output: &status.StatusInfo[status.CloudContainerStatusType]{
+			output: status.StatusInfo[status.CloudContainerStatusType]{
 				Status: status.CloudContainerStatusRunning,
 			},
 		},
 		{
-			input: &corestatus.StatusInfo{
+			input: corestatus.StatusInfo{
 				Status:  corestatus.Running,
 				Message: "I'm active!",
 				Data:    map[string]interface{}{"foo": "bar"},
 				Since:   &now,
 			},
-			output: &status.StatusInfo[status.CloudContainerStatusType]{
+			output: status.StatusInfo[status.CloudContainerStatusType]{
 				Status:  status.CloudContainerStatusRunning,
 				Message: "I'm active!",
 				Data:    []byte(`{"foo":"bar"}`),
@@ -78,54 +78,54 @@ func (s *statusSuite) TestEncodeCloudContainerStatus(c *gc.C) {
 
 func (s *statusSuite) TestEncodeUnitAgentStatus(c *gc.C) {
 	testCases := []struct {
-		input  *corestatus.StatusInfo
-		output *status.StatusInfo[status.UnitAgentStatusType]
+		input  corestatus.StatusInfo
+		output status.StatusInfo[status.UnitAgentStatusType]
 	}{
 		{
-			input: &corestatus.StatusInfo{
+			input: corestatus.StatusInfo{
 				Status: corestatus.Idle,
 			},
-			output: &status.StatusInfo[status.UnitAgentStatusType]{
+			output: status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusIdle,
 			},
 		},
 		{
-			input: &corestatus.StatusInfo{
+			input: corestatus.StatusInfo{
 				Status: corestatus.Allocating,
 			},
-			output: &status.StatusInfo[status.UnitAgentStatusType]{
+			output: status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusAllocating,
 			},
 		},
 		{
-			input: &corestatus.StatusInfo{
+			input: corestatus.StatusInfo{
 				Status: corestatus.Executing,
 			},
-			output: &status.StatusInfo[status.UnitAgentStatusType]{
+			output: status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusExecuting,
 			},
 		},
 		{
-			input: &corestatus.StatusInfo{
+			input: corestatus.StatusInfo{
 				Status: corestatus.Failed,
 			},
-			output: &status.StatusInfo[status.UnitAgentStatusType]{
+			output: status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusFailed,
 			},
 		},
 		{
-			input: &corestatus.StatusInfo{
+			input: corestatus.StatusInfo{
 				Status: corestatus.Lost,
 			},
-			output: &status.StatusInfo[status.UnitAgentStatusType]{
+			output: status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusLost,
 			},
 		},
 		{
-			input: &corestatus.StatusInfo{
+			input: corestatus.StatusInfo{
 				Status: corestatus.Rebooting,
 			},
-			output: &status.StatusInfo[status.UnitAgentStatusType]{
+			output: status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusRebooting,
 			},
 		},
@@ -136,8 +136,8 @@ func (s *statusSuite) TestEncodeUnitAgentStatus(c *gc.C) {
 		output, err := encodeUnitAgentStatus(test.input)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(output, jc.DeepEquals, test.output)
-		result, err := decodeUnitAgentStatus(&status.UnitStatusInfo[status.UnitAgentStatusType]{
-			StatusInfo: *output,
+		result, err := decodeUnitAgentStatus(status.UnitStatusInfo[status.UnitAgentStatusType]{
+			StatusInfo: output,
 			Present:    true,
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -146,11 +146,11 @@ func (s *statusSuite) TestEncodeUnitAgentStatus(c *gc.C) {
 }
 
 func (s *statusSuite) TestEncodingUnitAgentStatusError(c *gc.C) {
-	output, err := encodeUnitAgentStatus(&corestatus.StatusInfo{
+	output, err := encodeUnitAgentStatus(corestatus.StatusInfo{
 		Status: corestatus.Error,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(output, jc.DeepEquals, &status.StatusInfo[status.UnitAgentStatusType]{
+	c.Check(output, jc.DeepEquals, status.StatusInfo[status.UnitAgentStatusType]{
 		Status: status.UnitAgentStatusError,
 	})
 
@@ -159,87 +159,87 @@ func (s *statusSuite) TestEncodingUnitAgentStatusError(c *gc.C) {
 	// take precedence and we'll set the unit agent status to idle.
 	// This follows the same patter that already exists.
 
-	input, err := decodeUnitAgentStatus(&status.UnitStatusInfo[status.UnitAgentStatusType]{
+	input, err := decodeUnitAgentStatus(status.UnitStatusInfo[status.UnitAgentStatusType]{
 		StatusInfo: status.StatusInfo[status.UnitAgentStatusType]{
 			Status: status.UnitAgentStatusError,
 		},
 		Present: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(input, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Check(input, jc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Idle,
 	})
 }
 
 func (s *statusSuite) TestEncodeWorkloadStatus(c *gc.C) {
 	testCases := []struct {
-		input  *corestatus.StatusInfo
-		output *status.StatusInfo[status.WorkloadStatusType]
+		input  corestatus.StatusInfo
+		output status.StatusInfo[status.WorkloadStatusType]
 	}{
 		{
-			input: &corestatus.StatusInfo{
+			input: corestatus.StatusInfo{
 				Status: corestatus.Unset,
 			},
-			output: &status.StatusInfo[status.WorkloadStatusType]{
+			output: status.StatusInfo[status.WorkloadStatusType]{
 				Status: status.WorkloadStatusUnset,
 			},
 		},
 		{
-			input: &corestatus.StatusInfo{
+			input: corestatus.StatusInfo{
 				Status: corestatus.Unknown,
 			},
-			output: &status.StatusInfo[status.WorkloadStatusType]{
+			output: status.StatusInfo[status.WorkloadStatusType]{
 				Status: status.WorkloadStatusUnknown,
 			},
 		},
 		{
-			input: &corestatus.StatusInfo{
+			input: corestatus.StatusInfo{
 				Status: corestatus.Maintenance,
 			},
-			output: &status.StatusInfo[status.WorkloadStatusType]{
+			output: status.StatusInfo[status.WorkloadStatusType]{
 				Status: status.WorkloadStatusMaintenance,
 			},
 		},
 		{
-			input: &corestatus.StatusInfo{
+			input: corestatus.StatusInfo{
 				Status: corestatus.Waiting,
 			},
-			output: &status.StatusInfo[status.WorkloadStatusType]{
+			output: status.StatusInfo[status.WorkloadStatusType]{
 				Status: status.WorkloadStatusWaiting,
 			},
 		},
 		{
-			input: &corestatus.StatusInfo{
+			input: corestatus.StatusInfo{
 				Status: corestatus.Blocked,
 			},
-			output: &status.StatusInfo[status.WorkloadStatusType]{
+			output: status.StatusInfo[status.WorkloadStatusType]{
 				Status: status.WorkloadStatusBlocked,
 			},
 		},
 		{
-			input: &corestatus.StatusInfo{
+			input: corestatus.StatusInfo{
 				Status: corestatus.Active,
 			},
-			output: &status.StatusInfo[status.WorkloadStatusType]{
+			output: status.StatusInfo[status.WorkloadStatusType]{
 				Status: status.WorkloadStatusActive,
 			},
 		},
 		{
-			input: &corestatus.StatusInfo{
+			input: corestatus.StatusInfo{
 				Status: corestatus.Terminated,
 			},
-			output: &status.StatusInfo[status.WorkloadStatusType]{
+			output: status.StatusInfo[status.WorkloadStatusType]{
 				Status: status.WorkloadStatusTerminated,
 			},
 		},
 		{
-			input: &corestatus.StatusInfo{
+			input: corestatus.StatusInfo{
 				Status:  corestatus.Active,
 				Message: "I'm active!",
 				Data:    map[string]interface{}{"foo": "bar"},
 				Since:   &now,
 			},
-			output: &status.StatusInfo[status.WorkloadStatusType]{
+			output: status.StatusInfo[status.WorkloadStatusType]{
 				Status:  status.WorkloadStatusActive,
 				Message: "I'm active!",
 				Data:    []byte(`{"foo":"bar"}`),
@@ -253,8 +253,8 @@ func (s *statusSuite) TestEncodeWorkloadStatus(c *gc.C) {
 		output, err := encodeWorkloadStatus(test.input)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(output, jc.DeepEquals, test.output)
-		result, err := decodeUnitWorkloadStatus(&status.UnitStatusInfo[status.WorkloadStatusType]{
-			StatusInfo: *output,
+		result, err := decodeUnitWorkloadStatus(status.UnitStatusInfo[status.WorkloadStatusType]{
+			StatusInfo: output,
 			Present:    true,
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -265,13 +265,13 @@ func (s *statusSuite) TestEncodeWorkloadStatus(c *gc.C) {
 func (s *statusSuite) TestReduceWorkloadStatusesEmpty(c *gc.C) {
 	info, err := reduceUnitWorkloadStatuses(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(info, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Check(info, jc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Unknown,
 	})
 
 	info, err = reduceUnitWorkloadStatuses([]status.UnitStatusInfo[status.WorkloadStatusType]{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(info, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Check(info, jc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Unknown,
 	})
 }
@@ -288,7 +288,7 @@ func (s *statusSuite) TestReduceWorkloadStatusesBringsAllDetails(c *gc.C) {
 		Present:    true,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "I'm active",
 		Data:    map[string]interface{}{"key": "value"},
@@ -337,33 +337,12 @@ func (s *statusSuite) TestReduceWorkloadStatusesPriority(c *gc.C) {
 	}
 }
 
-func (s *statusSuite) TestUnitDisplayStatusNoContainer(c *gc.C) {
-	workloadStatus := &status.StatusInfo[status.WorkloadStatusType]{
-		Status:  status.WorkloadStatusActive,
-		Message: "I'm active",
-		Data:    []byte(`{"key":"value"}`),
-		Since:   &now,
-	}
-
-	info, err := unitDisplayStatus(&status.UnitStatusInfo[status.WorkloadStatusType]{
-		StatusInfo: *workloadStatus,
-		Present:    true,
-	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &corestatus.StatusInfo{
-		Status:  corestatus.Active,
-		Message: "I'm active",
-		Data:    map[string]interface{}{"key": "value"},
-		Since:   &now,
-	})
-}
-
 func (s *statusSuite) TestUnitDisplayStatusWorkloadTerminatedBlockedMaintenanceDominates(c *gc.C) {
-	containerStatus := &status.StatusInfo[status.CloudContainerStatusType]{
+	containerStatus := status.StatusInfo[status.CloudContainerStatusType]{
 		Status: status.CloudContainerStatusBlocked,
 	}
 
-	workloadStatus := &status.UnitStatusInfo[status.WorkloadStatusType]{
+	workloadStatus := status.UnitStatusInfo[status.WorkloadStatusType]{
 		StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
 			Status:  status.WorkloadStatusTerminated,
 			Message: "msg",
@@ -373,7 +352,7 @@ func (s *statusSuite) TestUnitDisplayStatusWorkloadTerminatedBlockedMaintenanceD
 		Present: true,
 	}
 
-	expected := &corestatus.StatusInfo{
+	expected := corestatus.StatusInfo{
 		Status:  corestatus.Terminated,
 		Message: "msg",
 		Data:    map[string]interface{}{"key": "value"},
@@ -398,14 +377,14 @@ func (s *statusSuite) TestUnitDisplayStatusWorkloadTerminatedBlockedMaintenanceD
 }
 
 func (s *statusSuite) TestUnitDisplayStatusContainerBlockedDominates(c *gc.C) {
-	workloadStatus := &status.UnitStatusInfo[status.WorkloadStatusType]{
+	workloadStatus := status.UnitStatusInfo[status.WorkloadStatusType]{
 		StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
 			Status: status.WorkloadStatusWaiting,
 		},
 		Present: true,
 	}
 
-	containerStatus := &status.StatusInfo[status.CloudContainerStatusType]{
+	containerStatus := status.StatusInfo[status.CloudContainerStatusType]{
 		Status:  status.CloudContainerStatusBlocked,
 		Message: "msg",
 		Data:    []byte(`{"key":"value"}`),
@@ -414,7 +393,7 @@ func (s *statusSuite) TestUnitDisplayStatusContainerBlockedDominates(c *gc.C) {
 
 	info, err := unitDisplayStatus(workloadStatus, containerStatus)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Blocked,
 		Message: "msg",
 		Data:    map[string]interface{}{"key": "value"},
@@ -423,14 +402,14 @@ func (s *statusSuite) TestUnitDisplayStatusContainerBlockedDominates(c *gc.C) {
 }
 
 func (s *statusSuite) TestUnitDisplayStatusContainerWaitingDominatesActiveWorkload(c *gc.C) {
-	workloadStatus := &status.UnitStatusInfo[status.WorkloadStatusType]{
+	workloadStatus := status.UnitStatusInfo[status.WorkloadStatusType]{
 		StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
 			Status: status.WorkloadStatusActive,
 		},
 		Present: true,
 	}
 
-	containerStatus := &status.StatusInfo[status.CloudContainerStatusType]{
+	containerStatus := status.StatusInfo[status.CloudContainerStatusType]{
 		Status:  status.CloudContainerStatusWaiting,
 		Message: "msg",
 		Data:    []byte(`{"key":"value"}`),
@@ -439,7 +418,7 @@ func (s *statusSuite) TestUnitDisplayStatusContainerWaitingDominatesActiveWorklo
 
 	info, err := unitDisplayStatus(workloadStatus, containerStatus)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Waiting,
 		Message: "msg",
 		Data:    map[string]interface{}{"key": "value"},
@@ -448,14 +427,14 @@ func (s *statusSuite) TestUnitDisplayStatusContainerWaitingDominatesActiveWorklo
 }
 
 func (s *statusSuite) TestUnitDisplayStatusContainerRunningDominatesWaitingWorkload(c *gc.C) {
-	workloadStatus := &status.UnitStatusInfo[status.WorkloadStatusType]{
+	workloadStatus := status.UnitStatusInfo[status.WorkloadStatusType]{
 		StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
 			Status: status.WorkloadStatusWaiting,
 		},
 		Present: true,
 	}
 
-	containerStatus := &status.StatusInfo[status.CloudContainerStatusType]{
+	containerStatus := status.StatusInfo[status.CloudContainerStatusType]{
 		Status:  status.CloudContainerStatusRunning,
 		Message: "msg",
 		Data:    []byte(`{"key":"value"}`),
@@ -464,7 +443,7 @@ func (s *statusSuite) TestUnitDisplayStatusContainerRunningDominatesWaitingWorkl
 
 	info, err := unitDisplayStatus(workloadStatus, containerStatus)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Running,
 		Message: "msg",
 		Data:    map[string]interface{}{"key": "value"},
@@ -473,7 +452,7 @@ func (s *statusSuite) TestUnitDisplayStatusContainerRunningDominatesWaitingWorkl
 }
 
 func (s *statusSuite) TestUnitDisplayStatusDefaultsToWorkload(c *gc.C) {
-	workloadStatus := &status.UnitStatusInfo[status.WorkloadStatusType]{
+	workloadStatus := status.UnitStatusInfo[status.WorkloadStatusType]{
 		StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
 			Status:  status.WorkloadStatusActive,
 			Message: "I'm an active workload",
@@ -481,14 +460,14 @@ func (s *statusSuite) TestUnitDisplayStatusDefaultsToWorkload(c *gc.C) {
 		Present: true,
 	}
 
-	containerStatus := &status.StatusInfo[status.CloudContainerStatusType]{
+	containerStatus := status.StatusInfo[status.CloudContainerStatusType]{
 		Status:  status.CloudContainerStatusRunning,
 		Message: "I'm a running container",
 	}
 
 	info, err := unitDisplayStatus(workloadStatus, containerStatus)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "I'm an active workload",
 	})
@@ -518,7 +497,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsNoContainers(c *gc.C)
 
 	info, err := applicationDisplayStatusFromUnits(workloadStatuses, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Active,
 	})
 
@@ -527,7 +506,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsNoContainers(c *gc.C)
 		make(map[coreunit.Name]status.StatusInfo[status.CloudContainerStatusType]),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Active,
 	})
 }
@@ -535,7 +514,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsNoContainers(c *gc.C)
 func (s *statusSuite) TestApplicationDisplayStatusFromUnitsEmpty(c *gc.C) {
 	info, err := applicationDisplayStatusFromUnits(nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Unknown,
 	})
 
@@ -544,7 +523,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsEmpty(c *gc.C) {
 		map[coreunit.Name]status.StatusInfo[status.CloudContainerStatusType]{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Unknown,
 	})
 }
@@ -572,7 +551,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPreceden
 
 	info, err := applicationDisplayStatusFromUnits(workloadStatuses, containerStatuses)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Blocked,
 	})
 }
@@ -600,7 +579,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPreceden
 
 	info, err := applicationDisplayStatusFromUnits(workloadStatuses, containerStatuses)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Maintenance,
 	})
 }
@@ -628,7 +607,7 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPrioritisesUnitWithGr
 
 	info, err := applicationDisplayStatusFromUnits(workloadStatuses, containerStatuses)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Blocked,
 	})
 }

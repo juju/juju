@@ -88,7 +88,7 @@ func (s *stateSuite) TestSetApplicationStatus(c *gc.C) {
 	id, _ := s.createApplication(c, "foo", life.Alive)
 
 	now := time.Now().UTC()
-	expected := &status.StatusInfo[status.WorkloadStatusType]{
+	expected := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "message",
 		Data:    []byte("data"),
@@ -106,7 +106,7 @@ func (s *stateSuite) TestSetApplicationStatus(c *gc.C) {
 func (s *stateSuite) TestSetApplicationStatusMultipleTimes(c *gc.C) {
 	id, _ := s.createApplication(c, "foo", life.Alive)
 
-	err := s.state.SetApplicationStatus(context.Background(), id, &status.StatusInfo[status.WorkloadStatusType]{
+	err := s.state.SetApplicationStatus(context.Background(), id, status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusBlocked,
 		Message: "blocked",
 		Since:   ptr(time.Now().UTC()),
@@ -114,7 +114,7 @@ func (s *stateSuite) TestSetApplicationStatusMultipleTimes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	now := time.Now().UTC()
-	expected := &status.StatusInfo[status.WorkloadStatusType]{
+	expected := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "message",
 		Data:    []byte("data"),
@@ -133,7 +133,7 @@ func (s *stateSuite) TestSetApplicationStatusWithNoData(c *gc.C) {
 	id, _ := s.createApplication(c, "foo", life.Alive)
 
 	now := time.Now().UTC()
-	expected := &status.StatusInfo[status.WorkloadStatusType]{
+	expected := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "message",
 		Since:   ptr(now),
@@ -149,7 +149,7 @@ func (s *stateSuite) TestSetApplicationStatusWithNoData(c *gc.C) {
 
 func (s *stateSuite) TestSetApplicationStatusApplicationNotFound(c *gc.C) {
 	now := time.Now().UTC()
-	expected := &status.StatusInfo[status.WorkloadStatusType]{
+	expected := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "message",
 		Data:    []byte("data"),
@@ -167,7 +167,7 @@ func (s *stateSuite) TestSetApplicationStatusInvalidStatus(c *gc.C) {
 		Status: status.WorkloadStatusType(99),
 	}
 
-	err := s.state.SetApplicationStatus(context.Background(), id, &expected)
+	err := s.state.SetApplicationStatus(context.Background(), id, expected)
 	c.Assert(err, gc.ErrorMatches, `unknown status.*`)
 }
 
@@ -181,7 +181,7 @@ func (s *stateSuite) TestGetApplicationStatusNotSet(c *gc.C) {
 
 	sts, err := s.state.GetApplicationStatus(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sts, gc.DeepEquals, &status.StatusInfo[status.WorkloadStatusType]{
+	c.Check(sts, gc.DeepEquals, status.StatusInfo[status.WorkloadStatusType]{
 		Status: status.WorkloadStatusUnset,
 	})
 }
@@ -201,7 +201,7 @@ func (s *stateSuite) TestSetCloudContainerStatus(c *gc.C) {
 	}
 
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.setCloudContainerStatus(ctx, tx, unitUUID, &status)
+		return s.state.setCloudContainerStatus(ctx, tx, unitUUID, status)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitStatus(
@@ -222,7 +222,7 @@ func (s *stateSuite) TestSetUnitAgentStatus(c *gc.C) {
 		Since:   ptr(time.Now()),
 	}
 
-	err := s.state.SetUnitAgentStatus(context.Background(), unitUUID, &status)
+	err := s.state.SetUnitAgentStatus(context.Background(), unitUUID, status)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitStatus(
 		c, "unit_agent", unitUUID, int(status.Status), status.Message, status.Since, status.Data)
@@ -238,7 +238,7 @@ func (s *stateSuite) TestSetUnitAgentStatusNotFound(c *gc.C) {
 
 	unitUUID := unittesting.GenUnitUUID(c)
 
-	err := s.state.SetUnitAgentStatus(context.Background(), unitUUID, &status)
+	err := s.state.SetUnitAgentStatus(context.Background(), unitUUID, status)
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
 }
 
@@ -271,7 +271,7 @@ func (s *stateSuite) TestGetUnitAgentStatus(c *gc.C) {
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1)
 	unitUUID := unitUUIDs[0]
 
-	status := &status.StatusInfo[status.UnitAgentStatusType]{
+	status := status.StatusInfo[status.UnitAgentStatusType]{
 		Status:  status.UnitAgentStatusExecuting,
 		Message: "it's executing",
 		Data:    []byte(`{"foo": "bar"}`),
@@ -285,7 +285,7 @@ func (s *stateSuite) TestGetUnitAgentStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(gotStatus.Present, jc.IsFalse)
-	assertStatusInfoEqual(c, &gotStatus.StatusInfo, status)
+	assertStatusInfoEqual(c, gotStatus.StatusInfo, status)
 }
 
 func (s *stateSuite) TestGetUnitAgentStatusPresent(c *gc.C) {
@@ -295,7 +295,7 @@ func (s *stateSuite) TestGetUnitAgentStatusPresent(c *gc.C) {
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1)
 	unitUUID := unitUUIDs[0]
 
-	status := &status.StatusInfo[status.UnitAgentStatusType]{
+	status := status.StatusInfo[status.UnitAgentStatusType]{
 		Status:  status.UnitAgentStatusExecuting,
 		Message: "it's executing",
 		Data:    []byte(`{"foo": "bar"}`),
@@ -312,7 +312,7 @@ func (s *stateSuite) TestGetUnitAgentStatusPresent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(gotStatus.Present, jc.IsTrue)
-	assertStatusInfoEqual(c, &gotStatus.StatusInfo, status)
+	assertStatusInfoEqual(c, gotStatus.StatusInfo, status)
 
 	err = s.state.DeleteUnitPresence(context.Background(), coreunit.Name("foo/666"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -321,7 +321,7 @@ func (s *stateSuite) TestGetUnitAgentStatusPresent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(gotStatus.Present, jc.IsFalse)
-	assertStatusInfoEqual(c, &gotStatus.StatusInfo, status)
+	assertStatusInfoEqual(c, gotStatus.StatusInfo, status)
 }
 
 func (s *stateSuite) TestGetUnitWorkloadStatusUnitNotFound(c *gc.C) {
@@ -358,7 +358,7 @@ func (s *stateSuite) TestSetWorkloadStatus(c *gc.C) {
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1)
 	unitUUID := unitUUIDs[0]
 
-	sts := &status.StatusInfo[status.WorkloadStatusType]{
+	sts := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "it's active!",
 		Data:    []byte(`{"foo": "bar"}`),
@@ -371,11 +371,11 @@ func (s *stateSuite) TestSetWorkloadStatus(c *gc.C) {
 	gotStatus, err := s.state.GetUnitWorkloadStatus(context.Background(), unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(gotStatus.Present, jc.IsFalse)
-	assertStatusInfoEqual(c, &gotStatus.StatusInfo, sts)
+	assertStatusInfoEqual(c, gotStatus.StatusInfo, sts)
 
 	// Run SetUnitWorkloadStatus followed by GetUnitWorkloadStatus to ensure that
 	// the new status overwrites the old one.
-	sts = &status.StatusInfo[status.WorkloadStatusType]{
+	sts = status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusTerminated,
 		Message: "it's terminated",
 		Data:    []byte(`{"bar": "foo"}`),
@@ -388,7 +388,7 @@ func (s *stateSuite) TestSetWorkloadStatus(c *gc.C) {
 	gotStatus, err = s.state.GetUnitWorkloadStatus(context.Background(), unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(gotStatus.Present, jc.IsFalse)
-	assertStatusInfoEqual(c, &gotStatus.StatusInfo, sts)
+	assertStatusInfoEqual(c, gotStatus.StatusInfo, sts)
 }
 
 func (s *stateSuite) TestSetWorkloadStatusPresent(c *gc.C) {
@@ -398,7 +398,7 @@ func (s *stateSuite) TestSetWorkloadStatusPresent(c *gc.C) {
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1)
 	unitUUID := unitUUIDs[0]
 
-	sts := &status.StatusInfo[status.WorkloadStatusType]{
+	sts := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "it's active!",
 		Data:    []byte(`{"foo": "bar"}`),
@@ -414,11 +414,11 @@ func (s *stateSuite) TestSetWorkloadStatusPresent(c *gc.C) {
 	gotStatus, err := s.state.GetUnitWorkloadStatus(context.Background(), unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(gotStatus.Present, jc.IsTrue)
-	assertStatusInfoEqual(c, &gotStatus.StatusInfo, sts)
+	assertStatusInfoEqual(c, gotStatus.StatusInfo, sts)
 
 	// Run SetUnitWorkloadStatus followed by GetUnitWorkloadStatus to ensure that
 	// the new status overwrites the old one.
-	sts = &status.StatusInfo[status.WorkloadStatusType]{
+	sts = status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusTerminated,
 		Message: "it's terminated",
 		Data:    []byte(`{"bar": "foo"}`),
@@ -431,7 +431,7 @@ func (s *stateSuite) TestSetWorkloadStatusPresent(c *gc.C) {
 	gotStatus, err = s.state.GetUnitWorkloadStatus(context.Background(), unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(gotStatus.Present, jc.IsTrue)
-	assertStatusInfoEqual(c, &gotStatus.StatusInfo, sts)
+	assertStatusInfoEqual(c, gotStatus.StatusInfo, sts)
 }
 
 func (s *stateSuite) TestSetUnitWorkloadStatusNotFound(c *gc.C) {
@@ -442,7 +442,7 @@ func (s *stateSuite) TestSetUnitWorkloadStatusNotFound(c *gc.C) {
 		Since:   ptr(time.Now()),
 	}
 
-	err := s.state.SetUnitWorkloadStatus(context.Background(), "missing-uuid", &status)
+	err := s.state.SetUnitWorkloadStatus(context.Background(), "missing-uuid", status)
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
 }
 
@@ -453,8 +453,11 @@ func (s *stateSuite) TestGetUnitCloudContainerStatusUnset(c *gc.C) {
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1)
 	unitUUID := unitUUIDs[0]
 
-	_, err := s.state.GetUnitCloudContainerStatus(context.Background(), unitUUID)
-	c.Assert(err, jc.ErrorIs, statuserrors.UnitStatusNotFound)
+	sts, err := s.state.GetUnitCloudContainerStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(sts, gc.DeepEquals, status.StatusInfo[status.CloudContainerStatusType]{
+		Status: status.CloudContainerStatusUnset,
+	})
 }
 
 func (s *stateSuite) TestGetUnitCloudContainerStatusUnitNotFound(c *gc.C) {
@@ -483,7 +486,7 @@ func (s *stateSuite) TestGetUnitCloudContainerStatus(c *gc.C) {
 	now := time.Now()
 
 	s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.setCloudContainerStatus(ctx, tx, unitUUID, &status.StatusInfo[status.CloudContainerStatusType]{
+		return s.state.setCloudContainerStatus(ctx, tx, unitUUID, status.StatusInfo[status.CloudContainerStatusType]{
 			Status:  status.CloudContainerStatusRunning,
 			Message: "it's running",
 			Data:    []byte(`{"foo": "bar"}`),
@@ -493,7 +496,7 @@ func (s *stateSuite) TestGetUnitCloudContainerStatus(c *gc.C) {
 
 	sts, err := s.state.GetUnitCloudContainerStatus(context.Background(), unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	assertStatusInfoEqual(c, sts, &status.StatusInfo[status.CloudContainerStatusType]{
+	assertStatusInfoEqual(c, sts, status.StatusInfo[status.CloudContainerStatusType]{
 		Status:  status.CloudContainerStatusRunning,
 		Message: "it's running",
 		Data:    []byte(`{"foo": "bar"}`),
@@ -508,7 +511,7 @@ func (s *stateSuite) TestGetUnitWorkloadStatusesForApplication(c *gc.C) {
 	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1)
 	unitUUID := unitUUIDs[0]
 
-	status := &status.StatusInfo[status.WorkloadStatusType]{
+	status := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "it's active!",
 		Data:    []byte(`{"foo": "bar"}`),
@@ -524,7 +527,7 @@ func (s *stateSuite) TestGetUnitWorkloadStatusesForApplication(c *gc.C) {
 	result, ok := results["foo/666"]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(result.Present, jc.IsFalse)
-	assertStatusInfoEqual(c, &result.StatusInfo, status)
+	assertStatusInfoEqual(c, result.StatusInfo, status)
 }
 
 func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnits(c *gc.C) {
@@ -538,7 +541,7 @@ func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnits(c *g
 	unitUUID1 := unitUUIDs[0]
 	unitUUID2 := unitUUIDs[1]
 
-	status1 := &status.StatusInfo[status.WorkloadStatusType]{
+	status1 := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "it's active!",
 		Data:    []byte(`{"foo": "bar"}`),
@@ -547,7 +550,7 @@ func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnits(c *g
 	err := s.state.SetUnitWorkloadStatus(context.Background(), unitUUID1, status1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	status2 := &status.StatusInfo[status.WorkloadStatusType]{
+	status2 := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusTerminated,
 		Message: "it's terminated",
 		Data:    []byte(`{"bar": "foo"}`),
@@ -563,12 +566,12 @@ func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnits(c *g
 	result1, ok := results["foo/666"]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(result1.Present, jc.IsFalse)
-	assertStatusInfoEqual(c, &result1.StatusInfo, status1)
+	assertStatusInfoEqual(c, result1.StatusInfo, status1)
 
 	result2, ok := results["foo/667"]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(result2.Present, jc.IsFalse)
-	assertStatusInfoEqual(c, &result2.StatusInfo, status2)
+	assertStatusInfoEqual(c, result2.StatusInfo, status2)
 }
 
 func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnitsPresent(c *gc.C) {
@@ -582,7 +585,7 @@ func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnitsPrese
 	unitUUID1 := unitUUIDs[0]
 	unitUUID2 := unitUUIDs[1]
 
-	status1 := &status.StatusInfo[status.WorkloadStatusType]{
+	status1 := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "it's active!",
 		Data:    []byte(`{"foo": "bar"}`),
@@ -591,7 +594,7 @@ func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnitsPrese
 	err := s.state.SetUnitWorkloadStatus(context.Background(), unitUUID1, status1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	status2 := &status.StatusInfo[status.WorkloadStatusType]{
+	status2 := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusTerminated,
 		Message: "it's terminated",
 		Data:    []byte(`{"bar": "foo"}`),
@@ -609,12 +612,12 @@ func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationMultipleUnitsPrese
 	result1, ok := results["foo/666"]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(result1.Present, jc.IsFalse)
-	assertStatusInfoEqual(c, &result1.StatusInfo, status1)
+	assertStatusInfoEqual(c, result1.StatusInfo, status1)
 
 	result2, ok := results["foo/667"]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(result2.Present, jc.IsTrue)
-	assertStatusInfoEqual(c, &result2.StatusInfo, status2)
+	assertStatusInfoEqual(c, result2.StatusInfo, status2)
 }
 
 func (s *stateSuite) TestGetUnitWorkloadStatusesForApplicationNotFound(c *gc.C) {
@@ -637,13 +640,13 @@ func (s *stateSuite) TestGetUnitWorkloadAndCloudContainerStatusesForApplication(
 	appId, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1)
 	unitUUID := unitUUIDs[0]
 
-	workloadStatus := &status.StatusInfo[status.WorkloadStatusType]{
+	workloadStatus := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "it's active",
 		Data:    []byte(`{"bar": "foo"}`),
 		Since:   ptr(time.Now()),
 	}
-	cloudContainerStatus := &status.StatusInfo[status.CloudContainerStatusType]{
+	cloudContainerStatus := status.StatusInfo[status.CloudContainerStatusType]{
 		Status:  status.CloudContainerStatusRunning,
 		Message: "it's running",
 		Data:    []byte(`{"foo": "bar"}`),
@@ -669,8 +672,8 @@ func (s *stateSuite) TestGetUnitWorkloadAndCloudContainerStatusesForApplication(
 	containerResult, ok := containerResults["foo/666"]
 	c.Assert(ok, jc.IsTrue)
 
-	assertStatusInfoEqual(c, &workloadResult.StatusInfo, workloadStatus)
-	assertStatusInfoEqual(c, &containerResult, cloudContainerStatus)
+	assertStatusInfoEqual(c, workloadResult.StatusInfo, workloadStatus)
+	assertStatusInfoEqual(c, containerResult, cloudContainerStatus)
 }
 
 func (s *stateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUnits(c *gc.C) {
@@ -684,7 +687,7 @@ func (s *stateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUnits(
 	unitUUID1 := unitUUIDs[0]
 	unitUUID2 := unitUUIDs[1]
 
-	status1 := &status.StatusInfo[status.CloudContainerStatusType]{
+	status1 := status.StatusInfo[status.CloudContainerStatusType]{
 		Status:  status.CloudContainerStatusRunning,
 		Message: "it's running!",
 		Data:    []byte(`{"foo": "bar"}`),
@@ -695,7 +698,7 @@ func (s *stateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUnits(
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	status2 := &status.StatusInfo[status.CloudContainerStatusType]{
+	status2 := status.StatusInfo[status.CloudContainerStatusType]{
 		Status:  status.CloudContainerStatusBlocked,
 		Message: "it's blocked",
 		Data:    []byte(`{"bar": "foo"}`),
@@ -712,11 +715,11 @@ func (s *stateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUnits(
 
 	result1, ok := results["foo/666"]
 	c.Assert(ok, jc.IsTrue)
-	assertStatusInfoEqual(c, &result1, status1)
+	assertStatusInfoEqual(c, result1, status1)
 
 	result2, ok := results["foo/667"]
 	c.Assert(ok, jc.IsTrue)
-	assertStatusInfoEqual(c, &result2, status2)
+	assertStatusInfoEqual(c, result2, status2)
 }
 
 func (s *stateSuite) TestGetUnitWorkloadAndCloudContainerStatusesForApplicationNotFound(c *gc.C) {
@@ -778,7 +781,7 @@ func (s *stateSuite) TestGetAllFullUnitStatuses(c *gc.C) {
 	_, barUnitUUIDs := s.createApplication(c, "bar", life.Alive, u3)
 	u3UUID := barUnitUUIDs[0]
 
-	u1Workload := &status.StatusInfo[status.WorkloadStatusType]{
+	u1Workload := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "u1 is active!",
 		Data:    []byte(`{"u1": "workload"}`),
@@ -787,7 +790,7 @@ func (s *stateSuite) TestGetAllFullUnitStatuses(c *gc.C) {
 	err := s.state.SetUnitWorkloadStatus(context.Background(), u1UUID, u1Workload)
 	c.Assert(err, jc.ErrorIsNil)
 
-	u1Agent := &status.StatusInfo[status.UnitAgentStatusType]{
+	u1Agent := status.StatusInfo[status.UnitAgentStatusType]{
 		Status:  status.UnitAgentStatusIdle,
 		Message: "u1 is idle!",
 		Data:    []byte(`{"u1": "agent"}`),
@@ -799,7 +802,7 @@ func (s *stateSuite) TestGetAllFullUnitStatuses(c *gc.C) {
 	err = s.state.SetUnitPresence(context.Background(), "foo/666")
 	c.Assert(err, jc.ErrorIsNil)
 
-	u2Workload := &status.StatusInfo[status.WorkloadStatusType]{
+	u2Workload := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusBlocked,
 		Message: "u2 is blocked!",
 		Data:    []byte(`{"u2": "workload"}`),
@@ -808,7 +811,7 @@ func (s *stateSuite) TestGetAllFullUnitStatuses(c *gc.C) {
 	err = s.state.SetUnitWorkloadStatus(context.Background(), u2UUID, u2Workload)
 	c.Assert(err, jc.ErrorIsNil)
 
-	u2Agent := &status.StatusInfo[status.UnitAgentStatusType]{
+	u2Agent := status.StatusInfo[status.UnitAgentStatusType]{
 		Status:  status.UnitAgentStatusAllocating,
 		Message: "u2 is allocating!",
 		Data:    []byte(`{"u2": "agent"}`),
@@ -822,7 +825,7 @@ func (s *stateSuite) TestGetAllFullUnitStatuses(c *gc.C) {
 	err = s.state.DeleteUnitPresence(context.Background(), "foo/667")
 	c.Assert(err, jc.ErrorIsNil)
 
-	u3Workload := &status.StatusInfo[status.WorkloadStatusType]{
+	u3Workload := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusMaintenance,
 		Message: "u3 is maintenance!",
 		Data:    []byte(`{"u3": "workload"}`),
@@ -831,7 +834,7 @@ func (s *stateSuite) TestGetAllFullUnitStatuses(c *gc.C) {
 	err = s.state.SetUnitWorkloadStatus(context.Background(), u3UUID, u3Workload)
 	c.Assert(err, jc.ErrorIsNil)
 
-	u3Agent := &status.StatusInfo[status.UnitAgentStatusType]{
+	u3Agent := status.StatusInfo[status.UnitAgentStatusType]{
 		Status:  status.UnitAgentStatusRebooting,
 		Message: "u3 is rebooting!",
 		Data:    []byte(`{"u3": "agent"}`),
@@ -901,13 +904,13 @@ func (s *stateSuite) TestGetAllApplicationStatuses(c *gc.C) {
 	app2ID, _ := s.createApplication(c, "bar", life.Alive)
 	s.createApplication(c, "goo", life.Alive)
 
-	app1Status := &status.StatusInfo[status.WorkloadStatusType]{
+	app1Status := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "it's active",
 		Data:    []byte(`{"foo": "bar"}`),
 		Since:   ptr(time.Now()),
 	}
-	app2Status := &status.StatusInfo[status.WorkloadStatusType]{
+	app2Status := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusBlocked,
 		Message: "it's blocked",
 		Data:    []byte(`{"bar": "foo"}`),
@@ -921,11 +924,11 @@ func (s *stateSuite) TestGetAllApplicationStatuses(c *gc.C) {
 
 	res1, ok := statuses["foo"]
 	c.Assert(ok, jc.IsTrue)
-	assertStatusInfoEqual(c, &res1, app1Status)
+	assertStatusInfoEqual(c, res1, app1Status)
 
 	res2, ok := statuses["bar"]
 	c.Assert(ok, jc.IsTrue)
-	assertStatusInfoEqual(c, &res2, app2Status)
+	assertStatusInfoEqual(c, res2, app2Status)
 }
 
 func (s *stateSuite) TestSetUnitPresence(c *gc.C) {
@@ -1119,7 +1122,7 @@ func (s *stateSuite) assertUnitStatus(c *gc.C, statusType, unitUUID coreunit.UUI
 	c.Check(gotData, jc.DeepEquals, data)
 }
 
-func assertStatusInfoEqual[T status.StatusID](c *gc.C, got, want *status.StatusInfo[T]) {
+func assertStatusInfoEqual[T status.StatusID](c *gc.C, got, want status.StatusInfo[T]) {
 	c.Check(got.Status, gc.Equals, want.Status)
 	c.Check(got.Message, gc.Equals, want.Message)
 	c.Check(got.Data, jc.DeepEquals, want.Data)

@@ -681,7 +681,7 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 		},
 	}
 
-	s.statusService.EXPECT().GetApplicationDisplayStatus(gomock.Any(), "mysql").Return(&status.StatusInfo{
+	s.statusService.EXPECT().GetApplicationDisplayStatus(gomock.Any(), "mysql").Return(status.StatusInfo{
 		Status: status.Waiting,
 	}, nil)
 

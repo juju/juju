@@ -127,7 +127,7 @@ func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
 	statusState := statusstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	sts, err := statusState.GetApplicationStatus(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sts, gc.DeepEquals, &status.StatusInfo[status.WorkloadStatusType]{
+	c.Check(sts, gc.DeepEquals, status.StatusInfo[status.WorkloadStatusType]{
 		Status: status.WorkloadStatusUnset,
 	})
 }
@@ -235,7 +235,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithStatus(c *gc.C) {
 	statusState := statusstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	sts, err := statusState.GetApplicationStatus(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sts, gc.DeepEquals, &status.StatusInfo[status.WorkloadStatusType]{
+	c.Check(sts, gc.DeepEquals, status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "test",
 		Data:    []byte(`{"foo": "bar"}`),

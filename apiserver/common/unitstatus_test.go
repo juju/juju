@@ -137,7 +137,7 @@ func (s *unitSetStatusSuite) TestSetStatus(c *gc.C) {
 		Since: &s.now,
 	}
 
-	s.statusService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42"), &sInfo).Return(nil)
+	s.statusService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42"), sInfo).Return(nil)
 
 	setter := common.NewUnitStatusSetter(s.statusService, s.clock, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
@@ -214,7 +214,7 @@ func (s *unitGetStatusSuite) TestStatusUnitNotFound(c *gc.C) {
 
 	tag := names.NewUnitTag("ubuntu/42")
 
-	s.statusService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42")).Return(nil, statuserrors.UnitNotFound)
+	s.statusService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42")).Return(status.StatusInfo{}, statuserrors.UnitNotFound)
 
 	getter := common.NewUnitStatusGetter(s.statusService, s.clock, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
@@ -232,7 +232,7 @@ func (s *unitGetStatusSuite) TestStatus(c *gc.C) {
 
 	tag := names.NewUnitTag("ubuntu/42")
 
-	s.statusService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42")).Return(&status.StatusInfo{
+	s.statusService.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unit.Name("ubuntu/42")).Return(status.StatusInfo{
 		Status:  status.Active,
 		Message: "msg",
 		Data: map[string]interface{}{

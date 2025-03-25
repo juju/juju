@@ -101,10 +101,10 @@ WHERE u.name = $unitName.name;
 // GetApplicationStatus looks up the status of the specified application,
 // returning an error satisfying [statuserrors.ApplicationNotFound] if the
 // application is not found.
-func (st *State) GetApplicationStatus(ctx context.Context, appID coreapplication.ID) (*status.StatusInfo[status.WorkloadStatusType], error) {
+func (st *State) GetApplicationStatus(ctx context.Context, appID coreapplication.ID) (status.StatusInfo[status.WorkloadStatusType], error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Capture(err)
+		return status.StatusInfo[status.WorkloadStatusType]{}, errors.Capture(err)
 	}
 
 	identID := applicationID{ID: appID}
@@ -114,7 +114,7 @@ FROM application_status
 WHERE application_uuid = $applicationID.uuid;
 `, identID, statusInfo{})
 	if err != nil {
-		return nil, errors.Capture(err)
+		return status.StatusInfo[status.WorkloadStatusType]{}, errors.Capture(err)
 	}
 	var sts statusInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -122,9 +122,9 @@ WHERE application_uuid = $applicationID.uuid;
 			return errors.Capture(err)
 		}
 		if err := tx.Query(ctx, query, identID).Get(&sts); errors.Is(err, sqlair.ErrNoRows) {
-			// If the application status is not set, then it's up to the
-			// the caller to either return that information or use derive
-			// the status from the units.
+			// If the application status is not set, we should return a default
+			// unset status. It's then it's up to the caller to either return that
+			// information or use derive the status from the units.
 			return nil
 		} else if err != nil {
 			return errors.Capture(err)
@@ -132,15 +132,15 @@ WHERE application_uuid = $applicationID.uuid;
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return status.StatusInfo[status.WorkloadStatusType]{}, errors.Capture(err)
 	}
 
 	statusType, err := decodeWorkloadStatus(sts.StatusID)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return status.StatusInfo[status.WorkloadStatusType]{}, errors.Capture(err)
 	}
 
-	return &status.StatusInfo[status.WorkloadStatusType]{
+	return status.StatusInfo[status.WorkloadStatusType]{
 		Status:  statusType,
 		Message: sts.Message,
 		Data:    sts.Data,
@@ -154,7 +154,7 @@ WHERE application_uuid = $applicationID.uuid;
 func (st *State) SetApplicationStatus(
 	ctx context.Context,
 	applicationID coreapplication.ID,
-	status *status.StatusInfo[status.WorkloadStatusType],
+	status status.StatusInfo[status.WorkloadStatusType],
 ) error {
 	db, err := st.DB()
 	if err != nil {
@@ -236,10 +236,10 @@ WHERE name = $unitName.name
 // - an error satisfying [statuserrors.UnitNotFound] if the unit doesn't exist or;
 // - an error satisfying [statuserrors.UnitIsDead] if the unit is dead or;
 // - an error satisfying [statuserrors.UnitStatusNotFound] if the status is not set.
-func (st *State) GetUnitAgentStatus(ctx context.Context, uuid coreunit.UUID) (*status.UnitStatusInfo[status.UnitAgentStatusType], error) {
+func (st *State) GetUnitAgentStatus(ctx context.Context, uuid coreunit.UUID) (status.UnitStatusInfo[status.UnitAgentStatusType], error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Capture(err)
+		return status.UnitStatusInfo[status.UnitAgentStatusType]{}, errors.Capture(err)
 	}
 
 	unitUUID := unitUUID{UnitUUID: uuid}
@@ -247,7 +247,7 @@ func (st *State) GetUnitAgentStatus(ctx context.Context, uuid coreunit.UUID) (*s
 SELECT &unitPresentStatusInfo.* FROM v_unit_agent_status WHERE unit_uuid = $unitUUID.uuid
 `, unitPresentStatusInfo{}, unitUUID)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return status.UnitStatusInfo[status.UnitAgentStatusType]{}, errors.Capture(err)
 	}
 
 	var unitStatusInfo unitPresentStatusInfo
@@ -264,15 +264,15 @@ SELECT &unitPresentStatusInfo.* FROM v_unit_agent_status WHERE unit_uuid = $unit
 		return err
 	})
 	if err != nil {
-		return nil, errors.Errorf("getting agent status for unit %q: %w", unitUUID, err)
+		return status.UnitStatusInfo[status.UnitAgentStatusType]{}, errors.Errorf("getting agent status for unit %q: %w", unitUUID, err)
 	}
 
 	statusID, err := decodeAgentStatus(unitStatusInfo.StatusID)
 	if err != nil {
-		return nil, errors.Errorf("decoding agent status ID for unit %q: %w", unitUUID, err)
+		return status.UnitStatusInfo[status.UnitAgentStatusType]{}, errors.Errorf("decoding agent status ID for unit %q: %w", unitUUID, err)
 	}
 
-	return &status.UnitStatusInfo[status.UnitAgentStatusType]{
+	return status.UnitStatusInfo[status.UnitAgentStatusType]{
 		StatusInfo: status.StatusInfo[status.UnitAgentStatusType]{
 			Status:  statusID,
 			Message: unitStatusInfo.Message,
@@ -286,7 +286,7 @@ SELECT &unitPresentStatusInfo.* FROM v_unit_agent_status WHERE unit_uuid = $unit
 // SetUnitAgentStatus updates the agent status of the specified unit,
 // returning an error satisfying [statuserrors.UnitNotFound] if the unit
 // doesn't exist.
-func (st *State) SetUnitAgentStatus(ctx context.Context, unitUUID coreunit.UUID, status *status.StatusInfo[status.UnitAgentStatusType]) error {
+func (st *State) SetUnitAgentStatus(ctx context.Context, unitUUID coreunit.UUID, status status.StatusInfo[status.UnitAgentStatusType]) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
@@ -305,10 +305,10 @@ func (st *State) SetUnitAgentStatus(ctx context.Context, unitUUID coreunit.UUID,
 // - an error satisfying [statuserrors.UnitNotFound] if the unit doesn't exist or;
 // - an error satisfying [statuserrors.UnitIsDead] if the unit is dead or;
 // - an error satisfying [statuserrors.UnitStatusNotFound] if the status is not set.
-func (st *State) GetUnitWorkloadStatus(ctx context.Context, uuid coreunit.UUID) (*status.UnitStatusInfo[status.WorkloadStatusType], error) {
+func (st *State) GetUnitWorkloadStatus(ctx context.Context, uuid coreunit.UUID) (status.UnitStatusInfo[status.WorkloadStatusType], error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Capture(err)
+		return status.UnitStatusInfo[status.WorkloadStatusType]{}, errors.Capture(err)
 	}
 
 	unitUUID := unitUUID{UnitUUID: uuid}
@@ -316,7 +316,7 @@ func (st *State) GetUnitWorkloadStatus(ctx context.Context, uuid coreunit.UUID) 
 SELECT &unitPresentStatusInfo.* FROM v_unit_workload_status WHERE unit_uuid = $unitUUID.uuid
 `, unitPresentStatusInfo{}, unitUUID)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return status.UnitStatusInfo[status.WorkloadStatusType]{}, errors.Capture(err)
 	}
 
 	var unitStatusInfo unitPresentStatusInfo
@@ -333,15 +333,15 @@ SELECT &unitPresentStatusInfo.* FROM v_unit_workload_status WHERE unit_uuid = $u
 		return err
 	})
 	if err != nil {
-		return nil, errors.Errorf("getting workload status for unit %q: %w", unitUUID, err)
+		return status.UnitStatusInfo[status.WorkloadStatusType]{}, errors.Errorf("getting workload status for unit %q: %w", unitUUID, err)
 	}
 
 	statusID, err := decodeWorkloadStatus(unitStatusInfo.StatusID)
 	if err != nil {
-		return nil, errors.Errorf("decoding workload status ID for unit %q: %w", unitUUID, err)
+		return status.UnitStatusInfo[status.WorkloadStatusType]{}, errors.Errorf("decoding workload status ID for unit %q: %w", unitUUID, err)
 	}
 
-	return &status.UnitStatusInfo[status.WorkloadStatusType]{
+	return status.UnitStatusInfo[status.WorkloadStatusType]{
 		StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
 			Status:  statusID,
 			Message: unitStatusInfo.Message,
@@ -355,7 +355,7 @@ SELECT &unitPresentStatusInfo.* FROM v_unit_workload_status WHERE unit_uuid = $u
 // SetUnitWorkloadStatus updates the workload status of the specified unit,
 // returning an error satisfying [statuserrors.UnitNotFound] if the unit
 // doesn't exist.
-func (st *State) SetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UUID, status *status.StatusInfo[status.WorkloadStatusType]) error {
+func (st *State) SetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UUID, status status.StatusInfo[status.WorkloadStatusType]) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
@@ -374,11 +374,10 @@ func (st *State) SetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UU
 // unit. It returns;
 // - an error satisfying [statuserrors.UnitNotFound] if the unit doesn't exist or;
 // - an error satisfying [statuserrors.UnitIsDead] if the unit is dead or;
-// - an error satisfying [statuserrors.UnitStatusNotFound] if the status is not set.
-func (st *State) GetUnitCloudContainerStatus(ctx context.Context, uuid coreunit.UUID) (*status.StatusInfo[status.CloudContainerStatusType], error) {
+func (st *State) GetUnitCloudContainerStatus(ctx context.Context, uuid coreunit.UUID) (status.StatusInfo[status.CloudContainerStatusType], error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Capture(err)
+		return status.StatusInfo[status.CloudContainerStatusType]{}, errors.Capture(err)
 	}
 
 	unitUUID := unitUUID{UnitUUID: uuid}
@@ -388,7 +387,7 @@ FROM   k8s_pod_status
 WHERE  unit_uuid = $unitUUID.uuid
 	`, statusInfo{}, unitUUID)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return status.StatusInfo[status.CloudContainerStatusType]{}, errors.Capture(err)
 	}
 
 	var containerStatusInfo statusInfo
@@ -398,21 +397,25 @@ WHERE  unit_uuid = $unitUUID.uuid
 			return errors.Errorf("checking unit %q exists: %w", uuid, err)
 		}
 
-		err = tx.Query(ctx, getUnitStatusStmt, unitUUID).Get(&containerStatusInfo)
-		if errors.Is(err, sql.ErrNoRows) {
-			return errors.Errorf("workload status for unit %q not found", unitUUID).Add(statuserrors.UnitStatusNotFound)
+		if err := tx.Query(ctx, getUnitStatusStmt, unitUUID).Get(&containerStatusInfo); errors.Is(err, sql.ErrNoRows) {
+			// If the unit has not container status, this is fine. Container status
+			// is optional since non-CAAS models do no have containers. In this
+			// case, return a default unset status
+			return nil
+		} else if err != nil {
+			return errors.Capture(err)
 		}
-		return errors.Capture(err)
+		return nil
 	})
 	if err != nil {
-		return nil, errors.Errorf("getting cloud container status for unit %q: %w", unitUUID, err)
+		return status.StatusInfo[status.CloudContainerStatusType]{}, errors.Errorf("getting cloud container status for unit %q: %w", unitUUID, err)
 	}
 
 	statusID, err := decodeCloudContainerStatus(containerStatusInfo.StatusID)
 	if err != nil {
-		return nil, errors.Errorf("decoding cloud container status ID for unit %q: %w", uuid, err)
+		return status.StatusInfo[status.CloudContainerStatusType]{}, errors.Errorf("decoding cloud container status ID for unit %q: %w", uuid, err)
 	}
-	return &status.StatusInfo[status.CloudContainerStatusType]{
+	return status.StatusInfo[status.CloudContainerStatusType]{
 		Status:  statusID,
 		Message: containerStatusInfo.Message,
 		Data:    containerStatusInfo.Data,
@@ -860,18 +863,15 @@ WHERE  unit.application_uuid = $applicationID.uuid
 	return statuses, nil
 }
 
-// status data. If returns an error satisfying [statuserrors.UnitNotFound]
-// if the unit doesn't exist.
+// setUnitAgentStatus saves the given unit agent status, overwriting any
+// current status data. If returns an error satisfying
+// [statuserrors.UnitNotFound] if the unit doesn't exist.
 func (st *State) setUnitAgentStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
-	status *status.StatusInfo[status.UnitAgentStatusType],
+	status status.StatusInfo[status.UnitAgentStatusType],
 ) error {
-	if status == nil {
-		return nil
-	}
-
 	statusID, err := encodeAgentStatus(status.Status)
 	if err != nil {
 		return errors.Capture(err)
@@ -911,12 +911,8 @@ func (st *State) setUnitWorkloadStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
-	status *status.StatusInfo[status.WorkloadStatusType],
+	status status.StatusInfo[status.WorkloadStatusType],
 ) error {
-	if status == nil {
-		return nil
-	}
-
 	statusID, err := encodeWorkloadStatus(status.Status)
 	if err != nil {
 		return errors.Capture(err)
@@ -949,19 +945,15 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 	return nil
 }
 
-// SetCloudContainerStatusAtomic saves the given cloud container status, overwriting
+// setCloudContainerStatus saves the given cloud container status, overwriting
 // any current status data. If returns an error satisfying
 // [statuserrors.UnitNotFound] if the unit doesn't exist.
 func (st *State) setCloudContainerStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
-	status *status.StatusInfo[status.CloudContainerStatusType],
+	status status.StatusInfo[status.CloudContainerStatusType],
 ) error {
-	if status == nil {
-		return nil
-	}
-
 	statusID, err := encodeCloudContainerStatus(status.Status)
 	if err != nil {
 		return errors.Capture(err)

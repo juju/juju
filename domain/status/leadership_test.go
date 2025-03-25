@@ -70,14 +70,14 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeader(c *gc.C) {
 	})
 	s.leadership.EXPECT().Token("foo", "foo/666").Return(leaseToken{})
 
-	svc := s.setupService(c, nil)
+	svc := s.setupService(c)
 
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", u1)
 
-	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/666", &status.StatusInfo{
+	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/666", status.StatusInfo{
 		Status: status.Active,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -107,14 +107,14 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderNotTheLeader(c *g
 		error: lease.ErrNotHeld,
 	})
 
-	svc := s.setupService(c, nil)
+	svc := s.setupService(c)
 
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", u1)
 
-	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/666", &status.StatusInfo{
+	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/666", status.StatusInfo{
 		Status: status.Active,
 	})
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotLeader)
@@ -136,20 +136,20 @@ func (s *leadershipSuite) TestSetApplicationStatusForUnitLeaderCancelled(c *gc.C
 		return leaseToken{}
 	}).AnyTimes()
 
-	svc := s.setupService(c, nil)
+	svc := s.setupService(c)
 
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", u1)
 
-	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/666", &status.StatusInfo{
+	err := svc.SetApplicationStatusForUnitLeader(context.Background(), "foo/666", status.StatusInfo{
 		Status: status.Active,
 	})
 	c.Assert(err, jc.ErrorIs, context.Canceled)
 }
 
-func (s *leadershipSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) *service.LeadershipService {
+func (s *leadershipSuite) setupService(c *gc.C) *service.LeadershipService {
 	modelDB := func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
 	}

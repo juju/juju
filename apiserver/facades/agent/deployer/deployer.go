@@ -42,11 +42,11 @@ type ApplicationService interface {
 type StatusService interface {
 	// GetUnitWorkloadStatus returns the workload status of the specified unit, returning an
 	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	GetUnitWorkloadStatus(context.Context, coreunit.Name) (*corestatus.StatusInfo, error)
+	GetUnitWorkloadStatus(context.Context, coreunit.Name) (corestatus.StatusInfo, error)
 
 	// SetUnitWorkloadStatus sets the workload status of the specified unit, returning an
 	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	SetUnitWorkloadStatus(context.Context, coreunit.Name, *corestatus.StatusInfo) error
+	SetUnitWorkloadStatus(context.Context, coreunit.Name, corestatus.StatusInfo) error
 }
 
 // DeployerAPI provides access to the Deployer API facade.

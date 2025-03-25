@@ -156,9 +156,10 @@ CREATE TABLE k8s_pod_status_value (
 );
 
 INSERT INTO k8s_pod_status_value VALUES
-(0, 'waiting'),
-(1, 'blocked'),
-(2, 'running');
+(0, 'unset'),
+(1, 'waiting'),
+(2, 'blocked'),
+(3, 'running');
 
 CREATE TABLE unit_agent_status (
     unit_uuid TEXT NOT NULL PRIMARY KEY,

@@ -74,7 +74,7 @@ func (s *StatusAPI) SetAgentStatus(ctx context.Context, args params.SetStatus) (
 			continue
 		}
 
-		if err := s.statusService.SetUnitAgentStatus(ctx, unit.Name(tag.Id()), &status.StatusInfo{
+		if err := s.statusService.SetUnitAgentStatus(ctx, unit.Name(tag.Id()), status.StatusInfo{
 			Status:  status.Status(arg.Status),
 			Message: arg.Info,
 			Data:    arg.Data,
@@ -126,7 +126,7 @@ func (s *StatusAPI) SetApplicationStatus(ctx context.Context, args params.SetSta
 			continue
 		}
 
-		if err := s.statusService.SetApplicationStatusForUnitLeader(ctx, unitName, &status.StatusInfo{
+		if err := s.statusService.SetApplicationStatusForUnitLeader(ctx, unitName, status.StatusInfo{
 			Status:  status.Status(arg.Status),
 			Message: arg.Info,
 			Data:    arg.Data,
@@ -189,7 +189,7 @@ func (s *StatusAPI) ApplicationStatus(ctx context.Context, args params.Entities)
 		}
 
 		res := params.ApplicationStatusResult{
-			Application: s.toStatusResult(*appStatus),
+			Application: s.toStatusResult(appStatus),
 			Units:       make(map[string]params.StatusResult),
 		}
 		for name, status := range unitStatuses {
