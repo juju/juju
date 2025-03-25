@@ -107,9 +107,9 @@ func WithAPIRemoveCallers(apiRemoteCallers apiremotecaller.APIRemoteCallers) Opt
 // WithNewBlobsClient is the option to set the new blobs client for file
 // retrieval from another controller.
 // This is for file based object stores.
-func WithNewBlobsClient(apiRemoteCallers apiremotecaller.APIRemoteCallers) Option {
+func WithNewBlobsClient(clientFn remote.NewBlobsClientFunc) Option {
 	return func(o *options) {
-		o.apiRemoteCallers = apiRemoteCallers
+		o.newFileBlobsClient = clientFn
 	}
 }
 

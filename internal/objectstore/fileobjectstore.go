@@ -519,9 +519,7 @@ func (t *fileObjectStore) remoteGetWithMetadata(ctx context.Context, metadata ob
 	// Write the file to the local file system, so that we can retrieve it
 	// locally next time.
 
-	// We only need one hash, apposed to the two, is that we've already computed
-	// this once before, so we just need to verify that we're reading what we
-	// previously wrote.
+	// Compute the hash of the file as we write it to the local file system.
 	hash384 := sha512.New384()
 
 	// We need to write this to a temp file, because if the client retries
