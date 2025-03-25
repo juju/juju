@@ -2,6 +2,8 @@
 # `juju charm-resources`
 > See also: [resources](#resources), [attach-resource](#attach-resource)
 
+**Aliases:** list-charm-resources
+
 ## Summary
 Display the resources for a charm in a repository.
 

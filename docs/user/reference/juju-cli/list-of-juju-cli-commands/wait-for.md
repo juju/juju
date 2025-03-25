@@ -1,11 +1,10 @@
 (command-juju-wait-for)=
 # `juju wait-for`
-
 ## Summary
 Wait for an entity to reach a specified state.
 
 ## Usage
-```juju wait-for [options] <command> ...```
+```juju wait-for [flags] <command> ...```
 
 ### Options
 | Flag | Default | Usage |
@@ -54,7 +53,7 @@ See also:
     wait-for unit
 
 ## Subcommands
-- [application](#wait-for_application)
-- [machine](#wait-for_machine)
-- [model](#wait-for_model)
-- [unit](#wait-for_unit)
+- [application](#wait-for-application)
+- [machine](#wait-for-machine)
+- [model](#wait-for-model)
+- [unit](#wait-for-unit)

@@ -1,6 +1,5 @@
 (hook-command-action-fail)=
 # `action-fail`
-
 ## Summary
 Set action fail status with message.
 

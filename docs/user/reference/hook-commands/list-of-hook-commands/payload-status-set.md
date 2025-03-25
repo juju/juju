@@ -1,6 +1,5 @@
 (hook-command-payload-status-set)=
 # `payload-status-set`
-
 ## Summary
 Update the status of a payload.
 

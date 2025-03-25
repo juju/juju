@@ -1,13 +1,14 @@
 (command-juju-show-credentials)=
 # `juju show-credentials`
 > See also: [credentials](#credentials), [add-credential](#add-credential), [update-credential](#update-credential), [remove-credential](#remove-credential), [autoload-credentials](#autoload-credentials)
-**Alias:** show-credential
+
+**Aliases:** show-credentials
 
 ## Summary
 Shows credential information stored either on this client or on a controller.
 
 ## Usage
-```juju show-credentials [options] [<cloud name> <credential name>]```
+```juju show-credential [options] [<cloud name> <credential name>]```
 
 ### Options
 | Flag | Default | Usage |

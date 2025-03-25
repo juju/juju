@@ -1,6 +1,5 @@
 (hook-command-secret-set)=
 # `secret-set`
-
 ## Summary
 Update an existing secret.
 

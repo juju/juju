@@ -1,6 +1,5 @@
 (command-juju-set-meter-status)=
 # `juju set-meter-status`
-
 ## Summary
 Sets the meter status on an application or unit.
 

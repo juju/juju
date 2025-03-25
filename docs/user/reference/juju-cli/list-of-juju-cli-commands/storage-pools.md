@@ -2,8 +2,13 @@
 # `juju storage-pools`
 > See also: [create-storage-pool](#create-storage-pool), [remove-storage-pool](#remove-storage-pool)
 
+**Aliases:** list-storage-pools
+
 ## Summary
 List storage pools.
+
+## Usage
+```juju storage-pools [options] ```
 
 ### Options
 | Flag | Default | Usage |

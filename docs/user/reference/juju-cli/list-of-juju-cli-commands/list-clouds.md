@@ -1,10 +1,14 @@
 (command-juju-list-clouds)=
 # `juju list-clouds`
 > See also: [add-cloud](#add-cloud), [credentials](#credentials), [controllers](#controllers), [regions](#regions), [default-credential](#default-credential), [default-region](#default-region), [show-cloud](#show-cloud), [update-cloud](#update-cloud), [update-public-clouds](#update-public-clouds)
-**Alias:** clouds
+
+**Aliases:** list-clouds
 
 ## Summary
 Lists all clouds available to Juju.
+
+## Usage
+```juju clouds [options] ```
 
 ### Options
 | Flag | Default | Usage |

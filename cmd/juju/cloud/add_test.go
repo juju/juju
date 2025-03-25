@@ -843,6 +843,14 @@ func (s *addSuite) TestSpecifyingjujucloudThroughFlagAndArgument_Errors(c *gc.C)
 	c.Check(err, gc.ErrorMatches, "cannot specify cloud file with option and argument")
 }
 
+func (s *addSuite) TestSpecifyingTargetControllerFlag(c *gc.C) {
+	cloudFileName, command, _, _, _, _ := s.setupControllerCloudScenario(c)
+
+	_, err := cmdtesting.RunCommand(
+		c, command, "garage-maas", cloudFileName, "--target-controller=mycontroller-1")
+	c.Assert(err, jc.ErrorIs, cmd.ErrCommandMissing)
+}
+
 func (s *addSuite) TestValidateGoodCloudFile(c *gc.C) {
 	data := `
 clouds:

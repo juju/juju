@@ -2,8 +2,13 @@
 # `juju secrets`
 > See also: [add-secret](#add-secret), [remove-secret](#remove-secret), [show-secret](#show-secret), [update-secret](#update-secret)
 
+**Aliases:** list-secrets
+
 ## Summary
 Lists secrets available in the model.
+
+## Usage
+```juju secrets [options] ```
 
 ### Options
 | Flag | Default | Usage |

@@ -1,10 +1,14 @@
 (command-juju-list-machines)=
 # `juju list-machines`
 > See also: [status](#status)
-**Alias:** machines
+
+**Aliases:** list-machines
 
 ## Summary
 Lists machines in a model.
+
+## Usage
+```juju machines [options] ```
 
 ### Options
 | Flag | Default | Usage |

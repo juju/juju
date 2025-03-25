@@ -1,6 +1,5 @@
 (command-juju-revoke-secret)=
 # `juju revoke-secret`
-
 ## Summary
 Revoke access to a secret.
 

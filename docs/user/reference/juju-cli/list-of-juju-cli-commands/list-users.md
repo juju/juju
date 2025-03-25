@@ -1,13 +1,14 @@
 (command-juju-list-users)=
 # `juju list-users`
 > See also: [add-user](#add-user), [register](#register), [show-user](#show-user), [disable-user](#disable-user), [enable-user](#enable-user)
-**Alias:** users
+
+**Aliases:** list-users
 
 ## Summary
 Lists Juju users allowed to connect to a controller or model.
 
 ## Usage
-```juju list-users [options] [model-name]```
+```juju users [options] [model-name]```
 
 ### Options
 | Flag | Default | Usage |

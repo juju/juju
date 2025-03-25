@@ -1,12 +1,12 @@
 (command-juju-list-subnets)=
 # `juju list-subnets`
-**Alias:** subnets
+**Aliases:** list-subnets
 
 ## Summary
 List subnets known to Juju.
 
 ## Usage
-```juju list-subnets [options] [--space <name>] [--zone <name>] [--format yaml|json] [--output <path>]```
+```juju subnets [options] [--space <name>] [--zone <name>] [--format yaml|json] [--output <path>]```
 
 ### Options
 | Flag | Default | Usage |

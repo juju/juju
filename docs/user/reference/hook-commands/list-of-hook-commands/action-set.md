@@ -1,6 +1,5 @@
 (hook-command-action-set)=
 # `action-set`
-
 ## Summary
 Set action results.
 

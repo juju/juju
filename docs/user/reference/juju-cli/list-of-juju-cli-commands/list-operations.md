@@ -1,10 +1,14 @@
 (command-juju-list-operations)=
 # `juju list-operations`
 > See also: [run](#run), [show-operation](#show-operation), [show-task](#show-task)
-**Alias:** operations
+
+**Aliases:** list-operations
 
 ## Summary
 Lists pending, running, or completed operations for specified application, units, machines, or all.
+
+## Usage
+```juju operations [options] ```
 
 ### Options
 | Flag | Default | Usage |

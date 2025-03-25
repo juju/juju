@@ -2,6 +2,8 @@
 # `juju resources`
 > See also: [attach-resource](#attach-resource), [charm-resources](#charm-resources)
 
+**Aliases:** list-resources
+
 ## Summary
 Show the resources for an application or unit.
 

@@ -1,6 +1,5 @@
 (hook-command-unit-get)=
 # `unit-get`
-
 ## Summary
 Print public-address or private-address.
 

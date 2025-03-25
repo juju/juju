@@ -1,6 +1,5 @@
 (command-juju-documentation)=
 # `juju documentation`
-
 ## Summary
 Generate the documentation for all commands
 

@@ -1,6 +1,5 @@
 (hook-command-storage-add)=
 # `storage-add`
-
 ## Summary
 Add storage instances.
 

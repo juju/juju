@@ -1,6 +1,5 @@
 (hook-command-config-get)=
 # `config-get`
-
 ## Summary
 Print application configuration.
 

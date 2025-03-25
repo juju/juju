@@ -1,8 +1,10 @@
 (hook-command-goal-state)=
 # `goal-state`
-
 ## Summary
 Print the status of the charm's peers and related units.
+
+## Usage
+``` goal-state [options] ```
 
 ### Options
 | Flag | Default | Usage |

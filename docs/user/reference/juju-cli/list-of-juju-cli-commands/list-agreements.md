@@ -1,10 +1,14 @@
 (command-juju-list-agreements)=
 # `juju list-agreements`
 > See also: [agree](#agree)
-**Alias:** agreements
+
+**Aliases:** list-agreements
 
 ## Summary
 List user's agreements.
+
+## Usage
+```juju agreements [options] ```
 
 ### Options
 | Flag | Default | Usage |

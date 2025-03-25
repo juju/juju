@@ -1,6 +1,5 @@
 (hook-command-secret-info-get)=
 # `secret-info-get`
-
 ## Summary
 Get a secret's metadata info.
 

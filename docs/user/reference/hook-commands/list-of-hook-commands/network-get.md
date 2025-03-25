@@ -1,6 +1,5 @@
 (hook-command-network-get)=
 # `network-get`
-
 ## Summary
 Get network config.
 

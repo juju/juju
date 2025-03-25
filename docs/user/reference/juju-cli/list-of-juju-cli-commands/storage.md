@@ -2,6 +2,8 @@
 # `juju storage`
 > See also: [show-storage](#show-storage), [add-storage](#add-storage), [remove-storage](#remove-storage)
 
+**Aliases:** list-storage
+
 ## Summary
 Lists storage details.
 

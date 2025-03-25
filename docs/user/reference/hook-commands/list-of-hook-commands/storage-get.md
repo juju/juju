@@ -1,6 +1,5 @@
 (hook-command-storage-get)=
 # `storage-get`
-
 ## Summary
 Print information for the storage instance with the specified ID.
 

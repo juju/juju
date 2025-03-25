@@ -5,6 +5,9 @@
 ## Summary
 Copy agent binaries from the official agent store into a local controller.
 
+## Usage
+```juju sync-agent-binary [options] ```
+
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
