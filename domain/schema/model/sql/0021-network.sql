@@ -134,9 +134,17 @@ INSERT INTO ip_address_config_type VALUES
 
 CREATE TABLE ip_address (
     uuid TEXT NOT NULL PRIMARY KEY,
+    -- the link layer device this address belongs to.
+    device_uuid TEXT NOT NULL,
     -- The value of the configured IP address.
     -- e.g. 192.168.1.2 or 2001:db8:0000:0000:0000:0000:0000:00001.
     address_value TEXT NOT NULL,
+    -- NOTE (manadart 2025-03--25): The fact that this is nullable is a wart
+    -- from our Kubernetes provider. There is nothing to say we couldn't do
+    -- subnet discovery on K8s by listing nodes, then accumulating
+    -- NodeSpec.PodCIDRs for each. We could then match the incoming pod IPs to
+    -- those and assign this field.
+    subnet_uuid TEXT,
     -- one of ipv4, ipv6 etc.
     type_id INT NOT NULL,
     -- one of dhcp, static, manual, loopback etc.
@@ -145,12 +153,20 @@ CREATE TABLE ip_address (
     origin_id INT NOT NULL,
     -- one of public, local-cloud, local-machine, link-local etc.
     scope_id INT NOT NULL,
-    -- the link layer device this address belongs to.
-    device_uuid TEXT NOT NULL,
+    -- indicates that this address is not the primary
+    -- address associated with the NIC.
+    is_secondary BOOLEAN DEFAULT false,
+    -- indicates whether this address is a virtual/floating/shadow
+    -- address assigned by a provider rather than being
+    -- associated directly with a device on-machine.
+    is_shadow BOOLEAN DEFAULT false,
 
     CONSTRAINT fk_ip_address_link_layer_device
     FOREIGN KEY (device_uuid)
     REFERENCES link_layer_device (uuid),
+    CONSTRAINT fk_ip_address_subnet
+    FOREIGN KEY (subnet_uuid)
+    REFERENCES subnet (uuid),
     CONSTRAINT fk_ip_address_origin
     FOREIGN KEY (origin_id)
     REFERENCES ip_address_origin (id),
@@ -163,23 +179,6 @@ CREATE TABLE ip_address (
     CONSTRAINT fk_ip_address_scope
     FOREIGN KEY (scope_id)
     REFERENCES ip_address_scope (id)
-);
-
-CREATE TABLE net_node_ip_address (
-    address_uuid TEXT NOT NULL PRIMARY KEY,
-
-    -- indicates that this address is not the primary.
-    -- address associated with the NIC.
-    is_secondary BOOLEAN DEFAULT false,
-
-    -- indicates whether this address is a virtual/floating/shadow.
-    -- address assigned to a NIC by a provider rather than being
-    -- associated directly with a device on-machine.
-    is_shadow BOOLEAN DEFAULT false,
-
-    CONSTRAINT fk_net_node_ip_address_ip_address
-    FOREIGN KEY (address_uuid)
-    REFERENCES ip_address (uuid)
 );
 
 CREATE TABLE ip_address_dns_server_address (
@@ -217,11 +216,8 @@ CREATE UNIQUE INDEX idx_network_address_scope_name
 ON network_address_scope (name);
 
 INSERT INTO network_address_scope VALUES
--- eg "foo"
 (0, 'local-host'),
--- eg "foo.local", "foo.namespace.cluster.local"
 (1, 'local-cloud'),
--- "eg "foo.example.com"
 (2, 'public');
 
 CREATE TABLE fqdn_address (
@@ -305,17 +301,6 @@ CREATE TABLE ip_address_provider (
     provider_id TEXT NOT NULL PRIMARY KEY,
     address_uuid TEXT NOT NULL,
     CONSTRAINT fk_provider_ip_address_ip_address
-    FOREIGN KEY (address_uuid)
-    REFERENCES ip_address (uuid)
-);
-
-CREATE TABLE ip_address_subnet (
-    address_uuid TEXT NOT NULL PRIMARY KEY,
-    subnet_uuid TEXT NOT NULL,
-    CONSTRAINT fk_ip_address_subnet_subnet
-    FOREIGN KEY (subnet_uuid)
-    REFERENCES subnet (uuid),
-    CONSTRAINT fk_ip_address_subnet_ip_address
     FOREIGN KEY (address_uuid)
     REFERENCES ip_address (uuid)
 );
