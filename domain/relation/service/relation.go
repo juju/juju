@@ -72,6 +72,10 @@ type State interface {
 		endpoint relation.EndpointIdentifier,
 	) (corerelation.UUID, error)
 
+	// GetRelationsStatusForUnit returns RelationUnitStatus for all relations
+	// the unit is part of.
+	GetRelationsStatusForUnit(ctx context.Context, unitUUID unit.UUID) ([]relation.RelationUnitStatusResult, error)
+
 	// WatcherApplicationSettingsNamespace provides the table name to set up
 	// watchers for relation application settings.
 	WatcherApplicationSettingsNamespace() string
@@ -290,13 +294,37 @@ func (s *Service) GetRelationStatus(
 	return corestatus.StatusInfo{}, coreerrors.NotImplemented
 }
 
-// GetRelationsStatusForUnit returns RelationUnitStatus for
-// any relation the unit is part of.
+// GetRelationsStatusForUnit returns RelationUnitStatus for all relations the
+// unit is part of.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationUUIDNotValid] is returned if the relation UUID
+//     is not valid.
 func (s *Service) GetRelationsStatusForUnit(
 	ctx context.Context,
 	unitUUID unit.UUID,
 ) ([]relation.RelationUnitStatus, error) {
-	return []relation.RelationUnitStatus{}, coreerrors.NotImplemented
+	if err := unitUUID.Validate(); err != nil {
+		return nil, errors.Errorf(
+			"%w:%w", relationerrors.UnitUUIDNotValid, err)
+	}
+
+	results, err := s.st.GetRelationsStatusForUnit(ctx, unitUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var statuses []relation.RelationUnitStatus
+	for _, result := range results {
+		key := internalrelation.NaturalKey(result.Endpoints)
+		statuses = append(statuses, relation.RelationUnitStatus{
+			Key:       key,
+			InScope:   result.InScope,
+			Suspended: result.Suspended,
+		})
+	}
+
+	return statuses, nil
 }
 
 // GetRelationUnit returns the relation unit UUID for the given unit for the

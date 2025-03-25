@@ -36,4 +36,8 @@ const (
 	// RelationKeyNotValid describes an error when the relation key is
 	// not valid.
 	RelationKeyNotValid = errors.ConstError("relation key not valid")
+
+	// UnitUUIDNotValid describes an error when the unit UUID is
+	// not valid.
+	UnitUUIDNotValid = errors.ConstError("unit UUID not valid")
 )

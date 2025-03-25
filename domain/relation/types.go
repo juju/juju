@@ -9,6 +9,7 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/charm"
+	internalrelation "github.com/juju/juju/internal/relation"
 )
 
 // GetRelationEndpointUUIDArgs represents the arguments required to retrieve
@@ -68,8 +69,22 @@ type EndpointRelationData struct {
 // RelationUnitStatus holds details about scope and suspended status
 // for a relation unit.
 type RelationUnitStatus struct {
-	Key       corerelation.Key
-	InScope   bool
+	// Key is the natural key of the relation.
+	Key corerelation.Key
+	// InScope indicates if the unit has entered the relation scope.
+	InScope bool
+	// Suspended indicates if the status of this relation is "suspended".
+	Suspended bool
+}
+
+// RelationUnitStatusResult holds details for a relation unit to return from the
+// state layer to the service layer.
+type RelationUnitStatusResult struct {
+	// Endpoints are the endpoints for this relation the unit is in.
+	Endpoints []internalrelation.Endpoint
+	// InScope indicates if the unit has entered the relation scope.
+	InScope bool
+	// Suspended indicates if the status of this relation is "suspended".
 	Suspended bool
 }
 

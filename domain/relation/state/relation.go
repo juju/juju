@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
+	corestatus "github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -184,6 +186,70 @@ AND    re.relation_uuid = $relationEndpointArgs.relation_uuid
 	return corerelation.EndpointUUID(relationEndpoint.UUID), errors.Capture(err)
 }
 
+// GetRelationsStatusForUnit returns RelationUnitStatus for any relation the
+// unit is part of.
+func (st *State) GetRelationsStatusForUnit(
+	ctx context.Context,
+	unitUUID unit.UUID,
+) ([]relation.RelationUnitStatusResult, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type relationUnitStatus struct {
+		RelationUUID string `db:"relation_uuid"`
+		InScope      bool   `db:"in_scope"`
+		Status       string `db:"status"`
+	}
+	type unitUUIDArg struct {
+		UUID string `db:"unit_uuid"`
+	}
+
+	uuid := unitUUIDArg{
+		UUID: unitUUID.String(),
+	}
+
+	stmt, err := st.Prepare(`
+SELECT (ru.relation_uuid, ru.in_scope, vrs.status) AS (&relationUnitStatus.*)
+FROM   relation_unit ru
+JOIN   v_relation_status vrs ON ru.relation_uuid = vrs.relation_uuid
+WHERE  ru.unit_uuid = $unitUUIDArg.unit_uuid
+`, uuid, relationUnitStatus{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var relationUnitStatuses []relation.RelationUnitStatusResult
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var statuses []relationUnitStatus
+		err := tx.Query(ctx, stmt, uuid).GetAll(&statuses)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+
+		for _, status := range statuses {
+			endpoints, err := st.getEndpoints(ctx, tx, corerelation.UUID(status.RelationUUID))
+			if err != nil {
+				return errors.Errorf("getting endpoints of relation %q: %w", status.RelationUUID, err)
+			}
+
+			relationUnitStatuses = append(relationUnitStatuses, relation.RelationUnitStatusResult{
+				Endpoints: endpoints,
+				InScope:   status.InScope,
+				Suspended: status.Status == corestatus.Suspended.String(),
+			})
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return relationUnitStatuses, nil
+}
+
 // GetRelationEndpoints retrieves the endpoints of a given relation specified via its UUID.
 //
 // The following error types can be expected to be returned:
@@ -195,6 +261,25 @@ func (st *State) GetRelationEndpoints(ctx context.Context, uuid corerelation.UUI
 		return nil, errors.Capture(err)
 	}
 
+	var endpoints []internalrelation.Endpoint
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		endpoints, err = st.getEndpoints(ctx, tx, uuid)
+		return err
+	})
+
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return endpoints, nil
+}
+
+// getEndpoints retrieves the endpoints of the specified relation.
+func (st *State) getEndpoints(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid corerelation.UUID,
+) ([]internalrelation.Endpoint, error) {
 	id := relationUUID{
 		UUID: uuid.String(),
 	}
@@ -208,19 +293,13 @@ WHERE  relation_uuid = $relationUUID.uuid
 	}
 
 	var endpoints []endpoint
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, id).GetAll(&endpoints)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return relationerrors.RelationNotFound
-		}
-		return errors.Capture(err)
-	})
-	if err != nil {
-		return nil, errors.Capture(err)
+	err = tx.Query(ctx, stmt, id).GetAll(&endpoints)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, relationerrors.RelationNotFound
 	}
 
-	if l := len(endpoints); l > 2 {
-		return nil, errors.Errorf("internal error: expected 1 or 2 endpoints in relation, got %d", l)
+	if length := len(endpoints); length > 2 {
+		return nil, errors.Errorf("internal error: expected 1 or 2 endpoints in relation, got %d", length)
 	}
 
 	var relationEndpoints []internalrelation.Endpoint

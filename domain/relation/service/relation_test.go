@@ -15,9 +15,11 @@ import (
 	coreapplicationtesting "github.com/juju/juju/core/application/testing"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
+	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalrelation "github.com/juju/juju/internal/relation"
 )
@@ -303,6 +305,80 @@ func (s *relationServiceSuite) TestGetRelationUUIDByKeyRelationKeyNotValid(c *gc
 
 	// Assert:
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationKeyNotValid)
+}
+
+func (s *relationServiceSuite) TestGetRelationsStatusForUnit(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange.
+	unitUUID := coreunittesting.GenUnitUUID(c)
+
+	endpoint1 := internalrelation.Endpoint{
+		ApplicationName: "app-1",
+		Relation: internalcharm.Relation{
+			Name: "fake-endpoint-name-1",
+		},
+	}
+	endpoint2 := internalrelation.Endpoint{
+		ApplicationName: "app-2",
+		Relation: internalcharm.Relation{
+			Name: "fake-endpoint-name-2",
+		},
+	}
+
+	results := []relation.RelationUnitStatusResult{{
+		Endpoints: []internalrelation.Endpoint{endpoint1, endpoint2},
+		InScope:   true,
+		Suspended: true,
+	}, {
+		Endpoints: []internalrelation.Endpoint{endpoint1},
+		InScope:   false,
+		Suspended: false,
+	}}
+
+	expectedStatuses := []relation.RelationUnitStatus{{
+		Key:       corerelation.Key("app-1:fake-endpoint-name-1 app-2:fake-endpoint-name-2"),
+		InScope:   results[0].InScope,
+		Suspended: results[0].Suspended,
+	}, {
+		Key:       corerelation.Key("app-1:fake-endpoint-name-1"),
+		InScope:   results[1].InScope,
+		Suspended: results[1].Suspended,
+	}}
+
+	s.state.EXPECT().GetRelationsStatusForUnit(gomock.Any(), unitUUID).Return(results, nil)
+
+	// Act.
+	statuses, err := s.service.GetRelationsStatusForUnit(context.Background(), unitUUID)
+
+	// Assert.
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(statuses, gc.DeepEquals, expectedStatuses)
+}
+
+func (s *relationServiceSuite) TestGetRelationsStatusForUnitUnitUUIDNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Act.
+	_, err := s.service.GetRelationsStatusForUnit(context.Background(), "bad-unit-uuid")
+
+	// Assert.
+	c.Assert(err, jc.ErrorIs, relationerrors.UnitUUIDNotValid)
+}
+
+func (s *relationServiceSuite) TestGetRelationsStatusForUnitStateError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange.
+	unitUUID := coreunittesting.GenUnitUUID(c)
+	boom := errors.Errorf("boom")
+	s.state.EXPECT().GetRelationsStatusForUnit(gomock.Any(), unitUUID).Return(nil, boom)
+
+	// Act.
+	_, err := s.service.GetRelationsStatusForUnit(context.Background(), unitUUID)
+
+	// Assert.
+	c.Assert(err, jc.ErrorIs, boom)
 }
 
 func (s *relationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
