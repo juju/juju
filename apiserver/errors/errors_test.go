@@ -171,12 +171,12 @@ var errorTransformTests = []struct {
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeTryAgain,
 }, {
-	err:        leadership.ErrClaimDenied,
+	err:        errors.ConstError(leadership.ErrClaimDenied),
 	code:       params.CodeLeadershipClaimDenied,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeLeadershipClaimDenied,
 }, {
-	err:        lease.ErrClaimDenied,
+	err:        errors.ConstError(lease.ErrClaimDenied),
 	code:       params.CodeLeaseClaimDenied,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeLeaseClaimDenied,
