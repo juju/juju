@@ -191,7 +191,8 @@ func NewService(st State) *Service {
 // The following errors are possible:
 // - [coreerrors.NotValid] if the reportedVersion is not valid.
 // - [coreerrors.NotSupported] if the architecture is not supported.
-// - [machineerrors.MachineNotFound] - when the machine does not exist.
+// - [machineerrors.MachineNotFound] when the machine does not exist.
+// - [machineerrors.MachineDead] when the machine is dead.
 func (s *Service) SetReportedMachineAgentVersion(
 	ctx context.Context,
 	machineName machine.Name,

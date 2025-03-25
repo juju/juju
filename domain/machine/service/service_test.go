@@ -836,6 +836,36 @@ func (s *serviceSuite) TestSetReportedMachineAgentVersionNotFound(c *gc.C) {
 	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
+func (s *serviceSuite) TestSetReportedMachineAgentVersionDead(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineUUID, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), cmachine.Name("0")).Return(
+		machineUUID.String(), nil,
+	)
+
+	s.state.EXPECT().SetRunningAgentBinaryVersion(
+		gomock.Any(),
+		machineUUID.String(),
+		coreagentbinary.Version{
+			Number: version.MustParse("1.2.3"),
+			Arch:   corearch.ARM64,
+		},
+	).Return(machineerrors.MachineDead)
+
+	err = NewService(s.state).SetReportedMachineAgentVersion(
+		context.Background(),
+		cmachine.Name("0"),
+		coreagentbinary.Version{
+			Number: version.MustParse("1.2.3"),
+			Arch:   corearch.ARM64,
+		},
+	)
+	c.Check(err, jc.ErrorIs, machineerrors.MachineDead)
+}
+
 // TestSetReportedMachineAgentVersion asserts the happy path of
 // [Service.SetReportedMachineAgentVersion].
 func (s *serviceSuite) TestSetReportedMachineAgentVersion(c *gc.C) {
