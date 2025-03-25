@@ -968,7 +968,7 @@ func (s *stateSuite) TestSetRunningAgentBinaryVersionMachineDead(c *gc.C) {
 			Arch:   corearch.Arch("noexist"),
 		},
 	)
-	c.Check(err, jc.ErrorIs, machineerrors.MachineDead)
+	c.Check(err, jc.ErrorIs, machineerrors.MachineIsDead)
 }
 
 // TestSetRunningAgentBinaryVersionNotSupportedArch tests that if we provide an

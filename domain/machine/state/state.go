@@ -432,7 +432,7 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 //
 // The following errors can be expected:
 // - [machineerrors.MachineNotFound] if the machine does not exist.
-// - [machineerrors.MachineDead] if the machine is dead.
+// - [machineerrors.MachineIsDead] if the machine is dead.
 // - [coreerrors.NotSupported] if the architecture is not known to the database.
 func (st *State) SetRunningAgentBinaryVersion(
 	ctx context.Context,
@@ -512,7 +512,7 @@ UPDATE SET version = excluded.version, architecture_id = excluded.architecture_i
 // to assert that a machine can be operated on inside of a transaction.
 // The following errors can be expected:
 // - [machineerrors.MachineNotFound] if the machine does not exist.
-// - [machineerrors.MachineDead] if the machine is dead.
+// - [machineerrors.MachineIsDead] if the machine is dead.
 func (st *State) checkMachineNotDead(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -537,7 +537,7 @@ SELECT &machineLife.* FROM machine WHERE uuid = $machineLife.uuid
 	}
 
 	if machineLife.LifeID == life.Dead {
-		return errors.Errorf("machine %q is dead", uuid).Add(machineerrors.MachineDead)
+		return errors.Errorf("machine %q is dead", uuid).Add(machineerrors.MachineIsDead)
 	}
 
 	return nil

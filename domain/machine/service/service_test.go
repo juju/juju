@@ -853,7 +853,7 @@ func (s *serviceSuite) TestSetReportedMachineAgentVersionDead(c *gc.C) {
 			Number: version.MustParse("1.2.3"),
 			Arch:   corearch.ARM64,
 		},
-	).Return(machineerrors.MachineDead)
+	).Return(machineerrors.MachineIsDead)
 
 	err = NewService(s.state).SetReportedMachineAgentVersion(
 		context.Background(),
@@ -863,7 +863,7 @@ func (s *serviceSuite) TestSetReportedMachineAgentVersionDead(c *gc.C) {
 			Arch:   corearch.ARM64,
 		},
 	)
-	c.Check(err, jc.ErrorIs, machineerrors.MachineDead)
+	c.Check(err, jc.ErrorIs, machineerrors.MachineIsDead)
 }
 
 // TestSetReportedMachineAgentVersion asserts the happy path of
