@@ -9,6 +9,7 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/worker/v3/catacomb"
 )
 
@@ -31,7 +32,7 @@ func NewController(
 	logger Logger,
 	mux Mux,
 	path string,
-	legacyLabels bool,
+	labelVersion constants.LabelVersion,
 	admissionCreator AdmissionCreator,
 	rbacMapper RBACMapper) (*Controller, error) {
 
@@ -42,7 +43,7 @@ func NewController(
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &c.catacomb,
 		Work: c.makeLoop(admissionCreator,
-			admissionHandler(logger, rbacMapper, legacyLabels),
+			admissionHandler(logger, rbacMapper, labelVersion),
 			logger, mux, path),
 	}); err != nil {
 		return c, errors.Trace(err)

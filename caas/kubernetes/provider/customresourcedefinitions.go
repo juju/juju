@@ -33,13 +33,13 @@ import (
 
 func (k *kubernetesClient) getAPIExtensionLabelsGlobal(appName string) map[string]string {
 	return utils.LabelsMerge(
-		utils.LabelsForApp(appName, k.IsLegacyLabels()),
-		utils.LabelsForModel(k.CurrentModel(), k.IsLegacyLabels()),
+		utils.LabelsForApp(appName, k.LabelVersion()),
+		utils.LabelsForModel(k.ModelName(), k.ModelUUID(), k.ControllerUUID(), k.LabelVersion()),
 	)
 }
 
 func (k *kubernetesClient) getAPIExtensionLabelsNamespaced(appName string) map[string]string {
-	return utils.LabelsForApp(appName, k.IsLegacyLabels())
+	return utils.LabelsForApp(appName, k.LabelVersion())
 }
 
 func (k *kubernetesClient) getCRLabels(appName string, scope apiextensionsv1.ResourceScope) map[string]string {

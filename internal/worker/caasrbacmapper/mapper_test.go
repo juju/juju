@@ -19,6 +19,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/mocks"
 	"github.com/juju/juju/internal/worker/caasrbacmapper"
 	coretesting "github.com/juju/juju/testing"
@@ -71,7 +72,7 @@ func (m *MapperSuite) TestMapperAdditionSync(c *gc.C) {
 		ObjectMeta: meta.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
-			Labels:    provider.RBACLabels(appName, "test-model", false, false),
+			Labels:    provider.RBACLabels(appName, "test-model", "badf00d", "d0gf00d", false, constants.LabelVersion1),
 			UID:       uid,
 		},
 	}
@@ -126,7 +127,7 @@ func (m *MapperSuite) TestRBACMapperUpdateSync(c *gc.C) {
 		ObjectMeta: meta.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
-			Labels:    provider.RBACLabels(appName, "test-model", false, false),
+			Labels:    provider.RBACLabels(appName, "test-model", "deadbeef", "badf00d", false, constants.LabelVersion1),
 			UID:       uid,
 		},
 	}
@@ -157,7 +158,7 @@ func (m *MapperSuite) TestRBACMapperUpdateSync(c *gc.C) {
 	// Update SA with a new app name to check propagation
 	appName = "test-2"
 	sa2 := sa.DeepCopy()
-	sa2.ObjectMeta.Labels = provider.RBACLabels(appName, "test-model", false, false)
+	sa2.ObjectMeta.Labels = provider.RBACLabels(appName, "test-model", "deadbeef", "badf00d", false, constants.LabelVersion1)
 	waitGroup.Add(1)
 	m.mockSANamespaceLister.EXPECT().Get(gomock.Eq(name)).
 		DoAndReturn(func(_ string) (*core.ServiceAccount, error) {
@@ -207,7 +208,7 @@ func (m *MapperSuite) TestRBACMapperDeleteSync(c *gc.C) {
 		ObjectMeta: meta.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
-			Labels:    provider.RBACLabels(appName, "test-model", false, false),
+			Labels:    provider.RBACLabels(appName, "test-model", "deadbeef", "badf00d", false, constants.LabelVersion1),
 			UID:       uid,
 		},
 	}

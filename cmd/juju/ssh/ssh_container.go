@@ -262,6 +262,8 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 			appName,
 			c.execClient.NameSpace(),
 			modelName,
+			c.modelUUID,
+			"", // TODO: wire up controller UUID
 		)
 
 		if err != nil {

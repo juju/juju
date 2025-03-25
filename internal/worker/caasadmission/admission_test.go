@@ -8,6 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 	admission "k8s.io/api/admissionregistration/v1"
 
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/internal/worker/caasadmission"
 	pkitest "github.com/juju/juju/pki/test"
 )
@@ -57,7 +58,7 @@ func (a *AdmissionSuite) TestAdmissionCreatorObject(c *gc.C) {
 	}
 
 	admissionCreator, err := caasadmission.NewAdmissionCreator(
-		authority, "testns", "testmodel", false,
+		authority, "testns", "testmodel", "deadbeef", "badf00d", constants.LabelVersion1,
 		func(obj *admission.MutatingWebhookConfiguration) (func(), error) {
 			ensureWebhookCalled = true
 

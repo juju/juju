@@ -94,7 +94,7 @@ func VolumeSourceForFilesystem(fs storage.KubernetesFilesystemParams) (*corev1.V
 }
 
 // StorageClassSpec converts storage provisioner config to k8s storage class.
-func StorageClassSpec(cfg k8s.StorageProvisioner, legacyLabels bool) *storagev1.StorageClass {
+func StorageClassSpec(cfg k8s.StorageProvisioner, labelVersion constants.LabelVersion) *storagev1.StorageClass {
 	sc := storagev1.StorageClass{}
 	sc.Name = constants.QualifiedStorageClassName(cfg.Namespace, cfg.Name)
 	sc.Provisioner = cfg.Provisioner
@@ -107,8 +107,8 @@ func StorageClassSpec(cfg k8s.StorageProvisioner, legacyLabels bool) *storagev1.
 		bindMode := storagev1.VolumeBindingMode(cfg.VolumeBindingMode)
 		sc.VolumeBindingMode = &bindMode
 	}
-	if cfg.Model != "" {
-		sc.Labels = utils.LabelsForModel(cfg.Model, legacyLabels)
+	if cfg.ModelName != "" {
+		sc.Labels = utils.LabelsForModel(cfg.ModelName, cfg.ModelUUID, cfg.ControllerUUID, labelVersion)
 	}
 	return &sc
 }
@@ -241,11 +241,12 @@ func PersistentVolumeClaimSpec(params VolumeParams) *corev1.PersistentVolumeClai
 }
 
 // StorageProvisioner returns storage provisioner.
-func StorageProvisioner(namespace, model string, params VolumeParams) k8s.StorageProvisioner {
+func StorageProvisioner(namespace, modelName, modelUUID string, params VolumeParams) k8s.StorageProvisioner {
 	return k8s.StorageProvisioner{
 		Name:          params.StorageConfig.StorageClass,
 		Namespace:     namespace,
-		Model:         model,
+		ModelName:     modelName,
+		ModelUUID:     modelUUID,
 		Provisioner:   params.StorageConfig.StorageProvisioner,
 		Parameters:    params.StorageConfig.Parameters,
 		ReclaimPolicy: string(params.StorageConfig.ReclaimPolicy),
