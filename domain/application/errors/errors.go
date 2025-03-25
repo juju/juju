@@ -137,6 +137,9 @@ const (
 	// base name is not supported.
 	CharmBaseNameNotSupported = errors.ConstError("charm base name not supported")
 
+	// CharmRelationNotFound indicates that a required relation for the charm could not be found.
+	CharmRelationNotFound = errors.ConstError("charm relation not found")
+
 	// CharmRelationKeyConflict describes an error that occurs when the charm
 	// has multiple relations with the same name
 	CharmRelationNameConflict = errors.ConstError("charm relation name conflict")
@@ -230,6 +233,9 @@ const (
 	// InvalidSecretConfig describes an error that occurs when the secret
 	// config is not valid.
 	InvalidSecretConfig = errors.ConstError("invalid secret config")
+
+	// SpaceNotFound is returned when the specified space cannot be found.
+	SpaceNotFound = errors.ConstError("space not found")
 )
 
 const (

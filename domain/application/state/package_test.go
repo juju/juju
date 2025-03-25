@@ -225,6 +225,11 @@ func (s *baseSuite) createApplication(c *gc.C, name string, l life.Life, units .
 						Scope: charm.ScopeGlobal,
 					},
 				},
+				ExtraBindings: map[string]charm.ExtraBinding{
+					"extra": {
+						Name: "extra",
+					},
+				},
 			},
 			Manifest:      s.minimalManifest(c),
 			ReferenceName: name,

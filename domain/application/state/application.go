@@ -92,10 +92,17 @@ func (st *State) CreateApplication(
 	}
 
 	appDetails := applicationDetails{
-		UUID:      appUUID,
-		Name:      name,
-		CharmID:   charmID.String(),
-		LifeID:    life.Alive,
+		UUID:    appUUID,
+		Name:    name,
+		CharmID: charmID.String(),
+		LifeID:  life.Alive,
+		// The space is defaulted to Alpha, which is guaranteed to exist.
+		// However, if there is default space defined in endpoints bindings
+		// (through a binding with an empty endpoint), the application space
+		// will be updated later in the transaction, during the insertion
+		// of application_endpoints.
+		// The space defined here will be used as default space when creating
+		// relation where application_endpoint doesn't have a defined space.
 		SpaceUUID: network.AlphaSpaceId,
 	}
 
@@ -218,6 +225,13 @@ func (st *State) CreateApplication(
 		if err := st.insertApplicationStatus(ctx, tx, appDetails.UUID, args.Status); err != nil {
 			return errors.Errorf("inserting status for application %q: %w", name, err)
 		}
+		if err := st.insertApplicationEndpoints(ctx, tx, insertApplicationEndpointsParams{
+			appID:     appDetails.UUID,
+			charmUUID: charmID,
+			bindings:  args.EndpointBindings,
+		}); err != nil {
+			return errors.Errorf("inserting exposed endpoints for application %q: %w", name, err)
+		}
 		if err = st.insertApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
 			return errors.Errorf("inserting units for application %q: %w", appUUID, err)
 		}
@@ -333,6 +347,11 @@ WHERE application_uuid = $applicationDetails.uuid
 		return errors.Capture(err)
 	}
 	app.UUID = appUUID
+
+	// delete application endpoints
+	if err := st.deleteApplicationEndpoints(ctx, tx, appUUID); err != nil {
+		return errors.Errorf("deleting application endpoints for application %q: %w", name, err)
+	}
 
 	// Check that there are no units.
 	var result countResult

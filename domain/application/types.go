@@ -64,6 +64,9 @@ type AddApplicationArg struct {
 	StoragePoolKind map[string]storage.StorageKind
 	// StorageParentDir is the parent directory for mounting charm storage.
 	StorageParentDir string
+	// EndpointBindings is a map to bind application endpoint by name to a
+	// specific space. The default space is referenced by an empty key, if any.
+	EndpointBindings map[string]network.SpaceName
 }
 
 // AddApplicationResourceArg defines the arguments required to add a resource to an application.

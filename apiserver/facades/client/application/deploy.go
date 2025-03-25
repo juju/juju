@@ -20,6 +20,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
@@ -197,6 +198,7 @@ func DeployApplication(
 				Storage:          args.Storage,
 				DownloadInfo:     downloadInfo,
 				PendingResources: pendingResources,
+				EndpointBindings: transformBindings(args.EndpointBindings),
 			},
 			unitArgs...,
 		)
@@ -205,6 +207,14 @@ func DeployApplication(
 		}
 	}
 	return app, errors.Trace(err)
+}
+
+func transformBindings(endpointBindings map[string]string) map[string]network.SpaceName {
+	bindings := make(map[string]network.SpaceName)
+	for endpoint, space := range endpointBindings {
+		bindings[endpoint] = network.SpaceName(space)
+	}
+	return bindings
 }
 
 func transformToPendingResources(argResources map[string]string) ([]coreresource.UUID, error) {
