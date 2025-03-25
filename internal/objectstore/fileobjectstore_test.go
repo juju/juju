@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	jujuerrors "github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
@@ -294,7 +293,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *gc.C) 
 		SHA256: hash256,
 		Path:   fileName,
 		Size:   size,
-	}, errors.NotFoundf("not found"))
+	}, jujuerrors.NotFoundf("not found"))
 	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{
 		SHA384: hash384,
 		SHA256: hash256,
@@ -328,7 +327,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256AndFileNotFoundThenFound(c
 		SHA256: hash256,
 		Path:   fileName,
 		Size:   size,
-	}, errors.NotFoundf("not found"))
+	}, jujuerrors.NotFoundf("not found"))
 	s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), hash256).Return(objectstore.Metadata{
 		SHA384: hash384,
 		SHA256: hash256,
@@ -363,7 +362,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileNotFoundThenF
 		SHA256: hash256,
 		Path:   fileName,
 		Size:   size,
-	}, errors.NotFoundf("not found"))
+	}, jujuerrors.NotFoundf("not found"))
 	s.service.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), hashPrefix).Return(objectstore.Metadata{
 		SHA384: hash384,
 		SHA256: hash256,
@@ -534,7 +533,7 @@ func (s *fileObjectStoreSuite) TestPutCleansUpFileOnMetadataFailure(c *gc.C) {
 		SHA256: hash256,
 		Path:   "foo",
 		Size:   12,
-	}).Return(uuid, errors.Errorf("boom"))
+	}).Return(uuid, jujuerrors.Errorf("boom"))
 
 	_, err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
@@ -577,7 +576,7 @@ func (s *fileObjectStoreSuite) TestPutDoesNotCleansUpFileOnMetadataFailure(c *gc
 		SHA256: hash256,
 		Path:   "foo",
 		Size:   12,
-	}).Return(uuid, errors.Errorf("boom"))
+	}).Return(uuid, jujuerrors.Errorf("boom"))
 
 	_, err = store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
@@ -685,7 +684,7 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashCleansUpFileOnMetadataFailure(
 		SHA256: hash256,
 		Path:   "foo",
 		Size:   12,
-	}).Return("", errors.Errorf("boom"))
+	}).Return("", jujuerrors.Errorf("boom"))
 
 	_, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash384)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
@@ -726,7 +725,7 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashDoesNotCleansUpFileOnMetadataF
 		SHA256: hash256,
 		Path:   "foo",
 		Size:   12,
-	}).Return("", errors.Errorf("boom"))
+	}).Return("", jujuerrors.Errorf("boom"))
 
 	_, err = store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash384)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
