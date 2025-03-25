@@ -33,6 +33,7 @@ func (t *ToolsImportSuite) TestPackageDependencies(c *gc.C) {
 		jc.SameContents,
 		[]string{
 			"core/credential",
+			"core/errors",
 			"core/life",
 			"core/logger",
 			"core/model",
