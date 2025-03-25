@@ -445,7 +445,7 @@ def generate_controller_config_docs():
 
 
 def generate_hook_command_docs():
-    hook_commands_reference_dir = 'reference/hook-commands/'
+    hook_commands_reference_dir = 'reference/hook-command/'
     generated_hook_commands_dir = hook_commands_reference_dir + 'list-of-hook-commands/'
     hook_index_header = hook_commands_reference_dir + 'hook_index'
 
@@ -459,7 +459,7 @@ def generate_hook_command_docs():
     if result.returncode != 0:
         raise Exception("error auto-generating hook commands: " + result.stderr)
 
-    # Remove 'help' and 'documentaion' files as they are not needed.
+    # Remove 'help' and 'documentation' files as they are not needed.
     if os.path.exists(generated_hook_commands_dir + 'help.md'):
         os.remove(generated_hook_commands_dir + 'help.md')
     if os.path.exists(generated_hook_commands_dir + 'documentation.md'):
