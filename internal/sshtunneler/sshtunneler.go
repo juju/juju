@@ -5,13 +5,13 @@ package sshtunneler
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/base64"
 	"net"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwt"
@@ -48,6 +48,7 @@ type SSHDial interface {
 type tunnelAuthentication struct {
 	sharedSecret []byte
 	jwtAlg       jwa.KeyAlgorithm
+	clock        clock.Clock
 }
 
 type tunnelRequest struct {
@@ -66,30 +67,36 @@ type tunnelTracker struct {
 	tracker    map[string]*tunnelRequest
 }
 
+// TunnelTrackerArgs holds the arguments for creating a new tunnel tracker.
+type TunnelTrackerArgs struct {
+	State          State
+	ControllerInfo ControllerInfo
+	Dialer         SSHDial
+	Clock          clock.Clock
+
+	// SharedSecret is the secret used to sign and validate JWTs.
+	SharedSecret []byte
+	// JWTAlg is the algorithm used to sign JWTs and should match
+	// the strength (number of bytes) of the SharedSecret.
+	JWTAlg jwa.KeyAlgorithm
+}
+
 // NewTunnelTracker creates a new tunnel tracker.
 // A tunnel tracker provides methods to create
 // SSH tunnels to machine units.
-func NewTunnelTracker(state State, controllerInfo ControllerInfo, dialer SSHDial) (*tunnelTracker, error) {
-	// The shared secret is generated dynamically because
-	// user's SSH connections to the controller only live
-	// while the controller is running.
-	// So a restart of the controller, and a new key is totally okay.
-	key := make([]byte, 64) // 64 bytes for HS512
-	if _, err := rand.Read(key); err != nil {
-		return nil, errors.Annotate(err, "failed to generate shared secret")
-	}
-
+func NewTunnelTracker(args TunnelTrackerArgs) (*tunnelTracker, error) {
 	authn := tunnelAuthentication{
-		jwtAlg:       jwa.HS512,
-		sharedSecret: key,
+		jwtAlg:       args.JWTAlg,
+		sharedSecret: args.SharedSecret,
+		clock:        args.Clock,
 	}
 
 	return &tunnelTracker{
 		tracker:    make(map[string]*tunnelRequest),
 		authn:      authn,
-		controller: controllerInfo,
-		state:      state,
-		dialer:     dialer,
+		controller: args.ControllerInfo,
+		state:      args.State,
+		dialer:     args.Dialer,
 	}, nil
 }
 
@@ -103,8 +110,8 @@ func (tAuth *tunnelAuthentication) generatePassword(tunnelID string) (string, er
 	token, err := jwt.NewBuilder().
 		Issuer(tokenIssuer).
 		Subject(tokenSubject).
-		IssuedAt(time.Now()).
-		Expiration(time.Now().Add(maxTimeout)).
+		IssuedAt(tAuth.clock.Now()).
+		Expiration(tAuth.clock.Now().Add(maxTimeout)).
 		Claim(tunnelIDClaim, tunnelID).
 		Build()
 	if err != nil {
@@ -125,7 +132,10 @@ func (tAuth *tunnelAuthentication) validatePassword(password string) (string, er
 		return "", errors.Annotate(err, "failed to decode token")
 	}
 
-	token, err := jwt.Parse(decodedToken, jwt.WithKey(tAuth.jwtAlg, tAuth.sharedSecret))
+	token, err := jwt.Parse(decodedToken,
+		jwt.WithKey(tAuth.jwtAlg, tAuth.sharedSecret),
+		jwt.WithClock(tAuth.clock),
+	)
 	if err != nil {
 		return "", errors.Annotate(err, "failed to parse token")
 	}
@@ -200,14 +210,18 @@ func (tt *tunnelTracker) RequestTunnel(req RequestArgs) (*tunnelRequest, error) 
 		dialer:     tt.dialer,
 	}
 
-	tt.mu.Lock()
-	tt.tracker[tunnelID.String()] = tunnelReq
-	tt.mu.Unlock()
+	tt.add(tunnelID.String(), tunnelReq)
 
 	return tunnelReq, nil
 }
 
-func (tt *tunnelTracker) getTunnel(tunnelID string) (*tunnelRequest, bool) {
+func (tt *tunnelTracker) add(tunnelID string, req *tunnelRequest) {
+	tt.mu.Lock()
+	defer tt.mu.Unlock()
+	tt.tracker[tunnelID] = req
+}
+
+func (tt *tunnelTracker) get(tunnelID string) (*tunnelRequest, bool) {
 	tt.mu.Lock()
 	defer tt.mu.Unlock()
 	req, ok := tt.tracker[tunnelID]
@@ -246,7 +260,7 @@ func (tt *tunnelTracker) AuthenticateTunnel(username, password string) (tunnelID
 // appropriate tunnel request. Use context.WithTimeout to control
 // the maximum time to wait.
 func (tt *tunnelTracker) PushTunnel(ctx context.Context, tunnelID string, conn net.Conn) error {
-	req, ok := tt.getTunnel(tunnelID)
+	req, ok := tt.get(tunnelID)
 	if !ok {
 		return errors.New("tunnel not found")
 	}
