@@ -23,14 +23,22 @@ type ResourceStore interface {
 	) (r io.ReadCloser, size int64, err error)
 
 	// Put stores data from io.Reader in the resource store using the storage
-	// key.
+	// key. It takes a storageKey which is used as an identifier for the stored
+	// resource, a reader for the resource blob, and a size and fingerprint to
+	// validate the resource blob against.
+	//
+	// It returns the storage ID, which can be used to refer to the stored
+	// resource in the database, note that this may be different from the
+	// storageKey. It also returns the size and fingerprint of the stored
+	// resource, which may differ from the size and fingerprint passed in for
+	// validation.
 	Put(
 		ctx context.Context,
 		storageKey string,
 		r io.Reader,
 		size int64,
 		fingerprint Fingerprint,
-	) (ID, error)
+	) (ID, int64, Fingerprint, error)
 
 	// Remove removes a resource from storage.
 	Remove(

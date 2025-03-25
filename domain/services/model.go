@@ -376,7 +376,9 @@ func (s *ModelServices) Resource() *resourceservice.Service {
 			containerimageresourcestorestate.NewState(
 				changestream.NewTxnRunnerFactory(s.modelDB),
 				s.logger.Child("containerimageresourcestore.state"),
-			))
+			),
+			s.logger.Child("containerimageresourcestore.service"),
+		)
 	}
 	resourceStoreFactory := store.NewResourceStoreFactory(
 		s.objectstore,
