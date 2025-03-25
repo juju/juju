@@ -36,9 +36,11 @@ func NewLogSinkServices(
 
 // ControllerConfig returns the controller configuration service.
 func (s *LogSinkServices) ControllerConfig() *controllerconfigservice.WatchableService {
+	logger := s.loggerFor("controllerconfig")
+
 	return controllerconfigservice.NewWatchableService(
 		controllerconfigstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		s.controllerWatcherFactory(),
+		s.controllerWatcherFactory(logger),
 	)
 }
 

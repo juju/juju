@@ -76,9 +76,11 @@ func (s *ControllerServices) Controller() *controllerservice.Service {
 
 // ControllerConfig returns the controller configuration service.
 func (s *ControllerServices) ControllerConfig() *controllerconfigservice.WatchableService {
+	logger := s.loggerFor("controllerconfig")
+
 	return controllerconfigservice.NewWatchableService(
 		controllerconfigstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		s.controllerWatcherFactory(),
+		s.controllerWatcherFactory(logger),
 	)
 }
 
@@ -91,11 +93,13 @@ func (s *ControllerServices) ControllerNode() *controllernodeservice.Service {
 
 // Model returns the model service.
 func (s *ControllerServices) Model() *modelservice.WatchableService {
+	logger := s.loggerFor("model")
+
 	return modelservice.NewWatchableService(
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.dbDeleter,
-		s.loggerFor("model"),
-		s.controllerWatcherFactory(),
+		logger,
+		s.controllerWatcherFactory(logger),
 	)
 }
 
@@ -109,26 +113,32 @@ func (s *ControllerServices) ModelDefaults() *modeldefaultsservice.Service {
 
 // ExternalController returns the external controller service.
 func (s *ControllerServices) ExternalController() *externalcontrollerservice.WatchableService {
+	logger := s.loggerFor("externalcontroller")
+
 	return externalcontrollerservice.NewWatchableService(
 		externalcontrollerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		s.controllerWatcherFactory(),
+		s.controllerWatcherFactory(logger),
 	)
 }
 
 // Credential returns the credential service.
 func (s *ControllerServices) Credential() *credentialservice.WatchableService {
+	logger := s.loggerFor("credential")
+
 	return credentialservice.NewWatchableService(
 		credentialstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		s.controllerWatcherFactory(),
-		s.loggerFor("credential"),
+		s.controllerWatcherFactory(logger),
+		logger,
 	)
 }
 
 // Cloud returns the cloud service.
 func (s *ControllerServices) Cloud() *cloudservice.WatchableService {
+	logger := s.loggerFor("cloud")
+
 	return cloudservice.NewWatchableService(
 		cloudstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		s.controllerWatcherFactory(),
+		s.controllerWatcherFactory(logger),
 	)
 }
 
@@ -142,9 +152,11 @@ func (s *ControllerServices) AutocertCache() *autocertcacheservice.Service {
 
 // Upgrade returns the upgrade service.
 func (s *ControllerServices) Upgrade() *upgradeservice.WatchableService {
+	logger := s.loggerFor("upgrade")
+
 	return upgradeservice.NewWatchableService(
 		upgradestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		s.controllerWatcherFactory(),
+		s.controllerWatcherFactory(logger),
 	)
 }
 
@@ -168,7 +180,7 @@ func (s *ControllerServices) SecretBackend() *secretbackendservice.WatchableServ
 	return secretbackendservice.NewWatchableService(
 		secretbackendstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), logger),
 		logger,
-		s.controllerWatcherFactory(),
+		s.controllerWatcherFactory(logger),
 	)
 }
 

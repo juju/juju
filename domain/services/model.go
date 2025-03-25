@@ -146,6 +146,8 @@ func (s *ModelServices) AgentProvisioner() *agentprovisionerservice.Service {
 
 // Config returns the model's configuration service.
 func (s *ModelServices) Config() *modelconfigservice.WatchableService {
+	logger := s.loggerFor("config")
+
 	defaultsProvider := modeldefaultsservice.NewService(
 		modeldefaultsservice.ProviderModelConfigGetter(),
 		modeldefaultsstate.NewState(
@@ -156,25 +158,29 @@ func (s *ModelServices) Config() *modelconfigservice.WatchableService {
 		defaultsProvider,
 		config.ModelValidator(),
 		modelconfigstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		s.modelWatcherFactory(),
+		s.modelWatcherFactory(logger),
 	)
 }
 
 // Machine returns the model's machine service.
 func (s *ModelServices) Machine() *machineservice.WatchableService {
+	logger := s.loggerFor("machine")
+
 	return machineservice.NewWatchableService(
-		machinestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, s.loggerFor("machine")),
-		s.modelWatcherFactory(),
+		machinestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger),
+		s.modelWatcherFactory(logger),
 		providertracker.ProviderRunner[machineservice.Provider](s.providerFactory, s.modelUUID.String()),
 	)
 }
 
 // BlockDevice returns the model's block device service.
 func (s *ModelServices) BlockDevice() *blockdeviceservice.WatchableService {
+	logger := s.loggerFor("blockdevice")
+
 	return blockdeviceservice.NewWatchableService(
 		blockdevicestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		s.modelWatcherFactory(),
-		s.loggerFor("blockdevice"),
+		s.modelWatcherFactory(logger),
+		logger,
 	)
 }
 
@@ -187,7 +193,7 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		domain.NewLeaseService(s.leaseManager),
 		s.storageRegistry,
 		s.modelUUID,
-		s.modelWatcherFactory(),
+		s.modelWatcherFactory(logger),
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[applicationservice.SupportedFeatureProvider](s.providerFactory, s.modelUUID.String()),
@@ -234,6 +240,8 @@ func (s *ModelServices) KeyManagerWithImporter() *keymanagerservice.ImporterServ
 // KeyUpdater returns the model's key updater service. Use this service when
 // wanting to retrieve the authorised ssh public keys for a model.
 func (s *ModelServices) KeyUpdater() *keyupdaterservice.WatchableService {
+	logger := s.loggerFor("keyupdater")
+
 	controllerState := keyupdaterstate.NewControllerState(
 		changestream.NewTxnRunnerFactory(s.controllerDB),
 	)
@@ -241,7 +249,7 @@ func (s *ModelServices) KeyUpdater() *keyupdaterservice.WatchableService {
 		keyupdaterservice.NewControllerKeyService(controllerState),
 		controllerState,
 		keyupdaterstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		s.controllerWatcherFactory(),
+		s.controllerWatcherFactory(logger),
 	)
 }
 
@@ -252,7 +260,7 @@ func (s *ModelServices) Network() *networkservice.WatchableService {
 	return networkservice.NewWatchableService(
 		networkstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), logger),
 		providertracker.ProviderRunner[networkservice.Provider](s.providerFactory, s.modelUUID.String()),
-		s.modelWatcherFactory(),
+		s.modelWatcherFactory(logger),
 		logger,
 	)
 }
@@ -283,7 +291,7 @@ func (s *ModelServices) Secret() *secretservice.WatchableService {
 		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), logger),
 		secretbackendstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), logger),
 		domain.NewLeaseService(s.leaseManager),
-		s.modelWatcherFactory(),
+		s.modelWatcherFactory(logger),
 		logger,
 	)
 }
@@ -309,9 +317,11 @@ func (s *ModelServices) ModelSecretBackend() *secretbackendservice.ModelSecretBa
 
 // Agent returns the model's agent service.
 func (s *ModelServices) Agent() *modelagentservice.Service {
+	logger := s.loggerFor("modelagent")
+
 	return modelagentservice.NewService(
 		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		s.modelWatcherFactory(),
+		s.modelWatcherFactory(logger),
 	)
 }
 
@@ -357,10 +367,12 @@ func (s *ModelServices) CloudImageMetadata() *cloudimagemetadataservice.Service 
 
 // Port returns the service for managing opened port ranges for units.
 func (s *ModelServices) Port() *portservice.WatchableService {
+	logger := s.loggerFor("port")
+
 	return portservice.NewWatchableService(
 		portstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		s.modelWatcherFactory(),
-		s.loggerFor("port"),
+		s.modelWatcherFactory(logger),
+		logger,
 	)
 }
 
@@ -412,7 +424,7 @@ func (s *ModelServices) Relation() *relationservice.WatchableService {
 			s.clock,
 			logger,
 		),
-		s.modelWatcherFactory(),
+		s.modelWatcherFactory(logger),
 		logger,
 	)
 }
@@ -424,7 +436,7 @@ func (s *ModelServices) Removal() *removalservice.WatchableService {
 
 	return removalservice.NewWatchableService(
 		removalstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), logger),
-		s.modelWatcherFactory(),
+		s.modelWatcherFactory(logger),
 		s.clock,
 		logger,
 	)

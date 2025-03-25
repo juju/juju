@@ -40,7 +40,7 @@ func NewObjectStoreServices(
 func (s *ObjectStoreServices) ControllerConfig() *controllerconfigservice.WatchableService {
 	return controllerconfigservice.NewWatchableService(
 		controllerconfigstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		s.controllerWatcherFactory(),
+		s.controllerWatcherFactory(s.loggerFor("controllerconfig")),
 	)
 }
 
@@ -48,7 +48,7 @@ func (s *ObjectStoreServices) ControllerConfig() *controllerconfigservice.Watcha
 func (s *ObjectStoreServices) AgentObjectStore() *objectstoreservice.WatchableService {
 	return objectstoreservice.NewWatchableService(
 		objectstorestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		s.controllerWatcherFactory(),
+		s.controllerWatcherFactory(s.loggerFor("agentobjectstore")),
 	)
 }
 
@@ -56,6 +56,6 @@ func (s *ObjectStoreServices) AgentObjectStore() *objectstoreservice.WatchableSe
 func (s *ObjectStoreServices) ObjectStore() *objectstoreservice.WatchableService {
 	return objectstoreservice.NewWatchableService(
 		objectstorestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		s.modelWatcherFactory(),
+		s.modelWatcherFactory(s.loggerFor("objectstore")),
 	)
 }

@@ -17,10 +17,10 @@ type serviceFactoryBase struct {
 	logger       logger.Logger
 }
 
-func (s *serviceFactoryBase) controllerWatcherFactory() *domain.WatcherFactory {
+func (s *serviceFactoryBase) controllerWatcherFactory(logger logger.Logger) *domain.WatcherFactory {
 	return domain.NewWatcherFactory(
 		s.controllerDB,
-		s.logger,
+		logger,
 	)
 }
 
@@ -39,9 +39,9 @@ type modelServiceFactoryBase struct {
 	modelDB changestream.WatchableDBFactory
 }
 
-func (s *modelServiceFactoryBase) modelWatcherFactory() *domain.WatcherFactory {
+func (s *modelServiceFactoryBase) modelWatcherFactory(logger logger.Logger) *domain.WatcherFactory {
 	return domain.NewWatcherFactory(
 		s.modelDB,
-		s.logger,
+		logger,
 	)
 }

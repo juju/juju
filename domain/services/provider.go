@@ -53,7 +53,7 @@ func (s *ProviderServices) Model() *modelservice.ProviderService {
 func (s *ProviderServices) Cloud() *cloudservice.WatchableProviderService {
 	return cloudservice.NewWatchableProviderService(
 		cloudstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		s.controllerWatcherFactory(),
+		s.controllerWatcherFactory(s.loggerFor("cloud")),
 	)
 }
 
@@ -61,7 +61,7 @@ func (s *ProviderServices) Cloud() *cloudservice.WatchableProviderService {
 func (s *ProviderServices) Credential() *credentialservice.WatchableProviderService {
 	return credentialservice.NewWatchableProviderService(
 		credentialstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		s.controllerWatcherFactory(),
+		s.controllerWatcherFactory(s.loggerFor("credential")),
 	)
 }
 
@@ -69,6 +69,6 @@ func (s *ProviderServices) Credential() *credentialservice.WatchableProviderServ
 func (s *ProviderServices) Config() *modelconfigservice.WatchableProviderService {
 	return modelconfigservice.NewWatchableProviderService(
 		modelconfigstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		s.modelWatcherFactory(),
+		s.modelWatcherFactory(s.loggerFor("config")),
 	)
 }
