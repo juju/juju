@@ -14,7 +14,6 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/storage"
@@ -1095,6 +1094,14 @@ type peerEndpoint struct {
 	UUID corerelation.EndpointUUID `db:"uuid"`
 	// Name is the human-readable name of the peer endpoint.
 	Name string `db:"name"`
+}
+
+// leadership represents a single row from the leadership table for
+// applications.
+type leadership struct {
+	ModelUUID string `db:"model_uuid"`
+	Name      string `db:"name"`
+	Holder    string `db:"holder"`
 }
 
 type setExposedSpace struct {
