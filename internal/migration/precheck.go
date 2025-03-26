@@ -512,7 +512,16 @@ func versionToMajMin(ver semversion.Number) semversion.Number {
 func checkForCharmsWithNoManifest(model description.Model) error {
 	result := set.NewStrings()
 	for _, app := range model.Applications() {
-		if len(app.CharmManifest().Bases()) == 0 {
+		if app == nil {
+			return internalerrors.Errorf("model contains nil application")
+		}
+
+		manifest := app.CharmManifest()
+		if manifest == nil {
+			result.Add(app.Name())
+			continue
+		}
+		if len(manifest.Bases()) == 0 {
 			result.Add(app.Name())
 		}
 	}
