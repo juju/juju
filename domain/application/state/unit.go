@@ -574,14 +574,10 @@ func (st *State) SetRunningAgentBinaryVersion(ctx context.Context, uuid coreunit
 		return errors.Capture(err)
 	}
 
-	type ArchitectureMap struct {
-		ID   int    `db:"id"`
-		Name string `db:"name"`
-	}
-	archMap := ArchitectureMap{Name: version.Arch}
+	archMap := architectureMap{Name: version.Arch}
 
 	archMapStmt, err := st.Prepare(`
-SELECT id AS &ArchitectureMap.id FROM architecture WHERE name = $ArchitectureMap.name
+SELECT id AS &architectureMap.id FROM architecture WHERE name = $architectureMap.name
 `, archMap)
 	if err != nil {
 		return errors.Capture(err)
@@ -589,19 +585,14 @@ SELECT id AS &ArchitectureMap.id FROM architecture WHERE name = $ArchitectureMap
 
 	unitUUID := unitUUID{UnitUUID: uuid}
 
-	type UnitAgentVersion struct {
-		UnitUUID      string `db:"unit_uuid"`
-		Version       string `db:"version"`
-		ArchtectureID int    `db:"architecture_id"`
-	}
-	unitAgentVersion := UnitAgentVersion{
+	unitAgentVersion := unitAgentVersion{
 		UnitUUID: unitUUID.UnitUUID.String(),
 		Version:  version.Number.String(),
 	}
 
 	upsertRunningVersionStmt, err := st.Prepare(`
 INSERT INTO unit_agent_version (*)
-VALUES ($UnitAgentVersion.*)
+VALUES ($unitAgentVersion.*)
 ON CONFLICT (unit_uuid) DO
 UPDATE SET version = excluded.version,
            architecture_id = excluded.architecture_id
