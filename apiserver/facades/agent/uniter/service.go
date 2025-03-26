@@ -255,7 +255,7 @@ type RelationService interface {
 
 	// GetRelationDetails returns the relation details requested by the uniter
 	// for a relation.
-	GetRelationDetails(ctx context.Context, relationID int) (relation.RelationDetails, error)
+	GetRelationDetails(ctx context.Context, relationUUID corerelation.UUID) (relation.RelationDetails, error)
 
 	// GetRelationUnit returns the relation unit UUID for the given unit within
 	// the given relation.
@@ -285,12 +285,9 @@ type RelationService interface {
 	// GetRelationStatus returns the status of the given relation.
 	GetRelationStatus(ctx context.Context, relationUUID corerelation.UUID) (corestatus.StatusInfo, error)
 
-	// GetRelationID returns the relation ID for the given relation UUID.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
-	//     is not found.
-	GetRelationID(ctx context.Context, relationUUID corerelation.UUID) (int, error)
+	// GetRelationsStatusesForUnit returns RelationUnitStatus for
+	// any relation the unit is part of.
+	GetRelationsStatusForUnit(ctx context.Context, unitUUID coreunit.UUID) ([]relation.RelationUnitStatus, error)
 
 	// GetRemoteRelationApplicationSettings returns the application settings
 	// for the given application and relation identifier combination.

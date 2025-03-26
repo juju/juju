@@ -11,6 +11,7 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
@@ -54,7 +55,7 @@ func (st *State) GetAllRelationDetails(ctx context.Context) ([]relation.Relation
 		}
 
 		for _, rel := range relations {
-			details, err := st.getRelationDetails(ctx, tx, rel.ID)
+			details, err := st.getRelationDetails(ctx, tx, rel.UUID)
 			if err != nil {
 				return errors.Errorf("getting relation details: %w", err)
 			}
@@ -307,7 +308,7 @@ func (st *State) getEndpoints(
 	uuid corerelation.UUID,
 ) ([]relation.Endpoint, error) {
 	id := relationUUID{
-		UUID: uuid.String(),
+		UUID: uuid,
 	}
 	stmt, err := st.Prepare(`
 SELECT &endpoint.*
@@ -392,7 +393,7 @@ AND    e2.endpoint_name    = $endpointIdentifier2.endpoint_name
 		return "", errors.Errorf("found multiple relations for endpoint pair")
 	}
 
-	return corerelation.UUID(uuid[0].UUID), nil
+	return uuid[0].UUID, nil
 }
 
 // GetPeerRelationUUIDByEndpointIdentifiers gets the UUID of a peer
@@ -457,7 +458,7 @@ AND    e.endpoint_name    = $endpointIdentifier.endpoint_name
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationNotFound] is returned if the relation UUID
 //     is not found.
-func (st *State) GetRelationDetails(ctx context.Context, relationID int) (relation.RelationDetailsResult, error) {
+func (st *State) GetRelationDetails(ctx context.Context, relationUUID corerelation.UUID) (relation.RelationDetailsResult, error) {
 	db, err := st.DB()
 	var result relation.RelationDetailsResult
 	if err != nil {
@@ -465,7 +466,7 @@ func (st *State) GetRelationDetails(ctx context.Context, relationID int) (relati
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		result, err = st.getRelationDetails(ctx, tx, relationID)
+		result, err = st.getRelationDetails(ctx, tx, relationUUID)
 		return errors.Capture(err)
 	})
 	return result, errors.Capture(err)
@@ -505,14 +506,15 @@ WHERE  uuid = $search.uuid
 	return true, nil
 }
 
-// getAllRelations retrieves all relations from the database, returning a slice of relationIDAndUUID or an error.
-func (st *State) getAllRelations(ctx context.Context, tx *sqlair.TX) ([]relationIDAndUUID, error) {
-	var result []relationIDAndUUID
+// getAllRelations retrieves all relations from the database, returning a slice
+// of relationUUID or an error.
+func (st *State) getAllRelations(ctx context.Context, tx *sqlair.TX) ([]relationUUID, error) {
+	var result []relationUUID
 
 	stmt, err := st.Prepare(`
-SELECT &relationIDAndUUID.*
+SELECT &relationUUID.*
 FROM   relation
-`, relationIDAndUUID{})
+`, relationUUID{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -521,15 +523,20 @@ FROM   relation
 	return result, errors.Capture(err)
 }
 
-func (st *State) getRelationDetails(ctx context.Context, tx *sqlair.TX, relationID int) (relation.RelationDetailsResult, error) {
-	rel := relationUUIDLifeID{
-		ID: relationID,
+func (st *State) getRelationDetails(ctx context.Context, tx *sqlair.TX, relationUUID corerelation.UUID) (relation.RelationDetailsResult, error) {
+	type getRelation struct {
+		UUID corerelation.UUID `db:"uuid"`
+		ID   int               `db:"relation_id"`
+		Life life.Value        `db:"value"`
+	}
+	rel := getRelation{
+		UUID: relationUUID,
 	}
 	stmt, err := st.Prepare(`
-SELECT (r.uuid, r.relation_id, l.value) AS (&relationUUIDLifeID.*)
+SELECT (r.uuid, r.relation_id, l.value) AS (&getRelation.*)
 FROM   relation r
 JOIN   life l ON r.life_id = l.id
-WHERE  relation_id = $relationUUIDLifeID.relation_id
+WHERE  r.uuid = $getRelation.uuid
 `, rel)
 	if err != nil {
 		return relation.RelationDetailsResult{}, errors.Capture(err)
