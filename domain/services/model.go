@@ -400,7 +400,7 @@ func (s *ModelServices) Resource() *resourceservice.Service {
 func (s *ModelServices) Relation() *relationservice.WatchableService {
 	return relationservice.NewWatchableService(
 		relationstate.NewState(
-			changestream.NewTxnRunnerFactory(s.controllerDB),
+			changestream.NewTxnRunnerFactory(s.modelDB),
 			s.clock,
 			s.logger.Child("relation.state"),
 		),
