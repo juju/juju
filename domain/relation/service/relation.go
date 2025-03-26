@@ -238,20 +238,6 @@ func (s *Service) GetRelationDetails(ctx context.Context, relationID int) (relat
 	}, nil
 }
 
-// GetRelationDetailsForUnit RelationDetails for the given relationID
-// and unit combination
-func (s *Service) GetRelationDetailsForUnit(
-	ctx context.Context,
-	relationUUID corerelation.UUID,
-	unitName unit.Name,
-) (relation.RelationDetails, error) {
-	// TODO (hml) 2025-03-11
-	// During implementation investigate the difference between the
-	// service methods returning RelationDetails and how their use
-	// by the uniter facade truly differs. Are both needed?
-	return relation.RelationDetails{}, coreerrors.NotImplemented
-}
-
 // GetRelationEndpoint returns the endpoint for the given application and
 // relation identifier combination.
 func (s *Service) GetRelationEndpoint(
