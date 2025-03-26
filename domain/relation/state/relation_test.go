@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"slices"
 
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
@@ -13,6 +14,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corerelation "github.com/juju/juju/core/relation"
+	relationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -59,6 +61,45 @@ func (s *relationSuite) SetUpTest(c *gc.C) {
 	s.addCharmRelationWithDefaults(c, fakeCharmUUID1, s.constants.fakeCharmRelationProvidesUUID)
 	s.addApplication(c, fakeCharmUUID1, s.constants.fakeApplicationUUID1, s.constants.fakeApplicationName1)
 	s.addApplication(c, fakeCharmUUID2, s.constants.fakeApplicationUUID2, s.constants.fakeApplicationName2)
+}
+
+// TestAllRelation verifies that all relations are retrieved from the state
+// and checks if the returned list is sorted.
+func (s *relationSuite) TestAllRelation(c *gc.C) {
+	// Arrange
+	expectedUUIDs := []corerelation.UUID{
+		relationtesting.GenRelationUUID(c),
+		relationtesting.GenRelationUUID(c),
+		relationtesting.GenRelationUUID(c),
+		relationtesting.GenRelationUUID(c),
+		relationtesting.GenRelationUUID(c),
+		relationtesting.GenRelationUUID(c),
+	}
+	for _, uuid := range expectedUUIDs {
+		s.addRelation(c, uuid.String())
+	}
+	slices.Sort(expectedUUIDs) // output should be sorted
+
+	// Act
+	relationUUIDs, err := s.state.AllRelations(context.Background())
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error: %v", errors.ErrorStack(err)))
+	c.Assert(relationUUIDs, gc.DeepEquals, expectedUUIDs)
+}
+
+// TestAllRelationNoRelation verifies that no error neither relation are
+// returned when there are no existing relations in the state.
+func (s *relationSuite) TestAllRelationNoRelation(c *gc.C) {
+	// Arrange
+	// No relation
+
+	// Act
+	relationUUIDs, err := s.state.AllRelations(context.Background())
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error: %v", errors.ErrorStack(err)))
+	c.Assert(relationUUIDs, gc.HasLen, 0)
 }
 
 func (s *relationSuite) TestGetRelationID(c *gc.C) {

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/database"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain"
@@ -38,7 +37,35 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 
 // AllRelations retrieves all unique identifiers for relations within the current model.
 func (st *State) AllRelations(ctx context.Context) ([]corerelation.UUID, error) {
-	return nil, coreerrors.NotImplemented
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	stmt, err := st.Prepare(`
+SELECT &relationUUID.uuid
+FROM relation
+ORDER BY uuid`, relationUUID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var relations []relationUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt).GetAll(&relations)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result []corerelation.UUID
+	for _, uuid := range relations {
+		result = append(result, corerelation.UUID(uuid.UUID))
+	}
+	return result, nil
 }
 
 // GetRelationID returns the relation ID for the given relation UUID.
