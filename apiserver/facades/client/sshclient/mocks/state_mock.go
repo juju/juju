@@ -102,19 +102,19 @@ func (mr *MockBackendMockRecorder) GetSSHHostKeys(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSSHHostKeys", reflect.TypeOf((*MockBackend)(nil).GetSSHHostKeys), arg0)
 }
 
-// MachineVirtualPublicHostKeyPEM mocks base method.
-func (m *MockBackend) MachineVirtualPublicHostKeyPEM(arg0 string) (string, error) {
+// MachineVirtualHostKeySSHAuthKeyFormat mocks base method.
+func (m *MockBackend) MachineVirtualHostKeySSHAuthKeyFormat(arg0 string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MachineVirtualPublicHostKeyPEM", arg0)
+	ret := m.ctrl.Call(m, "MachineVirtualHostKeySSHAuthKeyFormat", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// MachineVirtualPublicHostKeyPEM indicates an expected call of MachineVirtualPublicHostKeyPEM.
-func (mr *MockBackendMockRecorder) MachineVirtualPublicHostKeyPEM(arg0 any) *gomock.Call {
+// MachineVirtualHostKeySSHAuthKeyFormat indicates an expected call of MachineVirtualHostKeySSHAuthKeyFormat.
+func (mr *MockBackendMockRecorder) MachineVirtualHostKeySSHAuthKeyFormat(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineVirtualPublicHostKeyPEM", reflect.TypeOf((*MockBackend)(nil).MachineVirtualPublicHostKeyPEM), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineVirtualHostKeySSHAuthKeyFormat", reflect.TypeOf((*MockBackend)(nil).MachineVirtualHostKeySSHAuthKeyFormat), arg0)
 }
 
 // Model mocks base method.
@@ -176,19 +176,19 @@ func (mr *MockBackendMockRecorder) SSHServerHostKey() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SSHServerHostKey", reflect.TypeOf((*MockBackend)(nil).SSHServerHostKey))
 }
 
-// UnitVirtualPublicHostKeyPEM mocks base method.
-func (m *MockBackend) UnitVirtualPublicHostKeyPEM(arg0 string) (string, error) {
+// UnitVirtualHostKeySSHAuthKeyFormat mocks base method.
+func (m *MockBackend) UnitVirtualHostKeySSHAuthKeyFormat(arg0 string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnitVirtualPublicHostKeyPEM", arg0)
+	ret := m.ctrl.Call(m, "UnitVirtualHostKeySSHAuthKeyFormat", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// UnitVirtualPublicHostKeyPEM indicates an expected call of UnitVirtualPublicHostKeyPEM.
-func (mr *MockBackendMockRecorder) UnitVirtualPublicHostKeyPEM(arg0 any) *gomock.Call {
+// UnitVirtualHostKeySSHAuthKeyFormat indicates an expected call of UnitVirtualHostKeySSHAuthKeyFormat.
+func (mr *MockBackendMockRecorder) UnitVirtualHostKeySSHAuthKeyFormat(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitVirtualPublicHostKeyPEM", reflect.TypeOf((*MockBackend)(nil).UnitVirtualPublicHostKeyPEM), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitVirtualHostKeySSHAuthKeyFormat", reflect.TypeOf((*MockBackend)(nil).UnitVirtualHostKeySSHAuthKeyFormat), arg0)
 }
 
 // MockModel is a mock of Model interface.

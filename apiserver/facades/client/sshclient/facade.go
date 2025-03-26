@@ -362,14 +362,14 @@ func (facade *Facade) PublicHostKeyForTarget(arg params.SSHHostKeyRequestArg) pa
 	switch info.Target() {
 	case virtualhostname.MachineTarget:
 		machineId, _ := info.Machine()
-		hostkey, err = facade.backend.MachineVirtualPublicHostKeyPEM(strconv.Itoa(machineId))
+		hostkey, err = facade.backend.MachineVirtualHostKeySSHAuthKeyFormat(strconv.Itoa(machineId))
 		if err != nil {
 			res.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to get machine host key"))
 			return res
 		}
 	case virtualhostname.ContainerTarget, virtualhostname.UnitTarget:
 		unitName, _ := info.Unit()
-		hostkey, err = facade.backend.UnitVirtualPublicHostKeyPEM(unitName)
+		hostkey, err = facade.backend.UnitVirtualHostKeySSHAuthKeyFormat(unitName)
 		if err != nil {
 			res.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to get unit host key"))
 			return res

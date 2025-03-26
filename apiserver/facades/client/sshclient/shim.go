@@ -6,6 +6,7 @@ package sshclient
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/network"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -29,13 +30,13 @@ type Backend interface {
 	// bootstrap-state and is currently a FIXED value.
 	SSHServerHostKey() (string, error)
 
-	// UnitVirtualPublicHostKeyPEM calls the underlying UnitVirtualHostKey state method
-	// and encodes the result into a PEM string.
-	UnitVirtualPublicHostKeyPEM(unitID string) (string, error)
+	// UnitVirtualHostKeySSHAuthKeyFormat calls the underlying UnitVirtualHostKey state method
+	// and encodes the result into SSH authorised key format.
+	UnitVirtualHostKeySSHAuthKeyFormat(unitID string) (string, error)
 
-	// MachineVirtualPublicHostKeyPEM calls the underlying MachineVirtualHostKey state method
-	// and encodes the result into a PEM string.
-	MachineVirtualPublicHostKeyPEM(machineID string) (string, error)
+	// MachineVirtualHostKeySSHAuthKeyFormat calls the underlying MachineVirtualHostKey state method
+	// and encodes the result into SSH authorised key format.
+	MachineVirtualHostKeySSHAuthKeyFormat(machineID string) (string, error)
 }
 
 // Model defines a point of use interface for the model from state.
@@ -148,26 +149,34 @@ func (b *backend) GetMachineForEntity(tagString string) (SSHMachine, error) {
 	}
 }
 
-// UnitVirtualPublicHostKey calls the underlying UnitVirtualHostKey state method
-// and encodes the result into a PEM string.
-func (b *backend) UnitVirtualPublicHostKeyPEM(unitID string) (string, error) {
+// UnitVirtualHostKeySSHAuthKeyFormat calls the underlying UnitVirtualHostKey state method
+// and encodes the result into SSH authorised key format.
+func (b *backend) UnitVirtualHostKeySSHAuthKeyFormat(unitID string) (string, error) {
 	// The keys are persisted PEM encoded.
 	vhk, err := b.State.UnitVirtualHostKey(unitID)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+	signer, err := ssh.ParsePrivateKey(vhk.HostKey())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 
-	return string(vhk.HostKey()), nil
+	return string(ssh.MarshalAuthorizedKey(signer.PublicKey())), nil
 }
 
-// MachineVirtualPublicHostKey calls the underlying MachineVirtualHostKey state method
-// and encodes the result into a PEM string.
-func (b *backend) MachineVirtualPublicHostKeyPEM(machineID string) (string, error) {
-	// The keys are persisted PEM encoded.
+// MachineVirtualHostKeySSHAuthKeyFormat calls the underlying MachineVirtualHostKey state method
+// and encodes the result into SSH authorised key format.
+func (b *backend) MachineVirtualHostKeySSHAuthKeyFormat(machineID string) (string, error) {
 	vhk, err := b.State.MachineVirtualHostKey(machineID)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	return string(vhk.HostKey()), nil
+	signer, err := ssh.ParsePrivateKey(vhk.HostKey())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return string(ssh.MarshalAuthorizedKey(signer.PublicKey())), nil
 }

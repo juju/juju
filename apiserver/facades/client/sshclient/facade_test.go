@@ -452,12 +452,12 @@ func (backend *mockBackend) SSHServerHostKey() (string, error) {
 	return "", errors.NotImplementedf("SSHServerHostKey")
 }
 
-func (backend *mockBackend) UnitVirtualPublicHostKeyPEM(unitID string) (string, error) {
-	return "", errors.NotImplementedf("UnitVirtualHostKeyPEM")
+func (backend *mockBackend) UnitVirtualHostKeySSHAuthKeyFormat(unitID string) (string, error) {
+	return "", errors.NotImplementedf("UnitVirtualHostKeySSHAuthKeyFormat")
 }
 
-func (backend *mockBackend) MachineVirtualPublicHostKeyPEM(machineID string) (string, error) {
-	return "", errors.NotImplementedf("MachineVirtualHostKey")
+func (backend *mockBackend) MachineVirtualHostKeySSHAuthKeyFormat(machineID string) (string, error) {
+	return "", errors.NotImplementedf("MachineVirtualHostKeySSHAuthKeyFormat")
 }
 
 func (backend *mockBackend) ModelTag() names.ModelTag {
@@ -664,7 +664,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTarget(c *gc.C) {
 
 	// Test container target hits correct methods.
 	gomock.InOrder(
-		s.mockBackend.EXPECT().UnitVirtualPublicHostKeyPEM("postgresql/1").Return("postgres-container-host-key", nil).Times(1),
+		s.mockBackend.EXPECT().UnitVirtualHostKeySSHAuthKeyFormat("postgresql/1").Return("postgres-container-host-key", nil).Times(1),
 		s.mockBackend.EXPECT().SSHServerHostKey().Return("server-host-key", nil).Times(1),
 	)
 	res := facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
@@ -678,7 +678,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTarget(c *gc.C) {
 
 	// Test unit target hits correct methods.
 	gomock.InOrder(
-		s.mockBackend.EXPECT().UnitVirtualPublicHostKeyPEM("openfga/1").Return("openfga-container-host-key", nil).Times(1),
+		s.mockBackend.EXPECT().UnitVirtualHostKeySSHAuthKeyFormat("openfga/1").Return("openfga-container-host-key", nil).Times(1),
 		s.mockBackend.EXPECT().SSHServerHostKey().Return("server-host-key", nil).Times(1),
 	)
 	res = facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
@@ -692,7 +692,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTarget(c *gc.C) {
 
 	// Test machine target hits correct methods.
 	gomock.InOrder(
-		s.mockBackend.EXPECT().MachineVirtualPublicHostKeyPEM("1").Return("machine-host-key", nil).Times(1),
+		s.mockBackend.EXPECT().MachineVirtualHostKeySSHAuthKeyFormat("1").Return("machine-host-key", nil).Times(1),
 		s.mockBackend.EXPECT().SSHServerHostKey().Return("server-host-key", nil).Times(1),
 	)
 	res = facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
@@ -730,7 +730,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetErrors(c *gc.C) {
 
 	// Test MachineVirtualHostKey fail.
 	gomock.InOrder(
-		s.mockBackend.EXPECT().MachineVirtualPublicHostKeyPEM("1").Return("", errors.New("an-error")).Times(1),
+		s.mockBackend.EXPECT().MachineVirtualHostKeySSHAuthKeyFormat("1").Return("", errors.New("an-error")).Times(1),
 	)
 	res = facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
 		Hostname: "1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
@@ -739,7 +739,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetErrors(c *gc.C) {
 
 	// Test UnitVirtualHostKey fail.
 	gomock.InOrder(
-		s.mockBackend.EXPECT().UnitVirtualPublicHostKeyPEM("openfga/1").Return("", errors.New("an-error")).Times(1),
+		s.mockBackend.EXPECT().UnitVirtualHostKeySSHAuthKeyFormat("openfga/1").Return("", errors.New("an-error")).Times(1),
 	)
 	res = facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
 		Hostname: "1.openfga.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
@@ -748,7 +748,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetErrors(c *gc.C) {
 
 	// Test SSHServerHostKey fail.
 	gomock.InOrder(
-		s.mockBackend.EXPECT().UnitVirtualPublicHostKeyPEM("postgresql/1").Return("postgres-container-host-key", nil).Times(1),
+		s.mockBackend.EXPECT().UnitVirtualHostKeySSHAuthKeyFormat("postgresql/1").Return("postgres-container-host-key", nil).Times(1),
 		s.mockBackend.EXPECT().SSHServerHostKey().Return("", errors.New("an-error")).Times(1),
 	)
 	res = facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
