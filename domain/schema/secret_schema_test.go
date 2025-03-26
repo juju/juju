@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/network"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/errors"
 )
@@ -144,8 +145,8 @@ func (s *secretSchemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 
 	appUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `
-INSERT INTO application (uuid, charm_uuid, name, life_id, password_hash_algorithm_id, password_hash)
-VALUES (?, ?, 'mysql', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=');`, appUUID, charmUUID)
+INSERT INTO application (uuid, charm_uuid, name, life_id, password_hash_algorithm_id, password_hash, space_uuid)
+VALUES (?, ?, 'mysql', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=', ?);`, appUUID, charmUUID, network.AlphaSpaceId)
 
 	unitNetNodeUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `INSERT INTO net_node (uuid) VALUES (?);`, unitNetNodeUUID)

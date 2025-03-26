@@ -1248,10 +1248,12 @@ func (s *applicationStateSuite) TestDeleteApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var (
-		appCount      int
-		platformCount int
-		channelCount  int
-		scaleCount    int
+		appCount              int
+		platformCount         int
+		channelCount          int
+		scaleCount            int
+		appEndpointCount      int
+		appExtraEndpointCount int
 	)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM application WHERE name=?", "foo").Scan(&appCount)
@@ -1298,6 +1300,24 @@ WHERE a.name=?`,
 		if err != nil {
 			return err
 		}
+		err = tx.QueryRowContext(ctx, `
+
+SELECT count(*) FROM application a
+JOIN application_endpoint ae ON a.uuid = ae.application_uuid
+WHERE a.name=?`,
+			"foo").Scan(&appEndpointCount)
+		if err != nil {
+			return err
+		}
+		err = tx.QueryRowContext(ctx, `
+
+SELECT count(*) FROM application a
+JOIN application_extra_endpoint ae ON a.uuid = ae.application_uuid
+WHERE a.name=?`,
+			"foo").Scan(&appExtraEndpointCount)
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1305,6 +1325,8 @@ WHERE a.name=?`,
 	c.Check(platformCount, gc.Equals, 0)
 	c.Check(channelCount, gc.Equals, 0)
 	c.Check(scaleCount, gc.Equals, 0)
+	c.Check(appEndpointCount, gc.Equals, 0)
+	c.Check(appExtraEndpointCount, gc.Equals, 0)
 }
 
 func (s *applicationStateSuite) TestDeleteApplicationTwice(c *gc.C) {

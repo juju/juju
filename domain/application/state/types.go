@@ -10,6 +10,8 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
+	corerelation "github.com/juju/juju/core/relation"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -67,10 +69,11 @@ type applicationName struct {
 }
 
 type applicationDetails struct {
-	UUID    coreapplication.ID `db:"uuid"`
-	Name    string             `db:"name"`
-	CharmID string             `db:"charm_uuid"`
-	LifeID  life.Life          `db:"life_id"`
+	UUID      coreapplication.ID `db:"uuid"`
+	Name      string             `db:"name"`
+	CharmID   string             `db:"charm_uuid"`
+	LifeID    life.Life          `db:"life_id"`
+	SpaceUUID string             `db:"space_uuid"`
 }
 
 type applicationScale struct {
@@ -359,6 +362,13 @@ type charmRelation struct {
 	Optional  bool   `db:"optional"`
 	Capacity  int    `db:"capacity"`
 	Scope     string `db:"scope"`
+}
+
+// charmRelationName represents is used to fetch relation of a charm when only
+// the name is required
+type charmRelationName struct {
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
 }
 
 // setCharmRelation is used to set the relations of a charm.
@@ -732,6 +742,19 @@ type setApplicationConstraint struct {
 	ConstraintUUID  string `db:"constraint_uuid"`
 }
 
+type setApplicationEndpoint struct {
+	UUID          corerelation.EndpointUUID `db:"uuid"`
+	ApplicationID coreapplication.ID        `db:"application_uuid"`
+	RelationUUID  string                    `db:"charm_relation_uuid"`
+	Space         *string                   `db:"space"`
+}
+
+type setApplicationExtraEndpoint struct {
+	ApplicationID coreapplication.ID `db:"application_uuid"`
+	RelationUUID  string             `db:"charm_extra_binding_uuid"`
+	Space         *string            `db:"space"`
+}
+
 type setConstraint struct {
 	UUID             string  `db:"uuid"`
 	Arch             *string `db:"arch"`
@@ -770,6 +793,11 @@ type setConstraintSpace struct {
 type setConstraintZone struct {
 	ConstraintUUID string `db:"constraint_uuid"`
 	Zone           string `db:"zone"`
+}
+
+type setDefaultSpace struct {
+	UUID  coreapplication.ID `db:"uuid"`
+	Space network.SpaceName  `db:"space"`
 }
 
 type applicationUUID struct {

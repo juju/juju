@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/network"
 	coresecrets "github.com/juju/juju/core/secrets"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain"
@@ -695,9 +696,9 @@ VALUES (?, ?);
 
 		applicationUUID := uuid.MustNewUUID().String()
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO application (uuid, charm_uuid, name, life_id)
-VALUES (?, ?, ?, ?)
-`, applicationUUID, charmUUID, appName, life.Alive)
+INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
+VALUES (?, ?, ?, ?, ?)
+`, applicationUUID, charmUUID, appName, life.Alive, network.AlphaSpaceId)
 		if err != nil {
 			return errors.Capture(err)
 		}

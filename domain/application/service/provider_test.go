@@ -18,6 +18,7 @@ import (
 	coreconstraints "github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/resource"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
@@ -117,6 +118,10 @@ func (s *providerServiceSuite) TestCreateApplication(c *gc.C) {
 			},
 		},
 		StorageParentDir: application.StorageParentDir,
+		EndpointBindings: map[string]network.SpaceName{
+			"":         "default",
+			"provider": "beta",
+		},
 	}
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
@@ -183,6 +188,10 @@ func (s *providerServiceSuite) TestCreateApplication(c *gc.C) {
 				Revision: nil,
 				Origin:   charmresource.OriginStore,
 			},
+		},
+		EndpointBindings: map[string]network.SpaceName{
+			"":         "default",
+			"provider": "beta",
 		},
 	}, a)
 	c.Assert(err, jc.ErrorIsNil)

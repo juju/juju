@@ -18,6 +18,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/domain/application/architecture"
@@ -3588,9 +3589,9 @@ func insertAdditionalHashKindForCharm(ctx context.Context, c *gc.C, tx *sql.Tx, 
 
 func insertMinimalApplication(ctx context.Context, c *gc.C, tx *sql.Tx, uuid, charm_uuid string) error {
 	_, err := tx.ExecContext(ctx, `
-INSERT INTO application (uuid, charm_uuid, name, life_id, password_hash_algorithm_id, password_hash)
-VALUES (?, ?, 'ubuntu', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=');
-`, uuid, charm_uuid)
+INSERT INTO application (uuid, charm_uuid, name, life_id, password_hash_algorithm_id, password_hash, space_uuid)
+VALUES (?, ?, 'ubuntu', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=',?);
+`, uuid, charm_uuid, network.AlphaSpaceId)
 	if err != nil {
 		return errors.Capture(err)
 	}

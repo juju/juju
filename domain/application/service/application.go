@@ -492,6 +492,7 @@ func makeCreateApplicationArgs(
 		CharmDownloadInfo: args.DownloadInfo,
 		Platform:          platformArg,
 		Channel:           channelArg,
+		EndpointBindings:  args.EndpointBindings,
 		Resources:         makeResourcesArgs(args.ResolvedResources),
 		PendingResources:  args.PendingResources,
 		Storage:           makeStorageArgs(storageDirectives),

@@ -164,6 +164,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 				DownloadSize:       dt.downloadInfo.DownloadSize,
 			},
 			ResolvedResources: dt.resolvedResources,
+			EndpointBindings:  transformBindings(dt.endpoints),
 		}, unitArgs...)
 	if err != nil {
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}

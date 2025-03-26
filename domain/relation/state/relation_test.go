@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -349,9 +350,9 @@ func (s *relationSuite) TestGetRelationEndpointsRelationNotFound(c *gc.C) {
 // addApplication adds a new application to the database with the specified UUID and name.
 func (s *relationSuite) addApplication(c *gc.C, charmUUID, appUUID, appName string) {
 	s.query(c, `
-INSERT INTO application (uuid, name, life_id, charm_uuid) 
-VALUES (?, ?, ?, ?)
-`, appUUID, appName, 0 /* alive */, charmUUID)
+INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) 
+VALUES (?, ?, ?, ?, ?)
+`, appUUID, appName, 0 /* alive */, charmUUID, network.AlphaSpaceId)
 }
 
 // addApplicationEndpoint inserts a new application endpoint into the database with the specified UUIDs and relation data.
