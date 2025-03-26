@@ -100,7 +100,7 @@ func (op *openClosePortRangesOperation) Build(attempt int) ([]txn.Op, error) {
 
 	// Ensure that none of the units with open port ranges are dead and
 	// that all are assigned to this machine.
-	if op.mpr.machineExists {
+	if op.mpr.unitExists {
 		for unitName := range op.updatedUnitPortRanges {
 			ops = append(ops,
 				assertUnitNotDeadOp(op.mpr.st, unitName),

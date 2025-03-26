@@ -315,6 +315,8 @@ func (st *State) addControllerUnitOps(attempt int, controllerApp *Application, p
 	if err != nil {
 		return "", nil, errors.Annotatef(err, "cannot retrieve ports for unit %q", unitName)
 	}
+	// The controller unit doesn't exist yet.
+	machinePorts.unitExists = false
 
 	pcp := machinePorts.ForUnit(unitName)
 	pcp.Open("", network.PortRange{

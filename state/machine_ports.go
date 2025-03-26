@@ -32,6 +32,7 @@ type machinePortRanges struct {
 	doc machinePortRangesDoc
 
 	machineExists bool
+	unitExists    bool
 
 	// docExists is false if the port range doc has not yet been persisted
 	// to the backing store.
@@ -288,6 +289,7 @@ func getOpenedMachinePortRanges(st *State, machineID string) (*machinePortRanges
 			doc:           doc,
 			docExists:     false,
 			machineExists: machineExists,
+			unitExists:    true,
 		}, nil
 	}
 
@@ -296,5 +298,6 @@ func getOpenedMachinePortRanges(st *State, machineID string) (*machinePortRanges
 		doc:           doc,
 		docExists:     true,
 		machineExists: machineExists,
+		unitExists:    true,
 	}, nil
 }
