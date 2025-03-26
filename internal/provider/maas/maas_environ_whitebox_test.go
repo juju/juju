@@ -232,38 +232,45 @@ func (suite *maasEnvironSuite) TestAvailabilityZonesInvalidCredential(c *gc.C) {
 }
 
 func (suite *maasEnvironSuite) TestSpaces(c *gc.C) {
-	controller := &fakeController{
-		spaces: []gomaasapi.Space{
-			fakeSpace{
-				name: "pepper",
-				id:   1234,
-			},
-			fakeSpace{
-				name: "freckles",
-				id:   4567,
-				subnets: []gomaasapi.Subnet{
-					fakeSubnet{id: 99, vlan: fakeVLAN{vid: 66}, cidr: "192.168.10.0/24"},
-					fakeSubnet{id: 98, vlan: fakeVLAN{vid: 67}, cidr: "192.168.11.0/24"},
-				},
+	controller := newFakeController()
+	controller.spaces = []gomaasapi.Space{
+		fakeSpace{
+			name: "pepper",
+			id:   1234,
+		},
+		fakeSpace{
+			name: "freckles",
+			id:   4567,
+			subnets: []gomaasapi.Subnet{
+				fakeSubnet{id: 99, vlan: fakeVLAN{vid: 66}, cidr: "192.168.10.0/24"},
+				fakeSubnet{id: 98, vlan: fakeVLAN{vid: 67}, cidr: "192.168.11.0/24"},
 			},
 		},
 	}
+
 	env := suite.makeEnviron(c, controller)
 	result, err := env.Spaces(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
-	c.Assert(result[0].Name, gc.Equals, network.SpaceName("freckles"))
-	c.Assert(result[0].ProviderId, gc.Equals, network.Id("4567"))
+	c.Check(result[0].Name, gc.Equals, network.SpaceName("freckles"))
+	c.Check(result[0].ProviderId, gc.Equals, network.Id("4567"))
+
 	subnets := result[0].Subnets
 	c.Assert(subnets, gc.HasLen, 2)
-	c.Assert(subnets[0].ProviderId, gc.Equals, network.Id("99"))
-	c.Assert(subnets[0].VLANTag, gc.Equals, 66)
-	c.Assert(subnets[0].CIDR, gc.Equals, "192.168.10.0/24")
-	c.Assert(subnets[0].ProviderSpaceId, gc.Equals, network.Id("4567"))
-	c.Assert(subnets[1].ProviderId, gc.Equals, network.Id("98"))
-	c.Assert(subnets[1].VLANTag, gc.Equals, 67)
-	c.Assert(subnets[1].CIDR, gc.Equals, "192.168.11.0/24")
-	c.Assert(subnets[1].ProviderSpaceId, gc.Equals, network.Id("4567"))
+
+	s0 := subnets[0]
+	c.Check(s0.ProviderId, gc.Equals, network.Id("99"))
+	c.Check(s0.VLANTag, gc.Equals, 66)
+	c.Check(s0.CIDR, gc.Equals, "192.168.10.0/24")
+	c.Check(s0.ProviderSpaceId, gc.Equals, network.Id("4567"))
+	c.Check(s0.AvailabilityZones, jc.SameContents, []string{"mossack", "fonseca"})
+
+	s1 := subnets[1]
+	c.Check(s1.ProviderId, gc.Equals, network.Id("98"))
+	c.Check(s1.VLANTag, gc.Equals, 67)
+	c.Check(s1.CIDR, gc.Equals, "192.168.11.0/24")
+	c.Check(s1.ProviderSpaceId, gc.Equals, network.Id("4567"))
+	c.Check(s1.AvailabilityZones, jc.SameContents, []string{"mossack", "fonseca"})
 }
 
 func (suite *maasEnvironSuite) TestSpacesError(c *gc.C) {
