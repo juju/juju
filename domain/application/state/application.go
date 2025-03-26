@@ -1933,14 +1933,24 @@ WHERE application_uuid = $applicationID.uuid;
 		revision = int(appOrigin.Revision.Int64)
 	}
 
+	var hash string
+	if appOrigin.Hash.Valid {
+		hash = appOrigin.Hash.String
+	}
+
+	var charmhubIdentifier string
+	if appOrigin.CharmhubIdentifier.Valid {
+		charmhubIdentifier = appOrigin.CharmhubIdentifier.String
+	}
+
 	return application.CharmOrigin{
 		Name:               appOrigin.ReferenceName,
 		Source:             source,
 		Platform:           platform,
 		Channel:            channel,
 		Revision:           revision,
-		Hash:               appOrigin.Hash,
-		CharmhubIdentifier: appOrigin.CharmhubIdentifier,
+		Hash:               hash,
+		CharmhubIdentifier: charmhubIdentifier,
 	}, nil
 }
 
