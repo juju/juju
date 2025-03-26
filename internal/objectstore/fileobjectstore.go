@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/clock"
+	jujuerrors "github.com/juju/errors"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
@@ -27,6 +28,27 @@ const (
 	defaultFileDirectory = "objectstore"
 )
 
+// FallBackStrategy is the strategy to use when there is no local file to
+// retrieve.
+type FallbackStrategy string
+
+const (
+	// RemoteFallback defines that the fallback strategy is to retrieve the
+	// file from a remote source. It doesn't guarantee that there will be any
+	// remote request, as the controller might not be configured to be in
+	// high-availability mode.
+	RemoteFallback FallbackStrategy = "remote"
+
+	// NoFallback defines that there is no fallback strategy.
+	NoFallback FallbackStrategy = "none"
+)
+
+// RemoteRetriever is the interface for retrieving objects from a remote source.
+type RemoteRetriever interface {
+	// Retrieve gets the object from the remote source.
+	Retrieve(ctx context.Context, sha256 string) (io.ReadCloser, int64, error)
+}
+
 // FileObjectStoreConfig is the configuration for the file object store.
 type FileObjectStoreConfig struct {
 	// RootDir is the root directory for the file object store.
@@ -37,18 +59,22 @@ type FileObjectStoreConfig struct {
 	// MetadataService is the metadata service for translating paths to
 	// hashes.
 	MetadataService objectstore.ObjectStoreMetadata
+	// RemoteRetriever is the remote retriever for the file object store.
+	RemoteRetriever RemoteRetriever
 	// Claimer is the claimer for the file object store.
 	Claimer Claimer
-
+	// Logger is the logger for the file object store.
 	Logger logger.Logger
-	Clock  clock.Clock
+	// Clock is the clock for the file object store.
+	Clock clock.Clock
 }
 
 type fileObjectStore struct {
 	baseObjectStore
-	fs        fs.FS
-	namespace string
-	requests  chan request
+	fs              fs.FS
+	remoteRetriever RemoteRetriever
+	namespace       string
+	requests        chan request
 }
 
 // NewFileObjectStore returns a new object store worker based on the file
@@ -64,8 +90,9 @@ func NewFileObjectStore(cfg FileObjectStoreConfig) (TrackedObjectStore, error) {
 			logger:          cfg.Logger,
 			clock:           cfg.Clock,
 		},
-		fs:        os.DirFS(path),
-		namespace: cfg.Namespace,
+		fs:              os.DirFS(path),
+		remoteRetriever: cfg.RemoteRetriever,
+		namespace:       cfg.Namespace,
 
 		requests: make(chan request),
 	}
@@ -84,7 +111,9 @@ func (t *fileObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, 
 	// Optimistically try to get the file from the file system. If it doesn't
 	// exist, then we'll get an error, and we'll try to get it when sequencing
 	// the get request with the put and remove requests.
-	if reader, size, err := t.get(ctx, path); err == nil {
+	// Do not attempt to fallback to a remote source, as we're only trying to
+	// get the file from the local file system.
+	if reader, size, err := t.get(ctx, path, NoFallback); err == nil {
 		return reader, size, nil
 	}
 
@@ -162,7 +191,9 @@ func (t *fileObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix st
 	// Optimistically try to get the file from the file system. If it doesn't
 	// exist, then we'll get an error, and we'll try to get it when sequencing
 	// the get request with the put and remove requests.
-	if reader, size, err := t.getBySHA256Prefix(ctx, sha256Prefix); err == nil {
+	// Do not attempt to fallback to a remote source, as we're only trying to
+	// get the file from the local file system.
+	if reader, size, err := t.getBySHA256Prefix(ctx, sha256Prefix, NoFallback); err == nil {
 		return reader, size, nil
 	}
 
@@ -290,15 +321,15 @@ func (t *fileObjectStore) loop() error {
 		return errors.Errorf("ensuring file store directories exist: %w", err)
 	}
 
+	ctx, cancel := t.scopedContext()
+	defer cancel()
+
 	// Remove any temporary files that may have been left behind. We don't
 	// provide continuation for these operations, so a retry will be required
 	// if the operation fails.
-	if err := t.cleanupTmpFiles(); err != nil {
+	if err := t.cleanupTmpFiles(ctx); err != nil {
 		return errors.Errorf("cleaning up temp files: %w", err)
 	}
-
-	ctx, cancel := t.scopedContext()
-	defer cancel()
 
 	timer := t.clock.NewTimer(jitter(defaultPruneInterval))
 	defer timer.Stop()
@@ -312,7 +343,7 @@ func (t *fileObjectStore) loop() error {
 		case req := <-t.requests:
 			switch req.op {
 			case opGet:
-				reader, size, err := t.get(ctx, req.path)
+				reader, size, err := t.get(ctx, req.path, RemoteFallback)
 
 				select {
 				case <-t.tomb.Dying():
@@ -340,7 +371,7 @@ func (t *fileObjectStore) loop() error {
 				}
 
 			case opGetBySHA256Prefix:
-				reader, size, err := t.getBySHA256Prefix(ctx, req.sha256)
+				reader, size, err := t.getBySHA256Prefix(ctx, req.sha256, RemoteFallback)
 
 				select {
 				case <-t.tomb.Dying():
@@ -387,63 +418,75 @@ func (t *fileObjectStore) loop() error {
 			timer.Reset(defaultPruneInterval)
 
 			if err := t.prune(ctx, t.list, t.deleteObject); err != nil {
-				t.logger.Errorf(context.TODO(), "prune: %v", err)
+				t.logger.Errorf(ctx, "prune: %v", err)
 				continue
 			}
 		}
 	}
 }
 
-func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
-	t.logger.Debugf(context.TODO(), "getting object %q from file storage", path)
+func (t *fileObjectStore) get(ctx context.Context, path string, fallbackStrategy FallbackStrategy) (io.ReadCloser, int64, error) {
+	t.logger.Debugf(ctx, "getting object %q from file storage", path)
 
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
 		return nil, -1, errors.Errorf("get metadata: %w", objectstoreerrors.ObjectNotFound)
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, -1, errors.Errorf("get metadata: %w", err)
 	}
 
-	return t.getWithMetadata(ctx, metadata)
+	return t.getWithMetadata(ctx, metadata, fallbackStrategy)
 }
 
 func (t *fileObjectStore) getBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
-	t.logger.Debugf(context.TODO(), "getting object with SHA256 %q from file storage", sha256)
+	t.logger.Debugf(ctx, "getting object with SHA256 %q from file storage", sha256)
 
 	metadata, err := t.metadataService.GetMetadataBySHA256(ctx, sha256)
 	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
 		return nil, -1, errors.Errorf("get metadata by SHA256: %w", objectstoreerrors.ObjectNotFound)
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, -1, errors.Errorf("get metadata by SHA256: %w", err)
 	}
 
-	return t.getWithMetadata(ctx, metadata)
+	// Getting a file by SHA256 implies that we're looking for a file that
+	// has a specific hash. If we can't find the file, then we should return
+	// an error, as we can't fallback to a remote source. This is a hard
+	// back stop.
+	// If we do want to allow for a remote fallback, we should expose that
+	// configuration option all the way to the objectstore interface. For now,
+	// this is non-configurable.
+	// The added benefit is that this prevents infinite loops, where we keep
+	// trying to get the file from the remote source, but it doesn't exist.
+	return t.getWithMetadata(ctx, metadata, NoFallback)
 }
 
-func (t *fileObjectStore) getBySHA256Prefix(ctx context.Context, sha256 string) (io.ReadCloser, int64, error) {
-	t.logger.Debugf(context.TODO(), "getting object with SHA256 %q from file storage", sha256)
+func (t *fileObjectStore) getBySHA256Prefix(ctx context.Context, sha256 string, fallbackStrategy FallbackStrategy) (io.ReadCloser, int64, error) {
+	t.logger.Debugf(ctx, "getting object with SHA256 %q from file storage", sha256)
 
 	metadata, err := t.metadataService.GetMetadataBySHA256Prefix(ctx, sha256)
 	if errors.Is(err, domainobjectstoreerrors.ErrNotFound) {
 		return nil, -1, errors.Errorf("get metadata by SHA256 prefix: %w", objectstoreerrors.ObjectNotFound)
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, -1, errors.Errorf("get metadata by SHA256 prefix: %w", err)
 	}
 
-	return t.getWithMetadata(ctx, metadata)
+	return t.getWithMetadata(ctx, metadata, fallbackStrategy)
 }
 
-func (t *fileObjectStore) getWithMetadata(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
+func (t *fileObjectStore) getWithMetadata(ctx context.Context, metadata objectstore.Metadata, fallbackStrategy FallbackStrategy) (io.ReadCloser, int64, error) {
 	hash := selectFileHash(metadata)
 
 	file, err := t.fs.Open(hash)
 	if errors.Is(err, os.ErrNotExist) {
+		// If the file doesn't exist locally, attempt to retrieve it from a
+		// remote source if we have the correct fallback strategy.
+		if fallbackStrategy == RemoteFallback {
+			return t.remoteGetWithMetadata(ctx, metadata)
+		}
+
+		// No fallback strategy, and the file doesn't exist locally.
 		return nil, -1, objectstoreerrors.ObjectNotFound
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, -1, errors.Errorf("opening file %q encoded as %q: %w", metadata.Path, hash, err)
 	}
 
@@ -462,8 +505,67 @@ func (t *fileObjectStore) getWithMetadata(ctx context.Context, metadata objectst
 	return file, size, nil
 }
 
+func (t *fileObjectStore) remoteGetWithMetadata(ctx context.Context, metadata objectstore.Metadata) (io.ReadCloser, int64, error) {
+	// Retrieve the file from the remote source.
+	reader, size, err := t.remoteRetriever.Retrieve(ctx, metadata.SHA256)
+	if errors.Is(err, jujuerrors.NotFound) {
+		return nil, -1, errors.Errorf("%w: %w", err, objectstoreerrors.ObjectNotFound)
+	} else if err != nil {
+		return nil, -1, errors.Errorf("remote get: %w", err)
+	} else if size != metadata.Size {
+		return nil, -1, errors.Errorf("size mismatch for %q: expected %d, got %d", metadata.Path, metadata.Size, size)
+	}
+
+	// Write the file to the local file system, so that we can retrieve it
+	// locally next time.
+
+	// Compute the hash of the file as we write it to the local file system.
+	hash384 := sha512.New384()
+
+	// We need to write this to a temp file, because if the client retries
+	// then we need seek back to the beginning of the file.
+	tmpFileName, tmpFileCleanup, err := t.writeToTmpFile(t.path, io.TeeReader(reader, hash384), size)
+	if err != nil {
+		return nil, -1, errors.Capture(err)
+	}
+
+	// Ensure that we remove the temporary file if we fail to persist it.
+	defer func() { _ = tmpFileCleanup() }()
+
+	encoded384 := hex.EncodeToString(hash384.Sum(nil))
+
+	if encoded384 != metadata.SHA384 {
+		return nil, -1, errors.Errorf("hash mismatch for %q: expected %q, got %q: %w", metadata.Path, metadata.SHA256, encoded384, objectstore.ErrHashMismatch)
+	}
+
+	// Lock the file with the given hash, so that we can't remove the file
+	// while we're writing it.
+	if err := t.withLock(ctx, encoded384, func(ctx context.Context) error {
+		// Persist the temporary file to the final location.
+		if err := t.persistTmpFile(ctx, tmpFileName, encoded384, size); err != nil {
+			return errors.Capture(err)
+		}
+
+		// If we've successfully written the file to the local file system, clean
+		// up the temporary file as we no longer need it.
+		_ = tmpFileCleanup()
+
+		return nil
+	}); err != nil {
+		return nil, -1, errors.Capture(err)
+	}
+
+	// Open the file so we can send it back to the client.
+	filePath := t.filePath(encoded384)
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, -1, errors.Errorf("opening persisted remote file %q: %w", filePath, err)
+	}
+	return file, size, nil
+}
+
 func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) (objectstore.UUID, error) {
-	t.logger.Debugf(context.TODO(), "putting object %q to file storage", path)
+	t.logger.Debugf(ctx, "putting object %q to file storage", path)
 
 	// Charms and resources are coded to use the SHA384 hash. It is possible
 	// to move to the more common SHA256 hash, but that would require a
@@ -552,7 +654,7 @@ func (t *fileObjectStore) persistTmpFile(_ context.Context, tmpFileName, hash st
 }
 
 func (t *fileObjectStore) remove(ctx context.Context, path string) error {
-	t.logger.Debugf(context.TODO(), "removing object %q from file storage", path)
+	t.logger.Debugf(ctx, "removing object %q from file storage", path)
 
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if err != nil {
@@ -573,7 +675,7 @@ func (t *fileObjectStore) filePath(hash string) string {
 }
 
 func (t *fileObjectStore) list(ctx context.Context) ([]objectstore.Metadata, []string, error) {
-	t.logger.Debugf(context.TODO(), "listing objects from file storage")
+	t.logger.Debugf(ctx, "listing objects from file storage")
 
 	metadata, err := t.metadataService.ListMetadata(ctx)
 	if err != nil {
@@ -604,7 +706,7 @@ func (t *fileObjectStore) deleteObject(ctx context.Context, hash string) error {
 	// File doesn't exist. It was probably already removed. Return early,
 	// nothing we can do in this case.
 	if _, err := os.Stat(filePath); err != nil && errors.Is(err, os.ErrNotExist) {
-		t.logger.Debugf(context.TODO(), "file %q doesn't exist, nothing to do", filePath)
+		t.logger.Debugf(ctx, "file %q doesn't exist, nothing to do", filePath)
 		return nil
 	}
 
@@ -613,7 +715,7 @@ func (t *fileObjectStore) deleteObject(ctx context.Context, hash string) error {
 	// required to remove the file. We may in the future want to prune the
 	// file store of files that are no longer referenced by metadata.
 	if err := os.Remove(filePath); err != nil {
-		t.logger.Errorf(context.TODO(), "failed to remove file %q: %v", filePath, err)
+		t.logger.Errorf(ctx, "failed to remove file %q: %v", filePath, err)
 	}
 	return nil
 }

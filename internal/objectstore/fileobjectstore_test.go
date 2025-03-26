@@ -4,15 +4,17 @@
 package objectstore
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
+	jujuerrors "github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -27,6 +29,8 @@ import (
 
 type fileObjectStoreSuite struct {
 	baseSuite
+
+	remote *MockRemoteRetriever
 }
 
 var _ = gc.Suite(&fileObjectStoreSuite{})
@@ -70,6 +74,9 @@ func (s *fileObjectStoreSuite) TestGetMetadataFoundNoFile(c *gc.C) {
 		Size:   666,
 	}, nil).Times(2)
 
+	s.remote.EXPECT().Retrieve(gomock.Any(), "blah").
+		Return(nil, -1, jujuerrors.NotFoundf("not found"))
+
 	_, _, err := store.Get(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ObjectNotFound)
 }
@@ -108,6 +115,9 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFile(c *gc.C)
 		Size:   666,
 	}, nil).Times(2)
 
+	s.remote.EXPECT().Retrieve(gomock.Any(), "0263829989b6fd954f72baaf2fc64bc2e2f01d692d4de72986ea808f6e99813f").
+		Return(nil, -1, jujuerrors.NotFoundf("not found"))
+
 	_, _, err := store.GetBySHA256Prefix(context.Background(), "0263829")
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ObjectNotFound)
 }
@@ -133,8 +143,45 @@ func (s *fileObjectStoreSuite) TestGetMetadataAndFileFound(c *gc.C) {
 
 	file, fileSize, err := store.Get(context.Background(), fileName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(size, gc.Equals, fileSize)
-	c.Assert(s.readFile(c, file), gc.Equals, "some content")
+	c.Check(size, gc.Equals, fileSize)
+	c.Check(s.readFile(c, file), gc.Equals, "some content")
+}
+
+func (s *fileObjectStoreSuite) TestGetMetadataFoundNoFileRemoteFallback(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	path := c.MkDir()
+
+	content := bytes.NewBufferString("some content")
+	size := int64(content.Len())
+
+	hash384 := "66b3707eaed3f7f4c6f084e4ba7aaa95f0412c3d9fd91475fc454b93ed8b7cd9d33cc1821e517b52d338f8d8d6908cb9"
+	hash256 := "290f493c44f5d63d06b374d0a5abd292fae38b92cab2fae5efefe1b0e9347f56"
+
+	store := s.newFileObjectStore(c, path)
+	defer workertest.DirtyKill(c, store)
+
+	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "foo",
+		Size:   12,
+	}, nil).Times(2)
+
+	s.remote.EXPECT().Retrieve(gomock.Any(), hash256).
+		Return(io.NopCloser(content), size, nil)
+
+	s.expectClaim(hash384, 1)
+
+	s.expectRelease(hash384, 1)
+
+	file, fileSize, err := store.Get(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(size, gc.Equals, fileSize)
+	c.Check(s.readFile(c, file), gc.Equals, "some content")
+
+	// The file has been claimed and released.
+	s.expectFileDoesExist(c, path, hash384)
 }
 
 func (s *fileObjectStoreSuite) TestGetMetadataBySHA256AndFileFound(c *gc.C) {
@@ -188,6 +235,44 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileFound(c *gc.C
 	c.Assert(s.readFile(c, file), gc.Equals, "some content")
 }
 
+func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFileRemoteFallback(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	path := c.MkDir()
+
+	content := bytes.NewBufferString("some content")
+	size := int64(content.Len())
+
+	hash384 := "66b3707eaed3f7f4c6f084e4ba7aaa95f0412c3d9fd91475fc454b93ed8b7cd9d33cc1821e517b52d338f8d8d6908cb9"
+	hash256 := "290f493c44f5d63d06b374d0a5abd292fae38b92cab2fae5efefe1b0e9347f56"
+	hashPrefix := hash256[:7]
+
+	store := s.newFileObjectStore(c, path)
+	defer workertest.DirtyKill(c, store)
+
+	s.service.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), hashPrefix).Return(objectstore.Metadata{
+		SHA384: hash384,
+		SHA256: hash256,
+		Path:   "foo",
+		Size:   12,
+	}, nil).Times(2)
+
+	s.remote.EXPECT().Retrieve(gomock.Any(), hash256).
+		Return(io.NopCloser(content), size, nil)
+
+	s.expectClaim(hash384, 1)
+
+	s.expectRelease(hash384, 1)
+
+	file, fileSize, err := store.GetBySHA256Prefix(context.Background(), hashPrefix)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(size, gc.Equals, fileSize)
+	c.Check(s.readFile(c, file), gc.Equals, "some content")
+
+	// The file has been claimed and released.
+	s.expectFileDoesExist(c, path, hash384)
+}
+
 func (s *fileObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -208,7 +293,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *gc.C) 
 		SHA256: hash256,
 		Path:   fileName,
 		Size:   size,
-	}, errors.NotFoundf("not found"))
+	}, jujuerrors.NotFoundf("not found"))
 	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{
 		SHA384: hash384,
 		SHA256: hash256,
@@ -242,7 +327,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256AndFileNotFoundThenFound(c
 		SHA256: hash256,
 		Path:   fileName,
 		Size:   size,
-	}, errors.NotFoundf("not found"))
+	}, jujuerrors.NotFoundf("not found"))
 	s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), hash256).Return(objectstore.Metadata{
 		SHA384: hash384,
 		SHA256: hash256,
@@ -277,7 +362,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileNotFoundThenF
 		SHA256: hash256,
 		Path:   fileName,
 		Size:   size,
-	}, errors.NotFoundf("not found"))
+	}, jujuerrors.NotFoundf("not found"))
 	s.service.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), hashPrefix).Return(objectstore.Metadata{
 		SHA384: hash384,
 		SHA256: hash256,
@@ -448,7 +533,7 @@ func (s *fileObjectStoreSuite) TestPutCleansUpFileOnMetadataFailure(c *gc.C) {
 		SHA256: hash256,
 		Path:   "foo",
 		Size:   12,
-	}).Return(uuid, errors.Errorf("boom"))
+	}).Return(uuid, jujuerrors.Errorf("boom"))
 
 	_, err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
@@ -491,7 +576,7 @@ func (s *fileObjectStoreSuite) TestPutDoesNotCleansUpFileOnMetadataFailure(c *gc
 		SHA256: hash256,
 		Path:   "foo",
 		Size:   12,
-	}).Return(uuid, errors.Errorf("boom"))
+	}).Return(uuid, jujuerrors.Errorf("boom"))
 
 	_, err = store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
@@ -599,7 +684,7 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashCleansUpFileOnMetadataFailure(
 		SHA256: hash256,
 		Path:   "foo",
 		Size:   12,
-	}).Return("", errors.Errorf("boom"))
+	}).Return("", jujuerrors.Errorf("boom"))
 
 	_, err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash384)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
@@ -640,7 +725,7 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashDoesNotCleansUpFileOnMetadataF
 		SHA256: hash256,
 		Path:   "foo",
 		Size:   12,
-	}).Return("", errors.Errorf("boom"))
+	}).Return("", jujuerrors.Errorf("boom"))
 
 	_, err = store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash384)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
@@ -751,6 +836,14 @@ func (s *fileObjectStoreSuite) TestList(c *gc.C) {
 	c.Check(files, gc.DeepEquals, []string{hash384})
 }
 
+func (s *fileObjectStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := s.baseSuite.setupMocks(c)
+
+	s.remote = NewMockRemoteRetriever(ctrl)
+
+	return ctrl
+}
+
 func (s *fileObjectStoreSuite) expectFileDoesNotExist(c *gc.C, path, hash string) {
 	_, err := os.Stat(filepath.Join(path, defaultFileDirectory, "inferi", hash))
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
@@ -783,6 +876,7 @@ func (s *fileObjectStoreSuite) newFileObjectStore(c *gc.C, path string) TrackedO
 		Claimer:         s.claimer,
 		Logger:          loggertesting.WrapCheckLog(c),
 		Clock:           clock.WallClock,
+		RemoteRetriever: s.remote,
 	})
 	c.Assert(err, gc.IsNil)
 

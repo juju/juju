@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
@@ -226,7 +227,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesRaceNotFound(c *gc.C) {
 		case <-time.After(testing.LongWait):
 			c.Fatalf("timed out waiting for started")
 		}
-		return nil, 0, BlobNotFound
+		return nil, 0, jujuerrors.NotFound
 	}
 
 	fns := []func(context.Context, string, string) (io.ReadCloser, int64, error){
@@ -300,7 +301,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesNotFound(c *gc.C) {
 		BaseURL: "http://example.com",
 	}
 
-	s.client.EXPECT().GetObject(gomock.Any(), "namespace", "foo").Return(nil, 0, BlobNotFound).Times(3)
+	s.client.EXPECT().GetObject(gomock.Any(), "namespace", "foo").Return(nil, 0, jujuerrors.NotFound).Times(3)
 
 	s.apiConnection.EXPECT().RootHTTPClient().DoAndReturn(func() (*httprequest.Client, error) {
 		return client, nil
@@ -378,7 +379,7 @@ func (s *retrieverSuite) TestRetrieverWithAPIRemotesError(c *gc.C) {
 	defer workertest.DirtyKill(c, ret)
 
 	_, _, err := ret.Retrieve(context.Background(), "foo")
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, gc.ErrorMatches, ".*boom")
 
 	workertest.CleanKill(c, ret)
 }
