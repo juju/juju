@@ -621,8 +621,8 @@ This tutorial has introduced you to the basic things you can do with `juju`. But
 
 | If you are wondering... | visit our...                          |
 |-------------------------|---------------------------------------|
-| "How do I...?"          | [How-to docs](howto/index)            |
-| "What is...?"           | [Reference docs](reference/index)     |
-| "Why...?", "So what?"   | [Explanation docs](explanation/index) |
+| "How do I...?"          | [How-to docs](../howto/index)            |
+| "What is...?"           | [Reference docs](../reference/index)     |
+| "Why...?", "So what?"   | [Explanation docs](../explanation/index) |
 
 

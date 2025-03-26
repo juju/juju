@@ -22,7 +22,7 @@ Charms are often published on [Charmhub](https://charmhub.io/).
 (kubernetes-charm)=
 #### Kubernetes
 
-A **Kubernetes charm** is a charm designed to run on a resource from a {ref}`Kubernetes cloud` -- i.e., in a container in a pod.
+A **Kubernetes charm** is a charm designed to run on a resource from a Kubernetes cloud -- i.e., in a container in a pod.
 
 Example Kubernetes charms:
 
@@ -33,7 +33,7 @@ Example Kubernetes charms:
 (machine-charm)=
 #### Machine
 
-A **machine charm** is a charm designed to run on a resource from a {ref}`machine-cloud` -- i.e., a bare metal machine, a virtual machine, or a system container.
+A **machine charm** is a charm designed to run on a resource from a machine cloud -- i.e., a bare metal machine, a virtual machine, or a system container.
 
 Example machine charms:
 - [Ubuntu](https://charmhub.io/ubuntu)
@@ -61,7 +61,7 @@ While charms are fundamentally about codifying operations for a given workload, 
 
 A **workloadless** charm is a charm that does not run any workload locally.
 
-Because of their nature, workloadless charms are often {ref}`infrastructure-agnostic <infrastructure-agostic-charm>`.
+Because of their nature, workloadless charms are often {ref}`infrastructure-agnostic <infrastructure-agnostic-charm>`.
 
 Examples:
 
@@ -139,7 +139,7 @@ Examples:
 (podspec-charm)
 #### Podspec
 
-> Superseded by {ref}`sidecar charms <sidecard-charm>`. Also deprecated in Juju 3+.
+> Superseded by {ref}`sidecar charms <sidecar-charm>`. Also deprecated in Juju 3+.
 
 In {ref}`Kubernetes charms <kubernetes-charm>`, a **podspec** charm is a {ref}`Kubernetes charm <kubernetes-charm>` designed to create and manage Kubernetes resources that are used by other charms or applications running on the cloud. As this pattern was difficult to implement correctly and also sidestepped Juju's model (the resources created by a podspec charm were not under Juju's control), this pattern has been deprecated in favor of {ref}`sidecar charms <sidecar-charm>`.
 
@@ -213,7 +213,7 @@ A **charm revision** is a number that uniquely identifies the version of the cha
 The revision increases with every new version of the charm being uploaded to Charmhub. This can lead to situations of mismatch between the semantic version of a charm and its revision number. That is, whether the changes are for a semantically newer or older version, the revision number always goes up.
 ```
 
-A revision only becomes available for consumption once it's been released into a {ref}`channel <channel>`. At that point, charm users will be able to see the revision at `charmhub.io/<charm/channel>` or access it via `juju info <charm>` or `juju deploy <charm> --channel`. And to inspect a specific revision of a charm, use the `--revision` flag. The syntax is `juju info <charm> --revision <revision>`.
+A revision only becomes available for consumption once it's been released into a {ref}`channel <charm-channel>`. At that point, charm users will be able to see the revision at `charmhub.io/<charm/channel>` or access it via `juju info <charm>` or `juju deploy <charm> --channel`. And to inspect a specific revision of a charm, use the `--revision` flag. The syntax is `juju info <charm> --revision <revision>`.
 
 (charm-channel)=
 ### Charm channel
