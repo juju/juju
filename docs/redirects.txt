@@ -1,14 +1,14 @@
 # <old URL> <new URL>
 
-user/reference/charm/channel/ user/reference/charm/
-user/reference/charm/revision/ user/reference/charm/
-user/reference/charm/charm-taxonomy/ user/reference/charm/
-contributor/unsorted/bootstrapping/ contributor/index
+user/reference/charm/channel/ reference/charm/
+user/reference/charm/revision/ reference/charm/
+user/reference/charm/charm-taxonomy/ reference/charm/
+contributor/unsorted/bootstrapping/ contributor
 contributor/unsorted/managing-complexity/ contributor/explanation/on-managing-complexity/
 contributor/unsorted/commands/ contributor/unsorted/styleguide/
 contributor/unsorted/hacking-state/ contributor/unsorted/styleguide/
 contributor/unsorted/cross-platform-development/ contributor/howto/compile-and-run-juju-agents-on-different-architectures.md
-contributor/unsorted/FAQ/ contributor/index
+contributor/unsorted/FAQ/ contributor
 contributor/unsorted/debugging-races/ contributor/howto/write-a-unit-test/
 # redirects after promoting user docs and demoting contributor docs
 user/explanation/application-modelling explanation/application-modelling
@@ -51,7 +51,7 @@ user/howto/manage-your-deployment/manage-your-deployment-environment howto/manag
 user/howto/manage-your-deployment/take-your-deployment-offline howto/manage-your-deployment/take-your-deployment-offline
 user/howto/manage-your-deployment/troubleshoot-your-deployment howto/manage-your-deployment/troubleshoot-your-deployment
 user/howto/manage-your-deployment/upgrade-your-deployment howto/manage-your-deployment/upgrade-your-deployment
-user/ /
+user .
 user/reference/action reference/action
 user/reference/agent reference/agent
 user/reference/application reference/application
