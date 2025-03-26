@@ -21,7 +21,6 @@ import (
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/retry"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -41,6 +40,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/providerinit"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 const (

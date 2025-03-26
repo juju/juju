@@ -6,11 +6,10 @@ package agentbinary
 import (
 	"fmt"
 
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/core/arch"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/version"
 )
 
 // Version represents the version of an agent binary. [Version] was created so

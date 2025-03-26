@@ -6,7 +6,6 @@ package instancecfg_test
 import (
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 type instancecfgSuite struct {

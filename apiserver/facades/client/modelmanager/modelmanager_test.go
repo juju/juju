@@ -12,11 +12,9 @@ import (
 	"github.com/juju/names/v6"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	// Register the providers for the field check test
 	"github.com/juju/juju/apiserver/common"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/facade"
@@ -51,6 +49,7 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"

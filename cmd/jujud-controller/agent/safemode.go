@@ -16,7 +16,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4/voyeur"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/internal/cmd"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/version"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/rpc/params"

@@ -20,7 +20,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/shell"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent/constants"
 	"github.com/juju/juju/api"
@@ -32,6 +31,7 @@ import (
 	"github.com/juju/juju/core/paths"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
+	"github.com/juju/juju/internal/version"
 )
 
 var logger = internallogger.GetLogger("juju.agent")

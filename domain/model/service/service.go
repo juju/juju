@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/internal/errors"
 	jujusecrets "github.com/juju/juju/internal/secrets/provider/juju"
 	kubernetessecrets "github.com/juju/juju/internal/secrets/provider/kubernetes"
+	"github.com/juju/juju/internal/version"
 )
 
 // ModelActivator describes a closure type that must be called after creating a

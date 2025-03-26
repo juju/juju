@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 	"github.com/vmware/govmomi/vim25/mo"
 	"golang.org/x/net/context"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	callcontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/common"
+	"github.com/juju/juju/internal/version"
 )
 
 // Note: This provider/environment does *not* implement storage.

@@ -6,7 +6,6 @@ package caasupgrader_test
 import (
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
@@ -16,6 +15,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/caasupgrader"
 	"github.com/juju/juju/internal/worker/gate"
 )

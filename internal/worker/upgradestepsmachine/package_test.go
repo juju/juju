@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -18,6 +17,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
+	"github.com/juju/juju/internal/version"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradestepsmachine -destination clock_mock_test.go github.com/juju/clock Clock

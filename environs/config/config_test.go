@@ -16,7 +16,6 @@ import (
 	"github.com/juju/schema"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	jujuversion "github.com/juju/juju/core/version"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju/osenv"
 )
 

@@ -8,7 +8,6 @@ import (
 	"os"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	corebase "github.com/juju/juju/core/base"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	jujutesting "github.com/juju/juju/juju/testing"
 )
 

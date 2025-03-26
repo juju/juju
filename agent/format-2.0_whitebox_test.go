@@ -14,13 +14,13 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	agentconstants "github.com/juju/juju/agent/constants"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/version"
 )
 
 type format_2_0Suite struct {

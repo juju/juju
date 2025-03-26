@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/version"
 )
 
 // ContainerEnvironProvider represents a computing and storage provider

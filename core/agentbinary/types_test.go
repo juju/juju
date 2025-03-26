@@ -5,11 +5,11 @@ package agentbinary
 
 import (
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/version"
 )
 
 type typeSuite struct{}

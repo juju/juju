@@ -17,7 +17,6 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v6"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/api"
@@ -35,6 +34,7 @@ import (
 	"github.com/juju/juju/internal/mongo"
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 

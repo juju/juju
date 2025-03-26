@@ -19,7 +19,6 @@ import (
 	"github.com/juju/naturalsort"
 	"github.com/juju/schema"
 	"github.com/juju/utils/v4/keyvalues"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
@@ -57,6 +56,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 	storageprovider "github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 )

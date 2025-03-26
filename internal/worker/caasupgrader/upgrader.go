@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/catacomb"
 
 	coreagent "github.com/juju/juju/core/agent"
@@ -18,6 +17,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/upgrader"
 )

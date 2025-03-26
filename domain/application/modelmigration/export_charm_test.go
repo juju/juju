@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -17,6 +16,7 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/version"
 )
 
 type exportCharmSuite struct {

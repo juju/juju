@@ -20,7 +20,6 @@ import (
 	"github.com/juju/names/v6"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 
@@ -32,6 +31,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 )
 

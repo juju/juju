@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -30,6 +29,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner/mocks"
 	"github.com/juju/juju/rpc/params"

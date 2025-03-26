@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/retry"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/agent/errors"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/upgrades"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/gate"
 )
 

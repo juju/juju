@@ -6,13 +6,12 @@ package upgrader
 import (
 	"context"
 
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/version"
 )
 
 // ModelAgentService provides access to the Juju agent version for the model.

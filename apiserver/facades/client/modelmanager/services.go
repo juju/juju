@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/state"
 )
 

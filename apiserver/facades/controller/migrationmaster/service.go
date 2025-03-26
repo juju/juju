@@ -6,14 +6,13 @@ package migrationmaster
 import (
 	"context"
 
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/version"
 )
 
 // UpgradeService provides a subset of the upgrade domain service methods.

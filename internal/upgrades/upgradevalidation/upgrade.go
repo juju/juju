@@ -4,9 +4,8 @@
 package upgradevalidation
 
 import (
-	"github.com/juju/version/v2"
-
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/internal/version"
 )
 
 // ValidatorsForControllerModelUpgrade returns a list of validators for the

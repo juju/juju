@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
@@ -45,6 +44,7 @@ import (
 	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/cmd/cmdtesting"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"

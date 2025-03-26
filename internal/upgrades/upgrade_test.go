@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/internal/mongo"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgrades"
+	"github.com/juju/juju/internal/version"
 )
 
 type upgradeSuite struct {

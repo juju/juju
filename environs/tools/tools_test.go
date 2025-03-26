@@ -12,7 +12,6 @@ import (
 	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
-	"github.com/juju/version/v2"
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
@@ -27,6 +26,7 @@ import (
 	_ "github.com/juju/juju/internal/provider/dummy"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/jujuclient"
 )

@@ -9,13 +9,13 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 )
 

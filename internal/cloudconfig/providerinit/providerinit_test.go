@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/internal/provider/openstack"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 type CloudInitSuite struct {

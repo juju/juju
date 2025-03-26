@@ -38,5 +38,6 @@ func (*ImportTest) TestImports(c *gc.C) {
 		"internal/logger",
 		"internal/stringcompare",
 		"internal/uuid",
+		"internal/version",
 	})
 }

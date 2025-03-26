@@ -16,7 +16,7 @@ import (
 	set "github.com/juju/collections/set"
 	envcontext "github.com/juju/juju/environs/envcontext"
 	instances "github.com/juju/juju/environs/instances"
-	version "github.com/juju/version/v2"
+	version "github.com/juju/juju/internal/version"
 	gomock "go.uber.org/mock/gomock"
 )
 

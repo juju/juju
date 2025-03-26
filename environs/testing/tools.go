@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	agenterrors "github.com/juju/juju/agent/errors"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/internal/http"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju/names"
 )
 

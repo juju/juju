@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/juju/juju/api/agent/upgrader"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/caasoperatorupgrader"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/gate"
 )
 

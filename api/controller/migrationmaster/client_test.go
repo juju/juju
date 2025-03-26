@@ -17,7 +17,6 @@ import (
 	"github.com/juju/names/v6"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/macaroon.v2"
@@ -31,6 +30,7 @@ import (
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )

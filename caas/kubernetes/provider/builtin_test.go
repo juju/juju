@@ -14,7 +14,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	k8s "github.com/juju/juju/caas/kubernetes"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	jujutesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/version"
 )
 
 var (

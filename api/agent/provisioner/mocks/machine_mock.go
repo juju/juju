@@ -17,9 +17,9 @@ import (
 	life "github.com/juju/juju/core/life"
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
+	version "github.com/juju/juju/internal/version"
 	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v6"
-	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
 

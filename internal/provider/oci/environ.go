@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	ociCommon "github.com/oracle/oci-go-sdk/v65/common"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
@@ -35,6 +34,7 @@ import (
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 type Environ struct {

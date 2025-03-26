@@ -11,11 +11,11 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/backups"
 	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/version"
 )
 
 type metadataSuite struct {

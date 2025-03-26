@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/clock"
-	"github.com/juju/version/v2"
 
 	coreconstraints "github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 )
 
 // ModelState is the model state required by this service. This is the model

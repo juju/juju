@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
-	"github.com/juju/version/v2"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
@@ -37,6 +36,7 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/version"
 )
 
 // State represents a type for interacting with the underlying state.

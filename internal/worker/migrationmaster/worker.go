@@ -13,7 +13,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/catacomb"
 	"github.com/kr/pretty"
 
@@ -28,6 +27,7 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/rpc/params"

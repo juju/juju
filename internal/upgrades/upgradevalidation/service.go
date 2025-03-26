@@ -6,7 +6,7 @@ package upgradevalidation
 import (
 	"context"
 
-	"github.com/juju/version/v2"
+	"github.com/juju/juju/internal/version"
 )
 
 // ModelAgentService provides access to the Juju agent version for the model.

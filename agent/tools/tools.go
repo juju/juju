@@ -6,10 +6,9 @@ package tools
 import (
 	"io"
 
-	"github.com/juju/version/v2"
-
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 var logger = internallogger.GetLogger("juju.agent.tools")

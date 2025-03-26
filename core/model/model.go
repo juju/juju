@@ -7,12 +7,12 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 )
 
 // ModelType indicates a model type.

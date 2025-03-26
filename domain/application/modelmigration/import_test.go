@@ -9,7 +9,6 @@ import (
 	"github.com/juju/description/v9"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/version"
 )
 
 type importSuite struct {

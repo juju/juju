@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 )

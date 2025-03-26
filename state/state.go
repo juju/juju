@@ -20,7 +20,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v4"
-	"github.com/juju/version/v2"
 
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
@@ -38,6 +37,7 @@ import (
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/state/watcher"
 )
 

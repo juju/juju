@@ -7,7 +7,6 @@ import (
 	"context"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -15,6 +14,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/internal/version"
 )
 
 type suite struct {

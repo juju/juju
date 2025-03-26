@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
@@ -21,6 +20,7 @@ import (
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
 	modelservice "github.com/juju/juju/domain/model/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
+	"github.com/juju/juju/internal/version"
 )
 
 type manifoldSuite struct {

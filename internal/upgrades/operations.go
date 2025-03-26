@@ -4,9 +4,8 @@
 package upgrades
 
 import (
-	"github.com/juju/version/v2"
-
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/internal/version"
 )
 
 // upgradeOperations returns an ordered slice of sets of API-based

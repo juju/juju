@@ -14,7 +14,6 @@ import (
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/core/resource"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 )
 

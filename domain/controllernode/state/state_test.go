@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
@@ -18,6 +17,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/version"
 )
 
 type stateSuite struct {

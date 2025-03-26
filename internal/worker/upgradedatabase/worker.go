@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 	"github.com/juju/worker/v4/dependency"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/schema"
 	domainupgrade "github.com/juju/juju/domain/upgrade"
 	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/gate"
 )
 

@@ -20,7 +20,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v4/shell"
-	"github.com/juju/version/v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
@@ -42,6 +41,7 @@ import (
 	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 var logger = internallogger.GetLogger("juju.cloudconfig.instancecfg")

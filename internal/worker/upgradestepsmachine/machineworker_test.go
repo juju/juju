@@ -9,7 +9,6 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	version "github.com/juju/version/v2"
 	"github.com/juju/worker/v4/workertest"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
+	version "github.com/juju/juju/internal/version"
 )
 
 type machineWorkerSuite struct {

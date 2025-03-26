@@ -121,6 +121,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"internal/stringcompare",
 		"internal/tools",
 		"internal/uuid",
+		"internal/version",
 		"internal/worker/apicaller",
 		"internal/worker/introspection",
 		"internal/worker/introspection/pprof",

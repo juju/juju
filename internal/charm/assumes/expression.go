@@ -3,7 +3,7 @@
 
 package assumes
 
-import "github.com/juju/version/v2"
+import "github.com/juju/juju/internal/version"
 
 var (
 	_ Expression = (*FeatureExpression)(nil)

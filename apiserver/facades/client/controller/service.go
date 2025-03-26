@@ -7,8 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/cloud"
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
@@ -24,6 +22,7 @@ import (
 	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/proxy"
+	"github.com/juju/juju/internal/version"
 )
 
 // ControllerConfigService is the interface that wraps the ControllerConfig method.

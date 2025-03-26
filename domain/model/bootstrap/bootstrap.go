@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/cloud"
 	coreconstraints "github.com/juju/juju/core/constraints"
@@ -24,6 +23,7 @@ import (
 	jujusecrets "github.com/juju/juju/internal/secrets/provider/juju"
 	kubernetessecrets "github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 )
 
 type modelTypeStateFunc func(context.Context, string) (string, error)

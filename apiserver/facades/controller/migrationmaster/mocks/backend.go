@@ -22,8 +22,8 @@ import (
 	network "github.com/juju/juju/core/network"
 	objectstore "github.com/juju/juju/core/objectstore"
 	config "github.com/juju/juju/environs/config"
+	version "github.com/juju/juju/internal/version"
 	state "github.com/juju/juju/state"
-	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
 

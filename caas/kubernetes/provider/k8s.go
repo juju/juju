@@ -16,7 +16,6 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -48,6 +47,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/version"
 )
 
 var logger = internallogger.GetLogger("juju.kubernetes.provider")

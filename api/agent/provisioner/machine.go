@@ -9,13 +9,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 )
 

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/status"
 	domainmodel "github.com/juju/juju/domain/model"
 	domainmodelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 )
 

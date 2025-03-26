@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
-	"github.com/juju/version/v2"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
@@ -32,6 +31,7 @@ import (
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/version"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.

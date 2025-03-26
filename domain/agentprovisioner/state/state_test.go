@@ -7,7 +7,6 @@ import (
 	"context"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	coremodel "github.com/juju/juju/core/model"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 )
 
 type suite struct {

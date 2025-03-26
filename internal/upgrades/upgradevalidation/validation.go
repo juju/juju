@@ -12,7 +12,6 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/replicaset/v3"
-	"github.com/juju/version/v2"
 
 	corebase "github.com/juju/juju/core/base"
 	corelogger "github.com/juju/juju/core/logger"
@@ -20,6 +19,7 @@ import (
 	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/provider/lxd/lxdnames"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/state"
 )
 

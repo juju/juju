@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -20,6 +19,7 @@ import (
 	containerlxd "github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/internal/provider/lxd"
 	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/version"
 )
 
 type environInstSuite struct {

@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry/image"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 type tagsResponseV2 struct {

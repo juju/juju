@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v6"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
@@ -43,6 +42,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/computeprovisioner"
 	"github.com/juju/juju/rpc/params"
 )

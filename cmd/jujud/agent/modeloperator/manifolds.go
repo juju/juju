@@ -5,13 +5,13 @@ package modeloperator
 
 import (
 	"github.com/juju/utils/v4/voyeur"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/dependency"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/caas"
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/internal/worker/apiconfigwatcher"

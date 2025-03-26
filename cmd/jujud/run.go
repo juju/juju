@@ -22,7 +22,6 @@ import (
 	"github.com/juju/names/v6"
 	proxyutils "github.com/juju/proxy"
 	"github.com/juju/utils/v4/exec"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent/config"
 	"github.com/juju/juju/agent/introspect"
@@ -41,6 +40,7 @@ import (
 	proxy "github.com/juju/juju/internal/proxy/config"
 	_ "github.com/juju/juju/internal/secrets/provider/all" // Import the secret providers.
 	"github.com/juju/juju/internal/upgrades"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	jujunames "github.com/juju/juju/juju/names"

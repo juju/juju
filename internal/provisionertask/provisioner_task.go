@@ -14,7 +14,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
@@ -45,6 +44,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/rpc/params"

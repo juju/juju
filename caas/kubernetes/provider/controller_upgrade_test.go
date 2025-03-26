@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -20,6 +19,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
+	"github.com/juju/juju/internal/version"
 )
 
 // DummyUpgradeCAASController implements UpgradeCAASControllerBroker for the

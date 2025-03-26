@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/testing"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/version"
 )
 
 type mockUpgraderClient struct {

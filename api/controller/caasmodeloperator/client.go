@@ -7,12 +7,12 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 )
 

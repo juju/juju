@@ -6,11 +6,11 @@ package upgrade
 import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/internal/version"
 )
 
 type lockSuite struct {

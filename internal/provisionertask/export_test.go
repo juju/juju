@@ -7,10 +7,9 @@ import (
 	"context"
 	"sort"
 
-	"github.com/juju/version/v2"
-
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 )
 

@@ -9,12 +9,12 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	gc "gopkg.in/check.v1"
 
 	coreagent "github.com/juju/juju/agent"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/agent"
 )
 

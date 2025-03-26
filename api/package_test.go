@@ -73,6 +73,7 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"internal/stringcompare",
 		"internal/tools",
 		"internal/uuid",
+		"internal/version",
 		"rpc",
 		"rpc/jsoncodec",
 		"rpc/params",

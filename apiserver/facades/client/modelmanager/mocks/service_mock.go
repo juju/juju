@@ -29,7 +29,7 @@ import (
 	service0 "github.com/juju/juju/domain/secretbackend/service"
 	config "github.com/juju/juju/environs/config"
 	uuid "github.com/juju/juju/internal/uuid"
-	version "github.com/juju/version/v2"
+	version "github.com/juju/juju/internal/version"
 	gomock "go.uber.org/mock/gomock"
 )
 

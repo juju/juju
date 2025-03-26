@@ -6,8 +6,9 @@ package provider
 import (
 	"context"
 
-	"github.com/juju/version/v2"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/juju/juju/internal/version"
 )
 
 type upgradeCAASModelOperatorBridge struct {

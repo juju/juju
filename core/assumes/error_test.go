@@ -6,8 +6,9 @@ package assumes
 import (
 	"fmt"
 
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/version"
 )
 
 type errorSuite struct{}

@@ -20,7 +20,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
@@ -40,6 +39,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testcharms"
 )

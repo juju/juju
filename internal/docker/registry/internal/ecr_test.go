@@ -15,7 +15,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecr/types"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -26,6 +25,7 @@ import (
 	internalmocks "github.com/juju/juju/internal/docker/registry/internal/mocks"
 	"github.com/juju/juju/internal/docker/registry/mocks"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 type elasticContainerRegistrySuite struct {

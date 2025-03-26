@@ -6,9 +6,8 @@ package agenttools
 import (
 	"context"
 
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/version"
 )
 
 // ModelConfigService provides access to the model configuration.

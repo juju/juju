@@ -6,8 +6,6 @@ package model
 import (
 	"time"
 
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
@@ -15,6 +13,7 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 )
 
 // GlobalModelCreationArgs supplies the information required for

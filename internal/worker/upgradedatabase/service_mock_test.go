@@ -17,7 +17,7 @@ import (
 	upgrade "github.com/juju/juju/core/upgrade"
 	watcher "github.com/juju/juju/core/watcher"
 	upgrade0 "github.com/juju/juju/domain/upgrade"
-	version "github.com/juju/version/v2"
+	version "github.com/juju/juju/internal/version"
 	gomock "go.uber.org/mock/gomock"
 )
 

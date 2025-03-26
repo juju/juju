@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -28,6 +27,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/password"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )

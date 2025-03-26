@@ -15,7 +15,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -49,6 +48,7 @@ import (
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	jujustorage "github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju/osenv"
 )
 

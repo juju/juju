@@ -8,7 +8,6 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
@@ -23,6 +22,7 @@ import (
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 )
 
 // ModelState represents a type for interacting with the underlying model

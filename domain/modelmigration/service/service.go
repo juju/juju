@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/version/v2"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/providertracker"
@@ -15,6 +14,7 @@ import (
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/version"
 )
 
 // InstanceProvider describes the interface that is needed from the cloud provider to

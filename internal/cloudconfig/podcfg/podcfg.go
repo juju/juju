@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/password"
+	"github.com/juju/juju/internal/version"
 )
 
 // ControllerPodConfig represents initialization information for a new juju caas controller pod.

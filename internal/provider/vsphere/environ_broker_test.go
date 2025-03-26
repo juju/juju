@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
@@ -40,6 +39,7 @@ import (
 	"github.com/juju/juju/internal/provider/vsphere/mocks"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 type legacyEnvironBrokerSuite struct {

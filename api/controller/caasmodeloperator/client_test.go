@@ -8,12 +8,12 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/caasmodeloperator"
 	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 )
 

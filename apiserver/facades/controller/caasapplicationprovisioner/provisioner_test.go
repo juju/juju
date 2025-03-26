@@ -14,7 +14,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -40,6 +39,7 @@ import (
 	"github.com/juju/juju/internal/docker"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )

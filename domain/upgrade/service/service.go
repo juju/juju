@@ -6,8 +6,6 @@ package service
 import (
 	"context"
 
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -17,6 +15,7 @@ import (
 	"github.com/juju/juju/domain/upgrade"
 	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/version"
 )
 
 // State describes retrieval and persistence methods for upgrade info.

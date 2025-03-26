@@ -6,7 +6,6 @@ package migration_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/testing"
 	upgradevalidationmocks "github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
+	"github.com/juju/juju/internal/version"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration ControllerConfigService,UpgradeService,ApplicationService,StatusService,OperationExporter,Coordinator,ModelAgentService,CharmService

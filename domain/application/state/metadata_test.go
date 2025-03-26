@@ -8,12 +8,12 @@ import (
 
 	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/domain/application/charm"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/version"
 )
 
 type metadataSuite struct {

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/replicaset/v3"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -37,6 +36,7 @@ import (
 	"github.com/juju/juju/internal/mongo/mongotest"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/peergrouper"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"

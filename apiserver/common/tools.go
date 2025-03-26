@@ -9,7 +9,6 @@ import (
 	"sort"
 
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/controller"
@@ -24,6 +23,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/errors"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
@@ -511,7 +511,7 @@ func (t *toolsURLGetter) ToolsURLs(ctx context.Context, controllerConfig control
 	var urls []string
 	for _, addr := range addrs {
 		serverRoot := fmt.Sprintf("https://%s/model/%s", addr, t.modelUUID)
-		url := ToolsURL(serverRoot, v)
+		url := ToolsURL(serverRoot, v.String())
 		urls = append(urls, url)
 	}
 	return urls, nil
@@ -519,6 +519,6 @@ func (t *toolsURLGetter) ToolsURLs(ctx context.Context, controllerConfig control
 
 // ToolsURL returns a tools URL pointing the API server
 // specified by the "serverRoot".
-func ToolsURL(serverRoot string, v version.Binary) string {
-	return fmt.Sprintf("%s/tools/%s", serverRoot, v.String())
+func ToolsURL(serverRoot string, v string) string {
+	return fmt.Sprintf("%s/tools/%s", serverRoot, v)
 }

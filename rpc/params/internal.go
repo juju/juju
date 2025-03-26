@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 // MachineContainersParams holds the arguments for making a SetSupportedContainers

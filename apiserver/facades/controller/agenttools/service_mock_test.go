@@ -14,7 +14,7 @@ import (
 	reflect "reflect"
 
 	config "github.com/juju/juju/environs/config"
-	version "github.com/juju/version/v2"
+	version "github.com/juju/juju/internal/version"
 	gomock "go.uber.org/mock/gomock"
 )
 

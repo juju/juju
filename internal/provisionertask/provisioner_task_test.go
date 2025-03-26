@@ -19,7 +19,6 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/kr/pretty"
@@ -52,6 +51,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 )
 

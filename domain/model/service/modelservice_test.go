@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -27,6 +26,7 @@ import (
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 )
 
 type modelServiceSuite struct {

@@ -16,13 +16,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/lxdprofile"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/version"
 )
 
 // LocalCharmClient allows access to the API endpoints

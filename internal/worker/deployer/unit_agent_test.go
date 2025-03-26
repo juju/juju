@@ -8,7 +8,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/dependency"
 	gc "gopkg.in/check.v1"
 
@@ -19,6 +18,7 @@ import (
 	internaldependency "github.com/juju/juju/internal/dependency"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jt "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/deployer"
 )
 

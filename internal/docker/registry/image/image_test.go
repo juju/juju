@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/docker/registry/image"
+	"github.com/juju/juju/internal/version"
 )
 
 type imageSuite struct {

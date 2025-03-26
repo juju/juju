@@ -6,7 +6,6 @@ package caas
 import (
 	"context"
 
-	"github.com/juju/version/v2"
 	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -14,6 +13,7 @@ import (
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/version"
 )
 
 // Application is for interacting with the CAAS substrate.

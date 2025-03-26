@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
@@ -35,6 +34,7 @@ import (
 	"github.com/juju/juju/internal/network"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )

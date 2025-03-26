@@ -23,7 +23,6 @@ import (
 	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
-	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
@@ -59,6 +58,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
 )

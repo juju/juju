@@ -7,10 +7,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/version/v2"
-
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/internal/version"
 )
 
 // ToolsMetadataLookupParams is used to query metadata for matching tools.

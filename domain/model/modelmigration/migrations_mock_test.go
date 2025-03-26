@@ -19,7 +19,7 @@ import (
 	user "github.com/juju/juju/core/user"
 	model0 "github.com/juju/juju/domain/model"
 	uuid "github.com/juju/juju/internal/uuid"
-	version "github.com/juju/version/v2"
+	version "github.com/juju/juju/internal/version"
 	gomock "go.uber.org/mock/gomock"
 )
 

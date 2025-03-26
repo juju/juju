@@ -12,7 +12,6 @@ import (
 	"github.com/juju/replicaset/v3"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/state"
 )
 

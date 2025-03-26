@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/upgrades"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/gate"
 )
 

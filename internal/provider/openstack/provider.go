@@ -32,7 +32,6 @@ import (
 	"github.com/juju/jsonschema"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v4"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/interact"
@@ -55,6 +54,7 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/version"
 )
 
 var logger = internallogger.GetLogger("juju.provider.openstack")

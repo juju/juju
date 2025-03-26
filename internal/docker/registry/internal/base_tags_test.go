@@ -9,12 +9,12 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/docker/registry/image"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 func (s *baseSuite) TestTagsPublicRegistry(c *gc.C) {

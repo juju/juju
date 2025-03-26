@@ -21,7 +21,6 @@ import (
 	"github.com/juju/proxy"
 	"github.com/juju/schema"
 	"github.com/juju/utils/v4"
-	"github.com/juju/version/v2"
 	"gopkg.in/yaml.v2"
 
 	corebase "github.com/juju/juju/core/base"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju/osenv"
 )
 

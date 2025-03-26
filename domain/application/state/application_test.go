@@ -13,7 +13,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -42,6 +41,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 )
 
 type modelSuite struct {

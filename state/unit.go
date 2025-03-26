@@ -18,7 +18,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/retry"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/constraints"
@@ -32,6 +31,7 @@ import (
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 

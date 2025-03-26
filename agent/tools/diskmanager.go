@@ -6,9 +6,8 @@ package tools
 import (
 	"io"
 
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 // DiskManager keeps track of a collections of Juju agent tools in a directory

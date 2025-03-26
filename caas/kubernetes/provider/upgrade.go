@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
+	"github.com/juju/juju/internal/version"
 )
 
 func (k *kubernetesClient) Upgrade(ctx context.Context, agentTag string, vers version.Number) error {

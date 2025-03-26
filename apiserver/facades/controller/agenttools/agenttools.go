@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/state"
 )
 
@@ -95,7 +95,7 @@ func (api *AgentToolsAPI) checkToolsAvailability(ctx context.Context) (version.N
 
 // Base implementation of envVersionUpdater
 func envVersionUpdate(env *state.Model, ver version.Number) error {
-	return env.UpdateLatestToolsVersion(ver)
+	return env.UpdateLatestToolsVersion(ver.String())
 }
 
 func (api *AgentToolsAPI) updateToolsAvailability(ctx context.Context) error {

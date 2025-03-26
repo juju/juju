@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/ssh"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/arch"
@@ -34,6 +33,7 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/provider/common"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju/names"
 )
 

@@ -12,7 +12,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
-	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/constraints"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 // Entity identifies a single entity.

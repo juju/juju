@@ -19,9 +19,9 @@ import (
 	model "github.com/juju/juju/core/model"
 	objectstore "github.com/juju/juju/core/objectstore"
 	mongo "github.com/juju/juju/internal/mongo"
+	version "github.com/juju/juju/internal/version"
 	names "github.com/juju/names/v6"
 	shell "github.com/juju/utils/v4/shell"
-	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
 

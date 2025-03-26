@@ -18,12 +18,12 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/arch"
 	corelogger "github.com/juju/juju/core/logger"
 	coreos "github.com/juju/juju/core/os"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju/names"
 )
 

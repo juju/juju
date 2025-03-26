@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/schema"
-	"github.com/juju/version/v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -48,6 +47,7 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"

@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/version"
 )
 
 var logger = internallogger.GetLogger("juju.upgrades.validations")

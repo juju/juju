@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/relation"
+	"github.com/juju/juju/internal/version"
 )
 
 // The following exporter type is being refactored. This is to better model the
@@ -105,14 +106,16 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 	}
 
 	args := description.ModelArgs{
-		Type:               string(dbModel.Type()),
-		Cloud:              dbModel.CloudName(),
-		CloudRegion:        dbModel.CloudRegion(),
-		Owner:              dbModel.Owner().Id(),
-		Config:             make(map[string]interface{}, 0),
-		PasswordHash:       dbModel.doc.PasswordHash,
-		LatestToolsVersion: dbModel.LatestToolsVersion(),
-		EnvironVersion:     dbModel.EnvironVersion(),
+		Type:           string(dbModel.Type()),
+		Cloud:          dbModel.CloudName(),
+		CloudRegion:    dbModel.CloudRegion(),
+		Owner:          dbModel.Owner().Id(),
+		Config:         make(map[string]interface{}, 0),
+		PasswordHash:   dbModel.doc.PasswordHash,
+		EnvironVersion: dbModel.EnvironVersion(),
+	}
+	if dbModel.LatestToolsVersion() != version.Zero {
+		args.LatestToolsVersion = dbModel.LatestToolsVersion().String()
 	}
 	export.model = description.NewModel(args)
 	// We used to export the model credential here but that is now done
@@ -332,7 +335,7 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, bl
 		}
 		if err == nil {
 			exMachine.SetTools(description.AgentToolsArgs{
-				Version: tools.Version,
+				Version: tools.Version.String(),
 				URL:     tools.URL,
 				SHA256:  tools.SHA256,
 				Size:    tools.Size,
@@ -500,7 +503,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		CharmModifiedVersion: application.doc.CharmModifiedVersion,
 		ForceCharm:           application.doc.ForceCharm,
 		Exposed:              application.doc.Exposed,
-		PasswordHash:         application.doc.PasswordHash,
 		Placement:            application.doc.Placement,
 		HasResources:         application.doc.HasResources,
 		EndpointBindings:     map[string]string(ctx.endpointBindings[globalKey]),
@@ -631,7 +633,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 			}
 			if err == nil {
 				exUnit.SetTools(description.AgentToolsArgs{
-					Version: tools.Version,
+					Version: tools.Version.String(),
 					URL:     tools.URL,
 					SHA256:  tools.SHA256,
 					Size:    tools.Size,

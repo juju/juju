@@ -13,10 +13,10 @@ import (
 	context "context"
 	reflect "reflect"
 
+	version "github.com/juju/juju/internal/version"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v6"
 	replicaset "github.com/juju/replicaset/v3"
-	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
 

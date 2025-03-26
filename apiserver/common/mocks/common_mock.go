@@ -27,10 +27,10 @@ import (
 	blockcommand "github.com/juju/juju/domain/blockcommand"
 	unitstate "github.com/juju/juju/domain/unitstate"
 	tools "github.com/juju/juju/internal/tools"
+	version "github.com/juju/juju/internal/version"
 	state "github.com/juju/juju/state"
 	binarystorage "github.com/juju/juju/state/binarystorage"
 	names "github.com/juju/names/v6"
-	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
 

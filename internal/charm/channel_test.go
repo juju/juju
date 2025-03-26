@@ -160,7 +160,7 @@ func (s channelSuite) TestMakeChannel(c *gc.C) {
 				Branch: test.Branch,
 			})
 		} else {
-			c.Assert(err, jc.Satisfies, errors.IsNotValid)
+			c.Assert(err, jc.ErrorIs, errors.NotValid)
 		}
 	}
 }

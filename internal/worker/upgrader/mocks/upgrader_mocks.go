@@ -15,7 +15,7 @@ import (
 
 	watcher "github.com/juju/juju/core/watcher"
 	tools "github.com/juju/juju/internal/tools"
-	version "github.com/juju/version/v2"
+	version "github.com/juju/juju/internal/version"
 	gomock "go.uber.org/mock/gomock"
 )
 

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
@@ -51,6 +50,7 @@ import (
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/state"
 )
 

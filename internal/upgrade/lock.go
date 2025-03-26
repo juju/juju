@@ -4,8 +4,7 @@
 package upgrade
 
 import (
-	"github.com/juju/version/v2"
-
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/gate"
 )
 

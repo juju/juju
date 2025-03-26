@@ -7,13 +7,13 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/internal/version"
 )
 
 type upgradeCAASControllerBridge struct {

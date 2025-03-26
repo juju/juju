@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -40,6 +39,7 @@ import (
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 // Ensure LXD provider supports the expected interfaces.

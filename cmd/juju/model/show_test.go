@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )

@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	internallogger "github.com/juju/juju/internal/logger"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 var logger = internallogger.GetLogger("juju.environs.tools")

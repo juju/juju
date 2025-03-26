@@ -6,8 +6,6 @@ package service
 import (
 	"context"
 
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher"
@@ -15,6 +13,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/version"
 )
 
 type State interface {

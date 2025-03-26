@@ -8,11 +8,11 @@ import (
 	"net/url"
 
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/version"
 )
 
 type mockAPIConnection struct {

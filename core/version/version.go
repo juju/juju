@@ -12,7 +12,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	semversion "github.com/juju/version/v2"
+
+	semversion "github.com/juju/juju/internal/version"
 )
 
 // The presence and format of this constant is very important.

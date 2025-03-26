@@ -12,7 +12,6 @@ import (
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
@@ -23,6 +22,7 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/state"
 )
 

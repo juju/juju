@@ -17,8 +17,8 @@ import (
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	life "github.com/juju/juju/core/life"
 	modelmigration "github.com/juju/juju/domain/modelmigration"
+	version "github.com/juju/juju/internal/version"
 	state "github.com/juju/juju/state"
-	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
 

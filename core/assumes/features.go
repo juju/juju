@@ -6,7 +6,7 @@ package assumes
 import (
 	"fmt"
 
-	"github.com/juju/version/v2"
+	"github.com/juju/juju/internal/version"
 )
 
 var (

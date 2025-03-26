@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/internal/docker/registry/internal"
 	"github.com/juju/juju/internal/docker/registry/mocks"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 type githubSuite struct {

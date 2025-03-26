@@ -12,13 +12,13 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/logger"
 	coreos "github.com/juju/juju/core/os"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/state/binarystorage"
 )
 

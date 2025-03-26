@@ -9,7 +9,6 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	version "github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -22,6 +21,7 @@ import (
 	domainupgrade "github.com/juju/juju/domain/upgrade"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgradesteps"
+	version "github.com/juju/juju/internal/version"
 )
 
 type controllerWorkerSuite struct {

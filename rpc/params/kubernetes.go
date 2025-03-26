@@ -4,7 +4,7 @@
 package params
 
 import (
-	"github.com/juju/version/v2"
+	"github.com/juju/juju/internal/version"
 )
 
 // KubernetesFilesystemParams holds the parameters for creating a storage filesystem.

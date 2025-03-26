@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloud"
@@ -38,6 +37,7 @@ import (
 	"github.com/juju/juju/internal/pki"
 	corestorage "github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 const (

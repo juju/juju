@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/naturalsort"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -437,7 +436,7 @@ func getUsedCharms(model description.Model) []string {
 
 func getUsedTools(model description.Model) []params.SerializedModelTools {
 	// Iterate through the model for all tools, and make a map of them.
-	usedVersions := make(map[version.Binary]bool)
+	usedVersions := set.NewStrings()
 	// It is most likely that the preconditions will limit the number of
 	// tools versions in use, but that is not relied on here.
 	for _, machine := range model.Machines() {
@@ -447,23 +446,23 @@ func getUsedTools(model description.Model) []params.SerializedModelTools {
 	for _, application := range model.Applications() {
 		for _, unit := range application.Units() {
 			tools := unit.Tools()
-			usedVersions[tools.Version()] = true
+			usedVersions.Add(tools.Version())
 		}
 	}
 
 	out := make([]params.SerializedModelTools, 0, len(usedVersions))
 	for v := range usedVersions {
 		out = append(out, params.SerializedModelTools{
-			Version: v.String(),
+			Version: v,
 			URI:     common.ToolsURL("", v),
 		})
 	}
 	return out
 }
 
-func addToolsVersionForMachine(machine description.Machine, usedVersions map[version.Binary]bool) {
+func addToolsVersionForMachine(machine description.Machine, usedVersions set.Strings) {
 	tools := machine.Tools()
-	usedVersions[tools.Version()] = true
+	usedVersions.Add(tools.Version())
 	for _, container := range machine.Containers() {
 		addToolsVersionForMachine(container, usedVersions)
 	}

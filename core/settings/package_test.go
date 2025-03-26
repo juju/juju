@@ -31,5 +31,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"internal/charm/hooks",
 		"internal/charm/resource",
 		"internal/errors",
+		"internal/version",
 	})
 }

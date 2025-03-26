@@ -17,7 +17,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/ssh"
-	"github.com/juju/version/v2"
 	cryptossh "golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 
@@ -41,6 +40,7 @@ import (
 	corestorage "github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 type BootstrapSuite struct {

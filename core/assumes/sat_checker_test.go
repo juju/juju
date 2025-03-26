@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v3"
 
 	chassumes "github.com/juju/juju/internal/charm/assumes"
+	"github.com/juju/juju/internal/version"
 )
 
 type SatCheckerSuite struct {

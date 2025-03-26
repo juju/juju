@@ -6,13 +6,12 @@ package model
 import (
 	"time"
 
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/internal/version"
 )
 
 // UserModelSummary holds information about a model and a users access on it.

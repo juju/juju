@@ -7,11 +7,11 @@ import (
 	"github.com/go-goose/goose/v5/identity"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/internal/version"
 )
 
 type precheckUpgradesSuite struct {

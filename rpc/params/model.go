@@ -6,9 +6,8 @@ package params
 import (
 	"time"
 
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/internal/version"
 )
 
 // ConfigValue encapsulates a configuration

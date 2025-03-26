@@ -16,7 +16,6 @@ import (
 
 	"github.com/im7mortal/kmutex"
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/httpcontext"
@@ -28,6 +27,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
@@ -403,7 +403,7 @@ func (h *toolsUploadHandler) handleUpload(
 		Version: toolsVersions[0],
 		Size:    size,
 		SHA256:  sha256,
-		URL:     common.ToolsURL(serverRoot, toolsVersions[0]),
+		URL:     common.ToolsURL(serverRoot, toolsVersions[0].String()),
 	}
 	return tools, nil
 }

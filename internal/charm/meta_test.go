@@ -13,12 +13,12 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/version"
 )
 
 func repoMeta(c *gc.C, name string) io.Reader {

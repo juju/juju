@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
@@ -32,6 +31,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -75,7 +75,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 		Type:               "iaas",
 		Config:             map[string]interface{}{"uuid": s.modelUUID},
 		Owner:              "admin",
-		LatestToolsVersion: jujuversion.Current,
+		LatestToolsVersion: jujuversion.Current.String(),
 	})
 
 	s.resources = common.NewResources()
@@ -341,7 +341,7 @@ func (s *Suite) TestExportCAAS(c *gc.C) {
 		Type:               "caas",
 		Config:             map[string]interface{}{"uuid": s.modelUUID},
 		Owner:              "admin",
-		LatestToolsVersion: jujuversion.Current,
+		LatestToolsVersion: jujuversion.Current.String(),
 	})
 	s.assertExport(c, "caas")
 }
@@ -358,7 +358,7 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 	const tools1 = "2.0.1-ubuntu-amd64"
 	m := s.model.AddMachine(description.MachineArgs{Id: "9"})
 	m.SetTools(description.AgentToolsArgs{
-		Version: version.MustParseBinary(tools1),
+		Version: tools1,
 	})
 
 	res := app.AddResource(description.ResourceArgs{Name: "bin"})
@@ -376,7 +376,7 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 		Name: "foo/0",
 	})
 	unit.SetTools(description.AgentToolsArgs{
-		Version: version.MustParseBinary(tools0),
+		Version: tools0,
 	})
 
 	s.modelExporter.EXPECT().ExportModel(gomock.Any(), map[string]string{}, s.store).Return(s.model, nil)

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/description/v9"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -38,6 +37,7 @@ import (
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"

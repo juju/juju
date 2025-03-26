@@ -13,7 +13,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/agent"
@@ -27,6 +26,7 @@ import (
 	jujuhttp "github.com/juju/juju/internal/http"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/upgrades"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/gate"
 )
 

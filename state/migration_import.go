@@ -14,7 +14,6 @@ import (
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
@@ -32,6 +31,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 // Import the database agnostic model representation into the database.
@@ -190,7 +190,7 @@ type importer struct {
 }
 
 func (i *importer) modelExtras() error {
-	if latest := i.model.LatestToolsVersion(); latest.String() != version.Zero.String() {
+	if latest := i.model.LatestToolsVersion(); latest != "" {
 		if err := i.dbModel.UpdateLatestToolsVersion(latest); err != nil {
 			return errors.Trace(err)
 		}
@@ -434,8 +434,12 @@ func (i *importer) makeTools(t description.AgentTools) (*tools.Tools, error) {
 	if t == nil {
 		return nil, nil
 	}
+	v, err := version.ParseBinary(t.Version())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	result := &tools.Tools{
-		Version: t.Version(),
+		Version: v,
 		URL:     t.URL(),
 		SHA256:  t.SHA256(),
 		Size:    t.Size(),
@@ -848,7 +852,6 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		CharmModifiedVersion: a.CharmModifiedVersion(),
 		CharmOrigin:          *origin,
 		ForceCharm:           a.ForceCharm(),
-		PasswordHash:         a.PasswordHash(),
 		Life:                 Alive,
 		UnitCount:            len(units),
 		RelationCount:        i.relationCount(a.Name()),

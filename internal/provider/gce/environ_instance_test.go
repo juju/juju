@@ -6,7 +6,6 @@ package gce_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/provider/gce"
 	"github.com/juju/juju/internal/provider/gce/google"
+	"github.com/juju/juju/internal/version"
 )
 
 type environInstSuite struct {

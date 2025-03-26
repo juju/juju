@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/jsonschema"
 	"github.com/juju/schema"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/assumes"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/version"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package testing -destination testing/package_mock.go -write_package_comment=false github.com/juju/juju/environs EnvironProvider,CloudEnvironProvider,ProviderSchema,ProviderCredentials,FinalizeCredentialContext,FinalizeCloudContext,CloudFinalizer,CloudDetector,CloudRegionDetector,ConfigGetter,CloudDestroyer,Environ,InstancePrechecker,Firewaller,InstanceTagger,InstanceTypesFetcher,Upgrader,UpgradeStep,DefaultConstraintsChecker,ProviderCredentialsRegister,RequestFinalizeCredential,NetworkingEnviron

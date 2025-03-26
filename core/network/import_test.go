@@ -27,6 +27,7 @@ var allowedCoreImports = set.NewStrings(
 	"internal/errors",
 	"internal/logger",
 	"internal/uuid",
+	"internal/version",
 )
 
 func (*ImportSuite) TestImports(c *gc.C) {

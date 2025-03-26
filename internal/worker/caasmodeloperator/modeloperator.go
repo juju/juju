@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/agent"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/password"
+	"github.com/juju/juju/internal/version"
 )
 
 type ModelOperatorAPI interface {

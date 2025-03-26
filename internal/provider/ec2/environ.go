@@ -24,7 +24,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/retry"
-	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/cloud"
@@ -49,6 +48,7 @@ import (
 	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/version"
 )
 
 const (

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/controller"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/featureflag"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/state"
 )
 

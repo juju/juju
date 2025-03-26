@@ -17,7 +17,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -37,6 +36,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/version"
 	jujutesting "github.com/juju/juju/juju/testing"
 )
 

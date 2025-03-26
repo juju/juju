@@ -16,12 +16,12 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v6"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	internalpassword "github.com/juju/juju/internal/password"
+	"github.com/juju/juju/internal/version"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
@@ -546,8 +546,7 @@ func (m *Model) localID(id string) string {
 
 // UpdateLatestToolsVersion looks up for the latest available version of
 // juju tools and updates modelDoc with it.
-func (m *Model) UpdateLatestToolsVersion(ver version.Number) error {
-	v := ver.String()
+func (m *Model) UpdateLatestToolsVersion(v string) error {
 	// TODO(perrito666): I need to assert here that there isn't a newer
 	// version in place.
 	ops := []txn.Op{{

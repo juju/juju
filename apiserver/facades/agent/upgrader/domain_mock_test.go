@@ -16,7 +16,7 @@ import (
 	controller "github.com/juju/juju/controller"
 	machine "github.com/juju/juju/core/machine"
 	watcher "github.com/juju/juju/core/watcher"
-	version "github.com/juju/version/v2"
+	version "github.com/juju/juju/internal/version"
 	gomock "go.uber.org/mock/gomock"
 )
 

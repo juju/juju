@@ -8,10 +8,10 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/version"
 	jworker "github.com/juju/juju/internal/worker"
 )
 

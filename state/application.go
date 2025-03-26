@@ -20,7 +20,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/schema"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/config"
@@ -35,6 +34,7 @@ import (
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 

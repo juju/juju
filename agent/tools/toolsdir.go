@@ -17,9 +17,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4/symlink"
-	"github.com/juju/version/v2"
 
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 const (

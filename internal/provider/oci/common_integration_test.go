@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock/testclock"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
 	"go.uber.org/mock/gomock"
@@ -26,6 +25,7 @@ import (
 	ocitesting "github.com/juju/juju/internal/provider/oci/testing"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 var clk = testclock.NewClock(time.Time{})

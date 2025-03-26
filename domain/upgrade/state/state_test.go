@@ -9,7 +9,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/upgrade"
@@ -17,6 +16,7 @@ import (
 	domainupgrade "github.com/juju/juju/domain/upgrade"
 	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 )
 
 type stateSuite struct {

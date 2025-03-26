@@ -34,7 +34,7 @@ import (
 	storage0 "github.com/juju/juju/domain/storage"
 	envcontext "github.com/juju/juju/environs/envcontext"
 	storage1 "github.com/juju/juju/internal/storage"
-	version "github.com/juju/version/v2"
+	version "github.com/juju/juju/internal/version"
 	gomock "go.uber.org/mock/gomock"
 )
 

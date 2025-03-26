@@ -4,12 +4,11 @@
 package state
 
 import (
-	"github.com/juju/version/v2"
-
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 )
 
 type relationKind = string

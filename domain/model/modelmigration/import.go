@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
 	coreconstraints "github.com/juju/juju/core/constraints"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.

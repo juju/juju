@@ -15,12 +15,12 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/schema"
 	"github.com/juju/utils/v4"
-	"github.com/juju/version/v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/version"
 )
 
 // RelationScope describes the scope of a relation.

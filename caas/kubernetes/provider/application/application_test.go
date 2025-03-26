@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -40,6 +39,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/version"
 )
 
 type applicationSuite struct {

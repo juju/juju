@@ -8,7 +8,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/ssh"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 )
 
 // FakeAuthKeys holds the authorized key used for testing

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )

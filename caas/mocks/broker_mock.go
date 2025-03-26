@@ -21,8 +21,8 @@ import (
 	docker "github.com/juju/juju/internal/docker"
 	proxy "github.com/juju/juju/internal/proxy"
 	storage "github.com/juju/juju/internal/storage"
+	version "github.com/juju/juju/internal/version"
 	names "github.com/juju/names/v6"
-	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
 

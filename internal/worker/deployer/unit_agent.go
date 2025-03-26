@@ -14,7 +14,6 @@ import (
 	"github.com/juju/lumberjack/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4/voyeur"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
@@ -32,6 +31,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/introspection"
 	"github.com/juju/juju/internal/worker/logsender"
 )

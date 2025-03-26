@@ -8,7 +8,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/machine"
@@ -17,6 +16,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/version"
 )
 
 type modelStateSuite struct {

@@ -21,7 +21,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	coreos "github.com/juju/juju/core/os"
@@ -33,6 +32,7 @@ import (
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju/keys"
 )
 

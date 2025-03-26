@@ -10,12 +10,12 @@ import (
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 var _ = gc.Suite(&DiskManagerSuite{})

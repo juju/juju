@@ -11,12 +11,12 @@ import (
 	"sort"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/internal/testing"
 	coretest "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 type ToolsImportSuite struct {
@@ -44,6 +44,7 @@ func (t *ToolsImportSuite) TestPackageDependencies(c *gc.C) {
 			"internal/logger",
 			"internal/tools",
 			"internal/uuid",
+			"internal/version",
 			"juju/names",
 		})
 }

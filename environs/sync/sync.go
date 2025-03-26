@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4"
-	"github.com/juju/version/v2"
 
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/filestorage"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/internal/http"
 	internallogger "github.com/juju/juju/internal/logger"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju/keys"
 )
 

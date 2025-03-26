@@ -7,7 +7,6 @@ import (
 	"errors"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/internal/provider/gce"
 	"github.com/juju/juju/internal/provider/gce/google"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/version"
 )
 
 type environBrokerSuite struct {

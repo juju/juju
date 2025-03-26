@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/provider/gce/google"
+	"github.com/juju/juju/internal/version"
 )
 
 // instStatus is the list of statuses to accept when filtering

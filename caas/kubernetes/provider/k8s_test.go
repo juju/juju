@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -51,6 +50,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/version"
 )
 
 type K8sSuite struct {

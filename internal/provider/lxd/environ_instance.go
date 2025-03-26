@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
@@ -15,6 +14,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/container/lxd"
+	"github.com/juju/juju/internal/version"
 )
 
 // Instances returns the available instances in the environment that

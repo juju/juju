@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 )
 

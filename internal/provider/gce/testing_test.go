@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
@@ -38,6 +37,7 @@ import (
 	"github.com/juju/juju/internal/provider/gce/google"
 	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 // Ensure GCE provider supports the expected interfaces.

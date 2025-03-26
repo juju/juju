@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 )
 
 type charmStateSuite struct {

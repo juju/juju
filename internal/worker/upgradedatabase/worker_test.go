@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	names "github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/juju/worker/v4/workertest"
@@ -31,6 +30,7 @@ import (
 	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 )
 
 type workerSuite struct {

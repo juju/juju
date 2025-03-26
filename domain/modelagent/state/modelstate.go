@@ -8,7 +8,6 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/machine"
@@ -17,6 +16,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/version"
 )
 
 type State struct {

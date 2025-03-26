@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/version"
 )
 
 type serviceSuite struct {

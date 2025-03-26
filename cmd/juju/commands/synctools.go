@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
-	"github.com/juju/version/v2"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/constants"
@@ -23,6 +22,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/cmd"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/version"
 )
 
 var syncTools = sync.SyncTools

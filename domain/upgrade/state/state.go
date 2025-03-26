@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/version/v2"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/upgrade"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/version"
 )
 
 // State is used to access the database.

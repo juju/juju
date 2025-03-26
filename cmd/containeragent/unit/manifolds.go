@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v4/voyeur"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -31,6 +30,7 @@ import (
 	proxy "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
+	"github.com/juju/juju/internal/version"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/apiaddressupdater"

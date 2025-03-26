@@ -14,12 +14,12 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/agent/keyupdater"
 	"github.com/juju/juju/core/network"
 	jujuproxy "github.com/juju/juju/internal/proxy"
+	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/jsoncodec"
 )
 

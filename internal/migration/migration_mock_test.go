@@ -20,7 +20,7 @@ import (
 	modelmigration "github.com/juju/juju/core/modelmigration"
 	storage "github.com/juju/juju/core/storage"
 	charm "github.com/juju/juju/domain/application/charm"
-	version "github.com/juju/version/v2"
+	version "github.com/juju/juju/internal/version"
 	gomock "go.uber.org/mock/gomock"
 )
 
