@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/juju/clock"
@@ -24,7 +25,7 @@ type migrationStateSuite struct {
 
 var _ = gc.Suite(&migrationStateSuite{})
 
-func (s *migrationStateSuite) TestExportApplications(c *gc.C) {
+func (s *migrationStateSuite) TestGetApplicationsForExport(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	id := s.createApplication(c, "foo", life.Alive)
@@ -53,7 +54,7 @@ func (s *migrationStateSuite) TestExportApplications(c *gc.C) {
 	})
 }
 
-func (s *migrationStateSuite) TestExportApplicationsMany(c *gc.C) {
+func (s *migrationStateSuite) TestGetApplicationsForExportMany(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	var want []application.ExportApplication
@@ -87,7 +88,7 @@ func (s *migrationStateSuite) TestExportApplicationsMany(c *gc.C) {
 	c.Check(apps, gc.DeepEquals, want)
 }
 
-func (s *migrationStateSuite) TestExportApplicationsDeadOrDying(c *gc.C) {
+func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	// The prior state implementation allows for applications to be in the
@@ -143,10 +144,113 @@ func (s *migrationStateSuite) TestExportApplicationsDeadOrDying(c *gc.C) {
 	c.Check(apps, gc.DeepEquals, want)
 }
 
-func (s *migrationStateSuite) TestExportApplicationsWithNoApplications(c *gc.C) {
+func (s *migrationStateSuite) TestGetApplicationsForExportWithNoApplications(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	apps, err := st.GetApplicationsForExport(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(apps, gc.HasLen, 0)
+}
+
+func (s *migrationStateSuite) TestGetApplicationUnitsForExport(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	id := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+		Password: &application.PasswordInfo{
+			PasswordHash:  "password",
+			HashAlgorithm: 0,
+		},
+	})
+
+	unitUUID, err := st.GetUnitUUIDByName(context.Background(), "foo/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := st.GetApplicationUnitsForExport(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(units, jc.DeepEquals, []application.ExportUnit{
+		{
+			UUID:         unitUUID,
+			Name:         "foo/0",
+			PasswordHash: "password",
+		},
+	})
+}
+
+func (s *migrationStateSuite) TestGetApplicationUnitsForExportNoUnits(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	id := s.createApplication(c, "foo", life.Alive)
+
+	units, err := st.GetApplicationUnitsForExport(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(units, jc.DeepEquals, []application.ExportUnit{})
+}
+
+func (s *migrationStateSuite) TestGetApplicationUnitsForExportDying(c *gc.C) {
+	// We shouldn't export units that are in the dying state, but the old code
+	// doesn't prohibit this.
+
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	id := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+		Password: &application.PasswordInfo{
+			PasswordHash:  "password",
+			HashAlgorithm: 0,
+		},
+	})
+
+	unitUUID, err := st.GetUnitUUIDByName(context.Background(), "foo/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = ? WHERE uuid = ?", life.Dying, unitUUID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := st.GetApplicationUnitsForExport(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(units, jc.DeepEquals, []application.ExportUnit{
+		{
+			UUID:         unitUUID,
+			Name:         "foo/0",
+			PasswordHash: "password",
+		},
+	})
+}
+
+func (s *migrationStateSuite) TestGetApplicationUnitsForExportDead(c *gc.C) {
+	// We shouldn't export units that are in the dead state, but the old code
+	// doesn't prohibit this.
+
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	id := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+		Password: &application.PasswordInfo{
+			PasswordHash:  "password",
+			HashAlgorithm: 0,
+		},
+	})
+
+	unitUUID, err := st.GetUnitUUIDByName(context.Background(), "foo/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = ? WHERE uuid = ?", life.Dead, unitUUID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := st.GetApplicationUnitsForExport(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(units, jc.DeepEquals, []application.ExportUnit{
+		{
+			UUID:         unitUUID,
+			Name:         "foo/0",
+			PasswordHash: "password",
+		},
+	})
 }

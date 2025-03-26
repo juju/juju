@@ -339,6 +339,27 @@ type ApplicationSettings struct {
 	Trust bool
 }
 
+// UnitWorkloadStatuses represents the workload statuses of a collection of units.
+// The statuses are indexed by unit name.
+type UnitWorkloadStatuses map[coreunit.Name]UnitStatusInfo[WorkloadStatusType]
+
+// UnitCloudContainerStatuses represents the cloud container statuses of a collection
+// of units. The statuses are indexed by unit name.
+type UnitCloudContainerStatuses map[coreunit.Name]StatusInfo[CloudContainerStatusType]
+
+// ExposedEndpoint encapsulates the expose-related details of a particular
+// application endpoint with respect to the sources (CIDRs or space IDs) that
+// should be able to access the ports opened by the application charm for an
+// endpoint.
+type ExposedEndpoint struct {
+	// A list of spaces that should be able to reach the opened ports
+	// for an exposed application's endpoint.
+	ExposeToSpaceIDs set.Strings
+	// A list of CIDRs that should be able to reach the opened ports
+	// for an exposed application's endpoint.
+	ExposeToCIDRs set.Strings
+}
+
 // ExportApplication contains parameters for exporting an application.
 type ExportApplication struct {
 	UUID                 application.ID
@@ -356,15 +377,9 @@ type ExportApplication struct {
 	K8sServiceProviderID *string
 }
 
-// ExposedEndpoint encapsulates the expose-related details of a particular
-// application endpoint with respect to the sources (CIDRs or space IDs) that
-// should be able to access the ports opened by the application charm for an
-// endpoint.
-type ExposedEndpoint struct {
-	// A list of spaces that should be able to reach the opened ports
-	// for an exposed application's endpoint.
-	ExposeToSpaceIDs set.Strings
-	// A list of CIDRs that should be able to reach the opened ports
-	// for an exposed application's endpoint.
-	ExposeToCIDRs set.Strings
+// ExportUnit contains parameters for exporting a unit.
+type ExportUnit struct {
+	UUID         coreunit.UUID
+	Name         coreunit.Name
+	PasswordHash string
 }
