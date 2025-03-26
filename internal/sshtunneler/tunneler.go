@@ -5,7 +5,6 @@ package sshtunneler
 
 import (
 	"context"
-	"encoding/base64"
 	"net"
 	"sync"
 	"time"
@@ -14,7 +13,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/lestrrat-go/jwx/v2/jwa"
-	"github.com/lestrrat-go/jwx/v2/jwt"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/network"
@@ -45,12 +43,6 @@ type SSHDial interface {
 	Dial(conn net.Conn, username string, privateKey gossh.Signer) (*gossh.Client, error)
 }
 
-type tunnelAuthentication struct {
-	sharedSecret []byte
-	jwtAlg       jwa.KeyAlgorithm
-	clock        clock.Clock
-}
-
 type tunnelRequest struct {
 	privateKey gossh.Signer
 	dialer     SSHDial
@@ -58,13 +50,15 @@ type tunnelRequest struct {
 	cleanup    func()
 }
 
-type tunnelTracker struct {
+type TunnelTracker struct {
 	authn      tunnelAuthentication
 	state      State
 	controller ControllerInfo
 	dialer     SSHDial
-	mu         sync.Mutex
-	tracker    map[string]*tunnelRequest
+	clock      clock.Clock
+
+	mu      sync.Mutex
+	tracker map[string]*tunnelRequest
 }
 
 // TunnelTrackerArgs holds the arguments for creating a new tunnel tracker.
@@ -84,17 +78,18 @@ type TunnelTrackerArgs struct {
 // NewTunnelTracker creates a new tunnel tracker.
 // A tunnel tracker provides methods to create
 // SSH tunnels to machine units.
-func NewTunnelTracker(args TunnelTrackerArgs) (*tunnelTracker, error) {
+func NewTunnelTracker(args TunnelTrackerArgs) (*TunnelTracker, error) {
 	authn := tunnelAuthentication{
 		jwtAlg:       args.JWTAlg,
 		sharedSecret: args.SharedSecret,
 		clock:        args.Clock,
 	}
 
-	return &tunnelTracker{
+	return &TunnelTracker{
 		tracker:    make(map[string]*tunnelRequest),
 		authn:      authn,
 		controller: args.ControllerInfo,
+		clock:      args.Clock,
 		state:      args.State,
 		dialer:     args.Dialer,
 	}, nil
@@ -102,52 +97,11 @@ func NewTunnelTracker(args TunnelTrackerArgs) (*tunnelTracker, error) {
 
 // RequestArgs holds the arguments for requesting a tunnel.
 type RequestArgs struct {
-	unitName  string
-	modelUUID string
+	MachineID string
+	ModelUUID string
 }
 
-func (tAuth *tunnelAuthentication) generatePassword(tunnelID string) (string, error) {
-	token, err := jwt.NewBuilder().
-		Issuer(tokenIssuer).
-		Subject(tokenSubject).
-		IssuedAt(tAuth.clock.Now()).
-		Expiration(tAuth.clock.Now().Add(maxTimeout)).
-		Claim(tunnelIDClaim, tunnelID).
-		Build()
-	if err != nil {
-		return "", errors.Annotate(err, "failed to build token")
-	}
-
-	signedToken, err := jwt.Sign(token, jwt.WithKey(tAuth.jwtAlg, tAuth.sharedSecret))
-	if err != nil {
-		return "", errors.Annotate(err, "failed to sign token")
-	}
-
-	return base64.StdEncoding.EncodeToString(signedToken), nil
-}
-
-func (tAuth *tunnelAuthentication) validatePassword(password string) (string, error) {
-	decodedToken, err := base64.StdEncoding.DecodeString(password)
-	if err != nil {
-		return "", errors.Annotate(err, "failed to decode token")
-	}
-
-	token, err := jwt.Parse(decodedToken,
-		jwt.WithKey(tAuth.jwtAlg, tAuth.sharedSecret),
-		jwt.WithClock(tAuth.clock),
-	)
-	if err != nil {
-		return "", errors.Annotate(err, "failed to parse token")
-	}
-
-	tunnelID, ok := token.PrivateClaims()[tunnelIDClaim].(string)
-	if !ok {
-		return "", errors.New("invalid token")
-	}
-	return tunnelID, nil
-}
-
-func (tt *tunnelTracker) generateEphemeralSSHKey() (gossh.Signer, gossh.PublicKey, error) {
+func (tt *TunnelTracker) generateEphemeralSSHKey() (gossh.Signer, gossh.PublicKey, error) {
 	privKey, err := ssh.ED25519()
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to generate key")
@@ -165,13 +119,18 @@ func (tt *tunnelTracker) generateEphemeralSSHKey() (gossh.Signer, gossh.PublicKe
 //
 // The returned tunnelRequest should be used to wait for the tunnel to be established.
 // See Wait() for more information.
-func (tt *tunnelTracker) RequestTunnel(req RequestArgs) (*tunnelRequest, error) {
+func (tt *TunnelTracker) RequestTunnel(req RequestArgs) (*tunnelRequest, error) {
 	tunnelID, err := uuid.NewRandom()
 	if err != nil {
 		return nil, err
 	}
 
-	password, err := tt.authn.generatePassword(tunnelID.String())
+	// We use the same expiry for the JWT and the state entry.
+	// The state's expiry is used to clean up any dangling requests.
+	// The JWT expiry is used to invalidate old JWTs.
+	expiry := tt.clock.Now().Add(maxTimeout)
+
+	password, err := tt.authn.generatePassword(tunnelID.String(), expiry)
 	if err != nil {
 		return nil, err
 	}
@@ -182,15 +141,15 @@ func (tt *tunnelTracker) RequestTunnel(req RequestArgs) (*tunnelRequest, error) 
 	}
 
 	args := state.SSHConnRequestArg{
-		TunnelID:           tunnelID.String(),
-		ModelUUID:          req.modelUUID,
-		UnitName:           req.unitName,
-		Expires:            time.Now().Add(maxTimeout),
-		Username:           reverseTunnelUser,
-		Password:           password,
-		ControllerAddress:  tt.controller.Addresses(),
-		UnitPort:           22,
-		EphemeralPublicKey: gossh.MarshalAuthorizedKey(publicKey),
+		TunnelID:            tunnelID.String(),
+		ModelUUID:           req.ModelUUID,
+		MachineId:           req.MachineID,
+		Expires:             expiry,
+		Username:            reverseTunnelUser,
+		Password:            password,
+		ControllerAddresses: tt.controller.Addresses(),
+		UnitPort:            22,
+		EphemeralPublicKey:  gossh.MarshalAuthorizedKey(publicKey),
 	}
 
 	err = tt.state.InsertSSHConnRequest(args)
@@ -215,20 +174,20 @@ func (tt *tunnelTracker) RequestTunnel(req RequestArgs) (*tunnelRequest, error) 
 	return tunnelReq, nil
 }
 
-func (tt *tunnelTracker) add(tunnelID string, req *tunnelRequest) {
+func (tt *TunnelTracker) add(tunnelID string, req *tunnelRequest) {
 	tt.mu.Lock()
 	defer tt.mu.Unlock()
 	tt.tracker[tunnelID] = req
 }
 
-func (tt *tunnelTracker) get(tunnelID string) (*tunnelRequest, bool) {
+func (tt *TunnelTracker) get(tunnelID string) (*tunnelRequest, bool) {
 	tt.mu.Lock()
 	defer tt.mu.Unlock()
 	req, ok := tt.tracker[tunnelID]
 	return req, ok
 }
 
-func (tt *tunnelTracker) delete(tunnelID string) {
+func (tt *TunnelTracker) delete(tunnelID string) {
 	tt.mu.Lock()
 	defer tt.mu.Unlock()
 	delete(tt.tracker, tunnelID)
@@ -241,7 +200,7 @@ func (tt *tunnelTracker) delete(tunnelID string) {
 //
 // If the request is valid, the provided tunnelID should be
 // stored and provided alongside the network connection to PushTunnel.
-func (tt *tunnelTracker) AuthenticateTunnel(username, password string) (tunnelID string, err error) {
+func (tt *TunnelTracker) AuthenticateTunnel(username, password string) (tunnelID string, err error) {
 	if username != reverseTunnelUser {
 		return "", errors.New("invalid username")
 	}
@@ -259,7 +218,7 @@ func (tt *tunnelTracker) AuthenticateTunnel(username, password string) (tunnelID
 // This method blocks until a consumer runs Wait() on the
 // appropriate tunnel request. Use context.WithTimeout to control
 // the maximum time to wait.
-func (tt *tunnelTracker) PushTunnel(ctx context.Context, tunnelID string, conn net.Conn) error {
+func (tt *TunnelTracker) PushTunnel(ctx context.Context, tunnelID string, conn net.Conn) error {
 	req, ok := tt.get(tunnelID)
 	if !ok {
 		return errors.New("tunnel not found")

@@ -51,8 +51,8 @@ type SSHConnRequestArg struct {
 	Username string
 	// Password holds the password to be used by the machine agent when opening an ssh connection to the controller.
 	Password string
-	// ControllerAddress holds the IP of the controller unit to be used by the machine agent when opening an ssh connection.
-	ControllerAddress network.SpaceAddresses
+	// ControllerAddresses holds the IP of the controller unit to be used by the machine agent when opening an ssh connection.
+	ControllerAddresses network.SpaceAddresses
 	// UnitPort holds the unit port, to be used in remote forwarding.
 	UnitPort int
 	// EphemeralPublicKey holds the public key to be added to machine's authorized_keys for the lifetime of the ssh connection.
@@ -78,7 +78,7 @@ func newSSHConnRequestDoc(arg SSHConnRequestArg) (sshConnRequestDoc, error) {
 		Expires:             arg.Expires,
 		Username:            arg.Username,
 		Password:            arg.Password,
-		ControllerAddresses: fromNetworkAddresses(arg.ControllerAddress, network.OriginProvider),
+		ControllerAddresses: fromNetworkAddresses(arg.ControllerAddresses, network.OriginProvider),
 		EphemeralPublicKey:  arg.EphemeralPublicKey,
 	}, nil
 }
