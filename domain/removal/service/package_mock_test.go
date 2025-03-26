@@ -40,6 +40,44 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// NamespaceForWatchRemovals mocks base method.
+func (m *MockState) NamespaceForWatchRemovals() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchRemovals")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForWatchRemovals indicates an expected call of NamespaceForWatchRemovals.
+func (mr *MockStateMockRecorder) NamespaceForWatchRemovals() *MockStateNamespaceForWatchRemovalsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchRemovals", reflect.TypeOf((*MockState)(nil).NamespaceForWatchRemovals))
+	return &MockStateNamespaceForWatchRemovalsCall{Call: call}
+}
+
+// MockStateNamespaceForWatchRemovalsCall wrap *gomock.Call
+type MockStateNamespaceForWatchRemovalsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchRemovalsCall) Return(arg0 string) *MockStateNamespaceForWatchRemovalsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchRemovalsCall) Do(f func() string) *MockStateNamespaceForWatchRemovalsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchRemovalsCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchRemovalsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // RelationAdvanceLifeAndScheduleRemoval mocks base method.
 func (m *MockState) RelationAdvanceLifeAndScheduleRemoval(arg0 context.Context, arg1, arg2 string, arg3 bool, arg4 time.Time) error {
 	m.ctrl.T.Helper()
