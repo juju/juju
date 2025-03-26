@@ -183,8 +183,8 @@ func (s *ControllerServices) Macaroon() *macaroonservice.Service {
 	)
 }
 
-func (s *ControllerServices) AgentBinary() *agentbinaryservice.Service {
-	return agentbinaryservice.NewService(
+func (s *ControllerServices) AgentBinary() *agentbinaryservice.AgentBinaryStore {
+	return agentbinaryservice.NewAgentBinaryStore(
 		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.logger.Child("agentbinary"),
 		s.objectstore,

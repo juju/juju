@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain/agentbinary"
@@ -24,24 +25,40 @@ type State interface {
 	Add(ctx context.Context, metadata agentbinary.Metadata) error
 }
 
-// Service provides the API for working with agent binaries.
-type Service struct {
+// AgentBinaryStore provides the API for working with agent binaries.
+type AgentBinaryStore struct {
 	st                State
 	logger            logger.Logger
 	objectStoreGetter objectstore.ModelObjectStoreGetter
 }
 
-// NewService returns a new service reference wrapping the input state.
-func NewService(
+// NewAgentBinaryStore returns a new instance of AgentBinaryStore.
+func NewAgentBinaryStore(
 	st State,
 	logger logger.Logger,
 	objectStoreGetter objectstore.ModelObjectStoreGetter,
-) *Service {
-	return &Service{
+) *AgentBinaryStore {
+	return &AgentBinaryStore{
 		st:                st,
 		logger:            logger,
 		objectStoreGetter: objectStoreGetter,
 	}
+}
+
+// generatePath generates the path for the agent binary in the object store.
+// The path is in the format of "agent-binaries/{version}-{arch}-{sha384}".
+// We don't want to generate the path using the String() of the version
+// because it may change in the future.
+func generatePath(version coreagentbinary.Version, sha384 string) string {
+	num := version.Number
+	numberStr := fmt.Sprintf("%d.%d.%d", num.Major, num.Minor, num.Patch)
+	if num.Tag != "" {
+		numberStr = fmt.Sprintf("%d.%d-%s%d", num.Major, num.Minor, num.Tag, num.Patch)
+	}
+	if num.Build > 0 {
+		numberStr += fmt.Sprintf(".%d", num.Build)
+	}
+	return fmt.Sprintf("agent-binaries/%s-%s-%s", numberStr, version.Arch, sha384)
 }
 
 // Add adds a new agent binary to the object store and saves its metadata to the database.
@@ -50,9 +67,11 @@ func NewService(
 // It returns [coreerrors.NotSupported] if the architecture is not found in the database.
 // It returns [coreerrors.NotFound] if object store UUID is not found in the database.
 // It returns [coreerrors.NotValid] if the agent version is not valid.
-func (s *Service) Add(ctx context.Context, r io.Reader, metadata Metadata) (resultErr error) {
-	if err := metadata.Version.Validate(); err != nil {
-		return errors.Errorf("agent version %q is not valid: %w", metadata.Version, err)
+func (s *AgentBinaryStore) Add(
+	ctx context.Context, r io.Reader, version coreagentbinary.Version, size int64, sha384 string,
+) (resultErr error) {
+	if err := version.Validate(); err != nil {
+		return errors.Errorf("agent version %q is not valid: %w", version, err)
 	}
 
 	objectStore, err := s.objectStoreGetter.GetObjectStore(ctx)
@@ -60,11 +79,10 @@ func (s *Service) Add(ctx context.Context, r io.Reader, metadata Metadata) (resu
 		return errors.Errorf("getting object store: %w", err)
 	}
 
-	// TODO: do we wanna to use 384 instead of 256 for binary. It will be implemented in JUJU-7734.
-	path := fmt.Sprintf("tools/%s-%s-%s", metadata.Number, metadata.Arch, metadata.SHA384)
+	path := generatePath(version, sha384)
 	// The object store ignores the already exist error, and always overwrites the object for the given path.
 	// We just need to save the new object store UUID to the database.
-	uuid, err := objectStore.PutAndCheckHash(ctx, path, r, metadata.Size, metadata.SHA384)
+	uuid, err := objectStore.PutAndCheckHash(ctx, path, r, size, sha384)
 	if err != nil {
 		return errors.Errorf("putting agent binary %q: %w", path, err)
 	}
@@ -77,11 +95,26 @@ func (s *Service) Add(ctx context.Context, r io.Reader, metadata Metadata) (resu
 		}
 	}()
 	if err := s.st.Add(ctx, agentbinary.Metadata{
-		Version:         metadata.Version.Number.String(),
-		Arch:            metadata.Arch,
+		Version:         version.Number.String(),
+		Arch:            version.Arch,
 		ObjectStoreUUID: uuid,
 	}); err != nil {
 		return errors.Errorf("saving agent binary metadata for %q: %w", path, err)
 	}
 	return nil
+}
+
+// AddWithSHA256 adds a new agent binary to the object store and saves its metadata to the database.
+// It always overwrites the binary in the store and the metadata in the database for the
+// given version and arch if it already exists.
+// It accepts the SHA256 hash of the binary.
+// It returns [coreerrors.NotSupported] if the architecture is not found in the database.
+// It returns [coreerrors.NotFound] if object store UUID is not found in the database.
+// It returns [coreerrors.NotValid] if the agent version is not valid.
+func (s *AgentBinaryStore) AddWithSHA256(
+	ctx context.Context, r io.Reader, version coreagentbinary.Version, size int64, sha256 string,
+) (resultErr error) {
+	// TODO: validates the sha256 and generate a new SHA384 in the store. It will be implemented in JUJU-7734.
+	sha384 := sha256
+	return s.Add(ctx, r, version, size, sha384)
 }
