@@ -142,9 +142,9 @@ func (st *State) exportImpl(cfg ExportConfig, store objectstore.ObjectStore) (de
 	if err := export.machines(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := export.applications(); err != nil {
-		return nil, errors.Trace(err)
-	}
+	// if err := export.applications(); err != nil {
+	// 	return nil, errors.Trace(err)
+	// }
 	if err := export.relations(); err != nil {
 		return nil, errors.Trace(err)
 	}
