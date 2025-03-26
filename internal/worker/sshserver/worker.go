@@ -17,6 +17,22 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
+const (
+	// TODO(ale8k): Use generated hostkey from initialise()
+	// As of right now, the generated host key is in mongo.
+	// The initialisation logic needs migrating over to DQLite and then
+	// a domain service should call the method to retrieve the generated
+	// host key here. For now, we're hardcoding it it to stop the server bouncing.
+	temporaryJumpHostKey = `-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtz
+c2gtZWQyNTUxOQAAACBT8UidoqUmpUFFCGEhZhHWGE7VHoJY7LZ7yXzuWlSVYAAA
+AIiZq0wRmatMEQAAAAtzc2gtZWQyNTUxOQAAACBT8UidoqUmpUFFCGEhZhHWGE7V
+HoJY7LZ7yXzuWlSVYAAAAEBYRsJTytYJUidtOuv3s3tdjyDA+4TSdCz9+hFKjyqz
+v1PxSJ2ipSalQUUIYSFmEdYYTtUegljstnvJfO5aVJVgAAAAAAECAwQF
+-----END OPENSSH PRIVATE KEY-----
+`
+)
+
 // ControllerConfigService is the interface that the worker uses to get the
 // controller configuration.
 type ControllerConfigService interface {
@@ -118,6 +134,7 @@ func (ssw *serverWrapperWorker) loop() error {
 	srv, err := ssw.config.NewServerWorker(ServerWorkerConfig{
 		Logger:               ssw.config.Logger,
 		NewSSHServerListener: ssw.config.NewSSHServerListener,
+		JumpHostKey:          temporaryJumpHostKey,
 		Port:                 port,
 	})
 	if err != nil {
