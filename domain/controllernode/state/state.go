@@ -9,7 +9,9 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	"github.com/juju/juju/internal/errors"
@@ -145,4 +147,91 @@ WHERE  namespace = $dbNamespace.namespace`, dbNamespace)
 	}
 
 	return namespace, nil
+}
+
+// SetRunningAgentBinaryVersion sets the running agent binary version for the
+// provided controllerID. Any previously set values for this controllerID will
+// be overwritten by this call.
+//
+// The following errors can be expected:
+// - [controllernodeerrors.NotFound] if the controller node does not exist.
+// - [coreerrors.NotSupported] if the architecture is unknown.
+func (st *State) SetRunningAgentBinaryVersion(
+	ctx context.Context,
+	controllerID string,
+	version coreagentbinary.Version,
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	arch := architecture{Name: version.Arch}
+
+	selectArchIdStmt, err := st.Prepare(`
+SELECT id AS &architecture.id FROM architecture WHERE name = $architecture.name
+`, arch)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	controllerNodeAgentVer := controllerNodeAgentVersion{
+		ControllerID: controllerID,
+		Version:      version.Number.String(),
+	}
+
+	selectControllerNodeStmt, err := st.Prepare(`
+SELECT controller_id AS &controllerNodeAgentVersion.*
+FROM controller_node
+WHERE controller_id = $controllerNodeAgentVersion.controller_id
+	`, controllerNodeAgentVer)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	upsertControllerNodeAgentVerStmt, err := st.Prepare(`
+INSERT INTO controller_node_agent_version (*) VALUES ($controllerNodeAgentVersion.*)
+ON CONFLICT (controller_id) DO
+UPDATE SET version = excluded.version, architecture_id = excluded.architecture_id
+`, controllerNodeAgentVer)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+
+		// Ensure controller id exists in controller node before upserting controller node agent version.
+		err = tx.Query(ctx, selectControllerNodeStmt, controllerNodeAgentVer).Get(&controllerNodeAgentVer)
+
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"controller node %q does not exist", controllerID,
+			).Add(controllernodeerrors.NotFound)
+		} else if err != nil {
+			return errors.Errorf(
+				"checking if controller node %q exists: %w",
+				controllerID, err,
+			)
+		}
+
+		err = tx.Query(ctx, selectArchIdStmt, arch).Get(&arch)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"architecture %q is unsupported", version.Arch,
+			).Add(coreerrors.NotSupported)
+		} else if err != nil {
+			return errors.Errorf(
+				"looking up id for architecture %q: %w", version.Arch, err,
+			)
+		}
+
+		controllerNodeAgentVer.ArchitectureID = arch.ID
+		return tx.Query(ctx, upsertControllerNodeAgentVerStmt, controllerNodeAgentVer).Run()
+	})
+
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
 }
