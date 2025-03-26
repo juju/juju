@@ -47,8 +47,13 @@ func RegisterExport(
 // ExportService provides a subset of the application domain
 // service methods needed for application export.
 type ExportService interface {
-	// ExportApplications returns all the applications in the model.
-	GetApplicationsForExport(ctx context.Context) ([]application.ExportApplication, error)
+	// GetApplications returns all the applications in the model.
+	GetApplications(ctx context.Context) ([]application.ExportApplication, error)
+
+	// GetApplicationUnits returns all the units for the specified application.
+	// If the application does not exist, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationUnits(ctx context.Context, name string) ([]application.ExportUnit, error)
 
 	// GetCharmID returns a charm ID by name. It returns an error.CharmNotFound
 	// if the charm can not be found by the name.
@@ -95,12 +100,21 @@ type ExportService interface {
 	GetApplicationCharmOrigin(ctx context.Context, name string) (application.CharmOrigin, error)
 }
 
+// ExportLeadershipService provides a subset of the leadership domain
+// service methods needed for application export.
+type ExportLeadershipService interface {
+	// GetApplicationLeadershipForModel returns the leadership information for the
+	// model applications.
+	GetApplicationLeadershipForModel(ctx context.Context, modelUUID coremodel.UUID) (map[string]string, error)
+}
+
 // exportOperation describes a way to execute a migration for
 // exporting applications.
 type exportOperation struct {
 	modelmigration.BaseOperation
 
-	service ExportService
+	service           ExportService
+	leadershipService ExportLeadershipService
 
 	registry corestorage.ModelStorageRegistryGetter
 	clock    clock.Clock
@@ -121,20 +135,33 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 		e.clock,
 		e.logger,
 	)
+	e.leadershipService = service.NewLeadershipService(
+		state.NewLeadershipState(scope.ControllerDB()),
+	)
 	return nil
 }
 
 // Execute the export, adding the application to the model.
 // The export also includes all the charm metadata, manifest, config and
 // actions. Along with units and resources.
-func (e *exportOperation) Execute(ctx context.Context, model description.Model) error {
-	applications, err := e.service.GetApplicationsForExport(ctx)
+func (e *exportOperation) Execute(ctx context.Context, m description.Model) error {
+	leases, err := e.leadershipService.GetApplicationLeadershipForModel(ctx, coremodel.UUID(m.UUID()))
 	if err != nil {
-		return errors.Errorf("getting applications for export: %w", err)
+		return errors.Errorf("getting application leadership for model: %w", err)
+	}
+
+	applications, err := e.service.GetApplications(ctx)
+	if err != nil {
+		return errors.Errorf("getting applications: %w", err)
 	}
 
 	for _, app := range applications {
-		appArgs, err := e.createApplicationArgs(ctx, app)
+		leaseHolder, ok := leases[app.Name]
+		if !ok {
+			return errors.Errorf("lease holder not found for application %q", app.Name)
+		}
+
+		appArgs, err := e.createApplicationArgs(ctx, app, leaseHolder)
 		if err != nil {
 			return errors.Errorf("creating application args: %w", err)
 		}
@@ -142,7 +169,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		// Create the application in the description model. This returns the
 		// application description, which we can then populate with the
 		// additional data.
-		descriptionApp := model.AddApplication(appArgs)
+		descriptionApp := m.AddApplication(appArgs)
 
 		// Get the application constraints and set them on the application.
 		appCons, err := e.service.GetApplicationConstraints(ctx, app.Name)
@@ -203,7 +230,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 	return nil
 }
 
-func (e *exportOperation) createApplicationArgs(ctx context.Context, app application.ExportApplication) (description.ApplicationArgs, error) {
+func (e *exportOperation) createApplicationArgs(ctx context.Context, app application.ExportApplication, leaseHolder string) (description.ApplicationArgs, error) {
 	modelType, err := e.exportModelType(app.ModelType)
 	if err != nil {
 		return description.ApplicationArgs{}, errors.Capture(err)
@@ -233,6 +260,7 @@ func (e *exportOperation) createApplicationArgs(ctx context.Context, app applica
 		Exposed:              app.Exposed,
 		Placement:            app.Placement,
 		CloudService:         cloudService,
+		Leader:               leaseHolder,
 
 		// Create a provisioning state for the application, incase a non-scaling
 		// application is being exported and someone tries to access the

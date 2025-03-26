@@ -16,32 +16,30 @@ import (
 // LeadershipState provides the lease read capabilities.
 type LeadershipState struct {
 	*domain.StateBase
-	modelUUID model.UUID
 }
 
 // NewLeadershipState returns a new leadership state reference.
-func NewLeadershipState(factory database.TxnRunnerFactory, modelUUID model.UUID) *LeadershipState {
+func NewLeadershipState(factory database.TxnRunnerFactory) *LeadershipState {
 	return &LeadershipState{
 		StateBase: domain.NewStateBase(factory),
-		modelUUID: modelUUID,
 	}
 }
 
-// GetApplicationLeadership returns the leadership information for the model
-// applications.
+// GetApplicationLeadershipForModel returns the leadership information for
+// the model applications.
 //
 // This replicates some of the functionality of the lease state, but with key
 // differences in the implementation. We only return the
 // "application-leadership" leases and we also check if the lease has expired
 // and remove it if it has.
-func (s *LeadershipState) GetApplicationLeadership(ctx context.Context) (map[string]string, error) {
+func (s *LeadershipState) GetApplicationLeadershipForModel(ctx context.Context, modelUUID model.UUID) (map[string]string, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	lease := leadership{
-		ModelUUID: s.modelUUID.String(),
+		ModelUUID: modelUUID.String(),
 	}
 
 	stmt, err := s.Prepare(`

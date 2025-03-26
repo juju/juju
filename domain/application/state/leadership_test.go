@@ -20,19 +20,19 @@ type leadershipSuite struct {
 
 var _ = gc.Suite(&leadershipSuite{})
 
-func (s *leadershipSuite) TestGetApplicationLeadershipNoLeaders(c *gc.C) {
+func (s *leadershipSuite) TestGetApplicationLeadershipForModelNoLeaders(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 
-	state := NewLeadershipState(s.TxnRunnerFactory(), modelUUID)
-	leases, err := state.GetApplicationLeadership(context.Background())
+	state := NewLeadershipState(s.TxnRunnerFactory())
+	leases, err := state.GetApplicationLeadershipForModel(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(leases, gc.HasLen, 0)
 }
 
-func (s *leadershipSuite) TestGetApplicationLeadership(c *gc.C) {
+func (s *leadershipSuite) TestGetApplicationLeadershipForModel(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 
-	state := NewLeadershipState(s.TxnRunnerFactory(), modelUUID)
+	state := NewLeadershipState(s.TxnRunnerFactory())
 
 	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
@@ -42,17 +42,17 @@ VALUES ('1', 1, ?, 'foo', 'unit', date('now'), date('now', '+1 day'))
 		return err
 	})
 
-	leases, err := state.GetApplicationLeadership(context.Background())
+	leases, err := state.GetApplicationLeadershipForModel(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(leases, gc.DeepEquals, map[string]string{
 		"foo": "unit",
 	})
 }
 
-func (s *leadershipSuite) TestGetApplicationLeadershipSingularControllerType(c *gc.C) {
+func (s *leadershipSuite) TestGetApplicationLeadershipForModelSingularControllerType(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 
-	state := NewLeadershipState(s.TxnRunnerFactory(), modelUUID)
+	state := NewLeadershipState(s.TxnRunnerFactory())
 
 	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
@@ -69,17 +69,17 @@ VALUES ('2', 0, ?, 'controller', 'abc', date('now'), date('now', '+1 day'))
 		return err
 	})
 
-	leases, err := state.GetApplicationLeadership(context.Background())
+	leases, err := state.GetApplicationLeadershipForModel(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(leases, gc.DeepEquals, map[string]string{
 		"foo": "unit",
 	})
 }
 
-func (s *leadershipSuite) TestGetApplicationLeadershipExpired(c *gc.C) {
+func (s *leadershipSuite) TestGetApplicationLeadershipForModelExpired(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 
-	state := NewLeadershipState(s.TxnRunnerFactory(), modelUUID)
+	state := NewLeadershipState(s.TxnRunnerFactory())
 
 	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
@@ -89,7 +89,7 @@ VALUES ('1', 1, ?, 'foo', 'unit', date('now', '-2 day'), date('now', '-1 day'))
 		return err
 	})
 
-	leases, err := state.GetApplicationLeadership(context.Background())
+	leases, err := state.GetApplicationLeadershipForModel(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(leases, gc.HasLen, 0)
 }

@@ -1096,6 +1096,12 @@ type peerEndpoint struct {
 	Name string `db:"name"`
 }
 
+type exportUnit struct {
+	UUID         coreunit.UUID `db:"uuid"`
+	Name         coreunit.Name `db:"name"`
+	PasswordHash string        `db:"password_hash"`
+}
+
 // leadership represents a single row from the leadership table for
 // applications.
 type leadership struct {

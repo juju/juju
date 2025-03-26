@@ -6,7 +6,6 @@ package modelmigration
 import (
 	"context"
 
-	"github.com/juju/clock"
 	"github.com/juju/description/v9"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
@@ -31,12 +30,10 @@ var _ = gc.Suite(&exportApplicationSuite{})
 func (s *exportApplicationSuite) TestApplicationExportEmpty(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.exportService.EXPECT().GetApplicationsForExport(gomock.Any()).Return(nil, nil)
+	s.exportLeadershipService.EXPECT().GetApplicationLeadershipForModel(gomock.Any(), gomock.Any()).Return(map[string]string{}, nil)
+	s.exportService.EXPECT().GetApplications(gomock.Any()).Return(nil, nil)
 
-	exportOp := exportOperation{
-		service: s.exportService,
-		clock:   clock.WallClock,
-	}
+	exportOp := s.newExportOperation()
 
 	model := description.NewModel(description.ModelArgs{})
 	err := exportOp.Execute(context.Background(), model)
@@ -47,12 +44,23 @@ func (s *exportApplicationSuite) TestApplicationExportEmpty(c *gc.C) {
 func (s *exportApplicationSuite) TestApplicationExportError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.exportService.EXPECT().GetApplicationsForExport(gomock.Any()).Return(nil, errors.Errorf("boom"))
+	s.expectApplicationLeadership("prometheus")
+	s.exportService.EXPECT().GetApplications(gomock.Any()).Return(nil, errors.Errorf("boom"))
 
-	exportOp := exportOperation{
-		service: s.exportService,
-		clock:   clock.WallClock,
-	}
+	exportOp := s.newExportOperation()
+
+	model := description.NewModel(description.ModelArgs{})
+	err := exportOp.Execute(context.Background(), model)
+	c.Assert(err, gc.ErrorMatches, ".*boom")
+	c.Check(model.Applications(), gc.HasLen, 0)
+}
+
+func (s *exportApplicationSuite) TestApplicationExportLeadershipError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.exportLeadershipService.EXPECT().GetApplicationLeadershipForModel(gomock.Any(), gomock.Any()).Return(map[string]string{}, errors.Errorf("boom"))
+
+	exportOp := s.newExportOperation()
 
 	model := description.NewModel(description.ModelArgs{})
 	err := exportOp.Execute(context.Background(), model)
@@ -65,16 +73,14 @@ func (s *exportApplicationSuite) TestApplicationExportNoLocator(c *gc.C) {
 
 	charmUUID := charmtesting.GenCharmID(c)
 
-	s.exportService.EXPECT().GetApplicationsForExport(gomock.Any()).Return([]application.ExportApplication{{
+	s.expectApplicationLeadership("prometheus")
+	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{
 		Name:      "prometheus",
 		ModelType: model.IAAS,
 		CharmUUID: charmUUID,
 	}}, nil)
 
-	exportOp := exportOperation{
-		service: s.exportService,
-		clock:   clock.WallClock,
-	}
+	exportOp := s.newExportOperation()
 
 	model := description.NewModel(description.ModelArgs{})
 	err := exportOp.Execute(context.Background(), model)
@@ -87,7 +93,11 @@ func (s *exportApplicationSuite) TestApplicationExportMultipleApplications(c *gc
 
 	charmUUID := charmtesting.GenCharmID(c)
 
-	s.exportService.EXPECT().GetApplicationsForExport(gomock.Any()).Return([]application.ExportApplication{{
+	s.exportLeadershipService.EXPECT().GetApplicationLeadershipForModel(gomock.Any(), gomock.Any()).Return(map[string]string{
+		"prometheus":     "prometheus/0",
+		"prometheus-k8s": "prometheus-k8s/0",
+	}, nil)
+	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{
 		Name:      "prometheus",
 		ModelType: model.IAAS,
 		CharmUUID: charmUUID,
@@ -124,10 +134,10 @@ func (s *exportApplicationSuite) TestApplicationExportMultipleApplications(c *gc
 		ScaleTarget: 2,
 	})
 
-	exportOp := exportOperation{
-		service: s.exportService,
-		clock:   clock.WallClock,
-	}
+	s.expectApplicationUnitsFor("prometheus")
+	s.expectApplicationUnitsFor("prometheus-k8s")
+
+	exportOp := s.newExportOperation()
 
 	model := description.NewModel(description.ModelArgs{})
 	err := exportOp.Execute(context.Background(), model)
@@ -155,9 +165,12 @@ func (s *exportApplicationSuite) TestApplicationExportMultipleApplications(c *gc
 func (s *exportApplicationSuite) TestApplicationExportConstraints(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectApplicationLeadership("prometheus")
 	s.expectApplication(c)
 	s.expectMinimalCharm()
 	s.expectApplicationConfig()
+	s.expectApplicationUnits()
+
 	cons := constraints.Value{
 		AllocatePublicIP: ptr(true),
 		Arch:             ptr("amd64"),
@@ -177,10 +190,7 @@ func (s *exportApplicationSuite) TestApplicationExportConstraints(c *gc.C) {
 	}
 	s.expectApplicationConstraints(cons)
 
-	exportOp := exportOperation{
-		service: s.exportService,
-		clock:   clock.WallClock,
-	}
+	exportOp := s.newExportOperation()
 
 	model := description.NewModel(description.ModelArgs{})
 
@@ -210,7 +220,8 @@ func (s *exportApplicationSuite) TestExportScalingState(c *gc.C) {
 
 	charmUUID := charmtesting.GenCharmID(c)
 
-	s.exportService.EXPECT().GetApplicationsForExport(gomock.Any()).Return([]application.ExportApplication{{
+	s.expectApplicationLeadership("prometheus-k8s")
+	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{
 		Name:      "prometheus-k8s",
 		ModelType: model.CAAS,
 		CharmUUID: charmUUID,
@@ -239,11 +250,9 @@ func (s *exportApplicationSuite) TestExportScalingState(c *gc.C) {
 		ScaleTarget: 42,
 		Scale:       1,
 	})
+	s.expectApplicationUnitsFor("prometheus-k8s")
 
-	exportOp := exportOperation{
-		service: s.exportService,
-		clock:   clock.WallClock,
-	}
+	exportOp := s.newExportOperation()
 
 	model := description.NewModel(description.ModelArgs{})
 

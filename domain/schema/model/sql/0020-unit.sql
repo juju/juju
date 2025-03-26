@@ -321,3 +321,10 @@ CREATE TABLE resolve_mode (
 INSERT INTO resolve_mode VALUES
 (0, 'retry-hooks'),
 (1, 'no-hooks');
+
+CREATE VIEW v_unit_export AS
+SELECT
+    u.uuid,
+    u.name,
+    u.password_hash
+FROM unit AS u;

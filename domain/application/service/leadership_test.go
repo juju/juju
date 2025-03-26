@@ -11,6 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -25,12 +26,14 @@ var _ = gc.Suite(&leadershipSuite{})
 func (s *leadershipSuite) TestLeadershipService(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetApplicationLeadership(gomock.Any()).Return(map[string]string{
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	s.state.EXPECT().GetApplicationLeadershipForModel(gomock.Any(), modelUUID).Return(map[string]string{
 		"foo": "bar",
 	}, nil)
 
 	leadershipService := NewLeadershipService(s.state)
-	leaders, err := leadershipService.GetApplicationLeadership(context.Background())
+	leaders, err := leadershipService.GetApplicationLeadershipForModel(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(leaders, jc.DeepEquals, map[string]string{
 		"foo": "bar",
@@ -40,12 +43,14 @@ func (s *leadershipSuite) TestLeadershipService(c *gc.C) {
 func (s *leadershipSuite) TestLeadershipServiceError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetApplicationLeadership(gomock.Any()).Return(map[string]string{
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	s.state.EXPECT().GetApplicationLeadershipForModel(gomock.Any(), modelUUID).Return(map[string]string{
 		"foo": "bar",
 	}, errors.Errorf("boom"))
 
 	leadershipService := NewLeadershipService(s.state)
-	_, err := leadershipService.GetApplicationLeadership(context.Background())
+	_, err := leadershipService.GetApplicationLeadershipForModel(context.Background(), modelUUID)
 	c.Assert(err, gc.ErrorMatches, "boom")
 
 }

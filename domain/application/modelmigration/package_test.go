@@ -6,6 +6,7 @@ package modelmigration
 import (
 	"testing"
 
+	"github.com/juju/clock"
 	jujutesting "github.com/juju/testing"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -14,13 +15,14 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
+	unit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/application/modelmigration ImportService,ExportService
+//go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/application/modelmigration ImportService,ExportService,ExportLeadershipService
 //go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination description_mock_test.go github.com/juju/description/v9 CharmMetadata,CharmMetadataRelation,CharmMetadataStorage,CharmMetadataDevice,CharmMetadataResource,CharmMetadataContainer,CharmMetadataContainerMount,CharmManifest,CharmManifestBase,CharmActions,CharmAction,CharmConfigs,CharmConfig
 
 func TestPackage(t *testing.T) {
@@ -30,15 +32,25 @@ func TestPackage(t *testing.T) {
 type exportSuite struct {
 	jujutesting.IsolationSuite
 
-	exportService *MockExportService
+	exportService           *MockExportService
+	exportLeadershipService *MockExportLeadershipService
 }
 
 func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.exportService = NewMockExportService(ctrl)
+	s.exportLeadershipService = NewMockExportLeadershipService(ctrl)
 
 	return ctrl
+}
+
+func (s *exportSuite) newExportOperation() exportOperation {
+	return exportOperation{
+		service:           s.exportService,
+		leadershipService: s.exportLeadershipService,
+		clock:             clock.WallClock,
+	}
 }
 
 func (s *exportSuite) expectApplication(c *gc.C) {
@@ -48,7 +60,7 @@ func (s *exportSuite) expectApplication(c *gc.C) {
 func (s *exportSuite) expectApplicationFor(c *gc.C, name string) {
 	charmUUID := charmtesting.GenCharmID(c)
 
-	s.exportService.EXPECT().GetApplicationsForExport(gomock.Any()).Return([]application.ExportApplication{{
+	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{
 		Name:      name,
 		ModelType: model.IAAS,
 		CharmUUID: charmUUID,
@@ -130,4 +142,20 @@ func (s *exportSuite) expectApplicationConstraints(cons constraints.Value) {
 
 func (s *exportSuite) expectApplicationConstraintsFor(name string, cons constraints.Value) {
 	s.exportService.EXPECT().GetApplicationConstraints(gomock.Any(), name).Return(cons, nil)
+}
+
+func (s *exportSuite) expectApplicationLeadership(name string) {
+	s.exportLeadershipService.EXPECT().GetApplicationLeadershipForModel(gomock.Any(), gomock.Any()).Return(map[string]string{
+		name: name + "/0",
+	}, nil)
+}
+
+func (s *exportSuite) expectApplicationUnits() {
+	s.expectApplicationUnitsFor("prometheus")
+}
+
+func (s *exportSuite) expectApplicationUnitsFor(name string) {
+	s.exportService.EXPECT().GetApplicationUnits(gomock.Any(), name).Return([]application.ExportUnit{{
+		Name: unit.Name(name + "/0"),
+	}}, nil)
 }

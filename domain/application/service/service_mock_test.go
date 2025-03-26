@@ -14,6 +14,7 @@ import (
 	io "io"
 	reflect "reflect"
 
+	model "github.com/juju/juju/core/model"
 	store "github.com/juju/juju/domain/application/charm/store"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -221,41 +222,41 @@ func (m *MockLeadershipState) EXPECT() *MockLeadershipStateMockRecorder {
 	return m.recorder
 }
 
-// GetApplicationLeadership mocks base method.
-func (m *MockLeadershipState) GetApplicationLeadership(arg0 context.Context) (map[string]string, error) {
+// GetApplicationLeadershipForModel mocks base method.
+func (m *MockLeadershipState) GetApplicationLeadershipForModel(arg0 context.Context, arg1 model.UUID) (map[string]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationLeadership", arg0)
+	ret := m.ctrl.Call(m, "GetApplicationLeadershipForModel", arg0, arg1)
 	ret0, _ := ret[0].(map[string]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetApplicationLeadership indicates an expected call of GetApplicationLeadership.
-func (mr *MockLeadershipStateMockRecorder) GetApplicationLeadership(arg0 any) *MockLeadershipStateGetApplicationLeadershipCall {
+// GetApplicationLeadershipForModel indicates an expected call of GetApplicationLeadershipForModel.
+func (mr *MockLeadershipStateMockRecorder) GetApplicationLeadershipForModel(arg0, arg1 any) *MockLeadershipStateGetApplicationLeadershipForModelCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationLeadership", reflect.TypeOf((*MockLeadershipState)(nil).GetApplicationLeadership), arg0)
-	return &MockLeadershipStateGetApplicationLeadershipCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationLeadershipForModel", reflect.TypeOf((*MockLeadershipState)(nil).GetApplicationLeadershipForModel), arg0, arg1)
+	return &MockLeadershipStateGetApplicationLeadershipForModelCall{Call: call}
 }
 
-// MockLeadershipStateGetApplicationLeadershipCall wrap *gomock.Call
-type MockLeadershipStateGetApplicationLeadershipCall struct {
+// MockLeadershipStateGetApplicationLeadershipForModelCall wrap *gomock.Call
+type MockLeadershipStateGetApplicationLeadershipForModelCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockLeadershipStateGetApplicationLeadershipCall) Return(arg0 map[string]string, arg1 error) *MockLeadershipStateGetApplicationLeadershipCall {
+func (c *MockLeadershipStateGetApplicationLeadershipForModelCall) Return(arg0 map[string]string, arg1 error) *MockLeadershipStateGetApplicationLeadershipForModelCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockLeadershipStateGetApplicationLeadershipCall) Do(f func(context.Context) (map[string]string, error)) *MockLeadershipStateGetApplicationLeadershipCall {
+func (c *MockLeadershipStateGetApplicationLeadershipForModelCall) Do(f func(context.Context, model.UUID) (map[string]string, error)) *MockLeadershipStateGetApplicationLeadershipForModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockLeadershipStateGetApplicationLeadershipCall) DoAndReturn(f func(context.Context) (map[string]string, error)) *MockLeadershipStateGetApplicationLeadershipCall {
+func (c *MockLeadershipStateGetApplicationLeadershipForModelCall) DoAndReturn(f func(context.Context, model.UUID) (map[string]string, error)) *MockLeadershipStateGetApplicationLeadershipForModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
