@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/clock"
 
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/eventsource"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/internal/errors"
@@ -30,19 +30,17 @@ type State interface {
 	RelationAdvanceLifeAndScheduleRemoval(
 		ctx context.Context, removalUUID, relUUID string, force bool, when time.Time,
 	) error
+
+	// NamespaceForWatchRemovals returns the table name whose UUIDs we
+	// are watching in order to be notified of new removal jobs.
+	NamespaceForWatchRemovals() string
 }
 
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
-	// NewNamespaceWatcher returns a new watcher that filters changes from the
-	// input base watcher's db/queue. Change-log events will be emitted only if
-	// the filter accepts them, and dispatching the notifications via the
-	// Changes channel. A filter option is required, though additional filter
-	// options can be provided.
-	NewNamespaceWatcher(
-		initialQuery eventsource.NamespaceQuery,
-		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
-	) (watcher.StringsWatcher, error)
+	// NewUUIDsWatcher returns a watcher that emits the UUIDs for changes to the
+	// input table name that match the input mask.
+	NewUUIDsWatcher(tableName string, changeMask changestream.ChangeType) (watcher.StringsWatcher, error)
 }
 
 // Service provides the API for working with entity removal.
@@ -79,7 +77,7 @@ func (s *Service) RemoveRelation(ctx context.Context, relUUID corerelation.UUID,
 		return "", errors.Errorf("removing relation %q: %w", relUUID, err)
 	}
 
-	s.logger.Infof(ctx, "scheduled cleanup job %q for relation %q", jobUUID, relUUID)
+	s.logger.Infof(ctx, "scheduled removal job %q for relation %q", jobUUID, relUUID)
 	return jobUUID, nil
 }
 
@@ -106,4 +104,14 @@ func NewWatchableService(
 		},
 		watcherFactory: watcherFactory,
 	}
+}
+
+// WatchRemovals watches for scheduled removal jobs.
+// The returned watcher emits the UUIDs of any inserted or updated jobs.
+func (s *WatchableService) WatchRemovals() (watcher.StringsWatcher, error) {
+	w, err := s.watcherFactory.NewUUIDsWatcher(s.st.NamespaceForWatchRemovals(), changestream.Changed)
+	if err != nil {
+		return nil, errors.Errorf("creating watcher for removals: %w", err)
+	}
+	return w, nil
 }

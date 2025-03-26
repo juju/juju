@@ -112,3 +112,9 @@ AND    life_id = 0`, relationUUID)
 		return nil
 	}))
 }
+
+// NamespaceForWatchRemovals returns the table name whose UUIDs we
+// are watching in order to be notified of new removal jobs.
+func (st *State) NamespaceForWatchRemovals() string {
+	return "removal"
+}
