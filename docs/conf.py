@@ -118,12 +118,12 @@ html_context = {
     "matrix": "https://matrix.to/#/#charmhub-juju:ubuntu.com",
     # Your documentation GitHub repository URL
     "github_url": "https://github.com/juju/juju",
-    # Docs branch in the repo; used in links for viewing the source files
-    'github_version': 'main',
     # Your documentation GitHub issues URL
      "github_issues": "https://github.com/juju/juju/issues",
     # Docs location in the repo; used in links for viewing the source files
-    "github_folder": "/docs/",
+    "repo_folder": "/docs/",
+    # Docs branch in the repo; used in links for viewing the source files
+    'repo_default_branch': 'main',
 }
 
 # Project slug; see https://meta.discourse.org/t/what-is-category-slug/87897
