@@ -179,3 +179,74 @@ func AddVirtualHostKeys(pool *StatePool) error {
 	}
 	return st.runRawTransaction(ops)
 }
+func SplitMigrationStatusMessages(pool *StatePool) error {
+	type legacyModelMigStatusDoc struct {
+		// These are the same as the ids as migrationsC.
+		// "uuid:sequence".
+		Id string `bson:"_id"`
+
+		// StartTime holds the time the migration started (stored as per
+		// UnixNano).
+		StartTime int64 `bson:"start-time"`
+
+		// StartTime holds the time the migration reached the SUCCESS
+		// phase (stored as per UnixNano).
+		SuccessTime int64 `bson:"success-time"`
+
+		// EndTime holds the time the migration reached a terminal (end)
+		// phase (stored as per UnixNano).
+		EndTime int64 `bson:"end-time"`
+
+		// Phase holds the current migration phase. This should be one of
+		// the string representations of the core/migrations.Phase
+		// constants.
+		Phase string `bson:"phase"`
+
+		// PhaseChangedTime holds the time that Phase last changed (stored
+		// as per UnixNano).
+		PhaseChangedTime int64 `bson:"phase-changed-time"`
+
+		// StatusMessage holds a human readable message about the
+		// progress of the migration.
+		StatusMessage string `bson:"status-message"`
+	}
+
+	st, err := pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	migStatus, closer := st.db().GetCollection(migrationsStatusC)
+	defer closer()
+
+	iter := migStatus.Find(nil).Iter()
+	defer iter.Close()
+
+	var ops []txn.Op
+	var legacyStatusDoc legacyModelMigStatusDoc
+	for iter.Next(&legacyStatusDoc) {
+		if legacyStatusDoc.StatusMessage == "" {
+			continue
+		}
+
+		id := legacyStatusDoc.Id
+
+		messageDoc := modelMigStatusMessageDoc{
+			Id:            id,
+			StatusMessage: legacyStatusDoc.StatusMessage,
+		}
+
+		ops = append(ops, txn.Op{
+			C:      migrationsStatusMessageC,
+			Id:     id,
+			Assert: txn.DocMissing,
+			Insert: messageDoc,
+		}, txn.Op{
+			C:      migrationsStatusC,
+			Id:     id,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$unset", bson.D{{"status-message", nil}}}},
+		})
+	}
+	return st.runRawTransaction(ops)
+}

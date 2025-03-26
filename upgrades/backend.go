@@ -12,6 +12,7 @@ import (
 // StateBackend provides an interface for upgrading the global state database.
 type StateBackend interface {
 	AddVirtualHostKeys() error
+	SplitMigrationStatusMessages() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -34,4 +35,10 @@ type stateBackend struct {
 // create missing virtual host keys.
 func (s stateBackend) AddVirtualHostKeys() error {
 	return state.AddVirtualHostKeys(s.pool)
+}
+
+// SplitMigrationStatusMessages runs an upgrade to
+// split migration status messages.
+func (s stateBackend) SplitMigrationStatusMessages() error {
+	return state.SplitMigrationStatusMessages(s.pool)
 }
