@@ -2068,49 +2068,54 @@ func (u *UniterAPI) WatchUnitRelations(ctx context.Context, args params.Entities
 		}
 		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
-			result.Results[i], err = u.watchOneUnitRelations(tag)
+			result.Results[i], err = u.watchOneUnitRelations(ctx, tag)
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
 
-func (u *UniterAPI) watchOneUnitRelations(tag names.UnitTag) (params.StringsWatchResult, error) {
+func (u *UniterAPI) watchOneUnitRelations(ctx context.Context, tag names.UnitTag) (params.StringsWatchResult, error) {
 	nothing := params.StringsWatchResult{}
+
+	unitName, err := coreunit.NewName(tag.Id())
+	if err != nil {
+		return nothing, err
+	}
+
+	applicationID, err := u.applicationService.GetApplicationIDByName(ctx, unitName.Application())
+	if err != nil {
+		return nothing, err
+	}
+
 	unit, err := u.getUnit(tag)
 	if err != nil {
 		return nothing, err
 	}
-	app, err := unit.Application()
-	if err != nil {
-		return nothing, err
-	}
+
 	principalName, isSubordinate := unit.PrincipalName()
-	var watch state.StringsWatcher
+	var watch watcher.StringsWatcher
 	if isSubordinate {
-		principalUnit, err := u.st.Unit(principalName)
+		watch, err = u.relationService.WatchPrincipalLifeSuspendedStatus(ctx, applicationID)
 		if err != nil {
-			return nothing, errors.Trace(err)
-		}
-		principalApp, err := principalUnit.Application()
-		if err != nil {
-			return nothing, errors.Trace(err)
-		}
-		watch, err = newSubordinateRelationsWatcher(u.st, app, principalApp.Name(), u.logger)
-		if err != nil {
-			return nothing, errors.Trace(err)
+			updatedError := internalerrors.Errorf("WatchUnitRelations for the subordinate's principal application %q: %w",
+				principalName, err)
+			return nothing, internalerrors.Capture(updatedError)
 		}
 	} else {
-		watch = app.WatchRelations()
+		watch, err = u.relationService.WatchLifeSuspendedStatus(applicationID)
+		if err != nil {
+			updatedError := internalerrors.Errorf("WatchUnitRelations for the principal application %q: %w",
+				unitName.Application(), err)
+			return nothing, internalerrors.Capture(updatedError)
+		}
 	}
-	// Consume the initial event and forward it to the result.
-	if changes, ok := <-watch.Changes(); ok {
-		return params.StringsWatchResult{
-			StringsWatcherId: u.resources.Register(watch),
-			Changes:          changes,
-		}, nil
+
+	watcherId, initial, err := internal.EnsureRegisterWatcher[[]string](ctx, u.watcherRegistry, watch)
+	if err != nil {
+		return nothing, nil
 	}
-	return nothing, statewatcher.EnsureErr(watch)
+	return params.StringsWatchResult{StringsWatcherId: watcherId, Changes: initial}, nil
 }
 
 func makeAppAuthChecker(authTag names.Tag) common.AuthFunc {

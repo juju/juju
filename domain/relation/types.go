@@ -116,3 +116,19 @@ type RelationScopeWatcher struct {
 	//ignore string
 	//out    chan *RelationScopeChange
 }
+
+// OtherEndpointsForWatcher provides data needed to emit an event from
+// the PrincipalLifeSuspendedStatus watcher on other endpoints in a
+// relation.
+type OtherEndpointsForWatcher struct {
+	ApplicationID application.ID
+	Subordinate   bool
+}
+
+// RelationLifeSuspendedData contains the necessary data to notify in
+// WatchLifeSuspendedStatus.
+type RelationLifeSuspendedData struct {
+	Key       corerelation.Key
+	Life      life.Value
+	Suspended bool
+}

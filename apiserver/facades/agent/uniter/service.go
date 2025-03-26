@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
+	internalrelation "github.com/juju/juju/internal/relation"
 )
 
 // Services represents all the services that the uniter facade requires.
@@ -251,6 +252,14 @@ type RelationService interface {
 		applicationID coreapplication.ID,
 	) (map[string]string, error)
 
+	// GetRelatedEndpoints returns the endpoints of the relation with which
+	// units of the named application will establish relations.
+	GetRelatedEndpoints(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		applicationName string,
+	) ([]internalrelation.Endpoint, error)
+
 	// GetRelationDetails returns the relation details requested by the uniter
 	// for a relation.
 	GetRelationDetails(ctx context.Context, relationID int) (relation.RelationDetails, error)
@@ -295,6 +304,14 @@ type RelationService interface {
 	// any relation the unit is part of.
 	GetRelationsStatusForUnit(ctx context.Context, unitUUID coreunit.UUID) ([]relation.RelationUnitStatus, error)
 
+	// GetRelationEndpoint returns the endpoint for the given application and
+	// relation identifier combination.
+	GetRelationEndpoint(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		applicationID coreapplication.ID,
+	) (internalrelation.Endpoint, error)
+
 	// GetRemoteRelationApplicationSettings returns the application settings
 	// for the given application and relation identifier combination.
 	// Returns NotFound if the application or relation is not found.
@@ -315,4 +332,18 @@ type RelationService interface {
 		relationUUID corerelation.UUID,
 		info corestatus.StatusInfo,
 	) error
+
+	// WatchLifeSuspendedStatus returns a watcher that notifies of changes to
+	// the life or suspended status any relation the application is part of.
+	WatchLifeSuspendedStatus(applicationID coreapplication.ID) (watcher.StringsWatcher, error)
+
+	// WatchPrincipalLifeSuspendedStatus returns a watcher that notifies of
+	// changes to the life or suspended status any relation the given principal
+	// application is part of. Notifications on global scoped and container
+	// scoped relations for the principal application are given, all others are
+	// filtered out.
+	WatchPrincipalLifeSuspendedStatus(
+		ctx context.Context,
+		applicationID coreapplication.ID,
+	) (watcher.StringsWatcher, error)
 }

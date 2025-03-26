@@ -14,6 +14,10 @@ const (
 	// being operated on does not exist.
 	ApplicationNotFound = errors.ConstError("application not found")
 
+	// ApplicationNotFoundForRelation indicates that the application is not part of
+	// the relation.
+	ApplicationNotFoundForRelation = errors.ConstError("application not found for relation")
+
 	// PotentialRelationUnitNotValid describes an error that occurs during
 	// EnterScope pre-checks to ensure the created relation unit will be valid.
 	//
