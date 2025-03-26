@@ -1895,22 +1895,22 @@ WHERE application_uuid = $applicationID.uuid;
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
-			return errors.Capture(err)
+			return errors.Errorf("getting application life: %w", err)
 		}
 
 		err := tx.Query(ctx, stmtOrigin, ident).Get(&appOrigin)
 		if err != nil {
-			return errors.Capture(err)
+			return errors.Errorf("querying origin: %w", err)
 		}
 
 		err = tx.Query(ctx, stmtPlatformChannel, ident).Get(&appPlatformChan)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Capture(err)
+			return errors.Errorf("querying platform and channel: %w", err)
 		}
 
 		return nil
 	}); err != nil {
-		return application.CharmOrigin{}, errors.Errorf("querying application platform and channel for application %q: %w", appID, err)
+		return application.CharmOrigin{}, errors.Errorf("querying application %q: %w", appID, err)
 	}
 
 	source, err := decodeCharmSource(appOrigin.SourceID)
