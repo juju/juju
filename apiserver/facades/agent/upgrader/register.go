@@ -58,6 +58,7 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 
 	domainServices := ctx.DomainServices()
 	modelAgentService := domainServices.Agent()
+
 	if tag.Kind() == names.UnitTagKind && model.Type() != state.ModelTypeCAAS {
 		return NewUnitUpgraderAPI(
 			st,
@@ -77,6 +78,7 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 	cloudService := domainServices.Cloud()
 	credentialService := domainServices.Credential()
 	modelConfigService := domainServices.Config()
+	controllerNodeService := domainServices.ControllerNode()
 
 	getCanReadWrite := func() (common.AuthFunc, error) {
 		return auth.AuthOwner, nil
@@ -96,7 +98,7 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 		ctx.Logger().Child("upgrader"),
 		modelAgentService,
 		ctx.WatcherRegistry(),
-		nil,
+		controllerNodeService,
 		domainServices.Machine(),
 		nil,
 	), nil

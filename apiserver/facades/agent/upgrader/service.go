@@ -66,7 +66,7 @@ type CredentialService interface {
 }
 
 type ControllerNodeService interface {
-	SetReportedControllerAgentVersion(context.Context, string, coreagentbinary.Version) error
+	SetReportedControllerNodeAgentVersion(context.Context, string, coreagentbinary.Version) error
 }
 
 type MachineService interface {

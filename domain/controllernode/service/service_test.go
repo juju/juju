@@ -87,7 +87,7 @@ func (s *serviceSuite) TestSetControllerNodeAgentVersionSuccess(c *gc.C) {
 	s.state.EXPECT().SetRunningAgentBinaryVersion(gomock.Any(), controllerID, ver).Return(nil)
 
 	svc := NewService(s.state)
-	err := svc.SetControllerNodeAgentVersion(
+	err := svc.SetReportedControllerNodeAgentVersion(
 		context.Background(),
 		controllerID,
 		ver,
