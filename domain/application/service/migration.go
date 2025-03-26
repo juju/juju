@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock"
 
+	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	coreconstraints "github.com/juju/juju/core/constraints"
@@ -29,8 +30,14 @@ import (
 
 // MigrationState is the state required for migrating applications.
 type MigrationState interface {
-	// ExportApplications returns all the applications in the model.
+	// GetApplicationsForExport returns all the applications in the model.
 	GetApplicationsForExport(ctx context.Context) ([]application.ExportApplication, error)
+
+	// GetApplicationUnitsForExport returns all the units for a given
+	// application in the model.
+	// If the application does not exist, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationUnitsForExport(ctx context.Context, appID coreapplication.ID) ([]application.ExportUnit, error)
 }
 
 // MigrationService provides the API for migrating applications.
@@ -146,9 +153,25 @@ func (s *MigrationService) GetCharmByApplicationName(ctx context.Context, name s
 	), locator, nil
 }
 
-// ExportApplications returns all the applications in the model.
-func (s *MigrationService) GetApplicationsForExport(ctx context.Context) ([]application.ExportApplication, error) {
+// GetApplications returns all the applications in the model.
+func (s *MigrationService) GetApplications(ctx context.Context) ([]application.ExportApplication, error) {
 	return s.st.GetApplicationsForExport(ctx)
+}
+
+// GetApplicationUnits returns all the units for the specified application.
+// If the application does not exist, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (s *MigrationService) GetApplicationUnits(ctx context.Context, name string) ([]application.ExportUnit, error) {
+	if !isValidApplicationName(name) {
+		return nil, applicationerrors.ApplicationNameNotValid
+	}
+
+	appID, err := s.st.GetApplicationIDByName(ctx, name)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return s.st.GetApplicationUnitsForExport(ctx, appID)
 }
 
 // GetApplicationCharmOrigin returns the charm origin for the specified
