@@ -297,6 +297,7 @@ func (w *controllerWatcher) connectAndWatch(apiInfo *api.Info, abort <-chan stru
 		}
 		nw, err := client.WatchControllerInfo()
 		if err != nil {
+			_ = client.Close()
 			errc <- errors.Annotate(err, "watching external controller")
 			return
 		}
