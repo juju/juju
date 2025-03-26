@@ -1145,3 +1145,11 @@ type exportApplication struct {
 	CharmArchitectureID  sql.NullInt64      `db:"architecture_id"`
 	K8sServiceProviderID sql.NullString     `db:"k8s_provider_id"`
 }
+
+// leadership represents a single row from the leadership table for
+// applications.
+type leadership struct {
+	ModelUUID string `db:"model_uuid"`
+	Name      string `db:"name"`
+	Holder    string `db:"holder"`
+}
