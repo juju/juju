@@ -122,10 +122,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		fetchNetworkInterfaces(c.stateAccessor, subnetInfos, context.spaceInfos); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch IP addresses and link layer devices: %w", err)
 	}
-	if context.relations, context.relationsByID, err = fetchRelations(ctx, c.relationService); err != nil &&
-		// todo(gfouillet): remove this exception whenever
-		//   relation domain will be fully implemented
-		!internalerrors.Is(err, errors.NotImplemented) {
+	if context.relations, context.relationsByID, err = fetchRelations(ctx, c.relationService); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch relations: %w", err)
 	}
 	if len(context.allAppsUnitsCharmBindings.applications) > 0 {
