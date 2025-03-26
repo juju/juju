@@ -6,7 +6,6 @@
 ```{toctree}
 :hidden:
 charm/charm-development-best-practices
-charm/charm-naming-guidelines
 charm/charm-maturity
 ```
 
@@ -173,10 +172,10 @@ A **12-Factor app charm** is a charm that has been created using certain coordin
 When you initialise a rock with a 12-Factor-app-charm-geared profile, the initialisation will generate all the basic structure and content you'll need for the rock, including a [`rockcraft.yaml`^](https://canonical-rockcraft.readthedocs-hosted.com/en/latest/reference/rockcraft.yaml/#) prepopulated with an extension matching the profile. Similarly, when you initialise a charm with a 12-Factor-app-charm-geared profile, that will generate all the basic structure content you'll need for the charm, including a `charmcraft.yaml` pre-populated with an extension matching the profile as well as a `src/charm.py` pre-loaded with a library (`paas_charm`) with constructs matching the profile and the extension.
 
 > See more:
-> - {external+charmcraft:ref}`write-your-first-kubernetes-charm-for-a-django-app`, {external+juju:ref}``
-> - {external+juju:ref}`write-your-first-kubernetes-charm-for-a-fastapi-app`
-> - {external+juju:ref}`flask`
-> - {external+juju:ref}`write-your-first-kubernetes-charm-for-a-go-app`
+> - {external+charmcraft:ref}`Charmcraft | Write your first Kubernetes charm for a Django app <write-your-first-kubernetes-charm-for-a-django-app>`
+> - {external+charmcraft:ref}`Charmcraft | Write your first Kubernetes charm for a FastAPI app <write-your-first-kubernetes-charm-for-a-fastapi-app>`
+> - [Charmcraft | Write your first Kubernetes charm for a Flask app](https://canonical-charmcraft.readthedocs-hosted.com/en/stable/tutorial/flask/)
+> - {external+charmcraft:ref}`Charmcraft | Write your first Kubernetes charm for a Go app <write-your-first-kubernetes-charm-for-a-go-app>`
 
 (reactive-charm)=
 #### Reactive

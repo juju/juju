@@ -6,12 +6,6 @@ In Juju, an **agent** is any process that runs a dependency engine ([
 `dependency.NewEngine`](dependency-package#newengine)) to start and manage [workers](worker.md) for a particular domain
 entity in a particular deployment environment.
 
-<!-- TOC -->
-
-* [List of agents](#list-of-agents)
-
-<!-- TOC -->
-
 ## List of agents
 
 While Juju agents can be counted based on the number of files in the codebase that invoke `dependency.NewEngine`, the
@@ -28,7 +22,7 @@ You can think of the list of agents based on invocations of `dependency.NewEngin
 the list of agents arising from the various splits defined in those files as the 'logical agents'.
 [/note]
 
-<!-- TODO: There is a lot of relative link to possible outdated version of code. Maybe we should review it to make it more 
+<!-- TODO: There is a lot of relative link to possible outdated version of code. Maybe we should review it to make it more
 relative to the code (and maybe move it into some doc.go or go documentation anyway -->
 
 - [cmd/jujud/agent/machine.go](/cmd/jujud/agent/machine.go) <br>

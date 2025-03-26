@@ -1,5 +1,8 @@
 # <old URL> <new URL>
 
+
+# redirects after cleaning up charm best practices
+# redirects after cleaning up contributor unsorted docs
 user/reference/charm/channel/ reference/charm/
 user/reference/charm/revision/ reference/charm/
 user/reference/charm/charm-taxonomy/ reference/charm/
@@ -58,12 +61,11 @@ user/reference/application reference/application
 user/reference/bundle reference/bundle
 user/reference/charm/charm-development-best-practices reference/charm/charm-development-best-practices
 user/reference/charm/charm-maturity reference/charm/charm-maturity
-user/reference/charm/charm-naming-guidelines reference/charm/charm-naming-guidelines
 user/reference/charm reference/charm
 user/reference/cloud reference/cloud
 user/reference/cloud/kubernetes-clouds-and-juju reference/cloud/kubernetes-clouds-and-juju
 user/reference/cloud/list-of-supported-clouds reference/cloud/list-of-supported-clouds
-user/reference/cloud/list-of-supported-clouds/the-amazon-ec2-cloud-and-juju reference/cloud/list-of-supported-clouds/the-amazon-ec2-cloud-and-juju 
+user/reference/cloud/list-of-supported-clouds/the-amazon-ec2-cloud-and-juju reference/cloud/list-of-supported-clouds/the-amazon-ec2-cloud-and-juju
 user/reference/cloud/list-of-supported-clouds/the-amazon-eks-cloud-and-juju reference/cloud/list-of-supported-clouds/the-amazon-eks-cloud-and-juju
 user/reference/cloud/list-of-supported-clouds/the-equinix-metal-cloud-and-juju reference/cloud/list-of-supported-clouds/the-equinix-metal-cloud-and-juju
 user/reference/cloud/list-of-supported-clouds/the-google-gce-cloud-and-juju reference/cloud/list-of-supported-clouds/the-google-gce-cloud-and-juju
@@ -237,8 +239,8 @@ user/reference/juju-cli/list-of-juju-cli-commands/login reference/juju-cli/list-
 user/reference/juju-cli/list-of-juju-cli-commands/logout reference/juju-cli/list-of-juju-cli-commands/logout
 user/reference/juju-cli/list-of-juju-cli-commands/machines reference/juju-cli/list-of-juju-cli-commands/machines
 user/reference/juju-cli/list-of-juju-cli-commands/metrics reference/juju-cli/list-of-juju-cli-commands/metrics
-user/reference/juju-cli/list-of-juju-cli-commands/migrate reference/juju-cli/list-of-juju-cli-commands/migrate 
-user/reference/juju-cli/list-of-juju-cli-commands/model-config  reference/juju-cli/list-of-juju-cli-commands/model-config 
+user/reference/juju-cli/list-of-juju-cli-commands/migrate reference/juju-cli/list-of-juju-cli-commands/migrate
+user/reference/juju-cli/list-of-juju-cli-commands/model-config  reference/juju-cli/list-of-juju-cli-commands/model-config
 user/reference/juju-cli/list-of-juju-cli-commands/model-constraints reference/juju-cli/list-of-juju-cli-commands/model-constraints
 user/reference/juju-cli/list-of-juju-cli-commands/model-default reference/juju-cli/list-of-juju-cli-commands/model-default
 user/reference/juju-cli/list-of-juju-cli-commands/model-defaults reference/juju-cli/list-of-juju-cli-commands/model-defaults
@@ -401,4 +403,4 @@ user/reference/worker reference/worker
 user/reference/zone reference/zone
 user/tutorial tutorial
 
-    
+

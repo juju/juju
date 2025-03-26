@@ -153,7 +153,10 @@ templates_path = [".sphinx/_templates"]
 # NOTE: If undefined, set to None, or empty,
 #       the sphinx_reredirects extension will be disabled.
 
-redirects = {}
+redirects = {
+'user/reference/charm/charm-naming-guidelines/': 'https://canonical-charmcraft.readthedocs-hosted.com/en/stable/',
+'reference/charm/charm-naming-guidelines/': 'https://canonical-charmcraft.readthedocs-hosted.com/en/stable/'
+}
 
 
 ###########################
