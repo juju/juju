@@ -73,15 +73,15 @@ type ExportConfig struct {
 // ExportPartial the current model for the State optionally skipping
 // aspects as defined by the ExportConfig.
 func (st *State) ExportPartial(cfg ExportConfig, store objectstore.ObjectStore) (description.Model, error) {
-	return st.exportImpl(cfg, map[string]string{}, store)
+	return st.exportImpl(cfg, store)
 }
 
 // Export the current model for the State.
-func (st *State) Export(leaders map[string]string, store objectstore.ObjectStore) (description.Model, error) {
-	return st.exportImpl(ExportConfig{}, leaders, store)
+func (st *State) Export(store objectstore.ObjectStore) (description.Model, error) {
+	return st.exportImpl(ExportConfig{}, store)
 }
 
-func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store objectstore.ObjectStore) (description.Model, error) {
+func (st *State) exportImpl(cfg ExportConfig, store objectstore.ObjectStore) (description.Model, error) {
 	dbModel, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -142,7 +142,7 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 	if err := export.machines(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := export.applications(leaders); err != nil {
+	if err := export.applications(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := export.relations(); err != nil {
@@ -376,7 +376,7 @@ func (e *exporter) newAddressArgs(a address) description.AddressArgs {
 	}
 }
 
-func (e *exporter) applications(leaders map[string]string) error {
+func (e *exporter) applications() error {
 	applications, err := e.st.AllApplications()
 	if err != nil {
 		return errors.Trace(err)
@@ -410,7 +410,6 @@ func (e *exporter) applications(leaders map[string]string) error {
 			cloudServices:    cloudServices,
 			cloudContainers:  cloudContainers,
 			endpointBindings: bindings,
-			leader:           leaders[application.Name()],
 		}
 
 		if err := e.addApplication(appCtx); err != nil {

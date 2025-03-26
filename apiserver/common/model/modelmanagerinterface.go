@@ -48,7 +48,7 @@ type ModelManagerBackend interface {
 	AllFilesystems() ([]state.Filesystem, error)
 	AllVolumes() ([]state.Volume, error)
 	ControllerTag() names.ControllerTag
-	Export(leaders map[string]string, store objectstore.ObjectStore) (description.Model, error)
+	Export(store objectstore.ObjectStore) (description.Model, error)
 	ExportPartial(state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
 	ConstraintsBySpaceName(string) ([]*state.Constraints, error)
 
