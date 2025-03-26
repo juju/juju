@@ -56,7 +56,7 @@ func (s *importSuite) TestImportApplicationStatus(c *gc.C) {
 		Updated: now,
 	})
 
-	s.importService.EXPECT().SetApplicationStatus(gomock.Any(), "foo", &corestatus.StatusInfo{
+	s.importService.EXPECT().SetApplicationStatus(gomock.Any(), "foo", corestatus.StatusInfo{
 		Status:  corestatus.Status("foo"),
 		Message: "bar",
 		Data:    map[string]any{"baz": "qux"},
@@ -113,28 +113,28 @@ func (s *importSuite) TestImportUnitStatus(c *gc.C) {
 		Updated: now,
 	})
 
-	s.importService.EXPECT().SetApplicationStatus(gomock.Any(), "foo", &corestatus.StatusInfo{
+	s.importService.EXPECT().SetApplicationStatus(gomock.Any(), "foo", corestatus.StatusInfo{
 		Status: corestatus.Unset,
 	})
-	s.importService.EXPECT().SetUnitAgentStatus(gomock.Any(), coreunit.Name("foo/0"), &corestatus.StatusInfo{
+	s.importService.EXPECT().SetUnitAgentStatus(gomock.Any(), coreunit.Name("foo/0"), corestatus.StatusInfo{
 		Status:  corestatus.Status("idle"),
 		Message: "agent is idle",
 		Data:    map[string]any{"baz": "qux"},
 		Since:   ptr(now),
 	})
-	s.importService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), coreunit.Name("foo/0"), &corestatus.StatusInfo{
+	s.importService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), coreunit.Name("foo/0"), corestatus.StatusInfo{
 		Status:  corestatus.Status("active"),
 		Message: "unit is active",
 		Data:    map[string]any{"biz": "qax"},
 		Since:   ptr(now),
 	})
-	s.importService.EXPECT().SetUnitAgentStatus(gomock.Any(), coreunit.Name("foo/1"), &corestatus.StatusInfo{
+	s.importService.EXPECT().SetUnitAgentStatus(gomock.Any(), coreunit.Name("foo/1"), corestatus.StatusInfo{
 		Status:  corestatus.Status("executing"),
 		Message: "agent is executing",
 		Data:    map[string]any{"buz": "qix"},
 		Since:   ptr(now),
 	})
-	s.importService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), coreunit.Name("foo/1"), &corestatus.StatusInfo{
+	s.importService.EXPECT().SetUnitWorkloadStatus(gomock.Any(), coreunit.Name("foo/1"), corestatus.StatusInfo{
 		Status:  corestatus.Status("blocked"),
 		Message: "unit is blocked",
 		Data:    map[string]any{"boz": "qox"},

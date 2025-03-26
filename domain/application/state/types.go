@@ -795,12 +795,14 @@ type spaceUUID struct {
 
 func encodeCloudContainerStatus(s application.CloudContainerStatusType) (int, error) {
 	switch s {
-	case application.CloudContainerStatusWaiting:
+	case application.CloudContainerStatusUnset:
 		return 0, nil
-	case application.CloudContainerStatusBlocked:
+	case application.CloudContainerStatusWaiting:
 		return 1, nil
-	case application.CloudContainerStatusRunning:
+	case application.CloudContainerStatusBlocked:
 		return 2, nil
+	case application.CloudContainerStatusRunning:
+		return 3, nil
 	default:
 		return -1, errors.Errorf("unknown status %q", s)
 	}

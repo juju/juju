@@ -238,10 +238,10 @@ func (c *MockStateGetApplicationIDByNameCall) DoAndReturn(f func(context.Context
 }
 
 // GetApplicationStatus mocks base method.
-func (m *MockState) GetApplicationStatus(ctx context.Context, appID application.ID) (*status.StatusInfo[status.WorkloadStatusType], error) {
+func (m *MockState) GetApplicationStatus(ctx context.Context, appID application.ID) (status.StatusInfo[status.WorkloadStatusType], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationStatus", ctx, appID)
-	ret0, _ := ret[0].(*status.StatusInfo[status.WorkloadStatusType])
+	ret0, _ := ret[0].(status.StatusInfo[status.WorkloadStatusType])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -259,28 +259,28 @@ type MockStateGetApplicationStatusCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetApplicationStatusCall) Return(arg0 *status.StatusInfo[status.WorkloadStatusType], arg1 error) *MockStateGetApplicationStatusCall {
+func (c *MockStateGetApplicationStatusCall) Return(arg0 status.StatusInfo[status.WorkloadStatusType], arg1 error) *MockStateGetApplicationStatusCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetApplicationStatusCall) Do(f func(context.Context, application.ID) (*status.StatusInfo[status.WorkloadStatusType], error)) *MockStateGetApplicationStatusCall {
+func (c *MockStateGetApplicationStatusCall) Do(f func(context.Context, application.ID) (status.StatusInfo[status.WorkloadStatusType], error)) *MockStateGetApplicationStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetApplicationStatusCall) DoAndReturn(f func(context.Context, application.ID) (*status.StatusInfo[status.WorkloadStatusType], error)) *MockStateGetApplicationStatusCall {
+func (c *MockStateGetApplicationStatusCall) DoAndReturn(f func(context.Context, application.ID) (status.StatusInfo[status.WorkloadStatusType], error)) *MockStateGetApplicationStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetUnitAgentStatus mocks base method.
-func (m *MockState) GetUnitAgentStatus(arg0 context.Context, arg1 unit.UUID) (*status.UnitStatusInfo[status.UnitAgentStatusType], error) {
+func (m *MockState) GetUnitAgentStatus(arg0 context.Context, arg1 unit.UUID) (status.UnitStatusInfo[status.UnitAgentStatusType], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitAgentStatus", arg0, arg1)
-	ret0, _ := ret[0].(*status.UnitStatusInfo[status.UnitAgentStatusType])
+	ret0, _ := ret[0].(status.UnitStatusInfo[status.UnitAgentStatusType])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -298,28 +298,28 @@ type MockStateGetUnitAgentStatusCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetUnitAgentStatusCall) Return(arg0 *status.UnitStatusInfo[status.UnitAgentStatusType], arg1 error) *MockStateGetUnitAgentStatusCall {
+func (c *MockStateGetUnitAgentStatusCall) Return(arg0 status.UnitStatusInfo[status.UnitAgentStatusType], arg1 error) *MockStateGetUnitAgentStatusCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetUnitAgentStatusCall) Do(f func(context.Context, unit.UUID) (*status.UnitStatusInfo[status.UnitAgentStatusType], error)) *MockStateGetUnitAgentStatusCall {
+func (c *MockStateGetUnitAgentStatusCall) Do(f func(context.Context, unit.UUID) (status.UnitStatusInfo[status.UnitAgentStatusType], error)) *MockStateGetUnitAgentStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetUnitAgentStatusCall) DoAndReturn(f func(context.Context, unit.UUID) (*status.UnitStatusInfo[status.UnitAgentStatusType], error)) *MockStateGetUnitAgentStatusCall {
+func (c *MockStateGetUnitAgentStatusCall) DoAndReturn(f func(context.Context, unit.UUID) (status.UnitStatusInfo[status.UnitAgentStatusType], error)) *MockStateGetUnitAgentStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetUnitCloudContainerStatus mocks base method.
-func (m *MockState) GetUnitCloudContainerStatus(arg0 context.Context, arg1 unit.UUID) (*status.StatusInfo[status.CloudContainerStatusType], error) {
+func (m *MockState) GetUnitCloudContainerStatus(arg0 context.Context, arg1 unit.UUID) (status.StatusInfo[status.CloudContainerStatusType], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitCloudContainerStatus", arg0, arg1)
-	ret0, _ := ret[0].(*status.StatusInfo[status.CloudContainerStatusType])
+	ret0, _ := ret[0].(status.StatusInfo[status.CloudContainerStatusType])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -337,19 +337,19 @@ type MockStateGetUnitCloudContainerStatusCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetUnitCloudContainerStatusCall) Return(arg0 *status.StatusInfo[status.CloudContainerStatusType], arg1 error) *MockStateGetUnitCloudContainerStatusCall {
+func (c *MockStateGetUnitCloudContainerStatusCall) Return(arg0 status.StatusInfo[status.CloudContainerStatusType], arg1 error) *MockStateGetUnitCloudContainerStatusCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetUnitCloudContainerStatusCall) Do(f func(context.Context, unit.UUID) (*status.StatusInfo[status.CloudContainerStatusType], error)) *MockStateGetUnitCloudContainerStatusCall {
+func (c *MockStateGetUnitCloudContainerStatusCall) Do(f func(context.Context, unit.UUID) (status.StatusInfo[status.CloudContainerStatusType], error)) *MockStateGetUnitCloudContainerStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetUnitCloudContainerStatusCall) DoAndReturn(f func(context.Context, unit.UUID) (*status.StatusInfo[status.CloudContainerStatusType], error)) *MockStateGetUnitCloudContainerStatusCall {
+func (c *MockStateGetUnitCloudContainerStatusCall) DoAndReturn(f func(context.Context, unit.UUID) (status.StatusInfo[status.CloudContainerStatusType], error)) *MockStateGetUnitCloudContainerStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -434,10 +434,10 @@ func (c *MockStateGetUnitWorkloadAndCloudContainerStatusesForApplicationCall) Do
 }
 
 // GetUnitWorkloadStatus mocks base method.
-func (m *MockState) GetUnitWorkloadStatus(arg0 context.Context, arg1 unit.UUID) (*status.UnitStatusInfo[status.WorkloadStatusType], error) {
+func (m *MockState) GetUnitWorkloadStatus(arg0 context.Context, arg1 unit.UUID) (status.UnitStatusInfo[status.WorkloadStatusType], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitWorkloadStatus", arg0, arg1)
-	ret0, _ := ret[0].(*status.UnitStatusInfo[status.WorkloadStatusType])
+	ret0, _ := ret[0].(status.UnitStatusInfo[status.WorkloadStatusType])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -455,19 +455,19 @@ type MockStateGetUnitWorkloadStatusCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetUnitWorkloadStatusCall) Return(arg0 *status.UnitStatusInfo[status.WorkloadStatusType], arg1 error) *MockStateGetUnitWorkloadStatusCall {
+func (c *MockStateGetUnitWorkloadStatusCall) Return(arg0 status.UnitStatusInfo[status.WorkloadStatusType], arg1 error) *MockStateGetUnitWorkloadStatusCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetUnitWorkloadStatusCall) Do(f func(context.Context, unit.UUID) (*status.UnitStatusInfo[status.WorkloadStatusType], error)) *MockStateGetUnitWorkloadStatusCall {
+func (c *MockStateGetUnitWorkloadStatusCall) Do(f func(context.Context, unit.UUID) (status.UnitStatusInfo[status.WorkloadStatusType], error)) *MockStateGetUnitWorkloadStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetUnitWorkloadStatusCall) DoAndReturn(f func(context.Context, unit.UUID) (*status.UnitStatusInfo[status.WorkloadStatusType], error)) *MockStateGetUnitWorkloadStatusCall {
+func (c *MockStateGetUnitWorkloadStatusCall) DoAndReturn(f func(context.Context, unit.UUID) (status.UnitStatusInfo[status.WorkloadStatusType], error)) *MockStateGetUnitWorkloadStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -512,7 +512,7 @@ func (c *MockStateGetUnitWorkloadStatusesForApplicationCall) DoAndReturn(f func(
 }
 
 // SetApplicationStatus mocks base method.
-func (m *MockState) SetApplicationStatus(ctx context.Context, applicationID application.ID, status *status.StatusInfo[status.WorkloadStatusType]) error {
+func (m *MockState) SetApplicationStatus(ctx context.Context, applicationID application.ID, status status.StatusInfo[status.WorkloadStatusType]) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetApplicationStatus", ctx, applicationID, status)
 	ret0, _ := ret[0].(error)
@@ -538,19 +538,19 @@ func (c *MockStateSetApplicationStatusCall) Return(arg0 error) *MockStateSetAppl
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetApplicationStatusCall) Do(f func(context.Context, application.ID, *status.StatusInfo[status.WorkloadStatusType]) error) *MockStateSetApplicationStatusCall {
+func (c *MockStateSetApplicationStatusCall) Do(f func(context.Context, application.ID, status.StatusInfo[status.WorkloadStatusType]) error) *MockStateSetApplicationStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetApplicationStatusCall) DoAndReturn(f func(context.Context, application.ID, *status.StatusInfo[status.WorkloadStatusType]) error) *MockStateSetApplicationStatusCall {
+func (c *MockStateSetApplicationStatusCall) DoAndReturn(f func(context.Context, application.ID, status.StatusInfo[status.WorkloadStatusType]) error) *MockStateSetApplicationStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetUnitAgentStatus mocks base method.
-func (m *MockState) SetUnitAgentStatus(arg0 context.Context, arg1 unit.UUID, arg2 *status.StatusInfo[status.UnitAgentStatusType]) error {
+func (m *MockState) SetUnitAgentStatus(arg0 context.Context, arg1 unit.UUID, arg2 status.StatusInfo[status.UnitAgentStatusType]) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetUnitAgentStatus", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -576,13 +576,13 @@ func (c *MockStateSetUnitAgentStatusCall) Return(arg0 error) *MockStateSetUnitAg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetUnitAgentStatusCall) Do(f func(context.Context, unit.UUID, *status.StatusInfo[status.UnitAgentStatusType]) error) *MockStateSetUnitAgentStatusCall {
+func (c *MockStateSetUnitAgentStatusCall) Do(f func(context.Context, unit.UUID, status.StatusInfo[status.UnitAgentStatusType]) error) *MockStateSetUnitAgentStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetUnitAgentStatusCall) DoAndReturn(f func(context.Context, unit.UUID, *status.StatusInfo[status.UnitAgentStatusType]) error) *MockStateSetUnitAgentStatusCall {
+func (c *MockStateSetUnitAgentStatusCall) DoAndReturn(f func(context.Context, unit.UUID, status.StatusInfo[status.UnitAgentStatusType]) error) *MockStateSetUnitAgentStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -626,7 +626,7 @@ func (c *MockStateSetUnitPresenceCall) DoAndReturn(f func(context.Context, unit.
 }
 
 // SetUnitWorkloadStatus mocks base method.
-func (m *MockState) SetUnitWorkloadStatus(arg0 context.Context, arg1 unit.UUID, arg2 *status.StatusInfo[status.WorkloadStatusType]) error {
+func (m *MockState) SetUnitWorkloadStatus(arg0 context.Context, arg1 unit.UUID, arg2 status.StatusInfo[status.WorkloadStatusType]) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetUnitWorkloadStatus", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -652,13 +652,13 @@ func (c *MockStateSetUnitWorkloadStatusCall) Return(arg0 error) *MockStateSetUni
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetUnitWorkloadStatusCall) Do(f func(context.Context, unit.UUID, *status.StatusInfo[status.WorkloadStatusType]) error) *MockStateSetUnitWorkloadStatusCall {
+func (c *MockStateSetUnitWorkloadStatusCall) Do(f func(context.Context, unit.UUID, status.StatusInfo[status.WorkloadStatusType]) error) *MockStateSetUnitWorkloadStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetUnitWorkloadStatusCall) DoAndReturn(f func(context.Context, unit.UUID, *status.StatusInfo[status.WorkloadStatusType]) error) *MockStateSetUnitWorkloadStatusCall {
+func (c *MockStateSetUnitWorkloadStatusCall) DoAndReturn(f func(context.Context, unit.UUID, status.StatusInfo[status.WorkloadStatusType]) error) *MockStateSetUnitWorkloadStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

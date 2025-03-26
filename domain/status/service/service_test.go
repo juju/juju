@@ -41,14 +41,14 @@ func (s *serviceSuite) TestSetApplicationStatus(c *gc.C) {
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return(applicationUUID, nil)
-	s.state.EXPECT().SetApplicationStatus(gomock.Any(), applicationUUID, &status.StatusInfo[status.WorkloadStatusType]{
+	s.state.EXPECT().SetApplicationStatus(gomock.Any(), applicationUUID, status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "doink",
 		Data:    []byte(`{"foo":"bar"}`),
 		Since:   &now,
 	})
 
-	err := s.service.SetApplicationStatus(context.Background(), "gitlab", &corestatus.StatusInfo{
+	err := s.service.SetApplicationStatus(context.Background(), "gitlab", corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -72,7 +72,7 @@ func (s *serviceSuite) TestSetApplicationStatusNotFound(c *gc.C) {
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return("", statuserrors.ApplicationNotFound)
 
-	err := s.service.SetApplicationStatus(context.Background(), "gitlab", &corestatus.StatusInfo{
+	err := s.service.SetApplicationStatus(context.Background(), "gitlab", corestatus.StatusInfo{
 		Status: corestatus.Active,
 	})
 	c.Assert(err, jc.ErrorIs, statuserrors.ApplicationNotFound)
@@ -81,12 +81,12 @@ func (s *serviceSuite) TestSetApplicationStatusNotFound(c *gc.C) {
 func (s *serviceSuite) TestSetApplicationStatusInvalidStatus(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.SetApplicationStatus(context.Background(), "gitlab", &corestatus.StatusInfo{
+	err := s.service.SetApplicationStatus(context.Background(), "gitlab", corestatus.StatusInfo{
 		Status: corestatus.Status("invalid"),
 	})
 	c.Assert(err, gc.ErrorMatches, `.*unknown workload status "invalid"`)
 
-	err = s.service.SetApplicationStatus(context.Background(), "gitlab", &corestatus.StatusInfo{
+	err = s.service.SetApplicationStatus(context.Background(), "gitlab", corestatus.StatusInfo{
 		Status: corestatus.Allocating,
 	})
 	c.Assert(err, gc.ErrorMatches, `.*unknown workload status "allocating"`)
@@ -106,14 +106,14 @@ func (s *serviceSuite) TestSetApplicationStatusForUnitLeader(c *gc.C) {
 		})
 
 	s.state.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).Return(applicationUUID, "foo", nil)
-	s.state.EXPECT().SetApplicationStatus(gomock.Any(), applicationUUID, &status.StatusInfo[status.WorkloadStatusType]{
+	s.state.EXPECT().SetApplicationStatus(gomock.Any(), applicationUUID, status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "doink",
 		Data:    []byte(`{"foo":"bar"}`),
 		Since:   &now,
 	})
 
-	err := s.service.SetApplicationStatusForUnitLeader(context.Background(), unitName, &corestatus.StatusInfo{
+	err := s.service.SetApplicationStatusForUnitLeader(context.Background(), unitName, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -137,7 +137,7 @@ func (s *serviceSuite) TestSetApplicationStatusForUnitLeaderNotLeader(c *gc.C) {
 
 	s.state.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).Return(applicationUUID, "foo", nil)
 
-	err := s.service.SetApplicationStatusForUnitLeader(context.Background(), unitName, &corestatus.StatusInfo{
+	err := s.service.SetApplicationStatusForUnitLeader(context.Background(), unitName, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -152,7 +152,7 @@ func (s *serviceSuite) TestSetApplicationStatusForUnitLeaderInvalidUnitName(c *g
 	now := time.Now()
 
 	unitName := coreunit.Name("!!!!")
-	err := s.service.SetApplicationStatusForUnitLeader(context.Background(), unitName, &corestatus.StatusInfo{
+	err := s.service.SetApplicationStatusForUnitLeader(context.Background(), unitName, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -172,7 +172,7 @@ func (s *serviceSuite) TestSetApplicationStatusForUnitLeaderNoUnitFound(c *gc.C)
 	s.state.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).
 		Return(applicationUUID, "foo", statuserrors.UnitNotFound)
 
-	err := s.service.SetApplicationStatusForUnitLeader(context.Background(), unitName, &corestatus.StatusInfo{
+	err := s.service.SetApplicationStatusForUnitLeader(context.Background(), unitName, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -198,7 +198,7 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusApplicationStatusSet(c *gc
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 	s.state.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
-		&status.StatusInfo[status.WorkloadStatusType]{
+		status.StatusInfo[status.WorkloadStatusType]{
 			Status:  status.WorkloadStatusActive,
 			Message: "doink",
 			Data:    []byte(`{"foo":"bar"}`),
@@ -207,7 +207,7 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusApplicationStatusSet(c *gc
 
 	obtained, err := s.service.GetApplicationDisplayStatus(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtained, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Check(obtained, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -221,7 +221,7 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusFallbackToUnitsNoUnits(c *
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 	s.state.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
-		&status.StatusInfo[status.WorkloadStatusType]{
+		status.StatusInfo[status.WorkloadStatusType]{
 			Status: status.WorkloadStatusUnset,
 		}, nil)
 
@@ -229,7 +229,7 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusFallbackToUnitsNoUnits(c *
 
 	obtained, err := s.service.GetApplicationDisplayStatus(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtained, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Check(obtained, jc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Unknown,
 	})
 }
@@ -242,7 +242,7 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusFallbackToUnitsNoContainer
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 	s.state.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
-		&status.StatusInfo[status.WorkloadStatusType]{
+		status.StatusInfo[status.WorkloadStatusType]{
 			Status: status.WorkloadStatusUnset,
 		}, nil)
 
@@ -271,7 +271,7 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusFallbackToUnitsNoContainer
 
 	obtained, err := s.service.GetApplicationDisplayStatus(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtained, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Check(obtained, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -328,7 +328,7 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderApplica
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 
 	s.state.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
-		&status.StatusInfo[status.WorkloadStatusType]{
+		status.StatusInfo[status.WorkloadStatusType]{
 			Status:  status.WorkloadStatusActive,
 			Message: "doink",
 			Data:    []byte(`{"foo":"bar"}`),
@@ -359,7 +359,7 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderApplica
 
 	applicationStatus, unitWorkloadStatuses, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(context.Background(), unitName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(applicationStatus, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Check(applicationStatus, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -396,7 +396,7 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderApplica
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
 
 	s.state.EXPECT().GetApplicationStatus(gomock.Any(), applicationUUID).Return(
-		&status.StatusInfo[status.WorkloadStatusType]{
+		status.StatusInfo[status.WorkloadStatusType]{
 			Status: status.WorkloadStatusUnset,
 		}, nil)
 
@@ -437,7 +437,7 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderApplica
 
 	applicationStatus, unitWorkloadStatuses, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(context.Background(), unitName)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(applicationStatus, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Check(applicationStatus, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Blocked,
 		Message: "zoink",
 		Data:    map[string]interface{}{"foo": "baz"},
@@ -466,14 +466,14 @@ func (s *serviceSuite) TestSetWorkloadUnitStatus(c *gc.C) {
 
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unitUUID, &status.StatusInfo[status.WorkloadStatusType]{
+	s.state.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unitUUID, status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "doink",
 		Data:    []byte(`{"foo":"bar"}`),
 		Since:   &now,
 	})
 
-	err := s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+	err := s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -495,12 +495,12 @@ func (s *serviceSuite) TestSetWorkloadUnitStatus(c *gc.C) {
 func (s *serviceSuite) TestSetWorkloadUnitStatusInvalidStatus(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+	err := s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status: corestatus.Status("invalid"),
 	})
 	c.Assert(err, gc.ErrorMatches, `.*unknown workload status "invalid"`)
 
-	err = s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+	err = s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status: corestatus.Allocating,
 	})
 	c.Assert(err, gc.ErrorMatches, `.*unknown workload status "allocating"`)
@@ -561,7 +561,7 @@ func (s *serviceSuite) TestGetUnitAndAgentDisplayStatus(c *gc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.state.EXPECT().GetUnitAgentStatus(gomock.Any(), unitUUID).Return(
-		&status.UnitStatusInfo[status.UnitAgentStatusType]{
+		status.UnitStatusInfo[status.UnitAgentStatusType]{
 			StatusInfo: status.StatusInfo[status.UnitAgentStatusType]{
 				Status:  status.UnitAgentStatusAllocating,
 				Message: "doink",
@@ -571,7 +571,7 @@ func (s *serviceSuite) TestGetUnitAndAgentDisplayStatus(c *gc.C) {
 			Present: true,
 		}, nil)
 	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
-		&status.UnitStatusInfo[status.WorkloadStatusType]{
+		status.UnitStatusInfo[status.WorkloadStatusType]{
 			StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
 				Status:  status.WorkloadStatusActive,
 				Message: "doink",
@@ -581,17 +581,19 @@ func (s *serviceSuite) TestGetUnitAndAgentDisplayStatus(c *gc.C) {
 			Present: true,
 		}, nil)
 
-	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(nil, statuserrors.UnitStatusNotFound)
+	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.CloudContainerStatusType]{
+		Status: status.CloudContainerStatusUnset,
+	}, nil)
 
 	agent, workload, err := s.service.GetUnitAndAgentDisplayStatus(context.Background(), coreunit.Name("foo/666"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(agent, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Check(agent, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Allocating,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
 		Since:   &now,
 	})
-	c.Check(workload, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Check(workload, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -607,7 +609,7 @@ func (s *serviceSuite) TestGetUnitAndAgentDisplayStatusWithAllocatingPresence(c 
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.state.EXPECT().GetUnitAgentStatus(gomock.Any(), unitUUID).Return(
-		&status.UnitStatusInfo[status.UnitAgentStatusType]{
+		status.UnitStatusInfo[status.UnitAgentStatusType]{
 			StatusInfo: status.StatusInfo[status.UnitAgentStatusType]{
 				Status:  status.UnitAgentStatusAllocating,
 				Message: "doink",
@@ -617,7 +619,7 @@ func (s *serviceSuite) TestGetUnitAndAgentDisplayStatusWithAllocatingPresence(c 
 			Present: false,
 		}, nil)
 	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
-		&status.UnitStatusInfo[status.WorkloadStatusType]{
+		status.UnitStatusInfo[status.WorkloadStatusType]{
 			StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
 				Status:  status.WorkloadStatusActive,
 				Message: "doink",
@@ -627,17 +629,19 @@ func (s *serviceSuite) TestGetUnitAndAgentDisplayStatusWithAllocatingPresence(c 
 			Present: true,
 		}, nil)
 
-	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(nil, statuserrors.UnitStatusNotFound)
+	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.CloudContainerStatusType]{
+		Status: status.CloudContainerStatusUnset,
+	}, nil)
 
 	agent, workload, err := s.service.GetUnitAndAgentDisplayStatus(context.Background(), coreunit.Name("foo/666"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(agent, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Check(agent, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Allocating,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
 		Since:   &now,
 	})
-	c.Check(workload, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Check(workload, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -653,7 +657,7 @@ func (s *serviceSuite) TestGetUnitAndAgentDisplayStatusWithNoPresence(c *gc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.state.EXPECT().GetUnitAgentStatus(gomock.Any(), unitUUID).Return(
-		&status.UnitStatusInfo[status.UnitAgentStatusType]{
+		status.UnitStatusInfo[status.UnitAgentStatusType]{
 			StatusInfo: status.StatusInfo[status.UnitAgentStatusType]{
 				Status:  status.UnitAgentStatusIdle,
 				Message: "doink",
@@ -663,7 +667,7 @@ func (s *serviceSuite) TestGetUnitAndAgentDisplayStatusWithNoPresence(c *gc.C) {
 			Present: false,
 		}, nil)
 	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
-		&status.UnitStatusInfo[status.WorkloadStatusType]{
+		status.UnitStatusInfo[status.WorkloadStatusType]{
 			StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
 				Status:  status.WorkloadStatusActive,
 				Message: "doink",
@@ -673,16 +677,18 @@ func (s *serviceSuite) TestGetUnitAndAgentDisplayStatusWithNoPresence(c *gc.C) {
 			Present: true,
 		}, nil)
 
-	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(nil, statuserrors.UnitStatusNotFound)
+	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.CloudContainerStatusType]{
+		Status: status.CloudContainerStatusUnset,
+	}, nil)
 
 	agent, workload, err := s.service.GetUnitAndAgentDisplayStatus(context.Background(), coreunit.Name("foo/666"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(agent, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Check(agent, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Lost,
 		Message: "agent is not communicating with the server",
 		Since:   &now,
 	})
-	c.Check(workload, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Check(workload, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -698,7 +704,7 @@ func (s *serviceSuite) TestGetUnitDisplayStatusNoContainer(c *gc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
-		&status.UnitStatusInfo[status.WorkloadStatusType]{
+		status.UnitStatusInfo[status.WorkloadStatusType]{
 			StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
 				Status:  status.WorkloadStatusActive,
 				Message: "doink",
@@ -708,11 +714,13 @@ func (s *serviceSuite) TestGetUnitDisplayStatusNoContainer(c *gc.C) {
 			Present: true,
 		}, nil)
 
-	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(nil, statuserrors.UnitStatusNotFound)
+	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.CloudContainerStatusType]{
+		Status: status.CloudContainerStatusUnset,
+	}, nil)
 
 	obtained, err := s.service.GetUnitDisplayStatus(context.Background(), coreunit.Name("foo/666"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtained, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Check(obtained, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -728,7 +736,7 @@ func (s *serviceSuite) TestGetUnitDisplayStatusWithPrecedentContainer(c *gc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
-		&status.UnitStatusInfo[status.WorkloadStatusType]{
+		status.UnitStatusInfo[status.WorkloadStatusType]{
 			StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
 				Status:  status.WorkloadStatusActive,
 				Message: "doink",
@@ -739,7 +747,7 @@ func (s *serviceSuite) TestGetUnitDisplayStatusWithPrecedentContainer(c *gc.C) {
 		}, nil)
 
 	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(
-		&status.StatusInfo[status.CloudContainerStatusType]{
+		status.StatusInfo[status.CloudContainerStatusType]{
 			Status:  status.CloudContainerStatusBlocked,
 			Message: "boink",
 			Data:    []byte(`{"foo":"baz"}`),
@@ -748,7 +756,7 @@ func (s *serviceSuite) TestGetUnitDisplayStatusWithPrecedentContainer(c *gc.C) {
 
 	obtained, err := s.service.GetUnitDisplayStatus(context.Background(), coreunit.Name("foo/666"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtained, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Check(obtained, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Blocked,
 		Message: "boink",
 		Data:    map[string]interface{}{"foo": "baz"},
@@ -764,7 +772,7 @@ func (s *serviceSuite) TestGetUnitDisplayStatusWithPrecedentWorkload(c *gc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
-		&status.UnitStatusInfo[status.WorkloadStatusType]{
+		status.UnitStatusInfo[status.WorkloadStatusType]{
 			StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
 				Status:  status.WorkloadStatusMaintenance,
 				Message: "doink",
@@ -775,7 +783,7 @@ func (s *serviceSuite) TestGetUnitDisplayStatusWithPrecedentWorkload(c *gc.C) {
 		}, nil)
 
 	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(
-		&status.StatusInfo[status.CloudContainerStatusType]{
+		status.StatusInfo[status.CloudContainerStatusType]{
 			Status:  status.CloudContainerStatusRunning,
 			Message: "boink",
 			Data:    []byte(`{"foo":"baz"}`),
@@ -784,7 +792,7 @@ func (s *serviceSuite) TestGetUnitDisplayStatusWithPrecedentWorkload(c *gc.C) {
 
 	obtained, err := s.service.GetUnitDisplayStatus(context.Background(), coreunit.Name("foo/666"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtained, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Check(obtained, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Maintenance,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -800,7 +808,7 @@ func (s *serviceSuite) TestGetUnitWorkloadStatus(c *gc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
-		&status.UnitStatusInfo[status.WorkloadStatusType]{
+		status.UnitStatusInfo[status.WorkloadStatusType]{
 			StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
 				Status:  status.WorkloadStatusActive,
 				Message: "doink",
@@ -812,7 +820,7 @@ func (s *serviceSuite) TestGetUnitWorkloadStatus(c *gc.C) {
 
 	obtained, err := s.service.GetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtained, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Check(obtained, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -842,7 +850,7 @@ func (s *serviceSuite) TestGetUnitWorkloadStatusUnitInvalidWorkloadStatus(c *gc.
 
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(nil, errors.Errorf("boom"))
+	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(status.UnitStatusInfo[status.WorkloadStatusType]{}, errors.Errorf("boom"))
 
 	_, err := s.service.GetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"))
 	c.Assert(err, gc.ErrorMatches, "boom")
@@ -855,14 +863,14 @@ func (s *serviceSuite) TestSetUnitWorkloadStatus(c *gc.C) {
 	now := time.Now()
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unitUUID, &status.StatusInfo[status.WorkloadStatusType]{
+	s.state.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unitUUID, status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "doink",
 		Data:    []byte(`{"foo":"bar"}`),
 		Since:   &now,
 	})
 
-	err := s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+	err := s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -871,19 +879,12 @@ func (s *serviceSuite) TestSetUnitWorkloadStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestSetUnitWorkloadStatusNilStatus(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	err := s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"), nil)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *serviceSuite) TestSetUnitWorkloadStatusInvalidName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now()
 
-	err := s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("!!!"), &corestatus.StatusInfo{
+	err := s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("!!!"), corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -900,7 +901,7 @@ func (s *serviceSuite) TestSetUnitWorkloadStatusUnitFound(c *gc.C) {
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, statuserrors.UnitNotFound)
 
-	err := s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+	err := s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -916,14 +917,14 @@ func (s *serviceSuite) TestSetUnitWorkloadStatusInvalidStatus(c *gc.C) {
 	now := time.Now()
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unitUUID, &status.StatusInfo[status.WorkloadStatusType]{
+	s.state.EXPECT().SetUnitWorkloadStatus(gomock.Any(), unitUUID, status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "doink",
 		Data:    []byte(`{"foo":"bar"}`),
 		Since:   &now,
 	}).Return(errors.New("boom"))
 
-	err := s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+	err := s.service.SetUnitWorkloadStatus(context.Background(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Active,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -940,7 +941,7 @@ func (s *serviceSuite) TestGetUnitAgentStatus(c *gc.C) {
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
 	s.state.EXPECT().GetUnitAgentStatus(gomock.Any(), unitUUID).Return(
-		&status.UnitStatusInfo[status.UnitAgentStatusType]{
+		status.UnitStatusInfo[status.UnitAgentStatusType]{
 			StatusInfo: status.StatusInfo[status.UnitAgentStatusType]{
 				Status:  status.UnitAgentStatusAllocating,
 				Message: "doink",
@@ -952,7 +953,7 @@ func (s *serviceSuite) TestGetUnitAgentStatus(c *gc.C) {
 
 	obtained, err := s.service.GetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtained, jc.DeepEquals, &corestatus.StatusInfo{
+	c.Check(obtained, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Allocating,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -982,7 +983,7 @@ func (s *serviceSuite) TestGetUnitAgentStatusUnitInvalidAgentStatus(c *gc.C) {
 
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().GetUnitAgentStatus(gomock.Any(), unitUUID).Return(nil, errors.Errorf("boom"))
+	s.state.EXPECT().GetUnitAgentStatus(gomock.Any(), unitUUID).Return(status.UnitStatusInfo[status.UnitAgentStatusType]{}, errors.Errorf("boom"))
 
 	_, err := s.service.GetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"))
 	c.Assert(err, gc.ErrorMatches, "boom")
@@ -995,14 +996,14 @@ func (s *serviceSuite) TestSetUnitAgentStatus(c *gc.C) {
 	now := time.Now()
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().SetUnitAgentStatus(gomock.Any(), unitUUID, &status.StatusInfo[status.UnitAgentStatusType]{
+	s.state.EXPECT().SetUnitAgentStatus(gomock.Any(), unitUUID, status.StatusInfo[status.UnitAgentStatusType]{
 		Status:  status.UnitAgentStatusIdle,
 		Message: "doink",
 		Data:    []byte(`{"foo":"bar"}`),
 		Since:   &now,
 	})
 
-	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Idle,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -1011,17 +1012,10 @@ func (s *serviceSuite) TestSetUnitAgentStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestSetUnitAgentStatusNilStatus(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), nil)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *serviceSuite) TestSetUnitAgentStatusErrorWithNoMessage(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Error,
 		Message: "",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -1033,7 +1027,7 @@ func (s *serviceSuite) TestSetUnitAgentStatusErrorWithNoMessage(c *gc.C) {
 func (s *serviceSuite) TestSetUnitAgentStatusLost(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Lost,
 		Message: "are you lost?",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -1045,7 +1039,7 @@ func (s *serviceSuite) TestSetUnitAgentStatusLost(c *gc.C) {
 func (s *serviceSuite) TestSetUnitAgentStatusAllocating(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Allocating,
 		Message: "help me help you",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -1059,7 +1053,7 @@ func (s *serviceSuite) TestSetUnitAgentStatusInvalidName(c *gc.C) {
 
 	now := time.Now()
 
-	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("!!!"), &corestatus.StatusInfo{
+	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("!!!"), corestatus.StatusInfo{
 		Status:  corestatus.Idle,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -1076,7 +1070,7 @@ func (s *serviceSuite) TestSetUnitAgentStatusUnitFound(c *gc.C) {
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, statuserrors.UnitNotFound)
 
-	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Idle,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
@@ -1092,14 +1086,14 @@ func (s *serviceSuite) TestSetUnitAgentStatusInvalidStatus(c *gc.C) {
 	now := time.Now()
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().SetUnitAgentStatus(gomock.Any(), unitUUID, &status.StatusInfo[status.UnitAgentStatusType]{
+	s.state.EXPECT().SetUnitAgentStatus(gomock.Any(), unitUUID, status.StatusInfo[status.UnitAgentStatusType]{
 		Status:  status.UnitAgentStatusIdle,
 		Message: "doink",
 		Data:    []byte(`{"foo":"bar"}`),
 		Since:   &now,
 	}).Return(errors.New("boom"))
 
-	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), &corestatus.StatusInfo{
+	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Idle,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},

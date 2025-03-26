@@ -20,11 +20,11 @@ import (
 type StatusService interface {
 	// GetUnitWorkloadStatus returns the workload status of the specified unit, returning an
 	// error satisfying [statuserrors.UnitNotFound] if the unit doesn't exist.
-	GetUnitWorkloadStatus(context.Context, coreunit.Name) (*corestatus.StatusInfo, error)
+	GetUnitWorkloadStatus(context.Context, coreunit.Name) (corestatus.StatusInfo, error)
 
 	// SetUnitWorkloadStatus sets the workload status of the specified unit, returning an
 	// error satisfying [statuserrors.UnitNotFound] if the unit doesn't exist.
-	SetUnitWorkloadStatus(context.Context, coreunit.Name, *corestatus.StatusInfo) error
+	SetUnitWorkloadStatus(context.Context, coreunit.Name, corestatus.StatusInfo) error
 }
 
 // UnitStatusSetter defines the API used to set the workload status of a unit.
@@ -81,7 +81,7 @@ func (s *UnitStatusSetter) SetStatus(ctx context.Context, args params.SetStatus)
 			Data:    arg.Data,
 			Since:   &now,
 		}
-		err = s.statusService.SetUnitWorkloadStatus(ctx, unitName, &sInfo)
+		err = s.statusService.SetUnitWorkloadStatus(ctx, unitName, sInfo)
 		if errors.Is(err, statuserrors.UnitNotFound) {
 			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", unitName))
 			continue

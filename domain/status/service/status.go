@@ -27,6 +27,8 @@ type StatusHistory interface {
 // status id.
 func encodeCloudContainerStatusType(s corestatus.Status) (status.CloudContainerStatusType, error) {
 	switch s {
+	case corestatus.Unset:
+		return status.CloudContainerStatusUnset, nil
 	case corestatus.Waiting:
 		return status.CloudContainerStatusWaiting, nil
 	case corestatus.Blocked:
@@ -42,6 +44,8 @@ func encodeCloudContainerStatusType(s corestatus.Status) (status.CloudContainerS
 // core status.
 func decodeCloudContainerStatusType(s status.CloudContainerStatusType) (corestatus.Status, error) {
 	switch s {
+	case status.CloudContainerStatusUnset:
+		return corestatus.Unset, nil
 	case status.CloudContainerStatusWaiting:
 		return corestatus.Waiting, nil
 	case status.CloudContainerStatusBlocked:
@@ -149,14 +153,10 @@ func decodeWorkloadStatusType(s status.WorkloadStatusType) (corestatus.Status, e
 }
 
 // encodeCloudContainerStatus converts a core status info to a db status info.
-func encodeCloudContainerStatus(s *corestatus.StatusInfo) (*status.StatusInfo[status.CloudContainerStatusType], error) {
-	if s == nil {
-		return nil, nil
-	}
-
+func encodeCloudContainerStatus(s corestatus.StatusInfo) (status.StatusInfo[status.CloudContainerStatusType], error) {
 	encodedStatus, err := encodeCloudContainerStatusType(s.Status)
 	if err != nil {
-		return nil, err
+		return status.StatusInfo[status.CloudContainerStatusType]{}, err
 	}
 
 	var bytes []byte
@@ -164,11 +164,11 @@ func encodeCloudContainerStatus(s *corestatus.StatusInfo) (*status.StatusInfo[st
 		var err error
 		bytes, err = json.Marshal(s.Data)
 		if err != nil {
-			return nil, errors.Errorf("marshalling status data: %w", err)
+			return status.StatusInfo[status.CloudContainerStatusType]{}, errors.Errorf("marshalling status data: %w", err)
 		}
 	}
 
-	return &status.StatusInfo[status.CloudContainerStatusType]{
+	return status.StatusInfo[status.CloudContainerStatusType]{
 		Status:  encodedStatus,
 		Message: s.Message,
 		Data:    bytes,
@@ -177,24 +177,20 @@ func encodeCloudContainerStatus(s *corestatus.StatusInfo) (*status.StatusInfo[st
 }
 
 // decodeCloudContainerStatus converts a db status info to a core status info.
-func decodeCloudContainerStatus(s *status.StatusInfo[status.CloudContainerStatusType]) (*corestatus.StatusInfo, error) {
-	if s == nil {
-		return nil, nil
-	}
-
+func decodeCloudContainerStatus(s status.StatusInfo[status.CloudContainerStatusType]) (corestatus.StatusInfo, error) {
 	decodedStatus, err := decodeCloudContainerStatusType(s.Status)
 	if err != nil {
-		return nil, err
+		return corestatus.StatusInfo{}, err
 	}
 
 	var data map[string]interface{}
 	if len(s.Data) > 0 {
 		if err := json.Unmarshal(s.Data, &data); err != nil {
-			return nil, errors.Errorf("unmarshalling status data: %w", err)
+			return corestatus.StatusInfo{}, errors.Errorf("unmarshalling status data: %w", err)
 		}
 	}
 
-	return &corestatus.StatusInfo{
+	return corestatus.StatusInfo{
 		Status:  decodedStatus,
 		Message: s.Message,
 		Data:    data,
@@ -203,14 +199,10 @@ func decodeCloudContainerStatus(s *status.StatusInfo[status.CloudContainerStatus
 }
 
 // encodeUnitAgentStatus converts a core status info to a db status info.
-func encodeUnitAgentStatus(s *corestatus.StatusInfo) (*status.StatusInfo[status.UnitAgentStatusType], error) {
-	if s == nil {
-		return nil, nil
-	}
-
+func encodeUnitAgentStatus(s corestatus.StatusInfo) (status.StatusInfo[status.UnitAgentStatusType], error) {
 	encodedStatus, err := encodeUnitAgentStatusType(s.Status)
 	if err != nil {
-		return nil, err
+		return status.StatusInfo[status.UnitAgentStatusType]{}, err
 	}
 
 	var bytes []byte
@@ -218,11 +210,11 @@ func encodeUnitAgentStatus(s *corestatus.StatusInfo) (*status.StatusInfo[status.
 		var err error
 		bytes, err = json.Marshal(s.Data)
 		if err != nil {
-			return nil, errors.Errorf("marshalling status data: %w", err)
+			return status.StatusInfo[status.UnitAgentStatusType]{}, errors.Errorf("marshalling status data: %w", err)
 		}
 	}
 
-	return &status.StatusInfo[status.UnitAgentStatusType]{
+	return status.StatusInfo[status.UnitAgentStatusType]{
 		Status:  encodedStatus,
 		Message: s.Message,
 		Data:    bytes,
@@ -231,15 +223,11 @@ func encodeUnitAgentStatus(s *corestatus.StatusInfo) (*status.StatusInfo[status.
 }
 
 // decodeUnitAgentStatus converts a db status info to a core status info.
-func decodeUnitAgentStatus(s *status.UnitStatusInfo[status.UnitAgentStatusType]) (*corestatus.StatusInfo, error) {
-	if s == nil {
-		return nil, nil
-	}
-
+func decodeUnitAgentStatus(s status.UnitStatusInfo[status.UnitAgentStatusType]) (corestatus.StatusInfo, error) {
 	// If the agent isn't present then we need to modify the status for the
 	// agent.
 	if !s.Present {
-		return &corestatus.StatusInfo{
+		return corestatus.StatusInfo{
 			Status:  corestatus.Lost,
 			Message: "agent is not communicating with the server",
 			Since:   s.Since,
@@ -252,7 +240,7 @@ func decodeUnitAgentStatus(s *status.UnitStatusInfo[status.UnitAgentStatusType])
 	// there is a legitimate agent error and the workload is fine, but we're
 	// trying to maintain compatibility.
 	if s.Status == status.UnitAgentStatusError {
-		return &corestatus.StatusInfo{
+		return corestatus.StatusInfo{
 			Status: corestatus.Idle,
 			Since:  s.Since,
 		}, nil
@@ -260,17 +248,17 @@ func decodeUnitAgentStatus(s *status.UnitStatusInfo[status.UnitAgentStatusType])
 
 	decodedStatus, err := decodeUnitAgentStatusType(s.Status)
 	if err != nil {
-		return nil, err
+		return corestatus.StatusInfo{}, err
 	}
 
 	var data map[string]interface{}
 	if len(s.Data) > 0 {
 		if err := json.Unmarshal(s.Data, &data); err != nil {
-			return nil, errors.Errorf("unmarshalling status data: %w", err)
+			return corestatus.StatusInfo{}, errors.Errorf("unmarshalling status data: %w", err)
 		}
 	}
 
-	return &corestatus.StatusInfo{
+	return corestatus.StatusInfo{
 		Status:  decodedStatus,
 		Message: s.Message,
 		Data:    data,
@@ -279,14 +267,10 @@ func decodeUnitAgentStatus(s *status.UnitStatusInfo[status.UnitAgentStatusType])
 }
 
 // encodeWorkloadStatus converts a core status info to a db status info.
-func encodeWorkloadStatus(s *corestatus.StatusInfo) (*status.StatusInfo[status.WorkloadStatusType], error) {
-	if s == nil {
-		return nil, nil
-	}
-
+func encodeWorkloadStatus(s corestatus.StatusInfo) (status.StatusInfo[status.WorkloadStatusType], error) {
 	encodedStatus, err := encodeWorkloadStatusType(s.Status)
 	if err != nil {
-		return nil, err
+		return status.StatusInfo[status.WorkloadStatusType]{}, err
 	}
 
 	var bytes []byte
@@ -294,11 +278,11 @@ func encodeWorkloadStatus(s *corestatus.StatusInfo) (*status.StatusInfo[status.W
 		var err error
 		bytes, err = json.Marshal(s.Data)
 		if err != nil {
-			return nil, errors.Errorf("marshalling status data: %w", err)
+			return status.StatusInfo[status.WorkloadStatusType]{}, errors.Errorf("marshalling status data: %w", err)
 		}
 	}
 
-	return &status.StatusInfo[status.WorkloadStatusType]{
+	return status.StatusInfo[status.WorkloadStatusType]{
 		Status:  encodedStatus,
 		Message: s.Message,
 		Data:    bytes,
@@ -307,16 +291,12 @@ func encodeWorkloadStatus(s *corestatus.StatusInfo) (*status.StatusInfo[status.W
 }
 
 // decodeUnitWorkloadStatus converts a db status info to a core status info.
-func decodeUnitWorkloadStatus(s *status.UnitStatusInfo[status.WorkloadStatusType]) (*corestatus.StatusInfo, error) {
-	if s == nil {
-		return nil, nil
-	}
-
+func decodeUnitWorkloadStatus(s status.UnitStatusInfo[status.WorkloadStatusType]) (corestatus.StatusInfo, error) {
 	// If the workload isn't present then we need to modify the status for the
 	// workload.
 	if !s.Present && !(s.Status == status.WorkloadStatusError ||
 		s.Status == status.WorkloadStatusTerminated) {
-		return &corestatus.StatusInfo{
+		return corestatus.StatusInfo{
 			Status:  corestatus.Unknown,
 			Message: fmt.Sprintf("agent lost, see `juju debug-logs` or `juju show-status-log` for more information"),
 			Since:   s.Since,
@@ -325,17 +305,17 @@ func decodeUnitWorkloadStatus(s *status.UnitStatusInfo[status.WorkloadStatusType
 
 	decodedStatus, err := decodeWorkloadStatusType(s.Status)
 	if err != nil {
-		return nil, err
+		return corestatus.StatusInfo{}, err
 	}
 
 	var data map[string]interface{}
 	if len(s.Data) > 0 {
 		if err := json.Unmarshal(s.Data, &data); err != nil {
-			return nil, errors.Errorf("unmarshalling status data: %w", err)
+			return corestatus.StatusInfo{}, errors.Errorf("unmarshalling status data: %w", err)
 		}
 	}
 
-	return &corestatus.StatusInfo{
+	return corestatus.StatusInfo{
 		Status:  decodedStatus,
 		Message: s.Message,
 		Data:    data,
@@ -382,24 +362,20 @@ func decodeFullUnitStatus(s status.FullUnitStatus) (bool, corestatus.StatusInfo,
 		}, nil
 }
 
-func decodeApplicationStatus(s *status.StatusInfo[status.WorkloadStatusType]) (*corestatus.StatusInfo, error) {
-	if s == nil {
-		return nil, nil
-	}
-
+func decodeApplicationStatus(s status.StatusInfo[status.WorkloadStatusType]) (corestatus.StatusInfo, error) {
 	decodedStatus, err := decodeWorkloadStatusType(s.Status)
 	if err != nil {
-		return nil, err
+		return corestatus.StatusInfo{}, err
 	}
 
 	var data map[string]interface{}
 	if len(s.Data) > 0 {
 		if err := json.Unmarshal(s.Data, &data); err != nil {
-			return nil, errors.Errorf("unmarshalling status data: %w", err)
+			return corestatus.StatusInfo{}, errors.Errorf("unmarshalling status data: %w", err)
 		}
 	}
 
-	return &corestatus.StatusInfo{
+	return corestatus.StatusInfo{
 		Status:  decodedStatus,
 		Message: s.Message,
 		Data:    data,
@@ -408,10 +384,10 @@ func decodeApplicationStatus(s *status.StatusInfo[status.WorkloadStatusType]) (*
 }
 
 func decodeUnitAgentWorkloadStatus(
-	agent *status.UnitStatusInfo[status.UnitAgentStatusType],
-	workload *status.UnitStatusInfo[status.WorkloadStatusType],
-	containerStatus *status.StatusInfo[status.CloudContainerStatusType],
-) (*corestatus.StatusInfo, *corestatus.StatusInfo, error) {
+	agent status.UnitStatusInfo[status.UnitAgentStatusType],
+	workload status.UnitStatusInfo[status.WorkloadStatusType],
+	containerStatus status.StatusInfo[status.CloudContainerStatusType],
+) (corestatus.StatusInfo, corestatus.StatusInfo, error) {
 	// If the unit agent is allocating, then it won't be present in the model.
 	// In this case, we'll falsify the agent presence status.
 	if agent.Status == status.UnitAgentStatusAllocating {
@@ -421,27 +397,27 @@ func decodeUnitAgentWorkloadStatus(
 
 	agentStatus, err := decodeUnitAgentStatus(agent)
 	if err != nil {
-		return nil, nil, errors.Capture(err)
+		return corestatus.StatusInfo{}, corestatus.StatusInfo{}, errors.Capture(err)
 	}
 	workloadStatus, err := unitDisplayStatus(workload, containerStatus)
 	if err != nil {
-		return nil, nil, errors.Capture(err)
+		return corestatus.StatusInfo{}, corestatus.StatusInfo{}, errors.Capture(err)
 	}
 	return agentStatus, workloadStatus, nil
 }
 
 // reduceUnitWorkloadStatuses reduces a list of workload statuses to a single status.
 // We do this by taking the highest priority status from the list.
-func reduceUnitWorkloadStatuses(statuses []status.UnitStatusInfo[status.WorkloadStatusType]) (*corestatus.StatusInfo, error) {
+func reduceUnitWorkloadStatuses(statuses []status.UnitStatusInfo[status.WorkloadStatusType]) (corestatus.StatusInfo, error) {
 	// By providing an unknown default, we get a reasonable answer
 	// even if there are no units.
-	result := &corestatus.StatusInfo{
+	result := corestatus.StatusInfo{
 		Status: corestatus.Unknown,
 	}
 	for _, s := range statuses {
-		decodedStatus, err := decodeUnitWorkloadStatus(&s)
+		decodedStatus, err := decodeUnitWorkloadStatus(s)
 		if err != nil {
-			return nil, errors.Capture(err)
+			return result, errors.Capture(err)
 		}
 
 		if statusSeverities[decodedStatus.Status] > statusSeverities[result.Status] {
@@ -454,11 +430,11 @@ func reduceUnitWorkloadStatuses(statuses []status.UnitStatusInfo[status.Workload
 func decodeUnitWorkloadStatuses(statuses status.UnitWorkloadStatuses) (map[unit.Name]corestatus.StatusInfo, error) {
 	ret := make(map[unit.Name]corestatus.StatusInfo, len(statuses))
 	for unitName, status := range statuses {
-		info, err := decodeUnitWorkloadStatus(&status)
+		info, err := decodeUnitWorkloadStatus(status)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		ret[unitName] = *info
+		ret[unitName] = info
 	}
 	return ret, nil
 }
@@ -479,13 +455,14 @@ var statusSeverities = map[corestatus.Status]int{
 // unit status. It is used in CAAS models where the status of the unit could be
 // overridden by the status of the container.
 func unitDisplayStatus(
-	workloadStatus *status.UnitStatusInfo[status.WorkloadStatusType],
-	containerStatus *status.StatusInfo[status.CloudContainerStatusType],
-) (*corestatus.StatusInfo, error) {
+	workloadStatus status.UnitStatusInfo[status.WorkloadStatusType],
+	containerStatus status.StatusInfo[status.CloudContainerStatusType],
+) (corestatus.StatusInfo, error) {
+
 	// container status is not set. This means that the unit is either a non-CAAS
 	// unit or the container status has not been updated yet. Either way, we
 	// should use the workload status.
-	if containerStatus == nil {
+	if containerStatus.Status == status.CloudContainerStatusUnset {
 		return decodeUnitWorkloadStatus(workloadStatus)
 	}
 
@@ -524,24 +501,24 @@ func unitDisplayStatus(
 func applicationDisplayStatusFromUnits(
 	workloadStatus status.UnitWorkloadStatuses,
 	containerStatus status.UnitCloudContainerStatuses,
-) (*corestatus.StatusInfo, error) {
-	results := make([]*corestatus.StatusInfo, 0, len(workloadStatus))
+) (corestatus.StatusInfo, error) {
+	results := make([]corestatus.StatusInfo, 0, len(workloadStatus))
 
 	for unitUUID, workload := range workloadStatus {
-		var unitStatus *corestatus.StatusInfo
+		var unitStatus corestatus.StatusInfo
 
 		container, ok := containerStatus[unitUUID]
 		if !ok {
 			var err error
-			unitStatus, err = unitDisplayStatus(&workload, nil)
+			unitStatus, err = decodeUnitWorkloadStatus(workload)
 			if err != nil {
-				return nil, errors.Capture(err)
+				return corestatus.StatusInfo{}, errors.Capture(err)
 			}
 		} else {
 			var err error
-			unitStatus, err = unitDisplayStatus(&workload, &container)
+			unitStatus, err = unitDisplayStatus(workload, container)
 			if err != nil {
-				return nil, errors.Capture(err)
+				return corestatus.StatusInfo{}, errors.Capture(err)
 			}
 		}
 
@@ -550,7 +527,7 @@ func applicationDisplayStatusFromUnits(
 
 	// By providing an unknown default, we get a reasonable answer
 	// even if there are no units.
-	result := &corestatus.StatusInfo{
+	result := corestatus.StatusInfo{
 		Status: corestatus.Unknown,
 	}
 	for _, s := range results {

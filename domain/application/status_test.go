@@ -36,6 +36,7 @@ func (s *statusSuite) TestCloudContainerStatusDBValues(c *gc.C) {
 		dbValues[CloudContainerStatusType(id)] = name
 	}
 	c.Assert(dbValues, jc.DeepEquals, map[CloudContainerStatusType]string{
+		CloudContainerStatusUnset:   "unset",
 		CloudContainerStatusWaiting: "waiting",
 		CloudContainerStatusBlocked: "blocked",
 		CloudContainerStatusRunning: "running",

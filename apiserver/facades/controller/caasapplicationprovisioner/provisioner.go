@@ -600,7 +600,7 @@ func (a *API) SetOperatorStatus(ctx context.Context, args params.SetStatus) (par
 			Message: arg.Info,
 			Data:    arg.Data,
 		}
-		err = a.statusService.SetApplicationStatus(ctx, tag.Id(), &info)
+		err = a.statusService.SetApplicationStatus(ctx, tag.Id(), info)
 		if errors.Is(err, statuserrors.ApplicationNotFound) {
 			results.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("application %q", tag.Id()))
 			continue
@@ -991,7 +991,7 @@ func (a *API) UpdateApplicationsUnits(ctx context.Context, args params.UpdateApp
 		appStatus := appUpdate.Status
 		if appStatus.Status != "" && appStatus.Status != status.Unknown {
 			now := a.clock.Now()
-			err = a.statusService.SetApplicationStatus(ctx, appTag.Id(), &status.StatusInfo{
+			err = a.statusService.SetApplicationStatus(ctx, appTag.Id(), status.StatusInfo{
 				Status:  appStatus.Status,
 				Message: appStatus.Info,
 				Data:    appStatus.Data,

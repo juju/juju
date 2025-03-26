@@ -51,17 +51,17 @@ type ImportService interface {
 	// SetApplicationStatus saves the given application status, overwriting any
 	// current status data. If returns an error satisfying
 	// [statuserrors.ApplicationNotFound] if the application doesn't exist.
-	SetApplicationStatus(context.Context, string, *corestatus.StatusInfo) error
+	SetApplicationStatus(context.Context, string, corestatus.StatusInfo) error
 
 	// SetUnitWorkloadStatus sets the workload status of the specified unit,
 	// returning an error satisfying [statuserrors.UnitNotFound] if the unit
 	// doesn't exist.
-	SetUnitWorkloadStatus(context.Context, coreunit.Name, *corestatus.StatusInfo) error
+	SetUnitWorkloadStatus(context.Context, coreunit.Name, corestatus.StatusInfo) error
 
 	// SetUnitAgentStatus sets the agent status of the specified unit,
 	// returning an error satisfying [statuserrors.UnitNotFound] if the unit
 	// doesn't exist.
-	SetUnitAgentStatus(context.Context, coreunit.Name, *corestatus.StatusInfo) error
+	SetUnitAgentStatus(context.Context, coreunit.Name, corestatus.StatusInfo) error
 }
 
 // Name returns the name of this operation.
@@ -90,7 +90,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
 	for _, app := range model.Applications() {
 		appStatus := i.importStatus(app.Status())
-		if err := i.service.SetApplicationStatus(ctx, app.Name(), &appStatus); err != nil {
+		if err := i.service.SetApplicationStatus(ctx, app.Name(), appStatus); err != nil {
 			return err
 		}
 
@@ -100,12 +100,12 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 				return err
 			}
 			unitAgentStatus := i.importStatus(unit.AgentStatus())
-			if err := i.service.SetUnitAgentStatus(ctx, unitName, &unitAgentStatus); err != nil {
+			if err := i.service.SetUnitAgentStatus(ctx, unitName, unitAgentStatus); err != nil {
 				return err
 			}
 
 			unitWorkloadStatus := i.importStatus(unit.WorkloadStatus())
-			if err := i.service.SetUnitWorkloadStatus(ctx, unitName, &unitWorkloadStatus); err != nil {
+			if err := i.service.SetUnitWorkloadStatus(ctx, unitName, unitWorkloadStatus); err != nil {
 				return err
 			}
 		}

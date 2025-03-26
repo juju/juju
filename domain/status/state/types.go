@@ -105,12 +105,14 @@ type fullUnitStatus struct {
 
 func encodeCloudContainerStatus(s status.CloudContainerStatusType) (int, error) {
 	switch s {
-	case status.CloudContainerStatusWaiting:
+	case status.CloudContainerStatusUnset:
 		return 0, nil
-	case status.CloudContainerStatusBlocked:
+	case status.CloudContainerStatusWaiting:
 		return 1, nil
-	case status.CloudContainerStatusRunning:
+	case status.CloudContainerStatusBlocked:
 		return 2, nil
+	case status.CloudContainerStatusRunning:
+		return 3, nil
 	default:
 		return -1, errors.Errorf("unknown status %q", s)
 	}
@@ -119,10 +121,12 @@ func encodeCloudContainerStatus(s status.CloudContainerStatusType) (int, error) 
 func decodeCloudContainerStatus(s int) (status.CloudContainerStatusType, error) {
 	switch s {
 	case 0:
-		return status.CloudContainerStatusWaiting, nil
+		return status.CloudContainerStatusUnset, nil
 	case 1:
-		return status.CloudContainerStatusBlocked, nil
+		return status.CloudContainerStatusWaiting, nil
 	case 2:
+		return status.CloudContainerStatusBlocked, nil
+	case 3:
 		return status.CloudContainerStatusRunning, nil
 	default:
 		return -1, errors.Errorf("unknown status %d", s)

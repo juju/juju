@@ -77,7 +77,7 @@ func (s *testsuite) TestSetStatus(c *gc.C) {
 		},
 	}
 
-	s.statusService.EXPECT().SetUnitAgentStatus(gomock.Any(), unit.Name("foo/0"), &status).Return(nil)
+	s.statusService.EXPECT().SetUnitAgentStatus(gomock.Any(), unit.Name("foo/0"), status).Return(nil)
 
 	api := s.newAPI(c)
 

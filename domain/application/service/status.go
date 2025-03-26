@@ -25,6 +25,8 @@ type StatusHistory interface {
 // status id.
 func encodeCloudContainerStatusType(s status.Status) (application.CloudContainerStatusType, error) {
 	switch s {
+	case status.Unset:
+		return application.CloudContainerStatusUnset, nil
 	case status.Waiting:
 		return application.CloudContainerStatusWaiting, nil
 	case status.Blocked:

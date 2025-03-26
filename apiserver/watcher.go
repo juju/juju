@@ -314,7 +314,7 @@ type StatusService interface {
 	// derived from the unit display statuses.
 	// If no application is found, an error satisfying [applicationerrors.ApplicationNotFound]
 	// is returned.
-	GetApplicationDisplayStatus(context.Context, string) (*corestatus.StatusInfo, error)
+	GetApplicationDisplayStatus(context.Context, string) (corestatus.StatusInfo, error)
 }
 
 // srvOfferStatusWatcher defines the API wrapping a

@@ -64,7 +64,7 @@ type StubService interface {
 // application domain.
 type StatusService interface {
 	// SetUnitAgentStatus sets the status of the agent of the given unit.
-	SetUnitAgentStatus(ctx context.Context, name unit.Name, status *status.StatusInfo) error
+	SetUnitAgentStatus(ctx context.Context, name unit.Name, status status.StatusInfo) error
 }
 
 // API implements the functionality for assigning units to machines.
@@ -194,7 +194,7 @@ func (a *API) SetAgentStatus(ctx context.Context, args params.SetStatus) (params
 			continue
 		}
 
-		if err := a.statusService.SetUnitAgentStatus(ctx, unit.Name(tag.Id()), &status.StatusInfo{
+		if err := a.statusService.SetUnitAgentStatus(ctx, unit.Name(tag.Id()), status.StatusInfo{
 			Status:  status.Status(arg.Status),
 			Message: arg.Info,
 			Data:    arg.Data,

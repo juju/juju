@@ -130,16 +130,16 @@ type ApplicationService interface {
 type StatusService interface {
 	// SetApplicationStatusForUnitLeader sets the application status using the
 	// leader unit of the application.
-	SetApplicationStatusForUnitLeader(context.Context, coreunit.Name, *corestatus.StatusInfo) error
+	SetApplicationStatusForUnitLeader(context.Context, coreunit.Name, corestatus.StatusInfo) error
 
 	// GetUnitWorkloadStatus returns the workload status of the specified unit
-	GetUnitWorkloadStatus(context.Context, coreunit.Name) (*corestatus.StatusInfo, error)
+	GetUnitWorkloadStatus(context.Context, coreunit.Name) (corestatus.StatusInfo, error)
 
 	// SetUnitWorkloadStatus sets the workload status of the specified unit
-	SetUnitWorkloadStatus(context.Context, coreunit.Name, *corestatus.StatusInfo) error
+	SetUnitWorkloadStatus(context.Context, coreunit.Name, corestatus.StatusInfo) error
 
 	// SetUnitAgentStatus sets the agent status of the specified unit.
-	SetUnitAgentStatus(context.Context, coreunit.Name, *corestatus.StatusInfo) error
+	SetUnitAgentStatus(context.Context, coreunit.Name, corestatus.StatusInfo) error
 
 	// GetApplicationAndUnitStatusesForUnitWithLeader returns the display status
 	// of the application the specified unit belongs to, and the workload statuses
@@ -148,7 +148,7 @@ type StatusService interface {
 		context.Context,
 		coreunit.Name,
 	) (
-		*corestatus.StatusInfo,
+		corestatus.StatusInfo,
 		map[coreunit.Name]corestatus.StatusInfo,
 		error,
 	)
