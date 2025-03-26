@@ -23,6 +23,10 @@ import (
 
 // State describes retrieval and persistence methods for relations.
 type State interface {
+
+	// AllRelations retrieves all unique identifiers for relations within the current model.
+	AllRelations(ctx context.Context) ([]corerelation.UUID, error)
+
 	// GetRelationID returns the relation ID for the given relation UUID.
 	//
 	// The following error types can be expected to be returned:
@@ -95,7 +99,7 @@ func (s *Service) AddRelation(ctx context.Context, ep1, ep2 string) (relation.En
 
 // AllRelations return all uuid of all relation for the current model.
 func (s *Service) AllRelations(ctx context.Context) ([]corerelation.UUID, error) {
-	return nil, coreerrors.NotImplemented
+	return s.st.AllRelations(ctx)
 }
 
 // ApplicationRelationEndpointNames returns a slice of names of the given application's

@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -31,6 +32,41 @@ type relationServiceSuite struct {
 }
 
 var _ = gc.Suite(&relationServiceSuite{})
+
+// TestAllRelations verifies that the AllRelations method returns the correct
+// list of relation UUIDs without errors.
+func (s *relationServiceSuite) TestAllRelations(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	relationUUIDs := []corerelation.UUID{
+		corerelationtesting.GenRelationUUID(c),
+		corerelationtesting.GenRelationUUID(c),
+		corerelationtesting.GenRelationUUID(c),
+	}
+	s.state.EXPECT().AllRelations(gomock.Any()).Return(relationUUIDs, nil)
+
+	// Act
+	obtained, err := s.service.AllRelations(context.Background())
+
+	// Assert
+	c.Assert(err, gc.IsNil, gc.Commentf("(Assert) unexpected error: %v", err))
+	c.Assert(obtained, gc.DeepEquals, relationUUIDs, gc.Commentf("(Assert) unexpected result: %v", obtained))
+}
+
+// TestAllRelationsError verifies the behavior of the AllRelations method when
+// an error is returned by the state backend.
+func (s *relationServiceSuite) TestAllRelationsError(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	expectedErr := errors.New("this is unfortunate")
+	s.state.EXPECT().AllRelations(gomock.Any()).Return(nil, expectedErr)
+
+	// Act
+	_, err := s.service.AllRelations(context.Background())
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, expectedErr, gc.Commentf("(Assert) unexpected error: %v", err))
+}
 
 // TestGetRelationEndpointUUID tests the GetRelationEndpointUUID method for
 // valid input and expected successful execution.

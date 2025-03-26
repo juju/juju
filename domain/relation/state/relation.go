@@ -11,6 +11,7 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain"
@@ -33,6 +34,11 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 		clock:     clock,
 		logger:    logger,
 	}
+}
+
+// AllRelations retrieves all unique identifiers for relations within the current model.
+func (st *State) AllRelations(ctx context.Context) ([]corerelation.UUID, error) {
+	return nil, coreerrors.NotImplemented
 }
 
 // GetRelationID returns the relation ID for the given relation UUID.
