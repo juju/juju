@@ -39,7 +39,7 @@ import (
 // Deprecated: This is being replaced with the ModelExporter.
 type LegacyStateExporter interface {
 	// Export generates an abstract representation of a model.
-	Export(leaders map[string]string, store objectstore.ObjectStore) (description.Model, error)
+	Export(store objectstore.ObjectStore) (description.Model, error)
 	// ExportPartial produces a partial export based based on the input
 	// config.
 	ExportPartial(cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error)
@@ -119,8 +119,8 @@ func (e *ModelExporter) ExportModelPartial(ctx context.Context, cfg state.Export
 
 // ExportModel serializes a model description from the database (legacy mongodb
 // plus dqlite) contents.
-func (e *ModelExporter) ExportModel(ctx context.Context, leaders map[string]string, store objectstore.ObjectStore) (description.Model, error) {
-	model, err := e.legacyStateExporter.Export(leaders, store)
+func (e *ModelExporter) ExportModel(ctx context.Context, store objectstore.ObjectStore) (description.Model, error) {
+	model, err := e.legacyStateExporter.Export(store)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

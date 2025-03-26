@@ -32,7 +32,7 @@ type ModelExporter interface {
 	// It requires a known set of leaders to be passed in, so that applications
 	// can have their leader set correctly once imported.
 	// The objectstore is used to retrieve charms and resources for export.
-	ExportModel(context.Context, map[string]string, objectstore.ObjectStore) (description.Model, error)
+	ExportModel(context.Context, objectstore.ObjectStore) (description.Model, error)
 }
 
 // API implements the API required for the model migration
@@ -182,12 +182,7 @@ func (api *API) ModelInfo(ctx context.Context) (params.MigrationModelInfo, error
 		return empty, errors.New("no agent version")
 	}
 
-	leaders, err := api.leadership.Leaders()
-	if err != nil {
-		return empty, errors.Annotatef(err, "retrieving leaders")
-	}
-
-	model, err := api.modelExporter.ExportModel(ctx, leaders, api.store)
+	model, err := api.modelExporter.ExportModel(ctx, api.store)
 	if err != nil {
 		return empty, errors.Annotate(err, "retrieving model")
 	}
@@ -298,12 +293,7 @@ func (api *API) SetStatusMessage(ctx context.Context, args params.SetMigrationSt
 func (api *API) Export(ctx context.Context) (params.SerializedModel, error) {
 	var serialized params.SerializedModel
 
-	leaders, err := api.leadership.Leaders()
-	if err != nil {
-		return serialized, err
-	}
-
-	model, err := api.modelExporter.ExportModel(ctx, leaders, api.store)
+	model, err := api.modelExporter.ExportModel(ctx, api.store)
 	if err != nil {
 		return serialized, err
 	}
