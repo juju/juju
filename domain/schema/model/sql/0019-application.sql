@@ -258,7 +258,7 @@ SELECT
     ch.hash
 FROM application AS a
 JOIN charm AS c ON a.charm_uuid = c.uuid
-JOIN charm_download_info AS cdi ON c.uuid = cdi.charm_uuid
+LEFT JOIN charm_download_info AS cdi ON c.uuid = cdi.charm_uuid
 JOIN charm_hash AS ch ON c.uuid = ch.charm_uuid;
 
 CREATE VIEW v_application_export AS
