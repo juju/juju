@@ -1121,11 +1121,11 @@ type applicationPlatformAndChannel struct {
 }
 
 type applicationOrigin struct {
-	ReferenceName      string        `db:"reference_name"`
-	SourceID           int           `db:"source_id"`
-	Revision           sql.NullInt64 `db:"revision"`
-	CharmhubIdentifier string        `db:"charmhub_identifier"`
-	Hash               string        `db:"hash"`
+	ReferenceName      string         `db:"reference_name"`
+	SourceID           int            `db:"source_id"`
+	Revision           sql.NullInt64  `db:"revision"`
+	CharmhubIdentifier sql.NullString `db:"charmhub_identifier"`
+	Hash               sql.NullString `db:"hash"`
 }
 
 type exportApplication struct {
