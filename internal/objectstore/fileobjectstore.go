@@ -45,7 +45,7 @@ const (
 
 // RemoteRetriever is the interface for retrieving objects from a remote source.
 type RemoteRetriever interface {
-	// Get retrieves the object from the remote source.
+	// Retrieve gets the object from the remote source.
 	Retrieve(ctx context.Context, sha256 string) (io.ReadCloser, int64, error)
 }
 

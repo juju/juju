@@ -24,15 +24,13 @@ import (
 type remoteFileObjectStore struct {
 	catacomb catacomb.Catacomb
 
-	objectStore  TrackedObjectStore
-	remoteWorker worker.Worker
+	objectStore TrackedObjectStore
 }
 
 // newRemoteFileObjectStore returns a new remoteFileObjectStore.
 func newRemoteFileObjectStore(objectStore TrackedObjectStore, remoteWorker worker.Worker) (*remoteFileObjectStore, error) {
 	w := &remoteFileObjectStore{
-		objectStore:  objectStore,
-		remoteWorker: remoteWorker,
+		objectStore: objectStore,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
