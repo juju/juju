@@ -627,7 +627,7 @@ func (s *relationSuite) TestGetRelationDetails(c *gc.C) {
 	}
 
 	// Act: Get relation details.
-	details, err := s.state.GetRelationDetails(context.Background(), relationID)
+	details, err := s.state.GetRelationDetails(context.Background(), corerelation.UUID(relationUUID))
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
@@ -636,7 +636,7 @@ func (s *relationSuite) TestGetRelationDetails(c *gc.C) {
 
 func (s *relationSuite) TestGetRelationDetailsNotFound(c *gc.C) {
 	// Act: Get relation details.
-	_, err := s.state.GetRelationDetails(context.Background(), 7)
+	_, err := s.state.GetRelationDetails(context.Background(), "unknown-relation-uuid")
 
 	// Assert:
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)

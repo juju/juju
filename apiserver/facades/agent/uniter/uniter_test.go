@@ -298,36 +298,10 @@ func (s *uniterRelationSuite) TestRelation(c *gc.C) {
 
 	relUUID := relationtesting.GenRelationUUID(c)
 	relID := 42
-	details := relation.RelationDetails{
-		Life: life.Alive,
-		UUID: relUUID,
-		ID:   relID,
-		Key:  corerelation.Key(relTag.Id()),
-		Endpoints: []internalrelation.Endpoint{
-			{
-				ApplicationName: "wordpress",
-				Relation: charm.Relation{
-					Name:      "database",
-					Role:      charm.RoleRequirer,
-					Interface: "mysql",
-					Scope:     charm.ScopeGlobal,
-				},
-			},
-			{
-				ApplicationName: "mysql",
-				Relation: charm.Relation{
-					Name:      "mysql",
-					Role:      charm.RoleProvider,
-					Interface: "mysql",
-					Scope:     charm.ScopeGlobal,
-				},
-			},
-		},
-	}
 
 	s.expectModelUUID(c)
 	s.expectGetRelationUUIDFromKey(corerelation.Key(relTag.Id()), relUUID, nil)
-	s.expectGetRelationDetailsForUnit(relUUID, details)
+	s.expectGetRelationDetails(relUUID, relID, relTag)
 
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: relTag.String(), Unit: "unit-wordpress-0"},
@@ -401,14 +375,21 @@ func (s *uniterRelationSuite) TestRelationById(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relUUID := relationtesting.GenRelationUUID(c)
-	relID := 37
 	relIDNotFound := -1
+	relID := 31
 	relIDUnexpectedAppName := 42
 
 	s.expectModelUUID(c)
+
+	s.expectGetRelationUUIDByID(relIDNotFound, relUUID, nil)
+	s.expectGetRelationDetailsNotFound(relUUID)
+
+	s.expectGetRelationUUIDByID(relID, relUUID, nil)
 	s.expectGetRelationDetails(relUUID, relID, relTag)
-	s.expectGetRelationDetailsNotFound(relIDNotFound)
-	s.expectGetRelationDetailsUnexpectedAppName(c, relIDUnexpectedAppName)
+
+	s.expectGetRelationUUIDByID(relIDUnexpectedAppName, relUUID, nil)
+	s.expectGetRelationDetailsUnexpectedAppName(c, relUUID)
+
 	args := params.RelationIds{
 		RelationIds: []int{
 			// The relation ID does not exist: ErrUnauthorized.
@@ -423,7 +404,7 @@ func (s *uniterRelationSuite) TestRelationById(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.RelationResultsV2{
 		Results: []params.RelationResultV2{
-			{Error: apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{Message: `not found`, Code: params.CodeNotFound}},
 			{
 				Id:   relID,
 				Key:  relTag.Id(),
@@ -1064,7 +1045,7 @@ func (s *uniterRelationSuite) expectGetRelationUUIDFromKey(key corerelation.Key,
 }
 
 func (s *uniterRelationSuite) expectGetRelationDetails(relUUID corerelation.UUID, relID int, relTag names.RelationTag) {
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relID).Return(relation.RelationDetails{
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation.RelationDetails{
 		Life: life.Alive,
 		UUID: relUUID,
 		ID:   relID,
@@ -1092,23 +1073,15 @@ func (s *uniterRelationSuite) expectGetRelationDetails(relUUID corerelation.UUID
 	}, nil)
 }
 
-func (s *uniterRelationSuite) expectGetRelationDetailsForUnit(
-	relUUID corerelation.UUID,
-	details relation.RelationDetails,
-) {
-	unitName := coreunit.Name(s.wordpressUnitTag.Id())
-	s.relationService.EXPECT().GetRelationDetailsForUnit(gomock.Any(), relUUID, unitName).Return(details, nil)
+func (s *uniterRelationSuite) expectGetRelationDetailsNotFound(relUUID corerelation.UUID) {
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation.RelationDetails{}, errors.NotFound)
 }
 
-func (s *uniterRelationSuite) expectGetRelationDetailsNotFound(relID int) {
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relID).Return(relation.RelationDetails{}, errors.NotFound)
-}
-
-func (s *uniterRelationSuite) expectGetRelationDetailsUnexpectedAppName(c *gc.C, relID int) {
-	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relID).Return(relation.RelationDetails{
+func (s *uniterRelationSuite) expectGetRelationDetailsUnexpectedAppName(c *gc.C, relUUID corerelation.UUID) {
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation.RelationDetails{
 		Life: life.Alive,
-		UUID: relationtesting.GenRelationUUID(c),
-		ID:   relID,
+		UUID: relUUID,
+		ID:   101,
 		Endpoints: []internalrelation.Endpoint{
 			{
 				ApplicationName: "failure-application",

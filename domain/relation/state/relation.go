@@ -365,7 +365,7 @@ AND    e.endpoint_name    = $endpointIdentifier.endpoint_name
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationNotFound] is returned if the relation UUID
 //     is not found.
-func (st *State) GetRelationDetails(ctx context.Context, relationID int) (relation.RelationDetailsResult, error) {
+func (st *State) GetRelationDetails(ctx context.Context, relationUUID corerelation.UUID) (relation.RelationDetailsResult, error) {
 	db, err := st.DB()
 	if err != nil {
 		return relation.RelationDetailsResult{}, errors.Capture(err)
@@ -377,13 +377,13 @@ func (st *State) GetRelationDetails(ctx context.Context, relationID int) (relati
 		Life string `db:"value"`
 	}
 	rel := getRelation{
-		ID: relationID,
+		UUID: relationUUID.String(),
 	}
 	stmt, err := st.Prepare(`
 SELECT (r.uuid, r.relation_id, l.value) AS (&getRelation.*)
 FROM   relation r
 JOIN   life l ON r.life_id = l.id
-WHERE  relation_id = $getRelation.relation_id
+WHERE  r.uuid = $getRelation.uuid
 `, rel)
 	if err != nil {
 		return relation.RelationDetailsResult{}, errors.Capture(err)
