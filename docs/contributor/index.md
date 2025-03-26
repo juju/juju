@@ -1,25 +1,23 @@
 (dev)=
 # Juju contributor documentation
 
-<!--
 ```{toctree}
 :titlesonly:
 :glob:
 :maxdepth: 1
 :hidden:
 
-how-to/index.md
-reference/index.md
-unsorted/index.md
+Tutorial <tutorial/index>
+howto/index
+reference/index
+explanation/index
+unsorted/index
 ```
--->
-
-
 
 ````{grid} 1 1 2 2
 
-```{grid-item-card} [Tutorial](tutorial)
-:link: tutorial
+```{grid-item-card} [Tutorial](/index)
+:link: tutorial/index
 :link-type: doc
 
 **Start here**: a hands-on introduction to Juju for new contributors

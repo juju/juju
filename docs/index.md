@@ -1,4 +1,16 @@
+(home)=
 # Juju documentation
+
+```{toctree}
+:maxdepth: 2
+:hidden:
+
+Tutorial <tutorial/index>
+howto/index
+reference/index
+explanation/index
+For contributors <contributor/index>
+```
 
 Juju is an open source orchestration engine for software operators that enables the deployment, integration and lifecycle management of applications at any scale, on any infrastructure, using special software operators called ‘charms’.
 
@@ -8,52 +20,46 @@ As such, Juju makes it simple, intuitive, and efficient to manage the full lifec
 
 For system operators and DevOps who manage applications in the cloud, Juju simplifies code; for CIOs, it helps align code with business decisions.
 
-
 ## In this documentation
 
-```{toctree}
-:titlesonly:
-:hidden:
-
-user/index.md
-- Tutorial <user/tutorial>
-- How-to guides <user/howto/index>
-- Reference <user/reference/index>
-- Explanation <user/explanation/index>
-contributor/index.md
-- Tutorial <contributor/tutorial>
-- How-to guides <contributor/howto/index>
-- Reference <contributor/reference/index>
-- Explanation <contributor/explanation/index>
-- Unsorted <contributor/unsorted/index>
-````
 
 ````{grid} 1 1 2 2
 
-```{grid-item-card} [User docs](user/index.md)
+```{grid-item-card} [Tutorial](tutorial)
+:link: tutorial
+:link-type: doc
 
-Docs for people who want to use `juju`, whether as SREs or as charm authors
-
-- [Tutorial](user/tutorial) <- **Start here!**
-- [How-to guides](user/howto/index)
-- [Reference](user/reference/index)
-- [Explanation](user/explanation/index)
-
+**Start here**: a hands-on introduction to Juju for new users
 ```
 
-```{grid-item-card} [Contributor docs](contributor/index.md)
+```{grid-item-card} [How-to guides](/index)
+:link: howto/index
+:link-type: doc
 
-Docs for people who want to contribute to `juju`, whether docs or code
-
-- [Tutorial](contributor/tutorial)
-- [How-to guides](contributor/howto/index)
-- [Reference](contributor/reference/index)
-- [Explanation](contributor/explanation/index)
-- [Unsorted](contributor/unsorted/index)
-
+**Step-by-step guides** covering key operations and common tasks
 ```
 
 ````
+
+````{grid} 1 1 2 2
+:reverse:
+
+```{grid-item-card} [Reference](/index)
+:link: reference/index
+:link-type: doc
+
+**Technical information** - specifications, APIs, architecture
+```
+
+```{grid-item-card} [Explanation](/index)
+:link: explanation/index
+:link-type: doc
+
+**Discussion and clarification** of key topics
+```
+
+````
+
 
 (project-and-community)=
 ## Project and community
@@ -71,5 +77,4 @@ constructive feedback.
   or [GitHub](https://github.com/juju/docs/issues) (for docs)
 * Contribute to the code or the docs on [GitHub](https://github.com/juju/juju/blob/develop/CONTRIBUTING.md)
 * Visit the [Juju careers page](https://juju.is/careers)
-
-
+* Read our [Juju contributor docs](./contributor/)
