@@ -1027,41 +1027,41 @@ func (c *MockRelationServiceGetRelationUUIDByIDCall) DoAndReturn(f func(context.
 	return c
 }
 
-// GetRelationUUIDFromKey mocks base method.
-func (m *MockRelationService) GetRelationUUIDFromKey(arg0 context.Context, arg1 relation.Key) (relation.UUID, error) {
+// GetRelationUUIDByKey mocks base method.
+func (m *MockRelationService) GetRelationUUIDByKey(arg0 context.Context, arg1 relation.Key) (relation.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRelationUUIDFromKey", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetRelationUUIDByKey", arg0, arg1)
 	ret0, _ := ret[0].(relation.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetRelationUUIDFromKey indicates an expected call of GetRelationUUIDFromKey.
-func (mr *MockRelationServiceMockRecorder) GetRelationUUIDFromKey(arg0, arg1 any) *MockRelationServiceGetRelationUUIDFromKeyCall {
+// GetRelationUUIDByKey indicates an expected call of GetRelationUUIDByKey.
+func (mr *MockRelationServiceMockRecorder) GetRelationUUIDByKey(arg0, arg1 any) *MockRelationServiceGetRelationUUIDByKeyCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUUIDFromKey", reflect.TypeOf((*MockRelationService)(nil).GetRelationUUIDFromKey), arg0, arg1)
-	return &MockRelationServiceGetRelationUUIDFromKeyCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUUIDByKey", reflect.TypeOf((*MockRelationService)(nil).GetRelationUUIDByKey), arg0, arg1)
+	return &MockRelationServiceGetRelationUUIDByKeyCall{Call: call}
 }
 
-// MockRelationServiceGetRelationUUIDFromKeyCall wrap *gomock.Call
-type MockRelationServiceGetRelationUUIDFromKeyCall struct {
+// MockRelationServiceGetRelationUUIDByKeyCall wrap *gomock.Call
+type MockRelationServiceGetRelationUUIDByKeyCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockRelationServiceGetRelationUUIDFromKeyCall) Return(arg0 relation.UUID, arg1 error) *MockRelationServiceGetRelationUUIDFromKeyCall {
+func (c *MockRelationServiceGetRelationUUIDByKeyCall) Return(arg0 relation.UUID, arg1 error) *MockRelationServiceGetRelationUUIDByKeyCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationServiceGetRelationUUIDFromKeyCall) Do(f func(context.Context, relation.Key) (relation.UUID, error)) *MockRelationServiceGetRelationUUIDFromKeyCall {
+func (c *MockRelationServiceGetRelationUUIDByKeyCall) Do(f func(context.Context, relation.Key) (relation.UUID, error)) *MockRelationServiceGetRelationUUIDByKeyCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationServiceGetRelationUUIDFromKeyCall) DoAndReturn(f func(context.Context, relation.Key) (relation.UUID, error)) *MockRelationServiceGetRelationUUIDFromKeyCall {
+func (c *MockRelationServiceGetRelationUUIDByKeyCall) DoAndReturn(f func(context.Context, relation.Key) (relation.UUID, error)) *MockRelationServiceGetRelationUUIDByKeyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

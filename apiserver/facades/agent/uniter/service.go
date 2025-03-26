@@ -278,12 +278,12 @@ type RelationService interface {
 		relationUnitUUID corerelation.UnitUUID,
 	) (map[string]string, error)
 
-	// GetRelationUUIDFromKey returns a relation UUID for the given relation
-	// Key. The relation key is a ordered space separated string of the
-	// endpoint names of a the relation.
+	// GetRelationUUIDByKey returns a relation UUID for the given relation Key.
+	// The relation key is a ordered space separated string of the endpoint
+	// names of the relation.
 	// The following error types can be expected:
 	// - [relationerrors.RelationNotFound]: when no relation exists for the given key.
-	GetRelationUUIDFromKey(ctx context.Context, relationKey corerelation.Key) (corerelation.UUID, error)
+	GetRelationUUIDByKey(ctx context.Context, relationKey corerelation.Key) (corerelation.UUID, error)
 
 	// GetRelationByID returns the relation uuid based on the relation ID.
 	GetRelationUUIDByID(ctx context.Context, relationID int) (corerelation.UUID, error)

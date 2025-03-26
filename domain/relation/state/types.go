@@ -19,6 +19,21 @@ type relationIDAndUUID struct {
 	ID int `db:"relation_id"`
 }
 
+type relationUUIDAndRole struct {
+	// UUID is the unique identifier of the relation.
+	UUID string `db:"relation_uuid"`
+	// Role is the name of the endpoints role, e.g. provider/requirer/peer.
+	Role string `db:"scope"`
+}
+
+// endpointIdentifier is an identifier for a relation endpoint.
+type endpointIdentifier struct {
+	// ApplicationName is the name of the application the endpoint belongs to.
+	ApplicationName string `db:"application_name"`
+	// EndpointName is the name of the endpoint.
+	EndpointName string `db:"endpoint_name"`
+}
+
 // endpoint is used to fetch an endpoint from the database.
 type endpoint struct {
 	// Endpoint name is the name of the endpoint/relation.

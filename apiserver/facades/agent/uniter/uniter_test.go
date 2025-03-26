@@ -1059,7 +1059,7 @@ func (s *uniterRelationSuite) expectModelUUID(c *gc.C) {
 }
 
 func (s *uniterRelationSuite) expectGetRelationUUIDFromKey(key corerelation.Key, relUUID corerelation.UUID, err error) {
-	s.relationService.EXPECT().GetRelationUUIDFromKey(gomock.Any(), key).Return(relUUID, err)
+	s.relationService.EXPECT().GetRelationUUIDByKey(gomock.Any(), key).Return(relUUID, err)
 }
 
 func (s *uniterRelationSuite) expectGetRelationDetails(relUUID corerelation.UUID, relID int, relTag names.RelationTag) {
