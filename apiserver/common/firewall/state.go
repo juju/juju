@@ -39,21 +39,14 @@ type stateShim struct {
 }
 
 func (st stateShim) KeyRelation(key string) (Relation, error) {
-	rel, err := st.State.KeyRelation(key)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return relationShim{rel}, nil
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
 
 type Relation interface {
 	status.StatusSetter
 	Endpoints() []relation.Endpoint
 	WatchUnits(applicationName string) (state.RelationUnitsWatcher, error)
-}
-
-type relationShim struct {
-	*state.Relation
 }
 
 func (st stateShim) Application(name string) (Application, error) {

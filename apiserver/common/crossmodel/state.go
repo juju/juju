@@ -5,12 +5,15 @@ package crossmodel
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/state"
 )
@@ -33,19 +36,12 @@ type stateShim struct {
 }
 
 func (st stateShim) Relation(id int) (Relation, error) {
-	r, err := st.State.Relation(id)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return relationShim{r, st.State}, nil
+	return relationShim{}, nil
 }
 
 func (st stateShim) KeyRelation(key string) (Relation, error) {
-	r, err := st.State.KeyRelation(key)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return relationShim{r, st.State}, nil
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
 
 func (st stateShim) OfferConnectionForRelation(relationKey string) (OfferConnection, error) {
@@ -88,19 +84,13 @@ func (st stateShim) RemoteApplication(name string) (RemoteApplication, error) {
 }
 
 func (st stateShim) AddRelation(eps ...relation.Endpoint) (Relation, error) {
-	r, err := st.State.AddRelation(eps...)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return relationShim{r, st.State}, nil
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
 
 func (st stateShim) EndpointsRelation(eps ...relation.Endpoint) (Relation, error) {
-	r, err := st.State.EndpointsRelation(eps...)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return relationShim{r, st.State}, nil
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
 
 func (st stateShim) AddRemoteApplication(args AddRemoteApplicationParams) (RemoteApplication, error) {
@@ -175,8 +165,91 @@ func (s stateShim) AllRemoteApplications() ([]RemoteApplication, error) {
 }
 
 type relationShim struct {
-	*state.Relation
-	st *state.State
+}
+
+func (r relationShim) Status() (status.StatusInfo, error) {
+	return status.StatusInfo{}, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
+}
+
+func (r relationShim) SetStatus(info status.StatusInfo) error {
+	return errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
+}
+
+func (r relationShim) Destroy(store objectstore.ObjectStore) error {
+	return errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
+}
+
+func (r relationShim) DestroyWithForce(force bool, maxWait time.Duration) ([]error, error) {
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
+}
+
+func (r relationShim) Id() int {
+	// todo(gfouillet): to be implemented when CMR will be in domain
+	return 0
+}
+
+func (r relationShim) Life() state.Life {
+	// todo(gfouillet): to be implemented when CMR will be in domain
+	return state.Dead
+}
+
+func (r relationShim) Tag() names.Tag {
+	// todo(gfouillet): to be implemented when CMR will be in domain
+	return names.NewRelationTag("implement:me")
+}
+
+func (r relationShim) UnitCount() int {
+	// todo(gfouillet): to be implemented when CMR will be in domain
+	return 0
+}
+
+func (r relationShim) Endpoints() []relation.Endpoint {
+	// todo(gfouillet): to be implemented when CMR will be in domain
+	return nil
+}
+
+func (r relationShim) Endpoint(appName string) (relation.Endpoint, error) {
+	return relation.Endpoint{}, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
+}
+
+func (r relationShim) WatchUnits(applicationName string) (state.RelationUnitsWatcher, error) {
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
+}
+
+func (r relationShim) WatchLifeSuspendedStatus() state.StringsWatcher {
+	// todo(gfouillet): to be implemented when CMR will be in domain
+	return nil
+}
+
+func (r relationShim) Suspended() bool {
+	// todo(gfouillet): to be implemented when CMR will be in domain
+	return true
+}
+
+func (r relationShim) SuspendedReason() string {
+	// todo(gfouillet): to be implemented when CMR will be in domain
+	return "not implemented"
+}
+
+func (r relationShim) SetSuspended(b bool, s string) error {
+	return errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
+}
+
+func (r relationShim) ApplicationSettings(appName string) (map[string]interface{}, error) {
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
+}
+
+func (r relationShim) RelatedEndpoints(name string) ([]relation.Endpoint, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (r relationShim) RemoteApplication() (RemoteApplication, bool, error) {
@@ -199,66 +272,37 @@ func (r relationShim) AllRemoteUnits(appName string) ([]RelationUnit, error) {
 }
 
 func (r relationShim) Unit(unitId string) (RelationUnit, error) {
-	unit, err := r.st.Unit(unitId)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ru, err := r.Relation.Unit(unit)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return relationUnitShim{ru}, nil
+	return relationUnitShim{}, nil
 }
 
 func (r relationShim) ReplaceApplicationSettings(appName string, values map[string]interface{}) error {
-	currentSettings, err := r.ApplicationSettings(appName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// This is a replace rather than an update so make the update
-	// remove any settings missing from the new values.
-	for key := range currentSettings {
-		if _, found := values[key]; !found {
-			values[key] = ""
-		}
-	}
-	// We're replicating changes from another controller so we need to
-	// trust them that the leadership was managed correctly - we can't
-	// check it here.
-	return errors.Trace(r.UpdateApplicationSettings(appName, &successfulToken{}, values))
+	return errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
 
-type successfulToken struct{}
+type relationUnitShim struct{}
 
-// Check is all of the lease.Token interface.
-func (t successfulToken) Check() error {
-	return nil
+func (r relationUnitShim) EnterScope(settings map[string]interface{}) error {
+	return errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
 
-type relationUnitShim struct {
-	*state.RelationUnit
+func (r relationUnitShim) InScope() (bool, error) {
+	return false, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
+}
+
+func (r relationUnitShim) LeaveScope() error {
+	return errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
 
 func (r relationUnitShim) Settings() (map[string]interface{}, error) {
-	settings, err := r.RelationUnit.Settings()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return settings.Map(), nil
+	return nil, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
 
 func (r relationUnitShim) ReplaceSettings(s map[string]interface{}) error {
-	settings, err := r.RelationUnit.Settings()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	settings.Update(s)
-	for _, key := range settings.Keys() {
-		if _, ok := s[key]; ok {
-			continue
-		}
-		settings.Delete(key)
-	}
-	_, err = settings.Write()
-	return errors.Trace(err)
+	return errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }

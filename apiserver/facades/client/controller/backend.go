@@ -47,13 +47,6 @@ type applicationShim struct {
 }
 
 func (a applicationShim) Relations() ([]Relation, error) {
-	rels, err := a.Application.Relations()
-	if err != nil {
-		return nil, err
-	}
-	result := make([]Relation, len(rels))
-	for i, r := range rels {
-		result[i] = r
-	}
-	return result, nil
+	// TODO(gfouillet) - implement it when wire up relation domain.
+	return nil, nil
 }
