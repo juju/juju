@@ -46,10 +46,7 @@ func LookupAssertions(proxyURL string) (assertions, storeID string, err error) {
 	}
 	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode != http.StatusOK {
-		if err != nil {
-			return "", "", errors.Errorf("could not retrieve assertions from proxy at %q; proxy replied with unexpected HTTP status code %d: %w", noCredsProxyURL, res.StatusCode, err)
-		}
-		return "", "", nil
+		return "", "", errors.Errorf("could not retrieve assertions from proxy at %q; proxy replied with unexpected HTTP status code %d", noCredsProxyURL, res.StatusCode)
 	}
 
 	data, err := io.ReadAll(res.Body)
