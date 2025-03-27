@@ -216,8 +216,12 @@ extensions = [
     # with, e.g., {external+ops:ref}`manage-configurations`:
     'sphinx.ext.intersphinx',
     'sphinxext.rediraffe',
+    # Display an external link icon and open link in new tab:
+    # new_tab_link_show_external_link_icon must also be set to True
+    'sphinx_new_tab_link',
     ]
 
+new_tab_link_show_external_link_icon = True
 
 # Add redirects, so they can be updated here to land with docs being moved
 # rediraffe_branch = "3.6"
