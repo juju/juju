@@ -29,7 +29,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsSubnetNotFoundError(c *gc.C) {
 	defer ctrl.Finish()
 
 	spaceName := "destination"
-	subnetID := "3"
+	subnetID := "0195847b-95bb-7ca1-a7ee-2211d802d5b3"
 
 	s.NetworkService.EXPECT().Subnet(gomock.Any(), subnetID).Return(nil, errors.NotFoundf("subnet 3"))
 
@@ -44,7 +44,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsUnaffectedSubnetSuccess(c *gc.C) {
 	defer ctrl.Finish()
 
 	spaceName := "destination"
-	subnetID := "3"
+	subnetID := "0195847b-95bb-7ca1-a7ee-2211d802d5b3"
 	cidr := "10.10.10.0/24"
 
 	subnet := &network.SubnetInfo{
@@ -91,7 +91,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsUnaffectedSubnetSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.DeepEquals, []params.MoveSubnetsResult{{
 		MovedSubnets: []params.MovedSubnet{{
-			SubnetTag:   "subnet-3",
+			SubnetTag:   "subnet-0195847b-95bb-7ca1-a7ee-2211d802d5b3",
 			OldSpaceTag: "space-from",
 			CIDR:        cidr,
 		}},
@@ -105,7 +105,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNoSpaceConstraintsSuccess(c *gc.C) 
 	defer ctrl.Finish()
 
 	spaceName := "destination"
-	subnetID := "3"
+	subnetID := "0195847b-95bb-7ca1-a7ee-2211d802d5b3"
 	cidr := "10.10.10.0/24"
 
 	subnet := &network.SubnetInfo{
@@ -168,7 +168,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedNoForceE
 	defer ctrl.Finish()
 
 	spaceName := "destination"
-	subnetID := "3"
+	subnetID := "0195847b-95bb-7ca1-a7ee-2211d802d5b3"
 	cidr := "10.10.10.0/24"
 
 	subnet := &network.SubnetInfo{
@@ -224,7 +224,7 @@ func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess
 	defer ctrl.Finish()
 
 	spaceName := "destination"
-	subnetID := "3"
+	subnetID := "0195847b-95bb-7ca1-a7ee-2211d802d5b3"
 	cidr := "10.10.10.0/24"
 
 	subnet := &network.SubnetInfo{
@@ -276,7 +276,7 @@ func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.DeepEquals, []params.MoveSubnetsResult{{
 		MovedSubnets: []params.MovedSubnet{{
-			SubnetTag:   "subnet-3",
+			SubnetTag:   "subnet-0195847b-95bb-7ca1-a7ee-2211d802d5b3",
 			OldSpaceTag: "space-from",
 			CIDR:        cidr,
 		}},
@@ -290,7 +290,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsPositiveConstraintsViolatedNoForceE
 	defer ctrl.Finish()
 
 	spaceName := "destination"
-	subnetID := "3"
+	subnetID := "0195847b-95bb-7ca1-a7ee-2211d802d5b3"
 	cidr := "10.10.10.0/24"
 
 	subnet := &network.SubnetInfo{
@@ -357,7 +357,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsEndpointBindingsViolatedNoForceErro
 	defer ctrl.Finish()
 
 	spaceName := "destination"
-	subnetID := "3"
+	subnetID := "0195847b-95bb-7ca1-a7ee-2211d802d5b3"
 	cidr := "10.10.10.0/24"
 
 	subnet := &network.SubnetInfo{

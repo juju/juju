@@ -215,7 +215,7 @@ func NewStubAPI() *StubAPI {
 	}
 	moveSubnets := params.MoveSubnetsResult{
 		MovedSubnets: []params.MovedSubnet{{
-			SubnetTag:   "1",
+			SubnetTag:   "0195847b-95bb-7ca1-a7ee-2211d802d5b3",
 			OldSpaceTag: "space-internal",
 			CIDR:        subnets[0].CIDR,
 		}},
@@ -223,10 +223,10 @@ func NewStubAPI() *StubAPI {
 	}
 	subnetsByCIDR := []params.SubnetsResult{{
 		Subnets: []params.SubnetV2{{
-			ID:     "1",
+			ID:     "0195847b-95bb-7ca1-a7ee-2211d802d5b3",
 			Subnet: subnets[0],
 		}, {
-			ID:     "2",
+			ID:     "0195847b-95bb-7ca1-a7ee-2211d802d5b4",
 			Subnet: subnets[2],
 		}},
 	}}

@@ -493,14 +493,14 @@ func (s *spacesSuite) testMoveSubnets(c *gc.C,
 
 func (s *spacesSuite) TestMoveSubnetsEmptyResults(c *gc.C) {
 	space := names.NewSpaceTag("aaabbb")
-	subnets := []names.SubnetTag{names.NewSubnetTag("1")}
+	subnets := []names.SubnetTag{names.NewSubnetTag("0195847b-95bb-7ca1-a7ee-2211d802d5b3")}
 
 	s.testMoveSubnets(c, space, subnets, []params.MoveSubnetsResult{}, nil, "expected 1 result, got 0")
 }
 
 func (s *spacesSuite) TestMoveSubnets(c *gc.C) {
 	space := names.NewSpaceTag("aaabbb")
-	subnets := []names.SubnetTag{names.NewSubnetTag("1")}
+	subnets := []names.SubnetTag{names.NewSubnetTag("0195847b-95bb-7ca1-a7ee-2211d802d5b3")}
 
 	s.testMoveSubnets(c, space, subnets, []params.MoveSubnetsResult{{
 		MovedSubnets: []params.MovedSubnet{{
@@ -513,7 +513,7 @@ func (s *spacesSuite) TestMoveSubnets(c *gc.C) {
 
 func (s *spacesSuite) TestMoveSubnetsServerError(c *gc.C) {
 	space := names.NewSpaceTag("aaabbb")
-	subnets := []names.SubnetTag{names.NewSubnetTag("1")}
+	subnets := []names.SubnetTag{names.NewSubnetTag("0195847b-95bb-7ca1-a7ee-2211d802d5b3")}
 
 	s.testMoveSubnets(c, space, subnets, nil, errors.New("boom"), "boom")
 }
