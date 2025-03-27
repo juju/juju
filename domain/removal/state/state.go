@@ -82,34 +82,23 @@ AND    life_id = 0`, relationUUID)
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, stmt, relationUUID).Run()
 		if err != nil {
-			return errors.Errorf("advancing relation %q life: %w", rUUID, err)
+			return errors.Errorf("advancing relation life: %w", err)
 		}
 		return nil
 	}))
 }
 
-// RelationAdvanceLifeAndScheduleRemoval advances the life cycle of the relation
-// with the input UUID to dying if it is alive, and schedules a removal job for
-// the relation, qualified with the input force boolean.
+// RelationScheduleRemoval schedules a removal job for the relation with the
+// input UUID, qualified with the input force boolean.
 // We don't care if the relation does not exist at this point because:
 // - it should have been validated prior to calling this method,
 // - the removal job executor will handle that fact.
-func (st *State) RelationAdvanceLifeAndScheduleRemoval(
+func (st *State) RelationScheduleRemoval(
 	ctx context.Context, removalUUID, relUUID string, force bool, when time.Time,
 ) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
-	}
-
-	relationUUID := entityUUID{UUID: relUUID}
-	lifeStmt, err := st.Prepare(`
-UPDATE relation
-SET    life_id = 1
-WHERE  uuid = $entityUUID.uuid
-AND    life_id = 0`, relationUUID)
-	if err != nil {
-		return errors.Errorf("preparing relation life update: %w", err)
 	}
 
 	removalRec := removal{
@@ -122,18 +111,13 @@ AND    life_id = 0`, relationUUID)
 
 	removalStmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removal.*)", removalRec)
 	if err != nil {
-		return errors.Errorf("preparing relation life update: %w", err)
+		return errors.Errorf("preparing relation removal: %w", err)
 	}
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, lifeStmt, relationUUID).Run()
-		if err != nil {
-			return errors.Errorf("advancing relation %q life: %w", relUUID, err)
-		}
-
 		err = tx.Query(ctx, removalStmt, removalRec).Run()
 		if err != nil {
-			return errors.Errorf("scheduling relation %q removal: %w", relUUID, err)
+			return errors.Errorf("scheduling relation removal: %w", err)
 		}
 
 		return nil
