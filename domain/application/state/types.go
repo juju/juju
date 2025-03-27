@@ -1151,11 +1151,3 @@ type exportUnit struct {
 	Name         coreunit.Name `db:"name"`
 	PasswordHash string        `db:"password_hash"`
 }
-
-// leadership represents a single row from the leadership table for
-// applications.
-type leadership struct {
-	ModelUUID string `db:"model_uuid"`
-	Name      string `db:"name"`
-	Holder    string `db:"holder"`
-}
