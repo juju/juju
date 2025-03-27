@@ -16,7 +16,7 @@ import (
 	crossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	crossmodel0 "github.com/juju/juju/core/crossmodel"
 	secrets "github.com/juju/juju/core/secrets"
-	relation "github.com/juju/juju/internal/relation"
+	relation "github.com/juju/juju/domain/relation"
 	params "github.com/juju/juju/rpc/params"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v6"

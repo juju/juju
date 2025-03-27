@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/relation"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 )

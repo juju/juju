@@ -4,8 +4,8 @@
 package state
 
 import (
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/relation"
 )
 
 type relationUUID struct {

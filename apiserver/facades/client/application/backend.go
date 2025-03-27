@@ -16,9 +16,9 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/configschema"
-	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
 )

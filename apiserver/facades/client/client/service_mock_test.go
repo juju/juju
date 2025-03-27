@@ -19,7 +19,7 @@ import (
 	relation "github.com/juju/juju/core/relation"
 	status "github.com/juju/juju/core/status"
 	model0 "github.com/juju/juju/domain/model"
-	relation0 "github.com/juju/juju/internal/relation"
+	relation0 "github.com/juju/juju/domain/relation"
 	gomock "go.uber.org/mock/gomock"
 )
 

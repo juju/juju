@@ -32,11 +32,11 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
 	interrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
-	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state/watcher"
 )

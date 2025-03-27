@@ -20,7 +20,6 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
-	internalrelation "github.com/juju/juju/internal/relation"
 )
 
 type State struct {
@@ -255,13 +254,13 @@ WHERE  ru.unit_uuid = $unitUUIDArg.unit_uuid
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationNotFound] is returned if the relation UUID is not
 //     found.
-func (st *State) GetRelationEndpoints(ctx context.Context, uuid corerelation.UUID) ([]internalrelation.Endpoint, error) {
+func (st *State) GetRelationEndpoints(ctx context.Context, uuid corerelation.UUID) ([]relation.Endpoint, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var endpoints []internalrelation.Endpoint
+	var endpoints []relation.Endpoint
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		endpoints, err = st.getEndpoints(ctx, tx, uuid)
 		return err
@@ -279,7 +278,7 @@ func (st *State) getEndpoints(
 	ctx context.Context,
 	tx *sqlair.TX,
 	uuid corerelation.UUID,
-) ([]internalrelation.Endpoint, error) {
+) ([]relation.Endpoint, error) {
 	id := relationUUID{
 		UUID: uuid.String(),
 	}
@@ -302,7 +301,7 @@ WHERE  relation_uuid = $relationUUID.uuid
 		return nil, errors.Errorf("internal error: expected 1 or 2 endpoints in relation, got %d", length)
 	}
 
-	var relationEndpoints []internalrelation.Endpoint
+	var relationEndpoints []relation.Endpoint
 	for _, e := range endpoints {
 		relationEndpoints = append(relationEndpoints, e.toRelationEndpoint())
 	}

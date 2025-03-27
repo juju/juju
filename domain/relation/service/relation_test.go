@@ -21,7 +21,6 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	internalrelation "github.com/juju/juju/internal/relation"
 )
 
 type relationServiceSuite struct {
@@ -146,13 +145,13 @@ func (s *relationServiceSuite) TestGetRelationKey(c *gc.C) {
 	// Arrange:
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 
-	endpoint1 := internalrelation.Endpoint{
+	endpoint1 := relation.Endpoint{
 		ApplicationName: "app-1",
 		Relation: internalcharm.Relation{
 			Name: "fake-endpoint-name-1",
 		},
 	}
-	endpoint2 := internalrelation.Endpoint{
+	endpoint2 := relation.Endpoint{
 		ApplicationName: "app-2",
 		Relation: internalcharm.Relation{
 			Name: "fake-endpoint-name-2",
@@ -160,7 +159,7 @@ func (s *relationServiceSuite) TestGetRelationKey(c *gc.C) {
 	}
 
 	expectedKey := corerelation.Key("app-1:fake-endpoint-name-1 app-2:fake-endpoint-name-2")
-	s.state.EXPECT().GetRelationEndpoints(gomock.Any(), relationUUID).Return([]internalrelation.Endpoint{
+	s.state.EXPECT().GetRelationEndpoints(gomock.Any(), relationUUID).Return([]relation.Endpoint{
 		endpoint1,
 		endpoint2,
 	}, nil)
@@ -179,7 +178,7 @@ func (s *relationServiceSuite) TestGetRelationKeyPeer(c *gc.C) {
 	// Arrange:
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 
-	endpoint1 := internalrelation.Endpoint{
+	endpoint1 := relation.Endpoint{
 		ApplicationName: "app-1",
 		Relation: internalcharm.Relation{
 			Name: "fake-endpoint-name-1",
@@ -187,7 +186,7 @@ func (s *relationServiceSuite) TestGetRelationKeyPeer(c *gc.C) {
 	}
 
 	expectedKey := corerelation.Key("app-1:fake-endpoint-name-1")
-	s.state.EXPECT().GetRelationEndpoints(gomock.Any(), relationUUID).Return([]internalrelation.Endpoint{
+	s.state.EXPECT().GetRelationEndpoints(gomock.Any(), relationUUID).Return([]relation.Endpoint{
 		endpoint1,
 	}, nil)
 
@@ -313,13 +312,13 @@ func (s *relationServiceSuite) TestGetRelationsStatusForUnit(c *gc.C) {
 	// Arrange.
 	unitUUID := coreunittesting.GenUnitUUID(c)
 
-	endpoint1 := internalrelation.Endpoint{
+	endpoint1 := relation.Endpoint{
 		ApplicationName: "app-1",
 		Relation: internalcharm.Relation{
 			Name: "fake-endpoint-name-1",
 		},
 	}
-	endpoint2 := internalrelation.Endpoint{
+	endpoint2 := relation.Endpoint{
 		ApplicationName: "app-2",
 		Relation: internalcharm.Relation{
 			Name: "fake-endpoint-name-2",
@@ -327,11 +326,11 @@ func (s *relationServiceSuite) TestGetRelationsStatusForUnit(c *gc.C) {
 	}
 
 	results := []relation.RelationUnitStatusResult{{
-		Endpoints: []internalrelation.Endpoint{endpoint1, endpoint2},
+		Endpoints: []relation.Endpoint{endpoint1, endpoint2},
 		InScope:   true,
 		Suspended: true,
 	}, {
-		Endpoints: []internalrelation.Endpoint{endpoint1},
+		Endpoints: []relation.Endpoint{endpoint1},
 		InScope:   false,
 		Suspended: false,
 	}}

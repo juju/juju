@@ -23,7 +23,7 @@ import (
 	permission "github.com/juju/juju/core/permission"
 	status "github.com/juju/juju/core/status"
 	user "github.com/juju/juju/core/user"
-	relation "github.com/juju/juju/internal/relation"
+	relation "github.com/juju/juju/domain/relation"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"

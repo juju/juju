@@ -21,8 +21,8 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/relation"
 )
 
 // relationKey returns a string describing the relation defined by
