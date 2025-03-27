@@ -211,23 +211,6 @@ type versionDetail struct {
 // Main registers subcommands for the jujud executable, and hands over control
 // to the cmd package.
 func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
-	// TODO(katco-): AgentConf type is doing too much. The
-	// MachineAgent type has called out the separate concerns; the
-	// AgentConf should be split up to follow suit.
-	agentConf := agentconf.NewAgentConf("")
-
-	// Prime the log sink and create the writer.
-	logSink, err := PrimeLogSink(agentConf.CurrentConfig())
-	if err != nil {
-		return 1, errors.Trace(err)
-	}
-	defer logSink.Close()
-
-	// Add the log sink to the default logger context.
-	if err := loggo.DefaultContext().AddWriter("logsink", logSink); err != nil {
-		return 1, errors.Trace(err)
-	}
-
 	// Assuming an average of 200 bytes per log message, use up to
 	// 200MB for the log buffer.
 	defer logger.Debugf(ctx, "jujud complete, code %d, err %v", code, err)
@@ -276,9 +259,12 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	jujud.Register(jujudagentcmd.NewModelCommand(bufferedLogger))
 	jujud.Register(agentcmd.NewBootstrapCommand())
 
+	// TODO(katco-): AgentConf type is doing too much. The
+	// MachineAgent type has called out the separate concerns; the
+	// AgentConf should be split up to follow suit.
+	agentConf := agentconf.NewAgentConf("")
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
 		agentConf,
-		logSink,
 		dbaccessor.NewTrackedDBWorker,
 		func(mt state.ModelType) upgrades.PreUpgradeStepsFunc {
 			if mt == state.ModelTypeCAAS {
