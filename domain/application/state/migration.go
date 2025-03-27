@@ -77,7 +77,6 @@ func (st *State) GetApplicationsForExport(ctx context.Context) ([]application.Ex
 			ModelType:            modelType,
 			CharmUUID:            app.CharmUUID,
 			Life:                 app.Life,
-			PasswordHash:         app.PasswordHash,
 			Placement:            app.Placement,
 			Exposed:              app.Exposed,
 			Subordinate:          app.Subordinate,

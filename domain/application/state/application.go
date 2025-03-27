@@ -102,13 +102,11 @@ func (st *State) CreateApplication(
 	}
 
 	appDetails := applicationDetails{
-		UUID:                    appUUID,
-		Name:                    name,
-		CharmID:                 charmID.String(),
-		LifeID:                  life.Alive,
-		PasswordHash:            args.PasswordHash,
-		PasswordHashAlgorithmID: 0,
-		Placement:               args.Placement,
+		UUID:      appUUID,
+		Name:      name,
+		CharmID:   charmID.String(),
+		LifeID:    life.Alive,
+		Placement: args.Placement,
 
 		// The space is defaulted to Alpha, which is guaranteed to exist.
 		// However, if there is default space defined in endpoints bindings
