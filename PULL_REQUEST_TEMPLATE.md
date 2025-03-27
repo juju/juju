@@ -2,7 +2,7 @@
 The PR title should match: <type>(optional <scope>): <description>.
 
 Please also ensure all commits in this PR comply with our conventional commits specification:
-https://github.com/juju/juju/blob/main/doc/conventional-commits.md
+https://github.com/juju/juju/blob/main/docs/contributor/reference/conventional-commits.md
 -->
 
 <!-- Why this change is needed and what it does. -->
@@ -87,4 +87,3 @@ $ juju debug-log -m dst40:moveme2
 **Launchpad bug:** https://bugs.launchpad.net/juju/+bug/
 
 **Jira card:** JUJU-
-
