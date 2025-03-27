@@ -3,6 +3,12 @@
 
 package params
 
+import (
+	"time"
+
+	"github.com/juju/juju/core/network"
+)
+
 // SSHHostKeySet defines SSH host keys for one or more entities
 // (typically machines).
 type SSHHostKeySet struct {
@@ -73,4 +79,40 @@ type PublicSSHHostKeyResult struct {
 	Error             *Error `json:"error,omitempty"`
 	HostKey           string `json:"host-key"`
 	JumpServerHostKey string `json:"jump-server-host-key"`
+}
+
+// SSHConnRequestArg holds the necessary info to create a ssh connection requests.
+type SSHConnRequestArg struct {
+	TunnelID           string                 `json:"tunnel-id"`
+	ModelUUID          string                 `json:"model-uuid"`
+	MachineId          string                 `json:"machine-id"`
+	Expires            time.Time              `json:"expires"`
+	Username           string                 `json:"username"`
+	Password           string                 `json:"password"`
+	ControllerAddress  network.SpaceAddresses `json:"controller-address"`
+	UnitPort           int                    `json:"unit-port"`
+	EphemeralPublicKey []byte                 `json:"ephemeral-public-key"`
+}
+
+// SSHConnRequestRemoveArg holds the necessary info to remove a ssh connection requests.
+type SSHConnRequestRemoveArg struct {
+	TunnelID  string `json:"tunnel-id"`
+	ModelUUID string `json:"model-uuid"`
+	MachineId string `json:"machine-id"`
+}
+
+// SSHConnRequest holds the fields returned when you get a SSH connection request.
+type SSHConnRequest struct {
+	Expires             time.Time              `json:"expires"`
+	Username            string                 `json:"username"`
+	Password            string                 `json:"password"`
+	ControllerAddresses network.SpaceAddresses `json:"addresses"`
+	UnitPort            int                    `json:"unit-port"`
+	EphemeralPublicKey  []byte                 `json:"ephemeral-public-key"`
+}
+
+// SSHConnRequestResult holds the result of a SSH connection request.
+type SSHConnRequestResult struct {
+	Error          *Error         `json:"error,omitempty"`
+	SSHConnRequest SSHConnRequest `json:"ssh-conn-request"`
 }

@@ -126,6 +126,8 @@ var facadeVersions = facades.FacadeVersions{
 	"Spaces":                       {6},
 	"SSHClient":                    {4, 5},
 	"SSHServer":                    {1},
+	"SSHSession":                   {1},
+	"SSHTunneler":                  {1},
 	"StatusHistory":                {2},
 	"Storage":                      {6},
 	"StorageProvisioner":           {4},
