@@ -96,11 +96,17 @@ func (s *sshTunnelerSuite) TestTunneler(c *gc.C) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := tunnelTracker.PushTunnel(context.Background(), tID, nil)
+		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
+		defer cancel()
+		err := tunnelTracker.PushTunnel(ctx, tID, nil)
 		c.Check(err, jc.ErrorIsNil)
 	}()
 
-	_, err = req.Wait(context.Background())
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
+	defer cancel()
+	_, err = req.Wait(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	wg.Wait()
 
@@ -142,7 +148,7 @@ func (s *sshTunnelerSuite) TestPushTunnel(c *gc.C) {
 	tunnelTracker := s.newTunnelTracker(c)
 
 	tunnelID := "test-tunnel-id"
-	tunnelReq := &tunnelRequest{
+	tunnelReq := &TunnelRequest{
 		recv: make(chan net.Conn),
 	}
 	tunnelTracker.tracker[tunnelID] = tunnelReq
@@ -169,7 +175,7 @@ func (s *sshTunnelerSuite) TestDeleteTunnel(c *gc.C) {
 	tunnelTracker := s.newTunnelTracker(c)
 
 	tunnelID := "test-tunnel-id"
-	tunnelReq := &tunnelRequest{}
+	tunnelReq := &TunnelRequest{}
 	tunnelTracker.tracker[tunnelID] = tunnelReq
 
 	tunnelTracker.delete(tunnelID)
@@ -221,7 +227,7 @@ func (s *sshTunnelerSuite) TestPushTunnelInvalidTunnelID(c *gc.C) {
 func (s *sshTunnelerSuite) TestWaitTimeout(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	tunnelReq := &tunnelRequest{
+	tunnelReq := &TunnelRequest{
 		recv:    make(chan net.Conn),
 		cleanup: func() {},
 	}
