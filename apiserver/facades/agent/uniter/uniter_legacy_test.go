@@ -793,10 +793,12 @@ func (s *uniterLegacySuite) TestOpenedPortRangesByEndpoint(c *gc.C) {
 }
 
 func (s *uniterLegacySuite) TestCommitHookChangesWithSecrets(c *gc.C) {
+	c.Skip("Rewrite this in the commitHookChangesSuite once other hook commit concerns are in Dqlite")
+	// See commitHookChangesSuite
 }
 
 func (s *uniterLegacySuite) TestCommitHookChangesWithStorage(c *gc.C) {
-	c.Skip("Rewrite this in a new suite once other hook commit concerns are in Dqlite")
+	c.Skip("Rewrite this in the commitHookChangesSuite once other hook commit concerns are in Dqlite")
 
 	// Test-suite uses an older API version. Create a new one and override
 	// authorizer to allow access to the unit we just created.
@@ -805,7 +807,7 @@ func (s *uniterLegacySuite) TestCommitHookChangesWithStorage(c *gc.C) {
 }
 
 func (s *uniterLegacySuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) {
-	c.Skip("Rewrite this in a new suite once other hook commit concerns are in Dqlite")
+	c.Skip("Rewrite this in the commitHookChangesSuite other hook commit concerns are in Dqlite")
 	_, cm, _, unit := s.setupCAASModel(c)
 
 	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())

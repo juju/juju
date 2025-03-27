@@ -1680,60 +1680,44 @@ func (u *UniterAPI) readOneRemoteSettings(ctx context.Context, canAccess common.
 	return settings, nil
 }
 
-func (u *UniterAPI) updateUnitAndApplicationSettingsOp(arg params.RelationUnitSettings, canAccess common.AuthFunc) (state.ModelOperation, error) {
+func (u *UniterAPI) updateUnitAndApplicationSettings(ctx context.Context, arg params.RelationUnitSettings, canAccess common.AuthFunc) error {
 	unitTag, err := names.ParseUnitTag(arg.Unit)
 	if err != nil {
-		return nil, apiservererrors.ErrPerm
+		return apiservererrors.ErrPerm
 	}
-	rel, unit, err := u.getRelationAndUnit(canAccess, arg.Relation, unitTag)
-	if err != nil {
-		return nil, errors.Trace(err)
+	if !canAccess(unitTag) {
+		return apiservererrors.ErrPerm
 	}
-	relUnit, err := rel.Unit(unit)
+	relKey, err := corerelation.ParseKeyFromTagString(arg.Relation)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return apiservererrors.ErrPerm
 	}
-	appSettingsUpdateOp, err := u.updateApplicationSettingsOp(rel, unit, arg.ApplicationSettings)
+	relUUID, err := u.relationService.GetRelationUUIDByKey(ctx, relKey)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return internalerrors.Capture(err)
 	}
-	unitSettingsUpdateOp, err := u.updateUnitSettingsOp(relUnit, arg.Settings)
+	unitName := coreunit.Name(unitTag.Id())
+
+	appID, err := u.applicationService.GetApplicationIDByName(ctx, unitName.Application())
 	if err != nil {
-		return nil, errors.Trace(err)
+		return internalerrors.Capture(err)
+	}
+	err = u.relationService.UpdateRelationApplicationSettings(ctx, relUUID, appID, arg.ApplicationSettings)
+	if err != nil {
+		return internalerrors.Capture(err)
 	}
 
-	return state.ComposeModelOperations(appSettingsUpdateOp, unitSettingsUpdateOp), nil
-}
-
-func (u *UniterAPI) updateUnitSettingsOp(relUnit *state.RelationUnit, newSettings params.Settings) (state.ModelOperation, error) {
-	if len(newSettings) == 0 {
-		return nil, nil
-	}
-	settings, err := relUnit.Settings()
+	relUnitUUID, err := u.relationService.GetRelationUnit(ctx, relUUID, unitName)
 	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for k, v := range newSettings {
-		if v == "" {
-			settings.Delete(k)
-		} else {
-			settings.Set(k, v)
-		}
-	}
-	return settings.WriteOperation(), nil
-}
-
-func (u *UniterAPI) updateApplicationSettingsOp(rel *state.Relation, unit *state.Unit, settings params.Settings) (state.ModelOperation, error) {
-	if len(settings) == 0 {
-		return nil, nil
-	}
-	token := u.leadershipChecker.LeadershipCheck(unit.ApplicationName(), unit.Name())
-	settingsMap := make(map[string]interface{}, len(settings))
-	for k, v := range settings {
-		settingsMap[k] = v
+		return internalerrors.Capture(err)
 	}
 
-	return rel.UpdateApplicationSettingsOperation(unit.ApplicationName(), token, settingsMap)
+	err = u.relationService.UpdateRelationUnitSettings(ctx, relUnitUUID, arg.Settings)
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	return nil
 }
 
 // WatchRelationUnits returns a RelationUnitsWatcher for observing
@@ -2622,11 +2606,13 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		if rus.Unit != changes.Tag {
 			return apiservererrors.ErrPerm
 		}
-		modelOp, err := u.updateUnitAndApplicationSettingsOp(rus, canAccessUnit)
+		err := u.updateUnitAndApplicationSettings(ctx, rus, canAccessUnit)
 		if err != nil {
-			return internalerrors.Capture(err)
+			annotatedErr := internalerrors.Errorf(
+				"updating unit and application settings for %q: %w",
+				unitTag.Id(), err)
+			return internalerrors.Capture(annotatedErr)
 		}
-		modelOps = append(modelOps, modelOp)
 	}
 
 	if len(changes.OpenPorts)+len(changes.ClosePorts) > 0 {
