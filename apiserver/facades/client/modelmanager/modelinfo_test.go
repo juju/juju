@@ -1236,13 +1236,6 @@ func (st *mockState) Close() error {
 	return st.NextErr()
 }
 
-func (st *mockState) DumpAll() (map[string]interface{}, error) {
-	st.MethodCall(st, "DumpAll")
-	return map[string]interface{}{
-		"models": "lots of data",
-	}, st.NextErr()
-}
-
 func (st *mockState) LatestMigration() (state.ModelMigration, error) {
 	st.MethodCall(st, "LatestMigration")
 	if st.migration == nil {
