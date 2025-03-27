@@ -373,8 +373,8 @@ github.com/juju/collections v0.0.0-20220203020748-febd7cad8a7a/go.mod h1:JWeZdyt
 github.com/juju/collections v1.0.0/go.mod h1:JWeZdyttIEbkR51z2S13+J+aCuHVe0F6meRy+P0YGDo=
 github.com/juju/collections v1.0.4 h1:GjL+aN512m2rVDqhPII7P6qB0e+iYFubz8sqBhZaZtk=
 github.com/juju/collections v1.0.4/go.mod h1:hVrdB0Zwq9wIU1Fl6ItD2+UETeNeOEs+nGvJufVe+0c=
-github.com/juju/description/v9 v9.0.0-20250312165826-51f91f8806d8 h1:AyUDgdEGE3wvCx6TjSREYncGRfQqzsoZ3zhprcQbGcg=
-github.com/juju/description/v9 v9.0.0-20250312165826-51f91f8806d8/go.mod h1:tpLBdzbSgWx/sPBSvQW+DK8Ycc1HhyNpSn16DL+U6zI=
+github.com/juju/description/v9 v9.0.0-20250326010049-96d5b3b5edc7 h1:AV38ub7iHdZ/5rYjG79+5LErmJpB8ba0TqVqde0FFhg=
+github.com/juju/description/v9 v9.0.0-20250326010049-96d5b3b5edc7/go.mod h1:PeOoyr+QoRObIP0sylxSEVTPJ7U1G5+iCoVbmNZFHwQ=
 github.com/juju/errors v0.0.0-20150916125642-1b5e39b83d18/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
 github.com/juju/errors v0.0.0-20200330140219-3fe23663418f/go.mod h1:W54LbzXuIE0boCoNJfwqpmkKJ1O4TCTZMetAt6jGk7Q=
 github.com/juju/errors v0.0.0-20210818161939-5560c4c073ff/go.mod h1:i1eL7XREII6aHpQ2gApI/v6FkVUDEBremNkcBCKYAcY=
@@ -482,9 +482,8 @@ github.com/juju/version v0.0.0-20191219164919-81c1be00b9a6/go.mod h1:kE8gK5X0CIm
 github.com/juju/version v0.0.0-20210303051006-2015802527a8 h1:BTo6HzRR0zPBcXbs1Sy08aQNfvdm3ey8O+mBTiO3g00=
 github.com/juju/version v0.0.0-20210303051006-2015802527a8/go.mod h1:YUOK6VK9+V4hpmsBYx8ymvOzEXRzoIGjRDKpIezTi60=
 github.com/juju/version/v2 v2.0.0-20211007103408-2e8da085dc23/go.mod h1:Ljlbryh9sYaUSGXucslAEDf0A2XUSGvDbHJgW8ps6nc=
+github.com/juju/version/v2 v2.0.0 h1:0OjCOlgA2UBbB8fSCgd8fmGsntrSbAWXEJil47bQptY=
 github.com/juju/version/v2 v2.0.0/go.mod h1:ZeFjNy+UFEWJDDPdzW7Cm9NeU6dsViGaFYhXzycLQrw=
-github.com/juju/version/v2 v2.0.1 h1:4psP9XDv8qIbSdv3llCmcmBXe+wvm57BvYp2sG/i6zc=
-github.com/juju/version/v2 v2.0.1/go.mod h1:OK+DKO9ve3fFCVUZGT8ZbUWU2TnZh914S6gMhiM2hXg=
 github.com/juju/webbrowser v0.0.0-20160309143629-54b8c57083b4/go.mod h1:G6PCelgkM6cuvyD10iYJsjLBsSadVXtJ+nBxFAxE2BU=
 github.com/juju/webbrowser v1.0.0 h1:JLdmbFtCGY6Qf2jmS6bVaenJFGIFkdF1/BjUm76af78=
 github.com/juju/webbrowser v1.0.0/go.mod h1:RwVlbBcF91Q4vS+iwlkJ6bZTE3EwlrjbYlM3WMVD6Bc=

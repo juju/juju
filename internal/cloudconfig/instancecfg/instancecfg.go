@@ -20,7 +20,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v4/shell"
-	"github.com/juju/version/v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/tags"
@@ -273,7 +273,7 @@ type SSHKeyPair struct {
 type StateInitializationParams struct {
 	// AgentVersion is the desired agent version to run for models created as
 	// part of state initialization.
-	AgentVersion version.Number
+	AgentVersion semversion.Number
 
 	// ControllerModelConfig holds the initial controller model configuration.
 	ControllerModelConfig *config.Config
@@ -435,7 +435,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	agentVersion, err := version.Parse(internal.AgentVersion)
+	agentVersion, err := semversion.Parse(internal.AgentVersion)
 	if err != nil {
 		return fmt.Errorf("parsing agent-version in state initialisation params: %w", err)
 	}
@@ -495,7 +495,7 @@ var newService = func(name string, conf common.Conf) (service.Service, error) {
 
 func (cfg *InstanceConfig) AgentConfig(
 	tag names.Tag,
-	toolsVersion version.Number,
+	toolsVersion semversion.Number,
 ) (agent.ConfigSetter, error) {
 	configParams := agent.AgentConfigParams{
 		Paths: agent.Paths{
@@ -582,9 +582,9 @@ func (cfg *InstanceConfig) APIHosts() []string {
 
 // AgentVersion returns the version of the Juju agent that will be configured
 // on the instance. The zero value will be returned if there are no tools set.
-func (cfg *InstanceConfig) AgentVersion() version.Binary {
+func (cfg *InstanceConfig) AgentVersion() semversion.Binary {
 	if len(cfg.tools) == 0 {
-		return version.Binary{}
+		return semversion.Binary{}
 	}
 	return cfg.tools[0].Version
 }

@@ -9,7 +9,6 @@ import (
 	"sort"
 
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/controller"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/semversion"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -35,14 +35,14 @@ type ModelAgentService interface {
 	// entire model. The following errors can be returned:
 	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
 	// not exist.
-	GetModelTargetAgentVersion(context.Context) (version.Number, error)
+	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
 
 	// GetMachineTargetAgentVersion reports the target agent version that should
 	// be running on the provided machine identified by name. The following
 	// errors are possible:
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound]
 	// - [github.com/juju/juju/domain/model/errors.NotFound]
-	GetMachineTargetAgentVersion(context.Context, machine.Name) (version.Number, error)
+	GetMachineTargetAgentVersion(context.Context, machine.Name) (semversion.Number, error)
 
 	// GetUnitTargetAgentVersion reports the target agent version that should be
 	// being run on the provided unit identified by name. The following errors
@@ -51,7 +51,7 @@ type ModelAgentService interface {
 	// the unit in question does not exist.
 	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model
 	// the unit belongs to no longer exists.
-	GetUnitTargetAgentVersion(context.Context, string) (version.Number, error)
+	GetUnitTargetAgentVersion(context.Context, string) (semversion.Number, error)
 }
 
 var envtoolsFindTools = envtools.FindTools
@@ -64,7 +64,7 @@ type ToolsFindEntity interface {
 type ToolsURLGetter interface {
 	// ToolsURLs returns URLs for the tools with
 	// the specified binary version.
-	ToolsURLs(context.Context, controller.Config, version.Binary) ([]string, error)
+	ToolsURLs(context.Context, controller.Config, semversion.Binary) ([]string, error)
 }
 
 // APIHostPortsForAgentsGetter is an interface providing
@@ -86,7 +86,7 @@ type ToolsStorageGetter interface {
 // that have associated agent tools.
 type AgentTooler interface {
 	AgentTools() (*coretools.Tools, error)
-	SetAgentVersion(version.Binary) error
+	SetAgentVersion(semversion.Binary) error
 
 	// Tag is included in this interface only so the generated mock of
 	// AgentTooler implements state.Entity, returned by FindEntity
@@ -129,7 +129,7 @@ func NewToolsGetter(
 func (t *ToolsGetter) getEntityAgentVersion(
 	ctx context.Context,
 	tag names.Tag,
-) (ver version.Number, err error) {
+) (ver semversion.Number, err error) {
 	switch tag.Kind() {
 	case names.ControllerTagKind:
 	case names.ModelTagKind:
@@ -139,7 +139,7 @@ func (t *ToolsGetter) getEntityAgentVersion(
 	case names.UnitTagKind:
 		ver, err = t.modelAgentService.GetUnitTargetAgentVersion(ctx, tag.Id())
 	default:
-		return version.Zero, errors.Errorf(
+		return semversion.Zero, errors.Errorf(
 			"getting agent version for unsupported entity kind %q",
 			tag.Kind(),
 		).Add(coreerrors.NotSupported)
@@ -153,11 +153,11 @@ func (t *ToolsGetter) getEntityAgentVersion(
 		modelerrors.NotFound,
 	)
 	if isNotFound {
-		return version.Zero, errors.Errorf(
+		return semversion.Zero, errors.Errorf(
 			"entity %q does not exist", tag.String(),
 		).Add(coreerrors.NotFound)
 	} else if err != nil {
-		return version.Zero, errors.Errorf(
+		return semversion.Zero, errors.Errorf(
 			"finding agent version for entity %q: %w", tag.String(), err,
 		)
 	}
@@ -196,7 +196,7 @@ func (t *ToolsGetter) Tools(ctx context.Context, args params.Entities) (params.T
 	return result, nil
 }
 
-func (t *ToolsGetter) oneAgentTools(ctx context.Context, canRead AuthFunc, tag names.Tag, agentVersion version.Number) (coretools.List, error) {
+func (t *ToolsGetter) oneAgentTools(ctx context.Context, canRead AuthFunc, tag names.Tag, agentVersion semversion.Number) (coretools.List, error) {
 	if !canRead(tag) {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -259,7 +259,7 @@ func (t *ToolsSetter) SetTools(ctx context.Context, args params.EntitiesVersion)
 	return results, nil
 }
 
-func (t *ToolsSetter) setOneAgentVersion(tag names.Tag, vers version.Binary, canWrite AuthFunc) error {
+func (t *ToolsSetter) setOneAgentVersion(tag names.Tag, vers semversion.Binary, canWrite AuthFunc) error {
 	if !canWrite(tag) {
 		return apiservererrors.ErrPerm
 	}
@@ -283,7 +283,7 @@ type FindAgentsParams struct {
 	ModelType state.ModelType
 
 	// Number will be used to match tools versions exactly if non-zero.
-	Number version.Number
+	Number semversion.Number
 
 	// MajorVersion will be used to match the major version if non-zero.
 	MajorVersion int
@@ -368,7 +368,7 @@ func (f *toolsFinder) FindAgents(ctx context.Context, args FindAgentsParams) (co
 // If an exact match is specified (number, ostype and arch) and is found in
 // agent storage, then simplestreams will not be searched.
 func (f *toolsFinder) findMatchingAgents(ctx context.Context, args FindAgentsParams) (result coretools.List, _ error) {
-	exactMatch := args.Number != version.Zero && args.OSType != "" && args.Arch != ""
+	exactMatch := args.Number != semversion.Zero && args.OSType != "" && args.Arch != ""
 
 	storageList, err := f.matchingStorageAgent(args)
 	if err != nil && err != coretools.ErrNoMatches {
@@ -395,7 +395,7 @@ func (f *toolsFinder) findMatchingAgents(ctx context.Context, args FindAgentsPar
 	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
 	majorVersion := args.Number.Major
 	minorVersion := args.Number.Minor
-	if args.Number == version.Zero {
+	if args.Number == semversion.Zero {
 		majorVersion = args.MajorVersion
 		minorVersion = args.MinorVersion
 	}
@@ -407,7 +407,7 @@ func (f *toolsFinder) findMatchingAgents(ctx context.Context, args FindAgentsPar
 	}
 
 	list := storageList
-	found := make(map[version.Binary]bool)
+	found := make(map[semversion.Binary]bool)
 	for _, tools := range storageList {
 		found[tools.Version] = true
 	}
@@ -435,7 +435,7 @@ func (f *toolsFinder) matchingStorageAgent(args FindAgentsParams) (coretools.Lis
 	}
 	list := make(coretools.List, len(allMetadata))
 	for i, m := range allMetadata {
-		vers, err := version.ParseBinary(m.Version)
+		vers, err := semversion.ParseBinary(m.Version)
 		if err != nil {
 			return nil, errors.Errorf(
 				"unexpected bad version %q of agent binary in storage: %w",
@@ -453,7 +453,7 @@ func (f *toolsFinder) matchingStorageAgent(args FindAgentsParams) (coretools.Lis
 		return nil, err
 	}
 	// Return early if we are doing an exact match.
-	if args.Number != version.Zero {
+	if args.Number != semversion.Zero {
 		if len(list) == 0 {
 			return nil, coretools.ErrNoMatches
 		}
@@ -500,7 +500,7 @@ func NewToolsURLGetter(modelUUID string, a APIHostPortsForAgentsGetter) *toolsUR
 }
 
 // ToolsURLs returns a list of tools URLs pointing at an API server.
-func (t *toolsURLGetter) ToolsURLs(ctx context.Context, controllerConfig controller.Config, v version.Binary) ([]string, error) {
+func (t *toolsURLGetter) ToolsURLs(ctx context.Context, controllerConfig controller.Config, v semversion.Binary) ([]string, error) {
 	addrs, err := apiAddresses(controllerConfig, t.apiHostPortsGetter)
 	if err != nil {
 		return nil, err
@@ -511,7 +511,7 @@ func (t *toolsURLGetter) ToolsURLs(ctx context.Context, controllerConfig control
 	var urls []string
 	for _, addr := range addrs {
 		serverRoot := fmt.Sprintf("https://%s/model/%s", addr, t.modelUUID)
-		url := ToolsURL(serverRoot, v)
+		url := ToolsURL(serverRoot, v.String())
 		urls = append(urls, url)
 	}
 	return urls, nil
@@ -519,6 +519,6 @@ func (t *toolsURLGetter) ToolsURLs(ctx context.Context, controllerConfig control
 
 // ToolsURL returns a tools URL pointing the API server
 // specified by the "serverRoot".
-func ToolsURL(serverRoot string, v version.Binary) string {
-	return fmt.Sprintf("%s/tools/%s", serverRoot, v.String())
+func ToolsURL(serverRoot string, v string) string {
+	return fmt.Sprintf("%s/tools/%s", serverRoot, v)
 }

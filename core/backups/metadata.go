@@ -15,7 +15,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4/filestorage"
-	"github.com/juju/version/v2"
+
+	"github.com/juju/juju/core/semversion"
 )
 
 const (
@@ -46,7 +47,7 @@ type Origin struct {
 	Model    string
 	Machine  string
 	Hostname string
-	Version  version.Number
+	Version  semversion.Number
 	Base     string
 }
 
@@ -54,7 +55,7 @@ type Origin struct {
 const UnknownString = "<unknown>"
 
 // UnknownVersion is a marker value for version fields with unknown values.
-var UnknownVersion = version.MustParse("9999.9999.9999")
+var UnknownVersion = semversion.MustParse("9999.9999.9999")
 
 // UnknownInt64 is a marker value for int64 fields with unknown values.
 var UnknownInt64 = int64(math.MaxInt64)
@@ -177,7 +178,7 @@ type flatMetadata struct {
 	ModelUUID                   string
 	Machine                     string
 	Hostname                    string
-	Version                     version.Number
+	Version                     semversion.Number
 	Base                        string
 	ControllerUUID              string
 	HANodes                     int64

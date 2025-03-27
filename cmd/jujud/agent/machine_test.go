@@ -15,7 +15,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	blockdevicestate "github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/environs/filestorage"
@@ -62,18 +62,18 @@ var _ = gc.Suite(&MachineSuite{})
 // DefaultVersions returns a slice of unique 'versions' for the current
 // environment's host architecture. Additionally, it ensures that 'versions'
 // for amd64 are returned if that is not the current host's architecture.
-func defaultVersions(agentVersion version.Number) []version.Binary {
+func defaultVersions(agentVersion semversion.Number) []semversion.Binary {
 	osTypes := set.NewStrings("ubuntu")
 	osTypes.Add(coreos.HostOSTypeName())
-	var versions []version.Binary
+	var versions []semversion.Binary
 	for _, osType := range osTypes.Values() {
-		versions = append(versions, version.Binary{
+		versions = append(versions, semversion.Binary{
 			Number:  agentVersion,
 			Arch:    arch.HostArch(),
 			Release: osType,
 		})
 		if arch.HostArch() != "amd64" {
-			versions = append(versions, version.Binary{
+			versions = append(versions, semversion.Binary{
 				Number:  agentVersion,
 				Arch:    "amd64",
 				Release: osType,

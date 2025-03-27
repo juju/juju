@@ -12,11 +12,9 @@ import (
 	"github.com/juju/names/v6"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	// Register the providers for the field check test
 	"github.com/juju/juju/apiserver/common"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/facade"
@@ -33,6 +31,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -402,7 +401,7 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
 		// Use a version we shouldn't have now to ensure we're using the
 		// ModelAgentService rather than the ModelInfo data.
-		AgentVersion:   version.MustParse("2.6.5"),
+		AgentVersion:   semversion.MustParse("2.6.5"),
 		ControllerUUID: s.controllerUUID,
 		Cloud:          "dummy",
 		CloudType:      "dummy",
@@ -1163,7 +1162,7 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 		UUID: modelUUID,
 		// Use a version we shouldn't have now to ensure we're using the
 		// ModelAgentService rather than the ModelInfo data.
-		AgentVersion:   version.MustParse("2.6.5"),
+		AgentVersion:   semversion.MustParse("2.6.5"),
 		ControllerUUID: s.controllerUUID,
 		Cloud:          "dummy",
 		CloudType:      "dummy",

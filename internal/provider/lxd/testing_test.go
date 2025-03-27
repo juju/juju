@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -150,11 +150,11 @@ func (s *BaseSuiteUnpatched) Prefix() string {
 func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	tools := []*coretools.Tools{
 		{
-			Version: version.Binary{Arch: arch.AMD64, Release: "ubuntu"},
+			Version: semversion.Binary{Arch: arch.AMD64, Release: "ubuntu"},
 			URL:     "https://example.org/amd",
 		},
 		{
-			Version: version.Binary{Arch: arch.ARM64, Release: "ubuntu"},
+			Version: semversion.Binary{Arch: arch.ARM64, Release: "ubuntu"},
 			URL:     "https://example.org/arm",
 		},
 	}
@@ -817,11 +817,11 @@ func (s *EnvironSuite) NewEnvironWithServerFactory(c *gc.C,
 func (s *EnvironSuite) GetStartInstanceArgs(c *gc.C) environs.StartInstanceParams {
 	tools := []*coretools.Tools{
 		{
-			Version: version.Binary{Arch: arch.AMD64, Release: "ubuntu"},
+			Version: semversion.Binary{Arch: arch.AMD64, Release: "ubuntu"},
 			URL:     "https://example.org/amd",
 		},
 		{
-			Version: version.Binary{Arch: arch.ARM64, Release: "ubuntu"},
+			Version: semversion.Binary{Arch: arch.ARM64, Release: "ubuntu"},
 			URL:     "https://example.org/arm",
 		},
 	}

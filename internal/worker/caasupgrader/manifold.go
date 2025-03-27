@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/juju/juju/api/agent/upgrader"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/caasoperatorupgrader"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/worker/gate"
 )
 
@@ -25,7 +25,7 @@ type ManifoldConfig struct {
 	APICallerName        string
 	UpgradeStepsGateName string
 	UpgradeCheckGateName string
-	PreviousAgentVersion version.Number
+	PreviousAgentVersion semversion.Number
 }
 
 // Manifold returns a dependency manifold that runs an upgrader
@@ -47,7 +47,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: inputs,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
-			if config.PreviousAgentVersion == version.Zero {
+			if config.PreviousAgentVersion == semversion.Zero {
 				return nil, errors.New("previous agent version not specified")
 			}
 
@@ -69,7 +69,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if config.UpgradeStepsGateName == "" {
 				upgradeStepsWaiter = gate.NewLock()
 			} else {
-				if config.PreviousAgentVersion == version.Zero {
+				if config.PreviousAgentVersion == semversion.Zero {
 					return nil, errors.New("previous agent version not specified")
 				}
 				if err := getter.Get(config.UpgradeStepsGateName, &upgradeStepsWaiter); err != nil {

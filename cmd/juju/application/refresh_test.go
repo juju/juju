@@ -16,7 +16,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -36,6 +35,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
 	coreresouces "github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	charmtesting "github.com/juju/juju/internal/charm/testing"
@@ -134,7 +134,7 @@ func (s *BaseRefreshSuite) setup(c *gc.C, b corebase.Base, currentCharmURL, late
 	s.resolvedCharmURL = latestCharmURL
 
 	s.apiConnection = mockAPIConnection{
-		serverVersion: &version.Number{
+		serverVersion: &semversion.Number{
 			Major: 1,
 			Minor: 2,
 			Patch: 3,
@@ -385,7 +385,7 @@ func (s *RefreshSuite) TestUpgradeWithBindDefaults(c *gc.C) {
 
 func (s *RefreshSuite) testUpgradeWithBind(c *gc.C, expectedBindings map[string]string) {
 	s.apiConnection = mockAPIConnection{
-		serverVersion: &version.Number{
+		serverVersion: &semversion.Number{
 			Major: 1,
 			Minor: 2,
 			Patch: 3,
@@ -421,7 +421,7 @@ func (s *RefreshSuite) testUpgradeWithBind(c *gc.C, expectedBindings map[string]
 
 func (s *RefreshSuite) TestUpgradeWithBindAndUnknownEndpoint(c *gc.C) {
 	s.apiConnection = mockAPIConnection{
-		serverVersion: &version.Number{
+		serverVersion: &semversion.Number{
 			Major: 1,
 			Minor: 2,
 			Patch: 3,
@@ -1158,7 +1158,7 @@ func (s *RefreshCharmHubSuite) TestUpgradeResourceNoChange(c *gc.C) {
 
 type mockAPIConnection struct {
 	api.Connection
-	serverVersion *version.Number
+	serverVersion *semversion.Number
 	authTag       names.Tag
 }
 
@@ -1191,11 +1191,11 @@ func (m *mockAPIConnection) APIHostPorts() []network.MachineHostPorts {
 	return []network.MachineHostPorts{{*hp}}
 }
 
-func (m *mockAPIConnection) ServerVersion() (version.Number, bool) {
+func (m *mockAPIConnection) ServerVersion() (semversion.Number, bool) {
 	if m.serverVersion != nil {
 		return *m.serverVersion, true
 	}
-	return version.Number{}, false
+	return semversion.Number{}, false
 }
 
 func (*mockAPIConnection) ControllerAccess() string {

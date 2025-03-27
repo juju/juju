@@ -8,11 +8,11 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 	"github.com/vmware/govmomi/vim25/mo"
 	"golang.org/x/net/context"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -179,7 +179,7 @@ func (senv *sessionEnviron) ensureVMFolder(controllerUUID string, ctx context.Co
 var DestroyEnv = common.Destroy
 
 // AdoptResources is part of the Environ interface.
-func (env *environ) AdoptResources(ctx callcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+func (env *environ) AdoptResources(ctx callcontext.ProviderCallContext, controllerUUID string, fromVersion semversion.Number) error {
 	// Move model folder into the controller's folder.
 	return env.withSession(ctx, func(senv *sessionEnviron) error {
 		return senv.AdoptResources(ctx, controllerUUID, fromVersion)
@@ -187,7 +187,7 @@ func (env *environ) AdoptResources(ctx callcontext.ProviderCallContext, controll
 }
 
 // AdoptResources is part of the Environ interface.
-func (senv *sessionEnviron) AdoptResources(ctx callcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+func (senv *sessionEnviron) AdoptResources(ctx callcontext.ProviderCallContext, controllerUUID string, fromVersion semversion.Number) error {
 	err := senv.client.MoveVMFolderInto(senv.ctx,
 		path.Join(senv.getVMFolder(), controllerFolderName(controllerUUID)),
 		path.Join(senv.getVMFolder(), controllerFolderName("*"), senv.modelFolderName()),

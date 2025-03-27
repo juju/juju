@@ -4,9 +4,8 @@
 package state
 
 import (
-	"github.com/juju/version/v2"
-
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -35,10 +34,10 @@ type decodeMetadataArgs struct {
 func decodeMetadata(metadata charmMetadata, args decodeMetadataArgs) (charm.Metadata, error) {
 	var (
 		err        error
-		minVersion version.Number
+		minVersion semversion.Number
 	)
 	if metadata.MinJujuVersion != "" {
-		minVersion, err = version.Parse(metadata.MinJujuVersion)
+		minVersion, err = semversion.Parse(metadata.MinJujuVersion)
 		if err != nil {
 			return charm.Metadata{}, errors.Errorf("cannot parse min juju version %q: %w", metadata.MinJujuVersion, err)
 		}

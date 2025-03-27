@@ -9,9 +9,9 @@ import (
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/semversion"
 )
 
 // MigrationStatus returns the details for a migration as needed by
@@ -48,7 +48,7 @@ type SerializedModel struct {
 	// Tools lists the tools versions in use with the model along with
 	// their URIs. The URIs can be used to download the tools from the
 	// source controller.
-	Tools map[version.Binary]string // version -> tools URI
+	Tools map[semversion.Binary]string // version -> tools URI
 
 	// Resources represents all the resources in use in the model.
 	Resources []resource.Resource
@@ -59,8 +59,8 @@ type ModelInfo struct {
 	UUID                   string
 	Owner                  names.UserTag
 	Name                   string
-	AgentVersion           version.Number
-	ControllerAgentVersion version.Number
+	AgentVersion           semversion.Number
+	ControllerAgentVersion semversion.Number
 	ModelDescription       description.Model
 }
 
@@ -83,7 +83,7 @@ func (i *ModelInfo) Validate() error {
 	if i.Name == "" {
 		return errors.NotValidf("empty Name")
 	}
-	if i.AgentVersion.Compare(version.Number{}) == 0 {
+	if i.AgentVersion.Compare(semversion.Number{}) == 0 {
 		return errors.NotValidf("empty Version")
 	}
 	return nil

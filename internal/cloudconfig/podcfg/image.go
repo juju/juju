@@ -9,9 +9,9 @@ import (
 
 	"github.com/docker/distribution/reference"
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/docker"
 )
@@ -28,10 +28,10 @@ func (cfg *ControllerPodConfig) GetControllerImagePath() (string, error) {
 	return GetJujuOCIImagePath(cfg.Controller, cfg.JujuVersion)
 }
 
-func (cfg *ControllerPodConfig) dbVersion() (version.Number, error) {
+func (cfg *ControllerPodConfig) dbVersion() (semversion.Number, error) {
 	snapChannel := cfg.Controller.JujuDBSnapChannel()
 	vers := strings.Split(snapChannel, "/")[0] + ".0"
-	return version.Parse(vers)
+	return semversion.Parse(vers)
 }
 
 // GetJujuDbOCIImagePath returns the juju-db oci image path.
@@ -64,7 +64,7 @@ func IsCharmBaseImage(imagePath string) bool {
 }
 
 // GetJujuOCIImagePath returns the jujud oci image path.
-func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) (string, error) {
+func GetJujuOCIImagePath(controllerCfg controller.Config, ver semversion.Number) (string, error) {
 	// First check the deprecated "caas-operator-image-path" config.
 	imagePath, err := RebuildOldOperatorImagePath(
 		controllerCfg.CAASOperatorImagePath(), ver,
@@ -77,19 +77,19 @@ func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) (s
 		return "", errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
 	tag := ""
-	if ver != version.Zero {
+	if ver != semversion.Zero {
 		tag = ver.String()
 	}
 	return imageRepoToPath(details.Repository, tag)
 }
 
 // RebuildOldOperatorImagePath returns a updated image path for the specified juju version.
-func RebuildOldOperatorImagePath(imagePath string, ver version.Number) (string, error) {
+func RebuildOldOperatorImagePath(imagePath string, ver semversion.Number) (string, error) {
 	if imagePath == "" {
 		return "", nil
 	}
 	tag := ""
-	if ver != version.Zero {
+	if ver != semversion.Zero {
 		// ver is always a valid tag.
 		tag = ver.String()
 	}

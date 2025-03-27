@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/description/v9"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 	"github.com/vallerion/rscanner"
 
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
@@ -27,6 +26,7 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
@@ -84,7 +84,7 @@ type ModelManagerService interface {
 type ModelMigrationService interface {
 	// AdoptResources is responsible for taking ownership of the cloud resources
 	// of a model when it has been migrated into this controller.
-	AdoptResources(context.Context, version.Number) error
+	AdoptResources(context.Context, semversion.Number) error
 
 	// CheckMachines is responsible for checking a model after it has been
 	// migrated into this target controller. We check the machines that exist in
@@ -99,7 +99,7 @@ type ModelAgentService interface {
 	// entire model. The following errors can be returned:
 	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
 	// not exist.
-	GetModelTargetAgentVersion(context.Context) (version.Number, error)
+	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
 }
 
 // ModelMigrationServiceGetter describes a function that is able to return the

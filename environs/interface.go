@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/jsonschema"
 	"github.com/juju/schema"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/assumes"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/semversion"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
@@ -437,7 +437,7 @@ type ResourceAdopter interface {
 	// provided for backwards compatibility - if the technique used to
 	// tag items changes, the version number can be used to decide how
 	// to remove the old tags correctly.
-	AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error
+	AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion semversion.Number) error
 }
 
 // ConstraintsChecker provides a means to check that constraints are valid.
@@ -605,7 +605,7 @@ type JujuUpgradePrechecker interface {
 // sequence of upgrade precheck steps to apply to get to that version.
 type PrecheckJujuUpgradeOperation struct {
 	// TargetVersion is the target juju version.
-	TargetVersion version.Number
+	TargetVersion semversion.Number
 
 	// Steps contains the sequence of upgrade steps to apply when
 	// upgrading to the accompanying target version number.

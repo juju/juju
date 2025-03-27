@@ -4,7 +4,6 @@
 package resource
 
 import (
-	// Import shas that are used for docker image validation.
 	_ "crypto/sha256"
 	_ "crypto/sha512"
 	"time"

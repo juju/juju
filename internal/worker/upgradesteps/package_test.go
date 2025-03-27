@@ -9,11 +9,11 @@ import (
 
 	names "github.com/juju/names/v6"
 	"github.com/juju/testing"
-	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	agent "github.com/juju/juju/agent"
+	version "github.com/juju/juju/core/semversion"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -281,7 +281,7 @@ func LoginRequest(req *http.Request) (params.LoginRequest, error) {
 	}
 	// Default client version to 2 since older 2.x clients
 	// don't send this field.
-	requestClientVersion := version.Number{Major: 2}
+	requestClientVersion := semversion.Number{Major: 2}
 	if clientVersion, err := common.JujuClientVersionFromRequest(req); err == nil {
 		requestClientVersion = clientVersion
 	}

@@ -10,12 +10,12 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/jujuclient"
@@ -44,7 +44,7 @@ func (s *BindSuite) SetUpTest(c *gc.C) {
 
 	s.apiConnection = mockAPIConnection{
 		authTag: names.NewUserTag("testuser"),
-		serverVersion: &version.Number{
+		serverVersion: &semversion.Number{
 			Major: 1,
 			Minor: 2,
 			Patch: 3,
@@ -144,7 +144,7 @@ func (s *BindSuite) TestBindUnknownEndpoint(c *gc.C) {
 func (s *BindSuite) setupAPIConnection() {
 	s.apiConnection = mockAPIConnection{
 		authTag: names.NewUserTag("testuser"),
-		serverVersion: &version.Number{
+		serverVersion: &semversion.Number{
 			Major: 1,
 			Minor: 2,
 			Patch: 3,

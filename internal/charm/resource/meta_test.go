@@ -31,7 +31,7 @@ func (s *MetaSuite) TestValidateZeroValue(c *gc.C) {
 	var res resource.Meta
 	err := res.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *MetaSuite) TestValidateMissingName(c *gc.C) {
@@ -42,7 +42,7 @@ func (s *MetaSuite) TestValidateMissingName(c *gc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `resource missing name`)
 }
 
@@ -54,7 +54,7 @@ func (s *MetaSuite) TestValidateMissingType(c *gc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `resource missing type`)
 }
 
@@ -66,7 +66,7 @@ func (s *MetaSuite) TestValidateMissingPath(c *gc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `resource missing filename`)
 }
 
@@ -78,7 +78,7 @@ func (s *MetaSuite) TestValidateNestedPath(c *gc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `.*filename cannot contain "/" .*`)
 }
 
@@ -90,7 +90,7 @@ func (s *MetaSuite) TestValidateAbsolutePath(c *gc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `.*filename cannot contain "/" .*`)
 }
 
@@ -102,7 +102,7 @@ func (s *MetaSuite) TestValidateSuspectPath(c *gc.C) {
 	}
 	err := res.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `.*filename cannot contain "/" .*`)
 }
 

@@ -4,7 +4,7 @@
 package params
 
 import (
-	"github.com/juju/version/v2"
+	"github.com/juju/juju/core/semversion"
 )
 
 // KubernetesFilesystemParams holds the parameters for creating a storage filesystem.
@@ -81,6 +81,6 @@ type KubernetesDeviceParams struct {
 
 // KubernetesUpgradeArg holds args used to upgrade an operator.
 type KubernetesUpgradeArg struct {
-	AgentTag string         `json:"agent-tag"`
-	Version  version.Number `json:"version"`
+	AgentTag string            `json:"agent-tag"`
+	Version  semversion.Number `json:"version"`
 }

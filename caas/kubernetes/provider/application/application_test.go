@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -37,6 +36,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	coreresources "github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testing"
@@ -290,7 +290,7 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 	}
 
 	appConfig := caas.ApplicationConfig{
-		AgentVersion:         version.MustParse(agentVersion),
+		AgentVersion:         semversion.MustParse(agentVersion),
 		IsPrivateImageRepo:   isPrivateImageRepo,
 		AgentImagePath:       "operator/image-path:1.1.1",
 		CharmBaseImagePath:   "ubuntu@22.04",

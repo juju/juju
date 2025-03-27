@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/client/modelconfig"
 	"github.com/juju/juju/api/client/modelupgrader"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -71,7 +71,7 @@ type upgradeControllerCommand struct {
 	modelcmd.ControllerCommandBase
 
 	vers        string
-	Version     version.Number
+	Version     semversion.Number
 	BuildAgent  bool
 	DryRun      bool
 	AssumeYes   bool
@@ -115,7 +115,7 @@ func (c *upgradeControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *upgradeControllerCommand) Init(args []string) error {
 	if c.vers != "" {
-		vers, err := version.Parse(c.vers)
+		vers, err := semversion.Parse(c.vers)
 		if err != nil {
 			return err
 		}
@@ -204,11 +204,11 @@ func (c *upgradeControllerCommand) Run(ctx *cmd.Context) (err error) {
 }
 
 func (c *upgradeControllerCommand) uploadTools(
-	ctx context.Context, modelUpgrader ModelUpgraderAPI, buildAgent bool, agentVersion version.Number, dryRun bool,
-) (targetVersion version.Number, err error) {
+	ctx context.Context, modelUpgrader ModelUpgraderAPI, buildAgent bool, agentVersion semversion.Number, dryRun bool,
+) (targetVersion semversion.Number, err error) {
 	builtTools, err := sync.BuildAgentTarball(
 		buildAgent, "upgrade",
-		func(builtVersion version.Number) version.Number {
+		func(builtVersion semversion.Number) semversion.Number {
 			builtVersion.Build++
 			if agentVersion.Build >= builtVersion.Build {
 				builtVersion.Build = agentVersion.Build + 1
@@ -247,8 +247,8 @@ func (c *upgradeControllerCommand) uploadTools(
 
 func (c *upgradeControllerCommand) upgradeWithTargetVersion(
 	ctx *cmd.Context, modelUpgrader ModelUpgraderAPI, dryRun bool,
-	modelType model.ModelType, targetVersion, agentVersion version.Number,
-) (chosenVersion version.Number, err error) {
+	modelType model.ModelType, targetVersion, agentVersion semversion.Number,
+) (chosenVersion semversion.Number, err error) {
 	chosenVersion, err = c.notifyControllerUpgrade(ctx, modelUpgrader, targetVersion, dryRun)
 	if err == nil {
 		// All good!
@@ -355,13 +355,13 @@ func (c *upgradeControllerCommand) upgradeController(
 	}
 
 	if c.BuildAgent {
-		if targetVersion != version.Zero {
+		if targetVersion != semversion.Zero {
 			return errors.Errorf("--build-agent cannot be used with --agent-version together")
 		}
 	}
 
 	// Decide the target version to upgrade.
-	if targetVersion != version.Zero {
+	if targetVersion != semversion.Zero {
 		targetVersion, err = c.upgradeWithTargetVersion(
 			ctx, modelUpgrader, c.DryRun,
 			modelType, targetVersion, agentVersion,
@@ -384,7 +384,7 @@ func (c *upgradeControllerCommand) upgradeController(
 	// or juju upgrade-model without --agent-version
 	targetVersion, err = c.notifyControllerUpgrade(
 		ctx, modelUpgrader,
-		version.Zero, // no target version provided, we figure it out on the server side.
+		semversion.Zero, // no target version provided, we figure it out on the server side.
 		c.DryRun,
 	)
 	if err == nil {
@@ -400,8 +400,8 @@ func (c *upgradeControllerCommand) upgradeController(
 }
 
 func (c *upgradeControllerCommand) notifyControllerUpgrade(
-	ctx *cmd.Context, modelUpgrader ModelUpgraderAPI, targetVersion version.Number, dryRun bool,
-) (chosenVersion version.Number, err error) {
+	ctx *cmd.Context, modelUpgrader ModelUpgraderAPI, targetVersion semversion.Number, dryRun bool,
+) (chosenVersion semversion.Number, err error) {
 	modelTag := names.NewModelTag(c.controllerModelDetails.ModelUUID)
 	if chosenVersion, err = modelUpgrader.UpgradeModel(
 		ctx,
@@ -425,7 +425,7 @@ var CheckCanImplicitUpload = checkCanImplicitUpload
 
 func checkCanImplicitUpload(
 	modelType model.ModelType, isOfficialClient bool,
-	clientVersion, agentVersion version.Number,
+	clientVersion, agentVersion semversion.Number,
 ) bool {
 	if modelType != model.IAAS {
 		logger.Tracef(context.TODO(), "the model is not IAAS model")

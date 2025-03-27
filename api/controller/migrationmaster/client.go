@@ -14,7 +14,6 @@ import (
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
@@ -211,9 +211,9 @@ func (c *Client) Export(ctx context.Context) (migration.SerializedModel, error) 
 	}
 
 	// Convert tools info to output map.
-	tools := make(map[version.Binary]string)
+	tools := make(map[semversion.Binary]string)
 	for _, toolsInfo := range serialized.Tools {
-		v, err := version.ParseBinary(toolsInfo.Version)
+		v, err := semversion.ParseBinary(toolsInfo.Version)
 		if err != nil {
 			return migration.SerializedModel{}, errors.Annotate(err, "error parsing agent binary version")
 		}

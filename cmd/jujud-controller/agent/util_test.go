@@ -18,7 +18,6 @@ import (
 	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/voyeur"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -36,6 +35,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -187,7 +187,7 @@ func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (
 
 // primeAgentVersion is similar to primeAgent, but permits the
 // caller to specify the version.Binary to prime with.
-func (s *commonMachineSuite) primeAgentVersion(c *gc.C, vers version.Binary, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
+func (s *commonMachineSuite) primeAgentVersion(c *gc.C, vers semversion.Binary, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
 	m, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), jobs...)
 	c.Assert(err, jc.ErrorIsNil)
 	// TODO(wallyworld) - we need the dqlite model database to be available.
@@ -195,11 +195,11 @@ func (s *commonMachineSuite) primeAgentVersion(c *gc.C, vers version.Binary, job
 	return s.primeAgentWithMachine(c, m, vers)
 }
 
-func (s *commonMachineSuite) primeAgentWithMachine(c *gc.C, m *state.Machine, vers version.Binary) (*state.Machine, agent.ConfigSetterWriter, *tools.Tools) {
+func (s *commonMachineSuite) primeAgentWithMachine(c *gc.C, m *state.Machine, vers semversion.Binary) (*state.Machine, agent.ConfigSetterWriter, *tools.Tools) {
 	return s.configureMachine(c, m.Id(), vers)
 }
 
-func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers version.Binary) (
+func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers semversion.Binary) (
 	machineState *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools,
 ) {
 	m, err := s.ControllerModel(c).State().Machine(machineId)
@@ -254,7 +254,7 @@ func NewTestMachineAgentFactory(
 			return nil
 		}
 	}
-	upgradeSteps := func(from version.Number, targets []upgrades.Target, context upgrades.Context) error {
+	upgradeSteps := func(from semversion.Number, targets []upgrades.Target, context upgrades.Context) error {
 		return nil
 	}
 

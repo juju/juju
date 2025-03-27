@@ -9,11 +9,11 @@ import (
 
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/upgrades"
@@ -62,7 +62,7 @@ func (s *baseSuite) expectAnyClock(ch chan time.Time) {
 	}).AnyTimes()
 }
 
-func (s *baseSuite) expectUpgradeVersion(ver version.Number) {
+func (s *baseSuite) expectUpgradeVersion(ver semversion.Number) {
 	s.configSetter.EXPECT().SetUpgradedToVersion(ver)
 }
 
@@ -70,7 +70,7 @@ func (s *baseSuite) expectStatus(status status.Status) {
 	s.statusSetter.EXPECT().SetStatus(gomock.Any(), status, gomock.Any(), nil).Return(nil)
 }
 
-func (s *baseSuite) newBaseWorker(c *gc.C, from, to version.Number) *BaseWorker {
+func (s *baseSuite) newBaseWorker(c *gc.C, from, to semversion.Number) *BaseWorker {
 	return &BaseWorker{
 		UpgradeCompleteLock: s.lock,
 		Agent:               s.agent,
@@ -83,7 +83,7 @@ func (s *baseSuite) newBaseWorker(c *gc.C, from, to version.Number) *BaseWorker 
 		PreUpgradeSteps: func(_ agent.Config, isController bool) error {
 			return nil
 		},
-		PerformUpgradeSteps: func(from version.Number, targets []upgrades.Target, context upgrades.Context) error {
+		PerformUpgradeSteps: func(from semversion.Number, targets []upgrades.Target, context upgrades.Context) error {
 			return nil
 		},
 		Logger: loggertesting.WrapCheckLog(c),

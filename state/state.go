@@ -20,7 +20,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v4"
-	"github.com/juju/version/v2"
 
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
@@ -30,6 +29,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charm"
@@ -470,7 +470,7 @@ type Upgrader interface {
 // given version, only if the model is in a stable state (all agents are
 // running the current version). If this is a hosted model, newVersion
 // cannot be higher than the controller version.
-func (st *State) SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool, upgrader Upgrader) (err error) {
+func (st *State) SetModelAgentVersion(newVersion semversion.Number, stream *string, ignoreAgentVersions bool, upgrader Upgrader) (err error) {
 	// TODO - implement the equivalent in the ModelAgentService.
 	// Removed as state not longer contains model config. Therefore
 	// the modelGlobalKey will never be found in the settingsC again.
@@ -545,8 +545,10 @@ func (st *State) MachineCountForBase(base ...Base) (map[string]int, error) {
 
 type machineDocSlice []machineDoc
 
-func (ms machineDocSlice) Len() int      { return len(ms) }
+func (ms machineDocSlice) Len() int { return len(ms) }
+
 func (ms machineDocSlice) Swap(i, j int) { ms[i], ms[j] = ms[j], ms[i] }
+
 func (ms machineDocSlice) Less(i, j int) bool {
 	return machineIdLessThan(ms[i].Id, ms[j].Id)
 }
@@ -2076,8 +2078,10 @@ func (st *State) Report() map[string]interface{} {
 
 type relationDocSlice []relationDoc
 
-func (rdc relationDocSlice) Len() int      { return len(rdc) }
+func (rdc relationDocSlice) Len() int { return len(rdc) }
+
 func (rdc relationDocSlice) Swap(i, j int) { rdc[i], rdc[j] = rdc[j], rdc[i] }
+
 func (rdc relationDocSlice) Less(i, j int) bool {
 	return rdc[i].Id < rdc[j].Id
 }

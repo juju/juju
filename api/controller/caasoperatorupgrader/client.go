@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -34,7 +34,7 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 }
 
 // Upgrade upgrades the operator for the specified agent tag to v.
-func (c *Client) Upgrade(ctx context.Context, agentTag string, v version.Number) error {
+func (c *Client) Upgrade(ctx context.Context, agentTag string, v semversion.Number) error {
 	var result params.ErrorResult
 	arg := params.KubernetesUpgradeArg{
 		AgentTag: agentTag,

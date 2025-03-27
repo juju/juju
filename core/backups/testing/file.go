@@ -15,9 +15,9 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/backups"
+	"github.com/juju/juju/core/semversion"
 )
 
 // File represents a file during testing.
@@ -195,7 +195,7 @@ type flatMetadataV0 struct {
 	Environment string
 	Machine     string
 	Hostname    string
-	Version     version.Number
+	Version     semversion.Number
 	Base        string
 }
 

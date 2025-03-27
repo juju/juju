@@ -8,10 +8,10 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/semversion"
 	jworker "github.com/juju/juju/internal/worker"
 )
 
@@ -19,8 +19,8 @@ import (
 // an upgrade is ready to be performed and a restart is due.
 type UpgradeReadyError struct {
 	AgentName string
-	OldTools  version.Binary
-	NewTools  version.Binary
+	OldTools  semversion.Binary
+	NewTools  semversion.Binary
 	DataDir   string
 }
 

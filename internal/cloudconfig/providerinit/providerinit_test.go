@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -20,6 +19,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
@@ -119,7 +119,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, base corebase.Base, bootstrap bool)
 	toolsList := tools.List{
 		&tools.Tools{
 			URL:     "http://tools.testing/tools/released/juju.tgz",
-			Version: version.Binary{version.MustParse("1.2.3"), "jammy", "amd64"},
+			Version: semversion.Binary{semversion.MustParse("1.2.3"), "jammy", "amd64"},
 		},
 	}
 	envConfig, err := config.New(config.NoDefaults, testing.FakeConfig())

@@ -15,7 +15,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/symlink"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -25,6 +24,7 @@ import (
 	agenterrors "github.com/juju/juju/agent/errors"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/filestorage"
@@ -47,7 +47,7 @@ func TestPackage(t *stdtesting.T) {
 type UpgraderSuite struct {
 	testing.IsolationSuite
 
-	confVersion          version.Number
+	confVersion          semversion.Number
 	upgradeStepsComplete gate.Lock
 	initialCheckComplete gate.Lock
 	clock                *testclock.Clock
@@ -59,6 +59,7 @@ type UpgraderSuite struct {
 type AllowedTargetVersionSuite struct{}
 
 var _ = gc.Suite(&UpgraderSuite{})
+
 var _ = gc.Suite(&AllowedTargetVersionSuite{})
 
 func (s *UpgraderSuite) SetUpTest(c *gc.C) {
@@ -78,7 +79,7 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewClock(time.Now())
 }
 
-func (s *UpgraderSuite) patchVersion(v version.Binary) {
+func (s *UpgraderSuite) patchVersion(v semversion.Binary) {
 	s.PatchValue(&arch.HostArch, func() string { return v.Arch })
 	s.PatchValue(&jujuversion.Current, v.Number)
 }
@@ -120,7 +121,7 @@ func (s *UpgraderSuite) makeUpgrader(c *gc.C, client upgrader.UpgraderClient) *u
 }
 
 func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
-	vers := version.MustParseBinary("5.4.3-ubuntu-amd64")
+	vers := semversion.MustParseBinary("5.4.3-ubuntu-amd64")
 	s.patchVersion(vers)
 
 	ctrl := gomock.NewController(c)
@@ -141,7 +142,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
-	vers := version.MustParseBinary("5.4.3-ubuntu-amd64")
+	vers := semversion.MustParseBinary("5.4.3-ubuntu-amd64")
 	s.patchVersion(vers)
 
 	ctrl := gomock.NewController(c)
@@ -170,7 +171,7 @@ func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderWaitsForUpgradeStepsGate(c *gc.C) {
-	vers := version.MustParseBinary("5.4.3-ubuntu-amd64")
+	vers := semversion.MustParseBinary("5.4.3-ubuntu-amd64")
 	s.patchVersion(vers)
 
 	// Replace with a locked gate.
@@ -192,7 +193,7 @@ func (s *UpgraderSuite) TestUpgraderWaitsForUpgradeStepsGate(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
-	vers := version.MustParseBinary("5.4.3-ubuntu-amd64")
+	vers := semversion.MustParseBinary("5.4.3-ubuntu-amd64")
 	s.patchVersion(vers)
 
 	ctrl := gomock.NewController(c)
@@ -227,7 +228,7 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
-	vers := version.MustParseBinary("5.4.3-ubuntu-amd64")
+	vers := semversion.MustParseBinary("5.4.3-ubuntu-amd64")
 	s.patchVersion(vers)
 
 	ctrl := gomock.NewController(c)
@@ -294,11 +295,11 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
-	oldTools := &coretools.Tools{Version: version.MustParseBinary("1.2.3-ubuntu-amd64")}
+	oldTools := &coretools.Tools{Version: semversion.MustParseBinary("1.2.3-ubuntu-amd64")}
 
 	newToolsBinary := "5.4.3-ubuntu-amd64"
 	newTools := envtesting.PrimeTools(
-		c, s.store, s.dataDir, "released", version.MustParseBinary(newToolsBinary))
+		c, s.store, s.dataDir, "released", semversion.MustParseBinary(newToolsBinary))
 
 	ugErr := &agenterrors.UpgradeReadyError{
 		AgentName: "anAgent",
@@ -316,7 +317,7 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUsesAlreadyDownloadedToolsIfAvailable(c *gc.C) {
-	vers := version.MustParseBinary("5.4.3-ubuntu-amd64")
+	vers := semversion.MustParseBinary("5.4.3-ubuntu-amd64")
 	s.patchVersion(vers)
 
 	ctrl := gomock.NewController(c)
@@ -353,7 +354,7 @@ func (s *UpgraderSuite) TestUsesAlreadyDownloadedToolsIfAvailable(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderAllowsDowngradingMinorVersions(c *gc.C) {
-	vers := version.MustParseBinary("5.4.3-ubuntu-amd64")
+	vers := semversion.MustParseBinary("5.4.3-ubuntu-amd64")
 	s.patchVersion(vers)
 
 	ctrl := gomock.NewController(c)
@@ -393,7 +394,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingMinorVersions(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderForbidsDowngradingToMajorVersion(c *gc.C) {
-	vers := version.MustParseBinary("5.4.3-ubuntu-amd64")
+	vers := semversion.MustParseBinary("5.4.3-ubuntu-amd64")
 	s.patchVersion(vers)
 
 	ctrl := gomock.NewController(c)
@@ -430,7 +431,7 @@ func (s *UpgraderSuite) TestUpgraderForbidsDowngradingToMajorVersion(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
-	vers := version.MustParseBinary("5.4.3-ubuntu-amd64")
+	vers := semversion.MustParseBinary("5.4.3-ubuntu-amd64")
 	s.patchVersion(vers)
 
 	ctrl := gomock.NewController(c)
@@ -475,7 +476,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToPriorMinorVersion(c *gc.C) 
 
 	// We now allow this to support restoring
 	// a backup from a previous version.
-	downgradeVersion := version.MustParseBinary("5.3.0-ubuntu-amd64")
+	downgradeVersion := semversion.MustParseBinary("5.3.0-ubuntu-amd64")
 	s.confVersion = downgradeVersion.Number
 
 	ch := make(chan struct{}, 1)
@@ -483,7 +484,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToPriorMinorVersion(c *gc.C) 
 	ch <- struct{}{}
 
 	origTools := envtesting.PrimeTools(c, s.store, s.dataDir, "released",
-		version.MustParseBinary("5.4.3-ubuntu-amd64"))
+		semversion.MustParseBinary("5.4.3-ubuntu-amd64"))
 	s.patchVersion(origTools.Version)
 
 	envtesting.AssertUploadFakeToolsVersions(
@@ -522,12 +523,12 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 	ch <- struct{}{}
 
 	oldTools := envtesting.PrimeTools(c, s.store, s.dataDir, "released",
-		version.MustParseBinary("5.4.3-ubuntu-amd64"))
+		semversion.MustParseBinary("5.4.3-ubuntu-amd64"))
 	s.patchVersion(oldTools.Version)
 
 	newTools := envtesting.AssertUploadFakeToolsVersions(
 		c, s.store, "released", "released",
-		version.MustParseBinary("5.4.5-ubuntu-amd64"))[0]
+		semversion.MustParseBinary("5.4.5-ubuntu-amd64"))[0]
 
 	client := mocks.NewMockUpgraderClient(ctrl)
 	client.EXPECT().SetVersion(gomock.Any(), "machine-666", oldTools.Version)
@@ -608,8 +609,8 @@ func (s *AllowedTargetVersionSuite) TestAllowedTargetVersionSuite(c *gc.C) {
 	}
 	for i, test := range cases {
 		c.Logf("test case %d, %#v", i, test)
-		current := version.MustParse(test.current)
-		target := version.MustParse(test.target)
+		current := semversion.MustParse(test.current)
+		target := semversion.MustParse(test.target)
 		result := upgrader.AllowedTargetVersion(current, target)
 		c.Check(result, gc.Equals, test.allowed)
 	}

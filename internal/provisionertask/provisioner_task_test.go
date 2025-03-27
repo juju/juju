@@ -19,7 +19,6 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/kr/pretty"
@@ -35,6 +34,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
@@ -280,7 +280,7 @@ func (s *ProvisionerTaskSuite) TestSetUpToStartMachine(c *gc.C) {
 	defer workertest.CleanKill(c, task)
 
 	m0 := &testMachine{id: "0"}
-	vers := version.MustParse("2.99.0")
+	vers := semversion.MustParse("2.99.0")
 	res := params.ProvisioningInfoResult{
 		Result: &params.ProvisioningInfo{
 			Constraints: constraints.MustParse("mem=666G"),
@@ -338,7 +338,7 @@ func (s *ProvisionerTaskSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvail
 
 	m0 := &testMachine{
 		id:           "0",
-		agentVersion: version.MustParse("6.6.6"),
+		agentVersion: semversion.MustParse("6.6.6"),
 	}
 
 	s.expectMachines(m0)
@@ -1675,7 +1675,7 @@ type testMachine struct {
 
 	id             string
 	life           life.Value
-	agentVersion   version.Number
+	agentVersion   semversion.Number
 	instance       *testInstance
 	keepInstance   bool
 	markForRemoval bool
@@ -1807,8 +1807,8 @@ func (m *testMachine) Status(context.Context) (status.Status, string, error) {
 	return m.machineStatus, "", nil
 }
 
-func (m *testMachine) ModelAgentVersion(context.Context) (*version.Number, error) {
-	if m.agentVersion == version.Zero {
+func (m *testMachine) ModelAgentVersion(context.Context) (*semversion.Number, error) {
+	if m.agentVersion == semversion.Zero {
 		return &coretesting.FakeVersionNumber, nil
 	}
 	return &m.agentVersion, nil
@@ -1881,7 +1881,7 @@ func (m *startInstanceParamsMatcher) addMatch(msg string, match func(environs.St
 var (
 	startInstanceArgTemplate = environs.StartInstanceParams{
 		ControllerUUID: coretesting.ControllerTag.Id(),
-		Tools:          tools.List{{Version: version.MustParseBinary("2.99.0-ubuntu-amd64")}},
+		Tools:          tools.List{{Version: semversion.MustParseBinary("2.99.0-ubuntu-amd64")}},
 	}
 	instanceConfigTemplate = instancecfg.InstanceConfig{
 		ControllerTag:    coretesting.ControllerTag,
@@ -2055,11 +2055,11 @@ func (mock *mockDistributionGroupFinder) DistributionGroupByMachineId(
 type mockToolsFinder struct {
 }
 
-func (f mockToolsFinder) FindTools(ctx context.Context, number version.Number, os string, a string) (tools.List, error) {
-	if number.Compare(version.MustParse("6.6.6")) == 0 {
+func (f mockToolsFinder) FindTools(ctx context.Context, number semversion.Number, os string, a string) (tools.List, error) {
+	if number.Compare(semversion.MustParse("6.6.6")) == 0 {
 		return nil, tools.ErrNoMatches
 	}
-	v, err := version.ParseBinary(fmt.Sprintf("%s-%s-%s", number, os, arch.HostArch()))
+	v, err := semversion.ParseBinary(fmt.Sprintf("%s-%s-%s", number, os, arch.HostArch()))
 	if err != nil {
 		return nil, err
 	}

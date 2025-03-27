@@ -7,9 +7,9 @@ import (
 	"context"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/filestorage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -24,7 +24,7 @@ type StorageSuite struct {
 var _ = gc.Suite(&StorageSuite{})
 
 func (s *StorageSuite) TestStorageName(c *gc.C) {
-	vers := version.MustParseBinary("1.2.3-ubuntu-amd64")
+	vers := semversion.MustParseBinary("1.2.3-ubuntu-amd64")
 	path := envtools.StorageName(vers, "proposed")
 	c.Assert(path, gc.Equals, "tools/proposed/juju-1.2.3-ubuntu-amd64.tgz")
 }
@@ -39,10 +39,10 @@ func (s *StorageSuite) TestReadListEmpty(c *gc.C) {
 func (s *StorageSuite) TestReadList(c *gc.C) {
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
-	v100 := version.MustParseBinary("1.0.0-ubuntu-amd64")
-	v101 := version.MustParseBinary("1.0.1-ubuntu-amd64")
-	v111 := version.MustParseBinary("1.1.1-ubuntu-amd64")
-	v201 := version.MustParseBinary("2.0.1-ubuntu-amd64")
+	v100 := semversion.MustParseBinary("1.0.0-ubuntu-amd64")
+	v101 := semversion.MustParseBinary("1.0.1-ubuntu-amd64")
+	v111 := semversion.MustParseBinary("1.1.1-ubuntu-amd64")
+	v201 := semversion.MustParseBinary("2.0.1-ubuntu-amd64")
 	agentTools := envtesting.AssertUploadFakeToolsVersions(c, stor, "proposed", "proposed", v100, v101, v111, v201)
 	t100 := agentTools[0]
 	t101 := agentTools[1]

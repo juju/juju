@@ -16,11 +16,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charm"
 )
@@ -47,7 +47,7 @@ func NewLocalCharmClient(st base.APICallCloser) (*LocalCharmClient, error) {
 // AddLocalCharm prepares the given charm with a local: schema in its
 // URL, and uploads it via the API server, returning the assigned
 // charm URL.
-func (c *LocalCharmClient) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool, agentVersion version.Number) (*charm.URL, error) {
+func (c *LocalCharmClient) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool, agentVersion semversion.Number) (*charm.URL, error) {
 	if curl.Schema != "local" {
 		return nil, errors.Errorf("expected charm URL with local: schema, got %q", curl.String())
 	}
@@ -162,9 +162,9 @@ func isHook(f *zip.File) bool {
 	}
 }
 
-func (c *LocalCharmClient) validateCharmVersion(ch charm.Charm, agentVersion version.Number) error {
+func (c *LocalCharmClient) validateCharmVersion(ch charm.Charm, agentVersion semversion.Number) error {
 	minver := ch.Meta().MinJujuVersion
-	if minver != version.Zero {
+	if minver != semversion.Zero {
 		return jujuversion.CheckJujuMinVersion(minver, agentVersion)
 	}
 	return nil

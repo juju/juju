@@ -15,6 +15,7 @@ import (
 
 	caas "github.com/juju/juju/caas"
 	constraints "github.com/juju/juju/core/constraints"
+	semversion "github.com/juju/juju/core/semversion"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/envcontext"
@@ -22,7 +23,6 @@ import (
 	proxy "github.com/juju/juju/internal/proxy"
 	storage "github.com/juju/juju/internal/storage"
 	names "github.com/juju/names/v6"
-	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -89,7 +89,7 @@ func (c *MockBrokerAPIVersionCall) DoAndReturn(f func() (string, error)) *MockBr
 }
 
 // AdoptResources mocks base method.
-func (m *MockBroker) AdoptResources(arg0 envcontext.ProviderCallContext, arg1 string, arg2 version.Number) error {
+func (m *MockBroker) AdoptResources(arg0 envcontext.ProviderCallContext, arg1 string, arg2 semversion.Number) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AdoptResources", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -115,13 +115,13 @@ func (c *MockBrokerAdoptResourcesCall) Return(arg0 error) *MockBrokerAdoptResour
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBrokerAdoptResourcesCall) Do(f func(envcontext.ProviderCallContext, string, version.Number) error) *MockBrokerAdoptResourcesCall {
+func (c *MockBrokerAdoptResourcesCall) Do(f func(envcontext.ProviderCallContext, string, semversion.Number) error) *MockBrokerAdoptResourcesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBrokerAdoptResourcesCall) DoAndReturn(f func(envcontext.ProviderCallContext, string, version.Number) error) *MockBrokerAdoptResourcesCall {
+func (c *MockBrokerAdoptResourcesCall) DoAndReturn(f func(envcontext.ProviderCallContext, string, semversion.Number) error) *MockBrokerAdoptResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -973,7 +973,7 @@ func (c *MockBrokerUnitsCall) DoAndReturn(f func(context.Context, string) ([]caa
 }
 
 // Upgrade mocks base method.
-func (m *MockBroker) Upgrade(arg0 context.Context, arg1 string, arg2 version.Number) error {
+func (m *MockBroker) Upgrade(arg0 context.Context, arg1 string, arg2 semversion.Number) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Upgrade", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -999,13 +999,13 @@ func (c *MockBrokerUpgradeCall) Return(arg0 error) *MockBrokerUpgradeCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBrokerUpgradeCall) Do(f func(context.Context, string, version.Number) error) *MockBrokerUpgradeCall {
+func (c *MockBrokerUpgradeCall) Do(f func(context.Context, string, semversion.Number) error) *MockBrokerUpgradeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBrokerUpgradeCall) DoAndReturn(f func(context.Context, string, version.Number) error) *MockBrokerUpgradeCall {
+func (c *MockBrokerUpgradeCall) DoAndReturn(f func(context.Context, string, semversion.Number) error) *MockBrokerUpgradeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1049,10 +1049,10 @@ func (c *MockBrokerValidateStorageClassCall) DoAndReturn(f func(context.Context,
 }
 
 // Version mocks base method.
-func (m *MockBroker) Version() (*version.Number, error) {
+func (m *MockBroker) Version() (*semversion.Number, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Version")
-	ret0, _ := ret[0].(*version.Number)
+	ret0, _ := ret[0].(*semversion.Number)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1070,19 +1070,19 @@ type MockBrokerVersionCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockBrokerVersionCall) Return(arg0 *version.Number, arg1 error) *MockBrokerVersionCall {
+func (c *MockBrokerVersionCall) Return(arg0 *semversion.Number, arg1 error) *MockBrokerVersionCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBrokerVersionCall) Do(f func() (*version.Number, error)) *MockBrokerVersionCall {
+func (c *MockBrokerVersionCall) Do(f func() (*semversion.Number, error)) *MockBrokerVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBrokerVersionCall) DoAndReturn(f func() (*version.Number, error)) *MockBrokerVersionCall {
+func (c *MockBrokerVersionCall) DoAndReturn(f func() (*semversion.Number, error)) *MockBrokerVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

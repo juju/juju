@@ -7,11 +7,11 @@ import (
 	"context"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/semversion"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -34,7 +34,7 @@ func (s *suite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *suite) TestGetModelAgentVersionSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	expectedVersion, err := version.Parse("4.21.65")
+	expectedVersion, err := semversion.Parse("4.21.65")
 	c.Assert(err, jc.ErrorIsNil)
 	s.state.EXPECT().GetTargetAgentVersion(gomock.Any()).Return(expectedVersion, nil)
 
@@ -49,7 +49,7 @@ func (s *suite) TestGetModelAgentVersionSuccess(c *gc.C) {
 func (s *suite) TestGetModelAgentVersionModelNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetTargetAgentVersion(gomock.Any()).Return(version.Zero, modelerrors.AgentVersionNotFound)
+	s.state.EXPECT().GetTargetAgentVersion(gomock.Any()).Return(semversion.Zero, modelerrors.AgentVersionNotFound)
 
 	svc := NewService(s.state, nil)
 	_, err := svc.GetModelTargetAgentVersion(context.Background())
@@ -62,7 +62,7 @@ func (s *suite) TestGetMachineTargetAgentVersion(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineName := machine.Name("0")
-	ver := version.MustParse("4.0.0")
+	ver := semversion.MustParse("4.0.0")
 
 	s.state.EXPECT().CheckMachineExists(gomock.Any(), machineName).Return(nil)
 	s.state.EXPECT().GetTargetAgentVersion(gomock.Any()).Return(ver, nil)
@@ -94,7 +94,7 @@ func (s *suite) TestGetMachineTargetAgentVersionNotFound(c *gc.C) {
 func (s *suite) TestGetUnitTargetAgentVersion(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	ver := version.MustParse("4.0.0")
+	ver := semversion.MustParse("4.0.0")
 
 	s.state.EXPECT().CheckUnitExists(gomock.Any(), "foo/0").Return(nil)
 	s.state.EXPECT().GetTargetAgentVersion(gomock.Any()).Return(ver, nil)

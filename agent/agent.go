@@ -20,7 +20,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/shell"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent/constants"
 	"github.com/juju/juju/api"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/core/semversion"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 )
@@ -253,7 +253,7 @@ type Config interface {
 
 	// UpgradedToVersion returns the version for which all upgrade steps have been
 	// successfully run, which is also the same as the initially deployed version.
-	UpgradedToVersion() version.Number
+	UpgradedToVersion() semversion.Number
 
 	// LoggingConfig returns the logging config for this agent. Initially this
 	// value is empty, but as the agent gets notified of model agent config
@@ -349,7 +349,7 @@ type configSetterOnly interface {
 
 	// SetUpgradedToVersion sets the version that
 	// the agent has successfully upgraded to.
-	SetUpgradedToVersion(newVersion version.Number)
+	SetUpgradedToVersion(newVersion semversion.Number)
 
 	// SetAPIHostPorts sets the API host/port addresses to connect to.
 	SetAPIHostPorts(servers []network.HostPorts) error
@@ -469,7 +469,7 @@ type configInternal struct {
 	controller                         names.ControllerTag
 	model                              names.ModelTag
 	jobs                               []model.MachineJob
-	upgradedToVersion                  version.Number
+	upgradedToVersion                  semversion.Number
 	caCert                             string
 	apiDetails                         *apiDetails
 	statePassword                      string
@@ -498,7 +498,7 @@ type configInternal struct {
 type AgentConfigParams struct {
 	Paths                              Paths
 	Jobs                               []model.MachineJob
-	UpgradedToVersion                  version.Number
+	UpgradedToVersion                  semversion.Number
 	Tag                                names.Tag
 	Password                           string
 	Nonce                              string
@@ -544,7 +544,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	default:
 		return nil, errors.Errorf("entity tag must be MachineTag, UnitTag, ApplicationTag or ControllerAgentTag, got %T", configParams.Tag)
 	}
-	if configParams.UpgradedToVersion == version.Zero {
+	if configParams.UpgradedToVersion == semversion.Zero {
 		return nil, errors.Trace(requiredError("upgradedToVersion"))
 	}
 	if configParams.Password == "" {
@@ -705,7 +705,7 @@ func (c0 *configInternal) Clone() Config {
 	return &c1
 }
 
-func (c *configInternal) SetUpgradedToVersion(newVersion version.Number) {
+func (c *configInternal) SetUpgradedToVersion(newVersion semversion.Number) {
 	c.upgradedToVersion = newVersion
 }
 
@@ -811,7 +811,7 @@ func (c *configInternal) Nonce() string {
 	return c.nonce
 }
 
-func (c *configInternal) UpgradedToVersion() version.Number {
+func (c *configInternal) UpgradedToVersion() semversion.Number {
 	return c.upgradedToVersion
 }
 

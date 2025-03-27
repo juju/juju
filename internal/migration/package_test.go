@@ -6,11 +6,11 @@ package migration_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/testing"
 	upgradevalidationmocks "github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
@@ -56,7 +56,7 @@ func (s *precheckBaseSuite) checkMachineVersionsDontMatch(c *gc.C, runPrecheck p
 
 func (s *precheckBaseSuite) setupMocksWithDefaultAgentVersion(c *gc.C) *gomock.Controller {
 	ctrl := s.setupMocks(c)
-	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse("2.9.32"), nil).AnyTimes()
+	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.MustParse("2.9.32"), nil).AnyTimes()
 	return ctrl
 }
 
@@ -90,5 +90,5 @@ func (s *precheckBaseSuite) expectIsUpgradeError(err error) {
 }
 
 func (s *precheckBaseSuite) expectAgentVersion(times int) {
-	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse(backendVersion.String()), nil).Times(times)
+	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.MustParse(backendVersion.String()), nil).Times(times)
 }

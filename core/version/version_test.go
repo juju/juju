@@ -8,8 +8,9 @@ import (
 	"runtime"
 
 	jc "github.com/juju/testing/checkers"
-	semversion "github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
+
+	semversion "github.com/juju/juju/core/semversion"
 )
 
 type suite struct{}

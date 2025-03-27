@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 )
 
@@ -25,7 +25,7 @@ func (e *Environ) PreparePrechecker(ctx context.Context) error {
 // used to determine if a controller can be safely upgraded.
 func (env *Environ) PrecheckUpgradeOperations() []environs.PrecheckJujuUpgradeOperation {
 	return []environs.PrecheckJujuUpgradeOperation{{
-		TargetVersion: version.MustParse("2.8.0"), // should be 2.8
+		TargetVersion: semversion.MustParse("2.8.0"), // should be 2.8
 		Steps: []environs.PrecheckJujuUpgradeStep{
 			verifyNeutronEnabledStep{env},
 		},

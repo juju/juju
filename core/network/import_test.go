@@ -21,6 +21,7 @@ var allowedCoreImports = set.NewStrings(
 	"core/logger",
 	"core/model",
 	"core/permission",
+	"core/semversion",
 	"core/status",
 	"core/trace",
 	"core/user",

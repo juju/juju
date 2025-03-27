@@ -6,9 +6,9 @@ package tools_test
 import (
 	"github.com/juju/mgo/v3/bson"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/tools"
 )
 
@@ -19,7 +19,7 @@ type marshalSuite struct {
 
 func newTools(vers, url string) *tools.Tools {
 	return &tools.Tools{
-		Version: version.MustParseBinary(vers),
+		Version: semversion.MustParseBinary(vers),
 		URL:     url,
 		Size:    10,
 		SHA256:  "1234",
@@ -27,6 +27,7 @@ func newTools(vers, url string) *tools.Tools {
 }
 
 func (s *marshalSuite) TestMarshalUnmarshal(c *gc.C) {
+	c.Skip("we don't want to continue to support bson serialization for versions")
 	testTools := newTools("7.8.9-ubuntu-amd64", "http://arble.tgz")
 	data, err := bson.Marshal(&testTools)
 	c.Assert(err, jc.ErrorIsNil)

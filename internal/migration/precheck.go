@@ -12,11 +12,11 @@ import (
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/environs/config"
@@ -303,7 +303,7 @@ func (c *precheckContext) checkApplications(ctx context.Context) (map[string][]P
 	return appUnits, nil
 }
 
-func (c *precheckContext) checkUnits(ctx context.Context, app PrecheckApplication, units []PrecheckUnit, modelVersion version.Number, modelType state.ModelType) error {
+func (c *precheckContext) checkUnits(ctx context.Context, app PrecheckApplication, units []PrecheckUnit, modelVersion semversion.Number, modelType state.ModelType) error {
 	appCharmURL, _ := app.CharmURL()
 	if appCharmURL == nil {
 		return errors.Errorf("application charm url is nil")
@@ -470,7 +470,7 @@ func checkNoFanConfig(modelConfig map[string]interface{}) error {
 	return nil
 }
 
-func checkAgentTools(modelVersion version.Number, agent agentToolsGetter, agentLabel string) error {
+func checkAgentTools(modelVersion semversion.Number, agent agentToolsGetter, agentLabel string) error {
 	tools, err := agent.AgentTools()
 	if err != nil {
 		return errors.Annotatef(err, "retrieving agent binaries for %s", agentLabel)
@@ -491,7 +491,7 @@ func newStatusError(format, id string, s status.Status) error {
 	return errors.New(msg)
 }
 
-func controllerVersionCompatible(sourceVersion, targetVersion version.Number) bool {
+func controllerVersionCompatible(sourceVersion, targetVersion semversion.Number) bool {
 	// Compare source controller version to target controller version, only
 	// considering major and minor version numbers. Downgrades between
 	// patch, build releases for a given major.minor release are
@@ -501,7 +501,7 @@ func controllerVersionCompatible(sourceVersion, targetVersion version.Number) bo
 	return sourceVersion.Compare(targetVersion) <= 0
 }
 
-func versionToMajMin(ver version.Number) version.Number {
+func versionToMajMin(ver semversion.Number) semversion.Number {
 	ver.Patch = 0
 	ver.Build = 0
 	ver.Tag = ""

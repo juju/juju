@@ -13,10 +13,10 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
 )
@@ -477,7 +477,7 @@ func (s *MetaSuite) TestMinJujuVersion(c *gc.C) {
 	meta, err := charm.ReadMeta(strings.NewReader(dummyMetadata))
 	c.Assert(err, gc.IsNil)
 	charmMeta := fmt.Sprintf("%s\nmin-juju-version: ", dummyMetadata)
-	vals := []version.Number{
+	vals := []semversion.Number{
 		{Major: 1, Minor: 25},
 		{Major: 1, Minor: 25, Tag: "alpha"},
 		{Major: 1, Minor: 25, Patch: 1},
@@ -499,7 +499,7 @@ func (s *MetaSuite) TestInvalidMinJujuVersion(c *gc.C) {
 func (s *MetaSuite) TestNoMinJujuVersion(c *gc.C) {
 	meta, err := charm.ReadMeta(strings.NewReader(dummyMetadata))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(meta.MinJujuVersion, gc.Equals, version.Zero)
+	c.Check(meta.MinJujuVersion, gc.Equals, semversion.Zero)
 }
 
 func (s *MetaSuite) TestCheckMismatchedExtraBindingName(c *gc.C) {
@@ -1727,7 +1727,7 @@ func (FormatMetaSuite) TestCheckV2NoReasons(c *gc.C) {
 
 func (FormatMetaSuite) TestCheckV2WithMinJujuVersion(c *gc.C) {
 	meta := charm.Meta{
-		MinJujuVersion: version.MustParse("2.0.0"),
+		MinJujuVersion: semversion.MustParse("2.0.0"),
 	}
 	err := meta.Check(charm.FormatV2, charm.SelectionManifest, charm.SelectionBases)
 	c.Assert(err, gc.ErrorMatches, `min-juju-version in metadata v2 not valid`)

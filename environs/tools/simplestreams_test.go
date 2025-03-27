@@ -21,10 +21,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -37,6 +37,7 @@ import (
 )
 
 var live = flag.Bool("live", false, "Include live simplestreams tests")
+
 var vendor = flag.String("vendor", "", "The vendor representing the source of the simplestream data")
 
 type liveTestData struct {
@@ -88,7 +89,7 @@ func setupSimpleStreamsTests(t *testing.T) {
 			t.Fatalf("Unknown vendor %s. Must be one of %s", *vendor, keys)
 		}
 		registerLiveSimpleStreamsTests(testData.baseURL,
-			tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
+			tools.NewVersionedToolsConstraint(semversion.MustParse("1.13.0"), simplestreams.LookupParams{
 				CloudSpec: testData.validCloudSpec,
 				Releases:  []string{coreos.HostOSTypeName()},
 				Arches:    []string{"amd64"},
@@ -105,7 +106,7 @@ func registerSimpleStreamsTests() {
 			RequireSigned:  false,
 			DataType:       tools.ContentDownload,
 			StreamsVersion: tools.CurrentStreamsVersion,
-			ValidConstraint: tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
+			ValidConstraint: tools.NewVersionedToolsConstraint(semversion.MustParse("1.13.0"), simplestreams.LookupParams{
 				CloudSpec: simplestreams.CloudSpec{
 					Region:   "us-east-1",
 					Endpoint: "https://ec2.us-east-1.amazonaws.com",
@@ -263,7 +264,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 				Stream:    t.stream,
 			})
 		} else {
-			toolsConstraint = tools.NewVersionedToolsConstraint(version.MustParse(t.version),
+			toolsConstraint = tools.NewVersionedToolsConstraint(semversion.MustParse(t.version),
 				simplestreams.LookupParams{
 					CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 					Releases:  []string{t.osType},
@@ -357,11 +358,11 @@ func assertMetadataMatches(c *gc.C, stream string, toolList coretools.List, meta
 func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 	toolsList := coretools.List{
 		{
-			Version: version.MustParseBinary("1.2.3-ubuntu-amd64"),
+			Version: semversion.MustParseBinary("1.2.3-ubuntu-amd64"),
 			Size:    123,
 			SHA256:  "abcd",
 		}, {
-			Version: version.MustParseBinary("2.0.1-windows-amd64"),
+			Version: semversion.MustParseBinary("2.0.1-windows-amd64"),
 			Size:    456,
 			SHA256:  "xyz",
 		},
@@ -371,7 +372,7 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 	// Add tools with an unknown osType.
 	// We need to support this case for times when a new Ubuntu os type
 	// is released and jujud does not know about it yet.
-	vers, err := version.ParseBinary("3.2.1-xuanhuaceratops-amd64")
+	vers, err := semversion.ParseBinary("3.2.1-xuanhuaceratops-amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	toolsList = append(toolsList, &coretools.Tools{
 		Version: vers,
@@ -400,11 +401,11 @@ func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
 	toolsList := coretools.List{
 		{
 			// If sha256/size is already known, do not recalculate
-			Version: version.MustParseBinary("1.2.3-ubuntu-amd64"),
+			Version: semversion.MustParseBinary("1.2.3-ubuntu-amd64"),
 			Size:    123,
 			SHA256:  "abcd",
 		}, {
-			Version: version.MustParseBinary("2.0.1-ubuntu-amd64"),
+			Version: semversion.MustParseBinary("2.0.1-ubuntu-amd64"),
 			// The URL is not used for generating metadata.
 			URL: "bogus://",
 		},
@@ -439,11 +440,11 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 	dir := c.MkDir()
 	existingToolsList := coretools.List{
 		{
-			Version: version.MustParseBinary("1.2.3-ubuntu-amd64"),
+			Version: semversion.MustParseBinary("1.2.3-ubuntu-amd64"),
 			Size:    123,
 			SHA256:  "abc",
 		}, {
-			Version: version.MustParseBinary("2.0.1-ubuntu-amd64"),
+			Version: semversion.MustParseBinary("2.0.1-ubuntu-amd64"),
 			Size:    456,
 			SHA256:  "xyz",
 		},
@@ -458,7 +459,7 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 	newToolsList := coretools.List{
 		existingToolsList[0],
 		{
-			Version: version.MustParseBinary("2.1.0-ubuntu-amd64"),
+			Version: semversion.MustParseBinary("2.1.0-ubuntu-amd64"),
 			Size:    789,
 			SHA256:  "def",
 		},
@@ -484,7 +485,7 @@ type productSpecSuite struct{}
 var _ = gc.Suite(&productSpecSuite{})
 
 func (s *productSpecSuite) TestIndexIdNoStream(c *gc.C) {
-	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
+	toolsConstraint := tools.NewVersionedToolsConstraint(semversion.MustParse("1.13.0"), simplestreams.LookupParams{
 		Releases: []string{"ubuntu"},
 		Arches:   []string{"amd64"},
 	})
@@ -493,7 +494,7 @@ func (s *productSpecSuite) TestIndexIdNoStream(c *gc.C) {
 }
 
 func (s *productSpecSuite) TestIndexId(c *gc.C) {
-	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
+	toolsConstraint := tools.NewVersionedToolsConstraint(semversion.MustParse("1.13.0"), simplestreams.LookupParams{
 		Releases: []string{"ubuntu"},
 		Arches:   []string{"amd64"},
 		Stream:   "proposed",
@@ -503,7 +504,7 @@ func (s *productSpecSuite) TestIndexId(c *gc.C) {
 }
 
 func (s *productSpecSuite) TestProductId(c *gc.C) {
-	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
+	toolsConstraint := tools.NewVersionedToolsConstraint(semversion.MustParse("1.13.0"), simplestreams.LookupParams{
 		Releases: []string{"ubuntu"},
 		Arches:   []string{"amd64"},
 	})
@@ -513,7 +514,7 @@ func (s *productSpecSuite) TestProductId(c *gc.C) {
 }
 
 func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
-	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.11.3"), simplestreams.LookupParams{
+	toolsConstraint := tools.NewVersionedToolsConstraint(semversion.MustParse("1.11.3"), simplestreams.LookupParams{
 		Releases: []string{"ubuntu"},
 		Arches:   []string{"amd64", "arm"},
 	})
@@ -525,7 +526,7 @@ func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 }
 
 func (s *productSpecSuite) TestIdMultiOSType(c *gc.C) {
-	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.11.3"), simplestreams.LookupParams{
+	toolsConstraint := tools.NewVersionedToolsConstraint(semversion.MustParse("1.11.3"), simplestreams.LookupParams{
 		Releases: []string{"ubuntu", "windows"},
 		Arches:   []string{"amd64"},
 		Stream:   "released",
@@ -538,7 +539,7 @@ func (s *productSpecSuite) TestIdMultiOSType(c *gc.C) {
 }
 
 func (s *productSpecSuite) TestIdIgnoresInvalidOSType(c *gc.C) {
-	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.11.3"), simplestreams.LookupParams{
+	toolsConstraint := tools.NewVersionedToolsConstraint(semversion.MustParse("1.11.3"), simplestreams.LookupParams{
 		Releases: []string{"ubuntu", "foobar"},
 		Arches:   []string{"amd64"},
 		Stream:   "released",
@@ -622,11 +623,11 @@ func (*metadataHelperSuite) TestMetadataFromTools(c *gc.C) {
 	c.Assert(metadata, gc.HasLen, 0)
 
 	toolsList := coretools.List{{
-		Version: version.MustParseBinary("1.2.3-ubuntu-amd64"),
+		Version: semversion.MustParseBinary("1.2.3-ubuntu-amd64"),
 		Size:    123,
 		SHA256:  "abc",
 	}, {
-		Version: version.MustParseBinary("2.0.1-ubuntu-amd64"),
+		Version: semversion.MustParseBinary("2.0.1-ubuntu-amd64"),
 		URL:     "file:///tmp/proposed/juju-2.0.1-ubuntu-amd64.tgz",
 		Size:    456,
 		SHA256:  "xyz",
@@ -663,7 +664,7 @@ func (*metadataHelperSuite) TestResolveMetadata(c *gc.C) {
 	dir := c.MkDir()
 	toolstesting.MakeTools(c, dir, "released", versionStrings)
 	toolsList := coretools.List{{
-		Version: version.MustParseBinary(versionStrings[0]),
+		Version: semversion.MustParseBinary(versionStrings[0]),
 		Size:    123,
 		SHA256:  "abc",
 	}}
@@ -1015,7 +1016,7 @@ func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
 			RequireSigned:        true,
 		},
 	)
-	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
+	toolsConstraint := tools.NewVersionedToolsConstraint(semversion.MustParse("1.13.0"), simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Releases:  []string{"ubuntu"},
 		Arches:    []string{"amd64"},
@@ -1091,6 +1092,7 @@ var unsignedIndex = `
  "format": "index:1.0"
 }
 `
+
 var unsignedProduct = `
 {
  "updated": "Wed, 01 May 2013 13:31:26 +0000",

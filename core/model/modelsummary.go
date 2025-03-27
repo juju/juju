@@ -6,11 +6,10 @@ package model
 import (
 	"time"
 
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
 )
@@ -64,7 +63,7 @@ type ModelSummary struct {
 	Life life.Value
 
 	// AgentVersion is the agent version for this model.
-	AgentVersion version.Number
+	AgentVersion semversion.Number
 
 	// Status is the current status of the model.
 	Status status.StatusInfo

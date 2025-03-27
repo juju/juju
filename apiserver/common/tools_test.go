@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -279,7 +279,7 @@ func (s *findToolsSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.toolsStorageGetter = mocks.NewMockToolsStorageGetter(ctrl)
 	s.urlGetter = mocks.NewMockToolsURLGetter(ctrl)
-	s.urlGetter.EXPECT().ToolsURLs(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ controller.Config, arg version.Binary) ([]string, error) {
+	s.urlGetter.EXPECT().ToolsURLs(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ controller.Config, arg semversion.Binary) ([]string, error) {
 		return []string{fmt.Sprintf("tools:%v", arg)}, nil
 	}).AnyTimes()
 
@@ -318,12 +318,12 @@ func (s *findToolsSuite) TestFindToolsMatchMajor(c *gc.C) {
 
 	envtoolsList := coretools.List{
 		&coretools.Tools{
-			Version: version.MustParseBinary("123.456.0-windows-alpha"),
+			Version: semversion.MustParseBinary("123.456.0-windows-alpha"),
 			Size:    2048,
 			SHA256:  "badf00d",
 		},
 		&coretools.Tools{
-			Version: version.MustParseBinary("123.456.1-windows-alpha"),
+			Version: semversion.MustParseBinary("123.456.1-windows-alpha"),
 		},
 	}
 	s.PatchValue(common.EnvtoolsFindTools, func(_ context.Context, _ envtools.SimplestreamsFetcher, e environs.BootstrapEnviron, major, minor int, streams []string, filter coretools.Filter) (coretools.List, error) {
@@ -359,13 +359,13 @@ func (s *findToolsSuite) TestFindToolsMatchMajor(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, coretools.List{
 		&coretools.Tools{
-			Version: version.MustParseBinary(storageMetadata[0].Version),
+			Version: semversion.MustParseBinary(storageMetadata[0].Version),
 			Size:    storageMetadata[0].Size,
 			SHA256:  storageMetadata[0].SHA256,
 			URL:     "tools:" + storageMetadata[0].Version,
 		},
 		&coretools.Tools{
-			Version: version.MustParseBinary("123.456.1-windows-alpha"),
+			Version: semversion.MustParseBinary("123.456.1-windows-alpha"),
 			URL:     "tools:123.456.1-windows-alpha",
 		},
 	})
@@ -376,12 +376,12 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *gc.C) {
 
 	envtoolsList := coretools.List{
 		&coretools.Tools{
-			Version: version.MustParseBinary("123.456.0-windows-alpha"),
+			Version: semversion.MustParseBinary("123.456.0-windows-alpha"),
 			Size:    2048,
 			SHA256:  "badf00d",
 		},
 		&coretools.Tools{
-			Version: version.MustParseBinary("123.456.1-windows-alpha"),
+			Version: semversion.MustParseBinary("123.456.1-windows-alpha"),
 		},
 	}
 	s.PatchValue(common.EnvtoolsFindTools, func(_ context.Context, _ envtools.SimplestreamsFetcher, e environs.BootstrapEnviron, major, minor int, streams []string, filter coretools.Filter) (coretools.List, error) {
@@ -412,13 +412,13 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, coretools.List{
 		&coretools.Tools{
-			Version: version.MustParseBinary(storageMetadata[0].Version),
+			Version: semversion.MustParseBinary(storageMetadata[0].Version),
 			Size:    storageMetadata[0].Size,
 			SHA256:  storageMetadata[0].SHA256,
 			URL:     "tools:" + storageMetadata[0].Version,
 		},
 		&coretools.Tools{
-			Version: version.MustParseBinary("123.456.1-windows-alpha"),
+			Version: semversion.MustParseBinary("123.456.1-windows-alpha"),
 			URL:     "tools:123.456.1-windows-alpha",
 		},
 	})
@@ -450,11 +450,11 @@ func (s *findToolsSuite) TestFindToolsExactInStorage(c *gc.C) {
 	s.PatchValue(&coreos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 
 	s.expectMatchingStorageTools(storageMetadata, nil)
-	s.PatchValue(&jujuversion.Current, version.MustParseBinary("1.22-beta1-ubuntu-amd64").Number)
+	s.PatchValue(&jujuversion.Current, semversion.MustParseBinary("1.22-beta1-ubuntu-amd64").Number)
 	s.testFindToolsExact(c, true, true)
 
 	s.expectMatchingStorageTools(storageMetadata, nil)
-	s.PatchValue(&jujuversion.Current, version.MustParseBinary("1.22.0-ubuntu-amd64").Number)
+	s.PatchValue(&jujuversion.Current, semversion.MustParseBinary("1.22.0-ubuntu-amd64").Number)
 	s.testFindToolsExact(c, true, false)
 }
 
@@ -463,12 +463,12 @@ func (s *findToolsSuite) TestFindToolsExactNotInStorage(c *gc.C) {
 
 	s.expectMatchingStorageTools([]binarystorage.Metadata{}, nil)
 	s.expectBootstrapEnvironConfig(c)
-	s.PatchValue(&jujuversion.Current, version.MustParse("1.22-beta1"))
+	s.PatchValue(&jujuversion.Current, semversion.MustParse("1.22-beta1"))
 	s.testFindToolsExact(c, false, true)
 
 	s.expectMatchingStorageTools([]binarystorage.Metadata{}, nil)
 	s.expectBootstrapEnvironConfig(c)
-	s.PatchValue(&jujuversion.Current, version.MustParse("1.22.0"))
+	s.PatchValue(&jujuversion.Current, semversion.MustParse("1.22.0"))
 	s.testFindToolsExact(c, false, false)
 }
 

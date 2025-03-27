@@ -10,8 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/version/v2"
-
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/storage"
 	coretools "github.com/juju/juju/internal/tools"
 )
@@ -25,7 +24,7 @@ const (
 
 // StorageName returns the name that is used to store and retrieve the
 // given version of the juju tools.
-func StorageName(vers version.Binary, stream string) string {
+func StorageName(vers semversion.Binary, stream string) string {
 	return storagePrefix(stream) + vers.String() + toolSuffix
 }
 
@@ -57,7 +56,7 @@ func ReadList(ctx context.Context, stor storage.StorageReader, toolsDir string, 
 		}
 		var t coretools.Tools
 		vers := name[len(storagePrefix) : len(name)-len(toolSuffix)]
-		if t.Version, err = version.ParseBinary(vers); err != nil {
+		if t.Version, err = semversion.ParseBinary(vers); err != nil {
 			logger.Debugf(ctx, "failed to parse version %q: %v", vers, err)
 			continue
 		}

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -453,7 +453,7 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 				Risk:  corebase.Stable,
 			},
 		},
-		Version:              version.MustParse("2.9.99"),
+		Version:              semversion.MustParse("2.9.99"),
 		CharmModifiedVersion: 123,
 		APIAddresses:         []string{"1.2.3.1", "1.2.3.2", "1.2.3.3"},
 		CACert:               "CACERT",
@@ -500,7 +500,7 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 		},
 	}
 	ensureParams := caas.ApplicationConfig{
-		AgentVersion:         version.Number{Major: 2, Minor: 9, Patch: 99},
+		AgentVersion:         semversion.Number{Major: 2, Minor: 9, Patch: 99},
 		AgentImagePath:       "test-repo/jujud-operator:2.9.99",
 		CharmBaseImagePath:   "test-repo/charm-base:ubuntu-22.04",
 		CharmModifiedVersion: 123,

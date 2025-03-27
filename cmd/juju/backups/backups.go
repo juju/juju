@@ -12,11 +12,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/client/backups"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -132,7 +132,7 @@ type MetadataParams struct {
 	ModelUUID      string
 	MachineID      string
 	Hostname       string
-	JujuVersion    version.Number
+	JujuVersion    semversion.Number
 	Base           string
 }
 

@@ -14,7 +14,7 @@ import (
 	reflect "reflect"
 
 	machine "github.com/juju/juju/core/machine"
-	version "github.com/juju/version/v2"
+	semversion "github.com/juju/juju/core/semversion"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -118,10 +118,10 @@ func (c *MockStateCheckUnitExistsCall) DoAndReturn(f func(context.Context, strin
 }
 
 // GetTargetAgentVersion mocks base method.
-func (m *MockState) GetTargetAgentVersion(arg0 context.Context) (version.Number, error) {
+func (m *MockState) GetTargetAgentVersion(arg0 context.Context) (semversion.Number, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetTargetAgentVersion", arg0)
-	ret0, _ := ret[0].(version.Number)
+	ret0, _ := ret[0].(semversion.Number)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -139,19 +139,19 @@ type MockStateGetTargetAgentVersionCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetTargetAgentVersionCall) Return(arg0 version.Number, arg1 error) *MockStateGetTargetAgentVersionCall {
+func (c *MockStateGetTargetAgentVersionCall) Return(arg0 semversion.Number, arg1 error) *MockStateGetTargetAgentVersionCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetTargetAgentVersionCall) Do(f func(context.Context) (version.Number, error)) *MockStateGetTargetAgentVersionCall {
+func (c *MockStateGetTargetAgentVersionCall) Do(f func(context.Context) (semversion.Number, error)) *MockStateGetTargetAgentVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetTargetAgentVersionCall) DoAndReturn(f func(context.Context) (version.Number, error)) *MockStateGetTargetAgentVersionCall {
+func (c *MockStateGetTargetAgentVersionCall) DoAndReturn(f func(context.Context) (semversion.Number, error)) *MockStateGetTargetAgentVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

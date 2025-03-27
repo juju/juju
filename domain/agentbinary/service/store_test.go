@@ -9,14 +9,14 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	corearch "github.com/juju/juju/core/arch"
 	coreerrors "github.com/juju/juju/core/errors"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/agentbinary"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -60,7 +60,7 @@ func (s *storeSuite) TestAdd(c *gc.C) {
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
 	err = store.Add(context.Background(), agentBinary,
 		coreagentbinary.Version{
-			Number: version.MustParse("4.0-beta1"),
+			Number: semversion.MustParse("4.0-beta1"),
 			Arch:   corearch.AMD64,
 		},
 		1234,
@@ -93,7 +93,7 @@ func (s *storeSuite) TestAddFailedInvalidArch(c *gc.C) {
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
 	err := store.Add(context.Background(), agentBinary,
 		coreagentbinary.Version{
-			Number: version.MustParse("4.6.8"),
+			Number: semversion.MustParse("4.6.8"),
 			Arch:   "invalid-arch",
 		},
 		1234,
@@ -126,7 +126,7 @@ func (s *storeSuite) TestAddFailedNotSupportedArchWithBinaryCleanUp(c *gc.C) {
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
 	err = store.Add(context.Background(), agentBinary,
 		coreagentbinary.Version{
-			Number: version.MustParse("4.6.8"),
+			Number: semversion.MustParse("4.6.8"),
 			Arch:   corearch.AMD64,
 		},
 		1234,
@@ -159,7 +159,7 @@ func (s *storeSuite) TestAddFailedObjectStoreUUIDNotFoundWithBinaryCleanUp(c *gc
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
 	err = store.Add(context.Background(), agentBinary,
 		coreagentbinary.Version{
-			Number: version.MustParse("4.6.8"),
+			Number: semversion.MustParse("4.6.8"),
 			Arch:   corearch.AMD64,
 		},
 		1234,
@@ -190,7 +190,7 @@ func (s *storeSuite) TestAddWithSHA256(c *gc.C) {
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
 	err = store.AddWithSHA256(context.Background(), agentBinary,
 		coreagentbinary.Version{
-			Number: version.MustParse("4.6.8"),
+			Number: semversion.MustParse("4.6.8"),
 			Arch:   corearch.AMD64,
 		},
 		1234,

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloud"
@@ -22,6 +21,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	corecontext "github.com/juju/juju/core/context"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -128,7 +128,7 @@ type BootstrapParams struct {
 
 	// AgentVersion, if set, determines the exact tools version that
 	// will be used to start the Juju agents.
-	AgentVersion *version.Number
+	AgentVersion *semversion.Number
 
 	// AdminSecret contains the administrator password.
 	AdminSecret string
@@ -493,14 +493,14 @@ func bootstrapIAAS(
 		} else {
 			ctx.Infof("No packaged binary found, preparing local Juju agent binary")
 		}
-		var forceVersion version.Number
+		var forceVersion semversion.Number
 		availableTools, forceVersion, err = locallyBuildableTools()
 		if err != nil {
 			return errors.Annotate(err, "cannot package bootstrap agent binary")
 		}
 		builtTools, err = args.BuildAgentTarball(
 			args.BuildAgent, cfg.AgentStream(),
-			func(version.Number) version.Number { return forceVersion },
+			func(semversion.Number) semversion.Number { return forceVersion },
 		)
 		if err != nil {
 			return errors.Annotate(err, "cannot package bootstrap agent binary")
@@ -997,7 +997,7 @@ func getBootstrapToolsVersion(ctx context.Context, possibleTools coretools.List)
 	if len(possibleTools) == 0 {
 		return nil, errors.New("no bootstrap agent binaries available")
 	}
-	var newVersion version.Number
+	var newVersion semversion.Number
 	newVersion, toolsList := possibleTools.Newest()
 	logger.Infof(ctx, "newest version: %s", newVersion)
 	bootstrapVersion := newVersion
@@ -1019,7 +1019,7 @@ func getBootstrapToolsVersion(ctx context.Context, possibleTools coretools.List)
 }
 
 // setBootstrapAgentVersion updates the agent-version configuration attribute.
-func setBootstrapAgentVersion(ctx context.Context, environ environs.Configer, toolsVersion version.Number) error {
+func setBootstrapAgentVersion(ctx context.Context, environ environs.Configer, toolsVersion semversion.Number) error {
 	cfg := environ.Config()
 	if agentVersion, _ := cfg.AgentVersion(); agentVersion != toolsVersion {
 		cfg, err := cfg.Apply(map[string]interface{}{
@@ -1040,7 +1040,7 @@ func setBootstrapAgentVersion(ctx context.Context, environ environs.Configer, to
 //
 // Build number is not important to match; uploaded tools will have
 // incremented build number, and we want to match them.
-func findCompatibleTools(possibleTools coretools.List, version version.Number) (version.Number, coretools.List) {
+func findCompatibleTools(possibleTools coretools.List, version semversion.Number) (semversion.Number, coretools.List) {
 	var compatibleTools coretools.List
 	for _, tools := range possibleTools {
 		if isCompatibleVersion(tools.Version.Number, version) {
@@ -1050,7 +1050,7 @@ func findCompatibleTools(possibleTools coretools.List, version version.Number) (
 	return compatibleTools.Newest()
 }
 
-func isCompatibleVersion(v1, v2 version.Number) bool {
+func isCompatibleVersion(v1, v2 semversion.Number) bool {
 	x := v1.ToPatch()
 	y := v2.ToPatch()
 	return x.Compare(y) == 0

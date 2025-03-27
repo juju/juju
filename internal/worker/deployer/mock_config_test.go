@@ -5,10 +5,10 @@ package deployer_test
 
 import (
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -17,7 +17,7 @@ type mockConfig struct {
 	tag               names.Tag
 	datadir           string
 	logdir            string
-	upgradedToVersion version.Number
+	upgradedToVersion semversion.Number
 	jobs              []model.MachineJob
 }
 
@@ -37,11 +37,11 @@ func (mock *mockConfig) Jobs() []model.MachineJob {
 	return mock.jobs
 }
 
-func (mock *mockConfig) UpgradedToVersion() version.Number {
+func (mock *mockConfig) UpgradedToVersion() semversion.Number {
 	return mock.upgradedToVersion
 }
 
-func (mock *mockConfig) WriteUpgradedToVersion(newVersion version.Number) error {
+func (mock *mockConfig) WriteUpgradedToVersion(newVersion semversion.Number) error {
 	mock.upgradedToVersion = newVersion
 	return nil
 }

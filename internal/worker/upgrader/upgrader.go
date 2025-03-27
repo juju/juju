@@ -13,7 +13,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/agent"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/logger"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	jujuhttp "github.com/juju/juju/internal/http"
@@ -46,8 +46,8 @@ const (
 
 // UpgraderClient provides the facade methods used by the worker.
 type UpgraderClient interface {
-	DesiredVersion(ctx context.Context, tag string) (version.Number, error)
-	SetVersion(ctx context.Context, tag string, v version.Binary) error
+	DesiredVersion(ctx context.Context, tag string) (semversion.Number, error)
+	SetVersion(ctx context.Context, tag string, v semversion.Binary) error
 	WatchAPIVersion(ctx context.Context, agentTag string) (watcher.NotifyWatcher, error)
 	Tools(ctx context.Context, tag string) (coretools.List, error)
 }
@@ -68,7 +68,7 @@ type Config struct {
 	Logger                      logger.Logger
 	Client                      UpgraderClient
 	AgentConfig                 agent.Config
-	OrigAgentVersion            version.Number
+	OrigAgentVersion            semversion.Number
 	UpgradeStepsWaiter          gate.Waiter
 	InitialUpgradeCheckComplete gate.Unlocker
 	CheckDiskSpace              func(string, uint64) error
@@ -110,8 +110,8 @@ func (u *Upgrader) Wait() error {
 // AllowedTargetVersion checks if targetVersion is too different from
 // curVersion to allow a downgrade.
 func AllowedTargetVersion(
-	curVersion version.Number,
-	targetVersion version.Number,
+	curVersion semversion.Number,
+	targetVersion semversion.Number,
 ) bool {
 	// Don't allow downgrading from higher versions to version 1.x
 	if curVersion.Major >= 2 && targetVersion.Major == 1 {
@@ -229,8 +229,8 @@ func (u *Upgrader) loop() error {
 	}
 }
 
-func toBinaryVersion(vers version.Number, osType string) version.Binary {
-	outVers := version.Binary{
+func toBinaryVersion(vers semversion.Number, osType string) semversion.Binary {
+	outVers := semversion.Binary{
 		Number:  vers,
 		Arch:    arch.HostArch(),
 		Release: osType,
@@ -238,12 +238,12 @@ func toBinaryVersion(vers version.Number, osType string) version.Binary {
 	return outVers
 }
 
-func (u *Upgrader) toolsAlreadyDownloaded(wantVersion version.Binary) bool {
+func (u *Upgrader) toolsAlreadyDownloaded(wantVersion semversion.Binary) bool {
 	_, err := agenttools.ReadTools(u.dataDir, wantVersion)
 	return err == nil
 }
 
-func (u *Upgrader) newUpgradeReadyError(haveVersion version.Number, newVersion version.Binary, osType string) *agenterrors.UpgradeReadyError {
+func (u *Upgrader) newUpgradeReadyError(haveVersion semversion.Number, newVersion semversion.Binary, osType string) *agenterrors.UpgradeReadyError {
 	return &agenterrors.UpgradeReadyError{
 		OldTools:  toBinaryVersion(haveVersion, osType),
 		NewTools:  newVersion,

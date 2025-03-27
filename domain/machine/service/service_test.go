@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -17,6 +16,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	cmachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
@@ -520,6 +520,7 @@ func (s *serviceSuite) TestIsMachineRebootSuccessMachineNeedReboot(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(needReboot, gc.Equals, true)
 }
+
 func (s *serviceSuite) TestIsMachineRebootSuccessMachineDontNeedReboot(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -779,7 +780,7 @@ func (s *serviceSuite) TestSetReportedMachineAgentVersionInvalid(c *gc.C) {
 		context.Background(),
 		cmachine.Name("0"),
 		coreagentbinary.Version{
-			Number: version.Zero,
+			Number: semversion.Zero,
 		},
 	)
 	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
@@ -802,7 +803,7 @@ func (s *serviceSuite) TestSetReportedMachineAgentVersionNotFound(c *gc.C) {
 		context.Background(),
 		cmachine.Name("0"),
 		coreagentbinary.Version{
-			Number: version.MustParse("1.2.3"),
+			Number: semversion.MustParse("1.2.3"),
 			Arch:   corearch.ARM64,
 		},
 	)
@@ -820,7 +821,7 @@ func (s *serviceSuite) TestSetReportedMachineAgentVersionNotFound(c *gc.C) {
 		gomock.Any(),
 		machineUUID.String(),
 		coreagentbinary.Version{
-			Number: version.MustParse("1.2.3"),
+			Number: semversion.MustParse("1.2.3"),
 			Arch:   corearch.ARM64,
 		},
 	).Return(machineerrors.MachineNotFound)
@@ -829,7 +830,7 @@ func (s *serviceSuite) TestSetReportedMachineAgentVersionNotFound(c *gc.C) {
 		context.Background(),
 		cmachine.Name("0"),
 		coreagentbinary.Version{
-			Number: version.MustParse("1.2.3"),
+			Number: semversion.MustParse("1.2.3"),
 			Arch:   corearch.ARM64,
 		},
 	)
@@ -850,7 +851,7 @@ func (s *serviceSuite) TestSetReportedMachineAgentVersionDead(c *gc.C) {
 		gomock.Any(),
 		machineUUID.String(),
 		coreagentbinary.Version{
-			Number: version.MustParse("1.2.3"),
+			Number: semversion.MustParse("1.2.3"),
 			Arch:   corearch.ARM64,
 		},
 	).Return(machineerrors.MachineIsDead)
@@ -859,7 +860,7 @@ func (s *serviceSuite) TestSetReportedMachineAgentVersionDead(c *gc.C) {
 		context.Background(),
 		cmachine.Name("0"),
 		coreagentbinary.Version{
-			Number: version.MustParse("1.2.3"),
+			Number: semversion.MustParse("1.2.3"),
 			Arch:   corearch.ARM64,
 		},
 	)
@@ -881,7 +882,7 @@ func (s *serviceSuite) TestSetReportedMachineAgentVersion(c *gc.C) {
 		gomock.Any(),
 		machineUUID.String(),
 		coreagentbinary.Version{
-			Number: version.MustParse("1.2.3"),
+			Number: semversion.MustParse("1.2.3"),
 			Arch:   corearch.ARM64,
 		},
 	).Return(nil)
@@ -890,7 +891,7 @@ func (s *serviceSuite) TestSetReportedMachineAgentVersion(c *gc.C) {
 		context.Background(),
 		cmachine.Name("0"),
 		coreagentbinary.Version{
-			Number: version.MustParse("1.2.3"),
+			Number: semversion.MustParse("1.2.3"),
 			Arch:   corearch.ARM64,
 		},
 	)

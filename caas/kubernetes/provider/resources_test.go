@@ -7,13 +7,13 @@ import (
 	"context"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/testing"
 )
@@ -72,6 +72,6 @@ func (s *ResourcesSuite) TestAdoptResources(c *gc.C) {
 			Return(nil, nil),
 	)
 
-	err := s.broker.AdoptResources(envcontext.WithoutCredentialInvalidator(context.Background()), "uuid", version.MustParse("1.2.3"))
+	err := s.broker.AdoptResources(envcontext.WithoutCredentialInvalidator(context.Background()), "uuid", semversion.MustParse("1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 }

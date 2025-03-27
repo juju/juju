@@ -7,9 +7,8 @@ import (
 	"context"
 	stdtesting "testing"
 
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 )
@@ -29,7 +28,7 @@ func (m *ModelUpgraderAPI) FindAgents(ctx context.Context, args common.FindAgent
 
 func (m *ModelUpgraderAPI) DecideVersion(
 	ctx context.Context,
-	currentVersion version.Number, args common.FindAgentsParams,
-) (_ version.Number, err error) {
+	currentVersion semversion.Number, args common.FindAgentsParams,
+) (_ semversion.Number, err error) {
 	return m.decideVersion(ctx, currentVersion, args)
 }

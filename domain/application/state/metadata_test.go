@@ -8,10 +8,10 @@ import (
 
 	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	charmtesting "github.com/juju/juju/core/charm/testing"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application/charm"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -52,7 +52,7 @@ var metadataDecodeTestCases = [...]struct {
 			Name:           "foo",
 			Summary:        "summary",
 			Description:    "description",
-			MinJujuVersion: version.MustParse("2.0.0"),
+			MinJujuVersion: semversion.MustParse("2.0.0"),
 			RunAs:          charm.RunAsRoot,
 			Subordinate:    true,
 			Assumes:        []byte("null"),
@@ -426,7 +426,7 @@ func (s *metadataSuite) TestEncodeMetadata(c *gc.C) {
 		Name:           "foo",
 		Summary:        "summary",
 		Description:    "description",
-		MinJujuVersion: version.MustParse("2.0.0"),
+		MinJujuVersion: semversion.MustParse("2.0.0"),
 		RunAs:          "root",
 		Subordinate:    true,
 		Assumes:        []byte("null"),

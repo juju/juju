@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/replicaset/v3"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/migration"
@@ -35,7 +35,7 @@ var (
 	modelName            = "model-name"
 	modelUUID            = "model-uuid"
 	modelOwner           = names.NewUserTag("owner")
-	backendVersionBinary = version.MustParseBinary("1.2.3-ubuntu-amd64")
+	backendVersionBinary = semversion.MustParseBinary("1.2.3-ubuntu-amd64")
 	backendVersion       = backendVersionBinary.Number
 )
 
@@ -267,7 +267,7 @@ func (s *SourcePrecheckSuite) TestIsUpgrading(c *gc.C) {
 func (s *SourcePrecheckSuite) TestAgentVersionError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.Zero, errors.New("boom"))
+	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.Zero, errors.New("boom"))
 
 	s.checkAgentVersionError(c, sourcePrecheck, s.agentService)
 }
@@ -372,7 +372,7 @@ func (s *SourcePrecheckSuite) TestUnitVersionsDoNotMatch(c *gc.C) {
 				name: "bar",
 				units: []migration.PrecheckUnit{
 					&fakeUnit{name: "bar/0"},
-					&fakeUnit{name: "bar/1", version: version.MustParseBinary("1.2.4-ubuntu-ppc64")},
+					&fakeUnit{name: "bar/1", version: semversion.MustParseBinary("1.2.4-ubuntu-ppc64")},
 				},
 			},
 		},
@@ -480,7 +480,7 @@ func (s *SourcePrecheckSuite) TestControllerAgentVersionError(c *gc.C) {
 
 	backend := newFakeBackend()
 	s.expectAgentVersion(2)
-	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.Zero, errors.New("boom"))
+	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.Zero, errors.New("boom"))
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, s.agentService)
 	c.Assert(err, gc.ErrorMatches, "controller: retrieving model version: boom")
 }
@@ -874,7 +874,7 @@ func (s *TargetPrecheckSuite) TestMachineRequiresReboot(c *gc.C) {
 
 func (s *TargetPrecheckSuite) TestAgentVersionError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.Zero, errors.New("boom"))
+	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.Zero, errors.New("boom"))
 
 	s.checkAgentVersionError(c, s.runPrecheck, s.agentService)
 }
@@ -1101,7 +1101,7 @@ func newBackendWithMismatchingTools() *fakeBackend {
 	return &fakeBackend{
 		machines: []migration.PrecheckMachine{
 			&fakeMachine{id: "0"},
-			&fakeMachine{id: "1", version: version.MustParseBinary("1.3.1-ubuntu-amd64")},
+			&fakeMachine{id: "1", version: semversion.MustParseBinary("1.3.1-ubuntu-amd64")},
 		},
 		machineCountForSeriesUbuntu: map[string]int{"ubuntu@22.04": 2},
 	}
@@ -1307,7 +1307,7 @@ func (m *fakeModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 
 type fakeMachine struct {
 	id             string
-	version        version.Binary
+	version        semversion.Binary
 	life           state.Life
 	status         status.Status
 	instanceStatus status.Status
@@ -1345,7 +1345,7 @@ func (m *fakeMachine) AgentTools() (*tools.Tools, error) {
 	// Avoid having to specify the version when it's supposed to match
 	// the model config.
 	v := m.version
-	if v.Compare(version.Zero) == 0 {
+	if v.Compare(semversion.Zero) == 0 {
 		v = backendVersionBinary
 	}
 	return &tools.Tools{
@@ -1385,7 +1385,7 @@ func (a *fakeApp) AllUnits() ([]migration.PrecheckUnit, error) {
 
 type fakeUnit struct {
 	name     string
-	version  version.Binary
+	version  semversion.Binary
 	noTools  bool
 	life     state.Life
 	charmURL string
@@ -1402,7 +1402,7 @@ func (u *fakeUnit) AgentTools() (*tools.Tools, error) {
 	// Avoid having to specify the version when it's supposed to match
 	// the model config.
 	v := u.version
-	if v.Compare(version.Zero) == 0 {
+	if v.Compare(semversion.Zero) == 0 {
 		v = backendVersionBinary
 	}
 	return &tools.Tools{

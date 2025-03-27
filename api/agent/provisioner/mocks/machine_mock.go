@@ -15,11 +15,11 @@ import (
 
 	instance "github.com/juju/juju/core/instance"
 	life "github.com/juju/juju/core/life"
+	semversion "github.com/juju/juju/core/semversion"
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v6"
-	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -433,10 +433,10 @@ func (c *MockMachineProvisionerMarkForRemovalCall) DoAndReturn(f func(context.Co
 }
 
 // ModelAgentVersion mocks base method.
-func (m *MockMachineProvisioner) ModelAgentVersion(arg0 context.Context) (*version.Number, error) {
+func (m *MockMachineProvisioner) ModelAgentVersion(arg0 context.Context) (*semversion.Number, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelAgentVersion", arg0)
-	ret0, _ := ret[0].(*version.Number)
+	ret0, _ := ret[0].(*semversion.Number)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -454,19 +454,19 @@ type MockMachineProvisionerModelAgentVersionCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockMachineProvisionerModelAgentVersionCall) Return(arg0 *version.Number, arg1 error) *MockMachineProvisionerModelAgentVersionCall {
+func (c *MockMachineProvisionerModelAgentVersionCall) Return(arg0 *semversion.Number, arg1 error) *MockMachineProvisionerModelAgentVersionCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineProvisionerModelAgentVersionCall) Do(f func(context.Context) (*version.Number, error)) *MockMachineProvisionerModelAgentVersionCall {
+func (c *MockMachineProvisionerModelAgentVersionCall) Do(f func(context.Context) (*semversion.Number, error)) *MockMachineProvisionerModelAgentVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineProvisionerModelAgentVersionCall) DoAndReturn(f func(context.Context) (*version.Number, error)) *MockMachineProvisionerModelAgentVersionCall {
+func (c *MockMachineProvisionerModelAgentVersionCall) DoAndReturn(f func(context.Context) (*semversion.Number, error)) *MockMachineProvisionerModelAgentVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

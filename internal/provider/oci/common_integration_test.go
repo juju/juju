@@ -11,13 +11,13 @@ import (
 	"github.com/juju/clock/testclock"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -29,11 +29,12 @@ import (
 )
 
 var clk = testclock.NewClock(time.Time{})
+
 var advancingClock = testclock.AutoAdvancingClock{clk, clk.Advance}
 
 func makeToolsList(series string) tools.List {
-	var toolsVersion version.Binary
-	toolsVersion.Number = version.MustParse("2.4.0")
+	var toolsVersion semversion.Binary
+	toolsVersion.Number = semversion.MustParse("2.4.0")
 	toolsVersion.Arch = arch.AMD64
 	toolsVersion.Release = series
 	return tools.List{{

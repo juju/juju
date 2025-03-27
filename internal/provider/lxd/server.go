@@ -22,11 +22,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v4"
-	"github.com/juju/version/v2"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/container/lxd"
@@ -399,24 +399,24 @@ func (s *serverFactory) Clock() clock.Clock {
 }
 
 // parseAPIVersion parses the LXD API version string.
-func parseAPIVersion(s string) (version.Number, error) {
+func parseAPIVersion(s string) (semversion.Number, error) {
 	versionParts := strings.Split(s, ".")
 	if len(versionParts) < 2 {
-		return version.Zero, errors.NewNotValid(nil, fmt.Sprintf("LXD API version %q: expected format <major>.<minor>", s))
+		return semversion.Zero, errors.NewNotValid(nil, fmt.Sprintf("LXD API version %q: expected format <major>.<minor>", s))
 	}
 	major, err := strconv.Atoi(versionParts[0])
 	if err != nil {
-		return version.Zero, errors.NotValidf("major version number  %v", versionParts[0])
+		return semversion.Zero, errors.NotValidf("major version number  %v", versionParts[0])
 	}
 	minor, err := strconv.Atoi(versionParts[1])
 	if err != nil {
-		return version.Zero, errors.NotValidf("minor version number  %v", versionParts[1])
+		return semversion.Zero, errors.NotValidf("minor version number  %v", versionParts[1])
 	}
-	return version.Number{Major: major, Minor: minor}, nil
+	return semversion.Number{Major: major, Minor: minor}, nil
 }
 
 // minLXDVersion defines the min version of LXD we support.
-var minLXDVersion = version.Number{Major: 5, Minor: 0}
+var minLXDVersion = semversion.Number{Major: 5, Minor: 0}
 
 // ValidateAPIVersion validates the LXD version.
 func ValidateAPIVersion(version string) error {

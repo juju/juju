@@ -19,13 +19,13 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/tar"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
@@ -48,7 +48,9 @@ type syncSuite struct {
 }
 
 var _ = gc.Suite(&syncSuite{})
+
 var _ = gc.Suite(&uploadSuite{})
+
 var _ = gc.Suite(&badBuildSuite{})
 
 func (s *syncSuite) setUpTest(c *gc.C) {
@@ -56,7 +58,7 @@ func (s *syncSuite) setUpTest(c *gc.C) {
 	s.ToolsFixture.SetUpTest(c)
 
 	// It's important that this be v1.8.x to match the test data.
-	s.PatchValue(&jujuversion.Current, version.MustParse("1.8.3"))
+	s.PatchValue(&jujuversion.Current, semversion.MustParse("1.8.3"))
 
 	// Create a source storage.
 	baseDir := c.MkDir()
@@ -90,14 +92,14 @@ var tests = []struct {
 	description string
 	ctx         *sync.SyncContext
 	source      bool
-	tools       []version.Binary
+	tools       []semversion.Binary
 	major       int
 	minor       int
 }{
 	{
 		description: "copy newest from the filesystem",
 		ctx: &sync.SyncContext{
-			ChosenVersion: version.MustParse("1.8.0"),
+			ChosenVersion: semversion.MustParse("1.8.0"),
 		},
 		source: true,
 		tools:  v180all,
@@ -105,30 +107,30 @@ var tests = []struct {
 	{
 		description: "copy newest from the dummy model",
 		ctx: &sync.SyncContext{
-			ChosenVersion: version.MustParse("1.8.0"),
+			ChosenVersion: semversion.MustParse("1.8.0"),
 		},
 		tools: v180all,
 	},
 	{
 		description: "copy matching dev from the dummy model",
 		ctx: &sync.SyncContext{
-			ChosenVersion: version.MustParse("1.9.0"),
+			ChosenVersion: semversion.MustParse("1.9.0"),
 		},
 		tools: v190all,
 	},
 	{
 		description: "copy matching version from the dummy model",
 		ctx: &sync.SyncContext{
-			ChosenVersion: version.MustParse("3.2.0"),
+			ChosenVersion: semversion.MustParse("3.2.0"),
 		},
-		tools: []version.Binary{v320u64},
+		tools: []semversion.Binary{v320u64},
 	},
 	{
 		description: "copy matching major, minor dev from the dummy model",
 		ctx: &sync.SyncContext{
-			ChosenVersion: version.MustParse("3.1.0"),
+			ChosenVersion: semversion.MustParse("3.1.0"),
 		},
-		tools: []version.Binary{v310u64},
+		tools: []semversion.Binary{v310u64},
 	},
 }
 
@@ -144,12 +146,12 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			if test.source {
 				test.ctx.Source = s.localStorage
 			}
-			if test.ctx.ChosenVersion != version.Zero {
+			if test.ctx.ChosenVersion != semversion.Zero {
 				jujuversion.Current = test.ctx.ChosenVersion
 			}
 
 			uploader := fakeToolsUploader{
-				uploaded: make(map[version.Binary]bool),
+				uploaded: make(map[semversion.Binary]bool),
 			}
 			test.ctx.TargetToolsFinder = mockToolsFinder{}
 			test.ctx.TargetToolsUploader = &uploader
@@ -168,7 +170,7 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			// Bugs #1542127, #1542131
 			c.Assert(ds.PublicSigningKey(), gc.Not(gc.Equals), "")
 
-			var uploaded []version.Binary
+			var uploaded []semversion.Binary
 			for v := range uploader.uploaded {
 				uploaded = append(uploaded, v)
 			}
@@ -188,16 +190,16 @@ func (s *syncSuite) TestSyncToolsOldPatchVersion(c *gc.C) {
 	err := sync.SyncTools(context.Background(), &sync.SyncContext{
 		Source: s.localStorage,
 		// Request an older patch version of the current series (1.8.x)
-		ChosenVersion: version.MustParse("1.8.0"),
+		ChosenVersion: semversion.MustParse("1.8.0"),
 		TargetToolsUploader: &fakeToolsUploader{
-			uploaded: make(map[version.Binary]bool),
+			uploaded: make(map[semversion.Binary]bool),
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 type fakeToolsUploader struct {
-	uploaded map[version.Binary]bool
+	uploaded map[semversion.Binary]bool
 }
 
 func (u *fakeToolsUploader) UploadTools(_ context.Context, _, _ string, tools *coretools.Tools, _ []byte) error {
@@ -206,19 +208,19 @@ func (u *fakeToolsUploader) UploadTools(_ context.Context, _, _ string, tools *c
 }
 
 var (
-	v100u64 = version.MustParseBinary("1.0.0-ubuntu-amd64")
-	v100u32 = version.MustParseBinary("1.0.0-ubuntu-arm64")
-	v100all = []version.Binary{v100u64, v100u32}
-	v180u64 = version.MustParseBinary("1.8.0-ubuntu-amd64")
-	v180u32 = version.MustParseBinary("1.8.0-ubuntu-arm64")
-	v180all = []version.Binary{v180u64, v180u32}
-	v190u64 = version.MustParseBinary("1.9.0-ubuntu-amd64")
-	v190u32 = version.MustParseBinary("1.9.0-ubuntu-arm64")
-	v190all = []version.Binary{v190u64, v190u32}
+	v100u64 = semversion.MustParseBinary("1.0.0-ubuntu-amd64")
+	v100u32 = semversion.MustParseBinary("1.0.0-ubuntu-arm64")
+	v100all = []semversion.Binary{v100u64, v100u32}
+	v180u64 = semversion.MustParseBinary("1.8.0-ubuntu-amd64")
+	v180u32 = semversion.MustParseBinary("1.8.0-ubuntu-arm64")
+	v180all = []semversion.Binary{v180u64, v180u32}
+	v190u64 = semversion.MustParseBinary("1.9.0-ubuntu-amd64")
+	v190u32 = semversion.MustParseBinary("1.9.0-ubuntu-arm64")
+	v190all = []semversion.Binary{v190u64, v190u32}
 	v1all   = append(append(v100all, v180all...), v190all...)
-	v200u64 = version.MustParseBinary("2.0.0-ubuntu-amd64")
-	v310u64 = version.MustParseBinary("3.1.0-ubuntu-amd64")
-	v320u64 = version.MustParseBinary("3.2.0-ubuntu-amd64")
+	v200u64 = semversion.MustParseBinary("2.0.0-ubuntu-amd64")
+	v310u64 = semversion.MustParseBinary("3.1.0-ubuntu-amd64")
+	v320u64 = semversion.MustParseBinary("3.2.0-ubuntu-amd64")
 	vAll    = append(append(v1all, v200u64), v310u64, v320u64)
 )
 
@@ -238,13 +240,13 @@ func (s *uploadSuite) SetUpTest(c *gc.C) {
 	s.targetStorage = stor
 }
 
-func (s *uploadSuite) patchBundleTools(c *gc.C, v version.Number) {
+func (s *uploadSuite) patchBundleTools(c *gc.C, v semversion.Number) {
 	// Mock out building of tools. Sync should not care about the contents
 	// of tools archives, other than that they hash correctly.
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(v))
 }
 
-func (s *uploadSuite) assertEqualsCurrentVersion(c *gc.C, v version.Binary) {
+func (s *uploadSuite) assertEqualsCurrentVersion(c *gc.C, v semversion.Binary) {
 	c.Assert(v, gc.Equals, coretesting.CurrentVersion())
 }
 
@@ -263,7 +265,7 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 	forceVersion := jujuversion.Current
 	s.patchBundleTools(c, forceVersion)
 	t, err := sync.Upload(context.Background(), ss, s.targetStorage, "released",
-		func(version.Number) version.Number { return forceVersion },
+		func(semversion.Number) semversion.Number { return forceVersion },
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEqualsCurrentVersion(c, t.Version)
@@ -283,7 +285,7 @@ func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
 	forceVersion.Patch++
 	s.patchBundleTools(c, forceVersion)
 	t, err := sync.Upload(context.Background(), ss, s.targetStorage, "released",
-		func(version.Number) version.Number { return forceVersion },
+		func(semversion.Number) semversion.Number { return forceVersion },
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(t.Version, gc.Equals, coretesting.CurrentVersion())
@@ -300,7 +302,7 @@ func (s *uploadSuite) TestSyncTools(c *gc.C) {
 	forceVersion.Patch++
 	s.patchBundleTools(c, forceVersion)
 	builtTools, err := sync.BuildAgentTarball(true, "released",
-		func(version.Number) version.Number { return forceVersion },
+		func(semversion.Number) semversion.Number { return forceVersion },
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	t, err := sync.SyncBuiltTools(context.Background(), ss, s.targetStorage, "released", builtTools)
@@ -320,7 +322,7 @@ func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {
 	forceVersion.Patch++
 	s.patchBundleTools(c, forceVersion)
 	builtTools, err := sync.BuildAgentTarball(true, "released",
-		func(version.Number) version.Number { return forceVersion },
+		func(semversion.Number) semversion.Number { return forceVersion },
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	t, err := sync.SyncBuiltTools(context.Background(), ss, s.targetStorage, "released", builtTools)
@@ -366,14 +368,14 @@ func downloadToolsRaw(c *gc.C, t *coretools.Tools) []byte {
 	return buf.Bytes()
 }
 
-func bundleTools(c *gc.C) (version.Binary, bool, string, error) {
+func bundleTools(c *gc.C) (semversion.Binary, bool, string, error) {
 	f, err := os.CreateTemp("", "juju-tgz")
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = f.Close() }()
 	defer func() { _ = os.Remove(f.Name()) }()
 
 	tvers, _, official, sha256hash, err := envtools.BundleTools(true, f,
-		func(version.Number) version.Number { return jujuversion.Current },
+		func(semversion.Number) semversion.Number { return jujuversion.Current },
 	)
 	return tvers, official, sha256hash, err
 }
@@ -424,7 +426,7 @@ func (s *badBuildSuite) TearDownTest(c *gc.C) {
 	s.CleanupSuite.TearDownTest(c)
 }
 
-func (s *badBuildSuite) assertEqualsCurrentVersion(c *gc.C, v version.Binary) {
+func (s *badBuildSuite) assertEqualsCurrentVersion(c *gc.C, v semversion.Binary) {
 	current := coretesting.CurrentVersion()
 	c.Assert(v, gc.Equals, current)
 }
@@ -434,7 +436,7 @@ func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
 
 	// Test that original bundleTools Func fails as expected
 	vers, official, sha256Hash, err := bundleTools(c)
-	c.Assert(vers, gc.DeepEquals, version.Binary{})
+	c.Assert(vers, gc.DeepEquals, semversion.Binary{})
 	c.Assert(official, jc.IsFalse)
 	c.Assert(sha256Hash, gc.Equals, "")
 	c.Assert(err, gc.ErrorMatches, `(?m)cannot build jujud agent binary from source: .*`)
@@ -463,7 +465,7 @@ func (s *badBuildSuite) TestBuildToolsBadBuild(c *gc.C) {
 
 	// Test that original BuildAgentTarball fails
 	builtTools, err := sync.BuildAgentTarball(true, "released",
-		func(version.Number) version.Number { return version.Zero },
+		func(semversion.Number) semversion.Number { return semversion.Zero },
 	)
 	c.Assert(err, gc.ErrorMatches, `(?m)cannot build jujud agent binary from source: .*`)
 	c.Assert(builtTools, gc.IsNil)
@@ -473,7 +475,7 @@ func (s *badBuildSuite) TestBuildToolsBadBuild(c *gc.C) {
 	forceVersion := coretesting.CurrentVersion().Number
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(forceVersion))
 	builtTools, err = sync.BuildAgentTarball(true, "released",
-		func(version.Number) version.Number { return forceVersion },
+		func(semversion.Number) semversion.Number { return forceVersion },
 	)
 	s.assertEqualsCurrentVersion(c, builtTools.Version)
 	c.Assert(err, jc.ErrorIsNil)
@@ -483,7 +485,7 @@ func (s *badBuildSuite) TestBuildToolsNoBinaryAvailable(c *gc.C) {
 	s.patchExecCommand(c)
 
 	builtTools, err := sync.BuildAgentTarball(false, "released",
-		func(version.Number) version.Number { return version.Zero },
+		func(semversion.Number) semversion.Number { return semversion.Zero },
 	)
 	c.Assert(err, gc.ErrorMatches, `no prepackaged agent available and no jujud binary can be found`)
 	c.Assert(builtTools, gc.IsNil)
@@ -492,7 +494,7 @@ func (s *badBuildSuite) TestBuildToolsNoBinaryAvailable(c *gc.C) {
 func (s *uploadSuite) TestMockBundleTools(c *gc.C) {
 	var (
 		writer       io.Writer
-		forceVersion version.Number
+		forceVersion semversion.Number
 		n            int
 		p            bytes.Buffer
 	)
@@ -501,13 +503,13 @@ func (s *uploadSuite) TestMockBundleTools(c *gc.C) {
 	s.PatchValue(&envtools.BundleTools,
 		func(
 			build bool, writerArg io.Writer,
-			getForceVersion func(version.Number) version.Number,
-		) (vers version.Binary, fVersion version.Number, official bool, sha256Hash string, err error) {
+			getForceVersion func(semversion.Number) semversion.Number,
+		) (vers semversion.Binary, fVersion semversion.Number, official bool, sha256Hash string, err error) {
 			c.Assert(build, jc.IsTrue)
 			writer = writerArg
 			n, err = writer.Write(p.Bytes())
 			c.Assert(err, jc.ErrorIsNil)
-			forceVersion = getForceVersion(version.Zero)
+			forceVersion = getForceVersion(semversion.Zero)
 			fVersion = forceVersion
 			vers.Number = jujuversion.Current
 			return
@@ -515,7 +517,7 @@ func (s *uploadSuite) TestMockBundleTools(c *gc.C) {
 	)
 
 	_, err := sync.BuildAgentTarball(true, "released",
-		func(version.Number) version.Number { return jujuversion.Current },
+		func(semversion.Number) semversion.Number { return jujuversion.Current },
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(forceVersion, gc.Equals, jujuversion.Current)
@@ -524,7 +526,7 @@ func (s *uploadSuite) TestMockBundleTools(c *gc.C) {
 }
 
 func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
-	checkTools := func(tools *sync.BuiltAgent, vers version.Binary) {
+	checkTools := func(tools *sync.BuiltAgent, vers semversion.Binary) {
 		c.Check(tools.StorageName, gc.Equals, "name")
 		c.Check(tools.Version, jc.DeepEquals, vers)
 
@@ -543,20 +545,20 @@ func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
 		c.Check(string(content), gc.Equals, fmt.Sprintf("jujud contents %s", vers))
 	}
 
-	current := version.MustParseBinary("1.9.1-ubuntu-amd64")
+	current := semversion.MustParseBinary("1.9.1-ubuntu-amd64")
 	s.PatchValue(&jujuversion.Current, current.Number)
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
 	s.PatchValue(&coreos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 	buildToolsFunc := toolstesting.GetMockBuildTools(c)
 	builtTools, err := buildToolsFunc(true, "released",
-		func(version.Number) version.Number { return jujuversion.Current },
+		func(semversion.Number) semversion.Number { return jujuversion.Current },
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	checkTools(builtTools, current)
 
-	vers := version.MustParseBinary("1.5.3-ubuntu-amd64")
+	vers := semversion.MustParseBinary("1.5.3-ubuntu-amd64")
 	builtTools, err = buildToolsFunc(true, "released",
-		func(version.Number) version.Number { return vers.Number },
+		func(semversion.Number) semversion.Number { return vers.Number },
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	checkTools(builtTools, vers)

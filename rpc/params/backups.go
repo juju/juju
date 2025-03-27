@@ -6,9 +6,8 @@ package params
 import (
 	"time"
 
-	"github.com/juju/version/v2"
-
 	corebackups "github.com/juju/juju/core/backups"
+	"github.com/juju/juju/core/semversion"
 )
 
 // BackupsCreateArgs holds the args for the API Create method.
@@ -32,14 +31,14 @@ type BackupsMetadataResult struct {
 	Size           int64     `json:"size"`
 	Stored         time.Time `json:"stored"` // May be zero...
 
-	Started  time.Time      `json:"started"`
-	Finished time.Time      `json:"finished"` // May be zero...
-	Notes    string         `json:"notes"`
-	Model    string         `json:"model"`
-	Machine  string         `json:"machine"`
-	Hostname string         `json:"hostname"`
-	Version  version.Number `json:"version"`
-	Base     string         `json:"base"`
+	Started  time.Time         `json:"started"`
+	Finished time.Time         `json:"finished"` // May be zero...
+	Notes    string            `json:"notes"`
+	Model    string            `json:"model"`
+	Machine  string            `json:"machine"`
+	Hostname string            `json:"hostname"`
+	Version  semversion.Number `json:"version"`
+	Base     string            `json:"base"`
 
 	Filename string `json:"filename"`
 

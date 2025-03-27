@@ -5,10 +5,10 @@ package commands
 
 import (
 	"github.com/juju/gnuflag"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/cmd"
 )
@@ -28,7 +28,7 @@ Print all version information:
 // and passed into each SuperCommand. It can be printed using `juju version --all`.
 type versionDetail struct {
 	// Version of the current binary.
-	Version version.Binary `json:"version" yaml:"version"`
+	Version semversion.Binary `json:"version" yaml:"version"`
 	// GitCommit of tree used to build the binary.
 	GitCommit string `json:"git-commit,omitempty" yaml:"git-commit,omitempty"`
 	// GitTreeState is "clean" if the working copy used to build the binary had no
@@ -46,7 +46,7 @@ type versionDetail struct {
 type versionCommand struct {
 	cmd.CommandBase
 	out           cmd.Output
-	version       version.Binary
+	version       semversion.Binary
 	versionDetail interface{}
 
 	showAll bool
@@ -79,7 +79,7 @@ func (v *versionCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (v *versionCommand) Init(args []string) error {
-	current := version.Binary{
+	current := semversion.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),
 		Release: coreos.HostOSTypeName(),

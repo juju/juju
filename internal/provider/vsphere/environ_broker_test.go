@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -91,8 +91,8 @@ func (s *legacyEnvironBrokerSuite) createStartInstanceArgs(c *gc.C) environs.Sta
 
 func setInstanceConfigTools(c *gc.C, instanceConfig *instancecfg.InstanceConfig) coretools.List {
 	tools := []*coretools.Tools{{
-		Version: version.Binary{
-			Number:  version.MustParse("1.2.3"),
+		Version: semversion.Binary{
+			Number:  semversion.MustParse("1.2.3"),
 			Arch:    arch.AMD64,
 			Release: "ubuntu",
 		},

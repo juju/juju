@@ -6,11 +6,10 @@ package service
 import (
 	"context"
 
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/semversion"
 	coreupgrade "github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -21,7 +20,7 @@ import (
 
 // State describes retrieval and persistence methods for upgrade info.
 type State interface {
-	CreateUpgrade(context.Context, version.Number, version.Number) (upgrade.UUID, error)
+	CreateUpgrade(context.Context, semversion.Number, semversion.Number) (upgrade.UUID, error)
 	SetControllerReady(context.Context, upgrade.UUID, string) error
 	AllProvisionedControllersReady(context.Context, upgrade.UUID) (bool, error)
 	StartUpgrade(context.Context, upgrade.UUID) error
@@ -60,7 +59,7 @@ func NewService(st State, wf WatcherFactory) *Service {
 
 // CreateUpgrade creates an upgrade to and from specified versions
 // If an upgrade is already running/pending, return an AlreadyExists err
-func (s *Service) CreateUpgrade(ctx context.Context, previousVersion, targetVersion version.Number) (upgrade.UUID, error) {
+func (s *Service) CreateUpgrade(ctx context.Context, previousVersion, targetVersion semversion.Number) (upgrade.UUID, error) {
 	if previousVersion.Compare(targetVersion) >= 0 {
 		return "", errors.Errorf("target version %q must be greater than current version %q %w", targetVersion, previousVersion, coreerrors.NotValid)
 	}

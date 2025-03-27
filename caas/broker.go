@@ -9,12 +9,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/docker"
@@ -237,7 +237,7 @@ type ModelOperatorManager interface {
 // Upgrader provides the API to perform upgrades.
 type Upgrader interface {
 	// Upgrade sets the OCI image for the app to the specified version.
-	Upgrade(ctx context.Context, appName string, vers version.Number) error
+	Upgrade(ctx context.Context, appName string, vers semversion.Number) error
 }
 
 // StorageValidator provides methods to validate storage.
@@ -249,7 +249,7 @@ type StorageValidator interface {
 // ClusterVersionGetter provides methods to get cluster version information.
 type ClusterVersionGetter interface {
 	// Version returns cluster version information.
-	Version() (*version.Number, error)
+	Version() (*semversion.Number, error)
 }
 
 // CredentialChecker provides an API for checking that the credentials
@@ -359,7 +359,7 @@ type OperatorConfig struct {
 	BaseImageDetails resource.DockerImageDetails
 
 	// Version is the Juju version of the operator image.
-	Version version.Number
+	Version semversion.Number
 
 	// CharmStorage defines parameters used to optionally
 	// create storage for operators to use for charm state.

@@ -6,9 +6,9 @@ package service
 import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
@@ -63,11 +63,11 @@ var metadataTestCases = [...]struct {
 		input: charm.Metadata{
 			Name:           "foo",
 			RunAs:          charm.RunAsDefault,
-			MinJujuVersion: version.MustParse("2.0.0"),
+			MinJujuVersion: semversion.MustParse("2.0.0"),
 		},
 		output: internalcharm.Meta{
 			Name:           "foo",
-			MinJujuVersion: version.MustParse("2.0.0"),
+			MinJujuVersion: semversion.MustParse("2.0.0"),
 		},
 	},
 	{

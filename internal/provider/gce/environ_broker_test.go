@@ -7,13 +7,13 @@ import (
 	"errors"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
@@ -133,7 +133,7 @@ func (s *environBrokerSuite) TestFinishInstanceConfig(c *gc.C) {
 	err := gce.FinishInstanceConfig(s.Env, s.StartInstArgs, s.spec)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(s.StartInstArgs.InstanceConfig.AgentVersion(), gc.Not(gc.Equals), version.Binary{})
+	c.Check(s.StartInstArgs.InstanceConfig.AgentVersion(), gc.Not(gc.Equals), semversion.Binary{})
 }
 
 func (s *environBrokerSuite) TestBuildInstanceSpec(c *gc.C) {

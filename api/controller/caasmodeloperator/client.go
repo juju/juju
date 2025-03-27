@@ -7,11 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -41,7 +41,7 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 type ModelOperatorProvisioningInfo struct {
 	APIAddresses []string
 	ImageDetails resource.DockerImageDetails
-	Version      version.Number
+	Version      semversion.Number
 }
 
 // ModelOperatorProvisioningInfo returns the information needed for a given model

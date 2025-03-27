@@ -14,7 +14,6 @@ import (
 	"github.com/juju/description/v9"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -28,6 +27,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/semversion"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/environs/envcontext"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -410,7 +410,7 @@ func (s *Suite) TestAdoptIAASResources(c *gc.C) {
 
 	err = api.AdoptResources(context.Background(), params.AdoptResourcesArgs{
 		ModelTag:                m.ModelTag().String(),
-		SourceControllerVersion: version.MustParse("3.2.1"),
+		SourceControllerVersion: semversion.MustParse("3.2.1"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -429,7 +429,7 @@ func (s *Suite) TestAdoptCAASResources(c *gc.C) {
 
 	err = api.AdoptResources(context.Background(), params.AdoptResourcesArgs{
 		ModelTag:                m.ModelTag().String(),
-		SourceControllerVersion: version.MustParse("3.2.1"),
+		SourceControllerVersion: semversion.MustParse("3.2.1"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -639,9 +639,9 @@ func (s *Suite) makeExportedModel(c *gc.C) (string, []byte) {
 	return newUUID, bytes
 }
 
-func (s *Suite) controllerVersion(c *gc.C) version.Number {
+func (s *Suite) controllerVersion(c *gc.C) semversion.Number {
 
-	return version.Number{}
+	return semversion.Number{}
 }
 
 func (s *Suite) expectImportModel(c *gc.C) {

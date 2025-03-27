@@ -4,18 +4,18 @@
 package tools
 
 import (
-	"github.com/juju/version/v2"
+	"github.com/juju/juju/core/semversion"
 )
 
 // Tools represents the location and version of a tools tarball.
 type Tools struct {
-	Version version.Binary `json:"version"`
-	URL     string         `json:"url"`
-	SHA256  string         `json:"sha256,omitempty"`
-	Size    int64          `json:"size"`
+	Version semversion.Binary `json:"version"`
+	URL     string            `json:"url"`
+	SHA256  string            `json:"sha256,omitempty"`
+	Size    int64             `json:"size"`
 }
 
 // AgentVersion is the version of Juju being represented.
-func (t *Tools) AgentVersion() version.Number {
+func (t *Tools) AgentVersion() semversion.Number {
 	return t.Version.Number
 }

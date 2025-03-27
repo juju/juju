@@ -7,8 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/cloud"
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
@@ -17,6 +15,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/access"
@@ -157,5 +156,5 @@ type ModelAgentService interface {
 	// entire model. The following errors can be returned:
 	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
 	// not exist.
-	GetModelTargetAgentVersion(context.Context) (version.Number, error)
+	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
 }

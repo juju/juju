@@ -8,13 +8,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/dependency"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/semversion"
 	jv "github.com/juju/juju/core/version"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -122,7 +122,7 @@ func (s *UnitAgentSuite) writeAgentConf(c *gc.C) {
 			CACert:       jt.CACert,
 			// We'll use an old version number here to confirm
 			// that it gets updated.
-			UpgradedToVersion: version.Number{Major: 2, Minor: 2},
+			UpgradedToVersion: semversion.Number{Major: 2, Minor: 2},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	err = conf.Write()

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -45,6 +44,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
@@ -826,7 +826,7 @@ func (s *K8sBrokerSuite) TestSupportedFeatures(c *gc.C) {
 		{
 			Name:        "k8s-api",
 			Description: "the Kubernetes API lets charms query and manipulate the state of API objects in a Kubernetes cluster",
-			Version:     &version.Number{Major: 1, Minor: 15},
+			Version:     &semversion.Number{Major: 1, Minor: 15},
 		},
 	})
 }

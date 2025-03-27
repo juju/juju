@@ -11,12 +11,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/tools"
@@ -587,8 +587,8 @@ type AgentGetEntitiesResult struct {
 // VersionResult holds the version and possibly error for a given
 // DesiredVersion() API call.
 type VersionResult struct {
-	Version *version.Number `json:"version,omitempty"`
-	Error   *Error          `json:"error,omitempty"`
+	Version *semversion.Number `json:"version,omitempty"`
+	Error   *Error             `json:"error,omitempty"`
 }
 
 // VersionResults is a list of versions for the requested entities.
@@ -627,7 +627,7 @@ type ToolsResults struct {
 
 // Version holds a specific binary version.
 type Version struct {
-	Version version.Binary `json:"version"`
+	Version semversion.Binary `json:"version"`
 }
 
 // EntityVersion specifies the tools version to be set for an entity
@@ -819,7 +819,7 @@ type RunResults struct {
 // AgentVersionResult is used to return the current version number of the
 // agent running the API server.
 type AgentVersionResult struct {
-	Version version.Number `json:"version"`
+	Version semversion.Number `json:"version"`
 }
 
 // RetryProvisioningArgs holds args for retrying machine provisioning.

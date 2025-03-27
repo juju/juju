@@ -12,12 +12,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/client/modelconfig"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/cmd"
 	coretools "github.com/juju/juju/internal/tools"
@@ -69,7 +69,7 @@ type upgradeModelCommand struct {
 	modelcmd.ModelCommandBase
 
 	vers        string
-	Version     version.Number
+	Version     semversion.Number
 	DryRun      bool
 	AssumeYes   bool
 	AgentStream string
@@ -112,7 +112,7 @@ func (c *upgradeModelCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *upgradeModelCommand) Init(args []string) error {
 	if c.vers != "" {
-		vers, err := version.Parse(c.vers)
+		vers, err := semversion.Parse(c.vers)
 		if err != nil {
 			return err
 		}
@@ -135,9 +135,9 @@ type ModelConfigAPI interface {
 type ModelUpgraderAPI interface {
 	UpgradeModel(
 		ctx context.Context,
-		modelUUID string, targetVersion version.Number, stream string, ignoreAgentVersions, druRun bool,
-	) (version.Number, error)
-	UploadTools(ctx context.Context, r io.Reader, vers version.Binary) (coretools.List, error)
+		modelUUID string, targetVersion semversion.Number, stream string, ignoreAgentVersions, druRun bool,
+	) (semversion.Number, error)
+	UploadTools(ctx context.Context, r io.Reader, vers semversion.Binary) (coretools.List, error)
 
 	Close() error
 }
@@ -259,8 +259,8 @@ func (c *upgradeModelCommand) upgradeModel(ctx *cmd.Context, fetchTimeout time.D
 }
 
 func (c *upgradeModelCommand) notifyControllerUpgrade(
-	ctx *cmd.Context, modelUpgrader ModelUpgraderAPI, targetVersion version.Number, dryRun bool,
-) (chosenVersion version.Number, err error) {
+	ctx *cmd.Context, modelUpgrader ModelUpgraderAPI, targetVersion semversion.Number, dryRun bool,
+) (chosenVersion semversion.Number, err error) {
 	_, details, err := c.ModelCommandBase.ModelDetails(ctx)
 	if err != nil {
 		return chosenVersion, errors.Trace(err)

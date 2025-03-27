@@ -8,10 +8,10 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -125,17 +125,17 @@ WHERE name = $unitName.name
 // GetTargetAgentVersion returns the agent version for the model.
 // If the agent_version table has no data,
 // [modelerrors.AgentVersionNotFound] is returned.
-func (st *State) GetTargetAgentVersion(ctx context.Context) (version.Number, error) {
+func (st *State) GetTargetAgentVersion(ctx context.Context) (semversion.Number, error) {
 	db, err := st.DB()
 	if err != nil {
-		return version.Zero, errors.Capture(err)
+		return semversion.Zero, errors.Capture(err)
 	}
 
 	res := dbAgentVersion{}
 
 	stmt, err := st.Prepare("SELECT &dbAgentVersion.target_version FROM agent_version", res)
 	if err != nil {
-		return version.Zero, errors.Errorf("preparing agent version query: %w", err)
+		return semversion.Zero, errors.Errorf("preparing agent version query: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -148,12 +148,12 @@ func (st *State) GetTargetAgentVersion(ctx context.Context) (version.Number, err
 		return nil
 	})
 	if err != nil {
-		return version.Zero, errors.Capture(err)
+		return semversion.Zero, errors.Capture(err)
 	}
 
-	vers, err := version.Parse(res.TargetAgentVersion)
+	vers, err := semversion.Parse(res.TargetAgentVersion)
 	if err != nil {
-		return version.Zero, errors.Errorf("parsing agent version: %w", err)
+		return semversion.Zero, errors.Errorf("parsing agent version: %w", err)
 	}
 	return vers, nil
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4/shell"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/mongo"
 )
 
@@ -92,7 +92,7 @@ func (c *configFromEnv) OldPassword() string {
 	return os.Getenv("JUJU_K8S_APPLICATION_PASSWORD")
 }
 
-func (c *configFromEnv) UpgradedToVersion() version.Number {
+func (c *configFromEnv) UpgradedToVersion() semversion.Number {
 	panic("not implemented")
 }
 

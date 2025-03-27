@@ -12,11 +12,11 @@ import (
 	"github.com/juju/replicaset/v3"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/semversion"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
@@ -123,41 +123,41 @@ func (s *upgradeValidationSuite) TestGetCheckTargetVersionForControllerModel(c *
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinAgentVersions, map[int]version.Number{
-		3: version.MustParse("2.9.30"),
+	s.PatchValue(&upgradevalidation.MinAgentVersions, map[int]semversion.Number{
+		3: semversion.MustParse("2.9.30"),
 	})
 
 	agentService := mocks.NewMockModelAgentService(ctrl)
 	gomock.InOrder(
-		agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse("2.9.29"), nil),
-		agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse("2.9.31"), nil),
-		agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse("2.9.31"), nil),
-		agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse("2.9.31"), nil),
+		agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.MustParse("2.9.29"), nil),
+		agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.MustParse("2.9.31"), nil),
+		agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.MustParse("2.9.31"), nil),
+		agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.MustParse("2.9.31"), nil),
 	)
 
 	blocker, err := upgradevalidation.GetCheckTargetVersionForModel(
-		version.MustParse("3.0.0"),
+		semversion.MustParse("3.0.0"),
 		upgradevalidation.UpgradeControllerAllowed,
 	)(nil, nil, nil, agentService)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocker, gc.ErrorMatches, `current model \("2.9.29"\) has to be upgraded to "2.9.30" at least`)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
-		version.MustParse("3.0.0"),
+		semversion.MustParse("3.0.0"),
 		upgradevalidation.UpgradeControllerAllowed,
 	)(nil, nil, nil, agentService)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocker, gc.IsNil)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
-		version.MustParse("1.1.1"),
+		semversion.MustParse("1.1.1"),
 		upgradevalidation.UpgradeControllerAllowed,
 	)(nil, nil, nil, agentService)
 	c.Assert(err, gc.ErrorMatches, `downgrade is not allowed`)
 	c.Assert(blocker, gc.IsNil)
 
 	blocker, err = upgradevalidation.GetCheckTargetVersionForModel(
-		version.MustParse("4.1.1"),
+		semversion.MustParse("4.1.1"),
 		upgradevalidation.UpgradeControllerAllowed,
 	)(nil, nil, nil, agentService)
 	c.Assert(err, gc.ErrorMatches, `upgrading controller to "4.1.1" is not supported from "2.9.31"`)

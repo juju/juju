@@ -6,7 +6,7 @@ package upgradevalidation
 import (
 	"context"
 
-	"github.com/juju/version/v2"
+	"github.com/juju/juju/core/semversion"
 )
 
 // ModelAgentService provides access to the Juju agent version for the model.
@@ -15,5 +15,5 @@ type ModelAgentService interface {
 	// entire model. The following errors can be returned:
 	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
 	// not exist.
-	GetModelTargetAgentVersion(context.Context) (version.Number, error)
+	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
 }

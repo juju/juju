@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry/image"
 	"github.com/juju/juju/internal/tools"
@@ -61,7 +61,7 @@ func (c *baseClient) Tags(imageName string) (tools.Versions, error) {
 func (c *baseClient) fetchTags(url string, res tagsGetter) (versions tools.Versions, err error) {
 	pushVersions := func(tags []string) {
 		for _, tag := range tags {
-			v, err := version.Parse(tag)
+			v, err := semversion.Parse(tag)
 			if err != nil {
 				logger.Warningf(context.TODO(), "ignoring invalid image tag %q", tag)
 				continue

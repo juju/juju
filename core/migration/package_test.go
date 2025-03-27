@@ -33,6 +33,7 @@ func (*ImportTest) TestImports(c *gc.C) {
 		"core/network",
 		"core/permission",
 		"core/resource",
+		"core/semversion",
 		"core/status",
 		"core/trace",
 		"core/unit",

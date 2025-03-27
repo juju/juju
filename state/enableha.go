@@ -15,11 +15,11 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/replicaset/v3"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/mongo"
 	internalpassword "github.com/juju/juju/internal/password"
@@ -619,7 +619,7 @@ func (c *controllerNode) AgentTools() (*tools.Tools, error) {
 	return &agentVersion, nil
 }
 
-func (c *controllerNode) SetAgentVersion(v version.Binary) (err error) {
+func (c *controllerNode) SetAgentVersion(v semversion.Binary) (err error) {
 	defer errors.DeferredAnnotatef(&err, "setting agent version for controller %s", c.Id())
 	if err := checkVersionValidity(v); err != nil {
 		return err

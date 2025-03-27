@@ -9,13 +9,13 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	version "github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	agent "github.com/juju/juju/agent"
+	version "github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/core/watcher/watchertest"

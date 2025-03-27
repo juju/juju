@@ -6,12 +6,12 @@ package charms_test
 import (
 	"context"
 
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -122,7 +122,7 @@ func (s *suite) TestCharmInfo(c *gc.C) {
 		Meta: &charm.Meta{
 			Name:           "dummy",
 			Description:    "cockroachdb",
-			MinJujuVersion: version.MustParse("2.9.0"),
+			MinJujuVersion: semversion.MustParse("2.9.0"),
 			Resources: map[string]resource.Meta{
 				"cockroachdb-image": {
 					Type:        resource.TypeContainerImage,
@@ -195,7 +195,7 @@ func (s *suite) TestApplicationCharmInfo(c *gc.C) {
 		URL:      "ch:foobar",
 		Meta: &charm.Meta{
 			Name:           "foobar",
-			MinJujuVersion: version.MustParse("2.9.0"),
+			MinJujuVersion: semversion.MustParse("2.9.0"),
 		},
 	}
 	c.Assert(got, gc.DeepEquals, want)

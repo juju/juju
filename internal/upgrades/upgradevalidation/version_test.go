@@ -6,9 +6,9 @@ package upgradevalidation_test
 import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 )
 
@@ -64,14 +64,14 @@ func (s *versionSuite) TestUpgradeControllerAllowed(c *gc.C) {
 func (s *versionSuite) assertUpgradeControllerAllowed(c *gc.C, i int, t versionCheckTC) {
 	c.Logf("testing %d", i)
 
-	restore := jujutesting.PatchValue(&upgradevalidation.MinAgentVersions, map[int]version.Number{
-		3: version.MustParse("2.9.36"),
+	restore := jujutesting.PatchValue(&upgradevalidation.MinAgentVersions, map[int]semversion.Number{
+		3: semversion.MustParse("2.9.36"),
 	})
 	defer restore()
 
-	from := version.MustParse(t.from)
-	to := version.MustParse(t.to)
-	minVers := version.MustParse(t.minVers)
+	from := semversion.MustParse(t.from)
+	to := semversion.MustParse(t.to)
+	minVers := semversion.MustParse(t.minVers)
 	allowed, vers, err := upgradevalidation.UpgradeControllerAllowed(from, to)
 	c.Check(allowed, gc.Equals, t.allowed)
 	c.Check(vers, gc.DeepEquals, minVers)

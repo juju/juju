@@ -26,7 +26,6 @@ import (
 	"github.com/juju/utils/v4/exec"
 	"github.com/juju/utils/v4/symlink"
 	"github.com/juju/utils/v4/voyeur"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
@@ -58,6 +57,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
@@ -576,7 +576,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 }
 
 func (a *MachineAgent) makeEngineCreator(
-	agentName string, previousAgentVersion version.Number,
+	agentName string, previousAgentVersion semversion.Number,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		agentConfig := a.CurrentConfig()

@@ -6,12 +6,12 @@ package vsphere_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -123,7 +123,7 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 }
 
 func (s *environSuite) TestAdoptResources(c *gc.C) {
-	err := s.env.AdoptResources(s.callCtx, "foo", version.Number{})
+	err := s.env.AdoptResources(s.callCtx, "foo", semversion.Number{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.dialStub.CheckCallNames(c, "Dial")
@@ -149,7 +149,7 @@ func (s *environSuite) TestSupportsNetworking(c *gc.C) {
 
 func (s *environSuite) TestAdoptResourcesPermissionError(c *gc.C) {
 	AssertInvalidatesCredential(c, s.client, func(ctx envcontext.ProviderCallContext) error {
-		return s.env.AdoptResources(ctx, "foo", version.Number{})
+		return s.env.AdoptResources(ctx, "foo", semversion.Number{})
 	})
 }
 

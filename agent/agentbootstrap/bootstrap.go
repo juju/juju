@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
@@ -26,6 +25,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
 	userbootstrap "github.com/juju/juju/domain/access/bootstrap"
@@ -250,7 +250,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 	}
 
 	agentVersion := stateParams.AgentVersion
-	if agentVersion == version.Zero {
+	if agentVersion == semversion.Zero {
 		agentVersion = jujuversion.Current
 	}
 	if agentVersion.Major != jujuversion.Current.Major || agentVersion.Minor != jujuversion.Current.Minor {

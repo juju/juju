@@ -10,12 +10,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/version/v2"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/output"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
@@ -146,7 +146,7 @@ func (c *validateAgentsMetadataCommand) Init(args []string) error {
 	}
 	if c.partVersion != "" {
 		var err error
-		if c.major, c.minor, err = version.ParseMajorMinor(c.partVersion); err != nil {
+		if c.major, c.minor, err = semversion.ParseMajorMinor(c.partVersion); err != nil {
 			return err
 		}
 	}

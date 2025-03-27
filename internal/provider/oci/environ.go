@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	ociCommon "github.com/oracle/oci-go-sdk/v65/common"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
@@ -24,6 +23,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
@@ -61,9 +61,13 @@ type Environ struct {
 }
 
 var _ common.ZonedEnviron = (*Environ)(nil)
+
 var _ storage.ProviderRegistry = (*Environ)(nil)
+
 var _ environs.Environ = (*Environ)(nil)
+
 var _ environs.Networking = (*Environ)(nil)
+
 var _ environs.NetworkingEnviron = (*Environ)(nil)
 
 func (e *Environ) ecfg() *environConfig {
@@ -300,7 +304,7 @@ func (e *Environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.Pr
 }
 
 // AdoptResources implements environs.Environ.
-func (e *Environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+func (e *Environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion semversion.Number) error {
 	// TODO(cderici): implement AdoptResources for oci
 	return errors.NotImplementedf("AdoptResources")
 }

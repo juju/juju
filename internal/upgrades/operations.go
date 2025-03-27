@@ -4,8 +4,7 @@
 package upgrades
 
 import (
-	"github.com/juju/version/v2"
-
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 )
 
@@ -15,26 +14,26 @@ import (
 var upgradeOperations = func() []Operation {
 	steps := []Operation{
 		// Fill in when we have upgrade steps.
-		upgradeToVersion{version.MustParse("6.6.6"), []Step(nil)},
+		upgradeToVersion{semversion.MustParse("6.6.6"), []Step(nil)},
 	}
 	return steps
 }
 
 type opsIterator struct {
-	from    version.Number
-	to      version.Number
+	from    semversion.Number
+	to      semversion.Number
 	allOps  []Operation
 	current int
 }
 
-func newUpgradeOpsIterator(from version.Number) *opsIterator {
+func newUpgradeOpsIterator(from semversion.Number) *opsIterator {
 	return newOpsIterator(from, jujuversion.Current, upgradeOperations())
 }
 
-func newOpsIterator(from, to version.Number, ops []Operation) *opsIterator {
+func newOpsIterator(from, to semversion.Number, ops []Operation) *opsIterator {
 	// If from is not known, it is 1.16.
-	if from == version.Zero {
-		from = version.MustParse("1.16.0")
+	if from == semversion.Zero {
+		from = semversion.MustParse("1.16.0")
 	}
 
 	// Clear the version tag of the target release to ensure that all

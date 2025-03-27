@@ -12,10 +12,10 @@ import (
 	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
-	"github.com/juju/version/v2"
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -35,7 +35,7 @@ type SimpleStreamsToolsSuite struct {
 	env environs.Environ
 	coretesting.BaseSuite
 	envtesting.ToolsFixture
-	origCurrentVersion version.Number
+	origCurrentVersion semversion.Number
 	customToolsDir     string
 	publicToolsDir     string
 }
@@ -88,15 +88,15 @@ func (s *SimpleStreamsToolsSuite) removeTools(c *gc.C) {
 	}
 }
 
-func (s *SimpleStreamsToolsSuite) uploadCustom(c *gc.C, verses ...version.Binary) map[version.Binary]string {
+func (s *SimpleStreamsToolsSuite) uploadCustom(c *gc.C, verses ...semversion.Binary) map[semversion.Binary]string {
 	return toolstesting.UploadToDirectory(c, s.customToolsDir, toolstesting.StreamVersions{"proposed": verses})["proposed"]
 }
 
-func (s *SimpleStreamsToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary) map[version.Binary]string {
+func (s *SimpleStreamsToolsSuite) uploadPublic(c *gc.C, verses ...semversion.Binary) map[semversion.Binary]string {
 	return toolstesting.UploadToDirectory(c, s.publicToolsDir, toolstesting.StreamVersions{"proposed": verses})["proposed"]
 }
 
-func (s *SimpleStreamsToolsSuite) uploadStreams(c *gc.C, versions toolstesting.StreamVersions) map[string]map[version.Binary]string {
+func (s *SimpleStreamsToolsSuite) uploadStreams(c *gc.C, versions toolstesting.StreamVersions) map[string]map[semversion.Binary]string {
 	return toolstesting.UploadToDirectory(c, s.publicToolsDir, versions)
 }
 
@@ -122,9 +122,9 @@ var findToolsTests = []struct {
 	info   string
 	major  int
 	minor  int
-	custom []version.Binary
-	public []version.Binary
-	expect []version.Binary
+	custom []semversion.Binary
+	public []semversion.Binary
+	expect []semversion.Binary
 	err    error
 }{{
 	info:  "none available anywhere",
@@ -186,7 +186,7 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 			c.Check(err, jc.ErrorIs, errors.NotFound)
 			continue
 		}
-		expect := map[version.Binary][]string{}
+		expect := map[semversion.Binary][]string{}
 		for _, expected := range test.expect {
 			// If the tools exist in custom, that's preferred.
 			url, ok := custom[expected]
@@ -209,7 +209,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	_, err := envtools.FindTools(context.Background(), ss,
-		s.env, 1, -1, []string{"released"}, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}})
+		s.env, 1, -1, []string{"released"}, coretools.Filter{Number: semversion.Number{Major: 1, Minor: 2, Patch: 3}})
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	// This is slightly overly prescriptive, but feel free to change or add
 	// messages. This still helps to ensure that all log messages are
@@ -233,9 +233,9 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 var findExactToolsTests = []struct {
 	info string
 	// These are the contents of the proposed streams in each source.
-	custom []version.Binary
-	public []version.Binary
-	seek   version.Binary
+	custom []semversion.Binary
+	public []semversion.Binary
+	seek   semversion.Binary
 	err    error
 }{{
 	info: "nothing available",
@@ -248,7 +248,7 @@ var findExactToolsTests = []struct {
 	err:    coretools.ErrNoMatches,
 }, {
 	info:   "exact match available in custom",
-	custom: []version.Binary{envtesting.V100u64},
+	custom: []semversion.Binary{envtesting.V100u64},
 	seek:   envtesting.V100u64,
 }, {
 	info:   "only non-matches available in public",
@@ -257,12 +257,12 @@ var findExactToolsTests = []struct {
 	err:    coretools.ErrNoMatches,
 }, {
 	info:   "exact match available in public",
-	public: []version.Binary{envtesting.V100u64},
+	public: []semversion.Binary{envtesting.V100u64},
 	seek:   envtesting.V100u64,
 }, {
 	info:   "exact match in public not blocked by custom",
 	custom: envtesting.V110p,
-	public: []version.Binary{envtesting.V100u64},
+	public: []semversion.Binary{envtesting.V100u64},
 	seek:   envtesting.V100u64,
 }}
 
@@ -290,13 +290,13 @@ func (s *SimpleStreamsToolsSuite) TestFindExactTools(c *gc.C) {
 	}
 }
 
-func copyAndAppend(vs []version.Binary, more ...[]version.Binary) []version.Binary {
+func copyAndAppend(vs []semversion.Binary, more ...[]semversion.Binary) []semversion.Binary {
 	// TODO(babbageclunk): I think the append(someversions,
 	// moreversions...) technique used in environs/testing/tools.go
 	// might be wrong because it can mutate someversions if there's
 	// enough capacity. Use this there.
 	// https://medium.com/@Jarema./golang-slice-append-gotcha-e9020ff37374
-	result := make([]version.Binary, len(vs))
+	result := make([]semversion.Binary, len(vs))
 	copy(result, vs)
 	for _, items := range more {
 		result = append(result, items...)
@@ -309,10 +309,10 @@ var findToolsFallbackTests = []struct {
 	major    int
 	minor    int
 	streams  []string
-	devel    []version.Binary
-	proposed []version.Binary
-	released []version.Binary
-	expect   []version.Binary
+	devel    []semversion.Binary
+	proposed []semversion.Binary
+	released []semversion.Binary
+	expect   []semversion.Binary
 	err      error
 }{{
 	info:    "nothing available",
@@ -340,10 +340,10 @@ var findToolsFallbackTests = []struct {
 	major:    1,
 	minor:    2,
 	streams:  []string{"devel", "proposed", "released"},
-	devel:    []version.Binary{},
-	proposed: []version.Binary{envtesting.V110u64, envtesting.V120u64},
-	released: []version.Binary{envtesting.V100u64},
-	expect:   []version.Binary{envtesting.V120u64},
+	devel:    []semversion.Binary{},
+	proposed: []semversion.Binary{envtesting.V110u64, envtesting.V120u64},
+	released: []semversion.Binary{envtesting.V100u64},
+	expect:   []semversion.Binary{envtesting.V120u64},
 }}
 
 func (s *SimpleStreamsToolsSuite) TestFindToolsWithStreamFallback(c *gc.C) {
@@ -365,7 +365,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsWithStreamFallback(c *gc.C) {
 			c.Check(err, jc.ErrorIs, errors.NotFound)
 			continue
 		}
-		expect := map[version.Binary][]string{}
+		expect := map[semversion.Binary][]string{}
 		for _, expected := range test.expect {
 			for _, stream := range []string{"devel", "proposed", "released"} {
 				if url, ok := streams[stream][expected]; ok {
@@ -431,10 +431,10 @@ var preferredStreamTests = []struct {
 func (s *SimpleStreamsToolsSuite) TestPreferredStreams(c *gc.C) {
 	for i, test := range preferredStreamTests {
 		c.Logf("\ntest %d", i)
-		s.PatchValue(&jujuversion.Current, version.MustParse(test.currentVers))
-		var vers *version.Number
+		s.PatchValue(&jujuversion.Current, semversion.MustParse(test.currentVers))
+		var vers *semversion.Number
 		if test.explicitVers != "" {
-			v := version.MustParse(test.explicitVers)
+			v := semversion.MustParse(test.explicitVers)
 			vers = &v
 		}
 		obtained := envtools.PreferredStreams(vers, test.forceDevel, test.streamInConfig)
@@ -445,7 +445,7 @@ func (s *SimpleStreamsToolsSuite) TestPreferredStreams(c *gc.C) {
 // fakeToolsForRelease fakes a Tools object with just enough information for
 // testing the handling its OS type.
 func fakeToolsForRelease(osType string) *coretools.Tools {
-	return &coretools.Tools{Version: version.Binary{Release: osType}}
+	return &coretools.Tools{Version: semversion.Binary{Release: osType}}
 }
 
 // fakeToolsList fakes a envtools.List containing Tools objects for the given

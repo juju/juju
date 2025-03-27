@@ -6,8 +6,7 @@ package tools
 import (
 	"io"
 
-	"github.com/juju/version/v2"
-
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/tools"
 )
 
@@ -23,7 +22,7 @@ func NewDiskManager(dataDir string) *DiskManager {
 	return &DiskManager{dataDir: dataDir}
 }
 
-func (d *DiskManager) ReadTools(vers version.Binary) (*tools.Tools, error) {
+func (d *DiskManager) ReadTools(vers semversion.Binary) (*tools.Tools, error) {
 	return ReadTools(d.dataDir, vers)
 }
 
@@ -31,6 +30,6 @@ func (d *DiskManager) UnpackTools(tools *tools.Tools, r io.Reader) error {
 	return UnpackTools(d.dataDir, tools, r)
 }
 
-func (d *DiskManager) SharedToolsDir(vers version.Binary) string {
+func (d *DiskManager) SharedToolsDir(vers semversion.Binary) string {
 	return SharedToolsDir(d.dataDir, vers)
 }

@@ -5,12 +5,12 @@ package modeloperator
 
 import (
 	"github.com/juju/utils/v4/voyeur"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/dependency"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/semversion"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/apicaller"
@@ -50,7 +50,7 @@ type ManifoldConfig struct {
 
 	// PreviousAgentVersion passes through the version the unit
 	// agent was running before the current restart.
-	PreviousAgentVersion version.Number
+	PreviousAgentVersion semversion.Number
 
 	// UpgradeStepsLock is passed to the upgrade steps gate to
 	// coordinate workers that shouldn't do anything until the

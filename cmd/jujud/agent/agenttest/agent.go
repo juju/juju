@@ -11,7 +11,6 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -20,6 +19,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
@@ -84,7 +84,7 @@ func (s *AgentSuite) PrimeAgent(c *gc.C, tag names.Tag, password string) (agent.
 // PrimeAgentVersion writes the configuration file and tools with version
 // vers for an agent with the given entity name. It returns the agent's
 // configuration and the current tools.
-func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
+func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, vers semversion.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
 	c.Logf("priming agent %s", tag.String())
 
 	store, err := filestorage.NewFileStorageWriter(c.MkDir())
@@ -148,7 +148,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 // PrimeStateAgentVersion writes the configuration file and tools with
 // version vers for a state agent with the given entity name. It
 // returns the agent's configuration and the current tools.
-func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password string, vers version.Binary) (
+func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password string, vers semversion.Binary) (
 	agent.ConfigSetterWriter, *coretools.Tools,
 ) {
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
@@ -185,7 +185,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	c *gc.C,
 	tag names.Tag,
 	password string,
-	vers version.Binary,
+	vers semversion.Binary,
 	modelTag names.ModelTag,
 	apiPort int,
 ) agent.ConfigSetterWriter {

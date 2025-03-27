@@ -16,9 +16,9 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v6"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	internalpassword "github.com/juju/juju/internal/password"
@@ -546,8 +546,7 @@ func (m *Model) localID(id string) string {
 
 // UpdateLatestToolsVersion looks up for the latest available version of
 // juju tools and updates modelDoc with it.
-func (m *Model) UpdateLatestToolsVersion(ver version.Number) error {
-	v := ver.String()
+func (m *Model) UpdateLatestToolsVersion(v string) error {
 	// TODO(perrito666): I need to assert here that there isn't a newer
 	// version in place.
 	ops := []txn.Op{{
@@ -566,16 +565,16 @@ func (m *Model) UpdateLatestToolsVersion(ver version.Number) error {
 // check in the streams.
 // Bear in mind that the check was performed filtering only
 // new patches for the current major.minor. (major.minor.patch)
-func (m *Model) LatestToolsVersion() version.Number {
+func (m *Model) LatestToolsVersion() semversion.Number {
 	ver := m.doc.LatestAvailableTools
 	if ver == "" {
-		return version.Zero
+		return semversion.Zero
 	}
-	v, err := version.Parse(ver)
+	v, err := semversion.Parse(ver)
 	if err != nil {
 		// This is being stored from a valid version,
 		// but we don't fail should it become corrupt.
-		return version.Zero
+		return semversion.Zero
 	}
 	return v
 }

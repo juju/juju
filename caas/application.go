@@ -6,12 +6,12 @@ package caas
 import (
 	"context"
 
-	"github.com/juju/version/v2"
 	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/storage"
 )
@@ -80,7 +80,7 @@ type ApplicationState struct {
 // ApplicationConfig is the config passed to the application units.
 type ApplicationConfig struct {
 	// AgentVersion is the Juju version of the agent image.
-	AgentVersion version.Number
+	AgentVersion semversion.Number
 
 	// AgentImagePath is the docker registry URL for the charm container.
 	AgentImagePath string

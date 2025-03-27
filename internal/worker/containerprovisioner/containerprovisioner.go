@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -66,7 +66,7 @@ type ToolsFinder interface {
 	// FindTools returns a list of tools matching the specified
 	// version, os, and architecture. If arch is empty, the
 	// implementation is expected to use a well documented default.
-	FindTools(ctx context.Context, version version.Number, os string, arch string) (coretools.List, error)
+	FindTools(ctx context.Context, version semversion.Number, os string, arch string) (coretools.List, error)
 }
 
 // DistributionGroupFinder provides access to machine distribution groups.

@@ -9,13 +9,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/commands/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/sync"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
@@ -120,7 +120,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelFailedWithBuildAgentAndAgentVer
 
 	_, err := cmdtesting.RunCommand(c, cmd,
 		"--build-agent",
-		"--agent-version", version.MustParse("3.9.99").String(),
+		"--agent-version", semversion.MustParse("3.9.99").String(),
 	)
 	c.Assert(err, gc.ErrorMatches, `--build-agent cannot be used with --agent-version together`)
 }
@@ -142,13 +142,13 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersion(c *gc.C) {
 		s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil),
 		s.modelUpgrader.EXPECT().UpgradeModel(
 			gomock.Any(),
-			coretesting.ModelTag.Id(), version.MustParse("3.9.99"),
+			coretesting.ModelTag.Id(), semversion.MustParse("3.9.99"),
 			"", false, false,
-		).Return(version.MustParse("3.9.99"), nil),
+		).Return(semversion.MustParse("3.9.99"), nil),
 	)
 
 	ctx, err := cmdtesting.RunCommand(c, cmd,
-		"--agent-version", version.MustParse("3.9.99").String(),
+		"--agent-version", semversion.MustParse("3.9.99").String(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
@@ -163,14 +163,14 @@ started upgrade to 3.9.99
 func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionUploadLocalOfficial(c *gc.C) {
 	s.reset(c)
 
-	s.PatchValue(&jujuversion.Current, func() version.Number {
+	s.PatchValue(&jujuversion.Current, func() semversion.Number {
 		v := jujuversion.Current
 		v.Build = 0
 		return v
 	}())
 
 	s.PatchValue(&CheckCanImplicitUpload,
-		func(model.ModelType, bool, version.Number, version.Number) bool { return true },
+		func(model.ModelType, bool, semversion.Number, semversion.Number) bool { return true },
 	)
 
 	ctrl, cmd := s.upgradeControllerCommand(c, false)
@@ -192,7 +192,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionUploadLocalOffi
 			coretesting.ModelTag.Id(), targetVersion,
 			"", false, false,
 		).Return(
-			version.Zero,
+			semversion.Zero,
 			errors.NotFoundf("available agent tool, upload required"),
 		),
 		s.modelUpgrader.EXPECT().UploadTools(gomock.Any(), gomock.Any(), builtVersion).Return(nil, nil),
@@ -237,7 +237,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionAlreadyUpToDate
 			coretesting.ModelTag.Id(), targetVersion.ToPatch(),
 			"", false, false,
 		).Return(
-			version.Zero,
+			semversion.Zero,
 			errors.AlreadyExistsf("up to date"),
 		),
 	)
@@ -253,7 +253,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionFailedExpectUpl
 	s.reset(c)
 
 	s.PatchValue(&CheckCanImplicitUpload,
-		func(model.ModelType, bool, version.Number, version.Number) bool { return true },
+		func(model.ModelType, bool, semversion.Number, semversion.Number) bool { return true },
 	)
 
 	ctrl, cmd := s.upgradeControllerCommand(c, false)
@@ -279,7 +279,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionFailedExpectUpl
 			coretesting.ModelTag.Id(), targetVersion,
 			"", false, false,
 		).Return(
-			version.Zero,
+			semversion.Zero,
 			errors.NotFoundf("available agent tool, upload required"),
 		),
 	)
@@ -295,7 +295,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionExpectUploadFai
 	s.reset(c)
 
 	s.PatchValue(&CheckCanImplicitUpload,
-		func(model.ModelType, bool, version.Number, version.Number) bool { return false },
+		func(model.ModelType, bool, semversion.Number, semversion.Number) bool { return false },
 	)
 
 	ctrl, cmd := s.upgradeControllerCommand(c, false)
@@ -314,7 +314,7 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionExpectUploadFai
 			coretesting.ModelTag.Id(), targetVersion,
 			"", false, false,
 		).Return(
-			version.Zero,
+			semversion.Zero,
 			errors.NotFoundf("available agent tool, upload required"),
 		),
 	)
@@ -343,13 +343,13 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionDryRun(c *gc.C)
 		s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil),
 		s.modelUpgrader.EXPECT().UpgradeModel(
 			gomock.Any(),
-			coretesting.ModelTag.Id(), version.MustParse("3.9.99"),
+			coretesting.ModelTag.Id(), semversion.MustParse("3.9.99"),
 			"", false, true,
-		).Return(version.MustParse("3.9.99"), nil),
+		).Return(semversion.MustParse("3.9.99"), nil),
 	)
 
 	ctx, err := cmdtesting.RunCommand(c, cmd,
-		"--agent-version", version.MustParse("3.9.99").String(), "--dry-run",
+		"--agent-version", semversion.MustParse("3.9.99").String(), "--dry-run",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
@@ -377,9 +377,9 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithAgentVersionGotBlockers(c *
 		s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil),
 		s.modelUpgrader.EXPECT().UpgradeModel(
 			gomock.Any(),
-			coretesting.ModelTag.Id(), version.MustParse("3.9.99"),
+			coretesting.ModelTag.Id(), semversion.MustParse("3.9.99"),
 			"", false, false,
-		).Return(version.Zero, errors.New(`
+		).Return(semversion.Zero, errors.New(`
 cannot upgrade to "3.9.99" due to issues with these models:
 "admin/default":
 - the model hosts deprecated ubuntu machine(s): bionic(3) (not supported)
@@ -387,7 +387,7 @@ cannot upgrade to "3.9.99" due to issues with these models:
 	)
 
 	_, err := cmdtesting.RunCommand(c, cmd,
-		"--agent-version", version.MustParse("3.9.99").String(),
+		"--agent-version", semversion.MustParse("3.9.99").String(),
 	)
 	c.Assert(err.Error(), gc.Equals, `
 cannot upgrade to "3.9.99" due to issues with these models:
@@ -450,9 +450,9 @@ func (s *upgradeControllerSuite) TestUpgradeModelUpToDate(c *gc.C) {
 		s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil),
 		s.modelUpgrader.EXPECT().UpgradeModel(
 			gomock.Any(),
-			coretesting.ModelTag.Id(), version.Zero,
+			coretesting.ModelTag.Id(), semversion.Zero,
 			"", false, false,
-		).Return(version.Zero, errors.AlreadyExistsf("up to date")),
+		).Return(semversion.Zero, errors.AlreadyExistsf("up to date")),
 	)
 
 	ctx, err := cmdtesting.RunCommand(c, cmd)
@@ -475,9 +475,9 @@ func (s *upgradeControllerSuite) TestUpgradeModelUpgradeToPublishedVersion(c *gc
 		s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil),
 		s.modelUpgrader.EXPECT().UpgradeModel(
 			gomock.Any(),
-			coretesting.ModelTag.Id(), version.Zero,
+			coretesting.ModelTag.Id(), semversion.Zero,
 			"", false, false,
-		).Return(version.MustParse("3.9.99"), nil),
+		).Return(semversion.MustParse("3.9.99"), nil),
 	)
 
 	ctx, err := cmdtesting.RunCommand(c, cmd)
@@ -506,9 +506,9 @@ func (s *upgradeControllerSuite) TestUpgradeModelWithStream(c *gc.C) {
 		s.modelConfigAPI.EXPECT().ModelGet(gomock.Any()).Return(cfg, nil),
 		s.modelUpgrader.EXPECT().UpgradeModel(
 			gomock.Any(),
-			coretesting.ModelTag.Id(), version.Zero,
+			coretesting.ModelTag.Id(), semversion.Zero,
 			"proposed", false, false,
-		).Return(version.MustParse("3.9.99"), nil),
+		).Return(semversion.MustParse("3.9.99"), nil),
 	)
 
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--agent-stream", "proposed")
@@ -529,48 +529,48 @@ func (s *upgradeControllerSuite) TestCheckCanImplicitUploadIAASModel(c *gc.C) {
 	// Not IAAS model.
 	canImplicitUpload := checkCanImplicitUpload(
 		model.CAAS, true,
-		version.MustParse("3.0.0"),
-		version.MustParse("3.9.99.1"),
+		semversion.MustParse("3.0.0"),
+		semversion.MustParse("3.9.99.1"),
 	)
 	c.Check(canImplicitUpload, jc.IsFalse)
 
 	// not official client.
 	canImplicitUpload = checkCanImplicitUpload(
 		model.IAAS, false,
-		version.MustParse("3.9.99"),
-		version.MustParse("3.0.0"),
+		semversion.MustParse("3.9.99"),
+		semversion.MustParse("3.0.0"),
 	)
 	c.Check(canImplicitUpload, jc.IsFalse)
 
 	// non newer client.
 	canImplicitUpload = checkCanImplicitUpload(
 		model.IAAS, true,
-		version.MustParse("2.9.99"),
-		version.MustParse("3.0.0"),
+		semversion.MustParse("2.9.99"),
+		semversion.MustParse("3.0.0"),
 	)
 	c.Check(canImplicitUpload, jc.IsFalse)
 
 	// client version with build number.
 	canImplicitUpload = checkCanImplicitUpload(
 		model.IAAS, true,
-		version.MustParse("3.0.0.1"),
-		version.MustParse("3.0.0"),
+		semversion.MustParse("3.0.0.1"),
+		semversion.MustParse("3.0.0"),
 	)
 	c.Check(canImplicitUpload, jc.IsTrue)
 
 	// agent version with build number.
 	canImplicitUpload = checkCanImplicitUpload(
 		model.IAAS, true,
-		version.MustParse("3.0.0"),
-		version.MustParse("3.0.0.1"),
+		semversion.MustParse("3.0.0"),
+		semversion.MustParse("3.0.0.1"),
 	)
 	c.Check(canImplicitUpload, jc.IsTrue)
 
 	// both client and agent version with build number == 0.
 	canImplicitUpload = checkCanImplicitUpload(
 		model.IAAS, true,
-		version.MustParse("3.0.0"),
-		version.MustParse("3.0.0"),
+		semversion.MustParse("3.0.0"),
+		semversion.MustParse("3.0.0"),
 	)
 	c.Check(canImplicitUpload, jc.IsFalse)
 }

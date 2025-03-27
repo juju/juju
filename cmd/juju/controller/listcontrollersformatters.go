@@ -9,9 +9,9 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/output"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 )
 
@@ -79,7 +79,7 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh
 		if agentVersion == "" {
 			agentVersion = notKnownDisplay
 		} else {
-			agentVersionNum, err := version.Parse(agentVersion)
+			agentVersionNum, err := semversion.Parse(agentVersion)
 			staleVersion = err == nil && jujuversion.Current.Compare(agentVersionNum) > 0
 		}
 		machineCount := noValueDisplay

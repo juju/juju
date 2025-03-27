@@ -9,12 +9,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
+	"github.com/juju/juju/core/semversion"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
@@ -180,7 +180,7 @@ func (u *UnitUpgraderAPI) getMachineTools(tag names.Tag) params.ToolsResult {
 	return result
 }
 
-func (u *UnitUpgraderAPI) getMachineToolsVersion(tag names.Tag) (*version.Number, error) {
+func (u *UnitUpgraderAPI) getMachineToolsVersion(tag names.Tag) (*semversion.Number, error) {
 	machine, err := u.getAssignedMachine(tag)
 	if err != nil {
 		return nil, err

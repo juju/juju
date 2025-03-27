@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
@@ -26,6 +25,7 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -75,7 +75,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 		Type:               "iaas",
 		Config:             map[string]interface{}{"uuid": s.modelUUID},
 		Owner:              "admin",
-		LatestToolsVersion: jujuversion.Current,
+		LatestToolsVersion: jujuversion.Current.String(),
 	})
 
 	s.resources = common.NewResources()
@@ -202,7 +202,7 @@ func (s *Suite) TestModelInfo(c *gc.C) {
 	c.Check(mod.UUID, gc.Equals, "model-uuid")
 	c.Check(mod.Name, gc.Equals, "model-name")
 	c.Check(mod.OwnerTag, gc.Equals, names.NewUserTag("owner").String())
-	c.Check(mod.AgentVersion, gc.Equals, version.MustParse("1.2.3"))
+	c.Check(mod.AgentVersion, gc.Equals, semversion.MustParse("1.2.3"))
 
 	bytes, err := description.Serialize(modelDescription)
 	c.Assert(err, jc.ErrorIsNil)
@@ -322,7 +322,7 @@ func (s *Suite) TestPrechecksModelError(c *gc.C) {
 
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{}, errors.New("boom"))
 
-	err := s.mustMakeAPI(c).Prechecks(context.Background(), params.PrechecksArgs{TargetControllerVersion: version.MustParse("2.9.32")})
+	err := s.mustMakeAPI(c).Prechecks(context.Background(), params.PrechecksArgs{TargetControllerVersion: semversion.MustParse("2.9.32")})
 	c.Assert(err, gc.ErrorMatches, "retrieving model info: boom")
 }
 
@@ -341,7 +341,7 @@ func (s *Suite) TestExportCAAS(c *gc.C) {
 		Type:               "caas",
 		Config:             map[string]interface{}{"uuid": s.modelUUID},
 		Owner:              "admin",
-		LatestToolsVersion: jujuversion.Current,
+		LatestToolsVersion: jujuversion.Current.String(),
 	})
 	s.assertExport(c, "caas")
 }
@@ -358,7 +358,7 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 	const tools1 = "2.0.1-ubuntu-amd64"
 	m := s.model.AddMachine(description.MachineArgs{Id: "9"})
 	m.SetTools(description.AgentToolsArgs{
-		Version: version.MustParseBinary(tools1),
+		Version: tools1,
 	})
 
 	res := app.AddResource(description.ResourceArgs{Name: "bin"})
@@ -376,7 +376,7 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 		Name: "foo/0",
 	})
 	unit.SetTools(description.AgentToolsArgs{
-		Version: version.MustParseBinary(tools0),
+		Version: tools0,
 	})
 
 	s.modelExporter.EXPECT().ExportModel(gomock.Any(), map[string]string{}, s.store).Return(s.model, nil)

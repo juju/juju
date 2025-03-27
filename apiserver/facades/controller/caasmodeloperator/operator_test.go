@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -16,6 +15,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/config"
@@ -61,7 +61,7 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(info.ImageDetails.Auth, gc.Equals, `xxxxx==`)
 	c.Assert(info.ImageDetails.Repository, gc.Equals, `test-account`)
 
-	expectedVersion, err := version.Parse("4.0.0")
+	expectedVersion, err := semversion.Parse("4.0.0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Version, jc.DeepEquals, expectedVersion)
 }

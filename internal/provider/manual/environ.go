@@ -16,13 +16,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/ssh"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
@@ -64,6 +64,7 @@ type manualEnviron struct {
 }
 
 var errNoStartInstance = errors.New("manual provider cannot start instances")
+
 var errNoStopInstance = errors.New("manual provider cannot stop instances")
 
 func (*manualEnviron) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
@@ -178,7 +179,7 @@ func (e *manualEnviron) verifyBootstrapHost(ctx context.Context) error {
 }
 
 // AdoptResources is part of the Environ interface.
-func (e *manualEnviron) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+func (e *manualEnviron) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion semversion.Number) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }

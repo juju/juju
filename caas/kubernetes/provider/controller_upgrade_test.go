@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -19,6 +18,7 @@ import (
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 )
 
@@ -83,22 +83,22 @@ func (s *ControllerUpgraderSuite) TestControllerUpgrade(c *gc.C) {
 		}, meta.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(controllerUpgrade(context.Background(), appName, version.MustParse("9.9.9"), s.broker), jc.ErrorIsNil)
+	c.Assert(controllerUpgrade(context.Background(), appName, semversion.MustParse("9.9.9"), s.broker), jc.ErrorIsNil)
 
 	ss, err := s.broker.Client().AppsV1().StatefulSets(s.broker.Namespace()).
 		Get(context.Background(), appName, meta.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ss.Spec.Template.Spec.Containers[0].Image, gc.Equals, newImagePath)
 
-	c.Assert(ss.Annotations[utils.AnnotationVersionKey(false)], gc.Equals, version.MustParse("9.9.9").String())
-	c.Assert(ss.Spec.Template.Annotations[utils.AnnotationVersionKey(false)], gc.Equals, version.MustParse("9.9.9").String())
+	c.Assert(ss.Annotations[utils.AnnotationVersionKey(false)], gc.Equals, semversion.MustParse("9.9.9").String())
+	c.Assert(ss.Spec.Template.Annotations[utils.AnnotationVersionKey(false)], gc.Equals, semversion.MustParse("9.9.9").String())
 }
 
 func (s *ControllerUpgraderSuite) TestControllerDoesNotExist(c *gc.C) {
 	var (
 		appName = k8sconstants.JujuControllerStackName
 	)
-	err := controllerUpgrade(context.Background(), appName, version.MustParse("9.9.9"), s.broker)
+	err := controllerUpgrade(context.Background(), appName, semversion.MustParse("9.9.9"), s.broker)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }

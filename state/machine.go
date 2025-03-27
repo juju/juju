@@ -17,7 +17,6 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v6"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/api"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charm"
@@ -315,7 +315,7 @@ func (m *Machine) AgentTools() (*tools.Tools, error) {
 
 // checkVersionValidity checks whether the given version is suitable
 // for passing to SetAgentVersion.
-func checkVersionValidity(v version.Binary) error {
+func checkVersionValidity(v semversion.Binary) error {
 	if v.Release == "" || v.Arch == "" {
 		return fmt.Errorf("empty series or arch")
 	}
@@ -324,7 +324,7 @@ func checkVersionValidity(v version.Binary) error {
 
 // SetAgentVersion sets the version of juju that the agent is
 // currently running.
-func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
+func (m *Machine) SetAgentVersion(v semversion.Binary) (err error) {
 	defer errors.DeferredAnnotatef(&err, "setting agent version for machine %v", m)
 	ops, tools, err := m.setAgentVersionOps(v)
 	if err != nil {
@@ -340,7 +340,7 @@ func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
 	return nil
 }
 
-func (m *Machine) setAgentVersionOps(v version.Binary) ([]txn.Op, *tools.Tools, error) {
+func (m *Machine) setAgentVersionOps(v semversion.Binary) ([]txn.Op, *tools.Tools, error) {
 	if err := checkVersionValidity(v); err != nil {
 		return nil, nil, err
 	}
@@ -1822,7 +1822,7 @@ type UpdateMachineOperation struct {
 	// m holds the machine to update.
 	m *Machine
 
-	AgentVersion      *version.Binary
+	AgentVersion      *semversion.Binary
 	Constraints       *constraints.Value
 	MachineAddresses  *[]network.SpaceAddress
 	ProviderAddresses *[]network.SpaceAddress

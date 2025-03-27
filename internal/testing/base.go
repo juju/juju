@@ -17,13 +17,13 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -269,8 +269,8 @@ func GetExportedFields(arg interface{}) set.Strings {
 }
 
 // CurrentVersion returns the current Juju version, asserting on error.
-func CurrentVersion() version.Binary {
-	return version.Binary{
+func CurrentVersion() semversion.Binary {
+	return semversion.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),
 		Release: coreos.HostOSTypeName(),

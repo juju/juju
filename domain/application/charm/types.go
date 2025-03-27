@@ -6,11 +6,10 @@ package charm
 import (
 	"io"
 
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -310,7 +309,7 @@ type Metadata struct {
 	Devices        map[string]Device
 	Resources      map[string]Resource
 	Terms          []string
-	MinJujuVersion version.Number
+	MinJujuVersion semversion.Number
 	Containers     map[string]Container
 	Assumes        []byte
 	RunAs          RunAs

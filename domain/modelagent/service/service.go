@@ -6,10 +6,9 @@ package service
 import (
 	"context"
 
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -29,7 +28,7 @@ type State interface {
 	CheckUnitExists(context.Context, string) error
 
 	// GetTargetAgentVersion returns the target agent version for this model.
-	GetTargetAgentVersion(context.Context) (version.Number, error)
+	GetTargetAgentVersion(context.Context) (semversion.Number, error)
 
 	// NamespaceForWatchAgentVersion returns the namespace identifier
 	// to watch for the agent version.
@@ -69,12 +68,12 @@ func NewService(st State, watcherFactory WatcherFactory) *Service {
 func (s *Service) GetMachineTargetAgentVersion(
 	ctx context.Context,
 	machineName machine.Name,
-) (version.Number, error) {
+) (semversion.Number, error) {
 	err := s.st.CheckMachineExists(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
-		return version.Zero, errors.Errorf("machine %q does not exist", machineName).Add(machineerrors.MachineNotFound)
+		return semversion.Zero, errors.Errorf("machine %q does not exist", machineName).Add(machineerrors.MachineNotFound)
 	} else if err != nil {
-		return version.Zero, errors.Errorf(
+		return semversion.Zero, errors.Errorf(
 			"checking if machine %q exists when getting target agent version: %w",
 			machineName, err,
 		)
@@ -92,12 +91,12 @@ func (s *Service) GetMachineTargetAgentVersion(
 func (s *Service) GetUnitTargetAgentVersion(
 	ctx context.Context,
 	unitName string,
-) (version.Number, error) {
+) (semversion.Number, error) {
 	err := s.st.CheckUnitExists(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
-		return version.Zero, errors.Errorf("unit %q does not exist", unitName).Add(applicationerrors.UnitNotFound)
+		return semversion.Zero, errors.Errorf("unit %q does not exist", unitName).Add(applicationerrors.UnitNotFound)
 	} else if err != nil {
-		return version.Zero, errors.Errorf(
+		return semversion.Zero, errors.Errorf(
 			"checking if unit %q exists when getting target agent version: %w",
 			unitName, err,
 		)
@@ -111,7 +110,7 @@ func (s *Service) GetUnitTargetAgentVersion(
 //   - [errors.NotValid] if the model ID is not valid;
 //   - [github.com/juju/juju/domain/model/errors.AgentVersionFound] if no
 //     agent version record exists.
-func (s *Service) GetModelTargetAgentVersion(ctx context.Context) (version.Number, error) {
+func (s *Service) GetModelTargetAgentVersion(ctx context.Context) (semversion.Number, error) {
 	return s.st.GetTargetAgentVersion(ctx)
 }
 

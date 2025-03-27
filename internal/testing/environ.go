@@ -8,13 +8,13 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/ssh"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -46,7 +46,7 @@ var (
 )
 
 // FakeVersionNumber is a valid version number that can be used in testing.
-var FakeVersionNumber = version.MustParse("2.99.0")
+var FakeVersionNumber = semversion.MustParse("2.99.0")
 
 // ModelTag is a defined known valid UUID that can be used in testing.
 var ModelTag = names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")

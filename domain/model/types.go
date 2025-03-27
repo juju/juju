@@ -6,11 +6,10 @@ package model
 import (
 	"time"
 
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/errors"
@@ -114,7 +113,7 @@ type ModelDetailArgs struct {
 	IsControllerModel bool
 
 	// AgentVersion is the target version for agents running in this model.
-	AgentVersion version.Number
+	AgentVersion semversion.Number
 }
 
 // ModelImportArgs supplies the information needed for importing a model into a
@@ -128,7 +127,7 @@ type ModelImportArgs struct {
 	ID coremodel.UUID
 
 	// AgentVersion is the target version for agents running in this model.
-	AgentVersion version.Number
+	AgentVersion semversion.Number
 }
 
 // Validate is responsible for checking all of the fields of [ModelImportArgs]

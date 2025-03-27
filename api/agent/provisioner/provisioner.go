@@ -9,13 +9,13 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/internal/tools"
@@ -190,7 +190,7 @@ func (st *Client) MachinesWithTransientErrors(ctx context.Context) ([]MachineSta
 
 // FindTools returns al ist of tools matching the specified version number and
 // series, and, arch. If arch is blank, a default will be used.
-func (st *Client) FindTools(ctx context.Context, v version.Number, os string, arch string) (tools.List, error) {
+func (st *Client) FindTools(ctx context.Context, v semversion.Number, os string, arch string) (tools.List, error) {
 	args := params.FindToolsParams{
 		Number: v,
 		OSType: os,

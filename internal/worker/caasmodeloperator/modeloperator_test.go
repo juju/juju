@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	modeloperatorapi "github.com/juju/juju/api/controller/caasmodeloperator"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -88,7 +88,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *gc.C) {
 		apiAddresses = [n][]string{{"fe80:abcd::1"}, {"fe80:abcd::2"}, {"fe80:abcd::3"}}
 		imagePath    = [n]string{"juju/jujud:1", "juju/jujud:2", "juju/jujud:3"}
 		modelUUID    = "deadbeef-0bad-400d-8000-4b1d0d06f00d"
-		ver          = [n]version.Number{version.MustParse("2.8.2"), version.MustParse("2.9.1"), version.MustParse("2.9.99")}
+		ver          = [n]semversion.Number{semversion.MustParse("2.8.2"), semversion.MustParse("2.9.1"), semversion.MustParse("2.9.99")}
 
 		password   = ""
 		lastConfig = (*caas.ModelOperatorConfig)(nil)

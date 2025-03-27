@@ -8,8 +8,8 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v6"
 	"github.com/juju/replicaset/v3"
-	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/state"
 )
 
@@ -29,7 +29,7 @@ type State interface {
 	MachineCountForBase(base ...state.Base) (map[string]int, error)
 	AllMachinesCount() (int, error)
 	MongoCurrentStatus() (*replicaset.Status, error)
-	SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool, upgrader state.Upgrader) error
+	SetModelAgentVersion(newVersion semversion.Number, stream *string, ignoreAgentVersions bool, upgrader state.Upgrader) error
 }
 
 type SystemState interface {
@@ -114,7 +114,7 @@ func (s stateShim) AllMachinesCount() (int, error) {
 	return count, nil
 }
 
-func (s stateShim) SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool, upgrader state.Upgrader) error {
+func (s stateShim) SetModelAgentVersion(newVersion semversion.Number, stream *string, ignoreAgentVersions bool, upgrader state.Upgrader) error {
 	return s.PooledState.SetModelAgentVersion(newVersion, stream, ignoreAgentVersions, upgrader)
 }
 

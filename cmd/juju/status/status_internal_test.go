@@ -18,7 +18,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/cmd"
@@ -42,8 +42,8 @@ import (
 )
 
 var (
-	currentVersion = version.Number{Major: 1, Minor: 2, Patch: 3}
-	nextVersion    = version.Number{Major: 1, Minor: 2, Patch: 4}
+	currentVersion = semversion.Number{Major: 1, Minor: 2, Patch: 3}
+	nextVersion    = semversion.Number{Major: 1, Minor: 2, Patch: 4}
 )
 
 func runStatus(c *gc.C, testCtx *ctx, args ...string) (code int, stdout, stderr string) {
@@ -668,7 +668,7 @@ var statusTests = []testCase{
 			},
 		},
 
-		setTools{"0", version.MustParseBinary("1.2.3-ubuntu-ppc")},
+		setTools{"0", semversion.MustParseBinary("1.2.3-ubuntu-ppc")},
 		expect{
 			what: "simulate the MA setting the version",
 			output: M{
@@ -3344,7 +3344,7 @@ func (sa setAddresses) step(c *gc.C, ctx *ctx) {
 
 type setTools struct {
 	machineId string
-	version   version.Binary
+	version   semversion.Binary
 }
 
 func (st setTools) step(c *gc.C, ctx *ctx) {
@@ -3357,7 +3357,7 @@ func (st setTools) step(c *gc.C, ctx *ctx) {
 
 type setUnitTools struct {
 	unitName string
-	version  version.Binary
+	version  semversion.Binary
 }
 
 func (st setUnitTools) step(c *gc.C, ctx *ctx) {
@@ -4435,6 +4435,7 @@ Running on subnets:  127.0.0.1/8, 10.0.2.1/8
       hosted-riak       me/model.riak
 `[1:])
 }
+
 func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 	ctx := s.newContext()
 
@@ -4536,7 +4537,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *ctx {
 		addAliveUnit{"wordpress", "1"},
 		setAgentStatus{"wordpress/0", status.Idle, "", nil},
 		setUnitStatus{"wordpress/0", status.Active, "", nil},
-		setUnitTools{"wordpress/0", version.MustParseBinary("1.2.3-ubuntu-ppc")},
+		setUnitTools{"wordpress/0", semversion.MustParseBinary("1.2.3-ubuntu-ppc")},
 		addApplication{name: "mysql", charm: "mysql"},
 		setApplicationExposed{"mysql", true},
 		addMachine{machineId: "2", job: coremodel.JobHostUnits},
@@ -4555,7 +4556,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *ctx {
 			"mysql/1",
 			status.Terminated,
 			"gooooone", nil},
-		setUnitTools{"mysql/0", version.MustParseBinary("1.2.3-ubuntu-ppc")},
+		setUnitTools{"mysql/0", semversion.MustParseBinary("1.2.3-ubuntu-ppc")},
 		addApplication{name: "logging", charm: "logging"},
 		setApplicationExposed{"logging", true},
 		relateApplications{"wordpress", "mysql", "suspended"},

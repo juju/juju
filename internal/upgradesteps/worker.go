@@ -12,12 +12,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/retry"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/worker/gate"
@@ -67,8 +67,8 @@ type BaseWorker struct {
 	PreUpgradeSteps     PreUpgradeStepsFunc
 	PerformUpgradeSteps UpgradeStepsFunc
 
-	FromVersion version.Number
-	ToVersion   version.Number
+	FromVersion semversion.Number
+	ToVersion   semversion.Number
 	Tag         names.Tag
 
 	Clock  clock.Clock

@@ -12,12 +12,12 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/errors"
 	"github.com/juju/proxy"
-	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
 )
@@ -344,9 +344,9 @@ type ConfigResult struct {
 
 // ModelOperatorInfo holds infor needed for a model operator.
 type ModelOperatorInfo struct {
-	APIAddresses []string        `json:"api-addresses"`
-	ImageDetails DockerImageInfo `json:"image-details"`
-	Version      version.Number  `json:"version"`
+	APIAddresses []string          `json:"api-addresses"`
+	ImageDetails DockerImageInfo   `json:"image-details"`
+	Version      semversion.Number `json:"version"`
 }
 
 // IssueOperatorCertificateResult contains an x509 certificate
@@ -996,7 +996,7 @@ type ControllersChanges struct {
 // FindToolsParams defines parameters for the FindTools method.
 type FindToolsParams struct {
 	// Number will be used to match tools versions exactly if non-zero.
-	Number version.Number `json:"number"`
+	Number semversion.Number `json:"number"`
 
 	// MajorVersion will be used to match the major version if non-zero.
 	// TODO(juju 3.1) - remove

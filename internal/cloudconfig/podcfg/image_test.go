@@ -5,10 +5,10 @@ package podcfg_test
 
 import (
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/testing"
@@ -24,26 +24,26 @@ func (*imageSuite) TestGetJujuOCIImagePath(c *gc.C) {
 	cfg := testing.FakeControllerConfig()
 
 	cfg[controller.CAASImageRepo] = "testing-repo"
-	ver := version.MustParse("2.6-beta3.666")
+	ver := semversion.MustParse("2.6-beta3.666")
 	path, err := podcfg.GetJujuOCIImagePath(cfg, ver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, jc.DeepEquals, "testing-repo/jujud-operator:2.6-beta3.666")
 
 	cfg[controller.CAASImageRepo] = "testing-repo:8080"
-	ver = version.MustParse("2.6-beta3.666")
+	ver = semversion.MustParse("2.6-beta3.666")
 	path, err = podcfg.GetJujuOCIImagePath(cfg, ver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, jc.DeepEquals, "testing-repo:8080/jujud-operator:2.6-beta3.666")
 
 	cfg[controller.CAASOperatorImagePath] = "testing-old-repo/jujud-old-operator:1.6"
-	ver = version.MustParse("2.6-beta3")
+	ver = semversion.MustParse("2.6-beta3")
 	path, err = podcfg.GetJujuOCIImagePath(cfg, ver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, jc.DeepEquals, "testing-old-repo/jujud-old-operator:2.6-beta3")
 }
 
 func (*imageSuite) TestRebuildOldOperatorImagePath(c *gc.C) {
-	ver := version.MustParse("2.6-beta3")
+	ver := semversion.MustParse("2.6-beta3")
 	path, err := podcfg.RebuildOldOperatorImagePath("docker.io/jujusolutions/jujud-operator:666", ver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, jc.DeepEquals, "docker.io/jujusolutions/jujud-operator:2.6-beta3")

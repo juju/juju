@@ -13,9 +13,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/version/v2"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/scripts/juju-inspect/rules"
 )
 
@@ -98,6 +98,6 @@ type Rule interface {
 }
 
 type AgentReport struct {
-	Agent   string         `yaml:"agent"`
-	Version version.Number `yaml:"version"`
+	Agent   string            `yaml:"agent"`
+	Version semversion.Number `yaml:"version"`
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/network"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/resource/testing"
+	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
@@ -1457,7 +1457,7 @@ func (s *applicationStateSuite) TestGetCharmIDByApplicationName(c *gc.C) {
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 	}
 	expectedManifest := charm.Manifest{
@@ -1526,7 +1526,7 @@ func (s *applicationStateSuite) TestGetCharmByApplicationID(c *gc.C) {
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 	}
 	expectedManifest := charm.Manifest{
@@ -1702,7 +1702,7 @@ func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationNameInvalid
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 	}
 	ctx := context.Background()

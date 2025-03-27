@@ -10,6 +10,7 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
+
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
 	corestorage "github.com/juju/juju/core/storage"

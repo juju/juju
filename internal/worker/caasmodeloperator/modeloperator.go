@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/controller/caasmodeloperator"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/password"
 )
@@ -189,7 +189,7 @@ func NewModelOperatorManager(
 func (m *ModelOperatorManager) updateAgentConf(
 	apiAddresses []string,
 	password string,
-	ver version.Number,
+	ver semversion.Number,
 ) (agent.ConfigSetterWriter, error) {
 	modelTag := names.NewModelTag(m.modelUUID)
 	conf, err := agent.NewAgentConfig(

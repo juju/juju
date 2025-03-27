@@ -7,10 +7,10 @@ import (
 	"github.com/go-goose/goose/v5/identity"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/semversion"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 )
 
@@ -29,7 +29,7 @@ func (s *precheckUpgradesSuite) TestPrecheckUpgradeOperations(c *gc.C) {
 	c.Assert(ops, gc.HasLen, 1)
 
 	op := ops[0]
-	c.Assert(op.TargetVersion, gc.Equals, version.MustParse("2.8.0"))
+	c.Assert(op.TargetVersion, gc.Equals, semversion.MustParse("2.8.0"))
 	c.Assert(op.Steps, gc.HasLen, 1)
 
 	step := op.Steps[0]

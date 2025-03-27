@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
@@ -54,7 +54,7 @@ func (s *serviceSuite) resourceProviderGetter(_ *gc.C) providertracker.ProviderG
 func (s *serviceSuite) TestAdoptResources(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	sourceControllerVersion, err := version.Parse("4.1.1")
+	sourceControllerVersion, err := semversion.Parse("4.1.1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.state.EXPECT().GetControllerUUID(gomock.Any()).Return(
@@ -85,7 +85,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *gc.C) {
 		return nil, coreerrors.NotSupported
 	}
 
-	sourceControllerVersion, err := version.Parse("4.1.1")
+	sourceControllerVersion, err := semversion.Parse("4.1.1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.state.EXPECT().GetControllerUUID(gomock.Any()).Return(
@@ -107,7 +107,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *gc.C) {
 func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	sourceControllerVersion, err := version.Parse("4.1.1")
+	sourceControllerVersion, err := semversion.Parse("4.1.1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.state.EXPECT().GetControllerUUID(gomock.Any()).Return(

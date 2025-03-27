@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v3"
 
+	"github.com/juju/juju/core/semversion"
 	chassumes "github.com/juju/juju/internal/charm/assumes"
 )
 
@@ -154,8 +154,8 @@ func genFeatureSet(c *gc.C) FeatureSet {
 	return fs
 }
 
-func mustParseVersion(c *gc.C, verStr string) *version.Number {
-	ver, err := version.ParseNonStrict(verStr)
+func mustParseVersion(c *gc.C, verStr string) *semversion.Number {
+	ver, err := semversion.ParseNonStrict(verStr)
 	c.Assert(err, jc.ErrorIsNil)
 	return &ver
 }

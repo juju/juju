@@ -16,7 +16,6 @@ import (
 	"github.com/juju/jsonschema"
 	"github.com/juju/names/v6"
 	"github.com/juju/schema"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -108,6 +108,7 @@ type environ struct {
 }
 
 var _ environs.Environ = (*environ)(nil)
+
 var _ environs.Networking = (*environ)(nil)
 
 func init() {
@@ -503,7 +504,7 @@ func (e *environ) SetConfig(ctx context.Context, cfg *config.Config) error {
 }
 
 // AdoptResources is part of the Environ interface.
-func (e *environ) AdoptResources(envcontext.ProviderCallContext, string, version.Number) error {
+func (e *environ) AdoptResources(envcontext.ProviderCallContext, string, semversion.Number) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }

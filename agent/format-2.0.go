@@ -11,12 +11,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/semversion"
 )
 
 var format_2_0 = formatter_2_0{}
@@ -37,7 +37,7 @@ type format_2_0Serialization struct {
 	MetricsSpoolDir   string             `yaml:"metricsspooldir,omitempty"`
 	Nonce             string             `yaml:"nonce,omitempty"`
 	Jobs              []model.MachineJob `yaml:"jobs,omitempty"`
-	UpgradedToVersion *version.Number    `yaml:"upgradedToVersion"`
+	UpgradedToVersion *semversion.Number `yaml:"upgradedToVersion"`
 
 	CACert         string   `yaml:"cacert,omitempty"`
 	StateAddresses []string `yaml:"stateaddresses,omitempty"`

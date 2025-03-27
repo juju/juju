@@ -5,10 +5,10 @@ package params
 
 import (
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/semversion"
 )
 
 // CAASUnitIntroductionArgs is used by sidecar units to introduce
@@ -44,7 +44,7 @@ type CAASUnitTerminationResult struct {
 
 // CAASApplicationProvisioningInfo holds info needed to provision a caas application.
 type CAASApplicationProvisioningInfo struct {
-	Version              version.Number               `json:"version"`
+	Version              semversion.Number            `json:"version"`
 	APIAddresses         []string                     `json:"api-addresses"`
 	CACert               string                       `json:"ca-cert"`
 	Constraints          constraints.Value            `json:"constraints"`

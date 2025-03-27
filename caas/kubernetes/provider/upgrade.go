@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,10 +15,11 @@ import (
 
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8sannotations "github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 )
 
-func (k *kubernetesClient) Upgrade(ctx context.Context, agentTag string, vers version.Number) error {
+func (k *kubernetesClient) Upgrade(ctx context.Context, agentTag string, vers semversion.Number) error {
 	tag, err := names.ParseTag(agentTag)
 	if err != nil {
 		return errors.Annotate(err, "parsing agent tag to upgrade")
@@ -45,7 +45,7 @@ func upgradeDeployment(
 	ctx context.Context,
 	name,
 	imagePath string,
-	vers version.Number,
+	vers semversion.Number,
 	legacyLabels bool,
 	broker appstyped.DeploymentInterface,
 ) error {
@@ -93,7 +93,7 @@ func upgradeOperatorOrControllerStatefulSet(
 	ctx context.Context,
 	name string,
 	imagePath string,
-	vers version.Number,
+	vers semversion.Number,
 	legacyLabels bool,
 	broker appstyped.StatefulSetInterface,
 ) error {
@@ -140,7 +140,7 @@ func upgradeOperatorOrControllerStatefulSet(
 func upgradePodTemplateSpec(
 	containers []core.Container,
 	imagePath string,
-	vers version.Number,
+	vers semversion.Number,
 ) ([]core.Container, error) {
 	jujudContainerIdx, found := findJujudContainer(containers)
 	if !found {

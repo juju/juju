@@ -7,11 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
@@ -38,7 +38,7 @@ func NewAgentToolsAPI(
 	modelGetter ModelGetter,
 	newEnviron func() (environs.Environ, error),
 	findTools toolsFinder,
-	envVersionUpdate func(*state.Model, version.Number) error,
+	envVersionUpdate func(*state.Model, semversion.Number) error,
 	authorizer facade.Authorizer,
 	logger corelogger.Logger,
 	modelConfigService ModelConfigService,
@@ -62,30 +62,32 @@ type ModelGetter interface {
 }
 
 type newEnvironFunc func() (environs.Environ, error)
-type toolsFinder func(context.Context, tools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, coretools.Filter) (coretools.List, error)
-type envVersionUpdater func(*state.Model, version.Number) error
 
-func (api *AgentToolsAPI) checkToolsAvailability(ctx context.Context) (version.Number, error) {
+type toolsFinder func(context.Context, tools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, coretools.Filter) (coretools.List, error)
+
+type envVersionUpdater func(*state.Model, semversion.Number) error
+
+func (api *AgentToolsAPI) checkToolsAvailability(ctx context.Context) (semversion.Number, error) {
 	currentVersion, err := api.modelAgentService.GetModelTargetAgentVersion(ctx)
 	if err != nil {
-		return version.Zero, errors.Annotate(err, "getting agent version from service")
+		return semversion.Zero, errors.Annotate(err, "getting agent version from service")
 	}
 
 	env, err := api.newEnviron()
 	if err != nil {
-		return version.Zero, errors.Annotatef(err, "cannot make cloud provider")
+		return semversion.Zero, errors.Annotatef(err, "cannot make cloud provider")
 	}
 
 	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
 	modelCfg, err := api.modelConfigService.ModelConfig(ctx)
 	if err != nil {
-		return version.Zero, errors.Annotate(err, "cannot get model config")
+		return semversion.Zero, errors.Annotate(err, "cannot get model config")
 	}
 
 	preferredStreams := tools.PreferredStreams(&currentVersion, modelCfg.Development(), modelCfg.AgentStream())
 	vers, err := api.findTools(ctx, ss, env, currentVersion.Major, currentVersion.Minor, preferredStreams, coretools.Filter{})
 	if err != nil {
-		return version.Zero, errors.Annotatef(err, "cannot find available agent binaries")
+		return semversion.Zero, errors.Annotatef(err, "cannot find available agent binaries")
 	}
 	// Newest also returns a list of the items in this list matching with the
 	// newest version.
@@ -94,8 +96,8 @@ func (api *AgentToolsAPI) checkToolsAvailability(ctx context.Context) (version.N
 }
 
 // Base implementation of envVersionUpdater
-func envVersionUpdate(env *state.Model, ver version.Number) error {
-	return env.UpdateLatestToolsVersion(ver)
+func envVersionUpdate(env *state.Model, ver semversion.Number) error {
+	return env.UpdateLatestToolsVersion(ver.String())
 }
 
 func (api *AgentToolsAPI) updateToolsAvailability(ctx context.Context) error {
@@ -107,7 +109,7 @@ func (api *AgentToolsAPI) updateToolsAvailability(ctx context.Context) error {
 		}
 		return errors.Annotate(err, "cannot get latest version")
 	}
-	if ver == version.Zero {
+	if ver == semversion.Zero {
 		api.logger.Debugf(context.TODO(), "The lookup of agent binaries returned version Zero. This should only happen during bootstrap.")
 		return nil
 	}

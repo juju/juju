@@ -7,10 +7,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
@@ -37,7 +36,7 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 // SetVersion sets the tools version associated with the entity with
 // the given tag, which must be the tag of the entity that the
 // upgrader is running on behalf of.
-func (st *Client) SetVersion(ctx context.Context, tag string, v version.Binary) error {
+func (st *Client) SetVersion(ctx context.Context, tag string, v semversion.Binary) error {
 	var results params.ErrorResults
 	args := params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{{
@@ -52,24 +51,24 @@ func (st *Client) SetVersion(ctx context.Context, tag string, v version.Binary) 
 	return results.OneError()
 }
 
-func (st *Client) DesiredVersion(ctx context.Context, tag string) (version.Number, error) {
+func (st *Client) DesiredVersion(ctx context.Context, tag string) (semversion.Number, error) {
 	var results params.VersionResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
 	err := st.facade.FacadeCall(ctx, "DesiredVersion", args, &results)
 	if err != nil {
-		return version.Number{}, err
+		return semversion.Number{}, err
 	}
 	if len(results.Results) != 1 {
-		return version.Number{}, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return semversion.Number{}, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if err := result.Error; err != nil {
-		return version.Number{}, err
+		return semversion.Number{}, err
 	}
 	if result.Version == nil {
-		return version.Number{}, fmt.Errorf("received no error, but got a nil Version")
+		return semversion.Number{}, fmt.Errorf("received no error, but got a nil Version")
 	}
 	return *result.Version, nil
 }

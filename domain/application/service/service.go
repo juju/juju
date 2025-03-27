@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
-	"github.com/juju/version/v2"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
@@ -22,6 +21,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/semversion"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
@@ -96,7 +96,7 @@ func NewService(
 type AgentVersionGetter interface {
 	// GetTargetAgentVersion returns the agent version
 	// for the current model.
-	GetTargetAgentVersion(context.Context) (version.Number, error)
+	GetTargetAgentVersion(context.Context) (semversion.Number, error)
 }
 
 // Provider defines the interface for interacting with the underlying model

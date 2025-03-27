@@ -7,11 +7,11 @@ import (
 	"context"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
 	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
@@ -109,7 +109,7 @@ func (s *suite) TestModelID(c *gc.C) {
 	modelSt := modelstate.NewModelState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := modelSt.Create(context.Background(), model.ModelDetailArgs{
 		UUID:           modelID,
-		AgentVersion:   version.Number{Major: 4, Minor: 21, Patch: 67},
+		AgentVersion:   semversion.Number{Major: 4, Minor: 21, Patch: 67},
 		ControllerUUID: uuid.MustNewUUID(),
 		Name:           "test-model",
 		Type:           coremodel.IAAS,

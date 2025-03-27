@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/charm"
@@ -142,7 +142,7 @@ func (c *Client) WatchProvisioningInfo(ctx context.Context, applicationName stri
 
 // ProvisioningInfo holds the info needed to provision an operator.
 type ProvisioningInfo struct {
-	Version              version.Number
+	Version              semversion.Number
 	APIAddresses         []string
 	CACert               string
 	Tags                 map[string]string

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4/voyeur"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/cmd/jujud-controller/agent/safemode"
 	cmdutil "github.com/juju/juju/cmd/jujud-controller/util"
 	"github.com/juju/juju/cmd/jujud/reboot"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/cmd"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -291,7 +291,7 @@ func (a *SafeModeMachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 }
 
 func (a *SafeModeMachineAgent) makeEngineCreator(
-	agentName string, previousAgentVersion version.Number,
+	agentName string, previousAgentVersion semversion.Number,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		eng, err := dependency.NewEngine(agentengine.DependencyEngineConfig(

@@ -11,10 +11,10 @@ import (
 	"sort"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/testing"
 	coretest "github.com/juju/juju/internal/tools"
 )
@@ -37,6 +37,7 @@ func (t *ToolsImportSuite) TestPackageDependencies(c *gc.C) {
 			"core/logger",
 			"core/model",
 			"core/permission",
+			"core/semversion",
 			"core/status",
 			"core/trace",
 			"core/user",
@@ -100,7 +101,7 @@ func (t *ToolsSuite) TestUnpackToolsBadData(c *gc.C) {
 		c.Logf("test %d", i)
 		testTools := &coretest.Tools{
 			URL:     "http://foo/bar",
-			Version: version.MustParseBinary("1.2.3-ubuntu-amd64"),
+			Version: semversion.MustParseBinary("1.2.3-ubuntu-amd64"),
 			Size:    int64(len(test.data)),
 			SHA256:  test.checksum,
 		}
@@ -114,7 +115,7 @@ func (t *ToolsSuite) TestUnpackToolsBadChecksum(c *gc.C) {
 	data, _ := testing.TarGz(testing.NewTarFile("tools", agenttools.DirPerm, "some data"))
 	testTools := &coretest.Tools{
 		URL:     "http://foo/bar",
-		Version: version.MustParseBinary("1.2.3-ubuntu-amd64"),
+		Version: semversion.MustParseBinary("1.2.3-ubuntu-amd64"),
 		Size:    int64(len(data)),
 		SHA256:  "1234",
 	}
@@ -136,7 +137,7 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 	data, checksum := testing.TarGz(files...)
 	testTools := &coretest.Tools{
 		URL:     "http://foo/bar",
-		Version: version.MustParseBinary("1.2.3-ubuntu-amd64"),
+		Version: semversion.MustParseBinary("1.2.3-ubuntu-amd64"),
 		Size:    int64(len(data)),
 		SHA256:  checksum,
 	}
@@ -155,7 +156,7 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 	data2, checksum2 := testing.TarGz(files2...)
 	tools2 := &coretest.Tools{
 		URL:     "http://arble",
-		Version: version.MustParseBinary("1.2.3-ubuntu-amd64"),
+		Version: semversion.MustParseBinary("1.2.3-ubuntu-amd64"),
 		Size:    int64(len(data2)),
 		SHA256:  checksum2,
 	}
@@ -166,7 +167,7 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 }
 
 func (t *ToolsSuite) TestReadToolsErrors(c *gc.C) {
-	vers := version.MustParseBinary("1.2.3-ubuntu-amd64")
+	vers := semversion.MustParseBinary("1.2.3-ubuntu-amd64")
 	testTools, err := agenttools.ReadTools(t.dataDir, vers)
 	c.Assert(testTools, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "cannot read agent metadata in directory .*")
@@ -191,7 +192,7 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 	data, checksum := testing.TarGz(files...)
 	testTools := &coretest.Tools{
 		URL:     "http://foo/bar1",
-		Version: version.MustParseBinary("1.2.3-ubuntu-amd64"),
+		Version: semversion.MustParseBinary("1.2.3-ubuntu-amd64"),
 		Size:    int64(len(data)),
 		SHA256:  checksum,
 	}
@@ -213,7 +214,7 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 	data2, checksum2 := testing.TarGz(files2...)
 	tools2 := &coretest.Tools{
 		URL:     "http://foo/bar2",
-		Version: version.MustParseBinary("1.2.4-ubuntu-amd64"),
+		Version: semversion.MustParseBinary("1.2.4-ubuntu-amd64"),
 		Size:    int64(len(data2)),
 		SHA256:  checksum2,
 	}
@@ -229,7 +230,7 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 }
 
 func (t *ToolsSuite) TestSharedToolsDir(c *gc.C) {
-	dir := agenttools.SharedToolsDir("/var/lib/juju", version.MustParseBinary("1.2.3-ubuntu-amd64"))
+	dir := agenttools.SharedToolsDir("/var/lib/juju", semversion.MustParseBinary("1.2.3-ubuntu-amd64"))
 	c.Assert(dir, gc.Equals, "/var/lib/juju/tools/1.2.3-ubuntu-amd64")
 }
 

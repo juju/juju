@@ -9,10 +9,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
@@ -84,7 +84,7 @@ func (s *exportCharmSuite) TestExportCharmMetadata(c *gc.C) {
 				SubExpressions: []assumes.Expression{},
 			},
 		},
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Provides: map[string]internalcharm.Relation{
 			"prometheus": {
 				Name:      "prometheus",

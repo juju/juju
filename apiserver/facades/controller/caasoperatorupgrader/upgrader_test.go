@@ -9,11 +9,11 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/semversion"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -51,7 +51,7 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestUpgradeOperator(c *gc.C) {
-	vers := version.MustParse("6.6.6")
+	vers := semversion.MustParse("6.6.6")
 	result, err := s.api.UpgradeOperator(context.Background(), params.KubernetesUpgradeArg{
 		AgentTag: s.authorizer.Tag.String(),
 		Version:  vers,
@@ -70,7 +70,7 @@ func (s *CAASProvisionerSuite) assertUpgradeController(c *gc.C, tag names.Tag) {
 	api, err := caasoperatorupgrader.NewCAASOperatorUpgraderAPI(s.authorizer, s.broker, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
-	vers := version.MustParse("6.6.6")
+	vers := semversion.MustParse("6.6.6")
 	result, err := api.UpgradeOperator(context.Background(), params.KubernetesUpgradeArg{
 		AgentTag: s.authorizer.Tag.String(),
 		Version:  vers,
@@ -92,7 +92,7 @@ type mockBroker struct {
 	testing.Stub
 }
 
-func (m *mockBroker) Upgrade(_ context.Context, app string, vers version.Number) error {
+func (m *mockBroker) Upgrade(_ context.Context, app string, vers semversion.Number) error {
 	m.AddCall("Upgrade", app, vers)
 	return nil
 }

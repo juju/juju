@@ -20,9 +20,9 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -35,15 +35,15 @@ import (
 	"github.com/juju/juju/juju/names"
 )
 
-func GetMockBundleTools(expectedForceVersion version.Number) tools.BundleToolsFunc {
+func GetMockBundleTools(expectedForceVersion semversion.Number) tools.BundleToolsFunc {
 	return func(
 		build bool, w io.Writer,
-		getForceVersion func(version.Number) version.Number,
-	) (version.Binary, version.Number, bool, string, error) {
+		getForceVersion func(semversion.Number) semversion.Number,
+	) (semversion.Binary, semversion.Number, bool, string, error) {
 		vers := coretesting.CurrentVersion()
 		forceVersion := getForceVersion(vers.Number)
 		if forceVersion.Compare(expectedForceVersion) != 0 {
-			return version.Binary{}, version.Number{}, false, "", errors.Errorf("%#v != expected %#v", forceVersion, expectedForceVersion)
+			return semversion.Binary{}, semversion.Number{}, false, "", errors.Errorf("%#v != expected %#v", forceVersion, expectedForceVersion)
 		}
 		sha256Hash := fmt.Sprintf("%x", sha256.New().Sum(nil))
 		return vers, forceVersion, false, sha256Hash, nil
@@ -55,7 +55,7 @@ func GetMockBundleTools(expectedForceVersion version.Number) tools.BundleToolsFu
 func GetMockBuildTools(c *gc.C) sync.BuildAgentTarballFunc {
 	return func(
 		build bool, stream string,
-		getForceVersion func(version.Number) version.Number,
+		getForceVersion func(semversion.Number) semversion.Number,
 	) (*sync.BuiltAgent, error) {
 		vers := coretesting.CurrentVersion()
 		vers.Number = getForceVersion(vers.Number)
@@ -93,7 +93,7 @@ func makeTools(c *gc.C, metadataDir, stream string, versionStrings []string, wit
 	c.Assert(os.MkdirAll(toolsDir, 0755), gc.IsNil)
 	var toolsList coretools.List
 	for _, versionString := range versionStrings {
-		binary, err := version.ParseBinary(versionString)
+		binary, err := semversion.ParseBinary(versionString)
 		c.Assert(err, jc.ErrorIsNil)
 		path := filepath.Join(toolsDir, fmt.Sprintf("juju-%s.tgz", binary))
 		data := binary.String()
@@ -254,8 +254,8 @@ func generateMetadata(c *gc.C, streamVersions StreamVersions) []metadataFile {
 }
 
 // UploadToStorage uploads tools and metadata for the specified versions to storage.
-func UploadToStorage(c *gc.C, stor storage.Storage, stream string, versions ...version.Binary) map[version.Binary]string {
-	uploaded := map[version.Binary]string{}
+func UploadToStorage(c *gc.C, stor storage.Storage, stream string, versions ...semversion.Binary) map[semversion.Binary]string {
+	uploaded := map[semversion.Binary]string{}
 	if len(versions) == 0 {
 		return uploaded
 	}
@@ -280,16 +280,16 @@ func UploadToStorage(c *gc.C, stor storage.Storage, stream string, versions ...v
 }
 
 // StreamVersions is a map of stream name to binaries in that stream.
-type StreamVersions map[string][]version.Binary
+type StreamVersions map[string][]semversion.Binary
 
 // UploadToDirectory uploads tools and metadata for the specified versions to dir.
-func UploadToDirectory(c *gc.C, dir string, streamVersions StreamVersions) map[string]map[version.Binary]string {
-	allUploaded := map[string]map[version.Binary]string{}
+func UploadToDirectory(c *gc.C, dir string, streamVersions StreamVersions) map[string]map[semversion.Binary]string {
+	allUploaded := map[string]map[semversion.Binary]string{}
 	if len(streamVersions) == 0 {
 		return allUploaded
 	}
 	for stream, versions := range streamVersions {
-		uploaded := map[version.Binary]string{}
+		uploaded := map[semversion.Binary]string{}
 		for _, vers := range versions {
 			basePath := fmt.Sprintf("%s/tools-%s.tar.gz", stream, vers.String())
 			uploaded[vers] = utils.MakeFileURL(fmt.Sprintf("%s/%s", dir, basePath))

@@ -15,8 +15,8 @@ import (
 
 	controller "github.com/juju/juju/controller"
 	machine "github.com/juju/juju/core/machine"
+	semversion "github.com/juju/juju/core/semversion"
 	watcher "github.com/juju/juju/core/watcher"
-	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -106,10 +106,10 @@ func (m *MockModelAgentService) EXPECT() *MockModelAgentServiceMockRecorder {
 }
 
 // GetMachineTargetAgentVersion mocks base method.
-func (m *MockModelAgentService) GetMachineTargetAgentVersion(arg0 context.Context, arg1 machine.Name) (version.Number, error) {
+func (m *MockModelAgentService) GetMachineTargetAgentVersion(arg0 context.Context, arg1 machine.Name) (semversion.Number, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMachineTargetAgentVersion", arg0, arg1)
-	ret0, _ := ret[0].(version.Number)
+	ret0, _ := ret[0].(semversion.Number)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -127,28 +127,28 @@ type MockModelAgentServiceGetMachineTargetAgentVersionCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelAgentServiceGetMachineTargetAgentVersionCall) Return(arg0 version.Number, arg1 error) *MockModelAgentServiceGetMachineTargetAgentVersionCall {
+func (c *MockModelAgentServiceGetMachineTargetAgentVersionCall) Return(arg0 semversion.Number, arg1 error) *MockModelAgentServiceGetMachineTargetAgentVersionCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelAgentServiceGetMachineTargetAgentVersionCall) Do(f func(context.Context, machine.Name) (version.Number, error)) *MockModelAgentServiceGetMachineTargetAgentVersionCall {
+func (c *MockModelAgentServiceGetMachineTargetAgentVersionCall) Do(f func(context.Context, machine.Name) (semversion.Number, error)) *MockModelAgentServiceGetMachineTargetAgentVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelAgentServiceGetMachineTargetAgentVersionCall) DoAndReturn(f func(context.Context, machine.Name) (version.Number, error)) *MockModelAgentServiceGetMachineTargetAgentVersionCall {
+func (c *MockModelAgentServiceGetMachineTargetAgentVersionCall) DoAndReturn(f func(context.Context, machine.Name) (semversion.Number, error)) *MockModelAgentServiceGetMachineTargetAgentVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetModelTargetAgentVersion mocks base method.
-func (m *MockModelAgentService) GetModelTargetAgentVersion(arg0 context.Context) (version.Number, error) {
+func (m *MockModelAgentService) GetModelTargetAgentVersion(arg0 context.Context) (semversion.Number, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetModelTargetAgentVersion", arg0)
-	ret0, _ := ret[0].(version.Number)
+	ret0, _ := ret[0].(semversion.Number)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -166,28 +166,28 @@ type MockModelAgentServiceGetModelTargetAgentVersionCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelAgentServiceGetModelTargetAgentVersionCall) Return(arg0 version.Number, arg1 error) *MockModelAgentServiceGetModelTargetAgentVersionCall {
+func (c *MockModelAgentServiceGetModelTargetAgentVersionCall) Return(arg0 semversion.Number, arg1 error) *MockModelAgentServiceGetModelTargetAgentVersionCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelAgentServiceGetModelTargetAgentVersionCall) Do(f func(context.Context) (version.Number, error)) *MockModelAgentServiceGetModelTargetAgentVersionCall {
+func (c *MockModelAgentServiceGetModelTargetAgentVersionCall) Do(f func(context.Context) (semversion.Number, error)) *MockModelAgentServiceGetModelTargetAgentVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelAgentServiceGetModelTargetAgentVersionCall) DoAndReturn(f func(context.Context) (version.Number, error)) *MockModelAgentServiceGetModelTargetAgentVersionCall {
+func (c *MockModelAgentServiceGetModelTargetAgentVersionCall) DoAndReturn(f func(context.Context) (semversion.Number, error)) *MockModelAgentServiceGetModelTargetAgentVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetUnitTargetAgentVersion mocks base method.
-func (m *MockModelAgentService) GetUnitTargetAgentVersion(arg0 context.Context, arg1 string) (version.Number, error) {
+func (m *MockModelAgentService) GetUnitTargetAgentVersion(arg0 context.Context, arg1 string) (semversion.Number, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnitTargetAgentVersion", arg0, arg1)
-	ret0, _ := ret[0].(version.Number)
+	ret0, _ := ret[0].(semversion.Number)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -205,19 +205,19 @@ type MockModelAgentServiceGetUnitTargetAgentVersionCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelAgentServiceGetUnitTargetAgentVersionCall) Return(arg0 version.Number, arg1 error) *MockModelAgentServiceGetUnitTargetAgentVersionCall {
+func (c *MockModelAgentServiceGetUnitTargetAgentVersionCall) Return(arg0 semversion.Number, arg1 error) *MockModelAgentServiceGetUnitTargetAgentVersionCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelAgentServiceGetUnitTargetAgentVersionCall) Do(f func(context.Context, string) (version.Number, error)) *MockModelAgentServiceGetUnitTargetAgentVersionCall {
+func (c *MockModelAgentServiceGetUnitTargetAgentVersionCall) Do(f func(context.Context, string) (semversion.Number, error)) *MockModelAgentServiceGetUnitTargetAgentVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelAgentServiceGetUnitTargetAgentVersionCall) DoAndReturn(f func(context.Context, string) (version.Number, error)) *MockModelAgentServiceGetUnitTargetAgentVersionCall {
+func (c *MockModelAgentServiceGetUnitTargetAgentVersionCall) DoAndReturn(f func(context.Context, string) (semversion.Number, error)) *MockModelAgentServiceGetUnitTargetAgentVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

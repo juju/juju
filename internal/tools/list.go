@@ -9,7 +9,8 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
+
+	"github.com/juju/juju/core/semversion"
 )
 
 // List holds tools available in an environment. The order of tools within
@@ -70,8 +71,8 @@ func (src List) collect(f func(*Tools) string) []string {
 
 // URLs returns download URLs for the tools in src, keyed by binary
 // version. Each version can have more than one URL.
-func (src List) URLs() map[version.Binary][]string {
-	result := map[version.Binary][]string{}
+func (src List) URLs() map[semversion.Binary][]string {
+	result := map[semversion.Binary][]string{}
 	for _, tools := range src {
 		result[tools.Version] = append(result[tools.Version], tools.URL)
 	}
@@ -81,16 +82,16 @@ func (src List) URLs() map[version.Binary][]string {
 // HasVersion instance store an agent version.
 type HasVersion interface {
 	// AgentVersion returns the agent version.
-	AgentVersion() version.Number
+	AgentVersion() semversion.Number
 }
 
 // Versions holds instances of HasVersion.
 type Versions []HasVersion
 
 // Newest returns the greatest version in src, and the tools with that version.
-func (src List) Newest() (version.Number, List) {
+func (src List) Newest() (semversion.Number, List) {
 	var result List
-	var best version.Number
+	var best semversion.Number
 	for _, tools := range src {
 		if best.Compare(tools.Version.Number) < 0 {
 			// Found new best number; reset result list.
@@ -104,9 +105,9 @@ func (src List) Newest() (version.Number, List) {
 }
 
 // Newest returns the greatest version in src, and the instances with that version.
-func (src Versions) Newest() (version.Number, Versions) {
+func (src Versions) Newest() (semversion.Number, Versions) {
 	var result Versions
-	var best version.Number
+	var best semversion.Number
 	for _, agent := range src {
 		if best.Compare(agent.AgentVersion()) < 0 {
 			// Found new best number; reset result list.
@@ -122,7 +123,7 @@ func (src Versions) Newest() (version.Number, Versions) {
 // NewestCompatible returns the most recent version compatible with
 // base, i.e. with the same major number and greater or
 // equal minor, patch and build numbers.
-func (src Versions) NewestCompatible(base version.Number, allowDevBuilds bool) (newest version.Number, found bool) {
+func (src Versions) NewestCompatible(base semversion.Number, allowDevBuilds bool) (newest semversion.Number, found bool) {
 	newest = base
 	found = false
 	for _, agent := range src {
@@ -142,7 +143,7 @@ func (src Versions) NewestCompatible(base version.Number, allowDevBuilds bool) (
 
 // Exclude returns the tools in src that are not in excluded.
 func (src List) Exclude(excluded List) List {
-	ignore := make(map[version.Binary]bool, len(excluded))
+	ignore := make(map[semversion.Binary]bool, len(excluded))
 	for _, tool := range excluded {
 		ignore[tool.Version] = true
 	}
@@ -185,15 +186,17 @@ func (src Versions) Match(f Filter) (Versions, error) {
 	return result, nil
 }
 
-func (l List) Len() int           { return len(l) }
-func (l List) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
+func (l List) Len() int { return len(l) }
+
+func (l List) Swap(i, j int) { l[i], l[j] = l[j], l[i] }
+
 func (l List) Less(i, j int) bool { return l[i].Version.String() < l[j].Version.String() }
 
 // Filter holds criteria for choosing tools.
 type Filter struct {
 	// Number, if non-zero, causes the filter to match only tools with
 	// that exact version number.
-	Number version.Number
+	Number semversion.Number
 
 	// OSType, if not empty, causes the filter to match only tools with
 	// that os type.
@@ -206,7 +209,7 @@ type Filter struct {
 
 // match returns true if the supplied tools match f.
 func (f Filter) match(agent HasVersion) bool {
-	if f.Number != version.Zero && agent.AgentVersion() != f.Number {
+	if f.Number != semversion.Zero && agent.AgentVersion() != f.Number {
 		return false
 	}
 	tools, ok := agent.(*Tools)

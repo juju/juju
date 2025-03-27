@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
@@ -17,6 +16,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 )
 
@@ -80,12 +80,12 @@ func (s *modelUpgraderSuite) TestModelOperatorUpgrade(c *gc.C) {
 		}, meta.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(modelOperatorUpgrade(context.Background(), operatorName, version.MustParse("9.9.9"), s.broker), jc.ErrorIsNil)
+	c.Assert(modelOperatorUpgrade(context.Background(), operatorName, semversion.MustParse("9.9.9"), s.broker), jc.ErrorIsNil)
 	de, err := s.broker.Client().AppsV1().Deployments(s.broker.Namespace()).
 		Get(context.Background(), operatorName, meta.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(de.Spec.Template.Spec.Containers[0].Image, gc.Equals, newImagePath)
 
-	c.Assert(de.Annotations[utils.AnnotationVersionKey(false)], gc.Equals, version.MustParse("9.9.9").String())
-	c.Assert(de.Spec.Template.Annotations[utils.AnnotationVersionKey(false)], gc.Equals, version.MustParse("9.9.9").String())
+	c.Assert(de.Annotations[utils.AnnotationVersionKey(false)], gc.Equals, semversion.MustParse("9.9.9").String())
+	c.Assert(de.Spec.Template.Annotations[utils.AnnotationVersionKey(false)], gc.Equals, semversion.MustParse("9.9.9").String())
 }

@@ -18,11 +18,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/arch"
 	corelogger "github.com/juju/juju/core/logger"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/juju/names"
 )
@@ -326,14 +326,14 @@ func packageLocalTools(ctx context.Context, toolsDir string, buildAgent bool) er
 // in gzipped tar format to the given writer.
 type BundleToolsFunc func(
 	build bool, w io.Writer,
-	getForceVersion func(version.Number) version.Number,
-) (builtVersion version.Binary, forceVersion version.Number, _ bool, _ string, _ error)
+	getForceVersion func(semversion.Number) semversion.Number,
+) (builtVersion semversion.Binary, forceVersion semversion.Number, _ bool, _ string, _ error)
 
 // Override for testing.
 var BundleTools BundleToolsFunc = func(
 	build bool, w io.Writer,
-	getForceVersion func(version.Number) version.Number,
-) (version.Binary, version.Number, bool, string, error) {
+	getForceVersion func(semversion.Number) semversion.Number,
+) (semversion.Binary, semversion.Number, bool, string, error) {
 	return bundleTools(context.TODO(), build, w, getForceVersion, JujudVersion)
 }
 
@@ -343,35 +343,35 @@ var BundleTools BundleToolsFunc = func(
 func bundleTools(
 	ctx context.Context,
 	build bool, w io.Writer,
-	getForceVersion func(version.Number) version.Number,
-	jujudVersion func(dir string) (version.Binary, bool, error),
-) (_ version.Binary, _ version.Number, official bool, sha256hash string, _ error) {
+	getForceVersion func(semversion.Number) semversion.Number,
+	jujudVersion func(dir string) (semversion.Binary, bool, error),
+) (_ semversion.Binary, _ semversion.Number, official bool, sha256hash string, _ error) {
 	dir, err := os.MkdirTemp("", "juju-tools")
 	if err != nil {
-		return version.Binary{}, version.Number{}, false, "", err
+		return semversion.Binary{}, semversion.Number{}, false, "", err
 	}
 	defer os.RemoveAll(dir)
 
 	existingJujuLocation, err := ExistingJujuLocation()
 	if err != nil {
-		return version.Binary{}, version.Number{}, false, "", errors.Annotate(err, "couldn't find existing jujud")
+		return semversion.Binary{}, semversion.Number{}, false, "", errors.Annotate(err, "couldn't find existing jujud")
 	}
 	_, official, err = jujudVersion(existingJujuLocation)
 	if err != nil && !errors.Is(err, errors.NotFound) {
-		return version.Binary{}, version.Number{}, official, "", errors.Trace(err)
+		return semversion.Binary{}, semversion.Number{}, official, "", errors.Trace(err)
 	}
 	if official && build {
-		return version.Binary{}, version.Number{}, official, "", errors.Errorf("cannot build agent for official build")
+		return semversion.Binary{}, semversion.Number{}, official, "", errors.Errorf("cannot build agent for official build")
 	}
 
 	if err := packageLocalTools(ctx, dir, build); err != nil {
-		return version.Binary{}, version.Number{}, false, "", err
+		return semversion.Binary{}, semversion.Number{}, false, "", err
 	}
 
 	// We need to get the version again because the juju binaries at dir might be built from source code.
 	tvers, official, err := jujudVersion(dir)
 	if err != nil {
-		return version.Binary{}, version.Number{}, false, "", errors.Trace(err)
+		return semversion.Binary{}, semversion.Number{}, false, "", errors.Trace(err)
 	}
 	if official {
 		logger.Debugf(ctx, "using official version %s", tvers)
@@ -379,12 +379,12 @@ func bundleTools(
 	forceVersion := getForceVersion(tvers.Number)
 	logger.Debugf(ctx, "forcing version to %s", forceVersion)
 	if err := os.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte(forceVersion.String()), 0666); err != nil {
-		return version.Binary{}, version.Number{}, false, "", err
+		return semversion.Binary{}, semversion.Number{}, false, "", err
 	}
 
 	sha256hash, err = archiveAndSHA256(w, dir)
 	if err != nil {
-		return version.Binary{}, version.Number{}, false, "", err
+		return semversion.Binary{}, semversion.Number{}, false, "", err
 	}
 	return tvers, forceVersion, official, sha256hash, err
 }
@@ -392,14 +392,14 @@ func bundleTools(
 // Override for testing.
 var ExecCommand = exec.Command
 
-func getVersionFromJujud(dir string) (version.Binary, error) {
+func getVersionFromJujud(dir string) (semversion.Binary, error) {
 	// If there's no jujud, return a NotFound error.
 	path := filepath.Join(dir, names.Jujud)
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
-			return version.Binary{}, errors.NotFoundf(path)
+			return semversion.Binary{}, errors.NotFoundf(path)
 		}
-		return version.Binary{}, errors.Trace(err)
+		return semversion.Binary{}, errors.Trace(err)
 	}
 	cmd := ExecCommand(path, "version")
 	var stdout, stderr bytes.Buffer
@@ -407,23 +407,23 @@ func getVersionFromJujud(dir string) (version.Binary, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return version.Binary{}, errors.Errorf("cannot get version from %q: %v; %s", path, err, stderr.String()+stdout.String())
+		return semversion.Binary{}, errors.Errorf("cannot get version from %q: %v; %s", path, err, stderr.String()+stdout.String())
 	}
 	tvs := strings.TrimSpace(stdout.String())
-	tvers, err := version.ParseBinary(tvs)
+	tvers, err := semversion.ParseBinary(tvs)
 	if err != nil {
-		return version.Binary{}, errors.Errorf("invalid version %q printed by jujud", tvs)
+		return semversion.Binary{}, errors.Errorf("invalid version %q printed by jujud", tvs)
 	}
 	return tvers, nil
 }
 
 // JujudVersion returns the Jujud version at the specified location,
 // and whether it is an official binary.
-func JujudVersion(dir string) (version.Binary, bool, error) {
+func JujudVersion(dir string) (semversion.Binary, bool, error) {
 	tvers, err := getVersionFromFile(dir)
 	official := err == nil
 	if err != nil && !errors.Is(err, errors.NotFound) && !isNoMatchingToolsChecksum(err) {
-		return version.Binary{}, false, errors.Trace(err)
+		return semversion.Binary{}, false, errors.Trace(err)
 	}
 	if errors.Is(err, errors.NotFound) || isNoMatchingToolsChecksum(err) {
 		// No signature file found.
@@ -432,7 +432,7 @@ func JujudVersion(dir string) (version.Binary, bool, error) {
 		// being used to bootstrap.
 		tvers, err = getVersionFromJujud(dir)
 		if err != nil {
-			return version.Binary{}, false, errors.Trace(err)
+			return semversion.Binary{}, false, errors.Trace(err)
 		}
 	}
 	return tvers, official, nil
@@ -452,47 +452,47 @@ func isNoMatchingToolsChecksum(err error) bool {
 	return ok
 }
 
-func getVersionFromFile(dir string) (version.Binary, error) {
+func getVersionFromFile(dir string) (semversion.Binary, error) {
 	versionPath := filepath.Join(dir, names.JujudVersions)
 	sigFile, err := os.Open(versionPath)
 	if os.IsNotExist(err) {
-		return version.Binary{}, errors.NotFoundf("version file %q", versionPath)
+		return semversion.Binary{}, errors.NotFoundf("version file %q", versionPath)
 	} else if err != nil {
-		return version.Binary{}, errors.Trace(err)
+		return semversion.Binary{}, errors.Trace(err)
 	}
 	defer sigFile.Close()
 
 	versions, err := ParseVersions(sigFile)
 	if err != nil {
-		return version.Binary{}, errors.Trace(err)
+		return semversion.Binary{}, errors.Trace(err)
 	}
 
 	// Find the binary by hash.
 	jujudPath := filepath.Join(dir, names.Jujud)
 	jujudFile, err := os.Open(jujudPath)
 	if err != nil {
-		return version.Binary{}, errors.Trace(err)
+		return semversion.Binary{}, errors.Trace(err)
 	}
 	defer jujudFile.Close()
 	matching, err := versions.VersionsMatching(jujudFile)
 	if err != nil {
-		return version.Binary{}, errors.Trace(err)
+		return semversion.Binary{}, errors.Trace(err)
 	}
 	if len(matching) == 0 {
-		return version.Binary{}, &noMatchingToolsChecksum{versionPath, jujudPath}
+		return semversion.Binary{}, &noMatchingToolsChecksum{versionPath, jujudPath}
 	}
 	return selectBinary(matching)
 }
 
-func selectBinary(versions []string) (version.Binary, error) {
+func selectBinary(versions []string) (semversion.Binary, error) {
 	thisArch := arch.HostArch()
 	thisHost := coreos.HostOSTypeName()
-	var current version.Binary
+	var current semversion.Binary
 	for _, ver := range versions {
 		var err error
-		current, err = version.ParseBinary(ver)
+		current, err = semversion.ParseBinary(ver)
 		if err != nil {
-			return version.Binary{}, errors.Trace(err)
+			return semversion.Binary{}, errors.Trace(err)
 		}
 		if current.Release == thisHost && current.Arch == thisArch {
 			return current, nil

@@ -9,11 +9,11 @@ import (
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
@@ -183,7 +183,7 @@ func (s *environInstSuite) TestAdoptResources(c *gc.C) {
 	three := s.NewContainer(c, "tall-dwarfs")
 	s.Client.Containers = []containerlxd.Container{*one, *two, *three}
 
-	err := s.Env.AdoptResources(envcontext.WithoutCredentialInvalidator(context.Background()), "target-uuid", version.MustParse("3.4.5"))
+	err := s.Env.AdoptResources(envcontext.WithoutCredentialInvalidator(context.Background()), "target-uuid", semversion.MustParse("3.4.5"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.BaseSuite.Client.Calls(), gc.HasLen, 4)
 	s.BaseSuite.Client.CheckCall(c, 0, "AliveContainers", "juju-f75cba-")
@@ -204,7 +204,7 @@ func (s *environInstSuite) TestAdoptResourcesError(c *gc.C) {
 	s.Client.Containers = []containerlxd.Container{*one, *two, *three}
 	s.Client.SetErrors(nil, nil, errors.New("blammo"))
 
-	err := s.Env.AdoptResources(envcontext.WithoutCredentialInvalidator(context.Background()), "target-uuid", version.MustParse("5.3.3"))
+	err := s.Env.AdoptResources(envcontext.WithoutCredentialInvalidator(context.Background()), "target-uuid", semversion.MustParse("5.3.3"))
 	c.Assert(err, gc.ErrorMatches, `failed to update controller for some instances: \[guild-league\]`)
 	c.Assert(s.BaseSuite.Client.Calls(), gc.HasLen, 4)
 	s.BaseSuite.Client.CheckCall(c, 0, "AliveContainers", "juju-f75cba-")
@@ -226,7 +226,7 @@ func (s *environInstSuite) TestAdoptResourcesInvalidResources(c *gc.C) {
 
 	err := s.Env.AdoptResources(envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
 		return nil
-	}), "target-uuid", version.MustParse("3.4.5"))
+	}), "target-uuid", semversion.MustParse("3.4.5"))
 
 	c.Check(err, gc.ErrorMatches, ".*not authorized")
 	s.BaseSuite.Client.CheckCall(c, 0, "AliveContainers", "juju-f75cba-")

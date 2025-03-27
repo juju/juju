@@ -10,8 +10,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 	"gopkg.in/yaml.v2"
+
+	"github.com/juju/juju/core/semversion"
 )
 
 var (
@@ -155,7 +156,7 @@ func parseFeatureExpr(exprDecl string) (FeatureExpression, error) {
 	matches := featureWithVersion.FindAllStringSubmatch(exprDecl, 1)
 	if len(matches) == 1 {
 		featName, constraint, versionStr := matches[0][1], matches[0][2], matches[0][3]
-		ver, err := version.ParseNonStrict(versionStr)
+		ver, err := semversion.ParseNonStrict(versionStr)
 		if err != nil {
 			return FeatureExpression{}, errors.Annotatef(err, "malformed feature expression %q", exprDecl)
 		}

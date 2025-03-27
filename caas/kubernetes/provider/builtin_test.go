@@ -14,7 +14,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	k8s "github.com/juju/juju/caas/kubernetes"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/semversion"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
@@ -144,8 +144,8 @@ func (s *builtinSuite) TestAttemptMicroK8sCloud(c *gc.C) {
 }
 
 func (s *builtinSuite) assertDecideKubeConfigDir(c *gc.C, isOfficial bool, clientConfigPath string) {
-	s.PatchValue(&provider.CheckJujuOfficial, func(string) (version.Binary, bool, error) {
-		return version.Binary{}, isOfficial, nil
+	s.PatchValue(&provider.CheckJujuOfficial, func(string) (semversion.Binary, bool, error) {
+		return semversion.Binary{}, isOfficial, nil
 	})
 	s.PatchEnvironment("SNAP_DATA", "snap-data-dir")
 	p, err := provider.DecideKubeConfigDir()
@@ -162,8 +162,8 @@ func (s *builtinSuite) TestDecideKubeConfigDirLocalBuild(c *gc.C) {
 }
 
 func (s *builtinSuite) TestDecideKubeConfigDirNoJujud(c *gc.C) {
-	s.PatchValue(&provider.CheckJujuOfficial, func(string) (version.Binary, bool, error) {
-		return version.Binary{}, false, errors.NotFoundf("jujud")
+	s.PatchValue(&provider.CheckJujuOfficial, func(string) (semversion.Binary, bool, error) {
+		return semversion.Binary{}, false, errors.NotFoundf("jujud")
 	})
 	s.PatchEnvironment("SNAP_DATA", "snap-data-dir")
 	p, err := provider.DecideKubeConfigDir()

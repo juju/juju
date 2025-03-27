@@ -12,12 +12,12 @@ import (
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/state/binarystorage"
 )
@@ -31,7 +31,7 @@ var _ = gc.Suite(&agentBinarySuite{})
 func (s *agentBinarySuite) TestPopulateAgentBinary(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	current := version.Binary{
+	current := semversion.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),
 		Release: coreos.HostOSTypeName(),
@@ -65,7 +65,7 @@ func (s *agentBinarySuite) TestPopulateAgentBinary(c *gc.C) {
 func (s *agentBinarySuite) TestPopulateAgentBinaryAddError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	current := version.Binary{
+	current := semversion.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),
 		Release: coreos.HostOSTypeName(),
@@ -98,7 +98,7 @@ func (s *agentBinarySuite) TestPopulateAgentBinaryAddError(c *gc.C) {
 func (s *agentBinarySuite) TestPopulateAgentBinaryNoDownloadedToolsFile(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	current := version.Binary{
+	current := semversion.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),
 		Release: coreos.HostOSTypeName(),
@@ -113,7 +113,7 @@ func (s *agentBinarySuite) TestPopulateAgentBinaryNoDownloadedToolsFile(c *gc.C)
 func (s *agentBinarySuite) TestPopulateAgentBinaryNoBinaryFile(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	current := version.Binary{
+	current := semversion.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),
 		Release: coreos.HostOSTypeName(),
@@ -133,7 +133,7 @@ func (s *agentBinarySuite) TestPopulateAgentBinaryNoBinaryFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, os.ErrNotExist)
 }
 
-func (s *agentBinarySuite) ensureDirs(c *gc.C, current version.Binary) (string, string) {
+func (s *agentBinarySuite) ensureDirs(c *gc.C, current semversion.Binary) (string, string) {
 	dir := c.MkDir()
 
 	path := filepath.Join(dir, "tools", current.String())
@@ -155,7 +155,7 @@ func (s *agentBinarySuite) writeDownloadTools(c *gc.C, dir string, tools downloa
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *agentBinarySuite) writeAgentBinary(c *gc.C, dir string, current version.Binary) {
+func (s *agentBinarySuite) writeAgentBinary(c *gc.C, dir string, current semversion.Binary) {
 	err := os.WriteFile(filepath.Join(dir, "tools.tar.gz"), []byte("data"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 

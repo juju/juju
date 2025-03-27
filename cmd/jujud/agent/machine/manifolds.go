@@ -14,7 +14,6 @@ import (
 	"github.com/juju/proxy"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v4/voyeur"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/semversion"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/environs"
 	containerbroker "github.com/juju/juju/internal/container/broker"
@@ -93,7 +93,7 @@ type ManifoldsConfig struct {
 
 	// PreviousAgentVersion passes through the version the machine
 	// agent was running before the current restart.
-	PreviousAgentVersion version.Number
+	PreviousAgentVersion semversion.Number
 
 	// UpgradeStepsLock is passed to the upgrade steps gate to
 	// coordinate workers that shouldn't do anything until the

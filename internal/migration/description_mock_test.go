@@ -13,7 +13,6 @@ import (
 	reflect "reflect"
 
 	description "github.com/juju/description/v9"
-	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -1711,10 +1710,10 @@ func (c *MockModelIPAddressesCall) DoAndReturn(f func() []description.IPAddress)
 }
 
 // LatestToolsVersion mocks base method.
-func (m *MockModel) LatestToolsVersion() version.Number {
+func (m *MockModel) LatestToolsVersion() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LatestToolsVersion")
-	ret0, _ := ret[0].(version.Number)
+	ret0, _ := ret[0].(string)
 	return ret0
 }
 
@@ -1731,19 +1730,19 @@ type MockModelLatestToolsVersionCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelLatestToolsVersionCall) Return(arg0 version.Number) *MockModelLatestToolsVersionCall {
+func (c *MockModelLatestToolsVersionCall) Return(arg0 string) *MockModelLatestToolsVersionCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelLatestToolsVersionCall) Do(f func() version.Number) *MockModelLatestToolsVersionCall {
+func (c *MockModelLatestToolsVersionCall) Do(f func() string) *MockModelLatestToolsVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelLatestToolsVersionCall) DoAndReturn(f func() version.Number) *MockModelLatestToolsVersionCall {
+func (c *MockModelLatestToolsVersionCall) DoAndReturn(f func() string) *MockModelLatestToolsVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

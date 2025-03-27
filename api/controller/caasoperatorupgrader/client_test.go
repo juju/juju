@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/caasoperatorupgrader"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -35,7 +35,7 @@ func (s *provisionerSuite) TestUpgrader(c *gc.C) {
 		c.Assert(request, gc.Equals, "UpgradeOperator")
 		c.Assert(a, jc.DeepEquals, params.KubernetesUpgradeArg{
 			AgentTag: "application-foo",
-			Version:  version.MustParse("6.6.6"),
+			Version:  semversion.MustParse("6.6.6"),
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResult{})
 		*(result.(*params.ErrorResult)) = params.ErrorResult{
@@ -43,7 +43,7 @@ func (s *provisionerSuite) TestUpgrader(c *gc.C) {
 		}
 		return nil
 	})
-	err := client.Upgrade(context.Background(), "application-foo", version.MustParse("6.6.6"))
+	err := client.Upgrade(context.Background(), "application-foo", semversion.MustParse("6.6.6"))
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(called, jc.IsTrue)
 }

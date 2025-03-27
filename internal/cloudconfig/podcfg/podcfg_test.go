@@ -5,12 +5,12 @@ package podcfg_test
 
 import (
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/testing"
@@ -66,7 +66,7 @@ func (*podcfgSuite) TestOperatorImagesDefaultRepo(c *gc.C) {
 		constraints.Value{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	podConfig.JujuVersion = version.MustParse("6.6.6.666")
+	podConfig.JujuVersion = semversion.MustParse("6.6.6.666")
 	path, err := podConfig.GetControllerImagePath()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, gc.Equals, "docker.io/jujusolutions/jujud-operator:6.6.6.666")
@@ -86,7 +86,7 @@ func (*podcfgSuite) TestOperatorImagesCustomRepo(c *gc.C) {
 		constraints.Value{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	podConfig.JujuVersion = version.MustParse("6.6.6.666")
+	podConfig.JujuVersion = semversion.MustParse("6.6.6.666")
 	c.Assert(err, jc.ErrorIsNil)
 	path, err := podConfig.GetControllerImagePath()
 	c.Assert(err, jc.ErrorIsNil)
@@ -148,7 +148,7 @@ func (*podcfgSuite) TestUnitAgentConfig(c *gc.C) {
 		CACert:   testing.CACert,
 	}
 	podConfig.Bootstrap.StateServingInfo.APIPort = 1234
-	podConfig.JujuVersion = version.MustParse("6.6.6")
+	podConfig.JujuVersion = semversion.MustParse("6.6.6")
 	c.Assert(err, jc.ErrorIsNil)
 	agentCfg, err := podConfig.UnitAgentConfig()
 	c.Assert(err, jc.ErrorIsNil)

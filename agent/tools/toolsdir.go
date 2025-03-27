@@ -17,8 +17,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4/symlink"
-	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/semversion"
 	coretools "github.com/juju/juju/internal/tools"
 )
 
@@ -31,7 +31,7 @@ const (
 // SharedToolsDir returns the directory that is used to
 // store binaries for the given version of the juju tools
 // within the dataDir directory.
-func SharedToolsDir(dataDir string, vers version.Binary) string {
+func SharedToolsDir(dataDir string, vers semversion.Binary) string {
 	return path.Join(dataDir, "tools", vers.String())
 }
 
@@ -159,7 +159,7 @@ func writeFile(name string, mode os.FileMode, r io.Reader) error {
 // ReadTools checks that the tools information for the given version exists
 // in the dataDir directory, and returns a Tools instance.
 // The tools information is json encoded in a text file, "downloaded-tools.txt".
-func ReadTools(dataDir string, vers version.Binary) (*coretools.Tools, error) {
+func ReadTools(dataDir string, vers semversion.Binary) (*coretools.Tools, error) {
 	dir := SharedToolsDir(dataDir, vers)
 	toolsData, err := os.ReadFile(path.Join(dir, toolsFile))
 	if err != nil {
@@ -175,7 +175,7 @@ func ReadTools(dataDir string, vers version.Binary) (*coretools.Tools, error) {
 // ChangeAgentTools atomically replaces the agent-specific symlink
 // under dataDir so it points to the previously unpacked
 // version vers. It returns the new tools read.
-func ChangeAgentTools(dataDir string, agentName string, vers version.Binary) (*coretools.Tools, error) {
+func ChangeAgentTools(dataDir string, agentName string, vers semversion.Binary) (*coretools.Tools, error) {
 	tools, err := ReadTools(dataDir, vers)
 	if err != nil {
 		return nil, err

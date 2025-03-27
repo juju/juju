@@ -12,10 +12,10 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/replicaset/v3"
-	"github.com/juju/version/v2"
 
 	corebase "github.com/juju/juju/core/base"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/semversion"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/provider/lxd"
@@ -178,7 +178,7 @@ func checkForDeprecatedUbuntuSeriesForModel(
 }
 
 func getCheckTargetVersionForControllerModel(
-	targetVersion version.Number,
+	targetVersion semversion.Number,
 ) Validator {
 	return func(_ StatePool, _ State, _ Model, modelAgentService ModelAgentService) (*Blocker, error) {
 		agentVersion, err := modelAgentService.GetModelTargetAgentVersion(context.Background())
@@ -197,8 +197,8 @@ func getCheckTargetVersionForControllerModel(
 }
 
 func getCheckTargetVersionForModel(
-	targetVersion version.Number,
-	versionChecker func(from, to version.Number) (bool, version.Number, error),
+	targetVersion semversion.Number,
+	versionChecker func(from, to semversion.Number) (bool, semversion.Number, error),
 ) Validator {
 	return func(_ StatePool, _ State, _ Model, modelAgentService ModelAgentService) (*Blocker, error) {
 		agentVersion, err := modelAgentService.GetModelTargetAgentVersion(context.Background())

@@ -14,9 +14,9 @@ import (
 	reflect "reflect"
 
 	set "github.com/juju/collections/set"
+	semversion "github.com/juju/juju/core/semversion"
 	envcontext "github.com/juju/juju/environs/envcontext"
 	instances "github.com/juju/juju/environs/instances"
-	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -106,7 +106,7 @@ func (m *MockResourceProvider) EXPECT() *MockResourceProviderMockRecorder {
 }
 
 // AdoptResources mocks base method.
-func (m *MockResourceProvider) AdoptResources(arg0 envcontext.ProviderCallContext, arg1 string, arg2 version.Number) error {
+func (m *MockResourceProvider) AdoptResources(arg0 envcontext.ProviderCallContext, arg1 string, arg2 semversion.Number) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AdoptResources", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -132,13 +132,13 @@ func (c *MockResourceProviderAdoptResourcesCall) Return(arg0 error) *MockResourc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockResourceProviderAdoptResourcesCall) Do(f func(envcontext.ProviderCallContext, string, version.Number) error) *MockResourceProviderAdoptResourcesCall {
+func (c *MockResourceProviderAdoptResourcesCall) Do(f func(envcontext.ProviderCallContext, string, semversion.Number) error) *MockResourceProviderAdoptResourcesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockResourceProviderAdoptResourcesCall) DoAndReturn(f func(envcontext.ProviderCallContext, string, version.Number) error) *MockResourceProviderAdoptResourcesCall {
+func (c *MockResourceProviderAdoptResourcesCall) DoAndReturn(f func(envcontext.ProviderCallContext, string, semversion.Number) error) *MockResourceProviderAdoptResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

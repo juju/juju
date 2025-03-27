@@ -7,12 +7,12 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/cloud"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -129,7 +129,7 @@ func CreateGlobalModelRecord(
 func CreateLocalModelRecord(
 	id coremodel.UUID,
 	controllerUUID uuid.UUID,
-	agentVersion version.Number,
+	agentVersion semversion.Number,
 ) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controllerDB, modelDB database.TxnRunner) error {
 		if err := id.Validate(); err != nil {

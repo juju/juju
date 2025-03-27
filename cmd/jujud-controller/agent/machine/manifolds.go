@@ -15,7 +15,6 @@ import (
 	"github.com/juju/proxy"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v4/voyeur"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/semversion"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/environs"
 	internalbootstrap "github.com/juju/juju/internal/bootstrap"
@@ -90,7 +90,7 @@ import (
 	"github.com/juju/juju/internal/worker/logger"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/logsink"
-	logsinkservices "github.com/juju/juju/internal/worker/logsinkservices"
+	"github.com/juju/juju/internal/worker/logsinkservices"
 	"github.com/juju/juju/internal/worker/machineactions"
 	"github.com/juju/juju/internal/worker/machiner"
 	"github.com/juju/juju/internal/worker/migrationflag"
@@ -148,7 +148,7 @@ type ManifoldsConfig struct {
 
 	// PreviousAgentVersion passes through the version the machine
 	// agent was running before the current restart.
-	PreviousAgentVersion version.Number
+	PreviousAgentVersion semversion.Number
 
 	// BootstrapLock is passed to the bootstrap gate to coordinate
 	// workers that shouldn't do anything until the bootstrap worker

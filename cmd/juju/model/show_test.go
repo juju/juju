@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -618,7 +618,7 @@ basic-model:
 func (s *ShowCommandSuite) assertShowModelWithAgent(c *gc.C, format string) {
 	// Since most of the tests in this suite already test model infos without
 	// agent version, all we need to do here is to test one with it.
-	agentVersion, err := version.Parse("2.55.5")
+	agentVersion, err := semversion.Parse("2.55.5")
 	c.Assert(err, jc.ErrorIsNil)
 	basicTestInfo := createBasicModelInfo()
 	basicTestInfo.AgentVersion = &agentVersion

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 	"github.com/juju/worker/v4/dependency"
@@ -19,6 +18,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -38,7 +38,7 @@ const (
 type UpgradeService interface {
 	// CreateUpgrade creates an upgrade to and from specified versions
 	// If an upgrade is already running/pending, return an AlreadyExists err
-	CreateUpgrade(ctx context.Context, previousVersion, targetVersion version.Number) (domainupgrade.UUID, error)
+	CreateUpgrade(ctx context.Context, previousVersion, targetVersion semversion.Number) (domainupgrade.UUID, error)
 	// SetControllerReady marks the supplied controllerID as being ready
 	// to start its upgrade. All provisioned controllers need to be ready
 	// before an upgrade can start
@@ -95,8 +95,8 @@ type Config struct {
 	Tag names.Tag
 
 	// Versions of the source and destination.
-	FromVersion version.Number
-	ToVersion   version.Number
+	FromVersion semversion.Number
+	ToVersion   semversion.Number
 
 	Logger logger.Logger
 	Clock  clock.Clock
@@ -116,10 +116,10 @@ func (c Config) Validate() error {
 	if c.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
-	if c.FromVersion == version.Zero {
+	if c.FromVersion == semversion.Zero {
 		return errors.NotValidf("invalid FromVersion")
 	}
-	if c.ToVersion == version.Zero {
+	if c.ToVersion == semversion.Zero {
 		return errors.NotValidf("invalid ToVersion")
 	}
 	if c.Tag == nil {
@@ -135,8 +135,8 @@ type upgradeDBWorker struct {
 
 	controllerID string
 
-	fromVersion version.Number
-	toVersion   version.Number
+	fromVersion semversion.Number
+	toVersion   semversion.Number
 
 	dbGetter coredatabase.DBGetter
 

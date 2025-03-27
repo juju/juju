@@ -9,7 +9,6 @@ import (
 	"github.com/juju/description/v9"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -17,6 +16,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/service"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -580,7 +580,7 @@ func (s *importSuite) TestImportCharmMetadata(c *gc.C) {
 		Tags:           []string{"baz", "qux"},
 		Terms:          []string{"alpha"},
 		CharmUser:      "root",
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes: &assumes.ExpressionTree{
 			Expression: assumes.CompositeExpression{
 				ExprType:       assumes.AllOfExpression,

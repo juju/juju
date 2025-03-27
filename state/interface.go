@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/tools"
 )
@@ -42,7 +42,7 @@ type Lifer interface {
 // that have associated agent tools.
 type AgentTooler interface {
 	AgentTools() (*tools.Tools, error)
-	SetAgentVersion(version.Binary) error
+	SetAgentVersion(semversion.Binary) error
 }
 
 // EnsureDeader with an EnsureDead method.

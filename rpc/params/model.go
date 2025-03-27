@@ -6,9 +6,8 @@ package params
 import (
 	"time"
 
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/semversion"
 )
 
 // ConfigValue encapsulates a configuration
@@ -117,9 +116,9 @@ type UnsetModelDefaults struct {
 // SetModelAgentVersion contains the arguments for
 // SetModelAgentVersion client API call.
 type SetModelAgentVersion struct {
-	Version             version.Number `json:"version"`
-	AgentStream         string         `json:"agent-stream,omitempty"`
-	IgnoreAgentVersions bool           `json:"force,omitempty"`
+	Version             semversion.Number `json:"version"`
+	AgentStream         string            `json:"agent-stream,omitempty"`
+	IgnoreAgentVersions bool              `json:"force,omitempty"`
 }
 
 // ModelMigrationStatus holds information about the progress of a (possibly
@@ -173,7 +172,7 @@ type ModelInfo struct {
 	Migration *ModelMigrationStatus `json:"migration,omitempty"`
 
 	// AgentVersion is the agent version for this model.
-	AgentVersion *version.Number `json:"agent-version"`
+	AgentVersion *semversion.Number `json:"agent-version"`
 
 	// SupportedFeatures provides information about the set of features
 	// supported by this model. The feature set contains both Juju-specific
@@ -229,7 +228,7 @@ type ModelSummary struct {
 	Migration *ModelMigrationStatus `json:"migration,omitempty"`
 
 	// AgentVersion is the agent version for this model.
-	AgentVersion *version.Number `json:"agent-version"`
+	AgentVersion *semversion.Number `json:"agent-version"`
 }
 
 // ModelEntityCount represent a count for a model entity where entities could be
@@ -479,15 +478,15 @@ type ModelParam struct {
 
 // UpgradeModel contains the arguments for UpgradeModel API call.
 type UpgradeModelParams struct {
-	ModelTag            string         `json:"model-tag"`
-	TargetVersion       version.Number `json:"target-version"`
-	AgentStream         string         `json:"agent-stream,omitempty"`
-	IgnoreAgentVersions bool           `json:"ignore-agent-versions,omitempty"`
-	DryRun              bool           `json:"dry-run,omitempty"`
+	ModelTag            string            `json:"model-tag"`
+	TargetVersion       semversion.Number `json:"target-version"`
+	AgentStream         string            `json:"agent-stream,omitempty"`
+	IgnoreAgentVersions bool              `json:"ignore-agent-versions,omitempty"`
+	DryRun              bool              `json:"dry-run,omitempty"`
 }
 
 // UpgradeModelResult holds the result of a UpgradeModel API call.
 type UpgradeModelResult struct {
-	ChosenVersion version.Number `json:"chosen-version"`
-	Error         *Error         `json:"error,omitempty"`
+	ChosenVersion semversion.Number `json:"chosen-version"`
+	Error         *Error            `json:"error,omitempty"`
 }

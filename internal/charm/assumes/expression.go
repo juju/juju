@@ -3,7 +3,7 @@
 
 package assumes
 
-import "github.com/juju/version/v2"
+import "github.com/juju/juju/core/semversion"
 
 var (
 	_ Expression = (*FeatureExpression)(nil)
@@ -41,7 +41,7 @@ type FeatureExpression struct {
 	// A feature within an assumes block may optionally specify a version
 	// constraint.
 	Constraint VersionConstraint
-	Version    *version.Number
+	Version    *semversion.Number
 
 	// The raw, unprocessed version string for serialization purposes.
 	rawVersion string

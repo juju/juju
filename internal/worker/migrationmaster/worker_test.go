@@ -18,7 +18,6 @@ import (
 	"github.com/juju/names/v6"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
@@ -33,6 +32,7 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	coreresource "github.com/juju/juju/core/resource"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/migration"
@@ -63,7 +63,7 @@ var (
 	modelTag            = names.NewModelTag(modelUUID)
 	modelName           = "model-name"
 	ownerTag            = names.NewUserTag("owner")
-	modelVersion        = version.MustParse("1.2.4")
+	modelVersion        = semversion.MustParse("1.2.4")
 
 	// Define stub calls that commonly appear in tests here to allow reuse.
 	apiOpenControllerCall = jujutesting.StubCall{
@@ -263,8 +263,8 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 			{FuncName: "UploadBinaries", Args: []interface{}{
 				[]string{"charm0", "charm1"},
 				fakeCharmService,
-				map[version.Binary]string{
-					version.MustParseBinary("2.1.0-ubuntu-amd64"): "/tools/0",
+				map[semversion.Binary]string{
+					semversion.MustParseBinary("2.1.0-ubuntu-amd64"): "/tools/0",
 				},
 				fakeToolsDownloader,
 				s.facade.exportedResources,
@@ -1367,8 +1367,8 @@ func (f *stubMasterFacade) Export(ctx context.Context) (coremigration.Serialized
 	return coremigration.SerializedModel{
 		Bytes:  fakeModelBytes,
 		Charms: []string{"charm0", "charm1"},
-		Tools: map[version.Binary]string{
-			version.MustParseBinary("2.1.0-ubuntu-amd64"): "/tools/0",
+		Tools: map[semversion.Binary]string{
+			semversion.MustParseBinary("2.1.0-ubuntu-amd64"): "/tools/0",
 		},
 		Resources: f.exportedResources,
 	}, nil

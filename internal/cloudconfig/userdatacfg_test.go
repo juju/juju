@@ -20,7 +20,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
@@ -32,6 +31,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	charmtesting "github.com/juju/juju/internal/charm/testing"
@@ -102,7 +102,7 @@ type testInstanceConfig instancecfg.InstanceConfig
 
 // makeTestConfig returns a minimal instance config for a non state
 // server machine (unless bootstrap is true) for the given series.
-func makeTestConfig(base corebase.Base, bootstrap bool, vers version.Number, build int) *testInstanceConfig {
+func makeTestConfig(base corebase.Base, bootstrap bool, vers semversion.Number, build int) *testInstanceConfig {
 	const defaultMachineID = "99"
 
 	cfg := new(testInstanceConfig)
@@ -149,13 +149,13 @@ func makeTestConfig(base corebase.Base, bootstrap bool, vers version.Number, bui
 
 // makeBootstrapConfig is a shortcut to call makeTestConfig(series, true).
 func makeBootstrapConfig(base corebase.Base, build int) *testInstanceConfig {
-	return makeTestConfig(base, true, version.MustParse("1.2.3"), build)
+	return makeTestConfig(base, true, semversion.MustParse("1.2.3"), build)
 }
 
 // makeNormalConfig is a shortcut to call makeTestConfig(series,
 // false).
 func makeNormalConfig(base corebase.Base, build int) *testInstanceConfig {
-	return makeTestConfig(base, false, version.MustParse("1.2.3"), build)
+	return makeTestConfig(base, false, semversion.MustParse("1.2.3"), build)
 }
 
 // setMachineID updates MachineId, MachineAgentServiceName,
@@ -194,7 +194,7 @@ func (cfg *testInstanceConfig) setEnableOSUpdateAndUpgrade(updateEnabled, upgrad
 
 // setBase sets the series-specific fields (Tools, Release, DataDir,
 // LogDir, and CloudInitOutputLog) to match the given series.
-func (cfg *testInstanceConfig) setBase(base corebase.Base, vers version.Number, build int) *testInstanceConfig {
+func (cfg *testInstanceConfig) setBase(base corebase.Base, vers semversion.Number, build int) *testInstanceConfig {
 	ver := ""
 	if build > 0 {
 		ver = fmt.Sprintf("%s.%d-%s-amd64", vers.String(), build, base.OS)
@@ -505,7 +505,7 @@ echo 'publickey' > '.*publicsimplestreamskey'
 func newSimpleTools(vers string) *tools.Tools {
 	return &tools.Tools{
 		URL:     "http://foo.com/tools/released/juju" + vers + ".tgz",
-		Version: version.MustParseBinary(vers),
+		Version: semversion.MustParseBinary(vers),
 		Size:    10,
 		SHA256:  "1234",
 	}
@@ -1109,7 +1109,7 @@ func (*cloudinitSuite) createInstanceConfig(c *gc.C, environConfig *config.Confi
 	c.Assert(err, jc.ErrorIsNil)
 	instanceConfig.SetTools(tools.List{
 		&tools.Tools{
-			Version: version.MustParseBinary("2.3.4-ubuntu-amd64"),
+			Version: semversion.MustParseBinary("2.3.4-ubuntu-amd64"),
 			URL:     "http://tools.testing.invalid/2.3.4-ubuntu-amd64.tgz",
 		},
 	})

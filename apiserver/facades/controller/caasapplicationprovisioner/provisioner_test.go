@@ -14,7 +14,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	jujuresource "github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
@@ -189,7 +189,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(result, mc, params.CAASApplicationProvisioningInfoResults{
 		Results: []params.CAASApplicationProvisioningInfo{{
 			ImageRepo:    params.DockerImageInfo{RegistryPath: "docker.io/jujusolutions/jujud-operator:2.6-beta3.666"},
-			Version:      version.MustParse("2.6-beta3.666"),
+			Version:      semversion.MustParse("2.6-beta3.666"),
 			APIAddresses: []string{"10.0.0.1:1"},
 			Tags: map[string]string{
 				"juju-model-uuid":      coretesting.ModelTag.Id(),

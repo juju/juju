@@ -6,7 +6,7 @@ package params
 import (
 	"time"
 
-	"github.com/juju/version/v2"
+	"github.com/juju/juju/core/semversion"
 )
 
 // MigrationModelHTTPHeader is the key for the HTTP header value
@@ -78,7 +78,7 @@ type SetMigrationStatusMessageArgs struct {
 // PrechecksArgs provides the target controller version
 // to the migrationmaster.Prechecks API method.
 type PrechecksArgs struct {
-	TargetControllerVersion version.Number `json:"target-controller-version"`
+	TargetControllerVersion semversion.Number `json:"target-controller-version"`
 }
 
 // SerializedModel wraps a buffer contain a serialised Juju model. It
@@ -153,13 +153,13 @@ type MasterMigrationStatus struct {
 // MigrationModelInfo is used to report basic model information to the
 // migrationmaster worker.
 type MigrationModelInfo struct {
-	UUID                   string           `json:"uuid"`
-	Name                   string           `json:"name"`
-	OwnerTag               string           `json:"owner-tag"`
-	AgentVersion           version.Number   `json:"agent-version"`
-	ControllerAgentVersion version.Number   `json:"controller-agent-version"`
-	FacadeVersions         map[string][]int `json:"facade-versions,omitempty"`
-	ModelDescription       []byte           `json:"model-description,omitempty"`
+	UUID                   string            `json:"uuid"`
+	Name                   string            `json:"name"`
+	OwnerTag               string            `json:"owner-tag"`
+	AgentVersion           semversion.Number `json:"agent-version"`
+	ControllerAgentVersion semversion.Number `json:"controller-agent-version"`
+	FacadeVersions         map[string][]int  `json:"facade-versions,omitempty"`
+	ModelDescription       []byte            `json:"model-description,omitempty"`
 }
 
 // MigrationStatus reports the current status of a model migration.
@@ -243,5 +243,5 @@ type AdoptResourcesArgs struct {
 	// tagged has changed between versions - the provider should
 	// ensure it looks for the original tags in the correct format for
 	// that version.
-	SourceControllerVersion version.Number `json:"source-controller-version"`
+	SourceControllerVersion semversion.Number `json:"source-controller-version"`
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -140,7 +140,9 @@ type BaseSuiteUnpatched struct {
 }
 
 var _ environs.Environ = (*environ)(nil)
+
 var _ simplestreams.HasRegion = (*environ)(nil)
+
 var _ instances.Instance = (*environInstance)(nil)
 
 func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
@@ -178,7 +180,7 @@ func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 
 func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	tools := []*coretools.Tools{{
-		Version: version.Binary{Arch: arch.AMD64, Release: "ubuntu"},
+		Version: semversion.Binary{Arch: arch.AMD64, Release: "ubuntu"},
 		URL:     "https://example.org",
 	}}
 

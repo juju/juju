@@ -16,9 +16,9 @@ import (
 	"github.com/juju/schema"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
@@ -73,6 +73,7 @@ type configTest struct {
 }
 
 var testResourceTags = []string{"a=b", "c=", "d=e"}
+
 var testResourceTagsMap = map[string]string{
 	"a": "b", "c": "", "d": "e",
 }
@@ -655,10 +656,10 @@ func (test configTest) check(c *gc.C) {
 	agentVersion, ok := cfg.AgentVersion()
 	if s := test.attrs["agent-version"]; s != nil {
 		c.Check(ok, jc.IsTrue)
-		c.Check(agentVersion, gc.Equals, version.MustParse(s.(string)))
+		c.Check(agentVersion, gc.Equals, semversion.MustParse(s.(string)))
 	} else {
 		c.Check(ok, jc.IsFalse)
-		c.Check(agentVersion, gc.Equals, version.Zero)
+		c.Check(agentVersion, gc.Equals, semversion.Zero)
 	}
 
 	if expected, ok := test.attrs["uuid"]; ok {

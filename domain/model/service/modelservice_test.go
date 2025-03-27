@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/constraints"
@@ -328,7 +328,7 @@ func (s *modelServiceSuite) TestAgentVersionUnsupportedGreater(c *gc.C) {
 
 	s.mockControllerState.EXPECT().GetModel(gomock.Any(), modelUUID).Return(coremodel.Model{}, nil)
 
-	agentVersion, err := version.Parse("99.9.9")
+	agentVersion, err := semversion.Parse("99.9.9")
 	c.Assert(err, jc.ErrorIsNil)
 
 	svc := NewModelService(
@@ -357,7 +357,7 @@ func (s *modelServiceSuite) TestAgentVersionUnsupportedLess(c *gc.C) {
 
 	s.mockControllerState.EXPECT().GetModel(gomock.Any(), modelUUID).Return(coremodel.Model{}, nil)
 
-	agentVersion, err := version.Parse("1.9.9")
+	agentVersion, err := semversion.Parse("1.9.9")
 	c.Assert(err, jc.ErrorIsNil)
 
 	svc := NewModelService(

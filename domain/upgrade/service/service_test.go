@@ -7,11 +7,11 @@ import (
 	"context"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/semversion"
 	coreupgrade "github.com/juju/juju/core/upgrade"
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
@@ -47,9 +47,9 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *serviceSuite) TestCreateUpgrade(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().CreateUpgrade(gomock.Any(), version.MustParse("3.0.0"), version.MustParse("3.0.1")).Return(s.upgradeUUID, nil)
+	s.state.EXPECT().CreateUpgrade(gomock.Any(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1")).Return(s.upgradeUUID, nil)
 
-	upgradeUUID, err := s.service.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	upgradeUUID, err := s.service.CreateUpgrade(context.Background(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(upgradeUUID, gc.Equals, s.upgradeUUID)
 }
@@ -57,17 +57,17 @@ func (s *serviceSuite) TestCreateUpgrade(c *gc.C) {
 func (s *serviceSuite) TestCreateUpgradeAlreadyExists(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().CreateUpgrade(gomock.Any(), version.MustParse("3.0.0"), version.MustParse("3.0.1")).Return(s.upgradeUUID, upgradeerrors.AlreadyExists)
+	s.state.EXPECT().CreateUpgrade(gomock.Any(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1")).Return(s.upgradeUUID, upgradeerrors.AlreadyExists)
 
-	_, err := s.service.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	_, err := s.service.CreateUpgrade(context.Background(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIs, upgradeerrors.AlreadyExists)
 }
 
 func (s *serviceSuite) TestCreateUpgradeInvalidVersions(c *gc.C) {
-	_, err := s.service.CreateUpgrade(context.Background(), version.MustParse("3.0.1"), version.MustParse("3.0.0"))
+	_, err := s.service.CreateUpgrade(context.Background(), semversion.MustParse("3.0.1"), semversion.MustParse("3.0.0"))
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 
-	_, err = s.service.CreateUpgrade(context.Background(), version.MustParse("3.0.1"), version.MustParse("3.0.1"))
+	_, err = s.service.CreateUpgrade(context.Background(), semversion.MustParse("3.0.1"), semversion.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 

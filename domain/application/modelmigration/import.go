@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
-	"github.com/juju/version/v2"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -493,7 +493,7 @@ func (i *importOperation) importCharmMetadata(data description.CharmMetadata) (*
 		return nil, errors.Errorf("import charm assumes: %w", err)
 	}
 
-	var minJujuVersion version.Number
+	var minJujuVersion semversion.Number
 	if minJujuVersion, err = importMinJujuVersion(data.MinJujuVersion()); err != nil {
 		return nil, errors.Errorf("import min juju version: %w", err)
 	}
@@ -674,16 +674,16 @@ func importAssumes(data string) (*assumes.ExpressionTree, error) {
 	return tree, nil
 }
 
-func importMinJujuVersion(data string) (version.Number, error) {
+func importMinJujuVersion(data string) (semversion.Number, error) {
 	// minJujuVersion is optional, so if the data is empty, we can just return
 	// an empty version.
 	if data == "" {
-		return version.Number{}, nil
+		return semversion.Number{}, nil
 	}
 
-	ver, err := version.Parse(data)
+	ver, err := semversion.Parse(data)
 	if err != nil {
-		return version.Number{}, errors.Errorf("parse min juju version: %w: %w", err, coreerrors.NotValid)
+		return semversion.Number{}, errors.Errorf("parse min juju version: %w: %w", err, coreerrors.NotValid)
 	}
 	return ver, nil
 }

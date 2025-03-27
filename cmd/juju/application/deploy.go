@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v6"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -36,6 +35,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub"
@@ -113,18 +113,18 @@ type modelGetter interface {
 	ModelGet(ctx context.Context) (map[string]interface{}, error)
 }
 
-func agentVersion(ctx context.Context, c modelGetter) (version.Number, error) {
+func agentVersion(ctx context.Context, c modelGetter) (semversion.Number, error) {
 	attrs, err := c.ModelGet(ctx)
 	if err != nil {
-		return version.Zero, errors.Trace(err)
+		return semversion.Zero, errors.Trace(err)
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
-		return version.Zero, errors.Trace(err)
+		return semversion.Zero, errors.Trace(err)
 	}
 	agentVersion, ok := cfg.AgentVersion()
 	if !ok {
-		return version.Zero, errors.New("model config missing agent version")
+		return semversion.Zero, errors.New("model config missing agent version")
 	}
 	return agentVersion, nil
 }
@@ -209,6 +209,7 @@ func newDeployCommand() *DeployCommand {
 	}
 	return deployCmd
 }
+
 func (c *DeployCommand) newAPIRoot(ctx context.Context) (api.Connection, error) {
 	if c.apiRoot == nil {
 		var err error

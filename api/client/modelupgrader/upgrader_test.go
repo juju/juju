@@ -11,13 +11,13 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/client/modelupgrader"
 	"github.com/juju/juju/api/client/modelupgrader/mocks"
+	"github.com/juju/juju/core/semversion"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
@@ -59,13 +59,13 @@ func (s *UpgradeModelSuite) TestUpgradeModel(c *gc.C) {
 		"ModelUpgrader", 1, "", "UpgradeModel",
 		params.UpgradeModelParams{
 			ModelTag:            coretesting.ModelTag.String(),
-			TargetVersion:       version.MustParse("2.9.1"),
+			TargetVersion:       semversion.MustParse("2.9.1"),
 			IgnoreAgentVersions: true,
 			DryRun:              true,
 		}, &params.UpgradeModelResult{},
 	).DoAndReturn(func(ctx context.Context, objType string, facadeVersion int, id, request string, args, result interface{}) error {
 		out := result.(*params.UpgradeModelResult)
-		out.ChosenVersion = version.MustParse("2.9.99")
+		out.ChosenVersion = semversion.MustParse("2.9.99")
 		return nil
 	})
 
@@ -73,11 +73,11 @@ func (s *UpgradeModelSuite) TestUpgradeModel(c *gc.C) {
 	chosenVersion, err := client.UpgradeModel(
 		context.Background(),
 		coretesting.ModelTag.Id(),
-		version.MustParse("2.9.1"),
+		semversion.MustParse("2.9.1"),
 		"", true, true,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(chosenVersion, gc.DeepEquals, version.MustParse("2.9.99"))
+	c.Assert(chosenVersion, gc.DeepEquals, semversion.MustParse("2.9.99"))
 }
 
 func (s *UpgradeModelSuite) TestUploadTools(c *gc.C) {
@@ -91,7 +91,7 @@ func (s *UpgradeModelSuite) TestUploadTools(c *gc.C) {
 		"POST",
 		fmt.Sprintf(
 			"/tools?binaryVersion=%s",
-			version.MustParseBinary("2.9.100-ubuntu-amd64"),
+			semversion.MustParseBinary("2.9.100-ubuntu-amd64"),
 		), nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -114,10 +114,10 @@ func (s *UpgradeModelSuite) TestUploadTools(c *gc.C) {
 
 	result, err := client.UploadTools(
 		context.Background(),
-		nil, version.MustParseBinary("2.9.100-ubuntu-amd64"),
+		nil, semversion.MustParseBinary("2.9.100-ubuntu-amd64"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, coretools.List{
-		{Version: version.MustParseBinary("2.9.100-ubuntu-amd64")},
+		{Version: semversion.MustParseBinary("2.9.100-ubuntu-amd64")},
 	})
 }

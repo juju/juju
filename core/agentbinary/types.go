@@ -6,10 +6,9 @@ package agentbinary
 import (
 	"fmt"
 
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/core/arch"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -18,7 +17,7 @@ import (
 // release field that we no longer want.
 type Version struct {
 	// Number is the juju version number.
-	Number version.Number
+	Number semversion.Number
 
 	// Arch is the architecture of the agent binary.
 	Arch arch.Arch
@@ -28,7 +27,7 @@ type Version struct {
 // number is a non zero value and the architecture is supported. If these checks
 // aren't satisfied an error satisfying [coreerrors.NotValid] will be returned.
 func (v Version) Validate() error {
-	if version.Zero == v.Number {
+	if semversion.Zero == v.Number {
 		return errors.Errorf(
 			"version number cannot be zero value",
 		).Add(coreerrors.NotValid)

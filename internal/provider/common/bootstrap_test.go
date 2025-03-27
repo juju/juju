@@ -17,7 +17,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/ssh"
-	"github.com/juju/version/v2"
 	cryptossh "golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
@@ -973,7 +973,7 @@ func (s *FormatHardwareSuite) TestAll(c *gc.C) {
 func fakeAvailableTools() tools.List {
 	return tools.List{
 		&tools.Tools{
-			Version: version.Binary{
+			Version: semversion.Binary{
 				Number:  jujuversion.Current,
 				Arch:    arch.HostArch(),
 				Release: "ubuntu",

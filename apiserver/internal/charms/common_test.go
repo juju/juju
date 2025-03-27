@@ -6,9 +6,9 @@ package charms
 import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -55,7 +55,7 @@ func (s *exportSuite) TestExport(c *gc.C) {
 			"qux": {Name: "qux", Type: resource.TypeContainerImage, Description: "bar", Path: "/baz"},
 		},
 		Terms:          []string{"term1", "term2"},
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Containers: map[string]internalcharm.Container{
 			"foo": {
 				Resource: "foo",

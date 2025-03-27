@@ -5,11 +5,11 @@ package agentbinary
 
 import (
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/semversion"
 )
 
 type typeSuite struct{}
@@ -20,7 +20,7 @@ var _ = gc.Suite(&typeSuite{})
 // version attributes.
 func (s *typeSuite) TestVersionValidation(c *gc.C) {
 	v := Version{
-		Number: version.MustParse("4.1.1"),
+		Number: semversion.MustParse("4.1.1"),
 		Arch:   arch.AMD64,
 	}
 	c.Check(v.Validate(), jc.ErrorIsNil)
@@ -31,7 +31,7 @@ func (s *typeSuite) TestVersionValidation(c *gc.C) {
 // [coreerrors.NotValid]
 func (s *typeSuite) TestVersionValidationFailsWithZeroVersion(c *gc.C) {
 	v := Version{
-		Number: version.Zero,
+		Number: semversion.Zero,
 		Arch:   arch.ARM64,
 	}
 	err := v.Validate()
@@ -43,7 +43,7 @@ func (s *typeSuite) TestVersionValidationFailsWithZeroVersion(c *gc.C) {
 // satisfies [coreerrors.NotValid].
 func (s *typeSuite) TestVersionValidationFailsWithUnsupportedArch(c *gc.C) {
 	v := Version{
-		Number: version.MustParse("2.0.0"),
+		Number: semversion.MustParse("2.0.0"),
 		Arch:   arch.Arch("unsupported"),
 	}
 	err := v.Validate()

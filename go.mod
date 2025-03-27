@@ -50,7 +50,7 @@ require (
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/clock v1.1.1
 	github.com/juju/collections v1.0.4
-	github.com/juju/description/v9 v9.0.0-20250312165826-51f91f8806d8
+	github.com/juju/description/v9 v9.0.0-20250326010049-96d5b3b5edc7
 	github.com/juju/errors v1.0.0
 	github.com/juju/gnuflag v1.0.0
 	github.com/juju/gojsonschema v1.0.0
@@ -61,7 +61,7 @@ require (
 	github.com/juju/lumberjack/v2 v2.0.2
 	github.com/juju/mgo/v3 v3.0.4
 	github.com/juju/mutex/v2 v2.0.0
-	github.com/juju/names/v6 v6.0.0-20250311151448-68186dd8ce9d
+	github.com/juju/names/v6 v6.0.0-20250318090139-ec8d71d906f5
 	github.com/juju/naturalsort v1.0.0
 	github.com/juju/os/v2 v2.2.5
 	github.com/juju/persistent-cookiejar v1.0.0
@@ -74,7 +74,6 @@ require (
 	github.com/juju/testing v1.2.0
 	github.com/juju/txn/v3 v3.0.2
 	github.com/juju/utils/v4 v4.0.2
-	github.com/juju/version/v2 v2.0.1
 	github.com/juju/webbrowser v1.0.0
 	github.com/juju/worker/v4 v4.0.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
@@ -223,6 +222,7 @@ require (
 	github.com/juju/usso v1.0.1 // indirect
 	github.com/juju/utils/v3 v3.2.0 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
+	github.com/juju/version/v2 v2.0.0 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/kr/fs v0.1.0 // indirect
@@ -310,3 +310,6 @@ replace gopkg.in/yaml.v2 => github.com/juju/yaml/v2 v2.0.0
 // methods, which sometimes clash with package names. Fix the package to v0.4.0
 // until the issue is resolved.
 replace go.uber.org/mock => go.uber.org/mock v0.4.0
+
+// TODO - the tip of names v6 has a space ID parsing bug
+replace github.com/juju/names/v6 => github.com/juju/names/v6 v6.0.0-20250311151448-68186dd8ce9d

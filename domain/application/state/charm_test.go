@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -106,7 +106,7 @@ func (s *charmStateSuite) TestSetCharmObjectStoreUUID(c *gc.C) {
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 	}
 
@@ -153,7 +153,7 @@ func (s *charmStateSuite) TestSetCharmWithoutObjectStoreUUID(c *gc.C) {
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 	}
 
@@ -193,7 +193,7 @@ func (s *charmStateSuite) TestSetCharmNotAvailable(c *gc.C) {
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 	}
 
@@ -238,7 +238,7 @@ func (s *charmStateSuite) TestSetCharmGetCharmID(c *gc.C) {
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 	}
 
@@ -577,7 +577,7 @@ func (s *charmStateSuite) TestGetCharmMetadata(c *gc.C) {
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 	})
 }
@@ -1277,7 +1277,7 @@ func (s *charmStateSuite) TestSetCharmDownloadInfoForCharmhub(c *gc.C) {
 			Description:    "description",
 			Subordinate:    true,
 			RunAs:          charm.RunAsRoot,
-			MinJujuVersion: version.MustParse("4.0.0"),
+			MinJujuVersion: semversion.MustParse("4.0.0"),
 			Assumes:        []byte("null"),
 		},
 		Manifest: charm.Manifest{
@@ -1322,7 +1322,7 @@ func (s *charmStateSuite) TestSetCharmDownloadInfoForCharmhubWithoutDownloadInfo
 			Description:    "description",
 			Subordinate:    true,
 			RunAs:          charm.RunAsRoot,
-			MinJujuVersion: version.MustParse("4.0.0"),
+			MinJujuVersion: semversion.MustParse("4.0.0"),
 			Assumes:        []byte("null"),
 		},
 		Manifest: charm.Manifest{
@@ -1365,7 +1365,7 @@ func (s *charmStateSuite) TestSetCharmDownloadInfoForLocal(c *gc.C) {
 			Description:    "description",
 			Subordinate:    true,
 			RunAs:          charm.RunAsRoot,
-			MinJujuVersion: version.MustParse("4.0.0"),
+			MinJujuVersion: semversion.MustParse("4.0.0"),
 			Assumes:        []byte("null"),
 		},
 		Manifest: charm.Manifest{
@@ -1413,7 +1413,7 @@ func (s *charmStateSuite) TestSetCharmCharmSequencingInvalidRevision(c *gc.C) {
 			Description:    "description",
 			Subordinate:    true,
 			RunAs:          charm.RunAsRoot,
-			MinJujuVersion: version.MustParse("4.0.0"),
+			MinJujuVersion: semversion.MustParse("4.0.0"),
 			Assumes:        []byte("null"),
 		},
 		Manifest: charm.Manifest{
@@ -1453,7 +1453,7 @@ func (s *charmStateSuite) TestSetCharmLocalCharmSequencing(c *gc.C) {
 			Description:    "description",
 			Subordinate:    true,
 			RunAs:          charm.RunAsRoot,
-			MinJujuVersion: version.MustParse("4.0.0"),
+			MinJujuVersion: semversion.MustParse("4.0.0"),
 			Assumes:        []byte("null"),
 		},
 		Manifest: charm.Manifest{
@@ -1499,7 +1499,7 @@ func (s *charmStateSuite) TestSetCharmDownloadInfoForLocalWithoutInfo(c *gc.C) {
 			Description:    "description",
 			Subordinate:    true,
 			RunAs:          charm.RunAsRoot,
-			MinJujuVersion: version.MustParse("4.0.0"),
+			MinJujuVersion: semversion.MustParse("4.0.0"),
 			Assumes:        []byte("null"),
 		},
 		Manifest: charm.Manifest{
@@ -1536,7 +1536,7 @@ func (s *charmStateSuite) TestSetCharmTwice(c *gc.C) {
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 	}
 
@@ -1578,7 +1578,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharm(c *gc.C) {
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 	}
 	expectedManifest := charm.Manifest{
@@ -1658,7 +1658,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmWithDifferentReferenceName(c *
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 	}
 	expectedManifest := charm.Manifest{
@@ -1738,7 +1738,7 @@ func (s *charmStateSuite) TestSetCharmAllowsSameNameButDifferentRevision(c *gc.C
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 	}
 
@@ -1799,7 +1799,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadata(c *gc.C) {
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 	}
 
@@ -1835,7 +1835,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithTagsAndCategories(
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 		Tags:           []string{"foo", "foo", "bar"},
 		Categories:     []string{"data", "kubernetes", "kubernetes"},
@@ -1873,7 +1873,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithTerms(c *gc.C) {
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 		Terms:          []string{"foo", "foo", "bar"},
 	}
@@ -1910,7 +1910,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithRelations(c *gc.C)
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 		Provides: map[string]charm.Relation{
 			"foo": {
@@ -1972,7 +1972,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithExtraBindings(c *g
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 		ExtraBindings: map[string]charm.ExtraBinding{
 			"bar": {
@@ -2016,7 +2016,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithNoPrope
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 		Storage: map[string]charm.Storage{
 			"foo": {
@@ -2076,7 +2076,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithPropert
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 		Storage: map[string]charm.Storage{
 			"foo": {
@@ -2139,7 +2139,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithDevices(c *gc.C) {
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 		Devices: map[string]charm.Device{
 			"foo": {
@@ -2191,7 +2191,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithResources(c *gc.C)
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 		Resources: map[string]charm.Resource{
 			"foo": {
@@ -2241,7 +2241,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithNoMo
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 		Containers: map[string]charm.Container{
 			"foo": {
@@ -2287,7 +2287,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithMoun
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 		Containers: map[string]charm.Container{
 			"foo": {
@@ -2477,6 +2477,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmManifest(c *gc.C) {
 	assertTableEmpty(c, s.TxnRunner(), "charm")
 	assertTableEmpty(c, s.TxnRunner(), "charm_manifest_base")
 }
+
 func (s *charmStateSuite) TestGetCharmManifestCharmNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
@@ -3552,7 +3553,7 @@ func insertCharmMetadata(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) 
 		Description:    "description",
 		Subordinate:    true,
 		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
 	}, nil
 }

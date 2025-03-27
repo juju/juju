@@ -8,8 +8,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/semversion"
 	internallogger "github.com/juju/juju/internal/logger"
 )
 
@@ -34,7 +34,7 @@ type Operation interface {
 	// Upgrade operations designed for versions of Juju earlier
 	// than we are upgrading from are not run since such steps would
 	// already have been used to get to the version we are running now.
-	TargetVersion() version.Number
+	TargetVersion() semversion.Number
 
 	// Steps to perform during an upgrade.
 	Steps() []Step
@@ -70,7 +70,7 @@ const (
 //
 //nolint:unused
 type upgradeToVersion struct {
-	targetVersion version.Number
+	targetVersion semversion.Number
 	steps         []Step
 }
 
@@ -84,7 +84,7 @@ func (u upgradeToVersion) Steps() []Step {
 // TargetVersion is defined on the Operation interface.
 //
 //nolint:unused
-func (u upgradeToVersion) TargetVersion() version.Number {
+func (u upgradeToVersion) TargetVersion() semversion.Number {
 	return u.targetVersion
 }
 
@@ -101,11 +101,11 @@ func (e *upgradeError) Error() string {
 // UpgradeStepsFunc is the function type of Upgrade. This may be
 // used to provide an alternative to Upgrade to the upgrade steps
 // worker.
-type UpgradeStepsFunc func(from version.Number, targets []Target, context Context) error
+type UpgradeStepsFunc func(from semversion.Number, targets []Target, context Context) error
 
 // PerformUpgradeSteps runs the business logic needed to upgrade the current
 // "from" version to this version of Juju on the "target" type of machine.
-func PerformUpgradeSteps(from version.Number, targets []Target, context Context) error {
+func PerformUpgradeSteps(from semversion.Number, targets []Target, context Context) error {
 	ops := newUpgradeOpsIterator(from)
 	if err := runUpgradeSteps(ops, targets, context.APIContext()); err != nil {
 		return errors.Trace(err)
