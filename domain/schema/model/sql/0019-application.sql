@@ -15,9 +15,6 @@ CREATE TABLE application (
     CONSTRAINT fk_application_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
-    CONSTRAINT fk_application_password_hash_algorithm
-    FOREIGN KEY (password_hash_algorithm_id)
-    REFERENCES password_hash_algorithm (id),
     CONSTRAINT fk_space_uuid
     FOREIGN KEY (space_uuid)
     REFERENCES space (uuid)
@@ -269,7 +266,6 @@ SELECT
     a.charm_upgrade_on_error,
     a.exposed,
     a.placement,
-    a.password_hash,
     cm.subordinate,
     c.reference_name,
     c.source_id,

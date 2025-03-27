@@ -258,9 +258,8 @@ func (s *baseSuite) createApplication(c *gc.C, name string, l life.Life, units .
 			DownloadURL:        "https://example.com",
 			DownloadSize:       42,
 		},
-		Scale:        len(units),
-		PasswordHash: "password",
-		Placement:    "placement",
+		Scale:     len(units),
+		Placement: "placement",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
