@@ -13,6 +13,10 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
+// tunnelAuthentication provides a way of creating
+// and validating passwords for SSH connections
+// from machines to the Juju controller.
+// The password is a JWT with an expiry.
 type tunnelAuthentication struct {
 	sharedSecret []byte
 	jwtAlg       jwa.KeyAlgorithm
@@ -25,7 +29,7 @@ func (tAuth *tunnelAuthentication) generatePassword(tunnelID string, expiry time
 		Subject(tokenSubject).
 		IssuedAt(tAuth.clock.Now()).
 		Expiration(expiry).
-		Claim(tunnelIDClaim, tunnelID).
+		Claim(tunnelIDClaimKey, tunnelID).
 		Build()
 	if err != nil {
 		return "", errors.Annotate(err, "failed to build token")
@@ -53,7 +57,7 @@ func (tAuth *tunnelAuthentication) validatePassword(password string) (string, er
 		return "", errors.Annotate(err, "failed to parse token")
 	}
 
-	tunnelID, ok := token.PrivateClaims()[tunnelIDClaim].(string)
+	tunnelID, ok := token.PrivateClaims()[tunnelIDClaimKey].(string)
 	if !ok {
 		return "", errors.New("invalid token")
 	}

@@ -55,7 +55,7 @@ func (s *authenticationSuite) TestGeneratePassword(c *gc.C) {
 	parsedToken, err := jwt.Parse(rawToken, jwt.WithKey(authn.jwtAlg, authn.sharedSecret))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(parsedToken.Subject(), gc.Equals, tokenSubject)
-	c.Assert(parsedToken.PrivateClaims()[tunnelIDClaim], gc.Equals, tunnelID)
+	c.Assert(parsedToken.PrivateClaims()[tunnelIDClaimKey], gc.Equals, tunnelID)
 	c.Assert(parsedToken.Issuer(), gc.Equals, tokenIssuer)
 	c.Assert(parsedToken.Expiration().Sub(parsedToken.IssuedAt()), gc.Equals, maxTimeout)
 }
