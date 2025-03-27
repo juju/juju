@@ -349,6 +349,15 @@ func ErrCode(err error) string {
 		ErrorCode() string
 	}
 
+	// NOTE (tlm):
+	// Don't remove this line!!!!
+	// Because we use a very outdated http request library it still wraps some
+	// of it's errors with errgo pkg. We need Cause here to potentially pull
+	// out errors from this library.
+	//
+	// The soon we remove httprequest from Juju the better life will be.
+	err = errors.Cause(err)
+
 	coder, is := interrors.AsType[ErrorCoder](err)
 	if is {
 		return coder.ErrorCode()
