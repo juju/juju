@@ -6,6 +6,10 @@ package errors
 import "github.com/juju/juju/internal/errors"
 
 const (
+	// MachineIsDead describes an error that occurs when the machine being
+	// operated on is considered dead.
+	MachineIsDead = errors.ConstError("machine is dead")
+
 	// MachineNotFound describes an error that occurs when the machine being
 	// operated on does not exist.
 	MachineNotFound = errors.ConstError("machine not found")

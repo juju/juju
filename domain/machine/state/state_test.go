@@ -951,6 +951,26 @@ func (s *stateSuite) TestSetRunningAgentBinaryVersionMachineNotFound(c *gc.C) {
 	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
+func (s *stateSuite) TestSetRunningAgentBinaryVersionMachineDead(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "deadbeef")
+	c.Assert(err, jc.ErrorIsNil)
+
+	machineUUID, err := s.state.GetMachineUUID(context.Background(), "666")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.state.SetMachineLife(context.Background(), "666", life.Dead)
+
+	err = s.state.SetRunningAgentBinaryVersion(
+		context.Background(),
+		machineUUID,
+		coreagentbinary.Version{
+			Number: jujuversion.Current,
+			Arch:   corearch.Arch("noexist"),
+		},
+	)
+	c.Check(err, jc.ErrorIs, machineerrors.MachineIsDead)
+}
+
 // TestSetRunningAgentBinaryVersionNotSupportedArch tests that if we provide an
 // architecture that isn't supported by the database we get back an error
 // that satisfies [coreerrors.NotValid].

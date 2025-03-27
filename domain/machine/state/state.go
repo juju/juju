@@ -432,6 +432,7 @@ WHERE st.machine_uuid = $machineUUID.uuid;
 //
 // The following errors can be expected:
 // - [machineerrors.MachineNotFound] if the machine does not exist.
+// - [machineerrors.MachineIsDead] if the machine is dead.
 // - [coreerrors.NotSupported] if the architecture is not known to the database.
 func (st *State) SetRunningAgentBinaryVersion(
 	ctx context.Context,
@@ -476,14 +477,9 @@ UPDATE SET version = excluded.version, architecture_id = excluded.architecture_i
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		machineExists, err := st.checkMachineExists(ctx, tx, machineUUID)
+		err := st.checkMachineNotDead(ctx, tx, machineUUID)
 		if err != nil {
 			return errors.Capture(err)
-		}
-		if !machineExists {
-			return errors.Errorf(
-				"machine %q does not exist", machineUUID,
-			).Add(machineerrors.MachineNotFound)
 		}
 
 		err = tx.Query(ctx, archMapStmt, archMap).Get(&archMap)
@@ -511,33 +507,40 @@ UPDATE SET version = excluded.version, architecture_id = excluded.architecture_i
 	return nil
 }
 
-// checkMachineExists checks if the machine with the given uuid exists. This is
-// intended as a helper func for state methods to assert the uuid exists first.
-// This is easier and more reliable to use then checking for foreign key errors.
-func (st *State) checkMachineExists(
+// checkMachineNotDead checks if the machine with the given uuid exists and that
+// its current life status is not one of dead. This is meant as a helper func
+// to assert that a machine can be operated on inside of a transaction.
+// The following errors can be expected:
+// - [machineerrors.MachineNotFound] if the machine does not exist.
+// - [machineerrors.MachineIsDead] if the machine is dead.
+func (st *State) checkMachineNotDead(
 	ctx context.Context,
 	tx *sqlair.TX,
 	uuid string,
-) (bool, error) {
-	machineUUIDVal := machineUUID{UUID: uuid}
+) error {
+	machineLife := machineLife{UUID: uuid}
 	stmt, err := st.Prepare(`
-SELECT uuid AS &machineUUID.uuid FROM machine WHERE uuid = $machineUUID.uuid
-`, machineUUIDVal)
+SELECT &machineLife.* FROM machine WHERE uuid = $machineLife.uuid
+`, machineLife)
 	if err != nil {
-		return false, errors.Capture(err)
+		return errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, stmt, machineUUIDVal).Get(&machineUUIDVal)
+	err = tx.Query(ctx, stmt, machineLife).Get(&machineLife)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return false, nil
+		return errors.Errorf("machine %q does not exist", uuid).Add(machineerrors.MachineNotFound)
 	} else if err != nil {
-		return false, errors.Errorf(
+		return errors.Errorf(
 			"checking if machine %q exists: %w",
 			uuid, err,
 		)
 	}
 
-	return true, nil
+	if machineLife.LifeID == life.Dead {
+		return errors.Errorf("machine %q is dead", uuid).Add(machineerrors.MachineIsDead)
+	}
+
+	return nil
 }
 
 // SetMachineStatus sets the status of the specified machine.
