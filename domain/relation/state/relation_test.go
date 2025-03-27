@@ -230,9 +230,7 @@ func (s *relationSuite) TestGetRelationEndpoints(c *gc.C) {
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(endpoints, gc.HasLen, 2)
-	c.Check(endpoints[0], gc.DeepEquals, endpoint1)
-	c.Check(endpoints[1], gc.DeepEquals, endpoint2)
+	c.Assert(endpoints, jc.SameContents, endpoints)
 }
 
 func (s *relationSuite) TestGetRelationEndpointsPeer(c *gc.C) {
