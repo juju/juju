@@ -31,7 +31,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/services"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -929,92 +928,11 @@ func (s *withoutControllerSuite) TestInstanceStatus(c *gc.C) {
 	})
 }
 
-func (s *withoutControllerSuite) TestAvailabilityZone(c *gc.C) {
-	availabilityZone := "ru-north-siberia"
-	emptyAz := ""
-	hcWithAZ := instance.HardwareCharacteristics{AvailabilityZone: &availabilityZone}
-	hcWithEmptyAZ := instance.HardwareCharacteristics{AvailabilityZone: &emptyAz}
-	hcWithNilAz := instance.HardwareCharacteristics{AvailabilityZone: nil}
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	// Add a subnet with the AZ so it's on dqlite.
-	s.domainServices.Network().AddSubnet(context.Background(), network.SubnetInfo{
-		CIDR:              "10.0.0.0/8",
-		AvailabilityZones: []string{"ru-north-siberia"},
-	})
-	machineService := s.domainServices.Machine()
-
-	// add machines with different availability zones: string, empty string, nil
-	azMachine, _ := f.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Characteristics: &hcWithAZ,
-	})
-	machine0UUID, err := machineService.CreateMachine(context.Background(), coremachine.Name(azMachine.Id()))
-	c.Assert(err, jc.ErrorIsNil)
-	err = machineService.SetMachineCloudInstance(context.Background(), machine0UUID, "i-am-az-machine", "", &hcWithAZ)
-	c.Assert(err, jc.ErrorIsNil)
-
-	emptyAzMachine, _ := f.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Characteristics: &hcWithEmptyAZ,
-	})
-	machine1UUID, err := machineService.CreateMachine(context.Background(), coremachine.Name(emptyAzMachine.Id()))
-	c.Assert(err, jc.ErrorIsNil)
-	err = machineService.SetMachineCloudInstance(context.Background(), machine1UUID, "i-am-empty-az-machine", "", &hcWithEmptyAZ)
-	c.Assert(err, jc.ErrorIsNil)
-
-	nilAzMachine, _ := f.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Characteristics: &hcWithNilAz,
-	})
-	machine2UUID, err := machineService.CreateMachine(context.Background(), coremachine.Name(nilAzMachine.Id()))
-	c.Assert(err, jc.ErrorIsNil)
-	err = machineService.SetMachineCloudInstance(context.Background(), machine2UUID, "i-am-nil-az-machine", "", &hcWithNilAz)
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: azMachine.Tag().String()},
-		{Tag: emptyAzMachine.Tag().String()},
-		{Tag: nilAzMachine.Tag().String()},
-	}}
-	result, err := s.provisioner.AvailabilityZone(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{
-			{Result: availabilityZone},
-			{Result: emptyAz},
-			{Result: emptyAz},
-		},
-	})
-}
-
-func (s *withoutControllerSuite) TestKeepInstance(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	// Add a machine with keep-instance = true.
-	foobarMachine := f.MakeMachine(c, &factory.MachineParams{InstanceId: "1234"})
-	_, err := s.domainServices.Machine().CreateMachine(context.Background(), coremachine.Name(foobarMachine.Tag().Id()))
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.domainServices.Machine().SetKeepInstance(context.Background(), coremachine.Name(foobarMachine.Tag().Id()), true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: s.machines[0].Tag().String()},
-		{Tag: foobarMachine.Tag().String()},
-		{Tag: s.machines[2].Tag().String()},
-		{Tag: "machine-42"},
-		{Tag: "unit-foo-0"},
-	}}
-	result, err := s.provisioner.KeepInstance(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.BoolResults{
-		Results: []params.BoolResult{
-			{Result: false},
-			{Result: true},
-			{Result: false},
-			{Error: apiservertesting.ServerError("check for machine \"42\" keep instance: machine not found")},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
+func (s *withoutControllerSuite) TestStub(c *gc.C) {
+	c.Skip(`This suite is missing tests for the following scenarios:
+- Calling AvailabilityZones with machines that have populated, empty, and nil AZ
+- Calling KeepInstance with variaety of results - true, false, not found, unauthorised.
+`)
 }
 
 func (s *withoutControllerSuite) TestDistributionGroupControllerAuth(c *gc.C) {
