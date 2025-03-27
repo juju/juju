@@ -104,10 +104,10 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 		s.hosted,
 		s.authorizer,
 		loggertesting.WrapCheckLog(c),
-		domainServices.Agent(),
 		s.watcherRegistry,
 		nil,
 		domainServices.Machine(),
+		domainServices.Agent(),
 		nil,
 	)
 }
@@ -131,10 +131,10 @@ func (s *upgraderSuite) makeMockedUpgraderAPI(c *gc.C) *upgrader.UpgraderAPI {
 		nil,
 		s.authorizer,
 		loggertesting.WrapCheckLog(c),
-		s.agentService,
 		s.watcherRegistry,
 		s.controllerNodeService,
 		s.machineService,
+		s.agentService,
 		s.unitService,
 	)
 }
@@ -168,10 +168,10 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 		s.hosted,
 		anAuthorizer,
 		loggertesting.WrapCheckLog(c),
-		domainServices.Agent(),
 		s.watcherRegistry,
 		s.controllerNodeService,
 		s.machineService,
+		domainServices.Agent(),
 		s.unitService,
 	)
 
@@ -656,10 +656,10 @@ func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 		s.hosted,
 		anAuthorizer,
 		loggertesting.WrapCheckLog(c),
-		domainServices.Agent(),
 		s.watcherRegistry,
 		s.controllerNodeService,
 		s.machineService,
+		domainServices.Agent(),
 		s.unitService,
 	)
 	args := params.Entities{
@@ -726,10 +726,10 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
 		s.hosted,
 		authorizer,
 		loggertesting.WrapCheckLog(c),
-		s.agentService,
 		s.watcherRegistry,
 		s.controllerNodeService,
 		s.machineService,
+		s.agentService,
 		s.unitService,
 	)
 	args := params.Entities{Entities: []params.Entity{{Tag: s.apiMachine.Tag().String()}}}

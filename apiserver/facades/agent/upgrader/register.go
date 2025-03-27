@@ -35,7 +35,6 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 	auth := ctx.Auth()
 
 	if !auth.AuthMachineAgent() &&
-		!auth.AuthModelAgent() &&
 		!auth.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -94,10 +93,10 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 		st,
 		auth,
 		ctx.Logger().Child("upgrader"),
-		domainServices.Agent(),
 		ctx.WatcherRegistry(),
 		domainServices.ControllerNode(),
 		domainServices.Machine(),
+		domainServices.Agent(),
 		domainServices.Application(),
 	), nil
 }

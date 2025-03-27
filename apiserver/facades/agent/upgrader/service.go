@@ -66,6 +66,14 @@ type CredentialService interface {
 }
 
 type ControllerNodeService interface {
+	// SetReportedControllerNodeAgentVersion sets the agent version for the
+	// supplied controllerID. Version represents the version of the controller
+	// node's agent binary.
+	//
+	// The following errors are possible:
+	// - [coreerrors.NotValid] if the version is not valid.
+	// - [coreerrors.NotSupported] if the architecture is not supported.
+	// - [controllernodeerrors.NotFound] if the controller node does not exist.
 	SetReportedControllerNodeAgentVersion(context.Context, string, coreagentbinary.Version) error
 }
 
@@ -77,7 +85,7 @@ type MachineService interface {
 	// The following errors are possible:
 	// - [coreerrors.NotValid] if the reportedVersion is not valid.
 	// - [coreerrors.NotSupported] if the architecture is not supported.
-	// - [machineerrors.MachineNotFound] - when the machine does not exist.
+	// - [machineerrors.MachineNotFound] when the machine does not exist.
 	SetReportedMachineAgentVersion(context.Context, machine.Name, coreagentbinary.Version) error
 }
 

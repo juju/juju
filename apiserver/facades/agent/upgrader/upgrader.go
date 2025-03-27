@@ -63,10 +63,10 @@ func NewUpgraderAPI(
 	st *state.State,
 	authorizer facade.Authorizer,
 	logger corelogger.Logger,
-	modelAgentService ModelAgentService,
 	watcherRegistry facade.WatcherRegistry,
 	controllerNodeService ControllerNodeService,
 	machineService MachineService,
+	modelAgentService ModelAgentService,
 	unitService UnitService,
 ) *UpgraderAPI {
 	return &UpgraderAPI{
