@@ -6,6 +6,7 @@ package network
 import (
 	"bufio"
 	"context"
+	"io/fs"
 	"os"
 	"strings"
 
@@ -36,7 +37,7 @@ type DNSConfig struct {
 // See resolv.conf(5) man page for details.
 func ParseResolvConf(path string) (*DNSConfig, error) {
 	file, err := os.Open(path)
-	if os.IsNotExist(err) {
+	if errors.Is(err, fs.ErrNotExist) {
 		logger.Debugf(context.TODO(), "%q does not exist - not parsing", path)
 		return nil, nil
 	} else if err != nil {

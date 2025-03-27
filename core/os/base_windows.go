@@ -4,7 +4,7 @@
 package os
 
 import (
-	"os"
+	"io/fs"
 	"strings"
 
 	"golang.org/x/sys/windows/registry"
@@ -102,7 +102,7 @@ func readBase() (corebase.Base, error) {
 	var lookAt = windowsVersions
 
 	isNano, err := isWindowsNano()
-	if err != nil && os.IsNotExist(err) {
+	if err != nil && errors.Is(err, fs.ErrNotExist) {
 		return corebase.Base{}, errors.Capture(err)
 	}
 	if isNano {

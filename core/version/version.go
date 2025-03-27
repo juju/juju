@@ -5,6 +5,7 @@ package version
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -86,7 +87,7 @@ func init() {
 	toolsDir := filepath.Dir(os.Args[0])
 	v, err := os.ReadFile(filepath.Join(toolsDir, "FORCE-VERSION"))
 	if err != nil {
-		if !os.IsNotExist(err) {
+		if !errors.Is(err, fs.ErrNotExist) {
 			fmt.Fprintf(os.Stderr, "WARNING: cannot read forced version: %v\n", err)
 		}
 		return

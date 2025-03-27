@@ -5,6 +5,7 @@ package charm
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,7 +52,7 @@ func NewCharmAtPath(path string) (charm.Charm, *charm.URL, error) {
 }
 
 func isNotExistsError(err error) bool {
-	if os.IsNotExist(err) {
+	if errors.Is(err, fs.ErrNotExist) {
 		return true
 	}
 	// On Windows, we get a path error due to a GetFileAttributesEx syscall.
