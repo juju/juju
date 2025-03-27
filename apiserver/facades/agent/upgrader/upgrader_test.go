@@ -289,7 +289,7 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	}
 }
 
-// TestSetToolsForUnknownTagEntity is checking what the reponse behaviour is
+// TestSetToolsForUnknownTagEntity is checking what the response behaviour is
 // when we try and set the reported agent tools version for an entity that we
 // don't support setting agent tools version for.
 //
