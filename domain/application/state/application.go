@@ -2445,6 +2445,27 @@ WHERE  name = $getCharmUpgradeOnError.name
 	return arg.CharmUpgradeOnError, nil
 }
 
+// GetApplicationName returns the application name for the given application ID.
+// Usage of this signifies an area that must be converted to use application IDs
+// but efforts have not yet completed.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (st *State) GetApplicationName(ctx context.Context, id coreapplication.ID) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var name string
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		name, err = st.getApplicationName(ctx, tx, id)
+		return err
+	}); err != nil {
+		return "", errors.Capture(err)
+	}
+	return name, nil
+}
+
 // getApplicationName returns the application name. If no application is found,
 // an error satisfying [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) getApplicationName(
@@ -2679,7 +2700,7 @@ func (st *State) SetApplicationConstraints(ctx context.Context, appID coreapplic
 
 	selectConstraintUUIDQuery := `
 SELECT &constraintUUID.*
-FROM application_constraint 
+FROM application_constraint
 WHERE application_uuid = $applicationUUID.application_uuid
 `
 	selectConstraintUUIDStmt, err := st.Prepare(selectConstraintUUIDQuery, constraintUUID{}, applicationUUID{})
@@ -2718,7 +2739,7 @@ WHERE application_uuid = $applicationUUID.application_uuid
 	}
 
 	insertConstraintsQuery := `
-INSERT INTO "constraint"(*) 
+INSERT INTO "constraint"(*)
 VALUES ($setConstraint.*)
 ON CONFLICT (uuid) DO UPDATE SET
     arch = excluded.arch,

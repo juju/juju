@@ -16,15 +16,17 @@ import (
 	caasunitprovisionerapi "github.com/juju/juju/api/controller/caasunitprovisioner"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/services"
 )
 
 // ManifoldConfig defines a CAAS operator provisioner's dependencies.
 type ManifoldConfig struct {
-	APICallerName string
-	BrokerName    string
-	ClockName     string
-	NewWorker     func(Config) (worker.Worker, error)
-	Logger        logger.Logger
+	APICallerName      string
+	BrokerName         string
+	ClockName          string
+	DomainServicesName string
+	NewWorker          func(Config) (worker.Worker, error)
+	Logger             logger.Logger
 }
 
 // Validate is called by start to check for bad configuration.
@@ -37,6 +39,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.ClockName == "" {
 		return errors.NotValidf("empty ClockName")
+	}
+	if config.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -67,19 +72,26 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
+	var domainServices services.ModelDomainServices
+	if err := getter.Get(config.DomainServicesName, &domainServices); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	modelTag, ok := apiCaller.ModelTag()
 	if !ok {
 		return nil, errors.New("API connection is controller-only (should never happen)")
 	}
 
 	w, err := config.NewWorker(Config{
-		Facade:       apicaasapplicationprovisioner.NewClient(apiCaller),
-		Broker:       broker,
-		ModelTag:     modelTag,
-		Clock:        clock,
-		Logger:       config.Logger,
-		NewAppWorker: NewAppWorker,
-		UnitFacade:   caasunitprovisionerapi.NewClient(apiCaller),
+		ApplicationService: domainServices.Application(),
+		StatusService:      domainServices.Status(),
+		Facade:             apicaasapplicationprovisioner.NewClient(apiCaller),
+		Broker:             broker,
+		ModelTag:           modelTag,
+		Clock:              clock,
+		Logger:             config.Logger,
+		NewAppWorker:       NewAppWorker,
+		UnitFacade:         caasunitprovisionerapi.NewClient(apiCaller),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -95,6 +107,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.APICallerName,
 			config.BrokerName,
 			config.ClockName,
+			config.DomainServicesName,
 		},
 		Start: config.start,
 	}
