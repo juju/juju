@@ -358,22 +358,22 @@ func (s *FirewallerSuite) TestWatchSubnets(c *gc.C) {
 	s.setupAPI(c)
 
 	ch := make(chan []string, 1)
-	ch <- []string{"100"}
+	ch <- []string{"0195847b-95bb-7ca1-a7ee-2211d802d5b3"}
 	w := watchertest.NewMockStringsWatcher(ch)
-	s.networkService.EXPECT().WatchSubnets(gomock.Any(), set.NewStrings("100")).Return(w, nil)
+	s.networkService.EXPECT().WatchSubnets(gomock.Any(), set.NewStrings("0195847b-95bb-7ca1-a7ee-2211d802d5b3")).Return(w, nil)
 
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 
 	entities := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.NewSubnetTag("100").String(),
+			Tag: names.NewSubnetTag("0195847b-95bb-7ca1-a7ee-2211d802d5b3").String(),
 		}},
 	}
 	got, err := s.api.WatchSubnets(context.Background(), entities)
 	c.Assert(err, jc.ErrorIsNil)
 	want := params.StringsWatchResult{
 		StringsWatcherId: "1",
-		Changes:          []string{"100"},
+		Changes:          []string{"0195847b-95bb-7ca1-a7ee-2211d802d5b3"},
 	}
 	c.Assert(got.StringsWatcherId, gc.Equals, want.StringsWatcherId)
 	c.Assert(got.Changes, jc.SameContents, want.Changes)
