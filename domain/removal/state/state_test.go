@@ -36,6 +36,50 @@ func (s *stateSuite) TestRelationExists(c *gc.C) {
 	c.Check(exists, gc.Equals, false)
 }
 
+func (s *stateSuite) TestRelationAdvanceLifeNormalSuccess(c *gc.C) {
+	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
+		"some-relation-uuid", 0, "some-relation-id")
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err = st.RelationAdvanceLife(context.Background(), "some-relation-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Relation had life "alive" and should now be "dying".
+	row := s.DB().QueryRow("SELECT life_id FROM relation where uuid = ?", "some-relation-uuid")
+	var lifeID int
+	err = row.Scan(&lifeID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(lifeID, gc.Equals, 1)
+}
+
+func (s *stateSuite) TestRelationAdvanceLifeDyingSuccess(c *gc.C) {
+	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
+		"some-relation-uuid", 1, "some-relation-id")
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err = st.RelationAdvanceLife(context.Background(), "some-relation-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Relation was already "dying" and should be unchanged.
+	row := s.DB().QueryRow("SELECT life_id FROM relation where uuid = ?", "some-relation-uuid")
+	var lifeID int
+	err = row.Scan(&lifeID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(lifeID, gc.Equals, 1)
+}
+
+func (s *stateSuite) TestRelationAdvanceLifeNotExistsSuccess(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// We don't care if it's already gone.
+	err := st.RelationAdvanceLife(context.Background(), "some-relation-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *stateSuite) TestRelationRemovalNormalSuccess(c *gc.C) {
 	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
 		"some-relation-uuid", 0, "some-relation-id")

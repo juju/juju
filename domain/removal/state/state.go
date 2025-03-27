@@ -61,6 +61,33 @@ WHERE  uuid = $entityUUID.uuid`, relationUUID)
 	return relationExists, err
 }
 
+// RelationAdvanceLife ensures that there is no relation
+// identified by the input UUID, that is still alive.
+func (st *State) RelationAdvanceLife(ctx context.Context, rUUID string) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	relationUUID := entityUUID{UUID: rUUID}
+	stmt, err := st.Prepare(`
+UPDATE relation
+SET    life_id = 1
+WHERE  uuid = $entityUUID.uuid
+AND    life_id = 0`, relationUUID)
+	if err != nil {
+		return errors.Errorf("preparing relation life update: %w", err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, relationUUID).Run()
+		if err != nil {
+			return errors.Errorf("advancing relation %q life: %w", rUUID, err)
+		}
+		return nil
+	}))
+}
+
 // RelationAdvanceLifeAndScheduleRemoval advances the life cycle of the relation
 // with the input UUID to dying if it is alive, and schedules a removal job for
 // the relation, qualified with the input force boolean.
