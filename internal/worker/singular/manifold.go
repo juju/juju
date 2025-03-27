@@ -14,7 +14,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent/engine"
-	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/lease"
 )
 
 // logger is here to stop the desire of creating a package level logger.
@@ -26,27 +26,25 @@ var _ logger = struct{}{}
 // ManifoldConfig holds the information necessary to run a FlagWorker in
 // a dependency.Engine.
 type ManifoldConfig struct {
-	Clock         clock.Clock
-	APICallerName string
-	Duration      time.Duration
-	// TODO(controlleragent) - claimaint should be a ControllerAgentTag
-	Claimant names.Tag
-	Entity   names.Tag
+	LeaseManagerName string
 
-	NewFacade func(base.APICaller, names.Tag, names.Tag) (Facade, error)
+	Clock    clock.Clock
+	Duration time.Duration
+	// TODO(controlleragent) - claimaint should be a ControllerAgentTag
+	Claimant  names.Tag
+	Entity    names.Tag
+	ModelUUID string
+
 	NewWorker func(context.Context, FlagConfig) (worker.Worker, error)
 }
 
 // Validate ensures the required values are set.
 func (config *ManifoldConfig) Validate() error {
+	if config.LeaseManagerName == "" {
+		return errors.NotValidf("empty LeaseManagerName")
+	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
-	}
-	if config.APICallerName == "" {
-		return errors.NotValidf("missing APICallerName")
-	}
-	if config.NewFacade == nil {
-		return errors.NotValidf("nil NewFacade")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -59,39 +57,24 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	var apiCaller base.APICaller
-	if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
+
+	var leaseManager lease.Manager
+	if err := getter.Get(config.LeaseManagerName, &leaseManager); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	facade, err := config.NewFacade(apiCaller, config.Claimant, config.Entity)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	flag, err := config.NewWorker(ctx, FlagConfig{
-		Clock:    config.Clock,
-		Facade:   facade,
-		Duration: config.Duration,
+		Clock:        config.Clock,
+		LeaseManager: leaseManager,
+		Claimant:     config.Claimant,
+		Entity:       config.Entity,
+		ModelUUID:    config.ModelUUID,
+		Duration:     config.Duration,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return wrappedWorker{flag}, nil
-}
-
-// wrappedWorker wraps a flag worker, translating ErrRefresh into
-// dependency.ErrBounce.
-type wrappedWorker struct {
-	worker.Worker
-}
-
-// Wait is part of the worker.Worker interface.
-func (w wrappedWorker) Wait() error {
-	err := w.Worker.Wait()
-	if err == ErrRefresh {
-		err = dependency.ErrBounce
-	}
-	return err
+	return flag, nil
 }
 
 // Manifold returns a dependency.Manifold that will run a FlagWorker and
@@ -99,14 +82,17 @@ func (w wrappedWorker) Wait() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.APICallerName,
+			config.LeaseManagerName,
 		},
 		Start: config.start,
 		Output: func(in worker.Worker, out interface{}) error {
-			if w, ok := in.(wrappedWorker); ok {
-				in = w.Worker
-			}
 			return engine.FlagOutput(in, out)
+		},
+		Filter: func(err error) error {
+			if errors.Is(err, ErrRefresh) {
+				return dependency.ErrBounce
+			}
+			return err
 		},
 	}
 }

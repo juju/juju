@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/controller"
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/http"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/services"
@@ -31,6 +32,8 @@ type ManifoldConfig struct {
 	// DomainServicesName is used to get the controller domain services
 	// dependency.
 	DomainServicesName string
+	// LeaseManagerName is the name of the lease.Manager dependency.
+	LeaseManagerName string
 	// ProviderServiceFactoriesName is used to get the provider domain services
 	// getter dependency. This exposes a provider domain services for each
 	// model upon request.
@@ -143,6 +146,11 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
+	var leaseManager lease.Manager
+	if err := getter.Get(config.LeaseManagerName, &leaseManager); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	providerServicesGetter, err := config.GetProviderServicesGetter(getter, config.ProviderServiceFactoriesName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -156,6 +164,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		NewModelWorker:         config.NewModelWorker,
 		ErrorDelay:             jworker.RestartDelay,
 		DomainServicesGetter:   domainServicesGetter,
+		LeaseManager:           leaseManager,
 		ModelService:           controllerDomainServices.Model(),
 		ProviderServicesGetter: providerServicesGetter,
 		HTTPClientGetter:       httpClientGetter,

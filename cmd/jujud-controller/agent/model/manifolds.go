@@ -20,6 +20,7 @@ import (
 	controllerlifeflag "github.com/juju/juju/api/controller/lifeflag"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/http"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
@@ -114,6 +115,9 @@ type ManifoldsConfig struct {
 	// DomainServices is used to access the domain services.
 	DomainServices services.DomainServices
 
+	// LeaseManager is used to manage the lease for the model.
+	LeaseManager lease.Manager
+
 	// HTTPClientGetter is used to get a http client for a given namespace.
 	HTTPClientGetter http.HTTPClientGetter
 }
@@ -163,6 +167,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Output: engine.ValueWorkerOutput,
 		},
 
+		// LeaseManager is used to manage the lease for the model.
+		leaseManagerName: dependency.Manifold{
+			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+				return engine.NewValueWorker(config.LeaseManager)
+			},
+			Output: engine.ValueWorkerOutput,
+		},
+
 		// HTTPClientGetter is used to get a http client for a given namespace.
 		httpClientName: dependency.Manifold{
 			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
@@ -208,15 +220,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			// No Logger defined in lifeflag package.
 		}),
 		isResponsibleFlagName: singular.Manifold(singular.ManifoldConfig{
-			Clock:         config.Clock,
-			APICallerName: apiCallerName,
-			Duration:      config.RunFlagDuration,
-			Claimant:      agentTag,
-			Entity:        modelTag,
-
-			NewFacade: singular.NewFacade,
-			NewWorker: singular.NewWorker,
-			// No Logger defined in singular package.
+			LeaseManagerName: leaseManagerName,
+			Clock:            config.Clock,
+			Duration:         config.RunFlagDuration,
+			Claimant:         agentTag,
+			Entity:           modelTag,
+			ModelUUID:        modelTag.Id(),
+			NewWorker:        singular.NewFlagWorker,
 		}),
 		// This flag runs on all models, and
 		// indicates if model's cloud credential is valid.
@@ -636,6 +646,7 @@ const (
 	httpClientName               = "http-client"
 	instanceMutaterName          = "instance-mutater"
 	instancePollerName           = "instance-poller"
+	leaseManagerName             = "lease-manager"
 	loggingConfigUpdaterName     = "logging-config-updater"
 	machineUndertakerName        = "machine-undertaker"
 	providerServiceFactoriesName = "provider-service-factories"

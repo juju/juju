@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/http"
+	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
@@ -65,6 +66,7 @@ type NewModelConfig struct {
 	ControllerConfig       controller.Config
 	ProviderServicesGetter ProviderServicesGetter
 	DomainServices         services.DomainServices
+	LeaseManager           lease.Manager
 	HTTPClientGetter       http.HTTPClientGetter
 }
 
@@ -87,6 +89,7 @@ type Config struct {
 	DomainServicesGetter   services.DomainServicesGetter
 	ModelService           ModelService
 	GetControllerConfig    GetControllerConfigFunc
+	LeaseManager           lease.Manager
 	HTTPClientGetter       http.HTTPClientGetter
 }
 
@@ -122,6 +125,9 @@ func (config Config) Validate() error {
 	}
 	if config.GetControllerConfig == nil {
 		return errors.NotValidf("nil GetControllerConfig")
+	}
+	if config.LeaseManager == nil {
+		return errors.NotValidf("nil LeaseManager")
 	}
 	if config.HTTPClientGetter == nil {
 		return errors.NotValidf("nil HTTPClientGetter")
