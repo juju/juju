@@ -169,7 +169,7 @@ func (s *exportSuite) TestExportUnitStatuses(c *gc.C) {
 	err := exportOp.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(app.Status(), gc.IsNil)
+	c.Check(app.Status().NeverSet(), jc.IsTrue)
 
 	c.Check(u0.AgentStatus().Value(), gc.Equals, corestatus.Idle.String())
 	c.Check(u0.AgentStatus().Data(), gc.DeepEquals, map[string]interface{}{"agent": "idle"})

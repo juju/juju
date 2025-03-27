@@ -3590,8 +3590,8 @@ func insertAdditionalHashKindForCharm(ctx context.Context, c *gc.C, tx *sql.Tx, 
 
 func insertMinimalApplication(ctx context.Context, c *gc.C, tx *sql.Tx, uuid, charm_uuid string) error {
 	_, err := tx.ExecContext(ctx, `
-INSERT INTO application (uuid, charm_uuid, name, life_id, password_hash_algorithm_id, password_hash, space_uuid)
-VALUES (?, ?, 'ubuntu', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=',?);
+INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
+VALUES (?, ?, 'ubuntu', 0, ?);
 `, uuid, charm_uuid, network.AlphaSpaceId)
 	if err != nil {
 		return errors.Capture(err)

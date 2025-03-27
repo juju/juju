@@ -145,8 +145,8 @@ func (s *secretSchemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 
 	appUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `
-INSERT INTO application (uuid, charm_uuid, name, life_id, password_hash_algorithm_id, password_hash, space_uuid)
-VALUES (?, ?, 'mysql', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=', ?);`, appUUID, charmUUID, network.AlphaSpaceId)
+INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
+VALUES (?, ?, 'mysql', 0, ?);`, appUUID, charmUUID, network.AlphaSpaceId)
 
 	unitNetNodeUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `INSERT INTO net_node (uuid) VALUES (?);`, unitNetNodeUUID)

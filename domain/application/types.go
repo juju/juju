@@ -371,7 +371,6 @@ type ExportApplication struct {
 	ModelType            model.ModelType
 	CharmUUID            charm.ID
 	Life                 life.Life
-	PasswordHash         string
 	Placement            string
 	Exposed              bool
 	Subordinate          bool
