@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	application "github.com/juju/juju/core/application"
+	config "github.com/juju/juju/core/config"
 	leadership "github.com/juju/juju/core/leadership"
 	life "github.com/juju/juju/core/life"
 	model "github.com/juju/juju/core/model"
@@ -160,6 +161,45 @@ func (c *MockApplicationServiceEnsureUnitDeadCall) Do(f func(context.Context, un
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceEnsureUnitDeadCall) DoAndReturn(f func(context.Context, unit.Name, leadership.Revoker) error) *MockApplicationServiceEnsureUnitDeadCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetApplicationConfig mocks base method.
+func (m *MockApplicationService) GetApplicationConfig(arg0 context.Context, arg1 application.ID) (config.ConfigAttributes, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationConfig", arg0, arg1)
+	ret0, _ := ret[0].(config.ConfigAttributes)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationConfig indicates an expected call of GetApplicationConfig.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationConfig(arg0, arg1 any) *MockApplicationServiceGetApplicationConfigCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationConfig", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationConfig), arg0, arg1)
+	return &MockApplicationServiceGetApplicationConfigCall{Call: call}
+}
+
+// MockApplicationServiceGetApplicationConfigCall wrap *gomock.Call
+type MockApplicationServiceGetApplicationConfigCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetApplicationConfigCall) Return(arg0 config.ConfigAttributes, arg1 error) *MockApplicationServiceGetApplicationConfigCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetApplicationConfigCall) Do(f func(context.Context, application.ID) (config.ConfigAttributes, error)) *MockApplicationServiceGetApplicationConfigCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetApplicationConfigCall) DoAndReturn(f func(context.Context, application.ID) (config.ConfigAttributes, error)) *MockApplicationServiceGetApplicationConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1395,6 +1435,45 @@ func NewMockModelInfoService(ctrl *gomock.Controller) *MockModelInfoService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelInfoService) EXPECT() *MockModelInfoServiceMockRecorder {
 	return m.recorder
+}
+
+// CloudAPIVersion mocks base method.
+func (m *MockModelInfoService) CloudAPIVersion(arg0 context.Context) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CloudAPIVersion", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CloudAPIVersion indicates an expected call of CloudAPIVersion.
+func (mr *MockModelInfoServiceMockRecorder) CloudAPIVersion(arg0 any) *MockModelInfoServiceCloudAPIVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudAPIVersion", reflect.TypeOf((*MockModelInfoService)(nil).CloudAPIVersion), arg0)
+	return &MockModelInfoServiceCloudAPIVersionCall{Call: call}
+}
+
+// MockModelInfoServiceCloudAPIVersionCall wrap *gomock.Call
+type MockModelInfoServiceCloudAPIVersionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelInfoServiceCloudAPIVersionCall) Return(arg0 string, arg1 error) *MockModelInfoServiceCloudAPIVersionCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelInfoServiceCloudAPIVersionCall) Do(f func(context.Context) (string, error)) *MockModelInfoServiceCloudAPIVersionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelInfoServiceCloudAPIVersionCall) DoAndReturn(f func(context.Context) (string, error)) *MockModelInfoServiceCloudAPIVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // GetModelInfo mocks base method.

@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -90,6 +91,18 @@ func (s *Service) ListAll(ctx context.Context) ([]cloud.Cloud, error) {
 func (s *Service) Cloud(ctx context.Context, name string) (*cloud.Cloud, error) {
 	cloud, err := s.st.Cloud(ctx, name)
 	return cloud, errors.Capture(err)
+}
+
+// GetModelCloud looks up the model's cloud and region.
+// The following error types can be expected:
+// - [modelerrors.NotFound]: when the model does not exist.
+// - [clouderrors.NotFound]: when the cloud does not exist.
+func (s *Service) GetModelCloud(ctx context.Context, uuid model.UUID) (*cloud.Cloud, string, error) {
+	cld, region, err := s.st.GetModelCloud(ctx, uuid)
+	if err != nil {
+		return nil, "", errors.Errorf("getiing cloud and region for model %q: %w", uuid, err)
+	}
+	return cld, region, nil
 }
 
 // WatchableService defines a service for interacting with the underlying state

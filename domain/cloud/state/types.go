@@ -3,7 +3,21 @@
 
 package state
 
+import (
+	corecloud "github.com/juju/juju/core/cloud"
+	coremodel "github.com/juju/juju/core/model"
+)
+
 // These structs represent the persistent cloud entity schema in the database.
+
+type modelUUID struct {
+	UUID coremodel.UUID `db:"uuid"`
+}
+
+type modelCloudRegion struct {
+	CloudUUID       corecloud.UUID `db:"cloud_uuid"`
+	CloudRegionName string         `db:"cloud_region_name"`
+}
 
 // cloudType represents a single row from the cloud_type table.
 type cloudType struct {

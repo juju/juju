@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/blockdevice"
+	coremodel "github.com/juju/juju/core/model"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
 )
@@ -51,11 +52,8 @@ type storageFilesystemInterface interface {
 
 var getStorageState = func(
 	st *state.State,
+	modelType coremodel.ModelType,
 ) (storageAccess, error) {
-	m, err := st.Model()
-	if err != nil {
-		return nil, err
-	}
 	sb, err := state.NewStorageConfigBackend(st)
 	if err != nil {
 		return nil, err
@@ -66,7 +64,7 @@ var getStorageState = func(
 		fa:               sb,
 	}
 	// CAAS models don't support volume storage yet.
-	if m.Type() == state.ModelTypeCAAS {
+	if modelType == coremodel.CAAS {
 		storageAccess.va = nil
 	}
 	return storageAccess, nil
@@ -133,15 +131,4 @@ func unitStorageConstraints(backend backend, u names.UnitTag) (map[string]state.
 		return nil, errors.Trace(err)
 	}
 	return cons, nil
-}
-
-// EnvironConfigGetterModel represents methods required of a model
-// passed to the EnvironConfigGetter.
-type EnvironConfigGetterModel interface {
-	CloudName() string
-	CloudRegion() string
-	CloudCredentialTag() (names.CloudCredentialTag, bool)
-	ModelTag() names.ModelTag
-	ControllerUUID() string
-	Type() state.ModelType
 }

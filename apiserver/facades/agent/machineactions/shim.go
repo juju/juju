@@ -17,12 +17,7 @@ type backendShim struct {
 }
 
 func (shim backendShim) ActionByTag(tag names.ActionTag) (state.Action, error) {
-	m, err := shim.st.Model()
-	if err != nil {
-		return nil, err
-	}
-
-	return m.ActionByTag(tag)
+	return shim.st.ActionByTag(tag)
 }
 
 func (shim backendShim) FindEntity(tag names.Tag) (state.Entity, error) {

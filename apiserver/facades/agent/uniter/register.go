@@ -8,10 +8,8 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/cloudspec"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/common/unitcommon"
@@ -79,7 +77,7 @@ func newUniterAPIWithServices(
 	services Services,
 ) (*UniterAPI, error) {
 	authorizer := context.Auth()
-	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
+	if !authorizer.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
 	st := context.State()
@@ -98,17 +96,14 @@ func newUniterAPIWithServices(
 	accessUnit := unitcommon.UnitAccessor(authorizer, unitcommon.Backend(st))
 	accessApplication := applicationAccessor(authorizer, st)
 	accessMachine := machineAccessor(authorizer, st)
-	accessCloudSpec := cloudSpecAccessor(authorizer, st)
+	accessCloudSpec := cloudSpecAccessor(authorizer, services.ApplicationService)
 	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
 
-	// Do not use m for anything other than a EnvironConfigGetterModel.
-	// This use will disappear once model is fully gone from state.
-	m, err := st.Model()
+	modelInfo, err := services.ModelInfoService.GetModelInfo(stdCtx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	storageAccessor, err := getStorageState(st)
+	storageAccessor, err := getStorageState(st, modelInfo.Type)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -118,23 +113,6 @@ func newUniterAPIWithServices(
 		return nil, errors.Trace(err)
 	}
 
-	modelInfo, err := services.ModelInfoService.GetModelInfo(stdCtx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	modelTag := names.NewModelTag(modelInfo.UUID.String())
-
-	cloudSpec := cloudspec.NewCloudSpecV2(resources,
-		cloudspec.MakeCloudSpecGetterForModel(st,
-			services.CloudService,
-			services.CredentialService,
-			services.ModelConfigService,
-		),
-		cloudspec.MakeCloudSpecWatcherForModel(st, services.CloudService),
-		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
-		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, services.CredentialService),
-		common.AuthFuncForTag(modelTag),
-	)
 	modelConfigWatcher := commonmodel.NewModelConfigWatcher(
 		services.ModelConfigService,
 		context.WatcherRegistry(),
@@ -182,23 +160,23 @@ func newUniterAPIWithServices(
 		lxdProfileAPI:      extLXDProfile,
 		StatusAPI:          statusAPI,
 
-		environConfigGetterModel: m,
-		st:                       st,
-		clock:                    aClock,
-		auth:                     authorizer,
-		resources:                resources,
-		leadershipChecker:        leadershipChecker,
-		leadershipRevoker:        leadershipRevoker,
-		accessUnit:               accessUnit,
-		accessApplication:        accessApplication,
-		accessUnitOrApplication:  accessUnitOrApplication,
-		accessMachine:            accessMachine,
-		accessCloudSpec:          accessCloudSpec,
-		cloudSpecer:              cloudSpec,
-		StorageAPI:               storageAPI,
-		logger:                   logger,
-		store:                    context.ObjectStore(),
-		watcherRegistry:          watcherRegistry,
+		modelUUID:               context.ModelUUID(),
+		modelType:               modelInfo.Type,
+		st:                      st,
+		clock:                   aClock,
+		auth:                    authorizer,
+		resources:               resources,
+		leadershipChecker:       leadershipChecker,
+		leadershipRevoker:       leadershipRevoker,
+		accessUnit:              accessUnit,
+		accessApplication:       accessApplication,
+		accessUnitOrApplication: accessUnitOrApplication,
+		accessMachine:           accessMachine,
+		accessCloudSpec:         accessCloudSpec,
+		StorageAPI:              storageAPI,
+		logger:                  logger,
+		store:                   context.ObjectStore(),
+		watcherRegistry:         watcherRegistry,
 
 		applicationService:      services.ApplicationService,
 		statusService:           services.StatusService,

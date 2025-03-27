@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/credential"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
@@ -63,18 +63,21 @@ type ModelInfoService interface {
 	// GetModelInfo returns the readonly model information for the model in
 	// question.
 	GetModelInfo(context.Context) (model.ModelInfo, error)
+
+	// CloudAPIVersion returns the cloud API version for the model's cloud.
+	CloudAPIVersion(context.Context) (string, error)
 }
 
 // CloudService provides access to clouds.
 type CloudService interface {
-	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
-	WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error)
+	// GetModelCloud looks up the model's cloud and region.
+	GetModelCloud(ctx context.Context, uuid model.UUID) (*cloud.Cloud, string, error)
 }
 
 // CredentialService provides access to credentials.
 type CredentialService interface {
-	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
-	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
+	// GetModelCloudCredential looks up the model's cloud credential.
+	GetModelCloudCredential(ctx context.Context, uuid model.UUID) (cloud.Credential, error)
 }
 
 // ApplicationService provides access to the application service.
@@ -123,6 +126,12 @@ type ApplicationService interface {
 	// GetCharmLXDProfile returns the LXD profile along with the revision of the
 	// charm using the charm name, source and revision.
 	GetCharmLXDProfile(ctx context.Context, locator charm.CharmLocator) (internalcharm.LXDProfile, charm.Revision, error)
+
+	// GetApplicationConfig returns the application config attributes for the
+	// configuration.
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationConfig(ctx context.Context, uuid coreapplication.ID) (coreconfig.ConfigAttributes, error)
 }
 
 // StatusService describes the ability to retrieve and persist

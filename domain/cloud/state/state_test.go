@@ -24,6 +24,7 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	modelstate "github.com/juju/juju/domain/model/state"
 	modelstatetesting "github.com/juju/juju/domain/model/state/testing"
 	"github.com/juju/juju/internal/changestream/testing"
@@ -373,7 +374,6 @@ func (s *stateSuite) TestCloud(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), testCloud2)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = st.Cloud(context.Background(), "fluffy3")
 	c.Assert(err, jc.ErrorIs, clouderrors.NotFound)
@@ -381,6 +381,34 @@ func (s *stateSuite) TestCloud(c *gc.C) {
 	cloud, err := st.Cloud(context.Background(), "fluffy2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cloud, jc.DeepEquals, &testCloud2)
+}
+
+func (s *stateSuite) TestGetModelCloud(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	cloudUUID := uuid.MustNewUUID().String()
+	err := st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), cloudUUID, testCloud)
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelUUID := modelstatetesting.CreateTestModel(c, s.TxnRunnerFactory(), "foo")
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			UPDATE model SET cloud_uuid = ? WHERE uuid = ?
+		`, cloudUUID, modelUUID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	cld, region, err := st.GetModelCloud(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cld, jc.DeepEquals, &testCloud)
+	c.Assert(region, gc.Equals, "foo-region")
+}
+
+func (s *stateSuite) TestGetModelCloudNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	modelUUID := modeltesting.GenModelUUID(c)
+	_, _, err := st.GetModelCloud(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *stateSuite) TestDeleteCloud(c *gc.C) {

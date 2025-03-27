@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	corecredential "github.com/juju/juju/core/credential"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/credential"
@@ -18,6 +19,11 @@ import (
 type ProviderState interface {
 	// CloudCredential returns the cloud credential for the given name, cloud, owner.
 	CloudCredential(ctx context.Context, key corecredential.Key) (credential.CloudCredentialResult, error)
+
+	// GetModelCloudCredential returns the cloud credential for the specified model.
+	// The following errors can be returned:
+	// - [credentialerrors.NotFound] when the credential does not exist.
+	GetModelCloudCredential(ctx context.Context, uuid coremodel.UUID) (credential.CloudCredentialInfo, error)
 
 	// WatchCredential returns a new NotifyWatcher watching for changes to the specified credential.
 	WatchCredential(

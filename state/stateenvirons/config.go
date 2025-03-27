@@ -67,31 +67,6 @@ type EnvironConfigGetter struct {
 	CloudService CloudService
 }
 
-// CloudAPIVersion returns the cloud API version for the cloud with the given spec.
-func (g EnvironConfigGetter) CloudAPIVersion(spec environscloudspec.CloudSpec) (string, error) {
-	// Only CAAS models have an API version we care about right now.
-	if g.Model.Type() == state.ModelTypeIAAS {
-		return "", nil
-	}
-	cfg, err := g.ModelConfigService.ModelConfig(context.TODO())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	newBroker := g.NewContainerBroker
-	if newBroker == nil {
-		newBroker = caas.New
-	}
-	broker, err := newBroker(context.TODO(), environs.OpenParams{
-		ControllerUUID: g.Model.ControllerUUID(),
-		Cloud:          spec,
-		Config:         cfg,
-	}, environs.NoopCredentialInvalidator())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return broker.APIVersion()
-}
-
 // ModelConfig implements environs.EnvironConfigGetter.
 func (g EnvironConfigGetter) ModelConfig(ctx context.Context) (*config.Config, error) {
 	return g.ModelConfigService.ModelConfig(ctx)

@@ -89,6 +89,11 @@ type ModelResourcesProvider interface {
 	CreateModelResources(context.Context, environs.CreateParams) error
 }
 
+type CloudInfoProvider interface {
+	// APIVersion returns the version info for provider's cloud.
+	APIVersion() (string, error)
+}
+
 // ModelService defines a service for interacting with the underlying model
 // state, as opposed to the controller state.
 type ModelService struct {
@@ -277,7 +282,8 @@ func (s *ModelService) GetEnvironVersion(ctx context.Context) (int, error) {
 // state, as opposed to the controller state and the provider.
 type ProviderModelService struct {
 	ModelService
-	providerGetter providertracker.ProviderGetter[ModelResourcesProvider]
+	providerGetter  providertracker.ProviderGetter[ModelResourcesProvider]
+	cloudInfoGetter providertracker.ProviderGetter[CloudInfoProvider]
 }
 
 // NewProviderModelService returns a new Service for interacting with a models state.
@@ -287,6 +293,7 @@ func NewProviderModelService(
 	modelSt ModelState,
 	environProviderGetter EnvironVersionProviderFunc,
 	providerGetter providertracker.ProviderGetter[ModelResourcesProvider],
+	cloudInfoGetter providertracker.ProviderGetter[CloudInfoProvider],
 	agentBinaryFinder AgentBinaryFinder,
 ) *ProviderModelService {
 	return &ProviderModelService{
@@ -298,8 +305,22 @@ func NewProviderModelService(
 			environProviderGetter: environProviderGetter,
 			agentBinaryFinder:     agentBinaryFinder,
 		},
-		providerGetter: providerGetter,
+		providerGetter:  providerGetter,
+		cloudInfoGetter: cloudInfoGetter,
 	}
+}
+
+// CloudAPIVersion returns the cloud API version for the model's cloud.
+func (s *ProviderModelService) CloudAPIVersion(ctx context.Context) (string, error) {
+	env, err := s.cloudInfoGetter(ctx)
+	if errors.Is(err, coreerrors.NotSupported) {
+		// Exit early if the provider does not support getting a cloud api version.
+		return "", nil
+	}
+	if err != nil {
+		return "", errors.Errorf("opening provider: %w", err)
+	}
+	return env.APIVersion()
 }
 
 // CreateModel is responsible for creating a new model within the model

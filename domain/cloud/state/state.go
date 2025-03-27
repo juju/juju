@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
@@ -14,6 +15,7 @@ import (
 	corecloud "github.com/juju/juju/core/cloud"
 	coredatabase "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
@@ -21,6 +23,7 @@ import (
 	"github.com/juju/juju/domain"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -74,6 +77,47 @@ func (st *State) Cloud(ctx context.Context, name string) (*cloud.Cloud, error) {
 		return nil
 	})
 	return result, errors.Capture(err)
+}
+
+// GetModelCloud looks up the model's cloud and region.
+// The following error types can be expected:
+// - [modelerrors.NotFound]: when the model does not exist.
+// - [clouderrors.NotFound]: when the cloud does not exist.
+func (st *State) GetModelCloud(ctx context.Context, uuid model.UUID) (*cloud.Cloud, string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, "", errors.Capture(err)
+	}
+
+	ident := modelUUID{UUID: uuid}
+	cloudStmt, err := st.Prepare(`
+SELECT &modelCloudRegion.*
+FROM   v_model
+WHERE  uuid = $modelUUID.uuid
+	`, ident, modelCloudRegion{})
+	if err != nil {
+		return nil, "", errors.Capture(err)
+	}
+
+	var (
+		cld         cloud.Cloud
+		cloudRegion modelCloudRegion
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, cloudStmt, ident).Get(&cloudRegion)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("model %q does not exist", uuid).Add(modelerrors.NotFound)
+		}
+		if err != nil {
+			return errors.Errorf("querying cloud UUID for model %q: %w", uuid, err)
+		}
+		cld, err = GetCloudForUUID(ctx, st, tx, cloudRegion.CloudUUID)
+		if err != nil {
+			return errors.Errorf("querying cloud for model %q: %w", uuid, err)
+		}
+		return nil
+	})
+	return &cld, cloudRegion.CloudRegionName, errors.Capture(err)
 }
 
 // GetCloudForUUID returns the cloud associated with the provided uuid. If no
