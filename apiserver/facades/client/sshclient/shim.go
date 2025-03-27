@@ -4,8 +4,11 @@
 package sshclient
 
 import (
+	"encoding/base64"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/network"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -24,18 +27,9 @@ type Backend interface {
 	Model() (Model, error)
 	CloudSpec() (environscloudspec.CloudSpec, error)
 
-	// SSHServerHostKey returns the public host key for the SSH server.
-	// This key was set during the controller bootstrap process via
-	// bootstrap-state and is currently a FIXED value.
-	SSHServerHostKey() (string, error)
-
-	// UnitVirtualPublicHostKeyPEM calls the underlying UnitVirtualHostKey state method
-	// and encodes the result into a PEM string.
-	UnitVirtualPublicHostKeyPEM(unitID string) (string, error)
-
-	// MachineVirtualPublicHostKeyPEM calls the underlying MachineVirtualHostKey state method
-	// and encodes the result into a PEM string.
-	MachineVirtualPublicHostKeyPEM(machineID string) (string, error)
+	JumpServerVirtualPublicKey() (string, error)
+	MachineVirtualPublicKey(string) (string, error)
+	UnitVirtualPublicKey(string) (string, error)
 }
 
 // Model defines a point of use interface for the model from state.
@@ -92,8 +86,9 @@ type backend struct {
 	*state.State
 	stateenvirons.EnvironConfigGetter
 
-	controllerTag names.ControllerTag
-	modelTag      names.ModelTag
+	controllerState *state.State
+	controllerTag   names.ControllerTag
+	modelTag        names.ModelTag
 }
 
 // ModelTag returns the model tag of the backend.
@@ -148,26 +143,57 @@ func (b *backend) GetMachineForEntity(tagString string) (SSHMachine, error) {
 	}
 }
 
-// UnitVirtualPublicHostKey calls the underlying UnitVirtualHostKey state method
-// and encodes the result into a PEM string.
-func (b *backend) UnitVirtualPublicHostKeyPEM(unitID string) (string, error) {
-	// The keys are persisted PEM encoded.
-	vhk, err := b.State.UnitVirtualHostKey(unitID)
+// JumpServerVirtualAuthorizedKey returns the public key base64 encoded in SSH wire format.
+func (b *backend) JumpServerVirtualPublicKey() (string, error) {
+	privKey, err := b.controllerState.SSHServerHostKey()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	return string(vhk.HostKey()), nil
+	key, err := getPublicKeyWireFormat([]byte(privKey))
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return key, nil
 }
 
-// MachineVirtualPublicHostKey calls the underlying MachineVirtualHostKey state method
-// and encodes the result into a PEM string.
-func (b *backend) MachineVirtualPublicHostKeyPEM(machineID string) (string, error) {
-	// The keys are persisted PEM encoded.
-	vhk, err := b.State.MachineVirtualHostKey(machineID)
+// UnitVirtualAuthorizedKey returns the public key base64 encoded in SSH wire format.
+func (b *backend) UnitVirtualPublicKey(unitID string) (string, error) {
+	vhk, err := b.controllerState.UnitVirtualHostKey(unitID)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	return string(vhk.HostKey()), nil
+	key, err := getPublicKeyWireFormat(vhk.HostKey())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return key, nil
+}
+
+// MachineVirtualAuthorizedKey returns the public key base64 encoded in SSH wire format.
+func (b *backend) MachineVirtualPublicKey(machineID string) (string, error) {
+	vhk, err := b.controllerState.MachineVirtualHostKey(machineID)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	key, err := getPublicKeyWireFormat(vhk.HostKey())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return key, nil
+}
+
+func getPublicKeyWireFormat(hostkey []byte) (string, error) {
+	signer, err := ssh.ParsePrivateKey(hostkey)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return base64.StdEncoding.EncodeToString(signer.PublicKey().Marshal()), nil
+
 }
