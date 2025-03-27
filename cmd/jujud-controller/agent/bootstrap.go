@@ -289,13 +289,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			agentConfig.SetControllerAPIPort(args.ControllerConfig.ControllerAPIPort())
 		}
 
-		mmprof, err := mongo.NewMemoryProfile(args.ControllerConfig.MongoMemoryProfile())
-		if err != nil {
-			logger.Errorf(context.TODO(), "could not set requested memory profile: %v", err)
-		} else {
-			agentConfig.SetMongoMemoryProfile(mmprof)
-		}
-
 		agentConfig.SetJujuDBSnapChannel(args.ControllerConfig.JujuDBSnapChannel())
 		agentConfig.SetQueryTracingEnabled(args.ControllerConfig.QueryTracingEnabled())
 		agentConfig.SetQueryTracingThreshold(args.ControllerConfig.QueryTracingThreshold())

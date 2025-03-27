@@ -64,7 +64,6 @@ type format_2_0Serialization struct {
 	StatePort             int           `yaml:"stateport,omitempty"`
 	SharedSecret          string        `yaml:"sharedsecret,omitempty"`
 	SystemIdentity        string        `yaml:"systemidentity,omitempty"`
-	MongoMemoryProfile    string        `yaml:"mongomemoryprofile,omitempty"`
 	JujuDBSnapChannel     string        `yaml:"juju-db-snap-channel,omitempty"`
 	QueryTracingEnabled   bool          `yaml:"querytracingenabled,omitempty"`
 	QueryTracingThreshold time.Duration `yaml:"querytracingthreshold,omitempty"`
@@ -175,9 +174,6 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		}
 	}
 
-	if format.MongoMemoryProfile != "" {
-		config.mongoMemoryProfile = format.MongoMemoryProfile
-	}
 	if format.JujuDBSnapChannel != "" {
 		config.jujuDBSnapChannel = format.JujuDBSnapChannel
 	}
@@ -247,9 +243,6 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 	if config.apiDetails != nil {
 		format.APIAddresses = config.apiDetails.addresses
 		format.APIPassword = config.apiDetails.password
-	}
-	if config.mongoMemoryProfile != "" {
-		format.MongoMemoryProfile = config.mongoMemoryProfile
 	}
 	if config.jujuDBSnapChannel != "" {
 		format.JujuDBSnapChannel = config.jujuDBSnapChannel

@@ -28,23 +28,21 @@ func (s *serviceSuite) TestNewConfSnap(c *gc.C) {
 	dbDir := dataDir + "/db"
 	logPath := dataDir + "/logs/mongodb.log"
 	confArgs := mongo.ConfigArgs{
-		Clock:                 testclock.NewClock(time.Now()),
-		DataDir:               dataDir,
-		DBDir:                 dbDir,
-		Port:                  12345,
-		OplogSizeMB:           10,
-		IPv6:                  true,
-		LogPath:               logPath,
-		ReplicaSet:            "juju",
-		MemoryProfile:         mongo.MemoryProfileLow,
-		PEMKeyFile:            "/var/lib/juju/server.pem",
-		PEMKeyPassword:        "ignored",
-		AuthKeyFile:           "/var/lib/juju/shared-secret",
-		Syslog:                true,
-		Quiet:                 true,
-		TLSMode:               "requireTLS",
-		WiredTigerCacheSizeGB: 0.25,
-		BindToAllIP:           true,
+		Clock:          testclock.NewClock(time.Now()),
+		DataDir:        dataDir,
+		DBDir:          dbDir,
+		Port:           12345,
+		OplogSizeMB:    10,
+		IPv6:           true,
+		LogPath:        logPath,
+		ReplicaSet:     "juju",
+		PEMKeyFile:     "/var/lib/juju/server.pem",
+		PEMKeyPassword: "ignored",
+		AuthKeyFile:    "/var/lib/juju/shared-secret",
+		Syslog:         true,
+		Quiet:          true,
+		TLSMode:        "requireTLS",
+		BindToAllIP:    true,
 	}
 	confFile := filepath.Join(c.MkDir(), "conf")
 	err := mongo.WriteConfig(confArgs, confFile)
@@ -71,8 +69,7 @@ storageEngine = wiredTiger
 syslog = true
 tlsCertificateKeyFile = %s/server.pem
 tlsCertificateKeyFilePassword=ignored
-tlsMode = requireTLS
-wiredTigerCacheSizeGB = 0.25`[1:], confArgs.Clock.Now().UTC().Format(time.RFC822), dataDir, dataDir, dataDir, dataDir)
+tlsMode = requireTLS`[1:], confArgs.Clock.Now().UTC().Format(time.RFC822), dataDir, dataDir, dataDir, dataDir)
 
 	c.Assert(string(contents), jc.DeepEquals, expected)
 

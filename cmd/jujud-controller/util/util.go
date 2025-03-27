@@ -88,7 +88,6 @@ func newEnsureMongoParams(agentConfig agent.Config) (mongo.EnsureServerParams, e
 		OplogSize:            oplogSize,
 		SetNUMAControlPolicy: numaCtlPolicy,
 
-		MemoryProfile:     agentConfig.MongoMemoryProfile(),
 		JujuDBSnapChannel: agentConfig.JujuDBSnapChannel(),
 	}
 	return params, nil

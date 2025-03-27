@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
-	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/password"
 )
 
@@ -105,7 +104,6 @@ func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWr
 		Values:                             cfg.AgentEnvironment,
 		Controller:                         cfg.ControllerTag,
 		Model:                              cfg.APIInfo.ModelTag,
-		MongoMemoryProfile:                 mongo.MemoryProfile(cfg.Controller.MongoMemoryProfile()),
 		QueryTracingEnabled:                cfg.Controller.QueryTracingEnabled(),
 		QueryTracingThreshold:              cfg.Controller.QueryTracingThreshold(),
 		OpenTelemetryEnabled:               cfg.Controller.OpenTelemetryEnabled(),

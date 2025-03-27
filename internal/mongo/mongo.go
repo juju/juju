@@ -131,37 +131,6 @@ var mongoKernelTweaks = map[string]string{
 	"/proc/sys/net/ipv4/tcp_fin_timeout":          "30",
 }
 
-// NewMemoryProfile returns a Memory Profile from the passed value.
-func NewMemoryProfile(m string) (MemoryProfile, error) {
-	mp := MemoryProfile(m)
-	if err := mp.Validate(); err != nil {
-		return MemoryProfile(""), err
-	}
-	return mp, nil
-}
-
-// MemoryProfile represents a type of meory configuration for Mongo.
-type MemoryProfile string
-
-// String returns a string representation of this profile value.
-func (m MemoryProfile) String() string {
-	return string(m)
-}
-
-func (m MemoryProfile) Validate() error {
-	if m != MemoryProfileLow && m != MemoryProfileDefault {
-		return errors.NotValidf("memory profile %q", m)
-	}
-	return nil
-}
-
-const (
-	// MemoryProfileLow will use as little memory as possible in mongo.
-	MemoryProfileLow MemoryProfile = "low"
-	// MemoryProfileDefault will use mongo config ootb.
-	MemoryProfileDefault MemoryProfile = "default"
-)
-
 // EnsureServerParams is a parameter struct for EnsureServer.
 type EnsureServerParams struct {
 	// APIPort is the port to connect to the api server.
@@ -207,10 +176,6 @@ type EnsureServerParams struct {
 	// SetNUMAControlPolicy preference - whether the user
 	// wants to set the numa control policy when starting mongo.
 	SetNUMAControlPolicy bool
-
-	// MemoryProfile determines which value is going to be used by
-	// the cache and future memory tweaks.
-	MemoryProfile MemoryProfile
 
 	// The channel for installing the mongo snap in focal and later.
 	JujuDBSnapChannel string

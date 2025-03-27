@@ -149,11 +149,6 @@ const (
 	// they don't have any access rights to the controller itself.
 	AllowModelAccessKey = "allow-model-access"
 
-	// MongoMemoryProfile sets the memory profile for MongoDB. Valid values are:
-	// - "low": use the least possible memory
-	// - "default": use the default memory profile
-	MongoMemoryProfile = "mongo-memory-profile"
-
 	// JujuDBSnapChannel selects the channel to use when installing Mongo
 	// snaps for focal or later. The value is ignored for older releases.
 	JujuDBSnapChannel = "juju-db-snap-channel"
@@ -373,9 +368,6 @@ const (
 	// DefaultAPIPortOpenDelay is the default value for api-port-open-delay.
 	DefaultAPIPortOpenDelay = 2 * time.Second
 
-	// DefaultMongoMemoryProfile is the default profile used by mongo.
-	DefaultMongoMemoryProfile = MongoProfDefault
-
 	// DefaultJujuDBSnapChannel is the default snap channel for installing
 	// mongo in focal or later.
 	DefaultJujuDBSnapChannel = "4.4/stable"
@@ -502,7 +494,6 @@ var (
 		IdentityURL,
 		SetNUMAControlPolicyKey,
 		StatePort,
-		MongoMemoryProfile,
 		JujuDBSnapChannel,
 		MaxDebugLogDuration,
 		MaxTxnLogSize,
@@ -589,7 +580,6 @@ var (
 		MigrationMinionWaitMax,
 		ModelLogfileMaxBackups,
 		ModelLogfileMaxSize,
-		MongoMemoryProfile,
 		OpenTelemetryEnabled,
 		OpenTelemetryEndpoint,
 		OpenTelemetryInsecure,
@@ -931,14 +921,6 @@ func (c Config) LoginTokenRefreshURL() string {
 	return c.asString(LoginTokenRefreshURL)
 }
 
-// MongoMemoryProfile returns the selected profile or low.
-func (c Config) MongoMemoryProfile() string {
-	if profile, ok := c[MongoMemoryProfile]; ok {
-		return profile.(string)
-	}
-	return DefaultMongoMemoryProfile
-}
-
 // JujuDBSnapChannel returns the channel for installing mongo snaps.
 func (c Config) JujuDBSnapChannel() string {
 	return c.asString(JujuDBSnapChannel)
@@ -1240,12 +1222,6 @@ func Validate(c Config) error {
 		}
 		if v > time.Minute {
 			return errors.Errorf("%s must be between 0..1m", AgentRateLimitRate)
-		}
-	}
-
-	if mgoMemProfile, ok := c[MongoMemoryProfile].(string); ok {
-		if mgoMemProfile != MongoProfLow && mgoMemProfile != MongoProfDefault {
-			return errors.Errorf("mongo-memory-profile: expected one of %q or %q got string(%q)", MongoProfLow, MongoProfDefault, mgoMemProfile)
 		}
 	}
 

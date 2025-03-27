@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/internal/mongo"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	jworker "github.com/juju/juju/internal/worker"
 )
@@ -26,7 +25,6 @@ import (
 type WorkerConfig struct {
 	Agent                              coreagent.Agent
 	Hub                                *pubsub.StructuredHub
-	MongoProfile                       mongo.MemoryProfile
 	JujuDBSnapChannel                  string
 	QueryTracingEnabled                bool
 	QueryTracingThreshold              time.Duration
@@ -58,7 +56,6 @@ type agentConfigUpdater struct {
 	config WorkerConfig
 
 	tomb                               tomb.Tomb
-	mongoProfile                       mongo.MemoryProfile
 	jujuDBSnapChannel                  string
 	queryTracingEnabled                bool
 	queryTracingThreshold              time.Duration
@@ -80,7 +77,6 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 	started := make(chan struct{})
 	w := &agentConfigUpdater{
 		config:                             config,
-		mongoProfile:                       config.MongoProfile,
 		jujuDBSnapChannel:                  config.JujuDBSnapChannel,
 		queryTracingEnabled:                config.QueryTracingEnabled,
 		queryTracingThreshold:              config.QueryTracingThreshold,
@@ -130,9 +126,6 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 		return
 	}
 
-	mongoProfile := mongo.MemoryProfile(data.Config.MongoMemoryProfile())
-	mongoProfileChanged := mongoProfile != w.mongoProfile
-
 	jujuDBSnapChannel := data.Config.JujuDBSnapChannel()
 	jujuDBSnapChannelChanged := jujuDBSnapChannel != w.jujuDBSnapChannel
 
@@ -163,8 +156,7 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 	objectStoreType := data.Config.ObjectStoreType()
 	objectStoreTypeChanged := objectStoreType != w.objectStoreType
 
-	changeDetected := mongoProfileChanged ||
-		jujuDBSnapChannelChanged ||
+	changeDetected := jujuDBSnapChannelChanged ||
 		queryTracingEnabledChanged ||
 		queryTracingThresholdChanged ||
 		openTelemetryEnabledChanged ||
@@ -182,10 +174,6 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 	}
 
 	err = w.config.Agent.ChangeConfig(func(setter coreagent.ConfigSetter) error {
-		if mongoProfileChanged {
-			w.config.Logger.Debugf(ctx, "setting agent config mongo memory profile: %q => %q", w.mongoProfile, mongoProfile)
-			setter.SetMongoMemoryProfile(mongoProfile)
-		}
 		if jujuDBSnapChannelChanged {
 			w.config.Logger.Debugf(ctx, "setting agent config mongo snap channel: %q => %q", w.jujuDBSnapChannel, jujuDBSnapChannel)
 			setter.SetJujuDBSnapChannel(jujuDBSnapChannel)

@@ -116,10 +116,6 @@ func (c *configFromEnv) MetricsSpoolDir() string {
 	panic("not implemented")
 }
 
-func (c *configFromEnv) MongoMemoryProfile() mongo.MemoryProfile {
-	panic("not implemented")
-}
-
 func (c *configFromEnv) JujuDBSnapChannel() string {
 	panic("not implemented")
 }

@@ -17,7 +17,6 @@ import (
 	coreagent "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
-	"github.com/juju/juju/internal/mongo"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/trace"
 )
@@ -102,14 +101,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Annotate(err, "getting controller config")
 			}
 
-			// If the mongo memory profile from the controller config
-			// is different from the one in the agent config we need to
-			// restart the agent to apply the memory profile to the mongo
-			// service.
-			agentsMongoMemoryProfile := currentConfig.MongoMemoryProfile()
-			configMongoMemoryProfile := mongo.MemoryProfile(controllerConfig.MongoMemoryProfile())
-			mongoProfileChanged := agentsMongoMemoryProfile != configMongoMemoryProfile
-
 			agentsJujuDBSnapChannel := currentConfig.JujuDBSnapChannel()
 			configJujuDBSnapChannel := controllerConfig.JujuDBSnapChannel()
 			jujuDBSnapChannelChanged := agentsJujuDBSnapChannel != configJujuDBSnapChannel
@@ -168,10 +159,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					info.PrivateKey = existing.PrivateKey
 				}
 				config.SetStateServingInfo(info)
-				if mongoProfileChanged {
-					logger.Debugf(ctx, "setting agent config mongo memory profile: %q => %q", agentsMongoMemoryProfile, configMongoMemoryProfile)
-					config.SetMongoMemoryProfile(configMongoMemoryProfile)
-				}
 				if jujuDBSnapChannelChanged {
 					logger.Debugf(ctx, "setting agent config mongo snap channel: %q => %q", agentsJujuDBSnapChannel, configJujuDBSnapChannel)
 					config.SetJujuDBSnapChannel(configJujuDBSnapChannel)
@@ -220,10 +207,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			// If we need a restart, return the fatal error.
-			if mongoProfileChanged {
-				logger.Infof(ctx, "restarting agent for new mongo memory profile")
-				return nil, jworker.ErrRestartAgent
-			} else if jujuDBSnapChannelChanged {
+			if jujuDBSnapChannelChanged {
 				logger.Infof(ctx, "restarting agent for new mongo snap channel")
 				return nil, jworker.ErrRestartAgent
 			} else if queryTracingEnabledChanged {
@@ -266,7 +250,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			return NewWorker(WorkerConfig{
 				Agent:                              agent,
 				Hub:                                hub,
-				MongoProfile:                       configMongoMemoryProfile,
 				JujuDBSnapChannel:                  configJujuDBSnapChannel,
 				QueryTracingEnabled:                configQueryTracingEnabled,
 				QueryTracingThreshold:              configQueryTracingThreshold,

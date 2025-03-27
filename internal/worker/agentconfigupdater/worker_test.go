@@ -44,7 +44,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	})
 	s.agent = &mockAgent{
 		conf: mockConfig{
-			profile:                            controller.DefaultMongoMemoryProfile,
 			snapChannel:                        controller.DefaultJujuDBSnapChannel,
 			queryTracingEnabled:                controller.DefaultQueryTracingEnabled,
 			queryTracingThreshold:              controller.DefaultQueryTracingThreshold,
@@ -59,7 +58,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.config = agentconfigupdater.WorkerConfig{
 		Agent:                              s.agent,
 		Hub:                                s.hub,
-		MongoProfile:                       controller.DefaultMongoMemoryProfile,
 		JujuDBSnapChannel:                  controller.DefaultJujuDBSnapChannel,
 		QueryTracingEnabled:                controller.DefaultQueryTracingEnabled,
 		QueryTracingThreshold:              controller.DefaultQueryTracingThreshold,
@@ -73,7 +71,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	}
 	s.initialConfigMsg = controllermsg.ConfigChangedMessage{
 		Config: controller.Config{
-			controller.MongoMemoryProfile:                 controller.DefaultMongoMemoryProfile,
 			controller.JujuDBSnapChannel:                  controller.DefaultJujuDBSnapChannel,
 			controller.QueryTracingEnabled:                controller.DefaultQueryTracingEnabled,
 			controller.QueryTracingThreshold:              controller.DefaultQueryTracingThreshold,
@@ -147,37 +144,6 @@ func (s *WorkerSuite) TestNormalStart(c *gc.C) {
 	c.Assert(w, gc.NotNil)
 	c.Check(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
-}
-
-func (s *WorkerSuite) TestUpdateMongoProfile(c *gc.C) {
-	w, err := agentconfigupdater.NewWorker(s.config)
-	c.Assert(w, gc.NotNil)
-	c.Check(err, jc.ErrorIsNil)
-
-	newConfig := s.initialConfigMsg
-	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	select {
-	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
-		c.Fatalf("event not handled")
-	}
-
-	// Profile the same, worker still alive.
-	workertest.CheckAlive(c, w)
-
-	newConfig.Config[controller.MongoMemoryProfile] = "new-value"
-	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	select {
-	case <-pubsub.Wait(handled):
-	case <-time.After(testing.LongWait):
-		c.Fatalf("event not handled")
-	}
-
-	err = workertest.CheckKilled(c, w)
-
-	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
 }
 
 func (s *WorkerSuite) TestUpdateJujuDBSnapChannel(c *gc.C) {

@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/mongo"
 	internalpubsub "github.com/juju/juju/internal/pubsub"
 	"github.com/juju/juju/internal/testing"
 	jworker "github.com/juju/juju/internal/worker"
@@ -179,7 +178,6 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissing(c *gc.C) {
 
 func (s *AgentConfigUpdaterSuite) TestCentralHubMissingFirstPass(c *gc.C) {
 	agent := &mockAgent{}
-	agent.conf.profile = "not-set"
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, response interface{}) error {
 			c.Assert(objType, gc.Equals, "Agent")
@@ -280,24 +278,11 @@ func (s *AgentConfigUpdaterSuite) TestJobManageEnviron(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 
-	c.Assert(a.conf.profileSet, jc.IsFalse)
 	// Verify that the state serving info was actually set.
 	c.Assert(a.conf.ssiSet, jc.IsTrue)
 	c.Assert(a.conf.ssi.APIPort, gc.Equals, mockAPIPort)
 	c.Assert(a.conf.ssi.Cert, gc.Equals, "cert")
 	c.Assert(a.conf.ssi.PrivateKey, gc.Equals, "key")
-}
-
-func (s *AgentConfigUpdaterSuite) TestProfileDifferenceRestarts(c *gc.C) {
-	const mockAPIPort = 1234
-
-	a := &mockAgent{}
-	a.conf.profile = "other"
-	w, err := s.startManifold(c, a, mockAPIPort)
-	c.Assert(w, gc.IsNil)
-	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
-
-	c.Assert(a.conf.profileSet, jc.IsTrue)
 }
 
 func (s *AgentConfigUpdaterSuite) TestJobManageEnvironNotOverwriteCert(c *gc.C) {
@@ -378,9 +363,6 @@ type mockConfig struct {
 	ssiSet bool
 	ssi    controller.StateServingInfo
 
-	profile    string
-	profileSet bool
-
 	snapChannel    string
 	snapChannelSet bool
 
@@ -434,18 +416,6 @@ func (mc *mockConfig) StateServingInfo() (controller.StateServingInfo, bool) {
 func (mc *mockConfig) SetStateServingInfo(info controller.StateServingInfo) {
 	mc.ssiSet = true
 	mc.ssi = info
-}
-
-func (mc *mockConfig) MongoMemoryProfile() mongo.MemoryProfile {
-	if mc.profile == "" {
-		return controller.DefaultMongoMemoryProfile
-	}
-	return mongo.MemoryProfile(mc.profile)
-}
-
-func (mc *mockConfig) SetMongoMemoryProfile(profile mongo.MemoryProfile) {
-	mc.profile = string(profile)
-	mc.profileSet = true
 }
 
 func (mc *mockConfig) JujuDBSnapChannel() string {

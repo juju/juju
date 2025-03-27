@@ -759,44 +759,6 @@ func (c *MockConfigMongoInfoCall) DoAndReturn(f func() (*mongo.MongoInfo, bool))
 	return c
 }
 
-// MongoMemoryProfile mocks base method.
-func (m *MockConfig) MongoMemoryProfile() mongo.MemoryProfile {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MongoMemoryProfile")
-	ret0, _ := ret[0].(mongo.MemoryProfile)
-	return ret0
-}
-
-// MongoMemoryProfile indicates an expected call of MongoMemoryProfile.
-func (mr *MockConfigMockRecorder) MongoMemoryProfile() *MockConfigMongoMemoryProfileCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoMemoryProfile", reflect.TypeOf((*MockConfig)(nil).MongoMemoryProfile))
-	return &MockConfigMongoMemoryProfileCall{Call: call}
-}
-
-// MockConfigMongoMemoryProfileCall wrap *gomock.Call
-type MockConfigMongoMemoryProfileCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockConfigMongoMemoryProfileCall) Return(arg0 mongo.MemoryProfile) *MockConfigMongoMemoryProfileCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockConfigMongoMemoryProfileCall) Do(f func() mongo.MemoryProfile) *MockConfigMongoMemoryProfileCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConfigMongoMemoryProfileCall) DoAndReturn(f func() mongo.MemoryProfile) *MockConfigMongoMemoryProfileCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Nonce mocks base method.
 func (m *MockConfig) Nonce() string {
 	m.ctrl.T.Helper()
