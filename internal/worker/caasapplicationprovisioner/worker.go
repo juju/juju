@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
@@ -25,11 +24,15 @@ import (
 	charmscommon "github.com/juju/juju/api/common/charms"
 	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/application"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc/params"
 )
@@ -44,13 +47,9 @@ type CAASUnitProvisionerFacade interface {
 // CAASProvisionerFacade exposes CAAS provisioning functionality to a worker.
 type CAASProvisionerFacade interface {
 	ProvisioningInfo(context.Context, string) (api.ProvisioningInfo, error)
-	WatchApplications(context.Context) (watcher.StringsWatcher, error)
 	SetPassword(context.Context, string, string) error
-	Life(context.Context, string) (life.Value, error)
 	CharmInfo(context.Context, string) (*charmscommon.CharmInfo, error)
 	ApplicationCharmInfo(context.Context, string) (*charmscommon.CharmInfo, error)
-	SetOperatorStatus(ctx context.Context, appName string, status status.Status, message string, data map[string]interface{}) error
-	Units(ctx context.Context, appName string) ([]params.CAASUnit, error)
 	ApplicationOCIResources(ctx context.Context, appName string) (map[string]resource.DockerImageDetails, error)
 	UpdateUnits(ctx context.Context, arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error)
 	WatchApplication(ctx context.Context, appName string) (watcher.NotifyWatcher, error)
@@ -59,9 +58,6 @@ type CAASProvisionerFacade interface {
 	RemoveUnit(ctx context.Context, unitName string) error
 	WatchProvisioningInfo(context.Context, string) (watcher.NotifyWatcher, error)
 	DestroyUnits(ctx context.Context, unitNames []string) error
-	ProvisioningState(context.Context, string) (*params.CAASApplicationProvisioningState, error)
-	SetProvisioningState(context.Context, string, params.CAASApplicationProvisioningState) error
-	ProvisionerConfig(context.Context) (params.CAASApplicationProvisionerConfig, error)
 }
 
 // ApplicationService is used to interact with the application service.
@@ -76,6 +72,18 @@ type ApplicationService interface {
 	// This functions returns the following errors:
 	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 	WatchApplicationSettings(ctx context.Context, name string) (watcher.NotifyWatcher, error)
+
+	SetApplicationScalingState(ctx context.Context, name string, scaleTarget int, scaling bool) error
+	GetApplicationScalingState(ctx context.Context, name string) (applicationservice.ScalingState, error)
+	GetApplicationLife(ctx context.Context, id application.ID) (life.Value, error)
+	GetUnitLife(context.Context, unit.Name) (life.Value, error)
+	GetAllUnitLifeForApplication(context.Context, application.ID) (map[unit.Name]life.Value, error)
+
+	// GetApplicationName returns the application name for the given application ID.
+	GetApplicationName(ctx context.Context, id coreapplication.ID) (string, error)
+
+	// WatchApplications returns a watcher that observes changes to applications.
+	WatchApplications(ctx context.Context) (watcher.StringsWatcher, error)
 }
 
 // CAASBroker exposes CAAS broker functionality to a worker.
@@ -93,10 +101,24 @@ type Runner interface {
 	worker.Worker
 }
 
+type StatusService interface {
+	// GetUnitAgentStatusesForApplication returns the agent statuses of all
+	// units in the specified application, indexed by unit name, returning an error
+	// satisfying [statuserrors.ApplicationNotFound] if the application doesn't
+	// exist.
+	GetUnitAgentStatusesForApplication(ctx context.Context, appID coreapplication.ID) (map[unit.Name]status.StatusInfo, error)
+
+	// SetApplicationStatus saves the given application status, overwriting any
+	// current status data. If returns an error satisfying
+	// [statuserrors.ApplicationNotFound] if the application doesn't exist.
+	SetApplicationStatus(ctx context.Context, name string, info status.StatusInfo) error
+}
+
 // Config defines the operation of a Worker.
 type Config struct {
-	Facade             CAASProvisionerFacade
 	ApplicationService ApplicationService
+	StatusService      StatusService
+	Facade             CAASProvisionerFacade
 	Broker             CAASBroker
 	ModelTag           names.ModelTag
 	Clock              clock.Clock
@@ -108,8 +130,9 @@ type Config struct {
 type provisioner struct {
 	catacomb           catacomb.Catacomb
 	runner             Runner
-	facade             CAASProvisionerFacade
 	applicationService ApplicationService
+	statusService      StatusService
+	facade             CAASProvisionerFacade
 	broker             CAASBroker
 	clock              clock.Clock
 	logger             logger.Logger
@@ -137,8 +160,9 @@ func newProvisionerWorker(
 	config Config, runner Runner,
 ) (worker.Worker, error) {
 	p := &provisioner{
-		facade:             config.Facade,
 		applicationService: config.ApplicationService,
+		statusService:      config.StatusService,
+		facade:             config.Facade,
 		broker:             config.Broker,
 		modelTag:           config.ModelTag,
 		clock:              config.Clock,
@@ -170,25 +194,12 @@ func (p *provisioner) loop() error {
 	ctx, cancel := p.scopedContext()
 	defer cancel()
 
-	appWatcher, err := p.facade.WatchApplications(ctx)
+	appWatcher, err := p.applicationService.WatchApplications(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if err := p.catacomb.Add(appWatcher); err != nil {
 		return errors.Trace(err)
-	}
-
-	config, err := p.facade.ProvisionerConfig(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	unmanagedApps := set.NewStrings()
-	for _, v := range config.UnmanagedApplications.Entities {
-		app, err := names.ParseApplicationTag(v.Tag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		unmanagedApps.Add(app.Name)
 	}
 
 	for {
@@ -199,17 +210,13 @@ func (p *provisioner) loop() error {
 			if !ok {
 				return errors.New("app watcher closed channel")
 			}
-			for _, appName := range apps {
-				_, err := p.facade.Life(ctx, appName)
-				if err != nil && !errors.Is(err, errors.NotFound) {
+			for _, id := range apps {
+				appID, err := coreapplication.ParseID(id)
+				if err != nil {
 					return errors.Trace(err)
 				}
-				if errors.Is(err, errors.NotFound) {
-					p.logger.Debugf(ctx, "application %q not found, ignoring", appName)
-					continue
-				}
 
-				existingWorker, err := p.runner.Worker(appName, p.catacomb.Dying())
+				existingWorker, err := p.runner.Worker(id, p.catacomb.Dying())
 				if errors.Is(err, errors.NotFound) {
 					// Ignore.
 				} else if err == worker.ErrDead {
@@ -226,19 +233,19 @@ func (p *provisioner) loop() error {
 				}
 
 				config := AppWorkerConfig{
-					Name:               appName,
-					Facade:             p.facade,
+					AppID:              appID,
 					ApplicationService: p.applicationService,
+					StatusService:      p.statusService,
+					Facade:             p.facade,
 					Broker:             p.broker,
 					ModelTag:           p.modelTag,
 					Clock:              p.clock,
-					Logger:             p.logger.Child(appName),
+					Logger:             p.logger.Child(id),
 					UnitFacade:         p.unitFacade,
-					StatusOnly:         unmanagedApps.Contains(appName),
 				}
 				startFunc := p.newAppWorker(config)
-				p.logger.Debugf(ctx, "starting app worker %q", appName)
-				err = p.runner.StartWorker(ctx, appName, startFunc)
+				p.logger.Debugf(ctx, "starting app worker %q", appID)
+				err = p.runner.StartWorker(ctx, id, startFunc)
 				if err != nil {
 					return errors.Trace(err)
 				}
