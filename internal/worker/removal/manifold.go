@@ -28,7 +28,7 @@ type DomainServices interface {
 // RemovalService describes the ability to watch
 // for and execute model entity removals.
 type RemovalService interface {
-	// WatchRemovals emits notifications for additions
+	// WatchRemovals emits job UUIDs for additions
 	// and changes to removal job scheduling.
 	WatchRemovals() (watcher.StringsWatcher, error)
 }
