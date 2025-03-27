@@ -310,6 +310,3 @@ replace gopkg.in/yaml.v2 => github.com/juju/yaml/v2 v2.0.0
 // methods, which sometimes clash with package names. Fix the package to v0.4.0
 // until the issue is resolved.
 replace go.uber.org/mock => go.uber.org/mock v0.4.0
-
-// TODO - the tip of names v6 has a space ID parsing bug
-replace github.com/juju/names/v6 => github.com/juju/names/v6 v6.0.0-20250311151448-68186dd8ce9d
