@@ -72,6 +72,13 @@ type State interface {
 		endpoint relation.EndpointIdentifier,
 	) (corerelation.UUID, error)
 
+	// GetRelationDetails returns relation details for the given relationUUID.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+	//     is not found.
+	GetRelationDetails(ctx context.Context, relationUUID corerelation.UUID) (relation.RelationDetailsResult, error)
+
 	// WatcherApplicationSettingsNamespace provides the table name to set up
 	// watchers for relation application settings.
 	WatcherApplicationSettingsNamespace() string
@@ -197,22 +204,32 @@ func (s *Service) GetRelatedEndpoints(
 }
 
 // GetRelationDetails returns RelationDetails for the given relationID.
-func (s *Service) GetRelationDetails(ctx context.Context, relationID int) (relation.RelationDetails, error) {
-	return relation.RelationDetails{}, coreerrors.NotImplemented
-}
-
-// GetRelationDetailsForUnit RelationDetails for the given relationID
-// and unit combination
-func (s *Service) GetRelationDetailsForUnit(
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+//     is not found.
+//   - [relationerrors.RelationUUIDNotValid] is returned if the relation UUID
+//     is not valid.
+func (s *Service) GetRelationDetails(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
-	unitName unit.Name,
 ) (relation.RelationDetails, error) {
-	// TODO (hml) 2025-03-11
-	// During implementation investigate the difference between the
-	// service methods returning RelationDetails and how their use
-	// by the uniter facade truly differs. Are both needed?
-	return relation.RelationDetails{}, coreerrors.NotImplemented
+	if err := relationUUID.Validate(); err != nil {
+		return relation.RelationDetails{}, errors.Errorf(
+			"%w: %w", relationerrors.RelationUUIDNotValid, err)
+	}
+	relationDetails, err := s.st.GetRelationDetails(ctx, relationUUID)
+	if err != nil {
+		return relation.RelationDetails{}, errors.Capture(err)
+	}
+
+	return relation.RelationDetails{
+		Life:      relationDetails.Life,
+		UUID:      relationDetails.UUID,
+		ID:        relationDetails.ID,
+		Key:       internalrelation.NaturalKey(relationDetails.Endpoints),
+		Endpoints: relationDetails.Endpoints,
+	}, nil
 }
 
 // GetRelationEndpoint returns the endpoint for the given application and

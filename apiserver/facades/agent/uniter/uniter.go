@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
+	internalrelation "github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -1838,8 +1839,14 @@ func (u *UniterAPI) getRelationUnit(canAccess common.AuthFunc, relTag string, un
 
 func (u *UniterAPI) getOneRelationById(ctx context.Context, relID int, modelUUID model.UUID) (params.RelationResultV2, error) {
 	nothing := params.RelationResultV2{}
-	rel, err := u.relationService.GetRelationDetails(ctx, relID)
-	if errors.Is(err, errors.NotFound) {
+	relUUID, err := u.relationService.GetRelationUUIDByID(ctx, relID)
+	if errors.Is(err, relationerrors.RelationNotFound) {
+		return nothing, apiservererrors.ErrPerm
+	} else if err != nil {
+		return nothing, err
+	}
+	rel, err := u.relationService.GetRelationDetails(ctx, relUUID)
+	if errors.Is(err, relationerrors.RelationNotFound) {
 		return nothing, apiservererrors.ErrPerm
 	} else if err != nil {
 		return nothing, err
@@ -1902,9 +1909,9 @@ func (u *UniterAPI) prepareRelationResult(
 ) (params.RelationResultV2, error) {
 	var (
 		otherAppName string
-		unitEp       relation.Endpoint
+		unitEp       internalrelation.Endpoint
 	)
-	for _, v := range rel.Endpoint {
+	for _, v := range rel.Endpoints {
 		if v.ApplicationName == applicationName {
 			unitEp = v
 		} else {
@@ -1922,7 +1929,7 @@ func (u *UniterAPI) prepareRelationResult(
 	}
 	return params.RelationResultV2{
 		Id:   rel.ID,
-		Key:  rel.Key,
+		Key:  rel.Key.String(),
 		Life: rel.Life,
 		Endpoint: params.Endpoint{
 			ApplicationName: unitEp.ApplicationName,
@@ -1956,12 +1963,8 @@ func (u *UniterAPI) getOneRelation(
 	} else if err != nil {
 		return nothing, err
 	}
-	unitName, err := coreunit.NewName(unitTag.Id())
-	if err != nil {
-		return nothing, internalerrors.Capture(err)
-	}
-	rel, err := u.relationService.GetRelationDetailsForUnit(ctx, relUUID, unitName)
-	if errors.Is(err, errors.NotFound) {
+	rel, err := u.relationService.GetRelationDetails(ctx, relUUID)
+	if errors.Is(err, relationerrors.RelationNotFound) {
 		return nothing, apiservererrors.ErrPerm
 	} else if err != nil {
 		return nothing, err
