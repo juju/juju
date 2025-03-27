@@ -7,8 +7,6 @@ CREATE TABLE application (
     charm_upgrade_on_error BOOLEAN DEFAULT FALSE,
     exposed BOOLEAN DEFAULT FALSE,
     placement TEXT,
-    password_hash_algorithm_id TEXT,
-    password_hash TEXT,
     -- space_uuid is the default binding for this application.
     space_uuid TEXT NOT NULL,
     CONSTRAINT fk_application_life

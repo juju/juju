@@ -14,25 +14,25 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
-type leadershipSuite struct {
+type migrationSuite struct {
 	schematesting.ControllerSuite
 }
 
-var _ = gc.Suite(&leadershipSuite{})
+var _ = gc.Suite(&migrationSuite{})
 
-func (s *leadershipSuite) TestGetApplicationLeadershipForModelNoLeaders(c *gc.C) {
+func (s *migrationSuite) TestGetApplicationLeadershipForModelNoLeaders(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 
-	state := NewLeadershipState(s.TxnRunnerFactory())
+	state := NewMigrationState(s.TxnRunnerFactory())
 	leases, err := state.GetApplicationLeadershipForModel(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(leases, gc.HasLen, 0)
 }
 
-func (s *leadershipSuite) TestGetApplicationLeadershipForModel(c *gc.C) {
+func (s *migrationSuite) TestGetApplicationLeadershipForModel(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 
-	state := NewLeadershipState(s.TxnRunnerFactory())
+	state := NewMigrationState(s.TxnRunnerFactory())
 
 	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
@@ -49,10 +49,10 @@ VALUES ('1', 1, ?, 'foo', 'unit', date('now'), date('now', '+1 day'))
 	})
 }
 
-func (s *leadershipSuite) TestGetApplicationLeadershipForModelSingularControllerType(c *gc.C) {
+func (s *migrationSuite) TestGetApplicationLeadershipForModelSingularControllerType(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 
-	state := NewLeadershipState(s.TxnRunnerFactory())
+	state := NewMigrationState(s.TxnRunnerFactory())
 
 	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
@@ -76,10 +76,10 @@ VALUES ('2', 0, ?, 'controller', 'abc', date('now'), date('now', '+1 day'))
 	})
 }
 
-func (s *leadershipSuite) TestGetApplicationLeadershipForModelExpired(c *gc.C) {
+func (s *migrationSuite) TestGetApplicationLeadershipForModelExpired(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 
-	state := NewLeadershipState(s.TxnRunnerFactory())
+	state := NewMigrationState(s.TxnRunnerFactory())
 
 	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`

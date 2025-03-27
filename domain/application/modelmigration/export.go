@@ -100,21 +100,12 @@ type ExportService interface {
 	GetApplicationCharmOrigin(ctx context.Context, name string) (application.CharmOrigin, error)
 }
 
-// ExportLeadershipService provides a subset of the leadership domain
-// service methods needed for application export.
-type ExportLeadershipService interface {
-	// GetApplicationLeadershipForModel returns the leadership information for the
-	// model applications.
-	GetApplicationLeadershipForModel(ctx context.Context, modelUUID coremodel.UUID) (map[string]string, error)
-}
-
 // exportOperation describes a way to execute a migration for
 // exporting applications.
 type exportOperation struct {
 	modelmigration.BaseOperation
 
-	service           ExportService
-	leadershipService ExportLeadershipService
+	service ExportService
 
 	registry corestorage.ModelStorageRegistryGetter
 	clock    clock.Clock
@@ -135,9 +126,6 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 		e.clock,
 		e.logger,
 	)
-	e.leadershipService = service.NewLeadershipService(
-		state.NewLeadershipState(scope.ControllerDB()),
-	)
 	return nil
 }
 
@@ -145,23 +133,13 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 // The export also includes all the charm metadata, manifest, config and
 // actions. Along with units and resources.
 func (e *exportOperation) Execute(ctx context.Context, m description.Model) error {
-	leases, err := e.leadershipService.GetApplicationLeadershipForModel(ctx, coremodel.UUID(m.UUID()))
-	if err != nil {
-		return errors.Errorf("getting application leadership for model: %w", err)
-	}
-
 	applications, err := e.service.GetApplications(ctx)
 	if err != nil {
 		return errors.Errorf("getting applications: %w", err)
 	}
 
 	for _, app := range applications {
-		leaseHolder, ok := leases[app.Name]
-		if !ok {
-			return errors.Errorf("lease holder not found for application %q", app.Name)
-		}
-
-		appArgs, err := e.createApplicationArgs(ctx, app, leaseHolder)
+		appArgs, err := e.createApplicationArgs(ctx, app)
 		if err != nil {
 			return errors.Errorf("creating application args: %w", err)
 		}
@@ -230,7 +208,7 @@ func (e *exportOperation) Execute(ctx context.Context, m description.Model) erro
 	return nil
 }
 
-func (e *exportOperation) createApplicationArgs(ctx context.Context, app application.ExportApplication, leaseHolder string) (description.ApplicationArgs, error) {
+func (e *exportOperation) createApplicationArgs(ctx context.Context, app application.ExportApplication) (description.ApplicationArgs, error) {
 	modelType, err := e.exportModelType(app.ModelType)
 	if err != nil {
 		return description.ApplicationArgs{}, errors.Capture(err)
@@ -260,7 +238,6 @@ func (e *exportOperation) createApplicationArgs(ctx context.Context, app applica
 		Exposed:              app.Exposed,
 		Placement:            app.Placement,
 		CloudService:         cloudService,
-		Leader:               leaseHolder,
 
 		// Create a provisioning state for the application, incase a non-scaling
 		// application is being exported and someone tries to access the
