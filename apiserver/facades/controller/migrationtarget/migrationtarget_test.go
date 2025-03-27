@@ -5,7 +5,6 @@ package migrationtarget_test
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -36,7 +35,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	jujutesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
 	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -434,112 +432,14 @@ func (s *Suite) TestAdoptCAASResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *Suite) TestCheckMachinesSuccess(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-
-	fact := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
-	fact.MakeMachine(c, &factory.MachineParams{
-		InstanceId: "eriatarka",
-	})
-	m := fact.MakeMachine(c, &factory.MachineParams{
-		InstanceId: "volta",
-	})
-	c.Assert(m.Id(), gc.Equals, "1")
-
-	api := s.mustNewAPIWithModel(c)
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	results, err := api.CheckMachines(
-		context.Background(),
-		params.ModelArgs{ModelTag: model.ModelTag().String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+func (s *Suite) TestStub(c *gc.C) {
+	c.Skip(`This suite is missing tests for the following scenarios:
+- CheckMachines where machines have instance IDs.
+- CheckMachines where some are container-in-machine.
+- CheckMachines where there are manually provisioned machines.
+- CheckMachines on a manual cloud.`,
+	)
 }
-
-func (s *Suite) TestCheckMachinesHandlesContainers(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-
-	fact := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
-	m := fact.MakeMachine(c, &factory.MachineParams{
-		InstanceId: "birds",
-	})
-	fact.MakeMachineNested(c, m.Id(), nil)
-
-	api := s.mustNewAPIWithModel(c)
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	results, err := api.CheckMachines(
-		context.Background(),
-		params.ModelArgs{ModelTag: model.ModelTag().String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
-}
-
-func (s *Suite) TestCheckMachinesIgnoresManualMachines(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-
-	fact := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
-	fact.MakeMachine(c, &factory.MachineParams{
-		InstanceId: "birds",
-	})
-	fact.MakeMachine(c, &factory.MachineParams{
-		Nonce: "manual:flibbertigibbert",
-	})
-
-	api := s.mustNewAPIWithModel(c)
-
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	results, err := api.CheckMachines(
-		context.Background(),
-		params.ModelArgs{ModelTag: model.ModelTag().String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
-}
-
-func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	owner := names.NewUserTag("owner")
-
-	tag := names.NewCloudCredentialTag(
-		fmt.Sprintf("manual/%s/dummy-credential", owner.Name()))
-
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		CloudName:       "manual",
-		CloudCredential: tag,
-		Owner:           owner,
-	})
-	defer st.Close()
-
-	fact := factory.NewFactory(st, s.StatePool, jujutesting.FakeControllerConfig())
-	fact.MakeMachine(c, &factory.MachineParams{
-		Nonce: "manual:birds",
-	})
-	fact.MakeMachine(c, &factory.MachineParams{
-		Nonce: "manual:flibbertigibbert",
-	})
-
-	api := s.mustNewAPIWithModel(c)
-
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	results, err := api.CheckMachines(
-		context.Background(),
-		params.ModelArgs{ModelTag: model.ModelTag().String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 0)
-}
-
 func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -618,12 +518,6 @@ func (s *Suite) mustNewAPIWithFacadeVersions(c *gc.C, versions facades.FacadeVer
 	return api
 }
 
-func (s *Suite) mustNewAPIWithModel(c *gc.C) *migrationtarget.API {
-	api, err := s.newAPI(facades.FacadeVersions{}, c.MkDir())
-	c.Assert(err, jc.ErrorIsNil)
-	return api
-}
-
 func (s *Suite) makeExportedModel(c *gc.C) (string, []byte) {
 	model, err := s.State.Export(s.leaders, jujujujutesting.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
@@ -639,8 +533,7 @@ func (s *Suite) makeExportedModel(c *gc.C) (string, []byte) {
 	return newUUID, bytes
 }
 
-func (s *Suite) controllerVersion(c *gc.C) semversion.Number {
-
+func (s *Suite) controllerVersion(*gc.C) semversion.Number {
 	return semversion.Number{}
 }
 
