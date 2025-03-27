@@ -486,40 +486,40 @@ func (m *MockControllerNodeService) EXPECT() *MockControllerNodeServiceMockRecor
 	return m.recorder
 }
 
-// SetReportedControllerAgentVersion mocks base method.
-func (m *MockControllerNodeService) SetReportedControllerAgentVersion(arg0 context.Context, arg1 string, arg2 agentbinary.Version) error {
+// SetReportedControllerNodeAgentVersion mocks base method.
+func (m *MockControllerNodeService) SetReportedControllerNodeAgentVersion(arg0 context.Context, arg1 string, arg2 agentbinary.Version) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetReportedControllerAgentVersion", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetReportedControllerNodeAgentVersion", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SetReportedControllerAgentVersion indicates an expected call of SetReportedControllerAgentVersion.
-func (mr *MockControllerNodeServiceMockRecorder) SetReportedControllerAgentVersion(arg0, arg1, arg2 any) *MockControllerNodeServiceSetReportedControllerAgentVersionCall {
+// SetReportedControllerNodeAgentVersion indicates an expected call of SetReportedControllerNodeAgentVersion.
+func (mr *MockControllerNodeServiceMockRecorder) SetReportedControllerNodeAgentVersion(arg0, arg1, arg2 any) *MockControllerNodeServiceSetReportedControllerNodeAgentVersionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetReportedControllerAgentVersion", reflect.TypeOf((*MockControllerNodeService)(nil).SetReportedControllerAgentVersion), arg0, arg1, arg2)
-	return &MockControllerNodeServiceSetReportedControllerAgentVersionCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetReportedControllerNodeAgentVersion", reflect.TypeOf((*MockControllerNodeService)(nil).SetReportedControllerNodeAgentVersion), arg0, arg1, arg2)
+	return &MockControllerNodeServiceSetReportedControllerNodeAgentVersionCall{Call: call}
 }
 
-// MockControllerNodeServiceSetReportedControllerAgentVersionCall wrap *gomock.Call
-type MockControllerNodeServiceSetReportedControllerAgentVersionCall struct {
+// MockControllerNodeServiceSetReportedControllerNodeAgentVersionCall wrap *gomock.Call
+type MockControllerNodeServiceSetReportedControllerNodeAgentVersionCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerNodeServiceSetReportedControllerAgentVersionCall) Return(arg0 error) *MockControllerNodeServiceSetReportedControllerAgentVersionCall {
+func (c *MockControllerNodeServiceSetReportedControllerNodeAgentVersionCall) Return(arg0 error) *MockControllerNodeServiceSetReportedControllerNodeAgentVersionCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerNodeServiceSetReportedControllerAgentVersionCall) Do(f func(context.Context, string, agentbinary.Version) error) *MockControllerNodeServiceSetReportedControllerAgentVersionCall {
+func (c *MockControllerNodeServiceSetReportedControllerNodeAgentVersionCall) Do(f func(context.Context, string, agentbinary.Version) error) *MockControllerNodeServiceSetReportedControllerNodeAgentVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerNodeServiceSetReportedControllerAgentVersionCall) DoAndReturn(f func(context.Context, string, agentbinary.Version) error) *MockControllerNodeServiceSetReportedControllerAgentVersionCall {
+func (c *MockControllerNodeServiceSetReportedControllerNodeAgentVersionCall) DoAndReturn(f func(context.Context, string, agentbinary.Version) error) *MockControllerNodeServiceSetReportedControllerNodeAgentVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
