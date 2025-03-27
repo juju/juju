@@ -331,14 +331,6 @@ type ApplicationSettings struct {
 	Trust bool
 }
 
-// UnitWorkloadStatuses represents the workload statuses of a collection of units.
-// The statuses are indexed by unit name.
-type UnitWorkloadStatuses map[coreunit.Name]UnitStatusInfo[WorkloadStatusType]
-
-// UnitCloudContainerStatuses represents the cloud container statuses of a collection
-// of units. The statuses are indexed by unit name.
-type UnitCloudContainerStatuses map[coreunit.Name]StatusInfo[CloudContainerStatusType]
-
 // ExportApplication contains parameters for exporting an application.
 type ExportApplication struct {
 	UUID         application.ID
