@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	domainsecret "github.com/juju/juju/domain/secret"
-	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -113,7 +112,7 @@ func (s *WatchableService) WatchRemoteConsumedSecretsChanges(_ context.Context, 
 //
 // Obsolete revisions results are "uri/revno" and deleted
 // secret results are "uri".
-func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSecretOwner) (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchObsolete(_ context.Context, owners ...CharmSecretOwner) (watcher.StringsWatcher, error) {
 	if len(owners) == 0 {
 		return nil, errors.New("at least one owner must be provided")
 	}
@@ -162,12 +161,9 @@ type obsoleteWatcher struct {
 	appOwners  domainsecret.ApplicationOwners
 	unitOwners domainsecret.UnitOwners
 
-	// secretWatcher watches for all secret changes.
-	// It returns the secret URI.
-	secretWatcher watcher.StringsWatcher
-	// obsoleteRevisionWatcher watches for obsolete revision update changes.
-	// It returns the obsolete revision UUID.
-	revisionWatcher watcher.StringsWatcher
+	// sourceWatcher watches for both `All` secret events and obsolete revision `Changed` changes.
+	// So the events are secret URIs and obsolete revision UUIDs.
+	sourceWatcher watcher.StringsWatcher
 
 	// knownSecretURIs is a set of currently owned secret URIs.
 	// Tracking this set allows us to identify if a deletion event corresponds to a previously owned secret.
@@ -185,7 +181,7 @@ func newObsoleteWatcher(
 	owners ...CharmSecretOwner,
 ) (*obsoleteWatcher, error) {
 	if len(owners) == 0 {
-		return nil, internalerrors.Errorf("at least one owner must be provided for the obsolete secret watcher")
+		return nil, errors.Errorf("at least one owner must be provided for the obsolete secret watcher")
 	}
 
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
@@ -206,28 +202,39 @@ func newObsoleteWatcher(
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
 		Work: w.loop,
-		Init: []worker.Worker{w.secretWatcher, w.revisionWatcher},
+		Init: []worker.Worker{w.sourceWatcher},
 	})
 	return w, errors.Capture(err)
 }
 
 func (w *obsoleteWatcher) init() error {
-	var err error
-	table, query := w.state.InitialWatchStatementForOwnedSecrets(w.appOwners, w.unitOwners)
-	w.secretWatcher, err = w.watcherFactory.NewNamespaceWatcher(
-		table,
-		changestream.All,
-		query,
+	tableSecrets, querySecrets := w.state.InitialWatchStatementForOwnedSecrets(w.appOwners, w.unitOwners)
+	tableObsoleteRevisions, queryObsoleteRevisions := w.state.InitialWatchStatementForObsoleteRevision(
+		w.appOwners, w.unitOwners,
 	)
-	if err != nil {
-		return errors.Capture(err)
+
+	initialQuery := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
+		var initials []string
+		// Get the initial secret changes.
+		secretChanges, err := querySecrets(ctx, runner)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		initials = append(initials, secretChanges...)
+
+		// Get the initial obsolete revision changes.
+		obsoleteRevisionChanges, err := queryObsoleteRevisions(ctx, runner)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		return append(initials, obsoleteRevisionChanges...), nil
 	}
 
-	table, query = w.state.InitialWatchStatementForObsoleteRevision(w.appOwners, w.unitOwners)
-	w.revisionWatcher, err = w.watcherFactory.NewNamespaceWatcher(
-		table,
-		changestream.Changed,
-		query,
+	var err error
+	w.sourceWatcher, err = w.watcherFactory.NewNamespaceWatcher(
+		initialQuery,
+		eventsource.NamespaceFilter(tableSecrets, changestream.All),
+		eventsource.NamespaceFilter(tableObsoleteRevisions, changestream.Changed),
 	)
 	return errors.Capture(err)
 }
@@ -268,11 +275,11 @@ func (w *obsoleteWatcher) mergeSecretChanges(
 			return currentChanges, errors.Capture(err)
 		}
 		owned, err := w.state.IsSecretOwnedBy(ctx, uri, w.appOwners, w.unitOwners)
-		if err != nil && !errors.Is(err, secreterrors.SecretNotFound) {
+		if err != nil {
 			return currentChanges, errors.Capture(err)
 		}
 		if owned {
-			// It's still owned, so the event must be triggered by creation.
+			// It's still owned, so the event must be triggered by an update.
 			// Ensure we are tracking the secret URI.
 			w.knownSecretURIs.Add(uri.ID)
 
@@ -314,32 +321,44 @@ func (w *obsoleteWatcher) mergeRevisionChanges(
 func (w *obsoleteWatcher) loop() error {
 	defer close(w.out)
 
+	ctx, cancel := w.scopedContext()
+	defer cancel()
 	// To allow the initial event to be sent.
 	out := w.out
+
+	splitEvents := func(events []string) (secretEvents, revisionEvents []string) {
+		if len(events) == 0 {
+			return
+		}
+
+		// The source watcher may emit events from secret_metadata and secret_revision_obsolete tables.
+		// We need to split the events into secret URI strings and revision UUIDs strings.
+		for _, e := range events {
+			if _, err := coresecrets.ParseURI(e); err == nil {
+				secretEvents = append(secretEvents, e)
+				continue
+			}
+			revisionEvents = append(revisionEvents, e)
+		}
+		return
+	}
+
 	var changes []string
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case events, ok := <-w.secretWatcher.Changes():
+		case events, ok := <-w.sourceWatcher.Changes():
 			if !ok {
-				return errors.Errorf("secret watcher closed")
+				return errors.Errorf("source watcher closed")
 			}
+			secretEvents, revisionEvents := splitEvents(events)
 			var err error
-			ctx, cancel := w.scopedContext()
-			changes, err = w.mergeSecretChanges(ctx, changes, events)
-			cancel()
+			changes, err = w.mergeSecretChanges(ctx, changes, secretEvents)
 			if err != nil {
 				return errors.Capture(err)
 			}
-		case events, ok := <-w.revisionWatcher.Changes():
-			if !ok {
-				return errors.Errorf("obsolete revision watcher closed")
-			}
-			var err error
-			ctx, cancel := w.scopedContext()
-			changes, err = w.mergeRevisionChanges(ctx, changes, events)
-			cancel()
+			changes, err = w.mergeRevisionChanges(ctx, changes, revisionEvents)
 			if err != nil {
 				return errors.Capture(err)
 			}

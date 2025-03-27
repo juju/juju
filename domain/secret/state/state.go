@@ -1037,6 +1037,7 @@ func (st State) InitialWatchStatementForOwnedSecrets(
 }
 
 // IsSecretOwnedBy returns whether the secret with the given URI is owned by the specified apps and/or units.
+// If no secret is found, it returns false and no error.
 func (st State) IsSecretOwnedBy(
 	ctx context.Context,
 	uri *coresecrets.URI,
@@ -1073,7 +1074,8 @@ AND    sm.secret_id = $secretID.id
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, queryStmt, appOwners, unitOwners, secretID).Get(&count)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("secret %q", uri).Add(secreterrors.SecretNotFound)
+			// We don't care if it exists or not, just whether it's owned by the specified apps/units.
+			return nil
 		}
 		return errors.Capture(err)
 	}); err != nil {
