@@ -57,15 +57,14 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 	}
 
 	domainServices := ctx.DomainServices()
-	modelAgentService := domainServices.Agent()
 
 	if tag.Kind() == names.UnitTagKind && model.Type() != state.ModelTypeCAAS {
 		return NewUnitUpgraderAPI(
 			st,
 			auth,
-			modelAgentService,
+			domainServices.Agent(),
 			ctx.WatcherRegistry(),
-			nil,
+			domainServices.Application(),
 		), nil
 	}
 
@@ -78,7 +77,6 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 	cloudService := domainServices.Cloud()
 	credentialService := domainServices.Credential()
 	modelConfigService := domainServices.Config()
-	controllerNodeService := domainServices.ControllerNode()
 
 	getCanReadWrite := func() (common.AuthFunc, error) {
 		return auth.AuthOwner, nil
@@ -89,17 +87,17 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 		Model: model, ModelConfigService: modelConfigService, CloudService: cloudService, CredentialService: credentialService}
 	newEnviron := common.EnvironFuncForModel(model, cloudService, credentialService, configGetter)
 	toolsFinder := common.NewToolsFinder(controllerConfigGetter, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
-	toolsGetter := common.NewToolsGetter(st, modelAgentService, st, urlGetter, toolsFinder, getCanReadWrite)
+	toolsGetter := common.NewToolsGetter(st, domainServices.Agent(), st, urlGetter, toolsFinder, getCanReadWrite)
 
 	return NewUpgraderAPI(
 		toolsGetter,
 		st,
 		auth,
 		ctx.Logger().Child("upgrader"),
-		modelAgentService,
+		domainServices.Agent(),
 		ctx.WatcherRegistry(),
-		controllerNodeService,
+		domainServices.ControllerNode(),
 		domainServices.Machine(),
-		nil,
+		domainServices.Application(),
 	), nil
 }
