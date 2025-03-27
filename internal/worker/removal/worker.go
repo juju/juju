@@ -4,6 +4,8 @@
 package removal
 
 import (
+	"context"
+
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
@@ -62,8 +64,25 @@ func NewWorker(config Config) (worker.Worker, error) {
 }
 
 func (w *removalWorker) loop() (err error) {
-	<-w.catacomb.Dying()
-	return w.catacomb.Err()
+	watch, err := w.cfg.RemovalService.WatchRemovals()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := w.catacomb.Add(watch); err != nil {
+		return errors.Capture(err)
+	}
+
+	ctx := w.catacomb.Context(context.Background())
+
+	for {
+		select {
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+		case jobIDs := <-watch.Changes():
+			w.cfg.Logger.Infof(ctx, "got removal jobs: %v", jobIDs)
+		}
+	}
 }
 
 // Kill (worker.Worker) tells the worker to stop and return from its loop.
