@@ -356,6 +356,16 @@ func makeModulePattern(modules []string) string {
 }
 
 func logLineToRecord(modelUUID string, line string) (*corelogger.LogRecord, error) {
+	//
+	//
+	//
+	//
+	//  THIS IS BROKEN FIX ME!
+	//
+	//
+	//
+	//
+
 	// If no model uuid is supplied, it is expected to be the first record on each line.
 	// ie we are parsing logsink.log.
 	if modelUUID == "" {

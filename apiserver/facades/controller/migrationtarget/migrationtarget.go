@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -22,7 +23,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/core/life"
-	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
@@ -438,19 +438,15 @@ func (api *API) LatestLogTime(ctx context.Context, args params.ModelArgs) (time.
 	}
 	defer release()
 
-	// Look up the last line in the model log file and get the timestamp.
-	modelLogFile := corelogger.ModelLogFile(api.logDir, corelogger.LoggerKey{
-		ModelUUID:  model.UUID(),
-		ModelName:  model.Name(),
-		ModelOwner: model.Owner().Id(),
-	})
+	// Look up the last line in the log file and get the timestamp.
+	logFile := filepath.Join(api.logDir, "logsink.log")
 
-	f, err := os.Open(modelLogFile)
+	f, err := os.Open(logFile)
 	if err != nil && !os.IsNotExist(err) {
 		return time.Time{}, errors.Errorf(
-			"cannot open model %q log file %q: %w",
+			"cannot open %q log file %q: %w",
 			model.UUID(),
-			modelLogFile,
+			logFile,
 			err,
 		)
 	} else if err != nil {
@@ -463,9 +459,9 @@ func (api *API) LatestLogTime(ctx context.Context, args params.ModelArgs) (time.
 	fs, err := f.Stat()
 	if err != nil {
 		return time.Time{}, errors.Errorf(
-			"cannot interrogate model %q log file %q: %w",
+			"cannot interrogate %q log file %q: %w",
 			model.UUID(),
-			modelLogFile,
+			logFile,
 			err,
 		)
 	}
@@ -488,6 +484,15 @@ func (api *API) LatestLogTime(ctx context.Context, args params.ModelArgs) (time.
 }
 
 func logLineTimestamp(line string) (time.Time, error) {
+	//
+	//
+	//
+	//
+	//  THIS IS BROKEN FIX ME!
+	//
+	//
+	//
+	//
 	parts := strings.SplitN(line, " ", 7)
 	if len(parts) < 7 {
 		return time.Time{}, errors.Errorf("invalid log line %q", line)

@@ -277,7 +277,6 @@ func (a *machineAgentCommand) Info() *cmd.Info {
 // MachineAgent given a machineId.
 func MachineAgentFactoryFn(
 	agentConfWriter agentconfig.AgentConfigWriter,
-	logSink corelogger.LogSink,
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
 	preUpgradeSteps PreUpgradeStepsFunc,
 	upgradeSteps UpgradeStepsFunc,
@@ -287,7 +286,6 @@ func MachineAgentFactoryFn(
 		return NewMachineAgent(
 			agentTag,
 			agentConfWriter,
-			logSink,
 			worker.NewRunner(worker.RunnerParams{
 				IsFatal:       agenterrors.IsFatal,
 				MoreImportant: agenterrors.MoreImportant,
@@ -308,7 +306,6 @@ func MachineAgentFactoryFn(
 func NewMachineAgent(
 	agentTag names.Tag,
 	agentConfWriter agentconfig.AgentConfigWriter,
-	logSink corelogger.LogSink,
 	runner *worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
@@ -325,7 +322,6 @@ func NewMachineAgent(
 		agentTag:                    agentTag,
 		AgentConfigWriter:           agentConfWriter,
 		configChangedVal:            voyeur.NewValue(true),
-		logSink:                     logSink,
 		workersStarted:              make(chan struct{}),
 		dead:                        make(chan struct{}),
 		runner:                      runner,
@@ -394,7 +390,6 @@ type MachineAgent struct {
 	agentTag         names.Tag
 	runner           *worker.Runner
 	rootDir          string
-	logSink          corelogger.LogSink
 	configChangedVal *voyeur.Value
 
 	workersStarted chan struct{}
@@ -505,6 +500,18 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 
 	agentconf.SetupAgentLogging(internallogger.DefaultContext(), a.CurrentConfig())
 
+	// Prime the log sink and create the writer.
+	logSink, err := PrimeLogSink(a.CurrentConfig())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer logSink.Close()
+
+	// Add the log sink to the default logger context.
+	if err := loggo.DefaultContext().AddWriter("logsink", logSink); err != nil {
+		return errors.Trace(err)
+	}
+
 	if err := introspection.WriteProfileFunctions(introspection.ProfileDir); err != nil {
 		// This isn't fatal, just annoying.
 		logger.Errorf(context.TODO(), "failed to write profile funcs: %v", err)
@@ -548,7 +555,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	a.upgradeDBLock = internalupgrade.NewLock(agentConfig, jujuversion.Current)
 	a.upgradeStepsLock = internalupgrade.NewLock(agentConfig, jujuversion.Current)
 
-	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion())
+	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion(), logSink)
 	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {
 		return err
 	}
@@ -559,10 +566,10 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	err = a.runner.Wait()
 	switch errors.Cause(err) {
 	case internalworker.ErrRebootMachine:
-		logger.Infof(context.TODO(), "Caught reboot error")
+		logger.Infof(ctx, "Caught reboot error")
 		err = a.executeRebootOrShutdown(params.ShouldReboot)
 	case internalworker.ErrShutdownMachine:
-		logger.Infof(context.TODO(), "Caught shutdown error")
+		logger.Infof(ctx, "Caught shutdown error")
 		err = a.executeRebootOrShutdown(params.ShouldShutdown)
 	}
 	return cmdutil.AgentDone(logger, err)
@@ -570,6 +577,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 
 func (a *MachineAgent) makeEngineCreator(
 	agentName string, previousAgentVersion semversion.Number,
+	logSink corelogger.LogSink,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		agentConfig := a.CurrentConfig()
@@ -617,7 +625,7 @@ func (a *MachineAgent) makeEngineCreator(
 			MachineStartup:                    a.machineStartup,
 			PreUpgradeSteps:                   a.preUpgradeSteps,
 			UpgradeSteps:                      a.upgradeSteps,
-			LogSink:                           a.logSink,
+			LogSink:                           logSink,
 			NewDeployContext:                  deployer.NewNestedContext,
 			Clock:                             clock.WallClock,
 			ValidateMigration:                 a.validateMigration,

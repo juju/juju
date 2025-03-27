@@ -133,18 +133,10 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			var (
-				logFile   string
-				modelUUID string
-			)
-			if p.Firehose {
-				logFile = filepath.Join(h.logDir, "logsink.log")
-			} else {
-				logFile = corelogger.ModelLogFile(h.logDir, corelogger.LoggerKey{
-					ModelUUID:  m.UUID(),
-					ModelName:  m.Name(),
-					ModelOwner: m.Owner().Id(),
-				})
+
+			var modelUUID string
+			logFile := filepath.Join(h.logDir, "logsink.log")
+			if !p.Firehose {
 				modelUUID = m.UUID()
 			}
 
