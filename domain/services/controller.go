@@ -12,6 +12,8 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	accessservice "github.com/juju/juju/domain/access/service"
 	accessstate "github.com/juju/juju/domain/access/state"
+	agentbinaryservice "github.com/juju/juju/domain/agentbinary/service"
+	agentbinarystate "github.com/juju/juju/domain/agentbinary/state"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
 	autocertcachestate "github.com/juju/juju/domain/autocert/state"
 	cloudservice "github.com/juju/juju/domain/cloud/service"
@@ -44,8 +46,9 @@ import (
 type ControllerServices struct {
 	serviceFactoryBase
 
-	dbDeleter database.DBDeleter
-	clock     clock.Clock
+	dbDeleter   database.DBDeleter
+	clock       clock.Clock
+	objectstore objectstore.ModelObjectStoreGetter
 }
 
 // NewControllerServices returns a new registry which uses the provided controllerDB
@@ -62,8 +65,9 @@ func NewControllerServices(
 			controllerDB: controllerDB,
 			logger:       logger,
 		},
-		dbDeleter: dbDeleter,
-		clock:     clock,
+		dbDeleter:   dbDeleter,
+		clock:       clock,
+		objectstore: objectStore,
 	}
 }
 
@@ -176,5 +180,13 @@ func (s *ControllerServices) Macaroon() *macaroonservice.Service {
 	return macaroonservice.NewService(
 		macaroonstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.clock,
+	)
+}
+
+func (s *ControllerServices) AgentBinary() *agentbinaryservice.AgentBinaryStore {
+	return agentbinaryservice.NewAgentBinaryStore(
+		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		s.logger.Child("agentbinary"),
+		s.objectstore,
 	)
 }
