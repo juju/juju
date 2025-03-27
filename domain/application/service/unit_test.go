@@ -8,10 +8,14 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	applicationtesting "github.com/juju/juju/core/application/testing"
+	corearch "github.com/juju/juju/core/arch"
+	coreerrors "github.com/juju/juju/core/errors"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -206,4 +210,133 @@ func (s *unitServiceSuite) TestUpdateCAASUnitNotAlive(c *gc.C) {
 
 	err := s.service.UpdateCAASUnit(context.Background(), coreunit.Name("foo/666"), UpdateCAASUnitParams{})
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotAlive)
+}
+
+// TestSetReportedUnitAgentVersionInvalid is here to assert that if pass a
+// junk agent binary version to [Service.SetReportedUnitAgentVersion] we get
+// back an error that satisfies [coreerrors.NotValid].
+func (s *unitServiceSuite) TestSetReportedUnitAgentVersionInvalid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.SetReportedUnitAgentVersion(
+		context.Background(),
+		coreunit.Name("foo/666"),
+		coreagentbinary.Version{
+			Number: version.Zero,
+		},
+	)
+	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestSetReportedUnitAgentVersionNotFound asserts that if we try to set the
+// reported agent version for a unit that doesn't exist we get an error
+// satisfying [applicationerrors.UnitNotFound]. Because the service relied on
+// state for producing this error we need to simulate this in two different
+// locations to assert the full functionality.
+func (s *unitServiceSuite) TestSetReportedUnitAgentVersionNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// UnitNotFound error location 1.
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(
+		"", applicationerrors.UnitNotFound,
+	)
+
+	err := s.service.SetReportedUnitAgentVersion(
+		context.Background(),
+		coreunit.Name("foo/666"),
+		coreagentbinary.Version{
+			Number: version.MustParse("1.2.3"),
+			Arch:   corearch.ARM64,
+		},
+	)
+	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+
+	// UnitNotFound error location 2.
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(
+		unitUUID, nil,
+	)
+
+	s.state.EXPECT().SetRunningAgentBinaryVersion(
+		gomock.Any(),
+		unitUUID,
+		coreagentbinary.Version{
+			Number: version.MustParse("1.2.3"),
+			Arch:   corearch.ARM64,
+		},
+	).Return(applicationerrors.UnitNotFound)
+
+	err = s.service.SetReportedUnitAgentVersion(
+		context.Background(),
+		coreunit.Name("foo/666"),
+		coreagentbinary.Version{
+			Number: version.MustParse("1.2.3"),
+			Arch:   corearch.ARM64,
+		},
+	)
+	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+// TestSetReportedUnitAgentVersionDead asserts that if we try to set the
+// reported agent version for a dead unit we get an error satisfying
+// [applicationerrors.UnitIsDead].
+func (s *unitServiceSuite) TestSetReportedUnitAgentVersionDead(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(
+		coreunit.UUID(unitUUID.String()), nil,
+	)
+
+	s.state.EXPECT().SetRunningAgentBinaryVersion(
+		gomock.Any(),
+		coreunit.UUID(unitUUID.String()),
+		coreagentbinary.Version{
+			Number: version.MustParse("1.2.3"),
+			Arch:   corearch.ARM64,
+		},
+	).Return(applicationerrors.UnitIsDead)
+
+	err := s.service.SetReportedUnitAgentVersion(
+		context.Background(),
+		coreunit.Name("foo/666"),
+		coreagentbinary.Version{
+			Number: version.MustParse("1.2.3"),
+			Arch:   corearch.ARM64,
+		},
+	)
+	c.Check(err, jc.ErrorIs, applicationerrors.UnitIsDead)
+}
+
+// TestSetReportedUnitAgentVersion asserts the happy path of
+// [Service.SetReportedUnitAgentVersion].
+func (s *unitServiceSuite) TestSetReportedUnitAgentVersion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(
+		coreunit.UUID(unitUUID.String()), nil,
+	)
+
+	s.state.EXPECT().SetRunningAgentBinaryVersion(
+		gomock.Any(),
+		coreunit.UUID(unitUUID.String()),
+		coreagentbinary.Version{
+			Number: version.MustParse("1.2.3"),
+			Arch:   corearch.ARM64,
+		},
+	).Return(nil)
+
+	err := s.service.SetReportedUnitAgentVersion(
+		context.Background(),
+		coreunit.Name("foo/666"),
+		coreagentbinary.Version{
+			Number: version.MustParse("1.2.3"),
+			Arch:   corearch.ARM64,
+		},
+	)
+	c.Check(err, jc.ErrorIsNil)
 }

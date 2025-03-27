@@ -14,11 +14,16 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/application/testing"
+	corearch "github.com/juju/juju/core/arch"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
+	unittesting "github.com/juju/juju/core/unit/testing"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
@@ -990,4 +995,179 @@ func deptr[T any](v *T) T {
 		return zero
 	}
 	return *v
+}
+
+// TestSetRunningAgentBinaryVersionUnitNotFound asserts that if we attempt to set the
+// running agent binary version for a unit that doesn't exist we get back
+// an error that satisfies [applicationerrors.UnitNotFound].
+func (s *unitStateSuite) TestSetRunningAgentBinaryVersionUnitNotFound(c *gc.C) {
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	err := s.state.SetRunningAgentBinaryVersion(
+		context.Background(),
+		unitUUID,
+		coreagentbinary.Version{
+			Number: jujuversion.Current,
+			Arch:   corearch.ARM64,
+		},
+	)
+	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+// TestSetRunningAgentBinaryVersionNotSupportedArch tests that if we provide an
+// architecture that isn't supported by the database we get back an error
+// that satisfies [coreerrors.NotSupported].
+func (s *unitStateSuite) TestSetRunningAgentBinaryVersionNotSupportedArch(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u)
+	var unitUUID coreunit.UUID
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetRunningAgentBinaryVersion(
+		context.Background(),
+		unitUUID,
+		coreagentbinary.Version{
+			Number: jujuversion.Current,
+			Arch:   corearch.Arch("noexist"),
+		},
+	)
+	c.Check(err, jc.ErrorIs, coreerrors.NotSupported)
+}
+
+// TestSetRunningAgentBinaryVersion asserts setting the initial agent binary
+// version (happy path).
+func (s *unitStateSuite) TestSetRunningAgentBinaryVersion(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u)
+	var unitUUID coreunit.UUID
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetRunningAgentBinaryVersion(
+		context.Background(),
+		unitUUID,
+		coreagentbinary.Version{
+			Number: jujuversion.Current,
+			Arch:   corearch.ARM64,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		obtainedUnitUUID string
+		obtainedVersion  string
+		obtainedArch     string
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		stmt := `
+SELECT unit_uuid,
+       version,
+       name
+FROM unit_agent_version
+INNER JOIN architecture ON unit_agent_version.architecture_id = architecture.id
+WHERE unit_uuid = ?
+	`
+
+		return tx.QueryRowContext(ctx, stmt, unitUUID).Scan(
+			&obtainedUnitUUID,
+			&obtainedVersion,
+			&obtainedArch,
+		)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedUnitUUID, gc.Equals, unitUUID.String())
+	c.Check(obtainedVersion, gc.Equals, jujuversion.Current.String())
+	c.Check(obtainedArch, gc.Equals, corearch.ARM64)
+}
+
+// TestSetRunningAgentBinaryVersionUpdate asserts setting the initial agent binary
+// version (happy path) and then updating the value.
+func (s *unitStateSuite) TestSetRunningAgentBinaryVersionUpdate(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u)
+	var unitUUID coreunit.UUID
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetRunningAgentBinaryVersion(
+		context.Background(),
+		unitUUID,
+		coreagentbinary.Version{
+			Number: jujuversion.Current,
+			Arch:   corearch.ARM64,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		obtainedUnitUUID string
+		obtainedVersion  string
+		obtainedArch     string
+	)
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		stmt := `
+SELECT unit_uuid,
+       version,
+       name
+FROM unit_agent_version
+INNER JOIN architecture ON unit_agent_version.architecture_id = architecture.id
+WHERE unit_uuid = ?
+	`
+
+		return tx.QueryRowContext(ctx, stmt, unitUUID).Scan(
+			&obtainedUnitUUID,
+			&obtainedVersion,
+			&obtainedArch,
+		)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedUnitUUID, gc.Equals, unitUUID.String())
+	c.Check(obtainedVersion, gc.Equals, jujuversion.Current.String())
+
+	// Update
+	newVersion := jujuversion.Current
+	newVersion.Patch++
+	err = s.state.SetRunningAgentBinaryVersion(
+		context.Background(),
+		unitUUID,
+		coreagentbinary.Version{
+			Number: newVersion,
+			Arch:   corearch.ARM64,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		stmt := `
+SELECT unit_uuid,
+       version,
+       name
+FROM unit_agent_version
+INNER JOIN architecture ON unit_agent_version.architecture_id = architecture.id
+WHERE unit_uuid = ?
+	`
+
+		return tx.QueryRowContext(ctx, stmt, unitUUID).Scan(
+			&obtainedUnitUUID,
+			&obtainedVersion,
+			&obtainedArch,
+		)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedUnitUUID, gc.Equals, unitUUID.String())
+	c.Check(obtainedVersion, gc.Equals, newVersion.String())
+	c.Check(obtainedArch, gc.Equals, corearch.ARM64)
 }

@@ -91,6 +91,17 @@ func (as applicationScale) toScaleState() application.ScaleState {
 	}
 }
 
+type architectureMap struct {
+	ID   int    `db:"id"`
+	Name string `db:"name"`
+}
+
+type unitAgentVersion struct {
+	UnitUUID      string `db:"unit_uuid"`
+	Version       string `db:"version"`
+	ArchtectureID int    `db:"architecture_id"`
+}
+
 type unitUUID struct {
 	UnitUUID coreunit.UUID `db:"uuid"`
 }
