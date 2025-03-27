@@ -27,7 +27,6 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	internalrelation "github.com/juju/juju/internal/relation"
 )
 
 type relationSuite struct {
@@ -192,7 +191,7 @@ func (s *relationSuite) TestGetRelationEndpoints(c *gc.C) {
 	charmRelationUUID1 := "fake-charm-relation-uuid-1"
 	applicationEndpointUUID1 := "fake-application-endpoint-uuid-1"
 	relationEndpointUUID1 := "fake-relation-endpoint-uuid-1"
-	endpoint1 := internalrelation.Endpoint{
+	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
 		Relation: internalcharm.Relation{
 			Name:      "fake-endpoint-name-1",
@@ -207,7 +206,7 @@ func (s *relationSuite) TestGetRelationEndpoints(c *gc.C) {
 	charmRelationUUID2 := "fake-charm-relation-uuid-2"
 	applicationEndpointUUID2 := "fake-application-endpoint-uuid-2"
 	relationEndpointUUID2 := "fake-relation-endpoint-uuid-2"
-	endpoint2 := internalrelation.Endpoint{
+	endpoint2 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName2,
 		Relation: internalcharm.Relation{
 			Name:      "fake-endpoint-name-2",
@@ -243,7 +242,7 @@ func (s *relationSuite) TestGetRelationEndpointsPeer(c *gc.C) {
 	charmRelationUUID1 := "fake-charm-relation-uuid-1"
 	applicationEndpointUUID1 := "fake-application-endpoint-uuid-1"
 	relationEndpointUUID1 := "fake-relation-endpoint-uuid-1"
-	endpoint1 := internalrelation.Endpoint{
+	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
 		Relation: internalcharm.Relation{
 			Name:      "fake-endpoint-name",
@@ -280,7 +279,7 @@ func (s *relationSuite) TestGetRelationEndpointsTooManyEndpoints(c *gc.C) {
 	charmRelationUUID1 := "fake-charm-relation-uuid-1"
 	applicationEndpointUUID1 := "fake-application-endpoint-uuid-1"
 	relationEndpointUUID1 := "fake-relation-endpoint-uuid-1"
-	endpoint1 := internalrelation.Endpoint{
+	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
 		Relation: internalcharm.Relation{
 			Name:      "fake-endpoint-name-1",
@@ -295,7 +294,7 @@ func (s *relationSuite) TestGetRelationEndpointsTooManyEndpoints(c *gc.C) {
 	charmRelationUUID2 := "fake-charm-relation-uuid-2"
 	applicationEndpointUUID2 := "fake-application-endpoint-uuid-2"
 	relationEndpointUUID2 := "fake-relation-endpoint-uuid-2"
-	endpoint2 := internalrelation.Endpoint{
+	endpoint2 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName2,
 		Relation: internalcharm.Relation{
 			Name:      "fake-endpoint-name-2",
@@ -310,7 +309,7 @@ func (s *relationSuite) TestGetRelationEndpointsTooManyEndpoints(c *gc.C) {
 	charmRelationUUID3 := "fake-charm-relation-uuid-3"
 	applicationEndpointUUID3 := "fake-application-endpoint-uuid-3"
 	relationEndpointUUID3 := "fake-relation-endpoint-uuid-3"
-	endpoint3 := internalrelation.Endpoint{
+	endpoint3 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName2,
 		Relation: internalcharm.Relation{
 			Name:      "fake-endpoint-name-3",
@@ -358,7 +357,7 @@ func (s *relationSuite) TestGetRegularRelationUUIDByEndpointIdentifiers(c *gc.C)
 	charmRelationUUID1 := "fake-charm-relation-uuid-1"
 	applicationEndpointUUID1 := "fake-application-endpoint-uuid-1"
 	relationEndpointUUID1 := "fake-relation-endpoint-uuid-1"
-	endpoint1 := internalrelation.Endpoint{
+	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
 		Relation: internalcharm.Relation{
 			Name:      "fake-endpoint-name-1",
@@ -373,7 +372,7 @@ func (s *relationSuite) TestGetRegularRelationUUIDByEndpointIdentifiers(c *gc.C)
 	charmRelationUUID2 := "fake-charm-relation-uuid-2"
 	applicationEndpointUUID2 := "fake-application-endpoint-uuid-2"
 	relationEndpointUUID2 := "fake-relation-endpoint-uuid-2"
-	endpoint2 := internalrelation.Endpoint{
+	endpoint2 := relation.Endpoint{
 
 		ApplicationName: s.fakeApplicationName2,
 		Relation: internalcharm.Relation{
@@ -421,7 +420,7 @@ func (s *relationSuite) TestGetRegularRelationUUIDByEndpointIdentifiersRelationN
 	charmRelationUUID1 := "fake-charm-relation-uuid-1"
 	applicationEndpointUUID1 := "fake-application-endpoint-uuid-1"
 	relationEndpointUUID1 := "fake-relation-endpoint-uuid-1"
-	endpoint1 := internalrelation.Endpoint{
+	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
 		Relation: internalcharm.Relation{
 			Name:      "fake-endpoint-name-1",
@@ -480,7 +479,7 @@ func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiers(c *gc.C) {
 	charmRelationUUID1 := "fake-charm-relation-uuid-1"
 	applicationEndpointUUID1 := "fake-application-endpoint-uuid-1"
 	relationEndpointUUID1 := "fake-relation-endpoint-uuid-1"
-	endpoint1 := internalrelation.Endpoint{
+	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
 		Relation: internalcharm.Relation{
 			Name:      "fake-endpoint-name-1",
@@ -520,7 +519,7 @@ func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiersRelationNotF
 	charmRelationUUID1 := "fake-charm-relation-uuid-1"
 	applicationEndpointUUID1 := "fake-application-endpoint-uuid-1"
 	relationEndpointUUID1 := "fake-relation-endpoint-uuid-1"
-	endpoint1 := internalrelation.Endpoint{
+	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
 		Relation: internalcharm.Relation{
 			Name:      "fake-endpoint-name-1",
@@ -535,7 +534,7 @@ func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiersRelationNotF
 	charmRelationUUID2 := "fake-charm-relation-uuid-2"
 	applicationEndpointUUID2 := "fake-application-endpoint-uuid-2"
 	relationEndpointUUID2 := "fake-relation-endpoint-uuid-2"
-	endpoint2 := internalrelation.Endpoint{
+	endpoint2 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName2,
 		Relation: internalcharm.Relation{
 			Name:      "fake-endpoint-name-2",
@@ -587,7 +586,7 @@ func (s *relationSuite) TestGetRelationsStatusForUnit(c *gc.C) {
 	charmRelationUUID1 := "fake-charm-relation-uuid-1"
 	applicationEndpointUUID1 := "fake-application-endpoint-uuid-1"
 	relationEndpointUUID1 := "fake-relation-endpoint-uuid-1"
-	endpoint1 := internalrelation.Endpoint{
+	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
 		Relation: internalcharm.Relation{
 			Name:  "fake-endpoint-name-1",
@@ -598,7 +597,7 @@ func (s *relationSuite) TestGetRelationsStatusForUnit(c *gc.C) {
 	charmRelationUUID2 := "fake-charm-relation-uuid-2"
 	applicationEndpointUUID2 := "fake-application-endpoint-uuid-2"
 	relationEndpointUUID2 := "fake-relation-endpoint-uuid-2"
-	endpoint2 := internalrelation.Endpoint{
+	endpoint2 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName2,
 		Relation: internalcharm.Relation{
 			Name:  "fake-endpoint-name-2",
@@ -624,7 +623,7 @@ func (s *relationSuite) TestGetRelationsStatusForUnit(c *gc.C) {
 	s.addRelationStatus(c, relationUUID, corestatus.Suspended)
 
 	expectedResults := []relation.RelationUnitStatusResult{{
-		Endpoints: []internalrelation.Endpoint{endpoint1, endpoint2},
+		Endpoints: []relation.Endpoint{endpoint1, endpoint2},
 		InScope:   true,
 		Suspended: true,
 	}}
@@ -646,7 +645,7 @@ func (s *relationSuite) TestGetRelationsStatusForUnitPeer(c *gc.C) {
 	charmRelationUUID1 := "fake-charm-relation-uuid-1"
 	applicationEndpointUUID1 := "fake-application-endpoint-uuid-1"
 	relationEndpointUUID1 := "fake-relation-endpoint-uuid-1"
-	endpoint1 := internalrelation.Endpoint{
+	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
 		Relation: internalcharm.Relation{
 			Name:  "fake-endpoint-name-1",
@@ -663,7 +662,7 @@ func (s *relationSuite) TestGetRelationsStatusForUnitPeer(c *gc.C) {
 	charmRelationUUID2 := "fake-charm-relation-uuid-2"
 	applicationEndpointUUID2 := "fake-application-endpoint-uuid-2"
 	relationEndpointUUID2 := "fake-relation-endpoint-uuid-2"
-	endpoint2 := internalrelation.Endpoint{
+	endpoint2 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
 		Relation: internalcharm.Relation{
 			Name:  "fake-endpoint-name-2",
@@ -689,11 +688,11 @@ func (s *relationSuite) TestGetRelationsStatusForUnitPeer(c *gc.C) {
 	s.addRelationStatus(c, relationUUID2, corestatus.Joined)
 
 	expectedResults := []relation.RelationUnitStatusResult{{
-		Endpoints: []internalrelation.Endpoint{endpoint1},
+		Endpoints: []relation.Endpoint{endpoint1},
 		InScope:   true,
 		Suspended: true,
 	}, {
-		Endpoints: []internalrelation.Endpoint{endpoint2},
+		Endpoints: []relation.Endpoint{endpoint2},
 		InScope:   false,
 		Suspended: false,
 	}}

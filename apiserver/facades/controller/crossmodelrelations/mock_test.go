@@ -27,9 +27,9 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/environs/config"
 	internalmacaroon "github.com/juju/juju/internal/macaroon"
-	"github.com/juju/juju/internal/relation"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 )

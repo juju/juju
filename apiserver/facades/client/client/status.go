@@ -38,9 +38,9 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainmodelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/port"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )

@@ -21,8 +21,8 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/mongo"
-	internalrelation "github.com/juju/juju/internal/relation"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
@@ -338,7 +338,7 @@ func (st *State) cleanupForceDestroyedRelation(prefix string) (err error) {
 		if err != nil {
 			return errors.Annotatef(err, "unpacking scope key %q", doc.Key)
 		}
-		var matchingEp internalrelation.Endpoint
+		var matchingEp domainrelation.Endpoint
 		for _, ep := range relation.Endpoints() {
 			if string(ep.Role) == role {
 				matchingEp = ep

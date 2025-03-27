@@ -11,7 +11,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/internal/relation"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/state"
 )
 

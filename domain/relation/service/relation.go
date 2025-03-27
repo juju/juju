@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/errors"
-	internalrelation "github.com/juju/juju/internal/relation"
 )
 
 // State describes retrieval and persistence methods for relations.
@@ -44,7 +43,7 @@ type State interface {
 	// The following error types can be expected:
 	//   - [relationerrors.RelationNotFound]: when no relation exists for the
 	//     given UUID.
-	GetRelationEndpoints(ctx context.Context, relationUUID corerelation.UUID) ([]internalrelation.Endpoint, error)
+	GetRelationEndpoints(ctx context.Context, relationUUID corerelation.UUID) ([]relation.Endpoint, error)
 
 	// GetRelationEndpointUUID retrieves the unique identifier for a specific
 	// relation endpoint based on the provided arguments.
@@ -167,7 +166,7 @@ func (s *Service) EnterScope(
 }
 
 // GetApplicationEndpoints returns all endpoints for the given application identifier.
-func (s *Service) GetApplicationEndpoints(ctx context.Context, id application.ID) ([]internalrelation.Endpoint, error) {
+func (s *Service) GetApplicationEndpoints(ctx context.Context, id application.ID) ([]relation.Endpoint, error) {
 	return nil, coreerrors.NotImplemented
 }
 
@@ -196,7 +195,7 @@ func (s *Service) GetRelatedEndpoints(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
 	applicationName string,
-) ([]internalrelation.Endpoint, error) {
+) ([]relation.Endpoint, error) {
 	return nil, coreerrors.NotImplemented
 }
 
@@ -225,12 +224,12 @@ func (s *Service) GetRelationEndpoint(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
 	applicationID application.ID,
-) (internalrelation.Endpoint, error) {
-	return internalrelation.Endpoint{}, coreerrors.NotImplemented
+) (relation.Endpoint, error) {
+	return relation.Endpoint{}, coreerrors.NotImplemented
 }
 
 // GetRelationEndpoints returns all endpoints for the given relation UUID
-func (s *Service) GetRelationEndpoints(ctx context.Context, id corerelation.UUID) ([]internalrelation.Endpoint, error) {
+func (s *Service) GetRelationEndpoints(ctx context.Context, id corerelation.UUID) ([]relation.Endpoint, error) {
 	return nil, coreerrors.NotImplemented
 }
 
@@ -283,7 +282,7 @@ func (s *Service) GetRelationKey(ctx context.Context, relationUUID corerelation.
 		return "", errors.Capture(err)
 	}
 
-	return internalrelation.NaturalKey(endpoints), nil
+	return relation.NaturalKey(endpoints), nil
 }
 
 // GetRelationStatus returns the status of the given relation.
@@ -316,7 +315,7 @@ func (s *Service) GetRelationsStatusForUnit(
 
 	var statuses []relation.RelationUnitStatus
 	for _, result := range results {
-		key := internalrelation.NaturalKey(result.Endpoints)
+		key := relation.NaturalKey(result.Endpoints)
 		statuses = append(statuses, relation.RelationUnitStatus{
 			Key:       key,
 			InScope:   result.InScope,

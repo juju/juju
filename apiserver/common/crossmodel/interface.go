@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/state"
 )
 

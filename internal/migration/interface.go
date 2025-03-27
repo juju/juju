@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/relation"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
 )

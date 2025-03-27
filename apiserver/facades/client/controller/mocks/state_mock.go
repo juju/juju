@@ -13,8 +13,8 @@ import (
 	reflect "reflect"
 
 	controller "github.com/juju/juju/apiserver/facades/client/controller"
+	relation "github.com/juju/juju/domain/relation"
 	charm "github.com/juju/juju/internal/charm"
-	relation "github.com/juju/juju/internal/relation"
 	state "github.com/juju/juju/state"
 	gomock "go.uber.org/mock/gomock"
 )

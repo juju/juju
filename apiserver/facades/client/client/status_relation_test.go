@@ -14,9 +14,9 @@ import (
 
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
+	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	internalrelation "github.com/juju/juju/internal/relation"
 )
 
 type relationStatusSuite struct {
@@ -41,7 +41,7 @@ func (s *relationStatusSuite) TestFetchRelation(c *gc.C) {
 	expectedStatus := relationStatus{
 		UUID: "relation-uuid",
 		ID:   1,
-		Endpoints: []internalrelation.Endpoint{
+		Endpoints: []domainrelation.Endpoint{
 			{
 				ApplicationName: "source",
 				Relation: charm.Relation{
@@ -105,7 +105,7 @@ func (s *relationStatusSuite) TestFetchRelationWithError(c *gc.C) {
 	expectedStatus := relationStatus{
 		UUID: okUUID,
 		ID:   42,
-		Endpoints: []internalrelation.Endpoint{
+		Endpoints: []domainrelation.Endpoint{
 			{
 				ApplicationName: "source",
 				Relation: charm.Relation{

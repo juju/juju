@@ -21,10 +21,10 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/relation"
 )
 
 // The following exporter type is being refactored. This is to better model the

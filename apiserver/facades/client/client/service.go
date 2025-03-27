@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/port"
-	internalrelation "github.com/juju/juju/internal/relation"
+	domainrelation "github.com/juju/juju/domain/relation"
 )
 
 // ApplicationService defines the methods that the facade assumes from the
@@ -129,7 +129,7 @@ type RelationService interface {
 	GetRelationID(ctx context.Context, uuid relation.UUID) (int, error)
 
 	// GetRelationEndpoints returns all endpoints for the given relation UUID
-	GetRelationEndpoints(ctx context.Context, id relation.UUID) ([]internalrelation.Endpoint, error)
+	GetRelationEndpoints(ctx context.Context, id relation.UUID) ([]domainrelation.Endpoint, error)
 
 	// GetRelationStatus returns the status of the given relation.
 	GetRelationStatus(ctx context.Context, relationUUID relation.UUID) (status.StatusInfo, error)

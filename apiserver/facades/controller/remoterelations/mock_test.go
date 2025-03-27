@@ -13,7 +13,7 @@ import (
 	common "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/internal/relation"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/state"
 )
 
