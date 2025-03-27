@@ -312,7 +312,7 @@ func WatchRelationUnits(backend Backend, tag names.RelationTag) (common.Relation
 	if err != nil {
 		return nil, errors.Annotatef(err, "watching units for %q", localAppName)
 	}
-	wrapped, err := common.RelationUnitsWatcherFromState(w)
+	wrapped, err := common.RelationUnitsWatcherFromDomain(w)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting relation units watcher for %q", tag.Id())
 	}

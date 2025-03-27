@@ -7,6 +7,7 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v4"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
@@ -20,7 +21,7 @@ type relationUnitsWatcherSuite struct{}
 
 var _ = gc.Suite(&relationUnitsWatcherSuite{})
 
-func (s *relationUnitsWatcherSuite) TestRelationUnitsWatcherFromState(c *gc.C) {
+func (s *relationUnitsWatcherSuite) TestRelationUnitsWatcherFromDomain(c *gc.C) {
 
 	source := &mockRUWatcher{
 		changes: make(chan watcher.RelationUnitsChange),
@@ -30,11 +31,10 @@ func (s *relationUnitsWatcherSuite) TestRelationUnitsWatcherFromState(c *gc.C) {
 		<-source.Tomb.Dying()
 		return nil
 	})
-	w, err := common.RelationUnitsWatcherFromState(source)
+	w, err := common.RelationUnitsWatcherFromDomain(source)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(source.Err(), gc.Equals, tomb.ErrStillAlive)
-	c.Assert(w.Err(), gc.Equals, tomb.ErrStillAlive)
 
 	event := watcher.RelationUnitsChange{
 		Changed: map[string]watcher.UnitSettings{
@@ -69,7 +69,7 @@ func (s *relationUnitsWatcherSuite) TestRelationUnitsWatcherFromState(c *gc.C) {
 		c.Fatalf("timed out waiting for output event")
 	}
 
-	c.Assert(w.Stop(), jc.ErrorIsNil)
+	c.Assert(worker.Stop(w), jc.ErrorIsNil)
 	// Ensure that stopping the watcher has stopped the source.
 	c.Assert(source.Err(), jc.ErrorIsNil)
 
@@ -90,7 +90,7 @@ func (s *relationUnitsWatcherSuite) TestCanStopWithAPendingSend(c *gc.C) {
 		<-source.Tomb.Dying()
 		return nil
 	})
-	w, err := common.RelationUnitsWatcherFromState(source)
+	w, err := common.RelationUnitsWatcherFromDomain(source)
 	c.Assert(err, jc.ErrorIsNil)
 	defer w.Kill()
 
@@ -104,7 +104,7 @@ func (s *relationUnitsWatcherSuite) TestCanStopWithAPendingSend(c *gc.C) {
 	// Stop without accepting the output event.
 	stopped := make(chan error)
 	go func() {
-		err := w.Stop()
+		err := worker.Stop(w)
 		stopped <- err
 	}()
 
@@ -125,7 +125,7 @@ func (s *relationUnitsWatcherSuite) TestNilChanged(c *gc.C) {
 		<-source.Tomb.Dying()
 		return nil
 	})
-	w, err := common.RelationUnitsWatcherFromState(source)
+	w, err := common.RelationUnitsWatcherFromDomain(source)
 	c.Assert(err, jc.ErrorIsNil)
 
 	event := watcher.RelationUnitsChange{
