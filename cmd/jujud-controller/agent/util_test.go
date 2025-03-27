@@ -43,7 +43,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/mongo/mongometrics"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	"github.com/juju/juju/internal/provider/dummy"
@@ -264,7 +263,6 @@ func NewTestMachineAgentFactory(
 			agentTag:          agentTag,
 			AgentConfigWriter: agentConfWriter,
 			configChangedVal:  voyeur.NewValue(true),
-			logSink:           loggertesting.WrapCheckLogSink(c),
 			workersStarted:    make(chan struct{}),
 			dead:              make(chan struct{}),
 			runner: worker.NewRunner(worker.RunnerParams{
