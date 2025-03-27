@@ -69,14 +69,12 @@ type applicationName struct {
 }
 
 type applicationDetails struct {
-	UUID                    coreapplication.ID `db:"uuid"`
-	Name                    string             `db:"name"`
-	CharmID                 string             `db:"charm_uuid"`
-	LifeID                  life.Life          `db:"life_id"`
-	PasswordHash            string             `db:"password_hash"`
-	PasswordHashAlgorithmID int                `db:"password_hash_algorithm_id"`
-	Placement               string             `db:"placement"`
-	SpaceUUID               string             `db:"space_uuid"`
+	UUID      coreapplication.ID `db:"uuid"`
+	Name      string             `db:"name"`
+	CharmID   string             `db:"charm_uuid"`
+	LifeID    life.Life          `db:"life_id"`
+	Placement string             `db:"placement"`
+	SpaceUUID string             `db:"space_uuid"`
 }
 
 type applicationScale struct {
@@ -1133,7 +1131,6 @@ type exportApplication struct {
 	Name                 string             `db:"name"`
 	CharmUUID            corecharm.ID       `db:"charm_uuid"`
 	Life                 life.Life          `db:"life_id"`
-	PasswordHash         string             `db:"password_hash"`
 	Placement            string             `db:"placement"`
 	Exposed              bool               `db:"exposed"`
 	Subordinate          bool               `db:"subordinate"`
