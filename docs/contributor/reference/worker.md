@@ -1,4 +1,4 @@
-(worker)=
+(worker-dev)=
 # Worker
 <!---To see previous major version of this doc, see version 13.-->
 
@@ -19,8 +19,6 @@ In Juju, a **worker** is, in its simplest form, a goroutine. Almost always, it w
 
 ## List of workers run by the dependency engine
 
-In Juju, the term "worker" is most commonly used to denote types whose instances are run by the dependency engine. These
-types are defined by the worker packages listeds below.
-
+In Juju, the term "worker" is most commonly used to denote types whose instances are run by the dependency engine.
 
 > The most important workers to know about are: the `uniter`, the `deployer`, the `provisioner`, the `caasapplicationprovisioner`, the `charmdownloader`, and the `undertaker`.

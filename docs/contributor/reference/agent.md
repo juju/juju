@@ -1,6 +1,6 @@
-(agent)=
+(agent-dev)=
 # Agent
-> See first: [Juju | Agent](https://juju.is/docs/juju/agent)
+> See first: {ref}`User docs | Agent <agent>`
 
 In Juju, an **agent** is any process that runs a dependency engine ([
 `dependency.NewEngine`](dependency-package#newengine)) to start and manage [workers](worker.md) for a particular domain
