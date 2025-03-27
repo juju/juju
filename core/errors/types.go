@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	// The below is a the generic error types that we previously got from
+	// The below are the generic error types that we previously got from
 	// juju/errors.
 
 	// Timeout represents an error on timeout.
@@ -21,7 +21,7 @@ const (
 	UserNotFound = jujuerrors.UserNotFound
 
 	// Unauthorized represents an error when an operation is unauthorized.
-	Unathorized = jujuerrors.Unauthorized
+	Unauthorized = jujuerrors.Unauthorized
 
 	// NotImplemented represents an error when something is not implemented.
 	NotImplemented = jujuerrors.NotImplemented
