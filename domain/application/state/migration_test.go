@@ -46,10 +46,9 @@ func (s *migrationStateSuite) TestGetApplicationsForExport(c *gc.C) {
 				Revision: 42,
 				Source:   charm.CharmHubSource,
 			},
-			PasswordHash: "password",
-			Placement:    "placement",
-			Subordinate:  false,
-			Exposed:      false,
+			Placement:   "placement",
+			Subordinate: false,
+			Exposed:     false,
 		},
 	})
 }
@@ -76,10 +75,9 @@ func (s *migrationStateSuite) TestGetApplicationsForExportMany(c *gc.C) {
 				Revision: 42,
 				Source:   charm.CharmHubSource,
 			},
-			PasswordHash: "password",
-			Placement:    "placement",
-			Subordinate:  false,
-			Exposed:      false,
+			Placement:   "placement",
+			Subordinate: false,
+			Exposed:     false,
 		})
 	}
 
@@ -116,10 +114,9 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *gc.C) {
 				Revision: 42,
 				Source:   charm.CharmHubSource,
 			},
-			PasswordHash: "password",
-			Placement:    "placement",
-			Subordinate:  false,
-			Exposed:      false,
+			Placement:   "placement",
+			Subordinate: false,
+			Exposed:     false,
 		},
 		{
 			UUID:      id1,
@@ -132,10 +129,9 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *gc.C) {
 				Revision: 42,
 				Source:   charm.CharmHubSource,
 			},
-			PasswordHash: "password",
-			Placement:    "placement",
-			Subordinate:  false,
-			Exposed:      false,
+			Placement:   "placement",
+			Subordinate: false,
+			Exposed:     false,
 		},
 	}
 
