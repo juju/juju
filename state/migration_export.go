@@ -16,14 +16,12 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/arch"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/container"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/relation"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 )
@@ -142,9 +140,6 @@ func (st *State) exportImpl(cfg ExportConfig, store objectstore.ObjectStore) (de
 	if err := export.machines(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	// if err := export.applications(); err != nil {
-	// 	return nil, errors.Trace(err)
-	// }
 	if err := export.relations(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -376,50 +371,6 @@ func (e *exporter) newAddressArgs(a address) description.AddressArgs {
 	}
 }
 
-func (e *exporter) applications() error {
-	applications, err := e.st.AllApplications()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	e.logger.Debugf(context.TODO(), "found %d applications", len(applications))
-
-	e.units, err = e.readAllUnits()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	bindings, err := e.readAllEndpointBindings()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	cloudServices, err := e.readAllCloudServices()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	cloudContainers, err := e.readAllCloudContainers()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	for _, application := range applications {
-		applicationUnits := e.units[application.Name()]
-		appCtx := addApplicationContext{
-			application:      application,
-			units:            applicationUnits,
-			cloudServices:    cloudServices,
-			cloudContainers:  cloudContainers,
-			endpointBindings: bindings,
-		}
-
-		if err := e.addApplication(appCtx); err != nil {
-			return errors.Trace(err)
-		}
-
-	}
-	return nil
-}
-
 func (e *exporter) readAllStorageConstraints() error {
 	coll, closer := e.st.db().GetCollection(storageConstraintsC)
 	defer closer()
@@ -437,246 +388,6 @@ func (e *exporter) readAllStorageConstraints() error {
 	e.logger.Debugf(context.TODO(), "read %d storage constraint documents", len(storageConstraints))
 	e.modelStorageConstraints = storageConstraints
 	return nil
-}
-
-func (e *exporter) storageDirectives(doc storageConstraintsDoc) map[string]description.StorageDirectiveArgs {
-	result := make(map[string]description.StorageDirectiveArgs)
-	for key, value := range doc.Constraints {
-		result[key] = description.StorageDirectiveArgs{
-			Pool:  value.Pool,
-			Size:  value.Size,
-			Count: value.Count,
-		}
-	}
-	return result
-}
-
-type addApplicationContext struct {
-	application      *Application
-	units            []*Unit
-	leader           string
-	endpointBindings map[string]bindingsMap
-
-	// CAAS
-	cloudServices   map[string]*cloudServiceDoc
-	cloudContainers map[string]*cloudContainerDoc
-}
-
-func (e *exporter) addApplication(ctx addApplicationContext) error {
-	application := ctx.application
-	appName := application.Name()
-	globalKey := application.globalKey()
-	charmConfigKey := application.charmConfigKey()
-	appConfigKey := application.applicationConfigKey()
-	storageConstraintsKey := application.storageConstraintsKey()
-
-	var charmConfig map[string]interface{}
-	applicationCharmSettingsDoc, found := e.modelSettings[charmConfigKey]
-	if !found && !e.cfg.SkipSettings && !e.cfg.IgnoreIncompleteModel {
-		return errors.Errorf("missing charm settings for application %q", appName)
-	}
-	if found {
-		charmConfig = applicationCharmSettingsDoc.Settings
-	}
-	delete(e.modelSettings, charmConfigKey)
-
-	var applicationConfig map[string]interface{}
-	applicationConfigDoc, found := e.modelSettings[appConfigKey]
-	if !found && !e.cfg.SkipSettings && !e.cfg.IgnoreIncompleteModel {
-		return errors.Errorf("missing config for application %q", appName)
-	}
-	if found {
-		applicationConfig = applicationConfigDoc.Settings
-	}
-	delete(e.modelSettings, appConfigKey)
-
-	charmURL := application.doc.CharmURL
-	if charmURL == nil {
-		return errors.Errorf("missing charm URL for application %q", appName)
-	}
-
-	args := description.ApplicationArgs{
-		Name:                 application.Name(),
-		Type:                 e.model.Type(),
-		Subordinate:          application.doc.Subordinate,
-		CharmURL:             *charmURL,
-		CharmModifiedVersion: application.doc.CharmModifiedVersion,
-		ForceCharm:           application.doc.ForceCharm,
-		Exposed:              application.doc.Exposed,
-		Placement:            application.doc.Placement,
-		HasResources:         application.doc.HasResources,
-		EndpointBindings:     map[string]string(ctx.endpointBindings[globalKey]),
-		ApplicationConfig:    applicationConfig,
-		CharmConfig:          charmConfig,
-		Leader:               ctx.leader,
-	}
-
-	if cloudService, found := ctx.cloudServices[application.globalKey()]; found {
-		args.CloudService = e.cloudService(cloudService)
-	}
-	if constraints, found := e.modelStorageConstraints[storageConstraintsKey]; found {
-		args.StorageDirectives = e.storageDirectives(constraints)
-	}
-
-	// Include exposed endpoint details
-	if len(application.doc.ExposedEndpoints) > 0 {
-		args.ExposedEndpoints = make(map[string]description.ExposedEndpointArgs)
-		for epName, details := range application.doc.ExposedEndpoints {
-			args.ExposedEndpoints[epName] = description.ExposedEndpointArgs{
-				ExposeToSpaceIDs: details.ExposeToSpaceIDs,
-				ExposeToCIDRs:    details.ExposeToCIDRs,
-			}
-		}
-	}
-
-	exApplication := e.model.AddApplication(args)
-
-	// Find the current application status.
-	statusArgs, err := e.statusArgs(globalKey)
-	if err != nil {
-		return errors.Annotatef(err, "status for application %s", appName)
-	}
-
-	exApplication.SetStatus(statusArgs)
-
-	globalAppWorkloadKey := applicationGlobalOperatorKey(appName)
-	operatorStatusArgs, err := e.statusArgs(globalAppWorkloadKey)
-	if err != nil {
-		if !errors.Is(err, errors.NotFound) {
-			return errors.Annotatef(err, "application operator status for application %s", appName)
-		}
-	}
-	exApplication.SetOperatorStatus(operatorStatusArgs)
-
-	constraintsArgs, err := e.constraintsArgs(globalKey)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	exApplication.SetConstraints(constraintsArgs)
-
-	defaultArch := constraintsArgs.Architecture
-	if defaultArch == "" {
-		defaultArch = arch.DefaultArchitecture
-	}
-	charmOriginArgs, err := e.getCharmOrigin(application.doc, defaultArch)
-	if err != nil {
-		return errors.Annotatef(err, "charm origin")
-	}
-	exApplication.SetCharmOrigin(charmOriginArgs)
-
-	// Set Tools for application - this is only for CAAS models.
-	for _, unit := range ctx.units {
-		agentKey := unit.globalAgentKey()
-
-		workloadVersion, err := e.unitWorkloadVersion(unit)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		args := description.UnitArgs{
-			Name:            unit.Name(),
-			Type:            string(unit.modelType),
-			Machine:         unit.doc.MachineId,
-			WorkloadVersion: workloadVersion,
-			PasswordHash:    unit.doc.PasswordHash,
-		}
-		if principalName, isSubordinate := unit.PrincipalName(); isSubordinate {
-			args.Principal = principalName
-		}
-		if subs := unit.SubordinateNames(); len(subs) > 0 {
-			for _, subName := range subs {
-				args.Subordinates = append(args.Subordinates, subName)
-			}
-		}
-		if cloudContainer, found := ctx.cloudContainers[unit.globalKey()]; found {
-			args.CloudContainer = e.cloudContainer(cloudContainer)
-		}
-
-		// Export charm and agent state stored to the controller.
-		unitState, err := unit.State()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if charmState, found := unitState.CharmState(); found {
-			args.CharmState = charmState
-		}
-		if relationState, found := unitState.RelationState(); found {
-			args.RelationState = relationState
-		}
-		if uniterState, found := unitState.UniterState(); found {
-			args.UniterState = uniterState
-		}
-		if storageState, found := unitState.StorageState(); found {
-			args.StorageState = storageState
-		}
-		exUnit := exApplication.AddUnit(args)
-
-		// workload uses globalKey, agent uses globalAgentKey,
-		// workload version uses globalWorkloadVersionKey.
-		globalKey := unit.globalKey()
-		statusArgs, err := e.statusArgs(globalKey)
-		if err != nil {
-			return errors.Annotatef(err, "workload status for unit %s", unit.Name())
-		}
-		exUnit.SetWorkloadStatus(statusArgs)
-
-		statusArgs, err = e.statusArgs(agentKey)
-		if err != nil {
-			return errors.Annotatef(err, "agent status for unit %s", unit.Name())
-		}
-		exUnit.SetAgentStatus(statusArgs)
-
-		if e.dbModel.Type() != ModelTypeCAAS && !e.cfg.SkipUnitAgentBinaries {
-			// TODO (tlm): A future task is coming up to add model migration support for
-			// tools.
-			//tools, err := unit.AgentTools()
-			//if err != nil && !e.cfg.IgnoreIncompleteModel {
-			//	// This means the tools aren't set, but they should be.
-			//	return errors.Trace(err)
-			//}
-			//if err == nil {
-			ver := semversion.Binary{
-				Number:  jujuversion.Current,
-				Arch:    arch.DefaultArchitecture,
-				Release: "ubuntu",
-			}
-			exUnit.SetTools(description.AgentToolsArgs{
-				Version: ver.String(),
-				URL:     "tools-foobar.tar.gz",
-				SHA256:  "19c9cbd09c01329ce419c6a6945f75ec80134e2a24dfe73e81db4fa59a2db202",
-				Size:    1024,
-			})
-		}
-		if e.dbModel.Type() == ModelTypeCAAS {
-			// TODO(caas) - Actually use the exported cloud container details and status history.
-			// Currently these are only grabbed to make the MigrationExportSuite tests happy.
-			globalCCKey := unit.globalCloudContainerKey()
-			_, err = e.statusArgs(globalCCKey)
-			if err != nil {
-				if !errors.Is(err, errors.NotFound) {
-					return errors.Annotatef(err, "cloud container workload status for unit %s", unit.Name())
-				}
-			}
-		}
-
-		constraintsArgs, err := e.constraintsArgs(agentKey)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		exUnit.SetConstraints(constraintsArgs)
-	}
-
-	return nil
-}
-
-func (e *exporter) unitWorkloadVersion(unit *Unit) (string, error) {
-	// Rather than call unit.WorkloadVersion(), which does a database
-	// query, we go directly to the status value that is stored.
-	key := unit.globalWorkloadVersionKey()
-	info, err := e.statusArgs(key)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return info.Message, nil
 }
 
 func (e *exporter) relations() error {
@@ -966,95 +677,6 @@ func (e *exporter) readAllRelationScopes() (set.Strings, error) {
 	return result, nil
 }
 
-func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
-	unitsCollection, closer := e.st.db().GetCollection(unitsC)
-	defer closer()
-
-	var docs []unitDoc
-	err := unitsCollection.Find(nil).Sort("name").All(&docs)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get all units")
-	}
-	e.logger.Debugf(context.TODO(), "found %d unit docs", len(docs))
-	result := make(map[string][]*Unit)
-	for _, doc := range docs {
-		units := result[doc.Application]
-		result[doc.Application] = append(units, newUnit(e.st, e.dbModel.Type(), &doc))
-	}
-	return result, nil
-}
-
-func (e *exporter) readAllEndpointBindings() (map[string]bindingsMap, error) {
-	bindings, closer := e.st.db().GetCollection(endpointBindingsC)
-	defer closer()
-
-	var docs []endpointBindingsDoc
-	err := bindings.Find(nil).All(&docs)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get all application endpoint bindings")
-	}
-	e.logger.Debugf(context.TODO(), "found %d application endpoint binding docs", len(docs))
-	result := make(map[string]bindingsMap)
-	for _, doc := range docs {
-		result[e.st.localID(doc.DocID)] = doc.Bindings
-	}
-	return result, nil
-}
-
-func (e *exporter) readAllCloudServices() (map[string]*cloudServiceDoc, error) {
-	cloudServices, closer := e.st.db().GetCollection(cloudServicesC)
-	defer closer()
-
-	var docs []cloudServiceDoc
-	err := cloudServices.Find(nil).All(&docs)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get all cloud service docs")
-	}
-	e.logger.Debugf(context.TODO(), "found %d cloud service docs", len(docs))
-	result := make(map[string]*cloudServiceDoc)
-	for _, v := range docs {
-		doc := v
-		result[e.st.localID(doc.DocID)] = &doc
-	}
-	return result, nil
-}
-
-func (e *exporter) cloudService(doc *cloudServiceDoc) *description.CloudServiceArgs {
-	return &description.CloudServiceArgs{
-		ProviderId: doc.ProviderId,
-		Addresses:  e.newAddressArgsSlice(doc.Addresses),
-	}
-}
-
-func (e *exporter) readAllCloudContainers() (map[string]*cloudContainerDoc, error) {
-	cloudContainers, closer := e.st.db().GetCollection(cloudContainersC)
-	defer closer()
-
-	var docs []cloudContainerDoc
-	err := cloudContainers.Find(nil).All(&docs)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get all cloud container docs")
-	}
-	e.logger.Debugf(context.TODO(), "found %d cloud container docs", len(docs))
-	result := make(map[string]*cloudContainerDoc)
-	for _, v := range docs {
-		doc := v
-		result[e.st.localID(doc.Id)] = &doc
-	}
-	return result, nil
-}
-
-func (e *exporter) cloudContainer(doc *cloudContainerDoc) *description.CloudContainerArgs {
-	result := &description.CloudContainerArgs{
-		ProviderId: doc.ProviderId,
-		Ports:      doc.Ports,
-	}
-	if doc.Address != nil {
-		result.Address = e.newAddressArgs(*doc.Address)
-	}
-	return result
-}
-
 func (e *exporter) readAllConstraints() error {
 	constraintsCollection, closer := e.st.db().GetCollection(constraintsC)
 	defer closer()
@@ -1080,50 +702,6 @@ func (e *exporter) readAllConstraints() error {
 		e.logger.Debugf(context.TODO(), "doc[%q] = %#v", id, doc)
 	}
 	return nil
-}
-
-func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (description.CharmOriginArgs, error) {
-	// Everything should be migrated, but in the case that it's not, handle
-	// that case.
-	origin := doc.CharmOrigin
-
-	// If the channel is empty, then we fall back to the Revision.
-	// Set default revision to -1. This is because a revision of 0 is
-	// a valid revision for local charms which we need to be able to
-	// from. On import, in the -1 case we grab the revision by parsing
-	// the charm url.
-	revision := -1
-	if rev := origin.Revision; rev != nil {
-		revision = *rev
-	}
-
-	var channel charm.Channel
-	if origin.Channel != nil {
-		channel = charm.MakePermissiveChannel(origin.Channel.Track, origin.Channel.Risk, origin.Channel.Branch)
-	}
-	// Platform is now mandatory moving forward, so we need to ensure that
-	// the architecture is set in the platform if it's not set. This
-	// shouldn't happen that often, but handles clients sending bad requests
-	// when deploying.
-	pArch := origin.Platform.Architecture
-	if pArch == "" {
-		e.logger.Debugf(context.TODO(), "using default architecture (%q) for doc[%q]", defaultArch, doc.DocID)
-		pArch = defaultArch
-	}
-	platform := corecharm.Platform{
-		Architecture: pArch,
-		OS:           origin.Platform.OS,
-		Channel:      origin.Platform.Channel,
-	}
-
-	return description.CharmOriginArgs{
-		Source:   origin.Source,
-		ID:       origin.ID,
-		Hash:     origin.Hash,
-		Revision: revision,
-		Channel:  channel.String(),
-		Platform: platform.String(),
-	}, nil
 }
 
 func (e *exporter) readAllSettings() error {

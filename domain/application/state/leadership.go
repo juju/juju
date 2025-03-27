@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
+
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain"
