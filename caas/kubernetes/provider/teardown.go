@@ -20,7 +20,7 @@ import (
 func (k *kubernetesClient) deleteClusterScopeResourcesModelTeardown(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error) {
 	defer wg.Done()
 
-	labels := utils.LabelsForModel(k.CurrentModel(), k.IsLegacyLabels())
+	labels := utils.LabelsForModel(k.ModelName(), k.ModelUUID(), k.ControllerUUID(), k.LabelVersion())
 	selector := k8slabels.NewSelector().Add(
 		labelSetToRequirements(labels)...,
 	)

@@ -18,7 +18,7 @@ import (
 )
 
 func (k *kubernetesClient) getConfigMapLabels(appName string) map[string]string {
-	return utils.LabelsForApp(appName, k.IsLegacyLabels())
+	return utils.LabelsForApp(appName, k.LabelVersion())
 }
 
 func (k *kubernetesClient) ensureConfigMaps(

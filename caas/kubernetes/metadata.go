@@ -60,7 +60,9 @@ type StorageProvisioner struct {
 	Provisioner       string
 	Parameters        map[string]string
 	Namespace         string
-	Model             string
+	ModelName         string
+	ModelUUID         string
+	ControllerUUID    string
 	ReclaimPolicy     string
 	VolumeBindingMode string
 	IsDefault         bool

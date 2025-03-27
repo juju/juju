@@ -942,7 +942,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDMigrated(
 	})
 	nsAfter := *nsBefore
 	nsAfter.SetAnnotations(annotations.New(nsAfter.GetAnnotations()).Add(
-		k8sutils.AnnotationControllerUUIDKey(false), newControllerUUID,
+		k8sutils.AnnotationControllerUUIDKey(1), newControllerUUID,
 	))
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).Times(2).
@@ -1562,7 +1562,7 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrap(c *gc.C) {
 	c.Assert(
 		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), jc.ErrorIsNil,
 	)
-	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller-ctrl-1")
+	c.Assert(s.broker.Namespace(), jc.DeepEquals, "controller-ctrl-1")
 }
 
 func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistNamespaceError(c *gc.C) {
@@ -1982,7 +1982,7 @@ func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
 func (s *K8sBrokerSuite) TestGetCurrentNamespace(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
-	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.getNamespace())
+	c.Assert(s.broker.Namespace(), jc.DeepEquals, s.getNamespace())
 }
 
 func (s *K8sBrokerSuite) TestCreate(c *gc.C) {

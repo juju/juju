@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	providerconst "github.com/juju/juju/caas/kubernetes/provider/constants"
 	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	rbacmappertest "github.com/juju/juju/internal/worker/caasrbacmapper/test"
@@ -90,7 +91,7 @@ func (h *HandlerSuite) TestEmptyBodyFails(c *gc.C) {
 	req := httptest.NewRequest(http.MethodPost, "/", nil)
 	recorder := httptest.NewRecorder()
 
-	admissionHandler(h.logger, &rbacmappertest.Mapper{}, false).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacmappertest.Mapper{}, constants.LabelVersion1).ServeHTTP(recorder, req)
 
 	c.Assert(recorder.Code, gc.Equals, http.StatusBadRequest)
 }
@@ -100,7 +101,7 @@ func (h *HandlerSuite) TestUnknownContentType(c *gc.C) {
 	req.Header.Set("junk", "junk")
 	recorder := httptest.NewRecorder()
 
-	admissionHandler(h.logger, &rbacmappertest.Mapper{}, false).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacmappertest.Mapper{}, constants.LabelVersion1).ServeHTTP(recorder, req)
 
 	c.Assert(recorder.Code, gc.Equals, http.StatusUnsupportedMediaType)
 }
@@ -122,7 +123,7 @@ func (h *HandlerSuite) TestUnknownServiceAccount(c *gc.C) {
 	req.Header.Set(HeaderContentType, ExpectedContentType)
 	recorder := httptest.NewRecorder()
 
-	admissionHandler(h.logger, &rbacmappertest.Mapper{}, false).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacmappertest.Mapper{}, constants.LabelVersion1).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusOK)
 	c.Assert(recorder.Body, gc.NotNil)
 
@@ -157,7 +158,7 @@ func (h *HandlerSuite) TestRBACMapperFailure(c *gc.C) {
 		},
 	}
 
-	admissionHandler(h.logger, &rbacMapper, false).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacMapper, constants.LabelVersion1).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusInternalServerError)
 }
 
@@ -196,7 +197,7 @@ func (h *HandlerSuite) TestPatchLabelsAdd(c *gc.C) {
 		},
 	}
 
-	admissionHandler(h.logger, &rbacMapper, false).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacMapper, constants.LabelVersion1).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusOK)
 	c.Assert(recorder.Body, gc.NotNil)
 
@@ -284,7 +285,7 @@ func (h *HandlerSuite) TestPatchLabelsReplace(c *gc.C) {
 		},
 	}
 
-	admissionHandler(h.logger, &rbacMapper, false).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacMapper, constants.LabelVersion1).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusOK)
 	c.Assert(recorder.Body, gc.NotNil)
 
@@ -359,7 +360,7 @@ func (h *HandlerSuite) TestSelfSubjectAccessReviewIgnore(c *gc.C) {
 		},
 	}
 
-	admissionHandler(h.logger, &rbacMapper, false).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacMapper, constants.LabelVersion1).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusOK)
 	c.Assert(recorder.Body, gc.NotNil)
 

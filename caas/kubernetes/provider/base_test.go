@@ -204,9 +204,23 @@ func (s *BaseSuite) TearDownTest(c *gc.C) {
 
 func (s *BaseSuite) getNamespace() string {
 	if s.broker != nil {
-		return s.broker.GetCurrentNamespace()
+		return s.broker.Namespace()
 	}
 	return s.namespace
+}
+
+func (s *BaseSuite) getModelUUID() string {
+	if s.broker != nil {
+		return s.broker.ModelUUID()
+	}
+	return "badf00d"
+}
+
+func (s *BaseSuite) getControllerUUID() string {
+	if s.broker != nil {
+		return s.broker.ControllerUUID()
+	}
+	return "d0gf00d"
 }
 
 func (s *BaseSuite) setupController(c *gc.C) *gomock.Controller {
@@ -528,7 +542,7 @@ func (s *fakeClientSuite) SetUpTest(c *gc.C) {
 
 func (s *fakeClientSuite) getNamespace() string {
 	if s.broker != nil {
-		return s.broker.GetCurrentNamespace()
+		return s.broker.Namespace()
 	}
 	return s.namespace
 }

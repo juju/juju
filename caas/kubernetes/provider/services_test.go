@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
@@ -45,7 +46,7 @@ func (s *servicesSuite) TestFindServiceForApplication(c *gc.C) {
 		context.TODO(),
 		s.client.CoreV1().Services("test"),
 		"wallyworld",
-		false,
+		constants.LabelVersion1,
 	)
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,7 +88,7 @@ func (s *servicesSuite) TestFindServiceForApplicationWithEndpoints(c *gc.C) {
 		context.TODO(),
 		s.client.CoreV1().Services("test"),
 		"wallyworld",
-		false,
+		constants.LabelVersion1,
 	)
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -129,7 +130,7 @@ func (s *servicesSuite) TestFindServiceForApplicationWithMultiple(c *gc.C) {
 		context.TODO(),
 		s.client.CoreV1().Services("test"),
 		"wallyworld",
-		false,
+		constants.LabelVersion1,
 	)
 
 	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue)
@@ -140,7 +141,7 @@ func (s *servicesSuite) TestFindServiceForApplicationMissing(c *gc.C) {
 		context.TODO(),
 		s.client.CoreV1().Services("test"),
 		"wallyworld",
-		false,
+		constants.LabelVersion1,
 	)
 
 	c.Assert(errors.Is(err, errors.NotFound), jc.IsTrue)
