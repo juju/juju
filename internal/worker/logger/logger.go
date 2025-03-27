@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/state/mgo"
 )
 
 // LoggerAPI represents the API calls the logger makes.
@@ -103,7 +102,6 @@ func (l *loggerWorker) setLogging(ctx context.Context) {
 			_ = loggerContext.ConfigureLoggers(l.lastConfig)
 			return
 		}
-		mgo.ConfigureMgoLogging()
 		l.lastConfig = loggingConfig
 		// Save the logging config in the agent.conf file.
 		if callback := l.config.Callback; callback != nil {
