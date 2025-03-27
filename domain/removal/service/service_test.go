@@ -36,7 +36,8 @@ func (s *serviceSuite) TestRemoveRelationNoForceSuccess(c *gc.C) {
 
 	exp := s.state.EXPECT()
 	exp.RelationExists(gomock.Any(), rUUID.String()).Return(true, nil)
-	exp.RelationAdvanceLifeAndScheduleRemoval(gomock.Any(), gomock.Any(), rUUID.String(), false, when.UTC()).Return(nil)
+	exp.RelationAdvanceLife(gomock.Any(), rUUID.String()).Return(nil)
+	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), rUUID.String(), false, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveRelation(context.Background(), rUUID, false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -53,7 +54,8 @@ func (s *serviceSuite) TestRemoveRelationForceSuccess(c *gc.C) {
 
 	exp := s.state.EXPECT()
 	exp.RelationExists(gomock.Any(), rUUID.String()).Return(true, nil)
-	exp.RelationAdvanceLifeAndScheduleRemoval(gomock.Any(), gomock.Any(), rUUID.String(), true, when.UTC()).Return(nil)
+	exp.RelationAdvanceLife(gomock.Any(), rUUID.String()).Return(nil)
+	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), rUUID.String(), true, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveRelation(context.Background(), rUUID, true)
 	c.Assert(err, jc.ErrorIsNil)
