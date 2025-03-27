@@ -250,9 +250,6 @@ func setStatus(db Database, params setStatusParams) (err error) {
 	var buildTxn jujutxn.TransactionSource = func(int) ([]txn.Op, error) {
 		return statusSetOps(db, doc, params.globalKey)
 	}
-	if params.token != nil {
-		buildTxn = buildTxnWithLeadership(buildTxn, params.token)
-	}
 	err = db.Run(buildTxn)
 	if cause := errors.Cause(err); cause == mgo.ErrNotFound {
 		return errors.NotFoundf(params.badge)
