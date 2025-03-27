@@ -2,14 +2,6 @@
 Sometimes developers need to store some new entities in Juju DB. This document provides key points for adding a new
 collection to MongoDB.
 
-<!-- TOC -->
-* [Define a new collection in Juju DB](#define-a-new-collection-in-juju-db)
-* [Define a new entity collection structure](#define-a-new-entity-collection-structure)
-* [Develop an API to manipulate collection entities](#develop-an-api-to-manipulate-collection-entities)
-  * [Add a new doc](#add-a-new-doc)
-  * [Remove a new doc](#remove-a-new-doc)
-<!-- TOC -->
-
 # Define a new collection in Juju DB
 
 All collections are represented in the package `state`. This package enables reading, observing, and changing the state

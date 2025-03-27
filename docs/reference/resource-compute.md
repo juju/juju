@@ -6,5 +6,5 @@ In Juju, a **compute resource** refers to any {ref}`machine <machine>` or Kubern
 ```{toctree}
 :hidden:
 
-list-of-commands-available-on-a-compute-resource-provisioned-by-juju/index
+resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/index
 ```
