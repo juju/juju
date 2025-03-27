@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
@@ -17,6 +18,9 @@ import (
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
+	corestatus "github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
+	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -370,6 +374,7 @@ func (s *relationSuite) TestGetRegularRelationUUIDByEndpointIdentifiers(c *gc.C)
 	applicationEndpointUUID2 := "fake-application-endpoint-uuid-2"
 	relationEndpointUUID2 := "fake-relation-endpoint-uuid-2"
 	endpoint2 := internalrelation.Endpoint{
+
 		ApplicationName: s.fakeApplicationName2,
 		Relation: internalcharm.Relation{
 			Name:      "fake-endpoint-name-2",
@@ -576,12 +581,164 @@ func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiersNotFound(c *
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
+func (s *relationSuite) TestGetRelationsStatusForUnit(c *gc.C) {
+	// Arrange: Add a relation with two endpoints.
+	relationUUID := corerelationtesting.GenRelationUUID(c).String()
+	charmRelationUUID1 := "fake-charm-relation-uuid-1"
+	applicationEndpointUUID1 := "fake-application-endpoint-uuid-1"
+	relationEndpointUUID1 := "fake-relation-endpoint-uuid-1"
+	endpoint1 := internalrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: internalcharm.Relation{
+			Name:  "fake-endpoint-name-1",
+			Role:  internalcharm.RoleProvider,
+			Scope: internalcharm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID2 := "fake-charm-relation-uuid-2"
+	applicationEndpointUUID2 := "fake-application-endpoint-uuid-2"
+	relationEndpointUUID2 := "fake-relation-endpoint-uuid-2"
+	endpoint2 := internalrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: internalcharm.Relation{
+			Name:  "fake-endpoint-name-2",
+			Role:  internalcharm.RoleRequirer,
+			Scope: internalcharm.ScopeGlobal,
+		},
+	}
+	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID1, endpoint1.Relation)
+	s.addCharmRelation(c, s.fakeCharmUUID2, charmRelationUUID2, endpoint2.Relation)
+	s.addApplicationEndpoint(c, applicationEndpointUUID1, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, applicationEndpointUUID2, s.fakeApplicationUUID2, charmRelationUUID2)
+	s.addRelation(c, relationUUID)
+	s.addRelationEndpoint(c, relationEndpointUUID1, relationUUID, applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationEndpointUUID2, relationUUID, applicationEndpointUUID2)
+
+	// Arrange: Add a unit.
+	unitUUID := coreunittesting.GenUnitUUID(c).String()
+	s.addUnit(c, unitUUID, "unit-name", s.fakeApplicationUUID1)
+
+	// Arrange: Add unit to relation and set relation status.
+	relUnitUUID := corerelationtesting.GenRelationUnitUUID(c).String()
+	s.addRelationUnit(c, unitUUID, relationUUID, relUnitUUID, true)
+	s.addRelationStatus(c, relationUUID, corestatus.Suspended)
+
+	expectedResults := []relation.RelationUnitStatusResult{{
+		Endpoints: []internalrelation.Endpoint{endpoint1, endpoint2},
+		InScope:   true,
+		Suspended: true,
+	}}
+
+	// Act: Get relation status for unit.
+	results, err := s.state.GetRelationsStatusForUnit(context.Background(), coreunit.UUID(unitUUID))
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert): %v",
+		errors.ErrorStack(err)))
+	c.Check(results, gc.DeepEquals, expectedResults)
+}
+
+// TestGetRelationsStatusForUnit checks that GetRelationStatusesForUnit works
+// well with peer relations.
+func (s *relationSuite) TestGetRelationsStatusForUnitPeer(c *gc.C) {
+	// Arrange: Add two peer relations with one endpoint each.
+	relationUUID1 := corerelationtesting.GenRelationUUID(c).String()
+	charmRelationUUID1 := "fake-charm-relation-uuid-1"
+	applicationEndpointUUID1 := "fake-application-endpoint-uuid-1"
+	relationEndpointUUID1 := "fake-relation-endpoint-uuid-1"
+	endpoint1 := internalrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: internalcharm.Relation{
+			Name:  "fake-endpoint-name-1",
+			Role:  internalcharm.RolePeer,
+			Scope: internalcharm.ScopeGlobal,
+		},
+	}
+	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID1, endpoint1.Relation)
+	s.addApplicationEndpoint(c, applicationEndpointUUID1, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addRelation(c, relationUUID1)
+	s.addRelationEndpoint(c, relationEndpointUUID1, relationUUID1, applicationEndpointUUID1)
+
+	relationUUID2 := corerelationtesting.GenRelationUUID(c).String()
+	charmRelationUUID2 := "fake-charm-relation-uuid-2"
+	applicationEndpointUUID2 := "fake-application-endpoint-uuid-2"
+	relationEndpointUUID2 := "fake-relation-endpoint-uuid-2"
+	endpoint2 := internalrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: internalcharm.Relation{
+			Name:  "fake-endpoint-name-2",
+			Role:  internalcharm.RolePeer,
+			Scope: internalcharm.ScopeGlobal,
+		},
+	}
+	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID2, endpoint2.Relation)
+	s.addApplicationEndpoint(c, applicationEndpointUUID2, s.fakeApplicationUUID1, charmRelationUUID2)
+	s.addRelation(c, relationUUID2)
+	s.addRelationEndpoint(c, relationEndpointUUID2, relationUUID2, applicationEndpointUUID2)
+
+	// Arrange: Add a unit.
+	unitUUID := coreunittesting.GenUnitUUID(c).String()
+	s.addUnit(c, unitUUID, "unit-name", s.fakeApplicationUUID1)
+
+	// Arrange: Add unit to both the relation and set their status.
+	relUnitUUID1 := corerelationtesting.GenRelationUnitUUID(c).String()
+	s.addRelationUnit(c, unitUUID, relationUUID1, relUnitUUID1, true)
+	s.addRelationStatus(c, relationUUID1, corestatus.Suspended)
+	relUnitUUID2 := corerelationtesting.GenRelationUnitUUID(c).String()
+	s.addRelationUnit(c, unitUUID, relationUUID2, relUnitUUID2, false)
+	s.addRelationStatus(c, relationUUID2, corestatus.Joined)
+
+	expectedResults := []relation.RelationUnitStatusResult{{
+		Endpoints: []internalrelation.Endpoint{endpoint1},
+		InScope:   true,
+		Suspended: true,
+	}, {
+		Endpoints: []internalrelation.Endpoint{endpoint2},
+		InScope:   false,
+		Suspended: false,
+	}}
+
+	// Act: Get relation status for unit.
+	results, err := s.state.GetRelationsStatusForUnit(context.Background(), coreunit.UUID(unitUUID))
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert): %v",
+		errors.ErrorStack(err)))
+	c.Check(results, gc.DeepEquals, expectedResults)
+}
+
+// TestGetRelationStatusesForUnitEmptyResult checks that an empty slice is
+// returned when a unit is in no relations.
+func (s *relationSuite) TestGetRelationsStatusForUnitEmptyResult(c *gc.C) {
+	// Act: Get relation endpoints.
+	results, err := s.state.GetRelationsStatusForUnit(context.Background(), "fake-unit-uuid")
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("%v", errors.ErrorStack(err)))
+	c.Check(results, gc.HasLen, 0)
+}
+
 // addApplication adds a new application to the database with the specified UUID and name.
 func (s *relationSuite) addApplication(c *gc.C, charmUUID, appUUID, appName string) {
 	s.query(c, `
 INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) 
 VALUES (?, ?, ?, ?, ?)
 `, appUUID, appName, 0 /* alive */, charmUUID, network.AlphaSpaceId)
+}
+
+// addUnit adds a new unit to the specified application in the database with
+// the given UUID and name.
+func (s *relationSuite) addUnit(c *gc.C, unitUUID, unitName, appUUID string) {
+	fakeNetNodeUUID := "fake-net-node-uuid"
+	s.query(c, `
+INSERT INTO net_node (uuid) 
+VALUES (?)
+`, fakeNetNodeUUID)
+
+	s.query(c, `
+INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid)
+VALUES (?,?,?,?,?)
+`, unitUUID, unitName, 0 /* alive */, appUUID, fakeNetNodeUUID)
 }
 
 // addApplicationEndpoint inserts a new application endpoint into the database with the specified UUIDs and relation data.
@@ -628,6 +785,18 @@ func (s *relationSuite) encodeRoleID(role internalcharm.RelationRole) int {
 	}[role]
 }
 
+// encodeStatusID returns the ID used in the database for the given relation
+// status. This reflects the contents of the relation_status_type table.
+func (s *relationSuite) encodeStatusID(status corestatus.Status) int {
+	return map[corestatus.Status]int{
+		corestatus.Joining:    0,
+		corestatus.Joined:     1,
+		corestatus.Broken:     2,
+		corestatus.Suspending: 3,
+		corestatus.Suspended:  4,
+	}[status]
+}
+
 // encodeScopeID returns the ID used in the database for the given charm scope. This
 // reflects the contents of the charm_relation_scope table.
 func (s *relationSuite) encodeScopeID(role internalcharm.RelationScope) int {
@@ -660,6 +829,22 @@ func (s *relationSuite) addRelationEndpoint(c *gc.C, relationEndpointUUID string
 INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
 VALUES (?,?,?)
 `, relationEndpointUUID, relationUUID, applicationEndpointUUID)
+}
+
+// addRelationUnit inserts a relation unit into the database using the provided UUIDs for relation and unit.
+func (s *relationSuite) addRelationUnit(c *gc.C, unitUUID, relationUUID, relationUnitUUID string, inScope bool) {
+	s.query(c, `
+INSERT INTO relation_unit (uuid, relation_uuid, unit_uuid, in_scope)
+VALUES (?,?,?,?)
+`, relationUnitUUID, relationUUID, unitUUID, inScope)
+}
+
+// addRelationStatus inserts a relation status into the relation_status table.
+func (s *relationSuite) addRelationStatus(c *gc.C, relationUUID string, status corestatus.Status) {
+	s.query(c, `
+INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
+VALUES (?,?,?)
+`, relationUUID, s.encodeStatusID(status), time.Now())
 }
 
 // query executes a given SQL query with optional arguments within a transactional context using the test database.

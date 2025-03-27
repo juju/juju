@@ -187,4 +187,13 @@ SELECT
 FROM relation_endpoint AS re
 JOIN application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
 JOIN charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
-JOIN application AS a ON ae.application_uuid = a.uuid
+JOIN application AS a ON ae.application_uuid = a.uuid;
+
+CREATE VIEW v_relation_status AS
+SELECT
+    rs.relation_uuid,
+    rst.name AS status,
+    rs.suspended_reason,
+    rs.updated_at
+FROM relation_status AS rs
+JOIN relation_status_type AS rst ON rs.relation_status_type_id = rst.id
