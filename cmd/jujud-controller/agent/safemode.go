@@ -29,10 +29,10 @@ import (
 	"github.com/juju/juju/cmd/jujud-controller/agent/safemode"
 	cmdutil "github.com/juju/juju/cmd/jujud-controller/util"
 	"github.com/juju/juju/cmd/jujud/reboot"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/cmd"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/version"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/rpc/params"
@@ -291,7 +291,7 @@ func (a *SafeModeMachineAgent) ChangeConfig(mutate agent.ConfigMutator) error {
 }
 
 func (a *SafeModeMachineAgent) makeEngineCreator(
-	agentName string, previousAgentVersion version.Number,
+	agentName string, previousAgentVersion semversion.Number,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		eng, err := dependency.NewEngine(agentengine.DependencyEngineConfig(

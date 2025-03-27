@@ -41,6 +41,7 @@ import (
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -48,7 +49,6 @@ import (
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	jujustorage "github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -80,11 +80,11 @@ const (
 )
 
 var (
-	containerAgentPebbleVersion = version.MustParse("2.9.37")
-	profileDirVersion           = version.MustParse("3.5-beta1")
-	pebbleCopyOnceVersion       = version.MustParse("3.5-beta1")
-	pebbleIdentitiesVersion     = version.MustParse("3.6-beta2")
-	startupProbeVersion         = version.MustParse("3.6-beta3")
+	containerAgentPebbleVersion = semversion.MustParse("2.9.37")
+	profileDirVersion           = semversion.MustParse("3.5-beta1")
+	pebbleCopyOnceVersion       = semversion.MustParse("3.5-beta1")
+	pebbleIdentitiesVersion     = semversion.MustParse("3.6-beta2")
+	startupProbeVersion         = semversion.MustParse("3.6-beta3")
 )
 
 type app struct {
@@ -517,7 +517,7 @@ func (a *app) applyServiceAccountAndSecrets(applier resources.Applier, config ca
 }
 
 // Upgrade upgrades the app to the specified version.
-func (a *app) Upgrade(ver version.Number) error {
+func (a *app) Upgrade(ver semversion.Number) error {
 	// TODO(sidecar): Unify this with Ensure
 	applier := a.newApplier()
 
@@ -554,7 +554,7 @@ type annotationUpdater interface {
 	SetAnnotations(annotations map[string]string)
 }
 
-func (a *app) upgradeHeadlessService(applier resources.Applier, ver version.Number) error {
+func (a *app) upgradeHeadlessService(applier resources.Applier, ver semversion.Number) error {
 	r := resources.NewService(HeadlessServiceName(a.name), a.namespace, nil)
 	if err := r.Get(context.Background(), a.client); err != nil {
 		return errors.Trace(err)
@@ -564,7 +564,7 @@ func (a *app) upgradeHeadlessService(applier resources.Applier, ver version.Numb
 	return nil
 }
 
-func (a *app) upgradeMainResource(applier resources.Applier, ver version.Number) error {
+func (a *app) upgradeMainResource(applier resources.Applier, ver semversion.Number) error {
 	switch a.deploymentType {
 	case caas.DeploymentStateful:
 		if err := a.upgradeHeadlessService(applier, ver); err != nil {
@@ -1857,7 +1857,7 @@ func (a *app) annotations(config caas.ApplicationConfig) annotations.Annotation 
 		Merge(utils.AnnotationsForVersion(config.AgentVersion.String(), a.legacyLabels))
 }
 
-func (a *app) upgradeAnnotations(anns annotations.Annotation, ver version.Number) annotations.Annotation {
+func (a *app) upgradeAnnotations(anns annotations.Annotation, ver semversion.Number) annotations.Annotation {
 	return anns.Merge(utils.AnnotationsForVersion(ver.String(), a.legacyLabels))
 }
 
@@ -1925,8 +1925,11 @@ func (a *app) getStorageUniqPrefix(getMeta func() (annotationGetter, error)) (st
 }
 
 type handleVolumeFunc func(vol corev1.Volume, mountPath string, readOnly bool) (*corev1.VolumeMount, error)
+
 type handlePVCFunc func(pvc corev1.PersistentVolumeClaim, mountPath string, readOnly bool) (*corev1.VolumeMount, error)
+
 type handleVolumeMountFunc func(string, corev1.VolumeMount) error
+
 type handleStorageClassFunc func(storagev1.StorageClass) error
 
 func (a *app) volumeName(storageName string) string {

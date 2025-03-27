@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 )
 
 // EntityFinder is implemented by *State. See State.FindEntity
@@ -42,7 +42,7 @@ type Lifer interface {
 // that have associated agent tools.
 type AgentTooler interface {
 	AgentTools() (*tools.Tools, error)
-	SetAgentVersion(version.Binary) error
+	SetAgentVersion(semversion.Binary) error
 }
 
 // EnsureDeader with an EnsureDead method.

@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -51,7 +52,6 @@ import (
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/ssh"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 )
 
 const (
@@ -1451,7 +1451,7 @@ func (env *azureEnviron) deleteVirtualMachine(
 }
 
 // AdoptResources is part of the Environ interface.
-func (env *azureEnviron) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, _ version.Number) error {
+func (env *azureEnviron) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, _ semversion.Number) error {
 	resourceGroups, err := env.resourceGroupsClient()
 	if err != nil {
 		return errors.Trace(err)

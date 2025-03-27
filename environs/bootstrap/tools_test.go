@@ -14,6 +14,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -23,7 +24,6 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 )
 
 type toolsSuite struct {
@@ -91,12 +91,12 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 		return nil, nil
 	})
 
-	vers := version.MustParse("1.2.1")
-	devVers := version.MustParse("1.2-beta1")
+	vers := semversion.MustParse("1.2.1")
+	devVers := semversion.MustParse("1.2-beta1")
 	arm64 := "arm64"
 
 	type test struct {
-		version *version.Number
+		version *semversion.Number
 		arch    *string
 		base    *corebase.Base
 		dev     bool
@@ -205,7 +205,7 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 		}, nil
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
-	toolsVersion := version.MustParse("10.11.12")
+	toolsVersion := semversion.MustParse("10.11.12")
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	result, err := bootstrap.FindPackagedTools(context.Background(), env, ss, &toolsVersion, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -223,7 +223,7 @@ func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 
 	allTools := tools.List{
 		&tools.Tools{
-			Version: version.Binary{
+			Version: semversion.Binary{
 				Number:  jujuversion.Current,
 				Release: "ubuntu",
 				Arch:    arch.HostArch(),

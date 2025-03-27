@@ -17,9 +17,9 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -167,7 +167,7 @@ func (s *provisionerSuite) TestLifeCount(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
-	vers := version.MustParse("2.99.0")
+	vers := semversion.MustParse("2.99.0")
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
 		c.Check(objType, gc.Equals, "CAASApplicationProvisioner")
 		c.Check(id, gc.Equals, "")

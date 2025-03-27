@@ -8,9 +8,9 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/state_mock.go github.com/juju/juju/apiserver/facades/client/modelupgrader StatePool,State,Model,UpgradeService,ControllerConfigService,ModelAgentService
@@ -28,7 +28,7 @@ func (m *ModelUpgraderAPI) FindAgents(ctx context.Context, args common.FindAgent
 
 func (m *ModelUpgraderAPI) DecideVersion(
 	ctx context.Context,
-	currentVersion version.Number, args common.FindAgentsParams,
-) (_ version.Number, err error) {
+	currentVersion semversion.Number, args common.FindAgentsParams,
+) (_ semversion.Number, err error) {
 	return m.decideVersion(ctx, currentVersion, args)
 }

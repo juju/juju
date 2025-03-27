@@ -12,12 +12,12 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	internallogger "github.com/juju/juju/internal/logger"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 )
 
 var logger = internallogger.GetLogger("juju.environs.tools")
@@ -28,7 +28,7 @@ func makeToolsConstraint(ctx context.Context,
 ) (*ToolsConstraint, error) {
 
 	var toolsConstraint *ToolsConstraint
-	if filter.Number != version.Zero {
+	if filter.Number != semversion.Zero {
 		// A specific tools version is required, however, a general match based on major/minor
 		// version may also have been requested. This is used to ensure any agent version currently
 		// recorded in the environment matches the Juju cli version.
@@ -93,7 +93,7 @@ func FindTools(ctx context.Context, ss SimplestreamsFetcher, env environs.Bootst
 
 	// Construct a tools filter.
 	// Discard all that are known to be irrelevant.
-	if filter.Number != version.Zero {
+	if filter.Number != semversion.Zero {
 		logger.Debugf(ctx, "filtering agent binaries by version: %s", filter.Number)
 	}
 	if filter.OSType != "" {
@@ -122,7 +122,7 @@ func FindToolsForCloud(ctx context.Context, ss SimplestreamsFetcher,
 		list         coretools.List
 		noToolsCount int
 
-		seenBinary = make(map[version.Binary]bool)
+		seenBinary = make(map[semversion.Binary]bool)
 	)
 	for _, stream := range streams {
 		toolsConstraint, err := makeToolsConstraint(ctx, cloudSpec, stream, majorVersion, minorVersion, filter)
@@ -171,7 +171,7 @@ func FindToolsForCloud(ctx context.Context, ss SimplestreamsFetcher,
 }
 
 // FindExactTools returns only the tools that match the supplied version.
-func FindExactTools(ctx context.Context, ss SimplestreamsFetcher, env environs.Environ, vers version.Number, osType string, arch string) (_ *coretools.Tools, err error) {
+func FindExactTools(ctx context.Context, ss SimplestreamsFetcher, env environs.Environ, vers semversion.Number, osType string, arch string) (_ *coretools.Tools, err error) {
 	logger.Debugf(ctx, "finding exact version %s", vers)
 	// Construct a tools filter.
 	// Discard all that are known to be irrelevant.
@@ -231,7 +231,7 @@ var streamFallbacks = map[string][]string{
 // required, and any user specified stream. The streams are in
 // fallback order - if there are no matching tools in one stream the
 // next should be checked.
-func PreferredStreams(vers *version.Number, forceDevel bool, stream string) []string {
+func PreferredStreams(vers *semversion.Number, forceDevel bool, stream string) []string {
 	// If the use has already nominated a specific stream, we'll use that.
 	if stream != "" && stream != ReleasedStream {
 		if fallbacks, ok := streamFallbacks[stream]; ok {

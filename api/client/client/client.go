@@ -17,9 +17,9 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -128,7 +128,7 @@ func (c *Client) Close() error {
 
 // SetModelAgentVersion sets the model agent-version setting
 // to the given value.
-func (c *Client) SetModelAgentVersion(ctx context.Context, version version.Number, stream string, ignoreAgentVersions bool) error {
+func (c *Client) SetModelAgentVersion(ctx context.Context, version semversion.Number, stream string, ignoreAgentVersions bool) error {
 	args := params.SetModelAgentVersion{
 		Version:             version,
 		AgentStream:         stream,
@@ -138,7 +138,7 @@ func (c *Client) SetModelAgentVersion(ctx context.Context, version version.Numbe
 }
 
 // UploadTools uploads tools at the specified location to the API server over HTTPS.
-func (c *Client) UploadTools(ctx context.Context, r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (tools.List, error) {
+func (c *Client) UploadTools(ctx context.Context, r io.ReadSeeker, vers semversion.Binary, additionalSeries ...string) (tools.List, error) {
 	endpoint := fmt.Sprintf("/tools?binaryVersion=%s&series=%s", vers, strings.Join(additionalSeries, ","))
 	contentType := "application/x-tar-gz"
 	var resp params.ToolsResult

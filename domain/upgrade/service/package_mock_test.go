@@ -13,11 +13,11 @@ import (
 	context "context"
 	reflect "reflect"
 
+	semversion "github.com/juju/juju/core/semversion"
 	upgrade "github.com/juju/juju/core/upgrade"
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	upgrade0 "github.com/juju/juju/domain/upgrade"
-	version "github.com/juju/juju/internal/version"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -123,7 +123,7 @@ func (c *MockStateAllProvisionedControllersReadyCall) DoAndReturn(f func(context
 }
 
 // CreateUpgrade mocks base method.
-func (m *MockState) CreateUpgrade(arg0 context.Context, arg1, arg2 version.Number) (upgrade0.UUID, error) {
+func (m *MockState) CreateUpgrade(arg0 context.Context, arg1, arg2 semversion.Number) (upgrade0.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateUpgrade", arg0, arg1, arg2)
 	ret0, _ := ret[0].(upgrade0.UUID)
@@ -150,13 +150,13 @@ func (c *MockStateCreateUpgradeCall) Return(arg0 upgrade0.UUID, arg1 error) *Moc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCreateUpgradeCall) Do(f func(context.Context, version.Number, version.Number) (upgrade0.UUID, error)) *MockStateCreateUpgradeCall {
+func (c *MockStateCreateUpgradeCall) Do(f func(context.Context, semversion.Number, semversion.Number) (upgrade0.UUID, error)) *MockStateCreateUpgradeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCreateUpgradeCall) DoAndReturn(f func(context.Context, version.Number, version.Number) (upgrade0.UUID, error)) *MockStateCreateUpgradeCall {
+func (c *MockStateCreateUpgradeCall) DoAndReturn(f func(context.Context, semversion.Number, semversion.Number) (upgrade0.UUID, error)) *MockStateCreateUpgradeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

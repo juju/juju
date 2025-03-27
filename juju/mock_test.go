@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/version"
 )
 
 type mockAPIConnection struct {
@@ -73,8 +73,8 @@ func (s *mockAPIConnection) Close() error {
 	return nil
 }
 
-func (s *mockAPIConnection) ServerVersion() (version.Number, bool) {
-	return version.MustParse("1.2.3"), true
+func (s *mockAPIConnection) ServerVersion() (semversion.Number, bool) {
+	return semversion.MustParse("1.2.3"), true
 }
 
 func (s *mockAPIConnection) IPAddr() string {

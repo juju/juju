@@ -14,9 +14,9 @@ import (
 	"github.com/juju/juju/api/controller/caasmodeloperator"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/password"
-	"github.com/juju/juju/internal/version"
 )
 
 type ModelOperatorAPI interface {
@@ -189,7 +189,7 @@ func NewModelOperatorManager(
 func (m *ModelOperatorManager) updateAgentConf(
 	apiAddresses []string,
 	password string,
-	ver version.Number,
+	ver semversion.Number,
 ) (agent.ConfigSetterWriter, error) {
 	modelTag := names.NewModelTag(m.modelUUID)
 	conf, err := agent.NewAgentConfig(

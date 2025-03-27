@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -24,7 +25,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 	jujusecrets "github.com/juju/juju/internal/secrets/provider/juju"
 	kubernetessecrets "github.com/juju/juju/internal/secrets/provider/kubernetes"
-	"github.com/juju/juju/internal/version"
 )
 
 // ModelActivator describes a closure type that must be called after creating a
@@ -381,7 +381,7 @@ func (s *Service) ImportModel(
 	// If we are importing a model we need to know the agent version in use to
 	// make sure we have tools to support the model and it will work with this
 	// controller.
-	if args.AgentVersion == version.Zero {
+	if args.AgentVersion == semversion.Zero {
 		return nil, errors.Errorf(
 			"cannot import model with id %q, agent version cannot be zero: %w",
 			args.ID, modelerrors.AgentVersionNotSupported,

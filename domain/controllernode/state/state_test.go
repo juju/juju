@@ -14,10 +14,10 @@ import (
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	"github.com/juju/juju/internal/version"
 )
 
 type stateSuite struct {
@@ -149,7 +149,7 @@ func (s *stateSuite) TestSetRunningAgentBinaryVersionSuccess(c *gc.C) {
 
 	// Tests update running agent binary version.
 	updatedVer := coreagentbinary.Version{
-		Number: version.MustParse("1.2.3"),
+		Number: semversion.MustParse("1.2.3"),
 		Arch:   corearch.AMD64,
 	}
 	err = s.state.SetRunningAgentBinaryVersion(

@@ -36,10 +36,10 @@ func (*ImportTest) TestImports(c *gc.C) {
 		"core/logger",
 		"core/model",
 		"core/permission",
+		"core/semversion",
 		"core/status",
 		"core/user",
 		"internal/errors",
 		"internal/uuid",
-		"internal/version",
 	})
 }

@@ -11,10 +11,10 @@ import (
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -122,7 +122,7 @@ func (s *suite) TestCharmInfo(c *gc.C) {
 		Meta: &charm.Meta{
 			Name:           "dummy",
 			Description:    "cockroachdb",
-			MinJujuVersion: version.MustParse("2.9.0"),
+			MinJujuVersion: semversion.MustParse("2.9.0"),
 			Resources: map[string]resource.Meta{
 				"cockroachdb-image": {
 					Type:        resource.TypeContainerImage,
@@ -195,7 +195,7 @@ func (s *suite) TestApplicationCharmInfo(c *gc.C) {
 		URL:      "ch:foobar",
 		Meta: &charm.Meta{
 			Name:           "foobar",
-			MinJujuVersion: version.MustParse("2.9.0"),
+			MinJujuVersion: semversion.MustParse("2.9.0"),
 		},
 	}
 	c.Assert(got, gc.DeepEquals, want)

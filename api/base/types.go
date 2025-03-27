@@ -9,8 +9,8 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/version"
 )
 
 // UserModel holds information about a model and the last
@@ -78,7 +78,7 @@ type ModelInfo struct {
 	Status          Status
 	Users           []UserInfo
 	Machines        []Machine
-	AgentVersion    *version.Number
+	AgentVersion    *semversion.Number
 }
 
 // Status represents the status of a machine, application, or unit.
@@ -132,7 +132,7 @@ type UserModelSummary struct {
 	ModelUserAccess    string
 	UserLastConnection *time.Time
 	Counts             []EntityCount
-	AgentVersion       *version.Number
+	AgentVersion       *semversion.Number
 	Error              error
 	Migration          *MigrationSummary
 }

@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -31,7 +32,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 )
 
 // Import the database agnostic model representation into the database.
@@ -434,7 +434,7 @@ func (i *importer) makeTools(t description.AgentTools) (*tools.Tools, error) {
 	if t == nil {
 		return nil, nil
 	}
-	v, err := version.ParseBinary(t.Version())
+	v, err := semversion.ParseBinary(t.Version())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

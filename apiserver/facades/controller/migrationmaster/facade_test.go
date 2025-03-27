@@ -25,13 +25,13 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -202,7 +202,7 @@ func (s *Suite) TestModelInfo(c *gc.C) {
 	c.Check(mod.UUID, gc.Equals, "model-uuid")
 	c.Check(mod.Name, gc.Equals, "model-name")
 	c.Check(mod.OwnerTag, gc.Equals, names.NewUserTag("owner").String())
-	c.Check(mod.AgentVersion, gc.Equals, version.MustParse("1.2.3"))
+	c.Check(mod.AgentVersion, gc.Equals, semversion.MustParse("1.2.3"))
 
 	bytes, err := description.Serialize(modelDescription)
 	c.Assert(err, jc.ErrorIsNil)
@@ -322,7 +322,7 @@ func (s *Suite) TestPrechecksModelError(c *gc.C) {
 
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{}, errors.New("boom"))
 
-	err := s.mustMakeAPI(c).Prechecks(context.Background(), params.PrechecksArgs{TargetControllerVersion: version.MustParse("2.9.32")})
+	err := s.mustMakeAPI(c).Prechecks(context.Background(), params.PrechecksArgs{TargetControllerVersion: semversion.MustParse("2.9.32")})
 	c.Assert(err, gc.ErrorMatches, "retrieving model info: boom")
 }
 

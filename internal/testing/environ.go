@@ -14,12 +14,12 @@ import (
 	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/version"
 )
 
 // FakeAuthKeys holds the authorized key used for testing
@@ -46,7 +46,7 @@ var (
 )
 
 // FakeVersionNumber is a valid version number that can be used in testing.
-var FakeVersionNumber = version.MustParse("2.99.0")
+var FakeVersionNumber = semversion.MustParse("2.99.0")
 
 // ModelTag is a defined known valid UUID that can be used in testing.
 var ModelTag = names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")

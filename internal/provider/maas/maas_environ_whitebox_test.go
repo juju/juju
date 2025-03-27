@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -36,7 +37,6 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/version"
 	jujutesting "github.com/juju/juju/juju/testing"
 )
 
@@ -2552,7 +2552,7 @@ func (suite *maasEnvironSuite) TestDestroy(c *gc.C) {
 
 func (suite *maasEnvironSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	env := suite.makeEnviron(c, newFakeController())
-	vers := version.MustParse("1.2.3")
+	vers := semversion.MustParse("1.2.3")
 	err := bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
@@ -2742,7 +2742,7 @@ func (suite *maasEnvironSuite) TestAdoptResources(c *gc.C) {
 	controller.machines = append(controller.machines, machine1, machine3)
 	env := suite.makeEnviron(c, controller)
 
-	err := env.AdoptResources(suite.callCtx, "some-other-controller", version.MustParse("1.2.3"))
+	err := env.AdoptResources(suite.callCtx, "some-other-controller", semversion.MustParse("1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine1.CheckCallNames(c, "SetOwnerData")
@@ -2765,7 +2765,7 @@ func (suite *maasEnvironSuite) TestAdoptResourcesError(c *gc.C) {
 
 	machine1.SetErrors(errors.New("blorp"))
 
-	err := env.AdoptResources(suite.callCtx, "some-other-controller", version.MustParse("3.2.1"))
+	err := env.AdoptResources(suite.callCtx, "some-other-controller", semversion.MustParse("3.2.1"))
 	c.Assert(err, gc.ErrorMatches, `failed to update controller for some instances: \[evil-death-roll\]`)
 
 	machine1.CheckCallNames(c, "SetOwnerData")

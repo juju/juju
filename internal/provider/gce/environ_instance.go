@@ -11,12 +11,12 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/provider/gce/google"
-	"github.com/juju/juju/internal/version"
 )
 
 // instStatus is the list of statuses to accept when filtering
@@ -133,7 +133,7 @@ func (env *environ) ControllerInstances(ctx envcontext.ProviderCallContext, cont
 }
 
 // AdoptResources is part of the Environ interface.
-func (env *environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+func (env *environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion semversion.Number) error {
 	instances, err := env.AllInstances(ctx)
 	if err != nil {
 		return errors.Annotate(err, "all instances")

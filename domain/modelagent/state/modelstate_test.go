@@ -11,12 +11,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	"github.com/juju/juju/internal/version"
 )
 
 type modelStateSuite struct {
@@ -48,7 +48,7 @@ func (s *modelStateSuite) TestCheckUnitDoesNotExist(c *gc.C) {
 // TestGetModelAgentVersionSuccess tests that State.GetModelAgentVersion is
 // correct in the expected case when the model exists.
 func (s *modelStateSuite) TestGetModelAgentVersionSuccess(c *gc.C) {
-	expectedVersion, err := version.Parse("4.21.54")
+	expectedVersion, err := semversion.Parse("4.21.54")
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())

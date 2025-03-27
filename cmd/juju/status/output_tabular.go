@@ -24,11 +24,11 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/hooks"
-	"github.com/juju/juju/internal/version"
 )
 
 const (
@@ -77,7 +77,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	versionPos := indexOf("Version", header)
 	w.Print(values[:versionPos]...)
 	if fs.Model.Version != "" {
-		modelVersionNum, err := version.Parse(fs.Model.Version)
+		modelVersionNum, err := semversion.Parse(fs.Model.Version)
 		if err == nil && jujuversion.Current.Compare(modelVersionNum) > 0 {
 			w.PrintColor(output.WarningHighlight, fs.Model.Version)
 		} else {

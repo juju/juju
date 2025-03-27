@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/semversion"
 	corestorage "github.com/juju/juju/core/storage"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/modeldefaults"
@@ -30,7 +31,6 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/state"
 )
 
@@ -270,7 +270,7 @@ type ToolsDownloader interface {
 // ToolsUploader defines a single method that is used to upload tools
 // to the target controller in a migration.
 type ToolsUploader interface {
-	UploadTools(context.Context, io.Reader, version.Binary) (tools.List, error)
+	UploadTools(context.Context, io.Reader, semversion.Binary) (tools.List, error)
 }
 
 // ResourceDownloader defines the interface for downloading resources
@@ -293,7 +293,7 @@ type UploadBinariesConfig struct {
 	CharmService  CharmService
 	CharmUploader CharmUploader
 
-	Tools           map[version.Binary]string
+	Tools           map[semversion.Binary]string
 	ToolsDownloader ToolsDownloader
 	ToolsUploader   ToolsUploader
 

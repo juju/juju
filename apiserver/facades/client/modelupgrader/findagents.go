@@ -13,12 +13,12 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/semversion"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/featureflag"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/state"
 )
 
@@ -26,26 +26,26 @@ var errUpToDate = errors.AlreadyExistsf("no upgrades available")
 
 func (m *ModelUpgraderAPI) decideVersion(
 	ctx context.Context,
-	currentVersion version.Number, args common.FindAgentsParams,
-) (_ version.Number, err error) {
+	currentVersion semversion.Number, args common.FindAgentsParams,
+) (_ semversion.Number, err error) {
 
 	// Short circuit expensive agent look up if we are already up-to-date.
-	if args.Number != version.Zero && args.Number.Compare(currentVersion.ToPatch()) <= 0 {
-		return version.Zero, errUpToDate
+	if args.Number != semversion.Zero && args.Number.Compare(currentVersion.ToPatch()) <= 0 {
+		return semversion.Zero, errUpToDate
 	}
 
 	streamVersions, err := m.findAgents(ctx, args)
 	if err != nil {
-		return version.Zero, errors.Trace(err)
+		return semversion.Zero, errors.Trace(err)
 	}
-	if args.Number != version.Zero {
+	if args.Number != semversion.Zero {
 		// Not completely specified already, so pick a single agent version.
 		filter := coretools.Filter{Number: args.Number}
 		packagedAgents, err := streamVersions.Match(filter)
 		if err != nil {
-			return version.Zero, errors.Wrap(err, errors.NotFoundf("no matching agent versions available"))
+			return semversion.Zero, errors.Wrap(err, errors.NotFoundf("no matching agent versions available"))
 		}
-		var targetVersion version.Number
+		var targetVersion semversion.Number
 		targetVersion, packagedAgents = packagedAgents.Newest()
 		m.logger.Debugf(context.TODO(), "target version %q is the best version, packagedAgents %v", targetVersion, packagedAgents)
 		return targetVersion, nil
@@ -60,7 +60,7 @@ func (m *ModelUpgraderAPI) decideVersion(
 	newestCurrent, found := streamVersions.NewestCompatible(currentVersion, allowDevBuilds)
 	if found {
 		if newestCurrent.Compare(currentVersion) == 0 {
-			return version.Zero, errUpToDate
+			return semversion.Zero, errUpToDate
 		}
 		if newestCurrent.Compare(currentVersion) > 0 {
 			m.logger.Debugf(context.TODO(), "found more recent agent version %s", newestCurrent)
@@ -69,7 +69,7 @@ func (m *ModelUpgraderAPI) decideVersion(
 	}
 
 	// no available tool found, CLI could upload the local build and it's allowed.
-	return version.Zero, errors.NewNotFound(nil, "available agent binary, upload required")
+	return semversion.Zero, errors.NewNotFound(nil, "available agent binary, upload required")
 }
 
 func (m *ModelUpgraderAPI) findAgents(
@@ -141,7 +141,7 @@ func (m *ModelUpgraderAPI) agentVersionsForCAAS(
 				continue
 			}
 		}
-		if args.Number != version.Zero && args.Number.Compare(number) != 0 {
+		if args.Number != semversion.Zero && args.Number.Compare(number) != 0 {
 			continue
 		}
 		if !args.ControllerCfg.Features().Contains(featureflag.DeveloperMode) && streamsVersions.Size() > 0 {
@@ -166,7 +166,7 @@ func (m *ModelUpgraderAPI) agentVersionsForCAAS(
 			continue
 		}
 		tools := coretools.Tools{
-			Version: version.Binary{
+			Version: semversion.Binary{
 				Number:  number,
 				Release: coreos.HostOSTypeName(),
 				Arch:    wantArch,

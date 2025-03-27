@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 )
 
 type ListSuite struct{}
@@ -19,7 +19,7 @@ var _ = gc.Suite(&ListSuite{})
 
 func mustParseTools(name string) *tools.Tools {
 	return &tools.Tools{
-		Version: version.MustParseBinary(name),
+		Version: semversion.MustParseBinary(name),
 		URL:     "http://testing.invalid/" + name,
 	}
 }
@@ -120,7 +120,7 @@ func (s *ListSuite) TestOneArch(c *gc.C) {
 
 func (s *ListSuite) TestURLs(c *gc.C) {
 	empty := tools.List{}
-	c.Check(empty.URLs(), gc.DeepEquals, map[version.Binary][]string{})
+	c.Check(empty.URLs(), gc.DeepEquals, map[semversion.Binary][]string{})
 
 	alt := *t100centos
 	alt.URL = strings.Replace(alt.URL, "testing.invalid", "testing.invalid2", 1)
@@ -131,7 +131,7 @@ func (s *ListSuite) TestURLs(c *gc.C) {
 		&alt,
 		t2001ubuntu,
 	}
-	c.Check(full.URLs(), gc.DeepEquals, map[version.Binary][]string{
+	c.Check(full.URLs(), gc.DeepEquals, map[semversion.Binary][]string{
 		t100ubuntu.Version:  {t100ubuntu.URL},
 		t100centos.Version:  {t100centos.URL, alt.URL},
 		t190centos.Version:  {t190centos.URL},
@@ -142,27 +142,27 @@ func (s *ListSuite) TestURLs(c *gc.C) {
 var newestTests = []struct {
 	src    tools.List
 	expect tools.List
-	number version.Number
+	number semversion.Number
 }{{
 	src:    nil,
 	expect: nil,
-	number: version.Zero,
+	number: semversion.Zero,
 }, {
 	src:    tools.List{t100ubuntu},
 	expect: tools.List{t100ubuntu},
-	number: version.MustParse("1.0.0"),
+	number: semversion.MustParse("1.0.0"),
 }, {
 	src:    t100all,
 	expect: t100all,
-	number: version.MustParse("1.0.0"),
+	number: semversion.MustParse("1.0.0"),
 }, {
 	src:    extend(t100all, t190all, t200all),
 	expect: t200all,
-	number: version.MustParse("2.0.0"),
+	number: semversion.MustParse("2.0.0"),
 }, {
 	src:    tAllBefore210,
 	expect: tools.List{t2001ubuntu},
-	number: version.MustParse("2.0.0.1"),
+	number: semversion.MustParse("2.0.0.1"),
 }}
 
 func (s *ListSuite) TestNewest(c *gc.C) {
@@ -194,51 +194,51 @@ func (s *ListSuite) TestNewestVersions(c *gc.C) {
 
 var newestCompatibleTests = []struct {
 	src            tools.List
-	base           version.Number
-	expect         version.Number
+	base           semversion.Number
+	expect         semversion.Number
 	allowDevBuilds bool
 	found          bool
 }{{
 	src:    nil,
-	base:   version.Zero,
-	expect: version.Zero,
+	base:   semversion.Zero,
+	expect: semversion.Zero,
 	found:  false,
 }, {
 	src:    tools.List{t100ubuntu},
-	base:   version.Zero,
-	expect: version.Zero,
+	base:   semversion.Zero,
+	expect: semversion.Zero,
 	found:  false,
 }, {
 	src:    t100all,
-	base:   version.MustParse("1.0.0"),
-	expect: version.MustParse("1.0.0"),
+	base:   semversion.MustParse("1.0.0"),
+	expect: semversion.MustParse("1.0.0"),
 	found:  true,
 }, {
 	src:            tAllBefore210,
-	base:           version.MustParse("2.0.0"),
-	expect:         version.MustParse("2.0.0.1"),
+	base:           semversion.MustParse("2.0.0"),
+	expect:         semversion.MustParse("2.0.0.1"),
 	allowDevBuilds: true,
 	found:          true,
 }, {
 	src:    tAllBefore210,
-	base:   version.MustParse("1.9.0"),
-	expect: version.MustParse("1.9.0"),
+	base:   semversion.MustParse("1.9.0"),
+	expect: semversion.MustParse("1.9.0"),
 	found:  true,
 }, {
 	src:            t210all,
-	base:           version.MustParse("2.1.1"),
-	expect:         version.MustParse("2.1.5.2"),
+	base:           semversion.MustParse("2.1.1"),
+	expect:         semversion.MustParse("2.1.5.2"),
 	allowDevBuilds: true,
 	found:          true,
 }, {
 	src:    t210all,
-	base:   version.MustParse("2.1.1"),
-	expect: version.MustParse("2.1.5"),
+	base:   semversion.MustParse("2.1.1"),
+	expect: semversion.MustParse("2.1.5"),
 	found:  true,
 }, {
 	src:    t210all,
-	base:   version.MustParse("2.0.0"),
-	expect: version.MustParse("2.0.0"),
+	base:   semversion.MustParse("2.0.0"),
+	expect: semversion.MustParse("2.0.0"),
 	found:  false,
 }}
 
@@ -310,11 +310,11 @@ var matchTests = []struct {
 	tAllBefore210,
 }, {
 	tAllBefore210,
-	tools.Filter{Number: version.MustParse("1.9.0")},
+	tools.Filter{Number: semversion.MustParse("1.9.0")},
 	t190all,
 }, {
 	tAllBefore210,
-	tools.Filter{Number: version.MustParse("1.9.0.1")},
+	tools.Filter{Number: semversion.MustParse("1.9.0.1")},
 	nil,
 }, {
 	tAllBefore210,
@@ -335,7 +335,7 @@ var matchTests = []struct {
 }, {
 	tAllBefore210,
 	tools.Filter{
-		Number: version.MustParse("2.0.0"),
+		Number: semversion.MustParse("2.0.0"),
 		OSType: "centos",
 		Arch:   "i386",
 	},

@@ -11,8 +11,8 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/output"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/internal/version"
 )
 
 const (
@@ -79,7 +79,7 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh
 		if agentVersion == "" {
 			agentVersion = notKnownDisplay
 		} else {
-			agentVersionNum, err := version.Parse(agentVersion)
+			agentVersionNum, err := semversion.Parse(agentVersion)
 			staleVersion = err == nil && jujuversion.Current.Compare(agentVersionNum) > 0
 		}
 		machineCount := noValueDisplay

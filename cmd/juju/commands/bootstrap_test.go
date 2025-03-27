@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/model"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -53,7 +54,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -140,7 +140,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 	// NOTE(axw) we cannot patch BundleTools here, as the "gc.C" argument
 	// is invalidated once this method returns.
-	s.PatchValue(&envtools.BundleTools, func(bool, io.Writer, func(version.Number) version.Number) (version.Binary, version.Number, bool, string, error) {
+	s.PatchValue(&envtools.BundleTools, func(bool, io.Writer, func(semversion.Number) semversion.Number) (semversion.Binary, semversion.Number, bool, string, error) {
 		panic("tests must call setupAutoUploadTest or otherwise patch envtools.BundleTools")
 	})
 
@@ -226,12 +226,12 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	}
 	bootstrapVersion := v100u64
 	if test.version != "" {
-		bootstrapVersion = version.MustParseBinary(test.version)
+		bootstrapVersion = semversion.MustParseBinary(test.version)
 		restore = restore.Add(testing.PatchValue(&jujuversion.Current, bootstrapVersion.Number))
 		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return bootstrapVersion.Arch }))
 		bootstrapVersion.Build = 1
 		if test.upload != "" {
-			uploadVers := version.MustParseBinary(test.upload)
+			uploadVers := semversion.MustParseBinary(test.upload)
 			bootstrapVersion.Number = uploadVers.Number
 		}
 		restore = restore.Add(testing.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(bootstrapVersion.Number)))
@@ -303,7 +303,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Assert(utils.IsValidUUIDString(controller.ControllerUUID), jc.IsTrue)
 	// We don't care about build numbers here.
 	bootstrapVers := bootstrapVersion.Number.ToPatch()
-	controllerVers := version.MustParse(controller.AgentVersion).ToPatch()
+	controllerVers := semversion.MustParse(controller.AgentVersion).ToPatch()
 	c.Assert(controllerVers.String(), gc.Equals, bootstrapVers.String())
 
 	controllerModel, err := s.store.ModelByName(controllerName, "admin/controller")
@@ -1037,10 +1037,10 @@ func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
-	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.0"))
+	s.PatchValue(&jujuversion.Current, semversion.MustParse("1.2.0"))
 	s.PatchValue(&envtools.BundleTools,
-		func(bool, io.Writer, func(localBinaryVersion version.Number) version.Number) (version.Binary, version.Number, bool, string, error) {
-			return version.Binary{}, version.Number{}, false, "", errors.New("no agent binaries for you")
+		func(bool, io.Writer, func(localBinaryVersion semversion.Number) semversion.Number) (semversion.Binary, semversion.Number, bool, string, error) {
+			return semversion.Binary{}, semversion.Number{}, false, "", errors.New("no agent binaries for you")
 		},
 	)
 	s.PatchValue(&envtools.DefaultBaseURL, c.MkDir())
@@ -1151,7 +1151,7 @@ func (s *BootstrapSuite) checkBootstrapWithVersion(c *gc.C, vers, expect string)
 	)
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(bootstrapFuncs.args.AgentVersion, gc.NotNil)
-	c.Assert(*bootstrapFuncs.args.AgentVersion, gc.Equals, version.MustParse(expect))
+	c.Assert(*bootstrapFuncs.args.AgentVersion, gc.Equals, semversion.MustParse(expect))
 }
 
 func (s *BootstrapSuite) TestBootstrapWithVersionNumber(c *gc.C) {
@@ -1182,7 +1182,7 @@ func (s *BootstrapSuite) checkBootstrapBaseWithVersion(c *gc.C, vers, expect str
 	)
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(bootstrapFuncs.args.AgentVersion, gc.NotNil)
-	c.Assert(*bootstrapFuncs.args.AgentVersion, gc.Equals, version.MustParse(expect))
+	c.Assert(*bootstrapFuncs.args.AgentVersion, gc.Equals, semversion.MustParse(expect))
 }
 
 func (s *BootstrapSuite) TestBootstrapBaseWithVersionNumber(c *gc.C) {
@@ -1211,7 +1211,7 @@ func (s *BootstrapSuite) TestBootstrapWithAutoUpgrade(c *gc.C) {
 
 func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	sourceDir := createToolsSource(c, vAll)
-	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.0"))
+	s.PatchValue(&jujuversion.Current, semversion.MustParse("1.2.0"))
 	resetJujuXDGDataHome(c)
 
 	// Bootstrap the controller with the valid source.
@@ -1272,7 +1272,7 @@ my-dummy-cloud
 }
 
 func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
-	patchedVersion := version.MustParse(vers)
+	patchedVersion := semversion.MustParse(vers)
 	patchedVersion.Build = 1
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(patchedVersion))
 	sourceDir := createToolsSource(c, vAll)
@@ -1282,7 +1282,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
 	// the version and ensure their later restoring.
 	// Set the current version to be something for which there are no tools
 	// so we can test that an upload is forced.
-	s.PatchValue(&jujuversion.Current, version.MustParse(vers))
+	s.PatchValue(&jujuversion.Current, semversion.MustParse(vers))
 
 	// Create home with dummy provider and remove all
 	// of its envtools.
@@ -1327,7 +1327,7 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 
 func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	buildAgentTarballAlwaysFails := func(
-		bool, string, func(version.Number) version.Number,
+		bool, string, func(semversion.Number) semversion.Number,
 	) (*sync.BuiltAgent, error) {
 		return nil, errors.New("an error")
 	}
@@ -2176,7 +2176,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
 
 // createToolsSource writes the mock tools and metadata into a temporary
 // directory and returns it.
-func createToolsSource(c *gc.C, versions []version.Binary) string {
+func createToolsSource(c *gc.C, versions []semversion.Binary) string {
 	versionStrings := make([]string, len(versions))
 	for i, vers := range versions {
 		versionStrings[i] = vers.String()
@@ -2229,7 +2229,7 @@ clouds:
 }
 
 // checkTools check if the environment contains the passed envtools.
-func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
+func checkTools(c *gc.C, env environs.Environ, expected []semversion.Binary) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	list, err := envtools.FindTools(context.Background(), ss,
 		env, jujuversion.Current.Major, jujuversion.Current.Minor, []string{"released"}, coretools.Filter{})
@@ -2240,23 +2240,23 @@ func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
 }
 
 var (
-	v100u64 = version.MustParseBinary("1.0.0-ubuntu-amd64")
-	v120u64 = version.MustParseBinary("1.2.0-ubuntu-amd64")
-	v200u64 = version.MustParseBinary("2.0.0-ubuntu-amd64")
-	v100All = []version.Binary{
+	v100u64 = semversion.MustParseBinary("1.0.0-ubuntu-amd64")
+	v120u64 = semversion.MustParseBinary("1.2.0-ubuntu-amd64")
+	v200u64 = semversion.MustParseBinary("2.0.0-ubuntu-amd64")
+	v100All = []semversion.Binary{
 		v100u64,
 	}
-	v120All = []version.Binary{
+	v120All = []semversion.Binary{
 		v120u64,
 	}
-	v200All = []version.Binary{
+	v200All = []semversion.Binary{
 		v200u64,
 	}
 	vAll = joinBinaryVersions(v100All, v120All, v200All)
 )
 
-func joinBinaryVersions(versions ...[]version.Binary) []version.Binary {
-	var all []version.Binary
+func joinBinaryVersions(versions ...[]semversion.Binary) []semversion.Binary {
+	var all []semversion.Binary
 	for _, versions := range versions {
 		all = append(all, versions...)
 	}

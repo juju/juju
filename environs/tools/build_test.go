@@ -23,9 +23,9 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju/names"
 )
 
@@ -139,8 +139,8 @@ func (b *buildSuite) TestArchiveAndSHA256(c *gc.C) {
 }
 
 func (b *buildSuite) TestGetVersionFromJujud(c *gc.C) {
-	ver := version.Binary{
-		Number: version.Number{
+	ver := semversion.Binary{
+		Number: semversion.Number{
 			Major: 1,
 			Minor: 2,
 			Tag:   "beta",
@@ -280,11 +280,11 @@ func (b *buildSuite) TestBundleToolsMatchesBinaryUsingOsTypeArch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	resultVersion, forceVersion, official, _, err := tools.BundleTools(false, bundleFile,
-		func(localBinaryVersion version.Number) version.Number { return version.MustParse("1.2.3.1") },
+		func(localBinaryVersion semversion.Number) semversion.Number { return semversion.MustParse("1.2.3.1") },
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resultVersion.String(), gc.Equals, fmt.Sprintf("1.2.3-%s-%s", thisHost, thisArch))
-	c.Assert(forceVersion, gc.Equals, version.MustParse("1.2.3.1"))
+	c.Assert(forceVersion, gc.Equals, semversion.MustParse("1.2.3.1"))
 	c.Assert(official, jc.IsFalse)
 }
 
@@ -305,11 +305,11 @@ func (b *buildSuite) TestBundleToolsWithNoVersionFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	resultVersion, forceVersion, official, sha, err := tools.BundleTools(false, bundleFile,
-		func(localBinaryVersion version.Number) version.Number { return version.MustParse("1.2.3.1") },
+		func(localBinaryVersion semversion.Number) semversion.Number { return semversion.MustParse("1.2.3.1") },
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resultVersion.String(), gc.Equals, "1.2.3-ubuntu-amd64")
-	c.Assert(forceVersion, gc.Equals, version.MustParse("1.2.3.1"))
+	c.Assert(forceVersion, gc.Equals, semversion.MustParse("1.2.3.1"))
 	c.Assert(sha, gc.Not(gc.Equals), "")
 	c.Assert(official, jc.IsFalse)
 }
@@ -320,14 +320,14 @@ func (b *buildSuite) TestBundleToolsFailForOfficialBuildWithBuildAgent(c *gc.C) 
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	jujudVersion := func(dir string) (version.Binary, bool, error) {
-		return version.Binary{}, true, nil
+	jujudVersion := func(dir string) (semversion.Binary, bool, error) {
+		return semversion.Binary{}, true, nil
 	}
 
 	_, _, official, _, err := tools.BundleToolsForTest(
 		context.Background(),
 		true, bundleFile,
-		func(localBinaryVersion version.Number) version.Number { return version.MustParse("1.2.3.1") },
+		func(localBinaryVersion semversion.Number) semversion.Number { return semversion.MustParse("1.2.3.1") },
 		jujudVersion)
 	c.Assert(err, gc.ErrorMatches, `cannot build agent for official build`)
 	c.Assert(official, jc.IsTrue)
@@ -339,17 +339,17 @@ func (b *buildSuite) TestBundleToolsWriteForceVersionFileForOfficial(c *gc.C) {
 	bundleFile, err := os.Create(filepath.Join(dir, "bundle"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	jujudVersion := func(dir string) (version.Binary, bool, error) {
-		return version.Binary{}, true, nil
+	jujudVersion := func(dir string) (semversion.Binary, bool, error) {
+		return semversion.Binary{}, true, nil
 	}
 
 	_, forceVersion, official, _, err := tools.BundleToolsForTest(
 		context.Background(),
 		false, bundleFile,
-		func(localBinaryVersion version.Number) version.Number { return version.MustParse("1.2.3.1") },
+		func(localBinaryVersion semversion.Number) semversion.Number { return semversion.MustParse("1.2.3.1") },
 		jujudVersion)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(forceVersion, gc.Equals, version.MustParse("1.2.3.1"))
+	c.Assert(forceVersion, gc.Equals, semversion.MustParse("1.2.3.1"))
 	c.Assert(official, jc.IsTrue)
 
 	bundleFile, err = os.Open(bundleFile.Name())
@@ -388,8 +388,8 @@ func (b *buildSuite) patchExecCommand(c *gc.C, release, arch string) {
 	if arch == "" {
 		arch = "amd64"
 	}
-	ver := version.Binary{
-		Number: version.Number{
+	ver := semversion.Binary{
+		Number: semversion.Number{
 			Major: 1,
 			Minor: 2,
 			Patch: 3,

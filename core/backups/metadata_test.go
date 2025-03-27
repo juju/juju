@@ -14,8 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/backups"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/version"
 )
 
 type metadataSuite struct {
@@ -55,7 +55,7 @@ func (s *metadataSuite) createTestMetadata(c *gc.C) *backups.Metadata {
 		Model:    "asdf-zxcv-qwe",
 		Machine:  "0",
 		Hostname: "myhost",
-		Version:  version.MustParse("1.21-alpha3"),
+		Version:  semversion.MustParse("1.21-alpha3"),
 		Base:     "ubuntu@22.04",
 	}
 	meta.Started = time.Date(2014, time.Month(9), 9, 11, 59, 34, 0, time.UTC)

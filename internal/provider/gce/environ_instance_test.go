@@ -10,12 +10,12 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/provider/gce"
 	"github.com/juju/juju/internal/provider/gce/google"
-	"github.com/juju/juju/internal/version"
 )
 
 type environInstSuite struct {
@@ -235,7 +235,7 @@ func (s *environInstSuite) TestAdoptResources(c *gc.C) {
 	misty := s.NewInstance(c, "misty")
 	s.FakeEnviron.Insts = []instances.Instance{john, misty}
 
-	err := s.Env.AdoptResources(s.CallCtx, "other-uuid", version.MustParse("1.2.3"))
+	err := s.Env.AdoptResources(s.CallCtx, "other-uuid", semversion.MustParse("1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.FakeConn.Calls, gc.HasLen, 1)
 	call := s.FakeConn.Calls[0]
@@ -252,7 +252,7 @@ func (s *environInstSuite) TestAdoptResourcesInvalidCredentialError(c *gc.C) {
 	misty := s.NewInstance(c, "misty")
 	s.FakeEnviron.Insts = []instances.Instance{john, misty}
 
-	err := s.Env.AdoptResources(s.CallCtx, "other-uuid", version.MustParse("1.2.3"))
+	err := s.Env.AdoptResources(s.CallCtx, "other-uuid", semversion.MustParse("1.2.3"))
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }

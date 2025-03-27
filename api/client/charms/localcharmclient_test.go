@@ -17,10 +17,10 @@ import (
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/api/http/mocks"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testcharms"
 )
@@ -59,7 +59,7 @@ func (s *addCharmSuite) TestAddLocalCharm(c *gc.C) {
 
 	putter := charms.NewS3PutterWithHTTPClient(reqClient)
 	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil, putter)
-	vers := version.MustParse("2.6.6")
+	vers := semversion.MustParse("2.6.6")
 	// Test the sanity checks first.
 	_, err := client.AddLocalCharm(charm.MustParseURL("ch:wordpress-1"), nil, false, vers)
 	c.Assert(err, gc.ErrorMatches, `expected charm URL with local: schema, got "ch:wordpress-1"`)
@@ -131,7 +131,7 @@ func (s *addCharmSuite) TestAddLocalCharmWithLXDProfile(c *gc.C) {
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 
-	vers := version.MustParse("2.6.6")
+	vers := semversion.MustParse("2.6.6")
 	savedURL, err := client.AddLocalCharm(curl, charmArchive, false, vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.String(), gc.Equals, "local:quantal/lxd-profile-0")
@@ -155,7 +155,7 @@ func (s *addCharmSuite) TestAddLocalCharmWithInvalidLXDProfile(c *gc.C) {
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 
-	vers := version.MustParse("2.6.6")
+	vers := semversion.MustParse("2.6.6")
 	_, err := client.AddLocalCharm(curl, charmArchive, false, vers)
 	c.Assert(err, gc.ErrorMatches, "invalid lxd-profile.yaml: contains device type \"unix-disk\"")
 }
@@ -201,7 +201,7 @@ func (s *addCharmSuite) testAddLocalCharmWithForceSucceeds(name string, c *gc.C)
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 
-	vers := version.MustParse("2.6.6")
+	vers := semversion.MustParse("2.6.6")
 	savedURL, err := client.AddLocalCharm(curl, charmArchive, false, vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.String(), gc.Equals, "local:quantal/lxd-profile-0")
@@ -222,7 +222,7 @@ func (s *addCharmSuite) assertAddLocalCharmFailed(c *gc.C, f func(string) (bool,
 	}
 	putter := charms.NewS3PutterWithHTTPClient(reqClient)
 	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil, putter)
-	vers := version.MustParse("2.6.6")
+	vers := semversion.MustParse("2.6.6")
 	_, err := client.AddLocalCharm(curl, ch, false, vers)
 	c.Assert(err, gc.ErrorMatches, msg)
 }
@@ -259,7 +259,7 @@ func (s *addCharmSuite) TestAddLocalCharmDefinitelyWithHooks(c *gc.C) {
 	putter := charms.NewS3PutterWithHTTPClient(reqClient)
 	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil, putter)
 
-	vers := version.MustParse("2.6.6")
+	vers := semversion.MustParse("2.6.6")
 	savedCURL, err := client.AddLocalCharm(curl, ch, false, vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedCURL.String(), gc.Equals, curl.String())
@@ -304,7 +304,7 @@ func (s *addCharmSuite) TestAddLocalCharmError(c *gc.C) {
 	putter := charms.NewS3PutterWithHTTPClient(reqClient)
 	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil, putter)
 
-	vers := version.MustParse("2.6.6")
+	vers := semversion.MustParse("2.6.6")
 	_, err := client.AddLocalCharm(curl, charmArchive, false, vers)
 	c.Assert(err, gc.ErrorMatches, `.*boom$`)
 }
@@ -371,8 +371,8 @@ func testMinVer(t minverTest, c *gc.C) {
 	putter := charms.NewS3PutterWithHTTPClient(reqClient)
 	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil, putter)
 
-	charmMinVer := version.MustParse(t.charm)
-	jujuVer := version.MustParse(t.juju)
+	charmMinVer := semversion.MustParse(t.charm)
+	jujuVer := semversion.MustParse(t.juju)
 
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(

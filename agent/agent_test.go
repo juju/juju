@@ -19,10 +19,10 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/version"
 )
 
 type suite struct {
@@ -620,7 +620,7 @@ func (*suite) TestSetUpgradedToVersion(c *gc.C) {
 
 	c.Assert(conf.UpgradedToVersion(), gc.Equals, jujuversion.Current)
 
-	expectVers := version.MustParse("3.4.5")
+	expectVers := semversion.MustParse("3.4.5")
 	conf.SetUpgradedToVersion(expectVers)
 	c.Assert(conf.UpgradedToVersion(), gc.Equals, expectVers)
 }

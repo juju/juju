@@ -10,11 +10,11 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/version"
 )
 
 // InstanceProvider describes the interface that is needed from the cloud provider to
@@ -37,7 +37,7 @@ type ResourceProvider interface {
 	// provided for backwards compatibility - if the technique used to
 	// tag items changes, the version number can be used to decide how
 	// to remove the old tags correctly.
-	AdoptResources(envcontext.ProviderCallContext, string, version.Number) error
+	AdoptResources(envcontext.ProviderCallContext, string, semversion.Number) error
 }
 
 // Service provides the means for supporting model migration actions between
@@ -82,7 +82,7 @@ func NewService(
 // a model when it has been migrated into this controller.
 func (s *Service) AdoptResources(
 	ctx context.Context,
-	sourceControllerVersion version.Number,
+	sourceControllerVersion semversion.Number,
 ) error {
 	provider, err := s.resourceProviderGettter(ctx)
 

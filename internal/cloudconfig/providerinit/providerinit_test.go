@@ -19,6 +19,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
@@ -26,7 +27,6 @@ import (
 	"github.com/juju/juju/internal/provider/openstack"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 )
 
 type CloudInitSuite struct {
@@ -119,7 +119,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, base corebase.Base, bootstrap bool)
 	toolsList := tools.List{
 		&tools.Tools{
 			URL:     "http://tools.testing/tools/released/juju.tgz",
-			Version: version.Binary{version.MustParse("1.2.3"), "jammy", "amd64"},
+			Version: semversion.Binary{semversion.MustParse("1.2.3"), "jammy", "amd64"},
 		},
 	}
 	envConfig, err := config.New(config.NoDefaults, testing.FakeConfig())

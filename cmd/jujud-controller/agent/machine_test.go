@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	blockdevicestate "github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/environs/filestorage"
@@ -44,7 +45,6 @@ import (
 	"github.com/juju/juju/internal/mongo"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	databasetesting "github.com/juju/juju/internal/worker/dbaccessor/testing"
@@ -74,18 +74,18 @@ var _ = gc.Suite(&MachineSuite{})
 // DefaultVersions returns a slice of unique 'versions' for the current
 // environment's host architecture. Additionally, it ensures that 'versions'
 // for amd64 are returned if that is not the current host's architecture.
-func defaultVersions(agentVersion version.Number) []version.Binary {
+func defaultVersions(agentVersion semversion.Number) []semversion.Binary {
 	osTypes := set.NewStrings("ubuntu")
 	osTypes.Add(coreos.HostOSTypeName())
-	var versions []version.Binary
+	var versions []semversion.Binary
 	for _, osType := range osTypes.Values() {
-		versions = append(versions, version.Binary{
+		versions = append(versions, semversion.Binary{
 			Number:  agentVersion,
 			Arch:    arch.HostArch(),
 			Release: osType,
 		})
 		if arch.HostArch() != "amd64" {
-			versions = append(versions, version.Binary{
+			versions = append(versions, semversion.Binary{
 				Number:  agentVersion,
 				Arch:    "amd64",
 				Release: osType,

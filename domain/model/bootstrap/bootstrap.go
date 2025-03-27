@@ -12,6 +12,7 @@ import (
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -23,7 +24,6 @@ import (
 	jujusecrets "github.com/juju/juju/internal/secrets/provider/juju"
 	kubernetessecrets "github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/version"
 )
 
 type modelTypeStateFunc func(context.Context, string) (string, error)
@@ -129,7 +129,7 @@ func CreateGlobalModelRecord(
 func CreateLocalModelRecord(
 	id coremodel.UUID,
 	controllerUUID uuid.UUID,
-	agentVersion version.Number,
+	agentVersion semversion.Number,
 ) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controllerDB, modelDB database.TxnRunner) error {
 		if err := id.Validate(); err != nil {

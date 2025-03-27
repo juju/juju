@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4/tar"
 
-	"github.com/juju/juju/internal/version"
+	"github.com/juju/juju/core/semversion"
 )
 
 const (
@@ -228,7 +228,7 @@ func (ad *ArchiveData) Metadata() (*Metadata, error) {
 // was created.  If no version is found in the archive, it must come
 // from before backup archives included the version.  In that case we
 // return version 1.20.
-func (ad *ArchiveData) Version() (*version.Number, error) {
+func (ad *ArchiveData) Version() (*semversion.Number, error) {
 	meta, err := ad.Metadata()
 	if err != nil {
 		return nil, errors.Trace(err)

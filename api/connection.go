@@ -18,8 +18,8 @@ import (
 
 	"github.com/juju/juju/api/agent/keyupdater"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	jujuproxy "github.com/juju/juju/internal/proxy"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/jsoncodec"
 )
 
@@ -49,7 +49,7 @@ type conn struct {
 	// serverVersion holds the version of the API server that we are
 	// connected to.  It is possible that this version is 0 if the
 	// server does not report this during login.
-	serverVersion version.Number
+	serverVersion semversion.Number
 
 	// hostPorts is the API server addresses returned from Login,
 	// which the client may cache and use for fail-over.
@@ -240,6 +240,6 @@ func (c *conn) KeyUpdater() *keyupdater.Client {
 // It is possible that this version is Zero if the server does not report this
 // during login. The second result argument indicates if the version number is
 // set.
-func (c *conn) ServerVersion() (version.Number, bool) {
-	return c.serverVersion, c.serverVersion != version.Zero
+func (c *conn) ServerVersion() (semversion.Number, bool) {
+	return c.serverVersion, c.serverVersion != semversion.Zero
 }

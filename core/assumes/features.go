@@ -6,7 +6,7 @@ package assumes
 import (
 	"fmt"
 
-	"github.com/juju/juju/internal/version"
+	"github.com/juju/juju/core/semversion"
 )
 
 var (
@@ -64,7 +64,7 @@ func featureVersionMismatchErr(featureName, constraint, requiredVersion, actualV
 
 // JujuFeature returns a new Feature representing the Juju API for the given
 // version.
-func JujuFeature(ver version.Number) Feature {
+func JujuFeature(ver semversion.Number) Feature {
 	return Feature{
 		Name:        "juju",
 		Description: UserFriendlyFeatureDescriptions["juju"],
@@ -74,7 +74,7 @@ func JujuFeature(ver version.Number) Feature {
 
 // K8sAPIFeature returns a new Feature representing the Kubernetes API for the
 // given version.
-func K8sAPIFeature(ver version.Number) Feature {
+func K8sAPIFeature(ver semversion.Number) Feature {
 	return Feature{
 		Name:        "k8s-api",
 		Description: UserFriendlyFeatureDescriptions["k8s-api"],

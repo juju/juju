@@ -20,11 +20,11 @@ import (
 	"github.com/juju/juju/core/container"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/relation"
-	"github.com/juju/juju/internal/version"
 )
 
 // The following exporter type is being refactored. This is to better model the
@@ -114,7 +114,7 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 		PasswordHash:   dbModel.doc.PasswordHash,
 		EnvironVersion: dbModel.EnvironVersion(),
 	}
-	if dbModel.LatestToolsVersion() != version.Zero {
+	if dbModel.LatestToolsVersion() != semversion.Zero {
 		args.LatestToolsVersion = dbModel.LatestToolsVersion().String()
 	}
 	export.model = description.NewModel(args)

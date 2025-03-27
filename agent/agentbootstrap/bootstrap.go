@@ -25,6 +25,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
 	userbootstrap "github.com/juju/juju/domain/access/bootstrap"
@@ -50,7 +51,6 @@ import (
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/state"
 )
 
@@ -250,7 +250,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 	}
 
 	agentVersion := stateParams.AgentVersion
-	if agentVersion == version.Zero {
+	if agentVersion == semversion.Zero {
 		agentVersion = jujuversion.Current
 	}
 	if agentVersion.Major != jujuversion.Current.Major || agentVersion.Minor != jujuversion.Current.Minor {

@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	semversion "github.com/juju/juju/internal/version"
+	semversion "github.com/juju/juju/core/semversion"
 )
 
 type suite struct{}

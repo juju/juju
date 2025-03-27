@@ -11,13 +11,13 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tools"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/state"
 )
 
@@ -43,7 +43,7 @@ func (s *AgentToolsSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *AgentToolsSuite) TestCheckTools(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	expVer, err := version.Parse("2.5.0")
+	expVer, err := semversion.Parse("2.5.0")
 	c.Assert(err, jc.ErrorIsNil)
 	s.modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(expVer, nil)
 	modelConfig, err := config.New(config.NoDefaults, coretesting.FakeConfig())
@@ -56,7 +56,7 @@ func (s *AgentToolsSuite) TestCheckTools(c *gc.C) {
 	fakeToolFinder := func(_ context.Context, _ tools.SimplestreamsFetcher, e environs.BootstrapEnviron, maj int, min int, streams []string, filter coretools.Filter) (coretools.List, error) {
 		calledWithMajor = maj
 		calledWithMinor = min
-		ver := version.Binary{Number: version.Number{Major: maj, Minor: min}}
+		ver := semversion.Binary{Number: semversion.Number{Major: maj, Minor: min}}
 		t := coretools.Tools{Version: ver, URL: "http://example.com", Size: 1}
 		c.Assert(calledWithMajor, gc.Equals, 2)
 		c.Assert(calledWithMinor, gc.Equals, 5)
@@ -75,7 +75,7 @@ func (s *AgentToolsSuite) TestCheckTools(c *gc.C) {
 func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	expVer, err := version.Parse("2.5-alpha1")
+	expVer, err := semversion.Parse("2.5-alpha1")
 	c.Assert(err, jc.ErrorIsNil)
 	s.modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(expVer, nil)
 
@@ -98,7 +98,7 @@ func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *gc.C) {
 		if len(streams) == 1 && streams[0] == "released" {
 			return nil, coretools.ErrNoMatches
 		}
-		ver := version.Binary{Number: version.Number{Major: maj, Minor: min}}
+		ver := semversion.Binary{Number: semversion.Number{Major: maj, Minor: min}}
 		t := coretools.Tools{Version: ver, URL: "http://example.com", Size: 1}
 		c.Assert(calledWithMajor, gc.Equals, 2)
 		c.Assert(calledWithMinor, gc.Equals, 5)
@@ -111,7 +111,7 @@ func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *gc.C) {
 	obtainedVer, err := api.checkToolsAvailability(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(calledWithStreams, gc.DeepEquals, [][]string{{"proposed", "released"}})
-	c.Assert(obtainedVer, gc.Equals, version.Number{Major: 2, Minor: 5, Patch: 0})
+	c.Assert(obtainedVer, gc.Equals, semversion.Number{Major: 2, Minor: 5, Patch: 0})
 }
 
 type mockState struct{}
@@ -123,7 +123,7 @@ func (e *mockState) Model() (*state.Model, error) {
 func (s *AgentToolsSuite) TestUpdateToolsAvailability(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	expVer, err := version.Parse("2.5.0")
+	expVer, err := semversion.Parse("2.5.0")
 	c.Assert(err, jc.ErrorIsNil)
 	s.modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(expVer, nil)
 	modelConfig, err := config.New(config.NoDefaults, coretesting.FakeConfig())
@@ -131,15 +131,15 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailability(c *gc.C) {
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(modelConfig, nil)
 
 	fakeToolFinder := func(_ context.Context, _ tools.SimplestreamsFetcher, _ environs.BootstrapEnviron, _ int, _ int, _ []string, _ coretools.Filter) (coretools.List, error) {
-		ver := version.Binary{Number: version.Number{Major: 2, Minor: 5, Patch: 2}}
-		olderVer := version.Binary{Number: version.Number{Major: 2, Minor: 5, Patch: 1}}
+		ver := semversion.Binary{Number: semversion.Number{Major: 2, Minor: 5, Patch: 2}}
+		olderVer := semversion.Binary{Number: semversion.Number{Major: 2, Minor: 5, Patch: 1}}
 		t := coretools.Tools{Version: ver, URL: "http://example.com", Size: 1}
 		tOld := coretools.Tools{Version: olderVer, URL: "http://example.com", Size: 1}
 		return coretools.List{&t, &tOld}, nil
 	}
 
-	var ver version.Number
-	fakeUpdate := func(_ *state.Model, v version.Number) error {
+	var ver semversion.Number
+	fakeUpdate := func(_ *state.Model, v semversion.Number) error {
 		ver = v
 		return nil
 	}
@@ -149,13 +149,13 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailability(c *gc.C) {
 
 	err = api.updateToolsAvailability(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ver, gc.Equals, version.Number{Major: 2, Minor: 5, Patch: 2})
+	c.Assert(ver, gc.Equals, semversion.Number{Major: 2, Minor: 5, Patch: 2})
 }
 
 func (s *AgentToolsSuite) TestUpdateToolsAvailabilityNoMatches(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	expVer, err := version.Parse("2.5.0")
+	expVer, err := semversion.Parse("2.5.0")
 	c.Assert(err, jc.ErrorIsNil)
 	s.modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(expVer, nil)
 	modelConfig, err := config.New(config.NoDefaults, coretesting.FakeConfig())
@@ -168,7 +168,7 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailabilityNoMatches(c *gc.C) {
 	}
 
 	// Update should never be called.
-	fakeUpdate := func(_ *state.Model, v version.Number) error {
+	fakeUpdate := func(_ *state.Model, v semversion.Number) error {
 		c.Fail()
 		return nil
 	}

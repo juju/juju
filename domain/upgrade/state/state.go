@@ -9,6 +9,7 @@ import (
 	"github.com/canonical/sqlair"
 
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/domain"
 	domainupgrade "github.com/juju/juju/domain/upgrade"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/version"
 )
 
 // State is used to access the database.
@@ -34,7 +34,7 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 // CreateUpgrade creates an active upgrade to and from specified versions
 // and returns the upgrade's UUID. If an active upgrade already exists,
 // return an AlreadyExists error
-func (st *State) CreateUpgrade(ctx context.Context, previousVersion, targetVersion version.Number) (domainupgrade.UUID, error) {
+func (st *State) CreateUpgrade(ctx context.Context, previousVersion, targetVersion semversion.Number) (domainupgrade.UUID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -454,6 +454,7 @@ AND state_type_id = $M.from;`, info, m)
 func (*State) NamespaceForWatchUpgradeReady() string {
 	return "upgrade_info_controller_node"
 }
+
 func (*State) NamespaceForWatchUpgradeState() string {
 	return "upgrade_info"
 }

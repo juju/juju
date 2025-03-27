@@ -14,11 +14,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	agent "github.com/juju/juju/agent"
+	version "github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
-	version "github.com/juju/juju/internal/version"
 )
 
 type machineWorkerSuite struct {

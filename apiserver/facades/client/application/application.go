@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -47,7 +48,6 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -2232,7 +2232,7 @@ type AgentTools interface {
 
 // AgentVersioner is a point of use agent version object.
 type AgentVersioner interface {
-	AgentVersion() (version.Number, error)
+	AgentVersion() (semversion.Number, error)
 }
 
 var (

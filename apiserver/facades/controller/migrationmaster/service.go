@@ -11,8 +11,8 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/version"
 )
 
 // UpgradeService provides a subset of the upgrade domain service methods.
@@ -65,7 +65,7 @@ type ModelAgentService interface {
 	// entire model. The following errors can be returned:
 	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
 	// not exist.
-	GetModelTargetAgentVersion(context.Context) (version.Number, error)
+	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
 }
 
 // CredentialService provides access to credentials.

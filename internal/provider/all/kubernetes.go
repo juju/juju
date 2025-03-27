@@ -6,5 +6,6 @@
 package all
 
 import (
+	// Register the provider.
 	_ "github.com/juju/juju/caas/kubernetes/provider"
 )

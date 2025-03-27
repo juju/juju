@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/internal/version"
 )
 
 type upgradeCAASControllerBridge struct {
@@ -48,7 +48,7 @@ func (u *upgradeCAASControllerBridge) Namespace() string {
 	return u.namespaceFn()
 }
 
-func controllerUpgrade(ctx context.Context, appName string, vers version.Number, broker UpgradeCAASControllerBroker) error {
+func controllerUpgrade(ctx context.Context, appName string, vers semversion.Number, broker UpgradeCAASControllerBroker) error {
 	return upgradeOperatorOrControllerStatefulSet(
 		ctx,
 		appName,
@@ -58,7 +58,7 @@ func controllerUpgrade(ctx context.Context, appName string, vers version.Number,
 		broker.Client().AppsV1().StatefulSets(broker.Namespace()))
 }
 
-func (k *kubernetesClient) upgradeController(ctx context.Context, vers version.Number) error {
+func (k *kubernetesClient) upgradeController(ctx context.Context, vers semversion.Number) error {
 	broker := &upgradeCAASControllerBridge{
 		clientFn:    k.client,
 		namespaceFn: k.GetCurrentNamespace,

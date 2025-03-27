@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/semversion"
 	coreuser "github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	accessservice "github.com/juju/juju/domain/access/service"
@@ -30,7 +31,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/version"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -68,7 +68,7 @@ type ModelImportService interface {
 type ModelDetailService interface {
 	// CreateModelForVersion is responsible for adding the details of the model
 	// that is being imported.
-	CreateModelForVersion(context.Context, uuid.UUID, version.Number) error
+	CreateModelForVersion(context.Context, uuid.UUID, semversion.Number) error
 
 	// DeleteModel is responsible for removing a read only model from the system.
 	DeleteModel(context.Context) error
@@ -230,7 +230,7 @@ func (i *importModelOperation) Execute(ctx context.Context, model description.Mo
 			"importing model %q with uuid %q: agent-version missing from model config",
 			modelName, modelID)
 	}
-	agentVersion, err := version.Parse(agentVersionStr)
+	agentVersion, err := semversion.Parse(agentVersionStr)
 	if err != nil {
 		return errors.Errorf(
 			"importing model %q with uuid %q: cannot parse agent-version: %w",

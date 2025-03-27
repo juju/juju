@@ -21,13 +21,13 @@ var allowedCoreImports = set.NewStrings(
 	"core/logger",
 	"core/model",
 	"core/permission",
+	"core/semversion",
 	"core/status",
 	"core/trace",
 	"core/user",
 	"internal/errors",
 	"internal/logger",
 	"internal/uuid",
-	"internal/version",
 )
 
 func (*ImportSuite) TestImports(c *gc.C) {

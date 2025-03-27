@@ -15,11 +15,11 @@ import (
 	"github.com/juju/juju/core/constraints"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 )
 
 var (
@@ -65,7 +65,7 @@ func findPackagedTools(
 	ctx context.Context,
 	env environs.BootstrapEnviron,
 	ss envtools.SimplestreamsFetcher,
-	vers *version.Number,
+	vers *semversion.Number,
 	arch *string, base *corebase.Base,
 ) (coretools.List, error) {
 	// Look for tools in the environment's simplestreams search paths
@@ -89,14 +89,14 @@ func findPackagedTools(
 
 // locallyBuildableTools returns the list of tools that
 // can be built locally.
-func locallyBuildableTools() (buildable coretools.List, _ version.Number, _ error) {
+func locallyBuildableTools() (buildable coretools.List, _ semversion.Number, _ error) {
 	buildNumber := jujuversion.Current
 	// Increment the build number so we know it's a custom build.
 	buildNumber.Build++
 	if !coreos.HostOS().EquivalentTo(ostype.Ubuntu) {
 		return buildable, buildNumber, nil
 	}
-	binary := version.Binary{
+	binary := semversion.Binary{
 		Number:  buildNumber,
 		Release: "ubuntu",
 		Arch:    localToolsArch(),
@@ -109,7 +109,7 @@ func locallyBuildableTools() (buildable coretools.List, _ version.Number, _ erro
 // which it would be reasonable to launch an environment's first machine,
 // given the supplied constraints. If a specific agent version is not requested,
 // all tools matching the current major.minor version are chosen.
-func findBootstrapTools(ctx context.Context, env environs.BootstrapEnviron, ss envtools.SimplestreamsFetcher, vers *version.Number, arch *string, base *corebase.Base) (list coretools.List, err error) {
+func findBootstrapTools(ctx context.Context, env environs.BootstrapEnviron, ss envtools.SimplestreamsFetcher, vers *semversion.Number, arch *string, base *corebase.Base) (list coretools.List, err error) {
 	// Construct a tools filter.
 	cliVersion := jujuversion.Current
 	var filter coretools.Filter

@@ -17,10 +17,10 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -222,7 +222,7 @@ func (s *provisionerSuite) TestFindTools(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	vers := version.MustParse("6.6.6")
+	vers := semversion.MustParse("6.6.6")
 	args := params.FindToolsParams{
 		Number:       vers,
 		MajorVersion: 0,
@@ -231,7 +231,7 @@ func (s *provisionerSuite) TestFindTools(c *gc.C) {
 	}
 	results := params.FindToolsResult{
 		List: tools.List{{
-			Version: version.MustParseBinary("6.6.6-ubuntu-arm64"),
+			Version: semversion.MustParseBinary("6.6.6-ubuntu-arm64"),
 			URL:     "http://here",
 			SHA256:  "deadbeaf",
 			Size:    666,
@@ -245,7 +245,7 @@ func (s *provisionerSuite) TestFindTools(c *gc.C) {
 	result, err := client.FindTools(context.Background(), vers, "ubuntu", "arm64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, tools.List{{
-		Version: version.MustParseBinary("6.6.6-ubuntu-arm64"),
+		Version: semversion.MustParseBinary("6.6.6-ubuntu-arm64"),
 		URL:     "http://here",
 		SHA256:  "deadbeaf",
 		Size:    666,
@@ -302,6 +302,7 @@ func (s *provisionerSuite) setupMachines(c *gc.C, ctrl *gomock.Controller) (*moc
 	c.Assert(result, gc.HasLen, 1)
 	return caller, result[0].Machine
 }
+
 func (s *provisionerSuite) TestSetStatus(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

@@ -18,11 +18,11 @@ import (
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
@@ -460,7 +460,7 @@ func (s *ModelsSuite) checkAPICalls(c *gc.C, expectedCalls ...string) {
 }
 
 func createBasicModelInfo() *params.ModelInfo {
-	agentVersion, _ := version.Parse("2.55.5")
+	agentVersion, _ := semversion.Parse("2.55.5")
 	return &params.ModelInfo{
 		Name:           "basic-model",
 		UUID:           testing.ModelTag.Id(),
@@ -477,7 +477,7 @@ func createBasicModelInfo() *params.ModelInfo {
 }
 
 func convert(models []base.UserModel) []params.ModelInfoResult {
-	agentVersion, _ := version.Parse("2.55.5")
+	agentVersion, _ := semversion.Parse("2.55.5")
 	infoResults := make([]params.ModelInfoResult, len(models))
 	for i, model := range models {
 		infoResult := params.ModelInfoResult{}

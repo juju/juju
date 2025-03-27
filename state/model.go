@@ -18,10 +18,10 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	internalpassword "github.com/juju/juju/internal/password"
-	"github.com/juju/juju/internal/version"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
@@ -565,16 +565,16 @@ func (m *Model) UpdateLatestToolsVersion(v string) error {
 // check in the streams.
 // Bear in mind that the check was performed filtering only
 // new patches for the current major.minor. (major.minor.patch)
-func (m *Model) LatestToolsVersion() version.Number {
+func (m *Model) LatestToolsVersion() semversion.Number {
 	ver := m.doc.LatestAvailableTools
 	if ver == "" {
-		return version.Zero
+		return semversion.Zero
 	}
-	v, err := version.Parse(ver)
+	v, err := semversion.Parse(ver)
 	if err != nil {
 		// This is being stored from a valid version,
 		// but we don't fail should it become corrupt.
-		return version.Zero
+		return semversion.Zero
 	}
 	return v
 }

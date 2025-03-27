@@ -10,8 +10,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/semversion"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/internal/version"
 )
 
 type precheckUpgradesSuite struct {
@@ -29,7 +29,7 @@ func (s *precheckUpgradesSuite) TestPrecheckUpgradeOperations(c *gc.C) {
 	c.Assert(ops, gc.HasLen, 1)
 
 	op := ops[0]
-	c.Assert(op.TargetVersion, gc.Equals, version.MustParse("2.8.0"))
+	c.Assert(op.TargetVersion, gc.Equals, semversion.MustParse("2.8.0"))
 	c.Assert(op.Steps, gc.HasLen, 1)
 
 	step := op.Steps[0]

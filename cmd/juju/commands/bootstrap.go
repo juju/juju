@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
@@ -56,7 +57,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	storageprovider "github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 )
@@ -236,7 +236,7 @@ type bootstrapCommand struct {
 	KeepBrokenEnvironment    bool
 	AutoUpgrade              bool
 	AgentVersionParam        string
-	AgentVersion             *version.Number
+	AgentVersion             *semversion.Number
 	config                   common.ConfigFlag
 	modelDefaults            common.ConfigFlag
 	storagePool              common.ConfigFlag
@@ -471,9 +471,9 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		c.AgentVersion = &vers
 	}
 	if c.AgentVersionParam != "" {
-		if vers, err := version.ParseBinary(c.AgentVersionParam); err == nil {
+		if vers, err := semversion.ParseBinary(c.AgentVersionParam); err == nil {
 			c.AgentVersion = &vers.Number
-		} else if vers, err := version.Parse(c.AgentVersionParam); err == nil {
+		} else if vers, err := semversion.Parse(c.AgentVersionParam); err == nil {
 			c.AgentVersion = &vers
 		} else {
 			return err

@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -40,7 +41,6 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/providerinit"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 )
 
 const (
@@ -1398,7 +1398,7 @@ func (env *maasEnviron) ReleaseContainerAddresses(ctx envcontext.ProviderCallCon
 
 // AdoptResources updates all the instances to indicate they
 // are now associated with the specified controller.
-func (env *maasEnviron) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, _ version.Number) error {
+func (env *maasEnviron) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, _ semversion.Number) error {
 	allInstances, err := env.AllInstances(ctx)
 	if err != nil {
 		return errors.Trace(err)

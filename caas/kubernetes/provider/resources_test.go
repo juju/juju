@@ -13,9 +13,9 @@ import (
 	core "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/version"
 )
 
 var _ = gc.Suite(&ResourcesSuite{})
@@ -72,6 +72,6 @@ func (s *ResourcesSuite) TestAdoptResources(c *gc.C) {
 			Return(nil, nil),
 	)
 
-	err := s.broker.AdoptResources(envcontext.WithoutCredentialInvalidator(context.Background()), "uuid", version.MustParse("1.2.3"))
+	err := s.broker.AdoptResources(envcontext.WithoutCredentialInvalidator(context.Background()), "uuid", semversion.MustParse("1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 }

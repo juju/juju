@@ -8,7 +8,6 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -16,6 +15,7 @@ import (
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	corearch "github.com/juju/juju/core/arch"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -222,7 +222,7 @@ func (s *unitServiceSuite) TestSetReportedUnitAgentVersionInvalid(c *gc.C) {
 		context.Background(),
 		coreunit.Name("foo/666"),
 		coreagentbinary.Version{
-			Number: version.Zero,
+			Number: semversion.Zero,
 		},
 	)
 	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
@@ -245,7 +245,7 @@ func (s *unitServiceSuite) TestSetReportedUnitAgentVersionNotFound(c *gc.C) {
 		context.Background(),
 		coreunit.Name("foo/666"),
 		coreagentbinary.Version{
-			Number: version.MustParse("1.2.3"),
+			Number: semversion.MustParse("1.2.3"),
 			Arch:   corearch.ARM64,
 		},
 	)
@@ -262,7 +262,7 @@ func (s *unitServiceSuite) TestSetReportedUnitAgentVersionNotFound(c *gc.C) {
 		gomock.Any(),
 		unitUUID,
 		coreagentbinary.Version{
-			Number: version.MustParse("1.2.3"),
+			Number: semversion.MustParse("1.2.3"),
 			Arch:   corearch.ARM64,
 		},
 	).Return(applicationerrors.UnitNotFound)
@@ -271,7 +271,7 @@ func (s *unitServiceSuite) TestSetReportedUnitAgentVersionNotFound(c *gc.C) {
 		context.Background(),
 		coreunit.Name("foo/666"),
 		coreagentbinary.Version{
-			Number: version.MustParse("1.2.3"),
+			Number: semversion.MustParse("1.2.3"),
 			Arch:   corearch.ARM64,
 		},
 	)
@@ -294,7 +294,7 @@ func (s *unitServiceSuite) TestSetReportedUnitAgentVersionDead(c *gc.C) {
 		gomock.Any(),
 		coreunit.UUID(unitUUID.String()),
 		coreagentbinary.Version{
-			Number: version.MustParse("1.2.3"),
+			Number: semversion.MustParse("1.2.3"),
 			Arch:   corearch.ARM64,
 		},
 	).Return(applicationerrors.UnitIsDead)
@@ -303,7 +303,7 @@ func (s *unitServiceSuite) TestSetReportedUnitAgentVersionDead(c *gc.C) {
 		context.Background(),
 		coreunit.Name("foo/666"),
 		coreagentbinary.Version{
-			Number: version.MustParse("1.2.3"),
+			Number: semversion.MustParse("1.2.3"),
 			Arch:   corearch.ARM64,
 		},
 	)
@@ -325,7 +325,7 @@ func (s *unitServiceSuite) TestSetReportedUnitAgentVersion(c *gc.C) {
 		gomock.Any(),
 		coreunit.UUID(unitUUID.String()),
 		coreagentbinary.Version{
-			Number: version.MustParse("1.2.3"),
+			Number: semversion.MustParse("1.2.3"),
 			Arch:   corearch.ARM64,
 		},
 	).Return(nil)
@@ -334,7 +334,7 @@ func (s *unitServiceSuite) TestSetReportedUnitAgentVersion(c *gc.C) {
 		context.Background(),
 		coreunit.Name("foo/666"),
 		coreagentbinary.Version{
-			Number: version.MustParse("1.2.3"),
+			Number: semversion.MustParse("1.2.3"),
 			Arch:   corearch.ARM64,
 		},
 	)

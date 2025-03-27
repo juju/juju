@@ -16,9 +16,9 @@ import (
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 	"github.com/juju/juju/rpc/params"
@@ -197,7 +197,7 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 	unit.EXPECT().Tag().Return(names.NewUnitTag("this-unit/123")).AnyTimes()
 
 	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
-	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
+	s.PatchValue(&jujuversion.Current, semversion.MustParse("1.2.3"))
 
 	ubuntuVars := []string{
 		"APT_LISTCHANGES_FRONTEND=none",

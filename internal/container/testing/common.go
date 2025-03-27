@@ -12,6 +12,7 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	jujutesting "github.com/juju/juju/juju/testing"
 )
 
@@ -33,7 +33,7 @@ func MockMachineConfig(machineId string) (*instancecfg.InstanceConfig, error) {
 	}
 	err = instanceConfig.SetTools(tools.List{
 		&tools.Tools{
-			Version: version.MustParseBinary("2.5.2-ubuntu-amd64"),
+			Version: semversion.MustParseBinary("2.5.2-ubuntu-amd64"),
 			URL:     "http://tools.testing.invalid/2.5.2-ubuntu-amd64.tgz",
 		},
 	})

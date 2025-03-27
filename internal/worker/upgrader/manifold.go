@@ -15,8 +15,8 @@ import (
 	"github.com/juju/juju/api/agent/upgrader"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/upgrades"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/gate"
 )
 
@@ -27,7 +27,7 @@ type ManifoldConfig struct {
 	APICallerName        string
 	UpgradeStepsGateName string
 	UpgradeCheckGateName string
-	PreviousAgentVersion version.Number
+	PreviousAgentVersion semversion.Number
 	Logger               logger.Logger
 	Clock                clock.Clock
 }
@@ -67,7 +67,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// report the running version and exit.
 			var upgradeStepsWaiter gate.Waiter
 			if config.UpgradeStepsGateName != "" {
-				if config.PreviousAgentVersion == version.Zero {
+				if config.PreviousAgentVersion == semversion.Zero {
 					return nil, errors.New("previous agent version not specified")
 				}
 				if err := getter.Get(config.UpgradeStepsGateName, &upgradeStepsWaiter); err != nil {

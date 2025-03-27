@@ -6,11 +6,11 @@ package tools
 import (
 	"github.com/juju/mgo/v3/bson"
 
-	"github.com/juju/juju/internal/version"
+	"github.com/juju/juju/core/semversion"
 )
 
 type toolsDoc struct {
-	Version version.Binary
+	Version semversion.Binary
 	URL     string
 	Size    int64
 	SHA256  string

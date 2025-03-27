@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the LGPLv3, see LICENCE file for details.
 
-package version_test
+package semversion_test
 
 import (
 	"encoding/json"
@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v3"
 
-	"github.com/juju/juju/internal/version"
+	"github.com/juju/juju/core/semversion"
 )
 
 type suite struct{}
@@ -48,9 +48,9 @@ func (*suite) TestCompare(c *gc.C) {
 
 	for i, test := range cmpTests {
 		c.Logf("test %d: %q == %q", i, test.v1, test.v2)
-		v1, err := version.Parse(test.v1)
+		v1, err := semversion.Parse(test.v1)
 		c.Assert(err, jc.ErrorIsNil)
-		v2, err := version.Parse(test.v2)
+		v2, err := semversion.Parse(test.v2)
 		c.Assert(err, jc.ErrorIsNil)
 		compare := v1.Compare(v2)
 		c.Check(compare, gc.Equals, test.compare)
@@ -91,9 +91,9 @@ func (*suite) TestCompareAfterPatched(c *gc.C) {
 
 	for i, test := range cmpTests {
 		c.Logf("test %d: %q == %q", i, test.v1, test.v2)
-		v1, err := version.Parse(test.v1)
+		v1, err := semversion.Parse(test.v1)
 		c.Assert(err, jc.ErrorIsNil)
-		v2, err := version.Parse(test.v2)
+		v2, err := semversion.Parse(test.v2)
 		c.Assert(err, jc.ErrorIsNil)
 		compare := v1.ToPatch().Compare(v2)
 		c.Check(compare, gc.Equals, test.compare)
@@ -107,51 +107,51 @@ func (*suite) TestCompareAfterPatched(c *gc.C) {
 var parseTests = []struct {
 	v      string
 	err    string
-	expect version.Number
+	expect semversion.Number
 }{{
 	v: "0.0.0",
 }, {
 	v:      "0.0.1",
-	expect: version.Number{Major: 0, Minor: 0, Patch: 1},
+	expect: semversion.Number{Major: 0, Minor: 0, Patch: 1},
 }, {
 	v:      "0.0.2",
-	expect: version.Number{Major: 0, Minor: 0, Patch: 2},
+	expect: semversion.Number{Major: 0, Minor: 0, Patch: 2},
 }, {
 	v:      "0.1.0",
-	expect: version.Number{Major: 0, Minor: 1, Patch: 0},
+	expect: semversion.Number{Major: 0, Minor: 1, Patch: 0},
 }, {
 	v:      "0.2.3",
-	expect: version.Number{Major: 0, Minor: 2, Patch: 3},
+	expect: semversion.Number{Major: 0, Minor: 2, Patch: 3},
 }, {
 	v:      "1.0.0",
-	expect: version.Number{Major: 1, Minor: 0, Patch: 0},
+	expect: semversion.Number{Major: 1, Minor: 0, Patch: 0},
 }, {
 	v:      "10.234.3456",
-	expect: version.Number{Major: 10, Minor: 234, Patch: 3456},
+	expect: semversion.Number{Major: 10, Minor: 234, Patch: 3456},
 }, {
 	v:      "10.234.3456.1",
-	expect: version.Number{Major: 10, Minor: 234, Patch: 3456, Build: 1},
+	expect: semversion.Number{Major: 10, Minor: 234, Patch: 3456, Build: 1},
 }, {
 	v:      "10.234.3456.64",
-	expect: version.Number{Major: 10, Minor: 234, Patch: 3456, Build: 64},
+	expect: semversion.Number{Major: 10, Minor: 234, Patch: 3456, Build: 64},
 }, {
 	v:      "10.235.3456",
-	expect: version.Number{Major: 10, Minor: 235, Patch: 3456},
+	expect: semversion.Number{Major: 10, Minor: 235, Patch: 3456},
 }, {
 	v:      "1.21-alpha1",
-	expect: version.Number{Major: 1, Minor: 21, Patch: 1, Tag: "alpha"},
+	expect: semversion.Number{Major: 1, Minor: 21, Patch: 1, Tag: "alpha"},
 }, {
 	v:      "1.21-alpha1.1",
-	expect: version.Number{Major: 1, Minor: 21, Patch: 1, Tag: "alpha", Build: 1},
+	expect: semversion.Number{Major: 1, Minor: 21, Patch: 1, Tag: "alpha", Build: 1},
 }, {
 	v:      "1.21-alpha1",
-	expect: version.Number{Major: 1, Minor: 21, Patch: 1, Tag: "alpha", Build: 1}.ToPatch(),
+	expect: semversion.Number{Major: 1, Minor: 21, Patch: 1, Tag: "alpha", Build: 1}.ToPatch(),
 }, {
 	v:      "1.21-alpha10",
-	expect: version.Number{Major: 1, Minor: 21, Patch: 10, Tag: "alpha"},
+	expect: semversion.Number{Major: 1, Minor: 21, Patch: 10, Tag: "alpha"},
 }, {
 	v:      "1.21.0",
-	expect: version.Number{Major: 1, Minor: 21},
+	expect: semversion.Number{Major: 1, Minor: 21},
 }, {
 	v:   "1234567890.2.1",
 	err: "invalid version.*",
@@ -181,7 +181,7 @@ var parseTests = []struct {
 func (*suite) TestParse(c *gc.C) {
 	for i, test := range parseTests {
 		c.Logf("test %d: %q", i, test.v)
-		got, err := version.Parse(test.v)
+		got, err := semversion.Parse(test.v)
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		} else {
@@ -216,7 +216,7 @@ var parseNonStrictTests = []struct {
 func (*suite) TestParseNonStrict(c *gc.C) {
 	for i, test := range parseNonStrictTests {
 		c.Logf("test %d: %q", i, test.v)
-		got, err := version.ParseNonStrict(test.v)
+		got, err := semversion.ParseNonStrict(test.v)
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		} else {
@@ -226,9 +226,9 @@ func (*suite) TestParseNonStrict(c *gc.C) {
 	}
 }
 
-func binaryVersion(major, minor, patch, build int, tag, series, arch string) version.Binary {
-	return version.Binary{
-		Number: version.Number{
+func binaryVersion(major, minor, patch, build int, tag, series, arch string) semversion.Binary {
+	return semversion.Binary{
+		Number: semversion.Number{
 			Major: major,
 			Minor: minor,
 			Patch: patch,
@@ -244,14 +244,14 @@ func (*suite) TestParseBinary(c *gc.C) {
 	parseBinaryTests := []struct {
 		v      string
 		err    string
-		expect version.Binary
+		expect semversion.Binary
 	}{{
 		v:      "1.2.3-ubuntu-amd64",
 		expect: binaryVersion(1, 2, 3, 0, "", "ubuntu", "amd64"),
 	}, {
 		v: "1.2-tag3-windows-amd64",
-		expect: version.Binary{
-			Number: version.Number{
+		expect: semversion.Binary{
+			Number: semversion.Number{
 				Major: 1,
 				Minor: 2,
 				Patch: 3,
@@ -286,7 +286,7 @@ func (*suite) TestParseBinary(c *gc.C) {
 
 	for i, test := range parseBinaryTests {
 		c.Logf("first test, %d: %q", i, test.v)
-		got, err := version.ParseBinary(test.v)
+		got, err := semversion.ParseBinary(test.v)
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		} else {
@@ -298,8 +298,8 @@ func (*suite) TestParseBinary(c *gc.C) {
 	for i, test := range parseTests {
 		c.Logf("second test, %d: %q", i, test.v)
 		v := test.v + "-ubuntu-amd64"
-		got, err := version.ParseBinary(v)
-		expect := version.Binary{
+		got, err := semversion.ParseBinary(v)
+		expect := semversion.Binary{
 			Number:  test.expect,
 			Release: "ubuntu",
 			Arch:    "amd64",
@@ -331,11 +331,11 @@ func (*suite) TestBinaryMarshalUnmarshal(c *gc.C) {
 	for _, m := range marshallers {
 		c.Logf("encoding %v", m.name)
 		type doc struct {
-			Version *version.Binary
+			Version *semversion.Binary
 		}
 		// Work around goyaml bug #1096149
 		// SetYAML is not called for non-pointer fields.
-		bp := version.MustParseBinary("1.2.3-ubuntu-amd64")
+		bp := semversion.MustParseBinary("1.2.3-ubuntu-amd64")
 		v := doc{&bp}
 		data, err := m.marshal(&v)
 		c.Assert(err, jc.ErrorIsNil)
@@ -350,11 +350,11 @@ func (*suite) TestNumberMarshalUnmarshal(c *gc.C) {
 	for _, m := range marshallers {
 		c.Logf("encoding %v", m.name)
 		type doc struct {
-			Version *version.Number
+			Version *semversion.Number
 		}
 		// Work around goyaml bug #1096149
 		// SetYAML is not called for non-pointer fields.
-		np := version.MustParse("1.2.3")
+		np := semversion.MustParse("1.2.3")
 		v := doc{&np}
 		data, err := m.marshal(&v)
 		c.Assert(err, jc.ErrorIsNil)
@@ -390,7 +390,7 @@ func (*suite) TestParseMajorMinor(c *gc.C) {
 
 	for i, test := range parseMajorMinorTests {
 		c.Logf("test %d", i)
-		major, minor, err := version.ParseMajorMinor(test.v)
+		major, minor, err := semversion.ParseMajorMinor(test.v)
 		if test.err != "" {
 			c.Check(err, gc.ErrorMatches, test.err)
 		} else {

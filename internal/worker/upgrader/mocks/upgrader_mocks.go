@@ -13,9 +13,9 @@ import (
 	context "context"
 	reflect "reflect"
 
+	semversion "github.com/juju/juju/core/semversion"
 	watcher "github.com/juju/juju/core/watcher"
 	tools "github.com/juju/juju/internal/tools"
-	version "github.com/juju/juju/internal/version"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -43,10 +43,10 @@ func (m *MockUpgraderClient) EXPECT() *MockUpgraderClientMockRecorder {
 }
 
 // DesiredVersion mocks base method.
-func (m *MockUpgraderClient) DesiredVersion(arg0 context.Context, arg1 string) (version.Number, error) {
+func (m *MockUpgraderClient) DesiredVersion(arg0 context.Context, arg1 string) (semversion.Number, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DesiredVersion", arg0, arg1)
-	ret0, _ := ret[0].(version.Number)
+	ret0, _ := ret[0].(semversion.Number)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -64,25 +64,25 @@ type MockUpgraderClientDesiredVersionCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockUpgraderClientDesiredVersionCall) Return(arg0 version.Number, arg1 error) *MockUpgraderClientDesiredVersionCall {
+func (c *MockUpgraderClientDesiredVersionCall) Return(arg0 semversion.Number, arg1 error) *MockUpgraderClientDesiredVersionCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUpgraderClientDesiredVersionCall) Do(f func(context.Context, string) (version.Number, error)) *MockUpgraderClientDesiredVersionCall {
+func (c *MockUpgraderClientDesiredVersionCall) Do(f func(context.Context, string) (semversion.Number, error)) *MockUpgraderClientDesiredVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUpgraderClientDesiredVersionCall) DoAndReturn(f func(context.Context, string) (version.Number, error)) *MockUpgraderClientDesiredVersionCall {
+func (c *MockUpgraderClientDesiredVersionCall) DoAndReturn(f func(context.Context, string) (semversion.Number, error)) *MockUpgraderClientDesiredVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetVersion mocks base method.
-func (m *MockUpgraderClient) SetVersion(arg0 context.Context, arg1 string, arg2 version.Binary) error {
+func (m *MockUpgraderClient) SetVersion(arg0 context.Context, arg1 string, arg2 semversion.Binary) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetVersion", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -108,13 +108,13 @@ func (c *MockUpgraderClientSetVersionCall) Return(arg0 error) *MockUpgraderClien
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUpgraderClientSetVersionCall) Do(f func(context.Context, string, version.Binary) error) *MockUpgraderClientSetVersionCall {
+func (c *MockUpgraderClientSetVersionCall) Do(f func(context.Context, string, semversion.Binary) error) *MockUpgraderClientSetVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUpgraderClientSetVersionCall) DoAndReturn(f func(context.Context, string, version.Binary) error) *MockUpgraderClientSetVersionCall {
+func (c *MockUpgraderClientSetVersionCall) DoAndReturn(f func(context.Context, string, semversion.Binary) error) *MockUpgraderClientSetVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

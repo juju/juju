@@ -8,8 +8,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 )
 
 var _ = gc.Suite(&marshalSuite{})
@@ -19,7 +19,7 @@ type marshalSuite struct {
 
 func newTools(vers, url string) *tools.Tools {
 	return &tools.Tools{
-		Version: version.MustParseBinary(vers),
+		Version: semversion.MustParseBinary(vers),
 		URL:     url,
 		Size:    10,
 		SHA256:  "1234",

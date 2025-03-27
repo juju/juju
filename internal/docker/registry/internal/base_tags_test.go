@@ -12,9 +12,9 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/docker/registry/image"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 )
 
 func (s *baseSuite) TestTagsPublicRegistry(c *gc.C) {
@@ -71,9 +71,9 @@ func (s *baseSuite) TestTagsPublicRegistry(c *gc.C) {
 	vers, err := reg.Tags("jujud-operator")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vers, jc.DeepEquals, tools.Versions{
-		image.NewImageInfo(version.MustParse("2.9.10.1")),
-		image.NewImageInfo(version.MustParse("2.9.10.2")),
-		image.NewImageInfo(version.MustParse("2.9.10")),
+		image.NewImageInfo(semversion.MustParse("2.9.10.1")),
+		image.NewImageInfo(semversion.MustParse("2.9.10.2")),
+		image.NewImageInfo(semversion.MustParse("2.9.10")),
 	})
 }
 
@@ -131,9 +131,9 @@ func (s *baseSuite) TestTagsPrivateRegistry(c *gc.C) {
 	vers, err := reg.Tags("jujud-operator")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vers, jc.DeepEquals, tools.Versions{
-		image.NewImageInfo(version.MustParse("2.9.10.1")),
-		image.NewImageInfo(version.MustParse("2.9.10.2")),
-		image.NewImageInfo(version.MustParse("2.9.10")),
+		image.NewImageInfo(semversion.MustParse("2.9.10.1")),
+		image.NewImageInfo(semversion.MustParse("2.9.10.2")),
+		image.NewImageInfo(semversion.MustParse("2.9.10")),
 	})
 }
 

@@ -17,10 +17,10 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 )
@@ -117,7 +117,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	icfg, err := InstanceConfig(context.Background(), modelID, providerGetter, s.ctrlSt, s.st, services, "0", "nonce", "")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(icfg.APIInfo.Addrs, gc.DeepEquals, []string{"1.2.3.4:1"})
-	c.Check(icfg.ToolsList().URLs(), gc.DeepEquals, map[version.Binary][]string{
+	c.Check(icfg.ToolsList().URLs(), gc.DeepEquals, map[semversion.Binary][]string{
 		icfg.AgentVersion(): {fmt.Sprintf("https://1.2.3.4:1/model/%s/tools/2.6.6-ubuntu-amd64", modelID.String())},
 	})
 	c.Check(icfg.AuthorizedKeys, gc.Equals, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC existing1")

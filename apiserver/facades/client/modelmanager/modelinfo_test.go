@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
 	coreusertesting "github.com/juju/juju/core/user/testing"
@@ -42,7 +43,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -218,7 +218,7 @@ func (s *modelInfoSuite) getAPI(c *gc.C) (*modelmanager.ModelManagerAPI, *gomock
 		Since:  time.Now(),
 	}, nil)
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
-		AgentVersion:   version.MustParse("1.99.9"),
+		AgentVersion:   semversion.MustParse("1.99.9"),
 		ControllerUUID: s.controllerUUID,
 		Cloud:          "dummy",
 		CloudType:      "dummy",
@@ -468,7 +468,7 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 		Since:  time.Now(),
 	}, nil)
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
-		AgentVersion:   version.MustParse("1.99.9"),
+		AgentVersion:   semversion.MustParse("1.99.9"),
 		ControllerUUID: s.controllerUUID,
 		Cloud:          "dummy",
 		CloudType:      "dummy",
@@ -505,7 +505,7 @@ func (s *modelInfoSuite) TestModelInfoReadAccess(c *gc.C) {
 		Since:  time.Now(),
 	}, nil)
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
-		AgentVersion:   version.MustParse("1.99.9"),
+		AgentVersion:   semversion.MustParse("1.99.9"),
 		ControllerUUID: s.controllerUUID,
 		Cloud:          "dummy",
 		CloudType:      "dummy",
@@ -540,7 +540,7 @@ func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
 	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(jujuversion.Current, nil)
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
-		AgentVersion:   version.MustParse("1.99.9"),
+		AgentVersion:   semversion.MustParse("1.99.9"),
 		ControllerUUID: s.controllerUUID,
 		Cloud:          "dummy",
 		CloudType:      "dummy",
@@ -726,7 +726,7 @@ func (s *modelInfoSuite) TestAliveModelWithGetModelTargetAgentVersionFailure(c *
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{}, nil)
 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
 	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
-	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.Zero, errors.NotFoundf("model agent version"))
+	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.Zero, errors.NotFoundf("model agent version"))
 
 	s.st.model.life = state.Alive
 	s.testModelInfoError(c, api, s.st.model.tag.String(), "model agent version not found")
@@ -810,7 +810,7 @@ func (s *modelInfoSuite) TestDeadModelWithGetModelTargetAgentVersionFailure(c *g
 
 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
 	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
-	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.Zero, errors.NotFoundf("model agent version"))
+	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.Zero, errors.NotFoundf("model agent version"))
 
 	modelDomainServices.EXPECT().Machine().Return(s.mockMachineService)
 
@@ -1009,7 +1009,7 @@ func (s *modelInfoSuite) TestImportingModelWithGetModelTargetAgentVersionFailure
 
 	modelAgentService := mocks.NewMockModelAgentService(ctrl)
 	modelDomainServices.EXPECT().Agent().Return(modelAgentService)
-	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.Zero, errors.NotFoundf("model agent version"))
+	modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.Zero, errors.NotFoundf("model agent version"))
 
 	modelDomainServices.EXPECT().Machine().Return(s.mockMachineService)
 

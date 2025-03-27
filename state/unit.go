@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -31,7 +32,6 @@ import (
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
@@ -258,7 +258,7 @@ func (u *Unit) AgentTools() (*tools.Tools, error) {
 
 // SetAgentVersion sets the version of juju that the agent is
 // currently running.
-func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
+func (u *Unit) SetAgentVersion(v semversion.Binary) (err error) {
 	defer errors.DeferredAnnotatef(&err, "setting agent version for unit %q", u)
 	if err = checkVersionValidity(v); err != nil {
 		return err
@@ -1947,7 +1947,8 @@ func (u *Unit) assignToNewMachine(placement string) error {
 
 type byStorageInstance []StorageAttachment
 
-func (b byStorageInstance) Len() int      { return len(b) }
+func (b byStorageInstance) Len() int { return len(b) }
+
 func (b byStorageInstance) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
 
 func (b byStorageInstance) Less(i, j int) bool {

@@ -25,12 +25,12 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	coremodelconfig "github.com/juju/juju/core/modelconfig"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -706,7 +706,7 @@ func Validate(_ctx context.Context, cfg, old *Config) error {
 	// Check that the agent version parses ok if set explicitly; otherwise leave
 	// it alone.
 	if v, ok := cfg.defined[AgentVersionKey].(string); ok {
-		if _, err := version.Parse(v); err != nil {
+		if _, err := semversion.Parse(v); err != nil {
 			return fmt.Errorf("invalid agent version in model configuration: %q", v)
 		}
 	}
@@ -1227,15 +1227,15 @@ func (c *Config) FirewallMode() string {
 // AgentVersion returns the proposed version number for the agent tools,
 // and whether it has been set. Once an environment is bootstrapped, this
 // must always be valid.
-func (c *Config) AgentVersion() (version.Number, bool) {
+func (c *Config) AgentVersion() (semversion.Number, bool) {
 	if v, ok := c.defined[AgentVersionKey].(string); ok {
-		n, err := version.Parse(v)
+		n, err := semversion.Parse(v)
 		if err != nil {
 			panic(err) // We should have checked it earlier.
 		}
 		return n, true
 	}
-	return version.Zero, false
+	return semversion.Zero, false
 }
 
 // AgentMetadataURL returns the URL that locates the agent tarballs and metadata,

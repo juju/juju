@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/logger"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/state/binarystorage"
 )
 
@@ -36,7 +36,7 @@ type AgentBinaryStorage interface {
 // PopulateAgentBinary is the function that is used to populate the agent
 // binary at bootstrap.
 func PopulateAgentBinary(ctx context.Context, dataDir string, storage AgentBinaryStorage, logger logger.Logger) (func(), error) {
-	current := version.Binary{
+	current := semversion.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),
 		Release: coreos.HostOSTypeName(),

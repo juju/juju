@@ -18,13 +18,13 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -35,7 +35,7 @@ type ModelAgentService interface {
 	// entire model. The following errors can be returned:
 	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
 	// not exist.
-	GetModelTargetAgentVersion(context.Context) (version.Number, error)
+	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
 }
 
 // UpgradeService is an interface that allows us to check if the model
@@ -199,7 +199,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx context.Context, arg params.UpgradeM
 		if err != nil {
 			return result, errors.Trace(err)
 		}
-		if targetVersion == version.Zero || targetVersion.Compare(vers) == 0 {
+		if targetVersion == semversion.Zero || targetVersion.Compare(vers) == 0 {
 			targetVersion = vers
 			useControllerVersion = true
 		} else if vers.Compare(targetVersion.ToPatch()) < 0 {
@@ -213,7 +213,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx context.Context, arg params.UpgradeM
 			ControllerCfg: controllerCfg,
 			ModelType:     model.Type(),
 		}
-		if targetVersion == version.Zero {
+		if targetVersion == semversion.Zero {
 			args.MajorVersion = currentVersion.Major
 			args.MinorVersion = currentVersion.Minor
 		} else {
@@ -265,7 +265,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx context.Context, arg params.UpgradeM
 
 func preCheckEnvironForUpgradeModel(
 	ctx context.Context, env environs.BootstrapEnviron,
-	controllerModel bool, currentVersion, targetVersion version.Number,
+	controllerModel bool, currentVersion, targetVersion semversion.Number,
 	logger corelogger.Logger,
 ) error {
 	if err := environs.CheckProviderAPI(ctx, env); err != nil {
@@ -284,7 +284,7 @@ func preCheckEnvironForUpgradeModel(
 	// skipTarget returns true if the from version is less than the target version
 	// AND the target version is greater than the to version.
 	// Borrowed from upgrades.opsIterator.
-	skipTarget := func(from, target, to version.Number) bool {
+	skipTarget := func(from, target, to semversion.Number) bool {
 		// Clear the version tag of the to release to ensure that all
 		// upgrade steps for the release are run for alpha and beta
 		// releases.
@@ -327,7 +327,7 @@ func preCheckEnvironForUpgradeModel(
 
 func (m *ModelUpgraderAPI) validateModelUpgrade(
 	ctx context.Context,
-	force bool, modelTag names.ModelTag, targetVersion version.Number,
+	force bool, modelTag names.ModelTag, targetVersion semversion.Number,
 	st State, model Model,
 ) (err error) {
 	var blockers *upgradevalidation.ModelUpgradeBlockers

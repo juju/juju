@@ -11,11 +11,11 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 )
 
 type instancecfgSuite struct {
@@ -63,13 +63,13 @@ func testInstanceTags(c *gc.C, cfg *config.Config, isController bool, expectTags
 
 func (*instancecfgSuite) TestAgentVersionZero(c *gc.C) {
 	var icfg instancecfg.InstanceConfig
-	c.Assert(icfg.AgentVersion(), gc.Equals, version.Binary{})
+	c.Assert(icfg.AgentVersion(), gc.Equals, semversion.Binary{})
 }
 
 func (*instancecfgSuite) TestAgentVersion(c *gc.C) {
 	var icfg instancecfg.InstanceConfig
 	list := coretools.List{
-		&coretools.Tools{Version: version.MustParseBinary("2.3.4-ubuntu-amd64")},
+		&coretools.Tools{Version: semversion.MustParseBinary("2.3.4-ubuntu-amd64")},
 	}
 	err := icfg.SetTools(list)
 	c.Assert(err, jc.ErrorIsNil)
@@ -79,8 +79,8 @@ func (*instancecfgSuite) TestAgentVersion(c *gc.C) {
 func (*instancecfgSuite) TestSetToolsSameVersions(c *gc.C) {
 	var icfg instancecfg.InstanceConfig
 	list := coretools.List{
-		&coretools.Tools{Version: version.MustParseBinary("2.3.4-ubuntu-amd64")},
-		&coretools.Tools{Version: version.MustParseBinary("2.3.4-ubuntu-amd64")},
+		&coretools.Tools{Version: semversion.MustParseBinary("2.3.4-ubuntu-amd64")},
+		&coretools.Tools{Version: semversion.MustParseBinary("2.3.4-ubuntu-amd64")},
 	}
 	err := icfg.SetTools(list)
 	c.Assert(err, jc.ErrorIsNil)
@@ -90,8 +90,8 @@ func (*instancecfgSuite) TestSetToolsSameVersions(c *gc.C) {
 func (*instancecfgSuite) TestSetToolsDifferentVersions(c *gc.C) {
 	var icfg instancecfg.InstanceConfig
 	list := coretools.List{
-		&coretools.Tools{Version: version.MustParseBinary("2.3.4-ubuntu-amd64")},
-		&coretools.Tools{Version: version.MustParseBinary("2.3.5-ubuntu-amd64")},
+		&coretools.Tools{Version: semversion.MustParseBinary("2.3.4-ubuntu-amd64")},
+		&coretools.Tools{Version: semversion.MustParseBinary("2.3.5-ubuntu-amd64")},
 	}
 	err := icfg.SetTools(list)
 	c.Assert(err, gc.ErrorMatches, `agent binary info mismatch.*2\.3\.4.*2\.3\.5.*`)
@@ -104,7 +104,7 @@ func (*instancecfgSuite) TestJujuTools(c *gc.C) {
 	}
 	err := icfg.SetTools(coretools.List{
 		&coretools.Tools{
-			Version: version.MustParseBinary("2.3.4-ubuntu-amd64"),
+			Version: semversion.MustParseBinary("2.3.4-ubuntu-amd64"),
 			URL:     "/tools/2.3.4-ubuntu-amd64",
 		},
 	})
@@ -135,7 +135,7 @@ func (*instancecfgSuite) TestAgentConfigLogParams(c *gc.C) {
 		ControllerTag: names.NewControllerTag(testing.ControllerTag.Id()),
 		DataDir:       "/path/to/datadir/",
 	}
-	config, err := icfg.AgentConfig(names.NewMachineTag("foo"), version.MustParse("1.2.3"))
+	config, err := icfg.AgentConfig(names.NewMachineTag("foo"), semversion.MustParse("1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config.AgentLogfileMaxSizeMB(), gc.Equals, 123)
 	c.Assert(config.AgentLogfileMaxBackups(), gc.Equals, 7)

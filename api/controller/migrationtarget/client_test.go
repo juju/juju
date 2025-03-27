@@ -28,10 +28,10 @@ import (
 	"github.com/juju/juju/api/controller/migrationtarget"
 	coremigration "github.com/juju/juju/core/migration"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -55,8 +55,8 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 	client, stub := s.getClientAndStub()
 
 	ownerTag := names.NewUserTag("owner")
-	vers := version.MustParse("1.2.3")
-	controllerVers := version.MustParse("1.2.5")
+	vers := semversion.MustParse("1.2.3")
+	controllerVers := semversion.MustParse("1.2.5")
 	modelDescription := description.NewModel(description.ModelArgs{})
 
 	bytes, err := description.Serialize(modelDescription)
@@ -243,7 +243,7 @@ func (s *ClientSuite) TestUploadCharmHubCharm(c *gc.C) {
 
 func (s *ClientSuite) TestUploadTools(c *gc.C) {
 	const toolsBody = "toolie"
-	vers := version.MustParseBinary("2.0.0-ubuntu-amd64")
+	vers := semversion.MustParseBinary("2.0.0-ubuntu-amd64")
 	someTools := &tools.Tools{Version: vers}
 	doer := newFakeDoer(c, params.ToolsResult{
 		ToolsList: []*tools.Tools{someTools},

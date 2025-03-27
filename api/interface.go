@@ -21,8 +21,8 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/proxy"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/rpc/params"
 )
@@ -143,7 +143,7 @@ type LoginResultParams struct {
 	servers          []network.MachineHostPorts
 	facades          []params.FacadeVersions
 	publicDNSName    string
-	serverVersion    version.Number
+	serverVersion    semversion.Number
 }
 
 // EnsureTag should be used when a login provider needs to ensure
@@ -170,7 +170,7 @@ func NewLoginResultParams(result params.LoginResult) (*LoginResultParams, error)
 		modelAccess = result.UserInfo.ModelAccess
 	}
 	servers := params.ToMachineHostsPorts(result.Servers)
-	serverVersion, err := version.Parse(result.ServerVersion)
+	serverVersion, err := semversion.Parse(result.ServerVersion)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -375,7 +375,7 @@ type Connection interface {
 	// These are a bit off -- ServerVersion is apparently not known until after
 	// Login()? Maybe evidence of need for a separate AuthenticatedConnection..?
 	Login(ctx context.Context, name names.Tag, password, nonce string, ms []macaroon.Slice) error
-	ServerVersion() (version.Number, bool)
+	ServerVersion() (semversion.Number, bool)
 
 	// APICaller provides the facility to make API calls directly.
 	// This should not be used outside the api/* packages or tests.

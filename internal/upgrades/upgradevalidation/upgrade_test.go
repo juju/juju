@@ -11,11 +11,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/semversion"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/state"
 )
 
@@ -23,8 +23,8 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.MinAgentVersions, map[int]version.Number{
-		3: version.MustParse("2.9.1"),
+	s.PatchValue(&upgradevalidation.MinAgentVersions, map[int]semversion.Number{
+		3: semversion.MustParse("2.9.1"),
 	})
 
 	s.PatchValue(&upgradevalidation.SupportedJujuBases, func() []base.Base {
@@ -53,7 +53,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 
 	// 1. Check controller model.
 	// - check agent version;
-	agentVersion.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse("3.666.1"), nil)
+	agentVersion.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.MustParse("3.666.1"), nil)
 	// - check mongo status;
 	ctrlState.EXPECT().MongoCurrentStatus().Return(&replicaset.Status{
 		Members: []replicaset.MemberStatus{
@@ -83,7 +83,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	server.EXPECT().ServerVersion().Return("5.2")
 	// 2. Check hosted models.
 	// - check agent version;
-	agentVersion.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(version.MustParse("2.9.1"), nil)
+	agentVersion.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.MustParse("2.9.1"), nil)
 	//  - check if model migration is ongoing;
 	model1.EXPECT().MigrationMode().Return(state.MigrationModeNone)
 	state1.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"24.04/stable", "22.04/stable", "20.04/stable"})).Return(nil, nil)
@@ -92,7 +92,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
 
-	targetVersion := version.MustParse("3.666.2")
+	targetVersion := semversion.MustParse("3.666.2")
 	validators := upgradevalidation.ValidatorsForControllerModelUpgrade(targetVersion, cloudSpec.CloudSpec)
 	checker := upgradevalidation.NewModelUpgradeCheck(statePool, ctrlState, ctrlModel, agentVersion, validators...)
 	blockers, err := checker.Validate()
@@ -136,7 +136,7 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
 
-	targetVersion := version.MustParse("3.0.0")
+	targetVersion := semversion.MustParse("3.0.0")
 	validators := upgradevalidation.ValidatorsForModelUpgrade(false, targetVersion, cloudSpec.CloudSpec)
 	checker := upgradevalidation.NewModelUpgradeCheck(statePool, st, model, agentService, validators...)
 	blockers, err := checker.Validate()

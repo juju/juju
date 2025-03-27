@@ -13,9 +13,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/core/semversion"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 )
 
 var _ = gc.Suite(&DiskManagerSuite{})
@@ -48,7 +48,7 @@ func (s *DiskManagerSuite) TestUnpackToolsContents(c *gc.C) {
 	gzfile, checksum := coretesting.TarGz(files...)
 	t1 := &coretools.Tools{
 		URL:     "http://foo/bar",
-		Version: version.MustParseBinary("1.2.3-ubuntu-amd64"),
+		Version: semversion.MustParseBinary("1.2.3-ubuntu-amd64"),
 		Size:    int64(len(gzfile)),
 		SHA256:  checksum,
 	}
@@ -67,7 +67,7 @@ func (s *DiskManagerSuite) TestUnpackToolsContents(c *gc.C) {
 	gzfile2, checksum2 := coretesting.TarGz(files2...)
 	t2 := &coretools.Tools{
 		URL:     "http://arble",
-		Version: version.MustParseBinary("1.2.3-ubuntu-amd64"),
+		Version: semversion.MustParseBinary("1.2.3-ubuntu-amd64"),
 		Size:    int64(len(gzfile2)),
 		SHA256:  checksum2,
 	}
@@ -79,7 +79,7 @@ func (s *DiskManagerSuite) TestUnpackToolsContents(c *gc.C) {
 
 func (t *DiskManagerSuite) TestSharedToolsDir(c *gc.C) {
 	manager := agenttools.NewDiskManager("/var/lib/juju")
-	dir := manager.SharedToolsDir(version.MustParseBinary("1.2.3-ubuntu-amd64"))
+	dir := manager.SharedToolsDir(semversion.MustParseBinary("1.2.3-ubuntu-amd64"))
 	c.Assert(dir, gc.Equals, "/var/lib/juju/tools/1.2.3-ubuntu-amd64")
 }
 

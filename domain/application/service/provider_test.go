@@ -21,6 +21,7 @@ import (
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/resource"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
+	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -36,7 +37,6 @@ import (
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/version"
 )
 
 type providerServiceSuite struct {
@@ -1193,7 +1193,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageValidates(c *gc.C
 func (s *providerServiceSuite) TestGetSupportedFeatures(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	agentVersion := version.MustParse("4.0.0")
+	agentVersion := semversion.MustParse("4.0.0")
 	s.agentVersionGetter.EXPECT().GetTargetAgentVersion(gomock.Any()).Return(agentVersion, nil)
 
 	s.supportedFeaturesProvider.EXPECT().SupportedFeatures().Return(assumes.FeatureSet{}, nil)
@@ -1218,7 +1218,7 @@ func (s *providerServiceSuite) TestGetSupportedFeaturesNotSupported(c *gc.C) {
 	})
 	defer ctrl.Finish()
 
-	agentVersion := version.MustParse("4.0.0")
+	agentVersion := semversion.MustParse("4.0.0")
 	s.agentVersionGetter.EXPECT().GetTargetAgentVersion(gomock.Any()).Return(agentVersion, nil)
 
 	features, err := s.service.GetSupportedFeatures(context.Background())

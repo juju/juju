@@ -22,6 +22,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
@@ -34,7 +35,6 @@ import (
 	"github.com/juju/juju/internal/container/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 )
 
 type blankMachineInitReader struct {
@@ -142,7 +142,7 @@ func (s *lxdBrokerSuite) TestStartInstanceNoHostArchTools(c *gc.C) {
 	_, err := broker.StartInstance(envcontext.WithoutCredentialInvalidator(context.Background()), environs.StartInstanceParams{
 		Tools: coretools.List{{
 			// non-host-arch tools should be filtered out by StartInstance
-			Version: version.MustParseBinary("2.3.4-ubuntu-arm64"),
+			Version: semversion.MustParseBinary("2.3.4-ubuntu-arm64"),
 			URL:     "http://tools.testing.invalid/2.3.4-ubuntu-arm64.tgz",
 		}},
 		InstanceConfig: makeInstanceConfig(c, s, "1/lxd/0"),

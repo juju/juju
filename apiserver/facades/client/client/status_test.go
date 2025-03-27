@@ -15,10 +15,10 @@ import (
 
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	domainmodel "github.com/juju/juju/domain/model"
 	domainmodelerrors "github.com/juju/juju/domain/model/errors"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -48,7 +48,7 @@ func (s *statusSuite) TestModelStatus(c *gc.C) {
 		Type:         model.IAAS,
 		Cloud:        "mycloud",
 		CloudRegion:  "region",
-		AgentVersion: version.MustParse("4.0.0"),
+		AgentVersion: semversion.MustParse("4.0.0"),
 	}, nil)
 	s.modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(domainmodel.StatusInfo{
 		Status:  status.Available,
@@ -82,7 +82,7 @@ func (s *statusSuite) TestModelStatusModelNotFound(c *gc.C) {
 		Type:         model.IAAS,
 		Cloud:        "mycloud",
 		CloudRegion:  "region",
-		AgentVersion: version.MustParse("4.0.0"),
+		AgentVersion: semversion.MustParse("4.0.0"),
 	}, nil)
 	s.modelInfoService.EXPECT().GetStatus(gomock.Any()).Return(domainmodel.StatusInfo{}, domainmodelerrors.NotFound)
 

@@ -28,7 +28,7 @@ func (*ImportTest) TestImports(c *gc.C) {
 		"internal/charm/assumes",
 		"internal/charm/hooks",
 		"internal/charm/resource",
+		"core/semversion",
 		"internal/errors",
-		"internal/version",
 	})
 }

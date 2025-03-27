@@ -17,8 +17,8 @@ import (
 
 	base "github.com/juju/juju/api/base"
 	network "github.com/juju/juju/core/network"
+	semversion "github.com/juju/juju/core/semversion"
 	proxy "github.com/juju/juju/internal/proxy"
-	version "github.com/juju/juju/internal/version"
 	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 	httprequest "gopkg.in/httprequest.v1"
@@ -890,10 +890,10 @@ func (c *MockConnectionRootHTTPClientCall) DoAndReturn(f func() (*httprequest.Cl
 }
 
 // ServerVersion mocks base method.
-func (m *MockConnection) ServerVersion() (version.Number, bool) {
+func (m *MockConnection) ServerVersion() (semversion.Number, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ServerVersion")
-	ret0, _ := ret[0].(version.Number)
+	ret0, _ := ret[0].(semversion.Number)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }
@@ -911,19 +911,19 @@ type MockConnectionServerVersionCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockConnectionServerVersionCall) Return(arg0 version.Number, arg1 bool) *MockConnectionServerVersionCall {
+func (c *MockConnectionServerVersionCall) Return(arg0 semversion.Number, arg1 bool) *MockConnectionServerVersionCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockConnectionServerVersionCall) Do(f func() (version.Number, bool)) *MockConnectionServerVersionCall {
+func (c *MockConnectionServerVersionCall) Do(f func() (semversion.Number, bool)) *MockConnectionServerVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConnectionServerVersionCall) DoAndReturn(f func() (version.Number, bool)) *MockConnectionServerVersionCall {
+func (c *MockConnectionServerVersionCall) DoAndReturn(f func() (semversion.Number, bool)) *MockConnectionServerVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

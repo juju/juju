@@ -10,8 +10,8 @@ import (
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
-	"github.com/juju/juju/internal/version"
 )
 
 type UpgraderSuite struct {
@@ -24,7 +24,7 @@ func (u *UpgraderSuite) TestUpgradePodTemplateSpec(c *gc.C) {
 		ExpectedPodTemplateSpec core.PodTemplateSpec
 		PodTemplateSpec         core.PodTemplateSpec
 		ImagePath               string
-		Version                 version.Number
+		Version                 semversion.Number
 	}{
 		{
 			ExpectedPodTemplateSpec: core.PodTemplateSpec{
@@ -45,7 +45,7 @@ func (u *UpgraderSuite) TestUpgradePodTemplateSpec(c *gc.C) {
 					},
 				},
 			},
-			Version: version.MustParse("2.6.7"),
+			Version: semversion.MustParse("2.6.7"),
 		},
 	}
 

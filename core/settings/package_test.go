@@ -26,11 +26,11 @@ func (*importSuite) TestImports(c *gc.C) {
 	// This package only brings in other core packages.
 	c.Assert(found, jc.SameContents, []string{
 		"core/arch",
+		"core/semversion",
 		"internal/charm",
 		"internal/charm/assumes",
 		"internal/charm/hooks",
 		"internal/charm/resource",
 		"internal/errors",
-		"internal/version",
 	})
 }

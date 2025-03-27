@@ -4,15 +4,15 @@
 package upgradevalidation
 
 import (
+	"github.com/juju/juju/core/semversion"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/internal/version"
 )
 
 // ValidatorsForControllerModelUpgrade returns a list of validators for the
 // controller model in a controller upgrade.
 // Note: the target version can never be lower than the current version.
 func ValidatorsForControllerModelUpgrade(
-	targetVersion version.Number, cloudspec environscloudspec.CloudSpec,
+	targetVersion semversion.Number, cloudspec environscloudspec.CloudSpec,
 ) []Validator {
 	validators := []Validator{
 		getCheckTargetVersionForControllerModel(targetVersion),
@@ -28,7 +28,7 @@ func ValidatorsForControllerModelUpgrade(
 // non-controller models in a controller upgrade.
 // Note: the target version can never be lower than the current version.
 func ModelValidatorsForControllerModelUpgrade(
-	targetVersion version.Number, cloudspec environscloudspec.CloudSpec,
+	targetVersion semversion.Number, cloudspec environscloudspec.CloudSpec,
 ) []Validator {
 	validators := []Validator{
 		getCheckTargetVersionForModel(targetVersion, UpgradeControllerAllowed),
@@ -42,7 +42,7 @@ func ModelValidatorsForControllerModelUpgrade(
 // ValidatorsForModelUpgrade returns a list of validators for model upgrade.
 // Note: the target version can never be lower than the current version.
 func ValidatorsForModelUpgrade(
-	force bool, targetVersion version.Number, cloudspec environscloudspec.CloudSpec,
+	force bool, targetVersion semversion.Number, cloudspec environscloudspec.CloudSpec,
 ) []Validator {
 	validators := []Validator{
 		checkForDeprecatedUbuntuSeriesForModel,

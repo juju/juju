@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
@@ -58,7 +59,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
 )
@@ -2399,7 +2399,7 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	checkVolumeTags(origController, allVolumes...)
 	checkGroupTags(origController, allGroups...)
 
-	err = env.AdoptResources(s.callCtx, "new-controller", version.MustParse("0.0.1"))
+	err = env.AdoptResources(s.callCtx, "new-controller", semversion.MustParse("0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	checkInstanceTags("new-controller", string(inst.Id()))
@@ -3149,7 +3149,7 @@ func (t *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	toolsStorage, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
 	possibleTools := coretools.List(envtesting.AssertUploadFakeToolsVersions(
-		c, toolsStorage, "released", "released", version.MustParseBinary("5.4.5-ubuntu-amd64"),
+		c, toolsStorage, "released", "released", semversion.MustParseBinary("5.4.5-ubuntu-amd64"),
 	))
 	params := environs.StartInstanceParams{
 		ControllerUUID: coretesting.ControllerTag.Id(),

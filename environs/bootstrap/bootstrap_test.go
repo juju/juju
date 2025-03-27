@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -48,7 +49,6 @@ import (
 	corestorage "github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/testcharms"
 )
@@ -549,6 +549,7 @@ func (s *bootstrapSuite) assertBootstrapImageMetadata(c *gc.C, env *bootstrapEnv
 	c.Assert(env.instanceConfig.Bootstrap.BootstrapMachineConstraints, jc.DeepEquals, bootstrapCons)
 
 }
+
 func (s *bootstrapSuite) setupProviderWithSomeSupportedArches(c *gc.C) bootstrapEnvironWithRegion {
 	env := bootstrapEnvironWithRegion{
 		newEnviron("foo", useDefaultKeys, nil),
@@ -689,7 +690,7 @@ func (s *bootstrapSuite) TestBootstrapLocalTools(c *gc.C) {
 			CAPrivateKey:     coretesting.CAKey,
 			SSHServerHostKey: coretesting.SSHServerHostKey,
 			ControllerConfig: coretesting.FakeControllerConfig(),
-			BuildAgentTarball: func(bool, string, func(localBinaryVersion version.Number) version.Number) (*sync.BuiltAgent, error) {
+			BuildAgentTarball: func(bool, string, func(localBinaryVersion semversion.Number) semversion.Number) (*sync.BuiltAgent, error) {
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
 			BootstrapBase:           jammyBootstrapBase,
@@ -718,7 +719,7 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsMismatchingOS(c *gc.C) {
 			CAPrivateKey:     coretesting.CAKey,
 			SSHServerHostKey: coretesting.SSHServerHostKey,
 			ControllerConfig: coretesting.FakeControllerConfig(),
-			BuildAgentTarball: func(bool, string, func(localBinaryVersion version.Number) version.Number) (*sync.BuiltAgent, error) {
+			BuildAgentTarball: func(bool, string, func(localBinaryVersion semversion.Number) semversion.Number) (*sync.BuiltAgent, error) {
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
 			BootstrapBase:           jammyBootstrapBase,
@@ -744,7 +745,7 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsDifferentLinuxes(c *gc.C) {
 			CAPrivateKey:     coretesting.CAKey,
 			SSHServerHostKey: coretesting.SSHServerHostKey,
 			ControllerConfig: coretesting.FakeControllerConfig(),
-			BuildAgentTarball: func(bool, string, func(localBinaryVersion version.Number) version.Number) (*sync.BuiltAgent, error) {
+			BuildAgentTarball: func(bool, string, func(localBinaryVersion semversion.Number) semversion.Number) (*sync.BuiltAgent, error) {
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
 			BootstrapBase:           jammyBootstrapBase,
@@ -775,9 +776,9 @@ func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
 			SSHServerHostKey: coretesting.SSHServerHostKey,
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			BuildAgentTarball: func(build bool, _ string,
-				getForceVersion func(version.Number) version.Number,
+				getForceVersion func(semversion.Number) semversion.Number,
 			) (*sync.BuiltAgent, error) {
-				ver := getForceVersion(version.Zero)
+				ver := getForceVersion(semversion.Zero)
 				c.Logf("BuildAgentTarball version %s", ver)
 				c.Assert(build, jc.IsTrue)
 				c.Assert(ver.String(), gc.Equals, "2.99.0.1")
@@ -785,7 +786,7 @@ func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
 				return &sync.BuiltAgent{
 					Dir:      c.MkDir(),
 					Official: true,
-					Version: version.Binary{
+					Version: semversion.Binary{
 						// If we found an official build we suppress the build number.
 						Number:  localVer.ToPatch(),
 						Release: "ubuntu",
@@ -813,7 +814,7 @@ func (s *bootstrapSuite) assertBootstrapPackagedToolsAvailable(c *gc.C, clientAr
 		c.Assert(filter.Arch, gc.Equals, toolsArch)
 		c.Assert(filter.OSType, gc.Equals, "ubuntu")
 		findToolsOk = true
-		vers := version.Binary{
+		vers := semversion.Binary{
 			Number:  jujuversion.Current,
 			Release: "ubuntu",
 			Arch:    toolsArch,
@@ -832,7 +833,7 @@ func (s *bootstrapSuite) assertBootstrapPackagedToolsAvailable(c *gc.C, clientAr
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			BootstrapBase:           jammyBootstrapBase,
 			SupportedBootstrapBases: supportedJujuBases,
-			BuildAgentTarball: func(bool, string, func(localBinaryVersion version.Number) version.Number) (*sync.BuiltAgent, error) {
+			BuildAgentTarball: func(bool, string, func(localBinaryVersion semversion.Number) semversion.Number) (*sync.BuiltAgent, error) {
 				c.Fatal("should not call BuildAgentTarball if there are packaged tools")
 				return nil, nil
 			},
@@ -862,7 +863,7 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 			CAPrivateKey:     coretesting.CAKey,
 			SSHServerHostKey: coretesting.SSHServerHostKey,
 			ControllerConfig: coretesting.FakeControllerConfig(),
-			BuildAgentTarball: func(bool, string, func(localBinaryVersion version.Number) version.Number) (*sync.BuiltAgent, error) {
+			BuildAgentTarball: func(bool, string, func(localBinaryVersion semversion.Number) semversion.Number) (*sync.BuiltAgent, error) {
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
 			SupportedBootstrapBases: supportedJujuBases,
@@ -885,7 +886,7 @@ func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
 			AdminSecret:      "admin-secret",
 			CAPrivateKey:     coretesting.CAKey,
 			SSHServerHostKey: coretesting.SSHServerHostKey,
-			BuildAgentTarball: func(bool, string, func(localBinaryVersion version.Number) version.Number) (*sync.BuiltAgent, error) {
+			BuildAgentTarball: func(bool, string, func(localBinaryVersion semversion.Number) semversion.Number) (*sync.BuiltAgent, error) {
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
 			},
 			SupportedBootstrapBases: supportedJujuBases,
@@ -896,12 +897,12 @@ func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapToolsVersion(c *gc.C) {
-	availableVersions := []version.Binary{
-		version.MustParseBinary("1.18.0-ubuntu-arm64"),
-		version.MustParseBinary("1.18.1-ubuntu-arm64"),
-		version.MustParseBinary("1.18.1.1-ubuntu-arm64"),
-		version.MustParseBinary("1.18.1.2-ubuntu-arm64"),
-		version.MustParseBinary("1.18.1.3-ubuntu-arm64"),
+	availableVersions := []semversion.Binary{
+		semversion.MustParseBinary("1.18.0-ubuntu-arm64"),
+		semversion.MustParseBinary("1.18.1-ubuntu-arm64"),
+		semversion.MustParseBinary("1.18.1.1-ubuntu-arm64"),
+		semversion.MustParseBinary("1.18.1.2-ubuntu-arm64"),
+		semversion.MustParseBinary("1.18.1.3-ubuntu-arm64"),
 	}
 	availableTools := make(tools.List, len(availableVersions))
 	for i, v := range availableVersions {
@@ -909,26 +910,26 @@ func (s *bootstrapSuite) TestBootstrapToolsVersion(c *gc.C) {
 	}
 
 	type test struct {
-		currentVersion version.Number
-		expectedTools  version.Number
+		currentVersion semversion.Number
+		expectedTools  semversion.Number
 	}
 	tests := []test{{
-		currentVersion: version.MustParse("1.18.0"),
-		expectedTools:  version.MustParse("1.18.0"),
+		currentVersion: semversion.MustParse("1.18.0"),
+		expectedTools:  semversion.MustParse("1.18.0"),
 	}, {
-		currentVersion: version.MustParse("1.18.1.4"),
-		expectedTools:  version.MustParse("1.18.1.3"),
+		currentVersion: semversion.MustParse("1.18.1.4"),
+		expectedTools:  semversion.MustParse("1.18.1.3"),
 	}, {
 		// build number is ignored unless major/minor don't
 		// match the latest.
-		currentVersion: version.MustParse("1.18.1.2"),
-		expectedTools:  version.MustParse("1.18.1.3"),
+		currentVersion: semversion.MustParse("1.18.1.2"),
+		expectedTools:  semversion.MustParse("1.18.1.3"),
 	}, {
 		// If the current patch level exceeds whatever's in
 		// the tools source (e.g. when bootstrapping from trunk)
 		// then the latest available tools will be chosen.
-		currentVersion: version.MustParse("1.18.2"),
-		expectedTools:  version.MustParse("1.18.1.3"),
+		currentVersion: semversion.MustParse("1.18.2"),
+		expectedTools:  semversion.MustParse("1.18.1.3"),
 	}}
 
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -1274,7 +1275,7 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 	c.Assert(datasources[0].Description(), gc.Equals, "default ubuntu cloud images")
 }
 
-func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, clientMinor int, toolsVersion *version.Number) (error, int, version.Number) {
+func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, clientMinor int, toolsVersion *semversion.Number) (error, int, semversion.Number) {
 	currentVersion := jujuversion.Current
 	currentVersion.Major = clientMajor
 	currentVersion.Minor = clientMinor
@@ -1289,10 +1290,10 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, cli
 	})
 	defer envtools.UnregisterToolsDataSourceFunc("local storage")
 
-	toolsBinaries := []version.Binary{
-		version.MustParseBinary("10.11.12-ubuntu-amd64"),
-		version.MustParseBinary("10.11.13-ubuntu-amd64"),
-		version.MustParseBinary("10.11-beta1-ubuntu-amd64"),
+	toolsBinaries := []semversion.Binary{
+		semversion.MustParseBinary("10.11.12-ubuntu-amd64"),
+		semversion.MustParseBinary("10.11.13-ubuntu-amd64"),
+		semversion.MustParseBinary("10.11-beta1-ubuntu-amd64"),
 	}
 	stream := "released"
 	if toolsVersion != nil && toolsVersion.Tag != "" {
@@ -1319,9 +1320,9 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, cli
 			AgentVersion:     toolsVersion,
 			BuildAgentTarball: func(
 				build bool, _ string,
-				getForceVersion func(version.Number) version.Number,
+				getForceVersion func(semversion.Number) semversion.Number,
 			) (*sync.BuiltAgent, error) {
-				ver := getForceVersion(version.Zero)
+				ver := getForceVersion(semversion.Zero)
 				c.Logf("BuildAgentTarball version %s", ver)
 				c.Assert(build, jc.IsFalse)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
@@ -1333,11 +1334,11 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, cli
 }
 
 func (s *bootstrapSuite) TestBootstrapSpecificVersion(c *gc.C) {
-	toolsVersion := version.MustParse("10.11.12")
+	toolsVersion := semversion.MustParse("10.11.12")
 	err, bootstrapCount, vers := s.setupBootstrapSpecificVersion(c, 10, 11, &toolsVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bootstrapCount, gc.Equals, 1)
-	c.Assert(vers, gc.DeepEquals, version.Number{
+	c.Assert(vers, gc.DeepEquals, semversion.Number{
 		Major: 10,
 		Minor: 11,
 		Patch: 12,
@@ -1345,11 +1346,11 @@ func (s *bootstrapSuite) TestBootstrapSpecificVersion(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapSpecificVersionWithTag(c *gc.C) {
-	toolsVersion := version.MustParse("10.11-beta1")
+	toolsVersion := semversion.MustParse("10.11-beta1")
 	err, bootstrapCount, vers := s.setupBootstrapSpecificVersion(c, 10, 11, &toolsVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bootstrapCount, gc.Equals, 1)
-	c.Assert(vers, gc.DeepEquals, version.Number{
+	c.Assert(vers, gc.DeepEquals, semversion.Number{
 		Major: 10,
 		Minor: 11,
 		Patch: 1,
@@ -1362,7 +1363,7 @@ func (s *bootstrapSuite) TestBootstrapNoSpecificVersion(c *gc.C) {
 	err, bootstrapCount, vers := s.setupBootstrapSpecificVersion(c, 10, 11, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bootstrapCount, gc.Equals, 1)
-	c.Assert(vers, gc.DeepEquals, version.Number{
+	c.Assert(vers, gc.DeepEquals, semversion.Number{
 		Major: 10,
 		Minor: 11,
 		Patch: 13,
@@ -1372,7 +1373,7 @@ func (s *bootstrapSuite) TestBootstrapNoSpecificVersion(c *gc.C) {
 func (s *bootstrapSuite) TestBootstrapSpecificVersionClientMinorMismatch(c *gc.C) {
 	// bootstrap using a specified version only works if the patch number is different.
 	// The bootstrap client major and minor versions need to match the tools asked for.
-	toolsVersion := version.MustParse("10.11.12")
+	toolsVersion := semversion.MustParse("10.11.12")
 	err, bootstrapCount, _ := s.setupBootstrapSpecificVersion(c, 10, 1, &toolsVersion)
 	c.Assert(strings.Replace(err.Error(), "\n", "", -1), gc.Matches, ".* no agent binaries are available .*")
 	c.Assert(bootstrapCount, gc.Equals, 0)
@@ -1381,7 +1382,7 @@ func (s *bootstrapSuite) TestBootstrapSpecificVersionClientMinorMismatch(c *gc.C
 func (s *bootstrapSuite) TestBootstrapSpecificVersionClientMajorMismatch(c *gc.C) {
 	// bootstrap using a specified version only works if the patch number is different.
 	// The bootstrap client major and minor versions need to match the tools asked for.
-	toolsVersion := version.MustParse("10.11.12")
+	toolsVersion := semversion.MustParse("10.11.12")
 	err, bootstrapCount, _ := s.setupBootstrapSpecificVersion(c, 1, 11, &toolsVersion)
 	c.Assert(strings.Replace(err.Error(), "\n", "", -1), gc.Matches, ".* no agent binaries are available .*")
 	c.Assert(bootstrapCount, gc.Equals, 0)
@@ -1406,9 +1407,9 @@ func (s *bootstrapSuite) TestAvailableToolsInvalidArch(c *gc.C) {
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			BuildAgentTarball: func(
 				build bool, _ string,
-				getForceVersion func(version.Number) version.Number,
+				getForceVersion func(semversion.Number) semversion.Number,
 			) (*sync.BuiltAgent, error) {
-				ver := getForceVersion(version.Zero)
+				ver := getForceVersion(semversion.Zero)
 				c.Logf("BuildAgentTarball version %s", ver)
 				c.Assert(build, jc.IsTrue)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
@@ -1443,9 +1444,9 @@ func (s *bootstrapSuite) TestTargetArchOverride(c *gc.C) {
 			SupportedBootstrapBases: supportedJujuBases,
 			BuildAgentTarball: func(
 				build bool, _ string,
-				getForceVersion func(version.Number) version.Number,
+				getForceVersion func(semversion.Number) semversion.Number,
 			) (*sync.BuiltAgent, error) {
-				ver := getForceVersion(version.Zero)
+				ver := getForceVersion(semversion.Zero)
 				c.Logf("BuildAgentTarball version %s", ver)
 				c.Assert(build, jc.IsTrue)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
@@ -1475,9 +1476,9 @@ func (s *bootstrapSuite) TestTargetSeriesAndArchOverridePriority(c *gc.C) {
 			SupportedBootstrapBases: supportedJujuBases,
 			BuildAgentTarball: func(
 				build bool, _ string,
-				getForceVersion func(version.Number) version.Number,
+				getForceVersion func(semversion.Number) semversion.Number,
 			) (*sync.BuiltAgent, error) {
-				ver := getForceVersion(version.Zero)
+				ver := getForceVersion(semversion.Zero)
 				c.Logf("BuildAgentTarball version %s", ver)
 				c.Assert(build, jc.IsTrue)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
@@ -1639,9 +1640,11 @@ func newBootstrapEnvironWithHardwareDetection(name string, detectedBase corebase
 func (e bootstrapEnvironWithHardwareDetection) DetectBase() (corebase.Base, error) {
 	return e.detectedBase, nil
 }
+
 func (e bootstrapEnvironWithHardwareDetection) DetectHardware() (*instance.HardwareCharacteristics, error) {
 	return e.detectedHW, nil
 }
+
 func (e bootstrapEnvironWithHardwareDetection) UpdateModelConstraints() bool {
 	return false
 }

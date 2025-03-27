@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
@@ -41,7 +42,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/containerprovisioner"
 	"github.com/juju/juju/rpc/params"
 )
@@ -342,7 +342,7 @@ func (*credentialAPIForTest) InvalidateModelCredential(_ context.Context, reason
 var (
 	startInstanceArgTemplate = environs.StartInstanceParams{
 		ControllerUUID: coretesting.ControllerTag.Id(),
-		Tools:          tools.List{{Version: version.MustParseBinary("2.99.0-ubuntu-amd64")}},
+		Tools:          tools.List{{Version: semversion.MustParseBinary("2.99.0-ubuntu-amd64")}},
 	}
 	instanceConfigTemplate = instancecfg.InstanceConfig{
 		ControllerTag:    coretesting.ControllerTag,
@@ -467,7 +467,7 @@ type testMachine struct {
 
 	id             string
 	life           life.Value
-	agentVersion   version.Number
+	agentVersion   semversion.Number
 	instance       *testInstance
 	keepInstance   bool
 	markForRemoval bool
@@ -593,8 +593,8 @@ func (m *testMachine) Status(context.Context) (status.Status, string, error) {
 	return m.machineStatus, "", nil
 }
 
-func (m *testMachine) ModelAgentVersion(context.Context) (*version.Number, error) {
-	if m.agentVersion == version.Zero {
+func (m *testMachine) ModelAgentVersion(context.Context) (*semversion.Number, error) {
+	if m.agentVersion == semversion.Zero {
 		return &coretesting.FakeVersionNumber, nil
 	}
 	return &m.agentVersion, nil
@@ -640,11 +640,11 @@ func (m *testMachine) EnsureDead(context.Context) error {
 type mockToolsFinder struct {
 }
 
-func (f mockToolsFinder) FindTools(ctx context.Context, number version.Number, os string, a string) (tools.List, error) {
-	if number.Compare(version.MustParse("6.6.6")) == 0 {
+func (f mockToolsFinder) FindTools(ctx context.Context, number semversion.Number, os string, a string) (tools.List, error) {
+	if number.Compare(semversion.MustParse("6.6.6")) == 0 {
 		return nil, tools.ErrNoMatches
 	}
-	v, err := version.ParseBinary(fmt.Sprintf("%s-%s-%s", number, os, arch.HostArch()))
+	v, err := semversion.ParseBinary(fmt.Sprintf("%s-%s-%s", number, os, arch.HostArch()))
 	if err != nil {
 		return nil, err
 	}

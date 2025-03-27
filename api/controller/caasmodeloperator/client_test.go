@@ -13,7 +13,7 @@ import (
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/caasmodeloperator"
 	"github.com/juju/juju/core/resource"
-	"github.com/juju/juju/internal/version"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -28,7 +28,7 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *gc.C) {
 		apiAddresses = []string{"fe80:abcd::1"}
 		imagePath    = "juju/juju"
 	)
-	ver, err := version.Parse("1.2.3")
+	ver, err := semversion.Parse("1.2.3")
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {

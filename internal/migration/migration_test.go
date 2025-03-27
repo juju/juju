@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resource"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
+	"github.com/juju/juju/core/semversion"
 	corestorage "github.com/juju/juju/core/storage"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/internal/charm"
@@ -33,7 +34,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/state"
 )
 
@@ -226,13 +226,13 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 
 	downloader := &fakeDownloader{}
 	uploader := &fakeUploader{
-		tools:     make(map[version.Binary]string),
+		tools:     make(map[semversion.Binary]string),
 		resources: make(map[string]string),
 	}
 
-	toolsMap := map[version.Binary]string{
-		version.MustParseBinary("2.1.0-ubuntu-amd64"): "/tools/0",
-		version.MustParseBinary("2.0.0-ubuntu-amd64"): "/tools/1",
+	toolsMap := map[semversion.Binary]string{
+		semversion.MustParseBinary("2.1.0-ubuntu-amd64"): "/tools/0",
+		semversion.MustParseBinary("2.0.0-ubuntu-amd64"): "/tools/1",
 	}
 
 	app0Res := resourcetesting.NewResource(c, nil, "blob0", "app0", "blob0").Resource
@@ -366,14 +366,14 @@ func (d *fakeDownloader) OpenResource(_ context.Context, app, name string) (io.R
 }
 
 type fakeUploader struct {
-	tools            map[version.Binary]string
+	tools            map[semversion.Binary]string
 	curls            []string
 	charmRefs        []string
 	resources        map[string]string
 	reassignCharmURL bool
 }
 
-func (f *fakeUploader) UploadTools(_ context.Context, r io.Reader, v version.Binary) (tools.List, error) {
+func (f *fakeUploader) UploadTools(_ context.Context, r io.Reader, v semversion.Binary) (tools.List, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, errors.Trace(err)

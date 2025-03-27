@@ -16,10 +16,10 @@ import (
 	controller "github.com/juju/juju/controller"
 	constraints "github.com/juju/juju/core/constraints"
 	model "github.com/juju/juju/core/model"
+	semversion "github.com/juju/juju/core/semversion"
 	user "github.com/juju/juju/core/user"
 	model0 "github.com/juju/juju/domain/model"
 	uuid "github.com/juju/juju/internal/uuid"
-	version "github.com/juju/juju/internal/version"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -315,7 +315,7 @@ func (m *MockModelDetailService) EXPECT() *MockModelDetailServiceMockRecorder {
 }
 
 // CreateModelForVersion mocks base method.
-func (m *MockModelDetailService) CreateModelForVersion(arg0 context.Context, arg1 uuid.UUID, arg2 version.Number) error {
+func (m *MockModelDetailService) CreateModelForVersion(arg0 context.Context, arg1 uuid.UUID, arg2 semversion.Number) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateModelForVersion", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -341,13 +341,13 @@ func (c *MockModelDetailServiceCreateModelForVersionCall) Return(arg0 error) *Mo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDetailServiceCreateModelForVersionCall) Do(f func(context.Context, uuid.UUID, version.Number) error) *MockModelDetailServiceCreateModelForVersionCall {
+func (c *MockModelDetailServiceCreateModelForVersionCall) Do(f func(context.Context, uuid.UUID, semversion.Number) error) *MockModelDetailServiceCreateModelForVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDetailServiceCreateModelForVersionCall) DoAndReturn(f func(context.Context, uuid.UUID, version.Number) error) *MockModelDetailServiceCreateModelForVersionCall {
+func (c *MockModelDetailServiceCreateModelForVersionCall) DoAndReturn(f func(context.Context, uuid.UUID, semversion.Number) error) *MockModelDetailServiceCreateModelForVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -14,10 +14,10 @@ import (
 	coreagent "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/upgrader"
 )
@@ -37,13 +37,13 @@ type Upgrader struct {
 
 // UpgraderClient provides the facade methods used by the worker.
 type UpgraderClient interface {
-	DesiredVersion(ctx context.Context, tag string) (version.Number, error)
-	SetVersion(ctx context.Context, tag string, v version.Binary) error
+	DesiredVersion(ctx context.Context, tag string) (semversion.Number, error)
+	SetVersion(ctx context.Context, tag string, v semversion.Binary) error
 	WatchAPIVersion(ctx context.Context, agentTag string) (watcher.NotifyWatcher, error)
 }
 
 type CAASOperatorUpgrader interface {
-	Upgrade(ctx context.Context, agentTag string, v version.Number) error
+	Upgrade(ctx context.Context, agentTag string, v semversion.Number) error
 }
 
 // Config contains the items the worker needs to start.
@@ -51,7 +51,7 @@ type Config struct {
 	UpgraderClient              UpgraderClient
 	CAASOperatorUpgrader        CAASOperatorUpgrader
 	AgentTag                    names.Tag
-	OrigAgentVersion            version.Number
+	OrigAgentVersion            semversion.Number
 	UpgradeStepsWaiter          gate.Waiter
 	InitialUpgradeCheckComplete gate.Unlocker
 }
@@ -179,8 +179,8 @@ func (u *Upgrader) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(u.catacomb.Context(context.Background()))
 }
 
-func toBinaryVersion(vers version.Number, osType string) version.Binary {
-	outVers := version.Binary{
+func toBinaryVersion(vers semversion.Number, osType string) semversion.Binary {
+	outVers := semversion.Binary{
 		Number:  vers,
 		Arch:    arch.HostArch(),
 		Release: osType,

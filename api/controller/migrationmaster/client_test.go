@@ -26,11 +26,11 @@ import (
 	"github.com/juju/juju/api/controller/migrationmaster"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -183,8 +183,8 @@ func (s *ClientSuite) TestModelInfoWithoutModelDescription(c *gc.C) {
 			UUID:                   "uuid",
 			Name:                   "name",
 			OwnerTag:               owner.String(),
-			AgentVersion:           version.MustParse("1.2.3"),
-			ControllerAgentVersion: version.MustParse("1.2.4"),
+			AgentVersion:           semversion.MustParse("1.2.3"),
+			ControllerAgentVersion: semversion.MustParse("1.2.4"),
 		}
 		return nil
 	})
@@ -199,8 +199,8 @@ func (s *ClientSuite) TestModelInfoWithoutModelDescription(c *gc.C) {
 		UUID:                   "uuid",
 		Name:                   "name",
 		Owner:                  owner,
-		AgentVersion:           version.MustParse("1.2.3"),
-		ControllerAgentVersion: version.MustParse("1.2.4"),
+		AgentVersion:           semversion.MustParse("1.2.3"),
+		ControllerAgentVersion: semversion.MustParse("1.2.4"),
 	})
 }
 
@@ -219,8 +219,8 @@ func (s *ClientSuite) TestModelInfoWithModelDescription(c *gc.C) {
 			UUID:                   "uuid",
 			Name:                   "name",
 			OwnerTag:               owner.String(),
-			AgentVersion:           version.MustParse("1.2.3"),
-			ControllerAgentVersion: version.MustParse("1.2.4"),
+			AgentVersion:           semversion.MustParse("1.2.3"),
+			ControllerAgentVersion: semversion.MustParse("1.2.4"),
 			ModelDescription:       serialized,
 		}
 		return nil
@@ -236,8 +236,8 @@ func (s *ClientSuite) TestModelInfoWithModelDescription(c *gc.C) {
 		UUID:                   "uuid",
 		Name:                   "name",
 		Owner:                  owner,
-		AgentVersion:           version.MustParse("1.2.3"),
-		ControllerAgentVersion: version.MustParse("1.2.4"),
+		AgentVersion:           semversion.MustParse("1.2.3"),
+		ControllerAgentVersion: semversion.MustParse("1.2.4"),
 		ModelDescription:       modelDescription,
 	})
 }
@@ -347,8 +347,8 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 	c.Assert(out, gc.DeepEquals, migration.SerializedModel{
 		Bytes:  []byte("foo"),
 		Charms: []string{"ch:foo-1"},
-		Tools: map[version.Binary]string{
-			version.MustParseBinary("2.0.0-ubuntu-amd64"): "/tools/0",
+		Tools: map[semversion.Binary]string{
+			semversion.MustParseBinary("2.0.0-ubuntu-amd64"): "/tools/0",
 		},
 		Resources: []resource.Resource{{
 			Resource: charmresource.Resource{

@@ -12,11 +12,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charm/resource"
-	"github.com/juju/juju/internal/version"
 )
 
 type exportCharmSuite struct {
@@ -84,7 +84,7 @@ func (s *exportCharmSuite) TestExportCharmMetadata(c *gc.C) {
 				SubExpressions: []assumes.Expression{},
 			},
 		},
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Provides: map[string]internalcharm.Relation{
 			"prometheus": {
 				Name:      "prometheus",

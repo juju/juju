@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -49,7 +50,6 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/version"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -401,7 +401,7 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(coremodel.ModelInfo{
 		// Use a version we shouldn't have now to ensure we're using the
 		// ModelAgentService rather than the ModelInfo data.
-		AgentVersion:   version.MustParse("2.6.5"),
+		AgentVersion:   semversion.MustParse("2.6.5"),
 		ControllerUUID: s.controllerUUID,
 		Cloud:          "dummy",
 		CloudType:      "dummy",
@@ -1162,7 +1162,7 @@ func (s *modelManagerStateSuite) expectCreateModelStateSuite(
 		UUID: modelUUID,
 		// Use a version we shouldn't have now to ensure we're using the
 		// ModelAgentService rather than the ModelInfo data.
-		AgentVersion:   version.MustParse("2.6.5"),
+		AgentVersion:   semversion.MustParse("2.6.5"),
 		ControllerUUID: s.controllerUUID,
 		Cloud:          "dummy",
 		CloudType:      "dummy",

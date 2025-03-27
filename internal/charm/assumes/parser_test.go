@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/internal/version"
+	"github.com/juju/juju/core/semversion"
 )
 
 type ParserSuite struct{}
@@ -178,7 +178,7 @@ assumes: # test various combinations of whitespace and version formats
 			FeatureExpression{
 				Name:       "chips",
 				Constraint: VersionGTE,
-				Version: &version.Number{
+				Version: &semversion.Number{
 					Major: 2000,
 					Minor: 1,
 					Patch: 2,
@@ -188,7 +188,7 @@ assumes: # test various combinations of whitespace and version formats
 			FeatureExpression{
 				Name:       "chips",
 				Constraint: VersionLT,
-				Version: &version.Number{
+				Version: &semversion.Number{
 					Major: 2042,
 					Minor: 3,
 					Patch: 4,
@@ -198,7 +198,7 @@ assumes: # test various combinations of whitespace and version formats
 			FeatureExpression{
 				Name:       "k8s-api",
 				Constraint: VersionGTE,
-				Version: &version.Number{
+				Version: &semversion.Number{
 					Major: 1,
 					Minor: 8,
 				},
@@ -207,7 +207,7 @@ assumes: # test various combinations of whitespace and version formats
 			FeatureExpression{
 				Name:       "k8s-api",
 				Constraint: VersionLT,
-				Version: &version.Number{
+				Version: &semversion.Number{
 					Major: 42,
 				},
 				rawVersion: "42",

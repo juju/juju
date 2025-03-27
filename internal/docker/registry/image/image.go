@@ -8,16 +8,16 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/internal/version"
+	"github.com/juju/juju/core/semversion"
 )
 
 // ImageInfo defines image versions information.
 type ImageInfo struct {
-	version version.Number
+	version semversion.Number
 }
 
 // AgentVersion returns the image version.
-func (info ImageInfo) AgentVersion() version.Number {
+func (info ImageInfo) AgentVersion() semversion.Number {
 	return info.version
 }
 
@@ -37,7 +37,7 @@ func (info *ImageInfo) UnmarshalJSON(data []byte) (err error) {
 	if err = json.Unmarshal(data, &s); err != nil {
 		return err
 	}
-	if info.version, err = version.Parse(s); err != nil {
+	if info.version, err = semversion.Parse(s); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -55,7 +55,7 @@ func (info *ImageInfo) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	info.version, err = version.Parse(s)
+	info.version, err = semversion.Parse(s)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -63,6 +63,6 @@ func (info *ImageInfo) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 // NewImageInfo creates an imageInfo.
-func NewImageInfo(ver version.Number) ImageInfo {
+func NewImageInfo(ver semversion.Number) ImageInfo {
 	return ImageInfo{version: ver}
 }

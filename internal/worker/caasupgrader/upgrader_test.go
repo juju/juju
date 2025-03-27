@@ -12,10 +12,10 @@ import (
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/caasupgrader"
 	"github.com/juju/juju/internal/worker/gate"
 )
@@ -23,7 +23,7 @@ import (
 type UpgraderSuite struct {
 	coretesting.BaseSuite
 
-	confVersion      version.Number
+	confVersion      semversion.Number
 	upgraderClient   *mockUpgraderClient
 	operatorUpgrader *mockOperatorUpgrader
 	ch               chan struct{}
@@ -46,7 +46,7 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 	s.operatorUpgrader = &mockOperatorUpgrader{}
 }
 
-func (s *UpgraderSuite) patchVersion(v version.Binary) {
+func (s *UpgraderSuite) patchVersion(v semversion.Binary) {
 	s.PatchValue(&arch.HostArch, func() string { return v.Arch })
 	s.PatchValue(&coreos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 	s.PatchValue(&jujuversion.Current, v.Number)
@@ -68,7 +68,7 @@ func (s *UpgraderSuite) makeUpgrader(c *gc.C, agent names.Tag) *caasupgrader.Upg
 }
 
 func (s *UpgraderSuite) TestUpgraderSetsVersion(c *gc.C) {
-	vers := version.MustParse("6.6.6")
+	vers := semversion.MustParse("6.6.6")
 	s.PatchValue(&jujuversion.Current, vers)
 	s.upgraderClient.desired = vers
 
@@ -80,9 +80,9 @@ func (s *UpgraderSuite) TestUpgraderSetsVersion(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderController(c *gc.C) {
-	vers := version.MustParseBinary("6.6.6-ubuntu-amd64")
+	vers := semversion.MustParseBinary("6.6.6-ubuntu-amd64")
 	s.patchVersion(vers)
-	s.upgraderClient.desired = version.MustParse("6.6.7")
+	s.upgraderClient.desired = semversion.MustParse("6.6.7")
 
 	u := s.makeUpgrader(c, names.NewMachineTag("0"))
 	workertest.CleanKill(c, u)
@@ -96,9 +96,9 @@ func (s *UpgraderSuite) TestUpgraderController(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderApplication(c *gc.C) {
-	vers := version.MustParseBinary("6.6.6-ubuntu-amd64")
+	vers := semversion.MustParseBinary("6.6.6-ubuntu-amd64")
 	s.patchVersion(vers)
-	s.upgraderClient.desired = version.MustParse("6.6.7")
+	s.upgraderClient.desired = semversion.MustParse("6.6.7")
 
 	u := s.makeUpgrader(c, names.NewApplicationTag("app"))
 	workertest.CleanKill(c, u)
@@ -110,9 +110,9 @@ func (s *UpgraderSuite) TestUpgraderApplication(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderSidecarUnit(c *gc.C) {
-	vers := version.MustParseBinary("6.6.6-ubuntu-amd64")
+	vers := semversion.MustParseBinary("6.6.6-ubuntu-amd64")
 	s.patchVersion(vers)
-	s.upgraderClient.desired = version.MustParse("6.6.7")
+	s.upgraderClient.desired = semversion.MustParse("6.6.7")
 
 	u := s.makeUpgrader(c, names.NewUnitTag("cockroachdb/0"))
 	workertest.CleanKill(c, u)
@@ -125,9 +125,9 @@ func (s *UpgraderSuite) TestUpgraderSidecarUnit(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderDowngradePatch(c *gc.C) {
-	vers := version.MustParse("6.6.7")
+	vers := semversion.MustParse("6.6.7")
 	s.PatchValue(&jujuversion.Current, vers)
-	s.upgraderClient.desired = version.MustParse("6.6.6")
+	s.upgraderClient.desired = semversion.MustParse("6.6.6")
 
 	u := s.makeUpgrader(c, names.NewMachineTag("0"))
 	workertest.CleanKill(c, u)
@@ -142,9 +142,9 @@ func (s *UpgraderSuite) TestUpgraderDowngradePatch(c *gc.C) {
 func (s *UpgraderSuite) TestUpgraderDowngradeMinor(c *gc.C) {
 	// We'll allow this for the case of restoring a backup from a
 	// previous juju version.
-	vers := version.MustParse("6.6.7")
+	vers := semversion.MustParse("6.6.7")
 	s.PatchValue(&jujuversion.Current, vers)
-	s.upgraderClient.desired = version.MustParse("6.5.10")
+	s.upgraderClient.desired = semversion.MustParse("6.5.10")
 
 	u := s.makeUpgrader(c, names.NewMachineTag("0"))
 	workertest.CleanKill(c, u)

@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -54,7 +55,6 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/version"
 )
 
 var logger = internallogger.GetLogger("juju.provider.openstack")
@@ -335,8 +335,11 @@ type Environ struct {
 }
 
 var _ environs.Environ = (*Environ)(nil)
+
 var _ environs.NetworkingEnviron = (*Environ)(nil)
+
 var _ simplestreams.HasRegion = (*Environ)(nil)
+
 var _ environs.InstanceTagger = (*Environ)(nil)
 
 type openstackInstance struct {
@@ -935,7 +938,7 @@ func identityClientVersion(authURL string) (int, error) {
 	}
 	versionNumStr := strings.TrimPrefix(tail, "v")
 	logger.Debugf(context.TODO(), "authURL: %s", authURL)
-	major, _, err := version.ParseMajorMinor(versionNumStr)
+	major, _, err := semversion.ParseMajorMinor(versionNumStr)
 	if len(tail) < 2 || tail[0] != 'v' || err != nil {
 		// There must be a '/v' in the URL path.
 		// At this stage only '/Vxxx' and '/vxxx' are valid where xxx is major.minor version.
@@ -1796,7 +1799,7 @@ func (e *Environ) Instances(ctx context.Context, ids []instance.Id) ([]instances
 }
 
 // AdoptResources is part of the Environ interface.
-func (e *Environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+func (e *Environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion semversion.Number) error {
 	var failed []string
 	controllerTag := map[string]string{tags.JujuController: controllerUUID}
 

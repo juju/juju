@@ -47,6 +47,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
@@ -73,7 +74,6 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
@@ -2474,7 +2474,7 @@ func (s *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	possibleTools := coretools.List(envtesting.AssertUploadFakeToolsVersions(
-		c, s.toolsMetadataStorage, "released", "released", version.MustParseBinary("5.4.5-ubuntu-amd64"),
+		c, s.toolsMetadataStorage, "released", "released", semversion.MustParseBinary("5.4.5-ubuntu-amd64"),
 	))
 	fakeCallback := func(_ context.Context, _ status.Status, _ string, _ map[string]interface{}) error {
 		return nil
@@ -3445,7 +3445,7 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	// Needs to be a correctly formatted uuid so we can get it out of
 	// group names.
 	newController := "aaaaaaaa-bbbb-cccc-dddd-0123456789ab"
-	err = env.AdoptResources(s.callCtx, newController, version.MustParse("1.2.3"))
+	err = env.AdoptResources(s.callCtx, newController, semversion.MustParse("1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkInstanceTags(c, s.env, originalController)
@@ -3486,7 +3486,7 @@ func (s *localServerSuite) TestAdoptResourcesNoStorage(c *gc.C) {
 	// Needs to be a correctly formatted uuid so we can get it out of
 	// group names.
 	newController := "aaaaaaaa-bbbb-cccc-dddd-0123456789ab"
-	err = env.AdoptResources(s.callCtx, newController, version.MustParse("1.2.3"))
+	err = env.AdoptResources(s.callCtx, newController, semversion.MustParse("1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkInstanceTags(c, s.env, originalController)
@@ -3650,7 +3650,7 @@ func (s *localServerSuite) TestIPv6RuleCreationForEmptyCIDR(c *gc.C) {
 
 func (s *localServerSuite) ensureAMDImages(c *gc.C) environs.Environ {
 	// Ensure amd64 tools are available, to ensure an amd64 image.
-	amd64Version := version.Binary{
+	amd64Version := semversion.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.AMD64,
 		Release: corebase.UbuntuOS,
@@ -3881,6 +3881,7 @@ func newNovaNetworkingOpenstackService(cred *identity.Credentials, auth identity
 	service.SetupHTTP(nil)
 	return service, logMsg
 }
+
 func bootstrapEnv(c *gc.C, env environs.Environ) error {
 	return bootstrapEnvWithConstraints(c, env, constraints.Value{})
 }

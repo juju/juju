@@ -22,10 +22,10 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/version"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -164,7 +164,7 @@ func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
 	}()
 	content := jujuversion.Current.String()
 	hash := fmt.Sprintf("sha256(%s)", content)
-	v := version.Binary{
+	v := semversion.Binary{
 		Number:  jujuversion.Current,
 		Release: "ubuntu",
 		Arch:    arch.HostArch(),

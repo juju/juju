@@ -17,12 +17,12 @@ import (
 	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/cmd"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 )
 
 var syncTools = sync.SyncTools
@@ -37,7 +37,7 @@ type syncAgentBinaryCommand struct {
 	modelcmd.ModelCommandBase
 	modelcmd.IAASOnlyCommand
 	versionStr    string
-	targetVersion version.Number
+	targetVersion semversion.Number
 	dryRun        bool
 	public        bool
 	source        string
@@ -90,7 +90,7 @@ func (c *syncAgentBinaryCommand) Init(args []string) error {
 		return errors.NewNotValid(nil, "--agent-version is required")
 	}
 	var err error
-	if c.targetVersion, err = version.Parse(c.versionStr); err != nil {
+	if c.targetVersion, err = semversion.Parse(c.versionStr); err != nil {
 		return err
 	}
 	return cmd.CheckEmpty(args)
@@ -99,7 +99,7 @@ func (c *syncAgentBinaryCommand) Init(args []string) error {
 // SyncToolAPI provides an interface with a subset of the
 // modelupgrader.Client API. This exists to enable mocking.
 type SyncToolAPI interface {
-	UploadTools(ctx context.Context, r io.Reader, v version.Binary) (coretools.List, error)
+	UploadTools(ctx context.Context, r io.Reader, v semversion.Binary) (coretools.List, error)
 	Close() error
 }
 

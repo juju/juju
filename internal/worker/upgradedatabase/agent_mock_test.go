@@ -19,8 +19,8 @@ import (
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
 	objectstore "github.com/juju/juju/core/objectstore"
+	semversion "github.com/juju/juju/core/semversion"
 	mongo "github.com/juju/juju/internal/mongo"
-	version "github.com/juju/juju/internal/version"
 	names "github.com/juju/names/v6"
 	shell "github.com/juju/utils/v4/shell"
 	gomock "go.uber.org/mock/gomock"
@@ -1370,10 +1370,10 @@ func (c *MockConfigTransientDataDirCall) DoAndReturn(f func() string) *MockConfi
 }
 
 // UpgradedToVersion mocks base method.
-func (m *MockConfig) UpgradedToVersion() version.Number {
+func (m *MockConfig) UpgradedToVersion() semversion.Number {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpgradedToVersion")
-	ret0, _ := ret[0].(version.Number)
+	ret0, _ := ret[0].(semversion.Number)
 	return ret0
 }
 
@@ -1390,19 +1390,19 @@ type MockConfigUpgradedToVersionCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockConfigUpgradedToVersionCall) Return(arg0 version.Number) *MockConfigUpgradedToVersionCall {
+func (c *MockConfigUpgradedToVersionCall) Return(arg0 semversion.Number) *MockConfigUpgradedToVersionCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockConfigUpgradedToVersionCall) Do(f func() version.Number) *MockConfigUpgradedToVersionCall {
+func (c *MockConfigUpgradedToVersionCall) Do(f func() semversion.Number) *MockConfigUpgradedToVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConfigUpgradedToVersionCall) DoAndReturn(f func() version.Number) *MockConfigUpgradedToVersionCall {
+func (c *MockConfigUpgradedToVersionCall) DoAndReturn(f func() semversion.Number) *MockConfigUpgradedToVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -3264,7 +3264,7 @@ func (c *MockConfigSetterSetStateServingInfoCall) DoAndReturn(f func(controller.
 }
 
 // SetUpgradedToVersion mocks base method.
-func (m *MockConfigSetter) SetUpgradedToVersion(arg0 version.Number) {
+func (m *MockConfigSetter) SetUpgradedToVersion(arg0 semversion.Number) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetUpgradedToVersion", arg0)
 }
@@ -3288,13 +3288,13 @@ func (c *MockConfigSetterSetUpgradedToVersionCall) Return() *MockConfigSetterSet
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockConfigSetterSetUpgradedToVersionCall) Do(f func(version.Number)) *MockConfigSetterSetUpgradedToVersionCall {
+func (c *MockConfigSetterSetUpgradedToVersionCall) Do(f func(semversion.Number)) *MockConfigSetterSetUpgradedToVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConfigSetterSetUpgradedToVersionCall) DoAndReturn(f func(version.Number)) *MockConfigSetterSetUpgradedToVersionCall {
+func (c *MockConfigSetterSetUpgradedToVersionCall) DoAndReturn(f func(semversion.Number)) *MockConfigSetterSetUpgradedToVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -3489,10 +3489,10 @@ func (c *MockConfigSetterTransientDataDirCall) DoAndReturn(f func() string) *Moc
 }
 
 // UpgradedToVersion mocks base method.
-func (m *MockConfigSetter) UpgradedToVersion() version.Number {
+func (m *MockConfigSetter) UpgradedToVersion() semversion.Number {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpgradedToVersion")
-	ret0, _ := ret[0].(version.Number)
+	ret0, _ := ret[0].(semversion.Number)
 	return ret0
 }
 
@@ -3509,19 +3509,19 @@ type MockConfigSetterUpgradedToVersionCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockConfigSetterUpgradedToVersionCall) Return(arg0 version.Number) *MockConfigSetterUpgradedToVersionCall {
+func (c *MockConfigSetterUpgradedToVersionCall) Return(arg0 semversion.Number) *MockConfigSetterUpgradedToVersionCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockConfigSetterUpgradedToVersionCall) Do(f func() version.Number) *MockConfigSetterUpgradedToVersionCall {
+func (c *MockConfigSetterUpgradedToVersionCall) Do(f func() semversion.Number) *MockConfigSetterUpgradedToVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConfigSetterUpgradedToVersionCall) DoAndReturn(f func() version.Number) *MockConfigSetterUpgradedToVersionCall {
+func (c *MockConfigSetterUpgradedToVersionCall) DoAndReturn(f func() semversion.Number) *MockConfigSetterUpgradedToVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -15,13 +15,13 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internaltesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/version"
 )
 
 type ModelOperatorSuite struct {
@@ -61,7 +61,7 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(info.ImageDetails.Auth, gc.Equals, `xxxxx==`)
 	c.Assert(info.ImageDetails.Repository, gc.Equals, `test-account`)
 
-	expectedVersion, err := version.Parse("4.0.0")
+	expectedVersion, err := semversion.Parse("4.0.0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Version, jc.DeepEquals, expectedVersion)
 }

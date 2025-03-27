@@ -23,10 +23,10 @@ import (
 	"github.com/juju/juju/core/base"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/juju/osenv"
 )
@@ -269,8 +269,8 @@ func GetExportedFields(arg interface{}) set.Strings {
 }
 
 // CurrentVersion returns the current Juju version, asserting on error.
-func CurrentVersion() version.Binary {
-	return version.Binary{
+func CurrentVersion() semversion.Binary {
+	return semversion.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),
 		Release: coreos.HostOSTypeName(),

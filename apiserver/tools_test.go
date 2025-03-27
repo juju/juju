@@ -26,6 +26,7 @@ import (
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/semversion"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/domain/blockcommand"
@@ -41,7 +42,6 @@ import (
 	"github.com/juju/juju/internal/testing/factory"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/version"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -80,7 +80,7 @@ func (s *baseToolsSuite) uploadRequest(c *gc.C, url, contentType string, content
 	})
 }
 
-func (s *baseToolsSuite) downloadRequest(c *gc.C, version version.Binary, uuid string) *http.Response {
+func (s *baseToolsSuite) downloadRequest(c *gc.C, version semversion.Binary, uuid string) *http.Response {
 	url := s.toolsURL("")
 	if uuid == "" {
 		url.Path = fmt.Sprintf("/tools/%s", version)
@@ -123,7 +123,7 @@ func (s *baseToolsSuite) storeFakeTools(c *gc.C, st *state.State, content string
 	err = storage.Add(context.Background(), strings.NewReader(content), metadata)
 	c.Assert(err, jc.ErrorIsNil)
 	return &coretools.Tools{
-		Version: version.MustParseBinary(metadata.Version),
+		Version: semversion.MustParseBinary(metadata.Version),
 		Size:    metadata.Size,
 		SHA256:  metadata.SHA256,
 	}
@@ -243,9 +243,9 @@ func (s *toolsSuite) TestUploadFailsWithInvalidContentType(c *gc.C) {
 		c, resp, http.StatusBadRequest, "expected Content-Type: application/x-tar-gz, got: application/octet-stream")
 }
 
-func (s *toolsSuite) setupToolsForUpload(c *gc.C) (coretools.List, version.Binary, []byte) {
+func (s *toolsSuite) setupToolsForUpload(c *gc.C) (coretools.List, semversion.Binary, []byte) {
 	localStorage := c.MkDir()
-	vers := version.MustParseBinary("1.9.0-ubuntu-amd64")
+	vers := semversion.MustParseBinary("1.9.0-ubuntu-amd64")
 	versionStrings := []string{vers.String()}
 	expectedTools := toolstesting.MakeToolsWithCheckSum(c, localStorage, "released", versionStrings)
 	toolsFile := envtools.StorageName(vers, "released")
@@ -489,9 +489,9 @@ func (s *toolsSuite) TestDownloadMissingConcurrent(c *gc.C) {
 	})
 	defer envtools.UnregisterToolsDataSourceFunc("local storage")
 
-	toolsBinaries := []version.Binary{
-		version.MustParseBinary("2.9.98-ubuntu-amd64"),
-		version.MustParseBinary("2.9.99-ubuntu-amd64"),
+	toolsBinaries := []semversion.Binary{
+		semversion.MustParseBinary("2.9.98-ubuntu-amd64"),
+		semversion.MustParseBinary("2.9.99-ubuntu-amd64"),
 	}
 	stream := "released"
 	tools, err := envtesting.UploadFakeToolsVersions(testStorage, stream, stream, toolsBinaries...)
@@ -566,7 +566,7 @@ func (s *caasToolsSuite) TestToolDownloadNotSharedCAASController(c *gc.C) {
 	})
 	defer envtools.UnregisterToolsDataSourceFunc("local storage")
 
-	tool := version.MustParseBinary("2.9.99-ubuntu-amd64")
+	tool := semversion.MustParseBinary("2.9.99-ubuntu-amd64")
 	stream := "released"
 	tools, err := envtesting.UploadFakeToolsVersions(testStorage, stream, stream, tool)
 	c.Assert(err, jc.ErrorIsNil)

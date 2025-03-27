@@ -22,6 +22,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
@@ -34,7 +35,6 @@ import (
 	"github.com/juju/juju/internal/network"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -82,6 +82,7 @@ func (s *brokerSuite) TestCombinedCloudInitDataNoContainerInheritProperties(c *g
 type fakeAddr struct{ value string }
 
 func (f *fakeAddr) Network() string { return "net" }
+
 func (f *fakeAddr) String() string {
 	if f.value != "" {
 		return f.value
@@ -306,11 +307,11 @@ func makeInstanceConfig(c *gc.C, s patcher, machineId string) *instancecfg.Insta
 
 func makePossibleTools() coretools.List {
 	return coretools.List{&coretools.Tools{
-		Version: version.MustParseBinary("2.3.4-ubuntu-amd64"),
+		Version: semversion.MustParseBinary("2.3.4-ubuntu-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-ubuntu-amd64.tgz",
 	}, {
 		// non-host-arch tools should be filtered out by StartInstance
-		Version: version.MustParseBinary("2.3.4-ubuntu-arm64"),
+		Version: semversion.MustParseBinary("2.3.4-ubuntu-arm64"),
 		URL:     "http://tools.testing.invalid/2.3.4-ubuntu-arm64.tgz",
 	}}
 }

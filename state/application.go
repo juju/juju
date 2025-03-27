@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/configschema"
@@ -34,7 +35,6 @@ import (
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/relation"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
@@ -228,7 +228,7 @@ func (a *Application) AgentTools() (*tools.Tools, error) {
 }
 
 // SetAgentVersion sets the Tools value in applicationDoc.
-func (a *Application) SetAgentVersion(v version.Binary) (err error) {
+func (a *Application) SetAgentVersion(v semversion.Binary) (err error) {
 	defer errors.DeferredAnnotatef(&err, "setting agent version for application %q", a)
 	if err = checkVersionValidity(v); err != nil {
 		return errors.Trace(err)

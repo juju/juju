@@ -20,9 +20,9 @@ import (
 	"github.com/juju/juju/api/base"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -146,7 +146,7 @@ func (c *Client) UploadCharm(ctx context.Context, modelUUID string, curl string,
 
 // UploadTools uploads tools at the specified location to the API server over HTTPS
 // for the specified model.
-func (c *Client) UploadTools(ctx context.Context, modelUUID string, r io.Reader, vers version.Binary) (tools.List, error) {
+func (c *Client) UploadTools(ctx context.Context, modelUUID string, r io.Reader, vers semversion.Binary) (tools.List, error) {
 	endpoint := fmt.Sprintf("/migrate/tools?binaryVersion=%s", vers)
 	contentType := "application/x-tar-gz"
 	var resp params.ToolsResult

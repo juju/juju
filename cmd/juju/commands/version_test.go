@@ -13,9 +13,9 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
-	"github.com/juju/juju/internal/version"
 )
 
 type VersionSuite struct {
@@ -25,7 +25,7 @@ type VersionSuite struct {
 var _ = gc.Suite(&VersionSuite{})
 
 func (s *VersionSuite) TestVersion(c *gc.C) {
-	s.PatchValue(&jujuversion.Current, version.MustParse("2.99.0"))
+	s.PatchValue(&jujuversion.Current, semversion.MustParse("2.99.0"))
 	command := newVersionCommand()
 	cctx, err := cmdtesting.RunCommand(c, command)
 	c.Assert(err, jc.ErrorIsNil)
@@ -37,7 +37,7 @@ func (s *VersionSuite) TestVersion(c *gc.C) {
 }
 
 func (s *VersionSuite) TestVersionDetail(c *gc.C) {
-	s.PatchValue(&jujuversion.Current, version.MustParse("2.99.0"))
+	s.PatchValue(&jujuversion.Current, semversion.MustParse("2.99.0"))
 	s.PatchValue(&jujuversion.GitCommit, "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f")
 	s.PatchValue(&jujuversion.GitTreeState, "clean")
 	s.PatchValue(&jujuversion.Compiler, "gc")
@@ -59,7 +59,7 @@ go-build-tags: a,b,c,d
 }
 
 func (s *VersionSuite) TestVersionDetailJSON(c *gc.C) {
-	s.PatchValue(&jujuversion.Current, version.MustParse("2.99.0"))
+	s.PatchValue(&jujuversion.Current, semversion.MustParse("2.99.0"))
 	s.PatchValue(&jujuversion.GitCommit, "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f")
 	s.PatchValue(&jujuversion.GitTreeState, "clean")
 	s.PatchValue(&jujuversion.Compiler, "gc")
@@ -77,7 +77,7 @@ func (s *VersionSuite) TestVersionDetailJSON(c *gc.C) {
 }
 
 func (s *VersionSuite) TestVersionDetailYAML(c *gc.C) {
-	s.PatchValue(&jujuversion.Current, version.MustParse("2.99.0"))
+	s.PatchValue(&jujuversion.Current, semversion.MustParse("2.99.0"))
 	s.PatchValue(&jujuversion.GitCommit, "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f")
 	s.PatchValue(&jujuversion.GitTreeState, "clean")
 	s.PatchValue(&jujuversion.Compiler, "gc")

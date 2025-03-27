@@ -13,10 +13,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	agent "github.com/juju/juju/agent"
+	version "github.com/juju/juju/core/semversion"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
-	version "github.com/juju/juju/internal/version"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradesteps -destination clock_mock_test.go github.com/juju/clock Clock

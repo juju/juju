@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/semversion"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/version"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package testing -destination testing/package_mock.go -write_package_comment=false github.com/juju/juju/environs EnvironProvider,CloudEnvironProvider,ProviderSchema,ProviderCredentials,FinalizeCredentialContext,FinalizeCloudContext,CloudFinalizer,CloudDetector,CloudRegionDetector,ConfigGetter,CloudDestroyer,Environ,InstancePrechecker,Firewaller,InstanceTagger,InstanceTypesFetcher,Upgrader,UpgradeStep,DefaultConstraintsChecker,ProviderCredentialsRegister,RequestFinalizeCredential,NetworkingEnviron
@@ -437,7 +437,7 @@ type ResourceAdopter interface {
 	// provided for backwards compatibility - if the technique used to
 	// tag items changes, the version number can be used to decide how
 	// to remove the old tags correctly.
-	AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error
+	AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion semversion.Number) error
 }
 
 // ConstraintsChecker provides a means to check that constraints are valid.
@@ -605,7 +605,7 @@ type JujuUpgradePrechecker interface {
 // sequence of upgrade precheck steps to apply to get to that version.
 type PrecheckJujuUpgradeOperation struct {
 	// TargetVersion is the target juju version.
-	TargetVersion version.Number
+	TargetVersion semversion.Number
 
 	// Steps contains the sequence of upgrade steps to apply when
 	// upgrading to the accompanying target version number.

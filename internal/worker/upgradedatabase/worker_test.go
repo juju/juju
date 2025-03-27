@@ -20,6 +20,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/testing"
 	upgrade "github.com/juju/juju/core/upgrade"
 	jujuversion "github.com/juju/juju/core/version"
@@ -30,7 +31,6 @@ import (
 	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/version"
 )
 
 type workerSuite struct {
@@ -707,8 +707,8 @@ func (s *workerSuite) getConfig() Config {
 		UpgradeService:        s.upgradeService,
 		ModelService:          s.modelService,
 		DBGetter:              s.dbGetter,
-		FromVersion:           version.MustParse("3.0.0"),
-		ToVersion:             version.MustParse("6.6.6"),
+		FromVersion:           semversion.MustParse("3.0.0"),
+		ToVersion:             semversion.MustParse("6.6.6"),
 		Tag:                   names.NewMachineTag("0"),
 	}
 }
@@ -721,7 +721,7 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *workerSuite) expectStartUpgrade(from, to version.Number, watcher watcher.NotifyWatcher) {
+func (s *workerSuite) expectStartUpgrade(from, to semversion.Number, watcher watcher.NotifyWatcher) {
 	srv := s.upgradeService.EXPECT()
 	srv.CreateUpgrade(gomock.Any(), from, to).Return(s.upgradeUUID, nil)
 	srv.SetControllerReady(gomock.Any(), s.upgradeUUID, "0").Return(nil)

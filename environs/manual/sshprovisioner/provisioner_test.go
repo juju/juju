@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
@@ -32,7 +33,6 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -185,7 +185,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 		MachineAgentServiceName: "jujud-machine-10",
 	}
 	tools := []*coretools.Tools{{
-		Version: version.MustParseBinary("6.6.6-ubuntu-amd64"),
+		Version: semversion.MustParseBinary("6.6.6-ubuntu-amd64"),
 		URL:     "https://example.org",
 	}}
 	err := icfg.SetTools(tools)

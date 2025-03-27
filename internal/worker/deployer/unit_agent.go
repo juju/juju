@@ -28,10 +28,10 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/introspection"
 	"github.com/juju/juju/internal/worker/logsender"
 )
@@ -110,7 +110,7 @@ func NewUnitAgent(config UnitAgentConfig) (*UnitAgent, error) {
 	// This is used because the uniter is still using the tools directory
 	// for the unit agent for creating the jujuc symlinks.
 	config.Logger.Tracef(context.Background(), "creating symlink for %q to tools directory for jujuc", config.Name)
-	current := version.Binary{
+	current := semversion.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),
 		Release: coreos.HostOSTypeName(),

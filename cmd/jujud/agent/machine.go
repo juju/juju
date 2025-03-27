@@ -50,6 +50,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
@@ -69,7 +70,6 @@ import (
 	internalupgrade "github.com/juju/juju/internal/upgrade"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
-	"github.com/juju/juju/internal/version"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/deployer"
 	"github.com/juju/juju/internal/worker/gate"
@@ -508,7 +508,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 }
 
 func (a *MachineAgent) makeEngineCreator(
-	agentName string, previousAgentVersion version.Number,
+	agentName string, previousAgentVersion semversion.Number,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		agentConfig := a.CurrentConfig()

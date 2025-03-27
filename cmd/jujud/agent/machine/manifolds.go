@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/semversion"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/environs"
 	containerbroker "github.com/juju/juju/internal/container/broker"
@@ -33,7 +34,6 @@ import (
 	proxyconfig "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/internal/upgrades"
 	jupgradesteps "github.com/juju/juju/internal/upgradesteps"
-	"github.com/juju/juju/internal/version"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/apiaddressupdater"
@@ -93,7 +93,7 @@ type ManifoldsConfig struct {
 
 	// PreviousAgentVersion passes through the version the machine
 	// agent was running before the current restart.
-	PreviousAgentVersion version.Number
+	PreviousAgentVersion semversion.Number
 
 	// UpgradeStepsLock is passed to the upgrade steps gate to
 	// coordinate workers that shouldn't do anything until the

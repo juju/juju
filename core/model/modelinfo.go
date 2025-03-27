@@ -4,9 +4,9 @@
 package model
 
 import (
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/version"
 )
 
 // ModelInfo represents the state of a model found in the  model database.
@@ -43,7 +43,7 @@ type ModelInfo struct {
 	IsControllerModel bool
 
 	// AgentVersion is the Juju version for agent binaries in this model.
-	AgentVersion version.Number
+	AgentVersion semversion.Number
 }
 
 // ModelMetrics represents the metrics information set in the database.

@@ -23,6 +23,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
@@ -34,7 +35,6 @@ import (
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 )
 
 type Environ struct {
@@ -61,9 +61,13 @@ type Environ struct {
 }
 
 var _ common.ZonedEnviron = (*Environ)(nil)
+
 var _ storage.ProviderRegistry = (*Environ)(nil)
+
 var _ environs.Environ = (*Environ)(nil)
+
 var _ environs.Networking = (*Environ)(nil)
+
 var _ environs.NetworkingEnviron = (*Environ)(nil)
 
 func (e *Environ) ecfg() *environConfig {
@@ -300,7 +304,7 @@ func (e *Environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.Pr
 }
 
 // AdoptResources implements environs.Environ.
-func (e *Environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+func (e *Environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion semversion.Number) error {
 	// TODO(cderici): implement AdoptResources for oci
 	return errors.NotImplementedf("AdoptResources")
 }

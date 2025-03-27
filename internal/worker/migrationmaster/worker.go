@@ -22,12 +22,12 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application/charm"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/rpc/params"
@@ -406,7 +406,7 @@ type uploadWrapper struct {
 }
 
 // UploadTools prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) UploadTools(ctx context.Context, r io.Reader, vers version.Binary) (tools.List, error) {
+func (w *uploadWrapper) UploadTools(ctx context.Context, r io.Reader, vers semversion.Binary) (tools.List, error) {
 	return w.client.UploadTools(ctx, w.modelUUID, r, vers)
 }
 

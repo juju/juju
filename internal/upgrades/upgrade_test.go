@@ -18,11 +18,11 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/mongo"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgrades"
-	"github.com/juju/juju/internal/version"
 )
 
 type upgradeSuite struct {
@@ -32,11 +32,11 @@ type upgradeSuite struct {
 var _ = gc.Suite(&upgradeSuite{})
 
 type mockUpgradeOperation struct {
-	targetVersion version.Number
+	targetVersion semversion.Number
 	steps         []upgrades.Step
 }
 
-func (m *mockUpgradeOperation) TargetVersion() version.Number {
+func (m *mockUpgradeOperation) TargetVersion() semversion.Number {
 	return m.targetVersion
 }
 
@@ -162,7 +162,7 @@ func (mock *mockAgentConfig) Model() names.ModelTag {
 func upgradeOperations() []upgrades.Operation {
 	steps := []upgrades.Operation{
 		&mockUpgradeOperation{
-			targetVersion: version.MustParse("1.12.0"),
+			targetVersion: semversion.MustParse("1.12.0"),
 			steps: []upgrades.Step{
 				newUpgradeStep("step 1 - 1.12.0", upgrades.AllMachines),
 				newUpgradeStep("step 2 error", upgrades.HostMachine),
@@ -170,7 +170,7 @@ func upgradeOperations() []upgrades.Operation {
 			},
 		},
 		&mockUpgradeOperation{
-			targetVersion: version.MustParse("1.16.0"),
+			targetVersion: semversion.MustParse("1.16.0"),
 			steps: []upgrades.Step{
 				newUpgradeStep("step 1 - 1.16.0", upgrades.HostMachine),
 				newUpgradeStep("step 2 - 1.16.0", upgrades.HostMachine),
@@ -178,27 +178,27 @@ func upgradeOperations() []upgrades.Operation {
 			},
 		},
 		&mockUpgradeOperation{
-			targetVersion: version.MustParse("1.17.0"),
+			targetVersion: semversion.MustParse("1.17.0"),
 			steps: []upgrades.Step{
 				newUpgradeStep("step 1 - 1.17.0", upgrades.HostMachine),
 			},
 		},
 		&mockUpgradeOperation{
-			targetVersion: version.MustParse("1.17.1"),
+			targetVersion: semversion.MustParse("1.17.1"),
 			steps: []upgrades.Step{
 				newUpgradeStep("step 1 - 1.17.1", upgrades.HostMachine),
 				newUpgradeStep("step 2 - 1.17.1", upgrades.Controller),
 			},
 		},
 		&mockUpgradeOperation{
-			targetVersion: version.MustParse("1.18.0"),
+			targetVersion: semversion.MustParse("1.18.0"),
 			steps: []upgrades.Step{
 				newUpgradeStep("step 1 - 1.18.0", upgrades.HostMachine),
 				newUpgradeStep("step 2 - 1.18.0", upgrades.Controller),
 			},
 		},
 		&mockUpgradeOperation{
-			targetVersion: version.MustParse("1.20.0"),
+			targetVersion: semversion.MustParse("1.20.0"),
 			steps: []upgrades.Step{
 				newUpgradeStep("step 1 - 1.20.0", upgrades.AllMachines),
 				newUpgradeStep("step 2 - 1.20.0", upgrades.HostMachine),
@@ -206,13 +206,13 @@ func upgradeOperations() []upgrades.Operation {
 			},
 		},
 		&mockUpgradeOperation{
-			targetVersion: version.MustParse("1.21.0"),
+			targetVersion: semversion.MustParse("1.21.0"),
 			steps: []upgrades.Step{
 				newUpgradeStep("step 1 - 1.21.0", upgrades.AllMachines),
 			},
 		},
 		&mockUpgradeOperation{
-			targetVersion: version.MustParse("1.22.0"),
+			targetVersion: semversion.MustParse("1.22.0"),
 			steps: []upgrades.Step{
 				// Separate targets used intentionally
 				newUpgradeStep("step 1 - 1.22.0", upgrades.Controller, upgrades.HostMachine),
@@ -340,13 +340,13 @@ func (s *upgradeSuite) TestPerformUpgradeSteps(c *gc.C) {
 		ctx := &mockContext{
 			messages: messages,
 		}
-		fromVersion := version.Zero
+		fromVersion := semversion.Zero
 		if test.fromVersion != "" {
-			fromVersion = version.MustParse(test.fromVersion)
+			fromVersion = semversion.MustParse(test.fromVersion)
 		}
-		toVersion := version.MustParse("1.18.0")
+		toVersion := semversion.MustParse("1.18.0")
 		if test.toVersion != "" {
-			toVersion = version.MustParse(test.toVersion)
+			toVersion = semversion.MustParse(test.toVersion)
 		}
 		s.PatchValue(&jujuversion.Current, toVersion)
 		err := upgrades.PerformUpgradeSteps(fromVersion, test.targets, ctx)
@@ -360,7 +360,7 @@ func (s *upgradeSuite) TestPerformUpgradeSteps(c *gc.C) {
 }
 
 func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {
-	var previous version.Number
+	var previous semversion.Number
 	for i, utv := range (*upgrades.UpgradeOperations)() {
 		vers := utv.TargetVersion()
 		if i > 0 {

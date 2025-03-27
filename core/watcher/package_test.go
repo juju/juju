@@ -34,6 +34,7 @@ func (s *ImportTest) TestImports(c *gc.C) {
 		"core/permission",
 		"core/resource",
 		"core/secrets",
+		"core/semversion",
 		"core/status",
 		"core/trace",
 		"core/unit",
@@ -42,7 +43,6 @@ func (s *ImportTest) TestImports(c *gc.C) {
 		"internal/errors",
 		"internal/logger",
 		"internal/uuid",
-		"internal/version",
 	})
 
 }

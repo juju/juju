@@ -22,12 +22,12 @@ import (
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
 	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
@@ -146,7 +146,7 @@ func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // based on the input HTTP request.
 // It is returned with the size of the file as recorded in the stored metadata.
 func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.State) (_ io.ReadCloser, _ int64, err error) {
-	vers, err := version.ParseBinary(r.URL.Query().Get(":version"))
+	vers, err := semversion.ParseBinary(r.URL.Query().Get(":version"))
 	if err != nil {
 		return nil, 0, errors.Annotate(err, "error parsing version")
 	}
@@ -196,7 +196,7 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 // to the caller.
 func (h *toolsDownloadHandler) fetchAndCacheTools(
 	ctx context.Context,
-	v version.Binary,
+	v semversion.Binary,
 	st *state.State,
 	modelStorage binarystorage.Storage,
 	store objectstore.ObjectStore,
@@ -314,7 +314,7 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 	if binaryVersionParam == "" {
 		return nil, errors.BadRequestf("expected binaryVersion argument")
 	}
-	toolsVersion, err := version.ParseBinary(binaryVersionParam)
+	toolsVersion, err := semversion.ParseBinary(binaryVersionParam)
 	if err != nil {
 		return nil, errors.NewBadRequest(err, fmt.Sprintf("invalid agent binaries version %q", binaryVersionParam))
 	}
@@ -326,7 +326,7 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 	}
 
 	logger.Debugf(context.TODO(), "request to upload agent binaries: %s", toolsVersion)
-	toolsVersions := []version.Binary{toolsVersion}
+	toolsVersions := []semversion.Binary{toolsVersion}
 	serverRoot, err := h.getServerRoot(r, query, st)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -352,7 +352,7 @@ func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values, st
 func (h *toolsUploadHandler) handleUpload(
 	ctx context.Context,
 	r io.Reader,
-	toolsVersions []version.Binary,
+	toolsVersions []semversion.Binary,
 	serverRoot string,
 	st *state.State,
 	store objectstore.ObjectStore,

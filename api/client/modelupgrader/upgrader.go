@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -60,8 +60,8 @@ func (c *Client) AbortModelUpgrade(ctx context.Context, modelUUID string) error 
 // ChosenVersion in the result.
 func (c *Client) UpgradeModel(
 	ctx context.Context,
-	modelUUID string, targetVersion version.Number, stream string, ignoreAgentVersions, druRun bool,
-) (version.Number, error) {
+	modelUUID string, targetVersion semversion.Number, stream string, ignoreAgentVersions, druRun bool,
+) (semversion.Number, error) {
 	args := params.UpgradeModelParams{
 		ModelTag:            names.NewModelTag(modelUUID).String(),
 		TargetVersion:       targetVersion,
@@ -81,7 +81,7 @@ func (c *Client) UpgradeModel(
 }
 
 // UploadTools uploads tools at the specified location to the API server over HTTPS.
-func (c *Client) UploadTools(ctx context.Context, r io.Reader, vers version.Binary) (tools.List, error) {
+func (c *Client) UploadTools(ctx context.Context, r io.Reader, vers semversion.Binary) (tools.List, error) {
 	req, err := http.NewRequest("POST", fmt.Sprintf("/tools?binaryVersion=%s", vers), r)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create upload request")

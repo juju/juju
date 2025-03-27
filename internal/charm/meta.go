@@ -17,10 +17,10 @@ import (
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/charm/resource"
-	"github.com/juju/juju/internal/version"
 )
 
 // RelationScope describes the scope of a relation.
@@ -227,7 +227,7 @@ type Meta struct {
 	Devices        map[string]Device        `json:"Devices,omitempty"`
 	Resources      map[string]resource.Meta `json:"Resources,omitempty"`
 	Terms          []string                 `json:"Terms,omitempty"`
-	MinJujuVersion version.Number           `json:"min-juju-version,omitempty"`
+	MinJujuVersion semversion.Number        `json:"min-juju-version,omitempty"`
 
 	// v2
 	Containers map[string]Container    `json:"containers,omitempty" yaml:"containers,omitempty"`
@@ -541,7 +541,7 @@ func parseMeta(m map[string]interface{}) (*Meta, error) {
 // otherwise you make get metadata which is not v1 nor v2 format.
 func (m Meta) MarshalYAML() (interface{}, error) {
 	var minver string
-	if m.MinJujuVersion != version.Zero {
+	if m.MinJujuVersion != semversion.Zero {
 		minver = m.MinJujuVersion.String()
 	}
 
@@ -768,7 +768,7 @@ func (m Meta) checkV2(reasons []FormatSelectionReason) error {
 	if len(reasons) == 0 {
 		return errors.NotValidf("metadata v2 without manifest.yaml")
 	}
-	if m.MinJujuVersion != version.Zero {
+	if m.MinJujuVersion != semversion.Zero {
 		return errors.NotValidf("min-juju-version in metadata v2")
 	}
 	return nil
@@ -1045,13 +1045,13 @@ func parseMounts(input interface{}, storage map[string]Storage) ([]Mount, error)
 	return mounts, nil
 }
 
-func parseMinJujuVersion(value any) (version.Number, error) {
+func parseMinJujuVersion(value any) (semversion.Number, error) {
 	if value == nil {
-		return version.Zero, nil
+		return semversion.Zero, nil
 	}
-	ver, err := version.Parse(value.(string))
+	ver, err := semversion.Parse(value.(string))
 	if err != nil {
-		return version.Zero, errors.Annotate(err, "invalid min-juju-version")
+		return semversion.Zero, errors.Annotate(err, "invalid min-juju-version")
 	}
 	return ver, nil
 }

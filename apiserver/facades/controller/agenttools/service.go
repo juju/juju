@@ -6,8 +6,8 @@ package agenttools
 import (
 	"context"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/version"
 )
 
 // ModelConfigService provides access to the model configuration.
@@ -22,5 +22,5 @@ type ModelAgentService interface {
 	// entire model. The following errors can be returned:
 	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
 	// not exist.
-	GetModelTargetAgentVersion(ctx context.Context) (version.Number, error)
+	GetModelTargetAgentVersion(ctx context.Context) (semversion.Number, error)
 }

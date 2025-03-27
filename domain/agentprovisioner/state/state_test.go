@@ -11,6 +11,7 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
 	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/version"
 )
 
 type suite struct {
@@ -109,7 +109,7 @@ func (s *suite) TestModelID(c *gc.C) {
 	modelSt := modelstate.NewModelState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := modelSt.Create(context.Background(), model.ModelDetailArgs{
 		UUID:           modelID,
-		AgentVersion:   version.Number{Major: 4, Minor: 21, Patch: 67},
+		AgentVersion:   semversion.Number{Major: 4, Minor: 21, Patch: 67},
 		ControllerUUID: uuid.MustNewUUID(),
 		Name:           "test-model",
 		Type:           coremodel.IAAS,

@@ -17,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -25,15 +26,15 @@ import (
 	ocitesting "github.com/juju/juju/internal/provider/oci/testing"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 )
 
 var clk = testclock.NewClock(time.Time{})
+
 var advancingClock = testclock.AutoAdvancingClock{clk, clk.Advance}
 
 func makeToolsList(series string) tools.List {
-	var toolsVersion version.Binary
-	toolsVersion.Number = version.MustParse("2.4.0")
+	var toolsVersion semversion.Binary
+	toolsVersion.Number = semversion.MustParse("2.4.0")
 	toolsVersion.Arch = arch.AMD64
 	toolsVersion.Release = series
 	return tools.List{{

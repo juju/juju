@@ -19,6 +19,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	corepermission "github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/semversion"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
@@ -29,7 +30,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/state"
 )
 
@@ -219,7 +219,7 @@ type ModelAgentService interface {
 	// entire model. The following errors can be returned:
 	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model
 	// does not exist.
-	GetModelTargetAgentVersion(ctx context.Context) (version.Number, error)
+	GetModelTargetAgentVersion(ctx context.Context) (semversion.Number, error)
 }
 
 // NetworkService is the interface that is used to interact with the

@@ -11,12 +11,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/upgrade"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainupgrade "github.com/juju/juju/domain/upgrade"
 	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/version"
 )
 
 type stateSuite struct {
@@ -34,7 +34,7 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.st = NewState(s.TxnRunnerFactory())
 
 	// Add a completed upgrade before tests start
-	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("2.9.42"), version.MustParse("3.0.0"))
+	uuid, err := s.st.CreateUpgrade(context.Background(), semversion.MustParse("2.9.42"), semversion.MustParse("3.0.0"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.st.SetControllerReady(context.Background(), uuid, "0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -91,7 +91,7 @@ func (s *stateSuite) TestEnsureUpgradeTypesMatchCore(c *gc.C) {
 }
 
 func (s *stateSuite) TestCreateUpgrade(c *gc.C) {
-	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	uuid, err := s.st.CreateUpgrade(context.Background(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	upgradeInfo, err := s.st.UpgradeInfo(context.Background(), uuid)
@@ -108,15 +108,15 @@ func (s *stateSuite) TestCreateUpgrade(c *gc.C) {
 }
 
 func (s *stateSuite) TestCreateUpgradeAlreadyExists(c *gc.C) {
-	_, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	_, err := s.st.CreateUpgrade(context.Background(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.st.CreateUpgrade(context.Background(), version.MustParse("4.0.0"), version.MustParse("4.0.1"))
+	_, err = s.st.CreateUpgrade(context.Background(), semversion.MustParse("4.0.0"), semversion.MustParse("4.0.1"))
 	c.Assert(err, jc.ErrorIs, upgradeerrors.AlreadyExists)
 }
 
 func (s *stateSuite) TestSetControllerReady(c *gc.C) {
-	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	uuid, err := s.st.CreateUpgrade(context.Background(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.st.SetControllerReady(context.Background(), uuid, "0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -137,7 +137,7 @@ func (s *stateSuite) TestSetControllerReadyWithoutUpgrade(c *gc.C) {
 
 // Setting the controller ready multiple times should not cause an error.
 func (s *stateSuite) TestSetControllerReadyMultipleTimes(c *gc.C) {
-	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	uuid, err := s.st.CreateUpgrade(context.Background(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.st.SetControllerReady(context.Background(), uuid, "0")
 	c.Check(err, jc.ErrorIsNil)
@@ -151,7 +151,7 @@ func (s *stateSuite) TestAllProvisionedControllersReadyTrue(c *gc.C) {
 	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', 1)")
 	c.Assert(err, jc.ErrorIsNil)
 
-	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	uuid, err := s.st.CreateUpgrade(context.Background(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.st.SetControllerReady(context.Background(), uuid, "0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -169,7 +169,7 @@ func (s *stateSuite) TestAllProvisionedControllersReadyFalse(c *gc.C) {
 	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', 1), ('2', 2)")
 	c.Assert(err, jc.ErrorIsNil)
 
-	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	uuid, err := s.st.CreateUpgrade(context.Background(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.st.SetControllerReady(context.Background(), uuid, "0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -189,7 +189,7 @@ func (s *stateSuite) TestAllProvisionedControllersReadyMultipleControllers(c *gc
 	_, err = db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('2', 2)")
 	c.Assert(err, jc.ErrorIsNil)
 
-	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	uuid, err := s.st.CreateUpgrade(context.Background(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.st.SetControllerReady(context.Background(), uuid, "0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -211,7 +211,7 @@ func (s *stateSuite) TestAllProvisionedControllersReadyMultipleControllersWithou
 	_, err = db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('2', 2)")
 	c.Assert(err, jc.ErrorIsNil)
 
-	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	uuid, err := s.st.CreateUpgrade(context.Background(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.st.SetControllerReady(context.Background(), uuid, "0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -231,7 +231,7 @@ func (s *stateSuite) TestAllProvisionedControllersReadyUnprovisionedController(c
 	_, err = db.Exec("INSERT INTO controller_node (controller_id) VALUES ('2')")
 	c.Assert(err, jc.ErrorIsNil)
 
-	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	uuid, err := s.st.CreateUpgrade(context.Background(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.st.SetControllerReady(context.Background(), uuid, "0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -244,7 +244,7 @@ func (s *stateSuite) TestAllProvisionedControllersReadyUnprovisionedController(c
 }
 
 func (s *stateSuite) TestStartUpgrade(c *gc.C) {
-	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	uuid, err := s.st.CreateUpgrade(context.Background(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.st.SetControllerReady(context.Background(), uuid, "0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -256,7 +256,7 @@ func (s *stateSuite) TestStartUpgrade(c *gc.C) {
 }
 
 func (s *stateSuite) TestStartUpgradeCalledMultipleTimes(c *gc.C) {
-	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	uuid, err := s.st.CreateUpgrade(context.Background(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.st.SetControllerReady(context.Background(), uuid, "0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -283,7 +283,7 @@ func (s *stateSuite) TestSetControllerDone(c *gc.C) {
 
 	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', 1), ('2', 2)")
 	c.Assert(err, jc.ErrorIsNil)
-	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	uuid, err := s.st.CreateUpgrade(context.Background(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.st.SetControllerReady(context.Background(), uuid, "0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -302,7 +302,7 @@ func (s *stateSuite) TestSetControllerDone(c *gc.C) {
 }
 
 func (s *stateSuite) TestSetControllerDoneNotExists(c *gc.C) {
-	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	uuid, err := s.st.CreateUpgrade(context.Background(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.st.SetControllerDone(context.Background(), uuid, "0")
@@ -387,7 +387,7 @@ func (s *stateSuite) TestActiveUpgradesNoUpgrades(c *gc.C) {
 }
 
 func (s *stateSuite) TestActiveUpgradesSingular(c *gc.C) {
-	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	uuid, err := s.st.CreateUpgrade(context.Background(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	activeUpgrade, err := s.st.ActiveUpgrade(context.Background())
@@ -407,7 +407,7 @@ func (s *stateSuite) TestSetDBUpgradeCompleted(c *gc.C) {
 }
 
 func (s *stateSuite) TestUpgradeInfo(c *gc.C) {
-	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	uuid, err := s.st.CreateUpgrade(context.Background(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	upgradeInfo, err := s.st.UpgradeInfo(context.Background(), uuid)
@@ -430,7 +430,7 @@ func (s *stateSuite) startUpgrade(c *gc.C) domainupgrade.UUID {
 	_, err := s.st.ActiveUpgrade(context.Background())
 	c.Assert(err, jc.ErrorIs, upgradeerrors.NotFound)
 
-	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	uuid, err := s.st.CreateUpgrade(context.Background(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.st.StartUpgrade(context.Background(), uuid)

@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -39,7 +40,6 @@ import (
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 )
 
 // Ensure LXD provider supports the expected interfaces.
@@ -150,11 +150,11 @@ func (s *BaseSuiteUnpatched) Prefix() string {
 func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	tools := []*coretools.Tools{
 		{
-			Version: version.Binary{Arch: arch.AMD64, Release: "ubuntu"},
+			Version: semversion.Binary{Arch: arch.AMD64, Release: "ubuntu"},
 			URL:     "https://example.org/amd",
 		},
 		{
-			Version: version.Binary{Arch: arch.ARM64, Release: "ubuntu"},
+			Version: semversion.Binary{Arch: arch.ARM64, Release: "ubuntu"},
 			URL:     "https://example.org/arm",
 		},
 	}
@@ -817,11 +817,11 @@ func (s *EnvironSuite) NewEnvironWithServerFactory(c *gc.C,
 func (s *EnvironSuite) GetStartInstanceArgs(c *gc.C) environs.StartInstanceParams {
 	tools := []*coretools.Tools{
 		{
-			Version: version.Binary{Arch: arch.AMD64, Release: "ubuntu"},
+			Version: semversion.Binary{Arch: arch.AMD64, Release: "ubuntu"},
 			URL:     "https://example.org/amd",
 		},
 		{
-			Version: version.Binary{Arch: arch.ARM64, Release: "ubuntu"},
+			Version: semversion.Binary{Arch: arch.ARM64, Release: "ubuntu"},
 			URL:     "https://example.org/arm",
 		},
 	}

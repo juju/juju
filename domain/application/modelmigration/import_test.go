@@ -16,6 +16,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/service"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/version"
 )
 
 type importSuite struct {
@@ -580,7 +580,7 @@ func (s *importSuite) TestImportCharmMetadata(c *gc.C) {
 		Tags:           []string{"baz", "qux"},
 		Terms:          []string{"alpha"},
 		CharmUser:      "root",
-		MinJujuVersion: version.MustParse("4.0.0"),
+		MinJujuVersion: semversion.MustParse("4.0.0"),
 		Assumes: &assumes.ExpressionTree{
 			Expression: assumes.CompositeExpression{
 				ExprType:       assumes.AllOfExpression,

@@ -16,8 +16,8 @@ import (
 	controller "github.com/juju/juju/controller"
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	life "github.com/juju/juju/core/life"
+	semversion "github.com/juju/juju/core/semversion"
 	modelmigration "github.com/juju/juju/domain/modelmigration"
-	version "github.com/juju/juju/internal/version"
 	state "github.com/juju/juju/state"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -333,7 +333,7 @@ func (m *MockModelMigrationService) EXPECT() *MockModelMigrationServiceMockRecor
 }
 
 // AdoptResources mocks base method.
-func (m *MockModelMigrationService) AdoptResources(arg0 context.Context, arg1 version.Number) error {
+func (m *MockModelMigrationService) AdoptResources(arg0 context.Context, arg1 semversion.Number) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AdoptResources", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -359,13 +359,13 @@ func (c *MockModelMigrationServiceAdoptResourcesCall) Return(arg0 error) *MockMo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelMigrationServiceAdoptResourcesCall) Do(f func(context.Context, version.Number) error) *MockModelMigrationServiceAdoptResourcesCall {
+func (c *MockModelMigrationServiceAdoptResourcesCall) Do(f func(context.Context, semversion.Number) error) *MockModelMigrationServiceAdoptResourcesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelMigrationServiceAdoptResourcesCall) DoAndReturn(f func(context.Context, version.Number) error) *MockModelMigrationServiceAdoptResourcesCall {
+func (c *MockModelMigrationServiceAdoptResourcesCall) DoAndReturn(f func(context.Context, semversion.Number) error) *MockModelMigrationServiceAdoptResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -556,10 +556,10 @@ func (m *MockModelAgentService) EXPECT() *MockModelAgentServiceMockRecorder {
 }
 
 // GetModelTargetAgentVersion mocks base method.
-func (m *MockModelAgentService) GetModelTargetAgentVersion(arg0 context.Context) (version.Number, error) {
+func (m *MockModelAgentService) GetModelTargetAgentVersion(arg0 context.Context) (semversion.Number, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetModelTargetAgentVersion", arg0)
-	ret0, _ := ret[0].(version.Number)
+	ret0, _ := ret[0].(semversion.Number)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -577,19 +577,19 @@ type MockModelAgentServiceGetModelTargetAgentVersionCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelAgentServiceGetModelTargetAgentVersionCall) Return(arg0 version.Number, arg1 error) *MockModelAgentServiceGetModelTargetAgentVersionCall {
+func (c *MockModelAgentServiceGetModelTargetAgentVersionCall) Return(arg0 semversion.Number, arg1 error) *MockModelAgentServiceGetModelTargetAgentVersionCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelAgentServiceGetModelTargetAgentVersionCall) Do(f func(context.Context) (version.Number, error)) *MockModelAgentServiceGetModelTargetAgentVersionCall {
+func (c *MockModelAgentServiceGetModelTargetAgentVersionCall) Do(f func(context.Context) (semversion.Number, error)) *MockModelAgentServiceGetModelTargetAgentVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelAgentServiceGetModelTargetAgentVersionCall) DoAndReturn(f func(context.Context) (version.Number, error)) *MockModelAgentServiceGetModelTargetAgentVersionCall {
+func (c *MockModelAgentServiceGetModelTargetAgentVersionCall) DoAndReturn(f func(context.Context) (semversion.Number, error)) *MockModelAgentServiceGetModelTargetAgentVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

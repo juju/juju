@@ -35,6 +35,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -48,7 +49,6 @@ import (
 	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/version"
 )
 
 const (
@@ -134,6 +134,7 @@ func newEnviron(name, controllerUUID string, invalidator environs.CredentialInva
 }
 
 var _ environs.Environ = (*environ)(nil)
+
 var _ environs.Networking = (*environ)(nil)
 
 func (e *environ) Config() *config.Config {
@@ -1732,7 +1733,7 @@ func (e *environ) subnetsForVPC(ctx envcontext.ProviderCallContext) ([]types.Sub
 }
 
 // AdoptResources is part of the Environ interface.
-func (e *environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+func (e *environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion semversion.Number) error {
 	// Gather resource ids for instances, volumes and security groups tagged with this model.
 	instances, err := e.AllInstances(ctx)
 	if err != nil {

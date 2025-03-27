@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4"
 
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
@@ -21,7 +22,6 @@ import (
 	"github.com/juju/juju/internal/http"
 	internallogger "github.com/juju/juju/internal/logger"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/juju/keys"
 )
 
@@ -53,7 +53,7 @@ type SyncContext struct {
 	Source string
 
 	// ChosenVersion is the requested version to upload.
-	ChosenVersion version.Number
+	ChosenVersion semversion.Number
 }
 
 // ToolsFinder provides an interface for finding tools of a specified version.
@@ -226,7 +226,7 @@ func copyOneToolsPackage(ctx context.Context, toolsDir, stream string, tools *co
 type UploadFunc func(
 	context.Context,
 	envtools.SimplestreamsFetcher, storage.Storage, string,
-	func(vers version.Number) version.Number,
+	func(vers semversion.Number) semversion.Number,
 ) (*coretools.Tools, error)
 
 // Upload is exported for testing.
@@ -239,10 +239,10 @@ var Upload UploadFunc = upload
 func upload(
 	ctx context.Context,
 	ss envtools.SimplestreamsFetcher, store storage.Storage, stream string,
-	f func(vers version.Number) version.Number,
+	f func(vers semversion.Number) semversion.Number,
 ) (*coretools.Tools, error) {
 	if f == nil {
-		f = func(vers version.Number) version.Number { return vers }
+		f = func(vers semversion.Number) semversion.Number { return vers }
 	}
 	builtTools, err := BuildAgentTarball(true, stream, f)
 	if err != nil {
@@ -275,7 +275,7 @@ func generateAgentMetadata(ctx context.Context, ss envtools.SimplestreamsFetcher
 // BuiltAgent contains metadata for a tools tarball resulting from
 // a call to BundleTools.
 type BuiltAgent struct {
-	Version     version.Binary
+	Version     semversion.Binary
 	Official    bool
 	Dir         string
 	StorageName string
@@ -285,7 +285,7 @@ type BuiltAgent struct {
 
 // BuildAgentTarballFunc is a function which can build an agent tarball.
 type BuildAgentTarballFunc func(
-	build bool, stream string, getForceVersion func(version.Number) version.Number,
+	build bool, stream string, getForceVersion func(semversion.Number) semversion.Number,
 ) (*BuiltAgent, error)
 
 // Override for testing.
@@ -295,7 +295,7 @@ var BuildAgentTarball BuildAgentTarballFunc = buildAgentTarball
 // the expected agent path.
 func buildAgentTarball(
 	build bool, stream string,
-	getForceVersion func(version.Number) version.Number,
+	getForceVersion func(semversion.Number) semversion.Number,
 ) (_ *BuiltAgent, err error) {
 	// TODO(rog) find binaries from $PATH when not using a development
 	// version of juju within a $GOPATH.

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/lxdprofile"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
@@ -29,7 +30,6 @@ import (
 	"github.com/juju/juju/internal/network"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/version"
 )
 
 type managerSuite struct {
@@ -101,7 +101,7 @@ func prepInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
 	c.Assert(err, jc.ErrorIsNil)
 
 	list := coretools.List{
-		&coretools.Tools{Version: version.MustParseBinary("2.3.4-ubuntu-amd64")},
+		&coretools.Tools{Version: semversion.MustParseBinary("2.3.4-ubuntu-amd64")},
 	}
 	err = icfg.SetTools(list)
 	c.Assert(err, jc.ErrorIsNil)

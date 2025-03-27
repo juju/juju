@@ -13,9 +13,9 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/internal/version"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -26,7 +26,7 @@ type MachineProvisioner interface {
 
 	// ModelAgentVersion returns the agent version the machine's model is currently
 	// running or an error.
-	ModelAgentVersion(ctx context.Context) (*version.Number, error)
+	ModelAgentVersion(ctx context.Context) (*semversion.Number, error)
 
 	// MachineTag returns the identifier for the machine as the most specific type.
 	MachineTag() names.MachineTag
@@ -131,7 +131,7 @@ func (m *Machine) Tag() names.Tag {
 }
 
 // ModelAgentVersion implements MachineProvisioner.ModelAgentVersion.
-func (m *Machine) ModelAgentVersion(ctx context.Context) (*version.Number, error) {
+func (m *Machine) ModelAgentVersion(ctx context.Context) (*semversion.Number, error) {
 	mc, err := m.st.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)

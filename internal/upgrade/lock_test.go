@@ -9,8 +9,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/internal/version"
 )
 
 type lockSuite struct {
@@ -33,7 +33,7 @@ func (s *lockSuite) TestNewLockSameVersionUnlocked(c *gc.C) {
 func (s *lockSuite) TestNewLockOldVersionLocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.agentConfig.EXPECT().UpgradedToVersion().Return(version.Number{})
+	s.agentConfig.EXPECT().UpgradedToVersion().Return(semversion.Number{})
 	c.Assert(NewLock(s.agentConfig, jujuversion.Current).IsUnlocked(), jc.IsFalse)
 }
 

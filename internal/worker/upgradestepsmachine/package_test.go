@@ -13,11 +13,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
-	"github.com/juju/juju/internal/version"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package upgradestepsmachine -destination clock_mock_test.go github.com/juju/clock Clock
@@ -42,7 +42,7 @@ type baseSuite struct {
 	statusSetter *MockStatusSetter
 }
 
-func (s *baseSuite) newBaseWorker(c *gc.C, from, to version.Number) *upgradesteps.BaseWorker {
+func (s *baseSuite) newBaseWorker(c *gc.C, from, to semversion.Number) *upgradesteps.BaseWorker {
 	return &upgradesteps.BaseWorker{
 		UpgradeCompleteLock: s.lock,
 		Agent:               s.agent,
@@ -55,7 +55,7 @@ func (s *baseSuite) newBaseWorker(c *gc.C, from, to version.Number) *upgradestep
 		PreUpgradeSteps: func(_ agent.Config, isController bool) error {
 			return nil
 		},
-		PerformUpgradeSteps: func(from version.Number, targets []upgrades.Target, context upgrades.Context) error {
+		PerformUpgradeSteps: func(from semversion.Number, targets []upgrades.Target, context upgrades.Context) error {
 			return nil
 		},
 		Logger: loggertesting.WrapCheckLog(c),
@@ -83,7 +83,7 @@ func (s *baseSuite) expectAnyClock(ch chan time.Time) {
 	}).AnyTimes()
 }
 
-func (s *baseSuite) expectUpgradeVersion(ver version.Number) {
+func (s *baseSuite) expectUpgradeVersion(ver semversion.Number) {
 	s.configSetter.EXPECT().SetUpgradedToVersion(ver)
 }
 

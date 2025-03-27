@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/access"
@@ -22,7 +23,6 @@ import (
 	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/proxy"
-	"github.com/juju/juju/internal/version"
 )
 
 // ControllerConfigService is the interface that wraps the ControllerConfig method.
@@ -156,5 +156,5 @@ type ModelAgentService interface {
 	// entire model. The following errors can be returned:
 	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
 	// not exist.
-	GetModelTargetAgentVersion(context.Context) (version.Number, error)
+	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
 }

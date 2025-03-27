@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/constraints"
@@ -22,7 +23,6 @@ import (
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/version"
 )
 
 // ModelState represents a type for interacting with the underlying model
@@ -666,7 +666,7 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) 
 		CloudRegion:       m.CloudRegion,
 		CredentialName:    m.CredentialName,
 		IsControllerModel: m.IsControllerModel,
-		AgentVersion:      version.MustParse(v.TargetVersion),
+		AgentVersion:      semversion.MustParse(v.TargetVersion),
 	}
 
 	if owner := m.CredentialOwner; owner != "" {
@@ -770,7 +770,7 @@ func InsertModelInfo(
 	// still valid but should really be considered null for the purposes of
 	// allowing the DDL to assert constraints.
 	var agentVersion sql.NullString
-	if args.AgentVersion != version.Zero {
+	if args.AgentVersion != semversion.Zero {
 		agentVersion.String = args.AgentVersion.String()
 		agentVersion.Valid = true
 	}

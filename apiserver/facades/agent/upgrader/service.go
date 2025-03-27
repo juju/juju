@@ -9,9 +9,9 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/version"
 )
 
 // ModelAgentService provides access to the Juju agent version for the model.
@@ -21,13 +21,13 @@ type ModelAgentService interface {
 	// errors are possible:
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound]
 	// - [github.com/juju/juju/domain/model/errors.NotFound]
-	GetMachineTargetAgentVersion(context.Context, machine.Name) (version.Number, error)
+	GetMachineTargetAgentVersion(context.Context, machine.Name) (semversion.Number, error)
 
 	// GetModelTargetAgentVersion returns the target agent version for the
 	// entire model. The following errors can be returned:
 	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
 	// not exist.
-	GetModelTargetAgentVersion(context.Context) (version.Number, error)
+	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
 
 	// GetUnitTargetAgentVersion reports the target agent version that should be
 	// being run on the provided unit identified by name. The following errors
@@ -36,7 +36,7 @@ type ModelAgentService interface {
 	// the unit in question does not exist.
 	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model
 	// the unit belongs to no longer exists.
-	GetUnitTargetAgentVersion(context.Context, string) (version.Number, error)
+	GetUnitTargetAgentVersion(context.Context, string) (semversion.Number, error)
 
 	// WatchMachineTargetAgentVersion is responsible for watching the target agent
 	// version for machine and reporting when there has been a change via a

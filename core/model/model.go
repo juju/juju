@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/version"
 )
 
 // ModelType indicates a model type.
@@ -61,7 +61,7 @@ type Model struct {
 	ModelType ModelType
 
 	// AgentVersion is the target version for agents running under this model.
-	AgentVersion version.Number
+	AgentVersion semversion.Number
 
 	// Cloud is the name of the cloud to associate with the model.
 	// Must not be empty for a valid struct.

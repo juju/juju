@@ -18,12 +18,12 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/password"
-	"github.com/juju/juju/internal/version"
 )
 
 // ControllerPodConfig represents initialization information for a new juju caas controller pod.
@@ -62,7 +62,7 @@ type ControllerPodConfig struct {
 	ControllerName string
 
 	// JujuVersion is the juju version.
-	JujuVersion version.Number
+	JujuVersion semversion.Number
 
 	// DataDir holds the directory that juju state will be put in the new
 	// instance.
@@ -181,7 +181,7 @@ func (cfg *ControllerPodConfig) VerifyConfig() (err error) {
 	if cfg.MetricsSpoolDir == "" {
 		return errors.New("missing metrics spool directory")
 	}
-	if cfg.JujuVersion == version.Zero {
+	if cfg.JujuVersion == semversion.Zero {
 		return errors.New("missing juju version")
 	}
 	if cfg.APIInfo == nil {

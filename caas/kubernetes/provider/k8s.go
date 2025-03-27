@@ -37,6 +37,7 @@ import (
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/assumes"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
@@ -47,7 +48,6 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/version"
 )
 
 var logger = internallogger.GetLogger("juju.kubernetes.provider")
@@ -262,7 +262,7 @@ func (k *kubernetesClient) GetAnnotations() k8sannotations.Annotation {
 var k8sversionNumberExtractor = regexp.MustCompile("[0-9]+")
 
 // Version returns cluster version information.
-func (k *kubernetesClient) Version() (ver *version.Number, err error) {
+func (k *kubernetesClient) Version() (ver *semversion.Number, err error) {
 	k8sver, err := k.client().Discovery().ServerVersion()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -272,7 +272,7 @@ func (k *kubernetesClient) Version() (ver *version.Number, err error) {
 		return k8sversionNumberExtractor.FindString(s)
 	}
 
-	ver = &version.Number{}
+	ver = &semversion.Number{}
 	if ver.Major, err = strconv.Atoi(clean(k8sver.Major)); err != nil {
 		return nil, errors.Trace(err)
 	}

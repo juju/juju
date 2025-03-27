@@ -14,8 +14,8 @@ import (
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/semversion"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
-	"github.com/juju/juju/internal/version"
 )
 
 type serviceSuite struct {
@@ -80,7 +80,7 @@ func (s *serviceSuite) TestSetControllerNodeAgentVersionSuccess(c *gc.C) {
 
 	controllerID := "1"
 	ver := coreagentbinary.Version{
-		Number: version.MustParse("1.2.3"),
+		Number: semversion.MustParse("1.2.3"),
 		Arch:   corearch.ARM64,
 	}
 
@@ -102,7 +102,7 @@ func (s *serviceSuite) TestSetControllerNodeAgentVersionNotValid(c *gc.C) {
 	controllerID := "1"
 
 	ver := coreagentbinary.Version{
-		Number: version.Zero,
+		Number: semversion.Zero,
 	}
 	err := svc.SetControllerNodeAgentVersion(
 		context.Background(),
@@ -112,7 +112,7 @@ func (s *serviceSuite) TestSetControllerNodeAgentVersionNotValid(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 
 	ver = coreagentbinary.Version{
-		Number: version.MustParse("1.2.3"),
+		Number: semversion.MustParse("1.2.3"),
 		Arch:   corearch.UnsupportedArches[0],
 	}
 	err = svc.SetControllerNodeAgentVersion(
@@ -129,7 +129,7 @@ func (s *serviceSuite) TestSetControllerNodeAgentVersionNotFound(c *gc.C) {
 
 	controllerID := "1"
 	ver := coreagentbinary.Version{
-		Number: version.MustParse("1.2.3"),
+		Number: semversion.MustParse("1.2.3"),
 		Arch:   corearch.ARM64,
 	}
 

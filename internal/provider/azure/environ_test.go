@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -54,7 +55,6 @@ import (
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/version"
 	jujutesting "github.com/juju/juju/juju/testing"
 )
 
@@ -607,8 +607,8 @@ func makeStartInstanceParams(c *gc.C, controllerUUID string, base corebase.Base)
 }
 
 func makeToolsList(osType string) tools.List {
-	var toolsVersion version.Binary
-	toolsVersion.Number = version.MustParse("1.26.0")
+	var toolsVersion semversion.Binary
+	toolsVersion.Number = semversion.MustParse("1.26.0")
 	toolsVersion.Arch = corearch.AMD64
 	toolsVersion.Release = osType
 	return tools.List{{
@@ -1753,7 +1753,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 			CAPrivateKey:                  testing.CAKey,
 			BootstrapBase:                 corebase.MustParseBaseFromString("ubuntu@22.04"),
 			BuildAgentTarball: func(
-				build bool, _ string, _ func(version.Number) version.Number,
+				build bool, _ string, _ func(semversion.Number) semversion.Number,
 			) (*sync.BuiltAgent, error) {
 				c.Assert(build, jc.IsFalse)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
@@ -1820,7 +1820,7 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 			CAPrivateKey:                  testing.CAKey,
 			BootstrapBase:                 corebase.MustParseBaseFromString("ubuntu@22.04"),
 			BuildAgentTarball: func(
-				build bool, _ string, _ func(version.Number) version.Number,
+				build bool, _ string, _ func(semversion.Number) semversion.Number,
 			) (*sync.BuiltAgent, error) {
 				c.Assert(build, jc.IsFalse)
 				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
@@ -2355,7 +2355,7 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 		makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
 	}
 
-	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.2.4"))
+	err := env.AdoptResources(s.callCtx, "new-controller", semversion.MustParse("1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that properties and tags are preserved and the correct
@@ -2479,7 +2479,7 @@ func (s *environSuite) TestAdoptResourcesErrorGettingGroup(c *gc.C) {
 		4)
 	s.sender = azuretesting.Senders{sender}
 
-	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.0.0"))
+	err := env.AdoptResources(s.callCtx, "new-controller", semversion.MustParse("1.0.0"))
 	c.Assert(err, gc.ErrorMatches, ".*uhoh$")
 	c.Assert(s.requests, gc.HasLen, 1)
 }
@@ -2495,7 +2495,7 @@ func (s *environSuite) TestAdoptResourcesErrorUpdatingGroup(c *gc.C) {
 		errorSender,
 	}
 
-	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.0.0"))
+	err := env.AdoptResources(s.callCtx, "new-controller", semversion.MustParse("1.0.0"))
 	c.Assert(err, gc.ErrorMatches, ".*uhoh$")
 	c.Assert(s.requests, gc.HasLen, 2)
 }
@@ -2512,7 +2512,7 @@ func (s *environSuite) TestAdoptResourcesErrorGettingVersions(c *gc.C) {
 		errorSender,
 	}
 
-	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.0.0"))
+	err := env.AdoptResources(s.callCtx, "new-controller", semversion.MustParse("1.0.0"))
 	c.Assert(err, gc.ErrorMatches, ".*uhoh$")
 	c.Assert(s.requests, gc.HasLen, 3)
 }
@@ -2530,7 +2530,7 @@ func (s *environSuite) TestAdoptResourcesErrorListingResources(c *gc.C) {
 		errorSender,
 	}
 
-	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.0.0"))
+	err := env.AdoptResources(s.callCtx, "new-controller", semversion.MustParse("1.0.0"))
 	c.Assert(err, gc.ErrorMatches, ".*ouch!$")
 	c.Assert(s.requests, gc.HasLen, 4)
 }
@@ -2540,7 +2540,7 @@ func (s *environSuite) TestAdoptResourcesWithInvalidCredential(c *gc.C) {
 	s.createSenderWithUnauthorisedStatusCode(c)
 
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
-	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.0.0"))
+	err := env.AdoptResources(s.callCtx, "new-controller", semversion.MustParse("1.0.0"))
 	c.Assert(err, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
 }
@@ -2567,7 +2567,7 @@ func (s *environSuite) TestAdoptResourcesNoUpdateNeeded(c *gc.C) {
 		makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
 	}
 
-	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.2.4"))
+	err := env.AdoptResources(s.callCtx, "new-controller", semversion.MustParse("1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(s.requests, gc.HasLen, 6)
 }
@@ -2598,7 +2598,7 @@ func (s *environSuite) TestAdoptResourcesErrorGettingFullResource(c *gc.C) {
 		makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
 	}
 
-	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.2.4"))
+	err := env.AdoptResources(s.callCtx, "new-controller", semversion.MustParse("1.2.4"))
 	c.Check(err, gc.ErrorMatches, `failed to update controller for some resources: \[boxing-day-blues\]`)
 	c.Check(s.requests, gc.HasLen, 7)
 }
@@ -2631,7 +2631,7 @@ func (s *environSuite) TestAdoptResourcesErrorUpdating(c *gc.C) {
 		makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
 	}
 
-	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.2.4"))
+	err := env.AdoptResources(s.callCtx, "new-controller", semversion.MustParse("1.2.4"))
 	c.Check(err, gc.ErrorMatches, `failed to update controller for some resources: \[boxing-day-blues\]`)
 	c.Check(s.requests, gc.HasLen, 8)
 }
