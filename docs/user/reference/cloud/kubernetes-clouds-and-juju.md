@@ -3,6 +3,18 @@
 
 In Juju, all Kubernetes clouds behave fundamentally the same.
 
+## Kubernetes in Juju
+
+Juju supports both traditional machine clouds as well as Kubernetes clouds. If you are familiar with Kubernetes, the following is a mapping between Kubernetes and Juju concepts:
+
+| Juju | Kubernetes |
+| - | - |
+| {ref}`model <model>` | [namespace](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/) |
+| {ref}`machine <machine>`; Juju does not manage this for Kubernetes | [node](https://kubernetes.io/docs/concepts/architecture/nodes/) |
+| {ref}`unit <unit>` | [pod](https://kubernetes.io/docs/concepts/workloads/pods/) |
+| process in a unit | container |
+| {ref}`application <application>` | [service](https://kubernetes.io/docs/concepts/services-networking/service/) |
+
 ## Notes on `juju add-k8s`
 
 On Kubernetes clouds, both the cloud definition and the cloud credentials are added through `juju add-k8s`, which reads from your kubeconfig file.
