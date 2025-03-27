@@ -5,17 +5,17 @@ package removal
 
 import (
 	"context"
-	coredependency "github.com/juju/juju/core/dependency"
-	"github.com/juju/juju/internal/services"
 
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
+	coredependency "github.com/juju/juju/core/dependency"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	removalservice "github.com/juju/juju/domain/removal/service"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/services"
 )
 
 // DomainServices describes the service factory
