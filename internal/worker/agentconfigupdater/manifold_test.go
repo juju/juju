@@ -147,7 +147,6 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissing(c *gc.C) {
 				result := response.(*params.ControllerConfigResult)
 				*result = params.ControllerConfigResult{
 					Config: map[string]interface{}{
-						"mongo-memory-profile":                        "default",
 						"juju-db-snap-channel":                        controller.DefaultJujuDBSnapChannel,
 						"query-tracing-enabled":                       controller.DefaultQueryTracingEnabled,
 						"query-tracing-threshold":                     controller.DefaultQueryTracingThreshold,
@@ -198,9 +197,7 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissingFirstPass(c *gc.C) {
 			case "ControllerConfig":
 				result := response.(*params.ControllerConfigResult)
 				*result = params.ControllerConfigResult{
-					Config: map[string]interface{}{
-						"mongo-memory-profile": "default",
-					},
+					Config: map[string]interface{}{},
 				}
 			default:
 				c.Fatalf("not sure how to handle: %q", request)
@@ -241,7 +238,6 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIP
 				result := response.(*params.ControllerConfigResult)
 				*result = params.ControllerConfigResult{
 					Config: map[string]interface{}{
-						"mongo-memory-profile":                        "default",
 						"juju-db-snap-channel":                        controller.DefaultJujuDBSnapChannel,
 						"query-tracing-enabled":                       controller.DefaultQueryTracingEnabled,
 						"query-tracing-threshold":                     controller.DefaultQueryTracingThreshold,
