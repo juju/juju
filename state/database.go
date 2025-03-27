@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"runtime/debug"
-	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -279,9 +278,6 @@ type database struct {
 	// maxTxnAttempts is used when creating the txn runner to control how
 	// many attempts a txn should have.
 	maxTxnAttempts int
-
-	mu           sync.RWMutex
-	queryTracker *queryTracker
 }
 
 // RunTransactionObserverFunc is the type of a function to be called
@@ -299,12 +295,6 @@ func (db *database) copySession(modelUUID string) (*database, *mgo.Session) {
 		clock:          db.clock,
 		maxTxnAttempts: db.maxTxnAttempts,
 	}, session
-}
-
-func (db *database) setTracker(tracker *queryTracker) {
-	db.mu.Lock()
-	db.queryTracker = tracker
-	db.mu.Unlock()
 }
 
 // Copy is part of the Database interface.
@@ -344,13 +334,10 @@ func (db *database) GetCollection(name string) (collection mongo.Collection, clo
 
 	// Apply model filtering.
 	if !info.global {
-		db.mu.RLock()
 		collection = &modelStateCollection{
 			WriteCollection: collection.Writeable(),
 			modelUUID:       db.modelUUID,
-			queryTracker:    db.queryTracker,
 		}
-		db.mu.RUnlock()
 	}
 
 	// Prevent layer-breaking.
