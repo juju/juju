@@ -4,8 +4,6 @@
 package params
 
 import (
-	"github.com/juju/names/v6"
-
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
@@ -140,59 +138,4 @@ type CAASApplicationOCIResourceResult struct {
 // CAASApplicationOCIResources holds a list of image OCI resources.
 type CAASApplicationOCIResources struct {
 	Images map[string]DockerImageInfo `json:"images"`
-}
-
-// CAASUnitInfo holds CAAS unit information.
-type CAASUnitInfo struct {
-	Tag        string      `json:"tag"`
-	UnitStatus *UnitStatus `json:"unit-status,omitempty"`
-}
-
-// CAASUnit holds CAAS unit information.
-type CAASUnit struct {
-	Tag        names.Tag
-	UnitStatus *UnitStatus
-}
-
-// CAASUnitsResult holds a slice of CAAS unit information or an error.
-type CAASUnitsResult struct {
-	Units []CAASUnitInfo `json:"units,omitempty"`
-	Error *Error         `json:"error,omitempty"`
-}
-
-// CAASUnitsResults contains multiple CAAS units result.
-type CAASUnitsResults struct {
-	Results []CAASUnitsResult `json:"results"`
-}
-
-// CAASApplicationProvisioningState represents the provisioning state for a CAAS application.
-type CAASApplicationProvisioningState struct {
-	Scaling     bool `json:"scaling"`
-	ScaleTarget int  `json:"scale-target"`
-}
-
-// CAASApplicationProvisioningStateResult represents the result of getting the
-// provisioning state for a CAAS application.
-type CAASApplicationProvisioningStateResult struct {
-	ProvisioningState *CAASApplicationProvisioningState `json:"provisioning-state,omitempty"`
-	Error             *Error                            `json:"error,omitempty"`
-}
-
-// CAASApplicationProvisioningStateArg holds the arguments for setting a CAAS application's
-// provisioning state.
-type CAASApplicationProvisioningStateArg struct {
-	Application       Entity                           `json:"application"`
-	ProvisioningState CAASApplicationProvisioningState `json:"provisioning-state"`
-}
-
-// CAASApplicationProvisionerConfig holds the configuration for the caasapplicationprovisioner worker.
-type CAASApplicationProvisionerConfig struct {
-	UnmanagedApplications Entities `json:"unmanaged-applications,omitempty"`
-}
-
-// CAASApplicationProvisionerConfigResult is the result of getting the caasapplicationprovisioner worker's
-// configuration for the current model.
-type CAASApplicationProvisionerConfigResult struct {
-	ProvisionerConfig *CAASApplicationProvisionerConfig `json:"provisioner-config,omitempty"`
-	Error             *Error                            `json:"error,omitempty"`
 }

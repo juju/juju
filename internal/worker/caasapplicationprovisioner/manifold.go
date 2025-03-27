@@ -83,8 +83,9 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	}
 
 	w, err := config.NewWorker(Config{
-		Facade:             apicaasapplicationprovisioner.NewClient(apiCaller),
 		ApplicationService: domainServices.Application(),
+		StatusService:      domainServices.Status(),
+		Facade:             apicaasapplicationprovisioner.NewClient(apiCaller),
 		Broker:             broker,
 		ModelTag:           modelTag,
 		Clock:              clock,
@@ -107,6 +108,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.DomainServicesName,
 			config.BrokerName,
 			config.ClockName,
+			config.DomainServicesName,
 		},
 		Start: config.start,
 	}

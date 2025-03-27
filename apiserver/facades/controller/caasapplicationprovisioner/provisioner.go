@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -42,7 +41,6 @@ import (
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -189,56 +187,6 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 	return apiGroup, nil
 }
 
-// Life returns the life status of every supplied app or unit, where available.
-func (a *APIGroup) Life(ctx context.Context, args params.Entities) (params.LifeResults, error) {
-	result := params.LifeResults{
-		Results: make([]params.LifeResult, len(args.Entities)),
-	}
-	if len(args.Entities) == 0 {
-		return result, nil
-	}
-	canRead, err := a.lifeCanRead(ctx)
-	if err != nil {
-		return params.LifeResults{}, errors.Trace(err)
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		if !canRead(tag) {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		var lifeValue life.Value
-		switch tag.Kind() {
-		case names.ApplicationTagKind:
-			lifeValue, err = a.applicationService.GetApplicationLifeByName(ctx, tag.Id())
-			if errors.Is(err, applicationerrors.ApplicationNotFound) {
-				err = errors.NotFoundf("application %s", tag.Id())
-			}
-		case names.UnitTagKind:
-			var unitName coreunit.Name
-			unitName, err = coreunit.NewName(tag.Id())
-			if err != nil {
-				result.Results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-			lifeValue, err = a.applicationService.GetUnitLife(ctx, unitName)
-			if errors.Is(err, applicationerrors.UnitNotFound) {
-				err = errors.NotFoundf("unit %s", unitName)
-			}
-		default:
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		result.Results[i].Life = lifeValue
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
 // CharmInfo returns information about the requested charm.
 func (a *APIGroup) CharmInfo(ctx context.Context, args params.CharmURL) (params.Charm, error) {
 	return a.charmInfoAPI.CharmInfo(ctx, args)
@@ -342,20 +290,6 @@ func (a *API) Remove(ctx context.Context, args params.Entities) (params.ErrorRes
 		}
 	}
 	return result, nil
-}
-
-// WatchApplications starts a StringsWatcher to watch applications
-// deployed to this model.
-func (a *API) WatchApplications(ctx context.Context) (params.StringsWatchResult, error) {
-	watch := a.state.WatchApplications()
-	// Consume the initial event and forward it to the result.
-	if changes, ok := <-watch.Changes(); ok {
-		return params.StringsWatchResult{
-			StringsWatcherId: a.resources.Register(watch),
-			Changes:          changes,
-		}, nil
-	}
-	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
 }
 
 // WatchProvisioningInfo provides a watcher for changes that affect the
@@ -591,80 +525,6 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 		Trust:                appConfig.GetBool(coreapplication.TrustConfigOptionName, false),
 		Scale:                scale,
 	}, nil
-}
-
-// SetOperatorStatus sets the status of each given entity.
-func (a *API) SetOperatorStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	for i, arg := range args.Entities {
-		tag, err := names.ParseApplicationTag(arg.Tag)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		info := status.StatusInfo{
-			Status:  status.Status(arg.Status),
-			Message: arg.Info,
-			Data:    arg.Data,
-			Since:   ptr(a.clock.Now()),
-		}
-		err = a.statusService.SetApplicationStatus(ctx, tag.Id(), info)
-		if errors.Is(err, statuserrors.ApplicationNotFound) {
-			results.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("application %q", tag.Id()))
-			continue
-		} else if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-	}
-	return results, nil
-}
-
-// Units returns all the units for each application specified.
-func (a *API) Units(ctx context.Context, args params.Entities) (params.CAASUnitsResults, error) {
-	results := params.CAASUnitsResults{
-		Results: make([]params.CAASUnitsResult, len(args.Entities)),
-	}
-	for i, entity := range args.Entities {
-		results.Results[i] = a.units(ctx, entity)
-	}
-	return results, nil
-}
-
-func (a *API) units(ctx context.Context, arg params.Entity) params.CAASUnitsResult {
-	appName, err := names.ParseApplicationTag(arg.Tag)
-	if err != nil {
-		return params.CAASUnitsResult{Error: apiservererrors.ServerError(err)}
-	}
-	appId, err := a.applicationService.GetApplicationIDByName(ctx, appName.Id())
-	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return params.CAASUnitsResult{Error: apiservererrors.ServerError(errors.NotFoundf("application %q", appName.Id()))}
-	} else if err != nil {
-		return params.CAASUnitsResult{Error: apiservererrors.ServerError(err)}
-	}
-	unitStatuses, err := a.statusService.GetUnitWorkloadStatusesForApplication(ctx, appId)
-	if errors.Is(err, statuserrors.ApplicationNotFound) {
-		return params.CAASUnitsResult{Error: apiservererrors.ServerError(errors.NotFoundf("application %q", appName.Id()))}
-	} else if err != nil {
-		return params.CAASUnitsResult{Error: apiservererrors.ServerError(err)}
-	}
-
-	result := params.CAASUnitsResult{
-		Units: make([]params.CAASUnitInfo, 0, len(unitStatuses)),
-	}
-	for unitName, unitStatus := range unitStatuses {
-		unitTag := names.NewUnitTag(unitName.String())
-		result.Units = append(result.Units, params.CAASUnitInfo{
-			Tag: unitTag.String(),
-			UnitStatus: &params.UnitStatus{
-				AgentStatus:    statusInfoToDetailedStatus(unitStatus),
-				WorkloadStatus: statusInfoToDetailedStatus(unitStatus),
-			},
-		})
-	}
-	return result
 }
 
 func statusInfoToDetailedStatus(in status.StatusInfo) params.DetailedStatus {
@@ -1661,64 +1521,6 @@ func (a *API) destroyUnit(ctx context.Context, args params.DestroyUnitParams) (p
 	}
 
 	return params.DestroyUnitResult{}, nil
-}
-
-// ProvisioningState returns the provisioning state for the application.
-func (a *API) ProvisioningState(ctx context.Context, args params.Entity) (params.CAASApplicationProvisioningStateResult, error) {
-	result := params.CAASApplicationProvisioningStateResult{}
-
-	appTag, err := names.ParseApplicationTag(args.Tag)
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-
-	ps, err := a.applicationService.GetApplicationScalingState(ctx, appTag.Id())
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-
-	result.ProvisioningState = &params.CAASApplicationProvisioningState{
-		Scaling:     ps.Scaling,
-		ScaleTarget: ps.ScaleTarget,
-	}
-	return result, nil
-}
-
-// SetProvisioningState sets the provisioning state for the application.
-func (a *API) SetProvisioningState(ctx context.Context, args params.CAASApplicationProvisioningStateArg) (params.ErrorResult, error) {
-	result := params.ErrorResult{}
-
-	appTag, err := names.ParseApplicationTag(args.Application.Tag)
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-
-	err = a.applicationService.SetApplicationScalingState(ctx, appTag.Id(), args.ProvisioningState.ScaleTarget, args.ProvisioningState.Scaling)
-	if err != nil {
-		if errors.Is(err, applicationerrors.ScalingStateInconsistent) {
-			err = apiservererrors.ErrTryAgain
-		}
-		result.Error = apiservererrors.ServerError(err)
-	}
-
-	return result, nil
-}
-
-// ProvisionerConfig returns the provisioner's configuration.
-func (a *API) ProvisionerConfig(ctx context.Context) (params.CAASApplicationProvisionerConfigResult, error) {
-	result := params.CAASApplicationProvisionerConfigResult{
-		ProvisionerConfig: &params.CAASApplicationProvisionerConfig{},
-	}
-	if a.state.IsController() {
-		result.ProvisionerConfig.UnmanagedApplications.Entities = append(
-			result.ProvisionerConfig.UnmanagedApplications.Entities,
-			params.Entity{Tag: names.NewApplicationTag(bootstrap.ControllerApplicationName).String()},
-		)
-	}
-	return result, nil
 }
 
 func ptr[T any](v T) *T {
