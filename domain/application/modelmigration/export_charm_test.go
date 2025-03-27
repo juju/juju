@@ -26,7 +26,6 @@ var _ = gc.Suite(&exportCharmSuite{})
 func (s *exportCharmSuite) TestApplicationExportMinimalCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectApplicationLeadership("prometheus")
 	s.expectApplication(c)
 	s.expectMinimalCharm()
 	s.expectApplicationConfig()

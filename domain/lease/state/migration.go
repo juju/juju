@@ -14,14 +14,14 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// LeadershipState provides the lease read capabilities.
-type LeadershipState struct {
+// MigrationState provides the lease read capabilities.
+type MigrationState struct {
 	*domain.StateBase
 }
 
-// NewLeadershipState returns a new leadership state reference.
-func NewLeadershipState(factory database.TxnRunnerFactory) *LeadershipState {
-	return &LeadershipState{
+// NewMigrationState returns a new migration state reference.
+func NewMigrationState(factory database.TxnRunnerFactory) *MigrationState {
+	return &MigrationState{
 		StateBase: domain.NewStateBase(factory),
 	}
 }
@@ -33,7 +33,7 @@ func NewLeadershipState(factory database.TxnRunnerFactory) *LeadershipState {
 // differences in the implementation. We only return the
 // "application-leadership" leases and we also check if the lease has expired
 // and remove it if it has.
-func (s *LeadershipState) GetApplicationLeadershipForModel(ctx context.Context, modelUUID model.UUID) (map[string]string, error) {
+func (s *MigrationState) GetApplicationLeadershipForModel(ctx context.Context, modelUUID model.UUID) (map[string]string, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Capture(err)

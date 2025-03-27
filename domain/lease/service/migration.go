@@ -10,29 +10,29 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// LeadershipState is an interface that provides methods to get the application
+// MigrationState is an interface that provides methods to get the application
 // leadership.
-type LeadershipState interface {
+type MigrationState interface {
 	// GetApplicationLeadershipForModel returns the leadership information for
 	// the model applications
 	GetApplicationLeadershipForModel(ctx context.Context, modelUUID model.UUID) (map[string]string, error)
 }
 
-// LeadershipService provides the lease read capabilities.
-type LeadershipService struct {
-	st LeadershipState
+// MigrationService provides the lease read capabilities.
+type MigrationService struct {
+	st MigrationState
 }
 
-// NewLeadershipService creates a new LeadershipService.
-func NewLeadershipService(st LeadershipState) *LeadershipService {
-	return &LeadershipService{
+// NewMigrationService creates a new MigrationService.
+func NewMigrationService(st MigrationState) *MigrationService {
+	return &MigrationService{
 		st: st,
 	}
 }
 
 // GetApplicationLeadershipForModel returns the leadership information for the
 // model applications.
-func (s *LeadershipService) GetApplicationLeadershipForModel(ctx context.Context, modelUUID model.UUID) (map[string]string, error) {
+func (s *MigrationService) GetApplicationLeadershipForModel(ctx context.Context, modelUUID model.UUID) (map[string]string, error) {
 	if err := modelUUID.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}

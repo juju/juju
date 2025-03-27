@@ -15,15 +15,15 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-type leadershipSuite struct {
+type migrationSuite struct {
 	testing.IsolationSuite
 
-	state *MockLeadershipState
+	state *MockMigrationState
 }
 
-var _ = gc.Suite(&leadershipSuite{})
+var _ = gc.Suite(&migrationSuite{})
 
-func (s *leadershipSuite) TestLeadershipService(c *gc.C) {
+func (s *migrationSuite) TestMigrationService(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := modeltesting.GenModelUUID(c)
@@ -32,7 +32,7 @@ func (s *leadershipSuite) TestLeadershipService(c *gc.C) {
 		"foo": "bar",
 	}, nil)
 
-	leadershipService := NewLeadershipService(s.state)
+	leadershipService := NewMigrationService(s.state)
 	leaders, err := leadershipService.GetApplicationLeadershipForModel(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(leaders, jc.DeepEquals, map[string]string{
@@ -40,7 +40,7 @@ func (s *leadershipSuite) TestLeadershipService(c *gc.C) {
 	})
 }
 
-func (s *leadershipSuite) TestLeadershipServiceError(c *gc.C) {
+func (s *migrationSuite) TestMigrationServiceError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := modeltesting.GenModelUUID(c)
@@ -49,16 +49,16 @@ func (s *leadershipSuite) TestLeadershipServiceError(c *gc.C) {
 		"foo": "bar",
 	}, errors.Errorf("boom"))
 
-	leadershipService := NewLeadershipService(s.state)
+	leadershipService := NewMigrationService(s.state)
 	_, err := leadershipService.GetApplicationLeadershipForModel(context.Background(), modelUUID)
 	c.Assert(err, gc.ErrorMatches, "boom")
 
 }
 
-func (s *leadershipSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *migrationSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.state = NewMockLeadershipState(ctrl)
+	s.state = NewMockMigrationState(ctrl)
 
 	return ctrl
 }

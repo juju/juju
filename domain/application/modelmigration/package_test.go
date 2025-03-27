@@ -22,7 +22,7 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/application/modelmigration ImportService,ExportService,ExportLeadershipService
+//go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/application/modelmigration ImportService,ExportService
 //go:generate go run go.uber.org/mock/mockgen -typed -package modelmigration -destination description_mock_test.go github.com/juju/description/v9 CharmMetadata,CharmMetadataRelation,CharmMetadataStorage,CharmMetadataDevice,CharmMetadataResource,CharmMetadataContainer,CharmMetadataContainerMount,CharmManifest,CharmManifestBase,CharmActions,CharmAction,CharmConfigs,CharmConfig
 
 func TestPackage(t *testing.T) {
@@ -32,24 +32,21 @@ func TestPackage(t *testing.T) {
 type exportSuite struct {
 	jujutesting.IsolationSuite
 
-	exportService           *MockExportService
-	exportLeadershipService *MockExportLeadershipService
+	exportService *MockExportService
 }
 
 func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.exportService = NewMockExportService(ctrl)
-	s.exportLeadershipService = NewMockExportLeadershipService(ctrl)
 
 	return ctrl
 }
 
 func (s *exportSuite) newExportOperation() exportOperation {
 	return exportOperation{
-		service:           s.exportService,
-		leadershipService: s.exportLeadershipService,
-		clock:             clock.WallClock,
+		service: s.exportService,
+		clock:   clock.WallClock,
 	}
 }
 
@@ -142,12 +139,6 @@ func (s *exportSuite) expectApplicationConstraints(cons constraints.Value) {
 
 func (s *exportSuite) expectApplicationConstraintsFor(name string, cons constraints.Value) {
 	s.exportService.EXPECT().GetApplicationConstraints(gomock.Any(), name).Return(cons, nil)
-}
-
-func (s *exportSuite) expectApplicationLeadership(name string) {
-	s.exportLeadershipService.EXPECT().GetApplicationLeadershipForModel(gomock.Any(), gomock.Any()).Return(map[string]string{
-		name: name + "/0",
-	}, nil)
 }
 
 func (s *exportSuite) expectApplicationUnits() {
