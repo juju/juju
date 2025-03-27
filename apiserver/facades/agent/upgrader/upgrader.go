@@ -291,5 +291,8 @@ func (u *UpgraderAPI) setEntityToolVersion(
 		).Add(coreerrors.NotFound)
 	}
 
+	if err != nil {
+		return err
+	}
 	return nil
 }
