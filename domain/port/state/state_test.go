@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/domain/port"
 	porterrors "github.com/juju/juju/domain/port/errors"
 	"github.com/juju/juju/internal/changestream/testing"
-	"github.com/juju/juju/internal/logger"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -62,7 +62,7 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
+	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	err = machineSt.CreateMachine(context.Background(), "m", netNodeUUIDs[0], machineUUIDs[0])
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -80,7 +80,7 @@ func (s *baseSuite) createApplicationWithRelations(c *gc.C, appName string, rela
 		}
 	}
 
-	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.application"))
+	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	appUUID, err := applicationSt.CreateApplication(context.Background(), appName, application.AddApplicationArg{
 		Charm: charm.Charm{
 			Metadata: charm.Metadata{
@@ -110,7 +110,7 @@ func (s *baseSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreunit.U
 	unitName, err := coreunit.NewNameFromParts(appName, s.unitCount)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := context.Background()
-	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.application"))
+	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	appID, err := applicationSt.GetApplicationIDByName(ctx, appName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -306,7 +306,7 @@ func (s *stateSuite) TestGetMachineOpenedPortsAcrossTwoUnitsDifferentMachines(c 
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
+	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	err := machineSt.CreateMachine(context.Background(), "m1", netNodeUUIDs[1], machineUUIDs[1])
 	c.Assert(err, jc.ErrorIsNil)
 
