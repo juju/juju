@@ -19,3 +19,9 @@ type unitPasswordHash struct {
 	UUID         unit.UUID              `db:"uuid"`
 	PasswordHash passwords.PasswordHash `db:"password_hash"`
 }
+
+type unitPasswordHashes struct {
+	ApplicationName string                 `db:"application_name"`
+	UnitName        unit.Name              `db:"unit_name"`
+	PasswordHash    passwords.PasswordHash `db:"password_hash"`
+}

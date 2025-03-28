@@ -70,6 +70,52 @@ func (s *stateSuite) TestSetUnitPasswordRandomUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
+func (s *stateSuite) TestGetAllUnitPasswordHashes(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	s.createApplication(c)
+	unitName := s.createUnit(c, 0)
+
+	unitUUID, err := st.GetUnitUUID(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	passwordHash := s.genPasswordHash(c)
+
+	err = st.SetUnitPasswordHash(context.Background(), unitUUID, passwordHash)
+	c.Assert(err, jc.ErrorIsNil)
+
+	hashes, err := st.GetAllUnitPasswordHashes(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hashes, jc.DeepEquals, map[string]map[unit.Name]passwords.PasswordHash{
+		"foo": {
+			unitName: passwordHash,
+		},
+	})
+}
+
+func (s *stateSuite) TestGetAllUnitPasswordHashesPasswordNotSet(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	s.createApplication(c)
+	s.createUnit(c, 0)
+
+	hashes, err := st.GetAllUnitPasswordHashes(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hashes, jc.DeepEquals, map[string]map[unit.Name]passwords.PasswordHash{
+		"foo": {
+			"foo/0": "",
+		},
+	})
+}
+
+func (s *stateSuite) TestGetAllUnitPasswordHashesNoUnits(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	hashes, err := st.GetAllUnitPasswordHashes(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hashes, jc.DeepEquals, map[string]map[unit.Name]passwords.PasswordHash{})
+}
+
 func (s *stateSuite) genPasswordHash(c *gc.C) passwords.PasswordHash {
 	password, err := internalpassword.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
