@@ -124,7 +124,7 @@ func (s *sshServerSuite) TestSSHServerNoAuth(c *gc.C) {
 	s.facadeClient.EXPECT().HostKeyForTarget(gomock.Any()).Return(s.hostKey, nil)
 
 	// Start the server on an in-memory listener
-	listener := bufconn.Listen(8 * 1024)
+	listener := bufconn.Listen(1024)
 
 	server, err := NewServerWorker(ServerWorkerConfig{
 		Logger:                   loggo.GetLogger("test"),
@@ -133,6 +133,7 @@ func (s *sshServerSuite) TestSSHServerNoAuth(c *gc.C) {
 		JumpHostKey:              jujutesting.SSHServerHostKey,
 		NewSSHServerListener:     newTestingSSHServerListener,
 		FacadeClient:             s.facadeClient,
+		disableAuth:              true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, server)
@@ -198,6 +199,7 @@ func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 		MaxConcurrentConnections: maxConcurrentConnections,
 		NewSSHServerListener:     newTestingSSHServerListener,
 		FacadeClient:             s.facadeClient,
+		disableAuth:              true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	// Open a client connection
@@ -242,7 +244,7 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.facadeClient.EXPECT().HostKeyForTarget(gomock.Any()).Return(s.hostKey, nil).AnyTimes()
 	// Firstly, start the server on an in-memory listener
-	listener := bufconn.Listen(8 * 1024)
+	listener := bufconn.Listen(1024)
 	_, err := NewServerWorker(ServerWorkerConfig{
 		Logger:                   loggo.GetLogger("test"),
 		Listener:                 listener,
@@ -250,6 +252,7 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 		JumpHostKey:              jujutesting.SSHServerHostKey,
 		NewSSHServerListener:     newTestingSSHServerListener,
 		FacadeClient:             s.facadeClient,
+		disableAuth:              true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	// the reason we repeat this test 2 times is to make sure that closing the connections on
@@ -289,7 +292,7 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 func (s *sshServerSuite) TestSSHWorkerReport(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	// Firstly, start the server on an in-memory listener
-	listener := bufconn.Listen(8 * 1024)
+	listener := bufconn.Listen(1024)
 	worker, err := NewServerWorker(ServerWorkerConfig{
 		Logger:                   loggo.GetLogger("test"),
 		Listener:                 listener,
@@ -297,6 +300,7 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *gc.C) {
 		JumpHostKey:              jujutesting.SSHServerHostKey,
 		NewSSHServerListener:     newTestingSSHServerListener,
 		FacadeClient:             s.facadeClient,
+		disableAuth:              true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -309,9 +313,6 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *gc.C) {
 	inMemoryDial(c, listener, &ssh.ClientConfig{
 		User:            "",
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Auth: []ssh.AuthMethod{
-			ssh.Password(""), // No password needed
-		},
 	})
 
 	report = worker.(*ServerWorker).Report()
