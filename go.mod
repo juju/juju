@@ -80,7 +80,7 @@ require (
 	github.com/juju/terms-client/v2 v2.0.0
 	github.com/juju/testing v1.1.0
 	github.com/juju/txn/v3 v3.0.2
-	github.com/juju/utils/v3 v3.2.0
+	github.com/juju/utils/v3 v3.2.1
 	github.com/juju/version/v2 v2.0.1
 	github.com/juju/viddy v0.0.0-beta5
 	github.com/juju/webbrowser v1.0.0
@@ -108,7 +108,7 @@ require (
 	github.com/vmware/govmomi v0.34.1
 	go.uber.org/mock v0.5.0
 	golang.org/x/crypto v0.36.0
-	golang.org/x/net v0.37.0
+	golang.org/x/net v0.38.0
 	golang.org/x/oauth2 v0.28.0
 	golang.org/x/sync v0.12.0
 	golang.org/x/sys v0.31.0
