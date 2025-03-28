@@ -14,7 +14,6 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	jujutxn "github.com/juju/txn/v3"
 
-	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/mongo/utils"
 )
@@ -215,10 +214,6 @@ type setStatusParams struct {
 	// rawData is a map of arbitrary data elaborating upon the status and
 	// message. Its keys are assumed not to have been escaped.
 	rawData map[string]interface{}
-
-	// token, if present, must accept an *[]txn.Op passed to its Check method,
-	// and will prevent any change if it becomes invalid.
-	token leadership.Token
 
 	// updated, the time the status was set.
 	updated *time.Time
