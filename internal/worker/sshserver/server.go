@@ -48,6 +48,9 @@ type ServerWorkerConfig struct {
 
 	// FacadeClient holds the SSH server's facade client.
 	FacadeClient FacadeClient
+
+	// disableAuth is a test-only flag that disables authentication.
+	disableAuth bool
 }
 
 // Validate validates the workers configuration is as expected.
@@ -86,19 +89,10 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	s := &ServerWorker{config: config}
-	s.Server = &ssh.Server{
-		ConnCallback: s.connCallback(),
-		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
-			return true
-		},
-		PasswordHandler: func(ctx ssh.Context, password string) bool {
-			return true
-		},
-		ChannelHandlers: map[string]ssh.ChannelHandler{
-			"direct-tcpip": s.directTCPIPHandler,
-		},
-	}
+
+	s.Server = s.NewJumpServer()
 
 	// Set hostkey.
 	if err := s.setJumpServerHostKey(); err != nil {
@@ -146,6 +140,28 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 	})
 
 	return s, nil
+}
+
+func (s *ServerWorker) NewJumpServer() *ssh.Server {
+	server := ssh.Server{
+		ConnCallback: s.connCallback(),
+		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
+			return false
+		},
+		PasswordHandler: func(ctx ssh.Context, password string) bool {
+			return false
+		},
+		ChannelHandlers: map[string]ssh.ChannelHandler{
+			"direct-tcpip": s.directTCPIPHandler,
+		},
+	}
+
+	if s.config.disableAuth {
+		server.PublicKeyHandler = nil
+		server.PasswordHandler = nil
+	}
+
+	return &server
 }
 
 // Kill stops the server worker by killing the tomb. Implements worker.Worker.
