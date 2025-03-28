@@ -1,0 +1,12 @@
+(hook-command-pod-spec-get)=
+# `pod-spec-get`
+
+```
+Usage: pod-spec-get
+
+Summary:
+get k8s spec information (deprecated)
+
+Details:
+Gets configuration data used to set up k8s resources.
+```
