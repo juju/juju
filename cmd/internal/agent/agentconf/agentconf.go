@@ -14,7 +14,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/featureflag"
-	"github.com/juju/juju/state/mgo"
 )
 
 // AgentConf is a terribly confused interface.
@@ -79,7 +78,6 @@ func SetupAgentLogging(loggerContext corelogger.LoggerContext, config agent.Conf
 		if err != nil {
 			logger.Errorf(context.TODO(), "problem setting logging config %v", err)
 		}
-		mgo.ConfigureMgoLogging()
 	}
 
 	if flags := featureflag.String(); flags != "" {
