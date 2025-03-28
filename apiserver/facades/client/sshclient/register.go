@@ -48,12 +48,20 @@ func newFacadeBase(ctx facade.Context) (*Facade, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	ctrlSt, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	leadershipReader, err := ctx.LeadershipReader(m.UUID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	facadeBackend := backend{
 		State:               st,
+		controllerState:     ctrlSt,
 		EnvironConfigGetter: stateenvirons.EnvironConfigGetter{Model: m},
 		controllerTag:       m.ControllerTag(),
 		modelTag:            m.ModelTag(),
