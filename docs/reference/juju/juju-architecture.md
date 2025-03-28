@@ -44,7 +44,7 @@ A controller is needed to perform any further Juju operations, such as deploying
 (deploying)=
 ## Deploying
 
-In Juju, **deploying** refers to the process where Juju uses a {ref}`charm <charm>` (from Charmhub or a local path) to install an {ref}`application <application>` on a resource from a {ref}`cloud <cloud-substrate>`.
+In Juju, **deploying** refers to the process where Juju uses a {ref}`charm <charm>` (from Charmhub or a local path) to install an {ref}`application <application>` on a resource from a {ref}`cloud <cloud>`.
 
 (deploying-on-a-kubernetes-cloud)=
 ### Deploying on a Kubernetes cloud
@@ -88,7 +88,7 @@ On most machine clouds, Juju makes it possible to deploy to a system container *
 (the-juju-execution-flow-for-a-charm)=
 ## The Juju execution flow for a charm
 
-The Juju {ref}`controller <controller>` fires {ref}`hooks <hook>` at the {ref}`unit agent <unit-agent>` that is in the charm container / machine. The unit agent executes the charm according to certain {ref}`charm environment variables <charm-environment-variables>`. For a charm written with {ref}`Ops <ops>` (the current standard), Ops translates these environment variables into events, and these events are observed and handled in the charm code. All of this is represented schematically in the diagram below, where the top depicts the situation for a Kubernetes charm and the bottom -- for a machine charm.
+The Juju {ref}`controller <controller>` fires {ref}`hooks <hook>` at the {ref}`unit agent <unit-agent>` that is in the charm container / machine. The unit agent executes the charm according to certain {ref}`charm environment variables <hook>`. For a charm written with Ops (the current standard), Ops translates these environment variables into events, and these events are observed and handled in the charm code. All of this is represented schematically in the diagram below, where the top depicts the situation for a Kubernetes charm and the bottom -- for a machine charm.
 
 ![Juju execution flow for a charm](juju-architecture-execution-flow.png)
 
