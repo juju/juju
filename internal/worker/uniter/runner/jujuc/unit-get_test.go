@@ -37,7 +37,7 @@ var unitGetTests = []struct {
 
 func (s *UnitGetSuite) createCommand(c *gc.C) cmd.Command {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, "unit-get")
+	com, err := jujuc.NewHookCommand(hctx, "unit-get")
 	c.Assert(err, jc.ErrorIsNil)
 	return jujuc.NewJujucCommandWrappedForTest(com)
 }
@@ -160,7 +160,7 @@ func (s *UnitGetSuite) TestNetworkInfoPrivateAddress(c *gc.C) {
 	launchCommand := func(input map[string]params.NetworkInfoResult, expected string) {
 		hctx := s.GetHookContext(c, -1, "")
 		hctx.info.NetworkInterface.NetworkInfoResults = input
-		com, err := jujuc.NewCommand(hctx, "unit-get")
+		com, err := jujuc.NewHookCommand(hctx, "unit-get")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"private-address"})

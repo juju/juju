@@ -28,7 +28,7 @@ func (s *PayloadUnregisterSuite) TestRun(c *gc.C) {
 	hctx.EXPECT().UntrackPayload("class", "id").Return(nil)
 	hctx.EXPECT().FlushPayloads()
 
-	com, err := jujuc.NewCommand(hctx, "payload-unregister")
+	com, err := jujuc.NewHookCommand(hctx, "payload-unregister")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := setupMetadata(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"class", "id"})

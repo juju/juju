@@ -81,7 +81,7 @@ func (s *RelationModelGetSuite) TestInit(c *gc.C) {
 	for i, t := range relationModelGetInitTests {
 		c.Logf("test %d", i)
 		hctx, _ := s.newHookContext(t.ctxrelid, "", "")
-		com, err := jujuc.NewCommand(hctx, "relation-model-get")
+		com, err := jujuc.NewHookCommand(hctx, "relation-model-get")
 		c.Assert(err, jc.ErrorIsNil)
 
 		err = cmdtesting.InitCommand(com, t.args)
@@ -99,7 +99,7 @@ func (s *RelationModelGetSuite) TestInit(c *gc.C) {
 
 func (s *RelationModelGetSuite) TestRun(c *gc.C) {
 	hctx, _ := s.newHookContext(0, "", "")
-	com, err := jujuc.NewCommand(hctx, "relation-model-get")
+	com, err := jujuc.NewHookCommand(hctx, "relation-model-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, nil)
@@ -111,7 +111,7 @@ func (s *RelationModelGetSuite) TestRun(c *gc.C) {
 
 func (s *RelationModelGetSuite) TestRunFormatJSON(c *gc.C) {
 	hctx, _ := s.newHookContext(0, "", "")
-	com, err := jujuc.NewCommand(hctx, "relation-model-get")
+	com, err := jujuc.NewHookCommand(hctx, "relation-model-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--format", "json"})

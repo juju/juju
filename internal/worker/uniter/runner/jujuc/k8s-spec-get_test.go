@@ -29,7 +29,7 @@ func (s *K8sSpecGetSuite) TestK8sSpecGetInit(c *gc.C) {
 	for i, t := range k8sSpecGetInitTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetHookContext(c, -1, "")
-		com, err := jujuc.NewCommand(hctx, "k8s-spec-get")
+		com, err := jujuc.NewHookCommand(hctx, "k8s-spec-get")
 		c.Assert(err, jc.ErrorIsNil)
 		cmdtesting.TestInit(c, jujuc.NewJujucCommandWrappedForTest(com), t.args, t.err)
 	}
@@ -38,7 +38,7 @@ func (s *K8sSpecGetSuite) TestK8sSpecGetInit(c *gc.C) {
 func (s *K8sSpecGetSuite) TestK8sSpecSet(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	hctx.info.K8sSpec = "k8sspec"
-	com, err := jujuc.NewCommand(hctx, "k8s-spec-get")
+	com, err := jujuc.NewHookCommand(hctx, "k8s-spec-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 

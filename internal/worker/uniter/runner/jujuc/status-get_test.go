@@ -72,7 +72,7 @@ func (s *statusGetSuite) TestOutputFormatJustStatus(c *gc.C) {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetStatusHookContext(c)
 		setFakeStatus(hctx)
-		com, err := jujuc.NewCommand(hctx, "status-get")
+		com, err := jujuc.NewHookCommand(hctx, "status-get")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
@@ -98,7 +98,7 @@ func (s *statusGetSuite) TestOutputFormatJustStatus(c *gc.C) {
 func (s *statusGetSuite) TestOutputPath(c *gc.C) {
 	hctx := s.GetStatusHookContext(c)
 	setFakeStatus(hctx)
-	com, err := jujuc.NewCommand(hctx, "status-get")
+	com, err := jujuc.NewHookCommand(hctx, "status-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--format", "json", "--output", "some-file", "--include-data"})
@@ -129,7 +129,7 @@ func (s *statusGetSuite) TestApplicationStatus(c *gc.C) {
 	}
 	hctx := s.GetStatusHookContext(c)
 	setFakeApplicationStatus(hctx)
-	com, err := jujuc.NewCommand(hctx, "status-get")
+	com, err := jujuc.NewHookCommand(hctx, "status-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--format", "json", "--include-data", "--application"})
