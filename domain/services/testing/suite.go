@@ -255,6 +255,10 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *gc.C, o
 	return func(modelUUID model.UUID) services.DomainServices {
 		clock := clock.WallClock
 		logger := loggertesting.WrapCheckLog(c)
+		providerFactory := s.ProviderFactory
+		if providerFactory == nil {
+			providerFactory = &stubProviderFactory{}
+		}
 		controllerServices := domainservices.NewControllerServices(
 			databasetesting.ConstFactory(s.TxnRunner()),
 			stubDBDeleter{},
@@ -268,7 +272,7 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *gc.C, o
 			modelUUID,
 			databasetesting.ConstFactory(s.TxnRunner()),
 			databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID.String())),
-			s.ProviderFactory,
+			providerFactory,
 			modelObjectStoreGetter(func(ctx context.Context) (objectstore.ObjectStore, error) {
 				return objectStore, nil
 			}),
@@ -431,4 +435,23 @@ type TestingLeaseManagerToken struct{}
 // Check will always return lease.ErrNotHeld.
 func (TestingLeaseManagerToken) Check() error {
 	return lease.ErrNotHeld
+}
+
+// stubProviderFactory is a testing implementation of the ProviderFactory
+// interface, when none is provided to the suite.
+type stubProviderFactory struct{}
+
+// ProviderForModel returns the encapsulated provider for a given model
+// namespace. It will continue to be updated in the background for as long
+// as the Worker continues to run. If the worker is not a singular worker,
+// then an error will be returned.
+func (stubProviderFactory) ProviderForModel(ctx context.Context, namespace string) (providertracker.Provider, error) {
+	return nil, errors.New("suite missing provider factory").Add(coreerrors.NotSupported)
+}
+
+// EphemeralProviderFromConfig returns an ephemeral provider for a given
+// configuration. The provider is not tracked, instead is created and then
+// discarded.
+func (stubProviderFactory) EphemeralProviderFromConfig(ctx context.Context, config providertracker.EphemeralProviderConfig) (providertracker.Provider, error) {
+	return nil, errors.New("suite missing provider factory").Add(coreerrors.NotSupported)
 }

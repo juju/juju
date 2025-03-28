@@ -222,58 +222,6 @@ func (t *ToolsGetter) oneAgentTools(ctx context.Context, canRead AuthFunc, tag n
 	return t.toolsFinder.FindAgents(ctx, findParams)
 }
 
-// ToolsSetter implements a common Tools method for use by various
-// facades.
-type ToolsSetter struct {
-	st          ToolsFindEntity
-	getCanWrite GetAuthFunc
-}
-
-// NewToolsSetter returns a new ToolsGetter. The GetAuthFunc will be
-// used on each invocation of Tools to determine current permissions.
-func NewToolsSetter(st ToolsFindEntity, getCanWrite GetAuthFunc) *ToolsSetter {
-	return &ToolsSetter{
-		st:          st,
-		getCanWrite: getCanWrite,
-	}
-}
-
-// SetTools updates the recorded tools version for the agents.
-func (t *ToolsSetter) SetTools(ctx context.Context, args params.EntitiesVersion) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.AgentTools)),
-	}
-	canWrite, err := t.getCanWrite()
-	if err != nil {
-		return results, err
-	}
-	for i, agentTools := range args.AgentTools {
-		tag, err := names.ParseTag(agentTools.Tag)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		err = t.setOneAgentVersion(tag, agentTools.Tools.Version, canWrite)
-		results.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return results, nil
-}
-
-func (t *ToolsSetter) setOneAgentVersion(tag names.Tag, vers semversion.Binary, canWrite AuthFunc) error {
-	if !canWrite(tag) {
-		return apiservererrors.ErrPerm
-	}
-	entity0, err := t.st.FindEntity(tag)
-	if err != nil {
-		return err
-	}
-	entity, ok := entity0.(AgentTooler)
-	if !ok {
-		return apiservererrors.NotSupportedError(tag, "agent binaries")
-	}
-	return entity.SetAgentVersion(vers)
-}
-
 // FindAgentsParams defines parameters for the FindAgents method.
 type FindAgentsParams struct {
 	// ControllerCfg is the controller config.

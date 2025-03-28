@@ -43,7 +43,11 @@ func (a *AuthoritySuite) TestNewAuthority(c *gc.C) {
 	authority, err := pki.NewDefaultAuthority(a.ca, a.signer)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(authority.Certificate(), jc.DeepEquals, a.ca)
-	c.Assert(authority.Signer(), jc.DeepEquals, a.signer)
+	mc := jc.NewMultiChecker()
+	// Ignore the computed speedups for RSA since comparing byte for byte
+	// of bignumbers may fail due to superfluous zeros (despite the numbers matching)
+	mc.AddExpr("_.Precomputed", jc.Ignore)
+	c.Assert(authority.Signer(), mc, a.signer)
 	c.Assert(len(authority.Chain()), gc.Equals, 0)
 }
 
@@ -111,7 +115,11 @@ func (a *AuthoritySuite) TestLeafFromPem(c *gc.C) {
 	leaf1, err := authority1.LeafGroupFromPemCertKey("testgroup", cert, key)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(leaf1, jc.DeepEquals, leaf)
+	mc := jc.NewMultiChecker()
+	// Ignore the computed speedups for RSA since comparing byte for byte
+	// of bignumbers may fail due to superfluous zeros (despite the numbers matching)
+	mc.AddExpr("_.signer.Precomputed", jc.Ignore)
+	c.Assert(leaf1, mc, leaf)
 
 	leaf2, err := authority.LeafForGroup("testgroup")
 	c.Assert(err, jc.ErrorIsNil)

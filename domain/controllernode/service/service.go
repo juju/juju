@@ -69,14 +69,14 @@ func (s *Service) IsKnownDatabaseNamespace(ctx context.Context, namespace string
 	return ns == namespace, nil
 }
 
-// SetControllerNodeAgentVersion sets the agent version for the
+// SetReportedControllerNodeAgentVersion sets the agent version for the
 // supplied controllerID. Version represents the version of the controller node's agent binary.
 //
 // The following errors are possible:
 // - [coreerrors.NotValid] if the version is not valid.
 // - [coreerrors.NotSupported] if the architecture is not supported.
 // - [controllernodeerrors.NotFound] if the controller node does not exist.
-func (s *Service) SetControllerNodeAgentVersion(ctx context.Context, controllerID string, version coreagentbinary.Version) error {
+func (s *Service) SetReportedControllerNodeAgentVersion(ctx context.Context, controllerID string, version coreagentbinary.Version) error {
 	if err := version.Validate(); err != nil {
 		return errors.Errorf("agent version %+v is not valid: %w", version, err)
 	}
