@@ -61,33 +61,6 @@ the token bucket, in milliseconds (ms).
 
 **Can be changed after bootstrap:** yes
 
-
-(controller-config-allow-model-access)=
-## `allow-model-access`
-
-`allow-model-access` sets whether the controller will allow users to
-connect to models they have been authorized for, even when
-they don't have any access rights to the controller itself.
-
-**Type:** boolean
-
-**Default value:** false
-
-**Can be changed after bootstrap:** no
-
-
-(controller-config-api-port)=
-## `api-port`
-
-`api-port` is the port used for api connections.
-
-**Type:** integer
-
-**Default value:** 17070
-
-**Can be changed after bootstrap:** no
-
-
 (controller-config-api-port-open-delay)=
 ## `api-port-open-delay`
 
@@ -182,41 +155,13 @@ auditing information.
 
 **Can be changed after bootstrap:** yes
 
+(controller-config-batch-raft-fsm)=
+## `batch-raft-fsm`
 
-(controller-config-autocert-dns-name)=
-## `autocert-dns-name`
-
-`autocert-dns-name` sets the DNS name of the controller. If a
-client connects to this name, an official certificate will be
-automatically requested. Connecting to any other host name
-will use the usual self-generated certificate.
-
-**Type:** string
-
-**Can be changed after bootstrap:** no
+`batch-raft-fsm` allows raft to use batch writing to the FSM.
 
 
-(controller-config-autocert-url)=
-## `autocert-url`
-
-`autocert-url` sets the URL used to obtain official TLS
-certificates when a client connects to the API. By default,
-certficates are obtains from LetsEncrypt. A good value for
-testing is
-"https://acme-staging.api.letsencrypt.org/directory".
-
-**Type:** string
-
-**Can be changed after bootstrap:** no
-
-
-(controller-config-ca-cert)=
-## `ca-cert`
-
-`ca-cert` is the key for the controller's CA certificate attribute.
-
-**Can be changed after bootstrap:** no
-
+**Type:** boolean
 
 (controller-config-caas-image-repo)=
 ## `caas-image-repo`
@@ -227,19 +172,6 @@ for the jujud operator and mongo images.
 **Type:** string
 
 **Can be changed after bootstrap:** yes
-
-
-(controller-config-caas-operator-image-path)=
-## `caas-operator-image-path`
-> This key is deprecated.
-
-`caas-operator-image-path` sets the URL of the docker image
-used for the application operator.
-Deprecated: use `caas-image-repo`.
-
-**Type:** string
-
-**Can be changed after bootstrap:** no
 
 
 (controller-config-controller-api-port)=
@@ -256,17 +188,6 @@ properly.
 
 **Can be changed after bootstrap:** yes
 
-
-(controller-config-controller-name)=
-## `controller-name`
-
-`controller-name` is the canonical name for the controller.
-
-**Type:** non-empty string
-
-**Can be changed after bootstrap:** no
-
-
 (controller-config-controller-resource-download-limit)=
 ## `controller-resource-download-limit`
 
@@ -281,15 +202,6 @@ Use a value of 0 to disable the limit.
 
 **Can be changed after bootstrap:** yes
 
-
-(controller-config-controller-uuid)=
-## `controller-uuid`
-
-`controller-uuid` is the key for the controller UUID attribute.
-
-**Can be changed after bootstrap:** no
-
-
 (controller-config-features)=
 ## `features`
 
@@ -298,44 +210,6 @@ Use a value of 0 to disable the limit.
 **Type:** list[string]
 
 **Can be changed after bootstrap:** yes
-
-
-(controller-config-identity-public-key)=
-## `identity-public-key`
-
-`identity-public-key` sets the public key of the identity manager.
-Use this when users should be managed externally rather than
-created locally on the controller.
-
-**Type:** string
-
-**Can be changed after bootstrap:** no
-
-
-(controller-config-identity-url)=
-## `identity-url`
-
-`identity-url` sets the URL of the identity manager.
-Use this when users should be managed externally rather than
-created locally on the controller.
-
-**Type:** string
-
-**Can be changed after bootstrap:** no
-
-
-(controller-config-juju-db-snap-channel)=
-## `juju-db-snap-channel`
-
-`juju-db-snap-channel` selects the channel to use when installing Mongo
-snaps for focal or later. The value is ignored for older releases.
-
-**Type:** string
-
-**Default value:** 4.4/stable
-
-**Can be changed after bootstrap:** no
-
 
 (controller-config-juju-ha-space)=
 ## `juju-ha-space`
@@ -357,34 +231,6 @@ communicate with controllers.
 **Type:** string
 
 **Can be changed after bootstrap:** yes
-
-
-(controller-config-jujud-controller-snap-source)=
-## `jujud-controller-snap-source`
-
-`jujud-controller-snap-source` returns the source for the controller snap.
-Can be set to "legacy", "snapstore", "local" or "local-dangerous".
-Cannot be changed.
-
-**Type:** string
-
-**Default value:** legacy
-
-**Can be changed after bootstrap:** no
-
-
-(controller-config-login-token-refresh-url)=
-## `login-token-refresh-url`
-
-`login-token-refresh-url` sets the URL of the login JWT well-known endpoint.
-Use this when authentication/authorisation is done using a JWT in the
-login request rather than a username/password or macaroon and a local
-permissions model.
-
-**Type:** string
-
-**Can be changed after bootstrap:** no
-
 
 (controller-config-max-agent-state-size)=
 ## `max-agent-state-size`
@@ -465,31 +311,6 @@ will be used instead.
 
 **Can be changed after bootstrap:** yes
 
-
-(controller-config-max-txn-log-size)=
-## `max-txn-log-size`
-
-`max-txn-log-size` is the maximum size the of capped txn log collection, eg "10M".
-
-**Type:** string
-
-**Default value:** 10M
-
-**Can be changed after bootstrap:** no
-
-
-(controller-config-metering-url)=
-## `metering-url`
-
-`metering-url` is the URL to use for metrics.
-
-**Type:** string
-
-**Default value:** https://api.jujucharms.com/omnibus/v3
-
-**Can be changed after bootstrap:** no
-
-
 (controller-config-migration-agent-wait-time)=
 ## `migration-agent-wait-time`
 
@@ -556,6 +377,12 @@ logs for the models, eg "20M". Size is per model.
 
 **Can be changed after bootstrap:** yes
 
+(controller-config-non-synced-writes-to-raft-log)=
+## `non-synced-writes-to-raft-log`
+
+Do not perform fsync calls after appending entries to the raft log. Disabling sync improves performance at the cost of reliability.
+
+**Type:** boolean
 
 (controller-config-prune-txn-query-count)=
 ## `prune-txn-query-count`
@@ -596,85 +423,3 @@ indicates to not sleep at all.
 **Type:** string
 
 **Can be changed after bootstrap:** yes
-
-
-(controller-config-query-tracing-enabled)=
-## `query-tracing-enabled`
-
-`query-tracing-enabled` returns whether query tracing is enabled. If so, any
-queries which take longer than `query-tracing-threshold` will be logged.
-
-**Type:** boolean
-
-**Default value:** false
-
-**Can be changed after bootstrap:** yes
-
-
-(controller-config-query-tracing-threshold)=
-## `query-tracing-threshold`
-
-`query-tracing-threshold` returns the "threshold" for query tracing. Any
-queries which take longer than this value will be logged (if query tracing
-is enabled). The lower the threshold, the more queries will be output. A
-value of 0 means all queries will be output.
-
-**Type:** duration
-
-**Default value:** 1s
-
-**Can be changed after bootstrap:** yes
-
-
-(controller-config-set-numa-control-policy)=
-## `set-numa-control-policy`
-> This key is deprecated.
-
-`set-numa-control-policy` (true/false) is deprecated.
-Use to configure whether mongo is started with NUMA
-controller policy turned on.
-
-**Type:** boolean
-
-**Default value:** false
-
-**Can be changed after bootstrap:** no
-
-
-(controller-config-ssh-max-concurrent-connections)=
-## `ssh-max-concurrent-connections`
-
-`ssh-max-concurrent-connections` is the maximum number of concurrent SSH
-connections to the controller.
-
-**Type:** integer
-
-**Default value:** 100
-
-**Can be changed after bootstrap:** yes
-
-
-(controller-config-ssh-server-port)=
-## `ssh-server-port`
-
-`ssh-server-port` is the port used for the embedded SSH server.
-
-**Type:** integer
-
-**Default value:** 17022
-
-**Can be changed after bootstrap:** yes
-
-
-(controller-config-state-port)=
-## `state-port`
-
-`state-port` is the port used for mongo connections.
-
-**Type:** integer
-
-**Default value:** 37017
-
-**Can be changed after bootstrap:** no
-
-
