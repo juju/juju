@@ -190,62 +190,32 @@ func (m *MockRelationService) EXPECT() *MockRelationServiceMockRecorder {
 	return m.recorder
 }
 
-// AllRelations mocks base method.
-func (m *MockRelationService) AllRelations(arg0 context.Context) ([]relation.UUID, error) {
+// GetAllRelationDetails mocks base method.
+func (m *MockRelationService) GetAllRelationDetails(arg0 context.Context) ([]relation0.RelationDetailsResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllRelations", arg0)
-	ret0, _ := ret[0].([]relation.UUID)
+	ret := m.ctrl.Call(m, "GetAllRelationDetails", arg0)
+	ret0, _ := ret[0].([]relation0.RelationDetailsResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// AllRelations indicates an expected call of AllRelations.
-func (mr *MockRelationServiceMockRecorder) AllRelations(arg0 any) *gomock.Call {
+// GetAllRelationDetails indicates an expected call of GetAllRelationDetails.
+func (mr *MockRelationServiceMockRecorder) GetAllRelationDetails(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllRelations", reflect.TypeOf((*MockRelationService)(nil).AllRelations), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllRelationDetails", reflect.TypeOf((*MockRelationService)(nil).GetAllRelationDetails), arg0)
 }
 
-// GetRelationEndpoints mocks base method.
-func (m *MockRelationService) GetRelationEndpoints(arg0 context.Context, arg1 relation.UUID) ([]relation0.Endpoint, error) {
+// GetAllRelationStatuses mocks base method.
+func (m *MockRelationService) GetAllRelationStatuses(arg0 context.Context) (map[relation.UUID]status.StatusInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRelationEndpoints", arg0, arg1)
-	ret0, _ := ret[0].([]relation0.Endpoint)
+	ret := m.ctrl.Call(m, "GetAllRelationStatuses", arg0)
+	ret0, _ := ret[0].(map[relation.UUID]status.StatusInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetRelationEndpoints indicates an expected call of GetRelationEndpoints.
-func (mr *MockRelationServiceMockRecorder) GetRelationEndpoints(arg0, arg1 any) *gomock.Call {
+// GetAllRelationStatuses indicates an expected call of GetAllRelationStatuses.
+func (mr *MockRelationServiceMockRecorder) GetAllRelationStatuses(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationEndpoints", reflect.TypeOf((*MockRelationService)(nil).GetRelationEndpoints), arg0, arg1)
-}
-
-// GetRelationID mocks base method.
-func (m *MockRelationService) GetRelationID(arg0 context.Context, arg1 relation.UUID) (int, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRelationID", arg0, arg1)
-	ret0, _ := ret[0].(int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetRelationID indicates an expected call of GetRelationID.
-func (mr *MockRelationServiceMockRecorder) GetRelationID(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationID", reflect.TypeOf((*MockRelationService)(nil).GetRelationID), arg0, arg1)
-}
-
-// GetRelationStatus mocks base method.
-func (m *MockRelationService) GetRelationStatus(arg0 context.Context, arg1 relation.UUID) (status.StatusInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRelationStatus", arg0, arg1)
-	ret0, _ := ret[0].(status.StatusInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetRelationStatus indicates an expected call of GetRelationStatus.
-func (mr *MockRelationServiceMockRecorder) GetRelationStatus(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationStatus", reflect.TypeOf((*MockRelationService)(nil).GetRelationStatus), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllRelationStatuses", reflect.TypeOf((*MockRelationService)(nil).GetAllRelationStatuses), arg0)
 }

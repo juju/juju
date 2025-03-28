@@ -122,15 +122,9 @@ type PortService interface {
 // relations within a model.
 type RelationService interface {
 
-	// AllRelations return all uuid of all relation for the current model.
-	AllRelations(ctx context.Context) ([]relation.UUID, error)
+	// GetAllRelationDetails return all uuid of all relation for the current model.
+	GetAllRelationDetails(ctx context.Context) ([]domainrelation.RelationDetailsResult, error)
 
-	// GetRelationID returns the relation ID for the given relation UUID.
-	GetRelationID(ctx context.Context, uuid relation.UUID) (int, error)
-
-	// GetRelationEndpoints returns all endpoints for the given relation UUID
-	GetRelationEndpoints(ctx context.Context, id relation.UUID) ([]domainrelation.Endpoint, error)
-
-	// GetRelationStatus returns the status of the given relation.
-	GetRelationStatus(ctx context.Context, relationUUID relation.UUID) (status.StatusInfo, error)
+	// GetAllRelationStatuses returns all the relation statuses of the given model.
+	GetAllRelationStatuses(ctx context.Context) (map[relation.UUID]status.StatusInfo, error)
 }
