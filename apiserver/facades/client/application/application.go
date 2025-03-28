@@ -849,44 +849,6 @@ type forceParams struct {
 	ForceBase, ForceUnits, Force bool
 }
 
-func (api *APIBase) setConfig(
-	ctx context.Context,
-	app Application,
-	settingsYAML string,
-	settingsStrings map[string]string,
-) error {
-	locator, err := api.getCharmLocatorByApplicationName(ctx, app.Name())
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	charmConfig, err := api.getCharmConfig(ctx, locator)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// parseCharmSettings is passed false for useDefaults because setConfig
-	// should not care about defaults.
-	// If defaults are wanted, one should call unsetApplicationConfig.
-	appConfig, appConfigSchema, charmSettings, defaults, err := parseCharmSettings(charmConfig, app.Name(), settingsStrings, settingsYAML, environsconfig.NoDefaults)
-	if err != nil {
-		return errors.Annotate(err, "parsing settings for application")
-	}
-
-	if len(charmSettings) != 0 {
-		if err = app.UpdateCharmConfig(charmSettings); err != nil {
-			return errors.Annotate(err, "updating charm config settings")
-		}
-	}
-	if cfgAttrs := appConfig.Attributes(); len(cfgAttrs) > 0 {
-		if err = app.UpdateApplicationConfig(cfgAttrs, nil, appConfigSchema, defaults); err != nil {
-			return errors.Annotate(err, "updating application config settings")
-		}
-	}
-
-	return nil
-}
-
 // SetCharm sets the charm for a given for the application.
 // The v1 args use "storage-constraints" as the storage directive attr tag.
 func (api *APIv19) SetCharm(ctx context.Context, argsV1 params.ApplicationSetCharmV1) error {
@@ -1930,13 +1892,34 @@ func (api *APIBase) SetConfigs(ctx context.Context, args params.ConfigSetArgs) (
 	}
 	result.Results = make([]params.ErrorResult, len(args.Args))
 	for i, arg := range args.Args {
-		app, err := api.backend.Application(arg.ApplicationName)
-		if err != nil {
+		if arg.ConfigYAML != "" {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotImplementedf("config yaml not supported"))
+			continue
+		}
+
+		appID, err := api.applicationService.GetApplicationIDByName(ctx, arg.ApplicationName)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("application %q", arg.ApplicationName))
+			continue
+		} else if errors.Is(err, applicationerrors.ApplicationNameNotValid) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotValidf("application name %q", arg.ApplicationName))
+			continue
+		} else if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		err = api.setConfig(ctx, app, arg.ConfigYAML, arg.Config)
-		result.Results[i].Error = apiservererrors.ServerError(err)
+
+		err = api.applicationService.UpdateApplicationConfig(ctx, appID, arg.Config)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("application %q", arg.ApplicationName))
+			continue
+		} else if errors.Is(err, applicationerrors.InvalidApplicationConfig) {
+			result.Results[i].Error = apiservererrors.ServerError(internalerrors.Errorf("%w%w", err, errors.Hide(errors.NotValid)))
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 	}
 	return result, nil
 }

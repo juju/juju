@@ -373,6 +373,10 @@ func IsCodeNotFound(err error) bool {
 	return ErrCode(err) == CodeNotFound
 }
 
+func IsCodeNotValid(err error) bool {
+	return ErrCode(err) == CodeNotValid
+}
+
 func IsCodeUserNotFound(err error) bool {
 	return ErrCode(err) == CodeUserNotFound
 }

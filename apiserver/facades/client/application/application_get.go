@@ -11,6 +11,7 @@ import (
 	"github.com/juju/schema"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
@@ -28,57 +29,44 @@ import (
 func (api *APIBase) getConfig(
 	ctx context.Context,
 	args params.ApplicationGet,
-	describe func(settings charm.Settings, config *charm.Config) map[string]interface{},
+	describe func(applicationConfig config.ConfigAttributes, charmConfig charm.Config) map[string]interface{},
 ) (params.ApplicationGetResults, error) {
 	// TODO (stickupkid): This should be one call to the application service.
 	// There is no reason to split all these calls into multiple DB calls.
 	// Once application service is refactored to return the merged config, this
 	// should be a single call.
 
-	locator, err := api.applicationService.GetCharmLocatorByApplicationName(ctx, args.ApplicationName)
-	if err != nil {
+	appID, err := api.applicationService.GetApplicationIDByName(ctx, args.ApplicationName)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return params.ApplicationGetResults{}, errors.NotFoundf("application %s", args.ApplicationName)
+	} else if err != nil {
 		return params.ApplicationGetResults{}, errors.Trace(err)
 	}
 
-	charmName, err := api.getCharmName(ctx, locator)
-	if err != nil {
+	appInfo, err := api.applicationService.GetApplicationAndCharmConfig(ctx, appID)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return params.ApplicationGetResults{}, errors.NotFoundf("application %s", args.ApplicationName)
+	} else if err != nil {
 		return params.ApplicationGetResults{}, errors.Trace(err)
 	}
+	mergedCharmConfig := describe(appInfo.ApplicationConfig, appInfo.CharmConfig)
 
-	charmConfig, err := api.getCharmConfig(ctx, locator)
-	if err != nil {
-		return params.ApplicationGetResults{}, errors.Trace(err)
-	}
-
-	app, err := api.backend.Application(args.ApplicationName)
-	if err != nil {
-		return params.ApplicationGetResults{}, err
-	}
-	settings, err := app.CharmConfig()
-	if err != nil {
-		return params.ApplicationGetResults{}, err
-	}
-
-	mergedCharmConfig := describe(settings, charmConfig)
-
-	appConfig, err := app.ApplicationConfig()
-	if err != nil {
-		return params.ApplicationGetResults{}, err
+	appSettings := config.ConfigAttributes{
+		coreapplication.TrustConfigOptionName: appInfo.Trust,
 	}
 
 	providerSchema, providerDefaults, err := ConfigSchema()
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}
-	appConfigInfo := describeAppConfig(appConfig, providerSchema, providerDefaults)
+	appConfigInfo := describeAppConfig(appSettings, providerSchema, providerDefaults)
+
+	app, err := api.backend.Application(args.ApplicationName)
+	if err != nil {
+		return params.ApplicationGetResults{}, err
+	}
 	var cons constraints.Value
 	if app.IsPrincipal() {
-		appID, err := api.applicationService.GetApplicationIDByName(ctx, args.ApplicationName)
-		if errors.Is(err, applicationerrors.ApplicationNotFound) {
-			return params.ApplicationGetResults{}, errors.NotFoundf("application %s", args.ApplicationName)
-		} else if err != nil {
-			return params.ApplicationGetResults{}, errors.Trace(err)
-		}
 		cons, err = api.applicationService.GetApplicationConstraints(ctx, appID)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
 			return params.ApplicationGetResults{}, errors.NotFoundf("application %s", args.ApplicationName)
@@ -117,7 +105,7 @@ func (api *APIBase) getConfig(
 	}
 	return params.ApplicationGetResults{
 		Application:       args.ApplicationName,
-		Charm:             charmName,
+		Charm:             appInfo.CharmName,
 		CharmConfig:       mergedCharmConfig,
 		ApplicationConfig: appConfigInfo,
 		Constraints:       cons,
@@ -189,41 +177,25 @@ func (api *APIBase) getCharmMetadata(ctx context.Context, locator applicationcha
 	return &metadata, nil
 }
 
-func (api *APIBase) getCharmConfig(ctx context.Context, locator applicationcharm.CharmLocator) (*charm.Config, error) {
-	config, err := api.applicationService.GetCharmConfig(ctx, locator)
-	if errors.Is(err, applicationerrors.CharmNotFound) {
-		return nil, errors.NotFoundf("charm")
-	} else if err != nil {
-		return nil, errors.Annotate(err, "getting charm config for application")
-	}
-
-	return &config, nil
-}
-
 func (api *APIBase) getMergedAppAndCharmConfig(ctx context.Context, appName string) (map[string]interface{}, error) {
 	// TODO (stickupkid): This should be one call to the application service.
 	// Thee application service should return the merged config, this should
 	// not happen at the API server level.
-	app, err := api.backend.Application(appName)
-	if err != nil {
-		return nil, err
-	}
-	settings, err := app.CharmConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	locator, err := api.applicationService.GetCharmLocatorByApplicationName(ctx, appName)
-	if err != nil {
+	appID, err := api.applicationService.GetApplicationIDByName(ctx, appName)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return nil, errors.NotFoundf("application %s", appName)
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	charmConfig, err := api.getCharmConfig(ctx, locator)
-	if err != nil {
+	appInfo, err := api.applicationService.GetApplicationAndCharmConfig(ctx, appID)
+	if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		return nil, errors.NotFoundf("application %s", appName)
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return describe(settings, charmConfig), nil
+	return describe(appInfo.ApplicationConfig, appInfo.CharmConfig), nil
 }
 
 func describeAppConfig(
@@ -261,7 +233,7 @@ func describeAppConfig(
 	return results
 }
 
-func describe(settings charm.Settings, config *charm.Config) map[string]interface{} {
+func describe(settings config.ConfigAttributes, config charm.Config) map[string]interface{} {
 	results := make(map[string]interface{})
 	for name, option := range config.Options {
 		info := map[string]interface{}{
