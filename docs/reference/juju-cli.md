@@ -23,9 +23,6 @@ juju-cli/juju-environment-variables
 ![machine](https://assets.ubuntu.com/v1/865acefc-juju-client-2.png)
 -->
 
-
-
-
 ## Directory
 
 The `juju` directory is located, on Ubuntu, at `~/.local/share/juju`.
