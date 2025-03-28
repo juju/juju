@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/errors"
@@ -16,12 +15,6 @@ import (
 type ProviderState interface {
 	// Cloud returns the cloud with the specified name.
 	Cloud(context.Context, string) (*cloud.Cloud, error)
-
-	// GetModelCloud looks up the model's cloud and region.
-	// The following error types can be expected:
-	// - [modelerrors.NotFound]: when the model does not exist.
-	// - [clouderrors.NotFound]: when the cloud does not exist.
-	GetModelCloud(ctx context.Context, uuid model.UUID) (*cloud.Cloud, string, error)
 
 	// WatchCloud returns a new NotifyWatcher watching for changes to the specified cloud.
 	WatchCloud(

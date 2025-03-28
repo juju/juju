@@ -15,7 +15,6 @@ import (
 	corecredential "github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/credential"
@@ -111,24 +110,6 @@ func (s *serviceSuite) TestCloudCredential(c *gc.C) {
 	s.state.EXPECT().CloudCredential(gomock.Any(), key).Return(cred, nil)
 
 	result, err := s.service(c).CloudCredential(context.Background(), key)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false))
-}
-
-func (s *serviceSuite) TestGetModelCloudCredential(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	uuid := modeltesting.GenModelUUID(c)
-	cred := credential.CloudCredentialInfo{
-		AuthType: string(cloud.UserPassAuthType),
-		Attributes: map[string]string{
-			"hello": "world",
-		},
-		Label: "foo",
-	}
-	s.state.EXPECT().GetModelCloudCredential(gomock.Any(), uuid).Return(cred, nil)
-
-	result, err := s.service(c).GetModelCloudCredential(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false))
 }

@@ -22,7 +22,6 @@ import (
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
-	"github.com/juju/juju/domain/model/state/testing"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -529,40 +528,6 @@ func (s *credentialSuite) TestGetCloudCredentialNonExistent(c *gc.C) {
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err = st.GetCloudCredential(context.Background(), id)
-	c.Check(err, jc.ErrorIs, credentialerrors.NotFound)
-}
-
-func (s *credentialSuite) TestGetModelCloudCredential(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	s.addCloud(c, s.userName, cloud.Cloud{
-		Name:      "cirrus",
-		Type:      "ec2",
-		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-	})
-
-	keyOne := corecredential.Key{Cloud: "cirrus", Owner: s.userName, Name: "foobar"}
-	one := s.createCloudCredential(c, st, keyOne)
-
-	modelUUID := testing.CreateTestModel(c, s.TxnRunnerFactory(), "foo")
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-			UPDATE model SET cloud_credential_uuid = (SELECT uuid FROM cloud_credential WHERE name = ?) WHERE uuid = ?
-		`, keyOne.Name, modelUUID)
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	res, err := st.GetModelCloudCredential(context.Background(), modelUUID)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(res, jc.DeepEquals, one)
-}
-
-func (s *credentialSuite) TestGetModelCloudCredentialNonExistent(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	modelUUID := testing.CreateTestModel(c, s.TxnRunnerFactory(), "foo")
-	_, err := st.GetModelCloudCredential(context.Background(), modelUUID)
 	c.Check(err, jc.ErrorIs, credentialerrors.NotFound)
 }
 

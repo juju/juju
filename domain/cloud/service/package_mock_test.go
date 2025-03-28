@@ -14,7 +14,6 @@ import (
 	reflect "reflect"
 
 	cloud "github.com/juju/juju/cloud"
-	model "github.com/juju/juju/core/model"
 	user "github.com/juju/juju/core/user"
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
@@ -155,46 +154,6 @@ func (c *MockStateDeleteCloudCall) Do(f func(context.Context, string) error) *Mo
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateDeleteCloudCall) DoAndReturn(f func(context.Context, string) error) *MockStateDeleteCloudCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetModelCloud mocks base method.
-func (m *MockState) GetModelCloud(arg0 context.Context, arg1 model.UUID) (*cloud.Cloud, string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetModelCloud", arg0, arg1)
-	ret0, _ := ret[0].(*cloud.Cloud)
-	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetModelCloud indicates an expected call of GetModelCloud.
-func (mr *MockStateMockRecorder) GetModelCloud(arg0, arg1 any) *MockStateGetModelCloudCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelCloud", reflect.TypeOf((*MockState)(nil).GetModelCloud), arg0, arg1)
-	return &MockStateGetModelCloudCall{Call: call}
-}
-
-// MockStateGetModelCloudCall wrap *gomock.Call
-type MockStateGetModelCloudCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetModelCloudCall) Return(arg0 *cloud.Cloud, arg1 string, arg2 error) *MockStateGetModelCloudCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetModelCloudCall) Do(f func(context.Context, model.UUID) (*cloud.Cloud, string, error)) *MockStateGetModelCloudCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetModelCloudCall) DoAndReturn(f func(context.Context, model.UUID) (*cloud.Cloud, string, error)) *MockStateGetModelCloudCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

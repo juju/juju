@@ -433,6 +433,8 @@ func (s *ModelServices) Removal() *removalservice.WatchableService {
 // as soon as possible.
 func (s *ModelServices) Stub() *stubservice.StubService {
 	return stubservice.NewStubService(
+		s.modelUUID,
+		changestream.NewTxnRunnerFactory(s.controllerDB),
 		changestream.NewTxnRunnerFactory(s.modelDB),
 	)
 }

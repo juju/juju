@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	coreerrors "github.com/juju/juju/core/errors"
-	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/errors"
@@ -128,19 +127,4 @@ func (s *serviceSuite) TestWatchCloud(c *gc.C) {
 	w, err := NewWatchableService(s.state, s.watcherFactory).WatchCloud(context.Background(), "cirrus")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(w, gc.NotNil)
-}
-
-func (s *serviceSuite) TestGetModelCloud(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	uuid := modeltesting.GenModelUUID(c)
-	one := &cloud.Cloud{
-		Name: "fluffy",
-	}
-	s.state.EXPECT().GetModelCloud(gomock.Any(), uuid).Return(one, "region", nil)
-
-	cld, region, err := NewWatchableService(s.state, s.watcherFactory).GetModelCloud(context.Background(), uuid)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cld, jc.DeepEquals, one)
-	c.Assert(region, jc.DeepEquals, "region")
 }

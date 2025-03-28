@@ -22,7 +22,6 @@ import (
 	apiservercharms "github.com/juju/juju/apiserver/internal/charms"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
@@ -35,14 +34,10 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	clouderrors "github.com/juju/juju/domain/cloud/errors"
-	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/unitstate"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -79,9 +74,7 @@ type UniterAPI struct {
 
 	applicationService      ApplicationService
 	statusService           StatusService
-	cloudService            CloudService
 	controllerConfigService ControllerConfigService
-	credentialService       CredentialService
 	machineService          MachineService
 	modelConfigService      ModelConfigService
 	modelInfoService        ModelInfoService
@@ -90,6 +83,7 @@ type UniterAPI struct {
 	relationService         RelationService
 	secretService           SecretService
 	unitStateService        UnitStateService
+	stubService             StubService
 
 	// cmrBackend is a wrapper around state to handle CMR request
 	// todo(gfouillet): remove it whenever CMR have their domain.
@@ -2088,31 +2082,18 @@ func (u *UniterAPI) CloudSpec(ctx context.Context) (params.CloudSpecResult, erro
 		return params.CloudSpecResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
 	}
 
-	cld, region, err := u.cloudService.GetModelCloud(ctx, u.modelUUID)
-	switch {
-	case errors.Is(err, modelerrors.NotFound),
-		errors.Is(err, clouderrors.NotFound):
-		err = coreerrors.NotFound
-	}
+	spec, err := u.stubService.CloudSpec(ctx)
 	if err != nil {
 		return params.CloudSpecResult{}, errors.Trace(err)
 	}
-	cred, credErr := u.credentialService.GetModelCloudCredential(ctx, u.modelUUID)
-	if !errors.Is(credErr, credentialerrors.NotFound) && credErr != nil {
-		return params.CloudSpecResult{}, errors.Trace(credErr)
-	}
-
 	var paramsCloudCredential *params.CloudCredential
-	if credErr == nil && cred.AuthType() != "" {
+	if spec.Credential != nil && spec.Credential.AuthType() != "" {
 		paramsCloudCredential = &params.CloudCredential{
-			AuthType:   string(cred.AuthType()),
-			Attributes: cred.Attributes(),
+			AuthType:   string(spec.Credential.AuthType()),
+			Attributes: spec.Credential.Attributes(),
 		}
 	}
-	spec, err := environscloudspec.MakeCloudSpec(*cld, region, nil)
-	if err != nil {
-		return params.CloudSpecResult{}, errors.Trace(err)
-	}
+
 	return params.CloudSpecResult{
 		Result: &params.CloudSpec{
 			Type:              spec.Type,

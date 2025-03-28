@@ -113,20 +113,6 @@ func (s *Service) CloudCredential(ctx context.Context, key corecredential.Key) (
 	return cred, nil
 }
 
-// GetModelCloudCredential returns the cloud credential for the specified model.
-// The following errors can be returned:
-// - [credentialerrors.NotFound] when the credential does not exist.
-func (s *Service) GetModelCloudCredential(ctx context.Context, uuid coremodel.UUID) (cloud.Credential, error) {
-	credInfo, err := s.st.GetModelCloudCredential(ctx, uuid)
-	if err != nil {
-		return cloud.Credential{}, errors.Capture(err)
-	}
-	cred := cloud.NewNamedCredential(credInfo.Label, cloud.AuthType(credInfo.AuthType), credInfo.Attributes, credInfo.Revoked)
-	cred.Invalid = credInfo.Invalid
-	cred.InvalidReason = credInfo.InvalidReason
-	return cred, nil
-}
-
 // AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 // for a given owner.
 func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner user.Name) (map[corecredential.Key]cloud.Credential, error) {

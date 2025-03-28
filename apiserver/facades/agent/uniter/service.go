@@ -6,7 +6,6 @@ package uniter
 import (
 	"context"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	coreconfig "github.com/juju/juju/core/config"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/unitstate"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
 )
@@ -30,9 +30,7 @@ import (
 type Services struct {
 	ApplicationService      ApplicationService
 	StatusService           StatusService
-	CloudService            CloudService
 	ControllerConfigService ControllerConfigService
-	CredentialService       CredentialService
 	MachineService          MachineService
 	ModelConfigService      ModelConfigService
 	ModelInfoService        ModelInfoService
@@ -41,6 +39,7 @@ type Services struct {
 	RelationService         RelationService
 	SecretService           SecretService
 	UnitStateService        UnitStateService
+	StubService             StubService
 }
 
 // ControllerConfigService provides the controller configuration for the model.
@@ -68,16 +67,10 @@ type ModelInfoService interface {
 	CloudAPIVersion(context.Context) (string, error)
 }
 
-// CloudService provides access to clouds.
-type CloudService interface {
-	// GetModelCloud looks up the model's cloud and region.
-	GetModelCloud(ctx context.Context, uuid model.UUID) (*cloud.Cloud, string, error)
-}
-
-// CredentialService provides access to credentials.
-type CredentialService interface {
-	// GetModelCloudCredential looks up the model's cloud credential.
-	GetModelCloudCredential(ctx context.Context, uuid model.UUID) (cloud.Credential, error)
+// StubService will be replaced once the implementation is finished.
+type StubService interface {
+	// CloudSpec returns the cloud spec for the model.
+	CloudSpec(ctx context.Context) (cloudspec.CloudSpec, error)
 }
 
 // ApplicationService provides access to the application service.

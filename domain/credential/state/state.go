@@ -522,55 +522,6 @@ AND    cc.name = $credentialKey.name
 	return creds[0], errors.Capture(err)
 }
 
-// GetModelCloudCredential returns the cloud credential for the specified model.
-// The following errors can be returned:
-// - [credentialerrors.NotFound] when the credential does not exist.
-func (st *State) GetModelCloudCredential(ctx context.Context, uuid coremodel.UUID) (credential.CloudCredentialInfo, error) {
-	db, err := st.DB()
-	if err != nil {
-		return credential.CloudCredentialInfo{}, errors.Capture(err)
-	}
-	modelUUID := modelNameAndUUID{UUID: uuid.String()}
-	q := `
-SELECT ca.* AS &credentialWithAttribute.*
-FROM   v_cloud_credential_attributes ca
-JOIN   model m ON m.cloud_credential_uuid = ca.uuid
-WHERE  m.uuid = $modelNameAndUUID.uuid
-`
-
-	stmt, err := st.Prepare(q, credentialWithAttribute{}, modelUUID)
-	if err != nil {
-		return credential.CloudCredentialInfo{}, errors.Capture(err)
-	}
-
-	rows := []credentialWithAttribute{}
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, modelUUID).GetAll(&rows)
-		if errors.Is(err, sql.ErrNoRows) {
-			return errors.Errorf("%w for id %q", credentialerrors.NotFound, uuid)
-		} else if err != nil {
-			return errors.Errorf("getting cloud credential for id %q: %w", uuid, err)
-		}
-		return nil
-	})
-	if err != nil {
-		return credential.CloudCredentialInfo{}, errors.Capture(err)
-	}
-
-	rval := credential.CloudCredentialInfo{
-		AuthType:      rows[0].AuthType,
-		Attributes:    make(map[string]string, len(rows)),
-		Revoked:       rows[0].Revoked,
-		Label:         rows[0].Name,
-		Invalid:       rows[0].Invalid,
-		InvalidReason: rows[0].InvalidReason,
-	}
-	for _, row := range rows {
-		rval.Attributes[row.AttributeKey] = row.AttributeValue
-	}
-	return rval, nil
-}
-
 // GetCloudCredential is responsible for returning a cloud credential identified
 // by id. If no cloud credential exists for the given id then a
 // [credentialerrors.NotFound] error will be returned.
