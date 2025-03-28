@@ -23,6 +23,11 @@ import (
 
 // State describes retrieval and persistence methods for relations.
 type State interface {
+
+	// AddRelation establishes a relation between two endpoints identified
+	// by ep1 and ep2 and returns the created endpoints.
+	AddRelation(ctx context.Context, ep1, ep2 relation.EndpointIdentifier) (relation.Endpoint, relation.Endpoint, error)
+
 	// GetRelationID returns the relation ID for the given relation UUID.
 	//
 	// The following error types can be expected to be returned:
@@ -122,8 +127,19 @@ func NewService(
 //
 // If the identifiers do not uniquely specify a relation, an error will be
 // returned.
-func (s *Service) AddRelation(ctx context.Context, ep1, ep2 string) (relation.Endpoint, relation.Endpoint, error) {
-	return relation.Endpoint{}, relation.Endpoint{}, coreerrors.NotImplemented
+func (s *Service) AddRelation(ctx context.Context, ep1, ep2 string) (relation.Endpoint,
+	relation.Endpoint, error) {
+	var none relation.Endpoint
+	idep1, err := relation.NewEndpointIdentifier(ep1)
+	if err != nil {
+		return none, none, errors.Errorf("parsing endpoint identifier %q: %w", ep1, err)
+	}
+	idep2, err := relation.NewEndpointIdentifier(ep2)
+	if err != nil {
+		return none, none, errors.Errorf("parsing endpoint identifier %q: %w", ep2, err)
+	}
+
+	return s.st.AddRelation(ctx, idep1, idep2)
 }
 
 // AllRelations return all uuid of all relation for the current model.
@@ -637,19 +653,15 @@ func (s *WatchableService) WatchUnitRelations(
 func parseRelationKeyEndpoints(relationKey corerelation.Key) ([]relation.EndpointIdentifier, error) {
 	endpoints := strings.Fields(relationKey.String())
 	if l := len(endpoints); l > 2 || l < 1 {
-		return nil, errors.Errorf("expected 1 or 2 endpoints in relation key, found %d: %q", len(endpoints), relationKey)
+		return nil, errors.Errorf("expected 1 or 2 endpoints in relation key, found %d", len(endpoints))
 	}
 	var identifiers []relation.EndpointIdentifier
 	for _, endpoint := range endpoints {
-		parts := strings.Split(endpoint, ":")
-		if len(parts) != 2 {
-			return nil, errors.Errorf("expected endpoints of form <application-name>:<endpoint-name>, got %q", relationKey)
+		identifier, err := relation.NewEndpointIdentifier(endpoint)
+		if err != nil || !identifier.IsFullyQualified() {
+			return nil, errors.Errorf("expected endpoints of form <application-name>:<endpoint-name>, got %q", endpoint)
 		}
-
-		identifiers = append(identifiers, relation.EndpointIdentifier{
-			ApplicationName: parts[0],
-			EndpointName:    parts[1],
-		})
+		identifiers = append(identifiers, identifier)
 	}
 
 	return identifiers, nil

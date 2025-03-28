@@ -41,3 +41,17 @@ const (
 	// not valid.
 	UnitUUIDNotValid = errors.ConstError("unit UUID not valid")
 )
+
+const (
+	// AmbiguousRelation is returned when several endpoints match when trying
+	// to relate two application
+	AmbiguousRelation = errors.ConstError("ambiguous relation")
+
+	// NoRelationFound is returned when no matching relation is found when trying
+	// to relate two application
+	NoRelationFound = errors.ConstError("no relation found")
+
+	// RelationAlreadyExists indicates an error when attempting to create a relation
+	// that already exists between applications.
+	RelationAlreadyExists = errors.ConstError("already exists")
+)

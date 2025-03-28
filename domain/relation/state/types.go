@@ -4,12 +4,13 @@
 package state
 
 import (
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
 )
 
 type relationUUID struct {
-	UUID string `db:"uuid"`
+	UUID corerelation.UUID `db:"uuid"`
 }
 
 type relationIDAndUUID struct {
@@ -36,6 +37,8 @@ type endpointIdentifier struct {
 
 // endpoint is used to fetch an endpoint from the database.
 type endpoint struct {
+	// EndpointUUID is a unique identifier for the application endpoint
+	EndpointUUID corerelation.EndpointUUID `db:"endpoint_uuid"`
 	// Endpoint name is the name of the endpoint/relation.
 	EndpointName string `db:"endpoint_name"`
 	// Role is the name of the endpoints role in the relation.
@@ -67,4 +70,12 @@ func (e endpoint) toRelationEndpoint() relation.Endpoint {
 			Scope:     charm.RelationScope(e.Scope),
 		},
 	}
+}
+
+// setRelationEndpoint represents the mapping to insert a new relation endpoint
+// to the table `relation_endpoint`
+type setRelationEndpoint struct {
+	UUID         corerelation.EndpointUUID `db:"uuid"`
+	RelationUUID corerelation.UUID         `db:"relation_uuid"`
+	EndpointUUID corerelation.EndpointUUID `db:"endpoint_uuid"`
 }
