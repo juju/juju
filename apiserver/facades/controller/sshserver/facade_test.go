@@ -4,7 +4,6 @@
 package sshserver_test
 
 import (
-	"github.com/juju/testing"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -17,37 +16,43 @@ import (
 var _ = gc.Suite(&sshserverSuite{})
 
 type sshserverSuite struct {
-	testing.IsolationSuite
+	ctxMock       *MockContext
+	backendMock   *MockBackend
+	resourcesMock *MockResources
+}
+
+func (s *sshserverSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.ctxMock = NewMockContext(ctrl)
+	s.backendMock = NewMockBackend(ctrl)
+	s.resourcesMock = NewMockResources(ctrl)
+	return ctrl
 }
 
 func (s *sshserverSuite) TestAuth(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	ctx := NewMockContext(ctrl)
 	authorizer := NewMockAuthorizer(ctrl)
 
-	ctx.EXPECT().Auth().Return(authorizer)
+	s.ctxMock.EXPECT().Auth().Return(authorizer)
 	authorizer.EXPECT().AuthController().Return(false)
 
-	_, err := sshserver.NewExternalFacade(ctx)
+	_, err := sshserver.NewExternalFacade(s.ctxMock)
 	c.Assert(err, gc.ErrorMatches, `permission denied`)
 }
 
 func (s *sshserverSuite) TestControllerConfig(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	ctx := NewMockContext(ctrl)
-	backend := NewMockBackend(ctrl)
-
-	ctx.EXPECT().Resources().Times(1)
-	backend.EXPECT().ControllerConfig().Return(
+	s.ctxMock.EXPECT().Resources().Times(1)
+	s.backendMock.EXPECT().ControllerConfig().Return(
 		controller.Config{"hi": "bye"},
 		nil,
 	)
 
-	f := sshserver.NewFacade(ctx, backend)
+	f := sshserver.NewFacade(s.ctxMock, s.backendMock)
 
 	cfg, err := f.ControllerConfig()
 	c.Assert(err, gc.IsNil)
@@ -55,20 +60,17 @@ func (s *sshserverSuite) TestControllerConfig(c *gc.C) {
 }
 
 func (s *sshserverSuite) TestWatchControllerConfig(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	ctx := NewMockContext(ctrl)
-	backend := NewMockBackend(ctrl)
-	resources := NewMockResources(ctrl)
 	watcher := workertest.NewFakeWatcher(1, 0)
 	watcher.Ping() // Send some changes
 
-	ctx.EXPECT().Resources().Return(resources)
-	backend.EXPECT().WatchControllerConfig().Return(watcher)
-	resources.EXPECT().Register(watcher).Return("id")
+	s.ctxMock.EXPECT().Resources().Return(s.resourcesMock)
+	s.backendMock.EXPECT().WatchControllerConfig().Return(watcher, nil)
+	s.resourcesMock.EXPECT().Register(watcher).Return("id")
 
-	f := sshserver.NewFacade(ctx, backend)
+	f := sshserver.NewFacade(s.ctxMock, s.backendMock)
 
 	result, err := f.WatchControllerConfig()
 	c.Assert(err, gc.IsNil)
@@ -76,25 +78,36 @@ func (s *sshserverSuite) TestWatchControllerConfig(c *gc.C) {
 
 	// Now we close the channel expecting err
 	watcher.Close()
-	backend.EXPECT().WatchControllerConfig().Return(watcher)
+	s.backendMock.EXPECT().WatchControllerConfig().Return(watcher, nil)
 
 	_, err = f.WatchControllerConfig()
 	c.Assert(err, gc.ErrorMatches, "An error")
 }
 
 func (s *sshserverSuite) TestSSHServerHostKey(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	ctx := NewMockContext(ctrl)
-	backend := NewMockBackend(ctrl)
+	s.ctxMock.EXPECT().Resources().Times(1)
+	s.backendMock.EXPECT().SSHServerHostKey().Return("hostkey", nil)
 
-	ctx.EXPECT().Resources().Times(1)
-	backend.EXPECT().SSHServerHostKey().Return("hostkey", nil)
-
-	f := sshserver.NewFacade(ctx, backend)
+	f := sshserver.NewFacade(s.ctxMock, s.backendMock)
 
 	key, err := f.SSHServerHostKey()
 	c.Assert(err, gc.IsNil)
 	c.Assert(key, gc.Equals, params.StringResult{Result: "hostkey"})
+}
+
+func (s *sshserverSuite) TestHostKeyForTarget(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.ctxMock.EXPECT().Resources().Times(1)
+	s.backendMock.EXPECT().HostKeyForVirtualHostname(gomock.Any()).Return([]byte("hostkey"), nil)
+
+	f := sshserver.NewFacade(s.ctxMock, s.backendMock)
+
+	key, err := f.HostKeyForTarget(params.SSHHostKeyRequestArg{Hostname: "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local"})
+	c.Assert(err, gc.IsNil)
+	c.Assert(key, gc.DeepEquals, params.SSHHostKeyResult{HostKey: []byte("hostkey")})
 }

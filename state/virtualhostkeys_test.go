@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
@@ -23,6 +24,13 @@ func (s *VirtualHostKeysSuite) TestMachineVirtualHostKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	key, err := s.State.MachineVirtualHostKey(machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(key.HostKey(), gc.Not(gc.HasLen), 0)
+
+	// check the same result with the info utility.
+	info, err := virtualhostname.NewInfoMachineTarget(s.State.ModelUUID(), machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	key, err = s.State.HostKeyForVirtualHostname(info)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(key.HostKey(), gc.Not(gc.HasLen), 0)
 
@@ -68,6 +76,13 @@ func (s *VirtualHostKeysSuite) TestCAASUnitVirtualHostKey(c *gc.C) {
 	c.Assert(unit, gc.NotNil)
 
 	key, err := caasSt.UnitVirtualHostKey(unit.UnitTag().Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(key.HostKey()), gc.Equals, "foo")
+
+	// check you get the same result with the info utility.
+	info, err := virtualhostname.NewInfoUnitTarget(caasSt.ModelUUID(), unit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	key, err = caasSt.HostKeyForVirtualHostname(info)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(key.HostKey()), gc.Equals, "foo")
 

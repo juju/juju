@@ -13,6 +13,7 @@ import (
 	reflect "reflect"
 
 	controller "github.com/juju/juju/controller"
+	virtualhostname "github.com/juju/juju/core/virtualhostname"
 	state "github.com/juju/juju/state"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -55,6 +56,21 @@ func (mr *MockBackendMockRecorder) ControllerConfig() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockBackend)(nil).ControllerConfig))
 }
 
+// HostKeyForVirtualHostname mocks base method.
+func (m *MockBackend) HostKeyForVirtualHostname(arg0 virtualhostname.Info) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HostKeyForVirtualHostname", arg0)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HostKeyForVirtualHostname indicates an expected call of HostKeyForVirtualHostname.
+func (mr *MockBackendMockRecorder) HostKeyForVirtualHostname(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HostKeyForVirtualHostname", reflect.TypeOf((*MockBackend)(nil).HostKeyForVirtualHostname), arg0)
+}
+
 // SSHServerHostKey mocks base method.
 func (m *MockBackend) SSHServerHostKey() (string, error) {
 	m.ctrl.T.Helper()
@@ -71,11 +87,12 @@ func (mr *MockBackendMockRecorder) SSHServerHostKey() *gomock.Call {
 }
 
 // WatchControllerConfig mocks base method.
-func (m *MockBackend) WatchControllerConfig() state.NotifyWatcher {
+func (m *MockBackend) WatchControllerConfig() (state.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchControllerConfig")
 	ret0, _ := ret[0].(state.NotifyWatcher)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // WatchControllerConfig indicates an expected call of WatchControllerConfig.
