@@ -5,6 +5,7 @@ package modelmigration
 
 import (
 	"context"
+	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
@@ -295,6 +296,17 @@ func (e *exportOperation) exportApplicationCharmOrigin(
 	return nil
 }
 
+func exportSource(source charm.CharmSource) (string, error) {
+	switch source {
+	case charm.CharmHubSource:
+		return corecharm.CharmHub.String(), nil
+	case charm.LocalSource:
+		return corecharm.Local.String(), nil
+	default:
+		return "", errors.Errorf("unsupported source %q", source)
+	}
+}
+
 func exportChannel(channel *application.Channel) (string, error) {
 	if channel == nil {
 		return "", nil
@@ -361,7 +373,9 @@ func (e *exportOperation) exportArchitecture(ctx context.Context, a application.
 func exportOSType(osType application.OSType) (string, error) {
 	switch osType {
 	case application.Ubuntu:
-		return ostype.Ubuntu.String(), nil
+		// For some reason, all ostype values are title case, but we match
+		// against the non-title case values.
+		return strings.ToLower(ostype.Ubuntu.String()), nil
 	default:
 		return "", errors.Errorf("unsupported os type %q", osType)
 	}
@@ -423,7 +437,7 @@ func exportApplicationConstraints(cons constraints.Value) description.Constraint
 
 // exportCharmURL returns the charm URL for the current model.
 func exportCharmURL(locator charm.CharmLocator) (string, error) {
-	schema, err := exportSource(locator.Source)
+	schema, err := exportCharmURLSource(locator.Source)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -442,7 +456,7 @@ func exportCharmURL(locator charm.CharmLocator) (string, error) {
 	return url.String(), nil
 }
 
-func exportSource(source charm.CharmSource) (string, error) {
+func exportCharmURLSource(source charm.CharmSource) (string, error) {
 	switch source {
 	case charm.CharmHubSource:
 		return internalcharm.CharmHub.String(), nil

@@ -10,6 +10,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	corestorage "github.com/juju/juju/core/storage"
@@ -1097,6 +1098,7 @@ type exportUnit struct {
 	UUID         coreunit.UUID `db:"uuid"`
 	Name         coreunit.Name `db:"name"`
 	PasswordHash string        `db:"password_hash"`
+	Machine      machine.Name  `db:"machine_name"`
 }
 
 // leadership represents a single row from the leadership table for

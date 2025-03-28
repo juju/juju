@@ -130,6 +130,7 @@ func (st *State) GetApplicationUnitsForExport(ctx context.Context, appID coreapp
 			UUID:         unit.UUID,
 			Name:         unit.Name,
 			PasswordHash: unit.PasswordHash,
+			Machine:      unit.Machine,
 		}
 	}
 	return exportUnits, nil

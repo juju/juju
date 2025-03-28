@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	corestorage "github.com/juju/juju/core/storage"
-	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
@@ -189,40 +188,6 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	}
 
 	return nil
-}
-
-func (i *importOperation) importUnit(ctx context.Context, unit description.Unit) (service.ImportUnitArg, error) {
-	unitName, err := coreunit.NewName(unit.Name())
-	if err != nil {
-		return service.ImportUnitArg{}, err
-	}
-
-	var passwordHash *string
-	if hash := unit.PasswordHash(); hash != "" {
-		passwordHash = ptr(hash)
-	}
-
-	var cloudContainer *application.CloudContainerParams
-	if cc := unit.CloudContainer(); cc != nil {
-		address, origin := i.makeAddress(cc.Address())
-
-		cloudContainer = &application.CloudContainerParams{
-			Address:       address,
-			AddressOrigin: origin,
-		}
-		if cc.ProviderId() != "" {
-			cloudContainer.ProviderID = cc.ProviderId()
-		}
-		if len(cc.Ports()) > 0 {
-			cloudContainer.Ports = ptr(cc.Ports())
-		}
-	}
-
-	return service.ImportUnitArg{
-		UnitName:       unitName,
-		PasswordHash:   passwordHash,
-		CloudContainer: cloudContainer,
-	}, nil
 }
 
 // Rollback the import operation. This is required to remove any applications
