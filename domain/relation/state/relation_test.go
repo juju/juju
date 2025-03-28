@@ -15,6 +15,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	coreapplicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/charm/testing"
+	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
@@ -27,6 +28,7 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type relationSuite struct {
@@ -583,6 +585,7 @@ func (s *relationSuite) TestGetPeerRelationUUIDByEndpointIdentifiersNotFound(c *
 func (s *relationSuite) TestGetRelationsStatusForUnit(c *gc.C) {
 	// Arrange: Add a relation with two endpoints.
 	relationUUID := corerelationtesting.GenRelationUUID(c).String()
+
 	charmRelationUUID1 := "fake-charm-relation-uuid-1"
 	applicationEndpointUUID1 := "fake-application-endpoint-uuid-1"
 	relationEndpointUUID1 := "fake-relation-endpoint-uuid-1"
@@ -634,7 +637,10 @@ func (s *relationSuite) TestGetRelationsStatusForUnit(c *gc.C) {
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert): %v",
 		errors.ErrorStack(err)))
-	c.Check(results, gc.DeepEquals, expectedResults)
+	c.Assert(results, gc.HasLen, 1)
+	c.Check(results[0].InScope, gc.Equals, expectedResults[0].InScope)
+	c.Check(results[0].Suspended, gc.Equals, expectedResults[0].Suspended)
+	c.Check(results[0].Endpoints, jc.SameContents, expectedResults[0].Endpoints)
 }
 
 // TestGetRelationsStatusForUnit checks that GetRelationStatusesForUnit works
@@ -703,7 +709,7 @@ func (s *relationSuite) TestGetRelationsStatusForUnitPeer(c *gc.C) {
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert): %v",
 		errors.ErrorStack(err)))
-	c.Check(results, gc.DeepEquals, expectedResults)
+	c.Assert(results, jc.SameContents, expectedResults)
 }
 
 // TestGetRelationStatusesForUnitEmptyResult checks that an empty slice is
@@ -715,6 +721,74 @@ func (s *relationSuite) TestGetRelationsStatusForUnitEmptyResult(c *gc.C) {
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("%v", errors.ErrorStack(err)))
 	c.Check(results, gc.HasLen, 0)
+}
+
+func (s *relationSuite) TestGetRelationDetails(c *gc.C) {
+	// Arrange: Add two endpoints and a relation on them.
+	relationUUID := corerelationtesting.GenRelationUUID(c).String()
+	relationID := 7
+
+	charmRelationUUID1 := uuid.MustNewUUID().String()
+	applicationEndpointUUID1 := uuid.MustNewUUID().String()
+	relationEndpointUUID1 := uuid.MustNewUUID().String()
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      internalcharm.RoleProvider,
+			Interface: "database",
+			Optional:  true,
+			Limit:     20,
+			Scope:     internalcharm.ScopeGlobal,
+		},
+	}
+
+	charmRelationUUID2 := uuid.MustNewUUID().String()
+	applicationEndpointUUID2 := uuid.MustNewUUID().String()
+	relationEndpointUUID2 := uuid.MustNewUUID().String()
+	endpoint2 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      internalcharm.RoleRequirer,
+			Interface: "database",
+			Optional:  false,
+			Limit:     10,
+			Scope:     internalcharm.ScopeGlobal,
+		},
+	}
+	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID1, endpoint1.Relation)
+	s.addCharmRelation(c, s.fakeCharmUUID2, charmRelationUUID2, endpoint2.Relation)
+	s.addApplicationEndpoint(c, applicationEndpointUUID1, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, applicationEndpointUUID2, s.fakeApplicationUUID2, charmRelationUUID2)
+	s.addRelationWithLifeAndID(c, relationUUID, corelife.Dying, relationID)
+	s.addRelationEndpoint(c, relationEndpointUUID1, relationUUID, applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationEndpointUUID2, relationUUID, applicationEndpointUUID2)
+
+	expectedDetails := relation.RelationDetailsResult{
+		Life:      corelife.Dying,
+		UUID:      corerelation.UUID(relationUUID),
+		ID:        relationID,
+		Endpoints: []relation.Endpoint{endpoint1, endpoint2},
+	}
+
+	// Act: Get relation details.
+	details, err := s.state.GetRelationDetails(context.Background(), relationID)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(details.Life, gc.Equals, expectedDetails.Life)
+	c.Assert(details.UUID, gc.Equals, expectedDetails.UUID)
+	c.Assert(details.ID, gc.Equals, expectedDetails.ID)
+	c.Assert(details.Endpoints, jc.SameContents, expectedDetails.Endpoints)
+}
+
+func (s *relationSuite) TestGetRelationDetailsNotFound(c *gc.C) {
+	// Act: Get relation details.
+	_, err := s.state.GetRelationDetails(context.Background(), 7)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
 // addApplication adds a new application to the database with the specified UUID and name.
@@ -820,6 +894,17 @@ func (s *relationSuite) addRelationWithID(c *gc.C, relationUUID string, relation
 INSERT INTO relation (uuid, life_id, relation_id) 
 VALUES (?,0,?)
 `, relationUUID, relationID)
+}
+
+// addRelationWithLifeAndID inserts a new relation into the database with the
+// given details.
+func (s *relationSuite) addRelationWithLifeAndID(c *gc.C, relationUUID string, life corelife.Value, relationID int) {
+	s.query(c, `
+INSERT INTO relation (uuid, relation_id, life_id)
+SELECT ?,  ?, id
+FROM life
+WHERE value = ?
+`, relationUUID, relationID, life)
 }
 
 // addRelationEndpoint inserts a relation endpoint into the database using the provided UUIDs for relation and endpoint.

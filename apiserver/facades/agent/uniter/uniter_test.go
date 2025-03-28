@@ -302,8 +302,8 @@ func (s *uniterRelationSuite) TestRelation(c *gc.C) {
 		Life: life.Alive,
 		UUID: relUUID,
 		ID:   relID,
-		Key:  relTag.Id(),
-		Endpoint: []relation.Endpoint{
+		Key:  corerelation.Key(relTag.Id()),
+		Endpoints: []relation.Endpoint{
 			{
 				ApplicationName: "wordpress",
 				Relation: charm.Relation{
@@ -1068,8 +1068,8 @@ func (s *uniterRelationSuite) expectGetRelationDetails(relUUID corerelation.UUID
 		Life: life.Alive,
 		UUID: relUUID,
 		ID:   relID,
-		Key:  relTag.Id(),
-		Endpoint: []relation.Endpoint{
+		Key:  corerelation.Key(relTag.Id()),
+		Endpoints: []relation.Endpoint{
 			{
 				ApplicationName: "wordpress",
 				Relation: charm.Relation{
@@ -1109,7 +1109,7 @@ func (s *uniterRelationSuite) expectGetRelationDetailsUnexpectedAppName(c *gc.C,
 		Life: life.Alive,
 		UUID: relationtesting.GenRelationUUID(c),
 		ID:   relID,
-		Endpoint: []relation.Endpoint{
+		Endpoints: []relation.Endpoint{
 			{
 				ApplicationName: "failure-application",
 				Relation: charm.Relation{

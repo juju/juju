@@ -1888,7 +1888,7 @@ func (u *UniterAPI) prepareRelationResult(
 		otherAppName string
 		unitEp       relation.Endpoint
 	)
-	for _, v := range rel.Endpoint {
+	for _, v := range rel.Endpoints {
 		if v.ApplicationName == applicationName {
 			unitEp = v
 		} else {
@@ -1906,7 +1906,7 @@ func (u *UniterAPI) prepareRelationResult(
 	}
 	return params.RelationResultV2{
 		Id:   rel.ID,
-		Key:  rel.Key,
+		Key:  rel.Key.String(),
 		Life: rel.Life,
 		Endpoint: params.Endpoint{
 			ApplicationName: unitEp.ApplicationName,

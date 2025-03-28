@@ -29,11 +29,29 @@ type GetRelationEndpointUUIDArgs struct {
 
 // RelationDetails represents the current application's view of a relation.
 type RelationDetails struct {
-	Life     life.Value
-	UUID     corerelation.UUID
-	ID       int
-	Key      string
-	Endpoint []Endpoint
+	// Life is the current life value of the relation.
+	Life life.Value
+	// UUID is the unique identifier of the relation.
+	UUID corerelation.UUID
+	// ID is the sequential ID of the relation.
+	ID int
+	// Key is the natural key of the relation.
+	Key corerelation.Key
+	// Endpoints are the endpoints of the relation.
+	Endpoints []Endpoint
+}
+
+// RelationDetailsResult represents the current application's view of a
+// relation. This struct is used for passing results from state to the service.
+type RelationDetailsResult struct {
+	// Life is the current life value of the relation.
+	Life life.Value
+	// UUID is the unique identifier of the relation.
+	UUID corerelation.UUID
+	// ID is the sequential ID of the relation.
+	ID int
+	// Endpoints are the endpoints of the relation.
+	Endpoints []Endpoint
 }
 
 // RelationData holds information about a unit's relation.
