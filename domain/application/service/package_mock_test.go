@@ -2885,44 +2885,6 @@ func (c *MockStateResolveMigratingUploadedCharmCall) DoAndReturn(f func(context.
 	return c
 }
 
-// SetApplicationConfigAndSettings mocks base method.
-func (m *MockState) SetApplicationConfigAndSettings(ctx context.Context, appID application.ID, charmID charm.ID, config map[string]application0.ApplicationConfig, settings application0.ApplicationSettings) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetApplicationConfigAndSettings", ctx, appID, charmID, config, settings)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetApplicationConfigAndSettings indicates an expected call of SetApplicationConfigAndSettings.
-func (mr *MockStateMockRecorder) SetApplicationConfigAndSettings(ctx, appID, charmID, config, settings any) *MockStateSetApplicationConfigAndSettingsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetApplicationConfigAndSettings", reflect.TypeOf((*MockState)(nil).SetApplicationConfigAndSettings), ctx, appID, charmID, config, settings)
-	return &MockStateSetApplicationConfigAndSettingsCall{Call: call}
-}
-
-// MockStateSetApplicationConfigAndSettingsCall wrap *gomock.Call
-type MockStateSetApplicationConfigAndSettingsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateSetApplicationConfigAndSettingsCall) Return(arg0 error) *MockStateSetApplicationConfigAndSettingsCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateSetApplicationConfigAndSettingsCall) Do(f func(context.Context, application.ID, charm.ID, map[string]application0.ApplicationConfig, application0.ApplicationSettings) error) *MockStateSetApplicationConfigAndSettingsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetApplicationConfigAndSettingsCall) DoAndReturn(f func(context.Context, application.ID, charm.ID, map[string]application0.ApplicationConfig, application0.ApplicationSettings) error) *MockStateSetApplicationConfigAndSettingsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SetApplicationConstraints mocks base method.
 func (m *MockState) SetApplicationConstraints(ctx context.Context, appID application.ID, cons constraints0.Constraints) error {
 	m.ctrl.T.Helper()
@@ -3455,6 +3417,44 @@ func (c *MockStateUnsetExposeSettingsCall) Do(f func(context.Context, applicatio
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateUnsetExposeSettingsCall) DoAndReturn(f func(context.Context, application.ID, set.Strings) error) *MockStateUnsetExposeSettingsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UpdateApplicationConfigAndSettings mocks base method.
+func (m *MockState) UpdateApplicationConfigAndSettings(ctx context.Context, appID application.ID, config map[string]application0.ApplicationConfig, settings application0.UpdateApplicationSettingsArg) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateApplicationConfigAndSettings", ctx, appID, config, settings)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateApplicationConfigAndSettings indicates an expected call of UpdateApplicationConfigAndSettings.
+func (mr *MockStateMockRecorder) UpdateApplicationConfigAndSettings(ctx, appID, config, settings any) *MockStateUpdateApplicationConfigAndSettingsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplicationConfigAndSettings", reflect.TypeOf((*MockState)(nil).UpdateApplicationConfigAndSettings), ctx, appID, config, settings)
+	return &MockStateUpdateApplicationConfigAndSettingsCall{Call: call}
+}
+
+// MockStateUpdateApplicationConfigAndSettingsCall wrap *gomock.Call
+type MockStateUpdateApplicationConfigAndSettingsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateUpdateApplicationConfigAndSettingsCall) Return(arg0 error) *MockStateUpdateApplicationConfigAndSettingsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateUpdateApplicationConfigAndSettingsCall) Do(f func(context.Context, application.ID, map[string]application0.ApplicationConfig, application0.UpdateApplicationSettingsArg) error) *MockStateUpdateApplicationConfigAndSettingsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateUpdateApplicationConfigAndSettingsCall) DoAndReturn(f func(context.Context, application.ID, map[string]application0.ApplicationConfig, application0.UpdateApplicationSettingsArg) error) *MockStateUpdateApplicationConfigAndSettingsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

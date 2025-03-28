@@ -13,7 +13,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/application"
+	applicationtesting "github.com/juju/juju/core/application/testing"
 	coreassumes "github.com/juju/juju/core/assumes"
+	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
@@ -786,6 +788,169 @@ func (s *applicationSuite) TestAddRelationTooManyEndpointsError(c *gc.C) {
 
 	// Assert:
 	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+}
+
+func (s *applicationSuite) TestCharmConfigApplicationNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", applicationerrors.ApplicationNotFound)
+
+	res, err := s.api.CharmConfig(context.Background(), params.ApplicationGetArgs{
+		Args: []params.ApplicationGet{{
+			ApplicationName: "foo",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *applicationSuite) TestCharmConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+	appID := applicationtesting.GenApplicationUUID(c)
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appID, nil)
+	s.applicationService.EXPECT().GetApplicationAndCharmConfig(gomock.Any(), appID).Return(applicationservice.ApplicationConfig{
+		CharmName: "ch",
+		ApplicationConfig: config.ConfigAttributes{
+			"foo": "doink",
+			"bar": 18,
+		},
+		CharmConfig: internalcharm.Config{
+			Options: map[string]internalcharm.Option{
+				"foo": {
+					Type:        "string",
+					Description: "a foo",
+				},
+				"bar": {
+					Type:        "int",
+					Description: "a bar",
+					Default:     17,
+				},
+			},
+		},
+		Trust: true,
+	}, nil)
+
+	res, err := s.api.CharmConfig(context.Background(), params.ApplicationGetArgs{
+		Args: []params.ApplicationGet{{
+			ApplicationName: "foo",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error, gc.IsNil)
+	c.Assert(res.Results[0].Config, gc.DeepEquals, map[string]interface{}{
+		"foo": map[string]interface{}{
+			"description": "a foo",
+			"type":        "string",
+			"value":       "doink",
+			"source":      "user",
+		},
+		"bar": map[string]interface{}{
+			"description": "a bar",
+			"type":        "int",
+			"value":       18,
+			"source":      "user",
+			"default":     17,
+		},
+	})
+}
+
+func (s *applicationSuite) TestSetConfigsYAMLNotImplemented(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	res, err := s.api.SetConfigs(context.Background(), params.ConfigSetArgs{
+		Args: []params.ConfigSet{{
+			ApplicationName: "foo",
+			ConfigYAML:      "foo: bar",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotImplemented)
+}
+
+func (s *applicationSuite) TestSetConfigsApplicationNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", applicationerrors.ApplicationNotFound)
+
+	res, err := s.api.SetConfigs(context.Background(), params.ConfigSetArgs{
+		Args: []params.ConfigSet{{
+			ApplicationName: "foo",
+			Config:          map[string]string{"foo": "bar"},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *applicationSuite) TestSetConfigsNotValidApplicationName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", applicationerrors.ApplicationNameNotValid)
+
+	res, err := s.api.SetConfigs(context.Background(), params.ConfigSetArgs{
+		Args: []params.ConfigSet{{
+			ApplicationName: "foo",
+			Config:          map[string]string{"foo": "bar"},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotValid)
+}
+
+func (s *applicationSuite) TestSetConfigsInvalidConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+	appID := applicationtesting.GenApplicationUUID(c)
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appID, nil)
+	s.applicationService.EXPECT().UpdateApplicationConfig(gomock.Any(), appID, gomock.Any()).Return(applicationerrors.InvalidApplicationConfig)
+
+	res, err := s.api.SetConfigs(context.Background(), params.ConfigSetArgs{
+		Args: []params.ConfigSet{{
+			ApplicationName: "foo",
+			Config:          map[string]string{"foo": "bar"},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotValid)
+}
+
+func (s *applicationSuite) TestSetConfigs(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+	appID := applicationtesting.GenApplicationUUID(c)
+
+	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appID, nil)
+	s.applicationService.EXPECT().UpdateApplicationConfig(gomock.Any(), appID, map[string]string{"foo": "bar"}).Return(nil)
+
+	res, err := s.api.SetConfigs(context.Background(), params.ConfigSetArgs{
+		Args: []params.ConfigSet{{
+			ApplicationName: "foo",
+			Config:          map[string]string{"foo": "bar"},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error, gc.IsNil)
 }
 
 func (s *applicationSuite) TestDestroyRelationStub(c *gc.C) {

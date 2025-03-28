@@ -331,6 +331,12 @@ type ApplicationSettings struct {
 	Trust bool
 }
 
+// UpdateApplicationSettingsArg is the argument used to update an application's
+// settings
+type UpdateApplicationSettingsArg struct {
+	Trust *bool
+}
+
 // ExportApplication contains parameters for exporting an application.
 type ExportApplication struct {
 	UUID         application.ID
