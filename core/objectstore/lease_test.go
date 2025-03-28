@@ -4,10 +4,11 @@
 package objectstore
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	coreerrors "github.com/juju/juju/core/errors"
 )
 
 type LeaseSuite struct {
@@ -25,7 +26,7 @@ func (s *LeaseSuite) TestParseLeaseHolderName(c *gc.C) {
 		expected: nil,
 	}, {
 		name:     "foo",
-		expected: errors.NotValid,
+		expected: coreerrors.NotValid,
 	}}
 
 	for i, test := range tests {

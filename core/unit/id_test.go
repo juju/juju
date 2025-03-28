@@ -4,11 +4,11 @@
 package unit
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -25,11 +25,11 @@ func (*unitSuite) TestUUIDValidate(c *gc.C) {
 	}{
 		{
 			uuid: "",
-			err:  errors.NotValid,
+			err:  coreerrors.NotValid,
 		},
 		{
 			uuid: "invalid",
-			err:  errors.NotValid,
+			err:  coreerrors.NotValid,
 		},
 		{
 			uuid: uuid.MustNewUUID().String(),
@@ -56,11 +56,11 @@ func (*unitSuite) TestParseUUID(c *gc.C) {
 	}{
 		{
 			uuid: "",
-			err:  errors.NotValid,
+			err:  coreerrors.NotValid,
 		},
 		{
 			uuid: "invalid",
-			err:  errors.NotValid,
+			err:  coreerrors.NotValid,
 		},
 		{
 			uuid: uuid.MustNewUUID().String(),

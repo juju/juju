@@ -10,11 +10,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/internal/errors"
 )
 
 // The following constants list the supported constraint attribute names, as defined
@@ -426,14 +426,14 @@ func ParseWithAliases(args ...string) (cons Value, aliases map[string]string, er
 			}
 			name, val, err := splitRaw(raw)
 			if err != nil {
-				return Value{}, nil, errors.Trace(err)
+				return Value{}, nil, errors.Capture(err)
 			}
 			if canonical, ok := rawAliases[name]; ok {
 				aliases[name] = canonical
 				name = canonical
 			}
 			if err := cons.setRaw(name, val); err != nil {
-				return Value{}, aliases, errors.Trace(err)
+				return Value{}, aliases, errors.Capture(err)
 			}
 		}
 	}
@@ -564,7 +564,7 @@ func (v *Value) setRaw(name, str string) error {
 		return errors.Errorf("unknown constraint %q", name)
 	}
 	if err != nil {
-		return errors.Annotatef(err, "bad %q constraint", name)
+		return errors.Errorf("bad %q constraint: %w", name, err)
 	}
 	return nil
 }
@@ -578,7 +578,7 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	values := map[interface{}]interface{}{}
 	err := unmarshal(&values)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	canonicals := map[string]string{}
 	for k, val := range values {
@@ -619,7 +619,7 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			var spaces *[]string
 			spaces, err = parseYamlStrings("spaces", val)
 			if err != nil {
-				return errors.Trace(err)
+				return errors.Capture(err)
 			}
 			err = v.validateSpaces(spaces)
 			if err == nil {
@@ -637,7 +637,7 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			return errors.Errorf("unknown constraint value: %v", k)
 		}
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 	}
 	return nil

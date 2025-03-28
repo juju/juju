@@ -8,9 +8,10 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Base represents an OS/Channel.
@@ -34,11 +35,11 @@ func ParseBase(os string, channel string) (Base, error) {
 		return Base{}, nil
 	}
 	if os == "" || channel == "" {
-		return Base{}, errors.NotValidf("missing base os or channel")
+		return Base{}, errors.Errorf("missing base os or channel %w", coreerrors.NotValid)
 	}
 	ch, err := ParseChannelNormalize(channel)
 	if err != nil {
-		return Base{}, errors.Annotatef(err, "parsing base %s@%s", os, channel)
+		return Base{}, errors.Errorf("parsing base %s@%s: %w", os, channel, err)
 	}
 	return Base{OS: strings.ToLower(os), Channel: ch}, nil
 }
@@ -52,7 +53,7 @@ func ParseBaseFromString(b string) (Base, error) {
 	}
 	channel, err := ParseChannelNormalize(parts[1])
 	if err != nil {
-		return Base{}, errors.Trace(err)
+		return Base{}, errors.Capture(err)
 	}
 	return Base{OS: parts[0], Channel: channel}, nil
 }
@@ -63,7 +64,7 @@ func ParseBaseFromString(b string) (Base, error) {
 // will be returned.
 func ParseManifestBases(manifestBases []charm.Base) ([]Base, error) {
 	if len(manifestBases) == 0 {
-		return nil, errors.BadRequestf("base len zero")
+		return nil, errors.Errorf("base len zero").Add(coreerrors.BadRequest)
 	}
 	bases := make([]Base, 0)
 	unique := set.NewStrings()

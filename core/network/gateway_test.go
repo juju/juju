@@ -4,7 +4,6 @@
 package network_test
 
 import (
-	"fmt"
 	"net"
 	"os/exec"
 	"runtime"
@@ -12,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/errors"
 )
 
 type GatewaySuite struct {
@@ -110,7 +110,7 @@ func (s *GatewaySuite) TestDefaultRouteLinuxNoDev(c *gc.C) {
 func (s *GatewaySuite) TestDefaultRouteLinuxError(c *gc.C) {
 	s.PatchGOOS("linux")
 	s.PatchRunIPRouteShow(func() (string, error) {
-		return "", fmt.Errorf("no can do")
+		return "", errors.Errorf("no can do")
 	})
 	ip, dev, err := network.GetDefaultRoute()
 	c.Check(ip, gc.IsNil)

@@ -45,8 +45,13 @@ find "$1" -type f -iname '*.go' -exec sed -i '' -E "s,\"(.*)\"[ ]?\+[ ]?\"\: \%w
 find "$1" -type f -iname '*.go' -exec sed -i '' -E "s,\"(.*)\"[ ]?\+[ ]?\"\ \%w\",\"\1\ \%w\",g" "{}" +;
 
 # Step 7b: Remove %w for errors that were using errors.Hide
-# This sed step is fixing lines of the form:
-# - errors.Errorf("some message%w").Add(someerror) to errors.Errorf("some message").Add(someerror)
-# We do this because go patch doesn't have the ability to modify strings. We
-# have ended up with these forms as errors.Hide gets removed.
+# We can identify these types of lines by the fact that they will have a leading
+# or trailing %w with no white space around them. Example:
+# - %wsome error
+# - some error%w
+# This step is to remove the %w.
+#
+# Remove trailing %w
 find "$1" -type f -iname '*.go' -exec sed -i '' -E "s,\"(.*[^ ])\%w\",\"\1\",g" "{}" +;
+# Remove leading %w
+find "$1" -type f -iname '*.go' -exec sed -i '' -E "s,\"\%w(.*[^ ])\",\"\1\",g" "{}" +;

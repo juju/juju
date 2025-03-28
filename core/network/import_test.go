@@ -17,6 +17,7 @@ var _ = gc.Suite(&ImportSuite{})
 
 var allowedCoreImports = set.NewStrings(
 	"core/credential",
+	"core/errors",
 	"core/life",
 	"core/logger",
 	"core/model",

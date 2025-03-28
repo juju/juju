@@ -4,14 +4,12 @@
 package model
 
 import (
-	"fmt"
-
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/core/credential"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -107,10 +105,10 @@ func (u UUID) String() string {
 // satisfying [errors.NotValid] will be returned.
 func (u UUID) Validate() error {
 	if u == "" {
-		return fmt.Errorf("%wuuid cannot be empty", errors.Hide(errors.NotValid))
+		return errors.Errorf("uuid cannot be empty").Add(coreerrors.NotValid)
 	}
 	if !uuid.IsValidUUIDString(string(u)) {
-		return fmt.Errorf("uuid %q %w", u, errors.NotValid)
+		return errors.Errorf("uuid %q %w", u, coreerrors.NotValid)
 	}
 	return nil
 }

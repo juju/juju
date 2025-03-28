@@ -4,10 +4,10 @@
 package quota_test
 
 import (
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/quota"
 )
 
@@ -37,7 +37,7 @@ func (s *BSONTotalSizeCheckerSuite) TestExceedMaxSize(c *gc.C) {
 	chk.Check("some string")
 
 	err := chk.Outcome()
-	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded)
+	c.Assert(err, jc.ErrorIs, coreerrors.QuotaLimitExceeded)
 	c.Assert(err, gc.ErrorMatches, "max allowed size.*", gc.Commentf("expected error about exceeding max size"))
 }
 

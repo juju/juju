@@ -6,7 +6,8 @@ package ostype
 import (
 	"strings"
 
-	"github.com/juju/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 type OSType int
@@ -90,7 +91,7 @@ func OSTypeForName(name string) OSType {
 func ParseOSType(s string) (OSType, error) {
 	osType, ok := validOSTypeNames[strings.ToLower(s)]
 	if !ok {
-		return Unknown, errors.NotValidf("unknown os type %q", s)
+		return Unknown, errors.Errorf("unknown os type %q %w", s, coreerrors.NotValid)
 	}
 	return osType, nil
 }

@@ -5,15 +5,15 @@ package version
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 
-	"github.com/juju/errors"
-
 	semversion "github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/internal/errors"
 )
 
 // The presence and format of this constant is very important.
@@ -87,7 +87,7 @@ func init() {
 	toolsDir := filepath.Dir(os.Args[0])
 	v, err := os.ReadFile(filepath.Join(toolsDir, "FORCE-VERSION"))
 	if err != nil {
-		if !os.IsNotExist(err) {
+		if !errors.Is(err, fs.ErrNotExist) {
 			fmt.Fprintf(os.Stderr, "WARNING: cannot read forced version: %v\n", err)
 		}
 		return
@@ -137,19 +137,19 @@ func CheckJujuMinVersion(toCheck semversion.Number, jujuVersion semversion.Numbe
 }
 
 func minVersionError(minver, jujuver semversion.Number) error {
-	err := errors.NewErr("charm's min version (%s) is higher than this juju model's version (%s)",
+	err := errors.Errorf("charm's min version (%s) is higher than this juju model's version (%s)",
 		minver, jujuver)
-	err.SetLocation(1)
-	return minJujuVersionErr{&err}
+
+	return minJujuVersionErr{err}
 }
 
 type minJujuVersionErr struct {
-	*errors.Err
+	error
 }
 
 // IsMinVersionError returns true if the given error was caused by the charm
 // having a minjujuversion higher than the juju model's version.
 func IsMinVersionError(err error) bool {
-	_, ok := errors.Cause(err).(minJujuVersionErr)
+	_, ok := errors.AsType[minJujuVersionErr](err)
 	return ok
 }

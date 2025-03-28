@@ -3,7 +3,7 @@
 
 package upgrade
 
-import "github.com/juju/errors"
+import "github.com/juju/juju/internal/errors"
 
 var (
 	ErrAlreadyAtState     = errors.ConstError("already at state")
@@ -73,7 +73,7 @@ func (s State) TransitionTo(target State) error {
 			return nil
 		}
 	}
-	return errors.Annotatef(ErrUnableToTransition, "going from %q to %q", s, target)
+	return errors.Errorf("going from %q to %q: %w", s, target, ErrUnableToTransition)
 }
 
 // IsTerminal returns true if the state is terminal.

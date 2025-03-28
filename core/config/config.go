@@ -7,11 +7,12 @@ import (
 	"fmt"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/yaml.v2"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/configschema"
+	"github.com/juju/juju/internal/errors"
 )
 
 // ConfigAttributes represents config for an entity.
@@ -29,7 +30,7 @@ type Config struct {
 func NewConfig(attrs ConfigAttributes, schema configschema.Fields, defaults schema.Defaults) (*Config, error) {
 	cfg := &Config{schema: schema, defaults: defaults}
 	if err := cfg.setAttributes(attrs); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	return cfg, nil
 }
@@ -37,7 +38,7 @@ func NewConfig(attrs ConfigAttributes, schema configschema.Fields, defaults sche
 func (c *Config) setAttributes(attrs ConfigAttributes) error {
 	checker, err := c.schemaChecker()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	m := make(ConfigAttributes)
 	for k, v := range attrs {
@@ -53,13 +54,13 @@ func (c *Config) setAttributes(attrs ConfigAttributes) error {
 		var coerced interface{}
 		err := yaml.Unmarshal([]byte(str), &coerced)
 		if err != nil {
-			return errors.NewNotValid(err, fmt.Sprintf("value %q for attribute %q not valid", str, k))
+			return errors.Errorf(fmt.Sprintf("value %q for attribute %q not valid", str, k)+": %w", err).Add(coreerrors.NotValid)
 		}
 		m[k] = coerced
 	}
 	result, err := checker.Coerce(m, nil)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	// Ensure that the underlying map is of the correct type, otherwise
@@ -88,7 +89,7 @@ func KnownConfigKeys(schema configschema.Fields) set.Strings {
 func (c *Config) schemaChecker() (schema.Checker, error) {
 	schemaFields, schemaDefaults, err := c.schema.ValidationSchema()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	for key, value := range c.defaults {
 		schemaDefaults[key] = value
@@ -162,7 +163,7 @@ func (c ConfigAttributes) GetStringMap(attrName string, defaultValue map[string]
 				result[k] = fmt.Sprintf("%v", v)
 			}
 		default:
-			return nil, errors.NotValidf("string map value of type %T", val)
+			return nil, errors.Errorf("string map value of type %T %w", val, coreerrors.NotValid)
 		}
 		return result, nil
 	}

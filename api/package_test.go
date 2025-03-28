@@ -33,6 +33,7 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"core/constraints",
 		"core/credential",
 		"core/devices",
+		"core/errors",
 		"core/facades",
 		"core/http",
 		"core/instance",

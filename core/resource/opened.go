@@ -7,7 +7,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/juju/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Opened provides both the resource info and content.
@@ -26,7 +26,7 @@ func (o Opened) Content() Content {
 }
 
 func (o Opened) Close() error {
-	return errors.Trace(o.ReadCloser.Close())
+	return errors.Capture(o.ReadCloser.Close())
 }
 
 // Opener exposes the functionality for opening a resource.

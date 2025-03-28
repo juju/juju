@@ -4,13 +4,11 @@
 package annotations
 
 import (
-	"fmt"
-
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -139,14 +137,14 @@ func (s *annotationsSuite) TestExistAllExistAnyMergeToMap(c *gc.C) {
 }
 
 func (s *annotationsSuite) TestCheckKeysNonEmpty(c *gc.C) {
-	c.Assert(s.annotations.CheckKeysNonEmpty("key1"), jc.ErrorIs, errors.NotFound)
+	c.Assert(s.annotations.CheckKeysNonEmpty("key1"), jc.ErrorIs, coreerrors.NotFound)
 
 	s.annotations.Add("key1", "")
-	c.Assert(s.annotations.CheckKeysNonEmpty("key1"), jc.ErrorIs, errors.NotValid)
+	c.Assert(s.annotations.CheckKeysNonEmpty("key1"), jc.ErrorIs, coreerrors.NotValid)
 
 	s.annotations.Add("key2", "val2")
 	c.Assert(s.annotations.CheckKeysNonEmpty("key2"), jc.ErrorIsNil)
-	c.Assert(s.annotations.CheckKeysNonEmpty("key1", "key2"), jc.ErrorIs, errors.NotValid)
+	c.Assert(s.annotations.CheckKeysNonEmpty("key1", "key2"), jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *annotationsSuite) TestConvertTagToID(c *gc.C) {
@@ -157,5 +155,5 @@ func (s *annotationsSuite) TestConvertTagToID(c *gc.C) {
 
 	// ConvertTagToID unknown kind
 	_, err = ConvertTagToID(names.NewEnvironTag("env/0"))
-	c.Assert(err, jc.DeepEquals, fmt.Errorf("unknown kind %q", names.EnvironTagKind))
+	c.Assert(err.Error(), gc.Equals, "unknown kind \"environment\"")
 }

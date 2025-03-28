@@ -4,9 +4,8 @@
 package machine
 
 import (
-	"fmt"
-
-	"github.com/juju/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Name is a unique name identifier for a machine.
@@ -16,7 +15,7 @@ type Name string
 // satisfies [errors.NotValid].
 func (n Name) Validate() error {
 	if n == "" {
-		return fmt.Errorf("empty machine name%w", errors.Hide(errors.NotValid))
+		return errors.Errorf("empty machine name").Add(coreerrors.NotValid)
 	}
 	return nil
 }

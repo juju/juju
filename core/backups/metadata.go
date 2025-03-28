@@ -13,10 +13,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/utils/v4/filestorage"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/internal/errors"
 )
 
 const (
@@ -148,7 +149,7 @@ func (m *Metadata) MarkComplete(size int64, checksum string) error {
 	finished := time.Now().UTC()
 
 	if err := m.SetFileInfo(size, checksum, format); err != nil {
-		return errors.Annotate(err, "unexpected failure")
+		return errors.Errorf("unexpected failure: %w", err)
 	}
 	m.Finished = &finished
 
@@ -223,7 +224,7 @@ func (flat *flatMetadata) inflate() (*Metadata, error) {
 
 	err := meta.SetFileInfo(flat.Size, flat.Checksum, flat.ChecksumFormat)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	if !flat.Stored.IsZero() {
@@ -257,7 +258,7 @@ func (flat *flatMetadata) inflate() (*Metadata, error) {
 func (m *Metadata) AsJSONBuffer() (io.Reader, error) {
 	var outfile bytes.Buffer
 	if err := json.NewEncoder(&outfile).Encode(m.flat()); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	return &outfile, nil
 }
@@ -266,19 +267,19 @@ func (m *Metadata) AsJSONBuffer() (io.Reader, error) {
 func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
 	data, err := io.ReadAll(in)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	// We always want to decode into the most recent format version.
 	var flat flatMetadata
 	if err := json.Unmarshal(data, &flat); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	switch flat.FormatVersion {
 	case 1:
 		return flat.inflate()
 	default:
-		return nil, errors.NotSupportedf("backup format %d", flat.FormatVersion)
+		return nil, errors.Errorf("backup format %d %w", flat.FormatVersion, coreerrors.NotSupported)
 	}
 }
 
@@ -297,7 +298,7 @@ func BuildMetadata(file *os.File) (*Metadata, error) {
 	// Extract the file size.
 	fi, err := file.Stat()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	size := fi.Size()
 
@@ -308,7 +309,7 @@ func BuildMetadata(file *os.File) (*Metadata, error) {
 	hasher := sha1.New()
 	_, err = io.Copy(hasher, file)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	rawsum := hasher.Sum(nil)
 	checksum := base64.StdEncoding.EncodeToString(rawsum)
@@ -321,7 +322,7 @@ func BuildMetadata(file *os.File) (*Metadata, error) {
 	meta.Controller = UnknownController()
 	err = meta.MarkComplete(size, checksum)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	meta.Finished = &timestamp
 	return meta, nil

@@ -4,9 +4,8 @@
 package modelconfig
 
 import (
-	"fmt"
-
-	"github.com/juju/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // ContainerNetworkingMethod defined a strong type for setting and reading the
@@ -47,6 +46,6 @@ func (c ContainerNetworkingMethod) Validate() error {
 		ContainerNetworkingMethodLocal:
 		return nil
 	default:
-		return fmt.Errorf("container networking method value %q %w", c, errors.NotValid)
+		return errors.Errorf("container networking method value %q %w", c, coreerrors.NotValid)
 	}
 }

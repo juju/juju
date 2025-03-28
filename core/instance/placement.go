@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/juju/names/v6"
+
+	"github.com/juju/juju/internal/errors"
 )
 
 const (
@@ -16,7 +18,7 @@ const (
 	MachineScope = "#"
 )
 
-var ErrPlacementScopeMissing = fmt.Errorf("placement scope missing")
+var ErrPlacementScopeMissing = errors.Errorf("placement scope missing")
 
 // Placement defines a placement directive, which has a scope
 // and a value that is scope-specific.
@@ -61,7 +63,7 @@ func ParsePlacement(directive string) (*Placement, error) {
 		}
 		// Sanity check: machine/container scopes require a machine ID as the value.
 		if (scope == MachineScope || isContainerType(scope)) && !names.IsValidMachine(directive) {
-			return nil, fmt.Errorf("invalid value %q for %q scope: expected machine-id", directive, scope)
+			return nil, errors.Errorf("invalid value %q for %q scope: expected machine-id", directive, scope)
 		}
 		return &Placement{Scope: scope, Directive: directive}, nil
 	}

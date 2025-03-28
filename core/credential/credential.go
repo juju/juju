@@ -6,10 +6,11 @@ package credential
 import (
 	"fmt"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -68,13 +69,13 @@ func (k Key) Tag() (names.CloudCredentialTag, error) {
 // currently set to it's zero value.
 func (k Key) Validate() error {
 	if k.Cloud == "" {
-		return fmt.Errorf("%w cloud cannot be empty", errors.NotValid)
+		return errors.Errorf("cloud cannot be empty").Add(coreerrors.NotValid)
 	}
 	if k.Name == "" {
-		return fmt.Errorf("%w name cannot be empty", errors.NotValid)
+		return errors.Errorf("name cannot be empty").Add(coreerrors.NotValid)
 	}
 	if k.Owner.IsZero() {
-		return fmt.Errorf("%w owner cannot be empty", errors.NotValid)
+		return errors.Errorf("owner cannot be empty").Add(coreerrors.NotValid)
 	}
 	return nil
 }
@@ -86,7 +87,7 @@ type UUID string
 func NewUUID() (UUID, error) {
 	uuid, err := uuid.NewUUID()
 	if err != nil {
-		return UUID(""), fmt.Errorf("creating new credential id: %w", err)
+		return UUID(""), errors.Errorf("creating new credential id: %w", err)
 	}
 	return UUID(uuid.String()), nil
 }
@@ -101,11 +102,11 @@ func (u UUID) String() string {
 // error satisfying [errors.NotValid] will be returned.
 func (u UUID) Validate() error {
 	if u == "" {
-		return fmt.Errorf("credential uuid cannot be empty%w", errors.Hide(errors.NotValid))
+		return errors.Errorf("credential uuid cannot be empty").Add(coreerrors.NotValid)
 	}
 
 	if !uuid.IsValidUUIDString(string(u)) {
-		return fmt.Errorf("credential uuid %q %w", u, errors.NotValid)
+		return errors.Errorf("credential uuid %q %w", u, coreerrors.NotValid)
 	}
 	return nil
 }

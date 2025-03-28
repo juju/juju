@@ -6,7 +6,6 @@ package eventsource
 import (
 	"context"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -65,7 +64,7 @@ func (s *consumeSuite) TestConsumeInitialEventWatcherStoppedNilErr(c *gc.C) {
 
 	res, err := ConsumeInitialEvent[[]string](context.Background(), s.watcher)
 	c.Assert(err, gc.ErrorMatches, "expected an error from .* got nil.*")
-	c.Assert(errors.Cause(err), gc.Equals, ErrWorkerStopped)
+	c.Assert(err, jc.ErrorIs, ErrWorkerStopped)
 	c.Assert(res, gc.IsNil)
 }
 

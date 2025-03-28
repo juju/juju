@@ -4,9 +4,8 @@
 package changestream
 
 import (
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/internal/errors"
 )
 
 // EventSource describes the ability to subscribe
@@ -39,7 +38,7 @@ type WatchableDBGetter interface {
 func NewTxnRunnerFactory(f WatchableDBFactory) database.TxnRunnerFactory {
 	return func() (database.TxnRunner, error) {
 		r, err := f()
-		return r, errors.Trace(err)
+		return r, errors.Capture(err)
 	}
 }
 
@@ -52,6 +51,6 @@ type WatchableDBFactory = func() (WatchableDB, error)
 func NewWatchableDBFactoryForNamespace[T WatchableDB](f func(string) (T, error), ns string) WatchableDBFactory {
 	return func() (WatchableDB, error) {
 		r, err := f(ns)
-		return r, errors.Trace(err)
+		return r, errors.Capture(err)
 	}
 }

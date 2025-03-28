@@ -5,10 +5,10 @@ package logger
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
-	"github.com/juju/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // LogRecord defines a single Juju log message as returned by
@@ -56,11 +56,11 @@ func (r *LogRecord) MarshalJSON() ([]byte, error) {
 func (r *LogRecord) UnmarshalJSON(data []byte) error {
 	var jrec logRecordJSON
 	if err := json.Unmarshal(data, &jrec); err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	level, ok := ParseLevelFromString(jrec.Level)
 	if !ok {
-		return fmt.Errorf("log level %q %w", jrec.Level, errors.NotValid)
+		return errors.Errorf("log level %q %w", jrec.Level, coreerrors.NotValid)
 	}
 	r.Time = jrec.Time
 	r.Entity = jrec.Entity

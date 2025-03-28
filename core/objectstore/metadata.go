@@ -6,9 +6,8 @@ package objectstore
 import (
 	"context"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/errors"
 )
 
 const (

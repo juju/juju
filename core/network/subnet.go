@@ -11,9 +11,10 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/internal/errors"
 )
 
 // SubnetInfo is a source-agnostic representation of a subnet.
@@ -70,7 +71,7 @@ func (s *SubnetInfo) Validate() error {
 	if s.CIDR == "" {
 		return errors.Errorf("missing CIDR")
 	} else if _, err := s.ParsedCIDRNetwork(); err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	if s.VLANTag < 0 || s.VLANTag > 4094 {
@@ -127,7 +128,7 @@ func (s SubnetInfos) GetByID(id Id) *SubnetInfo {
 // with a CIDR matching the input.
 func (s SubnetInfos) GetByCIDR(cidr string) (SubnetInfos, error) {
 	if !IsValidCIDR(cidr) {
-		return nil, errors.NotValidf("CIDR %q", cidr)
+		return nil, errors.Errorf("CIDR %q %w", cidr, coreerrors.NotValid)
 	}
 
 	var matching SubnetInfos
@@ -146,7 +147,7 @@ func (s SubnetInfos) GetByCIDR(cidr string) (SubnetInfos, error) {
 	// CIDR match fallback to a CIDR is sub-CIDR of check.
 	firstIP, lastIP, err := IPRangeForCIDR(cidr)
 	if err != nil {
-		return nil, errors.Annotatef(err, "unable to extract first and last IP addresses from CIDR %q", cidr)
+		return nil, errors.Errorf("unable to extract first and last IP addresses from CIDR %q: %w", cidr, err)
 	}
 
 	for _, sub := range s {
@@ -169,14 +170,14 @@ func (s SubnetInfos) GetByCIDR(cidr string) (SubnetInfos, error) {
 func (s SubnetInfos) GetByAddress(addr string) (SubnetInfos, error) {
 	ip := net.ParseIP(addr)
 	if ip == nil {
-		return nil, errors.NotValidf("%q as IP address", addr)
+		return nil, errors.Errorf("%q as IP address %w", addr, coreerrors.NotValid)
 	}
 
 	var subs SubnetInfos
 	for _, sub := range s {
 		ipNet, err := sub.ParsedCIDRNetwork()
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		if ipNet.Contains(ip) {
 			subs = append(subs, sub)
@@ -242,7 +243,7 @@ func FindSubnetIDsForAvailabilityZone(zoneName string, subnetsToZones map[Id][]s
 	}
 
 	if matchingSubnetIDs.IsEmpty() {
-		return nil, errors.NotFoundf("subnets in AZ %q", zoneName)
+		return nil, errors.Errorf("subnets in AZ %q %w", zoneName, coreerrors.NotFound)
 	}
 
 	sorted := make([]Id, matchingSubnetIDs.Size())
@@ -278,7 +279,7 @@ func IsInFanNetwork(network Id) bool {
 func IPRangeForCIDR(cidr string) (net.IP, net.IP, error) {
 	_, ipNet, err := net.ParseCIDR(cidr)
 	if err != nil {
-		return net.IP{}, net.IP{}, errors.Trace(err)
+		return net.IP{}, net.IP{}, errors.Capture(err)
 	}
 	ones, numBits := ipNet.Mask.Size()
 

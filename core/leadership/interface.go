@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/internal/errors"
 )
 
 // TODO (manadart 2018-10-05) Add interfaces to the end of this line,
@@ -54,7 +54,7 @@ func IsNotLeaderError(err error) bool {
 	if err == nil {
 		return false
 	}
-	_, ok := errors.Cause(err).(*notLeaderError)
+	_, ok := err.(*notLeaderError)
 	return ok
 }
 

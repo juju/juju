@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 )
 
 var (
@@ -27,7 +26,7 @@ type RequirementsNotSatisfiedError struct {
 // IsRequirementsNotSatisfiedError returns true if err is a
 // RequirementsNotSatisfiedError.
 func IsRequirementsNotSatisfiedError(err error) bool {
-	_, is := errors.Cause(err).(*RequirementsNotSatisfiedError)
+	_, is := err.(*RequirementsNotSatisfiedError)
 	return is
 }
 

@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Risk describes the type of risk in a current channel.
@@ -65,7 +66,7 @@ func MakeDefaultChannel(track string) Channel {
 // ParseChannel parses a string representing a channel.
 func ParseChannel(s string) (Channel, error) {
 	if s == "" {
-		return Channel{}, errors.NotValidf("empty channel")
+		return Channel{}, errors.Errorf("empty channel %w", coreerrors.NotValid)
 	}
 
 	p := strings.Split(s, "/")
@@ -84,7 +85,7 @@ func ParseChannel(s string) (Channel, error) {
 
 	if risk != nil {
 		if !isRisk(*risk) {
-			return Channel{}, errors.NotValidf("risk in channel %q", s)
+			return Channel{}, errors.Errorf("risk in channel %q %w", s, coreerrors.NotValid)
 		}
 		// We can lift this into a risk, as we've validated prior to this to
 		// ensure it's a valid risk.
@@ -92,7 +93,7 @@ func ParseChannel(s string) (Channel, error) {
 	}
 	if track != nil {
 		if *track == "" {
-			return Channel{}, errors.NotValidf("track in channel %q", s)
+			return Channel{}, errors.Errorf("track in channel %q %w", s, coreerrors.NotValid)
 		}
 		ch.Track = *track
 	}
@@ -104,7 +105,7 @@ func ParseChannel(s string) (Channel, error) {
 func ParseChannelNormalize(s string) (Channel, error) {
 	ch, err := ParseChannel(s)
 	if err != nil {
-		return Channel{}, errors.Trace(err)
+		return Channel{}, errors.Capture(err)
 	}
 	return ch.Normalize(), nil
 }

@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/mutex/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujutesting "github.com/juju/juju/internal/testing"
 )

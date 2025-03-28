@@ -111,7 +111,7 @@ func (s *MachinerSuite) testMachinerMachineRefreshNotFoundOrUnauthorized(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
-	c.Assert(errors.Cause(err), gc.Equals, jworker.ErrTerminateAgent)
+	c.Assert(err, jc.ErrorIs, jworker.ErrTerminateAgent)
 }
 
 func (s *MachinerSuite) TestMachinerSetStatusStopped(c *gc.C) {

@@ -4,9 +4,9 @@
 package permission
 
 import (
-	"github.com/juju/errors"
-
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/internal/errors"
 )
 
 // EveryoneUserName represents a special user that is has the base permission
@@ -65,7 +65,7 @@ type UserAccessSpec struct {
 // returned.
 func (u UserAccessSpec) Validate() error {
 	if u.User.IsZero() {
-		return errors.NotValidf("empty user")
+		return errors.Errorf("empty user %w", coreerrors.NotValid)
 	}
 	if err := u.AccessSpec.Validate(); err != nil {
 		return err

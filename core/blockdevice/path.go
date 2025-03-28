@@ -6,7 +6,7 @@ package blockdevice
 import (
 	"path"
 
-	"github.com/juju/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 const (

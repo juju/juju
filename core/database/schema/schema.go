@@ -7,9 +7,8 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Tx describes the ability to execute a SQL statement within a transaction.
@@ -38,7 +37,7 @@ func MakePatch(statement string, args ...any) Patch {
 	return Patch{
 		run: func(ctx context.Context, tx Tx) error {
 			_, err := tx.ExecContext(ctx, statement, args...)
-			return errors.Trace(err)
+			return errors.Capture(err)
 		},
 		hash: computeHash(statement),
 		stmt: statement,
@@ -97,22 +96,22 @@ func (s *Schema) Ensure(ctx context.Context, runner database.TxnRunner) (ChangeS
 	current, post := -1, -1
 	err := runner.StdTxn(ctx, func(ctx context.Context, t *sql.Tx) error {
 		if err := createSchemaTable(ctx, t); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 
 		hashes := computeHashes(s.patches)
 
 		var err error
 		if current, err = queryCurrentVersion(ctx, t, hashes); err != nil {
-			return errors.Annotatef(err, "failed to query current schema version")
+			return errors.Errorf("failed to query current schema version: %w", err)
 		}
 
 		if err := ensurePatchesAreApplied(ctx, t, current, s.patches, s.hook); err != nil {
-			return errors.Annotatef(err, "failed to apply schema patches")
+			return errors.Errorf("failed to apply schema patches: %w", err)
 		}
 
 		if post, err = queryCurrentVersion(ctx, t, hashes); err != nil {
-			return errors.Annotatef(err, "failed to query post schema version")
+			return errors.Errorf("failed to query post schema version: %w", err)
 		}
 
 		return nil
@@ -120,7 +119,7 @@ func (s *Schema) Ensure(ctx context.Context, runner database.TxnRunner) (ChangeS
 	return ChangeSet{
 		Current: current,
 		Post:    post,
-	}, errors.Trace(err)
+	}, errors.Capture(err)
 }
 
 // omitHook always returns a nil, omitting the error.

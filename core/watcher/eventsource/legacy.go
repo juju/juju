@@ -6,9 +6,10 @@ package eventsource
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
+
+	"github.com/juju/juju/internal/errors"
 )
 
 // StringsNotifyWatcher wraps a Watcher[[]string] and provides a
@@ -31,7 +32,7 @@ func NewStringsNotifyWatcher(watcher Watcher[[]string]) (*StringsNotifyWatcher, 
 		Work: w.loop,
 		Init: []worker.Worker{watcher},
 	}); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	return &w, nil
@@ -119,7 +120,7 @@ func NewMultiWatcher[T any](ctx context.Context, applier Applier[T], watchers ..
 	for i, w := range watchers {
 		_, err := ConsumeInitialEvent[T](ctx, w)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 
 		workers[i] = w
@@ -136,7 +137,7 @@ func NewMultiWatcher[T any](ctx context.Context, applier Applier[T], watchers ..
 		Work: w.loop,
 		Init: workers,
 	}); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	for _, watcher := range watchers {

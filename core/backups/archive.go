@@ -11,10 +11,10 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/juju/errors"
 	"github.com/juju/utils/v4/tar"
 
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/internal/errors"
 )
 
 const (
@@ -84,7 +84,7 @@ type ArchiveWorkspace struct {
 func newArchiveWorkspace() (*ArchiveWorkspace, error) {
 	rootdir, err := os.MkdirTemp("", "juju-backups-")
 	if err != nil {
-		return nil, errors.Annotate(err, "while creating workspace dir")
+		return nil, errors.Errorf("while creating workspace dir: %w", err)
 	}
 
 	ws := ArchiveWorkspace{
@@ -102,37 +102,37 @@ func newArchiveWorkspace() (*ArchiveWorkspace, error) {
 func NewArchiveWorkspaceReader(archive io.Reader) (*ArchiveWorkspace, error) {
 	ws, err := newArchiveWorkspace()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	err = unpackCompressedReader(ws.RootDir, archive)
-	return ws, errors.Trace(err)
+	return ws, errors.Capture(err)
 }
 
 func unpackCompressedReader(targetDir string, tarFile io.Reader) error {
 	tarFile, err := gzip.NewReader(tarFile)
 	if err != nil {
-		return errors.Annotate(err, "while uncompressing archive file")
+		return errors.Errorf("while uncompressing archive file: %w", err)
 	}
 	err = tar.UntarFiles(tarFile, targetDir)
-	return errors.Trace(err)
+	return errors.Capture(err)
 }
 
 // Close cleans up the workspace dir.
 func (ws *ArchiveWorkspace) Close() error {
 	err := os.RemoveAll(ws.RootDir)
-	return errors.Trace(err)
+	return errors.Capture(err)
 }
 
 // UnpackFilesBundle unpacks the archived files bundle into the targeted dir.
 func (ws *ArchiveWorkspace) UnpackFilesBundle(targetRoot string) error {
 	tarFile, err := os.Open(ws.FilesBundle)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	defer func() { _ = tarFile.Close() }()
 
 	err = tar.UntarFiles(tarFile, targetRoot)
-	return errors.Trace(err)
+	return errors.Capture(err)
 }
 
 // OpenBundledFile returns an open ReadCloser for the corresponding file in
@@ -144,13 +144,13 @@ func (ws *ArchiveWorkspace) OpenBundledFile(filename string) (io.Reader, error) 
 
 	tarFile, err := os.Open(ws.FilesBundle)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	_, file, err := tar.FindFile(tarFile, filename)
 	if err != nil {
 		_ = tarFile.Close()
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	return file, nil
 }
@@ -159,12 +159,12 @@ func (ws *ArchiveWorkspace) OpenBundledFile(filename string) (io.Reader, error) 
 func (ws *ArchiveWorkspace) Metadata() (*Metadata, error) {
 	metaFile, err := os.Open(ws.MetadataFile)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	defer func() { _ = metaFile.Close() }()
 
 	meta, err := NewMetadataJSONReader(metaFile)
-	return meta, errors.Trace(err)
+	return meta, errors.Capture(err)
 }
 
 // ArchiveData is a wrapper around a the uncompressed data in a backup
@@ -194,13 +194,13 @@ func NewArchiveData(data []byte) *ArchiveData {
 func NewArchiveDataReader(r io.Reader) (*ArchiveData, error) {
 	gzr, err := gzip.NewReader(r)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	defer func() { _ = gzr.Close() }()
 
 	data, err := io.ReadAll(gzr)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	return NewArchiveData(data), nil
@@ -217,11 +217,11 @@ func (ad *ArchiveData) Metadata() (*Metadata, error) {
 	buf := ad.NewBuffer()
 	_, metaFile, err := tar.FindFile(buf, ad.MetadataFile)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	meta, err := NewMetadataJSONReader(metaFile)
-	return meta, errors.Trace(err)
+	return meta, errors.Capture(err)
 }
 
 // Version returns the juju version under which the backup archive
@@ -231,7 +231,7 @@ func (ad *ArchiveData) Metadata() (*Metadata, error) {
 func (ad *ArchiveData) Version() (*semversion.Number, error) {
 	meta, err := ad.Metadata()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	return &meta.Origin.Version, nil
 }

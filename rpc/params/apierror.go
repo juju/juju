@@ -17,6 +17,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	interrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 )
 
@@ -344,14 +345,24 @@ func TranslateWellKnownError(err error) error {
 // is none.
 func ErrCode(err error) string {
 	type ErrorCoder interface {
+		error
 		ErrorCode() string
 	}
-	switch err := errors.Cause(err).(type) {
-	case ErrorCoder:
-		return err.ErrorCode()
-	default:
-		return ""
+
+	// NOTE (tlm):
+	// Don't remove this line!!!!
+	// Because we use a very outdated http request library it still wraps some
+	// of it's errors with errgo pkg. We need Cause here to potentially pull
+	// out errors from this library.
+	//
+	// The soon we remove httprequest from Juju the better life will be.
+	err = errors.Cause(err)
+
+	coder, is := interrors.AsType[ErrorCoder](err)
+	if is {
+		return coder.ErrorCode()
 	}
+	return ""
 }
 
 func IsCodeActionNotAvailable(err error) bool {

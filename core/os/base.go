@@ -6,9 +6,8 @@ package os
 import (
 	"sync"
 
-	"github.com/juju/errors"
-
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/errors"
 )
 
 var (
@@ -28,7 +27,7 @@ func hostBase() (corebase.Base, error) {
 	baseOnce.Do(func() {
 		base, err = readBase()
 		if err != nil {
-			baseErr = errors.Annotate(err, "cannot determine host base")
+			baseErr = errors.Errorf("cannot determine host base: %w", err)
 		}
 	})
 	return base, baseErr

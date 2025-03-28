@@ -7,7 +7,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/juju/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // GetObservedNetworkConfig uses the given source to find all available network
@@ -33,7 +33,7 @@ func GetObservedNetworkConfig(source ConfigSource) (InterfaceInfos, error) {
 
 	interfaces, err := source.Interfaces()
 	if err != nil {
-		return nil, errors.Annotate(err, "detecting network interfaces")
+		return nil, errors.Errorf("detecting network interfaces: %w", err)
 	}
 	if len(interfaces) == 0 {
 		logger.Tracef(context.TODO(), "no network interfaces")
@@ -44,12 +44,12 @@ func GetObservedNetworkConfig(source ConfigSource) (InterfaceInfos, error) {
 	if err != nil {
 		// NOTE(achilleasa): we will only get an error here if we do
 		// locate the OVS cli tools and get an error executing them.
-		return nil, errors.Annotate(err, "querying OVS bridges")
+		return nil, errors.Errorf("querying OVS bridges: %w", err)
 	}
 
 	defaultRoute, defaultRouteDevice, err := source.DefaultRoute()
 	if err != nil {
-		return nil, errors.Annotate(err, "retrieving default route")
+		return nil, errors.Errorf("retrieving default route: %w", err)
 	}
 
 	var configs InterfaceInfos
@@ -77,7 +77,7 @@ func GetObservedNetworkConfig(source ConfigSource) (InterfaceInfos, error) {
 
 		nicAddrs, err := nic.Addresses()
 		if err != nil {
-			return nil, errors.Annotatef(err, "detecting addresses for %q", nic.Name())
+			return nil, errors.Errorf("detecting addresses for %q: %w", nic.Name(), err)
 		}
 
 		if len(nicAddrs) > 0 {
@@ -95,7 +95,7 @@ func GetObservedNetworkConfig(source ConfigSource) (InterfaceInfos, error) {
 
 			nicConfig.Addresses, err = addressesToConfig(nicConfig, nicAddrs)
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Capture(err)
 			}
 		} else {
 			noAddressesNics = append(noAddressesNics, nic.Name())

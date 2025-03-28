@@ -6,8 +6,10 @@ package instance
 import (
 	"strings"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // uuidSuffixDigits defines how many of the uuid digits to use.
@@ -40,7 +42,7 @@ type namespace struct {
 // model UUID. NewNamespace returns an error if the model tag is invalid.
 func NewNamespace(modelUUID string) (Namespace, error) {
 	if !names.IsValidModel(modelUUID) {
-		return nil, errors.NotValidf("model UUID %q", modelUUID)
+		return nil, errors.Errorf("model UUID %q %w", modelUUID, coreerrors.NotValid)
 	}
 	// The suffix is the last six hex digits of the model uuid.
 	suffix := modelUUID[len(modelUUID)-uuidSuffixDigits:]

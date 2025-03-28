@@ -9,7 +9,8 @@ import (
 	"net"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
+
+	"github.com/juju/juju/internal/errors"
 )
 
 // netAddr implements ConfigSourceAddr based on an address in string form.
@@ -37,7 +38,7 @@ func newNetAddr(a string) (*netAddr, error) {
 
 	if ip == nil {
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		return nil, errors.Errorf("unable to parse IP address %q", a)
 	}
@@ -118,7 +119,7 @@ func (n *netNIC) HardwareAddr() net.HardwareAddr {
 func (n *netNIC) Addresses() ([]ConfigSourceAddr, error) {
 	addrs, err := n.nic.Addrs()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	result := make([]ConfigSourceAddr, 0, len(addrs))
@@ -126,7 +127,7 @@ func (n *netNIC) Addresses() ([]ConfigSourceAddr, error) {
 		if addr.String() != "" {
 			a, err := newNetAddr(addr.String())
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Capture(err)
 			}
 
 			result = append(result, a)
@@ -154,7 +155,7 @@ type netPackageConfigSource struct {
 func (s *netPackageConfigSource) Interfaces() ([]ConfigSourceNIC, error) {
 	nics, err := s.interfaces()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	parseType := func(name string) LinkLayerDeviceType { return ParseInterfaceType(s.sysClassNetPath, name) }

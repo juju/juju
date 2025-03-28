@@ -9,7 +9,7 @@ import (
 	"os/user"
 	"strconv"
 
-	"github.com/juju/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // LogfilePermission is the file mode to use for log files.
@@ -27,19 +27,19 @@ func SetSyslogOwner(filename string) error {
 func SetOwnership(filePath string, wantedUser string, wantedGroup string) error {
 	group, err := user.LookupGroup(wantedGroup)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	gid, err := strconv.Atoi(group.Gid)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	usr, err := user.Lookup(wantedUser)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	uid, err := strconv.Atoi(usr.Uid)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	return Chown(filePath, uid, gid)
 }
@@ -49,10 +49,10 @@ func SetOwnership(filePath string, wantedUser string, wantedGroup string) error 
 func PrimeLogFile(path string) error {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, LogfilePermission)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	if err := f.Close(); err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	return SetSyslogOwner(path)
 }

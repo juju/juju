@@ -4,7 +4,8 @@
 package life
 
 import (
-	"github.com/juju/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Value indicates the state of some entity.
@@ -28,7 +29,7 @@ func (v Value) Validate() error {
 	case Alive, Dying, Dead:
 		return nil
 	}
-	return errors.NotValidf("life value %q", v)
+	return errors.Errorf("life value %q %w", v, coreerrors.NotValid)
 }
 
 // Predicate is a predicate.

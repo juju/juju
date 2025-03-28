@@ -6,12 +6,12 @@ package providertracker
 import (
 	"context"
 
-	"github.com/juju/errors"
-
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -88,12 +88,12 @@ func ProviderRunner[T any](providerFactory ProviderFactory, namespace string) fu
 	return func(ctx context.Context) (T, error) {
 		p, err := providerFactory.ProviderForModel(ctx, namespace)
 		if err != nil {
-			return zero, errors.Trace(err)
+			return zero, errors.Capture(err)
 		}
 		if v, ok := p.(T); ok {
 			return v, nil
 		}
-		return zero, errors.NotSupportedf("provider type %T", zero)
+		return zero, errors.Errorf("provider type %T %w", zero, coreerrors.NotSupported)
 	}
 }
 
@@ -106,13 +106,13 @@ func EphemeralProviderRunnerFromConfig[T any](providerFactory ProviderFactory, c
 	return func(ctx context.Context, fn func(context.Context, T) error) error {
 		provider, err := providerFactory.EphemeralProviderFromConfig(ctx, config)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		if v, ok := provider.(T); ok {
 			return fn(ctx, v)
 		}
 
 		var zero T
-		return errors.NotSupportedf("provider type %T", zero)
+		return errors.Errorf("provider type %T %w", zero, coreerrors.NotSupported)
 	}
 }

@@ -6,12 +6,12 @@ package providertracker
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -58,7 +58,7 @@ func (s *providerSuite) TestProviderRunnerIsNotSubsetType(c *gc.C) {
 
 	runner := ProviderRunner[BarProvider](s.providerFactory, "foo")
 	_, err := runner(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotSupported)
 }
 
 func (s *providerSuite) TestEphemeralProviderRunnerFromConfig(c *gc.C) {
@@ -123,7 +123,7 @@ func (s *providerSuite) TestEphemeralProviderRunnerFromConfigIsNotSubsetType(c *
 		c.Fail()
 		return nil
 	})
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotSupported)
 }
 
 func (s *providerSuite) setupMocks(c *gc.C) *gomock.Controller {

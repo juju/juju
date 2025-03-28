@@ -4,10 +4,11 @@
 package lxdprofile
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/juju/collections/set"
+
+	"github.com/juju/juju/internal/errors"
 )
 
 type LXDProfiles struct {
@@ -44,7 +45,7 @@ func (p Profile) ValidateConfigDevices() error {
 		goodDevs := set.NewStrings("unix-char", "unix-block", "gpu", "usb")
 		if devType, ok := val["type"]; ok {
 			if !goodDevs.Contains(devType) {
-				return fmt.Errorf("invalid lxd-profile: contains device type %q", devType)
+				return errors.Errorf("invalid lxd-profile: contains device type %q", devType)
 			}
 		}
 	}
@@ -52,7 +53,7 @@ func (p Profile) ValidateConfigDevices() error {
 		if strings.HasPrefix(key, "boot") ||
 			strings.HasPrefix(key, "limits") ||
 			strings.HasPrefix(key, "migration") {
-			return fmt.Errorf("invalid lxd-profile: contains config value %q", key)
+			return errors.Errorf("invalid lxd-profile: contains config value %q", key)
 		}
 	}
 	return nil

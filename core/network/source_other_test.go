@@ -55,7 +55,7 @@ func (s *sourceOtherSuite) TestNewNetAddr(c *gc.C) {
 	c.Assert(addr.IPNet(), gc.IsNil)
 
 	addr, err = newNetAddr("y u no parse")
-	c.Assert(err, gc.ErrorMatches, `unable to parse IP address "y u no parse"`)
+	c.Assert(err, gc.ErrorMatches, `invalid CIDR address: y u no parse`)
 }
 
 func (s *sourceOtherSuite) TestConfigSourceInterfaces(c *gc.C) {

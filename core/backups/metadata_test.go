@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	"time" // Only used for time types and funcs, not Now().
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/backups"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/testing"
 )
@@ -203,7 +203,7 @@ func (s *metadataSuite) TestNewMetadataJSONReaderUnsupported(c *gc.C) {
 		`}` + "\n")
 	meta, err := backups.NewMetadataJSONReader(file)
 	c.Assert(meta, gc.IsNil)
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotSupported)
 }
 
 func (s *metadataSuite) TestBuildMetadata(c *gc.C) {

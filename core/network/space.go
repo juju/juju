@@ -11,7 +11,9 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
+
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 const (
@@ -86,7 +88,7 @@ func (s SpaceInfos) AllSubnetInfos() (SubnetInfos, error) {
 func (s SpaceInfos) MoveSubnets(subnetIDs IDSet, spaceName string) (SpaceInfos, error) {
 	newSpace := s.GetByName(spaceName)
 	if newSpace == nil {
-		return nil, errors.NotFoundf("space with name %q", spaceName)
+		return nil, errors.Errorf("space with name %q %w", spaceName, coreerrors.NotFound)
 	}
 
 	// We return a copy, not mutating the original.
@@ -118,7 +120,7 @@ func (s SpaceInfos) MoveSubnets(subnetIDs IDSet, spaceName string) (SpaceInfos, 
 
 	// Ensure that the input did not include subnets not in this collection.
 	if diff := subnetIDs.Difference(found); len(diff) != 0 {
-		return nil, errors.NotFoundf("subnet IDs %v", diff.SortedValues())
+		return nil, errors.Errorf("subnet IDs %v %w", diff.SortedValues(), coreerrors.NotFound)
 	}
 
 	// Then put them against the new one.
@@ -224,7 +226,7 @@ nextSpace:
 			ipNet, err := subnet.ParsedCIDRNetwork()
 			if err != nil {
 				// Subnets should always have a valid CIDR
-				return nil, errors.Trace(err)
+				return nil, errors.Capture(err)
 			}
 
 			if ipNet.Contains(ip) {
@@ -239,12 +241,13 @@ nextSpace:
 
 				return nil, errors.Errorf(
 					"unable to infer space for address %q: address matches the same CIDR in multiple spaces", addr)
+
 			}
 		}
 	}
 
 	if match == nil {
-		return nil, errors.NewNotFound(nil, fmt.Sprintf("unable to infer space for address %q", addr))
+		return nil, errors.New(fmt.Sprintf("unable to infer space for address %q", addr)).Add(coreerrors.NotFound)
 	}
 	return match, nil
 }
@@ -258,8 +261,7 @@ func (s SpaceInfos) InferSpaceFromCIDRAndSubnetID(cidr, providerSubnetID string)
 		}
 	}
 
-	return nil, errors.NewNotFound(
-		nil, fmt.Sprintf("unable to infer space for CIDR %q and provider subnet ID %q", cidr, providerSubnetID))
+	return nil, errors.New(fmt.Sprintf("unable to infer space for CIDR %q and provider subnet ID %q", cidr, providerSubnetID)).Add(coreerrors.NotFound)
 }
 
 // SubnetCIDRsBySpaceID returns the set of known subnet CIDRs grouped by the

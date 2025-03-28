@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/errors"
-
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Resource defines a single resource within a Juju model.
@@ -70,16 +70,16 @@ func (res Resource) Validate() error {
 	// case?
 
 	if err := res.Resource.Validate(); err != nil {
-		return errors.Annotate(err, "bad info")
+		return errors.Errorf("bad info: %w", err)
 	}
 
 	if res.ApplicationName == "" {
-		return errors.Annotate(errors.NotValid, "missing application name")
+		return errors.Errorf("missing application name: %w", coreerrors.NotValid)
 	}
 
 	// TODO(ericsnow) Require that RetrievedBy be set if timestamp is?
 	if res.Timestamp.IsZero() && res.RetrievedBy != "" {
-		return errors.NewNotValid(nil, "missing timestamp")
+		return errors.New("missing timestamp").Add(coreerrors.NotValid)
 	}
 
 	return nil

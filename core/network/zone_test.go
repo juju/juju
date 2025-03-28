@@ -4,10 +4,11 @@
 package network
 
 import (
-	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	coreerrors "github.com/juju/juju/core/errors"
 )
 
 type zoneSuite struct {
@@ -30,7 +31,7 @@ func (s *zoneSuite) SetUpTest(c *gc.C) {
 func (s *zoneSuite) TestAvailabilityZones(c *gc.C) {
 	c.Assert(s.zones.Validate("zone1"), jc.ErrorIsNil)
 	c.Assert(s.zones.Validate("zone2"), gc.ErrorMatches, `zone "zone2" is unavailable`)
-	c.Assert(s.zones.Validate("zone3"), jc.ErrorIs, errors.NotValid)
+	c.Assert(s.zones.Validate("zone3"), jc.ErrorIs, coreerrors.NotValid)
 }
 
 type az struct {

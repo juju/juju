@@ -5,7 +5,9 @@ package auditlog
 
 import (
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
+
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Config holds parameters to control audit logging.
@@ -36,7 +38,7 @@ type Config struct {
 // Validate checks the audit logging configuration.
 func (cfg Config) Validate() error {
 	if cfg.Enabled && cfg.Target == nil {
-		return errors.NewNotValid(nil, "logging enabled but no target provided")
+		return errors.New("logging enabled but no target provided").Add(coreerrors.NotValid)
 	}
 	return nil
 }

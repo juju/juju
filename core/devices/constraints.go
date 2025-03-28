@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 var deviceParseErr = errors.Errorf("cannot parse device constraints string, supported format is [<count>,]<device-class>|<vendor/type>[,<key>=<value>;...]")

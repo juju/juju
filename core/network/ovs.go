@@ -8,7 +8,8 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
+
+	"github.com/juju/juju/internal/errors"
 )
 
 // Overridden by tests
@@ -19,7 +20,7 @@ var getCommandOutput = func(cmd *exec.Cmd) ([]byte, error) { return cmd.Output()
 func OvsManagedBridgeInterfaces(ifaceList InterfaceInfos) (InterfaceInfos, error) {
 	ovsBridges, err := OvsManagedBridges()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 
 	return ifaceList.Filter(func(iface InterfaceInfo) bool {
@@ -32,7 +33,7 @@ func OvsManagedBridgeInterfaces(ifaceList InterfaceInfos) (InterfaceInfos, error
 func OvsManagedBridges() (set.Strings, error) {
 	haveOvsCli, err := ovsToolsAvailable()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	} else if !haveOvsCli { // nothing to do if the tools are missing
 		return nil, nil
 	}
@@ -40,7 +41,7 @@ func OvsManagedBridges() (set.Strings, error) {
 	// Query list of ovs-managed device names
 	res, err := getCommandOutput(exec.Command("ovs-vsctl", "list-br"))
 	if err != nil {
-		return nil, errors.Annotate(err, "querying ovs-managed bridges via ovs-vsctl")
+		return nil, errors.Errorf("querying ovs-managed bridges via ovs-vsctl: %w", err)
 	}
 
 	ovsBridges := set.NewStrings()
@@ -59,7 +60,7 @@ func ovsToolsAvailable() (bool, error) {
 			return false, nil
 		}
 
-		return false, errors.Annotate(err, "looking for ovs-vsctl")
+		return false, errors.Errorf("looking for ovs-vsctl: %w", err)
 	}
 
 	return true, nil

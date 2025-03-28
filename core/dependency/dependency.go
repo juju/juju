@@ -4,8 +4,9 @@
 package dependency
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/worker/v4/dependency"
+
+	"github.com/juju/juju/internal/errors"
 )
 
 // GetDependencyByName is a helper function that gets a dependency by name and
@@ -16,7 +17,7 @@ func GetDependencyByName[A, B any](getter dependency.Getter, name string, fn fun
 	var dependency A
 	if err := getter.Get(name, &dependency); err != nil {
 		var b B
-		return b, errors.Trace(err)
+		return b, errors.Capture(err)
 	}
 
 	return fn(dependency), nil

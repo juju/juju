@@ -5,11 +5,11 @@ package network_test
 
 import (
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
 )
 
@@ -141,10 +141,10 @@ func (s *spaceSuite) TestAllSubnetInfos(c *gc.C) {
 
 func (s *spaceSuite) TestMoveSubnets(c *gc.C) {
 	_, err := s.spaces.MoveSubnets(network.MakeIDSet("11", "12"), "space4")
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, jc.ErrorIs, coreerrors.NotFound)
 
 	_, err = s.spaces.MoveSubnets(network.MakeIDSet("666"), "space3")
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, jc.ErrorIs, coreerrors.NotFound)
 
 	spaces, err := s.spaces.MoveSubnets(network.MakeIDSet("11", "12"), "space3")
 	c.Assert(err, jc.ErrorIsNil)

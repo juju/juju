@@ -3,7 +3,10 @@
 
 package firewall
 
-import "github.com/juju/errors"
+import (
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
+)
 
 const (
 	// SSHRule is a rule for SSH connections.
@@ -24,5 +27,5 @@ func (v WellKnownServiceType) Validate() error {
 	case SSHRule, JujuControllerRule, JujuApplicationOfferRule:
 		return nil
 	}
-	return errors.NotValidf("well known service type %q", v)
+	return errors.Errorf("well known service type %q %w", v, coreerrors.NotValid)
 }

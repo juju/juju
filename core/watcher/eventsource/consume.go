@@ -7,8 +7,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
+
+	"github.com/juju/juju/internal/errors"
 )
 
 const (
@@ -41,7 +42,7 @@ func ConsumeInitialEvent[T any](ctx context.Context, w Watcher[T]) (T, error) {
 		// Note: we can't use the context deadline here, as it might already
 		// be expired, so just use the default timeout.
 		_ = killAndWait(w, defaultWorkerStoppingTimeout)
-		return *new(T), errors.Trace(ctx.Err())
+		return *new(T), errors.Capture(ctx.Err())
 
 	case changes, ok := <-w.Changes():
 		if ok {
@@ -58,9 +59,9 @@ func ConsumeInitialEvent[T any](ctx context.Context, w Watcher[T]) (T, error) {
 		// kill the worker and wait for the error.
 		err := killAndWait(w, timeout)
 		if err != nil {
-			return changes, errors.Trace(err)
+			return changes, errors.Capture(err)
 		}
-		return changes, errors.Annotatef(ErrWorkerStopped, "expected an error from %T, got nil", w)
+		return changes, errors.Errorf("expected an error from %T, got nil: %w", w, ErrWorkerStopped)
 	}
 }
 
@@ -82,7 +83,7 @@ func killAndWait[T any](w Watcher[T], timeout time.Duration) error {
 	}()
 	select {
 	case err := <-waitErr:
-		return errors.Trace(err)
+		return errors.Capture(err)
 	case <-time.After(timeout):
 		return ErrWorkerNotStopping
 	}

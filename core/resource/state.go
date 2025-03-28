@@ -3,9 +3,7 @@
 
 package resource
 
-import (
-	"github.com/juju/juju/internal/errors"
-)
+import "github.com/juju/juju/internal/errors"
 
 // These are the valid resource states.
 const (

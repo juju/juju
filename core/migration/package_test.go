@@ -27,6 +27,7 @@ func (*ImportTest) TestImports(c *gc.C) {
 	// If this test fails with a non-core package, please check the dependencies.
 	c.Assert(found, jc.SameContents, []string{
 		"core/credential",
+		"core/errors",
 		"core/life",
 		"core/logger",
 		"core/model",

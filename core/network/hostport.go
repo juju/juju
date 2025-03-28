@@ -10,7 +10,8 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
+
+	"github.com/juju/juju/internal/errors"
 )
 
 // HostPort describes methods on an object that
@@ -142,11 +143,11 @@ func NewMachineHostPorts(port int, addresses ...string) MachineHostPorts {
 func ParseMachineHostPort(hp string) (*MachineHostPort, error) {
 	host, port, err := net.SplitHostPort(hp)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot parse %q as address:port", hp)
+		return nil, errors.Errorf("cannot parse %q as address:port: %w", hp, err)
 	}
 	numPort, err := strconv.Atoi(port)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot parse %q port", hp)
+		return nil, errors.Errorf("cannot parse %q port: %w", hp, err)
 	}
 	return &MachineHostPort{
 		MachineAddress: NewMachineAddress(host),
@@ -215,7 +216,7 @@ func ParseProviderHostPorts(hostPorts ...string) (ProviderHostPorts, error) {
 	for i, hp := range hostPorts {
 		mhp, err := ParseMachineHostPort(hp)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Capture(err)
 		}
 		hps[i] = ProviderHostPort{
 			ProviderAddress: ProviderAddress{MachineAddress: mhp.MachineAddress},

@@ -6,11 +6,12 @@ package context
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
+
+	"github.com/juju/juju/internal/errors"
 )
 
 type contextSuite struct {

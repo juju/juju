@@ -6,7 +6,7 @@ package paths
 import (
 	"os"
 
-	"github.com/juju/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // LogfilePermission is the file mode to use for log files.
@@ -31,9 +31,9 @@ func SetOwnership(filePath string, wantedUser string, wantedGroup string) error 
 func PrimeLogFile(path string) error {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, LogfilePermission)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
-	return errors.Trace(f.Close())
+	return errors.Capture(f.Close())
 }
 
 // SyslogUserGroup returns the names of the user and group that own the log files.

@@ -19,6 +19,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	interrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -61,8 +62,8 @@ var singletonErrorCodes = map[errors.ConstError]string{
 	stateerrors.ErrDead:                          params.CodeDead,
 	stateerrors.ErrApplicationShouldNotHaveUnits: params.CodeAppShouldNotHaveUnits,
 	jujutxn.ErrExcessiveContention:               params.CodeExcessiveContention, // TODO(dqlite): remove jujutxn.ErrExcessiveContention from api errors
-	leadership.ErrClaimDenied:                    params.CodeLeadershipClaimDenied,
-	lease.ErrClaimDenied:                         params.CodeLeaseClaimDenied,
+	errors.ConstError(leadership.ErrClaimDenied): params.CodeLeadershipClaimDenied,
+	errors.ConstError(lease.ErrClaimDenied):      params.CodeLeaseClaimDenied,
 	ErrBadId:                                     params.CodeNotFound,
 	ErrUnauthorized:                              params.CodeUnauthorized,
 	ErrNoCreds:                                   params.CodeNoCreds,
@@ -87,6 +88,10 @@ func ParamsErrorf(code string, format string, a ...any) *params.Error {
 func singletonCode(err error) (string, bool) {
 	if e, is := errors.AsType[errors.ConstError](err); is {
 		code, ok := singletonErrorCodes[e]
+		return code, ok
+	}
+	if e, is := errors.AsType[interrors.ConstError](err); is {
+		code, ok := singletonErrorCodes[errors.ConstError(e)]
 		return code, ok
 	}
 	return "", false

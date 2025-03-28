@@ -11,7 +11,9 @@ import (
 	"sort"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
+
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Private and special use network ranges for IPv4 and IPv6.
@@ -271,12 +273,12 @@ func (a MachineAddress) ValueWithMask() (string, error) {
 	// TODO (manadart 2021-03-16): Rethink this as we clean up InterfaceInfos
 	// and its corresponding wire type.
 	if a.Value == "" || a.CIDR == "" {
-		return "", errors.NotFoundf("address and CIDR pair (%q, %q)", a.Value, a.CIDR)
+		return "", errors.Errorf("address and CIDR pair (%q, %q) %w", a.Value, a.CIDR, coreerrors.NotFound)
 	}
 
 	_, ipNet, err := net.ParseCIDR(a.CIDR)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Capture(err)
 	}
 
 	ip := a.IP()
@@ -430,7 +432,7 @@ var InterfaceAddrs = func() ([]net.Addr, error) {
 func IsLocalAddress(ip net.IP) (bool, error) {
 	addrs, err := InterfaceAddrs()
 	if err != nil {
-		return false, errors.Trace(err)
+		return false, errors.Capture(err)
 	}
 
 	for _, addr := range addrs {
@@ -530,7 +532,7 @@ func (pas ProviderAddresses) ToSpaceAddresses(spaceInfos SpaceInfos) (SpaceAddre
 		if pa.SpaceName != "" {
 			info := spaceInfos.GetByName(string(pa.SpaceName))
 			if info == nil {
-				return nil, errors.NotFoundf("space with name %q", pa.SpaceName)
+				return nil, errors.Errorf("space with name %q %w", pa.SpaceName, coreerrors.NotFound)
 			}
 			sas[i].SpaceID = info.ID
 			continue
@@ -630,7 +632,7 @@ func (sas SpaceAddresses) ToProviderAddresses(spaceInfos SpaceInfos) (ProviderAd
 		if sa.SpaceID != "" {
 			info := spaceInfos.GetByID(sa.SpaceID)
 			if info == nil {
-				return nil, errors.NotFoundf("space with ID %q", sa.SpaceID)
+				return nil, errors.Errorf("space with ID %q %w", sa.SpaceID, coreerrors.NotFound)
 			}
 			pas[i].SpaceName = info.Name
 			pas[i].ProviderSpaceID = info.ProviderId
@@ -857,7 +859,7 @@ type SpaceAddressCandidate interface {
 func ConvertToSpaceAddress(addr SpaceAddressCandidate, lookup SubnetLookup) (SpaceAddress, error) {
 	subnets, err := lookup.AllSubnetInfos()
 	if err != nil {
-		return SpaceAddress{}, errors.Trace(err)
+		return SpaceAddress{}, errors.Capture(err)
 	}
 
 	cidr := addr.SubnetCIDR()
@@ -875,7 +877,7 @@ func ConvertToSpaceAddress(addr SpaceAddressCandidate, lookup SubnetLookup) (Spa
 	if cidr != "" {
 		allMatching, err := subnets.GetByCIDR(cidr)
 		if err != nil {
-			return SpaceAddress{}, errors.Trace(err)
+			return SpaceAddress{}, errors.Capture(err)
 		}
 
 		// This only holds true while CIDRs uniquely identify subnets.
@@ -889,21 +891,19 @@ func ConvertToSpaceAddress(addr SpaceAddressCandidate, lookup SubnetLookup) (Spa
 
 // noAddress represents an error when an address is requested but not available.
 type noAddress struct {
-	errors.Err
+	error
 }
 
 // NoAddressError returns an error which satisfies IsNoAddressError(). The given
 // addressKind specifies what kind of address(es) is(are) missing, usually
 // "private" or "public".
 func NoAddressError(addressKind string) error {
-	newErr := errors.NewErr("no %s address(es)", addressKind)
-	newErr.SetLocation(1)
+	newErr := errors.Errorf("no %s address(es)", addressKind)
 	return &noAddress{newErr}
 }
 
 // IsNoAddressError reports whether err was created with NoAddressError().
 func IsNoAddressError(err error) bool {
-	err = errors.Cause(err)
 	_, ok := err.(*noAddress)
 	return ok
 }

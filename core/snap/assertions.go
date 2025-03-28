@@ -11,7 +11,8 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/juju/errors"
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 )
 
 // LookupAssertions attempts to download an assertion list from the snap store
@@ -24,10 +25,10 @@ import (
 func LookupAssertions(proxyURL string) (assertions, storeID string, err error) {
 	u, err := url.Parse(proxyURL)
 	if err != nil {
-		return "", "", errors.Annotate(err, "proxy URL not valid")
+		return "", "", errors.Errorf("proxy URL not valid: %w", err)
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
-		return "", "", errors.NotValidf("proxy URL scheme %q", u.Scheme)
+		return "", "", errors.Errorf("proxy URL scheme %q %w", u.Scheme, coreerrors.NotValid)
 	}
 
 	// Make sure to redact user/pass when including the proxy URL in error messages
@@ -41,20 +42,20 @@ func LookupAssertions(proxyURL string) (assertions, storeID string, err error) {
 
 	res, err := http.DefaultClient.Do(req.WithContext(ctx))
 	if err != nil {
-		return "", "", errors.Annotatef(err, "could not contact snap store proxy at %q. If using an air-gapped proxy you must manually provide the assertions file and store ID", noCredsProxyURL)
+		return "", "", errors.Errorf("could not contact snap store proxy at %q. If using an air-gapped proxy you must manually provide the assertions file and store ID: %w", noCredsProxyURL, err)
 	}
 	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode != http.StatusOK {
-		return "", "", errors.Annotatef(err, "could not retrieve assertions from proxy at %q; proxy replied with unexpected HTTP status code %d", noCredsProxyURL, res.StatusCode)
+		return "", "", errors.Errorf("could not retrieve assertions from proxy at %q; proxy replied with unexpected HTTP status code %d", noCredsProxyURL, res.StatusCode)
 	}
 
 	data, err := io.ReadAll(res.Body)
 	if err != nil {
-		return "", "", errors.Annotatef(err, "could not read assertions response from proxy at %q", noCredsProxyURL)
+		return "", "", errors.Errorf("could not read assertions response from proxy at %q: %w", noCredsProxyURL, err)
 	}
 	assertions = string(data)
 	if storeID, err = findStoreID(assertions, u); err != nil {
-		return "", "", errors.Trace(err)
+		return "", "", errors.Capture(err)
 	}
 
 	return assertions, storeID, nil
@@ -87,7 +88,7 @@ func findStoreID(assertions string, proxyURL *url.URL) (string, error) {
 	}
 
 	if storeID == "" {
-		return "", errors.NotFoundf("store ID in assertions response from proxy at %q", proxyURL)
+		return "", errors.Errorf("store ID in assertions response from proxy at %q %w", proxyURL, coreerrors.NotFound)
 	}
 
 	return storeID, nil

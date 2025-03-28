@@ -4,10 +4,8 @@
 package charm
 
 import (
-	"fmt"
-
-	"github.com/juju/errors"
-
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -27,7 +25,7 @@ func NewID() (ID, error) {
 // uuid an error satisfying [errors.NotValid] will be returned.
 func ParseID(value string) (ID, error) {
 	if !uuid.IsValidUUIDString(value) {
-		return "", fmt.Errorf("id %q %w", value, errors.NotValid)
+		return "", errors.Errorf("id %q %w", value, coreerrors.NotValid)
 	}
 	return ID(value), nil
 }
@@ -41,10 +39,10 @@ func (u ID) String() string {
 // satisfying [errors.NotValid] will be returned.
 func (u ID) Validate() error {
 	if u == "" {
-		return fmt.Errorf("%wid cannot be empty", errors.Hide(errors.NotValid))
+		return errors.Errorf("id cannot be empty").Add(coreerrors.NotValid)
 	}
 	if !uuid.IsValidUUIDString(string(u)) {
-		return fmt.Errorf("id %q %w", u, errors.NotValid)
+		return errors.Errorf("id %q %w", u, coreerrors.NotValid)
 	}
 	return nil
 }
