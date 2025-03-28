@@ -23,8 +23,6 @@ Manage actions <manage-actions>
 Manage relations <manage-relations>
 Manage offers <manage-offers>
 Manage units <manage-units>
-Manage secrets <manage-secrets>
-Manage secret backends <manage-secret-backends>
 Manage machines <manage-machines>
 Manage storage <manage-storage>
 Manage storage pools <manage-storage-pools>
