@@ -167,3 +167,43 @@ func (s *upgradesSuite) TestUpgradeAddVirtualHostKeys(c *gc.C) {
 		upgradedData(virtualHostKeysColl, expectedVirtualHostKeys),
 	)
 }
+
+func (s *upgradesSuite) TestSplitMigrationStatusMessages(c *gc.C) {
+	model := s.makeModel(c, "m", coretesting.Attrs{}, ModelArgs{Type: ModelTypeIAAS})
+	defer func() { _ = model.Close() }()
+
+	migStatus, closer := s.state.db().GetRawCollection(migrationsStatusC)
+	defer closer()
+
+	migStatusMessage, closer2 := s.state.db().GetRawCollection(migrationsStatusMessageC)
+	defer closer2()
+
+	err := migStatus.Insert(bson.M{
+		"_id":                ensureModelUUID(model.ModelUUID(), "0"),
+		"start-time":         "1742996705546941797",
+		"success-time":       "1742996716038789910",
+		"end-time":           "1742996722262468965",
+		"phase":              "DONE",
+		"phase-changed-time": "1742996722262468965",
+		"status-message":     "successful, removing model from source controller",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedStatus := []bson.M{{
+		"_id":                ensureModelUUID(model.ModelUUID(), "0"),
+		"start-time":         "1742996705546941797",
+		"success-time":       "1742996716038789910",
+		"end-time":           "1742996722262468965",
+		"phase":              "DONE",
+		"phase-changed-time": "1742996722262468965",
+	}}
+	expectedStatusMessage := []bson.M{{
+		"_id":            ensureModelUUID(model.ModelUUID(), "0"),
+		"status-message": "successful, removing model from source controller",
+	}}
+
+	s.assertUpgradedData(c, SplitMigrationStatusMessages, nil,
+		upgradedData(migStatus, expectedStatus),
+		upgradedData(migStatusMessage, expectedStatusMessage),
+	)
+}

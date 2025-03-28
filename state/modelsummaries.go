@@ -386,13 +386,50 @@ func (p *modelSummaryProcessor) fillInMigration() error {
 			continue
 		}
 		details := &p.summaries[idx]
-		// TODO(jam): 2017-11-27 Can we make modelMigration *not* accept a State object so that we know we won't potato
-		// more stuff in the future?
+		// TODO(jam): 2017-11-27 Can we make modelMigration *not* accept a State
+		// object so that we know we won't potato more stuff in the future?
 		details.Migration = &modelMigration{
 			doc:       doc,
 			statusDoc: statusDoc,
 			st:        p.st,
+
+			// Create a new modelMigStatusMessageDoc with the ID of the
+			// statusDoc so that if we query the migration status message, it
+			// doesn't panic if the document doesn't exist. This will be filled
+			// in later if there is a status message.
+			statusMessageDoc: modelMigStatusMessageDoc{
+				Id: statusDoc.Id,
+			},
 		}
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	// Now look up the status message documents and join them together with
+	// the migration documents.
+	migStatusMessage, closer3 := p.st.db().GetCollection(migrationsStatusMessageC)
+	defer closer3()
+	query = migStatusMessage.Find(bson.M{"_id": bson.M{"$in": docIds}})
+	query.Batch(100)
+	iter = query.Iter()
+	defer iter.Close()
+	var statusMessageDoc modelMigStatusMessageDoc
+	for iter.Next(&statusMessageDoc) {
+		doc, ok := modelMigDocs[statusMessageDoc.Id]
+		if !ok {
+			continue
+		}
+		idx, ok := p.indexByUUID[doc.ModelUUID]
+		if !ok {
+			continue
+		}
+		details := &p.summaries[idx]
+		// This shouldn't happen, but if it does, we'll just ignore it.
+		mDoc, ok := details.Migration.(*modelMigration)
+		if !ok {
+			continue
+		}
+		mDoc.statusMessageDoc = statusMessageDoc
 	}
 	if err := iter.Close(); err != nil {
 		return errors.Trace(err)

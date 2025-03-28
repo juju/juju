@@ -112,9 +112,10 @@ type MinionReports struct {
 
 // modelMigration is an implementation of ModelMigration.
 type modelMigration struct {
-	st        *State
-	doc       modelMigDoc
-	statusDoc modelMigStatusDoc
+	st               *State
+	doc              modelMigDoc
+	statusDoc        modelMigStatusDoc
+	statusMessageDoc modelMigStatusMessageDoc
 }
 
 // modelMigDoc holds parameters of a migration attempt for a
@@ -201,9 +202,15 @@ type modelMigStatusDoc struct {
 	// PhaseChangedTime holds the time that Phase last changed (stored
 	// as per UnixNano).
 	PhaseChangedTime int64 `bson:"phase-changed-time"`
+}
+
+type modelMigStatusMessageDoc struct {
+	// These are the same as the ids as migrationsC.
+	// "uuid:sequence".
+	Id string `bson:"_id"`
 
 	// StatusMessage holds a human readable message about the
-	// migration's progress.
+	// progress of the migration.
 	StatusMessage string `bson:"status-message"`
 }
 
@@ -262,7 +269,7 @@ func (mig *modelMigration) PhaseChangedTime() time.Time {
 
 // StatusMessage implements ModelMigration.
 func (mig *modelMigration) StatusMessage() string {
-	return mig.statusDoc.StatusMessage
+	return mig.statusMessageDoc.StatusMessage
 }
 
 // InitiatedBy implements ModelMigration.
@@ -415,7 +422,7 @@ func (mig *modelMigration) SetStatusMessage(text string) error {
 	}
 
 	ops = append(ops, txn.Op{
-		C:      migrationsStatusC,
+		C:      migrationsStatusMessageC,
 		Id:     mig.statusDoc.Id,
 		Update: bson.M{"$set": bson.M{"status-message": text}},
 		Assert: txn.DocExists,
@@ -423,7 +430,7 @@ func (mig *modelMigration) SetStatusMessage(text string) error {
 	if err := mig.st.db().RunTransaction(ops); err != nil {
 		return errors.Annotate(err, "failed to set migration status")
 	}
-	mig.statusDoc.StatusMessage = text
+	mig.statusMessageDoc.StatusMessage = text
 	return nil
 }
 
@@ -640,7 +647,19 @@ func (mig *modelMigration) Refresh() error {
 		return errors.Annotate(err, "migration status lookup failed")
 	}
 
+	statusMessageColl, closer := mig.st.db().GetCollection(migrationsStatusMessageC)
+	defer closer()
+	var statusMessageDoc modelMigStatusMessageDoc
+	err = statusMessageColl.FindId(mig.doc.Id).One(&statusMessageDoc)
+	if err == mgo.ErrNotFound {
+		return errors.NotFoundf("migration status message")
+	} else if err != nil {
+		return errors.Annotate(err, "migration status message lookup failed")
+	}
+
 	mig.statusDoc = statusDoc
+	mig.statusMessageDoc = statusMessageDoc
+
 	return nil
 }
 
@@ -690,6 +709,7 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 	modelUUID := st.ModelUUID()
 	var doc modelMigDoc
 	var statusDoc modelMigStatusDoc
+	var statusMessageDoc modelMigStatusMessageDoc
 
 	msg := "starting"
 	ops, err := migStatusHistoryAndOps(st, migration.QUIESCE, now, msg)
@@ -748,7 +768,11 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			StartTime:        now,
 			Phase:            migration.QUIESCE.String(),
 			PhaseChangedTime: now,
-			StatusMessage:    msg,
+		}
+
+		statusMessageDoc = modelMigStatusMessageDoc{
+			Id:            id,
+			StatusMessage: msg,
 		}
 
 		ops := append(ops, []txn.Op{{
@@ -761,6 +785,11 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			Id:     statusDoc.Id,
 			Assert: txn.DocMissing,
 			Insert: &statusDoc,
+		}, {
+			C:      migrationsStatusMessageC,
+			Id:     statusDoc.Id,
+			Assert: txn.DocMissing,
+			Insert: &statusMessageDoc,
 		}, {
 			C:      migrationsActiveC,
 			Id:     modelUUID,
@@ -782,9 +811,10 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 	}
 
 	return &modelMigration{
-		doc:       doc,
-		statusDoc: statusDoc,
-		st:        st,
+		doc:              doc,
+		statusDoc:        statusDoc,
+		statusMessageDoc: statusMessageDoc,
+		st:               st,
 	}, nil
 }
 
@@ -947,10 +977,21 @@ func (st *State) migrationFromQuery(query mongo.Query) (ModelMigration, error) {
 		return nil, errors.Annotate(err, "migration status lookup failed")
 	}
 
+	statusMessageColl, closer := st.db().GetCollection(migrationsStatusMessageC)
+	defer closer()
+	var statusMessageDoc modelMigStatusMessageDoc
+	err = statusMessageColl.FindId(doc.Id).One(&statusMessageDoc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("migration status message")
+	} else if err != nil {
+		return nil, errors.Annotate(err, "migration status message lookup failed")
+	}
+
 	return &modelMigration{
-		doc:       doc,
-		statusDoc: statusDoc,
-		st:        st,
+		doc:              doc,
+		statusDoc:        statusDoc,
+		statusMessageDoc: statusMessageDoc,
+		st:               st,
 	}, nil
 }
 
