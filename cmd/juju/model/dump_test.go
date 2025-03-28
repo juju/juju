@@ -35,7 +35,7 @@ func (f *fakeDumpClient) Close() error {
 	return f.NextErr()
 }
 
-func (f *fakeDumpClient) DumpModel(ctx context.Context, model names.ModelTag, simplified bool) (map[string]interface{}, error) {
+func (f *fakeDumpClient) DumpModel(ctx context.Context, model names.ModelTag) (map[string]interface{}, error) {
 	f.MethodCall(f, "DumpModel", model)
 	err := f.NextErr()
 	if err != nil {
@@ -43,7 +43,6 @@ func (f *fakeDumpClient) DumpModel(ctx context.Context, model names.ModelTag, si
 	}
 	return map[string]interface{}{
 		"model-uuid": "fake uuid",
-		"simple":     simplified,
 	}, nil
 }
 
@@ -68,22 +67,10 @@ func (s *DumpCommandSuite) TestDump(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, model.NewDumpCommandForTest(&s.fake, s.store))
 	c.Assert(err, jc.ErrorIsNil)
 	s.fake.CheckCalls(c, []jujutesting.StubCall{
-		{"DumpModel", []interface{}{testing.ModelTag}},
-		{"Close", nil},
+		{FuncName: "DumpModel", Args: []interface{}{testing.ModelTag}},
+		{FuncName: "Close", Args: nil},
 	})
 
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, "model-uuid: fake uuid\nsimple: false\n")
-}
-
-func (s *DumpCommandSuite) TestDumpSimple(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, model.NewDumpCommandForTest(&s.fake, s.store), "--simplified")
-	c.Assert(err, jc.ErrorIsNil)
-	s.fake.CheckCalls(c, []jujutesting.StubCall{
-		{"DumpModel", []interface{}{testing.ModelTag}},
-		{"Close", nil},
-	})
-
-	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, "model-uuid: fake uuid\nsimple: true\n")
+	c.Assert(out, gc.Equals, "model-uuid: fake uuid\n")
 }
