@@ -1,12 +1,16 @@
+// Copyright 2022 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package sshclient
 
 import (
 	"encoding/base64"
 
-	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/testing"
 )
 
 type shimSuite struct {
