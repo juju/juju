@@ -5,11 +5,8 @@
 :maxdepth: 2
 :hidden:
 
-Tutorial <tutorial/index>
 howto/index
 reference/index
-explanation/index
-For contributors <contributor/index>
 ```
 
 Juju is an open source orchestration engine for software operators that enables the deployment, integration and lifecycle management of applications at any scale, on any infrastructure, using special software operators called ‘charms’.
@@ -32,30 +29,11 @@ For system operators and DevOps who manage applications in the cloud, Juju simpl
 **Start here**: a hands-on introduction to Juju for new users
 ```
 
-```{grid-item-card} [How-to guides](/index)
-:link: howto/index
-:link-type: doc
-
-**Step-by-step guides** covering key operations and common tasks
-```
-
-````
-
-````{grid} 1 1 2 2
-:reverse:
-
 ```{grid-item-card} [Reference](/index)
 :link: reference/index
 :link-type: doc
 
 **Technical information** - specifications, APIs, architecture
-```
-
-```{grid-item-card} [Explanation](/index)
-:link: explanation/index
-:link-type: doc
-
-**Discussion and clarification** of key topics
 ```
 
 ````
