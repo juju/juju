@@ -133,18 +133,10 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			var (
-				logFile   string
-				modelUUID string
-			)
-			if p.Firehose {
-				logFile = filepath.Join(h.logDir, "logsink.log")
-			} else {
-				logFile = corelogger.ModelLogFile(h.logDir, corelogger.LoggerKey{
-					ModelUUID:  m.UUID(),
-					ModelName:  m.Name(),
-					ModelOwner: m.Owner().Id(),
-				})
+
+			var modelUUID string
+			logFile := filepath.Join(h.logDir, "logsink.log")
+			if !p.Firehose {
 				modelUUID = m.UUID()
 			}
 
@@ -152,9 +144,9 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		if err := h.handle(clock, maxDuration, params, socket, logTailerFunc, h.ctxt.stop(), st.Removing()); err != nil {
 			if isBrokenPipe(err) {
-				logger.Tracef(context.TODO(), "debug-log handler stopped (client disconnected)")
+				logger.Tracef(req.Context(), "debug-log handler stopped (client disconnected)")
 			} else {
-				logger.Errorf(context.TODO(), "debug-log handler error: %v", err)
+				logger.Errorf(req.Context(), "debug-log handler error: %v", err)
 			}
 		}
 	}
