@@ -41,7 +41,7 @@ func (ctx *nonActionContext) ActionParams() (map[string]interface{}, error) {
 
 func (s *ActionGetSuite) TestNonActionRunFail(c *gc.C) {
 	hctx := &nonActionContext{}
-	com, err := jujuc.NewCommand(hctx, "action-get")
+	com, err := jujuc.NewActionCommand(hctx, "action-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{})
@@ -253,7 +253,7 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 		c.Logf("test %d: %s\n args: %#v", i, t.summary, t.args)
 		hctx := &actionGetContext{}
 		hctx.actionParams = t.actionParams
-		com, err := jujuc.NewCommand(hctx, "action-get")
+		com, err := jujuc.NewActionCommand(hctx, "action-get")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)

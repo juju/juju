@@ -406,7 +406,8 @@ func registerCommands(r commandRegistry) {
 	r.Register(application.NewBindCommand())
 
 	// Charm tool commands.
-	r.Register(newHelpToolCommand())
+	r.Register(newhelpHookCmdsCommand())
+	r.Register(newHelpActionCmdsCommand())
 
 	// Manage backups.
 	r.Register(backups.NewCreateCommand())

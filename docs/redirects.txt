@@ -204,7 +204,8 @@ user/reference/juju-cli/list-of-juju-cli-commands/firewall-rules reference/juju-
 user/reference/juju-cli/list-of-juju-cli-commands/grant-cloud reference/juju-cli/list-of-juju-cli-commands/grant-cloud
 user/reference/juju-cli/list-of-juju-cli-commands/grant-secret reference/juju-cli/list-of-juju-cli-commands/grant-secret
 user/reference/juju-cli/list-of-juju-cli-commands/grant reference/juju-cli/list-of-juju-cli-commands/grant
-user/reference/juju-cli/list-of-juju-cli-commands/help-tool reference/juju-cli/list-of-juju-cli-commands/help-tool
+user/reference/juju-cli/list-of-juju-cli-commands/help-action-commands reference/juju-cli/list-of-juju-cli-commands/help-action-commands
+user/reference/juju-cli/list-of-juju-cli-commands/help-hook-commands reference/juju-cli/list-of-juju-cli-commands/help-hook-commands
 user/reference/juju-cli/list-of-juju-cli-commands/help reference/juju-cli/list-of-juju-cli-commands/help
 user/reference/juju-cli/list-of-juju-cli-commands/import-filesystem reference/juju-cli/list-of-juju-cli-commands/import-filesystem
 user/reference/juju-cli/list-of-juju-cli-commands/import-ssh-key reference/juju-cli/list-of-juju-cli-commands/import-ssh-key

@@ -42,7 +42,7 @@ func (s *SecretGrantSuite) TestGrantSecretInvalidArgs(c *gc.C) {
 			err:  `ERROR invalid value "-666" for option --relation: relation not found`,
 		},
 	} {
-		com, err := jujuc.NewCommand(hctx, "secret-grant")
+		com, err := jujuc.NewHookCommand(hctx, "secret-grant")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
@@ -55,7 +55,7 @@ func (s *SecretGrantSuite) TestGrantSecretInvalidArgs(c *gc.C) {
 func (s *SecretGrantSuite) TestGrantSecret(c *gc.C) {
 	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 
-	com, err := jujuc.NewCommand(hctx, "secret-grant")
+	com, err := jujuc.NewHookCommand(hctx, "secret-grant")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
@@ -75,7 +75,7 @@ func (s *SecretGrantSuite) TestGrantSecret(c *gc.C) {
 func (s *SecretGrantSuite) TestGrantSecretUnit(c *gc.C) {
 	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 
-	com, err := jujuc.NewCommand(hctx, "secret-grant")
+	com, err := jujuc.NewHookCommand(hctx, "secret-grant")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
@@ -97,7 +97,7 @@ func (s *SecretGrantSuite) TestGrantSecretUnit(c *gc.C) {
 func (s *SecretGrantSuite) TestGrantSecretWrongUnit(c *gc.C) {
 	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 
-	com, err := jujuc.NewCommand(hctx, "secret-grant")
+	com, err := jujuc.NewHookCommand(hctx, "secret-grant")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{

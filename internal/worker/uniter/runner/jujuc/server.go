@@ -63,11 +63,6 @@ var baseCommands = map[string]creator{
 	"goal-state":     NewGoalStateCommand,
 	"credential-get": NewCredentialGetCommand,
 
-	"action-get":  NewActionGetCommand,
-	"action-set":  NewActionSetCommand,
-	"action-fail": NewActionFailCommand,
-	"action-log":  NewActionLogCommand,
-
 	"state-get":    NewStateGetCommand,
 	"state-delete": NewStateDeleteCommand,
 	"state-set":    NewStateSetCommand,
@@ -114,7 +109,31 @@ var payloadCommands = map[string]creator{
 	"payload-status-set": NewPayloadStatusSetCmd,
 }
 
+var actionCommands = map[string]creator{
+	"action-get":  NewActionGetCommand,
+	"action-set":  NewActionSetCommand,
+	"action-fail": NewActionFailCommand,
+	"action-log":  NewActionLogCommand,
+}
+
 func allEnabledCommands() map[string]creator {
+	all := map[string]creator{}
+	add := func(m map[string]creator) {
+		for k, v := range m {
+			all[k] = v
+		}
+	}
+	add(baseCommands)
+	add(storageCommands)
+	add(leaderCommands)
+	add(resourceCommands)
+	add(payloadCommands)
+	add(secretCommands)
+	add(actionCommands)
+	return all
+}
+
+func allHookCommands() map[string]creator {
 	all := map[string]creator{}
 	add := func(m map[string]creator) {
 		for k, v := range m {
@@ -130,6 +149,18 @@ func allEnabledCommands() map[string]creator {
 	return all
 }
 
+func allActionCommands() map[string]creator {
+	all := map[string]creator{}
+	add := func(m map[string]creator) {
+		for k, v := range m {
+			all[k] = v
+		}
+	}
+
+	add(actionCommands)
+	return all
+}
+
 // CommandNames returns the names of all jujuc commands.
 func CommandNames() (names []string) {
 	for name := range allEnabledCommands() {
@@ -139,12 +170,47 @@ func CommandNames() (names []string) {
 	return
 }
 
-// NewCommand returns an instance of the named Command, initialized to execute
+// ActionCommandNames returns the names of all jujuc action commands.
+func ActionCommandNames() (names []string) {
+	for name := range actionCommands {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return
+}
+
+// HookCommandNames returns the names of all jujuc hook commands.
+func HookCommandNames() (names []string) {
+	for name := range allEnabledCommands() {
+		if _, exists := actionCommands[name]; exists {
+			continue
+		}
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return
+}
+
+// NewHookCommand returns an instance of the named hook Command, initialized to execute
 // against the supplied Context.
-func NewCommand(ctx Context, name string) (cmd.Command, error) {
-	f := allEnabledCommands()[name]
+func NewHookCommand(ctx Context, name string) (cmd.Command, error) {
+	f := allHookCommands()[name]
 	if f == nil {
-		return nil, errors.Errorf("unknown command: %s", name)
+		return nil, errors.Errorf("unknown hook command: %s", name)
+	}
+	command, err := f(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return command, nil
+}
+
+// NewActionCommand returns an instance of the named action Command, initialized to execute
+// against the supplied Context.
+func NewActionCommand(ctx Context, name string) (cmd.Command, error) {
+	f := allActionCommands()[name]
+	if f == nil {
+		return nil, errors.Errorf("unknown action command: %s", name)
 	}
 	command, err := f(ctx)
 	if err != nil {
