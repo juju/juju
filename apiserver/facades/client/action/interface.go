@@ -18,11 +18,11 @@ type State interface {
 	FindEntity(tag names.Tag) (state.Entity, error)
 	Model() (Model, error)
 	WatchActionLogs(actionId string) state.StringsWatcher
+	ActionByTag(tag names.ActionTag) (state.Action, error)
 }
 
 // Model describes model state used by the action facade.
 type Model interface {
-	ActionByTag(tag names.ActionTag) (state.Action, error)
 	AddAction(receiver state.ActionReceiver, operationID, name string, payload map[string]interface{}, parallel *bool, executionGroup *string) (state.Action, error)
 	EnqueueOperation(summary string, count int) (string, error)
 	FailOperationEnqueuing(operationID, failMessage string, count int) error
@@ -37,6 +37,10 @@ type Model interface {
 
 type stateShim struct {
 	st *state.State
+}
+
+func (s *stateShim) ActionByTag(tag names.ActionTag) (state.Action, error) {
+	return s.st.ActionByTag(tag)
 }
 
 func (s *stateShim) AllApplications() ([]*state.Application, error) {

@@ -577,7 +577,8 @@ func (s *modelServiceSuite) TestGetEnvironVersionFailedModelNotFound(c *gc.C) {
 
 type providerModelServiceSuite struct {
 	modelServiceSuite
-	mockProvider *MockModelResourcesProvider
+	mockProvider          *MockModelResourcesProvider
+	mockCloudInfoProvider *MockCloudInfoProvider
 }
 
 var _ = gc.Suite(&providerModelServiceSuite{})
@@ -585,6 +586,7 @@ var _ = gc.Suite(&providerModelServiceSuite{})
 func (s *providerModelServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.modelServiceSuite.setupMocks(c)
 	s.mockProvider = NewMockModelResourcesProvider(ctrl)
+	s.mockCloudInfoProvider = NewMockCloudInfoProvider(ctrl)
 	return ctrl
 }
 
@@ -622,6 +624,7 @@ func (s *providerModelServiceSuite) TestCreateModel(c *gc.C) {
 		s.mockModelState,
 		s.environVersionProviderGetter(),
 		func(context.Context) (ModelResourcesProvider, error) { return s.mockProvider, nil },
+		func(context.Context) (CloudInfoProvider, error) { return s.mockCloudInfoProvider, nil },
 		DefaultAgentBinaryFinder(),
 	)
 	err := svc.CreateModel(context.Background(), controllerUUID)
@@ -659,8 +662,31 @@ func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *g
 		s.mockModelState,
 		s.environVersionProviderGetter(),
 		func(context.Context) (ModelResourcesProvider, error) { return s.mockProvider, nil },
+		func(context.Context) (CloudInfoProvider, error) { return s.mockCloudInfoProvider, nil },
 		DefaultAgentBinaryFinder(),
 	)
 	err := svc.CreateModel(context.Background(), controllerUUID)
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
+}
+
+func (s *providerModelServiceSuite) TestCloudAPIVersion(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	s.mockCloudInfoProvider.EXPECT().APIVersion().Return("666", nil)
+
+	svc := NewProviderModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		func(context.Context) (ModelResourcesProvider, error) { return s.mockProvider, nil },
+		func(context.Context) (CloudInfoProvider, error) { return s.mockCloudInfoProvider, nil },
+		DefaultAgentBinaryFinder(),
+	)
+	vers, err := svc.CloudAPIVersion(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vers, gc.Equals, "666")
 }

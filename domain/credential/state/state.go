@@ -552,18 +552,9 @@ func GetCloudCredential(
 	id corecredential.UUID,
 ) (credential.CloudCredentialResult, error) {
 	q := `
-SELECT (uuid,
-        name,
-        revoked,
-        invalid,
-        invalid_reason,
-        owner_uuid,
-        auth_type,
-        attribute_key,
-        attribute_value,
-		cloud_name) AS (&credentialWithAttribute.*)
-FROM v_cloud_credential_attributes
-WHERE uuid = $M.id
+SELECT ca.* AS &credentialWithAttribute.*
+FROM   v_cloud_credential_attributes ca
+WHERE  uuid = $M.id
 `
 
 	stmt, err := st.Prepare(q, credentialWithAttribute{}, sqlair.M{})

@@ -262,6 +262,8 @@ func (s *uniterv20Suite) SetUpTest(c *gc.C) {
 
 		s.uniter = &UniterAPIv20{
 			UniterAPI: &UniterAPI{
+				modelUUID:       model.UUID(coretesting.ModelTag.Id()),
+				modelType:       model.IAAS,
 				watcherRegistry: s.watcherRegistry,
 			},
 		}
@@ -325,7 +327,6 @@ func (s *uniterRelationSuite) TestRelation(c *gc.C) {
 		},
 	}
 
-	s.expectModelUUID(c)
 	s.expectGetRelationUUIDByKey(corerelation.Key(relTag.Id()), relUUID, nil)
 	s.expectGetRelationDetailsForUnit(relUUID, details)
 
@@ -364,10 +365,11 @@ func (s *uniterRelationSuite) TestRelation(c *gc.C) {
 // ErrUnauthorized will be returned. It also tests the bulk
 // functionality of the Relation facade method.
 func (s *uniterRelationSuite) TestRelationUnauthorized(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	// arrange
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relTagFail := names.NewRelationTag("foo:database wordpress:mysql")
-	s.expectGetRelationUUIDByKey(corerelation.Key(relTagFail.Id()), "", errors.NotFound)
+	s.expectGetRelationUUIDByKey(corerelation.Key(relTagFail.Id()), "", relationerrors.RelationNotFound)
 
 	// act
 	args := params.RelationUnits{
@@ -405,7 +407,6 @@ func (s *uniterRelationSuite) TestRelationById(c *gc.C) {
 	relIDNotFound := -1
 	relIDUnexpectedAppName := 42
 
-	s.expectModelUUID(c)
 	s.expectGetRelationDetails(relUUID, relID, relTag)
 	s.expectGetRelationDetailsNotFound(relIDNotFound)
 	s.expectGetRelationDetailsUnexpectedAppName(c, relIDUnexpectedAppName)
@@ -1039,6 +1040,8 @@ func (s *uniterRelationSuite) setupMocks(c *gc.C) *gomock.Controller {
 	}
 
 	s.uniter = &UniterAPI{
+		modelUUID:         model.UUID(coretesting.ModelTag.Id()),
+		modelType:         model.IAAS,
 		accessApplication: appAuthFunc,
 		accessUnit:        unitAuthFunc,
 		auth:              authorizer,
@@ -1050,13 +1053,6 @@ func (s *uniterRelationSuite) setupMocks(c *gc.C) *gomock.Controller {
 	}
 
 	return ctrl
-}
-
-func (s *uniterRelationSuite) expectModelUUID(c *gc.C) {
-	modelInfo := model.ModelInfo{
-		UUID: model.UUID(coretesting.ModelTag.Id()),
-	}
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(modelInfo, nil)
 }
 
 func (s *uniterRelationSuite) expectGetRelationUUIDByKey(key corerelation.Key, relUUID corerelation.UUID, err error) {

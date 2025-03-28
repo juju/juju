@@ -319,6 +319,7 @@ func (s *ModelServices) ModelInfo() *modelservice.ProviderModelService {
 		modelstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("modelinfo")),
 		modelservice.EnvironVersionProviderGetter(),
 		providertracker.ProviderRunner[modelservice.ModelResourcesProvider](s.providerFactory, s.modelUUID.String()),
+		providertracker.ProviderRunner[modelservice.CloudInfoProvider](s.providerFactory, s.modelUUID.String()),
 		modelservice.DefaultAgentBinaryFinder(),
 	)
 }
@@ -432,6 +433,8 @@ func (s *ModelServices) Removal() *removalservice.WatchableService {
 // as soon as possible.
 func (s *ModelServices) Stub() *stubservice.StubService {
 	return stubservice.NewStubService(
+		s.modelUUID,
+		changestream.NewTxnRunnerFactory(s.controllerDB),
 		changestream.NewTxnRunnerFactory(s.modelDB),
 	)
 }

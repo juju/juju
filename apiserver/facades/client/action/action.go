@@ -125,11 +125,7 @@ func (a *ActionAPI) Actions(ctx context.Context, arg params.Entities) (params.Ac
 			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
 		}
-		m, err := a.state.Model()
-		if err != nil {
-			return params.ActionResults{}, errors.Trace(err)
-		}
-		action, err := m.ActionByTag(actionTag)
+		action, err := a.state.ActionByTag(actionTag)
 		if err != nil {
 			currentResult.Error = apiservererrors.ServerError(apiservererrors.ErrBadId)
 			continue
@@ -166,12 +162,7 @@ func (a *ActionAPI) Cancel(ctx context.Context, arg params.Entities) (params.Act
 			continue
 		}
 
-		m, err := a.state.Model()
-		if err != nil {
-			return params.ActionResults{}, errors.Trace(err)
-		}
-
-		action, err := m.ActionByTag(actionTag)
+		action, err := a.state.ActionByTag(actionTag)
 		if err != nil {
 			currentResult.Error = apiservererrors.ServerError(err)
 			continue

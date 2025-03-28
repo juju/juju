@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/cloudspec"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -43,7 +42,6 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 	statewatcher "github.com/juju/juju/state/watcher"
 )
 
@@ -57,26 +55,26 @@ type UniterAPI struct {
 	*common.RebootRequester
 	*common.UnitStateAPI
 
-	lxdProfileAPI            *LXDProfileAPIv2
-	environConfigGetterModel EnvironConfigGetterModel
-	st                       *state.State
-	clock                    clock.Clock
-	auth                     facade.Authorizer
-	resources                facade.Resources
-	leadershipChecker        leadership.Checker
-	leadershipRevoker        leadership.Revoker
-	accessUnit               common.GetAuthFunc
-	accessApplication        common.GetAuthFunc
-	accessUnitOrApplication  common.GetAuthFunc
-	accessMachine            common.GetAuthFunc
-	containerBrokerFunc      caas.NewContainerBrokerFunc
-	watcherRegistry          facade.WatcherRegistry
+	modelUUID model.UUID
+	modelType model.ModelType
+
+	lxdProfileAPI           *LXDProfileAPIv2
+	st                      *state.State
+	clock                   clock.Clock
+	auth                    facade.Authorizer
+	resources               facade.Resources
+	leadershipChecker       leadership.Checker
+	leadershipRevoker       leadership.Revoker
+	accessUnit              common.GetAuthFunc
+	accessApplication       common.GetAuthFunc
+	accessUnitOrApplication common.GetAuthFunc
+	accessMachine           common.GetAuthFunc
+	containerBrokerFunc     caas.NewContainerBrokerFunc
+	watcherRegistry         facade.WatcherRegistry
 
 	applicationService      ApplicationService
 	statusService           StatusService
-	cloudService            CloudService
 	controllerConfigService ControllerConfigService
-	credentialService       CredentialService
 	machineService          MachineService
 	modelConfigService      ModelConfigService
 	modelInfoService        ModelInfoService
@@ -85,6 +83,7 @@ type UniterAPI struct {
 	relationService         RelationService
 	secretService           SecretService
 	unitStateService        UnitStateService
+	stubService             StubService
 
 	// cmrBackend is a wrapper around state to handle CMR request
 	// todo(gfouillet): remove it whenever CMR have their domain.
@@ -95,8 +94,7 @@ type UniterAPI struct {
 	// A cloud spec can only be accessed for the model of the unit or
 	// application that is authorised for this API facade.
 	// We do not need to use an AuthFunc, because we do not need to pass a tag.
-	accessCloudSpec func() (func() bool, error)
-	cloudSpecer     cloudspec.CloudSpecer
+	accessCloudSpec func(ctx context.Context) (func() bool, error)
 
 	logger corelogger.Logger
 }
@@ -940,12 +938,8 @@ func (u *UniterAPIv19) Relation(ctx context.Context, args params.RelationUnits) 
 	if err != nil {
 		return params.RelationResults{}, err
 	}
-	modelInfo, err := u.modelInfoService.GetModelInfo(ctx)
-	if err != nil {
-		return result, err
-	}
 	for i, rel := range args.RelationUnits {
-		relParams, err := u.getOneRelation(ctx, canAccess, rel.Relation, rel.Unit, modelInfo.UUID)
+		relParams, err := u.getOneRelation(ctx, canAccess, rel.Relation, rel.Unit)
 		if err == nil {
 			result.Results[i] = params.RelationResult{
 				Error:            relParams.Error,
@@ -972,12 +966,8 @@ func (u *UniterAPI) Relation(ctx context.Context, args params.RelationUnits) (pa
 	if err != nil {
 		return params.RelationResultsV2{}, err
 	}
-	modelInfo, err := u.modelInfoService.GetModelInfo(ctx)
-	if err != nil {
-		return result, err
-	}
 	for i, rel := range args.RelationUnits {
-		relParams, err := u.getOneRelation(ctx, canAccess, rel.Relation, rel.Unit, modelInfo.UUID)
+		relParams, err := u.getOneRelation(ctx, canAccess, rel.Relation, rel.Unit)
 		if err == nil {
 			result.Results[i] = relParams
 		}
@@ -993,16 +983,11 @@ func (u *UniterAPI) ActionStatus(ctx context.Context, args params.Entities) (par
 		return params.StringResults{}, err
 	}
 
-	m, err := u.st.Model()
-	if err != nil {
-		return params.StringResults{}, errors.Trace(err)
-	}
-
 	results := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
 
-	actionFn := common.AuthAndActionFromTagFn(canAccess, m.ActionByTag)
+	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
 	for k, entity := range args.Entities {
 		action, err := actionFn(entity.Tag)
 		if err != nil {
@@ -1023,12 +1008,7 @@ func (u *UniterAPI) Actions(ctx context.Context, args params.Entities) (params.A
 		return params.ActionResults{}, err
 	}
 
-	m, err := u.st.Model()
-	if err != nil {
-		return params.ActionResults{}, errors.Trace(err)
-	}
-
-	actionFn := common.AuthAndActionFromTagFn(canAccess, m.ActionByTag)
+	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
 	return common.Actions(args, actionFn), nil
 }
 
@@ -1039,12 +1019,7 @@ func (u *UniterAPI) BeginActions(ctx context.Context, args params.Entities) (par
 		return params.ErrorResults{}, err
 	}
 
-	m, err := u.st.Model()
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-
-	actionFn := common.AuthAndActionFromTagFn(canAccess, m.ActionByTag)
+	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
 	return common.BeginActions(args, actionFn), nil
 }
 
@@ -1055,12 +1030,7 @@ func (u *UniterAPI) FinishActions(ctx context.Context, args params.ActionExecuti
 		return params.ErrorResults{}, err
 	}
 
-	m, err := u.st.Model()
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-
-	actionFn := common.AuthAndActionFromTagFn(canAccess, m.ActionByTag)
+	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
 	return common.FinishActions(args, actionFn), nil
 }
 
@@ -1070,11 +1040,7 @@ func (u *UniterAPI) LogActionsMessages(ctx context.Context, args params.ActionMe
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
-	m, err := u.st.Model()
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	actionFn := common.AuthAndActionFromTagFn(canAccess, m.ActionByTag)
+	actionFn := common.AuthAndActionFromTagFn(canAccess, u.st.ActionByTag)
 
 	oneActionMessage := func(actionTag string, message string) error {
 		action, err := actionFn(actionTag)
@@ -1101,12 +1067,8 @@ func (u *UniterAPIv19) RelationById(ctx context.Context, args params.RelationIds
 	result := params.RelationResults{
 		Results: make([]params.RelationResult, len(args.RelationIds)),
 	}
-	modelInfo, err := u.modelInfoService.GetModelInfo(ctx)
-	if err != nil {
-		return result, err
-	}
 	for i, relId := range args.RelationIds {
-		relParams, err := u.getOneRelationById(ctx, relId, modelInfo.UUID)
+		relParams, err := u.getOneRelationById(ctx, relId)
 		if err == nil {
 			result.Results[i] = params.RelationResult{
 				Error:            relParams.Error,
@@ -1130,12 +1092,8 @@ func (u *UniterAPI) RelationById(ctx context.Context, args params.RelationIds) (
 	result := params.RelationResultsV2{
 		Results: make([]params.RelationResultV2, len(args.RelationIds)),
 	}
-	modelInfo, err := u.modelInfoService.GetModelInfo(ctx)
-	if err != nil {
-		return result, err
-	}
 	for i, relId := range args.RelationIds {
-		relParams, err := u.getOneRelationById(ctx, relId, modelInfo.UUID)
+		relParams, err := u.getOneRelationById(ctx, relId)
 		if err == nil {
 			result.Results[i] = relParams
 		}
@@ -1436,7 +1394,7 @@ func (u *UniterAPI) ReadSettings(ctx context.Context, args params.RelationUnits)
 	return result, nil
 }
 
-func (u UniterAPI) readOneUnitSettings(
+func (u *UniterAPI) readOneUnitSettings(
 	ctx context.Context,
 	canAccessUnit common.AuthFunc,
 	arg params.RelationUnit,
@@ -1820,7 +1778,7 @@ func (u *UniterAPI) getRelationUnit(canAccess common.AuthFunc, relTag string, un
 	return rel.Unit(unit)
 }
 
-func (u *UniterAPI) getOneRelationById(ctx context.Context, relID int, modelUUID model.UUID) (params.RelationResultV2, error) {
+func (u *UniterAPI) getOneRelationById(ctx context.Context, relID int) (params.RelationResultV2, error) {
 	nothing := params.RelationResultV2{}
 	rel, err := u.relationService.GetRelationDetails(ctx, relID)
 	if errors.Is(err, errors.NotFound) {
@@ -1842,7 +1800,7 @@ func (u *UniterAPI) getOneRelationById(ctx context.Context, relID int, modelUUID
 		panic("authenticated entity is not a unit or application")
 	}
 	// Use the currently authenticated unit to get the endpoint.
-	result, err := u.prepareRelationResult(rel, applicationName, modelUUID)
+	result, err := u.prepareRelationResult(rel, applicationName)
 	if err != nil {
 		// An error from prepareRelationResult means the authenticated
 		// unit's application is not part of the requested
@@ -1882,7 +1840,6 @@ func (u *UniterAPI) getRelationAndUnit(canAccess common.AuthFunc, relTag string,
 func (u *UniterAPI) prepareRelationResult(
 	rel relation.RelationDetails,
 	applicationName string,
-	modelUUID model.UUID,
 ) (params.RelationResultV2, error) {
 	var (
 		otherAppName string
@@ -1902,7 +1859,7 @@ func (u *UniterAPI) prepareRelationResult(
 	}
 	otherApplication := params.RelatedApplicationDetails{
 		ApplicationName: otherAppName,
-		ModelUUID:       modelUUID.String(),
+		ModelUUID:       u.modelUUID.String(),
 	}
 	return params.RelationResultV2{
 		Id:   rel.ID,
@@ -1920,7 +1877,6 @@ func (u *UniterAPI) getOneRelation(
 	ctx context.Context,
 	canAccess common.AuthFunc,
 	relTagStr, unitTagStr string,
-	modelUUID model.UUID,
 ) (params.RelationResultV2, error) {
 	nothing := params.RelationResultV2{}
 	unitTag, err := names.ParseUnitTag(unitTagStr)
@@ -1954,7 +1910,7 @@ func (u *UniterAPI) getOneRelation(
 	if err != nil {
 		return nothing, apiservererrors.ErrBadId
 	}
-	return u.prepareRelationResult(rel, appName, modelUUID)
+	return u.prepareRelationResult(rel, appName)
 }
 
 func (u *UniterAPI) destroySubordinates(ctx context.Context, principal *state.Unit) error {
@@ -2113,24 +2069,45 @@ func makeAppAuthChecker(authTag names.Tag) common.AuthFunc {
 }
 
 // CloudSpec returns the cloud spec used by the model in which the
-// authenticated unit or application resides.
-// A check is made beforehand to ensure that the request is made by an entity
+// authenticated unit resides.
+// A check is made beforehand to ensure that the request is made by a unit
 // that has been granted the appropriate trust.
 func (u *UniterAPI) CloudSpec(ctx context.Context) (params.CloudSpecResult, error) {
-	canAccess, err := u.accessCloudSpec()
+	// Check access - any error will be permission denied.
+	canAccess, err := u.accessCloudSpec(ctx)
 	if err != nil {
-		return params.CloudSpecResult{}, err
+		return params.CloudSpecResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
 	}
 	if !canAccess() {
 		return params.CloudSpecResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
 	}
 
-	modelInfo, err := u.modelInfoService.GetModelInfo(ctx)
+	spec, err := u.stubService.CloudSpec(ctx)
 	if err != nil {
-		return params.CloudSpecResult{}, err
+		return params.CloudSpecResult{}, errors.Trace(err)
 	}
-	modelTag := names.NewModelTag(modelInfo.UUID.String())
-	return u.cloudSpecer.GetCloudSpec(ctx, modelTag), nil
+	var paramsCloudCredential *params.CloudCredential
+	if spec.Credential != nil && spec.Credential.AuthType() != "" {
+		paramsCloudCredential = &params.CloudCredential{
+			AuthType:   string(spec.Credential.AuthType()),
+			Attributes: spec.Credential.Attributes(),
+		}
+	}
+
+	return params.CloudSpecResult{
+		Result: &params.CloudSpec{
+			Type:              spec.Type,
+			Name:              spec.Name,
+			Region:            spec.Region,
+			Endpoint:          spec.Endpoint,
+			IdentityEndpoint:  spec.IdentityEndpoint,
+			StorageEndpoint:   spec.StorageEndpoint,
+			Credential:        paramsCloudCredential,
+			CACertificates:    spec.CACertificates,
+			SkipTLSVerify:     spec.SkipTLSVerify,
+			IsControllerCloud: spec.IsControllerCloud,
+		},
+	}, nil
 }
 
 // GoalStates returns information of charm units and relations.
@@ -2439,18 +2416,7 @@ func (u *UniterAPI) watchOneUnitHashes(tag names.UnitTag, getWatcher func(u *sta
 func (u *UniterAPI) CloudAPIVersion(ctx context.Context) (params.StringResult, error) {
 	result := params.StringResult{}
 
-	configGetter := stateenvirons.EnvironConfigGetter{
-		Model:              u.environConfigGetterModel,
-		NewContainerBroker: u.containerBrokerFunc,
-		CloudService:       u.cloudService,
-		CredentialService:  u.credentialService,
-		ModelConfigService: u.modelConfigService,
-	}
-	spec, err := configGetter.CloudSpec(ctx)
-	if err != nil {
-		return result, apiservererrors.ServerError(err)
-	}
-	apiVersion, err := configGetter.CloudAPIVersion(spec)
+	apiVersion, err := u.modelInfoService.CloudAPIVersion(ctx)
 	if err != nil {
 		return result, apiservererrors.ServerError(err)
 	}
@@ -2616,10 +2582,6 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 	}
 
 	if len(changes.OpenPorts)+len(changes.ClosePorts) > 0 {
-		modelInfo, err := u.modelInfoService.GetModelInfo(ctx)
-		if err != nil {
-			return internalerrors.Capture(err)
-		}
 		openPorts := network.GroupedPortRanges{}
 		for _, r := range changes.OpenPorts {
 			// Ensure the tag in the port open request matches the root unit name
@@ -2628,7 +2590,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 			}
 
 			// ICMP is not supported on CAAS models.
-			if modelInfo.Type == model.CAAS && r.Protocol == "icmp" {
+			if u.modelType == model.CAAS && r.Protocol == "icmp" {
 				return errors.NotSupportedf("protocol icmp on caas models")
 			}
 

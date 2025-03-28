@@ -6,10 +6,9 @@ package uniter
 import (
 	"context"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/credential"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/unitstate"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
 )
@@ -30,9 +30,7 @@ import (
 type Services struct {
 	ApplicationService      ApplicationService
 	StatusService           StatusService
-	CloudService            CloudService
 	ControllerConfigService ControllerConfigService
-	CredentialService       CredentialService
 	MachineService          MachineService
 	ModelConfigService      ModelConfigService
 	ModelInfoService        ModelInfoService
@@ -41,6 +39,7 @@ type Services struct {
 	RelationService         RelationService
 	SecretService           SecretService
 	UnitStateService        UnitStateService
+	StubService             StubService
 }
 
 // ControllerConfigService provides the controller configuration for the model.
@@ -63,18 +62,15 @@ type ModelInfoService interface {
 	// GetModelInfo returns the readonly model information for the model in
 	// question.
 	GetModelInfo(context.Context) (model.ModelInfo, error)
+
+	// CloudAPIVersion returns the cloud API version for the model's cloud.
+	CloudAPIVersion(context.Context) (string, error)
 }
 
-// CloudService provides access to clouds.
-type CloudService interface {
-	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
-	WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error)
-}
-
-// CredentialService provides access to credentials.
-type CredentialService interface {
-	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
-	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
+// StubService will be replaced once the implementation is finished.
+type StubService interface {
+	// CloudSpec returns the cloud spec for the model.
+	CloudSpec(ctx context.Context) (cloudspec.CloudSpec, error)
 }
 
 // ApplicationService provides access to the application service.
@@ -123,6 +119,12 @@ type ApplicationService interface {
 	// GetCharmLXDProfile returns the LXD profile along with the revision of the
 	// charm using the charm name, source and revision.
 	GetCharmLXDProfile(ctx context.Context, locator charm.CharmLocator) (internalcharm.LXDProfile, charm.Revision, error)
+
+	// GetApplicationConfig returns the application config attributes for the
+	// configuration.
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationConfig(ctx context.Context, uuid coreapplication.ID) (coreconfig.ConfigAttributes, error)
 }
 
 // StatusService describes the ability to retrieve and persist

@@ -655,11 +655,7 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 	case names.RelationTag:
 		return st.KeyRelation(id)
 	case names.ActionTag:
-		model, err := st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return model.ActionByTag(tag)
+		return st.ActionByTag(tag)
 	case names.OperationTag:
 		model, err := st.Model()
 		if err != nil {

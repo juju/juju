@@ -145,6 +145,45 @@ func (m *MockModelInfoService) EXPECT() *MockModelInfoServiceMockRecorder {
 	return m.recorder
 }
 
+// CloudAPIVersion mocks base method.
+func (m *MockModelInfoService) CloudAPIVersion(arg0 context.Context) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CloudAPIVersion", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CloudAPIVersion indicates an expected call of CloudAPIVersion.
+func (mr *MockModelInfoServiceMockRecorder) CloudAPIVersion(arg0 any) *MockModelInfoServiceCloudAPIVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudAPIVersion", reflect.TypeOf((*MockModelInfoService)(nil).CloudAPIVersion), arg0)
+	return &MockModelInfoServiceCloudAPIVersionCall{Call: call}
+}
+
+// MockModelInfoServiceCloudAPIVersionCall wrap *gomock.Call
+type MockModelInfoServiceCloudAPIVersionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelInfoServiceCloudAPIVersionCall) Return(arg0 string, arg1 error) *MockModelInfoServiceCloudAPIVersionCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelInfoServiceCloudAPIVersionCall) Do(f func(context.Context) (string, error)) *MockModelInfoServiceCloudAPIVersionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelInfoServiceCloudAPIVersionCall) DoAndReturn(f func(context.Context) (string, error)) *MockModelInfoServiceCloudAPIVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetModelInfo mocks base method.
 func (m *MockModelInfoService) GetModelInfo(arg0 context.Context) (model.ModelInfo, error) {
 	m.ctrl.T.Helper()
