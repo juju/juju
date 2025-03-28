@@ -31,7 +31,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AutocertURLKey:                     schema.String(),
 	AutocertDNSNameKey:                 schema.String(),
 	AllowModelAccessKey:                schema.Bool(),
-	MongoMemoryProfile:                 schema.String(),
 	JujuDBSnapChannel:                  schema.String(),
 	MaxDebugLogDuration:                schema.TimeDurationString(),
 	MaxTxnLogSize:                      schema.String(),
@@ -91,7 +90,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AutocertURLKey:                     schema.Omit,
 	AutocertDNSNameKey:                 schema.Omit,
 	AllowModelAccessKey:                schema.Omit,
-	MongoMemoryProfile:                 DefaultMongoMemoryProfile,
 	JujuDBSnapChannel:                  DefaultJujuDBSnapChannel,
 	MaxDebugLogDuration:                DefaultMaxDebugLogDuration,
 	MaxTxnLogSize:                      fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
@@ -228,10 +226,6 @@ set, the api-port isn't opened until the controllers have started properly.`,
 		Description: `Determines if the controller allows users to
 connect to models they have been authorized for even when
 they don't have any access rights to the controller itself`,
-	},
-	MongoMemoryProfile: {
-		Type:        configschema.Tstring,
-		Description: `Sets mongo memory profile`,
 	},
 	JujuDBSnapChannel: {
 		Type:        configschema.Tstring,

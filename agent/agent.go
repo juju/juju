@@ -274,10 +274,6 @@ type Config interface {
 	// collected metrics.
 	MetricsSpoolDir() string
 
-	// MongoMemoryProfile returns the profile to be used when setting
-	// mongo memory usage.
-	MongoMemoryProfile() mongo.MemoryProfile
-
 	// JujuDBSnapChannel returns the channel for installing mongo snaps in
 	// focal or later.
 	JujuDBSnapChannel() string
@@ -363,10 +359,6 @@ type configSetterOnly interface {
 
 	// SetControllerAPIPort sets the controller API port in the config.
 	SetControllerAPIPort(port int)
-
-	// SetMongoMemoryProfile sets the passed policy as the one to be
-	// used.
-	SetMongoMemoryProfile(mongo.MemoryProfile)
 
 	// SetJujuDBSnapChannel sets the channel for installing mongo snaps
 	// when bootstrapping focal or later.
@@ -477,7 +469,6 @@ type configInternal struct {
 	servingInfo                        *controller.StateServingInfo
 	loggingConfig                      string
 	values                             map[string]string
-	mongoMemoryProfile                 string
 	jujuDBSnapChannel                  string
 	agentLogfileMaxSizeMB              int
 	agentLogfileMaxBackups             int
@@ -507,7 +498,6 @@ type AgentConfigParams struct {
 	APIAddresses                       []string
 	CACert                             string
 	Values                             map[string]string
-	MongoMemoryProfile                 mongo.MemoryProfile
 	JujuDBSnapChannel                  string
 	AgentLogfileMaxSizeMB              int
 	AgentLogfileMaxBackups             int
@@ -580,7 +570,6 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		caCert:                             configParams.CACert,
 		oldPassword:                        configParams.Password,
 		values:                             configParams.Values,
-		mongoMemoryProfile:                 configParams.MongoMemoryProfile.String(),
 		jujuDBSnapChannel:                  configParams.JujuDBSnapChannel,
 		agentLogfileMaxSizeMB:              configParams.AgentLogfileMaxSizeMB,
 		agentLogfileMaxBackups:             configParams.AgentLogfileMaxBackups,
@@ -880,20 +869,6 @@ func (c *configInternal) check() error {
 		}
 	}
 	return nil
-}
-
-// MongoMemoryProfile implements Config.
-func (c *configInternal) MongoMemoryProfile() mongo.MemoryProfile {
-	mprof := mongo.MemoryProfile(c.mongoMemoryProfile)
-	if err := mprof.Validate(); err != nil {
-		return mongo.MemoryProfileLow
-	}
-	return mongo.MemoryProfile(c.mongoMemoryProfile)
-}
-
-// SetMongoMemoryProfile implements configSetterOnly.
-func (c *configInternal) SetMongoMemoryProfile(v mongo.MemoryProfile) {
-	c.mongoMemoryProfile = v.String()
 }
 
 // JujuDBSnapChannel implements Config.

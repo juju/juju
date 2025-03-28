@@ -194,12 +194,6 @@ var newConfigTests = []struct {
 	},
 	expectError: `prune-txn-sleep-time: conversion to duration: time: missing unit in duration "15"`,
 }, {
-	about: "mongo-memory-profile not valid",
-	config: controller.Config{
-		controller.MongoMemoryProfile: "not-valid",
-	},
-	expectError: `mongo-memory-profile: expected one of "low" or "default" got string\("not-valid"\)`,
-}, {
 	about: "max-debug-log-duration not valid",
 	config: controller.Config{
 		controller.MaxDebugLogDuration: time.Duration(0),

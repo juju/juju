@@ -160,9 +160,6 @@ The following keys are available:
       type: string
       description: The maximum size of the log file written out by the controller on behalf
         of workers running for a model
-    mongo-memory-profile:
-      type: string
-      description: Sets mongo memory profile
     object-store-s3-endpoint:
       type: string
       description: The s3 endpoint for the object store backend

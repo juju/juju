@@ -1258,13 +1258,6 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 		"--bind_ip_all",
 	}
 
-	var wiredTigerCacheSize float32
-	if c.pcfg.Controller.MongoMemoryProfile() == string(mongo.MemoryProfileLow) {
-		wiredTigerCacheSize = mongo.LowCacheSize
-	}
-	if wiredTigerCacheSize > 0 {
-		args = append(args, fmt.Sprintf("--wiredTigerCacheSizeGB=%v", wiredTigerCacheSize))
-	}
 	// Create the script used to start mongo.
 	const mongoSh = "/tmp/mongo.sh"
 	mongoStartup := fmt.Sprintf(caas.MongoStartupShTemplate, strings.Join(args, " "),

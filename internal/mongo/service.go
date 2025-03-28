@@ -107,10 +107,6 @@ type ConfigArgs struct {
 	LogPath string
 	SlowMS  int
 
-	// db kernel
-	MemoryProfile         MemoryProfile
-	WiredTigerCacheSizeGB float32
-
 	// misc
 	Quiet bool
 }
@@ -200,9 +196,6 @@ func (mongoArgs *ConfigArgs) asMap() configArgsConverter {
 	}
 
 	result["storageEngine"] = string(WiredTiger)
-	if mongoArgs.WiredTigerCacheSizeGB > 0.0 {
-		result["wiredTigerCacheSizeGB"] = fmt.Sprint(mongoArgs.WiredTigerCacheSizeGB)
-	}
 
 	// Logging
 	if mongoArgs.Syslog {
@@ -244,17 +237,14 @@ var supportsIPv6 = network.SupportsIPv6
 // newMongoDBArgsWithDefaults returns *mongoDbConfigArgs
 // under the assumption that MongoDB 3.4 or later is running.
 func generateConfig(oplogSizeMB int, args EnsureServerParams) *ConfigArgs {
-	useLowMemory := args.MemoryProfile == MemoryProfileLow
-
 	mongoArgs := &ConfigArgs{
-		Clock:         clock.WallClock,
-		DataDir:       args.MongoDataDir,
-		DBDir:         dbDir(args.MongoDataDir),
-		LogPath:       logPath(args.MongoDataDir),
-		Port:          args.StatePort,
-		OplogSizeMB:   oplogSizeMB,
-		IPv6:          supportsIPv6(),
-		MemoryProfile: args.MemoryProfile,
+		Clock:       clock.WallClock,
+		DataDir:     args.MongoDataDir,
+		DBDir:       dbDir(args.MongoDataDir),
+		LogPath:     logPath(args.MongoDataDir),
+		Port:        args.StatePort,
+		OplogSizeMB: oplogSizeMB,
+		IPv6:        supportsIPv6(),
 		// Switch from syslog to appending to dataDir, because snaps don't
 		// have the same permissions.
 		Syslog: false,
@@ -271,8 +261,5 @@ func generateConfig(oplogSizeMB int, args EnsureServerParams) *ConfigArgs {
 		//BindIP:         "127.0.0.1", // TODO(tsm): use machine's actual IP address via dialInfo
 	}
 
-	if useLowMemory {
-		mongoArgs.WiredTigerCacheSizeGB = LowCacheSize
-	}
 	return mongoArgs
 }

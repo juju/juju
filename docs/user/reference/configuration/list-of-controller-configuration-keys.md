@@ -517,20 +517,6 @@ controller on behalf of workers running for a model.
 **Can be changed after bootstrap:** yes
 
 
-(controller-config-mongo-memory-profile)=
-## `mongo-memory-profile`
-
-`mongo-memory-profile` sets the memory profile for MongoDB. Valid values are:
-- "low": use the least possible memory
-- "default": use the default memory profile.
-
-**Type:** string
-
-**Default value:** default
-
-**Can be changed after bootstrap:** yes
-
-
 (controller-config-object-store-s3-endpoint)=
 ## `object-store-s3-endpoint`
 

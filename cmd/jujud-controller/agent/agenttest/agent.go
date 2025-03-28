@@ -268,7 +268,6 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			CACert:                stateInfo.CACert,
 			Controller:            s.ControllerModel(c).ControllerTag(),
 			Model:                 modelTag,
-			MongoMemoryProfile:    controller.DefaultMongoMemoryProfile,
 			QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
 			QueryTracingThreshold: controller.DefaultQueryTracingThreshold,
 
