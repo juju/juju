@@ -1,0 +1,265 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package sshtunneler
+
+import (
+	"context"
+	"net"
+	"sync"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/juju/clock"
+	"github.com/juju/errors"
+	gossh "golang.org/x/crypto/ssh"
+
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/pki/ssh"
+	"github.com/juju/juju/state"
+)
+
+const (
+	maxTimeout        = 60 * time.Second
+	reverseTunnelUser = "reverse-tunnel"
+	tokenIssuer       = "sshtunneler"
+	tokenSubject      = "reverse-tunnel"
+	tunnelIDClaimKey  = "tunnelID"
+	defaultUser       = "ubuntu"
+)
+
+// State defines an interface to write requests for tunnels to state.
+type State interface {
+	InsertSSHConnRequest(arg state.SSHConnRequestArg) error
+}
+
+// ControllerInfo defines an interface to fetch the controller's address.
+type ControllerInfo interface {
+	Addresses() (network.SpaceAddresses, error)
+}
+
+// SSHDialer defines an interface to establish an SSH connection over a provided connection.
+type SSHDial interface {
+	Dial(conn net.Conn, username string, privateKey gossh.Signer, hostKeyCallback gossh.HostKeyCallback) (*gossh.Client, error)
+}
+
+// TunnelTracker is an object that tracks a request for an SSH connection
+// to a machine. See the Wait() method for more details.
+type TunnelRequest struct {
+	privateKey gossh.Signer
+	dialer     SSHDial
+	recv       chan (net.Conn)
+	cleanup    func()
+}
+
+// TunnelTracker provides methods to create SSH tunnels to machine units.
+// The objects keep track of consumers who have requested tunnels
+// and allows an SSH server to push tunnels to these consumers.
+type TunnelTracker struct {
+	authn      tunnelAuthentication
+	state      State
+	controller ControllerInfo
+	dialer     SSHDial
+	clock      clock.Clock
+
+	mu      sync.Mutex
+	tracker map[string]*TunnelRequest
+}
+
+// TunnelTrackerArgs holds the arguments for creating a new tunnel tracker.
+type TunnelTrackerArgs struct {
+	State          State
+	ControllerInfo ControllerInfo
+	Dialer         SSHDial
+	Clock          clock.Clock
+	TunnelSecret   TunnelSecret
+}
+
+// NewTunnelTracker creates a new tunnel tracker.
+func NewTunnelTracker(args TunnelTrackerArgs) (*TunnelTracker, error) {
+	authn := tunnelAuthentication{
+		TunnelSecret: args.TunnelSecret,
+		clock:        args.Clock,
+	}
+
+	return &TunnelTracker{
+		tracker:    make(map[string]*TunnelRequest),
+		authn:      authn,
+		controller: args.ControllerInfo,
+		clock:      args.Clock,
+		state:      args.State,
+		dialer:     args.Dialer,
+	}, nil
+}
+
+// RequestArgs holds the arguments for requesting a tunnel.
+type RequestArgs struct {
+	MachineID string
+	ModelUUID string
+}
+
+func (tt *TunnelTracker) generateEphemeralSSHKey() (gossh.Signer, gossh.PublicKey, error) {
+	privKey, err := ssh.ED25519()
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "failed to generate key")
+	}
+
+	sshPrivateKey, err := gossh.NewSignerFromKey(privKey)
+	if err != nil {
+		return nil, nil, errors.NotValidf("private key")
+	}
+
+	return sshPrivateKey, sshPrivateKey.PublicKey(), nil
+}
+
+// RequestTunnel requests a tunnel to a model specific unit.
+//
+// The returned tunnelRequest should be used to wait for the tunnel to be established.
+// See Wait() for more information.
+func (tt *TunnelTracker) RequestTunnel(req RequestArgs) (*TunnelRequest, error) {
+	tunnelID, err := uuid.NewRandom()
+	if err != nil {
+		return nil, err
+	}
+
+	// We use the same expiry for the password and the state entry.
+	// The state's expiry is used to clean up any dangling requests.
+	// The password expiry is used to invalidate old passwords.
+	expiry := tt.clock.Now().Add(maxTimeout)
+
+	password, err := tt.authn.generatePassword(tunnelID.String(), expiry)
+	if err != nil {
+		return nil, err
+	}
+
+	privateKey, publicKey, err := tt.generateEphemeralSSHKey()
+	if err != nil {
+		return nil, err
+	}
+
+	controllerAddresses, err := tt.controller.Addresses()
+	if err != nil {
+		return nil, err
+	}
+
+	args := state.SSHConnRequestArg{
+		TunnelID:            tunnelID.String(),
+		ModelUUID:           req.ModelUUID,
+		MachineId:           req.MachineID,
+		Expires:             expiry,
+		Username:            reverseTunnelUser,
+		Password:            password,
+		ControllerAddresses: controllerAddresses,
+		UnitPort:            22,
+		EphemeralPublicKey:  publicKey.Marshal(),
+	}
+
+	err = tt.state.InsertSSHConnRequest(args)
+	if err != nil {
+		return nil, err
+	}
+
+	cleanup := func() {
+		tt.delete(tunnelID.String())
+	}
+	// Make sure to use an unbuffered channel to ensure someone always
+	// has responsibility of the connection passed around.
+	tunnelReq := &TunnelRequest{
+		recv:       make(chan (net.Conn)),
+		privateKey: privateKey,
+		cleanup:    cleanup,
+		dialer:     tt.dialer,
+	}
+
+	tt.add(tunnelID.String(), tunnelReq)
+
+	return tunnelReq, nil
+}
+
+func (tt *TunnelTracker) add(tunnelID string, req *TunnelRequest) {
+	tt.mu.Lock()
+	defer tt.mu.Unlock()
+	tt.tracker[tunnelID] = req
+}
+
+func (tt *TunnelTracker) get(tunnelID string) (*TunnelRequest, bool) {
+	tt.mu.Lock()
+	defer tt.mu.Unlock()
+	req, ok := tt.tracker[tunnelID]
+	return req, ok
+}
+
+func (tt *TunnelTracker) delete(tunnelID string) {
+	tt.mu.Lock()
+	defer tt.mu.Unlock()
+	delete(tt.tracker, tunnelID)
+}
+
+// AuthenticateTunnel authenticates an SSH request for a tunnel.
+//
+// An SSH server is expected to call this method to validate that
+// the connection is a valid tunnel request.
+//
+// If the request is valid, the provided tunnelID should be
+// stored and provided alongside the network connection to PushTunnel.
+func (tt *TunnelTracker) AuthenticateTunnel(username, password string) (tunnelID string, err error) {
+	if username != reverseTunnelUser {
+		return "", errors.New("invalid username")
+	}
+
+	return tt.authn.validatePassword(password)
+}
+
+// PushTunnel publishes a network connection for a tunnel.
+// This method should only be called after AuthenticateTunnel
+// which will provide the tunnelID.
+//
+// If the tunnelID is not valid an error is returned and the
+// caller should close the connection.
+//
+// This method blocks until a consumer runs Wait() on the
+// appropriate tunnel request. Use context.WithTimeout to control
+// the maximum time to wait.
+func (tt *TunnelTracker) PushTunnel(ctx context.Context, tunnelID string, conn net.Conn) error {
+	req, ok := tt.get(tunnelID)
+	if !ok {
+		return errors.New("tunnel not found")
+	}
+	select {
+	case req.recv <- conn:
+		return nil
+	case <-ctx.Done():
+		return errors.Annotate(ctx.Err(), "no one waiting for tunnel")
+	}
+}
+
+// Wait blocks until a TCP tunnel to the target unit is established.
+//
+// It is a mistake not to call Wait() after a successful call to RequestTunnel()
+// as this will leak resources in the tunnel tracker.
+// If the tunnel is no longer required, the caller should call Close() on the
+// returned client.
+//
+// Use context.WithTimeout to control the maximum time to wait for the tunnel
+// to be established.
+func (tr *TunnelRequest) Wait(ctx context.Context) (*gossh.Client, error) {
+	defer tr.cleanup()
+	select {
+	case conn := <-tr.recv:
+		// We now have ownership of the connection, so we should close it
+		// if the SSH dial fails.
+		//
+		// Safely ignore the host key since we are connecting through an
+		// SSH tunnel that the machine agent has established to the controller.
+		// We have already authenticated that this connection came from
+		// a specific machine, so we opt not to verify the host key.
+		sshClient, err := tr.dialer.Dial(conn, defaultUser, tr.privateKey, gossh.InsecureIgnoreHostKey())
+		if err != nil {
+			conn.Close()
+			return nil, err
+		}
+		return sshClient, nil
+	case <-ctx.Done():
+		return nil, errors.Annotate(ctx.Err(), "waiting for tunnel")
+	}
+}
