@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	gossh "golang.org/x/crypto/ssh"
 
@@ -43,6 +42,11 @@ type SSHDial interface {
 	Dial(conn net.Conn, username string, privateKey gossh.Signer, hostKeyCallback gossh.HostKeyCallback) (*gossh.Client, error)
 }
 
+// Clock defines an interface for getting the current time.
+type Clock interface {
+	Now() time.Time
+}
+
 // Request tracks a request for an SSH connection to
 // a machine. See its Wait() method for more details.
 type Request struct {
@@ -60,7 +64,7 @@ type Tracker struct {
 	state      State
 	controller ControllerInfo
 	dialer     SSHDial
-	clock      clock.Clock
+	clock      Clock
 
 	mu      sync.Mutex
 	tracker map[string]*Request
@@ -71,7 +75,7 @@ type TrackerArgs struct {
 	State          State
 	ControllerInfo ControllerInfo
 	Dialer         SSHDial
-	Clock          clock.Clock
+	Clock          Clock
 }
 
 func (args *TrackerArgs) validate() error {
