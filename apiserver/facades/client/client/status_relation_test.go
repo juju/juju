@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corerelation "github.com/juju/juju/core/relation"
+	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/core/status"
 	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
@@ -41,17 +42,20 @@ func (s *relationStatusSuite) TestFetchRelation(c *gc.C) {
 	expectedStatus := relationStatus{
 		UUID: "relation-uuid",
 		ID:   1,
+		Key:  corerelationtesting.GenNewKey(c, "source:provider sink:consumer"),
 		Endpoints: []domainrelation.Endpoint{
 			{
 				ApplicationName: "source",
 				Relation: charm.Relation{
 					Name: "provider",
+					Role: charm.RoleProvider,
 				},
 			},
 			{
 				ApplicationName: "sink",
 				Relation: charm.Relation{
 					Name: "consumer",
+					Role: charm.RoleRequirer,
 				},
 			},
 		},
@@ -105,17 +109,20 @@ func (s *relationStatusSuite) TestFetchRelationWithError(c *gc.C) {
 	expectedStatus := relationStatus{
 		UUID: okUUID,
 		ID:   42,
+		Key:  corerelationtesting.GenNewKey(c, "source:provider sink:consumer"),
 		Endpoints: []domainrelation.Endpoint{
 			{
 				ApplicationName: "source",
 				Relation: charm.Relation{
 					Name: "provider",
+					Role: charm.RoleProvider,
 				},
 			},
 			{
 				ApplicationName: "sink",
 				Relation: charm.Relation{
 					Name: "consumer",
+					Role: charm.RoleRequirer,
 				},
 			},
 		},

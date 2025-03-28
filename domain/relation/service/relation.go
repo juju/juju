@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"strings"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
@@ -57,7 +56,7 @@ type State interface {
 	//     found.
 	GetRegularRelationUUIDByEndpointIdentifiers(
 		ctx context.Context,
-		endpoint1, endpoint2 relation.EndpointIdentifier,
+		endpoint1, endpoint2 corerelation.EndpointIdentifier,
 	) (corerelation.UUID, error)
 
 	// GetPeerRelationUUIDByEndpointIdentifiers gets the UUID of a peer
@@ -68,7 +67,7 @@ type State interface {
 	//     found.
 	GetPeerRelationUUIDByEndpointIdentifiers(
 		ctx context.Context,
-		endpoint relation.EndpointIdentifier,
+		endpoint corerelation.EndpointIdentifier,
 	) (corerelation.UUID, error)
 
 	// GetRelationsStatusForUnit returns RelationUnitStatus for all relations
@@ -295,16 +294,21 @@ func (s *Service) GetRelationID(ctx context.Context, relationUUID corerelation.U
 //     is not valid.
 func (s *Service) GetRelationKey(ctx context.Context, relationUUID corerelation.UUID) (corerelation.Key, error) {
 	if err := relationUUID.Validate(); err != nil {
-		return "", errors.Errorf(
+		return corerelation.Key{}, errors.Errorf(
 			"%w:%w", relationerrors.RelationUUIDNotValid, err)
 	}
 
 	endpoints, err := s.st.GetRelationEndpoints(ctx, relationUUID)
 	if err != nil {
-		return "", errors.Capture(err)
+		return corerelation.Key{}, errors.Capture(err)
 	}
 
-	return relation.NaturalKey(endpoints), nil
+	var eids []corerelation.EndpointIdentifier
+	for _, ep := range endpoints {
+		eids = append(eids, ep.EndpointIdentifier())
+	}
+
+	return corerelation.NewKey(eids)
 }
 
 // GetRelationStatus returns the status of the given relation.
@@ -337,7 +341,14 @@ func (s *Service) GetRelationsStatusForUnit(
 
 	var statuses []relation.RelationUnitStatus
 	for _, result := range results {
-		key := relation.NaturalKey(result.Endpoints)
+		var eids []corerelation.EndpointIdentifier
+		for _, e := range result.Endpoints {
+			eids = append(eids, e.EndpointIdentifier())
+		}
+		key, err := corerelation.NewKey(eids)
+		if err != nil {
+			return nil, errors.Errorf("generating relation key: %w", err)
+		}
 		statuses = append(statuses, relation.RelationUnitStatus{
 			Key:       key,
 			InScope:   result.InScope,
@@ -393,17 +404,18 @@ func (s *Service) GetRelationUUIDByID(ctx context.Context, relationID int) (core
 //     key.
 //   - [relationerrors.RelationKeyNotValid]: when the relation key is not valid.
 func (s *Service) GetRelationUUIDByKey(ctx context.Context, relationKey corerelation.Key) (corerelation.UUID, error) {
-	endpointIdentifiers, err := parseRelationKeyEndpoints(relationKey)
+	err := relationKey.Validate()
 	if err != nil {
-		return "", errors.Errorf("parsing relation key %q: %w", relationKey, err).Add(relationerrors.RelationKeyNotValid)
+		return "", relationerrors.RelationKeyNotValid
 	}
 
+	eids := relationKey.EndpointIdentifiers()
 	var uuid corerelation.UUID
-	switch len(endpointIdentifiers) {
+	switch len(eids) {
 	case 1:
 		uuid, err = s.st.GetPeerRelationUUIDByEndpointIdentifiers(
 			ctx,
-			endpointIdentifiers[0],
+			eids[0],
 		)
 		if err != nil {
 			return "", errors.Errorf("getting peer relation by key: %w", err)
@@ -412,15 +424,15 @@ func (s *Service) GetRelationUUIDByKey(ctx context.Context, relationKey corerela
 	case 2:
 		uuid, err = s.st.GetRegularRelationUUIDByEndpointIdentifiers(
 			ctx,
-			endpointIdentifiers[0],
-			endpointIdentifiers[1],
+			eids[0],
+			eids[1],
 		)
 		if err != nil {
 			return "", errors.Errorf("getting regular relation by key: %w", err)
 		}
 		return uuid, nil
 	default:
-		return "", errors.Errorf("expected 1 or 2 endpoints in relation key, got %d", len(endpointIdentifiers))
+		return "", errors.Errorf("expected 1 or 2 endpoints in relation key, got %d", len(eids))
 	}
 }
 
@@ -628,29 +640,4 @@ func (s *WatchableService) WatchUnitRelations(
 	relationUnit corerelation.UnitUUID,
 ) (relation.RelationUnitsWatcher, error) {
 	return nil, coreerrors.NotImplemented
-}
-
-// parseRelationKeyEndpoints parses a relation key into EndpointIdentifiers. It expects a
-// key of one of the following forms:
-// - "<application-name>:<endpoint-name> <application-name>:<endpoint-name>"
-// - "<application-name>:<endpoint-name>"
-func parseRelationKeyEndpoints(relationKey corerelation.Key) ([]relation.EndpointIdentifier, error) {
-	endpoints := strings.Fields(relationKey.String())
-	if l := len(endpoints); l > 2 || l < 1 {
-		return nil, errors.Errorf("expected 1 or 2 endpoints in relation key, found %d: %q", len(endpoints), relationKey)
-	}
-	var identifiers []relation.EndpointIdentifier
-	for _, endpoint := range endpoints {
-		parts := strings.Split(endpoint, ":")
-		if len(parts) != 2 {
-			return nil, errors.Errorf("expected endpoints of form <application-name>:<endpoint-name>, got %q", relationKey)
-		}
-
-		identifiers = append(identifiers, relation.EndpointIdentifier{
-			ApplicationName: parts[0],
-			EndpointName:    parts[1],
-		})
-	}
-
-	return identifiers, nil
 }
