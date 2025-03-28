@@ -381,14 +381,13 @@ func (facade *Facade) PublicHostKeyForTarget(arg params.SSHHostKeyRequestArg) pa
 
 	res.PublicKey = pubKey
 
-	// Get controller jumpserver hostkey.
-	jumpServerAuthorizedKey, err := facade.backend.JumpServerVirtualPublicKey()
+	jumpServerPubKey, err := facade.backend.JumpServerVirtualPublicKey()
 	if err != nil {
 		res.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to get controller jumpserver host key"))
 		return res
 	}
 
-	res.JumpServerPublicKey = jumpServerAuthorizedKey
+	res.JumpServerPublicKey = jumpServerPubKey
 
 	return res
 }
