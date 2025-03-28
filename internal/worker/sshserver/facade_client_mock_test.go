@@ -7,7 +7,7 @@
 //
 
 // Package sshserver_test is a generated GoMock package.
-package sshserver_test
+package sshserver
 
 import (
 	reflect "reflect"
