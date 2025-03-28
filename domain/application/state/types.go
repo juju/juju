@@ -73,6 +73,7 @@ type applicationDetails struct {
 	Name      string             `db:"name"`
 	CharmID   string             `db:"charm_uuid"`
 	LifeID    life.Life          `db:"life_id"`
+	Placement string             `db:"placement"`
 	SpaceUUID string             `db:"space_uuid"`
 }
 
@@ -83,23 +84,15 @@ type applicationScale struct {
 	ScaleTarget   int                `db:"scale_target"`
 }
 
-func (as applicationScale) toScaleState() application.ScaleState {
-	return application.ScaleState{
-		Scaling:     as.Scaling,
-		Scale:       as.Scale,
-		ScaleTarget: as.ScaleTarget,
-	}
-}
-
 type architectureMap struct {
 	ID   int    `db:"id"`
 	Name string `db:"name"`
 }
 
 type unitAgentVersion struct {
-	UnitUUID      string `db:"unit_uuid"`
-	Version       string `db:"version"`
-	ArchtectureID int    `db:"architecture_id"`
+	UnitUUID       string `db:"unit_uuid"`
+	Version        string `db:"version"`
+	ArchitectureID int    `db:"architecture_id"`
 }
 
 type unitUUID struct {
@@ -619,7 +612,6 @@ type countResult struct {
 // charmLocator is used to get the locator of a charm. The locator is purely
 // to reconstruct the charm URL.
 type charmLocator struct {
-	Name           string        `db:"name"`
 	ReferenceName  string        `db:"reference_name"`
 	Revision       int           `db:"revision"`
 	SourceID       int           `db:"source_id"`
@@ -1127,16 +1119,32 @@ type applicationPlatformAndChannel struct {
 }
 
 type applicationOrigin struct {
-	ReferenceName string `db:"reference_name"`
-	SourceID      int    `db:"source_id"`
+	ReferenceName      string         `db:"reference_name"`
+	SourceID           int            `db:"source_id"`
+	Revision           sql.NullInt64  `db:"revision"`
+	CharmhubIdentifier sql.NullString `db:"charmhub_identifier"`
+	Hash               sql.NullString `db:"hash"`
 }
 
 type exportApplication struct {
-	UUID         coreapplication.ID `db:"uuid"`
-	Name         string             `db:"name"`
-	CharmUUID    corecharm.ID       `db:"charm_uuid"`
-	Life         life.Life          `db:"life_id"`
-	PasswordHash string             `db:"password_hash"`
-	Exposed      bool               `db:"exposed"`
-	Subordinate  bool               `db:"subordinate"`
+	UUID                 coreapplication.ID `db:"uuid"`
+	Name                 string             `db:"name"`
+	CharmUUID            corecharm.ID       `db:"charm_uuid"`
+	Life                 life.Life          `db:"life_id"`
+	Placement            string             `db:"placement"`
+	Exposed              bool               `db:"exposed"`
+	Subordinate          bool               `db:"subordinate"`
+	CharmModifiedVersion int                `db:"charm_modified_version"`
+	CharmUpgradeOnError  bool               `db:"charm_upgrade_on_error"`
+	CharmReferenceName   string             `db:"reference_name"`
+	CharmSourceID        int                `db:"source_id"`
+	CharmRevision        int                `db:"revision"`
+	CharmArchitectureID  sql.NullInt64      `db:"architecture_id"`
+	K8sServiceProviderID sql.NullString     `db:"k8s_provider_id"`
+}
+
+type exportUnit struct {
+	UUID         coreunit.UUID `db:"uuid"`
+	Name         coreunit.Name `db:"name"`
+	PasswordHash string        `db:"password_hash"`
 }

@@ -95,32 +95,25 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 // Execute the import, adding the application to the model. This also includes
 // the charm and any units that are associated with the application.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
+	// Ensure we import principal applications first, so that
+	// subordinate units can refer to the principal ones.
+	var principals, subordinates []description.Application
 	for _, app := range model.Applications() {
+		if app.Subordinate() {
+			subordinates = append(subordinates, app)
+		} else {
+			principals = append(principals, app)
+		}
+	}
+
+	for _, app := range append(principals, subordinates...) {
 		unitArgs := make([]service.ImportUnitArg, 0, len(app.Units()))
 		for _, unit := range app.Units() {
-			unitName, err := coreunit.NewName(unit.Name())
+			unitArg, err := i.importUnit(ctx, unit)
 			if err != nil {
-				return err
+				return errors.Errorf("importing unit %q: %w", unit.Name(), err)
 			}
-			arg := service.ImportUnitArg{
-				UnitName: unitName,
-			}
-			if unit.PasswordHash() != "" {
-				arg.PasswordHash = ptr(unit.PasswordHash())
-			}
-
-			if cc := unit.CloudContainer(); cc != nil {
-				cldContainer := &application.CloudContainerParams{}
-				cldContainer.Address, cldContainer.AddressOrigin = i.makeAddress(cc.Address())
-				if cc.ProviderId() != "" {
-					cldContainer.ProviderID = cc.ProviderId()
-				}
-				if len(cc.Ports()) > 0 {
-					cldContainer.Ports = ptr(cc.Ports())
-				}
-				arg.CloudContainer = cldContainer
-			}
-			unitArgs = append(unitArgs, arg)
+			unitArgs = append(unitArgs, unitArg)
 		}
 
 		chURL, err := internalcharm.ParseURL(app.CharmURL())
@@ -196,6 +189,40 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	}
 
 	return nil
+}
+
+func (i *importOperation) importUnit(ctx context.Context, unit description.Unit) (service.ImportUnitArg, error) {
+	unitName, err := coreunit.NewName(unit.Name())
+	if err != nil {
+		return service.ImportUnitArg{}, err
+	}
+
+	var passwordHash *string
+	if hash := unit.PasswordHash(); hash != "" {
+		passwordHash = ptr(hash)
+	}
+
+	var cloudContainer *application.CloudContainerParams
+	if cc := unit.CloudContainer(); cc != nil {
+		address, origin := i.makeAddress(cc.Address())
+
+		cloudContainer = &application.CloudContainerParams{
+			Address:       address,
+			AddressOrigin: origin,
+		}
+		if cc.ProviderId() != "" {
+			cloudContainer.ProviderID = cc.ProviderId()
+		}
+		if len(cc.Ports()) > 0 {
+			cloudContainer.Ports = ptr(cc.Ports())
+		}
+	}
+
+	return service.ImportUnitArg{
+		UnitName:       unitName,
+		PasswordHash:   passwordHash,
+		CloudContainer: cloudContainer,
+	}, nil
 }
 
 // Rollback the import operation. This is required to remove any applications

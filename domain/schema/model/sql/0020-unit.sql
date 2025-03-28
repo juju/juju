@@ -303,3 +303,10 @@ SELECT
 FROM unit AS u
 LEFT JOIN unit_workload_status AS uws ON u.uuid = uws.unit_uuid
 LEFT JOIN unit_agent_status AS uas ON u.uuid = uas.unit_uuid;
+
+CREATE VIEW v_unit_export AS
+SELECT
+    u.uuid,
+    u.name,
+    u.password_hash
+FROM unit AS u;

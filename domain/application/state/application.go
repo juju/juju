@@ -47,22 +47,31 @@ func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) 
 		return "", errors.Capture(err)
 	}
 
+	var modelType coremodel.ModelType
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		modelType, err = st.getModelType(ctx, tx)
+		return err
+	}); err != nil {
+		return "", errors.Errorf("querying model type: %w", err)
+
+	}
+	return modelType, nil
+}
+
+func (st *State) getModelType(ctx context.Context, tx *sqlair.TX) (coremodel.ModelType, error) {
 	var result modelInfo
 	stmt, err := st.Prepare("SELECT &modelInfo.type FROM model", result)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt).Get(&result)
-		if errors.Is(err, sql.ErrNoRows) {
-			return modelerrors.NotFound
-		}
-		return err
-	})
-	if err != nil {
-		return "", errors.Errorf("querying model type: %w", err)
+	if err := tx.Query(ctx, stmt).Get(&result); errors.Is(err, sql.ErrNoRows) {
+		return "", modelerrors.NotFound
+	} else if err != nil {
+		return "", err
 	}
+
 	return coremodel.ModelType(result.ModelType), nil
 }
 
@@ -92,10 +101,12 @@ func (st *State) CreateApplication(
 	}
 
 	appDetails := applicationDetails{
-		UUID:    appUUID,
-		Name:    name,
-		CharmID: charmID.String(),
-		LifeID:  life.Alive,
+		UUID:      appUUID,
+		Name:      name,
+		CharmID:   charmID.String(),
+		LifeID:    life.Alive,
+		Placement: args.Placement,
+
 		// The space is defaulted to Alpha, which is guaranteed to exist.
 		// However, if there is default space defined in endpoints bindings
 		// (through a binding with an empty endpoint), the application space
@@ -574,13 +585,16 @@ WHERE application_uuid = $applicationScale.application_uuid
 	}
 
 	err = tx.Query(ctx, queryScaleStmt, appScale).Get(&appScale)
-	if err != nil {
-		if !errors.Is(err, sqlair.ErrNoRows) {
-			return application.ScaleState{}, errors.Errorf("querying application %q scale: %w", appUUID, err)
-		}
+	if errors.Is(err, sql.ErrNoRows) {
 		return application.ScaleState{}, errors.Errorf("%w: %s", applicationerrors.ApplicationNotFound, appUUID)
+	} else if err != nil {
+		return application.ScaleState{}, errors.Errorf("querying application %q scale: %w", appUUID, err)
 	}
-	return appScale.toScaleState(), nil
+	return application.ScaleState{
+		Scaling:     appScale.Scaling,
+		Scale:       appScale.Scale,
+		ScaleTarget: appScale.ScaleTarget,
+	}, nil
 }
 
 // GetApplicationLife looks up the life of the specified application, returning
@@ -2007,22 +2021,22 @@ WHERE application_uuid = $applicationID.uuid;
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
-			return errors.Capture(err)
+			return errors.Errorf("getting application life: %w", err)
 		}
 
 		err := tx.Query(ctx, stmtOrigin, ident).Get(&appOrigin)
 		if err != nil {
-			return errors.Capture(err)
+			return errors.Errorf("querying origin: %w", err)
 		}
 
 		err = tx.Query(ctx, stmtPlatformChannel, ident).Get(&appPlatformChan)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Capture(err)
+			return errors.Errorf("querying platform and channel: %w", err)
 		}
 
 		return nil
 	}); err != nil {
-		return application.CharmOrigin{}, errors.Errorf("querying application platform and channel for application %q: %w", appID, err)
+		return application.CharmOrigin{}, errors.Errorf("querying application %q: %w", appID, err)
 	}
 
 	source, err := decodeCharmSource(appOrigin.SourceID)
@@ -2040,11 +2054,29 @@ WHERE application_uuid = $applicationID.uuid;
 		return application.CharmOrigin{}, errors.Errorf("decoding channel: %w", err)
 	}
 
+	var revision = -1
+	if appOrigin.Revision.Valid {
+		revision = int(appOrigin.Revision.Int64)
+	}
+
+	var hash string
+	if appOrigin.Hash.Valid {
+		hash = appOrigin.Hash.String
+	}
+
+	var charmhubIdentifier string
+	if appOrigin.CharmhubIdentifier.Valid {
+		charmhubIdentifier = appOrigin.CharmhubIdentifier.String
+	}
+
 	return application.CharmOrigin{
-		Name:     appOrigin.ReferenceName,
-		Source:   source,
-		Platform: platform,
-		Channel:  channel,
+		Name:               appOrigin.ReferenceName,
+		Source:             source,
+		Platform:           platform,
+		Channel:            channel,
+		Revision:           revision,
+		Hash:               hash,
+		CharmhubIdentifier: charmhubIdentifier,
 	}, nil
 }
 

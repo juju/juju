@@ -27,7 +27,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corecontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/core/leadership"
 	corelogger "github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
@@ -52,7 +51,7 @@ type ModelExporter interface {
 	// It requires a known set of leaders to be passed in, so that applications
 	// can have their leader set correctly once imported.
 	// The objectstore is used to retrieve charms and resources for export.
-	ExportModel(context.Context, map[string]string, objectstore.ObjectStore) (description.Model, error)
+	ExportModel(context.Context, objectstore.ObjectStore) (description.Model, error)
 }
 
 // ControllerAPI provides the Controller API.
@@ -83,7 +82,6 @@ type ControllerAPI struct {
 	proxyService              ProxyService
 	modelExporter             func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error)
 	store                     objectstore.ObjectStore
-	leadership                leadership.Reader
 	logger                    corelogger.Logger
 	controllerTag             names.ControllerTag
 }
@@ -120,7 +118,6 @@ func NewControllerAPI(
 	proxyService ProxyService,
 	modelExporter func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error),
 	store objectstore.ObjectStore,
-	leadership leadership.Reader,
 ) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
@@ -178,7 +175,6 @@ func NewControllerAPI(
 		controllerTag:             st.ControllerTag(),
 		modelExporter:             modelExporter,
 		store:                     store,
-		leadership:                leadership,
 	}, nil
 }
 
@@ -624,10 +620,6 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	leaders, err := c.leadership.Leaders()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
 	applicationService, err := c.applicationServiceGetter(ctx, coremodel.UUID(hostedState.ModelUUID()))
 	if err != nil {
 		return "", errors.Trace(err)
@@ -652,7 +644,6 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		statusService,
 		c.modelExporter,
 		c.store,
-		leaders,
 	); err != nil {
 		return "", errors.Trace(err)
 	}
@@ -800,7 +791,6 @@ var runMigrationPrechecks = func(
 	statusService StatusService,
 	modelExporter func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error),
 	store objectstore.ObjectStore,
-	leaders map[string]string,
 ) error {
 	// Check model and source controller.
 	backend, err := migration.PrecheckShim(st, ctlrSt)
@@ -823,7 +813,7 @@ var runMigrationPrechecks = func(
 
 	// Check target controller.
 	modelInfo, srcUserList, err := makeModelInfo(ctx, st,
-		controllerConfigService, modelService, modelAgentService, modelExporter, store, leaders)
+		controllerConfigService, modelService, modelAgentService, modelExporter, store)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -928,7 +918,6 @@ func makeModelInfo(ctx context.Context, st *state.State,
 	modelAgentService ModelAgentService,
 	modelExporterFn func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error),
 	store objectstore.ObjectStore,
-	leaders map[string]string,
 ) (coremigration.ModelInfo, userList, error) {
 	var empty coremigration.ModelInfo
 	var ul userList
@@ -942,7 +931,7 @@ func makeModelInfo(ctx context.Context, st *state.State,
 	if err != nil {
 		return empty, ul, errors.Trace(err)
 	}
-	description, err := modelExporter.ExportModel(ctx, leaders, store)
+	description, err := modelExporter.ExportModel(ctx, store)
 	if err != nil {
 		return empty, ul, errors.Trace(err)
 	}

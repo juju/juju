@@ -1150,8 +1150,8 @@ func (st *mockState) ControllerModelTag() names.ModelTag {
 	return st.controllerModel.tag
 }
 
-func (st *mockState) Export(leaders map[string]string, store objectstore.ObjectStore) (description.Model, error) {
-	st.MethodCall(st, "Export", leaders)
+func (st *mockState) Export(store objectstore.ObjectStore) (description.Model, error) {
+	st.MethodCall(st, "Export")
 	return &fakeModelDescription{ModelUUID: st.model.UUID()}, nil
 }
 

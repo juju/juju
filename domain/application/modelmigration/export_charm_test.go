@@ -6,14 +6,12 @@ package modelmigration
 import (
 	"context"
 
-	"github.com/juju/clock"
 	"github.com/juju/description/v9"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/domain/application"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charm/resource"
@@ -28,34 +26,23 @@ var _ = gc.Suite(&exportCharmSuite{})
 func (s *exportCharmSuite) TestApplicationExportMinimalCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	model := description.NewModel(description.ModelArgs{})
-
-	appArgs := description.ApplicationArgs{
-		Name:     "prometheus",
-		CharmURL: "ch:prometheus-1",
-	}
-	app := model.AddApplication(appArgs)
-	app.AddUnit(description.UnitArgs{
-		Name: "prometheus/0",
-	})
-
+	s.expectApplication(c)
 	s.expectMinimalCharm()
 	s.expectApplicationConfig()
 	s.expectApplicationConstraints(constraints.Value{})
-	s.expectGetApplicationScaleState(application.ScaleState{})
+	s.expectApplicationUnits()
 
-	exportOp := exportOperation{
-		service: s.exportService,
-		clock:   clock.WallClock,
-	}
+	exportOp := s.newExportOperation()
+
+	model := description.NewModel(description.ModelArgs{})
 
 	err := exportOp.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(model.Applications(), gc.HasLen, 1)
 
-	app = model.Applications()[0]
-	c.Check(app.Name(), gc.Equals, appArgs.Name)
-	c.Check(app.CharmURL(), gc.Equals, appArgs.CharmURL)
+	app := model.Applications()[0]
+	c.Check(app.Name(), gc.Equals, "prometheus")
+	c.Check(app.CharmURL(), gc.Equals, "ch:amd64/prometheus-42")
 
 	metadata := app.CharmMetadata()
 	c.Assert(metadata, gc.NotNil)
@@ -164,10 +151,7 @@ func (s *exportCharmSuite) TestExportCharmMetadata(c *gc.C) {
 		},
 	}
 
-	exportOp := exportOperation{
-		service: s.exportService,
-		clock:   clock.WallClock,
-	}
+	exportOp := s.newExportOperation()
 
 	args, err := exportOp.exportCharmMetadata(meta, "{}")
 	c.Assert(err, jc.ErrorIsNil)
@@ -288,10 +272,7 @@ func (s *exportCharmSuite) TestExportCharmManifest(c *gc.C) {
 		}},
 	}
 
-	exportOp := exportOperation{
-		service: s.exportService,
-		clock:   clock.WallClock,
-	}
+	exportOp := s.newExportOperation()
 
 	args, err := exportOp.exportCharmManifest(manifest)
 	c.Assert(err, jc.ErrorIsNil)
@@ -316,10 +297,7 @@ func (s *exportCharmSuite) TestExportCharmConfig(c *gc.C) {
 		},
 	}
 
-	exportOp := exportOperation{
-		service: s.exportService,
-		clock:   clock.WallClock,
-	}
+	exportOp := s.newExportOperation()
 
 	args, err := exportOp.exportCharmConfig(config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -347,10 +325,7 @@ func (s *exportCharmSuite) TestExportCharmActions(c *gc.C) {
 		},
 	}
 
-	exportOp := exportOperation{
-		service: s.exportService,
-		clock:   clock.WallClock,
-	}
+	exportOp := s.newExportOperation()
 
 	args, err := exportOp.exportCharmActions(actions)
 	c.Assert(err, jc.ErrorIsNil)

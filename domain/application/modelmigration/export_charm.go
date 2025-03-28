@@ -51,10 +51,6 @@ func (e *exportOperation) exportCharm(ctx context.Context, app description.Appli
 }
 
 func (e *exportOperation) exportCharmMetadata(metadata *internalcharm.Meta, lxdProfile string) (description.CharmMetadataArgs, error) {
-	if metadata == nil {
-		return description.CharmMetadataArgs{}, nil
-	}
-
 	// Assumes is a recursive structure, so we need to marshal it to JSON as
 	// a string, to prevent YAML from trying to interpret it.
 	var assumesBytes []byte
