@@ -36,6 +36,7 @@ import (
 	portservice "github.com/juju/juju/domain/port/service"
 	proxyservice "github.com/juju/juju/domain/proxy/service"
 	relationservice "github.com/juju/juju/domain/relation/service"
+	removalservice "github.com/juju/juju/domain/removal/service"
 	resourceservice "github.com/juju/juju/domain/resource/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
@@ -101,8 +102,8 @@ type ModelDomainServices interface {
 	Status() *statusservice.LeadershipService
 	// KeyManager returns the key manager service.
 	KeyManager() *keymanagerservice.Service
-	// KeyManagerWithImporter returns they manager service that is capable of importing keys
-	// from an external source.
+	// KeyManagerWithImporter returns they manager service that is capable of
+	// importing keys from an external source.
 	KeyManagerWithImporter() *keymanagerservice.ImporterService
 	// KeyUpdater returns the key updater service.
 	KeyUpdater() *keyupdaterservice.WatchableService
@@ -128,10 +129,20 @@ type ModelDomainServices interface {
 	// state. This is used to reconcile with local state to determine which
 	// hooks to run, and is saved upon hook completion.
 	UnitState() *unitstateservice.Service
-	// CloudImageMetadata returns the service for persisting and retrieving cloud image metadata for a specific model
+	// CloudImageMetadata returns the service for persisting and retrieving
+	// cloud image metadata for a specific model.
 	CloudImageMetadata() *cloudimagemetadataservice.Service
 	// Port returns the service for managing opened port ranges for units.
 	Port() *portservice.WatchableService
+	// BlockCommand returns the service for blocking commands.
+	BlockCommand() *blockcommandservice.Service
+	// Relation returns the service for managing relations.
+	Relation() *relationservice.WatchableService
+	// Resource returns the service for managing resources.
+	Resource() *resourceservice.Service
+	// Removal returns the service for managing entity removal.
+	Removal() *removalservice.WatchableService
+
 	// Stub returns the stub service. A special service that collects temporary
 	// methods required for wiring together domains which are not completely
 	// implemented or wired up.
@@ -139,12 +150,6 @@ type ModelDomainServices interface {
 	// Deprecated: Stub service contains only temporary methods and should be removed
 	// as soon as possible.
 	Stub() *stubservice.StubService
-	// BlockCommand returns the service for blocking commands.
-	BlockCommand() *blockcommandservice.Service
-	// Relation returns the service for managing relations
-	Relation() *relationservice.WatchableService
-	// Resource returns the service for managing resources
-	Resource() *resourceservice.Service
 }
 
 // DomainServices provides access to the services required by the apiserver.
@@ -213,7 +218,7 @@ type ObjectStoreServicesGetter interface {
 	ServicesForModel(modelUUID model.UUID) ObjectStoreServices
 }
 
-// ControllerLogSinkServices provides access to the services required by the
+// LogSinkServices provides access to the services required by the
 // log sink worker.
 type LogSinkServices interface {
 	// ControllerConfig returns the controller configuration service.

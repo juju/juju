@@ -50,6 +50,7 @@ import (
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/internal/worker/providertracker"
 	"github.com/juju/juju/internal/worker/remoterelations"
+	"github.com/juju/juju/internal/worker/removal"
 	"github.com/juju/juju/internal/worker/secretsdrainworker"
 	"github.com/juju/juju/internal/worker/secretspruner"
 	"github.com/juju/juju/internal/worker/singular"
@@ -239,15 +240,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// Note that the fortress and flag will only exist while
 		// the model is not dead, and not upgrading; this frees
 		// their dependencies from model-lifetime/upgrade concerns.
-		migrationFortressName: ifNotDead(fortress.Manifold(
-		// No Logger defined in fortress package.
-		)),
+		migrationFortressName: ifNotDead(fortress.Manifold()),
 		migrationInactiveFlagName: ifNotDead(migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,
 			Check:         migrationflag.IsTerminal,
 			NewFacade:     migrationflag.NewFacade,
 			NewWorker:     migrationflag.NewWorker,
-			// No Logger defined in migrationflag package.
 		})),
 		migrationMasterName: ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
 			AgentName:          agentName,
@@ -257,7 +255,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:              config.Clock,
 			NewFacade:          migrationmaster.NewFacade,
 			NewWorker:          config.NewMigrationMaster,
-			// No Logger defined in migrationmaster package.
 		})),
 
 		// Everything else should be wrapped in ifResponsible,
@@ -301,6 +298,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewRemoteRelationsFacade: remoterelations.NewRemoteRelationsFacade,
 			NewWorker:                remoterelations.NewWorker,
 			Logger:                   config.LoggingContext.GetLogger("juju.worker.remoterelations", corelogger.CMR),
+		})),
+		removalName: ifNotMigrating(removal.Manifold(removal.ManifoldConfig{
+			DomainServicesName: domainServicesName,
+			GetRemovalService:  removal.GetRemovalService,
+			NewWorker:          removal.NewWorker,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.removal"),
 		})),
 		stateCleanerName: ifNotMigrating(cleaner.Manifold(cleaner.ManifoldConfig{
 			APICallerName: apiCallerName,
@@ -637,6 +640,7 @@ const (
 	machineUndertakerName        = "machine-undertaker"
 	providerServiceFactoriesName = "provider-service-factories"
 	remoteRelationsName          = "remote-relations"
+	removalName                  = "removal"
 	stateCleanerName             = "state-cleaner"
 	storageProvisionerName       = "storage-provisioner"
 	undertakerName               = "undertaker"
