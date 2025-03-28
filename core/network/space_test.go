@@ -4,6 +4,7 @@
 package network_test
 
 import (
+	"github.com/google/uuid"
 	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -205,4 +206,20 @@ func (s *spaceSuite) TestConvertSpaceName(c *gc.C) {
 		result := network.ConvertSpaceName(test.name, test.existing)
 		c.Check(result, gc.Equals, test.expected)
 	}
+}
+
+// This test guarantees that the AlphaSpaceId is a crafted, well-known v5 UUID
+// using a Juju namespace and a fixed string ("juju.network.space.alpha").
+func (s *spaceSuite) TestAlphaSpaceID(c *gc.C) {
+	// Juju UUID namespace that we (should) use for all Juju well-known UUIDs.
+	jujuUUIDNamespace := "96bb15e6-8b85-448b-9fce-ede1a1700e64"
+	namespaceUUID, err := uuid.Parse(jujuUUIDNamespace)
+	c.Assert(err, jc.ErrorIsNil)
+
+	alphaSpaceUUID := uuid.NewSHA1(namespaceUUID, []byte("juju.network.space.alpha"))
+	c.Assert(alphaSpaceUUID.String(), gc.Equals, network.AlphaSpaceId)
+}
+
+func (s *spaceSuite) TestAlphaSpaceName(c *gc.C) {
+	c.Assert(network.AlphaSpaceName, gc.Equals, "alpha")
 }

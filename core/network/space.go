@@ -20,7 +20,7 @@ const (
 	// AlphaSpaceId is the ID of the alpha network space.
 	// Application endpoints are bound to this space by default
 	// if no explicit binding is specified.
-	AlphaSpaceId = "00000001-0000-7000-b000-7a770aed04bc"
+	AlphaSpaceId = "656b4a82-e28c-53d6-a014-f0dd53417eb6"
 
 	// AlphaSpaceName is the name of the alpha network space.
 	AlphaSpaceName = "alpha"

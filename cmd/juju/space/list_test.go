@@ -87,7 +87,7 @@ func (s *ListSuite) TestOutputFormats(c *gc.C) {
 	outDir := c.MkDir()
 	expectedYAML := `
 spaces:
-- id: 00000001-0000-7000-b000-7a770aed04bc
+- id: 656b4a82-e28c-53d6-a014-f0dd53417eb6
   name: alpha
   subnets: {}
 - id: deadbeef1
@@ -127,7 +127,7 @@ spaces:
 {
   "spaces": [
     {
-      "id": "00000001-0000-7000-b000-7a770aed04bc",
+      "id": "656b4a82-e28c-53d6-a014-f0dd53417eb6",
       "name": "alpha",
       "subnets": {}
     },
@@ -205,7 +205,7 @@ spaces:
 
 	expectedTabular := `
 Name    Space ID                              Subnets      
-alpha   00000001-0000-7000-b000-7a770aed04bc               
+alpha   656b4a82-e28c-53d6-a014-f0dd53417eb6               
 space1  deadbeef1                             2001:db8::/32
                                               invalid      
 space2  deadbeef2                             10.1.2.0/24  

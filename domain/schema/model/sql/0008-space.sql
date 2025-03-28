@@ -14,7 +14,7 @@ CREATE TABLE provider_space (
 CREATE UNIQUE INDEX idx_provider_space_space_uuid ON provider_space (space_uuid);
 
 INSERT INTO space VALUES
-('00000001-0000-7000-b000-7a770aed04bc', 'alpha');
+('656b4a82-e28c-53d6-a014-f0dd53417eb6', 'alpha');
 
 CREATE VIEW v_space_subnet AS
 SELECT
