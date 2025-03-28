@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
+	"github.com/juju/retry"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
@@ -199,6 +200,42 @@ func (s *Suite) TestVALIDATION(c *gc.C) {
 	s.stub.CheckCall(c, 5, "Report", "id", migration.VALIDATION, true)
 }
 
+func (s *Suite) TestVALIDATIONCanConnectButIsRepeatedlyCalled(c *gc.C) {
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.VALIDATION,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.VALIDATION,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	s.waitForStubCalls(c, []string{
+		"Watch",
+		"Lockdown",
+		"API open",
+		"ValidateMigration",
+		"API close",
+		"Report",
+	})
+
+	s.stub.CheckCall(c, 2, "API open", &api.Info{
+		ModelTag: modelTag,
+		Tag:      agentTag,
+		Password: agentPassword,
+		Addrs:    addrs,
+		CACert:   caCert,
+	})
+	s.stub.CheckCall(c, 5, "Report", "id", migration.VALIDATION, true)
+}
+
 func (s *Suite) TestVALIDATIONCantConnect(c *gc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId: "id",
@@ -214,10 +251,10 @@ func (s *Suite) TestVALIDATIONCantConnect(c *gc.C) {
 
 	// Advance time enough for all of the retries to be exhausted.
 	sleepTime := 100 * time.Millisecond
-	for i := 0; i < 9; i++ {
+	for i := 0; i < 20; i++ {
 		err := s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
 		c.Assert(err, jc.ErrorIsNil)
-		sleepTime = (16 * sleepTime) / 10
+		sleepTime = calculateSleepTime(i)
 	}
 
 	s.waitForStubCalls(c, []string{
@@ -233,9 +270,19 @@ func (s *Suite) TestVALIDATIONCantConnect(c *gc.C) {
 		"API open",
 		"API open",
 		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
 		"Report",
 	})
-	s.stub.CheckCall(c, 12, "Report", "id", migration.VALIDATION, false)
+	s.stub.CheckCall(c, 22, "Report", "id", migration.VALIDATION, false)
 }
 
 func (s *Suite) TestVALIDATIONCantConnectNotReportForTryAgainError(c *gc.C) {
@@ -253,15 +300,25 @@ func (s *Suite) TestVALIDATIONCantConnectNotReportForTryAgainError(c *gc.C) {
 
 	// Advance time enough for all of the retries to be exhausted.
 	sleepTime := 100 * time.Millisecond
-	for i := 0; i < 9; i++ {
+	for i := 0; i < 20; i++ {
 		err := s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
 		c.Assert(err, jc.ErrorIsNil)
-		sleepTime = (16 * sleepTime) / 10
+		sleepTime = calculateSleepTime(i)
 	}
 
 	s.waitForStubCalls(c, []string{
 		"Watch",
 		"Lockdown",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
 		"API open",
 		"API open",
 		"API open",
@@ -290,19 +347,19 @@ func (s *Suite) TestVALIDATIONFail(c *gc.C) {
 
 	// Advance time enough for all of the retries to be exhausted.
 	sleepTime := 100 * time.Millisecond
-	for i := 0; i < 9; i++ {
+	for i := 0; i < 20; i++ {
 		err := s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
 		c.Assert(err, jc.ErrorIsNil)
-		sleepTime = (16 * sleepTime) / 10
+		sleepTime = calculateSleepTime(i)
 	}
 
 	expectedCalls := []string{"Watch", "Lockdown"}
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 20; i++ {
 		expectedCalls = append(expectedCalls, "API open", "ValidateMigration", "API close")
 	}
 	expectedCalls = append(expectedCalls, "Report")
 	s.waitForStubCalls(c, expectedCalls)
-	s.stub.CheckCall(c, 32, "Report", "id", migration.VALIDATION, false)
+	s.stub.CheckCall(c, 62, "Report", "id", migration.VALIDATION, false)
 }
 
 func (s *Suite) TestVALIDATIONRetrySucceed(c *gc.C) {
@@ -323,12 +380,12 @@ func (s *Suite) TestVALIDATIONRetrySucceed(c *gc.C) {
 
 	waitForStubCalls(c, &stub, "ValidateMigration")
 
-	err = s.clock.WaitAdvance(100*time.Millisecond, coretesting.LongWait, 1)
+	err = s.clock.WaitAdvance(160*time.Millisecond, coretesting.LongWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	waitForStubCalls(c, &stub, "ValidateMigration", "ValidateMigration")
 
-	err = s.clock.WaitAdvance(160*time.Millisecond, coretesting.LongWait, 1)
+	err = s.clock.WaitAdvance(256*time.Millisecond, coretesting.LongWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.waitForStubCalls(c, []string{
@@ -458,6 +515,12 @@ func stubCallNames(stub *jujutesting.Stub) []string {
 	return out
 }
 
+func calculateSleepTime(i int) time.Duration {
+	// These numbers correspond to the retry strategy used in the
+	// migration minion.
+	return retry.ExpBackoff(100*time.Millisecond, 25*time.Second, 1.6, false)(0, i+1)
+}
+
 func newStubGuard(stub *jujutesting.Stub) *stubGuard {
 	return &stubGuard{stub: stub}
 }
@@ -507,7 +570,7 @@ func (c *stubMinionClient) Report(id string, phase migration.Phase, success bool
 func newStubWatcher() *stubWatcher {
 	return &stubWatcher{
 		Worker:  workertest.NewErrorWorker(nil),
-		changes: make(chan watcher.MigrationStatus, 1),
+		changes: make(chan watcher.MigrationStatus, 2),
 	}
 }
 

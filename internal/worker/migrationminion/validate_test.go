@@ -86,7 +86,7 @@ func validConfig() migrationminion.Config {
 func checkNotValid(c *gc.C, config migrationminion.Config, expect string) {
 	check := func(err error) {
 		c.Check(err, gc.ErrorMatches, expect)
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, jc.ErrorIs, errors.NotValid)
 	}
 
 	err := config.Validate()

@@ -102,6 +102,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		ValidateMigration: config.ValidateMigration,
 		NewFacade:         config.NewFacade,
 		Logger:            config.Logger,
+		ApplyJitter:       true,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
