@@ -14,7 +14,6 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	jujutxn "github.com/juju/txn/v3"
 
-	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/mongo/utils"
 )
@@ -216,10 +215,6 @@ type setStatusParams struct {
 	// message. Its keys are assumed not to have been escaped.
 	rawData map[string]interface{}
 
-	// token, if present, must accept an *[]txn.Op passed to its Check method,
-	// and will prevent any change if it becomes invalid.
-	token leadership.Token
-
 	// updated, the time the status was set.
 	updated *time.Time
 }
@@ -249,9 +244,6 @@ func setStatus(db Database, params setStatusParams) (err error) {
 	// Set the authoritative status document, or fail trying.
 	var buildTxn jujutxn.TransactionSource = func(int) ([]txn.Op, error) {
 		return statusSetOps(db, doc, params.globalKey)
-	}
-	if params.token != nil {
-		buildTxn = buildTxnWithLeadership(buildTxn, params.token)
 	}
 	err = db.Run(buildTxn)
 	if cause := errors.Cause(err); cause == mgo.ErrNotFound {

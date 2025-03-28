@@ -50,7 +50,9 @@ func newUpdateSettingsWithLeaderTokenOperation(db Database, token leadership.Tok
 		updateDoc: updateDoc,
 	}
 
-	op.tokenAwareTxnBuilder = buildTxnWithLeadership(op.buildTxn, token)
+	op.tokenAwareTxnBuilder = func(attempt int) ([]txn.Op, error) {
+		return op.buildTxn(attempt)
+	}
 	return op
 }
 
