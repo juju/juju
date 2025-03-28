@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -525,7 +524,7 @@ func (s *upgraderSuite) TestSetToolsUnsupportedArchitecture(c *gc.C) {
 		names.NewControllerAgentTag("123"),
 	}
 
-	ver := version.Number{Major: 4, Minor: 0, Patch: 0}
+	ver := semversion.Number{Major: 4, Minor: 0, Patch: 0}
 	s.controllerNodeService.EXPECT().SetReportedControllerNodeAgentVersion(
 		gomock.Any(),
 		gomock.Any(),
@@ -557,7 +556,7 @@ func (s *upgraderSuite) TestSetToolsUnsupportedArchitecture(c *gc.C) {
 			AgentTools: []params.EntityVersion{{
 				Tag: tag.String(),
 				Tools: &params.Version{
-					Version: version.Binary{
+					Version: semversion.Binary{
 						Number: ver,
 						Arch:   "unknown",
 					},
@@ -585,7 +584,7 @@ func (s *upgraderSuite) TestSetToolsInvalidVersion(c *gc.C) {
 		names.NewControllerAgentTag("123"),
 	}
 
-	ver := version.Number{Major: 0, Minor: 0, Patch: 0}
+	ver := semversion.Number{Major: 0, Minor: 0, Patch: 0}
 	s.controllerNodeService.EXPECT().SetReportedControllerNodeAgentVersion(
 		gomock.Any(),
 		gomock.Any(),
@@ -617,7 +616,7 @@ func (s *upgraderSuite) TestSetToolsInvalidVersion(c *gc.C) {
 			AgentTools: []params.EntityVersion{{
 				Tag: tag.String(),
 				Tools: &params.Version{
-					Version: version.Binary{
+					Version: semversion.Binary{
 						Number: ver,
 						Arch:   "arm64",
 					},
