@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package sshserver_test
+package sshserver
 
 import (
 	"sync/atomic"
@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/internal/worker/sshserver"
 )
 
 type workerSuite struct {
@@ -29,10 +28,10 @@ var _ = gc.Suite(&workerSuite{})
 func newServerWrapperWorkerConfig(
 	l loggo.Logger,
 	client *MockFacadeClient,
-	modifier func(*sshserver.ServerWrapperWorkerConfig),
-) *sshserver.ServerWrapperWorkerConfig {
-	cfg := &sshserver.ServerWrapperWorkerConfig{
-		NewServerWorker:      func(sshserver.ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
+	modifier func(*ServerWrapperWorkerConfig),
+) *ServerWrapperWorkerConfig {
+	cfg := &ServerWrapperWorkerConfig{
+		NewServerWorker:      func(ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
 		Logger:               l,
 		FacadeClient:         client,
 		NewSSHServerListener: newTestingSSHServerListener,
@@ -51,14 +50,14 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 
 	mockFacadeClient := NewMockFacadeClient(ctrl)
 
-	cfg := newServerWrapperWorkerConfig(l, mockFacadeClient, func(cfg *sshserver.ServerWrapperWorkerConfig) {})
+	cfg := newServerWrapperWorkerConfig(l, mockFacadeClient, func(cfg *ServerWrapperWorkerConfig) {})
 	c.Assert(cfg.Validate(), jc.ErrorIsNil)
 
 	// Test no Logger.
 	cfg = newServerWrapperWorkerConfig(
 		l,
 		mockFacadeClient,
-		func(cfg *sshserver.ServerWrapperWorkerConfig) {
+		func(cfg *ServerWrapperWorkerConfig) {
 			cfg.Logger = nil
 		},
 	)
@@ -68,7 +67,7 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 	cfg = newServerWrapperWorkerConfig(
 		l,
 		mockFacadeClient,
-		func(cfg *sshserver.ServerWrapperWorkerConfig) {
+		func(cfg *ServerWrapperWorkerConfig) {
 			cfg.FacadeClient = nil
 		},
 	)
@@ -78,7 +77,7 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 	cfg = newServerWrapperWorkerConfig(
 		l,
 		mockFacadeClient,
-		func(cfg *sshserver.ServerWrapperWorkerConfig) {
+		func(cfg *ServerWrapperWorkerConfig) {
 			cfg.NewServerWorker = nil
 		},
 	)
@@ -88,7 +87,7 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 	cfg = newServerWrapperWorkerConfig(
 		l,
 		mockFacadeClient,
-		func(cfg *sshserver.ServerWrapperWorkerConfig) {
+		func(cfg *ServerWrapperWorkerConfig) {
 			cfg.NewSSHServerListener = nil
 		},
 	)
@@ -119,15 +118,15 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 	}
 	mockFacadeClient.EXPECT().ControllerConfig().Return(ctrlCfg, nil).Times(1)
 
-	cfg := sshserver.ServerWrapperWorkerConfig{
+	cfg := ServerWrapperWorkerConfig{
 		FacadeClient: mockFacadeClient,
 		Logger:       loggo.GetLogger("test"),
-		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
+		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			return serverWorker, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
 	}
-	w, err := sshserver.NewServerWrapperWorker(cfg)
+	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -198,17 +197,17 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 		Times(1)
 
 	var serverStarted int32
-	cfg := sshserver.ServerWrapperWorkerConfig{
+	cfg := ServerWrapperWorkerConfig{
 		FacadeClient: mockFacadeClient,
 		Logger:       loggo.GetLogger("test"),
-		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
+		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			atomic.StoreInt32(&serverStarted, 1)
 			c.Check(swc.Port, gc.Equals, 22)
 			return serverWorker, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
 	}
-	w, err := sshserver.NewServerWrapperWorker(cfg)
+	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -253,15 +252,15 @@ func (s *workerSuite) TestSSHServerWrapperWorkerErrorsOnMissingHostKey(c *gc.C) 
 	// Test where the host key is an empty
 	mockFacadeClient.EXPECT().SSHServerHostKey().Return("", nil).Times(1)
 
-	cfg := sshserver.ServerWrapperWorkerConfig{
+	cfg := ServerWrapperWorkerConfig{
 		FacadeClient: mockFacadeClient,
 		Logger:       l,
-		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
+		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			return serverWorker, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
 	}
-	w1, err := sshserver.NewServerWrapperWorker(cfg)
+	w1, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, w1)
 
@@ -271,15 +270,15 @@ func (s *workerSuite) TestSSHServerWrapperWorkerErrorsOnMissingHostKey(c *gc.C) 
 	// Test where the host key method errors
 	mockFacadeClient.EXPECT().SSHServerHostKey().Return("", errors.New("state failed")).Times(1)
 
-	cfg = sshserver.ServerWrapperWorkerConfig{
+	cfg = ServerWrapperWorkerConfig{
 		FacadeClient: mockFacadeClient,
 		Logger:       l,
-		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
+		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			return serverWorker, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
 	}
-	w2, err := sshserver.NewServerWrapperWorker(cfg)
+	w2, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, w2)
 
@@ -311,15 +310,15 @@ func (s *workerSuite) TestWrapperWorkerReport(c *gc.C) {
 	}
 	mockFacadeClient.EXPECT().ControllerConfig().Return(ctrlCfg, nil).Times(1)
 
-	cfg := sshserver.ServerWrapperWorkerConfig{
+	cfg := ServerWrapperWorkerConfig{
 		FacadeClient: mockFacadeClient,
 		Logger:       loggo.GetLogger("test"),
-		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
+		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			return &reportWorker{serverWorker}, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
 	}
-	w, err := sshserver.NewServerWrapperWorker(cfg)
+	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 

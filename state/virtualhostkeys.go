@@ -4,9 +4,13 @@
 package state
 
 import (
+	"strconv"
+
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/txn"
+
+	"github.com/juju/juju/core/virtualhostname"
 )
 
 // unitHostKeyID provides the virtual host key
@@ -134,4 +138,26 @@ func (st *State) AllVirtualHostKeys() ([]*VirtualHostKey, error) {
 	}
 
 	return virtualHostKeys, nil
+}
+
+// HostKeyForVirtualHostname returns the private host key for the target virtual hostname.
+func (st *State) HostKeyForVirtualHostname(info virtualhostname.Info) (*VirtualHostKey, error) {
+	switch info.Target() {
+	case virtualhostname.MachineTarget:
+		machineId, _ := info.Machine()
+		hostkey, err := st.MachineVirtualHostKey(strconv.Itoa(machineId))
+		if err != nil {
+			return nil, err
+		}
+		return hostkey, nil
+	case virtualhostname.ContainerTarget, virtualhostname.UnitTarget:
+		unitName, _ := info.Unit()
+		hostkey, err := st.UnitVirtualHostKey(unitName)
+		if err != nil {
+			return nil, errors.Annotate(err, "failed to get unit host key")
+		}
+		return hostkey, nil
+	default:
+		return nil, errors.NotValidf("unsupported target: %v", info.Target())
+	}
 }

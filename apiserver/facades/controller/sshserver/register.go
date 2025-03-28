@@ -6,8 +6,6 @@ package sshserver
 import (
 	"reflect"
 
-	"github.com/juju/errors"
-
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -26,10 +24,5 @@ func NewExternalFacade(ctx facade.Context) (*Facade, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	systemState, err := ctx.StatePool().SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return NewFacade(ctx, systemState), nil
+	return NewFacade(ctx, backend{StatePool: ctx.StatePool()}), nil
 }

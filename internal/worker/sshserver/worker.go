@@ -141,6 +141,7 @@ func (ssw *serverWrapperWorker) loop() error {
 		Port:                     port,
 		MaxConcurrentConnections: maxConns,
 		NewSSHServerListener:     ssw.config.NewSSHServerListener,
+		FacadeClient:             ssw.config.FacadeClient,
 	})
 	ssw.addWorkerReporter("ssh-server", srv)
 	if err != nil {
