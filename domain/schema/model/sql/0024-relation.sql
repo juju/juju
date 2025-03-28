@@ -157,12 +157,32 @@ CREATE TABLE relation_sequence (
     sequence INT NOT NULL DEFAULT 0
 );
 
+INSERT INTO relation_sequence (sequence) VALUES (0);
+
 -- A unique constraint over a constant index ensures only 1 entry matching the
 -- condition can exist.
 CREATE UNIQUE INDEX idx_singleton_relation_sequence ON relation_sequence ((1));
 
+CREATE VIEW v_application_endpoint AS
+SELECT
+    ae.uuid AS endpoint_uuid,
+    a.name AS application_name,
+    cr.name AS endpoint_name,
+    cr.interface,
+    cr.optional,
+    cr.capacity,
+    crr.name AS role,
+    crs.name AS scope
+FROM application_endpoint AS ae
+JOIN application AS a ON ae.application_uuid = a.uuid
+JOIN charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
+JOIN charm_relation_role AS crr ON cr.role_id = crr.id
+JOIN charm_relation_scope AS crs ON cr.scope_id = crs.id;
+
+
 CREATE VIEW v_relation_endpoint AS
 SELECT
+    ae.uuid AS endpoint_uuid,
     r.uuid AS relation_uuid,
     a.name AS application_name,
     a.uuid AS application_uuid,

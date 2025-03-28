@@ -60,3 +60,17 @@ const (
 	// the relation specified.
 	UnitNotInRelation = errors.ConstError("unit not in relation")
 )
+
+const (
+	// AmbiguousRelation is returned when several endpoints match when trying
+	// to relate two application
+	AmbiguousRelation = errors.ConstError("ambiguous relation")
+
+	// CompatibleEndpointsNotFound is returned when no matching relation is found when trying
+	// to relate two application
+	CompatibleEndpointsNotFound = errors.ConstError("no compatible endpoints found between applications")
+
+	// RelationAlreadyExists indicates an error when attempting to create a relation
+	// that already exists between applications.
+	RelationAlreadyExists = errors.ConstError("already exists")
+)

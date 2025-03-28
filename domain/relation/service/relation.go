@@ -23,6 +23,10 @@ import (
 // State describes retrieval and persistence methods for relations.
 type State interface {
 
+	// AddRelation establishes a relation between two endpoints identified
+	// by ep1 and ep2 and returns the created endpoints.
+	AddRelation(ctx context.Context, ep1, ep2 relation.CandidateEndpointIdentifier) (relation.Endpoint, relation.Endpoint, error)
+
 	// GetAllRelationDetails return all uuid of all relation for the current model.
 	GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error)
 
@@ -138,8 +142,19 @@ func NewService(
 //
 // If the identifiers do not uniquely specify a relation, an error will be
 // returned.
-func (s *Service) AddRelation(ctx context.Context, ep1, ep2 string) (relation.Endpoint, relation.Endpoint, error) {
-	return relation.Endpoint{}, relation.Endpoint{}, coreerrors.NotImplemented
+func (s *Service) AddRelation(ctx context.Context, ep1, ep2 string) (relation.Endpoint,
+	relation.Endpoint, error) {
+	var none relation.Endpoint
+	idep1, err := relation.NewCandidateEndpointIdentifier(ep1)
+	if err != nil {
+		return none, none, errors.Errorf("parsing endpoint identifier %q: %w", ep1, err)
+	}
+	idep2, err := relation.NewCandidateEndpointIdentifier(ep2)
+	if err != nil {
+		return none, none, errors.Errorf("parsing endpoint identifier %q: %w", ep2, err)
+	}
+
+	return s.st.AddRelation(ctx, idep1, idep2)
 }
 
 // ApplicationRelationEndpointNames returns a slice of names of the given application's

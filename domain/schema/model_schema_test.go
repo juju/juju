@@ -294,6 +294,7 @@ func (s *modelSchemaSuite) TestModelViews(c *gc.C) {
 		"v_application_charm_download_info",
 		"v_application_config",
 		"v_application_constraint",
+		"v_application_endpoint",
 		"v_application_endpoint_uuid",
 		"v_application_export",
 		"v_application_exposed_endpoint",

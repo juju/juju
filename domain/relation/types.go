@@ -5,12 +5,14 @@ package relation
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
 )
 
 // GetRelationEndpointUUIDArgs represents the arguments required to retrieve
@@ -143,6 +145,50 @@ type RelationScopeWatcher struct {
 	//prefix string
 	//ignore string
 	//out    chan *RelationScopeChange
+}
+
+// CandidateEndpointIdentifier is the natural key of a relation endpoint when
+// trying to relate two applications.
+type CandidateEndpointIdentifier struct {
+	// ApplicationName is the name of the application the endpoint belongs to.
+	ApplicationName string
+	// EndpointName is the name of the endpoint. It is optional.
+	EndpointName string
+}
+
+// String returns the EndpointIdentifier as a concatenated string in the format
+// "ApplicationName:EndpointName".
+func (e CandidateEndpointIdentifier) String() string {
+	return strings.Join([]string{e.ApplicationName, e.EndpointName}, ":")
+}
+
+// IsFullyQualified checks if the EndpointIdentifier has a non-empty
+// EndpointName, indicating it is fully qualified.
+func (e CandidateEndpointIdentifier) IsFullyQualified() bool {
+	return len(e.EndpointName) > 0
+}
+
+// NewCandidateEndpointIdentifier parses an endpoint string into an EndpointIdentifier
+// struct containing application and endpoint names.
+// It expects the input format "<application-name>:<endpoint-name>" or
+// "<application-name> and returns an error for invalid formats.
+func NewCandidateEndpointIdentifier(endpoint string) (CandidateEndpointIdentifier, error) {
+	parts := strings.Split(endpoint, ":")
+	length := len(parts)
+	if length == 0 || length > 2 {
+		return CandidateEndpointIdentifier{},
+			errors.Errorf("expected endpoint of form <application-name>:<endpoint-name> or <application-name>")
+	}
+	var endpointName string
+	if length > 1 {
+		endpointName = parts[1]
+	}
+
+	identifier := CandidateEndpointIdentifier{
+		ApplicationName: parts[0],
+		EndpointName:    endpointName,
+	}
+	return identifier, nil
 }
 
 // CounterpartRole returns the RelationRole that this RelationRole
