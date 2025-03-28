@@ -13,6 +13,7 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/errors"
 )
 
 // GetRelationEndpointUUIDArgs represents the arguments required to retrieve
@@ -153,6 +154,41 @@ type EndpointIdentifier struct {
 	ApplicationName string
 	// EndpointName is the name of the endpoint.
 	EndpointName string
+}
+
+// String returns the EndpointIdentifier as a concatenated string in the format
+// "ApplicationName:EndpointName".
+func (e EndpointIdentifier) String() string {
+	return strings.Join([]string{e.ApplicationName, e.EndpointName}, ":")
+}
+
+// IsFullyQualified checks if the EndpointIdentifier has a non-empty
+// ApplicationName, indicating it is fully qualified.
+func (e EndpointIdentifier) IsFullyQualified() bool {
+	return len(e.EndpointName) > 0
+}
+
+// NewEndpointIdentifier parses an endpoint string into an EndpointIdentifier
+// struct containing application and endpoint names.
+// It expects the input format "<application-name>:<endpoint-name>" and
+// returns an error for invalid formats.
+func NewEndpointIdentifier(endpoint string) (EndpointIdentifier, error) {
+	parts := strings.Split(endpoint, ":")
+	length := len(parts)
+	if length == 0 || length > 2 {
+		return EndpointIdentifier{},
+			errors.Errorf("expected endpoint of form <application-name>:<endpoint-name> or <application-name>")
+	}
+	var endpointName string
+	if length > 1 {
+		endpointName = parts[1]
+	}
+
+	identifier := EndpointIdentifier{
+		ApplicationName: parts[0],
+		EndpointName:    endpointName,
+	}
+	return identifier, nil
 }
 
 // roleOrder maps RelationRole values to integers to define their order
