@@ -818,8 +818,8 @@ VALUES (?,?,?,?,?)
 func (s *relationSuite) addApplicationEndpoint(c *gc.C, applicationEndpointUUID string, applicationUUID, charmRelationUUID string) {
 	s.query(c, `
 INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid,space_uuid)
-VALUES (?,?,?,0)
-`, applicationEndpointUUID, applicationUUID, charmRelationUUID)
+VALUES (?, ?, ?, ?)
+`, applicationEndpointUUID, applicationUUID, charmRelationUUID, network.AlphaSpaceId)
 }
 
 // addCharm inserts a new charm into the database with the given UUID.

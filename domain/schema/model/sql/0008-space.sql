@@ -3,22 +3,18 @@ CREATE TABLE space (
     name TEXT NOT NULL
 );
 
-CREATE UNIQUE INDEX idx_spaces_uuid_name
-ON space (name);
+CREATE UNIQUE INDEX idx_spaces_uuid_name ON space (name);
 
 CREATE TABLE provider_space (
     provider_id TEXT NOT NULL PRIMARY KEY,
     space_uuid TEXT NOT NULL,
-    CONSTRAINT fk_provider_space_space_uuid
-    FOREIGN KEY (space_uuid)
-    REFERENCES space (uuid)
+    CONSTRAINT fk_provider_space_space_uuid FOREIGN KEY (space_uuid) REFERENCES space (uuid)
 );
 
-CREATE UNIQUE INDEX idx_provider_space_space_uuid
-ON provider_space (space_uuid);
+CREATE UNIQUE INDEX idx_provider_space_space_uuid ON provider_space (space_uuid);
 
 INSERT INTO space VALUES
-(0, 'alpha');
+('656b4a82-e28c-53d6-a014-f0dd53417eb6', 'alpha');
 
 CREATE VIEW v_space_subnet AS
 SELECT
@@ -34,18 +30,12 @@ SELECT
     provider_network.provider_network_id AS subnet_provider_network_id,
     availability_zone.name AS subnet_az,
     provider_space.provider_id AS subnet_provider_space_uuid
-FROM space
-LEFT JOIN provider_space
-    ON space.uuid = provider_space.space_uuid
-LEFT JOIN subnet
-    ON space.uuid = subnet.space_uuid
-LEFT JOIN provider_subnet
-    ON subnet.uuid = provider_subnet.subnet_uuid
-LEFT JOIN provider_network_subnet
-    ON subnet.uuid = provider_network_subnet.subnet_uuid
-LEFT JOIN provider_network
-    ON provider_network_subnet.provider_network_uuid = provider_network.uuid
-LEFT JOIN availability_zone_subnet
-    ON subnet.uuid = availability_zone_subnet.subnet_uuid
-LEFT JOIN availability_zone
-    ON availability_zone_subnet.availability_zone_uuid = availability_zone.uuid;
+FROM
+    space
+LEFT JOIN provider_space ON space.uuid = provider_space.space_uuid
+LEFT JOIN subnet ON space.uuid = subnet.space_uuid
+LEFT JOIN provider_subnet ON subnet.uuid = provider_subnet.subnet_uuid
+LEFT JOIN provider_network_subnet ON subnet.uuid = provider_network_subnet.subnet_uuid
+LEFT JOIN provider_network ON provider_network_subnet.provider_network_uuid = provider_network.uuid
+LEFT JOIN availability_zone_subnet ON subnet.uuid = availability_zone_subnet.subnet_uuid
+LEFT JOIN availability_zone ON availability_zone_subnet.availability_zone_uuid = availability_zone.uuid;
