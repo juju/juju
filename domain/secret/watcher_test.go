@@ -869,7 +869,7 @@ func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 		func(ctx context.Context) (applicationservice.Provider, error) {
 			return serviceProvider{}, nil
 		},
-		func(ctx context.Context) (applicationservice.SupportedFeatureProvider, error) {
+		func(ctx context.Context) (applicationservice.K8sProvider, error) {
 			return serviceProvider{}, nil
 		},
 		nil,

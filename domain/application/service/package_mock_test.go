@@ -3698,31 +3698,70 @@ func (c *MockProviderConstraintsValidatorCall) DoAndReturn(f func(envcontext.Pro
 	return c
 }
 
-// MockSupportedFeatureProvider is a mock of SupportedFeatureProvider interface.
-type MockSupportedFeatureProvider struct {
+// MockK8sProvider is a mock of K8sProvider interface.
+type MockK8sProvider struct {
 	ctrl     *gomock.Controller
-	recorder *MockSupportedFeatureProviderMockRecorder
+	recorder *MockK8sProviderMockRecorder
 }
 
-// MockSupportedFeatureProviderMockRecorder is the mock recorder for MockSupportedFeatureProvider.
-type MockSupportedFeatureProviderMockRecorder struct {
-	mock *MockSupportedFeatureProvider
+// MockK8sProviderMockRecorder is the mock recorder for MockK8sProvider.
+type MockK8sProviderMockRecorder struct {
+	mock *MockK8sProvider
 }
 
-// NewMockSupportedFeatureProvider creates a new mock instance.
-func NewMockSupportedFeatureProvider(ctrl *gomock.Controller) *MockSupportedFeatureProvider {
-	mock := &MockSupportedFeatureProvider{ctrl: ctrl}
-	mock.recorder = &MockSupportedFeatureProviderMockRecorder{mock}
+// NewMockK8sProvider creates a new mock instance.
+func NewMockK8sProvider(ctrl *gomock.Controller) *MockK8sProvider {
+	mock := &MockK8sProvider{ctrl: ctrl}
+	mock.recorder = &MockK8sProviderMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockSupportedFeatureProvider) EXPECT() *MockSupportedFeatureProviderMockRecorder {
+func (m *MockK8sProvider) EXPECT() *MockK8sProviderMockRecorder {
 	return m.recorder
 }
 
+// DesiredReplicas mocks base method.
+func (m *MockK8sProvider) DesiredReplicas(name string) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DesiredReplicas", name)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DesiredReplicas indicates an expected call of DesiredReplicas.
+func (mr *MockK8sProviderMockRecorder) DesiredReplicas(name any) *MockK8sProviderDesiredReplicasCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DesiredReplicas", reflect.TypeOf((*MockK8sProvider)(nil).DesiredReplicas), name)
+	return &MockK8sProviderDesiredReplicasCall{Call: call}
+}
+
+// MockK8sProviderDesiredReplicasCall wrap *gomock.Call
+type MockK8sProviderDesiredReplicasCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockK8sProviderDesiredReplicasCall) Return(arg0 int, arg1 error) *MockK8sProviderDesiredReplicasCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockK8sProviderDesiredReplicasCall) Do(f func(string) (int, error)) *MockK8sProviderDesiredReplicasCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockK8sProviderDesiredReplicasCall) DoAndReturn(f func(string) (int, error)) *MockK8sProviderDesiredReplicasCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SupportedFeatures mocks base method.
-func (m *MockSupportedFeatureProvider) SupportedFeatures() (assumes.FeatureSet, error) {
+func (m *MockK8sProvider) SupportedFeatures() (assumes.FeatureSet, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SupportedFeatures")
 	ret0, _ := ret[0].(assumes.FeatureSet)
@@ -3731,31 +3770,31 @@ func (m *MockSupportedFeatureProvider) SupportedFeatures() (assumes.FeatureSet, 
 }
 
 // SupportedFeatures indicates an expected call of SupportedFeatures.
-func (mr *MockSupportedFeatureProviderMockRecorder) SupportedFeatures() *MockSupportedFeatureProviderSupportedFeaturesCall {
+func (mr *MockK8sProviderMockRecorder) SupportedFeatures() *MockK8sProviderSupportedFeaturesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportedFeatures", reflect.TypeOf((*MockSupportedFeatureProvider)(nil).SupportedFeatures))
-	return &MockSupportedFeatureProviderSupportedFeaturesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportedFeatures", reflect.TypeOf((*MockK8sProvider)(nil).SupportedFeatures))
+	return &MockK8sProviderSupportedFeaturesCall{Call: call}
 }
 
-// MockSupportedFeatureProviderSupportedFeaturesCall wrap *gomock.Call
-type MockSupportedFeatureProviderSupportedFeaturesCall struct {
+// MockK8sProviderSupportedFeaturesCall wrap *gomock.Call
+type MockK8sProviderSupportedFeaturesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockSupportedFeatureProviderSupportedFeaturesCall) Return(arg0 assumes.FeatureSet, arg1 error) *MockSupportedFeatureProviderSupportedFeaturesCall {
+func (c *MockK8sProviderSupportedFeaturesCall) Return(arg0 assumes.FeatureSet, arg1 error) *MockK8sProviderSupportedFeaturesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSupportedFeatureProviderSupportedFeaturesCall) Do(f func() (assumes.FeatureSet, error)) *MockSupportedFeatureProviderSupportedFeaturesCall {
+func (c *MockK8sProviderSupportedFeaturesCall) Do(f func() (assumes.FeatureSet, error)) *MockK8sProviderSupportedFeaturesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSupportedFeatureProviderSupportedFeaturesCall) DoAndReturn(f func() (assumes.FeatureSet, error)) *MockSupportedFeatureProviderSupportedFeaturesCall {
+func (c *MockK8sProviderSupportedFeaturesCall) DoAndReturn(f func() (assumes.FeatureSet, error)) *MockK8sProviderSupportedFeaturesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -1196,7 +1196,7 @@ func (s *providerServiceSuite) TestGetSupportedFeatures(c *gc.C) {
 	agentVersion := semversion.MustParse("4.0.0")
 	s.agentVersionGetter.EXPECT().GetTargetAgentVersion(gomock.Any()).Return(agentVersion, nil)
 
-	s.supportedFeaturesProvider.EXPECT().SupportedFeatures().Return(assumes.FeatureSet{}, nil)
+	s.k8sProvider.EXPECT().SupportedFeatures().Return(assumes.FeatureSet{}, nil)
 
 	features, err := s.service.GetSupportedFeatures(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1213,8 +1213,8 @@ func (s *providerServiceSuite) TestGetSupportedFeatures(c *gc.C) {
 func (s *providerServiceSuite) TestGetSupportedFeaturesNotSupported(c *gc.C) {
 	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, coreerrors.NotSupported
-	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
-		return s.supportedFeaturesProvider, coreerrors.NotSupported
+	}, func(ctx context.Context) (K8sProvider, error) {
+		return s.k8sProvider, coreerrors.NotSupported
 	})
 	defer ctrl.Finish()
 
@@ -1231,6 +1231,78 @@ func (s *providerServiceSuite) TestGetSupportedFeaturesNotSupported(c *gc.C) {
 		Version:     &agentVersion,
 	})
 	c.Check(features, jc.DeepEquals, fs)
+}
+
+func (s *providerServiceSuite) TestCAASUnitTerminatingUnitNumLessThanScale(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.k8sProvider.EXPECT().DesiredReplicas("foo").
+		Return(6, nil)
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(id, nil)
+	s.state.EXPECT().GetApplicationScaleState(gomock.Any(), id).
+		Return(application.ScaleState{
+			Scale: 2,
+		}, nil)
+
+	willRestart, err := s.service.CAASUnitTerminating(context.Background(), "foo", 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(willRestart, jc.IsTrue)
+}
+
+func (s *providerServiceSuite) TestCAASUnitTerminatingUnitNumGreaterThanScale(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.k8sProvider.EXPECT().DesiredReplicas("foo").
+		Return(6, nil)
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(id, nil)
+	s.state.EXPECT().GetApplicationScaleState(gomock.Any(), id).
+		Return(application.ScaleState{
+			Scale: 2,
+		}, nil)
+
+	willRestart, err := s.service.CAASUnitTerminating(context.Background(), "foo", 666)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(willRestart, jc.IsFalse)
+}
+
+func (s *providerServiceSuite) TestCAASUnitTerminatingUnitNumLessThanDesired(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.k8sProvider.EXPECT().DesiredReplicas("foo").
+		Return(6, nil)
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(id, nil)
+	s.state.EXPECT().GetApplicationScaleState(gomock.Any(), id).
+		Return(application.ScaleState{
+			Scale: 6,
+		}, nil)
+
+	willRestart, err := s.service.CAASUnitTerminating(context.Background(), "foo", 2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(willRestart, jc.IsTrue)
+}
+
+func (s *providerServiceSuite) TestCAASUnitTerminatingUnitNumGreaterThanDesired(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.k8sProvider.EXPECT().DesiredReplicas("foo").
+		Return(1, nil)
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(id, nil)
+	s.state.EXPECT().GetApplicationScaleState(gomock.Any(), id).
+		Return(application.ScaleState{
+			Scale: 6,
+		}, nil)
+
+	willRestart, err := s.service.CAASUnitTerminating(context.Background(), "foo", 2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(willRestart, jc.IsFalse)
 }
 
 func (s *providerServiceSuite) TestGetApplicationConstraintsInvalidAppID(c *gc.C) {
@@ -1250,8 +1322,8 @@ func (s *providerServiceSuite) TestSetApplicationConstraintsInvalidAppID(c *gc.C
 func (s *providerServiceSuite) TestSetConstraintsProviderNotSupported(c *gc.C) {
 	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, coreerrors.NotSupported
-	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
-		return s.supportedFeaturesProvider, coreerrors.NotSupported
+	}, func(ctx context.Context) (K8sProvider, error) {
+		return s.k8sProvider, coreerrors.NotSupported
 	})
 	defer ctrl.Finish()
 
@@ -1266,8 +1338,8 @@ func (s *providerServiceSuite) TestSetConstraintsProviderNotSupported(c *gc.C) {
 func (s *providerServiceSuite) TestSetConstraintsValidatorError(c *gc.C) {
 	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
-	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
-		return s.supportedFeaturesProvider, nil
+	}, func(ctx context.Context) (K8sProvider, error) {
+		return s.k8sProvider, nil
 	})
 	defer ctrl.Finish()
 
@@ -1282,8 +1354,8 @@ func (s *providerServiceSuite) TestSetConstraintsValidatorError(c *gc.C) {
 func (s *providerServiceSuite) TestSetConstraintsValidateError(c *gc.C) {
 	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
-	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
-		return s.supportedFeaturesProvider, nil
+	}, func(ctx context.Context) (K8sProvider, error) {
+		return s.k8sProvider, nil
 	})
 	defer ctrl.Finish()
 
@@ -1300,8 +1372,8 @@ func (s *providerServiceSuite) TestSetConstraintsValidateError(c *gc.C) {
 func (s *providerServiceSuite) TestSetConstraintsUnsupportedValues(c *gc.C) {
 	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
-	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
-		return s.supportedFeaturesProvider, nil
+	}, func(ctx context.Context) (K8sProvider, error) {
+		return s.k8sProvider, nil
 	})
 	defer ctrl.Finish()
 
@@ -1320,8 +1392,8 @@ func (s *providerServiceSuite) TestSetConstraintsUnsupportedValues(c *gc.C) {
 func (s *providerServiceSuite) TestSetConstraints(c *gc.C) {
 	ctrl := s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
-	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
-		return s.supportedFeaturesProvider, nil
+	}, func(ctx context.Context) (K8sProvider, error) {
+		return s.k8sProvider, nil
 	})
 	defer ctrl.Finish()
 
@@ -1341,8 +1413,8 @@ func (s *providerServiceSuite) TestSetConstraints(c *gc.C) {
 func (s *providerServiceSuite) TestAddUnitsEmptyConstraints(c *gc.C) {
 	defer s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
-	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
-		return s.supportedFeaturesProvider, nil
+	}, func(ctx context.Context) (K8sProvider, error) {
+		return s.k8sProvider, nil
 	}).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
@@ -1384,8 +1456,8 @@ func (s *providerServiceSuite) TestAddUnitsEmptyConstraints(c *gc.C) {
 func (s *providerServiceSuite) TestAddUnitsAppConstraints(c *gc.C) {
 	defer s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
-	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
-		return s.supportedFeaturesProvider, nil
+	}, func(ctx context.Context) (K8sProvider, error) {
+		return s.k8sProvider, nil
 	}).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
@@ -1444,8 +1516,8 @@ func (s *providerServiceSuite) TestAddUnitsAppConstraints(c *gc.C) {
 func (s *providerServiceSuite) TestAddUnitsModelConstraints(c *gc.C) {
 	defer s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
-	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
-		return s.supportedFeaturesProvider, nil
+	}, func(ctx context.Context) (K8sProvider, error) {
+		return s.k8sProvider, nil
 	}).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
@@ -1504,8 +1576,8 @@ func (s *providerServiceSuite) TestAddUnitsModelConstraints(c *gc.C) {
 func (s *providerServiceSuite) TestAddUnitsFullConstraints(c *gc.C) {
 	defer s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
-	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
-		return s.supportedFeaturesProvider, nil
+	}, func(ctx context.Context) (K8sProvider, error) {
+		return s.k8sProvider, nil
 	}).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
@@ -1551,8 +1623,8 @@ func (s *providerServiceSuite) TestAddUnitsFullConstraints(c *gc.C) {
 func (s *providerServiceSuite) TestAddUnitsInvalidName(c *gc.C) {
 	defer s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
-	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
-		return s.supportedFeaturesProvider, nil
+	}, func(ctx context.Context) (K8sProvider, error) {
+		return s.k8sProvider, nil
 	}).Finish()
 
 	a := AddUnitArg{
@@ -1565,8 +1637,8 @@ func (s *providerServiceSuite) TestAddUnitsInvalidName(c *gc.C) {
 func (s *providerServiceSuite) TestAddUnitsNoUnits(c *gc.C) {
 	defer s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
-	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
-		return s.supportedFeaturesProvider, nil
+	}, func(ctx context.Context) (K8sProvider, error) {
+		return s.k8sProvider, nil
 	}).Finish()
 
 	err := s.service.AddUnits(context.Background(), s.storageParentDir, "foo")
@@ -1576,8 +1648,8 @@ func (s *providerServiceSuite) TestAddUnitsNoUnits(c *gc.C) {
 func (s *providerServiceSuite) TestAddUnitsApplicationNotFound(c *gc.C) {
 	defer s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
-	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
-		return s.supportedFeaturesProvider, nil
+	}, func(ctx context.Context) (K8sProvider, error) {
+		return s.k8sProvider, nil
 	}).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
@@ -1594,8 +1666,8 @@ func (s *providerServiceSuite) TestAddUnitsApplicationNotFound(c *gc.C) {
 func (s *providerServiceSuite) TestAddUnitsGetModelTypeError(c *gc.C) {
 	defer s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
-	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
-		return s.supportedFeaturesProvider, nil
+	}, func(ctx context.Context) (K8sProvider, error) {
+		return s.k8sProvider, nil
 	}).Finish()
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
@@ -1632,8 +1704,8 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNilValidat
 func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsConstraintsNotFound(c *gc.C) {
 	defer s.setupMocksWithProvider(c, func(ctx context.Context) (Provider, error) {
 		return s.provider, nil
-	}, func(ctx context.Context) (SupportedFeatureProvider, error) {
-		return s.supportedFeaturesProvider, nil
+	}, func(ctx context.Context) (K8sProvider, error) {
+		return s.k8sProvider, nil
 	}).Finish()
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)

@@ -135,7 +135,7 @@ func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *c
 		func(ctx context.Context) (applicationservice.Provider, error) {
 			return serviceProvider{}, nil
 		},
-		func(ctx context.Context) (applicationservice.SupportedFeatureProvider, error) {
+		func(ctx context.Context) (applicationservice.K8sProvider, error) {
 			return serviceProvider{}, nil
 		},
 		nil,
@@ -176,7 +176,7 @@ func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *c
 
 type serviceProvider struct {
 	applicationservice.Provider
-	applicationservice.SupportedFeatureProvider
+	applicationservice.K8sProvider
 }
 
 func (serviceProvider) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {

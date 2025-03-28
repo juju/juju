@@ -41,14 +41,14 @@ type baseSuite struct {
 
 	modelID model.UUID
 
-	state                     *MockState
-	charm                     *MockCharm
-	charmStore                *MockCharmStore
-	agentVersionGetter        *MockAgentVersionGetter
-	provider                  *MockProvider
-	supportedFeaturesProvider *MockSupportedFeatureProvider
-	leadership                *MockEnsurer
-	validator                 *MockValidator
+	state              *MockState
+	charm              *MockCharm
+	charmStore         *MockCharmStore
+	agentVersionGetter *MockAgentVersionGetter
+	provider           *MockProvider
+	k8sProvider        *MockK8sProvider
+	leadership         *MockEnsurer
+	validator          *MockValidator
 
 	storageRegistryGetter corestorage.ModelStorageRegistryGetter
 	clock                 *testclock.Clock
@@ -60,7 +60,7 @@ type baseSuite struct {
 func (s *baseSuite) setupMocksWithProvider(
 	c *gc.C,
 	providerGetter func(ctx context.Context) (Provider, error),
-	supportFeaturesProviderGetter func(ctx context.Context) (SupportedFeatureProvider, error),
+	supportFeaturesProviderGetter func(ctx context.Context) (K8sProvider, error),
 ) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -69,7 +69,7 @@ func (s *baseSuite) setupMocksWithProvider(
 
 	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
 	s.provider = NewMockProvider(ctrl)
-	s.supportedFeaturesProvider = NewMockSupportedFeatureProvider(ctrl)
+	s.k8sProvider = NewMockK8sProvider(ctrl)
 	s.leadership = NewMockEnsurer(ctrl)
 
 	s.state = NewMockState(ctrl)
@@ -115,7 +115,7 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *gc.C, statusHistory StatusHis
 
 	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
 	s.provider = NewMockProvider(ctrl)
-	s.supportedFeaturesProvider = NewMockSupportedFeatureProvider(ctrl)
+	s.k8sProvider = NewMockK8sProvider(ctrl)
 	s.leadership = NewMockEnsurer(ctrl)
 
 	s.state = NewMockState(ctrl)
@@ -140,8 +140,8 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *gc.C, statusHistory StatusHis
 		func(ctx context.Context) (Provider, error) {
 			return s.provider, nil
 		},
-		func(ctx context.Context) (SupportedFeatureProvider, error) {
-			return s.supportedFeaturesProvider, nil
+		func(ctx context.Context) (K8sProvider, error) {
+			return s.k8sProvider, nil
 		},
 		s.charmStore,
 		statusHistory,

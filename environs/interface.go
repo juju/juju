@@ -673,3 +673,9 @@ type CloudEndpointChecker interface {
 	// endpoint and returns nil if no problems.
 	ValidateCloudEndpoint(ctx context.Context) error
 }
+
+// DesiredReplicasGetter defines a method for getting the desired
+// replicas for a given application.
+type DesiredReplicasGetter interface {
+	DesiredReplicas(name string) (int, error)
+}
