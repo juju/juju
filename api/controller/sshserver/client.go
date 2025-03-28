@@ -63,3 +63,16 @@ func (c *Client) HostKeyForTarget(arg params.SSHHostKeyRequestArg) ([]byte, erro
 	}
 	return result.HostKey, nil
 }
+
+// VerifyPublicKey tries to verify that a public key is present in the model's config.
+func (c *Client) VerifyPublicKey(sshPKIAuthArgs params.VerifyPublicKeyArgs) error {
+	var result params.ErrorResult
+	err := c.facade.FacadeCall("VerifyPublicKey", sshPKIAuthArgs, &result)
+	if err != nil {
+		return err
+	}
+	if err := result.Error; err != nil {
+		return err
+	}
+	return nil
+}

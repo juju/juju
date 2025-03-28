@@ -30,6 +30,7 @@ type FacadeClient interface {
 	WatchControllerConfig() (watcher.NotifyWatcher, error)
 	SSHServerHostKey() (string, error)
 	HostKeyForTarget(arg params.SSHHostKeyRequestArg) ([]byte, error)
+	VerifyPublicKey(params.VerifyPublicKeyArgs) error
 }
 
 // ManifoldConfig holds the information necessary to run an embedded SSH server

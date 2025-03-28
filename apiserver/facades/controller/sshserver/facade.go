@@ -4,7 +4,9 @@
 package sshserver
 
 import (
+	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
+	gossh "golang.org/x/crypto/ssh"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -21,6 +23,7 @@ type Backend interface {
 	WatchControllerConfig() (state.NotifyWatcher, error)
 	SSHServerHostKey() (string, error)
 	HostKeyForVirtualHostname(info virtualhostname.Info) ([]byte, error)
+	AuthorizedKeysForModel(uuid string) ([]string, error)
 }
 
 // Facade allows model config manager clients to watch controller config changes and fetch controller config.
@@ -93,4 +96,33 @@ func (facade *Facade) HostKeyForTarget(arg params.SSHHostKeyRequestArg) (params.
 	}
 
 	return params.SSHHostKeyResult{HostKey: key}, nil
+}
+
+// VerifyPublicKey checks the public key presented is inside of the model config.
+// Returning error nil if it is, otherwise an error.
+func (f *Facade) VerifyPublicKey(args params.VerifyPublicKeyArgs) (params.ErrorResult, error) {
+	publicKey, err := gossh.ParsePublicKey(args.PublicKey)
+	if err != nil {
+		return params.ErrorResult{
+			Error: apiservererrors.ServerError(errors.Errorf("failed to parse public key: %v", err)),
+		}, nil
+	}
+	authKeys, err := f.backend.AuthorizedKeysForModel(args.ModelUUID)
+	if err != nil {
+		return params.ErrorResult{
+			Error: apiservererrors.ServerError(errors.Errorf("failed to get authorized key for model: %v", err)),
+		}, nil
+	}
+	for _, authKey := range authKeys {
+		pubKey, _, _, _, err := gossh.ParseAuthorizedKey([]byte(authKey))
+		if err != nil {
+			continue
+		}
+		if ssh.KeysEqual(publicKey, pubKey) {
+			return params.ErrorResult{}, nil
+		}
+	}
+	return params.ErrorResult{
+		Error: apiservererrors.ServerError(errors.NotFoundf("matching public key")),
+	}, nil
 }
