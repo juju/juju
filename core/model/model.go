@@ -4,11 +4,6 @@
 package model
 
 import (
-<<<<<<< HEAD
-	"fmt"
-
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"

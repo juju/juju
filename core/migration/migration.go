@@ -84,13 +84,8 @@ func (i *ModelInfo) Validate() error {
 	if i.Name == "" {
 		return errors.Errorf("empty Name %w", coreerrors.NotValid)
 	}
-<<<<<<< HEAD
 	if i.AgentVersion.Compare(semversion.Number{}) == 0 {
-		return errors.NotValidf("empty Version")
-=======
-	if i.AgentVersion.Compare(version.Number{}) == 0 {
 		return errors.Errorf("empty Version %w", coreerrors.NotValid)
->>>>>>> bd7c573581 (refactor: remove juju/errors from core)
 	}
 	return nil
 }

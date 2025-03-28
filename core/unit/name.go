@@ -61,7 +61,7 @@ func (n Name) String() string {
 // InvalidUnitName error.
 func (n Name) Validate() error {
 	if !validUnit.MatchString(n.String()) {
-		return errors.Errorf(": %q", InvalidUnitName, n)
+		return errors.Errorf("%w: %q", InvalidUnitName, n)
 	}
 	return nil
 }
