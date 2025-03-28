@@ -310,11 +310,10 @@ func (c *Client) ModelInfo(ctx context.Context, tags []names.ModelTag) ([]params
 }
 
 // DumpModel returns the serialized database agnostic model representation.
-func (c *Client) DumpModel(ctx context.Context, model names.ModelTag, simplified bool) (map[string]interface{}, error) {
+func (c *Client) DumpModel(ctx context.Context, model names.ModelTag) (map[string]interface{}, error) {
 	var results params.StringResults
 	entities := params.DumpModelRequest{
-		Entities:   []params.Entity{{Tag: model.String()}},
-		Simplified: simplified,
+		Entities: []params.Entity{{Tag: model.String()}},
 	}
 
 	err := c.facade.FacadeCall(ctx, "DumpModels", entities, &results)

@@ -473,7 +473,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	return modelInfo, nil
 }
 
-func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity, simplified bool) ([]byte, error) {
+func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity) ([]byte, error) {
 	modelTag, err := names.ParseModelTag(args.Tag)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -495,17 +495,6 @@ func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity, sim
 	defer release()
 
 	exportConfig := state.ExportConfig{IgnoreIncompleteModel: true}
-	if simplified {
-		exportConfig.SkipActions = true
-		exportConfig.SkipAnnotations = true
-		exportConfig.SkipCloudImageMetadata = true
-		exportConfig.SkipCredentials = true
-		exportConfig.SkipIPAddresses = true
-		exportConfig.SkipSettings = true
-		exportConfig.SkipSSHHostKeys = true
-		exportConfig.SkipLinkLayerDevices = true
-	}
-
 	modelExporter, err := m.modelExporter(ctx, coremodel.UUID(modelTag.Id()), modelState)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -522,38 +511,6 @@ func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity, sim
 	return bytes, nil
 }
 
-func (m *ModelManagerAPI) dumpModelDB(ctx context.Context, args params.Entity) (map[string]interface{}, error) {
-	modelTag, err := names.ParseModelTag(args.Tag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if !m.isAdmin {
-		if err := m.authorizer.HasPermission(ctx, permission.AdminAccess, modelTag); err != nil {
-			return nil, err
-		}
-	}
-
-	type dumper interface {
-		DumpAll() (map[string]interface{}, error)
-		ModelTag() names.ModelTag
-	}
-
-	var st dumper = m.state
-	if st.ModelTag() != modelTag {
-		newSt, release, err := m.state.GetBackend(modelTag.Id())
-		if errors.Is(err, errors.NotFound) {
-			return nil, errors.Trace(apiservererrors.ErrBadId)
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		defer release()
-		st = newSt
-	}
-
-	return st.DumpAll()
-}
-
 // DumpModels will export the models into the database agnostic
 // representation. The user needs to either be a controller admin, or have
 // admin privileges on the model itself.
@@ -562,7 +519,12 @@ func (m *ModelManagerAPI) DumpModels(ctx context.Context, args params.DumpModelR
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
-		bytes, err := m.dumpModel(ctx, entity, args.Simplified)
+		if args.Simplified {
+			results.Results[i].Error = apiservererrors.ServerError(errors.NotSupportedf("simplified model dump"))
+			continue
+		}
+
+		bytes, err := m.dumpModel(ctx, entity)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -580,13 +542,8 @@ func (m *ModelManagerAPI) DumpModelsDB(ctx context.Context, args params.Entities
 	results := params.MapResults{
 		Results: make([]params.MapResult, len(args.Entities)),
 	}
-	for i, entity := range args.Entities {
-		dumped, err := m.dumpModelDB(ctx, entity)
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		results.Results[i].Result = dumped
+	for i := range args.Entities {
+		results.Results[i].Error = apiservererrors.ServerError(errors.NotImplementedf("DumpModelsDB"))
 	}
 	return results
 }
