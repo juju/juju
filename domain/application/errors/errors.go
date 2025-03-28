@@ -210,9 +210,9 @@ const (
 	// a charm, but chances are that it is.
 	CharmAlreadyExistsWithDifferentSize = errors.ConstError("charm already exists with different size")
 
-	// InvalidCharmConfig describes an error that occurs when the charm config
-	// is not valid.
-	InvalidCharmConfig = errors.ConstError("invalid charm config")
+	// InvalidApplicationConfig describes an error that occurs when the application
+	// config is not valid.
+	InvalidApplicationConfig = errors.ConstError("invalid application config")
 
 	// ApplicationHasDifferentCharm describes an error that occurs when the
 	// application has a different charm.

@@ -115,6 +115,7 @@ CREATE TABLE application_config_hash (
 CREATE TABLE application_config (
     application_uuid TEXT NOT NULL,
     "key" TEXT NOT NULL,
+    -- TODO(jack-w-shaw): Drop this field, instead look it up from the charm config
     type_id INT NOT NULL,
     value TEXT,
     CONSTRAINT fk_application_config_application
