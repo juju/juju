@@ -9,32 +9,40 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
+	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/lease"
 )
 
-// Facade exposes the capabilities required by a FlagWorker.
-type Facade interface {
-	Claim(ctx context.Context, duration time.Duration) error
-	Wait(ctx context.Context) error
-}
-
 // FlagConfig holds a FlagWorker's dependencies and resources.
 type FlagConfig struct {
-	Clock    clock.Clock
-	Facade   Facade
-	Duration time.Duration
+	LeaseManager lease.Manager
+	ModelUUID    string
+	Claimant     names.Tag
+	Entity       names.Tag
+	Clock        clock.Clock
+	Duration     time.Duration
 }
 
 // Validate returns an error if the config cannot be expected to run a
 // FlagWorker.
 func (config FlagConfig) Validate() error {
+	if config.LeaseManager == nil {
+		return errors.NotValidf("nil LeaseManager")
+	}
+	if config.ModelUUID == "" {
+		return errors.NotValidf("empty ModelUUID")
+	}
+	if config.Claimant == nil {
+		return errors.NotValidf("nil Claimant")
+	}
+	if config.Entity.Id() == "" {
+		return errors.NotValidf("empty Entity")
+	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
-	}
-	if config.Facade == nil {
-		return errors.NotValidf("nil Facade")
 	}
 	if config.Duration <= 0 {
 		return errors.NotValidf("non-positive Duration")
@@ -53,20 +61,33 @@ type FlagWorker struct {
 	catacomb catacomb.Catacomb
 	config   FlagConfig
 	valid    bool
+
+	claimer lease.Claimer
 }
 
-func NewFlagWorker(ctx context.Context, config FlagConfig) (*FlagWorker, error) {
+// NewFlagWorker returns a FlagWorker that claims and maintains ownership
+// of a model, as long as the worker is running.
+func NewFlagWorker(ctx context.Context, config FlagConfig) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	valid, err := claim(ctx, config)
+
+	claimer, err := config.LeaseManager.Claimer(lease.SingularControllerNamespace, config.ModelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	flag := &FlagWorker{
-		config: config,
-		valid:  valid,
+		config:  config,
+		claimer: claimer,
 	}
+
+	valid, err := flag.claim(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	flag.valid = valid
+
 	err = catacomb.Invoke(catacomb.Plan{
 		Site: &flag.catacomb,
 		Work: flag.run,
@@ -105,12 +126,11 @@ func (flag *FlagWorker) run() error {
 	ctx, cancel := flag.scopedContext()
 	defer cancel()
 
-	runFunc := waitVacant
+	runFunc := flag.waitVacant
 	if flag.valid {
-		runFunc = keepOccupied
+		runFunc = flag.keepOccupied
 	}
-	err := runFunc(ctx, flag.config, flag.catacomb.Dying())
-	return errors.Trace(err)
+	return errors.Trace(runFunc(ctx))
 }
 
 func (flag *FlagWorker) scopedContext() (context.Context, context.CancelFunc) {
@@ -118,13 +138,17 @@ func (flag *FlagWorker) scopedContext() (context.Context, context.CancelFunc) {
 }
 
 // keepOccupied is a runFunc that tries to keep a flag valid.
-func keepOccupied(ctx context.Context, config FlagConfig, abort <-chan struct{}) error {
+func (flag *FlagWorker) keepOccupied(ctx context.Context) error {
 	for {
 		select {
-		case <-abort:
-			return nil
-		case <-sleep(config):
-			success, err := claim(ctx, config)
+		case <-flag.catacomb.Dying():
+			return flag.catacomb.ErrDying()
+
+		case <-ctx.Done():
+			return ctx.Err()
+
+		case <-flag.config.Clock.After(flag.config.Duration / 2):
+			success, err := flag.claim(ctx)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -137,28 +161,22 @@ func keepOccupied(ctx context.Context, config FlagConfig, abort <-chan struct{})
 
 // claim claims model ownership on behalf of a controller, and returns
 // true if the attempt succeeded.
-func claim(ctx context.Context, config FlagConfig) (bool, error) {
-	err := config.Facade.Claim(ctx, config.Duration)
-	cause := errors.Cause(err)
-	switch cause {
-	case nil:
-		return true, nil
-	case lease.ErrClaimDenied:
+func (flag *FlagWorker) claim(ctx context.Context) (bool, error) {
+	err := flag.claimer.Claim(flag.config.Entity.Id(), flag.config.Claimant.Id(), flag.config.Duration)
+	if errors.Is(err, lease.ErrClaimDenied) {
 		return false, nil
+	} else if err != nil {
+		return false, errors.Trace(err)
 	}
-	return false, errors.Trace(err)
-}
-
-// sleep waits for half the duration of a (presumed) earlier successful claim.
-func sleep(config FlagConfig) <-chan time.Time {
-	return config.Clock.After(config.Duration / 2)
+	return true, nil
 }
 
 // wait is a runFunc that ignores its abort chan and always returns an error;
 // either because of a failed api call, or a successful one, which indicates
 // that no lease is held; hence, that the worker should be bounced.
-func waitVacant(ctx context.Context, config FlagConfig, _ <-chan struct{}) error {
-	if err := config.Facade.Wait(ctx); err != nil {
+func (flag *FlagWorker) waitVacant(ctx context.Context) error {
+	started := make(chan struct{}, 1)
+	if err := flag.claimer.WaitUntilExpired(ctx, flag.config.Entity.Id(), started); err != nil {
 		return errors.Trace(err)
 	}
 	return ErrRefresh
