@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/internal/sshtunneler"
 )
 
 type manifoldSuite struct {
@@ -29,6 +30,7 @@ func newManifoldConfig(l loggo.Logger, modifier func(cfg *ManifoldConfig)) *Mani
 		Logger:                 l,
 		APICallerName:          "api-caller",
 		NewSSHServerListener:   newTestingSSHServerListener,
+		SSHTunnelerName:        "ssh-tunneler",
 	}
 
 	modifier(cfg)
@@ -80,6 +82,12 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 		cfg.NewSSHServerListener = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+
+	// Empty SSHTunnelerName.
+	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
+		cfg.SSHTunnelerName = ""
+	})
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 }
 
 func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
@@ -92,17 +100,19 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 		NewServerWorker:      func(ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
 		Logger:               loggo.GetLogger("test"),
 		NewSSHServerListener: newTestingSSHServerListener,
+		SSHTunnelerName:      "ssh-tunneler",
 	})
 
 	// Check the inputs are as expected
 	c.Assert(manifold.Inputs, gc.DeepEquals, []string{
-		"api-caller",
+		"api-caller", "ssh-tunneler",
 	})
 
 	// Start the worker
 	w, err := manifold.Start(
 		dt.StubContext(nil, map[string]interface{}{
-			"api-caller": mockAPICaller{},
+			"api-caller":   mockAPICaller{},
+			"ssh-tunneler": &sshtunneler.TunnelTracker{},
 		}),
 	)
 	c.Assert(err, jc.ErrorIsNil)

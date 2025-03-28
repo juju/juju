@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/sshtunneler"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 )
@@ -19,6 +20,7 @@ type ServerWrapperWorkerConfig struct {
 	Logger               Logger
 	FacadeClient         FacadeClient
 	NewSSHServerListener func(net.Listener, time.Duration) net.Listener
+	TunnelTracker        *sshtunneler.TunnelTracker
 }
 
 // Validate validates the workers configuration is as expected.
@@ -142,6 +144,7 @@ func (ssw *serverWrapperWorker) loop() error {
 		MaxConcurrentConnections: maxConns,
 		NewSSHServerListener:     ssw.config.NewSSHServerListener,
 		FacadeClient:             ssw.config.FacadeClient,
+		TunnelTracker:            ssw.config.TunnelTracker,
 	})
 	ssw.addWorkerReporter("ssh-server", srv)
 	if err != nil {

@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"time"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwt"
@@ -28,7 +27,7 @@ type TunnelSecret struct {
 // The password is a JWT with an expiry.
 type tunnelAuthentication struct {
 	TunnelSecret
-	clock clock.Clock
+	clock Clock
 }
 
 func (tAuth *tunnelAuthentication) generatePassword(tunnelID string, expiry time.Time) (string, error) {

@@ -15,6 +15,7 @@ import (
 	sshserverapi "github.com/juju/juju/api/controller/sshserver"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/sshtunneler"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -51,6 +52,9 @@ type ManifoldConfig struct {
 
 	// Logger is the logger to use for the worker.
 	Logger Logger
+
+	// SSHTunnelerName holds the name of the SSH tunneler worker.
+	SSHTunnelerName string
 }
 
 // Validate validates the manifold configuration.
@@ -70,6 +74,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.NewSSHServerListener == nil {
 		return errors.NotValidf("nil NewSSHServerListener")
 	}
+	if config.SSHTunnelerName == "" {
+		return errors.NotValidf("empty SSHTunnelerName")
+	}
 	return nil
 }
 
@@ -79,6 +86,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.APICallerName,
+			config.SSHTunnelerName,
 		},
 		Start: config.startWrapperWorker,
 	}
@@ -100,11 +108,17 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 		return nil, errors.Trace(err)
 	}
 
+	var tunnelTracker *sshtunneler.TunnelTracker
+	if err := context.Get(config.SSHTunnelerName, &tunnelTracker); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w, err := config.NewServerWrapperWorker(ServerWrapperWorkerConfig{
 		NewServerWorker:      config.NewServerWorker,
 		Logger:               config.Logger,
 		FacadeClient:         client,
 		NewSSHServerListener: config.NewSSHServerListener,
+		TunnelTracker:        tunnelTracker,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
