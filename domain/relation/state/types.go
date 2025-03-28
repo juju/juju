@@ -4,6 +4,10 @@
 package state
 
 import (
+	"time"
+
+	"github.com/juju/juju/core/life"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
 )
@@ -14,9 +18,18 @@ type relationUUID struct {
 
 type relationIDAndUUID struct {
 	// UUID is the UUID of the relation.
-	UUID string `db:"uuid"`
+	UUID corerelation.UUID `db:"uuid"`
 	// ID is the numeric ID of the relation
 	ID int `db:"relation_id"`
+}
+
+// relationStatus represents the status of a relation
+// from v_relation_status
+type relationStatus struct {
+	RelationUUID corerelation.UUID `db:"relation_uuid"`
+	Status       string            `db:"status"`
+	Reason       string            `db:"suspended_reason"`
+	Since        time.Time         `db:"updated_at"`
 }
 
 type relationUUIDAndRole struct {
@@ -24,6 +37,17 @@ type relationUUIDAndRole struct {
 	UUID string `db:"relation_uuid"`
 	// Role is the name of the endpoints role, e.g. provider/requirer/peer.
 	Role string `db:"scope"`
+}
+
+// relationForDetails represents the structure for retrieving
+// relation details from the database.
+type relationForDetails struct {
+	// UUID uniquely identifies the relation.
+	UUID corerelation.UUID `db:"uuid"`
+	// ID is the numerical identifier of the relation.
+	ID int `db:"relation_id"`
+	// Life indicates the state of life for the relation.
+	Life life.Value `db:"value"`
 }
 
 // endpointIdentifier is an identifier for a relation endpoint.

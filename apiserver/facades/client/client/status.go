@@ -828,32 +828,29 @@ func fetchConsumerRemoteApplications(st Backend) (map[string]commoncrossmodel.Re
 // avoids the repeated DB hits to retrieve the relations for each
 // application that used to happen in processApplicationRelations().
 func fetchRelations(ctx context.Context, relationService RelationService) (map[string][]relationStatus, map[int]relationStatus, error) {
-	uuids, err := relationService.AllRelations(ctx)
+	details, err := relationService.GetAllRelationDetails(ctx)
 	if err != nil {
 		return nil, nil, internalerrors.Errorf("fetching relations: %w", err)
 	}
+	statuses, err := relationService.GetAllRelationStatuses(ctx)
+	if err != nil {
+		return nil, nil, internalerrors.Errorf("fetching relation statuses: %w", err)
+	}
+	// Protective code against nil map.
+	if statuses == nil {
+		statuses = make(map[corerelation.UUID]status.StatusInfo)
+	}
 	out := make(map[string][]relationStatus)
 	outById := make(map[int]relationStatus)
-	for _, uuid := range uuids {
-		id, err := relationService.GetRelationID(ctx, uuid)
-		if err != nil {
-			logger.Warningf(ctx, "failed to get relation id for %q: %v", uuid, err)
-			continue
-		}
-		eps, err := relationService.GetRelationEndpoints(ctx, uuid)
-		if err != nil {
-			logger.Warningf(ctx, "failed to get relation endpoints for %q: %v", uuid, err)
-			continue
-		}
-		relStatus, err := relationService.GetRelationStatus(ctx, uuid)
-		if err != nil {
-			logger.Warningf(ctx, "failed to get relation status for %q: %v", uuid, err)
-			continue
+	for _, detail := range details {
+		relStatus, ok := statuses[detail.UUID]
+		if !ok {
+			logger.Warningf(ctx, "no status for relation %d %q", detail.ID, relation.NaturalKey(detail.Endpoints))
 		}
 		r := relationStatus{
-			UUID:      uuid,
-			ID:        id,
-			Endpoints: eps,
+			UUID:      detail.UUID,
+			ID:        detail.ID,
+			Endpoints: detail.Endpoints,
 			Status:    relStatus,
 		}
 		outById[r.ID] = r
