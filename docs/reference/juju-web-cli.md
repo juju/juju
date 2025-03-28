@@ -1,5 +1,5 @@
 (the-juju-web-cli)=
-# `juju` web CLI
+# `juju` web CLI 
 
 The Juju web CLI gives you access to model level Juju CLI commands from within the Juju Dashboard when viewing a model’s detail page.
 
@@ -19,7 +19,7 @@ The output of your commands will be shown in a height adjustable panel that will
 
 ![Juju web CLI](juju-web-cli-2.png)
 
-## Features
+### Features
 
 To resize the output click and drag the top of the output element to the desired size.
 

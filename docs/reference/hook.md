@@ -15,7 +15,7 @@ Handlers must not assume that the underlying applications or services have been 
 (charm-lifecycle)=
 ## Charm lifecycle
 
-This document is about the lifecycle of a charm, specifically the Juju events that are used to keep track of it. These events are relayed to charm code by the Operator Framework in specific sequences depending on what's going on in the Juju model.
+This document is about the lifecycle of a charm, specifically the Juju events that are used to keep track of it. These events are relayed to charm code by the Operator Framework in specific sequences depending on what's going on in the Juju model. 
 
 It is common wisdom that event ordering should not be generally relied upon when coding a charm, to ensure resilience. It can be however useful to understand the logic behind the timing of events, so as to avoid common mistakes and have a better picture of what is happening in your charm. In this document we'll learn how:
 
@@ -24,7 +24,7 @@ It is common wisdom that event ordering should not be generally relied upon when
 
 In this document we will *not* learn:
 
-* What each event means or is typically used to represent about a workload status. For that see [the SDK docs](https://juju.is/docs/sdk/events).
+* What each event means or is typically used to represent about a workload status. For that see [the SDK docs](https://juju.is/docs/sdk/events). 
 * What event cascades are triggered by a human administrator running commands through the Juju CLI. For that see [this other doc](https://discourse.charmhub.io/t/core-lifecycle-events/4455/3).
 
 ```{note}
@@ -48,7 +48,7 @@ The graphs are screenshots of mermaid sources currently available [here](https:/
   * green for leadership events
   * red for storage events
   * purple for relation events
-  * blue for generic lifecycle events
+  * blue for generic lifecycle events   
 
 #### Workload and substrate-specific events
 
@@ -79,8 +79,8 @@ Similarly, the `{ref}`pre/post]-series-upgrade (lxd only)` events can only occur
   * Number: there is a 1:1 relationship between `joined/departed` and `created/broken`: when a unit joins a relation with X other units, X [`*-relation-joined`] events will be fired. When a unit leaves, all units will receive a [`*-relation-departed`] event (so X of them are fired). Same goes for `created/broken` when two applications are related or a relationship is broken. Find in appendix 1 a somewhat more elaborate example.
 * Technically speaking all events in this box are optional, but I did not style them with dashed borders to avoid clutter. If the charm shuts down immediately after start, it could happen that no operation event is fired.
 * A `X-relation-joined` event is always followed up (immediately after) by a `X-relation-changed` event. But any number of [`*-relation-changed`] events can be fired at any time during operation, and they need not be preceded by a [`*-relation-joined`] event.
-* There are more temporal orderings than the one displayed here; event chains can be initiated by human operation as detailed [in the SDK docs](https://juju.is/docs/sdk/events) and [the leadership docs](https://juju.is/docs/sdk/leadership). For example, it is guaranteed that a [`leader-elected`] is always followed by a [`settings-changed`], and that if you remove the leader unit, you should get [`*-relation-departed`] and a [`leader-settings-changed`] on the remaining units (although no specific ordering can be guaranteed [cfr this bug...](https://bugs.launchpad.net/juju/+bug/1964582)).
-* Secret events (in purple) can technically occur at any time, provided your charm either has created a secret, or consumes a secret that some other charm has created. Only the owner of a secret can receive `secret-rotate`, `secret-remove` and `secret-expire` for that secret, and only a consumer of a secret can receive `secret-changed`.
+* There are more temporal orderings than the one displayed here; event chains can be initiated by human operation as detailed [in the SDK docs](https://juju.is/docs/sdk/events) and [the leadership docs](https://juju.is/docs/sdk/leadership). For example, it is guaranteed that a [`leader-elected`] is always followed by a [`settings-changed`], and that if you remove the leader unit, you should get [`*-relation-departed`] and a [`leader-settings-changed`] on the remaining units (although no specific ordering can be guaranteed [cfr this bug...](https://bugs.launchpad.net/juju/+bug/1964582)). 
+* Secret events (in purple) can technically occur at any time, provided your charm either has created a secret, or consumes a secret that some other charm has created. Only the owner of a secret can receive `secret-rotate`, `secret-remove` and `secret-expire` for that secret, and only a consumer of a secret can receive `secret-changed`. 
 
 ### Notes on the teardown phase
 
@@ -152,7 +152,7 @@ Some hooks also can be grouped according to the Juju subsystem they represent. T
 * upgrade series: used to coordinate upgrade of host OS (3.6 or earlier only)
 * workload: used to inform the charm about events related to a pebble managed workload (currently k8s only)
 
-The documentation in this section will, where relevant, describe behaviour specific to particular hook kinds.
+The documentation in this section will, where relevant, describe behaviour specific to particular hook kinds. 
 
 (hook-execution)=
 ## Hook execution
@@ -191,7 +191,7 @@ The following environment variables are set for every hook:
 * JUJU_API_ADDRESSES holds a space separated list of Juju API addresses.
 * JUJU_MODEL_UUID holds the UUID of the current model.
 * JUJU_MODEL_NAME holds the human friendly name of the current model.
-* JUJU_PRINCIPAL_UNIT holds the name of the principal unit if the current unit is a subordinate.
+* JUJU_PRINCIPAL_UNIT holds the name of the principal unit if the current unit is a subordinate. 
 * JUJU_MACHINE_ID holds the ID of the machine on which the local unit is running.
 * JUJU_AVAILABILITY_ZONE holds the cloud's availability zone where the machine has been provisioned.
 * CLOUD_API_VERSION holds the API version of the cloud endpoint.
@@ -213,7 +213,7 @@ A charm's lifecycle consists of distinct **phases**:
 * tear down
 
 Generally, no assumptions can be made about the order of hook execution. However, there are some limited guarantees
-about hook sequencing during install, upgrade, and relation removal.
+about hook sequencing during install, upgrade, and relation removal. 
 
 In normal operation, a unit will run at least the `install`, `start`, `config-changed` and `stop` hooks over the course of its lifetime.
 
@@ -228,7 +228,7 @@ When a charm is first deployed, the following hooks are executed in order before
 * start
 
 ```{note}
-Only machine charms have the behaviour where the `storage-attached` hook must run before the `install` hook.
+Only machine charms have the behaviour where the `storage-attached` hook must run before the `install` hook. 
 See {ref}``storage hooks` <storage-hooks>` for more details.
 ```
 
@@ -411,7 +411,7 @@ Workload hooks operate in an environment with additional environment variables a
 
 #### Which hooks can be guaranteed to have fired before it, if any?
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 #### Who gets it?
 -->
@@ -431,7 +431,7 @@ It also runs whenever:
 * when the trust value of the application changes.
 * when recovering from transient unit agent errors.
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 All [common charm hook](#common-charm-hooks) environment variables.
 
@@ -456,7 +456,7 @@ When the networking on a machine has changed, any units deployed to that machine
 
 A Pebble check passing the failure threshold.
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 All [common charm hook](#common-charm-hooks) and:
 
@@ -496,7 +496,7 @@ The charm responsible for the container to which the hook pertains.
 
 A Pebble notice of type "custom" occurring.
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 All [common charm hook](#common-charm-hooks) and:
 
@@ -525,13 +525,13 @@ Moreover, as pod churn can occur at any moment, `pebble-ready` events can be rec
 This feature of `pebble-ready` events make them especially suitable for a [holistic handling pattern](https://discourse.charmhub.io/t/deltas-vs-holistic-charming/11095).
 
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 * $JUJU_WORKLOAD_NAME holds the name of the container to which the hook pertains.
 
 #### Who gets it?
 
-The charm responsible for the container to which the hook pertains.
+The charm responsible for the container to which the hook pertains. 
 
 <!--
 
@@ -566,8 +566,8 @@ As such, contrary to many other events, `-relation-changed` events are mostly tr
 
 #### What triggers it?
 
-- a non-peer relation being removed;
-- a unit participating in a non-peer relation being removed, even if the relation is otherwise still alive (through other units); or
+- a non-peer relation being removed; 
+- a unit participating in a non-peer relation being removed, even if the relation is otherwise still alive (through other units); or 
 - an application involved in a non-peer relation being removed.
 
 This hook is fired only once per unit per relation and is the exact inverse of `relation-created`. `relation-created` indicates that relation data can be accessed; `relation-broken` indicates that relation data can no longer be read-written.
@@ -586,7 +586,7 @@ The hook indicates that the relation under consideration is no longer valid, and
 
 TBA
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 TBA
 
@@ -608,9 +608,9 @@ The `relation-changed` hook for a given unit always runs once immediately follow
 
 Hooks bound to this event should be the only ones that rely on remote relation settings. They should not error if the settings are incomplete, since it can be guaranteed that when the remote unit or application changes its settings again, this event will fire once more.
 
-Charm authors should expect this event to fire many times during an application's life cycle. Units in an application are able to update relation data as needed, and a `relation-changed` event will fire every time the data in a relation changes. Since relation data can be updated on a per unit bases, a unit may receive multiple `relation-changed` events if it is related to multiple units in an application and all those units update their relation data.
+Charm authors should expect this event to fire many times during an application's life cycle. Units in an application are able to update relation data as needed, and a `relation-changed` event will fire every time the data in a relation changes. Since relation data can be updated on a per unit bases, a unit may receive multiple `relation-changed` events if it is related to multiple units in an application and all those units update their relation data. 
 
-This event is guaranteed to follow immediately after each [`relation-joined`](https://discourse.charmhub.io/t/relation-name-relation-joined-event/6478). So all `juju` commands that trigger `relation-joined` will also cause `relation-changed` to be fired. So typical scenarios include:
+This event is guaranteed to follow immediately after each [`relation-joined`](https://discourse.charmhub.io/t/relation-name-relation-joined-event/6478). So all `juju` commands that trigger `relation-joined` will also cause `relation-changed` to be fired. So typical scenarios include: 
 
 |   Scenario  | Example Command                          | Resulting Events                     |
 | :-------: | -------------------------- | ------------------------------------ |
@@ -628,8 +628,8 @@ if self.unit.is_leader():
 When the hook returns, `bar` will receive a `relation-changed` event.
 
 ```{note}
-
-Note that units only receive `relation-changed` events for **other** units' changes. This can matter in a peer relation, where the application leader will not receive a `relation-changed` event for the changes that it writes to the peer relation's application data bag. If all units, including the leader, need to react to a change in that application data, charm authors may include an inline `.emit()` for the `<name>_relation_changed` event on the leader.
+ 
+Note that units only receive `relation-changed` events for **other** units' changes. This can matter in a peer relation, where the application leader will not receive a `relation-changed` event for the changes that it writes to the peer relation's application data bag. If all units, including the leader, need to react to a change in that application data, charm authors may include an inline `.emit()` for the `<name>_relation_changed` event on the leader. 
 
 ```
 
@@ -643,7 +643,7 @@ Note that units only receive `relation-changed` events for **other** units' chan
 
 TBA
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 TBA
 
@@ -680,7 +680,7 @@ Starting from when `*-relation-created` is received, relation data can be read-w
 
 TBA
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 TBA
 
@@ -699,7 +699,7 @@ TBA
 The "relation-departed" hook for a given unit always runs once when a related unit is no longer related. After the "relation-departed" hook has run, no further notifications will be received from that unit; however, its settings will remain accessible via relation-get for the complete lifetime of the relation.
 
 
-`relation-departed` is a "teardown" event, emitted when a remote unit departs a relation.
+`relation-departed` is a "teardown" event, emitted when a remote unit departs a relation. 
 This event is the exact inverse of `relation-joined`.
 
 
@@ -751,7 +751,7 @@ If any affected unit publishes new data on the relation during the relation-depa
 
 TBA
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 TBA
 
@@ -810,7 +810,7 @@ That means that if you consider the full lifecycle of an application, a unit, or
 
 TBA
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 TBA
 
@@ -824,7 +824,7 @@ TBA
 
 #### What triggers it?
 
-The `install` hook always runs once, and only once, before any other hook.
+The `install` hook always runs once, and only once, before any other hook. 
 
 fired when Juju is done provisioning the unit.
 
@@ -836,7 +836,7 @@ Therefore, ways to cause `install` to occur are:
 |  Create unit   | `juju deploy foo`<br>`juju add-unit foo`  | `install -> config-changed`|
 
 
-> Note:
+> Note: 
 > - Typically, operations performed on `install` should also be considered for [`upgrade-charm`](https://discourse.charmhub.io/t/upgrade-charm-event/6485).
 > - In some cases, [`config-changed`](https://discourse.charmhub.io/t/config-changed-event/6465) can be used instead of `install` and `upgrade-charm` because it is guaranteed to fire after both.
 
@@ -849,7 +849,7 @@ Therefore, ways to cause `install` to occur are:
 |  Create unit   | `juju deploy foo`<br>`juju add-unit foo`  | `install -> config-changed`|
 
 
-> Note:
+> Note: 
 > - Typically, operations performed on `install` should also be considered for [`upgrade-charm`](https://discourse.charmhub.io/t/upgrade-charm-event/6485).
 > - In some cases, [`config-changed`](https://discourse.charmhub.io/t/config-changed-event/6465) can be used instead of `install` and `upgrade-charm` because it is guaranteed to fire after both.
 
@@ -858,7 +858,7 @@ Therefore, ways to cause `install` to occur are:
 
 TBA
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 TBA
 
@@ -877,7 +877,7 @@ TBA
 
 TBA
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 TBA
 
@@ -892,7 +892,7 @@ TBA
 
 The `leader-elected` event is emitted for a unit that is elected as leader. Together with `leader-settings-changed`, it is one of two "leadership events". A unit receiving this event can be guaranteed that it will have leadership for approximately 30 seconds (from the moment the event is received). After that time, Juju *might* have elected a different leader. The same holds if the unit checks leadership by `Unit.is_leader()`: if the result is `True`, then the unit can be ensured that it has leadership for the next 30s.
 
-> Leadership can change while a hook is running. (You could start a hook on unit/0 who is the leader, and while that hook is processing, you lose network connectivity for a long time [more than 30s], and then by the time the hook notices, Juju has already moved on to another leader.)
+> Leadership can change while a hook is running. (You could start a hook on unit/0 who is the leader, and while that hook is processing, you lose network connectivity for a long time [more than 30s], and then by the time the hook notices, Juju has already moved on to another leader.) 
 
 > Juju doesn't guarantee that a leader will see every event: if the leader unit is overloaded long enough for the lease to expire (>30s), then Juju will elect a different leader. Events that fired in between would be received units that are not leader yet or not leader anymore.
 
@@ -906,7 +906,7 @@ The `leader-elected` event is emitted for a unit that is elected as leader. Toge
 
 -  During the Operation phase, leadership changes can in principle occur at any time, for example if the leader unit is unresponsive for some time. When a leader loses leadership it will only receive a `leader-settings-changed` event, just like all the other non-leader units. The new leader will receive `leader-elected`.
 
-> It is not possible to select a specific unit and 'promote' that unit to leader, or 'demote' an existing leader unit. Juju has control over which unit will become leader after the current leader is gone.
+> It is not possible to select a specific unit and 'promote' that unit to leader, or 'demote' an existing leader unit. Juju has control over which unit will become leader after the current leader is gone. 
 
 ```{note}
 
@@ -916,7 +916,7 @@ However, you can cause leadership change by destroying the leader unit or killin
 - operator charms: `juju ssh -m <id> -- systemctl stop jujud-machine-<id>`
 - sidecar charms: ssh into the charm container, source the `/etc/profile.d/juju-introspection.sh` script, and then get access to a few cli tools, including `juju_stop_unit`.
 
-That will cause the lease to expire within 60s, and another unit of the same application will be elected leader and receive `leader-elected`.
+That will cause the lease to expire within 60s, and another unit of the same application will be elected leader and receive `leader-elected`. 
 
 ```
 
@@ -933,7 +933,7 @@ That will cause the lease to expire within 60s, and another unit of the same app
 
 #### Which hooks can be guaranteed to have fired before it, if any?
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 #### Who gets it?
 
@@ -967,7 +967,7 @@ If the leader unit is rescheduled, or removed entirely. When the new leader is e
 
 TBA
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 TBA
 
@@ -987,7 +987,7 @@ Fired after the series upgrade has taken place.
 
 TBA
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 TBA
 
@@ -1002,7 +1002,7 @@ TBA
 
 #### What triggers it?
 
-This event is triggered when an operator runs `juju upgrade-series <machine> prepare ...` from the command line.    Read [here](https://juju.is/docs/olm/upgrade-a-machines-series#heading--upgrading-a-machines-series) to learn more about the series upgrade process.  This event hook allows charm units on the machine being upgraded to do any necessary tasks prior to the upgrade process beginning (which may involve e.g. being rebooted, etc.).
+This event is triggered when an operator runs `juju upgrade-series <machine> prepare ...` from the command line.    Read [here](https://juju.is/docs/olm/upgrade-a-machines-series#heading--upgrading-a-machines-series) to learn more about the series upgrade process.  This event hook allows charm units on the machine being upgraded to do any necessary tasks prior to the upgrade process beginning (which may involve e.g. being rebooted, etc.). 
 
 |  Scenario | Example command | Resulting events |
 |:-:|-|-|
@@ -1021,11 +1021,11 @@ This event is triggered when an operator runs `juju upgrade-series <machine> pre
 
 TBA
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 TBA
 
-#### Who gets it?
+#### Who gets it? 
 
 TBA
 
@@ -1052,7 +1052,7 @@ The `remove` event is the last event a unit will ever see before going down, rig
 
 TBA
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 TBA
 
@@ -1070,10 +1070,10 @@ When a charm reads the content of a secret to which it has been granted access, 
 Having become a secret consumer, a charm receives the `secret-changed` event when the secret owner publishes a new secret revision.
 This event gives the consuming charm the chance to read the updated content of the latest secret revision.
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 * JUJU_SECRET_ID holds the ID of the secret that has a new revision.
-* JUJU_SECRET_LABEL holds the label given to the secret by the consumer.
+* JUJU_SECRET_LABEL holds the label given to the secret by the consumer. 
 
 The secret label can be set whenever a secret's content is read by passing `--label <label>` to the `secret-get` command.
 Thereafter, any subsequent `secret-changed` hooks will be run with this label.
@@ -1087,7 +1087,7 @@ Upon receiving that event (or at any time after that) a consumer can choose to:
 
  - Start tracking the latest revision by passing `--refresh` to the `secret-get` command.
  - Inspect the latest revision value, without tracking it just yet by passing `--peek` to the `secret-get` command.
-
+ 
  Without `--refresh` or `--peek`, the `secret-get` command continues to return the previously tracked revision, which may not be the latest.
 
 Once all consumers have stopped tracking a specific outdated revision, the owner will receive a `secret-remove` hook to be notified of that fact, and can then remove that revision.
@@ -1096,7 +1096,7 @@ Once all consumers have stopped tracking a specific outdated revision, the owner
 (hook-secret-expired)=
 ### `secret-expired`
 > Currently supported only for charm secrets.
->
+> 
 > Added in Juju 3.0.2
 
 #### What triggers it?
@@ -1108,7 +1108,7 @@ At that moment, Juju will inform the charm via the secret-expired hook that the 
 Until the charm indeed removes the expired secret revision, Juju will continue to regularly call the `secret-expired` hook to notify that the secret revision is supposed to be dropped.
 ```
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 * JUJU_SECRET_ID holds the ID of the secret that is expiring.
 * JUJU_SECRET_REVISION holds the revision that is expiring.
@@ -1137,7 +1137,7 @@ This situation can occur when:
 
 In short, the purpose of this event is to notify the owner of a secret that a specific revision of it is safe to remove: no charm is presently observing it or ever will be able to in the future.
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 * JUJU_SECRET_ID holds the ID of the secret that is expiring.
 * JUJU_SECRET_REVISION holds the revision that can be removed.
@@ -1146,7 +1146,7 @@ In short, the purpose of this event is to notify the owner of a secret that a sp
 (hook-secret-rotate)=
 ### `secret-rotate`
 > Currently supported only for charm secrets.
->
+> 
 > Added in Juju 3.0.2
 
 #### What triggers it?
@@ -1166,7 +1166,7 @@ The secret rotation interval is specified using a named rotation policy, one of:
 * yearly
 ```
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 * JUJU_SECRET_ID holds the ID of the secret that needs rotation.
 * JUJU_SECRET_LABEL holds the label given to the secret by the owner.
@@ -1205,7 +1205,7 @@ In kubernetes sidecar charms, Juju provides no ordering guarantees regarding `st
 
 The `config-changed` hook. (The `start` hook is fired immediately after.)
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 #### Who gets it?
 
@@ -1216,7 +1216,7 @@ Any unit.
 
 #### What triggers it?
 
-The Juju controller being ready to destroy the unit.
+The Juju controller being ready to destroy the unit. 
 
 This can occur:
 
@@ -1235,7 +1235,7 @@ The `stop` hook is the  one-before-last  hook the unit will receive before being
 
 TBA
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 TBA
 
 #### Who gets it?
@@ -1255,7 +1255,7 @@ A storage volume having been attached to the charm's host machine or container a
 
 TBA
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 TBA
 
@@ -1274,7 +1274,7 @@ A request to detach storage having been processed.
 
 TBA
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 TBA
 
@@ -1305,7 +1305,7 @@ In integration tests, unless specifically testing the update-status hook, you ma
 
 As it is triggered periodically, the `update-status`  can happen in-between any other charm events.
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 TBA
 
@@ -1352,7 +1352,7 @@ An upgrade does NOT trigger any relation hooks (unless relation data is intentio
 
 TBA
 
-#### Which environment variables is it executed with?
+#### Which environment variables is it executed with? 
 
 TBA
 

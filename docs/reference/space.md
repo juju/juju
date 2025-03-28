@@ -14,9 +14,9 @@ A space is used to help segment network traffic for the purpose of:
 
 ## Spaces as constraints and bindings
 
-Spaces can be specified as {ref}`constraints <constraint>` -- to determine what subnets a machine is connected to -- or as application endpoint bindings -- to determine the subnets used by application relations.
+Spaces can be specified as {ref}`constraints <constraint>`---to determine what subnets a machine is connected to---or as {ref}`bindings <binding>`---to determine the subnets used by application relations. 
 
-A binding associates an {ref}`application endpoint <application-endpoint>` with a space. This restricts traffic for the endpoint to the subnets in the space. By default, endpoints are bound to the space specified in the `default-space` model configuration value. The name of the default space is "alpha".
+A binding associates an {ref}`application endpoint <endpoint>` with a space. This restricts traffic for the endpoint to the subnets in the space. By default, endpoints are bound to the space specified in the `default-space` model configuration value. The name of the default space is "alpha".
 
 
 Constraints and bindings affect application deployment and machine provisioning as well as the subnets a machine can talk to.
@@ -37,7 +37,7 @@ Support for spaces by the different Juju providers falls into one of three cases
 This is the case for MAAS, as described below.
 
 #### MAAS
-
+ 
 The concept of spaces is native to MAAS and its API can be used to modify the space/subnet topology. As such, Juju does not permit editing of spaces in a MAAS model. MAAS spaces and subnets are read and loaded into Juju when a new model is created.
 
 If spaces or subnets are changed in MAAS, they can be reloaded into Juju via Juju's `reload-spaces` command.
@@ -52,10 +52,10 @@ For other providers, `reload-spaces` will fall back to refreshing the known subn
 
 ### Subnets inherited from the substrate
 
-This is the case for EC2, OpenStack and Azure, and LXD. Inherited subnets are then grouped into spaces at the discretion of the Juju administrator.
+This is the case for EC2, OpenStack and Azure, and LXD. Inherited subnets are then grouped into spaces at the discretion of the Juju administrator. 
 
 #### EC2
-
+ 
 Machines on Amazon EC2 are provisioned with a single network device. At this time, specifying multiple space constraints and/or bindings will result in selection of a *single intersecting* space in order to provision the machine.
 
 #### OpenStack and Azure
@@ -76,7 +76,7 @@ For the Manual provider, space support differs somewhat from other providers. Th
 
 Accordingly, the machines to be used in a manual provider must be provisioned by Juju before their subnets can be grouped into spaces. When provisioning a machine results in discovery of a new subnet, that subnet will reside in the _alpha_ space.
 
-
+ 
 <!--(2) Subnets inherited from the substrate, to be grouped at the discretion of the Juju administrator. -->
 
 <!--FROM https://discourse.charmhub.io/t/network-spaces-and-lxd/6325/3?u=tmihoc
@@ -93,7 +93,7 @@ We use the LXD network API to detect subnets that are bridge networks. This may 
 <!--
 Definition from MAAS: https://maas.io/docs/maas-concepts-and-terms-reference .
 
-But: There are some differences between
+But: There are some differences between 
 
 https://discourse.maas.io/t/spaces-vs-fabrics-and-what-they-do/5656
 -->
@@ -106,6 +106,6 @@ M Vitaly:
 
 - You cannot define a space without defining a subnet.
 
-- The notion of space comes from MAAS. But the notion here is a bit different than it is there. In MAAS, two IP addresses in the same space can reach one another, even if they are from different subnets. In Juju, the definition is that a space is a group of subnets visible to the Juju controller. Visible != reachable.
+- The notion of space comes from MAAS. But the notion here is a bit different than it is there. In MAAS, two IP addresses in the same space can reach one another, even if they are from different subnets. In Juju, the definition is that a space is a group of subnets visible to the Juju controller. Visible != reachable. 
 
 -->

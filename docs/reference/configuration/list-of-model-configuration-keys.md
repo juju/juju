@@ -124,7 +124,7 @@ To restore the default behaviour you would run:
 juju model-config --reset apt-mirror
 ```
 
-The `apt-mirror` option is often used to point to a local mirror.
+The `apt-mirror` option is often used to point to a local mirror. 
 
 (model-config-apt-no-proxy)=
 ## `apt-no-proxy`
@@ -144,7 +144,7 @@ The `apt-mirror` option is often used to point to a local mirror.
 
 **Default value:** true
 
-**Details:**
+**Details:** 
 
 Juju retries failed hooks automatically using an exponential backoff algorithm. They will be retried after 5, 10, 20, 40 seconds up to a period of 5 minutes, and then every 5 minutes. The logic behind this is that some hook errors are caused by timing issues or the temporary unavailability of other applications - automatic retry enables the Juju model to heal itself without troubling the user.
 
@@ -162,14 +162,14 @@ Even with the automatic retry enabled, it is still possible to use the `juju res
 
 **Type:** string
 
-**Default value:** ""
+**Default value:** "" 
 
 
 ## `charmhub-url`
 
 `charmhub-url`  is the url for Charmhub API calls.
 
-**Type:**
+**Type:** 
 
 **Default value:** [https://api.charmhub.io](https://api.charmhub.io)
 
@@ -177,7 +177,7 @@ Even with the automatic retry enabled, it is still possible to use the `juju res
 
 ```{caution}
 
-This is a sharp knife feature - be careful with it.
+This is a sharp knife feature - be careful with it. 
 
 ```
 
@@ -194,7 +194,7 @@ This is a sharp knife feature - be careful with it.
 
 The `cloudinit-userdata` allows the user to provide additional cloudinit data to be included in the cloudinit data created by Juju.
 
-Specifying a key will overwrite what juju puts in the cloudinit file with the following caveats:
+Specifying a key will overwrite what juju puts in the cloudinit file with the following caveats: 
 1. `users` and `bootcmd` keys will cause an error
 2. The `packages` key will be appended to the packages listed by juju
 3. The `runcmds` key will cause an error.  You can specify `preruncmd` and `postruncmd` keys to prepend and append the runcmd created by Juju.
@@ -203,7 +203,7 @@ Specifying a key will overwrite what juju puts in the cloudinit file with the fo
 ### Use cases
 
 - setting a default locale for deployments that wish to use their own locale settings
-- adding custom CA certificates for models that are sitting behind an HTTPS proxy
+- adding custom CA certificates for models that are sitting behind an HTTPS proxy 
 - adding a private apt mirror to enable private packages to be installed
 - add SSH fingerprints to a deny list to prevent them from being printed to the console for security-focused deployments
 
@@ -223,7 +223,7 @@ Create a file, `cloudinit-userdata.yaml`, which starts with the `cloudinit-userd
 
 Template `cloudinit-userdata.yaml`:
 
-```text
+```plain
 cloudinit-userdata: |
     <key>: <value>
     <key>: <value>
@@ -232,7 +232,7 @@ cloudinit-userdata: |
 Provide the path your file to the `model-config` command:
 
 
-```text
+```plain
 juju model-config --file cloudinit-userdata.yaml
 ```
 
@@ -240,7 +240,7 @@ juju model-config --file cloudinit-userdata.yaml
 
 To read the current value, provide the `cloudinit-userdata` key to the `model-config` command as a command-line parameter. Adding the `--format yaml` option ensures that it is properly formatted.
 
-```text
+```plain
 juju model-config cloudinit-userdata --format yaml
 ```
 
@@ -255,7 +255,7 @@ Sample output:
 
 Use the `--reset` option to the `model-config` command to clear anything that has been previously set.
 
-```text
+```plain
 juju model-config --reset cloudinit-userdata
 ```
 
@@ -272,7 +272,7 @@ juju model-config --reset cloudinit-userdata
 
 **Default value:** "
 
-**Valid values:** url
+**Valid values:** url 
 
 ## `container-image-stream`
 
@@ -299,7 +299,7 @@ The `container-inherit-properties` key allows for a limited set of parameters en
 
 ```{important}
 
-This key is only supported by the MAAS provider.
+This key is only supported by the MAAS provider. 
 
 ```
 
@@ -369,7 +369,7 @@ In trusty apt-security is ignored (unless someone can provide a map):
 
 ## `default-base`
 
-`default-base` is the default base image to use for deploying charms, will act like `--base` when deploying charms.
+`default-base` is the default base image to use for deploying charms, will act like `--base` when deploying charms. 
 
 **Type:** string
 
@@ -448,7 +448,7 @@ You may also want to just update the package list to ensure a charm has the late
 
 **Default value:** true
 
-**Details:**
+**Details:** 
 
 When Juju provisions a machine, its default behaviour is to upgrade existing packages to their latest version. If your OS images are fresh and/or your deployed applications do not require the latest package versions, you can disable upgrades in order to provision machines faster.
 
@@ -480,7 +480,7 @@ You may also want to just update the package list to ensure a charm has the late
 
 **Default value:** `instance`
 
-**Valid values:** `instance`, `global`, `none`. `instance` requests the use of an individual firewall per instance; `global` uses a single firewall for all instances (access for a network port is enabled to one instance if any instance requires that port); `none` requests that no firewalling should be performed inside the model.
+**Valid values:** `instance`, `global`, `none`. `instance` requests the use of an individual firewall per instance; `global` uses a single firewall for all instances (access for a network port is enabled to one instance if any instance requires that port); `none` requests that no firewalling should be performed inside the model. 
 
 (model-config-ftp-proxy)=
 ## `ftp-proxy*`
@@ -606,7 +606,7 @@ Juju, by default, uses the slow-changing 'released' images when provisioning mac
 
 **Type:** string
 
-**Value:** A (list of semicolon-separated) `<filter>=<verbosity level>` pairs,
+**Value:** A (list of semicolon-separated) `<filter>=<verbosity level>` pairs, 
 
 where `<filter>` can be any of the following:
 
@@ -618,7 +618,7 @@ A module represents a single component of Juju, e.g. a {ref}`worker <worker>`. G
 <br><br>
 Modules have a nested tree structure - for example, the `juju.api` module includes submodules `juju.api.application`, `juju.api.cloud`, etc. `<root>` is the root of this module tree.
 
-- a label, e.g. `#charmhub`
+- a label, e.g. `#charmhub` 
 <br><br>
 *Labels* cut across the module tree, grouping various modules which deal with a certain feature or information flow. For example, the `#charmhub` label includes all modules involved in making a request to Charmhub.
 <br><br>
@@ -689,7 +689,7 @@ juju model-config -m controller logging-config="juju.apiserver=TRACE"
 
 **Default value:** ""
 
-**Valid values:**
+**Valid values:** 
 
 ## `lxd-snap-channel`
 
@@ -820,7 +820,7 @@ juju model-config provisioner-harvest-mode=none
 (model-config-secret-backend)=
 ## `secret-backend`
 
-`secret-backend` is the name of the secret store backend.
+`secret-backend` is the name of the secret store backend. 
 
 **Type:** string
 
