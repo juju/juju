@@ -53,7 +53,6 @@ type ModelManagerBackend interface {
 	ConstraintsBySpaceName(string) ([]*state.Constraints, error)
 
 	LatestMigration() (state.ModelMigration, error)
-	DumpAll() (map[string]interface{}, error)
 	Close() error
 	HAPrimaryMachine() (names.MachineTag, error)
 }
