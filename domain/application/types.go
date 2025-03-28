@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
@@ -385,4 +386,5 @@ type ExportUnit struct {
 	UUID         coreunit.UUID
 	Name         coreunit.Name
 	PasswordHash string
+	Machine      machine.Name
 }

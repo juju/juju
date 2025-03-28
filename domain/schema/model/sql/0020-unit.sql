@@ -326,5 +326,9 @@ CREATE VIEW v_unit_export AS
 SELECT
     u.uuid,
     u.name,
-    u.password_hash
-FROM unit AS u;
+    u.password_hash,
+    m.name AS machine_name
+FROM unit AS u
+-- Ensure this is a JOIN not a LEFT JOIN. We don't want to export units
+-- without a machine.
+JOIN machine AS m ON m.net_node_uuid = u.net_node_uuid;

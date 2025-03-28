@@ -43,6 +43,7 @@ func (e *exportOperation) exportUnit(ctx context.Context, modelType string, unit
 		Name:         unit.Name.String(),
 		Type:         modelType,
 		PasswordHash: unit.PasswordHash,
+		Machine:      unit.Machine.String(),
 	}
 
 	return args, nil

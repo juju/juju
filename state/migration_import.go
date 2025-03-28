@@ -128,9 +128,9 @@ func (ctrl *Controller) Import(
 	if err := restore.machines(); err != nil {
 		return nil, nil, errors.Annotate(err, "machines")
 	}
-	if err := restore.applications(controllerConfig); err != nil {
-		return nil, nil, errors.Annotate(err, "applications")
-	}
+	// if err := restore.applications(controllerConfig); err != nil {
+	// 	return nil, nil, errors.Annotate(err, "applications")
+	// }
 	if err := restore.relations(); err != nil {
 		return nil, nil, errors.Annotate(err, "relations")
 	}
