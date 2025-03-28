@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package sshserver_test
+package sshserver
 
 import (
 	"github.com/juju/errors"
@@ -14,7 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/internal/worker/sshserver"
+	"github.com/juju/juju/internal/sshtunneler"
 )
 
 type manifoldSuite struct {
@@ -23,13 +23,14 @@ type manifoldSuite struct {
 
 var _ = gc.Suite(&manifoldSuite{})
 
-func newManifoldConfig(l loggo.Logger, modifier func(cfg *sshserver.ManifoldConfig)) *sshserver.ManifoldConfig {
-	cfg := &sshserver.ManifoldConfig{
-		NewServerWrapperWorker: func(sshserver.ServerWrapperWorkerConfig) (worker.Worker, error) { return nil, nil },
-		NewServerWorker:        func(sshserver.ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
+func newManifoldConfig(l loggo.Logger, modifier func(cfg *ManifoldConfig)) *ManifoldConfig {
+	cfg := &ManifoldConfig{
+		NewServerWrapperWorker: func(ServerWrapperWorkerConfig) (worker.Worker, error) { return nil, nil },
+		NewServerWorker:        func(ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
 		Logger:                 l,
 		APICallerName:          "api-caller",
 		NewSSHServerListener:   newTestingSSHServerListener,
+		SSHTunnelerName:        "ssh-tunneler",
 	}
 
 	modifier(cfg)
@@ -41,11 +42,11 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 	l := loggo.GetLogger("test")
 	// Check config as expected.
 
-	cfg := newManifoldConfig(l, func(cfg *sshserver.ManifoldConfig) {})
+	cfg := newManifoldConfig(l, func(cfg *ManifoldConfig) {})
 	c.Assert(cfg.Validate(), jc.ErrorIsNil)
 
 	// Entirely missing.
-	cfg = newManifoldConfig(l, func(cfg *sshserver.ManifoldConfig) {
+	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
 		cfg.NewServerWrapperWorker = nil
 		cfg.NewServerWorker = nil
 		cfg.Logger = nil
@@ -53,57 +54,65 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	// Missing NewServerWrapperWorker.
-	cfg = newManifoldConfig(l, func(cfg *sshserver.ManifoldConfig) {
+	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
 		cfg.NewServerWrapperWorker = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	// Missing NewServerWorker.
-	cfg = newManifoldConfig(l, func(cfg *sshserver.ManifoldConfig) {
+	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
 		cfg.NewServerWorker = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	// Missing Logger.
-	cfg = newManifoldConfig(l, func(cfg *sshserver.ManifoldConfig) {
+	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
 		cfg.Logger = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	// Empty APICallerName.
-	cfg = newManifoldConfig(l, func(cfg *sshserver.ManifoldConfig) {
+	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
 		cfg.APICallerName = ""
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	// Empty NewSSHServerListener.
-	cfg = newManifoldConfig(l, func(cfg *sshserver.ManifoldConfig) {
+	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
 		cfg.NewSSHServerListener = nil
+	})
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+
+	// Empty SSHTunnelerName.
+	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
+		cfg.SSHTunnelerName = ""
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 }
 
 func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 	// Setup the manifold
-	manifold := sshserver.Manifold(sshserver.ManifoldConfig{
+	manifold := Manifold(ManifoldConfig{
 		APICallerName: "api-caller",
-		NewServerWrapperWorker: func(sshserver.ServerWrapperWorkerConfig) (worker.Worker, error) {
+		NewServerWrapperWorker: func(ServerWrapperWorkerConfig) (worker.Worker, error) {
 			return workertest.NewDeadWorker(nil), nil
 		},
-		NewServerWorker:      func(sshserver.ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
+		NewServerWorker:      func(ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
 		Logger:               loggo.GetLogger("test"),
 		NewSSHServerListener: newTestingSSHServerListener,
+		SSHTunnelerName:      "ssh-tunneler",
 	})
 
 	// Check the inputs are as expected
 	c.Assert(manifold.Inputs, gc.DeepEquals, []string{
-		"api-caller",
+		"api-caller", "ssh-tunneler",
 	})
 
 	// Start the worker
 	w, err := manifold.Start(
 		dt.StubContext(nil, map[string]interface{}{
-			"api-caller": mockAPICaller{},
+			"api-caller":   mockAPICaller{},
+			"ssh-tunneler": &sshtunneler.TunnelTracker{},
 		}),
 	)
 	c.Assert(err, jc.ErrorIsNil)

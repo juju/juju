@@ -4,8 +4,8 @@
 package sshserver
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"net"
 	"strconv"
 	"sync/atomic"
@@ -14,6 +14,7 @@ import (
 	"github.com/canonical/lxd/shared/logger"
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/sshtunneler"
 	"github.com/juju/worker/v3"
 	gossh "golang.org/x/crypto/ssh"
 	"gopkg.in/tomb.v2"
@@ -21,6 +22,10 @@ import (
 	jujussh "github.com/juju/juju/pki/ssh"
 	"github.com/juju/juju/rpc/params"
 )
+
+type contextKey string
+
+const tunnelIDKey contextKey = "tunnelid"
 
 // ServerWorkerConfig holds the configuration required by the server worker.
 type ServerWorkerConfig struct {
@@ -49,6 +54,13 @@ type ServerWorkerConfig struct {
 
 	// FacadeClient holds the SSH server's facade client.
 	FacadeClient FacadeClient
+
+	// disableAuth is a test-only flag that disables authentication.
+	disableAuth bool
+
+	// TunnelTracker holds the tunnel tracker used to requests SSH
+	// connections to machines.
+	TunnelTracker *sshtunneler.TunnelTracker
 }
 
 // Validate validates the workers configuration is as expected.
@@ -65,6 +77,9 @@ func (c ServerWorkerConfig) Validate() error {
 	if c.FacadeClient == nil {
 		return errors.NotValidf("missing FacadeClient")
 	}
+	if c.TunnelTracker == nil {
+		return errors.NotValidf("missing TunnelTracker")
+	}
 	return nil
 }
 
@@ -80,6 +95,10 @@ type ServerWorker struct {
 
 	// concurrentConnections holds the number of concurrent connections.
 	concurrentConnections atomic.Int32
+
+	// tunnelTracker holds the tunnel tracker used to requests SSH
+	// connections to machines.
+	tunnelTracker *sshtunneler.TunnelTracker
 }
 
 // NewServerWorker returns a running embedded SSH server.
@@ -87,19 +106,13 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	s := &ServerWorker{config: config}
-	s.Server = &ssh.Server{
-		ConnCallback: s.connCallback(),
-		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
-			return true
-		},
-		PasswordHandler: func(ctx ssh.Context, password string) bool {
-			return true
-		},
-		ChannelHandlers: map[string]ssh.ChannelHandler{
-			"direct-tcpip": s.directTCPIPHandler,
-		},
+
+	s := &ServerWorker{
+		config:        config,
+		tunnelTracker: config.TunnelTracker,
 	}
+
+	s.Server = s.NewJumpServer()
 
 	// Set hostkey.
 	if err := s.setJumpServerHostKey(); err != nil {
@@ -149,6 +162,34 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 	return s, nil
 }
 
+func (s *ServerWorker) NewJumpServer() *ssh.Server {
+	server := ssh.Server{
+		ConnCallback: s.connCallback(),
+		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
+			return false
+		},
+		PasswordHandler: func(ctx ssh.Context, password string) bool {
+			tunnelID, err := s.tunnelTracker.AuthenticateTunnel(ctx.User(), password)
+			if err != nil {
+				return false
+			}
+			ctx.SetValue(tunnelIDKey, tunnelID)
+			return true
+		},
+		ChannelHandlers: map[string]ssh.ChannelHandler{
+			"direct-tcpip": s.directTCPIPHandler,
+			"juju-tunnel":  s.reverseTunnelHandler,
+		},
+	}
+
+	if s.config.disableAuth {
+		server.PublicKeyHandler = nil
+		server.PasswordHandler = nil
+	}
+
+	return &server
+}
+
 // Kill stops the server worker by killing the tomb. Implements worker.Worker.
 func (s *ServerWorker) Kill() {
 	s.tomb.Kill(nil)
@@ -167,6 +208,42 @@ func (s *ServerWorker) setJumpServerHostKey() error {
 
 	s.Server.AddHostKey(signer)
 	return nil
+}
+
+// reverseTunnelHandler is a Juju specific SSH channel handler specifically
+// for reverse SSH tunnels established from machines.
+// These requests must always be associated with a tunnel ID obtained during
+// authentication so that we can push the tunnel to the tunnel tracker.
+//
+// We need to take care to only close the connection in case of an error, otherwise we
+// will be closing the connection before the object requesting the tunnel can use it.
+func (s *ServerWorker) reverseTunnelHandler(srv *ssh.Server, conn *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {
+	tunnelID, _ := ctx.Value(tunnelIDKey).(string)
+	if tunnelID == "" {
+		conn.Close()
+		return
+	}
+
+	ch, reqs, err := newChan.Accept()
+	if err != nil {
+		conn.Close()
+		return
+	}
+
+	// gossh.Request are requests sent outside of the normal stream of data (ex. pty-req for an interactive session).
+	// Since we only need the raw data to redirect, we can discard them.
+	go gossh.DiscardRequests(reqs)
+
+	netConn := newChannelConn(ch)
+
+	pushCtx, cancelF := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancelF()
+
+	err = s.tunnelTracker.PushTunnel(pushCtx, tunnelID, netConn)
+	if err != nil {
+		s.config.Logger.Errorf("failed to push tunnel: %v", err)
+		conn.Close()
+	}
 }
 
 func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {
@@ -206,30 +283,6 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 	// Since we only need the raw data to redirect, we can discard them.
 	go gossh.DiscardRequests(reqs)
 
-	jumpServerPipe, terminatingServerPipe := net.Pipe()
-
-	s.tomb.Go(func() error {
-		defer ch.Close()
-		defer jumpServerPipe.Close()
-		defer terminatingServerPipe.Close()
-		_, err := io.Copy(ch, jumpServerPipe)
-		if err != nil {
-			s.config.Logger.Errorf("failed to copy data from jump server to client: %v", err)
-		}
-
-		return nil
-	})
-	s.tomb.Go(func() error {
-		defer ch.Close()
-		defer jumpServerPipe.Close()
-		defer terminatingServerPipe.Close()
-		_, err := io.Copy(jumpServerPipe, ch)
-		if err != nil {
-			s.config.Logger.Errorf("failed to copy data from client to jump server: %v", err)
-		}
-
-		return nil
-	})
 	forwardHandler := &ssh.ForwardedTCPHandler{}
 	server := &ssh.Server{
 		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
@@ -256,7 +309,7 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 	}
 
 	server.AddHostKey(signer)
-	server.HandleConn(terminatingServerPipe)
+	server.HandleConn(newChannelConn(ch))
 }
 
 // hostKeySignerForTarget returns a signer for the target hostname, by calling the facade client.
