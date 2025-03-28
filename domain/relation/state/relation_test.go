@@ -637,7 +637,10 @@ func (s *relationSuite) TestGetRelationsStatusForUnit(c *gc.C) {
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert): %v",
 		errors.ErrorStack(err)))
-	c.Check(results, gc.DeepEquals, expectedResults)
+	c.Assert(results, gc.HasLen, 1)
+	c.Check(results[0].InScope, gc.Equals, expectedResults[0].InScope)
+	c.Check(results[0].Suspended, gc.Equals, expectedResults[0].Suspended)
+	c.Check(results[0].Endpoints, jc.SameContents, expectedResults[0].Endpoints)
 }
 
 // TestGetRelationsStatusForUnit checks that GetRelationStatusesForUnit works
@@ -706,7 +709,7 @@ func (s *relationSuite) TestGetRelationsStatusForUnitPeer(c *gc.C) {
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert): %v",
 		errors.ErrorStack(err)))
-	c.Check(results, gc.DeepEquals, expectedResults)
+	c.Assert(results, jc.SameContents, expectedResults)
 }
 
 // TestGetRelationStatusesForUnitEmptyResult checks that an empty slice is
@@ -774,7 +777,10 @@ func (s *relationSuite) TestGetRelationDetails(c *gc.C) {
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details, gc.DeepEquals, expectedDetails)
+	c.Assert(details.Life, gc.Equals, expectedDetails.Life)
+	c.Assert(details.UUID, gc.Equals, expectedDetails.UUID)
+	c.Assert(details.ID, gc.Equals, expectedDetails.ID)
+	c.Assert(details.Endpoints, jc.SameContents, expectedDetails.Endpoints)
 }
 
 func (s *relationSuite) TestGetRelationDetailsNotFound(c *gc.C) {

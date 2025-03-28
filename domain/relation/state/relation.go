@@ -463,7 +463,7 @@ WHERE  relation_id = $getRelation.relation_id
 			return errors.Capture(err)
 		}
 
-		endpoints, err = st.getEndpoints(ctx, tx, corerelation.UUID(rel.UUID))
+		endpoints, err = st.getEndpoints(ctx, tx, rel.UUID)
 		if err != nil {
 			return errors.Errorf("getting relation endpoints: %w", err)
 		}
