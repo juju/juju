@@ -107,3 +107,39 @@ WHERE name=$unitName.name`, u)
 	}
 	return u.UUID, errors.Capture(err)
 }
+
+// GetAllUnitPasswordHashes returns a map of unit names to password hashes.
+func (st *State) GetAllUnitPasswordHashes(ctx context.Context) (map[string]map[unit.Name]passwords.PasswordHash, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	query := `SELECT &unitPasswordHashes.* FROM v_unit_password_hash`
+	stmt, err := st.Prepare(query, unitPasswordHashes{})
+	if err != nil {
+		return nil, errors.Errorf("preparing statement to get all unit password hashes: %w", err)
+	}
+
+	var results []unitPasswordHashes
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&results)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting all unit password hashes: %w", err)
+	}
+
+	ret := make(map[string]map[unit.Name]passwords.PasswordHash)
+	for _, r := range results {
+		if _, ok := ret[r.ApplicationName]; !ok {
+			ret[r.ApplicationName] = make(map[unit.Name]passwords.PasswordHash)
+		}
+		ret[r.ApplicationName][unit.Name(r.UnitName)] = r.PasswordHash
+	}
+	return ret, nil
+
+}
