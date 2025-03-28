@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	gossh "golang.org/x/crypto/ssh"
 
@@ -26,7 +25,9 @@ var (
 )
 
 const (
-	reverseTunnelUser = "juju-reverse-tunnel"
+	// ReverseTunnelUser is the user name unit agents use to connect to
+	// the controller.
+	ReverseTunnelUser = "juju-reverse-tunnel"
 	tokenIssuer       = "sshtunneler"
 	tokenSubject      = "reverse-tunnel"
 	tunnelIDClaimKey  = "tunnelID"
@@ -49,6 +50,11 @@ type SSHDial interface {
 	Dial(conn net.Conn, username string, privateKey gossh.Signer, hostKeyCallback gossh.HostKeyCallback) (*gossh.Client, error)
 }
 
+// Clock defines an interface for getting the current time.
+type Clock interface {
+	Now() time.Time
+}
+
 // Tracker provides methods to create SSH tunnels to machine units.
 // The objects keep track of consumers who have requested tunnels
 // and allows an SSH server to push tunnels to these consumers.
@@ -57,7 +63,7 @@ type Tracker struct {
 	state      State
 	controller ControllerInfo
 	dialer     SSHDial
-	clock      clock.Clock
+	clock      Clock
 
 	mu      sync.Mutex
 	tracker map[string]chan (net.Conn)
@@ -68,7 +74,7 @@ type TrackerArgs struct {
 	State          State
 	ControllerInfo ControllerInfo
 	Dialer         SSHDial
-	Clock          clock.Clock
+	Clock          Clock
 }
 
 func (args *TrackerArgs) validate() error {
@@ -195,7 +201,7 @@ func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.C
 		ModelUUID:           req.ModelUUID,
 		MachineId:           req.MachineID,
 		Expires:             deadline,
-		Username:            reverseTunnelUser,
+		Username:            ReverseTunnelUser,
 		Password:            password,
 		ControllerAddresses: controllerAddresses,
 		UnitPort:            0, // Allow the unit worker to determine the port.
@@ -237,7 +243,7 @@ func (tt *Tracker) delete(tunnelID string) {
 // If the request is valid, the provided tunnelID should be
 // stored and provided alongside the network connection to PushTunnel.
 func (tt *Tracker) AuthenticateTunnel(username, password string) (tunnelID string, err error) {
-	if username != reverseTunnelUser {
+	if username != ReverseTunnelUser {
 		return "", errors.New("invalid username")
 	}
 

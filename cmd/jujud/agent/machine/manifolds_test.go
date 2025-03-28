@@ -985,10 +985,12 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"clock",
 		"is-controller-flag",
 		"jwt-parser",
 		"state",
 		"state-config-watcher",
+		"ssh-tunneler",
 	},
 
 	"ssh-tunneler": {
@@ -1466,10 +1468,12 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"clock",
 		"is-controller-flag",
 		"jwt-parser",
 		"state",
 		"state-config-watcher",
+		"ssh-tunneler",
 	},
 
 	"ssh-tunneler": {

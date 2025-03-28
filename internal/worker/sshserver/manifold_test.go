@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/internal/jwtparser"
+	"github.com/juju/juju/internal/sshtunneler"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -43,6 +44,7 @@ func newManifoldConfig(modifier func(cfg *ManifoldConfig)) *ManifoldConfig {
 		APICallerName:          "api-caller",
 		NewSSHServerListener:   newTestingSSHServerListener,
 		JWTParserName:          "jwt-parser",
+		SSHTunnelerName:        "ssh-tunneler",
 	}
 
 	if modifier != nil {
@@ -95,6 +97,12 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 		cfg.NewSSHServerListener = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+
+	// Empty SSHTunnelerName.
+	cfg = newManifoldConfig(func(cfg *ManifoldConfig) {
+		cfg.SSHTunnelerName = ""
+	})
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 }
 
 func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
@@ -107,14 +115,15 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 
 	// Check the inputs are as expected
 	c.Assert(manifold.Inputs, gc.DeepEquals, []string{
-		"api-caller", "jwt-parser",
+		"api-caller", "jwt-parser", "ssh-tunneler",
 	})
 
 	// Start the worker
 	w, err := manifold.Start(
 		dt.StubContext(nil, map[string]interface{}{
-			"api-caller": mockAPICaller{},
-			"jwt-parser": &jwtparser.Parser{},
+			"api-caller":   mockAPICaller{},
+			"jwt-parser":   &jwtparser.Parser{},
+			"ssh-tunneler": &sshtunneler.Tracker{},
 		}),
 	)
 	c.Assert(err, jc.ErrorIsNil)

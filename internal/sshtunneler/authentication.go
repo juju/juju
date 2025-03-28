@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"time"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwt"
@@ -21,10 +20,10 @@ import (
 type tunnelAuthentication struct {
 	sharedSecret []byte
 	jwtAlg       jwa.KeyAlgorithm
-	clock        clock.Clock
+	clock        Clock
 }
 
-func newTunnelAuthentication(clock clock.Clock) (tunnelAuthentication, error) {
+func newTunnelAuthentication(clock Clock) (tunnelAuthentication, error) {
 	// The shared secret is generated dynamically because
 	// user's SSH connections to the controller are tied
 	// to the life of the Tracker object.

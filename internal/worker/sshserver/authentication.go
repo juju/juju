@@ -13,6 +13,7 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/virtualhostname"
+	"github.com/juju/juju/internal/sshtunneler"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -25,34 +26,23 @@ type JWTParser interface {
 	Parse(ctx context.Context, token string) (jwt.Token, error)
 }
 
+// TunnelAuthenticator defines an interface for authenticating
+// SSH tunnels. It is used to authenticate the machine at the
+// jump server and returns a tunnelID to be used later.
+type TunnelAuthenticator interface {
+	AuthenticateTunnel(user, password string) (string, error)
+}
+
 // authenticator is used to authenticate users' ssh connections.
 //
-// Its verification methods should only be used at the initial
+// Its authentication methods should only be used at the initial
 // jump server. For authentication at the terminating server,
 // use the TerminatingServerPublicKeyAuthentication method.
 type authenticator struct {
-	logger       Logger
-	jwtParser    JWTParser
-	facadeClient FacadeClient
-}
-
-// newAuthenticator create an Authenticator for SSH connections.
-func newAuthenticator(jwtParser JWTParser, logger Logger, facadeClient FacadeClient) (*authenticator, error) {
-	if logger == nil {
-		return nil, errors.Errorf("logger can't be nil.")
-	}
-	if jwtParser == nil {
-		return nil, errors.Errorf("JWTParser can't be nil.")
-	}
-	if facadeClient == nil {
-		return nil, errors.Errorf("FacadeClient can't be nil.")
-	}
-
-	return &authenticator{
-		logger:       logger,
-		jwtParser:    jwtParser,
-		facadeClient: facadeClient,
-	}, nil
+	logger        Logger
+	jwtParser     JWTParser
+	facadeClient  FacadeClient
+	tunnelTracker TunnelAuthenticator
 }
 
 // TODO(JUJU-7777): implement public key authentication in the jump server in addition to the terminating server.
@@ -77,6 +67,14 @@ func (auth authenticator) passwordAuthentication(ctx ssh.Context, password strin
 			return false
 		}
 		ctx.SetValue(userJWT{}, token)
+		return true
+	}
+	if ctx.User() == sshtunneler.ReverseTunnelUser {
+		tunnelID, err := auth.tunnelTracker.AuthenticateTunnel(ctx.User(), password)
+		if err != nil {
+			return false
+		}
+		ctx.SetValue(tunnelIDKey{}, tunnelID)
 		return true
 	}
 	return false

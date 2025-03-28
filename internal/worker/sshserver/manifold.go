@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/internal/jwtparser"
+	"github.com/juju/juju/internal/sshtunneler"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -59,6 +60,9 @@ type ManifoldConfig struct {
 
 	// JWTParserName is the name of the JWT parser worker.
 	JWTParserName string
+
+	// SSHTunnelerName holds the name of the SSH tunneler worker.
+	SSHTunnelerName string
 }
 
 // Validate validates the manifold configuration.
@@ -81,6 +85,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.JWTParserName == "" {
 		return errors.NotValidf("empty JWTParserName")
 	}
+	if config.SSHTunnelerName == "" {
+		return errors.NotValidf("empty SSHTunnelerName")
+	}
 	return nil
 }
 
@@ -91,6 +98,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.APICallerName,
 			config.JWTParserName,
+			config.SSHTunnelerName,
 		},
 		Start: config.startWrapperWorker,
 	}
@@ -124,6 +132,11 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 		return nil, errors.Trace(err)
 	}
 
+	var tunnelTracker *sshtunneler.Tracker
+	if err := context.Get(config.SSHTunnelerName, &tunnelTracker); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w, err := config.NewServerWrapperWorker(ServerWrapperWorkerConfig{
 		NewServerWorker:      config.NewServerWorker,
 		Logger:               config.Logger,
@@ -131,6 +144,7 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 		NewSSHServerListener: config.NewSSHServerListener,
 		SessionHandler:       &stubSessionHandler{},
 		JWTParser:            jwtParser,
+		TunnelTracker:        tunnelTracker,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
