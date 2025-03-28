@@ -1,0 +1,51 @@
+# .readthedocs.yaml
+# Read the Docs configuration file
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+
+# Required
+version: 2
+
+# Set the version of Python and other tools you might need
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.11"
+    golang: latest
+  commands:
+    # TODO(aflynn): This is a hack, the "commands" config option override the
+    # RTD build process completely. This is done so that we can use the "juju
+    # documentation" command to auto-generate CLI docs. For this the "juju"
+    # command needs to be built and put on the path for the documentation build.
+    # Once CLI documentation is autogenerate with a script rather than with
+    # "juju documentation" we can call this script from the conf.py instead and
+    # use the default RTD build process.
+
+    # Build juju
+    - git fetch --unshallow || true
+    - mkdir $HOME/_rtd_juju_build
+    - GOBIN=$HOME/_rtd_juju_build make juju
+
+    # Install build requirements
+    - python -m virtualenv $READTHEDOCS_VIRTUALENV_PATH
+    - python -m pip install --upgrade --no-cache-dir pip setuptools
+    - python -m pip install --exists-action=w --no-cache-dir -r docs/.sphinx/requirements.txt
+
+    # Print config
+    - cat docs/conf.py
+
+    # Build sphinx with juju on the PATH.
+    - cd docs && PATH=$PATH:$HOME/_rtd_juju_build python -m sphinx -T --keep-going -b dirhtml -d _build/doctrees -D language=en . $READTHEDOCS_OUTPUT/html
+
+# Build documentation in the docs/ directory with Sphinx
+sphinx:
+  builder: dirhtml
+  configuration: docs/conf.py
+
+# If using Sphinx, optionally build your docs in additional formats such as PDF
+formats:
+  - pdf
+
+# Optionally declare the Python requirements required to build your docs
+python:
+  install:
+    - requirements: docs/.sphinx/requirements.txt
