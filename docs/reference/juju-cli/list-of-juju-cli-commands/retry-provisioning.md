@@ -1,22 +1,29 @@
 (command-juju-retry-provisioning)=
 # `juju retry-provisioning`
-## Summary
+
+```
+Usage: juju retry-provisioning [options] <machine> [...]
+
+Summary:
 Retries provisioning for failed machines.
 
-## Usage
-```juju retry-provisioning [options] <machine> [...]```
+Global Options:
+--debug  (= false)
+    equivalent to --show-log --logging-config=<root>=DEBUG
+-h, --help  (= false)
+    Show help on a command or other topic.
+--logging-config (= "")
+    specify log levels for modules
+--quiet  (= false)
+    show no informational output
+--show-log  (= false)
+    if set, write the log file to stderr
+--verbose  (= false)
+    show more verbose output
 
-### Options
-| Flag | Default | Usage |
-| --- | --- | --- |
-| `--all` | false | retry provisioning all failed machines |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-
-## Examples
-
-
-	juju retry-provisioning 0
-
-	juju retry-provisioning 0 1
-
-	juju retry-provisioning --all
+Command Options:
+--all  (= false)
+    retry provisioning all failed machines
+-m, --model (= "")
+    Model to operate in. Accepts [<controller name>:]<model name>|<model UUID>
+```

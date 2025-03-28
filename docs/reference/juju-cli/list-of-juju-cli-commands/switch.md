@@ -1,29 +1,31 @@
 (command-juju-switch)=
 # `juju switch`
-> See also: [controllers](#controllers), [models](#models), [show-controller](#show-controller)
 
-## Summary
+```
+Usage: juju switch [options] [<controller>|<model>|<controller>:|:<model>|<controller>:<model>]
+
+Summary:
 Selects or identifies the current controller and model.
 
-## Usage
-```juju switch [options] [<controller>|<model>|<controller>:|:<model>|<controller>:<model>]```
+Global Options:
+--debug  (= false)
+    equivalent to --show-log --logging-config=<root>=DEBUG
+-h, --help  (= false)
+    Show help on a command or other topic.
+--logging-config (= "")
+    specify log levels for modules
+--quiet  (= false)
+    show no informational output
+--show-log  (= false)
+    if set, write the log file to stderr
+--verbose  (= false)
+    show more verbose output
 
-### Options
-| Flag | Default | Usage |
-| --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
+Command Options:
+-B, --no-browser-login  (= false)
+    Do not use web browser for authentication
 
-## Examples
-
-    juju switch
-    juju switch mymodel
-    juju switch mycontroller
-    juju switch mycontroller:mymodel
-    juju switch mycontroller:
-    juju switch :mymodel
-
-
-## Details
+Details:
 When used without an argument, the command shows the current controller
 and its active model.
 When a single argument without a colon is provided juju first looks for a
@@ -33,3 +35,17 @@ default model in mycontroller, :mymodel switches to mymodel in current
 controller and mycontroller:mymodel switches to mymodel on mycontroller.
 The `juju models` command can be used to determine the active model
 (of any controller). An asterisk denotes it.
+
+Examples:
+    juju switch
+    juju switch mymodel
+    juju switch mycontroller
+    juju switch mycontroller:mymodel
+    juju switch mycontroller:
+    juju switch :mymodel
+
+See also:
+    controllers
+    models
+    show-controller
+```

@@ -1,29 +1,30 @@
 (command-juju-version)=
 # `juju version`
-> See also: [show-controller](#show-controller), [show-model](#show-model)
 
-## Summary
+```
+Usage: juju version [options]
+
+Summary:
 Print the Juju CLI client version.
 
-## Usage
-```juju version [options] ```
+Options:
+--all  (= false)
+    Prints all version information
+--format  (= smart)
+    Specify output format (json|smart|yaml)
+-o, --output (= "")
+    Specify an output file
 
-### Options
-| Flag | Default | Usage |
-| --- | --- | --- |
-| `--all` | false | Prints all version information |
-| `--format` | smart | Specify output format (json&#x7c;smart&#x7c;yaml) |
-| `-o`, `--output` |  | Specify an output file |
-
-## Examples
-
-    juju version
-
-Print all version information:
-
-    juju version --all
-
-
-## Details
-
+Details:
 Print only the Juju CLI client version.
+
+To see the version of Juju running on a particular controller, use
+  juju show-controller
+
+To see the version of Juju running on a particular model, use
+  juju show-model
+
+See also:
+    show-controller
+    show-model
+```

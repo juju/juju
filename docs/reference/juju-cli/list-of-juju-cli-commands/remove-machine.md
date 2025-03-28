@@ -1,34 +1,41 @@
 (command-juju-remove-machine)=
 # `juju remove-machine`
-> See also: [add-machine](#add-machine)
 
-## Summary
+```
+Usage: juju remove-machine [options] <machine number> ...
+
+Summary:
 Removes one or more machines from a model.
 
-## Usage
-```juju remove-machine [options] <machine number> ...```
+Global Options:
+--debug  (= false)
+    equivalent to --show-log --logging-config=<root>=DEBUG
+-h, --help  (= false)
+    Show help on a command or other topic.
+--logging-config (= "")
+    specify log levels for modules
+--quiet  (= false)
+    show no informational output
+--show-log  (= false)
+    if set, write the log file to stderr
+--verbose  (= false)
+    show more verbose output
 
-### Options
-| Flag | Default | Usage |
-| --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--dry-run` | false | Print what this command would be removed without removing |
-| `--force` | false | Completely remove a machine and all its dependencies |
-| `--keep-instance` | false | Do not stop the running cloud instance |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-prompt` | false | Do not ask for confirmation. Overrides `mode` model config setting |
-| `--no-wait` | false | Rush through machine removal without waiting for each individual step to complete |
+Command Options:
+-B, --no-browser-login  (= false)
+    Do not use web browser for authentication
+--force  (= false)
+    Completely remove a machine and all its dependencies
+--keep-instance  (= false)
+    Do not stop the running cloud instance
+-m, --model (= "")
+    Model to operate in. Accepts [<controller name>:]<model name>|<model UUID>
+--no-prompt  (= false)
+    Does nothing. Option present for forward compatibility with Juju 3
+--no-wait  (= false)
+    Rush through machine removal without waiting for each individual step to complete
 
-## Examples
-
-    juju remove-machine 5
-    juju remove-machine 6 --force
-    juju remove-machine 6 --force --no-wait
-    juju remove-machine 7 --keep-instance
-
-
-## Details
-
+Details:
 Machines are specified by their numbers, which may be retrieved from the
 output of `juju status`.
 
@@ -42,6 +49,17 @@ option; this will also remove those units and containers without giving
 them an opportunity to shut down cleanly.
 
 Machine removal is a multi-step process. Under normal circumstances, Juju will not
-proceed to the next step until the current step has finished. 
-However, when using --force, users can also specify --no-wait to progress through steps 
+proceed to the next step until the current step has finished.
+However, when using --force, users can also specify --no-wait to progress through steps
 without delay waiting for each step to complete.
+
+Examples:
+
+    juju remove-machine 5
+    juju remove-machine 6 --force
+    juju remove-machine 6 --force --no-wait
+    juju remove-machine 7 --keep-instance
+
+See also:
+    add-machine
+```

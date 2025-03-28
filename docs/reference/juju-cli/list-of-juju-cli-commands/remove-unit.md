@@ -1,38 +1,43 @@
 (command-juju-remove-unit)=
 # `juju remove-unit`
-> See also: [remove-application](#remove-application), [scale-application](#scale-application)
 
-## Summary
+```
+Usage: juju remove-unit [options] <unit> [...] | <application>
+
+Summary:
 Remove application units from the model.
 
-## Usage
-```juju remove-unit [options] <unit> [...] | <application>```
+Global Options:
+--debug  (= false)
+    equivalent to --show-log --logging-config=<root>=DEBUG
+-h, --help  (= false)
+    Show help on a command or other topic.
+--logging-config (= "")
+    specify log levels for modules
+--quiet  (= false)
+    show no informational output
+--show-log  (= false)
+    if set, write the log file to stderr
+--verbose  (= false)
+    show more verbose output
 
-### Options
-| Flag | Default | Usage |
-| --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--destroy-storage` | false | Destroy storage attached to the unit |
-| `--dry-run` | false | Print what this command would remove without removing |
-| `--force` | false | Completely remove an unit and all its dependencies |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--no-prompt` | false | Do not ask for confirmation. Overrides `mode` model config setting |
-| `--no-wait` | false | Rush through unit removal without waiting for each individual step to complete |
-| `--num-units` | 0 | Number of units to remove (k8s models only) |
+Command Options:
+-B, --no-browser-login  (= false)
+    Do not use web browser for authentication
+--destroy-storage  (= false)
+    Destroy storage attached to the unit
+--force  (= false)
+    Completely remove an unit and all its dependencies
+-m, --model (= "")
+    Model to operate in. Accepts [<controller name>:]<model name>|<model UUID>
+--no-prompt  (= false)
+    Does nothing. Option present for forward compatibility with Juju 3
+--no-wait  (= false)
+    Rush through unit removal without waiting for each individual step to complete
+--num-units  (= 0)
+    Number of units to remove (k8s models only)
 
-## Examples
-
-    juju remove-unit wordpress/2 wordpress/3 wordpress/4
-
-    juju remove-unit wordpress/2 --destroy-storage
-
-    juju remove-unit wordpress/2 --force
-
-    juju remove-unit wordpress/2 --force --no-wait
-
-
-## Details
-
+Details:
 Remove application units from the model.
 
 The usage of this command differs depending on whether it is being used on a
@@ -71,3 +76,18 @@ Unit removal is a multi-step process. Under normal circumstances, Juju will not
 proceed to the next step until the current step has finished.
 However, when using --force, users can also specify --no-wait to progress through steps
 without delay waiting for each step to complete.
+
+Examples:
+
+    juju remove-unit wordpress/2 wordpress/3 wordpress/4
+
+    juju remove-unit wordpress/2 --destroy-storage
+
+    juju remove-unit wordpress/2 --force
+
+    juju remove-unit wordpress/2 --force --no-wait
+
+See also:
+    remove-application
+    scale-application
+```

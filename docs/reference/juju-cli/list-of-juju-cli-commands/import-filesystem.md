@@ -1,34 +1,35 @@
 (command-juju-import-filesystem)=
 # `juju import-filesystem`
-> See also: [storage](#storage)
 
-## Summary
+```
+Usage: juju import-filesystem [options]
+<storage-provider> <provider-id> <storage-name>
+
+
+Summary:
 Imports a filesystem into the model.
 
-## Usage
-```juju import-filesystem [options] 
-<storage-provider> <provider-id> <storage-name>
-```
+Global Options:
+--debug  (= false)
+    equivalent to --show-log --logging-config=<root>=DEBUG
+-h, --help  (= false)
+    Show help on a command or other topic.
+--logging-config (= "")
+    specify log levels for modules
+--quiet  (= false)
+    show no informational output
+--show-log  (= false)
+    if set, write the log file to stderr
+--verbose  (= false)
+    show more verbose output
 
-### Options
-| Flag | Default | Usage |
-| --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
+Command Options:
+-B, --no-browser-login  (= false)
+    Do not use web browser for authentication
+-m, --model (= "")
+    Model to operate in. Accepts [<controller name>:]<model name>|<model UUID>
 
-## Examples
-
-Import an existing filesystem backed by an EBS volume,
-and assign it the "pgdata" storage name. Juju will
-associate a storage instance ID like "pgdata/0" with
-the volume and filesystem contained within.
-
-    juju import-filesystem ebs vol-123456 pgdata
-
-
-
-## Details
-
+Details:
 Import an existing filesystem into the model. This will lead to the model
 taking ownership of the storage, so you must take care not to import storage
 that is in use by another Juju model.
@@ -44,3 +45,11 @@ To import a filesystem, you must specify three things:
 
 Once a filesystem is imported, Juju will create an associated storage
 instance using the given storage name.
+
+Examples:
+    # Import an existing filesystem backed by an EBS volume,
+    # and assign it the "pgdata" storage name. Juju will
+    # associate a storage instance ID like "pgdata/0" with
+    # the volume and filesystem contained within.
+    juju import-filesystem ebs vol-123456 pgdata
+```

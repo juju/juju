@@ -1,28 +1,33 @@
 (command-juju-create-storage-pool)=
 # `juju create-storage-pool`
-> See also: [remove-storage-pool](#remove-storage-pool), [update-storage-pool](#update-storage-pool), [storage-pools](#storage-pools)
 
-## Summary
+```
+Usage: juju create-storage-pool [options] <name> <provider> [<key>=<value> [<key>=<value>...]]
+
+Summary:
 Create or define a storage pool.
 
-## Usage
-```juju create-storage-pool [options] <name> <provider> [<key>=<value> [<key>=<value>...]]```
+Global Options:
+--debug  (= false)
+    equivalent to --show-log --logging-config=<root>=DEBUG
+-h, --help  (= false)
+    Show help on a command or other topic.
+--logging-config (= "")
+    specify log levels for modules
+--quiet  (= false)
+    show no informational output
+--show-log  (= false)
+    if set, write the log file to stderr
+--verbose  (= false)
+    show more verbose output
 
-### Options
-| Flag | Default | Usage |
-| --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
+Command Options:
+-B, --no-browser-login  (= false)
+    Do not use web browser for authentication
+-m, --model (= "")
+    Model to operate in. Accepts [<controller name>:]<model name>|<model UUID>
 
-## Examples
-
-    juju create-storage-pool ebsrotary ebs volume-type=standard
-    juju create-storage-pool gcepd storage-provisioner=kubernetes.io/gce-pd [storage-mode=RWX|RWO|ROX] parameters.type=pd-standard
-
-
-
-## Details
-
+Details:
 Pools are a mechanism for administrators to define sources of storage that
 they will use to satisfy application storage requirements.
 
@@ -44,3 +49,14 @@ configuration as space-separated pairs, e.g. tags, size, path, etc.
 
 For Kubernetes models, the provider type defaults to "kubernetes"
 unless otherwise specified.
+
+Examples:
+
+    juju create-storage-pool ebsrotary ebs volume-type=standard
+    juju create-storage-pool gcepd storage-provisioner=kubernetes.io/gce-pd [storage-mode=RWX|RWO|ROX] parameters.type=pd-standard
+
+See also:
+    remove-storage-pool
+    update-storage-pool
+    storage-pools
+```

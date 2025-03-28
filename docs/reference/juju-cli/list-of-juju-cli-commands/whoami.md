@@ -1,24 +1,44 @@
 (command-juju-whoami)=
 # `juju whoami`
-> See also: [controllers](#controllers), [login](#login), [logout](#logout), [models](#models), [users](#users)
 
-## Summary
+```
+Usage: juju whoami [options]
+
+Summary:
 Print current login details.
 
-## Usage
-```juju whoami [options] ```
+Global Options:
+--debug  (= false)
+    equivalent to --show-log --logging-config=<root>=DEBUG
+-h, --help  (= false)
+    Show help on a command or other topic.
+--logging-config (= "")
+    specify log levels for modules
+--quiet  (= false)
+    show no informational output
+--show-log  (= false)
+    if set, write the log file to stderr
+--verbose  (= false)
+    show more verbose output
 
-### Options
-| Flag | Default | Usage |
-| --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
-| `-o`, `--output` |  | Specify an output file |
+Command Options:
+-B, --no-browser-login  (= false)
+    Do not use web browser for authentication
+--format  (= tabular)
+    Specify output format (json|tabular|yaml)
+-o, --output (= "")
+    Specify an output file
 
-## Examples
+Details:
+Display the current controller, model and logged in user name.
 
+Examples:
     juju whoami
 
-
-## Details
-Display the current controller, model and logged in user name.
+See also:
+    controllers
+    login
+    logout
+    models
+    users
+```

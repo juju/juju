@@ -1,49 +1,55 @@
 (command-juju-refresh)=
 # `juju refresh`
-> See also: [deploy](#deploy)
 
-## Summary
+```
+Usage: juju refresh [options] <application>
+
+Summary:
 Refresh an application's charm.
 
-## Usage
-```juju refresh [options] <application>```
+Global Options:
+--debug  (= false)
+    equivalent to --show-log --logging-config=<root>=DEBUG
+-h, --help  (= false)
+    Show help on a command or other topic.
+--logging-config (= "")
+    specify log levels for modules
+--quiet  (= false)
+    show no informational output
+--show-log  (= false)
+    if set, write the log file to stderr
+--verbose  (= false)
+    show more verbose output
 
-### Options
-| Flag | Default | Usage |
-| --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--base` |  | Select a different base than what is currently running. |
-| `--bind` |  | Configure application endpoint bindings to spaces |
-| `--channel` |  | Channel to use when getting the charm from Charmhub |
-| `--config` |  | Either a path to yaml-formatted application config file or a key=value pair  |
-| `--force` | false | Allow a charm to be refreshed which bypasses LXD profile allow list |
-| `--force-base`, `--force-series` | false | Refresh even if the base of the deployed application is not supported by the new charm |
-| `--force-units` | false | Refresh all units immediately, even if in error state |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--path` |  | Refresh to a charm located at path |
-| `--resource` |  | Resource to be uploaded to the controller |
-| `--revision` | -1 | Explicit revision of current charm |
-| `--storage` |  | Charm storage constraints |
-| `--switch` |  | Crossgrade to a different charm |
-| `--trust` | unset | Allows charm to run hooks that require access credentials |
+Command Options:
+-B, --no-browser-login  (= false)
+    Do not use web browser for authentication
+--bind (= "")
+    Configure application endpoint bindings to spaces
+--channel (= "")
+    Channel to use when getting the charm or bundle from the charm store or charm hub
+--config  (= )
+    Path to yaml-formatted application config
+--force  (= false)
+    Allow a charm to be refreshed which bypasses LXD profile allow list
+--force-series  (= false)
+    Refresh even if series of deployed applications are not supported by the new charm
+--force-units  (= false)
+    Refresh all units immediately, even if in error state
+-m, --model (= "")
+    Model to operate in. Accepts [<controller name>:]<model name>|<model UUID>
+--path (= "")
+    Refresh to a charm located at path
+--resource  (= )
+    Resource to be uploaded to the controller
+--revision  (= -1)
+    Explicit revision of current charm
+--storage  (= )
+    Charm storage constraints
+--switch (= "")
+    Crossgrade to a different charm
 
-## Examples
-
-To refresh the storage constraints for the application foo:
-
-	juju refresh foo --storage cache=ssd,10G
-
-To refresh the application config from a file for application foo:
-
-	juju refresh foo --config config.yaml
-
-To refresh the resources for application foo:
-
-	juju refresh foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
-
-
-## Details
-
+Details:
 When no options are set, the application's charm will be refreshed to the latest
 revision available in the repository from which it was originally deployed. An
 explicit revision can be chosen with the --revision option.
@@ -99,24 +105,27 @@ regardless of potential havoc, so long as the following conditions hold:
   participating in.
 - All config settings shared by the old and new charms must
   have the same types.
+- Charms changing from CharmStore (cs: prefix) to CharmHub require a
+  homogeneous architecture for applications.
 
 The new charm may add new relations and configuration settings.
-
-The new charm may also need to be granted access to trusted credentials.
-Use --trust to grant such access.
-Or use --trust=false to revoke such access.
 
 --switch and --path are mutually exclusive.
 
 --path and --revision are mutually exclusive. The revision of the updated charm
 is determined by the contents of the charm at the specified path.
 
---switch and --revision are mutually exclusive.
+--switch and --revision are mutually exclusive. To specify a given revision
+number with --switch, give it in the charm URL, for instance "cs:wordpress-5"
+would specify revision number 5 of the wordpress charm.
 
 Use of the --force-units option is not generally recommended; units upgraded
-while in an error state will not have upgrade-charm hooks executed, and may
-cause unexpected behavior.
+while in an error state will not have refreshed hooks executed, and may cause
+unexpected behavior.
 
 --force option for LXD Profiles is not generally recommended when upgrading an
 application; overriding profiles on the container may cause unexpected
 behavior.
+
+Aliases: upgrade-charm
+```

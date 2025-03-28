@@ -1,27 +1,47 @@
 (command-juju-rename-space)=
 # `juju rename-space`
-> See also: [add-space](#add-space), [spaces](#spaces), [reload-spaces](#reload-spaces), [remove-space](#remove-space), [show-space](#show-space)
 
-## Summary
+```
+Usage: juju rename-space [options] <old-name> <new-name>
+
+Summary:
 Rename a network space.
 
-## Usage
-```juju rename-space [options] <old-name> <new-name>```
+Global Options:
+--debug  (= false)
+    equivalent to --show-log --logging-config=<root>=DEBUG
+-h, --help  (= false)
+    Show help on a command or other topic.
+--logging-config (= "")
+    specify log levels for modules
+--quiet  (= false)
+    show no informational output
+--show-log  (= false)
+    if set, write the log file to stderr
+--verbose  (= false)
+    show more verbose output
 
-### Options
-| Flag | Default | Usage |
-| --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--rename` |  | the new name for the network space |
+Command Options:
+-B, --no-browser-login  (= false)
+    Do not use web browser for authentication
+-m, --model (= "")
+    Model to operate in. Accepts [<controller name>:]<model name>|<model UUID>
+--rename (= "")
+    the new name for the network space
 
-## Examples
-
-Rename a space from db to fe:
-
-	juju rename-space db fe
-
-
-## Details
+Details:
 Renames an existing space from "old-name" to "new-name". Does not change the
 associated subnets and "new-name" must not match another existing space.
+
+Examples:
+
+rename a space from db to fe:
+	juju rename-space db fe
+
+See also:
+	add-space
+	list-spaces
+	reload-spaces
+	remove-space
+	show-space
+```

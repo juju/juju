@@ -1,47 +1,54 @@
 (command-juju-info)=
 # `juju info`
-> See also: [find](#find), [download](#download)
 
-## Summary
+```
+Usage: juju info [options] [options] <charm>
+
+Summary:
 Displays detailed information about CharmHub charms.
 
-## Usage
-```juju info [options] [options] <charm>```
+Global Options:
+--debug  (= false)
+    equivalent to --show-log --logging-config=<root>=DEBUG
+-h, --help  (= false)
+    Show help on a command or other topic.
+--logging-config (= "")
+    specify log levels for modules
+--quiet  (= false)
+    show no informational output
+--show-log  (= false)
+    if set, write the log file to stderr
+--verbose  (= false)
+    show more verbose output
 
-### Options
-| Flag | Default | Usage |
-| --- | --- | --- |
-| `--arch` | all | Specify an arch &lt;all&#x7c;amd64&#x7c;arm64&#x7c;ppc64el&#x7c;riscv64&#x7c;s390x&gt; |
-| `--base` |  | Specify a base |
-| `--channel` |  | Specify a channel to use instead of the default release |
-| `--charmhub-url` | https://api.charmhub.io | specify the Charmhub URL for querying the store |
-| `--config` | false | Display config for this charm |
-| `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
-| `-o`, `--output` |  | Specify an output file |
-| `--revision` | -1 | Specify a revision number |
-| `--series` | all | Specify a series. DEPRECATED use --base |
-| `--track` |  | Specify a track to use instead of the default track |
-| `--unicode` | auto | Display output using unicode &lt;auto&#x7c;never&#x7c;always&gt; |
+Command Options:
+--arch (= "all")
+    specify an arch <all|amd64|arm64|armhf|i386|ppc64el|s390x>
+--channel (= "")
+    specify a channel to use instead of the default release
+--charmhub-url (= "https://api.charmhub.io")
+    specify the Charmhub URL for querying the store
+--config  (= false)
+    display config for this charm
+--format  (= tabular)
+    Specify output format (json|tabular|yaml)
+-o, --output (= "")
+    Specify an output file
+--series (= "all")
+    specify a series
+--unicode (= "auto")
+    display output using unicode <auto|never|always>
 
-## Examples
-
-    juju info postgresql
-
-
-## Details
-
+Details:
 The charm can be specified by name or by path.
 
-Channels displayed are supported by any base.
-To see channels supported for only a specific base, use the --base flag.
---base can be specified using the OS name and the version of the OS, 
-separated by @.
-For example: --base ubuntu@22.04
+Channels displayed are supported by any series.
+To see channels supported for only a specific series, use the --series flag.
 
-Use --revision to display information about a specific revision of the charm,
-which cannot be used together with --arch, --base, --channel or --series.
-For example: --revision 42
+Examples:
+    juju info postgresql
 
-Use --track to display information about a specific track of the charm,
-which cannot be used together with --arch, --base, --channel or --series.
-For example: --track 14
+See also:
+    find
+    download
+```

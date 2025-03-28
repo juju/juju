@@ -1,27 +1,43 @@
 (command-juju-grant-cloud)=
 # `juju grant-cloud`
-> See also: [grant](#grant), [revoke-cloud](#revoke-cloud), [add-user](#add-user)
 
-## Summary
+```
+Usage: juju grant-cloud [options] <user name> <permission> <cloud name> ...
+
+Summary:
 Grants access level to a Juju user for a cloud.
 
-## Usage
-```juju grant-cloud [options] <user name> <permission> <cloud name> ...```
+Global Options:
+--debug  (= false)
+    equivalent to --show-log --logging-config=<root>=DEBUG
+-h, --help  (= false)
+    Show help on a command or other topic.
+--logging-config (= "")
+    specify log levels for modules
+--quiet  (= false)
+    show no informational output
+--show-log  (= false)
+    if set, write the log file to stderr
+--verbose  (= false)
+    show more verbose output
 
-### Options
-| Flag | Default | Usage |
-| --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
+Command Options:
+-B, --no-browser-login  (= false)
+    Do not use web browser for authentication
+-c, --controller (= "")
+    Controller to operate in
 
-## Examples
+Details:
+Valid access levels are:
+    admin
+    add-model
 
+Examples:
 Grant user 'joe' 'add-model' access to cloud 'fluffy':
 
     juju grant-cloud joe add-model fluffy
 
-
-## Details
-Valid access levels are:
-    admin
-    add-model
+See also:
+    revoke-cloud
+    add-user
+```

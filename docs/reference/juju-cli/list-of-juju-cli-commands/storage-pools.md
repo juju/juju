@@ -1,42 +1,41 @@
 (command-juju-storage-pools)=
 # `juju storage-pools`
-> See also: [create-storage-pool](#create-storage-pool), [remove-storage-pool](#remove-storage-pool)
 
-**Aliases:** list-storage-pools
+```
+Usage: juju storage-pools [options]
 
-## Summary
+Summary:
 List storage pools.
 
-## Usage
-```juju storage-pools [options] ```
+Global Options:
+--debug  (= false)
+    equivalent to --show-log --logging-config=<root>=DEBUG
+-h, --help  (= false)
+    Show help on a command or other topic.
+--logging-config (= "")
+    specify log levels for modules
+--quiet  (= false)
+    show no informational output
+--show-log  (= false)
+    if set, write the log file to stderr
+--verbose  (= false)
+    show more verbose output
 
-### Options
-| Flag | Default | Usage |
-| --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
-| `--name` |  | Only show pools with these names |
-| `-o`, `--output` |  | Specify an output file |
-| `--provider` |  | Only show pools of these provider types |
+Command Options:
+-B, --no-browser-login  (= false)
+    Do not use web browser for authentication
+--format  (= tabular)
+    Specify output format (json|tabular|yaml)
+-m, --model (= "")
+    Model to operate in. Accepts [<controller name>:]<model name>|<model UUID>
+--name  (= )
+    Only show pools with these names
+-o, --output (= "")
+    Specify an output file
+--provider  (= )
+    Only show pools of these provider types
 
-## Examples
-
-List all storage pools:
-
-    juju storage-pools
-
-List only pools of type kubernetes, azure, ebs:
-
-    juju storage-pools --provider kubernetes,azure,ebs
-
-List only pools named pool1 and pool2:
-
-    juju storage-pools --name pool1,pool2
-
-
-## Details
-
+Details:
 The user can filter on pool type, name.
 
 If no filter is specified, all current pools are listed.
@@ -47,3 +46,6 @@ If only types are specified, all pools of the specified types will be listed.
 
 Both pool types and names must be valid.
 Valid pool types are pool types that are registered for Juju model.
+
+Aliases: list-storage-pools
+```

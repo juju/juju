@@ -1,28 +1,33 @@
 (command-juju-set-credential)=
 # `juju set-credential`
-> See also: [credentials](#credentials), [show-credential](#show-credential), [update-credential](#update-credential)
 
-## Summary
+```
+Usage: juju set-credential [options] <cloud name> <credential name>
+
+Summary:
 Relates a remote credential to a model.
 
-## Usage
-```juju set-credential [options] <cloud name> <credential name>```
+Global Options:
+--debug  (= false)
+    equivalent to --show-log --logging-config=<root>=DEBUG
+-h, --help  (= false)
+    Show help on a command or other topic.
+--logging-config (= "")
+    specify log levels for modules
+--quiet  (= false)
+    show no informational output
+--show-log  (= false)
+    if set, write the log file to stderr
+--verbose  (= false)
+    show more verbose output
 
-### Options
-| Flag | Default | Usage |
-| --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
+Command Options:
+-B, --no-browser-login  (= false)
+    Do not use web browser for authentication
+-m, --model (= "")
+    Model to operate in. Accepts [<controller name>:]<model name>|<model UUID>
 
-## Examples
-
-For cloud 'aws', relate remote credential 'bob' to model 'trinity':
-
-    juju set-credential -m trinity aws bob
-
-
-## Details
-
+Details:
 This command relates a credential cached on a controller to a specific model.
 It does not change/update the contents of an existing active credential. See
 command `update-credential` for that.
@@ -42,3 +47,15 @@ this operation will result in that credential being related to two models.
 
 Use the `show-credential` command to see how remote credentials are related
 to models.
+
+Examples:
+
+For cloud 'aws', relate remote credential 'bob' to model 'trinity':
+
+    juju set-credential -m trinity aws bob
+
+See also:
+    credentials
+    show-credential
+    update-credential
+```

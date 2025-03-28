@@ -1,31 +1,39 @@
 (command-juju-login)=
 # `juju login`
-> See also: [disable-user](#disable-user), [enable-user](#enable-user), [logout](#logout), [register](#register), [unregister](#unregister)
 
-## Summary
+```
+Usage: juju login [options] [controller host name or alias]
+
+Summary:
 Logs a user in to a controller.
 
-## Usage
-```juju login [options] [controller host name or alias]```
+Global Options:
+--debug  (= false)
+    equivalent to --show-log --logging-config=<root>=DEBUG
+-h, --help  (= false)
+    Show help on a command or other topic.
+--logging-config (= "")
+    specify log levels for modules
+--quiet  (= false)
+    show no informational output
+--show-log  (= false)
+    if set, write the log file to stderr
+--verbose  (= false)
+    show more verbose output
 
-### Options
-| Flag | Default | Usage |
-| --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--no-prompt` | false | don't prompt for password just read a line from stdin |
-| `--trust` | false | automatically trust controller CA certificate |
-| `-u`, `--user` |  | log in as this local user |
+Command Options:
+-B, --no-browser-login  (= false)
+    Do not use web browser for authentication
+-c, --controller (= "")
+    Controller to operate in
+--no-prompt  (= false)
+    don't prompt for password just read a line from stdin
+--trust  (= false)
+    automatically trust controller CA certificate
+-u, --user (= "")
+    log in as this local user
 
-## Examples
-
-    juju login somepubliccontroller
-    juju login jimm.jujucharms.com
-    juju login -u bob
-
-
-## Details
-
+Details:
 By default, the juju login command logs the user into a controller.
 The argument to the command can be a public controller
 host name or alias (see Aliases below).
@@ -54,3 +62,17 @@ Public controller aliases are provided by a directory service
 that is queried to find the host name for a given alias.
 The URL for the directory service may be configured
 by setting the environment variable JUJU_DIRECTORY.
+
+Examples:
+
+    juju login somepubliccontroller
+    juju login jimm.jujucharms.com
+    juju login -u bob
+
+See also:
+    disable-user
+    enable-user
+    logout
+    register
+    unregister
+```
