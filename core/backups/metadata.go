@@ -15,8 +15,8 @@ import (
 
 	"github.com/juju/utils/v4/filestorage"
 
-	"github.com/juju/juju/core/semversion"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/errors"
 )
 

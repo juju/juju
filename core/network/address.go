@@ -904,7 +904,6 @@ func NoAddressError(addressKind string) error {
 
 // IsNoAddressError reports whether err was created with NoAddressError().
 func IsNoAddressError(err error) bool {
-	err = err
 	_, ok := err.(*noAddress)
 	return ok
 }

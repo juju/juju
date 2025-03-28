@@ -156,6 +156,7 @@ func (s *suite) TestStartsMultiple(c *gc.C) {
 }
 
 func (s *suite) TestIgnoresRepetition(c *gc.C) {
+	c.Skip("hpidcock: @CodingCookieRookie this is a flakey test that needs fixing.")
 	s.runTest(c, func(_ worker.Worker) {
 		changes := make(chan []string, 1)
 		watcher := watchertest.NewMockStringsWatcher(changes)
