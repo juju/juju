@@ -36,17 +36,14 @@ func (s *stateSuite) TestRelationExists(c *gc.C) {
 	c.Check(exists, gc.Equals, false)
 }
 
-func (s *stateSuite) TestRelationRemovalNormalSuccess(c *gc.C) {
+func (s *stateSuite) TestRelationAdvanceLifeNormalSuccess(c *gc.C) {
 	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
 		"some-relation-uuid", 0, "some-relation-id")
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	when := time.Now().UTC()
-	err = st.RelationAdvanceLifeAndScheduleRemoval(
-		context.Background(), "removal-uuid", "some-relation-uuid", false, when,
-	)
+	err = st.RelationAdvanceLife(context.Background(), "some-relation-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Relation had life "alive" and should now be "dying".
@@ -55,9 +52,49 @@ func (s *stateSuite) TestRelationRemovalNormalSuccess(c *gc.C) {
 	err = row.Scan(&lifeID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(lifeID, gc.Equals, 1)
+}
+
+func (s *stateSuite) TestRelationAdvanceLifeDyingSuccess(c *gc.C) {
+	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
+		"some-relation-uuid", 1, "some-relation-id")
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err = st.RelationAdvanceLife(context.Background(), "some-relation-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Relation was already "dying" and should be unchanged.
+	row := s.DB().QueryRow("SELECT life_id FROM relation where uuid = ?", "some-relation-uuid")
+	var lifeID int
+	err = row.Scan(&lifeID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(lifeID, gc.Equals, 1)
+}
+
+func (s *stateSuite) TestRelationAdvanceLifeNotExistsSuccess(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// We don't care if it's already gone.
+	err := st.RelationAdvanceLife(context.Background(), "some-relation-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestRelationRemovalNormalSuccess(c *gc.C) {
+	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
+		"some-relation-uuid", 1, "some-relation-id")
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	when := time.Now().UTC()
+	err = st.RelationScheduleRemoval(
+		context.Background(), "removal-uuid", "some-relation-uuid", false, when,
+	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// We should have a removal job scheduled immediately.
-	row = s.DB().QueryRow(
+	row := s.DB().QueryRow(
 		"SELECT removal_type_id, entity_uuid, force, scheduled_for FROM removal where uuid = ?",
 		"removal-uuid",
 	)
@@ -75,28 +112,19 @@ func (s *stateSuite) TestRelationRemovalNormalSuccess(c *gc.C) {
 	c.Check(force, gc.Equals, false)
 	c.Check(scheduledFor, gc.Equals, when)
 }
-func (s *stateSuite) TestRelationRemovalForcedDeadSuccess(c *gc.C) {
-	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
-		"some-relation-uuid", 2, "some-relation-id")
-	c.Assert(err, jc.ErrorIsNil)
-
+func (s *stateSuite) TestRelationRemovalNotExistsSuccess(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	when := time.Now().UTC()
-	err = st.RelationAdvanceLifeAndScheduleRemoval(
+	err := st.RelationScheduleRemoval(
 		context.Background(), "removal-uuid", "some-relation-uuid", true, when,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Relation had life "dead", which should be unchanged.
-	row := s.DB().QueryRow("SELECT life_id FROM relation where uuid = ?", "some-relation-uuid")
-	var lifeID int
-	err = row.Scan(&lifeID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(lifeID, gc.Equals, 2)
-
 	// We should have a removal job scheduled immediately.
-	row = s.DB().QueryRow(`
+	// It doesn't matter that the relation does not exist.
+	// We rely on the worker to handle that fact.
+	row := s.DB().QueryRow(`
 SELECT t.name, r.entity_uuid, r.force, r.scheduled_for 
 FROM   removal r JOIN removal_type t ON r.removal_type_id = t.id
 where  r.uuid = ?`, "removal-uuid",

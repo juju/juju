@@ -24,10 +24,13 @@ type State interface {
 	// RelationExists returns true if a relation exists with the input UUID.
 	RelationExists(ctx context.Context, rUUID string) (bool, error)
 
-	// RelationAdvanceLifeAndScheduleRemoval advances the life cycle of the
-	// relation with the input UUID to dying if it is alive, and schedules a
-	// removal job for the relation, qualified with the input force boolean.
-	RelationAdvanceLifeAndScheduleRemoval(
+	// RelationAdvanceLife ensures that there is no relation
+	// identified by the input UUID, that is still alive.
+	RelationAdvanceLife(ctx context.Context, rUUID string) error
+
+	// RelationScheduleRemoval schedules a removal job for the relation with the
+	// input UUID, qualified with the input force boolean.
+	RelationScheduleRemoval(
 		ctx context.Context, removalUUID, relUUID string, force bool, when time.Time,
 	) error
 
@@ -66,15 +69,19 @@ func (s *Service) RemoveRelation(ctx context.Context, relUUID corerelation.UUID,
 		return "", errors.Errorf("relation %q does not exist", relUUID).Add(relationerrors.RelationNotFound)
 	}
 
+	if err := s.st.RelationAdvanceLife(ctx, relUUID.String()); err != nil {
+		return "", errors.Errorf("relation %q: %w", relUUID, err)
+	}
+
 	jobUUID, err := removal.NewUUID()
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	if err := s.st.RelationAdvanceLifeAndScheduleRemoval(
+	if err := s.st.RelationScheduleRemoval(
 		ctx, jobUUID.String(), relUUID.String(), force, s.clock.Now().UTC(),
 	); err != nil {
-		return "", errors.Errorf("removing relation %q: %w", relUUID, err)
+		return "", errors.Errorf("relation %q: %w", relUUID, err)
 	}
 
 	s.logger.Infof(ctx, "scheduled removal job %q for relation %q", jobUUID, relUUID)

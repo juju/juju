@@ -78,40 +78,40 @@ func (c *MockStateNamespaceForWatchRemovalsCall) DoAndReturn(f func() string) *M
 	return c
 }
 
-// RelationAdvanceLifeAndScheduleRemoval mocks base method.
-func (m *MockState) RelationAdvanceLifeAndScheduleRemoval(arg0 context.Context, arg1, arg2 string, arg3 bool, arg4 time.Time) error {
+// RelationAdvanceLife mocks base method.
+func (m *MockState) RelationAdvanceLife(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RelationAdvanceLifeAndScheduleRemoval", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "RelationAdvanceLife", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// RelationAdvanceLifeAndScheduleRemoval indicates an expected call of RelationAdvanceLifeAndScheduleRemoval.
-func (mr *MockStateMockRecorder) RelationAdvanceLifeAndScheduleRemoval(arg0, arg1, arg2, arg3, arg4 any) *MockStateRelationAdvanceLifeAndScheduleRemovalCall {
+// RelationAdvanceLife indicates an expected call of RelationAdvanceLife.
+func (mr *MockStateMockRecorder) RelationAdvanceLife(arg0, arg1 any) *MockStateRelationAdvanceLifeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelationAdvanceLifeAndScheduleRemoval", reflect.TypeOf((*MockState)(nil).RelationAdvanceLifeAndScheduleRemoval), arg0, arg1, arg2, arg3, arg4)
-	return &MockStateRelationAdvanceLifeAndScheduleRemovalCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelationAdvanceLife", reflect.TypeOf((*MockState)(nil).RelationAdvanceLife), arg0, arg1)
+	return &MockStateRelationAdvanceLifeCall{Call: call}
 }
 
-// MockStateRelationAdvanceLifeAndScheduleRemovalCall wrap *gomock.Call
-type MockStateRelationAdvanceLifeAndScheduleRemovalCall struct {
+// MockStateRelationAdvanceLifeCall wrap *gomock.Call
+type MockStateRelationAdvanceLifeCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateRelationAdvanceLifeAndScheduleRemovalCall) Return(arg0 error) *MockStateRelationAdvanceLifeAndScheduleRemovalCall {
+func (c *MockStateRelationAdvanceLifeCall) Return(arg0 error) *MockStateRelationAdvanceLifeCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateRelationAdvanceLifeAndScheduleRemovalCall) Do(f func(context.Context, string, string, bool, time.Time) error) *MockStateRelationAdvanceLifeAndScheduleRemovalCall {
+func (c *MockStateRelationAdvanceLifeCall) Do(f func(context.Context, string) error) *MockStateRelationAdvanceLifeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateRelationAdvanceLifeAndScheduleRemovalCall) DoAndReturn(f func(context.Context, string, string, bool, time.Time) error) *MockStateRelationAdvanceLifeAndScheduleRemovalCall {
+func (c *MockStateRelationAdvanceLifeCall) DoAndReturn(f func(context.Context, string) error) *MockStateRelationAdvanceLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -151,6 +151,44 @@ func (c *MockStateRelationExistsCall) Do(f func(context.Context, string) (bool, 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateRelationExistsCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStateRelationExistsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// RelationScheduleRemoval mocks base method.
+func (m *MockState) RelationScheduleRemoval(arg0 context.Context, arg1, arg2 string, arg3 bool, arg4 time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RelationScheduleRemoval", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RelationScheduleRemoval indicates an expected call of RelationScheduleRemoval.
+func (mr *MockStateMockRecorder) RelationScheduleRemoval(arg0, arg1, arg2, arg3, arg4 any) *MockStateRelationScheduleRemovalCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelationScheduleRemoval", reflect.TypeOf((*MockState)(nil).RelationScheduleRemoval), arg0, arg1, arg2, arg3, arg4)
+	return &MockStateRelationScheduleRemovalCall{Call: call}
+}
+
+// MockStateRelationScheduleRemovalCall wrap *gomock.Call
+type MockStateRelationScheduleRemovalCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateRelationScheduleRemovalCall) Return(arg0 error) *MockStateRelationScheduleRemovalCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateRelationScheduleRemovalCall) Do(f func(context.Context, string, string, bool, time.Time) error) *MockStateRelationScheduleRemovalCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateRelationScheduleRemovalCall) DoAndReturn(f func(context.Context, string, string, bool, time.Time) error) *MockStateRelationScheduleRemovalCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
