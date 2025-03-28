@@ -1,31 +1,37 @@
 (command-juju-autoload-credentials)=
 # `juju autoload-credentials`
-> See also: [add-credential](#add-credential), [credentials](#credentials), [default-credential](#default-credential), [remove-credential](#remove-credential)
 
-## Summary
+```
+Usage: juju autoload-credentials [options] [<cloud-type>]
+
+Summary:
 Attempts to automatically detect and add credentials for a cloud.
 
-## Usage
-```juju autoload-credentials [options] [<cloud-type>]```
+Global Options:
+--debug  (= false)
+    equivalent to --show-log --logging-config=<root>=DEBUG
+-h, --help  (= false)
+    Show help on a command or other topic.
+--logging-config (= "")
+    specify log levels for modules
+--quiet  (= false)
+    show no informational output
+--show-log  (= false)
+    if set, write the log file to stderr
+--verbose  (= false)
+    show more verbose output
 
-### Options
-| Flag | Default | Usage |
-| --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--client` | false | Client operation |
+Command Options:
+-B, --no-browser-login  (= false)
+    Do not use web browser for authentication
+-c, --controller (= "")
+    Controller to operate in
+--client  (= false)
+    Client operation
+--local  (= false)
+    DEPRECATED (use --client): Local operation only; controller not affected
 
-## Examples
-
-    juju autoload-credentials
-    juju autoload-credentials --client
-    juju autoload-credentials --controller mycontroller
-    juju autoload-credentials --client --controller mycontroller
-    juju autoload-credentials aws
-
-
-## Details
-
+Details:
 The command searches well known, cloud-specific locations on this client.
 If credential information is found, it is presented to the user
 in a series of prompts to facilitated interactive addition and upload.
@@ -34,7 +40,7 @@ An alternative to this command is `juju add-credential`
 After validating the contents, credentials are added to
 this Juju client if --client is specified.
 
-To upload credentials to a controller, use --controller option. 
+To upload credentials to a controller, use --controller option.
 
 Below are the cloud types for which credentials may be autoloaded,
 including the locations searched.
@@ -62,3 +68,17 @@ OpenStack
 LXD
   Credentials:
     1. On Linux, $HOME/.config/lxc/config.yml
+
+Example:
+    juju autoload-credentials
+    juju autoload-credentials --client
+    juju autoload-credentials --controller mycontroller
+    juju autoload-credentials --client --controller mycontroller
+    juju autoload-credentials aws
+
+See also:
+    add-credential
+    credentials
+    default-credential
+    remove-credential
+```

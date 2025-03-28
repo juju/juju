@@ -1,33 +1,41 @@
 (command-juju-add-model)=
 # `juju add-model`
-> See also: [model-config](#model-config), [model-defaults](#model-defaults), [add-credential](#add-credential), [autoload-credentials](#autoload-credentials)
 
-## Summary
-Adds a workload model.
+```
+Usage: juju add-model [options] <model name> [cloud|region|(cloud/region)]
 
-## Usage
-```juju add-model [options] <model name> [cloud|region|(cloud/region)]```
+Summary:
+Adds a hosted model.
 
-### Options
-| Flag | Default | Usage |
-| --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-c`, `--controller` |  | Controller to operate in |
-| `--config` |  | Path to YAML model configuration file or individual options (--config config.yaml [--config key=value ...]) |
-| `--credential` |  | Credential used to add the model |
-| `--no-switch` | false | Do not switch to the newly created model |
-| `--owner` |  | The owner of the new model if not the current user |
+Global Options:
+--debug  (= false)
+    equivalent to --show-log --logging-config=<root>=DEBUG
+-h, --help  (= false)
+    Show help on a command or other topic.
+--logging-config (= "")
+    specify log levels for modules
+--quiet  (= false)
+    show no informational output
+--show-log  (= false)
+    if set, write the log file to stderr
+--verbose  (= false)
+    show more verbose output
 
-## Examples
+Command Options:
+-B, --no-browser-login  (= false)
+    Do not use web browser for authentication
+-c, --controller (= "")
+    Controller to operate in
+--config  (= )
+    Path to YAML model configuration file or individual options (--config config.yaml [--config key=value ...])
+--credential (= "")
+    Credential used to add the model
+--no-switch  (= false)
+    Do not switch to the newly created model
+--owner (= "")
+    The owner of the new model if not the current user
 
-    juju add-model mymodel
-    juju add-model mymodel us-east-1
-    juju add-model mymodel aws/us-east-1
-    juju add-model mymodel --config my-config.yaml --config image-stream=daily
-    juju add-model mymodel --credential credential_name --config authorized-keys="ssh-rsa ..."
-
-
-## Details
+Details:
 Adding a model is typically done in order to run a specific workload.
 
 To add a model, you must specify a model name. Model names can be duplicated
@@ -38,12 +46,13 @@ Model names may only contain lowercase letters, digits and hyphens, and
 may not start with a hyphen.
 
 To add a model, Juju requires a credential:
-* if you have a default (or just one) credential defined at client
-  (i.e. in credentials.yaml), then juju will use that;
-* if you have no default (and multiple) credentials defined at the client,
-  then you must specify one using --credential;
-* as the admin user you can omit the credential,
-  and the credential used to bootstrap will be used.
+
+    * if you have a default (or just one) credential defined at client
+     (i.e. in credentials.yaml), then juju will use that;
+    * if you have no default (and multiple) credentials defined at the client,
+     then you must specify one using --credential;
+    * as the admin user you can omit the credential,
+     and the credential used to bootstrap will be used.
 
 To add a credential for add-model, use one of the "juju add-credential" or
 "juju autoload-credentials" commands. These will add credentials
@@ -59,5 +68,12 @@ the same cloud/region as the controller model. If a region is specified
 without a cloud qualifier, then it is assumed to be in the same cloud
 as the controller model.
 
-When adding --config, the default-series key is deprecated in favour of
-default-base, e.g. ubuntu@22.04.
+Examples:
+
+    juju add-model mymodel
+    juju add-model mymodel us-east-1
+    juju add-model mymodel aws/us-east-1
+    juju add-model mymodel --config my-config.yaml --config image-stream=daily
+    juju add-model mymodel --credential credential_name --config authorized-keys="ssh-rsa ..."
+
+```

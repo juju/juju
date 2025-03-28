@@ -22,11 +22,11 @@ For system operators and DevOps who manage applications in the cloud, Juju simpl
 
 ````{grid} 1 1 2 2
 
-```{grid-item-card} [Tutorial](/index)
-:link: tutorial/index
+```{grid-item-card} [How-to guides](/index)
+:link: howto/index
 :link-type: doc
 
-**Start here**: a hands-on introduction to Juju for new users
+**Step-by-step guides** covering key operations and common tasks
 ```
 
 ```{grid-item-card} [Reference](/index)
@@ -45,7 +45,7 @@ For system operators and DevOps who manage applications in the cloud, Juju simpl
 Juju is an open source project that warmly welcomes community projects, contributions, suggestions, fixes and
 constructive feedback.
 
-* Learn about the [Roadmap & Releases](https://discourse.charmhub.io/t/5064)
+* Learn about the {ref}`Roadmap & Releases <juju-roadmap-and-releases>`
 * Read our [Code of Conduct ](https://ubuntu.com/community/code-of-conduct)
 * Join our [Matrix chat](https://matrix.to/#/#charmhub-jujudev:ubuntu.com)
 * Join the [Discourse forum ](https://discourse.charmhub.io/t/welcome-to-the-charmed-operator-community/8) to talk

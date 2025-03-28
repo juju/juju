@@ -1,36 +1,33 @@
 (command-juju-enable-command)=
 # `juju enable-command`
-> See also: [disable-command](#disable-command), [disabled-commands](#disabled-commands)
 
-## Summary
+```
+Usage: juju enable-command [options] <command set>
+
+Summary:
 Enable commands that had been previously disabled.
 
-## Usage
-```juju enable-command [options] <command set>```
+Global Options:
+--debug  (= false)
+    equivalent to --show-log --logging-config=<root>=DEBUG
+-h, --help  (= false)
+    Show help on a command or other topic.
+--logging-config (= "")
+    specify log levels for modules
+--quiet  (= false)
+    show no informational output
+--show-log  (= false)
+    if set, write the log file to stderr
+--verbose  (= false)
+    show more verbose output
 
-### Options
-| Flag | Default | Usage |
-| --- | --- | --- |
-| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
-| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
+Command Options:
+-B, --no-browser-login  (= false)
+    Do not use web browser for authentication
+-m, --model (= "")
+    Model to operate in. Accepts [<controller name>:]<model name>|<model UUID>
 
-## Examples
-
-To allow the model to be destroyed:
-
-    juju enable-command destroy-model
-
-To allow the machines, applications, units and relations to be removed:
-
-    juju enable-command remove-object
-
-To allow changes to the model:
-
-    juju enable-command all
-
-
-## Details
-
+Details:
 Juju allows to safeguard deployed models from unintentional damage by preventing
 execution of operations that could alter model.
 
@@ -58,7 +55,7 @@ Commands that can be disabled are grouped based on logical operations as follows
 
 "all" prevents:
     add-machine
-    integrate
+    add-relation
     add-unit
     add-ssh-key
     add-user
@@ -89,11 +86,25 @@ Commands that can be disabled are grouped based on logical operations as follows
     retry-provisioning
     run
     scale-application
-    set-application-base    
     set-credential
     set-constraints
+    set-series
     sync-agents
     unexpose
-    refresh
+    upgrade-charm
     upgrade-model
-	
+
+Examples:
+    # To allow the model to be destroyed:
+    juju enable-command destroy-model
+
+    # To allow the machines, applications, units and relations to be removed:
+    juju enable-command remove-object
+
+    # To allow changes to the model:
+    juju enable-command all
+
+See also:
+    disable-command
+    disabled-commands
+```
