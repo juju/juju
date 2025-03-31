@@ -103,10 +103,10 @@ func (mr *MockBackendMockRecorder) GetSSHHostKeys(arg0 any) *gomock.Call {
 }
 
 // JumpServerVirtualPublicKey mocks base method.
-func (m *MockBackend) JumpServerVirtualPublicKey() (string, error) {
+func (m *MockBackend) JumpServerVirtualPublicKey() ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "JumpServerVirtualPublicKey")
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -118,10 +118,10 @@ func (mr *MockBackendMockRecorder) JumpServerVirtualPublicKey() *gomock.Call {
 }
 
 // MachineVirtualPublicKey mocks base method.
-func (m *MockBackend) MachineVirtualPublicKey(arg0 string) (string, error) {
+func (m *MockBackend) MachineVirtualPublicKey(arg0 string) ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MachineVirtualPublicKey", arg0)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -177,10 +177,10 @@ func (mr *MockBackendMockRecorder) ModelTag() *gomock.Call {
 }
 
 // UnitVirtualPublicKey mocks base method.
-func (m *MockBackend) UnitVirtualPublicKey(arg0 string) (string, error) {
+func (m *MockBackend) UnitVirtualPublicKey(arg0 string) ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UnitVirtualPublicKey", arg0)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

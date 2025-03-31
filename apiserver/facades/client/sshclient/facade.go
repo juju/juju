@@ -358,7 +358,7 @@ func (facade *Facade) PublicHostKeyForTarget(arg params.SSHHostKeyRequestArg) pa
 		return res
 	}
 
-	var pubKey string
+	var pubKey []byte
 	switch info.Target() {
 	case virtualhostname.MachineTarget:
 		machineId, _ := info.Machine()

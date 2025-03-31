@@ -70,14 +70,14 @@ type SSHHostKeyRequestArg struct {
 	Hostname string `json:"hostname"`
 }
 
-// PublicSSHHostKeyResult returns the public key for the target hostname base64 encoded
+// PublicSSHHostKeyResult returns the public key for the target hostname
 // in SSH wire format.
-// Additionally, it returns the controller's jump server's public key base64 encoded
+// Additionally, it returns the controller's jump server's public key
 // in SSH wire format.
 type PublicSSHHostKeyResult struct {
 	Error               *Error `json:"error,omitempty"`
-	PublicKey           string `json:"public-key"`
-	JumpServerPublicKey string `json:"jump-server-public-key"`
+	PublicKey           []byte `json:"public-key"`
+	JumpServerPublicKey []byte `json:"jump-server-public-key"`
 }
 
 // SSHConnRequestArg holds the necessary info to create a ssh connection requests.
