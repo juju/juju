@@ -142,10 +142,10 @@ func (m *MockMigrationState) EXPECT() *MockMigrationStateMockRecorder {
 }
 
 // GetAllUnitPasswordHashes mocks base method.
-func (m *MockMigrationState) GetAllUnitPasswordHashes(arg0 context.Context) (map[string]map[unit.Name]password.PasswordHash, error) {
+func (m *MockMigrationState) GetAllUnitPasswordHashes(arg0 context.Context) (password.UnitPasswordHashes, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllUnitPasswordHashes", arg0)
-	ret0, _ := ret[0].(map[string]map[unit.Name]password.PasswordHash)
+	ret0, _ := ret[0].(password.UnitPasswordHashes)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -163,19 +163,19 @@ type MockMigrationStateGetAllUnitPasswordHashesCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockMigrationStateGetAllUnitPasswordHashesCall) Return(arg0 map[string]map[unit.Name]password.PasswordHash, arg1 error) *MockMigrationStateGetAllUnitPasswordHashesCall {
+func (c *MockMigrationStateGetAllUnitPasswordHashesCall) Return(arg0 password.UnitPasswordHashes, arg1 error) *MockMigrationStateGetAllUnitPasswordHashesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMigrationStateGetAllUnitPasswordHashesCall) Do(f func(context.Context) (map[string]map[unit.Name]password.PasswordHash, error)) *MockMigrationStateGetAllUnitPasswordHashesCall {
+func (c *MockMigrationStateGetAllUnitPasswordHashesCall) Do(f func(context.Context) (password.UnitPasswordHashes, error)) *MockMigrationStateGetAllUnitPasswordHashesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMigrationStateGetAllUnitPasswordHashesCall) DoAndReturn(f func(context.Context) (map[string]map[unit.Name]password.PasswordHash, error)) *MockMigrationStateGetAllUnitPasswordHashesCall {
+func (c *MockMigrationStateGetAllUnitPasswordHashesCall) DoAndReturn(f func(context.Context) (password.UnitPasswordHashes, error)) *MockMigrationStateGetAllUnitPasswordHashesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

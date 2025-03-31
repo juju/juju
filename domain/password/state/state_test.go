@@ -86,10 +86,8 @@ func (s *stateSuite) TestGetAllUnitPasswordHashes(c *gc.C) {
 
 	hashes, err := st.GetAllUnitPasswordHashes(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hashes, jc.DeepEquals, map[string]map[unit.Name]password.PasswordHash{
-		"foo": {
-			unitName: passwordHash,
-		},
+	c.Assert(hashes, jc.DeepEquals, password.UnitPasswordHashes{
+		unitName: passwordHash,
 	})
 }
 
@@ -101,10 +99,8 @@ func (s *stateSuite) TestGetAllUnitPasswordHashesPasswordNotSet(c *gc.C) {
 
 	hashes, err := st.GetAllUnitPasswordHashes(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hashes, jc.DeepEquals, map[string]map[unit.Name]password.PasswordHash{
-		"foo": {
-			"foo/0": "",
-		},
+	c.Assert(hashes, jc.DeepEquals, password.UnitPasswordHashes{
+		"foo/0": "",
 	})
 }
 
@@ -113,7 +109,7 @@ func (s *stateSuite) TestGetAllUnitPasswordHashesNoUnits(c *gc.C) {
 
 	hashes, err := st.GetAllUnitPasswordHashes(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hashes, jc.DeepEquals, map[string]map[unit.Name]password.PasswordHash{})
+	c.Assert(hashes, jc.DeepEquals, password.UnitPasswordHashes{})
 }
 
 func (s *stateSuite) genPasswordHash(c *gc.C) password.PasswordHash {
@@ -161,7 +157,6 @@ func (s *stateSuite) createUnit(c *gc.C, num int) unit.Name {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-
 		_, err = tx.ExecContext(ctx, "INSERT INTO net_node VALUES (?) ON CONFLICT DO NOTHING", netNodeUUID)
 		if err != nil {
 			return err

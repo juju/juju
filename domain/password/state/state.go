@@ -109,7 +109,7 @@ WHERE name=$unitName.name`, u)
 }
 
 // GetAllUnitPasswordHashes returns a map of unit names to password hashes.
-func (st *State) GetAllUnitPasswordHashes(ctx context.Context) (map[string]map[unit.Name]password.PasswordHash, error) {
+func (st *State) GetAllUnitPasswordHashes(ctx context.Context) (password.UnitPasswordHashes, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -136,13 +136,10 @@ func (st *State) GetAllUnitPasswordHashes(ctx context.Context) (map[string]map[u
 	return encodePasswordHashes(results), nil
 }
 
-func encodePasswordHashes(results []unitPasswordHashes) map[string]map[unit.Name]password.PasswordHash {
-	ret := make(map[string]map[unit.Name]password.PasswordHash)
+func encodePasswordHashes(results []unitPasswordHashes) password.UnitPasswordHashes {
+	ret := make(password.UnitPasswordHashes)
 	for _, r := range results {
-		if _, ok := ret[r.ApplicationName]; !ok {
-			ret[r.ApplicationName] = make(map[unit.Name]password.PasswordHash)
-		}
-		ret[r.ApplicationName][r.UnitName] = r.PasswordHash
+		ret[r.UnitName] = r.PasswordHash
 	}
 	return ret
 }

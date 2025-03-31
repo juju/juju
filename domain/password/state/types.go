@@ -21,7 +21,6 @@ type unitPasswordHash struct {
 }
 
 type unitPasswordHashes struct {
-	ApplicationName string                `db:"application_name"`
-	UnitName        unit.Name             `db:"unit_name"`
-	PasswordHash    password.PasswordHash `db:"password_hash"`
+	UnitName     unit.Name             `db:"unit_name"`
+	PasswordHash password.PasswordHash `db:"password_hash"`
 }

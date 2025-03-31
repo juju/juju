@@ -32,7 +32,7 @@ func RegisterExport(
 // password hashes.
 type ExportService interface {
 	// GetAllUnitPasswordHashes returns a map of unit names to password hashes.
-	GetAllUnitPasswordHashes(context.Context) (map[string]map[coreunit.Name]password.PasswordHash, error)
+	GetAllUnitPasswordHashes(context.Context) (password.UnitPasswordHashes, error)
 }
 
 // exportOperation describes a way to execute a migration for
@@ -61,25 +61,20 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 // The export also includes all the charm metadata, manifest, config and
 // actions. Along with units and resources.
 func (e *exportOperation) Execute(ctx context.Context, model description.Model) error {
-	passwords, err := e.service.GetAllUnitPasswordHashes(ctx)
+	unitPasswords, err := e.service.GetAllUnitPasswordHashes(ctx)
 	if err != nil {
 		return errors.Errorf("getting all unit password hashes: %w", err)
 	}
 
 	for _, app := range model.Applications() {
-		units, ok := passwords[app.Name()]
-		if !ok {
-			continue
-		}
-
 		for _, unit := range app.Units() {
 			unitName := coreunit.Name(unit.Name())
 
-			password, ok := units[unitName]
+			unitPassword, ok := unitPasswords[unitName]
 			if !ok {
 				continue
 			}
-			unit.SetPasswordHash(password.String())
+			unit.SetPasswordHash(unitPassword.String())
 		}
 	}
 	return nil

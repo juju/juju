@@ -27,10 +27,8 @@ var _ = gc.Suite(&migrationServiceSuite{})
 func (s *migrationServiceSuite) TestGetAllUnitPasswordHashes(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hashes := map[string]map[unit.Name]password.PasswordHash{
-		"foo": {
-			"unit/0": "hash",
-		},
+	hashes := password.UnitPasswordHashes{
+		"unit/0": "hash",
 	}
 
 	s.state.EXPECT().GetAllUnitPasswordHashes(gomock.Any()).Return(hashes, nil)
@@ -44,10 +42,8 @@ func (s *migrationServiceSuite) TestGetAllUnitPasswordHashes(c *gc.C) {
 func (s *migrationServiceSuite) TestGetAllUnitPasswordHashesError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hashes := map[string]map[unit.Name]password.PasswordHash{
-		"foo": {
-			"unit/0": "hash",
-		},
+	hashes := password.UnitPasswordHashes{
+		"unit/0": "hash",
 	}
 
 	s.state.EXPECT().GetAllUnitPasswordHashes(gomock.Any()).Return(hashes, errors.Errorf("boom"))

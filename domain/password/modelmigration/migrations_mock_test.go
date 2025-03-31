@@ -42,10 +42,10 @@ func (m *MockExportService) EXPECT() *MockExportServiceMockRecorder {
 }
 
 // GetAllUnitPasswordHashes mocks base method.
-func (m *MockExportService) GetAllUnitPasswordHashes(arg0 context.Context) (map[string]map[unit.Name]password.PasswordHash, error) {
+func (m *MockExportService) GetAllUnitPasswordHashes(arg0 context.Context) (password.UnitPasswordHashes, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllUnitPasswordHashes", arg0)
-	ret0, _ := ret[0].(map[string]map[unit.Name]password.PasswordHash)
+	ret0, _ := ret[0].(password.UnitPasswordHashes)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -63,19 +63,19 @@ type MockExportServiceGetAllUnitPasswordHashesCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockExportServiceGetAllUnitPasswordHashesCall) Return(arg0 map[string]map[unit.Name]password.PasswordHash, arg1 error) *MockExportServiceGetAllUnitPasswordHashesCall {
+func (c *MockExportServiceGetAllUnitPasswordHashesCall) Return(arg0 password.UnitPasswordHashes, arg1 error) *MockExportServiceGetAllUnitPasswordHashesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockExportServiceGetAllUnitPasswordHashesCall) Do(f func(context.Context) (map[string]map[unit.Name]password.PasswordHash, error)) *MockExportServiceGetAllUnitPasswordHashesCall {
+func (c *MockExportServiceGetAllUnitPasswordHashesCall) Do(f func(context.Context) (password.UnitPasswordHashes, error)) *MockExportServiceGetAllUnitPasswordHashesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockExportServiceGetAllUnitPasswordHashesCall) DoAndReturn(f func(context.Context) (map[string]map[unit.Name]password.PasswordHash, error)) *MockExportServiceGetAllUnitPasswordHashesCall {
+func (c *MockExportServiceGetAllUnitPasswordHashesCall) DoAndReturn(f func(context.Context) (password.UnitPasswordHashes, error)) *MockExportServiceGetAllUnitPasswordHashesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

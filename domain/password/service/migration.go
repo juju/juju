@@ -14,7 +14,7 @@ import (
 // MigrationState is the state required for migrating passwords.
 type MigrationState interface {
 	// GetAllUnitPasswordHashes returns a map of unit names to password hashes.
-	GetAllUnitPasswordHashes(context.Context) (map[string]map[unit.Name]password.PasswordHash, error)
+	GetAllUnitPasswordHashes(context.Context) (password.UnitPasswordHashes, error)
 
 	// GetUnitUUID returns the UUID of the unit with the given name, returning
 	// an error satisfying [applicationerrors.UnitNotFound] if the unit does not
@@ -40,7 +40,7 @@ func NewMigrationService(
 }
 
 // GetAllUnitPasswordHashes returns a map of unit names to password hashes.
-func (s *MigrationService) GetAllUnitPasswordHashes(ctx context.Context) (map[string]map[unit.Name]password.PasswordHash, error) {
+func (s *MigrationService) GetAllUnitPasswordHashes(ctx context.Context) (password.UnitPasswordHashes, error) {
 	return s.st.GetAllUnitPasswordHashes(ctx)
 }
 
