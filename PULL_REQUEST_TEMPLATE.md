@@ -1,4 +1,4 @@
-<!-- 
+<!--
 The PR title should match: <type>(optional <scope>): <description>.
 
 Please also ensure all commits in this PR comply with our conventional commits specification:
@@ -19,9 +19,9 @@ https://github.com/juju/juju/blob/main/docs/contributor/reference/conventional-c
 
 ## QA steps
 
-<!-- 
+<!--
 
-Describe steps to verify that the change works. 
+Describe steps to verify that the change works.
 
 If you're changing any of the facades, you need to ensure that you've tested
 a model migration from 3.6 to 4.0 and from 4.0 to 4.0.
@@ -84,6 +84,8 @@ $ juju debug-log -m dst40:moveme2
 
 <!-- Link to all relevant specification, documentation, bug, issue or JIRA card. -->
 
-**Launchpad bug:** https://bugs.launchpad.net/juju/+bug/
+<!-- Replace #19267 with an issue reference or link, otherwise remove this line. -->
+**Issue:** Fixes #19267.
 
+<!-- Add a Jira card reference or link, otherwise remove this line. -->
 **Jira card:** JUJU-
