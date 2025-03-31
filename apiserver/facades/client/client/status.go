@@ -462,7 +462,6 @@ type applicationStatusInfo struct {
 }
 
 type relationStatus struct {
-	UUID      corerelation.UUID
 	ID        int
 	Endpoints []relation.Endpoint
 	Status    status.StatusInfo
@@ -857,7 +856,6 @@ func fetchRelations(ctx context.Context, relationService RelationService,
 			logger.Warningf(ctx, "no status for relation %d %q", detail.ID, relation.NaturalKey(detail.Endpoints))
 		}
 		r := relationStatus{
-			UUID:      detail.UUID,
 			ID:        detail.ID,
 			Endpoints: detail.Endpoints,
 			Status:    relStatus,

@@ -41,9 +41,9 @@ func (s *relationStatusSuite) TestFetchRelation(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange: create a relation linked to two application
+	relUUID := corerelationtesting.GenRelationUUID(c)
 	expectedStatus := relationStatus{
-		UUID: "relation-uuid",
-		ID:   1,
+		ID: 1,
 		Endpoints: []domainrelation.Endpoint{
 			{
 				ApplicationName: "source",
@@ -75,12 +75,12 @@ func (s *relationStatusSuite) TestFetchRelation(c *gc.C) {
 	}
 
 	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return([]domainrelation.RelationDetailsResult{{
-		UUID:      expectedStatus.UUID,
+		UUID:      relUUID,
 		ID:        expectedStatus.ID,
 		Endpoints: expectedStatus.Endpoints,
 	}}, nil)
 	s.statusService.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(map[corerelation.UUID]status.StatusInfo{
-		expectedStatus.UUID: expectedStatus.Status,
+		relUUID: expectedStatus.Status,
 	}, nil)
 
 	// Act: fetch relation
@@ -103,8 +103,7 @@ func (s *relationStatusSuite) TestFetchRelationWithError(c *gc.C) {
 
 	// Arrange: create a relation linked to two application
 	expectedStatus := relationStatus{
-		UUID: okUUID,
-		ID:   42,
+		ID: 42,
 		Endpoints: []domainrelation.Endpoint{
 			{
 				ApplicationName: "source",
@@ -130,7 +129,7 @@ func (s *relationStatusSuite) TestFetchRelationWithError(c *gc.C) {
 	}
 
 	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return([]domainrelation.RelationDetailsResult{{
-		UUID:      expectedStatus.UUID,
+		UUID:      okUUID,
 		ID:        expectedStatus.ID,
 		Endpoints: expectedStatus.Endpoints,
 	}}, nil)
