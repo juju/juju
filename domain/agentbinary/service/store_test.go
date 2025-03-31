@@ -18,6 +18,7 @@ import (
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/agentbinary"
+	agentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -153,7 +154,7 @@ func (s *storeSuite) TestAddFailedObjectStoreUUIDNotFoundWithBinaryCleanUp(c *gc
 		Version:         "4.6.8",
 		Arch:            corearch.AMD64,
 		ObjectStoreUUID: objectStoreUUID,
-	}).Return(coreerrors.NotFound)
+	}).Return(agentbinaryerrors.ObjectNotFound)
 	s.mockObjectStore.EXPECT().Remove(gomock.Any(), "agent-binaries/4.6.8-amd64-test-sha384").Return(nil)
 
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
@@ -165,7 +166,41 @@ func (s *storeSuite) TestAddFailedObjectStoreUUIDNotFoundWithBinaryCleanUp(c *gc
 		1234,
 		"test-sha384",
 	)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, agentbinaryerrors.ObjectNotFound)
+}
+
+// TestAddAlreadyExistsWithCleanup is testing that if we try and add an agent
+// binary that already exists, we should get back an error satisfying
+// [agentbinaryerrors.AlreadyExists] and the binary should be removed from the
+// object store.
+func (s *storeSuite) TestAddAlreadyExistsWithCleanup(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	agentBinary := strings.NewReader("test-agent-binary")
+	objectStoreUUID, err := coreobjectstore.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.mockObjectStore.EXPECT().PutAndCheckHash(gomock.Any(),
+		"agent-binaries/4.6.8-amd64-test-sha384",
+		agentBinary, int64(1234), "test-sha384",
+	).Return(objectStoreUUID, nil)
+	s.mockState.EXPECT().Add(gomock.Any(), agentbinary.Metadata{
+		Version:         "4.6.8",
+		Arch:            corearch.AMD64,
+		ObjectStoreUUID: objectStoreUUID,
+	}).Return(agentbinaryerrors.AlreadyExists)
+	s.mockObjectStore.EXPECT().Remove(gomock.Any(), "agent-binaries/4.6.8-amd64-test-sha384").Return(nil)
+
+	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
+	err = store.Add(context.Background(), agentBinary,
+		coreagentbinary.Version{
+			Number: version.MustParse("4.6.8"),
+			Arch:   corearch.AMD64,
+		},
+		1234,
+		"test-sha384",
+	)
+	c.Assert(err, jc.ErrorIs, agentbinaryerrors.AlreadyExists)
 }
 
 // TODO: the AddWithSHA256 is currently not implemented yet.

@@ -19,9 +19,12 @@ import (
 // State describes the interface that the cache state must implement.
 type State interface {
 	// Add adds a new agent binary's metadata to the database.
-	// It always overwrites the metadata for the given version and arch if it already exists.
-	// It returns [coreerrors.NotSupported] if the architecture is not found in the database.
-	// It returns [coreerrors.NotFound] if object store UUID is not found in the database.
+	// [agentbinaryerrors.AlreadyExists] when the provided agent binary already
+	// exists.
+	// [agentbinaryerrors.ObjectNotFound] when no object exists that matches
+	// this agent binary.
+	// [coreerrors.NotSupported] if the architecture is not supported by the
+	// state layer.
 	Add(ctx context.Context, metadata agentbinary.Metadata) error
 }
 
@@ -61,14 +64,22 @@ func generatePath(version coreagentbinary.Version, sha384 string) string {
 	return fmt.Sprintf("agent-binaries/%s-%s-%s", numberStr, version.Arch, sha384)
 }
 
-// Add adds a new agent binary to the object store and saves its metadata to the database.
-// It always overwrites the binary in the store and the metadata in the database for the
-// given version and arch if it already exists.
-// It returns [coreerrors.NotSupported] if the architecture is not found in the database.
-// It returns [coreerrors.NotFound] if object store UUID is not found in the database.
-// It returns [coreerrors.NotValid] if the agent version is not valid.
+// Add adds a new agent binary to the object store and saves its metadata to the
+// database. The following errors can be returned:
+// - [coreerrors.NotSupported] if the architecture is not supported.
+// - [github.com/juju/juju/domain/agentbinary/errors.AlreadyExists] if an agent
+// binary already exists for this version and architecture.
+// - [github.com/juju/juju/domain/agentbinary/errors.ObjectNotFound] if there
+// was a problem referencing the agent binary metadata with the previously saved
+// binary object. This error should be considered an internal problem. It is
+// discussed here to make the caller aware of future problems.
+// - [coreerrors.NotValid] when the agent version is not considered valid.
 func (s *AgentBinaryStore) Add(
-	ctx context.Context, r io.Reader, version coreagentbinary.Version, size int64, sha384 string,
+	ctx context.Context,
+	r io.Reader,
+	version coreagentbinary.Version,
+	size int64,
+	sha384 string,
 ) (resultErr error) {
 	if err := version.Validate(); err != nil {
 		return errors.Errorf("agent version %q is not valid: %w", version, err)
