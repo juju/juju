@@ -1,0 +1,72 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package sshtunneler
+
+import (
+	"encoding/base64"
+	"time"
+
+	"github.com/juju/errors"
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwt"
+)
+
+// TunnelSecret holds the shared secret and JWT algorithm used for tunnel authentication.
+type TunnelSecret struct {
+	// SharedSecret is the secret used to sign and validate JWTs.
+	SharedSecret []byte
+	// JWTAlg is the algorithm used to sign JWTs and should match
+	// the strength (number of bytes) of the SharedSecret.
+	JWTAlgorithm jwa.KeyAlgorithm
+}
+
+// tunnelAuthentication provides a way of creating
+// and validating passwords for SSH connections
+// from machines to the Juju controller.
+// The password is a JWT with an expiry.
+type tunnelAuthentication struct {
+	TunnelSecret
+	clock Clock
+}
+
+func (tAuth *tunnelAuthentication) generatePassword(tunnelID string, expiry time.Time) (string, error) {
+	token, err := jwt.NewBuilder().
+		Issuer(tokenIssuer).
+		Subject(tokenSubject).
+		IssuedAt(tAuth.clock.Now()).
+		Expiration(expiry).
+		Claim(tunnelIDClaimKey, tunnelID).
+		Build()
+	if err != nil {
+		return "", errors.Annotate(err, "failed to build token")
+	}
+
+	signedToken, err := jwt.Sign(token, jwt.WithKey(tAuth.JWTAlgorithm, tAuth.SharedSecret))
+	if err != nil {
+		return "", errors.Annotate(err, "failed to sign token")
+	}
+
+	return base64.StdEncoding.EncodeToString(signedToken), nil
+}
+
+func (tAuth *tunnelAuthentication) validatePassword(password string) (string, error) {
+	decodedToken, err := base64.StdEncoding.DecodeString(password)
+	if err != nil {
+		return "", errors.Annotate(err, "failed to decode token")
+	}
+
+	token, err := jwt.Parse(decodedToken,
+		jwt.WithKey(tAuth.JWTAlgorithm, tAuth.SharedSecret),
+		jwt.WithClock(tAuth.clock),
+	)
+	if err != nil {
+		return "", errors.Annotate(err, "failed to parse token")
+	}
+
+	tunnelID, ok := token.PrivateClaims()[tunnelIDClaimKey].(string)
+	if !ok {
+		return "", errors.New("invalid token")
+	}
+	return tunnelID, nil
+}
