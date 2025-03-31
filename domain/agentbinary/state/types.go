@@ -9,10 +9,8 @@ type architectureRecord struct {
 	Name string `db:"name"`
 }
 
-// objectStoreMeta represents the object store metadata in the database
-// and exists is used to check if the object store metadata exists.
+// objectStoreMeta represents the object store metadata in the database.
 type objectStoreMeta struct {
-	Exists bool   `db:"exists"`
 	UUID   string `db:"uuid"`
 	SHA256 string `db:"sha_256"`
 	SHA384 string `db:"sha_384"`

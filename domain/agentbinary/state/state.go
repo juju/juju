@@ -28,80 +28,86 @@ func NewState(factory database.TxnRunnerFactory) *State {
 }
 
 // Add adds a new agent binary's metadata to the database.
-// It always overwrites the metadata for the given version and arch if it already exists.
-// It returns [coreerrors.NotSupported] if the architecture is not found in the database.
-// It returns [coreerrors.NotFound] if object store UUID is not found in the database.
+// It returns coreerrors.AlreadyExists if a record with the given version and arch already exists.
+// It returns coreerrors.NotSupported if the architecture is not found in the database.
+// It returns coreerrors.NotFound if object store UUID is not found in the database.
 func (s *State) Add(ctx context.Context, metadata agentbinary.Metadata) error {
-	// Prepare the statements we'll need
-	archStmt, err := s.Prepare(`
-		SELECT id AS &architectureRecord.id
-		FROM architecture
-		WHERE name = $architectureRecord.name
-	`, architectureRecord{})
+	db, err := s.DB()
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	existsStmt, err := s.Prepare(`
-		SELECT COUNT(*) > 0 AS &objectStoreMeta.exists
-		FROM object_store_metadata 
-		WHERE uuid = $objectStoreMeta.uuid
-	`, objectStoreMeta{})
+	architectureRecord := architectureRecord{Name: metadata.Arch}
+	objectStoreMeta := objectStoreMeta{UUID: string(metadata.ObjectStoreUUID)}
+	agentBinaryRecord := agentBinaryRecord{
+		Version:         metadata.Version,
+		ArchitectureID:  architectureRecord.ID,
+		ObjectStoreUUID: string(metadata.ObjectStoreUUID),
+	}
+
+	// Prepare the statements we'll need
+	archStmt, err := s.Prepare(`
+SELECT id AS &archRecord.id
+FROM architecture
+WHERE name = $archRecord.name
+`, architectureRecord)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	objStoreStmt, err := s.Prepare(`
+SELECT uuid AS &objStoreMeta.uuid
+FROM object_store_metadata 
+WHERE uuid = $objStoreMeta.uuid
+`, objectStoreMeta)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	insertStmt, err := s.Prepare(`
-		INSERT INTO agent_binary_store (
-			version,
-			architecture_id,
-			object_store_uuid
-		) VALUES (
-			$agentBinaryRecord.version,
-			$agentBinaryRecord.architecture_id,
-			$agentBinaryRecord.object_store_uuid
-		)
-		ON CONFLICT (version, architecture_id) 
-		DO UPDATE SET object_store_uuid = $agentBinaryRecord.object_store_uuid
-	`, agentBinaryRecord{})
+INSERT INTO agent_binary_store (
+	version,
+	architecture_id,
+	object_store_uuid
+) VALUES (
+	$agentBinaryRecord.version,
+	$agentBinaryRecord.architecture_id,
+	$agentBinaryRecord.object_store_uuid
+)
+`, agentBinaryRecord)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	return s.RunAtomic(ctx, func(txCtx domain.AtomicContext) error {
-		return domain.Run(txCtx, func(ctx context.Context, tx *sqlair.TX) error {
-			// First, check if the architecture exists and get its ID
-			archRecord := architectureRecord{Name: metadata.Arch}
-			err := tx.Query(ctx, archStmt, archRecord).Get(&archRecord)
-			if err == sqlair.ErrNoRows {
-				return errors.Errorf("architecture %q", metadata.Arch).Add(coreerrors.NotSupported)
-			} else if err != nil {
-				return errors.Capture(err)
-			}
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// First, check if the architecture exists and get its ID
+		err := tx.Query(ctx, archStmt, architectureRecord).Get(&architectureRecord)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("architecture %q", metadata.Arch).Add(coreerrors.NotSupported)
+		} else if err != nil {
+			return errors.Capture(err)
+		}
 
-			// Then check if the object store UUID exists
-			objStoreMeta := objectStoreMeta{UUID: string(metadata.ObjectStoreUUID)}
-			err = tx.Query(ctx, existsStmt, objStoreMeta).Get(&objStoreMeta)
-			if err != nil {
-				return errors.Capture(err)
-			}
-			if !objStoreMeta.Exists {
-				return errors.Errorf("object store UUID %q", metadata.ObjectStoreUUID).Add(coreerrors.NotFound)
-			}
+		// Then check if the object store UUID exists
+		err = tx.Query(ctx, objStoreStmt, objectStoreMeta).Get(&objectStoreMeta)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.New("object store UUID not found").
+				Add(coreerrors.NotFound)
+		} else if err != nil {
+			return errors.Capture(err)
+		}
 
-			// Insert or update the agent binary metadata
-			input := agentBinaryRecord{
-				Version:         metadata.Version,
-				ArchitectureID:  archRecord.ID,
-				ObjectStoreUUID: string(metadata.ObjectStoreUUID),
+		err = tx.Query(ctx, insertStmt, agentBinaryRecord).Run()
+		if err != nil {
+			// Check if this is a duplicate key error
+			if errors.Is() {
+				return errors.New("agent binary metadata already exists").
+					Add(coreerrors.AlreadyExists)
 			}
-			err = tx.Query(ctx, insertStmt, input).Run()
-			if err != nil {
-				return errors.Errorf("adding agent binary metadata for version %q and architecture %q: %w",
-					metadata.Version, metadata.Arch, err)
-			}
+			return errors.Errorf("adding agent binary metadata for version %q and architecture %q: %w",
+				metadata.Version, metadata.Arch, err)
+		}
 
-			return nil
-		})
+		return nil
 	})
 }
