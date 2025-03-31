@@ -121,6 +121,7 @@ type AgentAPI struct {
 // NewAgentAPI returns an agent API facade.
 func NewAgentAPI(
 	auth facade.Authorizer,
+	modelAuthFn common.GetAuthFunc,
 	resources facade.Resources,
 	st *state.State,
 	controllerConfigService ControllerConfigService,
@@ -131,15 +132,11 @@ func NewAgentAPI(
 	modelConfigService ModelConfigService,
 	applicationService ApplicationService,
 	watcherRegistry facade.WatcherRegistry,
-) (*AgentAPI, error) {
+) *AgentAPI {
 	getCanChange := func() (common.AuthFunc, error) {
 		return auth.AuthOwner, nil
 	}
 
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return &AgentAPI{
 		PasswordChanger:    common.NewPasswordChanger(st, getCanChange),
 		RebootFlagClearer:  common.NewRebootFlagClearer(rebootMachineService, getCanChange),
@@ -155,7 +152,7 @@ func NewAgentAPI(
 			cloudspec.MakeCloudSpecWatcherForModel(st, cloudService),
 			cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
 			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, credentialService),
-			common.AuthFuncForTag(model.ModelTag()),
+			modelAuthFn,
 		),
 		credentialService:       credentialService,
 		controllerConfigService: controllerConfigService,
@@ -163,7 +160,7 @@ func NewAgentAPI(
 		st:                      st,
 		auth:                    auth,
 		resources:               resources,
-	}, nil
+	}
 }
 
 func (api *AgentAPI) GetEntities(ctx context.Context, args params.Entities) params.AgentGetEntitiesResults {
