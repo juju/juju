@@ -7,15 +7,17 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -23,37 +25,28 @@ import (
 
 // UnitUpgraderAPI provides access to the UnitUpgrader API facade.
 type UnitUpgraderAPI struct {
-	*common.ToolsSetter
-
 	st                *state.State
 	authorizer        facade.Authorizer
 	modelAgentService ModelAgentService
 	watcherRegistry   facade.WatcherRegistry
+	unitService       UnitService
 }
 
 // NewUnitUpgraderAPI creates a new server-side UnitUpgraderAPI facade.
 func NewUnitUpgraderAPI(
-	ctx facade.ModelContext,
+	st *state.State,
+	authorizer facade.Authorizer,
 	modelAgentService ModelAgentService,
 	watcherRegistry facade.WatcherRegistry,
-) (*UnitUpgraderAPI, error) {
-	authorizer := ctx.Auth()
-	if !authorizer.AuthUnitAgent() {
-		return nil, apiservererrors.ErrPerm
-	}
-
-	getCanWrite := func() (common.AuthFunc, error) {
-		return authorizer.AuthOwner, nil
-	}
-
-	st := ctx.State()
+	unitService UnitService,
+) *UnitUpgraderAPI {
 	return &UnitUpgraderAPI{
-		ToolsSetter:       common.NewToolsSetter(st, getCanWrite),
 		st:                st,
 		authorizer:        authorizer,
 		modelAgentService: modelAgentService,
 		watcherRegistry:   watcherRegistry,
-	}, nil
+		unitService:       unitService,
+	}
 }
 
 // WatchAPIVersion starts a watcher to track if there is a new version
@@ -71,7 +64,7 @@ func (u *UnitUpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entit
 		unitName := tag.Id()
 		unitAPIWatcher, err := u.modelAgentService.WatchUnitTargetAgentVersion(ctx, unitName)
 		switch {
-		case errors.Is(err, errors.NotValid):
+		case errors.Is(err, coreerrors.NotValid):
 			result.Results[i].Error = apiservererrors.ParamsErrorf(
 				params.CodeTagInvalid,
 				"invalid unit name %q",
@@ -123,6 +116,82 @@ func (u *UnitUpgraderAPI) DesiredVersion(ctx context.Context, args params.Entiti
 		result[i].Error = apiservererrors.ServerError(err)
 	}
 	return params.VersionResults{Results: result}, nil
+}
+
+// SetTools is responsible for updating a a set of entities reported agent
+// version.
+func (u *UnitUpgraderAPI) SetTools(
+	ctx context.Context,
+	args params.EntitiesVersion,
+) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.AgentTools)),
+	}
+
+	for i, entityVersion := range args.AgentTools {
+		tag, err := names.ParseTag(entityVersion.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		if !u.authorizer.AuthOwner(tag) {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		err = u.setEntityToolVersion(ctx, tag, entityVersion)
+		results.Results[i].Error = apiservererrors.ServerError(err)
+	}
+
+	return results, nil
+}
+
+// setEntityToolVersion is responsible for taking a Juju entity identified by
+// tag and setting it's reported agent version in the relevant domain.
+func (u *UnitUpgraderAPI) setEntityToolVersion(
+	ctx context.Context,
+	tag names.Tag,
+	arg params.EntityVersion,
+) error {
+	reportedVersion := coreagentbinary.Version{
+		Number: arg.Tools.Version.Number,
+		Arch:   arg.Tools.Version.Arch,
+	}
+
+	var err error
+	switch tag.Kind() {
+	case names.UnitTagKind:
+		err = u.unitService.SetReportedUnitAgentVersion(
+			ctx,
+			coreunit.Name(tag.Id()),
+			reportedVersion,
+		)
+	default:
+		return apiservererrors.NotSupportedError(tag, "agent binaries")
+	}
+
+	switch {
+	case errors.Is(err, coreerrors.NotValid):
+		return errors.Errorf(
+			"agent version %q supplied is not valid for tag %q",
+			arg.Tools.Version, tag,
+		).Add(coreerrors.NotValid)
+	case errors.Is(err, coreerrors.NotSupported):
+		return errors.Errorf(
+			"architecture %q not support for tag %q",
+			arg.Tools.Version.Arch, tag,
+		).Add(coreerrors.NotSupported)
+	case errors.Is(err, applicationerrors.UnitNotFound):
+		return errors.Errorf(
+			"unit for tag %q not found", tag,
+		).Add(coreerrors.NotFound)
+	}
+
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Tools finds the tools necessary for the given agents.

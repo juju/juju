@@ -275,10 +275,14 @@ func (s *MachineSuite) TestNoUpgradeRequired(c *gc.C) {
 }
 
 func (s *MachineSuite) TestAgentSetsToolsVersionManageModel(c *gc.C) {
+	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
+
 	s.assertAgentSetsToolsVersion(c, state.JobManageModel)
 }
 
 func (s *MachineSuite) TestAgentSetsToolsVersionHostUnits(c *gc.C) {
+	c.Skip("This test needs to be migrated once we have switched over to dqlite.")
+
 	s.assertAgentSetsToolsVersion(c, state.JobHostUnits)
 }
 

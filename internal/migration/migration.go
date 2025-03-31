@@ -334,9 +334,10 @@ func UploadBinaries(ctx context.Context, config UploadBinariesConfig, logger cor
 	if err := uploadCharms(ctx, config, logger); err != nil {
 		return errors.Annotatef(err, "cannot upload charms")
 	}
-	if err := uploadTools(ctx, config, logger); err != nil {
-		return errors.Annotatef(err, "cannot upload agent binaries")
-	}
+	// TODO (tlm): re-enable this when we have a way to upload tools.
+	//if err := uploadTools(ctx, config, logger); err != nil {
+	//	return errors.Annotatef(err, "cannot upload agent binaries")
+	//}
 	if err := uploadResources(ctx, config, logger); err != nil {
 		return errors.Annotatef(err, "cannot upload resources")
 	}
@@ -408,28 +409,28 @@ func uploadCharms(ctx context.Context, config UploadBinariesConfig, logger corel
 	return nil
 }
 
-func uploadTools(ctx context.Context, config UploadBinariesConfig, logger corelogger.Logger) error {
-	for v, uri := range config.Tools {
-		logger.Debugf(context.TODO(), "sending agent binaries to target: %s", v)
-
-		reader, err := config.ToolsDownloader.OpenURI(ctx, uri, nil)
-		if err != nil {
-			return errors.Annotate(err, "cannot open charm")
-		}
-		defer func() { _ = reader.Close() }()
-
-		content, cleanup, err := streamThroughTempFile(reader)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		defer cleanup()
-
-		if _, err := config.ToolsUploader.UploadTools(context.TODO(), content, v); err != nil {
-			return errors.Annotate(err, "cannot upload agent binaries")
-		}
-	}
-	return nil
-}
+//func uploadTools(ctx context.Context, config UploadBinariesConfig, logger corelogger.Logger) error {
+//	for v, uri := range config.Tools {
+//		logger.Debugf(context.TODO(), "sending agent binaries to target: %s", v)
+//
+//		reader, err := config.ToolsDownloader.OpenURI(ctx, uri, nil)
+//		if err != nil {
+//			return errors.Annotate(err, "cannot open charm")
+//		}
+//		defer func() { _ = reader.Close() }()
+//
+//		content, cleanup, err := streamThroughTempFile(reader)
+//		if err != nil {
+//			return errors.Trace(err)
+//		}
+//		defer cleanup()
+//
+//		if _, err := config.ToolsUploader.UploadTools(context.TODO(), content, v); err != nil {
+//			return errors.Annotate(err, "cannot upload agent binaries")
+//		}
+//	}
+//	return nil
+//}
 
 func uploadResources(ctx context.Context, config UploadBinariesConfig, logger corelogger.Logger) error {
 	for _, res := range config.Resources {
