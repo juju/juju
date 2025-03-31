@@ -14279,10 +14279,16 @@
                             "$ref": "#/definitions/Error"
                         },
                         "jump-server-public-key": {
-                            "type": "string"
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
                         },
                         "public-key": {
-                            "type": "string"
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
                         }
                     },
                     "additionalProperties": false,
