@@ -453,43 +453,6 @@ func (s *unitStateSuite) TestRegisterCAASUnitExceedsScaleTarget(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotAssigned)
 }
 
-func (s *unitStateSuite) TestSetUnitPassword(c *gc.C) {
-	u := application.InsertUnitArg{
-		UnitName: "foo/666",
-	}
-	s.createApplication(c, "foo", life.Alive, u)
-	var unitUUID coreunit.UUID
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", u.UnitName).Scan(&unitUUID)
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.state.SetUnitPassword(context.Background(), unitUUID, application.PasswordInfo{
-		PasswordHash: "secret",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	var (
-		password    string
-		algorithmID int
-	)
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err = tx.QueryRowContext(ctx, `
-
-SELECT password_hash, password_hash_algorithm_id FROM unit u
-WHERE u.name=?`,
-
-			"foo/666").Scan(&password, &algorithmID)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(password, gc.Equals, "secret")
-	c.Check(algorithmID, gc.Equals, 0)
-}
-
 func (s *unitStateSuite) TestGetUnitLife(c *gc.C) {
 	u := application.InsertUnitArg{
 		UnitName: "foo/666",

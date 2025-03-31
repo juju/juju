@@ -31,20 +31,6 @@ type unitServiceSuite struct {
 
 var _ = gc.Suite(&unitServiceSuite{})
 
-func (s *unitServiceSuite) TestSetUnitPassword(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitUUID := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().SetUnitPassword(gomock.Any(), unitUUID, application.PasswordInfo{
-		PasswordHash:  "password",
-		HashAlgorithm: 0,
-	})
-
-	err := s.service.SetUnitPassword(context.Background(), coreunit.Name("foo/666"), "password")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *unitServiceSuite) TestGetUnitUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

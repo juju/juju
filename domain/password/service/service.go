@@ -35,7 +35,8 @@ func NewService(st State) *Service {
 	}
 }
 
-// SetUnitPassword sets the password for the given unit.
+// SetUnitPassword sets the password for the given unit. If the unit does not
+// exist, an error satisfying [applicationerrors.UnitNotFound] is returned.
 func (s *Service) SetUnitPassword(ctx context.Context, unitName unit.Name, password string) error {
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
