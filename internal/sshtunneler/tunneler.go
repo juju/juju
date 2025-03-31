@@ -44,7 +44,7 @@ type SSHDial interface {
 	Dial(conn net.Conn, username string, privateKey gossh.Signer) (*gossh.Client, error)
 }
 
-// TunnelTracker is an object that tracks a request for an SSH connection
+// TunnelRequest is an object that tracks a request for an SSH connection
 // to a machine. See the Wait() method for more details.
 type TunnelRequest struct {
 	privateKey gossh.Signer
@@ -83,6 +83,22 @@ type TunnelTrackerArgs struct {
 
 // NewTunnelTracker creates a new tunnel tracker.
 func NewTunnelTracker(args TunnelTrackerArgs) (*TunnelTracker, error) {
+	if args.State == nil {
+		return nil, errors.New("state is required")
+	}
+	if args.ControllerInfo == nil {
+		return nil, errors.New("controller info is required")
+	}
+	if args.Dialer == nil {
+		return nil, errors.New("dialer is required")
+	}
+	if args.Clock == nil {
+		return nil, errors.New("clock is required")
+	}
+	if args.SharedSecret == nil {
+		return nil, errors.New("shared secret is required")
+	}
+
 	authn := tunnelAuthentication{
 		jwtAlg:       args.JWTAlg,
 		sharedSecret: args.SharedSecret,

@@ -88,7 +88,7 @@ type SSHConnRequestArg struct {
 	Expires             time.Time              `json:"expires"`
 	Username            string                 `json:"username"`
 	Password            string                 `json:"password"`
-	ControllerAddresses network.SpaceAddresses `json:"controller-address"`
+	ControllerAddresses network.SpaceAddresses `json:"controller-addresses"`
 	UnitPort            int                    `json:"unit-port"`
 	EphemeralPublicKey  []byte                 `json:"ephemeral-public-key"`
 }

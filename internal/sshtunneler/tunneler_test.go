@@ -238,3 +238,52 @@ func (s *sshTunnelerSuite) TestWaitTimeout(c *gc.C) {
 	_, err := tunnelReq.Wait(ctx)
 	c.Assert(err, gc.ErrorMatches, "waiting for tunnel: context deadline exceeded")
 }
+
+func (s *sshTunnelerSuite) TestNewTunnelTracker(c *gc.C) {
+	// Test case: All arguments are valid
+	args := TunnelTrackerArgs{
+		State:          s.state,
+		ControllerInfo: s.controller,
+		Dialer:         s.dialer,
+		Clock:          s.clock,
+		SharedSecret:   []byte("test-secret"),
+		JWTAlg:         jwa.HS256,
+	}
+	tunnelTracker, err := NewTunnelTracker(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tunnelTracker, gc.Not(gc.IsNil))
+
+	// Test case: Missing State
+	args.State = nil
+	tunnelTracker, err = NewTunnelTracker(args)
+	c.Assert(err, gc.ErrorMatches, "state is required")
+	c.Assert(tunnelTracker, gc.IsNil)
+
+	// Test case: Missing ControllerInfo
+	args.State = s.state
+	args.ControllerInfo = nil
+	tunnelTracker, err = NewTunnelTracker(args)
+	c.Assert(err, gc.ErrorMatches, "controller info is required")
+	c.Assert(tunnelTracker, gc.IsNil)
+
+	// Test case: Missing Dialer
+	args.ControllerInfo = s.controller
+	args.Dialer = nil
+	tunnelTracker, err = NewTunnelTracker(args)
+	c.Assert(err, gc.ErrorMatches, "dialer is required")
+	c.Assert(tunnelTracker, gc.IsNil)
+
+	// Test case: Missing Clock
+	args.Dialer = s.dialer
+	args.Clock = nil
+	tunnelTracker, err = NewTunnelTracker(args)
+	c.Assert(err, gc.ErrorMatches, "clock is required")
+	c.Assert(tunnelTracker, gc.IsNil)
+
+	// Test case: Missing SharedSecret
+	args.Clock = s.clock
+	args.SharedSecret = nil
+	tunnelTracker, err = NewTunnelTracker(args)
+	c.Assert(err, gc.ErrorMatches, "shared secret is required")
+	c.Assert(tunnelTracker, gc.IsNil)
+}
