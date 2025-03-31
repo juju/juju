@@ -3,14 +3,17 @@
 
 package state
 
-import "time"
+import (
+	"database/sql"
+	"time"
+)
 
-// removalJob represents a record in the removalJob table
+// removalJob represents a record in the removal table
 type removalJob struct {
 	// UUID uniquely identifies this removal job.
 	UUID string `db:"uuid"`
 	// RemovalTypeID indicates the type of entity that this removal job is for.
-	RemovalTypeID int `db:"removal_type_id"`
+	RemovalTypeID uint64 `db:"removal_type_id"`
 	// UUID uniquely identifies the domain entity being removed.
 	EntityUUID string `db:"entity_uuid"`
 	// Force indicates whether this removal was qualified with the --force flag.
@@ -19,7 +22,7 @@ type removalJob struct {
 	ScheduledFor time.Time `db:"scheduled_for"`
 	// Arg is a JSON string representing free-form job argumentation.
 	// It must represent a map[string]any.
-	Arg string `db:"arg"`
+	Arg sql.NullString `db:"arg"`
 }
 
 // entityUUID holds a UUID in string form.
