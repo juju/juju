@@ -179,3 +179,80 @@ func (c *MockMigrationStateGetAllUnitPasswordHashesCall) DoAndReturn(f func(cont
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// GetUnitUUID mocks base method.
+func (m *MockMigrationState) GetUnitUUID(arg0 context.Context, arg1 unit.Name) (unit.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitUUID", arg0, arg1)
+	ret0, _ := ret[0].(unit.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitUUID indicates an expected call of GetUnitUUID.
+func (mr *MockMigrationStateMockRecorder) GetUnitUUID(arg0, arg1 any) *MockMigrationStateGetUnitUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitUUID", reflect.TypeOf((*MockMigrationState)(nil).GetUnitUUID), arg0, arg1)
+	return &MockMigrationStateGetUnitUUIDCall{Call: call}
+}
+
+// MockMigrationStateGetUnitUUIDCall wrap *gomock.Call
+type MockMigrationStateGetUnitUUIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMigrationStateGetUnitUUIDCall) Return(arg0 unit.UUID, arg1 error) *MockMigrationStateGetUnitUUIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMigrationStateGetUnitUUIDCall) Do(f func(context.Context, unit.Name) (unit.UUID, error)) *MockMigrationStateGetUnitUUIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMigrationStateGetUnitUUIDCall) DoAndReturn(f func(context.Context, unit.Name) (unit.UUID, error)) *MockMigrationStateGetUnitUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetUnitPasswordHash mocks base method.
+func (m *MockMigrationState) SetUnitPasswordHash(arg0 context.Context, arg1 unit.UUID, arg2 passwords.PasswordHash) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetUnitPasswordHash", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetUnitPasswordHash indicates an expected call of SetUnitPasswordHash.
+func (mr *MockMigrationStateMockRecorder) SetUnitPasswordHash(arg0, arg1, arg2 any) *MockMigrationStateSetUnitPasswordHashCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitPasswordHash", reflect.TypeOf((*MockMigrationState)(nil).SetUnitPasswordHash), arg0, arg1, arg2)
+	return &MockMigrationStateSetUnitPasswordHashCall{Call: call}
+}
+
+// MockMigrationStateSetUnitPasswordHashCall wrap *gomock.Call
+type MockMigrationStateSetUnitPasswordHashCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMigrationStateSetUnitPasswordHashCall) Return(arg0 error) *MockMigrationStateSetUnitPasswordHashCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMigrationStateSetUnitPasswordHashCall) Do(f func(context.Context, unit.UUID, passwords.PasswordHash) error) *MockMigrationStateSetUnitPasswordHashCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMigrationStateSetUnitPasswordHashCall) DoAndReturn(f func(context.Context, unit.UUID, passwords.PasswordHash) error) *MockMigrationStateSetUnitPasswordHashCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

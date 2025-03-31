@@ -51,6 +51,8 @@ import (
 	modelmigrationstate "github.com/juju/juju/domain/modelmigration/state"
 	networkservice "github.com/juju/juju/domain/network/service"
 	networkstate "github.com/juju/juju/domain/network/state"
+	passwordservice "github.com/juju/juju/domain/passwords/service"
+	passwordstate "github.com/juju/juju/domain/passwords/state"
 	portservice "github.com/juju/juju/domain/port/service"
 	portstate "github.com/juju/juju/domain/port/state"
 	proxy "github.com/juju/juju/domain/proxy/service"
@@ -420,6 +422,14 @@ func (s *ModelServices) Removal() *removalservice.WatchableService {
 		s.modelWatcherFactory("removal"),
 		s.clock,
 		log,
+	)
+}
+
+// Passwords returns the service for working with passwords in the current
+// model.
+func (s *ModelServices) Passwords() *passwordservice.Service {
+	return passwordservice.NewService(
+		passwordstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)
 }
 
