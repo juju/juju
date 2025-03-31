@@ -14278,17 +14278,23 @@
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
-                        "host-key": {
-                            "type": "string"
+                        "jump-server-public-key": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
                         },
-                        "jump-server-host-key": {
-                            "type": "string"
+                        "public-key": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "host-key",
-                        "jump-server-host-key"
+                        "public-key",
+                        "jump-server-public-key"
                     ]
                 },
                 "SSHAddressResult": {

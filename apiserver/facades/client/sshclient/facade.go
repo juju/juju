@@ -358,18 +358,18 @@ func (facade *Facade) PublicHostKeyForTarget(arg params.SSHHostKeyRequestArg) pa
 		return res
 	}
 
-	var hostkey string
+	var pubKey []byte
 	switch info.Target() {
 	case virtualhostname.MachineTarget:
 		machineId, _ := info.Machine()
-		hostkey, err = facade.backend.MachineVirtualPublicHostKeyPEM(strconv.Itoa(machineId))
+		pubKey, err = facade.backend.MachineVirtualPublicKey(strconv.Itoa(machineId))
 		if err != nil {
 			res.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to get machine host key"))
 			return res
 		}
 	case virtualhostname.ContainerTarget, virtualhostname.UnitTarget:
 		unitName, _ := info.Unit()
-		hostkey, err = facade.backend.UnitVirtualPublicHostKeyPEM(unitName)
+		pubKey, err = facade.backend.UnitVirtualPublicKey(unitName)
 		if err != nil {
 			res.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to get unit host key"))
 			return res
@@ -379,16 +379,15 @@ func (facade *Facade) PublicHostKeyForTarget(arg params.SSHHostKeyRequestArg) pa
 		return res
 	}
 
-	res.HostKey = hostkey
+	res.PublicKey = pubKey
 
-	// Get controller jumpserver hostkey.
-	jumpHostKey, err := facade.backend.SSHServerHostKey()
+	jumpServerPubKey, err := facade.backend.JumpServerVirtualPublicKey()
 	if err != nil {
 		res.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to get controller jumpserver host key"))
 		return res
 	}
 
-	res.JumpServerHostKey = jumpHostKey
+	res.JumpServerPublicKey = jumpServerPubKey
 
 	return res
 }
