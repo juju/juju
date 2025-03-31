@@ -52,6 +52,7 @@ type WorkerConfig struct {
 	UserService             UserService
 	StorageService          StorageService
 	ProviderRegistry        storage.ProviderRegistry
+	PasswordService         PasswordService
 	ApplicationService      ApplicationService
 	ControllerModel         coremodel.Model
 	ModelConfigService      ModelConfigService
@@ -92,6 +93,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.StorageService == nil {
 		return errors.NotValidf("nil StorageService")
+	}
+	if c.PasswordService == nil {
+		return errors.NotValidf("nil PasswordService")
 	}
 	if c.ApplicationService == nil {
 		return errors.NotValidf("nil ApplicationService")
@@ -500,6 +504,7 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 	// Controller charm seeder will populate the charm for the controller.
 	deployer, err := w.cfg.ControllerCharmDeployer(ControllerCharmDeployerConfig{
 		StateBackend:                w.cfg.SystemState,
+		PasswordService:             w.cfg.PasswordService,
 		ApplicationService:          w.cfg.ApplicationService,
 		Model:                       w.cfg.ControllerModel,
 		ModelConfigService:          w.cfg.ModelConfigService,

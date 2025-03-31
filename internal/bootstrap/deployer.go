@@ -183,6 +183,7 @@ type BaseDeployerConfig struct {
 	DataDir             string
 	StateBackend        StateBackend
 	ApplicationService  ApplicationService
+	PasswordService     PasswordService
 	ModelConfigService  ModelConfigService
 	CharmUploader       CharmUploader
 	ObjectStore         objectstore.ObjectStore
@@ -206,6 +207,9 @@ func (c BaseDeployerConfig) Validate() error {
 	}
 	if c.ApplicationService == nil {
 		return errors.NotValidf("ApplicationService")
+	}
+	if c.PasswordService == nil {
+		return errors.NotValidf("PasswordService")
 	}
 	if c.ModelConfigService == nil {
 		return errors.NotValidf("ModelConfigService")
@@ -238,6 +242,7 @@ type baseDeployer struct {
 	dataDir             string
 	stateBackend        StateBackend
 	applicationService  ApplicationService
+	passwordService     PasswordService
 	modelConfigService  ModelConfigService
 	charmUploader       CharmUploader
 	objectStore         objectstore.ObjectStore
@@ -255,6 +260,7 @@ func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
 	return baseDeployer{
 		dataDir:             config.DataDir,
 		stateBackend:        config.StateBackend,
+		passwordService:     config.PasswordService,
 		applicationService:  config.ApplicationService,
 		modelConfigService:  config.ModelConfigService,
 		charmUploader:       config.CharmUploader,

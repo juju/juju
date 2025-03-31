@@ -151,7 +151,7 @@ func (s *deployerCAASSuite) TestCompleteProcess(c *gc.C) {
 	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unit.Name("controller/0"), applicationservice.UpdateCAASUnitParams{
 		ProviderID: ptr("controller-0"),
 	})
-	s.applicationService.EXPECT().SetUnitPassword(gomock.Any(), unit.Name("controller/0"), cfg.UnitPassword)
+	s.passwordService.EXPECT().SetUnitPassword(gomock.Any(), unit.Name("controller/0"), cfg.UnitPassword)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
 	err := deployer.CompleteProcess(context.Background(), s.unit)

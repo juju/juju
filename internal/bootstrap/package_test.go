@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage,ControllerCharmDeployer,HTTPClient,CloudService,CloudServiceGetter,OperationApplier,Machine,MachineGetter,StateBackend,Application,Unit,CharmUploader,ApplicationService,ModelConfigService,Downloader
+//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage,ControllerCharmDeployer,HTTPClient,CloudService,CloudServiceGetter,OperationApplier,Machine,MachineGetter,StateBackend,Application,Unit,CharmUploader,ApplicationService,ModelConfigService,Downloader,PasswordService
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination core_charm_mock_test.go github.com/juju/juju/core/charm Repository
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination internal_charm_mock_test.go github.com/juju/juju/internal/charm Charm
@@ -39,6 +39,7 @@ type baseSuite struct {
 	unit               *MockUnit
 	application        *MockApplication
 	stateBackend       *MockStateBackend
+	passwordService    *MockPasswordService
 	applicationService *MockApplicationService
 	modelConfigService *MockModelConfigService
 	charmUploader      *MockCharmUploader
@@ -60,6 +61,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.unit = NewMockUnit(ctrl)
 	s.application = NewMockApplication(ctrl)
 	s.stateBackend = NewMockStateBackend(ctrl)
+	s.passwordService = NewMockPasswordService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.charmUploader = NewMockCharmUploader(ctrl)
@@ -79,6 +81,7 @@ func (s *baseSuite) newConfig(c *gc.C) BaseDeployerConfig {
 		DataDir:            c.MkDir(),
 		StateBackend:       s.stateBackend,
 		CharmUploader:      s.charmUploader,
+		PasswordService:    s.passwordService,
 		ApplicationService: s.applicationService,
 		ModelConfigService: s.modelConfigService,
 		ObjectStore:        s.objectStore,

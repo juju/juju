@@ -115,7 +115,7 @@ func (d *CAASDeployer) CompleteProcess(ctx context.Context, controllerUnit Unit)
 	}); err != nil {
 		return errors.Annotatef(err, "updating controller unit")
 	}
-	if err := d.applicationService.SetUnitPassword(ctx, controllerUnitName, d.unitPassword); err != nil {
+	if err := d.passwordService.SetUnitPassword(ctx, controllerUnitName, d.unitPassword); err != nil {
 		return errors.Annotate(err, "setting controller unit password")
 	}
 
