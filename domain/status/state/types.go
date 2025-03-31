@@ -7,6 +7,7 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
@@ -101,6 +102,15 @@ type fullUnitStatus struct {
 	AgentData         []byte        `db:"agent_data"`
 	AgentUpdatedAt    *time.Time    `db:"agent_updated_at"`
 	Present           bool          `db:"present"`
+}
+
+// relationStatus represents the status of a relation
+// from v_relation_status
+type relationStatus struct {
+	RelationUUID corerelation.UUID `db:"relation_uuid"`
+	Status       string            `db:"status"`
+	Reason       string            `db:"suspended_reason"`
+	Since        time.Time         `db:"updated_at"`
 }
 
 func encodeCloudContainerStatus(s status.CloudContainerStatusType) (int, error) {

@@ -4,8 +4,6 @@
 package state
 
 import (
-	"time"
-
 	"github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/relation"
@@ -21,15 +19,6 @@ type relationIDAndUUID struct {
 	UUID corerelation.UUID `db:"uuid"`
 	// ID is the numeric ID of the relation
 	ID int `db:"relation_id"`
-}
-
-// relationStatus represents the status of a relation
-// from v_relation_status
-type relationStatus struct {
-	RelationUUID corerelation.UUID `db:"relation_uuid"`
-	Status       string            `db:"status"`
-	Reason       string            `db:"suspended_reason"`
-	Since        time.Time         `db:"updated_at"`
 }
 
 type relationUUIDAndRole struct {

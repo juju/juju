@@ -63,32 +63,6 @@ func (st *State) GetAllRelationDetails(ctx context.Context) ([]relation.Relation
 	return relationsDetails, errors.Capture(err)
 }
 
-// GetAllRelationStatuses returns all the relation statuses of the given model.
-func (st *State) GetAllRelationStatuses(ctx context.Context) (map[corerelation.UUID]corestatus.StatusInfo, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	relationsStatuses := make(map[corerelation.UUID]corestatus.StatusInfo)
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		relations, err := st.getAllRelations(ctx, tx)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("getting all relations: %w", err)
-		}
-
-		for _, rel := range relations {
-			relationStatus, err := st.getRelationStatus(ctx, tx, rel.UUID)
-			if err != nil {
-				return errors.Errorf("getting relation status: %w", err)
-			}
-			relationsStatuses[rel.UUID] = relationStatus
-		}
-		return nil
-	})
-	return relationsStatuses, errors.Capture(err)
-}
-
 // GetRelationID returns the relation ID for the given relation UUID.
 //
 // The following error types can be expected to be returned:
@@ -160,7 +134,7 @@ WHERE  relation_id = $relationIDAndUUID.relation_id
 		return "", errors.Capture(err)
 	}
 
-	return corerelation.UUID(id.UUID), nil
+	return id.UUID, nil
 }
 
 // GetRelationEndpointUUID retrieves the endpoint UUID of a given relation
@@ -577,34 +551,5 @@ WHERE  relation_id = $relationForDetails.relation_id
 		UUID:      rel.UUID,
 		ID:        rel.ID,
 		Endpoints: endpoints,
-	}, nil
-}
-
-func (st *State) getRelationStatus(ctx context.Context, tx *sqlair.TX, uuid corerelation.UUID) (corestatus.StatusInfo,
-	error) {
-	relStatus := relationStatus{
-		RelationUUID: uuid,
-	}
-
-	stmt, err := st.Prepare(`
-SELECT &relationStatus.*
-FROM v_relation_status
-WHERE relation_uuid = $relationStatus.relation_uuid`, relStatus)
-	if err != nil {
-		return corestatus.StatusInfo{}, errors.Capture(err)
-	}
-	err = tx.Query(ctx, stmt, relStatus).Get(&relStatus)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) { // avoid error if the status has not yet been inserted
-		return corestatus.StatusInfo{}, errors.Capture(err)
-	}
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return corestatus.StatusInfo{
-			Status: corestatus.Joining,
-		}, nil
-	}
-	return corestatus.StatusInfo{
-		Status:  corestatus.Status(relStatus.Status),
-		Message: relStatus.Reason,
-		Since:   &relStatus.Since,
 	}, nil
 }

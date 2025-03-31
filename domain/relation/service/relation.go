@@ -27,9 +27,6 @@ type State interface {
 	// GetAllRelationDetails return all uuid of all relation for the current model.
 	GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error)
 
-	// GetAllRelationStatuses returns all the relation statuses of the given model.
-	GetAllRelationStatuses(ctx context.Context) (map[corerelation.UUID]corestatus.StatusInfo, error)
-
 	// GetRelationID returns the relation ID for the given relation UUID.
 	//
 	// The following error types can be expected to be returned:
@@ -177,11 +174,6 @@ func (s *Service) EnterScope(
 // GetAllRelationDetails return all uuid of all relation for the current model.
 func (s *Service) GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error) {
 	return s.st.GetAllRelationDetails(ctx)
-}
-
-// GetAllRelationStatuses returns all the relation statuses of the given model.
-func (s *Service) GetAllRelationStatuses(ctx context.Context) (map[corerelation.UUID]corestatus.StatusInfo, error) {
-	return s.st.GetAllRelationStatuses(ctx)
 }
 
 // GetApplicationEndpoints returns all endpoints for the given application identifier.

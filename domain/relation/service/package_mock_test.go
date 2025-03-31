@@ -14,7 +14,6 @@ import (
 	reflect "reflect"
 
 	relation "github.com/juju/juju/core/relation"
-	status "github.com/juju/juju/core/status"
 	unit "github.com/juju/juju/core/unit"
 	relation0 "github.com/juju/juju/domain/relation"
 	gomock "go.uber.org/mock/gomock"
@@ -78,45 +77,6 @@ func (c *MockStateGetAllRelationDetailsCall) Do(f func(context.Context) ([]relat
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetAllRelationDetailsCall) DoAndReturn(f func(context.Context) ([]relation0.RelationDetailsResult, error)) *MockStateGetAllRelationDetailsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetAllRelationStatuses mocks base method.
-func (m *MockState) GetAllRelationStatuses(arg0 context.Context) (map[relation.UUID]status.StatusInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllRelationStatuses", arg0)
-	ret0, _ := ret[0].(map[relation.UUID]status.StatusInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetAllRelationStatuses indicates an expected call of GetAllRelationStatuses.
-func (mr *MockStateMockRecorder) GetAllRelationStatuses(arg0 any) *MockStateGetAllRelationStatusesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllRelationStatuses", reflect.TypeOf((*MockState)(nil).GetAllRelationStatuses), arg0)
-	return &MockStateGetAllRelationStatusesCall{Call: call}
-}
-
-// MockStateGetAllRelationStatusesCall wrap *gomock.Call
-type MockStateGetAllRelationStatusesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetAllRelationStatusesCall) Return(arg0 map[relation.UUID]status.StatusInfo, arg1 error) *MockStateGetAllRelationStatusesCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetAllRelationStatusesCall) Do(f func(context.Context) (map[relation.UUID]status.StatusInfo, error)) *MockStateGetAllRelationStatusesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetAllRelationStatusesCall) DoAndReturn(f func(context.Context) (map[relation.UUID]status.StatusInfo, error)) *MockStateGetAllRelationStatusesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

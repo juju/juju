@@ -906,44 +906,6 @@ func (s *relationSuite) TestGetAllRelationDetailsNone(c *gc.C) {
 	c.Assert(result, gc.HasLen, 0)
 }
 
-func (s *relationSuite) TestGetAllRelationStatuses(c *gc.C) {
-	// Arrange: add two relation, one with a status, put not the second one.
-	relationUUID1 := corerelationtesting.GenRelationUUID(c)
-	relationUUID2 := corerelationtesting.GenRelationUUID(c)
-	now := time.Now().Truncate(time.Minute).UTC()
-
-	s.addRelationWithLifeAndID(c, relationUUID1.String(), corelife.Alive, 7)
-	s.addRelationWithLifeAndID(c, relationUUID2.String(), corelife.Alive, 7)
-
-	s.addRelationStatusWithMessage(c, relationUUID1.String(), corestatus.Suspended, "this is a test", now)
-
-	// Act
-	result, err := s.state.GetAllRelationStatuses(context.Background())
-
-	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, map[corerelation.UUID]corestatus.StatusInfo{
-		relationUUID1: {
-			Status:  corestatus.Suspended,
-			Message: "this is a test",
-			Since:   &now,
-		},
-		relationUUID2: {
-			Status: corestatus.Joining,
-		},
-	})
-
-}
-
-func (s *relationSuite) TestGetAllRelationStatusesNone(c *gc.C) {
-	// Act
-	result, err := s.state.GetAllRelationStatuses(context.Background())
-
-	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.HasLen, 0)
-}
-
 // addApplication adds a new application to the database with the specified UUID and name.
 func (s *relationSuite) addApplication(c *gc.C, charmUUID, appUUID, appName string) {
 	s.query(c, `
@@ -1082,15 +1044,6 @@ func (s *relationSuite) addRelationStatus(c *gc.C, relationUUID string, status c
 INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
 VALUES (?,?,?)
 `, relationUUID, s.encodeStatusID(status), time.Now())
-}
-
-// addRelationStatusWithMessage inserts a relation status into the relation_status table.
-func (s *relationSuite) addRelationStatusWithMessage(c *gc.C, relationUUID string, status corestatus.Status,
-	message string, since time.Time) {
-	s.query(c, `
-INSERT INTO relation_status (relation_uuid, relation_status_type_id, suspended_reason, updated_at)
-VALUES (?,?,?,?)
-`, relationUUID, s.encodeStatusID(status), message, since)
 }
 
 // query executes a given SQL query with optional arguments within a transactional context using the test database.

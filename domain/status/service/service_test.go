@@ -14,6 +14,8 @@ import (
 
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/lease"
+	corerelation "github.com/juju/juju/core/relation"
+	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -33,6 +35,42 @@ type serviceSuite struct {
 }
 
 var _ = gc.Suite(&serviceSuite{})
+
+// TestGetAllRelationStatuses verifies that GetAllRelationStatuses
+// retrieves and returns the expected relation details without errors.
+// Doesn't have logic, so the test doesn't need to be smart.
+func (s *serviceSuite) TestGetAllRelationStatuses(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	expectedRelationStatuses := map[corerelation.UUID]corestatus.StatusInfo{
+		corerelationtesting.GenRelationUUID(c): {
+			Status: "Hey",
+		},
+	}
+	s.state.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(expectedRelationStatuses, nil)
+
+	// Act
+	details, err := s.service.GetAllRelationStatuses(context.Background())
+
+	// Assert
+	c.Assert(err, gc.IsNil)
+	c.Assert(details, gc.DeepEquals, expectedRelationStatuses)
+}
+
+// TestGetAllRelationStatusesError verifies the behavior when GetAllRelationStatuses
+// encounters an error from the state layer.
+func (s *serviceSuite) TestGetAllRelationStatusesError(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	expectedError := errors.New("state error")
+	s.state.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(nil, expectedError)
+
+	// Act
+	_, err := s.service.GetAllRelationStatuses(context.Background())
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, expectedError)
+}
 
 func (s *serviceSuite) TestSetApplicationStatus(c *gc.C) {
 	defer s.setupMocks(c).Finish()

@@ -40,6 +40,10 @@ type ApplicationService interface {
 }
 
 type StatusService interface {
+
+	// GetAllRelationStatuses returns all the relation statuses of the given model.
+	GetAllRelationStatuses(ctx context.Context) (map[relation.UUID]status.StatusInfo, error)
+
 	// GetApplicationDisplayStatus returns the display status of the specified
 	// application. The display status is equal to the application status if it
 	// is set, otherwise it is derived from the unit display statuses. If no
@@ -124,7 +128,4 @@ type RelationService interface {
 
 	// GetAllRelationDetails return all uuid of all relation for the current model.
 	GetAllRelationDetails(ctx context.Context) ([]domainrelation.RelationDetailsResult, error)
-
-	// GetAllRelationStatuses returns all the relation statuses of the given model.
-	GetAllRelationStatuses(ctx context.Context) (map[relation.UUID]status.StatusInfo, error)
 }

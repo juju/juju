@@ -122,7 +122,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		fetchNetworkInterfaces(c.stateAccessor, subnetInfos, context.spaceInfos); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch IP addresses and link layer devices: %w", err)
 	}
-	if context.relations, context.relationsByID, err = fetchRelations(ctx, c.relationService); err != nil {
+	if context.relations, context.relationsByID, err = fetchRelations(ctx, c.relationService, c.statusService); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch relations: %w", err)
 	}
 	if len(context.allAppsUnitsCharmBindings.applications) > 0 {
@@ -827,12 +827,14 @@ func fetchConsumerRemoteApplications(st Backend) (map[string]commoncrossmodel.Re
 // to have the relations for each application. Reading them once here
 // avoids the repeated DB hits to retrieve the relations for each
 // application that used to happen in processApplicationRelations().
-func fetchRelations(ctx context.Context, relationService RelationService) (map[string][]relationStatus, map[int]relationStatus, error) {
+func fetchRelations(ctx context.Context, relationService RelationService,
+	statusService StatusService) (map[string][]relationStatus,
+	map[int]relationStatus, error) {
 	details, err := relationService.GetAllRelationDetails(ctx)
 	if err != nil {
 		return nil, nil, internalerrors.Errorf("fetching relations: %w", err)
 	}
-	statuses, err := relationService.GetAllRelationStatuses(ctx)
+	statuses, err := statusService.GetAllRelationStatuses(ctx)
 	if err != nil {
 		return nil, nil, internalerrors.Errorf("fetching relation statuses: %w", err)
 	}

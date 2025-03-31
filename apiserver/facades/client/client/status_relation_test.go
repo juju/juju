@@ -23,6 +23,7 @@ import (
 type relationStatusSuite struct {
 	testing.IsolationSuite
 	relationService *MockRelationService
+	statusService   *MockStatusService
 }
 
 var _ = gc.Suite(&relationStatusSuite{})
@@ -31,6 +32,7 @@ func (s *relationStatusSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	logger = loggertesting.WrapCheckLog(c)
 	s.relationService = NewMockRelationService(ctrl)
+	s.statusService = NewMockStatusService(ctrl)
 	return ctrl
 }
 
@@ -77,12 +79,12 @@ func (s *relationStatusSuite) TestFetchRelation(c *gc.C) {
 		ID:        expectedStatus.ID,
 		Endpoints: expectedStatus.Endpoints,
 	}}, nil)
-	s.relationService.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(map[corerelation.UUID]status.StatusInfo{
+	s.statusService.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(map[corerelation.UUID]status.StatusInfo{
 		expectedStatus.UUID: expectedStatus.Status,
 	}, nil)
 
 	// Act: fetch relation
-	out, outByID, err := fetchRelations(context.Background(), s.relationService)
+	out, outByID, err := fetchRelations(context.Background(), s.relationService, s.statusService)
 
 	// Assert
 	c.Assert(err, gc.IsNil)
@@ -124,27 +126,26 @@ func (s *relationStatusSuite) TestFetchRelationWithError(c *gc.C) {
 		"sink":   {expectedStatus},
 	}
 	expectedOutById := map[int]relationStatus{
-		1: expectedStatus,
+		42: expectedStatus,
 	}
 
-	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return([]domainrelation.RelationDetails{{
+	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return([]domainrelation.RelationDetailsResult{{
 		UUID:      expectedStatus.UUID,
 		ID:        expectedStatus.ID,
 		Endpoints: expectedStatus.Endpoints,
-		Key:       "key-in-log",
 	}}, nil)
-	s.relationService.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(map[corerelation.UUID]status.StatusInfo{
+	s.statusService.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(map[corerelation.UUID]status.StatusInfo{
 		// no status
 	}, nil)
 
 	// Act: fetch relation
-	out, outByID, err := fetchRelations(context.Background(), s.relationService)
+	out, outByID, err := fetchRelations(context.Background(), s.relationService, s.statusService)
 
 	// Assert
 	c.Assert(err, gc.IsNil)
 	c.Check(out, gc.DeepEquals, expectedOut)
 	c.Check(outByID, gc.DeepEquals, expectedOutById)
-	c.Check(c.GetTestLog(), jc.Contains, `"no status for relation 1 "key-in-log"`)
+	c.Check(c.GetTestLog(), jc.Contains, `WARNING: no status for relation 42 "sink:consumer source:provider"`)
 }
 
 // TestFetchRelationNoRelation ensures that fetchRelations correctly handles
@@ -154,14 +155,14 @@ func (s *relationStatusSuite) TestFetchRelationNoRelation(c *gc.C) {
 
 	// Arrange: No relation
 	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return(nil, nil)
-	s.relationService.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(nil, nil)
+	s.statusService.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(nil, nil)
 
 	// Act: fetch relation
-	out, outByID, err := fetchRelations(context.Background(), s.relationService)
+	out, outByID, err := fetchRelations(context.Background(), s.relationService, s.statusService)
 
 	// Assert
 	c.Assert(err, gc.IsNil)
-	c.Check(out, gc.IsNil, map[string][]relationStatus{})
+	c.Check(out, gc.DeepEquals, map[string][]relationStatus{})
 	c.Check(outByID, gc.DeepEquals, map[int]relationStatus{})
 }
 
@@ -177,7 +178,7 @@ func (s *relationStatusSuite) TestFetchRelationAllWithGetRelationError(c *gc.C) 
 	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return(nil, expectedError)
 
 	// Act: fetch relation
-	_, _, err := fetchRelations(context.Background(), s.relationService)
+	_, _, err := fetchRelations(context.Background(), s.relationService, s.statusService)
 
 	// Assert
 	c.Assert(err, jc.ErrorIs, expectedError)
@@ -193,10 +194,10 @@ func (s *relationStatusSuite) TestFetchRelationAllWithGetStatusesError(c *gc.C) 
 
 	// Valid calls
 	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return(nil, nil)
-	s.relationService.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(nil, expectedError)
+	s.statusService.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(nil, expectedError)
 
 	// Act: fetch relation
-	_, _, err := fetchRelations(context.Background(), s.relationService)
+	_, _, err := fetchRelations(context.Background(), s.relationService, s.statusService)
 
 	// Assert
 	c.Assert(err, jc.ErrorIs, expectedError)
