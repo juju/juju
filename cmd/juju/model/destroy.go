@@ -536,7 +536,7 @@ func formatDestroyModelInfo(data *modelData) string {
 		out += fmt.Sprintf(", %d volume(s)", data.volumeCount)
 	}
 	if data.filesystemCount > 0 {
-		out += fmt.Sprintf(", %d filesystems(s)", data.filesystemCount)
+		out += fmt.Sprintf(", %d filesystem(s)", data.filesystemCount)
 	}
 	return out
 }
@@ -555,7 +555,7 @@ func formatDestroyModelAbortInfo(data *modelData, timeout, force bool) string {
 			out += fmt.Sprintf("\n - %d volume(s)", data.volumeCount)
 		}
 		if data.filesystemCount > 0 {
-			out += fmt.Sprintf("\n - %d filesystems(s)", data.filesystemCount)
+			out += fmt.Sprintf("\n - %d filesystem(s)", data.filesystemCount)
 		}
 	}
 	if !timeout {
