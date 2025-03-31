@@ -132,6 +132,16 @@ type State interface {
 		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string,
 	) ([]domainsecret.ExpiryInfo, error)
 
+	// For watching secret changes for the provided owners.
+	InitialWatchStatementForOwnedSecrets(
+		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+	) (string, eventsource.NamespaceQuery)
+	IsSecretOwnedBy(
+		ctx context.Context,
+		uri *secrets.URI,
+		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+	) (bool, error)
+
 	// Methods for loading secrets to be exported.
 	AllSecretGrants(ctx context.Context) (map[string][]domainsecret.GrantParams, error)
 	AllSecretConsumers(ctx context.Context) (map[string][]domainsecret.ConsumerInfo, error)

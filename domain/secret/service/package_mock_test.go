@@ -1716,6 +1716,45 @@ func (c *MockStateInitialWatchStatementForObsoleteRevisionCall) DoAndReturn(f fu
 	return c
 }
 
+// InitialWatchStatementForOwnedSecrets mocks base method.
+func (m *MockState) InitialWatchStatementForOwnedSecrets(arg0 secret.ApplicationOwners, arg1 secret.UnitOwners) (string, eventsource.NamespaceQuery) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialWatchStatementForOwnedSecrets", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(eventsource.NamespaceQuery)
+	return ret0, ret1
+}
+
+// InitialWatchStatementForOwnedSecrets indicates an expected call of InitialWatchStatementForOwnedSecrets.
+func (mr *MockStateMockRecorder) InitialWatchStatementForOwnedSecrets(arg0, arg1 any) *MockStateInitialWatchStatementForOwnedSecretsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementForOwnedSecrets", reflect.TypeOf((*MockState)(nil).InitialWatchStatementForOwnedSecrets), arg0, arg1)
+	return &MockStateInitialWatchStatementForOwnedSecretsCall{Call: call}
+}
+
+// MockStateInitialWatchStatementForOwnedSecretsCall wrap *gomock.Call
+type MockStateInitialWatchStatementForOwnedSecretsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateInitialWatchStatementForOwnedSecretsCall) Return(arg0 string, arg1 eventsource.NamespaceQuery) *MockStateInitialWatchStatementForOwnedSecretsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateInitialWatchStatementForOwnedSecretsCall) Do(f func(secret.ApplicationOwners, secret.UnitOwners) (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForOwnedSecretsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateInitialWatchStatementForOwnedSecretsCall) DoAndReturn(f func(secret.ApplicationOwners, secret.UnitOwners) (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForOwnedSecretsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide mocks base method.
 func (m *MockState) InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(arg0 string) (string, eventsource.NamespaceQuery) {
 	m.ctrl.T.Helper()
@@ -1829,6 +1868,45 @@ func (c *MockStateInitialWatchStatementForSecretsRotationChangesCall) Do(f func(
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateInitialWatchStatementForSecretsRotationChangesCall) DoAndReturn(f func(secret.ApplicationOwners, secret.UnitOwners) (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForSecretsRotationChangesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// IsSecretOwnedBy mocks base method.
+func (m *MockState) IsSecretOwnedBy(arg0 context.Context, arg1 *secrets.URI, arg2 secret.ApplicationOwners, arg3 secret.UnitOwners) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsSecretOwnedBy", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsSecretOwnedBy indicates an expected call of IsSecretOwnedBy.
+func (mr *MockStateMockRecorder) IsSecretOwnedBy(arg0, arg1, arg2, arg3 any) *MockStateIsSecretOwnedByCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsSecretOwnedBy", reflect.TypeOf((*MockState)(nil).IsSecretOwnedBy), arg0, arg1, arg2, arg3)
+	return &MockStateIsSecretOwnedByCall{Call: call}
+}
+
+// MockStateIsSecretOwnedByCall wrap *gomock.Call
+type MockStateIsSecretOwnedByCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateIsSecretOwnedByCall) Return(arg0 bool, arg1 error) *MockStateIsSecretOwnedByCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateIsSecretOwnedByCall) Do(f func(context.Context, *secrets.URI, secret.ApplicationOwners, secret.UnitOwners) (bool, error)) *MockStateIsSecretOwnedByCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateIsSecretOwnedByCall) DoAndReturn(f func(context.Context, *secrets.URI, secret.ApplicationOwners, secret.UnitOwners) (bool, error)) *MockStateIsSecretOwnedByCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -4357,3 +4357,145 @@ func (s *stateSuite) TestChangeSecretBackendFailed(c *gc.C) {
 	err = st.ChangeSecretBackend(ctx, uuid.MustNewUUID(), valueRefInput, dataInput)
 	c.Assert(err, gc.ErrorMatches, "both valueRef and data cannot be set")
 }
+
+func (s *stateSuite) TestInitialWatchStatementForSecretMatadataGetForBothAppAndUnitOwners(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+	ctx := context.Background()
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri1 := coresecrets.NewURI()
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri2 := coresecrets.NewURI()
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err = createCharmUnitSecret(ctx, st, 1, uri2, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+	updateSecretContent(c, st, uri2)
+
+	tableName, f := st.InitialWatchStatementForOwnedSecrets(domainsecret.ApplicationOwners{"mysql"}, domainsecret.UnitOwners{"mysql/0"})
+	c.Check(tableName, gc.Equals, "secret_metadata")
+	result, err := f(ctx, s.TxnRunner())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []string{
+		uri1.ID,
+		uri2.ID,
+	})
+}
+
+func (s *stateSuite) TestInitialWatchStatementForSecretMatadataGetForAppOwners(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+	ctx := context.Background()
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri1 := coresecrets.NewURI()
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri2 := coresecrets.NewURI()
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err = createCharmUnitSecret(ctx, st, 1, uri2, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+	updateSecretContent(c, st, uri2)
+
+	tableName, f := st.InitialWatchStatementForOwnedSecrets(domainsecret.ApplicationOwners{"mysql"}, nil)
+	c.Check(tableName, gc.Equals, "secret_metadata")
+	result, err := f(ctx, s.TxnRunner())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []string{
+		uri1.ID,
+	})
+
+}
+
+func (s *stateSuite) TestInitialWatchStatementForSecretMatadataGetForUnitOwners(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+	ctx := context.Background()
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri1 := coresecrets.NewURI()
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri2 := coresecrets.NewURI()
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err = createCharmUnitSecret(ctx, st, 1, uri2, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+	updateSecretContent(c, st, uri2)
+
+	tableName, f := st.InitialWatchStatementForOwnedSecrets(nil, domainsecret.UnitOwners{"mysql/0"})
+	c.Check(tableName, gc.Equals, "secret_metadata")
+	result, err := f(ctx, s.TxnRunner())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []string{
+		uri2.ID,
+	})
+}
+
+func (s *stateSuite) TestIsSecretOwnedBy(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+	ctx := context.Background()
+
+	s.setupUnits(c, "mysql")
+	s.setupUnits(c, "mediawiki")
+
+	sp := domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri1 := coresecrets.NewURI()
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err := createCharmApplicationSecret(ctx, st, 1, uri1, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri2 := coresecrets.NewURI()
+	sp.RevisionID = ptr(uuid.MustNewUUID().String())
+	err = createCharmUnitSecret(ctx, st, 1, uri2, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+	updateSecretContent(c, st, uri2)
+
+	// uri1 is owned by application mysql.
+	owned, err := st.IsSecretOwnedBy(ctx, uri1, domainsecret.ApplicationOwners{"mysql"}, nil)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(owned, jc.IsTrue)
+
+	// uri1 is not owned by the unit mysql/0.
+	owned, err = st.IsSecretOwnedBy(ctx, uri1, nil, domainsecret.UnitOwners{"mysql/0"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(owned, jc.IsFalse)
+
+	// uri1 is not owned by the unit mediawiki/0 and application mediawiki.
+	owned, err = st.IsSecretOwnedBy(ctx, uri1, domainsecret.ApplicationOwners{"mediawiki"}, domainsecret.UnitOwners{"mediawiki/0"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(owned, jc.IsFalse)
+
+	// uri2 is owned by the unit mysql/0.
+	owned, err = st.IsSecretOwnedBy(ctx, uri2, nil, domainsecret.UnitOwners{"mysql/0"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(owned, jc.IsTrue)
+
+	// uri2 is not owned by the application mysql.
+	owned, err = st.IsSecretOwnedBy(ctx, uri2, domainsecret.ApplicationOwners{"mysql"}, nil)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(owned, jc.IsFalse)
+
+	// uri2 is not owned by the application mediawiki and unit mediawiki/0.
+	owned, err = st.IsSecretOwnedBy(ctx, uri2, domainsecret.ApplicationOwners{"mediawiki"}, domainsecret.UnitOwners{"mediawiki/0"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(owned, jc.IsFalse)
+
+}
