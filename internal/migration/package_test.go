@@ -89,6 +89,6 @@ func (s *precheckBaseSuite) expectIsUpgradeError(err error) {
 	s.upgradeService.EXPECT().IsUpgrading(gomock.Any()).Return(false, err)
 }
 
-func (s *precheckBaseSuite) expectAgentVersion(times int) {
-	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.MustParse(backendVersion.String()), nil).Times(times)
+func (s *precheckBaseSuite) expectAgentVersion() {
+	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.MustParse(backendVersion.String()), nil).AnyTimes()
 }

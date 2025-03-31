@@ -223,11 +223,6 @@ func (c *precheckContext) checkController(ctx context.Context) error {
 }
 
 func (c *precheckContext) checkMachines(ctx context.Context) error {
-	modelVersion, err := c.modelAgentService.GetModelTargetAgentVersion(ctx)
-	if err != nil {
-		return errors.Annotate(err, "retrieving model version")
-	}
-
 	machines, err := c.backend.AllMachines()
 	if err != nil {
 		return errors.Annotate(err, "retrieving machines")
@@ -257,9 +252,15 @@ func (c *precheckContext) checkMachines(ctx context.Context) error {
 		// 	return errors.Errorf("machine %s is scheduled to %s", machine.Id(), rebootAction)
 		// }
 
-		if err := checkAgentTools(modelVersion, machine, "machine "+machine.Id()); err != nil {
-			return errors.Trace(err)
-		}
+		// TODO(tlm): Add this back in when we move agent tools into model
+		// migration.
+		//modelVersion, err := c.modelAgentService.GetModelTargetAgentVersion(ctx)
+		//if err != nil {
+		//	return errors.Annotate(err, "retrieving model version")
+		//}
+		//if err := checkAgentTools(modelVersion, machine, "machine "+machine.Id()); err != nil {
+		//	return errors.Trace(err)
+		//}
 	}
 	return nil
 }
@@ -314,11 +315,13 @@ func (c *precheckContext) checkUnits(ctx context.Context, app PrecheckApplicatio
 			return errors.Errorf("unit %s is %s", unit.Name(), unit.Life())
 		}
 
-		if modelType == state.ModelTypeIAAS {
-			if err := checkAgentTools(modelVersion, unit, "unit "+unit.Name()); err != nil {
-				return errors.Trace(err)
-			}
-		}
+		// TODO(tlm): Add this back in when we move agent tools into model
+		// migration.
+		//if modelType == state.ModelTypeIAAS {
+		//	if err := checkAgentTools(modelVersion, unit, "unit "+unit.Name()); err != nil {
+		//		return errors.Trace(err)
+		//	}
+		//}
 
 		unitCharmURL := unit.CharmURL()
 		if unitCharmURL == nil || *appCharmURL != *unitCharmURL {
@@ -470,18 +473,19 @@ func checkNoFanConfig(modelConfig map[string]interface{}) error {
 	return nil
 }
 
-func checkAgentTools(modelVersion semversion.Number, agent agentToolsGetter, agentLabel string) error {
-	tools, err := agent.AgentTools()
-	if err != nil {
-		return errors.Annotatef(err, "retrieving agent binaries for %s", agentLabel)
-	}
-	agentVersion := tools.Version.Number
-	if agentVersion != modelVersion {
-		return errors.Errorf("%s agent binaries don't match model (%s != %s)",
-			agentLabel, agentVersion, modelVersion)
-	}
-	return nil
-}
+// TODO(tlm): Add this back in when we move agent tools into model migration.
+//func checkAgentTools(modelVersion semversion.Number, agent agentToolsGetter, agentLabel string) error {
+//	tools, err := agent.AgentTools()
+//	if err != nil {
+//		return errors.Annotatef(err, "retrieving agent binaries for %s", agentLabel)
+//	}
+//	agentVersion := tools.Version.Number
+//	if agentVersion != modelVersion {
+//		return errors.Errorf("%s agent binaries don't match model (%s != %s)",
+//			agentLabel, agentVersion, modelVersion)
+//	}
+//	return nil
+//}
 
 func newStatusError(format, id string, s status.Status) error {
 	msg := fmt.Sprintf(format, id)
