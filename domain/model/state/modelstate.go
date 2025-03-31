@@ -9,6 +9,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -758,6 +759,73 @@ func (s *ModelState) GetModelCloudType(ctx context.Context) (string, error) {
 	}
 
 	return m.CloudType, nil
+}
+
+// GetModelCloudRegionAndCredential returns the cloud name, region name and
+// credential key for a  model identified by uuid.
+// The following errors can be returned:
+// - [modelerrors.NotFound] wen the model does not exist.
+func (s *ModelState) GetModelCloudRegionAndCredential(
+	ctx context.Context,
+	uuid coremodel.UUID,
+) (string, string, credential.Key, error) {
+	db, err := s.DB()
+	if err != nil {
+		return "", "", credential.Key{}, errors.Capture(err)
+	}
+
+	args := dbModelUUID{
+		UUID: uuid.String(),
+	}
+
+	stmt, err := s.Prepare(`
+SELECT &dbModelCloudRegionCredential.*
+FROM model
+WHERE uuid = $dbModelUUID.uuid
+`, dbModelCloudRegionCredential{}, args)
+	if err != nil {
+		return "", "", credential.Key{}, errors.Capture(err)
+	}
+
+	var (
+		cloudName       string
+		cloudRegion     string
+		credentialKey   credential.Key
+		credentialOwner sql.NullString
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var result dbModelCloudRegionCredential
+		err := tx.Query(ctx, stmt, args).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return modelerrors.NotFound
+		} else if err != nil {
+			return err
+		}
+
+		cloudName = result.CloudName
+		cloudRegion = result.CloudRegionName
+		credentialKey = credential.Key{
+			Name:  result.CredentialName.String,
+			Cloud: result.CloudName,
+		}
+		credentialOwner = result.CredentialOwnerName
+		return nil
+	})
+	if err != nil {
+		return "", "", credential.Key{}, errors.Errorf(
+			"getting model %q cloud name and credential: %w", uuid, err,
+		)
+	}
+
+	if credentialOwner.Valid && credentialOwner.String != "" {
+		ownerName, err := user.NewName(credentialOwner.String)
+		if err != nil {
+			return "", "", credential.Key{}, errors.Errorf("credential owner: %w", err)
+		}
+		credentialKey.Owner = ownerName
+	}
+
+	return cloudName, cloudRegion, credentialKey, nil
 }
 
 // InsertModelInfo is responsible for creating a new model within the model

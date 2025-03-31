@@ -43,6 +43,45 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ActionByTag mocks base method.
+func (m *MockState) ActionByTag(arg0 names.ActionTag) (state.Action, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ActionByTag", arg0)
+	ret0, _ := ret[0].(state.Action)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ActionByTag indicates an expected call of ActionByTag.
+func (mr *MockStateMockRecorder) ActionByTag(arg0 any) *MockStateActionByTagCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionByTag", reflect.TypeOf((*MockState)(nil).ActionByTag), arg0)
+	return &MockStateActionByTagCall{Call: call}
+}
+
+// MockStateActionByTagCall wrap *gomock.Call
+type MockStateActionByTagCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateActionByTagCall) Return(arg0 state.Action, arg1 error) *MockStateActionByTagCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateActionByTagCall) Do(f func(names.ActionTag) (state.Action, error)) *MockStateActionByTagCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateActionByTagCall) DoAndReturn(f func(names.ActionTag) (state.Action, error)) *MockStateActionByTagCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // AllApplications mocks base method.
 func (m *MockState) AllApplications() ([]*state.Application, error) {
 	m.ctrl.T.Helper()
@@ -297,45 +336,6 @@ func NewMockModel(ctrl *gomock.Controller) *MockModel {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModel) EXPECT() *MockModelMockRecorder {
 	return m.recorder
-}
-
-// ActionByTag mocks base method.
-func (m *MockModel) ActionByTag(arg0 names.ActionTag) (state.Action, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ActionByTag", arg0)
-	ret0, _ := ret[0].(state.Action)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ActionByTag indicates an expected call of ActionByTag.
-func (mr *MockModelMockRecorder) ActionByTag(arg0 any) *MockModelActionByTagCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionByTag", reflect.TypeOf((*MockModel)(nil).ActionByTag), arg0)
-	return &MockModelActionByTagCall{Call: call}
-}
-
-// MockModelActionByTagCall wrap *gomock.Call
-type MockModelActionByTagCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelActionByTagCall) Return(arg0 state.Action, arg1 error) *MockModelActionByTagCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelActionByTagCall) Do(f func(names.ActionTag) (state.Action, error)) *MockModelActionByTagCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelActionByTagCall) DoAndReturn(f func(names.ActionTag) (state.Action, error)) *MockModelActionByTagCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // AddAction mocks base method.

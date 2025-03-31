@@ -657,7 +657,11 @@ func (m *Model) AllActions() ([]Action, error) {
 }
 
 // ActionByTag returns an Action given an ActionTag.
-func (m *Model) ActionByTag(tag names.ActionTag) (Action, error) {
+func (st *State) ActionByTag(tag names.ActionTag) (Action, error) {
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return m.Action(tag.Id())
 }
 

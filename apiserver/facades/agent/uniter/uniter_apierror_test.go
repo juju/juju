@@ -54,8 +54,6 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 	domainServices := s.ControllerDomainServices(c)
 	services := uniter.Services{
 		ApplicationService:      domainServices.Application(),
-		CloudService:            domainServices.Cloud(),
-		CredentialService:       domainServices.Credential(),
 		ControllerConfigService: domainServices.ControllerConfig(),
 		MachineService:          domainServices.Machine(),
 		ModelConfigService:      domainServices.Config(),
@@ -64,6 +62,7 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 		PortService:             domainServices.Port(),
 		SecretService:           domainServices.Secret(),
 		UnitStateService:        domainServices.UnitState(),
+		StubService:             domainServices.Stub(),
 	}
 
 	_, err := uniter.NewUniterAPIWithServices(context.Background(), facadeContext, services)

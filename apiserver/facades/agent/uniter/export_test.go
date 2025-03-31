@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/leadership"
+	coremodel "github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/state"
 )
@@ -74,7 +75,7 @@ type patcher interface {
 }
 
 func PatchGetStorageStateError(patcher patcher, err error) {
-	patcher.PatchValue(&getStorageState, func(*state.State) (storageAccess, error) { return nil, err })
+	patcher.PatchValue(&getStorageState, func(*state.State, coremodel.ModelType) (storageAccess, error) { return nil, err })
 }
 
 func (n *NetworkInfoIAAS) MachineNetworkInfos() (map[string][]NetInfoAddress, error) {

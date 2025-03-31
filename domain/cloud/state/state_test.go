@@ -373,7 +373,6 @@ func (s *stateSuite) TestCloud(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.CreateCloud(context.Background(), usertesting.GenNewName(c, "admin"), uuid.MustNewUUID().String(), testCloud2)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = st.Cloud(context.Background(), "fluffy3")
 	c.Assert(err, jc.ErrorIs, clouderrors.NotFound)

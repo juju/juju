@@ -27,6 +27,7 @@ import (
 )
 
 type stubSuite struct {
+	testing.ControllerSuite
 	testing.ModelSuite
 
 	srv          *StubService
@@ -54,6 +55,11 @@ var addApplicationArg = application.AddApplicationArg{
 	},
 }
 
+func (s *stubSuite) SetUpTest(c *gc.C) {
+	s.ControllerSuite.SetUpTest(c)
+	s.ModelSuite.SetUpTest(c)
+}
+
 func (s *stubSuite) TestAssignUnitsToMachines(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -71,7 +77,7 @@ func (s *stubSuite) TestAssignUnitsToMachines(c *gc.C) {
 	// Check that the unit have been assigned to the machine.
 	var unitNodeUUID string
 	var machineNodeUUID string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.ModelSuite.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM unit WHERE name = 'foo/0'").Scan(&unitNodeUUID)
 		if err != nil {
 			return err
@@ -141,7 +147,7 @@ func (s *stubSuite) TestAssignUnitsToMachinesMultipleUnitsSameMachine(c *gc.C) {
 	var machineNodeUUID string
 	var unitNodeUUID0 string
 	var unitNodeUUID1 string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.ModelSuite.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM machine WHERE name = '0'").Scan(&machineNodeUUID)
 		if err != nil {
 			return err
@@ -190,7 +196,7 @@ func (s *stubSuite) TestAssignUnitsToMachinesAssignUnitAndLaterAddMore(c *gc.C) 
 	var machineNodeUUID string
 	var unitNodeUUID0 string
 	var unitNodeUUID1 string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.ModelSuite.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM machine WHERE name = '0'").Scan(&machineNodeUUID)
 		if err != nil {
 			return err
@@ -216,12 +222,12 @@ func (s *stubSuite) TestAssignUnitsToMachinesAssignUnitAndLaterAddMore(c *gc.C) 
 func (s *stubSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.srv = NewStubService(s.TxnRunnerFactory())
-	s.appState = applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.application"))
-	s.machineState = machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
-
 	modelUUID := modeltesting.GenModelUUID(c)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	s.srv = NewStubService(modelUUID, s.ControllerSuite.TxnRunnerFactory(), s.ModelSuite.TxnRunnerFactory())
+	s.appState = applicationstate.NewState(s.ModelSuite.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.application"))
+	s.machineState = machinestate.NewState(s.ModelSuite.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
+
+	err := s.ModelSuite.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, type, cloud, cloud_type)
 			VALUES (?, ?, "test", "iaas", "test-model", "ec2")
