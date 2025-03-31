@@ -74,9 +74,9 @@ func (s *stateSuite) TestGetAllRelationStatuses(c *gc.C) {
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, map[corerelation.UUID]corestatus.StatusInfo{
+	c.Assert(result, gc.DeepEquals, map[corerelation.UUID]status.StatusInfo[status.RelationStatusType]{
 		relationUUID1: {
-			Status:  corestatus.Suspended,
+			Status:  status.RelationStatusTypeSuspended,
 			Message: "this is a test",
 			Since:   &now,
 		},

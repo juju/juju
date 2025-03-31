@@ -42,19 +42,24 @@ var _ = gc.Suite(&serviceSuite{})
 func (s *serviceSuite) TestGetAllRelationStatuses(c *gc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
-	expectedRelationStatuses := map[corerelation.UUID]corestatus.StatusInfo{
-		corerelationtesting.GenRelationUUID(c): {
-			Status: "Hey",
+	relUUID := corerelationtesting.GenRelationUUID(c)
+	stateRelationStatus := map[corerelation.UUID]status.StatusInfo[status.RelationStatusType]{
+		relUUID: {
+			Status: status.RelationStatusTypeBroken,
 		},
 	}
-	s.state.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(expectedRelationStatuses, nil)
+	s.state.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(stateRelationStatus, nil)
 
 	// Act
 	details, err := s.service.GetAllRelationStatuses(context.Background())
 
 	// Assert
 	c.Assert(err, gc.IsNil)
-	c.Assert(details, gc.DeepEquals, expectedRelationStatuses)
+	c.Assert(details, gc.DeepEquals, map[corerelation.UUID]corestatus.StatusInfo{
+		relUUID: {
+			Status: corestatus.Broken,
+		},
+	})
 }
 
 // TestGetAllRelationStatusesError verifies the behavior when GetAllRelationStatuses

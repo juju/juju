@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
-	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	domainlife "github.com/juju/juju/domain/life"
@@ -41,7 +40,8 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 }
 
 // GetAllRelationStatuses returns all the relation statuses of the given model.
-func (st *State) GetAllRelationStatuses(ctx context.Context) (map[corerelation.UUID]corestatus.StatusInfo, error) {
+func (st *State) GetAllRelationStatuses(ctx context.Context) (map[corerelation.UUID]status.StatusInfo[status.RelationStatusType],
+	error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -49,7 +49,7 @@ func (st *State) GetAllRelationStatuses(ctx context.Context) (map[corerelation.U
 
 	stmt, err := st.Prepare(`
 SELECT &relationStatus.*
-FROM v_relation_status`, relationStatus{})
+FROM relation_status`, relationStatus{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -65,10 +65,14 @@ FROM v_relation_status`, relationStatus{})
 	if err != nil {
 		return nil, errors.Errorf("getting all relations statuses: %w", err)
 	}
-	relationsStatuses := make(map[corerelation.UUID]corestatus.StatusInfo, len(statuses))
+	relationsStatuses := make(map[corerelation.UUID]status.StatusInfo[status.RelationStatusType], len(statuses))
 	for _, relStatus := range statuses {
-		relationsStatuses[relStatus.RelationUUID] = corestatus.StatusInfo{
-			Status:  corestatus.Status(relStatus.Status),
+		statusType, err := decodeRelationStatus(relStatus.StatusID)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		relationsStatuses[relStatus.RelationUUID] = status.StatusInfo[status.RelationStatusType]{
+			Status:  statusType,
 			Message: relStatus.Reason,
 			Since:   &relStatus.Since,
 		}

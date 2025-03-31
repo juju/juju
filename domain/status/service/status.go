@@ -40,6 +40,25 @@ func encodeCloudContainerStatusType(s corestatus.Status) (status.CloudContainerS
 	}
 }
 
+// decodeRelationStatusType maps a db relation status to a corresponding
+// core status.
+func decodeRelationStatusType(s status.RelationStatusType) (corestatus.Status, error) {
+	switch s {
+	case status.RelationStatusTypeJoining:
+		return corestatus.Joining, nil
+	case status.RelationStatusTypeJoined:
+		return corestatus.Joined, nil
+	case status.RelationStatusTypeBroken:
+		return corestatus.Broken, nil
+	case status.RelationStatusTypeSuspending:
+		return corestatus.Suspending, nil
+	case status.RelationStatusTypeSuspended:
+		return corestatus.Suspended, nil
+	default:
+		return "", errors.Errorf("unknown relation status %q", s)
+	}
+}
+
 // decodeCloudContainerStatusType converts a db cloud container status id to a
 // core status.
 func decodeCloudContainerStatusType(s status.CloudContainerStatusType) (corestatus.Status, error) {

@@ -34,7 +34,7 @@ var (
 type State interface {
 
 	// GetAllRelationStatuses returns all the relation statuses of the given model.
-	GetAllRelationStatuses(ctx context.Context) (map[corerelation.UUID]corestatus.StatusInfo, error)
+	GetAllRelationStatuses(ctx context.Context) (map[corerelation.UUID]status.StatusInfo[status.RelationStatusType], error)
 
 	// GetApplicationIDByName returns the application ID for the named application.
 	// If no application is found, an error satisfying
@@ -295,7 +295,23 @@ func NewService(
 
 // GetAllRelationStatuses returns all the relation statuses of the given model.
 func (s *Service) GetAllRelationStatuses(ctx context.Context) (map[corerelation.UUID]corestatus.StatusInfo, error) {
-	return s.st.GetAllRelationStatuses(ctx)
+	statuses, err := s.st.GetAllRelationStatuses(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	result := make(map[corerelation.UUID]corestatus.StatusInfo, len(statuses))
+	for k, v := range statuses {
+		decodedStatus, err := decodeRelationStatusType(v.Status)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		result[k] = corestatus.StatusInfo{
+			Status:  decodedStatus,
+			Message: v.Message,
+			Since:   v.Since,
+		}
+	}
+	return result, nil
 }
 
 // SetApplicationStatus saves the given application status, overwriting any
