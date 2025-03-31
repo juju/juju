@@ -40,7 +40,8 @@ func (s *baseRelationSuite) SetUpTest(c *gc.C) {
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
 
-// query executes a given SQL query with optional arguments within a transactional context using the test database.
+// query executes a given SQL query with optional arguments within a
+// transactional context using the test database.
 func (s *baseRelationSuite) query(c *gc.C, query string, args ...any) {
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -55,8 +56,7 @@ func (s *baseRelationSuite) query(c *gc.C, query string, args ...any) {
 }
 
 // addApplication adds a new application to the database with the specified
-// charm UUID and application name.
-// It return the application UUID
+// charm UUID and application name. It returns the application UUID.
 func (s *baseRelationSuite) addApplication(c *gc.C, charmUUID charm.ID, appName string) coreapplication.ID {
 	appUUID := coreapplicationtesting.GenApplicationUUID(c)
 	s.query(c, `
@@ -66,7 +66,7 @@ VALUES (?, ?, ?, ?, ?)
 	return appUUID
 }
 
-// addCharm inserts a new charm into the database and return the UUID.
+// addCharm inserts a new charm into the database and returns the UUID.
 func (s *baseRelationSuite) addCharm(c *gc.C) charm.ID {
 	charmUUID := corecharmtesting.GenCharmID(c)
 	// The UUID is also used as the reference_name as there is a unique

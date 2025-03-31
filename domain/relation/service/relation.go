@@ -140,8 +140,16 @@ func NewService(
 // endpoint between applications on the model. A new relation will be created
 // between these endpoints and the details of the endpoint returned.
 //
-// If the identifiers do not uniquely specify a relation, an error will be
-// returned.
+// The following error types can be expected to be returned:
+//   - [relationerrors.AmbiguousRelation] is returned if the endpoint
+//     identifiers can refer to several possible relations.
+//   - [relationerrors.CompatibleEndpointsNotFound] is returned  if the endpoint
+//     identifiers relates to correct endpoints yet not compatible (ex provider
+//     with provider)
+//   - [relationerrors.RelationAlreadyExists] is returned  if the inferred
+//     relation already exists.
+//   - [relationerrors.RelationEndpointNotFound] is returned if no endpoint can be
+//     inferred from one of the identifier.
 func (s *Service) AddRelation(ctx context.Context, ep1, ep2 string) (relation.Endpoint,
 	relation.Endpoint, error) {
 	var none relation.Endpoint

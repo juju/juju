@@ -42,14 +42,17 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 	}
 }
 
-// AddRelation establishes a new relation between two endpoints identified by epIdentifier1 and epIdentifier2.
-// Returns the two endpoints involved in the relation and any error encountered during the operation.
+// AddRelation establishes a new relation between two endpoints identified by
+// epIdentifier1 and epIdentifier2.
+// Returns the two endpoints involved in the relation and any error encountered
+// during the operation.
 //
 // The following error types can be expected to be returned:
 //   - [relationerrors.AmbiguousRelation] is returned if the endpoint
 //     identifiers can refer to several possible relations.
-//   - [relationerrors.CompatibleEndpointsNotFound] is returned  if the endpoint identifiers
-//     relates to correct endpoints yet not compatible (ex provider with provider)
+//   - [relationerrors.CompatibleEndpointsNotFound] is returned  if the endpoint
+//     identifiers relates to correct endpoints yet not compatible (ex provider
+//     with provider)
 //   - [relationerrors.RelationAlreadyExists] is returned  if the inferred
 //     relation already exists.
 //   - [relationerrors.RelationEndpointNotFound] is returned if no endpoint can be
@@ -1128,8 +1131,9 @@ WHERE  r.uuid = $getRelation.uuid
 
 // inferEndpoints determines and validates the endpoints of a given relation
 // based on the provided identifiers. It tries to find matching endpoint for both
-// application, regarding the name of endpoint if provided, their roles
-// and their scopes. If there is several matches or none, it will return an error.
+// application, regarding the name of endpoint if provided, their interfaces,
+// their roles and their scopes.
+// If there is several matches or none, it will return an error.
 func (st *State) inferEndpoints(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -1187,7 +1191,6 @@ func (st *State) inferEndpoints(
 			}
 		}
 	}
-	// todo(gfouillet) - in 3.6, implicit relation are discarded (ie juju-info)
 
 	if matchCount := len(matches); matchCount == 0 {
 		return endpoint{}, endpoint{}, relationerrors.CompatibleEndpointsNotFound
