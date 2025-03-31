@@ -138,7 +138,7 @@ func (st *State) GetAllUnitPasswordHashes(ctx context.Context) (map[string]map[u
 		if _, ok := ret[r.ApplicationName]; !ok {
 			ret[r.ApplicationName] = make(map[unit.Name]passwords.PasswordHash)
 		}
-		ret[r.ApplicationName][unit.Name(r.UnitName)] = r.PasswordHash
+		ret[r.ApplicationName][r.UnitName] = r.PasswordHash
 	}
 	return ret, nil
 
