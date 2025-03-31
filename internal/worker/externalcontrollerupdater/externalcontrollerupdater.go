@@ -304,8 +304,8 @@ func (w *controllerWatcher) connectAndWatch(apiInfo *api.Info) (ExternalControll
 		nw     watcher.NotifyWatcher
 	}
 
-	response := make(chan result, 1)
-	errs := make(chan error, 1)
+	response := make(chan result)
+	errs := make(chan error)
 
 	go func() {
 		client, err := w.newExternalControllerWatcherClient(apiInfo)
