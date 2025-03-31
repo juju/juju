@@ -133,6 +133,10 @@ func (st *State) GetAllUnitPasswordHashes(ctx context.Context) (map[string]map[u
 		return nil, errors.Errorf("getting all unit password hashes: %w", err)
 	}
 
+	return encodePasswordHashes(results), nil
+}
+
+func encodePasswordHashes(results []unitPasswordHashes) map[string]map[unit.Name]password.PasswordHash {
 	ret := make(map[string]map[unit.Name]password.PasswordHash)
 	for _, r := range results {
 		if _, ok := ret[r.ApplicationName]; !ok {
@@ -140,6 +144,5 @@ func (st *State) GetAllUnitPasswordHashes(ctx context.Context) (map[string]map[u
 		}
 		ret[r.ApplicationName][r.UnitName] = r.PasswordHash
 	}
-	return ret, nil
-
+	return ret
 }
