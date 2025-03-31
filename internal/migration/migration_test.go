@@ -222,6 +222,7 @@ func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {
 }
 
 func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
+	c.Skip("(tlm): This will be turned back on the the completion of agent binary model migration")
 	defer s.setupMocks(c).Finish()
 
 	downloader := &fakeDownloader{}

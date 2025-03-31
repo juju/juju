@@ -21,6 +21,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/featureflag"
@@ -328,19 +329,19 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, bl
 	exMachine.SetStatus(statusArgs)
 
 	if !e.cfg.SkipMachineAgentBinaries {
-		tools, err := machine.AgentTools()
-		if err != nil && !e.cfg.IgnoreIncompleteModel {
-			// This means the tools aren't set, but they should be.
-			return nil, errors.Trace(err)
+		// TODO (tlm): A future task is coming up to add model migration support for
+		// tools.
+		ver := semversion.Binary{
+			Number:  jujuversion.Current,
+			Arch:    arch.DefaultArchitecture,
+			Release: "ubuntu",
 		}
-		if err == nil {
-			exMachine.SetTools(description.AgentToolsArgs{
-				Version: tools.Version.String(),
-				URL:     tools.URL,
-				SHA256:  tools.SHA256,
-				Size:    tools.Size,
-			})
-		}
+		exMachine.SetTools(description.AgentToolsArgs{
+			Version: ver.String(),
+			URL:     "tools-foobar.tar.gz",
+			SHA256:  "19c9cbd09c01329ce419c6a6945f75ec80134e2a24dfe73e81db4fa59a2db202",
+			Size:    1024,
+		})
 	}
 
 	constraintsArgs, err := e.constraintsArgs(globalKey)
@@ -626,19 +627,25 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		exUnit.SetAgentStatus(statusArgs)
 
 		if e.dbModel.Type() != ModelTypeCAAS && !e.cfg.SkipUnitAgentBinaries {
-			tools, err := unit.AgentTools()
-			if err != nil && !e.cfg.IgnoreIncompleteModel {
-				// This means the tools aren't set, but they should be.
-				return errors.Trace(err)
+			// TODO (tlm): A future task is coming up to add model migration support for
+			// tools.
+			//tools, err := unit.AgentTools()
+			//if err != nil && !e.cfg.IgnoreIncompleteModel {
+			//	// This means the tools aren't set, but they should be.
+			//	return errors.Trace(err)
+			//}
+			//if err == nil {
+			ver := semversion.Binary{
+				Number:  jujuversion.Current,
+				Arch:    arch.DefaultArchitecture,
+				Release: "ubuntu",
 			}
-			if err == nil {
-				exUnit.SetTools(description.AgentToolsArgs{
-					Version: tools.Version.String(),
-					URL:     tools.URL,
-					SHA256:  tools.SHA256,
-					Size:    tools.Size,
-				})
-			}
+			exUnit.SetTools(description.AgentToolsArgs{
+				Version: ver.String(),
+				URL:     "tools-foobar.tar.gz",
+				SHA256:  "19c9cbd09c01329ce419c6a6945f75ec80134e2a24dfe73e81db4fa59a2db202",
+				Size:    1024,
+			})
 		}
 		if e.dbModel.Type() == ModelTypeCAAS {
 			// TODO(caas) - Actually use the exported cloud container details and status history.
