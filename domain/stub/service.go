@@ -129,18 +129,11 @@ WHERE name IN ($units[:])
 
 // CloudSpec returns the cloud spec for the model.
 func (s *StubService) CloudSpec(ctx context.Context) (cloudspec.CloudSpec, error) {
-	modelSt := modelstate.State{StateBase: s.controllerState}
+	modelSt := modelstate.ModelState{StateBase: s.modelState}
 	cloudSt := state.State{StateBase: s.controllerState}
 	credSt := credstate.State{StateBase: s.controllerState}
 
-	cloudName, credKey, err := modelSt.GetModelCloudNameAndCredential(ctx, s.modelUUID)
-	if errors.Is(err, modelerrors.NotFound) {
-		err = coreerrors.NotFound
-	}
-	if err != nil {
-		return cloudspec.CloudSpec{}, errors.Capture(err)
-	}
-	info, err := modelSt.GetModelInfo(ctx, s.modelUUID)
+	cloudName, cloudRegion, credKey, err := modelSt.GetModelCloudRegionAndCredential(ctx, s.modelUUID)
 	if errors.Is(err, modelerrors.NotFound) {
 		err = coreerrors.NotFound
 	}
@@ -166,5 +159,5 @@ func (s *StubService) CloudSpec(ctx context.Context) (cloudspec.CloudSpec, error
 		c := jujucloud.NewCredential(jujucloud.AuthType(cred.AuthType), cred.Attributes)
 		cloudCred = &c
 	}
-	return cloudspec.MakeCloudSpec(*cld, info.CloudRegion, cloudCred)
+	return cloudspec.MakeCloudSpec(*cld, cloudRegion, cloudCred)
 }

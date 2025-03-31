@@ -89,6 +89,8 @@ type ModelResourcesProvider interface {
 	CreateModelResources(context.Context, environs.CreateParams) error
 }
 
+// CloudInfoProvider instances provide a means to get
+// the API version of the underlying cloud.
 type CloudInfoProvider interface {
 	// APIVersion returns the version info for provider's cloud.
 	APIVersion() (string, error)

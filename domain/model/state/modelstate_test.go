@@ -9,10 +9,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/constraints"
@@ -547,5 +549,48 @@ func (s *modelSuite) TestGetModelCloudTypeNotFound(c *gc.C) {
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
 	_, err := state.GetModelCloudType(context.Background())
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *modelSuite) TestGetModelCloudRegionAndCredential(c *gc.C) {
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	uuid := modeltesting.GenModelUUID(c)
+	cloudType := "ec2"
+	args := model.ModelDetailArgs{
+		UUID:            uuid,
+		AgentVersion:    jujuversion.Current,
+		ControllerUUID:  s.controllerUUID,
+		Name:            "mymodel",
+		Type:            coremodel.IAAS,
+		Cloud:           "aws",
+		CloudType:       cloudType,
+		CloudRegion:     "myregion",
+		CredentialOwner: usertesting.GenNewName(c, "myowner"),
+		CredentialName:  "mycredential",
+	}
+	err := state.Create(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	owner, err := user.NewName("myowner")
+	c.Assert(err, jc.ErrorIsNil)
+	cloud, region, key, err := state.GetModelCloudRegionAndCredential(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cloud, gc.Equals, "aws")
+	c.Check(region, gc.Equals, "myregion")
+	c.Check(key, jc.DeepEquals, credential.Key{
+		Name:  "mycredential",
+		Cloud: "aws",
+		Owner: owner,
+	})
+}
+
+func (s *modelSuite) TestGetModelCloudRegionAndCredentialNotFound(c *gc.C) {
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	uuid := modeltesting.GenModelUUID(c)
+	_, _, _, err := state.GetModelCloudRegionAndCredential(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }

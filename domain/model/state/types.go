@@ -335,6 +335,13 @@ type dbCloudCredential struct {
 	CredentialCloudName string         `db:"cloud_credential_cloud_name"`
 }
 
+type dbModelCloudRegionCredential struct {
+	CloudName           string         `db:"cloud"`
+	CloudRegionName     string         `db:"cloud_region"`
+	CredentialName      sql.NullString `db:"credential_name"`
+	CredentialOwnerName sql.NullString `db:"credential_owner"`
+}
+
 type dbCloudRegionUUID struct {
 	CloudRegionUUID string `db:"uuid"`
 }
