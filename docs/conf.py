@@ -120,6 +120,8 @@ html_context = {
     "github_url": "https://github.com/juju/juju",
     # Docs branch in the repo; used in links for viewing the source files
     'github_version': 'main',
+    # Your documentation GitHub issues URL
+     "github_issues": "https://github.com/juju/juju/issues",
     # Docs location in the repo; used in links for viewing the source files
     "github_folder": "/docs/",
 }
