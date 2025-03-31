@@ -165,3 +165,7 @@ func (*unitNameSuite) TestNumber(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitName.Number(), gc.Equals, 666)
 }
+
+func (*unitNameSuite) TestNumberInvalidName(c *gc.C) {
+	c.Assert(Name("").Number(), gc.Equals, -1)
+}

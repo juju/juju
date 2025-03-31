@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -22,6 +23,10 @@ func Register(registry facade.FacadeRegistry) {
 // newStateFacade provides the signature required for facade registration.
 func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 	authorizer := ctx.Auth()
+	if !authorizer.AuthApplicationAgent() && !authorizer.AuthUnitAgent() {
+		return nil, apiservererrors.ErrPerm
+	}
+
 	resources := ctx.Resources()
 
 	domainServices := ctx.DomainServices()
@@ -43,5 +48,5 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		applicationService,
 		domainServices.Agent(),
 		ctx.Logger().Child("caasapplication"),
-	)
+	), nil
 }

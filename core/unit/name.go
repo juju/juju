@@ -79,7 +79,7 @@ func (n Name) Application() string {
 }
 
 // Number returns the unit number.
-// The name must be valid.
+// The name must be valid, else -1 will be returned.
 func (n Name) Number() int {
 	s := validUnit.FindStringSubmatch(n.String())
 	if s == nil {

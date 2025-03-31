@@ -171,38 +171,31 @@ func (s *ProviderService) RegisterCAASUnit(
 	registerArgs := application.RegisterCAASUnitArg{
 		ProviderID:       params.ProviderID,
 		StorageParentDir: application.StorageParentDir,
-		PasswordHash:     s.passwordHash(pass),
+		PasswordHash:     password.AgentPasswordHash(pass),
 	}
 
 	// We don't support anything other that statefulsets.
-	// It's hard coded here until other deployment types are supported.
-	deploymentType := caas.DeploymentStateful
+	// So the pod name contains the unit number.
 	appName := params.ApplicationName
-
-	var unitName coreunit.Name
-	switch deploymentType {
-	case caas.DeploymentStateful:
-		splitPodName := strings.Split(params.ProviderID, "-")
-		ord, err := strconv.Atoi(splitPodName[len(splitPodName)-1])
-		if err != nil {
-			return "", "", errors.Capture(err)
-		}
-		if unitName, err = coreunit.NewNameFromParts(appName, ord); err != nil {
-			return "", "", errors.Capture(err)
-		}
-		registerArgs.UnitName = unitName
-		registerArgs.OrderedId = ord
-		registerArgs.OrderedScale = true
-	default:
-		return "", "", errors.Errorf("deployment type %q %w", deploymentType, coreerrors.NotSupported)
+	splitPodName := strings.Split(params.ProviderID, "-")
+	ord, err := strconv.Atoi(splitPodName[len(splitPodName)-1])
+	if err != nil {
+		return "", "", errors.Capture(err)
 	}
+	unitName, err := coreunit.NewNameFromParts(appName, ord)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+	registerArgs.UnitName = unitName
+	registerArgs.OrderedId = ord
+	registerArgs.OrderedScale = true
 
 	// Find the pod/unit in the provider.
-	k8sBroker, err := s.k8sBroker(ctx)
+	caasApplicationProvider, err := s.caasApplicationProvider(ctx)
 	if err != nil {
 		return "", "", errors.Errorf("registering k8s units for application %q: %w", appName, err)
 	}
-	caasApp := k8sBroker.Application(appName, caas.DeploymentStateful)
+	caasApp := caasApplicationProvider.Application(appName, caas.DeploymentStateful)
 	pods, err := caasApp.Units()
 	if err != nil {
 		return "", "", errors.Errorf("finding k8s units for application %q: %w", appName, err)
@@ -446,38 +439,28 @@ func (s *ProviderService) CAASUnitTerminating(ctx context.Context, unitNameStr s
 	appName := unitName.Application()
 	unitNum := unitName.Number()
 
-	k8sBroker, err := s.k8sBroker(ctx)
+	caasApplicationProvider, err := s.caasApplicationProvider(ctx)
 	if err != nil {
 		return false, errors.Errorf("terminating k8s unit %s/%q: %w", appName, unitNum, err)
 	}
 
-	// TODO(sidecar): handle deployment other than statefulset
-	deploymentType := caas.DeploymentStateful
+	// We currently only support statefulset.
 	restart := true
-
-	switch deploymentType {
-	case caas.DeploymentStateful:
-		caasApp := k8sBroker.Application(appName, caas.DeploymentStateful)
-		appState, err := caasApp.State()
-		if err != nil {
-			return false, errors.Capture(err)
-		}
-		appID, err := s.st.GetApplicationIDByName(ctx, appName)
-		if err != nil {
-			return false, errors.Capture(err)
-		}
-		scaleInfo, err := s.st.GetApplicationScaleState(ctx, appID)
-		if err != nil {
-			return false, errors.Capture(err)
-		}
-		if unitNum >= scaleInfo.Scale || unitNum >= appState.DesiredReplicas {
-			restart = false
-		}
-	case caas.DeploymentStateless, caas.DeploymentDaemon:
-		// Both handled the same way.
-		restart = true
-	default:
-		return false, errors.Errorf("unknown deployment type %w", coreerrors.NotSupported)
+	caasApp := caasApplicationProvider.Application(appName, caas.DeploymentStateful)
+	appState, err := caasApp.State()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	scaleInfo, err := s.st.GetApplicationScaleState(ctx, appID)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	if unitNum >= scaleInfo.Scale || unitNum >= appState.DesiredReplicas {
+		restart = false
 	}
 	return restart, nil
 }

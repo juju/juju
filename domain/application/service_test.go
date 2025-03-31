@@ -44,9 +44,9 @@ import (
 type serviceSuite struct {
 	testing.ModelSuite
 
-	svc         *service.ProviderService
-	k8sBroker   *application.MockBroker
-	secretState *secretstate.State
+	svc                     *service.ProviderService
+	caasApplicationProvider *application.MockBroker
+	secretState             *secretstate.State
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -73,10 +73,9 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 		func(ctx context.Context) (service.SupportedFeatureProvider, error) {
 			return serviceProvider{}, nil
 		},
-		func(ctx context.Context) (service.KubernetesBroker, error) {
-			return s.k8sBroker, nil
+		func(ctx context.Context) (service.CAASApplicationProvider, error) {
+			return s.caasApplicationProvider, nil
 		},
-		func(pw string) string { return "secret" },
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
@@ -597,8 +596,8 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumLessThanScale(c *gc.C) {
 	app.EXPECT().State().Return(caas.ApplicationState{
 		DesiredReplicas: 6,
 	}, nil)
-	s.k8sBroker = application.NewMockBroker(ctrl)
-	s.k8sBroker.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+	s.caasApplicationProvider = application.NewMockBroker(ctrl)
+	s.caasApplicationProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(willRestart, jc.IsTrue)
@@ -617,8 +616,8 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanScale(c *gc.C) {
 	app.EXPECT().State().Return(caas.ApplicationState{
 		DesiredReplicas: 6,
 	}, nil)
-	s.k8sBroker = application.NewMockBroker(ctrl)
-	s.k8sBroker.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+	s.caasApplicationProvider = application.NewMockBroker(ctrl)
+	s.caasApplicationProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo/666")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(willRestart, jc.IsFalse)
@@ -639,7 +638,7 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNotAlive(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.k8sBroker = application.NewMockBroker(ctrl)
+	s.caasApplicationProvider = application.NewMockBroker(ctrl)
 	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo/666")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(willRestart, jc.IsFalse)
@@ -664,8 +663,8 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumLessThanDesired(c *gc.C) {
 	app.EXPECT().State().Return(caas.ApplicationState{
 		DesiredReplicas: 6,
 	}, nil)
-	s.k8sBroker = application.NewMockBroker(ctrl)
-	s.k8sBroker.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+	s.caasApplicationProvider = application.NewMockBroker(ctrl)
+	s.caasApplicationProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 	err := s.svc.SetApplicationScalingState(context.Background(), "foo", 6, false)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -693,8 +692,8 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanDesired(c *gc.C)
 	app.EXPECT().State().Return(caas.ApplicationState{
 		DesiredReplicas: 1,
 	}, nil)
-	s.k8sBroker = application.NewMockBroker(ctrl)
-	s.k8sBroker.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+	s.caasApplicationProvider = application.NewMockBroker(ctrl)
+	s.caasApplicationProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 	err := s.svc.SetApplicationScalingState(context.Background(), "foo", 6, false)
 	c.Assert(err, jc.ErrorIsNil)
 

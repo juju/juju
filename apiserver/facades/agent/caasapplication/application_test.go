@@ -68,7 +68,7 @@ func (s *CAASApplicationSuite) setupMocks(c *gc.C, authTag string) *gomock.Contr
 	s.modelAgentService = caasapplication.NewMockModelAgentService(ctrl)
 	s.controllerState = caasapplication.NewMockControllerState(ctrl)
 
-	s.facade, err = caasapplication.NewFacade(s.resources, s.authorizer, s.controllerState,
+	s.facade = caasapplication.NewFacade(s.resources, s.authorizer, s.controllerState,
 		coretesting.ControllerTag.Id(), s.modelUUID,
 		s.controllerConfigService, s.applicationService, s.modelAgentService, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)

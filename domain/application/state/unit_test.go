@@ -307,12 +307,12 @@ JOIN unit u ON u.uuid = cc.unit_uuid WHERE u.name = ?
 		return rows.Err()
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotPasswordHash, gc.Equals, passwordHash)
-	c.Assert(gotAddress, gc.Equals, addressValue)
-	c.Assert(gotAddressType, gc.Equals, ipaddress.AddressTypeIPv4)
-	c.Assert(gotAddressScope, gc.Equals, ipaddress.ScopeMachineLocal)
-	c.Assert(gotAddressOrigin, gc.Equals, ipaddress.OriginProvider)
-	c.Assert(gotPorts, jc.DeepEquals, ports)
+	c.Check(gotPasswordHash, gc.Equals, passwordHash)
+	c.Check(gotAddress, gc.Equals, addressValue)
+	c.Check(gotAddressType, gc.Equals, ipaddress.AddressTypeIPv4)
+	c.Check(gotAddressScope, gc.Equals, ipaddress.ScopeMachineLocal)
+	c.Check(gotAddressOrigin, gc.Equals, ipaddress.OriginProvider)
+	c.Check(gotPorts, jc.DeepEquals, ports)
 }
 
 func (s *unitStateSuite) TestRegisterCAASUnitAlreadyExists(c *gc.C) {

@@ -713,7 +713,7 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 	notSupportedFeatureProviderGetter := func(ctx context.Context) (service.SupportedFeatureProvider, error) {
 		return nil, coreerrors.NotSupported
 	}
-	notSupportedK8sBrokerGetter := func(ctx context.Context) (service.KubernetesBroker, error) {
+	notSupportedCAASApplicationproviderGetter := func(ctx context.Context) (service.CAASApplicationProvider, error) {
 		return nil, coreerrors.NotSupported
 	}
 
@@ -726,7 +726,7 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 		"",
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		nil, notSupportedProviderGetter,
-		notSupportedFeatureProviderGetter, notSupportedK8sBrokerGetter, nil,
+		notSupportedFeatureProviderGetter, notSupportedCAASApplicationproviderGetter, nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),

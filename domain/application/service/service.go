@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/environs"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -113,9 +112,9 @@ type SupportedFeatureProvider interface {
 	environs.SupportedFeatureEnumerator
 }
 
-// KubernetesBroker contains methods from the caas.Broker interface
+// CAASApplicationProvider contains methods from the caas.Broker interface
 // used by the application provider service.
-type KubernetesBroker interface {
+type CAASApplicationProvider interface {
 	Application(string, caas.DeploymentType) caas.Application
 }
 
@@ -169,7 +168,7 @@ func NewWatchableService(
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider],
-	k8sbroker providertracker.ProviderGetter[KubernetesBroker],
+	caasApplicationProvider providertracker.ProviderGetter[CAASApplicationProvider],
 	charmStore CharmStore,
 	statusHistory StatusHistory,
 	clock clock.Clock,
@@ -184,8 +183,7 @@ func NewWatchableService(
 			agentVersionGetter,
 			provider,
 			supportedFeatureProvider,
-			k8sbroker,
-			password.AgentPasswordHash,
+			caasApplicationProvider,
 			charmStore,
 			statusHistory,
 			clock,

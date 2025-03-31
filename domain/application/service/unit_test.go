@@ -5,9 +5,11 @@ package service
 
 import (
 	"context"
+	"reflect"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -67,6 +69,27 @@ func (s *unitServiceSuite) TestGetUnitUUIDErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
+type registerArgMatcher struct {
+	c   *gc.C
+	arg application.RegisterCAASUnitArg
+}
+
+func (m registerArgMatcher) Matches(x interface{}) bool {
+	obtained, ok := x.(application.RegisterCAASUnitArg)
+	if !ok {
+		return false
+	}
+
+	m.c.Assert(obtained.PasswordHash, gc.Not(gc.Equals), "")
+	obtained.PasswordHash = ""
+	m.arg.PasswordHash = ""
+	return reflect.DeepEqual(obtained, m.arg)
+}
+
+func (m registerArgMatcher) String() string {
+	return pretty.Sprint(m.arg)
+}
+
 func (s *unitServiceSuite) TestRegisterCAASUnit(c *gc.C) {
 	ctrl := s.setupMocksWithProvider(c,
 		func(ctx context.Context) (Provider, error) {
@@ -75,8 +98,8 @@ func (s *unitServiceSuite) TestRegisterCAASUnit(c *gc.C) {
 		func(ctx context.Context) (SupportedFeatureProvider, error) {
 			return s.supportedFeaturesProvider, nil
 		},
-		func(ctx context.Context) (KubernetesBroker, error) {
-			return s.k8sBroker, nil
+		func(ctx context.Context) (CAASApplicationProvider, error) {
+			return s.caasApplicationProvider, nil
 		})
 	defer ctrl.Finish()
 
@@ -89,7 +112,7 @@ func (s *unitServiceSuite) TestRegisterCAASUnit(c *gc.C) {
 			Volume: caas.VolumeInfo{VolumeId: "vol-666"},
 		}},
 	}}, nil)
-	s.k8sBroker.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+	s.caasApplicationProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 
 	arg := application.RegisterCAASUnitArg{
 		UnitName:                  "foo/666",
@@ -102,7 +125,7 @@ func (s *unitServiceSuite) TestRegisterCAASUnit(c *gc.C) {
 		StorageParentDir:          application.StorageParentDir,
 		ObservedAttachedVolumeIDs: []string{"vol-666"},
 	}
-	s.state.EXPECT().RegisterCAASUnit(gomock.Any(), "foo", arg)
+	s.state.EXPECT().RegisterCAASUnit(gomock.Any(), "foo", registerArgMatcher{arg: arg})
 
 	p := application.RegisterCAASUnitParams{
 		ApplicationName: "foo",
@@ -132,14 +155,14 @@ func (s *unitServiceSuite) TestRegisterCAASUnitApplicationNoPods(c *gc.C) {
 		func(ctx context.Context) (SupportedFeatureProvider, error) {
 			return s.supportedFeaturesProvider, nil
 		},
-		func(ctx context.Context) (KubernetesBroker, error) {
-			return s.k8sBroker, nil
+		func(ctx context.Context) (CAASApplicationProvider, error) {
+			return s.caasApplicationProvider, nil
 		})
 	defer ctrl.Finish()
 
 	app := NewMockApplication(ctrl)
 	app.EXPECT().Units().Return([]caas.Unit{}, nil)
-	s.k8sBroker.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+	s.caasApplicationProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 
 	p := application.RegisterCAASUnitParams{
 		ApplicationName: "foo",

@@ -3761,31 +3761,31 @@ func (c *MockSupportedFeatureProviderSupportedFeaturesCall) DoAndReturn(f func()
 	return c
 }
 
-// MockKubernetesBroker is a mock of KubernetesBroker interface.
-type MockKubernetesBroker struct {
+// MockCAASApplicationProvider is a mock of CAASApplicationProvider interface.
+type MockCAASApplicationProvider struct {
 	ctrl     *gomock.Controller
-	recorder *MockKubernetesBrokerMockRecorder
+	recorder *MockCAASApplicationProviderMockRecorder
 }
 
-// MockKubernetesBrokerMockRecorder is the mock recorder for MockKubernetesBroker.
-type MockKubernetesBrokerMockRecorder struct {
-	mock *MockKubernetesBroker
+// MockCAASApplicationProviderMockRecorder is the mock recorder for MockCAASApplicationProvider.
+type MockCAASApplicationProviderMockRecorder struct {
+	mock *MockCAASApplicationProvider
 }
 
-// NewMockKubernetesBroker creates a new mock instance.
-func NewMockKubernetesBroker(ctrl *gomock.Controller) *MockKubernetesBroker {
-	mock := &MockKubernetesBroker{ctrl: ctrl}
-	mock.recorder = &MockKubernetesBrokerMockRecorder{mock}
+// NewMockCAASApplicationProvider creates a new mock instance.
+func NewMockCAASApplicationProvider(ctrl *gomock.Controller) *MockCAASApplicationProvider {
+	mock := &MockCAASApplicationProvider{ctrl: ctrl}
+	mock.recorder = &MockCAASApplicationProviderMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockKubernetesBroker) EXPECT() *MockKubernetesBrokerMockRecorder {
+func (m *MockCAASApplicationProvider) EXPECT() *MockCAASApplicationProviderMockRecorder {
 	return m.recorder
 }
 
 // Application mocks base method.
-func (m *MockKubernetesBroker) Application(arg0 string, arg1 caas.DeploymentType) caas.Application {
+func (m *MockCAASApplicationProvider) Application(arg0 string, arg1 caas.DeploymentType) caas.Application {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Application", arg0, arg1)
 	ret0, _ := ret[0].(caas.Application)
@@ -3793,31 +3793,31 @@ func (m *MockKubernetesBroker) Application(arg0 string, arg1 caas.DeploymentType
 }
 
 // Application indicates an expected call of Application.
-func (mr *MockKubernetesBrokerMockRecorder) Application(arg0, arg1 any) *MockKubernetesBrokerApplicationCall {
+func (mr *MockCAASApplicationProviderMockRecorder) Application(arg0, arg1 any) *MockCAASApplicationProviderApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockKubernetesBroker)(nil).Application), arg0, arg1)
-	return &MockKubernetesBrokerApplicationCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockCAASApplicationProvider)(nil).Application), arg0, arg1)
+	return &MockCAASApplicationProviderApplicationCall{Call: call}
 }
 
-// MockKubernetesBrokerApplicationCall wrap *gomock.Call
-type MockKubernetesBrokerApplicationCall struct {
+// MockCAASApplicationProviderApplicationCall wrap *gomock.Call
+type MockCAASApplicationProviderApplicationCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockKubernetesBrokerApplicationCall) Return(arg0 caas.Application) *MockKubernetesBrokerApplicationCall {
+func (c *MockCAASApplicationProviderApplicationCall) Return(arg0 caas.Application) *MockCAASApplicationProviderApplicationCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockKubernetesBrokerApplicationCall) Do(f func(string, caas.DeploymentType) caas.Application) *MockKubernetesBrokerApplicationCall {
+func (c *MockCAASApplicationProviderApplicationCall) Do(f func(string, caas.DeploymentType) caas.Application) *MockCAASApplicationProviderApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockKubernetesBrokerApplicationCall) DoAndReturn(f func(string, caas.DeploymentType) caas.Application) *MockKubernetesBrokerApplicationCall {
+func (c *MockCAASApplicationProviderApplicationCall) DoAndReturn(f func(string, caas.DeploymentType) caas.Application) *MockCAASApplicationProviderApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

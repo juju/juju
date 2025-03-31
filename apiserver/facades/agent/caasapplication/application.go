@@ -70,10 +70,7 @@ func NewFacade(
 	applicationService ApplicationService,
 	modelAgentService ModelAgentService,
 	logger logger.Logger,
-) (*Facade, error) {
-	if !authorizer.AuthApplicationAgent() && !authorizer.AuthUnitAgent() {
-		return nil, apiservererrors.ErrPerm
-	}
+) *Facade {
 	return &Facade{
 		auth:                    authorizer,
 		resources:               resources,
@@ -84,10 +81,10 @@ func NewFacade(
 		applicationService:      applicationService,
 		modelAgentService:       modelAgentService,
 		logger:                  logger,
-	}, nil
+	}
 }
 
-// UnitIntroduction sets the status of each given entity.
+// UnitIntroduction sets the status of each given unit.
 func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntroductionArgs) (params.CAASUnitIntroductionResult, error) {
 	tag, ok := f.auth.GetAuthTag().(names.ApplicationTag)
 	if !ok {
