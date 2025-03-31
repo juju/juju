@@ -77,4 +77,4 @@ constructive feedback.
   or [GitHub](https://github.com/juju/docs/issues) (for docs)
 * Contribute to the code or the docs on [GitHub](https://github.com/juju/juju/blob/develop/CONTRIBUTING.md)
 * Visit the [Juju careers page](https://juju.is/careers)
-* Read our [Juju contributor docs](./contributor/)
+* Read our [Juju contributor docs](./contributor/index)
