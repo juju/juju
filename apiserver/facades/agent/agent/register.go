@@ -7,6 +7,9 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/juju/names/v6"
+
+	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -26,8 +29,11 @@ func NewAgentAPIV3(ctx facade.ModelContext) (*AgentAPI, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
+	authFunc := common.AuthFuncForTag(names.NewModelTag(string(ctx.ModelUUID())))
+
 	return NewAgentAPI(
 		ctx.Auth(),
+		authFunc,
 		ctx.Resources(),
 		ctx.State(),
 		ctx.DomainServices().ControllerConfig(),
@@ -38,5 +44,5 @@ func NewAgentAPIV3(ctx facade.ModelContext) (*AgentAPI, error) {
 		ctx.DomainServices().Config(),
 		ctx.DomainServices().Application(),
 		ctx.WatcherRegistry(),
-	)
+	), nil
 }

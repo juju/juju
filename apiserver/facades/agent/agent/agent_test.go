@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
 	ttesting "github.com/juju/juju/internal/testing"
@@ -74,9 +75,11 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	s.store = testing.NewObjectStore(c, s.ControllerModelUUID())
 }
 
-func (s *agentSuite) agentAPI(c *gc.C, auth facade.Authorizer, credentialService agent.CredentialService) (*agent.AgentAPI, error) {
+func (s *agentSuite) agentAPI(c *gc.C, auth facade.Authorizer, credentialService agent.CredentialService) *agent.AgentAPI {
+	modelUUID := modeltesting.GenModelUUID(c)
 	return agent.NewAgentAPI(
 		auth,
+		common.AuthFuncForTag(names.NewModelTag(modelUUID.String())),
 		s.resources,
 		s.ControllerModel(c).State(),
 		nil,
@@ -103,8 +106,7 @@ func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
 func (s *agentSuite) TestAgentSucceedsWithUnitAgent(c *gc.C) {
 	auth := s.authorizer
 	auth.Tag = names.NewUnitTag("foosball/1")
-	_, err := s.agentAPI(c, auth, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	s.agentAPI(c, auth, nil)
 }
 
 func (s *agentSuite) TestGetEntities(c *gc.C) {
@@ -118,8 +120,7 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 			{Tag: "machine-42"},
 		},
 	}
-	api, err := s.agentAPI(c, s.authorizer, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	api := s.agentAPI(c, s.authorizer, nil)
 	results := api.GetEntities(context.Background(), args)
 	c.Assert(results, gc.DeepEquals, params.AgentGetEntitiesResults{
 		Entities: []params.AgentGetEntitiesResult{
@@ -140,8 +141,7 @@ func (s *agentSuite) TestGetEntitiesContainer(c *gc.C) {
 	err := s.container.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 
-	api, err := s.agentAPI(c, auth, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	api := s.agentAPI(c, auth, nil)
 	args := params.Entities{
 		Entities: []params.Entity{
 			{Tag: "machine-1"},
@@ -181,8 +181,7 @@ func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 	err = s.machine1.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	api, err := s.agentAPI(c, s.authorizer, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	api := s.agentAPI(c, s.authorizer, nil)
 	results := api.GetEntities(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "machine-1"}},
 	})
@@ -198,8 +197,7 @@ func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 }
 
 func (s *agentSuite) TestSetPasswords(c *gc.C) {
-	api, err := s.agentAPI(c, s.authorizer, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	api := s.agentAPI(c, s.authorizer, nil)
 	results, err := api.SetPasswords(
 		context.Background(),
 		params.EntityPasswords{
@@ -225,8 +223,7 @@ func (s *agentSuite) TestSetPasswords(c *gc.C) {
 }
 
 func (s *agentSuite) TestSetPasswordsShort(c *gc.C) {
-	api, err := s.agentAPI(c, s.authorizer, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	api := s.agentAPI(c, s.authorizer, nil)
 	results, err := api.SetPasswords(
 		context.Background(),
 		params.EntityPasswords{
@@ -258,8 +255,7 @@ func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 
 	nw := watchertest.NewMockNotifyWatcher(ch)
 	credentialService.EXPECT().WatchCredential(gomock.Any(), credential.KeyFromTag(tag)).Return(nw, nil)
-	api, err := s.agentAPI(c, authorizer, credentialService)
-	c.Assert(err, jc.ErrorIsNil)
+	api := s.agentAPI(c, authorizer, credentialService)
 	result, err := api.WatchCredentials(context.Background(), params.Entities{Entities: []params.Entity{{Tag: tag.String()}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{NotifyWatcherId: "1", Error: nil}}})
@@ -289,9 +285,8 @@ func (s *agentSuite) TestWatchAuthError(c *gc.C) {
 	defer ctrl.Finish()
 	credentialService := NewMockCredentialService(ctrl)
 
-	api, err := s.agentAPI(c, authorizer, credentialService)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = api.WatchCredentials(context.Background(), params.Entities{})
+	api := s.agentAPI(c, authorizer, credentialService)
+	_, err := api.WatchCredentials(context.Background(), params.Entities{})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 }
