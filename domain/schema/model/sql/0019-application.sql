@@ -279,3 +279,18 @@ SELECT
     a.application_uuid
 FROM application_endpoint AS a
 JOIN charm_relation AS c ON a.charm_relation_uuid = c.uuid;
+
+-- v_application_subordinate provides an application, whether its charm is a
+-- subordinate, and a relation_uuid if it exists. It's possible the application
+-- is in zero or multiple relations.
+CREATE VIEW v_application_subordinate AS
+SELECT
+    a.uuid AS application_uuid,
+    cm.subordinate,
+    re.relation_uuid
+FROM application AS a
+JOIN charm AS c ON a.charm_uuid = c.uuid
+JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid
+JOIN charm_relation AS cr ON c.uuid = cr.charm_uuid
+JOIN application_endpoint AS ae ON cr.uuid = ae.charm_relation_uuid
+JOIN relation_endpoint AS re ON ae.uuid = re.endpoint_uuid;
