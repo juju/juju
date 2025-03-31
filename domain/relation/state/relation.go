@@ -11,6 +11,7 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
+	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/application"
 	corebase "github.com/juju/juju/core/base"
@@ -21,6 +22,7 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -185,6 +187,113 @@ func (st *State) GetAllRelationDetails(ctx context.Context) ([]relation.Relation
 	return relationsDetails, errors.Capture(err)
 }
 
+// GetOtherRelatedEndpointApplicationData returns an OtherApplicationForWatcher struct
+// for each Endpoint in a relation with the given application ID.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.ApplicationNotFound] is returned if application ID
+//     is not used in any relations or if the other relation applications
+//     are not found.
+func (st *State) GetOtherRelatedEndpointApplicationData(
+	ctx context.Context,
+	applicationID application.ID,
+) ([]relation.OtherApplicationForWatcher, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	otherApps := []otherApplicationsForWatcher{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Find all applications in a relation with the given application.
+		getOtherApps, err := st.getOtherApplicationInRelations(ctx, tx, applicationID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		// For all applications, determine if it is a subordinate.
+		otherApps, err = st.getApplicationSubordinate(ctx, tx, getOtherApps)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	results := make([]relation.OtherApplicationForWatcher, len(otherApps))
+	for i, oneApp := range otherApps {
+		results[i] = relation.OtherApplicationForWatcher{
+			ApplicationID: oneApp.AppID,
+			Subordinate:   oneApp.Subordinate,
+		}
+	}
+
+	return results, nil
+}
+
+// getOtherApplicationInRelations returns a slice of applications ID
+// in the given relations which are not the given application ID.
+func (st *State) getOtherApplicationInRelations(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appID application.ID,
+) ([]applicationID, error) {
+
+	findOtherEndsStmt, err := st.Prepare(`
+SELECT other.application_uuid AS &applicationID.uuid
+FROM   v_application_subordinate AS app
+JOIN   v_application_subordinate AS other ON app.relation_uuid = other.relation_uuid
+WHERE  app.application_uuid = $applicationID.uuid
+AND    other.application_uuid != $applicationID.uuid
+`, applicationID{})
+	if err != nil {
+		return nil, errors.Errorf("preparing other endpoint query: %w", err)
+	}
+
+	app := applicationID{ID: appID}
+	otherApps := []applicationID{}
+
+	err = tx.Query(ctx, findOtherEndsStmt, app).GetAll(&otherApps)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return otherApps, nil
+}
+
+// getApplicationSubordinate returns a otherApplicationsForWatcher structure
+// for each given application ID.
+func (st *State) getApplicationSubordinate(
+	ctx context.Context,
+	tx *sqlair.TX,
+	apps []applicationID,
+) ([]otherApplicationsForWatcher, error) {
+
+	appSubordinateStmt, err := st.Prepare(`
+SELECT application_uuid AS &otherApplicationsForWatcher.application_uuid,
+       subordinate AS &otherApplicationsForWatcher.subordinate
+FROM   v_application_subordinate
+WHERE  application_uuid = ($uuids[:])
+`, otherApplicationsForWatcher{}, uuids{})
+	if err != nil {
+		return nil, errors.Errorf("preparing other application query: %w", err)
+	}
+
+	appIDs := uuids{}
+	for _, uuid := range apps {
+		appIDs = append(appIDs, uuid.ID.String())
+	}
+	otherApps := []otherApplicationsForWatcher{}
+	err = tx.Query(ctx, appSubordinateStmt, appIDs).GetAll(&otherApps)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return otherApps, nil
+}
+
 // GetRelationID returns the relation ID for the given relation UUID.
 //
 // The following error types can be expected to be returned:
@@ -257,6 +366,59 @@ WHERE  relation_id = $relationIDAndUUID.relation_id
 	}
 
 	return id.UUID, nil
+}
+
+// GetRelationEndpointScope returns the scope of the relation endpoint
+// at the intersection of the relationUUID and applicationID.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+//     relating to the relation ID cannot be found.
+func (st *State) GetRelationEndpointScope(
+	ctx context.Context,
+	relUUID corerelation.UUID,
+	appID application.ID,
+) (charm.RelationScope, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	type scope struct {
+		Scope charm.RelationScope `db:"name"`
+	}
+
+	stmt, err := st.Prepare(`
+SELECT  scope AS &scope.name
+FROM    v_relation_endpoint
+WHERE   relation_uuid = $relationUUID.uuid
+AND     application_uuid = $applicationID.uuid
+`, scope{}, applicationID{}, relationUUID{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	rel := relationUUID{
+		UUID: relUUID,
+	}
+	app := applicationID{ID: appID}
+	var output scope
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Check if the relation exists.
+		relationFound, err := checkExistsByUUID(ctx, st, tx, "relation", relUUID.String())
+		if err != nil {
+			return errors.Capture(err)
+		} else if !relationFound {
+			return relationerrors.RelationNotFound
+		}
+
+		return tx.Query(ctx, stmt, rel, app).Get(&output)
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return output.Scope, nil
 }
 
 // GetRelationEndpointUUID retrieves the endpoint UUID of a given relation
@@ -442,6 +604,8 @@ WHERE  relation_uuid = $relationUUID.uuid
 	err = tx.Query(ctx, stmt, id).GetAll(&endpoints)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return nil, relationerrors.RelationNotFound
+	} else if err != nil {
+		return nil, errors.Capture(err)
 	}
 
 	if length := len(endpoints); length > 2 {
@@ -1039,10 +1203,124 @@ ON CONFLICT (relation_uuid, unit_uuid) DO UPDATE SET
 	return tx.Query(ctx, insertStmt, insertRelationUnit).Run()
 }
 
+// InitialWatchLifeSuspendedStatus returns the two tables to watch for
+// a relation's Life and Suspended status when the relation contains
+// the provided application and the initial namespace query.
+func (st *State) InitialWatchLifeSuspendedStatus(id application.ID) (string, string, eventsource.NamespaceQuery) {
+	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
+		stmt, err := st.Prepare(`
+SELECT  re.relation_uuid AS &relationUUID.uuid
+FROM    relation_endpoint re
+JOIN    application_endpoint ae ON ae.uuid = re.endpoint_uuid
+WHERE   ae.application_uuid = $applicationID.ID
+`, applicationID{})
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+
+		appID := applicationID{ID: id}
+
+		var results []relationUUID
+		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			err := tx.Query(ctx, stmt, appID).GetAll(&results)
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return nil
+			}
+			return errors.Capture(err)
+		})
+		if err != nil {
+			return nil, errors.Errorf("querying requested applications that have pending charms: %w", err)
+		}
+
+		return transform.Slice(results, func(r relationUUID) string { return r.UUID.String() }), nil
+	}
+
+	return "relation", "relation_status", queryFunc
+}
+
 // WatcherApplicationSettingsNamespace returns the namespace string used for
 // tracking application settings in the database.
 func (st *State) WatcherApplicationSettingsNamespace() string {
 	return "relation_application_setting"
+}
+
+// GetMapperDataForWatchLifeSuspendedStatus returns data needed to evaluate a relation
+// uuid as part of WatchLifeSuspendedStatus eventmapper.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.ApplicationNotFoundForRelation] is returned if the
+//     application is not part of the relation.
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+//     is not found.
+func (st *State) GetMapperDataForWatchLifeSuspendedStatus(
+	ctx context.Context,
+	relUUID corerelation.UUID,
+	appID application.ID,
+) (relation.RelationLifeSuspendedData, error) {
+	db, err := st.DB()
+	if err != nil {
+		return relation.RelationLifeSuspendedData{}, errors.Capture(err)
+	}
+
+	data := watcherMapperData{
+		RelationUUID: relUUID.String(),
+		AppUUID:      appID.String(),
+	}
+
+	relAppStmt, err := st.Prepare(`
+SELECT  re.relation_uuid AS &watcherMapperData.uuid
+FROM    relation_endpoint re
+JOIN    application_endpoint ae ON ae.uuid = re.endpoint_uuid
+WHERE   ae.application_uuid = $watcherMapperData.application_uuid
+AND     re.relation_uuid = $watcherMapperData.uuid
+`, watcherMapperData{})
+	if err != nil {
+		return relation.RelationLifeSuspendedData{}, errors.Capture(err)
+	}
+
+	lifeStatusStmt, err := st.Prepare(`
+SELECT (rst.name, l.value) AS (&watcherMapperData.*)
+FROM   relation r
+JOIN   life l ON r.life_id = l.id
+JOIN   relation_status rs ON rs.relation_uuid = r.uuid
+JOIN   relation_status_type rst ON rst.id = rs.relation_status_type_id
+WHERE  r.uuid = $watcherMapperData.uuid
+`, watcherMapperData{})
+	if err != nil {
+		return relation.RelationLifeSuspendedData{}, errors.Capture(err)
+	}
+
+	var endpoints []relation.Endpoint
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, relAppStmt, data).Get(&data)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return relationerrors.ApplicationNotFoundForRelation
+		} else if err != nil {
+			return errors.Errorf("verifying relation application intersection: %w", err)
+		}
+
+		err = tx.Query(ctx, lifeStatusStmt, data).Get(&data)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return relationerrors.RelationNotFound
+		} else if err != nil {
+			return errors.Errorf("getting relation life and status: %w", err)
+		}
+
+		endpoints, err = st.getEndpoints(ctx, tx, corerelation.UUID(data.RelationUUID))
+		if err != nil {
+			return errors.Errorf("getting relation endpoints: %w", err)
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return relation.RelationLifeSuspendedData{}, errors.Capture(err)
+	}
+
+	return relation.RelationLifeSuspendedData{
+		Life:      life.Value(data.Life),
+		Suspended: data.Suspended == corestatus.Suspended.String(),
+		Endpoints: endpoints,
+	}, nil
 }
 
 // checkCompatibleBases determines if the bases of two application endpoints

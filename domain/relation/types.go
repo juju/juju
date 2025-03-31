@@ -243,3 +243,19 @@ func (ep Endpoint) EndpointIdentifier() corerelation.EndpointIdentifier {
 		Role:            ep.Role,
 	}
 }
+
+// OtherApplicationForWatcher provides data needed to emit an event from
+// the PrincipalLifeSuspendedStatus watcher on other endpoints in a
+// relation.
+type OtherApplicationForWatcher struct {
+	ApplicationID application.ID
+	Subordinate   bool
+}
+
+// RelationLifeSuspendedData contains the necessary data to notify in
+// WatchLifeSuspendedStatus.
+type RelationLifeSuspendedData struct {
+	Endpoints []Endpoint
+	Life      life.Value
+	Suspended bool
+}
