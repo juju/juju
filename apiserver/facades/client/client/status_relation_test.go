@@ -155,7 +155,6 @@ func (s *relationStatusSuite) TestFetchRelationNoRelation(c *gc.C) {
 
 	// Arrange: No relation
 	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return(nil, nil)
-	s.statusService.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(nil, nil)
 
 	// Act: fetch relation
 	out, outByID, err := fetchRelations(context.Background(), s.relationService, s.statusService)
@@ -184,7 +183,7 @@ func (s *relationStatusSuite) TestFetchRelationAllWithGetRelationError(c *gc.C) 
 	c.Assert(err, jc.ErrorIs, expectedError)
 }
 
-// GetAllRelationStatuses checks the behavior of fetchRelations when
+// TestFetchRelationAllWithGetStatusesError checks the behavior of fetchRelations when
 // AllRelations returns an error, ensuring proper error handling.
 func (s *relationStatusSuite) TestFetchRelationAllWithGetStatusesError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -193,7 +192,9 @@ func (s *relationStatusSuite) TestFetchRelationAllWithGetStatusesError(c *gc.C) 
 	expectedError := errors.New("oh no !")
 
 	// Valid calls
-	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return(nil, nil)
+	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return([]domainrelation.RelationDetailsResult{
+		{}, // doesn't matter
+	}, nil)
 	s.statusService.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(nil, expectedError)
 
 	// Act: fetch relation

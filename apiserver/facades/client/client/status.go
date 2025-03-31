@@ -834,6 +834,15 @@ func fetchRelations(ctx context.Context, relationService RelationService,
 	if err != nil {
 		return nil, nil, internalerrors.Errorf("fetching relations: %w", err)
 	}
+	out := make(map[string][]relationStatus)
+	outById := make(map[int]relationStatus)
+
+	// If there is no details, just return empty maps without error to avoid an
+	// useless call to the status service.
+	if len(details) == 0 {
+		return out, outById, nil
+	}
+
 	statuses, err := statusService.GetAllRelationStatuses(ctx)
 	if err != nil {
 		return nil, nil, internalerrors.Errorf("fetching relation statuses: %w", err)
@@ -842,8 +851,6 @@ func fetchRelations(ctx context.Context, relationService RelationService,
 	if statuses == nil {
 		statuses = make(map[corerelation.UUID]status.StatusInfo)
 	}
-	out := make(map[string][]relationStatus)
-	outById := make(map[int]relationStatus)
 	for _, detail := range details {
 		relStatus, ok := statuses[detail.UUID]
 		if !ok {
