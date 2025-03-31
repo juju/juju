@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/passwords"
+	"github.com/juju/juju/domain/password"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -31,7 +31,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 }
 
 // SetUnitPasswordHash sets the password hash for the given unit.
-func (s *State) SetUnitPasswordHash(ctx context.Context, unitUUID unit.UUID, passwordHash passwords.PasswordHash) error {
+func (s *State) SetUnitPasswordHash(ctx context.Context, unitUUID unit.UUID, passwordHash password.PasswordHash) error {
 	db, err := s.DB()
 	if err != nil {
 		return err
@@ -109,7 +109,7 @@ WHERE name=$unitName.name`, u)
 }
 
 // GetAllUnitPasswordHashes returns a map of unit names to password hashes.
-func (st *State) GetAllUnitPasswordHashes(ctx context.Context) (map[string]map[unit.Name]passwords.PasswordHash, error) {
+func (st *State) GetAllUnitPasswordHashes(ctx context.Context) (map[string]map[unit.Name]password.PasswordHash, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -133,10 +133,10 @@ func (st *State) GetAllUnitPasswordHashes(ctx context.Context) (map[string]map[u
 		return nil, errors.Errorf("getting all unit password hashes: %w", err)
 	}
 
-	ret := make(map[string]map[unit.Name]passwords.PasswordHash)
+	ret := make(map[string]map[unit.Name]password.PasswordHash)
 	for _, r := range results {
 		if _, ok := ret[r.ApplicationName]; !ok {
-			ret[r.ApplicationName] = make(map[unit.Name]passwords.PasswordHash)
+			ret[r.ApplicationName] = make(map[unit.Name]password.PasswordHash)
 		}
 		ret[r.ApplicationName][r.UnitName] = r.PasswordHash
 	}

@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	unit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/passwords"
+	"github.com/juju/juju/domain/password"
 )
 
 type exportSuite struct {
@@ -27,7 +27,7 @@ var _ = gc.Suite(&exportSuite{})
 func (s *exportSuite) TestExportUnitPasswordHashes(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hashes := map[string]map[unit.Name]passwords.PasswordHash{
+	hashes := map[string]map[unit.Name]password.PasswordHash{
 		"foo": {
 			"foo/0": "hash",
 		},
@@ -56,7 +56,7 @@ func (s *exportSuite) TestExportUnitPasswordHashes(c *gc.C) {
 func (s *exportSuite) TestExportUnitPasswordHashesNoPasswords(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hashes := map[string]map[unit.Name]passwords.PasswordHash{}
+	hashes := map[string]map[unit.Name]password.PasswordHash{}
 
 	s.exportService.EXPECT().GetAllUnitPasswordHashes(gomock.Any()).Return(hashes, nil)
 
@@ -81,7 +81,7 @@ func (s *exportSuite) TestExportUnitPasswordHashesNoPasswords(c *gc.C) {
 func (s *exportSuite) TestExportUnitPasswordHashesNoPasswordForUnit(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hashes := map[string]map[unit.Name]passwords.PasswordHash{
+	hashes := map[string]map[unit.Name]password.PasswordHash{
 		"foo": {
 			"foo/1": "hash",
 		},

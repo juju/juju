@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationstate "github.com/juju/juju/domain/application/state"
-	"github.com/juju/juju/domain/passwords"
+	"github.com/juju/juju/domain/password"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalpassword "github.com/juju/juju/internal/password"
@@ -86,7 +86,7 @@ func (s *stateSuite) TestGetAllUnitPasswordHashes(c *gc.C) {
 
 	hashes, err := st.GetAllUnitPasswordHashes(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hashes, jc.DeepEquals, map[string]map[unit.Name]passwords.PasswordHash{
+	c.Assert(hashes, jc.DeepEquals, map[string]map[unit.Name]password.PasswordHash{
 		"foo": {
 			unitName: passwordHash,
 		},
@@ -101,7 +101,7 @@ func (s *stateSuite) TestGetAllUnitPasswordHashesPasswordNotSet(c *gc.C) {
 
 	hashes, err := st.GetAllUnitPasswordHashes(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hashes, jc.DeepEquals, map[string]map[unit.Name]passwords.PasswordHash{
+	c.Assert(hashes, jc.DeepEquals, map[string]map[unit.Name]password.PasswordHash{
 		"foo": {
 			"foo/0": "",
 		},
@@ -113,14 +113,14 @@ func (s *stateSuite) TestGetAllUnitPasswordHashesNoUnits(c *gc.C) {
 
 	hashes, err := st.GetAllUnitPasswordHashes(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hashes, jc.DeepEquals, map[string]map[unit.Name]passwords.PasswordHash{})
+	c.Assert(hashes, jc.DeepEquals, map[string]map[unit.Name]password.PasswordHash{})
 }
 
-func (s *stateSuite) genPasswordHash(c *gc.C) passwords.PasswordHash {
-	password, err := internalpassword.RandomPassword()
+func (s *stateSuite) genPasswordHash(c *gc.C) password.PasswordHash {
+	rand, err := internalpassword.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 
-	return passwords.PasswordHash(internalpassword.AgentPasswordHash(password))
+	return password.PasswordHash(internalpassword.AgentPasswordHash(rand))
 }
 
 func (s *stateSuite) createApplication(c *gc.C) {

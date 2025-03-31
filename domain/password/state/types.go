@@ -5,7 +5,7 @@ package state
 
 import (
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/passwords"
+	"github.com/juju/juju/domain/password"
 )
 
 // unitName represents a unit's name.
@@ -16,12 +16,12 @@ type unitName struct {
 
 // unitPasswordHash represents a unit's password.
 type unitPasswordHash struct {
-	UUID         unit.UUID              `db:"uuid"`
-	PasswordHash passwords.PasswordHash `db:"password_hash"`
+	UUID         unit.UUID             `db:"uuid"`
+	PasswordHash password.PasswordHash `db:"password_hash"`
 }
 
 type unitPasswordHashes struct {
-	ApplicationName string                 `db:"application_name"`
-	UnitName        unit.Name              `db:"unit_name"`
-	PasswordHash    passwords.PasswordHash `db:"password_hash"`
+	ApplicationName string                `db:"application_name"`
+	UnitName        unit.Name             `db:"unit_name"`
+	PasswordHash    password.PasswordHash `db:"password_hash"`
 }

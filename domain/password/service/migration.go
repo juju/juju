@@ -7,14 +7,14 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/passwords"
+	"github.com/juju/juju/domain/password"
 	"github.com/juju/juju/internal/errors"
 )
 
 // MigrationState is the state required for migrating passwords.
 type MigrationState interface {
 	// GetAllUnitPasswordHashes returns a map of unit names to password hashes.
-	GetAllUnitPasswordHashes(context.Context) (map[string]map[unit.Name]passwords.PasswordHash, error)
+	GetAllUnitPasswordHashes(context.Context) (map[string]map[unit.Name]password.PasswordHash, error)
 
 	// GetUnitUUID returns the UUID of the unit with the given name, returning
 	// an error satisfying [applicationerrors.UnitNotFound] if the unit does not
@@ -22,7 +22,7 @@ type MigrationState interface {
 	GetUnitUUID(context.Context, unit.Name) (unit.UUID, error)
 
 	// SetUnitPasswordHash sets the password hash for the given unit.
-	SetUnitPasswordHash(context.Context, unit.UUID, passwords.PasswordHash) error
+	SetUnitPasswordHash(context.Context, unit.UUID, password.PasswordHash) error
 }
 
 // MigrationService provides the API for migrating passwords.
@@ -40,12 +40,12 @@ func NewMigrationService(
 }
 
 // GetAllUnitPasswordHashes returns a map of unit names to password hashes.
-func (s *MigrationService) GetAllUnitPasswordHashes(ctx context.Context) (map[string]map[unit.Name]passwords.PasswordHash, error) {
+func (s *MigrationService) GetAllUnitPasswordHashes(ctx context.Context) (map[string]map[unit.Name]password.PasswordHash, error) {
 	return s.st.GetAllUnitPasswordHashes(ctx)
 }
 
 // SetUnitPasswordHash sets the password hash for the given unit.
-func (s *MigrationService) SetUnitPasswordHash(ctx context.Context, unitName unit.Name, passwordHash passwords.PasswordHash) error {
+func (s *MigrationService) SetUnitPasswordHash(ctx context.Context, unitName unit.Name, passwordHash password.PasswordHash) error {
 	if err := unitName.Validate(); err != nil {
 		return err
 	}

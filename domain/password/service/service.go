@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/passwords"
+	"github.com/juju/juju/domain/password"
 	"github.com/juju/juju/internal/errors"
 	internalpassword "github.com/juju/juju/internal/password"
 )
@@ -20,7 +20,7 @@ type State interface {
 	GetUnitUUID(context.Context, unit.Name) (unit.UUID, error)
 
 	// SetUnitPasswordHash sets the password hash for the given unit.
-	SetUnitPasswordHash(context.Context, unit.UUID, passwords.PasswordHash) error
+	SetUnitPasswordHash(context.Context, unit.UUID, password.PasswordHash) error
 }
 
 // Service provides the means for interacting with the passwords in a model.
@@ -52,6 +52,6 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName unit.Name, passw
 	return s.st.SetUnitPasswordHash(ctx, unitUUID, hashPassword(password))
 }
 
-func hashPassword(password string) passwords.PasswordHash {
-	return passwords.PasswordHash(internalpassword.AgentPasswordHash(password))
+func hashPassword(p string) password.PasswordHash {
+	return password.PasswordHash(internalpassword.AgentPasswordHash(p))
 }

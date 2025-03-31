@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/juju/core/modelmigration"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/passwords"
-	"github.com/juju/juju/domain/passwords/service"
-	"github.com/juju/juju/domain/passwords/state"
+	"github.com/juju/juju/domain/password"
+	"github.com/juju/juju/domain/password/service"
+	"github.com/juju/juju/domain/password/state"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -32,7 +32,7 @@ func RegisterExport(
 // password hashes.
 type ExportService interface {
 	// GetAllUnitPasswordHashes returns a map of unit names to password hashes.
-	GetAllUnitPasswordHashes(context.Context) (map[string]map[coreunit.Name]passwords.PasswordHash, error)
+	GetAllUnitPasswordHashes(context.Context) (map[string]map[coreunit.Name]password.PasswordHash, error)
 }
 
 // exportOperation describes a way to execute a migration for
