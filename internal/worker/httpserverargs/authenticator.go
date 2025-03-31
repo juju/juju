@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/unit"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/state"
@@ -61,6 +62,13 @@ type MacaroonService interface {
 	BakeryConfigService
 }
 
+// PasswordService defines the methods required to set a password hash for a
+// unit.
+type PasswordService interface {
+	// IsValidUnitPassword checks if the password is valid or not.
+	IsValidUnitPassword(context.Context, unit.Name, string) (bool, error)
+}
+
 type BakeryConfigService interface {
 	GetLocalUsersKey(context.Context) (*bakery.KeyPair, error)
 	GetLocalUsersThirdPartyKey(context.Context) (*bakery.KeyPair, error)
@@ -90,6 +98,7 @@ func NewStateAuthenticator(
 	statePool *state.StatePool,
 	controllerModelUUID string,
 	controllerConfigService ControllerConfigService,
+	passwordService PasswordService,
 	accessService AccessService,
 	macaroonService MacaroonService,
 	mux *apiserverhttp.Mux,
@@ -100,7 +109,7 @@ func NewStateAuthenticator(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(systemState, nil)
+	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(passwordService, systemState, nil)
 	stateAuthenticator, err := stateauthenticator.NewAuthenticator(ctx, statePool, controllerModelUUID, controllerConfigService, accessService, macaroonService, agentAuthFactory, clock)
 	if err != nil {
 		return nil, errors.Trace(err)

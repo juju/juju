@@ -75,7 +75,7 @@ type AgentAuthenticatorFactory interface {
 	Authenticator() authentication.EntityAuthenticator
 
 	// AuthenticatorForState returns an authenticator for the given state.
-	AuthenticatorForState(st *state.State) authentication.EntityAuthenticator
+	AuthenticatorForState(passwordService authentication.PasswordService, st *state.State) authentication.EntityAuthenticator
 }
 
 // authContext holds authentication context shared
@@ -115,7 +115,7 @@ type OpenLoginAuthorizer struct{}
 
 // AuthorizeOps implements OpsAuthorizer.AuthorizeOps.
 func (OpenLoginAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp bakery.Op, queryOps []bakery.Op) ([]bool, []checkers.Caveat, error) {
-	logger.Debugf(context.TODO(), "authorize query ops check for %v: %v", authorizedOp, queryOps)
+	logger.Debugf(ctx, "authorize query ops check for %v: %v", authorizedOp, queryOps)
 	allowed := make([]bool, len(queryOps))
 	for i := range allowed {
 		allowed[i] = queryOps[i] == identchecker.LoginOp
@@ -231,11 +231,11 @@ func (ctxt *authContext) DischargeCaveats(tag names.UserTag) []checkers.Caveat {
 
 // authenticatorForState returns an authenticator.Authenticator for the API
 // connection associated with the specified API server host and state.
-func (ctxt *authContext) authenticatorForState(serverHost string, st *state.State) authenticator {
+func (ctxt *authContext) authenticatorForState(serverHost string, passwordService authentication.PasswordService, st *state.State) authenticator {
 	return authenticator{
 		ctxt:               ctxt,
 		serverHost:         serverHost,
-		agentAuthenticator: ctxt.agentAuthFactory.AuthenticatorForState(st),
+		agentAuthenticator: ctxt.agentAuthFactory.AuthenticatorForState(passwordService, st),
 	}
 }
 

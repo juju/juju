@@ -29,6 +29,12 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// PasswordService defines the methods required to set a password hash for a
+// unit.
+type PasswordServiceGetter interface {
+	GetPasswordServiceForModel(modelUUID model.UUID) (authentication.PasswordService, error)
+}
+
 // AgentTags are those used by any Juju agent.
 var AgentTags = []string{
 	names.MachineTagKind,
@@ -46,6 +52,7 @@ var AgentTags = []string{
 type Authenticator struct {
 	statePool               *state.StatePool
 	controllerConfigService ControllerConfigService
+	passwordServiceGetter   PasswordServiceGetter
 	authContext             *authContext
 }
 
@@ -72,6 +79,7 @@ func NewAuthenticator(
 	ctx context.Context,
 	statePool *state.StatePool,
 	controllerModelUUID string,
+	passwordServiceGetter PasswordServiceGetter,
 	controllerConfigService ControllerConfigService,
 	accessService AccessService,
 	macaroonService MacaroonService,
@@ -171,7 +179,12 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	}
 	defer st.Release()
 
-	authenticator := a.authContext.authenticatorForState(serverHost, st.State)
+	passwordService, err := a.passwordServiceGetter.GetPasswordServiceForModel(modelUUID)
+	if err != nil {
+		return authentication.AuthInfo{}, errors.Trace(err)
+	}
+
+	authenticator := a.authContext.authenticatorForState(serverHost, passwordService, st.State)
 	authInfo, err := a.checkCreds(ctx, modelUUID, authParams, authenticator)
 	if err == nil {
 		return authInfo, nil
@@ -197,7 +210,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 		return authentication.AuthInfo{}, errors.NewUnauthorized(err, "")
 	}
 
-	authInfo.Delegator = &PermissionDelegator{a.authContext.accessService}
+	authInfo.Delegator = &PermissionDelegator{AccessService: a.authContext.accessService}
 	return authInfo, nil
 }
 
@@ -213,7 +226,7 @@ func (a *Authenticator) checkCreds(
 	}
 
 	authInfo := authentication.AuthInfo{
-		Delegator: &PermissionDelegator{a.authContext.accessService},
+		Delegator: &PermissionDelegator{AccessService: a.authContext.accessService},
 		Entity:    entity,
 	}
 

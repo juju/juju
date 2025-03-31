@@ -71,6 +71,39 @@ WHERE uuid = $unitPasswordHash.uuid;
 	return errors.Capture(err)
 }
 
+// IsValidUnitPassword sets the password hash for the given unit.
+func (s *State) IsValidUnitPassword(ctx context.Context, unitUUID unit.UUID, passwordHash password.PasswordHash) (bool, error) {
+	db, err := s.DB()
+	if err != nil {
+		return false, err
+	}
+
+	args := validateUnitPasswordHash{
+		UUID:         unitUUID,
+		PasswordHash: passwordHash,
+	}
+
+	query := `
+SELECT COUNT(*) AS &validateUnitPasswordHash.count FROM unit
+WHERE uuid = $validateUnitPasswordHash.uuid
+AND password_hash = $validateUnitPasswordHash.password_hash;
+`
+	stmt, err := s.Prepare(query, args)
+	if err != nil {
+		return false, errors.Errorf("preparing statement to set password hash: %w", err)
+	}
+
+	var count int
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, args).Get(&args); err != nil {
+			return errors.Errorf("setting password hash: %w", err)
+		}
+		count = args.Count
+		return nil
+	})
+	return count > 0, errors.Capture(err)
+}
+
 // GetUnitUUID returns the UUID of the unit with the given name, returning an
 // error satisfying [applicationerrors.UnitNotFound] if the unit does not exist.
 func (st *State) GetUnitUUID(ctx context.Context, unitName unit.Name) (unit.UUID, error) {
