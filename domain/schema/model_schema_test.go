@@ -333,6 +333,7 @@ func (s *modelSchemaSuite) TestModelViews(c *gc.C) {
 		"v_unit_agent_presence",
 		"v_unit_agent_status",
 		"v_unit_constraint",
+		"v_unit_password_hash",
 		"v_unit_resource",
 		"v_unit_storage_directive",
 		"v_unit_workload_status",
