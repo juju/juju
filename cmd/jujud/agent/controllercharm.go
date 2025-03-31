@@ -35,6 +35,29 @@ import (
 
 const controllerCharmURL = "ch:juju-controller"
 
+func (c *BootstrapCommand) deployControllerCharm(st *state.State, args controllerCharmArgs) error {
+	arch := corearch.DefaultArchitecture
+	base := jujuversion.DefaultSupportedLTSBase()
+	if args.cons.HasArch() {
+		arch = *args.cons.Arch
+	}
+
+	ccd := controllerCharmDeployer{
+		controllerCharmArgs: args,
+		arch:                arch,
+		base:                base,
+		dataDir:             c.DataDir(),
+	}
+
+	if err := ccd.run(st); err != nil {
+		return err
+	}
+
+	logger.Debugf("Successfully deployed %s Juju controller charm", ccd.source)
+
+	return nil
+}
+
 type controllerCharmArgs struct {
 	cons         constraints.Value
 	charmPath    string
@@ -60,30 +83,8 @@ type controllerCharmDeployer struct {
 	dataDir           string
 }
 
-func (c *BootstrapCommand) deployControllerCharm(st *state.State, args controllerCharmArgs) error {
-	arch := corearch.DefaultArchitecture
-	base := jujuversion.DefaultSupportedLTSBase()
-	if args.cons.HasArch() {
-		arch = *args.cons.Arch
-	}
-
-	ccd := controllerCharmDeployer{
-		controllerCharmArgs: args,
-		arch:                arch,
-		base:                base,
-		dataDir:             c.DataDir(),
-	}
-
-	if err := ccd.deploy(st); err != nil {
-		return err
-	}
-
-	logger.Debugf("Successfully deployed %s Juju controller charm", ccd.source)
-
-	return nil
-}
-
-func (ccd *controllerCharmDeployer) deploy(st *state.State) error {
+// run will perform all the necessary steps to deploy the controller charm.
+func (ccd *controllerCharmDeployer) run(st *state.State) error {
 	if err := ccd.getControllerDetails(st); err != nil {
 		return err
 	}
