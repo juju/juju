@@ -33,3 +33,6 @@ const Generations = "generations"
 
 // RawK8sSpec indicates that it's allowed to set k8s spec using raw yaml format.
 const RawK8sSpec = "raw-k8s-spec"
+
+// SSHJump indicates that the SSH jump feature is enabled.
+const SSHJump = "ssh-jump"
