@@ -5,7 +5,6 @@ package modelmigration
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/description/v9"
 
@@ -80,8 +79,7 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			if !ok {
 				continue
 			}
-			fmt.Println(password)
-			//unit.SetPasswordHash(password)
+			unit.SetPasswordHash(password.String())
 		}
 	}
 	return nil

@@ -5,3 +5,7 @@ package passwords
 
 // PasswordHash represents a hashed password.
 type PasswordHash string
+
+func (p PasswordHash) String() string {
+	return string(p)
+}
