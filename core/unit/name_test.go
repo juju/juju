@@ -159,3 +159,9 @@ func (*unitNameSuite) TestApplicationName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitName.Application(), gc.Equals, "app")
 }
+
+func (*unitNameSuite) TestNumber(c *gc.C) {
+	unitName, err := NewName("app/666")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitName.Number(), gc.Equals, 666)
+}

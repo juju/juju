@@ -6,6 +6,7 @@ package unit
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 
 	"github.com/juju/juju/internal/errors"
 )
@@ -75,4 +76,16 @@ func (n Name) Application() string {
 		return ""
 	}
 	return s[1]
+}
+
+// Number returns the unit number.
+// The name must be valid.
+func (n Name) Number() int {
+	s := validUnit.FindStringSubmatch(n.String())
+	if s == nil {
+		// Should never happen.
+		return -1
+	}
+	num, _ := strconv.Atoi(s[2])
+	return num
 }

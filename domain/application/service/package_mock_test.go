@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	set "github.com/juju/collections/set"
+	caas "github.com/juju/juju/caas"
 	agentbinary "github.com/juju/juju/core/agentbinary"
 	application "github.com/juju/juju/core/application"
 	assumes "github.com/juju/juju/core/assumes"
@@ -2771,7 +2772,7 @@ func (c *MockStateNamespaceForWatchCharmCall) DoAndReturn(f func() string) *Mock
 }
 
 // RegisterCAASUnit mocks base method.
-func (m *MockState) RegisterCAASUnit(arg0 context.Context, arg1 application.ID, arg2 application0.RegisterCAASUnitArg) error {
+func (m *MockState) RegisterCAASUnit(arg0 context.Context, arg1 string, arg2 application0.RegisterCAASUnitArg) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RegisterCAASUnit", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -2797,13 +2798,13 @@ func (c *MockStateRegisterCAASUnitCall) Return(arg0 error) *MockStateRegisterCAA
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateRegisterCAASUnitCall) Do(f func(context.Context, application.ID, application0.RegisterCAASUnitArg) error) *MockStateRegisterCAASUnitCall {
+func (c *MockStateRegisterCAASUnitCall) Do(f func(context.Context, string, application0.RegisterCAASUnitArg) error) *MockStateRegisterCAASUnitCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateRegisterCAASUnitCall) DoAndReturn(f func(context.Context, application.ID, application0.RegisterCAASUnitArg) error) *MockStateRegisterCAASUnitCall {
+func (c *MockStateRegisterCAASUnitCall) DoAndReturn(f func(context.Context, string, application0.RegisterCAASUnitArg) error) *MockStateRegisterCAASUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -3756,6 +3757,67 @@ func (c *MockSupportedFeatureProviderSupportedFeaturesCall) Do(f func() (assumes
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockSupportedFeatureProviderSupportedFeaturesCall) DoAndReturn(f func() (assumes.FeatureSet, error)) *MockSupportedFeatureProviderSupportedFeaturesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockKubernetesBroker is a mock of KubernetesBroker interface.
+type MockKubernetesBroker struct {
+	ctrl     *gomock.Controller
+	recorder *MockKubernetesBrokerMockRecorder
+}
+
+// MockKubernetesBrokerMockRecorder is the mock recorder for MockKubernetesBroker.
+type MockKubernetesBrokerMockRecorder struct {
+	mock *MockKubernetesBroker
+}
+
+// NewMockKubernetesBroker creates a new mock instance.
+func NewMockKubernetesBroker(ctrl *gomock.Controller) *MockKubernetesBroker {
+	mock := &MockKubernetesBroker{ctrl: ctrl}
+	mock.recorder = &MockKubernetesBrokerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockKubernetesBroker) EXPECT() *MockKubernetesBrokerMockRecorder {
+	return m.recorder
+}
+
+// Application mocks base method.
+func (m *MockKubernetesBroker) Application(arg0 string, arg1 caas.DeploymentType) caas.Application {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Application", arg0, arg1)
+	ret0, _ := ret[0].(caas.Application)
+	return ret0
+}
+
+// Application indicates an expected call of Application.
+func (mr *MockKubernetesBrokerMockRecorder) Application(arg0, arg1 any) *MockKubernetesBrokerApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockKubernetesBroker)(nil).Application), arg0, arg1)
+	return &MockKubernetesBrokerApplicationCall{Call: call}
+}
+
+// MockKubernetesBrokerApplicationCall wrap *gomock.Call
+type MockKubernetesBrokerApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockKubernetesBrokerApplicationCall) Return(arg0 caas.Application) *MockKubernetesBrokerApplicationCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockKubernetesBrokerApplicationCall) Do(f func(string, caas.DeploymentType) caas.Application) *MockKubernetesBrokerApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockKubernetesBrokerApplicationCall) DoAndReturn(f func(string, caas.DeploymentType) caas.Application) *MockKubernetesBrokerApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

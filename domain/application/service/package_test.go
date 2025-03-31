@@ -31,6 +31,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination internal_charm_mock_test.go github.com/juju/juju/internal/charm Charm
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination constraints_mock_test.go github.com/juju/juju/core/constraints Validator
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination leader_mock_test.go github.com/juju/juju/core/leadership Ensurer
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination caas_mock_test.go github.com/juju/juju/caas Application
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -47,6 +48,7 @@ type baseSuite struct {
 	agentVersionGetter        *MockAgentVersionGetter
 	provider                  *MockProvider
 	supportedFeaturesProvider *MockSupportedFeatureProvider
+	k8sBroker                 *MockKubernetesBroker
 	leadership                *MockEnsurer
 	validator                 *MockValidator
 
@@ -61,6 +63,7 @@ func (s *baseSuite) setupMocksWithProvider(
 	c *gc.C,
 	providerGetter func(ctx context.Context) (Provider, error),
 	supportFeaturesProviderGetter func(ctx context.Context) (SupportedFeatureProvider, error),
+	supportK8sBrokerGetter func(ctx context.Context) (KubernetesBroker, error),
 ) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -70,6 +73,7 @@ func (s *baseSuite) setupMocksWithProvider(
 	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
 	s.provider = NewMockProvider(ctrl)
 	s.supportedFeaturesProvider = NewMockSupportedFeatureProvider(ctrl)
+	s.k8sBroker = NewMockKubernetesBroker(ctrl)
 	s.leadership = NewMockEnsurer(ctrl)
 
 	s.state = NewMockState(ctrl)
@@ -93,6 +97,13 @@ func (s *baseSuite) setupMocksWithProvider(
 		s.agentVersionGetter,
 		providerGetter,
 		supportFeaturesProviderGetter,
+		supportK8sBrokerGetter,
+		func(pw string) string {
+			if pw == "" {
+				return "invalid password"
+			}
+			return "secret"
+		},
 		s.charmStore,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		s.clock,
@@ -143,6 +154,10 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *gc.C, statusHistory StatusHis
 		func(ctx context.Context) (SupportedFeatureProvider, error) {
 			return s.supportedFeaturesProvider, nil
 		},
+		func(ctx context.Context) (KubernetesBroker, error) {
+			return s.k8sBroker, nil
+		},
+		func(pw string) string { return "secret" },
 		s.charmStore,
 		statusHistory,
 		s.clock,

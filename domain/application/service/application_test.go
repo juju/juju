@@ -1106,6 +1106,7 @@ func (s *applicationWatcherServiceSuite) setupMocks(c *gc.C) *gomock.Controller 
 		nil,
 		nil,
 		nil,
+		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		s.clock,
 		loggertesting.WrapCheckLog(c),

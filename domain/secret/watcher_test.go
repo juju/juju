@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
-	model "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/internal/changestream/testing"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -977,6 +978,10 @@ func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 		func(ctx context.Context) (applicationservice.SupportedFeatureProvider, error) {
 			return serviceProvider{}, nil
 		},
+		func(ctx context.Context) (applicationservice.KubernetesBroker, error) {
+			return serviceProvider{}, nil
+		},
+		password.AgentPasswordHash,
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,

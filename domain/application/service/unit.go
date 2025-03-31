@@ -5,6 +5,8 @@ package service
 
 import (
 	"context"
+	"strconv"
+	"strings"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/agentbinary"
@@ -20,6 +22,7 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/password"
 )
 
 // UnitState describes retrieval and persistence methods for
@@ -47,10 +50,12 @@ type UnitState interface {
 	// If any of the units already exists, an error satisfying [applicationerrors.UnitAlreadyExists] is returned.
 	InsertMigratingCAASUnits(context.Context, coreapplication.ID, ...application.InsertUnitArg) error
 
-	// RegisterCAASUnit registers the specified CAAS application unit, returning an
-	// error satisfying [applicationerrors.UnitAlreadyExists] if the unit exists,
-	// or [applicationerrors.UnitNotAssigned] if the unit was not assigned.
-	RegisterCAASUnit(context.Context, coreapplication.ID, application.RegisterCAASUnitArg) error
+	// RegisterCAASUnit registers the specified CAAS application unit.
+	// The following errors can be expected:
+	// - [applicationerrors.ApplicationNotAlive] when the application is not alive
+	// - [applicationerrors.UnitAlreadyExists] when the unit exists
+	// - [applicationerrors.UnitNotAssigned] when the unit was not assigned
+	RegisterCAASUnit(context.Context, string, application.RegisterCAASUnitArg) error
 
 	// UpdateCAASUnit updates the cloud container for specified unit,
 	// returning an error satisfying [applicationerrors.UnitNotFoundError]
@@ -152,29 +157,83 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName coreunit.Name, p
 // [applicationerrors.ApplicationNotFoundError] if the application doesn't
 // exist. If the unit life is Dead, an error satisfying
 // [applicationerrors.UnitAlreadyExists] is returned.
-func (s *Service) RegisterCAASUnit(ctx context.Context, appName string, args application.RegisterCAASUnitArg) error {
-	if args.PasswordHash == "" {
-		return errors.Errorf("password hash %w", coreerrors.NotValid)
-	}
-	if args.ProviderID == "" {
-		return errors.Errorf("provider id %w", coreerrors.NotValid)
-	}
-	if !args.OrderedScale {
-		return errors.Errorf("registering CAAS units not supported without ordered unit IDs").Add(coreerrors.NotImplemented)
-	}
-	if args.UnitName == "" {
-		return errors.Errorf("missing unit name %w", coreerrors.NotValid)
+func (s *ProviderService) RegisterCAASUnit(
+	ctx context.Context, params application.RegisterCAASUnitParams,
+) (coreunit.Name, string, error) {
+	if params.ProviderID == "" {
+		return "", "", errors.Errorf("provider id %w", coreerrors.NotValid)
 	}
 
-	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
+	pass, err := password.RandomPassword()
 	if err != nil {
-		return errors.Errorf("getting application ID: %w", err)
+		return "", "", errors.Errorf("generating unit password: %w", err)
 	}
-	err = s.st.RegisterCAASUnit(ctx, appUUID, args)
+	registerArgs := application.RegisterCAASUnitArg{
+		ProviderID:       params.ProviderID,
+		StorageParentDir: application.StorageParentDir,
+		PasswordHash:     s.passwordHash(pass),
+	}
+
+	// We don't support anything other that statefulsets.
+	// It's hard coded here until other deployment types are supported.
+	deploymentType := caas.DeploymentStateful
+	appName := params.ApplicationName
+
+	var unitName coreunit.Name
+	switch deploymentType {
+	case caas.DeploymentStateful:
+		splitPodName := strings.Split(params.ProviderID, "-")
+		ord, err := strconv.Atoi(splitPodName[len(splitPodName)-1])
+		if err != nil {
+			return "", "", errors.Capture(err)
+		}
+		if unitName, err = coreunit.NewNameFromParts(appName, ord); err != nil {
+			return "", "", errors.Capture(err)
+		}
+		registerArgs.UnitName = unitName
+		registerArgs.OrderedId = ord
+		registerArgs.OrderedScale = true
+	default:
+		return "", "", errors.Errorf("deployment type %q %w", deploymentType, coreerrors.NotSupported)
+	}
+
+	// Find the pod/unit in the provider.
+	k8sBroker, err := s.k8sBroker(ctx)
 	if err != nil {
-		return errors.Errorf("saving caas unit %q: %w", args.UnitName, err)
+		return "", "", errors.Errorf("registering k8s units for application %q: %w", appName, err)
 	}
-	return nil
+	caasApp := k8sBroker.Application(appName, caas.DeploymentStateful)
+	pods, err := caasApp.Units()
+	if err != nil {
+		return "", "", errors.Errorf("finding k8s units for application %q: %w", appName, err)
+	}
+	var pod *caas.Unit
+	for _, v := range pods {
+		p := v
+		if p.Id == params.ProviderID {
+			pod = &p
+			break
+		}
+	}
+	if pod == nil {
+		return "", "", errors.Errorf("pod %s in provider %w", params.ProviderID, coreerrors.NotFound)
+	}
+
+	if pod.Address != "" {
+		registerArgs.Address = &pod.Address
+	}
+	if len(pod.Ports) != 0 {
+		registerArgs.Ports = &pod.Ports
+	}
+	for _, fs := range pod.FilesystemInfo {
+		registerArgs.ObservedAttachedVolumeIDs = append(registerArgs.ObservedAttachedVolumeIDs, fs.Volume.VolumeId)
+	}
+
+	err = s.st.RegisterCAASUnit(ctx, appName, registerArgs)
+	if err != nil {
+		return "", "", errors.Errorf("saving caas unit %q: %w", registerArgs.UnitName, err)
+	}
+	return unitName, pass, nil
 }
 
 // UpdateCAASUnit updates the specified CAAS unit, returning an error satisfying
@@ -370,14 +429,35 @@ func (s *Service) DeleteUnit(ctx context.Context, unitName coreunit.Name) error 
 //
 // We pass in a CAAS broker to get app details from the k8s cluster - we will
 // probably make it a service attribute once more use cases emerge.
-func (s *Service) CAASUnitTerminating(ctx context.Context, appName string, unitNum int, broker Broker) (bool, error) {
+func (s *ProviderService) CAASUnitTerminating(ctx context.Context, unitNameStr string) (bool, error) {
+	unitName, err := coreunit.NewName(unitNameStr)
+	if err != nil {
+		return false, errors.Errorf("parsing unit name %q: %w", unitNameStr, err)
+	}
+
+	unitLife, err := s.st.GetUnitLife(ctx, unitName)
+	if err != nil {
+		return false, errors.Errorf("getting unit %q life: %w", unitNameStr, err)
+	}
+	if unitLife != life.Alive {
+		return false, nil
+	}
+
+	appName := unitName.Application()
+	unitNum := unitName.Number()
+
+	k8sBroker, err := s.k8sBroker(ctx)
+	if err != nil {
+		return false, errors.Errorf("terminating k8s unit %s/%q: %w", appName, unitNum, err)
+	}
+
 	// TODO(sidecar): handle deployment other than statefulset
 	deploymentType := caas.DeploymentStateful
 	restart := true
 
 	switch deploymentType {
 	case caas.DeploymentStateful:
-		caasApp := broker.Application(appName, caas.DeploymentStateful)
+		caasApp := k8sBroker.Application(appName, caas.DeploymentStateful)
 		appState, err := caasApp.State()
 		if err != nil {
 			return false, errors.Capture(err)

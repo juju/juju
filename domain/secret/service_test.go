@@ -30,6 +30,7 @@ import (
 	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/environs/envcontext"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
 )
@@ -138,6 +139,10 @@ func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *c
 		func(ctx context.Context) (applicationservice.SupportedFeatureProvider, error) {
 			return serviceProvider{}, nil
 		},
+		func(ctx context.Context) (applicationservice.KubernetesBroker, error) {
+			return serviceProvider{}, nil
+		},
+		password.AgentPasswordHash,
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
@@ -177,6 +182,7 @@ func (s *serviceSuite) createSecret(c *gc.C, data map[string]string, valueRef *c
 type serviceProvider struct {
 	applicationservice.Provider
 	applicationservice.SupportedFeatureProvider
+	applicationservice.KubernetesBroker
 }
 
 func (serviceProvider) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {

@@ -244,12 +244,10 @@ func (s *unitStateSuite) TestUpdateCAASUnitStatuses(c *gc.C) {
 }
 
 func (s *unitStateSuite) TestRegisterCAASUnit(c *gc.C) {
-	appUUID := s.createScalingApplication(c, "foo", life.Alive, 1)
-
-	unitName := coreunit.Name("foo/666")
+	s.createScalingApplication(c, "foo", life.Alive, 1)
 
 	p := application.RegisterCAASUnitArg{
-		UnitName:         unitName,
+		UnitName:         "foo/666",
 		PasswordHash:     "passwordhash",
 		ProviderID:       "some-id",
 		Address:          ptr("10.6.6.6"),
@@ -258,23 +256,63 @@ func (s *unitStateSuite) TestRegisterCAASUnit(c *gc.C) {
 		OrderedId:        0,
 		StorageParentDir: c.MkDir(),
 	}
-	err := s.state.RegisterCAASUnit(context.Background(), appUUID, p)
+	err := s.state.RegisterCAASUnit(context.Background(), "foo", p)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var providerId string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err = tx.QueryRowContext(ctx, `
-SELECT provider_id FROM k8s_pod cc
-JOIN unit u ON cc.unit_uuid = u.uuid
-WHERE u.name=?`,
-			"foo/666").Scan(&providerId)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCAASUnit(c, "foo/666", "passwordhash", "10.6.6.6", []string{"666"})
+}
+
+func (s *unitStateSuite) assertCAASUnit(c *gc.C, name, passwordHash, addressValue string, ports []string) {
+	var (
+		gotPasswordHash  string
+		gotAddress       string
+		gotAddressType   ipaddress.AddressType
+		gotAddressScope  ipaddress.Scope
+		gotAddressOrigin ipaddress.Origin
+		gotPorts         []string
+	)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT password_hash FROM unit WHERE name = ?", name).Scan(&gotPasswordHash)
 		if err != nil {
 			return err
 		}
-		return nil
+		err = tx.QueryRowContext(ctx, `
+SELECT address_value, type_id, scope_id, origin_id FROM ip_address ipa
+JOIN link_layer_device lld ON lld.uuid = ipa.device_uuid
+JOIN unit u ON u.net_node_uuid = lld.net_node_uuid WHERE u.name = ?
+`, name).
+			Scan(&gotAddress, &gotAddressType, &gotAddressScope, &gotAddressOrigin)
+		if err != nil {
+			return err
+		}
+		rows, err := tx.QueryContext(ctx, `
+SELECT port FROM k8s_pod_port ccp
+JOIN k8s_pod cc ON cc.unit_uuid = ccp.unit_uuid
+JOIN unit u ON u.uuid = cc.unit_uuid WHERE u.name = ?
+`, name)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var port string
+			err = rows.Scan(&port)
+			if err != nil {
+				return err
+			}
+			gotPorts = append(gotPorts, port)
+		}
+		return rows.Err()
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(providerId, gc.Equals, "some-id")
+	c.Assert(gotPasswordHash, gc.Equals, passwordHash)
+	c.Assert(gotAddress, gc.Equals, addressValue)
+	c.Assert(gotAddressType, gc.Equals, ipaddress.AddressTypeIPv4)
+	c.Assert(gotAddressScope, gc.Equals, ipaddress.ScopeMachineLocal)
+	c.Assert(gotAddressOrigin, gc.Equals, ipaddress.OriginProvider)
+	c.Assert(gotPorts, jc.DeepEquals, ports)
 }
 
 func (s *unitStateSuite) TestRegisterCAASUnitAlreadyExists(c *gc.C) {
@@ -321,6 +359,102 @@ WHERE unit.name=?`,
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(providerId, gc.Equals, "some-id")
 	c.Check(passwordHash, gc.Equals, "passwordhash")
+}
+
+func (s *unitStateSuite) TestRegisterCAASUnitReplaceDead(c *gc.C) {
+	s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+	})
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name = ?", "foo/0")
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := application.RegisterCAASUnitArg{
+		UnitName:         coreunit.Name("foo/0"),
+		PasswordHash:     "passwordhash",
+		ProviderID:       "foo-0",
+		Address:          ptr("10.6.6.6"),
+		Ports:            ptr([]string{"666"}),
+		OrderedScale:     true,
+		OrderedId:        0,
+		StorageParentDir: c.MkDir(),
+	}
+	err = s.state.RegisterCAASUnit(context.Background(), "foo", p)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitAlreadyExists)
+}
+
+func (s *unitStateSuite) TestRegisterCAASUnitApplicationNotALive(c *gc.C) {
+	s.createApplication(c, "foo", life.Dying, application.InsertUnitArg{
+		UnitName: "foo/0",
+	})
+	p := application.RegisterCAASUnitArg{
+		UnitName:         "foo/0",
+		PasswordHash:     "passwordhash",
+		ProviderID:       "foo-0",
+		Address:          ptr("10.6.6.6"),
+		Ports:            ptr([]string{"666"}),
+		OrderedScale:     true,
+		OrderedId:        0,
+		StorageParentDir: c.MkDir(),
+	}
+
+	err := s.state.RegisterCAASUnit(context.Background(), "foo", p)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotAlive)
+}
+
+func (s *unitStateSuite) TestRegisterCAASUnitExceedsScale(c *gc.C) {
+	appUUID := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+	})
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scale = ?, scale_target = ? WHERE application_uuid = ?", 1, 3, appUUID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := application.RegisterCAASUnitArg{
+		UnitName:         "foo/2",
+		PasswordHash:     "passwordhash",
+		ProviderID:       "foo-2",
+		Address:          ptr("10.6.6.6"),
+		Ports:            ptr([]string{"666"}),
+		OrderedScale:     true,
+		OrderedId:        2,
+		StorageParentDir: c.MkDir(),
+	}
+
+	err = s.state.RegisterCAASUnit(context.Background(), "foo", p)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotAssigned)
+}
+
+func (s *unitStateSuite) TestRegisterCAASUnitExceedsScaleTarget(c *gc.C) {
+	appUUID := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+	})
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scaling = ?, scale = ?, scale_target = ? WHERE application_uuid = ?", true, 3, 1, appUUID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := application.RegisterCAASUnitArg{
+		UnitName:         "foo/2",
+		PasswordHash:     "passwordhash",
+		ProviderID:       "foo-2",
+		Address:          ptr("10.6.6.6"),
+		Ports:            ptr([]string{"666"}),
+		OrderedScale:     true,
+		OrderedId:        2,
+		StorageParentDir: c.MkDir(),
+	}
+
+	err = s.state.RegisterCAASUnit(context.Background(), "foo", p)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotAssigned)
 }
 
 func (s *unitStateSuite) TestSetUnitPassword(c *gc.C) {

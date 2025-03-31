@@ -223,6 +223,13 @@ type InsertUnitArg struct {
 	UnitStatusArg
 }
 
+// RegisterCAASUnitParams contains parameters for introducing
+// a k8s unit representing a new pod to the model.
+type RegisterCAASUnitParams struct {
+	ApplicationName string
+	ProviderID      string
+}
+
 // RegisterCAASUnitArg contains parameters for introducing
 // a k8s unit representing a new pod to the model.
 type RegisterCAASUnitArg struct {
