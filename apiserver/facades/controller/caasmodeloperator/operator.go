@@ -47,12 +47,12 @@ func NewAPI(
 	resources facade.Resources,
 	ctrlSt CAASControllerState,
 	st CAASModelOperatorState,
+	passwordService PasswordService,
 	controllerConfigService ControllerConfigService,
 	modelConfigService ModelConfigService,
 	logger corelogger.Logger,
 	modelUUID model.UUID,
 ) (*API, error) {
-
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -60,7 +60,7 @@ func NewAPI(
 	return &API{
 		auth:                    authorizer,
 		APIAddresser:            common.NewAPIAddresser(ctrlSt, resources),
-		PasswordChanger:         common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ModelTagKind)),
+		PasswordChanger:         common.NewPasswordChanger(passwordService, st, common.AuthFuncForTagKind(names.ModelTagKind)),
 		ctrlState:               ctrlSt,
 		controllerConfigService: controllerConfigService,
 		modelConfigService:      modelConfigService,

@@ -30,19 +30,21 @@ func NewAgentAPIV3(ctx facade.ModelContext) (*AgentAPI, error) {
 	}
 
 	authFunc := common.AuthFuncForTag(names.NewModelTag(string(ctx.ModelUUID())))
+	services := ctx.DomainServices()
 
 	return NewAgentAPI(
 		ctx.Auth(),
 		authFunc,
 		ctx.Resources(),
 		ctx.State(),
-		ctx.DomainServices().ControllerConfig(),
-		ctx.DomainServices().ExternalController(),
-		ctx.DomainServices().Cloud(),
-		ctx.DomainServices().Credential(),
-		ctx.DomainServices().Machine(),
-		ctx.DomainServices().Config(),
-		ctx.DomainServices().Application(),
+		services.Password(),
+		services.ControllerConfig(),
+		services.ExternalController(),
+		services.Cloud(),
+		services.Credential(),
+		services.Machine(),
+		services.Config(),
+		services.Application(),
 		ctx.WatcherRegistry(),
 	), nil
 }

@@ -6,11 +6,11 @@ package agent_test
 import (
 	stdtesting "testing"
 
-	coretesting "github.com/juju/juju/internal/testing"
+	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package agent_test -destination service_mock_test.go github.com/juju/juju/apiserver/facades/agent/agent CredentialService
+//go:generate go run go.uber.org/mock/mockgen -typed -package agent -destination service_mock_test.go github.com/juju/juju/apiserver/facades/agent/agent CredentialService,PasswordService
 
 func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+	gc.TestingT(t)
 }

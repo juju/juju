@@ -38,8 +38,9 @@ func newAPIFromContext(stdCtx context.Context, ctx facade.ModelContext) (*API, e
 	return NewAPI(authorizer, resources,
 		systemState,
 		ctx.State(),
-		ctx.DomainServices().ControllerConfig(),
-		ctx.DomainServices().Config(),
+		domainServices.Password(),
+		domainServices.ControllerConfig(),
+		domainServices.Config(),
 		ctx.Logger().Child("caasmodeloperator"),
 		modelInfo.UUID,
 	)

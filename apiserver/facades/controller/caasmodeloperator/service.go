@@ -7,9 +7,17 @@ import (
 	"context"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
 )
+
+// PasswordService defines the methods required to set a password hash for a
+// unit.
+type PasswordService interface {
+	// SetUnitPassword sets the password hash for the given unit.
+	SetUnitPassword(context.Context, unit.Name, string) error
+}
 
 // ControllerConfigService provides access to the controller configuration.
 type ControllerConfigService interface {

@@ -27,6 +27,13 @@ import (
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
 // from the next version of this facade.
 
+// PasswordService defines the methods required to set a password hash for a
+// unit.
+type PasswordService interface {
+	// SetUnitPassword sets the password hash for the given unit.
+	SetUnitPassword(context.Context, coreunit.Name, string) error
+}
+
 // ControllerConfigGetter is the interface that the facade needs to get controller config.
 type ControllerConfigGetter interface {
 	ControllerConfig(context.Context) (controller.Config, error)
@@ -71,6 +78,7 @@ type DeployerAPI struct {
 
 // NewDeployerAPI creates a new server-side DeployerAPI facade.
 func NewDeployerAPI(
+	passwordService PasswordService,
 	controllerConfigGetter ControllerConfigGetter,
 	applicationService ApplicationService,
 	statusService StatusService,
@@ -110,7 +118,7 @@ func NewDeployerAPI(
 	}
 
 	return &DeployerAPI{
-		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
+		PasswordChanger:        common.NewPasswordChanger(passwordService, st, getAuthFunc),
 		APIAddresser:           common.NewAPIAddresser(systemState, resources),
 		UnitsWatcher:           common.NewUnitsWatcher(st, resources, getCanWatch),
 		unitStatusSetter:       common.NewUnitStatusSetter(statusService, clock, getAuthFunc),

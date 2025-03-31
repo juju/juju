@@ -5,181 +5,107 @@ package common_test
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/apiserver/common/mocks"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
-type passwordSuite struct{}
+type passwordSuite struct {
+	testing.IsolationSuite
+
+	passwordService *mocks.MockPasswordService
+}
 
 var _ = gc.Suite(&passwordSuite{})
 
-type entityWithError interface {
-	state.Entity
-	error() error
-}
+func (s *passwordSuite) TestSetPasswordsForUnit(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 
-type fakeState struct {
-	entities map[names.Tag]entityWithError
-}
+	s.passwordService.EXPECT().
+		SetUnitPassword(gomock.Any(), unit.Name("foo/1"), "password").
+		Return(nil)
 
-func (st *fakeState) FindEntity(tag names.Tag) (state.Entity, error) {
-	entity, ok := st.entities[tag]
-	if !ok {
-		return nil, errors.NotFoundf("entity %q", tag)
-	}
-	if err := entity.error(); err != nil {
-		return nil, err
-	}
-	return entity, nil
-}
-
-type fetchError string
-
-func (f fetchError) error() error {
-	if f == "" {
-		return nil
-	}
-	return fmt.Errorf("%s", string(f))
-}
-
-type fakeAuthenticator struct {
-	// Any Authenticator methods we don't implement on fakeAuthenticator
-	// will fall back to this and panic because it's always nil.
-	state.Authenticator
-	state.Entity
-	err  error
-	pass string
-	fetchError
-}
-
-func (a *fakeAuthenticator) SetPassword(pass string) error {
-	if a.err != nil {
-		return a.err
-	}
-	a.pass = pass
-	return nil
-}
-
-// fakeUnitAuthenticator simulates a unit entity.
-type fakeUnitAuthenticator struct {
-	fakeAuthenticator
-	mongoPass string
-}
-
-func (a *fakeUnitAuthenticator) Tag() names.Tag {
-	return names.NewUnitTag("fake/0")
-}
-
-func (a *fakeUnitAuthenticator) SetMongoPassword(pass string) error {
-	if a.err != nil {
-		return a.err
-	}
-	a.mongoPass = pass
-	return nil
-}
-
-// fakeMachineAuthenticator simulates a machine entity.
-type fakeMachineAuthenticator struct {
-	fakeUnitAuthenticator
-	isManager bool
-}
-
-func (a *fakeMachineAuthenticator) IsManager() bool {
-	return a.isManager
-}
-
-func (a *fakeMachineAuthenticator) Tag() names.Tag {
-	return names.NewMachineTag("0")
-}
-
-func (*passwordSuite) TestSetPasswords(c *gc.C) {
-	st := &fakeState{
-		entities: map[names.Tag]entityWithError{
-			u("x/0"): &fakeAuthenticator{},
-			u("x/1"): &fakeAuthenticator{},
-			u("x/2"): &fakeAuthenticator{
-				err: fmt.Errorf("x2 error"),
-			},
-			u("x/3"): &fakeAuthenticator{
-				fetchError: "x3 error",
-			},
-			u("x/4"): &fakeUnitAuthenticator{},
-			u("x/5"): &fakeMachineAuthenticator{},
-			u("x/6"): &fakeMachineAuthenticator{isManager: true},
-		},
-	}
-	getCanChange := func() (common.AuthFunc, error) {
-		return func(tag names.Tag) bool {
-			return tag != names.NewUnitTag("x/0")
-		}, nil
-	}
-	pc := common.NewPasswordChanger(st, getCanChange)
-	var changes []params.EntityPassword
-	for i := 0; i < len(st.entities); i++ {
-		tag := fmt.Sprintf("unit-x-%d", i)
-		changes = append(changes, params.EntityPassword{
-			Tag:      tag,
-			Password: fmt.Sprintf("%spass", tag),
-		})
-	}
-	results, err := pc.SetPasswords(context.Background(), params.EntityPasswords{
-		Changes: changes,
+	changer := common.NewPasswordChanger(s.passwordService, nil, alwaysAllow)
+	results, err := changer.SetPasswords(context.Background(), params.EntityPasswords{
+		Changes: []params.EntityPassword{{
+			Tag:      "unit-foo/1",
+			Password: "password",
+		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: nil},
-			{Error: &params.Error{Message: "x2 error"}},
-			{Error: &params.Error{Message: "x3 error"}},
-			{Error: nil},
-			{Error: nil},
-			{Error: nil},
-		},
+	c.Check(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: nil,
+		}},
 	})
-	c.Check(st.entities[u("x/0")].(*fakeAuthenticator).pass, gc.Equals, "")
-	c.Check(st.entities[u("x/1")].(*fakeAuthenticator).pass, gc.Equals, "unit-x-1pass")
-	c.Check(st.entities[u("x/2")].(*fakeAuthenticator).pass, gc.Equals, "")
-	c.Check(st.entities[u("x/4")].(*fakeUnitAuthenticator).pass, gc.Equals, "unit-x-4pass")
-	c.Check(st.entities[u("x/4")].(*fakeUnitAuthenticator).mongoPass, gc.Equals, "")
-	c.Check(st.entities[u("x/5")].(*fakeMachineAuthenticator).pass, gc.Equals, "unit-x-5pass")
-	c.Check(st.entities[u("x/5")].(*fakeMachineAuthenticator).mongoPass, gc.Equals, "")
-	c.Check(st.entities[u("x/6")].(*fakeMachineAuthenticator).pass, gc.Equals, "unit-x-6pass")
-	c.Check(st.entities[u("x/6")].(*fakeMachineAuthenticator).mongoPass, gc.Equals, "unit-x-6pass")
 }
 
-func (*passwordSuite) TestSetPasswordsError(c *gc.C) {
-	getCanChange := func() (common.AuthFunc, error) {
-		return nil, fmt.Errorf("splat")
-	}
-	pc := common.NewPasswordChanger(&fakeState{}, getCanChange)
-	var changes []params.EntityPassword
-	for i := 0; i < 4; i++ {
-		tag := fmt.Sprintf("x%d", i)
-		changes = append(changes, params.EntityPassword{
-			Tag:      tag,
-			Password: fmt.Sprintf("%spass", tag),
-		})
-	}
-	_, err := pc.SetPasswords(context.Background(), params.EntityPasswords{Changes: changes})
-	c.Assert(err, gc.ErrorMatches, "splat")
-}
+func (s *passwordSuite) TestSetPasswordsForUnitError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 
-func (*passwordSuite) TestSetPasswordsNoArgsNoError(c *gc.C) {
-	getCanChange := func() (common.AuthFunc, error) {
-		return nil, fmt.Errorf("splat")
-	}
-	pc := common.NewPasswordChanger(&fakeState{}, getCanChange)
-	result, err := pc.SetPasswords(context.Background(), params.EntityPasswords{})
+	s.passwordService.EXPECT().
+		SetUnitPassword(gomock.Any(), unit.Name("foo/1"), "password").
+		Return(internalerrors.Errorf("boom"))
+
+	changer := common.NewPasswordChanger(s.passwordService, nil, alwaysAllow)
+	results, err := changer.SetPasswords(context.Background(), params.EntityPasswords{
+		Changes: []params.EntityPassword{{
+			Tag:      "unit-foo/1",
+			Password: "password",
+		}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 0)
+	c.Check(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: apiservererrors.ServerError(internalerrors.Errorf(`setting password for "unit-foo-1": boom`)),
+		}},
+	})
+}
+
+func (s *passwordSuite) TestSetPasswordsForUnitNotFoundError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.passwordService.EXPECT().
+		SetUnitPassword(gomock.Any(), unit.Name("foo/1"), "password").
+		Return(applicationerrors.UnitNotFound)
+
+	changer := common.NewPasswordChanger(s.passwordService, nil, alwaysAllow)
+	results, err := changer.SetPasswords(context.Background(), params.EntityPasswords{
+		Changes: []params.EntityPassword{{
+			Tag:      "unit-foo/1",
+			Password: "password",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{
+			Error: apiservererrors.ServerError(errors.NotFoundf(`unit "foo/1"`)),
+		}},
+	})
+}
+
+func (s *passwordSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.passwordService = mocks.NewMockPasswordService(ctrl)
+
+	return ctrl
+}
+
+func alwaysAllow() (common.AuthFunc, error) {
+	return func(tag names.Tag) bool {
+		return true
+	}, nil
 }
