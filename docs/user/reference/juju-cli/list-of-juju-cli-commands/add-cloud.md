@@ -17,6 +17,7 @@ Add a cloud definition to Juju.
 | `--credential` |  | Credential to use for new cloud |
 | `-f`, `--file` |  | The path to a cloud definition file |
 | `--force` | false | Force add cloud to the controller |
+| `--target-controller` |  | The name of a JAAS managed controller to add a cloud to |
 
 ## Examples
 

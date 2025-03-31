@@ -7,6 +7,9 @@
 ## Summary
 Lists secret backends available in the controller.
 
+## Usage
+```juju secret-backends [options] ```
+
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

@@ -3,6 +3,9 @@
 ## Summary
 Print secret IDs.
 
+## Usage
+``` secret-ids [options] ```
+
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

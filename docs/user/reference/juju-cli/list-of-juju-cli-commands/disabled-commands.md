@@ -7,6 +7,9 @@
 ## Summary
 List disabled commands.
 
+## Usage
+```juju disabled-commands [options] ```
+
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

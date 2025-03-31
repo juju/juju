@@ -7,6 +7,9 @@
 ## Summary
 Lists the currently known SSH keys for the current (or specified) model.
 
+## Usage
+```juju ssh-keys [options] ```
+
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

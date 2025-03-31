@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cmd/juju/cloud/mocks"
 	"github.com/juju/juju/environs"
 	environmocks "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
@@ -203,6 +204,12 @@ func (s *removeSuite) TestCannotRemovePublicCloudWithCredentials(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cannot remove public cloud \"prodstack2\" from client\n"+
 		"To hide this cloud, remove it's credentials with `juju remove-credential`\n")
+}
+
+func (s *removeSuite) TestSpecifyingTargetControllerFlag(c *gc.C) {
+	command := cloud.NewRemoveCloudCommandForTest(s.store, nil)
+	_, err := cmdtesting.RunCommand(c, command, "fnord", "--target-controller=mycontroller-1")
+	c.Assert(err, jc.ErrorIs, cmd.ErrCommandMissing)
 }
 
 func (s *removeSuite) TestCannotRemoveBuiltinCloud(c *gc.C) {

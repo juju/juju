@@ -5,6 +5,9 @@
 ## Summary
 Find offered application endpoints.
 
+## Usage
+```juju find-offers [options] ```
+
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

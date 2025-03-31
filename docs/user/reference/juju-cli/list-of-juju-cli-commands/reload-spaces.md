@@ -5,6 +5,9 @@
 ## Summary
 Reloads spaces and subnets from substrate.
 
+## Usage
+```juju reload-spaces [options] ```
+
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
