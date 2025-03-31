@@ -1042,6 +1042,45 @@ func (c *MockApplicationServiceDestroyUnitCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// GetApplicationAndCharmConfig mocks base method.
+func (m *MockApplicationService) GetApplicationAndCharmConfig(arg0 context.Context, arg1 application.ID) (service.ApplicationConfig, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationAndCharmConfig", arg0, arg1)
+	ret0, _ := ret[0].(service.ApplicationConfig)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationAndCharmConfig indicates an expected call of GetApplicationAndCharmConfig.
+func (mr *MockApplicationServiceMockRecorder) GetApplicationAndCharmConfig(arg0, arg1 any) *MockApplicationServiceGetApplicationAndCharmConfigCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationAndCharmConfig", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationAndCharmConfig), arg0, arg1)
+	return &MockApplicationServiceGetApplicationAndCharmConfigCall{Call: call}
+}
+
+// MockApplicationServiceGetApplicationAndCharmConfigCall wrap *gomock.Call
+type MockApplicationServiceGetApplicationAndCharmConfigCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetApplicationAndCharmConfigCall) Return(arg0 service.ApplicationConfig, arg1 error) *MockApplicationServiceGetApplicationAndCharmConfigCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetApplicationAndCharmConfigCall) Do(f func(context.Context, application.ID) (service.ApplicationConfig, error)) *MockApplicationServiceGetApplicationAndCharmConfigCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetApplicationAndCharmConfigCall) DoAndReturn(f func(context.Context, application.ID) (service.ApplicationConfig, error)) *MockApplicationServiceGetApplicationAndCharmConfigCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationConstraints mocks base method.
 func (m *MockApplicationService) GetApplicationConstraints(arg0 context.Context, arg1 application.ID) (constraints.Value, error) {
 	m.ctrl.T.Helper()
@@ -1196,45 +1235,6 @@ func (c *MockApplicationServiceGetCharmCall) Do(f func(context.Context, charm0.C
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceGetCharmCall) DoAndReturn(f func(context.Context, charm0.CharmLocator) (charm1.Charm, charm0.CharmLocator, bool, error)) *MockApplicationServiceGetCharmCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetCharmConfig mocks base method.
-func (m *MockApplicationService) GetCharmConfig(arg0 context.Context, arg1 charm0.CharmLocator) (charm1.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCharmConfig", arg0, arg1)
-	ret0, _ := ret[0].(charm1.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetCharmConfig indicates an expected call of GetCharmConfig.
-func (mr *MockApplicationServiceMockRecorder) GetCharmConfig(arg0, arg1 any) *MockApplicationServiceGetCharmConfigCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmConfig", reflect.TypeOf((*MockApplicationService)(nil).GetCharmConfig), arg0, arg1)
-	return &MockApplicationServiceGetCharmConfigCall{Call: call}
-}
-
-// MockApplicationServiceGetCharmConfigCall wrap *gomock.Call
-type MockApplicationServiceGetCharmConfigCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceGetCharmConfigCall) Return(arg0 charm1.Config, arg1 error) *MockApplicationServiceGetCharmConfigCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceGetCharmConfigCall) Do(f func(context.Context, charm0.CharmLocator) (charm1.Config, error)) *MockApplicationServiceGetCharmConfigCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceGetCharmConfigCall) DoAndReturn(f func(context.Context, charm0.CharmLocator) (charm1.Config, error)) *MockApplicationServiceGetCharmConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1661,6 +1661,44 @@ func (c *MockApplicationServiceSetApplicationScaleCall) Do(f func(context.Contex
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceSetApplicationScaleCall) DoAndReturn(f func(context.Context, string, int) error) *MockApplicationServiceSetApplicationScaleCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UpdateApplicationConfig mocks base method.
+func (m *MockApplicationService) UpdateApplicationConfig(arg0 context.Context, arg1 application.ID, arg2 map[string]string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateApplicationConfig", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateApplicationConfig indicates an expected call of UpdateApplicationConfig.
+func (mr *MockApplicationServiceMockRecorder) UpdateApplicationConfig(arg0, arg1, arg2 any) *MockApplicationServiceUpdateApplicationConfigCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplicationConfig", reflect.TypeOf((*MockApplicationService)(nil).UpdateApplicationConfig), arg0, arg1, arg2)
+	return &MockApplicationServiceUpdateApplicationConfigCall{Call: call}
+}
+
+// MockApplicationServiceUpdateApplicationConfigCall wrap *gomock.Call
+type MockApplicationServiceUpdateApplicationConfigCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceUpdateApplicationConfigCall) Return(arg0 error) *MockApplicationServiceUpdateApplicationConfigCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceUpdateApplicationConfigCall) Do(f func(context.Context, application.ID, map[string]string) error) *MockApplicationServiceUpdateApplicationConfigCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceUpdateApplicationConfigCall) DoAndReturn(f func(context.Context, application.ID, map[string]string) error) *MockApplicationServiceUpdateApplicationConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

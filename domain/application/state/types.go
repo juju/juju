@@ -695,10 +695,10 @@ type applicationConfig struct {
 }
 
 type setApplicationConfig struct {
-	ApplicationUUID string `db:"application_uuid"`
-	Key             string `db:"key"`
-	Value           any    `db:"value"`
-	TypeID          int    `db:"type_id"`
+	ApplicationUUID coreapplication.ID `db:"application_uuid"`
+	Key             string             `db:"key"`
+	Value           any                `db:"value"`
+	TypeID          int                `db:"type_id"`
 }
 
 type applicationSettings struct {
@@ -706,13 +706,13 @@ type applicationSettings struct {
 }
 
 type setApplicationSettings struct {
-	ApplicationUUID string `db:"application_uuid"`
-	Trust           bool   `db:"trust"`
+	ApplicationUUID coreapplication.ID `db:"application_uuid"`
+	Trust           bool               `db:"trust"`
 }
 
 type applicationConfigHash struct {
-	ApplicationUUID string `db:"application_uuid"`
-	SHA256          string `db:"sha256"`
+	ApplicationUUID coreapplication.ID `db:"application_uuid"`
+	SHA256          string             `db:"sha256"`
 }
 
 type applicationStatus struct {

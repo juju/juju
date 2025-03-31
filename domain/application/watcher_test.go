@@ -549,7 +549,7 @@ func (s *watcherSuite) TestWatchApplicationConfig(c *gc.C) {
 
 	// Assert that a change to the config triggers the watcher.
 	harness.AddTest(func(c *gc.C) {
-		err := svc.SetApplicationConfig(ctx, appUUID, map[string]string{
+		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
 			"foo": "baz",
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -559,7 +559,7 @@ func (s *watcherSuite) TestWatchApplicationConfig(c *gc.C) {
 
 	// Assert the same change doesn't trigger a change.
 	harness.AddTest(func(c *gc.C) {
-		err := svc.SetApplicationConfig(ctx, appUUID, map[string]string{
+		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
 			"foo": "baz",
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -569,11 +569,11 @@ func (s *watcherSuite) TestWatchApplicationConfig(c *gc.C) {
 
 	// Assert multiple changes to the config triggers the watcher.
 	harness.AddTest(func(c *gc.C) {
-		err := svc.SetApplicationConfig(ctx, appUUID, map[string]string{
+		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
 			"foo": "baz",
 		})
 		c.Assert(err, jc.ErrorIsNil)
-		err = svc.SetApplicationConfig(ctx, appUUID, map[string]string{
+		err = svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
 			"foo": "blah",
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -583,7 +583,7 @@ func (s *watcherSuite) TestWatchApplicationConfig(c *gc.C) {
 
 	// Assert that the trust also triggers the watcher.
 	harness.AddTest(func(c *gc.C) {
-		err := svc.SetApplicationConfig(ctx, appUUID, map[string]string{
+		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
 			"trust": "true",
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -626,7 +626,7 @@ func (s *watcherSuite) TestWatchApplicationConfigHash(c *gc.C) {
 
 	// Assert that a change to the config triggers the watcher.
 	harness.AddTest(func(c *gc.C) {
-		err := svc.SetApplicationConfig(ctx, appUUID, map[string]string{
+		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
 			"foo": "baz",
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -637,7 +637,7 @@ func (s *watcherSuite) TestWatchApplicationConfigHash(c *gc.C) {
 
 	// Assert the same change doesn't trigger a change.
 	harness.AddTest(func(c *gc.C) {
-		err := svc.SetApplicationConfig(ctx, appUUID, map[string]string{
+		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
 			"foo": "baz",
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -647,11 +647,11 @@ func (s *watcherSuite) TestWatchApplicationConfigHash(c *gc.C) {
 
 	// Assert multiple changes to the config triggers the watcher.
 	harness.AddTest(func(c *gc.C) {
-		err := svc.SetApplicationConfig(ctx, appUUID, map[string]string{
+		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
 			"foo": "baz",
 		})
 		c.Assert(err, jc.ErrorIsNil)
-		err = svc.SetApplicationConfig(ctx, appUUID, map[string]string{
+		err = svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
 			"foo": "blah",
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -663,7 +663,7 @@ func (s *watcherSuite) TestWatchApplicationConfigHash(c *gc.C) {
 
 	// Assert that the trust also triggers the watcher.
 	harness.AddTest(func(c *gc.C) {
-		err := svc.SetApplicationConfig(ctx, appUUID, map[string]string{
+		err := svc.UpdateApplicationConfig(ctx, appUUID, map[string]string{
 			"trust": "true",
 		})
 		c.Assert(err, jc.ErrorIsNil)

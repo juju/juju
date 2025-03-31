@@ -180,10 +180,6 @@ type ApplicationService interface {
 	// source and revision.
 	GetCharmMetadata(ctx context.Context, locator applicationcharm.CharmLocator) (internalcharm.Meta, error)
 
-	// GetCharmConfig returns the config for the charm using the charm name,
-	// source and revision.
-	GetCharmConfig(ctx context.Context, locator applicationcharm.CharmLocator) (internalcharm.Config, error)
-
 	// GetCharmMetadataName returns the name for the charm using the
 	// charm name, source and revision.
 	GetCharmMetadataName(ctx context.Context, locator applicationcharm.CharmLocator) (string, error)
@@ -212,6 +208,10 @@ type ApplicationService interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationConstraints(ctx context.Context, appID coreapplication.ID) (constraints.Value, error)
 
+	// GetApplicationAndCharmConfig returns the application and charm config for the
+	// specified application ID.
+	GetApplicationAndCharmConfig(ctx context.Context, appID coreapplication.ID) (applicationservice.ApplicationConfig, error)
+
 	// SetApplicationConstraints sets the application constraints for the
 	// specified application ID.
 	// This method overwrites the full constraints on every call.
@@ -221,6 +221,16 @@ type ApplicationService interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	SetApplicationConstraints(ctx context.Context, appID coreapplication.ID, cons constraints.Value) error
+
+	// UpdateApplicationConfig updates the application config with the specified
+	// values. If the key does not exist, it is created. If the key already exists,
+	// it is updated, if there is no value it is removed. With the caveat that
+	// application trust will be set to false.
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	// If the charm config is not valid, an error satisfying
+	// [applicationerrors.InvalidApplicationConfig] is returned.
+	UpdateApplicationConfig(context.Context, coreapplication.ID, map[string]string) error
 }
 
 // ModelConfigService provides access to the model configuration.

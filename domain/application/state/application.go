@@ -157,11 +157,6 @@ func (st *State) CreateApplication(
 		}
 	}
 
-	configHash, err := hashConfigAndSettings(args.Config, args.Settings)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check if the application already exists.
 		if err := st.checkApplicationNameAvailable(ctx, tx, name); err != nil {
@@ -219,8 +214,8 @@ func (st *State) CreateApplication(
 		if err := st.insertApplicationSettings(ctx, tx, appDetails.UUID, args.Settings); err != nil {
 			return errors.Errorf("inserting settings for application %q: %w", name, err)
 		}
-		if err := st.insertApplicationConfigHash(ctx, tx, appDetails.UUID, configHash); err != nil {
-			return errors.Errorf("inserting config hash for application %q: %w", name, err)
+		if err := st.updateConfigHash(ctx, tx, applicationID{ID: appUUID}); err != nil {
+			return errors.Errorf("refreshing config hash for application %q: %w", name, err)
 		}
 		if err := st.insertApplicationStatus(ctx, tx, appDetails.UUID, args.Status); err != nil {
 			return errors.Errorf("inserting status for application %q: %w", name, err)
@@ -1477,37 +1472,21 @@ func (st *State) GetApplicationConfigAndSettings(ctx context.Context, appID core
 	// worth checking if the application is not dead.
 	ident := applicationID{ID: appID}
 
-	configQuery := `
-SELECT &applicationConfig.*
-FROM v_application_config
-WHERE uuid = $applicationID.uuid;
-`
-	settingsQuery := `
-SELECT &applicationSettings.*
-FROM application_setting
-WHERE application_uuid = $applicationID.uuid;`
-
-	configStmt, err := st.Prepare(configQuery, applicationConfig{}, ident)
-	if err != nil {
-		return nil, application.ApplicationSettings{}, errors.Errorf("preparing query for application config: %w", err)
-	}
-	settingsStmt, err := st.Prepare(settingsQuery, applicationSettings{}, ident)
-	if err != nil {
-		return nil, application.ApplicationSettings{}, errors.Errorf("preparing query for application config: %w", err)
-	}
-
 	var configs []applicationConfig
 	var settings applicationSettings
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
+		err := st.checkApplicationNotDead(ctx, tx, appID)
+		if err != nil {
 			return errors.Capture(err)
 		}
 
-		if err := tx.Query(ctx, configStmt, ident).GetAll(&configs); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		configs, err = st.getApplicationConfig(ctx, tx, ident)
+		if err != nil {
 			return errors.Errorf("querying application config: %w", err)
 		}
 
-		if err := tx.Query(ctx, settingsStmt, ident).Get(&settings); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		settings, err = st.getApplicationSettings(ctx, tx, ident)
+		if err != nil {
 			return errors.Errorf("querying application settings: %w", err)
 		}
 
@@ -1576,14 +1555,13 @@ WHERE application_uuid = $applicationID.uuid;`
 	return settings.Trust, nil
 }
 
-// SetApplicationConfig sets the application config attributes using the
-// configuration.
-func (st *State) SetApplicationConfigAndSettings(
+// UpdateApplicationConfigAndSettings updates the application config attributes
+// using the configuration.
+func (st *State) UpdateApplicationConfigAndSettings(
 	ctx context.Context,
 	appID coreapplication.ID,
-	cID corecharm.ID,
 	config map[string]application.ApplicationConfig,
-	settings application.ApplicationSettings,
+	settings application.UpdateApplicationSettingsArg,
 ) error {
 	db, err := st.DB()
 	if err != nil {
@@ -1591,184 +1569,70 @@ func (st *State) SetApplicationConfigAndSettings(
 	}
 
 	ident := applicationID{ID: appID}
-	charmIdent := charmID{UUID: cID.String()}
 
-	getQuery := `
-SELECT &applicationConfig.*
-FROM v_application_config
-WHERE uuid = $applicationID.uuid;
-`
-	deleteQuery := `
-DELETE FROM application_config
-WHERE application_uuid = $applicationID.uuid
-AND key IN ($S[:]);
-`
-	insertQuery := `
+	upsertQuery := `
 INSERT INTO application_config (*)
-VALUES ($setApplicationConfig.*);
+VALUES ($setApplicationConfig.*)
+ON CONFLICT(application_uuid, "key") DO UPDATE SET
+	value = excluded.value
 `
-	updateQuery := `
-UPDATE application_config
-SET value = $setApplicationConfig.value,
-	type_id = $setApplicationConfig.type_id
-WHERE application_uuid = $setApplicationConfig.application_uuid;
-`
-	settingsQuery := `
+	upsertSettingsQuery := `
 INSERT INTO application_setting (*)
 VALUES ($setApplicationSettings.*)
 ON CONFLICT(application_uuid) DO UPDATE SET
 	trust = excluded.trust;
-`
-	setHashQuery := `
-UPDATE application_config_hash
-SET sha256 = $applicationConfigHash.sha256
-WHERE application_uuid = $applicationConfigHash.application_uuid;
-`
+	`
 
-	getStmt, err := st.Prepare(getQuery, applicationConfig{}, ident)
+	upsertStmt, err := st.Prepare(upsertQuery, setApplicationConfig{})
 	if err != nil {
-		return errors.Errorf("preparing get query: %w", err)
+		return errors.Errorf("preparing upsert query: %w", err)
 	}
-	deleteStmt, err := st.Prepare(deleteQuery, ident, sqlair.S{})
+	upsertSettingsStmt, err := st.Prepare(upsertSettingsQuery, setApplicationSettings{})
 	if err != nil {
-		return errors.Errorf("preparing delete query: %w", err)
+		return errors.Errorf("preparing upsert settings query: %w", err)
 	}
-	insertStmt, err := st.Prepare(insertQuery, setApplicationConfig{})
-	if err != nil {
-		return errors.Errorf("preparing insert query: %w", err)
-	}
-	updateStmt, err := st.Prepare(updateQuery, setApplicationConfig{})
-	if err != nil {
-		return errors.Errorf("preparing update query: %w", err)
-	}
-	settingsStmt, err := st.Prepare(settingsQuery, setApplicationSettings{})
-	if err != nil {
-		return errors.Errorf("preparing settings query: %w", err)
-	}
-	setHashStmt, err := st.Prepare(setHashQuery, applicationConfigHash{})
-	if err != nil {
-		return errors.Errorf("preparing set hash query: %w", err)
+
+	upserts := make([]setApplicationConfig, 0, len(config))
+	for k, cfgVal := range config {
+		typeID, err := encodeConfigType(cfgVal.Type)
+		if err != nil {
+			return errors.Errorf("encoding config type: %w", err)
+		}
+		upserts = append(upserts, setApplicationConfig{
+			ApplicationUUID: ident.ID,
+			Key:             k,
+			Value:           cfgVal.Value,
+			TypeID:          typeID,
+		})
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
 			return errors.Capture(err)
 		}
-		if err := st.checkApplicationCharm(ctx, tx, ident, charmIdent); err != nil {
-			return errors.Capture(err)
-		}
 
-		var current []applicationConfig
-		if err := tx.Query(ctx, getStmt, ident).GetAll(&current); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("querying application config: %w", err)
-		}
-
-		currentM := make(map[string]applicationConfig)
-		for _, c := range current {
-			currentM[c.Key] = c
-		}
-
-		// Work out what we need to do, based on what we have, vs what we
-		// need.
-		var removals sqlair.S
-		var updates []setApplicationConfig
-		for k, currentCfg := range currentM {
-			cfg, ok := config[k]
-			if !ok {
-				removals = append(removals, k)
-				continue
-			}
-
-			// If the value and type are the same, we don't need to update. It
-			// should be safe to compare the types, even if we're casting a
-			// string to the type. This is because the type will either match or
-			// not.
-			if cfg.Value == currentCfg.Value && cfg.Type == charm.OptionType(currentCfg.Type) {
-				continue
-			}
-
-			typeID, err := encodeConfigType(cfg.Type)
-			if err != nil {
-				return errors.Errorf("encoding config type: %w", err)
-			}
-
-			updates = append(updates, setApplicationConfig{
-				ApplicationUUID: ident.ID.String(),
-				Key:             k,
-				Value:           cfg.Value,
-				TypeID:          typeID,
-			})
-
-		}
-		var inserts []setApplicationConfig
-		for k, v := range config {
-			if _, ok := currentM[k]; ok {
-				continue
-			}
-
-			typeID, err := encodeConfigType(v.Type)
-			if err != nil {
-				return errors.Errorf("encoding config type: %w", err)
-			}
-
-			inserts = append(inserts, setApplicationConfig{
-				ApplicationUUID: ident.ID.String(),
-				Key:             k,
-				Value:           v.Value,
-				TypeID:          typeID,
-			})
-		}
-
-		// We have to check the foreign key constraint on each request, as
-		// each one is optional, bar the last query.
-
-		if len(removals) > 0 {
-			if err := tx.Query(ctx, deleteStmt, removals, ident).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
-				return applicationerrors.ApplicationNotFound
-			} else if err != nil {
-				return errors.Errorf("deleting config: %w", err)
-			}
-		}
-		if len(inserts) > 0 {
-			if err := tx.Query(ctx, insertStmt, inserts).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
-				return applicationerrors.ApplicationNotFound
-			} else if err != nil {
-				return errors.Errorf("inserting config: %w", err)
-			}
-		}
-		for _, update := range updates {
-			if err := tx.Query(ctx, updateStmt, update).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
-				return applicationerrors.ApplicationNotFound
-			} else if err != nil {
-				return errors.Errorf("updating config: %w", err)
+		if len(upserts) > 0 {
+			if err := tx.Query(ctx, upsertStmt, upserts).Run(); err != nil {
+				return errors.Errorf("upserting config: %w", err)
 			}
 		}
 
-		if err := tx.Query(ctx, settingsStmt, setApplicationSettings{
-			ApplicationUUID: ident.ID.String(),
-			Trust:           settings.Trust,
-		}).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
-			return applicationerrors.ApplicationNotFound
-		} else if err != nil {
-			return errors.Errorf("updating settings: %w", err)
+		if settings.Trust != nil {
+			if err := tx.Query(ctx, upsertSettingsStmt, setApplicationSettings{
+				ApplicationUUID: appID,
+				Trust:           *settings.Trust,
+			}).Run(); err != nil {
+				return errors.Errorf("upserting settings: %w", err)
+			}
 		}
 
-		configHash, err := hashConfigAndSettings(config, settings)
-		if err != nil {
-			return errors.Errorf("hashing config and settings: %w", err)
+		if err := st.updateConfigHash(ctx, tx, ident); err != nil {
+			return errors.Errorf("refreshing config hash: %w", err)
 		}
-
-		if err := tx.Query(ctx, setHashStmt, applicationConfigHash{
-			ApplicationUUID: ident.ID.String(),
-			SHA256:          configHash,
-		}).Run(); err != nil {
-			return errors.Errorf("setting hash: %w", err)
-		}
-
 		return nil
 	})
 	if err != nil {
-		return errors.Errorf("setting application config: %w", err)
+		return errors.Errorf("updating application config: %w", err)
 	}
 	return nil
 }
@@ -1843,7 +1707,7 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 		}
 
 		if err := tx.Query(ctx, settingsStmt, setApplicationSettings{
-			ApplicationUUID: ident.ID.String(),
+			ApplicationUUID: ident.ID,
 			Trust:           false,
 		}).Run(); err != nil {
 			return errors.Errorf("deleting setting: %w", err)
@@ -1861,8 +1725,7 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 // application ID.
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-// If the charm for the application does not exist, an error satisfying
-// [applicationerrors.CharmNotFoundError] is returned.
+// If the charm for the application does not exist.
 func (st *State) GetCharmConfigByApplicationID(ctx context.Context, appID coreapplication.ID) (corecharm.ID, charm.Config, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -1893,6 +1756,11 @@ WHERE uuid = $applicationID.uuid;
 			return errors.Capture(err)
 		}
 
+		// In theory, this can return a CharmNotFound error. However, we retrieved
+		// our identifier from a field with referential integrity, so in practise
+		// this is impossible.
+		// TODO(jack-w-shaw): Retrieve the charm config directly using the application
+		// ID, instead of force-fitting the getCharmConfig method.
 		charmConfig, err = st.getCharmConfig(ctx, tx, charmID{UUID: ident.UUID})
 		return errors.Capture(err)
 	}); err != nil {
@@ -2476,6 +2344,42 @@ AND charm_uuid = $charmID.uuid;
 	return nil
 }
 
+func (st *State) getApplicationConfig(ctx context.Context, tx *sqlair.TX, appID applicationID) ([]applicationConfig, error) {
+	configQuery := `
+SELECT &applicationConfig.*
+FROM v_application_config
+WHERE uuid = $applicationID.uuid;
+`
+	configStmt, err := st.Prepare(configQuery, applicationConfig{}, appID)
+	if err != nil {
+		return nil, errors.Errorf("preparing query for application config: %w", err)
+	}
+
+	results := []applicationConfig{}
+	if err := tx.Query(ctx, configStmt, appID).GetAll(&results); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("querying application config: %w", err)
+	}
+	return results, nil
+}
+
+func (st *State) getApplicationSettings(ctx context.Context, tx *sqlair.TX, appID applicationID) (applicationSettings, error) {
+	settingsQuery := `
+SELECT &applicationSettings.*
+FROM application_setting
+WHERE application_uuid = $applicationID.uuid;
+`
+	settingsStmt, err := st.Prepare(settingsQuery, applicationSettings{}, appID)
+	if err != nil {
+		return applicationSettings{}, errors.Errorf("preparing query for application config: %w", err)
+	}
+
+	var result applicationSettings
+	if err := tx.Query(ctx, settingsStmt, appID).Get(&result); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return applicationSettings{}, errors.Errorf("querying application settings: %w", err)
+	}
+	return result, nil
+}
+
 func (st *State) insertApplicationConfig(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -2503,7 +2407,7 @@ VALUES ($setApplicationConfig.*);
 		}
 
 		inserts = append(inserts, setApplicationConfig{
-			ApplicationUUID: appID.String(),
+			ApplicationUUID: appID,
 			Key:             k,
 			Value:           v.Value,
 			TypeID:          typeID,
@@ -2533,35 +2437,12 @@ VALUES ($setApplicationSettings.*);
 	}
 
 	if err := tx.Query(ctx, insertStmt, setApplicationSettings{
-		ApplicationUUID: appID.String(),
+		ApplicationUUID: appID,
 		Trust:           settings.Trust,
 	}).Run(); err != nil {
 		return errors.Errorf("inserting settings: %w", err)
 	}
 
-	return nil
-}
-
-func (st *State) insertApplicationConfigHash(
-	ctx context.Context,
-	tx *sqlair.TX,
-	appID coreapplication.ID,
-	sha256 string,
-) error {
-	insertQuery := `
-INSERT INTO application_config_hash (*) VALUES ($applicationConfigHash.*);
-`
-	insertStmt, err := st.Prepare(insertQuery, applicationConfigHash{})
-	if err != nil {
-		return errors.Errorf("preparing insert query: %w", err)
-	}
-
-	if err := tx.Query(ctx, insertStmt, applicationConfigHash{
-		ApplicationUUID: appID.String(),
-		SHA256:          sha256,
-	}).Run(); err != nil {
-		return errors.Errorf("inserting hash: %w", err)
-	}
 	return nil
 }
 
@@ -2601,6 +2482,42 @@ INSERT INTO application_status (*) VALUES ($applicationStatus.*);
 	return nil
 }
 
+func (st *State) updateConfigHash(ctx context.Context, tx *sqlair.TX, appID applicationID) error {
+	setHashQuery := `
+INSERT INTO application_config_hash (*)
+VALUES ($applicationConfigHash.*)
+ON CONFLICT (application_uuid) DO UPDATE SET
+	sha256 = excluded.sha256
+`
+	setHashStmt, err := st.Prepare(setHashQuery, applicationConfigHash{})
+	if err != nil {
+		return errors.Errorf("preparing set hash query: %w", err)
+	}
+
+	config, err := st.getApplicationConfig(ctx, tx, appID)
+	if err != nil {
+		return errors.Errorf("getting application config: %w", err)
+	}
+	settings, err := st.getApplicationSettings(ctx, tx, appID)
+	if err != nil {
+		return errors.Errorf("getting application settings: %w", err)
+	}
+
+	hash, err := hashConfigAndSettings(config, settings)
+	if err != nil {
+		return errors.Errorf("hashing config and settings: %w", err)
+	}
+
+	if err := tx.Query(ctx, setHashStmt, applicationConfigHash{
+		ApplicationUUID: appID.ID,
+		SHA256:          hash,
+	}).Run(); err != nil {
+		return errors.Errorf("setting hash: %w", err)
+	}
+
+	return nil
+}
+
 func decodeRisk(risk string) (application.ChannelRisk, error) {
 	switch risk {
 	case "stable":
@@ -2629,70 +2546,29 @@ func decodeOSType(osType sql.NullInt64) (application.OSType, error) {
 	}
 }
 
-func hashConfigAndSettings(config map[string]application.ApplicationConfig, settings application.ApplicationSettings) (string, error) {
+func hashConfigAndSettings(config []applicationConfig, settings applicationSettings) (string, error) {
 	h := sha256.New()
 
 	// Ensure we have a stable order for the keys.
-	keys := slices.Collect(maps.Keys(config))
-	sort.Strings(keys)
+	sort.Slice(config, func(i, j int) bool {
+		return config[i].Key < config[j].Key
+	})
 
-	for _, key := range keys {
-		if _, err := h.Write([]byte(key)); err != nil {
-			return "", errors.Errorf("writing key %q: %w", key, err)
+	for _, c := range config {
+		if _, err := h.Write([]byte(c.Key)); err != nil {
+			return "", errors.Errorf("writing config key: %w", err)
 		}
-
-		v, ok := config[key]
-		if !ok {
-			return "", errors.Errorf("missing value for key %q", key)
+		fmt.Print(c.Key)
+		if _, err := h.Write([]byte(fmt.Sprintf("%v", c.Value))); err != nil {
+			return "", errors.Errorf("writing config value: %w", err)
 		}
-
-		val, err := encodeConfigValue(v)
-		if err != nil {
-			return "", errors.Errorf("encoding value for key %q: %w", key, err)
-		}
-		if _, err := h.Write([]byte(val)); err != nil {
-			return "", errors.Errorf("writing value for key %q: %w", key, err)
-		}
+		fmt.Print(fmt.Sprintf("%v", c.Value))
 	}
-	if _, err := h.Write([]byte(fmt.Sprintf("%t", settings.Trust))); err != nil {
-		return "", errors.Errorf("writing trust setting: %w", err)
+	if _, err := h.Write([]byte(strconv.FormatBool(settings.Trust))); err != nil {
+		return "", errors.Errorf("writing settings: %w", err)
 	}
+
 	return hex.EncodeToString(h.Sum(nil)), nil
-}
-
-func encodeConfigValue(v application.ApplicationConfig) (string, error) {
-	switch v.Type {
-	case charm.OptionBool:
-		b, ok := v.Value.(bool)
-		if !ok {
-			return "", errors.Errorf("value is not a bool")
-		}
-		return strconv.FormatBool(b), nil
-	case charm.OptionInt:
-		switch t := v.Value.(type) {
-		case int:
-			return strconv.Itoa(t), nil
-		case int64:
-			return strconv.FormatInt(t, 10), nil
-		default:
-			return "", errors.Errorf("value is not an int")
-		}
-	case charm.OptionFloat:
-		f, ok := v.Value.(float64)
-		if !ok {
-			return "", errors.Errorf("value is not a float")
-		}
-		return fmt.Sprintf("%f", f), nil
-	case charm.OptionString, charm.OptionSecret:
-		s, ok := v.Value.(string)
-		if !ok {
-			return "", errors.Errorf("value is not a string")
-		}
-		return s, nil
-	default:
-		return "", errors.Errorf("unknown config type %v", v.Type)
-
-	}
 }
 
 func decodePlatform(channel string, os, arch sql.NullInt64) (application.Platform, error) {
