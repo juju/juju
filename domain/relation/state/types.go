@@ -4,9 +4,12 @@
 package state
 
 import (
+	"time"
+
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
@@ -122,4 +125,14 @@ type setRelationEndpoint struct {
 	UUID         corerelation.EndpointUUID `db:"uuid"`
 	RelationUUID corerelation.UUID         `db:"relation_uuid"`
 	EndpointUUID corerelation.EndpointUUID `db:"endpoint_uuid"`
+}
+
+// setRelationStatus represents the structure to insert the status of a relation.
+type setRelationStatus struct {
+	// RelationUUID is the unique identifier of the relation.
+	RelationUUID corerelation.UUID `db:"relation_uuid"`
+	// Status indicates the current state of a given relation.
+	Status corestatus.Status `db:"status"`
+	// UpdatedAt specifies the timestamp of the insertion
+	UpdatedAt time.Time `db:"updated_at"`
 }

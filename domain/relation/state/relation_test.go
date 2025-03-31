@@ -134,6 +134,34 @@ JOIN relation r  ON re.relation_uuid = r.uuid
 		gc.Commentf("full map: %v", epUUIDsByRelID))
 	c.Check(epUUIDsByRelID[1], jc.SameContents, []string{epUUID3.String(), epUUID4.String()},
 		gc.Commentf("full map: %v", epUUIDsByRelID))
+
+	// check all relation have a status
+	var statuses []string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		query := `
+SELECT rst.name
+FROM relation r 
+JOIN relation_status rs ON r.uuid = rs.relation_uuid
+JOIN relation_status_type rst ON rs.relation_status_type_id = rst.id
+`
+		rows, err := tx.QueryContext(ctx, query)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var status string
+			if err := rows.Scan(&status); err != nil {
+				return errors.Capture(err)
+			}
+			statuses = append(statuses, status)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(statuses, jc.DeepEquals, []string{corestatus.Joining.String(), corestatus.Joining.String()},
+		gc.Commentf("all relations should have the same default status: %q", corestatus.Joining))
+
 }
 
 func (s *addRelationSuite) TestAddRelationErrorInfersEndpoint(c *gc.C) {

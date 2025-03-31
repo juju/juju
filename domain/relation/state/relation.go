@@ -86,6 +86,12 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 r
 			return errors.Errorf("inserting new relation: %w", err)
 		}
 
+		// Insert relation status
+		if err := st.insertNewRelationStatus(ctx, tx, relUUID); err != nil {
+			return errors.Errorf("inserting new relation %q: %w", fmt.Sprintf("%s:%s %s:%s",
+				ep1.ApplicationName, ep1.EndpointName, ep2.ApplicationName, ep2.EndpointName), err)
+		}
+
 		// Insert both relation_endpoint from application_endpoint_uuid and relation
 		// uuid.
 		if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, ep1.EndpointUUID); err != nil {
@@ -1254,6 +1260,32 @@ VALUES ($setRelationEndpoint.*)`, endpoint)
 		return errors.Capture(err)
 	}
 
+	return nil
+}
+
+// insertNewRelationStatus inserts a new relation status into the
+// relation_status table in the database.
+// It uses the provided context, transaction, and relation UUID to create a
+// record with a status of 'joining'.
+func (st *State) insertNewRelationStatus(ctx context.Context, tx *sqlair.TX, uuid corerelation.UUID) error {
+	status := setRelationStatus{
+		RelationUUID: uuid,
+		Status:       corestatus.Joining,
+		UpdatedAt:    st.clock.Now(),
+	}
+
+	stmt, err := st.Prepare(`
+INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
+SELECT $setRelationStatus.relation_uuid, status.id, $setRelationStatus.updated_at
+FROM relation_status_type status
+WHERE status.name = $setRelationStatus.status`, status)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, stmt, status).Run(); err != nil {
+		return errors.Capture(err)
+	}
 	return nil
 }
 
