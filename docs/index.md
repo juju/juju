@@ -25,8 +25,8 @@ For system operators and DevOps who manage applications in the cloud, Juju simpl
 
 ````{grid} 1 1 2 2
 
-```{grid-item-card} [Tutorial](tutorial)
-:link: tutorial
+```{grid-item-card} [Tutorial](/index)
+:link: tutorial/index
 :link-type: doc
 
 **Start here**: a hands-on introduction to Juju for new users
