@@ -11,6 +11,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/gliderlabs/ssh"
@@ -37,6 +38,10 @@ type ServerWorkerConfig struct {
 	// Port holds the port the server will listen on. If you provide your own
 	// listener this can be left zeroed.
 	Port int
+
+	// MaxConcurrentConnections is the maximum number of concurrent connections
+	// we accept for our ssh server.
+	MaxConcurrentConnections int
 
 	// NewSSHServerListener is a function that returns a listener and a
 	// closeAllowed channel.
@@ -66,6 +71,9 @@ type ServerWorker struct {
 
 	// config holds the configuration required by the server worker.
 	config ServerWorkerConfig
+
+	// concurrentConnections holds the number of concurrent connections.
+	concurrentConnections atomic.Int32
 }
 
 // NewServerWorker returns a running embedded SSH server.
@@ -73,9 +81,9 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	s := &ServerWorker{config: config}
 	s.Server = &ssh.Server{
+		ConnCallback: s.connCallback(),
 		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
 			return true
 		},
@@ -244,4 +252,39 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 
 	server.AddHostKey(signer)
 	server.HandleConn(terminatingServerPipe)
+}
+
+// connCallback returns a connCallback function that limits the number of concurrent connections.
+func (s *ServerWorker) connCallback() ssh.ConnCallback {
+	return func(ctx ssh.Context, conn net.Conn) net.Conn {
+		current := s.concurrentConnections.Add(1)
+		if int(current) > s.config.MaxConcurrentConnections {
+			// set the deadline because we don't want to block the connection to write an error.
+			err := conn.SetWriteDeadline(time.Now().Add(100 * time.Millisecond))
+			if err != nil {
+				s.config.Logger.Errorf(context.TODO(), "failed to set write deadline: %v", err)
+			}
+			_, err = conn.Write([]byte("too many connections.\n"))
+			if err != nil {
+				s.config.Logger.Errorf(context.TODO(), "failed to write to connection: %v", err)
+			}
+			// The connection is close before returning, otherwise
+			// the context is not cancelled and the counter is not decremented.
+			conn.Close()
+			s.concurrentConnections.Add(-1)
+			return conn
+		}
+		go func() {
+			<-ctx.Done()
+			s.concurrentConnections.Add(-1)
+		}()
+		return conn
+	}
+}
+
+// Report returns a map of metrics from the server worker.
+func (s *ServerWorker) Report() map[string]any {
+	return map[string]any{
+		"concurrent_connections": s.concurrentConnections.Load(),
+	}
 }
