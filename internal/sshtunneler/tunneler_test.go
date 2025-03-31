@@ -38,8 +38,8 @@ func (s *sshTunnelerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *sshTunnelerSuite) newTunnelTracker(c *gc.C) *TunnelTracker {
-	args := TunnelTrackerArgs{
+func (s *sshTunnelerSuite) newTunnelTracker(c *gc.C) *Tracker {
+	args := TrackerArgs{
 		State:          s.state,
 		ControllerInfo: s.controller,
 		Dialer:         s.dialer,
@@ -47,7 +47,7 @@ func (s *sshTunnelerSuite) newTunnelTracker(c *gc.C) *TunnelTracker {
 		SharedSecret:   []byte("test-secret"),
 		JWTAlg:         jwa.HS256,
 	}
-	tunnelTracker, err := NewTunnelTracker(args)
+	tunnelTracker, err := NewTracker(args)
 	c.Assert(err, jc.ErrorIsNil)
 	return tunnelTracker
 }
@@ -148,7 +148,7 @@ func (s *sshTunnelerSuite) TestPushTunnel(c *gc.C) {
 	tunnelTracker := s.newTunnelTracker(c)
 
 	tunnelID := "test-tunnel-id"
-	tunnelReq := &TunnelRequest{
+	tunnelReq := &Request{
 		recv: make(chan net.Conn),
 	}
 	tunnelTracker.tracker[tunnelID] = tunnelReq
@@ -175,7 +175,7 @@ func (s *sshTunnelerSuite) TestDeleteTunnel(c *gc.C) {
 	tunnelTracker := s.newTunnelTracker(c)
 
 	tunnelID := "test-tunnel-id"
-	tunnelReq := &TunnelRequest{}
+	tunnelReq := &Request{}
 	tunnelTracker.tracker[tunnelID] = tunnelReq
 
 	tunnelTracker.delete(tunnelID)
@@ -227,7 +227,7 @@ func (s *sshTunnelerSuite) TestPushTunnelInvalidTunnelID(c *gc.C) {
 func (s *sshTunnelerSuite) TestWaitTimeout(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	tunnelReq := &TunnelRequest{
+	tunnelReq := &Request{
 		recv:    make(chan net.Conn),
 		cleanup: func() {},
 	}
@@ -241,7 +241,7 @@ func (s *sshTunnelerSuite) TestWaitTimeout(c *gc.C) {
 
 func (s *sshTunnelerSuite) TestNewTunnelTracker(c *gc.C) {
 	// Test case: All arguments are valid
-	args := TunnelTrackerArgs{
+	args := TrackerArgs{
 		State:          s.state,
 		ControllerInfo: s.controller,
 		Dialer:         s.dialer,
@@ -249,41 +249,41 @@ func (s *sshTunnelerSuite) TestNewTunnelTracker(c *gc.C) {
 		SharedSecret:   []byte("test-secret"),
 		JWTAlg:         jwa.HS256,
 	}
-	tunnelTracker, err := NewTunnelTracker(args)
+	tunnelTracker, err := NewTracker(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tunnelTracker, gc.Not(gc.IsNil))
 
 	// Test case: Missing State
 	args.State = nil
-	tunnelTracker, err = NewTunnelTracker(args)
+	tunnelTracker, err = NewTracker(args)
 	c.Assert(err, gc.ErrorMatches, "state is required")
 	c.Assert(tunnelTracker, gc.IsNil)
 
 	// Test case: Missing ControllerInfo
 	args.State = s.state
 	args.ControllerInfo = nil
-	tunnelTracker, err = NewTunnelTracker(args)
+	tunnelTracker, err = NewTracker(args)
 	c.Assert(err, gc.ErrorMatches, "controller info is required")
 	c.Assert(tunnelTracker, gc.IsNil)
 
 	// Test case: Missing Dialer
 	args.ControllerInfo = s.controller
 	args.Dialer = nil
-	tunnelTracker, err = NewTunnelTracker(args)
+	tunnelTracker, err = NewTracker(args)
 	c.Assert(err, gc.ErrorMatches, "dialer is required")
 	c.Assert(tunnelTracker, gc.IsNil)
 
 	// Test case: Missing Clock
 	args.Dialer = s.dialer
 	args.Clock = nil
-	tunnelTracker, err = NewTunnelTracker(args)
+	tunnelTracker, err = NewTracker(args)
 	c.Assert(err, gc.ErrorMatches, "clock is required")
 	c.Assert(tunnelTracker, gc.IsNil)
 
 	// Test case: Missing SharedSecret
 	args.Clock = s.clock
 	args.SharedSecret = nil
-	tunnelTracker, err = NewTunnelTracker(args)
+	tunnelTracker, err = NewTracker(args)
 	c.Assert(err, gc.ErrorMatches, "shared secret is required")
 	c.Assert(tunnelTracker, gc.IsNil)
 }
