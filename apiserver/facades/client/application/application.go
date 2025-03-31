@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/core/leadership"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	coreresource "github.com/juju/juju/core/resource"
@@ -1204,16 +1203,6 @@ func (api *APIBase) Expose(ctx context.Context, args params.ApplicationExpose) e
 	mappedExposeParams, err := api.mapExposedEndpointParams(ctx, args.ExposedEndpoints)
 	if err != nil {
 		return apiservererrors.ServerError(err)
-	}
-
-	// If an empty exposedEndpoints list is provided, all endpoints should
-	// be exposed. This emulates the expose behavior of pre 2.9 controllers.
-	if len(mappedExposeParams) == 0 {
-		mappedExposeParams = map[string]state.ExposedEndpoint{
-			"": {
-				ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR},
-			},
-		}
 	}
 
 	if err = app.MergeExposeSettings(mappedExposeParams); err != nil {

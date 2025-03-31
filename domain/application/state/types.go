@@ -1176,3 +1176,11 @@ type endpointName struct {
 type setEndpointName struct {
 	Name string `db:"name"`
 }
+
+// spaces is a type used to pass a slice of space UUIDs to a query using `IN`
+// and sqlair.
+type spaces []string
+
+// endpointNames is a type used to pass a slice of endpoint names to a query
+// using `IN` and sqlair.
+type endpointNames []string

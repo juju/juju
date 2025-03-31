@@ -262,3 +262,11 @@ SELECT
 FROM application AS a
 JOIN charm AS c ON a.charm_uuid = c.uuid
 JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid;
+
+CREATE VIEW v_application_endpoint_uuid AS
+SELECT
+    a.uuid,
+    c.name,
+    a.application_uuid
+FROM application_endpoint AS a
+JOIN charm_relation AS c ON a.charm_relation_uuid = c.uuid;

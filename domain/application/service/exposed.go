@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/collections/set"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/internal/errors"
@@ -89,15 +90,23 @@ func (s *Service) MergeExposeSettings(ctx context.Context, appName string, expos
 	}
 
 	validatedExposedEndpoints := make(map[string]application.ExposedEndpoint)
-	for endpoint, exposedEndpoint := range exposedEndpoints {
-		// If no spaces and CIDRs are provided, assume an implicit
-		// 0.0.0.0/0 CIDR. This matches the "expose to the entire
-		// world" behavior in juju controllers prior to 2.9.
-		if len(exposedEndpoint.ExposeToSpaceIDs)+len(exposedEndpoint.ExposeToCIDRs) == 0 {
-			exposedEndpoint.ExposeToCIDRs = set.NewStrings(firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR)
+	if len(exposedEndpoints) == 0 {
+		// If an empty exposedEndpoints list is provided, all endpoints should
+		// be exposed. This emulates the expose behavior of pre 2.9 controllers.
+		validatedExposedEndpoints[network.WildcardEndpoint] = application.ExposedEndpoint{
+			ExposeToCIDRs: set.NewStrings(firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		}
+	} else {
+		for endpoint, exposedEndpoint := range exposedEndpoints {
+			// If no spaces and CIDRs are provided, assume an implicit
+			// 0.0.0.0/0 CIDR. This matches the "expose to the entire
+			// world" behavior in juju controllers prior to 2.9.
+			if len(exposedEndpoint.ExposeToSpaceIDs)+len(exposedEndpoint.ExposeToCIDRs) == 0 {
+				exposedEndpoint.ExposeToCIDRs = set.NewStrings(firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR)
+			}
 
-		validatedExposedEndpoints[endpoint] = exposedEndpoint
+			validatedExposedEndpoints[endpoint] = exposedEndpoint
+		}
 	}
 
 	return s.st.MergeExposeSettings(ctx, appID, validatedExposedEndpoints)

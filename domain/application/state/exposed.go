@@ -11,13 +11,12 @@ import (
 	"github.com/juju/collections/set"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/errors"
 )
-
-const wildcardEndpointName = ""
 
 // ApplicationExposed returns whether the provided application is exposed or
 // not.
@@ -132,7 +131,7 @@ func encodeExposedEndopints(endpoints []endpointName, cidrs []endpointCIDR, spac
 	// and spaces for each endpoint.
 	exposed := make(map[string]application.ExposedEndpoint, len(endpoints))
 	for _, endpoint := range endpoints {
-		endpointName := wildcardEndpointName
+		endpointName := network.WildcardEndpoint
 		if endpoint.Name.Valid {
 			endpointName = endpoint.Name.String
 		}
@@ -143,14 +142,14 @@ func encodeExposedEndopints(endpoints []endpointName, cidrs []endpointCIDR, spac
 	}
 
 	for _, endpointCIDR := range cidrs {
-		endpointName := wildcardEndpointName
+		endpointName := network.WildcardEndpoint
 		if endpointCIDR.EndpointName.Valid {
 			endpointName = endpointCIDR.EndpointName.String
 		}
 		exposed[endpointName].ExposeToCIDRs.Add(endpointCIDR.CIDR)
 	}
 	for _, endpointSpace := range spaces {
-		endpointName := wildcardEndpointName
+		endpointName := network.WildcardEndpoint
 		if endpointSpace.EndpointName.Valid {
 			endpointName = endpointSpace.EndpointName.String
 		}
@@ -231,7 +230,7 @@ func (st *State) unsetExposedEndpointCIDRs(ctx context.Context, tx *sqlair.TX, a
 		unsetExposedCIDRStmt  *sqlair.Statement
 		err                   error
 	)
-	if endpoint == wildcardEndpointName {
+	if endpoint == network.WildcardEndpoint {
 		unsetExposedCIDRQuery = `
 DELETE FROM application_exposed_endpoint_cidr
 WHERE application_uuid = $applicationID.uuid
@@ -249,12 +248,10 @@ AND application_endpoint_uuid IS NULL;
 DELETE FROM application_exposed_endpoint_cidr
 WHERE application_uuid = $applicationID.uuid 
 AND application_endpoint_uuid IN (
-    SELECT application_endpoint_uuid
-    FROM application_endpoint
-    JOIN charm_relation 
-        ON application_endpoint.charm_relation_uuid = charm_relation.uuid
-    WHERE charm_relation.name = $setEndpointName.name
-    AND application_endpoint.application_uuid = $applicationID.uuid
+    SELECT uuid
+    FROM v_application_endpoint_uuid
+    WHERE name = $setEndpointName.name
+    AND application_uuid = $applicationID.uuid
 );
 `
 		unsetExposedCIDRStmt, err = st.Prepare(unsetExposedCIDRQuery, applicationID, endpointName)
@@ -281,7 +278,7 @@ func (st *State) unsetExposedEndpointSpaces(ctx context.Context, tx *sqlair.TX, 
 		unsetExposedSpaceStmt  *sqlair.Statement
 		err                    error
 	)
-	if endpoint == wildcardEndpointName {
+	if endpoint == network.WildcardEndpoint {
 		unsetExposedSpaceQuery = `
 DELETE FROM application_exposed_endpoint_space
 WHERE application_uuid = $applicationID.uuid
@@ -299,12 +296,10 @@ AND application_endpoint_uuid IS NULL;
 DELETE FROM application_exposed_endpoint_space
 WHERE application_uuid = $applicationID.uuid 
 AND application_endpoint_uuid IN (
-    SELECT application_endpoint_uuid
-    FROM application_endpoint
-    JOIN charm_relation 
-        ON application_endpoint.charm_relation_uuid = charm_relation.uuid
-    WHERE charm_relation.name = $setEndpointName.name
-    AND application_endpoint.application_uuid = $applicationID.uuid
+	SELECT uuid
+	FROM v_application_endpoint_uuid
+	WHERE name = $setEndpointName.name
+	AND application_uuid = $applicationID.uuid
 );
 `
 		unsetExposedSpaceStmt, err := st.Prepare(unsetExposedSpaceQuery, applicationID, endpointName)
@@ -326,11 +321,7 @@ func (st *State) upsertExposedSpaces(ctx context.Context, tx *sqlair.TX, appID c
 
 	var upsertExposedSpaceQuery string
 
-	// Since we need to keep referential integrity with respect to the endpoint
-	// as stored in charm_relation, we first check if the provided endpoint is
-	// the wildcard and in that case we simply insert the spaces and let the
-	// endpoint NULL.
-	if endpoint == wildcardEndpointName {
+	if endpoint == network.WildcardEndpoint {
 		upsertExposedSpaceQuery = `
 INSERT INTO application_exposed_endpoint_space(application_uuid, space_uuid)
 VALUES ($setExposedSpace.application_uuid, $setExposedSpace.space_uuid)
@@ -338,12 +329,10 @@ VALUES ($setExposedSpace.application_uuid, $setExposedSpace.space_uuid)
 	} else {
 		upsertExposedSpaceQuery = `
 INSERT INTO application_exposed_endpoint_space(application_uuid, application_endpoint_uuid, space_uuid)
-    SELECT $setExposedSpace.application_uuid, application_endpoint.uuid, $setExposedSpace.space_uuid
-    FROM application_endpoint
-    JOIN charm_relation 
-        ON application_endpoint.charm_relation_uuid = charm_relation.uuid
-    WHERE charm_relation.name = $setExposedSpace.endpoint
-    AND application_endpoint.application_uuid = $setExposedSpace.application_uuid;
+    SELECT $setExposedSpace.application_uuid, uuid, $setExposedSpace.space_uuid
+    FROM v_application_endpoint_uuid
+    WHERE name = $setExposedSpace.endpoint
+    AND application_uuid = $setExposedSpace.application_uuid;
 `
 	}
 
@@ -377,7 +366,7 @@ func (st *State) upsertExposedCIDRs(ctx context.Context, tx *sqlair.TX, appID co
 	// as stored in charm_relation, we first check if the provided endpoint is
 	// the wildcard and in that case we simply insert the CIDRs and let the
 	// endpoint NULL.
-	if endpoint == wildcardEndpointName {
+	if endpoint == network.WildcardEndpoint {
 		upsertExposedCIDRQuery = `
 INSERT INTO application_exposed_endpoint_cidr(application_uuid, cidr)
 VALUES ($setExposedCIDR.application_uuid, $setExposedCIDR.cidr)
@@ -385,12 +374,10 @@ VALUES ($setExposedCIDR.application_uuid, $setExposedCIDR.cidr)
 	} else {
 		upsertExposedCIDRQuery = `
 INSERT INTO application_exposed_endpoint_cidr(application_uuid, application_endpoint_uuid, cidr)
-    SELECT $setExposedCIDR.application_uuid, application_endpoint.uuid, $setExposedCIDR.cidr
-    FROM application_endpoint
-    JOIN charm_relation 
-        ON application_endpoint.charm_relation_uuid = charm_relation.uuid
-    WHERE charm_relation.name = $setExposedCIDR.endpoint
-    AND application_endpoint.application_uuid = $setExposedCIDR.application_uuid;
+    SELECT $setExposedCIDR.application_uuid, uuid, $setExposedCIDR.cidr
+    FROM v_application_endpoint_uuid
+    WHERE name = $setExposedCIDR.endpoint
+    AND application_uuid = $setExposedCIDR.application_uuid;
 `
 	}
 
@@ -422,15 +409,14 @@ func (st *State) EndpointsExist(ctx context.Context, appID coreapplication.ID, e
 		return errors.Capture(err)
 	}
 
-	type charmRelationName []string
-	eps := charmRelationName(endpoints.Values())
+	eps := endpointNames(endpoints.Values())
 
 	query := `
 SELECT COUNT(*) AS &countResult.count
 FROM application_endpoint
 LEFT JOIN charm_relation ON application_endpoint.charm_relation_uuid = charm_relation.uuid
-WHERE application_endpoint.application_uuid = $applicationID.uuid AND
-charm_relation.name IN ($charmRelationName[:]);
+WHERE application_endpoint.application_uuid = $applicationID.uuid 
+AND charm_relation.name IN ($endpointNames[:]);
 	`
 	applicationID := applicationID{ID: appID}
 	stmt, err := st.Prepare(query, countResult{}, applicationID, eps)
@@ -450,7 +436,7 @@ charm_relation.name IN ($charmRelationName[:]);
 		return errors.Capture(err)
 	}
 	if count.Count != endpoints.Size() {
-		return errors.Errorf("endpoints %+v do not exist", endpoints.Values()).
+		return errors.Errorf("one or more of the provided endpoints %+v do not exist", endpoints.Values()).
 			Add(applicationerrors.EndpointNotFound)
 	}
 	return nil
@@ -464,7 +450,6 @@ func (st *State) SpacesExist(ctx context.Context, spaceUUIDs set.Strings) error 
 		return errors.Capture(err)
 	}
 
-	type spaces []string
 	sps := spaces(spaceUUIDs.Values())
 
 	query := `
@@ -489,7 +474,7 @@ WHERE uuid IN ($spaces[:]);
 		return errors.Capture(err)
 	}
 	if count.Count != spaceUUIDs.Size() {
-		return errors.Errorf("spaces %+v do not exist", spaceUUIDs.Values()).
+		return errors.Errorf("one or more of the provided spaces %+v do not exist", spaceUUIDs.Values()).
 			Add(networkerrors.SpaceNotFound)
 	}
 	return nil

@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/port"
 	porterrors "github.com/juju/juju/domain/port/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -44,7 +43,7 @@ func (st *State) UpdateUnitPorts(
 		for endpoint := range closePorts {
 			endpointsUnderActionSet.Add(endpoint)
 		}
-		endpointsUnderActionSet.Remove(port.WildcardEndpoint)
+		endpointsUnderActionSet.Remove(network.WildcardEndpoint)
 		endpointsUnderAction := endpoints(endpointsUnderActionSet.Values())
 
 		endpoints, err := st.lookupRelationUUIDs(ctx, tx, unitUUID, endpointsUnderAction)
@@ -104,7 +103,7 @@ func (st *State) resolveWildcardEndpoints(
 		}
 	}
 	// Ensure endpoints closed on the wildcard endpoint are not in the map.
-	for _, wildcardClosePorts := range closePorts[port.WildcardEndpoint] {
+	for _, wildcardClosePorts := range closePorts[network.WildcardEndpoint] {
 		delete(closePortsToEndpointMap, wildcardClosePorts)
 	}
 
@@ -119,8 +118,8 @@ func (st *State) resolveWildcardEndpoints(
 		return nil, nil, errors.Errorf("cannot update unit ports with conflict(s) on co-located units: %w", err)
 	}
 
-	wildcardOpen, _ := openPorts[port.WildcardEndpoint]
-	wildcardClose, _ := closePorts[port.WildcardEndpoint]
+	wildcardOpen, _ := openPorts[network.WildcardEndpoint]
+	wildcardClose, _ := closePorts[network.WildcardEndpoint]
 
 	wildcardOpened, err := st.getWildcardEndpointOpenedPorts(ctx, tx, unitUUID)
 	if err != nil {
@@ -134,7 +133,7 @@ func (st *State) resolveWildcardEndpoints(
 		wildcardOpenedSet[portRange] = true
 	}
 	for endpoint, endpointOpenPorts := range openPorts {
-		if endpoint == port.WildcardEndpoint {
+		if endpoint == network.WildcardEndpoint {
 			continue
 		}
 		for i, portRange := range endpointOpenPorts {
@@ -200,7 +199,7 @@ func (st *State) resolveWildcardEndpoints(
 			// This port range, open on the wildcard endpoint, is being closed
 			// on some endpoint. We need to close it on the wildcard, and open
 			// it on all endpoints other than the wildcard & targeted endpoint.
-			closePorts[port.WildcardEndpoint] = append(closePorts[port.WildcardEndpoint], portRange)
+			closePorts[network.WildcardEndpoint] = append(closePorts[network.WildcardEndpoint], portRange)
 
 			for _, otherEndpoint := range endpoints {
 				if otherEndpoint == endpoint {
@@ -433,7 +432,7 @@ func (st *State) openPorts(
 				return errors.Errorf("generating UUID for port range: %w", err)
 			}
 			var relationUUID string
-			if ep != port.WildcardEndpoint {
+			if ep != network.WildcardEndpoint {
 				relationUUID = endpointUUIDMaps[ep]
 			}
 			unitPortRange := unitPortRange{
