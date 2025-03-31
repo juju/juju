@@ -75,7 +75,7 @@ func (s *serviceSuite) TestSetUnitPasswordInvalidPassword(c *gc.C) {
 
 	service := NewService(s.state)
 	err := service.SetUnitPassword(context.Background(), unitName, password)
-	c.Assert(err, gc.ErrorMatches, "password is only 3 bytes long, and is not a valid Agent password")
+	c.Assert(err, gc.ErrorMatches, "password is only 3 chars long, and is not a valid Agent password")
 }
 
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {

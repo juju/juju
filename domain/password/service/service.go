@@ -41,7 +41,7 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName unit.Name, passw
 		return errors.Capture(err)
 	}
 	if len(password) < internalpassword.MinAgentPasswordLength {
-		return errors.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
+		return errors.Errorf("password is only %d chars long, and is not a valid Agent password", len(password))
 	}
 
 	unitUUID, err := s.st.GetUnitUUID(ctx, unitName)
