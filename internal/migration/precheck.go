@@ -21,7 +21,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/environs/config"
 	internalerrors "github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 	"github.com/juju/juju/state"
 )
@@ -451,10 +450,6 @@ func (ctx *precheckSource) checkModel(stdCtx context.Context) error {
 		return nil
 	}
 	return errors.NewNotSupported(nil, fmt.Sprintf("cannot migrate to controller due to issues:\n%s", blockers))
-}
-
-type agentToolsGetter interface {
-	AgentTools() (*tools.Tools, error)
 }
 
 const (
