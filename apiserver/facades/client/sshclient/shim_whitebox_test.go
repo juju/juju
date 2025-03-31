@@ -4,9 +4,9 @@
 package sshclient
 
 import (
+	"github.com/gliderlabs/ssh"
 	gc "gopkg.in/check.v1"
 
-	"github.com/gliderlabs/ssh"
 	"github.com/juju/juju/testing"
 )
 
