@@ -5,7 +5,6 @@ package sshserver
 
 import (
 	"fmt"
-	"io"
 	"net"
 	"strconv"
 	"sync/atomic"
@@ -49,6 +48,9 @@ type ServerWorkerConfig struct {
 
 	// FacadeClient holds the SSH server's facade client.
 	FacadeClient FacadeClient
+
+	// disableAuth is a test-only flag that disables authentication.
+	disableAuth bool
 }
 
 // Validate validates the workers configuration is as expected.
@@ -87,19 +89,10 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	s := &ServerWorker{config: config}
-	s.Server = &ssh.Server{
-		ConnCallback: s.connCallback(),
-		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
-			return true
-		},
-		PasswordHandler: func(ctx ssh.Context, password string) bool {
-			return true
-		},
-		ChannelHandlers: map[string]ssh.ChannelHandler{
-			"direct-tcpip": s.directTCPIPHandler,
-		},
-	}
+
+	s.Server = s.NewJumpServer()
 
 	// Set hostkey.
 	if err := s.setJumpServerHostKey(); err != nil {
@@ -147,6 +140,28 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 	})
 
 	return s, nil
+}
+
+func (s *ServerWorker) NewJumpServer() *ssh.Server {
+	server := ssh.Server{
+		ConnCallback: s.connCallback(),
+		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
+			return false
+		},
+		PasswordHandler: func(ctx ssh.Context, password string) bool {
+			return false
+		},
+		ChannelHandlers: map[string]ssh.ChannelHandler{
+			"direct-tcpip": s.directTCPIPHandler,
+		},
+	}
+
+	if s.config.disableAuth {
+		server.PublicKeyHandler = nil
+		server.PasswordHandler = nil
+	}
+
+	return &server
 }
 
 // Kill stops the server worker by killing the tomb. Implements worker.Worker.
@@ -206,30 +221,6 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 	// Since we only need the raw data to redirect, we can discard them.
 	go gossh.DiscardRequests(reqs)
 
-	jumpServerPipe, terminatingServerPipe := net.Pipe()
-
-	s.tomb.Go(func() error {
-		defer ch.Close()
-		defer jumpServerPipe.Close()
-		defer terminatingServerPipe.Close()
-		_, err := io.Copy(ch, jumpServerPipe)
-		if err != nil {
-			s.config.Logger.Errorf("failed to copy data from jump server to client: %v", err)
-		}
-
-		return nil
-	})
-	s.tomb.Go(func() error {
-		defer ch.Close()
-		defer jumpServerPipe.Close()
-		defer terminatingServerPipe.Close()
-		_, err := io.Copy(jumpServerPipe, ch)
-		if err != nil {
-			s.config.Logger.Errorf("failed to copy data from client to jump server: %v", err)
-		}
-
-		return nil
-	})
 	forwardHandler := &ssh.ForwardedTCPHandler{}
 	server := &ssh.Server{
 		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
@@ -256,7 +247,7 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 	}
 
 	server.AddHostKey(signer)
-	server.HandleConn(terminatingServerPipe)
+	server.HandleConn(newChannelConn(ch))
 }
 
 // hostKeySignerForTarget returns a signer for the target hostname, by calling the facade client.
