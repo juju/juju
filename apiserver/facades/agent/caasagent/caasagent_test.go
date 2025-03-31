@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/caasagent"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -38,6 +39,11 @@ func (s *caasagentSuite) TestPermission(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewApplicationTag("someapp"),
 	}
-	_, err := caasagent.NewStateFacadeV2(facadetest.ModelContext{Auth_: s.authorizer})
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	_, err := caasagent.NewStateFacadeV2(facadetest.ModelContext{
+		Auth_:      s.authorizer,
+		ModelUUID_: modelUUID,
+	})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

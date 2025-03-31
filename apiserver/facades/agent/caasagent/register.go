@@ -7,7 +7,7 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
@@ -32,10 +32,8 @@ func newStateFacadeV2(ctx facade.ModelContext) (*FacadeV2, error) {
 	}
 
 	resources := ctx.Resources()
-	model, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+
+	authFunc := common.AuthFuncForTag(names.NewModelTag(ctx.ModelUUID().String()))
 
 	domainServices := ctx.DomainServices()
 
@@ -45,8 +43,9 @@ func newStateFacadeV2(ctx facade.ModelContext) (*FacadeV2, error) {
 		cloudspec.MakeCloudSpecWatcherForModel(ctx.State(), domainServices.Cloud()),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(ctx.State()),
 		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(ctx.State(), domainServices.Credential()),
-		common.AuthFuncForTag(model.ModelTag()),
+		authFunc,
 	)
+
 	return &FacadeV2{
 		CloudSpecer:        cloudSpecAPI,
 		ModelConfigWatcher: commonmodel.NewModelConfigWatcher(domainServices.Config(), ctx.WatcherRegistry()),
