@@ -101,7 +101,7 @@ func (st *State) RelationScheduleRemoval(
 		return errors.Capture(err)
 	}
 
-	removalRec := removal{
+	removalRec := removalJob{
 		UUID:          removalUUID,
 		RemovalTypeID: 0,
 		EntityUUID:    relUUID,
@@ -109,7 +109,7 @@ func (st *State) RelationScheduleRemoval(
 		ScheduledFor:  when,
 	}
 
-	removalStmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removal.*)", removalRec)
+	removalStmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removalJob.*)", removalRec)
 	if err != nil {
 		return errors.Errorf("preparing relation removal: %w", err)
 	}
