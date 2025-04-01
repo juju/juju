@@ -12,6 +12,7 @@ Lists all controllers.
 | --- | --- | --- |
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
 | `--format` | tabular | Specify output format (json&#x7c;tabular&#x7c;yaml) |
+| `--managed` | false | Show controllers managed by JAAS |
 | `-o`, `--output` |  | Specify an output file |
 | `--refresh` | false | Connect to each controller to download the latest details |
 

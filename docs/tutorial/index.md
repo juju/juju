@@ -5,7 +5,7 @@ Imagine your business needs a chat service such as Mattermost backed up by a dat
 
 
 ```{note}
-The tutorial will take about 1h to complete. 
+The tutorial will take about 1h to complete.
 
 If you'd like a quicker start:
 - Ignore the "Look around" expand boxes.
@@ -15,7 +15,7 @@ At any point, to ask for help or give feedback or contribute: Get in touch: {ref
 ```
 
 
-**What you'll need:** 
+**What you'll need:**
 - A workstation, e.g., a laptop, that has sufficient resources to launch a virtual machine with 4 CPUs, 8 GB RAM, and 50 GB disk space.
 
 **What you'll do:**
@@ -26,22 +26,22 @@ At any point, to ask for help or give feedback or contribute: Get in touch: {ref
 
 ## Set up an isolated test environment
 
-On your machine, install Multipass and use it to set up an Ubuntu virtual machine (VM) called `my-juju-vm` from the `charm-dev` blueprint. 
+On your machine, install Multipass and use it to set up an Ubuntu virtual machine (VM) called `my-juju-vm` from the `charm-dev` blueprint.
 
 > See more: {ref}`manage-your-deployment-environment` > Set things up (automatically)
-> 
+>
 > Note: This document also contains a manual path, using which you can set things up without the Multipass VM or the `charm-dev` blueprint. However, please note that the manual path may yield slightly different results that may impact your experience of this tutorial. For best results we strongly recommend the automatic path, or else suggest that you follow the manual path in a way that stays very close to [the definition of the `charm-dev` blueprint](https://github.com/canonical/multipass-blueprints/blob/ae90147b811a79eaf4508f4776390141e0195fe7/v1/charm-dev.yaml#L134).
 
 
 ## Plan
 
 
-In this tutorial your goal is to set up a chat service on a cloud. 
+In this tutorial your goal is to set up a chat service on a cloud.
 
 
-First, decide which cloud (i.e., anything that provides storage, compute, and networking) you want to use. Juju supports a long list of clouds; in this tutorial we will use a low-ops, minimal production Kubernetes called 'MicroK8s'. In a terminal, open a shell into your VM and verify that you already have MicroK8s installed (`microk8s version`). 
+First, decide which cloud (i.e., anything that provides storage, compute, and networking) you want to use. Juju supports a long list of clouds; in this tutorial we will use a low-ops, minimal production Kubernetes called 'MicroK8s'. In a terminal, open a shell into your VM and verify that you already have MicroK8s installed (`microk8s version`).
 
-> See more: {ref}`cloud`, {ref}`list-of-supported-clouds`, {ref}`cloud-kubernetes-microk8s`, {ref}`manage-your-deployment-environment`> steps 3-4 
+> See more: {ref}`cloud`, {ref}`list-of-supported-clouds`, {ref}`cloud-kubernetes-microk8s`, {ref}`manage-your-deployment-environment`> steps 3-4
 
 
 Next, decide which charms (i.e., software operators) you want to use. Charmhub provides a large collection. For this tutorial we will use `mattermost-k8s`  for the chat service,  `postgresql-k8s` for its backing database, and `self-signed-certificates` to TLS-encrypt traffic from PostgreSQL.
@@ -66,11 +66,11 @@ Next, decide which charms (i.e., software operators) you want to use. Charmhub p
 ## Deploy
 
 
-You will need to install a Juju client; on the client, add your cloud and cloud credentials; on the cloud, bootstrap a controller (i.e., control plane); on the controller, add a model (i.e., canvas to deploy things on; namespace); on the model, deploy, configure, and integrate the charms that make up your chat service. 
+You will need to install a Juju client; on the client, add your cloud and cloud credentials; on the cloud, bootstrap a controller (i.e., control plane); on the controller, add a model (i.e., canvas to deploy things on; namespace); on the model, deploy, configure, and integrate the charms that make up your chat service.
 
-The blueprint used to launch your VM has ensured that most of these things are already in place for you -- verify that you have a Juju client, that it knows about your MicroK8s cloud and cloud credentials, that the MicroK8s cloud already has a controller bootstrapped on it, and that the Microk8s controller already has a model on it. 
+The blueprint used to launch your VM has ensured that most of these things are already in place for you -- verify that you have a Juju client, that it knows about your MicroK8s cloud and cloud credentials, that the MicroK8s cloud already has a controller bootstrapped on it, and that the Microk8s controller already has a model on it.
 
-Just for practice, bootstrap a new controller and model with more informative names -- a controller called `31microk8s` (reflecting the version of Juju that came with your VM and the cloud that the controller lives on) and a model called `chat` (reflecting the fact that we intend to use it for applications related to a chat service). 
+Just for practice, bootstrap a new controller and model with more informative names -- a controller called `31microk8s` (reflecting the version of Juju that came with your VM and the cloud that the controller lives on) and a model called `chat` (reflecting the fact that we intend to use it for applications related to a chat service).
 
 Finally, go ahead and deploy, configure, and integrate your charms.
 
@@ -78,7 +78,7 @@ Sample session (yours should look very similar):
 
 
 ```{tip}
-Split your terminal window into three. In all, access your Multipass VM shell (`multipass shell my-juju-vm`) and then: 
+Split your terminal window into three. In all, access your Multipass VM shell (`multipass shell my-juju-vm`) and then:
 
 **Shell 1:** Keep using it as you've already been doing so far, namely to type the commands in this tutorial.
 
@@ -101,7 +101,7 @@ There are more clouds, use --all to see them.
 
 Clouds available on the controller:
 Cloud     Regions  Default    Type
-microk8s  1        localhost  k8s  
+microk8s  1        localhost  k8s
 
 Clouds available on the client:
 Cloud      Regions  Default    Type  Credentials  Source    Description
@@ -124,9 +124,9 @@ ubuntu@my-juju-vm:~$ juju controllers
 Use --refresh option with this command to see the latest information.
 
 Controller  Model        User   Access     Cloud/Region         Models  Nodes    HA  Version
-lxd         welcome-lxd  admin  superuser  localhost/localhost       2      1  none  3.1.8  
-microk8s*   welcome-k8s  admin  superuser  microk8s/localhost        2      1     -  3.1.8  
-ubuntu@my-juju-vm:~$ 
+lxd         welcome-lxd  admin  superuser  localhost/localhost       2      1  none  3.1.8
+microk8s*   welcome-k8s  admin  superuser  microk8s/localhost        2      1     -  3.1.8
+ubuntu@my-juju-vm:~$
 
 # Bootstrap a new controller:
 ubuntu@my-juju-vm:~$ juju bootstrap microk8s 31microk8s
@@ -163,10 +163,10 @@ Located charm "self-signed-certificates" in charm-hub, revision 72
 Deploying "self-signed-certificates" from charm-hub charm "self-signed-certificates", revision 72 in channel stable on ubuntu@22.04/stable
 
 # Integrate self-signed-certificates with postgresql-k8s:
-ubuntu@tutorial-vm:~$ juju integrate self-signed-certificates postgresql-k8s 
+ubuntu@tutorial-vm:~$ juju integrate self-signed-certificates postgresql-k8s
 
 # Integrate postgresql-k8s with mattermost-k8s:
-ubuntu@tutorial-vm:~$ juju integrate postgresql-k8s:db mattermost-k8s 
+ubuntu@tutorial-vm:~$ juju integrate postgresql-k8s:db mattermost-k8s
 
 # Check your model's status:
 ubuntu@my-juju-vm:~$ juju status --relations
@@ -174,21 +174,21 @@ Model  Controller  Cloud/Region        Version  SLA          Timestamp
 chat   31microk8s  microk8s/localhost  3.1.8    unsupported  13:48:04+02:00
 
 App                       Version                         Status  Scale  Charm                     Channel    Rev  Address         Exposed  Message
-mattermost-k8s            .../mattermost:v8.1.3-20.04...  active      1  mattermost-k8s            stable      27  10.152.183.131  no       
-postgresql-k8s            14.10                           active      1  postgresql-k8s            14/stable  193  10.152.183.56   no       
-self-signed-certificates                                  active      1  self-signed-certificates  stable      72  10.152.183.119  no       
+mattermost-k8s            .../mattermost:v8.1.3-20.04...  active      1  mattermost-k8s            stable      27  10.152.183.131  no
+postgresql-k8s            14.10                           active      1  postgresql-k8s            14/stable  193  10.152.183.56   no
+self-signed-certificates                                  active      1  self-signed-certificates  stable      72  10.152.183.119  no
 
 Unit                         Workload  Agent  Address      Ports     Message
-mattermost-k8s/0*            active    idle   10.1.32.155  8065/TCP  
-postgresql-k8s/0*            active    idle   10.1.32.152            
-self-signed-certificates/0*  active    idle   10.1.32.154            
+mattermost-k8s/0*            active    idle   10.1.32.155  8065/TCP
+postgresql-k8s/0*            active    idle   10.1.32.152
+self-signed-certificates/0*  active    idle   10.1.32.154
 
 Integration provider                   Requirer                       Interface         Type     Message
-postgresql-k8s:database-peers          postgresql-k8s:database-peers  postgresql_peers  peer     
-postgresql-k8s:db                      mattermost-k8s:db              pgsql             regular  
-postgresql-k8s:restart                 postgresql-k8s:restart         rolling_op        peer     
-postgresql-k8s:upgrade                 postgresql-k8s:upgrade         upgrade           peer     
-self-signed-certificates:certificates  postgresql-k8s:certificates    tls-certificates  regular  
+postgresql-k8s:database-peers          postgresql-k8s:database-peers  postgresql_peers  peer
+postgresql-k8s:db                      mattermost-k8s:db              pgsql             regular
+postgresql-k8s:restart                 postgresql-k8s:restart         rolling_op        peer
+postgresql-k8s:upgrade                 postgresql-k8s:upgrade         upgrade           peer
+self-signed-certificates:certificates  postgresql-k8s:certificates    tls-certificates  regular
 ```
 
 
@@ -210,7 +210,7 @@ Congratulations, your chat service is up and running!
 ![Juju tutorial - Your deployment](tutorial.png)
 
 
-*Your computer with your Multipass VM, your MicroK8s cloud, and a  live Juju controller (the 'charm' in the Controller Unit is the `juju-controller` charm) + a sample deployed application on it (the 'charm' in the Regular Unit stands for any charm that you might deploy). If in the Regular Application you replace the charm with `mattermost-k8s` and image a few more Regular Applications where you replace the charm with `postgresql-k8s` and, respectively, `self-signed-certificates`, and if you trace the path from `postgresql-k8s`'s Unit Agent through the Controller Agent to `self-signed-certificates`'s and, respectively, `mattermost-k8s` Unit Agent, you get a full representation of your deployment. (Note: After integration, the workloads may also know how to contact each other directly; still, all communication between their respective charms goes through the Juju controller and the result of that communication is stored in the database in the form of maps known as 'relation data bags'.)* 
+*Your computer with your Multipass VM, your MicroK8s cloud, and a  live Juju controller (the 'charm' in the Controller Unit is the `juju-controller` charm) + a sample deployed application on it (the 'charm' in the Regular Unit stands for any charm that you might deploy). If in the Regular Application you replace the charm with `mattermost-k8s` and image a few more Regular Applications where you replace the charm with `postgresql-k8s` and, respectively, `self-signed-certificates`, and if you trace the path from `postgresql-k8s`'s Unit Agent through the Controller Agent to `self-signed-certificates`'s and, respectively, `mattermost-k8s` Unit Agent, you get a full representation of your deployment. (Note: After integration, the workloads may also know how to contact each other directly; still, all communication between their respective charms goes through the Juju controller and the result of that communication is stored in the database in the form of maps known as 'relation data bags'.)*
 
 
 
@@ -250,7 +250,7 @@ Congratulations, your chat service is up and running!
 ### Scale
 
 
-A database failure can be very costly. Let's scale it! 
+A database failure can be very costly. Let's scale it!
 
 Sample session:
 
@@ -264,20 +264,20 @@ Model  Controller  Cloud/Region        Version  SLA          Timestamp
 chat   31microk8s  microk8s/localhost  3.1.8    unsupported  15:41:34+02:00
 
 App                       Version                         Status  Scale  Charm                     Channel    Rev  Address         Exposed  Message
-mattermost-k8s            .../mattermost:v8.1.3-20.04...  active      1  mattermost-k8s            stable      27  10.152.183.131  no       
-postgresql-k8s            14.10                           active      3  postgresql-k8s            14/stable  193  10.152.183.56   no       
-self-signed-certificates                                  active      1  self-signed-certificates  stable      72  10.152.183.119  no       
+mattermost-k8s            .../mattermost:v8.1.3-20.04...  active      1  mattermost-k8s            stable      27  10.152.183.131  no
+postgresql-k8s            14.10                           active      3  postgresql-k8s            14/stable  193  10.152.183.56   no
+self-signed-certificates                                  active      1  self-signed-certificates  stable      72  10.152.183.119  no
 
 Unit                         Workload  Agent      Address      Ports     Message
-mattermost-k8s/0*            active    idle       10.1.32.155  8065/TCP  
+mattermost-k8s/0*            active    idle       10.1.32.155  8065/TCP
 postgresql-k8s/0*            active    idle       10.1.32.152            Primary
-postgresql-k8s/1             active    idle       10.1.32.158            
-postgresql-k8s/2             active    executing  10.1.32.159            
-self-signed-certificates/0*  active    idle       10.1.32.154            
+postgresql-k8s/1             active    idle       10.1.32.158
+postgresql-k8s/2             active    executing  10.1.32.159
+self-signed-certificates/0*  active    idle       10.1.32.154
 
 ```
 
-As you might have guessed, the result of scaling an application is that you have multiple running instances of your application -- that is, multiple units. 
+As you might have guessed, the result of scaling an application is that you have multiple running instances of your application -- that is, multiple units.
 
 ```{caution} In a production scenario:
 You'll want to make sure that they are also properly distributed over multiple nodes. Our localhost MicroK8s doesn't allow us to do this (because we only have 1 node) but, if you clusterise MicroK8s, you can use it to explore this too!
@@ -325,9 +325,9 @@ Use `psql` to view a list of the existing databases. Sample session (make sure t
 
 ```text
 root@postgresql-k8s-0:/# psql --host=10.1.32.152 --username=operator --password --list
-Password: 
+Password:
                                List of databases
-   Name    |  Owner   | Encoding | Collate |  Ctype  |    Access privileges     
+   Name    |  Owner   | Encoding | Collate |  Ctype  |    Access privileges
 -----------+----------+----------+---------+---------+--------------------------
  postgres  | operator | UTF8     | C       | C.UTF-8 | operator=CTc/operator   +
            |          |          |         |         | backup=CTc/operator     +
@@ -346,14 +346,14 @@ Finally, use `psql` to access the `postgres` database and submit a query. Sample
 
 ```text
 root@postgresql-k8s-0:/# psql --host=10.1.32.152 --username=operator --password postgres
-Password: 
+Password:
 psql (14.10 (Ubuntu 14.10-0ubuntu0.22.04.1))
 Type "help" for help.
 
 postgres=# SELECT version();
-                                                               version                                                              
-  
-                                                                version                                                                 
+                                                               version
+
+                                                                version
 ----------------------------------------------------------------------------------------------------------------------------------------
  PostgreSQL 14.10 (Ubuntu 14.10-0ubuntu0.22.04.1) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0, 64-bit
 (1 row)
@@ -366,7 +366,7 @@ Type `exit` to get back to your unit shell and then again to return to your Mult
 
 
 
-> See more: 
+> See more:
 > - [Charmhub | `postgresql-k8s` > Actions > `set-password`](https://charmhub.io/postgresql-k8s/actions#set-password) (or run `juju actions postgresql-k8s` followed by `juju show-action postgresql-k8s set-password`)
 > - {ref}`manage-actions`
 
@@ -378,14 +378,14 @@ Type `exit` to get back to your unit shell and then again to return to your Mult
 
 Juju releases keep coming and going but our deployment is still stuck on Juju 3.1.8 (i.e., major version 3, minor version 1, patch version 8). Time to upgrade!
 
-To upgrade a deployment, we must upgrade the client, the version of the Juju agents in the controller model, the version of the Juju agents in non-controller models, (if on a machine cloud, the base of the machine), and the charms. 
+To upgrade a deployment, we must upgrade the client, the version of the Juju agents in the controller model, the version of the Juju agents in non-controller models, (if on a machine cloud, the base of the machine), and the charms.
 
 These upgrades don't all have to happen at once, but it mostly makes sense to do them in this order. And, if upgrading an agent's minor or major version of a controller / model, you must know that the only option is to upgrade the controller/model to the latest patch version of the old minor or major, then bootstrap a new controller and migrate the model to it, then upgrade the model to the current patch version of the new controller.
 
 Let's give it a try!
 
-```{caution} 
-The running processes in your Shells 2 and 3  will block your client upgrade. To prevent that, in each one, hit the `C-c` key combination to stop them for the duration of the client upgrade, the restart them by running again `watch -n 1 -c juju status --relations --color` and, respectively, `juju debug-log`.
+```{caution}
+The running processes in your Shells 2 and 3  will block your client upgrade. To prevent that, in each one, hit the `C-c` key combination to stop them for the duration of the client upgrade, the restart them by running again `juju status --relations --watch 1s` and, respectively, `juju debug-log`.
 ```
 
 
@@ -411,15 +411,15 @@ ubuntu@my-juju-vm:~$ juju show-controller
     agent-git-commit: 810900f47952a1f3835576f57dce2f9d1aef23d0
     controller-model-version: 3.1.8
     ...
-	
-# Upgrade the controller model agents 
+
+# Upgrade the controller model agents
 # to the latest patch version of the same minor:
 # (This will be necessary in a bit for model migration.)
 ubuntu@my-juju-vm:~$ juju upgrade-controller --agent-version 3.1.8
 # No change because 3.1.8 is already the latest patch version of 3.1:
 no upgrades available
 
-# Use the upgraded 3.4.2 client to bootstrap 
+# Use the upgraded 3.4.2 client to bootstrap
 # a new controller into microk8s, '34microk8s':
 ubuntu@my-juju-vm:~$ juju bootstrap microk8s 34microk8s
 Creating Juju controller "34microk8s" on microk8s/localhost
@@ -447,7 +447,7 @@ ubuntu@my-juju-vm:~$ juju show-controller 34microk8s
     controller-model-version: 3.4.2
     ...
 
-# Switch back to the old controller: 
+# Switch back to the old controller:
 ubuntu@my-juju-vm:~$ juju switch 31microk8s:admin/chat
 34microk8s (controller) -> 31microk8s:admin/chat
 
@@ -459,7 +459,7 @@ chat:
   ...
   agent-version: 3.1.8
 
-# Upgrade the non-controller model agents 
+# Upgrade the non-controller model agents
 # to the latest patch version of the same minor:
 ubuntu@my-juju-vm:~$ juju upgrade-model --agent-version 3.1.8
 # No change because 3.1.8 is already the latest patch version of 3.1:
@@ -485,7 +485,7 @@ Model       Cloud/Region        Type        Status     Units  Access  Last conne
 chat*       microk8s/localhost  kubernetes  available  5       admin  8 minutes ago
 controller  microk8s/localhost  kubernetes  available  1       admin  just now
 
-# Upgrade your 'chat' model's patch version 
+# Upgrade your 'chat' model's patch version
 # to match that of the new controller:
 ubuntu@my-juju-vm:~$ juju upgrade-model --agent-version 3.4.2
 best version:
@@ -501,7 +501,7 @@ ubuntu@my-juju-vm:~$ juju refresh postgresql-k8s
 charm "postgresql-k8s": already up-to-date
 ubuntu@my-juju-vm:~$ juju refresh self-signed-certificates
 charm "self-signed-certificates": already up-to-date
-# No surprise there -- our deployment is quite fresh, 
+# No surprise there -- our deployment is quite fresh,
 # so no immediate need for charm upgrades!
 ```
 
@@ -563,13 +563,13 @@ SAAS        Status  Store       URL
 prometheus  active  34microk8s  admin/observability.prometheus
 
 App         Version  Status  Scale  Charm            Channel     Rev  Address  Exposed  Message
-controller           active      1  juju-controller  3.4/stable   79           no       
+controller           active      1  juju-controller  3.4/stable   79           no
 
 Unit           Workload  Agent  Address      Ports      Message
-controller/0*  active    idle   10.1.32.161  37017/TCP  
+controller/0*  active    idle   10.1.32.161  37017/TCP
 
 Integration provider         Requirer                     Interface          Type     Message
-controller:metrics-endpoint  prometheus:metrics-endpoint  prometheus_scrape  regular  
+controller:metrics-endpoint  prometheus:metrics-endpoint  prometheus_scrape  regular
 
 # Switch back to the observability model:
 ubuntu@my-juju-vm:~$ juju switch observability
@@ -586,14 +586,14 @@ admin-password: 0OpLUlxJXQaU
 url: http://10.238.98.110/observability-grafana
 ```
 
-On your local machine, open a browser window and copy-paste the Grafana URL. In the username field, enter 'admin'. In the password field, enter the `admin-password`. If everything has gone well, you should now be logged in. 
+On your local machine, open a browser window and copy-paste the Grafana URL. In the username field, enter 'admin'. In the password field, enter the `admin-password`. If everything has gone well, you should now be logged in.
 
-On the new screen, in the top-right, click on the Menu icon, then **Dashboards**. Then, on the new screen, in the top-left, click on **New**, **Upload dashboard JSON file**, and upload the JSON Grafana-dashboard-definition file below, then, in the IL3-2 field, from the drop-down, select the suggested `juju_observability...` option. 
+On the new screen, in the top-right, click on the Menu icon, then **Dashboards**. Then, on the new screen, in the top-left, click on **New**, **Upload dashboard JSON file**, and upload the JSON Grafana-dashboard-definition file below, then, in the IL3-2 field, from the drop-down, select the suggested `juju_observability...` option.
 
 [Juju Controllers-1713888589960.json|attachment](https://discourse.charmhub.io/uploads/short-url/yOxvgum6eo3NmMxPaTRKLOLmbo0.json) (200.9 KB)
 
 
-On the new screen, at the very top, expand the Juju Metrics section and inspect the results. How many connections to the API server does your controller show? 
+On the new screen, at the very top, expand the Juju Metrics section and inspect the results. How many connections to the API server does your controller show?
 
 ![Juju tutorial - Observe your controller](tutorial-observe.png)
 
@@ -620,7 +620,7 @@ To tear things down, remove your entire Multipass Ubuntu VM, then uninstall Mult
 This tutorial has introduced you to the basic things you can do with `juju`. But there is a lot more to explore:
 
 | If you are wondering... | visit our...                          |
-|-------------------------|---------------------------------------|
+| ----------------------- | ------------------------------------- |
 | "How do I...?"          | [How-to docs](howto/index)            |
 | "What is...?"           | [Reference docs](reference/index)     |
 | "Why...?", "So what?"   | [Explanation docs](explanation/index) |

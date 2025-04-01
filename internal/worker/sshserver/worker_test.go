@@ -115,7 +115,6 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 	workertest.CheckAlive(c, w)
 	workertest.CheckAlive(c, serverWorker)
 	workertest.CheckAlive(c, controllerConfigWatcher)
-
 	// Kill the wrapper worker.
 	workertest.CleanKill(c, w)
 
@@ -211,4 +210,71 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	c.Check(workertest.CheckKilled(c, w), gc.ErrorMatches, "changes detected, stopping SSH server worker")
 	c.Check(workertest.CheckKilled(c, serverWorker), jc.ErrorIsNil)
 	c.Check(workertest.CheckKilled(c, controllerConfigWatcher), jc.ErrorIsNil)
+}
+
+func (s *workerSuite) TestWrapperWorkerReport(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ch := make(chan []string)
+	controllerConfigWatcher := watchertest.NewMockStringsWatcher(ch)
+	defer workertest.DirtyKill(c, controllerConfigWatcher)
+
+	controllerConfigService := sshserver.NewMockControllerConfigService(ctrl)
+	controllerConfigService.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher, nil)
+
+	// Expect first call to have port of 22 and called once on worker startup.
+	controllerConfigService.EXPECT().
+		ControllerConfig(gomock.Any()).
+		Return(
+			controller.Config{
+				controller.SSHServerPort:               22,
+				controller.SSHMaxConcurrentConnections: 10,
+			},
+			nil,
+		).
+		Times(1)
+
+	serverWorker := workertest.NewErrorWorker(nil)
+	defer workertest.DirtyKill(c, serverWorker)
+
+	cfg := sshserver.ServerWrapperWorkerConfig{
+		ControllerConfigService: controllerConfigService,
+		Logger:                  loggertesting.WrapCheckLog(c),
+		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
+			return &reportWorker{serverWorker}, nil
+		},
+		NewSSHServerListener: newTestingSSHServerListener,
+	}
+	w, err := sshserver.NewServerWrapperWorker(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	// Check all workers alive properly.
+	workertest.CheckAlive(c, w)
+	workertest.CheckAlive(c, serverWorker)
+	workertest.CheckAlive(c, controllerConfigWatcher)
+
+	// Check the wrapper worker is a reporter.
+	reporter, ok := w.(worker.Reporter)
+	c.Assert(ok, jc.IsTrue)
+
+	c.Assert(reporter.Report(), jc.DeepEquals, map[string]interface{}{
+		"workers": map[string]any{
+			"ssh-server": map[string]any{
+				"test": "test",
+			},
+		},
+	})
+}
+
+// reportWorker is a mock worker that implements the Reporter interface.
+type reportWorker struct {
+	worker.Worker
+}
+
+func (r *reportWorker) Report() map[string]interface{} {
+	return map[string]interface{}{
+		"test": "test",
+	}
 }

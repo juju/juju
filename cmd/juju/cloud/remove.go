@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 
 	cloudapi "github.com/juju/juju/api/client/cloud"
 	"github.com/juju/juju/cloud"
@@ -44,6 +45,10 @@ type removeCloudCommand struct {
 
 	// Used when querying a controller for its cloud details
 	removeCloudAPIFunc func(ctx context.Context) (RemoveCloudAPI, error)
+
+	// targetController holds a controller name when removing
+	// a cloud from a controller managed by JAAS.
+	targetController string
 }
 
 type RemoveCloudAPI interface {
@@ -86,7 +91,17 @@ func (c *removeCloudCommand) Info() *cmd.Info {
 	})
 }
 
+// SetFlags initializes the flags supported by the command.
+func (c *removeCloudCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.OptionalControllerCommand.SetFlags(f)
+	f.StringVar(&c.targetController, "target-controller", "", "The name of a JAAS managed controller to remove a cloud from")
+}
+
 func (c *removeCloudCommand) Init(args []string) (err error) {
+	if c.targetController != "" {
+		return cmd.ErrCommandMissing
+	}
+
 	if err := c.OptionalControllerCommand.Init(args); err != nil {
 		return err
 	}

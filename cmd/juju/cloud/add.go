@@ -160,6 +160,10 @@ type AddCloudCommand struct {
 
 	// existsLocally whether this cloud already exists locally.
 	existsLocally bool
+
+	// targetController holds a controller name when adding a cloud
+	// to a controller managed by JAAS.
+	targetController string
 }
 
 // NewAddCloudCommand returns a command to add cloud information.
@@ -213,10 +217,15 @@ func (c *AddCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.CloudFile, "f", "", "The path to a cloud definition file")
 	f.StringVar(&c.CloudFile, "file", "", "The path to a cloud definition file")
 	f.StringVar(&c.credentialName, "credential", "", "Credential to use for new cloud")
+	f.StringVar(&c.targetController, "target-controller", "", "The name of a JAAS managed controller to add a cloud to")
 }
 
 // Init populates the command with the args from the command line.
 func (c *AddCloudCommand) Init(args []string) (err error) {
+	if c.targetController != "" {
+		return cmd.ErrCommandMissing
+	}
+
 	if err := c.OptionalControllerCommand.Init(args); err != nil {
 		return err
 	}
