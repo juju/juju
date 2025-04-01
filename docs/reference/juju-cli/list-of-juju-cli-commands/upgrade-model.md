@@ -5,9 +5,6 @@
 ## Summary
 Upgrades Juju on all machines in a model.
 
-## Usage
-```juju upgrade-model [options] ```
-
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

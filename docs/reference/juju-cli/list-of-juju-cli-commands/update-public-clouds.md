@@ -5,9 +5,6 @@
 ## Summary
 Updates public cloud information available to Juju.
 
-## Usage
-```juju update-public-clouds [options] ```
-
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

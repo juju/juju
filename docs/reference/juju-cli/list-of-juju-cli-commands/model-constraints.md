@@ -5,9 +5,6 @@
 ## Summary
 Displays machine constraints for a model.
 
-## Usage
-```juju model-constraints [options] ```
-
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

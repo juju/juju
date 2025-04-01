@@ -5,9 +5,6 @@
 ## Summary
 Upgrades Juju on a controller.
 
-## Usage
-```juju upgrade-controller [options] ```
-
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

@@ -3,9 +3,6 @@
 ## Summary
 Reboot the host machine.
 
-## Usage
-``` juju-reboot [options] ```
-
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

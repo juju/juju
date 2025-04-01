@@ -444,7 +444,7 @@ def generate_controller_config_docs():
     print("generated controller config key list")
 
 def generate_model_config_docs():
-    config_reference_dir = 'user/reference/configuration/'
+    config_reference_dir = 'reference/configuration/'
     model_config_file = config_reference_dir + 'list-of-model-configuration-keys.md'
     model_config_header = config_reference_dir + 'list-of-model-configuration-keys.header'
 

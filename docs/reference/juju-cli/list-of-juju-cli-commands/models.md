@@ -7,9 +7,6 @@
 ## Summary
 Lists models a user can access on a controller.
 
-## Usage
-```juju models [options] ```
-
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

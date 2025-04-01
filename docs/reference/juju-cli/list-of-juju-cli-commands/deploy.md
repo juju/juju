@@ -9,27 +9,27 @@ Deploys a new application or bundle.
 ```juju deploy [options] <charm or bundle> [<application name>]```
 
 ### Options
-| Flag                       | Default | Usage                                                                                                      |
-| -------------------------- | ------- | ---------------------------------------------------------------------------------------------------------- |
-| `-B`, `--no-browser-login` | false   | Do not use web browser for authentication                                                                  |
-| `--attach-storage`         |         | Existing storage to attach to the deployed unit (not available on k8s models)                              |
-| `--base`                   |         | The base on which to deploy                                                                                |
-| `--bind`                   |         | Configure application endpoint bindings to spaces                                                          |
-| `--channel`                |         | Channel to use when deploying a charm or bundle from Charmhub                                              |
-| `--config`                 |         | Either a path to yaml-formatted application config file or a key=value pair                                |
-| `--constraints`            | []      | Set application constraints                                                                                |
-| `--device`                 |         | Charm device constraints                                                                                   |
-| `--dry-run`                | false   | Just show what the deploy would do                                                                         |
-| `--force`                  | false   | Allow a charm/bundle to be deployed which bypasses checks such as supported base or LXD profile allow list |
-| `-m`, `--model`            |         | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt;          |
-| `--map-machines`           |         | Specify the existing machines to use for bundle deployments                                                |
-| `-n`, `--num-units`        | 1       | Number of application units to deploy for principal charms                                                 |
-| `--overlay`                |         | Bundles to overlay on the primary bundle, applied in order                                                 |
-| `--resource`               |         | Resource to be uploaded to the controller                                                                  |
-| `--revision`               | -1      | The revision to deploy                                                                                     |
-| `--storage`                |         | Charm storage directives                                                                                   |
-| `--to`                     |         | The machine and/or container to deploy the unit in (bypasses constraints)                                  |
-| `--trust`                  | false   | Allows charm to run hooks that require access credentials                                                  |
+| Flag | Default | Usage |
+| --- | --- | --- |
+| `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
+| `--attach-storage` |  | Existing storage to attach to the deployed unit (not available on k8s models) |
+| `--base` |  | The base on which to deploy |
+| `--bind` |  | Configure application endpoint bindings to spaces |
+| `--channel` |  | Channel to use when deploying a charm or bundle from Charmhub |
+| `--config` |  | Either a path to yaml-formatted application config file or a key=value pair  |
+| `--constraints` | [] | Set application constraints |
+| `--device` |  | Charm device constraints |
+| `--dry-run` | false | Just show what the deploy would do |
+| `--force` | false | Allow a charm/bundle to be deployed which bypasses checks such as supported base or LXD profile allow list |
+| `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
+| `--map-machines` |  | Specify the existing machines to use for bundle deployments |
+| `-n`, `--num-units` | 1 | Number of application units to deploy for principal charms |
+| `--overlay` |  | Bundles to overlay on the primary bundle, applied in order |
+| `--resource` |  | Resource to be uploaded to the controller |
+| `--revision` | -1 | The revision to deploy |
+| `--storage` |  | Charm storage directives |
+| `--to` |  | The machine and/or container to deploy the unit in (bypasses constraints) |
+| `--trust` | false | Allows charm to run hooks that require access credentials |
 
 ## Examples
 

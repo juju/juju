@@ -3,9 +3,6 @@
 ## Summary
 Print the Juju Dashboard URL, or open the Juju Dashboard in the default browser.
 
-## Usage
-```juju dashboard [options] ```
-
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

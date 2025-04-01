@@ -3,9 +3,6 @@
 ## Summary
 List all ports or port ranges opened by the unit.
 
-## Usage
-``` opened-ports [options] ```
-
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

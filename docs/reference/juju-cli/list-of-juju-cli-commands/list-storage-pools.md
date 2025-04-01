@@ -7,9 +7,6 @@
 ## Summary
 List storage pools.
 
-## Usage
-```juju storage-pools [options] ```
-
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

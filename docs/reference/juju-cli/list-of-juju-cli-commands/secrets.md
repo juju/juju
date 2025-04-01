@@ -7,9 +7,6 @@
 ## Summary
 Lists secrets available in the model.
 
-## Usage
-```juju secrets [options] ```
-
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

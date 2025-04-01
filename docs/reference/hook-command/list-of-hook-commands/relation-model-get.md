@@ -3,9 +3,6 @@
 ## Summary
 Get details about the model hosing a related application.
 
-## Usage
-``` relation-model-get [options] ```
-
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

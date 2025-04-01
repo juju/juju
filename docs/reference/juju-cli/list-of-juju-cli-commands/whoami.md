@@ -5,9 +5,6 @@
 ## Summary
 Print current login details.
 
-## Usage
-```juju whoami [options] ```
-
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

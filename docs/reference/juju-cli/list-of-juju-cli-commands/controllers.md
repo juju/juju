@@ -7,9 +7,6 @@
 ## Summary
 Lists all controllers.
 
-## Usage
-```juju controllers [options] ```
-
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

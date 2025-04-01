@@ -7,9 +7,6 @@
 ## Summary
 Prints the firewall rules.
 
-## Usage
-```juju firewall-rules [options] ```
-
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |

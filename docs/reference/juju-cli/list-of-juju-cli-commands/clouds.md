@@ -7,9 +7,6 @@
 ## Summary
 Lists all clouds available to Juju.
 
-## Usage
-```juju clouds [options] ```
-
 ### Options
 | Flag | Default | Usage |
 | --- | --- | --- |
