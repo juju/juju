@@ -14,12 +14,13 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/model"
 )
 
 // FlagConfig holds a FlagWorker's dependencies and resources.
 type FlagConfig struct {
 	LeaseManager lease.Manager
-	ModelUUID    string
+	ModelUUID    model.UUID
 	Claimant     names.Tag
 	Entity       names.Tag
 	Clock        clock.Clock
@@ -72,7 +73,7 @@ func NewFlagWorker(ctx context.Context, config FlagConfig) (worker.Worker, error
 		return nil, errors.Trace(err)
 	}
 
-	claimer, err := config.LeaseManager.Claimer(lease.SingularControllerNamespace, config.ModelUUID)
+	claimer, err := config.LeaseManager.Claimer(lease.SingularControllerNamespace, config.ModelUUID.String())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

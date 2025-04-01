@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/model"
 )
 
 // logger is here to stop the desire of creating a package level logger.
@@ -33,7 +34,7 @@ type ManifoldConfig struct {
 	// TODO(controlleragent) - claimaint should be a ControllerAgentTag
 	Claimant  names.Tag
 	Entity    names.Tag
-	ModelUUID string
+	ModelUUID model.UUID
 
 	NewWorker func(context.Context, FlagConfig) (worker.Worker, error)
 }
@@ -61,6 +62,10 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	var leaseManager lease.Manager
 	if err := getter.Get(config.LeaseManagerName, &leaseManager); err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	if !names.IsValidMachine(config.Claimant.Id()) && !names.IsValidControllerAgent(config.Claimant.Id()) {
+		return nil, errors.NotValidf("claimant tag")
 	}
 
 	flag, err := config.NewWorker(ctx, FlagConfig{

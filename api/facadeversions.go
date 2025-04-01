@@ -103,7 +103,6 @@ var facadeVersions = facades.FacadeVersions{
 	"SecretsDrain":                 {1},
 	"UserSecretsDrain":             {1},
 	"UserSecretsManager":           {1},
-	"Singular":                     {2},
 	"Spaces":                       {6},
 	"SSHClient":                    {4, 5},
 	"Storage":                      {6},
