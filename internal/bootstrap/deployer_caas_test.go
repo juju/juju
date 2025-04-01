@@ -146,7 +146,6 @@ func (s *deployerCAASSuite) TestCompleteProcess(c *gc.C) {
 		ProviderId: ptr("controller-0"),
 	}).Return(op)
 	s.operationApplier.EXPECT().ApplyOperation(op).Return(nil)
-	s.unit.EXPECT().SetPassword(cfg.UnitPassword).Return(nil)
 
 	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unit.Name("controller/0"), applicationservice.UpdateCAASUnitParams{
 		ProviderID: ptr("controller-0"),

@@ -75,7 +75,7 @@ func (s *serviceSuite) TestSetUnitPasswordInvalidPassword(c *gc.C) {
 
 	service := NewService(s.state)
 	err := service.SetUnitPassword(context.Background(), unitName, password)
-	c.Assert(err, gc.ErrorMatches, "password is only 3 chars long, and is not a valid Agent password")
+	c.Assert(err, gc.ErrorMatches, "password is only 3 chars long, and is not a valid Agent password.*")
 }
 
 func (s *serviceSuite) TestIsValidUnitPassword(c *gc.C) {
@@ -122,6 +122,26 @@ func (s *serviceSuite) TestIsValidUnitPasswordInvalidName(c *gc.C) {
 	service := NewService(s.state)
 	_, err = service.IsValidUnitPassword(context.Background(), unitName, password)
 	c.Assert(err, jc.ErrorIs, unit.InvalidUnitName)
+}
+
+func (s *serviceSuite) TestIsValidUnitPasswordEmptyPassword(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unit.Name("unit/0")
+
+	service := NewService(s.state)
+	_, err := service.IsValidUnitPassword(context.Background(), unitName, "")
+	c.Assert(err, jc.ErrorIs, passworderrors.EmptyPassword)
+}
+
+func (s *serviceSuite) TestIsValidUnitPasswordInvalidPassword(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unit.Name("unit/0")
+
+	service := NewService(s.state)
+	_, err := service.IsValidUnitPassword(context.Background(), unitName, "abc")
+	c.Assert(err, jc.ErrorIs, passworderrors.InvalidPassword)
 }
 
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {

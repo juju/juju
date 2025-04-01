@@ -12,7 +12,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/unit"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
+	passworderrors "github.com/juju/juju/domain/password/errors"
 	"github.com/juju/juju/state"
 )
 
@@ -88,7 +88,11 @@ func (a *agentAuthenticator) authenticateUnit(ctx context.Context, tag names.Uni
 	unitName := unit.Name(tag.Id())
 
 	valid, err := a.passwordService.IsValidUnitPassword(ctx, unitName, credentials)
-	if err != nil && !errors.Is(err, applicationerrors.UnitNotFound) {
+	if errors.Is(err, passworderrors.EmptyPassword) {
+		return nil, errors.Trace(apiservererrors.ErrBadRequest)
+	} else if err != nil && errors.Is(err, passworderrors.InvalidPassword) {
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
+	} else if err != nil && !errors.Is(err, passworderrors.UnitNotFound) {
 		return nil, errors.Trace(err)
 	} else if !valid {
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)

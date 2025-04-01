@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/password"
+	passworderrors "github.com/juju/juju/domain/password/errors"
 	"github.com/juju/juju/internal/errors"
 	internalpassword "github.com/juju/juju/internal/password"
 )
@@ -45,7 +46,7 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName unit.Name, passw
 		return errors.Capture(err)
 	}
 	if len(password) < internalpassword.MinAgentPasswordLength {
-		return errors.Errorf("password is only %d chars long, and is not a valid Agent password", len(password))
+		return errors.Errorf("password is only %d chars long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
 	}
 
 	unitUUID, err := s.st.GetUnitUUID(ctx, unitName)
@@ -60,6 +61,13 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName unit.Name, passw
 func (s *Service) IsValidUnitPassword(ctx context.Context, unitName unit.Name, password string) (bool, error) {
 	if err := unitName.Validate(); err != nil {
 		return false, errors.Capture(err)
+	}
+
+	// An empty password is never valid.
+	if password == "" {
+		return false, passworderrors.EmptyPassword
+	} else if len(password) < internalpassword.MinAgentPasswordLength {
+		return false, errors.Errorf("password is only %d chars long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
 	}
 
 	unitUUID, err := s.st.GetUnitUUID(ctx, unitName)
