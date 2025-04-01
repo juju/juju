@@ -243,18 +243,33 @@ func (s *workerSuite) TestSSHSessionWorkerHandlesConnection(c *gc.C) {
 }
 
 type stubConnectionGetter struct {
-	sshConn  net.Conn
+	sshConn  ssh.Channel
 	sshdConn net.Conn
 }
 
 func newStubConnectionGetter() (*stubConnectionGetter, net.Conn, net.Conn) {
 	p1, p2 := net.Pipe()
-	return &stubConnectionGetter{sshConn: p1, sshdConn: p2}, p1, p2
+	return &stubConnectionGetter{sshConn: &stubSSHChannel{Conn: p1}, sshdConn: p2}, p1, p2
 }
 
-func (cg *stubConnectionGetter) GetSSHConnection(password, ctrlAddress string) (net.Conn, error) {
-	return cg.sshConn, nil
+type stubSSHChannel struct {
+	net.Conn
+}
 
+func (ssc *stubSSHChannel) CloseWrite() error {
+	return nil
+}
+
+func (ssc *stubSSHChannel) SendRequest(name string, wantReply bool, payload []byte) (bool, error) {
+	return false, nil
+}
+
+func (ssc *stubSSHChannel) Stderr() io.ReadWriter {
+	return nil
+}
+
+func (cg *stubConnectionGetter) GetSSHConnection(password, ctrlAddress string) (ssh.Channel, error) {
+	return cg.sshConn, nil
 }
 func (cg *stubConnectionGetter) GetSSHDConnection() (net.Conn, error) {
 	return cg.sshdConn, nil

@@ -246,7 +246,7 @@ func (w *sshSessionWorker) cleanupPublicKey(ephemeralPublicKey string) error {
 }
 
 type ConnectionGetter interface {
-	GetSSHConnection(password, ctrlAddress string) (net.Conn, error)
+	GetSSHConnection(password, ctrlAddress string) (ssh.Channel, error)
 	GetSSHDConnection() (net.Conn, error)
 }
 
@@ -265,7 +265,7 @@ func NewConnectionGetter(l Logger) *connectionGetter {
 }
 
 // GetSSHConnection initiates an SSH connection to the target ctrlAddress.
-func (w *connectionGetter) GetSSHConnection(password, ctrlAddress string) (net.Conn, error) {
+func (w *connectionGetter) GetSSHConnection(password, ctrlAddress string) (ssh.Channel, error) {
 	// TODO(ale8k): Watch will return host key in subsequent PR.
 	sshConfig := &ssh.ClientConfig{
 		User:            ControllerSSHUser,
@@ -279,13 +279,14 @@ func (w *connectionGetter) GetSSHConnection(password, ctrlAddress string) (net.C
 		return nil, errors.Trace(err)
 	}
 
-	conn, err := client.Dial("tcp", ctrlAddress)
+	// TODO(ale8k): Make this a constant that both the server and session worker can use.
+	ch, in, err := client.OpenChannel("juju-tunnel", nil)
 	if err != nil {
-		w.logger.Errorf("failed to dial controller %q: %v", ctrlAddress, err)
-		return nil, errors.Trace(err)
+		return nil, err
 	}
+	go ssh.DiscardRequests(in)
 
-	return conn, nil
+	return ch, nil
 }
 
 // GetSSHConnection performs a stand TCP dial to the SSHD running on the machine.

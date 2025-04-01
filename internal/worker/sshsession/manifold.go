@@ -30,6 +30,9 @@ type ManifoldConfig struct {
 
 	// Logger is the logger to use for the worker.
 	Logger Logger
+
+	// NewWorker returns a new sshsession worker.
+	NewWorker func(cfg WorkerConfig) (worker.Worker, error)
 }
 
 // Validate validates the manifold configuration.
@@ -43,6 +46,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
 	}
+	if config.NewWorker == nil {
+		return errors.NotValidf("nil NewWorker")
+	}
 	return nil
 }
 
@@ -52,6 +58,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.APICallerName,
+			config.AgentName,
 		},
 		Start: config.start,
 	}
@@ -73,9 +80,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, err
 	}
 
-	w, err := NewWorker(WorkerConfig{
+	machineId := agent.CurrentConfig().Tag().Id()
+
+	w, err := config.NewWorker(WorkerConfig{
 		Logger:           config.Logger,
-		MachineId:        agent.CurrentConfig().Tag().Id(),
+		MachineId:        machineId,
 		FacadeClient:     sshsession.NewClient(apiCaller),
 		ConnectionGetter: NewConnectionGetter(config.Logger),
 	})
