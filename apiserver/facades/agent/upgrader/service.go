@@ -40,6 +40,29 @@ type ModelAgentService interface {
 	// the unit belongs to no longer exists.
 	GetUnitTargetAgentVersion(context.Context, string) (semversion.Number, error)
 
+	// SetMachineReportedAgentVersion sets the reported agent version for the
+	// supplied machine name. Reported agent version is the version that the
+	// agent binary on this machine has reported it is running.
+	//
+	// The following errors are possible:
+	// - [coreerrors.NotValid] if the reportedVersion is not valid or the machine
+	// name is not valid.
+	// - [coreerrors.NotSupported] if the architecture is not supported.
+	// - [machineerrors.MachineNotFound] when the machine does not exist.
+	// - [machineerrors.MachineDead] when the machine is dead.
+	SetMachineReportedAgentVersion(context.Context, machine.Name, coreagentbinary.Version) error
+
+	// SetReportedUnitAgentVersion sets the reported agent version for the
+	// supplied unit name. Reported agent version is the version that the agent
+	// binary on this unit has reported it is running.
+	//
+	// The following errors are possible:
+	// - [coreerrors.NotValid] - when the reportedVersion is not valid.
+	// - [coreerrors.NotSupported] - when the architecture is not supported.
+	// - [applicationerrors.UnitNotFound] - when the unit does not exist.
+	// - [applicationerrors.UnitIsDead] - when the unit is dead.
+	SetUnitReportedAgentVersion(context.Context, coreunit.Name, coreagentbinary.Version) error
+
 	// WatchMachineTargetAgentVersion is responsible for watching the target agent
 	// version for machine and reporting when there has been a change via a
 	// [watcher.NotifyWatcher]. The following errors can be expected:
@@ -75,30 +98,6 @@ type ControllerNodeService interface {
 	// - [coreerrors.NotSupported] if the architecture is not supported.
 	// - [controllernodeerrors.NotFound] if the controller node does not exist.
 	SetReportedControllerNodeAgentVersion(context.Context, string, coreagentbinary.Version) error
-}
-
-type MachineService interface {
-	// SetReportedMachineAgentVersion sets the reported agent version for the
-	// supplied machine name. Reported agent version is the version that the agent
-	// binary on this machine has reported it is running.
-	//
-	// The following errors are possible:
-	// - [coreerrors.NotValid] if the reportedVersion is not valid.
-	// - [coreerrors.NotSupported] if the architecture is not supported.
-	// - [machineerrors.MachineNotFound] when the machine does not exist.
-	SetReportedMachineAgentVersion(context.Context, machine.Name, coreagentbinary.Version) error
-}
-
-type UnitService interface {
-	// SetReportedUnitAgentVersion sets the reported agent version for the
-	// supplied unit name. Reported agent version is the version that the agent
-	// binary on this unit has reported it is running.
-	//
-	// The following errors are possible:
-	// - [coreerrors.NotValid] if the reportedVersion is not valid.
-	// - [coreerrors.NotSupported] if the architecture is not supported.
-	// - [applicationerrors.UnitNotFound] - when the unit does not exist.
-	SetReportedUnitAgentVersion(context.Context, coreunit.Name, coreagentbinary.Version) error
 }
 
 // ModelConfigService is an interface that provides access to the

@@ -158,13 +158,13 @@ func (s *suite) TestWatchMachineTargetAgentVersionNotFound(c *gc.C) {
 	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-// TestSetReportedMachineAgentVersionInvalid is here to assert that if pass a
-// junk agent binary version to [Service.SetReportedMachineAgentVersion] we get
+// TestSetMachineReportedAgentVersionInvalid is here to assert that if pass a
+// junk agent binary version to [Service.SetMachineReportedAgentVersion] we get
 // back an error that satisfies [coreerrors.NotValid].
-func (s *suite) TestSetReportedMachineAgentVersionInvalid(c *gc.C) {
+func (s *suite) TestSetMachineReportedAgentVersionInvalid(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := NewService(s.state, nil).SetReportedMachineAgentVersion(
+	err := NewService(s.state, nil).SetMachineReportedAgentVersion(
 		context.Background(),
 		coremachine.Name("0"),
 		coreagentbinary.Version{
@@ -174,12 +174,12 @@ func (s *suite) TestSetReportedMachineAgentVersionInvalid(c *gc.C) {
 	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
-// TestSetReportedMachineAgentVersionSuccess asserts that if we try to set the
+// TestSetMachineReportedAgentVersionSuccess asserts that if we try to set the
 // reported agent version for a machine that doesn't exist we get an error
 // satisfying [machineerrors.MachineNotFound]. Because the service relied on
 // state for producing this error we need to simulate this in two different
 // locations to assert the full functionality.
-func (s *suite) TestSetReportedMachineAgentVersionNotFound(c *gc.C) {
+func (s *suite) TestSetMachineReportedAgentVersionNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// MachineNotFound error location 1.
@@ -187,7 +187,7 @@ func (s *suite) TestSetReportedMachineAgentVersionNotFound(c *gc.C) {
 		"", machineerrors.MachineNotFound,
 	)
 
-	err := NewService(s.state, nil).SetReportedMachineAgentVersion(
+	err := NewService(s.state, nil).SetMachineReportedAgentVersion(
 		context.Background(),
 		coremachine.Name("0"),
 		coreagentbinary.Version{
@@ -214,7 +214,7 @@ func (s *suite) TestSetReportedMachineAgentVersionNotFound(c *gc.C) {
 		},
 	).Return(machineerrors.MachineNotFound)
 
-	err = NewService(s.state, nil).SetReportedMachineAgentVersion(
+	err = NewService(s.state, nil).SetMachineReportedAgentVersion(
 		context.Background(),
 		coremachine.Name("0"),
 		coreagentbinary.Version{
@@ -225,7 +225,7 @@ func (s *suite) TestSetReportedMachineAgentVersionNotFound(c *gc.C) {
 	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-func (s *suite) TestSetReportedMachineAgentVersionDead(c *gc.C) {
+func (s *suite) TestSetMachineReportedAgentVersionDead(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineUUID, err := uuid.NewUUID()
@@ -244,7 +244,7 @@ func (s *suite) TestSetReportedMachineAgentVersionDead(c *gc.C) {
 		},
 	).Return(machineerrors.MachineIsDead)
 
-	err = NewService(s.state, nil).SetReportedMachineAgentVersion(
+	err = NewService(s.state, nil).SetMachineReportedAgentVersion(
 		context.Background(),
 		coremachine.Name("0"),
 		coreagentbinary.Version{
@@ -255,9 +255,9 @@ func (s *suite) TestSetReportedMachineAgentVersionDead(c *gc.C) {
 	c.Check(err, jc.ErrorIs, machineerrors.MachineIsDead)
 }
 
-// TestSetReportedMachineAgentVersion asserts the happy path of
-// [Service.SetReportedMachineAgentVersion].
-func (s *suite) TestSetReportedMachineAgentVersion(c *gc.C) {
+// TestSetMachineReportedAgentVersion asserts the happy path of
+// [Service.SetMachineReportedAgentVersion].
+func (s *suite) TestSetMachineReportedAgentVersion(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	machineUUID, err := uuid.NewUUID()
@@ -275,7 +275,7 @@ func (s *suite) TestSetReportedMachineAgentVersion(c *gc.C) {
 		},
 	).Return(nil)
 
-	err = NewService(s.state, nil).SetReportedMachineAgentVersion(
+	err = NewService(s.state, nil).SetMachineReportedAgentVersion(
 		context.Background(),
 		coremachine.Name("0"),
 		coreagentbinary.Version{
@@ -292,7 +292,7 @@ func (s *suite) TestSetReportedMachineAgentVersion(c *gc.C) {
 func (s *suite) TestSetReportedUnitAgentVersionInvalid(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := NewService(s.state, nil).SetUnitReportedUnitAgentVersion(
+	err := NewService(s.state, nil).SetUnitReportedAgentVersion(
 		context.Background(),
 		coreunit.Name("foo/666"),
 		coreagentbinary.Version{
@@ -315,7 +315,7 @@ func (s *suite) TestSetReportedUnitAgentVersionNotFound(c *gc.C) {
 		"", applicationerrors.UnitNotFound,
 	)
 
-	err := NewService(s.state, nil).SetUnitReportedUnitAgentVersion(
+	err := NewService(s.state, nil).SetUnitReportedAgentVersion(
 		context.Background(),
 		coreunit.Name("foo/666"),
 		coreagentbinary.Version{
@@ -341,7 +341,7 @@ func (s *suite) TestSetReportedUnitAgentVersionNotFound(c *gc.C) {
 		},
 	).Return(applicationerrors.UnitNotFound)
 
-	err = NewService(s.state, nil).SetUnitReportedUnitAgentVersion(
+	err = NewService(s.state, nil).SetUnitReportedAgentVersion(
 		context.Background(),
 		coreunit.Name("foo/666"),
 		coreagentbinary.Version{
@@ -373,7 +373,7 @@ func (s *suite) TestSetReportedUnitAgentVersionDead(c *gc.C) {
 		},
 	).Return(applicationerrors.UnitIsDead)
 
-	err := NewService(s.state, nil).SetUnitReportedUnitAgentVersion(
+	err := NewService(s.state, nil).SetUnitReportedAgentVersion(
 		context.Background(),
 		coreunit.Name("foo/666"),
 		coreagentbinary.Version{
@@ -404,7 +404,7 @@ func (s *suite) TestSetReportedUnitAgentVersion(c *gc.C) {
 		},
 	).Return(nil)
 
-	err := NewService(s.state, nil).SetUnitReportedUnitAgentVersion(
+	err := NewService(s.state, nil).SetUnitReportedAgentVersion(
 		context.Background(),
 		coreunit.Name("foo/666"),
 		coreagentbinary.Version{

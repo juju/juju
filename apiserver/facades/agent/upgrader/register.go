@@ -63,7 +63,6 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 			auth,
 			domainServices.Agent(),
 			ctx.WatcherRegistry(),
-			domainServices.Application(),
 		), nil
 	}
 
@@ -95,8 +94,6 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 		ctx.Logger().Child("upgrader"),
 		ctx.WatcherRegistry(),
 		domainServices.ControllerNode(),
-		domainServices.Machine(),
 		domainServices.Agent(),
-		domainServices.Application(),
 	), nil
 }

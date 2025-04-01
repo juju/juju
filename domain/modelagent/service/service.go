@@ -135,7 +135,7 @@ func (s *Service) GetModelTargetAgentVersion(ctx context.Context) (semversion.Nu
 	return s.st.GetTargetAgentVersion(ctx)
 }
 
-// SetReportedMachineAgentVersion sets the reported agent version for the
+// SetMachineReportedAgentVersion sets the reported agent version for the
 // supplied machine name. Reported agent version is the version that the agent
 // binary on this machine has reported it is running.
 //
@@ -145,7 +145,7 @@ func (s *Service) GetModelTargetAgentVersion(ctx context.Context) (semversion.Nu
 // - [coreerrors.NotSupported] if the architecture is not supported.
 // - [machineerrors.MachineNotFound] when the machine does not exist.
 // - [machineerrors.MachineDead] when the machine is dead.
-func (s *Service) SetReportedMachineAgentVersion(
+func (s *Service) SetMachineReportedAgentVersion(
 	ctx context.Context,
 	machineName machine.Name,
 	reportedVersion coreagentbinary.Version,
@@ -179,7 +179,7 @@ func (s *Service) SetReportedMachineAgentVersion(
 	return nil
 }
 
-// SetReportedUnitAgentVersion sets the reported agent version for the
+// SetUnitReportedAgentVersion sets the reported agent version for the
 // supplied unit name. Reported agent version is the version that the agent
 // binary on this unit has reported it is running.
 //
@@ -188,7 +188,7 @@ func (s *Service) SetReportedMachineAgentVersion(
 // - [coreerrors.NotSupported] - when the architecture is not supported.
 // - [applicationerrors.UnitNotFound] - when the unit does not exist.
 // - [applicationerrors.UnitIsDead] - when the unit is dead.
-func (s *Service) SetUnitReportedUnitAgentVersion(
+func (s *Service) SetUnitReportedAgentVersion(
 	ctx context.Context,
 	unitName coreunit.Name,
 	reportedVersion coreagentbinary.Version,

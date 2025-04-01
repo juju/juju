@@ -29,7 +29,6 @@ type UnitUpgraderAPI struct {
 	authorizer        facade.Authorizer
 	modelAgentService ModelAgentService
 	watcherRegistry   facade.WatcherRegistry
-	unitService       UnitService
 }
 
 // NewUnitUpgraderAPI creates a new server-side UnitUpgraderAPI facade.
@@ -38,14 +37,12 @@ func NewUnitUpgraderAPI(
 	authorizer facade.Authorizer,
 	modelAgentService ModelAgentService,
 	watcherRegistry facade.WatcherRegistry,
-	unitService UnitService,
 ) *UnitUpgraderAPI {
 	return &UnitUpgraderAPI{
 		st:                st,
 		authorizer:        authorizer,
 		modelAgentService: modelAgentService,
 		watcherRegistry:   watcherRegistry,
-		unitService:       unitService,
 	}
 }
 
@@ -162,7 +159,7 @@ func (u *UnitUpgraderAPI) setEntityToolVersion(
 	var err error
 	switch tag.Kind() {
 	case names.UnitTagKind:
-		err = u.unitService.SetReportedUnitAgentVersion(
+		err = u.modelAgentService.SetUnitReportedAgentVersion(
 			ctx,
 			coreunit.Name(tag.Id()),
 			reportedVersion,
