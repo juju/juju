@@ -4,8 +4,6 @@
 package interfaces
 
 import (
-	"github.com/juju/names/v6"
-
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/state"
 )
@@ -13,7 +11,6 @@ import (
 type BackendState interface {
 	Application(string) (Application, error)
 	Charm(curl string) (state.CharmRefFull, error)
-	ControllerTag() names.ControllerTag
 	Machine(string) (Machine, error)
 }
 

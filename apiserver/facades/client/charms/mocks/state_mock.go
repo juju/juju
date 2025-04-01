@@ -18,7 +18,6 @@ import (
 	constraints "github.com/juju/juju/core/constraints"
 	charm0 "github.com/juju/juju/internal/charm"
 	state "github.com/juju/juju/state"
-	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -119,44 +118,6 @@ func (c *MockBackendStateCharmCall) Do(f func(string) (state.CharmRefFull, error
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackendStateCharmCall) DoAndReturn(f func(string) (state.CharmRefFull, error)) *MockBackendStateCharmCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ControllerTag mocks base method.
-func (m *MockBackendState) ControllerTag() names.ControllerTag {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerTag")
-	ret0, _ := ret[0].(names.ControllerTag)
-	return ret0
-}
-
-// ControllerTag indicates an expected call of ControllerTag.
-func (mr *MockBackendStateMockRecorder) ControllerTag() *MockBackendStateControllerTagCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerTag", reflect.TypeOf((*MockBackendState)(nil).ControllerTag))
-	return &MockBackendStateControllerTagCall{Call: call}
-}
-
-// MockBackendStateControllerTagCall wrap *gomock.Call
-type MockBackendStateControllerTagCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendStateControllerTagCall) Return(arg0 names.ControllerTag) *MockBackendStateControllerTagCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendStateControllerTagCall) Do(f func() names.ControllerTag) *MockBackendStateControllerTagCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendStateControllerTagCall) DoAndReturn(f func() names.ControllerTag) *MockBackendStateControllerTagCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

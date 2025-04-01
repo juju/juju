@@ -7,7 +7,7 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -27,14 +27,8 @@ func NewAPI(ctx facade.ModelContext) (*API, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	st := ctx.State()
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	return &API{
-		modelTag:   m.ModelTag(),
+		modelTag:   names.NewModelTag(ctx.ModelUUID().String()),
 		service:    ctx.DomainServices().BlockCommand(),
 		authorizer: authorizer,
 	}, nil

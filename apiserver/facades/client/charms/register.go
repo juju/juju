@@ -35,7 +35,7 @@ func newFacadeV7(stdCtx context.Context, ctx facade.ModelContext) (*APIv7, error
 }
 
 // makeFacadeBase provides the signature required for facade registration.
-func makeFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*API, error) {
+func makeFacadeBase(_ context.Context, ctx facade.ModelContext) (*API, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -51,10 +51,6 @@ func makeFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*API, erro
 		return nil, errors.Trace(err)
 	}
 
-	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
-	if err != nil {
-		return nil, fmt.Errorf("getting model info: %w", err)
-	}
 	charmhubHTTPClient, err := ctx.HTTPClient(corehttp.CharmhubPurpose)
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -73,7 +69,8 @@ func makeFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*API, erro
 		newCharmHubRepository: func(cfg repository.CharmHubRepositoryConfig) (corecharm.Repository, error) {
 			return repository.NewCharmHubRepository(cfg)
 		},
-		tag:             names.NewModelTag(modelInfo.UUID.String()),
+		modelTag:        names.NewModelTag(ctx.ModelUUID().String()),
+		controllerTag:   names.NewControllerTag(ctx.ControllerUUID()),
 		requestRecorder: ctx.RequestRecorder(),
 		logger:          ctx.Logger().Child("charms"),
 	}, nil
