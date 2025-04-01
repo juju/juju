@@ -9,8 +9,8 @@ import (
 	"github.com/juju/juju/core/network"
 )
 
-// Subnet represents a single row from the subnet table.
-type Subnet struct {
+// subnet represents a single row from the subnet table.
+type subnet struct {
 	// UUID is the subnet's UUID.
 	UUID string `db:"uuid"`
 	// CIDR of the network, in 123.45.67.89/24 format.
@@ -21,16 +21,16 @@ type Subnet struct {
 	SpaceUUID string `db:"space_uuid"`
 }
 
-// ProviderSubnet represents a single row from the provider_subnet table.
-type ProviderSubnet struct {
+// providerSubnet represents a single row from the provider_subnet table.
+type providerSubnet struct {
 	// SubnetUUID is the UUID of the subnet.
 	SubnetUUID string `db:"subnet_uuid"`
 	// ProviderID is the provider-specific subnet ID.
 	ProviderID network.Id `db:"provider_id"`
 }
 
-// ProviderNetwork represents a single row from the provider_network table.
-type ProviderNetwork struct {
+// providerNetwork represents a single row from the provider_network table.
+type providerNetwork struct {
 	// ProviderNetworkUUID is the provider network UUID.
 	ProviderNetworkUUID string `db:"uuid"`
 	// ProviderNetworkID is the provider-specific ID of the network
@@ -38,41 +38,41 @@ type ProviderNetwork struct {
 	ProviderNetworkID network.Id `db:"provider_network_id"`
 }
 
-// ProviderNetworkSubnet represents a single row from the provider_network_subnet mapping table.
-type ProviderNetworkSubnet struct {
+// providerNetworkSubnet represents a single row from the provider_network_subnet mapping table.
+type providerNetworkSubnet struct {
 	// SubnetUUID is the UUID of the subnet.
 	SubnetUUID string `db:"subnet_uuid"`
 	// ProviderNetworkUUID is the provider network UUID.
 	ProviderNetworkUUID string `db:"provider_network_uuid"`
 }
 
-// Space represents a single row from the space table.
-type Space struct {
+// space represents a single row from the space table.
+type space struct {
 	// Name is the space name.
 	Name string `db:"name"`
 	// UUID is the unique ID of the space.
 	UUID string `db:"uuid"`
 }
 
-// ProviderSpace represents a single row from the provider_space table.
-type ProviderSpace struct {
+// providerSpace represents a single row from the provider_space table.
+type providerSpace struct {
 	// SpaceUUID is the unique ID of the space.
 	SpaceUUID string `db:"space_uuid"`
 	// ProviderID is a provider-specific space ID.
 	ProviderID network.Id `db:"provider_id"`
 }
 
-// AvailabilityZone represents a row from the availability_zone table.
-type AvailabilityZone struct {
+// availabilityZone represents a row from the availability_zone table.
+type availabilityZone struct {
 	// Name is the name of the availability zone.
 	Name string `db:"name"`
 	// UUID is the unique ID of the availability zone.
 	UUID string `db:"uuid"`
 }
 
-// AvailabilityZoneSubnet represents a row from the availability_zone_subnet
+// availabilityZoneSubnet represents a row from the availability_zone_subnet
 // table.
-type AvailabilityZoneSubnet struct {
+type availabilityZoneSubnet struct {
 	// UUID is the unique ID of the availability zone.
 	AZUUID string `db:"availability_zone_uuid"`
 	// SubnetUUID is the unique ID of the Subnet.
@@ -111,7 +111,7 @@ type SubnetRow struct {
 }
 
 // SpaceSubnetRow represents a single row from the v_space_subnets view.
-type SpaceSubnetRow struct {
+type spaceSubnetRow struct {
 	// SubnetRow is embedded by SpaceSubnetRow since every row corresponds to a
 	// subnet of the space. This allows SubnetRow to be
 	SubnetRow
@@ -127,10 +127,10 @@ type SpaceSubnetRow struct {
 }
 
 // SpaceSubnetRows is a slice of SpaceSubnet rows.
-type SpaceSubnetRows []SpaceSubnetRow
+type SpaceSubnetRows []spaceSubnetRow
 
-// SubnetRows is a slice of Subnet rows.
-type SubnetRows []SubnetRow
+// subnetRows is a slice of Subnet rows.
+type subnetRows []SubnetRow
 
 // ToSpaceInfos converts Spaces to a slice of network.SpaceInfo structs.
 // This method makes sure only unique subnets are mapped and flattens them into
@@ -213,7 +213,7 @@ func (s SubnetRow) ToSubnetInfo() *network.SubnetInfo {
 // This method makes sure only unique AZs are mapped and flattens them into
 // each subnet.
 // No sorting is applied.
-func (sn SubnetRows) ToSubnetInfos() network.SubnetInfos {
+func (sn subnetRows) ToSubnetInfos() network.SubnetInfos {
 	// Prepare structs for unique subnets.
 	uniqueAZs := make(map[string]map[string]string)
 	uniqueSubnets := make(map[string]network.SubnetInfo)

@@ -43,31 +43,31 @@ func (st *State) AddSpace(
 	if err != nil {
 		return errors.Capture(err)
 	}
-	space := Space{UUID: uuid, Name: name}
+	sp := space{UUID: uuid, Name: name}
 	insertSpaceStmt, err := st.Prepare(`
 INSERT INTO space (uuid, name) 
-VALUES ($Space.*)`, space)
+VALUES ($space.*)`, sp)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	providerSpace := ProviderSpace{ProviderID: providerID, SpaceUUID: uuid}
+	providerSp := providerSpace{ProviderID: providerID, SpaceUUID: uuid}
 	insertProviderStmt, err := st.Prepare(`
 INSERT INTO provider_space (provider_id, space_uuid)
-VALUES ($ProviderSpace.*)`, providerSpace)
+VALUES ($providerSpace.*)`, providerSp)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, insertSpaceStmt, space).Run(); err != nil {
+		if err := tx.Query(ctx, insertSpaceStmt, sp).Run(); err != nil {
 			if database.IsErrConstraintUnique(err) {
 				return errors.Errorf("inserting space uuid %q into space table: %w with err: %w", uuid, networkerrors.SpaceAlreadyExists, err)
 			}
 			return errors.Errorf("inserting space uuid %q into space table: %w", uuid, err)
 		}
 		if providerID != "" {
-			if err := tx.Query(ctx, insertProviderStmt, providerSpace).Run(); err != nil {
+			if err := tx.Query(ctx, insertProviderStmt, providerSp).Run(); err != nil {
 				return errors.Errorf("inserting provider id %q into provider_space table: %w", providerID, err)
 			}
 		}
@@ -78,7 +78,7 @@ VALUES ($ProviderSpace.*)`, providerSpace)
 			if err := st.updateSubnetSpaceID(
 				ctx,
 				tx,
-				Subnet{
+				subnet{
 					UUID:      subnetID,
 					SpaceUUID: uuid,
 				}); err != nil {
@@ -101,18 +101,18 @@ func (st *State) GetSpace(
 		return nil, errors.Capture(err)
 	}
 
-	space := Space{UUID: uuid}
+	sp := space{UUID: uuid}
 	spacesStmt, err := st.Prepare(`
-SELECT &SpaceSubnetRow.*
+SELECT &spaceSubnetRow.*
 FROM   v_space_subnet
-WHERE  uuid = $Space.uuid;`, SpaceSubnetRow{}, space)
+WHERE  uuid = $space.uuid;`, spaceSubnetRow{}, sp)
 	if err != nil {
 		return nil, errors.Errorf("preparing select space statement: %w", err)
 	}
 
 	var spaceRows SpaceSubnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, spacesStmt, space).GetAll(&spaceRows)
+		err := tx.Query(ctx, spacesStmt, sp).GetAll(&spaceRows)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Errorf("space not found with %s: %w", uuid, networkerrors.SpaceNotFound)
@@ -137,24 +137,24 @@ func (st *State) GetSpaceByName(
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	space := Space{
+	sp := space{
 		Name: name,
 	}
 
 	// Append the space.name condition to the query.
 	q := `
-SELECT &SpaceSubnetRow.*
+SELECT &spaceSubnetRow.*
 FROM   v_space_subnet
-WHERE  name = $Space.name;`
+WHERE  name = $space.name;`
 
-	s, err := st.Prepare(q, SpaceSubnetRow{}, space)
+	s, err := st.Prepare(q, spaceSubnetRow{}, sp)
 	if err != nil {
 		return nil, errors.Errorf("preparing %q: %w", q, err)
 	}
 
 	var rows SpaceSubnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := errors.Capture(tx.Query(ctx, s, space).GetAll(&rows))
+		err := errors.Capture(tx.Query(ctx, s, sp).GetAll(&rows))
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Errorf("space not found with %s: %w", name, networkerrors.SpaceNotFound)
@@ -180,9 +180,9 @@ func (st *State) GetAllSpaces(
 	}
 
 	s, err := st.Prepare(`
-SELECT &SpaceSubnetRow.*
+SELECT &spaceSubnetRow.*
 FROM   v_space_subnet
-`, SpaceSubnetRow{})
+`, spaceSubnetRow{})
 	if err != nil {
 		return nil, errors.Errorf("preparing select all spaces statement: %w", err)
 	}
@@ -215,20 +215,20 @@ func (st *State) UpdateSpace(
 		return errors.Capture(err)
 	}
 
-	space := Space{
+	sp := space{
 		UUID: uuid,
 		Name: name,
 	}
 	stmt, err := st.Prepare(`
 UPDATE space
-SET    name = $Space.name
-WHERE  uuid = $Space.uuid;`, space)
+SET    name = $space.name
+WHERE  uuid = $space.uuid;`, sp)
 	if err != nil {
 		return errors.Errorf("preparing update space statement: %w", err)
 	}
 	var outcome sqlair.Outcome
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, space).Get(&outcome)
+		err := tx.Query(ctx, stmt, sp).Get(&outcome)
 		if err != nil {
 			return errors.Errorf("updating space %q with name %q: %w", uuid, name, err)
 		}
@@ -255,39 +255,39 @@ func (st *State) DeleteSpace(
 		return errors.Capture(err)
 	}
 
-	space := Space{UUID: uuid}
+	sp := space{UUID: uuid}
 
 	deleteSpaceStmt, err := st.Prepare(`
 DELETE FROM space 
-WHERE       uuid = $Space.uuid;`, space)
+WHERE       uuid = $space.uuid;`, sp)
 	if err != nil {
 		return errors.Errorf("preparing delete space statement: %w", err)
 	}
 	deleteProviderSpaceStmt, err := st.Prepare(`
 DELETE FROM provider_space 
-WHERE       space_uuid = $Space.uuid;`, space)
+WHERE       space_uuid = $space.uuid;`, sp)
 	if err != nil {
 		return errors.Errorf("preparing delete provider space statement: %w", err)
 	}
 	updateSubnetSpaceUUIDStmt, err := st.Prepare(`
 UPDATE subnet 
 SET    space_uuid = (SELECT uuid FROM space WHERE name = 'alpha') 
-WHERE  space_uuid = $Space.uuid;`, space)
+WHERE  space_uuid = $space.uuid;`, sp)
 	if err != nil {
 		return errors.Errorf("preparing update subnet statement: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, deleteProviderSpaceStmt, space).Run(); err != nil {
+		if err := tx.Query(ctx, deleteProviderSpaceStmt, sp).Run(); err != nil {
 			return errors.Errorf("removing space %q from the provider_space table: %w", uuid, err)
 		}
 
-		if err := tx.Query(ctx, updateSubnetSpaceUUIDStmt, space).Run(); err != nil {
+		if err := tx.Query(ctx, updateSubnetSpaceUUIDStmt, sp).Run(); err != nil {
 			return errors.Errorf("updating subnet table by removing the space %q: %w", uuid, err)
 		}
 
 		var outcome sqlair.Outcome
-		err := tx.Query(ctx, deleteSpaceStmt, space).Get(&outcome)
+		err := tx.Query(ctx, deleteSpaceStmt, sp).Get(&outcome)
 		if err != nil {
 			return errors.Errorf("removing space %q: %w", uuid, err)
 		}
