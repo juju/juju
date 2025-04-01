@@ -78,7 +78,7 @@ VALUES ($ProviderSpace.*)`, providerSpace)
 			if err := st.updateSubnetSpaceID(
 				ctx,
 				tx,
-				Subnet{
+				subnet{
 					UUID:      subnetID,
 					SpaceUUID: uuid,
 				}); err != nil {

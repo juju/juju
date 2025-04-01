@@ -9,8 +9,8 @@ import (
 	"github.com/juju/juju/core/network"
 )
 
-// Subnet represents a single row from the subnet table.
-type Subnet struct {
+// subnet represents a single row from the subnet table.
+type subnet struct {
 	// UUID is the subnet's UUID.
 	UUID string `db:"uuid"`
 	// CIDR of the network, in 123.45.67.89/24 format.
@@ -21,16 +21,16 @@ type Subnet struct {
 	SpaceUUID string `db:"space_uuid"`
 }
 
-// ProviderSubnet represents a single row from the provider_subnet table.
-type ProviderSubnet struct {
+// providerSubnet represents a single row from the provider_subnet table.
+type providerSubnet struct {
 	// SubnetUUID is the UUID of the subnet.
 	SubnetUUID string `db:"subnet_uuid"`
 	// ProviderID is the provider-specific subnet ID.
 	ProviderID network.Id `db:"provider_id"`
 }
 
-// ProviderNetwork represents a single row from the provider_network table.
-type ProviderNetwork struct {
+// providerNetwork represents a single row from the provider_network table.
+type providerNetwork struct {
 	// ProviderNetworkUUID is the provider network UUID.
 	ProviderNetworkUUID string `db:"uuid"`
 	// ProviderNetworkID is the provider-specific ID of the network
