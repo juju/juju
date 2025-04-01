@@ -125,12 +125,11 @@ func (st *State) checkUnitNotDead(ctx context.Context, tx *sqlair.TX, ident unit
 		LifeID domainlife.Life `db:"life_id"`
 	}
 
-	query := `
-SELECT &life.*
-FROM unit
-WHERE uuid = $unitUUID.uuid;
-`
-	stmt, err := st.Prepare(query, ident, life{})
+	stmt, err := st.Prepare(
+		"SELECT &life.* FROM unit WHERE uuid = $unitUUID.uuid",
+		ident,
+		life{},
+	)
 	if err != nil {
 		return errors.Errorf("preparing query for unit %q: %w", ident.UnitUUID, err)
 	}
@@ -275,11 +274,11 @@ func (st *State) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (cor
 	}
 	unitName := unitName{Name: name.String()}
 
-	query, err := st.Prepare(`
-SELECT &unitUUID.*
-FROM unit
-WHERE name = $unitName.name
-`, unitUUID{}, unitName)
+	query, err := st.Prepare(
+		"SELECT &unitUUID.* FROM unit WHERE name = $unitName.name",
+		unitUUID{},
+		unitName,
+	)
 	if err != nil {
 		return "", errors.Errorf("preparing query: %w", err)
 	}
