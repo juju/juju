@@ -23,26 +23,26 @@ type PasswordService interface {
 	IsValidUnitPassword(context.Context, unit.Name, string) (bool, error)
 }
 
-// AgentAuthenticatorFactory is a factory for creating authenticators, which
+// AgentAuthenticatorGetter is a factory for creating authenticators, which
 // can create authenticators for a given state.
-type AgentAuthenticatorFactory struct {
+type AgentAuthenticatorGetter struct {
 	passwordService PasswordService
 	legacyState     *state.State
 	logger          corelogger.Logger
 }
 
-// NewAgentAuthenticatorFactory returns a new agent authenticator factory, for
+// NewAgentAuthenticatorGetter returns a new agent authenticator factory, for
 // a known state.
-func NewAgentAuthenticatorFactory(passwordService PasswordService, legacyState *state.State, logger corelogger.Logger) AgentAuthenticatorFactory {
-	return AgentAuthenticatorFactory{
+func NewAgentAuthenticatorGetter(passwordService PasswordService, legacy *state.State, logger corelogger.Logger) AgentAuthenticatorGetter {
+	return AgentAuthenticatorGetter{
 		passwordService: passwordService,
-		legacyState:     legacyState,
+		legacyState:     legacy,
 		logger:          logger,
 	}
 }
 
-// Authenticator returns an authenticator using the factory's state.
-func (f AgentAuthenticatorFactory) Authenticator() EntityAuthenticator {
+// Authenticator returns an authenticator using the factory's controller model.
+func (f AgentAuthenticatorGetter) Authenticator() EntityAuthenticator {
 	return agentAuthenticator{
 		passwordService: f.passwordService,
 		state:           f.legacyState,
@@ -51,7 +51,7 @@ func (f AgentAuthenticatorFactory) Authenticator() EntityAuthenticator {
 }
 
 // AuthenticatorForModel returns an authenticator for the given model.
-func (f AgentAuthenticatorFactory) AuthenticatorForModel(passwordService PasswordService, st *state.State) EntityAuthenticator {
+func (f AgentAuthenticatorGetter) AuthenticatorForModel(passwordService PasswordService, st *state.State) EntityAuthenticator {
 	return agentAuthenticator{
 		passwordService: passwordService,
 		state:           st,
@@ -100,7 +100,7 @@ func (a *agentAuthenticator) authenticateUnit(ctx context.Context, tag names.Uni
 func (a *agentAuthenticator) fallbackAuth(ctx context.Context, authParams AuthParams) (state.Entity, error) {
 	entity, err := a.state.FindEntity(authParams.AuthTag)
 	if errors.Is(err, errors.NotFound) {
-		logger.Debugf(context.TODO(), "cannot authenticate unknown entity: %v", authParams.AuthTag)
+		logger.Debugf(ctx, "cannot authenticate unknown entity: %v", authParams.AuthTag)
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	}
 	if err != nil {

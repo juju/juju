@@ -16,17 +16,20 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/auth"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/state"
 )
 
 type workerConfig struct {
 	statePool               *state.StatePool
+	domainServicesGetter    DomainServicesGetter
 	controllerConfigService ControllerConfigService
 	accessService           AccessService
 	macaroonService         MacaroonService
@@ -38,6 +41,9 @@ type workerConfig struct {
 func (w workerConfig) Validate() error {
 	if w.statePool == nil {
 		return errors.NotValidf("empty statePool")
+	}
+	if w.domainServicesGetter == nil {
+		return errors.NotValidf("empty domainServicesGetter")
 	}
 	if w.controllerConfigService == nil {
 		return errors.NotValidf("empty controllerConfigService")
@@ -64,13 +70,14 @@ type argsWorker struct {
 	managedServices *managedServices
 }
 
-func newWorker(ctx context.Context, cfg workerConfig) (worker.Worker, error) {
+func newWorker(cfg workerConfig) (worker.Worker, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	w := argsWorker{
 		cfg: cfg,
 		managedServices: newManagedServices(
+			cfg.domainServicesGetter,
 			cfg.controllerConfigService,
 			cfg.accessService,
 			cfg.macaroonService,
@@ -94,15 +101,15 @@ func newWorker(ctx context.Context, cfg workerConfig) (worker.Worker, error) {
 	controllerModelUUID := systemState.ModelUUID()
 
 	authenticator, err := w.cfg.newStateAuthenticatorFn(
-		ctx,
+		w.catacomb.Context(context.Background()),
 		w.cfg.statePool,
-		controllerModelUUID,
+		coremodel.UUID(controllerModelUUID),
+		w.managedServices,
 		w.managedServices,
 		w.managedServices,
 		w.managedServices,
 		w.cfg.mux,
 		w.cfg.clock,
-		w.catacomb.Dying(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -134,17 +141,20 @@ func (w *argsWorker) loop() error {
 // prevent any lockup when the controller is shutting down.
 type managedServices struct {
 	tomb                    tomb.Tomb
+	domainServicesGetter    DomainServicesGetter
 	controllerConfigService ControllerConfigService
 	accessService           AccessService
 	macaroonService         MacaroonService
 }
 
 func newManagedServices(
+	domainServicesGetter DomainServicesGetter,
 	controllerConfigService ControllerConfigService,
 	accessService AccessService,
 	macaroonService MacaroonService,
 ) *managedServices {
 	w := &managedServices{
+		domainServicesGetter:    domainServicesGetter,
 		controllerConfigService: controllerConfigService,
 		accessService:           accessService,
 		macaroonService:         macaroonService,
@@ -200,17 +210,17 @@ func (b *managedServices) UpdateLastModelLogin(ctx context.Context, name coreuse
 
 // GetLocalUsersKey returns the key pair used with the local users bakery.
 func (b *managedServices) GetLocalUsersKey(ctx context.Context) (*bakery.KeyPair, error) {
-	return b.macaroonService.GetLocalUsersKey(ctx)
+	return b.macaroonService.GetLocalUsersKey(b.tomb.Context(ctx))
 }
 
 // GetLocalUsersThirdPartyKey returns the third party key pair used with the local users bakery.
 func (b *managedServices) GetLocalUsersThirdPartyKey(ctx context.Context) (*bakery.KeyPair, error) {
-	return b.macaroonService.GetLocalUsersThirdPartyKey(ctx)
+	return b.macaroonService.GetLocalUsersThirdPartyKey(b.tomb.Context(ctx))
 }
 
 // GetExternalUsersThirdPartyKey returns the third party key pair used with the external users bakery.
 func (b *managedServices) GetExternalUsersThirdPartyKey(ctx context.Context) (*bakery.KeyPair, error) {
-	return b.macaroonService.GetExternalUsersThirdPartyKey(ctx)
+	return b.macaroonService.GetExternalUsersThirdPartyKey(b.tomb.Context(ctx))
 }
 
 // GetKeyContext (dbrootkeystore.GetKeyContext) gets the key
@@ -219,7 +229,7 @@ func (b *managedServices) GetExternalUsersThirdPartyKey(ctx context.Context) (*b
 // To satisfy dbrootkeystore.ContextBacking specification,
 // if not key is found, a bakery.ErrNotFound error is returned.
 func (b *managedServices) GetKeyContext(ctx context.Context, id []byte) (dbrootkeystore.RootKey, error) {
-	return b.macaroonService.GetKeyContext(ctx, id)
+	return b.macaroonService.GetKeyContext(b.tomb.Context(ctx), id)
 }
 
 // FindLatestKeyContext (dbrootkeystore.FindLatestKeyContext) returns
@@ -234,14 +244,28 @@ func (b *managedServices) GetKeyContext(ctx context.Context, id []byte) (dbrootk
 // if no such key is found, the zero root key is returned with a
 // nil error
 func (b *managedServices) FindLatestKeyContext(ctx context.Context, createdAfter, expiresAfter, expiresBefore time.Time) (dbrootkeystore.RootKey, error) {
-	return b.macaroonService.FindLatestKeyContext(ctx, createdAfter, expiresAfter, expiresBefore)
+	return b.macaroonService.FindLatestKeyContext(b.tomb.Context(ctx), createdAfter, expiresAfter, expiresBefore)
 }
 
 // InsertKeyContext (dbrootkeystore.InsertKeyContext) inserts
 // the given root key into state. If a key with matching
 // id already exists, return a macaroonerrors.KeyAlreadyExists error.
 func (b *managedServices) InsertKeyContext(ctx context.Context, key dbrootkeystore.RootKey) error {
-	return b.macaroonService.InsertKeyContext(ctx, key)
+	return b.macaroonService.InsertKeyContext(b.tomb.Context(ctx), key)
+}
+
+// GetPasswordServiceForModel returns a PasswordService for the given model.
+func (b *managedServices) GetPasswordServiceForModel(ctx context.Context, modelUUID coremodel.UUID) (authentication.PasswordService, error) {
+	services, err := b.ServicesForModel(b.tomb.Context(ctx), modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return services.Password(), nil
+}
+
+// ServicesForModel returns a DomainServices for the given model.
+func (b *managedServices) ServicesForModel(ctx context.Context, modelID coremodel.UUID) (services.DomainServices, error) {
+	return b.domainServicesGetter.ServicesForModel(b.tomb.Context(ctx), modelID)
 }
 
 // Kill is part of the worker.Worker interface.

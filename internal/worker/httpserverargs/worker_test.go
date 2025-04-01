@@ -19,6 +19,8 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/services"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -39,6 +41,7 @@ func (s *workerConfigSuite) SetUpTest(c *gc.C) {
 		controllerConfigService: &managedServices{},
 		accessService:           &managedServices{},
 		macaroonService:         &managedServices{},
+		domainServicesGetter:    &managedServices{},
 		mux:                     &apiserverhttp.Mux{},
 		clock:                   clock.WallClock,
 		newStateAuthenticatorFn: NewStateAuthenticator,
@@ -70,6 +73,7 @@ func (s *workerConfigSuite) TestMissing(c *gc.C) {
 type workerSuite struct {
 	statetesting.StateSuite
 
+	domainServicesGetter    *MockDomainServicesGetter
 	controllerConfigService *MockControllerConfigService
 	accessService           *MockAccessService
 
@@ -78,12 +82,26 @@ type workerSuite struct {
 
 var _ = gc.Suite(&workerSuite{})
 
-func (s *workerSuite) TestWorkerStarted(c *gc.C) {
-	started := make(chan struct{})
-	s.stateAuthFunc = func(context.Context, *state.StatePool, string, ControllerConfigService, AccessService, MacaroonService, *apiserverhttp.Mux, clock.Clock, <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error) {
+func startedAuthFunc(started chan struct{}) NewStateAuthenticatorFunc {
+	return func(
+		ctx context.Context,
+		statePool *state.StatePool,
+		controllerModelUUID model.UUID,
+		controllerConfigService ControllerConfigService,
+		passwordServiceGetter PasswordServiceGetter,
+		accessService AccessService,
+		macaroonService MacaroonService,
+		mux *apiserverhttp.Mux,
+		clock clock.Clock,
+	) (macaroon.LocalMacaroonAuthenticator, error) {
 		defer close(started)
 		return nil, nil
 	}
+}
+
+func (s *workerSuite) TestWorkerStarted(c *gc.C) {
+	started := make(chan struct{})
+	s.stateAuthFunc = startedAuthFunc(started)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -103,10 +121,7 @@ func (s *workerSuite) TestWorkerControllerConfigContext(c *gc.C) {
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{}, nil)
 
 	started := make(chan struct{})
-	s.stateAuthFunc = func(context.Context, *state.StatePool, string, ControllerConfigService, AccessService, MacaroonService, *apiserverhttp.Mux, clock.Clock, <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error) {
-		defer close(started)
-		return nil, nil
-	}
+	s.stateAuthFunc = startedAuthFunc(started)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -132,10 +147,7 @@ func (s *workerSuite) TestWorkerControllerConfigContextDeadline(c *gc.C) {
 	})
 
 	started := make(chan struct{})
-	s.stateAuthFunc = func(context.Context, *state.StatePool, string, ControllerConfigService, AccessService, MacaroonService, *apiserverhttp.Mux, clock.Clock, <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error) {
-		defer close(started)
-		return nil, nil
-	}
+	s.stateAuthFunc = startedAuthFunc(started)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -152,19 +164,74 @@ func (s *workerSuite) TestWorkerControllerConfigContextDeadline(c *gc.C) {
 	c.Assert(err, gc.Equals, context.Canceled)
 }
 
+func (s *workerSuite) TestWorkerServicesForModelContext(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	type svc struct {
+		services.DomainServices
+	}
+
+	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), gomock.Any()).Return(svc{}, nil)
+
+	started := make(chan struct{})
+	s.stateAuthFunc = startedAuthFunc(started)
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-started:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatalf("timed out waiting for worker to start")
+	}
+
+	config, err := w.(*argsWorker).managedServices.ServicesForModel(context.Background(), "")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(config, gc.NotNil)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestWorkerServicesForModelContextDeadline(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, u model.UUID) (services.DomainServices, error) {
+		return nil, ctx.Err()
+	})
+
+	started := make(chan struct{})
+	s.stateAuthFunc = startedAuthFunc(started)
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-started:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatalf("timed out waiting for worker to start")
+	}
+
+	workertest.CleanKill(c, w)
+
+	_, err := w.(*argsWorker).managedServices.ServicesForModel(context.Background(), "")
+	c.Assert(err, gc.Equals, context.Canceled)
+}
+
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
-	w, err := newWorker(context.Background(), s.newWorkerConfig(c))
+	w, err := newWorker(s.newWorkerConfig(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return w
 }
 
 func (s *workerSuite) newWorkerConfig(c *gc.C) workerConfig {
 	services := &managedServices{
+		domainServicesGetter:    s.domainServicesGetter,
 		controllerConfigService: s.controllerConfigService,
 		accessService:           s.accessService,
 	}
 	return workerConfig{
 		statePool:               s.StatePool,
+		domainServicesGetter:    services,
 		controllerConfigService: services,
 		accessService:           services,
 		mux:                     &apiserverhttp.Mux{},
@@ -176,6 +243,7 @@ func (s *workerSuite) newWorkerConfig(c *gc.C) workerConfig {
 func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.domainServicesGetter = NewMockDomainServicesGetter(ctrl)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.accessService = NewMockAccessService(ctrl)
 

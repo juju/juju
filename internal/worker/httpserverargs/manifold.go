@@ -61,6 +61,11 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
+	var domainServicesGetter services.DomainServicesGetter
+	if err := getter.Get(config.DomainServicesName, &domainServicesGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var stTracker workerstate.StateTracker
 	if err := getter.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
@@ -70,8 +75,9 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	w, err := newWorker(context, workerConfig{
+	w, err := newWorker(workerConfig{
 		statePool:               statePool,
+		domainServicesGetter:    domainServicesGetter,
 		controllerConfigService: controllerDomainServices.ControllerConfig(),
 		accessService:           controllerDomainServices.Access(),
 		macaroonService:         controllerDomainServices.Macaroon(),

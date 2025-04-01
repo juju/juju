@@ -68,14 +68,14 @@ type AccessService interface {
 	ReadUserAccessLevelForTarget(ctx context.Context, subject coreuser.Name, target corepermission.ID) (corepermission.Access, error)
 }
 
-// AgentAuthenticatorFactory is a factory for creating authenticators, which
+// AgentAuthenticatorGetter is a getter for creating authenticators, which
 // can create authenticators for a given state.
-type AgentAuthenticatorFactory interface {
-	// Authenticator returns an authenticator using the factory's state.
+type AgentAuthenticatorGetter interface {
+	// Authenticator returns an authenticator using the controller model.
 	Authenticator() authentication.EntityAuthenticator
 
-	// AuthenticatorForState returns an authenticator for the given state.
-	AuthenticatorForState(passwordService authentication.PasswordService, st *state.State) authentication.EntityAuthenticator
+	// AuthenticatorForModel returns an authenticator for the given model.
+	AuthenticatorForModel(passwordService authentication.PasswordService, st *state.State) authentication.EntityAuthenticator
 }
 
 // authContext holds authentication context shared
@@ -85,8 +85,8 @@ type authContext struct {
 	accessService           AccessService
 	macaroonService         MacaroonService
 
-	clock            clock.Clock
-	agentAuthFactory AgentAuthenticatorFactory
+	clock           clock.Clock
+	agentAuthGetter AgentAuthenticatorGetter
 
 	// localUserBakery is the bakery.Bakery used by the controller
 	// for authenticating local users. In time, we may want to use this for
@@ -126,11 +126,11 @@ func (OpenLoginAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp bakery
 // newAuthContext creates a new authentication context for st.
 func newAuthContext(
 	ctx context.Context,
-	controllerModelUUID string,
+	controllerModelUUID coremodel.UUID,
 	controllerConfigService ControllerConfigService,
 	accessService AccessService,
 	macaroonService MacaroonService,
-	agentAuthFactory AgentAuthenticatorFactory,
+	agentAuthGetter AgentAuthenticatorGetter,
 	ctxClock clock.Clock,
 ) (*authContext, error) {
 	ctxt := &authContext{
@@ -139,7 +139,7 @@ func newAuthContext(
 		accessService:           accessService,
 		macaroonService:         macaroonService,
 		localUserInteractions:   authentication.NewInteractions(),
-		agentAuthFactory:        agentAuthFactory,
+		agentAuthGetter:         agentAuthGetter,
 	}
 
 	// Create a bakery for discharging third-party caveats for
@@ -153,7 +153,7 @@ func newAuthContext(
 		func(ctx context.Context, cond, arg string) error { return nil },
 	)
 
-	location := "juju model " + controllerModelUUID
+	location := "juju model " + controllerModelUUID.String()
 	var err error
 	ctxt.localUserThirdPartyBakeryKey, err = macaroonService.GetLocalUsersThirdPartyKey(ctx)
 	if err != nil {
@@ -229,13 +229,13 @@ func (ctxt *authContext) DischargeCaveats(tag names.UserTag) []checkers.Caveat {
 	return authentication.DischargeCaveats(tag, ctxt.clock)
 }
 
-// authenticatorForState returns an authenticator.Authenticator for the API
-// connection associated with the specified API server host and state.
-func (ctxt *authContext) authenticatorForState(serverHost string, passwordService authentication.PasswordService, st *state.State) authenticator {
+// authenticatorForModel returns an authenticator.Authenticator for the API
+// connection associated with the specified API server host and model.
+func (ctxt *authContext) authenticatorForModel(serverHost string, passwordService authentication.PasswordService, st *state.State) authenticator {
 	return authenticator{
 		ctxt:               ctxt,
 		serverHost:         serverHost,
-		agentAuthenticator: ctxt.agentAuthFactory.AuthenticatorForState(passwordService, st),
+		agentAuthenticator: ctxt.agentAuthGetter.AuthenticatorForModel(passwordService, st),
 	}
 }
 
@@ -245,7 +245,7 @@ func (ctxt *authContext) authenticator(serverHost string) authenticator {
 	return authenticator{
 		ctxt:               ctxt,
 		serverHost:         serverHost,
-		agentAuthenticator: ctxt.agentAuthFactory.Authenticator(),
+		agentAuthenticator: ctxt.agentAuthGetter.Authenticator(),
 	}
 }
 

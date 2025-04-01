@@ -373,16 +373,17 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 
 	systemState, err := cfg.StatePool.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(factory.Password(), systemState, nil)
+	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(factory.Password(), systemState, nil)
 
 	authenticator, err := stateauthenticator.NewAuthenticator(
 		context.Background(),
 		cfg.StatePool,
-		string(cfg.ControllerModelUUID),
+		cfg.ControllerModelUUID,
 		factory.ControllerConfig(),
+		nil,
 		factory.Access(),
 		factory.Macaroon(),
-		agentAuthFactory,
+		agentAuthGetter,
 		cfg.Clock,
 	)
 	c.Assert(err, jc.ErrorIsNil)

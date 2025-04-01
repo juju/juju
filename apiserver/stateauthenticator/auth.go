@@ -32,7 +32,8 @@ import (
 // PasswordService defines the methods required to set a password hash for a
 // unit.
 type PasswordServiceGetter interface {
-	GetPasswordServiceForModel(modelUUID model.UUID) (authentication.PasswordService, error)
+	// GetPasswordServiceForModel returns a PasswordService for the given model.
+	GetPasswordServiceForModel(ctx context.Context, modelUUID model.UUID) (authentication.PasswordService, error)
 }
 
 // AgentTags are those used by any Juju agent.
@@ -78,30 +79,31 @@ type BakeryConfigService interface {
 func NewAuthenticator(
 	ctx context.Context,
 	statePool *state.StatePool,
-	controllerModelUUID string,
-	passwordServiceGetter PasswordServiceGetter,
+	controllerModelUUID model.UUID,
 	controllerConfigService ControllerConfigService,
+	passwordServiceGetter PasswordServiceGetter,
 	accessService AccessService,
 	macaroonService MacaroonService,
-	agentAuthFactory AgentAuthenticatorFactory,
+	agentAuthGetter AgentAuthenticatorGetter,
 	clock clock.Clock,
 ) (*Authenticator, error) {
-	authContext, err := newAuthContext(ctx, controllerModelUUID, controllerConfigService, accessService, macaroonService, agentAuthFactory, clock)
+	authContext, err := newAuthContext(ctx, controllerModelUUID, controllerConfigService, accessService, macaroonService, agentAuthGetter, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &Authenticator{
 		statePool:               statePool,
+		passwordServiceGetter:   passwordServiceGetter,
 		controllerConfigService: controllerConfigService,
 		authContext:             authContext,
 	}, nil
 }
 
 // Maintain periodically expires local login interactions.
-func (a *Authenticator) Maintain(done <-chan struct{}) {
+func (a *Authenticator) Maintain(ctx context.Context) {
 	for {
 		select {
-		case <-done:
+		case <-ctx.Done():
 			return
 		case <-a.authContext.clock.After(authentication.LocalLoginInteractionTimeout):
 			now := a.authContext.clock.Now()
@@ -179,12 +181,12 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	}
 	defer st.Release()
 
-	passwordService, err := a.passwordServiceGetter.GetPasswordServiceForModel(modelUUID)
+	passwordService, err := a.passwordServiceGetter.GetPasswordServiceForModel(ctx, modelUUID)
 	if err != nil {
 		return authentication.AuthInfo{}, errors.Trace(err)
 	}
 
-	authenticator := a.authContext.authenticatorForState(serverHost, passwordService, st.State)
+	authenticator := a.authContext.authenticatorForModel(serverHost, passwordService, st.State)
 	authInfo, err := a.checkCreds(ctx, modelUUID, authParams, authenticator)
 	if err == nil {
 		return authInfo, nil
@@ -239,7 +241,7 @@ func (a *Authenticator) checkCreds(
 
 		err = a.authContext.accessService.UpdateLastModelLogin(ctx, user.NameFromTag(userTag), modelUUID)
 		if err != nil {
-			logger.Warningf(context.TODO(), "updating last login time for %v, %v", userTag, err)
+			logger.Warningf(ctx, "updating last login time for %v, %v", userTag, err)
 		}
 
 	case names.MachineTagKind, names.ControllerAgentTagKind:
