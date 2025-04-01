@@ -15,14 +15,6 @@ type objectStoreUUID struct {
 	UUID string `db:"uuid"`
 }
 
-// objectStoreMeta represents the object store metadata in the database.
-type objectStoreMeta struct {
-	UUID   string `db:"uuid"`
-	SHA256 string `db:"sha_256"`
-	SHA384 string `db:"sha_384"`
-	Size   int    `db:"size"`
-}
-
 // agentBinaryRecord represents an agent binary entry in the database.
 type agentBinaryRecord struct {
 	Version         string `db:"version"`

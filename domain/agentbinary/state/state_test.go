@@ -144,6 +144,13 @@ func (s *stateSuite) addArchitecture(c *gc.C, name string) int {
 func (s *stateSuite) addObjectStoreMetadata(c *gc.C) objectstore.UUID {
 	runner := s.TxnRunner()
 
+	type objectStoreMeta struct {
+		UUID   string `db:"uuid"`
+		SHA256 string `db:"sha_256"`
+		SHA384 string `db:"sha_384"`
+		Size   int    `db:"size"`
+	}
+
 	storeUUID := uuid.MustNewUUID().String()
 	stmt, err := sqlair.Prepare(`
 		INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size)

@@ -94,6 +94,9 @@ INSERT INTO agent_binary_store (*) VALUES ($agentBinaryRecord.*)
 
 		err = tx.Query(ctx, insertStmt, agentBinary).Run()
 		if jujudb.IsErrConstraintPrimaryKey(err) {
+			// There must be an agent version for this version and arch already.
+			// We do not want to overwrite this value as it could result in a
+			// security risk.
 			return errors.New(
 				"agent binary already exists",
 			).Add(agentbinaryerrors.AlreadyExists)
