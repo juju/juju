@@ -13,6 +13,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/errors"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 // jobCheckMaxInterval is the maximum time between checks of the removal table,
@@ -50,23 +51,32 @@ func (config Config) Validate() error {
 type removalWorker struct {
 	catacomb catacomb.Catacomb
 
-	cfg Config
+	cfg    Config
+	runner *worker.Runner
 }
 
 // NewWorker starts a new removal worker based
 // on the input configuration and returns it.
-func NewWorker(config Config) (worker.Worker, error) {
-	if err := config.Validate(); err != nil {
+func NewWorker(cfg Config) (worker.Worker, error) {
+	if err := cfg.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	w := &removalWorker{
-		cfg: config,
+		cfg: cfg,
+		// Scheduled removal jobs never restart and never
+		// propagate their errors up to the worker.
+		runner: worker.NewRunner(worker.RunnerParams{
+			IsFatal:       func(error) bool { return false },
+			ShouldRestart: func(error) bool { return false },
+			Logger:        internalworker.WrapLogger(cfg.Logger),
+		}),
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
 		Work: w.loop,
+		Init: []worker.Worker{w.runner},
 	}); err != nil {
 		return nil, errors.Capture(err)
 	}
