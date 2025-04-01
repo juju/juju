@@ -380,7 +380,9 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 		cfg.StatePool,
 		cfg.ControllerModelUUID,
 		factory.ControllerConfig(),
-		nil,
+		passwordServiceGetter{
+			DomainServicesGetter: s.ModelDomainServicesGetter(c),
+		},
 		factory.Access(),
 		factory.Macaroon(),
 		agentAuthGetter,
@@ -397,6 +399,19 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 		Addrs:  []string{fmt.Sprintf("localhost:%d", s.httpServer.Listener.Addr().(*net.TCPAddr).Port)},
 		CACert: coretesting.CACert,
 	}
+}
+
+type passwordServiceGetter struct {
+	services.DomainServicesGetter
+}
+
+// GetPasswordServiceForModel returns a PasswordService for the given model.
+func (s passwordServiceGetter) GetPasswordServiceForModel(ctx context.Context, modelUUID coremodel.UUID) (authentication.PasswordService, error) {
+	svc, err := s.DomainServicesGetter.ServicesForModel(ctx, modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return svc.Password(), nil
 }
 
 func (s *ApiServerSuite) SetUpTest(c *gc.C) {

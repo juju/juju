@@ -111,6 +111,12 @@ func (s *DomainServicesSuite) ModelDomainServices(c *gc.C, modelUUID model.UUID)
 	return s.DomainServicesGetter(c, TestingObjectStore{}, TestingLeaseManager{})(modelUUID)
 }
 
+// ModelDomainServicesGetter conveniently constructs a domain services getter
+// for the default model.
+func (s *DomainServicesSuite) ModelDomainServicesGetter(c *gc.C) services.DomainServicesGetter {
+	return s.DomainServicesGetter(c, TestingObjectStore{}, TestingLeaseManager{})
+}
+
 func (s *DomainServicesSuite) SeedControllerConfig(c *gc.C) {
 	fn := controllerconfigbootstrap.InsertInitialControllerConfig(
 		s.ControllerConfig,
