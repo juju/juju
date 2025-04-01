@@ -7,7 +7,7 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -26,14 +26,9 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
-	st := ctx.State()
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	return &API{
-		modelTag:          m.ModelTag(),
+		modelTag:          names.NewModelTag(ctx.ModelUUID().String()),
 		annotationService: ctx.DomainServices().Annotation(),
 		authorizer:        authorizer,
 	}, nil

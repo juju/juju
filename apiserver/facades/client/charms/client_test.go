@@ -439,6 +439,7 @@ func NewCharmsAPI(
 	modelConfigService ModelConfigService,
 	applicationService ApplicationService,
 	machineService MachineService,
+	controllerTag names.ControllerTag,
 	modelTag names.ModelTag,
 	repo corecharm.Repository,
 	logger corelogger.Logger,
@@ -449,7 +450,8 @@ func NewCharmsAPI(
 		modelConfigService: modelConfigService,
 		applicationService: applicationService,
 		machineService:     machineService,
-		tag:                modelTag,
+		controllerTag:      controllerTag,
+		modelTag:           modelTag,
 		requestRecorder:    noopRequestRecorder{},
 		newCharmHubRepository: func(repository.CharmHubRepositoryConfig) (corecharm.Repository, error) {
 			return repo, nil
@@ -465,6 +467,7 @@ func (s *charmsMockSuite) api(c *gc.C) *API {
 		s.modelConfigService,
 		s.applicationService,
 		s.machineService,
+		names.NewControllerTag("deadbeef-abcd-4fd2-967d-db9663db7bef"),
 		names.NewModelTag("deadbeef-abcd-4fd2-967d-db9663db7bea"),
 		s.repository,
 		loggertesting.WrapCheckLog(c),
@@ -480,7 +483,6 @@ func (s *charmsMockSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 	s.state = mocks.NewMockBackendState(ctrl)
-	s.state.EXPECT().ControllerTag().Return(names.NewControllerTag("deadbeef-abcd-dead-beef-db9663db7b42")).AnyTimes()
 
 	s.repository = mocks.NewMockRepository(ctrl)
 	s.charmArchive = mocks.NewMockCharmArchive(ctrl)

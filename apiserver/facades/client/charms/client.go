@@ -49,7 +49,8 @@ type API struct {
 	backendState       charmsinterfaces.BackendState
 	charmhubHTTPClient facade.HTTPClient
 
-	tag             names.ModelTag
+	modelTag        names.ModelTag
+	controllerTag   names.ControllerTag
 	requestRecorder facade.RequestRecorder
 
 	newCharmHubRepository func(repository.CharmHubRepositoryConfig) (corecharm.Repository, error)
@@ -67,12 +68,12 @@ func (a *API) CharmInfo(ctx context.Context, args params.CharmURL) (params.Charm
 }
 
 func (a *API) checkCanRead(ctx context.Context) error {
-	err := a.authorizer.HasPermission(ctx, permission.ReadAccess, a.tag)
+	err := a.authorizer.HasPermission(ctx, permission.ReadAccess, a.modelTag)
 	return err
 }
 
 func (a *API) checkCanWrite(ctx context.Context) error {
-	err := a.authorizer.HasPermission(ctx, permission.SuperuserAccess, a.backendState.ControllerTag())
+	err := a.authorizer.HasPermission(ctx, permission.SuperuserAccess, a.controllerTag)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
@@ -81,7 +82,7 @@ func (a *API) checkCanWrite(ctx context.Context) error {
 		return nil
 	}
 
-	return a.authorizer.HasPermission(ctx, permission.WriteAccess, a.tag)
+	return a.authorizer.HasPermission(ctx, permission.WriteAccess, a.modelTag)
 }
 
 // List returns a list of charm URLs currently in the state. If supplied
