@@ -1212,9 +1212,15 @@ func (st *State) insertNewRelation(ctx context.Context, tx *sqlair.TX) (corerela
 		UUID: relUUID,
 	}
 
+	stmtGetID, err := st.Prepare(`
+SELECT sequence as &relationIDAndUUID.relation_id 
+FROM relation_sequence`, relUUIDArg)
+	if err != nil {
+		return relUUID, errors.Capture(err)
+	}
+
 	stmtUpdateID, err := st.Prepare(`
-UPDATE relation_sequence SET sequence = sequence + 1
-RETURNING sequence-1 as &relationIDAndUUID.relation_id`, relUUIDArg)
+UPDATE relation_sequence SET sequence = sequence + 1`)
 	if err != nil {
 		return relUUID, errors.Capture(err)
 	}
@@ -1227,7 +1233,11 @@ VALUES ($relationIDAndUUID.uuid, 0, $relationIDAndUUID.relation_id)
 		return relUUID, errors.Capture(err)
 	}
 
-	if err := tx.Query(ctx, stmtUpdateID).Get(&relUUIDArg); err != nil {
+	if err := tx.Query(ctx, stmtGetID).Get(&relUUIDArg); err != nil {
+		return relUUID, errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, stmtUpdateID).Run(); err != nil {
 		return relUUID, errors.Capture(err)
 	}
 
