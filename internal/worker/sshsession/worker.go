@@ -165,7 +165,7 @@ func (w *sshSessionWorker) handleConnection(docID string) error {
 		return errors.Trace(err)
 	}
 
-	if err = jujussh.AddKeys(ControllerSSHUser, AuthorizedKeysFile, ephemeralPublicKey); err != nil {
+	if err = jujussh.AddKeysToFile(ControllerSSHUser, AuthorizedKeysFile, []string{ephemeralPublicKey}); err != nil {
 		w.logger.Errorf("failed to add ephemeral public key to %s: %v", AuthorizedKeysFile, err)
 		return errors.Trace(err)
 	}
@@ -252,7 +252,7 @@ func (w *sshSessionWorker) cleanupPublicKey(ephemeralPublicKey string) error {
 		return errors.Trace(err)
 	}
 
-	if err := jujussh.DeleteKeys(ControllerSSHUser, AuthorizedKeysFile, true, fingerprint); err != nil {
+	if err := jujussh.DeleteKeysFromFile(ControllerSSHUser, AuthorizedKeysFile, []string{fingerprint}); err != nil {
 		w.logger.Errorf("Error deleting ephemeral public key: %v", err)
 		return errors.Trace(err)
 	}

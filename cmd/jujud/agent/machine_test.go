@@ -843,7 +843,7 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 		case <-timeout:
 			c.Fatalf("timeout while waiting for authorised ssh keys to change")
 		case <-time.After(coretesting.ShortWait):
-			keys, err := ssh.ListKeys(authenticationworker.SSHUser, authenticationworker.AuthKeysFile, ssh.FullKeys)
+			keys, err := ssh.ListKeys(authenticationworker.SSHUser, ssh.FullKeys)
 			c.Assert(err, jc.ErrorIsNil)
 			keysStr := strings.Join(keys, "\n")
 			if sshKeyWithCommentPrefix != keysStr {
