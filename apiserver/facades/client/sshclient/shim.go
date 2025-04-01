@@ -10,30 +10,13 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/network"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // Backend defines the State API used by the sshclient facade.
 type Backend interface {
 	GetMachineForEntity(tag string) (SSHMachine, error)
 	GetSSHHostKeys(names.MachineTag) (state.SSHHostKeys, error)
-	ModelTag() names.ModelTag
-	ControllerTag() names.ControllerTag
-	Model() (Model, error)
-	CloudSpec(context.Context) (environscloudspec.CloudSpec, error)
-}
-
-// Model defines a point of use interface for the model from state.
-type Model interface {
-	ControllerUUID() string
-	Type() state.ModelType
-}
-
-// Broker is a subset of caas broker.
-type Broker interface {
-	GetSecretToken(ctx context.Context, name string) (string, error)
 }
 
 // SSHMachine specifies the methods on State.Machine of interest to
@@ -84,29 +67,8 @@ func (m *sshMachine) AllDeviceSpaceAddresses(ctx context.Context) (network.Space
 
 type backend struct {
 	*state.State
-	stateenvirons.EnvironConfigGetter
 
-	controllerTag  names.ControllerTag
-	modelTag       names.ModelTag
 	networkService NetworkService
-}
-
-// ModelTag returns the model tag of the backend.
-func (b *backend) ModelTag() names.ModelTag {
-	return b.modelTag
-}
-
-func (b *backend) Model() (Model, error) {
-	return b.State.Model()
-}
-
-func (b *backend) CloudSpec(ctx context.Context) (environscloudspec.CloudSpec, error) {
-	return b.EnvironConfigGetter.CloudSpec(ctx)
-}
-
-// ControllerTag returns the controller tag of the backend.
-func (b *backend) ControllerTag() names.ControllerTag {
-	return b.controllerTag
 }
 
 // GetMachineForEntity takes a machine or unit tag (as a string) and

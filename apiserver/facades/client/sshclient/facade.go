@@ -14,18 +14,12 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/virtualhostname"
-	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
-
-type newCaasBrokerFunc func(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (Broker, error)
 
 // Facade implements the API required by the sshclient worker.
 type Facade struct {
@@ -33,10 +27,11 @@ type Facade struct {
 	authorizer facade.Authorizer
 
 	leadershipReader leadership.Reader
-	getBroker        newCaasBrokerFunc
 
 	modelConfigService ModelConfigService
-	controllerUUID     string
+	stubService        StubService
+	modelTag           names.ModelTag
+	controllerTag      names.ControllerTag
 }
 
 // FacadeV5 provides the SSH Client API facade version 5
@@ -51,8 +46,12 @@ type FacadeV4 struct {
 }
 
 func internalFacade(
-	backend Backend, modelConfigService ModelConfigService, controllerUUID string, leadershipReader leadership.Reader, auth facade.Authorizer,
-	getBroker newCaasBrokerFunc,
+	controllerTag names.ControllerTag,
+	modelTag names.ModelTag,
+	backend Backend,
+	modelConfigService ModelConfigService,
+	stubService StubService,
+	leadershipReader leadership.Reader, auth facade.Authorizer,
 ) (*Facade, error) {
 	if !auth.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -61,15 +60,16 @@ func internalFacade(
 	return &Facade{
 		backend:            backend,
 		modelConfigService: modelConfigService,
-		controllerUUID:     controllerUUID,
+		stubService:        stubService,
+		controllerTag:      controllerTag,
+		modelTag:           modelTag,
 		authorizer:         auth,
 		leadershipReader:   leadershipReader,
-		getBroker:          getBroker,
 	}, nil
 }
 
 func (facade *Facade) checkIsModelAdmin(ctx context.Context) error {
-	err := facade.authorizer.HasPermission(ctx, permission.SuperuserAccess, facade.backend.ControllerTag())
+	err := facade.authorizer.HasPermission(ctx, permission.SuperuserAccess, facade.controllerTag)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
@@ -78,7 +78,7 @@ func (facade *Facade) checkIsModelAdmin(ctx context.Context) error {
 		return nil
 	}
 
-	return facade.authorizer.HasPermission(ctx, permission.AdminAccess, facade.backend.ModelTag())
+	return facade.authorizer.HasPermission(ctx, permission.AdminAccess, facade.modelTag)
 }
 
 // VirtualHostname is not implemented in v4.
@@ -89,7 +89,7 @@ func (facade *Facade) VirtualHostname(ctx context.Context, arg params.VirtualHos
 	if err := facade.checkIsModelAdmin(ctx); err != nil {
 		return params.SSHAddressResult{}, errors.Trace(err)
 	}
-	modelUUID := facade.backend.ModelTag().Id()
+	modelUUID := facade.modelTag.Id()
 	virtualHostname, err := getVirtualHostnameForEntity(modelUUID, arg.Tag, arg.Container)
 	if err != nil {
 		return params.SSHAddressResult{
@@ -261,29 +261,19 @@ func (facade *Facade) ModelCredentialForSSH(ctx context.Context) (params.CloudSp
 		return result, err
 	}
 
-	model, err := facade.backend.Model()
+	token, err := facade.stubService.GetExecSecretToken(ctx)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
-	if model.Type() != state.ModelTypeCAAS {
-		result.Error = apiservererrors.ServerError(errors.NotSupportedf("facade ModelCredentialForSSH for non %q model", state.ModelTypeCAAS))
-		return result, nil
-	}
 
-	spec, err := facade.backend.CloudSpec(ctx)
+	spec, err := facade.stubService.CloudSpec(ctx)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
 	if spec.Credential == nil {
 		result.Error = apiservererrors.ServerError(errors.NotValidf("cloud spec %q has empty credential", spec.Name))
-		return result, nil
-	}
-
-	token, err := facade.getExecSecretToken(ctx, spec, model)
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
 
@@ -308,23 +298,6 @@ func (facade *Facade) ModelCredentialForSSH(ctx context.Context) (params.CloudSp
 		IsControllerCloud: spec.IsControllerCloud,
 	}
 	return result, nil
-}
-
-func (facade *Facade) getExecSecretToken(ctx context.Context, cloudSpec environscloudspec.CloudSpec, model Model) (string, error) {
-	cfg, err := facade.modelConfigService.ModelConfig(ctx)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	broker, err := facade.getBroker(ctx, environs.OpenParams{
-		ControllerUUID: facade.controllerUUID,
-		Cloud:          cloudSpec,
-		Config:         cfg,
-	}, environs.NoopCredentialInvalidator())
-	if err != nil {
-		return "", errors.Annotate(err, "failed to open kubernetes client")
-	}
-	return broker.GetSecretToken(ctx, k8sprovider.ExecRBACResourceName)
 }
 
 // getVirtualHostnameForEntity returns the virtual hostname for the given entity. It parses the tag string to

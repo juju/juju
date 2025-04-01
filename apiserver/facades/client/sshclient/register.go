@@ -8,11 +8,9 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -43,10 +41,6 @@ func newFacadeV4(ctx facade.ModelContext) (*FacadeV4, error) {
 
 func newFacadeBase(ctx facade.ModelContext) (*Facade, error) {
 	st := ctx.State()
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	leadershipReader, err := ctx.LeadershipReader()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -55,23 +49,14 @@ func newFacadeBase(ctx facade.ModelContext) (*Facade, error) {
 	facadeBackend := backend{
 		State:          st,
 		networkService: domainServices.Network(),
-		EnvironConfigGetter: stateenvirons.EnvironConfigGetter{
-			Model:              m,
-			CloudService:       domainServices.Cloud(),
-			CredentialService:  domainServices.Credential(),
-			ModelConfigService: domainServices.Config(),
-		},
-		controllerTag: m.ControllerTag(),
-		modelTag:      m.ModelTag(),
 	}
 	return internalFacade(
+		names.NewControllerTag(ctx.ControllerUUID()),
+		names.NewModelTag(ctx.ModelUUID().String()),
 		&facadeBackend,
-		ctx.DomainServices().Config(),
-		ctx.ControllerUUID(),
+		domainServices.Config(),
+		domainServices.Stub(),
 		leadershipReader,
 		ctx.Auth(),
-		func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (Broker, error) {
-			return caas.New(ctx, args, invalidator)
-		},
 	)
 }

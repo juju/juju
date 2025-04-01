@@ -10,9 +10,9 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package sshclient_test -destination leadership_mock_test.go github.com/juju/juju/core/leadership Reader
-//go:generate go run go.uber.org/mock/mockgen -typed -package sshclient_test -destination state_mock_test.go github.com/juju/juju/apiserver/facades/client/sshclient Backend,Model,Broker,SSHMachine
+//go:generate go run go.uber.org/mock/mockgen -typed -package sshclient_test -destination state_mock_test.go github.com/juju/juju/apiserver/facades/client/sshclient Backend,SSHMachine
 //go:generate go run go.uber.org/mock/mockgen -typed -package sshclient_test -destination authorizer_mock_test.go github.com/juju/juju/apiserver/facade Authorizer
-//go:generate go run go.uber.org/mock/mockgen -typed -package sshclient_test -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/sshclient ModelConfigService
+//go:generate go run go.uber.org/mock/mockgen -typed -package sshclient_test -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/sshclient ModelConfigService,StubService
 
 func Test(t *testing.T) {
 	gc.TestingT(t)
