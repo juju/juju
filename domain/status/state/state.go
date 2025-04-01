@@ -49,7 +49,7 @@ func (st *State) GetAllRelationStatuses(ctx context.Context) (map[corerelation.U
 
 	stmt, err := st.Prepare(`
 SELECT &relationStatus.*
-FROM relation_status`, relationStatus{})
+FROM   relation_status`, relationStatus{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -57,7 +57,7 @@ FROM relation_status`, relationStatus{})
 	var statuses []relationStatus
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, stmt).GetAll(&statuses)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) { // avoid error if the status has not yet been inserted
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		}
 		return nil

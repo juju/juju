@@ -37,7 +37,9 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 	}
 }
 
-// GetAllRelationDetails return all uuid of all relation for the current model.
+// GetAllRelationDetails retrieves the details of all relations
+// from the database. It returns the list of endpoints, the life status and
+// identification data (UUID and ID) for each relation.
 func (st *State) GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -520,14 +522,14 @@ FROM   relation
 }
 
 func (st *State) getRelationDetails(ctx context.Context, tx *sqlair.TX, relationID int) (relation.RelationDetailsResult, error) {
-	rel := relationForDetails{
+	rel := relationUUIDLifeID{
 		ID: relationID,
 	}
 	stmt, err := st.Prepare(`
-SELECT (r.uuid, r.relation_id, l.value) AS (&relationForDetails.*)
+SELECT (r.uuid, r.relation_id, l.value) AS (&relationUUIDLifeID.*)
 FROM   relation r
 JOIN   life l ON r.life_id = l.id
-WHERE  relation_id = $relationForDetails.relation_id
+WHERE  relation_id = $relationUUIDLifeID.relation_id
 `, rel)
 	if err != nil {
 		return relation.RelationDetailsResult{}, errors.Capture(err)

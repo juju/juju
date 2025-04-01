@@ -28,9 +28,9 @@ type relationUUIDAndRole struct {
 	Role string `db:"scope"`
 }
 
-// relationForDetails represents the structure for retrieving
+// relationUUIDLifeID represents the structure for retrieving
 // relation details from the database.
-type relationForDetails struct {
+type relationUUIDLifeID struct {
 	// UUID uniquely identifies the relation.
 	UUID corerelation.UUID `db:"uuid"`
 	// ID is the numerical identifier of the relation.

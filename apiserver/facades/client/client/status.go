@@ -836,7 +836,7 @@ func fetchRelations(ctx context.Context, relationService RelationService,
 	out := make(map[string][]relationStatus)
 	outById := make(map[int]relationStatus)
 
-	// If there is no details, just return empty maps without error to avoid an
+	// If there are no details, just return empty maps without error to avoid an
 	// useless call to the status service.
 	if len(details) == 0 {
 		return out, outById, nil
@@ -853,7 +853,15 @@ func fetchRelations(ctx context.Context, relationService RelationService,
 	for _, detail := range details {
 		relStatus, ok := statuses[detail.UUID]
 		if !ok {
-			logger.Warningf(ctx, "no status for relation %d %q", detail.ID, relation.NaturalKey(detail.Endpoints))
+			// This shouldn't happen, since a relation and its status are
+			// supposed to be added in the same transaction.
+			// However, if status command is run while removing a transaction, it
+			// may happen.
+			// It should be rare, and if it happens without above special
+			// circumstance it could be due to a design decision, db slowness
+			// or corrupted data, which would requires special attention.
+			logger.Warningf(ctx, "no status for relation %d %q", detail.ID,
+				relation.NaturalKey(detail.Endpoints))
 		}
 		r := relationStatus{
 			ID:        detail.ID,
