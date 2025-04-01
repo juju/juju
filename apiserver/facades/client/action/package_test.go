@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/leadership"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 )
@@ -37,7 +38,8 @@ type MockBaseSuite struct {
 }
 
 func (s *MockBaseSuite) NewActionAPI(c *gc.C) *ActionAPI {
-	api, err := newActionAPI(s.State, nil, s.Authorizer, LeaderFactory(s.Leadership), s.ApplicationService, s.BlockCommandService)
+	modelUUID := modeltesting.GenModelUUID(c).String()
+	api, err := newActionAPI(s.State, nil, s.Authorizer, LeaderFactory(s.Leadership), s.ApplicationService, s.BlockCommandService, modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	api.tagToActionReceiverFn = s.tagToActionReceiverFn
@@ -55,8 +57,9 @@ func NewActionAPI(
 	resources facade.Resources, authorizer facade.Authorizer, leadership leadership.Reader,
 	applicationService ApplicationService,
 	blockCommandService common.BlockCommandService,
+	modelUUID string,
 ) (*ActionAPI, error) {
-	return newActionAPI(&stateShim{st: st}, resources, authorizer, LeaderFactory(leadership), applicationService, blockCommandService)
+	return newActionAPI(&stateShim{st: st}, resources, authorizer, LeaderFactory(leadership), applicationService, blockCommandService, modelUUID)
 }
 
 type FakeLeadership struct {

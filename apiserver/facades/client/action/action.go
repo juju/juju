@@ -43,6 +43,7 @@ type ApplicationService interface {
 type ActionAPI struct {
 	state              State
 	model              Model
+	modelTag           names.ModelTag
 	resources          facade.Resources
 	authorizer         facade.Authorizer
 	check              *common.BlockChecker
@@ -66,6 +67,7 @@ func newActionAPI(
 	getLeadershipReader func() (leadership.Reader, error),
 	applicationService ApplicationService,
 	blockCommandService common.BlockCommandService,
+	modelUUID string,
 ) (*ActionAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -81,9 +83,12 @@ func newActionAPI(
 		return nil, errors.Trace(err)
 	}
 
+	modelTag := names.NewModelTag(modelUUID)
+
 	return &ActionAPI{
 		state:                 st,
 		model:                 m,
+		modelTag:              modelTag,
 		resources:             resources,
 		authorizer:            authorizer,
 		check:                 common.NewBlockChecker(blockCommandService),
@@ -94,15 +99,15 @@ func newActionAPI(
 }
 
 func (a *ActionAPI) checkCanRead(ctx context.Context) error {
-	return a.authorizer.HasPermission(ctx, permission.ReadAccess, a.model.ModelTag())
+	return a.authorizer.HasPermission(ctx, permission.ReadAccess, a.modelTag)
 }
 
 func (a *ActionAPI) checkCanWrite(ctx context.Context) error {
-	return a.authorizer.HasPermission(ctx, permission.WriteAccess, a.model.ModelTag())
+	return a.authorizer.HasPermission(ctx, permission.WriteAccess, a.modelTag)
 }
 
 func (a *ActionAPI) checkCanAdmin(ctx context.Context) error {
-	return a.authorizer.HasPermission(ctx, permission.AdminAccess, a.model.ModelTag())
+	return a.authorizer.HasPermission(ctx, permission.AdminAccess, a.modelTag)
 }
 
 // Actions takes a list of ActionTags, and returns the full Action for

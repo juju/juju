@@ -15,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/action"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	"github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -126,18 +127,19 @@ func (s *runSuite) TestRunRequiresAdmin(c *gc.C) {
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 
 	alpha := names.NewUserTag("alpha@bravo")
+	modelUUID := modeltesting.GenModelUUID(c).String()
 	auth := apiservertesting.FakeAuthorizer{
 		Tag:         alpha,
 		HasWriteTag: alpha,
 	}
 	st := s.ControllerModel(c).State()
-	client, err := action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService)
+	client, err := action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService, modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.Run(context.Background(), params.RunParams{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 
 	auth.AdminTag = alpha
-	client, err = action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService)
+	client, err = action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService, modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.Run(context.Background(), params.RunParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -145,6 +147,8 @@ func (s *runSuite) TestRunRequiresAdmin(c *gc.C) {
 
 func (s *runSuite) TestRunOnAllMachinesRequiresAdmin(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c).String()
 
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
 
@@ -154,13 +158,13 @@ func (s *runSuite) TestRunOnAllMachinesRequiresAdmin(c *gc.C) {
 		HasWriteTag: alpha,
 	}
 	st := s.ControllerModel(c).State()
-	client, err := action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService)
+	client, err := action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService, modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.RunOnAllMachines(context.Background(), params.RunParams{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 
 	auth.AdminTag = alpha
-	client, err = action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService)
+	client, err = action.NewActionAPI(st, nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService, modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.RunOnAllMachines(context.Background(), params.RunParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -175,7 +179,8 @@ func (s *runSuite) setupMocks(c *gc.C) *gomock.Controller {
 	auth := apiservertesting.FakeAuthorizer{
 		Tag: jujutesting.AdminUser,
 	}
-	s.client, err = action.NewActionAPI(s.ControllerModel(c).State(), nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService)
+	modelUUID := modeltesting.GenModelUUID(c).String()
+	s.client, err = action.NewActionAPI(s.ControllerModel(c).State(), nil, auth, action.FakeLeadership{}, s.applicationService, s.blockCommandService, modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl

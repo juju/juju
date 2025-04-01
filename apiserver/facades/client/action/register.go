@@ -30,6 +30,7 @@ func newActionAPIV7(ctx facade.ModelContext) (*APIv7, error) {
 		ctx.LeadershipReader,
 		domainServices.Application(),
 		domainServices.BlockCommand(),
+		ctx.ModelUUID().String(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
