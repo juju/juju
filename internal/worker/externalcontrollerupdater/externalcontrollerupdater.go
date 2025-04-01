@@ -150,19 +150,12 @@ func (w *updaterWorker) loop() error {
 				logger.Infof("starting watcher for external controller %q", tag.Id())
 				watchers.Add(tag)
 				if err := w.runner.StartWorker(tag.Id(), func() (worker.Worker, error) {
-					cw := controllerWatcher{
-						tag:                                tag,
-						setExternalControllerInfo:          w.setExternalControllerInfo,
-						externalControllerInfo:             w.externalControllerInfo,
-						newExternalControllerWatcherClient: w.newExternalControllerWatcherClient,
-					}
-					if err := catacomb.Invoke(catacomb.Plan{
-						Site: &cw.catacomb,
-						Work: cw.loop,
-					}); err != nil {
-						return nil, errors.Trace(err)
-					}
-					return &cw, nil
+					return newControllerWatcher(
+						tag,
+						w.setExternalControllerInfo,
+						w.externalControllerInfo,
+						w.newExternalControllerWatcherClient,
+					)
 				}); err != nil {
 					return errors.Annotatef(err, "starting watcher for external controller %q", tag.Id())
 				}
@@ -183,6 +176,29 @@ type controllerWatcher struct {
 	newExternalControllerWatcherClient NewExternalControllerWatcherClientFunc
 }
 
+func newControllerWatcher(
+	tag names.ControllerTag,
+	setExternalControllerInfo func(crossmodel.ControllerInfo) error,
+	externalControllerInfo func(controllerUUID string) (*crossmodel.ControllerInfo, error),
+	newExternalControllerWatcherClient NewExternalControllerWatcherClientFunc,
+) (*controllerWatcher, error) {
+	cw := &controllerWatcher{
+		tag:                                tag,
+		setExternalControllerInfo:          setExternalControllerInfo,
+		externalControllerInfo:             externalControllerInfo,
+		newExternalControllerWatcherClient: newExternalControllerWatcherClient,
+	}
+
+	if err := catacomb.Invoke(catacomb.Plan{
+		Site: &cw.catacomb,
+		Work: cw.loop,
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return cw, nil
+}
+
 // Kill is part of the worker.Worker interface.
 func (w *controllerWatcher) Kill() {
 	w.catacomb.Kill(nil)
@@ -201,7 +217,7 @@ func (w *controllerWatcher) Wait() error {
 func (w *controllerWatcher) loop() error {
 	// We get the API info from the local controller initially.
 	info, err := w.externalControllerInfo(w.tag.Id())
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {
 		return errors.Annotate(err, "getting cached external controller info")
@@ -223,7 +239,7 @@ func (w *controllerWatcher) loop() error {
 				CACert: info.CACert,
 				Tag:    names.NewUserTag(api.AnonymousUsername),
 			}
-			client, nw, err = w.connectAndWatch(apiInfo, w.catacomb.Dying())
+			client, nw, err = w.connectAndWatch(apiInfo)
 			if err == w.catacomb.ErrDying() {
 				return err
 			} else if err != nil {
@@ -282,32 +298,48 @@ func (w *controllerWatcher) loop() error {
 // connectAndWatch connects to the specified controller and watches for changes.
 // It aborts if signalled, which prevents the watcher loop from blocking any shutdown
 // of the watcher the may be requested by the parent worker.
-func (w *controllerWatcher) connectAndWatch(apiInfo *api.Info, abort <-chan struct{}) (ExternalControllerWatcherClientCloser, watcher.NotifyWatcher, error) {
+func (w *controllerWatcher) connectAndWatch(apiInfo *api.Info) (ExternalControllerWatcherClientCloser, watcher.NotifyWatcher, error) {
 	type result struct {
 		client ExternalControllerWatcherClientCloser
 		nw     watcher.NotifyWatcher
 	}
-	donec := make(chan result, 1)
-	errc := make(chan error, 1)
+
+	response := make(chan result)
+	errs := make(chan error)
+
 	go func() {
 		client, err := w.newExternalControllerWatcherClient(apiInfo)
 		if err != nil {
-			errc <- errors.Annotate(err, "getting external controller client")
+			select {
+			case <-w.catacomb.Dying():
+			case errs <- errors.Annotate(err, "getting external controller client"):
+			}
 			return
 		}
+
 		nw, err := client.WatchControllerInfo()
 		if err != nil {
-			errc <- errors.Annotate(err, "watching external controller")
+			_ = client.Close()
+			select {
+			case <-w.catacomb.Dying():
+			case errs <- errors.Annotate(err, "watching external controller"):
+			}
 			return
 		}
-		donec <- result{client, nw}
+
+		select {
+		case <-w.catacomb.Dying():
+			_ = client.Close()
+		case response <- result{client: client, nw: nw}:
+		}
 	}()
+
 	select {
-	case <-abort:
+	case <-w.catacomb.Dying():
 		return nil, nil, w.catacomb.ErrDying()
-	case err := <-errc:
+	case err := <-errs:
 		return nil, nil, errors.Trace(err)
-	case r := <-donec:
+	case r := <-response:
 		return r.client, r.nw, nil
 	}
 }
