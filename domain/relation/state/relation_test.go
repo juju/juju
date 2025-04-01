@@ -14,6 +14,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreapplicationtesting "github.com/juju/juju/core/application/testing"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/charm/testing"
 	corelife "github.com/juju/juju/core/life"
@@ -118,6 +119,99 @@ func (s *addRelationSuite) TestAddRelation(c *gc.C) {
 	c.Check(statuses, jc.DeepEquals, []corestatus.Status{corestatus.Joining, corestatus.Joining},
 		gc.Commentf("all relations should have the same default status: %q", corestatus.Joining))
 
+}
+
+func (s *addRelationSuite) TestAddRelationSubordinate(c *gc.C) {
+	// Arrange
+	relProvider := charm.Relation{
+		Name:  "prov",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeContainer,
+	}
+	relRequirer := charm.Relation{
+		Name:  "req",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	}
+	channel := corebase.Channel{
+		Track: "20.04",
+		Risk:  "stable",
+	}
+	appUUID1 := s.addSubordinateApplication(c, "application-1")
+	appUUID2 := s.addApplication(c, "application-2")
+	s.addApplicationPlatform(c, appUUID1, channel)
+	s.addApplicationPlatform(c, appUUID2, channel)
+	epUUID1 := s.addApplicationEndpointFromRelation(c, appUUID1, relProvider)
+	epUUID2 := s.addApplicationEndpointFromRelation(c, appUUID2, relRequirer)
+
+	// Act
+	ep1, ep2, err := s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-1",
+		EndpointName:    "prov",
+	}, relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-2",
+		EndpointName:    "req",
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ep1, gc.Equals, relation.Endpoint{
+		ApplicationName: "application-1",
+		Relation:        relProvider,
+	})
+	c.Check(ep2, gc.Equals, relation.Endpoint{
+		ApplicationName: "application-2",
+		Relation:        relRequirer,
+	})
+	epUUIDsByRelID := s.fetchAllEndpointUUIDsByRelationIDs(c)
+	c.Check(epUUIDsByRelID, gc.HasLen, 1)
+	c.Check(epUUIDsByRelID[0], jc.SameContents, []corerelation.EndpointUUID{epUUID1, epUUID2},
+		gc.Commentf("full map: %v", epUUIDsByRelID))
+
+	// check all relation have a status
+	statuses := s.fetchAllRelationStatusesOrderByRelationIDs(c)
+	c.Check(statuses, jc.DeepEquals, []corestatus.Status{corestatus.Joining},
+		gc.Commentf("all relations should have the same default status: %q", corestatus.Joining))
+}
+
+func (s *addRelationSuite) TestAddRelationSubordinateNotCompatible(c *gc.C) {
+	// Arrange
+	relProvider := charm.Relation{
+		Name:  "prov",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeContainer,
+	}
+	relRequirer := charm.Relation{
+		Name:  "req",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	}
+	channel1 := corebase.Channel{
+		Track: "20.04",
+		Risk:  "stable",
+	}
+	channel2 := corebase.Channel{
+		Track: "22.04",
+		Risk:  "stable",
+	}
+	appUUID1 := s.addSubordinateApplication(c, "application-1")
+	appUUID2 := s.addApplication(c, "application-2")
+	s.addApplicationPlatform(c, appUUID1, channel1)
+	s.addApplicationPlatform(c, appUUID2, channel2)
+	s.addApplicationEndpointFromRelation(c, appUUID1, relProvider)
+	s.addApplicationEndpointFromRelation(c, appUUID2, relRequirer)
+
+	// Act
+	_, _, err := s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-1",
+		EndpointName:    "prov",
+	}, relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-2",
+		EndpointName:    "req",
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.CompatibleEndpointsNotFound)
 }
 
 func (s *addRelationSuite) TestAddRelationErrorInfersEndpoint(c *gc.C) {
@@ -508,6 +602,19 @@ func (s *addRelationSuite) addApplication(
 	appUUID := s.baseRelationSuite.addApplication(c, charmUUID, applicationName)
 	s.charmByApp[appUUID] = charmUUID
 	return appUUID
+}
+
+// addApplicationPlatform inserts a new application platform into the database
+// using the provided application UUID and channel.
+// Os is defaulted to ubuntu and architecture to AMD64 (db zero-values)
+func (s *addRelationSuite) addApplicationPlatform(
+	c *gc.C,
+	appUUID coreapplication.ID,
+	channel corebase.Channel,
+) {
+	s.query(c, `
+INSERT INTO application_platform (application_uuid, os_id, channel, architecture_id)
+VALUES (?, 0, ?, 0)`, appUUID, channel.String())
 }
 
 // addSubordinateApplication creates and adds a new subordinate application

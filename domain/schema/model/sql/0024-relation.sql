@@ -166,8 +166,9 @@ CREATE UNIQUE INDEX idx_singleton_relation_sequence ON relation_sequence ((1));
 CREATE VIEW v_application_endpoint AS
 SELECT
     ae.uuid AS endpoint_uuid,
-    a.name AS application_name,
     cr.name AS endpoint_name,
+    a.uuid AS application_uuid,
+    a.name AS application_name,
     cr.interface,
     cr.optional,
     cr.capacity,

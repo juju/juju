@@ -13,6 +13,7 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/application"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
@@ -79,6 +80,11 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 r
 
 		// Check the relation doesn't already exist.
 		if err := st.relationAlreadyExists(ctx, tx, ep1, ep2); err != nil {
+			return errors.Errorf("relation %s %s: %w", ep1, ep2, err)
+		}
+
+		// Check the application bases are compatible, if required
+		if err := st.checkCompatibleBases(ctx, tx, ep1, ep2); err != nil {
 			return errors.Errorf("relation %s %s: %w", ep1, ep2, err)
 		}
 
@@ -1014,6 +1020,36 @@ func (st *State) WatcherApplicationSettingsNamespace() string {
 	return "relation_application_setting"
 }
 
+// checkCompatibleBases determines if the bases of two application endpoints
+// are compatible for a relation.
+// It compares the OS and channel of the base configurations for both endpoints.
+// Returns an error if no compatible bases are found or if fetching bases fails.
+func (st *State) checkCompatibleBases(ctx context.Context, tx *sqlair.TX, ep1 endpoint, ep2 endpoint) error {
+	if ep1.Scope != charm.ScopeContainer && ep2.Scope != charm.ScopeContainer {
+		return nil
+	}
+
+	app1Bases, err := st.getBases(ctx, tx, ep1)
+	if err != nil {
+		return errors.Errorf("getting bases of application %q: %w", ep1.ApplicationName, err)
+	}
+	app2Bases, err := st.getBases(ctx, tx, ep2)
+	if err != nil {
+		return errors.Errorf("getting bases of application %q: %w", ep2.ApplicationName, err)
+	}
+
+	for _, base1 := range app1Bases {
+		for _, base2 := range app2Bases {
+			if base1.IsCompatible(base2) {
+				return nil
+			}
+		}
+	}
+
+	return errors.Errorf("no compatible bases found for application %q and %q", ep1.ApplicationName,
+		ep2.ApplicationName).Add(relationerrors.CompatibleEndpointsNotFound)
+}
+
 // checkExistsByUUID checks if a record with the specified UUID exists in the given
 // table using a transaction and context.
 func checkExistsByUUID(ctx context.Context, st *State, tx *sqlair.TX, table string, uuid string) (bool,
@@ -1116,6 +1152,40 @@ AND    (
 	}
 
 	return endpoints, nil
+}
+
+// getBases retrieves a list of OS and channel information for a specific
+// application, given an endpoint and transaction.
+func (st *State) getBases(ctx context.Context, tx *sqlair.TX, ep1 endpoint) ([]corebase.Base, error) {
+	stmt, err := st.Prepare(`
+SELECT 
+    ap.channel AS &applicationPlatform.channel,
+    os.name AS &applicationPlatform.os
+FROM application_platform ap
+JOIN os ON ap.os_id = os.id
+WHERE ap.application_uuid = $endpoint.application_uuid`, ep1, applicationPlatform{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var appPlatforms []applicationPlatform
+	err = tx.Query(ctx, stmt, ep1).GetAll(&appPlatforms)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("getting application platforms for %q: %w", ep1, err)
+	}
+
+	var result []corebase.Base
+	for _, appPlatform := range appPlatforms {
+		channel, err := corebase.ParseChannel(appPlatform.Channel)
+		if err != nil {
+			return nil, errors.Errorf("parsing channel %q: %w", appPlatform.Channel, err)
+		}
+		result = append(result, corebase.Base{
+			OS:      appPlatform.OS,
+			Channel: channel,
+		})
+	}
+
+	return result, nil
 }
 
 

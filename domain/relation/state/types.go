@@ -38,6 +38,13 @@ type relationUUIDAndRole struct {
 	Role string `db:"scope"`
 }
 
+// applicationPlatform represents a structure to get OS and channel information
+// for a specific application, from the table `application_platform`
+type applicationPlatform struct {
+	OS      string `db:"os"`
+	Channel string `db:"channel"`
+}
+
 type relationUnit struct {
 	RelationUnitUUID corerelation.UnitUUID `db:"uuid"`
 	RelationUUID     corerelation.UUID     `db:"relation_uuid"`
@@ -90,7 +97,7 @@ type endpoint struct {
 	// Endpoint name is the name of the endpoint/relation.
 	EndpointName string `db:"endpoint_name"`
 	// Role is the name of the endpoints role in the relation.
-	Role string `db:"role"`
+	Role charm.RelationRole `db:"role"`
 	// Interface is the name of the interface this endpoint implements.
 	Interface string `db:"interface"`
 	// Optional marks if this endpoint is required to be in a relation.
@@ -99,9 +106,11 @@ type endpoint struct {
 	// endpoint.
 	Capacity int `db:"capacity"`
 	// Scope is the name of the endpoints scope.
-	Scope string `db:"scope"`
+	Scope charm.RelationScope `db:"scope"`
 	// ApplicationName is the name of the application this endpoint belongs to.
 	ApplicationName string `db:"application_name"`
+	// ApplicationUUID is a unique identifier for the application associated with the endpoint.
+	ApplicationUUID application.ID `db:"application_uuid"`
 }
 
 // String returns a formatted string representation combining
