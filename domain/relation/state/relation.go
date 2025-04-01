@@ -102,7 +102,7 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 r
 			return errors.Errorf("inserting new relation: %w", err)
 		}
 
-		// Insert relation status
+		// Insert relation status.
 		if err := st.insertNewRelationStatus(ctx, tx, relUUID); err != nil {
 			return errors.Errorf("inserting new relation %s %s: %w", ep1, ep2, err)
 		}
@@ -125,7 +125,7 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 r
 			return errors.Errorf("internal error: expected 2 endpoints in relation, got %d", l)
 		}
 
-		// order results to have the same order between input candidate and output result
+		// order results to have the same order between input candidate and output result.
 		for _, e := range endpoints {
 			if e.ApplicationName == ep1.ApplicationName && e.Name == ep1.EndpointName {
 				endpoint1 = e
@@ -1097,8 +1097,8 @@ func (st *State) checkEndpointCapacity(ctx context.Context, tx *sqlair.TX, ep en
 	}
 	countStmt, err := st.Prepare(`
 SELECT count(*) AS &related.count
-FROM relation_endpoint
-WHERE endpoint_uuid = $endpoint.endpoint_uuid`, related{}, ep)
+FROM   relation_endpoint
+WHERE  endpoint_uuid = $endpoint.endpoint_uuid`, related{}, ep)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1130,7 +1130,6 @@ FROM   relation
 
 	return result, errors.Capture(err)
 }
-
 
 // getCandidateEndpoints retrieves a list of candidate endpoints from the
 // database matching the given identifier parameters.
@@ -1199,7 +1198,6 @@ WHERE ap.application_uuid = $endpoint.application_uuid`, ep1, applicationPlatfor
 	return result, nil
 }
 
-
 func (st *State) getRelationDetails(ctx context.Context, tx *sqlair.TX, relationUUID corerelation.UUID) (relation.RelationDetailsResult, error) {
 	type getRelation struct {
 		UUID corerelation.UUID `db:"uuid"`
@@ -1239,7 +1237,6 @@ WHERE  r.uuid = $getRelation.uuid
 		Endpoints: endpoints,
 	}, nil
 }
-
 
 // inferEndpoints determines and validates the endpoints of a given relation
 // based on the provided identifiers. It tries to find matching endpoint for both
@@ -1331,7 +1328,7 @@ func (st *State) insertNewRelation(ctx context.Context, tx *sqlair.TX) (corerela
 	}
 
 	stmtGetID, err := st.Prepare(`
-SELECT sequence as &relationIDAndUUID.relation_id 
+SELECT sequence AS &relationIDAndUUID.relation_id 
 FROM relation_sequence`, relUUIDArg)
 	if err != nil {
 		return relUUID, errors.Capture(err)
@@ -1408,8 +1405,8 @@ func (st *State) insertNewRelationStatus(ctx context.Context, tx *sqlair.TX, uui
 	stmt, err := st.Prepare(`
 INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
 SELECT $setRelationStatus.relation_uuid, status.id, $setRelationStatus.updated_at
-FROM relation_status_type status
-WHERE status.name = $setRelationStatus.status`, status)
+FROM   relation_status_type status
+WHERE  status.name = $setRelationStatus.status`, status)
 	if err != nil {
 		return errors.Capture(err)
 	}
