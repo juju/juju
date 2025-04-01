@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/status"
 )
 
 type unitServiceSuite struct {
@@ -180,20 +181,20 @@ func (s *unitServiceSuite) TestUpdateCAASUnit(c *gc.C) {
 		ProviderID: ptr("provider-id"),
 		Address:    ptr("10.6.6.6"),
 		Ports:      ptr([]string{"666"}),
-		AgentStatus: ptr(application.StatusInfo[application.UnitAgentStatusType]{
-			Status:  application.UnitAgentStatusAllocating,
+		AgentStatus: ptr(status.StatusInfo[status.UnitAgentStatusType]{
+			Status:  status.UnitAgentStatusAllocating,
 			Message: "agent status",
 			Data:    []byte(`{"foo":"bar"}`),
 			Since:   ptr(now),
 		}),
-		WorkloadStatus: ptr(application.StatusInfo[application.WorkloadStatusType]{
-			Status:  application.WorkloadStatusWaiting,
+		WorkloadStatus: ptr(status.StatusInfo[status.WorkloadStatusType]{
+			Status:  status.WorkloadStatusWaiting,
 			Message: "workload status",
 			Data:    []byte(`{"foo":"bar"}`),
 			Since:   ptr(now),
 		}),
-		CloudContainerStatus: ptr(application.StatusInfo[application.CloudContainerStatusType]{
-			Status:  application.CloudContainerStatusRunning,
+		CloudContainerStatus: ptr(status.StatusInfo[status.CloudContainerStatusType]{
+			Status:  status.CloudContainerStatusRunning,
 			Message: "container status",
 			Data:    []byte(`{"foo":"bar"}`),
 			Since:   ptr(now),

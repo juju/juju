@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
 	portstate "github.com/juju/juju/domain/port/state"
+	"github.com/juju/juju/domain/status"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -206,20 +207,20 @@ func (s *unitStateSuite) TestUpdateCAASUnitStatuses(c *gc.C) {
 
 	now := ptr(time.Now())
 	params := application.UpdateCAASUnitParams{
-		AgentStatus: ptr(application.StatusInfo[application.UnitAgentStatusType]{
-			Status:  application.UnitAgentStatusIdle,
+		AgentStatus: ptr(status.StatusInfo[status.UnitAgentStatusType]{
+			Status:  status.UnitAgentStatusIdle,
 			Message: "agent status",
 			Data:    []byte(`{"foo": "bar"}`),
 			Since:   now,
 		}),
-		WorkloadStatus: ptr(application.StatusInfo[application.WorkloadStatusType]{
-			Status:  application.WorkloadStatusWaiting,
+		WorkloadStatus: ptr(status.StatusInfo[status.WorkloadStatusType]{
+			Status:  status.WorkloadStatusWaiting,
 			Message: "workload status",
 			Data:    []byte(`{"foo": "bar"}`),
 			Since:   now,
 		}),
-		CloudContainerStatus: ptr(application.StatusInfo[application.CloudContainerStatusType]{
-			Status:  application.CloudContainerStatusRunning,
+		CloudContainerStatus: ptr(status.StatusInfo[status.CloudContainerStatusType]{
+			Status:  status.CloudContainerStatusRunning,
 			Message: "container status",
 			Data:    []byte(`{"foo": "bar"}`),
 			Since:   now,
@@ -228,13 +229,13 @@ func (s *unitStateSuite) TestUpdateCAASUnitStatuses(c *gc.C) {
 	err = s.state.UpdateCAASUnit(context.Background(), "foo/666", params)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitStatus(
-		c, "unit_agent", unitUUID, int(application.UnitAgentStatusIdle), "agent status", now, []byte(`{"foo": "bar"}`),
+		c, "unit_agent", unitUUID, int(status.UnitAgentStatusIdle), "agent status", now, []byte(`{"foo": "bar"}`),
 	)
 	s.assertUnitStatus(
-		c, "unit_workload", unitUUID, int(application.WorkloadStatusWaiting), "workload status", now, []byte(`{"foo": "bar"}`),
+		c, "unit_workload", unitUUID, int(status.WorkloadStatusWaiting), "workload status", now, []byte(`{"foo": "bar"}`),
 	)
 	s.assertUnitStatus(
-		c, "k8s_pod", unitUUID, int(application.CloudContainerStatusRunning), "container status", now, []byte(`{"foo": "bar"}`),
+		c, "k8s_pod", unitUUID, int(status.CloudContainerStatusRunning), "container status", now, []byte(`{"foo": "bar"}`),
 	)
 }
 
@@ -563,14 +564,14 @@ func (s *unitStateSuite) TestDeleteUnit(c *gc.C) {
 			}),
 		},
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
-				Status:  application.UnitAgentStatusExecuting,
+			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusExecuting,
 				Message: "test",
 				Data:    []byte(`{"foo": "bar"}`),
 				Since:   ptr(time.Now()),
 			},
-			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
-				Status:  application.WorkloadStatusActive,
+			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
 				Message: "test",
 				Data:    []byte(`{"foo": "bar"}`),
 				Since:   ptr(time.Now()),
@@ -601,8 +602,8 @@ func (s *unitStateSuite) TestDeleteUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		if err := s.state.setCloudContainerStatus(ctx, tx, unitUUID, &application.StatusInfo[application.CloudContainerStatusType]{
-			Status:  application.CloudContainerStatusBlocked,
+		if err := s.state.setCloudContainerStatus(ctx, tx, unitUUID, &status.StatusInfo[status.CloudContainerStatusType]{
+			Status:  status.CloudContainerStatusBlocked,
 			Message: "test",
 			Data:    []byte(`{"foo": "bar"}`),
 			Since:   ptr(time.Now()),
@@ -811,14 +812,14 @@ func (s *unitStateSuite) assertAddUnits(c *gc.C, modelType model.ModelType) {
 	u := application.AddUnitArg{
 		UnitName: "foo/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
-				Status:  application.UnitAgentStatusExecuting,
+			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusExecuting,
 				Message: "test",
 				Data:    []byte(`{"foo": "bar"}`),
 				Since:   now,
 			},
-			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
-				Status:  application.WorkloadStatusActive,
+			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
 				Message: "test",
 				Data:    []byte(`{"foo": "bar"}`),
 				Since:   now,

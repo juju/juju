@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corestatus "github.com/juju/juju/core/status"
-	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/status"
 )
 
 type statusSuite struct{}
@@ -22,30 +22,30 @@ var now = time.Now()
 func (s *statusSuite) TestEncodeCloudContainerStatus(c *gc.C) {
 	testCases := []struct {
 		input  corestatus.StatusInfo
-		output application.StatusInfo[application.CloudContainerStatusType]
+		output status.StatusInfo[status.CloudContainerStatusType]
 	}{
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Waiting,
 			},
-			output: application.StatusInfo[application.CloudContainerStatusType]{
-				Status: application.CloudContainerStatusWaiting,
+			output: status.StatusInfo[status.CloudContainerStatusType]{
+				Status: status.CloudContainerStatusWaiting,
 			},
 		},
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Blocked,
 			},
-			output: application.StatusInfo[application.CloudContainerStatusType]{
-				Status: application.CloudContainerStatusBlocked,
+			output: status.StatusInfo[status.CloudContainerStatusType]{
+				Status: status.CloudContainerStatusBlocked,
 			},
 		},
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Running,
 			},
-			output: application.StatusInfo[application.CloudContainerStatusType]{
-				Status: application.CloudContainerStatusRunning,
+			output: status.StatusInfo[status.CloudContainerStatusType]{
+				Status: status.CloudContainerStatusRunning,
 			},
 		},
 		{
@@ -55,8 +55,8 @@ func (s *statusSuite) TestEncodeCloudContainerStatus(c *gc.C) {
 				Data:    map[string]interface{}{"foo": "bar"},
 				Since:   &now,
 			},
-			output: application.StatusInfo[application.CloudContainerStatusType]{
-				Status:  application.CloudContainerStatusRunning,
+			output: status.StatusInfo[status.CloudContainerStatusType]{
+				Status:  status.CloudContainerStatusRunning,
 				Message: "I'm active!",
 				Data:    []byte(`{"foo":"bar"}`),
 				Since:   &now,
@@ -75,54 +75,54 @@ func (s *statusSuite) TestEncodeCloudContainerStatus(c *gc.C) {
 func (s *statusSuite) TestEncodeUnitAgentStatus(c *gc.C) {
 	testCases := []struct {
 		input  corestatus.StatusInfo
-		output application.StatusInfo[application.UnitAgentStatusType]
+		output status.StatusInfo[status.UnitAgentStatusType]
 	}{
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Idle,
 			},
-			output: application.StatusInfo[application.UnitAgentStatusType]{
-				Status: application.UnitAgentStatusIdle,
+			output: status.StatusInfo[status.UnitAgentStatusType]{
+				Status: status.UnitAgentStatusIdle,
 			},
 		},
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Allocating,
 			},
-			output: application.StatusInfo[application.UnitAgentStatusType]{
-				Status: application.UnitAgentStatusAllocating,
+			output: status.StatusInfo[status.UnitAgentStatusType]{
+				Status: status.UnitAgentStatusAllocating,
 			},
 		},
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Executing,
 			},
-			output: application.StatusInfo[application.UnitAgentStatusType]{
-				Status: application.UnitAgentStatusExecuting,
+			output: status.StatusInfo[status.UnitAgentStatusType]{
+				Status: status.UnitAgentStatusExecuting,
 			},
 		},
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Failed,
 			},
-			output: application.StatusInfo[application.UnitAgentStatusType]{
-				Status: application.UnitAgentStatusFailed,
+			output: status.StatusInfo[status.UnitAgentStatusType]{
+				Status: status.UnitAgentStatusFailed,
 			},
 		},
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Lost,
 			},
-			output: application.StatusInfo[application.UnitAgentStatusType]{
-				Status: application.UnitAgentStatusLost,
+			output: status.StatusInfo[status.UnitAgentStatusType]{
+				Status: status.UnitAgentStatusLost,
 			},
 		},
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Rebooting,
 			},
-			output: application.StatusInfo[application.UnitAgentStatusType]{
-				Status: application.UnitAgentStatusRebooting,
+			output: status.StatusInfo[status.UnitAgentStatusType]{
+				Status: status.UnitAgentStatusRebooting,
 			},
 		},
 	}
@@ -132,7 +132,7 @@ func (s *statusSuite) TestEncodeUnitAgentStatus(c *gc.C) {
 		output, err := encodeUnitAgentStatus(&test.input)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(output, jc.DeepEquals, &test.output)
-		result, err := decodeUnitAgentStatus(&application.UnitStatusInfo[application.UnitAgentStatusType]{
+		result, err := decodeUnitAgentStatus(&status.UnitStatusInfo[status.UnitAgentStatusType]{
 			StatusInfo: *output,
 			Present:    true,
 		})
@@ -146,8 +146,8 @@ func (s *statusSuite) TestEncodingUnitAgentStatusError(c *gc.C) {
 		Status: corestatus.Error,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(output, jc.DeepEquals, &application.StatusInfo[application.UnitAgentStatusType]{
-		Status: application.UnitAgentStatusError,
+	c.Check(output, jc.DeepEquals, &status.StatusInfo[status.UnitAgentStatusType]{
+		Status: status.UnitAgentStatusError,
 	})
 
 	// If the agent is in an error state, the workload should also
@@ -155,9 +155,9 @@ func (s *statusSuite) TestEncodingUnitAgentStatusError(c *gc.C) {
 	// take precedence and we'll set the unit agent status to idle.
 	// This follows the same patter that already exists.
 
-	input, err := decodeUnitAgentStatus(&application.UnitStatusInfo[application.UnitAgentStatusType]{
-		StatusInfo: application.StatusInfo[application.UnitAgentStatusType]{
-			Status: application.UnitAgentStatusError,
+	input, err := decodeUnitAgentStatus(&status.UnitStatusInfo[status.UnitAgentStatusType]{
+		StatusInfo: status.StatusInfo[status.UnitAgentStatusType]{
+			Status: status.UnitAgentStatusError,
 		},
 		Present: true,
 	})
@@ -170,62 +170,62 @@ func (s *statusSuite) TestEncodingUnitAgentStatusError(c *gc.C) {
 func (s *statusSuite) TestEncodeWorkloadStatus(c *gc.C) {
 	testCases := []struct {
 		input  corestatus.StatusInfo
-		output application.StatusInfo[application.WorkloadStatusType]
+		output status.StatusInfo[status.WorkloadStatusType]
 	}{
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Unset,
 			},
-			output: application.StatusInfo[application.WorkloadStatusType]{
-				Status: application.WorkloadStatusUnset,
+			output: status.StatusInfo[status.WorkloadStatusType]{
+				Status: status.WorkloadStatusUnset,
 			},
 		},
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Unknown,
 			},
-			output: application.StatusInfo[application.WorkloadStatusType]{
-				Status: application.WorkloadStatusUnknown,
+			output: status.StatusInfo[status.WorkloadStatusType]{
+				Status: status.WorkloadStatusUnknown,
 			},
 		},
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Maintenance,
 			},
-			output: application.StatusInfo[application.WorkloadStatusType]{
-				Status: application.WorkloadStatusMaintenance,
+			output: status.StatusInfo[status.WorkloadStatusType]{
+				Status: status.WorkloadStatusMaintenance,
 			},
 		},
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Waiting,
 			},
-			output: application.StatusInfo[application.WorkloadStatusType]{
-				Status: application.WorkloadStatusWaiting,
+			output: status.StatusInfo[status.WorkloadStatusType]{
+				Status: status.WorkloadStatusWaiting,
 			},
 		},
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Blocked,
 			},
-			output: application.StatusInfo[application.WorkloadStatusType]{
-				Status: application.WorkloadStatusBlocked,
+			output: status.StatusInfo[status.WorkloadStatusType]{
+				Status: status.WorkloadStatusBlocked,
 			},
 		},
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Active,
 			},
-			output: application.StatusInfo[application.WorkloadStatusType]{
-				Status: application.WorkloadStatusActive,
+			output: status.StatusInfo[status.WorkloadStatusType]{
+				Status: status.WorkloadStatusActive,
 			},
 		},
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Terminated,
 			},
-			output: application.StatusInfo[application.WorkloadStatusType]{
-				Status: application.WorkloadStatusTerminated,
+			output: status.StatusInfo[status.WorkloadStatusType]{
+				Status: status.WorkloadStatusTerminated,
 			},
 		},
 		{
@@ -235,8 +235,8 @@ func (s *statusSuite) TestEncodeWorkloadStatus(c *gc.C) {
 				Data:    map[string]interface{}{"foo": "bar"},
 				Since:   &now,
 			},
-			output: application.StatusInfo[application.WorkloadStatusType]{
-				Status:  application.WorkloadStatusActive,
+			output: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
 				Message: "I'm active!",
 				Data:    []byte(`{"foo":"bar"}`),
 				Since:   &now,
@@ -249,7 +249,7 @@ func (s *statusSuite) TestEncodeWorkloadStatus(c *gc.C) {
 		output, err := encodeWorkloadStatus(&test.input)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(output, jc.DeepEquals, &test.output)
-		result, err := decodeUnitWorkloadStatus(&application.UnitStatusInfo[application.WorkloadStatusType]{
+		result, err := decodeUnitWorkloadStatus(&status.UnitStatusInfo[status.WorkloadStatusType]{
 			StatusInfo: *output,
 			Present:    true,
 		})

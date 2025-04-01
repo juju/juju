@@ -31,6 +31,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/charm"
@@ -55,12 +56,12 @@ func (s *providerServiceSuite) TestCreateApplication(c *gc.C) {
 	us := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
-				Status: application.UnitAgentStatusAllocating,
+			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+				Status: status.UnitAgentStatusAllocating,
 				Since:  now,
 			},
-			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
-				Status:  application.WorkloadStatusWaiting,
+			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusWaiting,
 				Message: corestatus.MessageInstallingAgent,
 				Since:   now,
 			},
@@ -205,8 +206,8 @@ func (s *providerServiceSuite) TestCreateApplicationWithApplicationStatus(c *gc.
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
 	now := ptr(s.clock.Now())
-	status := &application.StatusInfo[application.WorkloadStatusType]{
-		Status:  application.WorkloadStatusActive,
+	status := &status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusActive,
 		Message: "active",
 		Data:    []byte(`{"active":true}`),
 		Since:   now,
@@ -644,12 +645,12 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlock(c *gc.C) {
 	us := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
-				Status: application.UnitAgentStatusAllocating,
+			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+				Status: status.UnitAgentStatusAllocating,
 				Since:  now,
 			},
-			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
-				Status:  application.WorkloadStatusWaiting,
+			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusWaiting,
 				Message: "waiting for machine",
 				Since:   now,
 			},
@@ -759,12 +760,12 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlockDefaultSourc
 	us := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
-				Status: application.UnitAgentStatusAllocating,
+			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+				Status: status.UnitAgentStatusAllocating,
 				Since:  now,
 			},
-			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
-				Status:  application.WorkloadStatusWaiting,
+			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusWaiting,
 				Message: corestatus.MessageWaitForMachine,
 				Since:   now,
 			},
@@ -879,12 +880,12 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystem(c *gc.
 	us := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
-				Status: application.UnitAgentStatusAllocating,
+			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+				Status: status.UnitAgentStatusAllocating,
 				Since:  now,
 			},
-			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
-				Status:  application.WorkloadStatusWaiting,
+			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusWaiting,
 				Message: "waiting for machine",
 				Since:   now,
 			},
@@ -996,12 +997,12 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystemDefault
 	us := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
-				Status: application.UnitAgentStatusAllocating,
+			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+				Status: status.UnitAgentStatusAllocating,
 				Since:  now,
 			},
-			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
-				Status:  application.WorkloadStatusWaiting,
+			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusWaiting,
 				Message: "waiting for machine",
 				Since:   now,
 			},
@@ -1382,12 +1383,12 @@ func (s *providerServiceSuite) TestAddUnitsEmptyConstraints(c *gc.C) {
 	u := []application.AddUnitArg{{
 		UnitName: "ubuntu/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
-				Status: application.UnitAgentStatusAllocating,
+			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+				Status: status.UnitAgentStatusAllocating,
 				Since:  now,
 			},
-			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
-				Status:  application.WorkloadStatusWaiting,
+			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusWaiting,
 				Message: corestatus.MessageInstallingAgent,
 				Since:   now,
 			},
@@ -1448,12 +1449,12 @@ func (s *providerServiceSuite) TestAddUnitsAppConstraints(c *gc.C) {
 			AllocatePublicIP: ptr(true),
 		},
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
-				Status: application.UnitAgentStatusAllocating,
+			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+				Status: status.UnitAgentStatusAllocating,
 				Since:  now,
 			},
-			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
-				Status:  application.WorkloadStatusWaiting,
+			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusWaiting,
 				Message: corestatus.MessageInstallingAgent,
 				Since:   now,
 			},
@@ -1514,12 +1515,12 @@ func (s *providerServiceSuite) TestAddUnitsModelConstraints(c *gc.C) {
 			AllocatePublicIP: ptr(true),
 		},
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
-				Status: application.UnitAgentStatusAllocating,
+			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+				Status: status.UnitAgentStatusAllocating,
 				Since:  now,
 			},
-			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
-				Status:  application.WorkloadStatusWaiting,
+			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusWaiting,
 				Message: corestatus.MessageInstallingAgent,
 				Since:   now,
 			},
@@ -1567,12 +1568,12 @@ func (s *providerServiceSuite) TestAddUnitsFullConstraints(c *gc.C) {
 			CpuPower: ptr(uint64(75)),
 		},
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
-				Status: application.UnitAgentStatusAllocating,
+			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+				Status: status.UnitAgentStatusAllocating,
 				Since:  now,
 			},
-			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
-				Status:  application.WorkloadStatusWaiting,
+			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusWaiting,
 				Message: corestatus.MessageInstallingAgent,
 				Since:   now,
 			},

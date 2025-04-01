@@ -20,6 +20,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/password"
 )
@@ -114,12 +115,12 @@ func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg
 			UnitName:    u.UnitName,
 			Constraints: constraints,
 			UnitStatusArg: application.UnitStatusArg{
-				AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
-					Status: application.UnitAgentStatusAllocating,
+				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+					Status: status.UnitAgentStatusAllocating,
 					Since:  now,
 				},
-				WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
-					Status:  application.WorkloadStatusWaiting,
+				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+					Status:  status.WorkloadStatusWaiting,
 					Message: workloadMessage,
 					Since:   now,
 				},
