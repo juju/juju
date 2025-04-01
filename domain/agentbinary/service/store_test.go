@@ -194,7 +194,7 @@ func (s *storeSuite) TestAddAlreadyExistsWithCleanup(c *gc.C) {
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
 	err = store.Add(context.Background(), agentBinary,
 		coreagentbinary.Version{
-			Number: version.MustParse("4.6.8"),
+			Number: semversion.MustParse("4.6.8"),
 			Arch:   corearch.AMD64,
 		},
 		1234,
