@@ -9,11 +9,14 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
@@ -74,6 +77,42 @@ WHERE name = $machineName.name
 	})
 
 	return err
+}
+
+// checkMachineNotDead checks if the machine with the given uuid exists and that
+// its current life status is not one of dead. This is meant as a helper func
+// to assert that a machine can be operated on inside of a transaction.
+// The following errors can be expected:
+// - [machineerrors.MachineNotFound] if the machine does not exist.
+// - [machineerrors.MachineIsDead] if the machine is dead.
+func (st *State) checkMachineNotDead(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid string,
+) error {
+	machineLife := machineLife{UUID: uuid}
+	stmt, err := st.Prepare(`
+SELECT &machineLife.* FROM machine WHERE uuid = $machineLife.uuid
+`, machineLife)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, machineLife).Get(&machineLife)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("machine %q does not exist", uuid).Add(machineerrors.MachineNotFound)
+	} else if err != nil {
+		return errors.Errorf(
+			"checking if machine %q exists: %w",
+			uuid, err,
+		)
+	}
+
+	if machineLife.LifeID == life.Dead {
+		return errors.Errorf("machine %q is dead", uuid).Add(machineerrors.MachineIsDead)
+	}
+
+	return nil
 }
 
 // CheckUnitExists checks to see if the given unit exists in the model. If
@@ -162,4 +201,85 @@ func (st *State) GetTargetAgentVersion(ctx context.Context) (semversion.Number, 
 // to watch for the agent version.
 func (*State) NamespaceForWatchAgentVersion() string {
 	return "agent_version"
+}
+
+// SetMachineRunningAgentBinaryVersion sets the running agent binary version for
+// the provided machine uuid. Any previously set values for this machine uuid
+// will be overwritten by this call.
+//
+// The following errors can be expected:
+// - [machineerrors.MachineNotFound] if the machine does not exist.
+// - [machineerrors.MachineIsDead] if the machine is dead.
+// - [coreerrors.NotSupported] if the architecture is not known to the database.
+func (st *State) SetMachineRunningAgentBinaryVersion(
+	ctx context.Context,
+	machineUUID string,
+	version coreagentbinary.Version,
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	type ArchitectureMap struct {
+		ID   int    `db:"id"`
+		Name string `db:"name"`
+	}
+	archMap := ArchitectureMap{Name: version.Arch}
+
+	archMapStmt, err := st.Prepare(`
+SELECT id AS &ArchitectureMap.id FROM architecture WHERE name = $ArchitectureMap.name
+`, archMap)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	type MachineAgentVersion struct {
+		MachineUUID    string `db:"machine_uuid"`
+		Version        string `db:"version"`
+		ArchitectureID int    `db:"architecture_id"`
+	}
+	machineAgentVersion := MachineAgentVersion{
+		MachineUUID: machineUUID,
+		Version:     version.Number.String(),
+	}
+
+	upsertRunningVersionStmt, err := st.Prepare(`
+INSERT INTO machine_agent_version (*) VALUES ($MachineAgentVersion.*)
+ON CONFLICT (machine_uuid) DO
+UPDATE SET version = excluded.version, architecture_id = excluded.architecture_id
+`, machineAgentVersion)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.checkMachineNotDead(ctx, tx, machineUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		err = tx.Query(ctx, archMapStmt, archMap).Get(&archMap)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"architecture %q is unsupported", version.Arch,
+			).Add(coreerrors.NotSupported)
+		} else if err != nil {
+			return errors.Errorf(
+				"looking up id for architecture %q: %w", version.Arch, err,
+			)
+		}
+
+		machineAgentVersion.ArchitectureID = archMap.ID
+		return tx.Query(ctx, upsertRunningVersionStmt, machineAgentVersion).Run()
+	})
+
+	if err != nil {
+		return errors.Errorf(
+			"setting running agent binary version for machine %q: %w",
+			machineUUID, err,
+		)
+	}
+
+	return nil
 }
