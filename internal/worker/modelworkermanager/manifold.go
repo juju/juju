@@ -71,6 +71,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.DomainServicesName == "" {
 		return errors.NotValidf("empty DomainServicesName")
 	}
+	if config.LeaseManagerName == "" {
+		return errors.NotValidf("empty LeaseManagerName")
+	}
 	if config.ProviderServiceFactoriesName == "" {
 		return errors.NotValidf("empty ProviderServiceFactoriesName")
 	}
@@ -107,6 +110,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AuthorityName,
 			config.LogSinkName,
+			config.LeaseManagerName,
 			config.DomainServicesName,
 			config.ProviderServiceFactoriesName,
 			config.HTTPClientName,

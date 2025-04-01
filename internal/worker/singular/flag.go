@@ -163,7 +163,7 @@ func (flag *FlagWorker) keepOccupied(ctx context.Context) error {
 // claim claims model ownership on behalf of a controller, and returns
 // true if the attempt succeeded.
 func (flag *FlagWorker) claim(ctx context.Context) (bool, error) {
-	err := flag.claimer.Claim(flag.config.Entity.Id(), flag.config.Claimant.Id(), flag.config.Duration)
+	err := flag.claimer.Claim(flag.config.Entity.Id(), flag.config.Claimant.String(), flag.config.Duration)
 	if errors.Is(err, lease.ErrClaimDenied) {
 		return false, nil
 	} else if err != nil {

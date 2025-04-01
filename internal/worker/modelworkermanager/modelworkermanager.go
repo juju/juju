@@ -266,6 +266,7 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func(context.Context) (
 			return nil, errors.Annotate(err, "unable to get domain services")
 		}
 
+		cfg.LeaseManager = m.config.LeaseManager
 		cfg.HTTPClientGetter = m.config.HTTPClientGetter
 
 		// Get the controller config for the model worker so that we correctly

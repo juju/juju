@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/services"
@@ -221,12 +220,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			// No Logger defined in lifeflag package.
 		}),
 		isResponsibleFlagName: singular.Manifold(singular.ManifoldConfig{
+			AgentName:        agentName,
 			LeaseManagerName: leaseManagerName,
 			Clock:            config.Clock,
 			Duration:         config.RunFlagDuration,
 			Claimant:         agentTag,
 			Entity:           modelTag,
-			ModelUUID:        model.UUID(modelTag.Id()),
 			NewWorker:        singular.NewFlagWorker,
 		}),
 		// This flag runs on all models, and

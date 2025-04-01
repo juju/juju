@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/model"
@@ -27,20 +28,23 @@ var _ logger = struct{}{}
 // ManifoldConfig holds the information necessary to run a FlagWorker in
 // a dependency.Engine.
 type ManifoldConfig struct {
+	AgentName        string
 	LeaseManagerName string
 
 	Clock    clock.Clock
 	Duration time.Duration
 	// TODO(controlleragent) - claimaint should be a ControllerAgentTag
-	Claimant  names.Tag
-	Entity    names.Tag
-	ModelUUID model.UUID
+	Claimant names.Tag
+	Entity   names.Tag
 
 	NewWorker func(context.Context, FlagConfig) (worker.Worker, error)
 }
 
 // Validate ensures the required values are set.
 func (config *ManifoldConfig) Validate() error {
+	if config.AgentName == "" {
+		return errors.NotValidf("empty AgentName")
+	}
 	if config.LeaseManagerName == "" {
 		return errors.NotValidf("empty LeaseManagerName")
 	}
@@ -59,6 +63,16 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
+	var agent agent.Agent
+	if err := getter.Get(config.AgentName, &agent); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	modelUUID := model.UUID(agent.CurrentConfig().Model().Id())
+	if err := modelUUID.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var leaseManager lease.Manager
 	if err := getter.Get(config.LeaseManagerName, &leaseManager); err != nil {
 		return nil, errors.Trace(err)
@@ -73,7 +87,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		LeaseManager: leaseManager,
 		Claimant:     config.Claimant,
 		Entity:       config.Entity,
-		ModelUUID:    config.ModelUUID,
+		ModelUUID:    modelUUID,
 		Duration:     config.Duration,
 	})
 	if err != nil {
@@ -87,6 +101,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
+			config.AgentName,
 			config.LeaseManagerName,
 		},
 		Start: config.start,
