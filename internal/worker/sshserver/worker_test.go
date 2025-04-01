@@ -35,6 +35,7 @@ func newServerWrapperWorkerConfig(
 		Logger:               l,
 		FacadeClient:         client,
 		NewSSHServerListener: newTestingSSHServerListener,
+		SessionHandler:       &MockSessionHandler{},
 	}
 
 	modifier(cfg)
@@ -92,6 +93,16 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 		},
 	)
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	// Test no SessionHandler.
+	cfg = newServerWrapperWorkerConfig(
+		l,
+		mockFacadeClient,
+		func(cfg *ServerWrapperWorkerConfig) {
+			cfg.SessionHandler = nil
+		},
+	)
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
@@ -125,6 +136,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 			return serverWorker, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
+		SessionHandler:       &stubSessionHandler{},
 	}
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -207,6 +219,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 			return serverWorker, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
+		SessionHandler:       &stubSessionHandler{},
 	}
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -260,6 +273,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerErrorsOnMissingHostKey(c *gc.C) 
 			return serverWorker, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
+		SessionHandler:       &stubSessionHandler{},
 	}
 	w1, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, gc.IsNil)
@@ -278,6 +292,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerErrorsOnMissingHostKey(c *gc.C) 
 			return serverWorker, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
+		SessionHandler:       &stubSessionHandler{},
 	}
 	w2, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, gc.IsNil)
@@ -318,6 +333,7 @@ func (s *workerSuite) TestWrapperWorkerReport(c *gc.C) {
 			return &reportWorker{serverWorker}, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
+		SessionHandler:       &stubSessionHandler{},
 	}
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)

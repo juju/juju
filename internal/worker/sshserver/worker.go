@@ -19,6 +19,7 @@ type ServerWrapperWorkerConfig struct {
 	Logger               Logger
 	FacadeClient         FacadeClient
 	NewSSHServerListener func(net.Listener, time.Duration) net.Listener
+	SessionHandler       SessionHandler
 }
 
 // Validate validates the workers configuration is as expected.
@@ -34,6 +35,9 @@ func (c ServerWrapperWorkerConfig) Validate() error {
 	}
 	if c.NewSSHServerListener == nil {
 		return errors.NotValidf("NewSSHServerListener is required")
+	}
+	if c.SessionHandler == nil {
+		return errors.NotValidf("SessionHandler is required")
 	}
 	return nil
 }
@@ -142,6 +146,7 @@ func (ssw *serverWrapperWorker) loop() error {
 		MaxConcurrentConnections: maxConns,
 		NewSSHServerListener:     ssw.config.NewSSHServerListener,
 		FacadeClient:             ssw.config.FacadeClient,
+		SessionHandler:           ssw.config.SessionHandler,
 	})
 	ssw.addWorkerReporter("ssh-server", srv)
 	if err != nil {
