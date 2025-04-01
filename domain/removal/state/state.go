@@ -69,13 +69,8 @@ func (st *State) GetAllJobs(ctx context.Context) ([]removal.Job, error) {
 			}
 		}
 
-		jUUID := removal.UUID(job.UUID)
-		if err := jUUID.Validate(); err != nil {
-			return nil, errors.Capture(err)
-		}
-
 		jobs[i] = removal.Job{
-			UUID:         jUUID,
+			UUID:         removal.UUID(job.UUID),
 			RemovalType:  removal.JobType(job.RemovalTypeID),
 			EntityUUID:   job.EntityUUID,
 			Force:        job.Force,
