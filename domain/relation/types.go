@@ -159,7 +159,10 @@ type CandidateEndpointIdentifier struct {
 // String returns the EndpointIdentifier as a concatenated string in the format
 // "ApplicationName:EndpointName".
 func (e CandidateEndpointIdentifier) String() string {
-	return strings.Join([]string{e.ApplicationName, e.EndpointName}, ":")
+	if !e.IsFullyQualified() {
+		return e.ApplicationName
+	}
+	return fmt.Sprintf("%s:%s", e.ApplicationName, e.EndpointName)
 }
 
 // IsFullyQualified checks if the EndpointIdentifier has a non-empty

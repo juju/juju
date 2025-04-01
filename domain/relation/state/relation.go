@@ -1296,7 +1296,13 @@ func (st *State) inferEndpoints(
 	if matchCount := len(matches); matchCount == 0 {
 		return endpoint{}, endpoint{}, relationerrors.CompatibleEndpointsNotFound
 	} else if matchCount > 1 {
-		return endpoint{}, endpoint{}, relationerrors.AmbiguousRelation
+		possibleMatches := make([]string, 0, matchCount)
+		for _, match := range matches {
+			possibleMatches = append(possibleMatches, fmt.Sprintf("\"%s %s\"", match.ep1, match.ep2))
+		}
+		return endpoint{}, endpoint{}, errors.Errorf("%w: %q could refer to %s",
+			relationerrors.AmbiguousRelation, fmt.Sprintf("%s %s", identifier1, identifier2),
+			strings.Join(possibleMatches, "; "))
 	}
 
 	return *matches[0].ep1, *matches[0].ep2, nil
