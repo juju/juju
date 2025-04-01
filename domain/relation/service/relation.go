@@ -85,6 +85,19 @@ type State interface {
 	//     is not found.
 	GetRelationDetails(ctx context.Context, relationUUID corerelation.UUID) (relation.RelationDetailsResult, error)
 
+	// EnterScope indicates that the provided unit has joined the relation.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationNotFound] if the relation cannot be found.
+	//   - [relationerrors.UnitNotFound] if no unit by the given name can be found
+	//   - [relationerrors.RelationNotAlive] if the relation is not alive.
+	//   - [relationerrors.UnitNotAlive] if the unit is not alive.
+	//   - [relationerrors.PotentialRelationUnitNotValid] if the unit entering
+	//     scope is a subordinate and the endpoint scope is charm.ScopeContainer
+	//     where the other application is a principal, but not in the current
+	//     relation.
+	EnterScope(ctx context.Context, relationUUID corerelation.UUID, unitName unit.Name) error
+
 	// WatcherApplicationSettingsNamespace provides the table name to set up
 	// watchers for relation application settings.
 	WatcherApplicationSettingsNamespace() string
@@ -162,12 +175,17 @@ func (s *Service) ApplicationRelationsInfo(
 //     relation.
 func (s *Service) EnterScope(
 	ctx context.Context,
-	relationID corerelation.UUID,
+	relationUUID corerelation.UUID,
 	unitName unit.Name,
 ) error {
-	// Before entering scope, validate the proposed relation unit based on
-	// RelationUnit.Valid().
-	return coreerrors.NotImplemented
+	if err := relationUUID.Validate(); err != nil {
+		return errors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+	if err := unitName.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+	return s.st.EnterScope(ctx, relationUUID, unitName)
 }
 
 // GetAllRelationDetails return all uuid of all relation for the current model.

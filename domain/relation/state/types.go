@@ -4,13 +4,20 @@
 package state
 
 import (
+	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
 )
 
 type relationUUID struct {
 	UUID corerelation.UUID `db:"uuid"`
+}
+
+type applicationUUID struct {
+	UUID application.ID `db:"application_uuid"`
 }
 
 type relationIDAndUUID struct {
@@ -25,6 +32,43 @@ type relationUUIDAndRole struct {
 	UUID string `db:"relation_uuid"`
 	// Role is the name of the endpoints role, e.g. provider/requirer/peer.
 	Role string `db:"scope"`
+}
+
+type relationUnit struct {
+	RelationUnitUUID corerelation.UnitUUID `db:"uuid"`
+	RelationUUID     corerelation.UUID     `db:"relation_uuid"`
+	UnitUUID         unit.UUID             `db:"unit_uuid"`
+	InScope          bool                  `db:"in_scope"`
+}
+
+type getUnit struct {
+	UUID unit.UUID `db:"uuid"`
+	Name unit.Name `db:"name"`
+}
+
+type getLife struct {
+	UUID string     `db:"uuid"`
+	Life life.Value `db:"value"`
+}
+
+type getUnitApp struct {
+	ApplicationUUID application.ID `db:"application_uuid"`
+	UnitUUID        unit.UUID      `db:"uuid"`
+}
+
+type getScope struct {
+	Scope charm.RelationScope `db:"scope"`
+}
+
+type getSubordinate struct {
+	ApplicationUUID application.ID `db:"application_uuid"`
+	Subordinate     bool           `db:"subordinate"`
+}
+
+// getPrincipal is used to get the principal application of a unit.
+type getPrincipal struct {
+	UnitUUID        unit.UUID      `db:"unit_uuid"`
+	ApplicationUUID application.ID `db:"application_uuid"`
 }
 
 // endpointIdentifier is an identifier for a relation endpoint.

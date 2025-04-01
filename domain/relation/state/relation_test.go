@@ -906,6 +906,463 @@ func (s *relationSuite) TestGetAllRelationDetailsNone(c *gc.C) {
 	c.Assert(result, gc.HasLen, 0)
 }
 
+func (s *relationSuite) TestEnterScope(c *gc.C) {
+	// Arrange: Populate charm metadata with subordinate data.
+	s.setCharmSubordinate(c, s.fakeCharmUUID1, false)
+	s.setCharmSubordinate(c, s.fakeCharmUUID2, false)
+
+	// Arrange: Add two endpoints and a relation on them.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	charmRelationUUID1 := uuid.MustNewUUID().String()
+	applicationEndpointUUID1 := uuid.MustNewUUID().String()
+	relationEndpointUUID1 := uuid.MustNewUUID().String()
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      internalcharm.RoleProvider,
+			Interface: "database",
+			Scope:     internalcharm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID2 := uuid.MustNewUUID().String()
+	applicationEndpointUUID2 := uuid.MustNewUUID().String()
+	relationEndpointUUID2 := uuid.MustNewUUID().String()
+	endpoint2 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      internalcharm.RoleRequirer,
+			Interface: "database",
+			Scope:     internalcharm.ScopeGlobal,
+		},
+	}
+	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID1, endpoint1.Relation)
+	s.addCharmRelation(c, s.fakeCharmUUID2, charmRelationUUID2, endpoint2.Relation)
+	s.addApplicationEndpoint(c, applicationEndpointUUID1, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, applicationEndpointUUID2, s.fakeApplicationUUID2, charmRelationUUID2)
+	s.addRelation(c, relationUUID.String())
+	s.addRelationEndpoint(c, relationEndpointUUID1, relationUUID.String(), applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationEndpointUUID2, relationUUID.String(), applicationEndpointUUID2)
+
+	// Arrange: Add unit to application in the relation.
+	unitUUID := coreunittesting.GenUnitUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	s.addUnit(c, unitUUID.String(), unitName.String(), s.fakeApplicationUUID1)
+
+	// Act: Enter scope.
+	err := s.state.EnterScope(context.Background(), relationUUID, unitName)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+
+	inScope := s.getRelationUnitInScope(c, relationUUID, unitUUID)
+	c.Check(inScope, jc.IsTrue)
+}
+
+// TestEnterScopeRowAlreadyExists checks that unit still enters scope when there
+// already exists a row in the relation_unit table.
+func (s *relationSuite) TestEnterScopeRowAlreadyExists(c *gc.C) {
+	// Arrange: Populate charm metadata with subordinate data.
+	s.setCharmSubordinate(c, s.fakeCharmUUID1, false)
+	s.setCharmSubordinate(c, s.fakeCharmUUID2, false)
+
+	// Arrange: Add two endpoints and a relation on them.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	charmRelationUUID1 := uuid.MustNewUUID().String()
+	applicationEndpointUUID1 := uuid.MustNewUUID().String()
+	relationEndpointUUID1 := uuid.MustNewUUID().String()
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      internalcharm.RoleProvider,
+			Interface: "database",
+			Scope:     internalcharm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID2 := uuid.MustNewUUID().String()
+	applicationEndpointUUID2 := uuid.MustNewUUID().String()
+	relationEndpointUUID2 := uuid.MustNewUUID().String()
+	endpoint2 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      internalcharm.RoleRequirer,
+			Interface: "database",
+			Scope:     internalcharm.ScopeGlobal,
+		},
+	}
+	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID1, endpoint1.Relation)
+	s.addCharmRelation(c, s.fakeCharmUUID2, charmRelationUUID2, endpoint2.Relation)
+	s.addApplicationEndpoint(c, applicationEndpointUUID1, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, applicationEndpointUUID2, s.fakeApplicationUUID2, charmRelationUUID2)
+	s.addRelation(c, relationUUID.String())
+	s.addRelationEndpoint(c, relationEndpointUUID1, relationUUID.String(), applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationEndpointUUID2, relationUUID.String(), applicationEndpointUUID2)
+
+	// Arrange: Add unit to application in the relation.
+	unitUUID := coreunittesting.GenUnitUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	s.addUnit(c, unitUUID.String(), unitName.String(), s.fakeApplicationUUID1)
+
+	// Arrange: Add relation unit for the unit and relation with in_scope set to
+	// false.
+	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	s.addRelationUnit(c, unitUUID.String(), relationUUID.String(), relationUnitUUID.String(), false)
+
+	// Act: Enter scope.
+	err := s.state.EnterScope(context.Background(), relationUUID, unitName)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+
+	// Assert: in_scope is true:
+	inScope := s.getRelationUnitInScope(c, relationUUID, unitUUID)
+	c.Check(inScope, jc.IsTrue)
+}
+
+// TestEnterScopeIdempotent checks that no error is returned if the unit is
+// already in scope.
+func (s *relationSuite) TestEnterScopeIdempotent(c *gc.C) {
+	// Arrange: Populate charm metadata with subordinate data.
+	s.setCharmSubordinate(c, s.fakeCharmUUID1, false)
+	s.setCharmSubordinate(c, s.fakeCharmUUID2, false)
+
+	// Arrange: Add two endpoints and a relation on them.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	charmRelationUUID1 := uuid.MustNewUUID().String()
+	applicationEndpointUUID1 := uuid.MustNewUUID().String()
+	relationEndpointUUID1 := uuid.MustNewUUID().String()
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      internalcharm.RoleProvider,
+			Interface: "database",
+			Scope:     internalcharm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID2 := uuid.MustNewUUID().String()
+	applicationEndpointUUID2 := uuid.MustNewUUID().String()
+	relationEndpointUUID2 := uuid.MustNewUUID().String()
+	endpoint2 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      internalcharm.RoleRequirer,
+			Interface: "database",
+			Scope:     internalcharm.ScopeGlobal,
+		},
+	}
+	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID1, endpoint1.Relation)
+	s.addCharmRelation(c, s.fakeCharmUUID2, charmRelationUUID2, endpoint2.Relation)
+	s.addApplicationEndpoint(c, applicationEndpointUUID1, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, applicationEndpointUUID2, s.fakeApplicationUUID2, charmRelationUUID2)
+	s.addRelation(c, relationUUID.String())
+	s.addRelationEndpoint(c, relationEndpointUUID1, relationUUID.String(), applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationEndpointUUID2, relationUUID.String(), applicationEndpointUUID2)
+
+	// Arrange: Add unit to application in the relation.
+	unitUUID := coreunittesting.GenUnitUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	s.addUnit(c, unitUUID.String(), unitName.String(), s.fakeApplicationUUID1)
+
+	// Arrange: Add relation unit for the unit and relation with in_scope set to
+	// false.
+	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	s.addRelationUnit(c, unitUUID.String(), relationUUID.String(), relationUnitUUID.String(), true)
+
+	// Act: Enter scope.
+	err := s.state.EnterScope(context.Background(), relationUUID, unitName)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+
+	// Assert: in_scope is true:
+	inScope := s.getRelationUnitInScope(c, relationUUID, unitUUID)
+	c.Check(inScope, jc.IsTrue)
+}
+
+// TestEnterScopeSubordinate checks that a subordinate unit can enter scope to
+// with its principle application.
+func (s *relationSuite) TestEnterScopeSubordinate(c *gc.C) {
+	// Arrange: Populate charm metadata with subordinate data.
+	s.setCharmSubordinate(c, s.fakeCharmUUID1, true)
+	s.setCharmSubordinate(c, s.fakeCharmUUID2, false)
+
+	// Arrange: Add container scoped endpoints on charm 1 and charm 2.
+	charmRelationUUID1 := uuid.MustNewUUID().String()
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      internalcharm.RoleRequirer,
+			Interface: "ntp",
+			Scope:     internalcharm.ScopeContainer,
+		},
+	}
+	charmRelationUUID2 := uuid.MustNewUUID().String()
+	endpoint2 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      internalcharm.RoleRequirer,
+			Interface: "ntp",
+			Scope:     internalcharm.ScopeContainer,
+		},
+	}
+	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID1, endpoint1.Relation)
+	s.addCharmRelation(c, s.fakeCharmUUID2, charmRelationUUID2, endpoint2.Relation)
+
+	// Arrange: Add a unit to application 1 and application 2, and make the unit
+	// of application 1 a subordinate to the unit of application 2.
+	unitUUID1 := coreunittesting.GenUnitUUID(c)
+	unitName1 := coreunittesting.GenNewName(c, "app1/0")
+	s.addUnit(c, unitUUID1.String(), unitName1.String(), s.fakeApplicationUUID1)
+	unitUUID2 := coreunittesting.GenUnitUUID(c)
+	unitName2 := coreunittesting.GenNewName(c, "app2/0")
+	s.addUnit(c, unitUUID2.String(), unitName2.String(), s.fakeApplicationUUID2)
+	s.setUnitSubordinate(c, unitUUID1.String(), unitUUID2.String())
+
+	// Add a relation between application 1 and application 2.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	applicationEndpointUUID1 := uuid.MustNewUUID().String()
+	relationEndpointUUID1 := uuid.MustNewUUID().String()
+	applicationEndpointUUID2 := uuid.MustNewUUID().String()
+	relationEndpointUUID2 := uuid.MustNewUUID().String()
+	s.addApplicationEndpoint(c, applicationEndpointUUID1, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, applicationEndpointUUID2, s.fakeApplicationUUID2, charmRelationUUID2)
+	s.addRelation(c, relationUUID.String())
+	s.addRelationEndpoint(c, relationEndpointUUID1, relationUUID.String(), applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationEndpointUUID2, relationUUID.String(), applicationEndpointUUID2)
+
+	// Act: Try and enter scope with the unit 1, which is a subordinate to an
+	// application not in the relation.
+	err := s.state.EnterScope(context.Background(), relationUUID, unitName1)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Assert: in_scope is true:
+	inScope := s.getRelationUnitInScope(c, relationUUID, unitUUID1)
+	c.Check(inScope, jc.IsTrue)
+}
+
+// TestEnterScopePotentialRelationUnitNotValidSubordinate checks the right error
+// is returned if the unit is a subordinate of an application that is not in the
+// relation.
+func (s *relationSuite) TestEnterScopePotentialRelationUnitNotValidSubordinate(c *gc.C) {
+	// Arrange: Populate charm metadata with subordinate data.
+	s.setCharmSubordinate(c, s.fakeCharmUUID1, true)
+	s.setCharmSubordinate(c, s.fakeCharmUUID2, false)
+
+	// Arrange: Add container scoped endpoints on charm 1 and charm 2.
+	charmRelationUUID1 := uuid.MustNewUUID().String()
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      internalcharm.RoleRequirer,
+			Interface: "ntp",
+			Scope:     internalcharm.ScopeContainer,
+		},
+	}
+	charmRelationUUID2 := uuid.MustNewUUID().String()
+	endpoint2 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      internalcharm.RoleRequirer,
+			Interface: "ntp",
+			Scope:     internalcharm.ScopeContainer,
+		},
+	}
+	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID1, endpoint1.Relation)
+	s.addCharmRelation(c, s.fakeCharmUUID2, charmRelationUUID2, endpoint2.Relation)
+
+	// Arrange: Add a unit to application 1 and application 2, and make the unit
+	// of application 1 a subordinate to the unit of application 2.
+	unitUUID1 := coreunittesting.GenUnitUUID(c).String()
+	unitName1 := coreunittesting.GenNewName(c, "app1/0")
+	s.addUnit(c, unitUUID1, unitName1.String(), s.fakeApplicationUUID1)
+	unitUUID2 := coreunittesting.GenUnitUUID(c).String()
+	unitName2 := coreunittesting.GenNewName(c, "app2/0")
+	s.addUnit(c, unitUUID2, unitName2.String(), s.fakeApplicationUUID2)
+	s.setUnitSubordinate(c, unitUUID1, unitUUID2)
+
+	// Arrange: Add a third application which is an instance of charm 2, so also
+	// a principle, and enter application 3 into a relation with the subordinate
+	// application (application 1).
+	applicationUUID3 := coreapplicationtesting.GenApplicationUUID(c).String()
+	applicationName3 := "application-name-3"
+	s.addApplication(c, s.fakeCharmUUID2, applicationUUID3, applicationName3)
+
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	applicationEndpointUUID1 := uuid.MustNewUUID().String()
+	relationEndpointUUID1 := uuid.MustNewUUID().String()
+	applicationEndpointUUID2 := uuid.MustNewUUID().String()
+	relationEndpointUUID2 := uuid.MustNewUUID().String()
+	s.addApplicationEndpoint(c, applicationEndpointUUID1, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, applicationEndpointUUID2, applicationUUID3, charmRelationUUID2)
+	s.addRelation(c, relationUUID.String())
+	s.addRelationEndpoint(c, relationEndpointUUID1, relationUUID.String(), applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationEndpointUUID2, relationUUID.String(), applicationEndpointUUID2)
+
+	// Act: Try and enter scope with the unit 1, which is a subordinate to an
+	// application not in the relation.
+	err := s.state.EnterScope(context.Background(), relationUUID, unitName1)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.PotentialRelationUnitNotValid)
+}
+
+// TestEnterScopePotentialRelationUnitNotValid checks that the correct error
+// is returned when the unit specified is not a unit of the application in the
+// relation.
+func (s *relationSuite) TestEnterScopePotentialRelationUnitNotValid(c *gc.C) {
+	// Arrange: Add a peer relation on application 1.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	charmRelationUUID1 := uuid.MustNewUUID().String()
+	applicationEndpointUUID1 := uuid.MustNewUUID().String()
+	relationEndpointUUID1 := uuid.MustNewUUID().String()
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      internalcharm.RolePeer,
+			Interface: "database",
+			Scope:     internalcharm.ScopeGlobal,
+		},
+	}
+	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID1, endpoint1.Relation)
+	s.addApplicationEndpoint(c, applicationEndpointUUID1, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addRelation(c, relationUUID.String())
+	s.addRelationEndpoint(c, relationEndpointUUID1, relationUUID.String(), applicationEndpointUUID1)
+
+	// Arrange: Add unit to application not in the relation.
+	unitUUID := coreunittesting.GenUnitUUID(c).String()
+	unitName := coreunittesting.GenNewName(c, "app2/0")
+	s.addUnit(c, unitUUID, unitName.String(), s.fakeApplicationUUID2)
+
+	// Act: Enter scope.
+	err := s.state.EnterScope(context.Background(), relationUUID, unitName)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.UnitNotInRelation)
+}
+
+func (s *relationSuite) TestEnterScopeRelationNotAlive(c *gc.C) {
+	// Arrange: Add two endpoints and a relation on them.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	charmRelationUUID1 := uuid.MustNewUUID().String()
+	applicationEndpointUUID1 := uuid.MustNewUUID().String()
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      internalcharm.RoleProvider,
+			Interface: "database",
+			Scope:     internalcharm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID2 := uuid.MustNewUUID().String()
+	applicationEndpointUUID2 := uuid.MustNewUUID().String()
+	endpoint2 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      internalcharm.RoleRequirer,
+			Interface: "database",
+			Scope:     internalcharm.ScopeGlobal,
+		},
+	}
+	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID1, endpoint1.Relation)
+	s.addCharmRelation(c, s.fakeCharmUUID2, charmRelationUUID2, endpoint2.Relation)
+	s.addApplicationEndpoint(c, applicationEndpointUUID1, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, applicationEndpointUUID2, s.fakeApplicationUUID2, charmRelationUUID2)
+	s.addRelationWithLifeAndID(c, relationUUID.String(), corelife.Dying, 17)
+
+	// Arrange: Add unit to application in the relation.
+	unitUUID := coreunittesting.GenUnitUUID(c).String()
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	s.addUnit(c, unitUUID, unitName.String(), s.fakeApplicationUUID1)
+
+	// Act: Enter scope.
+	err := s.state.EnterScope(context.Background(), relationUUID, unitName)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotAlive)
+}
+
+func (s *relationSuite) TestEnterScopeUnitNotAlive(c *gc.C) {
+	// Arrange: Add two endpoints and a relation on them.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	charmRelationUUID1 := uuid.MustNewUUID().String()
+	applicationEndpointUUID1 := uuid.MustNewUUID().String()
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      internalcharm.RoleProvider,
+			Interface: "database",
+			Scope:     internalcharm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID2 := uuid.MustNewUUID().String()
+	applicationEndpointUUID2 := uuid.MustNewUUID().String()
+	endpoint2 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      internalcharm.RoleRequirer,
+			Interface: "database",
+			Scope:     internalcharm.ScopeGlobal,
+		},
+	}
+	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID1, endpoint1.Relation)
+	s.addCharmRelation(c, s.fakeCharmUUID2, charmRelationUUID2, endpoint2.Relation)
+	s.addApplicationEndpoint(c, applicationEndpointUUID1, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, applicationEndpointUUID2, s.fakeApplicationUUID2, charmRelationUUID2)
+	s.addRelation(c, relationUUID.String())
+
+	// Arrange: Add unit to application in the relation.
+	unitUUID := coreunittesting.GenUnitUUID(c).String()
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	s.addUnitWithLife(c, unitUUID, unitName.String(), s.fakeApplicationUUID1, corelife.Dead)
+
+	// Act: Enter scope.
+	err := s.state.EnterScope(context.Background(), relationUUID, unitName)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.UnitNotAlive)
+}
+
+func (s *relationSuite) TestEnterScopeRelationNotFound(c *gc.C) {
+	// Arrange: Add unit to application in the relation.
+	unitUUID := coreunittesting.GenUnitUUID(c).String()
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	s.addUnit(c, unitUUID, unitName.String(), s.fakeApplicationUUID1)
+
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+
+	// Act: Try and enter scope.
+	err := s.state.EnterScope(context.Background(), relationUUID, unitName)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *relationSuite) TestEnterScopeUnitNotFound(c *gc.C) {
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+
+	// Act: Try and enter scope.
+	err := s.state.EnterScope(context.Background(), relationUUID, coreunittesting.GenNewName(c, "app1/0"))
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.UnitNotFound)
+}
+
 // addApplication adds a new application to the database with the specified UUID and name.
 func (s *relationSuite) addApplication(c *gc.C, charmUUID, appUUID, appName string) {
 	s.query(c, `
@@ -921,12 +1378,31 @@ func (s *relationSuite) addUnit(c *gc.C, unitUUID, unitName, appUUID string) {
 	s.query(c, `
 INSERT INTO net_node (uuid) 
 VALUES (?)
+ON CONFLICT DO NOTHING
 `, fakeNetNodeUUID)
 
 	s.query(c, `
 INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid)
 VALUES (?,?,?,?,?)
 `, unitUUID, unitName, 0 /* alive */, appUUID, fakeNetNodeUUID)
+}
+
+// addUnitWithLife adds a new unit to the specified application in the database with
+// the given UUID, name and life.
+func (s *relationSuite) addUnitWithLife(c *gc.C, unitUUID, unitName, appUUID string, life corelife.Value) {
+	fakeNetNodeUUID := "fake-net-node-uuid"
+	s.query(c, `
+INSERT INTO net_node (uuid) 
+VALUES (?)
+ON CONFLICT DO NOTHING
+`, fakeNetNodeUUID)
+
+	s.query(c, `
+INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid)
+SELECT ?, ?, id, ?, ?
+FROM life
+WHERE value = ?
+`, unitUUID, unitName, appUUID, fakeNetNodeUUID, life)
 }
 
 // addApplicationEndpoint inserts a new application endpoint into the database with the specified UUIDs and relation data.
@@ -1044,6 +1520,44 @@ func (s *relationSuite) addRelationStatus(c *gc.C, relationUUID string, status c
 INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
 VALUES (?,?,?)
 `, relationUUID, s.encodeStatusID(status), time.Now())
+}
+
+// getRelationUnitInScope gets the in_scope column from the relation_unit table.
+func (s *relationSuite) getRelationUnitInScope(c *gc.C, relationUUID corerelation.UUID, unitUUID coreunit.UUID) bool {
+	var inScope bool
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRow(`
+SELECT in_scope
+FROM   relation_unit
+WHERE  relation_uuid = ?
+AND    unit_uuid = ?
+`, relationUUID, unitUUID).Scan(&inScope)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return inScope
+}
+
+// setCharmSubordinate updates the charm's metadata to mark it as subordinate,
+// or inserts it if not present in the database.
+func (s *relationSuite) setCharmSubordinate(c *gc.C, charmUUID string, subordinate bool) {
+	s.query(c, `
+INSERT INTO charm_metadata (charm_uuid, name, subordinate)
+VALUES (?,?,true)
+ON CONFLICT DO UPDATE SET subordinate = ?
+`, charmUUID, charmUUID, subordinate)
+}
+
+// setUnitSubordinate sets unit 1 to be a subordinate of unit 2.
+func (s *relationSuite) setUnitSubordinate(c *gc.C, unitUUID1, unitUUID2 string) {
+	s.query(c, `
+INSERT INTO unit_principal (unit_uuid, principal_uuid)
+VALUES (?,?)
+`, unitUUID1, unitUUID2)
 }
 
 // query executes a given SQL query with optional arguments within a transactional context using the test database.
