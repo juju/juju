@@ -5,10 +5,12 @@ package removal
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
+	"github.com/juju/clock"
 	coredependency "github.com/juju/juju/core/dependency"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
@@ -33,10 +35,14 @@ type RemovalService interface {
 	WatchRemovals() (watcher.StringsWatcher, error)
 }
 
+// Clock describes the ability to create timers.
+type Clock interface {
+	NewTimer(d time.Duration) clock.Timer
+}
+
 // ManifoldConfig contains the configuration passed to this
 // worker's manifold when run by the dependency engine.
 type ManifoldConfig struct {
-
 	// DomainServicesName is the name of the domain service factory dependency.
 	DomainServicesName string
 
@@ -46,6 +52,9 @@ type ManifoldConfig struct {
 
 	// NewWorker creates and returns a removal worker.
 	NewWorker func(Config) (worker.Worker, error)
+
+	// Clock is used by the worker to create timers.
+	Clock Clock
 
 	// Logger logs stuff.
 	Logger logger.Logger
@@ -62,6 +71,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewWorker == nil {
 		return errors.New("nil NewWorker not valid").Add(coreerrors.NotValid)
+	}
+	if config.Clock == nil {
+		return errors.New("nil Clock not valid").Add(coreerrors.NotValid)
 	}
 	if config.Logger == nil {
 		return errors.New("nil Logger not valid").Add(coreerrors.NotValid)
