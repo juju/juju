@@ -193,35 +193,35 @@ VALUES ($providerNetworkSubnet.*)`, providerNetSub)
 // addAvailabilityZones adds the availability zones of a subnet if they don't exist, and
 // update the availability_zone_subnet table with the subnets' id.
 func (st *State) addAvailabilityZones(ctx context.Context, tx *sqlair.TX, subnetUUID string, subnet network.SubnetInfo) error {
-	availabilityZone := AvailabilityZone{}
-	availabilityZoneSubnet := AvailabilityZoneSubnet{
+	az := availabilityZone{}
+	azSub := availabilityZoneSubnet{
 		SubnetUUID: subnetUUID,
 	}
 	retrieveAvailabilityZoneStmt, err := st.Prepare(`
-SELECT &AvailabilityZone.uuid
+SELECT &availabilityZone.uuid
 FROM   availability_zone
-WHERE  name = $AvailabilityZone.name`, availabilityZone)
+WHERE  name = $availabilityZone.name`, az)
 	if err != nil {
 		return errors.Capture(err)
 	}
 	insertAvailabilityZoneStmt, err := st.Prepare(`
 INSERT INTO availability_zone (*)
-VALUES ($AvailabilityZone.*)`, availabilityZone)
+VALUES ($availabilityZone.*)`, az)
 	if err != nil {
 		return errors.Capture(err)
 	}
 	insertAvailabilityZoneSubnetStmt, err := st.Prepare(`
 INSERT INTO availability_zone_subnet (*)
-VALUES ($AvailabilityZoneSubnet.*)`, availabilityZoneSubnet)
+VALUES ($availabilityZoneSubnet.*)`, azSub)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	for _, az := range subnet.AvailabilityZones {
-		availabilityZone.Name = az
-		availabilityZone.UUID = ""
+	for _, zoneName := range subnet.AvailabilityZones {
+		az.Name = zoneName
+		az.UUID = ""
 		// Retrieve the availability zone.
-		err := tx.Query(ctx, retrieveAvailabilityZoneStmt, availabilityZone).Get(&availabilityZone)
+		err := tx.Query(ctx, retrieveAvailabilityZoneStmt, az).Get(&az)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			st.logger.Errorf(ctx, "retrieving availability zone %q for subnet %q, %v", az, subnetUUID, err)
 			return errors.Errorf("retrieving availability zone %q for subnet %q: %w", az, subnetUUID, err)
@@ -233,16 +233,16 @@ VALUES ($AvailabilityZoneSubnet.*)`, availabilityZoneSubnet)
 			if err != nil {
 				return errors.Errorf("generating UUID for availability zone %q for subnet %q: %w", az, subnetUUID, err)
 			}
-			availabilityZone.UUID = azUUID.String()
-			if err := tx.Query(ctx, insertAvailabilityZoneStmt, availabilityZone).Run(); err != nil {
+			az.UUID = azUUID.String()
+			if err := tx.Query(ctx, insertAvailabilityZoneStmt, az).Run(); err != nil {
 				st.logger.Errorf(ctx, "inserting availability zone %q for subnet %q, %v", az, subnetUUID, err)
 				return errors.Errorf("inserting availability zone %q for subnet %q: %w", az, subnetUUID, err)
 			}
 		}
-		availabilityZoneSubnet.AZUUID = availabilityZone.UUID
+		azSub.AZUUID = az.UUID
 		// Add the subnet id along with the availability zone uuid into the
 		// availability_zone_subnet mapping table.
-		if err := tx.Query(ctx, insertAvailabilityZoneSubnetStmt, availabilityZoneSubnet).Run(); err != nil {
+		if err := tx.Query(ctx, insertAvailabilityZoneSubnetStmt, azSub).Run(); err != nil {
 			st.logger.Errorf(ctx, "inserting availability zone %q association with subnet %q, %v", az, subnetUUID, err)
 			return errors.Errorf("inserting availability zone %q association with subnet %q: %w", az, subnetUUID, err)
 		}
@@ -286,7 +286,7 @@ FROM   v_space_subnet`
 		return nil, errors.Errorf("preparing %q: %w", q, err)
 	}
 
-	var rows SubnetRows
+	var rows subnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return errors.Capture(tx.Query(ctx, s).GetAll(&rows))
 	}); errors.Is(err, sqlair.ErrNoRows) {
@@ -320,7 +320,7 @@ WHERE  subnet_uuid = $M.id;`
 		return nil, errors.Errorf("preparing %q: %w", q, err)
 	}
 
-	var rows SubnetRows
+	var rows subnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, sqlair.M{"id": uuid}).GetAll(&rows)
 		if err != nil {
@@ -361,10 +361,10 @@ WHERE  subnet_cidr = $M.cidr`
 		return nil, errors.Errorf("preparing %q: %w", q, err)
 	}
 
-	var resultSubnets SubnetRows
+	var resultSubnets subnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		for _, cidr := range cidrs {
-			var rows SubnetRows
+			var rows subnetRows
 			if err := tx.Query(ctx, s, sqlair.M{"cidr": cidr}).GetAll(&rows); err != nil {
 				if errors.Is(err, sqlair.ErrNoRows) {
 					continue

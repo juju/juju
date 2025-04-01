@@ -62,17 +62,17 @@ type providerSpace struct {
 	ProviderID network.Id `db:"provider_id"`
 }
 
-// AvailabilityZone represents a row from the availability_zone table.
-type AvailabilityZone struct {
+// availabilityZone represents a row from the availability_zone table.
+type availabilityZone struct {
 	// Name is the name of the availability zone.
 	Name string `db:"name"`
 	// UUID is the unique ID of the availability zone.
 	UUID string `db:"uuid"`
 }
 
-// AvailabilityZoneSubnet represents a row from the availability_zone_subnet
+// availabilityZoneSubnet represents a row from the availability_zone_subnet
 // table.
-type AvailabilityZoneSubnet struct {
+type availabilityZoneSubnet struct {
 	// UUID is the unique ID of the availability zone.
 	AZUUID string `db:"availability_zone_uuid"`
 	// SubnetUUID is the unique ID of the Subnet.
@@ -111,7 +111,7 @@ type SubnetRow struct {
 }
 
 // SpaceSubnetRow represents a single row from the v_space_subnets view.
-type SpaceSubnetRow struct {
+type spaceSubnetRow struct {
 	// SubnetRow is embedded by SpaceSubnetRow since every row corresponds to a
 	// subnet of the space. This allows SubnetRow to be
 	SubnetRow
@@ -127,10 +127,10 @@ type SpaceSubnetRow struct {
 }
 
 // SpaceSubnetRows is a slice of SpaceSubnet rows.
-type SpaceSubnetRows []SpaceSubnetRow
+type SpaceSubnetRows []spaceSubnetRow
 
-// SubnetRows is a slice of Subnet rows.
-type SubnetRows []SubnetRow
+// subnetRows is a slice of Subnet rows.
+type subnetRows []SubnetRow
 
 // ToSpaceInfos converts Spaces to a slice of network.SpaceInfo structs.
 // This method makes sure only unique subnets are mapped and flattens them into
@@ -213,7 +213,7 @@ func (s SubnetRow) ToSubnetInfo() *network.SubnetInfo {
 // This method makes sure only unique AZs are mapped and flattens them into
 // each subnet.
 // No sorting is applied.
-func (sn SubnetRows) ToSubnetInfos() network.SubnetInfos {
+func (sn subnetRows) ToSubnetInfos() network.SubnetInfos {
 	// Prepare structs for unique subnets.
 	uniqueAZs := make(map[string]map[string]string)
 	uniqueSubnets := make(map[string]network.SubnetInfo)

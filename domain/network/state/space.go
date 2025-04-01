@@ -103,9 +103,9 @@ func (st *State) GetSpace(
 
 	sp := space{UUID: uuid}
 	spacesStmt, err := st.Prepare(`
-SELECT &SpaceSubnetRow.*
+SELECT &spaceSubnetRow.*
 FROM   v_space_subnet
-WHERE  uuid = $space.uuid;`, SpaceSubnetRow{}, sp)
+WHERE  uuid = $space.uuid;`, spaceSubnetRow{}, sp)
 	if err != nil {
 		return nil, errors.Errorf("preparing select space statement: %w", err)
 	}
@@ -143,11 +143,11 @@ func (st *State) GetSpaceByName(
 
 	// Append the space.name condition to the query.
 	q := `
-SELECT &SpaceSubnetRow.*
+SELECT &spaceSubnetRow.*
 FROM   v_space_subnet
 WHERE  name = $space.name;`
 
-	s, err := st.Prepare(q, SpaceSubnetRow{}, sp)
+	s, err := st.Prepare(q, spaceSubnetRow{}, sp)
 	if err != nil {
 		return nil, errors.Errorf("preparing %q: %w", q, err)
 	}
@@ -180,9 +180,9 @@ func (st *State) GetAllSpaces(
 	}
 
 	s, err := st.Prepare(`
-SELECT &SpaceSubnetRow.*
+SELECT &spaceSubnetRow.*
 FROM   v_space_subnet
-`, SpaceSubnetRow{})
+`, spaceSubnetRow{})
 	if err != nil {
 		return nil, errors.Errorf("preparing select all spaces statement: %w", err)
 	}
