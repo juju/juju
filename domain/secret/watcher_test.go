@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
-	model "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/unit"
@@ -975,6 +975,9 @@ func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 			return serviceProvider{}, nil
 		},
 		func(ctx context.Context) (applicationservice.SupportedFeatureProvider, error) {
+			return serviceProvider{}, nil
+		},
+		func(ctx context.Context) (applicationservice.CAASApplicationProvider, error) {
 			return serviceProvider{}, nil
 		},
 		nil,

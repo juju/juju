@@ -5,12 +5,15 @@ package service
 
 import (
 	"context"
+	"reflect"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/caas"
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	corearch "github.com/juju/juju/core/arch"
@@ -66,72 +69,107 @@ func (s *unitServiceSuite) TestGetUnitUUIDErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-func (s *unitServiceSuite) TestRegisterCAASUnit(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+type registerArgMatcher struct {
+	c   *gc.C
+	arg application.RegisterCAASUnitArg
+}
 
-	appUUID := applicationtesting.GenApplicationUUID(c)
-
-	p := application.RegisterCAASUnitArg{
-		UnitName:         coreunit.Name("foo/666"),
-		PasswordHash:     "passwordhash",
-		ProviderID:       "provider-id",
-		Address:          ptr("10.6.6.6"),
-		Ports:            ptr([]string{"666"}),
-		OrderedScale:     true,
-		OrderedId:        1,
-		StorageParentDir: c.MkDir(),
+func (m registerArgMatcher) Matches(x interface{}) bool {
+	obtained, ok := x.(application.RegisterCAASUnitArg)
+	if !ok {
+		return false
 	}
 
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appUUID, nil)
-	s.state.EXPECT().RegisterCAASUnit(gomock.Any(), appUUID, p)
+	m.c.Assert(obtained.PasswordHash, gc.Not(gc.Equals), "")
+	obtained.PasswordHash = ""
+	m.arg.PasswordHash = ""
+	return reflect.DeepEqual(obtained, m.arg)
+}
 
-	err := s.service.RegisterCAASUnit(context.Background(), "foo", p)
+func (m registerArgMatcher) String() string {
+	return pretty.Sprint(m.arg)
+}
+
+func (s *unitServiceSuite) TestRegisterCAASUnit(c *gc.C) {
+	ctrl := s.setupMocksWithProvider(c,
+		func(ctx context.Context) (Provider, error) {
+			return s.provider, nil
+		},
+		func(ctx context.Context) (SupportedFeatureProvider, error) {
+			return s.supportedFeaturesProvider, nil
+		},
+		func(ctx context.Context) (CAASApplicationProvider, error) {
+			return s.caasApplicationProvider, nil
+		})
+	defer ctrl.Finish()
+
+	app := NewMockApplication(ctrl)
+	app.EXPECT().Units().Return([]caas.Unit{{
+		Id:      "foo-666",
+		Address: "10.6.6.6",
+		Ports:   []string{"8080"},
+		FilesystemInfo: []caas.FilesystemInfo{{
+			Volume: caas.VolumeInfo{VolumeId: "vol-666"},
+		}},
+	}}, nil)
+	s.caasApplicationProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+
+	arg := application.RegisterCAASUnitArg{
+		UnitName:                  "foo/666",
+		PasswordHash:              "secret",
+		ProviderID:                "foo-666",
+		Address:                   ptr("10.6.6.6"),
+		Ports:                     ptr([]string{"8080"}),
+		OrderedScale:              true,
+		OrderedId:                 666,
+		StorageParentDir:          application.StorageParentDir,
+		ObservedAttachedVolumeIDs: []string{"vol-666"},
+	}
+	s.state.EXPECT().RegisterCAASUnit(gomock.Any(), "foo", registerArgMatcher{arg: arg})
+
+	p := application.RegisterCAASUnitParams{
+		ApplicationName: "foo",
+		ProviderID:      "foo-666",
+	}
+	unitName, password, err := s.service.RegisterCAASUnit(context.Background(), p)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-var unitParams = application.RegisterCAASUnitArg{
-	UnitName:         coreunit.Name("foo/666"),
-	PasswordHash:     "passwordhash",
-	ProviderID:       "provider-id",
-	OrderedScale:     true,
-	OrderedId:        1,
-	StorageParentDir: application.StorageParentDir,
-}
-
-func (s *unitServiceSuite) TestRegisterCAASUnitMissingUnitName(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	p := unitParams
-	p.UnitName = ""
-	err := s.service.RegisterCAASUnit(context.Background(), "foo", p)
-	c.Assert(err, gc.ErrorMatches, "missing unit name not valid")
-}
-
-func (s *unitServiceSuite) TestRegisterCAASUnitMissingOrderedScale(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	p := unitParams
-	p.OrderedScale = false
-	err := s.service.RegisterCAASUnit(context.Background(), "foo", p)
-	c.Assert(err, gc.ErrorMatches, "registering CAAS units not supported without ordered unit IDs")
+	c.Assert(unitName.String(), gc.Equals, "foo/666")
+	c.Assert(password, gc.Not(gc.Equals), "")
 }
 
 func (s *unitServiceSuite) TestRegisterCAASUnitMissingProviderID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	p := unitParams
-	p.ProviderID = ""
-	err := s.service.RegisterCAASUnit(context.Background(), "foo", p)
+	p := application.RegisterCAASUnitParams{
+		ApplicationName: "foo",
+	}
+	_, _, err := s.service.RegisterCAASUnit(context.Background(), p)
 	c.Assert(err, gc.ErrorMatches, "provider id not valid")
 }
 
-func (s *unitServiceSuite) TestRegisterCAASUnitMissingPasswordHash(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+func (s *unitServiceSuite) TestRegisterCAASUnitApplicationNoPods(c *gc.C) {
+	ctrl := s.setupMocksWithProvider(c,
+		func(ctx context.Context) (Provider, error) {
+			return s.provider, nil
+		},
+		func(ctx context.Context) (SupportedFeatureProvider, error) {
+			return s.supportedFeaturesProvider, nil
+		},
+		func(ctx context.Context) (CAASApplicationProvider, error) {
+			return s.caasApplicationProvider, nil
+		})
+	defer ctrl.Finish()
 
-	p := unitParams
-	p.PasswordHash = ""
-	err := s.service.RegisterCAASUnit(context.Background(), "foo", p)
-	c.Assert(err, gc.ErrorMatches, "password hash not valid")
+	app := NewMockApplication(ctrl)
+	app.EXPECT().Units().Return([]caas.Unit{}, nil)
+	s.caasApplicationProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+
+	p := application.RegisterCAASUnitParams{
+		ApplicationName: "foo",
+		ProviderID:      "foo-666",
+	}
+	_, _, err := s.service.RegisterCAASUnit(context.Background(), p)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
 }
 
 func (s *unitServiceSuite) TestUpdateCAASUnit(c *gc.C) {

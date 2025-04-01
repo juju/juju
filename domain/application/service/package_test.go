@@ -31,6 +31,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination internal_charm_mock_test.go github.com/juju/juju/internal/charm Charm
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination constraints_mock_test.go github.com/juju/juju/core/constraints Validator
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination leader_mock_test.go github.com/juju/juju/core/leadership Ensurer
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination caas_mock_test.go github.com/juju/juju/caas Application
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -47,6 +48,7 @@ type baseSuite struct {
 	agentVersionGetter        *MockAgentVersionGetter
 	provider                  *MockProvider
 	supportedFeaturesProvider *MockSupportedFeatureProvider
+	caasApplicationProvider   *MockCAASApplicationProvider
 	leadership                *MockEnsurer
 	validator                 *MockValidator
 
@@ -61,6 +63,7 @@ func (s *baseSuite) setupMocksWithProvider(
 	c *gc.C,
 	providerGetter func(ctx context.Context) (Provider, error),
 	supportFeaturesProviderGetter func(ctx context.Context) (SupportedFeatureProvider, error),
+	supportCAASApplicationProviderGetter func(ctx context.Context) (CAASApplicationProvider, error),
 ) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -70,6 +73,7 @@ func (s *baseSuite) setupMocksWithProvider(
 	s.agentVersionGetter = NewMockAgentVersionGetter(ctrl)
 	s.provider = NewMockProvider(ctrl)
 	s.supportedFeaturesProvider = NewMockSupportedFeatureProvider(ctrl)
+	s.caasApplicationProvider = NewMockCAASApplicationProvider(ctrl)
 	s.leadership = NewMockEnsurer(ctrl)
 
 	s.state = NewMockState(ctrl)
@@ -93,6 +97,7 @@ func (s *baseSuite) setupMocksWithProvider(
 		s.agentVersionGetter,
 		providerGetter,
 		supportFeaturesProviderGetter,
+		supportCAASApplicationProviderGetter,
 		s.charmStore,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		s.clock,
@@ -142,6 +147,9 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *gc.C, statusHistory StatusHis
 		},
 		func(ctx context.Context) (SupportedFeatureProvider, error) {
 			return s.supportedFeaturesProvider, nil
+		},
+		func(ctx context.Context) (CAASApplicationProvider, error) {
+			return s.caasApplicationProvider, nil
 		},
 		s.charmStore,
 		statusHistory,

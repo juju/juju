@@ -757,10 +757,12 @@ func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.Cl
 	return result
 }
 
-// RegisterCAASUnit registers the specified CAAS application unit, returning an
-// error satisfying [applicationerrors.UnitAlreadyExists] if the unit exists,
-// or [applicationerrors.UnitNotAssigned] if the unit was not assigned.
-func (st *State) RegisterCAASUnit(ctx context.Context, appUUID coreapplication.ID, arg application.RegisterCAASUnitArg) error {
+// RegisterCAASUnit registers the specified CAAS application unit.
+// The following errors can be expected:
+// - [applicationerrors.ApplicationNotAlive] when the application is not alive
+// - [applicationerrors.UnitAlreadyExists] when the unit exists
+// - [applicationerrors.UnitNotAssigned] when the unit was not assigned
+func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg application.RegisterCAASUnitArg) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
@@ -800,6 +802,15 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appUUID coreapplication.I
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		appDetails, err := st.getApplicationDetails(ctx, tx, appName)
+		if err != nil {
+			return errors.Errorf("querying life for application %q: %w", appName, err)
+		}
+		if appDetails.LifeID != life.Alive {
+			return errors.Errorf("registering application %q: %w", appName, applicationerrors.ApplicationNotAlive)
+		}
+		appUUID := appDetails.UUID
+
 		unitLife, err := st.getLifeForUnitName(ctx, tx, arg.UnitName)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
 			appScale, err := st.getApplicationScaleState(ctx, tx, appUUID)

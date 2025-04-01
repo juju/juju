@@ -28,7 +28,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
-	"github.com/juju/juju/domain/ipaddress"
 	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/schema/testing"
 	domainsecret "github.com/juju/juju/domain/secret"
@@ -45,8 +44,9 @@ import (
 type serviceSuite struct {
 	testing.ModelSuite
 
-	svc         *service.ProviderService
-	secretState *secretstate.State
+	svc                     *service.ProviderService
+	caasApplicationProvider *application.MockBroker
+	secretState             *secretstate.State
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -72,6 +72,9 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 		},
 		func(ctx context.Context) (service.SupportedFeatureProvider, error) {
 			return serviceProvider{}, nil
+		},
+		func(ctx context.Context) (service.CAASApplicationProvider, error) {
+			return s.caasApplicationProvider, nil
 		},
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
@@ -395,167 +398,6 @@ func (s *serviceSuite) TestRemoveUnitNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-func (s *serviceSuite) assertCAASUnit(c *gc.C, name, passwordHash, addressValue string, ports []string) {
-	var (
-		gotPasswordHash  string
-		gotAddress       string
-		gotAddressType   ipaddress.AddressType
-		gotAddressScope  ipaddress.Scope
-		gotAddressOrigin ipaddress.Origin
-		gotPorts         []string
-	)
-
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT password_hash FROM unit WHERE name = ?", name).Scan(&gotPasswordHash)
-		if err != nil {
-			return err
-		}
-		err = tx.QueryRowContext(ctx, `
-SELECT address_value, type_id, scope_id, origin_id FROM ip_address ipa
-JOIN link_layer_device lld ON lld.uuid = ipa.device_uuid
-JOIN unit u ON u.net_node_uuid = lld.net_node_uuid WHERE u.name = ?
-`, name).
-			Scan(&gotAddress, &gotAddressType, &gotAddressScope, &gotAddressOrigin)
-		if err != nil {
-			return err
-		}
-		rows, err := tx.QueryContext(ctx, `
-SELECT port FROM k8s_pod_port ccp
-JOIN k8s_pod cc ON cc.unit_uuid = ccp.unit_uuid
-JOIN unit u ON u.uuid = cc.unit_uuid WHERE u.name = ?
-`, name)
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var port string
-			err = rows.Scan(&port)
-			if err != nil {
-				return err
-			}
-			gotPorts = append(gotPorts, port)
-		}
-		return rows.Err()
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotPasswordHash, gc.Equals, passwordHash)
-	c.Assert(gotAddress, gc.Equals, addressValue)
-	c.Assert(gotAddressType, gc.Equals, ipaddress.AddressTypeIPv4)
-	c.Assert(gotAddressScope, gc.Equals, ipaddress.ScopeMachineLocal)
-	c.Assert(gotAddressOrigin, gc.Equals, ipaddress.OriginProvider)
-	c.Assert(gotPorts, jc.DeepEquals, ports)
-}
-
-func (s *serviceSuite) TestReplaceCAASUnit(c *gc.C) {
-	u := service.AddUnitArg{
-		UnitName: "foo/1",
-	}
-	s.createApplication(c, "foo", u)
-
-	address := "10.6.6.6"
-	ports := []string{"666"}
-	args := application.RegisterCAASUnitArg{
-		UnitName:         "foo/1",
-		PasswordHash:     "passwordhash",
-		ProviderID:       "provider-id",
-		Address:          ptr(address),
-		Ports:            ptr(ports),
-		OrderedScale:     true,
-		OrderedId:        1,
-		StorageParentDir: c.MkDir(),
-	}
-	err := s.svc.RegisterCAASUnit(context.Background(), "foo", args)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertCAASUnit(c, "foo/1", "passwordhash", address, ports)
-}
-
-func (s *serviceSuite) TestReplaceDeadCAASUnit(c *gc.C) {
-	u := service.AddUnitArg{
-		UnitName: "foo/1",
-	}
-	s.createApplication(c, "foo", u)
-
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name = ?", u.UnitName)
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := application.RegisterCAASUnitArg{
-		UnitName:         "foo/1",
-		PasswordHash:     "passwordhash",
-		ProviderID:       "provider-id",
-		OrderedScale:     true,
-		OrderedId:        1,
-		StorageParentDir: c.MkDir(),
-	}
-	err = s.svc.RegisterCAASUnit(context.Background(), "foo", args)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitAlreadyExists)
-}
-
-func (s *serviceSuite) TestNewCAASUnit(c *gc.C) {
-	appID := s.createApplication(c, "foo")
-
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scale = 2 WHERE application_uuid = ?", appID)
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	address := "10.6.6.6"
-	ports := []string{"666"}
-	args := application.RegisterCAASUnitArg{
-		UnitName:         "foo/1",
-		PasswordHash:     "passwordhash",
-		ProviderID:       "provider-id",
-		Address:          &address,
-		Ports:            &ports,
-		OrderedScale:     true,
-		OrderedId:        1,
-		StorageParentDir: c.MkDir(),
-	}
-	err = s.svc.RegisterCAASUnit(context.Background(), "foo", args)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertCAASUnit(c, "foo/1", "passwordhash", address, ports)
-}
-
-func (s *serviceSuite) TestRegisterCAASUnitExceedsScale(c *gc.C) {
-	s.createApplication(c, "foo")
-
-	args := application.RegisterCAASUnitArg{
-		UnitName:         "foo/1",
-		PasswordHash:     "passwordhash",
-		ProviderID:       "provider-id",
-		OrderedScale:     true,
-		OrderedId:        666,
-		StorageParentDir: c.MkDir(),
-	}
-	err := s.svc.RegisterCAASUnit(context.Background(), "foo", args)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotAssigned)
-}
-
-func (s *serviceSuite) TestRegisterCAASUnitExceedsScaleTarget(c *gc.C) {
-	appID := s.createApplication(c, "foo")
-
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scale = 3, scale_target = 1, scaling = true WHERE application_uuid = ?", appID)
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := application.RegisterCAASUnitArg{
-		UnitName:         "foo/1",
-		PasswordHash:     "passwordhash",
-		ProviderID:       "provider-id",
-		OrderedScale:     true,
-		OrderedId:        2,
-		StorageParentDir: c.MkDir(),
-	}
-	err = s.svc.RegisterCAASUnit(context.Background(), "foo", args)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotAssigned)
-}
-
 func (s *serviceSuite) TestSetScalingState(c *gc.C) {
 	u := service.AddUnitArg{
 		UnitName: "foo/1",
@@ -754,16 +596,16 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumLessThanScale(c *gc.C) {
 	app.EXPECT().State().Return(caas.ApplicationState{
 		DesiredReplicas: 6,
 	}, nil)
-	broker := application.NewMockBroker(ctrl)
-	broker.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
-	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo", 1, broker)
+	s.caasApplicationProvider = application.NewMockBroker(ctrl)
+	s.caasApplicationProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(willRestart, jc.IsTrue)
 }
 
 func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanScale(c *gc.C) {
 	u := service.AddUnitArg{
-		UnitName: "foo/0",
+		UnitName: "foo/666",
 	}
 	s.createApplication(c, "foo", u)
 
@@ -774,9 +616,30 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanScale(c *gc.C) {
 	app.EXPECT().State().Return(caas.ApplicationState{
 		DesiredReplicas: 6,
 	}, nil)
-	broker := application.NewMockBroker(ctrl)
-	broker.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
-	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo", 666, broker)
+	s.caasApplicationProvider = application.NewMockBroker(ctrl)
+	s.caasApplicationProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo/666")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(willRestart, jc.IsFalse)
+}
+
+func (s *serviceSuite) TestCAASUnitTerminatingUnitNotAlive(c *gc.C) {
+	u := service.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", u)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name = ?", "foo/666")
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.caasApplicationProvider = application.NewMockBroker(ctrl)
+	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo/666")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(willRestart, jc.IsFalse)
 }
@@ -800,12 +663,12 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumLessThanDesired(c *gc.C) {
 	app.EXPECT().State().Return(caas.ApplicationState{
 		DesiredReplicas: 6,
 	}, nil)
-	broker := application.NewMockBroker(ctrl)
-	broker.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+	s.caasApplicationProvider = application.NewMockBroker(ctrl)
+	s.caasApplicationProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 	err := s.svc.SetApplicationScalingState(context.Background(), "foo", 6, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo", 2, broker)
+	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo/2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(willRestart, jc.IsTrue)
 }
@@ -829,12 +692,12 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanDesired(c *gc.C)
 	app.EXPECT().State().Return(caas.ApplicationState{
 		DesiredReplicas: 1,
 	}, nil)
-	broker := application.NewMockBroker(ctrl)
-	broker.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
+	s.caasApplicationProvider = application.NewMockBroker(ctrl)
+	s.caasApplicationProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 	err := s.svc.SetApplicationScalingState(context.Background(), "foo", 6, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo", 2, broker)
+	willRestart, err := s.svc.CAASUnitTerminating(context.Background(), "foo/2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(willRestart, jc.IsFalse)
 }

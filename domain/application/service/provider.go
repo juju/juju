@@ -42,6 +42,7 @@ type ProviderService struct {
 	// [SupportedFeatureProvider] interface is only satisfied by the
 	// k8s provider.
 	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider]
+	caasApplicationProvider  providertracker.ProviderGetter[CAASApplicationProvider]
 }
 
 // NewProviderService returns a new Service for interacting with a models state.
@@ -53,6 +54,7 @@ func NewProviderService(
 	agentVersionGetter AgentVersionGetter,
 	provider providertracker.ProviderGetter[Provider],
 	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider],
+	caasApplicationProvider providertracker.ProviderGetter[CAASApplicationProvider],
 	charmStore CharmStore,
 	statusHistory StatusHistory,
 	clock clock.Clock,
@@ -72,6 +74,7 @@ func NewProviderService(
 		agentVersionGetter:       agentVersionGetter,
 		provider:                 provider,
 		supportedFeatureProvider: supportedFeatureProvider,
+		caasApplicationProvider:  caasApplicationProvider,
 	}
 }
 

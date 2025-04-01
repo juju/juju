@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	set "github.com/juju/collections/set"
+	caas "github.com/juju/juju/caas"
 	agentbinary "github.com/juju/juju/core/agentbinary"
 	application "github.com/juju/juju/core/application"
 	assumes "github.com/juju/juju/core/assumes"
@@ -2771,7 +2772,7 @@ func (c *MockStateNamespaceForWatchCharmCall) DoAndReturn(f func() string) *Mock
 }
 
 // RegisterCAASUnit mocks base method.
-func (m *MockState) RegisterCAASUnit(arg0 context.Context, arg1 application.ID, arg2 application0.RegisterCAASUnitArg) error {
+func (m *MockState) RegisterCAASUnit(arg0 context.Context, arg1 string, arg2 application0.RegisterCAASUnitArg) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RegisterCAASUnit", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -2797,13 +2798,13 @@ func (c *MockStateRegisterCAASUnitCall) Return(arg0 error) *MockStateRegisterCAA
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateRegisterCAASUnitCall) Do(f func(context.Context, application.ID, application0.RegisterCAASUnitArg) error) *MockStateRegisterCAASUnitCall {
+func (c *MockStateRegisterCAASUnitCall) Do(f func(context.Context, string, application0.RegisterCAASUnitArg) error) *MockStateRegisterCAASUnitCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateRegisterCAASUnitCall) DoAndReturn(f func(context.Context, application.ID, application0.RegisterCAASUnitArg) error) *MockStateRegisterCAASUnitCall {
+func (c *MockStateRegisterCAASUnitCall) DoAndReturn(f func(context.Context, string, application0.RegisterCAASUnitArg) error) *MockStateRegisterCAASUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -3756,6 +3757,67 @@ func (c *MockSupportedFeatureProviderSupportedFeaturesCall) Do(f func() (assumes
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockSupportedFeatureProviderSupportedFeaturesCall) DoAndReturn(f func() (assumes.FeatureSet, error)) *MockSupportedFeatureProviderSupportedFeaturesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MockCAASApplicationProvider is a mock of CAASApplicationProvider interface.
+type MockCAASApplicationProvider struct {
+	ctrl     *gomock.Controller
+	recorder *MockCAASApplicationProviderMockRecorder
+}
+
+// MockCAASApplicationProviderMockRecorder is the mock recorder for MockCAASApplicationProvider.
+type MockCAASApplicationProviderMockRecorder struct {
+	mock *MockCAASApplicationProvider
+}
+
+// NewMockCAASApplicationProvider creates a new mock instance.
+func NewMockCAASApplicationProvider(ctrl *gomock.Controller) *MockCAASApplicationProvider {
+	mock := &MockCAASApplicationProvider{ctrl: ctrl}
+	mock.recorder = &MockCAASApplicationProviderMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockCAASApplicationProvider) EXPECT() *MockCAASApplicationProviderMockRecorder {
+	return m.recorder
+}
+
+// Application mocks base method.
+func (m *MockCAASApplicationProvider) Application(arg0 string, arg1 caas.DeploymentType) caas.Application {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Application", arg0, arg1)
+	ret0, _ := ret[0].(caas.Application)
+	return ret0
+}
+
+// Application indicates an expected call of Application.
+func (mr *MockCAASApplicationProviderMockRecorder) Application(arg0, arg1 any) *MockCAASApplicationProviderApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockCAASApplicationProvider)(nil).Application), arg0, arg1)
+	return &MockCAASApplicationProviderApplicationCall{Call: call}
+}
+
+// MockCAASApplicationProviderApplicationCall wrap *gomock.Call
+type MockCAASApplicationProviderApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockCAASApplicationProviderApplicationCall) Return(arg0 caas.Application) *MockCAASApplicationProviderApplicationCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockCAASApplicationProviderApplicationCall) Do(f func(string, caas.DeploymentType) caas.Application) *MockCAASApplicationProviderApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockCAASApplicationProviderApplicationCall) DoAndReturn(f func(string, caas.DeploymentType) caas.Application) *MockCAASApplicationProviderApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
