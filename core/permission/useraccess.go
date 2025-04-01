@@ -9,17 +9,10 @@ import (
 	"github.com/juju/juju/core/user"
 )
 
-// TODO hml 2024-02-05
-// Replace CreatedBy, UserTag and Object with non Tag types once
-// the cut over the permission domain is complete. Is UserTag still
-// necessary if Name exists?
-
-// UserAccess represents a user access to a target whereas the user
-// could represent a remote user or a user across multiple models the
-// user access always represents a single user for a single target.
-// There should be no more than one UserAccess per target/user pair.
-// Many of these fields are storage artifacts but generate them from
-// other fields implies out of band knowledge of other packages.
+// UserAccess represents a user's access level for a target object.
+// Whereas the user could represent a remote user or a user across multiple
+// models, UserAccess always represents a single user access for a single target.
+// There should be no more than one UserAccess per user/target pair.
 type UserAccess struct {
 	// UserID is the stored ID of the user.
 	UserID string
