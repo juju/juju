@@ -171,6 +171,29 @@ func (s *addRelationSuite) TestAddRelationErrorAlreadyExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationAlreadyExists)
 }
 
+func (s *addRelationSuite) TestAddRelationErrorCandidateIsPeer(c *gc.C) {
+	// Arrange
+	relPeer := charm.Relation{
+		Name:  "peer",
+		Role:  charm.RolePeer,
+		Scope: charm.ScopeGlobal,
+	}
+	appUUID1 := s.addApplication(c, "application")
+	s.addApplicationEndpointFromRelation(c, appUUID1, relPeer)
+
+	// Act
+	_, _, err := s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+		ApplicationName: "application",
+		EndpointName:    "peer",
+	}, relation.CandidateEndpointIdentifier{
+		ApplicationName: "application",
+		EndpointName:    "peer",
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.CompatibleEndpointsNotFound)
+}
+
 func (s *addRelationSuite) TestInferEndpoints(c *gc.C) {
 	// Arrange:
 	db, err := s.state.DB()
