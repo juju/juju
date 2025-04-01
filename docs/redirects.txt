@@ -63,9 +63,8 @@ user/reference/charm reference/charm
 user/reference/cloud reference/cloud
 user/reference/cloud/kubernetes-clouds-and-juju reference/cloud/kubernetes-clouds-and-juju
 user/reference/cloud/list-of-supported-clouds reference/cloud/list-of-supported-clouds
-user/reference/cloud/list-of-supported-clouds/the-amazon-ec2-cloud-and-juju reference/cloud/list-of-supported-clouds/the-amazon-ec2-cloud-and-juju 
+user/reference/cloud/list-of-supported-clouds/the-amazon-ec2-cloud-and-juju reference/cloud/list-of-supported-clouds/the-amazon-ec2-cloud-and-juju
 user/reference/cloud/list-of-supported-clouds/the-amazon-eks-cloud-and-juju reference/cloud/list-of-supported-clouds/the-amazon-eks-cloud-and-juju
-user/reference/cloud/list-of-supported-clouds/the-equinix-metal-cloud-and-juju reference/cloud/list-of-supported-clouds/the-equinix-metal-cloud-and-juju
 user/reference/cloud/list-of-supported-clouds/the-google-gce-cloud-and-juju reference/cloud/list-of-supported-clouds/the-google-gce-cloud-and-juju
 user/reference/cloud/list-of-supported-clouds/the-google-gke-cloud-and-juju reference/cloud/list-of-supported-clouds/the-google-gke-cloud-and-juju
 user/reference/cloud/list-of-supported-clouds/the-lxd-cloud-and-juju reference/cloud/list-of-supported-clouds/the-lxd-cloud-and-juju
@@ -93,7 +92,6 @@ user/reference/hook-commands/list-of-hook-commands/action-fail reference/hook-co
 user/reference/hook-commands/list-of-hook-commands/action-get reference/hook-command/list-of-hook-commands/action-get
 user/reference/hook-commands/list-of-hook-commands/action-log reference/hook-command/list-of-hook-commands/action-log
 user/reference/hook-commands/list-of-hook-commands/action-set reference/hook-command/list-of-hook-commands/action-set
-user/reference/hook-commands/list-of-hook-commands/add-metric reference/hook-command/list-of-hook-commands/add-metric
 user/reference/hook-commands/list-of-hook-commands/application-version-set reference/hook-command/list-of-hook-commands/application-version-set
 user/reference/hook-commands/list-of-hook-commands/close-port reference/hook-command/list-of-hook-commands/close-port
 user/reference/hook-commands/list-of-hook-commands/config-get reference/hook-command/list-of-hook-commands/config-get
@@ -103,14 +101,9 @@ user/reference/hook-commands/list-of-hook-commands reference/hook-command/list-o
 user/reference/hook-commands/list-of-hook-commands/is-leader reference/hook-command/list-of-hook-commands/is-leader
 user/reference/hook-commands/list-of-hook-commands/juju-log reference/hook-command/list-of-hook-commands/juju-log
 user/reference/hook-commands/list-of-hook-commands/juju-reboot reference/hook-command/list-of-hook-commands/juju-reboot
-user/reference/hook-commands/list-of-hook-commands/leader-get reference/hook-command/list-of-hook-commands/leader-get
-user/reference/hook-commands/list-of-hook-commands/leader-set reference/hook-command/list-of-hook-commands/leader-set
 user/reference/hook-commands/list-of-hook-commands/network-get reference/hook-command/list-of-hook-commands/network-get
 user/reference/hook-commands/list-of-hook-commands/open-port reference/hook-command/list-of-hook-commands/open-port
 user/reference/hook-commands/list-of-hook-commands/opened-port reference/hook-command/list-of-hook-commands/opened-ports
-user/reference/hook-commands/list-of-hook-commands/payload-register reference/hook-command/list-of-hook-commands/payload-register
-user/reference/hook-commands/list-of-hook-commands/payload-status-set reference/hook-command/list-of-hook-commands/payload-status-set
-user/reference/hook-commands/list-of-hook-commands/payload-unregister reference/hook-command/list-of-hook-commands/payload-unregister
 user/reference/hook-commands/list-of-hook-commands/relation-get reference/hook-command/list-of-hook-commands/relation-get
 user/reference/hook-commands/list-of-hook-commands/relation-ids reference/hook-command/list-of-hook-commands/relation-ids
 user/reference/hook-commands/list-of-hook-commands/relation-list reference/hook-command/list-of-hook-commands/relation-list
@@ -151,8 +144,6 @@ user/reference/juju-cli/list-of-juju-cli-commands/add-ssh-key reference/juju-cli
 user/reference/juju-cli/list-of-juju-cli-commands/add-storage reference/juju-cli/list-of-juju-cli-commands/add-storage
 user/reference/juju-cli/list-of-juju-cli-commands/add-unit reference/juju-cli/list-of-juju-cli-commands/add-unit
 user/reference/juju-cli/list-of-juju-cli-commands/add-user reference/juju-cli/list-of-juju-cli-commands/add-user
-user/reference/juju-cli/list-of-juju-cli-commands/agree reference/juju-cli/list-of-juju-cli-commands/agree
-user/reference/juju-cli/list-of-juju-cli-commands/agreements reference/juju-cli/list-of-juju-cli-commands/agreements
 user/reference/juju-cli/list-of-juju-cli-commands/attach-resource reference/juju-cli/list-of-juju-cli-commands/attach-resource
 user/reference/juju-cli/list-of-juju-cli-commands/attach-storage reference/juju-cli/list-of-juju-cli-commands/attach-storage
 user/reference/juju-cli/list-of-juju-cli-commands/autoload-credentials reference/juju-cli/list-of-juju-cli-commands/autoload-credentials
@@ -162,7 +153,6 @@ user/reference/juju-cli/list-of-juju-cli-commands/cancel-task reference/juju-cli
 user/reference/juju-cli/list-of-juju-cli-commands/change-user-password reference/juju-cli/list-of-juju-cli-commands/change-user-password
 user/reference/juju-cli/list-of-juju-cli-commands/charm-resources reference/juju-cli/list-of-juju-cli-commands/charm-resources
 user/reference/juju-cli/list-of-juju-cli-commands/clouds reference/juju-cli/list-of-juju-cli-commands/clouds
-user/reference/juju-cli/list-of-juju-cli-commands/collect-metrics reference/juju-cli/list-of-juju-cli-commands/collect-metrics
 user/reference/juju-cli/list-of-juju-cli-commands/config reference/juju-cli/list-of-juju-cli-commands/config
 user/reference/juju-cli/list-of-juju-cli-commands/constraints reference/juju-cli/list-of-juju-cli-commands/constraints
 user/reference/juju-cli/list-of-juju-cli-commands/consume reference/juju-cli/list-of-juju-cli-commands/consume
@@ -211,7 +201,6 @@ user/reference/juju-cli/list-of-juju-cli-commands/info reference/juju-cli/list-o
 user/reference/juju-cli/list-of-juju-cli-commands/integrate reference/juju-cli/list-of-juju-cli-commands/integrate
 user/reference/juju-cli/list-of-juju-cli-commands/kill-controller reference/juju-cli/list-of-juju-cli-commands/kill-controller
 user/reference/juju-cli/list-of-juju-cli-commands/list-actions reference/juju-cli/list-of-juju-cli-commands/list-actions
-user/reference/juju-cli/list-of-juju-cli-commands/list-agreements reference/juju-cli/list-of-juju-cli-commands/list-agreements
 user/reference/juju-cli/list-of-juju-cli-commands/list-charm-resources reference/juju-cli/list-of-juju-cli-commands/list-charm-resources
 user/reference/juju-cli/list-of-juju-cli-commands/list-clouds reference/juju-cli/list-of-juju-cli-commands/list-clouds
 user/reference/juju-cli/list-of-juju-cli-commands/list-controllers reference/juju-cli/list-of-juju-cli-commands/list-controllers
@@ -222,7 +211,6 @@ user/reference/juju-cli/list-of-juju-cli-commands/list-machines reference/juju-c
 user/reference/juju-cli/list-of-juju-cli-commands/list-models reference/juju-cli/list-of-juju-cli-commands/list-models
 user/reference/juju-cli/list-of-juju-cli-commands/list-offers reference/juju-cli/list-of-juju-cli-commands/list-offers
 user/reference/juju-cli/list-of-juju-cli-commands/list-operations reference/juju-cli/list-of-juju-cli-commands/list-operations
-user/reference/juju-cli/list-of-juju-cli-commands/list-payloads reference/juju-cli/list-of-juju-cli-commands/list-payloads
 user/reference/juju-cli/list-of-juju-cli-commands/list-regions reference/juju-cli/list-of-juju-cli-commands/list-regions
 user/reference/juju-cli/list-of-juju-cli-commands/list-resources reference/juju-cli/list-of-juju-cli-commands/list-resources
 user/reference/juju-cli/list-of-juju-cli-commands/list-secret-backends reference/juju-cli/list-of-juju-cli-commands/list-secret-backends
@@ -236,9 +224,8 @@ user/reference/juju-cli/list-of-juju-cli-commands/list-users reference/juju-cli/
 user/reference/juju-cli/list-of-juju-cli-commands/login reference/juju-cli/list-of-juju-cli-commands/login
 user/reference/juju-cli/list-of-juju-cli-commands/logout reference/juju-cli/list-of-juju-cli-commands/logout
 user/reference/juju-cli/list-of-juju-cli-commands/machines reference/juju-cli/list-of-juju-cli-commands/machines
-user/reference/juju-cli/list-of-juju-cli-commands/metrics reference/juju-cli/list-of-juju-cli-commands/metrics
-user/reference/juju-cli/list-of-juju-cli-commands/migrate reference/juju-cli/list-of-juju-cli-commands/migrate 
-user/reference/juju-cli/list-of-juju-cli-commands/model-config  reference/juju-cli/list-of-juju-cli-commands/model-config 
+user/reference/juju-cli/list-of-juju-cli-commands/migrate reference/juju-cli/list-of-juju-cli-commands/migrate
+user/reference/juju-cli/list-of-juju-cli-commands/model-config  reference/juju-cli/list-of-juju-cli-commands/model-config
 user/reference/juju-cli/list-of-juju-cli-commands/model-constraints reference/juju-cli/list-of-juju-cli-commands/model-constraints
 user/reference/juju-cli/list-of-juju-cli-commands/model-default reference/juju-cli/list-of-juju-cli-commands/model-default
 user/reference/juju-cli/list-of-juju-cli-commands/model-defaults reference/juju-cli/list-of-juju-cli-commands/model-defaults
@@ -247,7 +234,6 @@ user/reference/juju-cli/list-of-juju-cli-commands/move-to-space reference/juju-c
 user/reference/juju-cli/list-of-juju-cli-commands/offer reference/juju-cli/list-of-juju-cli-commands/offer
 user/reference/juju-cli/list-of-juju-cli-commands/offers reference/juju-cli/list-of-juju-cli-commands/offers
 user/reference/juju-cli/list-of-juju-cli-commands/operations reference/juju-cli/list-of-juju-cli-commands/operations
-user/reference/juju-cli/list-of-juju-cli-commands/payloads reference/juju-cli/list-of-juju-cli-commands/payloads
 user/reference/juju-cli/list-of-juju-cli-commands/refresh reference/juju-cli/list-of-juju-cli-commands/refresh
 user/reference/juju-cli/list-of-juju-cli-commands/regions reference/juju-cli/list-of-juju-cli-commands/regions
 user/reference/juju-cli/list-of-juju-cli-commands/register reference/juju-cli/list-of-juju-cli-commands/register
@@ -283,13 +269,11 @@ user/reference/juju-cli/list-of-juju-cli-commands/scale-application reference/ju
 user/reference/juju-cli/list-of-juju-cli-commands/scp reference/juju-cli/list-of-juju-cli-commands/scp
 user/reference/juju-cli/list-of-juju-cli-commands/secret-backends reference/juju-cli/list-of-juju-cli-commands/secret-backends
 user/reference/juju-cli/list-of-juju-cli-commands/secrets reference/juju-cli/list-of-juju-cli-commands/secrets
-user/reference/juju-cli/list-of-juju-cli-commands/set-application-base reference/juju-cli/list-of-juju-cli-commands/set-application-base
 user/reference/juju-cli/list-of-juju-cli-commands/set-constraints reference/juju-cli/list-of-juju-cli-commands/set-constraints
 user/reference/juju-cli/list-of-juju-cli-commands/set-credential reference/juju-cli/list-of-juju-cli-commands/set-credential
 user/reference/juju-cli/list-of-juju-cli-commands/set-default-credentials reference/juju-cli/list-of-juju-cli-commands/set-default-credentials
 user/reference/juju-cli/list-of-juju-cli-commands/set-default-region reference/juju-cli/list-of-juju-cli-commands/set-default-region
 user/reference/juju-cli/list-of-juju-cli-commands/set-firewall-rule reference/juju-cli/list-of-juju-cli-commands/set-firewall-rule
-user/reference/juju-cli/list-of-juju-cli-commands/set-meter-status reference/juju-cli/list-of-juju-cli-commands/set-meter-status
 user/reference/juju-cli/list-of-juju-cli-commands/set-model-constraints reference/juju-cli/list-of-juju-cli-commands/set-model-constraints
 user/reference/juju-cli/list-of-juju-cli-commands/show-action reference/juju-cli/list-of-juju-cli-commands/show-action
 user/reference/juju-cli/list-of-juju-cli-commands/show-application reference/juju-cli/list-of-juju-cli-commands/show-application
@@ -331,15 +315,9 @@ user/reference/juju-cli/list-of-juju-cli-commands/update-secret-backend referenc
 user/reference/juju-cli/list-of-juju-cli-commands/update-secret reference/juju-cli/list-of-juju-cli-commands/update-secret
 user/reference/juju-cli/list-of-juju-cli-commands/update-storage-pool reference/juju-cli/list-of-juju-cli-commands/update-storage-pool
 user/reference/juju-cli/list-of-juju-cli-commands/upgrade-controller reference/juju-cli/list-of-juju-cli-commands/upgrade-controller
-user/reference/juju-cli/list-of-juju-cli-commands/upgrade-machine reference/juju-cli/list-of-juju-cli-commands/upgrade-machine
 user/reference/juju-cli/list-of-juju-cli-commands/upgrade-model reference/juju-cli/list-of-juju-cli-commands/upgrade-model
 user/reference/juju-cli/list-of-juju-cli-commands/users reference/juju-cli/list-of-juju-cli-commands/users
 user/reference/juju-cli/list-of-juju-cli-commands/version reference/juju-cli/list-of-juju-cli-commands/version
-user/reference/juju-cli/list-of-juju-cli-commands/wait-for reference/juju-cli/list-of-juju-cli-commands/wait-for
-user/reference/juju-cli/list-of-juju-cli-commands/wait-for_application reference/juju-cli/list-of-juju-cli-commands/wait-for_application
-user/reference/juju-cli/list-of-juju-cli-commands/wait-for_machine reference/juju-cli/list-of-juju-cli-commands/wait-for_machine
-user/reference/juju-cli/list-of-juju-cli-commands/wait-for_model reference/juju-cli/list-of-juju-cli-commands/wait-for_model
-user/reference/juju-cli/list-of-juju-cli-commands/wait-for_unit reference/juju-cli/list-of-juju-cli-commands/wait-for_unit
 user/reference/juju-cli/list-of-juju-cli-commands/whoami reference/juju-cli/list-of-juju-cli-commands/whoami
 user/reference/juju-dashboard reference/juju-dashboard
 user/reference/juju-web-cli reference/juju-web-cli
@@ -377,7 +355,6 @@ user/reference/resource-compute/list-of-commands-available-on-a-compute-resource
 user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_machine_agent_name reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_machine_agent_name
 user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_machine_lock reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_machine_lock
 user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_metrics reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_metrics
-user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_presence_report reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_presence_report
 user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_pubsub_report reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_pubsub_report
 user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_start_unit reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_start_unit
 user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_statepool_report reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_statepool_report
@@ -400,5 +377,3 @@ user/reference/user reference/user
 user/reference/worker reference/worker
 user/reference/zone reference/zone
 user/tutorial tutorial
-
-    
