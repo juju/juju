@@ -38,24 +38,24 @@ type providerNetwork struct {
 	ProviderNetworkID network.Id `db:"provider_network_id"`
 }
 
-// ProviderNetworkSubnet represents a single row from the provider_network_subnet mapping table.
-type ProviderNetworkSubnet struct {
+// providerNetworkSubnet represents a single row from the provider_network_subnet mapping table.
+type providerNetworkSubnet struct {
 	// SubnetUUID is the UUID of the subnet.
 	SubnetUUID string `db:"subnet_uuid"`
 	// ProviderNetworkUUID is the provider network UUID.
 	ProviderNetworkUUID string `db:"provider_network_uuid"`
 }
 
-// Space represents a single row from the space table.
-type Space struct {
+// space represents a single row from the space table.
+type space struct {
 	// Name is the space name.
 	Name string `db:"name"`
 	// UUID is the unique ID of the space.
 	UUID string `db:"uuid"`
 }
 
-// ProviderSpace represents a single row from the provider_space table.
-type ProviderSpace struct {
+// providerSpace represents a single row from the provider_space table.
+type providerSpace struct {
 	// SpaceUUID is the unique ID of the space.
 	SpaceUUID string `db:"space_uuid"`
 	// ProviderID is a provider-specific space ID.
