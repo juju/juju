@@ -146,8 +146,8 @@ VALUES (?, 'app', 0)
 // addCharmRelation inserts a new charm relation into the database with the given UUID and predefined attributes.
 func (s *watcherSuite) addCharmRelation(c *gc.C, charmUUID, charmRelationUUID string) {
 	s.arrange(c, `
-INSERT INTO charm_relation (uuid, charm_uuid, kind_id, name) 
-VALUES (?, ?, 0, 'fake-provides')
+INSERT INTO charm_relation (uuid, charm_uuid, kind_id, scope_id, role_id, name) 
+VALUES (?, ?, 0,0,0, 'fake-provides')
 `, charmRelationUUID, charmUUID)
 }
 
