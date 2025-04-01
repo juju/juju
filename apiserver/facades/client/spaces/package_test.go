@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -58,8 +59,6 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 	s.authorizer.EXPECT().AuthClient().Return(true)
 
 	s.Backing = NewMockBacking(ctrl)
-	bExp := s.Backing.EXPECT()
-	bExp.ModelTag().Return(names.NewModelTag("123"))
 
 	s.ControllerConfigService = NewMockControllerConfigService(ctrl)
 	s.NetworkService = NewMockNetworkService(ctrl)
@@ -69,6 +68,7 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 
 	var err error
 	s.API, err = newAPIWithBacking(apiConfig{
+		modelTag:                names.NewModelTag(modeltesting.GenModelUUID(c).String()),
 		Backing:                 s.Backing,
 		Check:                   s.blockChecker,
 		Resources:               s.resource,

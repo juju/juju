@@ -8,6 +8,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -28,17 +29,12 @@ func newFacadeV8(ctx facade.ModelContext) (*Client, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	leadershipReader, err := ctx.LeadershipReader()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	st := ctx.State()
 	storageAccessor, err := getStorageState(st)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -46,9 +42,10 @@ func newFacadeV8(ctx facade.ModelContext) (*Client, error) {
 
 	domainServices := ctx.DomainServices()
 	client := &Client{
+		controllerTag: names.NewControllerTag(ctx.ControllerUUID()),
+		modelTag:      names.NewModelTag(ctx.ModelUUID().String()),
 		stateAccessor: &stateShim{
 			State:      st,
-			model:      model,
 			session:    nil,
 			cmrBackend: commoncrossmodel.GetBackend(st),
 		},

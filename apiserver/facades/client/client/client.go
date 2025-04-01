@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/facade"
@@ -14,13 +15,15 @@ import (
 	"github.com/juju/juju/core/permission"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 var logger = internallogger.GetLogger("juju.apiserver.client")
 
 // Client serves client-specific API methods.
 type Client struct {
+	controllerTag names.ControllerTag
+	modelTag      names.ModelTag
+
 	stateAccessor    Backend
 	storageAccessor  StorageInterface
 	auth             facade.Authorizer
@@ -36,16 +39,8 @@ type Client struct {
 	relationService    RelationService
 }
 
-// TODO(wallyworld) - remove this method
-// state returns a state.State instance for this API.
-// Until all code is refactored to use interfaces, we
-// need this helper to keep older code happy.
-func (c *Client) state() *state.State {
-	return c.stateAccessor.(*stateShim).State
-}
-
 func (c *Client) checkCanRead(ctx context.Context) error {
-	err := c.auth.HasPermission(ctx, permission.SuperuserAccess, c.stateAccessor.ControllerTag())
+	err := c.auth.HasPermission(ctx, permission.SuperuserAccess, c.controllerTag)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
@@ -54,11 +49,11 @@ func (c *Client) checkCanRead(ctx context.Context) error {
 		return nil
 	}
 
-	return c.auth.HasPermission(ctx, permission.ReadAccess, c.stateAccessor.ModelTag())
+	return c.auth.HasPermission(ctx, permission.ReadAccess, c.modelTag)
 }
 
 func (c *Client) checkIsAdmin(ctx context.Context) error {
-	err := c.auth.HasPermission(ctx, permission.SuperuserAccess, c.stateAccessor.ControllerTag())
+	err := c.auth.HasPermission(ctx, permission.SuperuserAccess, c.controllerTag)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
@@ -67,7 +62,7 @@ func (c *Client) checkIsAdmin(ctx context.Context) error {
 		return nil
 	}
 
-	return c.auth.HasPermission(ctx, permission.AdminAccess, c.stateAccessor.ModelTag())
+	return c.auth.HasPermission(ctx, permission.AdminAccess, c.modelTag)
 }
 
 // WatchAll initiates a watcher for entities in the connected model.

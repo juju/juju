@@ -8,6 +8,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -32,12 +33,9 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 	st := ctx.State()
 
 	domainServices := ctx.DomainServices()
-	cloudService := domainServices.Cloud()
-	credentialService := domainServices.Credential()
 	networkService := domainServices.Network()
 
-	modelConfigService := domainServices.Config()
-	stateShim, err := NewStateShim(st, cloudService, credentialService, modelConfigService)
+	stateShim, err := NewStateShim(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -46,6 +44,7 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 	auth := ctx.Auth()
 
 	return newAPIWithBacking(apiConfig{
+		modelTag:       names.NewModelTag(ctx.ModelUUID().String()),
 		NetworkService: networkService,
 		Backing:        stateShim,
 		Check:          check,

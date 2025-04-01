@@ -18,17 +18,17 @@ import (
 	"github.com/juju/juju/internal/mongo/utils"
 )
 
-// ModelStatus holds all the current status values for a given model
+// AllStatus holds all the current status values for a given model
 // and offers accessors for the various parts of a model.
-type ModelStatus struct {
-	model *Model
-	docs  map[string]statusDocWithID
+type AllStatus struct {
+	st   *State
+	docs map[string]statusDocWithID
 }
 
-// LoadModelStatus retrieves all the status documents for the model
+// AllStatus retrieves all the status documents for the model
 // at once. Used to primarily speed up status.
-func (m *Model) LoadModelStatus() (*ModelStatus, error) {
-	statuses, closer := m.st.db().GetCollection(statusesC)
+func (st *State) AllStatus() (*AllStatus, error) {
+	statuses, closer := st.db().GetCollection(statusesC)
 	defer closer()
 
 	var docs []statusDocWithID
@@ -37,64 +37,59 @@ func (m *Model) LoadModelStatus() (*ModelStatus, error) {
 		return nil, errors.Annotate(err, "failed to read status collection")
 	}
 
-	result := &ModelStatus{
-		model: m,
-		docs:  make(map[string]statusDocWithID),
+	result := &AllStatus{
+		st:   st,
+		docs: make(map[string]statusDocWithID),
 	}
 	for _, doc := range docs {
-		id := m.localID(doc.ID)
+		id := st.localID(doc.ID)
 		result.docs[id] = doc
 	}
 
 	return result, nil
 }
 
-func (m *ModelStatus) getDoc(key, badge string) (statusDocWithID, error) {
-	doc, found := m.docs[key]
+func (s *AllStatus) getDoc(key, badge string) (statusDocWithID, error) {
+	doc, found := s.docs[key]
 	if !found {
 		return statusDocWithID{}, errors.Annotate(errors.NotFoundf(badge), "cannot get status")
 	}
 	return doc, nil
 }
 
-func (m *ModelStatus) getStatus(key, badge string) (status.StatusInfo, error) {
-	doc, err := m.getDoc(key, badge)
+func (s *AllStatus) getStatus(key, badge string) (status.StatusInfo, error) {
+	doc, err := s.getDoc(key, badge)
 	if err != nil {
 		return status.StatusInfo{}, err
 	}
 	return doc.asStatusInfo(), nil
 }
 
-// Model returns the status of the model.
-func (m *ModelStatus) Model() (status.StatusInfo, error) {
-	return m.getStatus(m.model.globalKey(), "model")
-}
-
 // MachineAgent returns the status of the machine agent.
-func (m *ModelStatus) MachineAgent(machineID string) (status.StatusInfo, error) {
-	return m.getStatus(machineGlobalKey(machineID), "machine")
+func (s *AllStatus) MachineAgent(machineID string) (status.StatusInfo, error) {
+	return s.getStatus(machineGlobalKey(machineID), "machine")
 }
 
 // MachineInstance returns the status of the machine instance.
-func (m *ModelStatus) MachineInstance(machineID string) (status.StatusInfo, error) {
-	return m.getStatus(machineGlobalInstanceKey(machineID), "instance")
+func (s *AllStatus) MachineInstance(machineID string) (status.StatusInfo, error) {
+	return s.getStatus(machineGlobalInstanceKey(machineID), "instance")
 }
 
 // MachineModification returns the status of the machine modification
-func (m *ModelStatus) MachineModification(machineID string) (status.StatusInfo, error) {
-	return m.getStatus(machineGlobalModificationKey(machineID), "modification")
+func (s *AllStatus) MachineModification(machineID string) (status.StatusInfo, error) {
+	return s.getStatus(machineGlobalModificationKey(machineID), "modification")
 }
 
 // FullUnitWorkloadVersion returns the full status info for the workload
 // version of a unit. This is used for selecting the workload version for
 // an application.
-func (m *ModelStatus) FullUnitWorkloadVersion(unitName string) (status.StatusInfo, error) {
-	return m.getStatus(globalWorkloadVersionKey(unitName), "workload")
+func (s *AllStatus) FullUnitWorkloadVersion(unitName string) (status.StatusInfo, error) {
+	return s.getStatus(globalWorkloadVersionKey(unitName), "workload")
 }
 
 // UnitWorkloadVersion returns workload version for the unit
-func (m *ModelStatus) UnitWorkloadVersion(unitName string) (string, error) {
-	info, err := m.getStatus(globalWorkloadVersionKey(unitName), "workload")
+func (s *AllStatus) UnitWorkloadVersion(unitName string) (string, error) {
+	info, err := s.getStatus(globalWorkloadVersionKey(unitName), "workload")
 	if err != nil {
 		return "", err
 	}

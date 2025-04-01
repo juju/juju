@@ -19,7 +19,6 @@ import (
 	network "github.com/juju/juju/core/network"
 	state "github.com/juju/juju/state"
 	txn "github.com/juju/mgo/v3/txn"
-	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -274,44 +273,6 @@ func (c *MockBackingIsControllerCall) Do(f func() bool) *MockBackingIsController
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackingIsControllerCall) DoAndReturn(f func() bool) *MockBackingIsControllerCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ModelTag mocks base method.
-func (m *MockBacking) ModelTag() names.ModelTag {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(names.ModelTag)
-	return ret0
-}
-
-// ModelTag indicates an expected call of ModelTag.
-func (mr *MockBackingMockRecorder) ModelTag() *MockBackingModelTagCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelTag", reflect.TypeOf((*MockBacking)(nil).ModelTag))
-	return &MockBackingModelTagCall{Call: call}
-}
-
-// MockBackingModelTagCall wrap *gomock.Call
-type MockBackingModelTagCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackingModelTagCall) Return(arg0 names.ModelTag) *MockBackingModelTagCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackingModelTagCall) Do(f func() names.ModelTag) *MockBackingModelTagCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackingModelTagCall) DoAndReturn(f func() names.ModelTag) *MockBackingModelTagCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

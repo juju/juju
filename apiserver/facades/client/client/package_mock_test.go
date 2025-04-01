@@ -82,6 +82,45 @@ func (c *MockBackendAllApplicationsCall) DoAndReturn(f func() ([]*state.Applicat
 	return c
 }
 
+// AllEndpointBindings mocks base method.
+func (m *MockBackend) AllEndpointBindings() (map[string]*state.Bindings, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllEndpointBindings")
+	ret0, _ := ret[0].(map[string]*state.Bindings)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllEndpointBindings indicates an expected call of AllEndpointBindings.
+func (mr *MockBackendMockRecorder) AllEndpointBindings() *MockBackendAllEndpointBindingsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllEndpointBindings", reflect.TypeOf((*MockBackend)(nil).AllEndpointBindings))
+	return &MockBackendAllEndpointBindingsCall{Call: call}
+}
+
+// MockBackendAllEndpointBindingsCall wrap *gomock.Call
+type MockBackendAllEndpointBindingsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockBackendAllEndpointBindingsCall) Return(arg0 map[string]*state.Bindings, arg1 error) *MockBackendAllEndpointBindingsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockBackendAllEndpointBindingsCall) Do(f func() (map[string]*state.Bindings, error)) *MockBackendAllEndpointBindingsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockBackendAllEndpointBindingsCall) DoAndReturn(f func() (map[string]*state.Bindings, error)) *MockBackendAllEndpointBindingsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // AllIPAddresses mocks base method.
 func (m *MockBackend) AllIPAddresses() ([]*state.Address, error) {
 	m.ctrl.T.Helper()
@@ -238,6 +277,84 @@ func (c *MockBackendAllRemoteApplicationsCall) DoAndReturn(f func() ([]crossmode
 	return c
 }
 
+// AllStatus mocks base method.
+func (m *MockBackend) AllStatus() (*state.AllStatus, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllStatus")
+	ret0, _ := ret[0].(*state.AllStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllStatus indicates an expected call of AllStatus.
+func (mr *MockBackendMockRecorder) AllStatus() *MockBackendAllStatusCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllStatus", reflect.TypeOf((*MockBackend)(nil).AllStatus))
+	return &MockBackendAllStatusCall{Call: call}
+}
+
+// MockBackendAllStatusCall wrap *gomock.Call
+type MockBackendAllStatusCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockBackendAllStatusCall) Return(arg0 *state.AllStatus, arg1 error) *MockBackendAllStatusCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockBackendAllStatusCall) Do(f func() (*state.AllStatus, error)) *MockBackendAllStatusCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockBackendAllStatusCall) DoAndReturn(f func() (*state.AllStatus, error)) *MockBackendAllStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// AllUnits mocks base method.
+func (m *MockBackend) AllUnits() ([]*state.Unit, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllUnits")
+	ret0, _ := ret[0].([]*state.Unit)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllUnits indicates an expected call of AllUnits.
+func (mr *MockBackendMockRecorder) AllUnits() *MockBackendAllUnitsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllUnits", reflect.TypeOf((*MockBackend)(nil).AllUnits))
+	return &MockBackendAllUnitsCall{Call: call}
+}
+
+// MockBackendAllUnitsCall wrap *gomock.Call
+type MockBackendAllUnitsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockBackendAllUnitsCall) Return(arg0 []*state.Unit, arg1 error) *MockBackendAllUnitsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockBackendAllUnitsCall) Do(f func() ([]*state.Unit, error)) *MockBackendAllUnitsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockBackendAllUnitsCall) DoAndReturn(f func() ([]*state.Unit, error)) *MockBackendAllUnitsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ControllerNodes mocks base method.
 func (m *MockBackend) ControllerNodes() ([]state.ControllerNode, error) {
 	m.ctrl.T.Helper()
@@ -273,44 +390,6 @@ func (c *MockBackendControllerNodesCall) Do(f func() ([]state.ControllerNode, er
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackendControllerNodesCall) DoAndReturn(f func() ([]state.ControllerNode, error)) *MockBackendControllerNodesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ControllerTag mocks base method.
-func (m *MockBackend) ControllerTag() names.ControllerTag {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerTag")
-	ret0, _ := ret[0].(names.ControllerTag)
-	return ret0
-}
-
-// ControllerTag indicates an expected call of ControllerTag.
-func (mr *MockBackendMockRecorder) ControllerTag() *MockBackendControllerTagCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerTag", reflect.TypeOf((*MockBackend)(nil).ControllerTag))
-	return &MockBackendControllerTagCall{Call: call}
-}
-
-// MockBackendControllerTagCall wrap *gomock.Call
-type MockBackendControllerTagCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendControllerTagCall) Return(arg0 names.ControllerTag) *MockBackendControllerTagCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendControllerTagCall) Do(f func() names.ControllerTag) *MockBackendControllerTagCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendControllerTagCall) DoAndReturn(f func() names.ControllerTag) *MockBackendControllerTagCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -432,78 +511,41 @@ func (c *MockBackendMachineCall) DoAndReturn(f func(string) (*state.Machine, err
 	return c
 }
 
-// ModelTag mocks base method.
-func (m *MockBackend) ModelTag() names.ModelTag {
+// MachineConstraints mocks base method.
+func (m *MockBackend) MachineConstraints() (*state.MachineConstraints, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(names.ModelTag)
-	return ret0
+	ret := m.ctrl.Call(m, "MachineConstraints")
+	ret0, _ := ret[0].(*state.MachineConstraints)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// ModelTag indicates an expected call of ModelTag.
-func (mr *MockBackendMockRecorder) ModelTag() *MockBackendModelTagCall {
+// MachineConstraints indicates an expected call of MachineConstraints.
+func (mr *MockBackendMockRecorder) MachineConstraints() *MockBackendMachineConstraintsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelTag", reflect.TypeOf((*MockBackend)(nil).ModelTag))
-	return &MockBackendModelTagCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineConstraints", reflect.TypeOf((*MockBackend)(nil).MachineConstraints))
+	return &MockBackendMachineConstraintsCall{Call: call}
 }
 
-// MockBackendModelTagCall wrap *gomock.Call
-type MockBackendModelTagCall struct {
+// MockBackendMachineConstraintsCall wrap *gomock.Call
+type MockBackendMachineConstraintsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockBackendModelTagCall) Return(arg0 names.ModelTag) *MockBackendModelTagCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockBackendMachineConstraintsCall) Return(arg0 *state.MachineConstraints, arg1 error) *MockBackendMachineConstraintsCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBackendModelTagCall) Do(f func() names.ModelTag) *MockBackendModelTagCall {
+func (c *MockBackendMachineConstraintsCall) Do(f func() (*state.MachineConstraints, error)) *MockBackendMachineConstraintsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendModelTagCall) DoAndReturn(f func() names.ModelTag) *MockBackendModelTagCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ModelUUID mocks base method.
-func (m *MockBackend) ModelUUID() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelUUID")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// ModelUUID indicates an expected call of ModelUUID.
-func (mr *MockBackendMockRecorder) ModelUUID() *MockBackendModelUUIDCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUUID", reflect.TypeOf((*MockBackend)(nil).ModelUUID))
-	return &MockBackendModelUUIDCall{Call: call}
-}
-
-// MockBackendModelUUIDCall wrap *gomock.Call
-type MockBackendModelUUIDCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendModelUUIDCall) Return(arg0 string) *MockBackendModelUUIDCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendModelUUIDCall) Do(f func() string) *MockBackendModelUUIDCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendModelUUIDCall) DoAndReturn(f func() string) *MockBackendModelUUIDCall {
+func (c *MockBackendMachineConstraintsCall) DoAndReturn(f func() (*state.MachineConstraints, error)) *MockBackendMachineConstraintsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

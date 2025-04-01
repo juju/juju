@@ -188,10 +188,10 @@ func readConstraints(mb modelBackend, id string) (constraints.Value, error) {
 	return doc.value(), nil
 }
 
-// AllConstraints retrieves all the constraints in the model
-// and provides a way to query based on machine or application.
-func (m *Model) AllConstraints() (*ModelConstraints, error) {
-	coll, closer := m.st.db().GetCollection(constraintsC)
+// MachineConstraints retrieves all the constraints in the model
+// and provides a way to query based on machine.
+func (st *State) MachineConstraints() (*MachineConstraints, error) {
+	coll, closer := st.db().GetCollection(constraintsC)
 	defer closer()
 
 	var docs []constraintsDoc
@@ -199,23 +199,23 @@ func (m *Model) AllConstraints() (*ModelConstraints, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all constraints for model")
 	}
-	all := &ModelConstraints{
+	all := &MachineConstraints{
 		data: make(map[string]constraintsDoc),
 	}
 	for _, doc := range docs {
-		all.data[m.localID(doc.DocID)] = doc
+		all.data[st.localID(doc.DocID)] = doc
 	}
 	return all, nil
 }
 
-// ModelConstraints represents all the constraints in  a model
+// MachineConstraints represents all the constraints in  a model
 // keyed on global key.
-type ModelConstraints struct {
+type MachineConstraints struct {
 	data map[string]constraintsDoc
 }
 
 // Machine returns the constraints for the specified machine.
-func (c *ModelConstraints) Machine(machineID string) constraints.Value {
+func (c *MachineConstraints) Machine(machineID string) constraints.Value {
 	doc, found := c.data[machineGlobalKey(machineID)]
 	if !found {
 		return constraints.Value{}
