@@ -87,7 +87,7 @@ func (s *serviceSuite) TestSetControllerNodeAgentVersionSuccess(c *gc.C) {
 	s.state.EXPECT().SetRunningAgentBinaryVersion(gomock.Any(), controllerID, ver).Return(nil)
 
 	svc := NewService(s.state)
-	err := svc.SetReportedControllerNodeAgentVersion(
+	err := svc.SetControllerNodeReportedAgentVersion(
 		context.Background(),
 		controllerID,
 		ver,
@@ -104,7 +104,7 @@ func (s *serviceSuite) TestSetControllerNodeAgentVersionNotValid(c *gc.C) {
 	ver := coreagentbinary.Version{
 		Number: semversion.Zero,
 	}
-	err := svc.SetReportedControllerNodeAgentVersion(
+	err := svc.SetControllerNodeReportedAgentVersion(
 		context.Background(),
 		controllerID,
 		ver,
@@ -115,7 +115,7 @@ func (s *serviceSuite) TestSetControllerNodeAgentVersionNotValid(c *gc.C) {
 		Number: semversion.MustParse("1.2.3"),
 		Arch:   corearch.UnsupportedArches[0],
 	}
-	err = svc.SetReportedControllerNodeAgentVersion(
+	err = svc.SetControllerNodeReportedAgentVersion(
 		context.Background(),
 		controllerID,
 		ver,
@@ -135,7 +135,7 @@ func (s *serviceSuite) TestSetControllerNodeAgentVersionNotFound(c *gc.C) {
 
 	s.state.EXPECT().SetRunningAgentBinaryVersion(gomock.Any(), controllerID, ver).Return(controllernodeerrors.NotFound)
 
-	err := svc.SetReportedControllerNodeAgentVersion(
+	err := svc.SetControllerNodeReportedAgentVersion(
 		context.Background(),
 		controllerID,
 		ver,

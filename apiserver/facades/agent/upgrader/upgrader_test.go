@@ -446,7 +446,7 @@ func (s *upgraderSuite) TestSetToolsControllerNode(c *gc.C) {
 	s.authorizer.Tag = controllerTag
 	defer s.setupMocks(c).Finish()
 
-	s.controllerNodeService.EXPECT().SetReportedControllerNodeAgentVersion(
+	s.controllerNodeService.EXPECT().SetControllerNodeReportedAgentVersion(
 		gomock.Any(),
 		controllerTag.Id(),
 		coreagentbinary.Version{
@@ -478,7 +478,7 @@ func (s *upgraderSuite) TestSetToolsControllerNotFound(c *gc.C) {
 	s.authorizer.Tag = controllerTag
 	defer s.setupMocks(c).Finish()
 
-	s.controllerNodeService.EXPECT().SetReportedControllerNodeAgentVersion(
+	s.controllerNodeService.EXPECT().SetControllerNodeReportedAgentVersion(
 		gomock.Any(),
 		controllerTag.Id(),
 		coreagentbinary.Version{
@@ -515,7 +515,7 @@ func (s *upgraderSuite) TestSetToolsUnsupportedArchitecture(c *gc.C) {
 	}
 
 	ver := semversion.Number{Major: 4, Minor: 0, Patch: 0}
-	s.controllerNodeService.EXPECT().SetReportedControllerNodeAgentVersion(
+	s.controllerNodeService.EXPECT().SetControllerNodeReportedAgentVersion(
 		gomock.Any(),
 		gomock.Any(),
 		coreagentbinary.Version{
@@ -575,7 +575,7 @@ func (s *upgraderSuite) TestSetToolsInvalidVersion(c *gc.C) {
 	}
 
 	ver := semversion.Number{Major: 0, Minor: 0, Patch: 0}
-	s.controllerNodeService.EXPECT().SetReportedControllerNodeAgentVersion(
+	s.controllerNodeService.EXPECT().SetControllerNodeReportedAgentVersion(
 		gomock.Any(),
 		gomock.Any(),
 		coreagentbinary.Version{

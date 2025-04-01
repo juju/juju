@@ -89,7 +89,7 @@ type CredentialService interface {
 }
 
 type ControllerNodeService interface {
-	// SetReportedControllerNodeAgentVersion sets the agent version for the
+	// SetControllerNodeReportedAgentVersion sets the agent version for the
 	// supplied controllerID. Version represents the version of the controller
 	// node's agent binary.
 	//
@@ -97,7 +97,7 @@ type ControllerNodeService interface {
 	// - [coreerrors.NotValid] if the version is not valid.
 	// - [coreerrors.NotSupported] if the architecture is not supported.
 	// - [controllernodeerrors.NotFound] if the controller node does not exist.
-	SetReportedControllerNodeAgentVersion(context.Context, string, coreagentbinary.Version) error
+	SetControllerNodeReportedAgentVersion(context.Context, string, coreagentbinary.Version) error
 }
 
 // ModelConfigService is an interface that provides access to the
