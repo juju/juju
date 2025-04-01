@@ -13,7 +13,6 @@ import (
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	corearch "github.com/juju/juju/core/arch"
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
@@ -68,7 +67,7 @@ func (s *suite) TestGetModelAgentVersionModelNotFound(c *gc.C) {
 func (s *suite) TestGetMachineTargetAgentVersion(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	machineName := machine.Name("0")
+	machineName := coremachine.Name("0")
 	ver := semversion.MustParse("4.0.0")
 
 	s.state.EXPECT().CheckMachineExists(gomock.Any(), machineName).Return(nil)
@@ -85,13 +84,13 @@ func (s *suite) TestGetMachineTargetAgentVersion(c *gc.C) {
 func (s *suite) TestGetMachineTargetAgentVersionNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().CheckMachineExists(gomock.Any(), machine.Name("0")).Return(
+	s.state.EXPECT().CheckMachineExists(gomock.Any(), coremachine.Name("0")).Return(
 		machineerrors.MachineNotFound,
 	)
 
 	_, err := NewService(s.state, nil).GetMachineTargetAgentVersion(
 		context.Background(),
-		machine.Name("0"),
+		coremachine.Name("0"),
 	)
 	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
@@ -151,7 +150,7 @@ func (s *suite) TestWatchUnitTargetAgentVersionNotFound(c *gc.C) {
 func (s *suite) TestWatchMachineTargetAgentVersionNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().CheckMachineExists(gomock.Any(), machine.Name("0")).Return(
+	s.state.EXPECT().CheckMachineExists(gomock.Any(), coremachine.Name("0")).Return(
 		machineerrors.MachineNotFound,
 	)
 

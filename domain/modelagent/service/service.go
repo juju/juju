@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 
-	"github.com/juju/juju/core/agentbinary"
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/machine"
@@ -54,7 +53,7 @@ type State interface {
 	// - [applicationerrors.UnitNotFound] - when the unit does not exist.
 	// - [applicationerrors.UnitIsDead] - when the unit is dead.
 	// - [coreerrors.NotSupported] - when the architecture is not supported.
-	SetUnitRunningAgentBinaryVersion(context.Context, coreunit.UUID, agentbinary.Version) error
+	SetUnitRunningAgentBinaryVersion(context.Context, coreunit.UUID, coreagentbinary.Version) error
 }
 
 // WatcherFactory provides a factory for constructing new watchers.
