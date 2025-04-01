@@ -167,8 +167,6 @@ type Unit interface {
 	AssignToMachineRef(state.MachineRef) error
 	// UnitTag returns the tag of the unit.
 	UnitTag() names.UnitTag
-	// SetPassword sets the password for the unit.
-	SetPassword(string) error
 }
 
 // StateBackend is the interface that is used to get information about the

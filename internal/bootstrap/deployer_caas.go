@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
@@ -105,7 +106,7 @@ func (d *CAASDeployer) ControllerCharmBase() (corebase.Base, error) {
 
 // CompleteProcess is called when the bootstrap process is complete.
 func (d *CAASDeployer) CompleteProcess(ctx context.Context, controllerUnit Unit) error {
-	providerID := fmt.Sprintf("controller-%d", controllerUnit.UnitTag().Number())
+	providerID := controllerProviderID(controllerUnit.UnitTag())
 	controllerUnitName, err := coreunit.NewName(controllerUnit.UnitTag().Id())
 	if err != nil {
 		return errors.Annotatef(err, "parsing controller unit name %q", controllerUnit.UnitTag().Id())
@@ -128,9 +129,9 @@ func (d *CAASDeployer) CompleteProcess(ctx context.Context, controllerUnit Unit)
 		return errors.Annotate(err, "cannot update controller unit")
 	}
 
-	if err := controllerUnit.SetPassword(d.unitPassword); err != nil {
-		return errors.Annotate(err, "cannot set password for controller unit")
-	}
-
 	return nil
+}
+
+func controllerProviderID(unitTag names.UnitTag) string {
+	return fmt.Sprintf("controller-%d", unitTag.Number())
 }
