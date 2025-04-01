@@ -126,11 +126,11 @@ func (e endpoint) toRelationEndpoint() relation.Endpoint {
 		ApplicationName: e.ApplicationName,
 		Relation: charm.Relation{
 			Name:      e.EndpointName,
-			Role:      charm.RelationRole(e.Role),
+			Role:      e.Role,
 			Interface: e.Interface,
 			Optional:  e.Optional,
 			Limit:     e.Capacity,
-			Scope:     charm.RelationScope(e.Scope),
+			Scope:     e.Scope,
 		},
 	}
 }
