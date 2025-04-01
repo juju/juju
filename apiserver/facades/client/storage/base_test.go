@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/blockcommand"
 	jujustorage "github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -71,10 +72,14 @@ func (s *baseStorageSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.registry = jujustorage.StaticProviderRegistry{Providers: map[jujustorage.ProviderType]jujustorage.Provider{}}
 	s.poolsInUse = []string{}
 
-	s.api = storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.blockDeviceGetter,
+	s.api = storage.NewStorageAPIForTest(
+		coretesting.ControllerTag, coretesting.ModelTag, coremodel.IAAS,
+		s.state, s.storageAccessor, s.blockDeviceGetter,
 		s.storageService, s.storageRegistryGetter, s.authorizer,
 		s.blockCommandService)
-	s.apiCaas = storage.NewStorageAPIForTest(s.state, state.ModelTypeCAAS, s.storageAccessor, s.blockDeviceGetter,
+	s.apiCaas = storage.NewStorageAPIForTest(
+		coretesting.ControllerTag, coretesting.ModelTag, coremodel.CAAS,
+		s.state, s.storageAccessor, s.blockDeviceGetter,
 		s.storageService, s.storageRegistryGetter, s.authorizer,
 		s.blockCommandService)
 

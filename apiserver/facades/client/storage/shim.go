@@ -108,8 +108,6 @@ var getStorageAccessor = func(
 }
 
 type backend interface {
-	ControllerTag() names.ControllerTag
-	ModelTag() names.ModelTag
 	Unit(string) (Unit, error)
 }
 
@@ -123,10 +121,6 @@ type Unit interface {
 
 type stateShim struct {
 	*state.State
-}
-
-func (s stateShim) ModelTag() names.ModelTag {
-	return names.NewModelTag(s.ModelUUID())
 }
 
 func (s stateShim) Unit(name string) (Unit, error) {
