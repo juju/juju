@@ -4,33 +4,19 @@
 package sshsession
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/agent/sshsession"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/network"
 )
 
 // Logger holds the methods required to log messages.
 type Logger interface {
 	Errorf(string, ...interface{})
 	Debugf(string, ...interface{})
-}
-
-type DummyParams struct {
-	TunnelID           string
-	ModelUUID          string
-	UnitName           string
-	Expires            time.Time
-	Username           string
-	Password           string
-	ControllerAddress  network.SpaceAddresses
-	UnitPort           int
-	EphemeralPublicKey []byte
 }
 
 // ManifoldConfig holds the information necessary to run the session
@@ -81,15 +67,17 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := context.Get(config.AgentName, &agent); err != nil {
 		return nil, err
 	}
+
 	var apiCaller base.APICaller
 	if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 		return nil, err
 	}
 
 	w, err := NewWorker(WorkerConfig{
-		Logger: config.Logger,
-		// FacadeClient: todo,
-		Agent: agent,
+		Logger:           config.Logger,
+		MachineId:        agent.CurrentConfig().Tag().Id(),
+		FacadeClient:     sshsession.NewClient(apiCaller),
+		ConnectionGetter: NewConnectionGetter(config.Logger),
 	})
 
 	if err != nil {

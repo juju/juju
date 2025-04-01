@@ -10,7 +10,6 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package sshsession_test -destination ./facade_client_mock_test.go github.com/juju/juju/internal/worker/sshsession FacadeClient,Logger
-//go:generate go run go.uber.org/mock/mockgen -package sshsession_test -destination ./agent_mock_test.go github.com/juju/juju/agent Agent,Config
 //go:generate go run go.uber.org/mock/mockgen -package sshsession_test -destination ./stringswatcher_mock_test.go github.com/juju/juju/core/watcher StringsWatcher
 
 func TestPackage(t *stdtesting.T) {

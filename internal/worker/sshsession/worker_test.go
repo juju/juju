@@ -18,7 +18,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -30,13 +29,12 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/worker/sshsession"
+	"github.com/juju/juju/rpc/params"
 )
 
 type workerSuite struct {
 	testing.IsolationSuite
 
-	agentMock        *MockAgent
-	agentConfMock    *MockConfig
 	facadeClientMock *MockFacadeClient
 	watcherMock      *MockStringsWatcher
 	mockLogger       *MockLogger
@@ -48,8 +46,6 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.facadeClientMock = NewMockFacadeClient(ctrl)
-	s.agentMock = NewMockAgent(ctrl)
-	s.agentConfMock = NewMockConfig(ctrl)
 	s.watcherMock = NewMockStringsWatcher(ctrl)
 	s.mockLogger = NewMockLogger(ctrl)
 
@@ -63,8 +59,8 @@ func (s *workerSuite) newWorkerConfig(
 	cg, _, _ := newStubConnectionGetter()
 	cfg := &sshsession.WorkerConfig{
 		Logger:           logger,
+		MachineId:        "1",
 		FacadeClient:     s.facadeClientMock,
-		Agent:            s.agentMock,
 		ConnectionGetter: cg,
 	}
 
@@ -92,22 +88,22 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 	)
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
+	// Test empty MachineId.
+	cfg = s.newWorkerConfig(
+		l,
+
+		func(cfg *sshsession.WorkerConfig) {
+			cfg.MachineId = ""
+		},
+	)
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
 	// Test no FacadeClient.
 	cfg = s.newWorkerConfig(
 		l,
 
 		func(cfg *sshsession.WorkerConfig) {
 			cfg.FacadeClient = nil
-		},
-	)
-	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
-
-	// Test no Agent.
-	cfg = s.newWorkerConfig(
-		l,
-
-		func(cfg *sshsession.WorkerConfig) {
-			cfg.Agent = nil
 		},
 	)
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
@@ -129,75 +125,25 @@ func (s *workerSuite) TestSSHSessionWorkerCanBeKilled(c *gc.C) {
 
 	l := loggo.GetLogger("test")
 
-	s.agentConfMock.EXPECT().Tag().Return(names.NewMachineTag("0")).Times(1)
-	s.agentMock.EXPECT().CurrentConfig().Return(s.agentConfMock).Times(1)
-
 	stringChan := watcher.StringsChannel(make(chan []string))
-	s.watcherMock.EXPECT().Changes().Return(stringChan).Times(1)
-	s.facadeClientMock.EXPECT().WatchSSHConnRequest("0").Return(s.watcherMock, nil).Times(1)
+	s.watcherMock.EXPECT().Changes().Return(stringChan).AnyTimes()
+	s.facadeClientMock.EXPECT().WatchSSHConnRequest("0").Return(s.watcherMock, nil).AnyTimes()
+
+	// Check the water is Wait()'ed and Kill()'ed exactly once.
+	s.watcherMock.EXPECT().Wait().Times(1)
+	s.watcherMock.EXPECT().Kill().Times(1)
 
 	connGetter, _, _ := newStubConnectionGetter()
 	defer connGetter.close()
 
 	w, err := sshsession.NewWorker(sshsession.WorkerConfig{
 		Logger:           l,
+		MachineId:        "0",
 		FacadeClient:     s.facadeClientMock,
-		Agent:            s.agentMock,
 		ConnectionGetter: connGetter,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(workertest.CheckKill(c, w), jc.ErrorIsNil)
-}
-
-// TestSSHSessionWorkerFailsToValidateControllerAddress
-func (s *workerSuite) TestSSHSessionWorkerFailsToValidateControllerAddress(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	// This is generated because in the event the test fails, we want a new one
-	// so we can run the test again and expect a pass.
-	testPubKey, _, err := generateTestEd25519Keys()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.agentConfMock.EXPECT().APIAddresses().Return([]string{"127.0.0.1:17022"}, nil).Times(1)
-	s.agentConfMock.EXPECT().Tag().Return(names.NewMachineTag("0")).Times(1)
-	s.agentMock.EXPECT().CurrentConfig().Return(s.agentConfMock).Times(2)
-
-	innerChan := make(chan []string)
-	go func() {
-		innerChan <- []string{"machine-0-sshconnectionreq-0"}
-	}()
-	stringChan := watcher.StringsChannel(innerChan)
-
-	s.watcherMock.EXPECT().Changes().Return(stringChan).AnyTimes()
-	s.facadeClientMock.EXPECT().WatchSSHConnRequest("0").Return(s.watcherMock, nil).Times(1)
-	s.facadeClientMock.EXPECT().GetSSHConnRequest("machine-0-sshconnectionreq-0").Return(
-		sshsession.DummyParams{
-			ControllerAddress:  network.NewSpaceAddresses("an unknown address"),
-			EphemeralPublicKey: testPubKey,
-		},
-		nil,
-	)
-
-	// Because we're simply logging this has failed, all we can do is check the log. This is all this
-	// test is checking for, rest is setup.
-	s.mockLogger.EXPECT().Errorf("failed to handle connection %q: %v", gomock.Any(), gomock.Any()).Times(1)
-	s.mockLogger.EXPECT().Errorf("controller address %q not in known addresses %v", "an unknown address", gomock.Any()).Times(1)
-
-	connGetter, _, _ := newStubConnectionGetter()
-	defer connGetter.close()
-
-	w, err := sshsession.NewWorker(sshsession.WorkerConfig{
-		Logger:           s.mockLogger,
-		FacadeClient:     s.facadeClientMock,
-		Agent:            s.agentMock,
-		ConnectionGetter: connGetter,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, w)
-	// Have a short wait to let the handle run.
-	time.Sleep(testing.ShortWait)
-
 }
 
 // TestSSHSessionWorkerHandlesConnection tests that the worker can at least pipe the
@@ -220,22 +166,19 @@ func (s *workerSuite) TestSSHSessionWorkerHandlesConnection(c *gc.C) {
 	testPubKey, _, err := generateTestEd25519Keys()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.agentConfMock.EXPECT().APIAddresses().Return([]string{"127.0.0.1:17022"}, nil).Times(1)
-	s.agentConfMock.EXPECT().Tag().Return(names.NewMachineTag("0")).Times(1)
-	s.agentMock.EXPECT().CurrentConfig().Return(s.agentConfMock).Times(2)
-
 	innerChan := make(chan []string)
 	go func() {
 		innerChan <- []string{"machine-0-sshconnectionreq-0"}
 	}()
 	stringChan := watcher.StringsChannel(innerChan)
 
+	s.watcherMock.EXPECT().Wait()
 	s.watcherMock.EXPECT().Changes().Return(stringChan).AnyTimes()
 	s.facadeClientMock.EXPECT().WatchSSHConnRequest("0").Return(s.watcherMock, nil).Times(1)
 	s.facadeClientMock.EXPECT().GetSSHConnRequest("machine-0-sshconnectionreq-0").Return(
-		sshsession.DummyParams{
-			ControllerAddress:  network.NewSpaceAddresses("127.0.0.1:17022"),
-			EphemeralPublicKey: testPubKey,
+		params.SSHConnRequest{
+			ControllerAddresses: network.NewSpaceAddresses("127.0.0.1:17022"),
+			EphemeralPublicKey:  testPubKey,
 		},
 		nil,
 	)
@@ -265,8 +208,8 @@ func (s *workerSuite) TestSSHSessionWorkerHandlesConnection(c *gc.C) {
 
 	w, err := sshsession.NewWorker(sshsession.WorkerConfig{
 		Logger:           l,
+		MachineId:        "0",
 		FacadeClient:     s.facadeClientMock,
-		Agent:            s.agentMock,
 		ConnectionGetter: connGetter,
 	})
 	c.Assert(err, jc.ErrorIsNil)

@@ -13,7 +13,7 @@ import (
 	reflect "reflect"
 
 	watcher "github.com/juju/juju/core/watcher"
-	sshsession "github.com/juju/juju/internal/worker/sshsession"
+	params "github.com/juju/juju/rpc/params"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -41,10 +41,10 @@ func (m *MockFacadeClient) EXPECT() *MockFacadeClientMockRecorder {
 }
 
 // GetSSHConnRequest mocks base method.
-func (m *MockFacadeClient) GetSSHConnRequest(arg0 string) (sshsession.DummyParams, error) {
+func (m *MockFacadeClient) GetSSHConnRequest(arg0 string) (params.SSHConnRequest, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSSHConnRequest", arg0)
-	ret0, _ := ret[0].(sshsession.DummyParams)
+	ret0, _ := ret[0].(params.SSHConnRequest)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

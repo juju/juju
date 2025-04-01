@@ -2,23 +2,21 @@ package sshsession
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"net"
 	"net/url"
 	"os"
-	"slices"
 	"strings"
 
 	"github.com/juju/errors"
 	jujussh "github.com/juju/utils/v3/ssh"
 	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/catacomb"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 )
 
 var (
@@ -37,21 +35,19 @@ var (
 
 // FacadeClient holds the facade methods for the SSH session worker.
 type FacadeClient interface {
-	// WatchSSHConnRequest returns a watcher that will return doc ids for
-	// incoming SSH connection requests. These doc ids are to retrieve connect
-	// params from GetSSHConnRequest(docID string) (SSHConnRequest, error).
+	// WatchSSHConnRequest creates a watcher and returns its ID for watching changes.
 	WatchSSHConnRequest(machineId string) (watcher.StringsWatcher, error)
 
-	// GetSSHConnRequest returns the SSH connection request for the given docID.
-	GetSSHConnRequest(docID string) (DummyParams, error)
+	// GetSSHConnRequest returns a ssh connection request by its connection request ID.
+	GetSSHConnRequest(arg string) (params.SSHConnRequest, error)
 }
 
 // WorkerConfig encapsulates the configuration options for
 // instantiating a new lease ssh session worker.
 type WorkerConfig struct {
 	Logger           Logger
+	MachineId        string
 	FacadeClient     FacadeClient
-	Agent            agent.Agent
 	ConnectionGetter ConnectionGetter
 }
 
@@ -60,11 +56,11 @@ func (cfg WorkerConfig) Validate() error {
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
+	if cfg.MachineId == "" {
+		return errors.NotValidf("empty MachineId")
+	}
 	if cfg.FacadeClient == nil {
 		return errors.NotValidf("nil FacadeClient")
-	}
-	if cfg.Agent == nil {
-		return errors.NotValidf("nil Agent")
 	}
 	if cfg.ConnectionGetter == nil {
 		return errors.NotValidf("nil ConnectionGetter")
@@ -80,11 +76,11 @@ func (cfg WorkerConfig) Validate() error {
 // SSH connection down the tunnel and the sshSessionWorker pipes it to the SSHD
 // on the machine.
 type sshSessionWorker struct {
-	tomb tomb.Tomb
+	catacomb catacomb.Catacomb
 
 	logger           Logger
+	machineId        string
 	facadeClient     FacadeClient
-	agent            agent.Agent
 	connectionGetter ConnectionGetter
 }
 
@@ -96,12 +92,19 @@ func NewWorker(cfg WorkerConfig) (worker.Worker, error) {
 
 	w := &sshSessionWorker{
 		logger:           cfg.Logger,
+		machineId:        cfg.MachineId,
 		facadeClient:     cfg.FacadeClient,
-		agent:            cfg.Agent,
 		connectionGetter: cfg.ConnectionGetter,
 	}
 
-	w.tomb.Go(w.loop)
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &w.catacomb,
+		Work: w.loop,
+	})
+
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return w, nil
 }
 
@@ -109,21 +112,24 @@ func NewWorker(cfg WorkerConfig) (worker.Worker, error) {
 // and handles them by initiating a reverse SSH connection to the controller and piping
 // it to the local sshd of the machine agent's machine.
 func (w *sshSessionWorker) loop() error {
-	machineId := w.agent.CurrentConfig().Tag().Id()
-	sw, err := w.facadeClient.WatchSSHConnRequest(machineId)
+	connRequestWatcher, err := w.facadeClient.WatchSSHConnRequest(w.machineId)
 	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := w.catacomb.Add(connRequestWatcher); err != nil {
 		return errors.Trace(err)
 	}
 
 	for {
 		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case changes := <-sw.Changes():
-			for _, docID := range changes {
-				err := w.handleConnection(docID)
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+		case changes := <-connRequestWatcher.Changes():
+			for _, connId := range changes {
+				err := w.handleConnection(connId)
 				if err != nil {
-					w.logger.Errorf("failed to handle connection %q: %v", docID, err)
+					w.logger.Errorf("failed to handle connection %q: %v", connId, err)
 				}
 			}
 		}
@@ -132,12 +138,12 @@ func (w *sshSessionWorker) loop() error {
 
 // Kill implements the worker.Worker interface.
 func (w *sshSessionWorker) Kill() {
-	w.tomb.Kill(nil)
+	w.catacomb.Kill(nil)
 }
 
 // Wait implements the worker.Worker interface.
 func (w *sshSessionWorker) Wait() error {
-	return w.tomb.Wait()
+	return w.catacomb.Wait()
 }
 
 // handleConnection handles initiating a reverse SSH connection to the controller
@@ -151,19 +157,15 @@ func (w *sshSessionWorker) Wait() error {
 //     back from the controller's SSH server.
 //  5. Pipes the connection to the local sshd.
 //  6. On connection close, removes the ephemeral public key from the authorized_keys2 file.
-func (w *sshSessionWorker) handleConnection(docID string) error {
-	reqParams, err := w.facadeClient.GetSSHConnRequest(docID)
+func (w *sshSessionWorker) handleConnection(connID string) error {
+	reqParams, err := w.facadeClient.GetSSHConnRequest(connID)
 	if err != nil {
 		w.logger.Errorf("failed to get SSH connection request: %v", err)
 		return errors.Trace(err)
 	}
 
-	ctrlAddress := reqParams.ControllerAddress.Values()[0]
+	ctrlAddress := reqParams.ControllerAddresses.Values()[0]
 	ephemeralPublicKey := string(reqParams.EphemeralPublicKey)
-
-	if err := w.verifyControllerAddress(ctrlAddress); err != nil {
-		return errors.Trace(err)
-	}
 
 	if err = jujussh.AddKeysToFile(ControllerSSHUser, AuthorizedKeysFile, []string{ephemeralPublicKey}); err != nil {
 		w.logger.Errorf("failed to add ephemeral public key to %s: %v", AuthorizedKeysFile, err)
@@ -179,23 +181,6 @@ func (w *sshSessionWorker) handleConnection(docID string) error {
 	if err := w.pipeConnectionToSSHD(ctrlAddress, reqParams.Password); err != nil {
 		w.logger.Errorf("Error piping connection: %v", err)
 		return errors.Trace(err)
-	}
-
-	return nil
-}
-
-// verifyControllerAddress verifies that the provided address is known to the agent configuration.
-func (w *sshSessionWorker) verifyControllerAddress(ctrlAddress string) error {
-	knownAddresses, err := w.agent.CurrentConfig().APIAddresses()
-	if err != nil {
-		w.logger.Errorf("failed to get api addresses: %v", err)
-		return errors.Trace(err)
-	}
-
-	if !slices.Contains(knownAddresses, ctrlAddress) {
-		msg := fmt.Sprintf("controller address %q not in known addresses %v", ctrlAddress, knownAddresses)
-		w.logger.Errorf("controller address %q not in known addresses %v", ctrlAddress, knownAddresses)
-		return errors.New(msg)
 	}
 
 	return nil
