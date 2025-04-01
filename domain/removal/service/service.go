@@ -20,6 +20,8 @@ import (
 
 // State describes retrieval and persistence methods for entity removal.
 type State interface {
+	// GetAllJobs returns all removal jobs.
+	GetAllJobs(ctx context.Context) ([]removal.Job, error)
 
 	// RelationExists returns true if a relation exists with the input UUID.
 	RelationExists(ctx context.Context, rUUID string) (bool, error)
@@ -52,6 +54,15 @@ type Service struct {
 
 	clock  clock.Clock
 	logger logger.Logger
+}
+
+// GetAllJobs returns all removal jobs.
+func (s *Service) GetAllJobs(ctx context.Context) ([]removal.Job, error) {
+	jobs, err := s.st.GetAllJobs(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return jobs, nil
 }
 
 // RemoveRelation checks if a relation with the input UUID exists.

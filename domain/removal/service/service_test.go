@@ -14,6 +14,8 @@ import (
 
 	corerelation "github.com/juju/juju/core/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/domain/removal"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -25,6 +27,46 @@ type serviceSuite struct {
 }
 
 var _ = gc.Suite(&serviceSuite{})
+
+func (s *serviceSuite) TestGetAllJobsSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	dbJobs := []removal.Job{
+		{
+			UUID:         "job-1",
+			RemovalType:  removal.RelationJob,
+			EntityUUID:   "rel-1",
+			Force:        false,
+			ScheduledFor: time.Now().UTC(),
+		},
+		{
+			UUID:         "job-2",
+			RemovalType:  removal.RelationJob,
+			EntityUUID:   "rel-2",
+			Force:        true,
+			ScheduledFor: time.Now().UTC().Add(time.Hour),
+			Arg: map[string]any{
+				"key": "value",
+			},
+		},
+	}
+
+	s.state.EXPECT().GetAllJobs(gomock.Any()).Return(dbJobs, nil)
+
+	jobs, err := s.newService(c).GetAllJobs(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(jobs, jc.DeepEquals, dbJobs)
+}
+
+func (s *serviceSuite) TestGetAllJobsError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetAllJobs(gomock.Any()).Return(nil, errors.New("the front fell off"))
+
+	jobs, err := s.newService(c).GetAllJobs(context.Background())
+	c.Assert(err, gc.ErrorMatches, "the front fell off")
+	c.Check(jobs, gc.IsNil)
+}
 
 func (s *serviceSuite) TestRemoveRelationNoForceSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()

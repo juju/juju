@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 	time "time"
 
+	removal "github.com/juju/juju/domain/removal"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -38,6 +39,45 @@ func NewMockState(ctrl *gomock.Controller) *MockState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
+}
+
+// GetAllJobs mocks base method.
+func (m *MockState) GetAllJobs(arg0 context.Context) ([]removal.Job, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllJobs", arg0)
+	ret0, _ := ret[0].([]removal.Job)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllJobs indicates an expected call of GetAllJobs.
+func (mr *MockStateMockRecorder) GetAllJobs(arg0 any) *MockStateGetAllJobsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllJobs", reflect.TypeOf((*MockState)(nil).GetAllJobs), arg0)
+	return &MockStateGetAllJobsCall{Call: call}
+}
+
+// MockStateGetAllJobsCall wrap *gomock.Call
+type MockStateGetAllJobsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAllJobsCall) Return(arg0 []removal.Job, arg1 error) *MockStateGetAllJobsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAllJobsCall) Do(f func(context.Context) ([]removal.Job, error)) *MockStateGetAllJobsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAllJobsCall) DoAndReturn(f func(context.Context) ([]removal.Job, error)) *MockStateGetAllJobsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // NamespaceForWatchRemovals mocks base method.
