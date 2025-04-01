@@ -3,10 +3,16 @@
 
 package state
 
-// architectureRecord represents a architecture entry in the database.
+// architectureRecord represents an architecture row in the database.
 type architectureRecord struct {
 	ID   int    `db:"id"`
 	Name string `db:"name"`
+}
+
+// objectStoreUUID is a database type for representing the uuid of an object
+// store metadata row.
+type objectStoreUUID struct {
+	UUID string `db:"uuid"`
 }
 
 // objectStoreMeta represents the object store metadata in the database.

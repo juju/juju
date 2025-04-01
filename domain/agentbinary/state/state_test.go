@@ -13,6 +13,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain/agentbinary"
+	agentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -36,66 +37,71 @@ func (s *stateSuite) TestAddSuccess(c *gc.C) {
 	objStoreUUID := s.addObjectStoreMetadata(c)
 
 	err := s.state.Add(context.Background(), agentbinary.Metadata{
-		Version:         "2.9.0",
+		Version:         "4.0.0",
 		Arch:            "amd64",
 		ObjectStoreUUID: objStoreUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	record := s.getAgentBinaryRecord(c, "2.9.0", archID)
-	c.Assert(record.Version, gc.Equals, "2.9.0")
-	c.Assert(record.ArchitectureID, gc.Equals, archID)
-	c.Assert(record.ObjectStoreUUID, gc.Equals, string(objStoreUUID))
+	record := s.getAgentBinaryRecord(c, "4.0.0", archID)
+	c.Check(record.Version, gc.Equals, "4.0.0")
+	c.Check(record.ArchitectureID, gc.Equals, archID)
+	c.Check(record.ObjectStoreUUID, gc.Equals, objStoreUUID.String())
 }
 
-// TestAddUpdatesExisting asserts that Add will update the metadata if it already exists.
-func (s *stateSuite) TestAddUpdatesExisting(c *gc.C) {
+// TestAddAlreadyExists asserts that an error is returned when the agent binary
+// already exists. The error will satisfy [agentbinaryerrors.AlreadyExists].
+func (s *stateSuite) TestAddAlreadyExists(c *gc.C) {
 	archID := s.addArchitecture(c, "amd64")
 	objStoreUUID1 := s.addObjectStoreMetadata(c)
 	objStoreUUID2 := s.addObjectStoreMetadata(c)
 
-	s.addAgentBinary(c, "2.9.0", archID, string(objStoreUUID1))
-
 	err := s.state.Add(context.Background(), agentbinary.Metadata{
-		Version:         "2.9.0",
+		Version:         "4.0.0",
+		Arch:            "amd64",
+		ObjectStoreUUID: objStoreUUID1,
+	})
+	c.Check(err, jc.ErrorIsNil)
+
+	err = s.state.Add(context.Background(), agentbinary.Metadata{
+		Version:         "4.0.0",
 		Arch:            "amd64",
 		ObjectStoreUUID: objStoreUUID2,
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIs, agentbinaryerrors.AlreadyExists)
 
-	record := s.getAgentBinaryRecord(c, "2.9.0", archID)
-	c.Assert(record.Version, gc.Equals, "2.9.0")
-	c.Assert(record.ArchitectureID, gc.Equals, archID)
-	c.Assert(record.ObjectStoreUUID, gc.Equals, string(objStoreUUID2))
+	record := s.getAgentBinaryRecord(c, "4.0.0", archID)
+	c.Check(record.Version, gc.Equals, "4.0.0")
+	c.Check(record.ArchitectureID, gc.Equals, archID)
+	c.Check(record.ObjectStoreUUID, gc.Equals, objStoreUUID1.String())
 }
 
-// TestAddErrorArchitectureNotFound asserts that a NotSupported error is returned
-// when the architecture is not found.
+// TestAddErrorArchitectureNotFound asserts that a [coreerrors.NotSupported]
+// error is returned when the architecture is not found.
 func (s *stateSuite) TestAddErrorArchitectureNotFound(c *gc.C) {
 	objStoreUUID := s.addObjectStoreMetadata(c)
 
 	err := s.state.Add(context.Background(), agentbinary.Metadata{
-		Version:         "2.9.0",
+		Version:         "4.0.0",
 		Arch:            "non-existent-arch",
 		ObjectStoreUUID: objStoreUUID,
 	})
-	c.Assert(err, jc.ErrorIs, coreerrors.NotSupported)
+	c.Check(err, jc.ErrorIs, coreerrors.NotSupported)
 }
 
-// TestAddErrorObjectStoreUUIDNotFound asserts that a NotFound error is returned
-// when the object store UUID is not found.
+// TestAddErrorObjectStoreUUIDNotFound asserts that a
+// [agentbinaryerrors.ObjectNotFound] error is returned when the object store
+// UUID is not found.
 func (s *stateSuite) TestAddErrorObjectStoreUUIDNotFound(c *gc.C) {
 	s.addArchitecture(c, "amd64")
 
 	err := s.state.Add(context.Background(), agentbinary.Metadata{
-		Version:         "2.9.0",
+		Version:         "4.0.0",
 		Arch:            "amd64",
 		ObjectStoreUUID: objectstore.UUID(uuid.MustNewUUID().String()),
 	})
-	c.Assert(err, jc.ErrorIs, coreerrors.NotFound)
+	c.Check(err, jc.ErrorIs, agentbinaryerrors.ObjectNotFound)
 }
-
-// Helper methods
 
 func (s *stateSuite) addArchitecture(c *gc.C, name string) int {
 	runner := s.TxnRunner()
@@ -160,32 +166,12 @@ func (s *stateSuite) addObjectStoreMetadata(c *gc.C) objectstore.UUID {
 	return objectstore.UUID(storeUUID)
 }
 
-func (s *stateSuite) addAgentBinary(c *gc.C, version string, archID int, objStoreUUID string) {
-	runner := s.TxnRunner()
-
-	stmt, err := sqlair.Prepare(`
-		INSERT INTO agent_binary_store (version, architecture_id, object_store_uuid)
-		VALUES ($agentBinaryRecord.version, $agentBinaryRecord.architecture_id, $agentBinaryRecord.object_store_uuid)
-	`, agentBinaryRecord{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	record := agentBinaryRecord{
-		Version:         version,
-		ArchitectureID:  archID,
-		ObjectStoreUUID: objStoreUUID,
-	}
-	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, record).Run()
-	})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *stateSuite) getAgentBinaryRecord(c *gc.C, version string, archID int) agentBinaryRecord {
 	runner := s.TxnRunner()
 
 	stmt, err := sqlair.Prepare(`
-		SELECT version AS &agentBinaryRecord.version, 
-		       architecture_id AS &agentBinaryRecord.architecture_id, 
+		SELECT version AS &agentBinaryRecord.version,
+		       architecture_id AS &agentBinaryRecord.architecture_id,
 		       object_store_uuid AS &agentBinaryRecord.object_store_uuid
 		FROM agent_binary_store
 		WHERE version = $agentBinaryRecord.version AND architecture_id = $agentBinaryRecord.architecture_id

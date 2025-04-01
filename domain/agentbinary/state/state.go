@@ -10,8 +10,11 @@ import (
 
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/agentbinary"
+	agentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
+	jujudb "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -20,7 +23,8 @@ type State struct {
 	*domain.StateBase
 }
 
-// NewState returns a new State for interacting with the underlying state.
+// NewState returns a new State for interacting with agent binaries stored in
+// the database.
 func NewState(factory database.TxnRunnerFactory) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
@@ -28,86 +32,114 @@ func NewState(factory database.TxnRunnerFactory) *State {
 }
 
 // Add adds a new agent binary's metadata to the database.
-// It returns coreerrors.AlreadyExists if a record with the given version and arch already exists.
-// It returns coreerrors.NotSupported if the architecture is not found in the database.
-// It returns coreerrors.NotFound if object store UUID is not found in the database.
+// [agentbinaryerrors.AlreadyExists] when the provided agent binary already
+// exists.
+// [agentbinaryerrors.ObjectNotFound] when no object exists that matches
+// this agent binary.
+// [coreerrors.NotSupported] if the architecture is not supported by the
+// state layer.
 func (s *State) Add(ctx context.Context, metadata agentbinary.Metadata) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	architectureRecord := architectureRecord{Name: metadata.Arch}
-	objectStoreMeta := objectStoreMeta{UUID: string(metadata.ObjectStoreUUID)}
-	agentBinaryRecord := agentBinaryRecord{
+	archVal := architectureRecord{Name: metadata.Arch}
+	agentBinary := agentBinaryRecord{
 		Version:         metadata.Version,
-		ArchitectureID:  architectureRecord.ID,
-		ObjectStoreUUID: string(metadata.ObjectStoreUUID),
+		ObjectStoreUUID: metadata.ObjectStoreUUID.String(),
 	}
 
-	// Prepare the statements we'll need
 	archStmt, err := s.Prepare(`
-SELECT id AS &archRecord.id
+SELECT &architectureRecord.*
 FROM architecture
-WHERE name = $archRecord.name
-`, architectureRecord)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	objStoreStmt, err := s.Prepare(`
-SELECT uuid AS &objStoreMeta.uuid
-FROM object_store_metadata 
-WHERE uuid = $objStoreMeta.uuid
-`, objectStoreMeta)
+WHERE name = $architectureRecord.name
+`, archVal)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	insertStmt, err := s.Prepare(`
-INSERT INTO agent_binary_store (
-	version,
-	architecture_id,
-	object_store_uuid
-) VALUES (
-	$agentBinaryRecord.version,
-	$agentBinaryRecord.architecture_id,
-	$agentBinaryRecord.object_store_uuid
-)
-`, agentBinaryRecord)
+INSERT INTO agent_binary_store (*) VALUES ($agentBinaryRecord.*)
+`, agentBinary)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// First, check if the architecture exists and get its ID
-		err := tx.Query(ctx, archStmt, architectureRecord).Get(&architectureRecord)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("architecture %q", metadata.Arch).Add(coreerrors.NotSupported)
-		} else if err != nil {
-			return errors.Capture(err)
-		}
-
-		// Then check if the object store UUID exists
-		err = tx.Query(ctx, objStoreStmt, objectStoreMeta).Get(&objectStoreMeta)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.New("object store UUID not found").
-				Add(coreerrors.NotFound)
-		} else if err != nil {
-			return errors.Capture(err)
-		}
-
-		err = tx.Query(ctx, insertStmt, agentBinaryRecord).Run()
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Check if the object exists in the database for RI.
+		exists, err := s.checkObjectExists(ctx, tx, metadata.ObjectStoreUUID)
 		if err != nil {
-			// Check if this is a duplicate key error
-			if errors.Is() {
-				return errors.New("agent binary metadata already exists").
-					Add(coreerrors.AlreadyExists)
-			}
-			return errors.Errorf("adding agent binary metadata for version %q and architecture %q: %w",
-				metadata.Version, metadata.Arch, err)
+			return errors.Capture(err)
+		}
+		if !exists {
+			return errors.Errorf(
+				"object with id %q does not exist in store",
+				metadata.ObjectStoreUUID,
+			).Add(agentbinaryerrors.ObjectNotFound)
+		}
+
+		// Check if the architecture exists and get its ID
+		err = tx.Query(ctx, archStmt, archVal).Get(&archVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"architecture %q is not supported",
+				metadata.Arch,
+			).Add(coreerrors.NotSupported)
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+
+		agentBinary.ArchitectureID = archVal.ID
+
+		err = tx.Query(ctx, insertStmt, agentBinary).Run()
+		if jujudb.IsErrConstraintPrimaryKey(err) {
+			return errors.New(
+				"agent binary already exists",
+			).Add(agentbinaryerrors.AlreadyExists)
+		} else if err != nil {
+			return errors.Capture(err)
 		}
 
 		return nil
 	})
+
+	if err != nil {
+		return errors.Errorf(
+			"adding agent binary for version %q and arch %q to state: %w",
+			metadata.Version, metadata.Arch, err,
+		)
+	}
+	return nil
+}
+
+// checkObjectExists checks if an object exists for the given UUID. True and
+// false will be returned with no error indicating if the object exists or not.
+func (s *State) checkObjectExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	objectUUID objectstore.UUID,
+) (bool, error) {
+	dbVal := objectStoreUUID{UUID: objectUUID.String()}
+	objectExistsStmt, err := s.Prepare(`
+SELECT &objectStoreUUID.*
+FROM object_store_metadata
+WHERE uuid = $objectStoreUUID.uuid
+`,
+		dbVal,
+	)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, objectExistsStmt, dbVal).Get(&dbVal)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Errorf(
+			"checking if object for store uuid %q exists: %w",
+			objectUUID, err,
+		)
+	}
+	return true, nil
 }
