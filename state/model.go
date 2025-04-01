@@ -643,8 +643,8 @@ func (m *Model) refresh(uuid string) error {
 }
 
 // AllUnits returns all units for a model, for all applications.
-func (m *Model) AllUnits() ([]*Unit, error) {
-	coll, closer := m.st.db().GetCollection(unitsC)
+func (st *State) AllUnits() ([]*Unit, error) {
+	coll, closer := st.db().GetCollection(unitsC)
 	defer closer()
 
 	docs := []unitDoc{}
@@ -652,9 +652,14 @@ func (m *Model) AllUnits() ([]*Unit, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all units for model")
 	}
+
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	var units []*Unit
 	for i := range docs {
-		units = append(units, newUnit(m.st, m.Type(), &docs[i]))
+		units = append(units, newUnit(st, m.Type(), &docs[i]))
 	}
 	return units, nil
 }
@@ -721,8 +726,8 @@ func (m *Model) unitCount() (int, error) {
 
 // AllEndpointBindings returns all endpoint->space bindings
 // keyed by application name.
-func (m *Model) AllEndpointBindings() (map[string]*Bindings, error) {
-	endpointBindings, closer := m.st.db().GetCollection(endpointBindingsC)
+func (st *State) AllEndpointBindings() (map[string]*Bindings, error) {
+	endpointBindings, closer := st.db().GetCollection(endpointBindingsC)
 	defer closer()
 
 	var docs []endpointBindingsDoc
@@ -734,14 +739,14 @@ func (m *Model) AllEndpointBindings() (map[string]*Bindings, error) {
 	appEndpointBindings := make(map[string]*Bindings, 0)
 	for _, doc := range docs {
 		var applicationName string
-		applicationKey := m.localID(doc.DocID)
+		applicationKey := st.localID(doc.DocID)
 		if strings.HasPrefix(applicationKey, "a#") {
 			applicationName = applicationKey[2:]
 		} else {
 			return nil, errors.NotValidf("application key %v", applicationKey)
 		}
 
-		bindings, err := NewBindings(m.st, doc.Bindings)
+		bindings, err := NewBindings(st, doc.Bindings)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot make bindings")
 		}

@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // machineShim implements Machine.
@@ -46,33 +45,20 @@ func (m *machineShim) Units() ([]Unit, error) {
 // stateShim forwards and adapts state.State
 // methods to Backing methods.
 type stateShim struct {
-	stateenvirons.EnvironConfigGetter
 	*state.State
-	model *state.Model
 }
 
 // NewStateShim returns a new state shim.
-func NewStateShim(st *state.State, cloudService CloudService, credentialService CredentialService, modelConfigService ModelConfigService) (*stateShim, error) {
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func NewStateShim(st *state.State) (*stateShim, error) {
 	return &stateShim{
-		EnvironConfigGetter: stateenvirons.EnvironConfigGetter{
-			Model:              m,
-			CloudService:       cloudService,
-			CredentialService:  credentialService,
-			ModelConfigService: modelConfigService,
-		},
 		State: st,
-		model: m,
 	}, nil
 }
 
 // AllEndpointBindings returns all endpoint bindings,
 // with the map values indirected.
 func (s *stateShim) AllEndpointBindings() (map[string]Bindings, error) {
-	allBindings, err := s.model.AllEndpointBindings()
+	allBindings, err := s.AllEndpointBindings()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

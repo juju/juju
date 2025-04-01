@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
@@ -57,9 +56,6 @@ type Bindings interface {
 
 // Backing describes the state methods used in this package.
 type Backing interface {
-	// ModelTag returns the tag of this model.
-	ModelTag() names.ModelTag
-
 	// AllEndpointBindings loads all endpointBindings.
 	AllEndpointBindings() (map[string]Bindings, error)
 

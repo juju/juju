@@ -21,17 +21,18 @@ import (
 // allowing stubs to be created for testing.
 type Backend interface {
 	AllApplications() ([]*state.Application, error)
+	AllUnits() ([]*state.Unit, error)
 	AllRemoteApplications() ([]commoncrossmodel.RemoteApplication, error)
 	AllMachines() ([]*state.Machine, error)
 	AllIPAddresses() ([]*state.Address, error)
 	AllLinkLayerDevices() ([]*state.LinkLayerDevice, error)
+	AllEndpointBindings() (map[string]*state.Bindings, error)
+	AllStatus() (*state.AllStatus, error)
 	ControllerNodes() ([]state.ControllerNode, error)
-	ControllerTag() names.ControllerTag
 	ControllerTimestamp() (*time.Time, error)
 	HAPrimaryMachine() (names.MachineTag, error)
 	Machine(string) (*state.Machine, error)
-	ModelTag() names.ModelTag
-	ModelUUID() string
+	MachineConstraints() (*state.MachineConstraints, error)
 	Unit(string) (Unit, error)
 }
 
@@ -51,7 +52,6 @@ type Unit interface {
 // removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
-	model      *state.Model
 	session    MongoSession
 	cmrBackend commoncrossmodel.Backend
 }
@@ -66,10 +66,6 @@ func (s *stateShim) Unit(name string) (Unit, error) {
 		return nil, err
 	}
 	return u, nil
-}
-
-func (s stateShim) ModelTag() names.ModelTag {
-	return names.NewModelTag(s.State.ModelUUID())
 }
 
 func (s stateShim) ControllerNodes() ([]state.ControllerNode, error) {

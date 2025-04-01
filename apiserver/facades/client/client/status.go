@@ -62,23 +62,20 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		statusService:      c.statusService,
 	}
 
-	modelInfo, err := c.modelInfoService.GetModelInfo(ctx)
-	if err != nil {
+	var err error
+	if context.model, err = c.modelInfoService.GetModelInfo(ctx); err != nil {
 		return noStatus, fmt.Errorf("getting model info: %w", err)
 	}
-	context.providerType = modelInfo.CloudType
+	context.providerType = context.model.CloudType
 
 	if context.spaceInfos, err = c.networkService.GetAllSpaces(ctx); err != nil {
 		return noStatus, internalerrors.Errorf("cannot obtain space information: %w", err)
 	}
-	if context.model, err = c.state().Model(); err != nil {
-		return noStatus, internalerrors.Errorf("could not fetch model: %w", err)
-	}
-	if context.status, err = context.model.LoadModelStatus(); err != nil {
+	if context.status, err = c.stateAccessor.AllStatus(); err != nil {
 		return noStatus, internalerrors.Errorf("could not load model status values: %w", err)
 	}
 	if context.allAppsUnitsCharmBindings, err =
-		fetchAllApplicationsAndUnits(ctx, c.applicationService, c.stateAccessor, context.model, context.spaceInfos); err != nil {
+		fetchAllApplicationsAndUnits(ctx, c.applicationService, c.stateAccessor, context.spaceInfos); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch applications and units: %w", err)
 	}
 	if context.consumerRemoteApplications, err =
@@ -518,16 +515,17 @@ type statusContext struct {
 	statusService      StatusService
 
 	providerType string
-	model        *state.Model
-	status       *state.ModelStatus
+	model        model.ModelInfo
+
+	status *state.AllStatus
 
 	// machines: top-level machine id -> list of machines nested in
 	// this machine.
 	machines map[string][]*state.Machine
 	// allMachines: machine id -> machine
 	// The machine in this map is the same machine in the machines map.
-	allMachines    map[string]*state.Machine
-	allConstraints *state.ModelConstraints
+	allMachines        map[string]*state.Machine
+	machineConstraints *state.MachineConstraints
 
 	// controllerNodes: node id -> controller node
 	controllerNodes map[string]state.ControllerNode
@@ -574,7 +572,7 @@ type statusContext struct {
 //
 // If machineIds is non-nil, only machines whose IDs are in the set are returned.
 func (context *statusContext) fetchMachines(st Backend) error {
-	if context.model.Type() == state.ModelTypeCAAS {
+	if context.model.Type == model.CAAS {
 		return nil
 	}
 	context.machines = make(map[string][]*state.Machine)
@@ -598,7 +596,7 @@ func (context *statusContext) fetchMachines(st Backend) error {
 		}
 	}
 
-	context.allConstraints, err = context.model.AllConstraints()
+	context.machineConstraints, err = st.MachineConstraints()
 	if err != nil {
 		return err
 	}
@@ -709,7 +707,7 @@ func fetchNetworkInterfaces(st Backend, subnetInfos network.SubnetInfos, spaceIn
 
 // fetchAllApplicationsAndUnits returns a map from application name to application,
 // a map from application name to unit name to unit, and a map from base charm URL to latest URL.
-func fetchAllApplicationsAndUnits(ctx context.Context, applicationService ApplicationService, st Backend, model *state.Model, spaceInfos network.SpaceInfos) (applicationStatusInfo, error) {
+func fetchAllApplicationsAndUnits(ctx context.Context, applicationService ApplicationService, st Backend, spaceInfos network.SpaceInfos) (applicationStatusInfo, error) {
 	var (
 		appMap       = make(map[string]*state.Application)
 		unitMap      = make(map[string]map[string]*state.Unit)
@@ -720,7 +718,7 @@ func fetchAllApplicationsAndUnits(ctx context.Context, applicationService Applic
 	if err != nil {
 		return applicationStatusInfo{}, err
 	}
-	units, err := model.AllUnits()
+	units, err := st.AllUnits()
 	if err != nil {
 		return applicationStatusInfo{}, err
 	}
@@ -740,7 +738,7 @@ func fetchAllApplicationsAndUnits(ctx context.Context, applicationService Applic
 		allUnits[unit.Name()] = unit
 	}
 
-	endpointBindings, err := model.AllEndpointBindings()
+	endpointBindings, err := st.AllEndpointBindings()
 	if err != nil {
 		return applicationStatusInfo{}, err
 	}
@@ -1022,7 +1020,7 @@ func (c *statusContext) makeMachineStatus(
 		status.InstanceId = "pending"
 	}
 
-	constraints := c.allConstraints.Machine(machineID)
+	constraints := c.machineConstraints.Machine(machineID)
 	status.Constraints = constraints.String()
 
 	hc, err := machineService.HardwareCharacteristics(ctx, machineUUID)
@@ -1206,8 +1204,7 @@ func (context *statusContext) processApplication(ctx context.Context, applicatio
 		processedStatus.WorkloadVersion = versions[0].Message
 	}
 
-	modelType := context.model.Type()
-	if modelType == state.ModelTypeCAAS {
+	if context.model.Type == model.CAAS {
 		serviceInfo, err := application.ServiceInfo()
 		if err == nil {
 			processedStatus.ProviderId = serviceInfo.ProviderId()
@@ -1342,7 +1339,7 @@ func (context *statusContext) processUnit(ctx context.Context, unit *state.Unit,
 	if prs, ok := context.allOpenPortRanges[unitName]; ok {
 		result.OpenedPorts = transform.Slice(prs, network.PortRange.String)
 	}
-	if context.model.Type() == state.ModelTypeIAAS {
+	if context.model.Type == model.IAAS {
 		result.PublicAddress = context.unitPublicAddress(unit)
 	} else {
 		// For CAAS units we want to provide the container address.
