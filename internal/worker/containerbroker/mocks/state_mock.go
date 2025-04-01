@@ -162,13 +162,12 @@ func (c *MockStateGetContainerProfileInfoCall) DoAndReturn(f func(context.Contex
 }
 
 // HostChangesForContainer mocks base method.
-func (m *MockState) HostChangesForContainer(arg0 context.Context, arg1 names.MachineTag) ([]network0.DeviceToBridge, int, error) {
+func (m *MockState) HostChangesForContainer(arg0 context.Context, arg1 names.MachineTag) ([]network0.DeviceToBridge, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HostChangesForContainer", arg0, arg1)
 	ret0, _ := ret[0].([]network0.DeviceToBridge)
-	ret1, _ := ret[1].(int)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // HostChangesForContainer indicates an expected call of HostChangesForContainer.
@@ -184,19 +183,19 @@ type MockStateHostChangesForContainerCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateHostChangesForContainerCall) Return(arg0 []network0.DeviceToBridge, arg1 int, arg2 error) *MockStateHostChangesForContainerCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
+func (c *MockStateHostChangesForContainerCall) Return(arg0 []network0.DeviceToBridge, arg1 error) *MockStateHostChangesForContainerCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateHostChangesForContainerCall) Do(f func(context.Context, names.MachineTag) ([]network0.DeviceToBridge, int, error)) *MockStateHostChangesForContainerCall {
+func (c *MockStateHostChangesForContainerCall) Do(f func(context.Context, names.MachineTag) ([]network0.DeviceToBridge, error)) *MockStateHostChangesForContainerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateHostChangesForContainerCall) DoAndReturn(f func(context.Context, names.MachineTag) ([]network0.DeviceToBridge, int, error)) *MockStateHostChangesForContainerCall {
+func (c *MockStateHostChangesForContainerCall) DoAndReturn(f func(context.Context, names.MachineTag) ([]network0.DeviceToBridge, error)) *MockStateHostChangesForContainerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
