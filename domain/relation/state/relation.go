@@ -124,8 +124,20 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 r
 		if l := len(endpoints); l != 2 {
 			return errors.Errorf("internal error: expected 2 endpoints in relation, got %d", l)
 		}
-		endpoint1 = endpoints[0]
-		endpoint2 = endpoints[1]
+
+		// order results to have the same order between input candidate and output result
+		for _, e := range endpoints {
+			if e.ApplicationName == ep1.ApplicationName && e.Name == ep1.EndpointName {
+				endpoint1 = e
+			} else {
+				endpoint2 = e
+			}
+		}
+		if len(endpoint1.Name) == 0 || len(endpoint2.Name) == 0 {
+			// should not happens, unless above resolution loop is broken or
+			// db corrupted.
+			return errors.Errorf("unexpected empty endpoint name")
+		}
 
 		return nil
 	})
@@ -407,7 +419,6 @@ func (st *State) getEndpoints(
 SELECT &endpoint.*
 FROM   v_relation_endpoint
 WHERE  relation_uuid = $relationUUID.uuid
-ORDER  BY application_name, endpoint_name, role
 `, id, endpoint{})
 	if err != nil {
 		return nil, errors.Capture(err)
