@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
+	passworderrors "github.com/juju/juju/domain/password/errors"
 	internalpassword "github.com/juju/juju/internal/password"
 )
 
@@ -48,11 +48,11 @@ func (s *serviceSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
 	password, err := internalpassword.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, applicationerrors.UnitNotFound)
+	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, passworderrors.UnitNotFound)
 
 	service := NewService(s.state)
 	err = service.SetUnitPassword(context.Background(), unitName, password)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, jc.ErrorIs, passworderrors.UnitNotFound)
 }
 
 func (s *serviceSuite) TestSetUnitPasswordInvalidName(c *gc.C) {
@@ -105,11 +105,11 @@ func (s *serviceSuite) TestIsValidUnitPasswordUnitNotFound(c *gc.C) {
 	password, err := internalpassword.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, applicationerrors.UnitNotFound)
+	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, passworderrors.UnitNotFound)
 
 	service := NewService(s.state)
 	_, err = service.IsValidUnitPassword(context.Background(), unitName, password)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, jc.ErrorIs, passworderrors.UnitNotFound)
 }
 
 func (s *serviceSuite) TestIsValidUnitPasswordInvalidName(c *gc.C) {

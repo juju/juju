@@ -11,7 +11,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coreunit "github.com/juju/juju/core/unit"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
+	passworderrors "github.com/juju/juju/domain/password/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
@@ -81,7 +81,7 @@ func (pc *PasswordChanger) setPassword(ctx context.Context, tag names.Tag, passw
 	case names.UnitTagKind:
 		unitTag := tag.(names.UnitTag)
 		unitName := coreunit.Name(unitTag.Id())
-		if err := pc.passwordService.SetUnitPassword(ctx, unitName, password); errors.Is(err, applicationerrors.UnitNotFound) {
+		if err := pc.passwordService.SetUnitPassword(ctx, unitName, password); errors.Is(err, passworderrors.UnitNotFound) {
 			return errors.NotFoundf("unit %q", tag.Id())
 		} else if err != nil {
 			return internalerrors.Errorf("setting password for %q: %w", tag, err)

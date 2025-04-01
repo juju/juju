@@ -15,7 +15,7 @@ import (
 // State gets and sets the state of the service.
 type State interface {
 	// GetUnitUUID returns the UUID of the unit with the given name, returning
-	// an error satisfying [applicationerrors.UnitNotFound] if the unit does not
+	// an error satisfying [passworderrors.UnitNotFound] if the unit does not
 	// exist.
 	GetUnitUUID(context.Context, unit.Name) (unit.UUID, error)
 
@@ -39,7 +39,7 @@ func NewService(st State) *Service {
 }
 
 // SetUnitPassword sets the password for the given unit. If the unit does not
-// exist, an error satisfying [applicationerrors.UnitNotFound] is returned.
+// exist, an error satisfying [passworderrors.UnitNotFound] is returned.
 func (s *Service) SetUnitPassword(ctx context.Context, unitName unit.Name, password string) error {
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)

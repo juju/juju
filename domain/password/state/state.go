@@ -11,8 +11,8 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/password"
+	passworderrors "github.com/juju/juju/domain/password/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -64,7 +64,7 @@ WHERE uuid = $unitPasswordHash.uuid;
 		if affected, err := result.RowsAffected(); err != nil {
 			return errors.Errorf("getting number of affected rows: %w", err)
 		} else if affected == 0 {
-			return applicationerrors.UnitNotFound
+			return passworderrors.UnitNotFound
 		}
 		return nil
 	})
@@ -105,7 +105,7 @@ AND password_hash = $validateUnitPasswordHash.password_hash;
 }
 
 // GetUnitUUID returns the UUID of the unit with the given name, returning an
-// error satisfying [applicationerrors.UnitNotFound] if the unit does not exist.
+// error satisfying [passworderrors.UnitNotFound] if the unit does not exist.
 func (st *State) GetUnitUUID(ctx context.Context, unitName unit.Name) (unit.UUID, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -134,7 +134,7 @@ WHERE name=$unitName.name`, u)
 
 	err = tx.Query(ctx, selectUnitUUIDStmt, u).Get(&u)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", errors.Errorf("%s %w", name, applicationerrors.UnitNotFound)
+		return "", errors.Errorf("%s %w", name, passworderrors.UnitNotFound)
 	} else if err != nil {
 		return "", errors.Errorf("looking up unit UUID for %q: %w", name, err)
 	}

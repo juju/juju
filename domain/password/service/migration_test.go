@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/password"
+	passworderrors "github.com/juju/juju/domain/password/errors"
 	"github.com/juju/juju/internal/errors"
 	internalpassword "github.com/juju/juju/internal/password"
 )
@@ -83,11 +83,11 @@ func (s *migrationServiceSuite) TestSetUnitPasswordHashNotFound(c *gc.C) {
 
 	passwordHash := password.PasswordHash(rand)
 
-	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, applicationerrors.UnitNotFound)
+	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, passworderrors.UnitNotFound)
 
 	service := NewMigrationService(s.state)
 	err = service.SetUnitPasswordHash(context.Background(), unitName, passwordHash)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, jc.ErrorIs, passworderrors.UnitNotFound)
 }
 
 func (s *migrationServiceSuite) TestSetUnitPasswordHashSettingError(c *gc.C) {
