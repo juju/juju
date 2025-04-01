@@ -916,15 +916,22 @@ func (st *State) insertUnit(
 		return "", "", errors.Capture(err)
 	}
 	createParams := unitDetails{
-		ApplicationID: appUUID,
-		UnitUUID:      unitUUID,
-		Name:          args.UnitName,
-		NetNodeID:     nodeUUID.String(),
-		LifeID:        life.Alive,
+		ApplicationID:  appUUID,
+		UnitUUID:       unitUUID,
+		Name:           args.UnitName,
+		NetNodeID:      nodeUUID.String(),
+		LifeID:         life.Alive,
+		OSID:           int(args.Platform.OSType),
+		ArchitectureID: int(args.Platform.Architecture),
 	}
 	if args.Password != nil {
 		createParams.PasswordHash = args.Password.PasswordHash
 		createParams.PasswordHashAlgorithmID = args.Password.HashAlgorithm
+	}
+	if args.Channel != nil {
+		createParams.Track = args.Channel.Track
+		createParams.Branch = args.Channel.Branch
+		createParams.Risk = string(args.Channel.Risk)
 	}
 
 	createUnit := `INSERT INTO unit (*) VALUES ($unitDetails.*)`

@@ -118,6 +118,11 @@ type unitDetails struct {
 	LifeID                  life.Life          `db:"life_id"`
 	PasswordHash            string             `db:"password_hash"`
 	PasswordHashAlgorithmID int                `db:"password_hash_algorithm_id"`
+	Track                   string             `db:"track"`
+	Risk                    string             `db:"risk"`
+	Branch                  string             `db:"branch"`
+	OSID                    int                `db:"os_id"`
+	ArchitectureID          int                `db:"architecture_id"`
 }
 
 type unitPassword struct {

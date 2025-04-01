@@ -388,9 +388,9 @@ func (s *stateSuite) ensureUnit(c *gc.C, unitName, uuid string) {
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO unit (uuid, name, application_uuid, net_node_uuid, life_id)
-VALUES (?, ?, ?, ?, ?)
-`, uuid, unitName, "123", "321", "0")
+INSERT INTO unit (uuid, name, application_uuid, net_node_uuid, life_id, risk, os_id, architecture_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`, uuid, unitName, "123", "321", "0", "stable", "0", "0")
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

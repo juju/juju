@@ -102,12 +102,12 @@ func (s *resourceSuite) SetUpTest(c *gc.C) {
 			return errors.Capture(err)
 		}
 
-		_, err = tx.ExecContext(ctx, `INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?)`,
-			s.constants.fakeUnitUUID1, s.constants.fakeUnitName1, 0 /* alive */, s.constants.fakeApplicationUUID1, fakeNetNodeUUID,
+		_, err = tx.ExecContext(ctx, `INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid, risk, os_id, architecture_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?, ?, ?)`,
+			s.constants.fakeUnitUUID1, s.constants.fakeUnitName1, 0 /* alive */, s.constants.fakeApplicationUUID1, fakeNetNodeUUID, "stable", "0", "0",
 			s.constants.fakeUnitUUID2, s.constants.fakeUnitName2, 0 /* alive */, s.constants.fakeApplicationUUID1,
-			fakeNetNodeUUID,
+			fakeNetNodeUUID, "stable", "0", "0",
 			s.constants.fakeUnitUUID3, s.constants.fakeUnitName3, 0 /* alive */, s.constants.fakeApplicationUUID1,
-			fakeNetNodeUUID,
+			fakeNetNodeUUID, "stable", "0", "0",
 		)
 		if err != nil {
 			return errors.Capture(err)

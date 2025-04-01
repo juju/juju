@@ -220,6 +220,12 @@ type InsertUnitArg struct {
 	Storage          []ApplicationStorageArg
 	StoragePoolKind  map[string]storage.StorageKind
 	StorageParentDir string
+	// Platform contains the platform information for the unit. The
+	// operating system and architecture.
+	Platform Platform
+	// Channel contains the channel information for the unit. The track,
+	// risk and branch of the charm when it was downloaded from the charm store.
+	Channel *Channel
 	UnitStatusArg
 }
 

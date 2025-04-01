@@ -23,6 +23,11 @@ CREATE TABLE unit (
     resolve_kind_id INT NOT NULL DEFAULT 0,
     password_hash_algorithm_id TEXT,
     password_hash TEXT,
+    track TEXT,
+    risk TEXT NOT NULL,
+    branch TEXT,
+    os_id TEXT NOT NULL,
+    architecture_id INT NOT NULL,
     CONSTRAINT fk_unit_life
     FOREIGN KEY (life_id)
     REFERENCES life (id),
@@ -40,7 +45,13 @@ CREATE TABLE unit (
     REFERENCES charm (uuid),
     CONSTRAINT fk_unit_password_hash_algorithm
     FOREIGN KEY (password_hash_algorithm_id)
-    REFERENCES password_hash_algorithm (id)
+    REFERENCES password_hash_algorithm (id),
+    CONSTRAINT fk_unit_os
+    FOREIGN KEY (os_id)
+    REFERENCES os (id),
+    CONSTRAINT fk_unit_architecture
+    FOREIGN KEY (architecture_id)
+    REFERENCES architecture (id)
 );
 
 CREATE UNIQUE INDEX idx_unit_name

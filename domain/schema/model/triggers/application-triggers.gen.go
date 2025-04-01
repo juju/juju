@@ -241,7 +241,12 @@ WHEN
 	(NEW.charm_uuid != OLD.charm_uuid OR (NEW.charm_uuid IS NOT NULL AND OLD.charm_uuid IS NULL) OR (NEW.charm_uuid IS NULL AND OLD.charm_uuid IS NOT NULL)) OR
 	NEW.resolve_kind_id != OLD.resolve_kind_id OR
 	(NEW.password_hash_algorithm_id != OLD.password_hash_algorithm_id OR (NEW.password_hash_algorithm_id IS NOT NULL AND OLD.password_hash_algorithm_id IS NULL) OR (NEW.password_hash_algorithm_id IS NULL AND OLD.password_hash_algorithm_id IS NOT NULL)) OR
-	(NEW.password_hash != OLD.password_hash OR (NEW.password_hash IS NOT NULL AND OLD.password_hash IS NULL) OR (NEW.password_hash IS NULL AND OLD.password_hash IS NOT NULL)) 
+	(NEW.password_hash != OLD.password_hash OR (NEW.password_hash IS NOT NULL AND OLD.password_hash IS NULL) OR (NEW.password_hash IS NULL AND OLD.password_hash IS NOT NULL)) OR
+	(NEW.track != OLD.track OR (NEW.track IS NOT NULL AND OLD.track IS NULL) OR (NEW.track IS NULL AND OLD.track IS NOT NULL)) OR
+	NEW.risk != OLD.risk OR
+	(NEW.branch != OLD.branch OR (NEW.branch IS NOT NULL AND OLD.branch IS NULL) OR (NEW.branch IS NULL AND OLD.branch IS NOT NULL)) OR
+	NEW.os_id != OLD.os_id OR
+	NEW.architecture_id != OLD.architecture_id 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));

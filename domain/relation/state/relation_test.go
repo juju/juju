@@ -809,9 +809,9 @@ VALUES (?)
 `, fakeNetNodeUUID)
 
 	s.query(c, `
-INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid)
-VALUES (?,?,?,?,?)
-`, unitUUID, unitName, 0 /* alive */, appUUID, fakeNetNodeUUID)
+INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid, risk, os_id, architecture_id)
+VALUES (?,?,?,?,?,?,?,?)
+`, unitUUID, unitName, 0 /* alive */, appUUID, fakeNetNodeUUID, "stable", "0", "0")
 }
 
 // addApplicationEndpoint inserts a new application endpoint into the database with the specified UUIDs and relation data.
