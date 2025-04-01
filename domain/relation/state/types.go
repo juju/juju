@@ -4,6 +4,7 @@
 package state
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/juju/core/application"
@@ -101,6 +102,12 @@ type endpoint struct {
 	Scope string `db:"scope"`
 	// ApplicationName is the name of the application this endpoint belongs to.
 	ApplicationName string `db:"application_name"`
+}
+
+// String returns a formatted string representation combining
+// the ApplicationName and EndpointName of the endpoint.
+func (e endpoint) String() string {
+	return fmt.Sprintf("%s:%s", e.ApplicationName, e.EndpointName)
 }
 
 // toRelationEndpoint converts an endpoint read out of the database to a

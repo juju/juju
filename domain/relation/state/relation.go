@@ -79,8 +79,15 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 r
 
 		// Check the relation doesn't already exist.
 		if err := st.relationAlreadyExists(ctx, tx, ep1, ep2); err != nil {
-			return errors.Errorf("relation %q: %w", fmt.Sprintf("%s:%s %s:%s",
-				ep1.ApplicationName, ep1.EndpointName, ep2.ApplicationName, ep2.EndpointName), err)
+			return errors.Errorf("relation %s %s: %w", ep1, ep2, err)
+		}
+
+		// Check that adding a relation won't exceed any endpoint limit
+		if err := st.checkEndpointCapacity(ctx, tx, ep1); err != nil {
+			return errors.Errorf("relation %s %s: %w", ep1, ep2, err)
+		}
+		if err := st.checkEndpointCapacity(ctx, tx, ep2); err != nil {
+			return errors.Errorf("relation %s %s: %w", ep1, ep2, err)
 		}
 
 		// Insert a new relation with a new relation UUID.
@@ -91,8 +98,7 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 r
 
 		// Insert relation status
 		if err := st.insertNewRelationStatus(ctx, tx, relUUID); err != nil {
-			return errors.Errorf("inserting new relation %q: %w", fmt.Sprintf("%s:%s %s:%s",
-				ep1.ApplicationName, ep1.EndpointName, ep2.ApplicationName, ep2.EndpointName), err)
+			return errors.Errorf("inserting new relation %s %s: %w", ep1, ep2, err)
 		}
 
 		// Insert both relation_endpoint from application_endpoint_uuid and relation
@@ -1034,6 +1040,31 @@ WHERE  uuid = $search.uuid
 		return false, errors.Errorf("query %q: %w", query, err)
 	}
 	return true, nil
+}
+
+// checkEndpointCapacity validates whether adding a new relation to the given
+// endpoint exceeds its defined capacity limit.
+func (st *State) checkEndpointCapacity(ctx context.Context, tx *sqlair.TX, ep endpoint) error {
+	type related struct {
+		Count int `db:"count"`
+	}
+	countStmt, err := st.Prepare(`
+SELECT count(*) AS &related.count
+FROM relation_endpoint
+WHERE endpoint_uuid = $endpoint.endpoint_uuid`, related{}, ep)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	var found related
+	if err = tx.Query(ctx, countStmt, ep).Get(&found); err != nil {
+		return errors.Errorf("querying relation linked to endpoint %q: %w", ep, err)
+	}
+	if ep.Capacity > 0 && found.Count >= ep.Capacity {
+		return errors.Errorf("establishing a new relation for %s would exceed its maximum relation limit of %d", ep,
+			ep.Capacity).Add(relationerrors.EndpointQuotaLimitExceeded)
+	}
+
+	return nil
 }
 
 // getAllRelations retrieves all relations from the database, returning a slice

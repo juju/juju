@@ -73,4 +73,7 @@ const (
 	// RelationAlreadyExists indicates an error when attempting to create a relation
 	// that already exists between applications.
 	RelationAlreadyExists = errors.ConstError("already exists")
+
+	// EndpointQuotaLimitExceeded is returned when an operation fails due to exceeding the defined quota limits for an endpoint.
+	EndpointQuotaLimitExceeded = errors.ConstError("quota limit exceeded")
 )

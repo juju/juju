@@ -194,6 +194,90 @@ func (s *addRelationSuite) TestAddRelationErrorCandidateIsPeer(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, relationerrors.CompatibleEndpointsNotFound)
 }
 
+func (s *addRelationSuite) TestAddRelationErrorProviderCapacityExceeded(c *gc.C) {
+	// Arrange
+	relProvider := charm.Relation{
+		Name:  "prov",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal,
+		Limit: 1,
+	}
+	relRequirer := charm.Relation{
+		Name:  "req",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	}
+	appUUID1 := s.addApplication(c, "application-1")
+	appUUID2 := s.addApplication(c, "application-2")
+	appUUID3 := s.addApplication(c, "application-3")
+	s.addApplicationEndpointFromRelation(c, appUUID1, relProvider)
+	s.addApplicationEndpointFromRelation(c, appUUID2, relRequirer)
+	s.addApplicationEndpointFromRelation(c, appUUID3, relRequirer)
+
+	// Act
+	_, _, err := s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-1",
+		EndpointName:    "prov",
+	}, relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-2",
+		EndpointName:    "req",
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while inserting the first relation: %s",
+		errors.ErrorStack(err)))
+	_, _, err = s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-1",
+		EndpointName:    "prov",
+	}, relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-3",
+		EndpointName:    "req",
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.EndpointQuotaLimitExceeded)
+}
+
+func (s *addRelationSuite) TestAddRelationErrorRequirerCapacityExceeded(c *gc.C) {
+	// Arrange
+	relProvider := charm.Relation{
+		Name:  "prov",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal,
+	}
+	relRequirer := charm.Relation{
+		Name:  "req",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+		Limit: 1,
+	}
+	appUUID1 := s.addApplication(c, "application-1")
+	appUUID2 := s.addApplication(c, "application-2")
+	appUUID3 := s.addApplication(c, "application-3")
+	s.addApplicationEndpointFromRelation(c, appUUID1, relProvider)
+	s.addApplicationEndpointFromRelation(c, appUUID2, relProvider)
+	s.addApplicationEndpointFromRelation(c, appUUID3, relRequirer)
+
+	// Act
+	_, _, err := s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-1",
+		EndpointName:    "prov",
+	}, relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-3",
+		EndpointName:    "req",
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Act) unexpected error while inserting the first relation: %s",
+		errors.ErrorStack(err)))
+	_, _, err = s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-2",
+		EndpointName:    "prov",
+	}, relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-3",
+		EndpointName:    "req",
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.EndpointQuotaLimitExceeded)
+}
+
 func (s *addRelationSuite) TestInferEndpoints(c *gc.C) {
 	// Arrange:
 	db, err := s.state.DB()
@@ -471,12 +555,13 @@ func (s *addRelationSuite) addApplicationEndpointFromRelation(c *gc.C,
 
 	// Add relation to charm
 	s.query(c, `
-INSERT INTO charm_relation (uuid, charm_uuid, kind_id, name, interface, role_id, scope_id)
-SELECT ?, ?, 0, ?, ?, crr.id, crs.id
+INSERT INTO charm_relation (uuid, charm_uuid, kind_id, name, interface, capacity, role_id,  scope_id)
+SELECT ?, ?, 0, ?, ?, ?, crr.id, crs.id
 FROM charm_relation_scope crs
 JOIN charm_relation_role crr ON crr.name = ?
 WHERE crs.name = ?
-`, charmRelationUUID.String(), charmUUID.String(), relation.Name, relation.Interface, relation.Role, relation.Scope)
+`, charmRelationUUID.String(), charmUUID.String(), relation.Name,
+		relation.Interface, relation.Limit, relation.Role, relation.Scope)
 
 	// application endpoint
 	s.query(c, `
