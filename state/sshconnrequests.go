@@ -53,7 +53,8 @@ type SSHConnRequestArg struct {
 	Password string
 	// ControllerAddresses holds the IP of the controller unit to be used by the machine agent when opening an ssh connection.
 	ControllerAddresses network.SpaceAddresses
-	// UnitPort holds the unit port, to be used in remote forwarding.
+	// UnitPort holds the port that the unit worker will forward traffic to on the machine.
+	// If this is 0, the unit worker will dynamically determine the sshd port.
 	UnitPort int
 	// EphemeralPublicKey holds the public key to be added to machine's authorized_keys for the lifetime of the ssh connection.
 	EphemeralPublicKey []byte

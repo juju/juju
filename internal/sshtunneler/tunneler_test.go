@@ -10,7 +10,6 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/lestrrat-go/jwx/v2/jwa"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -44,8 +43,6 @@ func (s *sshTunnelerSuite) newTunnelTracker(c *gc.C) *Tracker {
 		ControllerInfo: s.controller,
 		Dialer:         s.dialer,
 		Clock:          s.clock,
-		SharedSecret:   []byte("test-secret"),
-		JWTAlg:         jwa.HS256,
 	}
 	tunnelTracker, err := NewTracker(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,7 +84,7 @@ func (s *sshTunnelerSuite) TestTunneler(c *gc.C) {
 	}
 	c.Assert(tunnels, gc.HasLen, 1)
 
-	tID, err := tunnelTracker.AuthenticateTunnel("reverse-tunnel", sshConnArgs.Password)
+	tID, err := tunnelTracker.AuthenticateTunnel(reverseTunnelUser, sshConnArgs.Password)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tID, gc.Equals, tunnels[0])
 
@@ -130,13 +127,12 @@ func (s *sshTunnelerSuite) TestAuthenticateTunnel(c *gc.C) {
 	tunnelTracker := s.newTunnelTracker(c)
 
 	now := time.Now()
-	s.clock.EXPECT().Now().AnyTimes().Return(now)
 
-	expiry := now.Add(maxTimeout)
 	tunnelID := "test-tunnel-id"
-	token, err := tunnelTracker.authn.generatePassword(tunnelID, expiry)
+	token, err := tunnelTracker.authn.generatePassword(tunnelID, now)
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.clock.EXPECT().Now().AnyTimes().Return(now)
 	authTunnelID, err := tunnelTracker.AuthenticateTunnel(reverseTunnelUser, token)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(authTunnelID, gc.Equals, tunnelID)
@@ -189,7 +185,7 @@ func (s *sshTunnelerSuite) TestRequestTunnel(c *gc.C) {
 	tunnelTracker := s.newTunnelTracker(c)
 
 	now := time.Now()
-	s.clock.EXPECT().Now().AnyTimes().Return(now)
+	s.clock.EXPECT().Now().Times(1).Return(now)
 	s.controller.EXPECT().Addresses().Return([]network.SpaceAddress{
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
 	})
@@ -239,15 +235,13 @@ func (s *sshTunnelerSuite) TestWaitTimeout(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "waiting for tunnel: context deadline exceeded")
 }
 
-func (s *sshTunnelerSuite) TestNewTunnelTracker(c *gc.C) {
+func (s *sshTunnelerSuite) TestNewTunnelTrackerValidation(c *gc.C) {
 	// Test case: All arguments are valid
 	args := TrackerArgs{
 		State:          s.state,
 		ControllerInfo: s.controller,
 		Dialer:         s.dialer,
 		Clock:          s.clock,
-		SharedSecret:   []byte("test-secret"),
-		JWTAlg:         jwa.HS256,
 	}
 	tunnelTracker, err := NewTracker(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -278,12 +272,5 @@ func (s *sshTunnelerSuite) TestNewTunnelTracker(c *gc.C) {
 	args.Clock = nil
 	tunnelTracker, err = NewTracker(args)
 	c.Assert(err, gc.ErrorMatches, "clock is required")
-	c.Assert(tunnelTracker, gc.IsNil)
-
-	// Test case: Missing SharedSecret
-	args.Clock = s.clock
-	args.SharedSecret = nil
-	tunnelTracker, err = NewTracker(args)
-	c.Assert(err, gc.ErrorMatches, "shared secret is required")
 	c.Assert(tunnelTracker, gc.IsNil)
 }

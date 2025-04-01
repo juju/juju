@@ -4,6 +4,7 @@
 package sshtunneler
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"time"
 
@@ -23,12 +24,27 @@ type tunnelAuthentication struct {
 	clock        clock.Clock
 }
 
-func (tAuth *tunnelAuthentication) generatePassword(tunnelID string, expiry time.Time) (string, error) {
+func newTunnelAuthentication(clock clock.Clock) (tunnelAuthentication, error) {
+	// The shared secret is generated dynamically because
+	// user's SSH connections to the controller are tied
+	// to the life of the Tracker object.
+	key := make([]byte, 64) // 64 bytes for HS512
+	if _, err := rand.Read(key); err != nil {
+		return tunnelAuthentication{}, errors.Annotate(err, "failed to generate shared secret")
+	}
+	return tunnelAuthentication{
+		sharedSecret: key,
+		jwtAlg:       jwa.HS512,
+		clock:        clock,
+	}, nil
+}
+
+func (tAuth *tunnelAuthentication) generatePassword(tunnelID string, now time.Time) (string, error) {
 	token, err := jwt.NewBuilder().
 		Issuer(tokenIssuer).
 		Subject(tokenSubject).
-		IssuedAt(tAuth.clock.Now()).
-		Expiration(expiry).
+		IssuedAt(now).
+		Expiration(now.Add(maxTimeout)).
 		Claim(tunnelIDClaimKey, tunnelID).
 		Build()
 	if err != nil {

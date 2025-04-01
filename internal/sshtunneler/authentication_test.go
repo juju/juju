@@ -8,7 +8,6 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -28,12 +27,10 @@ func (s *authenticationSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *authenticationSuite) newAuthn(_ *gc.C) tunnelAuthentication {
-	return tunnelAuthentication{
-		sharedSecret: []byte("test-secret"),
-		jwtAlg:       jwa.HS256,
-		clock:        s.clock,
-	}
+func (s *authenticationSuite) newAuthn(c *gc.C) tunnelAuthentication {
+	authn, err := newTunnelAuthentication(s.clock)
+	c.Assert(err, jc.ErrorIsNil)
+	return authn
 }
 
 func (s *authenticationSuite) TestGeneratePassword(c *gc.C) {
@@ -42,17 +39,18 @@ func (s *authenticationSuite) TestGeneratePassword(c *gc.C) {
 	authn := s.newAuthn(c)
 
 	now := time.Now()
-	s.clock.EXPECT().Now().AnyTimes().Return(now)
 
 	tunnelID := "test-tunnel-id"
-	token, err := authn.generatePassword(tunnelID, now.Add(maxTimeout))
+	token, err := authn.generatePassword(tunnelID, now)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(token, gc.Not(gc.Equals), "")
 
 	rawToken, err := base64.StdEncoding.DecodeString(token)
 	c.Assert(err, jc.ErrorIsNil)
 
-	parsedToken, err := jwt.Parse(rawToken, jwt.WithKey(authn.jwtAlg, authn.sharedSecret))
+	s.clock.EXPECT().Now().AnyTimes().Return(now)
+
+	parsedToken, err := jwt.Parse(rawToken, jwt.WithKey(authn.jwtAlg, authn.sharedSecret), jwt.WithClock(s.clock))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(parsedToken.Subject(), gc.Equals, tokenSubject)
 	c.Assert(parsedToken.PrivateClaims()[tunnelIDClaimKey], gc.Equals, tunnelID)
@@ -75,13 +73,12 @@ func (s *authenticationSuite) TestValidatePasswordExpiredToken(c *gc.C) {
 	authn := s.newAuthn(c)
 
 	now := time.Now()
-	s.clock.EXPECT().Now().Times(2).Return(now)
 
-	expiry := now.Add(maxTimeout)
 	tunnelID := "test-tunnel-id"
-	token, err := authn.generatePassword(tunnelID, expiry)
+	token, err := authn.generatePassword(tunnelID, now)
 	c.Assert(err, jc.ErrorIsNil)
 
+	expiry := now.Add(maxTimeout)
 	s.clock.EXPECT().Now().AnyTimes().Return(expiry)
 
 	_, err = authn.validatePassword(token)

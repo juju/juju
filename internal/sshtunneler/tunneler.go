@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/lestrrat-go/jwx/v2/jwa"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/network"
@@ -22,7 +21,7 @@ import (
 
 const (
 	maxTimeout        = 60 * time.Second
-	reverseTunnelUser = "reverse-tunnel"
+	reverseTunnelUser = "juju-reverse-tunnel"
 	tokenIssuer       = "sshtunneler"
 	tokenSubject      = "reverse-tunnel"
 	tunnelIDClaimKey  = "tunnelID"
@@ -73,36 +72,33 @@ type TrackerArgs struct {
 	ControllerInfo ControllerInfo
 	Dialer         SSHDial
 	Clock          clock.Clock
+}
 
-	// SharedSecret is the secret used to sign and validate JWTs.
-	SharedSecret []byte
-	// JWTAlg is the algorithm used to sign JWTs and should match
-	// the strength (number of bytes) of the SharedSecret.
-	JWTAlg jwa.KeyAlgorithm
+func (args *TrackerArgs) validate() error {
+	if args.State == nil {
+		return errors.New("state is required")
+	}
+	if args.ControllerInfo == nil {
+		return errors.New("controller info is required")
+	}
+	if args.Dialer == nil {
+		return errors.New("dialer is required")
+	}
+	if args.Clock == nil {
+		return errors.New("clock is required")
+	}
+	return nil
 }
 
 // NewTracker creates a new tunnel tracker.
 func NewTracker(args TrackerArgs) (*Tracker, error) {
-	if args.State == nil {
-		return nil, errors.New("state is required")
-	}
-	if args.ControllerInfo == nil {
-		return nil, errors.New("controller info is required")
-	}
-	if args.Dialer == nil {
-		return nil, errors.New("dialer is required")
-	}
-	if args.Clock == nil {
-		return nil, errors.New("clock is required")
-	}
-	if args.SharedSecret == nil {
-		return nil, errors.New("shared secret is required")
+	if err := args.validate(); err != nil {
+		return nil, err
 	}
 
-	authn := tunnelAuthentication{
-		jwtAlg:       args.JWTAlg,
-		sharedSecret: args.SharedSecret,
-		clock:        args.Clock,
+	authn, err := newTunnelAuthentication(args.Clock)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Tracker{
@@ -148,9 +144,9 @@ func (tt *Tracker) RequestTunnel(req RequestArgs) (*Request, error) {
 	// We use the same expiry for the password and the state entry.
 	// The state's expiry is used to clean up any dangling requests.
 	// The password expiry is used to invalidate old passwords.
-	expiry := tt.clock.Now().Add(maxTimeout)
+	now := tt.clock.Now()
 
-	password, err := tt.authn.generatePassword(tunnelID.String(), expiry)
+	password, err := tt.authn.generatePassword(tunnelID.String(), now)
 	if err != nil {
 		return nil, err
 	}
@@ -164,11 +160,11 @@ func (tt *Tracker) RequestTunnel(req RequestArgs) (*Request, error) {
 		TunnelID:            tunnelID.String(),
 		ModelUUID:           req.ModelUUID,
 		MachineId:           req.MachineID,
-		Expires:             expiry,
+		Expires:             now.Add(maxTimeout),
 		Username:            reverseTunnelUser,
 		Password:            password,
 		ControllerAddresses: tt.controller.Addresses(),
-		UnitPort:            22,
+		UnitPort:            0, // Allow the unit worker to determine the port.
 		EphemeralPublicKey:  publicKey.Marshal(),
 	}
 
