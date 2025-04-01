@@ -181,12 +181,12 @@ func (f *fakeAPI) SetHostMachineNetworkConfig(ctx context.Context, hostMachineTa
 	return nil
 }
 
-func (f *fakeAPI) HostChangesForContainer(ctx context.Context, machineTag names.MachineTag) ([]network.DeviceToBridge, int, error) {
+func (f *fakeAPI) HostChangesForContainer(ctx context.Context, machineTag names.MachineTag) ([]network.DeviceToBridge, error) {
 	f.MethodCall(f, "HostChangesForContainer", machineTag)
 	if err := f.NextErr(); err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	return []network.DeviceToBridge{f.fakeDeviceToBridge}, 0, nil
+	return []network.DeviceToBridge{f.fakeDeviceToBridge}, nil
 }
 
 func (f *fakeAPI) PrepareHost(ctx context.Context, containerTag names.MachineTag, log corelogger.Logger, abort <-chan struct{}) error {
