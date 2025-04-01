@@ -5,6 +5,8 @@ package state
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/sha512"
 
 	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
@@ -149,14 +151,13 @@ func (s *stateSuite) addObjectStoreMetadata(c *gc.C) objectstore.UUID {
 	`, objectStoreMeta{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Generate unique SHA values using UUIDs
-	sha256Val := "sha256-" + uuid.MustNewUUID().String()
-	sha384Val := "sha384-" + uuid.MustNewUUID().String()
+	sha256Val := sha256.Sum256([]byte(storeUUID))
+	sha384Val := sha512.Sum384([]byte(storeUUID))
 
 	record := objectStoreMeta{
 		UUID:   storeUUID,
-		SHA256: sha256Val,
-		SHA384: sha384Val,
+		SHA256: string(sha256Val[:]),
+		SHA384: string(sha384Val[:]),
 		Size:   1234,
 	}
 	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
