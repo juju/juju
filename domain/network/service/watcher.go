@@ -24,20 +24,24 @@ type WatchableService struct {
 
 // NewWatchableService returns a new watchable service reference wrapping the
 // input state and provider.
-func NewWatchableService(st State, provider providertracker.ProviderGetter[Provider], watcherFactory WatcherFactory, logger logger.Logger) *WatchableService {
+func NewWatchableService(st State,
+	providerWithNetworking providertracker.ProviderGetter[ProviderWithNetworking],
+	providerWithZones providertracker.ProviderGetter[ProviderWithZones],
+	watcherFactory WatcherFactory, logger logger.Logger) *WatchableService {
 	return &WatchableService{
 		ProviderService: ProviderService{
 			Service: Service{
 				st:     st,
 				logger: logger,
 			},
-			provider: provider,
+			providerWithNetworking: providerWithNetworking,
+			providerWithZones:      providerWithZones,
 		},
 		watcherFactory: watcherFactory,
 	}
 }
 
-// Watch returns a watcher that observes changes to subnets and their
+// WatchSubnets returns a watcher that observes changes to subnets and their
 // association (fan underlays), filtered based on the provided list of subnets
 // to watch.
 func (s *WatchableService) WatchSubnets(ctx context.Context, subnetUUIDsToWatch set.Strings) (watcher.StringsWatcher, error) {

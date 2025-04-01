@@ -13,10 +13,17 @@ import (
 	"github.com/juju/juju/environs"
 )
 
-// Provider is the interface that the network service requires to be able to
+// ProviderWithNetworking is the interface that the network service requires to be able to
 // interact with the underlying provider.
-type Provider interface {
+type ProviderWithNetworking interface {
 	environs.Networking
+}
+
+// ProviderWithZones is the interface that the network service requires to be able to
+// interact with the underlying provider.
+type ProviderWithZones interface {
+	// AvailabilityZones returns all availability zones in the provider.
+	AvailabilityZones(ctx context.Context) (network.AvailabilityZones, error)
 }
 
 // WatcherFactory describes methods for creating watchers.

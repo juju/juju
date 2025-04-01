@@ -253,7 +253,8 @@ func (s *ModelServices) Network() *networkservice.WatchableService {
 
 	return networkservice.NewWatchableService(
 		networkstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
-		providertracker.ProviderRunner[networkservice.Provider](s.providerFactory, s.modelUUID.String()),
+		providertracker.ProviderRunner[networkservice.ProviderWithNetworking](s.providerFactory, s.modelUUID.String()),
+		providertracker.ProviderRunner[networkservice.ProviderWithZones](s.providerFactory, s.modelUUID.String()),
 		s.modelWatcherFactory("network"),
 		log,
 	)

@@ -7,8 +7,9 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -22,18 +23,16 @@ func Register(registry facade.FacadeRegistry) {
 // newAPI creates a new Subnets API server-side facade with a
 // state.State backing.
 func newAPI(ctx facade.ModelContext) (*API, error) {
-	st := ctx.State()
-	domainServices := ctx.DomainServices()
-	stateShim, err := NewStateShim(st, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
-	if err != nil {
-		return nil, errors.Trace(err)
+	// Only clients can access the Subnets facade.
+	if !ctx.Auth().AuthClient() {
+		return nil, apiservererrors.ErrPerm
 	}
 
 	return newAPIWithBacking(
-		stateShim,
+		names.NewModelTag(ctx.ModelUUID().String()),
 		ctx.Resources(),
 		ctx.Auth(),
 		ctx.Logger().Child("subnets"),
 		ctx.DomainServices().Network(),
-	)
+	), nil
 }

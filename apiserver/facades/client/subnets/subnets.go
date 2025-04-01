@@ -18,26 +18,9 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 )
-
-// Backing contains the state methods used in this package.
-type Backing interface {
-	environs.EnvironConfigGetter
-
-	// AvailabilityZones returns all cached availability zones (i.e.
-	// not from the provider, but in state).
-	AvailabilityZones() (network.AvailabilityZones, error)
-
-	// SetAvailabilityZones replaces the cached list of availability
-	// zones with the given zones.
-	SetAvailabilityZones(network.AvailabilityZones) error
-
-	// ModelTag returns the tag of the model this state is associated to.
-	ModelTag() names.ModelTag
-}
 
 // NetworkService is the interface that is used to interact with the
 // network spaces/subnets.
@@ -56,6 +39,9 @@ type NetworkService interface {
 	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
 	// SubnetsByCIDR returns the subnets matching the input CIDRs.
 	SubnetsByCIDR(ctx context.Context, cidrs ...string) ([]network.SubnetInfo, error)
+	// GetProviderAvailabilityZones returns all the availability zones
+	// retrieved from the model's cloud provider.
+	GetProviderAvailabilityZones(ctx context.Context) (network.AvailabilityZones, error)
 }
 
 // CloudService provides access to clouds.
@@ -79,7 +65,8 @@ type ModelConfigService interface {
 
 // API provides the subnets API facade for version 5.
 type API struct {
-	backing        Backing
+	modelTag names.ModelTag
+
 	resources      facade.Resources
 	authorizer     facade.Authorizer
 	logger         corelogger.Logger
@@ -87,29 +74,25 @@ type API struct {
 }
 
 func (api *API) checkCanRead(ctx context.Context) error {
-	return api.authorizer.HasPermission(ctx, permission.ReadAccess, api.backing.ModelTag())
+	return api.authorizer.HasPermission(ctx, permission.ReadAccess, api.modelTag)
 }
 
 // newAPIWithBacking creates a new server-side Subnets API facade with
 // a common.NetworkBacking
 func newAPIWithBacking(
-	backing Backing,
+	modelTag names.ModelTag,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	logger corelogger.Logger,
 	networkService NetworkService,
-) (*API, error) {
-	// Only clients can access the Subnets facade.
-	if !authorizer.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
+) *API {
 	return &API{
-		backing:        backing,
+		modelTag:       modelTag,
 		resources:      resources,
 		authorizer:     authorizer,
 		logger:         logger,
 		networkService: networkService,
-	}, nil
+	}
 }
 
 // AllZones returns all availability zones known to Juju. If a
@@ -119,7 +102,19 @@ func (api *API) AllZones(ctx context.Context) (params.ZoneResults, error) {
 	if err := api.checkCanRead(ctx); err != nil {
 		return params.ZoneResults{}, err
 	}
-	return allZones(ctx, api.backing, api.logger)
+
+	var results params.ZoneResults
+	zones, err := api.networkService.GetProviderAvailabilityZones(ctx)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
+	results.Results = make([]params.ZoneResult, len(zones))
+	for i, zone := range zones {
+		results.Results[i].Name = zone.Name()
+		results.Results[i].Available = zone.Available()
+	}
+	return results, nil
 }
 
 // ListSubnets returns the matching subnets after applying

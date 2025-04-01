@@ -111,13 +111,15 @@ func (s *Service) RemoveSpace(ctx context.Context, uuid string) error {
 // ProviderService provides the API for working with network spaces.
 type ProviderService struct {
 	Service
-	provider func(context.Context) (Provider, error)
+	providerWithNetworking func(context.Context) (ProviderWithNetworking, error)
+	providerWithZones      func(context.Context) (ProviderWithZones, error)
 }
 
 // NewProviderService returns a new service reference wrapping the input state.
 func NewProviderService(
 	st State,
-	provider providertracker.ProviderGetter[Provider],
+	providerWithNetworking providertracker.ProviderGetter[ProviderWithNetworking],
+	providerWithZones providertracker.ProviderGetter[ProviderWithZones],
 	logger logger.Logger,
 ) *ProviderService {
 	return &ProviderService{
@@ -125,7 +127,8 @@ func NewProviderService(
 			st:     st,
 			logger: logger,
 		},
-		provider: provider,
+		providerWithNetworking: providerWithNetworking,
+		providerWithZones:      providerWithZones,
 	}
 }
 
@@ -133,7 +136,7 @@ func NewProviderService(
 func (s *ProviderService) ReloadSpaces(ctx context.Context) error {
 	callContext := envcontext.WithoutCredentialInvalidator(ctx)
 
-	networkProvider, err := s.provider(ctx)
+	networkProvider, err := s.providerWithNetworking(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
 		return errors.Errorf("spaces discovery in a non-networking environ %w", coreerrors.NotSupported)
 	}
@@ -232,7 +235,7 @@ func (s *ProviderService) upsertProviderSubnets(ctx context.Context, subnetsToUp
 
 // SupportsSpaces returns whether the provider supports spaces.
 func (s *ProviderService) SupportsSpaces(ctx context.Context) (bool, error) {
-	networkProvider, err := s.provider(ctx)
+	networkProvider, err := s.providerWithNetworking(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
 		return false, nil
 	} else if err != nil {
@@ -244,7 +247,7 @@ func (s *ProviderService) SupportsSpaces(ctx context.Context) (bool, error) {
 // SupportsSpaceDiscovery returns whether the provider supports discovering
 // spaces from the provider.
 func (s *ProviderService) SupportsSpaceDiscovery(ctx context.Context) (bool, error) {
-	networkProvider, err := s.provider(ctx)
+	networkProvider, err := s.providerWithNetworking(ctx)
 	if errors.Is(err, coreerrors.NotSupported) {
 		return false, nil
 	} else if err != nil {
@@ -300,7 +303,7 @@ func (s *ProviderSpaces) saveSpaces(ctx context.Context, providerSpaces []networ
 			// Convert the name into a valid name that is not already in use.
 			spaceName := network.ConvertSpaceName(string(spaceInfo.Name), spaceNames)
 
-			s.logger.Debugf(ctx, "Adding space %s from provider %s", spaceName, string(spaceInfo.ProviderId))
+			s.logger.Debugf(ctx, "Adding space %s from providerWithNetworking %s", spaceName, string(spaceInfo.ProviderId))
 			spaceUUID, err := s.spaceService.AddSpace(
 				ctx,
 				network.SpaceInfo{
