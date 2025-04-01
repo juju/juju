@@ -5,6 +5,10 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/sha512"
+	"encoding/hex"
+	io "io"
 	"strings"
 
 	"github.com/juju/testing"
@@ -19,6 +23,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/agentbinary"
 	agentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
+	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -103,6 +108,30 @@ func (s *storeSuite) TestAddFailedInvalidArch(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
+// TestAddFailedBinaryAlreadyExistsWithNoBinaryCleanUp tests that the objectstore returns an error when the binary already exists.
+// We don't want to remove the existing binary from the object store for cleanup.
+func (s *storeSuite) TestAddFailedBinaryAlreadyExistsWithNoBinaryCleanUp(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	agentBinary := strings.NewReader("test-agent-binary")
+
+	s.mockObjectStore.EXPECT().PutAndCheckHash(gomock.Any(),
+		"agent-binaries/4.6.8-amd64-test-sha384",
+		agentBinary, int64(1234), "test-sha384",
+	).Return("", objectstoreerrors.ErrPathAlreadyExistsDifferentHash)
+
+	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
+	err := store.Add(context.Background(), agentBinary,
+		coreagentbinary.Version{
+			Number: semversion.MustParse("4.6.8"),
+			Arch:   corearch.AMD64,
+		},
+		1234,
+		"test-sha384",
+	)
+	c.Assert(err, jc.ErrorIs, agentbinaryerrors.AlreadyExists)
+}
+
 // TestAddFailedNotSupportedArch tests that the state returns an error when the architecture is not supported.
 // This should not happen because the validation is done before calling the state.
 // But just in case, we should still test it.
@@ -171,9 +200,9 @@ func (s *storeSuite) TestAddFailedObjectStoreUUIDNotFoundWithBinaryCleanUp(c *gc
 
 // TestAddAlreadyExistsWithCleanup is testing that if we try and add an agent
 // binary that already exists, we should get back an error satisfying
-// [agentbinaryerrors.AlreadyExists] and the binary should be removed from the
+// [agentbinaryerrors.AlreadyExists] but the existing binary should be removed from the
 // object store.
-func (s *storeSuite) TestAddAlreadyExistsWithCleanup(c *gc.C) {
+func (s *storeSuite) TestAddAlreadyExistsWithNoCleanup(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	agentBinary := strings.NewReader("test-agent-binary")
@@ -189,7 +218,6 @@ func (s *storeSuite) TestAddAlreadyExistsWithCleanup(c *gc.C) {
 		Arch:            corearch.AMD64,
 		ObjectStoreUUID: objectStoreUUID,
 	}).Return(agentbinaryerrors.AlreadyExists)
-	s.mockObjectStore.EXPECT().Remove(gomock.Any(), "agent-binaries/4.6.8-amd64-test-sha384").Return(nil)
 
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
 	err = store.Add(context.Background(), agentBinary,
@@ -203,19 +231,34 @@ func (s *storeSuite) TestAddAlreadyExistsWithCleanup(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, agentbinaryerrors.AlreadyExists)
 }
 
-// TODO: the AddWithSHA256 is currently not implemented yet.
-// More tests should be added when the implementation is done in JUJU-7734.
+func (s *storeSuite) calculateSHA(c *gc.C, content string) (string, string) {
+	hasher256 := sha256.New()
+	hasher384 := sha512.New384()
+	_, err := io.Copy(io.MultiWriter(hasher256, hasher384), strings.NewReader(content))
+	c.Assert(err, jc.ErrorIsNil)
+	sha256Hash := hex.EncodeToString(hasher256.Sum(nil))
+	sha384Hash := hex.EncodeToString(hasher384.Sum(nil))
+	return sha256Hash, sha384Hash
+}
+
 func (s *storeSuite) TestAddWithSHA256(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	agentBinary := strings.NewReader("test-agent-binary")
+	size := int64(agentBinary.Len())
+	sha256Hash, sha384Hash := s.calculateSHA(c, "test-agent-binary")
 	objectStoreUUID, err := coreobjectstore.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.mockObjectStore.EXPECT().PutAndCheckHash(gomock.Any(),
-		"agent-binaries/4.6.8-amd64-test-sha256",
-		agentBinary, int64(1234), "test-sha256",
-	).Return(objectStoreUUID, nil)
+		"agent-binaries/4.6.8-amd64-"+sha384Hash,
+		gomock.Any(), size, sha384Hash,
+	).DoAndReturn(func(_ context.Context, _ string, r io.Reader, _ int64, _ string) (coreobjectstore.UUID, error) {
+		bytes, err := io.ReadAll(r)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(string(bytes), gc.Equals, "test-agent-binary")
+		return objectStoreUUID, nil
+	})
 	s.mockState.EXPECT().Add(gomock.Any(), agentbinary.Metadata{
 		Version:         "4.6.8",
 		Arch:            corearch.AMD64,
@@ -228,8 +271,42 @@ func (s *storeSuite) TestAddWithSHA256(c *gc.C) {
 			Number: semversion.MustParse("4.6.8"),
 			Arch:   corearch.AMD64,
 		},
-		1234,
-		"test-sha256",
+		size,
+		sha256Hash,
 	)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *storeSuite) TestAddWithSHA256FailedInvalidSHA(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	agentBinary := strings.NewReader("test-agent-binary")
+
+	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
+	err := store.AddWithSHA256(context.Background(), agentBinary,
+		coreagentbinary.Version{
+			Number: semversion.MustParse("4.6.8"),
+			Arch:   corearch.AMD64,
+		},
+		1234,
+		"invalid-sha256",
+	)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *storeSuite) TestAddWithSHA256FailedInvalidAgentVersion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	agentBinary := strings.NewReader("test-agent-binary")
+	sha256Hash, _ := s.calculateSHA(c, "test-agent-binary")
+
+	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
+	err := store.AddWithSHA256(context.Background(), agentBinary,
+		coreagentbinary.Version{
+			Arch: corearch.AMD64,
+		},
+		1234,
+		sha256Hash,
+	)
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
