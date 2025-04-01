@@ -106,60 +106,16 @@ func (s *addRelationSuite) TestAddRelation(c *gc.C) {
 		ApplicationName: "application-2",
 		Relation:        relProvider,
 	})
-	epUUIDsByRelID := make(map[int][]string)
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		query := `
-SELECT re.endpoint_uuid, r.relation_id
-FROM relation_endpoint re 
-JOIN relation r  ON re.relation_uuid = r.uuid
-`
-		rows, err := tx.QueryContext(ctx, query)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var epUUID string
-			var relID int
-			if err := rows.Scan(&epUUID, &relID); err != nil {
-				return errors.Capture(err)
-			}
-			epUUIDsByRelID[relID] = append(epUUIDsByRelID[relID], epUUID)
-		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	epUUIDsByRelID := s.fetchAllEndpointUUIDsByRelationIDs(c)
 	c.Check(epUUIDsByRelID, gc.HasLen, 2)
-	c.Check(epUUIDsByRelID[0], jc.SameContents, []string{epUUID1.String(), epUUID2.String()},
+	c.Check(epUUIDsByRelID[0], jc.SameContents, []corerelation.EndpointUUID{epUUID1, epUUID2},
 		gc.Commentf("full map: %v", epUUIDsByRelID))
-	c.Check(epUUIDsByRelID[1], jc.SameContents, []string{epUUID3.String(), epUUID4.String()},
+	c.Check(epUUIDsByRelID[1], jc.SameContents, []corerelation.EndpointUUID{epUUID3, epUUID4},
 		gc.Commentf("full map: %v", epUUIDsByRelID))
 
 	// check all relation have a status
-	var statuses []string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		query := `
-SELECT rst.name
-FROM relation r 
-JOIN relation_status rs ON r.uuid = rs.relation_uuid
-JOIN relation_status_type rst ON rs.relation_status_type_id = rst.id
-`
-		rows, err := tx.QueryContext(ctx, query)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var status string
-			if err := rows.Scan(&status); err != nil {
-				return errors.Capture(err)
-			}
-			statuses = append(statuses, status)
-		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(statuses, jc.DeepEquals, []string{corestatus.Joining.String(), corestatus.Joining.String()},
+	statuses := s.fetchAllRelationStatusesOrderByRelationIDs(c)
+	c.Check(statuses, jc.DeepEquals, []corestatus.Status{corestatus.Joining, corestatus.Joining},
 		gc.Commentf("all relations should have the same default status: %q", corestatus.Joining))
 
 }
@@ -1994,6 +1950,71 @@ func (s *relationSuite) addRelationStatus(c *gc.C, relationUUID corerelation.UUI
 INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
 VALUES (?,?,?)
 `, relationUUID, s.encodeStatusID(status), time.Now())
+}
+
+// fetchAllRelationStatusesOrderByRelationIDs retrieves all relation statuses
+// ordered by their relation IDs.
+// It executes a database query within a transaction and returns a slice of
+// corestatus.Status objects.
+func (s *addRelationSuite) fetchAllRelationStatusesOrderByRelationIDs(c *gc.C) []corestatus.Status {
+	var statuses []corestatus.Status
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		query := `
+SELECT rst.name
+FROM relation r 
+JOIN relation_status rs ON r.uuid = rs.relation_uuid
+JOIN relation_status_type rst ON rs.relation_status_type_id = rst.id
+ORDER BY r.relation_id
+`
+		rows, err := tx.QueryContext(ctx, query)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var status corestatus.Status
+			if err := rows.Scan(&status); err != nil {
+				return errors.Capture(err)
+			}
+			statuses = append(statuses, status)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) fetching inserted relation statuses: %s",
+		errors.ErrorStack(err)))
+	return statuses
+}
+
+// fetchAllEndpointUUIDsByRelationIDs retrieves a mapping of relation IDs to their
+// associated endpoint UUIDs from the database.
+// It executes a query within a transaction to fetch data from the
+// `relation_endpoint` and `relation` tables.  The result is returned as a map
+// where the key is the relation ID and the value is a slice of EndpointUUIDs.
+func (s *addRelationSuite) fetchAllEndpointUUIDsByRelationIDs(c *gc.C) map[int][]corerelation.EndpointUUID {
+	epUUIDsByRelID := make(map[int][]corerelation.EndpointUUID)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		query := `
+SELECT re.endpoint_uuid, r.relation_id
+FROM relation_endpoint re 
+JOIN relation r  ON re.relation_uuid = r.uuid
+`
+		rows, err := tx.QueryContext(ctx, query)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var epUUID string
+			var relID int
+			if err := rows.Scan(&epUUID, &relID); err != nil {
+				return errors.Capture(err)
+			}
+			epUUIDsByRelID[relID] = append(epUUIDsByRelID[relID], corerelation.EndpointUUID(epUUID))
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) fetching inserted relation endpoint: %s", errors.ErrorStack(err)))
+	return epUUIDsByRelID
 }
 
 // getRelationUnitInScope gets the in_scope column from the relation_unit table.
