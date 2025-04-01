@@ -791,6 +791,121 @@ func (s *relationSuite) TestGetRelationDetailsNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
+func (s *relationSuite) TestGetAllRelationDetails(c *gc.C) {
+	// Arrange: Add three endpoints and two relations on them.
+	relationUUID1 := corerelationtesting.GenRelationUUID(c).String()
+	relationID1 := 7
+	relationUUID2 := corerelationtesting.GenRelationUUID(c).String()
+	relationID2 := 8
+
+	charmRelationUUID1 := uuid.MustNewUUID().String()
+	applicationEndpointUUID1 := uuid.MustNewUUID().String()
+	relationEndpointUUID1 := uuid.MustNewUUID().String()
+	relationEndpointUUID1bis := uuid.MustNewUUID().String()
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      internalcharm.RoleProvider,
+			Interface: "database",
+			Optional:  true,
+			Limit:     20,
+			Scope:     internalcharm.ScopeGlobal,
+		},
+	}
+
+	charmRelationUUID2 := uuid.MustNewUUID().String()
+	applicationEndpointUUID2 := uuid.MustNewUUID().String()
+	relationEndpointUUID2 := uuid.MustNewUUID().String()
+	endpoint2 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      internalcharm.RoleRequirer,
+			Interface: "database",
+			Optional:  false,
+			Limit:     10,
+			Scope:     internalcharm.ScopeGlobal,
+		},
+	}
+
+	charmRelationUUID3 := uuid.MustNewUUID().String()
+	applicationEndpointUUID3 := uuid.MustNewUUID().String()
+	relationEndpointUUID3 := uuid.MustNewUUID().String()
+	endpoint3 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: internalcharm.Relation{
+			Name:      "fake-endpoint-name-3",
+			Role:      internalcharm.RoleRequirer,
+			Interface: "database",
+			Optional:  false,
+			Limit:     10,
+			Scope:     internalcharm.ScopeGlobal,
+		},
+	}
+
+	// This is a lot of code to build two relation:
+	// - application-1:endpoint-1 application-2:endpoint-2
+	// - application-1:endpoint-1 application-2:endpoint-3
+	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID1, endpoint1.Relation)
+	s.addCharmRelation(c, s.fakeCharmUUID2, charmRelationUUID2, endpoint2.Relation)
+	s.addCharmRelation(c, s.fakeCharmUUID2, charmRelationUUID3, endpoint3.Relation)
+	s.addApplicationEndpoint(c, applicationEndpointUUID1, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, applicationEndpointUUID2, s.fakeApplicationUUID2, charmRelationUUID2)
+	s.addApplicationEndpoint(c, applicationEndpointUUID3, s.fakeApplicationUUID2, charmRelationUUID3)
+	s.addRelationWithLifeAndID(c, relationUUID1, corelife.Dying, relationID1)
+	s.addRelationWithLifeAndID(c, relationUUID2, corelife.Alive, relationID2)
+	s.addRelationEndpoint(c, relationEndpointUUID1, relationUUID1, applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationEndpointUUID2, relationUUID1, applicationEndpointUUID2)
+	s.addRelationEndpoint(c, relationEndpointUUID1bis, relationUUID2, applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationEndpointUUID3, relationUUID2, applicationEndpointUUID3)
+
+	expectedDetails := map[int]relation.RelationDetailsResult{
+		relationID1: {
+			Life:      corelife.Dying,
+			UUID:      corerelation.UUID(relationUUID1),
+			ID:        relationID1,
+			Endpoints: []relation.Endpoint{endpoint1, endpoint2},
+		},
+		relationID2: {
+			Life:      corelife.Alive,
+			UUID:      corerelation.UUID(relationUUID2),
+			ID:        relationID2,
+			Endpoints: []relation.Endpoint{endpoint1, endpoint3},
+		},
+	}
+
+	// Act: Get relation details.
+	details, err := s.state.GetAllRelationDetails(context.Background())
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(details, gc.HasLen, 2)
+	detailsByRelationID := make(map[int]relation.RelationDetailsResult)
+	for _, detail := range details {
+		detailsByRelationID[detail.ID] = detail
+	}
+	// First relation
+	c.Check(detailsByRelationID[relationID1].Life, gc.Equals, expectedDetails[relationID1].Life)
+	c.Check(detailsByRelationID[relationID1].UUID, gc.Equals, expectedDetails[relationID1].UUID)
+	c.Check(detailsByRelationID[relationID1].ID, gc.Equals, expectedDetails[relationID1].ID)
+	c.Check(detailsByRelationID[relationID1].Endpoints, jc.SameContents, expectedDetails[relationID1].Endpoints)
+	// Second relation
+	c.Check(detailsByRelationID[relationID2].Life, gc.Equals, expectedDetails[relationID2].Life)
+	c.Check(detailsByRelationID[relationID2].UUID, gc.Equals, expectedDetails[relationID2].UUID)
+	c.Check(detailsByRelationID[relationID2].ID, gc.Equals, expectedDetails[relationID2].ID)
+	c.Check(detailsByRelationID[relationID2].Endpoints, jc.SameContents, expectedDetails[relationID2].Endpoints)
+}
+
+func (s *relationSuite) TestGetAllRelationDetailsNone(c *gc.C) {
+	// Act: Get relation details.
+	result, err := s.state.GetAllRelationDetails(context.Background())
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 0)
+}
+
 // addApplication adds a new application to the database with the specified UUID and name.
 func (s *relationSuite) addApplication(c *gc.C, charmUUID, appUUID, appName string) {
 	s.query(c, `

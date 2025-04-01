@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
@@ -38,6 +37,34 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 	}
 }
 
+// GetAllRelationDetails retrieves the details of all relations
+// from the database. It returns the list of endpoints, the life status and
+// identification data (UUID and ID) for each relation.
+func (st *State) GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var relationsDetails []relation.RelationDetailsResult
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		relations, err := st.getAllRelations(ctx, tx)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting all relations: %w", err)
+		}
+
+		for _, rel := range relations {
+			details, err := st.getRelationDetails(ctx, tx, rel.ID)
+			if err != nil {
+				return errors.Errorf("getting relation details: %w", err)
+			}
+			relationsDetails = append(relationsDetails, details)
+		}
+		return nil
+	})
+	return relationsDetails, errors.Capture(err)
+}
+
 // GetRelationID returns the relation ID for the given relation UUID.
 //
 // The following error types can be expected to be returned:
@@ -50,7 +77,7 @@ func (st *State) GetRelationID(ctx context.Context, relationUUID corerelation.UU
 	}
 
 	id := relationIDAndUUID{
-		UUID: relationUUID.String(),
+		UUID: relationUUID,
 	}
 	stmt, err := st.Prepare(`
 SELECT &relationIDAndUUID.relation_id
@@ -109,7 +136,7 @@ WHERE  relation_id = $relationIDAndUUID.relation_id
 		return "", errors.Capture(err)
 	}
 
-	return corerelation.UUID(id.UUID), nil
+	return id.UUID, nil
 }
 
 // GetRelationEndpointUUID retrieves the endpoint UUID of a given relation
@@ -432,53 +459,16 @@ AND    e.endpoint_name    = $endpointIdentifier.endpoint_name
 //     is not found.
 func (st *State) GetRelationDetails(ctx context.Context, relationID int) (relation.RelationDetailsResult, error) {
 	db, err := st.DB()
+	var result relation.RelationDetailsResult
 	if err != nil {
-		return relation.RelationDetailsResult{}, errors.Capture(err)
+		return result, errors.Capture(err)
 	}
 
-	type getRelation struct {
-		UUID corerelation.UUID `db:"uuid"`
-		ID   int               `db:"relation_id"`
-		Life life.Value        `db:"value"`
-	}
-	rel := getRelation{
-		ID: relationID,
-	}
-	stmt, err := st.Prepare(`
-SELECT (r.uuid, r.relation_id, l.value) AS (&getRelation.*)
-FROM   relation r
-JOIN   life l ON r.life_id = l.id
-WHERE  relation_id = $getRelation.relation_id
-`, rel)
-	if err != nil {
-		return relation.RelationDetailsResult{}, errors.Capture(err)
-	}
-
-	var endpoints []relation.Endpoint
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, rel).Get(&rel)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return relationerrors.RelationNotFound
-		} else if err != nil {
-			return errors.Capture(err)
-		}
-
-		endpoints, err = st.getEndpoints(ctx, tx, rel.UUID)
-		if err != nil {
-			return errors.Errorf("getting relation endpoints: %w", err)
-		}
+		result, err = st.getRelationDetails(ctx, tx, relationID)
 		return errors.Capture(err)
 	})
-	if err != nil {
-		return relation.RelationDetailsResult{}, errors.Capture(err)
-	}
-
-	return relation.RelationDetailsResult{
-		Life:      rel.Life,
-		UUID:      rel.UUID,
-		ID:        rel.ID,
-		Endpoints: endpoints,
-	}, nil
+	return result, errors.Capture(err)
 }
 
 // WatcherApplicationSettingsNamespace returns the namespace string used for
@@ -513,4 +503,55 @@ WHERE  uuid = $search.uuid
 		return false, errors.Errorf("query %q: %w", query, err)
 	}
 	return true, nil
+}
+
+// getAllRelations retrieves all relations from the database, returning a slice of relationIDAndUUID or an error.
+func (st *State) getAllRelations(ctx context.Context, tx *sqlair.TX) ([]relationIDAndUUID, error) {
+	var result []relationIDAndUUID
+
+	stmt, err := st.Prepare(`
+SELECT &relationIDAndUUID.*
+FROM   relation
+`, relationIDAndUUID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt).GetAll(&result)
+
+	return result, errors.Capture(err)
+}
+
+func (st *State) getRelationDetails(ctx context.Context, tx *sqlair.TX, relationID int) (relation.RelationDetailsResult, error) {
+	rel := relationUUIDLifeID{
+		ID: relationID,
+	}
+	stmt, err := st.Prepare(`
+SELECT (r.uuid, r.relation_id, l.value) AS (&relationUUIDLifeID.*)
+FROM   relation r
+JOIN   life l ON r.life_id = l.id
+WHERE  relation_id = $relationUUIDLifeID.relation_id
+`, rel)
+	if err != nil {
+		return relation.RelationDetailsResult{}, errors.Capture(err)
+	}
+
+	var endpoints []relation.Endpoint
+	err = tx.Query(ctx, stmt, rel).Get(&rel)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return relation.RelationDetailsResult{}, relationerrors.RelationNotFound
+	} else if err != nil {
+		return relation.RelationDetailsResult{}, errors.Capture(err)
+	}
+
+	endpoints, err = st.getEndpoints(ctx, tx, rel.UUID)
+	if err != nil {
+		return relation.RelationDetailsResult{}, errors.Errorf("getting relation endpoints: %w", err)
+	}
+
+	return relation.RelationDetailsResult{
+		Life:      rel.Life,
+		UUID:      rel.UUID,
+		ID:        rel.ID,
+		Endpoints: endpoints,
+	}, nil
 }

@@ -15,6 +15,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corelife "github.com/juju/juju/core/life"
+	corerelation "github.com/juju/juju/core/relation"
+	corerelationtesting "github.com/juju/juju/core/relation/testing"
+	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
@@ -52,6 +56,41 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+}
+
+func (s *stateSuite) TestGetAllRelationStatuses(c *gc.C) {
+	// Arrange: add two relation, one with a status, but not the second one.
+	relationUUID1 := corerelationtesting.GenRelationUUID(c)
+	relationUUID2 := corerelationtesting.GenRelationUUID(c)
+	now := time.Now().Truncate(time.Minute).UTC()
+
+	s.addRelationWithLifeAndID(c, relationUUID1.String(), corelife.Alive, 7)
+	s.addRelationWithLifeAndID(c, relationUUID2.String(), corelife.Alive, 7)
+
+	s.addRelationStatusWithMessage(c, relationUUID1.String(), corestatus.Suspended, "this is a test", now)
+
+	// Act
+	result, err := s.state.GetAllRelationStatuses(context.Background())
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, map[corerelation.UUID]status.StatusInfo[status.RelationStatusType]{
+		relationUUID1: {
+			Status:  status.RelationStatusTypeSuspended,
+			Message: "this is a test",
+			Since:   &now,
+		},
+	})
+
+}
+
+func (s *stateSuite) TestGetAllRelationStatusesNone(c *gc.C) {
+	// Act
+	result, err := s.state.GetAllRelationStatuses(context.Background())
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 0)
 }
 
 func (s *stateSuite) TestGetApplicationIDByName(c *gc.C) {
@@ -1002,6 +1041,37 @@ func (s *stateSuite) TestDeleteUnitPresence(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(count, gc.Equals, 0)
+}
+
+// addRelationWithLifeAndID inserts a new relation into the database with the
+// given details.
+func (s *stateSuite) addRelationWithLifeAndID(c *gc.C, relationUUID string, life corelife.Value, relationID int) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(`
+INSERT INTO relation (uuid, relation_id, life_id)
+SELECT ?,  ?, id
+FROM life
+WHERE value = ?
+`, relationUUID, relationID, life)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) Failed to insert relation %s, id %d", relationUUID, relationID))
+}
+
+// addRelationStatusWithMessage inserts a relation status into the relation_status table.
+func (s *stateSuite) addRelationStatusWithMessage(c *gc.C, relationUUID string, status corestatus.Status,
+	message string, since time.Time) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(`
+INSERT INTO relation_status (relation_uuid, relation_status_type_id, suspended_reason, updated_at)
+SELECT ?,rst.id,?,?
+FROM relation_status_type rst
+WHERE rst.name = ?
+`, relationUUID, message, since, status)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) Failed to insert relation status %s, status %s, message %q",
+		relationUUID, status, message))
 }
 
 func (s *stateSuite) createApplication(c *gc.C, name string, l life.Life, units ...application.AddUnitArg) (coreapplication.ID, []coreunit.UUID) {

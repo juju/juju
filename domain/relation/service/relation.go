@@ -23,6 +23,10 @@ import (
 
 // State describes retrieval and persistence methods for relations.
 type State interface {
+
+	// GetAllRelationDetails return all uuid of all relation for the current model.
+	GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error)
+
 	// GetRelationID returns the relation ID for the given relation UUID.
 	//
 	// The following error types can be expected to be returned:
@@ -126,11 +130,6 @@ func (s *Service) AddRelation(ctx context.Context, ep1, ep2 string) (relation.En
 	return relation.Endpoint{}, relation.Endpoint{}, coreerrors.NotImplemented
 }
 
-// AllRelations return all uuid of all relation for the current model.
-func (s *Service) AllRelations(ctx context.Context) ([]corerelation.UUID, error) {
-	return nil, coreerrors.NotImplemented
-}
-
 // ApplicationRelationEndpointNames returns a slice of names of the given application's
 // relation endpoints.
 // Note: Replaces the functionality in CharmRelations method of the application facade.
@@ -170,6 +169,11 @@ func (s *Service) EnterScope(
 	// Before entering scope, validate the proposed relation unit based on
 	// RelationUnit.Valid().
 	return coreerrors.NotImplemented
+}
+
+// GetAllRelationDetails return all uuid of all relation for the current model.
+func (s *Service) GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error) {
+	return s.st.GetAllRelationDetails(ctx)
 }
 
 // GetApplicationEndpoints returns all endpoints for the given application identifier.

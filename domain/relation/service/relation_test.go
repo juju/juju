@@ -34,6 +34,44 @@ type relationServiceSuite struct {
 
 var _ = gc.Suite(&relationServiceSuite{})
 
+// TestGetAllRelationDetails verifies that GetAllRelationDetails
+// retrieves and returns the expected relation details without errors.
+// Doesn't have logic, so the test doesn't need to be smart.
+func (s *relationServiceSuite) TestGetAllRelationDetails(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	expectedRelationDetails := []relation.RelationDetailsResult{
+		{
+			Life: "alive",
+			UUID: "placedholder",
+			ID:   42,
+		},
+	}
+	s.state.EXPECT().GetAllRelationDetails(gomock.Any()).Return(expectedRelationDetails, nil)
+
+	// Act
+	details, err := s.service.GetAllRelationDetails(context.Background())
+
+	// Assert
+	c.Assert(err, gc.IsNil)
+	c.Assert(details, gc.DeepEquals, expectedRelationDetails)
+}
+
+// TestGetAllRelationDetailsError verifies the behavior when GetAllRelationDetails
+// encounters an error from the state layer.
+func (s *relationServiceSuite) TestGetAllRelationDetailsError(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	expectedError := errors.New("state error")
+	s.state.EXPECT().GetAllRelationDetails(gomock.Any()).Return(nil, expectedError)
+
+	// Act
+	_, err := s.service.GetAllRelationDetails(context.Background())
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, expectedError)
+}
+
 // TestGetRelationEndpointUUID tests the GetRelationEndpointUUID method for
 // valid input and expected successful execution.
 func (s *relationServiceSuite) TestGetRelationEndpointUUID(c *gc.C) {

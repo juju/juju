@@ -13,6 +13,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	domainlife "github.com/juju/juju/domain/life"
@@ -36,6 +37,48 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 		clock:     clock,
 		logger:    logger,
 	}
+}
+
+// GetAllRelationStatuses returns all the relation statuses of the given model.
+func (st *State) GetAllRelationStatuses(ctx context.Context) (map[corerelation.UUID]status.StatusInfo[status.RelationStatusType],
+	error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &relationStatus.*
+FROM   relation_status`, relationStatus{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var statuses []relationStatus
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt).GetAll(&statuses)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting all relations statuses: %w", err)
+	}
+	relationsStatuses := make(map[corerelation.UUID]status.StatusInfo[status.RelationStatusType], len(statuses))
+	for _, relStatus := range statuses {
+		statusType, err := decodeRelationStatus(relStatus.StatusID)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		relationsStatuses[relStatus.RelationUUID] = status.StatusInfo[status.RelationStatusType]{
+			Status:  statusType,
+			Message: relStatus.Reason,
+			Since:   &relStatus.Since,
+		}
+	}
+
+	return relationsStatuses, errors.Capture(err)
 }
 
 // GetApplicationIDByName returns the application ID for the named application.

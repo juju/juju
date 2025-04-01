@@ -42,6 +42,45 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// GetAllRelationDetails mocks base method.
+func (m *MockState) GetAllRelationDetails(arg0 context.Context) ([]relation0.RelationDetailsResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllRelationDetails", arg0)
+	ret0, _ := ret[0].([]relation0.RelationDetailsResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllRelationDetails indicates an expected call of GetAllRelationDetails.
+func (mr *MockStateMockRecorder) GetAllRelationDetails(arg0 any) *MockStateGetAllRelationDetailsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllRelationDetails", reflect.TypeOf((*MockState)(nil).GetAllRelationDetails), arg0)
+	return &MockStateGetAllRelationDetailsCall{Call: call}
+}
+
+// MockStateGetAllRelationDetailsCall wrap *gomock.Call
+type MockStateGetAllRelationDetailsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAllRelationDetailsCall) Return(arg0 []relation0.RelationDetailsResult, arg1 error) *MockStateGetAllRelationDetailsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAllRelationDetailsCall) Do(f func(context.Context) ([]relation0.RelationDetailsResult, error)) *MockStateGetAllRelationDetailsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAllRelationDetailsCall) DoAndReturn(f func(context.Context) ([]relation0.RelationDetailsResult, error)) *MockStateGetAllRelationDetailsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetPeerRelationUUIDByEndpointIdentifiers mocks base method.
 func (m *MockState) GetPeerRelationUUIDByEndpointIdentifiers(arg0 context.Context, arg1 relation0.EndpointIdentifier) (relation.UUID, error) {
 	m.ctrl.T.Helper()

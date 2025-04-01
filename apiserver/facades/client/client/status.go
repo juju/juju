@@ -119,10 +119,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		fetchNetworkInterfaces(c.stateAccessor, subnetInfos, context.spaceInfos); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch IP addresses and link layer devices: %w", err)
 	}
-	if context.relations, context.relationsByID, err = fetchRelations(ctx, c.relationService); err != nil &&
-		// todo(gfouillet): remove this exception whenever
-		//   relation domain will be fully implemented
-		!internalerrors.Is(err, errors.NotImplemented) {
+	if context.relations, context.relationsByID, err = fetchRelations(ctx, c.relationService, c.statusService); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch relations: %w", err)
 	}
 	if len(context.allAppsUnitsCharmBindings.applications) > 0 {
@@ -462,7 +459,6 @@ type applicationStatusInfo struct {
 }
 
 type relationStatus struct {
-	UUID      corerelation.UUID
 	ID        int
 	Endpoints []relation.Endpoint
 	Status    status.StatusInfo
@@ -828,33 +824,46 @@ func fetchConsumerRemoteApplications(st Backend) (map[string]commoncrossmodel.Re
 // to have the relations for each application. Reading them once here
 // avoids the repeated DB hits to retrieve the relations for each
 // application that used to happen in processApplicationRelations().
-func fetchRelations(ctx context.Context, relationService RelationService) (map[string][]relationStatus, map[int]relationStatus, error) {
-	uuids, err := relationService.AllRelations(ctx)
+func fetchRelations(ctx context.Context, relationService RelationService,
+	statusService StatusService) (map[string][]relationStatus,
+	map[int]relationStatus, error) {
+	details, err := relationService.GetAllRelationDetails(ctx)
 	if err != nil {
 		return nil, nil, internalerrors.Errorf("fetching relations: %w", err)
 	}
 	out := make(map[string][]relationStatus)
 	outById := make(map[int]relationStatus)
-	for _, uuid := range uuids {
-		id, err := relationService.GetRelationID(ctx, uuid)
-		if err != nil {
-			logger.Warningf(ctx, "failed to get relation id for %q: %v", uuid, err)
-			continue
-		}
-		eps, err := relationService.GetRelationEndpoints(ctx, uuid)
-		if err != nil {
-			logger.Warningf(ctx, "failed to get relation endpoints for %q: %v", uuid, err)
-			continue
-		}
-		relStatus, err := relationService.GetRelationStatus(ctx, uuid)
-		if err != nil {
-			logger.Warningf(ctx, "failed to get relation status for %q: %v", uuid, err)
-			continue
+
+	// If there are no details, just return empty maps without error to avoid an
+	// useless call to the status service.
+	if len(details) == 0 {
+		return out, outById, nil
+	}
+
+	statuses, err := statusService.GetAllRelationStatuses(ctx)
+	if err != nil {
+		return nil, nil, internalerrors.Errorf("fetching relation statuses: %w", err)
+	}
+	// Protective code against nil map.
+	if statuses == nil {
+		statuses = make(map[corerelation.UUID]status.StatusInfo)
+	}
+	for _, detail := range details {
+		relStatus, ok := statuses[detail.UUID]
+		if !ok {
+			// This shouldn't happen, since a relation and its status are
+			// supposed to be added in the same transaction.
+			// However, if status command is run while removing a transaction, it
+			// may happen.
+			// It should be rare, and if it happens without above special
+			// circumstance it could be due to a design decision, db slowness
+			// or corrupted data, which would requires special attention.
+			logger.Warningf(ctx, "no status for relation %d %q", detail.ID,
+				relation.NaturalKey(detail.Endpoints))
 		}
 		r := relationStatus{
-			UUID:      uuid,
-			ID:        id,
-			Endpoints: eps,
+			ID:        detail.ID,
+			Endpoints: detail.Endpoints,
 			Status:    relStatus,
 		}
 		outById[r.ID] = r

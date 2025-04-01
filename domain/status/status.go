@@ -11,7 +11,7 @@ import (
 
 // StatusID represents the status of an entity.
 type StatusID interface {
-	CloudContainerStatusType | UnitAgentStatusType | WorkloadStatusType
+	CloudContainerStatusType | RelationStatusType | UnitAgentStatusType | WorkloadStatusType
 }
 
 // StatusInfo holds details about the status of an entity.
@@ -52,6 +52,16 @@ const (
 	CloudContainerStatusWaiting
 	CloudContainerStatusBlocked
 	CloudContainerStatusRunning
+)
+
+type RelationStatusType int
+
+const (
+	RelationStatusTypeJoining RelationStatusType = iota
+	RelationStatusTypeJoined
+	RelationStatusTypeBroken
+	RelationStatusTypeSuspending
+	RelationStatusTypeSuspended
 )
 
 // UnitAgentStatusType represents the status of a unit agent

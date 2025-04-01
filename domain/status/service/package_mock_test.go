@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	application "github.com/juju/juju/core/application"
+	relation "github.com/juju/juju/core/relation"
 	unit "github.com/juju/juju/core/unit"
 	status "github.com/juju/juju/domain/status"
 	gomock "go.uber.org/mock/gomock"
@@ -154,6 +155,45 @@ func (c *MockStateGetAllFullUnitStatusesCall) Do(f func(context.Context) (status
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetAllFullUnitStatusesCall) DoAndReturn(f func(context.Context) (status.FullUnitStatuses, error)) *MockStateGetAllFullUnitStatusesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetAllRelationStatuses mocks base method.
+func (m *MockState) GetAllRelationStatuses(ctx context.Context) (map[relation.UUID]status.StatusInfo[status.RelationStatusType], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllRelationStatuses", ctx)
+	ret0, _ := ret[0].(map[relation.UUID]status.StatusInfo[status.RelationStatusType])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllRelationStatuses indicates an expected call of GetAllRelationStatuses.
+func (mr *MockStateMockRecorder) GetAllRelationStatuses(ctx any) *MockStateGetAllRelationStatusesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllRelationStatuses", reflect.TypeOf((*MockState)(nil).GetAllRelationStatuses), ctx)
+	return &MockStateGetAllRelationStatusesCall{Call: call}
+}
+
+// MockStateGetAllRelationStatusesCall wrap *gomock.Call
+type MockStateGetAllRelationStatusesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAllRelationStatusesCall) Return(arg0 map[relation.UUID]status.StatusInfo[status.RelationStatusType], arg1 error) *MockStateGetAllRelationStatusesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAllRelationStatusesCall) Do(f func(context.Context) (map[relation.UUID]status.StatusInfo[status.RelationStatusType], error)) *MockStateGetAllRelationStatusesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAllRelationStatusesCall) DoAndReturn(f func(context.Context) (map[relation.UUID]status.StatusInfo[status.RelationStatusType], error)) *MockStateGetAllRelationStatusesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

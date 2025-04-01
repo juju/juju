@@ -7,6 +7,7 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
@@ -103,6 +104,15 @@ type fullUnitStatus struct {
 	Present           bool          `db:"present"`
 }
 
+// relationStatus represents the status of a relation
+// from v_relation_status
+type relationStatus struct {
+	RelationUUID corerelation.UUID `db:"relation_uuid"`
+	StatusID     int               `db:"relation_status_type_id"`
+	Reason       string            `db:"suspended_reason"`
+	Since        time.Time         `db:"updated_at"`
+}
+
 func encodeCloudContainerStatus(s status.CloudContainerStatusType) (int, error) {
 	switch s {
 	case status.CloudContainerStatusUnset:
@@ -128,6 +138,23 @@ func decodeCloudContainerStatus(s int) (status.CloudContainerStatusType, error) 
 		return status.CloudContainerStatusBlocked, nil
 	case 3:
 		return status.CloudContainerStatusRunning, nil
+	default:
+		return -1, errors.Errorf("unknown status %d", s)
+	}
+}
+
+func decodeRelationStatus(s int) (status.RelationStatusType, error) {
+	switch s {
+	case 0:
+		return status.RelationStatusTypeJoining, nil
+	case 1:
+		return status.RelationStatusTypeJoined, nil
+	case 2:
+		return status.RelationStatusTypeBroken, nil
+	case 3:
+		return status.RelationStatusTypeSuspending, nil
+	case 4:
+		return status.RelationStatusTypeSuspended, nil
 	default:
 		return -1, errors.Errorf("unknown status %d", s)
 	}
