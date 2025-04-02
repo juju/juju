@@ -184,50 +184,6 @@ func NewService(st State) *Service {
 	}
 }
 
-// SetReportedMachineAgentVersion sets the reported agent version for the
-// supplied machine name. Reported agent version is the version that the agent
-// binary on this machine has reported it is running.
-//
-// The following errors are possible:
-// - [coreerrors.NotValid] if the reportedVersion is not valid or the machine
-// name is not valid.
-// - [coreerrors.NotSupported] if the architecture is not supported.
-// - [machineerrors.MachineNotFound] when the machine does not exist.
-// - [machineerrors.MachineDead] when the machine is dead.
-func (s *Service) SetReportedMachineAgentVersion(
-	ctx context.Context,
-	machineName machine.Name,
-	reportedVersion coreagentbinary.Version,
-) error {
-	if err := machineName.Validate(); err != nil {
-		return errors.Errorf("setting reported agent version for machine: %w", err)
-	}
-
-	if err := reportedVersion.Validate(); err != nil {
-		return errors.Errorf("reported agent version %v is not valid: %w", reportedVersion, err)
-	}
-
-	machineUUID, err := s.st.GetMachineUUID(ctx, machineName)
-	if err != nil {
-		return errors.Errorf(
-			"getting machine UUID for machine %q: %w",
-			machineName,
-			err,
-		)
-	}
-
-	if err := s.st.SetRunningAgentBinaryVersion(ctx, machineUUID, reportedVersion); err != nil {
-		return errors.Errorf(
-			"setting machine %q reported agent version (%s) in state: %w",
-			machineUUID,
-			reportedVersion.Number.String(),
-			err,
-		)
-	}
-
-	return nil
-}
-
 // CreateMachine creates the specified machine.
 // It returns a MachineAlreadyExists error if a machine with the same name
 // already exists.

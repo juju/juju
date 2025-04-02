@@ -52,9 +52,7 @@ type UpgraderAPI struct {
 	watcherRegistry facade.WatcherRegistry
 
 	controllerNodeService ControllerNodeService
-	machineService        MachineService
 	modelAgentService     ModelAgentService
-	unitService           UnitService
 }
 
 // NewUpgraderAPI creates a new server-side UpgraderAPI facade.
@@ -65,9 +63,7 @@ func NewUpgraderAPI(
 	logger corelogger.Logger,
 	watcherRegistry facade.WatcherRegistry,
 	controllerNodeService ControllerNodeService,
-	machineService MachineService,
 	modelAgentService ModelAgentService,
-	unitService UnitService,
 ) *UpgraderAPI {
 	return &UpgraderAPI{
 		ToolsGetter:           toolsGetter,
@@ -76,9 +72,7 @@ func NewUpgraderAPI(
 		logger:                logger,
 		watcherRegistry:       watcherRegistry,
 		controllerNodeService: controllerNodeService,
-		machineService:        machineService,
 		modelAgentService:     modelAgentService,
-		unitService:           unitService,
 	}
 }
 
@@ -245,19 +239,19 @@ func (u *UpgraderAPI) setEntityToolVersion(
 	var err error
 	switch tag.Kind() {
 	case names.ControllerAgentTagKind:
-		err = u.controllerNodeService.SetReportedControllerNodeAgentVersion(
+		err = u.controllerNodeService.SetControllerNodeReportedAgentVersion(
 			ctx,
 			tag.Id(),
 			reportedVersion,
 		)
 	case names.MachineTagKind:
-		err = u.machineService.SetReportedMachineAgentVersion(
+		err = u.modelAgentService.SetMachineReportedAgentVersion(
 			ctx,
 			coremachine.Name(tag.Id()),
 			reportedVersion,
 		)
 	case names.UnitTagKind:
-		err = u.unitService.SetReportedUnitAgentVersion(
+		err = u.modelAgentService.SetUnitReportedAgentVersion(
 			ctx,
 			coreunit.Name(tag.Id()),
 			reportedVersion,

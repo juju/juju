@@ -57,8 +57,6 @@ type upgraderSuite struct {
 	controllerConfigGetter *MockControllerConfigGetter
 	agentService           *MockModelAgentService
 	controllerNodeService  *MockControllerNodeService
-	machineService         *MockMachineService
-	unitService            *MockUnitService
 
 	isUpgrader      *MockUpgrader
 	watcherRegistry *facademocks.MockWatcherRegistry
@@ -105,9 +103,7 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 		loggertesting.WrapCheckLog(c),
 		s.watcherRegistry,
 		nil,
-		domainServices.Machine(),
 		domainServices.Agent(),
-		nil,
 	)
 }
 
@@ -119,8 +115,6 @@ func (s *upgraderSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.isUpgrader.EXPECT().IsUpgrading().Return(false, nil).AnyTimes()
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 	s.controllerNodeService = NewMockControllerNodeService(ctrl)
-	s.machineService = NewMockMachineService(ctrl)
-	s.unitService = NewMockUnitService(ctrl)
 	return ctrl
 }
 
@@ -132,9 +126,7 @@ func (s *upgraderSuite) makeMockedUpgraderAPI(c *gc.C) *upgrader.UpgraderAPI {
 		loggertesting.WrapCheckLog(c),
 		s.watcherRegistry,
 		s.controllerNodeService,
-		s.machineService,
 		s.agentService,
-		s.unitService,
 	)
 }
 
@@ -169,9 +161,7 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 		loggertesting.WrapCheckLog(c),
 		s.watcherRegistry,
 		s.controllerNodeService,
-		s.machineService,
 		domainServices.Agent(),
-		s.unitService,
 	)
 
 	args := params.Entities{
@@ -324,7 +314,7 @@ func (s *upgraderSuite) TestSetToolsMachine(c *gc.C) {
 	s.authorizer.Tag = machineTag
 	defer s.setupMocks(c).Finish()
 
-	s.machineService.EXPECT().SetReportedMachineAgentVersion(
+	s.agentService.EXPECT().SetMachineReportedAgentVersion(
 		gomock.Any(),
 		coremachine.Name("0"),
 		coreagentbinary.Version{
@@ -356,7 +346,7 @@ func (s *upgraderSuite) TestSetToolsMachineNotFound(c *gc.C) {
 	s.authorizer.Tag = machineTag
 	defer s.setupMocks(c).Finish()
 
-	s.machineService.EXPECT().SetReportedMachineAgentVersion(
+	s.agentService.EXPECT().SetMachineReportedAgentVersion(
 		gomock.Any(),
 		coremachine.Name("0"),
 		coreagentbinary.Version{
@@ -390,7 +380,7 @@ func (s *upgraderSuite) TestSetToolsUnit(c *gc.C) {
 	unitName, err := coreunit.NewName("foo/0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.unitService.EXPECT().SetReportedUnitAgentVersion(
+	s.agentService.EXPECT().SetUnitReportedAgentVersion(
 		gomock.Any(),
 		unitName,
 		coreagentbinary.Version{
@@ -425,7 +415,7 @@ func (s *upgraderSuite) TestSetToolsUnitNotFound(c *gc.C) {
 	unitName, err := coreunit.NewName("foo/0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.unitService.EXPECT().SetReportedUnitAgentVersion(
+	s.agentService.EXPECT().SetUnitReportedAgentVersion(
 		gomock.Any(),
 		unitName,
 		coreagentbinary.Version{
@@ -456,7 +446,7 @@ func (s *upgraderSuite) TestSetToolsControllerNode(c *gc.C) {
 	s.authorizer.Tag = controllerTag
 	defer s.setupMocks(c).Finish()
 
-	s.controllerNodeService.EXPECT().SetReportedControllerNodeAgentVersion(
+	s.controllerNodeService.EXPECT().SetControllerNodeReportedAgentVersion(
 		gomock.Any(),
 		controllerTag.Id(),
 		coreagentbinary.Version{
@@ -488,7 +478,7 @@ func (s *upgraderSuite) TestSetToolsControllerNotFound(c *gc.C) {
 	s.authorizer.Tag = controllerTag
 	defer s.setupMocks(c).Finish()
 
-	s.controllerNodeService.EXPECT().SetReportedControllerNodeAgentVersion(
+	s.controllerNodeService.EXPECT().SetControllerNodeReportedAgentVersion(
 		gomock.Any(),
 		controllerTag.Id(),
 		coreagentbinary.Version{
@@ -525,7 +515,7 @@ func (s *upgraderSuite) TestSetToolsUnsupportedArchitecture(c *gc.C) {
 	}
 
 	ver := semversion.Number{Major: 4, Minor: 0, Patch: 0}
-	s.controllerNodeService.EXPECT().SetReportedControllerNodeAgentVersion(
+	s.controllerNodeService.EXPECT().SetControllerNodeReportedAgentVersion(
 		gomock.Any(),
 		gomock.Any(),
 		coreagentbinary.Version{
@@ -533,7 +523,7 @@ func (s *upgraderSuite) TestSetToolsUnsupportedArchitecture(c *gc.C) {
 			Arch:   "unknown",
 		},
 	).Return(coreerrors.NotSupported)
-	s.machineService.EXPECT().SetReportedMachineAgentVersion(
+	s.agentService.EXPECT().SetMachineReportedAgentVersion(
 		gomock.Any(),
 		gomock.Any(),
 		coreagentbinary.Version{
@@ -541,7 +531,7 @@ func (s *upgraderSuite) TestSetToolsUnsupportedArchitecture(c *gc.C) {
 			Arch:   "unknown",
 		},
 	).Return(coreerrors.NotSupported)
-	s.unitService.EXPECT().SetReportedUnitAgentVersion(
+	s.agentService.EXPECT().SetUnitReportedAgentVersion(
 		gomock.Any(),
 		gomock.Any(),
 		coreagentbinary.Version{
@@ -585,7 +575,7 @@ func (s *upgraderSuite) TestSetToolsInvalidVersion(c *gc.C) {
 	}
 
 	ver := semversion.Number{Major: 0, Minor: 0, Patch: 0}
-	s.controllerNodeService.EXPECT().SetReportedControllerNodeAgentVersion(
+	s.controllerNodeService.EXPECT().SetControllerNodeReportedAgentVersion(
 		gomock.Any(),
 		gomock.Any(),
 		coreagentbinary.Version{
@@ -593,7 +583,7 @@ func (s *upgraderSuite) TestSetToolsInvalidVersion(c *gc.C) {
 			Arch:   "arm64",
 		},
 	).Return(coreerrors.NotValid)
-	s.machineService.EXPECT().SetReportedMachineAgentVersion(
+	s.agentService.EXPECT().SetMachineReportedAgentVersion(
 		gomock.Any(),
 		gomock.Any(),
 		coreagentbinary.Version{
@@ -601,7 +591,7 @@ func (s *upgraderSuite) TestSetToolsInvalidVersion(c *gc.C) {
 			Arch:   "arm64",
 		},
 	).Return(coreerrors.NotValid)
-	s.unitService.EXPECT().SetReportedUnitAgentVersion(
+	s.agentService.EXPECT().SetUnitReportedAgentVersion(
 		gomock.Any(),
 		gomock.Any(),
 		coreagentbinary.Version{
@@ -657,9 +647,7 @@ func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 		loggertesting.WrapCheckLog(c),
 		s.watcherRegistry,
 		s.controllerNodeService,
-		s.machineService,
 		domainServices.Agent(),
-		s.unitService,
 	)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
@@ -727,9 +715,7 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
 		loggertesting.WrapCheckLog(c),
 		s.watcherRegistry,
 		s.controllerNodeService,
-		s.machineService,
 		s.agentService,
-		s.unitService,
 	)
 	args := params.Entities{Entities: []params.Entity{{Tag: s.apiMachine.Tag().String()}}}
 	results, err := upgraderAPI.DesiredVersion(context.Background(), args)

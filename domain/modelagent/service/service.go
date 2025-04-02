@@ -6,9 +6,11 @@ package service
 import (
 	"context"
 
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/semversion"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -27,12 +29,31 @@ type State interface {
 	// [applicationerrors.UnitNotFound] is returned.
 	CheckUnitExists(context.Context, string) error
 
+	// GetMachineUUID returns the UUID of a machine identified by its name.
+	GetMachineUUID(context.Context, machine.Name) (string, error)
+
 	// GetTargetAgentVersion returns the target agent version for this model.
 	GetTargetAgentVersion(context.Context) (semversion.Number, error)
+
+	// GetUnitUUIDByName returns the UUID for the named unit, returning an
+	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
+	// exist.
+	GetUnitUUIDByName(context.Context, coreunit.Name) (coreunit.UUID, error)
 
 	// NamespaceForWatchAgentVersion returns the namespace identifier
 	// to watch for the agent version.
 	NamespaceForWatchAgentVersion() string
+
+	// SetMachineRunningAgentBinaryVersion sets the running agent version for the machine.
+	// A MachineNotFound error will be returned if the machine does not exist.
+	SetMachineRunningAgentBinaryVersion(context.Context, string, coreagentbinary.Version) error
+
+	// SetUnitRunningAgentBinaryVersion sets the running agent version for the unit.
+	// The following error types can be expected:
+	// - [applicationerrors.UnitNotFound] - when the unit does not exist.
+	// - [applicationerrors.UnitIsDead] - when the unit is dead.
+	// - [coreerrors.NotSupported] - when the architecture is not supported.
+	SetUnitRunningAgentBinaryVersion(context.Context, coreunit.UUID, coreagentbinary.Version) error
 }
 
 // WatcherFactory provides a factory for constructing new watchers.
@@ -112,6 +133,93 @@ func (s *Service) GetUnitTargetAgentVersion(
 //     agent version record exists.
 func (s *Service) GetModelTargetAgentVersion(ctx context.Context) (semversion.Number, error) {
 	return s.st.GetTargetAgentVersion(ctx)
+}
+
+// SetMachineReportedAgentVersion sets the reported agent version for the
+// supplied machine name. Reported agent version is the version that the agent
+// binary on this machine has reported it is running.
+//
+// The following errors are possible:
+// - [coreerrors.NotValid] if the reportedVersion is not valid or the machine
+// name is not valid.
+// - [coreerrors.NotSupported] if the architecture is not supported.
+// - [machineerrors.MachineNotFound] when the machine does not exist.
+// - [machineerrors.MachineDead] when the machine is dead.
+func (s *Service) SetMachineReportedAgentVersion(
+	ctx context.Context,
+	machineName machine.Name,
+	reportedVersion coreagentbinary.Version,
+) error {
+	if err := machineName.Validate(); err != nil {
+		return errors.Errorf("setting reported agent version for machine: %w", err)
+	}
+
+	if err := reportedVersion.Validate(); err != nil {
+		return errors.Errorf("reported agent version %v is not valid: %w", reportedVersion, err)
+	}
+
+	machineUUID, err := s.st.GetMachineUUID(ctx, machineName)
+	if err != nil {
+		return errors.Errorf(
+			"getting machine UUID for machine %q: %w",
+			machineName,
+			err,
+		)
+	}
+
+	if err := s.st.SetMachineRunningAgentBinaryVersion(ctx, machineUUID, reportedVersion); err != nil {
+		return errors.Errorf(
+			"setting machine %q reported agent version (%s) in state: %w",
+			machineUUID,
+			reportedVersion.Number.String(),
+			err,
+		)
+	}
+
+	return nil
+}
+
+// SetUnitReportedAgentVersion sets the reported agent version for the
+// supplied unit name. Reported agent version is the version that the agent
+// binary on this unit has reported it is running.
+//
+// The following errors are possible:
+// - [coreerrors.NotValid] - when the reportedVersion is not valid.
+// - [coreerrors.NotSupported] - when the architecture is not supported.
+// - [applicationerrors.UnitNotFound] - when the unit does not exist.
+// - [applicationerrors.UnitIsDead] - when the unit is dead.
+func (s *Service) SetUnitReportedAgentVersion(
+	ctx context.Context,
+	unitName coreunit.Name,
+	reportedVersion coreagentbinary.Version,
+) error {
+	if err := unitName.Validate(); err != nil {
+		return errors.Errorf("unit name %q is not valid: %w", unitName, err)
+	}
+
+	if err := reportedVersion.Validate(); err != nil {
+		return errors.Errorf("reported agent version %v is not valid: %w", reportedVersion, err)
+	}
+
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return errors.Errorf(
+			"getting unit UUID for unit %q: %w",
+			unitName,
+			err,
+		)
+	}
+
+	if err := s.st.SetUnitRunningAgentBinaryVersion(ctx, unitUUID, reportedVersion); err != nil {
+		return errors.Errorf(
+			"setting unit %q reported agent version (%s) in state: %w",
+			unitUUID,
+			reportedVersion.Number.String(),
+			err,
+		)
+	}
+
+	return nil
 }
 
 // WatchMachineTargetAgentVersion is responsible for watching the target agent
