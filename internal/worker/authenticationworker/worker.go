@@ -18,16 +18,9 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-var (
-	// The user name used to ssh into Juju nodes.
-	// Override for testing.
-	SSHUser = "ubuntu"
-)
-
-const (
-	// Use the default authorized_keys file for Juju.
-	AuthKeysFile = "authorized_keys"
-)
+// The user name used to ssh into Juju nodes.
+// Override for testing.
+var SSHUser = "ubuntu"
 
 var logger = loggo.GetLogger("juju.worker.authenticationworker")
 

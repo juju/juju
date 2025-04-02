@@ -194,6 +194,7 @@ func (s *workerSuite) TestSSHSessionWorkerHandlesConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	keyFilename := "test_authorized_keys"
 	file, err := os.CreateTemp(keyDir, keyFilename)
+	c.Assert(err, jc.ErrorIsNil)
 	filePathToAuthKeys := file.Name()
 	c.Assert(err, jc.ErrorIsNil)
 	defer os.Remove(file.Name())
@@ -215,15 +216,8 @@ func (s *workerSuite) TestSSHSessionWorkerHandlesConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
-	// We wait a while to make sure the connection is being "handled" and we can fire some data
-	// down the pipe to read from the other side.
-	time.Sleep(testing.ShortWait)
-
 	go func() {
 		sshConn.Write([]byte("incoming ssh connection"))
-		// We wait a little whilst the data is copied to the reading side, then we can send
-		// EOF. Not the best but it works.
-		time.Sleep(testing.ShortWait)
 		sshConn.Close()
 	}()
 
@@ -268,7 +262,7 @@ func (ssc *stubSSHChannel) Stderr() io.ReadWriter {
 	return nil
 }
 
-func (cg *stubConnectionGetter) GetSSHConnection(password, ctrlAddress string) (ssh.Channel, error) {
+func (cg *stubConnectionGetter) GetControllerConnection(password, ctrlAddress string) (ssh.Channel, error) {
 	return cg.sshConn, nil
 }
 func (cg *stubConnectionGetter) GetSSHDConnection() (net.Conn, error) {

@@ -45,13 +45,13 @@ func (c *Client) WatchSSHConnRequest(machineId string) (watcher.StringsWatcher, 
 }
 
 // GetSSHConnRequest returns a ssh connection request by its connection request ID.
-func (c *Client) GetSSHConnRequest(arg string) (params.SSHConnRequest, error) {
+func (c *Client) GetSSHConnRequest(requestId string) (params.SSHConnRequest, error) {
 	var results params.SSHConnRequestResult
-	if arg == "" {
+	if requestId == "" {
 		return results.SSHConnRequest, errors.New("connection request id cannot be empty")
 	}
 
-	if err := c.facade.FacadeCall("GetSSHConnRequest", arg, &results); err != nil {
+	if err := c.facade.FacadeCall("GetSSHConnRequest", requestId, &results); err != nil {
 		return results.SSHConnRequest, errors.Trace(err)
 	}
 

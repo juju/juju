@@ -2,6 +2,7 @@ package sshsession
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"net"
 	"net/url"
@@ -43,7 +44,7 @@ type FacadeClient interface {
 }
 
 // WorkerConfig encapsulates the configuration options for
-// instantiating a new lease ssh session worker.
+// instantiating a new ssh session worker.
 type WorkerConfig struct {
 	Logger           Logger
 	MachineId        string
@@ -70,11 +71,6 @@ func (cfg WorkerConfig) Validate() error {
 }
 
 // sshSessionWorker is a worker that enables SSH connections to a machine.
-// It watches for incoming SSH connections to the controller's SSH server over
-// a facade, and when notified initiates a connection to the controller's SSH server.
-// When the controller's SSH server receives this connection, it initiates its own
-// SSH connection down the tunnel and the sshSessionWorker pipes it to the SSHD
-// on the machine.
 type sshSessionWorker struct {
 	catacomb catacomb.Catacomb
 
@@ -127,9 +123,10 @@ func (w *sshSessionWorker) loop() error {
 			return w.catacomb.ErrDying()
 		case changes := <-connRequestWatcher.Changes():
 			for _, connId := range changes {
-				err := w.handleConnection(connId)
+				requestContext := w.catacomb.Context(context.Background())
+				err := w.handleConnection(requestContext, connId)
 				if err != nil {
-					w.logger.Errorf("failed to handle connection %q: %v", connId, err)
+					w.logger.Errorf("Failed to handle connection %q: %v", connId, err)
 				}
 			}
 		}
@@ -157,43 +154,48 @@ func (w *sshSessionWorker) Wait() error {
 //     back from the controller's SSH server.
 //  5. Pipes the connection to the local sshd.
 //  6. On connection close, removes the ephemeral public key from the authorized_keys2 file.
-func (w *sshSessionWorker) handleConnection(connID string) error {
-	reqParams, err := w.facadeClient.GetSSHConnRequest(connID)
-	if err != nil {
-		w.logger.Errorf("failed to get SSH connection request: %v", err)
-		return errors.Trace(err)
-	}
-
-	ctrlAddress := reqParams.ControllerAddresses.Values()[0]
-	ephemeralPublicKey := string(reqParams.EphemeralPublicKey)
-
-	if err = jujussh.AddKeysToFile(ControllerSSHUser, AuthorizedKeysFile, []string{ephemeralPublicKey}); err != nil {
-		w.logger.Errorf("failed to add ephemeral public key to %s: %v", AuthorizedKeysFile, err)
-		return errors.Trace(err)
-	}
-
-	defer func() {
-		if err := w.cleanupPublicKey(ephemeralPublicKey); err != nil {
-			w.logger.Errorf("Error cleaning up ephemeral public key: %v", err)
+func (w *sshSessionWorker) handleConnection(ctx context.Context, connID string) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		reqParams, err := w.facadeClient.GetSSHConnRequest(connID)
+		if err != nil {
+			w.logger.Errorf("Failed to get SSH connection request: %v", err)
+			return errors.Trace(err)
 		}
-	}()
 
-	if err := w.pipeConnectionToSSHD(ctrlAddress, reqParams.Password); err != nil {
-		w.logger.Errorf("Error piping connection: %v", err)
-		return errors.Trace(err)
+		ctrlAddress := reqParams.ControllerAddresses.Values()[0]
+		ephemeralPublicKey := string(reqParams.EphemeralPublicKey)
+
+		if err = jujussh.AddKeysToFile(ControllerSSHUser, AuthorizedKeysFile, []string{ephemeralPublicKey}); err != nil {
+			w.logger.Errorf("Failed to add ephemeral public key to %s: %v", AuthorizedKeysFile, err)
+			return errors.Trace(err)
+		}
+
+		defer func() {
+			if err := w.cleanupPublicKey(ephemeralPublicKey); err != nil {
+				w.logger.Errorf("Error cleaning up ephemeral public key: %v", err)
+			}
+		}()
+
+		if err := w.pipeConnectionToSSHD(ctx, ctrlAddress, reqParams.Password); err != nil {
+			w.logger.Errorf("Error piping connection: %v", err)
+			return errors.Trace(err)
+		}
+
+		return nil
 	}
-
-	return nil
 }
 
 // pipeConnectionToSSHD initiates the connection back to the controller and pipes
 // it over to the local SSHD. This call blocks until the connection has finished.
-func (w *sshSessionWorker) pipeConnectionToSSHD(ctrlAddress, password string) error {
-	conn, err := w.connectionGetter.GetSSHConnection(password, ctrlAddress)
+func (w *sshSessionWorker) pipeConnectionToSSHD(ctx context.Context, ctrlAddress, password string) error {
+	controllerConn, err := w.connectionGetter.GetControllerConnection(password, ctrlAddress)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer conn.Close()
+	defer controllerConn.Close()
 
 	sshdConn, err := w.connectionGetter.GetSSHDConnection()
 	if err != nil {
@@ -201,11 +203,13 @@ func (w *sshSessionWorker) pipeConnectionToSSHD(ctrlAddress, password string) er
 	}
 	defer sshdConn.Close()
 
+	cancellableControllerConnection := newCancellableReadWriter(ctx, controllerConn)
+	cancellableSSHDConnection := newCancellableReadWriter(ctx, sshdConn)
 	eg := errgroup.Group{}
 
 	eg.Go(func() error {
 		// sshd -> conn
-		_, err := io.Copy(conn, sshdConn)
+		_, err := io.Copy(cancellableControllerConnection, cancellableSSHDConnection)
 		if err != nil {
 			return err
 		}
@@ -214,7 +218,7 @@ func (w *sshSessionWorker) pipeConnectionToSSHD(ctrlAddress, password string) er
 
 	eg.Go(func() error {
 		// conn -> sshd
-		_, err = io.Copy(sshdConn, conn)
+		_, err = io.Copy(cancellableSSHDConnection, cancellableControllerConnection)
 		if err != nil {
 			return err
 		}
@@ -233,7 +237,7 @@ func (w *sshSessionWorker) pipeConnectionToSSHD(ctrlAddress, password string) er
 func (w *sshSessionWorker) cleanupPublicKey(ephemeralPublicKey string) error {
 	fingerprint, _, err := jujussh.KeyFingerprint(ephemeralPublicKey)
 	if err != nil {
-		w.logger.Errorf("failed to get fingerprint of ephemeral public key: %v", err)
+		w.logger.Errorf("Failed to get fingerprint of ephemeral public key: %v", err)
 		return errors.Trace(err)
 	}
 
@@ -246,7 +250,7 @@ func (w *sshSessionWorker) cleanupPublicKey(ephemeralPublicKey string) error {
 }
 
 type ConnectionGetter interface {
-	GetSSHConnection(password, ctrlAddress string) (ssh.Channel, error)
+	GetControllerConnection(password, ctrlAddress string) (ssh.Channel, error)
 	GetSSHDConnection() (net.Conn, error)
 }
 
@@ -264,8 +268,8 @@ func NewConnectionGetter(l Logger) *connectionGetter {
 	return &connectionGetter{l}
 }
 
-// GetSSHConnection initiates an SSH connection to the target ctrlAddress.
-func (w *connectionGetter) GetSSHConnection(password, ctrlAddress string) (ssh.Channel, error) {
+// GetControllerConnection initiates an SSH connection to the target ctrlAddress.
+func (w *connectionGetter) GetControllerConnection(password, ctrlAddress string) (ssh.Channel, error) {
 	// TODO(ale8k): Watch will return host key in subsequent PR.
 	sshConfig := &ssh.ClientConfig{
 		User:            ControllerSSHUser,
@@ -275,7 +279,7 @@ func (w *connectionGetter) GetSSHConnection(password, ctrlAddress string) (ssh.C
 
 	client, err := ssh.Dial("tcp", ctrlAddress, sshConfig)
 	if err != nil {
-		w.logger.Errorf("failed to dial controller %q: %v", ctrlAddress, err)
+		w.logger.Errorf("Failed to dial controller %q: %v", ctrlAddress, err)
 		return nil, errors.Trace(err)
 	}
 
@@ -296,7 +300,7 @@ func (w *connectionGetter) GetSSHDConnection() (net.Conn, error) {
 	port := w.getLocalSSHPort(etcPath, openSSHPath)
 	u, err := url.Parse("localhost" + port)
 	if err != nil {
-		w.logger.Errorf("failed to parse local sshd port: %v", err)
+		w.logger.Errorf("Failed to parse local sshd port: %v", err)
 		return nil, errors.Trace(err)
 	}
 
@@ -347,4 +351,38 @@ func (w *connectionGetter) getLocalSSHPort(filePaths ...string) string {
 	}
 
 	return port
+}
+
+// cancellableReadWriter provides a means to cancel a read or write operation via context.
+type cancellableReadWriter struct {
+	ctx context.Context
+	rw  io.ReadWriter
+}
+
+// newCancellableReadWriter returns a new cancellableReadWriter.
+func newCancellableReadWriter(ctx context.Context, rw io.ReadWriter) *cancellableReadWriter {
+	return &cancellableReadWriter{
+		ctx: ctx,
+		rw:  rw,
+	}
+}
+
+// Implements io.ReadWriter.
+func (crw *cancellableReadWriter) Read(p []byte) (int, error) {
+	select {
+	case <-crw.ctx.Done():
+		return 0, crw.ctx.Err()
+	default:
+		return crw.rw.Read(p)
+	}
+}
+
+// Implements io.ReadWriter.
+func (crw *cancellableReadWriter) Write(p []byte) (int, error) {
+	select {
+	case <-crw.ctx.Done():
+		return 0, crw.ctx.Err()
+	default:
+		return crw.rw.Write(p)
+	}
 }
