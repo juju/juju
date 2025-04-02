@@ -18,18 +18,17 @@ type agentLoggingStrategy struct {
 	modelLogger corelogger.ModelLogger
 
 	recordLogWriter corelogger.LogWriter
-	releaser        func() error
 	entity          string
 	modelUUID       coremodel.UUID
 }
 
-// newAgentLogWriteCloserFunc returns a function that will create a
+// newAgentLogWriteFunc returns a function that will create a
 // logsink.LoggingStrategy given an *http.Request.
-func newAgentLogWriteCloserFunc(
+func newAgentLogWriteFunc(
 	ctxt httpContext,
 	modelLogger corelogger.ModelLogger,
-) logsink.NewLogWriteCloserFunc {
-	return func(req *http.Request) (logsink.LogWriteCloser, error) {
+) logsink.NewLogWriteFunc {
+	return func(req *http.Request) (logsink.LogWriter, error) {
 		strategy := &agentLoggingStrategy{
 			modelLogger: modelLogger,
 		}
@@ -53,15 +52,8 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(req.Context(), s.modelUUID); err != nil {
 		return errors.Trace(err)
 	}
-	s.releaser = func() error {
-		return s.modelLogger.RemoveLogWriter(s.modelUUID)
-	}
-	return nil
-}
 
-// Close is part of the logsink.LogWriteCloser interface.
-func (s *agentLoggingStrategy) Close() error {
-	return s.releaser()
+	return nil
 }
 
 // WriteLog is part of the logsink.LogWriteCloser interface.

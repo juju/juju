@@ -27,7 +27,7 @@ type modelLogger struct {
 func NewModelLogger(logSink corelogger.LogSink, modelUUID model.UUID) (worker.Worker, error) {
 	// Create a new logger context for the model. This will use the buffered
 	// log writer to write the logs to disk.
-	loggerContext := internallogger.LoggerContext(corelogger.INFO)
+	loggerContext := loggo.NewContext(loggo.INFO)
 	if err := loggerContext.AddWriter("model-sink", modelWriter{
 		logSink:   logSink,
 		modelUUID: modelUUID.String(),
@@ -37,7 +37,7 @@ func NewModelLogger(logSink corelogger.LogSink, modelUUID model.UUID) (worker.Wo
 
 	w := &modelLogger{
 		logSink:       logSink,
-		loggerContext: loggerContext,
+		loggerContext: internallogger.WrapLoggoContext(loggerContext),
 	}
 	w.tomb.Go(w.loop)
 
@@ -87,22 +87,6 @@ func (d *modelLogger) ResetLoggerLevels() {
 // with UNSPECIFIED level will not be included.
 func (d *modelLogger) Config() corelogger.Config {
 	return d.loggerContext.Config()
-}
-
-// AddWriter adds a writer to the list to be called for each logging call.
-// The name cannot be empty, and the writer cannot be nil. If an existing
-// writer exists with the specified name, an error is returned.
-//
-// Note: we're relying on loggo.Writer here, until we do model level logging.
-// Deprecated: This will be removed in the future and is only here whilst
-// we cut things across.
-func (d *modelLogger) AddWriter(name string, writer loggo.Writer) error {
-	return d.loggerContext.AddWriter(name, writer)
-}
-
-func (d *modelLogger) Close() error {
-	d.Kill()
-	return d.Wait()
 }
 
 // Kill stops the model logger.

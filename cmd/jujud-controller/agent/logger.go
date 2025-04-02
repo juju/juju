@@ -6,12 +6,15 @@ package agent
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/lumberjack/v2"
 
 	"github.com/juju/juju/agent"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/logsink"
@@ -44,4 +47,26 @@ func PrimeLogSink(cfg agent.Config) (*logsink.LogSink, error) {
 	}
 
 	return logsink.NewLogSink(logger, batchSize, flushInterval, clock.WallClock), nil
+}
+
+type TagWriter struct {
+	LogSink corelogger.LogSink
+	Tag     string
+}
+
+func (w TagWriter) Write(entry loggo.Entry) {
+	var location string
+	if entry.Filename != "" {
+		location = entry.Filename + ":" + strconv.Itoa(entry.Line)
+	}
+
+	w.LogSink.Log([]corelogger.LogRecord{{
+		Time:     entry.Timestamp,
+		Module:   entry.Module,
+		Entity:   w.Tag,
+		Location: location,
+		Level:    corelogger.Level(entry.Level),
+		Message:  entry.Message,
+		Labels:   entry.Labels,
+	}})
 }

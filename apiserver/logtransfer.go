@@ -20,16 +20,15 @@ type migrationLoggingStrategy struct {
 	modelLogger corelogger.ModelLogger
 
 	recordLogWriter corelogger.LogWriter
-	releaser        func() error
 
 	modelUUID coremodel.UUID
 }
 
-// newMigrationLogWriteCloserFunc returns a function that will create a
+// newMigrationLogWriteFunc returns a function that will create a
 // logsink.LoggingStrategy given an *http.Request, that writes log
 // messages to the state database and tracks their migration.
-func newMigrationLogWriteCloserFunc(ctxt httpContext, modelLogger corelogger.ModelLogger) logsink.NewLogWriteCloserFunc {
-	return func(req *http.Request) (logsink.LogWriteCloser, error) {
+func newMigrationLogWriteFunc(ctxt httpContext, modelLogger corelogger.ModelLogger) logsink.NewLogWriteFunc {
+	return func(req *http.Request) (logsink.LogWriter, error) {
 		strategy := &migrationLoggingStrategy{modelLogger: modelLogger}
 		if err := strategy.init(ctxt, req); err != nil {
 			return nil, errors.Annotate(err, "initialising migration logsink session")
@@ -64,15 +63,7 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(req.Context(), s.modelUUID); err != nil {
 		return errors.Trace(err)
 	}
-	s.releaser = func() error {
-		return s.modelLogger.RemoveLogWriter(s.modelUUID)
-	}
 	return nil
-}
-
-// Close is part of the logsink.LogWriteCloser interface.
-func (s *migrationLoggingStrategy) Close() error {
-	return s.releaser()
 }
 
 // WriteLog is part of the logsink.LogWriteCloser interface.

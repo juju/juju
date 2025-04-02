@@ -765,7 +765,7 @@ func (noopLogWriter) Close() error { return nil }
 
 type noopLogSink struct{}
 
-func (s noopLogSink) GetLogWriter(ctx context.Context, modelUUID coremodel.UUID) (corelogger.LogWriterCloser, error) {
+func (s noopLogSink) GetLogWriter(ctx context.Context, modelUUID coremodel.UUID) (corelogger.LogWriter, error) {
 	return &noopLogWriter{}, nil
 }
 
