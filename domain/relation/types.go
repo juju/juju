@@ -148,7 +148,11 @@ type RelationScopeWatcher struct {
 }
 
 // CandidateEndpointIdentifier is the natural key of a relation endpoint when
-// trying to relate two applications.
+// trying to relate two applications. It is used as a parameter for AddRelation,
+// as AddRelation will try to infer endpoints from a given ApplicationName if
+// there is no EndpointName provided.
+// Unlike EndpointIdentifier, this structure cannot be used to uniquely refers
+// to an existing endpoint.
 type CandidateEndpointIdentifier struct {
 	// ApplicationName is the name of the application the endpoint belongs to.
 	ApplicationName string
