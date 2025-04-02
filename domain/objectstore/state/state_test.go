@@ -188,6 +188,31 @@ func (s *stateSuite) TestPutMetadataConflict(c *gc.C) {
 
 	_, err = st.PutMetadata(context.Background(), metadata)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	c.Check(err, jc.ErrorIs, objectstoreerrors.ErrHashAndSizeAlreadyExists)
+}
+
+func (s *stateSuite) TestPutMetadataConflictDifferentHash(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	metadata1 := coreobjectstore.Metadata{
+		SHA256: "sha256-a",
+		SHA384: "sha384-a",
+		Path:   "blah-foo",
+		Size:   666,
+	}
+
+	metadata2 := coreobjectstore.Metadata{
+		SHA256: "sha256-b",
+		SHA384: "sha384-b",
+		Path:   "blah-foo",
+		Size:   666,
+	}
+
+	_, err := st.PutMetadata(context.Background(), metadata1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = st.PutMetadata(context.Background(), metadata2)
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
 	c.Check(err, jc.ErrorIs, objectstoreerrors.ErrPathAlreadyExistsDifferentHash)
 }
 
