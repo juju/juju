@@ -5,6 +5,7 @@ package logsink
 
 import (
 	"context"
+	"maps"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -16,9 +17,8 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
-	"maps"
-
 	"github.com/juju/juju/core/logger"
+	model "github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
@@ -51,7 +51,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		LogSink:   loggertesting.WrapCheckLogSink(c),
 		Clock:     s.clock,
 		NewWorker: s.newWorker,
-		NewModelLogger: func(logSink logger.LogSink) (worker.Worker, error) {
+		NewModelLogger: func(logSink logger.LogSink, modelUUID model.UUID) (worker.Worker, error) {
 			return nil, nil
 		},
 	})
@@ -82,7 +82,7 @@ func (s *ManifoldSuite) getConfig(c *gc.C) ManifoldConfig {
 	return ManifoldConfig{
 		LogSink:   loggertesting.WrapCheckLogSink(c),
 		NewWorker: s.newWorker,
-		NewModelLogger: func(logger.LogSink) (worker.Worker, error) {
+		NewModelLogger: func(logSink logger.LogSink, modelUUID model.UUID) (worker.Worker, error) {
 			return nil, nil
 		},
 		Clock: clock.WallClock,

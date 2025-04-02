@@ -4,12 +4,15 @@
 package logsink
 
 import (
+	"strconv"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	internallogger "github.com/juju/juju/internal/logger"
 )
 
@@ -21,11 +24,14 @@ type modelLogger struct {
 }
 
 // NewModelLogger returns a new model logger instance.
-func NewModelLogger(logSink corelogger.LogSink) (worker.Worker, error) {
+func NewModelLogger(logSink corelogger.LogSink, modelUUID model.UUID) (worker.Worker, error) {
 	// Create a new logger context for the model. This will use the buffered
 	// log writer to write the logs to disk.
 	loggerContext := internallogger.LoggerContext(corelogger.INFO)
-	if err := loggerContext.AddWriter("model-sink", logSink); err != nil {
+	if err := loggerContext.AddWriter("model-sink", modelWriter{
+		logSink:   logSink,
+		modelUUID: modelUUID.String(),
+	}); err != nil {
 		return nil, errors.Annotatef(err, "adding model-sink writer")
 	}
 
@@ -113,4 +119,26 @@ func (d *modelLogger) loop() error {
 	// Wait for the heat death of the universe.
 	<-d.tomb.Dying()
 	return tomb.ErrDying
+}
+
+type modelWriter struct {
+	logSink   corelogger.LogSink
+	modelUUID string
+}
+
+func (w modelWriter) Write(entry loggo.Entry) {
+	var location string
+	if entry.Filename != "" {
+		location = entry.Filename + ":" + strconv.Itoa(entry.Line)
+	}
+
+	w.logSink.Log([]corelogger.LogRecord{{
+		Time:      entry.Timestamp,
+		Module:    entry.Module,
+		Location:  location,
+		Level:     corelogger.Level(entry.Level),
+		Message:   entry.Message,
+		Labels:    entry.Labels,
+		ModelUUID: w.modelUUID,
+	}})
 }
