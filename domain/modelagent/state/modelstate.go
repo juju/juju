@@ -325,7 +325,7 @@ func (st *State) SetMachineRunningAgentBinaryVersion(
 	archMap := architectureMap{Name: version.Arch}
 
 	archMapStmt, err := st.Prepare(`
-SELECT id AS &ArchitectureMap.id FROM architecture WHERE name = $ArchitectureMap.name
+SELECT id AS &architectureMap.id FROM architecture WHERE name = $architectureMap.name
 `, archMap)
 	if err != nil {
 		return errors.Capture(err)
@@ -337,7 +337,7 @@ SELECT id AS &ArchitectureMap.id FROM architecture WHERE name = $ArchitectureMap
 	}
 
 	upsertRunningVersionStmt, err := st.Prepare(`
-INSERT INTO machine_agent_version (*) VALUES ($MachineAgentVersion.*)
+INSERT INTO machine_agent_version (*) VALUES ($machineAgentVersion.*)
 ON CONFLICT (machine_uuid) DO
 UPDATE SET version = excluded.version, architecture_id = excluded.architecture_id
 `, machineAgentVersion)
