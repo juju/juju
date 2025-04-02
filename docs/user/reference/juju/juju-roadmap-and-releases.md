@@ -49,7 +49,7 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 ## :juju: **Juju 3.6**
 > 30 May 2030: expected end of security fix support
 >
-> 30 May 2025: expected end of bug fix support
+> 1 May 2026: expected end of bug fix support
 
 ```{note}
 Juju 3.6 series is LTS
