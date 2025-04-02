@@ -46,8 +46,8 @@ func (s *logSinkSuite) TestWriteWithNoBatching(c *gc.C) {
 
 	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, 1)
-	c.Check(lines, gc.DeepEquals, []logRecord{{
-		Level:   loggo.INFO.String(),
+	c.Check(lines, gc.DeepEquals, []logger.LogRecord{{
+		Level:   logger.INFO,
 		Message: "hello",
 	}})
 
@@ -76,8 +76,8 @@ rld
 
 	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, 1)
-	c.Check(lines, gc.DeepEquals, []logRecord{{
-		Level:   loggo.INFO.String(),
+	c.Check(lines, gc.DeepEquals, []logger.LogRecord{{
+		Level:   logger.INFO,
 		Message: "h\n\t\t\nello\n\nwo\n\nrld\n",
 	}})
 
@@ -102,8 +102,8 @@ func (s *logSinkSuite) TestWriteWithLargeBatching(c *gc.C) {
 
 	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, 1)
-	c.Check(lines, gc.DeepEquals, []logRecord{{
-		Level:   loggo.INFO.String(),
+	c.Check(lines, gc.DeepEquals, []logger.LogRecord{{
+		Level:   logger.INFO,
 		Message: "hello",
 	}})
 
@@ -150,11 +150,16 @@ func (s *logSinkSuite) TestWriteWithLogsBatching(c *gc.C) {
 	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, total, gc.Commentf("expected %d lines, got %d", total, len(lines)))
 
-	expected := make([]logRecord, total)
+	expected := make([]logger.LogRecord, total)
 	for k, entry := range entries {
-		expected[k] = logRecord{
+		level, ok := logger.ParseLevelFromString(entry.Level.String())
+		if !ok {
+			c.Fatalf("failed to parse level %q", entry.Level.String())
+		}
+
+		expected[k] = logger.LogRecord{
 			Time:     entry.Timestamp,
-			Level:    entry.Level.String(),
+			Level:    level,
 			Message:  entry.Message,
 			Module:   entry.Module,
 			Location: fmt.Sprintf("%s:%d", entry.Filename, entry.Line),
@@ -206,11 +211,16 @@ func (s *logSinkSuite) TestWriteWithLogsUnderBatchSize(c *gc.C) {
 	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, total, gc.Commentf("expected %d lines, got %d", total, len(lines)))
 
-	expected := make([]logRecord, total)
+	expected := make([]logger.LogRecord, total)
 	for k, entry := range entries {
-		expected[k] = logRecord{
+		level, ok := logger.ParseLevelFromString(entry.Level.String())
+		if !ok {
+			c.Fatalf("failed to parse level %q", entry.Level.String())
+		}
+
+		expected[k] = logger.LogRecord{
 			Time:     entry.Timestamp,
-			Level:    entry.Level.String(),
+			Level:    level,
 			Message:  entry.Message,
 			Module:   entry.Module,
 			Location: fmt.Sprintf("%s:%d", entry.Filename, entry.Line),
@@ -270,11 +280,16 @@ func (s *logSinkSuite) TestWriteLogsConcurrently(c *gc.C) {
 	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, total, gc.Commentf("expected %d lines, got %d", total, len(lines)))
 
-	expected := make([]logRecord, total)
+	expected := make([]logger.LogRecord, total)
 	for k, entry := range entries {
-		expected[k] = logRecord{
+		level, ok := logger.ParseLevelFromString(entry.Level.String())
+		if !ok {
+			c.Fatalf("failed to parse level %q", entry.Level.String())
+		}
+
+		expected[k] = logger.LogRecord{
 			Time:     entry.Timestamp,
-			Level:    entry.Level.String(),
+			Level:    level,
 			Message:  entry.Message,
 			Module:   entry.Module,
 			Location: fmt.Sprintf("%s:%d", entry.Filename, entry.Line),
@@ -311,8 +326,8 @@ func (s *logSinkSuite) TestLogWithNoBatching(c *gc.C) {
 
 	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, 1)
-	c.Check(lines, gc.DeepEquals, []logRecord{{
-		Level:   loggo.INFO.String(),
+	c.Check(lines, gc.DeepEquals, []logger.LogRecord{{
+		Level:   logger.INFO,
 		Message: "hello",
 	}})
 
@@ -340,8 +355,8 @@ rld
 
 	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, 1)
-	c.Check(lines, gc.DeepEquals, []logRecord{{
-		Level:   loggo.INFO.String(),
+	c.Check(lines, gc.DeepEquals, []logger.LogRecord{{
+		Level:   logger.INFO,
 		Message: "h\n\t\t\nello\n\nwo\n\nrld\n",
 	}})
 
@@ -366,8 +381,8 @@ func (s *logSinkSuite) TestLogWithLargeBatching(c *gc.C) {
 
 	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, 1)
-	c.Check(lines, gc.DeepEquals, []logRecord{{
-		Level:   loggo.INFO.String(),
+	c.Check(lines, gc.DeepEquals, []logger.LogRecord{{
+		Level:   logger.INFO,
 		Message: "hello",
 	}})
 
@@ -411,11 +426,16 @@ func (s *logSinkSuite) TestLogWithLogsBatching(c *gc.C) {
 	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, total, gc.Commentf("expected %d lines, got %d", total, len(lines)))
 
-	expected := make([]logRecord, total)
+	expected := make([]logger.LogRecord, total)
 	for k, entry := range entries {
-		expected[k] = logRecord{
+		level, ok := logger.ParseLevelFromString(entry.Level.String())
+		if !ok {
+			c.Fatalf("failed to parse level %q", entry.Level.String())
+		}
+
+		expected[k] = logger.LogRecord{
 			Time:     entry.Time,
-			Level:    entry.Level.String(),
+			Level:    level,
 			Message:  entry.Message,
 			Module:   entry.Module,
 			Location: entry.Location,
@@ -465,11 +485,16 @@ func (s *logSinkSuite) TestLogWithLogsUnderBatchSize(c *gc.C) {
 	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, total, gc.Commentf("expected %d lines, got %d", total, len(lines)))
 
-	expected := make([]logRecord, total)
+	expected := make([]logger.LogRecord, total)
 	for k, entry := range entries {
-		expected[k] = logRecord{
+		level, ok := logger.ParseLevelFromString(entry.Level.String())
+		if !ok {
+			c.Fatalf("failed to parse level %q", entry.Level.String())
+		}
+
+		expected[k] = logger.LogRecord{
 			Time:     entry.Time,
-			Level:    entry.Level.String(),
+			Level:    level,
 			Message:  entry.Message,
 			Module:   entry.Module,
 			Location: entry.Location,
@@ -527,11 +552,16 @@ func (s *logSinkSuite) TestLogLogsConcurrently(c *gc.C) {
 	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, total, gc.Commentf("expected %d lines, got %d", total, len(lines)))
 
-	expected := make([]logRecord, total)
+	expected := make([]logger.LogRecord, total)
 	for k, entry := range entries {
-		expected[k] = logRecord{
+		level, ok := logger.ParseLevelFromString(entry.Level.String())
+		if !ok {
+			c.Fatalf("failed to parse level %q", entry.Level.String())
+		}
+
+		expected[k] = logger.LogRecord{
 			Time:     entry.Time,
-			Level:    entry.Level.String(),
+			Level:    level,
 			Message:  entry.Message,
 			Module:   entry.Module,
 			Location: entry.Location,
@@ -605,11 +635,16 @@ func (s *logSinkSuite) TestLogAndWriteInterleaved(c *gc.C) {
 	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, total, gc.Commentf("expected %d lines, got %d", total, len(lines)))
 
-	expected := make([]logRecord, total)
+	expected := make([]logger.LogRecord, total)
 	for k, entry := range entries {
-		expected[k] = logRecord{
+		level, ok := logger.ParseLevelFromString(entry.Level.String())
+		if !ok {
+			c.Fatalf("failed to parse level %q", entry.Level.String())
+		}
+
+		expected[k] = logger.LogRecord{
 			Time:     entry.Timestamp,
-			Level:    entry.Level.String(),
+			Level:    level,
 			Message:  entry.Message,
 			Module:   entry.Module,
 			Location: fmt.Sprintf("%s:%d", entry.Filename, entry.Line),
@@ -661,10 +696,15 @@ func (s *logSinkSuite) TestLogAndWriteInterleavedNoSynchronization(c *gc.C) {
 		}
 	}
 
+	level, ok := logger.ParseLevelFromString(entries[0].Level.String())
+	if !ok {
+		c.Fatalf("failed to parse level %q", entries[0].Level.String())
+	}
+
 	// Calculate how many bytes we expect to be written.
-	bytes, err := json.Marshal(&logRecord{
+	bytes, err := json.Marshal(&logger.LogRecord{
 		Time:    entries[0].Timestamp,
-		Level:   entries[0].Level.String(),
+		Level:   level,
 		Message: entries[0].Message,
 		Module:  entries[0].Module,
 	})
@@ -702,10 +742,15 @@ func (s *logSinkSuite) TestLogAndWriteInterleavedNoSynchronization(c *gc.C) {
 	lines := parseLog(c, buffer)
 	c.Assert(lines, gc.HasLen, total, gc.Commentf("expected %d lines, got %d", total, len(lines)))
 
-	expected := make([]logRecord, total)
+	expected := make([]logger.LogRecord, total)
 	for k, entry := range entries {
-		expected[k] = logRecord{
-			Level:   entry.Level.String(),
+		level, ok := logger.ParseLevelFromString(entry.Level.String())
+		if !ok {
+			c.Fatalf("failed to parse level %q", entry.Level.String())
+		}
+
+		expected[k] = logger.LogRecord{
+			Level:   level,
 			Message: entry.Message,
 			Module:  entry.Module,
 		}
@@ -783,12 +828,12 @@ func (s *logSinkSuite) expectWriterClosed(c *gc.C) {
 	c.Assert(atomic.LoadInt64(&s.closed), gc.Equals, int64(1))
 }
 
-func parseLog(c *gc.C, reader io.Reader) []logRecord {
-	var records []logRecord
+func parseLog(c *gc.C, reader io.Reader) []logger.LogRecord {
+	var records []logger.LogRecord
 
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
-		var record logRecord
+		var record logger.LogRecord
 		err := json.Unmarshal(scanner.Bytes(), &record)
 		c.Assert(err, jc.ErrorIsNil)
 		records = append(records, record)

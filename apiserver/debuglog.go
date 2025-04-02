@@ -97,7 +97,7 @@ func newDebugLogHandler(
 //	   - but the command does not wait for new ones.
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	handler := func(conn *websocket.Conn) {
-		socket := &debugLogSocketImpl{conn}
+		socket := &debugLogSocketImpl{conn: conn}
 		defer conn.Close()
 		// Authentication and authorization has to be done after the http
 		// connection has been upgraded to a websocket.
@@ -142,7 +142,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 			return logtailer.NewLogTailer(modelUUID, logFile, p)
 		}
-		if err := h.handle(clock, maxDuration, params, socket, logTailerFunc, h.ctxt.stop(), st.Removing()); err != nil {
+		if err := h.handle(clock, maxDuration, params, socket, logTailerFunc, req.Context().Done(), st.Removing()); err != nil {
 			if isBrokenPipe(err) {
 				logger.Tracef(req.Context(), "debug-log handler stopped (client disconnected)")
 			} else {
@@ -174,7 +174,7 @@ type debugLogSocket interface {
 	sendError(err error)
 
 	// sendLogRecord sends record JSON encoded.
-	sendLogRecord(record *params.LogMessage, version int) error
+	sendLogRecord(record *params.LogMessage) error
 }
 
 // debugLogSocketImpl implements the debugLogSocket interface. It
@@ -192,28 +192,13 @@ func (s *debugLogSocketImpl) sendOk() {
 // sendError implements debugLogSocket.
 func (s *debugLogSocketImpl) sendError(err error) {
 	if sendErr := s.conn.SendInitialErrorV0(err); sendErr != nil {
-		logger.Errorf(context.TODO(), "closing websocket, %v", err)
+		logger.Errorf(context.Background(), "closing websocket, %v", err)
 		s.conn.Close()
 		return
 	}
 }
 
-func (s *debugLogSocketImpl) sendLogRecord(record *params.LogMessage, version int) (err error) {
-	if version == 1 {
-		// Older clients expect just logger tags as an array.
-		recordv1 := &params.LogMessageV1{
-			Entity:    record.Entity,
-			Timestamp: record.Timestamp,
-			Severity:  record.Severity,
-			Module:    record.Module,
-			Location:  record.Location,
-			Message:   record.Message,
-		}
-		if loggerTags, ok := record.Labels[loggo.LoggerTags]; ok {
-			recordv1.Labels = strings.Split(loggerTags, ",")
-		}
-		return s.conn.WriteJSON(recordv1)
-	}
+func (s *debugLogSocketImpl) sendLogRecord(record *params.LogMessage) (err error) {
 	return s.conn.WriteJSON(record)
 }
 

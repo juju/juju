@@ -38,7 +38,7 @@ type LogSink struct {
 	inLogEntry   chan loggo.Entry
 	inLogRecords chan []logger.LogRecord
 
-	out chan []logRecord
+	out chan []logger.LogRecord
 
 	clock clock.Clock
 }
@@ -74,7 +74,7 @@ func newLogSink(
 		inLogEntry:   make(chan loggo.Entry),
 		inLogRecords: make(chan []logger.LogRecord),
 
-		out: make(chan []logRecord),
+		out: make(chan []logger.LogRecord),
 
 		clock: clock,
 	}
@@ -152,14 +152,14 @@ func (w *LogSink) loop() error {
 	// requires splitting the log records into multiple batches. That creates
 	// more complexity, when we can just pipe the log entries to the writer in a
 	// single batch.
-	var entries []logRecord
+	var entries []logger.LogRecord
 
 	// Tick-toc the in and out channels, to ensure that we can send the batch
 	// of log messages to the underlying writer.
 	inLogEntry := w.inLogEntry
 	inLogRecords := w.inLogRecords
 
-	var out chan []logRecord
+	var out chan []logger.LogRecord
 	var switchToRead = func() {
 		inLogEntry = w.inLogEntry
 		inLogRecords = w.inLogRecords
@@ -211,7 +211,7 @@ func (w *LogSink) loop() error {
 			// Consume the log records, there is a higher chance that the
 			// entries will be larger than the batch size. In that case we
 			// just have a larger batch size for the log messages.
-			entries = append(entries, w.convertLogRecords(records)...)
+			entries = append(entries, records...)
 			if len(entries) < w.batchSize {
 				continue
 			}
@@ -234,17 +234,19 @@ func (w *LogSink) loop() error {
 	}
 }
 
-func (w *LogSink) convertLogEntry(entry loggo.Entry) logRecord {
+func (w *LogSink) convertLogEntry(entry loggo.Entry) logger.LogRecord {
 	var location string
 	if entry.Filename != "" {
 		location = entry.Filename + ":" + strconv.Itoa(entry.Line)
 	}
 
-	rec := logRecord{
+	level, _ := logger.ParseLevelFromString(entry.Level.String())
+
+	rec := logger.LogRecord{
 		Time:     entry.Timestamp,
 		Module:   entry.Module,
 		Location: location,
-		Level:    entry.Level.String(),
+		Level:    level,
 		Message:  entry.Message,
 	}
 
@@ -256,24 +258,7 @@ func (w *LogSink) convertLogEntry(entry loggo.Entry) logRecord {
 	return rec
 }
 
-func (w *LogSink) convertLogRecords(records []logger.LogRecord) []logRecord {
-	var recs []logRecord
-	for _, record := range records {
-		recs = append(recs, logRecord{
-			Time:      record.Time,
-			Module:    record.Module,
-			Entity:    record.Entity,
-			Location:  record.Location,
-			Level:     record.Level.String(),
-			Message:   record.Message,
-			Labels:    record.Labels,
-			ModelUUID: record.ModelUUID,
-		})
-	}
-	return recs
-}
-
-func (w *LogSink) write(buffer *bytes.Buffer, encoder *json.Encoder, records []logRecord) error {
+func (w *LogSink) write(buffer *bytes.Buffer, encoder *json.Encoder, records []logger.LogRecord) error {
 	if len(records) == 0 {
 		return nil
 	}
@@ -313,15 +298,4 @@ func (w *LogSink) reportInternalState(state string) {
 	case <-w.tomb.Dying():
 	case w.internalStates <- state:
 	}
-}
-
-type logRecord struct {
-	Time      time.Time         `json:"time"`
-	Module    string            `json:"module"`
-	Entity    string            `json:"entity,omitempty"`
-	Location  string            `json:"location,omitempty"`
-	Level     string            `json:"level"`
-	Message   string            `json:"message"`
-	Labels    map[string]string `json:"labels,omitempty"`
-	ModelUUID string            `json:"model-uuid,omitempty"`
 }

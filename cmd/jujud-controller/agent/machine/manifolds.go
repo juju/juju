@@ -605,6 +605,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		logSinkName: ifDatabaseUpgradeComplete(logsink.Manifold(logsink.ManifoldConfig{
+			AgentTag:       agentTag,
 			Clock:          config.Clock,
 			NewWorker:      logsink.NewWorker,
 			NewModelLogger: logsink.NewModelLogger,
