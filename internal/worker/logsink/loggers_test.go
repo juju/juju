@@ -6,7 +6,6 @@ package logsink
 import (
 	"context"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
@@ -14,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corelogger "github.com/juju/juju/core/logger"
+	model "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -51,9 +51,10 @@ func (s *LoggersSuite) TestLoggerLogs(c *gc.C) {
 func (s *LoggersSuite) TestLoggerGetLogger(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	var logs []loggo.Entry
-	s.logWriter.EXPECT().Write(gomock.Any()).DoAndReturn(func(entry loggo.Entry) {
-		logs = append(logs, entry)
+	var logs []corelogger.LogRecord
+	s.logWriter.EXPECT().Log(gomock.Any()).DoAndReturn(func(records []corelogger.LogRecord) error {
+		logs = append(logs, records...)
+		return nil
 	})
 
 	logger := s.newModelLogger(c)
@@ -67,16 +68,18 @@ func (s *LoggersSuite) TestLoggerGetLogger(c *gc.C) {
 
 	c.Assert(logs, gc.HasLen, 1)
 	c.Check(logs[0].Message, gc.Equals, "message me")
-	c.Check(logs[0].Level, gc.Equals, loggo.INFO)
+	c.Check(logs[0].Level, gc.Equals, corelogger.INFO)
 	c.Check(logs[0].Module, gc.Equals, "foo")
+	c.Check(logs[0].ModelUUID, gc.Equals, s.modelUUID)
 }
 
 func (s *LoggersSuite) TestLoggerConfigureLoggers(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	var logs []loggo.Entry
-	s.logWriter.EXPECT().Write(gomock.Any()).DoAndReturn(func(entry loggo.Entry) {
-		logs = append(logs, entry)
+	var logs []corelogger.LogRecord
+	s.logWriter.EXPECT().Log(gomock.Any()).DoAndReturn(func(records []corelogger.LogRecord) error {
+		logs = append(logs, records...)
+		return nil
 	})
 
 	logger := s.newModelLogger(c)
@@ -102,13 +105,14 @@ func (s *LoggersSuite) TestLoggerConfigureLoggers(c *gc.C) {
 
 	c.Assert(logs, gc.HasLen, 1)
 	c.Check(logs[0].Message, gc.Equals, "message again and again")
-	c.Check(logs[0].Level, gc.Equals, loggo.WARNING)
+	c.Check(logs[0].Level, gc.Equals, corelogger.WARNING)
+	c.Check(logs[0].ModelUUID, gc.Equals, s.modelUUID)
 }
 
 func (s *LoggersSuite) newModelLogger(c *gc.C) *modelLogger {
 	s.modelUUID = uuid.MustNewUUID().String()
 
-	w, err := NewModelLogger(s.logWriter)
+	w, err := NewModelLogger(s.logWriter, model.UUID(s.modelUUID))
 	c.Assert(err, jc.ErrorIsNil)
 
 	return w.(*modelLogger)

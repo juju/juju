@@ -19,7 +19,7 @@ import (
 
 const (
 	batchSize     = 512
-	flushInterval = 30 * time.Second
+	flushInterval = 2 * time.Second
 )
 
 // PrimeLogSink sets up the logging sink for the agent.

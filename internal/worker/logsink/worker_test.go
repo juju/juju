@@ -18,15 +18,15 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
+	model "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 )
 
 type workerSuite struct {
 	testing.IsolationSuite
 
-	states    chan string
-	called    int64
-	logWriter *MockLogWriterCloser
+	states chan string
+	called int64
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -206,7 +206,7 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	w, err := newWorker(Config{
-		NewModelLogger: func(logSink logger.LogSink) (worker.Worker, error) {
+		NewModelLogger: func(logSink logger.LogSink, modelUUID model.UUID) (worker.Worker, error) {
 			atomic.AddInt64(&s.called, 1)
 			return newLoggerWorker(), nil
 		},

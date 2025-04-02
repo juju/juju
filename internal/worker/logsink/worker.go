@@ -226,7 +226,7 @@ func (w *LogSink) workerFromCache(modelUUID model.UUID) (LogSinkWriter, error) {
 
 func (w *LogSink) initLogger(modelUUID model.UUID) error {
 	err := w.runner.StartWorker(modelUUID.String(), func() (worker.Worker, error) {
-		return w.cfg.NewModelLogger(w.cfg.LogSink)
+		return w.cfg.NewModelLogger(w.cfg.LogSink, modelUUID)
 	})
 	if errors.Is(err, errors.AlreadyExists) {
 		return nil
