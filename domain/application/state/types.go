@@ -1083,6 +1083,15 @@ type exportApplication struct {
 	Subordinate  bool               `db:"subordinate"`
 }
 
+// peerEndpoint represents a structure for defining a peer application endpoint
+// with a UUID and a name.
+type peerEndpoint struct {
+	// UUID is the unique identifier of the peer endpoint.
+	UUID corerelation.EndpointUUID `db:"uuid"`
+	// Name is the human-readable name of the peer endpoint.
+	Name string `db:"name"`
+}
+
 type setExposedSpace struct {
 	ApplicationUUID string `db:"application_uuid"`
 	EndpointName    string `db:"endpoint"`

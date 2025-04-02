@@ -24,6 +24,7 @@ import (
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/semversion"
+	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
@@ -186,6 +187,45 @@ func (s *applicationStateSuite) TestCreateApplicationWithConfigAndSettings(c *gc
 		},
 	})
 	c.Check(settings, gc.DeepEquals, application.ApplicationSettings{Trust: true})
+}
+
+func (s *applicationStateSuite) TestCreateApplicationWithPeerRelation(c *gc.C) {
+	platform := application.Platform{
+		Channel:      "666",
+		OSType:       application.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+	channel := &application.Channel{
+		Track:  "track",
+		Risk:   "risk",
+		Branch: "branch",
+	}
+	ctx := context.Background()
+
+	_, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
+		Platform: platform,
+		Charm: charm.Charm{
+			Metadata:      s.minimalMetadataWithPeerRelation(c, "666", "castor", "pollux"),
+			Manifest:      s.minimalManifest(c),
+			Source:        charm.CharmHubSource,
+			ReferenceName: "666",
+			Revision:      42,
+			Architecture:  architecture.ARM64,
+		},
+		CharmDownloadInfo: &charm.DownloadInfo{
+			Provenance:         charm.ProvenanceDownload,
+			CharmhubIdentifier: "ident-1",
+			DownloadURL:        "http://example.com/charm",
+			DownloadSize:       666,
+		},
+		Scale:   1,
+		Channel: channel,
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Failed to create application: %s", errors.ErrorStack(err)))
+	scale := application.ScaleState{Scale: 1}
+	s.assertApplication(c, "666", platform, channel, scale, false)
+
+	s.assertPeerRelation(c, "666", "castor", "pollux")
 }
 
 func (s *applicationStateSuite) TestCreateApplicationWithStatus(c *gc.C) {
@@ -3175,4 +3215,74 @@ func (s *applicationStateSuite) addCharmModifiedVersion(c *gc.C, appID coreappli
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *applicationStateSuite) assertPeerRelation(c *gc.C, appName string, peerRelationNames ...string) {
+	var expectedIds []int
+	var expectedStatus []corestatus.Status
+	for k := range peerRelationNames {
+		expectedIds = append(expectedIds, k)
+		expectedStatus = append(expectedStatus, corestatus.Joining)
+	}
+
+	var peerRelations []string
+	var ids []int
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT cr.name, r.relation_id
+FROM charm_relation cr
+JOIN application_endpoint ae ON ae.charm_relation_uuid = cr.uuid 
+JOIN application a ON a.uuid = ae.application_uuid
+JOIN relation_endpoint re ON  re.endpoint_uuid = ae.uuid
+JOIN relation r ON r.uuid = re.relation_uuid
+WHERE a.name = ?
+AND cr.kind_id = 2 -- peer relation
+ORDER BY r.relation_id
+`, appName)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var peerRelation string
+			var id int
+			if err := rows.Scan(&peerRelation, &id); err != nil {
+				return errors.Capture(err)
+			}
+			peerRelations = append(peerRelations, peerRelation)
+			ids = append(ids, id)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var statuses []corestatus.Status
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT rst.name
+FROM relation_status_type rst  
+JOIN relation_status rs ON rs.relation_status_type_id = rst.id
+JOIN relation_endpoint re ON re.relation_uuid = rs.relation_uuid
+JOIN application_endpoint ae ON ae.uuid = re.endpoint_uuid
+JOIN application a ON a.uuid = ae.application_uuid
+WHERE a.name = ?
+`, appName)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var relStatus corestatus.Status
+			if err := rows.Scan(&relStatus); err != nil {
+				return errors.Capture(err)
+			}
+			statuses = append(statuses, relStatus)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(peerRelations, gc.DeepEquals, peerRelationNames, gc.Commentf("(Assert)  missing peer relation"))
+	c.Assert(ids, gc.DeepEquals, expectedIds, gc.Commentf("(Assert)  relation id not correctly generated"))
+	c.Assert(statuses, gc.DeepEquals, expectedStatus, gc.Commentf("(Assert)  relation status not correctly generated"))
 }
