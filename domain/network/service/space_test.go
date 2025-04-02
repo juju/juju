@@ -22,10 +22,13 @@ import (
 type spaceSuite struct {
 	testing.IsolationSuite
 
-	st                         *MockState
-	provider                   *MockProvider
-	providerGetter             func(context.Context) (Provider, error)
-	notSupportedProviderGetter func(context.Context) (Provider, error)
+	st                                *MockState
+	providerWithNetworking            *MockProviderWithNetworking
+	providerWithZones                 *MockProviderWithZones
+	networkProviderGetter             func(context.Context) (ProviderWithNetworking, error)
+	notSupportedNetworkProviderGetter func(context.Context) (ProviderWithNetworking, error)
+	zoneProviderGetter                func(context.Context) (ProviderWithZones, error)
+	notSupportedZoneProviderGetter    func(context.Context) (ProviderWithZones, error)
 }
 
 var _ = gc.Suite(&spaceSuite{})
@@ -34,11 +37,19 @@ func (s *spaceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = NewMockState(ctrl)
-	s.provider = NewMockProvider(ctrl)
-	s.providerGetter = func(ctx context.Context) (Provider, error) {
-		return s.provider, nil
+	s.providerWithNetworking = NewMockProviderWithNetworking(ctrl)
+	s.networkProviderGetter = func(ctx context.Context) (ProviderWithNetworking, error) {
+		return s.providerWithNetworking, nil
 	}
-	s.notSupportedProviderGetter = func(ctx context.Context) (Provider, error) {
+	s.notSupportedNetworkProviderGetter = func(ctx context.Context) (ProviderWithNetworking, error) {
+		return nil, errors.Errorf("provider %w", coreerrors.NotSupported)
+	}
+
+	s.providerWithZones = NewMockProviderWithZones(ctrl)
+	s.zoneProviderGetter = func(ctx context.Context) (ProviderWithZones, error) {
+		return s.providerWithZones, nil
+	}
+	s.notSupportedZoneProviderGetter = func(ctx context.Context) (ProviderWithZones, error) {
 		return nil, errors.Errorf("provider %w", coreerrors.NotSupported)
 	}
 
@@ -246,7 +257,7 @@ func (s *spaceSuite) TestSaveProviderSubnetsWithoutSpaceUUID(c *gc.C) {
 			return nil
 		})
 
-	err := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), twoSubnets, "")
+	err := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), twoSubnets, "")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -279,7 +290,7 @@ func (s *spaceSuite) TestSaveProviderSubnetsOnlyAddsSubnets(c *gc.C) {
 		},
 	)
 
-	err := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), twoSubnets, "")
+	err := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), twoSubnets, "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	anotherSubnet := []network.SubnetInfo{
@@ -300,7 +311,7 @@ func (s *spaceSuite) TestSaveProviderSubnetsOnlyAddsSubnets(c *gc.C) {
 		},
 	)
 
-	err = NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), anotherSubnet, "")
+	err = NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), anotherSubnet, "")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -325,7 +336,7 @@ func (s *spaceSuite) TestSaveProviderSubnetsOnlyIdempotent(c *gc.C) {
 		},
 	)
 
-	err := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), oneSubnet, "")
+	err := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), oneSubnet, "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We expect the same subnets to be passed to the state methods.
@@ -338,7 +349,7 @@ func (s *spaceSuite) TestSaveProviderSubnetsOnlyIdempotent(c *gc.C) {
 			return nil
 		},
 	)
-	err = NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), oneSubnet, "")
+	err = NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), oneSubnet, "")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -354,7 +365,7 @@ func (s *spaceSuite) TestSaveProviderSubnetsIgnoreInterfaceLocalMulticast(c *gc.
 	}
 
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Times(0)
-	err := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), oneSubnet, "")
+	err := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), oneSubnet, "")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -370,7 +381,7 @@ func (s *spaceSuite) TestSaveProviderSubnetsIgnoreLinkLocalMulticast(c *gc.C) {
 	}
 
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Times(0)
-	err := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), oneSubnet, "")
+	err := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), oneSubnet, "")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -386,7 +397,7 @@ func (s *spaceSuite) TestSaveProviderSubnetsIgnoreIPV6LinkLocalUnicast(c *gc.C) 
 	}
 
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Times(0)
-	err := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), oneSubnet, "")
+	err := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), oneSubnet, "")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -402,7 +413,7 @@ func (s *spaceSuite) TestSaveProviderSubnetsIgnoreIPV4LinkLocalUnicast(c *gc.C) 
 	}
 
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Times(0)
-	err := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), oneSubnet, "")
+	err := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).saveProviderSubnets(context.Background(), oneSubnet, "")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -444,8 +455,8 @@ func (s *spaceSuite) TestReloadSpacesFromProvider(c *gc.C) {
 		},
 	}
 
-	s.provider.EXPECT().SupportsSpaceDiscovery().Return(true, nil)
-	s.provider.EXPECT().Spaces(gomock.Any()).Return(twoSpaces, nil)
+	s.providerWithNetworking.EXPECT().SupportsSpaceDiscovery().Return(true, nil)
+	s.providerWithNetworking.EXPECT().Spaces(gomock.Any()).Return(twoSpaces, nil)
 	s.st.EXPECT().GetAllSpaces(gomock.Any()).Return([]network.SpaceInfo{
 		{
 			ID:   network.AlphaSpaceId,
@@ -487,7 +498,7 @@ func (s *spaceSuite) TestReloadSpacesFromProvider(c *gc.C) {
 		},
 	)
 
-	err := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c)).
+	err := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).
 		ReloadSpaces(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -500,8 +511,8 @@ func (s *spaceSuite) TestReloadSpacesUsingSubnets(c *gc.C) {
 		{CIDR: "10.12.24.1/24"},
 	}
 
-	s.provider.EXPECT().SupportsSpaceDiscovery().Return(false, nil)
-	s.provider.EXPECT().Subnets(gomock.Any(), instance.UnknownId, nil).Return(twoSubnets, nil)
+	s.providerWithNetworking.EXPECT().SupportsSpaceDiscovery().Return(false, nil)
+	s.providerWithNetworking.EXPECT().Subnets(gomock.Any(), instance.UnknownId, nil).Return(twoSubnets, nil)
 
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
 		func(ctx context.Context, subnets []network.SubnetInfo) error {
@@ -512,7 +523,7 @@ func (s *spaceSuite) TestReloadSpacesUsingSubnets(c *gc.C) {
 		},
 	)
 
-	err := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c)).
+	err := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).
 		ReloadSpaces(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -525,8 +536,8 @@ func (s *spaceSuite) TestReloadSpacesUsingSubnetsFailsOnSave(c *gc.C) {
 		{CIDR: "10.12.24.1/24"},
 	}
 
-	s.provider.EXPECT().SupportsSpaceDiscovery().Return(false, nil)
-	s.provider.EXPECT().Subnets(gomock.Any(), instance.UnknownId, nil).Return(twoSubnets, nil)
+	s.providerWithNetworking.EXPECT().SupportsSpaceDiscovery().Return(false, nil)
+	s.providerWithNetworking.EXPECT().Subnets(gomock.Any(), instance.UnknownId, nil).Return(twoSubnets, nil)
 
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
 		func(ctx context.Context, subnets []network.SubnetInfo) error {
@@ -537,7 +548,7 @@ func (s *spaceSuite) TestReloadSpacesUsingSubnetsFailsOnSave(c *gc.C) {
 		},
 	).Return(errors.New("boom"))
 
-	err := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c)).
+	err := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c)).
 		ReloadSpaces(context.Background())
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
@@ -545,10 +556,10 @@ func (s *spaceSuite) TestReloadSpacesUsingSubnetsFailsOnSave(c *gc.C) {
 func (s *spaceSuite) TestReloadSpacesNotNetworkEnviron(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	providerGetterFails := func(ctx context.Context) (Provider, error) {
+	providerGetterFails := func(ctx context.Context) (ProviderWithNetworking, error) {
 		return nil, coreerrors.NotSupported
 	}
-	err := NewProviderService(s.st, providerGetterFails, loggertesting.WrapCheckLog(c)).
+	err := NewProviderService(s.st, providerGetterFails, s.notSupportedZoneProviderGetter, loggertesting.WrapCheckLog(c)).
 		ReloadSpaces(context.Background())
 
 	c.Assert(err, gc.ErrorMatches, "spaces discovery in a non-networking environ not supported")
@@ -584,7 +595,7 @@ func (s *spaceSuite) TestSaveProviderSpaces(c *gc.C) {
 		},
 	)
 
-	providerService := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c))
+	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
 	err := provider.saveSpaces(context.Background(), spaces)
 	c.Assert(err, jc.ErrorIsNil)
@@ -629,7 +640,7 @@ func (s *spaceSuite) TestSaveProviderSpacesWithoutProviderId(c *gc.C) {
 		},
 	)
 
-	providerService := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c))
+	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
 	err := provider.saveSpaces(context.Background(), spaces)
 	c.Assert(err, jc.ErrorIsNil)
@@ -647,7 +658,7 @@ func (s *spaceSuite) TestSaveProviderSpacesWithoutProviderId(c *gc.C) {
 func (s *spaceSuite) TestSaveProviderSpacesDeltaSpaces(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	providerService := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c))
+	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
 	c.Assert(provider.deltaSpaces(), gc.DeepEquals, network.MakeIDSet())
 }
@@ -683,7 +694,7 @@ func (s *spaceSuite) TestSaveProviderSpacesDeltaSpacesAfterNotUpdated(c *gc.C) {
 		},
 	)
 
-	providerService := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c))
+	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
 	err := provider.saveSpaces(context.Background(), spaces)
 	c.Assert(err, jc.ErrorIsNil)
@@ -693,7 +704,7 @@ func (s *spaceSuite) TestSaveProviderSpacesDeltaSpacesAfterNotUpdated(c *gc.C) {
 func (s *spaceSuite) TestDeleteProviderSpacesWithNoDeltas(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	providerService := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c))
+	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
 	warnings, err := provider.deleteSpaces(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -705,7 +716,7 @@ func (s *spaceSuite) TestDeleteProviderSpaces(c *gc.C) {
 
 	s.st.EXPECT().DeleteSpace(gomock.Any(), "1")
 
-	providerService := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c))
+	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
 		network.Id("1"): {
@@ -723,7 +734,7 @@ func (s *spaceSuite) TestDeleteProviderSpaces(c *gc.C) {
 func (s *spaceSuite) TestDeleteProviderSpacesMatchesAlphaSpace(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	providerService := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c))
+	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
 		network.Id("1"): {
@@ -744,7 +755,7 @@ func (s *spaceSuite) TestDeleteProviderSpacesMatchesDefaultBindingSpace(c *gc.C)
 
 	defer s.setupMocks(c).Finish()
 
-	providerService := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c))
+	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
 		network.Id("1"): {
@@ -765,7 +776,7 @@ func (s *spaceSuite) TestDeleteProviderSpacesContainsConstraintsSpace(c *gc.C) {
 
 	defer s.setupMocks(c).Finish()
 
-	providerService := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c))
+	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
 		network.Id("1"): {
@@ -818,7 +829,7 @@ func (s *spaceSuite) TestProviderSpacesRun(c *gc.C) {
 	)
 	s.st.EXPECT().DeleteSpace(gomock.Any(), "1")
 
-	providerService := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c))
+	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
 	err := provider.saveSpaces(context.Background(), spaces)
 	c.Assert(err, jc.ErrorIsNil)
@@ -843,9 +854,9 @@ func (s *spaceSuite) TestProviderSpacesRun(c *gc.C) {
 func (s *spaceSuite) TestSupportsSpaces(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	providerService := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c))
+	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 
-	s.provider.EXPECT().SupportsSpaces().Return(true, nil)
+	s.providerWithNetworking.EXPECT().SupportsSpaces().Return(true, nil)
 
 	supported, err := providerService.SupportsSpaces(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -855,7 +866,7 @@ func (s *spaceSuite) TestSupportsSpaces(c *gc.C) {
 func (s *spaceSuite) TestSupportsSpacesNotSupported(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	providerService := NewProviderService(s.st, s.notSupportedProviderGetter, loggertesting.WrapCheckLog(c))
+	providerService := NewProviderService(s.st, s.notSupportedNetworkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 
 	supported, err := providerService.SupportsSpaces(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -865,9 +876,9 @@ func (s *spaceSuite) TestSupportsSpacesNotSupported(c *gc.C) {
 func (s *spaceSuite) TestSupportsSpaceDiscovery(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	providerService := NewProviderService(s.st, s.providerGetter, loggertesting.WrapCheckLog(c))
+	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 
-	s.provider.EXPECT().SupportsSpaceDiscovery().Return(true, nil)
+	s.providerWithNetworking.EXPECT().SupportsSpaceDiscovery().Return(true, nil)
 
 	supported, err := providerService.SupportsSpaceDiscovery(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -877,7 +888,7 @@ func (s *spaceSuite) TestSupportsSpaceDiscovery(c *gc.C) {
 func (s *spaceSuite) TestSupportsSpaceDiscoveryNotSupported(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	providerService := NewProviderService(s.st, s.notSupportedProviderGetter, loggertesting.WrapCheckLog(c))
+	providerService := NewProviderService(s.st, s.notSupportedNetworkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 
 	supported, err := providerService.SupportsSpaceDiscovery(context.Background())
 	c.Assert(err, jc.ErrorIsNil)

@@ -19,10 +19,6 @@ import (
 // Networking in this case.
 var SupportsNetworking = supportsNetworking
 
-// DefaultSpaceInfo should be passed into Networking.ProviderSpaceInfo
-// to get information about the default space.
-var DefaultSpaceInfo *network.SpaceInfo
-
 // Networking interface defines methods that environments
 // with networking capabilities must implement.
 type Networking interface {
