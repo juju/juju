@@ -30,7 +30,7 @@ func (s *exposedServiceSuite) TestApplicationExposedNotFound(c *gc.C) {
 
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.ID(""), applicationerrors.ApplicationNotFound)
 
-	_, err := s.service.ApplicationExposed(context.Background(), "foo")
+	_, err := s.service.IsApplicationExposed(context.Background(), "foo")
 	c.Assert(err, gc.ErrorMatches, "application not found")
 }
 
@@ -39,9 +39,9 @@ func (s *exposedServiceSuite) TestApplicationExposed(c *gc.C) {
 
 	applicationUUID := applicationtesting.GenApplicationUUID(c)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
-	s.state.EXPECT().ApplicationExposed(gomock.Any(), applicationUUID).Return(true, nil)
+	s.state.EXPECT().IsApplicationExposed(gomock.Any(), applicationUUID).Return(true, nil)
 
-	exposed, err := s.service.ApplicationExposed(context.Background(), "foo")
+	exposed, err := s.service.IsApplicationExposed(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(exposed, jc.IsTrue)
 }

@@ -186,45 +186,6 @@ func (c *MockStateAddStorageForUnitCall) DoAndReturn(f func(context.Context, sto
 	return c
 }
 
-// ApplicationExposed mocks base method.
-func (m *MockState) ApplicationExposed(ctx context.Context, appID application.ID) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationExposed", ctx, appID)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ApplicationExposed indicates an expected call of ApplicationExposed.
-func (mr *MockStateMockRecorder) ApplicationExposed(ctx, appID any) *MockStateApplicationExposedCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationExposed", reflect.TypeOf((*MockState)(nil).ApplicationExposed), ctx, appID)
-	return &MockStateApplicationExposedCall{Call: call}
-}
-
-// MockStateApplicationExposedCall wrap *gomock.Call
-type MockStateApplicationExposedCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateApplicationExposedCall) Return(arg0 bool, arg1 error) *MockStateApplicationExposedCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateApplicationExposedCall) Do(f func(context.Context, application.ID) (bool, error)) *MockStateApplicationExposedCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateApplicationExposedCall) DoAndReturn(f func(context.Context, application.ID) (bool, error)) *MockStateApplicationExposedCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // AttachStorage mocks base method.
 func (m *MockState) AttachStorage(ctx context.Context, parentDir string, storageUUID storage.UUID, unitUUID unit.UUID) error {
 	m.ctrl.T.Helper()
@@ -2419,6 +2380,45 @@ func (c *MockStateInsertMigratingIAASUnitsCall) Do(f func(context.Context, appli
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateInsertMigratingIAASUnitsCall) DoAndReturn(f func(context.Context, application.ID, ...application0.InsertUnitArg) error) *MockStateInsertMigratingIAASUnitsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// IsApplicationExposed mocks base method.
+func (m *MockState) IsApplicationExposed(ctx context.Context, appID application.ID) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsApplicationExposed", ctx, appID)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsApplicationExposed indicates an expected call of IsApplicationExposed.
+func (mr *MockStateMockRecorder) IsApplicationExposed(ctx, appID any) *MockStateIsApplicationExposedCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsApplicationExposed", reflect.TypeOf((*MockState)(nil).IsApplicationExposed), ctx, appID)
+	return &MockStateIsApplicationExposedCall{Call: call}
+}
+
+// MockStateIsApplicationExposedCall wrap *gomock.Call
+type MockStateIsApplicationExposedCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateIsApplicationExposedCall) Return(arg0 bool, arg1 error) *MockStateIsApplicationExposedCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateIsApplicationExposedCall) Do(f func(context.Context, application.ID) (bool, error)) *MockStateIsApplicationExposedCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateIsApplicationExposedCall) DoAndReturn(f func(context.Context, application.ID) (bool, error)) *MockStateIsApplicationExposedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

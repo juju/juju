@@ -264,12 +264,12 @@ type ApplicationState interface {
 	// for application scale change watchers.
 	NamespaceForWatchApplicationScale() string
 
-	// ApplicationExposed returns whether the provided application is exposed or
+	// IsApplicationExposed returns whether the provided application is exposed or
 	// not.
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
-	ApplicationExposed(ctx context.Context, appID coreapplication.ID) (bool, error)
+	IsApplicationExposed(ctx context.Context, appID coreapplication.ID) (bool, error)
 
 	// GetExposedEndpoints returns map where keys are endpoint names (or the ""
 	// value which represents all endpoints) and values are ExposedEndpoint

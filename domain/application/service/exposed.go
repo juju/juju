@@ -14,17 +14,17 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// ApplicationExposed returns whether the provided application is exposed or not.
+// IsApplicationExposed returns whether the provided application is exposed or not.
 //
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *Service) ApplicationExposed(ctx context.Context, appName string) (bool, error) {
+func (s *Service) IsApplicationExposed(ctx context.Context, appName string) (bool, error) {
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
-	return s.st.ApplicationExposed(ctx, appID)
+	return s.st.IsApplicationExposed(ctx, appID)
 }
 
 // GetExposedEndpoints returns map where keys are endpoint names (or the ""

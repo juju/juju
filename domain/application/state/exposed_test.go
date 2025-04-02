@@ -36,7 +36,7 @@ func (s *exposedStateSuite) SetUpTest(c *gc.C) {
 func (s *exposedStateSuite) TestApplicationNotExposed(c *gc.C) {
 	appUUID := coreapplication.ID(uuid.MustNewUUID().String())
 
-	isExposed, err := s.state.ApplicationExposed(context.Background(), appUUID)
+	isExposed, err := s.state.IsApplicationExposed(context.Background(), appUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(isExposed, jc.IsFalse)
 }
@@ -46,7 +46,7 @@ func (s *exposedStateSuite) TestApplicationExposedToSpace(c *gc.C) {
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointSpace(c, appID)
 
-	isExposed, err := s.state.ApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(isExposed, jc.IsTrue)
 }
@@ -56,7 +56,7 @@ func (s *exposedStateSuite) TestApplicationExposedCIDR(c *gc.C) {
 	s.setUpEndpoint(c, appID)
 	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
 
-	isExposed, err := s.state.ApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(isExposed, jc.IsTrue)
 }
@@ -118,7 +118,7 @@ func (s *exposedStateSuite) TestExposedEndpointsWithWildcard(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	isExposed, err := s.state.ApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(isExposed, jc.IsTrue)
 
@@ -141,7 +141,7 @@ func (s *exposedStateSuite) TestExposedEndpointsWithWildcardMultipleTimes(c *gc.
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	isExposed, err := s.state.ApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(isExposed, jc.IsTrue)
 
@@ -158,7 +158,7 @@ func (s *exposedStateSuite) TestExposedEndpointsWithWildcardMultipleTimes(c *gc.
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	isExposed, err = s.state.ApplicationExposed(context.Background(), appID)
+	isExposed, err = s.state.IsApplicationExposed(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(isExposed, jc.IsTrue)
 
@@ -229,14 +229,14 @@ func (s *exposedStateSuite) TestUnsetExposeSettings(c *gc.C) {
 	s.createExposedEndpointSpace(c, appID)
 	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
 
-	isExposed, err := s.state.ApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(isExposed, jc.IsTrue)
 
 	err = s.state.UnsetExposeSettings(context.Background(), appID, set.NewStrings("endpoint0"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	isExposed, err = s.state.ApplicationExposed(context.Background(), appID)
+	isExposed, err = s.state.IsApplicationExposed(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(isExposed, jc.IsFalse)
 }
@@ -257,7 +257,7 @@ func (s *exposedStateSuite) TestUnsetExposeSettingsOnlyOneEndpoint(c *gc.C) {
 	err = s.state.UnsetExposeSettings(context.Background(), appID, set.NewStrings("endpoint0"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	isExposed, err := s.state.ApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(isExposed, jc.IsTrue)
 
@@ -272,7 +272,7 @@ func (s *exposedStateSuite) TestMergeExposeSettingsNewEntry(c *gc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)
 
-	isExposed, err := s.state.ApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(isExposed, jc.IsFalse)
 
@@ -284,7 +284,7 @@ func (s *exposedStateSuite) TestMergeExposeSettingsNewEntry(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	isExposed, err = s.state.ApplicationExposed(context.Background(), appID)
+	isExposed, err = s.state.IsApplicationExposed(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(isExposed, jc.IsTrue)
 
@@ -307,7 +307,7 @@ func (s *exposedStateSuite) TestMergeExposeSettingsExistingOverwriteCIDR(c *gc.C
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	isExposed, err := s.state.ApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(isExposed, jc.IsTrue)
 
@@ -339,7 +339,7 @@ func (s *exposedStateSuite) TestMergeExposeSettingsExistingOverwriteSpace(c *gc.
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	isExposed, err := s.state.ApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(isExposed, jc.IsTrue)
 
@@ -363,7 +363,7 @@ func (s *exposedStateSuite) TestMergeExposeSettingsWildcard(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	isExposed, err := s.state.ApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(isExposed, jc.IsFalse)
 
@@ -375,7 +375,7 @@ func (s *exposedStateSuite) TestMergeExposeSettingsWildcard(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	isExposed, err = s.state.ApplicationExposed(context.Background(), appID)
+	isExposed, err = s.state.IsApplicationExposed(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(isExposed, jc.IsTrue)
 
@@ -399,26 +399,26 @@ func (s *exposedStateSuite) TestMergeExposeSettingsWildcardOverwrite(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	isExposed, err := s.state.ApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(isExposed, jc.IsFalse)
 
 	err = s.state.MergeExposeSettings(context.Background(), appID, map[string]application.ExposedEndpoint{
 		"": {
 			ExposeToCIDRs:    set.NewStrings("192.168.0.0/24", "192.168.1.0/24"),
-			ExposeToSpaceIDs: set.NewStrings("space1-uuid"),
+			ExposeToSpaceIDs: set.NewStrings("space0-uuid", "space1-uuid"),
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	isExposed, err = s.state.ApplicationExposed(context.Background(), appID)
+	isExposed, err = s.state.IsApplicationExposed(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(isExposed, jc.IsTrue)
 
 	exposedEndpoints, err := s.state.GetExposedEndpoints(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(exposedEndpoints[""].ExposeToCIDRs.SortedValues(), gc.DeepEquals, []string{"192.168.0.0/24", "192.168.1.0/24"})
-	c.Check(exposedEndpoints[""].ExposeToSpaceIDs.SortedValues(), gc.DeepEquals, []string{"space1-uuid"})
+	c.Check(exposedEndpoints[""].ExposeToSpaceIDs.SortedValues(), gc.DeepEquals, []string{"space0-uuid", "space1-uuid"})
 
 	// Overwrite the wildcard endpoint.
 	err = s.state.MergeExposeSettings(context.Background(), appID, map[string]application.ExposedEndpoint{
@@ -428,7 +428,7 @@ func (s *exposedStateSuite) TestMergeExposeSettingsWildcardOverwrite(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	isExposed, err = s.state.ApplicationExposed(context.Background(), appID)
+	isExposed, err = s.state.IsApplicationExposed(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(isExposed, jc.IsTrue)
 
@@ -457,7 +457,7 @@ func (s *exposedStateSuite) TestMergeExposeSettingsDifferentEndpointsNotOverwrit
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	isExposed, err := s.state.ApplicationExposed(context.Background(), appID)
+	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(isExposed, jc.IsFalse)
 
@@ -469,7 +469,7 @@ func (s *exposedStateSuite) TestMergeExposeSettingsDifferentEndpointsNotOverwrit
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	isExposed, err = s.state.ApplicationExposed(context.Background(), appID)
+	isExposed, err = s.state.IsApplicationExposed(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(isExposed, jc.IsTrue)
 
@@ -486,7 +486,7 @@ func (s *exposedStateSuite) TestMergeExposeSettingsDifferentEndpointsNotOverwrit
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	isExposed, err = s.state.ApplicationExposed(context.Background(), appID)
+	isExposed, err = s.state.IsApplicationExposed(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(isExposed, jc.IsTrue)
 
@@ -501,7 +501,6 @@ func (s *exposedStateSuite) TestMergeExposeSettingsDifferentEndpointsNotOverwrit
 
 func (s *exposedStateSuite) setUpEndpoint(c *gc.C, appID coreapplication.ID) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-
 		insertSpace := `INSERT INTO space (uuid, name) VALUES (?, ?)`
 		_, err := tx.ExecContext(ctx, insertSpace, "space0-uuid", "space0")
 		if err != nil {

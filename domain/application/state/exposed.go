@@ -18,9 +18,9 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// ApplicationExposed returns whether the provided application is exposed or
+// IsApplicationExposed returns whether the provided application is exposed or
 // not.
-func (st *State) ApplicationExposed(ctx context.Context, appID coreapplication.ID) (bool, error) {
+func (st *State) IsApplicationExposed(ctx context.Context, appID coreapplication.ID) (bool, error) {
 	db, err := st.DB()
 	if err != nil {
 		return false, errors.Capture(err)
@@ -51,7 +51,7 @@ WHERE application_uuid = $applicationID.uuid;
 	return count.Count > 0, nil
 }
 
-// GetExposedEndpoints returns map where keys are endpoint names (or the ""
+// GetExposedEndpoints returns a map where keys are endpoint names (or the ""
 // value which represents all endpoints) and values are ExposedEndpoint
 // instances that specify which sources (spaces or CIDRs) can access the
 // opened ports for each endpoint once the application is exposed.
@@ -62,57 +62,38 @@ func (st *State) GetExposedEndpoints(ctx context.Context, appID coreapplication.
 	}
 
 	ident := applicationID{ID: appID}
-	queryUniqueEndpoints := `
-SELECT DISTINCT name AS &endpointName.*
-FROM v_application_exposed_endpoint AS ax
-LEFT JOIN application_endpoint AS ae ON ax.application_endpoint_uuid = ae.uuid
-LEFT JOIN charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
+	query := `
+SELECT 
+    cr.name AS &endpointCIDRsSpaces.name,
+    ec.cidr AS &endpointCIDRsSpaces.cidr,
+    es.space_uuid AS &endpointCIDRsSpaces.space_uuid
+FROM v_application_exposed_endpoint ax
+LEFT JOIN application_endpoint ae ON ax.application_endpoint_uuid = ae.uuid
+LEFT JOIN charm_relation cr ON ae.charm_relation_uuid = cr.uuid
+LEFT JOIN application_exposed_endpoint_cidr ec ON 
+    (ax.application_endpoint_uuid = ec.application_endpoint_uuid OR
+    ax.application_endpoint_uuid IS NULL AND 
+    ec.application_endpoint_uuid IS NULL AND 
+    ec.application_uuid = $applicationID.uuid)
+LEFT JOIN application_exposed_endpoint_space es ON 
+    (ax.application_endpoint_uuid = es.application_endpoint_uuid OR
+    ax.application_endpoint_uuid IS NULL AND 
+    es.application_endpoint_uuid IS NULL AND 
+    es.application_uuid = $applicationID.uuid)
 WHERE ax.application_uuid = $applicationID.uuid;
 	`
-	queryUniqueEndpointsStmt, err := st.Prepare(queryUniqueEndpoints, endpointName{}, ident)
+	stmt, err := st.Prepare(query, endpointCIDRsSpaces{}, ident)
 	if err != nil {
-		return nil, errors.Errorf("preparing application unique endpoints query: %w", err)
-	}
-
-	queryExposedCIDRs := `
-SELECT &endpointCIDR.*
-FROM application_exposed_endpoint_cidr AS ax
-LEFT JOIN application_endpoint AS ae ON ax.application_endpoint_uuid = ae.uuid
-LEFT JOIN charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
-WHERE ax.application_uuid = $applicationID.uuid;
-		`
-	exposedCIDRsStmt, err := st.Prepare(queryExposedCIDRs, endpointCIDR{}, ident)
-	if err != nil {
-		return nil, errors.Errorf("preparing application exposed CIDRs query: %w", err)
-	}
-
-	queryExposedSpaces := `
-SELECT name AS &endpointSpace.name, ax.space_uuid AS &endpointSpace.space_uuid
-FROM application_exposed_endpoint_space AS ax
-LEFT JOIN application_endpoint AS ae ON ax.application_endpoint_uuid = ae.uuid
-LEFT JOIN charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
-WHERE ax.application_uuid = $applicationID.uuid;
-		`
-	exposedSpacesStmt, err := st.Prepare(queryExposedSpaces, endpointSpace{}, ident)
-	if err != nil {
-		return nil, errors.Errorf("preparing application exposed Spaces query: %w", err)
+		return nil, errors.Errorf("preparing exposed endpoints query: %w", err)
 	}
 
 	var (
-		endpoints []endpointName
-		cidrs     []endpointCIDR
-		spaces    []endpointSpace
+		endpoints []endpointCIDRsSpaces
 	)
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, queryUniqueEndpointsStmt, ident).GetAll(&endpoints); err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return errors.Errorf("retrieving unique endpoints for application %q: %w", appID, err)
-		}
-		if err := tx.Query(ctx, exposedCIDRsStmt, ident).GetAll(&cidrs); err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return errors.Errorf("retrieving exposed CIDRs for application %q: %w", appID, err)
-		}
-		if err := tx.Query(ctx, exposedSpacesStmt, ident).GetAll(&spaces); err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return errors.Errorf("retrieving exposed Spaces for application %q: %w", appID, err)
+		if err := tx.Query(ctx, stmt, ident).GetAll(&endpoints); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("retrieving exposed endpoints for application %q: %w", appID, err)
 		}
 		return nil
 	})
@@ -120,41 +101,50 @@ WHERE ax.application_uuid = $applicationID.uuid;
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return encodeExposedEndopints(endpoints, cidrs, spaces), nil
+	return encodeExposedEndpoints(endpoints), nil
 }
 
-func encodeExposedEndopints(endpoints []endpointName, cidrs []endpointCIDR, spaces []endpointSpace) map[string]application.ExposedEndpoint {
+func encodeExposedEndpoints(endpoints []endpointCIDRsSpaces) map[string]application.ExposedEndpoint {
 	if len(endpoints) == 0 {
 		return nil
 	}
-	// We first need to init the map with a new empty set of strings for cidrs
-	// and spaces for each endpoint.
-	exposed := make(map[string]application.ExposedEndpoint, len(endpoints))
+
+	exposed := make(map[string]application.ExposedEndpoint)
 	for _, endpoint := range endpoints {
 		endpointName := network.WildcardEndpoint
 		if endpoint.Name.Valid {
 			endpointName = endpoint.Name.String
 		}
-		exposed[endpointName] = application.ExposedEndpoint{
-			ExposeToCIDRs:    set.NewStrings(),
-			ExposeToSpaceIDs: set.NewStrings(),
+
+		entry, ok := exposed[endpointName]
+		if endpoint.CIDR != "" {
+			// ExposeToCIDRs string set is not initialized.
+			if !ok || entry.ExposeToCIDRs.Size() == 0 {
+				// Since we cannot assign to a struct field in map, we need to
+				// copy the full struct with the spaces set as well.
+				exposed[endpointName] = application.ExposedEndpoint{
+					ExposeToCIDRs:    set.NewStrings(endpoint.CIDR),
+					ExposeToSpaceIDs: exposed[endpointName].ExposeToSpaceIDs,
+				}
+			} else {
+				exposed[endpointName].ExposeToCIDRs.Add(endpoint.CIDR)
+			}
+		}
+		if endpoint.SpaceUUID != "" {
+			// ExposeToSpaceIDs string set is not initialized.
+			if !ok || entry.ExposeToSpaceIDs.Size() == 0 {
+				// Since we cannot assign to a struct field in map, we need to
+				// copy the full struct with the CIDRs set as well.
+				exposed[endpointName] = application.ExposedEndpoint{
+					ExposeToCIDRs:    exposed[endpointName].ExposeToCIDRs,
+					ExposeToSpaceIDs: set.NewStrings(endpoint.SpaceUUID),
+				}
+			} else {
+				exposed[endpointName].ExposeToSpaceIDs.Add(endpoint.SpaceUUID)
+			}
 		}
 	}
 
-	for _, endpointCIDR := range cidrs {
-		endpointName := network.WildcardEndpoint
-		if endpointCIDR.EndpointName.Valid {
-			endpointName = endpointCIDR.EndpointName.String
-		}
-		exposed[endpointName].ExposeToCIDRs.Add(endpointCIDR.CIDR)
-	}
-	for _, endpointSpace := range spaces {
-		endpointName := network.WildcardEndpoint
-		if endpointSpace.EndpointName.Valid {
-			endpointName = endpointSpace.EndpointName.String
-		}
-		exposed[endpointName].ExposeToSpaceIDs.Add(endpointSpace.SpaceUUID)
-	}
 	return exposed
 }
 
