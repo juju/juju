@@ -39,7 +39,7 @@ func (config FlagConfig) Validate() error {
 	if config.Claimant == nil {
 		return errors.NotValidf("nil Claimant")
 	}
-	if config.Entity.Id() == "" {
+	if entity := config.Entity; entity == nil || entity.Id() == "" {
 		return errors.NotValidf("empty Entity")
 	}
 	if config.Clock == nil {
@@ -53,7 +53,7 @@ func (config FlagConfig) Validate() error {
 
 // ErrRefresh indicates that the flag's Check result is no longer valid,
 // and a new FlagWorker must be started to get a valid result.
-var ErrRefresh = errors.New("model responsibility unclear, please retry")
+const ErrRefresh = errors.ConstError("model responsibility unclear, please retry")
 
 // FlagWorker implements worker.Worker and util.Flag, representing
 // controller ownership of a model, such that the Flag's validity is tied
@@ -145,9 +145,6 @@ func (flag *FlagWorker) keepOccupied(ctx context.Context) error {
 		case <-flag.catacomb.Dying():
 			return flag.catacomb.ErrDying()
 
-		case <-ctx.Done():
-			return ctx.Err()
-
 		case <-flag.config.Clock.After(flag.config.Duration / 2):
 			success, err := flag.claim(ctx)
 			if err != nil {
@@ -176,6 +173,8 @@ func (flag *FlagWorker) claim(ctx context.Context) (bool, error) {
 // either because of a failed api call, or a successful one, which indicates
 // that no lease is held; hence, that the worker should be bounced.
 func (flag *FlagWorker) waitVacant(ctx context.Context) error {
+	// We don't care about if the claim has been started, so just create a
+	// buffered channel to avoid blocking the claimer.
 	started := make(chan struct{}, 1)
 	if err := flag.claimer.WaitUntilExpired(ctx, flag.config.Entity.Id(), started); err != nil {
 		return errors.Trace(err)

@@ -19,12 +19,6 @@ import (
 	"github.com/juju/juju/core/model"
 )
 
-// logger is here to stop the desire of creating a package level logger.
-// Don't do this, instead pass one passed as manifold config.
-type logger interface{}
-
-var _ logger = struct{}{}
-
 // ManifoldConfig holds the information necessary to run a FlagWorker in
 // a dependency.Engine.
 type ManifoldConfig struct {
@@ -54,6 +48,11 @@ func (config *ManifoldConfig) Validate() error {
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
+
+	if !names.IsValidMachine(config.Claimant.Id()) && !names.IsValidControllerAgent(config.Claimant.Id()) {
+		return errors.NotValidf("claimant tag")
+	}
+
 	return nil
 }
 
@@ -78,10 +77,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	if !names.IsValidMachine(config.Claimant.Id()) && !names.IsValidControllerAgent(config.Claimant.Id()) {
-		return nil, errors.NotValidf("claimant tag")
-	}
-
 	flag, err := config.NewWorker(ctx, FlagConfig{
 		Clock:        config.Clock,
 		LeaseManager: leaseManager,
@@ -90,7 +85,9 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		ModelUUID:    modelUUID,
 		Duration:     config.Duration,
 	})
-	if err != nil {
+	if errors.Is(err, ErrRefresh) {
+		return nil, dependency.ErrBounce
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return flag, nil
