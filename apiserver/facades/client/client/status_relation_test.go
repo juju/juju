@@ -43,18 +43,21 @@ func (s *relationStatusSuite) TestFetchRelation(c *gc.C) {
 	// Arrange: create a relation linked to two application
 	relUUID := corerelationtesting.GenRelationUUID(c)
 	expectedStatus := relationStatus{
-		ID: 1,
+		ID:  1,
+		Key: corerelationtesting.GenNewKey(c, "sink:consumer source:provider"),
 		Endpoints: []domainrelation.Endpoint{
 			{
 				ApplicationName: "source",
 				Relation: charm.Relation{
 					Name: "provider",
+					Role: charm.RoleProvider,
 				},
 			},
 			{
 				ApplicationName: "sink",
 				Relation: charm.Relation{
 					Name: "consumer",
+					Role: charm.RoleRequirer,
 				},
 			},
 		},
@@ -103,18 +106,21 @@ func (s *relationStatusSuite) TestFetchRelationWithError(c *gc.C) {
 
 	// Arrange: create a relation linked to two application
 	expectedStatus := relationStatus{
-		ID: 42,
+		ID:  42,
+		Key: corerelationtesting.GenNewKey(c, "sink:consumer source:provider"),
 		Endpoints: []domainrelation.Endpoint{
 			{
 				ApplicationName: "source",
 				Relation: charm.Relation{
 					Name: "provider",
+					Role: charm.RoleProvider,
 				},
 			},
 			{
 				ApplicationName: "sink",
 				Relation: charm.Relation{
 					Name: "consumer",
+					Role: charm.RoleRequirer,
 				},
 			},
 		},

@@ -82,7 +82,7 @@ func (c *MockStateGetAllRelationDetailsCall) DoAndReturn(f func(context.Context)
 }
 
 // GetPeerRelationUUIDByEndpointIdentifiers mocks base method.
-func (m *MockState) GetPeerRelationUUIDByEndpointIdentifiers(arg0 context.Context, arg1 relation0.EndpointIdentifier) (relation.UUID, error) {
+func (m *MockState) GetPeerRelationUUIDByEndpointIdentifiers(arg0 context.Context, arg1 relation.EndpointIdentifier) (relation.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetPeerRelationUUIDByEndpointIdentifiers", arg0, arg1)
 	ret0, _ := ret[0].(relation.UUID)
@@ -109,19 +109,19 @@ func (c *MockStateGetPeerRelationUUIDByEndpointIdentifiersCall) Return(arg0 rela
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetPeerRelationUUIDByEndpointIdentifiersCall) Do(f func(context.Context, relation0.EndpointIdentifier) (relation.UUID, error)) *MockStateGetPeerRelationUUIDByEndpointIdentifiersCall {
+func (c *MockStateGetPeerRelationUUIDByEndpointIdentifiersCall) Do(f func(context.Context, relation.EndpointIdentifier) (relation.UUID, error)) *MockStateGetPeerRelationUUIDByEndpointIdentifiersCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetPeerRelationUUIDByEndpointIdentifiersCall) DoAndReturn(f func(context.Context, relation0.EndpointIdentifier) (relation.UUID, error)) *MockStateGetPeerRelationUUIDByEndpointIdentifiersCall {
+func (c *MockStateGetPeerRelationUUIDByEndpointIdentifiersCall) DoAndReturn(f func(context.Context, relation.EndpointIdentifier) (relation.UUID, error)) *MockStateGetPeerRelationUUIDByEndpointIdentifiersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetRegularRelationUUIDByEndpointIdentifiers mocks base method.
-func (m *MockState) GetRegularRelationUUIDByEndpointIdentifiers(arg0 context.Context, arg1, arg2 relation0.EndpointIdentifier) (relation.UUID, error) {
+func (m *MockState) GetRegularRelationUUIDByEndpointIdentifiers(arg0 context.Context, arg1, arg2 relation.EndpointIdentifier) (relation.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRegularRelationUUIDByEndpointIdentifiers", arg0, arg1, arg2)
 	ret0, _ := ret[0].(relation.UUID)
@@ -148,13 +148,13 @@ func (c *MockStateGetRegularRelationUUIDByEndpointIdentifiersCall) Return(arg0 r
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetRegularRelationUUIDByEndpointIdentifiersCall) Do(f func(context.Context, relation0.EndpointIdentifier, relation0.EndpointIdentifier) (relation.UUID, error)) *MockStateGetRegularRelationUUIDByEndpointIdentifiersCall {
+func (c *MockStateGetRegularRelationUUIDByEndpointIdentifiersCall) Do(f func(context.Context, relation.EndpointIdentifier, relation.EndpointIdentifier) (relation.UUID, error)) *MockStateGetRegularRelationUUIDByEndpointIdentifiersCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetRegularRelationUUIDByEndpointIdentifiersCall) DoAndReturn(f func(context.Context, relation0.EndpointIdentifier, relation0.EndpointIdentifier) (relation.UUID, error)) *MockStateGetRegularRelationUUIDByEndpointIdentifiersCall {
+func (c *MockStateGetRegularRelationUUIDByEndpointIdentifiersCall) DoAndReturn(f func(context.Context, relation.EndpointIdentifier, relation.EndpointIdentifier) (relation.UUID, error)) *MockStateGetRegularRelationUUIDByEndpointIdentifiersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
