@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
@@ -29,6 +30,7 @@ type LogSinkWriter interface {
 
 // Config defines the attributes used to create a log sink worker.
 type Config struct {
+	AgentTag       names.Tag
 	LogSink        logger.LogSink
 	Clock          clock.Clock
 	MachineID      string
@@ -220,7 +222,7 @@ func (w *LogSink) workerFromCache(modelUUID model.UUID) (LogSinkWriter, error) {
 
 func (w *LogSink) initLogger(modelUUID model.UUID) error {
 	err := w.runner.StartWorker(modelUUID.String(), func() (worker.Worker, error) {
-		return w.cfg.NewModelLogger(w.cfg.LogSink, modelUUID)
+		return w.cfg.NewModelLogger(w.cfg.LogSink, modelUUID, w.cfg.AgentTag)
 	})
 	if errors.Is(err, errors.AlreadyExists) {
 		return nil

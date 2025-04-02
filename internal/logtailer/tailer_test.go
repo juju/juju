@@ -38,7 +38,7 @@ func (s *TailerSuite) TestProcessForwardNoTail(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var records []*corelogger.LogRecord
+	var records []corelogger.LogRecord
 	logs := tailer.Logs()
 	for {
 		rec, ok := <-logs
@@ -61,7 +61,7 @@ func (s *TailerSuite) TestWithModelUUID(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var records []*corelogger.LogRecord
+	var records []corelogger.LogRecord
 	logs := tailer.Logs()
 	for {
 		rec, ok := <-logs
@@ -88,7 +88,7 @@ func (s *TailerSuite) TestProcessReverseNoTail(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var records []*corelogger.LogRecord
+	var records []corelogger.LogRecord
 	logs := tailer.Logs()
 	for {
 		rec, ok := <-logs
@@ -100,8 +100,8 @@ func (s *TailerSuite) TestProcessReverseNoTail(c *gc.C) {
 	c.Assert(records, jc.DeepEquals, logRecords[2:])
 }
 
-func (s *TailerSuite) fetchLogs(tailer logtailer.LogTailer, expected int) []*corelogger.LogRecord {
-	var records []*corelogger.LogRecord
+func (s *TailerSuite) fetchLogs(tailer logtailer.LogTailer, expected int) []corelogger.LogRecord {
+	var records []corelogger.LogRecord
 	timeout := time.After(testing.LongWait)
 	for {
 		select {

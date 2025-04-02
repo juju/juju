@@ -40,7 +40,7 @@ type logRecordJSON struct {
 }
 
 func (r *LogRecord) MarshalJSON() ([]byte, error) {
-	jrec := logRecordJSON{
+	return json.Marshal(logRecordJSON{
 		ModelUUID: r.ModelUUID,
 		Time:      r.Time,
 		Entity:    r.Entity,
@@ -49,8 +49,7 @@ func (r *LogRecord) MarshalJSON() ([]byte, error) {
 		Location:  r.Location,
 		Message:   r.Message,
 		Labels:    r.Labels,
-	}
-	return json.Marshal(jrec)
+	})
 }
 
 func (r *LogRecord) UnmarshalJSON(data []byte) error {
