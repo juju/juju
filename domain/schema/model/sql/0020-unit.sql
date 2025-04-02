@@ -1,16 +1,3 @@
-CREATE TABLE unit_resolve_kind (
-    id TEXT NOT NULL PRIMARY KEY,
-    name TEXT NOT NULL
-);
-
-CREATE UNIQUE INDEX idx_unit_resolve_kind
-ON unit_resolve_kind (name);
-
-INSERT INTO unit_resolve_kind VALUES
-(0, 'none'),
-(1, 'retry-hooks'),
-(2, 'no-hooks');
-
 CREATE TABLE unit (
     uuid TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
@@ -19,8 +6,6 @@ CREATE TABLE unit (
     net_node_uuid TEXT NOT NULL,
     -- Freshly created units will not have a charm URL set.
     charm_uuid TEXT,
-    -- Resolve Kind starts out as None, is only set when a hook errors.
-    resolve_kind_id INT NOT NULL DEFAULT 0,
     password_hash_algorithm_id TEXT,
     password_hash TEXT,
     CONSTRAINT fk_unit_life
@@ -32,9 +17,6 @@ CREATE TABLE unit (
     CONSTRAINT fk_unit_net_node
     FOREIGN KEY (net_node_uuid)
     REFERENCES net_node (uuid),
-    CONSTRAINT fk_unit_resolve_kind
-    FOREIGN KEY (resolve_kind_id)
-    REFERENCES unit_resolve_kind (id),
     CONSTRAINT fk_unit_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
@@ -319,3 +301,23 @@ SELECT
     u.password_hash
 FROM application AS a
 LEFT JOIN unit AS u ON a.uuid = u.application_uuid;
+
+CREATE TABLE unit_resolved (
+    unit_uuid TEXT NOT NULL PRIMARY KEY,
+    mode_id INT NOT NULL,
+    CONSTRAINT fk_unit_resolved_unit
+    FOREIGN KEY (unit_uuid)
+    REFERENCES unit (uuid),
+    CONSTRAINT fk_unit_resolved_mode
+    FOREIGN KEY (mode_id)
+    REFERENCES resolve_mode (id)
+);
+
+CREATE TABLE resolve_mode (
+    id INT PRIMARY KEY,
+    name TEXT NOT NULL
+);
+
+INSERT INTO resolve_mode VALUES
+(0, 'retry-hooks'),
+(1, 'no-hooks');

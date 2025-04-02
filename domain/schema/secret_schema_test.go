@@ -152,8 +152,8 @@ VALUES (?, ?, 'mysql', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=', ?);
 	s.assertExecSQL(c, `INSERT INTO net_node (uuid) VALUES (?);`, unitNetNodeUUID)
 	unitUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `
-INSERT INTO unit (uuid, life_id, name, application_uuid, net_node_uuid, charm_uuid, resolve_kind_id)
-VALUES (?, 0, 0, ?, ?, ?, 0);`,
+INSERT INTO unit (uuid, life_id, name, application_uuid, net_node_uuid, charm_uuid)
+VALUES (?, 0, 0, ?, ?, ?);`,
 		unitUUID, appUUID, unitNetNodeUUID, charmUUID)
 }
 

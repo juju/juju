@@ -38,6 +38,7 @@ import (
 	proxyservice "github.com/juju/juju/domain/proxy/service"
 	relationservice "github.com/juju/juju/domain/relation/service"
 	removalservice "github.com/juju/juju/domain/removal/service"
+	resolveservice "github.com/juju/juju/domain/resolve/service"
 	resourceservice "github.com/juju/juju/domain/resource/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
@@ -101,6 +102,8 @@ type ModelDomainServices interface {
 	Application() *applicationservice.WatchableService
 	// Status returns the application status service.
 	Status() *statusservice.LeadershipService
+	// Resolve returns the resolve service.
+	Resolve() *resolveservice.Service
 	// KeyManager returns the key manager service.
 	KeyManager() *keymanagerservice.Service
 	// KeyManagerWithImporter returns they manager service that is capable of
