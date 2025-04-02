@@ -73,11 +73,11 @@ func generatePath(version coreagentbinary.Version, sha384 string) string {
 // Add adds a new agent binary to the object store and saves its metadata to the
 // database. The following errors can be returned:
 // - [coreerrors.NotSupported] if the architecture is not supported.
-// - [github.com/juju/juju/domain/agentbinary/errors.AlreadyExists] if an agent
-// binary already exists for this version and architecture.
-// - [github.com/juju/juju/domain/agentbinary/errors.ObjectNotFound] if there
-// was a problem referencing the agent binary metadata with the previously saved
-// binary object. This error should be considered an internal problem. It is
+// - [agentbinaryerrors.AlreadyExists] if an agent binary already exists for
+// this version and architecture.
+// - [agentbinaryerrors.ObjectNotFound] if there was a problem referencing the
+// agent binary metadata with the previously saved binary object. This error
+// should be considered an internal problem. It is
 // discussed here to make the caller aware of future problems.
 // - [coreerrors.NotValid] when the agent version is not considered valid.
 func (s *AgentBinaryStore) Add(
@@ -105,37 +105,28 @@ func (s *AgentBinaryStore) add(
 
 	path := generatePath(version, sha384)
 	uuid, err := objectStore.PutAndCheckHash(ctx, path, r, size, sha384)
-	defer func() {
-		if resultErr == nil ||
-			// We don't want to remove the pre-existing binary if the error is
-			// AlreadyExists.
-			errors.Is(resultErr, agentbinaryerrors.AlreadyExists) {
-			return
-		}
-		// We need to remove the binary from the object store if any error occurs.
-		// We need to defer this before the below error checck is because the agent binary
-		// might be saved already but the metadata or path saving failed.
-		// In that case, we need to remove the binary from the object store.
-		if err := objectStore.Remove(ctx, path); err != nil && !errors.Is(err, objectstoreerrors.ErrNotFound) {
-			s.logger.Errorf(ctx, "saving agent binary metadata %q failed, removing the binary from object store: %v", path, err)
-		}
-	}()
-	if errors.Is(err, objectstoreerrors.ErrPathAlreadyExistsDifferentHash) {
+	if errors.Is(err, objectstoreerrors.ErrHashAndSizeAlreadyExists) {
 		// This means that the binary already exists in the object store.
 		return errors.Errorf(
 			"agent binary of %q already exists in the object store", version,
-		).Add(
-			agentbinaryerrors.AlreadyExists,
-		)
+		).Add(agentbinaryerrors.AlreadyExists)
 	}
 	if err != nil {
-		return errors.Errorf("putting agent binary %q: %w", path, err)
+		return errors.Errorf("putting agent binary of %q with hash %q in the object store: %w", version, sha384, err)
 	}
-	if err := s.st.Add(ctx, agentbinary.Metadata{
+
+	err = s.st.Add(ctx, agentbinary.Metadata{
 		Version:         version.Number.String(),
 		Arch:            version.Arch,
 		ObjectStoreUUID: uuid,
-	}); err != nil {
+	})
+	if err != nil && !errors.Is(err, agentbinaryerrors.AlreadyExists) {
+		// We need to cleanup the newly added binary from the object store.
+		if err := objectStore.Remove(ctx, path); err != nil && !errors.Is(err, objectstoreerrors.ErrNotFound) {
+			s.logger.Errorf(ctx, "saving agent binary metadata %q failed, removing the binary from object store: %v", path, err)
+		}
+	}
+	if err != nil {
 		return errors.Errorf("saving agent binary metadata for %q: %w", path, err)
 	}
 	return nil
@@ -147,12 +138,12 @@ func (s *AgentBinaryStore) add(
 // It accepts the SHA256 hash of the binary.
 // The following errors can be returned:
 // - [coreerrors.NotSupported] if the architecture is not supported.
-// - [github.com/juju/juju/domain/agentbinary/errors.AlreadyExists] if an agent
-// binary already exists for this version and architecture.
-// - [github.com/juju/juju/domain/agentbinary/errors.ObjectNotFound] if there
-// was a problem referencing the agent binary metadata with the previously saved
-// binary object. This error should be considered an internal problem. It is
-// discussed here to make the caller aware of future problems.
+// - [agentbinaryerrors.AlreadyExists] if an agent binary already exists for
+// this version and architecture.
+// - [agentbinaryerrors.ObjectNotFound] if there was a problem referencing the
+// agent binary metadata with the previously saved binary object. This error
+// should be considered an internal problem. It is discussed here to make the
+// caller aware of future problems.
 // - [coreerrors.NotValid] if the agent version is not valid or the SHA256 hash doesn't match the generated hash.
 func (s *AgentBinaryStore) AddWithSHA256(
 	ctx context.Context, r io.Reader,
@@ -195,7 +186,7 @@ func (c *cleanupCloser) Close() error {
 }
 
 func tmpCacheAndHash(r io.Reader, size int64) (_ io.ReadCloser, _ string, _ string, err error) {
-	tmpFile, err := os.CreateTemp("", "jujuagentbinaries*.tmp")
+	tmpFile, err := os.CreateTemp("", "juju-agent-binary-rehash*.tmp")
 	if err != nil {
 		return nil, "", "", errors.Capture(err)
 	}
@@ -213,7 +204,7 @@ func tmpCacheAndHash(r io.Reader, size int64) (_ io.ReadCloser, _ string, _ stri
 	tr := io.TeeReader(r, io.MultiWriter(hasher256, hasher384))
 	written, err := io.Copy(tmpFile, tr)
 	if err != nil {
-		return nil, "", "", errors.Capture(err)
+		return nil, "", "", errors.Errorf("writing agent binary to temp file for re-computing hash: %w", err)
 	}
 
 	if written != size {

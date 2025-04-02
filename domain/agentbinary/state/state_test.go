@@ -56,6 +56,33 @@ func (s *stateSuite) TestAddSuccess(c *gc.C) {
 func (s *stateSuite) TestAddAlreadyExists(c *gc.C) {
 	archID := s.addArchitecture(c, "amd64")
 	objStoreUUID1 := s.addObjectStoreMetadata(c)
+
+	err := s.state.Add(context.Background(), agentbinary.Metadata{
+		Version:         "4.0.0",
+		Arch:            "amd64",
+		ObjectStoreUUID: objStoreUUID1,
+	})
+	c.Check(err, jc.ErrorIsNil)
+
+	err = s.state.Add(context.Background(), agentbinary.Metadata{
+		Version:         "4.0.0",
+		Arch:            "amd64",
+		ObjectStoreUUID: objStoreUUID1,
+	})
+	c.Check(err, jc.ErrorIs, agentbinaryerrors.AlreadyExists)
+
+	record := s.getAgentBinaryRecord(c, "4.0.0", archID)
+	c.Check(record.Version, gc.Equals, "4.0.0")
+	c.Check(record.ArchitectureID, gc.Equals, archID)
+	c.Check(record.ObjectStoreUUID, gc.Equals, objStoreUUID1.String())
+}
+
+// TestAddFailedUpdateExistingWithDifferentSHA asserts that an error is returned
+// when the agent binary already exists with a different SHA. The error will
+// satisfy [agentbinaryerrors.AgentBinaryImmutable].
+func (s *stateSuite) TestAddFailedUpdateExistingWithDifferentSHA(c *gc.C) {
+	archID := s.addArchitecture(c, "amd64")
+	objStoreUUID1 := s.addObjectStoreMetadata(c)
 	objStoreUUID2 := s.addObjectStoreMetadata(c)
 
 	err := s.state.Add(context.Background(), agentbinary.Metadata{
@@ -70,7 +97,7 @@ func (s *stateSuite) TestAddAlreadyExists(c *gc.C) {
 		Arch:            "amd64",
 		ObjectStoreUUID: objStoreUUID2,
 	})
-	c.Check(err, jc.ErrorIs, agentbinaryerrors.AlreadyExists)
+	c.Check(err, jc.ErrorIs, agentbinaryerrors.AgentBinaryImmutable)
 
 	record := s.getAgentBinaryRecord(c, "4.0.0", archID)
 	c.Check(record.Version, gc.Equals, "4.0.0")
