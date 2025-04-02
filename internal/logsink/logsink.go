@@ -145,7 +145,8 @@ func (w *LogSink) loop() error {
 		}
 	})
 
-	timer := time.NewTimer(w.flushInterval)
+	ticker := time.NewTicker(w.flushInterval)
+	defer ticker.Stop()
 
 	// It would be nice to create a fixed size for all the entries, but that
 	// requires splitting the log records into multiple batches. That creates
@@ -170,8 +171,6 @@ func (w *LogSink) loop() error {
 		inLogRecords = nil
 
 		out = w.out
-
-		timer.Reset(w.flushInterval)
 	}
 
 	for {
@@ -218,10 +217,11 @@ func (w *LogSink) loop() error {
 			}
 			switchToWrite()
 
-		case <-timer.C:
+		case <-ticker.C:
 			if len(entries) == 0 {
 				continue
 			}
+
 			switchToWrite()
 
 			w.reportInternalState(stateTicked)
