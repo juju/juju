@@ -1780,8 +1780,14 @@ func (u *UniterAPI) getRelationUnit(canAccess common.AuthFunc, relTag string, un
 
 func (u *UniterAPI) getOneRelationById(ctx context.Context, relID int) (params.RelationResultV2, error) {
 	nothing := params.RelationResultV2{}
-	rel, err := u.relationService.GetRelationDetails(ctx, relID)
-	if errors.Is(err, errors.NotFound) {
+	relUUID, err := u.relationService.GetRelationUUIDByID(ctx, relID)
+	if errors.Is(err, relationerrors.RelationNotFound) {
+		return nothing, apiservererrors.ErrPerm
+	} else if err != nil {
+		return nothing, err
+	}
+	rel, err := u.relationService.GetRelationDetails(ctx, relUUID)
+	if errors.Is(err, relationerrors.RelationNotFound) {
 		return nothing, apiservererrors.ErrPerm
 	} else if err != nil {
 		return nothing, err
@@ -1896,12 +1902,8 @@ func (u *UniterAPI) getOneRelation(
 	} else if err != nil {
 		return nothing, err
 	}
-	unitName, err := coreunit.NewName(unitTag.Id())
-	if err != nil {
-		return nothing, internalerrors.Capture(err)
-	}
-	rel, err := u.relationService.GetRelationDetailsForUnit(ctx, relUUID, unitName)
-	if errors.Is(err, errors.NotFound) {
+	rel, err := u.relationService.GetRelationDetails(ctx, relUUID)
+	if errors.Is(err, relationerrors.RelationNotFound) {
 		return nothing, apiservererrors.ErrPerm
 	} else if err != nil {
 		return nothing, err

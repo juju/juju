@@ -255,15 +255,7 @@ type RelationService interface {
 
 	// GetRelationDetails returns the relation details requested by the uniter
 	// for a relation.
-	GetRelationDetails(ctx context.Context, relationID int) (relation.RelationDetails, error)
-
-	// GetRelationDetailsForUnit returns the relation details specific to a unit,
-	// as requested by the uniter for a relation.
-	GetRelationDetailsForUnit(
-		ctx context.Context,
-		relationUUID corerelation.UUID,
-		unitName coreunit.Name,
-	) (relation.RelationDetails, error)
+	GetRelationDetails(ctx context.Context, relationUUID corerelation.UUID) (relation.RelationDetails, error)
 
 	// GetRelationUnit returns the relation unit UUID for the given unit within
 	// the given relation.

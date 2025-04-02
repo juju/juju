@@ -160,7 +160,7 @@ func (c *MockStateGetRegularRelationUUIDByEndpointIdentifiersCall) DoAndReturn(f
 }
 
 // GetRelationDetails mocks base method.
-func (m *MockState) GetRelationDetails(arg0 context.Context, arg1 int) (relation0.RelationDetailsResult, error) {
+func (m *MockState) GetRelationDetails(arg0 context.Context, arg1 relation.UUID) (relation0.RelationDetailsResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRelationDetails", arg0, arg1)
 	ret0, _ := ret[0].(relation0.RelationDetailsResult)
@@ -187,13 +187,13 @@ func (c *MockStateGetRelationDetailsCall) Return(arg0 relation0.RelationDetailsR
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetRelationDetailsCall) Do(f func(context.Context, int) (relation0.RelationDetailsResult, error)) *MockStateGetRelationDetailsCall {
+func (c *MockStateGetRelationDetailsCall) Do(f func(context.Context, relation.UUID) (relation0.RelationDetailsResult, error)) *MockStateGetRelationDetailsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetRelationDetailsCall) DoAndReturn(f func(context.Context, int) (relation0.RelationDetailsResult, error)) *MockStateGetRelationDetailsCall {
+func (c *MockStateGetRelationDetailsCall) DoAndReturn(f func(context.Context, relation.UUID) (relation0.RelationDetailsResult, error)) *MockStateGetRelationDetailsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
