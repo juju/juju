@@ -36,33 +36,28 @@ import (
 var _ = gc.Suite(&suite{})
 
 type suite struct {
-	authority pki.Authority
 	testing.IsolationSuite
-	workerC                chan *mockWorker
+
+	authority pki.Authority
+	workerC   chan *mockWorker
+
 	providerServicesGetter modelworkermanager.ProviderServicesGetter
-	domainServicesGetter   *MockDomainServicesGetter
-	domainServices         *MockDomainServices
-	modelService           *MockModelService
-}
 
-func (s *suite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.domainServicesGetter = NewMockDomainServicesGetter(ctrl)
-	s.domainServices = NewMockDomainServices(ctrl)
-	s.modelService = NewMockModelService(ctrl)
-
-	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), gomock.Any()).Return(s.domainServices, nil).AnyTimes()
-	s.domainServices.EXPECT().ControllerConfig().AnyTimes()
-	return ctrl
+	domainServicesGetter *MockDomainServicesGetter
+	domainServices       *MockDomainServices
+	modelService         *MockModelService
+	leaseManager         *MockManager
 }
 
 func (s *suite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
+
 	authority, err := pkitest.NewTestAuthority()
 	c.Assert(err, jc.ErrorIsNil)
 	s.authority = authority
+
 	s.workerC = make(chan *mockWorker, 100)
+
 	s.providerServicesGetter = providerServicesGetter{}
 }
 
@@ -422,6 +417,7 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 		NewModelWorker:         s.startModelWorker,
 		ModelMetrics:           dummyModelMetrics{},
 		ErrorDelay:             time.Millisecond,
+		LeaseManager:           s.leaseManager,
 		LogSinkGetter:          dummyLogSinkGetter{logger: c},
 		ProviderServicesGetter: s.providerServicesGetter,
 		DomainServicesGetter:   s.domainServicesGetter,
@@ -435,6 +431,17 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer kill(c, w)
 	test(w)
+}
+
+func (s *suite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.domainServicesGetter = NewMockDomainServicesGetter(ctrl)
+	s.domainServices = NewMockDomainServices(ctrl)
+	s.modelService = NewMockModelService(ctrl)
+	s.leaseManager = NewMockManager(ctrl)
+
+	return ctrl
 }
 
 type dummyModelMetrics struct{}
