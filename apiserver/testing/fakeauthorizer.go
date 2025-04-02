@@ -198,8 +198,5 @@ func (fa FakeAuthorizer) EntityHasPermission(entity names.Tag, operation permiss
 	if operation == permission.ConsumeAccess && fa.HasConsumeTag != emptyTag && entity == fa.HasConsumeTag {
 		return nil
 	}
-	if operation == permission.ReadAccess && fa.HasReadTag != emptyTag && entity == fa.HasReadTag {
-		return nil
-	}
 	return errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission)
 }
