@@ -6,12 +6,9 @@ package apiserver
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -96,8 +93,7 @@ type Server struct {
 	lastConnectionID uint64
 	newObserver      observer.ObserverFactory
 	allowModelAccess bool
-	// TODO(debug-log) - move into logSink
-	logSinkWriter          io.WriteCloser
+
 	logsinkRateLimitConfig logsink.RateLimitConfig
 	logSink                corelogger.ModelLogger
 	getAuditConfig         func() auditlog.Config
@@ -436,36 +432,9 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		return nil, fmt.Errorf("creating offer auth context: %w", err)
 	}
 
-	systemState, err := cfg.StatePool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	model, err := systemState.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if model.Type() == state.ModelTypeCAAS {
-		// CAAS controller writes log to stdout. We should ensure that we don't
-		// close the logSinkWriter when we stopping the tomb, otherwise we get
-		// no output to stdout anymore.
-		srv.logSinkWriter = nonCloseableWriter{
-			WriteCloser: os.Stdout,
-		}
-	} else {
-		srv.logSinkWriter, err = logsink.NewFileWriter(
-			filepath.Join(srv.logDir, "logsink.log"),
-			controllerConfig.AgentLogfileMaxSizeMB(),
-			controllerConfig.AgentLogfileMaxBackups(),
-		)
-		if err != nil {
-			return nil, errors.Annotate(err, "creating logsink writer")
-		}
-	}
-
 	ready := make(chan struct{})
 	srv.tomb.Go(func() error {
 		defer srv.logSink.Close()
-		defer srv.logSinkWriter.Close()
 		defer srv.shared.Close()
 		defer unsubscribeControllerConfig()
 		return srv.loop(ready)
@@ -479,18 +448,6 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 	}
 
 	return srv, nil
-}
-
-// nonCloseableWriter ensures that we never close the underlying writer. If the
-// underlying writer is os.stdout and we close that, then nothing will be
-// written until a new instance of the program is launched.
-type nonCloseableWriter struct {
-	io.WriteCloser
-}
-
-// Close does not do anything in this instance.
-func (nonCloseableWriter) Close() error {
-	return nil
 }
 
 // Report is shown in the juju_engine_report.
@@ -760,7 +717,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	), "log")
 	pubsubHandler := handlerspubsub.NewPubSubHandler(httpCtxt.stop(), srv.shared.centralHub)
 	logSinkHandler := logsink.NewHTTPHandler(
-		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, srv.logSink),
+		newAgentLogWriteCloserFunc(httpCtxt, srv.logSink),
 		httpCtxt.stop(),
 		&srv.logsinkRateLimitConfig,
 		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},
