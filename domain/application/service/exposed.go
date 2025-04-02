@@ -8,21 +8,23 @@ import (
 
 	"github.com/juju/collections/set"
 
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/internal/errors"
 )
 
-// ApplicationExposed returns whether the provided application is exposed or not.
+// IsApplicationExposed returns whether the provided application is exposed or not.
 //
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
-func (s *Service) ApplicationExposed(ctx context.Context, appName string) (bool, error) {
+func (s *Service) IsApplicationExposed(ctx context.Context, appName string) (bool, error) {
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
-	return s.st.ApplicationExposed(ctx, appID)
+	return s.st.IsApplicationExposed(ctx, appID)
 }
 
 // GetExposedEndpoints returns map where keys are endpoint names (or the ""
@@ -69,5 +71,43 @@ func (s *Service) MergeExposeSettings(ctx context.Context, appName string, expos
 		return errors.Capture(err)
 	}
 
-	return s.st.MergeExposeSettings(ctx, appID, exposedEndpoints)
+	// First check that the endpoints actually exist.
+	endpointNames := set.NewStrings()
+	for endpoint := range exposedEndpoints {
+		endpointNames.Add(endpoint)
+	}
+	if err := s.st.EndpointsExist(ctx, appID, endpointNames); err != nil {
+		return errors.Capture(err)
+	}
+	// Then we need to make sure that the spaces that endpoints are exposed
+	// to (if any) actually exist.
+	spaceUUIDStr := make([]string, 0)
+	for _, exposedEndpoint := range exposedEndpoints {
+		spaceUUIDStr = append(spaceUUIDStr, exposedEndpoint.ExposeToSpaceIDs.Values()...)
+	}
+	if err := s.st.SpacesExist(ctx, set.NewStrings(spaceUUIDStr...)); err != nil {
+		return errors.Errorf("validating exposed endpoints to spaces %+v: %w", set.NewStrings(spaceUUIDStr...).Values(), err)
+	}
+
+	validatedExposedEndpoints := make(map[string]application.ExposedEndpoint)
+	if len(exposedEndpoints) == 0 {
+		// If an empty exposedEndpoints list is provided, all endpoints should
+		// be exposed.
+		validatedExposedEndpoints[network.WildcardEndpoint] = application.ExposedEndpoint{
+			ExposeToCIDRs: set.NewStrings(firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		}
+	} else {
+		for endpoint, exposedEndpoint := range exposedEndpoints {
+			// If no spaces and CIDRs are provided, assume an implicit
+			// 0.0.0.0/0 CIDR. This matches the "expose to the entire
+			// world" behavior in juju controllers prior to 2.9.
+			if len(exposedEndpoint.ExposeToSpaceIDs)+len(exposedEndpoint.ExposeToCIDRs) == 0 {
+				exposedEndpoint.ExposeToCIDRs = set.NewStrings(firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR)
+			}
+
+			validatedExposedEndpoints[endpoint] = exposedEndpoint
+		}
+	}
+
+	return s.st.MergeExposeSettings(ctx, appID, validatedExposedEndpoints)
 }

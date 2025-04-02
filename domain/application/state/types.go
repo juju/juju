@@ -1082,3 +1082,33 @@ type exportApplication struct {
 	Exposed      bool               `db:"exposed"`
 	Subordinate  bool               `db:"subordinate"`
 }
+
+type setExposedSpace struct {
+	ApplicationUUID string `db:"application_uuid"`
+	EndpointName    string `db:"endpoint"`
+	SpaceUUID       string `db:"space_uuid"`
+}
+
+type setExposedCIDR struct {
+	ApplicationUUID string `db:"application_uuid"`
+	EndpointName    string `db:"endpoint"`
+	CIDR            string `db:"cidr"`
+}
+
+type endpointCIDRsSpaces struct {
+	Name      sql.NullString `db:"name"`
+	CIDR      string         `db:"cidr"`
+	SpaceUUID string         `db:"space_uuid"`
+}
+
+type setEndpointName struct {
+	Name string `db:"name"`
+}
+
+// spaces is a type used to pass a slice of space UUIDs to a query using `IN`
+// and sqlair.
+type spaces []string
+
+// endpointNames is a type used to pass a slice of endpoint names to a query
+// using `IN` and sqlair.
+type endpointNames []string

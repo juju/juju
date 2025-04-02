@@ -236,6 +236,10 @@ const (
 
 	// SpaceNotFound is returned when the specified space cannot be found.
 	SpaceNotFound = errors.ConstError("space not found")
+
+	// EndpointNotFound descries an error that occurs when the endpoint being
+	// operated on does not exist.
+	EndpointNotFound = errors.ConstError("endpoint not found")
 )
 
 const (
