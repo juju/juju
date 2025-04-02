@@ -264,11 +264,11 @@ CREATE TABLE charm_relation (
     charm_uuid TEXT NOT NULL,
     kind_id TEXT NOT NULL,
     name TEXT NOT NULL,
-    role_id INT,
+    role_id INT NOT NULL,
+    scope_id INT NOT NULL,
     interface TEXT,
     optional BOOLEAN,
     capacity INT,
-    scope_id INT,
     CONSTRAINT fk_charm_relation_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
@@ -297,9 +297,9 @@ SELECT
     cr.capacity,
     crs.name AS scope
 FROM charm_relation AS cr
-LEFT JOIN charm_relation_kind AS crk ON cr.kind_id = crk.id
-LEFT JOIN charm_relation_role AS crr ON cr.role_id = crr.id
-LEFT JOIN charm_relation_scope AS crs ON cr.scope_id = crs.id;
+JOIN charm_relation_kind AS crk ON cr.kind_id = crk.id
+JOIN charm_relation_role AS crr ON cr.role_id = crr.id
+JOIN charm_relation_scope AS crs ON cr.scope_id = crs.id;
 
 CREATE INDEX idx_charm_relation_charm
 ON charm_relation (charm_uuid);
