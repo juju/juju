@@ -72,15 +72,15 @@ type ModelService interface {
 // UserManagerAPI implements the user manager interface and is the concrete
 // implementation of the api end point.
 type UserManagerAPI struct {
-	accessService AccessService
-	modelService  ModelService
-	authorizer    facade.Authorizer
-	check         *common.BlockChecker
-	apiUserTag    names.UserTag
-	apiUser       coreuser.User
-	isAdmin       bool
-	logger        corelogger.Logger
-	controllerTag names.ControllerTag
+	accessService  AccessService
+	modelService   ModelService
+	authorizer     facade.Authorizer
+	check          *common.BlockChecker
+	apiUserTag     names.UserTag
+	apiUser        coreuser.User
+	isAdmin        bool
+	logger         corelogger.Logger
+	controllerUUID string
 }
 
 // NewAPI creates a new API endpoint for calling user manager functions.
@@ -93,23 +93,23 @@ func NewAPI(
 	apiUser coreuser.User,
 	isAdmin bool,
 	logger corelogger.Logger,
-	controllerTag names.ControllerTag,
+	controllerUUID string,
 ) (*UserManagerAPI, error) {
 	return &UserManagerAPI{
-		accessService: accessService,
-		modelService:  modelService,
-		authorizer:    authorizer,
-		check:         check,
-		apiUserTag:    apiUserTag,
-		apiUser:       apiUser,
-		isAdmin:       isAdmin,
-		logger:        logger,
-		controllerTag: controllerTag,
+		accessService:  accessService,
+		modelService:   modelService,
+		authorizer:     authorizer,
+		check:          check,
+		apiUserTag:     apiUserTag,
+		apiUser:        apiUser,
+		isAdmin:        isAdmin,
+		logger:         logger,
+		controllerUUID: controllerUUID,
 	}, nil
 }
 
 func (api *UserManagerAPI) hasControllerAdminAccess(ctx context.Context) (bool, error) {
-	err := api.authorizer.HasPermission(ctx, permission.SuperuserAccess, api.controllerTag)
+	err := api.authorizer.HasPermission(ctx, permission.SuperuserAccess, names.NewControllerTag(api.controllerUUID))
 	return err == nil, err
 }
 
@@ -154,7 +154,7 @@ func (api *UserManagerAPI) addOneUser(ctx context.Context, arg params.AddUser) p
 			Access: permission.LoginAccess,
 			Target: permission.ID{
 				ObjectType: permission.Controller,
-				Key:        api.controllerTag.Id(),
+				Key:        api.controllerUUID,
 			},
 		},
 	}
@@ -390,7 +390,7 @@ func (api *UserManagerAPI) infoForUser(ctx context.Context, tag names.UserTag, u
 
 	access, err := api.accessService.ReadUserAccessLevelForTarget(ctx, coreuser.NameFromTag(tag), permission.ID{
 		ObjectType: permission.Controller,
-		Key:        api.controllerTag.Id(),
+		Key:        api.controllerUUID,
 	})
 	if err != nil && !errors.Is(err, accesserrors.AccessNotFound) {
 		result.Result = nil

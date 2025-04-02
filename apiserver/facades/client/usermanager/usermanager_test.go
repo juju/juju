@@ -986,7 +986,7 @@ func (s *userManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 		s.apiUser,
 		s.apiUser.Name.Name() == "admin",
 		ctx.Logger(),
-		names.NewControllerTag(s.ControllerUUID),
+		s.ControllerUUID,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

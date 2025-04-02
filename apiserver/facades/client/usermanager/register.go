@@ -61,6 +61,6 @@ func newUserManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*UserMa
 		apiUser,
 		isAdmin,
 		ctx.Logger().Child("usermanager"),
-		controllerTag,
+		ctx.ControllerUUID(),
 	)
 }
