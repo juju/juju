@@ -221,9 +221,10 @@ AND size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 			return errors.Errorf("inserting metadata: %w", err)
 		}
 
-		if rows, err := outcome.Result().RowsAffected(); err != nil {
+		metadataRows, err := outcome.Result().RowsAffected()
+		if err != nil {
 			return errors.Errorf("inserting metadata: %w", err)
-		} else if rows != 1 {
+		} else if metadataRows == 0 {
 			// If the rows affected is 0, then the metadata already exists.
 			// We need to get the uuid for the metadata, so that we can insert
 			// the path based on that uuid.
@@ -242,7 +243,10 @@ AND size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 		}
 
 		err = tx.Query(ctx, pathStmt, dbMetadataPath).Get(&outcome)
-		if database.IsErrConstraintPrimaryKey(err) {
+		constraintErr := database.IsErrConstraintPrimaryKey(err)
+		if constraintErr && metadataRows == 0 {
+			return objectstoreerrors.ErrHashAndSizeAlreadyExists
+		} else if constraintErr {
 			return objectstoreerrors.ErrPathAlreadyExistsDifferentHash
 		} else if err != nil {
 			return errors.Errorf("inserting metadata path: %w", err)
