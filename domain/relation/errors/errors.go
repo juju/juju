@@ -6,6 +6,10 @@ package errors
 import "github.com/juju/juju/internal/errors"
 
 const (
+	// AmbiguousRelation is returned when several endpoints match when trying
+	// to relate two application
+	AmbiguousRelation = errors.ConstError("ambiguous relation")
+
 	// ApplicationIDNotValid describes an error when the application ID is
 	// not valid.
 	ApplicationIDNotValid = errors.ConstError("application ID not valid")
@@ -13,6 +17,13 @@ const (
 	// ApplicationNotFound describes an error that occurs when the application
 	// being operated on does not exist.
 	ApplicationNotFound = errors.ConstError("application not found")
+
+	// CompatibleEndpointsNotFound is returned when no matching relation is found when trying
+	// to relate two application
+	CompatibleEndpointsNotFound = errors.ConstError("no compatible endpoints found between applications")
+
+	// EndpointQuotaLimitExceeded is returned when an operation fails due to exceeding the defined quota limits for an endpoint.
+	EndpointQuotaLimitExceeded = errors.ConstError("quota limit exceeded")
 
 	// PotentialRelationUnitNotValid describes an error that occurs during
 	// EnterScope pre-checks to ensure the created relation unit will be valid.
@@ -24,6 +35,10 @@ const (
 	// RelationEndpointNotFound describes an error that occurs when the specified
 	// relation endpoint does not exist.
 	RelationEndpointNotFound = errors.ConstError("relation endpoint not found")
+
+	// RelationAlreadyExists indicates an error when attempting to create a relation
+	// that already exists between applications.
+	RelationAlreadyExists = errors.ConstError("already exists")
 
 	// RelationNotAlive describes an error that occurs when trying to update a
 	// relation that is not alive.
@@ -59,21 +74,4 @@ const (
 	// UnitNotInRelation describes an error when the unit specified is not in
 	// the relation specified.
 	UnitNotInRelation = errors.ConstError("unit not in relation")
-)
-
-const (
-	// AmbiguousRelation is returned when several endpoints match when trying
-	// to relate two application
-	AmbiguousRelation = errors.ConstError("ambiguous relation")
-
-	// CompatibleEndpointsNotFound is returned when no matching relation is found when trying
-	// to relate two application
-	CompatibleEndpointsNotFound = errors.ConstError("no compatible endpoints found between applications")
-
-	// RelationAlreadyExists indicates an error when attempting to create a relation
-	// that already exists between applications.
-	RelationAlreadyExists = errors.ConstError("already exists")
-
-	// EndpointQuotaLimitExceeded is returned when an operation fails due to exceeding the defined quota limits for an endpoint.
-	EndpointQuotaLimitExceeded = errors.ConstError("quota limit exceeded")
 )
