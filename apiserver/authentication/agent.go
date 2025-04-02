@@ -87,12 +87,22 @@ func (a agentAuthenticator) Authenticate(ctx context.Context, authParams AuthPar
 func (a *agentAuthenticator) authenticateUnit(ctx context.Context, tag names.UnitTag, credentials string) (state.Entity, error) {
 	unitName := unit.Name(tag.Id())
 
+	// Check if the password is correct.
+	// - If the password is empty, then we consider that a bad request
+	//   (incorrect payload).
+	// - If the password is invalid, then we consider that unauthorized.
+	// - If the unit is not found, then we consider that unauthorized. Prevent
+	//   the knowing about which unit the password didn't match (rainbow attack).
+	// - If the password isn't valid for the unit, then we consider that
+	//   unauthorized.
+	// - Any other error, is considered an internal server error.
+
 	valid, err := a.passwordService.IsValidUnitPassword(ctx, unitName, credentials)
 	if errors.Is(err, passworderrors.EmptyPassword) {
 		return nil, errors.Trace(apiservererrors.ErrBadRequest)
-	} else if err != nil && errors.Is(err, passworderrors.InvalidPassword) {
+	} else if errors.Is(err, passworderrors.InvalidPassword) || errors.Is(err, passworderrors.UnitNotFound) {
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
-	} else if err != nil && !errors.Is(err, passworderrors.UnitNotFound) {
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	} else if !valid {
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
