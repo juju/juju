@@ -1129,12 +1129,11 @@ func (h *hostChangesHandler) ProcessOneContainer(
 	_ environs.Environ, policy BridgePolicy,
 	idx int, host, guest Machine, _, _ instance.Id, allSubnets network.SubnetInfos,
 ) error {
-	bridges, reconfigureDelay, err := policy.FindMissingBridgesForContainer(host, guest, allSubnets)
+	bridges, _, err := policy.FindMissingBridgesForContainer(host, guest, allSubnets)
 	if err != nil {
 		return err
 	}
 
-	h.result.Results[idx].ReconfigureDelay = reconfigureDelay
 	for _, bridgeInfo := range bridges {
 		h.result.Results[idx].NewBridges = append(
 			h.result.Results[idx].NewBridges,
