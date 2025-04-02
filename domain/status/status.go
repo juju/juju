@@ -6,7 +6,8 @@ package status
 import (
 	"time"
 
-	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/internal/errors"
 )
 
 // StatusID represents the status of an entity.
@@ -35,14 +36,6 @@ type UnitStatusInfo[T UnitStatusID] struct {
 	Present bool
 }
 
-// FullUnitStatus holds details about the workload and agent status of a unit.
-type FullUnitStatus struct {
-	WorkloadStatus StatusInfo[WorkloadStatusType]
-	AgentStatus    StatusInfo[UnitAgentStatusType]
-	// Present is true if the unit agent logged into the API server.
-	Present bool
-}
-
 // CloudContainerStatusType represents the status of a cloud container
 // as recorded in the k8s_pod_status_value lookup table.
 type CloudContainerStatusType int
@@ -54,6 +47,42 @@ const (
 	CloudContainerStatusRunning
 )
 
+// EncodeCloudContainerStatus encodes a CloudContainerStatusType into it's integer
+// id, as recorded in the k8s_pod_status_value lookup table.
+func EncodeCloudContainerStatus(s CloudContainerStatusType) (int, error) {
+	switch s {
+	case CloudContainerStatusUnset:
+		return 0, nil
+	case CloudContainerStatusWaiting:
+		return 1, nil
+	case CloudContainerStatusBlocked:
+		return 2, nil
+	case CloudContainerStatusRunning:
+		return 3, nil
+	default:
+		return -1, errors.Errorf("unknown status %q", s)
+	}
+}
+
+// DecodeCloudContainerStatus decodes a CloudContainerStatusType from it's integer
+// id, as recorded in the k8s_pod_status_value lookup table.
+func DecodeCloudContainerStatus(s int) (CloudContainerStatusType, error) {
+	switch s {
+	case 0:
+		return CloudContainerStatusUnset, nil
+	case 1:
+		return CloudContainerStatusWaiting, nil
+	case 2:
+		return CloudContainerStatusBlocked, nil
+	case 3:
+		return CloudContainerStatusRunning, nil
+	default:
+		return -1, errors.Errorf("unknown status %d", s)
+	}
+}
+
+// RelationStatusType represents the status of a relation as recorded in the
+// relation_status_value lookup table.
 type RelationStatusType int
 
 const (
@@ -63,6 +92,25 @@ const (
 	RelationStatusTypeSuspending
 	RelationStatusTypeSuspended
 )
+
+// DecodeRelationStatus decodes a RelationStatusType from it's integer id, as
+// recorded in the relation_status_value lookup table.
+func DecodeRelationStatus(s int) (RelationStatusType, error) {
+	switch s {
+	case 0:
+		return RelationStatusTypeJoining, nil
+	case 1:
+		return RelationStatusTypeJoined, nil
+	case 2:
+		return RelationStatusTypeBroken, nil
+	case 3:
+		return RelationStatusTypeSuspending, nil
+	case 4:
+		return RelationStatusTypeSuspended, nil
+	default:
+		return -1, errors.Errorf("unknown status %d", s)
+	}
+}
 
 // UnitAgentStatusType represents the status of a unit agent
 // as recorded in the unit_agent_status_value lookup table.
@@ -77,6 +125,52 @@ const (
 	UnitAgentStatusLost
 	UnitAgentStatusRebooting
 )
+
+// EncodeAgentStatus encodes a UnitAgentStatusType into it's integer id, as
+// recorded in the unit_agent_status_value lookup table.
+func EncodeAgentStatus(s UnitAgentStatusType) (int, error) {
+	switch s {
+	case UnitAgentStatusAllocating:
+		return 0, nil
+	case UnitAgentStatusExecuting:
+		return 1, nil
+	case UnitAgentStatusIdle:
+		return 2, nil
+	case UnitAgentStatusError:
+		return 3, nil
+	case UnitAgentStatusFailed:
+		return 4, nil
+	case UnitAgentStatusLost:
+		return 5, nil
+	case UnitAgentStatusRebooting:
+		return 6, nil
+	default:
+		return -1, errors.Errorf("unknown status %q", s)
+	}
+}
+
+// DecodeAgentStatus decodes a UnitAgentStatusType from it's integer id, as
+// recorded in the unit_agent_status_value lookup table.
+func DecodeAgentStatus(s int) (UnitAgentStatusType, error) {
+	switch s {
+	case 0:
+		return UnitAgentStatusAllocating, nil
+	case 1:
+		return UnitAgentStatusExecuting, nil
+	case 2:
+		return UnitAgentStatusIdle, nil
+	case 3:
+		return UnitAgentStatusError, nil
+	case 4:
+		return UnitAgentStatusFailed, nil
+	case 5:
+		return UnitAgentStatusLost, nil
+	case 6:
+		return UnitAgentStatusRebooting, nil
+	default:
+		return -1, errors.Errorf("unknown status %d", s)
+	}
+}
 
 // WorkloadStatusType represents the status of a unit workload or application
 // as recorded in the workload_status_value lookup table.
@@ -93,13 +187,67 @@ const (
 	WorkloadStatusError
 )
 
+// EncodeWorkloadStatus encodes a WorkloadStatusType into it's integer id, as
+// recorded in the workload_status_value lookup table.
+func EncodeWorkloadStatus(s WorkloadStatusType) (int, error) {
+	switch s {
+	case WorkloadStatusUnset:
+		return 0, nil
+	case WorkloadStatusUnknown:
+		return 1, nil
+	case WorkloadStatusMaintenance:
+		return 2, nil
+	case WorkloadStatusWaiting:
+		return 3, nil
+	case WorkloadStatusBlocked:
+		return 4, nil
+	case WorkloadStatusActive:
+		return 5, nil
+	case WorkloadStatusTerminated:
+		return 6, nil
+	default:
+		return -1, errors.Errorf("unknown status %q", s)
+	}
+}
+
+// DecodeWorkloadStatus decodes a WorkloadStatusType from it's integer id, as
+// recorded in the workload_status_value lookup table.
+func DecodeWorkloadStatus(s int) (WorkloadStatusType, error) {
+	switch s {
+	case 0:
+		return WorkloadStatusUnset, nil
+	case 1:
+		return WorkloadStatusUnknown, nil
+	case 2:
+		return WorkloadStatusMaintenance, nil
+	case 3:
+		return WorkloadStatusWaiting, nil
+	case 4:
+		return WorkloadStatusBlocked, nil
+	case 5:
+		return WorkloadStatusActive, nil
+	case 6:
+		return WorkloadStatusTerminated, nil
+	default:
+		return -1, errors.Errorf("unknown status %d", s)
+	}
+}
+
+// FullUnitStatus holds details about the workload and agent status of a unit.
+type FullUnitStatus struct {
+	WorkloadStatus StatusInfo[WorkloadStatusType]
+	AgentStatus    StatusInfo[UnitAgentStatusType]
+	// Present is true if the unit agent logged into the API server.
+	Present bool
+}
+
 // UnitWorkloadStatuses represents the workload statuses of a collection of units.
 // The statuses are indexed by unit name.
-type UnitWorkloadStatuses map[coreunit.Name]UnitStatusInfo[WorkloadStatusType]
+type UnitWorkloadStatuses map[unit.Name]UnitStatusInfo[WorkloadStatusType]
 
 // UnitCloudContainerStatuses represents the cloud container statuses of a collection
 // of units. The statuses are indexed by unit name.
-type UnitCloudContainerStatuses map[coreunit.Name]StatusInfo[CloudContainerStatusType]
+type UnitCloudContainerStatuses map[unit.Name]StatusInfo[CloudContainerStatusType]
 
 // FullUnitStatuses represents the workload and agent statuses of a collection of units.
-type FullUnitStatuses map[coreunit.Name]FullUnitStatus
+type FullUnitStatuses map[unit.Name]FullUnitStatus

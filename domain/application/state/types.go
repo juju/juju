@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/internal/errors"
 )
 
 // These structs represent the persistent block device entity schema in the database.
@@ -830,63 +829,6 @@ type spaceName struct {
 
 type spaceUUID struct {
 	UUID string `db:"uuid"`
-}
-
-func encodeCloudContainerStatus(s application.CloudContainerStatusType) (int, error) {
-	switch s {
-	case application.CloudContainerStatusUnset:
-		return 0, nil
-	case application.CloudContainerStatusWaiting:
-		return 1, nil
-	case application.CloudContainerStatusBlocked:
-		return 2, nil
-	case application.CloudContainerStatusRunning:
-		return 3, nil
-	default:
-		return -1, errors.Errorf("unknown status %q", s)
-	}
-}
-
-func encodeAgentStatus(s application.UnitAgentStatusType) (int, error) {
-	switch s {
-	case application.UnitAgentStatusAllocating:
-		return 0, nil
-	case application.UnitAgentStatusExecuting:
-		return 1, nil
-	case application.UnitAgentStatusIdle:
-		return 2, nil
-	case application.UnitAgentStatusError:
-		return 3, nil
-	case application.UnitAgentStatusFailed:
-		return 4, nil
-	case application.UnitAgentStatusLost:
-		return 5, nil
-	case application.UnitAgentStatusRebooting:
-		return 6, nil
-	default:
-		return -1, errors.Errorf("unknown status %q", s)
-	}
-}
-
-func encodeWorkloadStatus(s application.WorkloadStatusType) (int, error) {
-	switch s {
-	case application.WorkloadStatusUnset:
-		return 0, nil
-	case application.WorkloadStatusUnknown:
-		return 1, nil
-	case application.WorkloadStatusMaintenance:
-		return 2, nil
-	case application.WorkloadStatusWaiting:
-		return 3, nil
-	case application.WorkloadStatusBlocked:
-		return 4, nil
-	case application.WorkloadStatusActive:
-		return 5, nil
-	case application.WorkloadStatusTerminated:
-		return 6, nil
-	default:
-		return -1, errors.Errorf("unknown status %q", s)
-	}
 }
 
 type storageInstance struct {

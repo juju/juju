@@ -155,8 +155,8 @@ func (s *statusSuite) TestEncodingUnitAgentStatusError(c *gc.C) {
 	})
 
 	// If the agent is in an error state, the workload should also
-	// be in an error state. In that case, the workload status will
-	// take precedence and we'll set the unit agent status to idle.
+	// be in an error state. In that case, the workload domain will
+	// take precedence and we'll set the unit agent domain to idle.
 	// This follows the same patter that already exists.
 
 	input, err := decodeUnitAgentStatus(status.UnitStatusInfo[status.UnitAgentStatusType]{

@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/domain/status"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -278,13 +279,13 @@ func (st *State) setUnitAgentStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
-	status *application.StatusInfo[application.UnitAgentStatusType],
+	sts *status.StatusInfo[status.UnitAgentStatusType],
 ) error {
-	if status == nil {
+	if sts == nil {
 		return nil
 	}
 
-	statusID, err := encodeAgentStatus(status.Status)
+	statusID, err := status.EncodeAgentStatus(sts.Status)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -292,9 +293,9 @@ func (st *State) setUnitAgentStatus(
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID,
 		StatusID:  statusID,
-		Message:   status.Message,
-		Data:      status.Data,
-		UpdatedAt: status.Since,
+		Message:   sts.Message,
+		Data:      sts.Data,
+		UpdatedAt: sts.Since,
 	}
 	stmt, err := st.Prepare(`
 INSERT INTO unit_agent_status (*) VALUES ($unitStatusInfo.*)
@@ -323,13 +324,13 @@ func (st *State) setUnitWorkloadStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
-	status *application.StatusInfo[application.WorkloadStatusType],
+	sts *status.StatusInfo[status.WorkloadStatusType],
 ) error {
-	if status == nil {
+	if sts == nil {
 		return nil
 	}
 
-	statusID, err := encodeWorkloadStatus(status.Status)
+	statusID, err := status.EncodeWorkloadStatus(sts.Status)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -337,9 +338,9 @@ func (st *State) setUnitWorkloadStatus(
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID,
 		StatusID:  statusID,
-		Message:   status.Message,
-		Data:      status.Data,
-		UpdatedAt: status.Since,
+		Message:   sts.Message,
+		Data:      sts.Data,
+		UpdatedAt: sts.Since,
 	}
 	stmt, err := st.Prepare(`
 INSERT INTO unit_workload_status (*) VALUES ($unitStatusInfo.*)
@@ -789,12 +790,12 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 		},
 		CloudContainer: cloudContainer,
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
-				Status: application.UnitAgentStatusAllocating,
+			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+				Status: status.UnitAgentStatusAllocating,
 				Since:  now,
 			},
-			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
-				Status:  application.WorkloadStatusWaiting,
+			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusWaiting,
 				Message: corestatus.MessageInstallingAgent,
 				Since:   now,
 			},
@@ -1614,13 +1615,13 @@ func (st *State) setCloudContainerStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
-	status *application.StatusInfo[application.CloudContainerStatusType],
+	sts *status.StatusInfo[status.CloudContainerStatusType],
 ) error {
-	if status == nil {
+	if sts == nil {
 		return nil
 	}
 
-	statusID, err := encodeCloudContainerStatus(status.Status)
+	statusID, err := status.EncodeCloudContainerStatus(sts.Status)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1628,9 +1629,9 @@ func (st *State) setCloudContainerStatus(
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID,
 		StatusID:  statusID,
-		Message:   status.Message,
-		Data:      status.Data,
-		UpdatedAt: status.Since,
+		Message:   sts.Message,
+		Data:      sts.Data,
+		UpdatedAt: sts.Since,
 	}
 	stmt, err := st.Prepare(`
 INSERT INTO k8s_pod_status (*) VALUES ($unitStatusInfo.*)

@@ -19,10 +19,10 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
-	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/domain/status"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/envcontext"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -328,7 +328,7 @@ func (s *ProviderService) AddUnits(ctx context.Context, storageParentDir, appNam
 
 		// Force the presence to be recorded as true, as the unit has just been
 		// added.
-		if agentStatus, err := decodeUnitAgentStatus(&application.UnitStatusInfo[application.UnitAgentStatusType]{
+		if agentStatus, err := decodeUnitAgentStatus(&status.UnitStatusInfo[status.UnitAgentStatusType]{
 			StatusInfo: *arg.AgentStatus,
 			Present:    true,
 		}); err == nil && agentStatus != nil {
@@ -337,7 +337,7 @@ func (s *ProviderService) AddUnits(ctx context.Context, storageParentDir, appNam
 			}
 		}
 
-		if workloadStatus, err := decodeUnitWorkloadStatus(&application.UnitStatusInfo[application.WorkloadStatusType]{
+		if workloadStatus, err := decodeUnitWorkloadStatus(&status.UnitStatusInfo[status.WorkloadStatusType]{
 			StatusInfo: *arg.WorkloadStatus,
 			Present:    true,
 		}); err == nil && workloadStatus != nil {

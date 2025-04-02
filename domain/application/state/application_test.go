@@ -220,8 +220,8 @@ func (s *applicationStateSuite) TestCreateApplicationWithStatus(c *gc.C) {
 		},
 		Scale:   1,
 		Channel: channel,
-		Status: &application.StatusInfo[application.WorkloadStatusType]{
-			Status:  application.WorkloadStatusActive,
+		Status: &status.StatusInfo[status.WorkloadStatusType]{
+			Status:  status.WorkloadStatusActive,
 			Message: "test",
 			Data:    []byte(`{"foo": "bar"}`),
 			Since:   ptr(now),
@@ -275,14 +275,14 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnits(c *gc.C) {
 	us := []application.AddUnitArg{{
 		UnitName: "foo/666",
 		UnitStatusArg: application.UnitStatusArg{
-			AgentStatus: &application.StatusInfo[application.UnitAgentStatusType]{
-				Status:  application.UnitAgentStatusExecuting,
+			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusExecuting,
 				Message: "test",
 				Data:    []byte(`{"foo": "bar"}`),
 				Since:   ptr(time.Now()),
 			},
-			WorkloadStatus: &application.StatusInfo[application.WorkloadStatusType]{
-				Status:  application.WorkloadStatusActive,
+			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
 				Message: "test",
 				Data:    []byte(`{"foo": "bar"}`),
 				Since:   ptr(time.Now()),

@@ -67,7 +67,7 @@ FROM   relation_status`, relationStatus{})
 	}
 	relationsStatuses := make(map[corerelation.UUID]status.StatusInfo[status.RelationStatusType], len(statuses))
 	for _, relStatus := range statuses {
-		statusType, err := decodeRelationStatus(relStatus.StatusID)
+		statusType, err := status.DecodeRelationStatus(relStatus.StatusID)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -178,7 +178,7 @@ WHERE application_uuid = $applicationID.uuid;
 		return status.StatusInfo[status.WorkloadStatusType]{}, errors.Capture(err)
 	}
 
-	statusType, err := decodeWorkloadStatus(sts.StatusID)
+	statusType, err := status.DecodeWorkloadStatus(sts.StatusID)
 	if err != nil {
 		return status.StatusInfo[status.WorkloadStatusType]{}, errors.Capture(err)
 	}
@@ -197,14 +197,14 @@ WHERE application_uuid = $applicationID.uuid;
 func (st *State) SetApplicationStatus(
 	ctx context.Context,
 	applicationID coreapplication.ID,
-	status status.StatusInfo[status.WorkloadStatusType],
+	sts status.StatusInfo[status.WorkloadStatusType],
 ) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	statusID, err := encodeWorkloadStatus(status.Status)
+	statusID, err := status.EncodeWorkloadStatus(sts.Status)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -212,9 +212,9 @@ func (st *State) SetApplicationStatus(
 	statusInfo := applicationStatusInfo{
 		ApplicationID: applicationID,
 		StatusID:      statusID,
-		Message:       status.Message,
-		Data:          status.Data,
-		UpdatedAt:     status.Since,
+		Message:       sts.Message,
+		Data:          sts.Data,
+		UpdatedAt:     sts.Since,
 	}
 	stmt, err := st.Prepare(`
 INSERT INTO application_status (*) VALUES ($applicationStatusInfo.*)
@@ -310,7 +310,7 @@ SELECT &unitPresentStatusInfo.* FROM v_unit_agent_status WHERE unit_uuid = $unit
 		return status.UnitStatusInfo[status.UnitAgentStatusType]{}, errors.Errorf("getting agent status for unit %q: %w", unitUUID, err)
 	}
 
-	statusID, err := decodeAgentStatus(unitStatusInfo.StatusID)
+	statusID, err := status.DecodeAgentStatus(unitStatusInfo.StatusID)
 	if err != nil {
 		return status.UnitStatusInfo[status.UnitAgentStatusType]{}, errors.Errorf("decoding agent status ID for unit %q: %w", unitUUID, err)
 	}
@@ -379,7 +379,7 @@ SELECT &unitPresentStatusInfo.* FROM v_unit_workload_status WHERE unit_uuid = $u
 		return status.UnitStatusInfo[status.WorkloadStatusType]{}, errors.Errorf("getting workload status for unit %q: %w", unitUUID, err)
 	}
 
-	statusID, err := decodeWorkloadStatus(unitStatusInfo.StatusID)
+	statusID, err := status.DecodeWorkloadStatus(unitStatusInfo.StatusID)
 	if err != nil {
 		return status.UnitStatusInfo[status.WorkloadStatusType]{}, errors.Errorf("decoding workload status ID for unit %q: %w", unitUUID, err)
 	}
@@ -454,7 +454,7 @@ WHERE  unit_uuid = $unitUUID.uuid
 		return status.StatusInfo[status.CloudContainerStatusType]{}, errors.Errorf("getting cloud container status for unit %q: %w", unitUUID, err)
 	}
 
-	statusID, err := decodeCloudContainerStatus(containerStatusInfo.StatusID)
+	statusID, err := status.DecodeCloudContainerStatus(containerStatusInfo.StatusID)
 	if err != nil {
 		return status.StatusInfo[status.CloudContainerStatusType]{}, errors.Errorf("decoding cloud container status ID for unit %q: %w", uuid, err)
 	}
@@ -565,11 +565,11 @@ func (st *State) GetAllFullUnitStatuses(ctx context.Context) (status.FullUnitSta
 		if s.AgentStatusID == nil {
 			return nil, errors.Errorf("agent status for unit %q not found", s.UnitName).Add(statuserrors.UnitStatusNotFound)
 		}
-		workloadStatusID, err := decodeWorkloadStatus(*s.WorkloadStatusID)
+		workloadStatusID, err := status.DecodeWorkloadStatus(*s.WorkloadStatusID)
 		if err != nil {
 			return nil, errors.Errorf("decoding workload status for unit %q: %w", s.UnitName, err)
 		}
-		agentStatusID, err := decodeAgentStatus(*s.AgentStatusID)
+		agentStatusID, err := status.DecodeAgentStatus(*s.AgentStatusID)
 		if err != nil {
 			return nil, errors.Errorf("decoding workload status for unit %q: %w", s.UnitName, err)
 		}
@@ -624,7 +624,7 @@ JOIN application ON application.uuid = application_status.application_uuid
 
 	ret := make(map[string]status.StatusInfo[status.WorkloadStatusType], len(statuses))
 	for _, s := range statuses {
-		statusType, err := decodeWorkloadStatus(s.StatusID)
+		statusType, err := status.DecodeWorkloadStatus(s.StatusID)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -843,7 +843,7 @@ WHERE unit.application_uuid = $applicationID.uuid
 
 	statuses := make(status.UnitWorkloadStatuses, len(unitStatuses))
 	for _, unitStatus := range unitStatuses {
-		statusID, err := decodeWorkloadStatus(unitStatus.StatusID)
+		statusID, err := status.DecodeWorkloadStatus(unitStatus.StatusID)
 		if err != nil {
 			return nil, errors.Errorf("decoding workload status ID for unit %q: %w", unitStatus.UnitName, err)
 		}
@@ -891,7 +891,7 @@ WHERE  unit.application_uuid = $applicationID.uuid
 
 	statuses := make(status.UnitCloudContainerStatuses, len(containerStatuses))
 	for _, containerStatus := range containerStatuses {
-		statusID, err := decodeCloudContainerStatus(containerStatus.StatusID)
+		statusID, err := status.DecodeCloudContainerStatus(containerStatus.StatusID)
 		if err != nil {
 			return nil, errors.Errorf("decoding cloud container status ID for unit %q: %w", containerStatus.UnitName, err)
 		}
@@ -913,9 +913,9 @@ func (st *State) setUnitAgentStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
-	status status.StatusInfo[status.UnitAgentStatusType],
+	sts status.StatusInfo[status.UnitAgentStatusType],
 ) error {
-	statusID, err := encodeAgentStatus(status.Status)
+	statusID, err := status.EncodeAgentStatus(sts.Status)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -923,9 +923,9 @@ func (st *State) setUnitAgentStatus(
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID,
 		StatusID:  statusID,
-		Message:   status.Message,
-		Data:      status.Data,
-		UpdatedAt: status.Since,
+		Message:   sts.Message,
+		Data:      sts.Data,
+		UpdatedAt: sts.Since,
 	}
 	stmt, err := st.Prepare(`
 INSERT INTO unit_agent_status (*) VALUES ($unitStatusInfo.*)
@@ -954,9 +954,9 @@ func (st *State) setUnitWorkloadStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
-	status status.StatusInfo[status.WorkloadStatusType],
+	sts status.StatusInfo[status.WorkloadStatusType],
 ) error {
-	statusID, err := encodeWorkloadStatus(status.Status)
+	statusID, err := status.EncodeWorkloadStatus(sts.Status)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -964,9 +964,9 @@ func (st *State) setUnitWorkloadStatus(
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID,
 		StatusID:  statusID,
-		Message:   status.Message,
-		Data:      status.Data,
-		UpdatedAt: status.Since,
+		Message:   sts.Message,
+		Data:      sts.Data,
+		UpdatedAt: sts.Since,
 	}
 	stmt, err := st.Prepare(`
 INSERT INTO unit_workload_status (*) VALUES ($unitStatusInfo.*)
@@ -995,9 +995,9 @@ func (st *State) setCloudContainerStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
-	status status.StatusInfo[status.CloudContainerStatusType],
+	sts status.StatusInfo[status.CloudContainerStatusType],
 ) error {
-	statusID, err := encodeCloudContainerStatus(status.Status)
+	statusID, err := status.EncodeCloudContainerStatus(sts.Status)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1005,9 +1005,9 @@ func (st *State) setCloudContainerStatus(
 	statusInfo := unitStatusInfo{
 		UnitUUID:  unitUUID,
 		StatusID:  statusID,
-		Message:   status.Message,
-		Data:      status.Data,
-		UpdatedAt: status.Since,
+		Message:   sts.Message,
+		Data:      sts.Data,
+		UpdatedAt: sts.Since,
 	}
 	stmt, err := st.Prepare(`
 INSERT INTO k8s_pod_status (*) VALUES ($unitStatusInfo.*)

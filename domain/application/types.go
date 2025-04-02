@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
+	"github.com/juju/juju/domain/status"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/storage"
@@ -58,7 +59,7 @@ type AddApplicationArg struct {
 	// Scale contains the scale information for the application.
 	Scale int
 	// Status contains the status of the application.
-	Status *StatusInfo[WorkloadStatusType]
+	Status *status.StatusInfo[status.WorkloadStatusType]
 	// StoragePoolKind holds a mapping of the kind of storage supported
 	// by the named storage pool / provider type.
 	StoragePoolKind map[string]storage.StorageKind
@@ -249,8 +250,8 @@ type RegisterCAASUnitArg struct {
 
 // UnitStatusArg contains parameters for updating a unit status in state.
 type UnitStatusArg struct {
-	AgentStatus    *StatusInfo[UnitAgentStatusType]
-	WorkloadStatus *StatusInfo[WorkloadStatusType]
+	AgentStatus    *status.StatusInfo[status.UnitAgentStatusType]
+	WorkloadStatus *status.StatusInfo[status.WorkloadStatusType]
 }
 
 // UpdateCAASUnitParams contains parameters for updating a CAAS unit.
@@ -258,9 +259,9 @@ type UpdateCAASUnitParams struct {
 	ProviderID           *string
 	Address              *string
 	Ports                *[]string
-	AgentStatus          *StatusInfo[UnitAgentStatusType]
-	WorkloadStatus       *StatusInfo[WorkloadStatusType]
-	CloudContainerStatus *StatusInfo[CloudContainerStatusType]
+	AgentStatus          *status.StatusInfo[status.UnitAgentStatusType]
+	WorkloadStatus       *status.StatusInfo[status.WorkloadStatusType]
+	CloudContainerStatus *status.StatusInfo[status.CloudContainerStatusType]
 }
 
 // CloudContainerParams contains parameters for a unit cloud container.

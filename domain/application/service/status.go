@@ -7,8 +7,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/domain/application"
+	corestatus "github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
 )
@@ -18,43 +18,43 @@ type StatusHistory interface {
 	// RecordStatus records the given status information.
 	// If the status data cannot be marshalled, it will not be recorded, instead
 	// the error will be logged under the data_error key.
-	RecordStatus(context.Context, statushistory.Namespace, status.StatusInfo) error
+	RecordStatus(context.Context, statushistory.Namespace, corestatus.StatusInfo) error
 }
 
 // encodeCloudContainerStatusType converts a core status to a db cloud container
 // status id.
-func encodeCloudContainerStatusType(s status.Status) (application.CloudContainerStatusType, error) {
+func encodeCloudContainerStatusType(s corestatus.Status) (status.CloudContainerStatusType, error) {
 	switch s {
-	case status.Unset:
-		return application.CloudContainerStatusUnset, nil
-	case status.Waiting:
-		return application.CloudContainerStatusWaiting, nil
-	case status.Blocked:
-		return application.CloudContainerStatusBlocked, nil
-	case status.Running:
-		return application.CloudContainerStatusRunning, nil
+	case corestatus.Unset:
+		return status.CloudContainerStatusUnset, nil
+	case corestatus.Waiting:
+		return status.CloudContainerStatusWaiting, nil
+	case corestatus.Blocked:
+		return status.CloudContainerStatusBlocked, nil
+	case corestatus.Running:
+		return status.CloudContainerStatusRunning, nil
 	default:
 		return -1, errors.Errorf("unknown cloud container status %q", s)
 	}
 }
 
 // encodeUnitAgentStatusType converts a core status to a db unit agent status id.
-func encodeUnitAgentStatusType(s status.Status) (application.UnitAgentStatusType, error) {
+func encodeUnitAgentStatusType(s corestatus.Status) (status.UnitAgentStatusType, error) {
 	switch s {
-	case status.Allocating:
-		return application.UnitAgentStatusAllocating, nil
-	case status.Executing:
-		return application.UnitAgentStatusExecuting, nil
-	case status.Idle:
-		return application.UnitAgentStatusIdle, nil
-	case status.Error:
-		return application.UnitAgentStatusError, nil
-	case status.Failed:
-		return application.UnitAgentStatusFailed, nil
-	case status.Lost:
-		return application.UnitAgentStatusLost, nil
-	case status.Rebooting:
-		return application.UnitAgentStatusRebooting, nil
+	case corestatus.Allocating:
+		return status.UnitAgentStatusAllocating, nil
+	case corestatus.Executing:
+		return status.UnitAgentStatusExecuting, nil
+	case corestatus.Idle:
+		return status.UnitAgentStatusIdle, nil
+	case corestatus.Error:
+		return status.UnitAgentStatusError, nil
+	case corestatus.Failed:
+		return status.UnitAgentStatusFailed, nil
+	case corestatus.Lost:
+		return status.UnitAgentStatusLost, nil
+	case corestatus.Rebooting:
+		return status.UnitAgentStatusRebooting, nil
 	default:
 		return -1, errors.Errorf("unknown agent status %q", s)
 	}
@@ -62,22 +62,22 @@ func encodeUnitAgentStatusType(s status.Status) (application.UnitAgentStatusType
 
 // decodeUnitAgentStatusType converts a db unit agent status id to a core
 // status.
-func decodeUnitAgentStatusType(s application.UnitAgentStatusType) (status.Status, error) {
+func decodeUnitAgentStatusType(s status.UnitAgentStatusType) (corestatus.Status, error) {
 	switch s {
-	case application.UnitAgentStatusAllocating:
-		return status.Allocating, nil
-	case application.UnitAgentStatusExecuting:
-		return status.Executing, nil
-	case application.UnitAgentStatusIdle:
-		return status.Idle, nil
-	case application.UnitAgentStatusError:
-		return status.Error, nil
-	case application.UnitAgentStatusFailed:
-		return status.Failed, nil
-	case application.UnitAgentStatusLost:
-		return status.Lost, nil
-	case application.UnitAgentStatusRebooting:
-		return status.Rebooting, nil
+	case status.UnitAgentStatusAllocating:
+		return corestatus.Allocating, nil
+	case status.UnitAgentStatusExecuting:
+		return corestatus.Executing, nil
+	case status.UnitAgentStatusIdle:
+		return corestatus.Idle, nil
+	case status.UnitAgentStatusError:
+		return corestatus.Error, nil
+	case status.UnitAgentStatusFailed:
+		return corestatus.Failed, nil
+	case status.UnitAgentStatusLost:
+		return corestatus.Lost, nil
+	case status.UnitAgentStatusRebooting:
+		return corestatus.Rebooting, nil
 	default:
 		return "", errors.Errorf("unknown agent status %q", s)
 	}
@@ -85,24 +85,24 @@ func decodeUnitAgentStatusType(s application.UnitAgentStatusType) (status.Status
 
 // encodeWorkloadStatusType converts a core status to a db unit workload and
 // application status id.
-func encodeWorkloadStatusType(s status.Status) (application.WorkloadStatusType, error) {
+func encodeWorkloadStatusType(s corestatus.Status) (status.WorkloadStatusType, error) {
 	switch s {
-	case status.Unset:
-		return application.WorkloadStatusUnset, nil
-	case status.Unknown:
-		return application.WorkloadStatusUnknown, nil
-	case status.Maintenance:
-		return application.WorkloadStatusMaintenance, nil
-	case status.Waiting:
-		return application.WorkloadStatusWaiting, nil
-	case status.Blocked:
-		return application.WorkloadStatusBlocked, nil
-	case status.Active:
-		return application.WorkloadStatusActive, nil
-	case status.Terminated:
-		return application.WorkloadStatusTerminated, nil
-	case status.Error:
-		return application.WorkloadStatusError, nil
+	case corestatus.Unset:
+		return status.WorkloadStatusUnset, nil
+	case corestatus.Unknown:
+		return status.WorkloadStatusUnknown, nil
+	case corestatus.Maintenance:
+		return status.WorkloadStatusMaintenance, nil
+	case corestatus.Waiting:
+		return status.WorkloadStatusWaiting, nil
+	case corestatus.Blocked:
+		return status.WorkloadStatusBlocked, nil
+	case corestatus.Active:
+		return status.WorkloadStatusActive, nil
+	case corestatus.Terminated:
+		return status.WorkloadStatusTerminated, nil
+	case corestatus.Error:
+		return status.WorkloadStatusError, nil
 	default:
 		return -1, errors.Errorf("unknown workload status %q", s)
 	}
@@ -110,31 +110,34 @@ func encodeWorkloadStatusType(s status.Status) (application.WorkloadStatusType, 
 
 // decodeWorkloadStatusType converts a db unit workload status id to a core.
 // Implicitly validates the status type.
-func decodeWorkloadStatusType(s application.WorkloadStatusType) (status.Status, error) {
+func decodeWorkloadStatusType(s status.WorkloadStatusType) (corestatus.Status, error) {
 	switch s {
-	case application.WorkloadStatusUnset:
-		return status.Unset, nil
-	case application.WorkloadStatusUnknown:
-		return status.Unknown, nil
-	case application.WorkloadStatusMaintenance:
-		return status.Maintenance, nil
-	case application.WorkloadStatusWaiting:
-		return status.Waiting, nil
-	case application.WorkloadStatusBlocked:
-		return status.Blocked, nil
-	case application.WorkloadStatusActive:
-		return status.Active, nil
-	case application.WorkloadStatusTerminated:
-		return status.Terminated, nil
-	case application.WorkloadStatusError:
-		return status.Error, nil
+	case status.WorkloadStatusUnset:
+		return corestatus.Unset, nil
+	case status.WorkloadStatusUnknown:
+		return corestatus.Unknown, nil
+	case status.WorkloadStatusMaintenance:
+		return corestatus.Maintenance, nil
+	case status.WorkloadStatusWaiting:
+		return corestatus.Waiting, nil
+	case status.WorkloadStatusBlocked:
+		return corestatus.Blocked, nil
+	case status.WorkloadStatusActive:
+		return corestatus.Active, nil
+	case status.WorkloadStatusTerminated:
+		return corestatus.Terminated, nil
+	case status.WorkloadStatusError:
+		return corestatus.Error, nil
 	default:
 		return "", errors.Errorf("unknown workload status %q", s)
 	}
 }
 
 // encodeCloudContainerStatus converts a core status info to a db status info.
-func encodeCloudContainerStatus(s *status.StatusInfo) (*application.StatusInfo[application.CloudContainerStatusType], error) {
+//
+// TODO(jack-w-shaw): This function should be imported from the status domain instead
+// of implemented here.
+func encodeCloudContainerStatus(s *corestatus.StatusInfo) (*status.StatusInfo[status.CloudContainerStatusType], error) {
 	if s == nil {
 		return nil, nil
 	}
@@ -153,7 +156,7 @@ func encodeCloudContainerStatus(s *status.StatusInfo) (*application.StatusInfo[a
 		}
 	}
 
-	return &application.StatusInfo[application.CloudContainerStatusType]{
+	return &status.StatusInfo[status.CloudContainerStatusType]{
 		Status:  encodedStatus,
 		Message: s.Message,
 		Data:    bytes,
@@ -162,7 +165,10 @@ func encodeCloudContainerStatus(s *status.StatusInfo) (*application.StatusInfo[a
 }
 
 // encodeUnitAgentStatus converts a core status info to a db status info.
-func encodeUnitAgentStatus(s *status.StatusInfo) (*application.StatusInfo[application.UnitAgentStatusType], error) {
+//
+// TODO(jack-w-shaw): This function should be imported from the status domain instead
+// of implemented here.
+func encodeUnitAgentStatus(s *corestatus.StatusInfo) (*status.StatusInfo[status.UnitAgentStatusType], error) {
 	if s == nil {
 		return nil, nil
 	}
@@ -181,7 +187,7 @@ func encodeUnitAgentStatus(s *status.StatusInfo) (*application.StatusInfo[applic
 		}
 	}
 
-	return &application.StatusInfo[application.UnitAgentStatusType]{
+	return &status.StatusInfo[status.UnitAgentStatusType]{
 		Status:  encodedStatus,
 		Message: s.Message,
 		Data:    bytes,
@@ -190,7 +196,10 @@ func encodeUnitAgentStatus(s *status.StatusInfo) (*application.StatusInfo[applic
 }
 
 // decodeUnitAgentStatus converts a db status info to a core status info.
-func decodeUnitAgentStatus(s *application.UnitStatusInfo[application.UnitAgentStatusType]) (*status.StatusInfo, error) {
+//
+// TODO(jack-w-shaw): This function should be imported from the status domain instead
+// of implemented here.
+func decodeUnitAgentStatus(s *status.UnitStatusInfo[status.UnitAgentStatusType]) (*corestatus.StatusInfo, error) {
 	if s == nil {
 		return nil, nil
 	}
@@ -198,8 +207,8 @@ func decodeUnitAgentStatus(s *application.UnitStatusInfo[application.UnitAgentSt
 	// If the agent isn't present then we need to modify the status for the
 	// agent.
 	if !s.Present {
-		return &status.StatusInfo{
-			Status:  status.Lost,
+		return &corestatus.StatusInfo{
+			Status:  corestatus.Lost,
 			Message: "agent is not communicating with the server",
 			Since:   s.Since,
 		}, nil
@@ -210,9 +219,9 @@ func decodeUnitAgentStatus(s *application.UnitStatusInfo[application.UnitAgentSt
 	// attempting to maintain the same behaviour. This can be disingenuous if
 	// there is a legitimate agent error and the workload is fine, but we're
 	// trying to maintain compatibility.
-	if s.Status == application.UnitAgentStatusError {
-		return &status.StatusInfo{
-			Status: status.Idle,
+	if s.Status == status.UnitAgentStatusError {
+		return &corestatus.StatusInfo{
+			Status: corestatus.Idle,
 			Since:  s.Since,
 		}, nil
 	}
@@ -229,7 +238,7 @@ func decodeUnitAgentStatus(s *application.UnitStatusInfo[application.UnitAgentSt
 		}
 	}
 
-	return &status.StatusInfo{
+	return &corestatus.StatusInfo{
 		Status:  decodedStatus,
 		Message: s.Message,
 		Data:    data,
@@ -238,7 +247,10 @@ func decodeUnitAgentStatus(s *application.UnitStatusInfo[application.UnitAgentSt
 }
 
 // encodeWorkloadStatus converts a core status info to a db status info.
-func encodeWorkloadStatus(s *status.StatusInfo) (*application.StatusInfo[application.WorkloadStatusType], error) {
+//
+// TODO(jack-w-shaw): This function should be imported from the status domain instead
+// of implemented here.
+func encodeWorkloadStatus(s *corestatus.StatusInfo) (*status.StatusInfo[status.WorkloadStatusType], error) {
 	if s == nil {
 		return nil, nil
 	}
@@ -257,7 +269,7 @@ func encodeWorkloadStatus(s *status.StatusInfo) (*application.StatusInfo[applica
 		}
 	}
 
-	return &application.StatusInfo[application.WorkloadStatusType]{
+	return &status.StatusInfo[status.WorkloadStatusType]{
 		Status:  encodedStatus,
 		Message: s.Message,
 		Data:    bytes,
@@ -266,17 +278,20 @@ func encodeWorkloadStatus(s *status.StatusInfo) (*application.StatusInfo[applica
 }
 
 // decodeUnitWorkloadStatus converts a db status info to a core status info.
-func decodeUnitWorkloadStatus(s *application.UnitStatusInfo[application.WorkloadStatusType]) (*status.StatusInfo, error) {
+//
+// TODO(jack-w-shaw): This function should be imported from the status domain instead
+// of implemented here.
+func decodeUnitWorkloadStatus(s *status.UnitStatusInfo[status.WorkloadStatusType]) (*corestatus.StatusInfo, error) {
 	if s == nil {
 		return nil, nil
 	}
 
 	// If the workload isn't present then we need to modify the status for the
 	// workload.
-	if !s.Present && !(s.Status == application.WorkloadStatusError ||
-		s.Status == application.WorkloadStatusTerminated) {
-		return &status.StatusInfo{
-			Status:  status.Unknown,
+	if !s.Present && !(s.Status == status.WorkloadStatusError ||
+		s.Status == status.WorkloadStatusTerminated) {
+		return &corestatus.StatusInfo{
+			Status:  corestatus.Unknown,
 			Message: "agent lost, see `juju debug-logs` or `juju show-status-log` for more information",
 			Since:   s.Since,
 		}, nil
@@ -294,7 +309,7 @@ func decodeUnitWorkloadStatus(s *application.UnitStatusInfo[application.Workload
 		}
 	}
 
-	return &status.StatusInfo{
+	return &corestatus.StatusInfo{
 		Status:  decodedStatus,
 		Message: s.Message,
 		Data:    data,

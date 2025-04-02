@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storagestate "github.com/juju/juju/domain/storage/state"
 	internaldatabase "github.com/juju/juju/internal/database"
@@ -2450,9 +2451,9 @@ func (st *State) insertApplicationStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	appID coreapplication.ID,
-	status *application.StatusInfo[application.WorkloadStatusType],
+	sts *status.StatusInfo[status.WorkloadStatusType],
 ) error {
-	if status == nil {
+	if sts == nil {
 		return nil
 	}
 
@@ -2465,7 +2466,7 @@ INSERT INTO application_status (*) VALUES ($applicationStatus.*);
 		return errors.Errorf("preparing insert query: %w", err)
 	}
 
-	statusID, err := encodeWorkloadStatus(status.Status)
+	statusID, err := status.EncodeWorkloadStatus(sts.Status)
 	if err != nil {
 		return errors.Errorf("encoding status: %w", err)
 	}
@@ -2473,9 +2474,9 @@ INSERT INTO application_status (*) VALUES ($applicationStatus.*);
 	if err := tx.Query(ctx, insertStmt, applicationStatus{
 		ApplicationUUID: appID.String(),
 		StatusID:        statusID,
-		Message:         status.Message,
-		Data:            status.Data,
-		UpdatedAt:       status.Since,
+		Message:         sts.Message,
+		Data:            sts.Data,
+		UpdatedAt:       sts.Since,
 	}).Run(); err != nil {
 		return errors.Errorf("inserting status: %w", err)
 	}
