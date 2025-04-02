@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
@@ -59,13 +60,19 @@ func (s *offerAccessSuite) setupAPI(c *gc.C) {
 		return &stubApplicationOffers{}
 	}
 	api, err := applicationoffers.CreateOffersAPI(
-		getApplicationOffers, getFakeControllerInfo,
-		s.mockState, s.mockStatePool,
+		getApplicationOffers,
+		getFakeControllerInfo,
+		s.mockState,
+		s.mockStatePool,
 		s.mockAccessService,
 		s.mockModelDomainServicesGetter,
-		s.authorizer, s.authContext,
-		c.MkDir(), loggertesting.WrapCheckLog(c),
-		testing.ControllerTag.Id(), model.UUID(testing.ModelTag.Id()),
+		s.authorizer,
+		s.authContext,
+		c.MkDir(),
+		loggertesting.WrapCheckLog(c),
+		model.UUID(testing.ModelTag.Id()),
+		names.NewControllerTag(testing.ControllerTag.Id()),
+		s.mockModelService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -111,6 +118,17 @@ func (s *offerAccessSuite) setupOffer(modelUUID, modelName, owner, offerName str
 	s.mockStatePool.st[modelUUID] = st
 	uuid := uuid.MustNewUUID().String()
 	st.applicationOffers[offerName] = jujucrossmodel.ApplicationOffer{OfferUUID: uuid}
+
+	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
+		[]coremodel.Model{
+			{
+				Name:      model.name,
+				OwnerName: coreuser.NameFromTag(names.NewUserTag(model.owner)),
+				UUID:      coremodel.UUID(model.uuid),
+				ModelType: coremodel.ModelType(model.modelType),
+			},
+		}, nil,
+	).AnyTimes()
 	return uuid
 }
 
@@ -372,6 +390,9 @@ func (s *offerAccessSuite) TestModifyOfferAccessInvalidAction(c *gc.C) {
 // TestModifyOfferAccessForModelAdminPermission tests modifying offer access when authorized as model admin.
 // It validates bugfix https://bugs.launchpad.net/juju/+bug/2082494
 func (s *offerAccessSuite) TestModifyOfferAccessForModelAdminPermission(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	modelUUID := uuid.MustNewUUID().String()
 	s.setupOffer(modelUUID, "test", "admin", "someoffer")
 

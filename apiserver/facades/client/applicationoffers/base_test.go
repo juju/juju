@@ -41,6 +41,7 @@ type baseSuite struct {
 	mockModelDomainServicesGetter *MockModelDomainServicesGetter
 	mockModelDomainServices       *MockModelDomainServices
 	mockApplicationService        *MockApplicationService
+	mockModelService              *MockModelService
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
@@ -65,6 +66,8 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.mockApplicationService = NewMockApplicationService(ctrl)
 	s.mockModelDomainServicesGetter = NewMockModelDomainServicesGetter(ctrl)
 	s.mockModelDomainServices = NewMockModelDomainServices(ctrl)
+	s.mockModelService = NewMockModelService(ctrl)
+
 	return ctrl
 }
 

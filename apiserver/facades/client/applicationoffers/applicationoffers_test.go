@@ -11,17 +11,13 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
-	jc "github.com/juju/testing/checkers"
-	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -34,6 +30,10 @@ import (
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/names/v6"
+	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
+	gc "gopkg.in/check.v1"
 )
 
 type applicationOffersSuite struct {
@@ -70,13 +70,22 @@ func (s *applicationOffersSuite) setupAPI(c *gc.C) {
 		return s.applicationOffers
 	}
 	api, err := applicationoffers.CreateOffersAPI(
-		getApplicationOffers, getFakeControllerInfo,
-		s.mockState, s.mockStatePool, s.mockAccessService,
+		getApplicationOffers,
+		getFakeControllerInfo,
+		s.mockState,
+		s.mockStatePool,
+		s.mockAccessService,
 		s.mockModelDomainServicesGetter,
-		s.authorizer, s.authContext,
-		c.MkDir(), loggertesting.WrapCheckLog(c),
-		testing.ControllerTag.Id(), model.UUID(testing.ModelTag.Id()))
+		s.authorizer,
+		s.authContext,
+		c.MkDir(),
+		loggertesting.WrapCheckLog(c),
+		model.UUID(testing.ModelTag.Id()),
+		names.NewControllerTag(testing.ControllerTag.Id()),
+		s.mockModelService,
+	)
 	c.Assert(err, jc.ErrorIsNil)
+
 	s.api = api
 }
 
@@ -1325,13 +1334,19 @@ func (s *consumeSuite) setupAPI(c *gc.C) {
 		return &mockApplicationOffers{st: st.(*mockState)}
 	}
 	api, err := applicationoffers.CreateOffersAPI(
-		getApplicationOffers, getFakeControllerInfo,
-		s.mockState, s.mockStatePool, s.mockAccessService,
+		getApplicationOffers,
+		getFakeControllerInfo,
+		s.mockState,
+		s.mockStatePool,
+		s.mockAccessService,
 		s.mockModelDomainServicesGetter,
-		s.authorizer, s.authContext,
+		s.authorizer,
+		s.authContext,
 		c.MkDir(),
 		loggertesting.WrapCheckLog(c),
-		testing.ControllerTag.Id(), model.UUID(testing.ModelTag.Id()),
+		model.UUID(testing.ModelTag.Id()),
+		names.NewControllerTag(testing.ControllerTag.Id()),
+		s.mockModelService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -1560,6 +1575,16 @@ func (s *consumeSuite) setupOffer() string {
 	offerName := "hosted-mysql"
 
 	model := &mockModel{uuid: modelUUID, name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
+	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
+		[]coremodel.Model{
+			{
+				Name:      model.name,
+				OwnerName: coreuser.NameFromTag(names.NewUserTag(model.owner)),
+				UUID:      coremodel.UUID(model.uuid),
+				ModelType: coremodel.ModelType(model.modelType),
+			},
+		}, nil,
+	).AnyTimes()
 	s.mockState.allmodels = []applicationoffers.Model{model}
 	st := &mockState{
 		modelUUID:         modelUUID,
@@ -1612,6 +1637,7 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
 	results, err := s.api.RemoteApplicationInfo(context.Background(), params.OfferURLs{
 		OfferURLs: []string{"fred@external/prod.hosted-mysql", "fred@external/prod.unknown"},
 	})
+
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 2)
 	c.Assert(results.Results[0].Error, gc.IsNil)

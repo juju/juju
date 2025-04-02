@@ -27,21 +27,21 @@ import (
 type BaseAPI struct {
 	Authorizer                facade.Authorizer
 	GetApplicationOffers      func(interface{}) jujucrossmodel.ApplicationOffers
-	ControllerModel           Backend
 	StatePool                 StatePool
 	accessService             AccessService
 	modelDomainServicesGetter ModelDomainServicesGetter
 	getControllerInfo         func(context.Context) (apiAddrs []string, caCert string, _ error)
 	logger                    corelogger.Logger
-	controllerUUID            string
 	modelUUID                 model.UUID
+	controllerTag             names.ControllerTag
+	modelService              ModelService
 }
 
 // checkAdmin ensures that the specified in user is a model or controller admin.
 func (api *BaseAPI) checkAdmin(
-	ctx context.Context, user names.UserTag, modelID model.UUID, backend Backend,
+	ctx context.Context, user names.UserTag, modelID model.UUID,
 ) error {
-	err := api.Authorizer.EntityHasPermission(ctx, user, permission.SuperuserAccess, backend.ControllerTag())
+	err := api.Authorizer.EntityHasPermission(ctx, user, permission.SuperuserAccess, api.controllerTag)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	} else if err == nil {
@@ -53,31 +53,31 @@ func (api *BaseAPI) checkAdmin(
 
 // checkControllerAdmin ensures that the logged in user is a controller admin.
 func (api *BaseAPI) checkControllerAdmin(ctx context.Context) error {
-	return api.Authorizer.HasPermission(ctx, permission.SuperuserAccess, api.ControllerModel.ControllerTag())
+	return api.Authorizer.HasPermission(ctx, permission.SuperuserAccess, api.controllerTag)
 }
 
 // modelForName looks up the model details for the named model and returns
 // the model (if found), the absolute model path which was used in the lookup,
 // and a bool indicating if the model was found,
-func (api *BaseAPI) modelForName(modelName, ownerName string) (Model, string, bool, error) {
+func (api *BaseAPI) modelForName(ctx context.Context, modelName, ownerName string) (*model.Model, string, error) {
 	modelPath := fmt.Sprintf("%s/%s", ownerName, modelName)
-	var model Model
-	uuids, err := api.ControllerModel.AllModelUUIDs()
+
+	models, err := api.modelService.ListAllModels(ctx)
+
 	if err != nil {
-		return nil, modelPath, false, errors.Trace(err)
+		return nil, modelPath, errors.Trace(err)
 	}
-	for _, uuid := range uuids {
-		m, release, err := api.StatePool.GetModel(uuid)
-		if err != nil {
-			return nil, modelPath, false, errors.Trace(err)
-		}
-		defer release()
-		if m.Name() == modelName && m.Owner().Id() == ownerName {
-			model = m
-			break
+
+	fmt.Printf("modelForName name: %+v\n", modelName)
+	fmt.Printf("modelForName owner: %+v\n", ownerName)
+	for _, m := range models {
+		fmt.Printf("m: %+v\n", m)
+		if m.Name == modelName && m.OwnerName.Name() == ownerName {
+			return &m, modelPath, nil
 		}
 	}
-	return model, modelPath, model != nil, nil
+
+	return nil, modelPath, nil
 }
 
 func (api *BaseAPI) userDisplayName(ctx context.Context, userName coreuser.Name) (string, error) {
@@ -105,11 +105,13 @@ func (api *BaseAPI) applicationOffersFromModel(
 		return nil, errors.Trace(err)
 	}
 	defer releaser()
+	fmt.Println("applicationOffersFromModel backend: ", backend)
+	fmt.Println("applicationOffersFromModel err: ", err)
 
 	// If requireAdmin is true, the user must be a controller superuser
 	// or model admin to proceed.
 	var isAdmin bool
-	err = api.checkAdmin(ctx, user, model.UUID(modelUUID), backend)
+	err = api.checkAdmin(ctx, user, model.UUID(modelUUID))
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return nil, err
 	}
@@ -121,6 +123,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 	// TODO(aflynn): re-enable filtering by allowed consumers in domain and
 	// remove this warning.
 	for _, filter := range filters {
+		fmt.Println("applicationOffersFromModel filter: ", filter)
 		if len(filter.AllowedConsumers) > 0 {
 			api.logger.Warningf(context.TODO(), "filtering by allowed consumer is disabled due to the migration of offer permissions to domain")
 			break
@@ -131,6 +134,8 @@ func (api *BaseAPI) applicationOffersFromModel(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	fmt.Println("applicationOffersFromModel offers: ", offers)
 
 	apiUserDisplayName, err := api.userDisplayName(ctx, coreuser.NameFromTag(user))
 	if err != nil {
@@ -174,6 +179,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		}
 		results = append(results, offer)
 	}
+	// fmt.Println("applicationOffersFromModel results: ", results)
 	return results, nil
 }
 
@@ -264,36 +270,47 @@ func (api *BaseAPI) checkOfferAccess(ctx context.Context, user coreuser.Name, of
 }
 
 type offerModel struct {
-	model Model
+	model *model.Model
 	err   error
 }
 
 // getModelsFromOffers returns a slice of models corresponding to the
 // specified offer URLs. Each result item has either a model or an error.
-func (api *BaseAPI) getModelsFromOffers(user names.UserTag, offerURLs ...string) ([]offerModel, error) {
+func (api *BaseAPI) getModelsFromOffers(ctx context.Context, user names.UserTag, offerURLs ...string) ([]offerModel, error) {
 	// Cache the models found so far so we don't look them up more than once.
-	modelsCache := make(map[string]Model)
-	oneModel := func(offerURL string) (Model, error) {
+	modelsCache := make(map[string]*model.Model)
+	oneModel := func(offerURL string) (*model.Model, error) {
 		url, err := jujucrossmodel.ParseOfferURL(offerURL)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		modelPath := fmt.Sprintf("%s/%s", url.User, url.ModelName)
-		if model, ok := modelsCache[modelPath]; ok {
-			return model, nil
+		if cachedModel, ok := modelsCache[modelPath]; ok {
+			m := &model.Model{
+				UUID:      model.UUID(cachedModel.UUID),
+				Name:      cachedModel.Name,
+				ModelType: cachedModel.ModelType,
+				OwnerName: cachedModel.OwnerName,
+			}
+			return m, nil
 		}
 
 		ownerName := url.User
 		if ownerName == "" {
 			ownerName = user.Id()
 		}
-		model, absModelPath, ok, err := api.modelForName(url.ModelName, ownerName)
+		model, absModelPath, err := api.modelForName(ctx, url.ModelName, ownerName)
+		fmt.Printf("getModelsFromOffers model: %+v\n", model)
+		fmt.Printf("getModelsFromOffers absModelPath: %+v\n", absModelPath)
+		fmt.Printf("getModelsFromOffers err: %+v\n", err)
+
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if !ok {
+		if model == nil {
 			return nil, errors.NotFoundf("model %q", absModelPath)
 		}
+		modelsCache[modelPath] = model
 		return model, nil
 	}
 
@@ -308,13 +325,14 @@ func (api *BaseAPI) getModelsFromOffers(user names.UserTag, offerURLs ...string)
 
 // getModelFilters splits the specified filters per model and returns
 // the model and filter details for each.
-func (api *BaseAPI) getModelFilters(user names.UserTag, filters params.OfferFilters) (
-	models map[string]Model,
+func (api *BaseAPI) getModelFilters(ctx context.Context, user names.UserTag, filters params.OfferFilters) (
+	models map[string]*model.Model,
 	filtersPerModel map[string][]jujucrossmodel.ApplicationOfferFilter,
 	_ error,
 ) {
-	models = make(map[string]Model)
+	models = make(map[string]*model.Model)
 	filtersPerModel = make(map[string][]jujucrossmodel.ApplicationOfferFilter)
+	// fmt.Println("getModelFilters filters 1: ", filters)
 
 	// Group the filters per model and then query each model with the relevant filters
 	// for that model.
@@ -333,26 +351,31 @@ func (api *BaseAPI) getModelFilters(user names.UserTag, filters params.OfferFilt
 		)
 		if modelUUID, ok = modelUUIDs[f.ModelName]; !ok {
 			var err error
-			model, absModelPath, ok, err := api.modelForName(f.ModelName, ownerName)
+			model, absModelPath, err := api.modelForName(ctx, f.ModelName, ownerName)
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
-			if !ok {
+			if model == nil {
 				err := errors.NotFoundf("model %q", absModelPath)
 				return nil, nil, errors.Trace(err)
 			}
+			// fmt.Println("getModelFilters model: ", model)
 			// Record the UUID and model for next time.
-			modelUUID = model.UUID()
+			modelUUID = model.UUID.String()
 			modelUUIDs[f.ModelName] = modelUUID
 			models[modelUUID] = model
 		}
 
 		// Record the filter and model details against the model UUID.
 		filters := filtersPerModel[modelUUID]
+		// fmt.Println("getModelFilters filters 2: ", filters)
 		filter, err := makeOfferFilterFromParams(f)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
+		// fmt.Println("getModelFilters f: ", f)
+		// fmt.Println("getModelFilters filter 3: ", filter)
+		// fmt.Println("getModelFilters filter 3 err: ", err)
 		filters = append(filters, filter)
 		filtersPerModel[modelUUID] = filters
 	}
@@ -375,10 +398,12 @@ func (api *BaseAPI) getApplicationOffersDetails(
 	}
 
 	// Gather all the filter details for doing a query for each model.
-	models, filtersPerModel, err := api.getModelFilters(user, filters)
+	models, filtersPerModel, err := api.getModelFilters(ctx, user, filters)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	fmt.Printf("getApplicationOffersDetails models: %+v\n", models)
+	fmt.Printf("getApplicationOffersDetails filtersPerModel: %+v\n", filtersPerModel)
 
 	// Ensure the result is deterministic.
 	var allUUIDs []string
@@ -391,17 +416,23 @@ func (api *BaseAPI) getApplicationOffersDetails(
 	var result []params.ApplicationOfferAdminDetailsV5
 	for _, modelUUID := range allUUIDs {
 		filters := filtersPerModel[modelUUID]
+		fmt.Println("getApplicationOffersDetails filters: ", filters)
 		offers, err := api.applicationOffersFromModel(ctx, modelUUID, user, requiredPermission, filters...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		model := models[modelUUID]
+		fmt.Println("getApplicationOffersDetails offers: ", offers)
+		fmt.Println("getApplicationOffersDetails err: ", err)
+		fmt.Println("getApplicationOffersDetails model: ", model)
 
 		for _, offerDetails := range offers {
-			offerDetails.OfferURL = jujucrossmodel.MakeURL(model.Owner().Id(), model.Name(), offerDetails.OfferName, "")
+			offerDetails.OfferURL = jujucrossmodel.MakeURL(model.Owner.String(), model.Name, offerDetails.OfferName, "")
+			fmt.Println("getApplicationOffersDetails offerDetails: ", offerDetails)
 			result = append(result, offerDetails)
 		}
 	}
+	fmt.Println("getApplicationOffersDetails result: ", result)
 	return result, nil
 }
 

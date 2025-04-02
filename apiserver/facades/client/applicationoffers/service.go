@@ -99,3 +99,7 @@ type modelDomainServices struct {
 func (f *modelDomainServices) Application() ApplicationService {
 	return f.domainServices.Application()
 }
+
+type ModelService interface {
+	ListAllModels(ctx context.Context) ([]model.Model, error)
+}
