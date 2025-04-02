@@ -65,22 +65,12 @@ func (st *State) GetExposedEndpoints(ctx context.Context, appID coreapplication.
 	query := `
 SELECT 
     cr.name AS &endpointCIDRsSpaces.name,
-    ec.cidr AS &endpointCIDRsSpaces.cidr,
-    es.space_uuid AS &endpointCIDRsSpaces.space_uuid
-FROM v_application_exposed_endpoint ax
-LEFT JOIN application_endpoint ae ON ax.application_endpoint_uuid = ae.uuid
+    cidr AS &endpointCIDRsSpaces.cidr,
+    e.space_uuid AS &endpointCIDRsSpaces.space_uuid
+FROM v_application_exposed_endpoint e
+LEFT JOIN application_endpoint ae ON e.application_endpoint_uuid = ae.uuid
 LEFT JOIN charm_relation cr ON ae.charm_relation_uuid = cr.uuid
-LEFT JOIN application_exposed_endpoint_cidr ec ON 
-    (ax.application_endpoint_uuid = ec.application_endpoint_uuid OR
-    ax.application_endpoint_uuid IS NULL AND 
-    ec.application_endpoint_uuid IS NULL AND 
-    ec.application_uuid = $applicationID.uuid)
-LEFT JOIN application_exposed_endpoint_space es ON 
-    (ax.application_endpoint_uuid = es.application_endpoint_uuid OR
-    ax.application_endpoint_uuid IS NULL AND 
-    es.application_endpoint_uuid IS NULL AND 
-    es.application_uuid = $applicationID.uuid)
-WHERE ax.application_uuid = $applicationID.uuid;
+WHERE e.application_uuid = $applicationID.uuid;
 	`
 	stmt, err := st.Prepare(query, endpointCIDRsSpaces{}, ident)
 	if err != nil {

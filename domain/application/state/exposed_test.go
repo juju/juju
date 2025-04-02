@@ -443,8 +443,8 @@ func (s *exposedStateSuite) TestMergeExposeSettingsDifferentEndpointsNotOverwrit
 	s.setUpEndpoint(c, appID)
 	// Create a new endpoint
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		insertCharmRelation := `INSERT INTO charm_relation (uuid, charm_uuid, kind_id, name) VALUES (?, ?, ?, ?)`
-		_, err := tx.ExecContext(ctx, insertCharmRelation, "charm-relation1-uuid", "charm0-uuid", "0", "endpoint1")
+		insertCharmRelation := `INSERT INTO charm_relation (uuid, charm_uuid, kind_id, scope_id, role_id, name) VALUES (?, ?, ?, ?, ?, ?)`
+		_, err := tx.ExecContext(ctx, insertCharmRelation, "charm-relation1-uuid", "charm0-uuid", "0", "0", "0", "endpoint1")
 		if err != nil {
 			return err
 		}
@@ -511,8 +511,8 @@ func (s *exposedStateSuite) setUpEndpoint(c *gc.C, appID coreapplication.ID) {
 		if err != nil {
 			return err
 		}
-		insertCharmRelation := `INSERT INTO charm_relation (uuid, charm_uuid, kind_id, name) VALUES (?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertCharmRelation, "charm-relation0-uuid", "charm0-uuid", "0", "endpoint0")
+		insertCharmRelation := `INSERT INTO charm_relation (uuid, charm_uuid, kind_id, scope_id, role_id, name) VALUES (?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertCharmRelation, "charm-relation0-uuid", "charm0-uuid", "0", "0", "0", "endpoint0")
 		if err != nil {
 			return err
 		}

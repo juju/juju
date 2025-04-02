@@ -92,7 +92,7 @@ func (s *Service) MergeExposeSettings(ctx context.Context, appName string, expos
 	validatedExposedEndpoints := make(map[string]application.ExposedEndpoint)
 	if len(exposedEndpoints) == 0 {
 		// If an empty exposedEndpoints list is provided, all endpoints should
-		// be exposed. This emulates the expose behavior of pre 2.9 controllers.
+		// be exposed.
 		validatedExposedEndpoints[network.WildcardEndpoint] = application.ExposedEndpoint{
 			ExposeToCIDRs: set.NewStrings(firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		}

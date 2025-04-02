@@ -93,15 +93,24 @@ CREATE TABLE application_exposed_endpoint_cidr (
     PRIMARY KEY (application_uuid, application_endpoint_uuid, cidr)
 );
 
-CREATE VIEW v_application_exposed_endpoint AS
+CREATE VIEW v_application_exposed_endpoint (
+    application_uuid,
+    application_endpoint_uuid,
+    space_uuid,
+    cidr
+) AS
 SELECT
     aes.application_uuid,
-    aes.application_endpoint_uuid
+    aes.application_endpoint_uuid,
+    aes.space_uuid,
+    NULL AS n
 FROM application_exposed_endpoint_space AS aes
 UNION
 SELECT
     aec.application_uuid,
-    aec.application_endpoint_uuid
+    aec.application_endpoint_uuid,
+    NULL AS n,
+    aec.cidr
 FROM application_exposed_endpoint_cidr AS aec;
 
 CREATE TABLE application_config_hash (
