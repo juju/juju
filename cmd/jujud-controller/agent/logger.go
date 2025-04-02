@@ -50,8 +50,9 @@ func PrimeLogSink(cfg agent.Config) (*logsink.LogSink, error) {
 }
 
 type TagWriter struct {
-	LogSink corelogger.LogSink
-	Tag     string
+	LogSink   corelogger.LogSink
+	Tag       string
+	ModelUUID string
 }
 
 func (w TagWriter) Write(entry loggo.Entry) {
@@ -61,12 +62,13 @@ func (w TagWriter) Write(entry loggo.Entry) {
 	}
 
 	w.LogSink.Log([]corelogger.LogRecord{{
-		Time:     entry.Timestamp,
-		Module:   entry.Module,
-		Entity:   w.Tag,
-		Location: location,
-		Level:    corelogger.Level(entry.Level),
-		Message:  entry.Message,
-		Labels:   entry.Labels,
+		Time:      entry.Timestamp,
+		Module:    entry.Module,
+		Entity:    w.Tag,
+		Location:  location,
+		Level:     corelogger.Level(entry.Level),
+		Message:   entry.Message,
+		Labels:    entry.Labels,
+		ModelUUID: w.ModelUUID,
 	}})
 }

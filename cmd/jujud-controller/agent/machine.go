@@ -509,8 +509,9 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 
 	// Add the log sink to the default logger context.
 	if err := loggo.DefaultContext().AddWriter("logsink", TagWriter{
-		LogSink: logSink,
-		Tag:     a.Tag().String(),
+		LogSink:   logSink,
+		Tag:       a.Tag().String(),
+		ModelUUID: a.CurrentConfig().Model().Id(),
 	}); err != nil {
 		return errors.Trace(err)
 	}

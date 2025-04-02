@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -17,11 +18,15 @@ import (
 )
 
 // NewModelLoggerFunc is a function that creates a new model logger.
-type NewModelLoggerFunc func(logSink corelogger.LogSink, modelUUID model.UUID) (worker.Worker, error)
+type NewModelLoggerFunc func(logSink corelogger.LogSink, modelUUID model.UUID, agentTag names.Tag) (worker.Worker, error)
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
 type ManifoldConfig struct {
+	// AgentTag is the tag of the agent, this is used for setting the entity
+	// tag on the logs.
+	AgentTag names.Tag
+
 	// LogSink is the log sink for all models.
 	LogSink corelogger.LogSink
 
@@ -64,6 +69,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			w, err := config.NewWorker(Config{
+				AgentTag:       config.AgentTag,
 				LogSink:        config.LogSink,
 				Clock:          config.Clock,
 				NewModelLogger: NewModelLogger,

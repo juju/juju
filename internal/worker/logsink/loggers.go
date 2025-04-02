@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
@@ -24,13 +25,14 @@ type modelLogger struct {
 }
 
 // NewModelLogger returns a new model logger instance.
-func NewModelLogger(logSink corelogger.LogSink, modelUUID model.UUID) (worker.Worker, error) {
+func NewModelLogger(logSink corelogger.LogSink, modelUUID model.UUID, agentTag names.Tag) (worker.Worker, error) {
 	// Create a new logger context for the model. This will use the buffered
 	// log writer to write the logs to disk.
 	loggerContext := loggo.NewContext(loggo.INFO)
 	if err := loggerContext.AddWriter("model-sink", modelWriter{
 		logSink:   logSink,
 		modelUUID: modelUUID.String(),
+		agentTag:  agentTag.String(),
 	}); err != nil {
 		return nil, errors.Annotatef(err, "adding model-sink writer")
 	}
@@ -108,6 +110,7 @@ func (d *modelLogger) loop() error {
 type modelWriter struct {
 	logSink   corelogger.LogSink
 	modelUUID string
+	agentTag  string
 }
 
 func (w modelWriter) Write(entry loggo.Entry) {
@@ -118,6 +121,7 @@ func (w modelWriter) Write(entry loggo.Entry) {
 
 	w.logSink.Log([]corelogger.LogRecord{{
 		Time:      entry.Timestamp,
+		Entity:    w.agentTag,
 		Module:    entry.Module,
 		Location:  location,
 		Level:     corelogger.Level(entry.Level),
