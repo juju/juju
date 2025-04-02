@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/juju/clock"
@@ -236,7 +237,7 @@ func (w *LogSink) loop() error {
 func (w *LogSink) convertLogEntry(entry loggo.Entry) logRecord {
 	var location string
 	if entry.Filename != "" {
-		location = fmt.Sprintf("%s:%d", entry.Filename, entry.Line)
+		location = entry.Filename + ":" + strconv.Itoa(entry.Line)
 	}
 
 	rec := logRecord{

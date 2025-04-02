@@ -12,11 +12,12 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/worker/common"
 )
 
 // NewModelLoggerFunc is a function that creates a new model logger.
-type NewModelLoggerFunc func(logSink corelogger.LogSink) (worker.Worker, error)
+type NewModelLoggerFunc func(logSink corelogger.LogSink, modelUUID model.UUID) (worker.Worker, error)
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.

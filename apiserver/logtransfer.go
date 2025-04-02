@@ -21,6 +21,8 @@ type migrationLoggingStrategy struct {
 
 	recordLogWriter corelogger.LogWriter
 	releaser        func() error
+
+	modelUUID coremodel.UUID
 }
 
 // newMigrationLogWriteCloserFunc returns a function that will create a
@@ -43,6 +45,7 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 	if err != nil {
 		return errors.Trace(err)
 	}
+	defer func() { _ = st.Release() }()
 
 	// Here the log messages are expected to be coming from another
 	// Juju controller, so the version number provided should be the
@@ -56,16 +59,13 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 		return errors.Trace(err)
 	}
 
-	modelUUID := coremodel.UUID(st.State.ModelUUID())
+	s.modelUUID = coremodel.UUID(st.State.ModelUUID())
 
-	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(req.Context(), modelUUID); err != nil {
+	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(req.Context(), s.modelUUID); err != nil {
 		return errors.Trace(err)
 	}
 	s.releaser = func() error {
-		if removed := st.Release(); removed {
-			return s.modelLogger.RemoveLogWriter(modelUUID)
-		}
-		return nil
+		return s.modelLogger.RemoveLogWriter(s.modelUUID)
 	}
 	return nil
 }
@@ -78,14 +78,14 @@ func (s *migrationLoggingStrategy) Close() error {
 // WriteLog is part of the logsink.LogWriteCloser interface.
 func (s *migrationLoggingStrategy) WriteLog(m params.LogRecord) error {
 	level, _ := corelogger.ParseLevelFromString(m.Level)
-	err := s.recordLogWriter.Log([]corelogger.LogRecord{{
-		Time:     m.Time,
-		Entity:   m.Entity,
-		Module:   m.Module,
-		Location: m.Location,
-		Level:    level,
-		Message:  m.Message,
-		Labels:   m.Labels,
+	return s.recordLogWriter.Log([]corelogger.LogRecord{{
+		Time:      m.Time,
+		Entity:    m.Entity,
+		Module:    m.Module,
+		Location:  m.Location,
+		Level:     level,
+		Message:   m.Message,
+		Labels:    m.Labels,
+		ModelUUID: s.modelUUID.String(),
 	}})
-	return errors.Annotate(err, "writing model logs failed")
 }

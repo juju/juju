@@ -67,7 +67,7 @@ func (s *agentLoggingStrategy) Close() error {
 // WriteLog is part of the logsink.LogWriteCloser interface.
 func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 	level, _ := corelogger.ParseLevelFromString(m.Level)
-	return errors.Annotate(s.recordLogWriter.Log([]corelogger.LogRecord{{
+	return s.recordLogWriter.Log([]corelogger.LogRecord{{
 		Time:      m.Time,
 		Entity:    s.entity,
 		Module:    m.Module,
@@ -76,5 +76,5 @@ func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 		Message:   m.Message,
 		Labels:    m.Labels,
 		ModelUUID: s.modelUUID.String(),
-	}}), "writing model logs failed")
+	}})
 }
