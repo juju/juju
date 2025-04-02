@@ -117,7 +117,7 @@ func (s *addRelationSuite) TestAddRelation(c *gc.C) {
 	// check all relation have a status
 	statuses := s.fetchAllRelationStatusesOrderByRelationIDs(c)
 	c.Check(statuses, jc.DeepEquals, []corestatus.Status{corestatus.Joining, corestatus.Joining},
-		gc.Commentf("all relations should have the same default status: %q", corestatus.Joining))
+		gc.Commentf("all relations should have the same starting status: %q", corestatus.Joining))
 
 }
 
@@ -171,7 +171,7 @@ func (s *addRelationSuite) TestAddRelationSubordinate(c *gc.C) {
 	// check all relation have a status
 	statuses := s.fetchAllRelationStatusesOrderByRelationIDs(c)
 	c.Check(statuses, jc.DeepEquals, []corestatus.Status{corestatus.Joining},
-		gc.Commentf("all relations should have the same default status: %q", corestatus.Joining))
+		gc.Commentf("all relations should have the same starting status: %q", corestatus.Joining))
 }
 
 func (s *addRelationSuite) TestAddRelationSubordinateNotCompatible(c *gc.C) {
