@@ -23,7 +23,7 @@ const (
 
 // LogSinkWriter is a writer that writes log records to a log sink.
 type LogSinkWriter interface {
-	logger.LogWriterCloser
+	logger.LogWriter
 	logger.LoggerContext
 }
 
@@ -91,7 +91,7 @@ func newWorker(cfg Config, internalState chan string) (worker.Worker, error) {
 // GetLogWriter returns a log writer for the specified model UUID.
 // It is an error if the log writer is not running. Call InitializeLogger
 // to start the log writer.
-func (w *LogSink) GetLogWriter(ctx context.Context, modelUUID model.UUID) (logger.LogWriterCloser, error) {
+func (w *LogSink) GetLogWriter(ctx context.Context, modelUUID model.UUID) (logger.LogWriter, error) {
 	sink, err := w.getLogSink(ctx, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -108,12 +108,6 @@ func (w *LogSink) GetLoggerContext(ctx context.Context, modelUUID model.UUID) (l
 		return nil, errors.Trace(err)
 	}
 	return sink, nil
-}
-
-// RemoveLogWriter closes then removes a log writer by model UUID.
-// Returns an error if there was a problem closing the logger.
-func (w *LogSink) RemoveLogWriter(modelUUID model.UUID) error {
-	return w.runner.StopAndRemoveWorker(modelUUID.String(), w.catacomb.Dying())
 }
 
 // Close closes all the log writers.

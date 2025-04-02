@@ -183,27 +183,12 @@ type LoggerContext interface {
 	// Config returns the current configuration of the Loggers. Loggers
 	// with UNSPECIFIED level will not be included.
 	Config() Config
-
-	// AddWriter adds a writer to the list to be called for each logging call.
-	// The name cannot be empty, and the writer cannot be nil. If an existing
-	// writer exists with the specified name, an error is returned.
-	//
-	// Note: we're relying on loggo.Writer here, until we do model level
-	// logging. Deprecated: This will be removed in the future and is only here
-	// whilst we cut things across.
-	AddWriter(name string, writer loggo.Writer) error
 }
 
 // LogWriter provides an interface for writing log records.
 type LogWriter interface {
 	// Log writes the given log records to the logger's storage.
 	Log([]LogRecord) error
-}
-
-// LogWriterCloser is a Logger that can be closed.
-type LogWriterCloser interface {
-	LogWriter
-	io.Closer
 }
 
 // ModelLogger keeps track of all the log writers, which can be accessed
@@ -215,11 +200,7 @@ type ModelLogger interface {
 
 	// GetLogWriter returns a log writer for the given model and keeps
 	// track of it, returning the same one if called again.
-	GetLogWriter(ctx context.Context, modelUUID model.UUID) (LogWriterCloser, error)
-
-	// RemoveLogWriter stops tracking the given's model's log writer and
-	// calls Close() on the log writer.
-	RemoveLogWriter(modelUUID model.UUID) error
+	GetLogWriter(ctx context.Context, modelUUID model.UUID) (LogWriter, error)
 }
 
 // LoggerContextGetter is an interface that is used to get a LoggerContext.
