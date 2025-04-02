@@ -167,7 +167,7 @@ CREATE VIEW v_application_endpoint AS
 SELECT
     ae.uuid AS endpoint_uuid,
     cr.name AS endpoint_name,
-    a.uuid AS application_uuid,
+    ae.application_uuid,
     a.name AS application_name,
     cr.interface,
     cr.optional,
@@ -183,23 +183,22 @@ JOIN charm_relation_scope AS crs ON cr.scope_id = crs.id;
 
 CREATE VIEW v_relation_endpoint AS
 SELECT
-    ae.uuid AS endpoint_uuid,
-    r.uuid AS relation_uuid,
+    re.endpoint_uuid,
+    re.relation_uuid,
+    ae.application_uuid,
     a.name AS application_name,
-    a.uuid AS application_uuid,
     cr.name AS endpoint_name,
     cr.interface,
     cr.optional,
     cr.capacity,
     crr.name AS role,
     crs.name AS scope
-FROM relation AS r
-JOIN relation_endpoint AS re ON r.uuid = re.relation_uuid
+FROM relation_endpoint AS re
 JOIN application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+JOIN application AS a ON ae.application_uuid = a.uuid
 JOIN charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
 JOIN charm_relation_role AS crr ON cr.role_id = crr.id
-JOIN charm_relation_scope AS crs ON cr.scope_id = crs.id
-JOIN application AS a ON ae.application_uuid = a.uuid;
+JOIN charm_relation_scope AS crs ON cr.scope_id = crs.id;
 
 CREATE VIEW v_relation_endpoint_identifier AS
 SELECT
