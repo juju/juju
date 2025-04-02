@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -664,7 +665,7 @@ func (s *addRelationSuite) addApplication(
 	applicationName string,
 ) coreapplication.ID {
 	charmUUID := s.addCharm(c)
-	s.setCharmSubordinate(c, charmUUID.String(), false)
+	s.setCharmSubordinate(c, charmUUID, false)
 	appUUID := s.baseRelationSuite.addApplication(c, charmUUID, applicationName)
 	s.charmByApp[appUUID] = charmUUID
 	return appUUID
@@ -691,7 +692,7 @@ func (s *addRelationSuite) addSubordinateApplication(
 	applicationName string,
 ) coreapplication.ID {
 	charmUUID := s.addCharm(c)
-	s.setCharmSubordinate(c, charmUUID.String(), true)
+	s.setCharmSubordinate(c, charmUUID, true)
 	appUUID := s.baseRelationSuite.addApplication(c, charmUUID, applicationName)
 	s.charmByApp[appUUID] = charmUUID
 	return appUUID
@@ -2141,6 +2142,77 @@ func (s *relationSuite) TestEnterScopeUnitNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, relationerrors.UnitNotFound)
 }
 
+func (s *relationSuite) TestLeaveScope(c *gc.C) {
+	// Arrange: Add two endpoints.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	charmRelationUUID1 := uuid.MustNewUUID().String()
+	applicationEndpointUUID1 := uuid.MustNewUUID().String()
+	relationEndpointUUID1 := uuid.MustNewUUID().String()
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID2 := uuid.MustNewUUID().String()
+	applicationEndpointUUID2 := uuid.MustNewUUID().String()
+	relationEndpointUUID2 := uuid.MustNewUUID().String()
+	endpoint2 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID1, endpoint1.Relation)
+	s.addCharmRelation(c, s.fakeCharmUUID2, charmRelationUUID2, endpoint2.Relation)
+	s.addApplicationEndpoint(c, applicationEndpointUUID1, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, applicationEndpointUUID2, s.fakeApplicationUUID2, charmRelationUUID2)
+
+	// Arrange: Add a relation.
+	s.addRelation(c, relationUUID)
+	s.addRelationEndpoint(c, relationEndpointUUID1, relationUUID, applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationEndpointUUID2, relationUUID, applicationEndpointUUID2)
+
+	// Arrange: Add a unit.
+	unitUUID := coreunittesting.GenUnitUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	s.addUnit(c, unitUUID, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+
+	// Arrange: Add a relation unit.
+	s.addRelationUnit(c, unitUUID, relationEndpointUUID1, relationUnitUUID)
+
+	// Arrange: Add some relation unit settings.
+	s.addRelationUnitSetting(c, relationUnitUUID, "test-key", "test-value")
+
+	// Act: Leave scope with the first unit.
+	err := s.state.LeaveScope(context.Background(), relationUnitUUID)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+
+	// Assert: check the unit relation has been deleted. This can only be
+	// deleted if the unit settings have also been deleted, so no need to check
+	// them separately.
+	c.Assert(s.doesRelationUnitExist(c, relationUnitUUID), jc.IsFalse)
+}
+
+func (s *relationSuite) TestLeaveScopeRelationUnitNotFound(c *gc.C) {
+	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+
+	// Act: Leave scope with the first unit.
+	err := s.state.LeaveScope(context.Background(), relationUnitUUID)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationUnitNotFound)
+}
+
 func (s *relationSuite) TestGetMapperDataForWatchLifeSuspendedStatus(c *gc.C) {
 	// Arrange: add a relation with a single endpoint which is suspended
 	relationUUID := corerelationtesting.GenRelationUUID(c)
@@ -2481,6 +2553,15 @@ VALUES (?,?,?)
 `, relationUnitUUID, relationEndpointUUID, unitUUID)
 }
 
+// addRelationUnitSetting inserts a relation unit setting into the database
+// using the provided relationUnitUUID.
+func (s *relationSuite) addRelationUnitSetting(c *gc.C, relationUnitUUID corerelation.UnitUUID, key, value string) {
+	s.query(c, `
+INSERT INTO relation_unit_setting (relation_unit_uuid, key, value)
+VALUES (?,?,?)
+`, relationUnitUUID, key, value)
+}
+
 // addRelationStatus inserts a relation status into the relation_status table.
 func (s *relationSuite) addRelationStatus(c *gc.C, relationUUID corerelation.UUID, status corestatus.Status) {
 	s.query(c, `
@@ -2592,4 +2673,28 @@ func (s *relationSuite) setUnitSubordinate(c *gc.C, unitUUID1, unitUUID2 coreuni
 INSERT INTO unit_principal (unit_uuid, principal_uuid)
 VALUES (?,?)
 `, unitUUID1, unitUUID2)
+}
+
+func (s *relationSuite) doesRelationUnitExist(c *gc.C, relationUnitUUID corerelation.UnitUUID) bool {
+	return s.doesUUIDExist(c, "relation_unit", relationUnitUUID.String())
+}
+
+func (s *relationSuite) doesUUIDExist(c *gc.C, table, uuid string) bool {
+	found := false
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRow(fmt.Sprintf(`
+SELECT uuid
+FROM   %s
+WHERE  uuid = ?
+`, table), uuid).Scan(&uuid)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		found = true
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return found
 }

@@ -104,6 +104,10 @@ type getPrincipal struct {
 	ApplicationUUID application.ID `db:"application_uuid"`
 }
 
+type relationUnitUUID struct {
+	RelationUnitUUID corerelation.UnitUUID `db:"uuid"`
+}
+
 // endpointIdentifier is an identifier for a relation endpoint.
 type endpointIdentifier struct {
 	// ApplicationName is the name of the application the endpoint belongs to.
