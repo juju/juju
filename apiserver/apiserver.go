@@ -717,7 +717,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	), "log")
 	pubsubHandler := handlerspubsub.NewPubSubHandler(httpCtxt.stop(), srv.shared.centralHub)
 	logSinkHandler := logsink.NewHTTPHandler(
-		newAgentLogWriteCloserFunc(httpCtxt, srv.logSink),
+		newAgentLogWriteFunc(httpCtxt, srv.logSink),
 		httpCtxt.stop(),
 		&srv.logsinkRateLimitConfig,
 		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},
@@ -727,7 +727,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	logTransferHandler := logsink.NewHTTPHandler(
 		// We don't need to save the migrated logs
 		// to a logfile as well as to the DB.
-		newMigrationLogWriteCloserFunc(httpCtxt, srv.logSink),
+		newMigrationLogWriteFunc(httpCtxt, srv.logSink),
 		httpCtxt.stop(),
 		nil, // no rate-limiting
 		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},

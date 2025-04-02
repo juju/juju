@@ -5,7 +5,6 @@ package logsink
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -36,18 +35,16 @@ const (
 
 var logger = internallogger.GetLogger("juju.apiserver.logsink")
 
-// LogWriteCloser provides an interface for persisting log records.
+// LogWriter provides an interface for persisting log records.
 // The LogCloser's Close method should be called to release any
 // resources once it is done with.
-type LogWriteCloser interface {
-	io.Closer
-
+type LogWriter interface {
 	// WriteLog writes out the given log record.
 	WriteLog(params.LogRecord) error
 }
 
-// NewLogWriteCloserFunc returns a new LogWriteCloser for the given http.Request.
-type NewLogWriteCloserFunc func(*http.Request) (LogWriteCloser, error)
+// NewLogWriteFunc returns a new LogWriteCloser for the given http.Request.
+type NewLogWriteFunc func(*http.Request) (LogWriter, error)
 
 // RateLimitConfig contains the rate-limit configuration for the logsink
 // handler.
@@ -112,22 +109,22 @@ type MetricsCollector interface {
 }
 
 // NewHTTPHandler returns a new http.Handler for receiving log messages over a
-// websocket, using the given NewLogWriteCloserFunc to obtain a writer to which
+// websocket, using the given NewLogWriteFunc to obtain a writer to which
 // the log messages will be written.
 //
 // ratelimit defines an optional rate-limit configuration. If nil, no rate-
 // limiting will be applied.
 func NewHTTPHandler(
-	newLogWriteCloser NewLogWriteCloserFunc,
+	newLogWriter NewLogWriteFunc,
 	abort <-chan struct{},
 	ratelimit *RateLimitConfig,
 	metrics MetricsCollector,
 	modelUUID string,
 ) http.Handler {
 	return &logSinkHandler{
-		newLogWriteCloser: newLogWriteCloser,
-		abort:             abort,
-		ratelimit:         ratelimit,
+		newLogWriter: newLogWriter,
+		abort:        abort,
+		ratelimit:    ratelimit,
 		newStopChannel: func() (chan struct{}, func()) {
 			ch := make(chan struct{})
 			return ch, func() { close(ch) }
@@ -138,12 +135,12 @@ func NewHTTPHandler(
 }
 
 type logSinkHandler struct {
-	newLogWriteCloser NewLogWriteCloserFunc
-	abort             <-chan struct{}
-	ratelimit         *RateLimitConfig
-	metrics           MetricsCollector
-	modelUUID         string
-	mu                sync.Mutex
+	newLogWriter NewLogWriteFunc
+	abort        <-chan struct{}
+	ratelimit    *RateLimitConfig
+	metrics      MetricsCollector
+	modelUUID    string
+	mu           sync.Mutex
 
 	// newStopChannel is overridden in tests so that we can check the
 	// goroutine exits when prompted.
@@ -194,12 +191,11 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			h.sendError(socket, req, err)
 			return
 		}
-		writer, err := h.newLogWriteCloser(req)
+		writer, err := h.newLogWriter(req)
 		if err != nil {
 			h.sendError(socket, req, err)
 			return
 		}
-		defer writer.Close()
 
 		// If we get to here, no more errors to report, so we report a nil
 		// error.  This way the first line of the socket is always a json
