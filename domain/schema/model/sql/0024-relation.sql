@@ -22,6 +22,9 @@ CREATE TABLE application_endpoint (
     REFERENCES charm_relation (uuid)
 );
 
+CREATE INDEX idx_application_endpoint_app
+ON application_endpoint (application_uuid);
+
 -- The application_endpoint ties an application's relation definition to an
 -- endpoint binding via a space. Only endpoint bindings which differ from the
 -- application default binding will be listed.
@@ -40,6 +43,9 @@ CREATE TABLE application_extra_endpoint (
     REFERENCES charm_extra_binding (uuid),
     PRIMARY KEY (application_uuid, charm_extra_binding_uuid)
 );
+
+CREATE INDEX idx_application_extra_endpoint_app
+ON application_extra_endpoint (application_uuid);
 
 -- The relation_endpoint table links a relation to a single
 -- application endpoint. If the relation is of type peer,
@@ -187,7 +193,6 @@ SELECT
     re.relation_uuid,
     ae.application_uuid,
     a.name AS application_name,
-    a.uuid AS application_uuid,
     cr.name AS endpoint_name,
     cr.interface,
     cr.optional,
