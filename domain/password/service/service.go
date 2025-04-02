@@ -23,8 +23,9 @@ type State interface {
 	// SetUnitPasswordHash sets the password hash for the given unit.
 	SetUnitPasswordHash(context.Context, unit.UUID, password.PasswordHash) error
 
-	// IsValidUnitPassword checks if the password is valid or not.
-	IsValidUnitPassword(context.Context, unit.UUID, password.PasswordHash) (bool, error)
+	// MatchesUnitPasswordHash checks if the password is valid or not against
+	// the password hash stored in the database.
+	MatchesUnitPasswordHash(context.Context, unit.UUID, password.PasswordHash) (bool, error)
 }
 
 // Service provides the means for interacting with the passwords in a model.
@@ -57,8 +58,9 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName unit.Name, passw
 	return s.st.SetUnitPasswordHash(ctx, unitUUID, hashPassword(password))
 }
 
-// IsValidUnitPassword checks if the password is valid or not.
-func (s *Service) IsValidUnitPassword(ctx context.Context, unitName unit.Name, password string) (bool, error) {
+// MatchesUnitPasswordHash checks if the password is valid or not against the
+// password hash stored in the database.
+func (s *Service) MatchesUnitPasswordHash(ctx context.Context, unitName unit.Name, password string) (bool, error) {
 	if err := unitName.Validate(); err != nil {
 		return false, errors.Capture(err)
 	}
@@ -75,7 +77,7 @@ func (s *Service) IsValidUnitPassword(ctx context.Context, unitName unit.Name, p
 		return false, errors.Capture(err)
 	}
 
-	return s.st.IsValidUnitPassword(ctx, unitUUID, hashPassword(password))
+	return s.st.MatchesUnitPasswordHash(ctx, unitUUID, hashPassword(password))
 }
 
 func hashPassword(p string) password.PasswordHash {

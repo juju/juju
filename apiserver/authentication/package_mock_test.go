@@ -40,41 +40,41 @@ func (m *MockPasswordService) EXPECT() *MockPasswordServiceMockRecorder {
 	return m.recorder
 }
 
-// IsValidUnitPassword mocks base method.
-func (m *MockPasswordService) IsValidUnitPassword(arg0 context.Context, arg1 unit.Name, arg2 string) (bool, error) {
+// MatchesUnitPasswordHash mocks base method.
+func (m *MockPasswordService) MatchesUnitPasswordHash(arg0 context.Context, arg1 unit.Name, arg2 string) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsValidUnitPassword", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "MatchesUnitPasswordHash", arg0, arg1, arg2)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// IsValidUnitPassword indicates an expected call of IsValidUnitPassword.
-func (mr *MockPasswordServiceMockRecorder) IsValidUnitPassword(arg0, arg1, arg2 any) *MockPasswordServiceIsValidUnitPasswordCall {
+// MatchesUnitPasswordHash indicates an expected call of MatchesUnitPasswordHash.
+func (mr *MockPasswordServiceMockRecorder) MatchesUnitPasswordHash(arg0, arg1, arg2 any) *MockPasswordServiceMatchesUnitPasswordHashCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsValidUnitPassword", reflect.TypeOf((*MockPasswordService)(nil).IsValidUnitPassword), arg0, arg1, arg2)
-	return &MockPasswordServiceIsValidUnitPasswordCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MatchesUnitPasswordHash", reflect.TypeOf((*MockPasswordService)(nil).MatchesUnitPasswordHash), arg0, arg1, arg2)
+	return &MockPasswordServiceMatchesUnitPasswordHashCall{Call: call}
 }
 
-// MockPasswordServiceIsValidUnitPasswordCall wrap *gomock.Call
-type MockPasswordServiceIsValidUnitPasswordCall struct {
+// MockPasswordServiceMatchesUnitPasswordHashCall wrap *gomock.Call
+type MockPasswordServiceMatchesUnitPasswordHashCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockPasswordServiceIsValidUnitPasswordCall) Return(arg0 bool, arg1 error) *MockPasswordServiceIsValidUnitPasswordCall {
+func (c *MockPasswordServiceMatchesUnitPasswordHashCall) Return(arg0 bool, arg1 error) *MockPasswordServiceMatchesUnitPasswordHashCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockPasswordServiceIsValidUnitPasswordCall) Do(f func(context.Context, unit.Name, string) (bool, error)) *MockPasswordServiceIsValidUnitPasswordCall {
+func (c *MockPasswordServiceMatchesUnitPasswordHashCall) Do(f func(context.Context, unit.Name, string) (bool, error)) *MockPasswordServiceMatchesUnitPasswordHashCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockPasswordServiceIsValidUnitPasswordCall) DoAndReturn(f func(context.Context, unit.Name, string) (bool, error)) *MockPasswordServiceIsValidUnitPasswordCall {
+func (c *MockPasswordServiceMatchesUnitPasswordHashCall) DoAndReturn(f func(context.Context, unit.Name, string) (bool, error)) *MockPasswordServiceMatchesUnitPasswordHashCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

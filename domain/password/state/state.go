@@ -71,8 +71,9 @@ WHERE uuid = $unitPasswordHash.uuid;
 	return errors.Capture(err)
 }
 
-// IsValidUnitPassword sets the password hash for the given unit.
-func (s *State) IsValidUnitPassword(ctx context.Context, unitUUID unit.UUID, passwordHash password.PasswordHash) (bool, error) {
+// MatchesUnitPasswordHash checks if the password is valid or not against the
+// password hash stored in the database.
+func (s *State) MatchesUnitPasswordHash(ctx context.Context, unitUUID unit.UUID, passwordHash password.PasswordHash) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
 		return false, err

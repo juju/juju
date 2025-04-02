@@ -78,8 +78,8 @@ type MacaroonService interface {
 // PasswordService defines the methods required to set a password hash for a
 // unit.
 type PasswordService interface {
-	// IsValidUnitPassword checks if the password is valid or not.
-	IsValidUnitPassword(context.Context, unit.Name, string) (bool, error)
+	// MatchesUnitPasswordHash checks if the password is valid or not.
+	MatchesUnitPasswordHash(context.Context, unit.Name, string) (bool, error)
 }
 
 type BakeryConfigService interface {

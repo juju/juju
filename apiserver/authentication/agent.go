@@ -19,8 +19,8 @@ import (
 // PasswordService defines the methods required to set a password hash for a
 // unit.
 type PasswordService interface {
-	// IsValidUnitPassword checks if the password is valid or not.
-	IsValidUnitPassword(context.Context, unit.Name, string) (bool, error)
+	// MatchesUnitPasswordHash checks if the password is valid or not.
+	MatchesUnitPasswordHash(context.Context, unit.Name, string) (bool, error)
 }
 
 // AgentAuthenticatorGetter is a factory for creating authenticators, which
@@ -97,7 +97,7 @@ func (a *agentAuthenticator) authenticateUnit(ctx context.Context, tag names.Uni
 	//   unauthorized.
 	// - Any other error, is considered an internal server error.
 
-	valid, err := a.passwordService.IsValidUnitPassword(ctx, unitName, credentials)
+	valid, err := a.passwordService.MatchesUnitPasswordHash(ctx, unitName, credentials)
 	if errors.Is(err, passworderrors.EmptyPassword) {
 		return nil, errors.Trace(apiservererrors.ErrBadRequest)
 	} else if errors.Is(err, passworderrors.InvalidPassword) || errors.Is(err, passworderrors.UnitNotFound) {

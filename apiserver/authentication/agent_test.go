@@ -51,7 +51,7 @@ func (s *agentAuthenticatorSuite) TestUserLogin(c *gc.C) {
 func (s *agentAuthenticatorSuite) TestUnitLogin(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.passwordService.EXPECT().IsValidUnitPassword(gomock.Any(), unit.Name("foo/0"), "password").Return(true, nil)
+	s.passwordService.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), "password").Return(true, nil)
 
 	authTag := names.NewUnitTag("foo/0")
 
@@ -67,7 +67,7 @@ func (s *agentAuthenticatorSuite) TestUnitLogin(c *gc.C) {
 func (s *agentAuthenticatorSuite) TestUnitLoginEmptyCredentials(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.passwordService.EXPECT().IsValidUnitPassword(gomock.Any(), unit.Name("foo/0"), "").Return(false, passworderrors.EmptyPassword)
+	s.passwordService.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), "").Return(false, passworderrors.EmptyPassword)
 
 	authTag := names.NewUnitTag("foo/0")
 
@@ -82,7 +82,7 @@ func (s *agentAuthenticatorSuite) TestUnitLoginEmptyCredentials(c *gc.C) {
 func (s *agentAuthenticatorSuite) TestUnitLoginInvalidCredentials(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.passwordService.EXPECT().IsValidUnitPassword(gomock.Any(), unit.Name("foo/0"), "").Return(false, passworderrors.InvalidPassword)
+	s.passwordService.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), "").Return(false, passworderrors.InvalidPassword)
 
 	authTag := names.NewUnitTag("foo/0")
 
@@ -97,7 +97,7 @@ func (s *agentAuthenticatorSuite) TestUnitLoginInvalidCredentials(c *gc.C) {
 func (s *agentAuthenticatorSuite) TestUnitLoginUnitNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.passwordService.EXPECT().IsValidUnitPassword(gomock.Any(), unit.Name("foo/0"), "").Return(false, passworderrors.UnitNotFound)
+	s.passwordService.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), "").Return(false, passworderrors.UnitNotFound)
 
 	authTag := names.NewUnitTag("foo/0")
 
@@ -112,7 +112,7 @@ func (s *agentAuthenticatorSuite) TestUnitLoginUnitNotFound(c *gc.C) {
 func (s *agentAuthenticatorSuite) TestUnitLoginUnitError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.passwordService.EXPECT().IsValidUnitPassword(gomock.Any(), unit.Name("foo/0"), "").Return(false, errors.Errorf("boom"))
+	s.passwordService.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), "").Return(false, errors.Errorf("boom"))
 
 	authTag := names.NewUnitTag("foo/0")
 
