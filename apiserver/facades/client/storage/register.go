@@ -8,7 +8,6 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -43,8 +42,8 @@ func newStorageAPI(stdCtx context.Context, ctx facade.ModelContext) (*StorageAPI
 
 	storageService := domainServices.Storage()
 	return NewStorageAPI(
-		names.NewControllerTag(ctx.ControllerUUID()),
-		names.NewModelTag(ctx.ModelUUID().String()),
+		ctx.ControllerUUID(),
+		ctx.ModelUUID(),
 		modelType,
 		stateShim{st},
 		storageAccessor, domainServices.BlockDevice(), storageService,

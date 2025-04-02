@@ -48,14 +48,14 @@ type StorageAPI struct {
 	authorizer            facade.Authorizer
 	blockCommandService   common.BlockCommandService
 
-	controllerTag names.ControllerTag
-	modelTag      names.ModelTag
-	modelType     coremodel.ModelType
+	controllerUUID string
+	modelUUID      coremodel.UUID
+	modelType      coremodel.ModelType
 }
 
 func NewStorageAPI(
-	controllerTag names.ControllerTag,
-	modelTag names.ModelTag,
+	controllerUUID string,
+	modelUUID coremodel.UUID,
 	modelType coremodel.ModelType,
 	backend backend,
 	storageAccess storageAccess,
@@ -66,8 +66,8 @@ func NewStorageAPI(
 	blockCommandService common.BlockCommandService,
 ) *StorageAPI {
 	return &StorageAPI{
-		controllerTag:         controllerTag,
-		modelTag:              modelTag,
+		controllerUUID:        controllerUUID,
+		modelUUID:             modelUUID,
 		backend:               backend,
 		modelType:             modelType,
 		storageAccess:         storageAccess,
@@ -80,7 +80,7 @@ func NewStorageAPI(
 }
 
 func (a *StorageAPI) checkCanRead(ctx context.Context) error {
-	err := a.authorizer.HasPermission(ctx, permission.SuperuserAccess, a.controllerTag)
+	err := a.authorizer.HasPermission(ctx, permission.SuperuserAccess, names.NewControllerTag(a.controllerUUID))
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
@@ -88,11 +88,11 @@ func (a *StorageAPI) checkCanRead(ctx context.Context) error {
 	if err == nil {
 		return nil
 	}
-	return a.authorizer.HasPermission(ctx, permission.ReadAccess, a.modelTag)
+	return a.authorizer.HasPermission(ctx, permission.ReadAccess, names.NewModelTag(a.modelUUID.String()))
 }
 
 func (a *StorageAPI) checkCanWrite(ctx context.Context) error {
-	return a.authorizer.HasPermission(ctx, permission.WriteAccess, a.modelTag)
+	return a.authorizer.HasPermission(ctx, permission.WriteAccess, names.NewModelTag(a.modelUUID.String()))
 }
 
 // StorageDetails retrieves and returns detailed information about desired
@@ -695,8 +695,8 @@ func (a *StorageAPI) importFilesystem(
 	cfg *storage.Config,
 ) (*params.ImportStorageDetails, error) {
 	resourceTags := map[string]string{
-		tags.JujuModel:      a.modelTag.Id(),
-		tags.JujuController: a.controllerTag.Id(),
+		tags.JujuModel:      a.modelUUID.String(),
+		tags.JujuController: a.controllerUUID,
 	}
 	var volumeInfo *state.VolumeInfo
 	filesystemInfo := state.FilesystemInfo{Pool: arg.Pool}

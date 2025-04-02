@@ -18,12 +18,13 @@ import (
 	facadestorage "github.com/juju/juju/apiserver/facades/client/storage"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/blockcommand"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider/dummy"
-	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -576,8 +577,8 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 	filesystemSource.CheckCalls(c, []testing.StubCall{
 		{FuncName: "ImportFilesystem", Args: []interface{}{
 			"foo", map[string]string{
-				"juju-model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-				"juju-controller-uuid": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+				"juju-model-uuid":      s.modelUUID.String(),
+				"juju-controller-uuid": s.controllerUUID,
 			},
 		}},
 	})
@@ -631,8 +632,8 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
 	volumeSource.CheckCalls(c, []testing.StubCall{
 		{FuncName: "ImportVolume", Args: []interface{}{
 			"foo", map[string]string{
-				"juju-model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-				"juju-controller-uuid": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+				"juju-model-uuid":      s.modelUUID.String(),
+				"juju-controller-uuid": s.controllerUUID,
 			},
 		}},
 	})
@@ -791,8 +792,10 @@ func (s *storageSuite) TestListStorageAsAdminOnNotOwnedModel(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("superuserfoo"),
 	}
+	controllerUUID := uuid.MustNewUUID().String()
+	modelUUID := modeltesting.GenModelUUID(c)
 	s.api = facadestorage.NewStorageAPIForTest(
-		coretesting.ControllerTag, coretesting.ModelTag, coremodel.IAAS,
+		controllerUUID, modelUUID, coremodel.IAAS,
 		s.state, s.storageAccessor, nil,
 		s.storageService, s.storageRegistryGetter, s.authorizer,
 		s.blockCommandService)
@@ -808,8 +811,10 @@ func (s *storageSuite) TestListStorageAsNonAdminOnNotOwnedModel(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("userfoo"),
 	}
+	controllerUUID := uuid.MustNewUUID().String()
+	modelUUID := modeltesting.GenModelUUID(c)
 	s.api = facadestorage.NewStorageAPIForTest(
-		coretesting.ControllerTag, coretesting.ModelTag, coremodel.IAAS,
+		controllerUUID, modelUUID, coremodel.IAAS,
 		s.state, s.storageAccessor, nil,
 		s.storageService, s.storageRegistryGetter, s.authorizer,
 		s.blockCommandService)
