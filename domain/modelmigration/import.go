@@ -24,6 +24,7 @@ import (
 	modelconfig "github.com/juju/juju/domain/modelconfig/modelmigration"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	network "github.com/juju/juju/domain/network/modelmigration"
+	password "github.com/juju/juju/domain/password/modelmigration"
 	port "github.com/juju/juju/domain/port/modelmigration"
 	resource "github.com/juju/juju/domain/resource/modelmigration"
 	secret "github.com/juju/juju/domain/secret/modelmigration"
@@ -71,6 +72,7 @@ func ImportOperations(
 	network.RegisterImport(coordinator, logger.Child("network"))
 	machine.RegisterImport(coordinator, clock, logger.Child("machine"))
 	application.RegisterImport(coordinator, storageRegistryGetter, clock, logger.Child("application"))
+	password.RegisterImport(coordinator)
 	status.RegisterImport(coordinator, clock, logger.Child("status"))
 	resource.RegisterImport(coordinator, clock, logger.Child("resource"))
 	port.RegisterImport(coordinator, logger.Child("port"))
