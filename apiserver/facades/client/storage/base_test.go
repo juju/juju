@@ -16,9 +16,12 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/domain/blockcommand"
 	jujustorage "github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -28,6 +31,9 @@ type baseStorageSuite struct {
 
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
+
+	controllerUUID string
+	modelUUID      coremodel.UUID
 
 	api                 *storage.StorageAPI
 	apiCaas             *storage.StorageAPI
@@ -71,10 +77,16 @@ func (s *baseStorageSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.registry = jujustorage.StaticProviderRegistry{Providers: map[jujustorage.ProviderType]jujustorage.Provider{}}
 	s.poolsInUse = []string{}
 
-	s.api = storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.blockDeviceGetter,
+	s.controllerUUID = uuid.MustNewUUID().String()
+	s.modelUUID = modeltesting.GenModelUUID(c)
+	s.api = storage.NewStorageAPIForTest(
+		s.controllerUUID, s.modelUUID, coremodel.IAAS,
+		s.state, s.storageAccessor, s.blockDeviceGetter,
 		s.storageService, s.storageRegistryGetter, s.authorizer,
 		s.blockCommandService)
-	s.apiCaas = storage.NewStorageAPIForTest(s.state, state.ModelTypeCAAS, s.storageAccessor, s.blockDeviceGetter,
+	s.apiCaas = storage.NewStorageAPIForTest(
+		s.controllerUUID, s.modelUUID, coremodel.CAAS,
+		s.state, s.storageAccessor, s.blockDeviceGetter,
 		s.storageService, s.storageRegistryGetter, s.authorizer,
 		s.blockCommandService)
 

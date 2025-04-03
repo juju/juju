@@ -14,17 +14,17 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facadestorage "github.com/juju/juju/apiserver/facades/client/storage"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/permission"
+	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/blockcommand"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider/dummy"
-	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -552,7 +552,6 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageService.EXPECT().GetStoragePoolByName(gomock.Any(), "radiance").Return(p, nil)
 
-	s.state.modelTag = coretesting.ModelTag
 	filesystemSource := filesystemImporter{FilesystemSource: &dummy.FilesystemSource{}}
 	dummyStorageProvider := &dummy.StorageProvider{
 		StorageScope: storage.ScopeEnviron,
@@ -578,8 +577,8 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 	filesystemSource.CheckCalls(c, []testing.StubCall{
 		{FuncName: "ImportFilesystem", Args: []interface{}{
 			"foo", map[string]string{
-				"juju-model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-				"juju-controller-uuid": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+				"juju-model-uuid":      s.modelUUID.String(),
+				"juju-controller-uuid": s.controllerUUID,
 			},
 		}},
 	})
@@ -605,7 +604,6 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageService.EXPECT().GetStoragePoolByName(gomock.Any(), "radiance").Return(p, nil)
 
-	s.state.modelTag = coretesting.ModelTag
 	volumeSource := volumeImporter{VolumeSource: &dummy.VolumeSource{}}
 	dummyStorageProvider := &dummy.StorageProvider{
 		StorageScope: storage.ScopeEnviron,
@@ -634,8 +632,8 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
 	volumeSource.CheckCalls(c, []testing.StubCall{
 		{FuncName: "ImportVolume", Args: []interface{}{
 			"foo", map[string]string{
-				"juju-model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-				"juju-controller-uuid": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+				"juju-model-uuid":      s.modelUUID.String(),
+				"juju-controller-uuid": s.controllerUUID,
 			},
 		}},
 	})
@@ -791,48 +789,38 @@ func (s *storageSuite) TestImportValidationErrors(c *gc.C) {
 func (s *storageSuite) TestListStorageAsAdminOnNotOwnedModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.modelTag = names.NewModelTag("foo")
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("superuserfoo"),
 	}
-	s.api = facadestorage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, nil,
+	controllerUUID := uuid.MustNewUUID().String()
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.api = facadestorage.NewStorageAPIForTest(
+		controllerUUID, modelUUID, coremodel.IAAS,
+		s.state, s.storageAccessor, nil,
 		s.storageService, s.storageRegistryGetter, s.authorizer,
 		s.blockCommandService)
 
-	// Sanity check before running test:
-	// Ensure that the user has NO read access to the model but SuperuserAccess
-	// to the controller it belongs to.
-	err := s.authorizer.HasPermission(context.Background(), permission.ReadAccess, s.state.ModelTag())
-	c.Assert(err, jc.ErrorIs, authentication.ErrorEntityMissingPermission)
-	err = s.authorizer.HasPermission(context.Background(), permission.SuperuserAccess, s.state.ControllerTag())
-	c.Assert(err, jc.ErrorIsNil)
-
 	// ListStorageDetails should not fail
-	_, err = s.api.ListStorageDetails(context.Background(), params.StorageFilters{})
+	_, err := s.api.ListStorageDetails(context.Background(), params.StorageFilters{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *storageSuite) TestListStorageAsNonAdminOnNotOwnedModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.modelTag = names.NewModelTag("foo")
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("userfoo"),
 	}
-	s.api = facadestorage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, nil,
+	controllerUUID := uuid.MustNewUUID().String()
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.api = facadestorage.NewStorageAPIForTest(
+		controllerUUID, modelUUID, coremodel.IAAS,
+		s.state, s.storageAccessor, nil,
 		s.storageService, s.storageRegistryGetter, s.authorizer,
 		s.blockCommandService)
 
-	// Sanity check before running test:
-	// Ensure that the user has NO read access to the model and NO SuperuserAccess
-	// to the controller it belongs to.
-	err := s.authorizer.HasPermission(context.Background(), permission.ReadAccess, s.state.ModelTag())
-	c.Assert(err, jc.ErrorIs, authentication.ErrorEntityMissingPermission)
-	err = s.authorizer.HasPermission(context.Background(), permission.SuperuserAccess, s.state.ControllerTag())
-	c.Assert(err, jc.ErrorIs, authentication.ErrorEntityMissingPermission)
-
 	// ListStorageDetails should fail with perm error
-	_, err = s.api.ListStorageDetails(context.Background(), params.StorageFilters{})
+	_, err := s.api.ListStorageDetails(context.Background(), params.StorageFilters{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 

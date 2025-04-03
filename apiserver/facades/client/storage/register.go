@@ -16,22 +16,23 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Storage", 6, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newStorageAPI(ctx) // modify Remove to support force and maxWait; add DetachStorage to support force and maxWait.
+		return newStorageAPI(stdCtx, ctx) // modify Remove to support force and maxWait; add DetachStorage to support force and maxWait.
 	}, reflect.TypeOf((*StorageAPI)(nil)))
 }
 
 // newStorageAPI returns a new storage API facade.
-func newStorageAPI(ctx facade.ModelContext) (*StorageAPI, error) {
+func newStorageAPI(stdCtx context.Context, ctx facade.ModelContext) (*StorageAPI, error) {
 	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	domainServices := ctx.DomainServices()
 	storageAccessor, err := getStorageAccessor(st)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting backend")
+	}
+
+	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting model info")
 	}
 
 	authorizer := ctx.Auth()
@@ -41,7 +42,10 @@ func newStorageAPI(ctx facade.ModelContext) (*StorageAPI, error) {
 
 	storageService := domainServices.Storage()
 	return NewStorageAPI(
-		stateShim{st}, model.Type(),
+		ctx.ControllerUUID(),
+		ctx.ModelUUID(),
+		modelInfo.Type,
+		stateShim{st},
 		storageAccessor, domainServices.BlockDevice(), storageService,
 		storageService.GetStorageRegistry, authorizer,
 		domainServices.BlockCommand()), nil

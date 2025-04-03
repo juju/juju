@@ -16,6 +16,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -45,13 +46,18 @@ type StorageAPI struct {
 	storageService        StorageService
 	storageRegistryGetter storageRegistryGetter
 	authorizer            facade.Authorizer
-	modelType             state.ModelType
 	blockCommandService   common.BlockCommandService
+
+	controllerUUID string
+	modelUUID      coremodel.UUID
+	modelType      coremodel.ModelType
 }
 
 func NewStorageAPI(
+	controllerUUID string,
+	modelUUID coremodel.UUID,
+	modelType coremodel.ModelType,
 	backend backend,
-	modelType state.ModelType,
 	storageAccess storageAccess,
 	blockDeviceGetter blockDeviceGetter,
 	storageService StorageService,
@@ -60,6 +66,8 @@ func NewStorageAPI(
 	blockCommandService common.BlockCommandService,
 ) *StorageAPI {
 	return &StorageAPI{
+		controllerUUID:        controllerUUID,
+		modelUUID:             modelUUID,
 		backend:               backend,
 		modelType:             modelType,
 		storageAccess:         storageAccess,
@@ -72,7 +80,7 @@ func NewStorageAPI(
 }
 
 func (a *StorageAPI) checkCanRead(ctx context.Context) error {
-	err := a.authorizer.HasPermission(ctx, permission.SuperuserAccess, a.backend.ControllerTag())
+	err := a.authorizer.HasPermission(ctx, permission.SuperuserAccess, names.NewControllerTag(a.controllerUUID))
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
@@ -80,11 +88,11 @@ func (a *StorageAPI) checkCanRead(ctx context.Context) error {
 	if err == nil {
 		return nil
 	}
-	return a.authorizer.HasPermission(ctx, permission.ReadAccess, a.backend.ModelTag())
+	return a.authorizer.HasPermission(ctx, permission.ReadAccess, names.NewModelTag(a.modelUUID.String()))
 }
 
 func (a *StorageAPI) checkCanWrite(ctx context.Context) error {
-	return a.authorizer.HasPermission(ctx, permission.WriteAccess, a.backend.ModelTag())
+	return a.authorizer.HasPermission(ctx, permission.WriteAccess, names.NewModelTag(a.modelUUID.String()))
 }
 
 // StorageDetails retrieves and returns detailed information about desired
@@ -191,7 +199,7 @@ func (a *StorageAPI) ListPools(
 }
 
 func (a *StorageAPI) ensureStoragePoolFilter(filter params.StoragePoolFilter) params.StoragePoolFilter {
-	if a.modelType == state.ModelTypeCAAS {
+	if a.modelType == coremodel.CAAS {
 		filter.Providers = append(filter.Providers, k8sconstants.CAASProviderType)
 	}
 	return filter
@@ -687,8 +695,8 @@ func (a *StorageAPI) importFilesystem(
 	cfg *storage.Config,
 ) (*params.ImportStorageDetails, error) {
 	resourceTags := map[string]string{
-		tags.JujuModel:      a.backend.ModelTag().Id(),
-		tags.JujuController: a.backend.ControllerTag().Id(),
+		tags.JujuModel:      a.modelUUID.String(),
+		tags.JujuController: a.controllerUUID,
 	}
 	var volumeInfo *state.VolumeInfo
 	filesystemInfo := state.FilesystemInfo{Pool: arg.Pool}

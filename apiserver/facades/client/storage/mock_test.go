@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 )
 
@@ -393,18 +392,9 @@ func (u *mockUnit) AssignedMachineId() (string, error) {
 }
 
 type mockState struct {
-	modelTag        names.ModelTag
 	unitName        string
 	unitErr         string
 	assignedMachine string
-}
-
-func (st *mockState) ControllerTag() names.ControllerTag {
-	return testing.ControllerTag
-}
-
-func (st *mockState) ModelTag() names.ModelTag {
-	return st.modelTag
 }
 
 func (st *mockState) Unit(unitName string) (storage.Unit, error) {
