@@ -22,11 +22,16 @@ const (
 	// being operated on does not exist.
 	ApplicationNotFound = errors.ConstError("application not found")
 
+	// ApplicationNotFoundForRelation indicates that the application is not part of
+	// the relation.
+	ApplicationNotFoundForRelation = errors.ConstError("application not found in relation")
+
 	// CompatibleEndpointsNotFound is returned when no matching relation is found when trying
 	// to relate two application
 	CompatibleEndpointsNotFound = errors.ConstError("no compatible endpoints found between applications")
 
-	// EndpointQuotaLimitExceeded is returned when an operation fails due to exceeding the defined quota limits for an endpoint.
+	// EndpointQuotaLimitExceeded is returned when an operation fails due to
+	// exceeding the defined quota limits for an endpoint.
 	EndpointQuotaLimitExceeded = errors.ConstError("quota limit exceeded")
 
 	// PotentialRelationUnitNotValid describes an error that occurs during

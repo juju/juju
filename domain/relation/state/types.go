@@ -16,6 +16,11 @@ import (
 	"github.com/juju/juju/internal/charm"
 )
 
+// applicationID is used to get the ID of an application.
+type applicationID struct {
+	ID application.ID `db:"uuid"`
+}
+
 type relationUUID struct {
 	UUID corerelation.UUID `db:"uuid"`
 }
@@ -151,4 +156,21 @@ type setRelationStatus struct {
 	Status corestatus.Status `db:"status"`
 	// UpdatedAt specifies the timestamp of the insertion
 	UpdatedAt time.Time `db:"updated_at"`
+}
+
+// uuids is a helpful type for bulk db queries.
+type uuids []string
+
+// otherApplicationsForWatcher contains data required by
+// WatchLifeSuspendedStatus watchers.
+type otherApplicationsForWatcher struct {
+	AppID       application.ID `db:"application_uuid"`
+	Subordinate bool           `db:"subordinate"`
+}
+
+type watcherMapperData struct {
+	RelationUUID string `db:"uuid"`
+	AppUUID      string `db:"application_uuid"`
+	Life         string `db:"value"`
+	Suspended    string `db:"name"`
 }

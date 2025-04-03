@@ -944,8 +944,10 @@ func (s *relationSuite) TestGetRelationEndpoints(c *gc.C) {
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endpoints, gc.HasLen, 2)
-	c.Check(endpoints[0], gc.DeepEquals, endpoint1)
-	c.Check(endpoints[1], gc.DeepEquals, endpoint2)
+	c.Check(endpoints, jc.SameContents, []relation.Endpoint{
+		endpoint1,
+		endpoint2,
+	})
 }
 
 func (s *relationSuite) TestGetRelationEndpointsPeer(c *gc.C) {
@@ -2074,6 +2076,188 @@ func (s *relationSuite) TestEnterScopeUnitNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, relationerrors.UnitNotFound)
 }
 
+func (s *relationSuite) TestGetMapperDataForWatchLifeSuspendedStatus(c *gc.C) {
+	// Arrange: add a relation with a single endpoint which is suspended
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationEndpointUUID1 := uuid.MustNewUUID().String()
+	applicationEndpointUUID1 := uuid.MustNewUUID().String()
+	charmRelationUUID1 := uuid.MustNewUUID().String()
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Optional:  true,
+			Limit:     20,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID2 := uuid.MustNewUUID().String()
+	applicationEndpointUUID2 := uuid.MustNewUUID().String()
+	relationEndpointUUID2 := uuid.MustNewUUID().String()
+	endpoint2 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Optional:  false,
+			Limit:     10,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID1, endpoint1.Relation)
+	s.addCharmRelation(c, s.fakeCharmUUID2, charmRelationUUID2, endpoint2.Relation)
+	s.addApplicationEndpoint(c, applicationEndpointUUID1, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, applicationEndpointUUID2, s.fakeApplicationUUID2, charmRelationUUID2)
+	s.addRelation(c, relationUUID)
+	s.addRelationEndpoint(c, relationEndpointUUID1, relationUUID, applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationEndpointUUID2, relationUUID, applicationEndpointUUID2)
+	s.addRelationStatus(c, relationUUID, corestatus.Suspended)
+
+	// Act:
+	result, err := s.state.GetMapperDataForWatchLifeSuspendedStatus(
+		context.Background(),
+		relationUUID,
+		s.fakeApplicationUUID1,
+	)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Life, jc.DeepEquals, corelife.Alive)
+	c.Check(result.Suspended, jc.IsTrue)
+	c.Check(result.Endpoints, jc.SameContents, []relation.Endpoint{
+		endpoint1,
+		endpoint2,
+	})
+}
+
+func (s *relationSuite) TestGetMapperDataForWatchLifeSuspendedStatusWrongApp(c *gc.C) {
+	// Arrange: add a relation with a single endpoint. Make the
+	// call to GetMapperDataForWatchLifeSuspendedStatus with a different
+	// application.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationEndpointUUID := uuid.MustNewUUID().String()
+	applicationEndpointUUID := uuid.MustNewUUID().String()
+	s.addRelation(c, relationUUID)
+	s.addApplicationEndpoint(c, applicationEndpointUUID, s.fakeApplicationUUID1,
+		s.fakeCharmRelationProvidesUUID)
+	s.addRelationEndpoint(c, relationEndpointUUID, relationUUID, applicationEndpointUUID)
+
+	// Act:
+	_, err := s.state.GetMapperDataForWatchLifeSuspendedStatus(
+		context.Background(),
+		relationUUID,
+		coreapplicationtesting.GenApplicationUUID(c),
+	)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationNotFoundForRelation)
+}
+
+func (s *relationSuite) TestGetOtherRelatedEndpointApplicationData(c *gc.C) {
+	// Arrange:
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationEndpointUUID1 := uuid.MustNewUUID().String()
+	applicationEndpointUUID1 := uuid.MustNewUUID().String()
+	charmRelationUUID1 := uuid.MustNewUUID().String()
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Optional:  true,
+			Limit:     20,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+
+	charmRelationUUID2 := uuid.MustNewUUID().String()
+	applicationEndpointUUID2 := uuid.MustNewUUID().String()
+	relationEndpointUUID2 := uuid.MustNewUUID().String()
+	endpoint2 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Optional:  false,
+			Limit:     10,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	s.addCharmMetadata(c, s.fakeCharmUUID1, true)
+	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
+	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID1, endpoint1.Relation)
+	s.addCharmRelation(c, s.fakeCharmUUID2, charmRelationUUID2, endpoint2.Relation)
+	s.addApplicationEndpoint(c, applicationEndpointUUID1, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, applicationEndpointUUID2, s.fakeApplicationUUID2, charmRelationUUID2)
+	s.addRelation(c, relationUUID)
+	s.addRelationEndpoint(c, relationEndpointUUID1, relationUUID, applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationEndpointUUID2, relationUUID, applicationEndpointUUID2)
+
+	// Act:
+	result, err := s.state.GetOtherRelatedEndpointApplicationData(context.TODO(),
+		s.fakeApplicationUUID1)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
+	c.Check(result[0], gc.DeepEquals, relation.OtherApplicationForWatcher{
+		ApplicationID: s.fakeApplicationUUID2,
+		Subordinate:   false,
+	})
+}
+
+func (s *relationSuite) TestGetRelationEndpointScope(c *gc.C) {
+	// Arrange:
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	relationEndpointUUID1 := uuid.MustNewUUID().String()
+	applicationEndpointUUID1 := uuid.MustNewUUID().String()
+	charmRelationUUID1 := uuid.MustNewUUID().String()
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Optional:  true,
+			Limit:     20,
+			Scope:     charm.ScopeContainer,
+		},
+	}
+
+	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
+	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID1, endpoint1.Relation)
+	s.addApplicationEndpoint(c, applicationEndpointUUID1, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addRelation(c, relationUUID)
+	s.addRelationEndpoint(c, relationEndpointUUID1, relationUUID, applicationEndpointUUID1)
+
+	// Act:
+	obtainedScope, err := s.state.GetRelationEndpointScope(context.Background(),
+		relationUUID, s.fakeApplicationUUID1)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedScope, gc.Equals, charm.ScopeContainer)
+}
+
+func (s *relationSuite) TestGetRelationEndpointScopeRelationNotFound(c *gc.C) {
+	// Arrange:
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	applicationUUID := coreapplicationtesting.GenApplicationUUID(c)
+
+	// Act:
+	_, err := s.state.GetRelationEndpointScope(context.Background(),
+		relationUUID, applicationUUID)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+}
+
 // addApplication adds a new application to the database with the specified UUID and name.
 func (s *relationSuite) addApplication(c *gc.C, charmUUID corecharm.ID, appUUID coreapplication.ID, appName string) {
 	s.query(c, `
@@ -2148,6 +2332,13 @@ func (s *relationSuite) addCharmRelation(c *gc.C, charmUUID corecharm.ID, charmR
 INSERT INTO charm_relation (uuid, charm_uuid, kind_id, name, role_id, interface, optional, capacity, scope_id) 
 VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?)
 `, charmRelationUUID, charmUUID, r.Name, s.encodeRoleID(r.Role), r.Interface, r.Optional, r.Limit, s.encodeScopeID(r.Scope))
+}
+
+func (s *relationSuite) addCharmMetadata(c *gc.C, charmUUID corecharm.ID, subordinate bool) {
+	s.query(c, `
+INSERT INTO charm_metadata (charm_uuid, name, subordinate) 
+VALUES (?, ?, ?)
+`, charmUUID, charmUUID, subordinate)
 }
 
 // encodeRoleID returns the ID used in the database for the given charm role. This
