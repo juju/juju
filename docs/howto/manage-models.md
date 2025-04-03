@@ -6,7 +6,7 @@
 ## Add a model
 
 ```{caution}
-**If you have multiple credentials:** Be careful which one you use for the new model. Any machines subsequently on the model will be associated with this credential. As such, make sure you're not spending resources for the wrong cloud account! 
+**If you have multiple credentials:** Be careful which one you use for the new model. Any machines subsequently on the model will be associated with this credential. As such, make sure you're not spending resources for the wrong cloud account!
 ```
 
 
@@ -228,7 +228,7 @@ If you're trying to pass multiple configurations using the `--config` flag, make
 juju model-config
 ```
 
-By using various flags of this command you can also target a specific model or key, choose a different output format, etc. 
+By using various flags of this command you can also target a specific model or key, choose a different output format, etc.
 
 > See more: {ref}`command-juju-model-config`
 
@@ -281,7 +281,7 @@ Just as before, by using various flags you can filter by a specific cloud or clo
 ## Manage constraints for a model
 > See also: {ref}`constraint`
 
-**Set values.** You can set constraints for the `controller` model during controller creation or to regular models at any other point. 
+**Set values.** You can set constraints for the `controller` model during controller creation or to regular models at any other point.
 
  ```{caution}
 **To set constraints for just the `controller` application in the `controller` model *only*:** Use the `bootstrap` command with the `--bootstrap-constraints` flag. See more: {ref}`manage-constraints-for-a-controller`.
@@ -303,7 +303,7 @@ juju bootstrap --constraints mem=4G aws
 juju set-model-constraints mem=4G
 ```
 
-```{tip} 
+```{tip}
 To reset a constraint key to its default value, run the command with the value part empty (e.g., `juju set-model-constraints mem= `).
 ```
 
@@ -312,12 +312,12 @@ To reset a constraint key to its default value, run the command with the value p
 **Get values.** To get constraint values for the current model, run the `model-constraints` command, as below:
 
 ```text
-juju model-constraints
+juju get-model-constraints
 ```
 
 By using various flags, you can specify a model (e.g., `-m controller`, to view constraints for the controller model), an output file, etc.
 
-> See more: {ref}`command-juju-model-constraints`
+> See more: {ref}`command-juju-get-model-constraints`
 
 
 ## Restrict commands on a model
@@ -353,7 +353,7 @@ To enable the command run
 > See more: {ref}`command-juju-disabled-commands`
 
 
-**Enable commands.** To lift command restrictions, run `enable-command` followed by the command group that you want to enable. For example, the code below re-allows people to destroy the model and its controller. 
+**Enable commands.** To lift command restrictions, run `enable-command` followed by the command group that you want to enable. For example, the code below re-allows people to destroy the model and its controller.
 
 ```text
 juju enable-command destroy-model
@@ -380,12 +380,12 @@ Model  Controller  Cloud/Region         Version  SLA          Timestamp
 docs   lxd         localhost/localhost  2.5.0    unsupported  05:22:22Z
 
 App        Version  Status   Scale  Charm      Store       Rev  OS      Notes
-haproxy             unknown      1  haproxy    jujucharms   46  ubuntu  
-mariadb    10.1.37  active       1  mariadb    jujucharms    7  ubuntu  
-mediawiki  1.19.14  active       1  mediawiki  jujucharms   19  ubuntu  
+haproxy             unknown      1  haproxy    jujucharms   46  ubuntu
+mariadb    10.1.37  active       1  mariadb    jujucharms    7  ubuntu
+mediawiki  1.19.14  active       1  mediawiki  jujucharms   19  ubuntu
 
 Unit          Workload  Agent  Machine  Public address  Ports   Message
-haproxy/0*    unknown   idle   2        10.86.33.28     80/tcp  
+haproxy/0*    unknown   idle   2        10.86.33.28     80/tcp
 mariadb/0*    active    idle   1        10.86.33.192            ready
 mediawiki/0*  active    idle   0        10.86.33.19     80/tcp  Ready
 
@@ -395,9 +395,9 @@ Machine  State    DNS           Inst id        Series  AZ  Message
 2        started  10.86.33.28   juju-dbf96b-2  bionic      Running
 
 Relation provider  Requirer              Interface     Type     Message
-haproxy:peer       haproxy:peer          haproxy-peer  peer     
-mariadb:cluster    mariadb:cluster       mysql-ha      peer     
-mariadb:db         mediawiki:db          mysql         regular  
+haproxy:peer       haproxy:peer          haproxy-peer  peer
+mariadb:cluster    mariadb:cluster       mysql-ha      peer
+mariadb:db         mediawiki:db          mysql         regular
 mediawiki:website  haproxy:reverseproxy  http          regular
 ```
 
@@ -478,7 +478,7 @@ relations:
     - mediawiki:db
 ```
 
-This informs us of the differences in terms of applications, machines, and relations. For instance, compared to the model, the bundle is missing applications `haproxy` and `mariadb`, whereas the model is missing `mysql`. Both model and bundle utilise the 'mediawiki' application but they differ in terms of configuration. There are also differences being reported in the `machines` and `relations` sections. 
+This informs us of the differences in terms of applications, machines, and relations. For instance, compared to the model, the bundle is missing applications `haproxy` and `mariadb`, whereas the model is missing `mysql`. Both model and bundle utilise the 'mediawiki' application but they differ in terms of configuration. There are also differences being reported in the `machines` and `relations` sections.
 
 Let's now focus on the `machines` section and explore some other features of the `diff-bundle` command.
 
@@ -572,12 +572,12 @@ Model        Controller  Cloud/Region        Version  SLA          Timestamp
 welcome-k8s  microk8s    microk8s/localhost  3.1.6    unsupported  09:09:56+01:00
 
 App             Version  Status  Scale  Charm           Channel  Rev  Address         Exposed  Message
-example-k8s              active      1  example-k8s                1  10.152.183.43   no       
-microsample-vm           active      1  microsample-vm             0  10.152.183.230  no       
+example-k8s              active      1  example-k8s                1  10.152.183.43   no
+microsample-vm           active      1  microsample-vm             0  10.152.183.230  no
 
 Unit               Workload  Agent  Address      Ports  Message
-example-k8s/0*     active    idle   10.1.64.174         
-microsample-vm/0*  active    idle   10.1.64.169      
+example-k8s/0*     active    idle   10.1.64.174
+microsample-vm/0*  active    idle   10.1.64.169
 ```
 
 Running `juju export-bundle` will print this:
@@ -605,22 +605,22 @@ applications:
 ## Upgrade a model
 > See more: {ref}`upgrading-things`
 
-A model upgrade affects the version of Juju (Juju machine and unit agents) on all the Juju machines in the model. 
+A model upgrade affects the version of Juju (Juju machine and unit agents) on all the Juju machines in the model.
 
 First, prepare for the upgrade:
 
 -  Ensure the controller has already been upgraded. See more: [How to upgrade a controller <1155md`
 -  Ensure the models that are to be upgraded are in good working order (`juju status`).
 
-Then, perform the upgrade. How you upgrade a model depends on whether you'd be crossing patch versions (e.g., `v.2.9.25` -> `v.2.9.26`) or rather minor (e.g., `v.2.7` -> `v.2.8`) or major versions (`v.2` -> `v.3`). 
+Then, perform the upgrade. How you upgrade a model depends on whether you'd be crossing patch versions (e.g., `v.2.9.25` -> `v.2.9.26`) or rather minor (e.g., `v.2.7` -> `v.2.8`) or major versions (`v.2` -> `v.3`).
 
-- To upgrade the current model across patch versions, use the `upgrade-model` command:
+- To upgrade the current mode's patch version, use the `upgrade-model` command:
 
 ```text
 juju upgrade-model
 ```
 
-By using various flags, you can specify an agent stream, agent version, etc., or you can even perform a dry run, to simulate what would happen if you upgraded. 
+By using various flags, you can specify an agent stream, agent version, etc., or you can even perform a dry run, to simulate what would happen if you upgraded.
 
 ```{important}
 
@@ -638,7 +638,7 @@ This procedure cannot be used to upgrade a controller model.
 
 ```
 
-> See more: {ref}`migrate-a-model` 
+> See more: {ref}`migrate-a-model`
 
 
 
@@ -710,11 +710,11 @@ A controller model cannot be migrated.
 **Prepare for migration.**
 
 - Verify that the source and destination controllers are both known to the Juju client (i.e., they show up in the `juju controllers` output) and located in the same cloud environment.
-- Verify that the version of Juju running on the destination controller is the same or newer than the version on the source controller. 
+- Verify that the version of Juju running on the destination controller is the same or newer than the version on the source controller.
 - Verify that the destination controller does not have any model with the same name as the name of the model you want to migrate to it.
 - Back up the source controller.
 - **If the destination controller is on a different region or VPC:** Ensure that the destination controller has direct connectivity to the source controller.
-- **If the model is large:** Configure the destination controller to throttle the reconnection rate for the agents running for each machine and unit in the model and increase the migration agent timeout time.  For example: 
+- **If the model is large:** Configure the destination controller to throttle the reconnection rate for the agents running for each machine and unit in the model and increase the migration agent timeout time.  For example:
 
 ```text
 juju controller-config agent-ratelimit-rate=50ms
@@ -847,9 +847,9 @@ Now a migration can be run as normal and any secrets will be correctly migrated 
 ```{dropdown} Error: migration: 'aborted, removing model from target controller: model data transfer failed, failed to import model into target controller: granting admin permission to the owner: user "<user>" is permanently deleted'
 
 
-This error occurs when the model owner does not exist on the target controller. The solution is to create a user with that name on the target controller. 
+This error occurs when the model owner does not exist on the target controller. The solution is to create a user with that name on the target controller.
 
-**Note:** The underlying cause is because a model is tightly coupled with the user who has created it. Starting with Juju 4, it will be possible to identify models independently of the user. 
+**Note:** The underlying cause is because a model is tightly coupled with the user who has created it. Starting with Juju 4, it will be possible to identify models independently of the user.
 
 
 ```
@@ -865,7 +865,7 @@ This error occurs when the model owner does not own the credential associated wi
 ```{dropdown} Error: migration: 'aborted, removing model from target controller: machine sanity check failed, 1 error found'
 
 
-This error occurs when the machines known by Juju differ from the ones the underlying cloud reports (e.g., a LXD cloud still sees a container that has been removed from Juju). The solution is to check the cloud and resolve the difference (i.e., continuing with the previous example, to delete the container from the LXD cloud as well). 
+This error occurs when the machines known by Juju differ from the ones the underlying cloud reports (e.g., a LXD cloud still sees a container that has been removed from Juju). The solution is to check the cloud and resolve the difference (i.e., continuing with the previous example, to delete the container from the LXD cloud as well).
 
 
 ```

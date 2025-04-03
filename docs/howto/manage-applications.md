@@ -11,35 +11,6 @@ To deploy an application, find and deploy a charm / bundle that delivers it.
 
 > See more: {ref}`deploy-a-charm`
 
-````{note}
-
-- **Machines:**
-
-Deploy on machines consists of the following steps: Provision resources/a machine M from the relevant cloud, via cloud-init maybe network config, download the `jujud` binaries from the controller, start `jujud`.
-
-For failure at any point, retry the `deploy` command with the `--debug` and `--verbose` flags:
-
-```text
-juju deploy <charm> --debug --verbose
-```
-
-If it still fails,  connect to the machine and examine the logs.
-
-> See more: {ref}`manage-logs`, {ref}`troubleshoot-your-deployment`
-
-- **Kubernetes:**
-
-Deploy on Kubernetes includes creating a Kubernetes pod and in it charm and workload containers. To troubleshoot, inspect these containers with `kubectl`:
-
-```text
-
-kubectl exec <pod> -itc <container> -n <namespace> -- bash
-```
-
-
-````
-
-
 (view-details-about-an-application)=
 ## View details about an application
 
@@ -433,13 +404,13 @@ To reset a constraint key to its default value, run the command with the value p
 
 > See more: {ref}`command-juju-set-constraints`
 
-**Get values.** To view an application's current constraints, use the `constraints` command:
+**Get values.** To view an application's current constraints, use the `get-constraints` command:
 
 ``` text
-juju constraints mariadb
+juju get-constraints mariadb
 ```
 
-> See more: {ref}`command-juju-constraints`
+> See more: {ref}`command-juju-get-constraints`
 
 
 ## Change space bindings for an application

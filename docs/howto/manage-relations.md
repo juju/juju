@@ -12,20 +12,20 @@ The procedure differs slightly depending on whether the applications that you wa
 ### Add a same-model relation
 
 
-To set up a relation between two applications on the same model, run the `integrate` command followed by the names of the applications. For example:
+To set up a relation between two applications on the same model, run the `add-relation` command followed by the names of the applications. For example:
 
 ```text
-juju integrate mysql wordpress
+juju add-relation mysql wordpress
 ```
 
 This will satisfy WordPress's database requirement where MySQL provides the appropriate schema and access credentials required for WordPress to run properly.
 
-The code above however works only if there is no ambiguity in what relation the charm _requires_ and what the related charm _provides_. 
+The code above however works only if there is no ambiguity in what relation the charm _requires_ and what the related charm _provides_.
 
 If the charms in question are able to establish multiple relation types, Juju may need to be supplied with more information as to how the charms should be joined. For example, if we try instead to relate the 'mysql' charm to the 'mediawiki' charm:
 
 ```text
-juju integrate mysql mediawiki 
+juju add-relation mysql mediawiki
 ```
 
 the result is an error:
@@ -46,7 +46,7 @@ The integration endpoints provided or required by a charm are listed in the resu
 
 ```
 
-> See more: {ref}`command-juju-integrate`
+> See more: {ref}`command-juju-add-relation`
 
 
 (add-a-cross-model-relation)=
@@ -65,15 +65,15 @@ To view the current relations in the model, run `juju status --relations`. The e
 ```text
 [...]
 Relation provider  Requirer       Interface  Type     Message
-mysql:cluster      mysql:cluster  mysql-ha   peer     
+mysql:cluster      mysql:cluster  mysql-ha   peer
 mysql:db           mediawiki:db   mysql      regular
 ```
 
-To view just a specific relation and the applications it integrates,  run `juju status --relations` followed by the provider and the requirer application (and endpoint). For example, based on the output above, `juju status --relations mysql mediawiki` would output: 
+To view just a specific relation and the applications it integrates,  run `juju status --relations` followed by the provider and the requirer application (and endpoint). For example, based on the output above, `juju status --relations mysql mediawiki` would output:
 
 ```text
 [...]
-Relation provider  Requirer       Interface  Type     Message  
+Relation provider  Requirer       Interface  Type     Message
 mysql:db           mediawiki:db   mysql      regular
 ```
 
@@ -86,7 +86,7 @@ To get the ID of a relation, for any unit participating in the relation, run the
 
 ```text
 $ juju show-unit synapse/0
-  
+
 ...
   - relation-id: 7
     endpoint: synapse-peers

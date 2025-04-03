@@ -1,4 +1,4 @@
-(command-juju-cashed-images)=
+(command-juju-cached-images)=
 # `juju cached-images`
 
 ```

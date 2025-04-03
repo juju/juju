@@ -572,13 +572,6 @@ To upgrade your controller's patch version, on the target controller, use the `j
 juju upgrade-controller --agent-version <current major. current minor. target patch>
 ```
 
-For example, assuming a controller version `3.0.0`, to upgrade to `3.0.2`:
-
-```text
-juju upgrade-controller --agent-version 3.0.2
-```
-
-
 ### Upgrade your controller's minor or major version
 
 

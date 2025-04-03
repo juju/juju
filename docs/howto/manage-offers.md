@@ -60,7 +60,7 @@ juju offer mysql:database hosted-mysql
 
 To view the available application endpoints use `juju show-application` and  check the list below `endpoint-bindings`. Example:
 ```text
-juju show-application mysql 
+juju show-application mysql
 mysql:
   charm: mysql
   ...
@@ -106,9 +106,9 @@ juju show-offer hosted-mysql
 Store        URL                         Access  Description                                    Endpoint      Interface         Role
 foo          admin/default.hosted-mysql  admin   MySQL is a widely used, open-source            certificates  tls-certificates  requirer
                                                  relational database management system          database      mysql_client      provider
-                                                 (RDBMS). MySQL InnoDB cluster provides a                                       
-                                                 complete high availability solution for MySQL                                  
-                                                 via Group Replic...  
+                                                 (RDBMS). MySQL InnoDB cluster provides a
+                                                 complete high availability solution for MySQL
+                                                 via Group Replic...
 ```
 
 For more details, including which users can access the offer, use the `yaml` format.
@@ -269,7 +269,7 @@ $ juju find-offers --offer sql foo:
 Before Juju `3.0`, `juju integrate` was `juju relate`.
 ```
 
-If a user has consume access to an offer, they can deploy an application in their model and establish an integration with the offer by way of its URL. 
+If a user has consume access to an offer, they can deploy an application in their model and establish an integration with the offer by way of its URL.
 
 ```text
 juju integrate <application>[:<application endpoint>] <offer-url>[:<offer endpoint>]
@@ -287,7 +287,7 @@ An offer can be consumed without integration. This workflow sets up the proxy ap
 
 ```text
 juju consume <offer-url> <offer-alias>
-juju integrate <application> <offer alias>
+juju add-relation <application> <offer alias>
 ```
 
 Offers which have been consumed show up in `juju status` in the SAAS section. The integrations (relations) block in status shows any relevant status information about the integrations to the offer in the Message field. This includes any error information due to rejected ingress, or if the relation is suspended etc.
@@ -297,7 +297,7 @@ To remove a consumed offer:
 ```text
 juju remove-saas <offer alias>
 ```
-> See more: {ref}`command-juju-integrate`, {ref}`command-juju-consume`, {ref}`command-juju-remove-saas`
+> See more: {ref}`command-juju-add-relation`, {ref}`command-juju-consume`, {ref}`command-juju-remove-saas`
 
 
 ## Allow traffic from an integrated offer
@@ -382,7 +382,7 @@ juju offers [--format (tabular|summary|yaml|json)] [<offer name>]
 
 If `offer name` is not provided, all offers are included in the result.
 
-The default `tabular` output shows each user connected (relating to) the offer, the 
+The default `tabular` output shows each user connected (relating to) the offer, the
 relation id of the relation, and ingress subnets in use with that connection. The `summary` output shows one row per offer, with a count of active/total relations. Use the `yaml` output to see extra detail such as the UUID of the consuming model.
 
 The output can be filtered by:

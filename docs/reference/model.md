@@ -1,8 +1,6 @@
 (model)=
 # Model
-> See also:
-> - {ref}`manage-models`
-> - {ref}`application-modelling`
+> See also: {ref}`manage-models`
 
 
 In Juju, a **model**  is an abstraction that holds {ref}`applications <application>` and application supporting components -- {ref}`machines <machine>`, {ref}`storage <storage>`, {ref}`network spaces <space>`, {ref}`relations <relation>`, etc.

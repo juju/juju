@@ -15,7 +15,7 @@ juju charm-resources <charm>
 ```
 
 
-````{dropdown} Expand to view a sample output for the 'postgresql-k8s' charm]
+````{dropdown} Expand to view a sample output for the postgresql-k8s charm
 
 ```text
 $ juju charm-resources postgresql-k8s
@@ -24,7 +24,7 @@ postgresql-image  68
 ```
 ````
 
-The command has flags that allow you to specify a charm channel, an output format, an output file, etc. 
+The command has flags that allow you to specify a charm channel, an output format, an output file, etc.
 
 > See more: {ref}`command-juju-charm-resources`
 
@@ -60,7 +60,7 @@ juju attach-resource  juju-qa-test foo-file=3
 ```
 ````
 
-- To update a resource's revision, run the `refresh` command with the `--resource` flag followed by a key=value pair denoting the name of the resource and its revision number or the local path to the resource file. 
+- To update a resource's revision, run the `refresh` command with the `--resource` flag followed by a key=value pair denoting the name of the resource and its revision number or the local path to the resource file.
 
 > See more: {ref}`command-juju-deploy` > `--resources`, {ref}`command-juju-attach-resource`, {ref}`command-juju-refresh` > `--resources`
 

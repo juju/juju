@@ -88,10 +88,10 @@ juju show-action postgresql backup
 ```
 
 
-To run an action on a unit, use the `run` command followed by the name of the unit and the name of the action you want to run. 
+To run an action on a unit, use the `run-action` command followed by the name of the unit and the name of the action you want to run.
 
 ```text
-juju run mysql/3 backup
+juju run-action mysql/3 backup
 ```
 
 By using various options, you can choose to run the action in the background, specify a timeout time, pass a list of actions in the form of a YAML file, etc. See the command reference doc for more.
@@ -99,61 +99,7 @@ By using various options, you can choose to run the action in the background, sp
 Running an action returns the overall operation ID as well as the individual task ID(s) for each unit.
 
 
-> See more: {ref}`command-juju-run` (before `juju v.3.0`, `run-action`)
-
-(manage-action-tasks)=
-## Manage action tasks
-> See also: {ref}`task`
-
-### Show details about a task
-
-To drill down to the result of running an action on a specific unit (the stdout, stderror, log messages, etc.), use the `show-task` command followed by the task ID (returned by the `run` command). For example,
-
-```text
-juju show-task 1
-```
-
-> See more: {ref}`command-juju-show-task`
-
-### Cancel a task
-
-
-Suppose you've run an action but would now like to cancel the resulting pending or running task. You can do so using the `cancel-task` command. For example:
-
-```text
-juju cancel-task 1
-```
-
-> See more: {ref}`command-juju-cancel-task`
-
-(manage-action-operations)=
-## Manage action operations
-> See also: {ref}`operation`
-
-### View the pending, running, or completed operations
-
-
-To view the pending, running, or completed status of each `juju run ... <action>` invocation, run the `operations` command:
-
-```text
-juju operations
-```
-
-This will show the operations corresponding to the actions for all the application units. You can filter this by passing various options (e.g., `--actions backup`, `--units mysql/0`, `--machines 0,1`, `--status pending,completed`, etc.).
-
-> See more: {ref}`command-juju-operations`
-
-### Show details about an operation
-
-To see the status of the individual tasks belonging to a given operation,  run the `show-operation` command followed by the operation ID.
-
-```text
-juju show-operation 1
-```
-
-As usual, by adding various options, you can specify an output format, choose to watch indefinitely or specify a timeout time, etc.
-
-> See more: {ref}`command-juju-show-operation`
+> See more: {ref}`command-juju-run-action`
 
 ## Debug an action
 

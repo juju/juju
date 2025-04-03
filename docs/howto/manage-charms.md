@@ -263,6 +263,36 @@ juju deploy mariadb-k8s --to kubernetes.io/hostname=somehost
 
 ````
 
+
+````{dropdown} Tips for troubleshooting
+
+- **Machines:**
+
+Deploy on machines consists of the following steps: Provision resources/a machine M from the relevant cloud, via cloud-init maybe network config, download the `jujud` binaries from the controller, start `jujud`.
+
+For failure at any point, retry the `deploy` command with the `--debug` and `--verbose` flags:
+
+```text
+juju deploy <charm> --debug --verbose
+```
+
+If it still fails,  connect to the machine and examine the logs.
+
+> See more: {ref}`manage-logs`, {ref}`troubleshoot-your-deployment`
+
+- **Kubernetes:**
+
+Deploy on Kubernetes includes creating a Kubernetes pod and in it charm and workload containers. To troubleshoot, inspect these containers with `kubectl`:
+
+```text
+
+kubectl exec <pod> -itc <container> -n <namespace> -- bash
+```
+
+
+````
+
+
 > See more: {ref}`command-juju-deploy`
 
 (debug-a-charm)=
