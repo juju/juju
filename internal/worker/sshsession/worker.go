@@ -293,6 +293,8 @@ func (w *connectionGetter) GetControllerConnection(password, ctrlAddress string)
 	return ch, nil
 }
 
+//
+
 // GetSSHConnection performs a stand TCP dial to the SSHD running on the machine.
 func (w *connectionGetter) GetSSHDConnection() (net.Conn, error) {
 	etcPath := "/etc/ssh/sshd_config"
