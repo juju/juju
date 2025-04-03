@@ -2594,11 +2594,9 @@ func hashConfigAndSettings(config []applicationConfig, settings applicationSetti
 		if _, err := h.Write([]byte(c.Key)); err != nil {
 			return "", errors.Errorf("writing config key: %w", err)
 		}
-		fmt.Print(c.Key)
 		if _, err := h.Write([]byte(fmt.Sprintf("%v", c.Value))); err != nil {
 			return "", errors.Errorf("writing config value: %w", err)
 		}
-		fmt.Print(fmt.Sprintf("%v", c.Value))
 	}
 	if _, err := h.Write([]byte(strconv.FormatBool(settings.Trust))); err != nil {
 		return "", errors.Errorf("writing settings: %w", err)

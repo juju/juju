@@ -1095,18 +1095,9 @@ type peerEndpoint struct {
 }
 
 type exportUnit struct {
-	UUID         coreunit.UUID `db:"uuid"`
-	Name         coreunit.Name `db:"name"`
-	PasswordHash string        `db:"password_hash"`
-	Machine      machine.Name  `db:"machine_name"`
-}
-
-// leadership represents a single row from the leadership table for
-// applications.
-type leadership struct {
-	ModelUUID string `db:"model_uuid"`
-	Name      string `db:"name"`
-	Holder    string `db:"holder"`
+	UUID    coreunit.UUID `db:"uuid"`
+	Name    coreunit.Name `db:"name"`
+	Machine machine.Name  `db:"machine_name"`
 }
 
 type setExposedSpace struct {
