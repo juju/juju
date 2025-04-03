@@ -25,7 +25,7 @@ To install `juju` from snap, run:
 sudo snap install juju
 ```
 
-To select a particular version, run `snap info juju` to find out what versions are available, then `sudo snap install juju --channel=<track/risk[/branch]>` to install the version of your choice (e.g., `sudo snap install juju --channel=3.4/stable`).
+To select a particular version, run `snap info juju` to find out what versions are available, then `sudo snap install juju --channel=<track/risk[/branch]>` to install the version of your choice (e.g., `sudo snap install juju --channel=2.9/stable`).
 
 ````{dropdown} Example
 
@@ -66,57 +66,54 @@ description: |
    - https://juju.is/
    - https://discourse.charmhub.io/
    - https://github.com/juju/juju
-commands:
-  - juju
-services:
-  juju.fetch-oci: oneshot, disabled, inactive
-snap-id:      e2CPHpB1fUxcKtCyJTsm5t3hN9axJ0yj
-tracking:     3.1/stable
-refresh-date: 2024-01-03
+snap-id: e2CPHpB1fUxcKtCyJTsm5t3hN9axJ0yj
 channels:
-  3/stable:      3.4.0             2024-03-07 (26548)  99MB -
+  3/stable:      3.6.4             2025-03-11 (30244) 103MB -
   3/candidate:   ↑
-  3/beta:        ↑
+  3/beta:        3.6-beta2         2024-08-02 (28096) 100MB -
   3/edge:        ↑
   4.0/stable:    –
   4.0/candidate: –
-  4.0/beta:      4.0-beta2         2024-01-11 (25984)  98MB -
-  4.0/edge:      4.0-beta3-ec9b93b 2024-02-19 (26600)  98MB -
+  4.0/beta:      4.0-beta5         2025-03-13 (30332)  99MB -
+  4.0/edge:      4.0-beta6-0feb309 2025-04-03 (30682) 102MB -
   4/stable:      –
   4/candidate:   –
-  4/beta:        4.0-beta2         2024-01-17 (25984)  98MB -
+  4/beta:        4.0-beta5         2025-03-13 (30332)  99MB -
   4/edge:        ↑
-  3.5/stable:    –
-  3.5/candidate: –
-  3.5/beta:      –
-  3.5/edge:      3.5-beta1-c3de749 2024-03-12 (26766)  98MB -
-  3.4/stable:    3.4.0             2024-02-15 (26548)  99MB -
+  3.6/stable:    3.6.4             2025-03-11 (30244) 103MB -
+  3.6/candidate: ↑
+  3.6/beta:      3.6-beta2         2024-08-02 (28096) 100MB -
+  3.6/edge:      3.6.5-9dbf2a8     2025-04-02 (30670) 105MB -
+  3.5/stable:    3.5.7             2025-03-11 (30149) 103MB -
+  3.5/candidate: ↑
+  3.5/beta:      ↑
+  3.5/edge:      3.5.8-d43eb4d     2025-03-24 (30495) 103MB -
+  3.4/stable:    3.4.6             2024-10-01 (28491)  98MB -
   3.4/candidate: ↑
   3.4/beta:      ↑
-  3.4/edge:      3.4.1-14d5608     2024-03-13 (26783)  98MB -
-  3.3/stable:    3.3.3             2024-03-06 (26652)  99MB -
+  3.4/edge:      3.4.7-20a2e39     2025-02-28 (30115) 101MB -
+  3.3/stable:    3.3.7             2024-10-01 (28471)  99MB -
   3.3/candidate: ↑
   3.3/beta:      ↑
-  3.3/edge:      3.3.4-65b78cd     2024-03-13 (26779)  99MB -
+  3.3/edge:      3.3.8-f5de3be     2024-11-11 (28920)  99MB -
   3.2/stable:    3.2.4             2023-11-22 (25443)  95MB -
   3.2/candidate: ↑
   3.2/beta:      ↑
   3.2/edge:      3.2.5-9e20221     2023-11-17 (25455)  95MB -
-  3.1/stable:    3.1.7             2024-01-03 (25751)  95MB -
+  3.1/stable:    3.1.10            2024-10-01 (28463)  95MB -
   3.1/candidate: ↑
   3.1/beta:      ↑
-  3.1/edge:      3.1.8-1a8d6a3     2024-03-12 (26750)  95MB -
-  2.9/stable:    2.9.46            2023-12-05 (25672) 120MB classic
-  2.9/candidate: 2.9.47            2024-03-07 (26724) 120MB classic
+  3.1/edge:      3.1.11-07dba11    2025-02-26 (30044)  98MB -
+  2.9/stable:    2.9.51            2024-10-01 (28362) 120MB classic
+  2.9/candidate: ↑
   2.9/beta:      ↑
-  2.9/edge:      2.9.48-dfd7fee    2024-03-07 (26740) 120MB classic
+  2.9/edge:      2.9.52-edea7a8    2025-03-28 (30601) 123MB classic
   2.8/stable:    2.8.13            2021-11-11 (17665)  74MB classic
   2.8/candidate: ↑
   2.8/beta:      ↑
   2.8/edge:      ↑
-installed:       3.1.7                        (25751)  95MB -
 
-$ sudo snap install juju --channel=3.4/stable
+$ sudo snap install juju --channel=2.9/stable
 
 
 ```
@@ -139,14 +136,14 @@ sudo snap set system experimental.parallel-instances=true`
 # Install juju 2.9 under the name 'juju_29'
 sudo snap install --channel 2.9/stable juju_29 --classic
 
-# Install juju 3.3 under the name 'juju_33'
-sudo snap install --channel 3.3/stable juju_33
+# Install juju 3.6 under the name 'juju_36'
+sudo snap install --channel 3.6/stable juju_36
 
 # Test your 2.9 client:
 juju_29 status
 
-# Test your 3.3 client:
-juju_33 status
+# Test your 3.6 client:
+juju_36 status
 
 
 ```
