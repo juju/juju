@@ -60,7 +60,7 @@ func EncodeCloudContainerStatus(s CloudContainerStatusType) (int, error) {
 	case CloudContainerStatusRunning:
 		return 3, nil
 	default:
-		return -1, errors.Errorf("unknown status %q", s)
+		return -1, errors.Errorf("unknown status %d", s)
 	}
 }
 
@@ -145,7 +145,7 @@ func EncodeAgentStatus(s UnitAgentStatusType) (int, error) {
 	case UnitAgentStatusRebooting:
 		return 6, nil
 	default:
-		return -1, errors.Errorf("unknown status %q", s)
+		return -1, errors.Errorf("unknown status %d", s)
 	}
 }
 
@@ -205,8 +205,10 @@ func EncodeWorkloadStatus(s WorkloadStatusType) (int, error) {
 		return 5, nil
 	case WorkloadStatusTerminated:
 		return 6, nil
+	case WorkloadStatusError:
+		return 7, nil
 	default:
-		return -1, errors.Errorf("unknown status %q", s)
+		return -1, errors.Errorf("unknown status %d", s)
 	}
 }
 
@@ -228,6 +230,8 @@ func DecodeWorkloadStatus(s int) (WorkloadStatusType, error) {
 		return WorkloadStatusActive, nil
 	case 6:
 		return WorkloadStatusTerminated, nil
+	case 7:
+		return WorkloadStatusError, nil
 	default:
 		return -1, errors.Errorf("unknown status %d", s)
 	}

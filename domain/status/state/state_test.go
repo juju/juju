@@ -430,6 +430,29 @@ func (s *stateSuite) TestSetWorkloadStatus(c *gc.C) {
 	assertStatusInfoEqual(c, gotStatus.StatusInfo, sts)
 }
 
+func (s *stateSuite) TestSetUnitWorkloadStatusToError(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, u1)
+	unitUUID := unitUUIDs[0]
+
+	sts := status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusError,
+		Message: "it's an error!",
+		Data:    []byte("some data"),
+		Since:   ptr(time.Now()),
+	}
+
+	err := s.state.SetUnitWorkloadStatus(context.Background(), unitUUID, sts)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotStatus, err := s.state.GetUnitWorkloadStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(gotStatus.Present, jc.IsFalse)
+	assertStatusInfoEqual(c, gotStatus.StatusInfo, sts)
+}
+
 func (s *stateSuite) TestSetWorkloadStatusPresent(c *gc.C) {
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
