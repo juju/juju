@@ -1374,7 +1374,7 @@ func (s *relationSuite) TestGetRelationsStatusForUnitPeer(c *gc.C) {
 	}
 	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID1, endpoint1.Relation)
 	s.addApplicationEndpoint(c, applicationEndpointUUID1, s.fakeApplicationUUID1, charmRelationUUID1)
-	s.addRelation(c, relationUUID1)
+	s.addRelationWithID(c, relationUUID1, 1)
 	s.addRelationEndpoint(c, relationEndpointUUID1, relationUUID1, applicationEndpointUUID1)
 
 	relationUUID2 := corerelationtesting.GenRelationUUID(c)
@@ -1391,7 +1391,7 @@ func (s *relationSuite) TestGetRelationsStatusForUnitPeer(c *gc.C) {
 	}
 	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID2, endpoint2.Relation)
 	s.addApplicationEndpoint(c, applicationEndpointUUID2, s.fakeApplicationUUID1, charmRelationUUID2)
-	s.addRelation(c, relationUUID2)
+	s.addRelationWithID(c, relationUUID2, 2)
 	s.addRelationEndpoint(c, relationEndpointUUID2, relationUUID2, applicationEndpointUUID2)
 
 	// Arrange: Add a unit.

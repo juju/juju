@@ -78,6 +78,9 @@ CREATE TABLE relation (
     REFERENCES life (id)
 );
 
+CREATE UNIQUE INDEX idx_relation_id
+ON relation (relation_id);
+
 -- The relation_unit table links a relation to a specific unit.
 CREATE TABLE relation_unit (
     uuid TEXT NOT NULL PRIMARY KEY,

@@ -65,7 +65,7 @@ func (s *stateSuite) TestGetAllRelationStatuses(c *gc.C) {
 	now := time.Now().Truncate(time.Minute).UTC()
 
 	s.addRelationWithLifeAndID(c, relationUUID1.String(), corelife.Alive, 7)
-	s.addRelationWithLifeAndID(c, relationUUID2.String(), corelife.Alive, 7)
+	s.addRelationWithLifeAndID(c, relationUUID2.String(), corelife.Alive, 8)
 
 	s.addRelationStatusWithMessage(c, relationUUID1.String(), corestatus.Suspended, "this is a test", now)
 
