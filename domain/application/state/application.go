@@ -56,7 +56,7 @@ func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) 
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).Get(&result)
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, sqlair.ErrNoRows) {
 			return modelerrors.NotFound
 		}
 		return err
@@ -2079,7 +2079,7 @@ ON CONFLICT (application_uuid) DO NOTHING
 		var containerTypeID containerTypeID
 		if cons.Container != nil {
 			err = tx.Query(ctx, selectContainerTypeIDStmt, containerTypeVal{Value: string(*cons.Container)}).Get(&containerTypeID)
-			if errors.Is(err, sql.ErrNoRows) {
+			if errors.Is(err, sqlair.ErrNoRows) {
 				st.logger.Warningf(ctx, "cannot set constraints, container type %q does not exist", *cons.Container)
 				return applicationerrors.InvalidApplicationConstraints
 			}
@@ -2129,7 +2129,7 @@ ON CONFLICT (application_uuid) DO NOTHING
 				// Make sure the space actually exists.
 				var spaceUUID spaceUUID
 				err := tx.Query(ctx, selectSpaceStmt, spaceName{Name: space.SpaceName}).Get(&spaceUUID)
-				if errors.Is(err, sql.ErrNoRows) {
+				if errors.Is(err, sqlair.ErrNoRows) {
 					st.logger.Warningf(ctx, "cannot set constraints, space %q does not exist", space)
 					return applicationerrors.InvalidApplicationConstraints
 				}

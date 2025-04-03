@@ -113,12 +113,15 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"unit_agent_version",
 		"unit_constraint",
 		"unit_principal",
-		"unit_resolve_kind",
 		"unit_state_charm",
 		"unit_state_relation",
 		"unit_state",
 		"unit_workload_status",
 		"unit",
+
+		// Resolve
+		"unit_resolved",
+		"resolve_mode",
 
 		// Constraint
 		"constraint",

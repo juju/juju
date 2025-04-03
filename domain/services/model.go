@@ -60,6 +60,8 @@ import (
 	relationstate "github.com/juju/juju/domain/relation/state"
 	removalservice "github.com/juju/juju/domain/removal/service"
 	removalstate "github.com/juju/juju/domain/removal/state"
+	resolveservice "github.com/juju/juju/domain/resolve/service"
+	resolveState "github.com/juju/juju/domain/resolve/state"
 	resourceservice "github.com/juju/juju/domain/resource/service"
 	resourcestate "github.com/juju/juju/domain/resource/state"
 	secretservice "github.com/juju/juju/domain/secret/service"
@@ -210,6 +212,13 @@ func (s *ModelServices) Status() *statusservice.LeadershipService {
 		s.clock,
 		logger,
 		domain.NewStatusHistory(logger, s.clock),
+	)
+}
+
+// Resolve returns the resolve service.
+func (s *ModelServices) Resolve() *resolveservice.Service {
+	return resolveservice.NewService(
+		resolveState.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)
 }
 
