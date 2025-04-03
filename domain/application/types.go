@@ -383,8 +383,7 @@ type ExportApplication struct {
 
 // ExportUnit contains parameters for exporting a unit.
 type ExportUnit struct {
-	UUID         coreunit.UUID
-	Name         coreunit.Name
-	PasswordHash string
-	Machine      machine.Name
+	UUID    coreunit.UUID
+	Name    coreunit.Name
+	Machine machine.Name
 }

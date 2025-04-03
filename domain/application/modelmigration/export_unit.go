@@ -40,10 +40,9 @@ func (e *exportOperation) exportApplicationUnits(ctx context.Context, app descri
 
 func (e *exportOperation) exportUnit(ctx context.Context, modelType string, unit application.ExportUnit) (description.UnitArgs, error) {
 	args := description.UnitArgs{
-		Name:         unit.Name.String(),
-		Type:         modelType,
-		PasswordHash: unit.PasswordHash,
-		Machine:      unit.Machine.String(),
+		Name:    unit.Name.String(),
+		Type:    modelType,
+		Machine: unit.Machine.String(),
 	}
 
 	return args, nil

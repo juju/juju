@@ -170,10 +170,9 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExport(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(units, jc.DeepEquals, []application.ExportUnit{
 		{
-			UUID:         unitUUID,
-			Name:         "foo/0",
-			PasswordHash: "password",
-			Machine:      machineName,
+			UUID:    unitUUID,
+			Name:    "foo/0",
+			Machine: machineName,
 		},
 	})
 }
@@ -217,10 +216,9 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(units, jc.DeepEquals, []application.ExportUnit{
 		{
-			UUID:         unitUUID,
-			Name:         "foo/0",
-			PasswordHash: "password",
-			Machine:      machineName,
+			UUID:    unitUUID,
+			Name:    "foo/0",
+			Machine: machineName,
 		},
 	})
 }
@@ -254,10 +252,9 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportDead(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(units, jc.DeepEquals, []application.ExportUnit{
 		{
-			UUID:         unitUUID,
-			Name:         "foo/0",
-			PasswordHash: "password",
-			Machine:      machineName,
+			UUID:    unitUUID,
+			Name:    "foo/0",
+			Machine: machineName,
 		},
 	})
 }

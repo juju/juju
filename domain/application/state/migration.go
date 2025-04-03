@@ -127,10 +127,9 @@ func (st *State) GetApplicationUnitsForExport(ctx context.Context, appID coreapp
 	exportUnits := make([]application.ExportUnit, len(units))
 	for i, unit := range units {
 		exportUnits[i] = application.ExportUnit{
-			UUID:         unit.UUID,
-			Name:         unit.Name,
-			PasswordHash: unit.PasswordHash,
-			Machine:      unit.Machine,
+			UUID:    unit.UUID,
+			Name:    unit.Name,
+			Machine: unit.Machine,
 		}
 	}
 	return exportUnits, nil
