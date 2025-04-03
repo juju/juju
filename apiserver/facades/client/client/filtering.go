@@ -164,7 +164,7 @@ func (c *Client) unitMatchAgentStatus(ctx context.Context, u *state.Unit, patter
 	if err != nil {
 		return false, false, err
 	}
-	agentStatusInfo, _, err := c.statusService.GetUnitAndAgentDisplayStatus(ctx, unitName)
+	agentStatusInfo, _, err := c.statusService.GetUnitDisplayAndAgentStatus(ctx, unitName)
 	if err != nil {
 		return false, false, err
 	}
@@ -176,7 +176,7 @@ func (c *Client) unitMatchWorkloadStatus(ctx context.Context, u *state.Unit, pat
 	if err != nil {
 		return false, false, err
 	}
-	agentStatusInfo, workloadStatusInfo, err := c.statusService.GetUnitAndAgentDisplayStatus(ctx, unitName)
+	agentStatusInfo, workloadStatusInfo, err := c.statusService.GetUnitDisplayAndAgentStatus(ctx, unitName)
 	if err != nil {
 		return false, false, err
 	}

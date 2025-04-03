@@ -274,3 +274,6 @@ func (mr *MockStatusServiceMockRecorder) GetUnitAndAgentDisplayStatus(arg0, arg1
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitAndAgentDisplayStatus", reflect.TypeOf((*MockStatusService)(nil).GetUnitAndAgentDisplayStatus), arg0, arg1)
 }
+GetGetUnitDisplayAndAgentDisplayStatusyStatusatus
+GetUnitDisplayAndAgentDisplaGetUnitDisplayAndAgentDisplayStatus
+GetUnitDisplayAndAgentDisplayStatus

@@ -596,7 +596,7 @@ func (s *serviceSuite) TestGetUnitWorkloadStatusesForApplication(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestGetUnitAndAgentDisplayStatus(c *gc.C) {
+func (s *serviceSuite) TestGetUnitDisplayAndAgentStatus(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now()
@@ -628,7 +628,7 @@ func (s *serviceSuite) TestGetUnitAndAgentDisplayStatus(c *gc.C) {
 		Status: status.CloudContainerStatusUnset,
 	}, nil)
 
-	agent, workload, err := s.service.GetUnitAndAgentDisplayStatus(context.Background(), coreunit.Name("foo/666"))
+	agent, workload, err := s.service.GetUnitDisplayAndAgentStatus(context.Background(), coreunit.Name("foo/666"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(agent, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Allocating,
@@ -644,7 +644,7 @@ func (s *serviceSuite) TestGetUnitAndAgentDisplayStatus(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestGetUnitAndAgentDisplayStatusWithAllocatingPresence(c *gc.C) {
+func (s *serviceSuite) TestGetUnitDisplayAndAgentStatusWithAllocatingPresence(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now()
@@ -676,7 +676,7 @@ func (s *serviceSuite) TestGetUnitAndAgentDisplayStatusWithAllocatingPresence(c 
 		Status: status.CloudContainerStatusUnset,
 	}, nil)
 
-	agent, workload, err := s.service.GetUnitAndAgentDisplayStatus(context.Background(), coreunit.Name("foo/666"))
+	agent, workload, err := s.service.GetUnitDisplayAndAgentStatus(context.Background(), coreunit.Name("foo/666"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(agent, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Allocating,
@@ -692,7 +692,7 @@ func (s *serviceSuite) TestGetUnitAndAgentDisplayStatusWithAllocatingPresence(c 
 	})
 }
 
-func (s *serviceSuite) TestGetUnitAndAgentDisplayStatusWithNoPresence(c *gc.C) {
+func (s *serviceSuite) TestGetUnitDisplayAndAgentStatusWithNoPresence(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	now := time.Now()
@@ -724,7 +724,7 @@ func (s *serviceSuite) TestGetUnitAndAgentDisplayStatusWithNoPresence(c *gc.C) {
 		Status: status.CloudContainerStatusUnset,
 	}, nil)
 
-	agent, workload, err := s.service.GetUnitAndAgentDisplayStatus(context.Background(), coreunit.Name("foo/666"))
+	agent, workload, err := s.service.GetUnitDisplayAndAgentStatus(context.Background(), coreunit.Name("foo/666"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(agent, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Lost,
@@ -733,110 +733,6 @@ func (s *serviceSuite) TestGetUnitAndAgentDisplayStatusWithNoPresence(c *gc.C) {
 	})
 	c.Check(workload, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Active,
-		Message: "doink",
-		Data:    map[string]interface{}{"foo": "bar"},
-		Since:   &now,
-	})
-}
-
-func (s *serviceSuite) TestGetUnitDisplayStatusNoContainer(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	now := time.Now()
-
-	unitUUID := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
-		status.UnitStatusInfo[status.WorkloadStatusType]{
-			StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
-				Status:  status.WorkloadStatusActive,
-				Message: "doink",
-				Data:    []byte(`{"foo":"bar"}`),
-				Since:   &now,
-			},
-			Present: true,
-		}, nil)
-
-	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.CloudContainerStatusType]{
-		Status: status.CloudContainerStatusUnset,
-	}, nil)
-
-	obtained, err := s.service.GetUnitDisplayStatus(context.Background(), coreunit.Name("foo/666"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtained, jc.DeepEquals, corestatus.StatusInfo{
-		Status:  corestatus.Active,
-		Message: "doink",
-		Data:    map[string]interface{}{"foo": "bar"},
-		Since:   &now,
-	})
-}
-
-func (s *serviceSuite) TestGetUnitDisplayStatusWithPrecedentContainer(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	now := time.Now()
-
-	unitUUID := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
-		status.UnitStatusInfo[status.WorkloadStatusType]{
-			StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
-				Status:  status.WorkloadStatusActive,
-				Message: "doink",
-				Data:    []byte(`{"foo":"bar"}`),
-				Since:   &now,
-			},
-			Present: true,
-		}, nil)
-
-	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(
-		status.StatusInfo[status.CloudContainerStatusType]{
-			Status:  status.CloudContainerStatusBlocked,
-			Message: "boink",
-			Data:    []byte(`{"foo":"baz"}`),
-			Since:   &now,
-		}, nil)
-
-	obtained, err := s.service.GetUnitDisplayStatus(context.Background(), coreunit.Name("foo/666"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtained, jc.DeepEquals, corestatus.StatusInfo{
-		Status:  corestatus.Blocked,
-		Message: "boink",
-		Data:    map[string]interface{}{"foo": "baz"},
-		Since:   &now,
-	})
-}
-
-func (s *serviceSuite) TestGetUnitDisplayStatusWithPrecedentWorkload(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	now := time.Now()
-
-	unitUUID := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().GetUnitWorkloadStatus(gomock.Any(), unitUUID).Return(
-		status.UnitStatusInfo[status.WorkloadStatusType]{
-			StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
-				Status:  status.WorkloadStatusMaintenance,
-				Message: "doink",
-				Data:    []byte(`{"foo":"bar"}`),
-				Since:   &now,
-			},
-			Present: true,
-		}, nil)
-
-	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(
-		status.StatusInfo[status.CloudContainerStatusType]{
-			Status:  status.CloudContainerStatusRunning,
-			Message: "boink",
-			Data:    []byte(`{"foo":"baz"}`),
-			Since:   &now,
-		}, nil)
-
-	obtained, err := s.service.GetUnitDisplayStatus(context.Background(), coreunit.Name("foo/666"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtained, jc.DeepEquals, corestatus.StatusInfo{
-		Status:  corestatus.Maintenance,
 		Message: "doink",
 		Data:    map[string]interface{}{"foo": "bar"},
 		Since:   &now,

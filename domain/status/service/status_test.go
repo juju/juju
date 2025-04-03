@@ -154,20 +154,45 @@ func (s *statusSuite) TestEncodingUnitAgentStatusError(c *gc.C) {
 		Status: status.UnitAgentStatusError,
 	})
 
+}
+
+func (s *statusSuite) TestDecodeUnitDisplayAndAgentStatus(c *gc.C) {
+	agent, workload, err := decodeUnitDisplayAndAgentStatus(
+		status.UnitStatusInfo[status.UnitAgentStatusType]{
+			StatusInfo: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusError,
+				Message: "hook failed: hook-name",
+				Data:    []byte(`{"foo":"bar"}`),
+				Since:   &now,
+			},
+			Present: true,
+		},
+		status.UnitStatusInfo[status.WorkloadStatusType]{
+			StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
+				Status: status.WorkloadStatusMaintenance,
+				Since:  &now,
+			},
+			Present: true,
+		},
+		status.StatusInfo[status.CloudContainerStatusType]{
+			Status: status.CloudContainerStatusUnset,
+		})
+
 	// If the agent is in an error state, the workload should also
 	// be in an error state. In that case, the workload domain will
 	// take precedence and we'll set the unit agent domain to idle.
 	// This follows the same patter that already exists.
 
-	input, err := decodeUnitAgentStatus(status.UnitStatusInfo[status.UnitAgentStatusType]{
-		StatusInfo: status.StatusInfo[status.UnitAgentStatusType]{
-			Status: status.UnitAgentStatusError,
-		},
-		Present: true,
-	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(input, jc.DeepEquals, corestatus.StatusInfo{
+	c.Assert(agent, jc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Idle,
+		Since:  &now,
+	})
+	c.Assert(workload, jc.DeepEquals, corestatus.StatusInfo{
+		Status:  corestatus.Error,
+		Since:   &now,
+		Data:    map[string]interface{}{"foo": "bar"},
+		Message: "hook failed: hook-name",
 	})
 }
 

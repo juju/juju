@@ -51,11 +51,11 @@ type StatusService interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationDisplayStatus(context.Context, string) (status.StatusInfo, error)
 
-	// GetUnitAndAgentDisplayStatus returns the unit and agent display status of
+	// GetUnitDisplayAndAgentDisplayStatus returns the unit and agent display status of
 	// the specified unit. The display status a function of both the unit
 	// workload status and the cloud container status. It returns an error
 	// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	GetUnitAndAgentDisplayStatus(context.Context, unit.Name) (agent status.StatusInfo, workload status.StatusInfo, _ error)
+	GetUnitDisplayAndAgentStatus(context.Context, unit.Name) (agent status.StatusInfo, workload status.StatusInfo, _ error)
 }
 
 // BlockDeviceService instances can fetch block devices for a machine.

@@ -253,18 +253,6 @@ func decodeUnitAgentStatus(s status.UnitStatusInfo[status.UnitAgentStatusType]) 
 		}, nil
 	}
 
-	// If the agent is in an error state, the workload status should also be in
-	// error state as well. The current 3.x system also does this, so we're
-	// attempting to maintain the same behaviour. This can be disingenuous if
-	// there is a legitimate agent error and the workload is fine, but we're
-	// trying to maintain compatibility.
-	if s.Status == status.UnitAgentStatusError {
-		return corestatus.StatusInfo{
-			Status: corestatus.Idle,
-			Since:  s.Since,
-		}, nil
-	}
-
 	decodedStatus, err := decodeUnitAgentStatusType(s.Status)
 	if err != nil {
 		return corestatus.StatusInfo{}, err
@@ -402,7 +390,7 @@ func decodeApplicationStatus(s status.StatusInfo[status.WorkloadStatusType]) (co
 	}, nil
 }
 
-func decodeUnitAgentWorkloadStatus(
+func decodeUnitDisplayAndAgentStatus(
 	agent status.UnitStatusInfo[status.UnitAgentStatusType],
 	workload status.UnitStatusInfo[status.WorkloadStatusType],
 	containerStatus status.StatusInfo[status.CloudContainerStatusType],
@@ -414,10 +402,34 @@ func decodeUnitAgentWorkloadStatus(
 		workload.Present = true
 	}
 
+	// If the agent is in an error state, we should set the workload status to be
+	// in error state instead. Copy the data and message over from the agent to the
+	// workload. The current 3.x system also does this, so we're attempting to
+	// maintain the same behaviour. This can be disingenuous if there is a legitimate
+	// agent error and the workload is fine, but we're trying to maintain compatibility.
+	if agent.Status == status.UnitAgentStatusError {
+		var data map[string]interface{}
+		if len(agent.Data) > 0 {
+			if err := json.Unmarshal(agent.Data, &data); err != nil {
+				return corestatus.StatusInfo{}, corestatus.StatusInfo{}, errors.Errorf("unmarshalling status data: %w", err)
+			}
+		}
+		return corestatus.StatusInfo{
+				Status: corestatus.Idle,
+				Since:  agent.Since,
+			}, corestatus.StatusInfo{
+				Status:  corestatus.Error,
+				Since:   workload.Since,
+				Data:    data,
+				Message: agent.Message,
+			}, nil
+	}
+
 	agentStatus, err := decodeUnitAgentStatus(agent)
 	if err != nil {
 		return corestatus.StatusInfo{}, corestatus.StatusInfo{}, errors.Capture(err)
 	}
+
 	workloadStatus, err := unitDisplayStatus(workload, containerStatus)
 	if err != nil {
 		return corestatus.StatusInfo{}, corestatus.StatusInfo{}, errors.Capture(err)

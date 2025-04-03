@@ -494,35 +494,11 @@ func (s *Service) GetUnitWorkloadStatusesForApplication(ctx context.Context, app
 	return decoded, nil
 }
 
-// GetUnitDisplayStatus returns the display status of the specified unit. The display
-// status a function of both the unit workload status and the cloud container status.
-// It returns an error satisfying [statuserrors.UnitNotFound] if the unit doesn't
-// exist.
-func (s *Service) GetUnitDisplayStatus(ctx context.Context, unitName coreunit.Name) (corestatus.StatusInfo, error) {
-	if err := unitName.Validate(); err != nil {
-		return corestatus.StatusInfo{}, errors.Capture(err)
-	}
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
-	if err != nil {
-		return corestatus.StatusInfo{}, errors.Capture(err)
-	}
-	workloadStatus, err := s.st.GetUnitWorkloadStatus(ctx, unitUUID)
-	if err != nil {
-		return corestatus.StatusInfo{}, errors.Capture(err)
-	}
-
-	containerStatus, err := s.st.GetUnitCloudContainerStatus(ctx, unitUUID)
-	if err != nil {
-		return corestatus.StatusInfo{}, errors.Capture(err)
-	}
-	return unitDisplayStatus(workloadStatus, containerStatus)
-}
-
-// GetUnitAndAgentDisplayStatus returns the unit and agent display status of the
+// GetUnitDisplayAndAgentStatus returns the unit and agent display status of the
 // specified unit. The display status a function of both the unit workload status
 // and the cloud container status. It returns an error satisfying
 // [statuserrors.UnitNotFound] if the unit doesn't exist.
-func (s *Service) GetUnitAndAgentDisplayStatus(ctx context.Context, unitName coreunit.Name) (agent corestatus.StatusInfo, workload corestatus.StatusInfo, _ error) {
+func (s *Service) GetUnitDisplayAndAgentStatus(ctx context.Context, unitName coreunit.Name) (agent corestatus.StatusInfo, workload corestatus.StatusInfo, _ error) {
 	if err := unitName.Validate(); err != nil {
 		return agent, workload, errors.Capture(err)
 	}
@@ -550,7 +526,7 @@ func (s *Service) GetUnitAndAgentDisplayStatus(ctx context.Context, unitName cor
 		return agent, workload, errors.Capture(err)
 	}
 
-	return decodeUnitAgentWorkloadStatus(agentStatus, workloadStatus, containerStatus)
+	return decodeUnitDisplayAndAgentStatus(agentStatus, workloadStatus, containerStatus)
 }
 
 // SetUnitPresence marks the presence of the unit in the model. It is called by
