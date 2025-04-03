@@ -759,12 +759,40 @@ func (st *State) GetRelationDetails(ctx context.Context, relationUUID corerelati
 // relation unit.
 //
 // The following error types can be expected to be returned:
-//   - [relationerrors.RelationUnitNotFound] if the relation cannot be found.
+//   - [relationerrors.RelationUnitNotFound] if the relation unit cannot be found.
 func (s *State) GetRelationUnitEndpointName(
 	ctx context.Context,
 	relationUnitUUID corerelation.UnitUUID,
 ) (string, error) {
-	return "", coreerrors.NotImplemented
+	db, err := s.DB()
+	var result string
+	if err != nil {
+		return result, errors.Capture(err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		args := getRelationUnitEndpointName{
+			RelationUnitUUID: relationUnitUUID,
+		}
+		stmt, err := s.Prepare(`
+SELECT &getRelationUnitEndpointName.*
+FROM v_relation_unit_endpoint
+WHERE relation_unit_uuid = $getRelationUnitEndpointName.relation_unit_uuid`, args)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		err = tx.Query(ctx, stmt, args).Get(&args)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("relation unit %q not found", relationUnitUUID).Add(
+				relationerrors.RelationUnitNotFound)
+		}
+		if err != nil {
+			return errors.Capture(err)
+		}
+		result = args.EndpointName
+		return nil
+	})
+	return result, errors.Capture(err)
 }
 
 // GetRelationUnit retrieves the UUID of a relation unit based on the given

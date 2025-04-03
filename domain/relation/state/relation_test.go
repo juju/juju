@@ -1504,6 +1504,51 @@ func (s *relationSuite) TestGetRelationDetailsNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
+func (s *relationSuite) TestGetRelationUnitEndpointName(c *gc.C) {
+	// Arrange
+	charmUUID := testing.GenCharmID(c)
+	appUUID := coreapplicationtesting.GenApplicationUUID(c)
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	charmRelationUUID := uuid.MustNewUUID().String()
+	applicationEndpointUUID := uuid.MustNewUUID().String()
+	relationEndpointUUID := uuid.MustNewUUID().String()
+	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	unitUUID := coreunittesting.GenUnitUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	endpoint := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:  "fake-endpoint-name-1",
+			Role:  charm.RolePeer,
+			Scope: charm.ScopeGlobal,
+		},
+	}
+	s.addCharm(c, charmUUID)
+	s.addApplication(c, charmUUID, appUUID, "app1")
+	s.addUnit(c, unitUUID, unitName, appUUID)
+	s.addCharmRelation(c, charmUUID, charmRelationUUID, endpoint.Relation)
+	s.addApplicationEndpoint(c, applicationEndpointUUID, appUUID, charmRelationUUID)
+	s.addRelation(c, relationUUID)
+	s.addRelationEndpoint(c, relationEndpointUUID, relationUUID, applicationEndpointUUID)
+	s.addUnit(c, coreunittesting.GenUnitUUID(c), "unit-name", appUUID)
+	s.addRelationUnit(c, unitUUID, relationUUID, relationUnitUUID, true)
+
+	// Act
+	name, err := s.state.GetRelationUnitEndpointName(context.Background(), relationUnitUUID)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, endpoint.Name)
+}
+
+func (s *relationSuite) TestGetRelationUnitEndpointNameNotFound(c *gc.C) {
+	// Act
+	_, err := s.state.GetRelationUnitEndpointName(context.Background(), "unknown-relation-uuid")
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationUnitNotFound)
+}
+
 func (s *relationSuite) TestGetRelationUnit(c *gc.C) {
 	// Arrange: one relation unit
 	charmUUID := testing.GenCharmID(c)
