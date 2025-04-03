@@ -1129,41 +1129,6 @@ func (a *Application) bindingsForOps(bindings map[string]string) (*Bindings, err
 	return b, nil
 }
 
-// Deployed machines returns the collection of machines
-// that this application has units deployed to.
-func (a *Application) DeployedMachines() ([]*Machine, error) {
-	units, err := a.AllUnits()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	machineIds := set.NewStrings()
-	var machines []*Machine
-	for _, u := range units {
-		// AssignedMachineId returns the correct machine
-		// whether principal or subordinate.
-		id, err := u.AssignedMachineId()
-		if err != nil {
-			if errors.Is(err, errors.NotAssigned) {
-				// We aren't interested in this unit at this time.
-				continue
-			}
-			return nil, errors.Trace(err)
-		}
-		if machineIds.Contains(id) {
-			continue
-		}
-
-		m, err := a.st.Machine(id)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		machineIds.Add(id)
-		machines = append(machines, m)
-	}
-	return machines, nil
-}
-
 func (a *Application) newCharmStorageOps(
 	ch CharmRefFull,
 	units []*Unit,
@@ -1593,12 +1558,6 @@ func (a *Application) Refresh() error {
 	return nil
 }
 
-// GetPlacement returns the application's placement directive.
-// This is used on CAAS models.
-func (a *Application) GetPlacement() string {
-	return a.doc.Placement
-}
-
 // newUnitName returns the next unit name.
 func (a *Application) newUnitName() (string, error) {
 	unitSeq, err := sequence(a.st, a.Tag().String())
@@ -1990,144 +1949,6 @@ type UpsertCAASUnitParams struct {
 	// ObservedAttachedVolumeIDs is the filesystem attachments observed to be attached by the infrastructure,
 	// used to map existing attachments.
 	ObservedAttachedVolumeIDs []string
-}
-
-func (a *Application) UpsertCAASUnit(args UpsertCAASUnitParams) (*Unit, error) {
-	if args.PasswordHash == nil {
-		return nil, errors.NotValidf("password hash")
-	}
-	if args.ProviderId == nil {
-		return nil, errors.NotValidf("provider id")
-	}
-	if !args.OrderedScale {
-		return nil, errors.NewNotImplemented(nil, "upserting CAAS units not supported without ordered unit IDs")
-	}
-	if args.UnitName == nil {
-		return nil, errors.NotValidf("nil unit name")
-	}
-
-	sb, err := NewStorageBackend(a.st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var unit *Unit
-	err = a.st.db().Run(func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			err := a.Refresh()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-
-		if args.UnitName != nil {
-			var err error
-			if unit == nil {
-				unit, err = a.st.Unit(*args.UnitName)
-			} else {
-				err = unit.Refresh()
-			}
-			if errors.Is(err, errors.NotFound) {
-				unit = nil
-			} else if err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-
-		// Try to reattach the storage that k8s has observed attached to this pod.
-		for _, volumeId := range args.ObservedAttachedVolumeIDs {
-			volume, err := sb.volume(bson.D{{"info.volumeid", volumeId}}, "")
-			if errors.Is(err, errors.NotFound) {
-				continue
-			} else if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			volumeStorageId, err := volume.StorageInstance()
-			if errors.Is(err, errors.NotAssigned) {
-				continue
-			} else if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			args.AddUnitParams.AttachStorage = append(args.AddUnitParams.AttachStorage, volumeStorageId)
-		}
-
-		if unit == nil {
-			return a.insertCAASUnitOps(args)
-		}
-
-		if unit.Life() == Dead {
-			return nil, errors.AlreadyExistsf("dead unit %q", unit.Tag().Id())
-		}
-
-		updateOps, err := unit.UpdateOperation(UnitUpdateProperties{
-			ProviderId: args.ProviderId,
-			Address:    args.Address,
-			Ports:      args.Ports,
-		}).Build(attempt)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		var ops []txn.Op
-		if args.PasswordHash != nil {
-			ops = append(ops, unit.setPasswordHashOps(*args.PasswordHash)...) // setPasswordHashOps asserts notDead
-		} else {
-			ops = append(ops, txn.Op{
-				C:      unitsC,
-				Id:     unit.doc.DocID,
-				Assert: notDeadDoc,
-			})
-		}
-		ops = append(ops, updateOps...)
-		return ops, nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	if unit == nil {
-		unit, err = a.st.Unit(*args.UnitName)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		err = unit.Refresh()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return unit, nil
-}
-
-func (a *Application) insertCAASUnitOps(
-	args UpsertCAASUnitParams,
-) ([]txn.Op, error) {
-	if args.UnitName == nil {
-		return nil, errors.NotValidf("nil unit name")
-	}
-
-	// We write scale info to dqlite now - this check is done there instead.
-	// The rest of the code needs to be kept for now.
-	//if ps := a.ProvisioningState(); args.OrderedId >= a.GetScale() ||
-	//	(ps != nil && ps.Scaling && args.OrderedId >= ps.ScaleTarget) {
-	//	return nil, errors.NotAssignedf("unrequired unit %s is", *args.UnitName)
-	//}
-
-	_, addOps, err := a.addUnitOps("", args.AddUnitParams, nil)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	ops := []txn.Op{{
-		C:  applicationsC,
-		Id: a.doc.DocID,
-		Assert: bson.D{
-			{"life", Alive},
-		},
-	}}
-	ops = append(ops, addOps...)
-	return ops, nil
 }
 
 // removeUnitOps returns the operations necessary to remove the supplied unit,
@@ -2617,11 +2438,6 @@ type UnitUpdateProperties struct {
 	CloudContainerStatus *status.StatusInfo
 }
 
-// UpdateUnits applies the given application unit update operations.
-func (a *Application) UpdateUnits(unitsOp *UpdateUnitsOperation) error {
-	return a.st.ApplyOperation(unitsOp)
-}
-
 // UpdateUnitsOperation is a model operation for updating
 // some units of an application.
 type UpdateUnitsOperation struct {
@@ -2745,16 +2561,6 @@ func (op *AddUnitOperation) Done(err error) error {
 	return nil
 }
 
-// UpdateCloudService updates the cloud service details for the application.
-func (a *Application) UpdateCloudService(providerId string, addresses []network.SpaceAddress) error {
-	_, err := a.st.SaveCloudService(SaveCloudServiceArgs{
-		Id:         a.Name(),
-		ProviderId: providerId,
-		Addresses:  addresses,
-	})
-	return errors.Trace(err)
-}
-
 // ServiceInfo returns information about this application's cloud service.
 // This is only used for CAAS models.
 func (a *Application) ServiceInfo() (CloudServicer, error) {
@@ -2774,31 +2580,6 @@ func (a *Application) UnitCount() int {
 func (a *Application) RelationCount() int {
 	return a.doc.RelationCount
 
-}
-
-// UnitNames returns the of this application's units.
-func (a *Application) UnitNames() ([]string, error) {
-	u, err := appUnitNames(a.st, a.Name())
-	return u, errors.Trace(err)
-}
-
-func appUnitNames(st *State, appName string) ([]string, error) {
-	unitsCollection, closer := st.db().GetCollection(unitsC)
-	defer closer()
-
-	var docs []struct {
-		Name string `bson:"name"`
-	}
-	err := unitsCollection.Find(bson.D{{"application", appName}}).Select(bson.D{{"name", 1}}).All(&docs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	unitNames := make([]string, len(docs))
-	for i, doc := range docs {
-		unitNames[i] = doc.Name
-	}
-	return unitNames, nil
 }
 
 // finalAppCharmRemoveOps returns operations to delete the settings

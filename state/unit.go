@@ -276,15 +276,6 @@ func (u *Unit) SetAgentVersion(v semversion.Binary) (err error) {
 	return nil
 }
 
-func (u *Unit) setPasswordHashOps(passwordHash string) []txn.Op {
-	return []txn.Op{{
-		C:      unitsC,
-		Id:     u.doc.DocID,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
-	}}
-}
-
 // UpdateOperation returns a model operation that will update a unit.
 func (u *Unit) UpdateOperation(props UnitUpdateProperties) *UpdateUnitOperation {
 	return &UpdateUnitOperation{

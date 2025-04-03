@@ -510,25 +510,6 @@ func (mig *modelMigration) getAllAgents() (names.Set, error) {
 		return agentTags.Union(unitTags), nil
 	}
 
-	applicationTags, err := mig.loadAgentTags(applicationsC, "name",
-		func(name string) names.Tag { return names.NewApplicationTag(name) },
-	)
-	if err != nil {
-		return nil, errors.Annotate(err, "loading application names")
-	}
-	for _, applicationTag := range applicationTags.Values() {
-		app, err := mig.st.Application(applicationTag.Id())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		unitNames, err := app.UnitNames()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for _, unitName := range unitNames {
-			agentTags.Add(names.NewUnitTag(unitName))
-		}
-	}
 	return agentTags, nil
 }
 

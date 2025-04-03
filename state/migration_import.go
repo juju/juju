@@ -617,17 +617,6 @@ func (i *importer) application(a description.Application, ctrlCfg controller.Con
 		return errors.Trace(err)
 	}
 
-	if cs := a.CloudService(); cs != nil {
-		app, err := i.st.Application(a.Name())
-		if err != nil {
-			return errors.Trace(err)
-		}
-		addr := i.makeAddresses(cs.Addresses())
-		if err := app.UpdateCloudService(cs.ProviderId(), networkAddresses(addr)); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
 	for _, unit := range a.Units() {
 		if err := i.unit(a, unit, ctrlCfg); err != nil {
 			return errors.Trace(err)

@@ -54,7 +54,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -1208,15 +1207,6 @@ func (a *API) updateUnitsFromCloud(ctx context.Context, app Application, unitUpd
 		} else if err != nil {
 			return nil, errors.Annotatef(err, "updating unit %q", unitName)
 		}
-	}
-
-	// TODO(units) - remove dual write to state
-	err = app.UpdateUnits(&unitUpdate)
-	// We ignore any updates for dying applications.
-	if stateerrors.IsNotAlive(err) {
-		return nil, nil
-	} else if err != nil {
-		return nil, errors.Trace(err)
 	}
 
 	// If pods are recreated on the Kubernetes side, new units are created on the Juju
