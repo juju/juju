@@ -31,13 +31,15 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// DomainServicesGetter defines methods for getting domain services
+// for a model.
 type DomainServicesGetter interface {
 	// ServicesForModel returns a DomainServices for the given model.
 	ServicesForModel(ctx context.Context, modelID coremodel.UUID) (services.DomainServices, error)
 }
 
-// PasswordService defines the methods required to set a password hash for a
-// unit.
+// PasswordService defines the methods required to get a password service
+// for a model.
 type PasswordServiceGetter interface {
 	// GetPasswordServiceForModel returns a PasswordService for the given model.
 	GetPasswordServiceForModel(ctx context.Context, modelUUID coremodel.UUID) (authentication.PasswordService, error)
