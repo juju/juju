@@ -1504,6 +1504,35 @@ func (s *relationSuite) TestGetRelationDetailsNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
+func (s *relationSuite) TestGetRelationUnit(c *gc.C) {
+	// Arrange: one relation unit
+	charmUUID := testing.GenCharmID(c)
+	appUUID := coreapplicationtesting.GenApplicationUUID(c)
+	unitUUID := coreunittesting.GenUnitUUID(c)
+	relUUID := corerelationtesting.GenRelationUUID(c)
+	relUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	s.addCharm(c, charmUUID)
+	s.addApplication(c, charmUUID, appUUID, "my-app")
+	s.addUnit(c, unitUUID, "my-app/0", appUUID)
+	s.addRelation(c, relUUID)
+	s.addRelationUnit(c, unitUUID, relUUID, relUnitUUID, true)
+
+	// Act
+	uuid, err := s.state.GetRelationUnit(context.Background(), relUUID, "my-app/0")
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+	c.Assert(uuid, gc.Equals, relUnitUUID)
+}
+
+func (s *relationSuite) TestGetRelationUnitNotFound(c *gc.C) {
+	// Act
+	_, err := s.state.GetRelationUnit(context.Background(), "unknown-relation-uuid", "some-unit-name")
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.UnitNotFound)
+}
+
 func (s *relationSuite) TestGetAllRelationDetails(c *gc.C) {
 	// Arrange: Add three endpoints and two relations on them.
 	relationUUID1 := corerelationtesting.GenRelationUUID(c)

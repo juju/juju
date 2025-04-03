@@ -62,6 +62,12 @@ type getUnit struct {
 	Name unit.Name `db:"name"`
 }
 
+type getRelationUnit struct {
+	RelationUUID corerelation.UUID     `db:"relation_uuid"`
+	UnitUUID     corerelation.UnitUUID `db:"unit_uuid"`
+	Name         unit.Name             `db:"name"`
+}
+
 type getLife struct {
 	UUID string     `db:"uuid"`
 	Life life.Value `db:"value"`
