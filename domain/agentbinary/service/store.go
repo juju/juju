@@ -125,14 +125,22 @@ func (s *AgentBinaryStore) add(
 		uuid = objectstore.UUID(existingObjectUUID.String())
 	}
 
+	s.logger.Debugf(
+		ctx,
+		"adding agent binary %q with arch %q to agent binary store",
+		version.Number,
+		version.Arch,
+	)
+
 	err = s.st.Add(ctx, agentbinary.Metadata{
 		Version:         version.Number.String(),
 		Arch:            version.Arch,
 		ObjectStoreUUID: uuid,
 	})
-	if errors.Is(err, agentbinaryerrors.AgentBinaryImmutable) ||
-		errors.Is(err, agentbinaryerrors.ObjectNotFound) ||
-		errors.Is(err, coreerrors.NotSupported) {
+	if errors.IsOneOf(err,
+		agentbinaryerrors.AgentBinaryImmutable,
+		agentbinaryerrors.ObjectNotFound,
+		coreerrors.NotSupported) {
 		// We need to cleanup the newly added binary from the object store.
 		// But we don't want to accidentally remove an existing binary if any unexpected errors occur.
 		// The best we can do is to cleanup the binary for certain unknown errors.

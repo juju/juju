@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 
 	agenttools "github.com/juju/juju/agent/tools"
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/logger"
 	coreos "github.com/juju/juju/core/os"
@@ -33,9 +34,21 @@ type AgentBinaryStorage interface {
 	Add(context.Context, io.Reader, binarystorage.Metadata) error
 }
 
+// AgentBinaryStore is the service used to persist Juju agent binaries into the
+// controller.
+type AgentBinaryStore interface {
+	AddWithSHA256(context.Context, io.Reader, coreagentbinary.Version, int64, string) error
+}
+
 // PopulateAgentBinary is the function that is used to populate the agent
 // binary at bootstrap.
-func PopulateAgentBinary(ctx context.Context, dataDir string, storage AgentBinaryStorage, logger logger.Logger) (func(), error) {
+func PopulateAgentBinary(
+	ctx context.Context,
+	dataDir string,
+	storage AgentBinaryStorage,
+	agentBinaryStore AgentBinaryStore,
+	logger logger.Logger,
+) (func(), error) {
 	current := semversion.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),
@@ -64,6 +77,20 @@ func PopulateAgentBinary(ctx context.Context, dataDir string, storage AgentBinar
 	logger.Debugf(context.TODO(), "Adding agent binary: %v", agentTools.Version)
 
 	if err := storage.Add(ctx, bytes.NewReader(data), metadata); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	err = agentBinaryStore.AddWithSHA256(
+		ctx,
+		bytes.NewReader(data),
+		coreagentbinary.Version{
+			Number: agentTools.Version.Number,
+			Arch:   agentTools.Version.Arch,
+		},
+		agentTools.Size,
+		agentTools.SHA256,
+	)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
