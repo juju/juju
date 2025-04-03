@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -21,7 +22,7 @@ import (
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -34,6 +35,84 @@ type relationServiceSuite struct {
 }
 
 var _ = gc.Suite(&relationServiceSuite{})
+
+// TestAddRelation verifies the behavior of the AddRelation method when adding
+// a relation between two endpoints.
+func (s *relationServiceSuite) TestAddRelation(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	endpoint1 := "application-1"
+	endpoint2 := "application-2:endpoint-2"
+
+	fakeReturn1 := relation.Endpoint{
+		ApplicationName: "application-1",
+	}
+	fakeReturn2 := relation.Endpoint{
+		ApplicationName: "application-2",
+	}
+
+	s.state.EXPECT().AddRelation(gomock.Any(), relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-1",
+	}, relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-2",
+		EndpointName:    "endpoint-2",
+	}).Return(fakeReturn1, fakeReturn2, nil)
+
+	// Act
+	gotEp1, gotEp2, err := s.service.AddRelation(context.Background(), endpoint1, endpoint2)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(gotEp1, gc.Equals, fakeReturn1)
+	c.Check(gotEp2, gc.Equals, fakeReturn2)
+}
+
+// TestAddRelationFirstMalformed verifies that AddRelation returns an
+// appropriate error when the first endpoint is malformed.
+func (s *relationServiceSuite) TestAddRelationFirstMalformed(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	endpoint1 := "app:ep:is:malformed"
+	endpoint2 := "application-2:endpoint-2"
+
+	// Act
+	_, _, err := s.service.AddRelation(context.Background(), endpoint1, endpoint2)
+
+	// Assert
+	c.Assert(err, gc.ErrorMatches, "parsing endpoint identifier \"app:ep:is:malformed\": expected endpoint of form <application-name>:<endpoint-name> or <application-name>")
+}
+
+// TestAddRelationFirstMalformed verifies that AddRelation returns an
+// appropriate error when the second endpoint is malformed.
+func (s *relationServiceSuite) TestAddRelationSecondMalformed(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	endpoint1 := "application-1:endpoint-1"
+	endpoint2 := "app:ep:is:malformed"
+
+	// Act
+	_, _, err := s.service.AddRelation(context.Background(), endpoint1, endpoint2)
+
+	// Assert
+	c.Assert(err, gc.ErrorMatches, "parsing endpoint identifier \"app:ep:is:malformed\": expected endpoint of form <application-name>:<endpoint-name> or <application-name>")
+}
+
+// TestAddRelationStateError validates the AddRelation method handles and
+// returns the correct error when state addition fails.
+func (s *relationServiceSuite) TestAddRelationStateError(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	expectedError := errors.New("state error")
+	var empty relation.Endpoint
+
+	s.state.EXPECT().AddRelation(gomock.Any(), gomock.Any(), gomock.Any()).Return(empty, empty, expectedError)
+
+	// Act
+	_, _, err := s.service.AddRelation(context.Background(), "app1", "app2")
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, expectedError)
+}
 
 // TestGetAllRelationDetails verifies that GetAllRelationDetails
 // retrieves and returns the expected relation details without errors.
@@ -406,7 +485,7 @@ func (s *relationServiceSuite) TestGetRelationsStatusForUnitStateError(c *gc.C) 
 
 	// Arrange.
 	unitUUID := coreunittesting.GenUnitUUID(c)
-	boom := errors.Errorf("boom")
+	boom := internalerrors.Errorf("boom")
 	s.state.EXPECT().GetRelationsStatusForUnit(gomock.Any(), unitUUID).Return(nil, boom)
 
 	// Act.

@@ -19,6 +19,15 @@ func GenRelationUUID(c *gc.C) relation.UUID {
 	return id
 }
 
+// GenEndpointUUID can be used in testing for generating an
+// endpoint UUID that is checked for subsequent errors using the test suite's
+// go check instance.
+func GenEndpointUUID(c *gc.C) relation.EndpointUUID {
+	id, err := relation.NewEndpointUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	return id
+}
+
 // GenRelationUnitUUID can be used in testing for generating a relation
 // Unit UUID that is checked for subsequent errors using the test suite's
 // go check instance.

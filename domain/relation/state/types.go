@@ -4,9 +4,13 @@
 package state
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
@@ -32,6 +36,13 @@ type relationUUIDAndRole struct {
 	UUID string `db:"relation_uuid"`
 	// Role is the name of the endpoints role, e.g. provider/requirer/peer.
 	Role string `db:"scope"`
+}
+
+// applicationPlatform represents a structure to get OS and channel information
+// for a specific application, from the table `application_platform`
+type applicationPlatform struct {
+	OS      string `db:"os"`
+	Channel string `db:"channel"`
 }
 
 type relationUnit struct {
@@ -81,10 +92,12 @@ type endpointIdentifier struct {
 
 // endpoint is used to fetch an endpoint from the database.
 type endpoint struct {
+	// EndpointUUID is a unique identifier for the application endpoint
+	EndpointUUID corerelation.EndpointUUID `db:"endpoint_uuid"`
 	// Endpoint name is the name of the endpoint/relation.
 	EndpointName string `db:"endpoint_name"`
 	// Role is the name of the endpoints role in the relation.
-	Role string `db:"role"`
+	Role charm.RelationRole `db:"role"`
 	// Interface is the name of the interface this endpoint implements.
 	Interface string `db:"interface"`
 	// Optional marks if this endpoint is required to be in a relation.
@@ -93,9 +106,17 @@ type endpoint struct {
 	// endpoint.
 	Capacity int `db:"capacity"`
 	// Scope is the name of the endpoints scope.
-	Scope string `db:"scope"`
+	Scope charm.RelationScope `db:"scope"`
 	// ApplicationName is the name of the application this endpoint belongs to.
 	ApplicationName string `db:"application_name"`
+	// ApplicationUUID is a unique identifier for the application associated with the endpoint.
+	ApplicationUUID application.ID `db:"application_uuid"`
+}
+
+// String returns a formatted string representation combining
+// the ApplicationName and EndpointName of the endpoint.
+func (e endpoint) String() string {
+	return fmt.Sprintf("%s:%s", e.ApplicationName, e.EndpointName)
 }
 
 // toRelationEndpoint converts an endpoint read out of the database to a
@@ -105,11 +126,29 @@ func (e endpoint) toRelationEndpoint() relation.Endpoint {
 		ApplicationName: e.ApplicationName,
 		Relation: charm.Relation{
 			Name:      e.EndpointName,
-			Role:      charm.RelationRole(e.Role),
+			Role:      e.Role,
 			Interface: e.Interface,
 			Optional:  e.Optional,
 			Limit:     e.Capacity,
-			Scope:     charm.RelationScope(e.Scope),
+			Scope:     e.Scope,
 		},
 	}
+}
+
+// setRelationEndpoint represents the mapping to insert a new relation endpoint
+// to the table `relation_endpoint`
+type setRelationEndpoint struct {
+	UUID         corerelation.EndpointUUID `db:"uuid"`
+	RelationUUID corerelation.UUID         `db:"relation_uuid"`
+	EndpointUUID corerelation.EndpointUUID `db:"endpoint_uuid"`
+}
+
+// setRelationStatus represents the structure to insert the status of a relation.
+type setRelationStatus struct {
+	// RelationUUID is the unique identifier of the relation.
+	RelationUUID corerelation.UUID `db:"relation_uuid"`
+	// Status indicates the current state of a given relation.
+	Status corestatus.Status `db:"status"`
+	// UpdatedAt specifies the timestamp of the insertion
+	UpdatedAt time.Time `db:"updated_at"`
 }

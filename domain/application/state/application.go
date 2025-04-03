@@ -223,7 +223,7 @@ func (st *State) CreateApplication(
 		}
 		if err := st.insertApplicationEndpoints(ctx, tx, insertApplicationEndpointsParams{
 			appID:     appDetails.UUID,
-			charmUUID: charmID,
+			charmUUID: corecharm.ID(appDetails.CharmID),
 			bindings:  args.EndpointBindings,
 		}); err != nil {
 			return errors.Errorf("inserting exposed endpoints for application %q: %w", name, err)

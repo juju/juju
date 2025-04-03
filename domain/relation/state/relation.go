@@ -7,11 +7,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/application"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
@@ -39,6 +41,120 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 		clock:     clock,
 		logger:    logger,
 	}
+}
+
+// AddRelation establishes a new relation between two endpoints identified by
+// epIdentifier1 and epIdentifier2.
+// Returns the two endpoints involved in the relation and any error encountered
+// during the operation.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.AmbiguousRelation] is returned if the endpoint
+//     identifiers can refer to several possible relations.
+//   - [relationerrors.ApplicationNotAlive] is returned if one of the application
+//     is not alive.
+//   - [relationerrors.CompatibleEndpointsNotFound] is returned  if the endpoint
+//     identifiers relates to correct endpoints yet not compatible (ex provider
+//     with provider)
+//   - [relationerrors.RelationAlreadyExists] is returned  if the inferred
+//     relation already exists.
+//   - [relationerrors.RelationEndpointNotFound] is returned if no endpoint can be
+//     inferred from one of the identifier.
+func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 relation.CandidateEndpointIdentifier) (
+	relation.Endpoint,
+	relation.Endpoint,
+	error) {
+	db, err := st.DB()
+	if err != nil {
+		return relation.Endpoint{}, relation.Endpoint{}, errors.Capture(err)
+	}
+
+	var endpoint1, endpoint2 relation.Endpoint
+
+	return endpoint1, endpoint2, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Infers endpoint, ie get both application_endpoint_uuid.
+		ep1, ep2, err := st.inferEndpoints(ctx, tx, epIdentifier1, epIdentifier2)
+		if err != nil {
+			return errors.Errorf("cannot relate endpoints %q and %q: %w",
+				epIdentifier1,
+				epIdentifier2, err)
+		}
+
+		// Check the relation doesn't already exist.
+		if err := st.relationAlreadyExists(ctx, tx, ep1, ep2); err != nil {
+			return errors.Errorf("relation %s %s: %w", ep1, ep2, err)
+		}
+
+		// Check both application are alive
+		if alive, err := st.checkLife(ctx, tx, "application", ep1.ApplicationUUID.String(), life.IsAlive); err != nil {
+			return errors.Errorf("relation %s %s: cannot check application life: %w", ep1, ep2, err)
+		} else if !alive {
+			return errors.Errorf("relation %s %s: application %s is not alive", ep1, ep2, ep1.ApplicationName).Add(relationerrors.ApplicationNotAlive)
+		}
+		if alive, err := st.checkLife(ctx, tx, "application", ep2.ApplicationUUID.String(), life.IsAlive); err != nil {
+			return errors.Errorf("relation %s %s: cannot check application life: %w", ep1, ep2, err)
+		} else if !alive {
+			return errors.Errorf("relation %s %s: application %s is not alive", ep1, ep2, ep2.ApplicationName).Add(relationerrors.ApplicationNotAlive)
+		}
+
+		// Check the application bases are compatible, if required
+		if err := st.checkCompatibleBases(ctx, tx, ep1, ep2); err != nil {
+			return errors.Errorf("relation %s %s: %w", ep1, ep2, err)
+		}
+
+		// Check that adding a relation won't exceed any endpoint limit
+		if err := st.checkEndpointCapacity(ctx, tx, ep1); err != nil {
+			return errors.Errorf("relation %s %s: %w", ep1, ep2, err)
+		}
+		if err := st.checkEndpointCapacity(ctx, tx, ep2); err != nil {
+			return errors.Errorf("relation %s %s: %w", ep1, ep2, err)
+		}
+
+		// Insert a new relation with a new relation UUID.
+		relUUID, err := st.insertNewRelation(ctx, tx)
+		if err != nil {
+			return errors.Errorf("inserting new relation: %w", err)
+		}
+
+		// Insert relation status.
+		if err := st.insertNewRelationStatus(ctx, tx, relUUID); err != nil {
+			return errors.Errorf("inserting new relation %s %s: %w", ep1, ep2, err)
+		}
+
+		// Insert both relation_endpoint from application_endpoint_uuid and relation
+		// uuid.
+		if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, ep1.EndpointUUID); err != nil {
+			return errors.Errorf("inserting new relation endpoint for %q: %w", epIdentifier1.String(), err)
+		}
+		if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, ep2.EndpointUUID); err != nil {
+			return errors.Errorf("inserting new relation endpoint for %q: %w", epIdentifier2.String(), err)
+		}
+
+		// Get endpoints from UUID.
+		endpoints, err := st.getEndpoints(ctx, tx, relUUID)
+		if err != nil {
+			return errors.Errorf("getting endpoints of relation %q: %w", relUUID, err)
+		}
+		if l := len(endpoints); l != 2 {
+			return errors.Errorf("internal error: expected 2 endpoints in relation, got %d", l)
+		}
+
+		// order results to have the same order between input candidate and output result.
+		for _, e := range endpoints {
+			if e.ApplicationName == ep1.ApplicationName && e.Name == ep1.EndpointName {
+				endpoint1 = e
+			} else {
+				endpoint2 = e
+			}
+		}
+		if len(endpoint1.Name) == 0 || len(endpoint2.Name) == 0 {
+			// should not happens, unless above resolution loop is broken or
+			// db corrupted.
+			return errors.Errorf("unexpected empty endpoint name")
+		}
+
+		return nil
+	})
 }
 
 // GetAllRelationDetails retrieves the details of all relations
@@ -929,6 +1045,36 @@ func (st *State) WatcherApplicationSettingsNamespace() string {
 	return "relation_application_setting"
 }
 
+// checkCompatibleBases determines if the bases of two application endpoints
+// are compatible for a relation.
+// It compares the OS and channel of the base configurations for both endpoints.
+// Returns an error if no compatible bases are found or if fetching bases fails.
+func (st *State) checkCompatibleBases(ctx context.Context, tx *sqlair.TX, ep1 endpoint, ep2 endpoint) error {
+	if ep1.Scope != charm.ScopeContainer && ep2.Scope != charm.ScopeContainer {
+		return nil
+	}
+
+	app1Bases, err := st.getBases(ctx, tx, ep1)
+	if err != nil {
+		return errors.Errorf("getting bases of application %q: %w", ep1.ApplicationName, err)
+	}
+	app2Bases, err := st.getBases(ctx, tx, ep2)
+	if err != nil {
+		return errors.Errorf("getting bases of application %q: %w", ep2.ApplicationName, err)
+	}
+
+	for _, base1 := range app1Bases {
+		for _, base2 := range app2Bases {
+			if base1.IsCompatible(base2) {
+				return nil
+			}
+		}
+	}
+
+	return errors.Errorf("no compatible bases found for application %q and %q", ep1.ApplicationName,
+		ep2.ApplicationName).Add(relationerrors.CompatibleEndpointsNotFound)
+}
+
 // checkExistsByUUID checks if a record with the specified UUID exists in the given
 // table using a transaction and context.
 func checkExistsByUUID(ctx context.Context, st *State, tx *sqlair.TX, table string, uuid string) (bool,
@@ -957,6 +1103,58 @@ WHERE  uuid = $search.uuid
 	return true, nil
 }
 
+// checkEndpointCapacity validates whether adding a new relation to the given
+// endpoint exceeds its defined capacity limit.
+func (st *State) checkEndpointCapacity(ctx context.Context, tx *sqlair.TX, ep endpoint) error {
+	type related struct {
+		Count int `db:"count"`
+	}
+	countStmt, err := st.Prepare(`
+SELECT count(*) AS &related.count
+FROM   relation_endpoint
+WHERE  endpoint_uuid = $endpoint.endpoint_uuid`, related{}, ep)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	var found related
+	if err = tx.Query(ctx, countStmt, ep).Get(&found); err != nil {
+		return errors.Errorf("querying relation linked to endpoint %q: %w", ep, err)
+	}
+	if ep.Capacity > 0 && found.Count >= ep.Capacity {
+		return errors.Errorf("establishing a new relation for %s would exceed its maximum relation limit of %d", ep,
+			ep.Capacity).Add(relationerrors.EndpointQuotaLimitExceeded)
+	}
+
+	return nil
+}
+
+// checkLife retrieves the life state of an entity by its UUID from the specified table and evaluates it using a predicate.
+func (st *State) checkLife(ctx context.Context, tx *sqlair.TX, table, uuid string, check life.Predicate) (bool, error) {
+	type search struct {
+		UUID string     `db:"uuid"`
+		Life life.Value `db:"life"`
+	}
+
+	searched := search{UUID: uuid}
+	query := fmt.Sprintf(`
+SELECT 
+    main.uuid AS &search.uuid,
+    l.value AS &search.life
+FROM   %s main
+JOIN   life l ON main.life_id = l.id
+WHERE  main.uuid = $search.uuid
+`, table)
+	checkStmt, err := st.Prepare(query, searched)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	if err = tx.Query(ctx, checkStmt, searched).Get(&searched); err != nil {
+		return false, errors.Errorf("query %q: %w", query, err)
+	}
+	return check(searched.Life), nil
+}
+
 // getAllRelations retrieves all relations from the database, returning a slice
 // of relationUUID or an error.
 func (st *State) getAllRelations(ctx context.Context, tx *sqlair.TX) ([]relationUUID, error) {
@@ -972,6 +1170,73 @@ FROM   relation
 	err = tx.Query(ctx, stmt).GetAll(&result)
 
 	return result, errors.Capture(err)
+}
+
+// getCandidateEndpoints retrieves a list of candidate endpoints from the
+// database matching the given identifier parameters.
+// It queries based on application name and optionally endpoint name,
+// returning all matching endpoints or an error.
+func (st *State) getCandidateEndpoints(ctx context.Context, tx *sqlair.TX,
+	identifier relation.CandidateEndpointIdentifier) ([]endpoint, error) {
+
+	epIdentifier := endpointIdentifier{
+		ApplicationName: identifier.ApplicationName,
+		EndpointName:    identifier.EndpointName,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &endpoint.*
+FROM   v_application_endpoint
+WHERE  application_name = $endpointIdentifier.application_name
+AND    (
+    endpoint_name    = $endpointIdentifier.endpoint_name
+    OR $endpointIdentifier.endpoint_name = ''
+)
+`, endpoint{}, epIdentifier)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var endpoints []endpoint
+	err = tx.Query(ctx, stmt, epIdentifier).GetAll(&endpoints)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("getting candidate endpoints for %q: %w", identifier, err)
+	}
+
+	return endpoints, nil
+}
+
+// getBases retrieves a list of OS and channel information for a specific
+// application, given an endpoint and transaction.
+func (st *State) getBases(ctx context.Context, tx *sqlair.TX, ep1 endpoint) ([]corebase.Base, error) {
+	stmt, err := st.Prepare(`
+SELECT 
+    ap.channel AS &applicationPlatform.channel,
+    os.name AS &applicationPlatform.os
+FROM application_platform ap
+JOIN os ON ap.os_id = os.id
+WHERE ap.application_uuid = $endpoint.application_uuid`, ep1, applicationPlatform{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var appPlatforms []applicationPlatform
+	err = tx.Query(ctx, stmt, ep1).GetAll(&appPlatforms)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("getting application platforms for %q: %w", ep1, err)
+	}
+
+	var result []corebase.Base
+	for _, appPlatform := range appPlatforms {
+		channel, err := corebase.ParseChannel(appPlatform.Channel)
+		if err != nil {
+			return nil, errors.Errorf("parsing channel %q: %w", appPlatform.Channel, err)
+		}
+		result = append(result, corebase.Base{
+			OS:      appPlatform.OS,
+			Channel: channel,
+		})
+	}
+
+	return result, nil
 }
 
 func (st *State) getRelationDetails(ctx context.Context, tx *sqlair.TX, relationUUID corerelation.UUID) (relation.RelationDetailsResult, error) {
@@ -1012,4 +1277,218 @@ WHERE  r.uuid = $getRelation.uuid
 		ID:        rel.ID,
 		Endpoints: endpoints,
 	}, nil
+}
+
+// inferEndpoints determines and validates the endpoints of a given relation
+// based on the provided identifiers. It tries to find matching endpoint for both
+// application, regarding the name of endpoint if provided, their interfaces,
+// their roles and their scopes.
+// If there is several matches or none, it will return an error.
+func (st *State) inferEndpoints(
+	ctx context.Context,
+	tx *sqlair.TX,
+	identifier1, identifier2 relation.CandidateEndpointIdentifier) (endpoint, endpoint, error) {
+
+	// Get candidate endpoints.
+	endpoints1, err := st.getCandidateEndpoints(ctx, tx, identifier1)
+	if err != nil {
+		return endpoint{}, endpoint{}, errors.Capture(err)
+	}
+	endpoints2, err := st.getCandidateEndpoints(ctx, tx, identifier2)
+	if err != nil {
+		return endpoint{}, endpoint{}, errors.Capture(err)
+	}
+
+	var noCandidates []string
+	if len(endpoints1) == 0 {
+		noCandidates = append(noCandidates, identifier1.String())
+	}
+	if len(endpoints2) == 0 {
+		noCandidates = append(noCandidates, identifier2.String())
+	}
+	if len(noCandidates) > 0 {
+		return endpoint{}, endpoint{}, errors.Errorf("no candidates for %s: %w",
+			strings.Join(noCandidates, " and "),
+			relationerrors.RelationEndpointNotFound)
+	}
+
+	// It is ok since we checked that both sides have candidates,
+	// and all candidates from one side should have the same application
+	app1UUID := endpoints1[0].ApplicationUUID
+	app2UUID := endpoints2[0].ApplicationUUID
+
+	// Check if applications are subordinates.
+	isSubordinate1, err := st.isSubordinate(ctx, tx, app1UUID)
+	if err != nil {
+		return endpoint{}, endpoint{}, errors.Capture(err)
+	}
+	isSubordinate2, err := st.isSubordinate(ctx, tx, app2UUID)
+	if err != nil {
+		return endpoint{}, endpoint{}, errors.Capture(err)
+	}
+
+	// Compute matches.
+	type match struct {
+		ep1 *endpoint
+		ep2 *endpoint
+	}
+	var matches []match
+	for _, e1 := range endpoints1 {
+		ep1 := e1.toRelationEndpoint()
+		for _, e2 := range endpoints2 {
+			ep2 := e2.toRelationEndpoint()
+			if (ep1.Scope == charm.ScopeContainer || ep2.Scope == charm.ScopeContainer) &&
+				!isSubordinate1 && !isSubordinate2 {
+				continue
+			}
+			if ep1.CanRelateTo(ep2) {
+				matches = append(matches, match{ep1: &e1, ep2: &e2})
+			}
+		}
+	}
+
+	if matchCount := len(matches); matchCount == 0 {
+		return endpoint{}, endpoint{}, relationerrors.CompatibleEndpointsNotFound
+	} else if matchCount > 1 {
+		possibleMatches := make([]string, 0, matchCount)
+		for _, match := range matches {
+			possibleMatches = append(possibleMatches, fmt.Sprintf("\"%s %s\"", match.ep1, match.ep2))
+		}
+		return endpoint{}, endpoint{}, errors.Errorf("%w: %q could refer to %s",
+			relationerrors.AmbiguousRelation, fmt.Sprintf("%s %s", identifier1, identifier2),
+			strings.Join(possibleMatches, "; "))
+	}
+
+	return *matches[0].ep1, *matches[0].ep2, nil
+}
+
+// insertNewRelation creates a new relation entry in the database and returns its UUID or an error if the operation fails.
+func (st *State) insertNewRelation(ctx context.Context, tx *sqlair.TX) (corerelation.UUID, error) {
+	relUUID, err := corerelation.NewUUID()
+	if err != nil {
+		return relUUID, errors.Errorf("generating new relation UUID: %w", err)
+	}
+
+	relUUIDArg := relationIDAndUUID{
+		UUID: relUUID,
+	}
+
+	stmtGetID, err := st.Prepare(`
+SELECT sequence AS &relationIDAndUUID.relation_id 
+FROM relation_sequence`, relUUIDArg)
+	if err != nil {
+		return relUUID, errors.Capture(err)
+	}
+
+	stmtUpdateID, err := st.Prepare(`
+UPDATE relation_sequence SET sequence = sequence + 1`)
+	if err != nil {
+		return relUUID, errors.Capture(err)
+	}
+
+	stmtInsert, err := st.Prepare(`
+INSERT INTO relation (uuid, life_id, relation_id)
+VALUES ($relationIDAndUUID.uuid, 0, $relationIDAndUUID.relation_id)
+`, relUUIDArg)
+	if err != nil {
+		return relUUID, errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, stmtGetID).Get(&relUUIDArg); err != nil {
+		return relUUID, errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, stmtUpdateID).Run(); err != nil {
+		return relUUID, errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, stmtInsert, relUUIDArg).Run(); err != nil {
+		return relUUID, errors.Capture(err)
+	}
+
+	return relUUID, nil
+}
+
+// insertNewRelationEndpoint inserts a new relation endpoint into the database
+// using the provided context and transaction.
+func (st *State) insertNewRelationEndpoint(ctx context.Context, tx *sqlair.TX, relUUID corerelation.UUID,
+	endpointUUID corerelation.EndpointUUID) error {
+	uuid, err := corerelation.NewEndpointUUID()
+	if err != nil {
+		return errors.Errorf("generating new relation endpoint UUID: %w", err)
+	}
+
+	endpoint := setRelationEndpoint{
+		UUID:         uuid,
+		RelationUUID: relUUID,
+		EndpointUUID: endpointUUID,
+	}
+	stmt, err := st.Prepare(`
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+VALUES ($setRelationEndpoint.*)`, endpoint)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, stmt, endpoint).Run(); err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+// insertNewRelationStatus inserts a new relation status into the
+// relation_status table in the database.
+// It uses the provided context, transaction, and relation UUID to create a
+// record with a status of 'joining'.
+func (st *State) insertNewRelationStatus(ctx context.Context, tx *sqlair.TX, uuid corerelation.UUID) error {
+	status := setRelationStatus{
+		RelationUUID: uuid,
+		Status:       corestatus.Joining,
+		UpdatedAt:    st.clock.Now(),
+	}
+
+	stmt, err := st.Prepare(`
+INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
+SELECT $setRelationStatus.relation_uuid, status.id, $setRelationStatus.updated_at
+FROM   relation_status_type status
+WHERE  status.name = $setRelationStatus.status`, status)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, stmt, status).Run(); err != nil {
+		return errors.Capture(err)
+	}
+	return nil
+}
+
+// relationAlreadyExists checks if a relation already exists between two
+// endpoints in the database and returns an error if it does.
+func (st *State) relationAlreadyExists(ctx context.Context, tx *sqlair.TX, ep1 endpoint, ep2 endpoint) error {
+	type (
+		endpoint1 endpoint
+		endpoint2 endpoint
+	)
+	e1 := endpoint1(ep1)
+	e2 := endpoint2(ep2)
+
+	stmt, err := st.Prepare(`
+SELECT r.uuid as &relationUUID.uuid
+FROM   relation r
+JOIN   relation_endpoint e1 ON r.uuid = e1.relation_uuid
+JOIN   relation_endpoint e2 ON r.uuid = e2.relation_uuid
+WHERE  e1.endpoint_uuid = $endpoint1.endpoint_uuid                          
+AND    e2.endpoint_uuid = $endpoint2.endpoint_uuid
+`, relationUUID{}, e1, e2)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt, e1, e2).Get(&relationUUID{})
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil
+	} else if err == nil {
+		return relationerrors.RelationAlreadyExists
+	}
+	return errors.Capture(err)
 }
