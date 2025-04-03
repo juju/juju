@@ -3218,23 +3218,32 @@ func (s *applicationStateSuite) addCharmModifiedVersion(c *gc.C, appID coreappli
 }
 
 func (s *applicationStateSuite) assertPeerRelation(c *gc.C, appName string, peerRelationNames ...string) {
-	var expectedIds []int
-	var expectedStatus []corestatus.Status
-	for k := range peerRelationNames {
-		expectedIds = append(expectedIds, k)
-		expectedStatus = append(expectedStatus, corestatus.Joining)
+	type peerRelation struct {
+		id     int
+		name   string
+		status corestatus.Status
+	}
+	var expected []peerRelation
+	slices.Sort(peerRelationNames)
+	for i, name := range peerRelationNames {
+		expected = append(expected, peerRelation{
+			id:     i,
+			name:   name,
+			status: corestatus.Joining,
+		})
 	}
 
-	var peerRelations []string
-	var ids []int
+	var peerRelations []peerRelation
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
-SELECT cr.name, r.relation_id
+SELECT cr.name, r.relation_id, rst.name
 FROM charm_relation cr
 JOIN application_endpoint ae ON ae.charm_relation_uuid = cr.uuid 
 JOIN application a ON a.uuid = ae.application_uuid
 JOIN relation_endpoint re ON  re.endpoint_uuid = ae.uuid
 JOIN relation r ON r.uuid = re.relation_uuid
+LEFT JOIN relation_status rs ON rs.relation_uuid = re.relation_uuid
+LEFT JOIN relation_status_type rst ON rs.relation_status_type_id = rst.id
 WHERE a.name = ?
 AND cr.kind_id = 2 -- peer relation
 ORDER BY r.relation_id
@@ -3244,45 +3253,17 @@ ORDER BY r.relation_id
 		}
 		defer rows.Close()
 		for rows.Next() {
-			var peerRelation string
-			var id int
-			if err := rows.Scan(&peerRelation, &id); err != nil {
+			var row peerRelation
+			var statusName *corestatus.Status // allows graceful error if status not set
+			if err := rows.Scan(&row.name, &row.id, &statusName); err != nil {
 				return errors.Capture(err)
 			}
-			peerRelations = append(peerRelations, peerRelation)
-			ids = append(ids, id)
+			row.status = deptr(statusName)
+			peerRelations = append(peerRelations, row)
 		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var statuses []corestatus.Status
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `
-SELECT rst.name
-FROM relation_status_type rst  
-JOIN relation_status rs ON rs.relation_status_type_id = rst.id
-JOIN relation_endpoint re ON re.relation_uuid = rs.relation_uuid
-JOIN application_endpoint ae ON ae.uuid = re.endpoint_uuid
-JOIN application a ON a.uuid = ae.application_uuid
-WHERE a.name = ?
-`, appName)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var relStatus corestatus.Status
-			if err := rows.Scan(&relStatus); err != nil {
-				return errors.Capture(err)
-			}
-			statuses = append(statuses, relStatus)
-		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(peerRelations, gc.DeepEquals, peerRelationNames, gc.Commentf("(Assert)  missing peer relation"))
-	c.Assert(ids, gc.DeepEquals, expectedIds, gc.Commentf("(Assert)  relation id not correctly generated"))
-	c.Assert(statuses, gc.DeepEquals, expectedStatus, gc.Commentf("(Assert)  relation status not correctly generated"))
+	c.Assert(peerRelations, gc.DeepEquals, expected)
 }

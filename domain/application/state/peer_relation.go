@@ -29,7 +29,9 @@ FROM   application_endpoint ae
 JOIN   charm_relation cr ON cr.uuid = ae.charm_relation_uuid
 JOIN   charm_relation_role crr ON crr.id = cr.role_id
 WHERE  ae.application_uuid = $application.uuid
-AND    crr.name = 'peer'`, app,
+AND    crr.name = 'peer'
+ORDER BY cr.name -- ensure that peer endpoints relation id are always generated in alphabetical order
+`, app,
 		peerEndpoint{})
 	if err != nil {
 		return nil, errors.Capture(err)
