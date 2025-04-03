@@ -95,9 +95,9 @@ func NewService(
 // AgentVersionGetter is responsible for retrieving the target
 // agent version for the current model.
 type AgentVersionGetter interface {
-	// GetTargetAgentVersion returns the agent version
+	// GetModelTargetAgentVersion returns the agent version
 	// for the current model.
-	GetTargetAgentVersion(context.Context) (semversion.Number, error)
+	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
 }
 
 // Provider defines the interface for interacting with the underlying model

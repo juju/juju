@@ -58,6 +58,14 @@ CREATE TABLE machine_agent_version (
     REFERENCES architecture (id)
 );
 
+CREATE VIEW v_machine_target_agent_version AS
+SELECT
+    m.machine_uuid,
+    a.name AS architecture_name,
+    (SELECT target_version FROM agent_version) AS target_version
+FROM machine_agent_version AS m
+JOIN architecture AS a ON m.architecture_id = a.id;
+
 CREATE TABLE machine_constraint (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
     constraint_uuid TEXT NOT NULL,

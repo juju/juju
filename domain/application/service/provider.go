@@ -205,7 +205,7 @@ func (s *ProviderService) CreateApplication(
 // If the agent version cannot be found, an error satisfying
 // [modelerrors.NotFound] will be returned.
 func (s *ProviderService) GetSupportedFeatures(ctx context.Context) (assumes.FeatureSet, error) {
-	agentVersion, err := s.agentVersionGetter.GetTargetAgentVersion(ctx)
+	agentVersion, err := s.agentVersionGetter.GetModelTargetAgentVersion(ctx)
 	if err != nil {
 		return assumes.FeatureSet{}, err
 	}

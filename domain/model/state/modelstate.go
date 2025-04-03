@@ -20,6 +20,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
@@ -647,7 +648,7 @@ func (s *ModelState) GetModel(ctx context.Context) (coremodel.ModelInfo, error) 
 
 		err = tx.Query(ctx, avStmt).Get(&v)
 		if errors.Is(err, sql.ErrNoRows) {
-			return modelerrors.AgentVersionNotFound
+			return modelagenterrors.AgentVersionNotFound
 		}
 		return errors.Capture(err)
 	})

@@ -1195,7 +1195,7 @@ func (s *providerServiceSuite) TestGetSupportedFeatures(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	agentVersion := semversion.MustParse("4.0.0")
-	s.agentVersionGetter.EXPECT().GetTargetAgentVersion(gomock.Any()).Return(agentVersion, nil)
+	s.agentVersionGetter.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(agentVersion, nil)
 
 	s.supportedFeaturesProvider.EXPECT().SupportedFeatures().Return(assumes.FeatureSet{}, nil)
 
@@ -1222,7 +1222,7 @@ func (s *providerServiceSuite) TestGetSupportedFeaturesNotSupported(c *gc.C) {
 	defer ctrl.Finish()
 
 	agentVersion := semversion.MustParse("4.0.0")
-	s.agentVersionGetter.EXPECT().GetTargetAgentVersion(gomock.Any()).Return(agentVersion, nil)
+	s.agentVersionGetter.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(agentVersion, nil)
 
 	features, err := s.service.GetSupportedFeatures(context.Background())
 	c.Assert(err, jc.ErrorIsNil)

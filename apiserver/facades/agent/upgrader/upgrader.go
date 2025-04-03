@@ -102,7 +102,16 @@ func (u *UpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entities)
 			upgraderAPIWatcher, err = u.modelAgentService.WatchMachineTargetAgentVersion(ctx, coremachine.Name(tagID))
 		case names.UnitTagKind:
 			// Used in kubernetes models.
-			upgraderAPIWatcher, err = u.modelAgentService.WatchUnitTargetAgentVersion(ctx, tagID)
+			unitName, unitErr := coreunit.NewName(tag.Id())
+			if unitErr != nil {
+				result.Results[i].Error = apiservererrors.ParamsErrorf(
+					params.CodeTagInvalid,
+					"invalid unit name %q",
+					tag.Id(),
+				)
+				continue
+			}
+			upgraderAPIWatcher, err = u.modelAgentService.WatchUnitTargetAgentVersion(ctx, unitName)
 		default:
 			result.Results[i].Error = apiservererrors.ParamsErrorf(
 				params.CodeNotValid, "%s", tag.String(),
