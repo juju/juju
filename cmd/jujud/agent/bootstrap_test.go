@@ -325,6 +325,7 @@ func (s *BootstrapSuite) assertControllerApplication(c *gc.C) {
 
 	app, err := st.Application("controller")
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(app.IsExposed(), jc.IsTrue)
 	appCh, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	stateCh, err := st.Charm(appCh.URL())
@@ -336,6 +337,18 @@ func (s *BootstrapSuite) assertControllerApplication(c *gc.C) {
 	m, err := units[0].AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m, gc.Equals, "0")
+
+	// Verify opened unit ports.
+	unitPorts, err := units[0].OpenedPortRanges()
+	c.Assert(err, jc.ErrorIsNil)
+	openPorts := unitPorts.UniquePortRanges()
+	c.Assert(openPorts, gc.HasLen, 1)
+	ctrlConfig, err := st.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	sshServerPort := ctrlConfig.SSHServerPort()
+	c.Assert(openPorts[0].FromPort, gc.Equals, sshServerPort)
+	c.Assert(openPorts[0].ToPort, gc.Equals, sshServerPort)
+	c.Assert(openPorts[0].Protocol, gc.Equals, "tcp")
 }
 
 var testPassword = "my-admin-secret"
