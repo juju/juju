@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"errors"
 
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -22,7 +21,7 @@ import (
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
-	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -485,13 +484,131 @@ func (s *relationServiceSuite) TestGetRelationsStatusForUnitStateError(c *gc.C) 
 
 	// Arrange.
 	unitUUID := coreunittesting.GenUnitUUID(c)
-	boom := internalerrors.Errorf("boom")
+	boom := errors.Errorf("boom")
 	s.state.EXPECT().GetRelationsStatusForUnit(gomock.Any(), unitUUID).Return(nil, boom)
 
 	// Act.
 	_, err := s.service.GetRelationsStatusForUnit(context.Background(), unitUUID)
 
 	// Assert.
+	c.Assert(err, jc.ErrorIs, boom)
+}
+
+func (s *relationServiceSuite) TestGetRelationUnit(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	unitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	s.state.EXPECT().GetRelationUnit(gomock.Any(), relationUUID, unitName).Return(unitUUID, nil)
+
+	// Act
+	uuid, err := s.service.GetRelationUnit(context.Background(), relationUUID, unitName)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uuid, gc.Equals, unitUUID)
+}
+
+func (s *relationServiceSuite) TestGetRelationUnitRelationUUIDNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	relationUUID := corerelation.UUID("not-valid-uuid")
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+
+	// Act
+	_, err := s.service.GetRelationUnit(context.Background(), relationUUID, unitName)
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
+}
+
+func (s *relationServiceSuite) TestGetRelationUnitUnitNameNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	unitName := coreunit.Name("not-valid-name")
+
+	// Act
+	_, err := s.service.GetRelationUnit(context.Background(), relationUUID, unitName)
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *relationServiceSuite) TestGetRelationUnitUnitStateError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	boom := errors.Errorf("boom")
+	s.state.EXPECT().GetRelationUnit(gomock.Any(), relationUUID, unitName).Return("", boom)
+
+	// Act
+	_, err := s.service.GetRelationUnit(context.Background(), relationUUID, unitName)
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, boom)
+}
+
+func (s *relationServiceSuite) TestGetRelationUnitByID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	relationID := 42
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	unitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	s.state.EXPECT().GetRelationUUIDByID(gomock.Any(), relationID).Return(relationUUID, nil)
+	s.state.EXPECT().GetRelationUnit(gomock.Any(), relationUUID, unitName).Return(unitUUID, nil)
+
+	// Act
+	uuid, err := s.service.GetRelationUnitByID(context.Background(), relationID, unitName)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uuid, gc.Equals, unitUUID)
+}
+
+func (s *relationServiceSuite) TestGetRelationUnitByIDRelationNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	relationID := 42
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	s.state.EXPECT().GetRelationUUIDByID(gomock.Any(), relationID).Return("", relationerrors.RelationNotFound)
+
+	// Act
+	_, err := s.service.GetRelationUnitByID(context.Background(), relationID, unitName)
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *relationServiceSuite) TestGetRelationUnitByIDUnitNameNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	unitName := coreunit.Name("not-valid-name")
+
+	// Act
+	_, err := s.service.GetRelationUnitByID(context.Background(), 42, unitName)
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *relationServiceSuite) TestGetRelationUnitByIDUnitStateError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	relationID := 42
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	boom := errors.Errorf("boom")
+	s.state.EXPECT().GetRelationUUIDByID(gomock.Any(), relationID).Return(relationUUID, nil)
+	s.state.EXPECT().GetRelationUnit(gomock.Any(), relationUUID, unitName).Return("", boom)
+
+	// Act
+	_, err := s.service.GetRelationUnitByID(context.Background(), relationID, unitName)
+
+	// Assert
 	c.Assert(err, jc.ErrorIs, boom)
 }
 

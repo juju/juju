@@ -755,6 +755,16 @@ func (st *State) GetRelationDetails(ctx context.Context, relationUUID corerelati
 	return result, errors.Capture(err)
 }
 
+// GetRelationUnit retrieves the UUID of a relation unit based on the given
+// relation UUID and unit name.
+func (st *State) GetRelationUnit(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	unitName unit.Name,
+) (corerelation.UnitUUID, error) {
+	return "", coreerrors.NotImplemented
+}
+
 // EnterScope indicates that the provided unit has joined the relation.
 //
 // The following error types can be expected to be returned:
