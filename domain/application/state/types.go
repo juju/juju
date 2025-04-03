@@ -117,7 +117,7 @@ type unitAttributes struct {
 	UnitUUID    coreunit.UUID  `db:"uuid"`
 	Name        coreunit.Name  `db:"name"`
 	LifeID      life.Life      `db:"life_id"`
-	ResolveMode sql.NullInt16  `db:"resolve_kind_id"`
+	ResolveMode sql.NullInt16  `db:"resolve_mode_id"`
 	ProviderID  sql.NullString `db:"provider_id"`
 }
 

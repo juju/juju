@@ -1757,12 +1757,14 @@ func (st *State) getModelConstraints(
 }
 
 func encodeResolveMode(mode sql.NullInt16) (string, error) {
+	if !mode.Valid {
+		return "none", nil
+	}
+
 	switch mode.Int16 {
 	case 0:
-		return "none", nil
-	case 1:
 		return "retry-hooks", nil
-	case 2:
+	case 1:
 		return "no-hooks", nil
 	default:
 		return "", errors.Errorf("unknown resolve mode %d", mode.Int16).Add(coreerrors.NotSupported)

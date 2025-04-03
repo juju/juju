@@ -122,17 +122,6 @@ CREATE TABLE k8s_pod_port (
     PRIMARY KEY (unit_uuid, port)
 );
 
-
-CREATE VIEW v_unit_attribute AS
-SELECT
-    u.uuid,
-    u.name,
-    u.life_id,
-    u.resolve_kind_id,
-    k.provider_id
-FROM unit AS u
-LEFT JOIN k8s_pod AS k ON u.uuid = k.unit_uuid;
-
 -- Status values for unit agents.
 CREATE TABLE unit_agent_status_value (
     id INT PRIMARY KEY,
@@ -332,6 +321,17 @@ CREATE TABLE resolve_mode (
 INSERT INTO resolve_mode VALUES
 (0, 'retry-hooks'),
 (1, 'no-hooks');
+
+CREATE VIEW v_unit_attribute AS
+SELECT
+    u.uuid,
+    u.name,
+    u.life_id,
+    ur.mode_id AS resolve_mode_id,
+    k.provider_id
+FROM unit AS u
+LEFT JOIN unit_resolved AS ur ON u.uuid = ur.unit_uuid
+LEFT JOIN k8s_pod AS k ON u.uuid = k.unit_uuid;
 
 CREATE VIEW v_unit_export AS
 SELECT

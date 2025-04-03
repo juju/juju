@@ -939,8 +939,11 @@ func (s *unitStateSuite) TestGetUnitRefreshAttributesWithResolveMode(c *gc.C) {
 	}
 	s.createApplication(c, "foo", life.Alive, u)
 
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "UPDATE unit SET resolve_kind_id = 1 WHERE name = ?", u.UnitName)
+	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "INSERT INTO unit_resolved (unit_uuid, mode_id) VALUES (?, 0)", unitUUID)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
