@@ -273,6 +273,8 @@ JOIN unit_agent_status AS uas ON u.uuid = uas.unit_uuid;
 CREATE VIEW v_unit_workload_status AS
 SELECT
     u.uuid AS unit_uuid,
+    u.name AS unit_name,
+    u.application_uuid,
     uws.status_id,
     uws.message,
     uws.data,

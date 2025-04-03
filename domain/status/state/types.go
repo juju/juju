@@ -81,7 +81,7 @@ type statusInfoAndUnitName struct {
 }
 
 type statusInfoAndUnitNameAndPresence struct {
-	UnitName  coreunit.Name `db:"name"`
+	UnitName  coreunit.Name `db:"unit_name"`
 	StatusID  int           `db:"status_id"`
 	Message   string        `db:"message"`
 	Data      []byte        `db:"data"`

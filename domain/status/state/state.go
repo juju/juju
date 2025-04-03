@@ -822,8 +822,7 @@ func (st *State) getUnitWorkloadStatusesForApplication(
 	getUnitStatusesStmt, err := st.Prepare(`
 SELECT &statusInfoAndUnitNameAndPresence.*
 FROM v_unit_workload_status
-JOIN unit ON unit.uuid = v_unit_workload_status.unit_uuid
-WHERE unit.application_uuid = $applicationID.uuid
+WHERE application_uuid = $applicationID.uuid
 `, statusInfoAndUnitNameAndPresence{}, ident)
 	if err != nil {
 		return nil, errors.Capture(err)
