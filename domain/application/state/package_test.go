@@ -58,6 +58,21 @@ func (s *baseSuite) minimalMetadata(c *gc.C, name string) charm.Metadata {
 	}
 }
 
+func (s *baseSuite) minimalMetadataWithPeerRelation(c *gc.C, name string, relationNames ...string) charm.Metadata {
+	peers := make(map[string]charm.Relation)
+	for _, relation := range relationNames {
+		peers[relation] = charm.Relation{
+			Name:  relation,
+			Role:  charm.RolePeer,
+			Scope: charm.ScopeGlobal,
+		}
+	}
+	return charm.Metadata{
+		Name:  name,
+		Peers: peers,
+	}
+}
+
 func (s *baseSuite) minimalManifest(c *gc.C) charm.Manifest {
 	return charm.Manifest{
 		Bases: []charm.Base{
