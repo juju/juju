@@ -26,13 +26,13 @@ import (
 	"github.com/juju/juju/internal/auth"
 	interrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // AccessService defines the methods to operate with the database.
 type AccessService interface {
 	GetAllUsers(ctx context.Context, includeDisabled bool) ([]coreuser.User, error)
 	GetUserByName(ctx context.Context, name coreuser.Name) (coreuser.User, error)
+	GetUser(ctx context.Context, uuid coreuser.UUID) (coreuser.User, error)
 	AddUser(ctx context.Context, arg service.AddUserArg) (coreuser.UUID, []byte, error)
 	EnableUserAuthentication(ctx context.Context, name coreuser.Name) error
 	DisableUserAuthentication(ctx context.Context, name coreuser.Name) error
@@ -49,6 +49,11 @@ type AccessService interface {
 
 // ModelService defines an interface for interacting with the model service.
 type ModelService interface {
+	// ControllerModel returns the model used for housing the Juju controller.
+	// Should no model exist for the controller an error of [modelerrors.NotFound]
+	// will be returned.
+	ControllerModel(ctx context.Context) (coremodel.Model, error)
+
 	// GetModelUsers will retrieve basic information about users with
 	// permissions on the given model UUID.
 	// If the model cannot be found it will return
@@ -67,7 +72,6 @@ type ModelService interface {
 // UserManagerAPI implements the user manager interface and is the concrete
 // implementation of the api end point.
 type UserManagerAPI struct {
-	state          *state.State
 	accessService  AccessService
 	modelService   ModelService
 	authorizer     facade.Authorizer
@@ -81,7 +85,6 @@ type UserManagerAPI struct {
 
 // NewAPI creates a new API endpoint for calling user manager functions.
 func NewAPI(
-	state *state.State,
 	accessService AccessService,
 	modelService ModelService,
 	authorizer facade.Authorizer,
@@ -93,7 +96,6 @@ func NewAPI(
 	controllerUUID string,
 ) (*UserManagerAPI, error) {
 	return &UserManagerAPI{
-		state:          state,
 		accessService:  accessService,
 		modelService:   modelService,
 		authorizer:     authorizer,
@@ -107,7 +109,7 @@ func NewAPI(
 }
 
 func (api *UserManagerAPI) hasControllerAdminAccess(ctx context.Context) (bool, error) {
-	err := api.authorizer.HasPermission(ctx, permission.SuperuserAccess, api.state.ControllerTag())
+	err := api.authorizer.HasPermission(ctx, permission.SuperuserAccess, names.NewControllerTag(api.controllerUUID))
 	return err == nil, err
 }
 
@@ -184,7 +186,11 @@ func (api *UserManagerAPI) RemoveUser(ctx context.Context, entities params.Entit
 		return deletions, errors.Trace(err)
 	}
 
-	controllerOwner, err := api.state.ControllerOwner()
+	controllerModel, err := api.modelService.ControllerModel(ctx)
+	if err != nil {
+		return deletions, errors.Trace(err)
+	}
+	controllerOwner, err := api.accessService.GetUser(ctx, controllerModel.Owner)
 	if err != nil {
 		return deletions, errors.Trace(err)
 	}
@@ -208,7 +214,7 @@ func (api *UserManagerAPI) RemoveUser(ctx context.Context, entities params.Entit
 			continue
 		}
 
-		if controllerOwner.Id() == userTag.Id() {
+		if controllerOwner.Name.String() == userTag.Id() {
 			deletions.Results[i].Error = apiservererrors.ServerError(
 				errors.Errorf("cannot delete controller owner %q", userTag.Name()))
 			continue

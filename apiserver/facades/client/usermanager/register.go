@@ -37,8 +37,8 @@ func newUserManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*UserMa
 	apiUserTag, _ := authorizer.GetAuthTag().(names.UserTag)
 	// Pretty much all the user manager methods have special casing for admin
 	// users, so look once when we start and remember if the user is an admin.
-	st := ctx.State()
-	err := authorizer.HasPermission(stdCtx, permission.SuperuserAccess, st.ControllerTag())
+	controllerTag := names.NewControllerTag(ctx.ControllerUUID())
+	err := authorizer.HasPermission(stdCtx, permission.SuperuserAccess, controllerTag)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return nil, errors.Trace(err)
 	}
@@ -53,7 +53,6 @@ func newUserManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*UserMa
 	}
 
 	return NewAPI(
-		st,
 		accessService,
 		domainServices.Model(),
 		authorizer,
