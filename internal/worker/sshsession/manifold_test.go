@@ -12,7 +12,6 @@ import (
 	"github.com/juju/worker/v3"
 	dt "github.com/juju/worker/v3/dependency/testing"
 	"go.uber.org/mock/gomock"
-
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"

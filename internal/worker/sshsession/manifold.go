@@ -87,6 +87,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		MachineId:        machineId,
 		FacadeClient:     sshsession.NewClient(apiCaller),
 		ConnectionGetter: NewConnectionGetter(config.Logger),
+		KeyManager:       NewKeyManager(config.Logger),
 	})
 
 	if err != nil {
