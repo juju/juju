@@ -133,7 +133,7 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 r
 		}
 
 		// Get endpoints from UUID.
-		endpoints, err := st.getEndpoints(ctx, tx, relUUID)
+		endpoints, err := st.getRelationEndpoints(ctx, tx, relUUID)
 		if err != nil {
 			return errors.Errorf("getting endpoints of relation %q: %w", relUUID, err)
 		}
@@ -405,7 +405,7 @@ AND     application_uuid = $applicationID.uuid
 	var output scope
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check if the relation exists.
-		relationFound, err := checkExistsByUUID(ctx, st, tx, "relation", relUUID.String())
+		relationFound, err := st.checkExistsByUUID(ctx, tx, "relation", relUUID.String())
 		if err != nil {
 			return errors.Capture(err)
 		} else if !relationFound {
@@ -466,12 +466,12 @@ AND    re.relation_uuid = $relationEndpointArgs.relation_uuid
 		err := tx.Query(ctx, stmt, dbArgs).Get(&relationEndpoint)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			// Check if it is a missing application.
-			appFound, err := checkExistsByUUID(ctx, st, tx, "application", args.ApplicationID.String())
+			appFound, err := st.checkExistsByUUID(ctx, tx, "application", args.ApplicationID.String())
 			if err != nil {
 				return errors.Capture(err)
 			}
 			// Check if the relation exists.
-			relationFound, err := checkExistsByUUID(ctx, st, tx, "relation", args.RelationUUID.String())
+			relationFound, err := st.checkExistsByUUID(ctx, tx, "relation", args.RelationUUID.String())
 			if err != nil {
 				return errors.Capture(err)
 			}
@@ -538,7 +538,7 @@ WHERE  ru.unit_uuid = $unitUUIDArg.unit_uuid
 		}
 
 		for _, status := range statuses {
-			endpoints, err := st.getEndpoints(ctx, tx, corerelation.UUID(status.RelationUUID))
+			endpoints, err := st.getRelationEndpoints(ctx, tx, corerelation.UUID(status.RelationUUID))
 			if err != nil {
 				return errors.Errorf("getting endpoints of relation %q: %w", status.RelationUUID, err)
 			}
@@ -572,7 +572,7 @@ func (st *State) GetRelationEndpoints(ctx context.Context, uuid corerelation.UUI
 
 	var endpoints []relation.Endpoint
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		endpoints, err = st.getEndpoints(ctx, tx, uuid)
+		endpoints, err = st.getRelationEndpoints(ctx, tx, uuid)
 		return err
 	})
 	if err != nil {
@@ -582,8 +582,8 @@ func (st *State) GetRelationEndpoints(ctx context.Context, uuid corerelation.UUI
 	return endpoints, nil
 }
 
-// getEndpoints retrieves the endpoints of the specified relation.
-func (st *State) getEndpoints(
+// getRelationEndpoints retrieves the endpoints of the specified relation.
+func (st *State) getRelationEndpoints(
 	ctx context.Context,
 	tx *sqlair.TX,
 	uuid corerelation.UUID,
@@ -1387,7 +1387,7 @@ WHERE  r.uuid = $watcherMapperData.uuid
 			return errors.Errorf("getting relation life and status: %w", err)
 		}
 
-		endpoints, err = st.getEndpoints(ctx, tx, corerelation.UUID(data.RelationUUID))
+		endpoints, err = st.getRelationEndpoints(ctx, tx, corerelation.UUID(data.RelationUUID))
 		if err != nil {
 			return errors.Errorf("getting relation endpoints: %w", err)
 		}
@@ -1436,8 +1436,11 @@ func (st *State) checkCompatibleBases(ctx context.Context, tx *sqlair.TX, ep1 en
 
 // checkExistsByUUID checks if a record with the specified UUID exists in the given
 // table using a transaction and context.
-func checkExistsByUUID(ctx context.Context, st *State, tx *sqlair.TX, table string, uuid string) (bool,
-	error) {
+func (st *State) checkExistsByUUID(
+	ctx context.Context,
+	tx *sqlair.TX,
+	table, uuid string,
+) (bool, error) {
 	type search struct {
 		UUID string `db:"uuid"`
 	}
@@ -1625,7 +1628,7 @@ WHERE  r.uuid = $getRelation.uuid
 		return relation.RelationDetailsResult{}, errors.Capture(err)
 	}
 
-	endpoints, err = st.getEndpoints(ctx, tx, rel.UUID)
+	endpoints, err = st.getRelationEndpoints(ctx, tx, rel.UUID)
 	if err != nil {
 		return relation.RelationDetailsResult{}, errors.Errorf("getting relation endpoints: %w", err)
 	}

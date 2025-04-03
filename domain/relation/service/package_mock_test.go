@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	application "github.com/juju/juju/core/application"
 	relation "github.com/juju/juju/core/relation"
 	unit "github.com/juju/juju/core/unit"
 	relation0 "github.com/juju/juju/domain/relation"

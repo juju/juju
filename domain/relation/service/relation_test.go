@@ -748,6 +748,38 @@ func (s *relationServiceSuite) TestEnterScopeRelationUnitNameNotValid(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
 }
 
+func (s *relationServiceSuite) TestGetRelationEndpoints(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+
+	expectedEndpoints := []relation.Endpoint{{
+		ApplicationName: "app-2",
+	}, {
+		ApplicationName: "app-1",
+	}}
+
+	s.state.EXPECT().GetRelationEndpoints(gomock.Any(), relationUUID).Return(expectedEndpoints, nil)
+
+	// Act:
+	endpoints, err := s.service.GetRelationEndpoints(context.Background(), relationUUID)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(endpoints, jc.SameContents, expectedEndpoints)
+}
+
+func (s *relationServiceSuite) TestGetRelationEndpointsRelationUUIDNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Act.
+	_, err := s.service.GetRelationEndpoints(context.Background(), "bad-uuid")
+
+	// Assert.
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
+}
+
 func (s *relationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
