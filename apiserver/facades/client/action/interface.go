@@ -30,9 +30,7 @@ type Model interface {
 	ListOperations(actionNames []string, actionReceivers []names.Tag, operationStatus []state.ActionStatus,
 		offset, limit int,
 	) ([]state.OperationInfo, bool, error)
-	ModelTag() names.ModelTag
 	OperationWithActions(id string) (*state.OperationInfo, error)
-	Type() state.ModelType
 }
 
 type stateShim struct {

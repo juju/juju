@@ -15,8 +15,8 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // Run the commands specified on the machines identified through the
@@ -60,12 +60,13 @@ func (a *ActionAPI) RunOnAllMachines(ctx context.Context, run params.RunParams) 
 		return results, errors.Trace(err)
 	}
 
-	m, err := a.state.Model()
+	modelInfo, err := a.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
-	if m.Type() != state.ModelTypeIAAS {
-		return results, errors.Errorf("cannot run on all machines with a %s model", m.Type())
+
+	if modelInfo.Type != model.IAAS {
+		return results, errors.Errorf("cannot run on all machines with a %s model", modelInfo.Type)
 	}
 
 	machines, err := a.state.AllMachines()

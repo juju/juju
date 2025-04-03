@@ -199,10 +199,8 @@ func (s *enqueueSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.Authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	s.Authorizer.EXPECT().AuthClient().Return(true)
 
-	s.model = action.NewMockModel(ctrl)
-	s.model.EXPECT().ModelTag().Return(s.modelTag).MinTimes(1)
-
 	s.State = action.NewMockState(ctrl)
+	s.model = action.NewMockModel(ctrl)
 	s.State.EXPECT().Model().Return(s.model, nil)
 
 	s.ActionReceiver = action.NewMockActionReceiver(ctrl)
