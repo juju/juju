@@ -15,6 +15,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/semversion"
@@ -55,7 +56,18 @@ func (s *agentBinarySuite) TestPopulateAgentBinary(c *gc.C) {
 		SHA256:  "sha256",
 	}).Return(nil)
 
-	cleanup, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.logger)
+	s.agentBinaryStore.EXPECT().AddWithSHA256(
+		gomock.Any(),
+		gomock.Any(),
+		coreagentbinary.Version{
+			Arch:   current.Arch,
+			Number: current.Number,
+		},
+		size,
+		"sha256",
+	).Return(nil)
+
+	cleanup, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.agentBinaryStore, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	cleanup()
 
@@ -89,7 +101,7 @@ func (s *agentBinarySuite) TestPopulateAgentBinaryAddError(c *gc.C) {
 		SHA256:  "sha256",
 	}).Return(errors.New("boom"))
 
-	_, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.logger)
+	_, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.agentBinaryStore, s.logger)
 	c.Assert(err, gc.ErrorMatches, "boom")
 
 	s.expectTools(c, toolsPath)
@@ -106,7 +118,7 @@ func (s *agentBinarySuite) TestPopulateAgentBinaryNoDownloadedToolsFile(c *gc.C)
 
 	dir, _ := s.ensureDirs(c, current)
 
-	_, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.logger)
+	_, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.agentBinaryStore, s.logger)
 	c.Assert(err, jc.ErrorIs, os.ErrNotExist)
 }
 
@@ -129,7 +141,7 @@ func (s *agentBinarySuite) TestPopulateAgentBinaryNoBinaryFile(c *gc.C) {
 		Size:    size,
 	})
 
-	_, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.logger)
+	_, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.agentBinaryStore, s.logger)
 	c.Assert(err, jc.ErrorIs, os.ErrNotExist)
 }
 

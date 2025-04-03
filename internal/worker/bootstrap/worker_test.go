@@ -100,7 +100,7 @@ func (s *workerSuite) TestSeedAgentBinary(c *gc.C) {
 		internalStates: s.states,
 		cfg: WorkerConfig{
 			ObjectStoreGetter: s.objectStoreGetter,
-			AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, logger.Logger) (func(), error) {
+			AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
 				called = true
 				return func() {}, nil
 			},
@@ -312,30 +312,31 @@ func (s *workerSuite) TestSeedStoragePools(c *gc.C) {
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	w, err := newWorker(WorkerConfig{
-		Logger:                  s.logger,
-		Agent:                   s.agent,
-		ObjectStoreGetter:       s.objectStoreGetter,
-		BootstrapUnlocker:       s.bootstrapUnlocker,
-		CharmhubHTTPClient:      s.httpClient,
-		SystemState:             s.state,
-		UserService:             s.userService,
-		AgentPasswordService:    s.agentPasswordService,
-		ApplicationService:      s.applicationService,
-		ModelConfigService:      s.modelConfigService,
-		MachineService:          s.machineService,
-		ControllerModel:         s.controllerModel,
-		KeyManagerService:       s.keyManagerService,
-		ControllerConfigService: s.controllerConfigService,
-		StorageService:          s.storageService,
-		ProviderRegistry:        provider.CommonStorageProviders(),
-		CloudService:            s.cloudService,
-		NetworkService:          s.networkService,
-		BakeryConfigService:     s.bakeryConfigService,
-		FlagService:             s.flagService,
+		Logger:                     s.logger,
+		Agent:                      s.agent,
+		ObjectStoreGetter:          s.objectStoreGetter,
+		BootstrapUnlocker:          s.bootstrapUnlocker,
+		CharmhubHTTPClient:         s.httpClient,
+		ControllerAgentBinaryStore: s.controllerAgentBinaryStore,
+		SystemState:                s.state,
+		UserService:                s.userService,
+		AgentPasswordService:       s.agentPasswordService,
+		ApplicationService:         s.applicationService,
+		ModelConfigService:         s.modelConfigService,
+		MachineService:             s.machineService,
+		ControllerModel:            s.controllerModel,
+		KeyManagerService:          s.keyManagerService,
+		ControllerConfigService:    s.controllerConfigService,
+		StorageService:             s.storageService,
+		ProviderRegistry:           provider.CommonStorageProviders(),
+		CloudService:               s.cloudService,
+		NetworkService:             s.networkService,
+		BakeryConfigService:        s.bakeryConfigService,
+		FlagService:                s.flagService,
 		PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
 			return nil
 		},
-		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, logger.Logger) (func(), error) {
+		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
 			return func() {}, nil
 		},
 		ControllerCharmDeployer: func(ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {

@@ -85,7 +85,14 @@ type BinaryAgentStorage interface {
 }
 
 // AgentBinaryBootstrapFunc is the function that is used to populate the tools.
-type AgentBinaryBootstrapFunc func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, logger.Logger) (func(), error)
+type AgentBinaryBootstrapFunc func(
+	context.Context,
+	string,
+	BinaryAgentStorageService,
+	AgentBinaryStore,
+	objectstore.ObjectStore,
+	logger.Logger,
+) (func(), error)
 
 // ControllerCharmDeployerConfig holds the configuration for the
 // ControllerCharmDeployer.
@@ -122,21 +129,28 @@ func IAASControllerUnitPassword(context.Context) (string, error) {
 
 // CAASAgentBinaryUploader is the function that is used to populate the tools
 // for CAAS.
-func CAASAgentBinaryUploader(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, logger.Logger) (func(), error) {
+func CAASAgentBinaryUploader(context.Context, string, BinaryAgentStorageService, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
 	// CAAS doesn't need to populate the tools.
 	return func() {}, nil
 }
 
 // IAASAgentBinaryUploader is the function that is used to populate the tools
 // for IAAS.
-func IAASAgentBinaryUploader(ctx context.Context, dataDir string, storageService BinaryAgentStorageService, objectStore objectstore.ObjectStore, logger logger.Logger) (func(), error) {
+func IAASAgentBinaryUploader(
+	ctx context.Context,
+	dataDir string,
+	storageService BinaryAgentStorageService,
+	agentBinaryStore AgentBinaryStore,
+	objectStore objectstore.ObjectStore,
+	logger logger.Logger,
+) (func(), error) {
 	storage, err := storageService.AgentBinaryStorage(objectStore)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	defer storage.Close()
 
-	return bootstrap.PopulateAgentBinary(ctx, dataDir, storage, logger)
+	return bootstrap.PopulateAgentBinary(ctx, dataDir, storage, agentBinaryStore, logger)
 }
 
 // CAASControllerCharmUploader is the function that is used to upload the

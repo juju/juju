@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage,ControllerCharmDeployer,HTTPClient,CloudService,CloudServiceGetter,OperationApplier,Machine,MachineGetter,StateBackend,Application,Unit,CharmUploader,ApplicationService,ModelConfigService,Downloader,AgentPasswordService
+//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage,AgentBinaryStore,ControllerCharmDeployer,HTTPClient,CloudService,CloudServiceGetter,OperationApplier,Machine,MachineGetter,StateBackend,Application,Unit,CharmUploader,ApplicationService,ModelConfigService,Downloader,AgentPasswordService
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination core_charm_mock_test.go github.com/juju/juju/core/charm Repository
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination internal_charm_mock_test.go github.com/juju/juju/internal/charm Charm
@@ -32,6 +32,7 @@ func Test(t *testing.T) {
 type baseSuite struct {
 	jujutesting.IsolationSuite
 
+	agentBinaryStore     *MockAgentBinaryStore
 	storage              *MockAgentBinaryStorage
 	deployer             *MockControllerCharmDeployer
 	httpClient           *MockHTTPClient
@@ -53,6 +54,7 @@ type baseSuite struct {
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.agentBinaryStore = NewMockAgentBinaryStore(ctrl)
 	s.storage = NewMockAgentBinaryStorage(ctrl)
 	s.deployer = NewMockControllerCharmDeployer(ctrl)
 	s.httpClient = NewMockHTTPClient(ctrl)

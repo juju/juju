@@ -45,30 +45,31 @@ const (
 // WorkerConfig encapsulates the configuration options for the
 // bootstrap worker.
 type WorkerConfig struct {
-	Agent                   agent.Agent
-	ObjectStoreGetter       ObjectStoreGetter
-	ControllerConfigService ControllerConfigService
-	CloudService            CloudService
-	UserService             UserService
-	StorageService          StorageService
-	ProviderRegistry        storage.ProviderRegistry
-	AgentPasswordService    AgentPasswordService
-	ApplicationService      ApplicationService
-	ControllerModel         coremodel.Model
-	ModelConfigService      ModelConfigService
-	MachineService          MachineService
-	KeyManagerService       KeyManagerService
-	FlagService             FlagService
-	NetworkService          NetworkService
-	BakeryConfigService     BakeryConfigService
-	BootstrapUnlocker       gate.Unlocker
-	AgentBinaryUploader     AgentBinaryBootstrapFunc
-	ControllerCharmDeployer ControllerCharmDeployerFunc
-	PopulateControllerCharm PopulateControllerCharmFunc
-	CharmhubHTTPClient      HTTPClient
-	UnitPassword            string
-	BootstrapAddressFinder  BootstrapAddressFinderFunc
-	Logger                  logger.Logger
+	Agent                      agent.Agent
+	ObjectStoreGetter          ObjectStoreGetter
+	ControllerAgentBinaryStore AgentBinaryStore
+	ControllerConfigService    ControllerConfigService
+	CloudService               CloudService
+	UserService                UserService
+	StorageService             StorageService
+	ProviderRegistry           storage.ProviderRegistry
+	AgentPasswordService       AgentPasswordService
+	ApplicationService         ApplicationService
+	ControllerModel            coremodel.Model
+	ModelConfigService         ModelConfigService
+	MachineService             MachineService
+	KeyManagerService          KeyManagerService
+	FlagService                FlagService
+	NetworkService             NetworkService
+	BakeryConfigService        BakeryConfigService
+	BootstrapUnlocker          gate.Unlocker
+	AgentBinaryUploader        AgentBinaryBootstrapFunc
+	ControllerCharmDeployer    ControllerCharmDeployerFunc
+	PopulateControllerCharm    PopulateControllerCharmFunc
+	CharmhubHTTPClient         HTTPClient
+	UnitPassword               string
+	BootstrapAddressFinder     BootstrapAddressFinderFunc
+	Logger                     logger.Logger
 
 	// Deprecated: This is only here, until we can remove the state layer.
 	SystemState SystemState
@@ -81,6 +82,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.ObjectStoreGetter == nil {
 		return errors.NotValidf("nil ObjectStoreGetter")
+	}
+	if c.ControllerAgentBinaryStore == nil {
+		return errors.NotValidf("nil ControllerAgentBinaryStore")
 	}
 	if c.ControllerConfigService == nil {
 		return errors.NotValidf("nil ControllerConfigService")
@@ -479,7 +483,14 @@ func (w *bootstrapWorker) seedAgentBinary(ctx context.Context, dataDir string) (
 
 	// Agent binary seeder will populate the tools for the agent.
 	agentStorage := agentStorageShim{State: w.cfg.SystemState}
-	cleanup, err := w.cfg.AgentBinaryUploader(ctx, dataDir, agentStorage, objectStore, w.cfg.Logger.Child("agentbinary"))
+	cleanup, err := w.cfg.AgentBinaryUploader(
+		ctx,
+		dataDir,
+		agentStorage,
+		w.cfg.ControllerAgentBinaryStore,
+		objectStore,
+		w.cfg.Logger.Child("agentbinary"),
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
