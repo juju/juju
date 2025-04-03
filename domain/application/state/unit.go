@@ -674,19 +674,24 @@ WHERE name = $unitName.name
 	return unitUUID.UnitUUID, nil
 }
 
-func (st *State) getUnit(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name) (*unitDetails, error) {
-	unit := unitDetails{Name: unitName}
+func (st *State) getUnitDetails(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name) (*unitDetails, error) {
+	unit := unitDetails{
+		Name: unitName,
+	}
+
 	getUnit := `SELECT &unitDetails.* FROM unit WHERE name = $unitDetails.name`
 	getUnitStmt, err := st.Prepare(getUnit, unit)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
+
 	err = tx.Query(ctx, getUnitStmt, unit).Get(&unit)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Errorf("unit %q not found", unitName).Add(applicationerrors.UnitNotFound)
 	} else if err != nil {
 		return nil, errors.Capture(err)
 	}
+
 	return &unit, nil
 }
 
@@ -800,7 +805,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 		}
 
 		// Unit already exists and is not dead. Update the cloud container.
-		toUpdate, err := st.getUnit(ctx, tx, arg.UnitName)
+		toUpdate, err := st.getUnitDetails(ctx, tx, arg.UnitName)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -878,7 +883,7 @@ func (st *State) insertIAASUnit(
 	appUUID coreapplication.ID,
 	args application.InsertUnitArg,
 ) error {
-	_, err := st.getUnit(ctx, tx, args.UnitName)
+	_, err := st.getUnitDetails(ctx, tx, args.UnitName)
 	if err == nil {
 		return errors.Errorf("unit %q already exists", args.UnitName).Add(applicationerrors.UnitAlreadyExists)
 	}
@@ -996,7 +1001,7 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		toUpdate, err := st.getUnit(ctx, tx, unitName)
+		toUpdate, err := st.getUnitDetails(ctx, tx, unitName)
 		if err != nil {
 			return errors.Errorf("getting unit %q: %w", unitName, err)
 		}
@@ -1025,6 +1030,53 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 		return errors.Errorf("updating CAAS unit %q: %w", unitName, err)
 	}
 	return nil
+}
+
+// GetUnitRefreshAttributes returns the unit refresh attributes for the
+// specified unit. If the unit is not found, an error satisfying
+// [applicationerrors.UnitNotFound] is returned.
+// This doesn't take into account life, so it can return the life of a unit
+// even if it's dead.
+func (st *State) GetUnitRefreshAttributes(ctx context.Context, unitName coreunit.Name) (application.UnitAttributes, error) {
+	db, err := st.DB()
+	if err != nil {
+		return application.UnitAttributes{}, errors.Capture(err)
+	}
+
+	unit := unitAttributes{
+		Name: unitName,
+	}
+
+	getUnit := `SELECT &unitAttributes.* FROM v_unit_attribute WHERE name = $unitAttributes.name`
+	getUnitStmt, err := st.Prepare(getUnit, unit)
+	if err != nil {
+		return application.UnitAttributes{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, getUnitStmt, unit).Get(&unit)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("unit %q not found", unitName).Add(applicationerrors.UnitNotFound)
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return application.UnitAttributes{}, errors.Errorf("getting unit %q: %w", unitName, err)
+	}
+
+	resolveMode, err := encodeResolveMode(unit.ResolveMode)
+	if err != nil {
+		return application.UnitAttributes{}, errors.Errorf("encoding resolve mode for unit %q: %w", unitName, err)
+	}
+
+	return application.UnitAttributes{
+		Life:        unit.LifeID,
+		ProviderID:  unit.ProviderID.String,
+		ResolveMode: resolveMode,
+	}, nil
 }
 
 // GetModelConstraints returns the currently set constraints for the model.
@@ -1702,4 +1754,17 @@ func (st *State) getModelConstraints(
 		return dbConstraint{}, errors.Errorf("getting model constraints: %w", err)
 	}
 	return constraint, nil
+}
+
+func encodeResolveMode(mode sql.NullInt16) (string, error) {
+	switch mode.Int16 {
+	case 0:
+		return "none", nil
+	case 1:
+		return "retry-hooks", nil
+	case 2:
+		return "no-hooks", nil
+	default:
+		return "", errors.Errorf("unknown resolve mode %d", mode.Int16).Add(coreerrors.NotSupported)
+	}
 }

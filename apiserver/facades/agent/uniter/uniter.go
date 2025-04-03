@@ -31,9 +31,12 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	domainapplication "github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainlife "github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -132,7 +135,7 @@ func (u *UniterAPI) EnsureDead(ctx context.Context, args params.Entities) (param
 
 		// TODO(units) - remove me.
 		// Dual write dead status to state.
-		unit, err := u.getUnit(tag)
+		unit, err := u.getLegacyUnit(ctx, tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -283,7 +286,7 @@ func (u *UniterAPI) AssignedMachine(ctx context.Context, args params.Entities) (
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		unit, err := u.getUnit(tag)
+		unit, err := u.getLegacyUnit(ctx, tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -316,7 +319,7 @@ func (u *UniterAPI) PublicAddress(ctx context.Context, args params.Entities) (pa
 		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var unit *state.Unit
-			unit, err = u.getUnit(tag)
+			unit, err = u.getLegacyUnit(ctx, tag)
 			if err == nil {
 				var address network.SpaceAddress
 				address, err = unit.PublicAddress()
@@ -350,7 +353,7 @@ func (u *UniterAPI) PrivateAddress(ctx context.Context, args params.Entities) (p
 		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var unit *state.Unit
-			unit, err = u.getUnit(tag)
+			unit, err = u.getLegacyUnit(ctx, tag)
 			if err == nil {
 				var address network.SpaceAddress
 				address, err = unit.PrivateAddress()
@@ -446,7 +449,7 @@ func (u *UniterAPI) Resolved(ctx context.Context, args params.Entities) (params.
 		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var unit *state.Unit
-			unit, err = u.getUnit(tag)
+			unit, err = u.getLegacyUnit(ctx, tag)
 			if err == nil {
 				result.Results[i].Mode = params.ResolvedMode(unit.Resolved())
 			}
@@ -474,7 +477,7 @@ func (u *UniterAPI) ClearResolved(ctx context.Context, args params.Entities) (pa
 		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var unit *state.Unit
-			unit, err = u.getUnit(tag)
+			unit, err = u.getLegacyUnit(ctx, tag)
 			if err == nil {
 				err = unit.ClearResolved()
 			}
@@ -503,7 +506,7 @@ func (u *UniterAPI) GetPrincipal(ctx context.Context, args params.Entities) (par
 		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var unit *state.Unit
-			unit, err = u.getUnit(tag)
+			unit, err = u.getLegacyUnit(ctx, tag)
 			if err == nil {
 				principal, ok := unit.PrincipalName()
 				if principal != "" {
@@ -552,7 +555,7 @@ func (u *UniterAPI) Destroy(ctx context.Context, args params.Entities) (params.E
 			}
 
 			// TODO(units) - remove dual write to state
-			unit, err = u.getUnit(tag)
+			unit, err = u.getLegacyUnit(ctx, tag)
 			if err == nil {
 				removed, err = unit.DestroyMaybeRemove(u.store)
 				if err == nil && removed {
@@ -583,7 +586,7 @@ func (u *UniterAPI) DestroyAllSubordinates(ctx context.Context, args params.Enti
 		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var unit *state.Unit
-			unit, err = u.getUnit(tag)
+			unit, err = u.getLegacyUnit(ctx, tag)
 			if err == nil {
 				err = u.destroySubordinates(ctx, unit)
 			}
@@ -611,7 +614,7 @@ func (u *UniterAPI) HasSubordinates(ctx context.Context, args params.Entities) (
 		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var unit *state.Unit
-			unit, err = u.getUnit(tag)
+			unit, err = u.getLegacyUnit(ctx, tag)
 			if err == nil {
 				subordinates := unit.SubordinateNames()
 				result.Results[i].Result = len(subordinates) > 0
@@ -755,7 +758,7 @@ func (u *UniterAPI) SetCharmURL(ctx context.Context, args params.EntitiesCharmUR
 		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
 			var unit *state.Unit
-			unit, err = u.getUnit(tag)
+			unit, err = u.getLegacyUnit(ctx, tag)
 			if err == nil {
 				err = unit.SetCharmURL(entity.CharmURL)
 			}
@@ -785,7 +788,7 @@ func (u *UniterAPI) WorkloadVersion(ctx context.Context, args params.Entities) (
 			resultItem.Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		unit, err := u.getUnit(tag)
+		unit, err := u.getLegacyUnit(ctx, tag)
 		if err != nil {
 			resultItem.Error = apiservererrors.ServerError(err)
 			continue
@@ -821,7 +824,7 @@ func (u *UniterAPI) SetWorkloadVersion(ctx context.Context, args params.EntityWo
 			resultItem.Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		unit, err := u.getUnit(tag)
+		unit, err := u.getLegacyUnit(ctx, tag)
 		if err != nil {
 			resultItem.Error = apiservererrors.ServerError(err)
 			continue
@@ -1215,28 +1218,73 @@ func (u *UniterAPI) Refresh(ctx context.Context, args params.Entities) (params.U
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
+
+		}
+		if !canRead(tag) {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = apiservererrors.ErrPerm
-		if canRead(tag) {
-			// TODO(units) - read unit details from dqlite
-			var unit *state.Unit
-			if unit, err = u.getUnit(tag); err == nil {
-				result.Results[i].Life = life.Value(unit.Life().String())
-				result.Results[i].Resolved = params.ResolvedMode(unit.Resolved())
 
-				var err1 error
-				result.Results[i].ProviderID, err1 = u.getProviderID(unit)
-				if err1 != nil && !errors.Is(err1, errors.NotFound) {
-					// initially, it returns not found error, so just ignore it.
-					err = err1
-				}
-			}
+		attr, err := u.getRefresh(ctx, tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
+
+		life, err := encodeLife(attr.Life)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		resolveMode, err := encodeResolveMode(attr.ResolveMode)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		result.Results[i].Life = life
+		result.Results[i].Resolved = resolveMode
+		result.Results[i].ProviderID = attr.ProviderID
 	}
 	return result, nil
+}
+
+func encodeLife(v domainlife.Life) (life.Value, error) {
+	switch v {
+	case domainlife.Alive:
+		return life.Alive, nil
+	case domainlife.Dying:
+		return life.Dying, nil
+	case domainlife.Dead:
+		return life.Dead, nil
+	default:
+		return "", errors.NotValidf("life value %q", v)
+	}
+}
+
+func encodeResolveMode(v string) (params.ResolvedMode, error) {
+	switch v {
+	case "none":
+		return params.ResolvedNone, nil
+	case "no-hooks":
+		return params.ResolvedNoHooks, nil
+	case "retry-hooks":
+		return params.ResolvedRetryHooks, nil
+	default:
+		return "", errors.NotValidf("resolve mode %q", v)
+	}
+}
+
+func (u *UniterAPI) getRefresh(ctx context.Context, tag names.UnitTag) (domainapplication.UnitAttributes, error) {
+	attributes, err := u.applicationService.GetUnitRefreshAttributes(ctx, unit.Name(tag.Id()))
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return domainapplication.UnitAttributes{}, errors.NotFoundf("unit %s", tag)
+	} else if err != nil {
+		return domainapplication.UnitAttributes{}, internalerrors.Capture(err)
+	}
+
+	return attributes, nil
 }
 
 func (u *UniterAPI) getProviderID(unit *state.Unit) (string, error) {
@@ -1695,7 +1743,7 @@ func (u *UniterAPI) WatchRelationUnits(ctx context.Context, args params.Relation
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, unit)
+		relUnit, err := u.getRelationUnit(ctx, canAccess, arg.Relation, unit)
 		if err == nil {
 			result.Results[i], err = u.watchOneRelationUnit(relUnit)
 		}
@@ -1766,12 +1814,12 @@ func (u *UniterAPI) oneSetRelationStatus(
 	return nil
 }
 
-func (u *UniterAPI) getUnit(tag names.UnitTag) (*state.Unit, error) {
+func (u *UniterAPI) getLegacyUnit(ctx context.Context, tag names.UnitTag) (*state.Unit, error) {
 	return u.st.Unit(tag.Id())
 }
 
-func (u *UniterAPI) getRelationUnit(canAccess common.AuthFunc, relTag string, unitTag names.UnitTag) (*state.RelationUnit, error) {
-	rel, unit, err := u.getRelationAndUnit(canAccess, relTag, unitTag)
+func (u *UniterAPI) getRelationUnit(ctx context.Context, canAccess common.AuthFunc, relTag string, unitTag names.UnitTag) (*state.RelationUnit, error) {
+	rel, unit, err := u.getRelationAndUnit(ctx, canAccess, relTag, unitTag)
 	if err != nil {
 		return nil, err
 	}
@@ -1831,7 +1879,7 @@ func (u *UniterAPI) getRelation(relTag string) (*state.Relation, error) {
 	return rel, nil
 }
 
-func (u *UniterAPI) getRelationAndUnit(canAccess common.AuthFunc, relTag string, unitTag names.UnitTag) (*state.Relation, *state.Unit, error) {
+func (u *UniterAPI) getRelationAndUnit(ctx context.Context, canAccess common.AuthFunc, relTag string, unitTag names.UnitTag) (*state.Relation, *state.Unit, error) {
 	rel, err := u.getRelation(relTag)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -1839,7 +1887,7 @@ func (u *UniterAPI) getRelationAndUnit(canAccess common.AuthFunc, relTag string,
 	if !canAccess(unitTag) {
 		return nil, nil, apiservererrors.ErrPerm
 	}
-	unit, err := u.getUnit(unitTag)
+	unit, err := u.getLegacyUnit(ctx, unitTag)
 	return rel, unit, err
 }
 
@@ -1928,7 +1976,7 @@ func (u *UniterAPI) destroySubordinates(ctx context.Context, principal *state.Un
 		}
 
 		// TODO(units) - remove dual write to state
-		unit, err := u.getUnit(names.NewUnitTag(subName.String()))
+		unit, err := u.getLegacyUnit(ctx, names.NewUnitTag(subName.String()))
 		if err != nil {
 			return err
 		}
@@ -2010,16 +2058,16 @@ func (u *UniterAPI) WatchUnitRelations(ctx context.Context, args params.Entities
 		}
 		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
-			result.Results[i], err = u.watchOneUnitRelations(tag)
+			result.Results[i], err = u.watchOneUnitRelations(ctx, tag)
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
 
-func (u *UniterAPI) watchOneUnitRelations(tag names.UnitTag) (params.StringsWatchResult, error) {
+func (u *UniterAPI) watchOneUnitRelations(ctx context.Context, tag names.UnitTag) (params.StringsWatchResult, error) {
 	nothing := params.StringsWatchResult{}
-	unit, err := u.getUnit(tag)
+	unit, err := u.getLegacyUnit(ctx, tag)
 	if err != nil {
 		return nothing, err
 	}
@@ -2132,7 +2180,7 @@ func (u *UniterAPI) GoalStates(ctx context.Context, args params.Entities) (param
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		unit, err := u.getUnit(tag)
+		unit, err := u.getLegacyUnit(ctx, tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -2327,7 +2375,7 @@ func (u *UniterAPI) WatchConfigSettingsHash(ctx context.Context, args params.Ent
 	getWatcher := func(unit *state.Unit) (state.StringsWatcher, error) {
 		return unit.WatchConfigSettingsHash()
 	}
-	result, err := u.watchHashes(args, getWatcher)
+	result, err := u.watchHashes(ctx, args, getWatcher)
 	if err != nil {
 		return params.StringsWatchResults{}, errors.Trace(err)
 	}
@@ -2342,7 +2390,7 @@ func (u *UniterAPI) WatchTrustConfigSettingsHash(ctx context.Context, args param
 	getWatcher := func(unit *state.Unit) (state.StringsWatcher, error) {
 		return unit.WatchApplicationConfigSettingsHash()
 	}
-	result, err := u.watchHashes(args, getWatcher)
+	result, err := u.watchHashes(ctx, args, getWatcher)
 	if err != nil {
 		return params.StringsWatchResults{}, errors.Trace(err)
 	}
@@ -2364,14 +2412,14 @@ func (u *UniterAPI) WatchUnitAddressesHash(ctx context.Context, args params.Enti
 		}
 		return unit.WatchMachineAndEndpointAddressesHash()
 	}
-	result, err := u.watchHashes(args, getWatcher)
+	result, err := u.watchHashes(ctx, args, getWatcher)
 	if err != nil {
 		return params.StringsWatchResults{}, errors.Trace(err)
 	}
 	return result, nil
 }
 
-func (u *UniterAPI) watchHashes(args params.Entities, getWatcher func(u *state.Unit) (state.StringsWatcher, error)) (params.StringsWatchResults, error) {
+func (u *UniterAPI) watchHashes(ctx context.Context, args params.Entities, getWatcher func(u *state.Unit) (state.StringsWatcher, error)) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
@@ -2389,7 +2437,7 @@ func (u *UniterAPI) watchHashes(args params.Entities, getWatcher func(u *state.U
 		watcherId := ""
 		var changes []string
 		if canAccess(tag) {
-			watcherId, changes, err = u.watchOneUnitHashes(tag, getWatcher)
+			watcherId, changes, err = u.watchOneUnitHashes(ctx, tag, getWatcher)
 		}
 		result.Results[i].StringsWatcherId = watcherId
 		result.Results[i].Changes = changes
@@ -2398,8 +2446,8 @@ func (u *UniterAPI) watchHashes(args params.Entities, getWatcher func(u *state.U
 	return result, nil
 }
 
-func (u *UniterAPI) watchOneUnitHashes(tag names.UnitTag, getWatcher func(u *state.Unit) (state.StringsWatcher, error)) (string, []string, error) {
-	unit, err := u.getUnit(tag)
+func (u *UniterAPI) watchOneUnitHashes(ctx context.Context, tag names.UnitTag, getWatcher func(u *state.Unit) (state.StringsWatcher, error)) (string, []string, error) {
+	unit, err := u.getLegacyUnit(ctx, tag)
 	if err != nil {
 		return "", nil, err
 	}
@@ -2456,7 +2504,7 @@ func (u *UniterAPI) UpdateNetworkInfo(ctx context.Context, args params.Entities)
 }
 
 func (u *UniterAPI) updateUnitNetworkInfo(ctx context.Context, unitTag names.UnitTag) error {
-	unit, err := u.getUnit(unitTag)
+	unit, err := u.getLegacyUnit(ctx, unitTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -2554,7 +2602,7 @@ func (u *UniterAPI) CommitHookChanges(ctx context.Context, args params.CommitHoo
 }
 
 func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag names.UnitTag, changes params.CommitHookChangesArg, canAccessUnit, canAccessApp common.AuthFunc) error {
-	unit, err := u.getUnit(unitTag)
+	unit, err := u.getLegacyUnit(ctx, unitTag)
 	if err != nil {
 		return internalerrors.Capture(err)
 	}

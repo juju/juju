@@ -330,7 +330,7 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 		// Login to an unknown or migrated model.
 		// See maybeEmitRedirectError for user logins who are redirected.
 		// Hide the fact that the model does not exist.
-		return nil, errors.Unauthorizedf("invalid entity name or password")
+		return nil, errors.Unauthorizedf("invalid entity name or password 12")
 	}
 	// TODO(wallyworld) - we can't yet observe anonymous logins as entity must be non-nil
 	if !result.anonymousLogin {

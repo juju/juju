@@ -5,13 +5,9 @@ package service
 
 import (
 	"context"
-	"strconv"
-	"strings"
 
-	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
@@ -23,39 +19,46 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/password"
 )
 
 // UnitState describes retrieval and persistence methods for
 // units.
 type UnitState interface {
-	// AddIAASUnits adds the specified units to the application.
-	// If the application is not found, an error satisfying [applicationerrors.ApplicationNotFound] is returned.
-	// If any of the units already exists, an error satisfying [applicationerrors.UnitAlreadyExists] is returned.
+	// AddIAASUnits adds the specified units to the application. If the
+	// application is not found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned. If any of the units
+	// already exists, an error satisfying [applicationerrors.UnitAlreadyExists]
+	// is returned.
 	AddIAASUnits(context.Context, string, coreapplication.ID, corecharm.ID, ...application.AddUnitArg) error
 
-	// AddCAASUnits adds the specified units to the application.
-	// If the application is not found, an error satisfying [applicationerrors.ApplicationNotFound] is returned.
-	// If any of the units already exists, an error satisfying [applicationerrors.UnitAlreadyExists] is returned.
+	// AddCAASUnits adds the specified units to the application. If the
+	// application is not found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned. If any of the units
+	// already exists, an error satisfying [applicationerrors.UnitAlreadyExists]
+	// is returned.
 	AddCAASUnits(context.Context, string, coreapplication.ID, corecharm.ID, ...application.AddUnitArg) error
 
-	// InsertMigratingIAASUnits inserts the fully formed units for the specified IAAS application.
-	// This is only used when inserting units during model migration.
-	// If the application is not found, an error satisfying [applicationerrors.ApplicationNotFound] is returned.
-	// If any of the units already exists, an error satisfying [applicationerrors.UnitAlreadyExists] is returned.
+	// InsertMigratingIAASUnits inserts the fully formed units for the specified
+	// IAAS application. This is only used when inserting units during model
+	// migration. If the application is not found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned. If any of the units
+	// already exists, an error satisfying [applicationerrors.UnitAlreadyExists]
+	// is returned.
 	InsertMigratingIAASUnits(context.Context, coreapplication.ID, ...application.InsertUnitArg) error
 
-	// InsertMigratingCAASUnits inserts the fully formed units for the specified CAAS application.
-	// This is only used when inserting units during model migration.
-	// If the application is not found, an error satisfying [applicationerrors.ApplicationNotFound] is returned.
-	// If any of the units already exists, an error satisfying [applicationerrors.UnitAlreadyExists] is returned.
+	// InsertMigratingCAASUnits inserts the fully formed units for the specified
+	// CAAS application. This is only used when inserting units during model
+	// migration. If the application is not found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned. If any of the units
+	// already exists, an error satisfying [applicationerrors.UnitAlreadyExists]
+	// is returned.
 	InsertMigratingCAASUnits(context.Context, coreapplication.ID, ...application.InsertUnitArg) error
 
-	// RegisterCAASUnit registers the specified CAAS application unit.
-	// The following errors can be expected:
-	// - [applicationerrors.ApplicationNotAlive] when the application is not alive
-	// - [applicationerrors.UnitAlreadyExists] when the unit exists
-	// - [applicationerrors.UnitNotAssigned] when the unit was not assigned
+	// RegisterCAASUnit registers the specified CAAS application unit. The
+	// following errors can be expected:
+	// [applicationerrors.ApplicationNotAlive] when the application is not alive
+	// [applicationerrors.UnitAlreadyExists] when the unit exists
+	// [applicationerrors.UnitNotAssigned] when the unit was not assigned
 	RegisterCAASUnit(context.Context, string, application.RegisterCAASUnitArg) error
 
 	// UpdateCAASUnit updates the cloud container for specified unit,
@@ -98,6 +101,13 @@ type UnitState interface {
 	// If the unit is dead, an error satisfying [applicationerrors.UnitIsDead]
 	// is returned.
 	SetUnitConstraints(ctx context.Context, inUnitUUID coreunit.UUID, cons constraints.Constraints) error
+
+	// GetUnitRefreshAttributes returns the unit refresh attributes for the
+	// specified unit. If the unit is not found, an error satisfying
+	// [applicationerrors.UnitNotFound] is returned.
+	// This doesn't take into account life, so it can return the life of a unit
+	// even if it's dead.
+	GetUnitRefreshAttributes(ctx context.Context, unitName coreunit.Name) (application.UnitAttributes, error)
 }
 
 func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
@@ -109,6 +119,10 @@ func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg
 
 	args := make([]application.AddUnitArg, len(units))
 	for i, u := range units {
+		if err := u.UnitName.Validate(); err != nil {
+			return nil, errors.Errorf("validating unit name %q: %w", u.UnitName, err)
+		}
+
 		arg := application.AddUnitArg{
 			UnitName:    u.UnitName,
 			Constraints: constraints,
@@ -130,88 +144,14 @@ func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg
 	return args, nil
 }
 
-// RegisterCAASUnit creates or updates the specified application unit in a caas
-// model, returning an error satisfying
-// [applicationerrors.ApplicationNotFoundError] if the application doesn't
-// exist. If the unit life is Dead, an error satisfying
-// [applicationerrors.UnitAlreadyExists] is returned.
-func (s *ProviderService) RegisterCAASUnit(
-	ctx context.Context,
-	params application.RegisterCAASUnitParams,
-) (coreunit.Name, string, error) {
-	if params.ProviderID == "" {
-		return "", "", errors.Errorf("provider id %w", coreerrors.NotValid)
-	}
-
-	pass, err := password.RandomPassword()
-	if err != nil {
-		return "", "", errors.Errorf("generating unit password: %w", err)
-	}
-	registerArgs := application.RegisterCAASUnitArg{
-		ProviderID:       params.ProviderID,
-		StorageParentDir: application.StorageParentDir,
-		PasswordHash:     password.AgentPasswordHash(pass),
-	}
-
-	// We don't support anything other that statefulsets.
-	// So the pod name contains the unit number.
-	appName := params.ApplicationName
-	splitPodName := strings.Split(params.ProviderID, "-")
-	ord, err := strconv.Atoi(splitPodName[len(splitPodName)-1])
-	if err != nil {
-		return "", "", errors.Capture(err)
-	}
-	unitName, err := coreunit.NewNameFromParts(appName, ord)
-	if err != nil {
-		return "", "", errors.Capture(err)
-	}
-	registerArgs.UnitName = unitName
-	registerArgs.OrderedId = ord
-	registerArgs.OrderedScale = true
-
-	// Find the pod/unit in the provider.
-	caasApplicationProvider, err := s.caasApplicationProvider(ctx)
-	if err != nil {
-		return "", "", errors.Errorf("registering k8s units for application %q: %w", appName, err)
-	}
-	caasApp := caasApplicationProvider.Application(appName, caas.DeploymentStateful)
-	pods, err := caasApp.Units()
-	if err != nil {
-		return "", "", errors.Errorf("finding k8s units for application %q: %w", appName, err)
-	}
-	var pod *caas.Unit
-	for _, v := range pods {
-		p := v
-		if p.Id == params.ProviderID {
-			pod = &p
-			break
-		}
-	}
-	if pod == nil {
-		return "", "", errors.Errorf("pod %s in provider %w", params.ProviderID, coreerrors.NotFound)
-	}
-
-	if pod.Address != "" {
-		registerArgs.Address = &pod.Address
-	}
-	if len(pod.Ports) != 0 {
-		registerArgs.Ports = &pod.Ports
-	}
-	for _, fs := range pod.FilesystemInfo {
-		registerArgs.ObservedAttachedVolumeIDs = append(registerArgs.ObservedAttachedVolumeIDs, fs.Volume.VolumeId)
-	}
-
-	err = s.st.RegisterCAASUnit(ctx, appName, registerArgs)
-	if err != nil {
-		return "", "", errors.Errorf("saving caas unit %q: %w", registerArgs.UnitName, err)
-	}
-	return unitName, pass, nil
-}
-
 // UpdateCAASUnit updates the specified CAAS unit, returning an error satisfying
 // [applicationerrors.ApplicationNotAlive] if the unit's application is not
 // alive.
 func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, params UpdateCAASUnitParams) error {
+	if err := unitName.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+
 	appName := unitName.Application()
 	_, appLife, err := s.st.GetApplicationLife(ctx, appName)
 	if err != nil {
@@ -258,6 +198,10 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 // is not found, an error satisfying [applicationerrors.UnitNotFound] is
 // returned.
 func (s *Service) RemoveUnit(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error {
+	if err := unitName.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+
 	unitLife, err := s.st.GetUnitLife(ctx, unitName)
 	if err != nil {
 		return errors.Capture(err)
@@ -280,6 +224,10 @@ func (s *Service) RemoveUnit(ctx context.Context, unitName coreunit.Name, leader
 // returning an error  satisfying [applicationerrors.UnitNotFoundError]
 // if the unit doesn't exist.
 func (s *Service) DestroyUnit(ctx context.Context, unitName coreunit.Name) error {
+	if err := unitName.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+
 	// For now, all we do is advance the unit's life to Dying.
 	err := s.st.SetUnitLife(ctx, unitName, life.Dying)
 	if err != nil {
@@ -289,14 +237,17 @@ func (s *Service) DestroyUnit(ctx context.Context, unitName coreunit.Name) error
 }
 
 // EnsureUnitDead is called by the unit agent just before it terminates.
-// TODO(units): revisit his existing logic ported from mongo
-// Note: the agent only calls this method once it gets notification
-// that the unit has become dead, so there's strictly no need to call
-// this method as the unit is already dead.
-// This method is also called during cleanup from various cleanup jobs.
-// If the unit is not found, an error satisfying [applicationerrors.UnitNotFound]
+// TODO(units): revisit his existing logic ported from mongo Note: the agent
+// only calls this method once it gets notification that the unit has become
+// dead, so there's strictly no need to call this method as the unit is already
+// dead. This method is also called during cleanup from various cleanup jobs. If
+// the unit is not found, an error satisfying [applicationerrors.UnitNotFound]
 // is returned.
 func (s *Service) EnsureUnitDead(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error {
+	if err := unitName.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+
 	unitLife, err := s.st.GetUnitLife(ctx, unitName)
 	if err != nil {
 		return errors.Capture(err)
@@ -320,6 +271,10 @@ func (s *Service) EnsureUnitDead(ctx context.Context, unitName coreunit.Name, le
 // GetUnitUUID returns the UUID for the named unit, returning an error
 // satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 func (s *Service) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error) {
+	if err := unitName.Validate(); err != nil {
+		return "", errors.Capture(err)
+	}
+
 	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
 		return "", errors.Errorf("getting UUID of unit %q: %w", unitName, err)
@@ -330,6 +285,10 @@ func (s *Service) GetUnitUUID(ctx context.Context, unitName coreunit.Name) (core
 // GetUnitLife looks up the life of the specified unit, returning an error
 // satisfying [applicationerrors.UnitNotFoundError] if the unit is not found.
 func (s *Service) GetUnitLife(ctx context.Context, unitName coreunit.Name) (corelife.Value, error) {
+	if err := unitName.Validate(); err != nil {
+		return "", errors.Capture(err)
+	}
+
 	unitLife, err := s.st.GetUnitLife(ctx, unitName)
 	if err != nil {
 		return "", errors.Errorf("getting life for %q: %w", unitName, err)
@@ -343,6 +302,10 @@ func (s *Service) GetUnitLife(ctx context.Context, unitName coreunit.Name) (core
 // has been removed from mongo. The mongo calls are
 // DestroyMaybeRemove, DestroyWithForce, RemoveWithForce.
 func (s *Service) DeleteUnit(ctx context.Context, unitName coreunit.Name) error {
+	if err := unitName.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+
 	isLast, err := s.st.DeleteUnit(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return nil
@@ -356,51 +319,15 @@ func (s *Service) DeleteUnit(ctx context.Context, unitName coreunit.Name) error 
 	return nil
 }
 
-// CAASUnitTerminating should be called by the CAASUnitTerminationWorker when
-// the agent receives a signal to exit. UnitTerminating will return how the
-// agent should shutdown.
-//
-// We pass in a CAAS broker to get app details from the k8s cluster - we will
-// probably make it a service attribute once more use cases emerge.
-func (s *ProviderService) CAASUnitTerminating(ctx context.Context, unitNameStr string) (bool, error) {
-	unitName, err := coreunit.NewName(unitNameStr)
-	if err != nil {
-		return false, errors.Errorf("parsing unit name %q: %w", unitNameStr, err)
+// GetUnitRefreshAttributes returns the unit refresh attributes for the
+// specified unit. If the unit is not found, an error satisfying
+// [applicationerrors.UnitNotFound] is returned.
+// This doesn't take into account life, so it can return the life of a unit
+// even if it's dead.
+func (s *Service) GetUnitRefreshAttributes(ctx context.Context, unitName coreunit.Name) (application.UnitAttributes, error) {
+	if err := unitName.Validate(); err != nil {
+		return application.UnitAttributes{}, errors.Capture(err)
 	}
 
-	unitLife, err := s.st.GetUnitLife(ctx, unitName)
-	if err != nil {
-		return false, errors.Errorf("getting unit %q life: %w", unitNameStr, err)
-	}
-	if unitLife != life.Alive {
-		return false, nil
-	}
-
-	appName := unitName.Application()
-	unitNum := unitName.Number()
-
-	caasApplicationProvider, err := s.caasApplicationProvider(ctx)
-	if err != nil {
-		return false, errors.Errorf("terminating k8s unit %s/%q: %w", appName, unitNum, err)
-	}
-
-	// We currently only support statefulset.
-	restart := true
-	caasApp := caasApplicationProvider.Application(appName, caas.DeploymentStateful)
-	appState, err := caasApp.State()
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-	appID, err := s.st.GetApplicationIDByName(ctx, appName)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-	scaleInfo, err := s.st.GetApplicationScaleState(ctx, appID)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-	if unitNum >= scaleInfo.Scale || unitNum >= appState.DesiredReplicas {
-		restart = false
-	}
-	return restart, nil
+	return s.st.GetUnitRefreshAttributes(ctx, unitName)
 }
