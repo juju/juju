@@ -31,6 +31,49 @@ func NewState(factory database.TxnRunnerFactory) *State {
 	}
 }
 
+// GetObjectUUID returns the object store UUID for the given file path.
+// The following errors can be returned:
+// - [agentbinaryerrors.ObjectNotFound] when no object exists that matches this path.
+func (s *State) GetObjectUUID(
+	ctx context.Context,
+	path string,
+) (objectstore.UUID, error) {
+	db, err := s.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	type objectStorePath struct {
+		Path         string           `db:"path"`
+		MetadataUUID objectstore.UUID `db:"metadata_uuid"`
+	}
+	objectStore := objectStorePath{Path: path}
+
+	stmt, err := s.Prepare(`
+SELECT metadata_uuid AS &objectStorePath.metadata_uuid
+FROM   object_store_metadata_path
+WHERE  path = $objectStorePath.path`, objectStore)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, objectStore).Get(&objectStore)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"object with path %q not found in store",
+				objectStore.Path,
+			).Add(agentbinaryerrors.ObjectNotFound)
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return "", errors.Errorf(
+			"getting object with path %q: %w",
+			objectStore.Path, err,
+		)
+	}
+	return objectStore.MetadataUUID, nil
+}
+
 // Add adds a new agent binary's metadata to the database.
 // [agentbinaryerrors.AlreadyExists] when the provided agent binary already
 // exists.
@@ -38,6 +81,9 @@ func NewState(factory database.TxnRunnerFactory) *State {
 // this agent binary.
 // [coreerrors.NotSupported] if the architecture is not supported by the
 // state layer.
+// [agentbinaryerrors.AgentBinaryImmutable] if an existing agent binary
+// already exists with the same version and architecture but a different
+// SHA.
 func (s *State) Add(ctx context.Context, metadata agentbinary.Metadata) error {
 	db, err := s.DB()
 	if err != nil {
@@ -52,15 +98,16 @@ func (s *State) Add(ctx context.Context, metadata agentbinary.Metadata) error {
 
 	archStmt, err := s.Prepare(`
 SELECT &architectureRecord.*
-FROM architecture
-WHERE name = $architectureRecord.name
+FROM   architecture
+WHERE  name = $architectureRecord.name
 `, archVal)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	insertStmt, err := s.Prepare(`
-INSERT INTO agent_binary_store (*) VALUES ($agentBinaryRecord.*)
+INSERT INTO agent_binary_store (*) 
+VALUES ($agentBinaryRecord.*)
 `, agentBinary)
 	if err != nil {
 		return errors.Capture(err)
@@ -91,19 +138,39 @@ INSERT INTO agent_binary_store (*) VALUES ($agentBinaryRecord.*)
 		}
 
 		agentBinary.ArchitectureID = archVal.ID
-
 		err = tx.Query(ctx, insertStmt, agentBinary).Run()
 		if jujudb.IsErrConstraintPrimaryKey(err) {
 			// There must be an agent version for this version and arch already.
 			// We do not want to overwrite this value as it could result in a
 			// security risk.
+
+			// We want to check if the supplied SHA is a different value.
+			// If it is, we want to return the agentbinaryerrors.AgentBinaryImmutable error.
+			// The agent binary is immutable once it is uploaded.
+			existingAgentBinary, err := s.getAgentBinary(
+				ctx, tx, agentBinary.Version, agentBinary.ArchitectureID,
+			)
+			if errors.Is(err, coreerrors.NotFound) {
+				// This should never happen.
+				return errors.Capture(err)
+			}
+			if err != nil {
+				return errors.Capture(err)
+			}
+			if existingAgentBinary.ObjectStoreUUID != agentBinary.ObjectStoreUUID {
+				return errors.Errorf(
+					"agent binary for version %q and arch %q already exists with a different SHA",
+					agentBinary.Version, agentBinary.ArchitectureID,
+				).Add(agentbinaryerrors.AgentBinaryImmutable)
+			}
+
 			return errors.New(
 				"agent binary already exists",
 			).Add(agentbinaryerrors.AlreadyExists)
-		} else if err != nil {
+		}
+		if err != nil {
 			return errors.Capture(err)
 		}
-
 		return nil
 	})
 
@@ -116,6 +183,41 @@ INSERT INTO agent_binary_store (*) VALUES ($agentBinaryRecord.*)
 	return nil
 }
 
+func (s *State) getAgentBinary(
+	ctx context.Context,
+	tx *sqlair.TX,
+	version string,
+	architectureID int,
+) (agentBinaryRecord, error) {
+	agentBinaryVal := agentBinaryRecord{
+		Version:        version,
+		ArchitectureID: architectureID,
+	}
+	getStmt, err := s.Prepare(`
+SELECT &agentBinaryRecord.*
+FROM   agent_binary_store
+WHERE  version = $agentBinaryRecord.version
+AND    architecture_id = $agentBinaryRecord.architecture_id
+`, agentBinaryVal)
+	if err != nil {
+		return agentBinaryVal, errors.Capture(err)
+	}
+	err = tx.Query(ctx, getStmt, agentBinaryVal).Get(&agentBinaryVal)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return agentBinaryVal, errors.Errorf(
+			"agent binary for version %q and arch %q not found",
+			agentBinaryVal.Version, agentBinaryVal.ArchitectureID,
+		).Add(coreerrors.NotFound)
+	}
+	if err != nil {
+		return agentBinaryVal, errors.Errorf(
+			"getting agent binary for version %q and arch %q: %w",
+			agentBinaryVal.Version, agentBinaryVal.ArchitectureID, err,
+		)
+	}
+	return agentBinaryVal, nil
+}
+
 // checkObjectExists checks if an object exists for the given UUID. True and
 // false will be returned with no error indicating if the object exists or not.
 func (s *State) checkObjectExists(
@@ -126,8 +228,8 @@ func (s *State) checkObjectExists(
 	dbVal := objectStoreUUID{UUID: objectUUID.String()}
 	objectExistsStmt, err := s.Prepare(`
 SELECT &objectStoreUUID.*
-FROM object_store_metadata
-WHERE uuid = $objectStoreUUID.uuid
+FROM   object_store_metadata
+WHERE  uuid = $objectStoreUUID.uuid
 `,
 		dbVal,
 	)
