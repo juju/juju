@@ -10,6 +10,7 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination service_mock_test.go github.com/juju/juju/domain/modelagent/service State
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination domain_mock_test.go github.com/juju/juju/domain/modelagent Storage
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

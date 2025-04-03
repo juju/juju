@@ -5,6 +5,7 @@ package machinemanager
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -25,15 +26,17 @@ import (
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
+	"github.com/juju/juju/domain/modelagent"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/binarystorage"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
@@ -48,6 +51,7 @@ type AddMachineManagerSuite struct {
 	cloudService  *commonmocks.MockCloudService
 
 	controllerConfigService *MockControllerConfigService
+	agentFinderService      *MockAgentFinderService
 	machineService          *MockMachineService
 	networkService          *MockNetworkService
 	keyUpdaterService       *MockKeyUpdaterService
@@ -73,6 +77,7 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.storageAccess = NewMockStorageInterface(ctrl)
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.agentFinderService = NewMockAgentFinderService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
 	s.store = NewMockObjectStore(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
@@ -84,6 +89,7 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.api = NewMachineManagerAPI(
 		s.model,
 		s.controllerConfigService,
+		s.agentFinderService,
 		s.st,
 		s.cloudService,
 		s.machineService,
@@ -198,6 +204,7 @@ type DestroyMachineManagerSuite struct {
 	model         model.ModelInfo
 
 	controllerConfigService *MockControllerConfigService
+	agentFinderService      *MockAgentFinderService
 	machineService          *MockMachineService
 	networkService          *MockNetworkService
 	keyUpdaterService       *MockKeyUpdaterService
@@ -221,6 +228,7 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.st = NewMockBackend(ctrl)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.agentFinderService = NewMockAgentFinderService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
 	s.store = NewMockObjectStore(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
@@ -239,6 +247,7 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.api = NewMachineManagerAPI(
 		s.model,
 		s.controllerConfigService,
+		s.agentFinderService,
 		s.st,
 		s.cloudService,
 		s.machineService,
@@ -723,6 +732,7 @@ type ProvisioningMachineManagerSuite struct {
 	model        model.ModelInfo
 
 	controllerConfigService *MockControllerConfigService
+	agentFinderService      *MockAgentFinderService
 	machineService          *MockMachineService
 	networkService          *MockNetworkService
 	keyUpdaterService       *MockKeyUpdaterService
@@ -761,6 +771,7 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller
 	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.bootstrapEnviron = NewMockBootstrapEnviron(ctrl)
+	s.agentFinderService = NewMockAgentFinderService(ctrl)
 	s.store = NewMockObjectStore(ctrl)
 
 	s.blockCommandService = NewMockBlockCommandService(ctrl)
@@ -771,6 +782,7 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller
 	s.api = NewMachineManagerAPI(
 		s.model,
 		s.controllerConfigService,
+		s.agentFinderService,
 		s.st,
 		s.cloudService,
 		s.machineService,
@@ -807,9 +819,6 @@ func (s *ProvisioningMachineManagerSuite) expectProvisioningMachine(ctrl *gomock
 
 func (s *ProvisioningMachineManagerSuite) expectProvisioningStorageCloser(ctrl *gomock.Controller) *MockStorageCloser {
 	storageCloser := NewMockStorageCloser(ctrl)
-	storageCloser.EXPECT().AllMetadata().Return([]binarystorage.Metadata{{
-		Version: "2.6.6-ubuntu-amd64",
-	}}, nil)
 	storageCloser.EXPECT().Close().Return(nil)
 
 	return storageCloser
@@ -835,10 +844,27 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *gc.C) {
 	storageCloser := s.expectProvisioningStorageCloser(ctrl)
 	s.st.EXPECT().ToolsStorage(gomock.Any()).Return(storageCloser, nil)
 
+	modelID := modeltesting.GenModelUUID(c)
+	s.agentFinderService.EXPECT().FindAgents(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, p modelagent.FindAgentsParams) (tools.List, error) {
+		c.Assert(p.Number.String(), gc.Equals, "2.6.6")
+		c.Assert(p.MajorVersion, gc.Equals, 0)
+		c.Assert(p.MinorVersion, gc.Equals, 0)
+		c.Assert(p.AgentStream, gc.Equals, "")
+		c.Assert(p.Arch, gc.Equals, "amd64")
+		c.Assert(p.AgentStorage, jc.DeepEquals, storageCloser)
+		c.Assert(p.ToolsURLsGetter, gc.NotNil)
+		return tools.List{{
+			Version: semversion.MustParseBinary("2.6.6-ubuntu-amd64"),
+			URL:     fmt.Sprintf("https://1.2.3.4:1/model/%s/tools/2.6.6-ubuntu-amd64", modelID.String()),
+			SHA256:  "deadbeaf",
+			Size:    666,
+		}}, nil
+	})
+
 	s.ctrlSt.EXPECT().APIHostPortsForAgents(gomock.Any()).Return([]network.SpaceHostPorts{{{
 		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
 		NetPort:      1,
-	}}}, nil).Times(2)
+	}}}, nil)
 	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(
 		gomock.Any(), coremachine.Name("0"),
 	).Return([]string{
@@ -903,10 +929,27 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCo
 	storageCloser := s.expectProvisioningStorageCloser(ctrl)
 	s.st.EXPECT().ToolsStorage(gomock.Any()).Return(storageCloser, nil)
 
+	modelID := modeltesting.GenModelUUID(c)
+	s.agentFinderService.EXPECT().FindAgents(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, p modelagent.FindAgentsParams) (tools.List, error) {
+		c.Assert(p.Number.String(), gc.Equals, "2.6.6")
+		c.Assert(p.MajorVersion, gc.Equals, 0)
+		c.Assert(p.MinorVersion, gc.Equals, 0)
+		c.Assert(p.AgentStream, gc.Equals, "")
+		c.Assert(p.Arch, gc.Equals, "amd64")
+		c.Assert(p.AgentStorage, jc.DeepEquals, storageCloser)
+		c.Assert(p.ToolsURLsGetter, gc.NotNil)
+		return tools.List{{
+			Version: semversion.MustParseBinary("2.6.6-ubuntu-amd64"),
+			URL:     fmt.Sprintf("https://1.2.3.4:1/model/%s/tools/2.6.6-ubuntu-amd64", modelID.String()),
+			SHA256:  "deadbeaf",
+			Size:    666,
+		}}, nil
+	})
+
 	s.ctrlSt.EXPECT().APIHostPortsForAgents(gomock.Any()).Return([]network.SpaceHostPorts{{{
 		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
 		NetPort:      1,
-	}}}, nil).Times(2)
+	}}}, nil)
 
 	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(
 		gomock.Any(), coremachine.Name("0"),

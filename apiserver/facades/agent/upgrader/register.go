@@ -75,6 +75,7 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 	cloudService := domainServices.Cloud()
 	credentialService := domainServices.Credential()
 	modelConfigService := domainServices.Config()
+	agentFinder := domainServices.Agent()
 
 	getCanReadWrite := func() (common.AuthFunc, error) {
 		return auth.AuthOwner, nil
@@ -84,8 +85,8 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 	configGetter := stateenvirons.EnvironConfigGetter{
 		Model: model, ModelConfigService: modelConfigService, CloudService: cloudService, CredentialService: credentialService}
 	newEnviron := common.EnvironFuncForModel(model, cloudService, credentialService, configGetter)
-	toolsFinder := common.NewToolsFinder(controllerConfigGetter, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
-	toolsGetter := common.NewToolsGetter(domainServices.Agent(), st, urlGetter, toolsFinder, getCanReadWrite)
+	toolsFinder := common.NewToolsFinder(agentFinder, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
+	toolsGetter := common.NewToolsGetter(controllerConfigGetter, agentFinder, st, urlGetter, toolsFinder, getCanReadWrite)
 
 	return NewUpgraderAPI(
 		toolsGetter,

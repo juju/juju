@@ -74,10 +74,10 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 		return nil, errors.Trace(err)
 	}
 
-	controllerConfigService := domainServices.ControllerConfig()
+	agentFinder := domainServices.Agent()
 
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
-	toolsFinder := common.NewToolsFinder(controllerConfigService, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
+	toolsFinder := common.NewToolsFinder(agentFinder, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
 
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 	backend := commonmodel.NewUserAwareModelManagerBackend(model, pool, apiUser)
