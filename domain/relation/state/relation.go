@@ -5,12 +5,15 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
@@ -470,6 +473,454 @@ func (st *State) GetRelationDetails(ctx context.Context, relationUUID corerelati
 		return errors.Capture(err)
 	})
 	return result, errors.Capture(err)
+}
+
+// EnterScope indicates that the provided unit has joined the relation.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] if the relation cannot be found.
+//   - [relationerrors.UnitNotFound] if no unit by the given name can be found
+//   - [relationerrors.RelationNotAlive] if the relation is not alive.
+//   - [relationerrors.UnitNotAlive] if the  is not alive.
+//   - [relationerrors.PotentialRelationUnitNotValid] if the unit entering scope
+//     is a subordinate and its endpoint has scope charm.ScopeContainer, but the
+//     principal application of the unit is not the application in the relation.
+func (st *State) EnterScope(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	unitName unit.Name,
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	unitArgs := getUnit{
+		Name: unitName,
+	}
+	getUnitStmt, err := st.Prepare(`
+SELECT &getUnit.*
+FROM   unit
+WHERE  name = $getUnit.name
+`, unitArgs)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Get the UUID of the unit entering scope.
+		err = tx.Query(ctx, getUnitStmt, unitArgs).Get(&unitArgs)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return relationerrors.UnitNotFound
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+
+		// Check the unit can enter scope in this relation.
+		err := st.checkUnitCanEnterScope(ctx, tx, relationUUID, unitArgs.UUID)
+		if err != nil {
+			return errors.Errorf("checking unit valid in relation: %w", err)
+		}
+
+		// Upsert the row recording that the unit has entered scope.
+		err = st.upsertRelationUnitAndEnterScope(ctx, tx, relationUUID, unitArgs.UUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		return err
+	})
+	return errors.Capture(err)
+}
+
+// checkUnitCanEnterScope checks that the unit can enter scope in the given
+// relation.
+func (st *State) checkUnitCanEnterScope(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relationUUID corerelation.UUID,
+	unitUUID unit.UUID,
+) error {
+	// Check relation is alive.
+	relationLife, err := st.getLife(ctx, tx, "relation", relationUUID.String())
+	if errors.Is(err, coreerrors.NotFound) {
+		return relationerrors.RelationNotFound
+	} else if err != nil {
+		return errors.Errorf("getting relation life: %w", err)
+	}
+	if relationLife != life.Alive {
+		return relationerrors.RelationNotAlive
+	}
+
+	// Check unit is alive.
+	unitLife, err := st.getLife(ctx, tx, "unit", unitUUID.String())
+	if errors.Is(err, coreerrors.NotFound) {
+		return relationerrors.UnitNotFound
+	} else if err != nil {
+		return errors.Errorf("getting unit life: %w", err)
+	}
+	if unitLife != life.Alive {
+		return relationerrors.UnitNotAlive
+	}
+
+	// Get the IDs of the applications in the relation.
+	appIDs, err := st.getApplicationsInRelation(ctx, tx, relationUUID)
+	if err != nil {
+		return errors.Errorf("getting applications in relation: %w", err)
+	}
+
+	// Get the ID of the application of the unit trying to enter scope.
+	unitsAppID, err := st.getApplicationOfUnit(ctx, tx, unitUUID)
+	if err != nil {
+		return errors.Errorf("getting application of unit: %w", err)
+	}
+
+	// Check that the application of the unit is in the relation.
+	found := false
+	switch len(appIDs) {
+	case 1: // Peer relation.
+		if appIDs[0] == unitsAppID {
+			found = true
+		}
+	case 2: // Regular relation.
+		var otherAppID application.ID
+		if appIDs[0] == unitsAppID {
+			found = true
+			otherAppID = appIDs[1]
+		} else if appIDs[1] == unitsAppID {
+			found = true
+			otherAppID = appIDs[0]
+		}
+
+		// If the unit is a subordinate, check that it can enter scope in this
+		// relation.
+		if subordinate, err := st.isSubordinate(ctx, tx, unitsAppID); err != nil {
+			return errors.Errorf("checking if application is subordinate: %w", err)
+		} else if subordinate {
+			err := st.checkSubordinateUnitCanEnterScope(ctx, tx, relationUUID, unitUUID, otherAppID)
+			if err != nil {
+				return errors.Errorf("checking subordinate unit can enter scope %w", err)
+			}
+		}
+	}
+	if !found {
+		return relationerrors.UnitNotInRelation
+	}
+
+	return nil
+}
+
+// getLife takes a table and a UUID, it joins the table to life on life_id. If
+// the UUID cannot be found [coreerrors.NotFound] is returned.
+func (st *State) getLife(
+	ctx context.Context,
+	tx *sqlair.TX,
+	table, uuid string,
+) (life.Value, error) {
+	args := getLife{
+		UUID: uuid,
+	}
+	stmt, err := st.Prepare(fmt.Sprintf(`
+SELECT &getLife.*
+FROM   %s t
+JOIN   life l ON t.life_id = l.id
+WHERE  t.uuid = $getLife.uuid
+`, table), args)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt, args).Get(&args)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", coreerrors.NotFound
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return args.Life, nil
+}
+
+// getApplicationOfUnit returns the ID of the application associated with the
+// unit.
+func (st *State) getApplicationOfUnit(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitUUID unit.UUID,
+) (application.ID, error) {
+	args := getUnitApp{
+		UnitUUID: unitUUID,
+	}
+	stmt, err := st.Prepare(`
+SELECT &getUnitApp.*
+FROM   unit
+WHERE  uuid = $getUnitApp.uuid
+`, args)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt, args).Get(&args)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", relationerrors.UnitNotFound
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return args.ApplicationUUID, nil
+}
+
+// getApplicationsInRelation gets all the applications that are in the given
+// relation.
+func (st *State) getApplicationsInRelation(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid corerelation.UUID,
+) ([]application.ID, error) {
+	relUUID := relationUUID{
+		UUID: uuid,
+	}
+	stmt, err := st.Prepare(`
+SELECT &applicationUUID.application_uuid
+FROM   relation_endpoint re 
+JOIN   application_endpoint ae ON re.endpoint_uuid = ae.uuid
+WHERE  re.relation_uuid = $relationUUID.uuid
+`, relUUID, applicationUUID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var apps []applicationUUID
+	err = tx.Query(ctx, stmt, relUUID).GetAll(&apps)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, relationerrors.RelationNotFound
+	} else if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var ids []application.ID
+	for _, app := range apps {
+		ids = append(ids, app.UUID)
+	}
+
+	return ids, nil
+}
+
+// checkSubordinateUnitCanEnterScope checks that subordinate units can enter
+// scope.
+//
+// When the all following three conditions are true:
+// 1. The relation has scope container.
+// 2. The unit entering scope is a subordinate.
+// 3. The other application is not a subordinate.
+// Then the subordinate unit cannot enter a relation unless its principle
+// application is the one in the relation. In this case, the error
+// [relationerrors.PotentialRelationUnitNotValid] is returned.
+//
+// The above scenario can happen when a subordinate application is deployed then
+// related to multiple principle applications. The units of the single
+// subordinate application can have different principle applications depending
+// on which machine they are on. When the subordinate application is related to
+// a new principle application, watchers will trigger for all of its units, and
+// they will all try to enter the relation scope. They should only succeed if
+// they are the units of the new principle application, otherwise the error is
+// returned.
+func (st *State) checkSubordinateUnitCanEnterScope(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relUUID corerelation.UUID,
+	unitUUID unit.UUID,
+	otherApplication application.ID,
+) error {
+	// Check that the other application in the relation is not a subordinate
+	// application, if it is, we have a relation between two subordinates, which
+	// is OK.
+	if subordinate, err := st.isSubordinate(ctx, tx, otherApplication); err != nil {
+		return errors.Errorf("checking if application is subordinate: %w", err)
+	} else if !subordinate {
+		return nil
+	}
+
+	// Check that the relation is a container scoped relation.
+	scope, err := st.getRelationScope(ctx, tx, relUUID)
+	if err != nil {
+		return errors.Errorf("getting relation scope: %w", err)
+	}
+	if scope != charm.ScopeContainer {
+		return nil
+	}
+
+	// Check that the principle application of the unit is the other application
+	// in the relation the unit is trying to enter scope in.
+	principleAppID, err := st.getPrincipalApplicationOfUnit(ctx, tx, unitUUID)
+	if err != nil {
+		return errors.Errorf("getting principal application of unit: %w", err)
+	}
+	if principleAppID != otherApplication {
+		return errors.Errorf(
+			"unit cannot enter scope: principle application not in relation: %w",
+			relationerrors.PotentialRelationUnitNotValid,
+		)
+	}
+
+	return nil
+}
+
+// getRelationScope returns the scope of the given relation. Relation scope is
+// defined by the scope of the endpoints in the relation. If it is a peer
+// relation, then it is the scope of the single endpoint. If it is a regular
+// relation, then it is Container if either/both of the endpoints have Container
+// scope, and Global if both have Global scope.
+func (st *State) getRelationScope(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid corerelation.UUID,
+) (charm.RelationScope, error) {
+	relUUID := relationUUID{
+		UUID: uuid,
+	}
+	getScopeStmt, err := st.Prepare(`
+SELECT &getScope.*
+FROM   v_relation_endpoint
+WHERE  relation_uuid = $relationUUID.uuid
+`, relUUID, getScope{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	var scopes []getScope
+	err = tx.Query(ctx, getScopeStmt, relUUID).GetAll(&scopes)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	// Scope can either be Global or Container. It is container if any of the
+	// endpoints are Container scoped.
+	scope := charm.ScopeGlobal
+	for _, s := range scopes {
+		if s.Scope == charm.ScopeContainer {
+			scope = charm.ScopeContainer
+		}
+	}
+
+	return scope, nil
+}
+
+// isSubordinate returns true if the application is a subordinate application.
+func (st *State) isSubordinate(
+	ctx context.Context,
+	tx *sqlair.TX,
+	applicationUUID application.ID,
+) (bool, error) {
+	subordinate := getSubordinate{
+		ApplicationUUID: applicationUUID,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT subordinate AS &getSubordinate.subordinate
+FROM   charm_metadata cm
+JOIN   charm c ON c.uuid = cm.charm_uuid
+JOIN   application a ON a.charm_uuid = c.uuid
+WHERE  a.uuid = $getSubordinate.application_uuid
+`, subordinate)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, subordinate).Get(&subordinate)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return subordinate.Subordinate, nil
+}
+
+// getPrincipalApplicationOfUnit returns the UUID of the principle application
+// of a unit. If the unit has no principle application, then the error
+// [relationerrors.UnitPrincipalNotFound] is returned (this means the error is
+// always returned when the unit is not a subordinate).
+func (st *State) getPrincipalApplicationOfUnit(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitUUID unit.UUID,
+) (application.ID, error) {
+	principal := getPrincipal{
+		UnitUUID: unitUUID,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &getPrincipal.application_uuid
+FROM   unit u
+JOIN   unit_principal up ON up.principal_uuid = u.uuid
+WHERE  up.unit_uuid = $getPrincipal.unit_uuid
+`, principal)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, principal).Get(&principal)
+	if errors.Is(sql.ErrNoRows, err) {
+		return "", relationerrors.UnitPrincipalNotFound
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return principal.ApplicationUUID, nil
+}
+
+// upsertRelationUnit inserts or updates a relation unit record.
+func (st *State) upsertRelationUnitAndEnterScope(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relationUUID corerelation.UUID,
+	unitUUID unit.UUID,
+) error {
+	// Check if a relation_unit record already exists for this unit.
+	getRelationUnit := relationUnit{
+		RelationUUID: relationUUID,
+		UnitUUID:     unitUUID,
+	}
+	getRelationUnitStmt, err := st.Prepare(`
+SELECT  &relationUnit.* 
+FROM    relation_unit 
+WHERE   relation_uuid = $relationUnit.relation_uuid
+AND     unit_uuid = $relationUnit.unit_uuid
+`, getRelationUnit)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, getRelationUnitStmt, getRelationUnit).Get(&getRelationUnit)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Capture(err)
+	} else if !errors.Is(err, sqlair.ErrNoRows) && getRelationUnit.InScope == true {
+		// If there is already a relation unit, and it is in scope, do nothing.
+		return nil
+	}
+
+	relationUnitUUID := getRelationUnit.RelationUnitUUID
+
+	// If there was not already a row, create the UUID for a new one.
+	if relationUnitUUID == "" {
+		uuid, err := corerelation.NewUnitUUID()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		relationUnitUUID = uuid
+	}
+
+	insertRelationUnit := relationUnit{
+		RelationUnitUUID: relationUnitUUID,
+		RelationUUID:     relationUUID,
+		UnitUUID:         unitUUID,
+		InScope:          true,
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO relation_unit (*) 
+VALUES ($relationUnit.*)
+ON CONFLICT (relation_uuid, unit_uuid) DO UPDATE SET
+            in_scope = excluded.in_scope
+`, insertRelationUnit)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return tx.Query(ctx, insertStmt, insertRelationUnit).Run()
 }
 
 // WatcherApplicationSettingsNamespace returns the namespace string used for

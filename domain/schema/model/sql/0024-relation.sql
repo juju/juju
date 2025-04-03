@@ -165,6 +165,7 @@ CREATE VIEW v_relation_endpoint AS
 SELECT
     r.uuid AS relation_uuid,
     a.name AS application_name,
+    a.uuid AS application_uuid,
     cr.name AS endpoint_name,
     cr.interface,
     cr.optional,
