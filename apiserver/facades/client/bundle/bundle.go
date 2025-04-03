@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -56,7 +55,6 @@ type BundleAPI struct {
 	backend            Backend
 	store              objectstore.ObjectStore
 	authorizer         facade.Authorizer
-	modelTag           names.ModelTag
 	networkService     NetworkService
 	applicationService ApplicationService
 	logger             corelogger.Logger
@@ -71,7 +69,6 @@ func newFacade(ctx facade.ModelContext) (*BundleAPI, error) {
 		NewStateShim(st),
 		ctx.ObjectStore(),
 		authorizer,
-		names.NewModelTag(st.ModelUUID()),
 		ctx.DomainServices().Network(),
 		ctx.DomainServices().Application(),
 		ctx.Logger().Child("bundlechanges"),
@@ -83,7 +80,6 @@ func NewBundleAPI(
 	st Backend,
 	store objectstore.ObjectStore,
 	auth facade.Authorizer,
-	tag names.ModelTag,
 	networkService NetworkService,
 	applicationService ApplicationService,
 	logger corelogger.Logger,
@@ -96,7 +92,6 @@ func NewBundleAPI(
 		backend:            st,
 		store:              store,
 		authorizer:         auth,
-		modelTag:           tag,
 		networkService:     networkService,
 		applicationService: applicationService,
 		logger:             logger,
