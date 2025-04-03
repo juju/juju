@@ -4,8 +4,8 @@
 ```{toctree}
 :hidden:
 
-list-of-controller-configuration-keys
-list-of-model-configuration-keys
+configuration/list-of-controller-configuration-keys
+configuration/list-of-model-configuration-keys
 ```
 
 
@@ -27,15 +27,15 @@ Model configuration affects behavior of a model, including the `controller` mode
 (application-configuration)=
 ## Application configuration
 
-Application configuration affects the behavior of an application. 
+Application configuration affects the behavior of an application.
 
-Application configuration keys are generally application-specific. Depending on what the charm author has decided, they can be used to allow the charm user to make certain decisions about the application, for example, the server port on which the  application should be available, the resource profile, the DNS name, etc. 
+Application configuration keys are generally application-specific. Depending on what the charm author has decided, they can be used to allow the charm user to make certain decisions about the application, for example, the server port on which the  application should be available, the resource profile, the DNS name, etc.
 
-> See examples: [Charmhub | `mysql` > Configurations](https://charmhub.io/mysql/configure#cluster-name), [Charmhub | `traefik-k8s` > Configurations](https://charmhub.io/traefik-k8s/configure), etc. 
+> See examples: [Charmhub | `mysql` > Configurations](https://charmhub.io/mysql/configure#cluster-name), [Charmhub | `traefik-k8s` > Configurations](https://charmhub.io/traefik-k8s/configure), etc.
 
 > See more: {ref}`configure-an-application`
 
-However, there is also a generic key, `trust`, that can be changed via `juju trust`. 
+However, there is also a generic key, `trust`, that can be changed via `juju trust`.
 
 > See more: {ref}`trust-an-application-with-a-credential`
 
@@ -49,5 +49,5 @@ application-config:
   trust:
 ```
 
-with `trust` being listed there (even if it's not in the config of the charm). 
+with `trust` being listed there (even if it's not in the config of the charm).
 -->

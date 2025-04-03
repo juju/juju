@@ -8,5 +8,5 @@ When you install Juju (e.g., via `snap install juju`), you get the `juju` CLI cl
 :titlesonly:
 :glob:
 
-*
+juju/*
 ```

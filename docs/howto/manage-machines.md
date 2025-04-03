@@ -21,7 +21,7 @@ To add a new machine to a model, run the `add-machine` command, as below. `juju`
 juju add-machine
 ```
 
-The command also provides many options. By using them you can customize many things. For example, you can provision multiple machines, specify the Ubuntu series to be installed on them, choose to deploy on a lxd container *inside* a machine, apply various constraints to the machine (e.g., storage, spaces, ...) to override more general defaults (e.g., at the model level), etc. 
+The command also provides many options. By using them you can customize many things. For example, you can provision multiple machines, specify the Ubuntu series to be installed on them, choose to deploy on a lxd container *inside* a machine, apply various constraints to the machine (e.g., storage, spaces, ...) to override more general defaults (e.g., at the model level), etc.
 
 Machines provisioned via `add-machine` can be used for an initial deployment (`deploy` ) or a scale-out deployment (`add-unit`).
 
@@ -29,9 +29,9 @@ Machines provisioned via `add-machine` can be used for an initial deployment (`d
 
 
 ```{note}
-Issues during machine provisioning can occur at any stage in the following sequence: 
+Issues during machine provisioning can occur at any stage in the following sequence:
 
-> Provision resources/a machine M from the relevant cloud, via cloud-init maybe network config, download the jujud binaries from the controller, start jujud. 
+> Provision resources/a machine M from the relevant cloud, via cloud-init maybe network config, download the jujud binaries from the controller, start jujud.
 
 To troubleshoot, try to gather more information until you understand what caused the issue.
 
@@ -190,7 +190,7 @@ machines:
 
 
 > See more: {ref}`command-juju-add-machine`, {ref}`add-a-machine`
- 
+
 **Get values.** You can get constraint values for for an individual machine by viewing details about the command with the `show-machine` command, for example:
 
 ```text
@@ -260,7 +260,7 @@ The `exec` command can take many other flags, allowing you to specify an output 
 (access-a-machine-via-ssh)=
 ## Access a machine via SSH
 
-There are two ways you can connect to a Juju machine: via `juju ssh` or via a standard SSH client. The former is more secure as it allows access solely from a Juju user with `admin` model access. 
+There are two ways you can connect to a Juju machine: via `juju ssh` or via a standard SSH client. The former is more secure as it allows access solely from a Juju user with `admin` model access.
 
 
 ### Use the `juju ssh` command
@@ -289,7 +289,7 @@ As previously explained, 'admin' model access and installed model keys can be ob
 Then, to initiate an SSH session or execute a command on a Juju machine (or container), use the `juju ssh` command followed by the target machine (or container). This target can be specified using a machine (or container) ID or using the ID of the unit that it hosts. Both can be retrieved from the output of `juju status`. For example, below we `ssh` into machine 0 and inside of it run `echo hello`:
 
 ```text
-juju ssh 0 echo hello 
+juju ssh 0 echo hello
 ```
 
 By passing further arguments and options, you can also run this on behalf of a different qualified user (other than the current user) or pass a private SSH key instead.
@@ -312,7 +312,7 @@ juju ssh 0 -i ~/.ssh/my-private-key
 
 ### Use the OpenSSH `ssh` command
 
-First, make sure you've added a public SSH key for your user to the target model. 
+First, make sure you've added a public SSH key for your user to the target model.
 
 ```{important}
 If you are the model creator, your public SSH key is already known to `juju` and you already have `admin` access for the model. If you are not the model creator, see {ref}`manage-users` and {ref}`user-access-levels` for how to gain `admin` access to a model and {ref}`manage-ssh-keys` for how to add your SSH key to the model.
@@ -392,7 +392,7 @@ juju bootstrap aws aws-new --bootstrap-base=<base>
 > See more: {ref}`migrate-a-model`
 
 
-**3. Configure the migrated models such that all new machines have the new base.** 
+**3. Configure the migrated models such that all new machines have the new base.**
 
 ``` text
 juju model-config -m <model name> default-base=<base>
@@ -417,7 +417,7 @@ Once the `prepare` command has been issued, there is no way to cancel or abort t
 ```
 
 ```{caution}
-**If you're using Juju <3.1:** Instead of a {ref}`base` you must specify the series. Thus, not `ubuntu@22.04` but rather `jammy`. 
+**If you're using Juju <3.1:** Instead of a {ref}`machine-base` you must specify the series. Thus, not `ubuntu@22.04` but rather `jammy`.
 ```
 
 ```text
@@ -426,7 +426,7 @@ juju upgrade-machine 3 prepare ubuntu@22.04
 
 This has multiple effects:
 
-1.  The machine is no longer available for charm deployments or for hosting new containers. 
+1.  The machine is no longer available for charm deployments or for hosting new containers.
 2. Juju prepares the machine for the upcoming OS upgrade. All units on the machine are taken into account.
 
 **2. Perform the upgrade.** This is done manually. On an Ubuntu-based machine, you can do this by logging in to the machine via SSH and executing the `do-release-upgrade` command:
@@ -465,7 +465,7 @@ It is not possible to remove a machine that is currently hosting either a unit o
 In some situations, even with the `--force` option, the machine on the backing cloud may be left alive. Examples of this include the Manual cloud or if harvest provisioning mode is not set. In addition to those situations, if the client has lost connectivity with the backing cloud, any backing cloud, then the machine may not be destroyed, even if the machine's record has been removed from the Juju database and the client is no longer aware of it.
 ```
 
-By using various options, you can also customize various other things, for example, the model or whether to keep the running cloud instance or not. 
+By using various options, you can also customize various other things, for example, the model or whether to keep the running cloud instance or not.
 
 > See more: {ref}`command-juju-remove-machine`
 
@@ -473,7 +473,7 @@ By using various options, you can also customize various other things, for examp
 By default, when a machine is removed, the backing system, typically a cloud instance, is also destroyed. The for example, `--keep-instance` option overrides this; it allows the instance to be left running.
 -->
 
-<!--DETAILS FOR ADD-MACHINE, originally from https://discourse.charmhub.io/t/how-to-set-constraints-for-a-machine/5884 
+<!--DETAILS FOR ADD-MACHINE, originally from https://discourse.charmhub.io/t/how-to-set-constraints-for-a-machine/5884
 Constraints at the machine level can be set when adding a machine with the `add-machine` command. Doing so provides a way to override defaults at the all-units, application, model, and all-models levels.
 
 Once such a machine has been provisioned, it can be used for an initial deployment (`deploy`) or a scale-out deployment (`add-unit`). See {ref}`Deploying to specific machines <5886md` for the command syntax to use.

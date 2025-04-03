@@ -1,5 +1,8 @@
 # <old URL> <new URL>
 
+
+# redirects after cleaning up charm best practices
+# redirects after cleaning up contributor unsorted docs
 user/reference/charm/channel/ reference/charm/
 user/reference/charm/revision/ reference/charm/
 user/reference/charm/charm-taxonomy/ reference/charm/
@@ -58,7 +61,6 @@ user/reference/application reference/application
 user/reference/bundle reference/bundle
 user/reference/charm/charm-development-best-practices reference/charm/charm-development-best-practices
 user/reference/charm/charm-maturity reference/charm/charm-maturity
-user/reference/charm/charm-naming-guidelines reference/charm/charm-naming-guidelines
 user/reference/charm reference/charm
 user/reference/cloud reference/cloud
 user/reference/cloud/kubernetes-clouds-and-juju reference/cloud/kubernetes-clouds-and-juju
