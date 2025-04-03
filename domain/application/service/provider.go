@@ -5,10 +5,12 @@ package service
 
 import (
 	"context"
+	"strconv"
 	"strings"
 
 	"github.com/juju/clock"
 
+	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/assumes"
 	corecharm "github.com/juju/juju/core/charm"
@@ -19,14 +21,18 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
+	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/status"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/envcontext"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -353,6 +359,133 @@ func (s *ProviderService) AddUnits(ctx context.Context, storageParentDir, appNam
 	}
 
 	return nil
+}
+
+// CAASUnitTerminating should be called by the CAASUnitTerminationWorker when
+// the agent receives a signal to exit. UnitTerminating will return how the
+// agent should shutdown.
+//
+// We pass in a CAAS broker to get app details from the k8s cluster - we will
+// probably make it a service attribute once more use cases emerge.
+func (s *ProviderService) CAASUnitTerminating(ctx context.Context, unitNameStr string) (bool, error) {
+	unitName, err := coreunit.NewName(unitNameStr)
+	if err != nil {
+		return false, errors.Errorf("parsing unit name %q: %w", unitNameStr, err)
+	}
+
+	unitLife, err := s.st.GetUnitLife(ctx, unitName)
+	if err != nil {
+		return false, errors.Errorf("getting unit %q life: %w", unitNameStr, err)
+	}
+	if unitLife != life.Alive {
+		return false, nil
+	}
+
+	appName := unitName.Application()
+	unitNum := unitName.Number()
+
+	caasApplicationProvider, err := s.caasApplicationProvider(ctx)
+	if err != nil {
+		return false, errors.Errorf("terminating k8s unit %s/%q: %w", appName, unitNum, err)
+	}
+
+	// We currently only support statefulset.
+	restart := true
+	caasApp := caasApplicationProvider.Application(appName, caas.DeploymentStateful)
+	appState, err := caasApp.State()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	scaleInfo, err := s.st.GetApplicationScaleState(ctx, appID)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	if unitNum >= scaleInfo.Scale || unitNum >= appState.DesiredReplicas {
+		restart = false
+	}
+	return restart, nil
+}
+
+// RegisterCAASUnit creates or updates the specified application unit in a caas
+// model, returning an error satisfying
+// [applicationerrors.ApplicationNotFoundError] if the application doesn't
+// exist. If the unit life is Dead, an error satisfying
+// [applicationerrors.UnitAlreadyExists] is returned.
+func (s *ProviderService) RegisterCAASUnit(
+	ctx context.Context,
+	params application.RegisterCAASUnitParams,
+) (coreunit.Name, string, error) {
+	if params.ProviderID == "" {
+		return "", "", errors.Errorf("provider id %w", coreerrors.NotValid)
+	}
+
+	pass, err := password.RandomPassword()
+	if err != nil {
+		return "", "", errors.Errorf("generating unit password: %w", err)
+	}
+	registerArgs := application.RegisterCAASUnitArg{
+		ProviderID:       params.ProviderID,
+		StorageParentDir: application.StorageParentDir,
+		PasswordHash:     password.AgentPasswordHash(pass),
+	}
+
+	// We don't support anything other that statefulsets.
+	// So the pod name contains the unit number.
+	appName := params.ApplicationName
+	splitPodName := strings.Split(params.ProviderID, "-")
+	ord, err := strconv.Atoi(splitPodName[len(splitPodName)-1])
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+	unitName, err := coreunit.NewNameFromParts(appName, ord)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+	registerArgs.UnitName = unitName
+	registerArgs.OrderedId = ord
+	registerArgs.OrderedScale = true
+
+	// Find the pod/unit in the provider.
+	caasApplicationProvider, err := s.caasApplicationProvider(ctx)
+	if err != nil {
+		return "", "", errors.Errorf("registering k8s units for application %q: %w", appName, err)
+	}
+	caasApp := caasApplicationProvider.Application(appName, caas.DeploymentStateful)
+	pods, err := caasApp.Units()
+	if err != nil {
+		return "", "", errors.Errorf("finding k8s units for application %q: %w", appName, err)
+	}
+	var pod *caas.Unit
+	for _, v := range pods {
+		p := v
+		if p.Id == params.ProviderID {
+			pod = &p
+			break
+		}
+	}
+	if pod == nil {
+		return "", "", errors.Errorf("pod %s in provider %w", params.ProviderID, coreerrors.NotFound)
+	}
+
+	if pod.Address != "" {
+		registerArgs.Address = &pod.Address
+	}
+	if len(pod.Ports) != 0 {
+		registerArgs.Ports = &pod.Ports
+	}
+	for _, fs := range pod.FilesystemInfo {
+		registerArgs.ObservedAttachedVolumeIDs = append(registerArgs.ObservedAttachedVolumeIDs, fs.Volume.VolumeId)
+	}
+
+	err = s.st.RegisterCAASUnit(ctx, appName, registerArgs)
+	if err != nil {
+		return "", "", errors.Errorf("saving caas unit %q: %w", registerArgs.UnitName, err)
+	}
+	return unitName, pass, nil
 }
 
 func (s *ProviderService) mergeApplicationAndModelConstraints(ctx context.Context, appCons constraints.Constraints) (coreconstraints.Value, error) {

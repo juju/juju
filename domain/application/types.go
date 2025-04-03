@@ -389,3 +389,10 @@ type ExportUnit struct {
 	Name    coreunit.Name
 	Machine machine.Name
 }
+
+// UnitAttributes contains parameters for exporting a unit.
+type UnitAttributes struct {
+	Life        life.Life
+	ProviderID  string
+	ResolveMode string
+}

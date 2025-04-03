@@ -24,6 +24,7 @@ CREATE TABLE unit (
     REFERENCES password_hash_algorithm (id)
 );
 
+
 CREATE UNIQUE INDEX idx_unit_name
 ON unit (name);
 
@@ -120,6 +121,17 @@ CREATE TABLE k8s_pod_port (
     REFERENCES k8s_pod (unit_uuid),
     PRIMARY KEY (unit_uuid, port)
 );
+
+
+CREATE VIEW v_unit_attribute AS
+SELECT
+    u.uuid,
+    u.name,
+    u.life_id,
+    u.resolve_kind_id,
+    k.provider_id
+FROM unit AS u
+LEFT JOIN k8s_pod AS k ON u.uuid = k.unit_uuid;
 
 -- Status values for unit agents.
 CREATE TABLE unit_agent_status_value (

@@ -242,6 +242,7 @@ func (w *Worker) validate(ctx context.Context, status watcher.MigrationStatus) e
 
 	// Ask the agent to confirm that things look ok.
 	err = w.config.ValidateMigration(ctx, conn)
+
 	return errors.Trace(err)
 }
 

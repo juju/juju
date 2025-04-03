@@ -412,6 +412,7 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
+	charmUUID := charmtesting.GenCharmID(c)
 
 	ch := domaincharm.Charm{
 		Metadata: domaincharm.Metadata{
@@ -519,6 +520,7 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 
 	s.state.EXPECT().SetDesiredApplicationScale(gomock.Any(), id, 1).Return(nil)
 	s.state.EXPECT().SetApplicationScalingState(gomock.Any(), "ubuntu", 42, true).Return(nil)
+	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "ubuntu").Return(charmUUID, nil)
 
 	err := s.service.ImportApplication(context.Background(), "ubuntu", ImportApplicationArgs{
 		Charm: s.charm,
@@ -549,6 +551,7 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 
 	expectedUnitArgs := []application.InsertUnitArg{{
 		UnitName:       "ubuntu/666",
+		CharmUUID:      charmUUID,
 		CloudContainer: nil,
 		Password: ptr(application.PasswordInfo{
 			PasswordHash:  "passwordhash",

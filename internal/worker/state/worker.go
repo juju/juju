@@ -92,6 +92,9 @@ func (w *stateWorker) processModelLifeChange(modelUUID string) error {
 		// Model is Dead, and will soon be removed from state.
 		logger.Debugf(context.Background(), "model %q is dead", modelUUID)
 		w.remove(modelUUID)
+
+		_, _ = w.pool.Remove(modelUUID)
+
 		return nil
 	}
 
@@ -109,7 +112,6 @@ func (w *stateWorker) remove(modelUUID string) {
 		worker.Kill()
 		delete(w.modelStateWorkers, modelUUID)
 	}
-	_, _ = w.pool.Remove(modelUUID)
 }
 
 // Kill is part of the worker.Worker interface.
