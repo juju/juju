@@ -473,25 +473,6 @@ func (s *Service) SetUnitAgentStatus(ctx context.Context, unitName coreunit.Name
 	return nil
 }
 
-// GetUnitAgentStatus returns the agent status of the specified unit,
-// returning an error satisfying [statuserrors.UnitNotFound] if the unit
-// doesn't exist.
-func (s *Service) GetUnitAgentStatus(ctx context.Context, unitName coreunit.Name) (corestatus.StatusInfo, error) {
-	if err := unitName.Validate(); err != nil {
-		return corestatus.StatusInfo{}, errors.Capture(err)
-	}
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
-	if err != nil {
-		return corestatus.StatusInfo{}, errors.Capture(err)
-	}
-	agentStatus, err := s.st.GetUnitAgentStatus(ctx, unitUUID)
-	if err != nil {
-		return corestatus.StatusInfo{}, errors.Capture(err)
-	}
-
-	return decodeUnitAgentStatus(agentStatus)
-}
-
 // GetUnitWorkloadStatusesForApplication returns the workload statuses of all
 // units in the specified application, indexed by unit name, returning an error
 // satisfying [statuserrors.ApplicationNotFound] if the application doesn't

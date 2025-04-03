@@ -976,62 +976,6 @@ func (s *serviceSuite) TestSetUnitWorkloadStatusInvalidStatus(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".*boom")
 }
 
-func (s *serviceSuite) TestGetUnitAgentStatus(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	now := time.Now()
-
-	unitUUID := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().GetUnitAgentStatus(gomock.Any(), unitUUID).Return(
-		status.UnitStatusInfo[status.UnitAgentStatusType]{
-			StatusInfo: status.StatusInfo[status.UnitAgentStatusType]{
-				Status:  status.UnitAgentStatusAllocating,
-				Message: "doink",
-				Data:    []byte(`{"foo":"bar"}`),
-				Since:   &now,
-			},
-			Present: true,
-		}, nil)
-
-	obtained, err := s.service.GetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtained, jc.DeepEquals, corestatus.StatusInfo{
-		Status:  corestatus.Allocating,
-		Message: "doink",
-		Data:    map[string]interface{}{"foo": "bar"},
-		Since:   &now,
-	})
-}
-
-func (s *serviceSuite) TestGetUnitAgentStatusUnitInvalidName(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.service.GetUnitAgentStatus(context.Background(), coreunit.Name("!!!"))
-	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
-}
-
-func (s *serviceSuite) TestGetUnitAgentStatusUnitNotFound(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitUUID := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, statuserrors.UnitNotFound)
-
-	_, err := s.service.GetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"))
-	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
-}
-
-func (s *serviceSuite) TestGetUnitAgentStatusUnitInvalidAgentStatus(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitUUID := unittesting.GenUnitUUID(c)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/666")).Return(unitUUID, nil)
-	s.state.EXPECT().GetUnitAgentStatus(gomock.Any(), unitUUID).Return(status.UnitStatusInfo[status.UnitAgentStatusType]{}, errors.Errorf("boom"))
-
-	_, err := s.service.GetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"))
-	c.Assert(err, gc.ErrorMatches, "boom")
-}
-
 func (s *serviceSuite) TestSetUnitAgentStatus(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
