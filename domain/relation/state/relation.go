@@ -1312,12 +1312,17 @@ func (st *State) inferEndpoints(
 			relationerrors.RelationEndpointNotFound)
 	}
 
+	// It is ok since we checked that both sides have candidates,
+	// and all candidates from one side should have the same application
+	app1UUID := endpoints1[0].ApplicationUUID
+	app2UUID := endpoints2[0].ApplicationUUID
+
 	// Check if applications are subordinates.
-	isSubordinate1, err := st.isSubordinate(ctx, tx, identifier1.ApplicationName)
+	isSubordinate1, err := st.isSubordinate(ctx, tx, app1UUID)
 	if err != nil {
 		return endpoint{}, endpoint{}, errors.Capture(err)
 	}
-	isSubordinate2, err := st.isSubordinate(ctx, tx, identifier2.ApplicationName)
+	isSubordinate2, err := st.isSubordinate(ctx, tx, app2UUID)
 	if err != nil {
 		return endpoint{}, endpoint{}, errors.Capture(err)
 	}
@@ -1456,31 +1461,6 @@ WHERE  status.name = $setRelationStatus.status`, status)
 		return errors.Capture(err)
 	}
 	return nil
-}
-
-// isSubordinate determines if the specified application is a subordinate based
-// on its metadata in the database.
-func (st *State) isSubordinate(ctx context.Context, tx *sqlair.TX, applicationName string) (bool, error) {
-	appName := endpointIdentifier{
-		ApplicationName: applicationName,
-	}
-	stmt, err := st.Prepare(`
-SELECT a.name AS &endpointIdentifier.application_name
-FROM   application a
-JOIN   v_charm_metadata vcm ON a.charm_uuid = vcm.uuid
-WHERE  a.name = $endpointIdentifier.application_name
-AND    vcm.subordinate = true
-`, appName)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, stmt, appName).Get(&appName)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return false, errors.Errorf("getting subordinate status for %q: %w", appName, err)
-	}
-
-	return err == nil, nil
 }
 
 // relationAlreadyExists checks if a relation already exists between two

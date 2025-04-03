@@ -664,6 +664,7 @@ func (s *addRelationSuite) addApplication(
 	applicationName string,
 ) coreapplication.ID {
 	charmUUID := s.addCharm(c)
+	s.setCharmSubordinate(c, charmUUID.String(), false)
 	appUUID := s.baseRelationSuite.addApplication(c, charmUUID, applicationName)
 	s.charmByApp[appUUID] = charmUUID
 	return appUUID
@@ -690,7 +691,7 @@ func (s *addRelationSuite) addSubordinateApplication(
 	applicationName string,
 ) coreapplication.ID {
 	charmUUID := s.addCharm(c)
-	s.setCharmSubordinate(c, charmUUID)
+	s.setCharmSubordinate(c, charmUUID.String(), true)
 	appUUID := s.baseRelationSuite.addApplication(c, charmUUID, applicationName)
 	s.charmByApp[appUUID] = charmUUID
 	return appUUID

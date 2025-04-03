@@ -82,12 +82,12 @@ VALUES (?, ?, 0)
 
 // setCharmSubordinate updates the charm's metadata to mark it as subordinate,
 // or inserts it if not present in the database.
-func (s *baseRelationSuite) setCharmSubordinate(c *gc.C, charmUUID charm.ID) {
+func (s *baseRelationSuite) setCharmSubordinate(c *gc.C, charmUUID string, subordinate bool) {
 	s.query(c, `
 INSERT INTO charm_metadata (charm_uuid, name, subordinate)
-VALUES (?,?,true)
-ON CONFLICT DO UPDATE SET subordinate = true
-`, charmUUID, charmUUID)
+VALUES (?,?,?)
+ON CONFLICT DO UPDATE SET subordinate = ?
+`, charmUUID, charmUUID, subordinate, subordinate)
 }
 
 func (s *baseRelationSuite) setLife(c *gc.C, table string, uuid string, dying life.Life) {
