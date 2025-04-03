@@ -1,0 +1,4 @@
+canonical-sphinx[full]
+sphinx-autobuild
+sphinx-tabs
+sphinxext-rediraffe
