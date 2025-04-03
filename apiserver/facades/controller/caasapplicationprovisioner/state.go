@@ -45,7 +45,6 @@ type Model interface {
 
 type Application interface {
 	AllUnits() ([]Unit, error)
-	UpdateUnits(unitsOp *state.UpdateUnitsOperation) error
 	StorageConstraints() (map[string]state.StorageConstraints, error)
 	DeviceConstraints() (map[string]state.DeviceConstraints, error)
 	Name() string

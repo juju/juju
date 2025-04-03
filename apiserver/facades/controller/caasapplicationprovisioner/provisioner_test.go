@@ -496,7 +496,7 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 			},
 		},
 	})
-	s.st.app.CheckCallNames(c, "Life", "AllUnits", "UpdateUnits", "Name")
+	s.st.app.CheckCallNames(c, "Life", "AllUnits", "Name")
 	s.st.app.units[0].CheckCallNames(c, "UpdateOperation")
 	s.st.app.units[0].CheckCall(c, 0, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("gitlab-0"),
@@ -652,7 +652,7 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithoutStor
 			},
 		},
 	})
-	s.st.app.CheckCallNames(c, "Life", "AllUnits", "UpdateUnits", "Name")
+	s.st.app.CheckCallNames(c, "Life", "AllUnits", "Name")
 	s.st.app.units[0].CheckCallNames(c, "UpdateOperation")
 	s.st.app.units[0].CheckCall(c, 0, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("gitlab-0"),
