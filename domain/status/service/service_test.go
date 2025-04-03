@@ -268,7 +268,7 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusFallbackToUnitsNoUnits(c *
 			Status: status.WorkloadStatusUnset,
 		}, nil)
 
-	s.state.EXPECT().GetUnitWorkloadAndCloudContainerStatusesForApplication(gomock.Any(), applicationUUID).Return(nil, nil, nil)
+	s.state.EXPECT().GetAllUnitStatusesForApplication(gomock.Any(), applicationUUID).Return(nil, nil, nil, nil)
 
 	obtained, err := s.service.GetApplicationDisplayStatus(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
@@ -289,7 +289,7 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusFallbackToUnitsNoContainer
 			Status: status.WorkloadStatusUnset,
 		}, nil)
 
-	s.state.EXPECT().GetUnitWorkloadAndCloudContainerStatusesForApplication(gomock.Any(), applicationUUID).Return(
+	s.state.EXPECT().GetAllUnitStatusesForApplication(gomock.Any(), applicationUUID).Return(
 		status.UnitWorkloadStatuses{
 			"unit-1": {
 				StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
@@ -310,7 +310,7 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusFallbackToUnitsNoContainer
 				Present: true,
 			},
 		},
-		status.UnitCloudContainerStatuses{}, nil)
+		status.UnitAgentStatuses{}, status.UnitCloudContainerStatuses{}, nil)
 
 	obtained, err := s.service.GetApplicationDisplayStatus(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
@@ -378,7 +378,7 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderApplica
 			Since:   &now,
 		}, nil)
 
-	s.state.EXPECT().GetUnitWorkloadAndCloudContainerStatusesForApplication(gomock.Any(), applicationUUID).Return(
+	s.state.EXPECT().GetAllUnitStatusesForApplication(gomock.Any(), applicationUUID).Return(
 		status.UnitWorkloadStatuses{
 			"foo/0": {
 				StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
@@ -398,7 +398,7 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderApplica
 				},
 				Present: true,
 			},
-		}, nil, nil)
+		}, status.UnitAgentStatuses{}, status.UnitCloudContainerStatuses{}, nil)
 
 	applicationStatus, unitWorkloadStatuses, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(context.Background(), unitName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -443,7 +443,7 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderApplica
 			Status: status.WorkloadStatusUnset,
 		}, nil)
 
-	s.state.EXPECT().GetUnitWorkloadAndCloudContainerStatusesForApplication(gomock.Any(), applicationUUID).Return(
+	s.state.EXPECT().GetAllUnitStatusesForApplication(gomock.Any(), applicationUUID).Return(
 		status.UnitWorkloadStatuses{
 			"foo/0": {
 				StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
@@ -463,7 +463,9 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderApplica
 				},
 				Present: true,
 			},
-		}, status.UnitCloudContainerStatuses{
+		},
+		status.UnitAgentStatuses{},
+		status.UnitCloudContainerStatuses{
 			"foo/0": {
 				Status:  status.CloudContainerStatusBlocked,
 				Message: "zoink",

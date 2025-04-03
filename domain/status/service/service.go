@@ -92,15 +92,15 @@ type State interface {
 	//     application is dead.
 	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.ID) (status.UnitWorkloadStatuses, error)
 
-	// GetUnitWorkloadAndCloudContainerStatusesForApplication returns the workload statuses
+	// GetAllUnitStatusesForApplication returns the workload statuses
 	// and the cloud container statuses for all units of the specified application, returning:
 	//   - an error satisfying [statuserrors.ApplicationNotFound] if the application
 	//     doesn't exist or;
 	//   - an error satisfying [statuserrors.ApplicationIsDead] if the application
 	//     is dead.
-	GetUnitWorkloadAndCloudContainerStatusesForApplication(
+	GetAllUnitStatusesForApplication(
 		context.Context, coreapplication.ID,
-	) (status.UnitWorkloadStatuses, status.UnitCloudContainerStatuses, error)
+	) (status.UnitWorkloadStatuses, status.UnitAgentStatuses, status.UnitCloudContainerStatuses, error)
 
 	// GetUnitAgentStatus returns the workload status of the specified unit,
 	// returning:
@@ -237,7 +237,7 @@ func (s *LeadershipService) GetApplicationAndUnitStatusesForUnitWithLeader(
 		if err != nil {
 			return errors.Errorf("getting application status: %w", err)
 		}
-		workloadStatuses, cloudContainerStatuses, err := s.st.GetUnitWorkloadAndCloudContainerStatusesForApplication(ctx, appID)
+		workloadStatuses, _, cloudContainerStatuses, err := s.st.GetAllUnitStatusesForApplication(ctx, appID)
 		if err != nil {
 			return errors.Errorf("getting unit workload and container statuses")
 		}
@@ -368,7 +368,7 @@ func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appName strin
 		return decodeApplicationStatus(applicationStatus)
 	}
 
-	workloadStatuses, cloudContainerStatuses, err := s.st.GetUnitWorkloadAndCloudContainerStatusesForApplication(ctx, appID)
+	workloadStatuses, _, cloudContainerStatuses, err := s.st.GetAllUnitStatusesForApplication(ctx, appID)
 	if err != nil {
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}

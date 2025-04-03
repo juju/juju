@@ -493,42 +493,49 @@ func (st *State) GetUnitWorkloadStatusesForApplication(
 	return unitStatuses, nil
 }
 
-// GetUnitWorkloadAndCloudContainerStatusesForApplication returns the workload statuses
-// and the cloud container statuses for all units of the specified application, returning:
+// GetAllUnitStatusesForApplication returns the workload, agent and container
+// statuses for all units of the specified application, returning:
 //   - an error satisfying [statuserrors.ApplicationNotFound] if the application
 //     doesn't exist or;
 //   - an error satisfying [statuserrors.ApplicationIsDead] if the application
 //     is dead.
-func (st *State) GetUnitWorkloadAndCloudContainerStatusesForApplication(
+func (st *State) GetAllUnitStatusesForApplication(
 	ctx context.Context, appID coreapplication.ID,
 ) (
-	status.UnitWorkloadStatuses, status.UnitCloudContainerStatuses, error,
+	status.UnitWorkloadStatuses, status.UnitAgentStatuses, status.UnitCloudContainerStatuses, error,
 ) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, nil, errors.Capture(err)
+		return nil, nil, nil, errors.Capture(err)
 	}
 	ident := applicationID{ID: appID}
 
 	var workloadStatuses status.UnitWorkloadStatuses
+	var agentStatuses status.UnitAgentStatuses
 	var cloudContainerStatuses status.UnitCloudContainerStatuses
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
+		err := st.checkApplicationNotDead(ctx, tx, ident)
+		if err != nil {
+			return errors.Errorf("checking application not dead: %w", err)
+		}
 		workloadStatuses, err = st.getUnitWorkloadStatusesForApplication(ctx, tx, ident)
 		if err != nil {
-			return err
+			return errors.Errorf("getting workload statuses: %w", err)
+		}
+		agentStatuses, err = st.getUnitAgentStatusesForApplication(ctx, tx, ident)
+		if err != nil {
+			return errors.Errorf("getting agent statuses: %w", err)
 		}
 		cloudContainerStatuses, err = st.getUnitCloudContainerStatusesForApplication(ctx, tx, ident)
 		if err != nil {
-			return err
+			return errors.Errorf("getting cloud container statuses: %w", err)
 		}
 		return nil
-
 	})
 	if err != nil {
-		return nil, nil, errors.Errorf("getting cloud container statuses for application %q: %w", appID, err)
+		return nil, nil, nil, errors.Errorf("getting unit statuses for application %q: %w", appID, err)
 	}
-	return workloadStatuses, cloudContainerStatuses, nil
+	return workloadStatuses, agentStatuses, cloudContainerStatuses, nil
 }
 
 // GetAllFullUnitStatuses retrieves the presence, workload status, and agent status
@@ -818,11 +825,13 @@ WHERE uuid = $unitUUID.uuid;
 
 func (st *State) getUnitWorkloadStatusesForApplication(
 	ctx context.Context, tx *sqlair.TX, ident applicationID,
-) (status.UnitWorkloadStatuses, error) {
+) (
+	status.UnitWorkloadStatuses, error,
+) {
 	getUnitStatusesStmt, err := st.Prepare(`
 SELECT &statusInfoAndUnitNameAndPresence.*
-FROM v_unit_workload_status
-WHERE application_uuid = $applicationID.uuid
+FROM   v_unit_workload_status
+WHERE  application_uuid = $applicationID.uuid
 `, statusInfoAndUnitNameAndPresence{}, ident)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -860,21 +869,54 @@ WHERE application_uuid = $applicationID.uuid
 	return statuses, nil
 }
 
+func (st *State) getUnitAgentStatusesForApplication(
+	ctx context.Context, tx *sqlair.TX, ident applicationID,
+) (
+	status.UnitAgentStatuses, error,
+) {
+	getAgentStatusesStmt, err := st.Prepare(`
+SELECT &statusInfoAndUnitName.*
+FROM   v_unit_agent_status
+WHERE  application_uuid = $applicationID.uuid
+`, statusInfoAndUnitName{}, ident)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var unitStatuses []statusInfoAndUnitName
+	err = tx.Query(ctx, getAgentStatusesStmt, ident).GetAll(&unitStatuses)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	statuses := make(status.UnitAgentStatuses, len(unitStatuses))
+	for _, unitStatus := range unitStatuses {
+		statusID, err := status.DecodeAgentStatus(unitStatus.StatusID)
+		if err != nil {
+			return nil, errors.Errorf("decoding agent status ID for unit %q: %w", unitStatus.UnitName, err)
+		}
+		statuses[unitStatus.UnitName] = status.StatusInfo[status.UnitAgentStatusType]{
+			Status:  statusID,
+			Message: unitStatus.Message,
+			Data:    unitStatus.Data,
+			Since:   unitStatus.UpdatedAt,
+		}
+	}
+
+	return statuses, nil
+}
+
 func (st *State) getUnitCloudContainerStatusesForApplication(
 	ctx context.Context, tx *sqlair.TX, ident applicationID,
 ) (
 	status.UnitCloudContainerStatuses, error,
 ) {
-	err := st.checkApplicationNotDead(ctx, tx, ident)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
 	getContainerStatusesStmt, err := st.Prepare(`
 SELECT &statusInfoAndUnitName.*
-FROM   k8s_pod_status
-JOIN   unit ON unit.uuid = k8s_pod_status.unit_uuid
-WHERE  unit.application_uuid = $applicationID.uuid
+FROM   v_unit_k8s_pod_status
+WHERE  application_uuid = $applicationID.uuid
 	`, statusInfoAndUnitName{}, ident)
 	if err != nil {
 		return nil, errors.Capture(err)

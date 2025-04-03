@@ -249,6 +249,10 @@ type FullUnitStatus struct {
 // The statuses are indexed by unit name.
 type UnitWorkloadStatuses map[unit.Name]UnitStatusInfo[WorkloadStatusType]
 
+// UnitAgentStatuses represents the agent statuses of a collection of units.
+// The statuses are indexed by unit name.
+type UnitAgentStatuses map[unit.Name]StatusInfo[UnitAgentStatusType]
+
 // UnitCloudContainerStatuses represents the cloud container statuses of a collection
 // of units. The statuses are indexed by unit name.
 type UnitCloudContainerStatuses map[unit.Name]StatusInfo[CloudContainerStatusType]

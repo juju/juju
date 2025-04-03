@@ -259,6 +259,8 @@ JOIN unit_agent_presence ON unit.uuid = unit_agent_presence.unit_uuid;
 CREATE VIEW v_unit_agent_status AS
 SELECT
     u.uuid AS unit_uuid,
+    u.name AS unit_name,
+    u.application_uuid,
     uas.status_id,
     uas.message,
     uas.data,
@@ -285,6 +287,18 @@ SELECT
     ) AS present
 FROM unit AS u
 JOIN unit_workload_status AS uws ON u.uuid = uws.unit_uuid;
+
+CREATE VIEW v_unit_k8s_pod_status AS
+SELECT
+    u.uuid AS unit_uuid,
+    u.name AS unit_name,
+    u.application_uuid,
+    kps.status_id,
+    kps.message,
+    kps.data,
+    kps.updated_at
+FROM unit AS u
+JOIN k8s_pod_status AS kps ON u.uuid = kps.unit_uuid;
 
 CREATE VIEW v_full_unit_status AS
 SELECT
