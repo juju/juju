@@ -755,6 +755,18 @@ func (st *State) GetRelationDetails(ctx context.Context, relationUUID corerelati
 	return result, errors.Capture(err)
 }
 
+// GetRelationUnitEndpointName returns the name of the endpoint for the given
+// relation unit.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationUnitNotFound] if the relation cannot be found.
+func (s *State) GetRelationUnitEndpointName(
+	ctx context.Context,
+	relationUnitUUID corerelation.UnitUUID,
+) (string, error) {
+	return "", coreerrors.NotImplemented
+}
+
 // GetRelationUnit retrieves the UUID of a relation unit based on the given
 // relation UUID and unit name.
 func (st *State) GetRelationUnit(
