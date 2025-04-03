@@ -14,6 +14,10 @@ const (
 	// not valid.
 	ApplicationIDNotValid = errors.ConstError("application ID not valid")
 
+	// ApplicationNotAlive describes an error that occurs when a relation is
+	// added between two application where at least one is not alive
+	ApplicationNotAlive = errors.ConstError("application not alive")
+
 	// ApplicationNotFound describes an error that occurs when the application
 	// being operated on does not exist.
 	ApplicationNotFound = errors.ConstError("application not found")

@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 
 	"github.com/juju/clock"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/core/charm"
 	corecharmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/relation"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
@@ -86,6 +88,12 @@ INSERT INTO charm_metadata (charm_uuid, name, subordinate)
 VALUES (?,?,true)
 ON CONFLICT DO UPDATE SET subordinate = true
 `, charmUUID, charmUUID)
+}
+
+func (s *baseRelationSuite) setLife(c *gc.C, table string, uuid string, dying life.Life) {
+	s.query(c, fmt.Sprintf(`
+UPDATE %s SET life_id = ?
+WHERE uuid = ?`, table), dying, uuid)
 }
 
 // newEndpointIdentifier converts an endpoint string into a relation.EndpointIdentifier and asserts no parsing errors.

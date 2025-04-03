@@ -51,6 +51,8 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 // The following error types can be expected to be returned:
 //   - [relationerrors.AmbiguousRelation] is returned if the endpoint
 //     identifiers can refer to several possible relations.
+//   - [relationerrors.ApplicationNotAlive] is returned if one of the application
+//     is not alive.
 //   - [relationerrors.CompatibleEndpointsNotFound] is returned  if the endpoint
 //     identifiers relates to correct endpoints yet not compatible (ex provider
 //     with provider)
@@ -81,6 +83,18 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 r
 		// Check the relation doesn't already exist.
 		if err := st.relationAlreadyExists(ctx, tx, ep1, ep2); err != nil {
 			return errors.Errorf("relation %s %s: %w", ep1, ep2, err)
+		}
+
+		// Check both application are alive
+		if alive, err := st.checkLife(ctx, tx, "application", ep1.ApplicationUUID.String(), life.IsAlive); err != nil {
+			return errors.Errorf("relation %s %s: cannot check application life: %w", ep1, ep2, err)
+		} else if !alive {
+			return errors.Errorf("relation %s %s: application %s is not alive", ep1, ep2, ep1.ApplicationName).Add(relationerrors.ApplicationNotAlive)
+		}
+		if alive, err := st.checkLife(ctx, tx, "application", ep2.ApplicationUUID.String(), life.IsAlive); err != nil {
+			return errors.Errorf("relation %s %s: cannot check application life: %w", ep1, ep2, err)
+		} else if !alive {
+			return errors.Errorf("relation %s %s: application %s is not alive", ep1, ep2, ep2.ApplicationName).Add(relationerrors.ApplicationNotAlive)
 		}
 
 		// Check the application bases are compatible, if required
@@ -1112,6 +1126,33 @@ WHERE  endpoint_uuid = $endpoint.endpoint_uuid`, related{}, ep)
 	}
 
 	return nil
+}
+
+// checkLife retrieves the life state of an entity by its UUID from the specified table and evaluates it using a predicate.
+func (st *State) checkLife(ctx context.Context, tx *sqlair.TX, table, uuid string, check life.Predicate) (bool, error) {
+	type search struct {
+		UUID string     `db:"uuid"`
+		Life life.Value `db:"life"`
+	}
+
+	searched := search{UUID: uuid}
+	query := fmt.Sprintf(`
+SELECT 
+    main.uuid AS &search.uuid,
+    l.value AS &search.life
+FROM   %s main
+JOIN   life l ON main.life_id = l.id
+WHERE  main.uuid = $search.uuid
+`, table)
+	checkStmt, err := st.Prepare(query, searched)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	if err = tx.Query(ctx, checkStmt, searched).Get(&searched); err != nil {
+		return false, errors.Errorf("query %q: %w", query, err)
+	}
+	return check(searched.Life), nil
 }
 
 // getAllRelations retrieves all relations from the database, returning a slice

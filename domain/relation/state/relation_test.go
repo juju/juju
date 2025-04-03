@@ -24,6 +24,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/charm"
@@ -286,6 +287,70 @@ func (s *addRelationSuite) TestAddRelationErrorCandidateIsPeer(c *gc.C) {
 
 	// Assert
 	c.Assert(err, jc.ErrorIs, relationerrors.CompatibleEndpointsNotFound)
+}
+
+func (s *addRelationSuite) TestAddRelationErrorNotAliveFirstApp(c *gc.C) {
+	// Arrange
+	relProvider := charm.Relation{
+		Name:  "prov",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal,
+	}
+	relRequirer := charm.Relation{
+		Name:  "req",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	}
+	appUUID1 := s.addApplication(c, "application-1")
+	appUUID2 := s.addApplication(c, "application-2")
+	s.addApplicationEndpointFromRelation(c, appUUID1, relProvider)
+	s.addApplicationEndpointFromRelation(c, appUUID2, relRequirer)
+	s.setLife(c, "application", appUUID1.String(), life.Dying)
+
+	// Act
+	_, _, err := s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-1",
+		EndpointName:    "prov",
+	}, relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-2",
+		EndpointName:    "req",
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationNotAlive, gc.Commentf("(Assert) %s",
+		errors.ErrorStack(err)))
+}
+
+func (s *addRelationSuite) TestAddRelationErrorNotAliveSecond(c *gc.C) {
+	// Arrange
+	relProvider := charm.Relation{
+		Name:  "prov",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal,
+	}
+	relRequirer := charm.Relation{
+		Name:  "req",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	}
+	appUUID1 := s.addApplication(c, "application-1")
+	appUUID2 := s.addApplication(c, "application-2")
+	s.addApplicationEndpointFromRelation(c, appUUID1, relProvider)
+	s.addApplicationEndpointFromRelation(c, appUUID2, relRequirer)
+	s.setLife(c, "application", appUUID2.String(), life.Dying)
+
+	// Act
+	_, _, err := s.state.AddRelation(context.Background(), relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-1",
+		EndpointName:    "prov",
+	}, relation.CandidateEndpointIdentifier{
+		ApplicationName: "application-2",
+		EndpointName:    "req",
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationNotAlive, gc.Commentf("(Assert) %s",
+		errors.ErrorStack(err)))
 }
 
 func (s *addRelationSuite) TestAddRelationErrorProviderCapacityExceeded(c *gc.C) {
