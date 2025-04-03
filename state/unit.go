@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/internal/charm"
 	internallogger "github.com/juju/juju/internal/logger"
 	mgoutils "github.com/juju/juju/internal/mongo/utils"
-	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -277,27 +276,6 @@ func (u *Unit) SetAgentVersion(v semversion.Binary) (err error) {
 	return nil
 }
 
-// SetPassword sets the password for the machine's agent.
-func (u *Unit) SetPassword(password string) error {
-	if len(password) < internalpassword.MinAgentPasswordLength {
-		return fmt.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
-	}
-	return u.setPasswordHash(internalpassword.AgentPasswordHash(password))
-}
-
-// setPasswordHash sets the underlying password hash in the database directly
-// to the value supplied. This is split out from SetPassword to allow direct
-// manipulation in tests (to check for backwards compatibility).
-func (u *Unit) setPasswordHash(passwordHash string) error {
-	ops := u.setPasswordHashOps(passwordHash)
-	err := u.st.db().RunTransaction(ops)
-	if err != nil {
-		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, stateerrors.ErrDead))
-	}
-	u.doc.PasswordHash = passwordHash
-	return nil
-}
-
 func (u *Unit) setPasswordHashOps(passwordHash string) []txn.Op {
 	return []txn.Op{{
 		C:      unitsC,
@@ -305,42 +283,6 @@ func (u *Unit) setPasswordHashOps(passwordHash string) []txn.Op {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
 	}}
-}
-
-// PasswordValid returns whether the given password is valid
-// for the given unit.
-func (u *Unit) PasswordValid(password string) bool {
-	agentHash := internalpassword.AgentPasswordHash(password)
-	if agentHash == u.doc.PasswordHash {
-		return true
-	}
-	// Increased error logging for LP: 1956975 agent lost due to ErrBadCreds.
-	// Usually found 1-3 months after it happened.  It would be helpful to have
-	// additional data we can go back and find.
-	if agentHash == "" {
-		logger.Errorf(context.TODO(), "%q invalid password, provided agent hash empty", u.Name())
-		return false
-	}
-	if u.doc.PasswordHash == "" {
-		logger.Errorf(context.TODO(), "%q invalid password, doc password hash empty", u.Name())
-		return false
-	}
-	app, err := u.Application()
-	if err != nil {
-		logger.Errorf(context.TODO(), "%q invalid password, error getting application: %s", u.Name(), err.Error())
-		return false
-	}
-	units, err := app.AllUnits()
-	if err != nil {
-		logger.Errorf(context.TODO(), "%q invalid password, error getting all units: %s", app.Name(), err.Error())
-		return false
-	}
-	for _, unit := range units {
-		if u.Name() != unit.Name() && agentHash == unit.doc.PasswordHash {
-			logger.Errorf(context.TODO(), "%q invalid password, provided agent hash matches %q password hash", u.Name(), unit.Name())
-		}
-	}
-	return false
 }
 
 // UpdateOperation returns a model operation that will update a unit.

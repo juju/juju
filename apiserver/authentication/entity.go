@@ -22,7 +22,7 @@ func (t *tagWrapper) Tag() names.Tag {
 
 // TagToEntity takes a name names.Tag and concerts it an authentication Entity.
 func TagToEntity(t names.Tag) Entity {
-	return &tagWrapper{t}
+	return &tagWrapper{tag: t}
 }
 
 // TaggedUser is a user that has been tagged with a names.Tag.

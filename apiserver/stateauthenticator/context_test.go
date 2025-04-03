@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 )
@@ -60,9 +61,19 @@ func (s *macaroonCommonSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.macaroonService.EXPECT().GetLocalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
 	s.macaroonService.EXPECT().GetExternalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).AnyTimes()
 
-	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(nil, loggertesting.WrapCheckLog(c))
+	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(nil, nil, loggertesting.WrapCheckLog(c))
 
-	authenticator, err := NewAuthenticator(context.Background(), nil, testing.ModelTag.Id(), s.controllerConfigService, s.accessService, s.macaroonService, agentAuthFactory, s.clock)
+	authenticator, err := NewAuthenticator(
+		context.Background(),
+		nil,
+		model.UUID(testing.ModelTag.Id()),
+		s.controllerConfigService,
+		nil,
+		s.accessService,
+		s.macaroonService,
+		agentAuthGetter,
+		s.clock,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.authenticator = authenticator
 

@@ -17,7 +17,7 @@ type MigrationState interface {
 	GetAllUnitPasswordHashes(context.Context) (password.UnitPasswordHashes, error)
 
 	// GetUnitUUID returns the UUID of the unit with the given name, returning
-	// an error satisfying [applicationerrors.UnitNotFound] if the unit does not
+	// an error satisfying [passworderrors.UnitNotFound] if the unit does not
 	// exist.
 	GetUnitUUID(context.Context, unit.Name) (unit.UUID, error)
 

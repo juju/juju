@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
+	passworderrors "github.com/juju/juju/domain/application/errors"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/password"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -58,16 +58,63 @@ func (s *stateSuite) TestSetUnitPasswordUnitDoesNotExist(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetUnitUUID(context.Background(), unit.Name("foo/0"))
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, jc.ErrorIs, passworderrors.UnitNotFound)
 }
 
-func (s *stateSuite) TestSetUnitPasswordRandomUUID(c *gc.C) {
+func (s *stateSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	passwordHash := s.genPasswordHash(c)
 
 	err := st.SetUnitPasswordHash(context.Background(), unit.UUID("foo"), passwordHash)
-	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+	c.Assert(err, jc.ErrorIs, passworderrors.UnitNotFound)
+}
+
+func (s *stateSuite) TestMatchesUnitPasswordHash(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	s.createApplication(c)
+	unitName := s.createUnit(c, 0)
+
+	unitUUID, err := st.GetUnitUUID(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	passwordHash := s.genPasswordHash(c)
+
+	err = st.SetUnitPasswordHash(context.Background(), unitUUID, passwordHash)
+	c.Assert(err, jc.ErrorIsNil)
+
+	valid, err := st.MatchesUnitPasswordHash(context.Background(), unitUUID, passwordHash)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(valid, jc.IsTrue)
+}
+
+func (s *stateSuite) TestMatchesUnitPasswordHashUnitNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	passwordHash := s.genPasswordHash(c)
+
+	_, err := st.MatchesUnitPasswordHash(context.Background(), unit.UUID("foo"), passwordHash)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestMatchesUnitPasswordHashInvalidPassword(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	s.createApplication(c)
+	unitName := s.createUnit(c, 0)
+
+	unitUUID, err := st.GetUnitUUID(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	passwordHash := s.genPasswordHash(c)
+
+	err = st.SetUnitPasswordHash(context.Background(), unitUUID, passwordHash)
+	c.Assert(err, jc.ErrorIsNil)
+
+	valid, err := st.MatchesUnitPasswordHash(context.Background(), unitUUID, passwordHash+"1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(valid, jc.IsFalse)
 }
 
 func (s *stateSuite) TestGetAllUnitPasswordHashes(c *gc.C) {

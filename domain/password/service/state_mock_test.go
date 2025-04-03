@@ -80,6 +80,45 @@ func (c *MockStateGetUnitUUIDCall) DoAndReturn(f func(context.Context, unit.Name
 	return c
 }
 
+// MatchesUnitPasswordHash mocks base method.
+func (m *MockState) MatchesUnitPasswordHash(arg0 context.Context, arg1 unit.UUID, arg2 password.PasswordHash) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MatchesUnitPasswordHash", arg0, arg1, arg2)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MatchesUnitPasswordHash indicates an expected call of MatchesUnitPasswordHash.
+func (mr *MockStateMockRecorder) MatchesUnitPasswordHash(arg0, arg1, arg2 any) *MockStateMatchesUnitPasswordHashCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MatchesUnitPasswordHash", reflect.TypeOf((*MockState)(nil).MatchesUnitPasswordHash), arg0, arg1, arg2)
+	return &MockStateMatchesUnitPasswordHashCall{Call: call}
+}
+
+// MockStateMatchesUnitPasswordHashCall wrap *gomock.Call
+type MockStateMatchesUnitPasswordHashCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateMatchesUnitPasswordHashCall) Return(arg0 bool, arg1 error) *MockStateMatchesUnitPasswordHashCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateMatchesUnitPasswordHashCall) Do(f func(context.Context, unit.UUID, password.PasswordHash) (bool, error)) *MockStateMatchesUnitPasswordHashCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateMatchesUnitPasswordHashCall) DoAndReturn(f func(context.Context, unit.UUID, password.PasswordHash) (bool, error)) *MockStateMatchesUnitPasswordHashCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetUnitPasswordHash mocks base method.
 func (m *MockState) SetUnitPasswordHash(arg0 context.Context, arg1 unit.UUID, arg2 password.PasswordHash) error {
 	m.ctrl.T.Helper()

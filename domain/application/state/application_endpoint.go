@@ -126,7 +126,7 @@ LIMIT 1
 		return internalerrors.Capture(err)
 	}
 
-	space, _ := bindings[relation.Name]
+	space := bindings[relation.Name]
 	nilEmpty := func(s network.SpaceName) *string {
 		if s == "" {
 			return nil
@@ -169,7 +169,7 @@ LIMIT 1
 		return internalerrors.Errorf("preparing insert application extra endpoint: %w", err)
 	}
 
-	space, _ := bindings[binding.Name]
+	space := bindings[binding.Name]
 	nilEmpty := func(s network.SpaceName) *string {
 		if s == "" {
 			return nil

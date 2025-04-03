@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/password"
+	passworderrors "github.com/juju/juju/domain/password/errors"
 	"github.com/juju/juju/internal/errors"
 	internalpassword "github.com/juju/juju/internal/password"
 )
@@ -15,12 +16,16 @@ import (
 // State gets and sets the state of the service.
 type State interface {
 	// GetUnitUUID returns the UUID of the unit with the given name, returning
-	// an error satisfying [applicationerrors.UnitNotFound] if the unit does not
+	// an error satisfying [passworderrors.UnitNotFound] if the unit does not
 	// exist.
 	GetUnitUUID(context.Context, unit.Name) (unit.UUID, error)
 
 	// SetUnitPasswordHash sets the password hash for the given unit.
 	SetUnitPasswordHash(context.Context, unit.UUID, password.PasswordHash) error
+
+	// MatchesUnitPasswordHash checks if the password is valid or not against
+	// the password hash stored in the database.
+	MatchesUnitPasswordHash(context.Context, unit.UUID, password.PasswordHash) (bool, error)
 }
 
 // Service provides the means for interacting with the passwords in a model.
@@ -35,13 +40,14 @@ func NewService(st State) *Service {
 	}
 }
 
-// SetUnitPassword sets the password for the given unit.
+// SetUnitPassword sets the password for the given unit. If the unit does not
+// exist, an error satisfying [passworderrors.UnitNotFound] is returned.
 func (s *Service) SetUnitPassword(ctx context.Context, unitName unit.Name, password string) error {
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
 	}
 	if len(password) < internalpassword.MinAgentPasswordLength {
-		return errors.Errorf("password is only %d chars long, and is not a valid Agent password", len(password))
+		return errors.Errorf("password is only %d chars long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
 	}
 
 	unitUUID, err := s.st.GetUnitUUID(ctx, unitName)
@@ -50,6 +56,28 @@ func (s *Service) SetUnitPassword(ctx context.Context, unitName unit.Name, passw
 	}
 
 	return s.st.SetUnitPasswordHash(ctx, unitUUID, hashPassword(password))
+}
+
+// MatchesUnitPasswordHash checks if the password is valid or not against the
+// password hash stored in the database.
+func (s *Service) MatchesUnitPasswordHash(ctx context.Context, unitName unit.Name, password string) (bool, error) {
+	if err := unitName.Validate(); err != nil {
+		return false, errors.Capture(err)
+	}
+
+	// An empty password is never valid.
+	if password == "" {
+		return false, passworderrors.EmptyPassword
+	} else if len(password) < internalpassword.MinAgentPasswordLength {
+		return false, errors.Errorf("password is only %d chars long, and is not a valid Agent password: %w", len(password), passworderrors.InvalidPassword)
+	}
+
+	unitUUID, err := s.st.GetUnitUUID(ctx, unitName)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return s.st.MatchesUnitPasswordHash(ctx, unitUUID, hashPassword(password))
 }
 
 func hashPassword(p string) password.PasswordHash {

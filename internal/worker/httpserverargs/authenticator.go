@@ -18,8 +18,10 @@ import (
 	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/unit"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/auth"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/state"
 )
 
@@ -27,6 +29,20 @@ import (
 // types that can return a controller config.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// DomainServicesGetter defines methods for getting domain services
+// for a model.
+type DomainServicesGetter interface {
+	// ServicesForModel returns a DomainServices for the given model.
+	ServicesForModel(ctx context.Context, modelID coremodel.UUID) (services.DomainServices, error)
+}
+
+// PasswordService defines the methods required to get a password service
+// for a model.
+type PasswordServiceGetter interface {
+	// GetPasswordServiceForModel returns a PasswordService for the given model.
+	GetPasswordServiceForModel(ctx context.Context, modelUUID coremodel.UUID) (authentication.PasswordService, error)
 }
 
 // AccessService defines a interface for interacting the users and permissions
@@ -61,6 +77,13 @@ type MacaroonService interface {
 	BakeryConfigService
 }
 
+// PasswordService defines the methods required to set a password hash for a
+// unit.
+type PasswordService interface {
+	// MatchesUnitPasswordHash checks if the password is valid or not.
+	MatchesUnitPasswordHash(context.Context, unit.Name, string) (bool, error)
+}
+
 type BakeryConfigService interface {
 	GetLocalUsersKey(context.Context) (*bakery.KeyPair, error)
 	GetLocalUsersThirdPartyKey(context.Context) (*bakery.KeyPair, error)
@@ -72,13 +95,13 @@ type BakeryConfigService interface {
 type NewStateAuthenticatorFunc func(
 	ctx context.Context,
 	statePool *state.StatePool,
-	controllerModelUUID string,
+	controllerModelUUID coremodel.UUID,
 	controllerConfigService ControllerConfigService,
+	passwordServiceGetter PasswordServiceGetter,
 	accessService AccessService,
 	macaroonService MacaroonService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
-	abort <-chan struct{},
 ) (macaroon.LocalMacaroonAuthenticator, error)
 
 // NewStateAuthenticator returns a new LocalMacaroonAuthenticator that
@@ -88,20 +111,35 @@ type NewStateAuthenticatorFunc func(
 func NewStateAuthenticator(
 	ctx context.Context,
 	statePool *state.StatePool,
-	controllerModelUUID string,
+	controllerModelUUID coremodel.UUID,
 	controllerConfigService ControllerConfigService,
+	passwordServiceGetter PasswordServiceGetter,
 	accessService AccessService,
 	macaroonService MacaroonService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
-	abort <-chan struct{},
 ) (macaroon.LocalMacaroonAuthenticator, error) {
 	systemState, err := statePool.SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(systemState, nil)
-	stateAuthenticator, err := stateauthenticator.NewAuthenticator(ctx, statePool, controllerModelUUID, controllerConfigService, accessService, macaroonService, agentAuthFactory, clock)
+
+	passwordService, err := passwordServiceGetter.GetPasswordServiceForModel(ctx, controllerModelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(passwordService, systemState, nil)
+	stateAuthenticator, err := stateauthenticator.NewAuthenticator(
+		ctx,
+		statePool,
+		controllerModelUUID, controllerConfigService,
+		passwordServiceGetter,
+		accessService,
+		macaroonService,
+		agentAuthGetter,
+		clock,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -109,6 +147,6 @@ func NewStateAuthenticator(
 	if errH != nil {
 		return nil, errors.Trace(errH)
 	}
-	go stateAuthenticator.Maintain(abort)
+	go stateAuthenticator.Maintain(ctx)
 	return stateAuthenticator, nil
 }

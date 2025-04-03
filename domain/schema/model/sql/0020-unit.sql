@@ -46,6 +46,12 @@ CREATE TABLE unit (
 CREATE UNIQUE INDEX idx_unit_name
 ON unit (name);
 
+-- unit passwords are unique across all units. This is to prevent
+-- a unit from being able to impersonate another unit. NULL passwords are
+-- allowed for multiple units, as NULLs are considered distinct.
+CREATE UNIQUE INDEX idx_unit_password_hash
+ON unit (password_hash);
+
 CREATE INDEX idx_unit_application
 ON unit (application_uuid);
 

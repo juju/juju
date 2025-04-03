@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
+	"github.com/juju/juju/core/model"
 	accessservice "github.com/juju/juju/domain/access/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	macaroonservice "github.com/juju/juju/domain/macaroon/service"
@@ -81,15 +82,15 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 func (s *ManifoldSuite) newStateAuthenticator(
 	ctx context.Context,
 	statePool *state.StatePool,
-	modelUUID string,
+	modelUUID model.UUID,
 	controllerConfig httpserverargs.ControllerConfigService,
+	passwordServiceGetter httpserverargs.PasswordServiceGetter,
 	accessService httpserverargs.AccessService,
 	macaroonService httpserverargs.MacaroonService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
-	abort <-chan struct{},
 ) (macaroon.LocalMacaroonAuthenticator, error) {
-	s.stub.MethodCall(s, "NewStateAuthenticator", ctx, statePool, controllerConfig, accessService, mux, clock, abort)
+	s.stub.MethodCall(s, "NewStateAuthenticator", ctx, modelUUID)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
@@ -157,19 +158,19 @@ func (s *ManifoldSuite) TestStoppingWorkerClosesAuthenticator(c *gc.C) {
 	w := s.startWorkerClean(c)
 	s.stub.CheckCallNames(c, "NewStateAuthenticator")
 	authArgs := s.stub.Calls()[0].Args
-	c.Assert(authArgs, gc.HasLen, 7)
-	abort := authArgs[6].(<-chan struct{})
+	c.Assert(authArgs, gc.HasLen, 2)
+	ctx := authArgs[0].(context.Context)
 
 	// abort should still be open at this point.
 	select {
-	case <-abort:
+	case <-ctx.Done():
 		c.Fatalf("abort closed while worker still running")
 	default:
 	}
 
 	workertest.CleanKill(c, w)
 	select {
-	case <-abort:
+	case <-ctx.Done():
 	default:
 		c.Fatalf("authenticator abort channel not closed")
 	}
@@ -235,6 +236,7 @@ func (s *stubStateTracker) Report() map[string]any {
 type stubDomainServices struct {
 	testing.Stub
 	services.ControllerDomainServices
+	services.DomainServicesGetter
 }
 
 func (s *stubDomainServices) ControllerConfig() *controllerconfigservice.WatchableService {

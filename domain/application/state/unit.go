@@ -687,45 +687,6 @@ func (st *State) getUnit(ctx context.Context, tx *sqlair.TX, unitName coreunit.N
 	return &unit, nil
 }
 
-// SetUnitPassword updates the password for the specified unit UUID.
-func (st *State) SetUnitPassword(ctx context.Context, unitUUID coreunit.UUID, password application.PasswordInfo) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return st.setUnitPassword(ctx, tx, unitUUID, password)
-	})
-	if err != nil {
-		return errors.Errorf("setting password for unit %q: %w", unitUUID, err)
-	}
-	return nil
-}
-
-func (st *State) setUnitPassword(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, password application.PasswordInfo) error {
-	info := unitPassword{
-		UnitUUID:                unitUUID,
-		PasswordHash:            password.PasswordHash,
-		PasswordHashAlgorithmID: password.HashAlgorithm,
-	}
-	updatePasswordStmt, err := st.Prepare(`
-UPDATE unit SET
-    password_hash = $unitPassword.password_hash,
-    password_hash_algorithm_id = $unitPassword.password_hash_algorithm_id
-WHERE uuid = $unitPassword.uuid
-`, info)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, updatePasswordStmt, info).Run()
-	if err != nil {
-		return errors.Errorf("updating password for unit %q: %w", unitUUID, err)
-	}
-	return nil
-}
-
 func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.CloudContainerParams) *application.CloudContainer {
 	result := &application.CloudContainer{
 		ProviderID: cloudContainer.ProviderID,
@@ -855,6 +816,29 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 	return nil
 }
 
+func (st *State) setUnitPassword(ctx context.Context, tx *sqlair.TX, unitUUID coreunit.UUID, password application.PasswordInfo) error {
+	info := unitPassword{
+		UnitUUID:                unitUUID,
+		PasswordHash:            password.PasswordHash,
+		PasswordHashAlgorithmID: password.HashAlgorithm,
+	}
+	updatePasswordStmt, err := st.Prepare(`
+UPDATE unit SET
+    password_hash = $unitPassword.password_hash,
+    password_hash_algorithm_id = $unitPassword.password_hash_algorithm_id
+WHERE uuid = $unitPassword.uuid
+`, info)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, updatePasswordStmt, info).Run()
+	if err != nil {
+		return errors.Errorf("updating password for unit %q: %w", unitUUID, err)
+	}
+	return nil
+}
+
 func (st *State) insertCAASUnit(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -883,7 +867,6 @@ func (st *State) insertCAASUnit(
 func (st *State) insertIAASUnit(
 	ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID, args application.InsertUnitArg,
 ) error {
-
 	_, err := st.getUnit(ctx, tx, args.UnitName)
 	if err == nil {
 		return errors.Errorf("unit %q already exists", args.UnitName).Add(applicationerrors.UnitAlreadyExists)
@@ -924,8 +907,17 @@ func (st *State) insertUnit(
 		LifeID:        life.Alive,
 	}
 	if args.Password != nil {
-		createParams.PasswordHash = args.Password.PasswordHash
-		createParams.PasswordHashAlgorithmID = args.Password.HashAlgorithm
+		// Unit passwords are optional when we insert a unit (they're mainly
+		// used for CAAS units). If they are set they must be unique across
+		// all units.
+		createParams.PasswordHash = sql.NullString{
+			String: args.Password.PasswordHash,
+			Valid:  true,
+		}
+		createParams.PasswordHashAlgorithmID = sql.NullInt16{
+			Int16: int16(args.Password.HashAlgorithm),
+			Valid: true,
+		}
 	}
 
 	createUnit := `INSERT INTO unit (*) VALUES ($unitDetails.*)`

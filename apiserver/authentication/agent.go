@@ -11,44 +11,58 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/unit"
+	passworderrors "github.com/juju/juju/domain/password/errors"
 	"github.com/juju/juju/state"
 )
 
-// AgentAuthenticatorFactory is a factory for creating authenticators, which
+// PasswordService defines the methods required to set a password hash for a
+// unit.
+type PasswordService interface {
+	// MatchesUnitPasswordHash checks if the password is valid or not.
+	MatchesUnitPasswordHash(context.Context, unit.Name, string) (bool, error)
+}
+
+// AgentAuthenticatorGetter is a factory for creating authenticators, which
 // can create authenticators for a given state.
-type AgentAuthenticatorFactory struct {
-	legacyState *state.State
-	logger      corelogger.Logger
+type AgentAuthenticatorGetter struct {
+	passwordService PasswordService
+	legacyState     *state.State
+	logger          corelogger.Logger
 }
 
-// NewAgentAuthenticatorFactory returns a new agent authenticator factory, for
+// NewAgentAuthenticatorGetter returns a new agent authenticator factory, for
 // a known state.
-func NewAgentAuthenticatorFactory(legacyState *state.State, logger corelogger.Logger) AgentAuthenticatorFactory {
-	return AgentAuthenticatorFactory{
-		legacyState: legacyState,
-		logger:      logger,
+func NewAgentAuthenticatorGetter(passwordService PasswordService, legacy *state.State, logger corelogger.Logger) AgentAuthenticatorGetter {
+	return AgentAuthenticatorGetter{
+		passwordService: passwordService,
+		legacyState:     legacy,
+		logger:          logger,
 	}
 }
 
-// Authenticator returns an authenticator using the factory's state.
-func (f AgentAuthenticatorFactory) Authenticator() EntityAuthenticator {
+// Authenticator returns an authenticator using the factory's controller model.
+func (f AgentAuthenticatorGetter) Authenticator() EntityAuthenticator {
 	return agentAuthenticator{
-		state:  f.legacyState,
-		logger: f.logger,
+		passwordService: f.passwordService,
+		state:           f.legacyState,
+		logger:          f.logger,
 	}
 }
 
-// AuthenticatorForState returns an authenticator for the given state.
-func (f AgentAuthenticatorFactory) AuthenticatorForState(st *state.State) EntityAuthenticator {
+// AuthenticatorForModel returns an authenticator for the given model.
+func (f AgentAuthenticatorGetter) AuthenticatorForModel(passwordService PasswordService, st *state.State) EntityAuthenticator {
 	return agentAuthenticator{
-		state:  st,
-		logger: f.logger,
+		passwordService: passwordService,
+		state:           st,
+		logger:          f.logger,
 	}
 }
 
 type agentAuthenticator struct {
-	state  *state.State
-	logger corelogger.Logger
+	passwordService PasswordService
+	state           *state.State
+	logger          corelogger.Logger
 }
 
 type taggedAuthenticator interface {
@@ -62,15 +76,45 @@ func (a agentAuthenticator) Authenticate(ctx context.Context, authParams AuthPar
 	switch authParams.AuthTag.Kind() {
 	case names.UserTagKind:
 		return nil, errors.Trace(apiservererrors.ErrBadRequest)
+
+	case names.UnitTagKind:
+		return a.authenticateUnit(ctx, authParams.AuthTag.(names.UnitTag), authParams.Credentials)
 	default:
 		return a.fallbackAuth(ctx, authParams)
 	}
 }
 
+func (a *agentAuthenticator) authenticateUnit(ctx context.Context, tag names.UnitTag, credentials string) (state.Entity, error) {
+	unitName := unit.Name(tag.Id())
+
+	// Check if the password is correct.
+	// - If the password is empty, then we consider that a bad request
+	//   (incorrect payload).
+	// - If the password is invalid, then we consider that unauthorized.
+	// - If the unit is not found, then we consider that unauthorized. Prevent
+	//   the knowing about which unit the password didn't match (rainbow attack).
+	// - If the password isn't valid for the unit, then we consider that
+	//   unauthorized.
+	// - Any other error, is considered an internal server error.
+
+	valid, err := a.passwordService.MatchesUnitPasswordHash(ctx, unitName, credentials)
+	if errors.Is(err, passworderrors.EmptyPassword) {
+		return nil, errors.Trace(apiservererrors.ErrBadRequest)
+	} else if errors.Is(err, passworderrors.InvalidPassword) || errors.Is(err, passworderrors.UnitNotFound) {
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	} else if !valid {
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
+	}
+
+	return TagToEntity(tag), nil
+}
+
 func (a *agentAuthenticator) fallbackAuth(ctx context.Context, authParams AuthParams) (state.Entity, error) {
 	entity, err := a.state.FindEntity(authParams.AuthTag)
 	if errors.Is(err, errors.NotFound) {
-		logger.Debugf(context.TODO(), "cannot authenticate unknown entity: %v", authParams.AuthTag)
+		logger.Debugf(ctx, "cannot authenticate unknown entity: %v", authParams.AuthTag)
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	}
 	if err != nil {

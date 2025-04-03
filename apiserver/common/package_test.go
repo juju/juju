@@ -4,9 +4,14 @@
 package common_test
 
 import (
+	"fmt"
 	stdtesting "testing"
 
+	"github.com/juju/errors"
+	"github.com/juju/names/v6"
+
 	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/state"
 )
 
 // TODO: Move all generated mocks out of the mocks directory and directly into
@@ -14,7 +19,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/clock_mock.go github.com/juju/clock Clock
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/authorizer_mock.go github.com/juju/juju/apiserver/common Authorizer
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/common_mock.go github.com/juju/juju/apiserver/common BlockCommandService,CloudService,ControllerConfigState,ControllerConfigService,ExternalControllerService,ToolsFinder,ToolsFindEntity,ToolsURLGetter,APIHostPortsForAgentsGetter,ToolsStorageGetter,AgentTooler,ModelAgentService,MachineRebootService,EnsureDeadMachineService,WatchableMachineService,UnitStateService,MachineService,StatusService,LeadershipPinningBackend,LeadershipMachine
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/common_mock.go github.com/juju/juju/apiserver/common BlockCommandService,CloudService,ControllerConfigState,ControllerConfigService,ExternalControllerService,ToolsFinder,ToolsFindEntity,ToolsURLGetter,APIHostPortsForAgentsGetter,ToolsStorageGetter,AgentTooler,ModelAgentService,MachineRebootService,EnsureDeadMachineService,WatchableMachineService,UnitStateService,MachineService,StatusService,LeadershipPinningBackend,LeadershipMachine,PasswordService
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/storage_mock.go github.com/juju/juju/state/binarystorage StorageCloser
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/state_mocks.go github.com/juju/juju/state EntityFinder,Entity
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/environs_mock.go github.com/juju/juju/environs BootstrapEnviron
@@ -24,4 +29,33 @@ import (
 
 func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
+}
+
+type entityWithError interface {
+	state.Entity
+	error() error
+}
+
+type fakeState struct {
+	entities map[names.Tag]entityWithError
+}
+
+func (st *fakeState) FindEntity(tag names.Tag) (state.Entity, error) {
+	entity, ok := st.entities[tag]
+	if !ok {
+		return nil, errors.NotFoundf("entity %q", tag)
+	}
+	if err := entity.error(); err != nil {
+		return nil, err
+	}
+	return entity, nil
+}
+
+type fetchError string
+
+func (f fetchError) error() error {
+	if f == "" {
+		return nil
+	}
+	return fmt.Errorf("%s", string(f))
 }

@@ -25,6 +25,13 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
+// PasswordService provides access to password management.
+type PasswordService interface {
+	// SetUnitPassword sets the password for the given unit. If the unit does not
+	// exist, an error satisfying [applicationerrors.UnitNotFound] is returned.
+	SetUnitPassword(ctx context.Context, unitName unit.Name, password string) error
+}
+
 // ApplicationService instances save an application to dqlite state.
 type ApplicationService interface {
 	// CreateApplication creates a new application with the given name and
@@ -42,9 +49,6 @@ type ApplicationService interface {
 
 	// UpdateApplication updates the application with the given name.
 	UpdateCAASUnit(ctx context.Context, unitName unit.Name, params applicationservice.UpdateCAASUnitParams) error
-
-	// SetUnitPassword sets the password for the given unit.
-	SetUnitPassword(ctx context.Context, unitName unit.Name, passwordHash string) error
 }
 
 // BakeryConfigService describes the service used to initialise the

@@ -97,6 +97,7 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 	st := ctx.State()
 	domainServices := ctx.DomainServices()
 
+	passwordService := domainServices.Password()
 	controllerConfigService := domainServices.ControllerConfig()
 	modelConfigService := domainServices.Config()
 	modelInfoService := domainServices.ModelInfo()
@@ -167,7 +168,7 @@ func NewStateCAASApplicationProvisionerAPI(stdCtx context.Context, ctx facade.Mo
 	)
 
 	apiGroup := &APIGroup{
-		PasswordChanger:    common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
+		PasswordChanger:    common.NewPasswordChanger(passwordService, st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, ctx.WatcherRegistry(), common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		charmInfoAPI:       commonCharmsAPI,
 		appCharmInfoAPI:    appCharmInfoAPI,

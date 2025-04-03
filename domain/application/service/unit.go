@@ -62,9 +62,6 @@ type UnitState interface {
 	// if the unit doesn't exist.
 	UpdateCAASUnit(context.Context, coreunit.Name, application.UpdateCAASUnitParams) error
 
-	// SetUnitPassword updates the password for the specified unit UUID.
-	SetUnitPassword(context.Context, coreunit.UUID, application.PasswordInfo) error
-
 	// DeleteUnit deletes the specified unit. If the unit's application is Dying
 	// and no other references to it exist, true is returned to indicate the
 	// application could be safely deleted. It will fail if the unit is not
@@ -130,19 +127,6 @@ func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg
 	}
 
 	return args, nil
-}
-
-// SetUnitPassword updates the password for the specified unit, returning an error
-// satisfying [applicationerrors.NotNotFound] if the unit doesn't exist.
-func (s *Service) SetUnitPassword(ctx context.Context, unitName coreunit.Name, password string) error {
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	return s.st.SetUnitPassword(ctx, unitUUID, application.PasswordInfo{
-		PasswordHash:  password,
-		HashAlgorithm: application.HashAlgorithmSHA256,
-	})
 }
 
 // RegisterCAASUnit creates or updates the specified application unit in a caas

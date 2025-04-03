@@ -3229,44 +3229,6 @@ func (c *MockStateSetUnitLifeCall) DoAndReturn(f func(context.Context, unit.Name
 	return c
 }
 
-// SetUnitPassword mocks base method.
-func (m *MockState) SetUnitPassword(arg0 context.Context, arg1 unit.UUID, arg2 application0.PasswordInfo) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetUnitPassword", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetUnitPassword indicates an expected call of SetUnitPassword.
-func (mr *MockStateMockRecorder) SetUnitPassword(arg0, arg1, arg2 any) *MockStateSetUnitPasswordCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitPassword", reflect.TypeOf((*MockState)(nil).SetUnitPassword), arg0, arg1, arg2)
-	return &MockStateSetUnitPasswordCall{Call: call}
-}
-
-// MockStateSetUnitPasswordCall wrap *gomock.Call
-type MockStateSetUnitPasswordCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateSetUnitPasswordCall) Return(arg0 error) *MockStateSetUnitPasswordCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateSetUnitPasswordCall) Do(f func(context.Context, unit.UUID, application0.PasswordInfo) error) *MockStateSetUnitPasswordCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetUnitPasswordCall) DoAndReturn(f func(context.Context, unit.UUID, application0.PasswordInfo) error) *MockStateSetUnitPasswordCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SpacesExist mocks base method.
 func (m *MockState) SpacesExist(ctx context.Context, spaceUUIDs set.Strings) error {
 	m.ctrl.T.Helper()

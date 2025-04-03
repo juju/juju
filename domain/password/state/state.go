@@ -11,8 +11,8 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/password"
+	passworderrors "github.com/juju/juju/domain/password/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -64,15 +64,49 @@ WHERE uuid = $unitPasswordHash.uuid;
 		if affected, err := result.RowsAffected(); err != nil {
 			return errors.Errorf("getting number of affected rows: %w", err)
 		} else if affected == 0 {
-			return applicationerrors.UnitNotFound
+			return passworderrors.UnitNotFound
 		}
 		return nil
 	})
 	return errors.Capture(err)
 }
 
+// MatchesUnitPasswordHash checks if the password is valid or not against the
+// password hash stored in the database.
+func (s *State) MatchesUnitPasswordHash(ctx context.Context, unitUUID unit.UUID, passwordHash password.PasswordHash) (bool, error) {
+	db, err := s.DB()
+	if err != nil {
+		return false, err
+	}
+
+	args := validateUnitPasswordHash{
+		UUID:         unitUUID,
+		PasswordHash: passwordHash,
+	}
+
+	query := `
+SELECT COUNT(*) AS &validateUnitPasswordHash.count FROM unit
+WHERE uuid = $validateUnitPasswordHash.uuid
+AND password_hash = $validateUnitPasswordHash.password_hash;
+`
+	stmt, err := s.Prepare(query, args)
+	if err != nil {
+		return false, errors.Errorf("preparing statement to set password hash: %w", err)
+	}
+
+	var count int
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, args).Get(&args); err != nil {
+			return errors.Errorf("setting password hash: %w", err)
+		}
+		count = args.Count
+		return nil
+	})
+	return count > 0, errors.Capture(err)
+}
+
 // GetUnitUUID returns the UUID of the unit with the given name, returning an
-// error satisfying [applicationerrors.UnitNotFound] if the unit does not exist.
+// error satisfying [passworderrors.UnitNotFound] if the unit does not exist.
 func (st *State) GetUnitUUID(ctx context.Context, unitName unit.Name) (unit.UUID, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -101,7 +135,7 @@ WHERE name=$unitName.name`, u)
 
 	err = tx.Query(ctx, selectUnitUUIDStmt, u).Get(&u)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", errors.Errorf("%s %w", name, applicationerrors.UnitNotFound)
+		return "", errors.Errorf("%s %w", name, passworderrors.UnitNotFound)
 	} else if err != nil {
 		return "", errors.Errorf("looking up unit UUID for %q: %w", name, err)
 	}

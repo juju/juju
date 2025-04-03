@@ -115,8 +115,8 @@ type unitDetails struct {
 	Name                    coreunit.Name      `db:"name"`
 	ApplicationID           coreapplication.ID `db:"application_uuid"`
 	LifeID                  life.Life          `db:"life_id"`
-	PasswordHash            string             `db:"password_hash"`
-	PasswordHashAlgorithmID int                `db:"password_hash_algorithm_id"`
+	PasswordHash            sql.NullString     `db:"password_hash"`
+	PasswordHashAlgorithmID sql.NullInt16      `db:"password_hash_algorithm_id"`
 }
 
 type unitPassword struct {

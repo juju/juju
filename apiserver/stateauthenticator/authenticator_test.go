@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/core/model"
 	coreuser "github.com/juju/juju/core/user"
 	coreusertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/internal/auth"
@@ -27,12 +28,14 @@ import (
 type agentAuthenticatorSuite struct {
 	statetesting.StateSuite
 
-	authenticator             *Authenticator
-	entityAuthenticator       *MockEntityAuthenticator
-	agentAuthenticatorFactory *MockAgentAuthenticatorFactory
-	controllerConfigService   *MockControllerConfigService
-	accessService             *MockAccessService
-	macaroonService           *MockMacaroonService
+	authenticator            *Authenticator
+	entityAuthenticator      *MockEntityAuthenticator
+	agentAuthenticatorGetter *MockAgentAuthenticatorGetter
+	passwordServiceGetter    *MockPasswordServiceGetter
+	passwordService          *MockPasswordService
+	controllerConfigService  *MockControllerConfigService
+	accessService            *MockAccessService
+	macaroonService          *MockMacaroonService
 }
 
 var _ = gc.Suite(&agentAuthenticatorSuite{})
@@ -40,7 +43,8 @@ var _ = gc.Suite(&agentAuthenticatorSuite{})
 func (s *agentAuthenticatorSuite) TestAuthenticateLoginRequestHandleNotSupportedRequests(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.agentAuthenticatorFactory.EXPECT().AuthenticatorForState(gomock.Any()).Return(s.entityAuthenticator)
+	s.passwordServiceGetter.EXPECT().GetPasswordServiceForModel(gomock.Any(), gomock.Any()).Return(s.passwordService, nil)
+	s.agentAuthenticatorGetter.EXPECT().AuthenticatorForModel(gomock.Any(), gomock.Any()).Return(s.entityAuthenticator)
 
 	_, err := s.authenticator.AuthenticateLoginRequest(context.Background(), "", "", authentication.AuthParams{Token: "token"})
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
@@ -54,7 +58,7 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 	}
 	tag := names.NewUserTag("user")
 
-	s.agentAuthenticatorFactory.EXPECT().Authenticator().Return(s.entityAuthenticator)
+	s.agentAuthenticatorGetter.EXPECT().Authenticator().Return(s.entityAuthenticator)
 
 	authenticator, err := s.authenticatorForTag(context.Background(), s.authenticator, tag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -74,7 +78,7 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 func (s *agentAuthenticatorSuite) TestNotSupportedTag(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.agentAuthenticatorFactory.EXPECT().Authenticator().Return(s.entityAuthenticator)
+	s.agentAuthenticatorGetter.EXPECT().Authenticator().Return(s.entityAuthenticator)
 
 	authenticator, err := s.authenticatorForTag(context.Background(), s.authenticator, names.NewCloudTag("not-support"))
 	c.Assert(err, gc.ErrorMatches, "unexpected login entity tag: invalid request")
@@ -86,7 +90,7 @@ func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthenticator(c *gc.C) {
 
 	tag := names.NewMachineTag("0")
 
-	s.agentAuthenticatorFactory.EXPECT().Authenticator().Return(s.entityAuthenticator)
+	s.agentAuthenticatorGetter.EXPECT().Authenticator().Return(s.entityAuthenticator)
 	s.entityAuthenticator.EXPECT().Authenticate(gomock.Any(), authentication.AuthParams{}).Return(authentication.TagToEntity(tag), nil)
 
 	authenticator, err := s.authenticatorForTag(context.Background(), s.authenticator, tag)
@@ -101,7 +105,7 @@ func (s *agentAuthenticatorSuite) TestModelGetsAgentAuthenticator(c *gc.C) {
 
 	tag := names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d")
 
-	s.agentAuthenticatorFactory.EXPECT().Authenticator().Return(s.entityAuthenticator)
+	s.agentAuthenticatorGetter.EXPECT().Authenticator().Return(s.entityAuthenticator)
 	s.entityAuthenticator.EXPECT().Authenticate(gomock.Any(), authentication.AuthParams{}).Return(authentication.TagToEntity(tag), nil)
 
 	authenticator, err := s.authenticatorForTag(context.Background(), s.authenticator, tag)
@@ -116,7 +120,7 @@ func (s *agentAuthenticatorSuite) TestUnitGetsAgentAuthenticator(c *gc.C) {
 
 	tag := names.NewUnitTag("wordpress/0")
 
-	s.agentAuthenticatorFactory.EXPECT().Authenticator().Return(s.entityAuthenticator)
+	s.agentAuthenticatorGetter.EXPECT().Authenticator().Return(s.entityAuthenticator)
 	s.entityAuthenticator.EXPECT().Authenticate(gomock.Any(), authentication.AuthParams{}).Return(authentication.TagToEntity(tag), nil)
 
 	authenticator, err := s.authenticatorForTag(context.Background(), s.authenticator, tag)
@@ -129,8 +133,11 @@ func (s *agentAuthenticatorSuite) TestUnitGetsAgentAuthenticator(c *gc.C) {
 func (s *agentAuthenticatorSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.agentAuthenticatorFactory = NewMockAgentAuthenticatorFactory(ctrl)
+	s.agentAuthenticatorGetter = NewMockAgentAuthenticatorGetter(ctrl)
 	s.entityAuthenticator = NewMockEntityAuthenticator(ctrl)
+
+	s.passwordServiceGetter = NewMockPasswordServiceGetter(ctrl)
+	s.passwordService = NewMockPasswordService(ctrl)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfig, nil).AnyTimes()
@@ -141,7 +148,17 @@ func (s *agentAuthenticatorSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.macaroonService.EXPECT().GetLocalUsersKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
 	s.macaroonService.EXPECT().GetLocalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
 
-	authenticator, err := NewAuthenticator(context.Background(), s.StatePool, testing.ModelTag.Id(), s.controllerConfigService, s.accessService, s.macaroonService, s.agentAuthenticatorFactory, clock.WallClock)
+	authenticator, err := NewAuthenticator(
+		context.Background(),
+		s.StatePool,
+		model.UUID(testing.ModelTag.Id()),
+		s.controllerConfigService,
+		s.passwordServiceGetter,
+		s.accessService,
+		s.macaroonService,
+		s.agentAuthenticatorGetter,
+		clock.WallClock,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.authenticator = authenticator
 
