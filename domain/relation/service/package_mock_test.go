@@ -160,6 +160,45 @@ func (c *MockStateGetAllRelationDetailsCall) DoAndReturn(f func(context.Context)
 	return c
 }
 
+// GetApplicationEndpoints mocks base method.
+func (m *MockState) GetApplicationEndpoints(arg0 context.Context, arg1 application.ID) ([]relation0.Endpoint, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationEndpoints", arg0, arg1)
+	ret0, _ := ret[0].([]relation0.Endpoint)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationEndpoints indicates an expected call of GetApplicationEndpoints.
+func (mr *MockStateMockRecorder) GetApplicationEndpoints(arg0, arg1 any) *MockStateGetApplicationEndpointsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationEndpoints", reflect.TypeOf((*MockState)(nil).GetApplicationEndpoints), arg0, arg1)
+	return &MockStateGetApplicationEndpointsCall{Call: call}
+}
+
+// MockStateGetApplicationEndpointsCall wrap *gomock.Call
+type MockStateGetApplicationEndpointsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationEndpointsCall) Return(arg0 []relation0.Endpoint, arg1 error) *MockStateGetApplicationEndpointsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationEndpointsCall) Do(f func(context.Context, application.ID) ([]relation0.Endpoint, error)) *MockStateGetApplicationEndpointsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationEndpointsCall) DoAndReturn(f func(context.Context, application.ID) ([]relation0.Endpoint, error)) *MockStateGetApplicationEndpointsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetPeerRelationUUIDByEndpointIdentifiers mocks base method.
 func (m *MockState) GetPeerRelationUUIDByEndpointIdentifiers(arg0 context.Context, arg1 relation.EndpointIdentifier) (relation.UUID, error) {
 	m.ctrl.T.Helper()

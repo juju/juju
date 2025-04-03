@@ -52,6 +52,10 @@ type State interface {
 	//     given UUID.
 	GetRelationEndpoints(ctx context.Context, relationUUID corerelation.UUID) ([]relation.Endpoint, error)
 
+	// GetApplicationEndpoints returns all endpoints for the given application
+	// identifier.
+	GetApplicationEndpoints(ctx context.Context, applicationID application.ID) ([]relation.Endpoint, error)
+
 	// GetRelationEndpointUUID retrieves the unique identifier for a specific
 	// relation endpoint based on the provided arguments.
 	GetRelationEndpointUUID(ctx context.Context, args relation.GetRelationEndpointUUIDArgs) (corerelation.EndpointUUID, error)
@@ -221,8 +225,12 @@ func (s *Service) GetAllRelationDetails(ctx context.Context) ([]relation.Relatio
 }
 
 // GetApplicationEndpoints returns all endpoints for the given application identifier.
-func (s *Service) GetApplicationEndpoints(ctx context.Context, id application.ID) ([]relation.Endpoint, error) {
-	return nil, coreerrors.NotImplemented
+func (s *Service) GetApplicationEndpoints(ctx context.Context, applicationID application.ID) ([]relation.Endpoint, error) {
+	if err := applicationID.Validate(); err != nil {
+		return nil, errors.Errorf(
+			"%w: %w", relationerrors.ApplicationIDNotValid, err)
+	}
+	return s.st.GetApplicationEndpoints(ctx, applicationID)
 }
 
 // GetLocalRelationApplicationSettings returns the application settings

@@ -150,7 +150,7 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 r
 			}
 		}
 		if len(endpoint1.Name) == 0 || len(endpoint2.Name) == 0 {
-			// should not happens, unless above resolution loop is broken or
+			// should not happen, unless above resolution loop is broken or
 			// db corrupted.
 			return errors.Errorf("unexpected empty endpoint name")
 		}
@@ -618,6 +618,53 @@ WHERE  relation_uuid = $relationUUID.uuid
 	}
 
 	return relationEndpoints, nil
+}
+
+// GetApplicationEndpoints returns all endpoints for the given application
+// identifier.
+func (st *State) GetApplicationEndpoints(
+	ctx context.Context,
+	applicationID application.ID,
+) ([]relation.Endpoint, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	id := applicationUUID{
+		UUID: applicationID,
+	}
+	stmt, err := st.Prepare(`
+SELECT &endpoint.*
+FROM   v_application_endpoint
+WHERE  application_uuid = $applicationUUID.application_uuid
+`, id, endpoint{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var eps []endpoint
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, id).GetAll(&eps)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// If there are no endpoints we return an empty list.
+			return nil
+		} else if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var endpoints []relation.Endpoint
+	for _, ep := range eps {
+		endpoints = append(endpoints, ep.toRelationEndpoint())
+	}
+
+	return endpoints, nil
 }
 
 // GetRegularRelationUUIDByEndpointIdentifiers gets the UUID of a regular
