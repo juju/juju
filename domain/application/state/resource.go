@@ -11,6 +11,7 @@ import (
 	"github.com/canonical/sqlair"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
@@ -39,7 +40,7 @@ func (st *State) createApplicationResources(
 // Returns a slice of resourceToAdd and an error if any issues occur during
 // creation.
 func (st *State) buildResourcesToAdd(
-	charmUUID string,
+	charmUUID corecharm.ID,
 	charmSource charm.CharmSource,
 	appResources []application.AddApplicationResourceArg,
 ) ([]resourceToAdd, error) {
@@ -98,7 +99,7 @@ func (st *State) buildResourcesToAdd(
 
 type insertResourcesArgs struct {
 	appID        coreapplication.ID
-	charmUUID    string
+	charmUUID    corecharm.ID
 	charmSource  charm.CharmSource
 	appResources []application.AddApplicationResourceArg
 }

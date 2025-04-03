@@ -104,7 +104,7 @@ func (st *State) CreateApplication(
 	appDetails := applicationDetails{
 		UUID:      appUUID,
 		Name:      name,
-		CharmID:   charmID.String(),
+		CharmUUID: charmID,
 		LifeID:    life.Alive,
 		Placement: args.Placement,
 
@@ -184,7 +184,7 @@ func (st *State) CreateApplication(
 		} else if errors.Is(err, applicationerrors.CharmAlreadyExists) {
 			// We already have an existing charm, in this case we just want
 			// to point the application to the existing charm.
-			appDetails.CharmID = existingCharmID.String()
+			appDetails.CharmUUID = existingCharmID
 
 			shouldInsertCharm = false
 		}
@@ -209,7 +209,7 @@ func (st *State) CreateApplication(
 			ctx, tx,
 			insertResourcesArgs{
 				appID:        appDetails.UUID,
-				charmUUID:    appDetails.CharmID,
+				charmUUID:    appDetails.CharmUUID,
 				charmSource:  args.Charm.Source,
 				appResources: args.Resources,
 			},
@@ -234,7 +234,7 @@ func (st *State) CreateApplication(
 		}
 		if err := st.insertApplicationEndpoints(ctx, tx, insertApplicationEndpointsParams{
 			appID:     appDetails.UUID,
-			charmUUID: corecharm.ID(appDetails.CharmID),
+			charmUUID: appDetails.CharmUUID,
 			bindings:  args.EndpointBindings,
 		}); err != nil {
 			return errors.Errorf("inserting exposed endpoints for application %q: %w", name, err)
@@ -242,7 +242,7 @@ func (st *State) CreateApplication(
 		if err := st.insertPeerRelations(ctx, tx, appDetails.UUID); err != nil {
 			return errors.Errorf("inserting peer relation for application %q: %w", name, err)
 		}
-		if err = st.insertApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
+		if err = st.insertApplicationUnits(ctx, tx, appUUID, appDetails.CharmUUID, args, units); err != nil {
 			return errors.Errorf("inserting units for application %q: %w", appUUID, err)
 		}
 
@@ -263,15 +263,20 @@ func (st *State) CreateApplication(
 
 func (st *State) insertApplicationUnits(
 	ctx context.Context, tx *sqlair.TX,
-	appUUID coreapplication.ID, args application.AddApplicationArg, units []application.AddUnitArg,
+	appUUID coreapplication.ID,
+	charmUUID corecharm.ID,
+	args application.AddApplicationArg,
+	units []application.AddUnitArg,
 ) error {
 	if len(units) == 0 {
 		return nil
 	}
+
 	insertUnits := make([]application.InsertUnitArg, len(units))
 	for i, unit := range units {
 		insertUnits[i] = application.InsertUnitArg{
 			UnitName:         unit.UnitName,
+			CharmUUID:        charmUUID,
 			Constraints:      unit.Constraints,
 			Storage:          args.Storage,
 			StoragePoolKind:  args.StoragePoolKind,

@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	corelife "github.com/juju/juju/core/life"
@@ -31,12 +32,12 @@ type UnitState interface {
 	// AddIAASUnits adds the specified units to the application.
 	// If the application is not found, an error satisfying [applicationerrors.ApplicationNotFound] is returned.
 	// If any of the units already exists, an error satisfying [applicationerrors.UnitAlreadyExists] is returned.
-	AddIAASUnits(context.Context, string, coreapplication.ID, ...application.AddUnitArg) error
+	AddIAASUnits(context.Context, string, coreapplication.ID, corecharm.ID, ...application.AddUnitArg) error
 
 	// AddCAASUnits adds the specified units to the application.
 	// If the application is not found, an error satisfying [applicationerrors.ApplicationNotFound] is returned.
 	// If any of the units already exists, an error satisfying [applicationerrors.UnitAlreadyExists] is returned.
-	AddCAASUnits(context.Context, string, coreapplication.ID, ...application.AddUnitArg) error
+	AddCAASUnits(context.Context, string, coreapplication.ID, corecharm.ID, ...application.AddUnitArg) error
 
 	// InsertMigratingIAASUnits inserts the fully formed units for the specified IAAS application.
 	// This is only used when inserting units during model migration.
@@ -135,7 +136,8 @@ func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg
 // exist. If the unit life is Dead, an error satisfying
 // [applicationerrors.UnitAlreadyExists] is returned.
 func (s *ProviderService) RegisterCAASUnit(
-	ctx context.Context, params application.RegisterCAASUnitParams,
+	ctx context.Context,
+	params application.RegisterCAASUnitParams,
 ) (coreunit.Name, string, error) {
 	if params.ProviderID == "" {
 		return "", "", errors.Errorf("provider id %w", coreerrors.NotValid)
