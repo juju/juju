@@ -70,7 +70,7 @@ type applicationName struct {
 type applicationDetails struct {
 	UUID      coreapplication.ID `db:"uuid"`
 	Name      string             `db:"name"`
-	CharmID   string             `db:"charm_uuid"`
+	CharmUUID corecharm.ID       `db:"charm_uuid"`
 	LifeID    life.Life          `db:"life_id"`
 	Placement string             `db:"placement"`
 	SpaceUUID string             `db:"space_uuid"`
@@ -104,6 +104,7 @@ type unitName struct {
 
 type unitDetails struct {
 	UnitUUID                coreunit.UUID      `db:"uuid"`
+	CharmUUID               corecharm.ID       `db:"charm_uuid"`
 	NetNodeID               string             `db:"net_node_uuid"`
 	Name                    coreunit.Name      `db:"name"`
 	ApplicationID           coreapplication.ID `db:"application_uuid"`
@@ -630,13 +631,13 @@ type applicationCharmDownloadInfo struct {
 }
 
 type resourceToAdd struct {
-	UUID      string    `db:"uuid"`
-	CharmUUID string    `db:"charm_uuid"`
-	Name      string    `db:"charm_resource_name"`
-	Revision  *int      `db:"revision"`
-	Origin    string    `db:"origin_type_name"`
-	State     string    `db:"state_name"`
-	CreatedAt time.Time `db:"created_at"`
+	UUID      string       `db:"uuid"`
+	CharmUUID corecharm.ID `db:"charm_uuid"`
+	Name      string       `db:"charm_resource_name"`
+	Revision  *int         `db:"revision"`
+	Origin    string       `db:"origin_type_name"`
+	State     string       `db:"state_name"`
+	CreatedAt time.Time    `db:"created_at"`
 }
 
 type storagePool struct {
@@ -645,13 +646,13 @@ type storagePool struct {
 }
 
 type storageToAdd struct {
-	ApplicationUUID string  `db:"application_uuid"`
-	CharmUUID       string  `db:"charm_uuid"`
-	StorageName     string  `db:"storage_name"`
-	StoragePoolUUID *string `db:"storage_pool_uuid"`
-	StorageType     *string `db:"storage_type"`
-	Size            uint    `db:"size_mib"`
-	Count           uint    `db:"count"`
+	ApplicationUUID string       `db:"application_uuid"`
+	CharmUUID       corecharm.ID `db:"charm_uuid"`
+	StorageName     string       `db:"storage_name"`
+	StoragePoolUUID *string      `db:"storage_pool_uuid"`
+	StorageType     *string      `db:"storage_type"`
+	Size            uint         `db:"size_mib"`
+	Count           uint         `db:"count"`
 }
 
 type linkResourceApplication struct {

@@ -222,6 +222,7 @@ var StorageParentDir = paths.StorageDir(paths.OSUnixLike)
 // Used by import and when registering a CAAS unit.
 type InsertUnitArg struct {
 	UnitName         coreunit.Name
+	CharmUUID        charm.ID
 	CloudContainer   *CloudContainer
 	Password         *PasswordInfo
 	Constraints      constraints.Constraints
@@ -242,6 +243,7 @@ type RegisterCAASUnitParams struct {
 // a k8s unit representing a new pod to the model.
 type RegisterCAASUnitArg struct {
 	UnitName         coreunit.Name
+	CharmUUID        charm.ID
 	PasswordHash     string
 	ProviderID       string
 	Address          *string

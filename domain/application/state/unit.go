@@ -12,6 +12,7 @@ import (
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
@@ -444,7 +445,7 @@ AND a.name = $applicationName.name
 //   - If the application is not found, [applicationerrors.ApplicationNotFound] is returned.
 
 func (st *State) AddIAASUnits(
-	ctx context.Context, storageParentDir string, appUUID coreapplication.ID, args ...application.AddUnitArg,
+	ctx context.Context, storageParentDir string, appUUID coreapplication.ID, charmUUID corecharm.ID, args ...application.AddUnitArg,
 ) error {
 	if len(args) == 0 {
 		return nil
@@ -463,6 +464,7 @@ func (st *State) AddIAASUnits(
 		for _, arg := range args {
 			insertArg := application.InsertUnitArg{
 				UnitName:    arg.UnitName,
+				CharmUUID:   charmUUID,
 				Constraints: arg.Constraints,
 				UnitStatusArg: application.UnitStatusArg{
 					AgentStatus:    arg.UnitStatusArg.AgentStatus,
@@ -484,7 +486,7 @@ func (st *State) AddIAASUnits(
 //   - If the application is not alive, [applicationerrors.ApplicationNotAlive] is returned.
 //   - If the application is not found, [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) AddCAASUnits(
-	ctx context.Context, storageParentDir string, appUUID coreapplication.ID, args ...application.AddUnitArg,
+	ctx context.Context, storageParentDir string, appUUID coreapplication.ID, charmUUID corecharm.ID, args ...application.AddUnitArg,
 ) error {
 	if len(args) == 0 {
 		return nil
@@ -500,6 +502,7 @@ func (st *State) AddCAASUnits(
 		for _, arg := range args {
 			insertArg := application.InsertUnitArg{
 				UnitName:    arg.UnitName,
+				CharmUUID:   charmUUID,
 				Constraints: arg.Constraints,
 				UnitStatusArg: application.UnitStatusArg{
 					AgentStatus:    arg.UnitStatusArg.AgentStatus,
@@ -783,6 +786,11 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 				(appScale.Scaling && arg.OrderedId >= appScale.ScaleTarget) {
 				return errors.Errorf("unrequired unit %s is not assigned", arg.UnitName).Add(applicationerrors.UnitNotAssigned)
 			}
+
+			// We already have the charm UUID from the application details.
+			// We need to set it in the insert argument.
+			insertArg.CharmUUID = appDetails.CharmUUID
+
 			return st.insertCAASUnit(ctx, tx, appUUID, insertArg)
 		} else if err != nil {
 			return errors.Errorf("checking unit life %q: %w", arg.UnitName, err)
@@ -865,7 +873,10 @@ func (st *State) insertCAASUnit(
 }
 
 func (st *State) insertIAASUnit(
-	ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID, args application.InsertUnitArg,
+	ctx context.Context,
+	tx *sqlair.TX,
+	appUUID coreapplication.ID,
+	args application.InsertUnitArg,
 ) error {
 	_, err := st.getUnit(ctx, tx, args.UnitName)
 	if err == nil {
@@ -886,7 +897,9 @@ func (st *State) insertIAASUnit(
 }
 
 func (st *State) insertUnit(
-	ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID, args application.InsertUnitArg,
+	ctx context.Context, tx *sqlair.TX,
+	appUUID coreapplication.ID,
+	args application.InsertUnitArg,
 ) (coreunit.UUID, string, error) {
 	if err := st.checkApplicationAlive(ctx, tx, appUUID); err != nil {
 		return "", "", errors.Capture(err)
@@ -902,6 +915,7 @@ func (st *State) insertUnit(
 	createParams := unitDetails{
 		ApplicationID: appUUID,
 		UnitUUID:      unitUUID,
+		CharmUUID:     args.CharmUUID,
 		Name:          args.UnitName,
 		NetNodeID:     nodeUUID.String(),
 		LifeID:        life.Alive,

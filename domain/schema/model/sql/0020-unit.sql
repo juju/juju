@@ -4,8 +4,7 @@ CREATE TABLE unit (
     life_id INT NOT NULL,
     application_uuid TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
-    -- Freshly created units will not have a charm URL set.
-    charm_uuid TEXT,
+    charm_uuid TEXT NOT NULL,
     password_hash_algorithm_id TEXT,
     password_hash TEXT,
     CONSTRAINT fk_unit_life

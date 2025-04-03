@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/application/testing"
+	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -747,16 +748,21 @@ func (s *unitStateSuite) TestAddUnitsApplicationNotFound(c *gc.C) {
 		UnitName: "foo/666",
 	}
 	uuid := testing.GenApplicationUUID(c)
-	err := s.state.AddIAASUnits(context.Background(), c.MkDir(), uuid, u)
+	charmUUID := charmtesting.GenCharmID(c)
+	err := s.state.AddIAASUnits(context.Background(), c.MkDir(), uuid, charmUUID, u)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *unitStateSuite) TestAddUnitsApplicationNotALive(c *gc.C) {
 	appID := s.createApplication(c, "foo", life.Dying)
+
+	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
 	u := application.AddUnitArg{
 		UnitName: "foo/666",
 	}
-	err := s.state.AddIAASUnits(context.Background(), c.MkDir(), appID, u)
+	err = s.state.AddIAASUnits(context.Background(), c.MkDir(), appID, charmUUID, u)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }
 
@@ -770,6 +776,9 @@ func (s *unitStateSuite) TestAddCAASUnits(c *gc.C) {
 
 func (s *unitStateSuite) assertAddUnits(c *gc.C, modelType model.ModelType) {
 	appID := s.createApplication(c, "foo", life.Alive)
+
+	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
 
 	now := ptr(time.Now())
 	u := application.AddUnitArg{
@@ -789,13 +798,11 @@ func (s *unitStateSuite) assertAddUnits(c *gc.C, modelType model.ModelType) {
 			},
 		},
 	}
-	ctx := context.Background()
 
-	var err error
 	if modelType == model.IAAS {
-		err = s.state.AddIAASUnits(ctx, c.MkDir(), appID, u)
+		err = s.state.AddIAASUnits(context.Background(), c.MkDir(), appID, charmUUID, u)
 	} else {
-		err = s.state.AddCAASUnits(ctx, c.MkDir(), appID, u)
+		err = s.state.AddCAASUnits(context.Background(), c.MkDir(), appID, charmUUID, u)
 	}
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -833,12 +840,15 @@ func (s *unitStateSuite) TestInsertMigratingCAASUnits(c *gc.C) {
 func (s *unitStateSuite) assertInsertMigratingUnits(c *gc.C, modelType model.ModelType) {
 	appID := s.createApplication(c, "foo", life.Alive)
 
+	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
 	u := application.InsertUnitArg{
-		UnitName: "foo/666",
+		UnitName:  "foo/666",
+		CharmUUID: charmUUID,
 	}
 	ctx := context.Background()
 
-	var err error
 	if modelType == model.IAAS {
 		err = s.state.InsertMigratingIAASUnits(ctx, appID, u)
 	} else {

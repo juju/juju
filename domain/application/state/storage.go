@@ -106,7 +106,7 @@ WHERE  charm_uuid = $applicationDetails.charm_uuid
 	for i, stor := range appStorage {
 		storage[i] = storageToAdd{
 			ApplicationUUID: appDetails.UUID.String(),
-			CharmUUID:       appDetails.CharmID,
+			CharmUUID:       appDetails.CharmUUID,
 			StorageName:     stor.Name.String(),
 			Size:            uint(stor.Size),
 			Count:           uint(stor.Count),

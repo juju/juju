@@ -289,15 +289,22 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 	}
 
 	appArg.Scale = len(args.Units)
-	unitArgs, err := makeUnitArgs(args.Units)
-	if err != nil {
-		return errors.Errorf("creating unit args: %w", err)
-	}
 
 	appID, err := s.st.CreateApplication(ctx, name, appArg, nil)
 	if err != nil {
 		return errors.Errorf("creating application %q: %w", name, err)
 	}
+
+	charmUUID, err := s.st.GetCharmIDByApplicationName(ctx, name)
+	if err != nil {
+		return errors.Errorf("getting charm ID for application %q: %w", name, err)
+	}
+
+	unitArgs, err := makeUnitArgs(args.Units, charmUUID)
+	if err != nil {
+		return errors.Errorf("creating unit args: %w", err)
+	}
+
 	if modelType == model.IAAS {
 		err = s.st.InsertMigratingIAASUnits(ctx, appID, unitArgs...)
 	} else {
@@ -321,12 +328,13 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 	return nil
 }
 
-func makeUnitArgs(units []ImportUnitArg) ([]application.InsertUnitArg, error) {
+func makeUnitArgs(units []ImportUnitArg, charmUUID corecharm.ID) ([]application.InsertUnitArg, error) {
 	unitArgs := make([]application.InsertUnitArg, len(units))
 	for i, u := range units {
 
 		arg := application.InsertUnitArg{
 			UnitName:         u.UnitName,
+			CharmUUID:        charmUUID,
 			StorageParentDir: application.StorageParentDir,
 		}
 		if u.CloudContainer != nil {
