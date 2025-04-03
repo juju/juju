@@ -32,6 +32,11 @@ type State interface {
 	// [coreerrors.NotSupported] if the architecture is not supported by the
 	// state layer.
 	Add(ctx context.Context, metadata agentbinary.Metadata) error
+
+	// GetObjectUUID returns the object store UUID for the given file path.
+	// The following errors can be returned:
+	// - [agentbinaryerrors.ObjectNotFound] when no object exists that matches this path.
+	GetObjectUUID(ctx context.Context, path string) (objectstore.UUID, error)
 }
 
 // AgentBinaryStore provides the API for working with agent binaries.
@@ -105,14 +110,19 @@ func (s *AgentBinaryStore) add(
 
 	path := generatePath(version, sha384)
 	uuid, err := objectStore.PutAndCheckHash(ctx, path, r, size, sha384)
+	if err != nil && !errors.Is(err, objectstoreerrors.ErrHashAndSizeAlreadyExists) {
+		return errors.Errorf("putting agent binary of %q with hash %q in the object store: %w", version, sha384, err)
+	}
 	if errors.Is(err, objectstoreerrors.ErrHashAndSizeAlreadyExists) {
 		// This means that the binary already exists in the object store.
-		return errors.Errorf(
-			"agent binary of %q already exists in the object store", version,
-		).Add(agentbinaryerrors.AlreadyExists)
-	}
-	if err != nil {
-		return errors.Errorf("putting agent binary of %q with hash %q in the object store: %w", version, sha384, err)
+		// Just in case this object is not stored in the agent binary store
+		// table yet because of a previous error, we need to get the UUID of
+		// the existing binary and store it.
+		existingObjectUUID, err := s.st.GetObjectUUID(ctx, path)
+		if err != nil {
+			return errors.Errorf("getting object store UUID for %q: %w", path, err)
+		}
+		uuid = objectstore.UUID(existingObjectUUID.String())
 	}
 
 	err = s.st.Add(ctx, agentbinary.Metadata{
@@ -120,10 +130,18 @@ func (s *AgentBinaryStore) add(
 		Arch:            version.Arch,
 		ObjectStoreUUID: uuid,
 	})
-	if err != nil && !errors.Is(err, agentbinaryerrors.AlreadyExists) {
+	if errors.Is(err, agentbinaryerrors.AgentBinaryImmutable) ||
+		errors.Is(err, agentbinaryerrors.ObjectNotFound) ||
+		errors.Is(err, coreerrors.NotSupported) {
 		// We need to cleanup the newly added binary from the object store.
+		// But we don't want to accidentally remove an existing binary if any unexpected errors occur.
+		// The best we can do is to cleanup the binary for certain unknown errors.
+		// If there is a retry, the uploaded binary will be picked up again and recorded in the database.
 		if err := objectStore.Remove(ctx, path); err != nil && !errors.Is(err, objectstoreerrors.ErrNotFound) {
-			s.logger.Errorf(ctx, "saving agent binary metadata %q failed, removing the binary from object store: %v", path, err)
+			s.logger.Errorf(ctx,
+				"saving agent binary metadata %q failed, removing the binary from object store: %v",
+				path, err,
+			)
 		}
 	}
 	if err != nil {

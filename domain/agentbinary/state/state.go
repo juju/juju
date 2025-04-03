@@ -31,6 +31,49 @@ func NewState(factory database.TxnRunnerFactory) *State {
 	}
 }
 
+// GetObjectUUID returns the object store UUID for the given file path.
+// The following errors can be returned:
+// - [agentbinaryerrors.ObjectNotFound] when no object exists that matches this path.
+func (s *State) GetObjectUUID(
+	ctx context.Context,
+	path string,
+) (objectstore.UUID, error) {
+	db, err := s.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	type objectStorePath struct {
+		Path         string           `db:"path"`
+		MetadataUUID objectstore.UUID `db:"metadata_uuid"`
+	}
+	objectStore := objectStorePath{Path: path}
+
+	stmt, err := s.Prepare(`
+SELECT metadata_uuid AS &objectStorePath.metadata_uuid
+FROM   object_store_metadata_path
+WHERE  path = $objectStorePath.path`, objectStore)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, objectStore).Get(&objectStore)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"object with path %q not found in store",
+				objectStore.Path,
+			).Add(agentbinaryerrors.ObjectNotFound)
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return "", errors.Errorf(
+			"getting object with path %q: %w",
+			objectStore.Path, err,
+		)
+	}
+	return objectStore.MetadataUUID, nil
+}
+
 // Add adds a new agent binary's metadata to the database.
 // [agentbinaryerrors.AlreadyExists] when the provided agent binary already
 // exists.

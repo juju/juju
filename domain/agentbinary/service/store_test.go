@@ -108,20 +108,29 @@ func (s *storeSuite) TestAddFailedInvalidArch(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
-// TestAddFailedBinaryAlreadyExistsWithNoBinaryCleanUp tests that the objectstore returns an error when the binary already exists.
-// We don't want to remove the existing binary from the object store for cleanup.
-func (s *storeSuite) TestAddFailedBinaryAlreadyExistsWithNoBinaryCleanUp(c *gc.C) {
+// TestAddIdempotentSave tests that the objectstore returns an error when the binary already exists.
+// There must be a failure in previous calls. In a following retry, we pick up the existing binary from the
+// object store and add it to the state.
+func (s *storeSuite) TestAddIdempotentSave(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	agentBinary := strings.NewReader("test-agent-binary")
+	objectStoreUUID, err := coreobjectstore.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.mockObjectStore.EXPECT().PutAndCheckHash(gomock.Any(),
 		"agent-binaries/4.6.8-amd64-test-sha384",
 		agentBinary, int64(1234), "test-sha384",
 	).Return("", objectstoreerrors.ErrHashAndSizeAlreadyExists)
+	s.mockState.EXPECT().GetObjectUUID(gomock.Any(), "agent-binaries/4.6.8-amd64-test-sha384").Return(objectStoreUUID, nil)
+	s.mockState.EXPECT().Add(gomock.Any(), agentbinary.Metadata{
+		Version:         "4.6.8",
+		Arch:            corearch.AMD64,
+		ObjectStoreUUID: objectStoreUUID,
+	}).Return(nil)
 
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
-	err := store.Add(context.Background(), agentBinary,
+	err = store.Add(context.Background(), agentBinary,
 		coreagentbinary.Version{
 			Number: semversion.MustParse("4.6.8"),
 			Arch:   corearch.AMD64,
@@ -129,7 +138,7 @@ func (s *storeSuite) TestAddFailedBinaryAlreadyExistsWithNoBinaryCleanUp(c *gc.C
 		1234,
 		"test-sha384",
 	)
-	c.Assert(err, jc.ErrorIs, agentbinaryerrors.AlreadyExists)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // TestAddFailedNotSupportedArch tests that the state returns an error when the architecture is not supported.
