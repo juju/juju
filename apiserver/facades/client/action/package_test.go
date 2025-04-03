@@ -14,11 +14,13 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/leadership"
+	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package action -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/action State,Model,ApplicationService
+//go:generate go run go.uber.org/mock/mockgen -typed -package action -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/action State,Model,ApplicationService,ModelInfoService
 //go:generate go run go.uber.org/mock/mockgen -typed -package action -destination state_mock_test.go github.com/juju/juju/state Action,ActionReceiver
 //go:generate go run go.uber.org/mock/mockgen -typed -package action -destination leader_mock_test.go github.com/juju/juju/core/leadership Reader
 //go:generate go run go.uber.org/mock/mockgen -typed -package action -destination blockservices_mock_test.go github.com/juju/juju/apiserver/common BlockCommandService
@@ -34,10 +36,12 @@ type MockBaseSuite struct {
 	Leadership          *MockReader
 	BlockCommandService *MockBlockCommandService
 	ApplicationService  *MockApplicationService
+	ModelInfoService    *MockModelInfoService
 }
 
 func (s *MockBaseSuite) NewActionAPI(c *gc.C) *ActionAPI {
-	api, err := newActionAPI(s.State, nil, s.Authorizer, LeaderFactory(s.Leadership), s.ApplicationService, s.BlockCommandService)
+	modelUUID := modeltesting.GenModelUUID(c)
+	api, err := newActionAPI(s.State, nil, s.Authorizer, LeaderFactory(s.Leadership), s.ApplicationService, s.BlockCommandService, s.ModelInfoService, modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	api.tagToActionReceiverFn = s.tagToActionReceiverFn
@@ -55,8 +59,10 @@ func NewActionAPI(
 	resources facade.Resources, authorizer facade.Authorizer, leadership leadership.Reader,
 	applicationService ApplicationService,
 	blockCommandService common.BlockCommandService,
+	modelInfoService ModelInfoService,
+	modelUUID coremodel.UUID,
 ) (*ActionAPI, error) {
-	return newActionAPI(&stateShim{st: st}, resources, authorizer, LeaderFactory(leadership), applicationService, blockCommandService)
+	return newActionAPI(&stateShim{st: st}, resources, authorizer, LeaderFactory(leadership), applicationService, blockCommandService, modelInfoService, modelUUID)
 }
 
 type FakeLeadership struct {

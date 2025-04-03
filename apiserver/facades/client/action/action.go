@@ -13,6 +13,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -39,10 +40,18 @@ type ApplicationService interface {
 	GetCharmActions(ctx context.Context, locator applicationcharm.CharmLocator) (internalcharm.Actions, error)
 }
 
+// ModelInfoService provides access to information about the model.
+type ModelInfoService interface {
+	// GetModelInfo returns information about the current model.
+	GetModelInfo(context.Context) (coremodel.ModelInfo, error)
+}
+
 // ActionAPI implements the client API for interacting with Actions
 type ActionAPI struct {
 	state              State
 	model              Model
+	modelTag           names.ModelTag
+	modelInfoService   ModelInfoService
 	resources          facade.Resources
 	authorizer         facade.Authorizer
 	check              *common.BlockChecker
@@ -66,6 +75,8 @@ func newActionAPI(
 	getLeadershipReader func() (leadership.Reader, error),
 	applicationService ApplicationService,
 	blockCommandService common.BlockCommandService,
+	modelInfoService ModelInfoService,
+	modelUUID coremodel.UUID,
 ) (*ActionAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -81,9 +92,13 @@ func newActionAPI(
 		return nil, errors.Trace(err)
 	}
 
+	modelTag := names.NewModelTag(modelUUID.String())
+
 	return &ActionAPI{
 		state:                 st,
 		model:                 m,
+		modelTag:              modelTag,
+		modelInfoService:      modelInfoService,
 		resources:             resources,
 		authorizer:            authorizer,
 		check:                 common.NewBlockChecker(blockCommandService),
@@ -94,15 +109,15 @@ func newActionAPI(
 }
 
 func (a *ActionAPI) checkCanRead(ctx context.Context) error {
-	return a.authorizer.HasPermission(ctx, permission.ReadAccess, a.model.ModelTag())
+	return a.authorizer.HasPermission(ctx, permission.ReadAccess, a.modelTag)
 }
 
 func (a *ActionAPI) checkCanWrite(ctx context.Context) error {
-	return a.authorizer.HasPermission(ctx, permission.WriteAccess, a.model.ModelTag())
+	return a.authorizer.HasPermission(ctx, permission.WriteAccess, a.modelTag)
 }
 
 func (a *ActionAPI) checkCanAdmin(ctx context.Context) error {
-	return a.authorizer.HasPermission(ctx, permission.AdminAccess, a.model.ModelTag())
+	return a.authorizer.HasPermission(ctx, permission.AdminAccess, a.modelTag)
 }
 
 // Actions takes a list of ActionTags, and returns the full Action for

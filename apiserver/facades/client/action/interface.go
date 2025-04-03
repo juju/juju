@@ -30,9 +30,7 @@ type Model interface {
 	ListOperations(actionNames []string, actionReceivers []names.Tag, operationStatus []state.ActionStatus,
 		offset, limit int,
 	) ([]state.OperationInfo, bool, error)
-	ModelTag() names.ModelTag
 	OperationWithActions(id string) (*state.OperationInfo, error)
-	Type() state.ModelType
 }
 
 type stateShim struct {
@@ -62,6 +60,7 @@ func (s *stateShim) FindEntity(tag names.Tag) (state.Entity, error) {
 func (s *stateShim) Model() (Model, error) {
 	return s.st.Model()
 }
+
 func (s *stateShim) WatchActionLogs(actionId string) state.StringsWatcher {
 	return s.st.WatchActionLogs(actionId)
 }
