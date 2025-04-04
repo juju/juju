@@ -31,13 +31,21 @@ var ignoreCommands = []string{"k8s-raw-get", "k8s-raw-set", "k8s-spec-get",
 // runs the embedded 'documentation' command to generate the docs.
 func main() {
 	jujucSuperCmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
-	for _, name := range jujuc.CommandNames() {
+	for _, name := range jujuc.HookCommandNames() {
 		if slices.Contains(ignoreCommands, name) {
 			continue
 		}
-		hookTool, err := jujuc.NewCommand(dummyHookContext{}, name)
+		hookTool, err := jujuc.NewHookCommand(dummyHookContext{}, name)
 		check(err)
 		jujucSuperCmd.Register(hookTool)
+	}
+	for _, name := range jujuc.ActionCommandNames() {
+		if slices.Contains(ignoreCommands, name) {
+			continue
+		}
+		actionTool, err := jujuc.NewActionCommand(dummyHookContext{}, name)
+		check(err)
+		jujucSuperCmd.Register(actionTool)
 	}
 
 	if len(os.Args) < 2 {

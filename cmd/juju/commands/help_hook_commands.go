@@ -90,39 +90,39 @@ func (dummyHookContext) SetStatus(jujuc.StatusInfo) error {
 	return nil
 }
 
-func newHelpToolCommand() cmd.Command {
-	return &helpToolCommand{}
+func newhelpHookCmdsCommand() cmd.Command {
+	return &helpHookCmdsCommand{}
 }
 
-type helpToolCommand struct {
+type helpHookCmdsCommand struct {
 	cmd.CommandBase
-	tool string
+	hookCmd string
 }
 
-func (t *helpToolCommand) Info() *cmd.Info {
+func (t *helpHookCmdsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:     "help-tool",
-		Args:     "[tool]",
-		Purpose:  "Show help on a Juju charm hook tool.",
-		Doc:      helpToolDoc,
-		Examples: helpToolExamples,
-		SeeAlso:  []string{"help"},
+		Name:     "help-hook-commands",
+		Args:     "[hook]",
+		Purpose:  "Show help on a Juju charm hook command.",
+		Doc:      helpHookCmdsDoc,
+		Examples: helpHookCmdsExamples,
+		SeeAlso:  []string{"help", "help-action-commands"},
 	})
 }
 
-func (t *helpToolCommand) Init(args []string) error {
-	tool, err := cmd.ZeroOrOneArgs(args)
+func (t *helpHookCmdsCommand) Init(args []string) error {
+	hookCmd, err := cmd.ZeroOrOneArgs(args)
 	if err == nil {
-		t.tool = tool
+		t.hookCmd = hookCmd
 	}
 	return err
 }
 
-func (c *helpToolCommand) Run(ctx *cmd.Context) error {
-	if c.tool == "" {
-		fmt.Fprint(ctx.Stdout, listHookTools())
+func (c *helpHookCmdsCommand) Run(ctx *cmd.Context) error {
+	if c.hookCmd == "" {
+		fmt.Fprint(ctx.Stdout, listHelpHookCmds())
 	} else {
-		c, err := jujuc.NewCommand(dummyHookContext{}, c.tool)
+		c, err := jujuc.NewHookCommand(dummyHookContext{}, c.hookCmd)
 		if err != nil {
 			return err
 		}
@@ -134,33 +134,34 @@ func (c *helpToolCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-var helpToolDoc = fmt.Sprintf(`
-Juju charms can access a series of built-in helpers called 'hook-tools'.
-These are useful for the charm to be able to inspect its running environment.
-Currently available charm hook tools are:
+var helpHookCmdsDoc = fmt.Sprintf(`
+Juju charms have access to a set of built-in helpers known as 'hook-commands,'
+which allow them to inspect their runtime environment.
+The currently available charm hook commands include:
 
 %v
-`, listHookTools())
+`, listHelpHookCmds())
 
-const helpToolExamples = `
-For help on a specific tool, supply the name of that tool, for example:
+const helpHookCmdsExamples = `
+For help on a specific hook command, supply the name of that hook command, for example:
 
-        juju help-tool unit-get
+        juju help-hook-commands unit-get
 `
 
-func listHookTools() string {
+func listHelpHookCmds() string {
 	all := ""
 	// Ripped from SuperCommand. We could Run() a SuperCommand
 	// with "help commands", but then the implicit "help" command
 	// shows up.
-	names := jujuc.CommandNames()
+	names := jujuc.HookCommandNames()
 	cmds := []cmd.Command{}
 	longest := 0
 	for _, name := range names {
-		if c, err := jujuc.NewCommand(dummyHookContext{}, name); err == nil {
+		if c, err := jujuc.NewHookCommand(dummyHookContext{}, name); err == nil {
 			// On Windows name has a '.exe' suffix, while Info().Name does not
 			name := c.Info().Name
 			if len(name) > longest {
+				// Left-aligns the command purpose to match the longest command name length.
 				longest = len(name)
 			}
 			cmds = append(cmds, c)

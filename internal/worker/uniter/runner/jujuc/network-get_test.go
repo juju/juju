@@ -115,7 +115,7 @@ func (s *NetworkGetSuite) createCommand(c *gc.C) cmd.Command {
 
 	hctx.info.NetworkInterface.NetworkInfoResults = presetBindings
 
-	com, err := jujuc.NewCommand(hctx, "network-get")
+	com, err := jujuc.NewHookCommand(hctx, "network-get")
 	c.Assert(err, jc.ErrorIsNil)
 	return jujuc.NewJujucCommandWrappedForTest(com)
 }
