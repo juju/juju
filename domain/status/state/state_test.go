@@ -737,24 +737,15 @@ func (s *stateSuite) TestGetAllUnitStatusesForApplication(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	workloadResults, agentStatuses, containerResults, err := s.state.GetAllUnitStatusesForApplication(context.Background(), appId)
+	fullStatuses, err := s.state.GetAllFullUnitStatusesForApplication(context.Background(), appId)
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(workloadResults, gc.HasLen, 1)
-	workloadResult, ok := workloadResults["foo/666"]
+	c.Assert(fullStatuses, gc.HasLen, 1)
+	fullStatus, ok := fullStatuses["foo/666"]
 	c.Assert(ok, jc.IsTrue)
 
-	c.Assert(agentStatuses, gc.HasLen, 1)
-	agentResult, ok := agentStatuses["foo/666"]
-	c.Assert(ok, jc.IsTrue)
-
-	c.Assert(containerResults, gc.HasLen, 1)
-	containerResult, ok := containerResults["foo/666"]
-	c.Assert(ok, jc.IsTrue)
-
-	assertStatusInfoEqual(c, workloadResult.StatusInfo, workloadStatus)
-	assertStatusInfoEqual(c, agentResult, agentStatus)
-	assertStatusInfoEqual(c, containerResult, cloudContainerStatus)
+	assertStatusInfoEqual(c, fullStatus.WorkloadStatus, workloadStatus)
+	assertStatusInfoEqual(c, fullStatus.AgentStatus, agentStatus)
+	assertStatusInfoEqual(c, fullStatus.ContainerStatus, cloudContainerStatus)
 }
 
 func (s *stateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUnits(c *gc.C) {
@@ -768,6 +759,13 @@ func (s *stateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUnits(
 	unitUUID1 := unitUUIDs[0]
 	unitUUID2 := unitUUIDs[1]
 
+	workloadStatus := status.StatusInfo[status.WorkloadStatusType]{
+		Status: status.WorkloadStatusActive,
+	}
+	agentStatus := status.StatusInfo[status.UnitAgentStatusType]{
+		Status: status.UnitAgentStatusIdle,
+	}
+
 	status1 := status.StatusInfo[status.CloudContainerStatusType]{
 		Status:  status.CloudContainerStatusRunning,
 		Message: "it's running!",
@@ -775,6 +773,14 @@ func (s *stateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUnits(
 		Since:   ptr(time.Now()),
 	}
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		err := s.state.setUnitWorkloadStatus(ctx, tx, unitUUID1, workloadStatus)
+		if err != nil {
+			return err
+		}
+		err = s.state.setUnitAgentStatus(ctx, tx, unitUUID1, agentStatus)
+		if err != nil {
+			return err
+		}
 		return s.state.setCloudContainerStatus(ctx, tx, unitUUID1, status1)
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -786,36 +792,41 @@ func (s *stateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUnits(
 		Since:   ptr(time.Now()),
 	}
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		err := s.state.setUnitWorkloadStatus(ctx, tx, unitUUID2, workloadStatus)
+		if err != nil {
+			return err
+		}
+		err = s.state.setUnitAgentStatus(ctx, tx, unitUUID2, agentStatus)
+		if err != nil {
+			return err
+		}
 		return s.state.setCloudContainerStatus(ctx, tx, unitUUID2, status2)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, _, results, err := s.state.GetAllUnitStatusesForApplication(context.Background(), appId)
+	fullStatuses, err := s.state.GetAllFullUnitStatusesForApplication(context.Background(), appId)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 2)
-
-	result1, ok := results["foo/666"]
+	c.Assert(fullStatuses, gc.HasLen, 2)
+	result1, ok := fullStatuses["foo/666"]
 	c.Assert(ok, jc.IsTrue)
-	assertStatusInfoEqual(c, result1, status1)
+	assertStatusInfoEqual(c, result1.ContainerStatus, status1)
 
-	result2, ok := results["foo/667"]
+	result2, ok := fullStatuses["foo/667"]
 	c.Assert(ok, jc.IsTrue)
-	assertStatusInfoEqual(c, result2, status2)
+	assertStatusInfoEqual(c, result2.ContainerStatus, status2)
 }
 
 func (s *stateSuite) TestGetAllUnitStatusesForApplicationNotFound(c *gc.C) {
-	_, _, _, err := s.state.GetAllUnitStatusesForApplication(context.Background(), "missing")
+	_, err := s.state.GetAllFullUnitStatusesForApplication(context.Background(), "missing")
 	c.Assert(err, jc.ErrorIs, statuserrors.ApplicationNotFound)
 }
 
 func (s *stateSuite) TestGetAllUnitStatusesForApplicationNoUnits(c *gc.C) {
 	appId, _ := s.createApplication(c, "foo", life.Alive)
 
-	workloadResults, agentResults, containerResults, err := s.state.GetAllUnitStatusesForApplication(context.Background(), appId)
+	fullStatuses, err := s.state.GetAllFullUnitStatusesForApplication(context.Background(), appId)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(workloadResults, gc.HasLen, 0)
-	c.Assert(agentResults, gc.HasLen, 0)
-	c.Assert(containerResults, gc.HasLen, 0)
+	c.Assert(fullStatuses, gc.HasLen, 0)
 }
 
 func (s *stateSuite) TestGetAllUnitStatusesForApplicationUnitsWithoutStatuses(c *gc.C) {
@@ -827,9 +838,8 @@ func (s *stateSuite) TestGetAllUnitStatusesForApplicationUnitsWithoutStatuses(c 
 	}
 	appId, _ := s.createApplication(c, "foo", life.Alive, u1, u2)
 
-	_, _, results, err := s.state.GetAllUnitStatusesForApplication(context.Background(), appId)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 0)
+	_, err := s.state.GetAllFullUnitStatusesForApplication(context.Background(), appId)
+	c.Assert(err, jc.ErrorIs, statuserrors.UnitStatusNotFound)
 }
 
 func (s *stateSuite) TestGetAllFullUnitStatusesEmptyModel(c *gc.C) {
