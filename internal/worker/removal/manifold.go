@@ -7,14 +7,15 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
-	"github.com/juju/clock"
 	coredependency "github.com/juju/juju/core/dependency"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/removal"
 	removalservice "github.com/juju/juju/domain/removal/service"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
@@ -33,10 +34,20 @@ type RemovalService interface {
 	// WatchRemovals emits job UUIDs for additions
 	// and changes to removal job scheduling.
 	WatchRemovals() (watcher.StringsWatcher, error)
+
+	// GetAllJobs returns all jobs for removals that have not been completed.
+	GetAllJobs(ctx context.Context) ([]removal.Job, error)
+
+	// ExecuteJob runs the appropriate removal logic for the input job.
+	ExecuteJob(ctx context.Context, job removal.Job) error
 }
 
-// Clock describes the ability to create timers.
+// Clock describes the ability get the current time and create timers.
 type Clock interface {
+	// Now gets the current clock time.
+	Now() time.Time
+
+	// NewTimer returns a new timer that will fire after the input duration.
 	NewTimer(d time.Duration) clock.Timer
 }
 
