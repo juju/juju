@@ -1,4 +1,4 @@
-// Copyright 2023 Canonical Ltd.
+// Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package service
@@ -57,7 +57,7 @@ func (s *storeSuite) TestAdd(c *gc.C) {
 		"agent-binaries/4.0-beta1-amd64-test-sha384",
 		agentBinary, int64(1234), "test-sha384",
 	).Return(objectStoreUUID, nil)
-	s.mockState.EXPECT().Add(gomock.Any(), agentbinary.Metadata{
+	s.mockState.EXPECT().Add(gomock.Any(), agentbinary.AddAgentBinaryArg{
 		Version:         "4.0-beta1",
 		Arch:            corearch.AMD64,
 		ObjectStoreUUID: objectStoreUUID,
@@ -123,7 +123,7 @@ func (s *storeSuite) TestAddIdempotentSave(c *gc.C) {
 		agentBinary, int64(1234), "test-sha384",
 	).Return("", objectstoreerrors.ErrHashAndSizeAlreadyExists)
 	s.mockState.EXPECT().GetObjectUUID(gomock.Any(), "agent-binaries/4.6.8-amd64-test-sha384").Return(objectStoreUUID, nil)
-	s.mockState.EXPECT().Add(gomock.Any(), agentbinary.Metadata{
+	s.mockState.EXPECT().Add(gomock.Any(), agentbinary.AddAgentBinaryArg{
 		Version:         "4.6.8",
 		Arch:            corearch.AMD64,
 		ObjectStoreUUID: objectStoreUUID,
@@ -155,7 +155,7 @@ func (s *storeSuite) TestAddFailedNotSupportedArchWithBinaryCleanUp(c *gc.C) {
 		"agent-binaries/4.6.8-amd64-test-sha384",
 		agentBinary, int64(1234), "test-sha384",
 	).Return(objectStoreUUID, nil)
-	s.mockState.EXPECT().Add(gomock.Any(), agentbinary.Metadata{
+	s.mockState.EXPECT().Add(gomock.Any(), agentbinary.AddAgentBinaryArg{
 		Version:         "4.6.8",
 		Arch:            corearch.AMD64,
 		ObjectStoreUUID: objectStoreUUID,
@@ -188,7 +188,7 @@ func (s *storeSuite) TestAddFailedObjectStoreUUIDNotFoundWithBinaryCleanUp(c *gc
 		"agent-binaries/4.6.8-amd64-test-sha384",
 		agentBinary, int64(1234), "test-sha384",
 	).Return(objectStoreUUID, nil)
-	s.mockState.EXPECT().Add(gomock.Any(), agentbinary.Metadata{
+	s.mockState.EXPECT().Add(gomock.Any(), agentbinary.AddAgentBinaryArg{
 		Version:         "4.6.8",
 		Arch:            corearch.AMD64,
 		ObjectStoreUUID: objectStoreUUID,
@@ -221,7 +221,7 @@ func (s *storeSuite) TestAddFailedAgentBinaryImmutableWithBinaryCleanUp(c *gc.C)
 		"agent-binaries/4.6.8-amd64-test-sha384",
 		agentBinary, int64(1234), "test-sha384",
 	).Return(objectStoreUUID, nil)
-	s.mockState.EXPECT().Add(gomock.Any(), agentbinary.Metadata{
+	s.mockState.EXPECT().Add(gomock.Any(), agentbinary.AddAgentBinaryArg{
 		Version:         "4.6.8",
 		Arch:            corearch.AMD64,
 		ObjectStoreUUID: objectStoreUUID,
@@ -255,7 +255,7 @@ func (s *storeSuite) TestAddAlreadyExistsWithNoCleanup(c *gc.C) {
 		"agent-binaries/4.6.8-amd64-test-sha384",
 		agentBinary, int64(1234), "test-sha384",
 	).Return(objectStoreUUID, nil)
-	s.mockState.EXPECT().Add(gomock.Any(), agentbinary.Metadata{
+	s.mockState.EXPECT().Add(gomock.Any(), agentbinary.AddAgentBinaryArg{
 		Version:         "4.6.8",
 		Arch:            corearch.AMD64,
 		ObjectStoreUUID: objectStoreUUID,
@@ -301,7 +301,7 @@ func (s *storeSuite) TestAddWithSHA256(c *gc.C) {
 		c.Check(string(bytes), gc.Equals, "test-agent-binary")
 		return objectStoreUUID, nil
 	})
-	s.mockState.EXPECT().Add(gomock.Any(), agentbinary.Metadata{
+	s.mockState.EXPECT().Add(gomock.Any(), agentbinary.AddAgentBinaryArg{
 		Version:         "4.6.8",
 		Arch:            corearch.AMD64,
 		ObjectStoreUUID: objectStoreUUID,
