@@ -46,4 +46,8 @@ const (
 	// a user on a particular model cannot be found. This does not mean the user
 	// does not exist.
 	UserNotFoundOnModel = errors.ConstError("user not found on model")
+
+	// NotActivated describes an error that occurs when a model is not
+	// activated.
+	NotActivated = errors.ConstError("model not activated")
 )

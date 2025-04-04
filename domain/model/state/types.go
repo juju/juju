@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -642,4 +643,10 @@ type dbConstraintZone struct {
 // dbConstraintUUID represents a constraint uuid within the database.
 type dbConstraintUUID struct {
 	UUID string `db:"uuid"`
+}
+
+type dbModelLife struct {
+	UUID      coremodel.UUID `db:"uuid"`
+	Life      life.Life      `db:"life_id"`
+	Activated bool           `db:"activated"`
 }

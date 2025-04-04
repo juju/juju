@@ -42,8 +42,20 @@ func (s *lifeSuite) TestLifeDBValues(c *gc.C) {
 	})
 }
 
-func (s *lifeSuite) TestValue(c *gc.C) {
-	c.Assert(Alive.Value(), gc.Equals, corelife.Alive)
-	c.Assert(Dying.Value(), gc.Equals, corelife.Dying)
-	c.Assert(Dead.Value(), gc.Equals, corelife.Dead)
+func (s *lifeSuite) TestValueAlive(c *gc.C) {
+	result, err := Alive.Value()
+	c.Assert(err, gc.IsNil)
+	c.Check(result, gc.Equals, corelife.Alive)
+}
+
+func (s *lifeSuite) TestValueDying(c *gc.C) {
+	result, err := Dying.Value()
+	c.Assert(err, gc.IsNil)
+	c.Check(result, gc.Equals, corelife.Dying)
+}
+
+func (s *lifeSuite) TestValueDead(c *gc.C) {
+	result, err := Dead.Value()
+	c.Assert(err, gc.IsNil)
+	c.Check(result, gc.Equals, corelife.Dead)
 }
