@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/http"
+	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
@@ -50,7 +51,7 @@ type ModelMetrics interface {
 
 // GetControllerConfigFunc is a function that returns the controller config,
 // from the given service.
-type GetControllerConfigFunc func(ctx context.Context, controllerConfigService ControllerConfigService) (controller.Config, error)
+type GetControllerConfigFunc func(ctx context.Context, domainServices services.DomainServices) (controller.Config, error)
 
 // NewModelConfig holds the information required by the NewModelWorkerFunc
 // to start the workers for the specified model
@@ -65,6 +66,7 @@ type NewModelConfig struct {
 	ControllerConfig       controller.Config
 	ProviderServicesGetter ProviderServicesGetter
 	DomainServices         services.DomainServices
+	LeaseManager           lease.Manager
 	HTTPClientGetter       http.HTTPClientGetter
 }
 
@@ -87,6 +89,7 @@ type Config struct {
 	DomainServicesGetter   services.DomainServicesGetter
 	ModelService           ModelService
 	GetControllerConfig    GetControllerConfigFunc
+	LeaseManager           lease.Manager
 	HTTPClientGetter       http.HTTPClientGetter
 }
 
@@ -122,6 +125,9 @@ func (config Config) Validate() error {
 	}
 	if config.GetControllerConfig == nil {
 		return errors.NotValidf("nil GetControllerConfig")
+	}
+	if config.LeaseManager == nil {
+		return errors.NotValidf("nil LeaseManager")
 	}
 	if config.HTTPClientGetter == nil {
 		return errors.NotValidf("nil HTTPClientGetter")
@@ -208,6 +214,9 @@ func (m *modelWorkerManager) loop() error {
 func (m *modelWorkerManager) modelChanged(ctx context.Context, modelUUID string) error {
 	model, err := m.config.ModelService.Model(ctx, model.UUID(modelUUID))
 
+	// If the model is not found, it means two things, either it was removed or
+	// more likely it was never activated. In either case, we don't need to
+	// start a worker for it.
 	if errors.Is(err, modelerrors.NotFound) {
 		// Model was removed, ignore it.
 		// The reason we ignore it here is that one of the embedded
@@ -230,61 +239,69 @@ func (m *modelWorkerManager) modelChanged(ctx context.Context, modelUUID string)
 		ModelType:    state.ModelType(model.ModelType),
 		ModelMetrics: m.config.ModelMetrics.ForModel(names.NewModelTag(modelUUID)),
 	}
-	return errors.Trace(m.ensure(ctx, cfg))
-}
 
-func (m *modelWorkerManager) ensure(ctx context.Context, cfg NewModelConfig) error {
 	// Creates a new worker func based on the model config.
-	starter := m.starter(cfg)
+	newWorker, err := m.newWorkerFuncFromConfig(ctx, cfg)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// If the worker is already running, this will return an AlreadyExists
 	// error and the start function will not be called.
-	if err := m.runner.StartWorker(cfg.ModelUUID, func() (worker.Worker, error) {
-		return starter(ctx)
+	if err := m.runner.StartWorker(modelUUID, func() (worker.Worker, error) {
+		return newWorker(ctx)
 	}); !errors.Is(err, errors.AlreadyExists) {
 		return errors.Trace(err)
 	}
+
 	return nil
 }
 
-func (m *modelWorkerManager) starter(cfg NewModelConfig) func(context.Context) (worker.Worker, error) {
+func (m *modelWorkerManager) newWorkerFuncFromConfig(ctx context.Context, cfg NewModelConfig) (func(context.Context) (worker.Worker, error), error) {
+	modelUUID := model.UUID(cfg.ModelUUID)
+	modelName := fmt.Sprintf("%q (%s)", fmt.Sprintf("%s-%s", cfg.ModelOwner, cfg.ModelName), modelUUID)
+
+	// Get the provider domain services for the model.
+	cfg.ProviderServicesGetter = m.config.ProviderServicesGetter
+
+	cfg.LeaseManager = m.config.LeaseManager
+	cfg.HTTPClientGetter = m.config.HTTPClientGetter
+
+	// We don't want to get this in the start worker function because it
+	// won't change. Hammering the domainservices getter to get the services
+	// if the model worker is constantly restarting isn't helping anyone.
+	// Especially if the model is in a bad state.
+	domainServices, err := m.config.DomainServicesGetter.ServicesForModel(ctx, modelUUID)
+	if err != nil {
+		return nil, errors.Annotate(err, "unable to get domain services")
+	}
+	cfg.DomainServices = domainServices
+
+	// LoggerContext for the model worker, this is then used for all
+	// logging.
+	cfg.LoggerContext, err = m.config.LogSinkGetter.GetLoggerContext(ctx, modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return func(ctx context.Context) (worker.Worker, error) {
-		modelUUID := model.UUID(cfg.ModelUUID)
-		modelName := fmt.Sprintf("%q (%s)", fmt.Sprintf("%s-%s", cfg.ModelOwner, cfg.ModelName), modelUUID)
 		m.config.Logger.Debugf(ctx, "starting workers for model %s", modelName)
-
-		// Get the provider domain services for the model.
-		cfg.ProviderServicesGetter = m.config.ProviderServicesGetter
-
-		var err error
-		if cfg.DomainServices, err = m.config.DomainServicesGetter.ServicesForModel(ctx, modelUUID); err != nil {
-			return nil, errors.Annotate(err, "unable to get domain services")
-		}
-
-		cfg.HTTPClientGetter = m.config.HTTPClientGetter
 
 		// Get the controller config for the model worker so that we correctly
 		// handle the case where the controller config changes between model
 		// worker restarts.
-		controllerConfigService := cfg.DomainServices.ControllerConfig()
-		controllerConfig, err := m.config.GetControllerConfig(ctx, controllerConfigService)
+		controllerConfig, err := m.config.GetControllerConfig(ctx, domainServices)
 		if err != nil {
 			return nil, errors.Annotate(err, "unable to get controller config")
 		}
 		cfg.ControllerConfig = controllerConfig
-
-		// LoggerContext for the model worker, this is then used for all
-		// logging.
-		cfg.LoggerContext, err = m.config.LogSinkGetter.GetLoggerContext(ctx, modelUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 
 		worker, err := m.config.NewModelWorker(cfg)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot manage model %s", modelName)
 		}
 		return worker, nil
-	}
+	}, nil
 }
 
 func (m *modelWorkerManager) scopedContext() (context.Context, context.CancelFunc) {

@@ -13,11 +13,11 @@ import (
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
-	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/http"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	modelservice "github.com/juju/juju/domain/model/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -40,6 +40,7 @@ type ManifoldSuite struct {
 	domainServicesGetter     services.DomainServicesGetter
 	controllerDomainServices services.ControllerDomainServices
 	providerServicesGetter   services.ProviderServicesGetter
+	leaseManager             lease.Manager
 	httpClientGetter         http.HTTPClientGetter
 
 	logger logger.Logger
@@ -53,7 +54,7 @@ type ManifoldSuite struct {
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
-	ctrl := gomock.NewController(c)
+
 	var err error
 	s.authority, err = pkitest.NewTestAuthority()
 	c.Assert(err, jc.ErrorIsNil)
@@ -62,7 +63,9 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.state = &state.State{}
 	s.pool = &state.StatePool{}
-	s.domainServicesGetter = NewMockDomainServicesGetter(ctrl)
+
+	s.leaseManager = stubLeaseManager{}
+	s.domainServicesGetter = stubDomainServicesGetter{}
 	s.controllerDomainServices = stubControllerDomainServices{}
 	s.providerServicesGetter = stubProviderServicesGetter{}
 	s.httpClientGetter = stubHTTPClientGetter{}
@@ -75,6 +78,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.manifold = modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 		AuthorityName:                "authority",
 		LogSinkName:                  "log-sink",
+		LeaseManagerName:             "lease-manager",
 		DomainServicesName:           "domain-services",
 		ProviderServiceFactoriesName: "provider-services",
 		HTTPClientName:               "http-client",
@@ -89,7 +93,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 			}
 			return providerServicesGetter{}, nil
 		},
-		GetControllerConfig: func(ctx context.Context, controllerConfigService modelworkermanager.ControllerConfigService) (controller.Config, error) {
+		GetControllerConfig: func(ctx context.Context, domainServices services.DomainServices) (controller.Config, error) {
 			return jujutesting.FakeControllerConfig(), nil
 		},
 	})
@@ -99,6 +103,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
 		"authority":         s.authority,
 		"log-sink":          s.logSinkGetter,
+		"lease-manager":     s.leaseManager,
 		"domain-services":   []any{s.domainServicesGetter, s.controllerDomainServices},
 		"provider-services": s.providerServicesGetter,
 		"http-client":       s.httpClientGetter,
@@ -125,7 +130,7 @@ func (s *ManifoldSuite) newModelWorker(config modelworkermanager.NewModelConfig)
 	return worker.NewRunner(worker.RunnerParams{}), nil
 }
 
-var expectedInputs = []string{"authority", "log-sink", "domain-services", "provider-services", "http-client"}
+var expectedInputs = []string{"authority", "lease-manager", "log-sink", "domain-services", "provider-services", "http-client"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -174,6 +179,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		Authority:              s.authority,
 		ModelMetrics:           dummyModelMetrics{},
 		ErrorDelay:             jworker.RestartDelay,
+		LeaseManager:           s.leaseManager,
 		Logger:                 s.logger,
 		LogSinkGetter:          dummyLogSinkGetter{},
 		ProviderServicesGetter: providerServicesGetter{},
@@ -195,6 +201,14 @@ func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
+}
+
+type stubLeaseManager struct {
+	lease.Manager
+}
+
+type stubDomainServicesGetter struct {
+	services.DomainServicesGetter
 }
 
 type stubProviderServicesGetter struct {

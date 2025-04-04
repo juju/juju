@@ -530,13 +530,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// attempt to claim responsibility for running certain workers
 		// that must not be run concurrently by multiple agents.
 		isPrimaryControllerFlagName: ifController(singular.Manifold(singular.ManifoldConfig{
-			Clock:         config.Clock,
-			APICallerName: apiCallerName,
-			Duration:      config.ControllerLeaseDuration,
-			Claimant:      agentTag,
-			Entity:        controllerTag,
-			NewFacade:     singular.NewFacade,
-			NewWorker:     singular.NewWorker,
+			AgentName:        agentName,
+			LeaseManagerName: leaseManagerName,
+			Clock:            config.Clock,
+			Duration:         config.ControllerLeaseDuration,
+			Claimant:         agentTag,
+			Entity:           controllerTag,
+			NewWorker:        singular.NewFlagWorker,
 		})),
 
 		// The agent-config-updater manifold sets the state serving info from
@@ -671,6 +671,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AuthorityName:                certificateWatcherName,
 			LogSinkName:                  logSinkName,
 			DomainServicesName:           domainServicesName,
+			LeaseManagerName:             leaseManagerName,
 			HTTPClientName:               httpClientName,
 			ProviderServiceFactoriesName: providerDomainServicesName,
 			NewWorker:                    modelworkermanager.New,
