@@ -1284,6 +1284,85 @@ ON CONFLICT (relation_uuid, unit_uuid) DO UPDATE SET
 	return tx.Query(ctx, insertStmt, insertRelationUnit).Run()
 }
 
+// LeaveScope updates the given relation to indicate it is not in scope.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationUnitNotFound] if the relation unit cannot be
+//     found.
+func (st *State) LeaveScope(ctx context.Context, relationUnitUUID corerelation.UnitUUID) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Check the relation unit exists.
+		exists, err := checkExistsByUUID(ctx, st, tx, "relation_unit", relationUnitUUID.String())
+		if err != nil {
+			return errors.Errorf("checking relation unit exists: %w", err)
+		} else if !exists {
+			return relationerrors.RelationUnitNotFound
+		}
+
+		// Leave scope by deleting the relation unit.
+		err = st.deleteRelationUnit(ctx, tx, relationUnitUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+func (st *State) deleteRelationUnit(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid corerelation.UnitUUID,
+) error {
+	id := relationUnitUUID{
+		RelationUnitUUID: uuid,
+	}
+	deleteSettingsStmt, err := st.Prepare(`
+DELETE FROM relation_unit_setting
+WHERE relation_unit_uuid = $relationUnitUUID.uuid
+`, id)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, deleteSettingsStmt, id).Run()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteRelationUnitStmt, err := st.Prepare(`
+DELETE FROM relation_unit 
+WHERE uuid = $relationUnitUUID.uuid
+`, id)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var outcome sqlair.Outcome
+	err = tx.Query(ctx, deleteRelationUnitStmt, id).Get(&outcome)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	rows, err := outcome.Result().RowsAffected()
+	if err != nil {
+		return errors.Capture(err)
+	} else if rows != 1 {
+		return errors.Errorf("deleting relation unit: expected 1 row affected, got %d", rows)
+	}
+
+	return nil
+}
+
 // InitialWatchLifeSuspendedStatus returns the two tables to watch for
 // a relation's Life and Suspended status when the relation contains
 // the provided application and the initial namespace query.
