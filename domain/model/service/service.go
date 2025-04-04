@@ -590,6 +590,17 @@ func (s *Service) UpdateCredential(
 	return s.st.UpdateCredential(ctx, uuid, key)
 }
 
+// GetModelByNameAndOwner returns the model associated with the given model name and owner name.
+// The following errors may be returned:
+// - [modelerrors.NotFound] if no model exists
+// - [accesserrors.UserNameNotValid] if ownerName is zero
+func (s *Service) GetModelByNameAndOwner(ctx context.Context, name string, ownerName coreuser.Name) (coremodel.Model, error) {
+	if ownerName.IsZero() {
+		return coremodel.Model{}, errors.Errorf("invalid owner name: %w", accesserrors.UserNameNotValid)
+	}
+	return s.st.GetModelByName(ctx, ownerName, name)
+}
+
 // getWatchActivatedModelsMapper returns a mapper function that filters change events to
 // include only those associated with activated models.
 // The subset of changes returned is maintained in the same order as they are received.

@@ -18,14 +18,13 @@ import (
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -42,11 +41,11 @@ func (s *offerAccessSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
 	s.authorizer.Tag = names.NewUserTag("admin")
 
-	modelID := modeltesting.GenModelUUID(c)
+	modelUUID := modeltesting.GenModelUUID(c)
 	var err error
 	thirdPartyKey := bakery.MustGenerateKey()
 	s.authContext, err = crossmodel.NewAuthContext(
-		s.mockState, nil, names.NewModelTag(modelID.String()), thirdPartyKey,
+		s.mockState, nil, names.NewModelTag(modelUUID.String()), thirdPartyKey,
 		crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -65,14 +64,15 @@ func (s *offerAccessSuite) setupAPI(c *gc.C) {
 		s.mockModelDomainServicesGetter,
 		s.authorizer, s.authContext,
 		c.MkDir(), loggertesting.WrapCheckLog(c),
-		testing.ControllerTag.Id(), model.UUID(testing.ModelTag.Id()),
+		uuid.MustNewUUID().String(),
+		s.mockModelService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
 
 func (s *offerAccessSuite) modifyAccess(
-	c *gc.C, user names.UserTag,
+	user names.UserTag,
 	action params.OfferAction,
 	access params.OfferAccessPermission,
 	offerURL string,
@@ -92,21 +92,40 @@ func (s *offerAccessSuite) modifyAccess(
 	return result.OneError()
 }
 
-func (s *offerAccessSuite) grant(c *gc.C, user names.UserTag, access params.OfferAccessPermission, offerURL string) error {
-	return s.modifyAccess(c, user, params.GrantOfferAccess, access, offerURL)
+func (s *offerAccessSuite) grant(user names.UserTag, access params.OfferAccessPermission, offerURL string) error {
+	return s.modifyAccess(user, params.GrantOfferAccess, access, offerURL)
 }
 
-func (s *offerAccessSuite) revoke(c *gc.C, user names.UserTag, access params.OfferAccessPermission, offerURL string) error {
-	return s.modifyAccess(c, user, params.RevokeOfferAccess, access, offerURL)
+func (s *offerAccessSuite) revoke(user names.UserTag, access params.OfferAccessPermission, offerURL string) error {
+	return s.modifyAccess(user, params.RevokeOfferAccess, access, offerURL)
 }
 
 func (s *offerAccessSuite) setupOffer(modelUUID, modelName, owner, offerName string) string {
-	model := &mockModel{uuid: modelUUID, name: modelName, owner: owner, modelType: state.ModelTypeIAAS}
-	s.mockState.allmodels = []applicationoffers.Model{model}
+	m := &mockModel{uuid: modelUUID, name: modelName, owner: owner, modelType: state.ModelTypeIAAS}
+	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
+		[]coremodel.Model{
+			{
+				Name:      m.name,
+				OwnerName: coreuser.NameFromTag(names.NewUserTag(m.owner)),
+				UUID:      coremodel.UUID(m.uuid),
+				ModelType: coremodel.ModelType(m.modelType),
+			},
+		}, nil,
+	).AnyTimes()
+	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), m.name, coreuser.NameFromTag(m.Owner())).Return(
+		coremodel.Model{
+			Name:      m.name,
+			OwnerName: coreuser.NameFromTag(m.Owner()),
+			UUID:      coremodel.UUID(m.uuid),
+			ModelType: coremodel.ModelType(m.modelType),
+		}, nil,
+	).AnyTimes()
+
+	s.mockState.allmodels = []applicationoffers.Model{m}
 	st := &mockState{
 		modelUUID:         modelUUID,
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
-		model:             model,
+		model:             m,
 	}
 	s.mockStatePool.st[modelUUID] = st
 	uuid := uuid.MustNewUUID().String()
@@ -127,7 +146,7 @@ func (s *offerAccessSuite) TestGrantMissingUserFails(c *gc.C) {
 		Change:     permission.Grant,
 	}).Return(accesserrors.UserNotFound)
 
-	err := s.grant(c, user, params.OfferReadAccess, "test.someoffer")
+	err := s.grant(user, params.OfferReadAccess, "test.someoffer")
 	expectedErr := `could not grant offer access for "foobar": user not found`
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
@@ -138,7 +157,7 @@ func (s *offerAccessSuite) TestGrantMissingOfferFails(c *gc.C) {
 
 	s.setupOffer("uuid", "test", "admin", "differentoffer")
 	user := names.NewUserTag("foobar")
-	err := s.grant(c, user, params.OfferReadAccess, "test.someoffer")
+	err := s.grant(user, params.OfferReadAccess, "test.someoffer")
 	expectedErr := `.*application offer "someoffer" not found`
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
@@ -156,7 +175,7 @@ func (s *offerAccessSuite) TestRevokePermission(c *gc.C) {
 		Change:     permission.Revoke,
 	})
 
-	err := s.revoke(c, user, params.OfferReadAccess, "test.someoffer")
+	err := s.revoke(user, params.OfferReadAccess, "test.someoffer")
 	c.Assert(err, gc.IsNil)
 }
 
@@ -174,7 +193,7 @@ func (s *offerAccessSuite) TestGrantPermission(c *gc.C) {
 		Change:     permission.Grant,
 	}).Return(accesserrors.PermissionAccessGreater)
 
-	err := s.grant(c, user, params.OfferReadAccess, "test.someoffer")
+	err := s.grant(user, params.OfferReadAccess, "test.someoffer")
 
 	c.Assert(errors.Cause(err), gc.ErrorMatches, `could not grant offer access for .*: access or greater`)
 }
@@ -196,7 +215,7 @@ func (s *offerAccessSuite) TestGrantPermissionAddRemoteUser(c *gc.C) {
 		Change:     permission.Grant,
 	})
 
-	err := s.grant(c, user, params.OfferReadAccess, "superuser-bob/test.someoffer")
+	err := s.grant(user, params.OfferReadAccess, "superuser-bob/test.someoffer")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -212,7 +231,7 @@ func (s *offerAccessSuite) assertGrantToOffer(c *gc.C, userAccess permission.Acc
 		Key:        offerUUID,
 	}).Return(userAccess, nil)
 
-	err := s.grant(c, other, params.OfferReadAccess, "bob@remote/test.someoffer")
+	err := s.grant(other, params.OfferReadAccess, "bob@remote/test.someoffer")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -259,7 +278,7 @@ func (s *offerAccessSuite) TestGrantToOfferAdminAccess(c *gc.C) {
 		Change:     permission.Grant,
 	})
 
-	err := s.grant(c, other, params.OfferReadAccess, "foobar/test.someoffer")
+	err := s.grant(other, params.OfferReadAccess, "foobar/test.someoffer")
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -14,9 +14,11 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	"github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
-	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 )
@@ -41,6 +43,7 @@ type baseSuite struct {
 	mockModelDomainServicesGetter *MockModelDomainServicesGetter
 	mockModelDomainServices       *MockModelDomainServices
 	mockApplicationService        *MockApplicationService
+	mockModelService              *MockModelService
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
@@ -51,7 +54,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.mockState = &mockState{
-		modelUUID:         coretesting.ModelTag.Id(),
+		modelUUID:         modeltesting.GenModelUUID(c).String(),
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
 		relations:         make(map[string]crossmodel.Relation),
 		relationNetworks:  &mockRelationNetworks{},
@@ -65,6 +68,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.mockApplicationService = NewMockApplicationService(ctrl)
 	s.mockModelDomainServicesGetter = NewMockModelDomainServicesGetter(ctrl)
 	s.mockModelDomainServices = NewMockModelDomainServices(ctrl)
+	s.mockModelService = NewMockModelService(ctrl)
 	return ctrl
 }
 
@@ -122,11 +126,31 @@ func (s *baseSuite) setupOffersForUUID(c *gc.C, offerUUID, filterAppName string,
 		},
 	}
 	s.mockState.model = &mockModel{
-		uuid:      coretesting.ModelTag.Id(),
+		uuid:      s.mockState.modelUUID,
 		name:      "prod",
 		owner:     "fred@external",
 		modelType: state.ModelTypeIAAS,
 	}
+	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
+		[]coremodel.Model{
+			{
+				Name:      s.mockState.model.name,
+				OwnerName: coreuser.NameFromTag(s.mockState.model.Owner()),
+				UUID:      coremodel.UUID(s.mockState.model.uuid),
+				ModelType: coremodel.ModelType(s.mockState.model.modelType),
+			},
+		}, nil,
+	).AnyTimes()
+
+	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), s.mockState.model.name, coreuser.NameFromTag(s.mockState.model.Owner())).Return(
+		coremodel.Model{
+			Name:      s.mockState.model.name,
+			OwnerName: coreuser.NameFromTag(s.mockState.model.Owner()),
+			UUID:      coremodel.UUID(s.mockState.model.uuid),
+			ModelType: coremodel.ModelType(s.mockState.model.modelType),
+		}, nil,
+	).AnyTimes()
+
 	s.mockState.relations["hosted-db2:db wordpress:db"] = &mockRelation{
 		id: 1,
 		endpoint: relation.Endpoint{
@@ -141,7 +165,7 @@ func (s *baseSuite) setupOffersForUUID(c *gc.C, offerUUID, filterAppName string,
 	s.mockState.connections = []applicationoffers.OfferConnection{
 		&mockOfferConnection{
 			username:    "fred@external",
-			modelUUID:   coretesting.ModelTag.Id(),
+			modelUUID:   s.mockState.modelUUID,
 			relationKey: "hosted-db2:db wordpress:db",
 			relationId:  1,
 		},

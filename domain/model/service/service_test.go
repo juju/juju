@@ -1214,3 +1214,85 @@ func (s *serviceSuite) TestWatchActivatedModelsMapper(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(retrievedChangeEvents, gc.DeepEquals, expectedChangeEvents)
 }
+
+// TestGetModelByNameAndOwnerSuccess verifies that GetModelByNameAndOwner successfully
+// returns the model associated with the specified owner and model name.
+func (s *serviceSuite) TestGetModelByNameAndOwnerSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := NewService(
+		s.mockState,
+		s.mockModelDeleter,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	modelName := "test"
+	ownerUserName := usertesting.GenNewName(c, "test-user")
+	model := coremodel.Model{
+		Name:         modelName,
+		AgentVersion: jujuversion.Current,
+		UUID:         modelUUID,
+		Cloud:        "aws",
+		CloudRegion:  "testregion",
+		ModelType:    coremodel.IAAS,
+		Owner:        s.userUUID,
+		OwnerName:    ownerUserName,
+		Credential: credential.Key{
+			Cloud: "aws",
+			Name:  "testcredential",
+			Owner: ownerUserName,
+		},
+		Life: life.Alive,
+	}
+	s.mockState.EXPECT().GetModelByName(gomock.Any(), ownerUserName, modelName).Return(
+		model,
+		nil,
+	)
+
+	svcModel, err := svc.GetModelByNameAndOwner(context.Background(), modelName, ownerUserName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(model, gc.Equals, svcModel)
+}
+
+// TestGetModelByNameAndOwnerInvalidUsername verifies that GetModelByNameAndOwner
+// returns a [accesserrors.UserNameNotValid] error when the provided owner username
+// is invalid.
+func (s *serviceSuite) TestGetModelByNameAndOwnerInvalidUsername(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := NewService(
+		s.mockState,
+		s.mockModelDeleter,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	modelName := "test"
+	ownerUserName := user.Name{}
+
+	_, err := svc.GetModelByNameAndOwner(context.Background(), modelName, ownerUserName)
+	c.Assert(err, jc.ErrorIs, accesserrors.UserNameNotValid)
+}
+
+// TestGetModelByNameAndOwnerNotFound verifies that GetModelByNameAndOwner
+// returns a [modelerrors.NotFound] error
+// when no model exists for the given owner and model name.
+func (s *serviceSuite) TestGetModelByNameAndOwnerNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := NewService(
+		s.mockState,
+		s.mockModelDeleter,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	modelName := "test"
+	ownerUserName := usertesting.GenNewName(c, "test-user")
+	s.mockState.EXPECT().GetModelByName(gomock.Any(), ownerUserName, modelName).Return(
+		coremodel.Model{},
+		modelerrors.NotFound,
+	)
+
+	_, err := svc.GetModelByNameAndOwner(context.Background(), modelName, ownerUserName)
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+}

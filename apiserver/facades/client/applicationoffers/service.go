@@ -99,3 +99,15 @@ type modelDomainServices struct {
 func (f *modelDomainServices) Application() ApplicationService {
 	return f.domainServices.Application()
 }
+
+type ModelService interface {
+	// ListAllModels returns all models registered in the controller. If no
+	// models exist a zero value slice will be returned.
+	ListAllModels(ctx context.Context) ([]model.Model, error)
+
+	// GetModelByNameAndOwner returns the model associated with the given model name and owner name.
+	// The following errors may be returned:
+	// - [modelerrors.NotFound] if no model exists
+	// - [accesserrors.UserNameNotValid] if ownerName is zero
+	GetModelByNameAndOwner(ctx context.Context, name string, ownerName user.Name) (model.Model, error)
+}
