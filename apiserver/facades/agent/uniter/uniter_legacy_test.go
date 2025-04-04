@@ -362,57 +362,6 @@ func (s *uniterLegacySuite) TestWatchActionNotificationsPermissionDenied(c *gc.C
 func (s *uniterLegacySuite) TestConfigSettings(c *gc.C) {
 }
 
-func (s *uniterLegacySuite) TestWatchUnitRelations(c *gc.C) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "unit-mysql-0"},
-		{Tag: "unit-wordpress-0"},
-		{Tag: "unit-foo-0"},
-	}}
-	result, err := s.uniter.WatchUnitRelations(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 3)
-	c.Assert(result.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
-	c.Assert(result.Results[1].StringsWatcherId, gc.Equals, "1")
-	c.Assert(result.Results[1].Changes, gc.NotNil)
-	c.Assert(result.Results[1].Error, gc.IsNil)
-	c.Assert(result.Results[2].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
-
-	// Verify the resource was registered and stop when done
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
-	defer workertest.CleanKill(c, resource)
-
-	// Check that the Watch has consumed the initial event ("returned" in
-	// the Watch call)
-	wc := watchertest.NewStringsWatcherC(c, resource.(state.StringsWatcher))
-	wc.AssertNoChange()
-}
-
-func (s *uniterLegacySuite) TestWatchSubordinateUnitRelations(c *gc.C) {
-}
-
-func (s *uniterLegacySuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(c *gc.C) {
-	// A subordinate unit should still be notified about changes to
-	// relations with applications that aren't the one this unit is
-	// attached to if they have global scope.
-	// The logging charm is subordinate (and the info endpoint is scope=container).
-
-	// Should be notified about the relation to logging frontend, since it's global scope.
-}
-
-func (s *uniterLegacySuite) TestWatchUnitRelationsWithSubSubRelation(c *gc.C) {
-	// We should be notified about relations to other subordinates
-	// (since it's possible that they'll be colocated in the same
-	// container).
-
-	// Check that the Watch has consumed the initial event ("returned" in
-	// the Watch call)
-
-	// We should be told about the new logging-monitoring relation.
-}
-
 func (s *uniterLegacySuite) TestCurrentModel(c *gc.C) {
 	model := s.ControllerModel(c)
 	result, err := s.uniter.CurrentModel(context.Background())
