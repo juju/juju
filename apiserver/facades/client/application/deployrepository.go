@@ -265,7 +265,6 @@ type deployTemplate struct {
 type validatorConfig struct {
 	charmhubHTTPClient facade.HTTPClient
 	caasBroker         CaasBrokerInterface
-	model              Model
 	modelInfo          model.ModelInfo
 	modelConfigService ModelConfigService
 	applicationService ApplicationService
@@ -279,7 +278,6 @@ type validatorConfig struct {
 func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig) DeployFromRepositoryValidator {
 	v := &deployFromRepositoryValidator{
 		charmhubHTTPClient: cfg.charmhubHTTPClient,
-		model:              cfg.model,
 		modelInfo:          cfg.modelInfo,
 		modelConfigService: cfg.modelConfigService,
 		applicationService: cfg.applicationService,
@@ -322,7 +320,6 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 }
 
 type deployFromRepositoryValidator struct {
-	model              Model
 	modelInfo          model.ModelInfo
 	modelConfigService ModelConfigService
 	applicationService ApplicationService
