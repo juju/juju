@@ -90,7 +90,7 @@ type ControllerDomainServices interface {
 // apiserver for a given model.
 type ModelDomainServices interface {
 	// Agent returns the model's agent service.
-	Agent() *modelagentservice.Service
+	Agent() *modelagentservice.WatchableService
 	// AgentProvisioner returns the agent provisioner service.
 	AgentProvisioner() *agentprovisionerservice.Service
 	// AgentBinary returns the agent binary service.

@@ -69,14 +69,31 @@ type WatcherFactory interface {
 
 // Service is used to get the target Juju agent version for the current model.
 type Service struct {
-	st             State
+	st State
+}
+
+// WatchableService extends Service to provide further interactions with state
+// to watch for agent version changes within the model.
+type WatchableService struct {
+	// Service is the composed Service that is being extended with watching
+	// capabilities.
+	Service
 	watcherFactory WatcherFactory
 }
 
 // NewService returns a new [Service].
-func NewService(st State, watcherFactory WatcherFactory) *Service {
+func NewService(st State) *Service {
 	return &Service{
-		st:             st,
+		st: st,
+	}
+}
+
+// NewWatchableService returns a new [WatchableService].
+func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableService {
+	return &WatchableService{
+		Service: Service{
+			st: st,
+		},
 		watcherFactory: watcherFactory,
 	}
 }
@@ -226,7 +243,7 @@ func (s *Service) SetUnitReportedAgentVersion(
 // version for machine and reporting when there has been a change via a
 // [watcher.NotifyWatcher]. The following errors can be expected:
 // - [machineerrors.NotFound] - When no machine exists for the provided name.
-func (s *Service) WatchMachineTargetAgentVersion(
+func (s *WatchableService) WatchMachineTargetAgentVersion(
 	ctx context.Context,
 	machineName machine.Name,
 ) (watcher.NotifyWatcher, error) {
@@ -249,7 +266,7 @@ func (s *Service) WatchMachineTargetAgentVersion(
 // version for unit and reporting when there has been a change via a
 // [watcher.NotifyWatcher]. The following errors can be expected:
 // - [applicationerrors.UnitNotFound] - When no unit exists for the provided name.
-func (s *Service) WatchUnitTargetAgentVersion(
+func (s *WatchableService) WatchUnitTargetAgentVersion(
 	ctx context.Context,
 	unitName coreunit.Name,
 ) (watcher.NotifyWatcher, error) {
@@ -270,7 +287,7 @@ func (s *Service) WatchUnitTargetAgentVersion(
 // WatchModelTargetAgentVersion is responsible for watching the target agent
 // version of this model and reporting when a change has happened in the
 // version.
-func (s *Service) WatchModelTargetAgentVersion(ctx context.Context) (watcher.NotifyWatcher, error) {
+func (s *WatchableService) WatchModelTargetAgentVersion(ctx context.Context) (watcher.NotifyWatcher, error) {
 	w, err := s.watcherFactory.NewNotifyWatcher(
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchAgentVersion(), changestream.All),
 	)
