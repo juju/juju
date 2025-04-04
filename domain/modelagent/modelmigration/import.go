@@ -1,4 +1,4 @@
-// Copyright 2024 Canonical Ltd.
+// Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package modelmigration
@@ -10,7 +10,6 @@ import (
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/machine"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/semversion"
@@ -22,11 +21,11 @@ import (
 
 // baseAgentBinaryImportOperation describes the base set of operation
 // charecteristics shared between import operations of this package.
-// Specifically the common need for the model agent service.
+// Specifically the common need for the import service.
 type baseAgentBinaryImportOperation struct {
 	modelmigration.BaseOperation
-	modelAgentService ModelAgentService
-	logger            logger.Logger
+	importService ImportService
+	logger        logger.Logger
 }
 
 // Coordinator is the interface that is used to add operats to a migration.
@@ -35,7 +34,9 @@ type Coordinator interface {
 	Add(modelmigration.Operation)
 }
 
-type ModelAgentService interface {
+// ImportService describes the service required for importing agent binary
+// versions of a model into a new controller.
+type ImportService interface {
 	// SetMachineReportedAgentVersion sets the reported agent version for the
 	// supplied machine name. Reported agent version is the version that the agent
 	// binary on this machine has reported it is running.
@@ -51,7 +52,7 @@ type ModelAgentService interface {
 	// machine is dead.
 	SetMachineReportedAgentVersion(
 		ctx context.Context,
-		machineName machine.Name,
+		machineName coremachine.Name,
 		reportedVersion coreagentbinary.Version,
 	) error
 
@@ -123,7 +124,7 @@ func (i *importMachineAgentBinaryOperation) Execute(
 			Arch:   corearch.Arch(binVer.Arch),
 		}
 
-		err = i.modelAgentService.SetMachineReportedAgentVersion(
+		err = i.importService.SetMachineReportedAgentVersion(
 			ctx, mName, agentBinaryVersion,
 		)
 
@@ -173,7 +174,7 @@ func (i *importUnitAgentBinaryOperation) Execute(
 				Arch:   corearch.Arch(binVer.Arch),
 			}
 
-			err = i.modelAgentService.SetUnitReportedAgentVersion(
+			err = i.importService.SetUnitReportedAgentVersion(
 				ctx, uName, agentBinaryVersion,
 			)
 
@@ -199,8 +200,13 @@ func (*importUnitAgentBinaryOperation) Name() string {
 	return "import agent binary version for units"
 }
 
-// RegisterImport register's a new model migration importer into the supplied
-// coordinator.
+// RegisterImport register's a set of new model migration imports into the
+// supplied coordinator. Specifically this registers import operations for
+// setting machine and unit agent binary versions on the entities in the
+// model's state.
+//
+// It is expected that this Register is called after the operations that are
+// responsible for putting machines and units into the controller's state.
 func RegisterImport(coordinator Coordinator, logger logger.Logger) {
 	coordinator.Add(&importMachineAgentBinaryOperation{
 		baseAgentBinaryImportOperation: baseAgentBinaryImportOperation{
@@ -218,7 +224,7 @@ func RegisterImport(coordinator Coordinator, logger logger.Logger) {
 // Setup is responsible for taking the model migration scope and creating the
 // needed services used during import of a model agents information.
 func (b *baseAgentBinaryImportOperation) Setup(scope modelmigration.Scope) error {
-	b.modelAgentService = modelagentservice.NewService(
+	b.importService = modelagentservice.NewService(
 		modelagentstate.NewState(scope.ModelDB()),
 	)
 	return nil
