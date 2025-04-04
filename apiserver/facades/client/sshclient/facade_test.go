@@ -36,6 +36,7 @@ type facadeSuite struct {
 	authorizer *MockAuthorizer
 
 	modelConfigService *MockModelConfigService
+	execService        *MockExecService
 	stubService        *MockStubService
 
 	controllerUUID string
@@ -51,6 +52,7 @@ func (s *facadeSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.authorizer = NewMockAuthorizer(ctrl)
 
 	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.execService = NewMockExecService(ctrl)
 	s.stubService = NewMockStubService(ctrl)
 
 	return ctrl
@@ -72,6 +74,7 @@ func (s *facadeSuite) TestNonClientNotAllowed(c *gc.C) {
 		names.NewModelTag(s.modelUUID.String()),
 		s.backend,
 		s.modelConfigService,
+		s.execService,
 		s.stubService,
 		nil,
 		s.authorizer,
@@ -97,6 +100,7 @@ func (s *facadeSuite) TestNonAuthUserDenied(c *gc.C) {
 		names.NewModelTag(s.modelUUID.String()),
 		s.backend,
 		s.modelConfigService,
+		s.execService,
 		s.stubService,
 		nil,
 		s.authorizer,
@@ -133,6 +137,7 @@ func (s *facadeSuite) TestSuperUserAuth(c *gc.C) {
 		names.NewModelTag(s.modelUUID.String()),
 		s.backend,
 		s.modelConfigService,
+		s.execService,
 		s.stubService,
 		nil,
 		s.authorizer,
@@ -175,6 +180,7 @@ func (s *facadeSuite) TestPublicAddress(c *gc.C) {
 		names.NewModelTag(s.modelUUID.String()),
 		s.backend,
 		s.modelConfigService,
+		s.execService,
 		s.stubService,
 		nil,
 		s.authorizer,
@@ -217,6 +223,7 @@ func (s *facadeSuite) TestPrivateAddress(c *gc.C) {
 		names.NewModelTag(s.modelUUID.String()),
 		s.backend,
 		s.modelConfigService,
+		s.execService,
 		s.stubService,
 		nil,
 		s.authorizer,
@@ -279,6 +286,7 @@ func (s *facadeSuite) TestAllAddresses(c *gc.C) {
 		names.NewModelTag(s.modelUUID.String()),
 		s.backend,
 		s.modelConfigService,
+		s.execService,
 		s.stubService,
 		nil,
 		s.authorizer,
@@ -337,6 +345,7 @@ func (s *facadeSuite) TestPublicKeys(c *gc.C) {
 		names.NewModelTag(s.modelUUID.String()),
 		s.backend,
 		s.modelConfigService,
+		s.execService,
 		s.stubService,
 		nil,
 		s.authorizer,
@@ -378,6 +387,7 @@ func (s *facadeSuite) TestProxyTrue(c *gc.C) {
 		names.NewModelTag(s.modelUUID.String()),
 		s.backend,
 		s.modelConfigService,
+		s.execService,
 		s.stubService,
 		nil,
 		s.authorizer,
@@ -410,6 +420,7 @@ func (s *facadeSuite) TestProxyFalse(c *gc.C) {
 		names.NewModelTag(s.modelUUID.String()),
 		s.backend,
 		s.modelConfigService,
+		s.execService,
 		s.stubService,
 		nil,
 		s.authorizer,
@@ -436,6 +447,7 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedNotAuthorized(c *gc.C) {
 		names.NewModelTag(s.modelUUID.String()),
 		s.backend,
 		s.modelConfigService,
+		s.execService,
 		s.stubService,
 		nil,
 		s.authorizer,
@@ -467,7 +479,7 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedBadCredential(c *gc.C) {
 		s.authorizer.EXPECT().AuthClient().Return(true),
 		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, names.NewControllerTag(s.controllerUUID)).Return(authentication.ErrorEntityMissingPermission),
 		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, names.NewModelTag(s.modelUUID.String())).Return(nil),
-		s.stubService.EXPECT().GetExecSecretToken(gomock.Any()).Return("token", nil),
+		s.execService.EXPECT().GetCAASUnitExecSecretToken(gomock.Any()).Return("token", nil),
 		s.stubService.EXPECT().CloudSpec(gomock.Any()).Return(cloudSpec, nil),
 	)
 
@@ -476,6 +488,7 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedBadCredential(c *gc.C) {
 		names.NewModelTag(s.modelUUID.String()),
 		s.backend,
 		s.modelConfigService,
+		s.execService,
 		s.stubService,
 		nil,
 		s.authorizer,
@@ -539,7 +552,7 @@ func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C) {
 
 	gomock.InOrder(
 		s.authorizer.EXPECT().AuthClient().Return(true),
-		s.stubService.EXPECT().GetExecSecretToken(gomock.Any()).Return("token", nil),
+		s.execService.EXPECT().GetCAASUnitExecSecretToken(gomock.Any()).Return("token", nil),
 		s.stubService.EXPECT().CloudSpec(gomock.Any()).Return(cloudSpec, nil),
 	)
 
@@ -548,6 +561,7 @@ func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C) {
 		names.NewModelTag(s.modelUUID.String()),
 		s.backend,
 		s.modelConfigService,
+		s.execService,
 		s.stubService,
 		nil,
 		s.authorizer,
@@ -586,6 +600,7 @@ func (s *facadeSuite) TestGetVirtualHostnameForEntity(c *gc.C) {
 		names.NewModelTag(s.modelUUID.String()),
 		s.backend,
 		s.modelConfigService,
+		s.execService,
 		s.stubService,
 		nil,
 		s.authorizer,

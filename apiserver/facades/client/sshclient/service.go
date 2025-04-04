@@ -20,8 +20,11 @@ type ModelConfigService interface {
 type StubService interface {
 	// CloudSpec returns the cloud spec for the model.
 	CloudSpec(ctx context.Context) (cloudspec.CloudSpec, error)
+}
 
-	// GetExecSecretToken returns a token that can be used to run exec operations
+// ExecService will be replaced once the implementation is finished.
+type ExecService interface {
+	// GetCAASUnitExecSecretToken returns a token that can be used to run exec operations
 	// on the provider cloud.
-	GetExecSecretToken(ctx context.Context) (string, error)
+	GetCAASUnitExecSecretToken(ctx context.Context) (string, error)
 }

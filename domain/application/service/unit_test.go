@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	coreerrors "github.com/juju/juju/core/errors"
 	corestatus "github.com/juju/juju/core/status"
@@ -85,6 +86,9 @@ func (s *unitServiceSuite) TestRegisterCAASUnit(c *gc.C) {
 		},
 		func(ctx context.Context) (CAASApplicationProvider, error) {
 			return s.caasApplicationProvider, nil
+		},
+		func(ctx context.Context) (ExecTokenProvider, error) {
+			return s.execTokenProvider, nil
 		})
 	defer ctrl.Finish()
 
@@ -142,6 +146,9 @@ func (s *unitServiceSuite) TestRegisterCAASUnitApplicationNoPods(c *gc.C) {
 		},
 		func(ctx context.Context) (CAASApplicationProvider, error) {
 			return s.caasApplicationProvider, nil
+		},
+		func(ctx context.Context) (ExecTokenProvider, error) {
+			return s.execTokenProvider, nil
 		})
 	defer ctrl.Finish()
 
@@ -269,4 +276,27 @@ func (s *unitServiceSuite) TestGetUnitRefreshAttributesError(c *gc.C) {
 
 	_, err := s.service.GetUnitRefreshAttributes(context.Background(), unitName)
 	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *unitServiceSuite) TestGetCAASUnitExecSecretToken(c *gc.C) {
+	ctrl := s.setupMocksWithProvider(c,
+		func(ctx context.Context) (Provider, error) {
+			return s.provider, nil
+		},
+		func(ctx context.Context) (SupportedFeatureProvider, error) {
+			return s.supportedFeaturesProvider, nil
+		},
+		func(ctx context.Context) (CAASApplicationProvider, error) {
+			return s.caasApplicationProvider, nil
+		},
+		func(ctx context.Context) (ExecTokenProvider, error) {
+			return s.execTokenProvider, nil
+		})
+	defer ctrl.Finish()
+
+	s.execTokenProvider.EXPECT().GetSecretToken(gomock.Any(), k8sprovider.ExecRBACResourceName).Return("token", nil)
+
+	token, err := s.service.GetCAASUnitExecSecretToken(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(token, gc.Equals, "token")
 }

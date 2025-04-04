@@ -226,7 +226,7 @@ func (s *stubSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	s.srv = NewStubService(modelUUID, s.ControllerSuite.TxnRunnerFactory(), s.ModelSuite.TxnRunnerFactory(), nil)
+	s.srv = NewStubService(modelUUID, s.ControllerSuite.TxnRunnerFactory(), s.ModelSuite.TxnRunnerFactory())
 	s.appState = applicationstate.NewState(s.ModelSuite.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.application"))
 	s.machineState = machinestate.NewState(s.ModelSuite.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.machine"))
 

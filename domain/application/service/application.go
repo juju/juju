@@ -10,7 +10,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/os/v2"
 
-	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -765,12 +764,6 @@ func (s *Service) UpdateCloudService(ctx context.Context, appName, providerID st
 		return errors.Errorf("empty provider ID %w", coreerrors.NotValid)
 	}
 	return s.st.UpsertCloudService(ctx, appName, providerID, sAddrs)
-}
-
-// Broker provides access to the k8s cluster to guery the scale
-// of a specified application.
-type Broker interface {
-	Application(string, caas.DeploymentType) caas.Application
 }
 
 // GetApplicationLife looks up the life of the specified application, returning

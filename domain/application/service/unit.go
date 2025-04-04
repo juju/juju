@@ -6,8 +6,10 @@ package service
 import (
 	"context"
 
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
@@ -330,4 +332,18 @@ func (s *Service) GetUnitRefreshAttributes(ctx context.Context, unitName coreuni
 	}
 
 	return s.st.GetUnitRefreshAttributes(ctx, unitName)
+}
+
+// GetCAASUnitExecSecretToken returns a token that can be used to run exec operations
+// on the provider cloud.
+func (s *ProviderService) GetCAASUnitExecSecretToken(ctx context.Context) (string, error) {
+	provider, err := s.execTokenProvider(ctx)
+	if errors.Is(err, coreerrors.NotSupported) {
+		return "", errors.Errorf("getting secret token %w", coreerrors.NotSupported)
+	}
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return provider.GetSecretToken(ctx, k8sprovider.ExecRBACResourceName)
 }

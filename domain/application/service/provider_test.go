@@ -1322,6 +1322,8 @@ func (s *providerServiceSuite) TestGetSupportedFeaturesNotSupported(c *gc.C) {
 		return s.supportedFeaturesProvider, coreerrors.NotSupported
 	}, func(ctx context.Context) (CAASApplicationProvider, error) {
 		return s.caasApplicationProvider, coreerrors.NotSupported
+	}, func(ctx context.Context) (ExecTokenProvider, error) {
+		return s.execTokenProvider, coreerrors.NotSupported
 	})
 	defer ctrl.Finish()
 
@@ -1361,6 +1363,8 @@ func (s *providerServiceSuite) TestSetConstraintsProviderNotSupported(c *gc.C) {
 		return s.supportedFeaturesProvider, coreerrors.NotSupported
 	}, func(ctx context.Context) (CAASApplicationProvider, error) {
 		return s.caasApplicationProvider, coreerrors.NotSupported
+	}, func(ctx context.Context) (ExecTokenProvider, error) {
+		return s.execTokenProvider, coreerrors.NotSupported
 	})
 	defer ctrl.Finish()
 
@@ -1382,6 +1386,9 @@ func (s *providerServiceSuite) TestSetConstraintsValidatorError(c *gc.C) {
 		},
 		func(ctx context.Context) (CAASApplicationProvider, error) {
 			return s.caasApplicationProvider, nil
+		},
+		func(ctx context.Context) (ExecTokenProvider, error) {
+			return s.execTokenProvider, nil
 		})
 	defer ctrl.Finish()
 
@@ -1403,6 +1410,9 @@ func (s *providerServiceSuite) TestSetConstraintsValidateError(c *gc.C) {
 		},
 		func(ctx context.Context) (CAASApplicationProvider, error) {
 			return s.caasApplicationProvider, nil
+		},
+		func(ctx context.Context) (ExecTokenProvider, error) {
+			return s.execTokenProvider, nil
 		})
 	defer ctrl.Finish()
 
@@ -1426,6 +1436,9 @@ func (s *providerServiceSuite) TestSetConstraintsUnsupportedValues(c *gc.C) {
 		},
 		func(ctx context.Context) (CAASApplicationProvider, error) {
 			return s.caasApplicationProvider, nil
+		},
+		func(ctx context.Context) (ExecTokenProvider, error) {
+			return s.execTokenProvider, nil
 		})
 	defer ctrl.Finish()
 
@@ -1451,6 +1464,9 @@ func (s *providerServiceSuite) TestSetConstraints(c *gc.C) {
 		},
 		func(ctx context.Context) (CAASApplicationProvider, error) {
 			return s.caasApplicationProvider, nil
+		},
+		func(ctx context.Context) (ExecTokenProvider, error) {
+			return s.execTokenProvider, nil
 		})
 	defer ctrl.Finish()
 
@@ -1477,6 +1493,9 @@ func (s *providerServiceSuite) TestAddUnitsEmptyConstraints(c *gc.C) {
 		},
 		func(ctx context.Context) (CAASApplicationProvider, error) {
 			return s.caasApplicationProvider, nil
+		},
+		func(ctx context.Context) (ExecTokenProvider, error) {
+			return s.execTokenProvider, nil
 		})
 	defer ctrl.Finish()
 
@@ -1528,6 +1547,9 @@ func (s *providerServiceSuite) TestAddUnitsAppConstraints(c *gc.C) {
 		},
 		func(ctx context.Context) (CAASApplicationProvider, error) {
 			return s.caasApplicationProvider, nil
+		},
+		func(ctx context.Context) (ExecTokenProvider, error) {
+			return s.execTokenProvider, nil
 		})
 	defer ctrl.Finish()
 
@@ -1596,6 +1618,9 @@ func (s *providerServiceSuite) TestAddUnitsModelConstraints(c *gc.C) {
 		},
 		func(ctx context.Context) (CAASApplicationProvider, error) {
 			return s.caasApplicationProvider, nil
+		},
+		func(ctx context.Context) (ExecTokenProvider, error) {
+			return s.execTokenProvider, nil
 		})
 	defer ctrl.Finish()
 
@@ -1664,6 +1689,9 @@ func (s *providerServiceSuite) TestAddUnitsFullConstraints(c *gc.C) {
 		},
 		func(ctx context.Context) (CAASApplicationProvider, error) {
 			return s.caasApplicationProvider, nil
+		},
+		func(ctx context.Context) (ExecTokenProvider, error) {
+			return s.execTokenProvider, nil
 		})
 	defer ctrl.Finish()
 
@@ -1719,6 +1747,9 @@ func (s *providerServiceSuite) TestAddUnitsInvalidName(c *gc.C) {
 		},
 		func(ctx context.Context) (CAASApplicationProvider, error) {
 			return s.caasApplicationProvider, nil
+		},
+		func(ctx context.Context) (ExecTokenProvider, error) {
+			return s.execTokenProvider, nil
 		})
 	defer ctrl.Finish()
 
@@ -1739,6 +1770,9 @@ func (s *providerServiceSuite) TestAddUnitsNoUnits(c *gc.C) {
 		},
 		func(ctx context.Context) (CAASApplicationProvider, error) {
 			return s.caasApplicationProvider, nil
+		},
+		func(ctx context.Context) (ExecTokenProvider, error) {
+			return s.execTokenProvider, nil
 		})
 	defer ctrl.Finish()
 
@@ -1756,6 +1790,9 @@ func (s *providerServiceSuite) TestAddUnitsApplicationNotFound(c *gc.C) {
 		},
 		func(ctx context.Context) (CAASApplicationProvider, error) {
 			return s.caasApplicationProvider, nil
+		},
+		func(ctx context.Context) (ExecTokenProvider, error) {
+			return s.execTokenProvider, nil
 		})
 	defer ctrl.Finish()
 
@@ -1780,6 +1817,9 @@ func (s *providerServiceSuite) TestAddUnitsGetModelTypeError(c *gc.C) {
 		},
 		func(ctx context.Context) (CAASApplicationProvider, error) {
 			return s.caasApplicationProvider, nil
+		},
+		func(ctx context.Context) (ExecTokenProvider, error) {
+			return s.execTokenProvider, nil
 		})
 	defer ctrl.Finish()
 
@@ -1852,6 +1892,9 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsConstraint
 		},
 		func(ctx context.Context) (CAASApplicationProvider, error) {
 			return s.caasApplicationProvider, nil
+		},
+		func(ctx context.Context) (ExecTokenProvider, error) {
+			return s.execTokenProvider, nil
 		})
 	defer ctrl.Finish()
 

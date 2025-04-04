@@ -118,6 +118,11 @@ type CAASApplicationProvider interface {
 	Application(string, caas.DeploymentType) caas.Application
 }
 
+// ExecTokenProvider is a subset of caas broker.
+type ExecTokenProvider interface {
+	GetSecretToken(ctx context.Context, name string) (string, error)
+}
+
 // WatcherFactory instances return watchers for a given namespace and UUID.
 type WatcherFactory interface {
 	// NewUUIDsWatcher returns a watcher that emits the UUIDs for changes to the
@@ -169,6 +174,7 @@ func NewWatchableService(
 	provider providertracker.ProviderGetter[Provider],
 	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider],
 	caasApplicationProvider providertracker.ProviderGetter[CAASApplicationProvider],
+	execTokenProvider providertracker.ProviderGetter[ExecTokenProvider],
 	charmStore CharmStore,
 	statusHistory StatusHistory,
 	clock clock.Clock,
@@ -184,6 +190,7 @@ func NewWatchableService(
 			provider,
 			supportedFeatureProvider,
 			caasApplicationProvider,
+			execTokenProvider,
 			charmStore,
 			statusHistory,
 			clock,

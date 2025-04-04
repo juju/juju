@@ -817,6 +817,9 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 	notSupportedCAASApplicationproviderGetter := func(ctx context.Context) (service.CAASApplicationProvider, error) {
 		return nil, coreerrors.NotSupported
 	}
+	notSupportedExecTokenProviderGetter := func(ctx context.Context) (service.ExecTokenProvider, error) {
+		return nil, coreerrors.NotSupported
+	}
 
 	return service.NewWatchableService(
 		state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
@@ -827,7 +830,8 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 		"",
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		nil, notSupportedProviderGetter,
-		notSupportedFeatureProviderGetter, notSupportedCAASApplicationproviderGetter, nil,
+		notSupportedFeatureProviderGetter, notSupportedCAASApplicationproviderGetter, notSupportedExecTokenProviderGetter,
+		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),

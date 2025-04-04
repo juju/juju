@@ -198,6 +198,7 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[applicationservice.SupportedFeatureProvider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[applicationservice.CAASApplicationProvider](s.providerFactory, s.modelUUID.String()),
+		providertracker.ProviderRunner[applicationservice.ExecTokenProvider](s.providerFactory, s.modelUUID.String()),
 		charmstore.NewCharmStore(s.objectstore, logger.Child("charmstore")),
 		domain.NewStatusHistory(logger, s.clock),
 		s.clock,
@@ -469,6 +470,5 @@ func (s *ModelServices) Stub() *stubservice.StubService {
 		s.modelUUID,
 		changestream.NewTxnRunnerFactory(s.controllerDB),
 		changestream.NewTxnRunnerFactory(s.modelDB),
-		providertracker.ProviderRunner[stubservice.ProviderWithSecretToken](s.providerFactory, s.modelUUID.String()),
 	)
 }

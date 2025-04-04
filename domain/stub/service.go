@@ -8,12 +8,10 @@ import (
 
 	"github.com/canonical/sqlair"
 
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -41,13 +39,6 @@ type StubService struct {
 	modelUUID       coremodel.UUID
 	modelState      *domain.StateBase
 	controllerState *domain.StateBase
-
-	providerWithSecretToken providertracker.ProviderGetter[ProviderWithSecretToken]
-}
-
-// ProviderWithSecretToken is a subset of caas broker.
-type ProviderWithSecretToken interface {
-	GetSecretToken(ctx context.Context, name string) (string, error)
 }
 
 // NewStubService returns a new StubService.
@@ -55,13 +46,11 @@ func NewStubService(
 	modelUUID coremodel.UUID,
 	controllerFactory database.TxnRunnerFactory,
 	modelFactory database.TxnRunnerFactory,
-	providerWithSecretToken providertracker.ProviderGetter[ProviderWithSecretToken],
 ) *StubService {
 	return &StubService{
-		modelUUID:               modelUUID,
-		controllerState:         domain.NewStateBase(controllerFactory),
-		modelState:              domain.NewStateBase(modelFactory),
-		providerWithSecretToken: providerWithSecretToken,
+		modelUUID:       modelUUID,
+		controllerState: domain.NewStateBase(controllerFactory),
+		modelState:      domain.NewStateBase(modelFactory),
 	}
 }
 
@@ -171,18 +160,4 @@ func (s *StubService) CloudSpec(ctx context.Context) (cloudspec.CloudSpec, error
 		cloudCred = &c
 	}
 	return cloudspec.MakeCloudSpec(*cld, cloudRegion, cloudCred)
-}
-
-// GetExecSecretToken returns a token that can be used to run exec operations
-// on the provider cloud.
-func (s *StubService) GetExecSecretToken(ctx context.Context) (string, error) {
-	provider, err := s.providerWithSecretToken(ctx)
-	if errors.Is(err, coreerrors.NotSupported) {
-		return "", errors.Errorf("getting secret token %w", coreerrors.NotSupported)
-	}
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	return provider.GetSecretToken(ctx, k8sprovider.ExecRBACResourceName)
 }

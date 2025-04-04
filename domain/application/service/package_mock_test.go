@@ -4017,6 +4017,68 @@ func (c *MockCAASApplicationProviderApplicationCall) DoAndReturn(f func(string, 
 	return c
 }
 
+// MockExecTokenProvider is a mock of ExecTokenProvider interface.
+type MockExecTokenProvider struct {
+	ctrl     *gomock.Controller
+	recorder *MockExecTokenProviderMockRecorder
+}
+
+// MockExecTokenProviderMockRecorder is the mock recorder for MockExecTokenProvider.
+type MockExecTokenProviderMockRecorder struct {
+	mock *MockExecTokenProvider
+}
+
+// NewMockExecTokenProvider creates a new mock instance.
+func NewMockExecTokenProvider(ctrl *gomock.Controller) *MockExecTokenProvider {
+	mock := &MockExecTokenProvider{ctrl: ctrl}
+	mock.recorder = &MockExecTokenProviderMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockExecTokenProvider) EXPECT() *MockExecTokenProviderMockRecorder {
+	return m.recorder
+}
+
+// GetSecretToken mocks base method.
+func (m *MockExecTokenProvider) GetSecretToken(ctx context.Context, name string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecretToken", ctx, name)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecretToken indicates an expected call of GetSecretToken.
+func (mr *MockExecTokenProviderMockRecorder) GetSecretToken(ctx, name any) *MockExecTokenProviderGetSecretTokenCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretToken", reflect.TypeOf((*MockExecTokenProvider)(nil).GetSecretToken), ctx, name)
+	return &MockExecTokenProviderGetSecretTokenCall{Call: call}
+}
+
+// MockExecTokenProviderGetSecretTokenCall wrap *gomock.Call
+type MockExecTokenProviderGetSecretTokenCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockExecTokenProviderGetSecretTokenCall) Return(arg0 string, arg1 error) *MockExecTokenProviderGetSecretTokenCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockExecTokenProviderGetSecretTokenCall) Do(f func(context.Context, string) (string, error)) *MockExecTokenProviderGetSecretTokenCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockExecTokenProviderGetSecretTokenCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockExecTokenProviderGetSecretTokenCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockWatcherFactory is a mock of WatcherFactory interface.
 type MockWatcherFactory struct {
 	ctrl     *gomock.Controller
