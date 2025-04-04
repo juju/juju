@@ -268,6 +268,24 @@ func (s *exposedStateSuite) TestUnsetExposeSettingsOnlyOneEndpoint(c *gc.C) {
 	c.Check(exposedEndpoints[""].ExposeToSpaceIDs.IsEmpty(), jc.IsTrue)
 }
 
+func (s *exposedStateSuite) TestUnsetExposeSettingsAllEndpoints(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive)
+	s.setUpEndpoint(c, appID)
+	s.createExposedEndpointSpace(c, appID)
+	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
+
+	isExposed, err := s.state.IsApplicationExposed(context.Background(), appID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(isExposed, jc.IsTrue)
+
+	err = s.state.UnsetExposeSettings(context.Background(), appID, set.NewStrings())
+	c.Assert(err, jc.ErrorIsNil)
+
+	isExposed, err = s.state.IsApplicationExposed(context.Background(), appID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(isExposed, jc.IsFalse)
+}
+
 func (s *exposedStateSuite) TestMergeExposeSettingsNewEntry(c *gc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 	s.setUpEndpoint(c, appID)

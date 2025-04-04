@@ -291,6 +291,8 @@ type ApplicationState interface {
 	// endpoint names. If the resulting exposed endpoints map for the application
 	// becomes empty after the settings are removed, the application will be
 	// automatically unexposed.
+	// If the provided set of endpoints is empty, all exposed endpoints of the
+	// application will be removed.
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
