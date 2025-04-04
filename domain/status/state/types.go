@@ -20,6 +20,10 @@ type applicationIDAndName struct {
 	Name string             `db:"name"`
 }
 
+type relationUUID struct {
+	RelationUUID corerelation.UUID `db:"relation_uuid"`
+}
+
 type unitUUID struct {
 	UnitUUID coreunit.UUID `db:"uuid"`
 }

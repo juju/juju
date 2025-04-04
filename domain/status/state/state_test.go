@@ -223,6 +223,32 @@ func (s *stateSuite) TestGetApplicationStatusNotSet(c *gc.C) {
 	})
 }
 
+func (s *stateSuite) TestGetRelationStatus(c *gc.C) {
+	// Arrange: add relation with status.
+	now := time.Now().Truncate(time.Minute).UTC()
+	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, 7)
+	s.addRelationStatusWithMessage(c, relationUUID, corestatus.Suspended, "this is a test", now)
+
+	// Act:
+	result, err := s.state.GetRelationStatus(context.Background(), relationUUID)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, status.StatusInfo[status.RelationStatusType]{
+		Status:  status.RelationStatusTypeSuspended,
+		Message: "this is a test",
+		Since:   &now,
+	})
+}
+
+func (s *stateSuite) TestGetRelationStatusRelationNotFound(c *gc.C) {
+	// Act:
+	_, err := s.state.GetRelationStatus(context.Background(), corerelationtesting.GenRelationUUID(c))
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, statuserrors.RelationNotFound)
+}
+
 func (s *stateSuite) TestSetRelationStatus(c *gc.C) {
 	// Arrange: Create relation and statuses.
 	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, 7)

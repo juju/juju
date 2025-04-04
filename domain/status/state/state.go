@@ -242,9 +242,58 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 	return nil
 }
 
+// GetRelationStatus gets the status of the given relation. It returns an error
+// satisfying [statuserrors.RelationNotFound] if the relation doesn't exist.
+func (st *State) GetRelationStatus(
+	ctx context.Context,
+	uuid corerelation.UUID,
+) (status.StatusInfo[status.RelationStatusType], error) {
+	empty := status.StatusInfo[status.RelationStatusType]{}
+	db, err := st.DB()
+	if err != nil {
+		return empty, errors.Capture(err)
+	}
+
+	id := relationUUID{
+		RelationUUID: uuid,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &relationStatus.*
+FROM   relation_status
+WHERE  relation_uuid = $relationUUID.relation_uuid
+`, id, relationStatus{})
+	if err != nil {
+		return empty, errors.Capture(err)
+	}
+
+	var sts relationStatus
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, id).Get(&sts)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return statuserrors.RelationNotFound
+		} else if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return empty, errors.Errorf("getting all relations statuses: %w", err)
+	}
+	statusType, err := status.DecodeRelationStatus(sts.StatusID)
+	if err != nil {
+		return empty, errors.Capture(err)
+	}
+	return status.StatusInfo[status.RelationStatusType]{
+		Status:  statusType,
+		Message: sts.Reason,
+		Since:   sts.Since,
+	}, nil
+}
+
 // SetRelationStatus saves the given relation status, overwriting any current
-// status data. If returns an error satisfying
-// [statuserrors.RelationNotFound] if the relation doesn't exist.
+// status data. It returns an error satisfying [statuserrors.RelationNotFound]
+// if the relation doesn't exist.
 func (st *State) SetRelationStatus(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
