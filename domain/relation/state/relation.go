@@ -1735,6 +1735,55 @@ AND    re.relation_uuid = $relationAndApplicationUUID.relation_uuid
 	return endpointUUID.UUID, nil
 }
 
+// GetPrincipalSubordinateApplicationIDs returns the Principal and
+// Subordinate application IDs for the given unit. The principal will
+// be the first ID returned and the subordinate will be the second. If
+// the unit is not a subordinate, the second application ID will be
+// empty.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.UnitNotAlive] if the unit is dead or dying, or
+//     not found.
+func (st *State) GetPrincipalSubordinateApplicationIDs(
+	ctx context.Context,
+	unitUUID unit.UUID,
+) (application.ID, application.ID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	var principleAppID, subordinateAppID application.ID
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if alive, err := st.checkLife(ctx, tx, "unit", unitUUID.String(), life.IsAlive); err != nil {
+			return errors.Errorf("cannot check unit %q life: %w", unitUUID, err)
+		} else if !alive {
+			return errors.Errorf("unit %s is not alive", unitUUID).Add(relationerrors.UnitNotAlive)
+		}
+		var principalUnit bool
+		principleAppID, err = st.getPrincipalApplicationOfUnit(ctx, tx, unitUUID)
+		if errors.Is(err, relationerrors.UnitPrincipalNotFound) {
+			principalUnit = true
+		} else if err != nil {
+			return errors.Errorf("getting principal application of unit: %w", err)
+		}
+
+		unitApplicationID, err := st.getApplicationIDByUnitUUID(ctx, tx, unitUUID)
+		if err != nil {
+			return errors.Errorf("getting application of unit: %w", err)
+		}
+
+		if principalUnit {
+			principleAppID = unitApplicationID
+		} else {
+			subordinateAppID = unitApplicationID
+		}
+		return err
+	})
+	return principleAppID, subordinateAppID, errors.Capture(err)
+}
+
 // InitialWatchLifeSuspendedStatus returns the two tables to watch for
 // a relation's Life and Suspended status when the relation contains
 // the provided application and the initial namespace query.
@@ -1744,8 +1793,8 @@ func (st *State) InitialWatchLifeSuspendedStatus(id application.ID) (string, str
 SELECT  re.relation_uuid AS &relationUUID.uuid
 FROM    relation_endpoint re
 JOIN    application_endpoint ae ON ae.uuid = re.endpoint_uuid
-WHERE   ae.application_uuid = $applicationID.ID
-`, applicationID{})
+WHERE   ae.application_uuid = $applicationID.uuid
+`, applicationID{}, relationUUID{})
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -1848,10 +1897,15 @@ WHERE  r.uuid = $watcherMapperData.uuid
 		return relation.RelationLifeSuspendedData{}, errors.Capture(err)
 	}
 
+	endpointIdentifiers := make([]corerelation.EndpointIdentifier, len(endpoints))
+	for i, endpoint := range endpoints {
+		endpointIdentifiers[i] = endpoint.EndpointIdentifier()
+	}
+
 	return relation.RelationLifeSuspendedData{
-		Life:      life.Value(data.Life),
-		Suspended: data.Suspended == corestatus.Suspended.String(),
-		Endpoints: endpoints,
+		Life:                life.Value(data.Life),
+		Suspended:           data.Suspended == corestatus.Suspended.String(),
+		EndpointIdentifiers: endpointIdentifiers,
 	}, nil
 }
 
@@ -2304,4 +2358,32 @@ AND    e2.endpoint_uuid = $endpoint2.endpoint_uuid
 		return relationerrors.RelationAlreadyExists
 	}
 	return errors.Capture(err)
+}
+
+func (st *State) getApplicationIDByUnitUUID(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitUUID unit.UUID,
+) (application.ID, error) {
+	getApplication := getPrincipal{
+		UnitUUID: unitUUID,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &getPrincipal.application_uuid
+FROM   unit u
+WHERE  u.uuid = $getPrincipal.unit_uuid
+`, getPrincipal{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, getApplication).Get(&getApplication)
+	if errors.Is(sql.ErrNoRows, err) {
+		return "", relationerrors.UnitNotFound
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return getApplication.ApplicationUUID, nil
 }

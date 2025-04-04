@@ -2135,9 +2135,9 @@ func (s *relationSuite) TestGetMapperDataForWatchLifeSuspendedStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Life, jc.DeepEquals, corelife.Alive)
 	c.Check(result.Suspended, jc.IsTrue)
-	c.Check(result.Endpoints, jc.SameContents, []relation.Endpoint{
-		endpoint1,
-		endpoint2,
+	c.Check(result.EndpointIdentifiers, jc.SameContents, []corerelation.EndpointIdentifier{
+		endpoint1.EndpointIdentifier(),
+		endpoint2.EndpointIdentifier(),
 	})
 }
 
@@ -2548,6 +2548,52 @@ func (s *relationSuite) TestSetRelationApplicationSettingsRelationNotFound(c *gc
 
 	// Assert:
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDs(c *gc.C) {
+	// Arrange: Populate charm metadata with subordinate data.
+	subordinateCharm := s.fakeCharmUUID1
+	subordinateAppUUID := s.fakeApplicationUUID1
+	principalCharm := s.fakeCharmUUID2
+	principalAppUUID := s.fakeApplicationUUID2
+	s.addCharmMetadata(c, subordinateCharm, true)
+	s.addCharmMetadata(c, principalCharm, false)
+
+	// Arrange: create principal and subordinate units, then link
+	subordinateUnitName := coreunittesting.GenNewName(c, "app1/0")
+	subordinateUnitUUID := s.addUnit(c, subordinateUnitName, subordinateAppUUID, subordinateCharm)
+	principalUnitName := coreunittesting.GenNewName(c, "app2/0")
+	principalUnitUUID := s.addUnit(c, principalUnitName, principalAppUUID, principalCharm)
+	s.setUnitSubordinate(c, subordinateUnitUUID, principalUnitUUID)
+
+	// Act
+	obtainedPrincipal, obtainedSubordinate, err := s.state.GetPrincipalSubordinateApplicationIDs(
+		context.Background(), subordinateUnitUUID)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedPrincipal, gc.Equals, principalAppUUID)
+	c.Check(obtainedSubordinate, gc.Equals, subordinateAppUUID)
+}
+
+func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDsPrincipalOnly(c *gc.C) {
+	// Arrange: Populate charm metadata with subordinate data.
+	principalCharm := s.fakeCharmUUID1
+	principalAppUUID := s.fakeApplicationUUID2
+	s.addCharmMetadata(c, principalCharm, false)
+
+	// Arrange: create principal unit
+	principalUnitName := coreunittesting.GenNewName(c, "app2/0")
+	principalUnitUUID := s.addUnit(c, principalUnitName, principalAppUUID, principalCharm)
+
+	// Act
+	obtainedPrincipal, obtainedSubordinate, err := s.state.GetPrincipalSubordinateApplicationIDs(
+		context.Background(), principalUnitUUID)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedPrincipal, gc.Equals, principalAppUUID)
+	c.Check(obtainedSubordinate.String(), gc.Equals, "")
 }
 
 // addUnit adds a new unit to the specified application in the database with

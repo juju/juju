@@ -12,8 +12,10 @@ import (
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -24,12 +26,71 @@ type State interface {
 	// by ep1 and ep2 and returns the created endpoints.
 	AddRelation(ctx context.Context, ep1, ep2 relation.CandidateEndpointIdentifier) (relation.Endpoint, relation.Endpoint, error)
 
+	// EnterScope indicates that the provided unit has joined the relation.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationNotFound] if the relation cannot be found.
+	//   - [relationerrors.UnitNotFound] if no unit by the given name can be found
+	//   - [relationerrors.RelationNotAlive] if the relation is not alive.
+	//   - [relationerrors.UnitNotAlive] if the unit is not alive.
+	//   - [relationerrors.PotentialRelationUnitNotValid] if the unit entering
+	//     scope is a subordinate and the endpoint scope is charm.ScopeContainer
+	//     where the other application is a principal, but not in the current
+	//     relation.
+	EnterScope(ctx context.Context, relationUUID corerelation.UUID, unitName unit.Name) error
+
 	// GetAllRelationDetails return all uuid of all relation for the current model.
 	GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error)
+
+	// GetApplicationEndpoints returns all endpoints for the given application
+	// identifier.
+	GetApplicationEndpoints(ctx context.Context, applicationID application.ID) ([]relation.Endpoint, error)
 
 	// GetApplicationRelations retrieves all relation UUIDs associated with a
 	// specific application identified by its ID.
 	GetApplicationRelations(ctx context.Context, id application.ID) ([]corerelation.UUID, error)
+
+	// GetMapperDataForWatchLifeSuspendedStatus returns data needed to evaluate a relation
+	// uuid as part of WatchLifeSuspendedStatus eventmapper.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.ApplicationNotFoundForRelation] is returned if the
+	//     application is not part of the relation.
+	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+	//     is not found.
+	GetMapperDataForWatchLifeSuspendedStatus(
+		ctx context.Context,
+		relUUID corerelation.UUID,
+		appID application.ID,
+	) (relation.RelationLifeSuspendedData, error)
+
+	// GetOtherRelatedEndpointApplicationData returns an OtherApplicationForWatcher struct
+	// for each Endpoint in a relation with the given application ID.
+	GetOtherRelatedEndpointApplicationData(
+		ctx context.Context,
+		applicationID application.ID,
+	) ([]relation.OtherApplicationForWatcher, error)
+
+	// GetPeerRelationUUIDByEndpointIdentifiers gets the UUID of a peer
+	// relation specified by a single endpoint identifier.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationNotFound] is returned if endpoint cannot be
+	//     found.
+	GetPeerRelationUUIDByEndpointIdentifiers(
+		ctx context.Context,
+		endpoint corerelation.EndpointIdentifier,
+	) (corerelation.UUID, error)
+
+	// GetPrincipalSubordinateApplicationIDs returns the Principal and
+	// Subordinate application IDs for the given unit. The principal will
+	// be the first ID returned and the subordinate will be the second. If
+	// the unit is not a subordinate, the second application ID will be
+	// empty.
+	GetPrincipalSubordinateApplicationIDs(
+		ctx context.Context,
+		unitUUID unit.UUID,
+	) (application.ID, application.ID, error)
 
 	// GetRelationApplicationSettings returns the application settings
 	// for the given application and relation identifier combination.
@@ -67,9 +128,17 @@ type State interface {
 	//     given UUID.
 	GetRelationEndpoints(ctx context.Context, relationUUID corerelation.UUID) ([]relation.Endpoint, error)
 
-	// GetApplicationEndpoints returns all endpoints for the given application
-	// identifier.
-	GetApplicationEndpoints(ctx context.Context, applicationID application.ID) ([]relation.Endpoint, error)
+	// GetRelationEndpointScope returns the scope of the relation endpoint
+	// at the intersection of the relationUUID and applicationID.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+	//     relating to the relation ID cannot be found.
+	GetRelationEndpointScope(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		applicationID application.ID,
+	) (charm.RelationScope, error)
 
 	// GetRelationEndpointUUID retrieves the unique identifier for a specific
 	// relation endpoint based on the provided arguments.
@@ -84,17 +153,6 @@ type State interface {
 	GetRegularRelationUUIDByEndpointIdentifiers(
 		ctx context.Context,
 		endpoint1, endpoint2 corerelation.EndpointIdentifier,
-	) (corerelation.UUID, error)
-
-	// GetPeerRelationUUIDByEndpointIdentifiers gets the UUID of a peer
-	// relation specified by a single endpoint identifier.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.RelationNotFound] is returned if endpoint cannot be
-	//     found.
-	GetPeerRelationUUIDByEndpointIdentifiers(
-		ctx context.Context,
-		endpoint corerelation.EndpointIdentifier,
 	) (corerelation.UUID, error)
 
 	// GetRelationsStatusForUnit returns RelationUnitStatus for all relations
@@ -123,18 +181,10 @@ type State interface {
 		unitName unit.Name,
 	) (corerelation.UnitUUID, error)
 
-	// EnterScope indicates that the provided unit has joined the relation.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.RelationNotFound] if the relation cannot be found.
-	//   - [relationerrors.UnitNotFound] if no unit by the given name can be found
-	//   - [relationerrors.RelationNotAlive] if the relation is not alive.
-	//   - [relationerrors.UnitNotAlive] if the unit is not alive.
-	//   - [relationerrors.PotentialRelationUnitNotValid] if the unit entering
-	//     scope is a subordinate and the endpoint scope is charm.ScopeContainer
-	//     where the other application is a principal, but not in the current
-	//     relation.
-	EnterScope(ctx context.Context, relationUUID corerelation.UUID, unitName unit.Name) error
+	// InitialWatchLifeSuspendedStatus returns the two tables to watch for
+	// a relation's Life and Suspended status when the relation contains
+	// the provided application and the initial namespace query.
+	InitialWatchLifeSuspendedStatus(id application.ID) (string, string, eventsource.NamespaceQuery)
 
 	// LeaveScope updates the given relation to indicate it is not in scope.
 	//
