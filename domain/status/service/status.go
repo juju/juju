@@ -437,27 +437,6 @@ func decodeUnitDisplayAndAgentStatus(
 	return agentStatus, workloadStatus, nil
 }
 
-// reduceUnitWorkloadStatuses reduces a list of workload statuses to a single status.
-// We do this by taking the highest priority status from the list.
-func reduceUnitWorkloadStatuses(statuses []status.UnitStatusInfo[status.WorkloadStatusType]) (corestatus.StatusInfo, error) {
-	// By providing an unknown default, we get a reasonable answer
-	// even if there are no units.
-	result := corestatus.StatusInfo{
-		Status: corestatus.Unknown,
-	}
-	for _, s := range statuses {
-		decodedStatus, err := decodeUnitWorkloadStatus(s)
-		if err != nil {
-			return result, errors.Capture(err)
-		}
-
-		if statusSeverities[decodedStatus.Status] > statusSeverities[result.Status] {
-			result = decodedStatus
-		}
-	}
-	return result, nil
-}
-
 func decodeUnitWorkloadStatuses(statuses status.UnitWorkloadStatuses) (map[unit.Name]corestatus.StatusInfo, error) {
 	ret := make(map[unit.Name]corestatus.StatusInfo, len(statuses))
 	for unitName, status := range statuses {
@@ -468,18 +447,6 @@ func decodeUnitWorkloadStatuses(statuses status.UnitWorkloadStatuses) (map[unit.
 		ret[unitName] = info
 	}
 	return ret, nil
-}
-
-// statusSeverities holds status values with a severity measure.
-// Status values with higher severity are used in preference to others.
-var statusSeverities = map[corestatus.Status]int{
-	corestatus.Error:       100,
-	corestatus.Blocked:     90,
-	corestatus.Maintenance: 80, // Maintenance (us busy) is higher than Waiting (someone else busy)
-	corestatus.Waiting:     70,
-	corestatus.Active:      60,
-	corestatus.Terminated:  50,
-	corestatus.Unknown:     40,
 }
 
 // unitDisplayStatus determines which of the two statuses to use when displaying
@@ -525,6 +492,18 @@ func unitDisplayStatus(
 	}
 
 	return decodeUnitWorkloadStatus(workloadStatus)
+}
+
+// statusSeverities holds status values with a severity measure.
+// Status values with higher severity are used in preference to others.
+var statusSeverities = map[corestatus.Status]int{
+	corestatus.Error:       100,
+	corestatus.Blocked:     90,
+	corestatus.Maintenance: 80, // Maintenance (us busy) is higher than Waiting (someone else busy)
+	corestatus.Waiting:     70,
+	corestatus.Active:      60,
+	corestatus.Terminated:  50,
+	corestatus.Unknown:     40,
 }
 
 // applicationDisplayStatusFromUnits returns the status to display for an status
