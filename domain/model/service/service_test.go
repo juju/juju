@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/collections/transform"
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -1340,7 +1339,7 @@ func (s *serviceSuite) TestGetModelLifeInvalidUUID(c *gc.C) {
 	)
 
 	_, err := svc.GetModelLife(context.Background(), "!!!!")
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	c.Assert(err, gc.ErrorMatches, `*.not valid`)
 }
 
 func (s *serviceSuite) TestGetModelLifeNotFound(c *gc.C) {
