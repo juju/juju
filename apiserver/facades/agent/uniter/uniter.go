@@ -1764,7 +1764,7 @@ func (u *UniterAPI) oneSetRelationStatus(
 	// we retain any existing message so that if the user has
 	// previously specified a reason for suspending, it is retained.
 	if message == "" && relStatus == params.Suspended {
-		current, err := u.relationService.GetRelationStatus(ctx, relationUUID)
+		current, err := u.statusService.GetRelationStatus(ctx, relationUUID)
 		if err != nil {
 			return internalerrors.Capture(err)
 		}
@@ -1772,7 +1772,7 @@ func (u *UniterAPI) oneSetRelationStatus(
 			message = current.Message
 		}
 	}
-	err = u.relationService.SetRelationStatus(ctx, unitName, relationUUID, status.StatusInfo{
+	err = u.statusService.SetRelationStatus(ctx, unitName, relationUUID, status.StatusInfo{
 		Status:  status.Status(relStatus),
 		Message: message,
 	})

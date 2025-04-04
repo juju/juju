@@ -162,6 +162,18 @@ type StatusService interface {
 	// GetUnitWorkloadStatusesForApplication returns the workload statuses of
 	// all units in the specified application, indexed by unit name
 	GetUnitWorkloadStatusesForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]corestatus.StatusInfo, error)
+
+	// GetRelationStatus returns the status of the given relation.
+	GetRelationStatus(ctx context.Context, relationUUID corerelation.UUID) (corestatus.StatusInfo, error)
+
+	// SetRelationStatus sets the status of the relation to the status provided.
+	// Status may only be set by the application leader.
+	SetRelationStatus(
+		ctx context.Context,
+		unitName coreunit.Name,
+		relationUUID corerelation.UUID,
+		info corestatus.StatusInfo,
+	) error
 }
 
 // UnitStateService describes the ability to retrieve and persist
@@ -286,9 +298,6 @@ type RelationService interface {
 	// GetRelationByID returns the relation uuid based on the relation ID.
 	GetRelationUUIDByID(ctx context.Context, relationID int) (corerelation.UUID, error)
 
-	// GetRelationStatus returns the status of the given relation.
-	GetRelationStatus(ctx context.Context, relationUUID corerelation.UUID) (corestatus.StatusInfo, error)
-
 	// GetRelationsStatusesForUnit returns RelationUnitStatus for
 	// any relation the unit is part of.
 	GetRelationsStatusForUnit(ctx context.Context, unitUUID coreunit.UUID) ([]relation.RelationUnitStatus, error)
@@ -304,15 +313,6 @@ type RelationService interface {
 
 	// LeaveScope updates the given relation to indicate it is not in scope.
 	LeaveScope(ctx context.Context, relationID corerelation.UnitUUID) error
-
-	// SetRelationStatus sets the status of the relation to the status provided.
-	// Status may only be set by the application leader.
-	SetRelationStatus(
-		ctx context.Context,
-		unitName coreunit.Name,
-		relationUUID corerelation.UUID,
-		info corestatus.StatusInfo,
-	) error
 
 	// UpdateRelationApplicationSettings updates settings for a specific application
 	// relation combination.

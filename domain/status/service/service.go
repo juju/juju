@@ -11,6 +11,7 @@ import (
 	"github.com/juju/clock"
 
 	coreapplication "github.com/juju/juju/core/application"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
@@ -384,6 +385,23 @@ func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appName strin
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
 	return derivedApplicationStatus, nil
+}
+
+// SetRelationStatus sets the status of the relation to the status provided.
+// Status may only be set by the application leader.
+// Returns NotFound
+func (s *Service) SetRelationStatus(
+	ctx context.Context,
+	unitName coreunit.Name,
+	relationUUID corerelation.UUID,
+	info corestatus.StatusInfo,
+) error {
+	// TODO: (hml) 6-Mar-2025
+	// Implement leadership checking here: e.g.
+	// return s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
+	//		return s.st.SetRelationStatus(ctx, appID, encodedStatus)
+	//	})
+	return coreerrors.NotImplemented
 }
 
 // SetUnitWorkloadStatus sets the workload status of the specified unit,

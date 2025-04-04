@@ -10,7 +10,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
-	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -370,14 +369,6 @@ func (s *Service) GetRelationKey(ctx context.Context, relationUUID corerelation.
 	return corerelation.NewKey(eids)
 }
 
-// GetRelationStatus returns the status of the given relation.
-func (s *Service) GetRelationStatus(
-	ctx context.Context,
-	relationUUID corerelation.UUID,
-) (corestatus.StatusInfo, error) {
-	return corestatus.StatusInfo{}, coreerrors.NotImplemented
-}
-
 // GetRelationsStatusForUnit returns RelationUnitStatus for all relations the
 // unit is part of.
 //
@@ -573,23 +564,6 @@ func (s *Service) RelationUnitInScope(ctx context.Context, relationUnitUUID core
 // relation unit is in scope.
 func (s *Service) RelationUnitValid(ctx context.Context, relationUnitUUID corerelation.UnitUUID) (bool, error) {
 	return false, coreerrors.NotImplemented
-}
-
-// SetRelationStatus sets the status of the relation to the status provided.
-// Status may only be set by the application leader.
-// Returns NotFound
-func (s *Service) SetRelationStatus(
-	ctx context.Context,
-	unitName unit.Name,
-	relationUUID corerelation.UUID,
-	info corestatus.StatusInfo,
-) error {
-	// TODO: (hml) 6-Mar-2025
-	// Implement leadership checking here: e.g.
-	// return s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
-	//		return s.st.SetRelationStatus(ctx, appID, encodedStatus)
-	//	})
-	return coreerrors.NotImplemented
 }
 
 // SetRelationSuspended marks the given relation as suspended. Providing a
