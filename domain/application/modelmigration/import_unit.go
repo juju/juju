@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
+
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/service"
