@@ -31,7 +31,7 @@ type State interface {
 	// this agent binary.
 	// [coreerrors.NotSupported] if the architecture is not supported by the
 	// state layer.
-	Add(ctx context.Context, metadata agentbinary.Metadata) error
+	Add(ctx context.Context, metadata agentbinary.AddAgentBinaryArg) error
 
 	// GetObjectUUID returns the object store UUID for the given file path.
 	// The following errors can be returned:
@@ -125,7 +125,7 @@ func (s *AgentBinaryStore) add(
 		uuid = objectstore.UUID(existingObjectUUID.String())
 	}
 
-	err = s.st.Add(ctx, agentbinary.Metadata{
+	err = s.st.Add(ctx, agentbinary.AddAgentBinaryArg{
 		Version:         version.Number.String(),
 		Arch:            version.Arch,
 		ObjectStoreUUID: uuid,
