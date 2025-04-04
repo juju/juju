@@ -61,6 +61,22 @@ type State interface {
 		status status.StatusInfo[status.WorkloadStatusType],
 	) error
 
+	// GetRelationStatus gets the status of the given relation. It returns an error
+	// satisfying [statuserrors.RelationNotFound] if the relation doesn't exist.
+	GetRelationStatus(
+		ctx context.Context,
+		uuid corerelation.UUID,
+	) (status.StatusInfo[status.RelationStatusType], error)
+
+	// SetRelationStatus saves the given relation status, overwriting any current
+	// status data. If returns an error satisfying [statuserrors.RelationNotFound]
+	// if the relation doesn't exist.
+	SetRelationStatus(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		sts status.StatusInfo[status.RelationStatusType],
+	) error
+
 	// GetUnitUUIDByName returns the UUID for the named unit, returning an
 	// error satisfying [statuserrors.UnitNotFound] if the unit doesn't
 	// exist.
@@ -277,6 +293,58 @@ func (s *LeadershipService) GetApplicationAndUnitStatusesForUnitWithLeader(
 	return applicationDisplayStatus, unitWorkloadStatuses, nil
 }
 
+// SetRelationStatus sets the status of the relation to the status provided.
+// Status may only be set by the application leader.
+// Returns NotFound
+func (s *LeadershipService) SetRelationStatus(
+	ctx context.Context,
+	unitName coreunit.Name,
+	relationUUID corerelation.UUID,
+	info corestatus.StatusInfo,
+) error {
+	// Encode status.
+	relationStatus, err := encodeRelationStatus(info)
+	if err != nil {
+		return errors.Errorf("encoding relation status: %w", err)
+	}
+
+	// Get current status.
+	currentStatus, err := s.st.GetRelationStatus(ctx, relationUUID)
+	if err != nil {
+		return errors.Errorf("getting current relation status: %w", err)
+	}
+
+	// Check we can transition from current status to the new status.
+	err = relationStatusTransitionValid(currentStatus, relationStatus)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// If transitioning from Suspending to Suspended, retain any existing
+	// message so that any previous reason for suspending is retained.
+	if relationStatus.Message == "" &&
+		currentStatus.Status == status.RelationStatusTypeSuspending &&
+		relationStatus.Status == status.RelationStatusTypeSuspended {
+		relationStatus.Message = currentStatus.Message
+	}
+
+	// Get application name for leadership check.
+	_, applicationName, err := s.st.GetApplicationIDAndNameByUnitName(ctx, unitName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Set the status as the leader.
+	err = s.leaderEnsurer.WithLeader(ctx, applicationName, unitName.String(), func(ctx context.Context) error {
+		return s.st.SetRelationStatus(ctx, relationUUID, relationStatus)
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
 // Service provides the API for working with the statuses of applications and units.
 type Service struct {
 	st            State
@@ -385,23 +453,6 @@ func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appName strin
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
 	return derivedApplicationStatus, nil
-}
-
-// SetRelationStatus sets the status of the relation to the status provided.
-// Status may only be set by the application leader.
-// Returns NotFound
-func (s *Service) SetRelationStatus(
-	ctx context.Context,
-	unitName coreunit.Name,
-	relationUUID corerelation.UUID,
-	info corestatus.StatusInfo,
-) error {
-	// TODO: (hml) 6-Mar-2025
-	// Implement leadership checking here: e.g.
-	// return s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
-	//		return s.st.SetRelationStatus(ctx, appID, encodedStatus)
-	//	})
-	return coreerrors.NotImplemented
 }
 
 // SetUnitWorkloadStatus sets the workload status of the specified unit,
