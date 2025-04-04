@@ -48,9 +48,6 @@ func (s *exportSuite) TestExport(c *gc.C) {
 		Storage: map[string]internalcharm.Storage{
 			"foo": {Name: "foo", Description: "bar", Shared: true, ReadOnly: true, CountMin: 1, CountMax: 2, MinimumSize: 1, Location: "/foo"},
 		},
-		Devices: map[string]internalcharm.Device{
-			"bar": {Name: "bar", Description: "baz", Type: "gpu", CountMin: 1, CountMax: 2},
-		},
 		Resources: map[string]resource.Meta{
 			"qux": {Name: "qux", Type: resource.TypeContainerImage, Description: "bar", Path: "/baz"},
 		},

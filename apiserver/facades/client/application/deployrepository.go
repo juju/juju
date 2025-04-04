@@ -132,7 +132,6 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		CharmConfig:       dt.charmSettings,
 		CharmOrigin:       stOrigin,
 		Constraints:       dt.constraints,
-		Devices:           stateDeviceConstraints(arg.Devices),
 		EndpointBindings:  dt.endpoints,
 		Name:              dt.applicationName,
 		NumUnits:          dt.numUnits,

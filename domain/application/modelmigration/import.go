@@ -518,11 +518,6 @@ func (i *importOperation) importCharmMetadata(data description.CharmMetadata) (*
 		return nil, errors.Errorf("import storage: %w", err)
 	}
 
-	var devices map[string]internalcharm.Device
-	if devices, err = importDevices(data.Devices()); err != nil {
-		return nil, errors.Errorf("import devices: %w", err)
-	}
-
 	var containers map[string]internalcharm.Container
 	if containers, err = importContainers(data.Containers()); err != nil {
 		return nil, errors.Errorf("import containers: %w", err)
@@ -549,7 +544,6 @@ func (i *importOperation) importCharmMetadata(data description.CharmMetadata) (*
 		Peers:          peers,
 		ExtraBindings:  importExtraBindings(data.ExtraBindings()),
 		Storage:        storage,
-		Devices:        devices,
 		Containers:     containers,
 		Resources:      resources,
 	}, nil
@@ -780,21 +774,6 @@ func importStorageType(data string) (internalcharm.StorageType, error) {
 	default:
 		return "", errors.Errorf("unknown storage type %q: %w", data, coreerrors.NotValid)
 	}
-}
-
-func importDevices(data map[string]description.CharmMetadataDevice) (map[string]internalcharm.Device, error) {
-	devices := make(map[string]internalcharm.Device, len(data))
-	for name, d := range data {
-
-		devices[name] = internalcharm.Device{
-			Name:        d.Name(),
-			Description: d.Description(),
-			Type:        internalcharm.DeviceType(d.Type()),
-			CountMin:    int64(d.CountMin()),
-			CountMax:    int64(d.CountMax()),
-		}
-	}
-	return devices, nil
 }
 
 func importContainers(data map[string]description.CharmMetadataContainer) (map[string]internalcharm.Container, error) {

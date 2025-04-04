@@ -214,27 +214,9 @@ var metadataTestCases = [...]struct {
 		input: charm.Metadata{
 			Name:  "foo",
 			RunAs: charm.RunAsDefault,
-			Devices: map[string]charm.Device{
-				"gpu": {
-					Name:        "gpu",
-					Description: "AMD GPU",
-					Type:        "gpu",
-					CountMin:    1,
-					CountMax:    2,
-				},
-			},
 		},
 		output: internalcharm.Meta{
 			Name: "foo",
-			Devices: map[string]internalcharm.Device{
-				"gpu": {
-					Name:        "gpu",
-					Description: "AMD GPU",
-					Type:        "gpu",
-					CountMin:    1,
-					CountMax:    2,
-				},
-			},
 		},
 	},
 	{

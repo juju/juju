@@ -134,15 +134,6 @@ func (s *exportCharmSuite) TestExportCharmMetadata(c *gc.C) {
 				Properties:  []string{"foo", "bar"},
 			},
 		},
-		Devices: map[string]internalcharm.Device{
-			"foo": {
-				Name:        "bar",
-				Description: "baz",
-				Type:        internalcharm.DeviceType("gpu"),
-				CountMin:    1,
-				CountMax:    2,
-			},
-		},
 		Containers: map[string]internalcharm.Container{
 			"foo": {
 				Resource: "resource",

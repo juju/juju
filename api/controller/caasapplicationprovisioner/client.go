@@ -16,7 +16,6 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
@@ -148,7 +147,6 @@ type ProvisioningInfo struct {
 	Tags                 map[string]string
 	Constraints          constraints.Value
 	Filesystems          []storage.KubernetesFilesystemParams
-	Devices              []devices.KubernetesDeviceParams
 	Base                 corebase.Base
 	ImageDetails         resource.DockerImageDetails
 	CharmModifiedVersion int
@@ -198,14 +196,6 @@ func (c *Client) ProvisioningInfo(ctx context.Context, applicationName string) (
 			return info, errors.Trace(err)
 		}
 		info.Filesystems = append(info.Filesystems, *f)
-	}
-
-	for _, device := range r.Devices {
-		info.Devices = append(info.Devices, devices.KubernetesDeviceParams{
-			Type:       devices.DeviceType(device.Type),
-			Count:      device.Count,
-			Attributes: device.Attributes,
-		})
 	}
 
 	if r.CharmURL != "" {

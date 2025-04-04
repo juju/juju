@@ -276,49 +276,6 @@ var metadataDecodeTestCases = [...]struct {
 		},
 	},
 	{
-		name:  "devices",
-		input: charmMetadata{},
-		inputArgs: decodeMetadataArgs{
-			devices: []charmDevice{
-				{
-					Key:         "alpha",
-					Name:        "foo",
-					Description: "description1",
-					DeviceType:  "block",
-					CountMin:    2,
-					CountMax:    3,
-				},
-				{
-					Key:         "beta",
-					Name:        "baz",
-					Description: "description2",
-					DeviceType:  "filesystem",
-					CountMin:    4,
-					CountMax:    5,
-				},
-			},
-		},
-		output: charm.Metadata{
-			RunAs: charm.RunAsDefault,
-			Devices: map[string]charm.Device{
-				"alpha": {
-					Name:        "foo",
-					Description: "description1",
-					Type:        charm.DeviceType("block"),
-					CountMin:    2,
-					CountMax:    3,
-				},
-				"beta": {
-					Name:        "baz",
-					Description: "description2",
-					Type:        charm.DeviceType("filesystem"),
-					CountMin:    4,
-					CountMax:    5,
-				},
-			},
-		},
-	},
-	{
 		name:  "resources",
 		input: charmMetadata{},
 		inputArgs: decodeMetadataArgs{

@@ -1002,64 +1002,6 @@ INSERT INTO charm_storage_property (
 	c.Check(storage, jc.DeepEquals, expectedStorage)
 }
 
-func (s *charmStateSuite) TestGetCharmMetadataWithDevices(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-
-	id := charmtesting.GenCharmID(c)
-	uuid := id.String()
-
-	var expected charm.Metadata
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		var err error
-		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
-			return errors.Capture(err)
-		}
-
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_device (
-    charm_uuid,
-    key,
-    name,
-    description,
-    device_type,
-    count_min,
-    count_max
-) VALUES
-    (?, 'foo', 'bar', 'description 1', 'gpu', 1, 2),
-    (?, 'fred', 'baz', 'description 2', 'tpu', 3, 4);`,
-			uuid, uuid)
-		if err != nil {
-			return errors.Capture(err)
-		}
-
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	metadata, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-
-	assertCharmMetadata(c, metadata, func() charm.Metadata {
-		expected.Devices = map[string]charm.Device{
-			"foo": {
-				Name:        "bar",
-				Type:        charm.DeviceType("gpu"),
-				Description: "description 1",
-				CountMin:    1,
-				CountMax:    2,
-			},
-			"fred": {
-				Name:        "baz",
-				Type:        charm.DeviceType("tpu"),
-				Description: "description 2",
-				CountMin:    3,
-				CountMax:    4,
-			},
-		}
-		return expected
-	})
-}
-
 func (s *charmStateSuite) TestGetCharmMetadataWithResources(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
@@ -2128,58 +2070,6 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithPropert
 	assertTableEmpty(c, s.TxnRunner(), "charm")
 	assertTableEmpty(c, s.TxnRunner(), "charm_storage")
 	assertTableEmpty(c, s.TxnRunner(), "charm_storage_property")
-}
-
-func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithDevices(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-
-	expected := charm.Metadata{
-		Name:           "ubuntu",
-		Summary:        "summary",
-		Description:    "description",
-		Subordinate:    true,
-		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: semversion.MustParse("4.0.0"),
-		Assumes:        []byte("null"),
-		Devices: map[string]charm.Device{
-			"foo": {
-				Name:        "bar",
-				Type:        charm.DeviceType("gpu"),
-				Description: "description 1",
-				CountMin:    1,
-				CountMax:    2,
-			},
-			"fred": {
-				Name:        "baz",
-				Type:        charm.DeviceType("tpu"),
-				Description: "description 2",
-				CountMin:    3,
-				CountMax:    4,
-			},
-		},
-	}
-
-	id, _, err := st.SetCharm(context.Background(), charm.Charm{
-		Metadata:      expected,
-		Manifest:      s.minimalManifest(c),
-		Source:        charm.LocalSource,
-		Revision:      42,
-		ReferenceName: "ubuntu",
-		Hash:          "hash",
-		ArchivePath:   "archive",
-		Version:       "deadbeef",
-	}, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	got, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(got, gc.DeepEquals, expected)
-
-	err = st.DeleteCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIsNil)
-
-	assertTableEmpty(c, s.TxnRunner(), "charm")
-	assertTableEmpty(c, s.TxnRunner(), "charm_device")
 }
 
 func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithResources(c *gc.C) {

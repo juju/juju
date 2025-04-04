@@ -306,7 +306,6 @@ type Metadata struct {
 	Categories     []string
 	Tags           []string
 	Storage        map[string]Storage
-	Devices        map[string]Device
 	Resources      map[string]Resource
 	Terms          []string
 	MinJujuVersion semversion.Number

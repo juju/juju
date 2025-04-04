@@ -417,23 +417,6 @@ CREATE TABLE charm_storage_property (
 CREATE INDEX idx_charm_storage_property_charm
 ON charm_storage_property (charm_uuid);
 
-CREATE TABLE charm_device (
-    charm_uuid TEXT NOT NULL,
-    "key" TEXT NOT NULL,
-    name TEXT,
-    description TEXT,
-    device_type TEXT,
-    count_min INT NOT NULL,
-    count_max INT NOT NULL,
-    CONSTRAINT fk_charm_device_charm
-    FOREIGN KEY (charm_uuid)
-    REFERENCES charm (uuid),
-    PRIMARY KEY (charm_uuid, "key")
-);
-
-CREATE INDEX idx_charm_device_charm
-ON charm_device (charm_uuid);
-
 CREATE TABLE charm_resource_kind (
     id INT PRIMARY KEY,
     name TEXT NOT NULL

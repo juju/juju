@@ -43,11 +43,6 @@ func decodeMetadata(metadata charm.Metadata) (internalcharm.Meta, error) {
 		return internalcharm.Meta{}, errors.Errorf("decode storage: %w", err)
 	}
 
-	devices, err := decodeMetadataDevices(metadata.Devices)
-	if err != nil {
-		return internalcharm.Meta{}, errors.Errorf("decode devices: %w", err)
-	}
-
 	resources, err := decodeMetadataResources(metadata.Resources)
 	if err != nil {
 		return internalcharm.Meta{}, errors.Errorf("decode resources: %w", err)
@@ -82,7 +77,6 @@ func decodeMetadata(metadata charm.Metadata) (internalcharm.Meta, error) {
 		Peers:          peers,
 		ExtraBindings:  decodeMetadataExtraBindings(metadata.ExtraBindings),
 		Storage:        storage,
-		Devices:        devices,
 		Resources:      resources,
 		Containers:     containers,
 		Assumes:        assumes,
@@ -194,24 +188,6 @@ func decodeMetadataStorageType(storeType charm.StorageType) (internalcharm.Stora
 	default:
 		return "", errors.Errorf("unknown storage type %q", storeType)
 	}
-}
-
-func decodeMetadataDevices(devices map[string]charm.Device) (map[string]internalcharm.Device, error) {
-	if len(devices) == 0 {
-		return nil, nil
-	}
-
-	result := make(map[string]internalcharm.Device, len(devices))
-	for k, v := range devices {
-		result[k] = internalcharm.Device{
-			Name:        v.Name,
-			Description: v.Description,
-			Type:        internalcharm.DeviceType(v.Type),
-			CountMin:    v.CountMin,
-			CountMax:    v.CountMax,
-		}
-	}
-	return result, nil
 }
 
 func decodeMetadataResources(resources map[string]charm.Resource) (map[string]resource.Meta, error) {
@@ -350,11 +326,6 @@ func encodeMetadata(metadata *internalcharm.Meta) (charm.Metadata, error) {
 		return charm.Metadata{}, errors.Errorf("encode storage: %w", err)
 	}
 
-	devices, err := encodeMetadataDevices(metadata.Devices)
-	if err != nil {
-		return charm.Metadata{}, errors.Errorf("encode devices: %w", err)
-	}
-
 	resources, err := encodeMetadataResources(metadata.Resources)
 	if err != nil {
 		return charm.Metadata{}, errors.Errorf("encode resources: %w", err)
@@ -389,7 +360,6 @@ func encodeMetadata(metadata *internalcharm.Meta) (charm.Metadata, error) {
 		Peers:          peers,
 		ExtraBindings:  encodeMetadataExtraBindings(metadata.ExtraBindings),
 		Storage:        storage,
-		Devices:        devices,
 		Resources:      resources,
 		Containers:     containers,
 		Assumes:        assumes,
@@ -604,24 +574,6 @@ func encodeMetadataStorageType(storeType internalcharm.StorageType) (charm.Stora
 	default:
 		return "", errors.Errorf("unknown storage type %q", storeType)
 	}
-}
-
-func encodeMetadataDevices(devices map[string]internalcharm.Device) (map[string]charm.Device, error) {
-	if len(devices) == 0 {
-		return nil, nil
-	}
-
-	result := make(map[string]charm.Device, len(devices))
-	for k, v := range devices {
-		result[k] = charm.Device{
-			Name:        v.Name,
-			Description: v.Description,
-			Type:        charm.DeviceType(v.Type),
-			CountMin:    v.CountMin,
-			CountMax:    v.CountMax,
-		}
-	}
-	return result, nil
 }
 
 func encodeMetadataResources(resources map[string]resource.Meta) (map[string]charm.Resource, error) {

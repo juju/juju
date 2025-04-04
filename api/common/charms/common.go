@@ -124,7 +124,6 @@ func convertCharmMeta(meta *params.CharmMeta) (*charm.Meta, error) {
 		Categories:     meta.Categories,
 		Tags:           meta.Tags,
 		Storage:        convertCharmStorageMap(meta.Storage),
-		Devices:        convertCharmDevices(meta.Devices),
 		Resources:      resources,
 		Terms:          meta.Terms,
 		MinJujuVersion: minVersion,
@@ -278,23 +277,6 @@ func convertCharmLXDProfileDevicesMap(devices map[string]map[string]string) map[
 		result[k] = nested
 	}
 	return result
-}
-
-func convertCharmDevices(devices map[string]params.CharmDevice) map[string]charm.Device {
-	if devices == nil {
-		return nil
-	}
-	results := make(map[string]charm.Device)
-	for k, v := range devices {
-		results[k] = charm.Device{
-			Name:        v.Name,
-			Description: v.Description,
-			Type:        charm.DeviceType(v.Type),
-			CountMin:    v.CountMin,
-			CountMax:    v.CountMax,
-		}
-	}
-	return results
 }
 
 type charmImpl struct {

@@ -636,15 +636,6 @@ func (s *importSuite) TestImportCharmMetadata(c *gc.C) {
 				Properties:  []string{"baz"},
 			},
 		},
-		Devices: map[string]internalcharm.Device{
-			"device": {
-				Name:        "baz",
-				Type:        "gpu",
-				Description: "baz device",
-				CountMin:    1,
-				CountMax:    2,
-			},
-		},
 		Containers: map[string]internalcharm.Container{
 			"container": {
 				Resource: "baz",

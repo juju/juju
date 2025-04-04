@@ -26,7 +26,6 @@ type decodeMetadataArgs struct {
 	relations     []charmRelation
 	extraBindings []charmExtraBinding
 	storage       []charmStorage
-	devices       []charmDevice
 	resources     []charmResource
 	containers    []charmContainer
 }
@@ -84,7 +83,6 @@ func decodeMetadata(metadata charmMetadata, args decodeMetadataArgs) (charm.Meta
 		Peers:          peer,
 		ExtraBindings:  decodeExtraBindings(args.extraBindings),
 		Storage:        storage,
-		Devices:        decodeDevices(args.devices),
 		Resources:      resources,
 		Containers:     containers,
 	}, nil
@@ -274,24 +272,6 @@ func decodeStorageType(kind string) (charm.StorageType, error) {
 	default:
 		return "", errors.Errorf("unknown storage kind %q", kind)
 	}
-}
-
-func decodeDevices(devices []charmDevice) map[string]charm.Device {
-	if len(devices) == 0 {
-		return nil
-	}
-
-	result := make(map[string]charm.Device)
-	for _, device := range devices {
-		result[device.Key] = charm.Device{
-			Name:        device.Name,
-			Description: device.Description,
-			Type:        charm.DeviceType(device.DeviceType),
-			CountMin:    device.CountMin,
-			CountMax:    device.CountMax,
-		}
-	}
-	return result
 }
 
 func decodeResources(resources []charmResource) (map[string]charm.Resource, error) {
@@ -612,25 +592,6 @@ func encodeStorageType(kind charm.StorageType) (int, error) {
 	default:
 		return -1, errors.Errorf("unknown storage kind %q", kind)
 	}
-}
-
-func encodeDevices(id corecharm.ID, devices map[string]charm.Device) []setCharmDevice {
-	var result []setCharmDevice
-	for key, device := range devices {
-		result = append(result, setCharmDevice{
-			CharmUUID:   id.String(),
-			Key:         key,
-			Name:        device.Name,
-			Description: device.Description,
-			// This is currently safe to do this as the device type is a string,
-			// and there is no validation around what is a device type. In the
-			// future, we should probably validate this.
-			DeviceType: string(device.Type),
-			CountMin:   device.CountMin,
-			CountMax:   device.CountMax,
-		})
-	}
-	return result
 }
 
 func encodeResources(id corecharm.ID, resources map[string]charm.Resource) ([]setCharmResource, error) {

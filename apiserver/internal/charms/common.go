@@ -243,7 +243,6 @@ func convertCharmMeta(meta *charm.Meta) *params.CharmMeta {
 		Categories:     meta.Categories,
 		Tags:           meta.Tags,
 		Storage:        convertCharmStorageMap(meta.Storage),
-		Devices:        convertCharmDevices(meta.Devices),
 		Resources:      convertCharmResourceMetaMap(meta.Resources),
 		Terms:          meta.Terms,
 		MinJujuVersion: meta.MinJujuVersion.String(),
@@ -398,23 +397,6 @@ func convertCharmLXDProfileDevices(devices map[string]map[string]string) map[str
 		result[k] = nested
 	}
 	return result
-}
-
-func convertCharmDevices(devices map[string]charm.Device) map[string]params.CharmDevice {
-	if devices == nil {
-		return nil
-	}
-	results := make(map[string]params.CharmDevice)
-	for k, v := range devices {
-		results[k] = params.CharmDevice{
-			Name:        v.Name,
-			Description: v.Description,
-			Type:        string(v.Type),
-			CountMin:    v.CountMin,
-			CountMax:    v.CountMax,
-		}
-	}
-	return results
 }
 
 func convertCharmBases(input []charm.Base) []params.CharmBase {

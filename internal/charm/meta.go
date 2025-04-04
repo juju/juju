@@ -224,7 +224,6 @@ type Meta struct {
 	Categories     []string                 `json:"Categories,omitempty"`
 	Tags           []string                 `json:"Tags,omitempty"`
 	Storage        map[string]Storage       `json:"Storage,omitempty"`
-	Devices        map[string]Device        `json:"Devices,omitempty"`
 	Resources      map[string]resource.Meta `json:"Resources,omitempty"`
 	Terms          []string                 `json:"Terms,omitempty"`
 	MinJujuVersion semversion.Number        `json:"min-juju-version,omitempty"`
@@ -509,10 +508,6 @@ func parseMeta(m map[string]interface{}) (*Meta, error) {
 		meta.Subordinate = subordinate.(bool)
 	}
 	meta.Storage = parseStorage(m["storage"])
-	meta.Devices = parseDevices(m["devices"])
-	if err != nil {
-		return nil, err
-	}
 	meta.MinJujuVersion, err = parseMinJujuVersion(m["min-juju-version"])
 	if err != nil {
 		return nil, err
@@ -557,7 +552,6 @@ func (m Meta) MarshalYAML() (interface{}, error) {
 		Tags           []string                         `yaml:"tags,omitempty"`
 		Subordinate    bool                             `yaml:"subordinate,omitempty"`
 		Storage        map[string]Storage               `yaml:"storage,omitempty"`
-		Devices        map[string]Device                `yaml:"devices,omitempty"`
 		Terms          []string                         `yaml:"terms,omitempty"`
 		MinJujuVersion string                           `yaml:"min-juju-version,omitempty"`
 		Resources      map[string]marshaledResourceMeta `yaml:"resources,omitempty"`
@@ -575,7 +569,6 @@ func (m Meta) MarshalYAML() (interface{}, error) {
 		Tags:           m.Tags,
 		Subordinate:    m.Subordinate,
 		Storage:        m.Storage,
-		Devices:        m.Devices,
 		Terms:          m.Terms,
 		MinJujuVersion: minver,
 		Resources:      marshaledResources(m.Resources),
@@ -731,22 +724,6 @@ func (m Meta) Check(format Format, reasons ...FormatSelectionReason) error {
 		}
 		if names[name] {
 			return errors.Errorf("charm %q storage %q: duplicated storage name", m.Name, name)
-		}
-		names[name] = true
-	}
-
-	names = make(map[string]bool)
-	for name, device := range m.Devices {
-		if device.Type == "" {
-			return errors.Errorf("charm %q device %q: type must be specified", m.Name, name)
-		}
-		if device.CountMax >= 0 && device.CountMin >= 0 && device.CountMin > device.CountMax {
-			return errors.Errorf(
-				"charm %q device %q: maximum count %d can not be smaller than minimum count %d",
-				m.Name, name, device.CountMax, device.CountMin)
-		}
-		if names[name] {
-			return errors.Errorf("charm %q device %q: duplicated device name", m.Name, name)
 		}
 		names[name] = true
 	}

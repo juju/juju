@@ -133,7 +133,6 @@ func DeployApplication(
 		CharmURL:          args.Charm.URL(),
 		CharmOrigin:       origin,
 		Storage:           stateStorageDirectives(args.Storage),
-		Devices:           stateDeviceConstraints(args.Devices),
 		AttachStorage:     args.AttachStorage,
 		ApplicationConfig: args.ApplicationConfig,
 		CharmConfig:       charmConfig,
@@ -327,18 +326,6 @@ func stateStorageDirectives(cons map[string]storage.Directive) map[string]state.
 			Pool:  cons.Pool,
 			Size:  cons.Size,
 			Count: cons.Count,
-		}
-	}
-	return result
-}
-
-func stateDeviceConstraints(cons map[string]devices.Constraints) map[string]state.DeviceConstraints {
-	result := make(map[string]state.DeviceConstraints)
-	for name, cons := range cons {
-		result[name] = state.DeviceConstraints{
-			Type:       state.DeviceType(cons.Type),
-			Count:      cons.Count,
-			Attributes: cons.Attributes,
 		}
 	}
 	return result

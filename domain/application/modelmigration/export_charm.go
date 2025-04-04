@@ -93,11 +93,6 @@ func (e *exportOperation) exportCharmMetadata(metadata *internalcharm.Meta, lxdP
 		return description.CharmMetadataArgs{}, errors.Capture(err)
 	}
 
-	devices, err := exportDevices(metadata.Devices)
-	if err != nil {
-		return description.CharmMetadataArgs{}, errors.Capture(err)
-	}
-
 	containers, err := exportContainers(metadata.Containers)
 	if err != nil {
 		return description.CharmMetadataArgs{}, errors.Capture(err)
@@ -124,7 +119,6 @@ func (e *exportOperation) exportCharmMetadata(metadata *internalcharm.Meta, lxdP
 		Peers:          peers,
 		ExtraBindings:  extraBindings,
 		Storage:        storage,
-		Devices:        devices,
 		Containers:     containers,
 		Resources:      resources,
 		LXDProfile:     lxdProfile,

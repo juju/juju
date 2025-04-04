@@ -46,7 +46,6 @@ type Model interface {
 type Application interface {
 	AllUnits() ([]Unit, error)
 	StorageConstraints() (map[string]state.StorageConstraints, error)
-	DeviceConstraints() (map[string]state.DeviceConstraints, error)
 	Name() string
 	Life() state.Life
 	Base() state.Base

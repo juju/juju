@@ -908,12 +908,6 @@ Juju on containers does not support updating storage on a statefulset.
 The new charm's metadata contains updated storage declarations.
 You'll need to deploy a new charm rather than upgrading if you need this change.
 `[1:]
-
-	devicesUpgradeMessage = `
-Juju on containers does not support updating node selectors (configured from charm devices).
-The new charm's metadata contains updated device declarations.
-You'll need to deploy a new charm rather than upgrading if you need this change.
-`[1:]
 )
 
 // setCharmWithAgentValidation checks the agent versions of the application
@@ -956,8 +950,6 @@ func (api *APIBase) setCharmWithAgentValidation(
 		var unsupportedReason string
 		if !reflect.DeepEqual(currentMetadata.Storage, newCharm.Meta().Storage) {
 			unsupportedReason = storageUpgradeMessage
-		} else if !reflect.DeepEqual(currentMetadata.Devices, newCharm.Meta().Devices) {
-			unsupportedReason = devicesUpgradeMessage
 		}
 		if unsupportedReason != "" {
 			return errors.NotSupportedf(unsupportedReason)

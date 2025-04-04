@@ -447,28 +447,6 @@ type setCharmStorageProperty struct {
 	Value     string `db:"value"`
 }
 
-// charmDevice is used to get the devices of a charm.
-type charmDevice struct {
-	CharmUUID   string `db:"charm_uuid"`
-	Key         string `db:"key"`
-	Name        string `db:"name"`
-	Description string `db:"description"`
-	DeviceType  string `db:"device_type"`
-	CountMin    int64  `db:"count_min"`
-	CountMax    int64  `db:"count_max"`
-}
-
-// setCharmDevice is used to set the devices of a charm.
-type setCharmDevice struct {
-	CharmUUID   string `db:"charm_uuid"`
-	Key         string `db:"key"`
-	Name        string `db:"name"`
-	Description string `db:"description"`
-	DeviceType  string `db:"device_type"`
-	CountMin    int64  `db:"count_min"`
-	CountMax    int64  `db:"count_max"`
-}
-
 // charmResource is used to get the resources of a charm.
 type charmResource struct {
 	CharmUUID   string `db:"charm_uuid"`

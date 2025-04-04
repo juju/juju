@@ -9,7 +9,6 @@ import (
 	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
@@ -126,9 +125,6 @@ type ApplicationConfig struct {
 
 	// Filesystems is a set of parameters for filesystems that should be created.
 	Filesystems []storage.KubernetesFilesystemParams
-
-	// Devices is a set of parameters for Devices that is required.
-	Devices []devices.KubernetesDeviceParams
 
 	// Trust is set to true to give the application cloud access.
 	Trust bool
