@@ -242,10 +242,10 @@ func encodeUnitAgentStatus(s corestatus.StatusInfo) (status.StatusInfo[status.Un
 }
 
 // decodeUnitAgentStatus converts a db status info to a core status info.
-func decodeUnitAgentStatus(s status.UnitStatusInfo[status.UnitAgentStatusType]) (corestatus.StatusInfo, error) {
+func decodeUnitAgentStatus(s status.StatusInfo[status.UnitAgentStatusType], present bool) (corestatus.StatusInfo, error) {
 	// If the agent isn't present then we need to modify the status for the
 	// agent.
-	if !s.Present {
+	if !present {
 		return corestatus.StatusInfo{
 			Status:  corestatus.Lost,
 			Message: "agent is not communicating with the server",
@@ -298,10 +298,10 @@ func encodeWorkloadStatus(s corestatus.StatusInfo) (status.StatusInfo[status.Wor
 }
 
 // decodeUnitWorkloadStatus converts a db status info to a core status info.
-func decodeUnitWorkloadStatus(s status.UnitStatusInfo[status.WorkloadStatusType]) (corestatus.StatusInfo, error) {
+func decodeUnitWorkloadStatus(s status.StatusInfo[status.WorkloadStatusType], present bool) (corestatus.StatusInfo, error) {
 	// If the workload isn't present then we need to modify the status for the
 	// workload.
-	if !s.Present && !(s.Status == status.WorkloadStatusError ||
+	if !present && !(s.Status == status.WorkloadStatusError ||
 		s.Status == status.WorkloadStatusTerminated) {
 		return corestatus.StatusInfo{
 			Status:  corestatus.Unknown,
@@ -391,15 +391,12 @@ func decodeApplicationStatus(s status.StatusInfo[status.WorkloadStatusType]) (co
 }
 
 func decodeUnitDisplayAndAgentStatus(
-	agent status.UnitStatusInfo[status.UnitAgentStatusType],
-	workload status.UnitStatusInfo[status.WorkloadStatusType],
-	containerStatus status.StatusInfo[status.CloudContainerStatusType],
+	fullUnitStatus status.FullUnitStatus,
 ) (corestatus.StatusInfo, corestatus.StatusInfo, error) {
 	// If the unit agent is allocating, then it won't be present in the model.
 	// In this case, we'll falsify the agent presence status.
-	if agent.Status == status.UnitAgentStatusAllocating {
-		agent.Present = true
-		workload.Present = true
+	if fullUnitStatus.AgentStatus.Status == status.UnitAgentStatusAllocating {
+		fullUnitStatus.Present = true
 	}
 
 	// If the agent is in an error state, we should set the workload status to be
@@ -407,30 +404,30 @@ func decodeUnitDisplayAndAgentStatus(
 	// workload. The current 3.x system also does this, so we're attempting to
 	// maintain the same behaviour. This can be disingenuous if there is a legitimate
 	// agent error and the workload is fine, but we're trying to maintain compatibility.
-	if agent.Status == status.UnitAgentStatusError {
+	if fullUnitStatus.AgentStatus.Status == status.UnitAgentStatusError {
 		var data map[string]interface{}
-		if len(agent.Data) > 0 {
-			if err := json.Unmarshal(agent.Data, &data); err != nil {
+		if len(fullUnitStatus.AgentStatus.Data) > 0 {
+			if err := json.Unmarshal(fullUnitStatus.AgentStatus.Data, &data); err != nil {
 				return corestatus.StatusInfo{}, corestatus.StatusInfo{}, errors.Errorf("unmarshalling status data: %w", err)
 			}
 		}
 		return corestatus.StatusInfo{
 				Status: corestatus.Idle,
-				Since:  agent.Since,
+				Since:  fullUnitStatus.AgentStatus.Since,
 			}, corestatus.StatusInfo{
 				Status:  corestatus.Error,
-				Since:   workload.Since,
+				Since:   fullUnitStatus.WorkloadStatus.Since,
 				Data:    data,
-				Message: agent.Message,
+				Message: fullUnitStatus.AgentStatus.Message,
 			}, nil
 	}
 
-	agentStatus, err := decodeUnitAgentStatus(agent)
+	agentStatus, err := decodeUnitAgentStatus(fullUnitStatus.AgentStatus, fullUnitStatus.Present)
 	if err != nil {
 		return corestatus.StatusInfo{}, corestatus.StatusInfo{}, errors.Capture(err)
 	}
 
-	workloadStatus, err := unitDisplayStatus(workload, containerStatus)
+	workloadStatus, err := selectWorkloadOrContainerStatus(fullUnitStatus.WorkloadStatus, fullUnitStatus.ContainerStatus, fullUnitStatus.Present)
 	if err != nil {
 		return corestatus.StatusInfo{}, corestatus.StatusInfo{}, errors.Capture(err)
 	}
@@ -440,7 +437,7 @@ func decodeUnitDisplayAndAgentStatus(
 func decodeUnitWorkloadStatuses(statuses status.UnitWorkloadStatuses) (map[unit.Name]corestatus.StatusInfo, error) {
 	ret := make(map[unit.Name]corestatus.StatusInfo, len(statuses))
 	for unitName, status := range statuses {
-		info, err := decodeUnitWorkloadStatus(status)
+		info, err := decodeUnitWorkloadStatus(status.StatusInfo, status.Present)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -449,19 +446,20 @@ func decodeUnitWorkloadStatuses(statuses status.UnitWorkloadStatuses) (map[unit.
 	return ret, nil
 }
 
-// unitDisplayStatus determines which of the two statuses to use when displaying
-// unit status. It is used in CAAS models where the status of the unit could be
-// overridden by the status of the container.
-func unitDisplayStatus(
-	workloadStatus status.UnitStatusInfo[status.WorkloadStatusType],
+// selectWorkloadOrContainerStatus determines which of the two statuses to use
+// when displaying unit status. It is used in CAAS models where the status of
+// the unit could be overridden by the status of the container.
+func selectWorkloadOrContainerStatus(
+	workloadStatus status.StatusInfo[status.WorkloadStatusType],
 	containerStatus status.StatusInfo[status.CloudContainerStatusType],
+	present bool,
 ) (corestatus.StatusInfo, error) {
 
 	// container status is not set. This means that the unit is either a non-CAAS
 	// unit or the container status has not been updated yet. Either way, we
 	// should use the workload status.
 	if containerStatus.Status == status.CloudContainerStatusUnset {
-		return decodeUnitWorkloadStatus(workloadStatus)
+		return decodeUnitWorkloadStatus(workloadStatus, present)
 	}
 
 	// statuses terminated, blocked and maintenance are statuses informed by the
@@ -469,7 +467,7 @@ func unitDisplayStatus(
 	if workloadStatus.Status == status.WorkloadStatusTerminated ||
 		workloadStatus.Status == status.WorkloadStatusBlocked ||
 		workloadStatus.Status == status.WorkloadStatusMaintenance {
-		return decodeUnitWorkloadStatus(workloadStatus)
+		return decodeUnitWorkloadStatus(workloadStatus, present)
 	}
 
 	// NOTE: We now know implicitly that the workload status is either active,
@@ -491,7 +489,7 @@ func unitDisplayStatus(
 		}
 	}
 
-	return decodeUnitWorkloadStatus(workloadStatus)
+	return decodeUnitWorkloadStatus(workloadStatus, present)
 }
 
 // statusSeverities holds status values with a severity measure.
@@ -509,30 +507,16 @@ var statusSeverities = map[corestatus.Status]int{
 // applicationDisplayStatusFromUnits returns the status to display for an status
 // based on both the workload and container statuses of its units.
 func applicationDisplayStatusFromUnits(
-	workloadStatus status.UnitWorkloadStatuses,
-	containerStatus status.UnitCloudContainerStatuses,
+	fullUnitStatuses status.FullUnitStatuses,
 ) (corestatus.StatusInfo, error) {
-	results := make([]corestatus.StatusInfo, 0, len(workloadStatus))
+	results := make([]corestatus.StatusInfo, 0, len(fullUnitStatuses))
 
-	for unitUUID, workload := range workloadStatus {
-		var unitStatus corestatus.StatusInfo
-
-		container, ok := containerStatus[unitUUID]
-		if !ok {
-			var err error
-			unitStatus, err = decodeUnitWorkloadStatus(workload)
-			if err != nil {
-				return corestatus.StatusInfo{}, errors.Capture(err)
-			}
-		} else {
-			var err error
-			unitStatus, err = unitDisplayStatus(workload, container)
-			if err != nil {
-				return corestatus.StatusInfo{}, errors.Capture(err)
-			}
+	for _, fullStatus := range fullUnitStatuses {
+		_, displayStatus, err := decodeUnitDisplayAndAgentStatus(fullStatus)
+		if err != nil {
+			return corestatus.StatusInfo{}, errors.Capture(err)
 		}
-
-		results = append(results, unitStatus)
+		results = append(results, displayStatus)
 	}
 
 	// By providing an unknown default, we get a reasonable answer

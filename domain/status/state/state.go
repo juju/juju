@@ -493,49 +493,99 @@ func (st *State) GetUnitWorkloadStatusesForApplication(
 	return unitStatuses, nil
 }
 
-// GetAllUnitStatusesForApplication returns the workload, agent and container
+// GetAllFullUnitStatusesForApplication returns the workload, agent and container
 // statuses for all units of the specified application, returning:
 //   - an error satisfying [statuserrors.ApplicationNotFound] if the application
 //     doesn't exist or;
 //   - an error satisfying [statuserrors.ApplicationIsDead] if the application
 //     is dead.
-func (st *State) GetAllUnitStatusesForApplication(
+func (st *State) GetAllFullUnitStatusesForApplication(
 	ctx context.Context, appID coreapplication.ID,
 ) (
-	status.UnitWorkloadStatuses, status.UnitAgentStatuses, status.UnitCloudContainerStatuses, error,
+	status.FullUnitStatuses, error,
 ) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, nil, nil, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 	ident := applicationID{ID: appID}
 
-	var workloadStatuses status.UnitWorkloadStatuses
-	var agentStatuses status.UnitAgentStatuses
-	var cloudContainerStatuses status.UnitCloudContainerStatuses
+	stmt, err := st.Prepare(`
+SELECT &fullUnitStatus.*
+FROM v_full_unit_status
+WHERE application_uuid = $applicationID.uuid
+`, fullUnitStatus{}, ident)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var fullUnitStatuses []fullUnitStatus
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := st.checkApplicationNotDead(ctx, tx, ident)
 		if err != nil {
 			return errors.Errorf("checking application not dead: %w", err)
 		}
-		workloadStatuses, err = st.getUnitWorkloadStatusesForApplication(ctx, tx, ident)
-		if err != nil {
-			return errors.Errorf("getting workload statuses: %w", err)
-		}
-		agentStatuses, err = st.getUnitAgentStatusesForApplication(ctx, tx, ident)
-		if err != nil {
-			return errors.Errorf("getting agent statuses: %w", err)
-		}
-		cloudContainerStatuses, err = st.getUnitCloudContainerStatusesForApplication(ctx, tx, ident)
-		if err != nil {
-			return errors.Errorf("getting cloud container statuses: %w", err)
+		err = tx.Query(ctx, stmt, ident).GetAll(&fullUnitStatuses)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, nil, nil, errors.Errorf("getting unit statuses for application %q: %w", appID, err)
+		return nil, errors.Errorf("getting unit statuses for application %q: %w", appID, err)
 	}
-	return workloadStatuses, agentStatuses, cloudContainerStatuses, nil
+	ret := make(status.FullUnitStatuses, len(fullUnitStatuses))
+	for _, s := range fullUnitStatuses {
+		if s.WorkloadStatusID == nil {
+			return nil, errors.Errorf("workload status for unit %q not found", s.UnitName).Add(statuserrors.UnitStatusNotFound)
+		}
+		if s.AgentStatusID == nil {
+			return nil, errors.Errorf("agent status for unit %q not found", s.UnitName).Add(statuserrors.UnitStatusNotFound)
+		}
+		workloadStatusID, err := status.DecodeWorkloadStatus(*s.WorkloadStatusID)
+		if err != nil {
+			return nil, errors.Errorf("decoding workload status ID for unit %q: %w", s.UnitName, err)
+		}
+		agentStatusID, err := status.DecodeAgentStatus(*s.AgentStatusID)
+		if err != nil {
+			return nil, errors.Errorf("decoding agent status ID for unit %q: %w", s.UnitName, err)
+		}
+
+		// Container status is optional.
+		containerStatus := status.StatusInfo[status.CloudContainerStatusType]{
+			Status: status.CloudContainerStatusUnset,
+		}
+		if s.ContainerStatusID != nil {
+			containerStatusID, err := status.DecodeCloudContainerStatus(*s.ContainerStatusID)
+			if err != nil {
+				return nil, errors.Errorf("decoding cloud container status ID for unit %q: %w", s.UnitName, err)
+			}
+			containerStatus = status.StatusInfo[status.CloudContainerStatusType]{
+				Status:  containerStatusID,
+				Message: s.ContainerMessage,
+				Data:    s.ContainerData,
+				Since:   s.ContainerUpdatedAt,
+			}
+		}
+
+		ret[s.UnitName] = status.FullUnitStatus{
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  workloadStatusID,
+				Message: s.WorkloadMessage,
+				Data:    s.WorkloadData,
+				Since:   s.WorkloadUpdatedAt,
+			},
+			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  agentStatusID,
+				Message: s.AgentMessage,
+				Data:    s.AgentData,
+				Since:   s.AgentUpdatedAt,
+			},
+			ContainerStatus: containerStatus,
+			Present:         s.Present,
+		}
+	}
+	return ret, nil
 }
 
 // GetAllUnitWorkloadAgentStatuses retrieves the presence, workload status, and agent status
@@ -584,13 +634,13 @@ func (st *State) GetAllUnitWorkloadAgentStatuses(ctx context.Context) (status.Un
 		ret[s.UnitName] = status.UnitWorkloadAgentStatus{
 			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
 				Status:  workloadStatusID,
-				Message: *s.WorkloadMessage,
+				Message: s.WorkloadMessage,
 				Data:    s.WorkloadData,
 				Since:   s.WorkloadUpdatedAt,
 			},
 			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 				Status:  agentStatusID,
-				Message: *s.AgentMessage,
+				Message: s.AgentMessage,
 				Data:    s.AgentData,
 				Since:   s.AgentUpdatedAt,
 			},
@@ -863,84 +913,6 @@ WHERE  application_uuid = $applicationID.uuid
 				Since:   unitStatus.UpdatedAt,
 			},
 			Present: unitStatus.Present,
-		}
-	}
-
-	return statuses, nil
-}
-
-func (st *State) getUnitAgentStatusesForApplication(
-	ctx context.Context, tx *sqlair.TX, ident applicationID,
-) (
-	status.UnitAgentStatuses, error,
-) {
-	getAgentStatusesStmt, err := st.Prepare(`
-SELECT &statusInfoAndUnitName.*
-FROM   v_unit_agent_status
-WHERE  application_uuid = $applicationID.uuid
-`, statusInfoAndUnitName{}, ident)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var unitStatuses []statusInfoAndUnitName
-	err = tx.Query(ctx, getAgentStatusesStmt, ident).GetAll(&unitStatuses)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	} else if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	statuses := make(status.UnitAgentStatuses, len(unitStatuses))
-	for _, unitStatus := range unitStatuses {
-		statusID, err := status.DecodeAgentStatus(unitStatus.StatusID)
-		if err != nil {
-			return nil, errors.Errorf("decoding agent status ID for unit %q: %w", unitStatus.UnitName, err)
-		}
-		statuses[unitStatus.UnitName] = status.StatusInfo[status.UnitAgentStatusType]{
-			Status:  statusID,
-			Message: unitStatus.Message,
-			Data:    unitStatus.Data,
-			Since:   unitStatus.UpdatedAt,
-		}
-	}
-
-	return statuses, nil
-}
-
-func (st *State) getUnitCloudContainerStatusesForApplication(
-	ctx context.Context, tx *sqlair.TX, ident applicationID,
-) (
-	status.UnitCloudContainerStatuses, error,
-) {
-	getContainerStatusesStmt, err := st.Prepare(`
-SELECT &statusInfoAndUnitName.*
-FROM   v_unit_k8s_pod_status
-WHERE  application_uuid = $applicationID.uuid
-	`, statusInfoAndUnitName{}, ident)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var containerStatuses []statusInfoAndUnitName
-	err = tx.Query(ctx, getContainerStatusesStmt, ident).GetAll(&containerStatuses)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	} else if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	statuses := make(status.UnitCloudContainerStatuses, len(containerStatuses))
-	for _, containerStatus := range containerStatuses {
-		statusID, err := status.DecodeCloudContainerStatus(containerStatus.StatusID)
-		if err != nil {
-			return nil, errors.Errorf("decoding cloud container status ID for unit %q: %w", containerStatus.UnitName, err)
-		}
-		statuses[containerStatus.UnitName] = status.StatusInfo[status.CloudContainerStatusType]{
-			Status:  statusID,
-			Message: containerStatus.Message,
-			Data:    containerStatus.Data,
-			Since:   containerStatus.UpdatedAt,
 		}
 	}
 

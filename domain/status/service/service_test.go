@@ -268,7 +268,7 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusFallbackToUnitsNoUnits(c *
 			Status: status.WorkloadStatusUnset,
 		}, nil)
 
-	s.state.EXPECT().GetAllUnitStatusesForApplication(gomock.Any(), applicationUUID).Return(nil, nil, nil, nil)
+	s.state.EXPECT().GetAllFullUnitStatusesForApplication(gomock.Any(), applicationUUID).Return(nil, nil)
 
 	obtained, err := s.service.GetApplicationDisplayStatus(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
@@ -289,28 +289,34 @@ func (s *serviceSuite) TestGetApplicationDisplayStatusFallbackToUnitsNoContainer
 			Status: status.WorkloadStatusUnset,
 		}, nil)
 
-	s.state.EXPECT().GetAllUnitStatusesForApplication(gomock.Any(), applicationUUID).Return(
-		status.UnitWorkloadStatuses{
+	s.state.EXPECT().GetAllFullUnitStatusesForApplication(gomock.Any(), applicationUUID).Return(
+		status.FullUnitStatuses{
 			"unit-1": {
-				StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
+				WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
 					Status:  status.WorkloadStatusActive,
 					Message: "doink",
 					Data:    []byte(`{"foo":"bar"}`),
 					Since:   &now,
+				},
+				AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+					Status: status.UnitAgentStatusIdle,
 				},
 				Present: true,
 			},
 			"unit-2": {
-				StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
+				WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
 					Status:  status.WorkloadStatusActive,
 					Message: "doink",
 					Data:    []byte(`{"foo":"bar"}`),
 					Since:   &now,
 				},
+				AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+					Status: status.UnitAgentStatusIdle,
+				},
 				Present: true,
 			},
 		},
-		status.UnitAgentStatuses{}, status.UnitCloudContainerStatuses{}, nil)
+		nil)
 
 	obtained, err := s.service.GetApplicationDisplayStatus(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
@@ -378,27 +384,33 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderApplica
 			Since:   &now,
 		}, nil)
 
-	s.state.EXPECT().GetAllUnitStatusesForApplication(gomock.Any(), applicationUUID).Return(
-		status.UnitWorkloadStatuses{
+	s.state.EXPECT().GetAllFullUnitStatusesForApplication(gomock.Any(), applicationUUID).Return(
+		status.FullUnitStatuses{
 			"foo/0": {
-				StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
+				WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
 					Status:  status.WorkloadStatusActive,
 					Message: "boink",
 					Data:    []byte(`{"foo":"baz"}`),
 					Since:   &now,
 				},
+				AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+					Status: status.UnitAgentStatusIdle,
+				},
 				Present: true,
 			},
 			"foo/1": {
-				StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
+				WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
 					Status:  status.WorkloadStatusBlocked,
 					Message: "poink",
 					Data:    []byte(`{"foo":"bat"}`),
 					Since:   &now,
 				},
+				AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+					Status: status.UnitAgentStatusIdle,
+				},
 				Present: true,
 			},
-		}, status.UnitAgentStatuses{}, status.UnitCloudContainerStatuses{}, nil)
+		}, nil)
 
 	applicationStatus, unitWorkloadStatuses, err := s.service.GetApplicationAndUnitStatusesForUnitWithLeader(context.Background(), unitName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -443,40 +455,43 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderApplica
 			Status: status.WorkloadStatusUnset,
 		}, nil)
 
-	s.state.EXPECT().GetAllUnitStatusesForApplication(gomock.Any(), applicationUUID).Return(
-		status.UnitWorkloadStatuses{
+	s.state.EXPECT().GetAllFullUnitStatusesForApplication(gomock.Any(), applicationUUID).Return(
+		status.FullUnitStatuses{
 			"foo/0": {
-				StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
+				WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
 					Status:  status.WorkloadStatusActive,
 					Message: "boink",
+					Data:    []byte(`{"foo":"baz"}`),
+					Since:   &now,
+				},
+				AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+					Status: status.UnitAgentStatusIdle,
+				},
+				ContainerStatus: status.StatusInfo[status.CloudContainerStatusType]{
+					Status:  status.CloudContainerStatusBlocked,
+					Message: "zoink",
 					Data:    []byte(`{"foo":"baz"}`),
 					Since:   &now,
 				},
 				Present: true,
 			},
 			"foo/1": {
-				StatusInfo: status.StatusInfo[status.WorkloadStatusType]{
+				WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
 					Status:  status.WorkloadStatusActive,
 					Message: "poink",
 					Data:    []byte(`{"foo":"bat"}`),
 					Since:   &now,
 				},
+				AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+					Status: status.UnitAgentStatusIdle,
+				},
+				ContainerStatus: status.StatusInfo[status.CloudContainerStatusType]{
+					Status:  status.CloudContainerStatusRunning,
+					Message: "yoink",
+					Data:    []byte(`{"foo":"bat"}`),
+					Since:   &now,
+				},
 				Present: true,
-			},
-		},
-		status.UnitAgentStatuses{},
-		status.UnitCloudContainerStatuses{
-			"foo/0": {
-				Status:  status.CloudContainerStatusBlocked,
-				Message: "zoink",
-				Data:    []byte(`{"foo":"baz"}`),
-				Since:   &now,
-			},
-			"foo/1": {
-				Status:  status.CloudContainerStatusRunning,
-				Message: "yoink",
-				Data:    []byte(`{"foo":"bat"}`),
-				Since:   &now,
 			},
 		}, nil)
 
@@ -719,7 +734,7 @@ func (s *serviceSuite) TestGetUnitDisplayAndAgentStatusWithNoPresence(c *gc.C) {
 				Data:    []byte(`{"foo":"bar"}`),
 				Since:   &now,
 			},
-			Present: true,
+			Present: false,
 		}, nil)
 
 	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.CloudContainerStatusType]{
@@ -734,9 +749,8 @@ func (s *serviceSuite) TestGetUnitDisplayAndAgentStatusWithNoPresence(c *gc.C) {
 		Since:   &now,
 	})
 	c.Check(workload, jc.DeepEquals, corestatus.StatusInfo{
-		Status:  corestatus.Active,
-		Message: "doink",
-		Data:    map[string]interface{}{"foo": "bar"},
+		Status:  corestatus.Unknown,
+		Message: "agent lost, see `juju debug-logs` or `juju show-status-log` for more information",
 		Since:   &now,
 	})
 }

@@ -51,7 +51,7 @@ type StatusService interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationDisplayStatus(context.Context, string) (status.StatusInfo, error)
 
-	// GetUnitDisplayAndAgentDisplayStatus returns the unit and agent display status of
+	// GetUnitDisplayAndAgentStatus returns the unit and agent display status of
 	// the specified unit. The display status a function of both the unit
 	// workload status and the cloud container status. It returns an error
 	// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
