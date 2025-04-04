@@ -142,6 +142,8 @@ func encodeExposedEndpoints(endpoints []endpointCIDRsSpaces) map[string]applicat
 // endpoint names. If the resulting exposed endpoints map for the application
 // becomes empty after the settings are removed, the application will be
 // automatically unexposed.
+// If the provided set of endpoints is empty, all exposed endpoints of the
+// application will be removed.
 func (st *State) UnsetExposeSettings(ctx context.Context, appID coreapplication.ID, exposedEndpoints set.Strings) error {
 	db, err := st.DB()
 	if err != nil {
@@ -149,9 +151,13 @@ func (st *State) UnsetExposeSettings(ctx context.Context, appID coreapplication.
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		for _, endpoint := range exposedEndpoints.Values() {
-			if err := st.unsetExposedEndpoint(ctx, tx, appID, endpoint); err != nil {
-				return errors.Capture(err)
+		if exposedEndpoints.IsEmpty() {
+			return st.unsetAllExposedEndpoints(ctx, tx, appID)
+		} else {
+			for _, endpoint := range exposedEndpoints.Values() {
+				if err := st.unsetExposedEndpoint(ctx, tx, appID, endpoint); err != nil {
+					return errors.Capture(err)
+				}
 			}
 		}
 		return nil
@@ -185,6 +191,37 @@ func (st *State) MergeExposeSettings(ctx context.Context, appID coreapplication.
 	})
 
 	return errors.Capture(err)
+}
+
+func (st *State) unsetAllExposedEndpoints(ctx context.Context, tx *sqlair.TX, appID coreapplication.ID) error {
+	applicationID := applicationID{ID: appID}
+
+	unsetExposedCIDRQuery := `
+DELETE FROM application_exposed_endpoint_cidr
+WHERE application_uuid = $applicationID.uuid;
+`
+	unsetExposedCIDRStmt, err := st.Prepare(unsetExposedCIDRQuery, applicationID)
+	if err != nil {
+		return errors.Errorf("preparing unset exposed cidr query: %w", err)
+	}
+
+	unsetExposedSpaceQuery := `
+DELETE FROM application_exposed_endpoint_space
+WHERE application_uuid = $applicationID.uuid;
+`
+	unsetExposedSpaceStmt, err := st.Prepare(unsetExposedSpaceQuery, applicationID)
+	if err != nil {
+		return errors.Errorf("preparing unset exposed space query: %w", err)
+	}
+
+	if err := tx.Query(ctx, unsetExposedCIDRStmt, applicationID).Run(); err != nil {
+		return errors.Errorf("unsetting all exposed endpoints to CIDRs of application %q: %w", appID, err)
+	}
+	if err := tx.Query(ctx, unsetExposedSpaceStmt, applicationID).Run(); err != nil {
+		return errors.Errorf("unsetting all exposed endpoints to spaces of application %q: %w", appID, err)
+	}
+
+	return nil
 }
 
 func (st *State) unsetExposedEndpoint(ctx context.Context, tx *sqlair.TX, appID coreapplication.ID, endpoint string) error {
