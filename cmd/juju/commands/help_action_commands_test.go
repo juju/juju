@@ -6,8 +6,9 @@ package commands
 import (
 	"strings"
 
-	"github.com/juju/juju/internal/testing"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/testing"
 )
 
 type HelpActionCommandsSuite struct {
