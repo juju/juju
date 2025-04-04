@@ -17,7 +17,7 @@ For help on a specific action command, supply the name of that action command, f
 
 ## Details
 
-In addition to hook commands, Juju charms also have access to a set of action-specific commands. 
+In addition to hook commands, Juju charms also have access to a set of action-specific commands.
 These action commands are available when an action is running, and are used to log progress
 and report the outcome of the action.
 The currently available charm action commands include:

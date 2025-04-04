@@ -123,7 +123,7 @@ func (s *RelationListSuite) TestRelationList(c *gc.C) {
 		info.setRelations(0, t.members0)
 		info.setRelations(1, t.members1)
 		c.Logf("%#v %#v", info.rels[t.relid], t.members1)
-		com, err := jujuc.NewHookCommand(hctx, "relation-list")
+		com, err := jujuc.NewCommand(hctx, "relation-list")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
@@ -153,7 +153,7 @@ func (s *RelationListSuite) TestRelationListHelp(c *gc.C) {
 	} {
 		c.Logf("test relid %d", relid)
 		hctx, _ := s.newHookContext(relid, "", "")
-		com, err := jujuc.NewHookCommand(hctx, "relation-list")
+		com, err := jujuc.NewCommand(hctx, "relation-list")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
