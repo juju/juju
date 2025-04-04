@@ -1248,7 +1248,7 @@ AND     unit_uuid = $relationUnit.unit_uuid
 	err = tx.Query(ctx, getRelationUnitStmt, getRelationUnit).Get(&getRelationUnit)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return errors.Capture(err)
-	} else if !errors.Is(err, sqlair.ErrNoRows) && getRelationUnit.InScope == true {
+	} else if !errors.Is(err, sqlair.ErrNoRows) && getRelationUnit.InScope {
 		// If there is already a relation unit, and it is in scope, do nothing.
 		return nil
 	}
