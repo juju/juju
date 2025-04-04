@@ -40,7 +40,13 @@ type AgentPasswordService interface {
 type AgentBinaryStore interface {
 	// AddWithSHA256 adds a new agent binary to the object store and saves its
 	// metadata to the database.
-	AddWithSHA256(context.Context, io.Reader, coreagentbinary.Version, int64, string) error
+	AddWithSHA256(
+		_ context.Context,
+		data io.Reader,
+		varions coreagentbinary.Version,
+		size int64,
+		sha256 string,
+	) error
 }
 
 // ApplicationService instances save an application to dqlite state.
