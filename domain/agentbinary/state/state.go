@@ -74,7 +74,7 @@ WHERE  path = $objectStorePath.path`, objectStore)
 	return objectStore.MetadataUUID, nil
 }
 
-// Add adds a new agent binary's metadata to the database.
+// AddAgentBinary adds a new agent binary's metadata to the database.
 // [agentbinaryerrors.AlreadyExists] when the provided agent binary already
 // exists.
 // [agentbinaryerrors.ObjectNotFound] when no object exists that matches
@@ -84,7 +84,7 @@ WHERE  path = $objectStorePath.path`, objectStore)
 // [agentbinaryerrors.AgentBinaryImmutable] if an existing agent binary
 // already exists with the same version and architecture but a different
 // SHA.
-func (s *State) Add(ctx context.Context, arg agentbinary.AddAgentBinaryArg) error {
+func (s *State) AddAgentBinary(ctx context.Context, arg agentbinary.AddAgentBinaryArg) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Capture(err)
