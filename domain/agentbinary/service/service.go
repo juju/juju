@@ -21,8 +21,6 @@ type AgentBinaryState interface {
 
 // AgentBinaryService provides the API for working with agent binaries.
 // It is used to list agent binaries from the controller and model states.
-// It merges the two lists of agent binaries, with the model agent binaries
-// taking precedence over the controller agent binaries.
 // The service is used to provide a unified view of the agent binaries
 // across the controller and model states.
 type AgentBinaryService struct {
