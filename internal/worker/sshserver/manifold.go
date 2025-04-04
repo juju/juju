@@ -11,6 +11,7 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
+	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/api/base"
 	sshserverapi "github.com/juju/juju/api/controller/sshserver"
@@ -32,6 +33,7 @@ type FacadeClient interface {
 	WatchControllerConfig() (watcher.NotifyWatcher, error)
 	SSHServerHostKey() (string, error)
 	HostKeyForTarget(arg params.SSHHostKeyRequestArg) ([]byte, error)
+	ListPublicKeysForModel(sshPKIAuthArgs params.ListAuthorizedKeysArgs) ([]gossh.PublicKey, error)
 }
 
 // ManifoldConfig holds the information necessary to run an embedded SSH server

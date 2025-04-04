@@ -121,3 +121,15 @@ type SSHHostKeyResult struct {
 	Error   *Error `json:"error,omitempty"`
 	HostKey []byte `json:"host-key"`
 }
+
+// VerifyPublicKeyArgs is used to verify the Public Key presented is
+// inside of the model's config.
+type ListAuthorizedKeysArgs struct {
+	ModelUUID string `json:"model_uuid"`
+}
+
+// ListAuthorizedKeysResult is used to return the public keys for a model.
+type ListAuthorizedKeysResult struct {
+	Error          *Error   `json:"error,omitempty"`
+	AuthorizedKeys []string `json:"public-keys,omitempty"`
+}
