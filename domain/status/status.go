@@ -91,7 +91,29 @@ const (
 	RelationStatusTypeBroken
 	RelationStatusTypeSuspending
 	RelationStatusTypeSuspended
+	RelationStatusTypeError
 )
+
+// EncodeRelationStatus encodes a RelationStatusType from into it's integer id, as
+// recorded in the relation_status_value lookup table.
+func EncodeRelationStatus(s RelationStatusType) (int, error) {
+	switch s {
+	case RelationStatusTypeJoining:
+		return 0, nil
+	case RelationStatusTypeJoined:
+		return 1, nil
+	case RelationStatusTypeBroken:
+		return 2, nil
+	case RelationStatusTypeSuspending:
+		return 3, nil
+	case RelationStatusTypeSuspended:
+		return 4, nil
+	case RelationStatusTypeError:
+		return 4, nil
+	default:
+		return -1, errors.Errorf("unknown status %d", s)
+	}
+}
 
 // DecodeRelationStatus decodes a RelationStatusType from it's integer id, as
 // recorded in the relation_status_value lookup table.
@@ -107,6 +129,8 @@ func DecodeRelationStatus(s int) (RelationStatusType, error) {
 		return RelationStatusTypeSuspending, nil
 	case 4:
 		return RelationStatusTypeSuspended, nil
+	case 5:
+		return RelationStatusTypeError, nil
 	default:
 		return -1, errors.Errorf("unknown status %d", s)
 	}

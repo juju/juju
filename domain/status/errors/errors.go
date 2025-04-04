@@ -14,6 +14,14 @@ const (
 	// an application that is dead.
 	ApplicationIsDead = errors.ConstError("application is dead")
 
+	// RelationNotFound describes an error that occurs when the relation
+	// being operated on does not exist.
+	RelationNotFound = errors.ConstError("relation not found")
+
+	// RelationStatusTransitionNotValid describes an error that occurs when the
+	// current relation status cannot transition to the new relation status.
+	RelationStatusTransitionNotValid = errors.ConstError("relation status transition not valid")
+
 	// UnitNotFound describes an error that occurs when the unit being operated
 	// on does not exist.
 	UnitNotFound = errors.ConstError("unit not found")
