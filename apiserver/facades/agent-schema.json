@@ -10990,17 +10990,6 @@
                         }
                     }
                 },
-                "Resolved": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ResolvedModeResults"
-                        }
-                    }
-                },
                 "SetAgentStatus": {
                     "type": "object",
                     "properties": {
@@ -12949,36 +12938,6 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/RelationUnitsWatchResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "ResolvedModeResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "mode": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "mode"
-                    ]
-                },
-                "ResolvedModeResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ResolvedModeResult"
                             }
                         }
                     },
