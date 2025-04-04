@@ -140,7 +140,7 @@ LEFT JOIN charm_source AS cs ON c.source_id = cs.id
 LEFT JOIN charm_hash AS ch ON c.uuid = ch.charm_uuid;
 
 CREATE TABLE charm_metadata (
-    charm_uuid TEXT NOT NULL,
+    charm_uuid TEXT NOT NULL PRIMARY KEY,
     -- name represents the original name of the charm. This is what is stored
     -- in the charm metadata.yaml file.
     name TEXT NOT NULL,
@@ -161,6 +161,10 @@ CREATE TABLE charm_metadata (
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid)
 );
+
+
+CREATE INDEX idx_charm_metadata_subordinate
+ON charm_metadata (subordinate);
 
 CREATE VIEW v_charm_metadata AS
 SELECT
