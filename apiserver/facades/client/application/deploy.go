@@ -82,7 +82,7 @@ type UnitAdder interface {
 
 // DeployApplication takes a charm and various parameters and deploys it.
 func DeployApplication(
-	ctx context.Context, st ApplicationDeployer, model Model,
+	ctx context.Context, st ApplicationDeployer,
 	modelInfo coremodel.ModelInfo,
 	applicationService ApplicationService,
 	store objectstore.ObjectStore,
