@@ -249,7 +249,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 		c.Logf("test %d: %s", i, t.about)
 		hctx := s.GetHookContext(c, -1, "")
 		hctx.canAddMetrics = t.canAddMetrics
-		com, err := jujuc.NewHookCommand(hctx, t.cmd[0])
+		com, err := jujuc.NewCommand(hctx, t.cmd[0])
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		ret := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.cmd[1:])

@@ -37,7 +37,7 @@ func (s *PayloadStatusSetSuiye) TestInvalidStatus(c *gc.C) {
 
 	hctx := mocks.NewMockContext(ctrl)
 
-	com, err := jujuc.NewHookCommand(hctx, "payload-status-set")
+	com, err := jujuc.NewCommand(hctx, "payload-status-set")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := setupMetadata(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"class", "id", "created"})
@@ -54,7 +54,7 @@ func (s *PayloadStatusSetSuiye) TestStatusSet(c *gc.C) {
 	hctx.EXPECT().SetPayloadStatus("class", "id", "stopped").Return(nil)
 	hctx.EXPECT().FlushPayloads()
 
-	com, err := jujuc.NewHookCommand(hctx, "payload-status-set")
+	com, err := jujuc.NewCommand(hctx, "payload-status-set")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := setupMetadata(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"class", "id", "stopped"})

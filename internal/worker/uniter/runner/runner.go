@@ -746,7 +746,7 @@ func (runner *runner) startJujucServer(token string, rMode runMode) (*jujuc.Serv
 		if ctxId != runner.context.Id() {
 			return nil, errors.Errorf("wrong context ID; got %q", ctxId)
 		}
-		return jujuc.NewHookCommand(runner.context, cmdName)
+		return jujuc.NewCommand(runner.context, cmdName)
 	}
 
 	socket := runner.paths.GetJujucServerSocket(rMode == runOnRemote)

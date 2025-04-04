@@ -133,7 +133,7 @@ func (c *helpHookCmdsCommand) Run(ctx *cmd.Context) error {
 	if c.hookCmd == "" {
 		fmt.Fprint(ctx.Stdout, listHelpHookCmds())
 	} else {
-		c, err := jujuc.NewHookCommand(dummyHookContext{}, c.hookCmd)
+		c, err := jujuc.NewHookCommandForHelp(dummyHookContext{}, c.hookCmd)
 		if err != nil {
 			return err
 		}
@@ -168,7 +168,7 @@ func listHelpHookCmds() string {
 	cmds := []cmd.Command{}
 	longest := 0
 	for _, name := range names {
-		if c, err := jujuc.NewHookCommand(dummyHookContext{}, name); err == nil {
+		if c, err := jujuc.NewHookCommandForHelp(dummyHookContext{}, name); err == nil {
 			// On Windows name has a '.exe' suffix, while Info().Name does not
 			name := c.Info().Name
 			if len(name) > longest {

@@ -34,7 +34,7 @@ func main() {
 		if slices.Contains(ignoreCommands, name) {
 			continue
 		}
-		hookTool, err := jujuc.NewHookCommand(dummyHookContext{}, name)
+		hookTool, err := jujuc.NewHookCommandForHelp(dummyHookContext{}, name)
 		check(err)
 		jujucSuperCmd.Register(hookTool)
 	}
@@ -42,7 +42,7 @@ func main() {
 		if slices.Contains(ignoreCommands, name) {
 			continue
 		}
-		actionTool, err := jujuc.NewActionCommand(dummyHookContext{}, name)
+		actionTool, err := jujuc.NewActionCommandForHelp(dummyHookContext{}, name)
 		check(err)
 		jujucSuperCmd.Register(actionTool)
 	}

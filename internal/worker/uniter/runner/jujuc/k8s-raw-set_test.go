@@ -57,7 +57,7 @@ func (s *rawK8sSpecSetSuite) TestRawK8sSpecSetInit(c *gc.C) {
 	for i, t := range rawK8sSpecSetInitTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetHookContext(c, -1, "")
-		com, err := jujuc.NewHookCommand(hctx, "k8s-raw-set")
+		com, err := jujuc.NewCommand(hctx, "k8s-raw-set")
 		c.Assert(err, jc.ErrorIsNil)
 		cmdtesting.TestInit(c, jujuc.NewJujucCommandWrappedForTest(com), t.args, t.err)
 	}
@@ -65,7 +65,7 @@ func (s *rawK8sSpecSetSuite) TestRawK8sSpecSetInit(c *gc.C) {
 
 func (s *rawK8sSpecSetSuite) TestRawK8sSpecSetNoData(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewHookCommand(hctx, "k8s-raw-set")
+	com, err := jujuc.NewCommand(hctx, "k8s-raw-set")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 
@@ -105,7 +105,7 @@ func (s *rawK8sSpecSetSuite) assertRawK8sSpecSet(c *gc.C, filename string) {
 }
 
 func (s *rawK8sSpecSetSuite) initCommand(c *gc.C, hctx jujuc.Context, yaml string, filename string) (cmd.Command, []string, *cmd.Context) {
-	com, err := jujuc.NewHookCommand(hctx, "k8s-raw-set")
+	com, err := jujuc.NewCommand(hctx, "k8s-raw-set")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 

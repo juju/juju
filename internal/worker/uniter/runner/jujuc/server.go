@@ -191,9 +191,9 @@ func HookCommandNames() (names []string) {
 	return
 }
 
-// NewHookCommand returns an instance of the named hook Command, initialized to execute
-// against the supplied Context.
-func NewHookCommand(ctx Context, name string) (cmd.Command, error) {
+// NewHookCommandForHelp returns an instance of the named hook Command, only
+// for generating help.
+func NewHookCommandForHelp(ctx Context, name string) (cmd.Command, error) {
 	f := allHookCommands()[name]
 	if f == nil {
 		return nil, errors.Errorf("unknown hook command: %s", name)
@@ -205,12 +205,26 @@ func NewHookCommand(ctx Context, name string) (cmd.Command, error) {
 	return command, nil
 }
 
-// NewActionCommand returns an instance of the named action Command, initialized to execute
-// against the supplied Context.
-func NewActionCommand(ctx Context, name string) (cmd.Command, error) {
+// NewActionCommandForHelp returns an instance of the named action Command, only
+// for generating help.
+func NewActionCommandForHelp(ctx Context, name string) (cmd.Command, error) {
 	f := allActionCommands()[name]
 	if f == nil {
 		return nil, errors.Errorf("unknown action command: %s", name)
+	}
+	command, err := f(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return command, nil
+}
+
+// NewCommand returns an instance of the named action Command, initialized to execute
+// against the supplied Context.
+func NewCommand(ctx Context, name string) (cmd.Command, error) {
+	f := allEnabledCommands()[name]
+	if f == nil {
+		return nil, errors.Errorf("unknown command: %s", name)
 	}
 	command, err := f(ctx)
 	if err != nil {
