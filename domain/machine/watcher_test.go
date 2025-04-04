@@ -107,6 +107,8 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithSet(c *gc.C) {
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
+
+	harness.Run(c, struct{}{})
 }
 
 func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *gc.C) {
@@ -133,6 +135,8 @@ func (s *watcherSuite) TestMachineCloudInstanceWatchWithDelete(c *gc.C) {
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
 	})
+
+	harness.Run(c, struct{}{})
 }
 
 func (s *watcherSuite) TestWatchLXDProfiles(c *gc.C) {
