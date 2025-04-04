@@ -67,14 +67,6 @@ CREATE TABLE unit_agent_version (
     REFERENCES architecture (id)
 );
 
-CREATE VIEW v_unit_target_agent_version AS
-SELECT
-    u.unit_uuid,
-    a.name AS architecture_name,
-    (SELECT target_version FROM agent_version) AS target_version
-FROM unit_agent_version AS u
-JOIN architecture AS a ON u.architecture_id = a.id;
-
 CREATE TABLE unit_state (
     unit_uuid TEXT NOT NULL PRIMARY KEY,
     uniter_state TEXT,

@@ -40,7 +40,7 @@ type State interface {
 
 	// GetMachineTargetAgentVersion returns the target agent version for the specified machine.
 	// The following error types can be expected:
-	// - [modelagenterrors.AgentNotFound] - when the agent version does not exist.
+	// - [modelagenterrors.AgentVersionNotFound] - when the agent version does not exist.
 	GetMachineTargetAgentVersion(context.Context, string) (coreagentbinary.Version, error)
 
 	// SetUnitRunningAgentBinaryVersion sets the running agent version for the unit.
@@ -52,7 +52,7 @@ type State interface {
 
 	// GetUnitTargetAgentVersion returns the target agent version for the specified unit.
 	// The following error types can be expected:
-	// - [modelagenterrors.AgentNotFound] - when the agent version does not exist.
+	// - [modelagenterrors.AgentVersionNotFound] - when the agent version does not exist.
 	GetUnitTargetAgentVersion(context.Context, coreunit.UUID) (coreagentbinary.Version, error)
 }
 

@@ -139,7 +139,7 @@ func (st *State) GetMachineUUID(ctx context.Context, name machine.Name) (string,
 
 // GetMachineTargetAgentVersion returns the target agent version for the specified machine.
 // The following error types can be expected:
-// - [modelagenterrors.AgentNotFound] - when the agent version does not exist.
+// - [modelagenterrors.AgentVersionNotFound] - when the agent version does not exist.
 func (st *State) GetMachineTargetAgentVersion(ctx context.Context, uuid string) (coreagentbinary.Version, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -149,9 +149,12 @@ func (st *State) GetMachineTargetAgentVersion(ctx context.Context, uuid string) 
 	info := machineAgentVersionInfo{MachineUUID: uuid}
 
 	stmt, err := st.Prepare(`
-SELECT &machineAgentVersionInfo.*
-FROM   v_machine_target_agent_version
-WHERE  v_machine_target_agent_version.machine_uuid = $machineAgentVersionInfo.machine_uuid
+SELECT av.target_version AS &machineAgentVersionInfo.target_version,
+       a.name AS &machineAgentVersionInfo.architecture_name
+FROM   agent_version AS av,
+       machine_agent_version AS mav
+JOIN   architecture AS a ON mav.architecture_id = a.id
+WHERE  mav.machine_uuid = $machineAgentVersionInfo.machine_uuid
 `, info)
 	if err != nil {
 		return coreagentbinary.Version{}, errors.Capture(err)
@@ -182,7 +185,7 @@ WHERE  v_machine_target_agent_version.machine_uuid = $machineAgentVersionInfo.ma
 
 // GetUnitTargetAgentVersion returns the target agent version for the specified unit.
 // The following error types can be expected:
-// - [modelagenterrors.AgentNotFound] - when the agent version does not exist.
+// - [modelagenterrors.AgentVersionNotFound] - when the agent version does not exist.
 func (st *State) GetUnitTargetAgentVersion(ctx context.Context, uuid coreunit.UUID) (coreagentbinary.Version, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -192,9 +195,12 @@ func (st *State) GetUnitTargetAgentVersion(ctx context.Context, uuid coreunit.UU
 	info := unitAgentVersionInfo{UnitUUID: uuid}
 
 	stmt, err := st.Prepare(`
-SELECT &unitAgentVersionInfo.*
-FROM   v_unit_target_agent_version
-WHERE  v_unit_target_agent_version.unit_uuid = $unitAgentVersionInfo.unit_uuid
+SELECT av.target_version AS &unitAgentVersionInfo.target_version,
+       a.name AS &unitAgentVersionInfo.architecture_name
+FROM   agent_version AS av,
+       unit_agent_version AS uav
+JOIN   architecture AS a ON uav.architecture_id = a.id
+WHERE  uav.unit_uuid = $unitAgentVersionInfo.unit_uuid
 `, info)
 	if err != nil {
 		return coreagentbinary.Version{}, errors.Capture(err)
