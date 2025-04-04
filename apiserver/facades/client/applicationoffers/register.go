@@ -10,7 +10,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/model"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -24,12 +23,12 @@ func Register(registry facade.FacadeRegistry) {
 	// elsewhere. I've talked long and hard to myself about this, but there
 	// is no way around it.
 	registry.MustRegisterForMultiModel("ApplicationOffers", 5, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
-		return makeOffersAPI(stdCtx, ctx)
+		return makeOffersAPI(ctx)
 	}, reflect.TypeOf((*OffersAPIv5)(nil)))
 }
 
 // makeOffersAPI returns a new application offers OffersAPI facade.
-func makeOffersAPI(ctx context.Context, facadeContext facade.MultiModelContext) (*OffersAPIv5, error) {
+func makeOffersAPI(facadeContext facade.MultiModelContext) (*OffersAPIv5, error) {
 	domainServices := facadeContext.DomainServices()
 	st := facadeContext.State()
 	getControllerInfo := func(ctx context.Context) ([]string, string, error) {
@@ -49,6 +48,6 @@ func makeOffersAPI(ctx context.Context, facadeContext facade.MultiModelContext) 
 		facadeContext.DataDir(),
 		facadeContext.Logger().Child("applicationoffers"),
 		facadeContext.ControllerUUID(),
-		model.UUID(st.ModelUUID()),
+		facadeContext.DomainServices().Model(),
 	)
 }

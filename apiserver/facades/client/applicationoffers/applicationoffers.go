@@ -46,7 +46,7 @@ func createOffersAPI(
 	dataDir string,
 	logger corelogger.Logger,
 	controllerUUID string,
-	modelUUID model.UUID,
+	modelService ModelService,
 ) (*OffersAPIv5, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -65,7 +65,7 @@ func createOffersAPI(
 			getControllerInfo:         getControllerInfo,
 			logger:                    logger,
 			controllerUUID:            controllerUUID,
-			modelUUID:                 modelUUID,
+			modelService:              modelService,
 		},
 	}
 	return api, nil
@@ -112,7 +112,7 @@ func (api *OffersAPIv5) Offer(ctx context.Context, all params.AddApplicationOffe
 
 	modelUUID := model.UUID(modelTag.Id())
 
-	if err := api.checkAdmin(ctx, apiUser, modelUUID, backend); err != nil {
+	if err := api.checkAdmin(ctx, apiUser, modelUUID); err != nil {
 		return handleErr(err), nil
 	}
 
@@ -229,7 +229,9 @@ func (api *OffersAPIv5) ModifyOfferAccess(ctx context.Context, args params.Modif
 		return result, nil
 	}
 
-	err := api.Authorizer.HasPermission(ctx, permission.SuperuserAccess, api.ControllerModel.ControllerTag())
+	controllerTag := names.NewControllerTag(api.controllerUUID)
+
+	err := api.Authorizer.HasPermission(ctx, permission.SuperuserAccess, controllerTag)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return result, errors.Trace(err)
 	}
@@ -240,7 +242,7 @@ func (api *OffersAPIv5) ModifyOfferAccess(ctx context.Context, args params.Modif
 		offerURLs[i] = arg.OfferURL
 	}
 	user := api.Authorizer.GetAuthTag().(names.UserTag)
-	models, err := api.getModelsFromOffers(user, offerURLs...)
+	models, err := api.getModelsFromOffers(ctx, user, offerURLs...)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -250,7 +252,7 @@ func (api *OffersAPIv5) ModifyOfferAccess(ctx context.Context, args params.Modif
 			result.Results[i].Error = apiservererrors.ServerError(models[i].err)
 			continue
 		}
-		err = api.modifyOneOfferAccess(ctx, user, models[i].model.UUID(), isControllerAdmin, arg)
+		err = api.modifyOneOfferAccess(ctx, user, models[i].model.UUID.String(), isControllerAdmin, arg)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
@@ -421,19 +423,14 @@ func (api *OffersAPIv5) FindApplicationOffers(ctx context.Context, filters param
 	// any models the user can see and query across those.
 	// If there's more than one filter term, each must specify a model.
 	if len(filters.Filters) == 1 && filters.Filters[0].ModelName == "" {
-		uuids, err := api.ControllerModel.AllModelUUIDs()
+		models, err := api.modelService.ListAllModels(ctx)
 		if err != nil {
 			return result, errors.Trace(err)
 		}
-		for _, uuid := range uuids {
-			m, release, err := api.StatePool.GetModel(uuid)
-			if err != nil {
-				return result, errors.Trace(err)
-			}
-			defer release()
+		for _, m := range models {
 			modelFilter := filters.Filters[0]
-			modelFilter.ModelName = m.Name()
-			modelFilter.OwnerName = m.Owner().Id()
+			modelFilter.ModelName = m.Name
+			modelFilter.OwnerName = m.OwnerName.Name()
 			filtersToUse.Filters = append(filtersToUse.Filters, modelFilter)
 		}
 	} else {
@@ -484,8 +481,10 @@ func (api *OffersAPIv5) getConsumeDetails(ctx context.Context, user names.UserTa
 		return consumeResults, apiservererrors.ServerError(err)
 	}
 
+	controllerTag := names.NewControllerTag(api.controllerUUID)
+
 	controllerInfo := &params.ExternalControllerInfo{
-		ControllerTag: api.ControllerModel.ControllerTag().String(),
+		ControllerTag: controllerTag.String(),
 		Addrs:         addrs,
 		CACert:        caCert,
 	}
@@ -505,14 +504,8 @@ func (api *OffersAPIv5) getConsumeDetails(ctx context.Context, user names.UserTa
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		backend, releaser, err := api.StatePool.Get(modelTag.Id())
-		if err != nil {
-			results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		defer releaser()
 
-		err = api.checkAdmin(ctx, user, model.UUID(modelTag.Id()), backend)
+		err = api.checkAdmin(ctx, user, model.UUID(modelTag.Id()))
 		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -612,7 +605,7 @@ func (api *OffersAPIv5) DestroyOffers(ctx context.Context, args params.DestroyAp
 	result := make([]params.ErrorResult, len(args.OfferURLs))
 
 	user := api.Authorizer.GetAuthTag().(names.UserTag)
-	models, err := api.getModelsFromOffers(user, args.OfferURLs...)
+	models, err := api.getModelsFromOffers(ctx, user, args.OfferURLs...)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -627,18 +620,20 @@ func (api *OffersAPIv5) DestroyOffers(ctx context.Context, args params.DestroyAp
 			result[i].Error = apiservererrors.ServerError(models[i].err)
 			continue
 		}
-		backend, releaser, err := api.StatePool.Get(models[i].model.UUID())
+
+		modelUUID := models[i].model.UUID
+		if err := api.checkAdmin(ctx, user, modelUUID); err != nil {
+			result[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		backend, releaser, err := api.StatePool.Get(modelUUID.String())
 		if err != nil {
 			result[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		defer releaser()
 
-		modelUUID := model.UUID(models[i].model.UUID())
-		if err := api.checkAdmin(ctx, user, modelUUID, backend); err != nil {
-			result[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
 		err = api.GetApplicationOffers(backend).Remove(url.ApplicationName, args.Force)
 		result[i].Error = apiservererrors.ServerError(err)
 	}
