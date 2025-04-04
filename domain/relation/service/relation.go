@@ -52,6 +52,10 @@ type State interface {
 	//     given UUID.
 	GetRelationEndpoints(ctx context.Context, relationUUID corerelation.UUID) ([]relation.Endpoint, error)
 
+	// GetApplicationEndpoints returns all endpoints for the given application
+	// identifier.
+	GetApplicationEndpoints(ctx context.Context, applicationID application.ID) ([]relation.Endpoint, error)
+
 	// GetRelationEndpointUUID retrieves the unique identifier for a specific
 	// relation endpoint based on the provided arguments.
 	GetRelationEndpointUUID(ctx context.Context, args relation.GetRelationEndpointUUIDArgs) (corerelation.EndpointUUID, error)
@@ -221,8 +225,12 @@ func (s *Service) GetAllRelationDetails(ctx context.Context) ([]relation.Relatio
 }
 
 // GetApplicationEndpoints returns all endpoints for the given application identifier.
-func (s *Service) GetApplicationEndpoints(ctx context.Context, id application.ID) ([]relation.Endpoint, error) {
-	return nil, coreerrors.NotImplemented
+func (s *Service) GetApplicationEndpoints(ctx context.Context, applicationID application.ID) ([]relation.Endpoint, error) {
+	if err := applicationID.Validate(); err != nil {
+		return nil, errors.Errorf(
+			"%w: %w", relationerrors.ApplicationIDNotValid, err)
+	}
+	return s.st.GetApplicationEndpoints(ctx, applicationID)
 }
 
 // GetLocalRelationApplicationSettings returns the application settings
@@ -241,16 +249,6 @@ func (s *Service) GetLocalRelationApplicationSettings(
 	// return s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
 	//		return s.st.SetRelationStatus(ctx, appID, encodedStatus)
 	//	})
-	return nil, coreerrors.NotImplemented
-}
-
-// GetRelatedEndpoints returns the endpoints of the relation with which
-// units of the named application will establish relations.
-func (s *Service) GetRelatedEndpoints(
-	ctx context.Context,
-	relationUUID corerelation.UUID,
-	applicationName string,
-) ([]relation.Endpoint, error) {
 	return nil, coreerrors.NotImplemented
 }
 
@@ -292,19 +290,13 @@ func (s *Service) GetRelationDetails(
 	}, nil
 }
 
-// GetRelationEndpoint returns the endpoint for the given application and
-// relation identifier combination.
-func (s *Service) GetRelationEndpoint(
-	ctx context.Context,
-	relationUUID corerelation.UUID,
-	applicationID application.ID,
-) (relation.Endpoint, error) {
-	return relation.Endpoint{}, coreerrors.NotImplemented
-}
-
 // GetRelationEndpoints returns all endpoints for the given relation UUID
-func (s *Service) GetRelationEndpoints(ctx context.Context, id corerelation.UUID) ([]relation.Endpoint, error) {
-	return nil, coreerrors.NotImplemented
+func (s *Service) GetRelationEndpoints(ctx context.Context, relationUUID corerelation.UUID) ([]relation.Endpoint, error) {
+	if err := relationUUID.Validate(); err != nil {
+		return nil, errors.Errorf(
+			"%w: %w", relationerrors.RelationUUIDNotValid, err)
+	}
+	return s.st.GetRelationEndpoints(ctx, relationUUID)
 }
 
 // getRelationEndpointUUID retrieves the unique identifier for a specific
