@@ -225,7 +225,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithPeerRelation(c *gc.C) {
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)
 
-	s.assertPeerRelation(c, "666", "castor", "pollux")
+	s.assertPeerRelation(c, "666", "pollux", "castor")
 }
 
 func (s *applicationStateSuite) TestCreateApplicationWithStatus(c *gc.C) {
@@ -2113,7 +2113,7 @@ func (s *applicationStateSuite) TestGetApplicationConfigAndSettingsWithTrust(c *
 		}
 
 		stmt = `
-INSERT INTO application_setting (application_uuid, trust) 
+INSERT INTO application_setting (application_uuid, trust)
 VALUES (?, true)
 ON CONFLICT(application_uuid) DO UPDATE SET
 	trust = excluded.trust;
@@ -2212,7 +2212,7 @@ func (s *applicationStateSuite) TestGetApplicationTrustSetting(c *gc.C) {
 		}
 
 		stmt = `
-INSERT INTO application_setting (application_uuid, trust) 
+INSERT INTO application_setting (application_uuid, trust)
 VALUES (?, true)
 ON CONFLICT(application_uuid) DO UPDATE SET
 	trust = excluded.trust;
@@ -3231,7 +3231,7 @@ func (s *applicationStateSuite) assertPeerRelation(c *gc.C, appName string, peer
 		rows, err := tx.QueryContext(ctx, `
 SELECT cr.name, r.relation_id
 FROM charm_relation cr
-JOIN application_endpoint ae ON ae.charm_relation_uuid = cr.uuid 
+JOIN application_endpoint ae ON ae.charm_relation_uuid = cr.uuid
 JOIN application a ON a.uuid = ae.application_uuid
 JOIN relation_endpoint re ON  re.endpoint_uuid = ae.uuid
 JOIN relation r ON r.uuid = re.relation_uuid
@@ -3260,7 +3260,7 @@ ORDER BY r.relation_id
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
 SELECT rst.name
-FROM relation_status_type rst  
+FROM relation_status_type rst
 JOIN relation_status rs ON rs.relation_status_type_id = rst.id
 JOIN relation_endpoint re ON re.relation_uuid = rs.relation_uuid
 JOIN application_endpoint ae ON ae.uuid = re.endpoint_uuid

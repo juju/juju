@@ -183,6 +183,7 @@ func (s *ControllerServices) Macaroon() *macaroonservice.Service {
 	)
 }
 
+// AgentBinary returns the agent binary store for the entire controller.
 func (s *ControllerServices) AgentBinary() *agentbinaryservice.AgentBinaryStore {
 	return agentbinaryservice.NewAgentBinaryStore(
 		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
