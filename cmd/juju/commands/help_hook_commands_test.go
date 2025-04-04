@@ -11,23 +11,23 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-type HelpToolSuite struct {
+type HelpHookCommandsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&HelpToolSuite{})
+var _ = gc.Suite(&HelpHookCommandsSuite{})
 
-func (suite *HelpToolSuite) SetUpTest(c *gc.C) {
+func (suite *HelpHookCommandsSuite) SetUpTest(c *gc.C) {
 	suite.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	setFeatureFlags("")
 }
 
-func (suite *HelpToolSuite) TestHelpToolHelp(c *gc.C) {
-	output := badrun(c, 0, "help", "help-tool")
-	c.Assert(output, gc.Equals, `Usage: juju help-tool [tool]
+func (suite *HelpHookCommandsSuite) TestHelpHookCommandsHelp(c *gc.C) {
+	output := badrun(c, 0, "help", "help-hook-commands")
+	c.Assert(output, gc.Equals, `Usage: juju help-hook-commands [hook]
 
 Summary:
-Show help on a Juju charm hook tool.
+Show help on a Juju charm hook command.
 
 Global Options:
 --debug  (= false)
@@ -44,14 +44,10 @@ Global Options:
     Show more verbose output
 
 Details:
-Juju charms can access a series of built-in helpers called 'hook-tools'.
-These are useful for the charm to be able to inspect its running environment.
-Currently available charm hook tools are:
+Juju charms have access to a set of built-in helpers known as 'hook-commands,'
+which allow them to inspect their runtime environment.
+The currently available charm hook commands include:
 
-    action-fail              Set action fail status with message.
-    action-get               Get action parameters.
-    action-log               Record a progress message for the current action.
-    action-set               Set action results.
     application-version-set  Specify which version of the application is deployed.
     close-port               Register a request to close a port or port range.
     config-get               Print application configuration.
@@ -89,20 +85,17 @@ Currently available charm hook tools are:
 
 Examples:
 
-For help on a specific tool, supply the name of that tool, for example:
+For help on a specific hook command, supply the name of that hook command, for example:
 
-        juju help-tool unit-get
+        juju help-hook-commands unit-get
 
 See also:
  - help
+ - help-action-commands
 `)
 }
 
 var expectedCommands = []string{
-	"action-fail",
-	"action-get",
-	"action-log",
-	"action-set",
 	"application-version-set",
 	"close-port",
 	"config-get",
@@ -139,8 +132,8 @@ var expectedCommands = []string{
 	"unit-get",
 }
 
-func (suite *HelpToolSuite) TestHelpTool(c *gc.C) {
-	output := badrun(c, 0, "help-tool")
+func (suite *HelpHookCommandsSuite) TestHelpHookCommands(c *gc.C) {
+	output := badrun(c, 0, "help-hook-commands")
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	for i, line := range lines {
 		command := strings.Fields(line)[0]
@@ -149,9 +142,8 @@ func (suite *HelpToolSuite) TestHelpTool(c *gc.C) {
 	c.Assert(lines, gc.DeepEquals, expectedCommands)
 }
 
-func (suite *HelpToolSuite) TestHelpToolName(c *gc.C) {
-	var output string
-	output = badrun(c, 0, "help-tool", "relation-get")
+func (suite *HelpHookCommandsSuite) TestHelpHookCommandsName(c *gc.C) {
+	output := badrun(c, 0, "help-hook-commands", "relation-get")
 	expectedHelp := `Usage: relation-get \[options\] <key> <unit id>
 
 Summary:
