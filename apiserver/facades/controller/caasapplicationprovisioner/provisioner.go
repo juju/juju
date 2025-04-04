@@ -499,11 +499,6 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 		return nil, errors.Trace(err)
 	}
 
-	devices, err := a.devicesParams(app)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	appID, err := a.applicationService.GetApplicationIDByName(ctx, appName)
 	if errors.Is(err, applicationerrors.ApplicationNotFound) {
 		return nil, errors.NotFoundf("application %s", appName)
@@ -573,7 +568,6 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 		CACert:               caCert,
 		Tags:                 resourceTags,
 		Filesystems:          filesystemParams,
-		Devices:              devices,
 		Constraints:          mergedCons,
 		Base:                 params.Base{Name: base.OS, Channel: base.Channel},
 		ImageRepo:            params.NewDockerImageInfo(docker.ConvertToResourceImageDetails(imageRepoDetails), imagePath),
@@ -847,23 +841,6 @@ func filesystemParams(
 	fsParams.StorageName = storageName
 	fsParams.Tags = filesystemTags
 	return fsParams, nil
-}
-
-func (a *API) devicesParams(app Application) ([]params.KubernetesDeviceParams, error) {
-	devices, err := app.DeviceConstraints()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	a.logger.Debugf(context.TODO(), "getting device constraints from state: %#v", devices)
-	var devicesParams []params.KubernetesDeviceParams
-	for _, d := range devices {
-		devicesParams = append(devicesParams, params.KubernetesDeviceParams{
-			Type:       params.DeviceType(d.Type),
-			Count:      d.Count,
-			Attributes: d.Attributes,
-		})
-	}
-	return devicesParams, nil
 }
 
 // ApplicationOCIResources returns the OCI image resources for an application.

@@ -19,7 +19,6 @@ import (
 	caasmocks "github.com/juju/juju/caas/mocks"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
@@ -467,7 +466,6 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 			StorageName: "data",
 			Size:        100,
 		}},
-		Devices: []devices.KubernetesDeviceParams{},
 	}
 	charmInfo := charmscommon.CharmInfo{
 		Meta: &charm.Meta{
@@ -535,7 +533,6 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 			StorageName: "data",
 			Size:        100,
 		}},
-		Devices:      []devices.KubernetesDeviceParams{},
 		Trust:        true,
 		InitialScale: 10,
 		CharmUser:    caas.RunAsDefault,

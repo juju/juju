@@ -5,7 +5,6 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/txn"
 
 	"github.com/juju/juju/internal/charm"
@@ -54,21 +53,6 @@ func removeDeviceConstraintsOp(id string) txn.Op {
 		Id:     id,
 		Remove: true,
 	}
-}
-
-func readDeviceConstraints(mb modelBackend, id string) (map[string]DeviceConstraints, error) {
-	coll, closer := mb.db().GetCollection(deviceConstraintsC)
-	defer closer()
-
-	var doc deviceConstraintsDoc
-	err := coll.FindId(id).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("device constraints for %q", id)
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get device constraints for %q", id)
-	}
-	return doc.Constraints, nil
 }
 
 func validateDeviceConstraints(allCons map[string]DeviceConstraints, charmMeta *charm.Meta) error {
