@@ -72,16 +72,8 @@ type unitPresentStatusInfo struct {
 	Present   bool       `db:"present"`
 }
 
-type statusInfoAndUnitName struct {
-	UnitName  coreunit.Name `db:"name"`
-	StatusID  int           `db:"status_id"`
-	Message   string        `db:"message"`
-	Data      []byte        `db:"data"`
-	UpdatedAt *time.Time    `db:"updated_at"`
-}
-
 type statusInfoAndUnitNameAndPresence struct {
-	UnitName  coreunit.Name `db:"name"`
+	UnitName  coreunit.Name `db:"unit_name"`
 	StatusID  int           `db:"status_id"`
 	Message   string        `db:"message"`
 	Data      []byte        `db:"data"`
@@ -89,17 +81,34 @@ type statusInfoAndUnitNameAndPresence struct {
 	Present   bool          `db:"present"`
 }
 
-type fullUnitStatus struct {
+type workloadAgentStatus struct {
 	UnitName          coreunit.Name `db:"unit_name"`
 	WorkloadStatusID  *int          `db:"workload_status_id"`
-	WorkloadMessage   *string       `db:"workload_message"`
+	WorkloadMessage   string        `db:"workload_message"`
 	WorkloadData      []byte        `db:"workload_data"`
 	WorkloadUpdatedAt *time.Time    `db:"workload_updated_at"`
 	AgentStatusID     *int          `db:"agent_status_id"`
-	AgentMessage      *string       `db:"agent_message"`
+	AgentMessage      string        `db:"agent_message"`
 	AgentData         []byte        `db:"agent_data"`
 	AgentUpdatedAt    *time.Time    `db:"agent_updated_at"`
 	Present           bool          `db:"present"`
+}
+
+type fullUnitStatus struct {
+	UnitName           coreunit.Name `db:"unit_name"`
+	WorkloadStatusID   *int          `db:"workload_status_id"`
+	WorkloadMessage    string        `db:"workload_message"`
+	WorkloadData       []byte        `db:"workload_data"`
+	WorkloadUpdatedAt  *time.Time    `db:"workload_updated_at"`
+	AgentStatusID      *int          `db:"agent_status_id"`
+	AgentMessage       string        `db:"agent_message"`
+	AgentData          []byte        `db:"agent_data"`
+	AgentUpdatedAt     *time.Time    `db:"agent_updated_at"`
+	ContainerStatusID  *int          `db:"container_status_id"`
+	ContainerMessage   string        `db:"container_message"`
+	ContainerData      []byte        `db:"container_data"`
+	ContainerUpdatedAt *time.Time    `db:"container_updated_at"`
+	Present            bool          `db:"present"`
 }
 
 // relationStatus represents the status of a relation

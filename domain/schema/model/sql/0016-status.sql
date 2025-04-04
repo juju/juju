@@ -11,4 +11,5 @@ INSERT INTO workload_status_value VALUES
 (3, 'waiting'),
 (4, 'blocked'),
 (5, 'active'),
-(6, 'terminated');
+(6, 'terminated'),
+(7, 'error');

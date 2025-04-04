@@ -60,7 +60,7 @@ func EncodeCloudContainerStatus(s CloudContainerStatusType) (int, error) {
 	case CloudContainerStatusRunning:
 		return 3, nil
 	default:
-		return -1, errors.Errorf("unknown status %q", s)
+		return -1, errors.Errorf("unknown status %d", s)
 	}
 }
 
@@ -145,7 +145,7 @@ func EncodeAgentStatus(s UnitAgentStatusType) (int, error) {
 	case UnitAgentStatusRebooting:
 		return 6, nil
 	default:
-		return -1, errors.Errorf("unknown status %q", s)
+		return -1, errors.Errorf("unknown status %d", s)
 	}
 }
 
@@ -205,8 +205,10 @@ func EncodeWorkloadStatus(s WorkloadStatusType) (int, error) {
 		return 5, nil
 	case WorkloadStatusTerminated:
 		return 6, nil
+	case WorkloadStatusError:
+		return 7, nil
 	default:
-		return -1, errors.Errorf("unknown status %q", s)
+		return -1, errors.Errorf("unknown status %d", s)
 	}
 }
 
@@ -228,15 +230,26 @@ func DecodeWorkloadStatus(s int) (WorkloadStatusType, error) {
 		return WorkloadStatusActive, nil
 	case 6:
 		return WorkloadStatusTerminated, nil
+	case 7:
+		return WorkloadStatusError, nil
 	default:
 		return -1, errors.Errorf("unknown status %d", s)
 	}
 }
 
-// FullUnitStatus holds details about the workload and agent status of a unit.
-type FullUnitStatus struct {
+// UnitWorkloadAgentStatus holds details about the workload and agent status of a unit.
+type UnitWorkloadAgentStatus struct {
 	WorkloadStatus StatusInfo[WorkloadStatusType]
 	AgentStatus    StatusInfo[UnitAgentStatusType]
+	// Present is true if the unit agent logged into the API server.
+	Present bool
+}
+
+// FullUnitStatus holds details about the workload, agent and container status of a unit.
+type FullUnitStatus struct {
+	WorkloadStatus  StatusInfo[WorkloadStatusType]
+	AgentStatus     StatusInfo[UnitAgentStatusType]
+	ContainerStatus StatusInfo[CloudContainerStatusType]
 	// Present is true if the unit agent logged into the API server.
 	Present bool
 }
@@ -245,9 +258,18 @@ type FullUnitStatus struct {
 // The statuses are indexed by unit name.
 type UnitWorkloadStatuses map[unit.Name]UnitStatusInfo[WorkloadStatusType]
 
+// UnitAgentStatuses represents the agent statuses of a collection of units.
+// The statuses are indexed by unit name.
+type UnitAgentStatuses map[unit.Name]StatusInfo[UnitAgentStatusType]
+
 // UnitCloudContainerStatuses represents the cloud container statuses of a collection
 // of units. The statuses are indexed by unit name.
 type UnitCloudContainerStatuses map[unit.Name]StatusInfo[CloudContainerStatusType]
 
-// FullUnitStatuses represents the workload and agent statuses of a collection of units.
+// UnitWorkloadAgentStatuses represents the workload and agent statuses of a
+// collection of units.
+type UnitWorkloadAgentStatuses map[unit.Name]UnitWorkloadAgentStatus
+
+// FullUnitStatuses represents the workload, agent and container statuses of a
+// collection of units.
 type FullUnitStatuses map[unit.Name]FullUnitStatus

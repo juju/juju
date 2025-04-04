@@ -100,5 +100,6 @@ func (s *statusSuite) TestWorkloadStatusDBValues(c *gc.C) {
 		WorkloadStatusBlocked:     "blocked",
 		WorkloadStatusActive:      "active",
 		WorkloadStatusTerminated:  "terminated",
+		WorkloadStatusError:       "error",
 	})
 }
