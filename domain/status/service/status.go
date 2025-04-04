@@ -54,6 +54,8 @@ func decodeRelationStatusType(s status.RelationStatusType) (corestatus.Status, e
 		return corestatus.Suspending, nil
 	case status.RelationStatusTypeSuspended:
 		return corestatus.Suspended, nil
+	case status.RelationStatusTypeError:
+		return corestatus.Error, nil
 	default:
 		return "", errors.Errorf("unknown relation status %q", s)
 	}
