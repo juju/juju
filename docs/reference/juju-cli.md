@@ -6,8 +6,8 @@
 
 ```{toctree}
 :hidden:
-list-of-juju-cli-commands/index
-juju-environment-variables
+juju-cli/list-of-juju-cli-commands/index
+juju-cli/juju-environment-variables
 ```
 
 <!--HARRY SAYS: THIS DOC IS MISSING A LOT OF DETAIL-->

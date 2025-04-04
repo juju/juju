@@ -48,7 +48,7 @@ func (s *ResourceGetCmdSuite) TestRun(c *gc.C) {
 	hctx := mocks.NewMockContext(ctrl)
 	hctx.EXPECT().DownloadResource(gomock.Any(), "spam").Return(expected, nil)
 
-	com, err := jujuc.NewCommand(hctx, "resource-get")
+	com, err := jujuc.NewHookCommand(hctx, "resource-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"spam"})
@@ -64,7 +64,7 @@ func (s *ResourceGetCmdSuite) TestRunDownloadFailure(c *gc.C) {
 	hctx := mocks.NewMockContext(ctrl)
 	hctx.EXPECT().DownloadResource(gomock.Any(), "spam").Return("", errors.New("<failure>"))
 
-	com, err := jujuc.NewCommand(hctx, "resource-get")
+	com, err := jujuc.NewHookCommand(hctx, "resource-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"spam"})

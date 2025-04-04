@@ -1,30 +1,26 @@
-(command-juju-help-tool)=
-# `juju help-tool`
-> See also: [help](#help)
+(command-juju-help-hook-commands)=
+# `juju help-hook-commands`
+> See also: [help](#help), [help-action-commands](#help-action-commands)
 
 ## Summary
-Show help on a Juju charm hook tool.
+Show help on a Juju charm hook command.
 
 ## Usage
-```juju help-tool [options] [tool]```
+```juju help-hook-commands [options] [hook]```
 
 ## Examples
 
-For help on a specific tool, supply the name of that tool, for example:
+For help on a specific hook command, supply the name of that hook command, for example:
 
-        juju help-tool unit-get
+        juju help-hook-commands unit-get
 
 
 ## Details
 
-Juju charms can access a series of built-in helpers called 'hook-tools'.
-These are useful for the charm to be able to inspect its running environment.
-Currently available charm hook tools are:
+Juju charms have access to a set of built-in helpers known as 'hook-commands,'
+which allow them to inspect their runtime environment.
+The currently available charm hook commands include:
 
-    action-fail              Set action fail status with message.
-    action-get               Get action parameters.
-    action-log               Record a progress message for the current action.
-    action-set               Set action results.
     application-version-set  Specify which version of the application is deployed.
     close-port               Register a request to close a port or port range.
     config-get               Print application configuration.

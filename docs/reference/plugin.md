@@ -5,16 +5,16 @@
 ```{toctree}
 :hidden:
 
-list-of-known-juju-plugins/index
-plugin-flags
+plugin/list-of-known-juju-plugins/index
+plugin/plugin-flags
 ```
 
 
-A `juju` plugin is an external command that works with  `juju` but which is not part of the `juju` core code. 
+A `juju` plugin is an external command that works with  `juju` but which is not part of the `juju` core code.
 
 <!--Plugins are a way for Juju users to extend the `juju` CLI with their own custom commands, which are not part of the core `juju` code. -->
 
-At a more technical level, a `juju` plugin is any executable file in your `$PATH` that begins with `juju-`. Although you can run these independently of the Juju command line (`juju-<plugin-name>`), Juju will also wrap these commands so they can be run within Juju (`juju <plugin-name>`). 
+At a more technical level, a `juju` plugin is any executable file in your `$PATH` that begins with `juju-`. Although you can run these independently of the Juju command line (`juju-<plugin-name>`), Juju will also wrap these commands so they can be run within Juju (`juju <plugin-name>`).
 
 
 > See more:

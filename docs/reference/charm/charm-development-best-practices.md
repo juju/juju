@@ -30,9 +30,6 @@ Use clear and consequent naming. For example, prometheus includes multiple charm
 * Running on bare metal as a machine charm, under the name prometheus
 * Running in kubernetes as a k8s charm, under the name prometheus-k8s
 
-> See more: {ref}`Charm naming guidelines <charm-naming-guidelines>`
-
-
 When naming configuration items or actions, prefer lowercase alphanumeric names, separated with dashes if required. For example `timeout` or `enable-feature`. For charms that have already standardized on underscores, it is not necessary to change them, and it is better to be consistent within a charm then to have some values be dashes and some be underscores.
 
 ### State

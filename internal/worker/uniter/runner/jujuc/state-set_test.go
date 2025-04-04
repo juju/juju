@@ -77,7 +77,7 @@ func (s *stateSetSuite) TestStateSet(c *gc.C) {
 			test.expect()
 		}
 
-		toolCmd, err := jujuc.NewCommand(s.mockContext, "state-set")
+		toolCmd, err := jujuc.NewHookCommand(s.mockContext, "state-set")
 		c.Assert(err, jc.ErrorIsNil)
 
 		ctx := cmdtesting.Context(c)
@@ -96,7 +96,7 @@ func (s *stateSetSuite) TestStateSetExistingEmpty(c *gc.C) {
 	s.expectStateSetOne()
 	s.expectStateSetOneEmpty()
 
-	toolCmd, err := jujuc.NewCommand(s.mockContext, "state-set")
+	toolCmd, err := jujuc.NewHookCommand(s.mockContext, "state-set")
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := cmdtesting.Context(c)

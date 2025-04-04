@@ -46,7 +46,7 @@ func (s *stateDeleteSuite) TestStateDelete(c *gc.C) {
 			test.expect()
 		}
 
-		toolCmd, err := jujuc.NewCommand(s.mockContext, "state-delete")
+		toolCmd, err := jujuc.NewHookCommand(s.mockContext, "state-delete")
 		c.Assert(err, jc.ErrorIsNil)
 
 		ctx := cmdtesting.Context(c)

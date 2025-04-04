@@ -20,7 +20,7 @@ var _ = gc.Suite(&storageAddSuite{})
 
 func (s *storageAddSuite) getStorageUnitAddCommand(c *gc.C) cmd.Command {
 	hctx, _ := s.ContextSuite.NewHookContext()
-	com, err := jujuc.NewCommand(hctx, "storage-add")
+	com, err := jujuc.NewHookCommand(hctx, "storage-add")
 	c.Assert(err, jc.ErrorIsNil)
 	return jujuc.NewJujucCommandWrappedForTest(com)
 }

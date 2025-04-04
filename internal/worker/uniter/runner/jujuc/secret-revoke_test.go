@@ -45,7 +45,7 @@ func (s *SecretRevokeSuite) TestRevokeSecretInvalidArgs(c *gc.C) {
 			err:  `ERROR invalid value "-666" for option --relation: relation not found`,
 		},
 	} {
-		com, err := jujuc.NewCommand(hctx, "secret-revoke")
+		com, err := jujuc.NewHookCommand(hctx, "secret-revoke")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
@@ -58,7 +58,7 @@ func (s *SecretRevokeSuite) TestRevokeSecretInvalidArgs(c *gc.C) {
 func (s *SecretRevokeSuite) TestRevokeSecretForApp(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
-	com, err := jujuc.NewCommand(hctx, "secret-revoke")
+	com, err := jujuc.NewHookCommand(hctx, "secret-revoke")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
@@ -76,7 +76,7 @@ func (s *SecretRevokeSuite) TestRevokeSecretForApp(c *gc.C) {
 func (s *SecretRevokeSuite) TestRevokeSecretForRelation(c *gc.C) {
 	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 
-	com, err := jujuc.NewCommand(hctx, "secret-revoke")
+	com, err := jujuc.NewHookCommand(hctx, "secret-revoke")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
@@ -94,7 +94,7 @@ func (s *SecretRevokeSuite) TestRevokeSecretForRelation(c *gc.C) {
 func (s *SecretRevokeSuite) TestRevokeSecretForRelationUnit(c *gc.C) {
 	hctx, _ := s.newHookContext(1, "mediawiki/0", "mediawiki")
 
-	com, err := jujuc.NewCommand(hctx, "secret-revoke")
+	com, err := jujuc.NewHookCommand(hctx, "secret-revoke")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{

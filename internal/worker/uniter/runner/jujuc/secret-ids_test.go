@@ -21,7 +21,7 @@ var _ = gc.Suite(&SecretIdsSuite{})
 func (s *SecretIdsSuite) TestSecretIds(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
-	com, err := jujuc.NewCommand(hctx, "secret-ids")
+	com, err := jujuc.NewHookCommand(hctx, "secret-ids")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, nil)

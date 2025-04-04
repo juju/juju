@@ -5,9 +5,8 @@
 
 ```{toctree}
 :hidden:
-charm-development-best-practices
-charm-naming-guidelines
-charm-maturity
+charm/charm-development-best-practices
+charm/charm-maturity
 ```
 
 In Juju, a **charm** is an operator -- software that wraps an {ref}`application <application>` and that contains all of the instructions necessary for deploying, configuring, scaling, integrating, etc., the application on any {ref}`Juju-supported cloud <list-of-supported-clouds>`.
@@ -23,7 +22,7 @@ Charms are often published on [Charmhub](https://charmhub.io/).
 (kubernetes-charm)=
 #### Kubernetes
 
-A **Kubernetes charm** is a charm designed to run on a resource from a {ref}`Kubernetes cloud` -- i.e., in a container in a pod.
+A **Kubernetes charm** is a charm designed to run on a resource from a Kubernetes cloud -- i.e., in a container in a pod.
 
 Example Kubernetes charms:
 
@@ -34,7 +33,7 @@ Example Kubernetes charms:
 (machine-charm)=
 #### Machine
 
-A **machine charm** is a charm designed to run on a resource from a {ref}`machine-cloud` -- i.e., a bare metal machine, a virtual machine, or a system container.
+A **machine charm** is a charm designed to run on a resource from a machine cloud -- i.e., a bare metal machine, a virtual machine, or a system container.
 
 Example machine charms:
 - [Ubuntu](https://charmhub.io/ubuntu)
@@ -62,7 +61,7 @@ While charms are fundamentally about codifying operations for a given workload, 
 
 A **workloadless** charm is a charm that does not run any workload locally.
 
-Because of their nature, workloadless charms are often {ref}`infrastructure-agnostic <infrastructure-agostic-charm>`.
+Because of their nature, workloadless charms are often {ref}`infrastructure-agnostic <infrastructure-agnostic-charm>`.
 
 Examples:
 
@@ -140,7 +139,7 @@ Examples:
 (podspec-charm)
 #### Podspec
 
-> Superseded by {ref}`sidecar charms <sidecard-charm>`. Also deprecated in Juju 3+.
+> Superseded by {ref}`sidecar charms <sidecar-charm>`. Also deprecated in Juju 3+.
 
 In {ref}`Kubernetes charms <kubernetes-charm>`, a **podspec** charm is a {ref}`Kubernetes charm <kubernetes-charm>` designed to create and manage Kubernetes resources that are used by other charms or applications running on the cloud. As this pattern was difficult to implement correctly and also sidestepped Juju's model (the resources created by a podspec charm were not under Juju's control), this pattern has been deprecated in favor of {ref}`sidecar charms <sidecar-charm>`.
 
@@ -173,10 +172,10 @@ A **12-Factor app charm** is a charm that has been created using certain coordin
 When you initialise a rock with a 12-Factor-app-charm-geared profile, the initialisation will generate all the basic structure and content you'll need for the rock, including a [`rockcraft.yaml`^](https://canonical-rockcraft.readthedocs-hosted.com/en/latest/reference/rockcraft.yaml/#) prepopulated with an extension matching the profile. Similarly, when you initialise a charm with a 12-Factor-app-charm-geared profile, that will generate all the basic structure content you'll need for the charm, including a `charmcraft.yaml` pre-populated with an extension matching the profile as well as a `src/charm.py` pre-loaded with a library (`paas_charm`) with constructs matching the profile and the extension.
 
 > See more:
-> - {external+charmcraft:ref}`write-your-first-kubernetes-charm-for-a-django-app`, {external+juju:ref}``
-> - {external+juju:ref}`write-your-first-kubernetes-charm-for-a-fastapi-app`
-> - {external+juju:ref}`flask`
-> - {external+juju:ref}`write-your-first-kubernetes-charm-for-a-go-app`
+> - {external+charmcraft:ref}`Charmcraft | Write your first Kubernetes charm for a Django app <write-your-first-kubernetes-charm-for-a-django-app>`
+> - {external+charmcraft:ref}`Charmcraft | Write your first Kubernetes charm for a FastAPI app <write-your-first-kubernetes-charm-for-a-fastapi-app>`
+> - [Charmcraft | Write your first Kubernetes charm for a Flask app](https://canonical-charmcraft.readthedocs-hosted.com/en/stable/tutorial/flask/)
+> - {external+charmcraft:ref}`Charmcraft | Write your first Kubernetes charm for a Go app <write-your-first-kubernetes-charm-for-a-go-app>`
 
 (reactive-charm)=
 #### Reactive
@@ -214,7 +213,7 @@ A **charm revision** is a number that uniquely identifies the version of the cha
 The revision increases with every new version of the charm being uploaded to Charmhub. This can lead to situations of mismatch between the semantic version of a charm and its revision number. That is, whether the changes are for a semantically newer or older version, the revision number always goes up.
 ```
 
-A revision only becomes available for consumption once it's been released into a {ref}`channel <channel>`. At that point, charm users will be able to see the revision at `charmhub.io/<charm/channel>` or access it via `juju info <charm>` or `juju deploy <charm> --channel`. And to inspect a specific revision of a charm, use the `--revision` flag. The syntax is `juju info <charm> --revision <revision>`.
+A revision only becomes available for consumption once it's been released into a {ref}`channel <charm-channel>`. At that point, charm users will be able to see the revision at `charmhub.io/<charm/channel>` or access it via `juju info <charm>` or `juju deploy <charm> --channel`. And to inspect a specific revision of a charm, use the `--revision` flag. The syntax is `juju info <charm> --revision <revision>`.
 
 (charm-channel)=
 ### Charm channel

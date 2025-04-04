@@ -6,6 +6,5 @@ Reference docs for Juju developers
 :titlesonly:
 :glob:
 
-testing/index.md
 *
 ```

@@ -26,7 +26,7 @@ var _ = gc.Suite(&CredentialGetSuite{})
 // this might be done.
 func runCredentialGetCommand(s *CredentialGetSuite, c *gc.C, args []string) (*cmd.Context, int) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, "credential-get")
+	com, err := jujuc.NewHookCommand(hctx, "credential-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)

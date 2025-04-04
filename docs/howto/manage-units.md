@@ -6,9 +6,10 @@
 This document demonstrates various operations that you can perform on a unit.
 
 ```{important}
-Units are also relevant when adding storage or scaling an application. See {ref}`manage-storage` and {ref}`manage-aplications`.
+Units are also relevant when adding storage or scaling an application. See {ref}`manage-storage` and {ref}`manage-applications`.
 ```
 
+(add-a-unit)=
 ## Add a unit
 
 To add a unit, use the `add-unit` command followed by the application name:
@@ -114,6 +115,7 @@ juju resolved myapp/0
 
 > See more: {ref}`command-juju-resolved`
 
+(remove-a-unit)=
 ## Remove a unit
 
 To remove individual units instead of the entire application (i.e. all the units), use the `remove-unit` command followed by the unit name. For example, the code below removes unit 2 of the PostgreSQL charm. For example:

@@ -23,7 +23,7 @@ func (s *ApplicationVersionSetSuite) createCommand(c *gc.C, err error) (*Context
 	hctx := s.GetHookContext(c, -1, "")
 	s.Stub.SetErrors(err)
 
-	com, err := jujuc.NewCommand(hctx, "application-version-set")
+	com, err := jujuc.NewHookCommand(hctx, "application-version-set")
 	c.Assert(err, jc.ErrorIsNil)
 	return hctx, jujuc.NewJujucCommandWrappedForTest(com)
 }

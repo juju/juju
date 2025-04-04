@@ -5,15 +5,15 @@
 ```{toctree}
 :hidden:
 
-list-of-supported-clouds/index
-kubernetes-clouds-and-juju
+cloud/list-of-supported-clouds/index
+cloud/kubernetes-clouds-and-juju
 
 ```
 
 
 <!-- > -  {ref}`Amazon AWS <the-amazon-ec2-cloud-and-juju>`,  {ref}`Amazon EKS <the-amazon-eks-cloud-and-juju>`,  {ref}`Google GCE <the-google-gce-cloud-and-juju>`, {ref}`Google GKE <the-google-gke-cloud-and-juju>`, {ref}`LXD <the-lxd-cloud-and-juju>`, {ref}`MAAS <the-maas-cloud-and-juju>`,  {ref}`Manual cloud <the-manual-cloud-and-juju>`, {ref}`MicroK8s <the-microk8s-cloud-and-juju>`, {ref}`Microsoft Azure <the-microsoft-azure-cloud-and-juju>`, {ref}`Microsoft AKS <the-microsoft-aks-cloud-and-juju>`, {ref}`OpenStack <openstack-and-juju>`, {ref}`Oracle <the-oracle-oci-cloud-and-juju>`, {ref}`VMware vSphere <vmware-vsphere-and-juju>` -->
 
-To Juju, a **cloud** (or backing cloud) is any entity that has an API that can provide compute, networking, and optionally storage resources in order for application units to be deployed on them. This includes public clouds such as Amazon Web Services, Google Compute Engine, Microsoft Azure and Kubernetes as well as private OpenStack-based clouds. Juju can also make use of environments which are not clouds per se, but which Juju can nonetheless treat as a cloud. MAAS and LXD fit into this last category. Because of this, in Juju a cloud is sometimes also called, more generally, a **substrate**. 
+To Juju, a **cloud** (or backing cloud) is any entity that has an API that can provide compute, networking, and optionally storage resources in order for application units to be deployed on them. This includes public clouds such as Amazon Web Services, Google Compute Engine, Microsoft Azure and Kubernetes as well as private OpenStack-based clouds. Juju can also make use of environments which are not clouds per se, but which Juju can nonetheless treat as a cloud. MAAS and LXD fit into this last category. Because of this, in Juju a cloud is sometimes also called, more generally, a **substrate**.
 
 
 
@@ -24,7 +24,7 @@ To Juju, a **cloud** (or backing cloud) is any entity that has an API that can p
 (cloud-differences)=
 ## Cloud differences
 
-While Juju aims to make all clouds feel the same, some differences still persist depending on whether the cloud is a machine cloud or a Kubernetes cloud or a specific cloud as opposed to another. 
+While Juju aims to make all clouds feel the same, some differences still persist depending on whether the cloud is a machine cloud or a Kubernetes cloud or a specific cloud as opposed to another.
 
 <!--
 
@@ -41,7 +41,7 @@ The Amazon EC2 cloud is a machine cloud, so you connect it to Juju via `add-clou
 (machine-clouds-vs-kubernetes-clouds)=
 ### Machine clouds vs. Kubernetes clouds
 
-Juju makes a fundamental distinction between **'machine' clouds** -- that is, clouds based on bare metal machines (BMs; e.g., MAAS), virtual machines (VMs; e.g., AWS EC2), or system containers (e.g., LXD) -- and **'Kubernetes' clouds** -- that is, based on containers (e.g., AWS EKS). 
+Juju makes a fundamental distinction between **'machine' clouds** -- that is, clouds based on bare metal machines (BMs; e.g., MAAS), virtual machines (VMs; e.g., AWS EC2), or system containers (e.g., LXD) -- and **'Kubernetes' clouds** -- that is, based on containers (e.g., AWS EKS).
 
 > See more: {ref}`machine`
 
@@ -54,7 +54,7 @@ and, occasionally
 
 - what operations you may perform, e.g.,
     - `enable-ha` is currently supported just for machine controllers
-    - scaling an application is done via `add-unit` on machines and via `scale-application` on K8s). 
+    - scaling an application is done via `add-unit` on machines and via `scale-application` on K8s).
 
 > See more:  {ref}`tutorial`, {ref}`how-to-guides`
 
@@ -76,7 +76,7 @@ From the point of view of a user, this mostly just affects whether you can skip 
 (cloud-foo-vs-cloud-bar)=
 ### Cloud foo vs. cloud bar
 
-As a Juju user you will sometimes also notice small differences tied to a cloud's specific identity, beyond the machine-Kubernetes divide. 
+As a Juju user you will sometimes also notice small differences tied to a cloud's specific identity, beyond the machine-Kubernetes divide.
 
 This usually affects the setup phase (the information you have to supply to Juju to connect Juju to your cloud, and whether Juju can retrieve any of that automatically for you) and, later on, the customisations you can make to your deployment (e.g., small differences in configurations, constraints, placement directives, subnets, spaces, storage, etc., depending on the features available / supported for a given cloud).
 
@@ -89,11 +89,11 @@ However, note that all Kubernetes clouds are fundamentally the same.
 (cloud-definition)=
 ## Cloud definition
 
-In Juju, cloud definitions can be provided either interactively or via a YAML file or (depending on the cloud) environment variables. 
+In Juju, cloud definitions can be provided either interactively or via a YAML file or (depending on the cloud) environment variables.
 
 Regardless of the method, they are saved in a file called `public-clouds.yaml` (for public clouds; on Linux, typically: `~/.local/share/juju/public-clouds.yaml`) or `clouds.yaml` (for user-defined clouds, including Kubernetes; on Linux, the default location is: `~/.local/share/juju/clouds.yaml`).
 
-These files both follow the same basic schema. 
+These files both follow the same basic schema.
 
 
 <!--
@@ -138,13 +138,13 @@ clouds:
 <!--
 ```{important}
 
-This schema is the same across all clouds, 
+This schema is the same across all clouds,
 
 (1) `auth-types` -- the specific list may vary from cloud to cloud.
 
 (2) `config` -- while the generic model configuration keys are the same across clouds, the cloud-specific keys will naturally vary.
 
-> See more: {ref}`List of supported clouds > `<cloud name>` <list-of-supported-clouds>` 
+> See more: {ref}`List of supported clouds > `<cloud name>` <list-of-supported-clouds>`
 
 ```
 -->
@@ -170,11 +170,11 @@ The most important keys are `clouds`, `.<cloud name>`, `..type`, `..auth-types`,
 
 ### `clouds.<cloud>`
 
-**Status:** Required. 
+**Status:** Required.
 
 **Purpose:** To define a cloud.
 
-**Name:** String = the name of the cloud. For built-in clouds and for public clouds, set by Juju; see {ref}`list-of-supported-clouds` > `<cloud name>`. For user-defined clouds, set by the user. 
+**Name:** String = the name of the cloud. For built-in clouds and for public clouds, set by Juju; see {ref}`list-of-supported-clouds` > `<cloud name>`. For user-defined clouds, set by the user.
 
 **Value:** Mapping. Keys are strings = cloud properties.
 
@@ -190,7 +190,7 @@ The most important keys are `clouds`, `.<cloud name>`, `..type`, `..auth-types`,
 
 **Status:** Optional.
 
-**Purpose:** To define the Certificate Authority certificates to be used to validate certificates of cloud infrastructure components. 
+**Purpose:** To define the Certificate Authority certificates to be used to validate certificates of cloud infrastructure components.
 
 **Value:** Sequence. Items are strings = base64-encoded x.509 certs.
 
@@ -210,7 +210,7 @@ The most important keys are `clouds`, `.<cloud name>`, `..type`, `..auth-types`,
 **Purpose:** To describe the cloud.
 
 **Value:** String = the cloud description.
- 
+
 ### `clouds.<cloud>.endpoint`
 
 **Status:** {ref}`TO BE ADDED]
@@ -223,7 +223,7 @@ The most important keys are `clouds`, `.<cloud name>`, `..type`, `..auth-types`,
 
 **Status:** [TO BE ADDED]
 
-**Purpose:** To define the Kubernetes host cloud region. 
+**Purpose:** To define the Kubernetes host cloud region.
 
 **Value:** String = the Kubernetes host cloud region, in the following format: `<cloudType>/<region>`.
 
@@ -279,7 +279,7 @@ The region's storage endpoint URL.  If the cloud/region does not have an storage
 **Purpose:** To define the default storage endpoint for the cloud regions. Note: It may be overridden by a region.
 
 **Value:** String = the storage endpoint.
- 
+
 ### `clouds.<cloud>.type`
 
 **Status:** Required.

@@ -91,7 +91,7 @@ func (s *JujuRebootSuite) TestJujuRebootCommand(c *gc.C) {
 		hctx := s.newHookContext(c)
 		hctx.shouldError = t.hctx.shouldError
 		hctx.rebootPriority = t.hctx.rebootPriority
-		com, err := jujuc.NewCommand(hctx, "juju-reboot")
+		com, err := jujuc.NewHookCommand(hctx, "juju-reboot")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
@@ -102,7 +102,7 @@ func (s *JujuRebootSuite) TestJujuRebootCommand(c *gc.C) {
 
 func (s *JujuRebootSuite) TestRebootInActions(c *gc.C) {
 	jujucCtx := &actionGetContext{}
-	com, err := jujuc.NewCommand(jujucCtx, "juju-reboot")
+	com, err := jujuc.NewHookCommand(jujucCtx, "juju-reboot")
 	c.Assert(err, jc.ErrorIsNil)
 	cmdCtx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), cmdCtx, nil)

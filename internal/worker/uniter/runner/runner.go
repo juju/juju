@@ -540,7 +540,7 @@ func (runner *runner) startJujucServer(ctx stdcontext.Context) (*jujuc.Server, e
 		if ctxId != runner.context.Id() {
 			return nil, errors.Errorf("wrong context ID; got %q", ctxId)
 		}
-		return jujuc.NewCommand(runner.context, cmdName)
+		return jujuc.NewHookCommand(runner.context, cmdName)
 	}
 
 	socket := runner.paths.GetJujucServerSocket()

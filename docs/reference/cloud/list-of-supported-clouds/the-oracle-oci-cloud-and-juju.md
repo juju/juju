@@ -1,9 +1,9 @@
 (cloud-oci)=
 # The Oracle OCI cloud and Juju
 
-This document describes details specific to using your existing Oracle OCI cloud with Juju. 
+This document describes details specific to using your existing Oracle OCI cloud with Juju.
 
-> See more: [Oracle OCI](https://docs.oracle.com/en-us/iaas/Content/home.htm) 
+> See more: [Oracle OCI](https://docs.oracle.com/en-us/iaas/Content/home.htm)
 
 When using this cloud with Juju, it is important to keep in mind that it is a (1) machine cloud and (2) not some other cloud.
 
@@ -39,7 +39,7 @@ Attributes:
 
 ## Cloud-specific model configuration keys
 
-#### `address-space`
+### `address-space`
 The CIDR block to use when creating default subnets. The subnet must have at least a /16 size.
 
 | | |
@@ -49,7 +49,7 @@ The CIDR block to use when creating default subnets. The subnet must have at lea
 | immutable | false |
 | mandatory | false |
 
-#### `compartment-id`
+### `compartment-id`
 The OCID of the compartment in which juju has access to create resources.
 
 | | |

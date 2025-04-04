@@ -51,7 +51,7 @@ func (s *SecretUpdateSuite) TestUpdateSecretInvalidArgs(c *gc.C) {
 			err:  `ERROR expire time or duration "2022-01-01" not valid`,
 		},
 	} {
-		com, err := jujuc.NewCommand(hctx, "secret-set")
+		com, err := jujuc.NewHookCommand(hctx, "secret-set")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
@@ -65,7 +65,7 @@ func (s *SecretUpdateSuite) TestUpdateSecret(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
 	expectedExpiry := time.Now().Add(time.Hour)
-	com, err := jujuc.NewCommand(hctx, "secret-set")
+	com, err := jujuc.NewHookCommand(hctx, "secret-set")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
@@ -98,7 +98,7 @@ func (s *SecretUpdateSuite) TestUpdateSecret(c *gc.C) {
 func (s *SecretUpdateSuite) TestUpdateSecretBase64(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
-	com, err := jujuc.NewCommand(hctx, "secret-set")
+	com, err := jujuc.NewHookCommand(hctx, "secret-set")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:9m4e2mr0ui3e8a215n4g", "token#base64=key="})
@@ -114,7 +114,7 @@ func (s *SecretUpdateSuite) TestUpdateSecretBase64(c *gc.C) {
 func (s *SecretUpdateSuite) TestUpdateSecretRotateInterval(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
-	com, err := jujuc.NewCommand(hctx, "secret-set")
+	com, err := jujuc.NewHookCommand(hctx, "secret-set")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--rotate", "daily", "secret:9m4e2mr0ui3e8a215n4g"})
@@ -143,7 +143,7 @@ func (s *SecretUpdateSuite) TestUpdateSecretFromFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	hctx, _ := s.ContextSuite.NewHookContext()
-	com, err := jujuc.NewCommand(hctx, "secret-set")
+	com, err := jujuc.NewHookCommand(hctx, "secret-set")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:9m4e2mr0ui3e8a215n4g", "token#base64=key=", "--file", fileName})
