@@ -2334,17 +2334,6 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 	return cons, nil
 }
 
-// DeviceConstraints returns the device constraints for the application.
-func (a *Application) DeviceConstraints() (map[string]DeviceConstraints, error) {
-	cons, err := readDeviceConstraints(a.st, a.deviceConstraintsKey())
-	if errors.Is(err, errors.NotFound) {
-		return nil, nil
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return cons, nil
-}
-
 type addApplicationOpsArgs struct {
 	applicationDoc    *applicationDoc
 	statusDoc         statusDoc
