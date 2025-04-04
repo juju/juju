@@ -173,7 +173,7 @@ func (s *stubSuite) TestAssignUnitsToMachinesMultipleUnitsSameMachine(c *gc.C) {
 func (s *stubSuite) TestAssignUnitsToMachinesAssignUnitAndLaterAddMore(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	appID, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg, []application.AddUnitArg{{UnitName: "foo/0"}})
+	appUUID, err := s.appState.CreateApplication(context.Background(), "foo", addApplicationArg, []application.AddUnitArg{{UnitName: "foo/0"}})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machineState.CreateMachine(context.Background(), "0", "net-node-init-uuid", "machine-uuid")
@@ -184,7 +184,10 @@ func (s *stubSuite) TestAssignUnitsToMachinesAssignUnitAndLaterAddMore(c *gc.C) 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.appState.AddIAASUnits(context.Background(), c.MkDir(), appID, application.AddUnitArg{UnitName: "foo/1"})
+	charmUUID, err := s.appState.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.appState.AddIAASUnits(context.Background(), c.MkDir(), appUUID, charmUUID, application.AddUnitArg{UnitName: "foo/1"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.srv.AssignUnitsToMachines(context.Background(), map[string][]unit.Name{

@@ -161,8 +161,11 @@ func (s *modelStateSuite) createTestingUnit(
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	charmUUID, err := appState.GetCharmIDByApplicationName(ctx, "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
 	unitName := coreunit.Name("foo/123")
-	appState.AddIAASUnits(ctx, "", appID, application.AddUnitArg{
+	appState.AddIAASUnits(ctx, "", appID, charmUUID, application.AddUnitArg{
 		UnitName: unitName,
 	})
 

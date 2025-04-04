@@ -258,16 +258,23 @@ func (s *baseSuite) createApplication(c *gc.C, name string, l life.Life, units .
 			DownloadURL:        "https://example.com",
 			DownloadSize:       42,
 		},
-		Scale: len(units),
+		Scale:     len(units),
+		Placement: "placement",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelType, err := state.GetModelType(ctx)
 	c.Assert(err, jc.ErrorIsNil)
+
+	charmUUID, err := state.GetCharmIDByApplicationName(ctx, name)
+	c.Assert(err, jc.ErrorIsNil)
+
 	db, err := state.DB()
 	c.Assert(err, jc.ErrorIsNil)
 	for _, u := range units {
 		err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			u.CharmUUID = charmUUID
+
 			if modelType == coremodel.IAAS {
 				return state.insertIAASUnit(ctx, tx, appID, u)
 			}

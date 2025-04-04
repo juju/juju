@@ -225,8 +225,11 @@ func (s *leadershipSuite) createApplication(c *gc.C, name string, units ...appli
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	charmUUID, err := appState.GetCharmIDByApplicationName(ctx, "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
 	for _, u := range units {
-		err := appState.AddIAASUnits(ctx, "", appID, u)
+		err := appState.AddIAASUnits(ctx, "", appID, charmUUID, u)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 

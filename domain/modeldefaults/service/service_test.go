@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/schema"
 	jc "github.com/juju/testing/checkers"
@@ -458,7 +457,6 @@ func (s *serviceSuite) TestModelDefaultsNoProviderDefaults(c *gc.C) {
 		modelUUID,
 	)
 	c.Check(err, jc.ErrorIsNil)
-	fmt.Printf("%+v\n", defaults["test-provider-key"])
 	c.Check(defaults["test-provider-key"].Region, gc.IsNil)
 	c.Check(defaults["test-provider-key"].Controller, gc.IsNil)
 }

@@ -90,18 +90,18 @@ func (c *MockBackendAllLocalRelatedModelsCall) DoAndReturn(f func() ([]string, e
 }
 
 // Export mocks base method.
-func (m *MockBackend) Export(arg0 map[string]string, arg1 objectstore.ObjectStore) (description.Model, error) {
+func (m *MockBackend) Export(arg0 objectstore.ObjectStore) (description.Model, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Export", arg0, arg1)
+	ret := m.ctrl.Call(m, "Export", arg0)
 	ret0, _ := ret[0].(description.Model)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Export indicates an expected call of Export.
-func (mr *MockBackendMockRecorder) Export(arg0, arg1 any) *MockBackendExportCall {
+func (mr *MockBackendMockRecorder) Export(arg0 any) *MockBackendExportCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Export", reflect.TypeOf((*MockBackend)(nil).Export), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Export", reflect.TypeOf((*MockBackend)(nil).Export), arg0)
 	return &MockBackendExportCall{Call: call}
 }
 
@@ -117,13 +117,13 @@ func (c *MockBackendExportCall) Return(arg0 description.Model, arg1 error) *Mock
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBackendExportCall) Do(f func(map[string]string, objectstore.ObjectStore) (description.Model, error)) *MockBackendExportCall {
+func (c *MockBackendExportCall) Do(f func(objectstore.ObjectStore) (description.Model, error)) *MockBackendExportCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendExportCall) DoAndReturn(f func(map[string]string, objectstore.ObjectStore) (description.Model, error)) *MockBackendExportCall {
+func (c *MockBackendExportCall) DoAndReturn(f func(objectstore.ObjectStore) (description.Model, error)) *MockBackendExportCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -368,18 +368,18 @@ func (m *MockModelExporter) EXPECT() *MockModelExporterMockRecorder {
 }
 
 // ExportModel mocks base method.
-func (m *MockModelExporter) ExportModel(arg0 context.Context, arg1 map[string]string, arg2 objectstore.ObjectStore) (description.Model, error) {
+func (m *MockModelExporter) ExportModel(arg0 context.Context, arg1 objectstore.ObjectStore) (description.Model, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExportModel", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ExportModel", arg0, arg1)
 	ret0, _ := ret[0].(description.Model)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ExportModel indicates an expected call of ExportModel.
-func (mr *MockModelExporterMockRecorder) ExportModel(arg0, arg1, arg2 any) *MockModelExporterExportModelCall {
+func (mr *MockModelExporterMockRecorder) ExportModel(arg0, arg1 any) *MockModelExporterExportModelCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportModel", reflect.TypeOf((*MockModelExporter)(nil).ExportModel), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportModel", reflect.TypeOf((*MockModelExporter)(nil).ExportModel), arg0, arg1)
 	return &MockModelExporterExportModelCall{Call: call}
 }
 
@@ -395,13 +395,13 @@ func (c *MockModelExporterExportModelCall) Return(arg0 description.Model, arg1 e
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelExporterExportModelCall) Do(f func(context.Context, map[string]string, objectstore.ObjectStore) (description.Model, error)) *MockModelExporterExportModelCall {
+func (c *MockModelExporterExportModelCall) Do(f func(context.Context, objectstore.ObjectStore) (description.Model, error)) *MockModelExporterExportModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelExporterExportModelCall) DoAndReturn(f func(context.Context, map[string]string, objectstore.ObjectStore) (description.Model, error)) *MockModelExporterExportModelCall {
+func (c *MockModelExporterExportModelCall) DoAndReturn(f func(context.Context, objectstore.ObjectStore) (description.Model, error)) *MockModelExporterExportModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

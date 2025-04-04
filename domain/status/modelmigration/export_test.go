@@ -85,6 +85,36 @@ func (s *exportSuite) TestExportApplicationStatuses(c *gc.C) {
 	c.Check(app.Status().Data(), gc.DeepEquals, map[string]interface{}{"foo": "bar"})
 }
 
+func (s *exportSuite) TestExportApplicationStatusesMissing(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.exportService.EXPECT().ExportApplicationStatuses(gomock.Any()).Return(
+		map[string]corestatus.StatusInfo{}, nil,
+	)
+	s.exportService.EXPECT().ExportUnitStatuses(gomock.Any()).Return(
+		map[coreunit.Name]corestatus.StatusInfo{},
+		map[coreunit.Name]corestatus.StatusInfo{},
+		nil,
+	)
+
+	model := description.NewModel(description.ModelArgs{})
+	appArgs := description.ApplicationArgs{
+		Name: "prometheus",
+	}
+	app := model.AddApplication(appArgs)
+
+	exportOp := exportOperation{
+		service: s.exportService,
+		clock:   clock.WallClock,
+	}
+
+	err := exportOp.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(app.Status().Value(), gc.Equals, "")
+	c.Check(app.Status().NeverSet(), jc.IsTrue)
+}
+
 func (s *exportSuite) TestExportUnitStatuses(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -139,7 +169,7 @@ func (s *exportSuite) TestExportUnitStatuses(c *gc.C) {
 	err := exportOp.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(app.Status(), gc.IsNil)
+	c.Check(app.Status().NeverSet(), jc.IsTrue)
 
 	c.Check(u0.AgentStatus().Value(), gc.Equals, corestatus.Idle.String())
 	c.Check(u0.AgentStatus().Data(), gc.DeepEquals, map[string]interface{}{"agent": "idle"})

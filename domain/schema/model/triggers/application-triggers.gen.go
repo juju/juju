@@ -37,8 +37,6 @@ WHEN
 	(NEW.charm_upgrade_on_error != OLD.charm_upgrade_on_error OR (NEW.charm_upgrade_on_error IS NOT NULL AND OLD.charm_upgrade_on_error IS NULL) OR (NEW.charm_upgrade_on_error IS NULL AND OLD.charm_upgrade_on_error IS NOT NULL)) OR
 	(NEW.exposed != OLD.exposed OR (NEW.exposed IS NOT NULL AND OLD.exposed IS NULL) OR (NEW.exposed IS NULL AND OLD.exposed IS NOT NULL)) OR
 	(NEW.placement != OLD.placement OR (NEW.placement IS NOT NULL AND OLD.placement IS NULL) OR (NEW.placement IS NULL AND OLD.placement IS NOT NULL)) OR
-	(NEW.password_hash_algorithm_id != OLD.password_hash_algorithm_id OR (NEW.password_hash_algorithm_id IS NOT NULL AND OLD.password_hash_algorithm_id IS NULL) OR (NEW.password_hash_algorithm_id IS NULL AND OLD.password_hash_algorithm_id IS NOT NULL)) OR
-	(NEW.password_hash != OLD.password_hash OR (NEW.password_hash IS NOT NULL AND OLD.password_hash IS NULL) OR (NEW.password_hash IS NULL AND OLD.password_hash IS NOT NULL)) OR
 	NEW.space_uuid != OLD.space_uuid 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
@@ -238,7 +236,7 @@ WHEN
 	NEW.life_id != OLD.life_id OR
 	NEW.application_uuid != OLD.application_uuid OR
 	NEW.net_node_uuid != OLD.net_node_uuid OR
-	(NEW.charm_uuid != OLD.charm_uuid OR (NEW.charm_uuid IS NOT NULL AND OLD.charm_uuid IS NULL) OR (NEW.charm_uuid IS NULL AND OLD.charm_uuid IS NOT NULL)) OR
+	NEW.charm_uuid != OLD.charm_uuid OR
 	(NEW.password_hash_algorithm_id != OLD.password_hash_algorithm_id OR (NEW.password_hash_algorithm_id IS NOT NULL AND OLD.password_hash_algorithm_id IS NULL) OR (NEW.password_hash_algorithm_id IS NULL AND OLD.password_hash_algorithm_id IS NOT NULL)) OR
 	(NEW.password_hash != OLD.password_hash OR (NEW.password_hash IS NOT NULL AND OLD.password_hash IS NULL) OR (NEW.password_hash IS NULL AND OLD.password_hash IS NOT NULL)) 
 BEGIN

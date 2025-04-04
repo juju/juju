@@ -10,11 +10,11 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	corerelation "github.com/juju/juju/core/relation"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/storage"
@@ -70,8 +70,9 @@ type applicationName struct {
 type applicationDetails struct {
 	UUID      coreapplication.ID `db:"uuid"`
 	Name      string             `db:"name"`
-	CharmID   string             `db:"charm_uuid"`
+	CharmUUID corecharm.ID       `db:"charm_uuid"`
 	LifeID    life.Life          `db:"life_id"`
+	Placement string             `db:"placement"`
 	SpaceUUID string             `db:"space_uuid"`
 }
 
@@ -82,23 +83,15 @@ type applicationScale struct {
 	ScaleTarget   int                `db:"scale_target"`
 }
 
-func (as applicationScale) toScaleState() application.ScaleState {
-	return application.ScaleState{
-		Scaling:     as.Scaling,
-		Scale:       as.Scale,
-		ScaleTarget: as.ScaleTarget,
-	}
-}
-
 type architectureMap struct {
 	ID   int    `db:"id"`
 	Name string `db:"name"`
 }
 
 type unitAgentVersion struct {
-	UnitUUID      string `db:"unit_uuid"`
-	Version       string `db:"version"`
-	ArchtectureID int    `db:"architecture_id"`
+	UnitUUID       string `db:"unit_uuid"`
+	Version        string `db:"version"`
+	ArchitectureID int    `db:"architecture_id"`
 }
 
 type unitUUID struct {
@@ -111,12 +104,21 @@ type unitName struct {
 
 type unitDetails struct {
 	UnitUUID                coreunit.UUID      `db:"uuid"`
+	CharmUUID               corecharm.ID       `db:"charm_uuid"`
 	NetNodeID               string             `db:"net_node_uuid"`
 	Name                    coreunit.Name      `db:"name"`
 	ApplicationID           coreapplication.ID `db:"application_uuid"`
 	LifeID                  life.Life          `db:"life_id"`
 	PasswordHash            sql.NullString     `db:"password_hash"`
 	PasswordHashAlgorithmID sql.NullInt16      `db:"password_hash_algorithm_id"`
+}
+
+type unitAttributes struct {
+	UnitUUID    coreunit.UUID  `db:"uuid"`
+	Name        coreunit.Name  `db:"name"`
+	LifeID      life.Life      `db:"life_id"`
+	ResolveMode sql.NullInt16  `db:"resolve_mode_id"`
+	ProviderID  sql.NullString `db:"provider_id"`
 }
 
 type unitPassword struct {
@@ -618,7 +620,6 @@ type countResult struct {
 // charmLocator is used to get the locator of a charm. The locator is purely
 // to reconstruct the charm URL.
 type charmLocator struct {
-	Name           string        `db:"name"`
 	ReferenceName  string        `db:"reference_name"`
 	Revision       int           `db:"revision"`
 	SourceID       int           `db:"source_id"`
@@ -638,13 +639,13 @@ type applicationCharmDownloadInfo struct {
 }
 
 type resourceToAdd struct {
-	UUID      string    `db:"uuid"`
-	CharmUUID string    `db:"charm_uuid"`
-	Name      string    `db:"charm_resource_name"`
-	Revision  *int      `db:"revision"`
-	Origin    string    `db:"origin_type_name"`
-	State     string    `db:"state_name"`
-	CreatedAt time.Time `db:"created_at"`
+	UUID      string       `db:"uuid"`
+	CharmUUID corecharm.ID `db:"charm_uuid"`
+	Name      string       `db:"charm_resource_name"`
+	Revision  *int         `db:"revision"`
+	Origin    string       `db:"origin_type_name"`
+	State     string       `db:"state_name"`
+	CreatedAt time.Time    `db:"created_at"`
 }
 
 type storagePool struct {
@@ -653,13 +654,13 @@ type storagePool struct {
 }
 
 type storageToAdd struct {
-	ApplicationUUID string  `db:"application_uuid"`
-	CharmUUID       string  `db:"charm_uuid"`
-	StorageName     string  `db:"storage_name"`
-	StoragePoolUUID *string `db:"storage_pool_uuid"`
-	StorageType     *string `db:"storage_type"`
-	Size            uint    `db:"size_mib"`
-	Count           uint    `db:"count"`
+	ApplicationUUID string       `db:"application_uuid"`
+	CharmUUID       corecharm.ID `db:"charm_uuid"`
+	StorageName     string       `db:"storage_name"`
+	StoragePoolUUID *string      `db:"storage_pool_uuid"`
+	StorageType     *string      `db:"storage_type"`
+	Size            uint         `db:"size_mib"`
+	Count           uint         `db:"count"`
 }
 
 type linkResourceApplication struct {
@@ -1069,18 +1070,28 @@ type applicationPlatformAndChannel struct {
 }
 
 type applicationOrigin struct {
-	ReferenceName string `db:"reference_name"`
-	SourceID      int    `db:"source_id"`
+	ReferenceName      string         `db:"reference_name"`
+	SourceID           int            `db:"source_id"`
+	Revision           sql.NullInt64  `db:"revision"`
+	CharmhubIdentifier sql.NullString `db:"charmhub_identifier"`
+	Hash               sql.NullString `db:"hash"`
 }
 
 type exportApplication struct {
-	UUID         coreapplication.ID `db:"uuid"`
-	Name         string             `db:"name"`
-	CharmUUID    corecharm.ID       `db:"charm_uuid"`
-	Life         life.Life          `db:"life_id"`
-	PasswordHash string             `db:"password_hash"`
-	Exposed      bool               `db:"exposed"`
-	Subordinate  bool               `db:"subordinate"`
+	UUID                 coreapplication.ID `db:"uuid"`
+	Name                 string             `db:"name"`
+	CharmUUID            corecharm.ID       `db:"charm_uuid"`
+	Life                 life.Life          `db:"life_id"`
+	Placement            string             `db:"placement"`
+	Exposed              bool               `db:"exposed"`
+	Subordinate          bool               `db:"subordinate"`
+	CharmModifiedVersion int                `db:"charm_modified_version"`
+	CharmUpgradeOnError  bool               `db:"charm_upgrade_on_error"`
+	CharmReferenceName   string             `db:"reference_name"`
+	CharmSourceID        int                `db:"source_id"`
+	CharmRevision        int                `db:"revision"`
+	CharmArchitectureID  sql.NullInt64      `db:"architecture_id"`
+	K8sServiceProviderID sql.NullString     `db:"k8s_provider_id"`
 }
 
 // peerEndpoint represents a structure for defining a peer application endpoint
@@ -1090,6 +1101,12 @@ type peerEndpoint struct {
 	UUID corerelation.EndpointUUID `db:"uuid"`
 	// Name is the human-readable name of the peer endpoint.
 	Name string `db:"name"`
+}
+
+type exportUnit struct {
+	UUID    coreunit.UUID `db:"uuid"`
+	Name    coreunit.Name `db:"name"`
+	Machine machine.Name  `db:"machine_name"`
 }
 
 type setExposedSpace struct {

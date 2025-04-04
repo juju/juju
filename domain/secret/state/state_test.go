@@ -712,9 +712,9 @@ VALUES (?, ?, ?, ?, ?)
 			}
 			unitUUID := uuid.MustNewUUID().String()
 			_, err = tx.ExecContext(ctx, `
-INSERT INTO unit (uuid, life_id, name, net_node_uuid, application_uuid)
-VALUES (?, ?, ?, ?, (SELECT uuid from application WHERE name = ?))
-`, unitUUID, life.Alive, appName+fmt.Sprintf("/%d", i), netNodeUUID, appName)
+INSERT INTO unit (uuid, life_id, name, net_node_uuid, application_uuid, charm_uuid)
+VALUES (?, ?, ?, ?, (SELECT uuid from application WHERE name = ?), ?)
+`, unitUUID, life.Alive, appName+fmt.Sprintf("/%d", i), netNodeUUID, appName, charmUUID)
 			if err != nil {
 				return errors.Capture(err)
 			}

@@ -22,6 +22,7 @@ import (
 	status "github.com/juju/juju/core/status"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
+	application0 "github.com/juju/juju/domain/application"
 	charm "github.com/juju/juju/domain/application/charm"
 	relation0 "github.com/juju/juju/domain/relation"
 	charm0 "github.com/juju/juju/internal/charm"
@@ -474,6 +475,45 @@ func (c *MockApplicationServiceGetUnitLifeCall) Do(f func(context.Context, unit.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceGetUnitLifeCall) DoAndReturn(f func(context.Context, unit.Name) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitRefreshAttributes mocks base method.
+func (m *MockApplicationService) GetUnitRefreshAttributes(arg0 context.Context, arg1 unit.Name) (application0.UnitAttributes, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitRefreshAttributes", arg0, arg1)
+	ret0, _ := ret[0].(application0.UnitAttributes)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitRefreshAttributes indicates an expected call of GetUnitRefreshAttributes.
+func (mr *MockApplicationServiceMockRecorder) GetUnitRefreshAttributes(arg0, arg1 any) *MockApplicationServiceGetUnitRefreshAttributesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitRefreshAttributes", reflect.TypeOf((*MockApplicationService)(nil).GetUnitRefreshAttributes), arg0, arg1)
+	return &MockApplicationServiceGetUnitRefreshAttributesCall{Call: call}
+}
+
+// MockApplicationServiceGetUnitRefreshAttributesCall wrap *gomock.Call
+type MockApplicationServiceGetUnitRefreshAttributesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetUnitRefreshAttributesCall) Return(arg0 application0.UnitAttributes, arg1 error) *MockApplicationServiceGetUnitRefreshAttributesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetUnitRefreshAttributesCall) Do(f func(context.Context, unit.Name) (application0.UnitAttributes, error)) *MockApplicationServiceGetUnitRefreshAttributesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetUnitRefreshAttributesCall) DoAndReturn(f func(context.Context, unit.Name) (application0.UnitAttributes, error)) *MockApplicationServiceGetUnitRefreshAttributesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
