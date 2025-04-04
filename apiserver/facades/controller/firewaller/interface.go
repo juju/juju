@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -64,7 +65,24 @@ type MachineService interface {
 
 // ApplicationService provides access to the application service.
 type ApplicationService interface {
+	// GetUnitLife looks up the life of the specified unit, returning an error
+	// satisfying [applicationerrors.UnitNotFoundError] if the unit is not found.
 	GetUnitLife(context.Context, unit.Name) (life.Value, error)
+
+	// IsApplicationExposed returns whether the provided application is exposed or not.
+	//
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	IsApplicationExposed(ctx context.Context, appName string) (bool, error)
+
+	// GetExposedEndpoints returns map where keys are endpoint names (or the ""
+	// value which represents all endpoints) and values are ExposedEndpoint
+	// instances that specify which sources (spaces or CIDRs) can access the
+	// opened ports for each endpoint once the application is exposed.
+	//
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetExposedEndpoints(ctx context.Context, appName string) (map[string]application.ExposedEndpoint, error)
 }
 
 // ControllerConfigAPI provides the subset of common.ControllerConfigAPI

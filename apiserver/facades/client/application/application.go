@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/schema"
@@ -37,6 +38,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
@@ -1194,10 +1196,6 @@ func (api *APIBase) Expose(ctx context.Context, args params.ApplicationExpose) e
 	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return errors.Trace(err)
 	}
-	app, err := api.backend.Application(args.ApplicationName)
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	// Map space names to space IDs before calling SetExposed
 	mappedExposeParams, err := api.mapExposedEndpointParams(ctx, args.ExposedEndpoints)
@@ -1205,18 +1203,18 @@ func (api *APIBase) Expose(ctx context.Context, args params.ApplicationExpose) e
 		return apiservererrors.ServerError(err)
 	}
 
-	if err = app.MergeExposeSettings(mappedExposeParams); err != nil {
+	if err := api.applicationService.MergeExposeSettings(ctx, args.ApplicationName, mappedExposeParams); err != nil {
 		return apiservererrors.ServerError(err)
 	}
 	return nil
 }
 
-func (api *APIBase) mapExposedEndpointParams(ctx context.Context, params map[string]params.ExposedEndpoint) (map[string]state.ExposedEndpoint, error) {
+func (api *APIBase) mapExposedEndpointParams(ctx context.Context, params map[string]params.ExposedEndpoint) (map[string]application.ExposedEndpoint, error) {
 	if len(params) == 0 {
 		return nil, nil
 	}
 
-	var res = make(map[string]state.ExposedEndpoint, len(params))
+	var res = make(map[string]application.ExposedEndpoint, len(params))
 
 	spaceInfos, err := api.networkService.GetAllSpaces(ctx)
 	if err != nil {
@@ -1224,8 +1222,8 @@ func (api *APIBase) mapExposedEndpointParams(ctx context.Context, params map[str
 	}
 
 	for endpointName, exposeDetails := range params {
-		mappedParam := state.ExposedEndpoint{
-			ExposeToCIDRs: exposeDetails.ExposeToCIDRs,
+		mappedParam := application.ExposedEndpoint{
+			ExposeToCIDRs: set.NewStrings(exposeDetails.ExposeToCIDRs...),
 		}
 
 		if len(exposeDetails.ExposeToSpaces) != 0 {
@@ -1238,7 +1236,7 @@ func (api *APIBase) mapExposedEndpointParams(ctx context.Context, params map[str
 
 				spaceIDs[i] = sp.ID
 			}
-			mappedParam.ExposeToSpaceIDs = spaceIDs
+			mappedParam.ExposeToSpaceIDs = set.NewStrings(spaceIDs...)
 		}
 
 		res[endpointName] = mappedParam
@@ -1257,18 +1255,11 @@ func (api *APIBase) Unexpose(ctx context.Context, args params.ApplicationUnexpos
 	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return errors.Trace(err)
 	}
-	app, err := api.backend.Application(args.ApplicationName)
-	if err != nil {
-		return err
-	}
 
-	// No endpoints specified; unexpose application
-	if len(args.ExposedEndpoints) == 0 {
-		return app.ClearExposed()
+	if err := api.applicationService.UnsetExposeSettings(ctx, args.ApplicationName, set.NewStrings(args.ExposedEndpoints...)); err != nil {
+		return apiservererrors.ServerError(err)
 	}
-
-	// Unset expose settings for the specified endpoints
-	return app.UnsetExposeSettings(args.ExposedEndpoints)
+	return nil
 }
 
 // AddUnits adds a given number of units to an application.
@@ -2057,7 +2048,19 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 			continue
 		}
 
-		exposedEndpoints, err := api.mapExposedEndpointsFromState(ctx, app.ExposedEndpoints())
+		exposedEndpoints, err := api.applicationService.GetExposedEndpoints(ctx, tag.Name)
+		if err != nil {
+			out[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		mappedExposedEndpoints, err := api.mapExposedEndpointsFromDomain(ctx, exposedEndpoints)
+		if err != nil {
+			out[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		isExposed, err := api.applicationService.IsApplicationExposed(ctx, tag.Name)
 		if err != nil {
 			out[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -2079,11 +2082,11 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 			Channel:          channel,
 			Constraints:      details.Constraints,
 			Principal:        app.IsPrincipal(),
-			Exposed:          app.IsExposed(),
+			Exposed:          isExposed,
 			Remote:           app.IsRemote(),
 			Life:             string(appLife),
 			EndpointBindings: bindingsMap,
-			ExposedEndpoints: exposedEndpoints,
+			ExposedEndpoints: mappedExposedEndpoints,
 		}
 	}
 	return params.ApplicationInfoResults{
@@ -2091,7 +2094,7 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 	}, nil
 }
 
-func (api *APIBase) mapExposedEndpointsFromState(ctx context.Context, exposedEndpoints map[string]state.ExposedEndpoint) (map[string]params.ExposedEndpoint, error) {
+func (api *APIBase) mapExposedEndpointsFromDomain(ctx context.Context, exposedEndpoints map[string]application.ExposedEndpoint) (map[string]params.ExposedEndpoint, error) {
 	if len(exposedEndpoints) == 0 {
 		return nil, nil
 	}
@@ -2108,13 +2111,13 @@ func (api *APIBase) mapExposedEndpointsFromState(ctx context.Context, exposedEnd
 
 	for endpointName, exposeDetails := range exposedEndpoints {
 		mappedParam := params.ExposedEndpoint{
-			ExposeToCIDRs: exposeDetails.ExposeToCIDRs,
+			ExposeToCIDRs: exposeDetails.ExposeToCIDRs.Values(),
 		}
 
 		if len(exposeDetails.ExposeToSpaceIDs) != 0 {
 
 			spaceNames := make([]string, len(exposeDetails.ExposeToSpaceIDs))
-			for i, spaceID := range exposeDetails.ExposeToSpaceIDs {
+			for i, spaceID := range exposeDetails.ExposeToSpaceIDs.Values() {
 				sp := spaceInfos.GetByID(spaceID)
 				if sp == nil {
 					return nil, errors.NotFoundf("space with ID %q", spaceID)

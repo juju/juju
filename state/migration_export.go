@@ -503,7 +503,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		CharmURL:             *charmURL,
 		CharmModifiedVersion: application.doc.CharmModifiedVersion,
 		ForceCharm:           application.doc.ForceCharm,
-		Exposed:              application.doc.Exposed,
 		Placement:            application.doc.Placement,
 		HasResources:         application.doc.HasResources,
 		EndpointBindings:     map[string]string(ctx.endpointBindings[globalKey]),
@@ -517,17 +516,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	}
 	if constraints, found := e.modelStorageConstraints[storageConstraintsKey]; found {
 		args.StorageDirectives = e.storageDirectives(constraints)
-	}
-
-	// Include exposed endpoint details
-	if len(application.doc.ExposedEndpoints) > 0 {
-		args.ExposedEndpoints = make(map[string]description.ExposedEndpointArgs)
-		for epName, details := range application.doc.ExposedEndpoints {
-			args.ExposedEndpoints[epName] = description.ExposedEndpointArgs{
-				ExposeToSpaceIDs: details.ExposeToSpaceIDs,
-				ExposeToCIDRs:    details.ExposeToCIDRs,
-			}
-		}
 	}
 
 	exApplication := e.model.AddApplication(args)

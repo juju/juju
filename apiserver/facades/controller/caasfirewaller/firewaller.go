@@ -32,6 +32,12 @@ type ApplicationService interface {
 	// GetApplicationIDByName returns a application ID by application name. It
 	// returns an error if the application can not be found by the name.
 	GetApplicationIDByName(ctx context.Context, name string) (application.ID, error)
+
+	// IsApplicationExposed returns whether the provided application is exposed or not.
+	//
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	IsApplicationExposed(ctx context.Context, appName string) (bool, error)
 }
 
 type Facade struct {
@@ -63,7 +69,7 @@ func (f *Facade) IsExposed(ctx context.Context, args params.Entities) (params.Bo
 		Results: make([]params.BoolResult, len(args.Entities)),
 	}
 	for i, arg := range args.Entities {
-		exposed, err := f.isExposed(f.state, arg.Tag)
+		exposed, err := f.isExposed(ctx, arg.Tag)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -73,16 +79,12 @@ func (f *Facade) IsExposed(ctx context.Context, args params.Entities) (params.Bo
 	return results, nil
 }
 
-func (f *Facade) isExposed(backend CAASFirewallerState, tagString string) (bool, error) {
+func (f *Facade) isExposed(ctx context.Context, tagString string) (bool, error) {
 	tag, err := names.ParseApplicationTag(tagString)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	app, err := backend.Application(tag.Id())
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return app.IsExposed(), nil
+	return f.applicationService.IsApplicationExposed(ctx, tag.Id())
 }
 
 // ApplicationsConfig returns the config for the specified applications.
