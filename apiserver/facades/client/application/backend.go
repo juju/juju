@@ -54,19 +54,14 @@ type Application interface {
 	ApplicationTag() names.ApplicationTag
 	CharmURL() (*string, bool)
 	CharmOrigin() *state.CharmOrigin
-	ClearExposed() error
 	CharmConfig() (charm.Settings, error)
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyApplicationOperation
 	EndpointBindings() (Bindings, error)
-	ExposedEndpoints() map[string]state.ExposedEndpoint
 	Endpoints() ([]relation.Endpoint, error)
-	IsExposed() bool
 	IsPrincipal() bool
 	IsRemote() bool
 	SetCharm(state.SetCharmConfig, objectstore.ObjectStore) error
 	SetConstraints(constraints.Value) error
-	MergeExposeSettings(map[string]state.ExposedEndpoint) error
-	UnsetExposeSettings([]string) error
 	UpdateCharmConfig(charm.Settings) error
 	UpdateApplicationConfig(coreconfig.ConfigAttributes, []string, configschema.Fields, schema.Defaults) error
 	MergeBindings(*state.Bindings, bool) error

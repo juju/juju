@@ -33,6 +33,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
@@ -56,6 +57,7 @@ type firewallerBaseSuite struct {
 	remoteRelations      *mocks.MockRemoteRelationsAPI
 	portService          *mocks.MockPortService
 	machineService       *mocks.MockMachineService
+	applicationService   *mocks.MockApplicationService
 	crossmodelFirewaller *mocks.MockCrossModelFirewallerFacadeCloser
 	credentialsFacade    *mocks.MockCredentialAPI
 	envFirewaller        *mocks.MockEnvironFirewaller
@@ -127,6 +129,7 @@ func (s *firewallerBaseSuite) ensureMocks(c *gc.C, ctrl *gomock.Controller) {
 	s.firewaller = mocks.NewMockFirewallerAPI(ctrl)
 	s.portService = mocks.NewMockPortService(ctrl)
 	s.machineService = mocks.NewMockMachineService(ctrl)
+	s.applicationService = mocks.NewMockApplicationService(ctrl)
 	s.envFirewaller = mocks.NewMockEnvironFirewaller(ctrl)
 	s.envModelFirewaller = mocks.NewMockEnvironModelFirewaller(ctrl)
 	s.envInstances = mocks.NewMockEnvironInstances(ctrl)
@@ -302,11 +305,12 @@ func (s *firewallerBaseSuite) addModelMachine(ctrl *gomock.Controller, manual bo
 func (s *firewallerBaseSuite) addApplication(ctrl *gomock.Controller, appName string, exposed bool) *mocks.MockApplication {
 	app := mocks.NewMockApplication(ctrl)
 	appWatch := watchertest.NewMockNotifyWatcher(s.applicationsCh)
-	app.EXPECT().Watch(gomock.Any()).Return(appWatch, nil).AnyTimes()
+	s.applicationService.EXPECT().WatchApplicationExposed(gomock.Any(), appName).Return(appWatch, nil).AnyTimes()
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), appName).Return(exposed, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), appName).Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: set.NewStrings(firewall.AllNetworksIPV4CIDR)}}, nil)
 	app.EXPECT().Name().Return(appName).AnyTimes()
 	app.EXPECT().Tag().Return(names.NewApplicationTag(appName)).AnyTimes()
-	app.EXPECT().ExposeInfo(gomock.Any()).Return(exposed, map[string]params.ExposedEndpoint{
-		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}}}, nil)
 	return app
 }
 
@@ -371,6 +375,7 @@ func (s *firewallerBaseSuite) newFirewaller(c *gc.C, ctrl *gomock.Controller) wo
 		FirewallerAPI:          s.firewaller,
 		PortsService:           s.portService,
 		MachineService:         s.machineService,
+		ApplicationService:     s.applicationService,
 		RemoteRelationsApi:     s.remoteRelations,
 		NewCrossModelFacadeFunc: func(context.Context, *api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
@@ -798,8 +803,9 @@ func (s *InstanceModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 	s.assertIngressRules(c, m.Tag().Id(), nil)
 
 	// Expose service.
-	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
-		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}}}, nil)
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: set.NewStrings(firewall.AllNetworksIPV4CIDR)}}, nil)
 	s.applicationsCh <- struct{}{}
 
 	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
@@ -848,8 +854,9 @@ func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {
 	s.assertIngressRules(c, m.Tag().Id(), nil)
 
 	// Expose service.
-	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
-		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}}}, nil)
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: set.NewStrings(firewall.AllNetworksIPV4CIDR)}}, nil)
 	s.applicationsCh <- struct{}{}
 
 	rules := firewall.IngressRules{
@@ -859,8 +866,9 @@ func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {
 	s.assertIngressRules(c, m.Tag().Id(), rules)
 
 	// ClearExposed closes the ports again.
-	app.EXPECT().ExposeInfo(gomock.Any()).Return(false, map[string]params.ExposedEndpoint{
-		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}}}, nil)
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(false, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: set.NewStrings(firewall.AllNetworksIPV4CIDR)}}, nil)
 	s.applicationsCh <- struct{}{}
 
 	s.assertIngressRules(c, m.Tag().Id(), nil)
@@ -928,7 +936,8 @@ func (s *InstanceModeSuite) TestRemoveApplication(c *gc.C) {
 	u.EXPECT().Life().Return(life.Dead)
 	unitsCh <- []string{u.Name()}
 
-	app.EXPECT().ExposeInfo(gomock.Any()).Return(false, nil, errors.NotFoundf(app.Name())).MaxTimes(1)
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").
+		Return(false, errors.NotFoundf("wordpress")).MaxTimes(1)
 	s.applicationsCh <- struct{}{}
 
 	s.waitForMachineFlush(c)
@@ -970,16 +979,18 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
 	unitsCh1 <- []string{u1.Name()}
 
 	removed1 := make(chan bool)
-	app1.EXPECT().ExposeInfo(gomock.Any()).DoAndReturn(func(context.Context) (bool, map[string]params.ExposedEndpoint, error) {
-		defer close(removed1)
-		return false, nil, errors.NotFoundf(app1.Name())
-	})
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").
+		DoAndReturn(func(context.Context, string) (bool, error) {
+			defer close(removed1)
+			return false, errors.NotFoundf(app1.Name())
+		})
 	s.applicationsCh <- struct{}{}
 
 	u2.EXPECT().Life().Return(life.Dead)
 	unitsCh2 <- []string{u2.Name()}
 
-	app2.EXPECT().ExposeInfo(gomock.Any()).Return(false, nil, errors.NotFoundf(app1.Name())).MaxTimes(1)
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "mysql").
+		Return(false, errors.NotFoundf(app2.Name())).MaxTimes(1)
 	s.applicationsCh <- struct{}{}
 
 	s.assertIngressRules(c, m1.Tag().Id(), nil)
@@ -1017,7 +1028,8 @@ func (s *InstanceModeSuite) TestDeadMachine(c *gc.C) {
 	u.EXPECT().Life().Return(life.Dead).AnyTimes()
 	unitsCh <- []string{u.Name()}
 
-	app.EXPECT().ExposeInfo(gomock.Any()).Return(false, nil, errors.NotFoundf(app.Name())).AnyTimes()
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").
+		Return(false, errors.NotFoundf("wordpress")).MaxTimes(1)
 	s.applicationsCh <- struct{}{}
 	s.waitForMachineFlush(c)
 
@@ -1677,11 +1689,14 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpoints(c *gc.C) 
 		network.MustParsePortRange("1337/udp"),
 	})
 
-	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
-		allEndpoints: {ExposeToCIDRs: []string{"10.0.0.0/24"}},
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {
+			ExposeToCIDRs: set.NewStrings("10.0.0.0/24"),
+		},
 		"url": {
-			ExposeToCIDRs:  []string{"192.168.0.0/24", "192.168.1.0/24"},
-			ExposeToSpaces: []string{"sp-1"},
+			ExposeToCIDRs:    set.NewStrings("192.168.0.0/24", "192.168.1.0/24"),
+			ExposeToSpaceIDs: set.NewStrings("sp-1"),
 		},
 	}, nil)
 
@@ -1712,10 +1727,11 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpoints(c *gc.C) 
 	})
 
 	// Change the expose settings and remove the entry for the wildcard endpoint
-	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
 		"url": {
-			ExposeToCIDRs:  []string{"192.168.0.0/24", "192.168.1.0/24"},
-			ExposeToSpaces: []string{"sp-1"},
+			ExposeToCIDRs:    set.NewStrings("192.168.0.0/24", "192.168.1.0/24"),
+			ExposeToSpaceIDs: set.NewStrings("sp-1"),
 		},
 	}, nil)
 	s.applicationsCh <- struct{}{}
@@ -1774,9 +1790,10 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceT
 	})
 
 	// Expose app to space-1
-	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
 		allEndpoints: {
-			ExposeToSpaces: []string{"sp-1"},
+			ExposeToSpaceIDs: set.NewStrings("sp-1"),
 		},
 	}, nil)
 
@@ -1856,9 +1873,10 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceD
 	})
 
 	// Expose app to space-1
-	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
 		allEndpoints: {
-			ExposeToSpaces: []string{"sp-1"},
+			ExposeToSpaceIDs: set.NewStrings("sp-1"),
 		},
 	}, nil)
 
@@ -1920,9 +1938,10 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceH
 	})
 
 	// Expose app to space-1.
-	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
-		allEndpoints: {ExposeToSpaces: []string{"sp-1"}},
-		"url":        {ExposeToSpaces: []string{"sp-1"}},
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {ExposeToSpaceIDs: set.NewStrings("sp-1")},
+		"url":        {ExposeToSpaceIDs: set.NewStrings("sp-1")},
 	}, nil)
 
 	s.applicationsCh <- struct{}{}
@@ -1965,8 +1984,9 @@ func (s *InstanceModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *gc.C) {
 	})
 
 	// Expose app to space-1.
-	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
-		allEndpoints: {ExposeToCIDRs: []string{"10.0.0.0/24", "2002::1234:abcd:ffff:c0a8:101/64"}},
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: set.NewStrings("10.0.0.0/24", "2002::1234:abcd:ffff:c0a8:101/64")},
 	}, nil)
 
 	s.applicationsCh <- struct{}{}
@@ -2075,8 +2095,9 @@ func (s *GlobalModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 	s.assertEnvironPorts(c, nil)
 
 	// Expose service.
-	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
-		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}}}, nil)
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: set.NewStrings(firewall.AllNetworksIPV4CIDR)}}, nil)
 	s.applicationsCh <- struct{}{}
 
 	s.assertEnvironPorts(c, firewall.IngressRules{
@@ -2120,8 +2141,12 @@ func (s *GlobalModeSuite) TestRestart(c *gc.C) {
 
 	// Start firewaller and check port.
 	u.EXPECT().Life().Return(life.Alive)
-	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
-		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}}}, nil)
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {
+			ExposeToCIDRs: set.NewStrings(firewall.AllNetworksIPV4CIDR),
+		},
+	}, nil)
 
 	fw = s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
@@ -2162,8 +2187,9 @@ func (s *GlobalModeSuite) TestRestartUnexposedApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.firewallerStarted = false
 
-	app.EXPECT().ExposeInfo(gomock.Any()).Return(false, map[string]params.ExposedEndpoint{
-		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}}}, nil)
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(false, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: set.NewStrings(firewall.AllNetworksIPV4CIDR)}}, nil)
 
 	// Start firewaller and check port.
 	u.EXPECT().Life().Return(life.Alive)
@@ -2210,8 +2236,9 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 		network.MustParsePortRange("80/tcp"),
 	})
 
-	app1.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
-		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}}}, nil)
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: set.NewStrings(firewall.AllNetworksIPV4CIDR)}}, nil)
 	u1.EXPECT().Life().Return(life.Alive)
 	u2.EXPECT().Life().Return(life.Alive)
 
@@ -2268,8 +2295,9 @@ func (s *GlobalModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *gc.C) {
 	})
 
 	// Expose app to space-1.
-	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
-		allEndpoints: {ExposeToCIDRs: []string{"10.0.0.0/24", "2002::1234:abcd:ffff:c0a8:101/64"}},
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: set.NewStrings("10.0.0.0/24", "2002::1234:abcd:ffff:c0a8:101/64")},
 	}, nil)
 
 	s.applicationsCh <- struct{}{}
@@ -2300,6 +2328,7 @@ func (s *NoneModeSuite) TestStopImmediately(c *gc.C) {
 		FirewallerAPI:          s.firewaller,
 		PortsService:           s.portService,
 		MachineService:         s.machineService,
+		ApplicationService:     s.applicationService,
 		RemoteRelationsApi:     s.remoteRelations,
 		NewCrossModelFacadeFunc: func(context.Context, *api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil

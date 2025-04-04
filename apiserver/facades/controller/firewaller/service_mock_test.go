@@ -21,6 +21,7 @@ import (
 	network "github.com/juju/juju/core/network"
 	unit "github.com/juju/juju/core/unit"
 	watcher "github.com/juju/juju/core/watcher"
+	application "github.com/juju/juju/domain/application"
 	config "github.com/juju/juju/environs/config"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -312,6 +313,45 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
+// GetExposedEndpoints mocks base method.
+func (m *MockApplicationService) GetExposedEndpoints(arg0 context.Context, arg1 string) (map[string]application.ExposedEndpoint, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetExposedEndpoints", arg0, arg1)
+	ret0, _ := ret[0].(map[string]application.ExposedEndpoint)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetExposedEndpoints indicates an expected call of GetExposedEndpoints.
+func (mr *MockApplicationServiceMockRecorder) GetExposedEndpoints(arg0, arg1 any) *MockApplicationServiceGetExposedEndpointsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetExposedEndpoints", reflect.TypeOf((*MockApplicationService)(nil).GetExposedEndpoints), arg0, arg1)
+	return &MockApplicationServiceGetExposedEndpointsCall{Call: call}
+}
+
+// MockApplicationServiceGetExposedEndpointsCall wrap *gomock.Call
+type MockApplicationServiceGetExposedEndpointsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetExposedEndpointsCall) Return(arg0 map[string]application.ExposedEndpoint, arg1 error) *MockApplicationServiceGetExposedEndpointsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetExposedEndpointsCall) Do(f func(context.Context, string) (map[string]application.ExposedEndpoint, error)) *MockApplicationServiceGetExposedEndpointsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetExposedEndpointsCall) DoAndReturn(f func(context.Context, string) (map[string]application.ExposedEndpoint, error)) *MockApplicationServiceGetExposedEndpointsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitLife mocks base method.
 func (m *MockApplicationService) GetUnitLife(arg0 context.Context, arg1 unit.Name) (life.Value, error) {
 	m.ctrl.T.Helper()
@@ -347,6 +387,45 @@ func (c *MockApplicationServiceGetUnitLifeCall) Do(f func(context.Context, unit.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationServiceGetUnitLifeCall) DoAndReturn(f func(context.Context, unit.Name) (life.Value, error)) *MockApplicationServiceGetUnitLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// IsApplicationExposed mocks base method.
+func (m *MockApplicationService) IsApplicationExposed(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsApplicationExposed", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsApplicationExposed indicates an expected call of IsApplicationExposed.
+func (mr *MockApplicationServiceMockRecorder) IsApplicationExposed(arg0, arg1 any) *MockApplicationServiceIsApplicationExposedCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsApplicationExposed", reflect.TypeOf((*MockApplicationService)(nil).IsApplicationExposed), arg0, arg1)
+	return &MockApplicationServiceIsApplicationExposedCall{Call: call}
+}
+
+// MockApplicationServiceIsApplicationExposedCall wrap *gomock.Call
+type MockApplicationServiceIsApplicationExposedCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceIsApplicationExposedCall) Return(arg0 bool, arg1 error) *MockApplicationServiceIsApplicationExposedCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceIsApplicationExposedCall) Do(f func(context.Context, string) (bool, error)) *MockApplicationServiceIsApplicationExposedCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceIsApplicationExposedCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockApplicationServiceIsApplicationExposedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

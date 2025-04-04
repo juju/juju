@@ -299,16 +299,6 @@ func (f *FirewallerAPI) getUnit(canAccess common.AuthFunc, tag names.UnitTag) (*
 	return entity.(*state.Unit), nil
 }
 
-func (f *FirewallerAPI) getApplication(canAccess common.AuthFunc, tag names.ApplicationTag) (*state.Application, error) {
-	entity, err := f.getEntity(canAccess, tag)
-	if err != nil {
-		return nil, err
-	}
-	// The authorization function guarantees that the tag represents a
-	// application.
-	return entity.(*state.Application), nil
-}
-
 func (f *FirewallerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (firewall.Machine, error) {
 	if !canAccess(tag) {
 		return nil, apiservererrors.ErrPerm
@@ -417,23 +407,33 @@ func (f *FirewallerAPI) GetExposeInfo(ctx context.Context, args params.Entities)
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		application, err := f.getApplication(canAccess, tag)
+		if !canAccess(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		isExposed, err := f.applicationService.IsApplicationExposed(ctx, tag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if isExposed {
+			continue
+		}
+
+		exposedEndpoints, err := f.applicationService.GetExposedEndpoints(ctx, tag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		if !application.IsExposed() {
-			continue
-		}
-
 		result.Results[i].Exposed = true
-		if exposedEndpoints := application.ExposedEndpoints(); len(exposedEndpoints) != 0 {
+		if len(exposedEndpoints) != 0 {
 			mappedEndpoints := make(map[string]params.ExposedEndpoint)
 			for endpoint, exposeDetails := range exposedEndpoints {
 				mappedEndpoints[endpoint] = params.ExposedEndpoint{
-					ExposeToSpaces: exposeDetails.ExposeToSpaceIDs,
-					ExposeToCIDRs:  exposeDetails.ExposeToCIDRs,
+					ExposeToSpaces: exposeDetails.ExposeToSpaceIDs.Values(),
+					ExposeToCIDRs:  exposeDetails.ExposeToCIDRs.Values(),
 				}
 			}
 			result.Results[i].ExposedEndpoints = mappedEndpoints
