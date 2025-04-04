@@ -475,6 +475,45 @@ func (c *MockStateGetSubnetsByCIDRCall) DoAndReturn(f func(context.Context, ...s
 	return c
 }
 
+// IsSpaceUsedInConstraints mocks base method.
+func (m *MockState) IsSpaceUsedInConstraints(arg0 context.Context, arg1 network.SpaceName) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsSpaceUsedInConstraints", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsSpaceUsedInConstraints indicates an expected call of IsSpaceUsedInConstraints.
+func (mr *MockStateMockRecorder) IsSpaceUsedInConstraints(arg0, arg1 any) *MockStateIsSpaceUsedInConstraintsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsSpaceUsedInConstraints", reflect.TypeOf((*MockState)(nil).IsSpaceUsedInConstraints), arg0, arg1)
+	return &MockStateIsSpaceUsedInConstraintsCall{Call: call}
+}
+
+// MockStateIsSpaceUsedInConstraintsCall wrap *gomock.Call
+type MockStateIsSpaceUsedInConstraintsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateIsSpaceUsedInConstraintsCall) Return(arg0 bool, arg1 error) *MockStateIsSpaceUsedInConstraintsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateIsSpaceUsedInConstraintsCall) Do(f func(context.Context, network.SpaceName) (bool, error)) *MockStateIsSpaceUsedInConstraintsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateIsSpaceUsedInConstraintsCall) DoAndReturn(f func(context.Context, network.SpaceName) (bool, error)) *MockStateIsSpaceUsedInConstraintsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // NamespaceForWatchSubnet mocks base method.
 func (m *MockState) NamespaceForWatchSubnet() string {
 	m.ctrl.T.Helper()
