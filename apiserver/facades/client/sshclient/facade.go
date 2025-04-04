@@ -29,6 +29,7 @@ type Facade struct {
 	leadershipReader leadership.Reader
 
 	modelConfigService ModelConfigService
+	execService        ExecService
 	stubService        StubService
 	modelTag           names.ModelTag
 	controllerTag      names.ControllerTag
@@ -50,6 +51,7 @@ func internalFacade(
 	modelTag names.ModelTag,
 	backend Backend,
 	modelConfigService ModelConfigService,
+	execService ExecService,
 	stubService StubService,
 	leadershipReader leadership.Reader, auth facade.Authorizer,
 ) (*Facade, error) {
@@ -60,6 +62,7 @@ func internalFacade(
 	return &Facade{
 		backend:            backend,
 		modelConfigService: modelConfigService,
+		execService:        execService,
 		stubService:        stubService,
 		controllerTag:      controllerTag,
 		modelTag:           modelTag,
@@ -261,7 +264,7 @@ func (facade *Facade) ModelCredentialForSSH(ctx context.Context) (params.CloudSp
 		return result, err
 	}
 
-	token, err := facade.stubService.GetExecSecretToken(ctx)
+	token, err := facade.execService.GetCAASUnitExecSecretToken(ctx)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil

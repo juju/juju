@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/juju/caas"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
@@ -401,4 +402,18 @@ func (s *ProviderService) CAASUnitTerminating(ctx context.Context, unitNameStr s
 		restart = false
 	}
 	return restart, nil
+}
+
+// GetCAASUnitExecSecretToken returns a token that can be used to run exec operations
+// on the provider cloud.
+func (s *ProviderService) GetCAASUnitExecSecretToken(ctx context.Context) (string, error) {
+	provider, err := s.execTokenProvider(ctx)
+	if errors.Is(err, coreerrors.NotSupported) {
+		return "", errors.Errorf("getting secret token %w", coreerrors.NotSupported)
+	}
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return provider.GetSecretToken(ctx, k8sprovider.ExecRBACResourceName)
 }
