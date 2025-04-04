@@ -18,27 +18,11 @@ import (
 
 // ModelAgentService provides access to the Juju agent version for the model.
 type ModelAgentService interface {
-	// GetMachineTargetAgentVersion reports the target agent version that should
-	// be being run on the provided machine identified by name. The following
-	// errors are possible:
-	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound]
-	// - [github.com/juju/juju/domain/model/errors.NotFound]
-	GetMachineTargetAgentVersion(context.Context, machine.Name) (semversion.Number, error)
-
 	// GetModelTargetAgentVersion returns the target agent version for the
 	// entire model. The following errors can be returned:
 	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
 	// not exist.
 	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
-
-	// GetUnitTargetAgentVersion reports the target agent version that should be
-	// being run on the provided unit identified by name. The following errors
-	// are possible:
-	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] - When
-	// the unit in question does not exist.
-	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model
-	// the unit belongs to no longer exists.
-	GetUnitTargetAgentVersion(context.Context, string) (semversion.Number, error)
 
 	// SetMachineReportedAgentVersion sets the reported agent version for the
 	// supplied machine name. Reported agent version is the version that the
@@ -52,7 +36,7 @@ type ModelAgentService interface {
 	// - [machineerrors.MachineDead] when the machine is dead.
 	SetMachineReportedAgentVersion(context.Context, machine.Name, coreagentbinary.Version) error
 
-	// SetReportedUnitAgentVersion sets the reported agent version for the
+	// SetUnitReportedAgentVersion sets the reported agent version for the
 	// supplied unit name. Reported agent version is the version that the agent
 	// binary on this unit has reported it is running.
 	//
@@ -80,7 +64,7 @@ type ModelAgentService interface {
 	// [watcher.NotifyWatcher]. The following errors can be expected:
 	// - [applicationerrors.UnitNotFound] - When no unit exists for the provided name.
 	// - [modelerrors.NotFound] - When the model of the unit no longer exists.
-	WatchUnitTargetAgentVersion(ctx context.Context, unitName string) (watcher.NotifyWatcher, error)
+	WatchUnitTargetAgentVersion(ctx context.Context, unitName coreunit.Name) (watcher.NotifyWatcher, error)
 }
 
 // CredentialService provides access to credentials.

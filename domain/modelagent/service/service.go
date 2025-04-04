@@ -19,21 +19,11 @@ import (
 )
 
 type State interface {
-	// CheckMachineExists check to see if the given machine exists in the model. If
-	// the machine does not exist an error satisfying
-	// [machineerrors.MachineNotFound] is returned.
-	CheckMachineExists(context.Context, machine.Name) error
-
-	// CheckUnitExists check to see if the given unit exists in the model. If
-	// the unit does not exist an error satisfying
-	// [applicationerrors.UnitNotFound] is returned.
-	CheckUnitExists(context.Context, string) error
-
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(context.Context, machine.Name) (string, error)
 
-	// GetTargetAgentVersion returns the target agent version for this model.
-	GetTargetAgentVersion(context.Context) (semversion.Number, error)
+	// GetModelTargetAgentVersion returns the target agent version for this model.
+	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
 
 	// GetUnitUUIDByName returns the UUID for the named unit, returning an
 	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
@@ -48,12 +38,22 @@ type State interface {
 	// A MachineNotFound error will be returned if the machine does not exist.
 	SetMachineRunningAgentBinaryVersion(context.Context, string, coreagentbinary.Version) error
 
+	// GetMachineTargetAgentVersion returns the target agent version for the specified machine.
+	// The following error types can be expected:
+	// - [modelagenterrors.AgentVersionNotFound] - when the agent version does not exist.
+	GetMachineTargetAgentVersion(context.Context, string) (coreagentbinary.Version, error)
+
 	// SetUnitRunningAgentBinaryVersion sets the running agent version for the unit.
 	// The following error types can be expected:
 	// - [applicationerrors.UnitNotFound] - when the unit does not exist.
 	// - [applicationerrors.UnitIsDead] - when the unit is dead.
 	// - [coreerrors.NotSupported] - when the architecture is not supported.
 	SetUnitRunningAgentBinaryVersion(context.Context, coreunit.UUID, coreagentbinary.Version) error
+
+	// GetUnitTargetAgentVersion returns the target agent version for the specified unit.
+	// The following error types can be expected:
+	// - [modelagenterrors.AgentVersionNotFound] - when the agent version does not exist.
+	GetUnitTargetAgentVersion(context.Context, coreunit.UUID) (coreagentbinary.Version, error)
 }
 
 // WatcherFactory provides a factory for constructing new watchers.
@@ -89,50 +89,50 @@ func NewService(st State, watcherFactory WatcherFactory) *Service {
 func (s *Service) GetMachineTargetAgentVersion(
 	ctx context.Context,
 	machineName machine.Name,
-) (semversion.Number, error) {
-	err := s.st.CheckMachineExists(ctx, machineName)
+) (coreagentbinary.Version, error) {
+	uuid, err := s.st.GetMachineUUID(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
-		return semversion.Zero, errors.Errorf("machine %q does not exist", machineName).Add(machineerrors.MachineNotFound)
+		return coreagentbinary.Version{}, errors.Errorf("machine %q does not exist", machineName).Add(machineerrors.MachineNotFound)
 	} else if err != nil {
-		return semversion.Zero, errors.Errorf(
+		return coreagentbinary.Version{}, errors.Errorf(
 			"checking if machine %q exists when getting target agent version: %w",
 			machineName, err,
 		)
 	}
 
-	return s.st.GetTargetAgentVersion(ctx)
+	return s.st.GetMachineTargetAgentVersion(ctx, uuid)
 }
 
 // GetUnitTargetAgentVersion reports the target agent version that should be
 // being run on the provided unit identified by name. The following errors
 // are possible:
 // - [applicationerrors.UnitNotFound] - When the unit in question does not exist.
-//   - [github.com/juju/juju/domain/model/errors.AgentVersionFound] if no
+//   - [github.com/juju/juju/domain/modelagent/errors.AgentVersionFound] if no
 //     agent version record exists.
 func (s *Service) GetUnitTargetAgentVersion(
 	ctx context.Context,
-	unitName string,
-) (semversion.Number, error) {
-	err := s.st.CheckUnitExists(ctx, unitName)
+	unitName coreunit.Name,
+) (coreagentbinary.Version, error) {
+	uuid, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
-		return semversion.Zero, errors.Errorf("unit %q does not exist", unitName).Add(applicationerrors.UnitNotFound)
+		return coreagentbinary.Version{}, errors.Errorf("unit %q does not exist", unitName).Add(applicationerrors.UnitNotFound)
 	} else if err != nil {
-		return semversion.Zero, errors.Errorf(
+		return coreagentbinary.Version{}, errors.Errorf(
 			"checking if unit %q exists when getting target agent version: %w",
 			unitName, err,
 		)
 	}
 
-	return s.st.GetTargetAgentVersion(ctx)
+	return s.st.GetUnitTargetAgentVersion(ctx, uuid)
 }
 
 // GetModelTargetAgentVersion returns the agent version for the specified model.
 // The following errors can be returned:
 //   - [errors.NotValid] if the model ID is not valid;
-//   - [github.com/juju/juju/domain/model/errors.AgentVersionFound] if no
+//   - [github.com/juju/juju/domain/modelagent/errors.AgentVersionFound] if no
 //     agent version record exists.
 func (s *Service) GetModelTargetAgentVersion(ctx context.Context) (semversion.Number, error) {
-	return s.st.GetTargetAgentVersion(ctx)
+	return s.st.GetModelTargetAgentVersion(ctx)
 }
 
 // SetMachineReportedAgentVersion sets the reported agent version for the
@@ -226,12 +226,11 @@ func (s *Service) SetUnitReportedAgentVersion(
 // version for machine and reporting when there has been a change via a
 // [watcher.NotifyWatcher]. The following errors can be expected:
 // - [machineerrors.NotFound] - When no machine exists for the provided name.
-// - [modelerrors.AgentVersionNotFound] - When there is no target version found.
 func (s *Service) WatchMachineTargetAgentVersion(
 	ctx context.Context,
 	machineName machine.Name,
 ) (watcher.NotifyWatcher, error) {
-	err := s.st.CheckMachineExists(ctx, machineName)
+	_, err := s.st.GetMachineUUID(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return nil, errors.Errorf("machine %q does not exist", machineName).Add(machineerrors.MachineNotFound)
 	} else if err != nil {
@@ -250,12 +249,11 @@ func (s *Service) WatchMachineTargetAgentVersion(
 // version for unit and reporting when there has been a change via a
 // [watcher.NotifyWatcher]. The following errors can be expected:
 // - [applicationerrors.UnitNotFound] - When no unit exists for the provided name.
-// - [modelerrors.AgentVersionNotFound] - When there is no target version found.
 func (s *Service) WatchUnitTargetAgentVersion(
 	ctx context.Context,
-	unitName string,
+	unitName coreunit.Name,
 ) (watcher.NotifyWatcher, error) {
-	err := s.st.CheckUnitExists(ctx, unitName)
+	_, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return nil, errors.Errorf("unit %q does not exist", unitName).Add(applicationerrors.UnitNotFound)
 	} else if err != nil {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/os/v2"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/common/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
@@ -25,6 +27,7 @@ import (
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtools "github.com/juju/juju/environs/tools"
@@ -35,11 +38,9 @@ import (
 )
 
 type getToolsSuite struct {
-	entityFinder      *mocks.MockToolsFindEntity
 	modelAgentService *mocks.MockModelAgentService
 	toolsFinder       *mocks.MockToolsFinder
 	store             *mocks.MockObjectStore
-	machine0          *mocks.MockAgentTooler
 }
 
 var _ = gc.Suite(&getToolsSuite{})
@@ -47,11 +48,9 @@ var _ = gc.Suite(&getToolsSuite{})
 func (s *getToolsSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.entityFinder = mocks.NewMockToolsFindEntity(ctrl)
 	s.modelAgentService = mocks.NewMockModelAgentService(ctrl)
 	s.toolsFinder = mocks.NewMockToolsFinder(ctrl)
 	s.store = mocks.NewMockObjectStore(ctrl)
-	s.machine0 = mocks.NewMockAgentTooler(ctrl)
 
 	return ctrl
 }
@@ -65,7 +64,7 @@ func (s *getToolsSuite) TestTools(c *gc.C) {
 		}, nil
 	}
 	tg := common.NewToolsGetter(
-		s.entityFinder, s.modelAgentService, nil,
+		s.modelAgentService, nil,
 		nil, s.toolsFinder, getCanRead,
 	)
 	c.Assert(tg, gc.NotNil)
@@ -78,23 +77,23 @@ func (s *getToolsSuite) TestTools(c *gc.C) {
 		},
 	}
 
-	current := coretesting.CurrentVersion()
-	s.modelAgentService.EXPECT().GetMachineTargetAgentVersion(gomock.Any(), machine.Name("0")).Return(current.Number, nil)
-	s.modelAgentService.EXPECT().GetMachineTargetAgentVersion(gomock.Any(), machine.Name("1")).Return(current.Number, nil)
-	s.modelAgentService.EXPECT().GetMachineTargetAgentVersion(gomock.Any(), machine.Name("42")).Return(current.Number, nil)
+	agentBinary := coreagentbinary.Version{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+	}
+	s.modelAgentService.EXPECT().GetMachineTargetAgentVersion(gomock.Any(), machine.Name("0")).Return(agentBinary, nil)
+	s.modelAgentService.EXPECT().GetMachineTargetAgentVersion(gomock.Any(), machine.Name("42")).
+		Return(coreagentbinary.Version{}, machineerrors.MachineNotFound)
 
-	s.entityFinder.EXPECT().FindEntity(names.NewMachineTag("0")).Return(s.machine0, nil)
-	s.machine0.EXPECT().AgentTools().Return(&coretools.Tools{Version: current}, nil)
+	current := coretesting.CurrentVersion()
 	s.toolsFinder.EXPECT().FindAgents(context.Background(), common.FindAgentsParams{
 		Number: current.Number,
-		OSType: current.Release,
+		OSType: os.Ubuntu.String(),
 		Arch:   current.Arch,
 	}).Return(coretools.List{{
 		Version: current,
 		URL:     "tools:" + current.String(),
 	}}, nil)
-
-	s.entityFinder.EXPECT().FindEntity(names.NewMachineTag("42")).Return(nil, apiservertesting.NotFoundError("machine 42"))
 
 	result, err := tg.Tools(context.Background(), args)
 
@@ -106,52 +105,7 @@ func (s *getToolsSuite) TestTools(c *gc.C) {
 	c.Assert(tools.Version, gc.DeepEquals, current)
 	c.Assert(tools.URL, gc.Equals, "tools:"+current.String())
 	c.Assert(result.Results[1].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
-	c.Assert(result.Results[2].Error, gc.DeepEquals, apiservertesting.NotFoundError("machine 42"))
-}
-
-func (s *getToolsSuite) TestOSTools(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	getCanRead := func() (common.AuthFunc, error) {
-		return func(tag names.Tag) bool {
-			return tag == names.NewMachineTag("0")
-		}, nil
-	}
-	tg := common.NewToolsGetter(
-		s.entityFinder, s.modelAgentService, nil,
-		nil, s.toolsFinder, getCanRead,
-	)
-	c.Assert(tg, gc.NotNil)
-
-	current := coretesting.CurrentVersion()
-	currentCopy := current
-	currentCopy.Release = "foo"
-	s.modelAgentService.EXPECT().GetMachineTargetAgentVersion(gomock.Any(), machine.Name("0")).Return(currentCopy.Number, nil)
-
-	s.entityFinder.EXPECT().FindEntity(names.NewMachineTag("0")).Return(s.machine0, nil)
-	s.machine0.EXPECT().AgentTools().Return(&coretools.Tools{Version: currentCopy}, nil)
-	s.toolsFinder.EXPECT().FindAgents(context.Background(), common.FindAgentsParams{
-		Number: currentCopy.Number,
-		OSType: currentCopy.Release,
-		Arch:   currentCopy.Arch,
-	}).Return(coretools.List{{
-		Version: current,
-		URL:     "tools:" + current.String(),
-	}}, nil)
-
-	args := params.Entities{
-		Entities: []params.Entity{
-			{Tag: "machine-0"},
-		}}
-	result, err := tg.Tools(context.Background(), args)
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-	c.Assert(result.Results[0].ToolsList, gc.HasLen, 1)
-	tools := result.Results[0].ToolsList[0]
-	c.Assert(tools.Version, gc.DeepEquals, current)
-	c.Assert(tools.URL, gc.Equals, "tools:"+current.String())
+	c.Assert(result.Results[2].Error, gc.DeepEquals, apiservertesting.NotFoundError(`"machine 42"`))
 }
 
 func (s *getToolsSuite) TestToolsError(c *gc.C) {
@@ -161,7 +115,7 @@ func (s *getToolsSuite) TestToolsError(c *gc.C) {
 		return nil, fmt.Errorf("splat")
 	}
 	tg := common.NewToolsGetter(
-		s.entityFinder, s.modelAgentService, nil,
+		s.modelAgentService, nil,
 		nil, s.toolsFinder, getCanRead,
 	)
 	c.Assert(tg, gc.NotNil)

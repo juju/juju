@@ -15,6 +15,7 @@ import (
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	coremachine "github.com/juju/juju/core/machine"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -85,7 +86,7 @@ func (s *upgraderWatchSuite) TestWatchAPIVersionUnit(c *gc.C) {
 
 	tag := names.NewUnitTag("test/1")
 
-	s.agentService.EXPECT().WatchUnitTargetAgentVersion(gomock.Any(), tag.Id()).DoAndReturn(func(_ context.Context, _ string) (watcher.Watcher[struct{}], error) {
+	s.agentService.EXPECT().WatchUnitTargetAgentVersion(gomock.Any(), coreunit.Name(tag.Id())).DoAndReturn(func(_ context.Context, _ coreunit.Name) (watcher.Watcher[struct{}], error) {
 		time.AfterFunc(coretesting.ShortWait, func() {
 			// Send initial event.
 			select {

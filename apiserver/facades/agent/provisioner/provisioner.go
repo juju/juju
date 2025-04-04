@@ -217,7 +217,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 
 	api.InstanceIdGetter = common.NewInstanceIdGetter(domainServices.Machine(), getAuthFunc)
 	api.toolsFinder = common.NewToolsFinder(domainServices.ControllerConfig(), st, urlGetter, newEnviron, ctx.ControllerObjectStore())
-	api.ToolsGetter = common.NewToolsGetter(st, domainServices.Agent(), st, urlGetter, api.toolsFinder, getAuthOwner)
+	api.ToolsGetter = common.NewToolsGetter(domainServices.Agent(), st, urlGetter, api.toolsFinder, getAuthOwner)
 	return api, nil
 }
 

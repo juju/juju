@@ -85,7 +85,7 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 		Model: model, ModelConfigService: modelConfigService, CloudService: cloudService, CredentialService: credentialService}
 	newEnviron := common.EnvironFuncForModel(model, cloudService, credentialService, configGetter)
 	toolsFinder := common.NewToolsFinder(controllerConfigGetter, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
-	toolsGetter := common.NewToolsGetter(st, domainServices.Agent(), st, urlGetter, toolsFinder, getCanReadWrite)
+	toolsGetter := common.NewToolsGetter(domainServices.Agent(), st, urlGetter, toolsFinder, getCanReadWrite)
 
 	return NewUpgraderAPI(
 		toolsGetter,

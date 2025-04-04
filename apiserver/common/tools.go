@@ -9,17 +9,20 @@ import (
 	"sort"
 
 	"github.com/juju/names/v6"
+	"github.com/juju/os/v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/controller"
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	modelerrors "github.com/juju/juju/domain/model/errors"
+	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/errors"
@@ -42,7 +45,7 @@ type ModelAgentService interface {
 	// errors are possible:
 	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound]
 	// - [github.com/juju/juju/domain/model/errors.NotFound]
-	GetMachineTargetAgentVersion(context.Context, machine.Name) (semversion.Number, error)
+	GetMachineTargetAgentVersion(context.Context, machine.Name) (coreagentbinary.Version, error)
 
 	// GetUnitTargetAgentVersion reports the target agent version that should be
 	// being run on the provided unit identified by name. The following errors
@@ -51,14 +54,10 @@ type ModelAgentService interface {
 	// the unit in question does not exist.
 	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model
 	// the unit belongs to no longer exists.
-	GetUnitTargetAgentVersion(context.Context, string) (semversion.Number, error)
+	GetUnitTargetAgentVersion(context.Context, unit.Name) (coreagentbinary.Version, error)
 }
 
 var envtoolsFindTools = envtools.FindTools
-
-type ToolsFindEntity interface {
-	FindEntity(tag names.Tag) (state.Entity, error)
-}
 
 // ToolsURLGetter is an interface providing the ToolsURL method.
 type ToolsURLGetter interface {
@@ -82,21 +81,9 @@ type ToolsStorageGetter interface {
 	ToolsStorage(objectstore.ObjectStore) (binarystorage.StorageCloser, error)
 }
 
-// AgentTooler is implemented by entities
-// that have associated agent tools.
-type AgentTooler interface {
-	AgentTools() (*coretools.Tools, error)
-	SetAgentVersion(semversion.Binary) error
-
-	// Tag is included in this interface only so the generated mock of
-	// AgentTooler implements state.Entity, returned by FindEntity
-	Tag() names.Tag
-}
-
 // ToolsGetter implements a common Tools method for use by various
 // facades.
 type ToolsGetter struct {
-	entityFinder       ToolsFindEntity
 	modelAgentService  ModelAgentService
 	toolsStorageGetter ToolsStorageGetter
 	toolsFinder        ToolsFinder
@@ -107,7 +94,6 @@ type ToolsGetter struct {
 // NewToolsGetter returns a new ToolsGetter. The GetAuthFunc will be
 // used on each invocation of Tools to determine current permissions.
 func NewToolsGetter(
-	entityFinder ToolsFindEntity,
 	modelAgentService ModelAgentService,
 	toolsStorageGetter ToolsStorageGetter,
 	urlGetter ToolsURLGetter,
@@ -115,7 +101,6 @@ func NewToolsGetter(
 	getCanRead GetAuthFunc,
 ) *ToolsGetter {
 	return &ToolsGetter{
-		entityFinder:       entityFinder,
 		modelAgentService:  modelAgentService,
 		toolsStorageGetter: toolsStorageGetter,
 		urlGetter:          urlGetter,
@@ -124,41 +109,41 @@ func NewToolsGetter(
 	}
 }
 
-// getEntityAgentVersion is responsible for getting the target agent version for
+// getEntityAgentTargetVersion is responsible for getting the target agent version for
 // a given tag.
-func (t *ToolsGetter) getEntityAgentVersion(
+func (t *ToolsGetter) getEntityAgentTargetVersion(
 	ctx context.Context,
 	tag names.Tag,
-) (ver semversion.Number, err error) {
+) (ver coreagentbinary.Version, err error) {
 	switch tag.Kind() {
 	case names.ControllerTagKind:
-	case names.ModelTagKind:
-		ver, err = t.modelAgentService.GetModelTargetAgentVersion(ctx)
 	case names.MachineTagKind:
 		ver, err = t.modelAgentService.GetMachineTargetAgentVersion(ctx, machine.Name(tag.Id()))
 	case names.UnitTagKind:
-		ver, err = t.modelAgentService.GetUnitTargetAgentVersion(ctx, tag.Id())
+		ver, err = t.modelAgentService.GetUnitTargetAgentVersion(ctx, unit.Name(tag.Id()))
 	default:
-		return semversion.Zero, errors.Errorf(
+		return coreagentbinary.Version{}, errors.Errorf(
 			"getting agent version for unsupported entity kind %q",
 			tag.Kind(),
 		).Add(coreerrors.NotSupported)
 	}
 
-	isNotFound := errors.IsOneOf(
+	isEntityNotFound := errors.IsOneOf(
 		err,
-		applicationerrors.ApplicationNotFound,
 		applicationerrors.UnitNotFound,
 		machineerrors.MachineNotFound,
-		modelerrors.NotFound,
 	)
-	if isNotFound {
-		return semversion.Zero, errors.Errorf(
-			"entity %q does not exist", tag.String(),
+	if isEntityNotFound {
+		return coreagentbinary.Version{}, errors.Errorf(
+			"%q not found", names.ReadableString(tag),
+		).Add(coreerrors.NotFound)
+	} else if errors.Is(err, modelagenterrors.AgentVersionNotFound) {
+		return coreagentbinary.Version{}, errors.Errorf(
+			"target agent version for %q not found", names.ReadableString(tag),
 		).Add(coreerrors.NotFound)
 	} else if err != nil {
-		return semversion.Zero, errors.Errorf(
-			"finding agent version for entity %q: %w", tag.String(), err,
+		return coreagentbinary.Version{}, errors.Errorf(
+			"finding target agent version for entity %q: %w", names.ReadableString(tag), err,
 		)
 	}
 
@@ -182,12 +167,7 @@ func (t *ToolsGetter) Tools(ctx context.Context, args params.Entities) (params.T
 			continue
 		}
 
-		agentVersion, err := t.getEntityAgentVersion(ctx, tag)
-		if err != nil {
-			return result, err
-		}
-
-		agentToolsList, err := t.oneAgentTools(ctx, canRead, tag, agentVersion)
+		agentToolsList, err := t.oneAgentTools(ctx, canRead, tag)
 		if err == nil {
 			result.Results[i].ToolsList = agentToolsList
 		}
@@ -196,27 +176,22 @@ func (t *ToolsGetter) Tools(ctx context.Context, args params.Entities) (params.T
 	return result, nil
 }
 
-func (t *ToolsGetter) oneAgentTools(ctx context.Context, canRead AuthFunc, tag names.Tag, agentVersion semversion.Number) (coretools.List, error) {
+func (t *ToolsGetter) oneAgentTools(ctx context.Context, canRead AuthFunc, tag names.Tag) (coretools.List, error) {
 	if !canRead(tag) {
 		return nil, apiservererrors.ErrPerm
 	}
-	entity, err := t.entityFinder.FindEntity(tag)
-	if err != nil {
-		return nil, err
-	}
-	tooler, ok := entity.(AgentTooler)
-	if !ok {
-		return nil, apiservererrors.NotSupportedError(tag, "agent binaries")
-	}
-	existingTools, err := tooler.AgentTools()
+
+	targetVersion, err := t.getEntityAgentTargetVersion(ctx, tag)
 	if err != nil {
 		return nil, err
 	}
 
 	findParams := FindAgentsParams{
-		Number: agentVersion,
-		OSType: existingTools.Version.Release,
-		Arch:   existingTools.Version.Arch,
+		Number: targetVersion.Number,
+		// OSType is always "ubuntu" now.
+		// We will eventually get rid of it.
+		OSType: os.Ubuntu.String(),
+		Arch:   targetVersion.Arch,
 	}
 
 	return t.toolsFinder.FindAgents(ctx, findParams)

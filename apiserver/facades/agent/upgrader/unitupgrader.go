@@ -58,16 +58,17 @@ func (u *UnitUpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entit
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		unitName := tag.Id()
-		unitAPIWatcher, err := u.modelAgentService.WatchUnitTargetAgentVersion(ctx, unitName)
-		switch {
-		case errors.Is(err, coreerrors.NotValid):
+		unitName, err := coreunit.NewName(tag.Id())
+		if err != nil {
 			result.Results[i].Error = apiservererrors.ParamsErrorf(
 				params.CodeTagInvalid,
 				"invalid unit name %q",
-				unitName,
+				tag.Id(),
 			)
 			continue
+		}
+		unitAPIWatcher, err := u.modelAgentService.WatchUnitTargetAgentVersion(ctx, unitName)
+		switch {
 		case errors.Is(err, applicationerrors.UnitNotFound):
 			result.Results[i].Error = apiservererrors.ParamsErrorf(
 				params.CodeNotFound,
