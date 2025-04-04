@@ -17,7 +17,6 @@ import (
 	life "github.com/juju/juju/core/life"
 	watcher "github.com/juju/juju/core/watcher"
 	firewaller "github.com/juju/juju/internal/worker/firewaller"
-	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -476,46 +475,6 @@ func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 	return m.recorder
 }
 
-// ExposeInfo mocks base method.
-func (m *MockApplication) ExposeInfo(arg0 context.Context) (bool, map[string]params.ExposedEndpoint, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExposeInfo", arg0)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(map[string]params.ExposedEndpoint)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// ExposeInfo indicates an expected call of ExposeInfo.
-func (mr *MockApplicationMockRecorder) ExposeInfo(arg0 any) *MockApplicationExposeInfoCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExposeInfo", reflect.TypeOf((*MockApplication)(nil).ExposeInfo), arg0)
-	return &MockApplicationExposeInfoCall{Call: call}
-}
-
-// MockApplicationExposeInfoCall wrap *gomock.Call
-type MockApplicationExposeInfoCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationExposeInfoCall) Return(arg0 bool, arg1 map[string]params.ExposedEndpoint, arg2 error) *MockApplicationExposeInfoCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationExposeInfoCall) Do(f func(context.Context) (bool, map[string]params.ExposedEndpoint, error)) *MockApplicationExposeInfoCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationExposeInfoCall) DoAndReturn(f func(context.Context) (bool, map[string]params.ExposedEndpoint, error)) *MockApplicationExposeInfoCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Name mocks base method.
 func (m *MockApplication) Name() string {
 	m.ctrl.T.Helper()
@@ -588,45 +547,6 @@ func (c *MockApplicationTagCall) Do(f func() names.ApplicationTag) *MockApplicat
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationTagCall) DoAndReturn(f func() names.ApplicationTag) *MockApplicationTagCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Watch mocks base method.
-func (m *MockApplication) Watch(arg0 context.Context) (watcher.Watcher[struct{}], error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Watch", arg0)
-	ret0, _ := ret[0].(watcher.Watcher[struct{}])
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Watch indicates an expected call of Watch.
-func (mr *MockApplicationMockRecorder) Watch(arg0 any) *MockApplicationWatchCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockApplication)(nil).Watch), arg0)
-	return &MockApplicationWatchCall{Call: call}
-}
-
-// MockApplicationWatchCall wrap *gomock.Call
-type MockApplicationWatchCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationWatchCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockApplicationWatchCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationWatchCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockApplicationWatchCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationWatchCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockApplicationWatchCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

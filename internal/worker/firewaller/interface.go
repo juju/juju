@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
@@ -87,6 +88,34 @@ type MachineService interface {
 	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
 }
 
+// ApplicationService provides methods to query applications.
+type ApplicationService interface {
+	// WatchApplicationExposed watches for changes to the specified application's
+	// exposed endpoints.
+	// This notifies on any changes to the application's exposed endpoints. It is up
+	// to the caller to determine if the exposed endpoints they're interested in has
+	// changed.
+	//
+	// If the application does not exist an error satisfying
+	// [applicationerrors.NotFound] will be returned.
+	WatchApplicationExposed(ctx context.Context, name string) (watcher.NotifyWatcher, error)
+
+	// IsApplicationExposed returns whether the provided application is exposed or not.
+	//
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	IsApplicationExposed(ctx context.Context, appName string) (bool, error)
+
+	// GetExposedEndpoints returns map where keys are endpoint names (or the ""
+	// value which represents all endpoints) and values are ExposedEndpoint
+	// instances that specify which sources (spaces or CIDRs) can access the
+	// opened ports for each endpoint once the application is exposed.
+	//
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetExposedEndpoints(ctx context.Context, appName string) (map[string]application.ExposedEndpoint, error)
+}
+
 // EnvironFirewaller defines methods to allow the worker to perform
 // firewall operations (open/close ports) on a Juju global firewall.
 type EnvironFirewaller interface {
@@ -133,6 +162,4 @@ type Unit interface {
 type Application interface {
 	Name() string
 	Tag() names.ApplicationTag
-	Watch(context.Context) (watcher.NotifyWatcher, error)
-	ExposeInfo(context.Context) (bool, map[string]params.ExposedEndpoint, error)
 }
