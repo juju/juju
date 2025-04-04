@@ -14,14 +14,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
-	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	coresecrets "github.com/juju/juju/core/secrets"
 )
 
 type k8sBackend struct {
 	serviceAccount string
 	namespace      string
-	model          string
+	modelName      string
+	modelUUID      string
 
 	client kubernetes.Interface
 }
@@ -89,9 +89,7 @@ func (k *k8sBackend) SaveContent(ctx context.Context, uri *coresecrets.URI, revi
 	}()
 
 	name := uri.Name(revision)
-	labels := utils.LabelsMerge(
-		utils.LabelsForModel(k.model, false),
-		utils.LabelsJuju)
+	labels := labelsForSecretRevision(k.modelName, k.modelUUID)
 	in := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			Labels: labels,

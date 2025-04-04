@@ -48,8 +48,8 @@ func (d *DummyUpgradeCAASOperator) DeploymentName(n string, _ bool) string {
 	return n
 }
 
-func (d *DummyUpgradeCAASOperator) IsLegacyLabels() bool {
-	return false
+func (d *DummyUpgradeCAASOperator) LabelVersion() constants.LabelVersion {
+	return constants.LabelVersion1
 }
 
 func (d *DummyUpgradeCAASOperator) Namespace() string {
@@ -57,7 +57,7 @@ func (d *DummyUpgradeCAASOperator) Namespace() string {
 }
 
 func (d *DummyUpgradeCAASOperator) Operator(appName string) (*caas.Operator, error) {
-	return operator(d.client, d.Namespace(), d.OperatorName(appName), appName, false, d.Clock().Now())
+	return operator(d.client, d.Namespace(), d.OperatorName(appName), appName, d.LabelVersion(), d.Clock().Now())
 }
 
 func (d *DummyUpgradeCAASOperator) OperatorName(n string) string {

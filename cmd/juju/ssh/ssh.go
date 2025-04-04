@@ -59,9 +59,9 @@ it opens up the possibility of a man-in-the-middle attack.
 
 The default identity known to Juju and used by this command is ~/.ssh/id_rsa
 
-Options can be passed to the local OpenSSH client (ssh) on platforms 
-where it is available. This is done by inserting them between the target and 
-a possible remote command. Refer to the ssh man page for an explanation 
+Options can be passed to the local OpenSSH client (ssh) on platforms
+where it is available. This is done by inserting them between the target and
+a possible remote command. Refer to the ssh man page for an explanation
 of those options.
 
 For k8s charms, the --container argument is used to identity a specific
@@ -102,7 +102,7 @@ Connect to a k8s unit targeting the operator pod by default:
 
 	juju ssh mysql/0
 	juju ssh mysql/0 bash
-	
+
 Connect to a k8s unit targeting the workload pod by specifying --remote:
 
 	juju ssh --remote mysql/0
@@ -227,6 +227,7 @@ func (c *sshCommand) Init(args []string) (err error) {
 type ModelCommand interface {
 	NewControllerAPIRoot() (api.Connection, error)
 	ModelDetails() (string, *jujuclient.ModelDetails, error)
+	ControllerDetails() (*jujuclient.ControllerDetails, error)
 	NewAPIRoot() (api.Connection, error)
 	NewAPIClient() (*apiclient.Client, error)
 	ModelIdentifier() (string, error)

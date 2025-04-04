@@ -106,7 +106,7 @@ func (k *kubernetesClient) deleteDaemonSets(appName string) error {
 	if k.namespace == "" {
 		return errNoNamespace
 	}
-	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
+	labels := utils.LabelsForApp(appName, k.LabelVersion())
 	err := k.client().AppsV1().DaemonSets(k.namespace).DeleteCollection(context.TODO(), v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{

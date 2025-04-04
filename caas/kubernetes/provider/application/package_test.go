@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
@@ -24,13 +25,13 @@ type (
 	AnnotationUpdater = annotationUpdater
 )
 
-func (a *app) IsLegacyLabels() bool {
-	return a.legacyLabels
+func (a *app) LabelVersion() constants.LabelVersion {
+	return a.labelVersion
 }
 
 type ApplicationInterfaceForTest interface {
 	caas.Application
-	IsLegacyLabels() bool
+	LabelVersion() constants.LabelVersion
 }
 
 func NewApplicationForTest(
@@ -38,7 +39,7 @@ func NewApplicationForTest(
 	namespace string,
 	modelUUID string,
 	modelName string,
-	legacyLabels bool,
+	labelVersion constants.LabelVersion,
 	deploymentType caas.DeploymentType,
 	client kubernetes.Interface,
 	newWatcher k8swatcher.NewK8sWatcherFunc,
@@ -47,7 +48,7 @@ func NewApplicationForTest(
 	newApplier func() resources.Applier,
 ) ApplicationInterfaceForTest {
 	return newApplication(
-		name, namespace, modelUUID, modelName, legacyLabels, deploymentType,
+		name, namespace, modelUUID, modelName, labelVersion, deploymentType,
 		client, newWatcher, clock, randomPrefix, newApplier,
 	)
 }

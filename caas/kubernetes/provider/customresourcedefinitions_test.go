@@ -195,7 +195,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1beta1
 	crd := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "tfjobs.kubeflow.org",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d", "model.juju.is/name": "test"},
 			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
@@ -321,7 +321,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1beta1
 	crd2 := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "tfjobs.kubeflow.org",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d", "model.juju.is/name": "test"},
 			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
@@ -450,7 +450,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdateV1beta1
 	crd := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "tfjobs.kubeflow.org",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d", "model.juju.is/name": "test"},
 			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
@@ -573,7 +573,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreateV1(c *g
 	crd := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "certificates.networking.internal.knative.dev",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d", "model.juju.is/name": "test"},
 			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
@@ -694,7 +694,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdateV1(c *g
 	crd := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "certificates.networking.internal.knative.dev",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d", "model.juju.is/name": "test"},
 			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
@@ -981,7 +981,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
 	crd := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "tfjobs.kubeflow.org",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d", "model.juju.is/name": "test"},
 			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
@@ -1116,7 +1116,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 	crd := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "tfjobs.kubeflow.org",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d", "model.juju.is/name": "test"},
 			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{

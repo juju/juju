@@ -189,7 +189,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateV1Beta1(c 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "test-example-mutatingwebhookconfiguration",
 			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
 			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Webhooks: []admissionregistrationv1beta1.MutatingWebhook{webhook1},
@@ -297,7 +297,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateV1Beta1Upg
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        "test-example-mutatingwebhookconfiguration",
 				Namespace:   "test",
-				Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+				Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
 				Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 			},
 			Webhooks: []admissionregistrationv1.MutatingWebhook{webhook2},
@@ -371,7 +371,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateKeepNameV1
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "example-mutatingwebhookconfiguration", // This name kept no change.
 			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
 			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id(), "model.juju.is/disable-prefix": "true"},
 		},
 		Webhooks: []admissionregistrationv1beta1.MutatingWebhook{webhook1},
@@ -441,7 +441,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdateV1Beta1(c 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "test-example-mutatingwebhookconfiguration",
 			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
 			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Webhooks: []admissionregistrationv1beta1.MutatingWebhook{webhook1},
@@ -451,7 +451,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdateV1Beta1(c 
 		c, cfgs,
 		s.mockMutatingWebhookConfigurationV1Beta1.EXPECT().Create(gomock.Any(), cfg1, gomock.Any()).Return(cfg1, s.k8sAlreadyExistsError()),
 		s.mockMutatingWebhookConfigurationV1Beta1.EXPECT().
-			List(gomock.Any(), metav1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name,model.juju.is/name=test"}).
+			List(gomock.Any(), metav1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name,model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"}).
 			Return(&admissionregistrationv1beta1.MutatingWebhookConfigurationList{Items: []admissionregistrationv1beta1.MutatingWebhookConfiguration{*cfg1}}, nil),
 		s.mockMutatingWebhookConfigurationV1Beta1.EXPECT().
 			Get(gomock.Any(), "test-example-mutatingwebhookconfiguration", metav1.GetOptions{}).
@@ -518,7 +518,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateV1(c *gc.C
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "test-example-mutatingwebhookconfiguration",
 			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
 			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Webhooks: []admissionregistrationv1.MutatingWebhook{webhook1},
@@ -591,7 +591,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreateKeepNameV1
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "example-mutatingwebhookconfiguration", // This name kept no change.
 			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
 			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id(), "model.juju.is/disable-prefix": "true"},
 		},
 		Webhooks: []admissionregistrationv1.MutatingWebhook{webhook1},
@@ -661,7 +661,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdateV1(c *gc.C
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "test-example-mutatingwebhookconfiguration",
 			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
 			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Webhooks: []admissionregistrationv1.MutatingWebhook{webhook1},
@@ -671,7 +671,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdateV1(c *gc.C
 		c, cfgs,
 		s.mockMutatingWebhookConfigurationV1.EXPECT().Create(gomock.Any(), cfg1, metav1.CreateOptions{}).Return(cfg1, s.k8sAlreadyExistsError()),
 		s.mockMutatingWebhookConfigurationV1.EXPECT().
-			List(gomock.Any(), metav1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name,model.juju.is/name=test"}).
+			List(gomock.Any(), metav1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name,model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"}).
 			Return(&admissionregistrationv1.MutatingWebhookConfigurationList{Items: []admissionregistrationv1.MutatingWebhookConfiguration{*cfg1}}, nil),
 		s.mockMutatingWebhookConfigurationV1.EXPECT().
 			Get(gomock.Any(), "test-example-mutatingwebhookconfiguration", metav1.GetOptions{}).
@@ -838,7 +838,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateV1Beta1(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "test-example-validatingwebhookconfiguration",
 			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
 			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Webhooks: []admissionregistrationv1beta1.ValidatingWebhook{webhook1},
@@ -945,7 +945,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateV1Beta1U
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "test-example-validatingwebhookconfiguration",
 			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
 			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Webhooks: []admissionregistrationv1.ValidatingWebhook{webhook2},
@@ -1018,7 +1018,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateKeepName
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "example-validatingwebhookconfiguration", // This name kept no change.
 			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
 			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id(), "model.juju.is/disable-prefix": "true"},
 		},
 		Webhooks: []admissionregistrationv1beta1.ValidatingWebhook{webhook1},
@@ -1088,7 +1088,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdateV1Beta1(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "test-example-validatingwebhookconfiguration",
 			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
 			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Webhooks: []admissionregistrationv1beta1.ValidatingWebhook{webhook1},
@@ -1098,7 +1098,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdateV1Beta1(
 		c, cfgs,
 		s.mockValidatingWebhookConfigurationV1Beta1.EXPECT().Create(gomock.Any(), cfg1, gomock.Any()).Return(cfg1, s.k8sAlreadyExistsError()),
 		s.mockValidatingWebhookConfigurationV1Beta1.EXPECT().
-			List(gomock.Any(), metav1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name,model.juju.is/name=test"}).
+			List(gomock.Any(), metav1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name,model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"}).
 			Return(&admissionregistrationv1beta1.ValidatingWebhookConfigurationList{Items: []admissionregistrationv1beta1.ValidatingWebhookConfiguration{*cfg1}}, nil),
 		s.mockValidatingWebhookConfigurationV1Beta1.EXPECT().
 			Get(gomock.Any(), "test-example-validatingwebhookconfiguration", metav1.GetOptions{}).
@@ -1165,7 +1165,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateV1(c *gc
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "test-example-validatingwebhookconfiguration",
 			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
 			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Webhooks: []admissionregistrationv1.ValidatingWebhook{webhook1},
@@ -1238,7 +1238,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreateKeepName
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "example-validatingwebhookconfiguration", // This name kept no change.
 			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
 			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id(), "model.juju.is/disable-prefix": "true"},
 		},
 		Webhooks: []admissionregistrationv1.ValidatingWebhook{webhook1},
@@ -1308,7 +1308,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdateV1(c *gc
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "test-example-validatingwebhookconfiguration",
 			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:      map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
 			Annotations: map[string]string{"controller.juju.is/id": testing.ControllerTag.Id()},
 		},
 		Webhooks: []admissionregistrationv1.ValidatingWebhook{webhook1},
@@ -1318,7 +1318,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdateV1(c *gc
 		c, cfgs,
 		s.mockValidatingWebhookConfigurationV1.EXPECT().Create(gomock.Any(), cfg1, metav1.CreateOptions{}).Return(cfg1, s.k8sAlreadyExistsError()),
 		s.mockValidatingWebhookConfigurationV1.EXPECT().
-			List(gomock.Any(), metav1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name,model.juju.is/name=test"}).
+			List(gomock.Any(), metav1.ListOptions{LabelSelector: "app.kubernetes.io/managed-by=juju,app.kubernetes.io/name=app-name,model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"}).
 			Return(&admissionregistrationv1.ValidatingWebhookConfigurationList{Items: []admissionregistrationv1.ValidatingWebhookConfiguration{*cfg1}}, nil),
 		s.mockValidatingWebhookConfigurationV1.EXPECT().
 			Get(gomock.Any(), "test-example-validatingwebhookconfiguration", metav1.GetOptions{}).

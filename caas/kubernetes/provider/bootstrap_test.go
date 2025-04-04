@@ -341,7 +341,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	s.setupBroker(c, newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc, &bootstrapWatchers)
 
 	// Broker's namespace is "controller" now - controllerModelConfig.Name()
-	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.namespace)
+	c.Assert(s.broker.Namespace(), jc.DeepEquals, s.namespace)
 	c.Assert(
 		s.broker.GetAnnotations().ToMap(), jc.DeepEquals,
 		map[string]string{
@@ -1233,7 +1233,7 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 	s.setupBroker(c, newK8sClientFunc, newK8sRestClientFunc, randomPrefixFunc, &watchers)
 
 	// Broker's namespace is "controller" now - controllerModelConfig.Name()
-	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.namespace)
+	c.Assert(s.broker.Namespace(), jc.DeepEquals, s.namespace)
 	c.Assert(
 		s.broker.GetAnnotations().ToMap(), jc.DeepEquals,
 		map[string]string{

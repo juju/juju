@@ -61,51 +61,89 @@ func (l *LabelSuite) TestHasLabels(c *gc.C) {
 	}
 }
 
-func (l *LabelSuite) TestIsLegacyModelLabels(c *gc.C) {
+func (l *LabelSuite) TestDectectModelLabelVersion(c *gc.C) {
 	tests := []struct {
-		IsLegacy  bool
-		Model     string
-		Namespace *core.Namespace
+		LabelVersion   constants.LabelVersion
+		ModelName      string
+		ModelUUID      string
+		ControllerUUID string
+		Namespace      *core.Namespace
+		ErrorString    string
 	}{
 		{
-			IsLegacy: false,
-			Model:    "legacy-model-label-test-1",
+			LabelVersion:   constants.LegacyLabelVersion,
+			ModelName:      "model-label-test-3",
+			ModelUUID:      "badf00d3",
+			ControllerUUID: "d0gf00d3",
 			Namespace: &core.Namespace{
 				ObjectMeta: meta.ObjectMeta{
-					Name:   "legacy-model-label-test-1",
-					Labels: map[string]string{"model.juju.is/name": "legacy-model-label-test-1"},
+					Name:   "model-label-test-3",
+					Labels: map[string]string{"juju-model": "model-label-test-3"},
 				},
 			},
 		},
 		{
-			IsLegacy: false,
-			Model:    "legacy-model-label-test-2",
+			LabelVersion:   constants.LabelVersion1,
+			ModelName:      "model-label-test-1",
+			ModelUUID:      "badf00d1",
+			ControllerUUID: "d0gf00d1",
 			Namespace: &core.Namespace{
 				ObjectMeta: meta.ObjectMeta{
-					Name:   "legacy-model-label-test-2",
-					Labels: map[string]string{},
+					Name:   "model-label-test-1",
+					Labels: map[string]string{"model.juju.is/name": "model-label-test-1"},
 				},
 			},
 		},
 		{
-			IsLegacy: true,
-			Model:    "legacy-model-label-test-3",
+			LabelVersion:   constants.LabelVersion2,
+			ModelName:      "model-label-test-2",
+			ModelUUID:      "badf00d2",
+			ControllerUUID: "d0gf00d2",
 			Namespace: &core.Namespace{
 				ObjectMeta: meta.ObjectMeta{
-					Name:   "legacy-model-label-test-3",
-					Labels: map[string]string{"juju-model": "legacy-model-label-test-3"},
+					Name:   "model-label-test-2",
+					Labels: map[string]string{"model.juju.is/name": "model-label-test-2", "model.juju.is/id": "badf00d2"},
 				},
 			},
+		},
+		{
+			LabelVersion:   constants.LabelVersion2,
+			ModelName:      "controller",
+			ModelUUID:      "badf00d4",
+			ControllerUUID: "d0gf00d4",
+			Namespace: &core.Namespace{
+				ObjectMeta: meta.ObjectMeta{
+					Name:   "controller-foo",
+					Labels: map[string]string{"model.juju.is/name": "controller", "controller.juju.is/id": "d0gf00d4"},
+				},
+			},
+		},
+		{
+			LabelVersion:   -1,
+			ModelName:      "controller",
+			ModelUUID:      "badf00d4",
+			ControllerUUID: "d0gf00d4",
+			Namespace: &core.Namespace{
+				ObjectMeta: meta.ObjectMeta{
+					Name:   "controller-bar",
+					Labels: map[string]string{"foo.juju.is/bar": "nope", "controller.juju.is/id": "d0gf00d"},
+				},
+			},
+			ErrorString: "unexpected model labels",
 		},
 	}
 
-	for _, test := range tests {
+	for t, test := range tests {
 		_, err := l.client.CoreV1().Namespaces().Create(context.TODO(), test.Namespace, meta.CreateOptions{})
 		c.Assert(err, jc.ErrorIsNil)
 
-		legacy, err := utils.IsLegacyModelLabels(test.Namespace.Name, test.Model, l.client.CoreV1().Namespaces())
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(legacy, gc.Equals, test.IsLegacy)
+		labelVersion, err := utils.DetectModelLabelVersion(test.Namespace.Name, test.ModelName, test.ModelUUID, test.ControllerUUID, l.client.CoreV1().Namespaces())
+		if test.ErrorString != "" {
+			c.Assert(err, gc.ErrorMatches, test.ErrorString, gc.Commentf("test %d", t))
+		} else {
+			c.Assert(err, jc.ErrorIsNil, gc.Commentf("test %d", t))
+		}
+		c.Check(labelVersion, gc.Equals, test.LabelVersion, gc.Commentf("test %d", t))
 	}
 }
 
@@ -139,26 +177,26 @@ func (l *LabelSuite) TestSelectorLabelsForApp(c *gc.C) {
 	tests := []struct {
 		AppName        string
 		ExpectedLabels labels.Set
-		Legacy         bool
+		LabelVersion   constants.LabelVersion
 	}{
 		{
 			AppName: "tlm-boom",
 			ExpectedLabels: labels.Set{
 				"app.kubernetes.io/name": "tlm-boom",
 			},
-			Legacy: false,
+			LabelVersion: constants.LabelVersion1,
 		},
 		{
 			AppName: "tlm-boom",
 			ExpectedLabels: labels.Set{
 				"juju-app": "tlm-boom",
 			},
-			Legacy: true,
+			LabelVersion: constants.LegacyLabelVersion,
 		},
 	}
 
 	for _, test := range tests {
-		rval := utils.SelectorLabelsForApp(test.AppName, test.Legacy)
+		rval := utils.SelectorLabelsForApp(test.AppName, test.LabelVersion)
 		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
 	}
 }
@@ -167,7 +205,7 @@ func (l *LabelSuite) TestLabelsForApp(c *gc.C) {
 	tests := []struct {
 		AppName        string
 		ExpectedLabels labels.Set
-		Legacy         bool
+		LabelVersion   constants.LabelVersion
 	}{
 		{
 			AppName: "tlm-boom",
@@ -175,19 +213,19 @@ func (l *LabelSuite) TestLabelsForApp(c *gc.C) {
 				"app.kubernetes.io/name":       "tlm-boom",
 				"app.kubernetes.io/managed-by": "juju",
 			},
-			Legacy: false,
+			LabelVersion: constants.LabelVersion1,
 		},
 		{
 			AppName: "tlm-boom",
 			ExpectedLabels: labels.Set{
 				"juju-app": "tlm-boom",
 			},
-			Legacy: true,
+			LabelVersion: constants.LegacyLabelVersion,
 		},
 	}
 
 	for _, test := range tests {
-		rval := utils.LabelsForApp(test.AppName, test.Legacy)
+		rval := utils.LabelsForApp(test.AppName, test.LabelVersion)
 		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
 	}
 }
@@ -196,54 +234,60 @@ func (l *LabelSuite) TestLabelsForStorage(c *gc.C) {
 	tests := []struct {
 		AppName        string
 		ExpectedLabels labels.Set
-		Legacy         bool
+		LabelVersion   constants.LabelVersion
 	}{
 		{
 			AppName: "tlm-boom",
 			ExpectedLabels: labels.Set{
 				"storage.juju.is/name": "tlm-boom",
 			},
-			Legacy: false,
+			LabelVersion: constants.LabelVersion1,
 		},
 		{
 			AppName: "tlm-boom",
 			ExpectedLabels: labels.Set{
 				"juju-storage": "tlm-boom",
 			},
-			Legacy: true,
+			LabelVersion: constants.LegacyLabelVersion,
 		},
 	}
 
 	for _, test := range tests {
-		rval := utils.LabelsForStorage(test.AppName, test.Legacy)
+		rval := utils.LabelsForStorage(test.AppName, test.LabelVersion)
 		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
 	}
 }
 
 func (l *LabelSuite) TestLabelsForModel(c *gc.C) {
 	tests := []struct {
-		AppName        string
+		ModelName      string
+		ModelUUID      string
+		ControllerUUID string
 		ExpectedLabels labels.Set
-		Legacy         bool
+		LabelVersion   constants.LabelVersion
 	}{
 		{
-			AppName: "tlm-boom",
+			ModelName:      "tlm-boom",
+			ModelUUID:      "d0gf00d",
+			ControllerUUID: "badf00d",
 			ExpectedLabels: labels.Set{
 				"model.juju.is/name": "tlm-boom",
 			},
-			Legacy: false,
+			LabelVersion: constants.LabelVersion1,
 		},
 		{
-			AppName: "tlm-boom",
+			ModelName:      "tlm-boom",
+			ModelUUID:      "d0gf00d",
+			ControllerUUID: "badf00d",
 			ExpectedLabels: labels.Set{
 				"juju-model": "tlm-boom",
 			},
-			Legacy: true,
+			LabelVersion: constants.LegacyLabelVersion,
 		},
 	}
 
 	for _, test := range tests {
-		rval := utils.LabelsForModel(test.AppName, test.Legacy)
+		rval := utils.LabelsForModel(test.ModelName, test.ModelUUID, test.ControllerUUID, test.LabelVersion)
 		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
 	}
 }
@@ -253,7 +297,7 @@ func (l *LabelSuite) TestLabelsForOperator(c *gc.C) {
 		AppName        string
 		Target         string
 		ExpectedLabels labels.Set
-		Legacy         bool
+		LabelVersion   constants.LabelVersion
 	}{
 		{
 			AppName: "tlm-boom",
@@ -262,19 +306,19 @@ func (l *LabelSuite) TestLabelsForOperator(c *gc.C) {
 				"operator.juju.is/name":   "tlm-boom",
 				"operator.juju.is/target": "harry",
 			},
-			Legacy: false,
+			LabelVersion: constants.LabelVersion1,
 		},
 		{
 			AppName: "tlm-boom",
 			ExpectedLabels: labels.Set{
 				"juju-operator": "tlm-boom",
 			},
-			Legacy: true,
+			LabelVersion: constants.LegacyLabelVersion,
 		},
 	}
 
 	for _, test := range tests {
-		rval := utils.LabelsForOperator(test.AppName, test.Target, test.Legacy)
+		rval := utils.LabelsForOperator(test.AppName, test.Target, test.LabelVersion)
 		c.Assert(rval, jc.DeepEquals, test.ExpectedLabels)
 	}
 }

@@ -20,8 +20,8 @@ import (
 	k8sannotations "github.com/juju/juju/core/annotations"
 )
 
-func getServiceLabels(appName string, legacy bool) map[string]string {
-	return utils.LabelsForApp(appName, legacy)
+func getServiceLabels(appName string, labelVersion constants.LabelVersion) map[string]string {
+	return utils.LabelsForApp(appName, labelVersion)
 }
 
 func (k *kubernetesClient) ensureServicesForApp(appName, deploymentName string, annotations k8sannotations.Annotation, services []k8sspecs.K8sService) (cleanUps []func(), err error) {
@@ -33,7 +33,7 @@ func (k *kubernetesClient) ensureServicesForApp(appName, deploymentName string, 
 			ObjectMeta: meta.ObjectMeta{
 				Name:        v.Name,
 				Namespace:   k.namespace,
-				Labels:      utils.LabelsMerge(v.Labels, getServiceLabels(appName, k.IsLegacyLabels())),
+				Labels:      utils.LabelsMerge(v.Labels, getServiceLabels(appName, k.LabelVersion())),
 				Annotations: annotations.Copy().Merge(v.Annotations),
 			},
 			Spec: v.Spec,
@@ -96,7 +96,7 @@ func (k *kubernetesClient) deleteServices(appName string) error {
 	services, err := api.List(context.TODO(),
 		meta.ListOptions{
 			LabelSelector: utils.LabelsToSelector(
-				getServiceLabels(appName, k.IsLegacyLabels())).String(),
+				getServiceLabels(appName, k.LabelVersion())).String(),
 		},
 	)
 	if err != nil {
@@ -117,9 +117,9 @@ func findServiceForApplication(
 	ctx context.Context,
 	serviceI corev1.ServiceInterface,
 	appName string,
-	legacyLabels bool,
+	labelVersion constants.LabelVersion,
 ) (*core.Service, error) {
-	labels := utils.LabelsForApp(appName, legacyLabels)
+	labels := utils.LabelsForApp(appName, labelVersion)
 	servicesList, err := serviceI.List(context.TODO(), meta.ListOptions{
 		LabelSelector: utils.LabelsToSelector(labels).String(),
 	})

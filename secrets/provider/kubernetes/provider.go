@@ -47,8 +47,8 @@ const (
 )
 
 var (
-	controllerIdKey = utils.AnnotationControllerUUIDKey(false)
-	modelIdKey      = utils.AnnotationModelUUIDKey(false)
+	controllerIdKey = utils.AnnotationControllerUUIDKey(constants.LabelVersion1)
+	modelIdKey      = utils.AnnotationModelUUIDKey(constants.LabelVersion1)
 )
 
 // These are patched for testing.
@@ -367,6 +367,10 @@ func (k *kubernetesClient) createServiceAccount(ctx context.Context, sa *core.Se
 			// sa.Name is already used for an existing service account.
 			return nil, errors.Errorf("service account %q exists and is not managed by Juju", sa.GetName())
 		}
+		if existing.Annotations[modelIdKey] != k.modelUUID {
+			// sa.Name is already used for an existing service account.
+			return nil, errors.Errorf("service account %q exists and is not managed by this model", sa.GetName())
+		}
 		return nil, errors.AlreadyExistsf("service account %q", sa.GetName())
 	}
 	return out, errors.Trace(err)
@@ -399,7 +403,7 @@ func (k *kubernetesClient) deleteServiceAccounts(ctx context.Context) error {
 		return errNoNamespace
 	}
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(modelLabelForSearch(k.modelName)).String(),
+		LabelSelector: modelLabelSelector(k.modelName).String(),
 	}
 	api := k.client.CoreV1().ServiceAccounts(k.namespace)
 	results, err := api.List(ctx, listOps)
@@ -462,7 +466,7 @@ func (k *kubernetesClient) deleteSecrets(ctx context.Context) error {
 		return errNoNamespace
 	}
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(modelLabelForSearch(k.modelName)).String(),
+		LabelSelector: modelLabelSelector(k.modelName).String(),
 	}
 	api := k.client.CoreV1().Secrets(k.namespace)
 	results, err := api.List(ctx, listOps)
@@ -522,7 +526,7 @@ func (k *kubernetesClient) deleteRoles(ctx context.Context) error {
 		return errNoNamespace
 	}
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(modelLabelForSearch(k.modelName)).String(),
+		LabelSelector: modelLabelSelector(k.modelName).String(),
 	}
 	api := k.client.RbacV1().Roles(k.namespace)
 	results, err := api.List(ctx, listOps)
@@ -549,7 +553,7 @@ func (k *kubernetesClient) deleteRoleBindings(ctx context.Context) error {
 		return errNoNamespace
 	}
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(modelLabelForSearch(k.modelName)).String(),
+		LabelSelector: modelLabelSelector(k.modelName).String(),
 	}
 	api := k.client.RbacV1().RoleBindings(k.namespace)
 	results, err := api.List(ctx, listOps)
@@ -816,7 +820,7 @@ func (k *kubernetesClient) deleteClusterRoleBinding(ctx context.Context, name st
 
 func (k *kubernetesClient) deleteClusterRoles(ctx context.Context) error {
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(modelLabelForSearch(k.modelName)).String(),
+		LabelSelector: modelLabelSelector(k.modelName).String(),
 	}
 	results, err := k.client.RbacV1().ClusterRoles().List(ctx, listOps)
 	if err != nil {
@@ -839,7 +843,7 @@ func (k *kubernetesClient) deleteClusterRoles(ctx context.Context) error {
 
 func (k *kubernetesClient) deleteClusterRoleBindings(ctx context.Context) error {
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(modelLabelForSearch(k.modelName)).String(),
+		LabelSelector: modelLabelSelector(k.modelName).String(),
 	}
 	results, err := k.client.RbacV1().ClusterRoleBindings().List(ctx, listOps)
 	if err != nil {
@@ -923,11 +927,7 @@ func (k *kubernetesClient) ensureSecretAccessToken(
 		}
 	}()
 
-	labels := utils.LabelsMerge(
-		utils.LabelsJuju,
-		map[string]string{
-			constants.LabelJujuModelName: k.modelName,
-		})
+	labels := labelsForServiceAccount(k.modelName, k.modelUUID)
 	annotations := map[string]string{
 		controllerIdKey: k.controllerUUID,
 		modelIdKey:      k.modelUUID,
@@ -999,12 +999,6 @@ func (k *kubernetesClient) ensureSecretAccessToken(
 	return tr.Status.Token, nil
 }
 
-func modelLabelForSearch(modelName string) map[string]string {
-	return map[string]string{
-		constants.LabelJujuModelName: modelName,
-	}
-}
-
 // createDisambiguatedServiceAccount creates a service account with a disambiguated name.
 func (k *kubernetesClient) createDisambiguatedServiceAccount(
 	ctx context.Context, sa *core.ServiceAccount,
@@ -1014,7 +1008,7 @@ func (k *kubernetesClient) createDisambiguatedServiceAccount(
 	}
 
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(modelLabelForSearch(k.modelName)).String(),
+		LabelSelector: modelLabelSelector(k.modelName).String(),
 	}
 	existing, err := k.client.CoreV1().ServiceAccounts(k.namespace).List(ctx, listOps)
 	if err != nil {
@@ -1053,7 +1047,7 @@ func (k *kubernetesClient) ensureDisambiguatedClusterRole(
 	ctx context.Context, baseName string, labels labels.Set, annotations map[string]string, createRules func(existing []rbacv1.PolicyRule) []rbacv1.PolicyRule,
 ) (_ *rbacv1.ClusterRole, cleanups []func(), _ error) {
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(modelLabelForSearch(k.modelName)).String(),
+		LabelSelector: modelLabelSelector(k.modelName).String(),
 	}
 	existing, err := k.client.RbacV1().ClusterRoles().List(ctx, listOps)
 	if err != nil {
@@ -1110,7 +1104,7 @@ func (k *kubernetesClient) ensureDisambiguatedClusterRoleBinding(
 	ctx context.Context, saName, baseName, roleName string, labels labels.Set, annotations map[string]string,
 ) (_ *rbacv1.ClusterRoleBinding, cleanups []func(), _ error) {
 	listOps := v1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(modelLabelForSearch(k.modelName)).String(),
+		LabelSelector: modelLabelSelector(k.modelName).String(),
 	}
 	existing, err := k.client.RbacV1().ClusterRoleBindings().List(ctx, listOps)
 	if err != nil {
@@ -1174,7 +1168,8 @@ func (p k8sProvider) NewBackend(cfg *provider.ModelBackendConfig) (provider.Secr
 		return nil, errors.Annotate(err, "getting cluster client")
 	}
 	return &k8sBackend{
-		model:          cfg.ModelName,
+		modelName:      cfg.ModelName,
+		modelUUID:      cfg.ModelUUID,
 		namespace:      broker.namespace,
 		serviceAccount: broker.serviceAccount,
 		client:         broker.client,

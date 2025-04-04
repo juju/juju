@@ -7,12 +7,14 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 )
 
-// IsLegacyLabels indicates if this provider is operating on a legacy label schema
-func (k *kubernetesClient) IsLegacyLabels() bool {
-	return k.isLegacyLabels
+// LabelVersion returns the detected label version for k8s resources created
+// for this model.
+func (k *kubernetesClient) LabelVersion() constants.LabelVersion {
+	return k.labelVersion
 }
 
 func isK8sObjectOwnedByJuju(objMeta meta.ObjectMeta) bool {

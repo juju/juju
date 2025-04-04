@@ -37,13 +37,14 @@ import (
 type sshContainer struct {
 	leaderResolver
 	// remote indicates if it should target to the operator or workload pod.
-	remote    bool
-	target    string
-	container string
-	args      []string
-	modelUUID string
-	modelName string
-	namespace string
+	remote         bool
+	target         string
+	container      string
+	args           []string
+	modelUUID      string
+	controllerUUID string
+	modelName      string
+	namespace      string
 
 	applicationAPI   ApplicationAPI
 	charmsAPI        CharmsAPI
@@ -132,6 +133,14 @@ func (c *sshContainer) initRun(mc ModelCommand) (err error) {
 			return err
 		}
 		c.modelUUID = mDetails.ModelUUID
+	}
+
+	if len(c.controllerUUID) == 0 {
+		controllerDetails, err := mc.ControllerDetails()
+		if err != nil {
+			return err
+		}
+		c.controllerUUID = controllerDetails.ControllerUUID
 	}
 
 	cAPI, err := mc.NewControllerAPIRoot()
@@ -262,6 +271,8 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 			appName,
 			c.execClient.NameSpace(),
 			modelName,
+			c.modelUUID,
+			c.controllerUUID,
 		)
 
 		if err != nil {

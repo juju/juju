@@ -23,21 +23,21 @@ func (k *kubernetesClient) ProxyToApplication(appName, remotePort string) (proxy
 		context.TODO(),
 		k.client().CoreV1().Services(k.namespace),
 		appName,
-		k.IsLegacyLabels())
+		k.LabelVersion())
 	if err != nil {
 		return nil, errors.Annotatef(err, "finding service to proxy to for application %s", appName)
 	}
 
-	proxyName := fmt.Sprintf("%s-model-proxy", k.CurrentModel())
+	proxyName := fmt.Sprintf("%s-model-proxy", k.ModelName())
 	err = k8sproxy.EnsureProxyService(
 		context.Background(),
 		labels.Set{},
 		proxyName,
 		k.clock,
-		k.client().RbacV1().Roles(k.GetCurrentNamespace()),
-		k.client().RbacV1().RoleBindings(k.GetCurrentNamespace()),
-		k.client().CoreV1().ServiceAccounts(k.GetCurrentNamespace()),
-		k.client().CoreV1().Secrets(k.GetCurrentNamespace()),
+		k.client().RbacV1().Roles(k.Namespace()),
+		k.client().RbacV1().RoleBindings(k.Namespace()),
+		k.client().CoreV1().ServiceAccounts(k.Namespace()),
+		k.client().CoreV1().Secrets(k.Namespace()),
 	)
 	if err != nil {
 		return nil, errors.Annotatef(err, "ensuring proxy service for application %s", appName)
@@ -46,7 +46,7 @@ func (k *kubernetesClient) ProxyToApplication(appName, remotePort string) (proxy
 	err = k8sproxy.WaitForProxyService(
 		context.Background(),
 		proxyName,
-		k.client().CoreV1().ServiceAccounts(k.GetCurrentNamespace()),
+		k.client().CoreV1().ServiceAccounts(k.Namespace()),
 	)
 	if err != nil {
 		return nil, errors.Annotatef(err, "waiting for proxy service for application %s", appName)
@@ -54,7 +54,7 @@ func (k *kubernetesClient) ProxyToApplication(appName, remotePort string) (proxy
 
 	config := k8sproxy.GetProxyConfig{
 		APIHost:    k.k8sCfgUnlocked.Host,
-		Namespace:  k.GetCurrentNamespace(),
+		Namespace:  k.Namespace(),
 		RemotePort: remotePort,
 		Service:    svc.Name,
 	}
@@ -62,8 +62,8 @@ func (k *kubernetesClient) ProxyToApplication(appName, remotePort string) (proxy
 	return k8sproxy.GetProxy(
 		proxyName,
 		config,
-		k.client().CoreV1().ServiceAccounts(k.GetCurrentNamespace()),
-		k.client().CoreV1().Secrets(k.GetCurrentNamespace()),
+		k.client().CoreV1().ServiceAccounts(k.Namespace()),
+		k.client().CoreV1().Secrets(k.Namespace()),
 	)
 }
 
@@ -73,9 +73,9 @@ func (k *kubernetesClient) ConnectionProxyInfo() (proxy.Proxier, error) {
 	p, err := k8sproxy.GetControllerProxy(
 		getBootstrapResourceName(k8sconstants.JujuControllerStackName, proxyResourceName),
 		k.k8sCfgUnlocked.Host,
-		k.client().CoreV1().ConfigMaps(k.GetCurrentNamespace()),
-		k.client().CoreV1().ServiceAccounts(k.GetCurrentNamespace()),
-		k.client().CoreV1().Secrets(k.GetCurrentNamespace()),
+		k.client().CoreV1().ConfigMaps(k.Namespace()),
+		k.client().CoreV1().ServiceAccounts(k.Namespace()),
+		k.client().CoreV1().Secrets(k.Namespace()),
 	)
 
 	// If an error occurred return a nil to avoid converting the nil
