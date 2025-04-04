@@ -508,17 +508,17 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	defer logSink.Close()
 
 	// Add the log sink to the default logger context.
-	if err := loggo.DefaultContext().AddWriter("logsink", TagWriter{
-		LogSink:   logSink,
-		Tag:       a.Tag().String(),
-		ModelUUID: a.CurrentConfig().Model().Id(),
-	}); err != nil {
+	if err := loggo.DefaultContext().AddWriter("logsink", corelogger.NewTaggedRedirectWriter(
+		logSink,
+		a.Tag().String(),
+		a.CurrentConfig().Model().Id(),
+	)); err != nil {
 		return errors.Trace(err)
 	}
 
 	if err := introspection.WriteProfileFunctions(introspection.ProfileDir); err != nil {
 		// This isn't fatal, just annoying.
-		logger.Errorf(context.TODO(), "failed to write profile funcs: %v", err)
+		logger.Errorf(context.Background(), "failed to write profile funcs: %v", err)
 	}
 
 	// When the API server and peergrouper have manifolds, they can

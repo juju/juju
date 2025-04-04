@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/juju/loggo/v2"
@@ -225,4 +226,43 @@ type LoggerKey struct {
 type LogSink interface {
 	LogWriter
 	loggo.Writer
+}
+
+// TaggedRedirectWriter is a log writer that conforms to a loggo.Writer, but
+// actually writes to the log sink. This is a low process of removing the
+// loggo backend dependency and replacing it with a generic log sink.
+type TaggedRedirectWriter struct {
+	LogSink   LogSink
+	Tag       string
+	ModelUUID string
+}
+
+// NewTaggedRedirectWriter creates a new TaggedRedirectWriter with the
+// given log sink, tag, and model UUID.
+func NewTaggedRedirectWriter(logSink LogSink, tag string, modelUUID string) *TaggedRedirectWriter {
+	return &TaggedRedirectWriter{
+		LogSink:   logSink,
+		Tag:       tag,
+		ModelUUID: modelUUID,
+	}
+}
+
+// Write writes the log entry to the log sink. It uses the loggo.Entry
+// struct to extract the relevant information and create a LogRecord.
+func (w TaggedRedirectWriter) Write(entry loggo.Entry) {
+	var location string
+	if entry.Filename != "" {
+		location = entry.Filename + ":" + strconv.Itoa(entry.Line)
+	}
+
+	w.LogSink.Log([]LogRecord{{
+		Time:      entry.Timestamp,
+		Module:    entry.Module,
+		Entity:    w.Tag,
+		Location:  location,
+		Level:     Level(entry.Level),
+		Message:   entry.Message,
+		Labels:    entry.Labels,
+		ModelUUID: w.ModelUUID,
+	}})
 }
