@@ -4,7 +4,9 @@
 package state
 
 import (
+	"context"
 	ctx "context"
+	"database/sql"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -12,6 +14,7 @@ import (
 	"github.com/juju/juju/core/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -450,4 +453,66 @@ func (s *stateSuite) TestDeleteSpaceNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.DeleteSpace(ctx.Background(), spUUID.String())
 	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
+}
+
+func (s *stateSuite) TestIsSpaceNotUsedInConstraints(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Create a space.
+	spUUID, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddSpace(ctx.Background(), spUUID.String(), "space0", "foo", []string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the space is used in constraints.
+	used, err := st.IsSpaceUsedInConstraints(ctx.Background(), "space0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(used, jc.IsFalse)
+}
+
+func (s *stateSuite) TestIsSpaceUsedInApplicationConstraints(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Create a space.
+	spUUID, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddSpace(ctx.Background(), spUUID.String(), "space0", "foo", []string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		addConstraintStmt := `INSERT INTO "constraint" (uuid) VALUES (?)`
+		_, err := tx.ExecContext(ctx, addConstraintStmt, "constraint-uuid")
+		if err != nil {
+			return err
+		}
+		addSpaceConsStmt := `INSERT INTO constraint_space (constraint_uuid, space, exclude) VALUES (?, ?, ?)`
+		_, err = tx.ExecContext(ctx, addSpaceConsStmt, "constraint-uuid", "space0", false)
+		if err != nil {
+			return err
+		}
+		addCharmStmt := `INSERT INTO charm (uuid, reference_name, source_id) VALUES (?, 'foo', 0)`
+		_, err = tx.ExecContext(ctx, addCharmStmt, "charm0-uuid")
+		if err != nil {
+			return errors.Capture(err)
+		}
+		addApplicationStmt := `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, addApplicationStmt, "app0-uuid", "app0", "0", "charm0-uuid", network.AlphaSpaceId)
+		if err != nil {
+			return err
+		}
+		addAppConstraintStmt := `INSERT INTO application_constraint (application_uuid, constraint_uuid) VALUES (?, ?)`
+		_, err = tx.ExecContext(ctx, addAppConstraintStmt, "app0-uuid", "constraint-uuid")
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the space is used in constraints.
+	used, err := st.IsSpaceUsedInConstraints(ctx.Background(), "space0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(used, jc.IsTrue)
+
+	// Check that the space is not used in constraints.
+	used, err = st.IsSpaceUsedInConstraints(ctx.Background(), "space1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(used, jc.IsFalse)
 }
