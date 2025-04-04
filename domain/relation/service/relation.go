@@ -252,16 +252,6 @@ func (s *Service) GetLocalRelationApplicationSettings(
 	return nil, coreerrors.NotImplemented
 }
 
-// GetRelatedEndpoints returns the endpoints of the relation with which
-// units of the named application will establish relations.
-func (s *Service) GetRelatedEndpoints(
-	ctx context.Context,
-	relationUUID corerelation.UUID,
-	applicationName string,
-) ([]relation.Endpoint, error) {
-	return nil, coreerrors.NotImplemented
-}
-
 // GetRelationDetails returns RelationDetails for the given relationID.
 //
 // The following error types can be expected to be returned:

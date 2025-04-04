@@ -767,7 +767,7 @@ func (s *relationServiceSuite) TestGetRelationEndpoints(c *gc.C) {
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(endpoints, jc.SameContents, expectedEndpoints)
+	c.Check(endpoints, gc.DeepEquals, expectedEndpoints)
 }
 
 func (s *relationServiceSuite) TestGetRelationEndpointsRelationUUIDNotValid(c *gc.C) {
