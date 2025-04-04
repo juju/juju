@@ -74,7 +74,7 @@ FROM   relation_status`, relationStatus{})
 		relationsStatuses[relStatus.RelationUUID] = status.StatusInfo[status.RelationStatusType]{
 			Status:  statusType,
 			Message: relStatus.Reason,
-			Since:   &relStatus.Since,
+			Since:   relStatus.Since,
 		}
 	}
 
@@ -238,6 +238,56 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 	})
 	if err != nil {
 		return errors.Errorf("updating application status for %q: %w", applicationID, err)
+	}
+	return nil
+}
+
+// SetRelationStatus saves the given relation status, overwriting any current
+// status data. If returns an error satisfying
+// [statuserrors.RelationNotFound] if the relation doesn't exist.
+func (st *State) SetRelationStatus(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	sts status.StatusInfo[status.RelationStatusType],
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	statusID, err := status.EncodeRelationStatus(sts.Status)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	statusInfo := relationStatus{
+		RelationUUID: relationUUID,
+		StatusID:     statusID,
+		Reason:       sts.Message,
+		Since:        sts.Since,
+	}
+	stmt, err := st.Prepare(`
+INSERT INTO relation_status (*) 
+VALUES ($relationStatus.*)
+ON CONFLICT(relation_uuid) DO UPDATE SET
+    relation_status_type_id = excluded.relation_status_type_id,
+    suspended_reason = excluded.suspended_reason,
+    updated_at = excluded.updated_at;
+`, statusInfo)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, statusInfo).Run(); internaldatabase.IsErrConstraintForeignKey(err) {
+			return errors.Errorf("%w: %q", statuserrors.RelationNotFound, relationUUID)
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Errorf("updating relation status for %q: %w", relationUUID, err)
 	}
 	return nil
 }
