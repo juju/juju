@@ -71,6 +71,11 @@ type SpaceState interface {
 	// space is not found, an error is returned matching
 	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
 	DeleteSpace(ctx context.Context, uuid string) error
+	// IsSpaceUsedInConstraints checks if the provided space name is used in any
+	// constraints.
+	// This method doesn't check if the provided space name exists, it returns
+	// false in that case.
+	IsSpaceUsedInConstraints(ctx context.Context, name network.SpaceName) (bool, error)
 }
 
 // SubnetState describes persistence layer methods for the subnet (sub-) domain.

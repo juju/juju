@@ -54,6 +54,14 @@ type space struct {
 	UUID string `db:"uuid"`
 }
 
+type spaceName struct {
+	Name string `db:"name"`
+}
+
+type countResult struct {
+	Count int `db:"count"`
+}
+
 // providerSpace represents a single row from the provider_space table.
 type providerSpace struct {
 	// SpaceUUID is the unique ID of the space.

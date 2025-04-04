@@ -303,3 +303,43 @@ WHERE  space_uuid = $space.uuid;`, sp)
 	})
 	return err
 }
+
+// IsSpaceUsedInConstraints checks if the provided space name is used in any
+// constraints.
+// This method doesn't check if the provided space name exists, it returns
+// false in that case.
+func (st *State) IsSpaceUsedInConstraints(ctx context.Context, name network.SpaceName) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	sp := spaceName{Name: string(name)}
+	stmt, err := st.Prepare(`
+SELECT COUNT(*) AS &countResult.count
+FROM (
+	SELECT NULL AS n
+	FROM v_model_constraint_space
+	WHERE space = $spaceName.name
+	UNION 
+	SELECT NULL AS n
+	FROM v_application_constraint
+	WHERE space_name = $spaceName.name
+);`, countResult{}, sp)
+	if err != nil {
+		return false, errors.Errorf("preparing count space in constraints statement: %w", err)
+	}
+
+	var count countResult
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, sp).Get(&count)
+		if err != nil {
+			return errors.Errorf("counting the space %q in constraints: %w", name, err)
+		}
+		return nil
+	}); err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return count.Count > 0, nil
+}
