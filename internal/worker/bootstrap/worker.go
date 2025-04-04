@@ -482,6 +482,8 @@ func (w *bootstrapWorker) seedAgentBinary(ctx context.Context, dataDir string) (
 	}
 
 	// Agent binary seeder will populate the tools for the agent.
+	// TODO (tlm) agentStore is a temprorary hook back into Mongo that will be
+	// removed soon.
 	agentStorage := agentStorageShim{State: w.cfg.SystemState}
 	cleanup, err := w.cfg.AgentBinaryUploader(
 		ctx,
