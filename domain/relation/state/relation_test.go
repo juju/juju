@@ -1386,7 +1386,7 @@ func (s *relationSuite) TestGetRelationsStatusForUnit(c *gc.C) {
 
 	// Arrange: Add unit to relation and set relation status.
 	relUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
-	s.addRelationUnit(c, unitUUID, relationUUID, relUnitUUID, true)
+	s.addRelationUnit(c, unitUUID, relationEndpointUUID1, relUnitUUID, true)
 	s.addRelationStatus(c, relationUUID, corestatus.Suspended)
 
 	expectedResults := []relation.RelationUnitStatusResult{{
@@ -1451,10 +1451,10 @@ func (s *relationSuite) TestGetRelationsStatusForUnitPeer(c *gc.C) {
 
 	// Arrange: Add unit to both the relation and set their status.
 	relUnitUUID1 := corerelationtesting.GenRelationUnitUUID(c)
-	s.addRelationUnit(c, unitUUID, relationUUID1, relUnitUUID1, true)
+	s.addRelationUnit(c, unitUUID, relationEndpointUUID1, relUnitUUID1, true)
 	s.addRelationStatus(c, relationUUID1, corestatus.Suspended)
 	relUnitUUID2 := corerelationtesting.GenRelationUnitUUID(c)
-	s.addRelationUnit(c, unitUUID, relationUUID2, relUnitUUID2, false)
+	s.addRelationUnit(c, unitUUID, relationEndpointUUID2, relUnitUUID2, false)
 	s.addRelationStatus(c, relationUUID2, corestatus.Joined)
 
 	expectedResults := []relation.RelationUnitStatusResult{{
@@ -1581,8 +1581,7 @@ func (s *relationSuite) TestGetRelationUnitEndpointName(c *gc.C) {
 	s.addApplicationEndpoint(c, applicationEndpointUUID, appUUID, charmRelationUUID)
 	s.addRelation(c, relationUUID)
 	s.addRelationEndpoint(c, relationEndpointUUID, relationUUID, applicationEndpointUUID)
-	s.addUnit(c, coreunittesting.GenUnitUUID(c), "unit-name", appUUID, charmUUID)
-	s.addRelationUnit(c, unitUUID, relationUUID, relationUnitUUID, true)
+	s.addRelationUnit(c, unitUUID, relationEndpointUUID, relationUnitUUID, true)
 
 	// Act
 	name, err := s.state.GetRelationUnitEndpointName(context.Background(), relationUnitUUID)
@@ -1607,11 +1606,17 @@ func (s *relationSuite) TestGetRelationUnit(c *gc.C) {
 	unitUUID := coreunittesting.GenUnitUUID(c)
 	relUUID := corerelationtesting.GenRelationUUID(c)
 	relUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	relEndpointUUID := uuid.MustNewUUID().String()
+	applicationEndpointUUID := uuid.MustNewUUID().String()
+	charmRelationUUID := uuid.MustNewUUID().String()
 	s.addCharm(c, charmUUID)
 	s.addApplication(c, charmUUID, appUUID, "my-app")
 	s.addUnit(c, unitUUID, "my-app/0", appUUID, charmUUID)
 	s.addRelation(c, relUUID)
-	s.addRelationUnit(c, unitUUID, relUUID, relUnitUUID, true)
+	s.addCharmRelation(c, charmUUID, charmRelationUUID, charm.Relation{})
+	s.addApplicationEndpoint(c, applicationEndpointUUID, appUUID, charmRelationUUID)
+	s.addRelationEndpoint(c, relEndpointUUID, relUUID, applicationEndpointUUID)
+	s.addRelationUnit(c, unitUUID, relEndpointUUID, relUnitUUID, true)
 
 	// Act
 	uuid, err := s.state.GetRelationUnit(context.Background(), relUUID, "my-app/0")
@@ -1847,7 +1852,7 @@ func (s *relationSuite) TestEnterScopeRowAlreadyExists(c *gc.C) {
 	// Arrange: Add relation unit for the unit and relation with in_scope set to
 	// false.
 	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
-	s.addRelationUnit(c, unitUUID, relationUUID, relationUnitUUID, false)
+	s.addRelationUnit(c, unitUUID, relationEndpointUUID1, relationUnitUUID, false)
 
 	// Act: Enter scope.
 	err := s.state.EnterScope(context.Background(), relationUUID, unitName)
@@ -1909,7 +1914,7 @@ func (s *relationSuite) TestEnterScopeIdempotent(c *gc.C) {
 	// Arrange: Add relation unit for the unit and relation with in_scope set to
 	// false.
 	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
-	s.addRelationUnit(c, unitUUID, relationUUID, relationUnitUUID, true)
+	s.addRelationUnit(c, unitUUID, relationEndpointUUID1, relationUnitUUID, true)
 
 	// Act: Enter scope.
 	err := s.state.EnterScope(context.Background(), relationUUID, unitName)
@@ -2534,11 +2539,11 @@ VALUES (?,?,?)
 }
 
 // addRelationUnit inserts a relation unit into the database using the provided UUIDs for relation and unit.
-func (s *relationSuite) addRelationUnit(c *gc.C, unitUUID coreunit.UUID, relationUUID corerelation.UUID, relationUnitUUID corerelation.UnitUUID, inScope bool) {
+func (s *relationSuite) addRelationUnit(c *gc.C, unitUUID coreunit.UUID, relationEndpointUUID string, relationUnitUUID corerelation.UnitUUID, inScope bool) {
 	s.query(c, `
-INSERT INTO relation_unit (uuid, relation_uuid, unit_uuid, in_scope)
+INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid, in_scope)
 VALUES (?,?,?,?)
-`, relationUnitUUID, relationUUID, unitUUID, inScope)
+`, relationUnitUUID, relationEndpointUUID, unitUUID, inScope)
 }
 
 // addRelationStatus inserts a relation status into the relation_status table.
@@ -2620,8 +2625,9 @@ func (s *relationSuite) getRelationUnitInScope(c *gc.C, relationUUID corerelatio
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRow(`
 SELECT in_scope
-FROM   relation_unit
-WHERE  relation_uuid = ?
+FROM   relation_unit AS ru
+JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
+WHERE  re.relation_uuid = ?
 AND    unit_uuid = ?
 `, relationUUID, unitUUID).Scan(&inScope)
 		if err != nil {

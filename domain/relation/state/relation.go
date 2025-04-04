@@ -520,9 +520,10 @@ func (st *State) GetRelationsStatusForUnit(
 	}
 
 	stmt, err := st.Prepare(`
-SELECT (ru.relation_uuid, ru.in_scope, vrs.status) AS (&relationUnitStatus.*)
+SELECT (re.relation_uuid, ru.in_scope, vrs.status) AS (&relationUnitStatus.*)
 FROM   relation_unit ru
-JOIN   v_relation_status vrs ON ru.relation_uuid = vrs.relation_uuid
+JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid 
+JOIN   v_relation_status AS vrs ON re.relation_uuid = vrs.relation_uuid
 WHERE  ru.unit_uuid = $unitUUIDArg.unit_uuid
 `, uuid, relationUnitStatus{})
 	if err != nil {
@@ -863,9 +864,10 @@ func (st *State) GetRelationUnit(
 		stmt, err := st.Prepare(`
 SELECT ru.uuid AS &getRelationUnit.unit_uuid
 FROM   relation_unit ru
-JOIN   unit u ON u.uuid = ru.unit_uuid
+JOIN   unit AS u ON ru.unit_uuid = u.uuid 
+JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
 WHERE  u.name = $getRelationUnit.name
-AND    ru.relation_uuid = $getRelationUnit.relation_uuid`, args)
+AND    re.relation_uuid = $getRelationUnit.relation_uuid`, args)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -1283,10 +1285,15 @@ func (st *State) upsertRelationUnitAndEnterScope(
 		UnitUUID:     unitUUID,
 	}
 	getRelationUnitStmt, err := st.Prepare(`
-SELECT  &relationUnit.* 
-FROM    relation_unit 
-WHERE   relation_uuid = $relationUnit.relation_uuid
-AND     unit_uuid = $relationUnit.unit_uuid
+SELECT   
+	ru.uuid AS &relationUnit.uuid,
+	re.uuid AS &relationUnit.relation_endpoint_uuid,
+	ru.unit_uuid AS &relationUnit.unit_uuid,
+	ru.in_scope AS &relationUnit.in_scope
+FROM    relation_unit AS ru
+JOIN    relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
+WHERE   re.relation_uuid = $relationUnit.relation_uuid
+AND     ru.unit_uuid = $relationUnit.unit_uuid
 `, getRelationUnit)
 	if err != nil {
 		return errors.Capture(err)
@@ -1319,9 +1326,14 @@ AND     unit_uuid = $relationUnit.unit_uuid
 	}
 
 	insertStmt, err := st.Prepare(`
-INSERT INTO relation_unit (*) 
-VALUES ($relationUnit.*)
-ON CONFLICT (relation_uuid, unit_uuid) DO UPDATE SET
+INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid, in_scope) 
+SELECT $relationUnit.uuid, re.uuid, $relationUnit.unit_uuid, $relationUnit.in_scope
+FROM   relation_endpoint AS re
+JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+JOIN   unit AS u ON ae.application_uuid = u.application_uuid
+WHERE  re.relation_uuid = $relationUnit.relation_uuid
+AND    u.uuid = $relationUnit.unit_uuid 
+ON CONFLICT (relation_endpoint_uuid, unit_uuid) DO UPDATE SET
             in_scope = excluded.in_scope
 `, insertRelationUnit)
 	if err != nil {
