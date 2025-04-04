@@ -12,10 +12,14 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
+	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/changestream"
+	corecharm "github.com/juju/juju/core/charm"
+	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
+	relationtesting "github.com/juju/juju/core/relation/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/relation/service"
@@ -30,10 +34,10 @@ import (
 type watcherSuite struct {
 	changestreamtesting.ModelSuite
 
-	charmUUID         string
-	charmRelationUUID string
-	appUUID           string
-	appEndpointUUID   string
+	charmUUID         corecharm.ID
+	charmRelationUUID uuid.UUID
+	appUUID           coreapplication.ID
+	appEndpointUUID   uuid.UUID
 }
 
 var _ = gc.Suite(&watcherSuite{})
@@ -41,9 +45,9 @@ var _ = gc.Suite(&watcherSuite{})
 func (s *watcherSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	s.charmUUID = uuid.MustNewUUID().String()
-	s.charmRelationUUID = uuid.MustNewUUID().String()
-	s.appUUID = uuid.MustNewUUID().String()
+	s.charmUUID = charmtesting.GenCharmID(c)
+	s.charmRelationUUID = uuid.MustNewUUID()
+	s.appUUID = applicationtesting.GenApplicationUUID(c)
 
 	// Populate DB with charm, application and endpoints
 	s.addCharm(c, s.charmUUID)
@@ -59,8 +63,8 @@ func (s *watcherSuite) TestWatchUnitRelations(c *gc.C) {
 	// Arrange: create the required state, with one relation endpoint and related
 	// objects.
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "relation_application_setting")
-	relationUUID := uuid.MustNewUUID().String()
-	relationEndpointUUID := uuid.MustNewUUID().String()
+	relationUUID := relationtesting.GenRelationUUID(c)
+	relationEndpointUUID := relationtesting.GenEndpointUUID(c)
 
 	// Populate DB with relation endpoint.
 	s.addRelation(c, relationUUID)
@@ -122,7 +126,7 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 }
 
 // addApplication adds a new application to the database with the specified UUID and name.
-func (s *watcherSuite) addApplication(c *gc.C, charmUUID, appUUID, appName string) {
+func (s *watcherSuite) addApplication(c *gc.C, charmUUID corecharm.ID, appUUID coreapplication.ID, appName string) {
 	s.arrange(c, `
 INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) 
 VALUES (?, ?, ?, ?, ?)
@@ -130,15 +134,15 @@ VALUES (?, ?, ?, ?, ?)
 }
 
 // addApplicationEndpoint inserts a new application endpoint into the database with the specified UUIDs and relation data.
-func (s *watcherSuite) addApplicationEndpoint(c *gc.C, applicationEndpointUUID string, applicationUUID, charmRelationUUID string) {
+func (s *watcherSuite) addApplicationEndpoint(c *gc.C, applicationEndpointUUID uuid.UUID, applicationUUID coreapplication.ID, charmRelationUUID uuid.UUID) {
 	s.arrange(c, `
 INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid,space_uuid)
 VALUES (?, ?, ?, ?)
-`, applicationEndpointUUID, applicationUUID, charmRelationUUID, network.AlphaSpaceId)
+`, applicationEndpointUUID.String(), applicationUUID, charmRelationUUID.String(), network.AlphaSpaceId)
 }
 
 // addCharm inserts a new charm into the database with a predefined UUID, reference name, and architecture ID.
-func (s *watcherSuite) addCharm(c *gc.C, charmUUID string) {
+func (s *watcherSuite) addCharm(c *gc.C, charmUUID corecharm.ID) {
 	s.arrange(c, `
 INSERT INTO charm (uuid, reference_name, architecture_id) 
 VALUES (?, 'app', 0)
@@ -146,15 +150,15 @@ VALUES (?, 'app', 0)
 }
 
 // addCharmRelation inserts a new charm relation into the database with the given UUID and predefined attributes.
-func (s *watcherSuite) addCharmRelation(c *gc.C, charmUUID, charmRelationUUID string) {
+func (s *watcherSuite) addCharmRelation(c *gc.C, charmUUID corecharm.ID, charmRelationUUID uuid.UUID) {
 	s.arrange(c, `
 INSERT INTO charm_relation (uuid, charm_uuid, kind_id, scope_id, role_id, name) 
 VALUES (?, ?, 0,0,0, 'fake-provides')
-`, charmRelationUUID, charmUUID)
+`, charmRelationUUID.String(), charmUUID)
 }
 
 // addRelation inserts a new relation into the database with the given UUID and default relation and life IDs.
-func (s *watcherSuite) addRelation(c *gc.C, relationUUID string) {
+func (s *watcherSuite) addRelation(c *gc.C, relationUUID relation.UUID) {
 	s.arrange(c, `
 INSERT INTO relation (uuid, life_id, relation_id) 
 VALUES (?,0,?)
@@ -162,11 +166,11 @@ VALUES (?,0,?)
 }
 
 // addRelationEndpoint inserts a relation endpoint into the database using the provided UUIDs for relation and endpoint.
-func (s *watcherSuite) addRelationEndpoint(c *gc.C, relationEndpointUUID string, relationUUID string, applicationEndpointUUID string) {
+func (s *watcherSuite) addRelationEndpoint(c *gc.C, relationEndpointUUID relation.EndpointUUID, relationUUID relation.UUID, applicationEndpointUUID uuid.UUID) {
 	s.arrange(c, `
 INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
 VALUES (?,?,?)
-`, relationEndpointUUID, relationUUID, applicationEndpointUUID)
+`, relationEndpointUUID, relationUUID, applicationEndpointUUID.String())
 }
 
 // arrange is dedicated to build up the initial state of the db during a test
