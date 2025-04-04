@@ -1798,6 +1798,43 @@ func (st *State) GetApplicationIDByName(ctx context.Context, name string) (corea
 	return id, nil
 }
 
+// GetApplicationName returns the application name for the given application ID.
+// Usage of this signifies an area that must be converted to use application IDs
+// but efforts have not yet completed.
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (st *State) GetApplicationName(ctx context.Context, id coreapplication.ID) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	ident := applicationID{ID: id}
+	query := `
+SELECT name AS &applicationName.name
+FROM application
+WHERE uuid = $applicationID.uuid;
+`
+	stmt, err := st.Prepare(query, applicationName{}, ident)
+	if err != nil {
+		return "", errors.Errorf("preparing query for application name: %w", err)
+	}
+
+	var name applicationName
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, ident).Get(&name); errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return name.Name, nil
+}
+
 // GetApplicationConfigHash returns the SHA256 hash of the application config
 // for the specified application ID.
 // If no application is found, an error satisfying
@@ -1986,7 +2023,7 @@ func (st *State) SetApplicationConstraints(ctx context.Context, appID coreapplic
 
 	selectConstraintUUIDQuery := `
 SELECT &constraintUUID.*
-FROM application_constraint 
+FROM application_constraint
 WHERE application_uuid = $applicationUUID.application_uuid
 `
 	selectConstraintUUIDStmt, err := st.Prepare(selectConstraintUUIDQuery, constraintUUID{}, applicationUUID{})
@@ -2025,7 +2062,7 @@ WHERE application_uuid = $applicationUUID.application_uuid
 	}
 
 	insertConstraintsQuery := `
-INSERT INTO "constraint"(*) 
+INSERT INTO "constraint"(*)
 VALUES ($setConstraint.*)
 ON CONFLICT (uuid) DO UPDATE SET
     arch = excluded.arch,
