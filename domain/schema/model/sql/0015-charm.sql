@@ -162,6 +162,10 @@ CREATE TABLE charm_metadata (
     REFERENCES charm (uuid)
 );
 
+
+CREATE INDEX idx_charm_metadata_subordinate
+ON charm_metadata (subordinate);
+
 CREATE VIEW v_charm_metadata AS
 SELECT
     c.uuid,
