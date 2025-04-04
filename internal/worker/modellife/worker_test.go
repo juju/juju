@@ -267,7 +267,7 @@ func (s *workerSuite) newWorker(c *gc.C) *Worker {
 	w, err := NewWorker(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	return w
+	return w.(*Worker)
 }
 
 func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {

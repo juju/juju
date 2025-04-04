@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 	"github.com/juju/worker/v4/dependency"
 
@@ -44,7 +45,7 @@ type Worker struct {
 }
 
 // NewWorker creates a new model life worker.
-func NewWorker(ctx context.Context, config Config) (*Worker, error) {
+func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
