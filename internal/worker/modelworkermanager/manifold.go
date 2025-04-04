@@ -188,13 +188,9 @@ func GetProviderServicesGetter(getter dependency.Getter, name string) (ProviderS
 	})
 }
 
-// ControllerConfigService is an interface that returns the controller config.
-type ControllerConfigService interface {
-	ControllerConfig(ctx context.Context) (controller.Config, error)
-}
-
 // GetControllerConfig returns the controller config from the given service.
-func GetControllerConfig(ctx context.Context, controllerConfigService ControllerConfigService) (controller.Config, error) {
+func GetControllerConfig(ctx context.Context, services services.DomainServices) (controller.Config, error) {
+	controllerConfigService := services.ControllerConfig()
 	return controllerConfigService.ControllerConfig(ctx)
 }
 

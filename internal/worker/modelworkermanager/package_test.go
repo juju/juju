@@ -6,6 +6,7 @@ package modelworkermanager_test
 import (
 	stdtesting "testing"
 
+	"go.uber.org/goleak"
 	gc "gopkg.in/check.v1"
 )
 
@@ -14,5 +15,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package modelworkermanager_test -destination lease_mock_test.go github.com/juju/juju/core/lease Manager
 
 func TestPackage(t *stdtesting.T) {
+	defer goleak.VerifyNone(t)
+
 	gc.TestingT(t)
 }

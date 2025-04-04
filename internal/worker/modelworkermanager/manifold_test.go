@@ -93,7 +93,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 			}
 			return providerServicesGetter{}, nil
 		},
-		GetControllerConfig: func(ctx context.Context, controllerConfigService modelworkermanager.ControllerConfigService) (controller.Config, error) {
+		GetControllerConfig: func(ctx context.Context, domainServices services.DomainServices) (controller.Config, error) {
 			return jujutesting.FakeControllerConfig(), nil
 		},
 	})
