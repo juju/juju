@@ -824,17 +824,6 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		return nil, errors.Trace(err)
 	}
 
-	var exposedEndpoints map[string]ExposedEndpoint
-	if expEps := a.ExposedEndpoints(); len(expEps) > 0 {
-		exposedEndpoints = make(map[string]ExposedEndpoint, len(expEps))
-		for epName, details := range expEps {
-			exposedEndpoints[epName] = ExposedEndpoint{
-				ExposeToSpaceIDs: details.ExposeToSpaceIDs(),
-				ExposeToCIDRs:    details.ExposeToCIDRs(),
-			}
-		}
-	}
-
 	agentTools, err := i.makeTools(a.Tools())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -851,8 +840,6 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		Life:                 Alive,
 		UnitCount:            len(units),
 		RelationCount:        i.relationCount(a.Name()),
-		Exposed:              a.Exposed(),
-		ExposedEndpoints:     exposedEndpoints,
 		Tools:                agentTools,
 		Placement:            a.Placement(),
 		HasResources:         a.HasResources(),
