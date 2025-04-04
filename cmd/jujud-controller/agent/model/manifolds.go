@@ -17,12 +17,12 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	caasfirewallerapi "github.com/juju/juju/api/controller/caasfirewaller"
-	controllerlifeflag "github.com/juju/juju/api/controller/lifeflag"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/services"
@@ -43,11 +43,11 @@ import (
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/instancemutater"
 	"github.com/juju/juju/internal/worker/instancepoller"
-	"github.com/juju/juju/internal/worker/lifeflag"
 	"github.com/juju/juju/internal/worker/logger"
 	"github.com/juju/juju/internal/worker/machineundertaker"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationmaster"
+	"github.com/juju/juju/internal/worker/modellife"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/internal/worker/providertracker"
 	"github.com/juju/juju/internal/worker/remoterelations"
@@ -129,6 +129,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 	agentConfig := config.Agent.CurrentConfig()
 	agentTag := agentConfig.Tag()
 	modelTag := agentConfig.Model()
+
+	modelUUID := model.UUID(modelTag.Id())
+
 	result := dependency.Manifolds{
 		// The first group are foundational; the agent and clock
 		// which wrap those supplied in config, and the api-caller
@@ -195,29 +198,19 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// All other manifolds should depend on at least one of these
 		// three, which handle all the tasks that are safe and sane
 		// to run in *all* controller machines.
-		notDeadFlagName: lifeflag.Manifold(lifeflag.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Entity:        modelTag,
-			Result:        life.IsNotDead,
-			Filter:        LifeFilter,
-
-			NewFacade: func(b base.APICaller) (lifeflag.Facade, error) {
-				return controllerlifeflag.NewClient(b), nil
-			},
-			NewWorker: lifeflag.NewWorker,
-			// No Logger defined in lifeflag package.
+		notDeadFlagName: modellife.Manifold(modellife.ManifoldConfig{
+			DomainServicesName: domainServicesName,
+			ModelUUID:          modelUUID,
+			Result:             life.IsNotDead,
+			GetModelService:    modellife.GetModelService,
+			NewWorker:          modellife.NewWorker,
 		}),
-		notAliveFlagName: lifeflag.Manifold(lifeflag.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Entity:        modelTag,
-			Result:        life.IsNotAlive,
-			Filter:        LifeFilter,
-
-			NewFacade: func(b base.APICaller) (lifeflag.Facade, error) {
-				return controllerlifeflag.NewClient(b), nil
-			},
-			NewWorker: lifeflag.NewWorker,
-			// No Logger defined in lifeflag package.
+		notAliveFlagName: modellife.Manifold(modellife.ManifoldConfig{
+			DomainServicesName: domainServicesName,
+			ModelUUID:          modelUUID,
+			Result:             life.IsNotAlive,
+			GetModelService:    modellife.GetModelService,
+			NewWorker:          modellife.NewWorker,
 		}),
 		isResponsibleFlagName: singular.Manifold(singular.ManifoldConfig{
 			AgentName:        agentName,
