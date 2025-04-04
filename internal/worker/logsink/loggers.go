@@ -4,8 +4,6 @@
 package logsink
 
 import (
-	"strconv"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
@@ -29,11 +27,11 @@ func NewModelLogger(logSink corelogger.LogSink, modelUUID model.UUID, agentTag n
 	// Create a new logger context for the model. This will use the buffered
 	// log writer to write the logs to disk.
 	loggerContext := loggo.NewContext(loggo.INFO)
-	if err := loggerContext.AddWriter("model-sink", modelWriter{
-		logSink:   logSink,
-		modelUUID: modelUUID.String(),
-		agentTag:  agentTag.String(),
-	}); err != nil {
+	if err := loggerContext.AddWriter("model-sink", corelogger.NewTaggedRedirectWriter(
+		logSink,
+		agentTag.String(),
+		modelUUID.String(),
+	)); err != nil {
 		return nil, errors.Annotatef(err, "adding model-sink writer")
 	}
 
@@ -105,28 +103,4 @@ func (d *modelLogger) loop() error {
 	// Wait for the heat death of the universe.
 	<-d.tomb.Dying()
 	return tomb.ErrDying
-}
-
-type modelWriter struct {
-	logSink   corelogger.LogSink
-	modelUUID string
-	agentTag  string
-}
-
-func (w modelWriter) Write(entry loggo.Entry) {
-	var location string
-	if entry.Filename != "" {
-		location = entry.Filename + ":" + strconv.Itoa(entry.Line)
-	}
-
-	w.logSink.Log([]corelogger.LogRecord{{
-		Time:      entry.Timestamp,
-		Entity:    w.agentTag,
-		Module:    entry.Module,
-		Location:  location,
-		Level:     corelogger.Level(entry.Level),
-		Message:   entry.Message,
-		Labels:    entry.Labels,
-		ModelUUID: w.modelUUID,
-	}})
 }
