@@ -2221,6 +2221,15 @@ func (*State) NamespaceForWatchApplicationScale() string {
 	return "application_scale"
 }
 
+// NamespaceForWatchApplicationExposed returns the namespace identifier
+// for application exposed endpoints changes. The first return value is the
+// namespace for the application exposed endpoints to spaces table, and the
+// second is the namespace for the application exposed endpoints to CIDRs
+// table.
+func (*State) NamespaceForWatchApplicationExposed() (string, string) {
+	return "application_exposed_endpoint_space", "application_exposed_endpoint_cidr"
+}
+
 // decodeConstraints flattens and maps the list of rows of applicatioConstraint
 // to get a single constraints.Constraints. The flattening is needed because of the
 // spaces, tags and zones constraints which are slices. We can safely assume

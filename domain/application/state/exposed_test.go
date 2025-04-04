@@ -524,7 +524,6 @@ func (s *exposedStateSuite) setUpEndpoint(c *gc.C, appID coreapplication.ID) {
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
 }
 
 func (s *exposedStateSuite) createExposedEndpointSpace(c *gc.C, appID coreapplication.ID) {

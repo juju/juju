@@ -88,6 +88,80 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForApplicationExposedEndpointCidr generates the triggers for the
+// application_exposed_endpoint_cidr table.
+func ChangeLogTriggersForApplicationExposedEndpointCidr(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ApplicationExposedEndpointCidr
+INSERT INTO change_log_namespace VALUES (%[2]d, 'application_exposed_endpoint_cidr', 'ApplicationExposedEndpointCidr changes based on %[1]s');
+
+-- insert trigger for ApplicationExposedEndpointCidr
+CREATE TRIGGER trg_log_application_exposed_endpoint_cidr_insert
+AFTER INSERT ON application_exposed_endpoint_cidr FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+END;
+
+-- update trigger for ApplicationExposedEndpointCidr
+CREATE TRIGGER trg_log_application_exposed_endpoint_cidr_update
+AFTER UPDATE ON application_exposed_endpoint_cidr FOR EACH ROW
+WHEN 
+	NEW.application_uuid != OLD.application_uuid OR
+	(NEW.application_endpoint_uuid != OLD.application_endpoint_uuid OR (NEW.application_endpoint_uuid IS NOT NULL AND OLD.application_endpoint_uuid IS NULL) OR (NEW.application_endpoint_uuid IS NULL AND OLD.application_endpoint_uuid IS NOT NULL)) OR
+	NEW.cidr != OLD.cidr 
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;
+-- delete trigger for ApplicationExposedEndpointCidr
+CREATE TRIGGER trg_log_application_exposed_endpoint_cidr_delete
+AFTER DELETE ON application_exposed_endpoint_cidr FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;`, columnName, namespaceID))
+	}
+}
+
+// ChangeLogTriggersForApplicationExposedEndpointSpace generates the triggers for the
+// application_exposed_endpoint_space table.
+func ChangeLogTriggersForApplicationExposedEndpointSpace(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ApplicationExposedEndpointSpace
+INSERT INTO change_log_namespace VALUES (%[2]d, 'application_exposed_endpoint_space', 'ApplicationExposedEndpointSpace changes based on %[1]s');
+
+-- insert trigger for ApplicationExposedEndpointSpace
+CREATE TRIGGER trg_log_application_exposed_endpoint_space_insert
+AFTER INSERT ON application_exposed_endpoint_space FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+END;
+
+-- update trigger for ApplicationExposedEndpointSpace
+CREATE TRIGGER trg_log_application_exposed_endpoint_space_update
+AFTER UPDATE ON application_exposed_endpoint_space FOR EACH ROW
+WHEN 
+	NEW.application_uuid != OLD.application_uuid OR
+	(NEW.application_endpoint_uuid != OLD.application_endpoint_uuid OR (NEW.application_endpoint_uuid IS NOT NULL AND OLD.application_endpoint_uuid IS NULL) OR (NEW.application_endpoint_uuid IS NULL AND OLD.application_endpoint_uuid IS NOT NULL)) OR
+	NEW.space_uuid != OLD.space_uuid 
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;
+-- delete trigger for ApplicationExposedEndpointSpace
+CREATE TRIGGER trg_log_application_exposed_endpoint_space_delete
+AFTER DELETE ON application_exposed_endpoint_space FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;`, columnName, namespaceID))
+	}
+}
+
 // ChangeLogTriggersForApplicationScale generates the triggers for the
 // application_scale table.
 func ChangeLogTriggersForApplicationScale(columnName string, namespaceID int) func() schema.Patch {
