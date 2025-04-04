@@ -7,14 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/errors"
@@ -120,17 +117,6 @@ type State interface {
 	// WatcherApplicationSettingsNamespace provides the table name to set up
 	// watchers for relation application settings.
 	WatcherApplicationSettingsNamespace() string
-}
-
-// WatcherFactory instances return watchers for a given namespace and UUID.
-type WatcherFactory interface {
-	// NewNotifyWatcher returns a new watcher that filters changes from the
-	// input base watcher's db/queue. A single filter option is required, though
-	// additional filter options can be provided.
-	NewNotifyWatcher(
-		filter eventsource.FilterOption,
-		filterOpts ...eventsource.FilterOption,
-	) (watcher.NotifyWatcher, error)
 }
 
 // Service provides the API for working with relations.
@@ -638,75 +624,4 @@ func (s *Service) UpdateRelationUnitSettings(
 	settings map[string]string,
 ) error {
 	return coreerrors.NotImplemented
-}
-
-// WatchableService provides the API for working with applications and the
-// ability to create watchers.
-type WatchableService struct {
-	*Service
-	watcherFactory WatcherFactory
-}
-
-// NewWatchableService returns a new watchable service reference wrapping the input state.
-func NewWatchableService(
-	st State,
-	watcherFactory WatcherFactory,
-	logger logger.Logger,
-) *WatchableService {
-	return &WatchableService{
-		Service:        NewService(st, logger),
-		watcherFactory: watcherFactory,
-	}
-}
-
-// WatchApplicationSettings returns a notify watcher that will signal
-// whenever the specified application's relation settings are changed.
-func (s *WatchableService) WatchApplicationSettings(
-	ctx context.Context,
-	relationUUID corerelation.UUID,
-	applicationID application.ID,
-) (watcher.NotifyWatcher, error) {
-	relationEndpointUUID, err := s.getRelationEndpointUUID(ctx, relation.GetRelationEndpointUUIDArgs{
-		RelationUUID:  relationUUID,
-		ApplicationID: applicationID,
-	})
-	if err != nil {
-		return nil, errors.Capture(errors.Errorf("watch application settings: %w", err))
-	}
-	return s.watcherFactory.NewNotifyWatcher(
-		eventsource.PredicateFilter(
-			s.st.WatcherApplicationSettingsNamespace(),
-			changestream.All,
-			func(s string) bool {
-				return s == relationEndpointUUID.String()
-			},
-		),
-	)
-}
-
-// WatchLifeSuspendedStatus returns a watcher that notifies of changes to the life
-// or suspended status of the relation.
-func (s *WatchableService) WatchLifeSuspendedStatus(
-	ctx context.Context,
-	relationUUID corerelation.UUID,
-) (watcher.StringsWatcher, error) {
-	return nil, coreerrors.NotImplemented
-}
-
-// WatchUnitScopes returns a watcher which notifies of counterpart units
-// entering and leaving the unit's scope.
-func (s *WatchableService) WatchUnitScopes(
-	ctx context.Context,
-	relationUnit corerelation.UnitUUID,
-) (relation.RelationScopeWatcher, error) {
-	return relation.RelationScopeWatcher{}, coreerrors.NotImplemented
-}
-
-// WatchUnitRelations returns a watcher that notifies of changes to counterpart units in
-// the relation.
-func (s *WatchableService) WatchUnitRelations(
-	ctx context.Context,
-	relationUnit corerelation.UnitUUID,
-) (relation.RelationUnitsWatcher, error) {
-	return nil, coreerrors.NotImplemented
 }
