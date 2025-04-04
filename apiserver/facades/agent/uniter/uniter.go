@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	domainapplication "github.com/juju/juju/domain/application"
@@ -1277,7 +1276,7 @@ func encodeResolveMode(v string) (params.ResolvedMode, error) {
 }
 
 func (u *UniterAPI) getRefresh(ctx context.Context, tag names.UnitTag) (domainapplication.UnitAttributes, error) {
-	attributes, err := u.applicationService.GetUnitRefreshAttributes(ctx, unit.Name(tag.Id()))
+	attributes, err := u.applicationService.GetUnitRefreshAttributes(ctx, coreunit.Name(tag.Id()))
 	if errors.Is(err, applicationerrors.UnitNotFound) {
 		return domainapplication.UnitAttributes{}, errors.NotFoundf("unit %s", tag)
 	} else if err != nil {
@@ -1285,14 +1284,6 @@ func (u *UniterAPI) getRefresh(ctx context.Context, tag names.UnitTag) (domainap
 	}
 
 	return attributes, nil
-}
-
-func (u *UniterAPI) getProviderID(unit *state.Unit) (string, error) {
-	container, err := unit.ContainerInfo()
-	if err != nil {
-		return "", err
-	}
-	return container.ProviderId(), nil
 }
 
 // CurrentModel returns the name and UUID for the current juju model.

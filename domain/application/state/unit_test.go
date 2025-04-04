@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -910,7 +909,7 @@ func (s *unitStateSuite) TestGetUnitRefreshAttributes(c *gc.C) {
 	err := s.state.UpdateCAASUnit(context.Background(), "foo/666", cc)
 	c.Assert(err, jc.ErrorIsNil)
 
-	refreshAttributes, err := s.state.GetUnitRefreshAttributes(context.Background(), unit.Name(u.UnitName))
+	refreshAttributes, err := s.state.GetUnitRefreshAttributes(context.Background(), u.UnitName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(refreshAttributes, gc.DeepEquals, application.UnitAttributes{
 		Life:        life.Alive,
@@ -925,7 +924,7 @@ func (s *unitStateSuite) TestGetUnitRefreshAttributesNoProviderID(c *gc.C) {
 	}
 	s.createApplication(c, "foo", life.Alive, u)
 
-	refreshAttributes, err := s.state.GetUnitRefreshAttributes(context.Background(), unit.Name(u.UnitName))
+	refreshAttributes, err := s.state.GetUnitRefreshAttributes(context.Background(), u.UnitName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(refreshAttributes, gc.DeepEquals, application.UnitAttributes{
 		Life:        life.Alive,
@@ -948,7 +947,7 @@ func (s *unitStateSuite) TestGetUnitRefreshAttributesWithResolveMode(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	refreshAttributes, err := s.state.GetUnitRefreshAttributes(context.Background(), unit.Name(u.UnitName))
+	refreshAttributes, err := s.state.GetUnitRefreshAttributes(context.Background(), u.UnitName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(refreshAttributes, gc.DeepEquals, application.UnitAttributes{
 		Life:        life.Alive,
@@ -968,7 +967,7 @@ func (s *unitStateSuite) TestGetUnitRefreshAttributesDeadLife(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	refreshAttributes, err := s.state.GetUnitRefreshAttributes(context.Background(), unit.Name(u.UnitName))
+	refreshAttributes, err := s.state.GetUnitRefreshAttributes(context.Background(), u.UnitName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(refreshAttributes, gc.DeepEquals, application.UnitAttributes{
 		Life:        life.Dead,
@@ -988,7 +987,7 @@ func (s *unitStateSuite) TestGetUnitRefreshAttributesDyingLife(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	refreshAttributes, err := s.state.GetUnitRefreshAttributes(context.Background(), unit.Name(u.UnitName))
+	refreshAttributes, err := s.state.GetUnitRefreshAttributes(context.Background(), u.UnitName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(refreshAttributes, gc.DeepEquals, application.UnitAttributes{
 		Life:        life.Dying,
