@@ -47,6 +47,8 @@ func (s *Service) GetExposedEndpoints(ctx context.Context, appName string) (map[
 // endpoint names. If the resulting exposed endpoints map for the application
 // becomes empty after the settings are removed, the application will be
 // automatically unexposed.
+// If the provided set of endpoints is empty, all exposed endpoints of the
+// application will be removed.
 //
 // If no application is found, an error satisfying
 // [applicationerrors.ApplicationNotFound] is returned.
@@ -56,6 +58,10 @@ func (s *Service) UnsetExposeSettings(ctx context.Context, appName string, expos
 		return errors.Capture(err)
 	}
 
+	if exposedEndpoints.IsEmpty() {
+		// TODO: Implement me.
+		return nil
+	}
 	return s.st.UnsetExposeSettings(ctx, appID, exposedEndpoints)
 }
 
@@ -74,7 +80,9 @@ func (s *Service) MergeExposeSettings(ctx context.Context, appName string, expos
 	// First check that the endpoints actually exist.
 	endpointNames := set.NewStrings()
 	for endpoint := range exposedEndpoints {
-		endpointNames.Add(endpoint)
+		if endpoint != network.WildcardEndpoint {
+			endpointNames.Add(endpoint)
+		}
 	}
 	if err := s.st.EndpointsExist(ctx, appID, endpointNames); err != nil {
 		return errors.Capture(err)
