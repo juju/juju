@@ -13,6 +13,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreapplicationtesting "github.com/juju/juju/core/application/testing"
+	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
@@ -237,6 +238,47 @@ func (s *relationServiceSuite) TestGetRelationIDRelationUUIDNotValid(c *gc.C) {
 
 	// Assert.
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
+}
+
+func (s *relationServiceSuite) TestGetRelationUnitEndpointName(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	expectedName := "fake-endpoint-name"
+	relationUUID := corerelationtesting.GenRelationUnitUUID(c)
+	s.state.EXPECT().GetRelationUnitEndpointName(gomock.Any(), relationUUID).Return(expectedName, nil)
+
+	// Act
+	name, err := s.service.GetRelationUnitEndpointName(context.Background(), relationUUID)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, expectedName)
+}
+
+func (s *relationServiceSuite) TestGetRelationUnitEndpointNameRelationUnitUUIDNotValid(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	relationUnitUUID := corerelation.UnitUUID("not-valid-uuid")
+
+	// Act
+	_, err := s.service.GetRelationUnitEndpointName(context.Background(), relationUnitUUID)
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *relationServiceSuite) TestGetRelationUnitEndpointNameStateError(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	expectedError := errors.New("state error")
+	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	s.state.EXPECT().GetRelationUnitEndpointName(gomock.Any(), relationUnitUUID).Return("", expectedError)
+
+	// Act
+	_, err := s.service.GetRelationUnitEndpointName(context.Background(), relationUnitUUID)
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, expectedError)
 }
 
 func (s *relationServiceSuite) TestGetRelationUUIDByID(c *gc.C) {

@@ -89,6 +89,13 @@ type State interface {
 	//     is not found.
 	GetRelationDetails(ctx context.Context, relationUUID corerelation.UUID) (relation.RelationDetailsResult, error)
 
+	// GetRelationUnitEndpointName returns the name of the endpoint for the given
+	// relation unit.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationUnitNotFound] if the relation unit cannot be found.
+	GetRelationUnitEndpointName(ctx context.Context, relationUnitUUID corerelation.UnitUUID) (string, error)
+
 	// GetRelationUnit retrieves the UUID of a relation unit based on the given
 	// relation UUID and unit name.
 	GetRelationUnit(
@@ -439,6 +446,18 @@ func (s *Service) GetRelationUnitByID(
 	return s.st.GetRelationUnit(ctx, uuid, unitName)
 }
 
+// GetRelationUnitEndpointName returns the name of the endpoint for the given
+// relation unit.
+func (s *Service) GetRelationUnitEndpointName(
+	ctx context.Context,
+	relationUnitUUID corerelation.UnitUUID,
+) (string, error) {
+	if err := relationUnitUUID.Validate(); err != nil {
+		return "", errors.Capture(err)
+	}
+	return s.st.GetRelationUnitEndpointName(ctx, relationUnitUUID)
+}
+
 // GetRelationUnitSettings returns the unit settings for the
 // given unit and relation identifier combination.
 func (s *Service) GetRelationUnitSettings(
@@ -528,16 +547,6 @@ func (s *Service) ReestablishRelation(ctx context.Context, relationUUID corerela
 // provided by the user.
 func (s *Service) RelationSuspendedReason(ctx context.Context, relationUUID corerelation.UUID) string {
 	return ""
-}
-
-// RelationUnitEndpointName returns the name of the endpoint for the given
-// relation unit.
-// Note: replaces calls to relUnit.Endpoint().Name in the uniter facade.
-func (s *Service) RelationUnitEndpointName(
-	ctx context.Context,
-	relationUnitUUID corerelation.UnitUUID,
-) (string, error) {
-	return "", coreerrors.NotImplemented
 }
 
 // RelationUnitInScope returns a boolean to indicate whether the given
