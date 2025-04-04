@@ -333,6 +333,8 @@ FROM unit AS u
 LEFT JOIN unit_resolved AS ur ON u.uuid = ur.unit_uuid
 LEFT JOIN k8s_pod AS k ON u.uuid = k.unit_uuid;
 
+-- Ensure this is a JOIN not a LEFT JOIN. We don't want to export units
+-- without a machine.
 CREATE VIEW v_unit_export AS
 SELECT
     u.uuid,
@@ -340,6 +342,4 @@ SELECT
     u.password_hash,
     m.name AS machine_name
 FROM unit AS u
--- Ensure this is a JOIN not a LEFT JOIN. We don't want to export units
--- without a machine.
-JOIN machine AS m ON m.net_node_uuid = u.net_node_uuid;
+JOIN machine AS m ON u.net_node_uuid = m.net_node_uuid;
