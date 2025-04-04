@@ -1431,21 +1431,31 @@ func (context *statusContext) processApplicationRelations(application *state.App
 	subordSet := make(set.Strings)
 	related = make(map[string][]string)
 	relations := context.relations[application.Name()]
-	for _, relation := range relations {
-		ep, err := relation.Endpoint(application.Name())
-		if err != nil {
-			return nil, nil, err
-		}
-		relationName := ep.Relation.Name
-		eps, err := relation.RelatedEndpoints(application.Name())
-		if err != nil {
-			return nil, nil, err
-		}
-		for _, ep := range eps {
-			if isSubordinate(&ep, application) {
-				subordSet.Add(ep.ApplicationName)
+	for _, rel := range relations {
+		// Get the relation endpoint that belongs to this application.
+		var appEndpoint relation.Endpoint
+		found := false
+		for _, ep := range rel.Endpoints {
+			if ep.ApplicationName == application.Name() {
+				appEndpoint = ep
+				found = true
+				break
 			}
-			related[relationName] = append(related[relationName], ep.ApplicationName)
+		}
+		if !found {
+			return nil, nil, internalerrors.Errorf("application %q is not a member of %q", application.Name(), rel.Key)
+		}
+
+		// Record the related endpoints and whether they are subordinates.
+		relationName := appEndpoint.Relation.Name
+		counterpartRole := relation.CounterpartRole(appEndpoint.Role)
+		for _, ep := range rel.Endpoints {
+			if ep.Role == counterpartRole {
+				if isSubordinate(&ep, application) {
+					subordSet.Add(ep.ApplicationName)
+				}
+				related[relationName] = append(related[relationName], ep.ApplicationName)
+			}
 		}
 	}
 	for relationName, applicationNames := range related {
