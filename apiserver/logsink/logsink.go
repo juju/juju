@@ -5,7 +5,6 @@ package logsink
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -36,18 +35,16 @@ const (
 
 var logger = internallogger.GetLogger("juju.apiserver.logsink")
 
-// LogWriteCloser provides an interface for persisting log records.
+// LogWriter provides an interface for persisting log records.
 // The LogCloser's Close method should be called to release any
 // resources once it is done with.
-type LogWriteCloser interface {
-	io.Closer
-
+type LogWriter interface {
 	// WriteLog writes out the given log record.
 	WriteLog(params.LogRecord) error
 }
 
-// NewLogWriteCloserFunc returns a new LogWriteCloser for the given http.Request.
-type NewLogWriteCloserFunc func(*http.Request) (LogWriteCloser, error)
+// NewLogWriteFunc returns a new LogWriteCloser for the given http.Request.
+type NewLogWriteFunc func(*http.Request) (LogWriter, error)
 
 // RateLimitConfig contains the rate-limit configuration for the logsink
 // handler.
@@ -112,22 +109,22 @@ type MetricsCollector interface {
 }
 
 // NewHTTPHandler returns a new http.Handler for receiving log messages over a
-// websocket, using the given NewLogWriteCloserFunc to obtain a writer to which
+// websocket, using the given NewLogWriteFunc to obtain a writer to which
 // the log messages will be written.
 //
 // ratelimit defines an optional rate-limit configuration. If nil, no rate-
 // limiting will be applied.
 func NewHTTPHandler(
-	newLogWriteCloser NewLogWriteCloserFunc,
+	newLogWriter NewLogWriteFunc,
 	abort <-chan struct{},
 	ratelimit *RateLimitConfig,
 	metrics MetricsCollector,
 	modelUUID string,
 ) http.Handler {
 	return &logSinkHandler{
-		newLogWriteCloser: newLogWriteCloser,
-		abort:             abort,
-		ratelimit:         ratelimit,
+		newLogWriter: newLogWriter,
+		abort:        abort,
+		ratelimit:    ratelimit,
 		newStopChannel: func() (chan struct{}, func()) {
 			ch := make(chan struct{})
 			return ch, func() { close(ch) }
@@ -138,12 +135,12 @@ func NewHTTPHandler(
 }
 
 type logSinkHandler struct {
-	newLogWriteCloser NewLogWriteCloserFunc
-	abort             <-chan struct{}
-	ratelimit         *RateLimitConfig
-	metrics           MetricsCollector
-	modelUUID         string
-	mu                sync.Mutex
+	newLogWriter NewLogWriteFunc
+	abort        <-chan struct{}
+	ratelimit    *RateLimitConfig
+	metrics      MetricsCollector
+	modelUUID    string
+	mu           sync.Mutex
 
 	// newStopChannel is overridden in tests so that we can check the
 	// goroutine exits when prompted.
@@ -194,12 +191,11 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			h.sendError(socket, req, err)
 			return
 		}
-		writer, err := h.newLogWriteCloser(req)
+		writer, err := h.newLogWriter(req)
 		if err != nil {
 			h.sendError(socket, req, err)
 			return
 		}
-		defer writer.Close()
 
 		// If we get to here, no more errors to report, so we report a nil
 		// error.  This way the first line of the socket is always a json
@@ -213,7 +209,7 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		if endpointVersion > 0 {
 			_ = socket.SetReadDeadline(time.Now().Add(websocket.PongDelay))
 			socket.SetPongHandler(func(string) error {
-				logger.Tracef(context.TODO(), "pong logsink %p", socket)
+				logger.Tracef(req.Context(), "pong logsink %p", socket)
 				_ = socket.SetReadDeadline(time.Now().Add(websocket.PongDelay))
 				return nil
 			})
@@ -226,19 +222,19 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		stopReceiving, closer := h.newStopChannel()
 		defer closer()
-		logCh := h.receiveLogs(socket, endpointVersion, resolvedModelUUID, stopReceiving)
+		logCh := h.receiveLogs(req.Context(), socket, endpointVersion, resolvedModelUUID, stopReceiving)
 		for {
 			select {
 			case <-h.abort:
 				return
 			case <-tickChannel:
 				deadline := time.Now().Add(websocket.WriteWait)
-				logger.Tracef(context.TODO(), "ping logsink %p", socket)
+				logger.Tracef(req.Context(), "ping logsink %p", socket)
 				if err := socket.WriteControl(gorillaws.PingMessage, []byte{}, deadline); err != nil {
 					// This error is expected if the other end goes away. By
 					// returning we clean up the strategy and close the socket
 					// through the defer calls.
-					logger.Debugf(context.TODO(), "failed to write ping: %s", err)
+					logger.Debugf(req.Context(), "failed to write ping: %s", err)
 					// Bump the ping failure count.
 					h.metrics.PingFailureCount(resolvedModelUUID).Inc()
 					return
@@ -283,7 +279,9 @@ func (h *logSinkHandler) getVersion(req *http.Request) (int, error) {
 	}
 }
 
-func (h *logSinkHandler) receiveLogs(socket *websocket.Conn,
+func (h *logSinkHandler) receiveLogs(
+	ctx context.Context,
+	socket *websocket.Conn,
 	endpointVersion int,
 	resolvedModelUUID string,
 	stop <-chan struct{},
@@ -295,7 +293,7 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn,
 		tokenBucket = ratelimit.NewBucketWithClock(
 			h.ratelimit.Refill,
 			h.ratelimit.Burst,
-			ratelimitClock{h.ratelimit.Clock},
+			ratelimitClock{Clock: h.ratelimit.Clock},
 		)
 	}
 
@@ -317,13 +315,13 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn,
 			var m params.LogRecord
 			if err := socket.ReadJSON(&m); err != nil {
 				if gorillaws.IsCloseError(err, gorillaws.CloseNormalClosure, gorillaws.CloseGoingAway) {
-					logger.Tracef(context.TODO(), "logsink closed: %v", err)
+					logger.Tracef(ctx, "logsink closed: %v", err)
 					h.metrics.LogReadCount(resolvedModelUUID, metricLogReadLabelDisconnect).Inc()
 				} else if gorillaws.IsUnexpectedCloseError(err, gorillaws.CloseNormalClosure, gorillaws.CloseGoingAway) {
-					logger.Debugf(context.TODO(), "logsink unexpected close error: %v", err)
+					logger.Debugf(ctx, "logsink unexpected close error: %v", err)
 					h.metrics.LogReadCount(resolvedModelUUID, metricLogReadLabelError).Inc()
 				} else {
-					logger.Debugf(context.TODO(), "logsink error: %v", err)
+					logger.Debugf(ctx, "logsink error: %v", err)
 					h.metrics.LogReadCount(resolvedModelUUID, metricLogReadLabelError).Inc()
 				}
 				// Try to tell the other end we are closing. If the other end
@@ -375,12 +373,12 @@ func (h *logSinkHandler) sendError(ws *websocket.Conn, req *http.Request, err er
 	// There is no need to log the error for normal operators as there is nothing
 	// they can action. This is for developers.
 	if err != nil && featureflag.Enabled(featureflag.DeveloperMode) {
-		logger.Errorf(context.TODO(), "returning error from %s %s: %s", req.Method, req.URL.Path, errors.Details(err))
+		logger.Errorf(req.Context(), "returning error from %s %s: %s", req.Method, req.URL.Path, errors.Details(err))
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if sendErr := ws.SendInitialErrorV0(err); sendErr != nil {
-		logger.Errorf(context.TODO(), "closing websocket, %v", err)
+		logger.Errorf(req.Context(), "closing websocket, %v", err)
 		ws.Close()
 	}
 }
