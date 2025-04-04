@@ -755,6 +755,47 @@ func (st *State) GetRelationDetails(ctx context.Context, relationUUID corerelati
 	return result, errors.Capture(err)
 }
 
+// GetRelationUnit retrieves the UUID of a relation unit based on the given
+// relation UUID and unit name.
+func (st *State) GetRelationUnit(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	unitName unit.Name,
+) (corerelation.UnitUUID, error) {
+	db, err := st.DB()
+	var result corerelation.UnitUUID
+	if err != nil {
+		return result, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		args := getRelationUnit{
+			RelationUUID: relationUUID,
+			Name:         unitName,
+		}
+		stmt, err := st.Prepare(`
+SELECT ru.uuid AS &getRelationUnit.unit_uuid
+FROM   relation_unit ru
+JOIN   unit u ON u.uuid = ru.unit_uuid
+WHERE  u.name = $getRelationUnit.name
+AND    ru.relation_uuid = $getRelationUnit.relation_uuid`, args)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		err = tx.Query(ctx, stmt, args).Get(&args)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("unit %q: %w", unitName, relationerrors.UnitNotFound)
+		}
+		if err != nil {
+			return errors.Errorf("getting unit: %w", err)
+		}
+		result = args.UnitUUID
+		return nil
+	})
+	return result, errors.Capture(err)
+}
+
 // EnterScope indicates that the provided unit has joined the relation.
 //
 // The following error types can be expected to be returned:

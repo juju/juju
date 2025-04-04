@@ -89,6 +89,14 @@ type State interface {
 	//     is not found.
 	GetRelationDetails(ctx context.Context, relationUUID corerelation.UUID) (relation.RelationDetailsResult, error)
 
+	// GetRelationUnit retrieves the UUID of a relation unit based on the given
+	// relation UUID and unit name.
+	GetRelationUnit(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		unitName unit.Name,
+	) (corerelation.UnitUUID, error)
+
 	// EnterScope indicates that the provided unit has joined the relation.
 	//
 	// The following error types can be expected to be returned:
@@ -404,7 +412,14 @@ func (s *Service) GetRelationUnit(
 	relationUUID corerelation.UUID,
 	unitName unit.Name,
 ) (corerelation.UnitUUID, error) {
-	return "", coreerrors.NotImplemented
+	if err := relationUUID.Validate(); err != nil {
+		return "", errors.Errorf(
+			"%w: %w", relationerrors.RelationUUIDNotValid, err)
+	}
+	if err := unitName.Validate(); err != nil {
+		return "", errors.Capture(err)
+	}
+	return s.st.GetRelationUnit(ctx, relationUUID, unitName)
 }
 
 // GetRelationUnitByID returns the relation unit UUID for the given unit for the
@@ -414,7 +429,14 @@ func (s *Service) GetRelationUnitByID(
 	relationID int,
 	unitName unit.Name,
 ) (corerelation.UnitUUID, error) {
-	return "", coreerrors.NotImplemented
+	if err := unitName.Validate(); err != nil {
+		return "", errors.Capture(err)
+	}
+	uuid, err := s.st.GetRelationUUIDByID(ctx, relationID)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return s.st.GetRelationUnit(ctx, uuid, unitName)
 }
 
 // GetRelationUnitSettings returns the unit settings for the
