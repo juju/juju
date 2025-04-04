@@ -89,7 +89,7 @@ type statusInfoAndUnitNameAndPresence struct {
 	Present   bool          `db:"present"`
 }
 
-type fullUnitStatus struct {
+type workloadAgentStatus struct {
 	UnitName          coreunit.Name `db:"unit_name"`
 	WorkloadStatusID  *int          `db:"workload_status_id"`
 	WorkloadMessage   *string       `db:"workload_message"`

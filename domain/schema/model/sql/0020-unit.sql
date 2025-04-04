@@ -300,7 +300,7 @@ SELECT
 FROM unit AS u
 JOIN k8s_pod_status AS kps ON u.uuid = kps.unit_uuid;
 
-CREATE VIEW v_full_unit_status AS
+CREATE VIEW v_unit_workload_agent_status AS
 SELECT
     u.uuid AS unit_uuid,
     u.name AS unit_name,

@@ -120,45 +120,6 @@ func (c *MockStateGetAllApplicationStatusesCall) DoAndReturn(f func(context.Cont
 	return c
 }
 
-// GetAllFullUnitStatuses mocks base method.
-func (m *MockState) GetAllFullUnitStatuses(arg0 context.Context) (status.FullUnitStatuses, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllFullUnitStatuses", arg0)
-	ret0, _ := ret[0].(status.FullUnitStatuses)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetAllFullUnitStatuses indicates an expected call of GetAllFullUnitStatuses.
-func (mr *MockStateMockRecorder) GetAllFullUnitStatuses(arg0 any) *MockStateGetAllFullUnitStatusesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllFullUnitStatuses", reflect.TypeOf((*MockState)(nil).GetAllFullUnitStatuses), arg0)
-	return &MockStateGetAllFullUnitStatusesCall{Call: call}
-}
-
-// MockStateGetAllFullUnitStatusesCall wrap *gomock.Call
-type MockStateGetAllFullUnitStatusesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetAllFullUnitStatusesCall) Return(arg0 status.FullUnitStatuses, arg1 error) *MockStateGetAllFullUnitStatusesCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetAllFullUnitStatusesCall) Do(f func(context.Context) (status.FullUnitStatuses, error)) *MockStateGetAllFullUnitStatusesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetAllFullUnitStatusesCall) DoAndReturn(f func(context.Context) (status.FullUnitStatuses, error)) *MockStateGetAllFullUnitStatusesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetAllRelationStatuses mocks base method.
 func (m *MockState) GetAllRelationStatuses(ctx context.Context) (map[relation.UUID]status.StatusInfo[status.RelationStatusType], error) {
 	m.ctrl.T.Helper()
@@ -235,6 +196,45 @@ func (c *MockStateGetAllUnitStatusesForApplicationCall) Do(f func(context.Contex
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetAllUnitStatusesForApplicationCall) DoAndReturn(f func(context.Context, application.ID) (status.UnitWorkloadStatuses, status.UnitAgentStatuses, status.UnitCloudContainerStatuses, error)) *MockStateGetAllUnitStatusesForApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetAllUnitWorkloadAgentStatuses mocks base method.
+func (m *MockState) GetAllUnitWorkloadAgentStatuses(arg0 context.Context) (status.UnitWorkloadAgentStatuses, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllUnitWorkloadAgentStatuses", arg0)
+	ret0, _ := ret[0].(status.UnitWorkloadAgentStatuses)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllUnitWorkloadAgentStatuses indicates an expected call of GetAllUnitWorkloadAgentStatuses.
+func (mr *MockStateMockRecorder) GetAllUnitWorkloadAgentStatuses(arg0 any) *MockStateGetAllUnitWorkloadAgentStatusesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUnitWorkloadAgentStatuses", reflect.TypeOf((*MockState)(nil).GetAllUnitWorkloadAgentStatuses), arg0)
+	return &MockStateGetAllUnitWorkloadAgentStatusesCall{Call: call}
+}
+
+// MockStateGetAllUnitWorkloadAgentStatusesCall wrap *gomock.Call
+type MockStateGetAllUnitWorkloadAgentStatusesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAllUnitWorkloadAgentStatusesCall) Return(arg0 status.UnitWorkloadAgentStatuses, arg1 error) *MockStateGetAllUnitWorkloadAgentStatusesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAllUnitWorkloadAgentStatusesCall) Do(f func(context.Context) (status.UnitWorkloadAgentStatuses, error)) *MockStateGetAllUnitWorkloadAgentStatusesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAllUnitWorkloadAgentStatusesCall) DoAndReturn(f func(context.Context) (status.UnitWorkloadAgentStatuses, error)) *MockStateGetAllUnitWorkloadAgentStatusesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

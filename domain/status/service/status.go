@@ -330,7 +330,7 @@ func decodeUnitWorkloadStatus(s status.UnitStatusInfo[status.WorkloadStatusType]
 	}, nil
 }
 
-func decodeFullUnitStatus(s status.FullUnitStatus) (bool, corestatus.StatusInfo, corestatus.StatusInfo, error) {
+func decodeUnitWorkloadAgentStatus(s status.UnitWorkloadAgentStatus) (bool, corestatus.StatusInfo, corestatus.StatusInfo, error) {
 	decodedAgentStatus, err := decodeUnitAgentStatusType(s.AgentStatus.Status)
 	if err != nil {
 		return false, corestatus.StatusInfo{}, corestatus.StatusInfo{}, err

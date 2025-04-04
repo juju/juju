@@ -538,21 +538,21 @@ func (st *State) GetAllUnitStatusesForApplication(
 	return workloadStatuses, agentStatuses, cloudContainerStatuses, nil
 }
 
-// GetAllFullUnitStatuses retrieves the presence, workload status, and agent status
+// GetAllUnitWorkloadAgentStatuses retrieves the presence, workload status, and agent status
 // of every unit in the model. Returns an error satisfying [statuserrors.UnitStatusNotFound]
 // if any units do not have statuses.
-func (st *State) GetAllFullUnitStatuses(ctx context.Context) (status.FullUnitStatuses, error) {
+func (st *State) GetAllUnitWorkloadAgentStatuses(ctx context.Context) (status.UnitWorkloadAgentStatuses, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	query, err := st.Prepare(`SELECT &fullUnitStatus.* FROM v_full_unit_status`, fullUnitStatus{})
+	query, err := st.Prepare(`SELECT &workloadAgentStatus.* FROM v_unit_workload_agent_status`, workloadAgentStatus{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var statuses []fullUnitStatus
+	var statuses []workloadAgentStatus
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, query).GetAll(&statuses)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
@@ -564,7 +564,7 @@ func (st *State) GetAllFullUnitStatuses(ctx context.Context) (status.FullUnitSta
 		return nil, errors.Capture(err)
 	}
 
-	ret := make(status.FullUnitStatuses, len(statuses))
+	ret := make(status.UnitWorkloadAgentStatuses, len(statuses))
 	for _, s := range statuses {
 		if s.WorkloadStatusID == nil {
 			return nil, errors.Errorf("workload status for unit %q not found", s.UnitName).Add(statuserrors.UnitStatusNotFound)
@@ -581,7 +581,7 @@ func (st *State) GetAllFullUnitStatuses(ctx context.Context) (status.FullUnitSta
 			return nil, errors.Errorf("decoding workload status for unit %q: %w", s.UnitName, err)
 		}
 
-		ret[s.UnitName] = status.FullUnitStatus{
+		ret[s.UnitName] = status.UnitWorkloadAgentStatus{
 			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
 				Status:  workloadStatusID,
 				Message: *s.WorkloadMessage,

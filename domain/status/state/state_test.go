@@ -833,7 +833,7 @@ func (s *stateSuite) TestGetAllUnitStatusesForApplicationUnitsWithoutStatuses(c 
 }
 
 func (s *stateSuite) TestGetAllFullUnitStatusesEmptyModel(c *gc.C) {
-	res, err := s.state.GetAllFullUnitStatuses(context.Background())
+	res, err := s.state.GetAllUnitWorkloadAgentStatuses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 0)
 }
@@ -844,7 +844,7 @@ func (s *stateSuite) TestGetAllFullUnitStatusesNotFound(c *gc.C) {
 	}
 	s.createApplication(c, "foo", life.Alive, u1)
 
-	_, err := s.state.GetAllFullUnitStatuses(context.Background())
+	_, err := s.state.GetAllUnitWorkloadAgentStatuses(context.Background())
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitStatusNotFound)
 }
 
@@ -926,7 +926,7 @@ func (s *stateSuite) TestGetAllFullUnitStatuses(c *gc.C) {
 	err = s.state.SetUnitAgentStatus(context.Background(), u3UUID, u3Agent)
 	c.Assert(err, jc.ErrorIsNil)
 
-	res, err := s.state.GetAllFullUnitStatuses(context.Background())
+	res, err := s.state.GetAllUnitWorkloadAgentStatuses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 3)
 

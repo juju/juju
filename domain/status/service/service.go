@@ -115,10 +115,10 @@ type State interface {
 	// unit doesn't exist.
 	SetUnitAgentStatus(context.Context, coreunit.UUID, status.StatusInfo[status.UnitAgentStatusType]) error
 
-	// GetAllFullUnitStatuses retrieves the presence, workload status, and agent status
+	// GetAllUnitWorkloadAgentStatuses retrieves the presence, workload status, and agent status
 	// of every unit in the model. Returns an error satisfying [statuserrors.UnitStatusNotFound]
 	// if any units do not have statuses.
-	GetAllFullUnitStatuses(context.Context) (status.FullUnitStatuses, error)
+	GetAllUnitWorkloadAgentStatuses(context.Context) (status.UnitWorkloadAgentStatuses, error)
 
 	// GetAllApplicationStatuses returns the statuses of all the applications in the model,
 	// indexed by application name, if they have a status set.
@@ -553,14 +553,14 @@ func (s *Service) DeleteUnitPresence(ctx context.Context, unitName coreunit.Name
 // CheckUnitStatusesReadyForMigration returns an error if the statuses of any units
 // in the model indicate they cannot be migrated.
 func (s *Service) CheckUnitStatusesReadyForMigration(ctx context.Context) error {
-	fullStatuses, err := s.st.GetAllFullUnitStatuses(ctx)
+	fullStatuses, err := s.st.GetAllUnitWorkloadAgentStatuses(ctx)
 	if err != nil {
 		return errors.Errorf("getting unit statuses: %w", err)
 	}
 
 	failedChecks := []string{}
 	for unitName, fullStatus := range fullStatuses {
-		present, agentStatus, workloadStatus, err := decodeFullUnitStatus(fullStatus)
+		present, agentStatus, workloadStatus, err := decodeUnitWorkloadAgentStatus(fullStatus)
 		if err != nil {
 			return errors.Errorf("decoding full unit status for unit %q: %w", unitName, err)
 		}
@@ -585,7 +585,7 @@ func (s *Service) CheckUnitStatusesReadyForMigration(ctx context.Context) error 
 // ExportUnitStatuses returns the workload and agent statuses of all the units in
 // in the model, indexed by unit name.
 func (s *Service) ExportUnitStatuses(ctx context.Context) (map[coreunit.Name]corestatus.StatusInfo, map[coreunit.Name]corestatus.StatusInfo, error) {
-	fullStatuses, err := s.st.GetAllFullUnitStatuses(ctx)
+	fullStatuses, err := s.st.GetAllUnitWorkloadAgentStatuses(ctx)
 	if err != nil {
 		return nil, nil, errors.Errorf("getting unit statuses: %w", err)
 	}
@@ -593,7 +593,7 @@ func (s *Service) ExportUnitStatuses(ctx context.Context) (map[coreunit.Name]cor
 	workloadStatuses := make(map[coreunit.Name]corestatus.StatusInfo, len(fullStatuses))
 	agentStatuses := make(map[coreunit.Name]corestatus.StatusInfo, len(fullStatuses))
 	for unitName, fullStatus := range fullStatuses {
-		_, agentStatus, workloadStatus, err := decodeFullUnitStatus(fullStatus)
+		_, agentStatus, workloadStatus, err := decodeUnitWorkloadAgentStatus(fullStatus)
 		if err != nil {
 			return nil, nil, errors.Errorf("decoding full unit status for unit %q: %w", unitName, err)
 		}

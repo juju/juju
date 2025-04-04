@@ -1022,7 +1022,7 @@ func (s *serviceSuite) TestDeleteUnitPresenceInvalidName(c *gc.C) {
 func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationEmptyModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetAllFullUnitStatuses(gomock.Any()).Return(status.FullUnitStatuses{}, nil)
+	s.state.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(status.UnitWorkloadAgentStatuses{}, nil)
 
 	err := s.service.CheckUnitStatusesReadyForMigration(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1031,7 +1031,7 @@ func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationEmptyModel(c *gc.C)
 func (s *serviceSuite) TestCheckUnitStatusesReadyForMigration(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	fullStatus := status.FullUnitStatuses{
+	fullStatus := status.UnitWorkloadAgentStatuses{
 		"foo/650": {
 			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 				Status:  status.UnitAgentStatusIdle,
@@ -1066,7 +1066,7 @@ func (s *serviceSuite) TestCheckUnitStatusesReadyForMigration(c *gc.C) {
 			Present: true,
 		},
 	}
-	s.state.EXPECT().GetAllFullUnitStatuses(gomock.Any()).Return(fullStatus, nil)
+	s.state.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(fullStatus, nil)
 
 	err := s.service.CheckUnitStatusesReadyForMigration(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1075,7 +1075,7 @@ func (s *serviceSuite) TestCheckUnitStatusesReadyForMigration(c *gc.C) {
 func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyPresence(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	fullStatus := status.FullUnitStatuses{
+	fullStatus := status.UnitWorkloadAgentStatuses{
 		"foo/650": {
 			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 				Status:  status.UnitAgentStatusIdle,
@@ -1108,7 +1108,7 @@ func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyPresence(c 
 			},
 		},
 	}
-	s.state.EXPECT().GetAllFullUnitStatuses(gomock.Any()).Return(fullStatus, nil)
+	s.state.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(fullStatus, nil)
 
 	err := s.service.CheckUnitStatusesReadyForMigration(context.Background())
 	c.Assert(err, gc.ErrorMatches, `(?m).*
@@ -1119,7 +1119,7 @@ func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyPresence(c 
 func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyAgentStatus(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	fullStatus := status.FullUnitStatuses{
+	fullStatus := status.UnitWorkloadAgentStatuses{
 		"foo/650": {
 			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 				Status:  status.UnitAgentStatusIdle,
@@ -1154,7 +1154,7 @@ func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyAgentStatus
 			Present: true,
 		},
 	}
-	s.state.EXPECT().GetAllFullUnitStatuses(gomock.Any()).Return(fullStatus, nil)
+	s.state.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(fullStatus, nil)
 
 	err := s.service.CheckUnitStatusesReadyForMigration(context.Background())
 	c.Assert(err, gc.ErrorMatches, `(?m).*
@@ -1165,7 +1165,7 @@ func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyAgentStatus
 func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyWorkload(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	fullStatus := status.FullUnitStatuses{
+	fullStatus := status.UnitWorkloadAgentStatuses{
 		"foo/650": {
 			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 				Status:  status.UnitAgentStatusIdle,
@@ -1200,7 +1200,7 @@ func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyWorkload(c 
 			Present: true,
 		},
 	}
-	s.state.EXPECT().GetAllFullUnitStatuses(gomock.Any()).Return(fullStatus, nil)
+	s.state.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(fullStatus, nil)
 
 	err := s.service.CheckUnitStatusesReadyForMigration(context.Background())
 	c.Assert(err, gc.ErrorMatches, `(?m).*
@@ -1211,7 +1211,7 @@ func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyWorkload(c 
 func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyWorkloadMessage(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	fullStatus := status.FullUnitStatuses{
+	fullStatus := status.UnitWorkloadAgentStatuses{
 		"foo/650": {
 			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 				Status:  status.UnitAgentStatusIdle,
@@ -1257,7 +1257,7 @@ func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyWorkloadMes
 			Present: true,
 		},
 	}
-	s.state.EXPECT().GetAllFullUnitStatuses(gomock.Any()).Return(fullStatus, nil)
+	s.state.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(fullStatus, nil)
 
 	err := s.service.CheckUnitStatusesReadyForMigration(context.Background())
 	c.Assert(err, gc.ErrorMatches, `(?m).*
@@ -1268,7 +1268,7 @@ func (s *serviceSuite) TestCheckUnitStatusesReadyForMigrationNotReadyWorkloadMes
 func (s *serviceSuite) TestExportUnitStatusesEmpty(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetAllFullUnitStatuses(gomock.Any()).Return(map[coreunit.Name]status.FullUnitStatus{}, nil)
+	s.state.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(status.UnitWorkloadAgentStatuses{}, nil)
 
 	workloadStatuses, agentStatuses, err := s.service.ExportUnitStatuses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1281,7 +1281,7 @@ func (s *serviceSuite) TestExportUnitStatuses(c *gc.C) {
 
 	now := time.Now()
 
-	fullStatus := map[coreunit.Name]status.FullUnitStatus{
+	fullStatus := status.UnitWorkloadAgentStatuses{
 		"foo/66": {
 			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 				Status:  status.UnitAgentStatusIdle,
@@ -1312,7 +1312,7 @@ func (s *serviceSuite) TestExportUnitStatuses(c *gc.C) {
 			},
 		},
 	}
-	s.state.EXPECT().GetAllFullUnitStatuses(gomock.Any()).Return(fullStatus, nil)
+	s.state.EXPECT().GetAllUnitWorkloadAgentStatuses(gomock.Any()).Return(fullStatus, nil)
 
 	workloadStatuses, agentStatuses, err := s.service.ExportUnitStatuses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)

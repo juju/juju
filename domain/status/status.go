@@ -237,8 +237,8 @@ func DecodeWorkloadStatus(s int) (WorkloadStatusType, error) {
 	}
 }
 
-// FullUnitStatus holds details about the workload and agent status of a unit.
-type FullUnitStatus struct {
+// UnitWorkloadAgentStatus holds details about the workload and agent status of a unit.
+type UnitWorkloadAgentStatus struct {
 	WorkloadStatus StatusInfo[WorkloadStatusType]
 	AgentStatus    StatusInfo[UnitAgentStatusType]
 	// Present is true if the unit agent logged into the API server.
@@ -257,5 +257,5 @@ type UnitAgentStatuses map[unit.Name]StatusInfo[UnitAgentStatusType]
 // of units. The statuses are indexed by unit name.
 type UnitCloudContainerStatuses map[unit.Name]StatusInfo[CloudContainerStatusType]
 
-// FullUnitStatuses represents the workload and agent statuses of a collection of units.
-type FullUnitStatuses map[unit.Name]FullUnitStatus
+// UnitWorkloadAgentStatuses represents the workload and agent statuses of a collection of units.
+type UnitWorkloadAgentStatuses map[unit.Name]UnitWorkloadAgentStatus
