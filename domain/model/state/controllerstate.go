@@ -1803,13 +1803,21 @@ AND    ot.type = $dbPermission.object_type
 	return nil
 }
 
-// InitialWatchActivatedModelsStatement returns a SQL statement that will get all the activated models uuids in the controller.
-func (st *State) InitialWatchActivatedModelsStatement() string {
-	return "SELECT uuid from model WHERE activated = true"
+// InitialWatchActivatedModelsStatement returns a SQL statement that will get
+// all the activated models uuids in the controller.
+func (st *State) InitialWatchActivatedModelsStatement() (string, string) {
+	return "model", "SELECT uuid from model WHERE activated = true"
 }
 
-// GetActivatedModelUUIDs returns the subset of model uuids from the supplied list that are activated.
-// If no models associated with the uuids are activated then an empty slice is returned.
+// InitialWatchModelTableName returns the name of the model table to be used
+// for the initial watch statement.
+func (st *State) InitialWatchModelTableName() string {
+	return "model"
+}
+
+// GetActivatedModelUUIDs returns the subset of model uuids from the supplied
+// list that are activated. If no models associated with the uuids are activated
+// then an empty slice is returned.
 func (st *State) GetActivatedModelUUIDs(ctx context.Context, uuids []coremodel.UUID) ([]coremodel.UUID, error) {
 	if len(uuids) == 0 {
 		return nil, nil
@@ -1848,4 +1856,46 @@ WHERE uuid IN ($S[:])
 
 	res := transform.Slice(modelUUIDs, func(m modelUUID) coremodel.UUID { return m.UUID })
 	return res, nil
+}
+
+// GetModelLife returns the life associated with the provided uuid.
+// The following error types can be expected to be returned:
+// - [modelerrors.NotFound]: When the model does not exist.
+// - [modelerrors.NotActivated]: When the model has not been activated.
+func (st *State) GetModelLife(ctx context.Context, uuid coremodel.UUID) (life.Life, error) {
+	db, err := st.DB()
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	life := dbModelLife{
+		UUID: uuid,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &dbModelLife.*
+FROM   model
+WHERE uuid = $dbModelLife.uuid;
+	`, dbModelLife{})
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, life).Get(&life)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("%w for %q", modelerrors.NotFound, uuid)
+		} else if err != nil {
+			return errors.Capture(err)
+		} else if !life.Activated {
+			return errors.Errorf("%w for %q", modelerrors.NotActivated, uuid)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return -1, errors.Errorf("getting model life for %q: %w", uuid, err)
+	}
+
+	return life.Life, nil
 }
