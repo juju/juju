@@ -5,7 +5,6 @@ package model_test
 
 import (
 	"context"
-	"testing"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -41,10 +40,6 @@ type watcherSuite struct {
 }
 
 var _ = gc.Suite(&watcherSuite{})
-
-func Test(t *testing.T) {
-	gc.TestingT(t)
-}
 
 func insertModelDependencies(c *gc.C, dbTxnRunnerFactory database.TxnRunnerFactory,
 	dbTxnRunner database.TxnRunner, userUUID user.UUID, userName user.Name) {
@@ -110,9 +105,9 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 
 func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 	ctx := context.Background()
-	logger := loggertesting.WrapCheckLog(c)
+
 	watchableDBFactory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model")
-	watcherFactory := domain.NewWatcherFactory(watchableDBFactory, logger)
+	watcherFactory := domain.NewWatcherFactory(watchableDBFactory, loggertesting.WrapCheckLog(c))
 	st := state.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
 
 	modelService := service.NewWatchableService(st, nil, loggertesting.WrapCheckLog(c), watcherFactory)
@@ -162,7 +157,8 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 		)
 	})
 
-	// Verifies that watchers do not receive changes when entities other than models are updated.
+	// Verifies that watchers do not receive changes when entities other than
+	// models are updated.
 	harness.AddTest(func(c *gc.C) {
 		cloudState := cloudstate.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
 		cloudService := cloudservice.NewWatchableService(cloudState, watcherFactory)
@@ -190,4 +186,54 @@ func (s *watcherSuite) TestWatchControllerDBModels(c *gc.C) {
 	})
 
 	harness.Run(c, []string(nil))
+}
+
+func (s *watcherSuite) TestWatchModel(c *gc.C) {
+	watchableDBFactory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model")
+	watcherFactory := domain.NewWatcherFactory(watchableDBFactory, loggertesting.WrapCheckLog(c))
+
+	st := state.NewState(func() (database.TxnRunner, error) { return watchableDBFactory() })
+
+	modelService := service.NewWatchableService(st, nil, loggertesting.WrapCheckLog(c), watcherFactory)
+
+	// Create a new unactivated model named test-model.
+	modelName := "test-model"
+	modelUUID, activateModel, err := modelService.CreateModel(context.Background(), domainmodel.GlobalModelCreationArgs{
+		Cloud:       "my-cloud",
+		CloudRegion: "my-region",
+		Credential: corecredential.Key{
+			Cloud: "my-cloud",
+			Owner: s.userName,
+			Name:  "my-cloud-credential",
+		},
+		Name:          modelName,
+		Owner:         s.userUUID,
+		SecretBackend: juju.BackendName,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	watcher, err := modelService.WatchModel(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Verifies that watchers do not receive any changes when newly unactivated
+	// models are created.
+	harness.AddTest(func(c *gc.C) {
+		activateModel(context.Background())
+	}, func(w watchertest.WatcherC[struct{}]) {
+		// Get the change.
+		w.AssertChange()
+	})
+
+	// Verifies that watchers do not receive changes when models are deleted.
+	harness.AddTest(func(c *gc.C) {
+		// Deletes model from table. This should not trigger a change event.
+		err := modelService.DeleteModel(context.Background(), modelUUID)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.Run(c, struct{}{})
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/version"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
+	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -339,10 +340,27 @@ func (d *dummyState) ListAllModelSummaries(_ context.Context) ([]coremodel.Model
 	return rval, nil
 }
 
-func (d *dummyState) InitialWatchActivatedModelsStatement() string {
-	return "SELECT activated from model"
+func (d *dummyState) InitialWatchActivatedModelsStatement() (string, string) {
+	return "model", "SELECT activated from model"
+}
+
+func (d *dummyState) InitialWatchModelTableName() string {
+	return "model"
 }
 
 func (d *dummyState) GetActivatedModelUUIDs(ctx context.Context, uuids []coremodel.UUID) ([]coremodel.UUID, error) {
 	return nil, nil
+}
+
+func (d *dummyState) GetModelLife(ctx context.Context, uuid coremodel.UUID) (domainlife.Life, error) {
+	switch d.models[uuid].Life {
+	case life.Alive:
+		return domainlife.Alive, nil
+	case life.Dead:
+		return domainlife.Dead, nil
+	case life.Dying:
+		return domainlife.Dying, nil
+	default:
+		return domainlife.Life(0), errors.Errorf("invalid life value %v", d.models[uuid].Life)
+	}
 }

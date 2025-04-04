@@ -32,6 +32,7 @@ import (
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/keymanager"
 	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
+	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -1917,4 +1918,50 @@ func (s *stateSuite) TestGetActivatedModelUUIDs(c *gc.C) {
 	c.Check(activatedModelUUIDs, gc.HasLen, 2)
 	c.Check(activatedModelUUIDs[0], gc.Equals, s.uuid)
 	c.Check(activatedModelUUIDs[1], gc.Equals, activatedModelUUID)
+}
+
+func (s *stateSuite) TestGetModelLife(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	modelUUID := s.createTestModel(c, st, "my-unactivated-model", s.userUUID)
+
+	result, err := st.GetModelLife(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.Equals, domainlife.Alive)
+}
+
+func (s *stateSuite) TestGetModelLifeDying(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	modelUUID := s.createTestModel(c, st, "my-unactivated-model", s.userUUID)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE model SET life_id = 1 WHERE uuid = ?
+	`, modelUUID.String())
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := st.GetModelLife(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.Equals, domainlife.Dying)
+}
+
+func (s *stateSuite) TestGetModelLifeNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	_, err := st.GetModelLife(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *stateSuite) TestGetModelLifeNotActivated(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	modelUUID := s.createTestModelWithoutActivation(c, st, "my-unactivated-model", s.userUUID)
+
+	_, err := st.GetModelLife(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIs, modelerrors.NotActivated)
 }

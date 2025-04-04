@@ -744,8 +744,7 @@ func (s *Service) GetApplicationLife(ctx context.Context, appName string) (corel
 	if err != nil {
 		return "", errors.Errorf("getting life for %q: %w", appName, err)
 	}
-	result := appLife.Value()
-	return result, errors.Capture(err)
+	return appLife.Value()
 }
 
 // SetApplicationScale sets the application's desired scale value, returning an error
