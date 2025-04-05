@@ -25,17 +25,16 @@ import (
 type fakePrepareAPI struct {
 	*jujutesting.Stub
 	requestedBridges []network.DeviceToBridge
-	reconfigureDelay int
 }
 
 var _ broker.PrepareAPI = (*fakePrepareAPI)(nil)
 
-func (api *fakePrepareAPI) HostChangesForContainer(ctx context.Context, tag names.MachineTag) ([]network.DeviceToBridge, int, error) {
+func (api *fakePrepareAPI) HostChangesForContainer(ctx context.Context, tag names.MachineTag) ([]network.DeviceToBridge, error) {
 	api.Stub.MethodCall(api, "HostChangesForContainer", tag)
 	if err := api.Stub.NextErr(); err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	return api.requestedBridges, api.reconfigureDelay, nil
+	return api.requestedBridges, nil
 }
 
 func (api *fakePrepareAPI) SetHostMachineNetworkConfig(ctx context.Context, tag names.MachineTag, config []params.NetworkConfig) error {

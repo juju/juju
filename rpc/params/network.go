@@ -816,8 +816,7 @@ type HostNetworkChange struct {
 	// device they should be connected to.
 	NewBridges []DeviceBridgeInfo `json:"new-bridges"`
 
-	// ReconfigureDelay is the duration in seconds to sleep before
-	// raising the bridged interface
+	// Deprecated: no longer written or read.
 	ReconfigureDelay int `json:"reconfigure-delay"`
 }
 
