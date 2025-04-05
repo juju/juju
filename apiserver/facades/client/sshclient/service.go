@@ -16,12 +16,16 @@ type ModelConfigService interface {
 	ModelConfig(ctx context.Context) (*config.Config, error)
 }
 
+// ExecService is an interface that provides access to a token
+// required for exec operations on a CAAS unit.
+type ExecService interface {
+	// GetCAASUnitExecSecretToken returns a token that can be used to run exec operations
+	// on the provider cloud.
+	GetCAASUnitExecSecretToken(ctx context.Context) (string, error)
+}
+
 // StubService will be replaced once the implementation is finished.
 type StubService interface {
 	// CloudSpec returns the cloud spec for the model.
 	CloudSpec(ctx context.Context) (cloudspec.CloudSpec, error)
-
-	// GetExecSecretToken returns a token that can be used to run exec operations
-	// on the provider cloud.
-	GetExecSecretToken(ctx context.Context) (string, error)
 }
