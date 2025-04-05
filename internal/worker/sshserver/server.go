@@ -21,6 +21,10 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+type SessionHandler interface {
+	Handle(s ssh.Session, destinationAddress string)
+}
+
 // ServerWorkerConfig holds the configuration required by the server worker.
 type ServerWorkerConfig struct {
 	// Logger holds the logger for the server.
@@ -51,6 +55,9 @@ type ServerWorkerConfig struct {
 
 	// disableAuth is a test-only flag that disables authentication.
 	disableAuth bool
+
+	// SessionHandler handles proxying SSH sessions to the target machine.
+	SessionHandler SessionHandler
 }
 
 // Validate validates the workers configuration is as expected.
@@ -66,6 +73,9 @@ func (c ServerWorkerConfig) Validate() error {
 	}
 	if c.FacadeClient == nil {
 		return errors.NotValidf("missing FacadeClient")
+	}
+	if c.SessionHandler == nil {
+		return errors.NotValidf("missing SessionHandler")
 	}
 	return nil
 }
@@ -241,8 +251,8 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 			"tcpip-forward":        forwardHandler.HandleSSHRequest,
 			"cancel-tcpip-forward": forwardHandler.HandleSSHRequest,
 		},
-		Handler: func(s ssh.Session) {
-			_, _ = s.Write([]byte(fmt.Sprintf("Your final destination is: %s as user: %s\n", d.DestAddr, s.User())))
+		Handler: func(session ssh.Session) {
+			s.config.SessionHandler.Handle(session, d.DestAddr)
 		},
 	}
 
