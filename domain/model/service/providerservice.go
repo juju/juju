@@ -22,7 +22,7 @@ type ProviderService struct {
 	st ProviderState
 }
 
-// NewProviderService returns a new Service for interacting with a models state.
+// NewProviderService returns a new Service for interacting with a model's state.
 func NewProviderService(st ProviderState) *ProviderService {
 	return &ProviderService{
 		st: st,
