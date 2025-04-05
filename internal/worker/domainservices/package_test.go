@@ -11,7 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	changestream "github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
@@ -21,7 +21,7 @@ import (
 	domaintesting "github.com/juju/juju/domain/schema/testing"
 	domainservices "github.com/juju/juju/domain/services"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	services "github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/services"
 	sshimporter "github.com/juju/juju/internal/ssh/importer"
 )
 
@@ -57,9 +57,10 @@ type baseSuite struct {
 	provider        *MockProvider
 	providerFactory *MockProviderFactory
 
-	objectStore            *MockObjectStore
-	objectStoreGetter      *MockObjectStoreGetter
-	modelObjectStoreGetter *MockModelObjectStoreGetter
+	objectStore                 *MockObjectStore
+	objectStoreGetter           *MockObjectStoreGetter
+	controllerObjectStoreGetter *MockModelObjectStoreGetter
+	modelObjectStoreGetter      *MockModelObjectStoreGetter
 
 	storageRegistryGetter      *MockStorageRegistryGetter
 	modelStorageRegistryGetter *MockModelStorageRegistryGetter
@@ -94,6 +95,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.objectStore = NewMockObjectStore(ctrl)
 	s.objectStoreGetter = NewMockObjectStoreGetter(ctrl)
+	s.controllerObjectStoreGetter = NewMockModelObjectStoreGetter(ctrl)
 	s.modelObjectStoreGetter = NewMockModelObjectStoreGetter(ctrl)
 
 	s.storageRegistryGetter = NewMockStorageRegistryGetter(ctrl)
@@ -117,7 +119,8 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 func NewModelDomainServices(
 	modelUUID coremodel.UUID,
 	dbGetter changestream.WatchableDBGetter,
-	objectStore objectstore.ModelObjectStoreGetter,
+	controllerObjectStore objectstore.ModelObjectStoreGetter,
+	modelObjectStore objectstore.ModelObjectStoreGetter,
 	storageRegistry storage.ModelStorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
 	leaseManager lease.ModelLeaseManagerGetter,
@@ -129,7 +132,8 @@ func NewModelDomainServices(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		NoopProviderFactory{},
-		objectStore,
+		controllerObjectStore,
+		modelObjectStore,
 		storageRegistry,
 		publicKeyImporter,
 		leaseManager,

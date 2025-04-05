@@ -99,13 +99,14 @@ type PublicKeyImporter interface {
 type ModelServices struct {
 	modelServiceFactoryBase
 
-	clock             clock.Clock
-	modelUUID         model.UUID
-	providerFactory   providertracker.ProviderFactory
-	objectstore       objectstore.ModelObjectStoreGetter
-	storageRegistry   corestorage.ModelStorageRegistryGetter
-	publicKeyImporter PublicKeyImporter
-	leaseManager      lease.ModelLeaseManagerGetter
+	clock                 clock.Clock
+	modelUUID             model.UUID
+	providerFactory       providertracker.ProviderFactory
+	controllerObjectStore objectstore.ModelObjectStoreGetter
+	modelObjectStore      objectstore.ModelObjectStoreGetter
+	storageRegistry       corestorage.ModelStorageRegistryGetter
+	publicKeyImporter     PublicKeyImporter
+	leaseManager          lease.ModelLeaseManagerGetter
 }
 
 // NewModelServices returns a new registry which uses the provided modelDB
@@ -115,7 +116,8 @@ func NewModelServices(
 	controllerDB changestream.WatchableDBFactory,
 	modelDB changestream.WatchableDBFactory,
 	providerFactory providertracker.ProviderFactory,
-	objectStore objectstore.ModelObjectStoreGetter,
+	controllerObjectStore objectstore.ModelObjectStoreGetter,
+	modelObjectStore objectstore.ModelObjectStoreGetter,
 	storageRegistry corestorage.ModelStorageRegistryGetter,
 	publicKeyImporter PublicKeyImporter,
 	leaseManager lease.ModelLeaseManagerGetter,
@@ -130,14 +132,33 @@ func NewModelServices(
 			},
 			modelDB: modelDB,
 		},
-		clock:             clock,
-		modelUUID:         modelUUID,
-		providerFactory:   providerFactory,
-		objectstore:       objectStore,
-		storageRegistry:   storageRegistry,
-		publicKeyImporter: publicKeyImporter,
-		leaseManager:      leaseManager,
+		clock:                 clock,
+		modelUUID:             modelUUID,
+		providerFactory:       providerFactory,
+		controllerObjectStore: controllerObjectStore,
+		modelObjectStore:      modelObjectStore,
+		storageRegistry:       storageRegistry,
+		publicKeyImporter:     publicKeyImporter,
+		leaseManager:          leaseManager,
 	}
+}
+
+// ControllerAgentBinary returns the controller agent binary store.
+func (s *ModelServices) ControllerAgentBinary() *agentbinaryservice.AgentBinaryStore {
+	return agentbinaryservice.NewAgentBinaryStore(
+		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		s.logger.Child("controlleragentbinary"),
+		s.controllerObjectStore,
+	)
+}
+
+// ModelAgentBinary returns the model agent binary store.
+func (s *ModelServices) ModelAgentBinary() *agentbinaryservice.AgentBinaryStore {
+	return agentbinaryservice.NewAgentBinaryStore(
+		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.logger.Child("modelagentbinary"),
+		s.modelObjectStore,
+	)
 }
 
 // AgentProvisioner returns the agent provisioner service.
@@ -198,7 +219,7 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[applicationservice.SupportedFeatureProvider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[applicationservice.CAASApplicationProvider](s.providerFactory, s.modelUUID.String()),
-		charmstore.NewCharmStore(s.objectstore, logger.Child("charmstore")),
+		charmstore.NewCharmStore(s.modelObjectStore, logger.Child("charmstore")),
 		domain.NewStatusHistory(logger, s.clock),
 		s.clock,
 		logger,
@@ -397,7 +418,7 @@ func (s *ModelServices) Resource() *resourceservice.Service {
 		)
 	}
 	resourceStoreFactory := store.NewResourceStoreFactory(
-		s.objectstore,
+		s.modelObjectStore,
 		containerImageResourceStoreGetter,
 	)
 	return resourceservice.NewService(
