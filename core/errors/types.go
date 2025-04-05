@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	// The below are the generic error types that we previously got from
-	// juju/errors.
+	// These are the generic error types that
+	// we previously got from juju/errors.
 
 	// Timeout represents an error on timeout.
 	Timeout = jujuerrors.Timeout

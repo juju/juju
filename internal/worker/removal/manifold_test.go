@@ -6,6 +6,7 @@ package removal
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -45,6 +46,11 @@ func (s *manifoldConfigSuite) TestMissingNewWorker(c *gc.C) {
 	s.checkNotValid(c, "nil NewWorker not valid")
 }
 
+func (s *manifoldConfigSuite) TestMissingClock(c *gc.C) {
+	s.config.Clock = nil
+	s.checkNotValid(c, "nil Clock not valid")
+}
+
 func (s *manifoldConfigSuite) TestMissingLogger(c *gc.C) {
 	s.config.Logger = nil
 	s.checkNotValid(c, "nil Logger not valid")
@@ -55,6 +61,7 @@ func validConfig(c *gc.C) ManifoldConfig {
 		DomainServicesName: "domain-services",
 		GetRemovalService:  GetRemovalService,
 		NewWorker:          func(Config) (worker.Worker, error) { return noWorker{}, nil },
+		Clock:              clock.WallClock,
 		Logger:             loggertesting.WrapCheckLog(c),
 	}
 }
@@ -76,6 +83,7 @@ func (s *manifoldSuite) TestStartSuccess(c *gc.C) {
 		DomainServicesName: "domain-services",
 		GetRemovalService:  func(dependency.Getter, string) (RemovalService, error) { return noService{}, nil },
 		NewWorker:          func(Config) (worker.Worker, error) { return noWorker{}, nil },
+		Clock:              clock.WallClock,
 		Logger:             loggertesting.WrapCheckLog(c),
 	}
 

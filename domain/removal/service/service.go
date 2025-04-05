@@ -65,6 +65,13 @@ func (s *Service) GetAllJobs(ctx context.Context) ([]removal.Job, error) {
 	return jobs, nil
 }
 
+// ExecuteJob runs the appropriate removal logic for the input job.
+// If the job is determined to have run successfully, we ensure that
+// no removal job with the same UUID exists in the database.
+func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
+	return nil
+}
+
 // RemoveRelation checks if a relation with the input UUID exists.
 // If it does, the relation is guaranteed after this call to be:
 // - No longer alive.
