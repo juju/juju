@@ -1847,6 +1847,9 @@ func (s *providerServiceSuite) TestAddUnitsGetCharmIDByApplicationNameError(c *g
 		},
 		func(ctx context.Context) (CAASApplicationProvider, error) {
 			return s.caasApplicationProvider, nil
+		},
+		func(ctx context.Context) (ExecTokenProvider, error) {
+			return s.execTokenProvider, nil
 		})
 	defer ctrl.Finish()
 

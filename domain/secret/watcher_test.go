@@ -980,6 +980,9 @@ func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 		func(ctx context.Context) (applicationservice.CAASApplicationProvider, error) {
 			return serviceProvider{}, nil
 		},
+		func(ctx context.Context) (applicationservice.ExecTokenProvider, error) {
+			return serviceProvider{}, nil
+		},
 		nil,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		clock.WallClock,

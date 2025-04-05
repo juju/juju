@@ -52,7 +52,7 @@ type ProviderService struct {
 	execTokenProvider        providertracker.ProviderGetter[ExecTokenProvider]
 }
 
-// NewProviderService returns a new Service for interacting with a models state.
+// NewProviderService returns a new Service for interacting with a model's state.
 func NewProviderService(
 	st State,
 	leaderEnsurer leadership.Ensurer,
