@@ -58,11 +58,11 @@ func (s *stateSuite) TestGetModelVersionInfo(c *gc.C) {
 	c.Check(isController, jc.IsTrue)
 }
 
-func (s *stateSuite) TestGetModelAgentVersionModelNotFound(c *gc.C) {
+func (s *stateSuite) TestGetModelVersionInfoModelNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	_, _, err := st.GetModelVersionInfo(context.Background())
-	c.Check(err, jc.ErrorIs, modelerrors.AgentVersionNotFound)
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *stateSuite) TestGetModelAgentVersionCantParseVersion(c *gc.C) {
@@ -71,48 +71,4 @@ func (s *stateSuite) TestGetModelAgentVersionCantParseVersion(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	_, _, err := st.GetModelVersionInfo(context.Background())
 	c.Check(err, gc.ErrorMatches, `parsing agent version: invalid version "invalid-version".*`)
-}
-
-func (s *stateSuite) TestSetTargetAgentVersion(c *gc.C) {
-	s.setupModel(c, "1.1.1")
-
-	st := NewState(s.TxnRunnerFactory())
-	err := st.SetTargetAgentVersion(context.Background(), semversion.MustParse("6.6.6"), nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var vers, stream string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT target_version FROM agent_version").Scan(&vers)
-		if err != nil {
-			return err
-		}
-		return tx.QueryRowContext(ctx, "SELECT value FROM model_config WHERE key='agent-stream'").Scan(&stream)
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vers, gc.Equals, "6.6.6")
-	c.Assert(stream, gc.Equals, "released")
-}
-
-func ptr[T any](v T) *T {
-	return &v
-}
-
-func (s *stateSuite) TestSetTargetAgentVersionWithAgentStream(c *gc.C) {
-	s.setupModel(c, "1.1.1")
-
-	st := NewState(s.TxnRunnerFactory())
-	err := st.SetTargetAgentVersion(context.Background(), semversion.MustParse("6.6.6"), ptr("proposed"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	var vers, stream string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT target_version FROM agent_version").Scan(&vers)
-		if err != nil {
-			return err
-		}
-		return tx.QueryRowContext(ctx, "SELECT value FROM model_config WHERE key='agent-stream'").Scan(&stream)
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(vers, gc.Equals, "6.6.6")
-	c.Assert(stream, gc.Equals, "proposed")
 }

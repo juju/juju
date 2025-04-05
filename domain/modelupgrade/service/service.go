@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/domain/modelupgrade"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 )
 
 // State describes retrieval and persistence methods for upgrade info.
@@ -24,8 +23,6 @@ type State interface {
 	// - [modeleerrors.NotFound] when the model does not exist.
 	// - [modelerrors.AgentVersionNotFound] when there is no target version found.
 	GetModelVersionInfo(ctx context.Context) (semversion.Number, bool, error)
-	// SetTargetAgentVersion sets the target agent version and stream for the model.
-	SetTargetAgentVersion(ctx context.Context, targetVersion semversion.Number, agentStream *string) error
 }
 
 // Service provides the API for performing model upgrades.
@@ -66,73 +63,32 @@ func NewProviderService(
 	}
 }
 
-// UpgradeModel upgrades a model agent version.
+// PerformProviderChecks uses the model's provider to check that
+// the model con be upgrade to the specified target version.
 // The following errors can be expected:
 // - [modelerrors.NotFound] when the model does not exist.
-func (s *ProviderService) UpgradeModel(ctx context.Context, arg modelupgrade.UpgradeModelParams) error {
+func (s *ProviderService) PerformProviderChecks(ctx context.Context, arg modelupgrade.UpgradeModelParams) error {
 	s.logger.Tracef(ctx, "UpgradeModel arg %#v", arg)
 
 	currentModelVersion, isControllerModel, err := s.st.GetModelVersionInfo(ctx)
 	if err != nil {
 		return errors.Errorf("getting model current agent version: %w", err)
 	}
-	// TODO - implement me
-	//if model.Life() != Alive {
-	//	return modelerrors.NotAlive
-	//}
-
-	controllerAgentVersion := arg.ControllerModelVersion
-	targetVersion := arg.TargetVersion
-	// For non controller models, we use the exact controller
-	// model version to upgrade to, unless an explicit target
-	// has been specified.
-	useControllerVersion := false
+	// Only controller models need to do the pre-check.
 	if !isControllerModel {
-		if targetVersion == semversion.Zero || targetVersion.Compare(controllerAgentVersion) == 0 {
-			targetVersion = controllerAgentVersion
-			useControllerVersion = true
-		} else if controllerAgentVersion.Compare(targetVersion.ToPatch()) < 0 {
-			return errors.Errorf("cannot upgrade to a version %q greater than that of the controller %q", targetVersion, controllerAgentVersion)
-		}
-	}
-	if !useControllerVersion {
-		s.logger.Debugf(ctx, "deciding target version for model upgrade, from %q to %q for stream %q", currentModelVersion, targetVersion, arg.AgentStream)
-		// TODO - implement me
-		// https://github.com/juju/juju/blob/3.6/apiserver/facades/client/modelupgrader/upgrader.go#L206
-		// https://github.com/juju/juju/blob/3.6/apiserver/facades/client/modelupgrader/findagents.go#L25
-	}
-
-	// Before changing the agent version to trigger an upgrade or downgrade,
-	// we'll check the provider.
-	provider, err := s.provider(ctx)
-	if err != nil && !errors.Is(err, coreerrors.NotSupported) {
-		return errors.Errorf("getting provider for model: %w", err)
-	}
-	if err == nil && isControllerModel {
-		if err := preCheckEnvironForUpgradeModel(
-			ctx, provider, currentModelVersion, targetVersion, s.logger,
-		); err != nil {
-			return errors.Errorf("checking provider can be upgraded for model: %w", err)
-		}
-	}
-
-	if err := s.validateModelUpgrade(ctx, targetVersion); err != nil {
-		return errors.Capture(err)
-	}
-	if !arg.IgnoreAgentVersions {
-		// TODO - implement me
-		// https://github.com/juju/juju/blob/3.6/state/state.go#L659
-	}
-	if arg.DryRun {
 		return nil
 	}
 
-	var agentStream *string
-	if arg.AgentStream != "" {
-		agentStream = &arg.AgentStream
+	provider, err := s.provider(ctx)
+	if errors.Is(err, coreerrors.NotSupported) {
+		return nil
+	} else if err != nil {
+		return errors.Errorf("getting provider for model: %w", err)
 	}
-	if err := s.st.SetTargetAgentVersion(ctx, targetVersion, agentStream); err != nil {
-		return errors.Errorf("setting model %q agent version: %w", targetVersion, err)
+	if err := preCheckEnvironForUpgradeModel(
+		ctx, provider, currentModelVersion, arg.TargetVersion, s.logger,
+	); err != nil {
+		return errors.Errorf("checking provider can be upgraded for model: %w", err)
 	}
 	return nil
 }
@@ -184,21 +140,5 @@ func preCheckEnvironForUpgradeModel(
 			}
 		}
 	}
-	return nil
-}
-
-func (s *Service) validateModelUpgrade(ctx context.Context, targetVersion semversion.Number) (err error) {
-	var blockers *upgradevalidation.ModelUpgradeBlockers
-	defer func() {
-		if err == nil && blockers != nil {
-			err = errors.Errorf(
-				"cannot upgrade to %q due to issues with these models:\n%s",
-				targetVersion, blockers,
-			).Add(coreerrors.NotSupported)
-		}
-	}()
-
-	// TODO - implement me
-	// https://github.com/juju/juju/blob/3.6/apiserver/facades/client/modelupgrader/upgrader.go#L228
 	return nil
 }

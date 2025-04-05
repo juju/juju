@@ -42,42 +42,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
-func (s *serviceSuite) TestUpgradeNonControllerModel(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().GetModelVersionInfo(gomock.Any()).Return(semversion.MustParse("6.6.5"), false, nil)
-	s.state.EXPECT().SetTargetAgentVersion(gomock.Any(), semversion.MustParse("6.6.6"), ptr("released"))
-
-	err := s.service.UpgradeModel(context.Background(), modelupgrade.UpgradeModelParams{
-		ControllerModelVersion: semversion.MustParse("6.6.6"),
-		TargetVersion:          semversion.Zero,
-		AgentStream:            "released",
-		IgnoreAgentVersions:    false,
-		DryRun:                 false,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestUpgradeDryRun(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().GetModelVersionInfo(gomock.Any()).Return(semversion.MustParse("6.6.5"), false, nil)
-
-	err := s.service.UpgradeModel(context.Background(), modelupgrade.UpgradeModelParams{
-		ControllerModelVersion: semversion.MustParse("6.6.6"),
-		TargetVersion:          semversion.Zero,
-		AgentStream:            "released",
-		IgnoreAgentVersions:    false,
-		DryRun:                 true,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestUpgradePrechecks(c *gc.C) {
+func (s *serviceSuite) TestPerformProviderChecks(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -86,33 +51,23 @@ func (s *serviceSuite) TestUpgradePrechecks(c *gc.C) {
 	s.prechecker.EXPECT().PrecheckUpgradeOperations()
 
 	s.state.EXPECT().GetModelVersionInfo(gomock.Any()).Return(semversion.MustParse("6.6.5"), true, nil)
-	s.state.EXPECT().SetTargetAgentVersion(gomock.Any(), semversion.MustParse("6.6.7"), ptr("released"))
 
-	err := s.service.UpgradeModel(context.Background(), modelupgrade.UpgradeModelParams{
-		ControllerModelVersion: semversion.MustParse("6.6.6"),
-		TargetVersion:          semversion.MustParse("6.6.7"),
-		AgentStream:            "released",
-		IgnoreAgentVersions:    false,
-		DryRun:                 false,
+	err := s.service.PerformProviderChecks(context.Background(), modelupgrade.UpgradeModelParams{
+		TargetVersion: semversion.MustParse("6.6.7"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestUpgradeNoPrechecksNonControllerModel(c *gc.C) {
+func (s *serviceSuite) TestPerformProviderChecksNonControllerModel(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.prechecker = NewMockJujuUpgradePrechecker(ctrl)
 
 	s.state.EXPECT().GetModelVersionInfo(gomock.Any()).Return(semversion.MustParse("6.6.5"), false, nil)
-	s.state.EXPECT().SetTargetAgentVersion(gomock.Any(), semversion.MustParse("6.6.6"), ptr("released"))
 
-	err := s.service.UpgradeModel(context.Background(), modelupgrade.UpgradeModelParams{
-		ControllerModelVersion: semversion.MustParse("6.6.6"),
-		TargetVersion:          semversion.Zero,
-		AgentStream:            "released",
-		IgnoreAgentVersions:    false,
-		DryRun:                 false,
+	err := s.service.PerformProviderChecks(context.Background(), modelupgrade.UpgradeModelParams{
+		TargetVersion: semversion.Zero,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

@@ -9,9 +9,5 @@ import (
 
 // UpgradeModelParams holds the parameters used to upgrade a model.
 type UpgradeModelParams struct {
-	ControllerModelVersion semversion.Number
-	TargetVersion          semversion.Number
-	AgentStream            string
-	IgnoreAgentVersions    bool
-	DryRun                 bool
+	TargetVersion semversion.Number
 }

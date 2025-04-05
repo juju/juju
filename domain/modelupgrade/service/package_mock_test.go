@@ -81,44 +81,6 @@ func (c *MockStateGetModelVersionInfoCall) DoAndReturn(f func(context.Context) (
 	return c
 }
 
-// SetTargetAgentVersion mocks base method.
-func (m *MockState) SetTargetAgentVersion(arg0 context.Context, arg1 semversion.Number, arg2 *string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetTargetAgentVersion", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetTargetAgentVersion indicates an expected call of SetTargetAgentVersion.
-func (mr *MockStateMockRecorder) SetTargetAgentVersion(arg0, arg1, arg2 any) *MockStateSetTargetAgentVersionCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTargetAgentVersion", reflect.TypeOf((*MockState)(nil).SetTargetAgentVersion), arg0, arg1, arg2)
-	return &MockStateSetTargetAgentVersionCall{Call: call}
-}
-
-// MockStateSetTargetAgentVersionCall wrap *gomock.Call
-type MockStateSetTargetAgentVersionCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateSetTargetAgentVersionCall) Return(arg0 error) *MockStateSetTargetAgentVersionCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateSetTargetAgentVersionCall) Do(f func(context.Context, semversion.Number, *string) error) *MockStateSetTargetAgentVersionCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetTargetAgentVersionCall) DoAndReturn(f func(context.Context, semversion.Number, *string) error) *MockStateSetTargetAgentVersionCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockJujuUpgradePrechecker is a mock of JujuUpgradePrechecker interface.
 type MockJujuUpgradePrechecker struct {
 	ctrl     *gomock.Controller
