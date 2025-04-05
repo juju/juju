@@ -5,17 +5,27 @@ package service
 
 import (
 	"context"
+	"sort"
+	"strings"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/changestream"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/domain/modelagent"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/simplestreams"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/errors"
+	coretools "github.com/juju/juju/internal/tools"
 )
 
 type State interface {
@@ -73,11 +83,35 @@ type Service struct {
 	watcherFactory WatcherFactory
 }
 
-// NewService returns a new [Service].
-func NewService(st State, watcherFactory WatcherFactory) *Service {
-	return &Service{
-		st:             st,
-		watcherFactory: watcherFactory,
+// ProviderWithAgentFinder provides methods used to find agent
+// binaries in a provider specific way.
+type ProviderWithAgentFinder interface {
+	environs.BootstrapEnviron
+}
+
+// ProviderService provides the API for working with agent binaries.
+type ProviderService struct {
+	Service
+	providerAgentFinder func(context.Context) (ProviderWithAgentFinder, error)
+
+	toolsFinder func(ctx context.Context, ss envtools.SimplestreamsFetcher, env environs.BootstrapEnviron,
+		majorVersion, minorVersion int, streams []string, filter coretools.Filter,
+	) (coretools.List, error)
+}
+
+// NewProviderService returns a new service reference wrapping the input state.
+func NewProviderService(
+	st State,
+	providerAgentFinder providertracker.ProviderGetter[ProviderWithAgentFinder],
+	watcherFactory WatcherFactory,
+) *ProviderService {
+	return &ProviderService{
+		Service: Service{
+			st:             st,
+			watcherFactory: watcherFactory,
+		},
+		providerAgentFinder: providerAgentFinder,
+		toolsFinder:         envtools.FindTools,
 	}
 }
 
@@ -278,4 +312,149 @@ func (s *Service) WatchModelTargetAgentVersion(ctx context.Context) (watcher.Not
 		return nil, errors.Errorf("creating watcher for agent version: %w", err)
 	}
 	return w, nil
+}
+
+// FindAgents calls findMatchingTools and then rewrites the URLs
+// using the provided ToolsURLsGetter function.
+func (s *ProviderService) FindAgents(ctx context.Context, args modelagent.FindAgentsParams) (coretools.List, error) {
+	list, err := s.findMatchingAgents(ctx, args)
+	if err != nil {
+		return nil, err
+	}
+
+	// Rewrite the URLs so they point at the API servers. If the
+	// tools are not in tools storage, then the API server will
+	// download and cache them if the client requests that version.
+	var fullList coretools.List
+	for _, baseTools := range list {
+		urls, err := args.ToolsURLsGetter(ctx, baseTools.Version)
+		if err != nil {
+			return nil, err
+		}
+		for _, url := range urls {
+			tools := *baseTools
+			tools.URL = url
+			fullList = append(fullList, &tools)
+		}
+	}
+	return fullList, nil
+}
+
+// findMatchingAgents searches agent storage and simplestreams for agents
+// matching the given parameters.
+// If an exact match is specified (number, ostype and arch) and is found in
+// agent storage, then simplestreams will not be searched.
+func (s *ProviderService) findMatchingAgents(ctx context.Context, args modelagent.FindAgentsParams) (result coretools.List, _ error) {
+	exactMatch := args.Number != semversion.Zero && args.Arch != ""
+
+	storageList, err := s.matchingStorageAgent(args)
+	if err != nil && !errors.Is(err, coretools.ErrNoMatches) {
+		return nil, err
+	}
+	if len(storageList) > 0 && exactMatch {
+		return storageList, nil
+	}
+
+	// Look for tools in simplestreams too, but don't replace
+	// any versions found in storage.
+	provider, err := s.providerAgentFinder(ctx)
+	if errors.Is(err, coreerrors.NotSupported) {
+		return storageList, nil
+	} else if err != nil {
+		return nil, errors.Errorf("getting agent finder: %w", err)
+	}
+	cfg := provider.Config()
+
+	filter := toolsFilter(args)
+	requestedStream := cfg.AgentStream()
+	if args.AgentStream != "" {
+		requestedStream = args.AgentStream
+	}
+
+	streams := envtools.PreferredStreams(&args.Number, cfg.Development(), requestedStream)
+	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+	majorVersion := args.Number.Major
+	minorVersion := args.Number.Minor
+	if args.Number == semversion.Zero {
+		majorVersion = args.MajorVersion
+		minorVersion = args.MinorVersion
+	}
+	simplestreamsList, err := s.toolsFinder(ctx, ss,
+		provider, majorVersion, minorVersion, streams, filter,
+	)
+	if len(storageList) == 0 && err != nil {
+		return nil, err
+	}
+
+	list := storageList
+	found := make(map[semversion.Binary]bool)
+	for _, tools := range storageList {
+		found[tools.Version] = true
+	}
+	for _, tools := range simplestreamsList {
+		if !found[tools.Version] {
+			list = append(list, tools)
+		}
+	}
+	sort.Sort(list)
+	return list, nil
+}
+
+// matchingStorageAgent returns a coretools.List, with an entry for each
+// metadata entry in the agent storage that matches the given parameters.
+func (s *ProviderService) matchingStorageAgent(args modelagent.FindAgentsParams) (coretools.List, error) {
+	allMetadata, err := args.AgentStorage.AllMetadata()
+	if err != nil {
+		return nil, err
+	}
+	list := make(coretools.List, len(allMetadata))
+	for i, m := range allMetadata {
+		vers, err := semversion.ParseBinary(m.Version)
+		if err != nil {
+			return nil, errors.Errorf(
+				"unexpected bad version %q of agent binary in storage: %w",
+				m.Version, err,
+			)
+		}
+		list[i] = &coretools.Tools{
+			Version: vers,
+			Size:    m.Size,
+			SHA256:  m.SHA256,
+		}
+	}
+	list, err = list.Match(toolsFilter(args))
+	if err != nil {
+		return nil, err
+	}
+	// Return early if we are doing an exact match.
+	if args.Number != semversion.Zero {
+		if len(list) == 0 {
+			return nil, coretools.ErrNoMatches
+		}
+		return list, nil
+	}
+	// At this point, we are matching just on major or minor version
+	// rather than an exact match.
+	var matching coretools.List
+	for _, tools := range list {
+		if tools.Version.Major != args.MajorVersion {
+			continue
+		}
+		if args.MinorVersion > 0 && tools.Version.Minor != args.MinorVersion {
+			continue
+		}
+		matching = append(matching, tools)
+	}
+	if len(matching) == 0 {
+		return nil, coretools.ErrNoMatches
+	}
+	return matching, nil
+}
+
+func toolsFilter(args modelagent.FindAgentsParams) coretools.Filter {
+	return coretools.Filter{
+		Number: args.Number,
+		Arch:   args.Arch,
+		OSType: strings.ToLower(ostype.Ubuntu.String()),
+	}
 }

@@ -33,6 +33,7 @@ type InstanceConfigBackend interface {
 // InstanceConfigServices holds the services needed to configure instances.
 type InstanceConfigServices struct {
 	ControllerConfigService ControllerConfigService
+	AgentFinderService      AgentFinderService
 	CloudService            common.CloudService
 	KeyUpdaterService       KeyUpdaterService
 	ModelConfigService      ModelConfigService
@@ -55,6 +56,10 @@ func InstanceConfig(
 	modelConfig, err := services.ModelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model config")
+	}
+	controllerCfg, err := services.ControllerConfigService.ControllerConfig(ctx)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting controller config")
 	}
 
 	// Get the machine so we can get its series and arch.
@@ -89,16 +94,17 @@ func InstanceConfig(
 	}
 	urlGetter := common.NewToolsURLGetter(modelID.String(), ctrlSt)
 	toolsFinder := common.NewToolsFinder(
-		services.ControllerConfigService,
+		services.AgentFinderService,
 		st,
 		urlGetter,
 		common.NewEnvironFunc(providerGetter),
 		services.ObjectStore,
 	)
 	toolsList, err := toolsFinder.FindAgents(ctx, common.FindAgentsParams{
-		Number: agentVersion,
-		OSType: machine.Base().OS,
-		Arch:   *hc.Arch,
+		ControllerCfg: controllerCfg,
+		Number:        agentVersion,
+		OSType:        machine.Base().OS,
+		Arch:          *hc.Arch,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "finding agent binaries")

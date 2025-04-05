@@ -215,9 +215,12 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		return environs.GetEnviron(ctx, configGetter, environs.NoopCredentialInvalidator(), environs.New)
 	}
 
+	controllerConfigGetter := domainServices.ControllerConfig()
+	agentFinder := domainServices.Agent()
+
 	api.InstanceIdGetter = common.NewInstanceIdGetter(domainServices.Machine(), getAuthFunc)
-	api.toolsFinder = common.NewToolsFinder(domainServices.ControllerConfig(), st, urlGetter, newEnviron, ctx.ControllerObjectStore())
-	api.ToolsGetter = common.NewToolsGetter(domainServices.Agent(), st, urlGetter, api.toolsFinder, getAuthOwner)
+	api.toolsFinder = common.NewToolsFinder(agentFinder, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
+	api.ToolsGetter = common.NewToolsGetter(controllerConfigGetter, agentFinder, st, urlGetter, api.toolsFinder, getAuthOwner)
 	return api, nil
 }
 
@@ -728,11 +731,16 @@ func (api *ProvisionerAPI) Constraints(ctx context.Context, args params.Entities
 
 // FindTools returns a List containing all tools matching the given parameters.
 func (api *ProvisionerAPI) FindTools(ctx context.Context, args params.FindToolsParams) (params.FindToolsResult, error) {
+	controllerCfg, err := api.controllerConfigService.ControllerConfig(ctx)
+	if err != nil {
+		return params.FindToolsResult{}, errors.Errorf("getting controller config: %v", err)
+	}
 	list, err := api.toolsFinder.FindAgents(ctx, common.FindAgentsParams{
-		Number:      args.Number,
-		Arch:        args.Arch,
-		OSType:      args.OSType,
-		AgentStream: args.AgentStream,
+		ControllerCfg: controllerCfg,
+		Number:        args.Number,
+		Arch:          args.Arch,
+		OSType:        args.OSType,
+		AgentStream:   args.AgentStream,
 	})
 	return params.FindToolsResult{
 		List:  list,
