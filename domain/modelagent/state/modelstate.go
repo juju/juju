@@ -221,13 +221,16 @@ func (st *State) GetMachineTargetAgentVersion(ctx context.Context, uuid string) 
 		return coreagentbinary.Version{}, errors.Capture(err)
 	}
 
-	info := machineTargetAgentVersionInfo{MachineUUID: uuid}
+	info := machineTargetAgentVersionInfo{}
+	machineUUID := machineUUIDRef{
+		UUID: uuid,
+	}
 
 	stmt, err := st.Prepare(`
 SELECT &machineTargetAgentVersionInfo.*
 FROM v_machine_target_agent_version
-WHERE machine_uuid = $machineTargetAgentVersionInfo.machine_uuid
-`, info)
+WHERE machine_uuid = $machineUUIDRef.machine_uuid
+`, info, machineUUID)
 	if err != nil {
 		return coreagentbinary.Version{}, errors.Capture(err)
 	}
@@ -244,7 +247,7 @@ WHERE machine_uuid = $machineTargetAgentVersionInfo.machine_uuid
 			)
 		}
 
-		err = tx.Query(ctx, stmt, info).Get(&info)
+		err = tx.Query(ctx, stmt, machineUUID).Get(&info)
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Errorf(
 				"machine %q has no target agent version set", uuid,
