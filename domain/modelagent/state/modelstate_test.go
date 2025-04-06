@@ -61,7 +61,7 @@ func (s *modelStateSuite) createMachine(c *gc.C) string {
 }
 
 // Set the agent version for the given model in the DB.
-func (s *modelStateSuite) setModelAgentVersion(c *gc.C, vers string) {
+func (s *modelStateSuite) setModelTargetAgentVersion(c *gc.C, vers string) {
 	db, err := domain.NewStateBase(s.TxnRunnerFactory()).DB()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -77,8 +77,7 @@ func (s *modelStateSuite) setModelAgentVersion(c *gc.C, vers string) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelStateSuite) setMachineAgentVersion(c *gc.C, machineUUID, target, running string) {
-	s.setModelAgentVersion(c, target)
+func (s *modelStateSuite) setMachineAgentVersion(c *gc.C, machineUUID, running string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx,
 			"INSERT INTO machine_agent_version (machine_uuid, version, architecture_id) values (?, ?, ?)",
@@ -89,7 +88,7 @@ func (s *modelStateSuite) setMachineAgentVersion(c *gc.C, machineUUID, target, r
 }
 
 func (s *modelStateSuite) setUnitAgentVersion(c *gc.C, unitUUID, target, running string) {
-	s.setModelAgentVersion(c, target)
+	s.setModelTargetAgentVersion(c, target)
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx,
 			"INSERT INTO unit_agent_version (unit_uuid, version, architecture_id) values (?, ?, ?)",
@@ -183,7 +182,7 @@ func (s *modelStateSuite) TestGetModelAgentVersionSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
-	s.setModelAgentVersion(c, expectedVersion.String())
+	s.setModelTargetAgentVersion(c, expectedVersion.String())
 
 	obtainedVersion, err := st.GetModelTargetAgentVersion(context.Background())
 	c.Check(err, jc.ErrorIsNil)
@@ -202,16 +201,19 @@ func (s *modelStateSuite) TestGetModelAgentVersionModelNotFound(c *gc.C) {
 // TestGetModelAgentVersionCantParseVersion tests that State.GetModelAgentVersion
 // returns an appropriate error when the agent version in the DB is invalid.
 func (s *modelStateSuite) TestGetModelAgentVersionCantParseVersion(c *gc.C) {
-	s.setModelAgentVersion(c, "invalid-version")
+	s.setModelTargetAgentVersion(c, "invalid-version")
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetModelTargetAgentVersion(context.Background())
 	c.Check(err, gc.ErrorMatches, `parsing agent version: invalid version "invalid-version".*`)
 }
 
-func (s *modelStateSuite) TestGetMachineTargetAgentBinaryVersion(c *gc.C) {
+// TestGetMachineTargetAgentVersion asserts the happy path of getting the target
+// agent version for machine that exists.
+func (s *modelStateSuite) TestGetMachineTargetAgentVersion(c *gc.C) {
 	machineUUID := s.createMachine(c)
-	s.setMachineAgentVersion(c, machineUUID, "4.0.1", "4.0.0")
+	s.setMachineAgentVersion(c, machineUUID, "4.0.0")
+	s.setModelTargetAgentVersion(c, "4.0.1")
 
 	st := NewState(s.TxnRunnerFactory())
 	vers, err := st.GetMachineTargetAgentVersion(
@@ -225,21 +227,54 @@ func (s *modelStateSuite) TestGetMachineTargetAgentBinaryVersion(c *gc.C) {
 	})
 }
 
-func (s *modelStateSuite) TestGetMachineAgentVersionCantParseVersion(c *gc.C) {
+// TestGetMachineTargetAgentVersionTargetVersionNotSet test that if no target
+// agent version has been set we get back an error satisfying
+// [modelagenterrors.AgentVersionNotFound].
+func (s *modelStateSuite) TestGetMachineTargetAgentVersionTargetVersionNotSet(c *gc.C) {
 	machineUUID := s.createMachine(c)
-	s.setMachineAgentVersion(c, machineUUID, "invalid-version", "4.0.0")
+	s.setMachineAgentVersion(c, machineUUID, "4.0.0")
 
 	st := NewState(s.TxnRunnerFactory())
-	_, err := st.GetMachineTargetAgentVersion(context.Background(), machineUUID)
-	c.Check(err, gc.ErrorMatches, `parsing machine agent version: invalid version "invalid-version".*`)
+	_, err := st.GetMachineTargetAgentVersion(
+		context.Background(),
+		machineUUID,
+	)
+	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
-func (s *modelStateSuite) TestGetMachineAgentVersionNotFound(c *gc.C) {
+func (s *modelStateSuite) TestGetMachineAgentVersionCantParseVersion(c *gc.C) {
 	machineUUID := s.createMachine(c)
+	s.setMachineAgentVersion(c, machineUUID, "4.0.0")
+	s.setModelTargetAgentVersion(c, "invalid-version")
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetMachineTargetAgentVersion(context.Background(), machineUUID)
-	c.Check(err, gc.ErrorMatches, `agent version not found`)
+	c.Check(err, gc.ErrorMatches, `parsing machine .* agent version: invalid version "invalid-version".*`)
+}
+
+// TestGetMachineAgentVersionNotFound is asserting that if the machine exists
+// and the model's target agent version has been set but we don't have reported
+// agent version for the machine we back an error satisfying
+// [modelagenterrors.AgentVersionNotFound].
+func (s *modelStateSuite) TestGetMachineAgentVersionNotFound(c *gc.C) {
+	machineUUID := s.createMachine(c)
+	s.setModelTargetAgentVersion(c, "4.0.1")
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetMachineTargetAgentVersion(context.Background(), machineUUID)
+	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotFound)
+}
+
+// TestGetMachineAgentVersionMachineNotFound is testing that if we try and get
+// the target agent version for a machine that does not exist we get back a
+// [machineerrors.MachineNotFound] error.
+func (s *modelStateSuite) TestGetMachineAgentVersionMachineNotFound(c *gc.C) {
+	machineUUID, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err = st.GetMachineTargetAgentVersion(context.Background(), machineUUID.String())
+	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 func (s *modelStateSuite) TestGetUnitTargetAgentBinaryVersion(c *gc.C) {

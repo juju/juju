@@ -137,9 +137,13 @@ func (st *State) GetMachineUUIDByName(ctx context.Context, name machine.Name) (s
 	return uuid.UUID, nil
 }
 
-// GetMachineTargetAgentVersion returns the target agent version for the specified machine.
+// GetMachineTargetAgentVersion returns the target agent version for the
+// specified machine.
 // The following error types can be expected:
-// - [modelagenterrors.AgentVersionNotFound] - when the agent version does not exist.
+// - [modelagenterrors.AgentVersionNotFound] when the agent version does not
+// exist.
+// - [machineerrors.MachineNotFound] when the machine specified by uuid  does
+// not exists.
 func (st *State) GetMachineTargetAgentVersion(ctx context.Context, uuid string) (coreagentbinary.Version, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -149,23 +153,36 @@ func (st *State) GetMachineTargetAgentVersion(ctx context.Context, uuid string) 
 	info := machineAgentVersionInfo{MachineUUID: uuid}
 
 	stmt, err := st.Prepare(`
-SELECT av.target_version AS &machineAgentVersionInfo.target_version,
-       a.name AS &machineAgentVersionInfo.architecture_name
-FROM   agent_version AS av,
-       machine_agent_version AS mav
-JOIN   architecture AS a ON mav.architecture_id = a.id
-WHERE  mav.machine_uuid = $machineAgentVersionInfo.machine_uuid
+SELECT &machineAgentVersionInfo.*
+FROM v_machine_target_agent_version
+WHERE machine_uuid = $machineAgentVersionInfo.machine_uuid
 `, info)
 	if err != nil {
 		return coreagentbinary.Version{}, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, info).Get(&info)
+		err := st.checkMachineNotDead(ctx, tx, uuid)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return errors.Errorf(
+				"machine %q does not exist", uuid,
+			).Add(machineerrors.MachineNotFound)
+		} else if err != nil && !errors.Is(err, machineerrors.MachineIsDead) {
+			return errors.Errorf(
+				"checking machine %q exists: %w", uuid, err,
+			)
+		}
+
+		err = tx.Query(ctx, stmt, info).Get(&info)
 		if errors.Is(err, sql.ErrNoRows) {
-			return modelagenterrors.AgentVersionNotFound
+			return errors.Errorf(
+				"machine %q has no target agent version set", uuid,
+			).Add(modelagenterrors.AgentVersionNotFound)
 		} else if err != nil {
-			return errors.Errorf("getting machine agent version: %w", err)
+			return errors.Errorf(
+				"getting machine %q target agent version: %w",
+				uuid, err,
+			)
 		}
 		return nil
 	})
@@ -175,7 +192,10 @@ WHERE  mav.machine_uuid = $machineAgentVersionInfo.machine_uuid
 
 	vers, err := semversion.Parse(info.TargetVersion)
 	if err != nil {
-		return coreagentbinary.Version{}, errors.Errorf("parsing machine agent version: %w", err)
+		return coreagentbinary.Version{}, errors.Errorf(
+			"parsing machine %q agent version: %w",
+			uuid, err,
+		)
 	}
 	return coreagentbinary.Version{
 		Number: vers,
