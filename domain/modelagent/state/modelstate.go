@@ -150,7 +150,7 @@ func (st *State) GetMachineTargetAgentVersion(ctx context.Context, uuid string) 
 		return coreagentbinary.Version{}, errors.Capture(err)
 	}
 
-	info := machineAgentVersionInfo{MachineUUID: uuid}
+	info := machineTargetAgentVersionInfo{MachineUUID: uuid}
 
 	stmt, err := st.Prepare(`
 SELECT &machineAgentVersionInfo.*

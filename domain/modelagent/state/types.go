@@ -28,7 +28,9 @@ type machineAgentVersion struct {
 	ArchitectureID int    `db:"architecture_id"`
 }
 
-type machineAgentVersionInfo struct {
+// machineTargetAgentVersionInfo represents a record from the
+// v_machine_target_agent_version view.
+type machineTargetAgentVersionInfo struct {
 	MachineUUID      string `db:"machine_uuid"`
 	TargetVersion    string `db:"target_version"`
 	ArchitectureName string `db:"architecture_name"`
