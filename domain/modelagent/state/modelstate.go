@@ -104,9 +104,9 @@ func (st *State) checkUnitNotDead(ctx context.Context, tx *sqlair.TX, ident unit
 	}
 }
 
-// GetMachineUUID returns the UUID of a machine identified by its name.
+// GetMachineUUIDByName returns the UUID of a machine identified by its name.
 // It returns a MachineNotFound if the machine does not exist.
-func (st *State) GetMachineUUID(ctx context.Context, name machine.Name) (string, error) {
+func (st *State) GetMachineUUIDByName(ctx context.Context, name machine.Name) (string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)

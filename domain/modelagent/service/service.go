@@ -19,8 +19,10 @@ import (
 )
 
 type State interface {
-	// GetMachineUUID returns the UUID of a machine identified by its name.
-	GetMachineUUID(context.Context, machine.Name) (string, error)
+	// GetMachineUUIDByName returns the UUID of a machine identified by its
+	// name. If no machine exists for this name an error satisfying
+	// [machineerroros.MachineNotFound] is returned.
+	GetMachineUUIDByName(context.Context, machine.Name) (string, error)
 
 	// GetMachineRunningAgentBinaryVersion returns the running machine agent
 	// binary version for the given machine uuid.
@@ -127,7 +129,7 @@ func (s *Service) GetMachineReportedAgentVersion(
 	ctx context.Context,
 	machineName machine.Name,
 ) (coreagentbinary.Version, error) {
-	uuid, err := s.st.GetMachineUUID(ctx, machineName)
+	uuid, err := s.st.GetMachineUUIDByName(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return coreagentbinary.Version{}, errors.Errorf(
 			"machine %q does not exist", machineName,
@@ -156,7 +158,7 @@ func (s *Service) GetMachineTargetAgentVersion(
 	ctx context.Context,
 	machineName machine.Name,
 ) (coreagentbinary.Version, error) {
-	uuid, err := s.st.GetMachineUUID(ctx, machineName)
+	uuid, err := s.st.GetMachineUUIDByName(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return coreagentbinary.Version{}, errors.Errorf("machine %q does not exist", machineName).Add(machineerrors.MachineNotFound)
 	} else if err != nil {
@@ -255,7 +257,7 @@ func (s *Service) SetMachineReportedAgentVersion(
 		return errors.Errorf("reported agent version %v is not valid: %w", reportedVersion, err)
 	}
 
-	machineUUID, err := s.st.GetMachineUUID(ctx, machineName)
+	machineUUID, err := s.st.GetMachineUUIDByName(ctx, machineName)
 	if err != nil {
 		return errors.Errorf(
 			"getting machine UUID for machine %q: %w",
@@ -327,7 +329,7 @@ func (s *WatchableService) WatchMachineTargetAgentVersion(
 	ctx context.Context,
 	machineName machine.Name,
 ) (watcher.NotifyWatcher, error) {
-	_, err := s.st.GetMachineUUID(ctx, machineName)
+	_, err := s.st.GetMachineUUIDByName(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
 		return nil, errors.Errorf("machine %q does not exist", machineName).Add(machineerrors.MachineNotFound)
 	} else if err != nil {

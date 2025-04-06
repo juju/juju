@@ -53,7 +53,7 @@ func (s *modelStateSuite) createMachine(c *gc.C) string {
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
-	machineUUID, err := st.GetMachineUUID(context.Background(), machine.Name("666"))
+	machineUUID, err := st.GetMachineUUIDByName(context.Background(), machine.Name("666"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machineUUID, gc.Equals, uuid.String())
 
