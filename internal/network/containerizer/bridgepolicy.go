@@ -59,7 +59,6 @@ type BridgePolicy struct {
 // getter and state indirection.
 func NewBridgePolicy(ctx context.Context,
 	networkService NetworkService,
-	netBondReconfigureDelay int,
 	containerNetworkingMethod containermanager.NetworkingMethod,
 ) (*BridgePolicy, error) {
 
@@ -75,7 +74,6 @@ func NewBridgePolicy(ctx context.Context,
 	return &BridgePolicy{
 		allSpaces:                 allSpaces,
 		allSubnets:                allSubnets,
-		netBondReconfigureDelay:   netBondReconfigureDelay,
 		containerNetworkingMethod: containerNetworkingMethod,
 		networkService:            networkService,
 	}, nil
@@ -87,12 +85,11 @@ func NewBridgePolicy(ctx context.Context,
 // This will return an Error if the container requires a space that the host
 // machine cannot provide.
 func (p *BridgePolicy) FindMissingBridgesForContainer(
-	host Machine, guest Container,
-	allSubnets corenetwork.SubnetInfos,
-) ([]network.DeviceToBridge, int, error) {
+	host Machine, guest Container, allSubnets corenetwork.SubnetInfos,
+) ([]network.DeviceToBridge, error) {
 	guestSpaceInfos, devicesPerSpace, err := p.findSpacesAndDevicesForContainer(host, guest)
 	if err != nil {
-		return nil, 0, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	logger.Debugf(context.TODO(), "FindMissingBridgesForContainer(%q) spaces %s devices %v",
 		guest.Id(), guestSpaceInfos, formatDeviceMap(devicesPerSpace))
@@ -114,18 +111,17 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 
 	if len(notFound) == 0 {
 		// Nothing to do; just return success.
-		return nil, 0, nil
+		return nil, nil
 	}
 
 	hostDeviceNamesToBridge := make([]string, 0)
-	reconfigureDelay := 0
 	hostDeviceByName := make(map[string]LinkLayerDevice, 0)
 	for _, spaceInfo := range notFound {
 		hostDeviceNames := make([]string, 0)
 		for _, hostDevice := range devicesPerSpace[spaceInfo.ID] {
 			possible, err := possibleBridgeTarget(hostDevice)
 			if err != nil {
-				return nil, 0, err
+				return nil, err
 			}
 			if !possible {
 				continue
@@ -141,11 +137,6 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 				// don't know what the exact spaces are going to be.
 				for _, deviceName := range hostDeviceNames {
 					hostDeviceNamesToBridge = append(hostDeviceNamesToBridge, deviceName)
-					if hostDeviceByName[deviceName].Type() == corenetwork.BondDevice {
-						if reconfigureDelay < p.netBondReconfigureDelay {
-							reconfigureDelay = p.netBondReconfigureDelay
-						}
-					}
 				}
 			} else {
 				// This should already be sorted from
@@ -153,11 +144,6 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 				// pick the host device
 				hostDeviceNames = network.NaturallySortDeviceNames(hostDeviceNames...)
 				hostDeviceNamesToBridge = append(hostDeviceNamesToBridge, hostDeviceNames[0])
-				if hostDeviceByName[hostDeviceNames[0]].Type() == corenetwork.BondDevice {
-					if reconfigureDelay < p.netBondReconfigureDelay {
-						reconfigureDelay = p.netBondReconfigureDelay
-					}
-				}
 			}
 		}
 	}
@@ -166,15 +152,13 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 		hostSpaces, err := host.AllSpaces(allSubnets)
 		if err != nil {
 			// log it, but we're returning another error right now
-			logger.Warningf(context.TODO(), "got error looking for spaces for host machine %q: %v",
-				host.Id(), err)
+			logger.Warningf(context.TODO(), "got error looking for spaces for host machine %q: %v", host.Id(), err)
 		}
 		notFoundNames := notFound.String()
 		logger.Warningf(context.TODO(), "container %q wants spaces %s, but host machine %q has %s missing %s",
 			guest.Id(), guestSpaceInfos,
 			host.Id(), p.spaceNamesForPrinting(hostSpaces), notFoundNames)
-		return nil, 0, errors.Errorf("host machine %q has no available device in space(s) %s",
-			host.Id(), notFoundNames)
+		return nil, errors.Errorf("host machine %q has no available device in space(s) %s", host.Id(), notFoundNames)
 	}
 
 	hostToBridge := make([]network.DeviceToBridge, 0, len(hostDeviceNamesToBridge))
@@ -185,7 +169,7 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 			MACAddress: hostDeviceByName[hostName].MACAddress(),
 		})
 	}
-	return hostToBridge, reconfigureDelay, nil
+	return hostToBridge, nil
 }
 
 // findSpacesAndDevicesForContainer looks up what spaces the container wants
