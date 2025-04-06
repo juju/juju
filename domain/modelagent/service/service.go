@@ -24,8 +24,8 @@ type State interface {
 	// The following errors can be expected:
 	// - [machineerrors.MachineNotFound] when the machine being asked for does
 	// not exist.
-	// - [github.com/juju/juju/domain/model/errors.AgentVersionNotFound] when no
-	// running agent version has been set for the given machine.
+	// - [github.com/juju/juju/domain/modelagent/errors.AgentVersionNotFound]
+	// when no running agent version has been set for the given machine.
 	GetMachineRunningAgentBinaryVersion(context.Context, string) (coreagentbinary.Version, error)
 
 	// GetMachineTargetAgentVersion returns the target agent version for the specified machine.
