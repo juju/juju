@@ -950,16 +950,7 @@ func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params
 		return fmt.Errorf("cannot get container networking method: %w", err)
 	}
 
-	modelConfig, err := api.modelConfigService.ModelConfig(ctx)
-	if err != nil {
-		return fmt.Errorf("getting model config: %w", err)
-	}
-
-	policy, err := containerizer.NewBridgePolicy(ctx,
-		api.networkService,
-		modelConfig.NetBondReconfigureDelay(),
-		containerNetworkingMethod,
-	)
+	policy, err := containerizer.NewBridgePolicy(ctx, api.networkService, containerNetworkingMethod)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1129,7 +1120,7 @@ func (h *hostChangesHandler) ProcessOneContainer(
 	_ environs.Environ, policy BridgePolicy,
 	idx int, host, guest Machine, _, _ instance.Id, allSubnets network.SubnetInfos,
 ) error {
-	bridges, _, err := policy.FindMissingBridgesForContainer(host, guest, allSubnets)
+	bridges, err := policy.FindMissingBridgesForContainer(host, guest, allSubnets)
 	if err != nil {
 		return err
 	}

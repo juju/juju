@@ -616,13 +616,12 @@ func (m *MockBridgePolicy) EXPECT() *MockBridgePolicyMockRecorder {
 }
 
 // FindMissingBridgesForContainer mocks base method.
-func (m *MockBridgePolicy) FindMissingBridgesForContainer(arg0 containerizer.Machine, arg1 containerizer.Container, arg2 network.SubnetInfos) ([]network0.DeviceToBridge, int, error) {
+func (m *MockBridgePolicy) FindMissingBridgesForContainer(arg0 containerizer.Machine, arg1 containerizer.Container, arg2 network.SubnetInfos) ([]network0.DeviceToBridge, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindMissingBridgesForContainer", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]network0.DeviceToBridge)
-	ret1, _ := ret[1].(int)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // FindMissingBridgesForContainer indicates an expected call of FindMissingBridgesForContainer.
@@ -638,19 +637,19 @@ type MockBridgePolicyFindMissingBridgesForContainerCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockBridgePolicyFindMissingBridgesForContainerCall) Return(arg0 []network0.DeviceToBridge, arg1 int, arg2 error) *MockBridgePolicyFindMissingBridgesForContainerCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
+func (c *MockBridgePolicyFindMissingBridgesForContainerCall) Return(arg0 []network0.DeviceToBridge, arg1 error) *MockBridgePolicyFindMissingBridgesForContainerCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBridgePolicyFindMissingBridgesForContainerCall) Do(f func(containerizer.Machine, containerizer.Container, network.SubnetInfos) ([]network0.DeviceToBridge, int, error)) *MockBridgePolicyFindMissingBridgesForContainerCall {
+func (c *MockBridgePolicyFindMissingBridgesForContainerCall) Do(f func(containerizer.Machine, containerizer.Container, network.SubnetInfos) ([]network0.DeviceToBridge, error)) *MockBridgePolicyFindMissingBridgesForContainerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBridgePolicyFindMissingBridgesForContainerCall) DoAndReturn(f func(containerizer.Machine, containerizer.Container, network.SubnetInfos) ([]network0.DeviceToBridge, int, error)) *MockBridgePolicyFindMissingBridgesForContainerCall {
+func (c *MockBridgePolicyFindMissingBridgesForContainerCall) DoAndReturn(f func(containerizer.Machine, containerizer.Container, network.SubnetInfos) ([]network0.DeviceToBridge, error)) *MockBridgePolicyFindMissingBridgesForContainerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
