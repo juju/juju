@@ -422,3 +422,147 @@ func (s *suite) TestSetReportedUnitAgentVersion(c *gc.C) {
 	)
 	c.Check(err, jc.ErrorIsNil)
 }
+
+// TestGetMachineReportedAgentVersionMachineNotFound asserts that if we ask for
+// the reported agent version of a machine and the machine does not exist we get
+// back an error that satisfies [machineerrors.MachineNotFound].
+func (s *suite) TestGetMachineReportedAgentVersionMachineNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineName := coremachine.Name("0")
+
+	// First test of MachineNotFound when translating from name to uuid.
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(
+		"", machineerrors.MachineNotFound)
+
+	svc := NewService(s.state)
+	_, err := svc.GetMachineReportedAgentVersion(context.Background(), machineName)
+	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+
+	// Section test of MachineNotFound when using the uuid to fetch the running
+	// version.
+	uuid := uuid.MustNewUUID().String()
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(uuid, nil)
+	s.state.EXPECT().GetMachineRunningAgentBinaryVersion(gomock.Any(), uuid).Return(
+		coreagentbinary.Version{}, machineerrors.MachineNotFound,
+	)
+
+	_, err = svc.GetMachineReportedAgentVersion(context.Background(), machineName)
+	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+// TestGetMachineReportedAgentVersionAgentVersionNotFound asserts that if we ask
+// for the reported agent version of a machine and one has not been set that an
+// error statisfying [modelagenterrors.AgentVersionNotFound].
+func (s *suite) TestGetMachineReportedAgentVersionAgentVersionNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineName := coremachine.Name("0")
+
+	uuid := uuid.MustNewUUID().String()
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(uuid, nil)
+	s.state.EXPECT().GetMachineRunningAgentBinaryVersion(gomock.Any(), uuid).Return(
+		coreagentbinary.Version{}, modelagenterrors.AgentVersionNotFound,
+	)
+
+	svc := NewService(s.state)
+	_, err := svc.GetMachineReportedAgentVersion(context.Background(), machineName)
+	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotFound)
+}
+
+// TestGetMachineReportedAgentVersion is a happy path test of
+// [Service.GetMachineReportedAgentVersion].
+func (s *suite) TestGetMachineReportedAgentVersion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineName := coremachine.Name("0")
+
+	uuid := uuid.MustNewUUID().String()
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(uuid, nil)
+	s.state.EXPECT().GetMachineRunningAgentBinaryVersion(gomock.Any(), uuid).Return(
+		coreagentbinary.Version{
+			Number: semversion.MustParse("4.1.1"),
+			Arch:   corearch.ARM64,
+		}, nil,
+	)
+
+	svc := NewService(s.state)
+	ver, err := svc.GetMachineReportedAgentVersion(context.Background(), machineName)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ver, jc.DeepEquals, coreagentbinary.Version{
+		Number: semversion.MustParse("4.1.1"),
+		Arch:   corearch.ARM64,
+	})
+}
+
+// TestGetUnitReportedAgentVersionUnitNotFound asserts that if we ask for
+// the reported agent version of a unit and the unit does not exist we get
+// back an error that satisfies [applicationerrors.UnitNotFound].
+func (s *suite) TestGetUnitReportedAgentVersionUnitNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "foo/0")
+
+	// First test of UnitNotFound when translating from name to uuid.
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(
+		"", applicationerrors.UnitNotFound)
+
+	svc := NewService(s.state)
+	_, err := svc.GetUnitReportedAgentVersion(context.Background(), unitName)
+	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+
+	// Section test of UnitNotFound when using the uuid to fetch the running
+	// version.
+	uuid := unittesting.GenUnitUUID(c)
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(uuid, nil)
+	s.state.EXPECT().GetUnitRunningAgentBinaryVersion(gomock.Any(), uuid).Return(
+		coreagentbinary.Version{}, applicationerrors.UnitNotFound,
+	)
+
+	_, err = svc.GetUnitReportedAgentVersion(context.Background(), unitName)
+	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+// TestGetUnitReportedAgentVersionAgentVersionNotFound asserts that if we ask
+// for the reported agent version of a unit and one has not been set that an
+// error statisfying [modelagenterrors.AgentVersionNotFound].
+func (s *suite) TestGetUnitReportedAgentVersionAgentVersionNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "foo/0")
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.state.EXPECT().GetUnitRunningAgentBinaryVersion(gomock.Any(), unitUUID).Return(
+		coreagentbinary.Version{}, modelagenterrors.AgentVersionNotFound,
+	)
+
+	svc := NewService(s.state)
+	_, err := svc.GetUnitReportedAgentVersion(context.Background(), unitName)
+	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotFound)
+}
+
+// TestGetUnitReportedAgentVersion is a happy path test of
+// [Service.GetMachineReportedAgentVersion].
+func (s *suite) TestGetUnitReportedAgentVersion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "foo/0")
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.state.EXPECT().GetUnitRunningAgentBinaryVersion(gomock.Any(), unitUUID).Return(
+		coreagentbinary.Version{
+			Number: semversion.MustParse("4.1.1"),
+			Arch:   corearch.ARM64,
+		}, nil,
+	)
+
+	svc := NewService(s.state)
+	ver, err := svc.GetUnitReportedAgentVersion(context.Background(), unitName)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ver, jc.DeepEquals, coreagentbinary.Version{
+		Number: semversion.MustParse("4.1.1"),
+		Arch:   corearch.ARM64,
+	})
+}

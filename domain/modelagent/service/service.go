@@ -22,8 +22,26 @@ type State interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(context.Context, machine.Name) (string, error)
 
+	// GetMachineRunningAgentBinaryVersion returns the running machine agent
+	// binary version for the given machine uuid.
+	// The following errors can be expected:
+	// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when the
+	// machine being asked for does not exist.
+	// - [github.com/juju/juju/domain/model/errors.AgentVersionNotFound] when no
+	// running agent version has been set for the given machine.
+	GetMachineRunningAgentBinaryVersion(context.Context, string) (coreagentbinary.Version, error)
+
 	// GetModelTargetAgentVersion returns the target agent version for this model.
 	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
+
+	// GetMachineRunningAgentBinaryVersion returns the running machine agent
+	// binary version for the given machine uuid.
+	// The following errors can be expected:
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when the
+	// unit in question does not exist.
+	// - [github.com/juju/juju/domain/model/errors.AgentVersionNotFound] when no
+	// running agent version has been reported for the given machine.
+	GetUnitRunningAgentBinaryVersion(context.Context, coreunit.UUID) (coreagentbinary.Version, error)
 
 	// GetUnitUUIDByName returns the UUID for the named unit, returning an
 	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
@@ -98,6 +116,37 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 	}
 }
 
+// GetMachineReportedAgentVersion returns the agent binary version that was last
+// reported to be running by the agent on the machine.
+// The following errors are possible:
+// - [github.com/juju/juju/domain/machine/errors.MachineNotFound] when the
+// machine being asked for does not exist.
+// - [github.com/juju/juju/domain/model/errors.AgentVersionNotFound] when no
+// agent version has been reported for the given machine.
+func (s *Service) GetMachineReportedAgentVersion(
+	ctx context.Context,
+	machineName machine.Name,
+) (coreagentbinary.Version, error) {
+	uuid, err := s.st.GetMachineUUID(ctx, machineName)
+	if errors.Is(err, machineerrors.MachineNotFound) {
+		return coreagentbinary.Version{}, errors.Errorf(
+			"machine %q does not exist", machineName,
+		).Add(machineerrors.MachineNotFound)
+	} else if err != nil {
+		errors.Errorf(
+			"getting machine uuid for machine name %q: %w",
+			machineName.String(), err,
+		)
+	}
+
+	ver, err := s.st.GetMachineRunningAgentBinaryVersion(ctx, uuid)
+	if err != nil {
+		return coreagentbinary.Version{}, errors.Capture(err)
+	}
+
+	return ver, nil
+}
+
 // GetMachineTargetAgentVersion reports the target agent version that should be
 // running on the provided machine identified by name. The following errors are
 // possible:
@@ -120,12 +169,43 @@ func (s *Service) GetMachineTargetAgentVersion(
 	return s.st.GetMachineTargetAgentVersion(ctx, uuid)
 }
 
+// GetUnitReportedAgentVersion returns the agent binary version that was last
+// reported to be running by the agent on the unit.
+// The following errors are possible:
+// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when the unit
+// in question does not exist.
+// - [github.com/juju/juju/domain/model/errors.AgentVersionNotFound] when no
+// agent version has been reported for the given machine.
+func (s *Service) GetUnitReportedAgentVersion(
+	ctx context.Context,
+	unitName coreunit.Name,
+) (coreagentbinary.Version, error) {
+	uuid, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return coreagentbinary.Version{}, errors.Errorf(
+			"unit %q does not exist", unitName,
+		).Add(applicationerrors.UnitNotFound)
+	} else if err != nil {
+		errors.Errorf(
+			"getting unit uuid for unit name %q: %w",
+			unitName.String(), err,
+		)
+	}
+
+	ver, err := s.st.GetUnitRunningAgentBinaryVersion(ctx, uuid)
+	if err != nil {
+		return coreagentbinary.Version{}, errors.Capture(err)
+	}
+
+	return ver, nil
+}
+
 // GetUnitTargetAgentVersion reports the target agent version that should be
 // being run on the provided unit identified by name. The following errors
 // are possible:
 // - [applicationerrors.UnitNotFound] - When the unit in question does not exist.
-//   - [github.com/juju/juju/domain/modelagent/errors.AgentVersionFound] if no
-//     agent version record exists.
+// - [github.com/juju/juju/domain/modelagent/errors.AgentVersionFound] if no
+// agent version record exists.
 func (s *Service) GetUnitTargetAgentVersion(
 	ctx context.Context,
 	unitName coreunit.Name,
