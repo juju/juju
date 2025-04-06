@@ -28,6 +28,14 @@ type machineAgentVersion struct {
 	ArchitectureID int    `db:"architecture_id"`
 }
 
+// machineAgentVersionInfo represents a record from the v_machine_agent_version
+// view.
+type machineAgentVersionInfo struct {
+	MachineUUID  string `db:"machine_uuid"`
+	Version      string `db:"version"`
+	Architecture string `db:"architecture_name"`
+}
+
 // machineTargetAgentVersionInfo represents a record from the
 // v_machine_target_agent_version view.
 type machineTargetAgentVersionInfo struct {
@@ -59,6 +67,11 @@ type machineName struct {
 // within the sqlair statements in the machine domain.
 type machineUUID struct {
 	UUID string `db:"uuid"`
+}
+
+// machineUUIDRef represents a machine uuid reference to the machine table.
+type machineUUIDRef struct {
+	UUID string `db:"machine_uuid"`
 }
 
 // unitAgentVersion represents a record from the reported unit agent

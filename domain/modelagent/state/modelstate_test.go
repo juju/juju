@@ -277,6 +277,43 @@ func (s *modelStateSuite) TestGetMachineTargetAgentVersionMachineNotFound(c *gc.
 	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
+// TestGetMachineRunningAgentBinaryVersion is testing that if we try and get
+// the running agent version for a machine that does not exist we get back a
+// [machineerrors.MachineNotFound] error.
+func (s *modelStateSuite) TestGetMachineRunningAgentBinaryVersionMachineNotFound(c *gc.C) {
+	machineUUID, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err = st.GetMachineRunningAgentBinaryVersion(context.Background(), machineUUID.String())
+	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+// TestGetMachineRunningAgentBinaryVersionNotFound is testing that if machine
+// has not set it's running agent binary version and we ask for it we get back
+// an error satisfying [modelagenterrors.AgentVersionNotFound].
+func (s *modelStateSuite) TestGetMachineRunningAgentBinaryVersionNotFound(c *gc.C) {
+	machineUUID := s.createMachine(c)
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetMachineRunningAgentBinaryVersion(context.Background(), machineUUID)
+	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotFound)
+}
+
+// TestGetMachineRunningAgentBinaryVersion asserts the happy path.
+func (s *modelStateSuite) TestGetMachineRunningAgentBinaryVersion(c *gc.C) {
+	machineUUID := s.createMachine(c)
+	s.setMachineAgentVersion(c, machineUUID, "4.1.1")
+
+	st := NewState(s.TxnRunnerFactory())
+	ver, err := st.GetMachineRunningAgentBinaryVersion(context.Background(), machineUUID)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ver, jc.DeepEquals, coreagentbinary.Version{
+		Number: semversion.MustParse("4.1.1"),
+		Arch:   corearch.AMD64,
+	})
+}
+
 func (s *modelStateSuite) TestGetUnitTargetAgentBinaryVersion(c *gc.C) {
 	unitUUID := s.createTestingUnit(c)
 	s.setUnitAgentVersion(c, unitUUID.String(), "4.0.1", "4.0.0")

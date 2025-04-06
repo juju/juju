@@ -137,6 +137,77 @@ func (st *State) GetMachineUUIDByName(ctx context.Context, name machine.Name) (s
 	return uuid.UUID, nil
 }
 
+// GetMachineRunningAgentBinaryVersion reportes the currently set agent binary
+// version value for a machine. The following errors can be expected:
+// - [machineerrors.MachineNotFound] when the machine being asked for does
+// not exist.
+// - [modelagenterrors.AgentVersionNotFound] when no
+// running agent version has been set for the given machine.
+func (st *State) GetMachineRunningAgentBinaryVersion(
+	ctx context.Context,
+	uuid string,
+) (coreagentbinary.Version, error) {
+	db, err := st.DB()
+	if err != nil {
+		return coreagentbinary.Version{}, errors.Capture(err)
+	}
+
+	rval := machineAgentVersionInfo{}
+	machineUUID := machineUUIDRef{
+		UUID: uuid,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &machineAgentVersionInfo.*
+FROM v_machine_agent_version
+WHERE machine_uuid = $machineUUIDRef.machine_uuid
+`, rval, machineUUID)
+	if err != nil {
+		return coreagentbinary.Version{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.checkMachineNotDead(ctx, tx, uuid)
+		if errors.Is(err, machineerrors.MachineNotFound) {
+			return errors.Errorf(
+				"machine %q does not exist", uuid,
+			).Add(machineerrors.MachineNotFound)
+		} else if err != nil && !errors.Is(err, machineerrors.MachineIsDead) {
+			return errors.Errorf(
+				"checking machine %q exists: %w", uuid, err,
+			)
+		}
+
+		err = tx.Query(ctx, stmt, machineUUID).Get(&rval)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf(
+				"machine %q has no agent version set", uuid,
+			).Add(modelagenterrors.AgentVersionNotFound)
+		} else if err != nil {
+			return errors.Errorf(
+				"getting machine %q agent version: %w",
+				uuid, err,
+			)
+		}
+		return nil
+	})
+	if err != nil {
+		return coreagentbinary.Version{}, errors.Capture(err)
+	}
+
+	vers, err := semversion.Parse(rval.Version)
+	if err != nil {
+		return coreagentbinary.Version{}, errors.Errorf(
+			"parsing machine %q agent version: %w",
+			uuid, err,
+		)
+	}
+	return coreagentbinary.Version{
+		Number: vers,
+		Arch:   rval.Architecture,
+	}, nil
+}
+
 // GetMachineTargetAgentVersion returns the target agent version for the
 // specified machine.
 // The following error types can be expected:
