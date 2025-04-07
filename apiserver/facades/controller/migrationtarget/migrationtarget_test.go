@@ -23,7 +23,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/facades"
-	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/semversion"
@@ -362,11 +361,7 @@ func (s *Suite) TestLatestLogTime(c *gc.C) {
 
 	logDir := c.MkDir()
 	t := time.Date(2024, 02, 18, 06, 23, 24, 0, time.UTC)
-	logFile := corelogger.ModelLogFile(logDir, corelogger.LoggerKey{
-		ModelUUID:  model.UUID(),
-		ModelName:  model.Name(),
-		ModelOwner: model.Owner().Id(),
-	})
+	logFile := filepath.Join(logDir, "logsink.log")
 	err = os.MkdirAll(filepath.Dir(logFile), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	// {"timestamp":"2024-02-20T06:01:19.101184262Z","model-uuid":"05756e0f-e5b8-47d3-8093-bf7d53d92589","entity":"machine-0","level":2,"module":"juju.worker.dependency","location":"engine.go:598","message":"\"charmhub-http-client\" manifold worker started at 2024-02-20 06:01:19.10118362 +0000 UTC","labels":null}

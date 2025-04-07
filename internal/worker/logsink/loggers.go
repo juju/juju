@@ -24,8 +24,8 @@ type modelLogger struct {
 
 // NewModelLogger returns a new model logger instance.
 func NewModelLogger(logSink corelogger.LogSink, modelUUID model.UUID, agentTag names.Tag) (worker.Worker, error) {
-	// Create a new logger context for the model. This will use the buffered
-	// log writer to write the logs to disk.
+	// Assign the log sink to the model logger. This redirects the loggo
+	// writer to the underlying log sink.
 	loggerContext := loggo.NewContext(loggo.INFO)
 	if err := loggerContext.AddWriter("model-sink", corelogger.NewTaggedRedirectWriter(
 		logSink,

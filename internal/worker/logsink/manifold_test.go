@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -51,7 +52,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		LogSink:   loggertesting.WrapCheckLogSink(c),
 		Clock:     s.clock,
 		NewWorker: s.newWorker,
-		NewModelLogger: func(logSink logger.LogSink, modelUUID model.UUID) (worker.Worker, error) {
+		NewModelLogger: func(logger.LogSink, model.UUID, names.Tag) (worker.Worker, error) {
 			return nil, nil
 		},
 	})
@@ -82,7 +83,7 @@ func (s *ManifoldSuite) getConfig(c *gc.C) ManifoldConfig {
 	return ManifoldConfig{
 		LogSink:   loggertesting.WrapCheckLogSink(c),
 		NewWorker: s.newWorker,
-		NewModelLogger: func(logSink logger.LogSink, modelUUID model.UUID) (worker.Worker, error) {
+		NewModelLogger: func(logger.LogSink, model.UUID, names.Tag) (worker.Worker, error) {
 			return nil, nil
 		},
 		Clock: clock.WallClock,

@@ -225,7 +225,6 @@ type LoggerKey struct {
 // LogSink provides a log sink that writes log messages to a file.
 type LogSink interface {
 	LogWriter
-	loggo.Writer
 }
 
 // TaggedRedirectWriter is a log writer that conforms to a loggo.Writer, but
@@ -255,7 +254,7 @@ func (w TaggedRedirectWriter) Write(entry loggo.Entry) {
 		location = entry.Filename + ":" + strconv.Itoa(entry.Line)
 	}
 
-	w.LogSink.Log([]LogRecord{{
+	_ = w.LogSink.Log([]LogRecord{{
 		Time:      entry.Timestamp,
 		Module:    entry.Module,
 		Entity:    w.Tag,

@@ -6,6 +6,7 @@ package logsink
 import (
 	"context"
 
+	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
@@ -112,7 +113,7 @@ func (s *LoggersSuite) TestLoggerConfigureLoggers(c *gc.C) {
 func (s *LoggersSuite) newModelLogger(c *gc.C) *modelLogger {
 	s.modelUUID = uuid.MustNewUUID().String()
 
-	w, err := NewModelLogger(s.logWriter, model.UUID(s.modelUUID))
+	w, err := NewModelLogger(s.logWriter, model.UUID(s.modelUUID), names.NewUnitTag("foo/0"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	return w.(*modelLogger)

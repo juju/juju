@@ -18,7 +18,7 @@ import (
 )
 
 // NewModelLoggerFunc is a function that creates a new model logger.
-type NewModelLoggerFunc func(logSink corelogger.LogSink, modelUUID model.UUID, agentTag names.Tag) (worker.Worker, error)
+type NewModelLoggerFunc func(corelogger.LogSink, model.UUID, names.Tag) (worker.Worker, error)
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.

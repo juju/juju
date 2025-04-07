@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -206,7 +207,7 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	w, err := newWorker(Config{
-		NewModelLogger: func(logSink logger.LogSink, modelUUID model.UUID) (worker.Worker, error) {
+		NewModelLogger: func(logger.LogSink, model.UUID, names.Tag) (worker.Worker, error) {
 			atomic.AddInt64(&s.called, 1)
 			return newLoggerWorker(), nil
 		},

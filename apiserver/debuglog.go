@@ -99,9 +99,9 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	handler := func(conn *websocket.Conn) {
 		socket := &debugLogSocketImpl{conn: conn}
 		defer conn.Close()
+
 		// Authentication and authorization has to be done after the http
 		// connection has been upgraded to a websocket.
-
 		authInfo, err := h.authenticator.Authenticate(req)
 		if err != nil {
 			socket.sendError(errors.Annotate(err, "authentication failed"))
@@ -134,6 +134,8 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				return nil, errors.Trace(err)
 			}
 
+			// TODO (stickupkid): This should come from the logsink directly, to
+			// prevent unfettered access.
 			var modelUUID string
 			logFile := filepath.Join(h.logDir, "logsink.log")
 			if !p.Firehose {
