@@ -1127,10 +1127,6 @@ type endpointCIDRsSpaces struct {
 	SpaceUUID string         `db:"space_uuid"`
 }
 
-type setEndpointName struct {
-	Name string `db:"name"`
-}
-
 // spaces is a type used to pass a slice of space UUIDs to a query using `IN`
 // and sqlair.
 type spaces []string

@@ -936,6 +936,37 @@ func (fw *Firewaller) ingressRulesForNonExposedMachineUnit(ctx context.Context,
 	return rules, nil
 }
 
+func (fw *Firewaller) appendSubnetCIDRsFromExposedSpaces(ctx context.Context, unit *unitData, exposedEndpoint string, exposeDetails *application.ExposedEndpoint) {
+	// Collect the operator-provided CIDRs that should be able to
+	// access the port ranges opened for this endpoint; then resolve
+	// the CIDRs for the spaces specified in the expose details to
+	// construct the full source CIDR list for the generated rules.
+	for _, spaceID := range exposeDetails.ExposeToSpaceIDs.Values() {
+		sp := fw.spaceInfos.GetByID(spaceID)
+		if sp == nil {
+			fw.logger.Warningf(ctx, "exposed endpoint references unknown space ID %q", spaceID)
+			continue
+		}
+
+		if len(sp.Subnets) == 0 {
+			if exposedEndpoint == "" {
+				fw.logger.Warningf(ctx, "all endpoints of application %q are exposed to space %q which contains no subnets",
+					unit.applicationd.applicationTag.Name, sp.Name)
+			} else {
+				fw.logger.Warningf(ctx, "endpoint %q application %q are exposed to space %q which contains no subnets",
+					exposedEndpoint, unit.applicationd.applicationTag.Name, sp.Name)
+			}
+		}
+		for _, subnet := range sp.Subnets {
+			if exposeDetails.ExposeToCIDRs == nil {
+				exposeDetails.ExposeToCIDRs = set.NewStrings(subnet.CIDR)
+			} else {
+				exposeDetails.ExposeToCIDRs.Add(subnet.CIDR)
+			}
+		}
+	}
+}
+
 func (fw *Firewaller) ingressRulesForExposedMachineUnit(ctx context.Context, unit *unitData, openUnitPortRanges network.GroupedPortRanges) firewall.IngressRules {
 	var (
 		exposedEndpoints = unit.applicationd.exposedEndpoints
@@ -943,34 +974,7 @@ func (fw *Firewaller) ingressRulesForExposedMachineUnit(ctx context.Context, uni
 	)
 
 	for exposedEndpoint, exposeDetails := range exposedEndpoints {
-		// Collect the operator-provided CIDRs that should be able to
-		// access the port ranges opened for this endpoint; then resolve
-		// the CIDRs for the spaces specified in the expose details to
-		// construct the full source CIDR list for the generated rules.
-		for _, spaceID := range exposeDetails.ExposeToSpaceIDs.Values() {
-			sp := fw.spaceInfos.GetByID(spaceID)
-			if sp == nil {
-				fw.logger.Warningf(ctx, "exposed endpoint references unknown space ID %q", spaceID)
-				continue
-			}
-
-			if len(sp.Subnets) == 0 {
-				if exposedEndpoint == "" {
-					fw.logger.Warningf(ctx, "all endpoints of application %q are exposed to space %q which contains no subnets",
-						unit.applicationd.applicationTag.Name, sp.Name)
-				} else {
-					fw.logger.Warningf(ctx, "endpoint %q application %q are exposed to space %q which contains no subnets",
-						exposedEndpoint, unit.applicationd.applicationTag.Name, sp.Name)
-				}
-			}
-			for _, subnet := range sp.Subnets {
-				if exposeDetails.ExposeToCIDRs == nil {
-					exposeDetails.ExposeToCIDRs = set.NewStrings(subnet.CIDR)
-				} else {
-					exposeDetails.ExposeToCIDRs.Add(subnet.CIDR)
-				}
-			}
-		}
+		fw.appendSubnetCIDRsFromExposedSpaces(ctx, unit, exposedEndpoint, &exposeDetails)
 
 		if exposeDetails.ExposeToCIDRs.Size() == 0 {
 			continue // no rules required
