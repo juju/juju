@@ -126,7 +126,7 @@ func (w *removalWorker) loop() (err error) {
 // is an entry in our runner for it. If there is, it is already being processed
 // and we ignore it. Otherwise, it is commenced in a new runner.
 // This is safe due to the following conditions:
-// - This is the only method interrogating/adding workers to the runner.
+// - This is the only method adding workers to the runner.
 // - It is only invoked from cases in the main event loop, so is Goroutine safe.
 func (w *removalWorker) processRemovalJobs(ctx context.Context) error {
 	jobs, err := w.cfg.RemovalService.GetAllJobs(ctx)
@@ -140,6 +140,9 @@ func (w *removalWorker) processRemovalJobs(ctx context.Context) error {
 	for _, j := range jobs {
 		id := j.UUID.String()
 
+		// The worker for this job may have completed since we retrieved the
+		// worker names, but we don't fuss over it. The job will be picked up
+		// again in at most [jobCheckMaxInterval].
 		if running.Contains(id) {
 			log.Debugf(ctx, "removal job %q already running", id)
 			continue
@@ -159,6 +162,12 @@ func (w *removalWorker) processRemovalJobs(ctx context.Context) error {
 	return nil
 }
 
+// Report returns data for display in the dependency engine report.
+// In this case, it simply reports on all jobs in the runner.
+func (w *removalWorker) Report() map[string]any {
+	return w.runner.Report()
+}
+
 // Kill (worker.Worker) tells the worker to stop and return from its loop.
 func (w *removalWorker) Kill() {
 	w.catacomb.Kill(nil)
@@ -170,9 +179,11 @@ func (w *removalWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-// jobWorker exists only to expose enough of a tomb to satisfy [worker.Worker]
+// jobWorker exists to expose enough of a tomb to satisfy [worker.Worker],
+// and to generate a report.
 type jobWorker struct {
 	tomb tomb.Tomb
+	job  removal.Job
 }
 
 // newJobWorker returns a closure suitable for passing to
@@ -180,11 +191,20 @@ type jobWorker struct {
 // It uses the input service to run the input removal job.
 func newJobWorker(svc RemovalService, job removal.Job) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
-		w := jobWorker{}
+		w := jobWorker{job: job}
 		w.tomb.Go(func() error {
 			return svc.ExecuteJob(w.tomb.Context(context.Background()), job)
 		})
 		return &w, nil
+	}
+}
+
+// Report returns information about the removal job that the worker is running.
+func (w *jobWorker) Report() map[string]any {
+	return map[string]any{
+		"job-type":       w.job.RemovalType,
+		"removal-entity": w.job.EntityUUID,
+		"force":          w.job.Force,
 	}
 }
 
