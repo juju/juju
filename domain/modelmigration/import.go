@@ -22,6 +22,7 @@ import (
 	lease "github.com/juju/juju/domain/lease/modelmigration"
 	machine "github.com/juju/juju/domain/machine/modelmigration"
 	model "github.com/juju/juju/domain/model/modelmigration"
+	modelagent "github.com/juju/juju/domain/modelagent/modelmigration"
 	modelconfig "github.com/juju/juju/domain/modelconfig/modelmigration"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	network "github.com/juju/juju/domain/network/modelmigration"
@@ -82,6 +83,9 @@ func ImportOperations(
 	secret.RegisterImport(coordinator, logger.Child("secret"))
 	cloudimagemetadata.RegisterImport(coordinator, logger.Child("cloudimagemetadata"), clock)
 	unitstate.RegisterImport(coordinator)
+
+	// model agent must come after machine and unit
+	modelagent.RegisterImport(coordinator, logger.Child("modelagent"))
 
 	// Block command is probably best processed last, is that will prevent
 	// any block commands from being executed before all the other operations

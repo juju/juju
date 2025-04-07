@@ -21,6 +21,7 @@ import (
 	lease "github.com/juju/juju/domain/lease/modelmigration"
 	machine "github.com/juju/juju/domain/machine/modelmigration"
 	model "github.com/juju/juju/domain/model/modelmigration"
+	modelagent "github.com/juju/juju/domain/modelagent/modelmigration"
 	modelconfig "github.com/juju/juju/domain/modelconfig/modelmigration"
 	network "github.com/juju/juju/domain/network/modelmigration"
 	resource "github.com/juju/juju/domain/resource/modelmigration"
@@ -82,4 +83,7 @@ func (e *Exporter) ExportOperations(registry corestorage.ModelStorageRegistryGet
 	cloudimagemetadata.RegisterExport(e.coordinator, e.logger.Child("cloudimagemetadata"), e.clock)
 	model.RegisterExport(e.coordinator, e.logger.Child("model"))
 	unitstate.RegisterExport(e.coordinator)
+
+	// model agent must come after machine and unit
+	modelagent.RegisterExport(e.coordinator, e.logger.Child("modelagent"))
 }
