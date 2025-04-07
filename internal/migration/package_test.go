@@ -6,12 +6,16 @@ package migration_test
 import (
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/life"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/internal/migration"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/internal/testing"
 	upgradevalidationmocks "github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
 )
@@ -41,11 +45,6 @@ type precheckBaseSuite struct {
 func (s *precheckBaseSuite) checkRebootRequired(c *gc.C, runPrecheck precheckRunner) {
 	err := runPrecheck(newBackendWithRebootingMachine(), &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, s.agentService)
 	c.Assert(err, gc.ErrorMatches, "machine 0 is scheduled to reboot")
-}
-
-func (s *precheckBaseSuite) checkMachineVersionsDontMatch(c *gc.C, runPrecheck precheckRunner, agentService migration.ModelAgentService) {
-	err := runPrecheck(newBackendWithMismatchingTools(), &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, agentService)
-	c.Assert(err.Error(), gc.Equals, "machine 1 agent binaries don't match model (1.3.1 != 1.2.3)")
 }
 
 func (s *precheckBaseSuite) setupMocksWithDefaultAgentVersion(c *gc.C) *gomock.Controller {
@@ -85,4 +84,42 @@ func (s *precheckBaseSuite) expectIsUpgradeError(err error) {
 
 func (s *precheckBaseSuite) expectAgentVersion() {
 	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.MustParse(backendVersion.String()), nil).AnyTimes()
+}
+
+// expectAgentVersionsForBackend is a hack utility function to help support
+// the transition of prechecks to mocks and Dqlite. This function will take
+// an established backend and setup gomock expects for machines and units to
+// have their agent version information read.
+func (s *precheckBaseSuite) expectAgentVersionsForBackend(c *gc.C, backend *fakeBackend) {
+	for _, machine := range backend.machines {
+		tools, err := machine.AgentTools()
+		c.Assert(err, jc.ErrorIsNil)
+
+		s.agentService.EXPECT().GetMachineReportedAgentVersion(
+			gomock.Any(), coremachine.Name(machine.Id()),
+		).Return(
+			coreagentbinary.Version{
+				Number: tools.Version.Number,
+				Arch:   corearch.Arch(tools.Version.Arch),
+			}, nil,
+		).AnyTimes()
+	}
+
+	for _, application := range backend.apps {
+		units, err := application.AllUnits()
+		c.Assert(err, jc.ErrorIsNil)
+		for _, unit := range units {
+			tools, err := unit.AgentTools()
+			c.Assert(err, jc.ErrorIsNil)
+
+			s.agentService.EXPECT().GetUnitReportedAgentVersion(
+				gomock.Any(), coreunit.Name(unit.Name()),
+			).Return(
+				coreagentbinary.Version{
+					Number: tools.Version.Number,
+					Arch:   corearch.Arch(tools.Version.Arch),
+				}, nil,
+			).AnyTimes()
+		}
+	}
 }

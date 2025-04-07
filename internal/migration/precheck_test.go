@@ -11,15 +11,20 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/replicaset/v3"
 	jc "github.com/juju/testing/checkers"
+	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
+	coremachine "github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/relation"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/migration"
@@ -76,6 +81,7 @@ func (s *SourcePrecheckSuite) TestSuccess(c *gc.C) {
 
 	backend := newHappyBackend()
 	backend.controllerBackend = newHappyBackend()
+	s.expectAgentVersionsForBackend(c, backend)
 	err := migration.SourcePrecheck(
 		context.Background(),
 		backend,
@@ -273,12 +279,28 @@ func (s *SourcePrecheckSuite) TestMachineRequiresReboot(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestMachineVersionsDoNotMatch(c *gc.C) {
-	c.Skip("(tlm) Re-implement when migration is moved to dqlite.")
 	defer s.setupMocks(c).Finish()
 
-	s.expectAgentVersion()
+	s.agentService.EXPECT().GetModelTargetAgentVersion(
+		gomock.Any(),
+	).Return(semversion.MustParse("4.1.1"), nil)
+	s.agentService.EXPECT().GetMachineReportedAgentVersion(
+		gomock.Any(),
+		coremachine.Name("1"),
+	).Return(coreagentbinary.Version{
+		Number: semversion.MustParse("1.3.1"),
+		Arch:   corearch.AMD64,
+	}, nil)
 
-	s.checkMachineVersionsDontMatch(c, sourcePrecheck, s.agentService)
+	backend := fakeBackend{
+		machines: []migration.PrecheckMachine{
+			&fakeMachine{id: "1"},
+		},
+		machineCountForSeriesUbuntu: map[string]int{"ubuntu@22.04": 2},
+	}
+
+	err := sourcePrecheck(&backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, s.agentService)
+	c.Check(err, gc.ErrorMatches, `machine "1" reported agent version "1.3.1" does not match the current target version "4.1.1" of the model`)
 }
 
 func (s *SourcePrecheckSuite) TestDyingMachine(c *gc.C) {
@@ -313,6 +335,7 @@ func (s *SourcePrecheckSuite) TestDownMachineAgent(c *gc.C) {
 		&fakeMachine{id: "0"},
 		&fakeMachine{id: "1", status: status.Down},
 	}
+	s.expectAgentVersionsForBackend(c, backend)
 	err := migration.SourcePrecheck(
 		context.Background(),
 		backend,
@@ -346,12 +369,19 @@ func (s *SourcePrecheckSuite) TestDyingApplication(c *gc.C) {
 }
 
 func (s *SourcePrecheckSuite) TestUnitVersionsDoNotMatch(c *gc.C) {
-	c.Skip("(tlm) Re-enable when migration is moved to dqlite.")
 	defer s.setupMocks(c).Finish()
-	s.expectAgentVersion()
 
+	s.agentService.EXPECT().GetModelTargetAgentVersion(
+		gomock.Any(),
+	).Return(semversion.MustParse("4.1.1"), nil).AnyTimes()
+	s.agentService.EXPECT().GetUnitReportedAgentVersion(
+		gomock.Any(),
+		coreunit.Name("foo/0"),
+	).Return(coreagentbinary.Version{
+		Number: semversion.MustParse("1.3.1"),
+		Arch:   corearch.AMD64,
+	}, nil)
 	s.expectApplicationLife("foo", life.Alive)
-	s.expectApplicationLife("bar", life.Alive)
 	s.expectCheckUnitStatuses(nil)
 
 	backend := &fakeBackend{
@@ -361,17 +391,10 @@ func (s *SourcePrecheckSuite) TestUnitVersionsDoNotMatch(c *gc.C) {
 				name:  "foo",
 				units: []migration.PrecheckUnit{&fakeUnit{name: "foo/0"}},
 			},
-			&fakeApp{
-				name: "bar",
-				units: []migration.PrecheckUnit{
-					&fakeUnit{name: "bar/0"},
-					&fakeUnit{name: "bar/1", version: semversion.MustParseBinary("1.2.4-ubuntu-ppc64")},
-				},
-			},
 		},
 	}
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, s.agentService)
-	c.Assert(err.Error(), gc.Equals, "unit bar/1 agent binaries don't match model (1.2.4 != 1.2.3)")
+	c.Check(err, gc.ErrorMatches, `unit "foo/0" reported agent version "1.3.1" does not match the current target version "4.1.1" of the model`)
 }
 
 func (s *SourcePrecheckSuite) TestCAASModelNoUnitVersionCheck(c *gc.C) {
@@ -431,6 +454,7 @@ func (s *SourcePrecheckSuite) TestUnitExecuting(c *gc.C) {
 			},
 		},
 	}
+	s.expectAgentVersionsForBackend(c, backend)
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, s.agentService)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -450,6 +474,7 @@ func (s *SourcePrecheckSuite) TestUnitNotReadyForMigration(c *gc.C) {
 			},
 		},
 	}
+	s.expectAgentVersionsForBackend(c, backend)
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, s.agentService)
 	c.Assert(err.Error(), gc.Equals, "boom")
 }
@@ -553,6 +578,7 @@ func (s *SourcePrecheckSuite) TestUnitsAllInScope(c *gc.C) {
 			"bar/1": {valid: true, inScope: true},
 		},
 	}}
+	s.expectAgentVersionsForBackend(c, backend)
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, s.agentService)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -578,6 +604,7 @@ func (s *SourcePrecheckSuite) TestSubordinatesNotYetInScope(c *gc.C) {
 			"bar/1": {unitName: "bar/1", valid: true, inScope: false},
 		},
 	}}
+	s.expectAgentVersionsForBackend(c, backend)
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, s.agentService)
 	c.Assert(err, gc.ErrorMatches, `unit bar/1 hasn't joined relation "foo:db bar:db" yet`)
 }
@@ -604,6 +631,7 @@ func (s *SourcePrecheckSuite) TestSubordinatesInvalidUnitsNotYetInScope(c *gc.C)
 			"bar/1": {valid: false, inScope: false},
 		},
 	}}
+	s.expectAgentVersionsForBackend(c, backend)
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, s.agentService)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -738,8 +766,10 @@ func (s *TargetPrecheckSuite) TestSuccess(c *gc.C) {
 
 	s.expectIsUpgrade(false)
 	s.expectAgentVersion()
+	backend := newHappyBackend()
+	s.expectAgentVersionsForBackend(c, backend)
 
-	err := s.runPrecheck(newHappyBackend(), nil, s.upgradeService, s.applicationService, s.statusService, s.agentService)
+	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.statusService, s.agentService)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -889,16 +919,6 @@ func (s *TargetPrecheckSuite) TestIsMigrationActive(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "model is being migrated out of target controller")
 }
 
-func (s *TargetPrecheckSuite) TestMachineVersionsDontMatch(c *gc.C) {
-	c.Skip("(tlm) Re-enable when migration is moved to dqlite.")
-	defer s.setupMocks(c).Finish()
-
-	s.expectAgentVersion()
-	s.expectIsUpgrade(false)
-
-	s.checkMachineVersionsDontMatch(c, s.runPrecheck, s.agentService)
-}
-
 func (s *TargetPrecheckSuite) TestDyingMachine(c *gc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
@@ -940,6 +960,7 @@ func (s *TargetPrecheckSuite) TestDownMachineAgent(c *gc.C) {
 		&fakeMachine{id: "0"},
 		&fakeMachine{id: "1", status: status.Down},
 	}
+	s.expectAgentVersionsForBackend(c, backend)
 	err := migration.TargetPrecheck(context.Background(), backend, nil, s.modelInfo, s.upgradeService, s.applicationService, s.statusService, s.agentService)
 	c.Assert(err.Error(), gc.Equals, "machine 1 agent not functioning at this time (down)")
 }
