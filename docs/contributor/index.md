@@ -11,7 +11,6 @@ Tutorial <tutorial/index>
 howto/index
 reference/index
 explanation/index
-unsorted/index
 ```
 
 ````{grid} 1 1 2 2

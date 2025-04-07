@@ -27,7 +27,7 @@ contributor/unsorted/system-ssh-key contributor
 contributor/unsorted/test-failure-FAQ contributor
 contributor/unsorted/third-party-go-clients contributor
 contributor/unsorted/what-we-run-and-why contributor
-contributor/unsorted/simplestreams-metadata user/reference/metadata
+contributor/unsorted/simplestreams-metadata reference/metadata
 contributor/unsorted/architectural-overview contributor/reference/architectural-overview
 contributor/unsorted/high-availability contributor/reference/high-availability
 contributor/unsorted/observing-mongodb-performance contributor/howto/manage-mongodb
