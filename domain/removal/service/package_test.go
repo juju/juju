@@ -6,7 +6,11 @@ package service
 import (
 	"testing"
 
+	jujutesting "github.com/juju/testing"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/removal/service State
@@ -14,4 +18,28 @@ import (
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
+}
+
+type baseSuite struct {
+	jujutesting.IsolationSuite
+
+	state *MockState
+	clock *MockClock
+}
+
+func (s *baseSuite) newService(c *gc.C) *Service {
+	return &Service{
+		st:     s.state,
+		clock:  s.clock,
+		logger: loggertesting.WrapCheckLog(c),
+	}
+}
+
+func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.state = NewMockState(ctrl)
+	s.clock = NewMockClock(ctrl)
+
+	return ctrl
 }
