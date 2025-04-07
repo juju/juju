@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/description/v9"
+
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
-	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/modelmigration"
@@ -20,7 +20,7 @@ import (
 )
 
 // baseAgentBinaryImportOperation describes the base set of operation
-// charecteristics shared between import operations of this package.
+// characteristics shared between import operations of this package.
 // Specifically the common need for the import service.
 type baseAgentBinaryImportOperation struct {
 	modelmigration.BaseOperation
@@ -121,7 +121,7 @@ func (i *importMachineAgentBinaryOperation) Execute(
 		}
 		agentBinaryVersion := coreagentbinary.Version{
 			Number: binVer.Number,
-			Arch:   corearch.Arch(binVer.Arch),
+			Arch:   binVer.Arch,
 		}
 
 		err = i.importService.SetMachineReportedAgentVersion(
@@ -171,7 +171,7 @@ func (i *importUnitAgentBinaryOperation) Execute(
 			}
 			agentBinaryVersion := coreagentbinary.Version{
 				Number: binVer.Number,
-				Arch:   corearch.Arch(binVer.Arch),
+				Arch:   binVer.Arch,
 			}
 
 			err = i.importService.SetUnitReportedAgentVersion(

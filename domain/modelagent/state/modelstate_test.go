@@ -640,7 +640,7 @@ func (s *modelStateSuite) TestGetUnitRunningAgentBinaryVersionUnitNotFound(c *gc
 
 // TestGetUnitRunningAgentBinaryVersionNotFound tests that if no reported
 // running agent binary version has been set for a unit we get an error that
-// satisifes [modelagenterrors.AgentVersionNotFound].
+// satisfies [modelagenterrors.AgentVersionNotFound].
 func (s *modelStateSuite) TestGetUnitRunningAgentBinaryVersionNotFound(c *gc.C) {
 	unitUUID := s.createTestingUnit(c)
 	_, err := NewState(s.TxnRunnerFactory()).GetUnitRunningAgentBinaryVersion(

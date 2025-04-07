@@ -143,7 +143,7 @@ func (st *State) GetMachineUUIDByName(ctx context.Context, name machine.Name) (s
 	return uuid.UUID, nil
 }
 
-// GetMachineRunningAgentBinaryVersion reportes the currently set agent binary
+// GetMachineRunningAgentBinaryVersion reports the currently set agent binary
 // version value for a machine. The following errors can be expected:
 // - [machineerrors.MachineNotFound] when the machine being asked for does
 // not exist.

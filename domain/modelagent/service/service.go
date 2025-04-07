@@ -145,7 +145,7 @@ func (s *Service) GetMachineReportedAgentVersion(
 			"machine %q does not exist", machineName,
 		).Add(machineerrors.MachineNotFound)
 	} else if err != nil {
-		errors.Errorf(
+		return coreagentbinary.Version{}, errors.Errorf(
 			"getting machine uuid for machine name %q: %w",
 			machineName.String(), err,
 		)
@@ -197,7 +197,7 @@ func (s *Service) GetUnitReportedAgentVersion(
 			"unit %q does not exist", unitName,
 		).Add(applicationerrors.UnitNotFound)
 	} else if err != nil {
-		errors.Errorf(
+		return coreagentbinary.Version{}, errors.Errorf(
 			"getting unit uuid for unit name %q: %w",
 			unitName.String(), err,
 		)
