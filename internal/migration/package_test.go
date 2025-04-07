@@ -43,12 +43,6 @@ func (s *precheckBaseSuite) checkRebootRequired(c *gc.C, runPrecheck precheckRun
 	c.Assert(err, gc.ErrorMatches, "machine 0 is scheduled to reboot")
 }
 
-func (s *precheckBaseSuite) checkAgentVersionError(c *gc.C, runPrecheck precheckRunner, agentService migration.ModelAgentService) {
-	backend := &fakeBackend{}
-	err := runPrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, agentService)
-	c.Assert(err, gc.ErrorMatches, "retrieving model version: boom")
-}
-
 func (s *precheckBaseSuite) checkMachineVersionsDontMatch(c *gc.C, runPrecheck precheckRunner, agentService migration.ModelAgentService) {
 	err := runPrecheck(newBackendWithMismatchingTools(), &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, agentService)
 	c.Assert(err.Error(), gc.Equals, "machine 1 agent binaries don't match model (1.3.1 != 1.2.3)")

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/replicaset/v3"
 	jc "github.com/juju/testing/checkers"
-	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -262,15 +261,6 @@ func (s *SourcePrecheckSuite) TestIsUpgrading(c *gc.C) {
 	backend := newFakeBackend()
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, s.agentService)
 	c.Assert(err, gc.ErrorMatches, "controller: upgrade in progress")
-}
-
-func (s *SourcePrecheckSuite) TestAgentVersionError(c *gc.C) {
-	c.Skip("(tlm) Re-implement when migration is moved to dqlite.")
-	defer s.setupMocks(c).Finish()
-
-	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.Zero, errors.New("boom"))
-
-	s.checkAgentVersionError(c, sourcePrecheck, s.agentService)
 }
 
 func (s *SourcePrecheckSuite) TestMachineRequiresReboot(c *gc.C) {
@@ -861,14 +851,6 @@ func (s *TargetPrecheckSuite) TestMachineRequiresReboot(c *gc.C) {
 	s.expectIsUpgrade(false)
 
 	s.checkRebootRequired(c, s.runPrecheck)
-}
-
-func (s *TargetPrecheckSuite) TestAgentVersionError(c *gc.C) {
-	c.Skip("(tlm) until migration of agent version is moved to Dqlite.")
-	defer s.setupMocks(c).Finish()
-	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(semversion.Zero, errors.New("boom"))
-
-	s.checkAgentVersionError(c, s.runPrecheck, s.agentService)
 }
 
 func (s *TargetPrecheckSuite) TestIsUpgradingError(c *gc.C) {
