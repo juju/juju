@@ -23,8 +23,13 @@ contributor/unsorted/charms-in-action contributor
 contributor/unsorted/system-ssh-key contributor
 contributor/unsorted/test-failure-FAQ contributor
 contributor/unsorted/third-party-go-clients contributor
-contributor/unsorted/what-we-run-and-why
+contributor/unsorted/what-we-run-and-why contributor
 contributor/unsorted/simplestreams-metadata user/reference/metadata
+contributor/unsorted/high_availability contributor/reference/high_availability
+contributor/unsorted/review-checklist contributor
+contributor/unsorted/styleguide contributor
+contributor/unsorted/observing-mongodb-performance contributor/howto/manage-mongodb
+contributor/unsorted/high-availability contributor/reference/high-availability
 # redirects after promoting user docs and demoting contributor docs
 user/explanation/application-modelling explanation/application-modelling
 user/explanation/charming-history explanation/charming-history
