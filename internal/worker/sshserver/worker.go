@@ -157,11 +157,12 @@ func (ssw *serverWrapperWorker) loop() error {
 		case <-ssw.catacomb.Dying():
 			return ssw.catacomb.ErrDying()
 		case <-controllerConfigWatcher.Changes():
-			newPort, newMaxConnections, err := ssw.getLatestControllerConfig()
+			// The ssh server port can't change after bootstrap so we ignore it.
+			_, newMaxConnections, err := ssw.getLatestControllerConfig()
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if port == newPort && newMaxConnections == maxConns {
+			if newMaxConnections == maxConns {
 				ssw.config.Logger.Debugf("controller configuration changed, but nothing changed for the ssh server.")
 				continue
 			}

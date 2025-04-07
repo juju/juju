@@ -192,6 +192,3 @@ The following keys are available:
     ssh-max-concurrent-connections:
       type: int
       description: The maximum number of concurrent ssh connections to the controller
-    ssh-server-port:
-      type: int
-      description: The port used for ssh connections to the controller

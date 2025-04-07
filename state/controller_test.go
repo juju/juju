@@ -121,7 +121,6 @@ func (s *ControllerSuite) TestUpdateControllerConfig(c *gc.C) {
 		controller.AuditLogMaxBackups:          "10",
 		controller.PublicDNSAddress:            "controller.test.com:1234",
 		controller.APIPortOpenDelay:            "100ms",
-		controller.SSHServerPort:               17023,
 		controller.SSHMaxConcurrentConnections: 1025,
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -134,7 +133,6 @@ func (s *ControllerSuite) TestUpdateControllerConfig(c *gc.C) {
 	c.Assert(newCfg.AuditLogMaxBackups(), gc.Equals, 10)
 	c.Assert(newCfg.PublicDNSAddress(), gc.Equals, "controller.test.com:1234")
 	c.Assert(newCfg.APIPortOpenDelay(), gc.Equals, 100*time.Millisecond)
-	c.Assert(newCfg.SSHServerPort(), gc.Equals, 17023)
 	c.Assert(newCfg.SSHMaxConcurrentConnections(), gc.Equals, 1025)
 }
 
