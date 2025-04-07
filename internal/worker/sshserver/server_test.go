@@ -101,6 +101,7 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 		JumpHostKey:              jujutesting.SSHServerHostKey,
 		NewSSHServerListener:     newTestingSSHServerListener,
 		MaxConcurrentConnections: maxConcurrentConnections,
+		disableAuth:              true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, server)
@@ -163,6 +164,7 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 		MaxConcurrentConnections: maxConcurrentConnections,
 		JumpHostKey:              jujutesting.SSHServerHostKey,
 		NewSSHServerListener:     newTestingSSHServerListener,
+		disableAuth:              true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)
@@ -219,6 +221,7 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *gc.C) {
 		MaxConcurrentConnections: maxConcurrentConnections,
 		JumpHostKey:              jujutesting.SSHServerHostKey,
 		NewSSHServerListener:     newTestingSSHServerListener,
+		disableAuth:              true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)
