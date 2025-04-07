@@ -152,6 +152,49 @@ func (s *relationServiceSuite) TestGetAllRelationDetailsError(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, expectedError)
 }
 
+func (s *relationServiceSuite) TestGetApplicationRelations(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	expectedRelations := []corerelation.UUID{
+		corerelationtesting.GenRelationUUID(c),
+		corerelationtesting.GenRelationUUID(c),
+		corerelationtesting.GenRelationUUID(c),
+	}
+	appUUID := coreapplicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetApplicationRelations(gomock.Any(), appUUID).Return(expectedRelations, nil)
+
+	// Act
+	relations, err := s.service.GetApplicationRelations(context.Background(), appUUID)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relations, gc.DeepEquals, expectedRelations)
+}
+
+func (s *relationServiceSuite) TestGetApplicationRelationsApplicationUUIDNotValid(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	// Act
+	_, err := s.service.GetApplicationRelations(context.Background(), "not valid app uuid")
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationIDNotValid)
+}
+
+func (s *relationServiceSuite) TestGetApplicationRelationsStateError(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	expectedError := errors.New("state error")
+	s.state.EXPECT().GetApplicationRelations(gomock.Any(), gomock.Any()).Return(nil, expectedError)
+
+	// Act
+	_, err := s.service.GetApplicationRelations(context.Background(), coreapplicationtesting.GenApplicationUUID(c))
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, expectedError)
+}
+
 // TestGetRelationEndpointUUID tests the GetRelationEndpointUUID method for
 // valid input and expected successful execution.
 func (s *relationServiceSuite) TestGetRelationEndpointUUID(c *gc.C) {

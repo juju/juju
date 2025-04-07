@@ -12,6 +12,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
+	jujuerrors "github.com/juju/errors"
 
 	"github.com/juju/juju/core/application"
 	corebase "github.com/juju/juju/core/base"
@@ -185,6 +186,16 @@ func (st *State) GetAllRelationDetails(ctx context.Context) ([]relation.Relation
 		return nil
 	})
 	return relationsDetails, errors.Capture(err)
+}
+
+// GetApplicationRelations retrieves a list of relation UUIDs for a given
+// application ID within the specified context.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.ApplicationNotFound] is returned if application ID
+//     doesn't refer an existing application.
+func (st *State) GetApplicationRelations(ctx context.Context, id application.ID) ([]corerelation.UUID, error) {
+	return nil, jujuerrors.NotImplemented
 }
 
 // GetOtherRelatedEndpointApplicationData returns an OtherApplicationForWatcher struct
