@@ -394,11 +394,16 @@ func (s *ProviderSpaces) deleteSpaces(ctx context.Context) ([]string, error) {
 		// Check all endpoint bindings found within a model. If they reference
 		// a space name, then ignore then space for removal.
 
-		// TODO(nvinuesa): This check is removed. We are going to handle
-		// this validation by referential integrity (between spaces and
-		// constraints).
 		// Check to see if any space is within any constraints, if they are,
 		// ignore them for now.
+		isUsedInConstraints, err := s.spaceService.st.IsSpaceUsedInConstraints(ctx, space.Name)
+		if err != nil {
+			return warnings, errors.Capture(err)
+		} else if isUsedInConstraints {
+			warning := fmt.Sprintf("Unable to delete space %q. Space is used in a constraint.", space.Name)
+			warnings = append(warnings, warning)
+			continue
+		}
 
 		if err := s.spaceService.RemoveSpace(ctx, space.ID); err != nil {
 			return warnings, errors.Capture(err)

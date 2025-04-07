@@ -715,6 +715,7 @@ func (s *spaceSuite) TestDeleteProviderSpaces(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.st.EXPECT().DeleteSpace(gomock.Any(), "1")
+	s.st.EXPECT().IsSpaceUsedInConstraints(gomock.Any(), network.SpaceName("1")).Return(false, nil)
 
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
@@ -772,8 +773,6 @@ func (s *spaceSuite) TestDeleteProviderSpacesMatchesDefaultBindingSpace(c *gc.C)
 }
 
 func (s *spaceSuite) TestDeleteProviderSpacesContainsConstraintsSpace(c *gc.C) {
-	c.Skip("The check on spaces used in constraints before deleting has been removed until constraints are moved to dqlite.")
-
 	defer s.setupMocks(c).Finish()
 
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
@@ -784,6 +783,7 @@ func (s *spaceSuite) TestDeleteProviderSpacesContainsConstraintsSpace(c *gc.C) {
 			Name: "1",
 		},
 	}
+	s.st.EXPECT().IsSpaceUsedInConstraints(gomock.Any(), network.SpaceName("1")).Return(true, nil)
 
 	warnings, err := provider.deleteSpaces(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -828,6 +828,7 @@ func (s *spaceSuite) TestProviderSpacesRun(c *gc.C) {
 		},
 	)
 	s.st.EXPECT().DeleteSpace(gomock.Any(), "1")
+	s.st.EXPECT().IsSpaceUsedInConstraints(gomock.Any(), network.SpaceName("space1")).Return(false, nil)
 
 	providerService := NewProviderService(s.st, s.networkProviderGetter, s.zoneProviderGetter, loggertesting.WrapCheckLog(c))
 	provider := NewProviderSpaces(providerService, loggertesting.WrapCheckLog(c))
