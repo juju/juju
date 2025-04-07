@@ -39,31 +39,6 @@ type baseSuite struct {
 
 	dataDir string
 
-<<<<<<< HEAD
-	agent                   *MockAgent
-	agentConfig             *MockConfig
-	state                   *MockSystemState
-	stateTracker            *MockStateTracker
-	objectStore             *MockObjectStore
-	objectStoreGetter       *MockObjectStoreGetter
-	storageRegistryGetter   *MockStorageRegistryGetter
-	bootstrapUnlocker       *MockUnlocker
-	domainServices          *MockDomainServices
-	controllerConfigService *MockControllerConfigService
-	cloudService            *MockCloudService
-	storageService          *MockStorageService
-	keyManagerService       *MockKeyManagerService
-	agentPasswordService    *MockAgentPasswordService
-	applicationService      *MockApplicationService
-	modelConfigService      *MockModelConfigService
-	machineService          *MockMachineService
-	userService             *MockUserService
-	networkService          *MockNetworkService
-	bakeryConfigService     *MockBakeryConfigService
-	flagService             *MockFlagService
-	httpClient              *MockHTTPClient
-	httpClientGetter        *MockHTTPClientGetter
-=======
 	agent                      *MockAgent
 	agentConfig                *MockConfig
 	controllerAgentBinaryStore *MockAgentBinaryStore
@@ -78,7 +53,7 @@ type baseSuite struct {
 	cloudService               *MockCloudService
 	storageService             *MockStorageService
 	keyManagerService          *MockKeyManagerService
-	passwordService            *MockPasswordService
+	agentPasswordService       *MockAgentPasswordService
 	applicationService         *MockApplicationService
 	modelConfigService         *MockModelConfigService
 	machineService             *MockMachineService
@@ -88,7 +63,6 @@ type baseSuite struct {
 	flagService                *MockFlagService
 	httpClient                 *MockHTTPClient
 	httpClientGetter           *MockHTTPClientGetter
->>>>>>> 95bdeff014 (feat: add agent binaries during bootstrap)
 
 	logger logger.Logger
 }
