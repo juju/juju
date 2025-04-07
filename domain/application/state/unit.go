@@ -1034,9 +1034,8 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 
 // GetUnitRefreshAttributes returns the unit refresh attributes for the
 // specified unit. If the unit is not found, an error satisfying
-// [applicationerrors.UnitNotFound] is returned.
-// This doesn't take into account life, so it can return the life of a unit
-// even if it's dead.
+// [applicationerrors.UnitNotFound] is returned. This doesn't take into account
+// life, so it can return the attributes of a unit even if it's dead.
 func (st *State) GetUnitRefreshAttributes(ctx context.Context, unitName coreunit.Name) (application.UnitAttributes, error) {
 	db, err := st.DB()
 	if err != nil {
