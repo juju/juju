@@ -308,10 +308,15 @@ func WatchRelationUnits(backend Backend, tag names.RelationTag) (common.Relation
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting local application for relation %q", tag.Id())
 	}
+
 	w, err := relation.WatchUnits(localAppName)
 	if err != nil {
 		return nil, errors.Annotatef(err, "watching units for %q", localAppName)
 	}
+	// TODO hml 2025-04-07:
+	// Delete common.RelationUnitsWatcherFromDomain once using the domain
+	// method for WatchUnits. This logic should be pushed into the domain
+	// as was done in the uniter.
 	wrapped, err := common.RelationUnitsWatcherFromDomain(w)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting relation units watcher for %q", tag.Id())

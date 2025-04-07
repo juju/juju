@@ -15,9 +15,7 @@ import (
 
 // RelationUnitsWatcher represents a relation.RelationUnitsWatcher at the
 // apiserver level (different type for changes).
-type RelationUnitsWatcher interface {
-	watcher.Watcher[params.RelationUnitsChange]
-}
+type RelationUnitsWatcher = watcher.Watcher[params.RelationUnitsChange]
 
 // RelationUnitsWatcherFromDomain wraps a domain level RelationUnitsWatcher
 // in an equivalent apiserver level one, taking responsibility for the source

@@ -1739,15 +1739,10 @@ func (u *UniterAPI) watchOneRelationUnit(ctx context.Context, canAccess common.A
 		return params.RelationUnitsWatchResult{}, internalerrors.Capture(err)
 	}
 
-	serviceWatcher, err := u.relationService.WatchRelationUnit(ctx, relUnitUUID)
+	watch, err := u.relationService.WatchRelationUnit(ctx, relUnitUUID)
 	if err != nil {
 		return params.RelationUnitsWatchResult{},
 			internalerrors.Capture(internalerrors.Errorf("starting relation unit watcher: %w", err))
-	}
-	watch, err := common.RelationUnitsWatcherFromDomain(serviceWatcher)
-	if err != nil {
-		return params.RelationUnitsWatchResult{},
-			internalerrors.Capture(internalerrors.Errorf("transforming relation unit watcher: %w", err))
 	}
 
 	// Consume the initial event and forward it to the result.
@@ -1759,11 +1754,26 @@ func (u *UniterAPI) watchOneRelationUnit(ctx context.Context, canAccess common.A
 		}
 		return params.RelationUnitsWatchResult{
 			RelationUnitsWatcherId: id,
-			Changes:                changes,
+			Changes:                convertRelationUnitsChange(changes),
 		}, nil
 	}
 
 	return params.RelationUnitsWatchResult{}, nil
+}
+
+func convertRelationUnitsChange(changes watcher.RelationUnitsChange) params.RelationUnitsChange {
+	var changed map[string]params.UnitSettings
+	if changes.Changed != nil {
+		changed = make(map[string]params.UnitSettings, len(changes.Changed))
+		for key, val := range changes.Changed {
+			changed[key] = params.UnitSettings{Version: val.Version}
+		}
+	}
+	return params.RelationUnitsChange{
+		Changed:    changed,
+		AppChanged: changes.AppChanged,
+		Departed:   changes.Departed,
+	}
 }
 
 // SetRelationStatus updates the status of the specified relations.
