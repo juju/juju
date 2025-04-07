@@ -43,9 +43,10 @@ type ProviderService struct {
 	// k8s provider.
 	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider]
 	caasApplicationProvider  providertracker.ProviderGetter[CAASApplicationProvider]
+	execTokenProvider        providertracker.ProviderGetter[ExecTokenProvider]
 }
 
-// NewProviderService returns a new Service for interacting with a models state.
+// NewProviderService returns a new Service for interacting with a model's state.
 func NewProviderService(
 	st State,
 	leaderEnsurer leadership.Ensurer,
@@ -55,6 +56,7 @@ func NewProviderService(
 	provider providertracker.ProviderGetter[Provider],
 	supportedFeatureProvider providertracker.ProviderGetter[SupportedFeatureProvider],
 	caasApplicationProvider providertracker.ProviderGetter[CAASApplicationProvider],
+	execTokenProvider providertracker.ProviderGetter[ExecTokenProvider],
 	charmStore CharmStore,
 	statusHistory StatusHistory,
 	clock clock.Clock,
@@ -75,6 +77,7 @@ func NewProviderService(
 		provider:                 provider,
 		supportedFeatureProvider: supportedFeatureProvider,
 		caasApplicationProvider:  caasApplicationProvider,
+		execTokenProvider:        execTokenProvider,
 	}
 }
 

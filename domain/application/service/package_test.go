@@ -49,6 +49,7 @@ type baseSuite struct {
 	provider                  *MockProvider
 	supportedFeaturesProvider *MockSupportedFeatureProvider
 	caasApplicationProvider   *MockCAASApplicationProvider
+	execTokenProvider         *MockExecTokenProvider
 	leadership                *MockEnsurer
 	validator                 *MockValidator
 
@@ -64,6 +65,7 @@ func (s *baseSuite) setupMocksWithProvider(
 	providerGetter func(ctx context.Context) (Provider, error),
 	supportFeaturesProviderGetter func(ctx context.Context) (SupportedFeatureProvider, error),
 	supportCAASApplicationProviderGetter func(ctx context.Context) (CAASApplicationProvider, error),
+	supportExecTokenProviderGetter func(ctx context.Context) (ExecTokenProvider, error),
 ) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -74,6 +76,7 @@ func (s *baseSuite) setupMocksWithProvider(
 	s.provider = NewMockProvider(ctrl)
 	s.supportedFeaturesProvider = NewMockSupportedFeatureProvider(ctrl)
 	s.caasApplicationProvider = NewMockCAASApplicationProvider(ctrl)
+	s.execTokenProvider = NewMockExecTokenProvider(ctrl)
 	s.leadership = NewMockEnsurer(ctrl)
 
 	s.state = NewMockState(ctrl)
@@ -98,6 +101,7 @@ func (s *baseSuite) setupMocksWithProvider(
 		providerGetter,
 		supportFeaturesProviderGetter,
 		supportCAASApplicationProviderGetter,
+		supportExecTokenProviderGetter,
 		s.charmStore,
 		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 		s.clock,
@@ -150,6 +154,9 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *gc.C, statusHistory StatusHis
 		},
 		func(ctx context.Context) (CAASApplicationProvider, error) {
 			return s.caasApplicationProvider, nil
+		},
+		func(ctx context.Context) (ExecTokenProvider, error) {
+			return s.execTokenProvider, nil
 		},
 		s.charmStore,
 		statusHistory,
