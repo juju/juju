@@ -313,6 +313,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DomainServicesName: domainServicesName,
 			GetRemovalService:  removal.GetRemovalService,
 			NewWorker:          removal.NewWorker,
+			Clock:              config.Clock,
 			Logger:             config.LoggingContext.GetLogger("juju.worker.removal"),
 		})),
 		stateCleanerName: ifNotMigrating(cleaner.Manifold(cleaner.ManifoldConfig{
