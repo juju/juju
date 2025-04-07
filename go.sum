@@ -474,8 +474,8 @@ github.com/juju/utils/v3 v3.0.0-20220203023959-c3fbc78a33b0/go.mod h1:8csUcj1VRk
 github.com/juju/utils/v3 v3.0.0/go.mod h1:8csUcj1VRkfjNIRzBFWzLFCMLwLqsRWvkmhfVAUwbC4=
 github.com/juju/utils/v3 v3.2.1 h1:l8v11Fe72+PstYyhRM0r9P+PFzA7zgwR2S7caKaG0eg=
 github.com/juju/utils/v3 v3.2.1/go.mod h1:nAj3sHtdYfAkvnkqttTy3Xzm2HzkD9Hfgnc+upOW2Z8=
-github.com/juju/utils/v4 v4.0.2 h1:lh1cPruYCPLWBLuZpaAP18cc+3j9X/JsLExjwQ/+NxQ=
-github.com/juju/utils/v4 v4.0.2/go.mod h1:j5wVHbRzw2LF85mb3H46cPPXBkyw5k4laDL6cOW55LY=
+github.com/juju/utils/v4 v4.0.3 h1:bNF9hkTAAdMcqMqi92NSBzAwfGscUrDQXbhpLIAh750=
+github.com/juju/utils/v4 v4.0.3/go.mod h1:j5wVHbRzw2LF85mb3H46cPPXBkyw5k4laDL6cOW55LY=
 github.com/juju/version v0.0.0-20161031051906-1f41e27e54f2/go.mod h1:kE8gK5X0CImdr7qpSKl3xB2PmpySSmfj7zVbkZFs81U=
 github.com/juju/version v0.0.0-20180108022336-b64dbd566305/go.mod h1:kE8gK5X0CImdr7qpSKl3xB2PmpySSmfj7zVbkZFs81U=
 github.com/juju/version v0.0.0-20191219164919-81c1be00b9a6/go.mod h1:kE8gK5X0CImdr7qpSKl3xB2PmpySSmfj7zVbkZFs81U=
