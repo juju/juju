@@ -551,7 +551,6 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 
 	expectedUnitArgs := []application.InsertUnitArg{{
 		UnitName:       "ubuntu/666",
-		CharmUUID:      charmUUID,
 		CloudContainer: nil,
 		Password: ptr(application.PasswordInfo{
 			PasswordHash:  "passwordhash",

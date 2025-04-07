@@ -14,6 +14,7 @@ import (
 	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
+	applicationtesting "github.com/juju/juju/core/application/testing"
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	coredatabase "github.com/juju/juju/core/database"
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -132,7 +134,7 @@ INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size) VALUES (?, 'foo
 
 	var resultObjectStoreUUID objectstore.UUID
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		ch, err := st.getCharmState(ctx, tx, charmID{UUID: id.String()})
+		ch, err := st.getCharmState(ctx, tx, charmID{UUID: id})
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -172,7 +174,7 @@ func (s *charmStateSuite) TestSetCharmWithoutObjectStoreUUID(c *gc.C) {
 
 	var resultObjectStoreUUID objectstore.UUID
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		ch, err := st.getCharmState(ctx, tx, charmID{UUID: id.String()})
+		ch, err := st.getCharmState(ctx, tx, charmID{UUID: id})
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -3517,6 +3519,34 @@ func (s *charmStateSuite) TestGetCharmLocatorByID(c *gc.C) {
 		Revision:     42,
 		Architecture: architecture.AMD64,
 	})
+}
+
+func (s *charmStateSuite) TestGetCharmIDByApplicationIDNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		_, err := st.getCharmIDByApplicationID(context.Background(), tx, applicationtesting.GenApplicationUUID(c))
+		return err
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
+}
+
+func (s *charmStateSuite) TestGetCharmIDByApplicationID(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	uuid := s.createApplication(c, "foo", life.Alive)
+
+	charmUUID, err := st.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	var result corecharm.ID
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		result, err = st.getCharmIDByApplicationID(context.Background(), tx, uuid)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, charmUUID)
 }
 
 func insertCharmState(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) error {

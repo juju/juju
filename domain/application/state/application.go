@@ -242,7 +242,7 @@ func (st *State) CreateApplication(
 		if err := st.insertPeerRelations(ctx, tx, appDetails.UUID); err != nil {
 			return errors.Errorf("inserting peer relation for application %q: %w", name, err)
 		}
-		if err = st.insertApplicationUnits(ctx, tx, appUUID, appDetails.CharmUUID, args, units); err != nil {
+		if err = st.insertApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
 			return errors.Errorf("inserting units for application %q: %w", appUUID, err)
 		}
 
@@ -264,7 +264,6 @@ func (st *State) CreateApplication(
 func (st *State) insertApplicationUnits(
 	ctx context.Context, tx *sqlair.TX,
 	appUUID coreapplication.ID,
-	charmUUID corecharm.ID,
 	args application.AddApplicationArg,
 	units []application.AddUnitArg,
 ) error {
@@ -276,7 +275,6 @@ func (st *State) insertApplicationUnits(
 	for i, unit := range units {
 		insertUnits[i] = application.InsertUnitArg{
 			UnitName:         unit.UnitName,
-			CharmUUID:        charmUUID,
 			Constraints:      unit.Constraints,
 			Storage:          args.Storage,
 			StoragePoolKind:  args.StoragePoolKind,
@@ -1045,7 +1043,7 @@ WHERE uuid = $applicationID.uuid
 		return "", errors.Capture(err)
 	}
 
-	return corecharm.ParseID(result.UUID)
+	return result.UUID, nil
 }
 
 // GetCharmByApplicationID returns the charm for the specified application
@@ -1314,7 +1312,7 @@ func (st *State) ResolveCharmDownload(ctx context.Context, id corecharm.ID, info
 		return errors.Capture(err)
 	}
 
-	charmUUID := charmID{UUID: id.String()}
+	charmUUID := charmID{UUID: id}
 
 	resolvedQuery := `
 SELECT &charmAvailable.*
@@ -1784,18 +1782,14 @@ WHERE uuid = $applicationID.uuid;
 		// this is impossible.
 		// TODO(jack-w-shaw): Retrieve the charm config directly using the application
 		// ID, instead of force-fitting the getCharmConfig method.
-		charmConfig, err = st.getCharmConfig(ctx, tx, charmID{UUID: ident.UUID})
+		uuid := ident.UUID
+		charmConfig, err = st.getCharmConfig(ctx, tx, charmID{UUID: uuid})
 		return errors.Capture(err)
 	}); err != nil {
 		return "", charm.Config{}, errors.Capture(err)
 	}
 
-	charmID, err := corecharm.ParseID(ident.UUID)
-	if err != nil {
-		return "", charm.Config{}, errors.Errorf("parsing charm id: %w", err)
-	}
-
-	return charmID, charmConfig, nil
+	return ident.UUID, charmConfig, nil
 }
 
 // GetApplicationIDByName returns the application ID for the named application.

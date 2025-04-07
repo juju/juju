@@ -443,7 +443,6 @@ AND a.name = $applicationName.name
 //   - If any of the units already exists [applicationerrors.UnitAlreadyExists] is returned.
 //   - If the application is not alive, [applicationerrors.ApplicationNotAlive] is returned.
 //   - If the application is not found, [applicationerrors.ApplicationNotFound] is returned.
-
 func (st *State) AddIAASUnits(
 	ctx context.Context, storageParentDir string, appUUID coreapplication.ID, charmUUID corecharm.ID, args ...application.AddUnitArg,
 ) error {
@@ -460,11 +459,11 @@ func (st *State) AddIAASUnits(
 		if err := st.checkApplicationAlive(ctx, tx, appUUID); err != nil {
 			return errors.Capture(err)
 		}
+
 		// TODO(storage) - read and use storage directives
 		for _, arg := range args {
 			insertArg := application.InsertUnitArg{
 				UnitName:    arg.UnitName,
-				CharmUUID:   charmUUID,
 				Constraints: arg.Constraints,
 				UnitStatusArg: application.UnitStatusArg{
 					AgentStatus:    arg.UnitStatusArg.AgentStatus,
@@ -502,7 +501,6 @@ func (st *State) AddCAASUnits(
 		for _, arg := range args {
 			insertArg := application.InsertUnitArg{
 				UnitName:    arg.UnitName,
-				CharmUUID:   charmUUID,
 				Constraints: arg.Constraints,
 				UnitStatusArg: application.UnitStatusArg{
 					AgentStatus:    arg.UnitStatusArg.AgentStatus,
@@ -792,10 +790,6 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 				return errors.Errorf("unrequired unit %s is not assigned", arg.UnitName).Add(applicationerrors.UnitNotAssigned)
 			}
 
-			// We already have the charm UUID from the application details.
-			// We need to set it in the insert argument.
-			insertArg.CharmUUID = appDetails.CharmUUID
-
 			return st.insertCAASUnit(ctx, tx, appUUID, insertArg)
 		} else if err != nil {
 			return errors.Errorf("checking unit life %q: %w", arg.UnitName, err)
@@ -909,6 +903,12 @@ func (st *State) insertUnit(
 	if err := st.checkApplicationAlive(ctx, tx, appUUID); err != nil {
 		return "", "", errors.Capture(err)
 	}
+
+	charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
+	if err != nil {
+		return "", "", errors.Errorf("getting charm for application %q: %w", appUUID, err)
+	}
+
 	unitUUID, err := coreunit.NewUUID()
 	if err != nil {
 		return "", "", errors.Capture(err)
@@ -920,7 +920,7 @@ func (st *State) insertUnit(
 	createParams := unitDetails{
 		ApplicationID: appUUID,
 		UnitUUID:      unitUUID,
-		CharmUUID:     args.CharmUUID,
+		CharmUUID:     charmUUID,
 		Name:          args.UnitName,
 		NetNodeID:     nodeUUID.String(),
 		LifeID:        life.Alive,
