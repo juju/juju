@@ -19,6 +19,11 @@ import (
 )
 
 type State interface {
+	// GetMachinesNotAtTargetAgentVersion returns the list of machines where
+	// their agent version is not the same as the models target agent version or
+	// who have no agent version reproted at all.
+	GetMachinesNotAtTargetAgentVersion(context.Context) ([]machine.Name, error)
+
 	// GetMachineRunningAgentBinaryVersion returns the running machine agent
 	// binary version for the given machine uuid.
 	// The following errors can be expected:
@@ -41,6 +46,11 @@ type State interface {
 
 	// GetModelTargetAgentVersion returns the target agent version for this model.
 	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
+
+	// GetUnitsNotAtTargetAgentVersion returns the list of units where their
+	// agent version is not the same as the models target agent version or who
+	// have no agent version reported at all.
+	GetUnitsNotAtTargetAgentVersion(context.Context) ([]coreunit.Name, error)
 
 	// GetUnitRunningAgentBinaryVersion returns the running unit agent binary
 	// version for the given unit uuid.
@@ -128,6 +138,17 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 	}
 }
 
+// GetMachinesNotAtTargetVersion reports all of the machines in the model that
+// are currently not at the desired target version. This also returns machines
+// that have no reported agent version set. If all units are up to the
+// target version or no uints exist in the model a zero length slice is
+// returned.
+func (s *Service) GetMachinesNotAtTargetAgentVersion(
+	ctx context.Context,
+) ([]machine.Name, error) {
+	return s.GetMachinesNotAtTargetAgentVersion(context.Background())
+}
+
 // GetMachineReportedAgentVersion returns the agent binary version that was last
 // reported to be running by the agent on the machine.
 // The following errors are possible:
@@ -179,6 +200,17 @@ func (s *Service) GetMachineTargetAgentVersion(
 	}
 
 	return s.st.GetMachineTargetAgentVersion(ctx, uuid)
+}
+
+// GetUnitsNotAtTargetAgentVersion reports all of the units in the model that
+// are currently not at the desired target agent version. This also returns
+// units that have no reported agent version set. If all units are up to the
+// target version or no uints exist in the model a zero length slice is
+// returned.
+func (s *Service) GetUnitsNotAtTargetAgentVersion(
+	ctx context.Context,
+) ([]machine.Name, error) {
+	return s.GetUnitsNotAtTargetAgentVersion(ctx)
 }
 
 // GetUnitReportedAgentVersion returns the agent binary version that was last
