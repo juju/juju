@@ -46,7 +46,7 @@ func (s *storeSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *storeSuite) TestAdd(c *gc.C) {
+func (s *storeSuite) TestAddAgentBinary(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	agentBinary := strings.NewReader("test-agent-binary")
@@ -57,7 +57,7 @@ func (s *storeSuite) TestAdd(c *gc.C) {
 		"agent-binaries/4.0-beta1-amd64-test-sha384",
 		agentBinary, int64(1234), "test-sha384",
 	).Return(objectStoreUUID, nil)
-	s.mockState.EXPECT().AddAgentBinary(gomock.Any(), agentbinary.AddAgentBinaryArg{
+	s.mockState.EXPECT().RegisterAgentBinary(gomock.Any(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.0-beta1",
 		Arch:            corearch.AMD64,
 		ObjectStoreUUID: objectStoreUUID,
@@ -75,7 +75,7 @@ func (s *storeSuite) TestAdd(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *storeSuite) TestAddFailedInvalidAgentVersion(c *gc.C) {
+func (s *storeSuite) TestAddAgentBinaryFailedInvalidAgentVersion(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	agentBinary := strings.NewReader("test-agent-binary")
@@ -91,7 +91,7 @@ func (s *storeSuite) TestAddFailedInvalidAgentVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *storeSuite) TestAddFailedInvalidArch(c *gc.C) {
+func (s *storeSuite) TestAddAgentBinaryFailedInvalidArch(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	agentBinary := strings.NewReader("test-agent-binary")
@@ -108,10 +108,10 @@ func (s *storeSuite) TestAddFailedInvalidArch(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
-// TestAddIdempotentSave tests that the objectstore returns an error when the binary already exists.
+// TestAddAgentBinaryIdempotentSave tests that the objectstore returns an error when the binary already exists.
 // There must be a failure in previous calls. In a following retry, we pick up the existing binary from the
 // object store and add it to the state.
-func (s *storeSuite) TestAddIdempotentSave(c *gc.C) {
+func (s *storeSuite) TestAddAgentBinaryIdempotentSave(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	agentBinary := strings.NewReader("test-agent-binary")
@@ -123,7 +123,7 @@ func (s *storeSuite) TestAddIdempotentSave(c *gc.C) {
 		agentBinary, int64(1234), "test-sha384",
 	).Return("", objectstoreerrors.ErrHashAndSizeAlreadyExists)
 	s.mockState.EXPECT().GetObjectUUID(gomock.Any(), "agent-binaries/4.6.8-amd64-test-sha384").Return(objectStoreUUID, nil)
-	s.mockState.EXPECT().AddAgentBinary(gomock.Any(), agentbinary.AddAgentBinaryArg{
+	s.mockState.EXPECT().RegisterAgentBinary(gomock.Any(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.6.8",
 		Arch:            corearch.AMD64,
 		ObjectStoreUUID: objectStoreUUID,
@@ -141,10 +141,10 @@ func (s *storeSuite) TestAddIdempotentSave(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// TestAddFailedNotSupportedArch tests that the state returns an error when the architecture is not supported.
+// TestAddAgentBinaryFailedNotSupportedArchWithBinaryCleanUp tests that the state returns an error when the architecture is not supported.
 // This should not happen because the validation is done before calling the state.
 // But just in case, we should still test it.
-func (s *storeSuite) TestAddFailedNotSupportedArchWithBinaryCleanUp(c *gc.C) {
+func (s *storeSuite) TestAddAgentBinaryFailedNotSupportedArchWithBinaryCleanUp(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	agentBinary := strings.NewReader("test-agent-binary")
@@ -155,7 +155,7 @@ func (s *storeSuite) TestAddFailedNotSupportedArchWithBinaryCleanUp(c *gc.C) {
 		"agent-binaries/4.6.8-amd64-test-sha384",
 		agentBinary, int64(1234), "test-sha384",
 	).Return(objectStoreUUID, nil)
-	s.mockState.EXPECT().AddAgentBinary(gomock.Any(), agentbinary.AddAgentBinaryArg{
+	s.mockState.EXPECT().RegisterAgentBinary(gomock.Any(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.6.8",
 		Arch:            corearch.AMD64,
 		ObjectStoreUUID: objectStoreUUID,
@@ -174,10 +174,10 @@ func (s *storeSuite) TestAddFailedNotSupportedArchWithBinaryCleanUp(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreerrors.NotSupported)
 }
 
-// TestAddFailedObjectStoreUUIDNotFound tests that the state returns an error when the object store UUID is not found.
+// TestAddAgentBinaryFailedObjectStoreUUIDNotFoundWithBinaryCleanUp tests that the state returns an error when the object store UUID is not found.
 // This should not happen because the object store UUID is returned by the object store.
 // But just in case, we should still test it.
-func (s *storeSuite) TestAddFailedObjectStoreUUIDNotFoundWithBinaryCleanUp(c *gc.C) {
+func (s *storeSuite) TestAddAgentBinaryFailedObjectStoreUUIDNotFoundWithBinaryCleanUp(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	agentBinary := strings.NewReader("test-agent-binary")
@@ -188,7 +188,7 @@ func (s *storeSuite) TestAddFailedObjectStoreUUIDNotFoundWithBinaryCleanUp(c *gc
 		"agent-binaries/4.6.8-amd64-test-sha384",
 		agentBinary, int64(1234), "test-sha384",
 	).Return(objectStoreUUID, nil)
-	s.mockState.EXPECT().AddAgentBinary(gomock.Any(), agentbinary.AddAgentBinaryArg{
+	s.mockState.EXPECT().RegisterAgentBinary(gomock.Any(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.6.8",
 		Arch:            corearch.AMD64,
 		ObjectStoreUUID: objectStoreUUID,
@@ -207,10 +207,10 @@ func (s *storeSuite) TestAddFailedObjectStoreUUIDNotFoundWithBinaryCleanUp(c *gc
 	c.Assert(err, jc.ErrorIs, agentbinaryerrors.ObjectNotFound)
 }
 
-// TestAddFailedAgentBinaryImmutableWithBinaryCleanUp tests that the state returns an error
+// TestAddAgentBinaryFailedAgentBinaryImmutableWithBinaryCleanUp tests that the state returns an error
 // when the agent binary is immutable. The agent binary is immutable once it has been
 // added. If we got this error, we should cleanup the newly added binary from the object store.
-func (s *storeSuite) TestAddFailedAgentBinaryImmutableWithBinaryCleanUp(c *gc.C) {
+func (s *storeSuite) TestAddAgentBinaryFailedAgentBinaryImmutableWithBinaryCleanUp(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	agentBinary := strings.NewReader("test-agent-binary")
@@ -221,7 +221,7 @@ func (s *storeSuite) TestAddFailedAgentBinaryImmutableWithBinaryCleanUp(c *gc.C)
 		"agent-binaries/4.6.8-amd64-test-sha384",
 		agentBinary, int64(1234), "test-sha384",
 	).Return(objectStoreUUID, nil)
-	s.mockState.EXPECT().AddAgentBinary(gomock.Any(), agentbinary.AddAgentBinaryArg{
+	s.mockState.EXPECT().RegisterAgentBinary(gomock.Any(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.6.8",
 		Arch:            corearch.AMD64,
 		ObjectStoreUUID: objectStoreUUID,
@@ -240,11 +240,11 @@ func (s *storeSuite) TestAddFailedAgentBinaryImmutableWithBinaryCleanUp(c *gc.C)
 	c.Assert(err, jc.ErrorIs, agentbinaryerrors.AgentBinaryImmutable)
 }
 
-// TestAddAlreadyExistsWithCleanup is testing that if we try and add an agent
+// TestAddAgentBinaryAlreadyExistsWithNoCleanup is testing that if we try and add an agent
 // binary that already exists, we should get back an error satisfying
 // [agentbinaryerrors.AlreadyExists] but the existing binary should be removed from the
 // object store.
-func (s *storeSuite) TestAddAlreadyExistsWithNoCleanup(c *gc.C) {
+func (s *storeSuite) TestAddAgentBinaryAlreadyExistsWithNoCleanup(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	agentBinary := strings.NewReader("test-agent-binary")
@@ -255,7 +255,7 @@ func (s *storeSuite) TestAddAlreadyExistsWithNoCleanup(c *gc.C) {
 		"agent-binaries/4.6.8-amd64-test-sha384",
 		agentBinary, int64(1234), "test-sha384",
 	).Return(objectStoreUUID, nil)
-	s.mockState.EXPECT().AddAgentBinary(gomock.Any(), agentbinary.AddAgentBinaryArg{
+	s.mockState.EXPECT().RegisterAgentBinary(gomock.Any(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.6.8",
 		Arch:            corearch.AMD64,
 		ObjectStoreUUID: objectStoreUUID,
@@ -301,7 +301,7 @@ func (s *storeSuite) TestAddAgentBinaryWithSHA256(c *gc.C) {
 		c.Check(string(bytes), gc.Equals, "test-agent-binary")
 		return objectStoreUUID, nil
 	})
-	s.mockState.EXPECT().AddAgentBinary(gomock.Any(), agentbinary.AddAgentBinaryArg{
+	s.mockState.EXPECT().RegisterAgentBinary(gomock.Any(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.6.8",
 		Arch:            corearch.AMD64,
 		ObjectStoreUUID: objectStoreUUID,

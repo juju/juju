@@ -29,10 +29,14 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
+// TestListAgentBinaries tests the ListAgentBinaries method of the
+// AgentBinaryService. It verifies that the method correctly merges
+// agent binaries from the controller and model stores, with the model
+// binaries taking precedence over the controller binaries.
 func (s *serviceSuite) TestListAgentBinaries(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.mockControllerState.EXPECT().ListAgentBinaries(gomock.Any()).Return([]agentbinary.Metadata{
+	controllerBinaries := []agentbinary.Metadata{
 		{
 			Version: "4.0.0",
 			Size:    1,
@@ -43,8 +47,8 @@ func (s *serviceSuite) TestListAgentBinaries(c *gc.C) {
 			Size:    2,
 			SHA256:  "sha256hash-2",
 		},
-	}, nil)
-	s.mockModelState.EXPECT().ListAgentBinaries(gomock.Any()).Return([]agentbinary.Metadata{
+	}
+	modelBinaries := []agentbinary.Metadata{
 		{
 			Version: "4.0.1",
 			Size:    222,
@@ -56,12 +60,8 @@ func (s *serviceSuite) TestListAgentBinaries(c *gc.C) {
 			Size:    3,
 			SHA256:  "sha256hash-3",
 		},
-	}, nil)
-
-	svc := NewAgentBinaryService(s.mockControllerState, s.mockModelState)
-	result, err := svc.ListAgentBinaries(context.Background())
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, jc.SameContents, []agentbinary.Metadata{
+	}
+	expected := []agentbinary.Metadata{
 		{
 			Version: "4.0.0",
 			Size:    1,
@@ -77,5 +77,12 @@ func (s *serviceSuite) TestListAgentBinaries(c *gc.C) {
 			Size:    3,
 			SHA256:  "sha256hash-3",
 		},
-	})
+	}
+	s.mockControllerState.EXPECT().ListAgentBinaries(gomock.Any()).Return(controllerBinaries, nil)
+	s.mockModelState.EXPECT().ListAgentBinaries(gomock.Any()).Return(modelBinaries, nil)
+
+	svc := NewAgentBinaryService(s.mockControllerState, s.mockModelState)
+	result, err := svc.ListAgentBinaries(context.Background())
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, jc.SameContents, expected)
 }

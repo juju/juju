@@ -41,10 +41,10 @@ func NewAgentBinaryService(
 	}
 }
 
-// ListAgentBinaries lists all agent binaries in the controller and model states.
+// ListAgentBinaries lists all agent binaries in the controller and model stores.
 // It merges the two lists of agent binaries, with the model agent binaries
 // taking precedence over the controller agent binaries.
-// It returns a slice of agent binary metadata.
+// It returns a slice of agent binary metadata. The order of the metadata is not guaranteed.
 // An empty slice is returned if no agent binaries are found.
 func (s *AgentBinaryService) ListAgentBinaries(ctx context.Context) ([]agentbinary.Metadata, error) {
 	controllerAgentBinaries, err := s.controllerState.ListAgentBinaries(ctx)
@@ -66,7 +66,7 @@ func (s *AgentBinaryService) ListAgentBinaries(ctx context.Context) ([]agentbina
 		allAgentBinaries[ab.SHA256] = ab
 	}
 	// Convert the map back to a slice.
-	var allAgentBinariesSlice []agentbinary.Metadata
+	allAgentBinariesSlice := make([]agentbinary.Metadata, 0, len(allAgentBinaries))
 	for _, ab := range allAgentBinaries {
 		allAgentBinariesSlice = append(allAgentBinariesSlice, ab)
 	}

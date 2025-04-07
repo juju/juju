@@ -41,44 +41,6 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
-// AddAgentBinary mocks base method.
-func (m *MockState) AddAgentBinary(arg0 context.Context, arg1 agentbinary.AddAgentBinaryArg) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddAgentBinary", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AddAgentBinary indicates an expected call of AddAgentBinary.
-func (mr *MockStateMockRecorder) AddAgentBinary(arg0, arg1 any) *MockStateAddAgentBinaryCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddAgentBinary", reflect.TypeOf((*MockState)(nil).AddAgentBinary), arg0, arg1)
-	return &MockStateAddAgentBinaryCall{Call: call}
-}
-
-// MockStateAddAgentBinaryCall wrap *gomock.Call
-type MockStateAddAgentBinaryCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateAddAgentBinaryCall) Return(arg0 error) *MockStateAddAgentBinaryCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateAddAgentBinaryCall) Do(f func(context.Context, agentbinary.AddAgentBinaryArg) error) *MockStateAddAgentBinaryCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAddAgentBinaryCall) DoAndReturn(f func(context.Context, agentbinary.AddAgentBinaryArg) error) *MockStateAddAgentBinaryCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetObjectUUID mocks base method.
 func (m *MockState) GetObjectUUID(arg0 context.Context, arg1 string) (objectstore.UUID, error) {
 	m.ctrl.T.Helper()
@@ -114,6 +76,44 @@ func (c *MockStateGetObjectUUIDCall) Do(f func(context.Context, string) (objects
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetObjectUUIDCall) DoAndReturn(f func(context.Context, string) (objectstore.UUID, error)) *MockStateGetObjectUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// RegisterAgentBinary mocks base method.
+func (m *MockState) RegisterAgentBinary(arg0 context.Context, arg1 agentbinary.RegisterAgentBinaryArg) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RegisterAgentBinary", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RegisterAgentBinary indicates an expected call of RegisterAgentBinary.
+func (mr *MockStateMockRecorder) RegisterAgentBinary(arg0, arg1 any) *MockStateRegisterAgentBinaryCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterAgentBinary", reflect.TypeOf((*MockState)(nil).RegisterAgentBinary), arg0, arg1)
+	return &MockStateRegisterAgentBinaryCall{Call: call}
+}
+
+// MockStateRegisterAgentBinaryCall wrap *gomock.Call
+type MockStateRegisterAgentBinaryCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateRegisterAgentBinaryCall) Return(arg0 error) *MockStateRegisterAgentBinaryCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateRegisterAgentBinaryCall) Do(f func(context.Context, agentbinary.RegisterAgentBinaryArg) error) *MockStateRegisterAgentBinaryCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateRegisterAgentBinaryCall) DoAndReturn(f func(context.Context, agentbinary.RegisterAgentBinaryArg) error) *MockStateRegisterAgentBinaryCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

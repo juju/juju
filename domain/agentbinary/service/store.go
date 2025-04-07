@@ -24,14 +24,14 @@ import (
 
 // State describes the interface that the cache state must implement.
 type State interface {
-	// AddAgentBinary adds a new agent binary's metadata to the database.
+	// RegisterAgentBinary registers a new agent binary's metadata to the database.
 	// [agentbinaryerrors.AlreadyExists] when the provided agent binary already
 	// exists.
 	// [agentbinaryerrors.ObjectNotFound] when no object exists that matches
 	// this agent binary.
 	// [coreerrors.NotSupported] if the architecture is not supported by the
 	// state layer.
-	AddAgentBinary(ctx context.Context, arg agentbinary.AddAgentBinaryArg) error
+	RegisterAgentBinary(ctx context.Context, arg agentbinary.RegisterAgentBinaryArg) error
 
 	// GetObjectUUID returns the object store UUID for the given file path.
 	// The following errors can be returned:
@@ -132,7 +132,7 @@ func (s *AgentBinaryStore) add(
 		version.Arch,
 	)
 
-	err = s.st.AddAgentBinary(ctx, agentbinary.AddAgentBinaryArg{
+	err = s.st.RegisterAgentBinary(ctx, agentbinary.RegisterAgentBinaryArg{
 		Version:         version.Number.String(),
 		Arch:            version.Arch,
 		ObjectStoreUUID: uuid,

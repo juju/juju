@@ -7,11 +7,11 @@ import (
 	"github.com/juju/juju/core/objectstore"
 )
 
-// AddAgentBinaryArg describes the arguments for adding an agent binary.
+// RegisterAgentBinaryArg describes the arguments for adding an agent binary.
 // It contains the version, architecture, and object store UUID of the agent binary.
 // The object store UUID is the primary key of the object store record where the
 // agent binary is stored.
-type AddAgentBinaryArg struct {
+type RegisterAgentBinaryArg struct {
 	// Version is the version of the agent binary.
 	Version string
 	// Arch is the architecture of the agent binary.
