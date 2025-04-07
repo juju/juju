@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/juju/core/modelmigration"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/password"
-	"github.com/juju/juju/domain/password/service"
-	"github.com/juju/juju/domain/password/state"
+	"github.com/juju/juju/domain/agentpassword"
+	"github.com/juju/juju/domain/agentpassword/service"
+	"github.com/juju/juju/domain/agentpassword/state"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -34,7 +34,7 @@ type importOperation struct {
 // from another controller model to this controller.
 type ImportService interface {
 	// SetUnitPasswordHash sets the password hash for the given unit.
-	SetUnitPasswordHash(ctx context.Context, unitName coreunit.Name, passwordHash password.PasswordHash) error
+	SetUnitPasswordHash(ctx context.Context, unitName coreunit.Name, passwordHash agentpassword.PasswordHash) error
 }
 
 // Name returns the name of this operation.
@@ -61,7 +61,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 			unitName := unit.Name()
 
-			if err := i.service.SetUnitPasswordHash(ctx, coreunit.Name(unitName), password.PasswordHash(passwordHash)); err != nil {
+			if err := i.service.SetUnitPasswordHash(ctx, coreunit.Name(unitName), agentpassword.PasswordHash(passwordHash)); err != nil {
 				return errors.Errorf("setting password hash for unit %q: %w", unit.Name(), err)
 			}
 		}

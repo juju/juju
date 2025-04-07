@@ -23,7 +23,7 @@ import (
 type agentSuite struct {
 	testing.IsolationSuite
 
-	passwordService *MockPasswordService
+	passwordService *MockAgentPasswordService
 }
 
 var _ = gc.Suite(&agentSuite{})
@@ -89,7 +89,7 @@ func (s *agentSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
 func (s *agentSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.passwordService = NewMockPasswordService(ctrl)
+	s.passwordService = NewMockAgentPasswordService(ctrl)
 
 	return ctrl
 }

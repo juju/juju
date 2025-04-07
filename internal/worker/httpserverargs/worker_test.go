@@ -88,7 +88,7 @@ func startedAuthFunc(started chan struct{}) NewStateAuthenticatorFunc {
 		statePool *state.StatePool,
 		controllerModelUUID model.UUID,
 		controllerConfigService ControllerConfigService,
-		passwordServiceGetter PasswordServiceGetter,
+		agentPasswordServiceGetter AgentPasswordServiceGetter,
 		accessService AccessService,
 		macaroonService MacaroonService,
 		mux *apiserverhttp.Mux,

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	corestorage "github.com/juju/juju/core/storage"
 	access "github.com/juju/juju/domain/access/modelmigration"
+	agentpassword "github.com/juju/juju/domain/agentpassword/modelmigration"
 	application "github.com/juju/juju/domain/application/modelmigration"
 	blockcommand "github.com/juju/juju/domain/blockcommand/modelmigration"
 	blockdevice "github.com/juju/juju/domain/blockdevice/modelmigration"
@@ -22,7 +23,6 @@ import (
 	model "github.com/juju/juju/domain/model/modelmigration"
 	modelconfig "github.com/juju/juju/domain/modelconfig/modelmigration"
 	network "github.com/juju/juju/domain/network/modelmigration"
-	password "github.com/juju/juju/domain/password/modelmigration"
 	resource "github.com/juju/juju/domain/resource/modelmigration"
 	secret "github.com/juju/juju/domain/secret/modelmigration"
 	status "github.com/juju/juju/domain/status/modelmigration"
@@ -76,7 +76,7 @@ func (e *Exporter) ExportOperations(registry corestorage.ModelStorageRegistryGet
 	secret.RegisterExport(e.coordinator, e.logger.Child("secret"))
 	application.RegisterExport(e.coordinator, e.storageRegistryGetter, e.clock, e.logger.Child("application"))
 	lease.RegisterExport(e.coordinator)
-	password.RegisterExport(e.coordinator)
+	agentpassword.RegisterExport(e.coordinator)
 	status.RegisterExport(e.coordinator, e.clock, e.logger.Child("status"))
 	resource.RegisterExport(e.coordinator, e.clock, e.logger.Child("resource"))
 	cloudimagemetadata.RegisterExport(e.coordinator, e.logger.Child("cloudimagemetadata"), e.clock)

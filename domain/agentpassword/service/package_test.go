@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination state_mock_test.go github.com/juju/juju/domain/password/service State,MigrationState
+//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination state_mock_test.go github.com/juju/juju/domain/agentpassword/service State,MigrationState
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

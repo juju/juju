@@ -38,7 +38,7 @@ type ModelOperatorSuite struct {
 	state                   *mockState
 	controllerConfigService *MockControllerConfigService
 	modelConfigService      *MockModelConfigService
-	passwordService         *MockPasswordService
+	passwordService         *MockAgentPasswordService
 }
 
 var _ = gc.Suite(&ModelOperatorSuite{})
@@ -162,7 +162,7 @@ func (s *ModelOperatorSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
 func (m *ModelOperatorSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	m.passwordService = NewMockPasswordService(ctrl)
+	m.passwordService = NewMockAgentPasswordService(ctrl)
 	m.controllerConfigService = NewMockControllerConfigService(ctrl)
 	m.modelConfigService = NewMockModelConfigService(ctrl)
 

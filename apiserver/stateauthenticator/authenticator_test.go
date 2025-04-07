@@ -28,14 +28,14 @@ import (
 type agentAuthenticatorSuite struct {
 	statetesting.StateSuite
 
-	authenticator            *Authenticator
-	entityAuthenticator      *MockEntityAuthenticator
-	agentAuthenticatorGetter *MockAgentAuthenticatorGetter
-	passwordServiceGetter    *MockPasswordServiceGetter
-	passwordService          *MockPasswordService
-	controllerConfigService  *MockControllerConfigService
-	accessService            *MockAccessService
-	macaroonService          *MockMacaroonService
+	authenticator              *Authenticator
+	entityAuthenticator        *MockEntityAuthenticator
+	agentAuthenticatorGetter   *MockAgentAuthenticatorGetter
+	agentPasswordServiceGetter *MockAgentPasswordServiceGetter
+	agentPasswordService       *MockAgentPasswordService
+	controllerConfigService    *MockControllerConfigService
+	accessService              *MockAccessService
+	macaroonService            *MockMacaroonService
 }
 
 var _ = gc.Suite(&agentAuthenticatorSuite{})
@@ -43,7 +43,7 @@ var _ = gc.Suite(&agentAuthenticatorSuite{})
 func (s *agentAuthenticatorSuite) TestAuthenticateLoginRequestHandleNotSupportedRequests(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.passwordServiceGetter.EXPECT().GetPasswordServiceForModel(gomock.Any(), gomock.Any()).Return(s.passwordService, nil)
+	s.agentPasswordServiceGetter.EXPECT().GetAgentPasswordServiceForModel(gomock.Any(), gomock.Any()).Return(s.agentPasswordService, nil)
 	s.agentAuthenticatorGetter.EXPECT().AuthenticatorForModel(gomock.Any(), gomock.Any()).Return(s.entityAuthenticator)
 
 	_, err := s.authenticator.AuthenticateLoginRequest(context.Background(), "", "", authentication.AuthParams{Token: "token"})
@@ -136,8 +136,8 @@ func (s *agentAuthenticatorSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.agentAuthenticatorGetter = NewMockAgentAuthenticatorGetter(ctrl)
 	s.entityAuthenticator = NewMockEntityAuthenticator(ctrl)
 
-	s.passwordServiceGetter = NewMockPasswordServiceGetter(ctrl)
-	s.passwordService = NewMockPasswordService(ctrl)
+	s.agentPasswordServiceGetter = NewMockAgentPasswordServiceGetter(ctrl)
+	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfig, nil).AnyTimes()
@@ -153,7 +153,7 @@ func (s *agentAuthenticatorSuite) setupMocks(c *gc.C) *gomock.Controller {
 		s.StatePool,
 		model.UUID(testing.ModelTag.Id()),
 		s.controllerConfigService,
-		s.passwordServiceGetter,
+		s.agentPasswordServiceGetter,
 		s.accessService,
 		s.macaroonService,
 		s.agentAuthenticatorGetter,

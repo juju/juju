@@ -47,7 +47,7 @@ func NewAPI(
 	resources facade.Resources,
 	ctrlSt CAASControllerState,
 	st CAASModelOperatorState,
-	passwordService PasswordService,
+	agentPasswordService AgentPasswordService,
 	controllerConfigService ControllerConfigService,
 	modelConfigService ModelConfigService,
 	logger corelogger.Logger,
@@ -60,7 +60,7 @@ func NewAPI(
 	return &API{
 		auth:                    authorizer,
 		APIAddresser:            common.NewAPIAddresser(ctrlSt, resources),
-		PasswordChanger:         common.NewPasswordChanger(passwordService, st, common.AuthFuncForTagKind(names.ModelTagKind)),
+		PasswordChanger:         common.NewPasswordChanger(agentPasswordService, st, common.AuthFuncForTagKind(names.ModelTagKind)),
 		ctrlState:               ctrlSt,
 		controllerConfigService: controllerConfigService,
 		modelConfigService:      modelConfigService,

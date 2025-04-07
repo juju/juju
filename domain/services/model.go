@@ -18,6 +18,8 @@ import (
 	coreresourcestore "github.com/juju/juju/core/resource/store"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain"
+	agentpasswordservice "github.com/juju/juju/domain/agentpassword/service"
+	agentpasswordstate "github.com/juju/juju/domain/agentpassword/state"
 	agentprovisionerservice "github.com/juju/juju/domain/agentprovisioner/service"
 	agentprovisionerstate "github.com/juju/juju/domain/agentprovisioner/state"
 	annotationService "github.com/juju/juju/domain/annotation/service"
@@ -51,8 +53,6 @@ import (
 	modelmigrationstate "github.com/juju/juju/domain/modelmigration/state"
 	networkservice "github.com/juju/juju/domain/network/service"
 	networkstate "github.com/juju/juju/domain/network/state"
-	passwordservice "github.com/juju/juju/domain/password/service"
-	passwordstate "github.com/juju/juju/domain/password/state"
 	portservice "github.com/juju/juju/domain/port/service"
 	portstate "github.com/juju/juju/domain/port/state"
 	proxy "github.com/juju/juju/domain/proxy/service"
@@ -436,11 +436,11 @@ func (s *ModelServices) Removal() *removalservice.WatchableService {
 	)
 }
 
-// Password returns the service for working with passwords in the current
-// model.
-func (s *ModelServices) Password() *passwordservice.Service {
-	return passwordservice.NewService(
-		passwordstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+// AgentPassword returns the service for working with agent passwords in the
+// current model.
+func (s *ModelServices) AgentPassword() *agentpasswordservice.Service {
+	return agentpasswordservice.NewService(
+		agentpasswordstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)
 }
 

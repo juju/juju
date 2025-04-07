@@ -84,7 +84,7 @@ func (s *ManifoldSuite) newStateAuthenticator(
 	statePool *state.StatePool,
 	modelUUID model.UUID,
 	controllerConfig httpserverargs.ControllerConfigService,
-	passwordServiceGetter httpserverargs.PasswordServiceGetter,
+	agentPasswordServiceGetter httpserverargs.AgentPasswordServiceGetter,
 	accessService httpserverargs.AccessService,
 	macaroonService httpserverargs.MacaroonService,
 	mux *apiserverhttp.Mux,
