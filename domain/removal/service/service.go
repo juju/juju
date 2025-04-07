@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 
 	"github.com/juju/clock"
 
@@ -51,6 +52,19 @@ func (s *Service) GetAllJobs(ctx context.Context) ([]removal.Job, error) {
 // If the job is determined to have run successfully, we ensure that
 // no removal job with the same UUID exists in the database.
 func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
+	var err error
+
+	switch job.RemovalType {
+	case removal.RelationJob:
+		err = s.processRelationRemovalJob(ctx, job)
+	default:
+		err = errors.Errorf("removal job type %q not supported", job.RemovalType).Add(
+			removalerrors.RemovalJobTypeNotSupported)
+	}
+
+	if err != nil {
+		return errors.Capture(err)
+	}
 	return nil
 }
 

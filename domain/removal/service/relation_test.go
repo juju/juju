@@ -5,6 +5,8 @@ package service
 
 import (
 	"context"
+	"github.com/juju/juju/domain/removal"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -67,6 +69,18 @@ func (s *relationSuite) TestRemoveRelationNotFound(c *gc.C) {
 	_, err := s.newService(c).RemoveRelation(context.Background(), rUUID, true)
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
+
+func (s *relationSuite) TestProcessRemovalJobInvalidJobType(c *gc.C) {
+	var invalidJobType removal.JobType = 500
+
+	job := removal.Job{
+		RemovalType: invalidJobType,
+	}
+
+	err := s.newService(c).processRelationRemovalJob(context.Background(), job)
+	c.Check(err, jc.ErrorIs, removalerrors.RemovalJobTypeNotValid)
+}
+
 func newRelUUID(c *gc.C) corerelation.UUID {
 	rUUID, err := corerelation.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)

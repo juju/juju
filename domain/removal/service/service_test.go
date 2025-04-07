@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -59,4 +60,15 @@ func (s *serviceSuite) TestGetAllJobsError(c *gc.C) {
 	jobs, err := s.newService(c).GetAllJobs(context.Background())
 	c.Assert(err, gc.ErrorMatches, "the front fell off")
 	c.Check(jobs, gc.IsNil)
+}
+
+func (s *serviceSuite) TestExecuteJobUnsupportedType(c *gc.C) {
+	var unsupportedJobType removal.JobType = 500
+
+	job := removal.Job{
+		RemovalType: unsupportedJobType,
+	}
+
+	err := s.newService(c).ExecuteJob(context.Background(), job)
+	c.Check(err, jc.ErrorIs, removalerrors.RemovalJobTypeNotSupported)
 }

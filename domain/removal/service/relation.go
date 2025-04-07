@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"time"
 
 	"github.com/juju/juju/core/changestream"
@@ -78,4 +79,13 @@ func (s *WatchableService) WatchRemovals() (watcher.StringsWatcher, error) {
 		return nil, errors.Errorf("creating watcher for removals: %w", err)
 	}
 	return w, nil
+}
+
+func (s *Service) processRelationRemovalJob(ctx context.Context, job removal.Job) error {
+	if job.RemovalType != removal.RelationJob {
+		return errors.Errorf("job type: %q not valid for relation removal", job.RemovalType).Add(
+			removalerrors.RemovalJobTypeNotValid)
+	}
+
+	return nil
 }
