@@ -53,6 +53,8 @@ type State interface {
 
 	// GetUnitTargetAgentVersion returns the target agent version for the specified unit.
 	// The following error types can be expected:
+	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when the
+	// unit does not exist.
 	// - [github.com/juju/juju/domain/model/errors.AgentVersionNotFound] when
 	// the agent version does not exist.
 	GetUnitTargetAgentVersion(context.Context, coreunit.UUID) (coreagentbinary.Version, error)

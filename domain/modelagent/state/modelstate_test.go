@@ -87,12 +87,13 @@ func (s *modelStateSuite) setMachineAgentVersion(c *gc.C, machineUUID, running s
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelStateSuite) setUnitAgentVersion(c *gc.C, unitUUID, target, running string) {
-	s.setModelTargetAgentVersion(c, target)
+func (s *modelStateSuite) setUnitAgentVersion(
+	c *gc.C, unitUUID coreunit.UUID, running string,
+) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx,
 			"INSERT INTO unit_agent_version (unit_uuid, version, architecture_id) values (?, ?, ?)",
-			unitUUID, running, 0)
+			unitUUID.String(), running, 0)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -314,9 +315,12 @@ func (s *modelStateSuite) TestGetMachineRunningAgentBinaryVersion(c *gc.C) {
 	})
 }
 
+// TestGetUnitTargetAgentVersion is testing the happy path of getting a units
+// target agent binary version.
 func (s *modelStateSuite) TestGetUnitTargetAgentBinaryVersion(c *gc.C) {
 	unitUUID := s.createTestingUnit(c)
-	s.setUnitAgentVersion(c, unitUUID.String(), "4.0.1", "4.0.0")
+	s.setUnitAgentVersion(c, unitUUID, "4.0.0")
+	s.setModelTargetAgentVersion(c, "4.0.1")
 
 	st := NewState(s.TxnRunnerFactory())
 	vers, err := st.GetUnitTargetAgentVersion(
@@ -330,21 +334,39 @@ func (s *modelStateSuite) TestGetUnitTargetAgentBinaryVersion(c *gc.C) {
 	})
 }
 
-func (s *modelStateSuite) TestGetUnitAgentVersionCantParseVersion(c *gc.C) {
+// TestGetUnitAgentVersionCantParseVersion test that when the target agent
+// version can't be parsed by state we get back an error.
+func (s *modelStateSuite) TestGetUnitTargetAgentVersionCantParseVersion(c *gc.C) {
 	unitUUID := s.createTestingUnit(c)
-	s.setUnitAgentVersion(c, unitUUID.String(), "invalid-version", "4.0.0")
+	s.setUnitAgentVersion(c, unitUUID, "4.0.0")
+	s.setModelTargetAgentVersion(c, "invalid-version")
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetUnitTargetAgentVersion(context.Background(), unitUUID)
-	c.Check(err, gc.ErrorMatches, `parsing unit agent version: invalid version "invalid-version".*`)
+	c.Check(err, gc.ErrorMatches, `parsing unit .* target agent version "invalid-version": invalid version "invalid-version".*`)
 }
 
-func (s *modelStateSuite) TestGetUnitAgentVersionNotFound(c *gc.C) {
+// TestGetUnitAgentVersionNotFound asserts that if the unit has not record a
+// agent binary version yet we get back a
+// [modelagenterrors.AgentVersionNotFound] error.
+func (s *modelStateSuite) TestGetUnitTargetAgentVersionNotFound(c *gc.C) {
 	unitUUID := s.createTestingUnit(c)
 
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetUnitTargetAgentVersion(context.Background(), unitUUID)
-	c.Check(err, gc.ErrorMatches, `agent version not found`)
+	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotFound)
+}
+
+// TestGetUnitTargetAgentVersionModelVersionNotFound is testing that if no
+// target agent version has been set for the model we get back a
+// [modelagenterrors.AgentVersionNotFound] error.
+func (s *modelStateSuite) TestGetUnitTargetAgentVersionModelVersionNotFound(c *gc.C) {
+	unitUUID := s.createTestingUnit(c)
+	s.setUnitAgentVersion(c, unitUUID, "4.1.1")
+
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.GetUnitTargetAgentVersion(context.Background(), unitUUID)
+	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }
 
 // TestSetMachineRunningAgentBinaryVersionSuccess asserts that if we attempt to

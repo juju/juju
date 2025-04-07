@@ -44,7 +44,9 @@ type machineTargetAgentVersionInfo struct {
 	ArchitectureName string `db:"architecture_name"`
 }
 
-type unitAgentVersionInfo struct {
+// unitTargetAgentVersionInfo represents a record from the
+// v_unit_target_agent_version view.
+type unitTargetAgentVersionInfo struct {
 	UnitUUID         coreunit.UUID `db:"unit_uuid"`
 	TargetVersion    string        `db:"target_version"`
 	ArchitectureName string        `db:"architecture_name"`

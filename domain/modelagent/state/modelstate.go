@@ -74,26 +74,32 @@ SELECT &machineLife.* FROM machine WHERE uuid = $machineLife.uuid
 // access alive and dying units, but not dead ones:
 // - If the unit is not found, [applicationerrors.UnitNotFound] is returned.
 // - If the unit is dead, [applicationerrors.UnitIsDead] is returned.
-func (st *State) checkUnitNotDead(ctx context.Context, tx *sqlair.TX, ident unitUUID) error {
+func (st *State) checkUnitNotDead(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid coreunit.UUID,
+) error {
 	type life struct {
 		LifeID domainlife.Life `db:"life_id"`
 	}
 
+	unitUUID := unitUUID{UnitUUID: uuid}
+
 	stmt, err := st.Prepare(
 		"SELECT &life.* FROM unit WHERE uuid = $unitUUID.uuid",
-		ident,
+		unitUUID,
 		life{},
 	)
 	if err != nil {
-		return errors.Errorf("preparing query for unit %q: %w", ident.UnitUUID, err)
+		return errors.Capture(err)
 	}
 
 	var result life
-	err = tx.Query(ctx, stmt, ident).Get(&result)
+	err = tx.Query(ctx, stmt, unitUUID).Get(&result)
 	if errors.Is(err, sql.ErrNoRows) {
 		return applicationerrors.UnitNotFound
 	} else if err != nil {
-		return errors.Errorf("checking unit %q exists: %w", ident.UnitUUID, err)
+		return errors.Errorf("checking unit %q exists: %w", uuid, err)
 	}
 
 	switch result.LifeID {
@@ -279,33 +285,45 @@ WHERE machine_uuid = $machineUUIDRef.machine_uuid
 
 // GetUnitTargetAgentVersion returns the target agent version for the specified unit.
 // The following error types can be expected:
-// - [modelagenterrors.AgentVersionNotFound] - when the agent version does not exist.
+// - [applicationerrors.UnitNotFound] when the unit does not exist.
+// - [modelagenterrors.AgentVersionNotFound] when the agent version does not exist.
 func (st *State) GetUnitTargetAgentVersion(ctx context.Context, uuid coreunit.UUID) (coreagentbinary.Version, error) {
 	db, err := st.DB()
 	if err != nil {
 		return coreagentbinary.Version{}, errors.Capture(err)
 	}
 
-	info := unitAgentVersionInfo{UnitUUID: uuid}
+	info := unitTargetAgentVersionInfo{UnitUUID: uuid}
 
 	stmt, err := st.Prepare(`
-SELECT av.target_version AS &unitAgentVersionInfo.target_version,
-       a.name AS &unitAgentVersionInfo.architecture_name
-FROM   agent_version AS av,
-       unit_agent_version AS uav
-JOIN   architecture AS a ON uav.architecture_id = a.id
-WHERE  uav.unit_uuid = $unitAgentVersionInfo.unit_uuid
+SELECT &unitTargetAgentVersionInfo.*
+FROM v_unit_target_agent_version
+WHERE unit_uuid = $unitTargetAgentVersionInfo.unit_uuid
 `, info)
 	if err != nil {
 		return coreagentbinary.Version{}, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, info).Get(&info)
+		err := st.checkUnitNotDead(ctx, tx, uuid)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			return errors.Errorf(
+				"unit %q does not exist", uuid,
+			).Add(applicationerrors.UnitNotFound)
+		} else if err != nil && !errors.Is(err, applicationerrors.UnitIsDead) {
+			return errors.Errorf(
+				"checking if unit %q exists: %w", uuid, err,
+			)
+		}
+
+		err = tx.Query(ctx, stmt, info).Get(&info)
 		if errors.Is(err, sql.ErrNoRows) {
 			return modelagenterrors.AgentVersionNotFound
 		} else if err != nil {
-			return errors.Errorf("getting unit agent version: %w", err)
+			return errors.Errorf(
+				"getting unit %q target agent version: %w",
+				uuid, err,
+			)
 		}
 		return nil
 	})
@@ -315,7 +333,10 @@ WHERE  uav.unit_uuid = $unitAgentVersionInfo.unit_uuid
 
 	vers, err := semversion.Parse(info.TargetVersion)
 	if err != nil {
-		return coreagentbinary.Version{}, errors.Errorf("parsing unit agent version: %w", err)
+		return coreagentbinary.Version{}, errors.Errorf(
+			"parsing unit %q target agent version %q: %w",
+			uuid, info.TargetVersion, err,
+		)
 	}
 	return coreagentbinary.Version{
 		Number: vers,
@@ -496,10 +517,8 @@ SELECT id AS &architectureMap.id FROM architecture WHERE name = $architectureMap
 		return errors.Capture(err)
 	}
 
-	unitUUID := unitUUID{UnitUUID: uuid}
-
 	unitAgentVersion := unitAgentVersion{
-		UnitUUID: unitUUID.UnitUUID.String(),
+		UnitUUID: uuid.String(),
 		Version:  version.Number.String(),
 	}
 
@@ -517,7 +536,7 @@ UPDATE SET version = excluded.version,
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 
 		// Check if unit exists and is not dead.
-		err := st.checkUnitNotDead(ctx, tx, unitUUID)
+		err := st.checkUnitNotDead(ctx, tx, uuid)
 		if err != nil {
 			return errors.Errorf(
 				"checking unit %q exists: %w", uuid, err,
