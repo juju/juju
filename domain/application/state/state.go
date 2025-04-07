@@ -59,10 +59,6 @@ WHERE uuid = $charmID.uuid;
 		return errors.Errorf("failed to check charm exists: %w", err)
 	}
 
-	if _, err := corecharm.ParseID(result.UUID); err != nil {
-		return errors.Errorf("failed to parse charm ID: %w", err)
-	}
-
 	return nil
 }
 
@@ -97,12 +93,7 @@ AND revision = $charmReferenceNameRevisionSource.revision
 		return "", errors.Errorf("failed to check charm exists: %w", err)
 	}
 
-	id, err := corecharm.ParseID(result.UUID)
-	if err != nil {
-		return "", errors.Errorf("failed to parse charm ID: %w", err)
-	}
-
-	return id, applicationerrors.CharmAlreadyExists
+	return result.UUID, applicationerrors.CharmAlreadyExists
 }
 
 func (s *State) setCharm(ctx context.Context, tx *sqlair.TX, uuid corecharm.ID, ch charm.Charm, downloadInfo *charm.DownloadInfo) error {

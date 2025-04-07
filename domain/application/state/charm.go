@@ -11,6 +11,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 
+	"github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -60,7 +61,7 @@ AND source_id = $charmReferenceNameRevisionSource.source_id;
 			}
 			return errors.Errorf("getting charm ID: %w", err)
 		}
-		id = corecharm.ID(ident.UUID)
+		id = ident.UUID
 		return nil
 	}); err != nil {
 		return "", errors.Errorf("getting charm id by revision and source: %w", err)
@@ -77,7 +78,7 @@ func (s *State) IsControllerCharm(ctx context.Context, id corecharm.ID) (bool, e
 	}
 
 	var result charmName
-	ident := charmID{UUID: id.String()}
+	ident := charmID{UUID: id}
 
 	query := `
 SELECT cm.name AS &charmName.name
@@ -115,7 +116,7 @@ func (s *State) IsSubordinateCharm(ctx context.Context, id corecharm.ID) (bool, 
 	}
 
 	var result charmSubordinate
-	ident := charmID{UUID: id.String()}
+	ident := charmID{UUID: id}
 
 	query := `
 SELECT cm.subordinate AS &charmSubordinate.subordinate
@@ -152,7 +153,7 @@ func (s *State) SupportsContainers(ctx context.Context, id corecharm.ID) (bool, 
 		return false, errors.Capture(err)
 	}
 
-	ident := charmID{UUID: id.String()}
+	ident := charmID{UUID: id}
 
 	query := `
 SELECT charm_container.charm_uuid AS &charmID.uuid
@@ -169,15 +170,14 @@ WHERE uuid = $charmID.uuid;
 	var supportsContainers bool
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var result []charmID
-		if err := tx.Query(ctx, stmt, ident).GetAll(&result); err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return applicationerrors.CharmNotFound
-			}
+		if err := tx.Query(ctx, stmt, ident).GetAll(&result); errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.CharmNotFound
+		} else if err != nil {
 			return errors.Errorf("getting charm ID: %w", err)
 		}
 		var num int
 		for _, r := range result {
-			if r.UUID == id.String() {
+			if r.UUID == id {
 				num++
 			}
 		}
@@ -198,7 +198,7 @@ func (s *State) IsCharmAvailable(ctx context.Context, id corecharm.ID) (bool, er
 	}
 
 	var result charmAvailable
-	ident := charmID{UUID: id.String()}
+	ident := charmID{UUID: id}
 
 	query := `
 SELECT &charmAvailable.*
@@ -234,7 +234,7 @@ func (s *State) SetCharmAvailable(ctx context.Context, id corecharm.ID) error {
 		return errors.Capture(err)
 	}
 
-	ident := charmID{UUID: id.String()}
+	ident := charmID{UUID: id}
 
 	selectQuery := `
 SELECT &charmID.*
@@ -288,7 +288,7 @@ func (s *State) GetCharmArchivePath(ctx context.Context, id corecharm.ID) (strin
 	}
 
 	var archivePath charmArchivePath
-	ident := charmID{UUID: id.String()}
+	ident := charmID{UUID: id}
 
 	query := `
 SELECT &charmArchivePath.*
@@ -326,7 +326,7 @@ func (s *State) GetCharmArchiveMetadata(ctx context.Context, id corecharm.ID) (a
 	}
 
 	var archivePathAndHashes []charmArchivePathAndHash
-	ident := charmID{UUID: id.String()}
+	ident := charmID{UUID: id}
 
 	query := `
 SELECT &charmArchivePathAndHash.*
@@ -366,7 +366,7 @@ func (s *State) GetCharmMetadata(ctx context.Context, id corecharm.ID) (charm.Me
 		return charm.Metadata{}, errors.Capture(err)
 	}
 
-	ident := charmID{UUID: id.String()}
+	ident := charmID{UUID: id}
 
 	var charmMetadata charm.Metadata
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -389,7 +389,7 @@ func (s *State) GetCharmMetadataName(ctx context.Context, id corecharm.ID) (stri
 		return "", errors.Capture(err)
 	}
 
-	ident := charmID{UUID: id.String()}
+	ident := charmID{UUID: id}
 
 	query := `
 SELECT name AS &charmMetadata.name
@@ -426,7 +426,7 @@ func (s *State) GetCharmMetadataDescription(ctx context.Context, id corecharm.ID
 		return "", errors.Capture(err)
 	}
 
-	ident := charmID{UUID: id.String()}
+	ident := charmID{UUID: id}
 
 	query := `
 SELECT description AS &charmMetadata.description
@@ -463,7 +463,7 @@ func (s *State) GetCharmMetadataStorage(ctx context.Context, id corecharm.ID) (m
 		return nil, errors.Capture(err)
 	}
 
-	ident := charmID{UUID: id.String()}
+	ident := charmID{UUID: id}
 
 	var storage []charmStorage
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -486,7 +486,7 @@ func (s *State) GetCharmMetadataResources(ctx context.Context, id corecharm.ID) 
 		return nil, errors.Capture(err)
 	}
 
-	ident := charmID{UUID: id.String()}
+	ident := charmID{UUID: id}
 
 	var resources []charmResource
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -508,7 +508,7 @@ func (s *State) GetCharmManifest(ctx context.Context, id corecharm.ID) (charm.Ma
 		return charm.Manifest{}, errors.Capture(err)
 	}
 
-	ident := charmID{UUID: id.String()}
+	ident := charmID{UUID: id}
 
 	var manifest charm.Manifest
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -531,7 +531,7 @@ func (s *State) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) ([]byte
 		return nil, -1, errors.Capture(err)
 	}
 
-	ident := charmID{UUID: id.String()}
+	ident := charmID{UUID: id}
 
 	var (
 		profile  []byte
@@ -556,7 +556,7 @@ func (s *State) GetCharmConfig(ctx context.Context, id corecharm.ID) (charm.Conf
 		return charm.Config{}, errors.Capture(err)
 	}
 
-	ident := charmID{UUID: id.String()}
+	ident := charmID{UUID: id}
 
 	var charmConfig charm.Config
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -577,7 +577,7 @@ func (s *State) GetCharmActions(ctx context.Context, id corecharm.ID) (charm.Act
 		return charm.Actions{}, errors.Capture(err)
 	}
 
-	ident := charmID{UUID: id.String()}
+	ident := charmID{UUID: id}
 
 	var actions charm.Actions
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -600,7 +600,7 @@ func (s *State) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, *ch
 		return charm.Charm{}, nil, errors.Capture(err)
 	}
 
-	ident := charmID{UUID: id.String()}
+	ident := charmID{UUID: id}
 
 	var (
 		ch charm.Charm
@@ -641,7 +641,7 @@ func (s *State) SetCharm(ctx context.Context, ch charm.Charm, downloadInfo *char
 		return "", charm.CharmLocator{}, errors.Errorf("setting charm: %w", err)
 	}
 
-	charmUUID := charmID{UUID: id.String()}
+	charmUUID := charmID{UUID: id}
 
 	var locator charmLocator
 	locatorQuery := `
@@ -774,7 +774,7 @@ func (s *State) GetCharmLocatorByCharmID(ctx context.Context, id corecharm.ID) (
 		return charm.CharmLocator{}, errors.Capture(err)
 	}
 
-	ident := charmID{UUID: id.String()}
+	ident := charmID{UUID: id}
 
 	query := `
 SELECT &charmLocator.*
@@ -810,7 +810,7 @@ func (s *State) GetCharmDownloadInfo(ctx context.Context, id corecharm.ID) (*cha
 		return nil, errors.Capture(err)
 	}
 
-	ident := charmID{UUID: id.String()}
+	ident := charmID{UUID: id}
 
 	var downloadInfo *charm.DownloadInfo
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -840,7 +840,7 @@ func (s *State) GetAvailableCharmArchiveSHA256(ctx context.Context, id corecharm
 		return "", errors.Capture(err)
 	}
 
-	ident := charmID{UUID: id.String()}
+	ident := charmID{UUID: id}
 
 	query := `
 SELECT &charmArchiveHash.*
@@ -882,7 +882,7 @@ func (s *State) ResolveMigratingUploadedCharm(ctx context.Context, id corecharm.
 		return charm.CharmLocator{}, errors.Capture(err)
 	}
 
-	charmUUID := charmID{UUID: id.String()}
+	charmUUID := charmID{UUID: id}
 
 	resolvedQuery := `
 SELECT &charmAvailable.*
@@ -1098,7 +1098,7 @@ func (s *State) DeleteCharm(ctx context.Context, id corecharm.ID) error {
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, selectQuery, charmID{UUID: id.String()}).Get(&charmID{}); err != nil {
+		if err := tx.Query(ctx, selectQuery, charmID{UUID: id}).Get(&charmID{}); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return applicationerrors.CharmNotFound
 			}
@@ -1106,13 +1106,13 @@ func (s *State) DeleteCharm(ctx context.Context, id corecharm.ID) error {
 
 		// Delete the foreign key references first.
 		for _, stmt := range stmts {
-			if err := tx.Query(ctx, stmt.stmt, charmUUID{UUID: id.String()}).Run(); err != nil {
+			if err := tx.Query(ctx, stmt.stmt, charmUUID{UUID: id}).Run(); err != nil {
 				return errors.Errorf("failed to delete related data for %q: %w", stmt.tableName, err)
 			}
 		}
 
 		// Then delete the charm itself.
-		if err := tx.Query(ctx, deleteQuery, charmID{UUID: id.String()}).Run(); err != nil {
+		if err := tx.Query(ctx, deleteQuery, charmID{UUID: id}).Run(); err != nil {
 			return errors.Errorf("failed to delete charm: %w", err)
 		}
 
@@ -1127,4 +1127,25 @@ func (s *State) DeleteCharm(ctx context.Context, id corecharm.ID) error {
 // NamespaceForWatchCharm return the namespace used to listen charm changes
 func (s *State) NamespaceForWatchCharm() string {
 	return "charm"
+}
+
+func (s *State) getCharmIDByApplicationID(ctx context.Context, tx *sqlair.TX, appID application.ID) (corecharm.ID, error) {
+	query := `
+SELECT c.uuid AS &charmID.*
+FROM application a
+JOIN charm c ON a.charm_uuid = c.uuid
+WHERE a.uuid = $applicationID.uuid;
+`
+	ident := applicationID{ID: appID}
+	stmt, err := s.Prepare(query, charmID{}, ident)
+	if err != nil {
+		return "", errors.Errorf("preparing query: %w", err)
+	}
+	var charmID charmID
+	if err := tx.Query(ctx, stmt, ident).Get(&charmID); errors.Is(err, sqlair.ErrNoRows) {
+		return "", applicationerrors.CharmNotFound
+	} else if err != nil {
+		return "", errors.Errorf("getting charm ID by application ID: %w", err)
+	}
+	return charmID.UUID, nil
 }

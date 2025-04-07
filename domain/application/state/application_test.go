@@ -17,6 +17,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
+	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -1763,7 +1764,7 @@ func (s *applicationStateSuite) TestSetCharmThenGetCharmByApplicationNameInvalid
 }
 
 func (s *applicationStateSuite) TestCheckCharmExistsNotFound(c *gc.C) {
-	id := uuid.MustNewUUID().String()
+	id := charmtesting.GenCharmID(c)
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return s.state.checkCharmExists(ctx, tx, charmID{
 			UUID: id,
@@ -2618,7 +2619,7 @@ func (s *applicationStateSuite) TestCheckApplicationCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.checkApplicationCharm(context.Background(), tx, applicationID{ID: id}, charmID{UUID: cid.String()})
+		return s.state.checkApplicationCharm(context.Background(), tx, applicationID{ID: id}, charmID{UUID: cid})
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

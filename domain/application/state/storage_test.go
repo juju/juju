@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/model/testing"
 	corestorage "github.com/juju/juju/core/storage"
@@ -518,7 +519,7 @@ type storageInstanceFilesystemArg struct {
 	ProvisioningStatusID domainstorage.ProvisioningStatus
 }
 
-func (s *baseStorageSuite) assertFilesystems(c *gc.C, charmUUID string, expected []storageInstanceFilesystemArg) {
+func (s *baseStorageSuite) assertFilesystems(c *gc.C, charmUUID corecharm.ID, expected []storageInstanceFilesystemArg) {
 	var results []storageInstanceFilesystemArg
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var row storageInstanceFilesystemArg
@@ -563,7 +564,7 @@ type storageInstanceVolumeArg struct {
 	ProvisioningStatusID domainstorage.ProvisioningStatus
 }
 
-func (s *baseStorageSuite) assertVolumes(c *gc.C, charmUUID string, expected []storageInstanceVolumeArg) {
+func (s *baseStorageSuite) assertVolumes(c *gc.C, charmUUID corecharm.ID, expected []storageInstanceVolumeArg) {
 	var results []storageInstanceVolumeArg
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		var row storageInstanceVolumeArg
@@ -800,7 +801,7 @@ func (s *caasStorageSuite) TestCreateApplicationWithUnitsAndStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var (
-		charmUUID string
+		charmUUID corecharm.ID
 		unitUUID  coreunit.UUID
 	)
 	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {

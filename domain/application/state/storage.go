@@ -615,14 +615,9 @@ AND    cs.name = $unitCharmStorage.name
 // should already have performed the necessary validation.
 func ensureCharmStorageCountChange(charmStorage charmStorage, current, n uint64) error {
 	action := "attach"
-	absn := n
-	if n < 0 {
-		action = "detach"
-		absn = -absn
-	}
 	gerund := action + "ing"
 	pluralise := ""
-	if absn != 1 {
+	if n != 1 {
 		pluralise = "s"
 	}
 
@@ -634,7 +629,7 @@ func ensureCharmStorageCountChange(charmStorage charmStorage, current, n uint64)
 		return errors.Errorf(
 			"%s %d storage instance%s brings the total to %d, "+
 				"which is less than the minimum of %d",
-			gerund, absn, pluralise, count,
+			gerund, n, pluralise, count,
 			charmStorage.CountMin,
 		).Add(applicationerrors.InvalidStorageCount)
 	}
@@ -642,7 +637,7 @@ func ensureCharmStorageCountChange(charmStorage charmStorage, current, n uint64)
 		return errors.Errorf(
 			"%s %d storage instance%s brings the total to %d, "+
 				"exceeding the maximum of %d",
-			gerund, absn, pluralise, count,
+			gerund, n, pluralise, count,
 			charmStorage.CountMax,
 		).Add(applicationerrors.InvalidStorageCount)
 	}

@@ -840,15 +840,12 @@ func (s *unitStateSuite) TestInsertMigratingCAASUnits(c *gc.C) {
 func (s *unitStateSuite) assertInsertMigratingUnits(c *gc.C, modelType model.ModelType) {
 	appID := s.createApplication(c, "foo", life.Alive)
 
-	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
-
 	u := application.InsertUnitArg{
-		UnitName:  "foo/666",
-		CharmUUID: charmUUID,
+		UnitName: "foo/666",
 	}
 	ctx := context.Background()
 
+	var err error
 	if modelType == model.IAAS {
 		err = s.state.InsertMigratingIAASUnits(ctx, appID, u)
 	} else {
