@@ -43,15 +43,6 @@ type SSHDial interface {
 	Dial(conn net.Conn, username string, privateKey gossh.Signer) (*gossh.Client, error)
 }
 
-// Request tracks a request for an SSH connection to
-// a machine. See its Wait() method for more details.
-type Request struct {
-	privateKey gossh.Signer
-	dialer     SSHDial
-	recv       chan (net.Conn)
-	cleanup    func()
-}
-
 // Tracker provides methods to create SSH tunnels to machine units.
 // The objects keep track of consumers who have requested tunnels
 // and allows an SSH server to push tunnels to these consumers.
@@ -63,7 +54,7 @@ type Tracker struct {
 	clock      clock.Clock
 
 	mu      sync.Mutex
-	tracker map[string]*Request
+	tracker map[string]chan (net.Conn)
 }
 
 // TrackerArgs holds the arguments for creating a new tunnel tracker.
@@ -102,7 +93,7 @@ func NewTracker(args TrackerArgs) (*Tracker, error) {
 	}
 
 	return &Tracker{
-		tracker:    make(map[string]*Request),
+		tracker:    make(map[string]chan (net.Conn)),
 		authn:      authn,
 		controller: args.ControllerInfo,
 		clock:      args.Clock,
@@ -135,7 +126,7 @@ func (tt *Tracker) generateEphemeralSSHKey() (gossh.Signer, gossh.PublicKey, err
 //
 // The returned tunnelRequest should be used to wait for the tunnel to be established.
 // See Wait() for more information.
-func (tt *Tracker) RequestTunnel(req RequestArgs) (*Request, error) {
+func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.Client, error) {
 	tunnelID, err := uuid.NewRandom()
 	if err != nil {
 		return nil, err
@@ -156,6 +147,13 @@ func (tt *Tracker) RequestTunnel(req RequestArgs) (*Request, error) {
 		return nil, err
 	}
 
+	// Make sure to use an unbuffered channel to ensure someone always
+	// has responsibility of the connection passed around.
+	connRecv := make(chan (net.Conn))
+
+	tt.add(tunnelID.String(), connRecv)
+	defer tt.delete(tunnelID.String())
+
 	args := state.SSHConnRequestArg{
 		TunnelID:            tunnelID.String(),
 		ModelUUID:           req.ModelUUID,
@@ -173,30 +171,16 @@ func (tt *Tracker) RequestTunnel(req RequestArgs) (*Request, error) {
 		return nil, err
 	}
 
-	cleanup := func() {
-		tt.delete(tunnelID.String())
-	}
-	// Make sure to use an unbuffered channel to ensure someone always
-	// has responsibility of the connection passed around.
-	tunnelReq := &Request{
-		recv:       make(chan (net.Conn)),
-		privateKey: privateKey,
-		cleanup:    cleanup,
-		dialer:     tt.dialer,
-	}
-
-	tt.add(tunnelID.String(), tunnelReq)
-
-	return tunnelReq, nil
+	return tt.wait(ctx, connRecv, privateKey)
 }
 
-func (tt *Tracker) add(tunnelID string, req *Request) {
+func (tt *Tracker) add(tunnelID string, recv chan net.Conn) {
 	tt.mu.Lock()
 	defer tt.mu.Unlock()
-	tt.tracker[tunnelID] = req
+	tt.tracker[tunnelID] = recv
 }
 
-func (tt *Tracker) get(tunnelID string) (*Request, bool) {
+func (tt *Tracker) get(tunnelID string) (chan net.Conn, bool) {
 	tt.mu.Lock()
 	defer tt.mu.Unlock()
 	req, ok := tt.tracker[tunnelID]
@@ -228,26 +212,28 @@ func (tt *Tracker) AuthenticateTunnel(username, password string) (tunnelID strin
 // This method should only be called after AuthenticateTunnel
 // which will provide the tunnelID.
 //
-// If the tunnelID is not valid an error is returned and the
-// caller should close the connection.
+// If an error is returned, e.g. because the tunnel ID is
+// not valid, the caller should close the connection.
 //
-// This method blocks until a consumer runs Wait() on the
-// appropriate tunnel request. Use context.WithTimeout to control
-// the maximum time to wait.
+// If the error is nil, the caller should not close the connection.
+//
+// This method blocks unless a consumer is blocked waiting in a call
+// to RequestTunnel(). Use context.WithTimeout to control the
+// maximum time to wait.
 func (tt *Tracker) PushTunnel(ctx context.Context, tunnelID string, conn net.Conn) error {
-	req, ok := tt.get(tunnelID)
+	recv, ok := tt.get(tunnelID)
 	if !ok {
 		return errors.New("tunnel not found")
 	}
 	select {
-	case req.recv <- conn:
+	case recv <- conn:
 		return nil
 	case <-ctx.Done():
 		return errors.Annotate(ctx.Err(), "no one waiting for tunnel")
 	}
 }
 
-// Wait blocks until a TCP tunnel to the target unit is established.
+// wait blocks until a TCP tunnel to the target unit is established.
 //
 // It is a mistake not to call Wait() after a successful call to RequestTunnel()
 // as this will leak resources in the tunnel tracker.
@@ -256,13 +242,12 @@ func (tt *Tracker) PushTunnel(ctx context.Context, tunnelID string, conn net.Con
 //
 // Use context.WithTimeout to control the maximum time to wait for the tunnel
 // to be established.
-func (r *Request) Wait(ctx context.Context) (*gossh.Client, error) {
-	defer r.cleanup()
+func (tt *Tracker) wait(ctx context.Context, recv chan (net.Conn), privateKey gossh.Signer) (*gossh.Client, error) {
 	select {
-	case conn := <-r.recv:
+	case conn := <-recv:
 		// We now have ownership of the connection, so we should close it
 		// if the SSH dial fails.
-		sshClient, err := r.dialer.Dial(conn, defaultUser, r.privateKey)
+		sshClient, err := tt.dialer.Dial(conn, defaultUser, privateKey)
 		if err != nil {
 			conn.Close()
 			return nil, err

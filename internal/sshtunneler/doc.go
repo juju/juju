@@ -11,14 +11,14 @@
 // create a reverse SSH tunnel to the controller.
 //
 // The high-level flow is as follows:
-// 1. Tunnels are established using the `TunnelTracker`
-// object, which allows you to request a tunnel to a machine.
+// 1. Tunnels are established using the `Tracker` object,
+// which allows you to request a tunnel to a machine.
 // 2. Requests for tunnels are watched by machines and acted
 // upon by connecting to the controller.
-// 3. The `TunnelTracker` is used again to authenticate the
+// 3. The `Tracker` is used again to authenticate the
 // connection and pass the connection to the routine that
 // requested it.
 //
-// See the exported methods on the `TunnelTracker` and
-// `TunnelRequest` objects for more information.
+// See the exported methods on the `Tracker` for
+// more information.
 package sshtunneler
