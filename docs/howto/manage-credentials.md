@@ -5,7 +5,7 @@
 
 This document shows how to manage credentials in Juju.
 
-
+(add-a-credential)=
 ## Add a credential
 
 > See also: {ref}`credential-definition`, {ref}`list-of-supported-clouds`
@@ -31,7 +31,7 @@ The authentication types and the information needed for each type depend on your
 
 ```
 
-**2.** Provide this information to Juju. You may do so in three ways -- interactively, by specifying a YAML file, or automatically, by having Juju check your local YAML files or environment variables. 
+**2.** Provide this information to Juju. You may do so in three ways -- interactively, by specifying a YAML file, or automatically, by having Juju check your local YAML files or environment variables.
 
 ```{caution}
 
@@ -53,7 +53,7 @@ The command also  offers various flags that you can use  to provide all this inf
 > See more: {ref}`command-juju-add-credential`
 
 
-**2b.** To add a credential by specifying a YAML file, use your credential information to prepare a `credentials.yaml` file, then run the `add-credential` command with the `-f` flag followed by the path to this file. 
+**2b.** To add a credential by specifying a YAML file, use your credential information to prepare a `credentials.yaml` file, then run the `add-credential` command with the `-f` flag followed by the path to this file.
 
 > See more: {ref}`command-juju-add-credential`
 
@@ -134,7 +134,7 @@ By passing various flags you can specify an output format or an output file, dis
 
 ## Set the default credential
 
-**Set.** To set the default credential for a cloud on the current client, run the `default-credential` command followed by the name of the cloud and the name of the credential. For example: 
+**Set.** To set the default credential for a cloud on the current client, run the `default-credential` command followed by the name of the cloud and the name of the credential. For example:
 
 ```text
 juju default-credential aws carol
@@ -144,7 +144,7 @@ juju default-credential aws carol
 
 **Get.** To view the currrently set default credential for a cloud, run the `default-credential` command followed by the name of the cloud. For example:
 
-```text 
+```text
 juju default-credential aws
 ```
 This should display the default credential.
@@ -172,7 +172,7 @@ juju set-credential -m trinity aws bob
 ```
 
 ```{important}
-If the credential is only known to the client, this will first upload it to the controller and then relate it to the model. 
+If the credential is only known to the client, this will first upload it to the controller and then relate it to the model.
 ```
 
 ```{tip}
@@ -190,7 +190,7 @@ To update a credential, run the `update-credential` command followed by the name
 juju update-credential mycloud mycredential
 ```
 
-This will start an interactive session where you will be asked to specify various parameters for the update. 
+This will start an interactive session where you will be asked to specify various parameters for the update.
 
 By passing various flags, you can also perform this operation in-line. And by dropping the credential (and the cloud) argument and passing a flag with a credential YAMl file, you can also update all your credentials at once.
 

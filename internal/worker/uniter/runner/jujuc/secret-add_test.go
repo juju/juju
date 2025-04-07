@@ -51,7 +51,7 @@ func (s *SecretAddSuite) TestAddSecretInvalidArgs(c *gc.C) {
 			err:  `ERROR expire time or duration "2022-01-01" not valid`,
 		},
 	} {
-		com, err := jujuc.NewCommand(hctx, "secret-add")
+		com, err := jujuc.NewHookCommand(hctx, "secret-add")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
@@ -68,7 +68,7 @@ func ptr[T any](v T) *T {
 func (s *SecretAddSuite) TestAddSecretExpireDuration(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
-	com, err := jujuc.NewCommand(hctx, "secret-add")
+	com, err := jujuc.NewHookCommand(hctx, "secret-add")
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedExpiry := time.Now().Add(time.Hour)
@@ -106,7 +106,7 @@ func (s *SecretAddSuite) TestAddSecretExpireDuration(c *gc.C) {
 func (s *SecretAddSuite) TestAddSecretExpireTimestamp(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
-	com, err := jujuc.NewCommand(hctx, "secret-add")
+	com, err := jujuc.NewHookCommand(hctx, "secret-add")
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := cmdtesting.Context(c)
@@ -138,7 +138,7 @@ func (s *SecretAddSuite) TestAddSecretExpireTimestamp(c *gc.C) {
 func (s *SecretAddSuite) TestAddSecretBase64(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
-	com, err := jujuc.NewCommand(hctx, "secret-add")
+	com, err := jujuc.NewHookCommand(hctx, "secret-add")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"token#base64=key=", "--owner", "unit"})
@@ -171,7 +171,7 @@ func (s *SecretAddSuite) TestAddSecretFromFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	hctx, _ := s.ContextSuite.NewHookContext()
-	com, err := jujuc.NewCommand(hctx, "secret-add")
+	com, err := jujuc.NewHookCommand(hctx, "secret-add")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"token#base64=key=", "--file", fileName})

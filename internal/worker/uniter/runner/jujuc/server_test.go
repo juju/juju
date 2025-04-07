@@ -260,13 +260,13 @@ var newCommandTests = []struct {
 	{"storage-get", ""},
 	{"status-get", ""},
 	{"status-set", ""},
-	{"random", "unknown command: random"},
+	{"random", "unknown hook command: random"},
 }
 
 func (s *NewCommandSuite) TestNewCommand(c *gc.C) {
 	ctx, _ := s.newHookContext(0, "", "")
 	for _, t := range newCommandTests {
-		com, err := jujuc.NewCommand(ctx, t.name)
+		com, err := jujuc.NewHookCommand(ctx, t.name)
 		if t.err == "" {
 			// At this level, just check basic sanity; commands are tested in
 			// more detail elsewhere.

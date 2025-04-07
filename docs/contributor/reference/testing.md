@@ -7,8 +7,8 @@
 :glob:
 :maxdepth: 1
 
-integration-testing/index.md
-unit-testing/index.md
+testing/integration-testing/index
+testing/unit-testing/index
 ```
 
 New or updated `juju` code will not pass review unless there are tests associated with the code. For code additions, the
