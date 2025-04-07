@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package sshserver_test
+package sshserver
 
 import (
 	"sync/atomic"
@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/worker/sshserver"
 )
 
 type workerSuite struct {
@@ -26,11 +25,11 @@ type workerSuite struct {
 var _ = gc.Suite(&workerSuite{})
 
 func newServerWrapperWorkerConfig(
-	c *gc.C, ctrl *gomock.Controller, modifier func(*sshserver.ServerWrapperWorkerConfig),
-) *sshserver.ServerWrapperWorkerConfig {
-	cfg := &sshserver.ServerWrapperWorkerConfig{
-		NewServerWorker:         func(sshserver.ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
-		ControllerConfigService: sshserver.NewMockControllerConfigService(ctrl),
+	c *gc.C, ctrl *gomock.Controller, modifier func(*ServerWrapperWorkerConfig),
+) *ServerWrapperWorkerConfig {
+	cfg := &ServerWrapperWorkerConfig{
+		NewServerWorker:         func(ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
+		ControllerConfigService: NewMockControllerConfigService(ctrl),
 		Logger:                  loggertesting.WrapCheckLog(c),
 		NewSSHServerListener:    newTestingSSHServerListener,
 	}
@@ -44,14 +43,14 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	cfg := newServerWrapperWorkerConfig(c, ctrl, func(cfg *sshserver.ServerWrapperWorkerConfig) {})
+	cfg := newServerWrapperWorkerConfig(c, ctrl, func(cfg *ServerWrapperWorkerConfig) {})
 	c.Assert(cfg.Validate(), gc.IsNil)
 
 	// Test no Logger.
 	cfg = newServerWrapperWorkerConfig(
 		c,
 		ctrl,
-		func(cfg *sshserver.ServerWrapperWorkerConfig) {
+		func(cfg *ServerWrapperWorkerConfig) {
 			cfg.Logger = nil
 		},
 	)
@@ -61,7 +60,7 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 	cfg = newServerWrapperWorkerConfig(
 		c,
 		ctrl,
-		func(cfg *sshserver.ServerWrapperWorkerConfig) {
+		func(cfg *ServerWrapperWorkerConfig) {
 			cfg.NewServerWorker = nil
 		},
 	)
@@ -71,7 +70,7 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 	cfg = newServerWrapperWorkerConfig(
 		c,
 		ctrl,
-		func(cfg *sshserver.ServerWrapperWorkerConfig) {
+		func(cfg *ServerWrapperWorkerConfig) {
 			cfg.NewSSHServerListener = nil
 		},
 	)
@@ -89,7 +88,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 	controllerConfigWatcher := watchertest.NewMockStringsWatcher(ch)
 	defer workertest.DirtyKill(c, controllerConfigWatcher)
 
-	controllerConfigService := sshserver.NewMockControllerConfigService(ctrl)
+	controllerConfigService := NewMockControllerConfigService(ctrl)
 	controllerConfigService.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher, nil)
 
 	// Expect config to be called just the once.
@@ -99,15 +98,15 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 	}
 	controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(ctrlCfg, nil).Times(1)
 
-	cfg := sshserver.ServerWrapperWorkerConfig{
+	cfg := ServerWrapperWorkerConfig{
 		ControllerConfigService: controllerConfigService,
 		Logger:                  loggertesting.WrapCheckLog(c),
-		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
+		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			return serverWorker, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
 	}
-	w, err := sshserver.NewServerWrapperWorker(cfg)
+	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -135,7 +134,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	controllerConfigWatcher := watchertest.NewMockStringsWatcher(ch)
 	defer workertest.DirtyKill(c, controllerConfigWatcher)
 
-	controllerConfigService := sshserver.NewMockControllerConfigService(ctrl)
+	controllerConfigService := NewMockControllerConfigService(ctrl)
 	controllerConfigService.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher, nil)
 
 	// Expect first call to have port of 22 and called once on worker startup.
@@ -174,17 +173,17 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 		Times(1)
 
 	var serverStarted int32
-	cfg := sshserver.ServerWrapperWorkerConfig{
+	cfg := ServerWrapperWorkerConfig{
 		ControllerConfigService: controllerConfigService,
 		Logger:                  loggertesting.WrapCheckLog(c),
-		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
+		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			atomic.StoreInt32(&serverStarted, 1)
 			c.Check(swc.Port, gc.Equals, 22)
 			return serverWorker, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
 	}
-	w, err := sshserver.NewServerWrapperWorker(cfg)
+	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
@@ -220,7 +219,7 @@ func (s *workerSuite) TestWrapperWorkerReport(c *gc.C) {
 	controllerConfigWatcher := watchertest.NewMockStringsWatcher(ch)
 	defer workertest.DirtyKill(c, controllerConfigWatcher)
 
-	controllerConfigService := sshserver.NewMockControllerConfigService(ctrl)
+	controllerConfigService := NewMockControllerConfigService(ctrl)
 	controllerConfigService.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher, nil)
 
 	// Expect first call to have port of 22 and called once on worker startup.
@@ -238,15 +237,15 @@ func (s *workerSuite) TestWrapperWorkerReport(c *gc.C) {
 	serverWorker := workertest.NewErrorWorker(nil)
 	defer workertest.DirtyKill(c, serverWorker)
 
-	cfg := sshserver.ServerWrapperWorkerConfig{
+	cfg := ServerWrapperWorkerConfig{
 		ControllerConfigService: controllerConfigService,
 		Logger:                  loggertesting.WrapCheckLog(c),
-		NewServerWorker: func(swc sshserver.ServerWorkerConfig) (worker.Worker, error) {
+		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			return &reportWorker{serverWorker}, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
 	}
-	w, err := sshserver.NewServerWrapperWorker(cfg)
+	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
