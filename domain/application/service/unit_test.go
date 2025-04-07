@@ -23,6 +23,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
+	"github.com/juju/juju/internal/errors"
 )
 
 type unitServiceSuite struct {
@@ -232,4 +233,40 @@ func (s *unitServiceSuite) TestUpdateCAASUnitNotAlive(c *gc.C) {
 
 	err := s.service.UpdateCAASUnit(context.Background(), coreunit.Name("foo/666"), UpdateCAASUnitParams{})
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotAlive)
+}
+
+func (s *unitServiceSuite) TestGetUnitRefreshAttributes(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/666")
+	attrs := application.UnitAttributes{
+		Life: life.Alive,
+	}
+	s.state.EXPECT().GetUnitRefreshAttributes(gomock.Any(), unitName).Return(attrs, nil)
+
+	refreshAttrs, err := s.service.GetUnitRefreshAttributes(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(refreshAttrs, gc.Equals, attrs)
+}
+
+func (s *unitServiceSuite) TestGetUnitRefreshAttributesInvalidName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("!!!")
+
+	_, err := s.service.GetUnitRefreshAttributes(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *unitServiceSuite) TestGetUnitRefreshAttributesError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/666")
+	attrs := application.UnitAttributes{
+		Life: life.Alive,
+	}
+	s.state.EXPECT().GetUnitRefreshAttributes(gomock.Any(), unitName).Return(attrs, errors.Errorf("boom"))
+
+	_, err := s.service.GetUnitRefreshAttributes(context.Background(), unitName)
+	c.Assert(err, gc.ErrorMatches, "boom")
 }

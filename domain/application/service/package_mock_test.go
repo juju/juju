@@ -62,10 +62,10 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // AddCAASUnits mocks base method.
-func (m *MockState) AddCAASUnits(arg0 context.Context, arg1 string, arg2 application.ID, arg3 ...application0.AddUnitArg) error {
+func (m *MockState) AddCAASUnits(arg0 context.Context, arg1 string, arg2 application.ID, arg3 charm.ID, arg4 ...application0.AddUnitArg) error {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1, arg2}
-	for _, a := range arg3 {
+	varargs := []any{arg0, arg1, arg2, arg3}
+	for _, a := range arg4 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "AddCAASUnits", varargs...)
@@ -74,9 +74,9 @@ func (m *MockState) AddCAASUnits(arg0 context.Context, arg1 string, arg2 applica
 }
 
 // AddCAASUnits indicates an expected call of AddCAASUnits.
-func (mr *MockStateMockRecorder) AddCAASUnits(arg0, arg1, arg2 any, arg3 ...any) *MockStateAddCAASUnitsCall {
+func (mr *MockStateMockRecorder) AddCAASUnits(arg0, arg1, arg2, arg3 any, arg4 ...any) *MockStateAddCAASUnitsCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1, arg2}, arg3...)
+	varargs := append([]any{arg0, arg1, arg2, arg3}, arg4...)
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCAASUnits", reflect.TypeOf((*MockState)(nil).AddCAASUnits), varargs...)
 	return &MockStateAddCAASUnitsCall{Call: call}
 }
@@ -93,22 +93,22 @@ func (c *MockStateAddCAASUnitsCall) Return(arg0 error) *MockStateAddCAASUnitsCal
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAddCAASUnitsCall) Do(f func(context.Context, string, application.ID, ...application0.AddUnitArg) error) *MockStateAddCAASUnitsCall {
+func (c *MockStateAddCAASUnitsCall) Do(f func(context.Context, string, application.ID, charm.ID, ...application0.AddUnitArg) error) *MockStateAddCAASUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAddCAASUnitsCall) DoAndReturn(f func(context.Context, string, application.ID, ...application0.AddUnitArg) error) *MockStateAddCAASUnitsCall {
+func (c *MockStateAddCAASUnitsCall) DoAndReturn(f func(context.Context, string, application.ID, charm.ID, ...application0.AddUnitArg) error) *MockStateAddCAASUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AddIAASUnits mocks base method.
-func (m *MockState) AddIAASUnits(arg0 context.Context, arg1 string, arg2 application.ID, arg3 ...application0.AddUnitArg) error {
+func (m *MockState) AddIAASUnits(arg0 context.Context, arg1 string, arg2 application.ID, arg3 charm.ID, arg4 ...application0.AddUnitArg) error {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1, arg2}
-	for _, a := range arg3 {
+	varargs := []any{arg0, arg1, arg2, arg3}
+	for _, a := range arg4 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "AddIAASUnits", varargs...)
@@ -117,9 +117,9 @@ func (m *MockState) AddIAASUnits(arg0 context.Context, arg1 string, arg2 applica
 }
 
 // AddIAASUnits indicates an expected call of AddIAASUnits.
-func (mr *MockStateMockRecorder) AddIAASUnits(arg0, arg1, arg2 any, arg3 ...any) *MockStateAddIAASUnitsCall {
+func (mr *MockStateMockRecorder) AddIAASUnits(arg0, arg1, arg2, arg3 any, arg4 ...any) *MockStateAddIAASUnitsCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1, arg2}, arg3...)
+	varargs := append([]any{arg0, arg1, arg2, arg3}, arg4...)
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddIAASUnits", reflect.TypeOf((*MockState)(nil).AddIAASUnits), varargs...)
 	return &MockStateAddIAASUnitsCall{Call: call}
 }
@@ -136,13 +136,13 @@ func (c *MockStateAddIAASUnitsCall) Return(arg0 error) *MockStateAddIAASUnitsCal
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAddIAASUnitsCall) Do(f func(context.Context, string, application.ID, ...application0.AddUnitArg) error) *MockStateAddIAASUnitsCall {
+func (c *MockStateAddIAASUnitsCall) Do(f func(context.Context, string, application.ID, charm.ID, ...application0.AddUnitArg) error) *MockStateAddIAASUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAddIAASUnitsCall) DoAndReturn(f func(context.Context, string, application.ID, ...application0.AddUnitArg) error) *MockStateAddIAASUnitsCall {
+func (c *MockStateAddIAASUnitsCall) DoAndReturn(f func(context.Context, string, application.ID, charm.ID, ...application0.AddUnitArg) error) *MockStateAddIAASUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -925,6 +925,45 @@ func (c *MockStateGetApplicationUnitLifeCall) Do(f func(context.Context, string,
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetApplicationUnitLifeCall) DoAndReturn(f func(context.Context, string, ...unit.UUID) (map[unit.UUID]life.Life, error)) *MockStateGetApplicationUnitLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetApplicationUnitsForExport mocks base method.
+func (m *MockState) GetApplicationUnitsForExport(ctx context.Context, appID application.ID) ([]application0.ExportUnit, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationUnitsForExport", ctx, appID)
+	ret0, _ := ret[0].([]application0.ExportUnit)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationUnitsForExport indicates an expected call of GetApplicationUnitsForExport.
+func (mr *MockStateMockRecorder) GetApplicationUnitsForExport(ctx, appID any) *MockStateGetApplicationUnitsForExportCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationUnitsForExport", reflect.TypeOf((*MockState)(nil).GetApplicationUnitsForExport), ctx, appID)
+	return &MockStateGetApplicationUnitsForExportCall{Call: call}
+}
+
+// MockStateGetApplicationUnitsForExportCall wrap *gomock.Call
+type MockStateGetApplicationUnitsForExportCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetApplicationUnitsForExportCall) Return(arg0 []application0.ExportUnit, arg1 error) *MockStateGetApplicationUnitsForExportCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetApplicationUnitsForExportCall) Do(f func(context.Context, application.ID) ([]application0.ExportUnit, error)) *MockStateGetApplicationUnitsForExportCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetApplicationUnitsForExportCall) DoAndReturn(f func(context.Context, application.ID) ([]application0.ExportUnit, error)) *MockStateGetApplicationUnitsForExportCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2138,6 +2177,45 @@ func (c *MockStateGetUnitLifeCall) Do(f func(context.Context, unit.Name) (life.L
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetUnitLifeCall) DoAndReturn(f func(context.Context, unit.Name) (life.Life, error)) *MockStateGetUnitLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitRefreshAttributes mocks base method.
+func (m *MockState) GetUnitRefreshAttributes(ctx context.Context, unitName unit.Name) (application0.UnitAttributes, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitRefreshAttributes", ctx, unitName)
+	ret0, _ := ret[0].(application0.UnitAttributes)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitRefreshAttributes indicates an expected call of GetUnitRefreshAttributes.
+func (mr *MockStateMockRecorder) GetUnitRefreshAttributes(ctx, unitName any) *MockStateGetUnitRefreshAttributesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitRefreshAttributes", reflect.TypeOf((*MockState)(nil).GetUnitRefreshAttributes), ctx, unitName)
+	return &MockStateGetUnitRefreshAttributesCall{Call: call}
+}
+
+// MockStateGetUnitRefreshAttributesCall wrap *gomock.Call
+type MockStateGetUnitRefreshAttributesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitRefreshAttributesCall) Return(arg0 application0.UnitAttributes, arg1 error) *MockStateGetUnitRefreshAttributesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitRefreshAttributesCall) Do(f func(context.Context, unit.Name) (application0.UnitAttributes, error)) *MockStateGetUnitRefreshAttributesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitRefreshAttributesCall) DoAndReturn(f func(context.Context, unit.Name) (application0.UnitAttributes, error)) *MockStateGetUnitRefreshAttributesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

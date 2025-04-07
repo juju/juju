@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock"
 
+	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	coreconstraints "github.com/juju/juju/core/constraints"
@@ -29,8 +30,14 @@ import (
 
 // MigrationState is the state required for migrating applications.
 type MigrationState interface {
-	// ExportApplications returns all the applications in the model.
+	// GetApplicationsForExport returns all the applications in the model.
 	GetApplicationsForExport(ctx context.Context) ([]application.ExportApplication, error)
+
+	// GetApplicationUnitsForExport returns all the units for a given
+	// application in the model.
+	// If the application does not exist, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationUnitsForExport(ctx context.Context, appID coreapplication.ID) ([]application.ExportUnit, error)
 }
 
 // MigrationService provides the API for migrating applications.
@@ -146,9 +153,41 @@ func (s *MigrationService) GetCharmByApplicationName(ctx context.Context, name s
 	), locator, nil
 }
 
-// ExportApplications returns all the applications in the model.
-func (s *MigrationService) GetApplicationsForExport(ctx context.Context) ([]application.ExportApplication, error) {
+// GetApplications returns all the applications in the model.
+func (s *MigrationService) GetApplications(ctx context.Context) ([]application.ExportApplication, error) {
 	return s.st.GetApplicationsForExport(ctx)
+}
+
+// GetApplicationUnits returns all the units for the specified application.
+// If the application does not exist, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (s *MigrationService) GetApplicationUnits(ctx context.Context, name string) ([]application.ExportUnit, error) {
+	if !isValidApplicationName(name) {
+		return nil, applicationerrors.ApplicationNameNotValid
+	}
+
+	appID, err := s.st.GetApplicationIDByName(ctx, name)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return s.st.GetApplicationUnitsForExport(ctx, appID)
+}
+
+// GetApplicationCharmOrigin returns the charm origin for the specified
+// application name. If the application does not exist, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (s *MigrationService) GetApplicationCharmOrigin(ctx context.Context, name string) (application.CharmOrigin, error) {
+	if !isValidApplicationName(name) {
+		return application.CharmOrigin{}, applicationerrors.ApplicationNameNotValid
+	}
+
+	appID, err := s.st.GetApplicationIDByName(ctx, name)
+	if err != nil {
+		return application.CharmOrigin{}, errors.Capture(err)
+	}
+
+	return s.st.GetApplicationCharmOrigin(ctx, appID)
 }
 
 // GetApplicationConfigAndSettings returns the application config and settings
@@ -250,15 +289,22 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 	}
 
 	appArg.Scale = len(args.Units)
-	unitArgs, err := makeUnitArgs(args.Units)
-	if err != nil {
-		return errors.Errorf("creating unit args: %w", err)
-	}
 
 	appID, err := s.st.CreateApplication(ctx, name, appArg, nil)
 	if err != nil {
 		return errors.Errorf("creating application %q: %w", name, err)
 	}
+
+	charmUUID, err := s.st.GetCharmIDByApplicationName(ctx, name)
+	if err != nil {
+		return errors.Errorf("getting charm ID for application %q: %w", name, err)
+	}
+
+	unitArgs, err := makeUnitArgs(args.Units, charmUUID)
+	if err != nil {
+		return errors.Errorf("creating unit args: %w", err)
+	}
+
 	if modelType == model.IAAS {
 		err = s.st.InsertMigratingIAASUnits(ctx, appID, unitArgs...)
 	} else {
@@ -282,12 +328,13 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 	return nil
 }
 
-func makeUnitArgs(units []ImportUnitArg) ([]application.InsertUnitArg, error) {
+func makeUnitArgs(units []ImportUnitArg, charmUUID corecharm.ID) ([]application.InsertUnitArg, error) {
 	unitArgs := make([]application.InsertUnitArg, len(units))
 	for i, u := range units {
 
 		arg := application.InsertUnitArg{
 			UnitName:         u.UnitName,
+			CharmUUID:        charmUUID,
 			StorageParentDir: application.StorageParentDir,
 		}
 		if u.CloudContainer != nil {

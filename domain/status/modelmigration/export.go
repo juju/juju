@@ -89,9 +89,14 @@ func (e *exportOperation) Execute(ctx context.Context, m description.Model) erro
 	for _, app := range m.Applications() {
 		appName := app.Name()
 
-		// Application statuses are optional
+		// Application statuses are optional, so set this to NeverSet if there
+		// is no status.
 		if appStatus, ok := appStatuses[appName]; ok {
 			app.SetStatus(e.exportStatus(appStatus))
+		} else {
+			app.SetStatus(description.StatusArgs{
+				NeverSet: true,
+			})
 		}
 
 		for _, unit := range app.Units() {

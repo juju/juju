@@ -44,7 +44,8 @@ func (s *State) SetUnitPasswordHash(ctx context.Context, unitUUID unit.UUID, pas
 
 	query := `
 UPDATE unit
-SET password_hash = $unitPasswordHash.password_hash
+SET password_hash = $unitPasswordHash.password_hash,
+    password_hash_algorithm_id = 0
 WHERE uuid = $unitPasswordHash.uuid;
 `
 	stmt, err := s.Prepare(query, args)

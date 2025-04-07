@@ -463,7 +463,9 @@ WHERE uuid=?`, id0.String())
 	// Add another application with an available charm.
 	// Available charms are not pending charms!
 	harness.AddTest(func(c *gc.C) {
-		id2 = s.createApplicationWithCharmAndStoragePath(c, svc, "jaz", &stubCharm{}, "deadbeef", service.AddUnitArg{})
+		id2 = s.createApplicationWithCharmAndStoragePath(c, svc, "jaz", &stubCharm{}, "deadbeef", service.AddUnitArg{
+			UnitName: "foo/668",
+		})
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})

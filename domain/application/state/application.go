@@ -48,22 +48,31 @@ func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) 
 		return "", errors.Capture(err)
 	}
 
+	var modelType coremodel.ModelType
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		modelType, err = st.getModelType(ctx, tx)
+		return err
+	}); err != nil {
+		return "", errors.Errorf("querying model type: %w", err)
+
+	}
+	return modelType, nil
+}
+
+func (st *State) getModelType(ctx context.Context, tx *sqlair.TX) (coremodel.ModelType, error) {
 	var result modelInfo
 	stmt, err := st.Prepare("SELECT &modelInfo.type FROM model", result)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt).Get(&result)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return modelerrors.NotFound
-		}
-		return err
-	})
-	if err != nil {
+	if err := tx.Query(ctx, stmt).Get(&result); errors.Is(err, sql.ErrNoRows) {
+		return "", modelerrors.NotFound
+	} else if err != nil {
 		return "", errors.Errorf("querying model type: %w", err)
 	}
+
 	return coremodel.ModelType(result.ModelType), nil
 }
 
@@ -93,10 +102,12 @@ func (st *State) CreateApplication(
 	}
 
 	appDetails := applicationDetails{
-		UUID:    appUUID,
-		Name:    name,
-		CharmID: charmID.String(),
-		LifeID:  life.Alive,
+		UUID:      appUUID,
+		Name:      name,
+		CharmUUID: charmID,
+		LifeID:    life.Alive,
+		Placement: args.Placement,
+
 		// The space is defaulted to Alpha, which is guaranteed to exist.
 		// However, if there is default space defined in endpoints bindings
 		// (through a binding with an empty endpoint), the application space
@@ -173,7 +184,7 @@ func (st *State) CreateApplication(
 		} else if errors.Is(err, applicationerrors.CharmAlreadyExists) {
 			// We already have an existing charm, in this case we just want
 			// to point the application to the existing charm.
-			appDetails.CharmID = existingCharmID.String()
+			appDetails.CharmUUID = existingCharmID
 
 			shouldInsertCharm = false
 		}
@@ -198,7 +209,7 @@ func (st *State) CreateApplication(
 			ctx, tx,
 			insertResourcesArgs{
 				appID:        appDetails.UUID,
-				charmUUID:    appDetails.CharmID,
+				charmUUID:    appDetails.CharmUUID,
 				charmSource:  args.Charm.Source,
 				appResources: args.Resources,
 			},
@@ -223,7 +234,7 @@ func (st *State) CreateApplication(
 		}
 		if err := st.insertApplicationEndpoints(ctx, tx, insertApplicationEndpointsParams{
 			appID:     appDetails.UUID,
-			charmUUID: corecharm.ID(appDetails.CharmID),
+			charmUUID: appDetails.CharmUUID,
 			bindings:  args.EndpointBindings,
 		}); err != nil {
 			return errors.Errorf("inserting exposed endpoints for application %q: %w", name, err)
@@ -231,7 +242,7 @@ func (st *State) CreateApplication(
 		if err := st.insertPeerRelations(ctx, tx, appDetails.UUID); err != nil {
 			return errors.Errorf("inserting peer relation for application %q: %w", name, err)
 		}
-		if err = st.insertApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
+		if err = st.insertApplicationUnits(ctx, tx, appUUID, appDetails.CharmUUID, args, units); err != nil {
 			return errors.Errorf("inserting units for application %q: %w", appUUID, err)
 		}
 
@@ -252,15 +263,20 @@ func (st *State) CreateApplication(
 
 func (st *State) insertApplicationUnits(
 	ctx context.Context, tx *sqlair.TX,
-	appUUID coreapplication.ID, args application.AddApplicationArg, units []application.AddUnitArg,
+	appUUID coreapplication.ID,
+	charmUUID corecharm.ID,
+	args application.AddApplicationArg,
+	units []application.AddUnitArg,
 ) error {
 	if len(units) == 0 {
 		return nil
 	}
+
 	insertUnits := make([]application.InsertUnitArg, len(units))
 	for i, unit := range units {
 		insertUnits[i] = application.InsertUnitArg{
 			UnitName:         unit.UnitName,
+			CharmUUID:        charmUUID,
 			Constraints:      unit.Constraints,
 			Storage:          args.Storage,
 			StoragePoolKind:  args.StoragePoolKind,
@@ -573,13 +589,16 @@ WHERE application_uuid = $applicationScale.application_uuid
 	}
 
 	err = tx.Query(ctx, queryScaleStmt, appScale).Get(&appScale)
-	if err != nil {
-		if !errors.Is(err, sqlair.ErrNoRows) {
-			return application.ScaleState{}, errors.Errorf("querying application %q scale: %w", appUUID, err)
-		}
+	if errors.Is(err, sql.ErrNoRows) {
 		return application.ScaleState{}, errors.Errorf("%w: %s", applicationerrors.ApplicationNotFound, appUUID)
+	} else if err != nil {
+		return application.ScaleState{}, errors.Errorf("querying application %q scale: %w", appUUID, err)
 	}
-	return appScale.toScaleState(), nil
+	return application.ScaleState{
+		Scaling:     appScale.Scaling,
+		Scale:       appScale.Scale,
+		ScaleTarget: appScale.ScaleTarget,
+	}, nil
 }
 
 // GetApplicationLife looks up the life of the specified application, returning
@@ -1879,22 +1898,22 @@ WHERE application_uuid = $applicationID.uuid;
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
-			return errors.Capture(err)
+			return errors.Errorf("getting application life: %w", err)
 		}
 
 		err := tx.Query(ctx, stmtOrigin, ident).Get(&appOrigin)
 		if err != nil {
-			return errors.Capture(err)
+			return errors.Errorf("querying origin: %w", err)
 		}
 
 		err = tx.Query(ctx, stmtPlatformChannel, ident).Get(&appPlatformChan)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Capture(err)
+			return errors.Errorf("querying platform and channel: %w", err)
 		}
 
 		return nil
 	}); err != nil {
-		return application.CharmOrigin{}, errors.Errorf("querying application platform and channel for application %q: %w", appID, err)
+		return application.CharmOrigin{}, errors.Errorf("querying application %q: %w", appID, err)
 	}
 
 	source, err := decodeCharmSource(appOrigin.SourceID)
@@ -1912,11 +1931,29 @@ WHERE application_uuid = $applicationID.uuid;
 		return application.CharmOrigin{}, errors.Errorf("decoding channel: %w", err)
 	}
 
+	var revision = -1
+	if appOrigin.Revision.Valid {
+		revision = int(appOrigin.Revision.Int64)
+	}
+
+	var hash string
+	if appOrigin.Hash.Valid {
+		hash = appOrigin.Hash.String
+	}
+
+	var charmhubIdentifier string
+	if appOrigin.CharmhubIdentifier.Valid {
+		charmhubIdentifier = appOrigin.CharmhubIdentifier.String
+	}
+
 	return application.CharmOrigin{
-		Name:     appOrigin.ReferenceName,
-		Source:   source,
-		Platform: platform,
-		Channel:  channel,
+		Name:               appOrigin.ReferenceName,
+		Source:             source,
+		Platform:           platform,
+		Channel:            channel,
+		Revision:           revision,
+		Hash:               hash,
+		CharmhubIdentifier: charmhubIdentifier,
 	}, nil
 }
 
@@ -2562,11 +2599,9 @@ func hashConfigAndSettings(config []applicationConfig, settings applicationSetti
 		if _, err := h.Write([]byte(c.Key)); err != nil {
 			return "", errors.Errorf("writing config key: %w", err)
 		}
-		fmt.Print(c.Key)
 		if _, err := h.Write([]byte(fmt.Sprintf("%v", c.Value))); err != nil {
 			return "", errors.Errorf("writing config value: %w", err)
 		}
-		fmt.Print(fmt.Sprintf("%v", c.Value))
 	}
 	if _, err := h.Write([]byte(strconv.FormatBool(settings.Trust))); err != nil {
 		return "", errors.Errorf("writing settings: %w", err)

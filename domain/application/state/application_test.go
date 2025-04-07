@@ -3109,6 +3109,9 @@ func (s *applicationStateSuite) TestGetApplicationCharmOriginEmptyChannel(c *gc.
 			OSType:       0,
 			Architecture: 1,
 		},
+		Revision:           42,
+		Hash:               "hash",
+		CharmhubIdentifier: "ident",
 	})
 }
 
@@ -3134,6 +3137,9 @@ func (s *applicationStateSuite) TestGetApplicationCharmOriginRiskOnlyChannel(c *
 		Channel: &application.Channel{
 			Risk: "stable",
 		},
+		Revision:           42,
+		Hash:               "hash",
+		CharmhubIdentifier: "ident",
 	})
 }
 
@@ -3148,6 +3154,71 @@ func (s *applicationStateSuite) TestGetApplicationCharmOriginInvalidRisk(c *gc.C
 
 	_, err = s.state.GetApplicationCharmOrigin(context.Background(), id)
 	c.Assert(err, gc.ErrorMatches, `decoding channel: decoding risk: unknown risk "boom"`)
+}
+
+func (s *applicationStateSuite) TestGetApplicationCharmOriginNoRevision(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE charm SET revision = -1 WHERE uuid=?", charmUUID.String())
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	origin, err := s.state.GetApplicationCharmOrigin(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(origin, gc.DeepEquals, application.CharmOrigin{
+		Name:   "foo",
+		Source: charm.CharmHubSource,
+		Platform: application.Platform{
+			Channel:      "22.04/stable",
+			OSType:       0,
+			Architecture: 1,
+		},
+		Channel: &application.Channel{
+			Track:  "track",
+			Risk:   "stable",
+			Branch: "branch",
+		},
+		Revision:           -1,
+		Hash:               "hash",
+		CharmhubIdentifier: "ident",
+	})
+}
+
+func (s *applicationStateSuite) TestGetApplicationCharmOriginNoCharmhubIdentifier(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE charm_download_info SET charmhub_identifier = NULL WHERE charm_uuid=?", charmUUID.String())
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	origin, err := s.state.GetApplicationCharmOrigin(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(origin, gc.DeepEquals, application.CharmOrigin{
+		Name:   "foo",
+		Source: charm.CharmHubSource,
+		Platform: application.Platform{
+			Channel:      "22.04/stable",
+			OSType:       0,
+			Architecture: 1,
+		},
+		Channel: &application.Channel{
+			Track:  "track",
+			Risk:   "stable",
+			Branch: "branch",
+		},
+		Revision: 42,
+		Hash:     "hash",
+	})
 }
 
 func (s *applicationStateSuite) assertApplication(

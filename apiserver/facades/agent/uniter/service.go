@@ -18,6 +18,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/unitstate"
@@ -125,6 +126,9 @@ type ApplicationService interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationConfig(ctx context.Context, uuid coreapplication.ID) (coreconfig.ConfigAttributes, error)
+
+	// GetUnitRefreshAttributes returns the refresh attributes for the unit.
+	GetUnitRefreshAttributes(ctx context.Context, unitName coreunit.Name) (domainapplication.UnitAttributes, error)
 }
 
 // StatusService describes the ability to retrieve and persist

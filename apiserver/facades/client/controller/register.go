@@ -39,11 +39,6 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		domainServices = ctx.DomainServices()
 	)
 
-	leadership, err := ctx.LeadershipReader()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	modelAgentServiceGetter := func(c context.Context, modelID model.UUID) (common.ModelAgentService, error) {
 		svc, err := ctx.DomainServicesForModel(c, modelID)
 		if err != nil {
@@ -115,6 +110,5 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 			return ctx.ModelExporter(c, modelUUID, legacyState)
 		},
 		ctx.ObjectStore(),
-		leadership,
 	)
 }

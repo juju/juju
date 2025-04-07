@@ -26,6 +26,7 @@ import (
 	coreresourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/unit"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -64,6 +65,7 @@ func (s *resourceSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
 	s.constants.fakeApplicationUUID1 = "fake-application-1-uuid"
 	s.constants.fakeApplicationUUID2 = "fake-application-2-uuid"
 	s.constants.fakeApplicationName1 = "fake-application-1"
@@ -84,30 +86,36 @@ func (s *resourceSuite) SetUpTest(c *gc.C) {
 		var err error
 		fakeNetNodeUUID := "fake-net-node-uuid"
 
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm (uuid, reference_name, architecture_id, source_id) VALUES (?, 'app', 0, 1 /* charmhub */)`, fakeCharmUUID)
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO charm (uuid, reference_name, architecture_id, source_id) 
+VALUES (?, 'app', 0, 1)
+`, fakeCharmUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
-		_, err = tx.ExecContext(ctx, `INSERT INTO net_node (uuid) VALUES (?)`, fakeNetNodeUUID)
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO net_node (uuid) VALUES (?)
+`, fakeNetNodeUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
-		_, err = tx.ExecContext(ctx, `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?,
-?, ?),(?, ?, ?, ?, ?)`,
-			s.constants.fakeApplicationUUID1, s.constants.fakeApplicationName1, 0 /* alive */, fakeCharmUUID, network.AlphaSpaceId,
-			s.constants.fakeApplicationUUID2, s.constants.fakeApplicationName2, 0 /* alive */, fakeCharmUUID, network.AlphaSpaceId)
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid)
+VALUES (?, ?, ?, ?, ?),(?, ?, ?, ?, ?)`,
+			s.constants.fakeApplicationUUID1, s.constants.fakeApplicationName1, life.Alive, fakeCharmUUID, network.AlphaSpaceId,
+			s.constants.fakeApplicationUUID2, s.constants.fakeApplicationName2, life.Alive, fakeCharmUUID, network.AlphaSpaceId)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
-		_, err = tx.ExecContext(ctx, `INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?),(?, ?, ?, ?, ?),(?, ?, ?, ?, ?)`,
-			s.constants.fakeUnitUUID1, s.constants.fakeUnitName1, 0 /* alive */, s.constants.fakeApplicationUUID1, fakeNetNodeUUID,
-			s.constants.fakeUnitUUID2, s.constants.fakeUnitName2, 0 /* alive */, s.constants.fakeApplicationUUID1,
-			fakeNetNodeUUID,
-			s.constants.fakeUnitUUID3, s.constants.fakeUnitName3, 0 /* alive */, s.constants.fakeApplicationUUID1,
-			fakeNetNodeUUID,
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid)
+VALUES (?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?),(?, ?, ?, ?, ?, ?)`,
+			s.constants.fakeUnitUUID1, s.constants.fakeUnitName1, life.Alive, s.constants.fakeApplicationUUID1, fakeCharmUUID, fakeNetNodeUUID,
+			s.constants.fakeUnitUUID2, s.constants.fakeUnitName2, life.Alive, s.constants.fakeApplicationUUID1, fakeCharmUUID, fakeNetNodeUUID,
+			s.constants.fakeUnitUUID3, s.constants.fakeUnitName3, life.Alive, s.constants.fakeApplicationUUID1, fakeCharmUUID, fakeNetNodeUUID,
 		)
 		if err != nil {
 			return errors.Capture(err)

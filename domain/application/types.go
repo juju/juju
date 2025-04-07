@@ -8,6 +8,8 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/paths"
@@ -65,6 +67,8 @@ type AddApplicationArg struct {
 	StoragePoolKind map[string]storage.StorageKind
 	// StorageParentDir is the parent directory for mounting charm storage.
 	StorageParentDir string
+	// Placement is the placement directive for the application.
+	Placement string
 	// EndpointBindings is a map to bind application endpoint by name to a
 	// specific space. The default space is referenced by an empty key, if any.
 	EndpointBindings map[string]network.SpaceName
@@ -124,10 +128,13 @@ type Architecture = architecture.Architecture
 
 // CharmOrigin represents the origin of a charm.
 type CharmOrigin struct {
-	Name     string
-	Source   domaincharm.CharmSource
-	Channel  *Channel
-	Platform Platform
+	Name               string
+	Source             domaincharm.CharmSource
+	Channel            *Channel
+	Platform           Platform
+	Revision           int
+	Hash               string
+	CharmhubIdentifier string
 }
 
 // ScaleState describes the scale status of a k8s application.
@@ -215,6 +222,7 @@ var StorageParentDir = paths.StorageDir(paths.OSUnixLike)
 // Used by import and when registering a CAAS unit.
 type InsertUnitArg struct {
 	UnitName         coreunit.Name
+	CharmUUID        charm.ID
 	CloudContainer   *CloudContainer
 	Password         *PasswordInfo
 	Constraints      constraints.Constraints
@@ -235,6 +243,7 @@ type RegisterCAASUnitParams struct {
 // a k8s unit representing a new pod to the model.
 type RegisterCAASUnitArg struct {
 	UnitName         coreunit.Name
+	CharmUUID        charm.ID
 	PasswordHash     string
 	ProviderID       string
 	Address          *string
@@ -345,17 +354,6 @@ type UpdateApplicationSettingsArg struct {
 	Trust *bool
 }
 
-// ExportApplication contains parameters for exporting an application.
-type ExportApplication struct {
-	UUID         application.ID
-	Name         string
-	CharmUUID    charm.ID
-	Life         life.Life
-	PasswordHash string
-	Exposed      bool
-	Subordinate  bool
-}
-
 // ExposedEndpoint encapsulates the expose-related details of a particular
 // application endpoint with respect to the sources (CIDRs or space IDs) that
 // should be able to access the ports opened by the application charm for an
@@ -367,4 +365,34 @@ type ExposedEndpoint struct {
 	// A list of CIDRs that should be able to reach the opened ports
 	// for an exposed application's endpoint.
 	ExposeToCIDRs set.Strings
+}
+
+// ExportApplication contains parameters for exporting an application.
+type ExportApplication struct {
+	UUID                 application.ID
+	Name                 string
+	ModelType            model.ModelType
+	CharmUUID            charm.ID
+	Life                 life.Life
+	Placement            string
+	Exposed              bool
+	Subordinate          bool
+	CharmModifiedVersion int
+	CharmUpgradeOnError  bool
+	CharmLocator         domaincharm.CharmLocator
+	K8sServiceProviderID *string
+}
+
+// ExportUnit contains parameters for exporting a unit.
+type ExportUnit struct {
+	UUID    coreunit.UUID
+	Name    coreunit.Name
+	Machine machine.Name
+}
+
+// UnitAttributes contains parameters for exporting a unit.
+type UnitAttributes struct {
+	Life        life.Life
+	ProviderID  string
+	ResolveMode string
 }

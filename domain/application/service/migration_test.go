@@ -271,6 +271,43 @@ func (s *migrationServiceSuite) TestGetCharmInvalidUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
+func (s *migrationServiceSuite) TestGetApplicationCharmOrigin(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(id, nil)
+	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), id).Return(application.CharmOrigin{
+		Name:   "foo",
+		Source: domaincharm.CharmHubSource,
+	}, nil)
+
+	origin, err := s.service.GetApplicationCharmOrigin(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(origin, gc.DeepEquals, application.CharmOrigin{
+		Name:   "foo",
+		Source: domaincharm.CharmHubSource,
+	})
+}
+
+func (s *migrationServiceSuite) TestGetApplicationCharmOriginGetApplicationError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(id, errors.Errorf("boom"))
+
+	_, err := s.service.GetApplicationCharmOrigin(context.Background(), "foo")
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *migrationServiceSuite) TestGetApplicationCharmOriginInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetApplicationCharmOrigin(context.Background(), "!!!!!!!!!!!")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
+}
+
 func (s *migrationServiceSuite) TestGetApplicationConfigAndSettings(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -375,6 +412,7 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 	defer s.setupMocks(c).Finish()
 
 	id := applicationtesting.GenApplicationUUID(c)
+	charmUUID := charmtesting.GenCharmID(c)
 
 	ch := domaincharm.Charm{
 		Metadata: domaincharm.Metadata{
@@ -482,6 +520,7 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 
 	s.state.EXPECT().SetDesiredApplicationScale(gomock.Any(), id, 1).Return(nil)
 	s.state.EXPECT().SetApplicationScalingState(gomock.Any(), "ubuntu", 42, true).Return(nil)
+	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "ubuntu").Return(charmUUID, nil)
 
 	err := s.service.ImportApplication(context.Background(), "ubuntu", ImportApplicationArgs{
 		Charm: s.charm,
@@ -512,6 +551,7 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 
 	expectedUnitArgs := []application.InsertUnitArg{{
 		UnitName:       "ubuntu/666",
+		CharmUUID:      charmUUID,
 		CloudContainer: nil,
 		Password: ptr(application.PasswordInfo{
 			PasswordHash:  "passwordhash",
@@ -548,7 +588,7 @@ func (s *migrationServiceSuite) TestGetUnitUUIDByNameInvalidName(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, unit.InvalidUnitName)
 }
 
-func (s *migrationServiceSuite) TestGetApplicationsForExport(c *gc.C) {
+func (s *migrationServiceSuite) TestGetApplications(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	apps := []application.ExportApplication{
@@ -559,7 +599,7 @@ func (s *migrationServiceSuite) TestGetApplicationsForExport(c *gc.C) {
 
 	s.state.EXPECT().GetApplicationsForExport(gomock.Any()).Return(apps, nil)
 
-	res, err := s.service.GetApplicationsForExport(context.Background())
+	res, err := s.service.GetApplications(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.DeepEquals, apps)
 }
@@ -571,9 +611,62 @@ func (s *migrationServiceSuite) TestGetApplicationsForExportNoApplications(c *gc
 
 	s.state.EXPECT().GetApplicationsForExport(gomock.Any()).Return(apps, nil)
 
-	res, err := s.service.GetApplicationsForExport(context.Background())
+	res, err := s.service.GetApplications(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.DeepEquals, apps)
+}
+
+func (s *migrationServiceSuite) TestGetApplicationUnits(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID := applicationtesting.GenApplicationUUID(c)
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	units := []application.ExportUnit{
+		{
+			UUID: unitUUID,
+		},
+	}
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appID, nil)
+	s.state.EXPECT().GetApplicationUnitsForExport(gomock.Any(), appID).Return(units, nil)
+
+	res, err := s.service.GetApplicationUnits(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.DeepEquals, units)
+}
+
+func (s *migrationServiceSuite) TestGetApplicationUnitsNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appID, applicationerrors.ApplicationNotFound)
+
+	_, err := s.service.GetApplicationUnits(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *migrationServiceSuite) TestGetApplicationUnitsNoUnits(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appID := applicationtesting.GenApplicationUUID(c)
+
+	units := []application.ExportUnit{}
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(appID, nil)
+	s.state.EXPECT().GetApplicationUnitsForExport(gomock.Any(), appID).Return(units, nil)
+
+	res, err := s.service.GetApplicationUnits(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res, gc.DeepEquals, units)
+}
+
+func (s *migrationServiceSuite) TestGetApplicationUnitsInvalidName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetApplicationUnits(context.Background(), "!!!!foo")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
 func (s *migrationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {

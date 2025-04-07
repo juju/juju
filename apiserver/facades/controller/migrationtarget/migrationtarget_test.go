@@ -60,7 +60,6 @@ type Suite struct {
 
 	facadeContext facadetest.ModelContext
 	callContext   envcontext.ProviderCallContext
-	leaders       map[string]string
 }
 
 var _ = gc.Suite(&Suite{})
@@ -472,8 +471,6 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 		ModelImporter_: s.modelImporter,
 	}
 
-	s.leaders = map[string]string{}
-
 	return ctrl
 }
 
@@ -519,7 +516,7 @@ func (s *Suite) mustNewAPIWithFacadeVersions(c *gc.C, versions facades.FacadeVer
 }
 
 func (s *Suite) makeExportedModel(c *gc.C) (string, []byte) {
-	model, err := s.State.Export(s.leaders, jujujujutesting.NewObjectStore(c, s.State.ModelUUID()))
+	model, err := s.State.Export(jujujujutesting.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	newUUID := uuid.MustNewUUID().String()

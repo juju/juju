@@ -185,7 +185,7 @@ func (s *Suite) TestModelInfo(c *gc.C) {
 	}, nil)
 
 	modelDescription := description.NewModel(description.ModelArgs{})
-	s.modelExporter.EXPECT().ExportModel(gomock.Any(), gomock.Any(), gomock.Any()).Return(modelDescription, nil)
+	s.modelExporter.EXPECT().ExportModel(gomock.Any(), gomock.Any()).Return(modelDescription, nil)
 
 	modelConfig, err := config.New(false, map[string]any{
 		config.UUIDKey:         "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -379,7 +379,7 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 		Version: tools0,
 	})
 
-	s.modelExporter.EXPECT().ExportModel(gomock.Any(), map[string]string{}, s.store).Return(s.model, nil)
+	s.modelExporter.EXPECT().ExportModel(gomock.Any(), s.store).Return(s.model, nil)
 
 	serialized, err := s.mustMakeAPI(c).Export(context.Background())
 	c.Assert(err, jc.ErrorIsNil)

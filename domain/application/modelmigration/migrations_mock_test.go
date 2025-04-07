@@ -146,6 +146,45 @@ func (m *MockExportService) EXPECT() *MockExportServiceMockRecorder {
 	return m.recorder
 }
 
+// GetApplicationCharmOrigin mocks base method.
+func (m *MockExportService) GetApplicationCharmOrigin(arg0 context.Context, arg1 string) (application.CharmOrigin, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationCharmOrigin", arg0, arg1)
+	ret0, _ := ret[0].(application.CharmOrigin)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationCharmOrigin indicates an expected call of GetApplicationCharmOrigin.
+func (mr *MockExportServiceMockRecorder) GetApplicationCharmOrigin(arg0, arg1 any) *MockExportServiceGetApplicationCharmOriginCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationCharmOrigin", reflect.TypeOf((*MockExportService)(nil).GetApplicationCharmOrigin), arg0, arg1)
+	return &MockExportServiceGetApplicationCharmOriginCall{Call: call}
+}
+
+// MockExportServiceGetApplicationCharmOriginCall wrap *gomock.Call
+type MockExportServiceGetApplicationCharmOriginCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockExportServiceGetApplicationCharmOriginCall) Return(arg0 application.CharmOrigin, arg1 error) *MockExportServiceGetApplicationCharmOriginCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockExportServiceGetApplicationCharmOriginCall) Do(f func(context.Context, string) (application.CharmOrigin, error)) *MockExportServiceGetApplicationCharmOriginCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockExportServiceGetApplicationCharmOriginCall) DoAndReturn(f func(context.Context, string) (application.CharmOrigin, error)) *MockExportServiceGetApplicationCharmOriginCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetApplicationConfigAndSettings mocks base method.
 func (m *MockExportService) GetApplicationConfigAndSettings(arg0 context.Context, arg1 string) (config.ConfigAttributes, application.ApplicationSettings, error) {
 	m.ctrl.T.Helper()
@@ -260,6 +299,84 @@ func (c *MockExportServiceGetApplicationScaleStateCall) Do(f func(context.Contex
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockExportServiceGetApplicationScaleStateCall) DoAndReturn(f func(context.Context, string) (application.ScaleState, error)) *MockExportServiceGetApplicationScaleStateCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetApplicationUnits mocks base method.
+func (m *MockExportService) GetApplicationUnits(arg0 context.Context, arg1 string) ([]application.ExportUnit, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationUnits", arg0, arg1)
+	ret0, _ := ret[0].([]application.ExportUnit)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationUnits indicates an expected call of GetApplicationUnits.
+func (mr *MockExportServiceMockRecorder) GetApplicationUnits(arg0, arg1 any) *MockExportServiceGetApplicationUnitsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationUnits", reflect.TypeOf((*MockExportService)(nil).GetApplicationUnits), arg0, arg1)
+	return &MockExportServiceGetApplicationUnitsCall{Call: call}
+}
+
+// MockExportServiceGetApplicationUnitsCall wrap *gomock.Call
+type MockExportServiceGetApplicationUnitsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockExportServiceGetApplicationUnitsCall) Return(arg0 []application.ExportUnit, arg1 error) *MockExportServiceGetApplicationUnitsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockExportServiceGetApplicationUnitsCall) Do(f func(context.Context, string) ([]application.ExportUnit, error)) *MockExportServiceGetApplicationUnitsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockExportServiceGetApplicationUnitsCall) DoAndReturn(f func(context.Context, string) ([]application.ExportUnit, error)) *MockExportServiceGetApplicationUnitsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetApplications mocks base method.
+func (m *MockExportService) GetApplications(arg0 context.Context) ([]application.ExportApplication, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplications", arg0)
+	ret0, _ := ret[0].([]application.ExportApplication)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplications indicates an expected call of GetApplications.
+func (mr *MockExportServiceMockRecorder) GetApplications(arg0 any) *MockExportServiceGetApplicationsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplications", reflect.TypeOf((*MockExportService)(nil).GetApplications), arg0)
+	return &MockExportServiceGetApplicationsCall{Call: call}
+}
+
+// MockExportServiceGetApplicationsCall wrap *gomock.Call
+type MockExportServiceGetApplicationsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockExportServiceGetApplicationsCall) Return(arg0 []application.ExportApplication, arg1 error) *MockExportServiceGetApplicationsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockExportServiceGetApplicationsCall) Do(f func(context.Context) ([]application.ExportApplication, error)) *MockExportServiceGetApplicationsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockExportServiceGetApplicationsCall) DoAndReturn(f func(context.Context) ([]application.ExportApplication, error)) *MockExportServiceGetApplicationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

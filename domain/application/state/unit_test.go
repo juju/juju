@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/application/testing"
+	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -747,16 +748,21 @@ func (s *unitStateSuite) TestAddUnitsApplicationNotFound(c *gc.C) {
 		UnitName: "foo/666",
 	}
 	uuid := testing.GenApplicationUUID(c)
-	err := s.state.AddIAASUnits(context.Background(), c.MkDir(), uuid, u)
+	charmUUID := charmtesting.GenCharmID(c)
+	err := s.state.AddIAASUnits(context.Background(), c.MkDir(), uuid, charmUUID, u)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *unitStateSuite) TestAddUnitsApplicationNotALive(c *gc.C) {
 	appID := s.createApplication(c, "foo", life.Dying)
+
+	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
 	u := application.AddUnitArg{
 		UnitName: "foo/666",
 	}
-	err := s.state.AddIAASUnits(context.Background(), c.MkDir(), appID, u)
+	err = s.state.AddIAASUnits(context.Background(), c.MkDir(), appID, charmUUID, u)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }
 
@@ -770,6 +776,9 @@ func (s *unitStateSuite) TestAddCAASUnits(c *gc.C) {
 
 func (s *unitStateSuite) assertAddUnits(c *gc.C, modelType model.ModelType) {
 	appID := s.createApplication(c, "foo", life.Alive)
+
+	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
 
 	now := ptr(time.Now())
 	u := application.AddUnitArg{
@@ -789,13 +798,11 @@ func (s *unitStateSuite) assertAddUnits(c *gc.C, modelType model.ModelType) {
 			},
 		},
 	}
-	ctx := context.Background()
 
-	var err error
 	if modelType == model.IAAS {
-		err = s.state.AddIAASUnits(ctx, c.MkDir(), appID, u)
+		err = s.state.AddIAASUnits(context.Background(), c.MkDir(), appID, charmUUID, u)
 	} else {
-		err = s.state.AddCAASUnits(ctx, c.MkDir(), appID, u)
+		err = s.state.AddCAASUnits(context.Background(), c.MkDir(), appID, charmUUID, u)
 	}
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -833,12 +840,15 @@ func (s *unitStateSuite) TestInsertMigratingCAASUnits(c *gc.C) {
 func (s *unitStateSuite) assertInsertMigratingUnits(c *gc.C, modelType model.ModelType) {
 	appID := s.createApplication(c, "foo", life.Alive)
 
+	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
 	u := application.InsertUnitArg{
-		UnitName: "foo/666",
+		UnitName:  "foo/666",
+		CharmUUID: charmUUID,
 	}
 	ctx := context.Background()
 
-	var err error
 	if modelType == model.IAAS {
 		err = s.state.InsertMigratingIAASUnits(ctx, appID, u)
 	} else {
@@ -883,6 +893,106 @@ func (s *unitStateSuite) TestInitialWatchStatementUnitLife(c *gc.C) {
 	result, err := queryFunc(context.Background(), s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.SameContents, []string{unitID1, unitID2})
+}
+
+func (s *unitStateSuite) TestGetUnitRefreshAttributes(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u)
+
+	cc := application.UpdateCAASUnitParams{
+		ProviderID: ptr("another-id"),
+		Ports:      ptr([]string{"666", "667"}),
+		Address:    ptr("2001:db8::1"),
+	}
+	err := s.state.UpdateCAASUnit(context.Background(), "foo/666", cc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	refreshAttributes, err := s.state.GetUnitRefreshAttributes(context.Background(), u.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(refreshAttributes, gc.DeepEquals, application.UnitAttributes{
+		Life:        life.Alive,
+		ProviderID:  "another-id",
+		ResolveMode: "none",
+	})
+}
+
+func (s *unitStateSuite) TestGetUnitRefreshAttributesNoProviderID(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u)
+
+	refreshAttributes, err := s.state.GetUnitRefreshAttributes(context.Background(), u.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(refreshAttributes, gc.DeepEquals, application.UnitAttributes{
+		Life:        life.Alive,
+		ResolveMode: "none",
+	})
+}
+
+func (s *unitStateSuite) TestGetUnitRefreshAttributesWithResolveMode(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u)
+
+	unitUUID, err := s.state.GetUnitUUIDByName(context.Background(), u.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "INSERT INTO unit_resolved (unit_uuid, mode_id) VALUES (?, 0)", unitUUID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	refreshAttributes, err := s.state.GetUnitRefreshAttributes(context.Background(), u.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(refreshAttributes, gc.DeepEquals, application.UnitAttributes{
+		Life:        life.Alive,
+		ResolveMode: "retry-hooks",
+	})
+}
+
+func (s *unitStateSuite) TestGetUnitRefreshAttributesDeadLife(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 2 WHERE name = ?", u.UnitName)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	refreshAttributes, err := s.state.GetUnitRefreshAttributes(context.Background(), u.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(refreshAttributes, gc.DeepEquals, application.UnitAttributes{
+		Life:        life.Dead,
+		ResolveMode: "none",
+	})
+}
+
+func (s *unitStateSuite) TestGetUnitRefreshAttributesDyingLife(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u)
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE unit SET life_id = 1 WHERE name = ?", u.UnitName)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	refreshAttributes, err := s.state.GetUnitRefreshAttributes(context.Background(), u.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(refreshAttributes, gc.DeepEquals, application.UnitAttributes{
+		Life:        life.Dying,
+		ResolveMode: "none",
+	})
 }
 
 func (s *unitStateSuite) TestSetConstraintFull(c *gc.C) {

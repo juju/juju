@@ -4,8 +4,7 @@ CREATE TABLE unit (
     life_id INT NOT NULL,
     application_uuid TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
-    -- Freshly created units will not have a charm URL set.
-    charm_uuid TEXT,
+    charm_uuid TEXT NOT NULL,
     password_hash_algorithm_id TEXT,
     password_hash TEXT,
     CONSTRAINT fk_unit_life
@@ -24,6 +23,7 @@ CREATE TABLE unit (
     FOREIGN KEY (password_hash_algorithm_id)
     REFERENCES password_hash_algorithm (id)
 );
+
 
 CREATE UNIQUE INDEX idx_unit_name
 ON unit (name);
@@ -321,3 +321,23 @@ CREATE TABLE resolve_mode (
 INSERT INTO resolve_mode VALUES
 (0, 'retry-hooks'),
 (1, 'no-hooks');
+
+CREATE VIEW v_unit_attribute AS
+SELECT
+    u.uuid,
+    u.name,
+    u.life_id,
+    ur.mode_id AS resolve_mode_id,
+    k.provider_id
+FROM unit AS u
+LEFT JOIN unit_resolved AS ur ON u.uuid = ur.unit_uuid
+LEFT JOIN k8s_pod AS k ON u.uuid = k.unit_uuid;
+
+CREATE VIEW v_unit_export AS
+SELECT
+    u.uuid,
+    u.name,
+    u.password_hash,
+    m.name AS machine_name
+FROM unit AS u
+LEFT JOIN machine AS m ON u.net_node_uuid = m.net_node_uuid;

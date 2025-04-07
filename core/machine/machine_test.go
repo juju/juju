@@ -4,6 +4,7 @@
 package machine
 
 import (
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -11,6 +12,7 @@ import (
 )
 
 type machineSuite struct {
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&machineSuite{})

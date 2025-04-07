@@ -5,19 +5,24 @@ package modelmigration
 
 import (
 	"context"
+	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v9"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/os/ostype"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
@@ -43,6 +48,14 @@ func RegisterExport(
 // ExportService provides a subset of the application domain
 // service methods needed for application export.
 type ExportService interface {
+	// GetApplications returns all the applications in the model.
+	GetApplications(ctx context.Context) ([]application.ExportApplication, error)
+
+	// GetApplicationUnits returns all the units for the specified application.
+	// If the application does not exist, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationUnits(ctx context.Context, name string) ([]application.ExportUnit, error)
+
 	// GetCharmID returns a charm ID by name. It returns an error.CharmNotFound
 	// if the charm can not be found by the name.
 	// This can also be used as a cheap way to see if a charm exists without
@@ -80,6 +93,12 @@ type ExportService interface {
 	// application, returning an error satisfying
 	// [applicationerrors.ApplicationNotFound] if the application is not found.
 	GetApplicationScaleState(ctx context.Context, name string) (application.ScaleState, error)
+
+	// GetApplicationCharmOrigin returns the charm origin for the specified
+	// application name.
+	// If the application does not exist, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetApplicationCharmOrigin(ctx context.Context, name string) (application.CharmOrigin, error)
 }
 
 // exportOperation describes a way to execute a migration for
@@ -114,69 +133,262 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 // Execute the export, adding the application to the model.
 // The export also includes all the charm metadata, manifest, config and
 // actions. Along with units and resources.
-func (e *exportOperation) Execute(ctx context.Context, model description.Model) error {
-	// We don't currently export applications, that'll be done in a future.
-	// For now we need to ensure that we write the charms on the applications.
+func (e *exportOperation) Execute(ctx context.Context, m description.Model) error {
+	applications, err := e.service.GetApplications(ctx)
+	if err != nil {
+		return errors.Errorf("getting applications: %w", err)
+	}
 
-	for _, app := range model.Applications() {
-		// For every application, ensure that the charm is written to the model.
-		// This will still be required in the future, it'll just be done in
-		// one step.
-
-		// This is temporary until we switch over to using dqlite as the
-		// source of applications.
-		config, settings, err := e.service.GetApplicationConfigAndSettings(ctx, app.Name())
+	for _, app := range applications {
+		appArgs, err := e.createApplicationArgs(ctx, app)
 		if err != nil {
-			return errors.Errorf("getting application config for %q: %v", app.Name(), err)
+			return errors.Errorf("creating application args: %w", err)
+		}
+
+		// Create the application in the description model. This returns the
+		// application description, which we can then populate with the
+		// additional data.
+		descriptionApp := m.AddApplication(appArgs)
+
+		// Get the application constraints and set them on the application.
+		appCons, err := e.service.GetApplicationConstraints(ctx, app.Name)
+		if err != nil {
+			return errors.Errorf("getting application constraints %q: %w", app.Name, err)
+		}
+		descriptionApp.SetConstraints(exportApplicationConstraints(appCons))
+
+		// Set the charm origin on the application.
+		origin, err := e.service.GetApplicationCharmOrigin(ctx, app.Name)
+		if err != nil {
+			return errors.Errorf("getting application charm origin for %q: %w", app.Name, err)
+		}
+		if err := e.exportApplicationCharmOrigin(ctx, descriptionApp, origin, appCons); err != nil {
+			return errors.Capture(err)
+		}
+
+		// Set the application config and settings.
+		config, settings, err := e.service.GetApplicationConfigAndSettings(ctx, app.Name)
+		if err != nil {
+			return errors.Errorf("getting application config for %q: %w", app.Name, err)
 		}
 
 		// The naming of these methods are esoteric, essentially the charm
 		// config is the application config overlaid from the charm config. The
 		// application config, is the application settings.
-		app.SetCharmConfig(config)
-		app.SetApplicationConfig(map[string]any{
+		descriptionApp.SetCharmConfig(config)
+		descriptionApp.SetApplicationConfig(map[string]any{
 			coreapplication.TrustConfigOptionName: settings.Trust,
 		})
 
-		charm, _, err := e.service.GetCharmByApplicationName(ctx, app.Name())
+		charm, _, err := e.service.GetCharmByApplicationName(ctx, app.Name)
 		if err != nil {
-			return errors.Errorf("getting charm %v", err)
+			return errors.Errorf("getting charm: %w", err)
 		}
 
-		if err := e.exportCharm(ctx, app, charm); err != nil {
+		if err := e.exportCharm(ctx, descriptionApp, charm); err != nil {
 			return errors.Capture(err)
 		}
 
-		appCons, err := e.service.GetApplicationConstraints(ctx, app.Name())
+		err = e.exportApplicationUnits(ctx, descriptionApp)
 		if err != nil {
-			return errors.Errorf("getting application constraints %q: %v", app.Name(), err)
+			return errors.Errorf("exporting application units %q: %w", app.Name, err)
 		}
-		app.SetConstraints(e.exportApplicationConstraints(appCons))
 
-		scaleState, err := e.service.GetApplicationScaleState(ctx, app.Name())
-		if err != nil {
-			return errors.Errorf("getting application scale state for %q: %v", app.Name(), err)
+		if app.ModelType != coremodel.CAAS {
+			continue
 		}
-		app.SetProvisioningState(e.exportApplicationScaleState(scaleState))
-		app.SetDesiredScale(scaleState.Scale)
 
-		err = e.exportApplicationUnits(ctx, app)
+		scaleState, err := e.service.GetApplicationScaleState(ctx, app.Name)
 		if err != nil {
-			return errors.Errorf("exporting application units %q: %v", app.Name(), err)
+			return errors.Errorf("getting application scale state for %q: %w", app.Name, err)
 		}
+		descriptionApp.SetProvisioningState(exportApplicationScaleState(scaleState))
+		descriptionApp.SetDesiredScale(scaleState.Scale)
 	}
 
 	return nil
 }
 
-func (e *exportOperation) exportApplicationScaleState(scaleState application.ScaleState) *description.ProvisioningStateArgs {
+func (e *exportOperation) createApplicationArgs(ctx context.Context, app application.ExportApplication) (description.ApplicationArgs, error) {
+	modelType, err := e.exportModelType(app.ModelType)
+	if err != nil {
+		return description.ApplicationArgs{}, errors.Capture(err)
+	}
+
+	charmURL, err := exportCharmURL(app.CharmLocator)
+	if err != nil {
+		return description.ApplicationArgs{}, errors.Errorf("exporting charm URL: %w", err)
+	}
+
+	var cloudService *description.CloudServiceArgs
+	if app.K8sServiceProviderID != nil {
+		cloudService = &description.CloudServiceArgs{
+			ProviderId: *app.K8sServiceProviderID,
+			// TODO (stickupkid): Get the provider addresses from the net node.
+			// This needs to be done with link layer addressing.
+		}
+	}
+
+	return description.ApplicationArgs{
+		Name:                 app.Name,
+		Type:                 modelType,
+		Subordinate:          app.Subordinate,
+		CharmURL:             charmURL,
+		CharmModifiedVersion: app.CharmModifiedVersion,
+		ForceCharm:           app.CharmUpgradeOnError,
+		Exposed:              app.Exposed,
+		Placement:            app.Placement,
+		CloudService:         cloudService,
+
+		// Create a provisioning state for the application, incase a non-scaling
+		// application is being exported and someone tries to access the
+		// provisioning state, which will cause a panic.
+		ProvisioningState: &description.ProvisioningStateArgs{},
+	}, nil
+}
+
+func (e *exportOperation) exportModelType(modelType coremodel.ModelType) (string, error) {
+	switch modelType {
+	case coremodel.IAAS:
+		return "iaas", nil
+	case coremodel.CAAS:
+		return "caas", nil
+	default:
+		return "", errors.Errorf("unsupported model type %q", modelType)
+	}
+}
+
+func (e *exportOperation) exportApplicationCharmOrigin(
+	ctx context.Context,
+	app description.Application, origin application.CharmOrigin,
+	cons constraints.Value,
+) error {
+	source, err := exportSource(origin.Source)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	channel, err := exportChannel(origin.Channel)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	defaultArch := arch.DefaultArchitecture
+	if cons.HasArch() && *cons.Arch != "" {
+		defaultArch = *cons.Arch
+	}
+
+	platform, err := e.exportPlatform(ctx, origin.Platform, defaultArch)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	originArgs := description.CharmOriginArgs{
+		Source:   source,
+		ID:       origin.CharmhubIdentifier,
+		Revision: origin.Revision,
+		Hash:     origin.Hash,
+		Channel:  channel,
+		Platform: platform,
+	}
+
+	app.SetCharmOrigin(originArgs)
+	return nil
+}
+
+func exportSource(source charm.CharmSource) (string, error) {
+	switch source {
+	case charm.CharmHubSource:
+		return corecharm.CharmHub.String(), nil
+	case charm.LocalSource:
+		return corecharm.Local.String(), nil
+	default:
+		return "", errors.Errorf("unsupported source %q", source)
+	}
+}
+
+func exportChannel(channel *application.Channel) (string, error) {
+	if channel == nil {
+		return "", nil
+	}
+
+	risk, err := exportRisk(channel.Risk)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	ch := internalcharm.MakePermissiveChannel(channel.Track, risk, channel.Branch)
+	return ch.String(), nil
+}
+
+func exportRisk(risk application.ChannelRisk) (string, error) {
+	switch risk {
+	case application.RiskStable:
+		return "stable", nil
+	case application.RiskCandidate:
+		return "candidate", nil
+	case application.RiskBeta:
+		return "beta", nil
+	case application.RiskEdge:
+		return "edge", nil
+	default:
+		return "", errors.Errorf("unsupported risk %q", risk)
+	}
+}
+
+func (e *exportOperation) exportPlatform(ctx context.Context, platform application.Platform, defaultArch string) (string, error) {
+	arch := e.exportArchitecture(ctx, platform.Architecture, defaultArch)
+
+	os, err := exportOSType(platform.OSType)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	p := corecharm.Platform{
+		Architecture: arch,
+		OS:           os,
+		Channel:      platform.Channel,
+	}
+	return p.String(), nil
+}
+
+func (e *exportOperation) exportArchitecture(ctx context.Context, a application.Architecture, defaultArch string) string {
+	switch a {
+	case architecture.AMD64:
+		return arch.AMD64
+	case architecture.ARM64:
+		return arch.ARM64
+	case architecture.PPC64EL:
+		return arch.PPC64EL
+	case architecture.S390X:
+		return arch.S390X
+	case architecture.RISCV64:
+		return arch.RISCV64
+	default:
+		e.logger.Warningf(ctx, "no architecture set for platform, using default %q", defaultArch)
+		return defaultArch
+	}
+}
+
+func exportOSType(osType application.OSType) (string, error) {
+	switch osType {
+	case application.Ubuntu:
+		// For some reason, all ostype values are title case, but we match
+		// against the non-title case values.
+		return strings.ToLower(ostype.Ubuntu.String()), nil
+	default:
+		return "", errors.Errorf("unsupported os type %q", osType)
+	}
+}
+
+func exportApplicationScaleState(scaleState application.ScaleState) *description.ProvisioningStateArgs {
 	return &description.ProvisioningStateArgs{
 		Scaling:     scaleState.Scaling,
 		ScaleTarget: scaleState.ScaleTarget,
 	}
 }
 
-func (e *exportOperation) exportApplicationConstraints(cons constraints.Value) description.ConstraintsArgs {
+func exportApplicationConstraints(cons constraints.Value) description.ConstraintsArgs {
 	result := description.ConstraintsArgs{}
 	if cons.AllocatePublicIP != nil {
 		result.AllocatePublicIP = *cons.AllocatePublicIP
@@ -221,6 +433,60 @@ func (e *exportOperation) exportApplicationConstraints(cons constraints.Value) d
 		result.Zones = *cons.Zones
 	}
 	return result
+}
+
+// exportCharmURL returns the charm URL for the current model.
+func exportCharmURL(locator charm.CharmLocator) (string, error) {
+	schema, err := exportCharmURLSource(locator.Source)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	architecture, err := exportCharmURLArchitecture(locator.Architecture)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	url := internalcharm.URL{
+		Schema:       schema,
+		Name:         locator.Name,
+		Revision:     locator.Revision,
+		Architecture: architecture,
+	}
+	return url.String(), nil
+}
+
+func exportCharmURLSource(source charm.CharmSource) (string, error) {
+	switch source {
+	case charm.CharmHubSource:
+		return internalcharm.CharmHub.String(), nil
+	case charm.LocalSource:
+		return internalcharm.Local.String(), nil
+	default:
+		return "", errors.Errorf("unsupported source %q", source)
+	}
+}
+
+func exportCharmURLArchitecture(a application.Architecture) (string, error) {
+	switch a {
+	case architecture.AMD64:
+		return arch.AMD64, nil
+	case architecture.ARM64:
+		return arch.ARM64, nil
+	case architecture.PPC64EL:
+		return arch.PPC64EL, nil
+	case architecture.S390X:
+		return arch.S390X, nil
+	case architecture.RISCV64:
+		return arch.RISCV64, nil
+
+	// This is a valid case if we're uploading charms and the value isn't
+	// supplied.
+	case architecture.Unknown:
+		return "", nil
+	default:
+		return "", errors.Errorf("unsupported architecture %q", a)
+	}
 }
 
 const (

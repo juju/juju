@@ -180,7 +180,7 @@ type ModelContext interface {
 type ModelExporter interface {
 	// ExportModel exports the current model into a description model. This
 	// can be serialized into yaml and then imported.
-	ExportModel(context.Context, map[string]string, objectstore.ObjectStore) (description.Model, error)
+	ExportModel(context.Context, objectstore.ObjectStore) (description.Model, error)
 	// ExportModelPartial exports the current model into a partial description
 	// model. This can be serialized into yaml and then imported.
 	ExportModelPartial(context.Context, state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
@@ -191,7 +191,7 @@ type ModelExporter interface {
 // Deprecated: This is being replaced with the ModelExporter.
 type LegacyStateExporter interface {
 	// Export generates an abstract representation of a model.
-	Export(map[string]string, objectstore.ObjectStore) (description.Model, error)
+	Export(objectstore.ObjectStore) (description.Model, error)
 	// ExportPartial produces a partial export based based on the input
 	// config.
 	ExportPartial(state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
