@@ -42,12 +42,12 @@ type State interface {
 	// GetModelTargetAgentVersion returns the target agent version for this model.
 	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
 
-	// GetMachineRunningAgentBinaryVersion returns the running machine agent
-	// binary version for the given machine uuid.
+	// GetUnitRunningAgentBinaryVersion returns the running unit agent binary
+	// version for the given unit uuid.
 	// The following errors can be expected:
 	// - [applicationerrors.UnitNotFound] when the unit in question does not
 	// exist.
-	// - [github.com/juju/juju/domain/model/errors.AgentVersionNotFound] when no
+	// - [github.com/juju/juju/domain/modelagent/errors.AgentVersionNotFound] when no
 	// running agent version has been reported for the given machine.
 	GetUnitRunningAgentBinaryVersion(context.Context, coreunit.UUID) (coreagentbinary.Version, error)
 

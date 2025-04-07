@@ -44,14 +44,6 @@ type machineTargetAgentVersionInfo struct {
 	ArchitectureName string `db:"architecture_name"`
 }
 
-// unitTargetAgentVersionInfo represents a record from the
-// v_unit_target_agent_version view.
-type unitTargetAgentVersionInfo struct {
-	UnitUUID         coreunit.UUID `db:"unit_uuid"`
-	TargetVersion    string        `db:"target_version"`
-	ArchitectureName string        `db:"architecture_name"`
-}
-
 // machineLife represents the struct to be used for the life_id column within
 // the sqlair statements in the machine domain.
 type machineLife struct {
@@ -84,12 +76,32 @@ type unitAgentVersion struct {
 	ArchtectureID int    `db:"architecture_id"`
 }
 
+// unitAgentVersionInfo represents a record from the v_unit_agent_version view.
+type unitAgentVersionInfo struct {
+	UnitUUID         string `db:"unit_uuid"`
+	Version          string `db:"version"`
+	ArchitectureName string `db:"architecture_name"`
+}
+
 // unitName represents the single column of a unit that is the unit's name.
 type unitName struct {
 	Name string `db:"name"`
 }
 
+// unitTargetAgentVersionInfo represents a record from the
+// v_unit_target_agent_version view.
+type unitTargetAgentVersionInfo struct {
+	UnitUUID         coreunit.UUID `db:"unit_uuid"`
+	TargetVersion    string        `db:"target_version"`
+	ArchitectureName string        `db:"architecture_name"`
+}
+
 // unitUUID represents the uuid for a unit from the unit table.
 type unitUUID struct {
 	UnitUUID coreunit.UUID `db:"uuid"`
+}
+
+// unitUUIDRef represents a unit uuid reference to the unit table.
+type unitUUIDRef struct {
+	UUID coreunit.UUID `db:"unit_uuid"`
 }

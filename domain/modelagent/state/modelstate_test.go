@@ -580,31 +580,11 @@ func (s *modelStateSuite) TestSetUnitRunningAgentBinaryVersion(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var (
-		obtainedUnitUUID string
-		obtainedVersion  string
-		obtainedArch     string
-	)
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		stmt := `
-SELECT unit_uuid,
-       version,
-       name
-FROM unit_agent_version
-INNER JOIN architecture ON unit_agent_version.architecture_id = architecture.id
-WHERE unit_uuid = ?
-	`
-
-		return tx.QueryRowContext(ctx, stmt, unitUUID).Scan(
-			&obtainedUnitUUID,
-			&obtainedVersion,
-			&obtainedArch,
-		)
-	})
+	ver, err := st.GetUnitRunningAgentBinaryVersion(context.Background(), unitUUID)
+	c.Check(ver.Arch, gc.Equals, corearch.ARM64)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedUnitUUID, gc.Equals, unitUUID.String())
-	c.Check(obtainedVersion, gc.Equals, jujuversion.Current.String())
-	c.Check(obtainedArch, gc.Equals, corearch.ARM64)
+	c.Check(ver.Number.String(), gc.Equals, jujuversion.Current.String())
+	c.Check(ver.Arch, gc.Equals, corearch.ARM64)
 }
 
 // TestSetRunningAgentBinaryVersionUpdate asserts setting the initial agent binary
@@ -622,30 +602,11 @@ func (s *modelStateSuite) TestSetUnitRunningAgentBinaryVersionUpdate(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var (
-		obtainedUnitUUID string
-		obtainedVersion  string
-		obtainedArch     string
-	)
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		stmt := `
-SELECT unit_uuid,
-       version,
-       name
-FROM unit_agent_version
-INNER JOIN architecture ON unit_agent_version.architecture_id = architecture.id
-WHERE unit_uuid = ?
-	`
-
-		return tx.QueryRowContext(ctx, stmt, unitUUID).Scan(
-			&obtainedUnitUUID,
-			&obtainedVersion,
-			&obtainedArch,
-		)
-	})
+	ver, err := st.GetUnitRunningAgentBinaryVersion(context.Background(), unitUUID)
+	c.Check(ver.Arch, gc.Equals, corearch.ARM64)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedUnitUUID, gc.Equals, unitUUID.String())
-	c.Check(obtainedVersion, gc.Equals, jujuversion.Current.String())
+	c.Check(ver.Number.String(), gc.Equals, jujuversion.Current.String())
+	c.Check(ver.Arch, gc.Equals, corearch.ARM64)
 
 	// Update
 	newVersion := jujuversion.Current
@@ -660,24 +621,31 @@ WHERE unit_uuid = ?
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		stmt := `
-SELECT unit_uuid,
-       version,
-       name
-FROM unit_agent_version
-INNER JOIN architecture ON unit_agent_version.architecture_id = architecture.id
-WHERE unit_uuid = ?
-	`
+	ver, err = st.GetUnitRunningAgentBinaryVersion(context.Background(), unitUUID)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ver.Number.String(), gc.Equals, newVersion.String())
+	c.Check(ver.Arch, gc.Equals, corearch.ARM64)
+}
 
-		return tx.QueryRowContext(ctx, stmt, unitUUID).Scan(
-			&obtainedUnitUUID,
-			&obtainedVersion,
-			&obtainedArch,
-		)
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtainedUnitUUID, gc.Equals, unitUUID.String())
-	c.Check(obtainedVersion, gc.Equals, newVersion.String())
-	c.Check(obtainedArch, gc.Equals, corearch.ARM64)
+// TestGetUnitRunningAgentBinaryVersionUnitNotFound tests that if we ask for the
+// running unit agent binary version for a unit that doesn't exist we get
+// [applicationerrors.UnitNotFound] error.
+func (s *modelStateSuite) TestGetUnitRunningAgentBinaryVersionUnitNotFound(c *gc.C) {
+	unitUUID := unittesting.GenUnitUUID(c)
+	_, err := NewState(s.TxnRunnerFactory()).GetUnitRunningAgentBinaryVersion(
+		context.Background(), unitUUID,
+	)
+	c.Check(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+// TestGetUnitRunningAgentBinaryVersionNotFound tests that if no reported
+// running agent binary version has been set for a unit we get an error that
+// satisifes [modelagenterrors.AgentVersionNotFound].
+func (s *modelStateSuite) TestGetUnitRunningAgentBinaryVersionNotFound(c *gc.C) {
+	unitUUID := s.createTestingUnit(c)
+	_, err := NewState(s.TxnRunnerFactory()).GetUnitRunningAgentBinaryVersion(
+		context.Background(),
+		unitUUID,
+	)
+	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotFound)
 }

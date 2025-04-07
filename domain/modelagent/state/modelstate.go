@@ -283,6 +283,74 @@ WHERE machine_uuid = $machineUUIDRef.machine_uuid
 	}, nil
 }
 
+// GetUnitRunningAgentBinaryVersion returns the running unit agent binary
+// version for the given unit uuid.
+// The following errors can be expected:
+// - [applicationerrors.UnitNotFound] when the unit in question does not exist.
+// - [modelagenterrors.AgentVersionNotFound] when no running agent version has
+// been reported for the given machine.
+func (st *State) GetUnitRunningAgentBinaryVersion(
+	ctx context.Context,
+	uuid coreunit.UUID,
+) (coreagentbinary.Version, error) {
+	db, err := st.DB()
+	if err != nil {
+		return coreagentbinary.Version{}, errors.Capture(err)
+	}
+
+	info := unitAgentVersionInfo{}
+	unitUUID := unitUUIDRef{
+		UUID: uuid,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &unitAgentVersionInfo.*
+FROM v_unit_agent_version
+WHERE unit_uuid = $unitUUIDRef.unit_uuid
+`, info, unitUUID)
+	if err != nil {
+		return coreagentbinary.Version{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.checkUnitNotDead(ctx, tx, uuid)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			return errors.Errorf(
+				"unit %q does not exist", uuid,
+			).Add(applicationerrors.UnitNotFound)
+		} else if err != nil && !errors.Is(err, applicationerrors.UnitIsDead) {
+			return errors.Errorf(
+				"checking if unit %q exists: %w", uuid, err,
+			)
+		}
+
+		err = tx.Query(ctx, stmt, unitUUID).Get(&info)
+		if errors.Is(err, sql.ErrNoRows) {
+			return modelagenterrors.AgentVersionNotFound
+		} else if err != nil {
+			return errors.Errorf(
+				"getting unit %q agent version: %w", uuid, err,
+			)
+		}
+		return nil
+	})
+	if err != nil {
+		return coreagentbinary.Version{}, errors.Capture(err)
+	}
+
+	vers, err := semversion.Parse(info.Version)
+	if err != nil {
+		return coreagentbinary.Version{}, errors.Errorf(
+			"parsing unit %q agent version %q: %w",
+			uuid, info.Version, err,
+		)
+	}
+	return coreagentbinary.Version{
+		Number: vers,
+		Arch:   info.ArchitectureName,
+	}, nil
+}
+
 // GetUnitTargetAgentVersion returns the target agent version for the specified unit.
 // The following error types can be expected:
 // - [applicationerrors.UnitNotFound] when the unit does not exist.
