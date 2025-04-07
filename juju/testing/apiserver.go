@@ -373,14 +373,14 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 
 	systemState, err := cfg.StatePool.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(factory.Password(), systemState, nil)
+	agentAuthGetter := authentication.NewAgentAuthenticatorGetter(factory.AgentPassword(), systemState, nil)
 
 	authenticator, err := stateauthenticator.NewAuthenticator(
 		context.Background(),
 		cfg.StatePool,
 		cfg.ControllerModelUUID,
 		factory.ControllerConfig(),
-		passwordServiceGetter{
+		agentPasswordServiceGetter{
 			DomainServicesGetter: s.ModelDomainServicesGetter(c),
 		},
 		factory.Access(),
@@ -401,17 +401,18 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	}
 }
 
-type passwordServiceGetter struct {
+type agentPasswordServiceGetter struct {
 	services.DomainServicesGetter
 }
 
-// GetPasswordServiceForModel returns a PasswordService for the given model.
-func (s passwordServiceGetter) GetPasswordServiceForModel(ctx context.Context, modelUUID coremodel.UUID) (authentication.PasswordService, error) {
+// GetAgentPasswordServiceForModel returns a AgentPasswordService for the given
+// model.
+func (s agentPasswordServiceGetter) GetAgentPasswordServiceForModel(ctx context.Context, modelUUID coremodel.UUID) (authentication.AgentPasswordService, error) {
 	svc, err := s.DomainServicesGetter.ServicesForModel(ctx, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return svc.Password(), nil
+	return svc.AgentPassword(), nil
 }
 
 func (s *ApiServerSuite) SetUpTest(c *gc.C) {

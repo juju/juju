@@ -254,13 +254,14 @@ func (b *managedServices) InsertKeyContext(ctx context.Context, key dbrootkeysto
 	return b.macaroonService.InsertKeyContext(b.tomb.Context(ctx), key)
 }
 
-// GetPasswordServiceForModel returns a PasswordService for the given model.
-func (b *managedServices) GetPasswordServiceForModel(ctx context.Context, modelUUID coremodel.UUID) (authentication.PasswordService, error) {
+// GetAgentPasswordServiceForModel returns a AgentPasswordService for the given
+// model.
+func (b *managedServices) GetAgentPasswordServiceForModel(ctx context.Context, modelUUID coremodel.UUID) (authentication.AgentPasswordService, error) {
 	services, err := b.ServicesForModel(b.tomb.Context(ctx), modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return services.Password(), nil
+	return services.AgentPassword(), nil
 }
 
 // ServicesForModel returns a DomainServices for the given model.

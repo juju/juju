@@ -33,9 +33,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// PasswordService defines the methods required to set a password hash for a
-// unit.
-type PasswordService interface {
+// AgentPasswordService defines the methods required to set an agent password
+// hash.
+type AgentPasswordService interface {
 	// SetUnitPassword sets the password hash for the given unit.
 	SetUnitPassword(context.Context, unit.Name, string) error
 }
@@ -131,7 +131,7 @@ func NewAgentAPI(
 	modelAuthFn common.GetAuthFunc,
 	resources facade.Resources,
 	st *state.State,
-	passwordService PasswordService,
+	agentPasswordService AgentPasswordService,
 	controllerConfigService ControllerConfigService,
 	externalControllerService ExternalControllerService,
 	cloudService CloudService,
@@ -146,7 +146,7 @@ func NewAgentAPI(
 	}
 
 	return &AgentAPI{
-		PasswordChanger:    common.NewPasswordChanger(passwordService, st, getCanChange),
+		PasswordChanger:    common.NewPasswordChanger(agentPasswordService, st, getCanChange),
 		RebootFlagClearer:  common.NewRebootFlagClearer(rebootMachineService, getCanChange),
 		ModelConfigWatcher: commonmodel.NewModelConfigWatcher(modelConfigService, watcherRegistry),
 		ControllerConfigAPI: common.NewControllerConfigAPI(

@@ -46,7 +46,7 @@ func NewDeployerFacade(ctx facade.ModelContext) (*DeployerAPI, error) {
 	statusService := domainServices.Status()
 
 	return NewDeployerAPI(
-		domainServices.Password(),
+		domainServices.AgentPassword(),
 		controllerConfigGetter,
 		applicationService,
 		statusService,

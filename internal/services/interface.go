@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/model"
 	accessservice "github.com/juju/juju/domain/access/service"
+	agentpasswordservice "github.com/juju/juju/domain/agentpassword/service"
 	agentprovisionerservice "github.com/juju/juju/domain/agentprovisioner/service"
 	annotationService "github.com/juju/juju/domain/annotation/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -33,7 +34,6 @@ import (
 	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
 	networkservice "github.com/juju/juju/domain/network/service"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
-	passwordservice "github.com/juju/juju/domain/password/service"
 	portservice "github.com/juju/juju/domain/port/service"
 	proxyservice "github.com/juju/juju/domain/proxy/service"
 	relationservice "github.com/juju/juju/domain/relation/service"
@@ -146,8 +146,8 @@ type ModelDomainServices interface {
 	Resource() *resourceservice.Service
 	// Removal returns the service for managing entity removal.
 	Removal() *removalservice.WatchableService
-	// Passwords returns the service for managing passwords.
-	Password() *passwordservice.Service
+	// AgentPassword returns the service for managing agent passwords.
+	AgentPassword() *agentpasswordservice.Service
 
 	// Stub returns the stub service. A special service that collects temporary
 	// methods required for wiring together domains which are not completely

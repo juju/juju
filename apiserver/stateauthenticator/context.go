@@ -75,7 +75,7 @@ type AgentAuthenticatorGetter interface {
 	Authenticator() authentication.EntityAuthenticator
 
 	// AuthenticatorForModel returns an authenticator for the given model.
-	AuthenticatorForModel(passwordService authentication.PasswordService, st *state.State) authentication.EntityAuthenticator
+	AuthenticatorForModel(authentication.AgentPasswordService, *state.State) authentication.EntityAuthenticator
 }
 
 // authContext holds authentication context shared
@@ -231,11 +231,11 @@ func (ctxt *authContext) DischargeCaveats(tag names.UserTag) []checkers.Caveat {
 
 // authenticatorForModel returns an authenticator.Authenticator for the API
 // connection associated with the specified API server host and model.
-func (ctxt *authContext) authenticatorForModel(serverHost string, passwordService authentication.PasswordService, st *state.State) authenticator {
+func (ctxt *authContext) authenticatorForModel(serverHost string, agentPasswordService authentication.AgentPasswordService, st *state.State) authenticator {
 	return authenticator{
 		ctxt:               ctxt,
 		serverHost:         serverHost,
-		agentAuthenticator: ctxt.agentAuthGetter.AuthenticatorForModel(passwordService, st),
+		agentAuthenticator: ctxt.agentAuthGetter.AuthenticatorForModel(agentPasswordService, st),
 	}
 }
 

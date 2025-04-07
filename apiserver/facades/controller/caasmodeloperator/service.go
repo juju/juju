@@ -12,9 +12,9 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-// PasswordService defines the methods required to set a password hash for a
-// unit.
-type PasswordService interface {
+// AgentPasswordService defines the methods required to set an agent password
+// hash.
+type AgentPasswordService interface {
 	// SetUnitPassword sets the password hash for the given unit.
 	SetUnitPassword(context.Context, unit.Name, string) error
 }

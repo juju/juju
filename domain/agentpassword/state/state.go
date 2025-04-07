@@ -11,8 +11,8 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/password"
-	passworderrors "github.com/juju/juju/domain/password/errors"
+	"github.com/juju/juju/domain/agentpassword"
+	agentpassworderrors "github.com/juju/juju/domain/agentpassword/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -31,7 +31,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 }
 
 // SetUnitPasswordHash sets the password hash for the given unit.
-func (s *State) SetUnitPasswordHash(ctx context.Context, unitUUID unit.UUID, passwordHash password.PasswordHash) error {
+func (s *State) SetUnitPasswordHash(ctx context.Context, unitUUID unit.UUID, passwordHash agentpassword.PasswordHash) error {
 	db, err := s.DB()
 	if err != nil {
 		return err
@@ -65,7 +65,7 @@ WHERE uuid = $unitPasswordHash.uuid;
 		if affected, err := result.RowsAffected(); err != nil {
 			return errors.Errorf("getting number of affected rows: %w", err)
 		} else if affected == 0 {
-			return passworderrors.UnitNotFound
+			return agentpassworderrors.UnitNotFound
 		}
 		return nil
 	})
@@ -74,7 +74,7 @@ WHERE uuid = $unitPasswordHash.uuid;
 
 // MatchesUnitPasswordHash checks if the password is valid or not against the
 // password hash stored in the database.
-func (s *State) MatchesUnitPasswordHash(ctx context.Context, unitUUID unit.UUID, passwordHash password.PasswordHash) (bool, error) {
+func (s *State) MatchesUnitPasswordHash(ctx context.Context, unitUUID unit.UUID, passwordHash agentpassword.PasswordHash) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
 		return false, err
@@ -107,7 +107,7 @@ AND password_hash = $validateUnitPasswordHash.password_hash;
 }
 
 // GetUnitUUID returns the UUID of the unit with the given name, returning an
-// error satisfying [passworderrors.UnitNotFound] if the unit does not exist.
+// error satisfying [agentpassworderrors.UnitNotFound] if the unit does not exist.
 func (st *State) GetUnitUUID(ctx context.Context, unitName unit.Name) (unit.UUID, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -136,7 +136,7 @@ WHERE name=$unitName.name`, u)
 
 	err = tx.Query(ctx, selectUnitUUIDStmt, u).Get(&u)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", errors.Errorf("%s %w", name, passworderrors.UnitNotFound)
+		return "", errors.Errorf("%s %w", name, agentpassworderrors.UnitNotFound)
 	} else if err != nil {
 		return "", errors.Errorf("looking up unit UUID for %q: %w", name, err)
 	}
@@ -144,7 +144,7 @@ WHERE name=$unitName.name`, u)
 }
 
 // GetAllUnitPasswordHashes returns a map of unit names to password hashes.
-func (st *State) GetAllUnitPasswordHashes(ctx context.Context) (password.UnitPasswordHashes, error) {
+func (st *State) GetAllUnitPasswordHashes(ctx context.Context) (agentpassword.UnitPasswordHashes, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -171,8 +171,8 @@ func (st *State) GetAllUnitPasswordHashes(ctx context.Context) (password.UnitPas
 	return encodePasswordHashes(results), nil
 }
 
-func encodePasswordHashes(results []unitPasswordHashes) password.UnitPasswordHashes {
-	ret := make(password.UnitPasswordHashes)
+func encodePasswordHashes(results []unitPasswordHashes) agentpassword.UnitPasswordHashes {
+	ret := make(agentpassword.UnitPasswordHashes)
 	for _, r := range results {
 		ret[r.UnitName] = r.PasswordHash
 	}

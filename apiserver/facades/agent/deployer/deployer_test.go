@@ -23,7 +23,7 @@ import (
 type deployerSuite struct {
 	testing.IsolationSuite
 
-	passwordService *MockPasswordService
+	passwordService *MockAgentPasswordService
 }
 
 var _ = gc.Suite(&deployerSuite{})
@@ -100,7 +100,7 @@ func (s *deployerSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
 func (s *deployerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.passwordService = NewMockPasswordService(ctrl)
+	s.passwordService = NewMockAgentPasswordService(ctrl)
 
 	return ctrl
 }

@@ -91,7 +91,7 @@ type AgentBinaryBootstrapFunc func(context.Context, string, BinaryAgentStorageSe
 // ControllerCharmDeployer.
 type ControllerCharmDeployerConfig struct {
 	StateBackend                SystemState
-	PasswordService             PasswordService
+	AgentPasswordService        AgentPasswordService
 	ApplicationService          ApplicationService
 	Model                       coremodel.Model
 	ModelConfigService          ModelConfigService
@@ -161,12 +161,12 @@ func IAASControllerCharmUploader(cfg ControllerCharmDeployerConfig) (bootstrap.C
 
 func makeBaseDeployerConfig(cfg ControllerCharmDeployerConfig) bootstrap.BaseDeployerConfig {
 	return bootstrap.BaseDeployerConfig{
-		DataDir:            cfg.DataDir,
-		ObjectStore:        cfg.ObjectStore,
-		StateBackend:       cfg.StateBackend,
-		PasswordService:    cfg.PasswordService,
-		ApplicationService: cfg.ApplicationService,
-		ModelConfigService: cfg.ModelConfigService,
+		DataDir:              cfg.DataDir,
+		ObjectStore:          cfg.ObjectStore,
+		StateBackend:         cfg.StateBackend,
+		AgentPasswordService: cfg.AgentPasswordService,
+		ApplicationService:   cfg.ApplicationService,
+		ModelConfigService:   cfg.ModelConfigService,
 		CharmUploader: charmUploader{
 			SystemState: cfg.StateBackend,
 			modelID:     cfg.Model.UUID,

@@ -12,7 +12,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/domain/password"
+	"github.com/juju/juju/domain/agentpassword"
 )
 
 type exportSuite struct {
@@ -26,7 +26,7 @@ var _ = gc.Suite(&exportSuite{})
 func (s *exportSuite) TestExportUnitPasswordHashes(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hashes := password.UnitPasswordHashes{
+	hashes := agentpassword.UnitPasswordHashes{
 		"foo/0": "hash",
 	}
 
@@ -53,7 +53,7 @@ func (s *exportSuite) TestExportUnitPasswordHashes(c *gc.C) {
 func (s *exportSuite) TestExportUnitPasswordHashesNoPasswords(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hashes := password.UnitPasswordHashes{}
+	hashes := agentpassword.UnitPasswordHashes{}
 
 	s.exportService.EXPECT().GetAllUnitPasswordHashes(gomock.Any()).Return(hashes, nil)
 
@@ -78,7 +78,7 @@ func (s *exportSuite) TestExportUnitPasswordHashesNoPasswords(c *gc.C) {
 func (s *exportSuite) TestExportUnitPasswordHashesNoPasswordForUnit(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hashes := password.UnitPasswordHashes{
+	hashes := agentpassword.UnitPasswordHashes{
 		"foo/1": "hash",
 	}
 

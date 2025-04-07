@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/password"
-	passworderrors "github.com/juju/juju/domain/password/errors"
+	"github.com/juju/juju/domain/agentpassword"
+	passworderrors "github.com/juju/juju/domain/agentpassword/errors"
 	"github.com/juju/juju/internal/errors"
 	internalpassword "github.com/juju/juju/internal/password"
 )
@@ -21,11 +21,11 @@ type State interface {
 	GetUnitUUID(context.Context, unit.Name) (unit.UUID, error)
 
 	// SetUnitPasswordHash sets the password hash for the given unit.
-	SetUnitPasswordHash(context.Context, unit.UUID, password.PasswordHash) error
+	SetUnitPasswordHash(context.Context, unit.UUID, agentpassword.PasswordHash) error
 
 	// MatchesUnitPasswordHash checks if the password is valid or not against
 	// the password hash stored in the database.
-	MatchesUnitPasswordHash(context.Context, unit.UUID, password.PasswordHash) (bool, error)
+	MatchesUnitPasswordHash(context.Context, unit.UUID, agentpassword.PasswordHash) (bool, error)
 }
 
 // Service provides the means for interacting with the passwords in a model.
@@ -80,6 +80,6 @@ func (s *Service) MatchesUnitPasswordHash(ctx context.Context, unitName unit.Nam
 	return s.st.MatchesUnitPasswordHash(ctx, unitUUID, hashPassword(password))
 }
 
-func hashPassword(p string) password.PasswordHash {
-	return password.PasswordHash(internalpassword.AgentPasswordHash(p))
+func hashPassword(p string) agentpassword.PasswordHash {
+	return agentpassword.PasswordHash(internalpassword.AgentPasswordHash(p))
 }

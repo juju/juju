@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
-	passworderrors "github.com/juju/juju/domain/password/errors"
+	agentpassworderrors "github.com/juju/juju/domain/agentpassword/errors"
 	internalpassword "github.com/juju/juju/internal/password"
 )
 
@@ -48,11 +48,11 @@ func (s *serviceSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
 	password, err := internalpassword.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, passworderrors.UnitNotFound)
+	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, agentpassworderrors.UnitNotFound)
 
 	service := NewService(s.state)
 	err = service.SetUnitPassword(context.Background(), unitName, password)
-	c.Assert(err, jc.ErrorIs, passworderrors.UnitNotFound)
+	c.Assert(err, jc.ErrorIs, agentpassworderrors.UnitNotFound)
 }
 
 func (s *serviceSuite) TestSetUnitPasswordInvalidName(c *gc.C) {
@@ -105,11 +105,11 @@ func (s *serviceSuite) TestMatchesUnitPasswordHashUnitNotFound(c *gc.C) {
 	password, err := internalpassword.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, passworderrors.UnitNotFound)
+	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, agentpassworderrors.UnitNotFound)
 
 	service := NewService(s.state)
 	_, err = service.MatchesUnitPasswordHash(context.Background(), unitName, password)
-	c.Assert(err, jc.ErrorIs, passworderrors.UnitNotFound)
+	c.Assert(err, jc.ErrorIs, agentpassworderrors.UnitNotFound)
 }
 
 func (s *serviceSuite) TestMatchesUnitPasswordHashInvalidName(c *gc.C) {
@@ -131,7 +131,7 @@ func (s *serviceSuite) TestMatchesUnitPasswordHashEmptyPassword(c *gc.C) {
 
 	service := NewService(s.state)
 	_, err := service.MatchesUnitPasswordHash(context.Background(), unitName, "")
-	c.Assert(err, jc.ErrorIs, passworderrors.EmptyPassword)
+	c.Assert(err, jc.ErrorIs, agentpassworderrors.EmptyPassword)
 }
 
 func (s *serviceSuite) TestMatchesUnitPasswordHashInvalidPassword(c *gc.C) {
@@ -141,7 +141,7 @@ func (s *serviceSuite) TestMatchesUnitPasswordHashInvalidPassword(c *gc.C) {
 
 	service := NewService(s.state)
 	_, err := service.MatchesUnitPasswordHash(context.Background(), unitName, "abc")
-	c.Assert(err, jc.ErrorIs, passworderrors.InvalidPassword)
+	c.Assert(err, jc.ErrorIs, agentpassworderrors.InvalidPassword)
 }
 
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {

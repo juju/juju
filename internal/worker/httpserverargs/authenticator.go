@@ -38,11 +38,12 @@ type DomainServicesGetter interface {
 	ServicesForModel(ctx context.Context, modelID coremodel.UUID) (services.DomainServices, error)
 }
 
-// PasswordService defines the methods required to get a password service
-// for a model.
-type PasswordServiceGetter interface {
-	// GetPasswordServiceForModel returns a PasswordService for the given model.
-	GetPasswordServiceForModel(ctx context.Context, modelUUID coremodel.UUID) (authentication.PasswordService, error)
+// AgentPasswordServiceGetter defines the methods required to get a agent
+// password service for a model.
+type AgentPasswordServiceGetter interface {
+	// GetAgentPasswordServiceForModel returns a AgentPasswordService for the
+	// given model.
+	GetAgentPasswordServiceForModel(ctx context.Context, modelUUID coremodel.UUID) (authentication.AgentPasswordService, error)
 }
 
 // AccessService defines a interface for interacting the users and permissions
@@ -97,7 +98,7 @@ type NewStateAuthenticatorFunc func(
 	statePool *state.StatePool,
 	controllerModelUUID coremodel.UUID,
 	controllerConfigService ControllerConfigService,
-	passwordServiceGetter PasswordServiceGetter,
+	agentPasswordServiceGetter AgentPasswordServiceGetter,
 	accessService AccessService,
 	macaroonService MacaroonService,
 	mux *apiserverhttp.Mux,
@@ -113,7 +114,7 @@ func NewStateAuthenticator(
 	statePool *state.StatePool,
 	controllerModelUUID coremodel.UUID,
 	controllerConfigService ControllerConfigService,
-	passwordServiceGetter PasswordServiceGetter,
+	agentPasswordServiceGetter AgentPasswordServiceGetter,
 	accessService AccessService,
 	macaroonService MacaroonService,
 	mux *apiserverhttp.Mux,
@@ -124,7 +125,7 @@ func NewStateAuthenticator(
 		return nil, errors.Trace(err)
 	}
 
-	passwordService, err := passwordServiceGetter.GetPasswordServiceForModel(ctx, controllerModelUUID)
+	passwordService, err := agentPasswordServiceGetter.GetAgentPasswordServiceForModel(ctx, controllerModelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -134,7 +135,7 @@ func NewStateAuthenticator(
 		ctx,
 		statePool,
 		controllerModelUUID, controllerConfigService,
-		passwordServiceGetter,
+		agentPasswordServiceGetter,
 		accessService,
 		macaroonService,
 		agentAuthGetter,

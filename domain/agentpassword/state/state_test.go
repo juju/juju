@@ -12,12 +12,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/agentpassword"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
-	passworderrors "github.com/juju/juju/domain/application/errors"
+	agentpassworderrors "github.com/juju/juju/domain/application/errors"
 	applicationstate "github.com/juju/juju/domain/application/state"
-	"github.com/juju/juju/domain/password"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalpassword "github.com/juju/juju/internal/password"
@@ -58,7 +58,7 @@ func (s *stateSuite) TestSetUnitPasswordUnitDoesNotExist(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetUnitUUID(context.Background(), unit.Name("foo/0"))
-	c.Assert(err, jc.ErrorIs, passworderrors.UnitNotFound)
+	c.Assert(err, jc.ErrorIs, agentpassworderrors.UnitNotFound)
 }
 
 func (s *stateSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
@@ -67,7 +67,7 @@ func (s *stateSuite) TestSetUnitPasswordUnitNotFound(c *gc.C) {
 	passwordHash := s.genPasswordHash(c)
 
 	err := st.SetUnitPasswordHash(context.Background(), unit.UUID("foo"), passwordHash)
-	c.Assert(err, jc.ErrorIs, passworderrors.UnitNotFound)
+	c.Assert(err, jc.ErrorIs, agentpassworderrors.UnitNotFound)
 }
 
 func (s *stateSuite) TestMatchesUnitPasswordHash(c *gc.C) {
@@ -133,7 +133,7 @@ func (s *stateSuite) TestGetAllUnitPasswordHashes(c *gc.C) {
 
 	hashes, err := st.GetAllUnitPasswordHashes(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hashes, jc.DeepEquals, password.UnitPasswordHashes{
+	c.Assert(hashes, jc.DeepEquals, agentpassword.UnitPasswordHashes{
 		unitName: passwordHash,
 	})
 }
@@ -146,7 +146,7 @@ func (s *stateSuite) TestGetAllUnitPasswordHashesPasswordNotSet(c *gc.C) {
 
 	hashes, err := st.GetAllUnitPasswordHashes(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hashes, jc.DeepEquals, password.UnitPasswordHashes{
+	c.Assert(hashes, jc.DeepEquals, agentpassword.UnitPasswordHashes{
 		"foo/0": "",
 	})
 }
@@ -156,14 +156,14 @@ func (s *stateSuite) TestGetAllUnitPasswordHashesNoUnits(c *gc.C) {
 
 	hashes, err := st.GetAllUnitPasswordHashes(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hashes, jc.DeepEquals, password.UnitPasswordHashes{})
+	c.Assert(hashes, jc.DeepEquals, agentpassword.UnitPasswordHashes{})
 }
 
-func (s *stateSuite) genPasswordHash(c *gc.C) password.PasswordHash {
+func (s *stateSuite) genPasswordHash(c *gc.C) agentpassword.PasswordHash {
 	rand, err := internalpassword.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 
-	return password.PasswordHash(internalpassword.AgentPasswordHash(rand))
+	return agentpassword.PasswordHash(internalpassword.AgentPasswordHash(rand))
 }
 
 func (s *stateSuite) createApplication(c *gc.C) {

@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/password"
+	"github.com/juju/juju/domain/agentpassword"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -28,7 +28,7 @@ var _ = gc.Suite(&importSuite{})
 func (s *importSuite) TestImportUnitPasswordHash(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.importService.EXPECT().SetUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), password.PasswordHash("hash")).Return(nil)
+	s.importService.EXPECT().SetUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), agentpassword.PasswordHash("hash")).Return(nil)
 
 	op := importOperation{
 		service: s.importService,
@@ -50,7 +50,7 @@ func (s *importSuite) TestImportUnitPasswordHash(c *gc.C) {
 func (s *importSuite) TestImportUnitPasswordHashError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.importService.EXPECT().SetUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), password.PasswordHash("hash")).Return(errors.Errorf("boom"))
+	s.importService.EXPECT().SetUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), agentpassword.PasswordHash("hash")).Return(errors.Errorf("boom"))
 
 	op := importOperation{
 		service: s.importService,

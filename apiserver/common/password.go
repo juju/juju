@@ -11,7 +11,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coreunit "github.com/juju/juju/core/unit"
-	passworderrors "github.com/juju/juju/domain/password/errors"
+	agentpassworderrors "github.com/juju/juju/domain/agentpassword/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
@@ -20,9 +20,9 @@ import (
 
 var logger = internallogger.GetLogger("juju.apiserver.common")
 
-// PasswordService defines the methods required to set a password hash for a
-// unit.
-type PasswordService interface {
+// AgentPasswordService defines the methods required to set an agent password
+// hash.
+type AgentPasswordService interface {
 	// SetUnitPassword sets the password hash for the given unit. If the unit
 	// does not exist, an error satisfying [applicationerrors.UnitNotFound] is
 	// returned.
@@ -32,18 +32,18 @@ type PasswordService interface {
 // PasswordChanger implements a common SetPasswords method for use by
 // various facades.
 type PasswordChanger struct {
-	passwordService PasswordService
-	st              state.EntityFinder
-	getCanChange    GetAuthFunc
+	agentPasswordService AgentPasswordService
+	st                   state.EntityFinder
+	getCanChange         GetAuthFunc
 }
 
 // NewPasswordChanger returns a new PasswordChanger. The GetAuthFunc will be
 // used on each invocation of SetPasswords to determine current permissions.
-func NewPasswordChanger(passwordService PasswordService, st state.EntityFinder, getCanChange GetAuthFunc) *PasswordChanger {
+func NewPasswordChanger(agentPasswordService AgentPasswordService, st state.EntityFinder, getCanChange GetAuthFunc) *PasswordChanger {
 	return &PasswordChanger{
-		passwordService: passwordService,
-		st:              st,
-		getCanChange:    getCanChange,
+		agentPasswordService: agentPasswordService,
+		st:                   st,
+		getCanChange:         getCanChange,
 	}
 }
 
@@ -81,7 +81,7 @@ func (pc *PasswordChanger) setPassword(ctx context.Context, tag names.Tag, passw
 	case names.UnitTagKind:
 		unitTag := tag.(names.UnitTag)
 		unitName := coreunit.Name(unitTag.Id())
-		if err := pc.passwordService.SetUnitPassword(ctx, unitName, password); errors.Is(err, passworderrors.UnitNotFound) {
+		if err := pc.agentPasswordService.SetUnitPassword(ctx, unitName, password); errors.Is(err, agentpassworderrors.UnitNotFound) {
 			return errors.NotFoundf("unit %q", tag.Id())
 		} else if err != nil {
 			return internalerrors.Errorf("setting password for %q: %w", tag, err)

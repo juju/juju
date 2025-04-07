@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
-	"github.com/juju/juju/domain/password"
-	passworderrors "github.com/juju/juju/domain/password/errors"
+	"github.com/juju/juju/domain/agentpassword"
+	agentpassworderrors "github.com/juju/juju/domain/agentpassword/errors"
 	"github.com/juju/juju/internal/errors"
 	internalpassword "github.com/juju/juju/internal/password"
 )
@@ -27,7 +27,7 @@ var _ = gc.Suite(&migrationServiceSuite{})
 func (s *migrationServiceSuite) TestGetAllUnitPasswordHashes(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hashes := password.UnitPasswordHashes{
+	hashes := agentpassword.UnitPasswordHashes{
 		"unit/0": "hash",
 	}
 
@@ -42,7 +42,7 @@ func (s *migrationServiceSuite) TestGetAllUnitPasswordHashes(c *gc.C) {
 func (s *migrationServiceSuite) TestGetAllUnitPasswordHashesError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hashes := password.UnitPasswordHashes{
+	hashes := agentpassword.UnitPasswordHashes{
 		"unit/0": "hash",
 	}
 
@@ -62,7 +62,7 @@ func (s *migrationServiceSuite) TestSetUnitPasswordHash(c *gc.C) {
 	rand, err := internalpassword.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 
-	passwordHash := password.PasswordHash(rand)
+	passwordHash := agentpassword.PasswordHash(rand)
 
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.state.EXPECT().SetUnitPasswordHash(gomock.Any(), unitUUID, passwordHash).Return(nil)
@@ -81,13 +81,13 @@ func (s *migrationServiceSuite) TestSetUnitPasswordHashNotFound(c *gc.C) {
 	rand, err := internalpassword.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 
-	passwordHash := password.PasswordHash(rand)
+	passwordHash := agentpassword.PasswordHash(rand)
 
-	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, passworderrors.UnitNotFound)
+	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, agentpassworderrors.UnitNotFound)
 
 	service := NewMigrationService(s.state)
 	err = service.SetUnitPasswordHash(context.Background(), unitName, passwordHash)
-	c.Assert(err, jc.ErrorIs, passworderrors.UnitNotFound)
+	c.Assert(err, jc.ErrorIs, agentpassworderrors.UnitNotFound)
 }
 
 func (s *migrationServiceSuite) TestSetUnitPasswordHashSettingError(c *gc.C) {
@@ -99,7 +99,7 @@ func (s *migrationServiceSuite) TestSetUnitPasswordHashSettingError(c *gc.C) {
 	rand, err := internalpassword.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 
-	passwordHash := password.PasswordHash(rand)
+	passwordHash := agentpassword.PasswordHash(rand)
 
 	s.state.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
 	s.state.EXPECT().SetUnitPasswordHash(gomock.Any(), unitUUID, passwordHash).Return(errors.Errorf("boom"))

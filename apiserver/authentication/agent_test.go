@@ -16,14 +16,14 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/unit"
-	passworderrors "github.com/juju/juju/domain/password/errors"
+	agentpassworderrors "github.com/juju/juju/domain/agentpassword/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type agentAuthenticatorSuite struct {
 	testing.IsolationSuite
 
-	passwordService *MockPasswordService
+	agentPasswordService *MockAgentPasswordService
 }
 
 var _ = gc.Suite(&agentAuthenticatorSuite{})
@@ -41,7 +41,7 @@ func (s *agentAuthenticatorSuite) TestUserLogin(c *gc.C) {
 
 	authTag := names.NewUserTag("joeblogs")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.passwordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
 	_, err := authenticatorGetter.Authenticator().Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag: authTag,
 	})
@@ -51,11 +51,11 @@ func (s *agentAuthenticatorSuite) TestUserLogin(c *gc.C) {
 func (s *agentAuthenticatorSuite) TestUnitLogin(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.passwordService.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), "password").Return(true, nil)
+	s.agentPasswordService.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), "password").Return(true, nil)
 
 	authTag := names.NewUnitTag("foo/0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.passwordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
 	entity, err := authenticatorGetter.Authenticator().Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "password",
@@ -67,11 +67,11 @@ func (s *agentAuthenticatorSuite) TestUnitLogin(c *gc.C) {
 func (s *agentAuthenticatorSuite) TestUnitLoginEmptyCredentials(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.passwordService.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), "").Return(false, passworderrors.EmptyPassword)
+	s.agentPasswordService.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), "").Return(false, agentpassworderrors.EmptyPassword)
 
 	authTag := names.NewUnitTag("foo/0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.passwordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
 	_, err := authenticatorGetter.Authenticator().Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "",
@@ -82,11 +82,11 @@ func (s *agentAuthenticatorSuite) TestUnitLoginEmptyCredentials(c *gc.C) {
 func (s *agentAuthenticatorSuite) TestUnitLoginInvalidCredentials(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.passwordService.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), "").Return(false, passworderrors.InvalidPassword)
+	s.agentPasswordService.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), "").Return(false, agentpassworderrors.InvalidPassword)
 
 	authTag := names.NewUnitTag("foo/0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.passwordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
 	_, err := authenticatorGetter.Authenticator().Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "",
@@ -97,11 +97,11 @@ func (s *agentAuthenticatorSuite) TestUnitLoginInvalidCredentials(c *gc.C) {
 func (s *agentAuthenticatorSuite) TestUnitLoginUnitNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.passwordService.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), "").Return(false, passworderrors.UnitNotFound)
+	s.agentPasswordService.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), "").Return(false, agentpassworderrors.UnitNotFound)
 
 	authTag := names.NewUnitTag("foo/0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.passwordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
 	_, err := authenticatorGetter.Authenticator().Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "",
@@ -112,11 +112,11 @@ func (s *agentAuthenticatorSuite) TestUnitLoginUnitNotFound(c *gc.C) {
 func (s *agentAuthenticatorSuite) TestUnitLoginUnitError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.passwordService.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), "").Return(false, errors.Errorf("boom"))
+	s.agentPasswordService.EXPECT().MatchesUnitPasswordHash(gomock.Any(), unit.Name("foo/0"), "").Return(false, errors.Errorf("boom"))
 
 	authTag := names.NewUnitTag("foo/0")
 
-	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.passwordService, nil, loggertesting.WrapCheckLog(c))
+	authenticatorGetter := authentication.NewAgentAuthenticatorGetter(s.agentPasswordService, nil, loggertesting.WrapCheckLog(c))
 	_, err := authenticatorGetter.Authenticator().Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:     authTag,
 		Credentials: "",
@@ -127,7 +127,7 @@ func (s *agentAuthenticatorSuite) TestUnitLoginUnitError(c *gc.C) {
 func (s *agentAuthenticatorSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.passwordService = NewMockPasswordService(ctrl)
+	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
 
 	return ctrl
 }

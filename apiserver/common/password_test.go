@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common/mocks"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/unit"
-	passworderrors "github.com/juju/juju/domain/password/errors"
+	agentpassworderrors "github.com/juju/juju/domain/agentpassword/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -25,7 +25,7 @@ import (
 type passwordSuite struct {
 	testing.IsolationSuite
 
-	passwordService *mocks.MockPasswordService
+	agentPasswordService *mocks.MockAgentPasswordService
 }
 
 var _ = gc.Suite(&passwordSuite{})
@@ -33,11 +33,11 @@ var _ = gc.Suite(&passwordSuite{})
 func (s *passwordSuite) TestSetPasswordsForUnit(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.passwordService.EXPECT().
+	s.agentPasswordService.EXPECT().
 		SetUnitPassword(gomock.Any(), unit.Name("foo/1"), "password").
 		Return(nil)
 
-	changer := common.NewPasswordChanger(s.passwordService, nil, alwaysAllow)
+	changer := common.NewPasswordChanger(s.agentPasswordService, nil, alwaysAllow)
 	results, err := changer.SetPasswords(context.Background(), params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      "unit-foo/1",
@@ -55,11 +55,11 @@ func (s *passwordSuite) TestSetPasswordsForUnit(c *gc.C) {
 func (s *passwordSuite) TestSetPasswordsForUnitError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.passwordService.EXPECT().
+	s.agentPasswordService.EXPECT().
 		SetUnitPassword(gomock.Any(), unit.Name("foo/1"), "password").
 		Return(internalerrors.Errorf("boom"))
 
-	changer := common.NewPasswordChanger(s.passwordService, nil, alwaysAllow)
+	changer := common.NewPasswordChanger(s.agentPasswordService, nil, alwaysAllow)
 	results, err := changer.SetPasswords(context.Background(), params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      "unit-foo/1",
@@ -77,11 +77,11 @@ func (s *passwordSuite) TestSetPasswordsForUnitError(c *gc.C) {
 func (s *passwordSuite) TestSetPasswordsForUnitNotFoundError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.passwordService.EXPECT().
+	s.agentPasswordService.EXPECT().
 		SetUnitPassword(gomock.Any(), unit.Name("foo/1"), "password").
-		Return(passworderrors.UnitNotFound)
+		Return(agentpassworderrors.UnitNotFound)
 
-	changer := common.NewPasswordChanger(s.passwordService, nil, alwaysAllow)
+	changer := common.NewPasswordChanger(s.agentPasswordService, nil, alwaysAllow)
 	results, err := changer.SetPasswords(context.Background(), params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      "unit-foo/1",
@@ -99,7 +99,7 @@ func (s *passwordSuite) TestSetPasswordsForUnitNotFoundError(c *gc.C) {
 func (s *passwordSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.passwordService = mocks.NewMockPasswordService(ctrl)
+	s.agentPasswordService = mocks.NewMockAgentPasswordService(ctrl)
 
 	return ctrl
 }

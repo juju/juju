@@ -319,7 +319,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		CharmhubHTTPClient:      s.httpClient,
 		SystemState:             s.state,
 		UserService:             s.userService,
-		PasswordService:         s.passwordService,
+		AgentPasswordService:    s.agentPasswordService,
 		ApplicationService:      s.applicationService,
 		ModelConfigService:      s.modelConfigService,
 		MachineService:          s.machineService,

@@ -176,7 +176,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		StatusSetter:         common.NewStatusSetter(st, getAuthFunc, ctx.Clock()),
 		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
 		DeadEnsurer:          common.NewDeadEnsurer(st, getAuthFunc, ctx.DomainServices().Machine()),
-		PasswordChanger:      common.NewPasswordChanger(domainServices.Password(), st, getAuthFunc),
+		PasswordChanger:      common.NewPasswordChanger(domainServices.AgentPassword(), st, getAuthFunc),
 		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
 		APIAddresser:         common.NewAPIAddresser(systemState, resources),
 		ModelConfigWatcher:   modelConfigWatcher,

@@ -29,11 +29,11 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// PasswordService defines the methods required to set a password hash for a
-// unit.
-type PasswordServiceGetter interface {
-	// GetPasswordServiceForModel returns a PasswordService for the given model.
-	GetPasswordServiceForModel(ctx context.Context, modelUUID model.UUID) (authentication.PasswordService, error)
+// AgentPasswordServiceGetter defines the methods required to get an
+// AgentPasswordService for a model.
+type AgentPasswordServiceGetter interface {
+	// GetAgentPasswordServiceForModel returns a PasswordService for the given model.
+	GetAgentPasswordServiceForModel(ctx context.Context, modelUUID model.UUID) (authentication.AgentPasswordService, error)
 }
 
 // AgentTags are those used by any Juju agent.
@@ -51,10 +51,10 @@ var AgentTags = []string{
 // This Authenticator only works with requests that have been handled
 // by one of the httpcontext.*ModelHandler handlers.
 type Authenticator struct {
-	statePool               *state.StatePool
-	controllerConfigService ControllerConfigService
-	passwordServiceGetter   PasswordServiceGetter
-	authContext             *authContext
+	statePool                  *state.StatePool
+	controllerConfigService    ControllerConfigService
+	agentPasswordServiceGetter AgentPasswordServiceGetter
+	authContext                *authContext
 }
 
 // ControllerConfigService is an interface that can be implemented by
@@ -81,7 +81,7 @@ func NewAuthenticator(
 	statePool *state.StatePool,
 	controllerModelUUID model.UUID,
 	controllerConfigService ControllerConfigService,
-	passwordServiceGetter PasswordServiceGetter,
+	agentPasswordServiceGetter AgentPasswordServiceGetter,
 	accessService AccessService,
 	macaroonService MacaroonService,
 	agentAuthGetter AgentAuthenticatorGetter,
@@ -92,10 +92,10 @@ func NewAuthenticator(
 		return nil, errors.Trace(err)
 	}
 	return &Authenticator{
-		statePool:               statePool,
-		passwordServiceGetter:   passwordServiceGetter,
-		controllerConfigService: controllerConfigService,
-		authContext:             authContext,
+		statePool:                  statePool,
+		agentPasswordServiceGetter: agentPasswordServiceGetter,
+		controllerConfigService:    controllerConfigService,
+		authContext:                authContext,
 	}, nil
 }
 
@@ -181,12 +181,12 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	}
 	defer st.Release()
 
-	passwordService, err := a.passwordServiceGetter.GetPasswordServiceForModel(ctx, modelUUID)
+	agentPasswordService, err := a.agentPasswordServiceGetter.GetAgentPasswordServiceForModel(ctx, modelUUID)
 	if err != nil {
 		return authentication.AuthInfo{}, errors.Trace(err)
 	}
 
-	authenticator := a.authContext.authenticatorForModel(serverHost, passwordService, st.State)
+	authenticator := a.authContext.authenticatorForModel(serverHost, agentPasswordService, st.State)
 	authInfo, err := a.checkCreds(ctx, modelUUID, authParams, authenticator)
 	if err == nil {
 		return authInfo, nil

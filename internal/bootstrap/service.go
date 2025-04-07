@@ -15,10 +15,11 @@ import (
 	"github.com/juju/juju/internal/charm"
 )
 
-// PasswordService provides access to password management.
-type PasswordService interface {
-	// SetUnitPassword sets the password for the given unit. If the unit does not
-	// exist, an error satisfying [applicationerrors.UnitNotFound] is returned.
+// AgentPasswordService provides access to agent password management.
+type AgentPasswordService interface {
+	// SetUnitPassword sets the password for the given unit. If the unit does
+	// not exist, an error satisfying [applicationerrors.UnitNotFound] is
+	// returned.
 	SetUnitPassword(ctx context.Context, unitName unit.Name, password string) error
 }
 
@@ -31,7 +32,8 @@ type ApplicationService interface {
 		applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg,
 	) (coreapplication.ID, error)
 
-	// ResolveControllerCharmDownload resolves the controller charm download slot.
+	// ResolveControllerCharmDownload resolves the controller charm download
+	// slot.
 	ResolveControllerCharmDownload(
 		ctx context.Context,
 		resolve application.ResolveControllerCharmDownload,

@@ -262,7 +262,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UserService:             controllerDomainServices.Access(),
 				StorageService:          controllerModelDomainServices.Storage(),
 				ProviderRegistry:        registry,
-				PasswordService:         controllerModelDomainServices.Password(),
+				AgentPasswordService:    controllerModelDomainServices.AgentPassword(),
 				ApplicationService:      applicationService,
 				ControllerModel:         controllerModel,
 				ModelConfigService:      controllerModelDomainServices.Config(),
