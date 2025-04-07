@@ -6,10 +6,9 @@ package common
 import (
 	"context"
 	"fmt"
-	"sort"
+	"strings"
 
 	"github.com/juju/names/v6"
-	"github.com/juju/os/v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/controller"
@@ -18,13 +17,13 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/domain/modelagent"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
-	"github.com/juju/juju/environs/simplestreams"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/errors"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
@@ -32,8 +31,15 @@ import (
 	"github.com/juju/juju/state/binarystorage"
 )
 
+// AgentFinderService defines a method for finding agent binary metadata.
+type AgentFinderService interface {
+	FindAgents(context.Context, modelagent.FindAgentsParams) (coretools.List, error)
+}
+
 // ModelAgentService provides access to the Juju agent version for the model.
 type ModelAgentService interface {
+	AgentFinderService
+
 	// GetModelTargetAgentVersion returns the target agent version for the
 	// entire model. The following errors can be returned:
 	// - [github.com/juju/juju/domain/model/errors.NotFound] - When the model does
@@ -56,8 +62,6 @@ type ModelAgentService interface {
 	// the unit belongs to no longer exists.
 	GetUnitTargetAgentVersion(context.Context, unit.Name) (coreagentbinary.Version, error)
 }
-
-var envtoolsFindTools = envtools.FindTools
 
 // ToolsURLGetter is an interface providing the ToolsURL method.
 type ToolsURLGetter interface {
@@ -84,16 +88,18 @@ type ToolsStorageGetter interface {
 // ToolsGetter implements a common Tools method for use by various
 // facades.
 type ToolsGetter struct {
-	modelAgentService  ModelAgentService
-	toolsStorageGetter ToolsStorageGetter
-	toolsFinder        ToolsFinder
-	urlGetter          ToolsURLGetter
-	getCanRead         GetAuthFunc
+	controllerConfigService ControllerConfigService
+	modelAgentService       ModelAgentService
+	toolsStorageGetter      ToolsStorageGetter
+	toolsFinder             ToolsFinder
+	urlGetter               ToolsURLGetter
+	getCanRead              GetAuthFunc
 }
 
 // NewToolsGetter returns a new ToolsGetter. The GetAuthFunc will be
 // used on each invocation of Tools to determine current permissions.
 func NewToolsGetter(
+	controllerConfigService ControllerConfigService,
 	modelAgentService ModelAgentService,
 	toolsStorageGetter ToolsStorageGetter,
 	urlGetter ToolsURLGetter,
@@ -101,11 +107,12 @@ func NewToolsGetter(
 	getCanRead GetAuthFunc,
 ) *ToolsGetter {
 	return &ToolsGetter{
-		modelAgentService:  modelAgentService,
-		toolsStorageGetter: toolsStorageGetter,
-		urlGetter:          urlGetter,
-		toolsFinder:        toolsFinder,
-		getCanRead:         getCanRead,
+		controllerConfigService: controllerConfigService,
+		modelAgentService:       modelAgentService,
+		toolsStorageGetter:      toolsStorageGetter,
+		urlGetter:               urlGetter,
+		toolsFinder:             toolsFinder,
+		getCanRead:              getCanRead,
 	}
 }
 
@@ -186,11 +193,17 @@ func (t *ToolsGetter) oneAgentTools(ctx context.Context, canRead AuthFunc, tag n
 		return nil, err
 	}
 
+	controllerCfg, err := t.controllerConfigService.ControllerConfig(ctx)
+	if err != nil {
+		return nil, errors.Errorf("getting controller config: %v", err)
+	}
+
 	findParams := FindAgentsParams{
-		Number: targetVersion.Number,
+		ControllerCfg: controllerCfg,
+		Number:        targetVersion.Number,
 		// OSType is always "ubuntu" now.
 		// We will eventually get rid of it.
-		OSType: os.Ubuntu.String(),
+		OSType: strings.ToLower(ostype.Ubuntu.String()),
 		Arch:   targetVersion.Arch,
 	}
 
@@ -230,182 +243,52 @@ type ToolsFinder interface {
 }
 
 type toolsFinder struct {
-	controllerConfigService ControllerConfigService
-	toolsStorageGetter      ToolsStorageGetter
-	urlGetter               ToolsURLGetter
-	newEnviron              NewEnvironFunc
-	store                   objectstore.ObjectStore
+	agentFinderService AgentFinderService
+	toolsStorageGetter ToolsStorageGetter
+	urlGetter          ToolsURLGetter
+	newEnviron         NewEnvironFunc
+	store              objectstore.ObjectStore
 }
 
 // NewToolsFinder returns a new ToolsFinder, returning tools
 // with their URLs pointing at the API server.
 func NewToolsFinder(
-	controllerConfigService ControllerConfigService,
+	agentFinder AgentFinderService,
 	toolsStorageGetter ToolsStorageGetter,
 	urlGetter ToolsURLGetter,
 	newEnviron NewEnvironFunc,
 	store objectstore.ObjectStore,
 ) *toolsFinder {
 	return &toolsFinder{
-		controllerConfigService: controllerConfigService,
-		toolsStorageGetter:      toolsStorageGetter,
-		urlGetter:               urlGetter,
-		newEnviron:              newEnviron,
-		store:                   store,
+		agentFinderService: agentFinder,
+		toolsStorageGetter: toolsStorageGetter,
+		urlGetter:          urlGetter,
+		newEnviron:         newEnviron,
+		store:              store,
 	}
 }
 
 // FindAgents calls findMatchingTools and then rewrites the URLs
 // using the provided ToolsURLGetter.
 func (f *toolsFinder) FindAgents(ctx context.Context, args FindAgentsParams) (coretools.List, error) {
-	list, err := f.findMatchingAgents(ctx, args)
-	if err != nil {
-		return nil, err
-	}
-
-	controllerConfig, err := f.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Rewrite the URLs so they point at the API servers. If the
-	// tools are not in tools storage, then the API server will
-	// download and cache them if the client requests that version.
-	var fullList coretools.List
-	for _, baseTools := range list {
-		urls, err := f.urlGetter.ToolsURLs(ctx, controllerConfig, baseTools.Version)
-		if err != nil {
-			return nil, err
-		}
-		for _, url := range urls {
-			tools := *baseTools
-			tools.URL = url
-			fullList = append(fullList, &tools)
-		}
-	}
-	return fullList, nil
-}
-
-// findMatchingAgents searches agent storage and simplestreams for agents
-// matching the given parameters.
-// If an exact match is specified (number, ostype and arch) and is found in
-// agent storage, then simplestreams will not be searched.
-func (f *toolsFinder) findMatchingAgents(ctx context.Context, args FindAgentsParams) (result coretools.List, _ error) {
-	exactMatch := args.Number != semversion.Zero && args.OSType != "" && args.Arch != ""
-
-	storageList, err := f.matchingStorageAgent(args)
-	if err != nil && err != coretools.ErrNoMatches {
-		return nil, err
-	}
-	if len(storageList) > 0 && exactMatch {
-		return storageList, nil
-	}
-
-	// Look for tools in simplestreams too, but don't replace
-	// any versions found in storage.
-	env, err := f.newEnviron(ctx)
-	if err != nil {
-		return nil, err
-	}
-	filter := toolsFilter(args)
-	cfg := env.Config()
-	requestedStream := cfg.AgentStream()
-	if args.AgentStream != "" {
-		requestedStream = args.AgentStream
-	}
-
-	streams := envtools.PreferredStreams(&args.Number, cfg.Development(), requestedStream)
-	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
-	majorVersion := args.Number.Major
-	minorVersion := args.Number.Minor
-	if args.Number == semversion.Zero {
-		majorVersion = args.MajorVersion
-		minorVersion = args.MinorVersion
-	}
-	simplestreamsList, err := envtoolsFindTools(ctx, ss,
-		env, majorVersion, minorVersion, streams, filter,
-	)
-	if len(storageList) == 0 && err != nil {
-		return nil, err
-	}
-
-	list := storageList
-	found := make(map[semversion.Binary]bool)
-	for _, tools := range storageList {
-		found[tools.Version] = true
-	}
-	for _, tools := range simplestreamsList {
-		if !found[tools.Version] {
-			list = append(list, tools)
-		}
-	}
-	sort.Sort(list)
-	return list, nil
-}
-
-// matchingStorageAgent returns a coretools.List, with an entry for each
-// metadata entry in the agent storage that matches the given parameters.
-func (f *toolsFinder) matchingStorageAgent(args FindAgentsParams) (coretools.List, error) {
 	storage, err := f.toolsStorageGetter.ToolsStorage(f.store)
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf("getting agent binary storage: %w", err)
 	}
 	defer func() { _ = storage.Close() }()
 
-	allMetadata, err := storage.AllMetadata()
-	if err != nil {
-		return nil, err
+	p := modelagent.FindAgentsParams{
+		Number:       args.Number,
+		MajorVersion: args.MajorVersion,
+		MinorVersion: args.MinorVersion,
+		Arch:         args.Arch,
+		AgentStream:  args.AgentStream,
+		ToolsURLsGetter: func(ctx context.Context, v semversion.Binary) ([]string, error) {
+			return f.urlGetter.ToolsURLs(ctx, args.ControllerCfg, v)
+		},
+		AgentStorage: storage,
 	}
-	list := make(coretools.List, len(allMetadata))
-	for i, m := range allMetadata {
-		vers, err := semversion.ParseBinary(m.Version)
-		if err != nil {
-			return nil, errors.Errorf(
-				"unexpected bad version %q of agent binary in storage: %w",
-				m.Version, err,
-			)
-		}
-		list[i] = &coretools.Tools{
-			Version: vers,
-			Size:    m.Size,
-			SHA256:  m.SHA256,
-		}
-	}
-	list, err = list.Match(toolsFilter(args))
-	if err != nil {
-		return nil, err
-	}
-	// Return early if we are doing an exact match.
-	if args.Number != semversion.Zero {
-		if len(list) == 0 {
-			return nil, coretools.ErrNoMatches
-		}
-		return list, nil
-	}
-	// At this point, we are matching just on major or minor version
-	// rather than an exact match.
-	var matching coretools.List
-	for _, tools := range list {
-		if tools.Version.Major != args.MajorVersion {
-			continue
-		}
-		if args.MinorVersion > 0 && tools.Version.Minor != args.MinorVersion {
-			continue
-		}
-		matching = append(matching, tools)
-	}
-	if len(matching) == 0 {
-		return nil, coretools.ErrNoMatches
-	}
-	return matching, nil
-}
-
-func toolsFilter(args FindAgentsParams) coretools.Filter {
-	return coretools.Filter{
-		Number: args.Number,
-		Arch:   args.Arch,
-		OSType: args.OSType,
-	}
+	return f.agentFinderService.FindAgents(ctx, p)
 }
 
 type toolsURLGetter struct {

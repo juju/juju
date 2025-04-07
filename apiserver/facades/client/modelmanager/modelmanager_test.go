@@ -925,6 +925,7 @@ type modelManagerStateSuite struct {
 	authoriser   apiservertesting.FakeAuthorizer
 
 	controllerConfigService *mocks.MockControllerConfigService
+	agentFinderService      *mocks.MockAgentFinderService
 	accessService           *mocks.MockAccessService
 	modelService            *mocks.MockModelService
 	modelInfoService        *mocks.MockModelInfoService
@@ -964,6 +965,7 @@ func (s *modelManagerStateSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
+	s.agentFinderService = mocks.NewMockAgentFinderService(ctrl)
 	s.accessService = mocks.NewMockAccessService(ctrl)
 	s.modelService = mocks.NewMockModelService(ctrl)
 	s.modelInfoService = mocks.NewMockModelInfoService(ctrl)
@@ -994,7 +996,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		CredentialService:  domainServices.Credential(),
 	}
 	newEnviron := common.EnvironFuncForModel(model, domainServices.Cloud(), domainServices.Credential(), configGetter)
-	toolsFinder := common.NewToolsFinder(s.controllerConfigService, st, urlGetter, newEnviron, s.store)
+	toolsFinder := common.NewToolsFinder(s.agentFinderService, st, urlGetter, newEnviron, s.store)
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
 		mockCredentialShim{ModelManagerBackend: st}, nil, ctlrSt,

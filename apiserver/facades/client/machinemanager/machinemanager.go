@@ -29,11 +29,13 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/blockcommand"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/domain/modelagent"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
+	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -43,6 +45,11 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 // ControllerConfigService defines a method for getting the controller config.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// AgentFinderService defines a method for finding agent binary metadata.
+type AgentFinderService interface {
+	FindAgents(context.Context, modelagent.FindAgentsParams) (coretools.List, error)
 }
 
 // KeyUpdaterService is responsible for returning information about the ssh keys
@@ -145,6 +152,7 @@ type CloudService interface {
 type MachineManagerAPI struct {
 	model                   coremodel.ModelInfo
 	controllerConfigService ControllerConfigService
+	agentFinderService      AgentFinderService
 	st                      Backend
 	cloudService            CloudService
 	storageAccess           StorageInterface
@@ -168,6 +176,7 @@ type MachineManagerAPI struct {
 func NewMachineManagerAPI(
 	model coremodel.ModelInfo,
 	controllerConfigService ControllerConfigService,
+	agentFinderService AgentFinderService,
 	backend Backend,
 	cloudService CloudService,
 	machineService MachineService,
@@ -186,6 +195,7 @@ func NewMachineManagerAPI(
 	api := &MachineManagerAPI{
 		model:                   model,
 		controllerConfigService: controllerConfigService,
+		agentFinderService:      agentFinderService,
 		st:                      backend,
 		cloudService:            cloudService,
 		machineService:          machineService,
@@ -383,6 +393,7 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 	services := InstanceConfigServices{
 		CloudService:            mm.cloudService,
 		ControllerConfigService: mm.controllerConfigService,
+		AgentFinderService:      mm.agentFinderService,
 		ObjectStore:             mm.controllerStore,
 		KeyUpdaterService:       mm.keyUpdaterService,
 		ModelConfigService:      mm.modelConfigService,

@@ -63,6 +63,7 @@ func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineMan
 	return NewMachineManagerAPI(
 		model,
 		domainServices.ControllerConfig(),
+		domainServices.Agent(),
 		backend,
 		domainServices.Cloud(),
 		domainServices.Machine(),
