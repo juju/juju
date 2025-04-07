@@ -20,7 +20,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-triggers.gen.go -package=triggers -tables=machine,machine_lxd_profile
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-cloud-instance-triggers.gen.go -package=triggers -tables=machine_cloud_instance
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-requires-reboot-triggers.gen.go -package=triggers -tables=machine_requires_reboot
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-triggers.gen.go -package=triggers -tables=application,application_config_hash,charm,unit,application_scale,port_range
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-triggers.gen.go -package=triggers -tables=application,application_config_hash,charm,unit,application_scale,port_range,application_exposed_endpoint_space,application_exposed_endpoint_cidr
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_setting
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/cleanup-triggers.gen.go -package=triggers -tables=removal
 
@@ -52,6 +52,8 @@ const (
 	tableUnit
 	tableApplicationScale
 	tablePortRange
+	tableApplicationExposedEndpointSpace
+	tableApplicationExposedEndpointCIDR
 	tableSecretDeletedValueRef
 	tableApplication
 	tableRemoval
@@ -117,6 +119,8 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForUnit("uuid", tableUnit),
 		triggers.ChangeLogTriggersForApplicationScale("application_uuid", tableApplicationScale),
 		triggers.ChangeLogTriggersForPortRange("unit_uuid", tablePortRange),
+		triggers.ChangeLogTriggersForApplicationExposedEndpointSpace("application_uuid", tableApplicationExposedEndpointSpace),
+		triggers.ChangeLogTriggersForApplicationExposedEndpointCidr("application_uuid", tableApplicationExposedEndpointCIDR),
 		triggers.ChangeLogTriggersForSecretDeletedValueRef("revision_uuid", tableSecretDeletedValueRef),
 		triggers.ChangeLogTriggersForApplication("uuid", tableApplication),
 		triggers.ChangeLogTriggersForRemoval("uuid", tableRemoval),

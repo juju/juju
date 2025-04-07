@@ -74,7 +74,9 @@ func (s *Service) MergeExposeSettings(ctx context.Context, appName string, expos
 	// First check that the endpoints actually exist.
 	endpointNames := set.NewStrings()
 	for endpoint := range exposedEndpoints {
-		endpointNames.Add(endpoint)
+		if endpoint != network.WildcardEndpoint {
+			endpointNames.Add(endpoint)
+		}
 	}
 	if err := s.st.EndpointsExist(ctx, appID, endpointNames); err != nil {
 		return errors.Capture(err)

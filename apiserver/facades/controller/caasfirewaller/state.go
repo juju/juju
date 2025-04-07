@@ -22,7 +22,6 @@ type CAASFirewallerState interface {
 // Application provides the subset of application state
 // required by the CAAS operator facade.
 type Application interface {
-	IsExposed() bool
 	ApplicationConfig() (config.ConfigAttributes, error)
 	Watch() state.NotifyWatcher
 }

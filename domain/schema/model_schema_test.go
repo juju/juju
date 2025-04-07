@@ -373,6 +373,14 @@ func (s *modelSchemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_application_config_hash_insert",
 		"trg_log_application_config_hash_update",
 
+		"trg_log_application_exposed_endpoint_cidr_delete",
+		"trg_log_application_exposed_endpoint_cidr_insert",
+		"trg_log_application_exposed_endpoint_cidr_update",
+
+		"trg_log_application_exposed_endpoint_space_delete",
+		"trg_log_application_exposed_endpoint_space_insert",
+		"trg_log_application_exposed_endpoint_space_update",
+
 		"trg_log_application_scale_delete",
 		"trg_log_application_scale_insert",
 		"trg_log_application_scale_update",

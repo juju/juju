@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/port"
@@ -37,6 +38,21 @@ type ApplicationService interface {
 	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
 	// This is used on CAAS models.
 	GetApplicationScale(ctx context.Context, appName string) (int, error)
+
+	// IsApplicationExposed returns whether the provided application is exposed or not.
+	//
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	IsApplicationExposed(ctx context.Context, appName string) (bool, error)
+
+	// GetExposedEndpoints returns map where keys are endpoint names (or the ""
+	// value which represents all endpoints) and values are ExposedEndpoint
+	// instances that specify which sources (spaces or CIDRs) can access the
+	// opened ports for each endpoint once the application is exposed.
+	//
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetExposedEndpoints(ctx context.Context, appName string) (map[string]application.ExposedEndpoint, error)
 }
 
 type StatusService interface {

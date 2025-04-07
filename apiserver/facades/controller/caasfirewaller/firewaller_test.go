@@ -133,6 +133,8 @@ func (s *firewallerSuite) TestWatchApplication(c *gc.C) {
 func (s *firewallerSuite) TestIsExposed(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.appService.EXPECT().IsApplicationExposed(gomock.Any(), "gitlab").Return(true, nil)
+
 	s.st.application.exposed = true
 	results, err := s.facade.IsExposed(context.Background(), params.Entities{
 		Entities: []params.Entity{

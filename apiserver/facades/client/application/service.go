@@ -6,6 +6,7 @@ package application
 import (
 	"context"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
@@ -22,6 +23,7 @@ import (
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/relation"
@@ -231,6 +233,38 @@ type ApplicationService interface {
 	// If the charm config is not valid, an error satisfying
 	// [applicationerrors.InvalidApplicationConfig] is returned.
 	UpdateApplicationConfig(context.Context, coreapplication.ID, map[string]string) error
+
+	// IsApplicationExposed returns whether the provided application is exposed or not.
+	//
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	IsApplicationExposed(ctx context.Context, appName string) (bool, error)
+
+	// GetExposedEndpoints returns map where keys are endpoint names (or the ""
+	// value which represents all endpoints) and values are ExposedEndpoint
+	// instances that specify which sources (spaces or CIDRs) can access the
+	// opened ports for each endpoint once the application is exposed.
+	//
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetExposedEndpoints(ctx context.Context, appName string) (map[string]application.ExposedEndpoint, error)
+
+	// UnsetExposeSettings removes the expose settings for the provided list of
+	// endpoint names. If the resulting exposed endpoints map for the application
+	// becomes empty after the settings are removed, the application will be
+	// automatically unexposed.
+	//
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	UnsetExposeSettings(ctx context.Context, appName string, exposedEndpoints set.Strings) error
+
+	// MergeExposeSettings marks the application as exposed and merges the provided
+	// ExposedEndpoint details into the current set of expose settings. The merge
+	// operation will overwrite expose settings for each existing endpoint name.
+	//
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	MergeExposeSettings(ctx context.Context, appName string, exposedEndpoints map[string]application.ExposedEndpoint) error
 }
 
 // ModelConfigService provides access to the model configuration.

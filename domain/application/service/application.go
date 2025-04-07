@@ -271,6 +271,13 @@ type ApplicationState interface {
 	// [applicationerrors.ApplicationNotFound] is returned.
 	IsApplicationExposed(ctx context.Context, appID coreapplication.ID) (bool, error)
 
+	// NamespaceForWatchApplicationExposed returns the namespace identifier
+	// for application exposed endpoints changes. The first return value is the
+	// namespace for the application exposed endpoints to spaces table, and the
+	// second is the namespace for the application exposed endpoints to CIDRs
+	// table.
+	NamespaceForWatchApplicationExposed() (string, string)
+
 	// GetExposedEndpoints returns map where keys are endpoint names (or the ""
 	// value which represents all endpoints) and values are ExposedEndpoint
 	// instances that specify which sources (spaces or CIDRs) can access the
@@ -284,6 +291,8 @@ type ApplicationState interface {
 	// endpoint names. If the resulting exposed endpoints map for the application
 	// becomes empty after the settings are removed, the application will be
 	// automatically unexposed.
+	// If the provided set of endpoints is empty, all exposed endpoints of the
+	// application will be removed.
 	//
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.

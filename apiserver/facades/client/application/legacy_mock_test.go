@@ -731,44 +731,6 @@ func (c *MockApplicationCharmURLCall) DoAndReturn(f func() (*string, bool)) *Moc
 	return c
 }
 
-// ClearExposed mocks base method.
-func (m *MockApplication) ClearExposed() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ClearExposed")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ClearExposed indicates an expected call of ClearExposed.
-func (mr *MockApplicationMockRecorder) ClearExposed() *MockApplicationClearExposedCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearExposed", reflect.TypeOf((*MockApplication)(nil).ClearExposed))
-	return &MockApplicationClearExposedCall{Call: call}
-}
-
-// MockApplicationClearExposedCall wrap *gomock.Call
-type MockApplicationClearExposedCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationClearExposedCall) Return(arg0 error) *MockApplicationClearExposedCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationClearExposedCall) Do(f func() error) *MockApplicationClearExposedCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationClearExposedCall) DoAndReturn(f func() error) *MockApplicationClearExposedCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // DestroyOperation mocks base method.
 func (m *MockApplication) DestroyOperation(arg0 objectstore.ObjectStore) *state.DestroyApplicationOperation {
 	m.ctrl.T.Helper()
@@ -881,82 +843,6 @@ func (c *MockApplicationEndpointsCall) Do(f func() ([]relation.Endpoint, error))
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationEndpointsCall) DoAndReturn(f func() ([]relation.Endpoint, error)) *MockApplicationEndpointsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ExposedEndpoints mocks base method.
-func (m *MockApplication) ExposedEndpoints() map[string]state.ExposedEndpoint {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExposedEndpoints")
-	ret0, _ := ret[0].(map[string]state.ExposedEndpoint)
-	return ret0
-}
-
-// ExposedEndpoints indicates an expected call of ExposedEndpoints.
-func (mr *MockApplicationMockRecorder) ExposedEndpoints() *MockApplicationExposedEndpointsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExposedEndpoints", reflect.TypeOf((*MockApplication)(nil).ExposedEndpoints))
-	return &MockApplicationExposedEndpointsCall{Call: call}
-}
-
-// MockApplicationExposedEndpointsCall wrap *gomock.Call
-type MockApplicationExposedEndpointsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationExposedEndpointsCall) Return(arg0 map[string]state.ExposedEndpoint) *MockApplicationExposedEndpointsCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationExposedEndpointsCall) Do(f func() map[string]state.ExposedEndpoint) *MockApplicationExposedEndpointsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationExposedEndpointsCall) DoAndReturn(f func() map[string]state.ExposedEndpoint) *MockApplicationExposedEndpointsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// IsExposed mocks base method.
-func (m *MockApplication) IsExposed() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsExposed")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// IsExposed indicates an expected call of IsExposed.
-func (mr *MockApplicationMockRecorder) IsExposed() *MockApplicationIsExposedCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsExposed", reflect.TypeOf((*MockApplication)(nil).IsExposed))
-	return &MockApplicationIsExposedCall{Call: call}
-}
-
-// MockApplicationIsExposedCall wrap *gomock.Call
-type MockApplicationIsExposedCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationIsExposedCall) Return(arg0 bool) *MockApplicationIsExposedCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationIsExposedCall) Do(f func() bool) *MockApplicationIsExposedCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationIsExposedCall) DoAndReturn(f func() bool) *MockApplicationIsExposedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1075,44 +961,6 @@ func (c *MockApplicationMergeBindingsCall) DoAndReturn(f func(*state.Bindings, b
 	return c
 }
 
-// MergeExposeSettings mocks base method.
-func (m *MockApplication) MergeExposeSettings(arg0 map[string]state.ExposedEndpoint) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MergeExposeSettings", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// MergeExposeSettings indicates an expected call of MergeExposeSettings.
-func (mr *MockApplicationMockRecorder) MergeExposeSettings(arg0 any) *MockApplicationMergeExposeSettingsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MergeExposeSettings", reflect.TypeOf((*MockApplication)(nil).MergeExposeSettings), arg0)
-	return &MockApplicationMergeExposeSettingsCall{Call: call}
-}
-
-// MockApplicationMergeExposeSettingsCall wrap *gomock.Call
-type MockApplicationMergeExposeSettingsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationMergeExposeSettingsCall) Return(arg0 error) *MockApplicationMergeExposeSettingsCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationMergeExposeSettingsCall) Do(f func(map[string]state.ExposedEndpoint) error) *MockApplicationMergeExposeSettingsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationMergeExposeSettingsCall) DoAndReturn(f func(map[string]state.ExposedEndpoint) error) *MockApplicationMergeExposeSettingsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Name mocks base method.
 func (m *MockApplication) Name() string {
 	m.ctrl.T.Helper()
@@ -1223,44 +1071,6 @@ func (c *MockApplicationSetConstraintsCall) Do(f func(constraints.Value) error) 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationSetConstraintsCall) DoAndReturn(f func(constraints.Value) error) *MockApplicationSetConstraintsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// UnsetExposeSettings mocks base method.
-func (m *MockApplication) UnsetExposeSettings(arg0 []string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnsetExposeSettings", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UnsetExposeSettings indicates an expected call of UnsetExposeSettings.
-func (mr *MockApplicationMockRecorder) UnsetExposeSettings(arg0 any) *MockApplicationUnsetExposeSettingsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnsetExposeSettings", reflect.TypeOf((*MockApplication)(nil).UnsetExposeSettings), arg0)
-	return &MockApplicationUnsetExposeSettingsCall{Call: call}
-}
-
-// MockApplicationUnsetExposeSettingsCall wrap *gomock.Call
-type MockApplicationUnsetExposeSettingsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationUnsetExposeSettingsCall) Return(arg0 error) *MockApplicationUnsetExposeSettingsCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationUnsetExposeSettingsCall) Do(f func([]string) error) *MockApplicationUnsetExposeSettingsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationUnsetExposeSettingsCall) DoAndReturn(f func([]string) error) *MockApplicationUnsetExposeSettingsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

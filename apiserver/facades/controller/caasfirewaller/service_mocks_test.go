@@ -158,3 +158,42 @@ func (c *MockApplicationServiceGetUnitLifeCall) DoAndReturn(f func(context.Conte
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// IsApplicationExposed mocks base method.
+func (m *MockApplicationService) IsApplicationExposed(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsApplicationExposed", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsApplicationExposed indicates an expected call of IsApplicationExposed.
+func (mr *MockApplicationServiceMockRecorder) IsApplicationExposed(arg0, arg1 any) *MockApplicationServiceIsApplicationExposedCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsApplicationExposed", reflect.TypeOf((*MockApplicationService)(nil).IsApplicationExposed), arg0, arg1)
+	return &MockApplicationServiceIsApplicationExposedCall{Call: call}
+}
+
+// MockApplicationServiceIsApplicationExposedCall wrap *gomock.Call
+type MockApplicationServiceIsApplicationExposedCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceIsApplicationExposedCall) Return(arg0 bool, arg1 error) *MockApplicationServiceIsApplicationExposedCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceIsApplicationExposedCall) Do(f func(context.Context, string) (bool, error)) *MockApplicationServiceIsApplicationExposedCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceIsApplicationExposedCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockApplicationServiceIsApplicationExposedCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

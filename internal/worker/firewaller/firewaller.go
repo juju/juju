@@ -29,10 +29,12 @@ import (
 	"github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/charm"
+	internalerrors "github.com/juju/juju/internal/errors"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/rpc/params"
@@ -48,6 +50,7 @@ type Config struct {
 	RemoteRelationsApi     RemoteRelationsAPI
 	PortsService           PortService
 	MachineService         MachineService
+	ApplicationService     ApplicationService
 	EnvironFirewaller      EnvironFirewaller
 	EnvironModelFirewaller EnvironModelFirewaller
 	EnvironInstances       EnvironInstances
@@ -118,6 +121,7 @@ type Firewaller struct {
 	remoteRelationsApi     RemoteRelationsAPI
 	portService            PortService
 	machineService         MachineService
+	applicationService     ApplicationService
 	environFirewaller      EnvironFirewaller
 	environModelFirewaller EnvironModelFirewaller
 	environInstances       EnvironInstances
@@ -171,6 +175,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		remoteRelationsApi:         cfg.RemoteRelationsApi,
 		portService:                cfg.PortsService,
 		machineService:             cfg.MachineService,
+		applicationService:         cfg.ApplicationService,
 		environFirewaller:          cfg.EnvironFirewaller,
 		environModelFirewaller:     cfg.EnvironModelFirewaller,
 		environInstances:           cfg.EnvironInstances,
@@ -407,7 +412,7 @@ func (fw *Firewaller) subnetsChanged(ctx context.Context) error {
 	for _, appd := range fw.applicationids {
 		var exposedToSpaces bool
 		for _, exposeDetails := range appd.exposedEndpoints {
-			if len(exposeDetails.ExposeToSpaces) != 0 {
+			if exposeDetails.ExposeToSpaceIDs.Size() != 0 {
 				exposedToSpaces = true
 				break
 			}
@@ -580,30 +585,35 @@ func (fw *Firewaller) startUnit(ctx context.Context, unit Unit, machineTag names
 // startApplication creates a new data value for tracking details of the
 // application and starts watching the application for exposure changes.
 func (fw *Firewaller) startApplication(ctx context.Context, app Application) error {
-	exposed, exposedEndpoints, err := app.ExposeInfo(ctx)
+	isExposed, err := fw.applicationService.IsApplicationExposed(ctx, app.Name())
 	if err != nil {
-		return err
+		return internalerrors.Capture(err)
+	}
+	exposedEndpoints, err := fw.applicationService.GetExposedEndpoints(ctx, app.Name())
+	if err != nil {
+		return internalerrors.Capture(err)
 	}
 	applicationd := &applicationData{
-		fw:               fw,
-		application:      app,
-		exposed:          exposed,
-		exposedEndpoints: exposedEndpoints,
-		unitds:           make(map[coreunit.Name]*unitData),
+		fw:                 fw,
+		applicationTag:     app.Tag(),
+		applicationService: fw.applicationService,
+		exposed:            isExposed,
+		exposedEndpoints:   exposedEndpoints,
+		unitds:             make(map[coreunit.Name]*unitData),
 	}
 	fw.applicationids[app.Tag()] = applicationd
 
 	err = catacomb.Invoke(catacomb.Plan{
 		Site: &applicationd.catacomb,
 		Work: func() error {
-			return applicationd.watchLoop(exposed, exposedEndpoints)
+			return applicationd.watchLoop(isExposed, exposedEndpoints)
 		},
 	})
 	if err != nil {
-		return errors.Trace(err)
+		return internalerrors.Capture(err)
 	}
 	if err := fw.catacomb.Add(applicationd); err != nil {
-		return errors.Trace(err)
+		return internalerrors.Capture(err)
 	}
 	return nil
 }
@@ -895,7 +905,7 @@ func (fw *Firewaller) ingressRulesForMachineUnit(ctx context.Context, machine *m
 	} else {
 		if rules, err = fw.ingressRulesForNonExposedMachineUnit(
 			ctx,
-			unit.applicationd.application.Tag(),
+			unit.applicationd.applicationTag,
 			unitPortRanges,
 		); err != nil {
 			return nil, errors.Trace(err)
@@ -926,6 +936,37 @@ func (fw *Firewaller) ingressRulesForNonExposedMachineUnit(ctx context.Context,
 	return rules, nil
 }
 
+func (fw *Firewaller) appendSubnetCIDRsFromExposedSpaces(ctx context.Context, unit *unitData, exposedEndpoint string, exposeDetails *application.ExposedEndpoint) {
+	// Collect the operator-provided CIDRs that should be able to
+	// access the port ranges opened for this endpoint; then resolve
+	// the CIDRs for the spaces specified in the expose details to
+	// construct the full source CIDR list for the generated rules.
+	for _, spaceID := range exposeDetails.ExposeToSpaceIDs.Values() {
+		sp := fw.spaceInfos.GetByID(spaceID)
+		if sp == nil {
+			fw.logger.Warningf(ctx, "exposed endpoint references unknown space ID %q", spaceID)
+			continue
+		}
+
+		if len(sp.Subnets) == 0 {
+			if exposedEndpoint == "" {
+				fw.logger.Warningf(ctx, "all endpoints of application %q are exposed to space %q which contains no subnets",
+					unit.applicationd.applicationTag.Name, sp.Name)
+			} else {
+				fw.logger.Warningf(ctx, "endpoint %q application %q are exposed to space %q which contains no subnets",
+					exposedEndpoint, unit.applicationd.applicationTag.Name, sp.Name)
+			}
+		}
+		for _, subnet := range sp.Subnets {
+			if exposeDetails.ExposeToCIDRs == nil {
+				exposeDetails.ExposeToCIDRs = set.NewStrings(subnet.CIDR)
+			} else {
+				exposeDetails.ExposeToCIDRs.Add(subnet.CIDR)
+			}
+		}
+	}
+}
+
 func (fw *Firewaller) ingressRulesForExposedMachineUnit(ctx context.Context, unit *unitData, openUnitPortRanges network.GroupedPortRanges) firewall.IngressRules {
 	var (
 		exposedEndpoints = unit.applicationd.exposedEndpoints
@@ -933,33 +974,9 @@ func (fw *Firewaller) ingressRulesForExposedMachineUnit(ctx context.Context, uni
 	)
 
 	for exposedEndpoint, exposeDetails := range exposedEndpoints {
-		// Collect the operator-provided CIDRs that should be able to
-		// access the port ranges opened for this endpoint; then resolve
-		// the CIDRs for the spaces specified in the expose details to
-		// construct the full source CIDR list for the generated rules.
-		srcCIDRs := set.NewStrings(exposeDetails.ExposeToCIDRs...)
-		for _, spaceID := range exposeDetails.ExposeToSpaces {
-			sp := fw.spaceInfos.GetByID(spaceID)
-			if sp == nil {
-				fw.logger.Warningf(ctx, "exposed endpoint references unknown space ID %q", spaceID)
-				continue
-			}
+		fw.appendSubnetCIDRsFromExposedSpaces(ctx, unit, exposedEndpoint, &exposeDetails)
 
-			if len(sp.Subnets) == 0 {
-				if exposedEndpoint == "" {
-					fw.logger.Warningf(ctx, "all endpoints of application %q are exposed to space %q which contains no subnets",
-						unit.applicationd.application.Name(), sp.Name)
-				} else {
-					fw.logger.Warningf(ctx, "endpoint %q application %q are exposed to space %q which contains no subnets",
-						exposedEndpoint, unit.applicationd.application.Name(), sp.Name)
-				}
-			}
-			for _, subnet := range sp.Subnets {
-				srcCIDRs.Add(subnet.CIDR)
-			}
-		}
-
-		if len(srcCIDRs) == 0 {
+		if exposeDetails.ExposeToCIDRs.Size() == 0 {
 			continue // no rules required
 		}
 
@@ -968,10 +985,10 @@ func (fw *Firewaller) ingressRulesForExposedMachineUnit(ctx context.Context, uni
 		// that endpoint name specifically, and create ingress rules.
 		if exposedEndpoint != "" {
 			for _, portRange := range openUnitPortRanges[exposedEndpoint] { // ports opened for this endpoint
-				rules = append(rules, firewall.NewIngressRule(portRange, srcCIDRs.Values()...))
+				rules = append(rules, firewall.NewIngressRule(portRange, exposeDetails.ExposeToCIDRs.Values()...))
 			}
 			for _, portRange := range openUnitPortRanges[""] { // ports opened for ALL endpoints
-				rules = append(rules, firewall.NewIngressRule(portRange, srcCIDRs.Values()...))
+				rules = append(rules, firewall.NewIngressRule(portRange, exposeDetails.ExposeToCIDRs.Values()...))
 			}
 			continue
 		}
@@ -987,7 +1004,7 @@ func (fw *Firewaller) ingressRulesForExposedMachineUnit(ctx context.Context, uni
 			}
 
 			for _, portRange := range portRanges {
-				rules = append(rules, firewall.NewIngressRule(portRange, srcCIDRs.Values()...))
+				rules = append(rules, firewall.NewIngressRule(portRange, exposeDetails.ExposeToCIDRs.Values()...))
 			}
 		}
 	}
@@ -1243,7 +1260,7 @@ func (fw *Firewaller) forgetUnit(ctx context.Context, unitd *unitData) {
 	delete(applicationd.unitds, unitd.name)
 	fw.logger.Debugf(ctx, "stopped watching %q", unitd.name)
 	if stoppedApplication {
-		applicationTag := applicationd.application.Tag()
+		applicationTag := applicationd.applicationTag
 		delete(fw.applicationids, applicationTag)
 		fw.logger.Debugf(ctx, "stopped watching %q", applicationTag)
 	}
@@ -1333,25 +1350,26 @@ type unitData struct {
 type exposedChange struct {
 	applicationd     *applicationData
 	exposed          bool
-	exposedEndpoints map[string]params.ExposedEndpoint
+	exposedEndpoints map[string]application.ExposedEndpoint
 }
 
 // applicationData holds application details and watches exposure changes.
 type applicationData struct {
-	catacomb         catacomb.Catacomb
-	fw               *Firewaller
-	application      Application
-	exposed          bool
-	exposedEndpoints map[string]params.ExposedEndpoint
-	unitds           map[coreunit.Name]*unitData
+	catacomb           catacomb.Catacomb
+	fw                 *Firewaller
+	applicationTag     names.ApplicationTag
+	applicationService ApplicationService
+	exposed            bool
+	exposedEndpoints   map[string]application.ExposedEndpoint
+	unitds             map[coreunit.Name]*unitData
 }
 
 // watchLoop watches the application's exposed flag for changes.
-func (ad *applicationData) watchLoop(curExposed bool, curExposedEndpoints map[string]params.ExposedEndpoint) error {
+func (ad *applicationData) watchLoop(curExposed bool, curExposedEndpoints map[string]application.ExposedEndpoint) error {
 	ctx, cancel := ad.scopedContext()
 	defer cancel()
 
-	appWatcher, err := ad.application.Watch(ctx)
+	appWatcher, err := ad.applicationService.WatchApplicationExposed(ctx, ad.applicationTag.Name)
 	if err != nil {
 		if params.IsCodeNotFound(err) {
 			return nil
@@ -1369,33 +1387,41 @@ func (ad *applicationData) watchLoop(curExposed bool, curExposedEndpoints map[st
 			if !ok {
 				return errors.New("application watcher closed")
 			}
-			newExposed, newExposedEndpoints, err := ad.application.ExposeInfo(ctx)
+			newIsExposed, err := ad.applicationService.IsApplicationExposed(ctx, ad.applicationTag.Name)
 			if err != nil {
 				if errors.Is(err, errors.NotFound) {
-					ad.fw.logger.Debugf(ctx, "application(%q).IsExposed() returned NotFound: %v", ad.application.Name(), err)
+					ad.fw.logger.Debugf(ctx, "is exposed application %q, app not found: %w", ad.applicationTag.Name, err)
 					return nil
 				}
-				return errors.Trace(err)
+				return internalerrors.Capture(err)
 			}
-			if curExposed == newExposed && equalExposedEndpoints(curExposedEndpoints, newExposedEndpoints) {
-				ad.fw.logger.Tracef(ctx, "application(%q) expose settings unchanged: exposed: %v, exposedEndpoints: %v",
-					ad.application.Name(), curExposed, curExposedEndpoints)
+			newExposedEndpoints, err := ad.applicationService.GetExposedEndpoints(ctx, ad.applicationTag.Name)
+			if err != nil {
+				if errors.Is(err, errors.NotFound) {
+					ad.fw.logger.Debugf(ctx, "expose info for application %q, app not found: %w", ad.applicationTag.Name, err)
+					return nil
+				}
+				return internalerrors.Capture(err)
+			}
+			if curExposed == newIsExposed && equalExposedEndpoints(curExposedEndpoints, newExposedEndpoints) {
+				ad.fw.logger.Tracef(ctx, "application %q expose settings unchanged: exposed: %v, exposedEndpoints: %v",
+					ad.applicationTag.Name, curExposed, curExposedEndpoints)
 				continue
 			}
-			ad.fw.logger.Tracef(ctx, "application(%q) expose settings changed: exposed: %v, exposedEndpoints: %v",
-				ad.application.Name(), newExposed, newExposedEndpoints)
+			ad.fw.logger.Tracef(ctx, "application %q expose settings changed: exposed: %v, exposedEndpoints: %v",
+				ad.applicationTag.Name, newIsExposed, newExposedEndpoints)
 
-			curExposed, curExposedEndpoints = newExposed, newExposedEndpoints
+			curExposed, curExposedEndpoints = newIsExposed, newExposedEndpoints
 			select {
 			case <-ad.catacomb.Dying():
 				return ad.catacomb.ErrDying()
-			case ad.fw.exposedChange <- &exposedChange{ad, newExposed, newExposedEndpoints}:
+			case ad.fw.exposedChange <- &exposedChange{ad, newIsExposed, newExposedEndpoints}:
 			}
 		}
 	}
 }
 
-func equalExposedEndpoints(a, b map[string]params.ExposedEndpoint) bool {
+func equalExposedEndpoints(a, b map[string]application.ExposedEndpoint) bool {
 	if len(a) != len(b) {
 		return false
 	}
@@ -1406,24 +1432,21 @@ func equalExposedEndpoints(a, b map[string]params.ExposedEndpoint) bool {
 			return false
 		}
 
-		if !equalStringSlices(exposeDetailsA.ExposeToSpaces, exposeDetailsB.ExposeToSpaces) ||
-			!equalStringSlices(exposeDetailsA.ExposeToCIDRs, exposeDetailsB.ExposeToCIDRs) {
+		if !equalStringSets(exposeDetailsA.ExposeToSpaceIDs, exposeDetailsB.ExposeToSpaceIDs) ||
+			!equalStringSets(exposeDetailsA.ExposeToCIDRs, exposeDetailsB.ExposeToCIDRs) {
 			return false
 		}
-
 	}
 
 	return true
 }
 
-func equalStringSlices(a, b []string) bool {
-	if len(a) != len(b) {
+func equalStringSets(a, b set.Strings) bool {
+	if a.Size() != b.Size() {
 		return false
 	}
 
-	setA := set.NewStrings(a...)
-	setB := set.NewStrings(b...)
-	return setA.Difference(setB).IsEmpty()
+	return !a.Difference(b).IsEmpty()
 }
 
 // Kill is part of the worker.Worker interface.

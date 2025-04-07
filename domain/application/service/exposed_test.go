@@ -166,6 +166,33 @@ func (s *exposedServiceSuite) TestMergeExposeSettingsEmptyEndpointsList(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *exposedServiceSuite) TestMergeExposeSettingsWildcard(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	applicationUUID := applicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(applicationUUID, nil)
+	s.state.EXPECT().EndpointsExist(gomock.Any(), applicationUUID, set.NewStrings("endpoint1")).Return(nil)
+	s.state.EXPECT().SpacesExist(gomock.Any(), set.NewStrings("space0", "space1")).Return(nil)
+	s.state.EXPECT().MergeExposeSettings(gomock.Any(), applicationUUID, map[string]application.ExposedEndpoint{
+		"": {
+			ExposeToSpaceIDs: set.NewStrings("space0", "space1"),
+		},
+		"endpoint1": {
+			ExposeToCIDRs: set.NewStrings("10.0.0.0/24", "10.0.1.0/24"),
+		},
+	}).Return(nil)
+
+	err := s.service.MergeExposeSettings(context.Background(), "foo", map[string]application.ExposedEndpoint{
+		"": {
+			ExposeToSpaceIDs: set.NewStrings("space0", "space1"),
+		},
+		"endpoint1": {
+			ExposeToCIDRs: set.NewStrings("10.0.0.0/24", "10.0.1.0/24"),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *exposedServiceSuite) TestMergeExposeSettings(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -451,6 +451,39 @@ func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name 
 	)
 }
 
+// WatchApplicationExposed watches for changes to the specified application's
+// exposed endpoints.
+// This notifies on any changes to the application's exposed endpoints. It is up
+// to the caller to determine if the exposed endpoints they're interested in has
+// changed.
+//
+// If the application does not exist an error satisfying
+// [applicationerrors.NotFound] will be returned.
+func (s *WatchableService) WatchApplicationExposed(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
+	uuid, err := s.GetApplicationIDByName(ctx, name)
+	if err != nil {
+		return nil, errors.Errorf("getting ID of application %s: %w", name, err)
+	}
+
+	exposedToSpaces, exposedToCIDRs := s.st.NamespaceForWatchApplicationExposed()
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter(
+			exposedToSpaces,
+			changestream.All,
+			func(s string) bool {
+				return s == uuid.String()
+			},
+		),
+		eventsource.PredicateFilter(
+			exposedToCIDRs,
+			changestream.All,
+			func(s string) bool {
+				return s == uuid.String()
+			},
+		),
+	)
+}
+
 type maskedChangeIDEvent struct {
 	changestream.ChangeEvent
 	id string

@@ -8,6 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -20,6 +21,7 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/service"
@@ -689,6 +691,103 @@ func (s *watcherSuite) TestWatchApplicationConfigHashBadName(c *gc.C) {
 	svc := s.setupService(c, factory)
 
 	_, err := svc.WatchApplicationConfigHash(context.Background(), "bad-name")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *watcherSuite) TestWatchApplicationExposed(c *gc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "v_application_exposed_endpoint")
+
+	svc := s.setupService(c, factory)
+
+	appName := "foo"
+	appID := s.createApplication(c, svc, appName)
+
+	ctx := context.Background()
+	watcher, err := svc.WatchApplicationExposed(ctx, appName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	harness := watchertest.NewHarness[struct{}](s, watchertest.NewWatcherC[struct{}](c, watcher))
+
+	// Assert that a change to the exposed endpoints triggers the watcher.
+	harness.AddTest(func(c *gc.C) {
+		err := svc.MergeExposeSettings(ctx, "foo", map[string]application.ExposedEndpoint{
+			"": {
+				ExposeToCIDRs: set.NewStrings("10.0.0.0/24", "10.0.1.0/24"),
+			},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Create a new endpoint
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		insertSpace := `INSERT INTO space (uuid, name) VALUES (?, ?)`
+		_, err := tx.ExecContext(ctx, insertSpace, "space0-uuid", "space0")
+		if err != nil {
+			return err
+		}
+		insertCharm := `INSERT INTO charm (uuid, reference_name) VALUES (?, ?)`
+		_, err = tx.ExecContext(ctx, insertCharm, "charm0-uuid", "foo-charm")
+		if err != nil {
+			return err
+		}
+		insertCharmRelation := `INSERT INTO charm_relation (uuid, charm_uuid, kind_id, scope_id, role_id, name) VALUES (?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertCharmRelation, "charm-relation0-uuid", "charm0-uuid", "0", "0", "0", "endpoint0")
+		if err != nil {
+			return err
+		}
+		insertEndpoint := `INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertEndpoint, "app-endpoint0-uuid", appID, "space0-uuid", "charm-relation0-uuid")
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// Assert that a single endpoint exposed to spaces triggers a change.
+	harness.AddTest(func(c *gc.C) {
+		err := svc.MergeExposeSettings(ctx, "foo", map[string]application.ExposedEndpoint{
+			"endpoint0": {
+				ExposeToSpaceIDs: set.NewStrings("space0-uuid"),
+			},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Assert multiple changes to the exposed endpoints triggers the watcher.
+	harness.AddTest(func(c *gc.C) {
+		err := svc.MergeExposeSettings(ctx, "foo", map[string]application.ExposedEndpoint{
+			"endpoint0": {
+				ExposeToCIDRs: set.NewStrings("10.0.0.0/24", "10.0.1.0/24"),
+			},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		err = svc.MergeExposeSettings(ctx, "foo", map[string]application.ExposedEndpoint{
+			"": {
+				ExposeToSpaceIDs: set.NewStrings("space0-uuid"),
+			},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Assert that nothing changes if nothing happens.
+	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c, struct{}{})
+}
+
+func (s *watcherSuite) TestWatchApplicationExposedBadName(c *gc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "v_application_exposed_endpoint")
+	svc := s.setupService(c, factory)
+
+	_, err := svc.WatchApplicationExposed(context.Background(), "bad-name")
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 

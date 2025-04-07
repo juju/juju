@@ -188,11 +188,11 @@ func (c *Client) unitMatchWorkloadStatus(ctx context.Context, u *state.Unit, pat
 }
 
 func (c *Client) unitMatchExposure(ctx context.Context, u *state.Unit, patterns []string) (bool, bool, error) {
-	s, err := u.Application()
+	isExposed, err := c.applicationService.IsApplicationExposed(ctx, u.ApplicationName())
 	if err != nil {
 		return false, false, err
 	}
-	return matchExposure(patterns, s)
+	return matchExposure(patterns, isExposed)
 }
 
 func (c *Client) unitMatchPort(ctx context.Context, u *state.Unit, patterns []string) (bool, bool, error) {
@@ -226,7 +226,13 @@ func (c *Client) buildApplicationMatcherShims(a *state.Application, patterns ...
 	})
 
 	// Match on exposure.
-	shims = append(shims, func(ctx context.Context) (bool, bool, error) { return matchExposure(patterns, a) })
+	shims = append(shims, func(ctx context.Context) (bool, bool, error) {
+		isExposed, err := c.applicationService.IsApplicationExposed(ctx, a.Name())
+		if err != nil {
+			return false, false, err
+		}
+		return matchExposure(patterns, isExposed)
+	})
 
 	// If the service has an unit instance that matches any of the
 	// given criteria, consider the service a match as well.
@@ -365,11 +371,11 @@ func matchSubnet(patterns []string, addresses ...string) (bool, bool, error) {
 	return false, oneValidPattern, nil
 }
 
-func matchExposure(patterns []string, s *state.Application) (bool, bool, error) {
+func matchExposure(patterns []string, isExposed bool) (bool, bool, error) {
 	if len(patterns) >= 1 && patterns[0] == "exposed" {
-		return s.IsExposed(), true, nil
+		return isExposed, true, nil
 	} else if len(patterns) >= 2 && patterns[0] == "not" && patterns[1] == "exposed" {
-		return !s.IsExposed(), true, nil
+		return !isExposed, true, nil
 	}
 	return false, false, nil
 }
