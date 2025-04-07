@@ -31,6 +31,9 @@ type machinePortRanges struct {
 	st  *State
 	doc machinePortRangesDoc
 
+	machineExists bool
+	unitExists    bool
+
 	// docExists is false if the port range doc has not yet been persisted
 	// to the backing store.
 	docExists bool
@@ -132,7 +135,7 @@ func (p *machinePortRanges) Remove() error {
 	return nil
 }
 
-func insertPortsDocOps(st *State, doc *machinePortRangesDoc, asserts interface{}, unitRanges map[string]network.GroupedPortRanges) []txn.Op {
+func insertPortsDocOps(doc *machinePortRangesDoc, asserts interface{}, unitRanges map[string]network.GroupedPortRanges) []txn.Op {
 	// As the following insert operation might be rolled back, we should
 	// not mutate our internal doc but instead work on a copy of the
 	// machinePortRangesDoc.
@@ -141,7 +144,6 @@ func insertPortsDocOps(st *State, doc *machinePortRangesDoc, asserts interface{}
 	docCopy.UnitRanges = unitRanges
 
 	return []txn.Op{
-		assertMachineNotDeadOp(st, docCopy.MachineID),
 		{
 			C:      openedPortsC,
 			Id:     docCopy.DocID,
@@ -151,9 +153,8 @@ func insertPortsDocOps(st *State, doc *machinePortRangesDoc, asserts interface{}
 	}
 }
 
-func updatePortsDocOps(st *State, doc *machinePortRangesDoc, asserts interface{}, unitRanges map[string]network.GroupedPortRanges) []txn.Op {
+func updatePortsDocOps(doc *machinePortRangesDoc, asserts interface{}, unitRanges map[string]network.GroupedPortRanges) []txn.Op {
 	return []txn.Op{
-		assertMachineNotDeadOp(st, doc.MachineID),
 		{
 			C:      openedPortsC,
 			Id:     doc.DocID,
@@ -199,7 +200,7 @@ func removePortsForUnitOps(st *State, unit *Unit) ([]txn.Op, error) {
 	delete(machinePortRanges.doc.UnitRanges, unitName)
 	if len(machinePortRanges.doc.UnitRanges) != 0 {
 		assert := bson.D{{"txn-revno", machinePortRanges.doc.TxnRevno}}
-		return updatePortsDocOps(st, &machinePortRanges.doc, assert, machinePortRanges.doc.UnitRanges), nil
+		return updatePortsDocOps(&machinePortRanges.doc, assert, machinePortRanges.doc.UnitRanges), nil
 	}
 	return machinePortRanges.removeOps(), nil
 }
@@ -265,11 +266,17 @@ func getOpenedPortRangesForAllMachines(st *State) ([]*machinePortRanges, error) 
 // machinePortRanges instance with the docExists flag set to false will be
 // returned instead.
 func getOpenedMachinePortRanges(st *State, machineID string) (*machinePortRanges, error) {
+	_, err := st.getMachineDoc(machineID)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return nil, errors.Annotatef(err, "looking for machine %q", machineID)
+	}
+	machineExists := err == nil
+
 	openedPorts, closer := st.db().GetCollection(openedPortsC)
 	defer closer()
 
 	var doc machinePortRangesDoc
-	err := openedPorts.FindId(machineID).One(&doc)
+	err = openedPorts.FindId(machineID).One(&doc)
 	if err != nil {
 		if err != mgo.ErrNotFound {
 			return nil, errors.Annotatef(err, "cannot get opened port ranges for machine %q", machineID)
@@ -278,15 +285,19 @@ func getOpenedMachinePortRanges(st *State, machineID string) (*machinePortRanges
 		doc.MachineID = machineID
 		doc.ModelUUID = st.ModelUUID()
 		return &machinePortRanges{
-			st:        st,
-			doc:       doc,
-			docExists: false,
+			st:            st,
+			doc:           doc,
+			docExists:     false,
+			machineExists: machineExists,
+			unitExists:    true,
 		}, nil
 	}
 
 	return &machinePortRanges{
-		st:        st,
-		doc:       doc,
-		docExists: true,
+		st:            st,
+		doc:           doc,
+		docExists:     true,
+		machineExists: machineExists,
+		unitExists:    true,
 	}, nil
 }

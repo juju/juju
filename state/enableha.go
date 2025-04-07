@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo"
 	sshkeys "github.com/juju/juju/pki/ssh"
@@ -100,63 +101,30 @@ func (st *State) EnableHA(
 	if numControllers > controller.MaxPeers {
 		return ControllersChanges{}, errors.Errorf("controller count is too large (allowed %d)", controller.MaxPeers)
 	}
-	var change ControllersChanges
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		desiredControllerCount := numControllers
-		votingCount, err := st.getVotingControllerCount()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if desiredControllerCount == 0 {
-			// Make sure we go to add odd number of desired voters. Even if HA was currently at 2 desired voters
-			desiredControllerCount = votingCount + (votingCount+1)%2
-			if desiredControllerCount <= 1 {
-				desiredControllerCount = 3
-			}
-		}
-		if votingCount > desiredControllerCount {
-			return nil, errors.New("cannot remove controllers with enable-ha, use remove-machine and chose the controller(s) to remove")
-		}
 
-		controllerIds, err := st.ControllerIds()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		intent, err := st.enableHAIntentions(controllerIds, placement)
-		if err != nil {
-			return nil, err
-		}
-		voteCount := 0
-		for _, m := range intent.maintain {
-			if m.WantsVote() {
-				voteCount++
-			}
-		}
-		if voteCount == desiredControllerCount {
-			return nil, jujutxn.ErrNoOperations
-		}
-
-		if n := desiredControllerCount - voteCount; n < len(intent.convert) {
-			intent.convert = intent.convert[:n]
-		}
-		voteCount += len(intent.convert)
-
-		intent.newCount = desiredControllerCount - voteCount
-
-		logger.Infof("%d new machines; converting %v", intent.newCount, intent.convert)
-
-		var ops []txn.Op
-		ops, change, err = st.enableHAIntentionOps(intent, cons, base)
-		return ops, err
+	// TODO(wallyworld) - only need until we transition away from enable-ha
+	controllerApp, err := st.Application(bootstrap.ControllerApplicationName)
+	if err != nil && !errors.IsNotFound(err) {
+		return ControllersChanges{}, errors.Annotate(err, "getting controller application")
 	}
-	if err := st.db().Run(buildTxn); err != nil {
+
+	enableHAOp := &enableHAOperation{
+		controllerApp:  controllerApp,
+		st:             st,
+		numControllers: numControllers,
+		cons:           cons,
+		base:           base,
+		placement:      placement,
+	}
+
+	if err := st.ApplyOperation(enableHAOp); err != nil {
 		err = errors.Annotatef(err, "failed to enable HA with %d controllers", numControllers)
 		return ControllersChanges{}, err
 	}
-	return change, nil
+	return enableHAOp.change, nil
 }
 
-// Change in controllers after the ensure availability txn has committed.
+// ControllersChanges records change in controllers after the ensure availability txn has committed.
 type ControllersChanges struct {
 	Added      []string
 	Removed    []string
@@ -164,8 +132,75 @@ type ControllersChanges struct {
 	Converted  []string
 }
 
+type enableHAOperation struct {
+	// controllerApp may be nil if the controller application is not present.
+	controllerApp  *Application
+	st             *State
+	numControllers int
+	cons           constraints.Value
+	base           Base
+	placement      []string
+
+	change ControllersChanges
+}
+
+func (e *enableHAOperation) Build(attempt int) ([]txn.Op, error) {
+	desiredControllerCount := e.numControllers
+	votingCount, err := e.st.getVotingControllerCount()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if desiredControllerCount == 0 {
+		// Make sure we go to add odd number of desired voters. Even if HA was currently at 2 desired voters
+		desiredControllerCount = votingCount + (votingCount+1)%2
+		if desiredControllerCount <= 1 {
+			desiredControllerCount = 3
+		}
+	}
+	if votingCount > desiredControllerCount {
+		return nil, errors.New("cannot remove controllers with enable-ha, use remove-machine and chose the controller(s) to remove")
+	}
+
+	controllerIds, err := e.st.ControllerIds()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	intent, err := e.st.enableHAIntentions(controllerIds, e.placement)
+	if err != nil {
+		return nil, err
+	}
+	voteCount := 0
+	for _, m := range intent.maintain {
+		if m.WantsVote() {
+			voteCount++
+		}
+	}
+	if voteCount == desiredControllerCount {
+		return nil, jujutxn.ErrNoOperations
+	}
+
+	if n := desiredControllerCount - voteCount; n < len(intent.convert) {
+		intent.convert = intent.convert[:n]
+	}
+	voteCount += len(intent.convert)
+
+	intent.newCount = desiredControllerCount - voteCount
+
+	logger.Infof("%d new machines; converting %v", intent.newCount, intent.convert)
+
+	var ops []txn.Op
+	ops, e.change, err = e.st.enableHAIntentionOps(attempt, e.controllerApp, intent, e.cons, e.base)
+	return ops, err
+}
+
+func (e *enableHAOperation) Done(err error) error {
+	return err
+}
+
 // enableHAIntentionOps returns operations to fulfil the desired intent.
 func (st *State) enableHAIntentionOps(
+	attempt int,
+	controllerApp *Application,
 	intent *enableHAIntent,
 	cons constraints.Value,
 	base Base,
@@ -173,20 +208,14 @@ func (st *State) enableHAIntentionOps(
 	var ops []txn.Op
 	var change ControllersChanges
 
-	// TODO(wallyworld) - only need until we transition away from enable-ha
-	controllerApp, err := st.Application(bootstrap.ControllerApplicationName)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, ControllersChanges{}, errors.Trace(err)
-	}
-
 	for _, m := range intent.convert {
 		ops = append(ops, convertControllerOps(m)...)
 		change.Converted = append(change.Converted, m.Id())
 		// Add a controller charm unit to the promoted machine.
 		if controllerApp != nil {
-			unitName, unitOps, err := controllerApp.addUnitOps("", AddUnitParams{machineID: m.Id()}, nil)
+			unitName, unitOps, err := st.addControllerUnitOps(attempt, controllerApp, AddUnitParams{machineID: m.Id()})
 			if err != nil {
-				return nil, ControllersChanges{}, errors.Trace(err)
+				return nil, ControllersChanges{}, errors.Annotate(err, "composing controller unit operations")
 			}
 			ops = append(ops, unitOps...)
 			addToMachineOp := txn.Op{
@@ -251,10 +280,10 @@ func (st *State) enableHAIntentionOps(
 		ops = append(ops, addOps...)
 		change.Added = append(change.Added, mdoc.Id)
 		if controllerApp != nil {
-			_, unitOps, err := controllerApp.addUnitOps("", AddUnitParams{
+			_, unitOps, err := st.addControllerUnitOps(attempt, controllerApp, AddUnitParams{
 				UnitName:  &controllerUnitName,
 				machineID: mdoc.Id,
-			}, nil)
+			})
 			if err != nil {
 				return nil, ControllersChanges{}, errors.Trace(err)
 			}
@@ -271,6 +300,36 @@ func (st *State) enableHAIntentionOps(
 	}
 	ops = append(ops, ssOps...)
 	return ops, change, nil
+}
+
+func (st *State) addControllerUnitOps(attempt int, controllerApp *Application, p AddUnitParams) (string, []txn.Op, error) {
+	unitName, unitOps, err := controllerApp.addUnitOps("", p, nil)
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	config, err := st.ControllerConfig()
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	machinePorts, err := getOpenedMachinePortRanges(st, p.machineID)
+	if err != nil {
+		return "", nil, errors.Annotatef(err, "cannot retrieve ports for unit %q", unitName)
+	}
+	// The controller unit doesn't exist yet.
+	machinePorts.unitExists = false
+
+	pcp := machinePorts.ForUnit(unitName)
+	pcp.Open("", network.PortRange{
+		FromPort: config.SSHServerPort(),
+		ToPort:   config.SSHServerPort(),
+		Protocol: "tcp",
+	})
+	portOps, err := pcp.Changes().Build(attempt)
+	if err != nil && !errors.Is(err, jujutxn.ErrNoOperations) {
+		return "", nil, errors.Trace(err)
+	}
+
+	return unitName, append(unitOps, portOps...), nil
 }
 
 type enableHAIntent struct {
