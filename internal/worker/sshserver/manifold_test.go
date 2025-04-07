@@ -5,6 +5,7 @@ package sshserver
 
 import (
 	"context"
+	"os"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -18,7 +19,9 @@ import (
 
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/featureflag"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/juju/osenv"
 )
 
 type manifoldSuite struct {
@@ -28,6 +31,12 @@ type manifoldSuite struct {
 }
 
 var _ = gc.Suite(&manifoldSuite{})
+
+func (s *manifoldSuite) SetUpTest(c *gc.C) {
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, featureflag.SSHJump)
+	c.Assert(err, jc.ErrorIsNil)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+}
 
 func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -141,4 +150,36 @@ func (s *manifoldSuite) newManifoldConfig(c *gc.C, modifier func(cfg *ManifoldCo
 	modifier(cfg)
 
 	return cfg
+}
+
+func (s *manifoldSuite) TestManifoldUninstall(c *gc.C) {
+	// Unset feature flag
+	os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
+	defer s.setupMocks(c).Finish()
+
+	// Setup the manifold
+	manifold := Manifold(ManifoldConfig{
+		DomainServicesName:     "domain-services",
+		NewServerWrapperWorker: NewServerWrapperWorker,
+		NewServerWorker: func(ServerWorkerConfig) (worker.Worker, error) {
+			return workertest.NewErrorWorker(nil), nil
+		},
+		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
+			return s.controllerConfigService, nil
+		},
+		Logger:               loggertesting.WrapCheckLog(c),
+		NewSSHServerListener: newTestingSSHServerListener,
+	})
+
+	// Check the inputs are as expected
+	c.Assert(manifold.Inputs, gc.DeepEquals, []string{"domain-services"})
+
+	// Start the worker
+	_, err := manifold.Start(
+		context.Background(),
+		dt.StubGetter(map[string]interface{}{}),
+	)
+	c.Assert(err, jc.ErrorIs, dependency.ErrUninstall)
 }
