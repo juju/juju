@@ -1083,7 +1083,6 @@ type exportApplication struct {
 	CharmUUID            corecharm.ID       `db:"charm_uuid"`
 	Life                 life.Life          `db:"life_id"`
 	Placement            string             `db:"placement"`
-	Exposed              bool               `db:"exposed"`
 	Subordinate          bool               `db:"subordinate"`
 	CharmModifiedVersion int                `db:"charm_modified_version"`
 	CharmUpgradeOnError  bool               `db:"charm_upgrade_on_error"`

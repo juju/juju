@@ -50,7 +50,6 @@ func (s *migrationStateSuite) TestGetApplicationsForExport(c *gc.C) {
 			},
 			Placement:   "placement",
 			Subordinate: false,
-			Exposed:     false,
 		},
 	})
 }
@@ -79,7 +78,6 @@ func (s *migrationStateSuite) TestGetApplicationsForExportMany(c *gc.C) {
 			},
 			Placement:   "placement",
 			Subordinate: false,
-			Exposed:     false,
 		})
 	}
 
@@ -118,7 +116,6 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *gc.C) {
 			},
 			Placement:   "placement",
 			Subordinate: false,
-			Exposed:     false,
 		},
 		{
 			UUID:      id1,
@@ -133,7 +130,6 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *gc.C) {
 			},
 			Placement:   "placement",
 			Subordinate: false,
-			Exposed:     false,
 		},
 	}
 

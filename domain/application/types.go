@@ -375,7 +375,6 @@ type ExportApplication struct {
 	CharmUUID            charm.ID
 	Life                 life.Life
 	Placement            string
-	Exposed              bool
 	Subordinate          bool
 	CharmModifiedVersion int
 	CharmUpgradeOnError  bool
