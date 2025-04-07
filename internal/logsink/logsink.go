@@ -9,11 +9,9 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/loggo/v2"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
@@ -35,9 +33,7 @@ type LogSink struct {
 	batchSize     int
 	flushInterval time.Duration
 
-	inLogEntry   chan loggo.Entry
-	inLogRecords chan []logger.LogRecord
-
+	in  chan []logger.LogRecord
 	out chan []logger.LogRecord
 
 	clock clock.Clock
@@ -71,8 +67,7 @@ func newLogSink(
 		batchSize:     batchSize,
 		flushInterval: flushInterval,
 
-		inLogEntry:   make(chan loggo.Entry),
-		inLogRecords: make(chan []logger.LogRecord),
+		in: make(chan []logger.LogRecord),
 
 		out: make(chan []logger.LogRecord),
 
@@ -82,22 +77,12 @@ func newLogSink(
 	return w
 }
 
-// Write sends a new log message to the writer.
-// This implements the loggo.Writer interface.
-func (w *LogSink) Write(entry loggo.Entry) {
-	select {
-	case <-w.tomb.Dying():
-		return
-	case w.inLogEntry <- entry:
-	}
-}
-
 // Log writes the given log records to the logger's storage.
 func (w *LogSink) Log(records []logger.LogRecord) error {
 	select {
 	case <-w.tomb.Dying():
 		return tomb.ErrDying
-	case w.inLogRecords <- records:
+	case w.in <- records:
 		return nil
 	}
 }
@@ -156,20 +141,15 @@ func (w *LogSink) loop() error {
 
 	// Tick-toc the in and out channels, to ensure that we can send the batch
 	// of log messages to the underlying writer.
-	inLogEntry := w.inLogEntry
-	inLogRecords := w.inLogRecords
+	in := w.in
 
 	var out chan []logger.LogRecord
 	var switchToRead = func() {
-		inLogEntry = w.inLogEntry
-		inLogRecords = w.inLogRecords
-
+		in = w.in
 		out = nil
 	}
 	var switchToWrite = func() {
-		inLogEntry = nil
-		inLogRecords = nil
-
+		in = nil
 		out = w.out
 	}
 
@@ -199,15 +179,7 @@ func (w *LogSink) loop() error {
 			}
 			return tomb.ErrDying
 
-		case entry := <-inLogEntry:
-			// Consume log entries until we have a full batch.
-			entries = append(entries, w.convertLogEntry(entry))
-			if len(entries) < w.batchSize {
-				continue
-			}
-			switchToWrite()
-
-		case records := <-inLogRecords:
+		case records := <-in:
 			// Consume the log records, there is a higher chance that the
 			// entries will be larger than the batch size. In that case we
 			// just have a larger batch size for the log messages.
@@ -232,30 +204,6 @@ func (w *LogSink) loop() error {
 			entries = nil
 		}
 	}
-}
-
-func (w *LogSink) convertLogEntry(entry loggo.Entry) logger.LogRecord {
-	var location string
-	if entry.Filename != "" {
-		location = entry.Filename + ":" + strconv.Itoa(entry.Line)
-	}
-
-	level, _ := logger.ParseLevelFromString(entry.Level.String())
-
-	rec := logger.LogRecord{
-		Time:     entry.Timestamp,
-		Module:   entry.Module,
-		Location: location,
-		Level:    level,
-		Message:  entry.Message,
-	}
-
-	if entry.Labels != nil {
-		rec.Labels = entry.Labels
-		rec.ModelUUID = entry.Labels["model-uuid"]
-	}
-
-	return rec
 }
 
 func (w *LogSink) write(buffer *bytes.Buffer, encoder *json.Encoder, records []logger.LogRecord) error {
