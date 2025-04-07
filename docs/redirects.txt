@@ -13,6 +13,18 @@ contributor/unsorted/hacking-state/ contributor/unsorted/styleguide/
 contributor/unsorted/cross-platform-development/ contributor/howto/compile-and-run-juju-agents-on-different-architectures.md
 contributor/unsorted/FAQ/ contributor
 contributor/unsorted/debugging-races/ contributor/howto/write-a-unit-test/
+contributor/unsorted/death-and-destruction/ contributor/reference/entity-lifecycle/
+contributor/unsorted/entity-creation/ contributor/reference/entity-lifecycle/
+contributor/unsorted/lifecycles/ contributor/reference/entity-lifecycle/
+contributor/unsorted/api-best-practices contributor
+contributor/unsorted/api-design-specification contributor
+contributor/unsorted/api-implementation-guide contributor
+contributor/unsorted/charms-in-action contributor
+contributor/unsorted/system-ssh-key contributor
+contributor/unsorted/test-failure-FAQ contributor
+contributor/unsorted/third-party-go-clients contributor
+contributor/unsorted/what-we-run-and-why
+contributor/unsorted/simplestreams-metadata user/reference/metadata
 # redirects after promoting user docs and demoting contributor docs
 user/explanation/application-modelling explanation/application-modelling
 user/explanation/charming-history explanation/charming-history
@@ -404,6 +416,3 @@ user/tutorial tutorial
 
 
 
-contributor/unsorted/death-and-destruction/ contributor/reference/entity-lifecycle/
-contributor/unsorted/entity-creation/ contributor/reference/entity-lifecycle/
-contributor/unsorted/lifecycles/ contributor/reference/entity-lifecycle/
