@@ -361,13 +361,16 @@ func (st *State) GetUnitTargetAgentVersion(ctx context.Context, uuid coreunit.UU
 		return coreagentbinary.Version{}, errors.Capture(err)
 	}
 
-	info := unitTargetAgentVersionInfo{UnitUUID: uuid}
+	info := unitTargetAgentVersionInfo{}
+	unitUUID := unitUUIDRef{
+		UUID: uuid,
+	}
 
 	stmt, err := st.Prepare(`
 SELECT &unitTargetAgentVersionInfo.*
 FROM v_unit_target_agent_version
-WHERE unit_uuid = $unitTargetAgentVersionInfo.unit_uuid
-`, info)
+WHERE unit_uuid = $unitUUIDRef.unit_uuid
+`, info, unitUUID)
 	if err != nil {
 		return coreagentbinary.Version{}, errors.Capture(err)
 	}
@@ -384,7 +387,7 @@ WHERE unit_uuid = $unitTargetAgentVersionInfo.unit_uuid
 			)
 		}
 
-		err = tx.Query(ctx, stmt, info).Get(&info)
+		err = tx.Query(ctx, stmt, unitUUID).Get(&info)
 		if errors.Is(err, sql.ErrNoRows) {
 			return modelagenterrors.AgentVersionNotFound
 		} else if err != nil {
