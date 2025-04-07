@@ -1748,6 +1748,72 @@ func (s *relationSuite) TestGetAllRelationDetailsNone(c *gc.C) {
 	c.Assert(result, gc.HasLen, 0)
 }
 
+func (s *relationSuite) TestGetApplicationRelations(c *gc.C) {
+	// Arrange: one application with few relations (2 app endpoint, 3 relations)
+	charmUUID := testing.GenCharmID(c)
+	charmRelationUUID1 := uuid.MustNewUUID().String()
+	charmRelationUUID2 := uuid.MustNewUUID().String()
+	appUUID := coreapplicationtesting.GenApplicationUUID(c)
+	relationUUID1 := corerelationtesting.GenRelationUUID(c)
+	relationUUID2 := corerelationtesting.GenRelationUUID(c)
+	relationUUID3 := corerelationtesting.GenRelationUUID(c)
+	appEndpointUUID1 := uuid.MustNewUUID().String()
+	appEndpointUUID2 := uuid.MustNewUUID().String()
+	s.addCharm(c, charmUUID)
+	s.addApplication(c, charmUUID, appUUID, "my-app")
+	s.addRelationWithID(c, relationUUID1, 1)
+	s.addRelationWithID(c, relationUUID2, 2)
+	s.addRelationWithID(c, relationUUID3, 3)
+	s.addCharmRelation(c, charmUUID, charmRelationUUID1, charm.Relation{
+		Name:  "fake-endpoint-name-1",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal})
+	s.addCharmRelation(c, charmUUID, charmRelationUUID2, charm.Relation{
+		Name:  "fake-endpoint-name-2",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal})
+	s.addApplicationEndpoint(c, appEndpointUUID1, appUUID, charmRelationUUID1)
+	s.addApplicationEndpoint(c, appEndpointUUID2, appUUID, charmRelationUUID2)
+	s.addRelationEndpoint(c, uuid.MustNewUUID().String(), relationUUID1, appEndpointUUID1)
+	s.addRelationEndpoint(c, uuid.MustNewUUID().String(), relationUUID2, appEndpointUUID2)
+	s.addRelationEndpoint(c, uuid.MustNewUUID().String(), relationUUID3, appEndpointUUID1)
+
+	// Act
+	relations, err := s.state.GetApplicationRelations(context.Background(), appUUID)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+	c.Assert(relations, jc.SameContents, []corerelation.UUID{
+		relationUUID1, // not ordered
+		relationUUID2,
+		relationUUID3,
+	})
+}
+
+func (s *relationSuite) TestGetApplicationRelationsApplicationNotFound(c *gc.C) {
+	// Act
+	notAnAppUUID := coreapplicationtesting.GenApplicationUUID(c)
+	_, err := s.state.GetApplicationRelations(context.Background(), notAnAppUUID)
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationNotFound)
+}
+
+func (s *relationSuite) TestGetApplicationRelationsApplicationNoRelation(c *gc.C) {
+	// Arrange
+	charmUUID := testing.GenCharmID(c)
+	appUUID := coreapplicationtesting.GenApplicationUUID(c)
+	s.addCharm(c, charmUUID)
+	s.addApplication(c, charmUUID, appUUID, "app1")
+
+	// Act
+	relations, err := s.state.GetApplicationRelations(context.Background(), appUUID)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relations, gc.HasLen, 0)
+}
+
 func (s *relationSuite) TestEnterScope(c *gc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.setCharmSubordinate(c, s.fakeCharmUUID1, false)
