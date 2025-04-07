@@ -259,48 +259,18 @@ func (mr *MockStatusServiceMockRecorder) GetApplicationDisplayStatus(arg0, arg1 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationDisplayStatus", reflect.TypeOf((*MockStatusService)(nil).GetApplicationDisplayStatus), arg0, arg1)
 }
 
-// GetUnitAgentStatus mocks base method.
-func (m *MockStatusService) GetUnitAgentStatus(arg0 context.Context, arg1 unit.Name) (status.StatusInfo, error) {
+// GetUnitDisplayAndAgentStatus mocks base method.
+func (m *MockStatusService) GetUnitDisplayAndAgentStatus(arg0 context.Context, arg1 unit.Name) (status.StatusInfo, status.StatusInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitAgentStatus", arg0, arg1)
-	ret0, _ := ret[0].(status.StatusInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUnitAgentStatus indicates an expected call of GetUnitAgentStatus.
-func (mr *MockStatusServiceMockRecorder) GetUnitAgentStatus(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitAgentStatus", reflect.TypeOf((*MockStatusService)(nil).GetUnitAgentStatus), arg0, arg1)
-}
-
-// GetUnitAndAgentDisplayStatus mocks base method.
-func (m *MockStatusService) GetUnitAndAgentDisplayStatus(arg0 context.Context, arg1 unit.Name) (status.StatusInfo, status.StatusInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitAndAgentDisplayStatus", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetUnitDisplayAndAgentStatus", arg0, arg1)
 	ret0, _ := ret[0].(status.StatusInfo)
 	ret1, _ := ret[1].(status.StatusInfo)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-// GetUnitAndAgentDisplayStatus indicates an expected call of GetUnitAndAgentDisplayStatus.
-func (mr *MockStatusServiceMockRecorder) GetUnitAndAgentDisplayStatus(arg0, arg1 any) *gomock.Call {
+// GetUnitDisplayAndAgentStatus indicates an expected call of GetUnitDisplayAndAgentStatus.
+func (mr *MockStatusServiceMockRecorder) GetUnitDisplayAndAgentStatus(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitAndAgentDisplayStatus", reflect.TypeOf((*MockStatusService)(nil).GetUnitAndAgentDisplayStatus), arg0, arg1)
-}
-
-// GetUnitDisplayStatus mocks base method.
-func (m *MockStatusService) GetUnitDisplayStatus(arg0 context.Context, arg1 unit.Name) (status.StatusInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitDisplayStatus", arg0, arg1)
-	ret0, _ := ret[0].(status.StatusInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUnitDisplayStatus indicates an expected call of GetUnitDisplayStatus.
-func (mr *MockStatusServiceMockRecorder) GetUnitDisplayStatus(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitDisplayStatus", reflect.TypeOf((*MockStatusService)(nil).GetUnitDisplayStatus), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitDisplayAndAgentStatus", reflect.TypeOf((*MockStatusService)(nil).GetUnitDisplayAndAgentStatus), arg0, arg1)
 }

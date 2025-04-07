@@ -92,15 +92,15 @@ type State interface {
 	//     application is dead.
 	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.ID) (status.UnitWorkloadStatuses, error)
 
-	// GetUnitWorkloadAndCloudContainerStatusesForApplication returns the workload statuses
+	// GetAllFullUnitStatusesForApplication returns the workload statuses
 	// and the cloud container statuses for all units of the specified application, returning:
 	//   - an error satisfying [statuserrors.ApplicationNotFound] if the application
 	//     doesn't exist or;
 	//   - an error satisfying [statuserrors.ApplicationIsDead] if the application
 	//     is dead.
-	GetUnitWorkloadAndCloudContainerStatusesForApplication(
+	GetAllFullUnitStatusesForApplication(
 		context.Context, coreapplication.ID,
-	) (status.UnitWorkloadStatuses, status.UnitCloudContainerStatuses, error)
+	) (status.FullUnitStatuses, error)
 
 	// GetUnitAgentStatus returns the workload status of the specified unit,
 	// returning:
@@ -115,10 +115,10 @@ type State interface {
 	// unit doesn't exist.
 	SetUnitAgentStatus(context.Context, coreunit.UUID, status.StatusInfo[status.UnitAgentStatusType]) error
 
-	// GetAllFullUnitStatuses retrieves the presence, workload status, and agent status
+	// GetAllUnitWorkloadAgentStatuses retrieves the presence, workload status, and agent status
 	// of every unit in the model. Returns an error satisfying [statuserrors.UnitStatusNotFound]
 	// if any units do not have statuses.
-	GetAllFullUnitStatuses(context.Context) (status.FullUnitStatuses, error)
+	GetAllUnitWorkloadAgentStatuses(context.Context) (status.UnitWorkloadAgentStatuses, error)
 
 	// GetAllApplicationStatuses returns the statuses of all the applications in the model,
 	// indexed by application name, if they have a status set.
@@ -232,41 +232,47 @@ func (s *LeadershipService) GetApplicationAndUnitStatusesForUnitWithLeader(
 		return corestatus.StatusInfo{}, nil, errors.Errorf("getting application id: %w", err)
 	}
 
+	var applicationStatus status.StatusInfo[status.WorkloadStatusType]
+	var fullUnitStatuses status.FullUnitStatuses
 	err = s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
-		applicationStatus, err := s.st.GetApplicationStatus(ctx, appID)
+		var err error
+		applicationStatus, err = s.st.GetApplicationStatus(ctx, appID)
 		if err != nil {
 			return errors.Errorf("getting application status: %w", err)
 		}
-		workloadStatuses, cloudContainerStatuses, err := s.st.GetUnitWorkloadAndCloudContainerStatusesForApplication(ctx, appID)
+		fullUnitStatuses, err = s.st.GetAllFullUnitStatusesForApplication(ctx, appID)
 		if err != nil {
 			return errors.Errorf("getting unit workload and container statuses")
 		}
-
-		unitWorkloadStatuses, err = decodeUnitWorkloadStatuses(workloadStatuses)
-		if err != nil {
-			return errors.Errorf("decoding unit workload statuses: %w", err)
-		}
-
-		if applicationStatus.Status != status.WorkloadStatusUnset {
-			applicationDisplayStatus, err = decodeApplicationStatus(applicationStatus)
-			if err != nil {
-				return errors.Errorf("decoding application workload status: %w", err)
-			}
-			return nil
-		}
-
-		applicationDisplayStatus, err = applicationDisplayStatusFromUnits(workloadStatuses, cloudContainerStatuses)
-		if err != nil {
-			return errors.Capture(err)
-		}
 		return nil
-
 	})
 	if errors.Is(err, corelease.ErrNotHeld) {
 		return corestatus.StatusInfo{}, nil, statuserrors.UnitNotLeader
 	} else if err != nil {
 		return corestatus.StatusInfo{}, nil, errors.Capture(err)
 	}
+
+	unitWorkloadStatuses = make(map[coreunit.Name]corestatus.StatusInfo, len(fullUnitStatuses))
+	for unitName, fullStatus := range fullUnitStatuses {
+		workloadStatus, err := decodeUnitWorkloadStatus(fullStatus.WorkloadStatus, fullStatus.Present)
+		if err != nil {
+			return corestatus.StatusInfo{}, nil, errors.Capture(err)
+		}
+		unitWorkloadStatuses[unitName] = workloadStatus
+	}
+
+	if applicationStatus.Status == status.WorkloadStatusUnset {
+		applicationDisplayStatus, err = applicationDisplayStatusFromUnits(fullUnitStatuses)
+		if err != nil {
+			return corestatus.StatusInfo{}, nil, errors.Capture(err)
+		}
+	} else {
+		applicationDisplayStatus, err = decodeApplicationStatus(applicationStatus)
+		if err != nil {
+			return corestatus.StatusInfo{}, nil, errors.Errorf("decoding application workload status: %w", err)
+		}
+	}
+
 	return applicationDisplayStatus, unitWorkloadStatuses, nil
 }
 
@@ -368,12 +374,12 @@ func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appName strin
 		return decodeApplicationStatus(applicationStatus)
 	}
 
-	workloadStatuses, cloudContainerStatuses, err := s.st.GetUnitWorkloadAndCloudContainerStatusesForApplication(ctx, appID)
+	fullUnitStatuses, err := s.st.GetAllFullUnitStatusesForApplication(ctx, appID)
 	if err != nil {
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
 
-	derivedApplicationStatus, err := applicationDisplayStatusFromUnits(workloadStatuses, cloudContainerStatuses)
+	derivedApplicationStatus, err := applicationDisplayStatusFromUnits(fullUnitStatuses)
 	if err != nil {
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
@@ -428,7 +434,7 @@ func (s *Service) GetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
 
-	return decodeUnitWorkloadStatus(workloadStatus)
+	return decodeUnitWorkloadStatus(workloadStatus.StatusInfo, workloadStatus.Present)
 }
 
 // SetUnitAgentStatus sets the agent status of the specified unit,
@@ -473,25 +479,6 @@ func (s *Service) SetUnitAgentStatus(ctx context.Context, unitName coreunit.Name
 	return nil
 }
 
-// GetUnitAgentStatus returns the agent status of the specified unit,
-// returning an error satisfying [statuserrors.UnitNotFound] if the unit
-// doesn't exist.
-func (s *Service) GetUnitAgentStatus(ctx context.Context, unitName coreunit.Name) (corestatus.StatusInfo, error) {
-	if err := unitName.Validate(); err != nil {
-		return corestatus.StatusInfo{}, errors.Capture(err)
-	}
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
-	if err != nil {
-		return corestatus.StatusInfo{}, errors.Capture(err)
-	}
-	agentStatus, err := s.st.GetUnitAgentStatus(ctx, unitUUID)
-	if err != nil {
-		return corestatus.StatusInfo{}, errors.Capture(err)
-	}
-
-	return decodeUnitAgentStatus(agentStatus)
-}
-
 // GetUnitWorkloadStatusesForApplication returns the workload statuses of all
 // units in the specified application, indexed by unit name, returning an error
 // satisfying [statuserrors.ApplicationNotFound] if the application doesn't
@@ -513,41 +500,17 @@ func (s *Service) GetUnitWorkloadStatusesForApplication(ctx context.Context, app
 	return decoded, nil
 }
 
-// GetUnitDisplayStatus returns the display status of the specified unit. The display
-// status a function of both the unit workload status and the cloud container status.
-// It returns an error satisfying [statuserrors.UnitNotFound] if the unit doesn't
-// exist.
-func (s *Service) GetUnitDisplayStatus(ctx context.Context, unitName coreunit.Name) (corestatus.StatusInfo, error) {
-	if err := unitName.Validate(); err != nil {
-		return corestatus.StatusInfo{}, errors.Capture(err)
-	}
-	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
-	if err != nil {
-		return corestatus.StatusInfo{}, errors.Capture(err)
-	}
-	workloadStatus, err := s.st.GetUnitWorkloadStatus(ctx, unitUUID)
-	if err != nil {
-		return corestatus.StatusInfo{}, errors.Capture(err)
-	}
-
-	containerStatus, err := s.st.GetUnitCloudContainerStatus(ctx, unitUUID)
-	if err != nil {
-		return corestatus.StatusInfo{}, errors.Capture(err)
-	}
-	return unitDisplayStatus(workloadStatus, containerStatus)
-}
-
-// GetUnitAndAgentDisplayStatus returns the unit and agent display status of the
+// GetUnitDisplayAndAgentStatus returns the unit and agent display status of the
 // specified unit. The display status a function of both the unit workload status
 // and the cloud container status. It returns an error satisfying
 // [statuserrors.UnitNotFound] if the unit doesn't exist.
-func (s *Service) GetUnitAndAgentDisplayStatus(ctx context.Context, unitName coreunit.Name) (agent corestatus.StatusInfo, workload corestatus.StatusInfo, _ error) {
+func (s *Service) GetUnitDisplayAndAgentStatus(ctx context.Context, unitName coreunit.Name) (agent corestatus.StatusInfo, workload corestatus.StatusInfo, _ error) {
 	if err := unitName.Validate(); err != nil {
 		return agent, workload, errors.Capture(err)
 	}
 
-	// TODO (stickupkid) This should just be 1 or 2 calls to the state layer
-	// to get the agent and workload status.
+	// TODO (stickupkid/jack-w-shaw) This should just be 1 or 2 calls to the state layer
+	// to get the statuses. We even have a view for this!
 
 	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
@@ -569,7 +532,12 @@ func (s *Service) GetUnitAndAgentDisplayStatus(ctx context.Context, unitName cor
 		return agent, workload, errors.Capture(err)
 	}
 
-	return decodeUnitAgentWorkloadStatus(agentStatus, workloadStatus, containerStatus)
+	return decodeUnitDisplayAndAgentStatus(status.FullUnitStatus{
+		WorkloadStatus:  workloadStatus.StatusInfo,
+		AgentStatus:     agentStatus.StatusInfo,
+		ContainerStatus: containerStatus,
+		Present:         workloadStatus.Present,
+	})
 }
 
 // SetUnitPresence marks the presence of the unit in the model. It is called by
@@ -596,14 +564,14 @@ func (s *Service) DeleteUnitPresence(ctx context.Context, unitName coreunit.Name
 // CheckUnitStatusesReadyForMigration returns an error if the statuses of any units
 // in the model indicate they cannot be migrated.
 func (s *Service) CheckUnitStatusesReadyForMigration(ctx context.Context) error {
-	fullStatuses, err := s.st.GetAllFullUnitStatuses(ctx)
+	fullStatuses, err := s.st.GetAllUnitWorkloadAgentStatuses(ctx)
 	if err != nil {
 		return errors.Errorf("getting unit statuses: %w", err)
 	}
 
 	failedChecks := []string{}
 	for unitName, fullStatus := range fullStatuses {
-		present, agentStatus, workloadStatus, err := decodeFullUnitStatus(fullStatus)
+		present, agentStatus, workloadStatus, err := decodeUnitWorkloadAgentStatus(fullStatus)
 		if err != nil {
 			return errors.Errorf("decoding full unit status for unit %q: %w", unitName, err)
 		}
@@ -627,8 +595,10 @@ func (s *Service) CheckUnitStatusesReadyForMigration(ctx context.Context) error 
 
 // ExportUnitStatuses returns the workload and agent statuses of all the units in
 // in the model, indexed by unit name.
+//
+// TODO(jack-w-shaw): Export the container statuses too.
 func (s *Service) ExportUnitStatuses(ctx context.Context) (map[coreunit.Name]corestatus.StatusInfo, map[coreunit.Name]corestatus.StatusInfo, error) {
-	fullStatuses, err := s.st.GetAllFullUnitStatuses(ctx)
+	fullStatuses, err := s.st.GetAllUnitWorkloadAgentStatuses(ctx)
 	if err != nil {
 		return nil, nil, errors.Errorf("getting unit statuses: %w", err)
 	}
@@ -636,7 +606,7 @@ func (s *Service) ExportUnitStatuses(ctx context.Context) (map[coreunit.Name]cor
 	workloadStatuses := make(map[coreunit.Name]corestatus.StatusInfo, len(fullStatuses))
 	agentStatuses := make(map[coreunit.Name]corestatus.StatusInfo, len(fullStatuses))
 	for unitName, fullStatus := range fullStatuses {
-		_, agentStatus, workloadStatus, err := decodeFullUnitStatus(fullStatus)
+		_, agentStatus, workloadStatus, err := decodeUnitWorkloadAgentStatus(fullStatus)
 		if err != nil {
 			return nil, nil, errors.Errorf("decoding full unit status for unit %q: %w", unitName, err)
 		}

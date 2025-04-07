@@ -1530,7 +1530,7 @@ type lifer interface {
 // NOTE(jack-w-shaw): When this method was Mongo-backed, it will pull the unit
 // statuses out of a cache.
 func (c *statusContext) processUnitAndAgentStatus(ctx context.Context, unit *state.Unit, unitName coreunit.Name) (params.DetailedStatus, params.DetailedStatus) {
-	agentStatus, workloadStatus, err := c.statusService.GetUnitAndAgentDisplayStatus(ctx, unitName)
+	agentStatus, workloadStatus, err := c.statusService.GetUnitDisplayAndAgentStatus(ctx, unitName)
 	if internalerrors.Is(err, applicationerrors.UnitNotFound) {
 		return params.DetailedStatus{}, params.DetailedStatus{Err: apiservererrors.ServerError(internalerrors.Errorf(
 			"unit %q: %w", unitName, errors.NotFound))}
