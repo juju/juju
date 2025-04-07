@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	removalerrors "github.com/juju/juju/domain/removal/errors"
 
 	"github.com/juju/clock"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/removal"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -22,6 +22,10 @@ type State interface {
 
 	// GetAllJobs returns all removal jobs.
 	GetAllJobs(ctx context.Context) ([]removal.Job, error)
+
+	// DeleteJob deletes a removal record under the assumption
+	// that it was executed successfully.
+	DeleteJob(ctx context.Context, jUUID string) error
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -63,6 +67,13 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 	}
 
 	if err != nil {
+		if errors.Is(err, removalerrors.RemovalJobIncomplete) {
+			return nil
+		}
+		return errors.Capture(err)
+	}
+
+	if err := s.st.DeleteJob(ctx, job.UUID.String()); err != nil {
 		return errors.Capture(err)
 	}
 	return nil

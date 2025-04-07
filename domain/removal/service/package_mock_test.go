@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 	time "time"
 
+	life "github.com/juju/juju/domain/life"
 	removal "github.com/juju/juju/domain/removal"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -39,6 +40,120 @@ func NewMockState(ctrl *gomock.Controller) *MockState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
+}
+
+// DeleteJob mocks base method.
+func (m *MockState) DeleteJob(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteJob", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteJob indicates an expected call of DeleteJob.
+func (mr *MockStateMockRecorder) DeleteJob(arg0, arg1 any) *MockStateDeleteJobCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteJob", reflect.TypeOf((*MockState)(nil).DeleteJob), arg0, arg1)
+	return &MockStateDeleteJobCall{Call: call}
+}
+
+// MockStateDeleteJobCall wrap *gomock.Call
+type MockStateDeleteJobCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateDeleteJobCall) Return(arg0 error) *MockStateDeleteJobCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateDeleteJobCall) Do(f func(context.Context, string) error) *MockStateDeleteJobCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateDeleteJobCall) DoAndReturn(f func(context.Context, string) error) *MockStateDeleteJobCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// DeleteRelation mocks base method.
+func (m *MockState) DeleteRelation(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteRelation", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteRelation indicates an expected call of DeleteRelation.
+func (mr *MockStateMockRecorder) DeleteRelation(arg0, arg1 any) *MockStateDeleteRelationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRelation", reflect.TypeOf((*MockState)(nil).DeleteRelation), arg0, arg1)
+	return &MockStateDeleteRelationCall{Call: call}
+}
+
+// MockStateDeleteRelationCall wrap *gomock.Call
+type MockStateDeleteRelationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateDeleteRelationCall) Return(arg0 error) *MockStateDeleteRelationCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateDeleteRelationCall) Do(f func(context.Context, string) error) *MockStateDeleteRelationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateDeleteRelationCall) DoAndReturn(f func(context.Context, string) error) *MockStateDeleteRelationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// DeleteRelationUnits mocks base method.
+func (m *MockState) DeleteRelationUnits(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteRelationUnits", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteRelationUnits indicates an expected call of DeleteRelationUnits.
+func (mr *MockStateMockRecorder) DeleteRelationUnits(arg0, arg1 any) *MockStateDeleteRelationUnitsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRelationUnits", reflect.TypeOf((*MockState)(nil).DeleteRelationUnits), arg0, arg1)
+	return &MockStateDeleteRelationUnitsCall{Call: call}
+}
+
+// MockStateDeleteRelationUnitsCall wrap *gomock.Call
+type MockStateDeleteRelationUnitsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateDeleteRelationUnitsCall) Return(arg0 error) *MockStateDeleteRelationUnitsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateDeleteRelationUnitsCall) Do(f func(context.Context, string) error) *MockStateDeleteRelationUnitsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateDeleteRelationUnitsCall) DoAndReturn(f func(context.Context, string) error) *MockStateDeleteRelationUnitsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // GetAllJobs mocks base method.
@@ -76,6 +191,45 @@ func (c *MockStateGetAllJobsCall) Do(f func(context.Context) ([]removal.Job, err
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetAllJobsCall) DoAndReturn(f func(context.Context) ([]removal.Job, error)) *MockStateGetAllJobsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetRelationLife mocks base method.
+func (m *MockState) GetRelationLife(arg0 context.Context, arg1 string) (life.Life, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelationLife", arg0, arg1)
+	ret0, _ := ret[0].(life.Life)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRelationLife indicates an expected call of GetRelationLife.
+func (mr *MockStateMockRecorder) GetRelationLife(arg0, arg1 any) *MockStateGetRelationLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationLife", reflect.TypeOf((*MockState)(nil).GetRelationLife), arg0, arg1)
+	return &MockStateGetRelationLifeCall{Call: call}
+}
+
+// MockStateGetRelationLifeCall wrap *gomock.Call
+type MockStateGetRelationLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetRelationLifeCall) Return(arg0 life.Life, arg1 error) *MockStateGetRelationLifeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetRelationLifeCall) Do(f func(context.Context, string) (life.Life, error)) *MockStateGetRelationLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetRelationLifeCall) DoAndReturn(f func(context.Context, string) (life.Life, error)) *MockStateGetRelationLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -229,6 +383,45 @@ func (c *MockStateRelationScheduleRemovalCall) Do(f func(context.Context, string
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateRelationScheduleRemovalCall) DoAndReturn(f func(context.Context, string, string, bool, time.Time) error) *MockStateRelationScheduleRemovalCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UnitNamesInScope mocks base method.
+func (m *MockState) UnitNamesInScope(arg0 context.Context, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UnitNamesInScope", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UnitNamesInScope indicates an expected call of UnitNamesInScope.
+func (mr *MockStateMockRecorder) UnitNamesInScope(arg0, arg1 any) *MockStateUnitNamesInScopeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitNamesInScope", reflect.TypeOf((*MockState)(nil).UnitNamesInScope), arg0, arg1)
+	return &MockStateUnitNamesInScopeCall{Call: call}
+}
+
+// MockStateUnitNamesInScopeCall wrap *gomock.Call
+type MockStateUnitNamesInScopeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateUnitNamesInScopeCall) Return(arg0 []string, arg1 error) *MockStateUnitNamesInScopeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateUnitNamesInScopeCall) Do(f func(context.Context, string) ([]string, error)) *MockStateUnitNamesInScopeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateUnitNamesInScopeCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockStateUnitNamesInScopeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

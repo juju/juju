@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -13,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/removal"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
 )
 

@@ -5,14 +5,15 @@ package service
 
 import (
 	"context"
-	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"time"
 
 	"github.com/juju/juju/core/changestream"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -28,13 +29,24 @@ type RelationState interface {
 
 	// RelationScheduleRemoval schedules a removal job for the relation with the
 	// input UUID, qualified with the input force boolean.
-	RelationScheduleRemoval(
-		ctx context.Context, removalUUID, relUUID string, force bool, when time.Time,
-	) error
+	RelationScheduleRemoval(ctx context.Context, removalUUID, relUUID string, force bool, when time.Time) error
 
 	// NamespaceForWatchRemovals returns the table name whose UUIDs we
 	// are watching in order to be notified of new removal jobs.
 	NamespaceForWatchRemovals() string
+
+	// GetRelationLife returns the life of the input relation.
+	GetRelationLife(ctx context.Context, rUUID string) (life.Life, error)
+
+	// UnitNamesInScope returns the names of units in
+	// the scope of the relation with the input UUID.
+	UnitNamesInScope(ctx context.Context, rUUID string) ([]string, error)
+
+	// DeleteRelationUnits deletes all relation unit records.
+	DeleteRelationUnits(ctx context.Context, rUUID string) error
+
+	// DeleteRelation removes a relation from the database completely.
+	DeleteRelation(ctx context.Context, rUUID string) error
 }
 
 // RemoveRelation checks if a relation with the input UUID exists.
@@ -81,11 +93,64 @@ func (s *WatchableService) WatchRemovals() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
+// processRelationRemovalJob deletes a relation if it is dying, and there are no
+// units in scope.
+// If force is true, the units are forcefully departed by deleting the
+// relation_unit records before deleting the relation.
+// Note that we do not need transactionality here:
+//   - Life can only advance - it cannot become alive if dying or dead.
+//   - Dying relations cannot be joined; we can delete settings and scopes
+//     knowing that no new ones will be added.
+//   - We can delete a relation with no unit participants, without fear of races.
+//
+// Note also, that relations don't actually ever transition to the dead state.
+// They go from dying to gone. This is an artefact of behaviour under Mongo,
+// preserved when relocating to Dqlite.
 func (s *Service) processRelationRemovalJob(ctx context.Context, job removal.Job) error {
 	if job.RemovalType != removal.RelationJob {
 		return errors.Errorf("job type: %q not valid for relation removal", job.RemovalType).Add(
 			removalerrors.RemovalJobTypeNotValid)
 	}
 
+	l, err := s.st.GetRelationLife(ctx, job.EntityUUID)
+	if err != nil {
+		if errors.Is(err, relationerrors.RelationNotFound) {
+			// The relation has already been removed.
+			// Indicate success so that this job will be deleted.
+			return nil
+		}
+		return errors.Capture(err)
+	}
+
+	if l == life.Alive {
+		return errors.Errorf("relation %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
+	}
+
+	inScope, err := s.st.UnitNamesInScope(ctx, job.EntityUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if len(inScope) > 0 {
+		// If this is a regular removal, we just exit and wait for
+		// the job to be scheduled again for a later check.
+		if !job.Force {
+			s.logger.Infof(ctx, "removal job %q for relation %q is waiting for units to leave scope: %v",
+				job.UUID, job.EntityUUID, inScope)
+
+			return removalerrors.RemovalJobIncomplete
+		}
+
+		s.logger.Infof(ctx, "removal job %q for relation %q forcefully removing units from scope",
+			job.UUID, job.EntityUUID)
+
+		if err := s.st.DeleteRelationUnits(ctx, job.EntityUUID); err != nil {
+			return errors.Capture(err)
+		}
+	}
+
+	if err := s.st.DeleteRelation(ctx, job.EntityUUID); err != nil {
+		return errors.Capture(err)
+	}
 	return nil
 }

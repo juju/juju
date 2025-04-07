@@ -5,8 +5,6 @@ package service
 
 import (
 	"context"
-	"github.com/juju/juju/domain/removal"
-	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -14,7 +12,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corerelation "github.com/juju/juju/core/relation"
+	"github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/domain/removal"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 )
 
 type relationSuite struct {
@@ -79,6 +80,86 @@ func (s *relationSuite) TestProcessRemovalJobInvalidJobType(c *gc.C) {
 
 	err := s.newService(c).processRelationRemovalJob(context.Background(), job)
 	c.Check(err, jc.ErrorIs, removalerrors.RemovalJobTypeNotValid)
+}
+
+func (s *relationSuite) TestExecuteJobForRelationNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newRelationJob(c)
+
+	exp := s.state.EXPECT()
+	exp.GetRelationLife(gomock.Any(), j.EntityUUID).Return(-1, relationerrors.RelationNotFound)
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	err := s.newService(c).ExecuteJob(context.Background(), j)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *relationSuite) TestExecuteJobForRelationStillAlive(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newRelationJob(c)
+
+	s.state.EXPECT().GetRelationLife(gomock.Any(), j.EntityUUID).Return(life.Alive, nil)
+
+	err := s.newService(c).ExecuteJob(context.Background(), j)
+	c.Assert(err, jc.ErrorIs, removalerrors.EntityStillAlive)
+}
+
+func (s *relationSuite) TestExecuteJobForRelationExistingScopes(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newRelationJob(c)
+
+	exp := s.state.EXPECT()
+	exp.GetRelationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.UnitNamesInScope(gomock.Any(), j.EntityUUID).Return([]string{"unit/0"}, nil)
+
+	err := s.newService(c).ExecuteJob(context.Background(), j)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *relationSuite) TestExecuteJobForRelationNoScopes(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newRelationJob(c)
+
+	exp := s.state.EXPECT()
+	exp.GetRelationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.UnitNamesInScope(gomock.Any(), j.EntityUUID).Return(nil, nil)
+	exp.DeleteRelation(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	err := s.newService(c).ExecuteJob(context.Background(), j)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *relationSuite) TestExecuteJobForRelationForceDeletesScopes(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newRelationJob(c)
+	j.Force = true
+
+	exp := s.state.EXPECT()
+	exp.GetRelationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.UnitNamesInScope(gomock.Any(), j.EntityUUID).Return([]string{"unit/0"}, nil)
+	exp.DeleteRelationUnits(context.Background(), j.EntityUUID).Return(nil)
+	exp.DeleteRelation(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	err := s.newService(c).ExecuteJob(context.Background(), j)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func newRelationJob(c *gc.C) removal.Job {
+	jUUID, err := removal.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	return removal.Job{
+		UUID:        jUUID,
+		RemovalType: removal.RelationJob,
+		EntityUUID:  newRelUUID(c).String(),
+	}
 }
 
 func newRelUUID(c *gc.C) corerelation.UUID {
