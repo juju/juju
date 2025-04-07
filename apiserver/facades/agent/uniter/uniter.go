@@ -430,32 +430,11 @@ func (u *UniterAPI) AvailabilityZone(ctx context.Context, args params.Entities) 
 	return results, nil
 }
 
-// Resolved returns the current resolved setting for each given unit.
+// Resolved shadows an unused facade method from older versions to Juju.
+//
+// TODO: Remove this when the facade version is next bumped.
 func (u *UniterAPI) Resolved(ctx context.Context, args params.Entities) (params.ResolvedModeResults, error) {
-	result := params.ResolvedModeResults{
-		Results: make([]params.ResolvedModeResult, len(args.Entities)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.ResolvedModeResults{}, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		err = apiservererrors.ErrPerm
-		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = u.getLegacyUnit(ctx, tag)
-			if err == nil {
-				result.Results[i].Mode = params.ResolvedMode(unit.Resolved())
-			}
-		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
+	return params.ResolvedModeResults{}, errors.NotImplementedf("not implemented")
 }
 
 // ClearResolved removes any resolved setting from each given unit.
