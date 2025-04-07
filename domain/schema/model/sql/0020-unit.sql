@@ -82,11 +82,14 @@ JOIN architecture AS a ON uav.architecture_id = a.id;
 -- a record in this view if a target agent version has been set for the model
 -- and the unit has had its running unit agent version set.
 CREATE VIEW v_unit_target_agent_version AS
-SELECT uav.unit_uuid,
+SELECT u.name,
+       uav.unit_uuid,
        uav.architecture_id,
+       uav.version,
        av.target_version,
        a.name AS architecture_name
 FROM unit_agent_version AS uav
+JOIN unit AS u ON uav.unit_uuid = u.uuid
 JOIN architecture AS a ON uav.architecture_id = a.id
 JOIN agent_version AS av;
 

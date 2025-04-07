@@ -60,11 +60,13 @@ CREATE TABLE machine_agent_version (
 -- v_machine_agent_version provides a convenience view on the
 -- machine_agent_version reporting the architecture name as well as the id.
 CREATE VIEW v_machine_agent_version AS
-SELECT mav.machine_uuid,
+SELECT m.name,
+       mav.machine_uuid,
        mav.architecture_id,
        mav.version,
        a.name AS architecture_name
 FROM machine_agent_version AS mav
+JOIN machine AS m ON mav.machine_uuid = m.uuid
 JOIN architecture AS a ON mav.architecture_id = a.id;
 
 -- v_machine_target_agent_version provides a convenience view for establishing
@@ -72,11 +74,14 @@ JOIN architecture AS a ON mav.architecture_id = a.id;
 -- have a record in this view if a target agent version has been set for the
 -- model and the machine has had its running machine agent version set.
 CREATE VIEW v_machine_target_agent_version AS
-SELECT mav.machine_uuid,
+SELECT m.name,
+       mav.machine_uuid,
        mav.architecture_id,
        a.name AS architecture_name,
+       mav.version,
        av.target_version
 FROM machine_agent_version AS mav
+JOIN machine AS m ON mav.machine_uuid = m.uuid
 JOIN architecture AS a ON mav.architecture_id = a.id
 JOIN agent_version AS av;
 
