@@ -233,6 +233,11 @@ already have MongoDB installed, run
 ```
 make install-mongo-dependencies
 ```
+
+### Other
+
+For more information see [CODING.md](CODING.md)
+
 </details>
 
 ----------------
