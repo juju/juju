@@ -80,6 +80,6 @@ func (id ID) Validate() error {
 }
 
 // MakeID creates a storage ID from a name and sequence number.
-func MakeID(name Name, num uint) ID {
+func MakeID(name Name, num uint64) ID {
 	return ID(fmt.Sprintf("%s/%d", name, num))
 }

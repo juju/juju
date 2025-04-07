@@ -15,12 +15,12 @@ import (
 
 type sequence struct {
 	Namespace string `db:"namespace"`
-	Value     uint   `db:"value"`
+	Value     uint64 `db:"value"`
 }
 
 // NextValue returns a monotonically incrementing int value for the given namespace.
 // The first such value starts at 0.
-func NextValue(ctx context.Context, preparer domain.Preparer, tx *sqlair.TX, namespace string) (uint, error) {
+func NextValue(ctx context.Context, preparer domain.Preparer, tx *sqlair.TX, namespace string) (uint64, error) {
 	seq := sequence{
 		Namespace: namespace,
 	}

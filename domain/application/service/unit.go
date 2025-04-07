@@ -17,6 +17,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/placement"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 )
@@ -110,7 +111,7 @@ type UnitState interface {
 	GetUnitRefreshAttributes(ctx context.Context, unitName coreunit.Name) (application.UnitAttributes, error)
 }
 
-func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
+func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg, constraints constraints.Constraints, placement placement.Placement) ([]application.AddUnitArg, error) {
 	now := ptr(s.clock.Now())
 	workloadMessage := corestatus.MessageInstallingAgent
 	if modelType == coremodel.IAAS {
@@ -126,6 +127,7 @@ func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg
 		arg := application.AddUnitArg{
 			UnitName:    u.UnitName,
 			Constraints: constraints,
+			Placement:   placement,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusAllocating,

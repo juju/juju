@@ -48,7 +48,6 @@ func (s *migrationStateSuite) TestGetApplicationsForExport(c *gc.C) {
 				Revision: 42,
 				Source:   charm.CharmHubSource,
 			},
-			Placement:   "placement",
 			Subordinate: false,
 		},
 	})
@@ -76,7 +75,6 @@ func (s *migrationStateSuite) TestGetApplicationsForExportMany(c *gc.C) {
 				Revision: 42,
 				Source:   charm.CharmHubSource,
 			},
-			Placement:   "placement",
 			Subordinate: false,
 		})
 	}
@@ -114,7 +112,6 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *gc.C) {
 				Revision: 42,
 				Source:   charm.CharmHubSource,
 			},
-			Placement:   "placement",
 			Subordinate: false,
 		},
 		{
@@ -128,7 +125,6 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *gc.C) {
 				Revision: 42,
 				Source:   charm.CharmHubSource,
 			},
-			Placement:   "placement",
 			Subordinate: false,
 		},
 	}

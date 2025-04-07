@@ -256,7 +256,6 @@ func (e *exportOperation) createApplicationArgs(ctx context.Context, app applica
 		CharmURL:             charmURL,
 		CharmModifiedVersion: app.CharmModifiedVersion,
 		ForceCharm:           app.CharmUpgradeOnError,
-		Placement:            app.Placement,
 		CloudService:         cloudService,
 		Exposed:              isExposed,
 

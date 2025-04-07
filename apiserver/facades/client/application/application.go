@@ -783,9 +783,8 @@ func checkMachinePlacement(backend MachinePlacementBackend, modelID model.UUID, 
 		if p == nil {
 			continue
 		}
-		// Substitute the placeholder with the actual model uuid.
-		if p.Scope == "model-uuid" {
-			p.Scope = modelID.String()
+
+		if p.Scope == instance.ModelScope {
 			continue
 		}
 

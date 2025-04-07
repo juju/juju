@@ -42,7 +42,8 @@ import (
 )
 
 // GetModelType returns the model type for the underlying model. If the model
-// does not exist then an error satisfying [modelerrors.NotFound] will be returned.
+// does not exist then an error satisfying [modelerrors.NotFound] will be
+// returned.
 func (st *State) GetModelType(ctx context.Context) (coremodel.ModelType, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -78,9 +79,9 @@ func (st *State) getModelType(ctx context.Context, tx *sqlair.TX) (coremodel.Mod
 }
 
 // CreateApplication creates an application, returning an error satisfying
-// [applicationerrors.ApplicationAlreadyExists] if the application already exists.
-// It returns as error satisfying [applicationerrors.CharmNotFound] if the charm
-// for the application is not found.
+// [applicationerrors.ApplicationAlreadyExists] if the application already
+// exists. It returns as error satisfying [applicationerrors.CharmNotFound] if
+// the charm for the application is not found.
 func (st *State) CreateApplication(
 	ctx context.Context,
 	name string,
@@ -107,7 +108,6 @@ func (st *State) CreateApplication(
 		Name:      name,
 		CharmUUID: charmID,
 		LifeID:    life.Alive,
-		Placement: args.Placement,
 
 		// The space is defaulted to Alpha, which is guaranteed to exist.
 		// However, if there is default space defined in endpoints bindings
@@ -280,6 +280,7 @@ func (st *State) insertApplicationUnits(
 		insertUnits[i] = application.InsertUnitArg{
 			UnitName:         unit.UnitName,
 			Constraints:      unit.Constraints,
+			Placement:        args.Placement,
 			Storage:          args.Storage,
 			StoragePoolKind:  args.StoragePoolKind,
 			StorageParentDir: args.StorageParentDir,
@@ -311,9 +312,9 @@ func (st *State) insertApplicationUnits(
 }
 
 // DeleteApplication deletes the specified application, returning an error
-// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-// If the application still has units, as error satisfying [applicationerrors.ApplicationHasUnits]
-// is returned.
+// satisfying [applicationerrors.ApplicationNotFoundError] if the application
+// doesn't exist. If the application still has units, as error satisfying
+// [applicationerrors.ApplicationHasUnits] is returned.
 func (st *State) DeleteApplication(ctx context.Context, name string) error {
 	db, err := st.DB()
 	if err != nil {
@@ -340,11 +341,12 @@ WHERE application_uuid = $applicationDetails.uuid
 		return errors.Capture(err)
 	}
 
-	// NOTE: This is a work around because teardown is not implemented yet. Ideally,
-	// our workflow will mean that by the time the application is dead and we are
-	// ready to delete it, a worker will have already cleaned up all dependencies.
-	// However, this is not the case yet. Remove the secret owner for the unit,
-	// leaving the secret orphaned, to ensure we don't get a foreign key violation.
+	// NOTE: This is a work around because teardown is not implemented yet.
+	// Ideally, our workflow will mean that by the time the application is dead
+	// and we are ready to delete it, a worker will have already cleaned up all
+	// dependencies. However, this is not the case yet. Remove the secret owner
+	// for the unit, leaving the secret orphaned, to ensure we don't get a
+	// foreign key violation.
 	deleteSecretOwner := `
 DELETE FROM secret_application_owner
 WHERE application_uuid = $applicationDetails.uuid
@@ -380,7 +382,8 @@ WHERE application_uuid = $applicationDetails.uuid
 		return errors.Errorf("querying units for application %q: %w", name, err)
 	}
 	if numUnits := result.Count; numUnits > 0 {
-		return errors.Errorf("cannot delete application %q as it still has %d unit(s)", name, numUnits).Add(applicationerrors.ApplicationHasUnits)
+		return errors.Errorf("cannot delete application %q as it still has %d unit(s)", name, numUnits).
+			Add(applicationerrors.ApplicationHasUnits)
 	}
 
 	if err := tx.Query(ctx, deleteSecretOwnerStmt, app).Run(); err != nil {

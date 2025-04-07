@@ -913,16 +913,19 @@ func (st *State) insertUnit(
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
-	nodeUUID, err := uuid.NewUUID()
+
+	// Handle the placement of the net node and machines accompanying the unit.
+	nodeUUID, err := st.placeNetNodeMachines(ctx, tx, args.Placement)
 	if err != nil {
-		return "", "", errors.Capture(err)
+		return "", "", errors.Errorf("getting net node UUID from placement %q: %w", args.Placement, err)
 	}
+
 	createParams := unitDetails{
 		ApplicationID: appUUID,
 		UnitUUID:      unitUUID,
 		CharmUUID:     charmUUID,
 		Name:          args.UnitName,
-		NetNodeID:     nodeUUID.String(),
+		NetNodeID:     nodeUUID,
 		LifeID:        life.Alive,
 	}
 	if args.Password != nil {
@@ -945,24 +948,14 @@ func (st *State) insertUnit(
 		return "", "", errors.Capture(err)
 	}
 
-	createNode := `INSERT INTO net_node (uuid) VALUES ($unitDetails.net_node_uuid)`
-	createNodeStmt, err := st.Prepare(createNode, createParams)
-	if err != nil {
-		return "", "", errors.Capture(err)
-	}
-
-	if err := tx.Query(ctx, createNodeStmt, createParams).Run(); err != nil {
-		return "", "", errors.Errorf("creating net node for unit %q: %w", args.UnitName, err)
-	}
 	if err := tx.Query(ctx, createUnitStmt, createParams).Run(); err != nil {
 		return "", "", errors.Errorf("creating unit for unit %q: %w", args.UnitName, err)
 	}
 	if args.CloudContainer != nil {
-		if err := st.upsertUnitCloudContainer(ctx, tx, args.UnitName, unitUUID, nodeUUID.String(), args.CloudContainer); err != nil {
+		if err := st.upsertUnitCloudContainer(ctx, tx, args.UnitName, unitUUID, nodeUUID, args.CloudContainer); err != nil {
 			return "", "", errors.Errorf("creating cloud container for unit %q: %w", args.UnitName, err)
 		}
 	}
-
 	if err := st.setUnitConstraints(ctx, tx, unitUUID, args.Constraints); err != nil {
 		return "", "", errors.Errorf("setting constraints for unit %q: %w", args.UnitName, err)
 	}
@@ -973,7 +966,7 @@ func (st *State) insertUnit(
 	if err := st.setUnitWorkloadStatus(ctx, tx, unitUUID, args.WorkloadStatus); err != nil {
 		return "", "", errors.Errorf("saving workload status for unit %q: %w", args.UnitName, err)
 	}
-	return unitUUID, nodeUUID.String(), nil
+	return unitUUID, nodeUUID, nil
 }
 
 // UpdateCAASUnit updates the cloud container for specified unit,

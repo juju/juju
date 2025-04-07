@@ -20,6 +20,12 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+const (
+	localCharmSequenceNamespace = "local_charm_sequence"
+	machineSequenceNamespace    = "machine_sequence"
+	containerSequenceNamespace  = "container_sequence_%s"
+)
+
 // GetCharmID returns the charm ID by the natural key, for a
 // specific revision and source.
 // If the charm does not exist, a [errors.CharmNotFound] error is returned.
@@ -620,8 +626,6 @@ func (s *State) GetCharm(ctx context.Context, id corecharm.ID) (charm.Charm, *ch
 	return ch, di, nil
 }
 
-const localCharmSquenceNamespace = "local_charm_sequence"
-
 // SetCharm persists the charm metadata, actions, config and manifest to
 // state.
 func (s *State) SetCharm(ctx context.Context, ch charm.Charm, downloadInfo *charm.DownloadInfo, requiresSequencing bool) (corecharm.ID, charm.CharmLocator, error) {
@@ -665,7 +669,7 @@ WHERE uuid = $charmID.uuid;
 		// If the charm requires sequencing, get the next revision from
 		// the reference name.
 		if requiresSequencing {
-			rev, err := domainsequence.NextValue(ctx, s, tx, fmt.Sprintf("%s_%s", localCharmSquenceNamespace, ch.ReferenceName))
+			rev, err := domainsequence.NextValue(ctx, s, tx, fmt.Sprintf("%s_%s", localCharmSequenceNamespace, ch.ReferenceName))
 			if err != nil {
 				return errors.Errorf("getting next charm revision: %w", err)
 			}

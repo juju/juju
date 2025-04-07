@@ -31,14 +31,14 @@ func (s *sequenceSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *sequenceSuite) TestSequence(c *gc.C) {
-	var next uint
+	var next uint64
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		next, err = NextValue(ctx, s.state, tx, "foo")
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(next, gc.Equals, uint(0))
+	c.Assert(next, gc.Equals, uint64(0))
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
@@ -46,7 +46,7 @@ func (s *sequenceSuite) TestSequence(c *gc.C) {
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(next, gc.Equals, uint(1))
+	c.Assert(next, gc.Equals, uint64(1))
 }
 
 func (s *sequenceSuite) TestSequenceMultiple(c *gc.C) {
@@ -57,7 +57,7 @@ func (s *sequenceSuite) TestSequenceMultiple(c *gc.C) {
 		go func() {
 			defer wg.Done()
 
-			var next uint
+			var next uint64
 			err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 				var err error
 				next, err = NextValue(ctx, s.state, tx, "foo")

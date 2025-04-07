@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
+	"github.com/juju/juju/domain/placement"
 	"github.com/juju/juju/domain/status"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -68,13 +69,16 @@ type AddApplicationArg struct {
 	StoragePoolKind map[string]storage.StorageKind
 	// StorageParentDir is the parent directory for mounting charm storage.
 	StorageParentDir string
-	// Placement is the placement directive for the application.
-	Placement string
 	// EndpointBindings is a map to bind application endpoint by name to a
 	// specific space. The default space is referenced by an empty key, if any.
 	EndpointBindings map[string]network.SpaceName
+<<<<<<< HEAD
 	// Devices contains the device constraints for the application.
 	Devices map[string]devices.Constraints
+=======
+	// Placement is the placement of the application units.
+	Placement placement.Placement
+>>>>>>> 65d505b54f (feat: assign units to machines)
 }
 
 // AddApplicationResourceArg defines the arguments required to add a resource to an application.
@@ -216,6 +220,7 @@ type AddUnitArg struct {
 	UnitStatusArg
 	UnitName    coreunit.Name
 	Constraints constraints.Constraints
+	Placement   placement.Placement
 }
 
 // StorageParentDir is the parent directory for mounting charm storage.
@@ -228,6 +233,7 @@ type InsertUnitArg struct {
 	CloudContainer   *CloudContainer
 	Password         *PasswordInfo
 	Constraints      constraints.Constraints
+	Placement        placement.Placement
 	Storage          []ApplicationStorageArg
 	StoragePoolKind  map[string]storage.StorageKind
 	StorageParentDir string
@@ -375,7 +381,6 @@ type ExportApplication struct {
 	ModelType            model.ModelType
 	CharmUUID            charm.ID
 	Life                 life.Life
-	Placement            string
 	Subordinate          bool
 	CharmModifiedVersion int
 	CharmUpgradeOnError  bool

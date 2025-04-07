@@ -8,7 +8,6 @@ CREATE TABLE machine (
     password_hash_algorithm_id TEXT,
     password_hash TEXT,
     force_destroyed BOOLEAN DEFAULT FALSE,
-    placement TEXT,
     agent_started_at DATETIME,
     hostname TEXT,
     is_controller BOOLEAN,
@@ -27,8 +26,29 @@ ON machine (name);
 CREATE UNIQUE INDEX idx_machine_net_node
 ON machine (net_node_uuid);
 
--- machine_parent table is a table which represents parents-children relationships of machines.
--- Each machine can have a single parent or be a parent to multiple children.
+CREATE TABLE machine_placement_scope  (
+    id INT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+INSERT INTO machine_placement_scope VALUES
+(0, 'provider');
+
+CREATE TABLE machine_placement (
+    machine_uuid TEXT NOT NULL PRIMARY KEY,
+    scope_id INT NOT NULL,
+    directive TEXT NOT NULL,
+    CONSTRAINT fk_machine_placement_machine
+    FOREIGN KEY (machine_uuid)
+    REFERENCES machine (uuid),
+    CONSTRAINT fk_machine_placement_scope
+    FOREIGN KEY (scope_id)
+    REFERENCES machine_placement_scope (id)
+);
+
+-- machine_parent table is a table which represents parents-children
+-- relationships of machines. Each machine can have a single parent or be a
+-- parent to multiple children.
 CREATE TABLE machine_parent (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
     parent_uuid TEXT NOT NULL,
@@ -178,8 +198,8 @@ CREATE TABLE machine_removals (
     REFERENCES machine (uuid)
 );
 
--- machine_lxd_profile table keeps track of the lxd profiles (previously charm-profiles)
--- for a machine.
+-- machine_lxd_profile table keeps track of the lxd profiles (previously
+-- charm-profiles) for a machine.
 CREATE TABLE machine_lxd_profile (
     machine_uuid TEXT NOT NULL,
     name TEXT NOT NULL,

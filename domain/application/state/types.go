@@ -72,7 +72,6 @@ type applicationDetails struct {
 	Name      string             `db:"name"`
 	CharmUUID corecharm.ID       `db:"charm_uuid"`
 	LifeID    life.Life          `db:"life_id"`
-	Placement string             `db:"placement"`
 	SpaceUUID string             `db:"space_uuid"`
 }
 
@@ -1082,7 +1081,7 @@ type exportApplication struct {
 	Name                 string             `db:"name"`
 	CharmUUID            corecharm.ID       `db:"charm_uuid"`
 	Life                 life.Life          `db:"life_id"`
-	Placement            string             `db:"placement"`
+	Exposed              bool               `db:"exposed"`
 	Subordinate          bool               `db:"subordinate"`
 	CharmModifiedVersion int                `db:"charm_modified_version"`
 	CharmUpgradeOnError  bool               `db:"charm_upgrade_on_error"`
@@ -1154,4 +1153,35 @@ type setDeviceConstraintAttribute struct {
 	DeviceConstraintUUID string `db:"device_constraint_uuid"`
 	AttributeKey         string `db:"key"`
 	AttributeValue       string `db:"value"`
+}
+
+type createMachine struct {
+	MachineUUID machine.UUID `db:"machine_uuid"`
+	NetNodeUUID string       `db:"net_node_uuid"`
+	Name        machine.Name `db:"name"`
+	LifeID      life.Life    `db:"life_id"`
+}
+
+type machineUUID struct {
+	MachineUUID machine.UUID `db:"uuid"`
+}
+
+type machineName struct {
+	Name        machine.Name `db:"name"`
+	NetNodeUUID string       `db:"net_node_uuid"`
+}
+
+type netNodeUUID struct {
+	NetNodeUUID string `db:"uuid"`
+}
+
+type machinePlacement struct {
+	MachineUUID machine.UUID `db:"machine_uuid"`
+	ScopeID     int          `db:"scope_id"`
+	Directive   string       `db:"directive"`
+}
+
+type machineParent struct {
+	ParentUUID  machine.UUID `db:"parent_uuid"`
+	MachineUUID machine.UUID `db:"machine_uuid"`
 }
