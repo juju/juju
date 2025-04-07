@@ -30,7 +30,7 @@ type State interface {
 
 	// GetMachineTargetAgentVersion returns the target agent version for the specified machine.
 	// The following error types can be expected:
-	// - [github.com/juju/juju/domain/model/errors.AgentVersionNotFound] when
+	// - [github.com/juju/juju/domain/modelagent/errors.AgentVersionNotFound] when
 	// the agent version does not exist.
 	GetMachineTargetAgentVersion(context.Context, string) (coreagentbinary.Version, error)
 
@@ -55,7 +55,7 @@ type State interface {
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/application/errors.UnitNotFound] when the
 	// unit does not exist.
-	// - [github.com/juju/juju/domain/model/errors.AgentVersionNotFound] when
+	// - [github.com/juju/juju/domain/modelagent/errors.AgentVersionNotFound] when
 	// the agent version does not exist.
 	GetUnitTargetAgentVersion(context.Context, coreunit.UUID) (coreagentbinary.Version, error)
 
@@ -133,7 +133,7 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 // The following errors are possible:
 // - [machineerrors.MachineNotFound] when the machine being asked for does not
 // exist.
-// - [github.com/juju/juju/domain/model/errors.AgentVersionNotFound] when no
+// - [github.com/juju/juju/domain/modelagent/errors.AgentVersionNotFound] when no
 // agent version has been reported for the given machine.
 func (s *Service) GetMachineReportedAgentVersion(
 	ctx context.Context,
