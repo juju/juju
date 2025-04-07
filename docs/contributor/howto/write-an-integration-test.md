@@ -1,5 +1,5 @@
 # Write an integration test
-> See also: [Integration testing](/doc/dev/reference/testing/integration-testing/index.md)
+> See also: {ref}`integration-testing`
 
 This document demonstrates how to write an integration test for `juju`.
 
@@ -11,7 +11,7 @@ In this directory, create a subdirectory named after the integration test suite 
 In your test suite directory, create a file called `task.sh`. This file typically includes a skip block, a line where
 you set verbosity, a block where you check dependencies, then a bootstrapping block, a test-listing block, and a
 tear-down block. An example is given below. Note: The various blocks are created using
-multiple [test includes](/doc/dev/reference/testing/integration-testing/test-includes.md) (e.g., `destroy-controller`).
+multiple {ref}`test includes <test-include>` (e.g., `destroy-controller`).
 
 ```bash
 test_examples() {

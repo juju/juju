@@ -1,5 +1,5 @@
-(test-includes)=
-# Test includes
+(test-include)=
+# Test include
 > Source: https://github.com/juju/juju/tree/main/tests/includes
 
 In Juju, test **includes** are special `bash` util functions designed to help in creating effective integration test

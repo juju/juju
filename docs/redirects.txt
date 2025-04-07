@@ -8,8 +8,8 @@ user/reference/charm/revision/ reference/charm/
 user/reference/charm/charm-taxonomy/ reference/charm/
 contributor/unsorted/bootstrapping/ contributor
 contributor/unsorted/managing-complexity/ contributor
-contributor/unsorted/commands/ contributor/unsorted/styleguide/
-contributor/unsorted/hacking-state/ contributor/unsorted/styleguide/
+contributor/unsorted/commands/ contributor
+contributor/unsorted/hacking-state/ contributor
 contributor/unsorted/cross-platform-development/ contributor/howto/compile-and-run-juju-agents-on-different-architectures.md
 contributor/unsorted/FAQ/ contributor
 contributor/unsorted/debugging-races/ contributor/howto/write-a-unit-test/
@@ -34,6 +34,8 @@ contributor/unsorted/observing-mongodb-performance contributor/howto/manage-mong
 contributor/unsorted/writing-workers contributor/reference/writing-workers/
 contributor/unsorted contributor
 contributor/tutorial contributor
+contributor/howto/create-unit-test-suite contributor/howto/create-a-unit-test-suite
+contributor/reference/testing/integration-testing/test-includes contributor/reference/testing/integration-testing/test-include
 # redirects after promoting user docs and demoting contributor docs
 user/explanation/application-modelling explanation/application-modelling
 user/explanation/charming-history explanation/charming-history

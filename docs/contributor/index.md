@@ -7,10 +7,8 @@
 :maxdepth: 1
 :hidden:
 
-Tutorial <tutorial/index>
 howto/index
 reference/index
-explanation/index
 ```
 
 ````{grid} 1 1 2 2
