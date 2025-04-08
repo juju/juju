@@ -13,6 +13,7 @@ import (
 type StateBackend interface {
 	AddVirtualHostKeys() error
 	SplitMigrationStatusMessages() error
+	AddJumpHostKey() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -41,4 +42,10 @@ func (s stateBackend) AddVirtualHostKeys() error {
 // split migration status messages.
 func (s stateBackend) SplitMigrationStatusMessages() error {
 	return state.SplitMigrationStatusMessages(s.pool)
+}
+
+// AddJumpHostKey runs an upgrade to
+// create missing jump host keys.
+func (s stateBackend) AddJumpHostKey() error {
+	return state.AddJumpHostKey(s.pool)
 }

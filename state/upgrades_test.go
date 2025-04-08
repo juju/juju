@@ -207,3 +207,20 @@ func (s *upgradesSuite) TestSplitMigrationStatusMessages(c *gc.C) {
 		upgradedData(migStatusMessage, expectedStatusMessage),
 	)
 }
+
+func (s *upgradesSuite) TestUpgradeAddJumpHostKey(c *gc.C) {
+	controllersColl, closer := s.state.db().GetRawCollection(controllersC)
+	defer closer()
+	// removing the document because it is created when we bootstrap the controller in
+	// the SetupSuite.
+	err := controllersColl.Remove(bson.D{{"_id", sshServerHostKeyDocId}})
+	c.Assert(err, jc.ErrorIsNil)
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_[_]["key"]`, jc.HasPrefix, `-----BEGIN OPENSSH PRIVATE KEY-----`)
+	expectedData := upgradedData(controllersColl, []bson.M{{
+		"_id": sshServerHostKeyDocId,
+		"key": "placeholder",
+	}})
+	expectedData.filter = bson.D{{"_id", sshServerHostKeyDocId}}
+	s.assertUpgradedData(c, AddJumpHostKey, mc, expectedData)
+}
