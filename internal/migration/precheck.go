@@ -15,11 +15,9 @@ import (
 
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
-	coremachine "github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
-	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/environs/config"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -228,11 +226,18 @@ func (c *precheckContext) checkMachines(ctx context.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "retrieving machines")
 	}
-	modelVersion, err := c.modelAgentService.GetModelTargetAgentVersion(ctx)
+
+	agentLaggingMachines, err := c.modelAgentService.GetMachinesNotAtTargetAgentVersion(ctx)
 	if err != nil {
 		return internalerrors.Errorf(
-			"getting target agent version for model to compare against machines: %w",
+			"getting machines that are not running the target agent version of the model: %w",
 			err,
+		)
+	}
+	if len(agentLaggingMachines) > 0 {
+		return internalerrors.Errorf(
+			"there exists machines in the model that are not running the target agent version of the model %v",
+			agentLaggingMachines,
 		)
 	}
 
@@ -260,24 +265,6 @@ func (c *precheckContext) checkMachines(ctx context.Context) error {
 		// } else if rebootAction != state.ShouldDoNothing {
 		// 	return errors.Errorf("machine %s is scheduled to %s", machine.Id(), rebootAction)
 		// }
-
-		machineVer, err := c.modelAgentService.GetMachineReportedAgentVersion(
-			ctx, coremachine.Name(machine.Id()),
-		)
-		if err != nil {
-			internalerrors.Errorf(
-				"getting machine %q reported agent version to compare against model version %q: %w",
-				machine.Id(), modelVersion.String(), err,
-			)
-		}
-
-		if machineVer.Number.Compare(modelVersion) != 0 {
-			//return errors.Errorf("%s agent binaries don't match model (%s != %s)",
-			return internalerrors.Errorf(
-				"machine %q reported agent version %q does not match the current target version %q of the model",
-				machine.Id(), machineVer.Number.String(), modelVersion.String(),
-			)
-		}
 	}
 	return nil
 }
@@ -296,6 +283,22 @@ func (c *precheckContext) checkApplications(ctx context.Context) (map[string][]P
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving model")
 	}
+
+	// We check all units in the model for every application. This checks to see
+	// that there agent versions are what we expect.
+	agentLaggingUnits, err := c.modelAgentService.GetUnitsNotAtTargetAgentVersion(ctx)
+	if err != nil {
+		return nil, internalerrors.Errorf(
+			"getting units that are not running the target agent version for the model: %w", err,
+		)
+	}
+	if len(agentLaggingUnits) > 0 {
+		return nil, internalerrors.Errorf(
+			"there exists units in the model that are not running the target agent version of the model %v",
+			agentLaggingUnits,
+		)
+	}
+
 	appUnits := make(map[string][]PrecheckUnit, len(apps))
 	for _, app := range apps {
 		appLife, err := c.applicationService.GetApplicationLife(ctx, app.Name())
@@ -327,37 +330,9 @@ func (c *precheckContext) checkUnits(ctx context.Context, app PrecheckApplicatio
 		return errors.Errorf("application charm url is nil")
 	}
 
-	modelVersion, err := c.modelAgentService.GetModelTargetAgentVersion(ctx)
-	if err != nil {
-		if err != nil {
-			return internalerrors.Errorf(
-				"getting target agent version for model to compare against units: %w",
-				err,
-			)
-		}
-	}
-
 	for _, unit := range units {
 		if unit.Life() != state.Alive {
 			return errors.Errorf("unit %s is %s", unit.Name(), unit.Life())
-		}
-
-		unitVer, err := c.modelAgentService.GetUnitReportedAgentVersion(
-			ctx, coreunit.Name(unit.Name()),
-		)
-		if err != nil {
-			internalerrors.Errorf(
-				"getting unit %q reported agent version to compare against model version %q: %w",
-				unit.Name(), modelVersion.String(), err,
-			)
-		}
-
-		if unitVer.Number.Compare(modelVersion) != 0 {
-			//return errors.Errorf("%s agent binaries don't match model (%s != %s)",
-			return internalerrors.Errorf(
-				"unit %q reported agent version %q does not match the current target version %q of the model",
-				unit.Name(), unitVer.Number.String(), modelVersion.String(),
-			)
 		}
 
 		unitCharmURL := unit.CharmURL()

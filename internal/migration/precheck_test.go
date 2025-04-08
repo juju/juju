@@ -15,8 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
-	coreagentbinary "github.com/juju/juju/core/agentbinary"
-	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
@@ -78,10 +76,10 @@ func (s *SourcePrecheckSuite) TestSuccess(c *gc.C) {
 	s.expectApplicationLife("foo", life.Alive)
 	s.expectApplicationLife("bar", life.Alive)
 	s.expectCheckUnitStatuses(nil)
+	s.expectAgentTargetVersions(c)
 
 	backend := newHappyBackend()
 	backend.controllerBackend = newHappyBackend()
-	s.expectAgentVersionsForBackend(c, backend)
 	err := migration.SourcePrecheck(
 		context.Background(),
 		backend,
@@ -281,16 +279,12 @@ func (s *SourcePrecheckSuite) TestMachineRequiresReboot(c *gc.C) {
 func (s *SourcePrecheckSuite) TestMachineVersionsDoNotMatch(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.agentService.EXPECT().GetModelTargetAgentVersion(
-		gomock.Any(),
-	).Return(semversion.MustParse("4.1.1"), nil)
-	s.agentService.EXPECT().GetMachineReportedAgentVersion(
-		gomock.Any(),
-		coremachine.Name("1"),
-	).Return(coreagentbinary.Version{
-		Number: semversion.MustParse("1.3.1"),
-		Arch:   corearch.AMD64,
-	}, nil)
+	s.agentService.EXPECT().GetMachinesNotAtTargetAgentVersion(gomock.Any()).Return(
+		[]coremachine.Name{
+			coremachine.Name("1"),
+		},
+		nil,
+	)
 
 	backend := fakeBackend{
 		machines: []migration.PrecheckMachine{
@@ -300,7 +294,7 @@ func (s *SourcePrecheckSuite) TestMachineVersionsDoNotMatch(c *gc.C) {
 	}
 
 	err := sourcePrecheck(&backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, s.agentService)
-	c.Check(err, gc.ErrorMatches, `machine "1" reported agent version "1.3.1" does not match the current target version "4.1.1" of the model`)
+	c.Check(err, gc.ErrorMatches, `there exists machines in the model that are not running the target agent version of the model \[1\]`)
 }
 
 func (s *SourcePrecheckSuite) TestDyingMachine(c *gc.C) {
@@ -329,13 +323,13 @@ func (s *SourcePrecheckSuite) TestProvisioningMachine(c *gc.C) {
 func (s *SourcePrecheckSuite) TestDownMachineAgent(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectAgentVersion()
+	s.expectAgentTargetVersions(c)
 
 	backend := newHappyBackend()
 	backend.machines = []migration.PrecheckMachine{
 		&fakeMachine{id: "0"},
 		&fakeMachine{id: "1", status: status.Down},
 	}
-	s.expectAgentVersionsForBackend(c, backend)
 	err := migration.SourcePrecheck(
 		context.Background(),
 		backend,
@@ -374,14 +368,13 @@ func (s *SourcePrecheckSuite) TestUnitVersionsDoNotMatch(c *gc.C) {
 	s.agentService.EXPECT().GetModelTargetAgentVersion(
 		gomock.Any(),
 	).Return(semversion.MustParse("4.1.1"), nil).AnyTimes()
-	s.agentService.EXPECT().GetUnitReportedAgentVersion(
-		gomock.Any(),
-		coreunit.Name("foo/0"),
-	).Return(coreagentbinary.Version{
-		Number: semversion.MustParse("1.3.1"),
-		Arch:   corearch.AMD64,
-	}, nil)
-	s.expectApplicationLife("foo", life.Alive)
+	s.agentService.EXPECT().GetMachinesNotAtTargetAgentVersion(gomock.Any()).Return(nil, nil)
+	s.agentService.EXPECT().GetUnitsNotAtTargetAgentVersion(gomock.Any()).Return(
+		[]coreunit.Name{
+			coreunit.Name("foo/0"),
+		},
+		nil,
+	)
 	s.expectCheckUnitStatuses(nil)
 
 	backend := &fakeBackend{
@@ -394,7 +387,7 @@ func (s *SourcePrecheckSuite) TestUnitVersionsDoNotMatch(c *gc.C) {
 		},
 	}
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, s.agentService)
-	c.Check(err, gc.ErrorMatches, `unit "foo/0" reported agent version "1.3.1" does not match the current target version "4.1.1" of the model`)
+	c.Check(err, gc.ErrorMatches, `there exists units in the model that are not running the target agent version of the model \[foo/0\]`)
 }
 
 func (s *SourcePrecheckSuite) TestCAASModelNoUnitVersionCheck(c *gc.C) {
@@ -443,6 +436,7 @@ func (s *SourcePrecheckSuite) TestUnitExecuting(c *gc.C) {
 	s.expectIsUpgrade(false)
 	s.expectApplicationLife("foo", life.Alive)
 	s.expectCheckUnitStatuses(nil)
+	s.expectAgentTargetVersions(c)
 
 	backend := &fakeBackend{
 		apps: []migration.PrecheckApplication{
@@ -454,7 +448,6 @@ func (s *SourcePrecheckSuite) TestUnitExecuting(c *gc.C) {
 			},
 		},
 	}
-	s.expectAgentVersionsForBackend(c, backend)
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, s.agentService)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -463,6 +456,7 @@ func (s *SourcePrecheckSuite) TestUnitNotReadyForMigration(c *gc.C) {
 	defer s.setupMocksWithDefaultAgentVersion(c).Finish()
 
 	s.expectCheckUnitStatuses(errors.Errorf("boom"))
+	s.expectAgentTargetVersions(c)
 
 	backend := &fakeBackend{
 		apps: []migration.PrecheckApplication{
@@ -474,7 +468,6 @@ func (s *SourcePrecheckSuite) TestUnitNotReadyForMigration(c *gc.C) {
 			},
 		},
 	}
-	s.expectAgentVersionsForBackend(c, backend)
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, s.agentService)
 	c.Assert(err.Error(), gc.Equals, "boom")
 }
@@ -565,6 +558,7 @@ func (s *SourcePrecheckSuite) TestUnitsAllInScope(c *gc.C) {
 	s.expectApplicationLife("foo", life.Alive)
 	s.expectApplicationLife("bar", life.Alive)
 	s.expectCheckUnitStatuses(nil)
+	s.expectAgentTargetVersions(c)
 
 	backend := newHappyBackend()
 	backend.relations = []migration.PrecheckRelation{&fakeRelation{
@@ -578,7 +572,6 @@ func (s *SourcePrecheckSuite) TestUnitsAllInScope(c *gc.C) {
 			"bar/1": {valid: true, inScope: true},
 		},
 	}}
-	s.expectAgentVersionsForBackend(c, backend)
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, s.agentService)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -590,6 +583,7 @@ func (s *SourcePrecheckSuite) TestSubordinatesNotYetInScope(c *gc.C) {
 	s.expectApplicationLife("foo", life.Alive)
 	s.expectApplicationLife("bar", life.Alive)
 	s.expectCheckUnitStatuses(nil)
+	s.expectAgentTargetVersions(c)
 
 	backend := newHappyBackend()
 	backend.relations = []migration.PrecheckRelation{&fakeRelation{
@@ -604,7 +598,6 @@ func (s *SourcePrecheckSuite) TestSubordinatesNotYetInScope(c *gc.C) {
 			"bar/1": {unitName: "bar/1", valid: true, inScope: false},
 		},
 	}}
-	s.expectAgentVersionsForBackend(c, backend)
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, s.agentService)
 	c.Assert(err, gc.ErrorMatches, `unit bar/1 hasn't joined relation "foo:db bar:db" yet`)
 }
@@ -617,6 +610,7 @@ func (s *SourcePrecheckSuite) TestSubordinatesInvalidUnitsNotYetInScope(c *gc.C)
 	s.expectApplicationLife("foo", life.Alive)
 	s.expectApplicationLife("bar", life.Alive)
 	s.expectCheckUnitStatuses(nil)
+	s.expectAgentTargetVersions(c)
 
 	backend := newHappyBackend()
 	backend.relations = []migration.PrecheckRelation{&fakeRelation{
@@ -631,7 +625,6 @@ func (s *SourcePrecheckSuite) TestSubordinatesInvalidUnitsNotYetInScope(c *gc.C)
 			"bar/1": {valid: false, inScope: false},
 		},
 	}}
-	s.expectAgentVersionsForBackend(c, backend)
 	err := sourcePrecheck(backend, &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, s.agentService)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -640,6 +633,7 @@ func (s *SourcePrecheckSuite) TestCrossModelUnitsNotYetInScope(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAgentVersion()
+	s.expectAgentTargetVersions(c)
 	s.expectApplicationLife("foo", life.Alive)
 	s.expectApplicationLife("bar", life.Alive)
 	s.expectCheckUnitStatuses(nil)
@@ -766,8 +760,8 @@ func (s *TargetPrecheckSuite) TestSuccess(c *gc.C) {
 
 	s.expectIsUpgrade(false)
 	s.expectAgentVersion()
+	s.expectAgentTargetVersions(c)
 	backend := newHappyBackend()
-	s.expectAgentVersionsForBackend(c, backend)
 
 	err := s.runPrecheck(backend, nil, s.upgradeService, s.applicationService, s.statusService, s.agentService)
 	c.Assert(err, jc.ErrorIsNil)
@@ -954,13 +948,13 @@ func (s *TargetPrecheckSuite) TestDownMachineAgent(c *gc.C) {
 
 	s.expectAgentVersion()
 	s.expectIsUpgrade(false)
+	s.expectAgentTargetVersions(c)
 
 	backend := newHappyBackend()
 	backend.machines = []migration.PrecheckMachine{
 		&fakeMachine{id: "0"},
 		&fakeMachine{id: "1", status: status.Down},
 	}
-	s.expectAgentVersionsForBackend(c, backend)
 	err := migration.TargetPrecheck(context.Background(), backend, nil, s.modelInfo, s.upgradeService, s.applicationService, s.statusService, s.agentService)
 	c.Assert(err.Error(), gc.Equals, "machine 1 agent not functioning at this time (down)")
 }
