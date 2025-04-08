@@ -7,11 +7,10 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/names/v6"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -24,11 +23,11 @@ func Register(registry facade.FacadeRegistry) {
 // newUndertakerFacade creates a new instance of the undertaker API.
 func newUndertakerFacade(ctx facade.ModelContext) (*UndertakerAPI, error) {
 	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+
+	authFunc := common.AuthFuncForTag(names.NewModelTag(string(ctx.ModelUUID())))
+
 	domainServices := ctx.DomainServices()
+	modelInfoService := domainServices.ModelInfo()
 	cloudService := domainServices.Cloud()
 	credentialService := domainServices.Credential()
 	modelConfigService := domainServices.Config()
@@ -39,7 +38,7 @@ func newUndertakerFacade(ctx facade.ModelContext) (*UndertakerAPI, error) {
 		cloudspec.MakeCloudSpecWatcherForModel(st, cloudService),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
 		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, domainServices.Credential()),
-		common.AuthFuncForTag(model.ModelTag()),
+		authFunc,
 	)
 	return newUndertakerAPI(
 		&stateShim{st},
@@ -48,6 +47,7 @@ func newUndertakerFacade(ctx facade.ModelContext) (*UndertakerAPI, error) {
 		cloudSpecAPI,
 		backendService,
 		domainServices.Config(),
+		modelInfoService,
 		ctx.WatcherRegistry(),
 	)
 }

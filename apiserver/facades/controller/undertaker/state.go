@@ -6,8 +6,6 @@ package undertaker
 import (
 	"time"
 
-	"github.com/juju/names/v6"
-
 	"github.com/juju/juju/state"
 )
 
@@ -51,10 +49,6 @@ func (s *stateShim) Model() (Model, error) {
 // Model defines the needed methods of state.Model for
 // the work of the undertaker API.
 type Model interface {
-	// Owner returns tag representing the owner of the model.
-	// The owner is the user that created the model.
-	Owner() names.UserTag
-
 	// Life returns whether the model is Alive, Dying or Dead.
 	Life() state.Life
 
@@ -65,12 +59,6 @@ type Model interface {
 	// DestroyTimeout returns the timeout passed in when the
 	// model was destroyed.
 	DestroyTimeout() *time.Duration
-
-	// Name returns the human friendly name of the model.
-	Name() string
-
-	// UUID returns the universally unique identifier of the model.
-	UUID() string
 
 	// Watch returns a watcher watching the model.
 	Watch() state.NotifyWatcher

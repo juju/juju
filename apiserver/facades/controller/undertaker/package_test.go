@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package undertaker -destination mock_service.go github.com/juju/juju/apiserver/facades/controller/undertaker SecretBackendService,ModelConfigService
+//go:generate go run go.uber.org/mock/mockgen -typed -package undertaker -destination mock_service.go github.com/juju/juju/apiserver/facades/controller/undertaker SecretBackendService,ModelConfigService,ModelInfoService
 
 func TestAll(t *stdtesting.T) {
 	gc.TestingT(t)
