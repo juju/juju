@@ -1678,7 +1678,7 @@ func (u *UniterAPI) updateUnitAndApplicationSettings(ctx context.Context, arg pa
 	if err != nil {
 		return internalerrors.Capture(err)
 	}
-	err = u.relationService.UpdateRelationApplicationSettings(ctx, relUUID, appID, arg.ApplicationSettings)
+	err = u.relationService.SetRelationApplicationSettings(ctx, relUUID, appID, arg.ApplicationSettings)
 	if err != nil {
 		return internalerrors.Capture(err)
 	}
@@ -1688,7 +1688,7 @@ func (u *UniterAPI) updateUnitAndApplicationSettings(ctx context.Context, arg pa
 		return internalerrors.Capture(err)
 	}
 
-	err = u.relationService.UpdateRelationUnitSettings(ctx, relUnitUUID, arg.Settings)
+	err = u.relationService.SetRelationUnitSettings(ctx, relUnitUUID, arg.Settings)
 	if err != nil {
 		return internalerrors.Capture(err)
 	}
