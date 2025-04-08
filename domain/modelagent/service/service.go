@@ -211,7 +211,7 @@ func (s *Service) GetMachineTargetAgentVersion(
 // returned.
 func (s *Service) GetUnitsNotAtTargetAgentVersion(
 	ctx context.Context,
-) ([]machine.Name, error) {
+) ([]coreunit.Name, error) {
 	return s.GetUnitsNotAtTargetAgentVersion(ctx)
 }
 
