@@ -82,15 +82,15 @@ type PublicSSHHostKeyResult struct {
 
 // SSHConnRequestArg holds the necessary info to create a ssh connection requests.
 type SSHConnRequestArg struct {
-	TunnelID           string                 `json:"tunnel-id"`
-	ModelUUID          string                 `json:"model-uuid"`
-	MachineId          string                 `json:"machine-id"`
-	Expires            time.Time              `json:"expires"`
-	Username           string                 `json:"username"`
-	Password           string                 `json:"password"`
-	ControllerAddress  network.SpaceAddresses `json:"controller-address"`
-	UnitPort           int                    `json:"unit-port"`
-	EphemeralPublicKey []byte                 `json:"ephemeral-public-key"`
+	TunnelID            string                 `json:"tunnel-id"`
+	ModelUUID           string                 `json:"model-uuid"`
+	MachineId           string                 `json:"machine-id"`
+	Expires             time.Time              `json:"expires"`
+	Username            string                 `json:"username"`
+	Password            string                 `json:"password"`
+	ControllerAddresses network.SpaceAddresses `json:"controller-addresses"`
+	UnitPort            int                    `json:"unit-port"`
+	EphemeralPublicKey  []byte                 `json:"ephemeral-public-key"`
 }
 
 // SSHConnRequestRemoveArg holds the necessary info to remove a ssh connection requests.
