@@ -104,6 +104,15 @@ type getPrincipal struct {
 	ApplicationUUID application.ID `db:"application_uuid"`
 }
 
+type relationAndApplicationUUID struct {
+	RelationUUID  corerelation.UUID `db:"relation_uuid"`
+	ApplicationID application.ID    `db:"application_uuid"`
+}
+
+type relationSetting struct {
+	Key   string `db:"key"`
+	Value string `db:"value"`
+}
 type relationUnitUUID struct {
 	RelationUnitUUID corerelation.UnitUUID `db:"uuid"`
 }
