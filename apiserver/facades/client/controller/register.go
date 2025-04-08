@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/facade"
@@ -39,7 +38,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		domainServices = ctx.DomainServices()
 	)
 
-	modelAgentServiceGetter := func(c context.Context, modelID model.UUID) (common.ModelAgentService, error) {
+	modelAgentServiceGetter := func(c context.Context, modelID model.UUID) (ModelAgentService, error) {
 		svc, err := ctx.DomainServicesForModel(c, modelID)
 		if err != nil {
 			return nil, errors.Trace(err)
