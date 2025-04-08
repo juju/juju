@@ -163,9 +163,6 @@ type StatusService interface {
 	// all units in the specified application, indexed by unit name
 	GetUnitWorkloadStatusesForApplication(ctx context.Context, appID coreapplication.ID) (map[coreunit.Name]corestatus.StatusInfo, error)
 
-	// GetRelationStatus returns the status of the given relation.
-	GetRelationStatus(ctx context.Context, relationUUID corerelation.UUID) (corestatus.StatusInfo, error)
-
 	// SetRelationStatus sets the status of the relation to the status provided.
 	// Status may only be set by the application leader.
 	SetRelationStatus(

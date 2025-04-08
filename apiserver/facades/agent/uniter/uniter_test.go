@@ -283,6 +283,7 @@ type uniterRelationSuite struct {
 	applicationService *MockApplicationService
 	modelInfoService   *MockModelInfoService
 	relationService    *MockRelationService
+	statusService      *MockStatusService
 	watcherRegistry    *MockWatcherRegistry
 
 	uniter *UniterAPI
@@ -802,60 +803,6 @@ func (s *uniterRelationSuite) TestSetRelationStatus(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, emptyErrorResults)
 }
 
-// TestSetRelationStatusSuspendedMsgOverwrite tests that when setting the
-// relation status to suspended from suspending, and not providing a message,
-// the current status message is kept.
-func (s *uniterRelationSuite) TestSetRelationStatusSuspendedMsgOverwrite(c *gc.C) {
-	s.testSetRelationStatusSuspended(c, "", "message test", "message test")
-}
-
-// TestSetRelationStatusSuspendedNoMsgOverwrite tests that when setting the
-// relation status to suspended from suspending, and providing a message, the
-// current status message is overwritten.
-func (s *uniterRelationSuite) TestSetRelationStatusSuspendedNoMsgOverwrite(c *gc.C) {
-	s.testSetRelationStatusSuspended(c, "overwritten", "message test", "overwritten")
-}
-
-func (s *uniterRelationSuite) testSetRelationStatusSuspended(
-	c *gc.C, argMsg, currentMsg, expectedMsg string,
-) {
-	// arrange
-	defer s.setupMocks(c).Finish()
-	relID := 42
-	relationUUID := relationtesting.GenRelationUUID(c)
-	s.expectGetRelationUUIDByID(relID, relationUUID, nil)
-	if argMsg == "" {
-		currentStatus := status.StatusInfo{
-			Status:  status.Suspending,
-			Message: currentMsg,
-		}
-		s.expectGetRelationStatus(relationUUID, currentStatus)
-	}
-	relStatus := status.StatusInfo{
-		Status:  status.Suspended,
-		Message: expectedMsg,
-	}
-	s.expectSetRelationStatus(s.wordpressUnitTag.Id(), relationUUID, relStatus)
-
-	// act
-	args := params.RelationStatusArgs{
-		Args: []params.RelationStatusArg{
-			{
-				UnitTag:    s.wordpressUnitTag.String(),
-				RelationId: relID,
-				Status:     params.Suspended,
-				Message:    argMsg,
-			},
-		},
-	}
-	result, err := s.uniter.SetRelationStatus(context.Background(), args)
-
-	// assert
-	c.Assert(err, jc.ErrorIsNil)
-	emptyErrorResults := params.ErrorResults{Results: []params.ErrorResult{{}}}
-	c.Assert(result, gc.DeepEquals, emptyErrorResults)
-}
-
 func (s *uniterRelationSuite) TestSetRelationStatusUnitTagNotValid(c *gc.C) {
 	// act
 	args := params.RelationStatusArgs{Args: []params.RelationStatusArg{{UnitTag: "foo"}}}
@@ -1062,6 +1009,7 @@ func (s *uniterRelationSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.modelInfoService = NewMockModelInfoService(ctrl)
 	s.relationService = NewMockRelationService(ctrl)
+	s.statusService = NewMockStatusService(ctrl)
 	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
 
 	unitAuthFunc := func() (common.AuthFunc, error) {
@@ -1092,6 +1040,7 @@ func (s *uniterRelationSuite) setupMocks(c *gc.C) *gomock.Controller {
 		applicationService: s.applicationService,
 		modelInfoService:   s.modelInfoService,
 		relationService:    s.relationService,
+		statusService:      s.statusService,
 		watcherRegistry:    s.watcherRegistry,
 	}
 
@@ -1207,11 +1156,7 @@ func (s *uniterRelationSuite) expectGetRelationUUIDByID(relID int, relUUID corer
 
 func (s *uniterRelationSuite) expectSetRelationStatus(unitName string, relUUID corerelation.UUID, relStatus status.StatusInfo) {
 	name, _ := coreunit.NewName(unitName)
-	s.relationService.EXPECT().SetRelationStatus(gomock.Any(), name, relUUID, relStatus).Return(nil)
-}
-
-func (s *uniterRelationSuite) expectGetRelationStatus(uuid corerelation.UUID, currentStatus status.StatusInfo) {
-	s.relationService.EXPECT().GetRelationStatus(gomock.Any(), uuid).Return(currentStatus, nil)
+	s.statusService.EXPECT().SetRelationStatus(gomock.Any(), name, relUUID, relStatus).Return(nil)
 }
 
 func (s *uniterRelationSuite) expectEnterScope(uuid corerelation.UUID, name coreunit.Name, err error) {
