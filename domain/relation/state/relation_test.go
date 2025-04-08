@@ -1388,7 +1388,7 @@ func (s *relationSuite) TestGetRelationsStatusForUnit(c *gc.C) {
 	// Arrange: Add unit to relation and set relation status.
 	relUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
 	s.addRelationUnit(c, unitUUID, relationEndpointUUID1, relUnitUUID)
-	s.addRelationStatus(c, relationUUID, corestatus.Suspended)
+	s.setRelationStatus(c, relationUUID, corestatus.Suspended)
 
 	expectedResults := []relation.RelationUnitStatusResult{{
 		Endpoints: []relation.Endpoint{endpoint1, endpoint2},
@@ -1453,8 +1453,8 @@ func (s *relationSuite) TestGetRelationsStatusForUnitPeer(c *gc.C) {
 	// Arrange: Add unit to both the relation and set their status.
 	relUnitUUID1 := corerelationtesting.GenRelationUnitUUID(c)
 	s.addRelationUnit(c, unitUUID, relationEndpointUUID1, relUnitUUID1)
-	s.addRelationStatus(c, relationUUID1, corestatus.Joined)
-	s.addRelationStatus(c, relationUUID2, corestatus.Suspended)
+	s.setRelationStatus(c, relationUUID1, corestatus.Joined)
+	s.setRelationStatus(c, relationUUID2, corestatus.Suspended)
 
 	expectedResults := []relation.RelationUnitStatusResult{{
 		Endpoints: []relation.Endpoint{endpoint1},
@@ -2318,7 +2318,7 @@ func (s *relationSuite) TestGetMapperDataForWatchLifeSuspendedStatus(c *gc.C) {
 	s.addRelation(c, relationUUID)
 	s.addRelationEndpoint(c, relationEndpointUUID1, relationUUID, applicationEndpointUUID1)
 	s.addRelationEndpoint(c, relationEndpointUUID2, relationUUID, applicationEndpointUUID2)
-	s.addRelationStatus(c, relationUUID, corestatus.Suspended)
+	s.setRelationStatus(c, relationUUID, corestatus.Suspended)
 
 	// Act:
 	result, err := s.state.GetMapperDataForWatchLifeSuspendedStatus(
@@ -2628,14 +2628,6 @@ VALUES (?,?,?)
 `, relationUnitUUID, key, value)
 }
 
-// addRelationStatus inserts a relation status into the relation_status table.
-func (s *relationSuite) addRelationStatus(c *gc.C, relationUUID corerelation.UUID, status corestatus.Status) {
-	s.query(c, `
-INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
-VALUES (?,?,?)
-`, relationUUID, s.encodeStatusID(status), time.Now())
-}
-
 // fetchAllRelationStatusesOrderByRelationIDs retrieves all relation statuses
 // ordered by their relation IDs.
 // It executes a database query within a transaction and returns a slice of
@@ -2731,6 +2723,17 @@ INSERT INTO charm_metadata (charm_uuid, name, subordinate)
 VALUES (?,?,true)
 ON CONFLICT DO UPDATE SET subordinate = ?
 `, charmUUID, charmUUID, subordinate)
+}
+
+// setRelationStatus inserts a relation status into the relation_status table.
+func (s *relationSuite) setRelationStatus(c *gc.C, relationUUID corerelation.UUID, status corestatus.Status) {
+	encodedStatus := s.encodeStatusID(status)
+	now := time.Now()
+	s.query(c, `
+INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
+VALUES (?,?,?)
+ON CONFLICT DO UPDATE SET relation_status_type_id = ?, updated_at = ?
+`, relationUUID, encodedStatus, now, encodedStatus, now)
 }
 
 // setUnitSubordinate sets unit 1 to be a subordinate of unit 2.
