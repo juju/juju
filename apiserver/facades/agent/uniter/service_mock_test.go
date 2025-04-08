@@ -912,41 +912,41 @@ func (c *MockRelationServiceEnterScopeCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
-// GetLocalRelationApplicationSettings mocks base method.
-func (m *MockRelationService) GetLocalRelationApplicationSettings(arg0 context.Context, arg1 unit.Name, arg2 relation.UUID, arg3 application.ID) (map[string]string, error) {
+// GetRelationApplicationSettings mocks base method.
+func (m *MockRelationService) GetRelationApplicationSettings(arg0 context.Context, arg1 unit.Name, arg2 relation.UUID, arg3 application.ID) (map[string]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetLocalRelationApplicationSettings", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "GetRelationApplicationSettings", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(map[string]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetLocalRelationApplicationSettings indicates an expected call of GetLocalRelationApplicationSettings.
-func (mr *MockRelationServiceMockRecorder) GetLocalRelationApplicationSettings(arg0, arg1, arg2, arg3 any) *MockRelationServiceGetLocalRelationApplicationSettingsCall {
+// GetRelationApplicationSettings indicates an expected call of GetRelationApplicationSettings.
+func (mr *MockRelationServiceMockRecorder) GetRelationApplicationSettings(arg0, arg1, arg2, arg3 any) *MockRelationServiceGetRelationApplicationSettingsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLocalRelationApplicationSettings", reflect.TypeOf((*MockRelationService)(nil).GetLocalRelationApplicationSettings), arg0, arg1, arg2, arg3)
-	return &MockRelationServiceGetLocalRelationApplicationSettingsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationApplicationSettings", reflect.TypeOf((*MockRelationService)(nil).GetRelationApplicationSettings), arg0, arg1, arg2, arg3)
+	return &MockRelationServiceGetRelationApplicationSettingsCall{Call: call}
 }
 
-// MockRelationServiceGetLocalRelationApplicationSettingsCall wrap *gomock.Call
-type MockRelationServiceGetLocalRelationApplicationSettingsCall struct {
+// MockRelationServiceGetRelationApplicationSettingsCall wrap *gomock.Call
+type MockRelationServiceGetRelationApplicationSettingsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockRelationServiceGetLocalRelationApplicationSettingsCall) Return(arg0 map[string]string, arg1 error) *MockRelationServiceGetLocalRelationApplicationSettingsCall {
+func (c *MockRelationServiceGetRelationApplicationSettingsCall) Return(arg0 map[string]string, arg1 error) *MockRelationServiceGetRelationApplicationSettingsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationServiceGetLocalRelationApplicationSettingsCall) Do(f func(context.Context, unit.Name, relation.UUID, application.ID) (map[string]string, error)) *MockRelationServiceGetLocalRelationApplicationSettingsCall {
+func (c *MockRelationServiceGetRelationApplicationSettingsCall) Do(f func(context.Context, unit.Name, relation.UUID, application.ID) (map[string]string, error)) *MockRelationServiceGetRelationApplicationSettingsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationServiceGetLocalRelationApplicationSettingsCall) DoAndReturn(f func(context.Context, unit.Name, relation.UUID, application.ID) (map[string]string, error)) *MockRelationServiceGetLocalRelationApplicationSettingsCall {
+func (c *MockRelationServiceGetRelationApplicationSettingsCall) DoAndReturn(f func(context.Context, unit.Name, relation.UUID, application.ID) (map[string]string, error)) *MockRelationServiceGetRelationApplicationSettingsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

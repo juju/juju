@@ -1573,7 +1573,7 @@ func (u *UniterAPI) readLocalApplicationSettings(
 		return nil, errors.Trace(err)
 	}
 
-	settings, err := u.relationService.GetLocalRelationApplicationSettings(ctx, unitName, relUUID, appID)
+	settings, err := u.relationService.GetRelationApplicationSettings(ctx, unitName, relUUID, appID)
 	if errors.Is(err, errors.NotFound) {
 		return nil, apiservererrors.ErrPerm
 	} else if err != nil {

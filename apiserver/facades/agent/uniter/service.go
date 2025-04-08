@@ -245,12 +245,12 @@ type RelationService interface {
 		unitName coreunit.Name,
 	) error
 
-	// GetLocalRelationApplicationSettings returns the application settings
+	// GetRelationApplicationSettings returns the application settings
 	// for the given application and relation identifier combination.
 	// ApplicationSettings may only be read by the application leader.
 	// Returns NotFound if this unit is not the leader, if the application or
 	// relation is not found.
-	GetLocalRelationApplicationSettings(
+	GetRelationApplicationSettings(
 		ctx context.Context,
 		unitName coreunit.Name,
 		relationUUID corerelation.UUID,
