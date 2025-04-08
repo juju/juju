@@ -25,7 +25,6 @@ type bundleSuite struct {
 	facade             *bundle.APIv8
 	st                 *mockState
 	store              *mockObjectStore
-	modelTag           names.ModelTag
 	networkService     *MockNetworkService
 	applicationService *MockApplicationService
 }
@@ -47,7 +46,6 @@ func (s *bundleSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st = newMockState()
-	s.modelTag = names.NewModelTag("some-uuid")
 }
 
 func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv8 {
@@ -55,7 +53,6 @@ func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv8 {
 		s.st,
 		s.store,
 		s.auth,
-		s.modelTag,
 		s.networkService,
 		s.applicationService,
 		loggertesting.WrapCheckLog(c),
