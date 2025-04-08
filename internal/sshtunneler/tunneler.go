@@ -19,8 +19,11 @@ import (
 	"github.com/juju/juju/state"
 )
 
+var (
+	maxTimeout = 60 * time.Second
+)
+
 const (
-	maxTimeout        = 60 * time.Second
 	reverseTunnelUser = "juju-reverse-tunnel"
 	tokenIssuer       = "sshtunneler"
 	tokenSubject      = "reverse-tunnel"
@@ -136,8 +139,11 @@ func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.C
 	// The state's expiry is used to clean up any dangling requests.
 	// The password expiry is used to invalidate old passwords.
 	now := tt.clock.Now()
+	ctx, cancel := context.WithDeadline(ctx, now.Add(maxTimeout))
+	defer cancel()
+	deadline, _ := ctx.Deadline()
 
-	password, err := tt.authn.generatePassword(tunnelID.String(), now)
+	password, err := tt.authn.generatePassword(tunnelID.String(), now, deadline)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +164,7 @@ func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.C
 		TunnelID:            tunnelID.String(),
 		ModelUUID:           req.ModelUUID,
 		MachineId:           req.MachineID,
-		Expires:             now.Add(maxTimeout),
+		Expires:             deadline,
 		Username:            reverseTunnelUser,
 		Password:            password,
 		ControllerAddresses: tt.controller.Addresses(),

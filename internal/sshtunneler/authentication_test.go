@@ -39,9 +39,10 @@ func (s *authenticationSuite) TestGeneratePassword(c *gc.C) {
 	authn := s.newAuthn(c)
 
 	now := time.Now()
+	deadline := now.Add(maxTimeout)
 
 	tunnelID := "test-tunnel-id"
-	token, err := authn.generatePassword(tunnelID, now)
+	token, err := authn.generatePassword(tunnelID, now, deadline)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(token, gc.Not(gc.Equals), "")
 
@@ -73,9 +74,10 @@ func (s *authenticationSuite) TestValidatePasswordExpiredToken(c *gc.C) {
 	authn := s.newAuthn(c)
 
 	now := time.Now()
+	deadline := now.Add(maxTimeout)
 
 	tunnelID := "test-tunnel-id"
-	token, err := authn.generatePassword(tunnelID, now)
+	token, err := authn.generatePassword(tunnelID, now, deadline)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expiry := now.Add(maxTimeout)

@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -217,9 +218,10 @@ func (s *sshTunnelerSuite) TestAuthenticateTunnel(c *gc.C) {
 	tunnelTracker := s.newTracker(c)
 
 	now := time.Now()
+	deadline := now.Add(1 * time.Second)
 
 	tunnelID := "test-tunnel-id"
-	token, err := tunnelTracker.authn.generatePassword(tunnelID, now)
+	token, err := tunnelTracker.authn.generatePassword(tunnelID, now, deadline)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.clock.EXPECT().Now().AnyTimes().Return(now)
@@ -310,6 +312,30 @@ func (s *sshTunnelerSuite) TestRequestTunnelTimeout(c *gc.C) {
 	defer cancel()
 
 	_, err := tunnelTracker.RequestTunnel(ctx, tunnelReqArgs)
+	c.Assert(err, gc.ErrorMatches, "waiting for tunnel: context deadline exceeded")
+}
+
+func (s *sshTunnelerSuite) TestRequestTunnelDeadline(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	restore := testing.PatchValue(&maxTimeout, 1*time.Millisecond)
+	defer restore()
+
+	tunnelTracker := s.newTracker(c)
+
+	now := time.Now()
+	s.clock.EXPECT().Now().Times(1).Return(now)
+	s.controller.EXPECT().Addresses().Return([]network.SpaceAddress{
+		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
+	})
+	s.state.EXPECT().InsertSSHConnRequest(gomock.Any()).Return(nil)
+
+	tunnelReqArgs := RequestArgs{
+		MachineID: "0",
+		ModelUUID: "model-uuid",
+	}
+
+	_, err := tunnelTracker.RequestTunnel(context.Background(), tunnelReqArgs)
 	c.Assert(err, gc.ErrorMatches, "waiting for tunnel: context deadline exceeded")
 }
 

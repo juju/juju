@@ -39,12 +39,12 @@ func newTunnelAuthentication(clock clock.Clock) (tunnelAuthentication, error) {
 	}, nil
 }
 
-func (tAuth *tunnelAuthentication) generatePassword(tunnelID string, now time.Time) (string, error) {
+func (tAuth *tunnelAuthentication) generatePassword(tunnelID string, now, deadline time.Time) (string, error) {
 	token, err := jwt.NewBuilder().
 		Issuer(tokenIssuer).
 		Subject(tokenSubject).
 		IssuedAt(now).
-		Expiration(now.Add(maxTimeout)).
+		Expiration(deadline).
 		Claim(tunnelIDClaimKey, tunnelID).
 		Build()
 	if err != nil {
