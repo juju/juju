@@ -585,22 +585,6 @@ type UpgradeStep interface {
 	Run(ctx envcontext.ProviderCallContext) error
 }
 
-// JujuUpgradePrechecker is an interface that can be used to precheck
-// the Environs before upgrading juju. If an Environ implements this
-// interface, its PrecheckUpgradeOperations method will be invoked to
-// identify operations that should be run to check if an juju upgrade
-// is possible.
-type JujuUpgradePrechecker interface {
-	// PreparePrechecker is called to to give an Environ a chance to
-	// perform interactive operations that are required for prechecking
-	// an upgrade.
-	PreparePrechecker(context.Context) error
-
-	// PrecheckUpgradeOperations returns a list of
-	// PrecheckJujuUpgradeOperations for checking if juju can be upgrade.
-	PrecheckUpgradeOperations() []PrecheckJujuUpgradeOperation
-}
-
 // PrecheckJujuUpgradeOperation contains a target agent version and
 // sequence of upgrade precheck steps to apply to get to that version.
 type PrecheckJujuUpgradeOperation struct {
