@@ -520,11 +520,16 @@ func (st *State) GetRelationsStatusForUnit(
 	}
 
 	stmt, err := st.Prepare(`
-SELECT (re.relation_uuid, ru.in_scope, vrs.status) AS (&relationUnitStatus.*)
-FROM   relation_unit ru
-JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid 
-JOIN   v_relation_status AS vrs ON re.relation_uuid = vrs.relation_uuid
-WHERE  ru.unit_uuid = $unitUUIDArg.unit_uuid
+SELECT
+    re.relation_uuid AS &relationUnitStatus.relation_uuid,
+    ru.uuid IS NOT NULL AS &relationUnitStatus.in_scope,
+    vrs.status AS &relationUnitStatus.status
+FROM relation_endpoint AS re
+JOIN application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+JOIN unit AS u ON ae.application_uuid = u.application_uuid
+JOIN v_relation_status AS vrs ON re.relation_uuid = vrs.relation_uuid
+LEFT JOIN relation_unit AS ru ON re.uuid = ru.relation_endpoint_uuid
+WHERE  u.uuid = $unitUUIDArg.unit_uuid
 `, uuid, relationUnitStatus{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -933,7 +938,7 @@ WHERE  name = $getUnit.name
 		}
 
 		// Upsert the row recording that the unit has entered scope.
-		err = st.upsertRelationUnitAndEnterScope(ctx, tx, relationUUID, unitArgs.UUID)
+		err = st.insertRelationUnit(ctx, tx, relationUUID, unitArgs.UUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -1272,8 +1277,8 @@ WHERE  up.unit_uuid = $getPrincipal.unit_uuid
 	return principal.ApplicationUUID, nil
 }
 
-// upsertRelationUnit inserts or updates a relation unit record.
-func (st *State) upsertRelationUnitAndEnterScope(
+// insertRelationUnit inserts a relation unit record, if it doesn't exist.
+func (st *State) insertRelationUnit(
 	ctx context.Context,
 	tx *sqlair.TX,
 	relationUUID corerelation.UUID,
@@ -1286,10 +1291,7 @@ func (st *State) upsertRelationUnitAndEnterScope(
 	}
 	getRelationUnitStmt, err := st.Prepare(`
 SELECT   
-	ru.uuid AS &relationUnit.uuid,
-	re.uuid AS &relationUnit.relation_endpoint_uuid,
-	ru.unit_uuid AS &relationUnit.unit_uuid,
-	ru.in_scope AS &relationUnit.in_scope
+	ru.uuid AS &relationUnit.uuid
 FROM    relation_unit AS ru
 JOIN    relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
 WHERE   re.relation_uuid = $relationUnit.relation_uuid
@@ -1298,43 +1300,35 @@ AND     ru.unit_uuid = $relationUnit.unit_uuid
 	if err != nil {
 		return errors.Capture(err)
 	}
-
 	err = tx.Query(ctx, getRelationUnitStmt, getRelationUnit).Get(&getRelationUnit)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return errors.Capture(err)
-	} else if !errors.Is(err, sqlair.ErrNoRows) && getRelationUnit.InScope {
-		// If there is already a relation unit, and it is in scope, do nothing.
+	}
+	if err == nil {
+		// If there is already a relation unit in the table,
+		// it means it is in scope
 		return nil
 	}
 
-	relationUnitUUID := getRelationUnit.RelationUnitUUID
-
-	// If there was not already a row, create the UUID for a new one.
-	if relationUnitUUID == "" {
-		uuid, err := corerelation.NewUnitUUID()
-		if err != nil {
-			return errors.Capture(err)
-		}
-		relationUnitUUID = uuid
+	// Insert a new relation unit
+	uuid, err := corerelation.NewUnitUUID()
+	if err != nil {
+		return errors.Capture(err)
 	}
-
 	insertRelationUnit := relationUnit{
-		RelationUnitUUID: relationUnitUUID,
+		RelationUnitUUID: uuid,
 		RelationUUID:     relationUUID,
 		UnitUUID:         unitUUID,
-		InScope:          true,
 	}
 
 	insertStmt, err := st.Prepare(`
-INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid, in_scope) 
-SELECT $relationUnit.uuid, re.uuid, $relationUnit.unit_uuid, $relationUnit.in_scope
+INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) 
+SELECT $relationUnit.uuid, re.uuid, $relationUnit.unit_uuid
 FROM   relation_endpoint AS re
 JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
 JOIN   unit AS u ON ae.application_uuid = u.application_uuid
 WHERE  re.relation_uuid = $relationUnit.relation_uuid
-AND    u.uuid = $relationUnit.unit_uuid 
-ON CONFLICT (relation_endpoint_uuid, unit_uuid) DO UPDATE SET
-            in_scope = excluded.in_scope
+AND    u.uuid = $relationUnit.unit_uuid
 `, insertRelationUnit)
 	if err != nil {
 		return errors.Capture(err)

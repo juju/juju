@@ -1386,7 +1386,7 @@ func (s *relationSuite) TestGetRelationsStatusForUnit(c *gc.C) {
 
 	// Arrange: Add unit to relation and set relation status.
 	relUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
-	s.addRelationUnit(c, unitUUID, relationEndpointUUID1, relUnitUUID, true)
+	s.addRelationUnit(c, unitUUID, relationEndpointUUID1, relUnitUUID)
 	s.addRelationStatus(c, relationUUID, corestatus.Suspended)
 
 	expectedResults := []relation.RelationUnitStatusResult{{
@@ -1451,20 +1451,18 @@ func (s *relationSuite) TestGetRelationsStatusForUnitPeer(c *gc.C) {
 
 	// Arrange: Add unit to both the relation and set their status.
 	relUnitUUID1 := corerelationtesting.GenRelationUnitUUID(c)
-	s.addRelationUnit(c, unitUUID, relationEndpointUUID1, relUnitUUID1, true)
-	s.addRelationStatus(c, relationUUID1, corestatus.Suspended)
-	relUnitUUID2 := corerelationtesting.GenRelationUnitUUID(c)
-	s.addRelationUnit(c, unitUUID, relationEndpointUUID2, relUnitUUID2, false)
-	s.addRelationStatus(c, relationUUID2, corestatus.Joined)
+	s.addRelationUnit(c, unitUUID, relationEndpointUUID1, relUnitUUID1)
+	s.addRelationStatus(c, relationUUID1, corestatus.Joined)
+	s.addRelationStatus(c, relationUUID2, corestatus.Suspended)
 
 	expectedResults := []relation.RelationUnitStatusResult{{
 		Endpoints: []relation.Endpoint{endpoint1},
 		InScope:   true,
-		Suspended: true,
+		Suspended: false,
 	}, {
 		Endpoints: []relation.Endpoint{endpoint2},
 		InScope:   false,
-		Suspended: false,
+		Suspended: true,
 	}}
 
 	// Act: Get relation status for unit.
@@ -1581,7 +1579,7 @@ func (s *relationSuite) TestGetRelationUnitEndpointName(c *gc.C) {
 	s.addApplicationEndpoint(c, applicationEndpointUUID, appUUID, charmRelationUUID)
 	s.addRelation(c, relationUUID)
 	s.addRelationEndpoint(c, relationEndpointUUID, relationUUID, applicationEndpointUUID)
-	s.addRelationUnit(c, unitUUID, relationEndpointUUID, relationUnitUUID, true)
+	s.addRelationUnit(c, unitUUID, relationEndpointUUID, relationUnitUUID)
 
 	// Act
 	name, err := s.state.GetRelationUnitEndpointName(context.Background(), relationUnitUUID)
@@ -1616,7 +1614,7 @@ func (s *relationSuite) TestGetRelationUnit(c *gc.C) {
 	s.addCharmRelation(c, charmUUID, charmRelationUUID, charm.Relation{})
 	s.addApplicationEndpoint(c, applicationEndpointUUID, appUUID, charmRelationUUID)
 	s.addRelationEndpoint(c, relEndpointUUID, relUUID, applicationEndpointUUID)
-	s.addRelationUnit(c, unitUUID, relEndpointUUID, relUnitUUID, true)
+	s.addRelationUnit(c, unitUUID, relEndpointUUID, relUnitUUID)
 
 	// Act
 	uuid, err := s.state.GetRelationUnit(context.Background(), relUUID, "my-app/0")
@@ -1803,68 +1801,6 @@ func (s *relationSuite) TestEnterScope(c *gc.C) {
 	c.Check(inScope, jc.IsTrue)
 }
 
-// TestEnterScopeRowAlreadyExists checks that unit still enters scope when there
-// already exists a row in the relation_unit table.
-func (s *relationSuite) TestEnterScopeRowAlreadyExists(c *gc.C) {
-	// Arrange: Populate charm metadata with subordinate data.
-	s.setCharmSubordinate(c, s.fakeCharmUUID1, false)
-	s.setCharmSubordinate(c, s.fakeCharmUUID2, false)
-
-	// Arrange: Add two endpoints and a relation on them.
-	relationUUID := corerelationtesting.GenRelationUUID(c)
-	charmRelationUUID1 := uuid.MustNewUUID().String()
-	applicationEndpointUUID1 := uuid.MustNewUUID().String()
-	relationEndpointUUID1 := uuid.MustNewUUID().String()
-	endpoint1 := relation.Endpoint{
-		ApplicationName: s.fakeApplicationName1,
-		Relation: charm.Relation{
-			Name:      "fake-endpoint-name-1",
-			Role:      charm.RoleProvider,
-			Interface: "database",
-			Scope:     charm.ScopeGlobal,
-		},
-	}
-	charmRelationUUID2 := uuid.MustNewUUID().String()
-	applicationEndpointUUID2 := uuid.MustNewUUID().String()
-	relationEndpointUUID2 := uuid.MustNewUUID().String()
-	endpoint2 := relation.Endpoint{
-		ApplicationName: s.fakeApplicationName2,
-		Relation: charm.Relation{
-			Name:      "fake-endpoint-name-2",
-			Role:      charm.RoleRequirer,
-			Interface: "database",
-			Scope:     charm.ScopeGlobal,
-		},
-	}
-	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID1, endpoint1.Relation)
-	s.addCharmRelation(c, s.fakeCharmUUID2, charmRelationUUID2, endpoint2.Relation)
-	s.addApplicationEndpoint(c, applicationEndpointUUID1, s.fakeApplicationUUID1, charmRelationUUID1)
-	s.addApplicationEndpoint(c, applicationEndpointUUID2, s.fakeApplicationUUID2, charmRelationUUID2)
-	s.addRelation(c, relationUUID)
-	s.addRelationEndpoint(c, relationEndpointUUID1, relationUUID, applicationEndpointUUID1)
-	s.addRelationEndpoint(c, relationEndpointUUID2, relationUUID, applicationEndpointUUID2)
-
-	// Arrange: Add unit to application in the relation.
-	unitUUID := coreunittesting.GenUnitUUID(c)
-	unitName := coreunittesting.GenNewName(c, "app1/0")
-	s.addUnit(c, unitUUID, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
-
-	// Arrange: Add relation unit for the unit and relation with in_scope set to
-	// false.
-	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
-	s.addRelationUnit(c, unitUUID, relationEndpointUUID1, relationUnitUUID, false)
-
-	// Act: Enter scope.
-	err := s.state.EnterScope(context.Background(), relationUUID, unitName)
-
-	// Assert:
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
-
-	// Assert: in_scope is true:
-	inScope := s.getRelationUnitInScope(c, relationUUID, unitUUID)
-	c.Check(inScope, jc.IsTrue)
-}
-
 // TestEnterScopeIdempotent checks that no error is returned if the unit is
 // already in scope.
 func (s *relationSuite) TestEnterScopeIdempotent(c *gc.C) {
@@ -1911,10 +1847,9 @@ func (s *relationSuite) TestEnterScopeIdempotent(c *gc.C) {
 	unitName := coreunittesting.GenNewName(c, "app1/0")
 	s.addUnit(c, unitUUID, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 
-	// Arrange: Add relation unit for the unit and relation with in_scope set to
-	// false.
+	// Arrange: Add relation unit for the unit
 	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
-	s.addRelationUnit(c, unitUUID, relationEndpointUUID1, relationUnitUUID, true)
+	s.addRelationUnit(c, unitUUID, relationEndpointUUID1, relationUnitUUID)
 
 	// Act: Enter scope.
 	err := s.state.EnterScope(context.Background(), relationUUID, unitName)
@@ -1922,7 +1857,7 @@ func (s *relationSuite) TestEnterScopeIdempotent(c *gc.C) {
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
 
-	// Assert: in_scope is true:
+	// Assert: relation unit is in scope:
 	inScope := s.getRelationUnitInScope(c, relationUUID, unitUUID)
 	c.Check(inScope, jc.IsTrue)
 }
@@ -1987,7 +1922,7 @@ func (s *relationSuite) TestEnterScopeSubordinate(c *gc.C) {
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Assert: in_scope is true:
+	// Assert: relation unit is in scope:
 	inScope := s.getRelationUnitInScope(c, relationUUID, unitUUID1)
 	c.Check(inScope, jc.IsTrue)
 }
@@ -2539,11 +2474,11 @@ VALUES (?,?,?)
 }
 
 // addRelationUnit inserts a relation unit into the database using the provided UUIDs for relation and unit.
-func (s *relationSuite) addRelationUnit(c *gc.C, unitUUID coreunit.UUID, relationEndpointUUID string, relationUnitUUID corerelation.UnitUUID, inScope bool) {
+func (s *relationSuite) addRelationUnit(c *gc.C, unitUUID coreunit.UUID, relationEndpointUUID string, relationUnitUUID corerelation.UnitUUID) {
 	s.query(c, `
-INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid, in_scope)
-VALUES (?,?,?,?)
-`, relationUnitUUID, relationEndpointUUID, unitUUID, inScope)
+INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid)
+VALUES (?,?,?)
+`, relationUnitUUID, relationEndpointUUID, unitUUID)
 }
 
 // addRelationStatus inserts a relation status into the relation_status table.
@@ -2619,17 +2554,18 @@ JOIN relation r  ON re.relation_uuid = r.uuid
 	return epUUIDsByRelID
 }
 
-// getRelationUnitInScope gets the in_scope column from the relation_unit table.
+// getRelationUnitInScope verifies that the expected rows is populated in
+// relation_unit table
 func (s *relationSuite) getRelationUnitInScope(c *gc.C, relationUUID corerelation.UUID, unitUUID coreunit.UUID) bool {
-	var inScope bool
+	var count int
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRow(`
-SELECT in_scope
+SELECT count(*)
 FROM   relation_unit AS ru
 JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
 WHERE  re.relation_uuid = ?
-AND    unit_uuid = ?
-`, relationUUID, unitUUID).Scan(&inScope)
+AND    ru.unit_uuid = ?
+`, relationUUID, unitUUID).Scan(&count)
 		if err != nil {
 			return err
 		}
@@ -2637,7 +2573,7 @@ AND    unit_uuid = ?
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return inScope
+	return count == 1
 }
 
 // setCharmSubordinate updates the charm's metadata to mark it as subordinate,

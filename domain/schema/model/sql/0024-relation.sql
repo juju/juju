@@ -86,7 +86,6 @@ CREATE TABLE relation_unit (
     uuid TEXT NOT NULL PRIMARY KEY,
     relation_endpoint_uuid TEXT NOT NULL,
     unit_uuid TEXT NOT NULL,
-    in_scope BOOLEAN DEFAULT FALSE,
     departing BOOLEAN DEFAULT FALSE,
     CONSTRAINT fk_relation_unit_uuid
     FOREIGN KEY (unit_uuid)
@@ -234,4 +233,4 @@ SELECT
     rs.suspended_reason,
     rs.updated_at
 FROM relation_status AS rs
-JOIN relation_status_type AS rst ON rs.relation_status_type_id = rst.id
+JOIN relation_status_type AS rst ON rs.relation_status_type_id = rst.id;

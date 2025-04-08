@@ -55,7 +55,6 @@ type relationUnit struct {
 	RelationEndpointUUID corerelation.EndpointUUID `db:"relation_endpoint_uuid"`
 	RelationUUID         corerelation.UUID         `db:"relation_uuid"`
 	UnitUUID             unit.UUID                 `db:"unit_uuid"`
-	InScope              bool                      `db:"in_scope"`
 }
 
 // getRelationUnitEndpointName allows to fetch a endpoint name from a relation
