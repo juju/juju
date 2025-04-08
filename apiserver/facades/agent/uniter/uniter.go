@@ -1715,7 +1715,11 @@ func (u *UniterAPI) WatchRelationUnits(ctx context.Context, args params.Relation
 	return result, nil
 }
 
-func (u *UniterAPI) watchOneRelationUnit(ctx context.Context, canAccess common.AuthFunc, arg params.RelationUnit) (params.RelationUnitsWatchResult, error) {
+func (u *UniterAPI) watchOneRelationUnit(
+	ctx context.Context,
+	canAccess common.AuthFunc,
+	arg params.RelationUnit,
+) (params.RelationUnitsWatchResult, error) {
 	unit, err := names.ParseUnitTag(arg.Unit)
 	if err != nil {
 		return params.RelationUnitsWatchResult{}, apiservererrors.ErrPerm
@@ -1734,12 +1738,7 @@ func (u *UniterAPI) watchOneRelationUnit(ctx context.Context, canAccess common.A
 		return params.RelationUnitsWatchResult{}, internalerrors.Capture(err)
 	}
 
-	relUnitUUID, err := u.relationService.GetRelationUnit(ctx, relUUID, coreunit.Name(unit.Id()))
-	if err != nil {
-		return params.RelationUnitsWatchResult{}, internalerrors.Capture(err)
-	}
-
-	watch, err := u.relationService.WatchRelationUnit(ctx, relUnitUUID)
+	watch, err := u.relationService.WatchRelationUnit(ctx, coreunit.Name(unit.Id()), relUUID)
 	if err != nil {
 		return params.RelationUnitsWatchResult{},
 			internalerrors.Capture(internalerrors.Errorf("starting relation unit watcher: %w", err))

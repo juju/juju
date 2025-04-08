@@ -338,5 +338,9 @@ type RelationService interface {
 
 	// WatchRelationUnit returns a watcher that notifies of changes to counterpart units in
 	// the relation.
-	WatchRelationUnit(ctx context.Context, relationUnit corerelation.UnitUUID) (relation.RelationUnitsWatcher, error)
+	WatchRelationUnit(
+		ctx context.Context,
+		unitName coreunit.Name,
+		relationUUID corerelation.UUID,
+	) (relation.RelationUnitsWatcher, error)
 }
