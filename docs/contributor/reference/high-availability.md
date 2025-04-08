@@ -1,4 +1,4 @@
-(high-availability)=
+(high-availability-cont)=
 # High Availability (HA)
 
 High Availability in general terms means that we have 3 or more (up to 7)
