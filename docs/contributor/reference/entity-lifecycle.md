@@ -35,16 +35,16 @@ are created, from the perspective of the CLI.
 
 ### `juju deploy`
 
-The `juju deploy` command always creates services, may create relations, and
+The `juju deploy` command always creates applications, may create relations, and
 may also create units and machines.
 
-  * New services can always be added.
-  * If the created service's charm defines any peer relations, a (runtime) peer
+  * New applications can always be added.
+  * If the created application's charm defines any peer relations, a (runtime) peer
     relation will be created for each. BUG: this is not done in the same
-    transaction as service creation; a connection failure at the wrong time
-    will create a broken and unfixable service (because peer relations cannot
+    transaction as application creation; a connection failure at the wrong time
+    will create a broken and unfixable application (because peer relations cannot
     be manipulated via the CLI).
-  * If the created service's charm is not subordinate, some number of units will
+  * If the created application's charm is not subordinate, some number of units will
     be created; this number is controlled via the "--num-units" parameter which
     defaults to 1.
   * If units were created, machines may also be created, as below.
@@ -52,13 +52,13 @@ may also create units and machines.
 
 ### `juju add-unit`
 
-The `juju add-unit` command applies only to principal services. It always
+The `juju add-unit` command applies only to principal applications. It always
 creates units, and may create machines. Different providers assign units to
 machines in different ways, and so machine creation can vary: for example, the
 ec2 provider creates a new machine for each unit that cannot be placed on an
 existing machine without assigned units.
 
-  * New units can only be added to Alive services.
+  * New units can only be added to Alive applications.
 
 
 ### `juju integrate`
@@ -69,10 +69,10 @@ has container scope, by virtue of one or more endpoints having container scope
 fact created by principal unit agents, at the point when they enter scope of a
 container-scoped relation and find that no suitable subordinate already exists.
 
-  * New relations can only be added between Alive services.
+  * New relations can only be added between Alive applications.
   * New subordinate units will only be added as a consequence of an Alive
     principal unit's participation in an Alive relation (implying an Alive
-    subordinate service).
+    subordinate application).
 
 ## Entity death and destruction
 
