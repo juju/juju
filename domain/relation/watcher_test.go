@@ -6,6 +6,7 @@ package relation_test
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
@@ -20,6 +21,8 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
 	relationtesting "github.com/juju/juju/core/relation/testing"
+	coreunit "github.com/juju/juju/core/unit"
+	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/relation/service"
@@ -48,10 +51,11 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 	s.charmUUID = charmtesting.GenCharmID(c)
 	s.charmRelationUUID = uuid.MustNewUUID()
 	s.appUUID = applicationtesting.GenApplicationUUID(c)
+	s.appEndpointUUID = uuid.MustNewUUID()
 
 	// Populate DB with charm, application and endpoints
-	s.addCharm(c, s.charmUUID)
-	s.addCharmRelation(c, s.charmUUID, s.charmRelationUUID)
+	s.addCharm(c, s.charmUUID, "app")
+	s.addCharmRelation(c, s.charmUUID, s.charmRelationUUID, 0)
 	s.addApplication(c, s.charmUUID, s.appUUID, "my-application")
 	s.addApplicationEndpoint(c, s.appEndpointUUID, s.appUUID, s.charmRelationUUID)
 }
@@ -71,7 +75,7 @@ func (s *watcherSuite) TestWatchUnitRelations(c *gc.C) {
 	s.addRelationEndpoint(c, relationEndpointUUID, relationUUID, s.appEndpointUUID)
 
 	svc := s.setupService(c, factory)
-	watcher, err := svc.WatchApplicationSettings(context.Background(), relation.UUID(relationUUID), coreapplication.ID(s.appUUID))
+	watcher, err := svc.WatchApplicationSettings(context.Background(), relationUUID, s.appUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
@@ -112,6 +116,214 @@ AND key = 'key'
 	harness.Run(c, struct{}{})
 }
 
+func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *gc.C) {
+	// Arrange: create the required state, with one relation and its status.
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
+	relationUUID := relationtesting.GenRelationUUID(c)
+	relationEndpointUUID := relationtesting.GenEndpointUUID(c)
+
+	charmTwoUUID := charmtesting.GenCharmID(c)
+	charmRelationTwoUUID := uuid.MustNewUUID()
+	appTwoUUID := applicationtesting.GenApplicationUUID(c)
+	relationEndpointTwoUUID := relationtesting.GenEndpointUUID(c)
+	appEndpointTwoUUID := uuid.MustNewUUID()
+	s.addCharm(c, charmTwoUUID, "two")
+	s.addCharmRelation(c, charmTwoUUID, charmRelationTwoUUID, 1)
+	s.addApplication(c, charmTwoUUID, appTwoUUID, "two")
+	s.addApplicationEndpoint(c, appEndpointTwoUUID, appTwoUUID, charmRelationTwoUUID)
+	s.addRelation(c, relationUUID)
+	s.addRelationEndpoint(c, relationEndpointUUID, relationUUID, s.appEndpointUUID)
+	s.addRelationEndpoint(c, relationEndpointTwoUUID, relationUUID, appEndpointTwoUUID)
+	s.addRelationStatus(c, relationUUID, 1)
+
+	unitUUID := unittesting.GenUnitUUID(c)
+	s.addUnit(c, unitUUID, "my-application/0", s.appUUID, s.charmUUID)
+
+	svc := s.setupService(c, factory)
+	watcher, err := svc.WatchLifeSuspendedStatus(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	relationKey := relationtesting.GenNewKey(c, "two:fake-provides my-application:fake-provides").String()
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Act: change the relation life.
+	harness.AddTest(func(c *gc.C) {
+		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, "UPDATE relation SET life_id = 1 WHERE uuid=?", relationUUID); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		// Assert: received changed of relation key.
+		w.Check(
+			watchertest.StringSliceAssert[string](relationKey),
+		)
+	})
+
+	// Act: change the relation status other than suspended.
+	harness.AddTest(func(c *gc.C) {
+		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, "UPDATE relation_status SET relation_status_type_id = 3 WHERE relation_uuid=?", relationUUID); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		// Assert: no change received. Change received only if status changes to
+		// suspended.
+		w.AssertNoChange()
+	})
+
+	// Act: change the relation status to suspended.
+	harness.AddTest(func(c *gc.C) {
+		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, "UPDATE relation_status SET relation_status_type_id = 4 WHERE relation_uuid=?", relationUUID); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		// Assert: received changed of relation key, relation status changed to suspended.
+		w.Check(
+			watchertest.StringSliceAssert[string](relationKey),
+		)
+	})
+
+	// Act: change the relation status to joined and life to dead, to get
+	// changes on both tables watched.
+	harness.AddTest(func(c *gc.C) {
+		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, "UPDATE relation SET life_id = 2 WHERE uuid=?", relationUUID); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx, "UPDATE relation_status SET relation_status_type_id = 1 WHERE relation_uuid=?", relationUUID); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		// Assert: with changes in both tables at the same time, the relation
+		// key is sent once.
+		w.Check(
+			watchertest.StringSliceAssert[string](relationKey),
+		)
+	})
+
+	harness.Run(c, []string{relationKey})
+}
+
+func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *gc.C) {
+	// Arrange: create the required state, with one relation and its status.
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
+	relationUUID := relationtesting.GenRelationUUID(c)
+	relationEndpointUUID := relationtesting.GenEndpointUUID(c)
+
+	charmTwoUUID := charmtesting.GenCharmID(c)
+	charmRelationTwoUUID := uuid.MustNewUUID()
+	appTwoUUID := applicationtesting.GenApplicationUUID(c)
+	relationEndpointTwoUUID := relationtesting.GenEndpointUUID(c)
+	appEndpointTwoUUID := uuid.MustNewUUID()
+	s.addCharm(c, charmTwoUUID, "two")
+	s.addCharmRelation(c, charmTwoUUID, charmRelationTwoUUID, 1)
+	s.addApplication(c, charmTwoUUID, appTwoUUID, "two")
+	s.addApplicationEndpoint(c, appEndpointTwoUUID, appTwoUUID, charmRelationTwoUUID)
+	s.addRelation(c, relationUUID)
+	s.addRelationEndpoint(c, relationEndpointUUID, relationUUID, s.appEndpointUUID)
+	s.addRelationEndpoint(c, relationEndpointTwoUUID, relationUUID, appEndpointTwoUUID)
+	s.addRelationStatus(c, relationUUID, 1)
+
+	subordinateUnitUUID := unittesting.GenUnitUUID(c)
+	principalUnitUUID := unittesting.GenUnitUUID(c)
+	s.setCharmSubordinate(c, s.charmUUID, true)
+	s.addUnit(c, subordinateUnitUUID, "my-application/0", s.appUUID, s.charmUUID)
+	s.addUnit(c, principalUnitUUID, "two/0", appTwoUUID, charmTwoUUID)
+	s.setUnitSubordinate(c, subordinateUnitUUID, principalUnitUUID)
+
+	svc := s.setupService(c, factory)
+	watcher, err := svc.WatchLifeSuspendedStatus(context.Background(), subordinateUnitUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	relationKey := relationtesting.GenNewKey(c, "two:fake-provides my-application:fake-provides").String()
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Act 0: change the relation life.
+	harness.AddTest(func(c *gc.C) {
+		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, "UPDATE relation SET life_id = 1 WHERE uuid=?", relationUUID); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		// Assert: received changed of relation key.
+		w.Check(
+			watchertest.StringSliceAssert[string](relationKey),
+		)
+	})
+
+	// Act 1: change the relation status other than suspended.
+	harness.AddTest(func(c *gc.C) {
+		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, "UPDATE relation_status SET relation_status_type_id = 3 WHERE relation_uuid=?", relationUUID); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		// Assert: no change received. Change received only if status changes to
+		// suspended.
+		w.AssertNoChange()
+	})
+
+	// Act 2: change the relation status to suspended.
+	harness.AddTest(func(c *gc.C) {
+		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, "UPDATE relation_status SET relation_status_type_id = 4 WHERE relation_uuid=?", relationUUID); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		// Assert: received changed of relation key, relation status changed to suspended.
+		w.Check(
+			watchertest.StringSliceAssert[string](relationKey),
+		)
+	})
+
+	// Act 3: change the relation status to joined and life to dead, to get
+	// changes on both tables watched.
+	harness.AddTest(func(c *gc.C) {
+		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			if _, err := tx.ExecContext(ctx, "UPDATE relation SET life_id = 2 WHERE uuid=?", relationUUID); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx, "UPDATE relation_status SET relation_status_type_id = 1 WHERE relation_uuid=?", relationUUID); err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		// Assert: with changes in both tables at the same time, the relation
+		// key is sent once.
+		w.Check(
+			watchertest.StringSliceAssert[string](relationKey),
+		)
+	})
+
+	// Act: run test harness.
+	// Assert: initial event is relationKey.
+	harness.Run(c, []string{relationKey})
+}
+
 func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) *service.WatchableService {
 	modelDB := func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
@@ -123,6 +335,24 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 		domaintesting.NoopLeaderEnsurer(),
 		loggertesting.WrapCheckLog(c),
 	)
+}
+
+// setCharmSubordinate updates the charm's metadata to mark it as subordinate,
+// or inserts it if not present in the database.
+func (s *watcherSuite) setCharmSubordinate(c *gc.C, charmUUID corecharm.ID, subordinate bool) {
+	s.arrange(c, `
+INSERT INTO charm_metadata (charm_uuid, name, subordinate)
+VALUES (?,?,true)
+ON CONFLICT DO UPDATE SET subordinate = ?
+`, charmUUID, charmUUID, subordinate)
+}
+
+// setUnitSubordinate sets unit 1 to be a subordinate of unit 2.
+func (s *watcherSuite) setUnitSubordinate(c *gc.C, subordinate, principal coreunit.UUID) {
+	s.arrange(c, `
+INSERT INTO unit_principal (unit_uuid, principal_uuid)
+VALUES (?,?)
+`, subordinate, principal)
 }
 
 // addApplication adds a new application to the database with the specified UUID and name.
@@ -142,19 +372,19 @@ VALUES (?, ?, ?, ?)
 }
 
 // addCharm inserts a new charm into the database with a predefined UUID, reference name, and architecture ID.
-func (s *watcherSuite) addCharm(c *gc.C, charmUUID corecharm.ID) {
+func (s *watcherSuite) addCharm(c *gc.C, charmUUID corecharm.ID, charmName string) {
 	s.arrange(c, `
 INSERT INTO charm (uuid, reference_name, architecture_id) 
-VALUES (?, 'app', 0)
-`, charmUUID)
+VALUES (?, ?, 0)
+`, charmUUID, charmName)
 }
 
 // addCharmRelation inserts a new charm relation into the database with the given UUID and predefined attributes.
-func (s *watcherSuite) addCharmRelation(c *gc.C, charmUUID corecharm.ID, charmRelationUUID uuid.UUID) {
+func (s *watcherSuite) addCharmRelation(c *gc.C, charmUUID corecharm.ID, charmRelationUUID uuid.UUID, kind int) {
 	s.arrange(c, `
-INSERT INTO charm_relation (uuid, charm_uuid, kind_id, scope_id, role_id, name) 
-VALUES (?, ?, 0,0,0, 'fake-provides')
-`, charmRelationUUID.String(), charmUUID)
+INSERT INTO charm_relation (uuid, charm_uuid, kind_id, scope_id, role_id, name)
+VALUES (?, ?, ?,0,?, 'fake-provides')
+`, charmRelationUUID.String(), charmUUID, kind, kind)
 }
 
 // addRelation inserts a new relation into the database with the given UUID and default relation and life IDs.
@@ -173,7 +403,38 @@ VALUES (?,?,?)
 `, relationEndpointUUID, relationUUID, applicationEndpointUUID.String())
 }
 
-// arrange is dedicated to build up the initial state of the db during a test
+// addRelationStatus inserts a relation_status row into the database using the
+// provided UUID for relation and status id.
+func (s *watcherSuite) addRelationStatus(c *gc.C, relationUUID relation.UUID, status_id int) {
+	s.arrange(c, `
+INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
+VALUES (?,?,?)
+`, relationUUID, status_id, time.Now())
+}
+
+// addUnit adds a new unit to the specified application in the database with
+// the given UUID and name.
+func (s *watcherSuite) addUnit(
+	c *gc.C,
+	unitUUID coreunit.UUID,
+	unitName coreunit.Name,
+	appUUID coreapplication.ID,
+	charmUUID corecharm.ID,
+) {
+	fakeNetNodeUUID := "fake-net-node-uuid"
+	s.arrange(c, `
+INSERT INTO net_node (uuid) 
+VALUES (?)
+ON CONFLICT DO NOTHING
+`, fakeNetNodeUUID)
+
+	s.arrange(c, `
+INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid)
+VALUES (?, ?, ?, ?, ?, ?)
+`, unitUUID, unitName, 0 /* alive */, appUUID, charmUUID, fakeNetNodeUUID)
+}
+
+// query is dedicated to build up the initial state of the db during a test
 func (s *watcherSuite) arrange(c *gc.C, query string, args ...any) {
 	s.query(c, func(err error) gc.CommentInterface {
 		return gc.Commentf("(Arrange) failed to populate DB: %v",
