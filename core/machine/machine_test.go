@@ -45,3 +45,50 @@ func (*machineSuite) TestNameValidate(c *gc.C) {
 		c.Check(err, jc.ErrorIs, test.err)
 	}
 }
+
+func (*machineSuite) TestNamedChild(c *gc.C) {
+	tests := []struct {
+		name      Name
+		scope     string
+		childName string
+		output    Name
+		err       error
+	}{
+		{
+			name:      "foo",
+			scope:     "bar",
+			childName: "baz",
+			output:    Name("foo/bar/baz"),
+		},
+		{
+			name:      "foo",
+			scope:     "",
+			childName: "baz",
+			err:       coreerrors.NotValid,
+		},
+		{
+			name:      "foo",
+			scope:     "bar",
+			childName: "",
+			err:       coreerrors.NotValid,
+		},
+		{
+			name:      "foo",
+			scope:     "",
+			childName: "",
+			err:       coreerrors.NotValid,
+		},
+	}
+
+	for i, test := range tests {
+		c.Logf("test %d: %q", i, test.output)
+
+		name, err := Name(test.name).NamedChild(test.scope, test.childName)
+		if test.err != nil {
+			c.Assert(err, jc.ErrorIs, test.err)
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		c.Check(test.output, gc.Equals, name)
+	}
+}

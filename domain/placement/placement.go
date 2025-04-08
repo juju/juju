@@ -49,9 +49,27 @@ func ParsePlacement(placement *instance.Placement) (Placement, error) {
 		}, nil
 	}
 
-	// If the placement is not empty, try and parse the scope to determine
-	// the type of placement.
-	if container, err := instance.ParseContainerType(placement.Scope); err == nil {
+	switch placement.Scope {
+	case instance.ModelScope:
+		return Placement{
+			Type:      PlacementTypeProvider,
+			Directive: placement.Directive,
+		}, nil
+
+	case instance.MachineScope:
+		return Placement{
+			Type:      PlacementTypeMachine,
+			Directive: placement.Directive,
+		}, nil
+
+	default:
+		container, err := instance.ParseContainerType(placement.Scope)
+		if err != nil {
+			return Placement{}, errors.Capture(err)
+		} else if placement.Directive != "" {
+			return Placement{}, errors.Errorf("placement directive %q is not supported for container type %q", placement.Directive, placement.Scope)
+		}
+
 		containerType, err := parseContainerType(container)
 		if err != nil {
 			return Placement{}, err
@@ -62,31 +80,12 @@ func ParsePlacement(placement *instance.Placement) (Placement, error) {
 			Container: containerType,
 		}, nil
 	}
-
-	// It's not a container type, so we check if it's a machine scope or
-	// a provider assigned placement.
-	switch placement.Scope {
-	case instance.ModelScope:
-		return Placement{
-			Type:      PlacementTypeProvider,
-			Directive: placement.Directive,
-		}, nil
-	case instance.MachineScope:
-		return Placement{
-			Type:      PlacementTypeMachine,
-			Directive: placement.Directive,
-		}, nil
-	default:
-		return Placement{}, errors.Errorf("placement scope %q not supported", placement.Scope)
-	}
 }
 
 func parseContainerType(containerType instance.ContainerType) (ContainerType, error) {
 	switch containerType {
 	case instance.LXD:
 		return ContainerTypeLXD, nil
-	case instance.NONE:
-		return ContainerTypeNone, nil
 	default:
 		return 0, errors.Errorf("container type %q not supported", containerType)
 	}
