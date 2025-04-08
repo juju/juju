@@ -148,7 +148,7 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 func (s *Service) GetMachinesNotAtTargetAgentVersion(
 	ctx context.Context,
 ) ([]machine.Name, error) {
-	return s.GetMachinesNotAtTargetAgentVersion(context.Background())
+	return s.st.GetMachinesNotAtTargetAgentVersion(context.Background())
 }
 
 // GetMachineReportedAgentVersion returns the agent binary version that was last
@@ -212,7 +212,7 @@ func (s *Service) GetMachineTargetAgentVersion(
 func (s *Service) GetUnitsNotAtTargetAgentVersion(
 	ctx context.Context,
 ) ([]coreunit.Name, error) {
-	return s.GetUnitsNotAtTargetAgentVersion(ctx)
+	return s.st.GetUnitsNotAtTargetAgentVersion(ctx)
 }
 
 // GetUnitReportedAgentVersion returns the agent binary version that was last
