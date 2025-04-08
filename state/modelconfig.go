@@ -201,30 +201,6 @@ func (st *State) UpdateModelConfigDefaultValues(updateAttrs map[string]interface
 	// applied as a delta to what's on disk; if there has
 	// been a concurrent update, the change may not be what
 	// the user asked for.
-
-	// Attempt to validate against the current old model and the new model, that
-	// should be enough to verify the config against.
-	// If there are additional fields in the config, then this should be fine
-	// and should not throw a validation error.
-	model, err := st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	oldConfig, err := model.ModelConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	validCfg, err := st.buildAndValidateModelConfig(updateAttrs, removeAttrs, oldConfig)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	validAttrs := validCfg.AllAttrs()
-	for k := range updateAttrs {
-		if v, ok := validAttrs[k]; ok {
-			updateAttrs[k] = v
-		}
-	}
-
 	updateAttrs = config.CoerceForStorage(updateAttrs)
 	settings.Update(updateAttrs)
 	for _, r := range removeAttrs {
