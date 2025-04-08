@@ -5,7 +5,6 @@ CREATE TABLE application (
     charm_uuid TEXT NOT NULL,
     charm_modified_version INT,
     charm_upgrade_on_error BOOLEAN DEFAULT FALSE,
-    exposed BOOLEAN DEFAULT FALSE,
     placement TEXT,
     -- space_uuid is the default binding for this application.
     space_uuid TEXT NOT NULL,
@@ -264,7 +263,6 @@ SELECT
     a.charm_uuid,
     a.charm_modified_version,
     a.charm_upgrade_on_error,
-    a.exposed,
     a.placement,
     cm.subordinate,
     c.reference_name,
