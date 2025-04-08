@@ -4,6 +4,8 @@
 package sshserver
 
 import (
+	gossh "golang.org/x/crypto/ssh"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -62,4 +64,26 @@ func (c *Client) HostKeyForTarget(arg params.SSHHostKeyRequestArg) ([]byte, erro
 		return nil, err
 	}
 	return result.HostKey, nil
+}
+
+// ListAuthorizedKeysForModel calls the ListAuthorizedKeysForModel facade, parses the authorized keys and returns the public keys
+// in a slice.
+func (c *Client) ListPublicKeysForModel(sshPKIAuthArgs params.ListAuthorizedKeysArgs) ([]gossh.PublicKey, error) {
+	var result params.ListAuthorizedKeysResult
+	publicKeys := make([]gossh.PublicKey, 0)
+	err := c.facade.FacadeCall("ListAuthorizedKeysForModel", sshPKIAuthArgs, &result)
+	if err != nil {
+		return nil, err
+	}
+	if err := result.Error; err != nil {
+		return nil, err
+	}
+	for _, key := range result.AuthorizedKeys {
+		pubKey, _, _, _, err := gossh.ParseAuthorizedKey([]byte(key))
+		if err != nil {
+			continue
+		}
+		publicKeys = append(publicKeys, pubKey)
+	}
+	return publicKeys, nil
 }

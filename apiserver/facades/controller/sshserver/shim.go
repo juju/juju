@@ -5,6 +5,7 @@ package sshserver
 
 import (
 	"github.com/juju/errors"
+	jujussh "github.com/juju/utils/v3/ssh"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/virtualhostname"
@@ -54,4 +55,19 @@ func (b backend) HostKeyForVirtualHostname(info virtualhostname.Info) ([]byte, e
 		return nil, errors.Trace(err)
 	}
 	return key.HostKey(), nil
+}
+
+// AuthorizedKeysForModel collects the authorized keys given a model uuid.
+func (b backend) AuthorizedKeysForModel(uuid string) ([]string, error) {
+	model, p, err := b.GetModel(uuid)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer p.Release()
+	cfg, err := model.Config()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	keys := jujussh.SplitAuthorisedKeys(cfg.AuthorizedKeys())
+	return keys, nil
 }

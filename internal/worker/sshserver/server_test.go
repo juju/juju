@@ -8,6 +8,8 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -20,10 +22,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	pkitest "github.com/juju/juju/pki/test"
+	params "github.com/juju/juju/rpc/params"
 	jujutesting "github.com/juju/juju/testing"
 )
 
 const maxConcurrentConnections = 10
+const testVirtualHostname = "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local"
 
 type sshServerSuite struct {
 	testing.IsolationSuite
@@ -158,7 +162,7 @@ func (s *sshServerSuite) TestSSHServerNoAuth(c *gc.C) {
 
 	// Open jump connection
 	client := ssh.NewClient(jumpConn, chans, terminatingReqs)
-	tunnel, err := client.Dial("tcp", "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local:20")
+	tunnel, err := client.Dial("tcp", fmt.Sprintf("%s:0", testVirtualHostname))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now with this opened direct-tcpip channel, open a session connection
@@ -180,11 +184,92 @@ func (s *sshServerSuite) TestSSHServerNoAuth(c *gc.C) {
 
 	output, err := terminatingSession.CombinedOutput("")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(output), gc.Equals, "Your final destination is: 1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local as user: ubuntu\n")
+	c.Assert(string(output), gc.Equals, fmt.Sprintf("Your final destination is: 8419cd78-4993-4c3a-928e-c646226beeee as user: ubuntu\n"))
 
 	// Server isn't gracefully closed, it's forcefully closed. All connections ended
 	// from server side.
 	workertest.CleanKill(c, server)
+}
+
+func (s *sshServerSuite) TestSSHPublicKeyHandler(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	listener := bufconn.Listen(8 * 1024)
+
+	s.facadeClient.EXPECT().ListPublicKeysForModel(gomock.Any()).
+		DoAndReturn(func(sshPKIAuthArgs params.ListAuthorizedKeysArgs) ([]ssh.PublicKey, error) {
+			if strings.Contains(sshPKIAuthArgs.ModelUUID, "8419cd78-4993-4c3a-928e-c646226beeee") {
+				return []ssh.PublicKey{s.userSigner.PublicKey()}, nil
+			}
+			return nil, errors.NotFound
+		}).AnyTimes()
+	s.facadeClient.EXPECT().HostKeyForTarget(gomock.Any()).Return(s.hostKey, nil).AnyTimes()
+
+	server, err := NewServerWorker(ServerWorkerConfig{
+		Logger:                   loggo.GetLogger("test"),
+		Listener:                 listener,
+		JumpHostKey:              jujutesting.SSHServerHostKey,
+		FacadeClient:             s.facadeClient,
+		NewSSHServerListener:     newTestingSSHServerListener,
+		MaxConcurrentConnections: maxConcurrentConnections,
+	})
+	c.Assert(err, gc.IsNil)
+	defer workertest.DirtyKill(c, server)
+
+	userKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	c.Assert(err, gc.IsNil)
+
+	notValidSigner, err := ssh.NewSignerFromKey(userKey)
+	c.Assert(err, gc.IsNil)
+
+	tests := []struct {
+		name               string
+		destinationAddress string
+		key                ssh.Signer
+		expectSuccess      bool
+	}{
+		{
+			name:               "valid destination model uuid and public key",
+			destinationAddress: testVirtualHostname,
+			key:                s.userSigner,
+			expectSuccess:      true,
+		},
+		{
+			name:               "model uuid not valid",
+			destinationAddress: "1.postgresql.8419cd78-4993-4c3a-928e-eeeeeeeeeeee.juju.local",
+			key:                notValidSigner,
+			expectSuccess:      false,
+		},
+	}
+
+	for _, test := range tests {
+		c.Log(test.name)
+		client := inMemoryDial(c, listener, &ssh.ClientConfig{
+			User:            "",
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			Auth: []ssh.AuthMethod{
+				ssh.PublicKeys(test.key),
+			},
+		})
+		conn, err := client.Dial("tcp", fmt.Sprintf("%s:%d", test.destinationAddress, 1))
+		c.Assert(err, gc.IsNil)
+		// we need to establish another client connection to perform the auth in the embedded server.
+		_, _, _, err = ssh.NewClientConn(
+			conn,
+			"",
+			&ssh.ClientConfig{
+				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+				Auth: []ssh.AuthMethod{
+					ssh.PublicKeys(test.key),
+				},
+			},
+		)
+		if !test.expectSuccess {
+			c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*ssh: handshake failed.*"))
+		} else {
+			c.Assert(err, gc.IsNil)
+		}
+	}
 }
 
 func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
@@ -210,7 +295,7 @@ func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 			ssh.Password(""), // No password needed
 		},
 	})
-	conn, err := client.Dial("tcp", "localhost:0")
+	conn, err := client.Dial("tcp", fmt.Sprintf("%s:0", testVirtualHostname))
 	c.Assert(err, gc.IsNil)
 
 	// we need to establish another client connection to perform the auth in the embedded server.
@@ -236,8 +321,8 @@ func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 			ssh.Password(""), // No password needed
 		},
 	})
-	_, err = client.Dial("tcp", "localhost:0")
-	c.Assert(err.Error(), gc.Equals, "ssh: rejected: connect failed (Failed to get host key for target localhost)")
+	_, err = client.Dial("tcp", fmt.Sprintf("%s:0", testVirtualHostname))
+	c.Assert(err.Error(), gc.Equals, "ssh: rejected: connect failed (Failed to get host key)")
 }
 
 func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
@@ -269,7 +354,7 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 		}
 		for range maxConcurrentConnections {
 			client := inMemoryDial(c, listener, config)
-			_, err := client.Dial("tcp", "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local:20")
+			_, err := client.Dial("tcp", fmt.Sprintf("%s:0", testVirtualHostname))
 			c.Assert(err, jc.ErrorIsNil)
 			clients = append(clients, client)
 		}
