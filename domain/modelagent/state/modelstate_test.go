@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	coreapplication "github.com/juju/juju/core/application"
 	corearch "github.com/juju/juju/core/arch"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
@@ -42,6 +43,10 @@ type modelStateSuite struct {
 var _ = gc.Suite(&modelStateSuite{})
 
 func (s *modelStateSuite) createMachine(c *gc.C) string {
+	return s.createMachineWithName(c, machine.Name("6666"))
+}
+
+func (s *modelStateSuite) createMachineWithName(c *gc.C, name machine.Name) string {
 	machineSt := machinestate.NewState(
 		s.TxnRunnerFactory(),
 		clock.WallClock,
@@ -49,11 +54,11 @@ func (s *modelStateSuite) createMachine(c *gc.C) string {
 	)
 	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = machineSt.CreateMachine(context.Background(), "666", "", uuid.String())
+	err = machineSt.CreateMachine(context.Background(), name, uuid.String(), uuid.String())
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
-	machineUUID, err := st.GetMachineUUIDByName(context.Background(), machine.Name("666"))
+	machineUUID, err := st.GetMachineUUIDByName(context.Background(), name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machineUUID, gc.Equals, uuid.String())
 
@@ -102,6 +107,14 @@ func (s *modelStateSuite) setUnitAgentVersion(
 func (s *modelStateSuite) createTestingUnit(
 	c *gc.C,
 ) coreunit.UUID {
+	appID := s.createTestingApplicationWithName(c, "foo")
+	return s.createTestingUnitWithName(c, "foo", appID, coreunit.Name("foo/1"))
+}
+
+func (s *modelStateSuite) createTestingApplicationWithName(
+	c *gc.C,
+	appName string,
+) coreapplication.ID {
 	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	platform := application.Platform{
@@ -121,7 +134,7 @@ func (s *modelStateSuite) createTestingUnit(
 		Channel:  channel,
 		Charm: charm.Charm{
 			Metadata: charm.Metadata{
-				Name: "foo",
+				Name: appName,
 				Provides: map[string]charm.Relation{
 					"endpoint": {
 						Name:  "endpoint",
@@ -146,7 +159,7 @@ func (s *modelStateSuite) createTestingUnit(
 					},
 				},
 			},
-			ReferenceName: "foo",
+			ReferenceName: appName,
 			Source:        charm.CharmHubSource,
 			Revision:      42,
 			Hash:          "hash",
@@ -160,12 +173,19 @@ func (s *modelStateSuite) createTestingUnit(
 		Scale: 1,
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
+	return appID
+}
 
-	charmUUID, err := appState.GetCharmIDByApplicationName(ctx, "foo")
+func (s *modelStateSuite) createTestingUnitWithName(
+	c *gc.C,
+	appName string,
+	appID coreapplication.ID,
+	unitName coreunit.Name,
+) coreunit.UUID {
+	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	charmUUID, err := appState.GetCharmIDByApplicationName(context.Background(), appName)
 	c.Assert(err, jc.ErrorIsNil)
-
-	unitName := coreunit.Name("foo/123")
-	appState.AddIAASUnits(ctx, "", appID, charmUUID, application.AddUnitArg{
+	appState.AddIAASUnits(context.Background(), "", appID, charmUUID, application.AddUnitArg{
 		UnitName: unitName,
 	})
 
@@ -648,4 +668,129 @@ func (s *modelStateSuite) TestGetUnitRunningAgentBinaryVersionNotFound(c *gc.C) 
 		unitUUID,
 	)
 	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotFound)
+}
+
+// TestMachinesNotAtTargetAgentVersionEmpty tests that if the model has no
+// machines we get back an empty list for
+// [State.GetMachinesNotAtTargetAgentVersion].
+func (s *modelStateSuite) TestMachinesNotAtTargetAgentVersionEmpty(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	list, err := st.GetMachinesNotAtTargetAgentVersion(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(len(list), gc.Equals, 0)
+}
+
+// TestMachinesNotAtTargetAgentVersionUnreported is testing that when we have
+// a machine that has no reported agent version in the database it appears in
+// the list returned.
+func (s *modelStateSuite) TestMachinesNotAtTargetAgentVersionUnreported(c *gc.C) {
+	notRegName := machine.Name("1")
+	regName := machine.Name("2")
+	s.createMachineWithName(c, notRegName)
+	regUUID := s.createMachineWithName(c, regName)
+	s.setModelTargetAgentVersion(c, "4.0.1")
+	s.setMachineAgentVersion(c, regUUID, "4.0.1")
+	st := NewState(s.TxnRunnerFactory())
+	list, err := st.GetMachinesNotAtTargetAgentVersion(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(list, jc.DeepEquals, []machine.Name{
+		notRegName,
+	})
+}
+
+// TestMachinesNotAtTargetAgentVersionFallingBehind is testing that when a
+// machine's agent version is behind that of the target for the model it is
+// reported in the list.
+func (s *modelStateSuite) TestMachinesNotAtTargetAgentVersionFallingBehind(c *gc.C) {
+	m1Name := machine.Name("1")
+	m2Name := machine.Name("2")
+	m1UUID := s.createMachineWithName(c, m1Name)
+	m2UUID := s.createMachineWithName(c, m2Name)
+	s.setModelTargetAgentVersion(c, "4.1.0")
+	s.setMachineAgentVersion(c, m1UUID, "4.0.1")
+	s.setMachineAgentVersion(c, m2UUID, "4.0.1")
+	st := NewState(s.TxnRunnerFactory())
+	list, err := st.GetMachinesNotAtTargetAgentVersion(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(list, jc.DeepEquals, []machine.Name{
+		m1Name, m2Name,
+	})
+}
+
+// TestMachinesNotAtTargetAgentVersionAllUptoDate is testing that all the
+// machines are at the same version as that of the target model agent version
+// the list returned is empty.
+func (s *modelStateSuite) TestMachinesNotAtTargetAgentVersionAllUptoDate(c *gc.C) {
+	m1Name := machine.Name("1")
+	m2Name := machine.Name("2")
+	m1UUID := s.createMachineWithName(c, m1Name)
+	m2UUID := s.createMachineWithName(c, m2Name)
+	s.setModelTargetAgentVersion(c, "4.1.0")
+	s.setMachineAgentVersion(c, m1UUID, "4.1.0")
+	s.setMachineAgentVersion(c, m2UUID, "4.1.0")
+	st := NewState(s.TxnRunnerFactory())
+	list, err := st.GetMachinesNotAtTargetAgentVersion(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(len(list), gc.Equals, 0)
+}
+
+// TestUnitsNotAtTargetAgentVersionEmpty tests that if the model has no
+// units we get back an empty list for
+// [State.GetUnitsNotAtTargetAgentVersion].
+func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionEmpty(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	list, err := st.GetUnitsNotAtTargetAgentVersion(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(len(list), gc.Equals, 0)
+}
+
+// TestUnitsNotAtTargetAgentVersionUnreported is testing that when we have
+// a unit that has no reported agent version in the database it appears in
+// the list returned.
+func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionUnreported(c *gc.C) {
+	appID := s.createTestingApplicationWithName(c, "foo")
+	s.createTestingUnitWithName(c, "foo", appID, coreunit.Name("foo/1"))
+	unit2UUID := s.createTestingUnitWithName(c, "foo", appID, coreunit.Name("foo/2"))
+	s.setModelTargetAgentVersion(c, "4.0.1")
+	s.setUnitAgentVersion(c, unit2UUID, "4.0.1")
+	st := NewState(s.TxnRunnerFactory())
+	list, err := st.GetUnitsNotAtTargetAgentVersion(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(list, jc.DeepEquals, []coreunit.Name{
+		coreunit.Name("foo/1"),
+	})
+}
+
+// TestUnitsNotAtTargetAgentVersionFallingBehind is testing that when a
+// unit's agent version is behind that of the target for the model it is
+// reported in the list.
+func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionFallingBehind(c *gc.C) {
+	appID := s.createTestingApplicationWithName(c, "foo")
+	unit1UUID := s.createTestingUnitWithName(c, "foo", appID, coreunit.Name("foo/1"))
+	unit2UUID := s.createTestingUnitWithName(c, "foo", appID, coreunit.Name("foo/2"))
+	s.setModelTargetAgentVersion(c, "4.1.0")
+	s.setUnitAgentVersion(c, unit1UUID, "4.0.1")
+	s.setUnitAgentVersion(c, unit2UUID, "4.0.1")
+	st := NewState(s.TxnRunnerFactory())
+	list, err := st.GetUnitsNotAtTargetAgentVersion(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(list, jc.DeepEquals, []coreunit.Name{
+		coreunit.Name("foo/1"), coreunit.Name("foo/2"),
+	})
+}
+
+// TestUnitsNotAtTargetAgentVersionAllUptoDate is testing that all the
+// units are at the same version as that of the target model agent version
+// the list returned is empty.
+func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionAllUptoDate(c *gc.C) {
+	appID := s.createTestingApplicationWithName(c, "foo")
+	unit1UUID := s.createTestingUnitWithName(c, "foo", appID, coreunit.Name("foo/1"))
+	unit2UUID := s.createTestingUnitWithName(c, "foo", appID, coreunit.Name("foo/2"))
+	s.setModelTargetAgentVersion(c, "4.1.0")
+	s.setUnitAgentVersion(c, unit1UUID, "4.1.0")
+	s.setUnitAgentVersion(c, unit2UUID, "4.1.0")
+	st := NewState(s.TxnRunnerFactory())
+	list, err := st.GetUnitsNotAtTargetAgentVersion(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(len(list), gc.Equals, 0)
 }

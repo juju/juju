@@ -110,6 +110,57 @@ func (st *State) checkUnitNotDead(
 	}
 }
 
+// GetMachinesNotAtTargetAgentVersion returns the list of machines where
+// their agent version is not the same as the models target agent version or
+// who have no agent version reproted at all. If no machines exist that match
+// this criteria an empty slice is returned.
+func (st *State) GetMachinesNotAtTargetAgentVersion(
+	ctx context.Context,
+) ([]machine.Name, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	query := `
+SELECT &machineName.*
+FROM v_machine_target_agent_version
+WHERE version != target_version
+UNION
+SELECT name
+FROM machine
+WHERE uuid NOT IN (SELECT machine_uuid
+                   FROM v_machine_target_agent_version)
+`
+
+	queryStmt, err := st.Prepare(query, machineName{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	rval := []machineName{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryStmt).GetAll(&rval)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+
+	if err != nil {
+		return nil, errors.Errorf(
+			"getting all machine names that are not at the target agent version: %w",
+			err,
+		)
+	}
+
+	names := make([]machine.Name, 0, len(rval))
+	for _, mNameVal := range rval {
+		names = append(names, machine.Name(mNameVal.Name))
+	}
+	return names, nil
+}
+
 // GetMachineUUIDByName returns the UUID of a machine identified by its name.
 // It returns a MachineNotFound if the machine does not exist.
 func (st *State) GetMachineUUIDByName(ctx context.Context, name machine.Name) (string, error) {
@@ -281,6 +332,57 @@ WHERE machine_uuid = $machineUUIDRef.machine_uuid
 		Number: vers,
 		Arch:   info.ArchitectureName,
 	}, nil
+}
+
+// GetUnitsNotAtTargetAgentVersion returns the list of units where
+// their agent version is not the same as the models target agent version or
+// who have no agent version reproted at all. If no units exist that match
+// this criteria an empty slice is returned.
+func (st *State) GetUnitsNotAtTargetAgentVersion(
+	ctx context.Context,
+) ([]coreunit.Name, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	query := `
+SELECT &unitName.*
+FROM v_unit_target_agent_version
+WHERE version != target_version
+UNION
+SELECT name
+FROM unit
+WHERE uuid NOT IN (SELECT unit_uuid
+                   FROM v_unit_target_agent_version)
+`
+
+	queryStmt, err := st.Prepare(query, unitName{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	rval := []unitName{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryStmt).GetAll(&rval)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+
+	if err != nil {
+		return nil, errors.Errorf(
+			"getting all unit names that are not at the target agent version: %w",
+			err,
+		)
+	}
+
+	names := make([]coreunit.Name, 0, len(rval))
+	for _, uNameVal := range rval {
+		names = append(names, coreunit.Name(uNameVal.Name))
+	}
+	return names, nil
 }
 
 // GetUnitRunningAgentBinaryVersion returns the running unit agent binary

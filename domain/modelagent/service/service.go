@@ -21,7 +21,8 @@ import (
 type State interface {
 	// GetMachinesNotAtTargetAgentVersion returns the list of machines where
 	// their agent version is not the same as the models target agent version or
-	// who have no agent version reproted at all.
+	// who have no agent version reproted at all. If no machines exist  that
+	// match this criteria an empty slice is returned.
 	GetMachinesNotAtTargetAgentVersion(context.Context) ([]machine.Name, error)
 
 	// GetMachineRunningAgentBinaryVersion returns the running machine agent
@@ -49,7 +50,8 @@ type State interface {
 
 	// GetUnitsNotAtTargetAgentVersion returns the list of units where their
 	// agent version is not the same as the models target agent version or who
-	// have no agent version reported at all.
+	// have no agent version reported at all. If no units exist that match the
+	// criteria an empty slice is returned.
 	GetUnitsNotAtTargetAgentVersion(context.Context) ([]coreunit.Name, error)
 
 	// GetUnitRunningAgentBinaryVersion returns the running unit agent binary
