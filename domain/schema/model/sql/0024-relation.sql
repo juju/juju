@@ -84,20 +84,19 @@ ON relation (relation_id);
 -- The relation_unit table links a relation to a specific unit.
 CREATE TABLE relation_unit (
     uuid TEXT NOT NULL PRIMARY KEY,
-    relation_uuid TEXT NOT NULL,
+    relation_endpoint_uuid TEXT NOT NULL,
     unit_uuid TEXT NOT NULL,
-    in_scope BOOLEAN DEFAULT FALSE,
     departing BOOLEAN DEFAULT FALSE,
     CONSTRAINT fk_relation_unit_uuid
     FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid),
     CONSTRAINT fk_relation_uuid
-    FOREIGN KEY (relation_uuid)
-    REFERENCES relation (uuid)
+    FOREIGN KEY (relation_endpoint_uuid)
+    REFERENCES relation_endpoint (uuid)
 );
 
 CREATE UNIQUE INDEX idx_relation_unit
-ON relation_unit (relation_uuid, unit_uuid);
+ON relation_unit (relation_endpoint_uuid, unit_uuid);
 
 -- The relation_unit_setting holds key value pair settings
 -- for a relation at the unit level. Keys must be unique
@@ -194,11 +193,9 @@ SELECT
     ru.uuid AS relation_unit_uuid,
     cr.name AS endpoint_name
 FROM relation_unit AS ru
-JOIN unit AS u ON ru.unit_uuid = u.uuid
-JOIN relation_endpoint AS re ON ru.relation_uuid = re.relation_uuid
+JOIN relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
 JOIN application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
-JOIN charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
-WHERE u.application_uuid = ae.application_uuid;
+JOIN charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid;
 
 CREATE VIEW v_relation_endpoint AS
 SELECT
@@ -236,4 +233,4 @@ SELECT
     rs.suspended_reason,
     rs.updated_at
 FROM relation_status AS rs
-JOIN relation_status_type AS rst ON rs.relation_status_type_id = rst.id
+JOIN relation_status_type AS rst ON rs.relation_status_type_id = rst.id;
