@@ -14,6 +14,7 @@ import (
 
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/services"
 )
 
@@ -84,6 +85,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 // startWrapperWorker starts the SSH server worker wrapper passing the necessary dependencies.
 func (config ManifoldConfig) startWrapperWorker(_ context.Context, getter dependency.Getter) (worker.Worker, error) {
+	// ssh jump server is not enabled by default, but it must be enabled
+	// via a feature flag.
+	if !featureflag.Enabled(featureflag.SSHJump) {
+		config.Logger.Debugf(context.Background(), "SSH jump server worker is not enabled.")
+		return nil, dependency.ErrUninstall
+	}
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
