@@ -285,6 +285,9 @@ To debug a charm:
 - For a Kubernetes charm with a workload, {ref}`command-juju-ssh` into the workload container and view the Pebble plan.
 
 ````{dropdown} Tips and examples
+
+(debug-a-k8s-charm)=
+
 ```bash
 juju ssh --container=concourse-worker concourse-worker/0
 ```
