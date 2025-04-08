@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock"
 
 	coreapplication "github.com/juju/juju/core/application"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
@@ -61,16 +60,13 @@ type State interface {
 		status status.StatusInfo[status.WorkloadStatusType],
 	) error
 
-	// GetRelationStatus gets the status of the given relation. It returns an error
-	// satisfying [statuserrors.RelationNotFound] if the relation doesn't exist.
-	GetRelationStatus(
-		ctx context.Context,
-		uuid corerelation.UUID,
-	) (status.StatusInfo[status.RelationStatusType], error)
-
-	// SetRelationStatus saves the given relation status, overwriting any current
-	// status data. If returns an error satisfying [statuserrors.RelationNotFound]
-	// if the relation doesn't exist.
+	// SetRelationStatus sets the given relation status and checks that the
+	// transition to the new status from the current status is valid. It can
+	// return the following errors:
+	//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
+	//   - [statuserrors.RelationStatusTransitionNotValid] if the current relation
+	//     status cannot transition to the new relation status. the relation does
+	//     not exist.
 	SetRelationStatus(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
@@ -295,47 +291,31 @@ func (s *LeadershipService) GetApplicationAndUnitStatusesForUnitWithLeader(
 
 // SetRelationStatus sets the status of the relation to the status provided.
 // Status may only be set by the application leader.
-// Returns NotFound
+// It can return the following errors:
+//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
+//   - [statuserrors.RelationStatusTransitionNotValid] if the current relation
+//     status cannot transition to the new relation status. the relation does
+//     not exist.
 func (s *LeadershipService) SetRelationStatus(
 	ctx context.Context,
 	unitName coreunit.Name,
 	relationUUID corerelation.UUID,
 	info corestatus.StatusInfo,
 ) error {
-	// Encode status.
-	relationStatus, err := encodeRelationStatus(info)
-	if err != nil {
-		return errors.Errorf("encoding relation status: %w", err)
-	}
-
-	// Get current status.
-	currentStatus, err := s.st.GetRelationStatus(ctx, relationUUID)
-	if err != nil {
-		return errors.Errorf("getting current relation status: %w", err)
-	}
-
-	// Check we can transition from current status to the new status.
-	err = relationStatusTransitionValid(currentStatus, relationStatus)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// If transitioning from Suspending to Suspended, retain any existing
-	// message so that any previous reason for suspending is retained.
-	if relationStatus.Message == "" &&
-		currentStatus.Status == status.RelationStatusTypeSuspending &&
-		relationStatus.Status == status.RelationStatusTypeSuspended {
-		relationStatus.Message = currentStatus.Message
-	}
-
 	// Get application name for leadership check.
 	_, applicationName, err := s.st.GetApplicationIDAndNameByUnitName(ctx, unitName)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	// Set the status as the leader.
+	// Status can only be set by the leader unit.
 	err = s.leaderEnsurer.WithLeader(ctx, applicationName, unitName.String(), func(ctx context.Context) error {
+		// Encode status.
+		relationStatus, err := encodeRelationStatus(info)
+		if err != nil {
+			return errors.Errorf("encoding relation status: %w", err)
+		}
+
 		return s.st.SetRelationStatus(ctx, relationUUID, relationStatus)
 	})
 	if err != nil {

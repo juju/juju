@@ -11,7 +11,6 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/status"
-	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
 )
@@ -569,35 +568,4 @@ func applicationDisplayStatusFromUnits(
 		}
 	}
 	return result, nil
-}
-
-// relationStatusTransitionValid returns the error
-// [statuserror.RelationStatusTransitionNotValid] if the transition from the
-// current relation status to the new relation status is not valid.
-func relationStatusTransitionValid(current, new status.StatusInfo[status.RelationStatusType]) error {
-	if current.Status != new.Status {
-		validTransition := true
-		switch new.Status {
-		case status.RelationStatusTypeBroken:
-		case status.RelationStatusTypeSuspending:
-			validTransition = current.Status != status.RelationStatusTypeBroken && current.Status != status.RelationStatusTypeSuspended
-		case status.RelationStatusTypeJoining:
-			validTransition = current.Status != status.RelationStatusTypeBroken && current.Status != status.RelationStatusTypeJoined
-		case status.RelationStatusTypeJoined, status.RelationStatusTypeSuspended:
-			validTransition = current.Status != status.RelationStatusTypeBroken
-		case status.RelationStatusTypeError:
-			if new.Message == "" {
-				return errors.Errorf("cannot set status %q without info", new.Status)
-			}
-		default:
-			return errors.Errorf("cannot set invalid status %q", new.Status)
-		}
-		if !validTransition {
-			return errors.Errorf(
-				"cannot set status %q when relation has status %q: %w",
-				new.Status, current.Status, statuserrors.RelationStatusTransitionNotValid,
-			)
-		}
-	}
-	return nil
 }

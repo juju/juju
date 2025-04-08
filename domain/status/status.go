@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/unit"
+	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -134,6 +135,37 @@ func DecodeRelationStatus(s int) (RelationStatusType, error) {
 	default:
 		return -1, errors.Errorf("unknown status %d", s)
 	}
+}
+
+// RelationStatusTransitionValid returns the error
+// [statuserror.RelationStatusTransitionNotValid] if the transition from the
+// current relation status to the new relation status is not valid.
+func RelationStatusTransitionValid(current, new StatusInfo[RelationStatusType]) error {
+	if current.Status != new.Status {
+		validTransition := true
+		switch new.Status {
+		case RelationStatusTypeBroken:
+		case RelationStatusTypeSuspending:
+			validTransition = current.Status != RelationStatusTypeBroken && current.Status != RelationStatusTypeSuspended
+		case RelationStatusTypeJoining:
+			validTransition = current.Status != RelationStatusTypeBroken && current.Status != RelationStatusTypeJoined
+		case RelationStatusTypeJoined, RelationStatusTypeSuspended:
+			validTransition = current.Status != RelationStatusTypeBroken
+		case RelationStatusTypeError:
+			if new.Message == "" {
+				return errors.Errorf("cannot set status %q without info", new.Status)
+			}
+		default:
+			return errors.Errorf("cannot set invalid status %q", new.Status)
+		}
+		if !validTransition {
+			return errors.Errorf(
+				"cannot set status %q when relation has status %q: %w",
+				new.Status, current.Status, statuserrors.RelationStatusTransitionNotValid,
+			)
+		}
+	}
+	return nil
 }
 
 // UnitAgentStatusType represents the status of a unit agent

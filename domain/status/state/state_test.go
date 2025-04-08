@@ -223,37 +223,12 @@ func (s *stateSuite) TestGetApplicationStatusNotSet(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestGetRelationStatus(c *gc.C) {
-	// Arrange: add relation with status.
-	now := time.Now().Truncate(time.Minute).UTC()
-	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, 7)
-	s.addRelationStatusWithMessage(c, relationUUID, corestatus.Suspended, "this is a test", now)
-
-	// Act:
-	result, err := s.state.GetRelationStatus(context.Background(), relationUUID)
-
-	// Assert:
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, status.StatusInfo[status.RelationStatusType]{
-		Status:  status.RelationStatusTypeSuspended,
-		Message: "this is a test",
-		Since:   &now,
-	})
-}
-
-func (s *stateSuite) TestGetRelationStatusRelationNotFound(c *gc.C) {
-	// Act:
-	_, err := s.state.GetRelationStatus(context.Background(), corerelationtesting.GenRelationUUID(c))
-
-	// Assert:
-	c.Assert(err, jc.ErrorIs, statuserrors.RelationNotFound)
-}
-
 func (s *stateSuite) TestSetRelationStatus(c *gc.C) {
 	// Arrange: Create relation and statuses.
 	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, 7)
-
 	now := time.Now().UTC()
+	s.addRelationStatusWithMessage(c, relationUUID, corestatus.Joining, "", now)
+
 	sts := status.StatusInfo[status.RelationStatusType]{
 		Status:  status.RelationStatusTypeSuspended,
 		Message: "message",
@@ -274,8 +249,9 @@ func (s *stateSuite) TestSetRelationStatus(c *gc.C) {
 func (s *stateSuite) TestSetRelationStatusMultipleTimes(c *gc.C) {
 	// Arrange: Add relation and create statuses.
 	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, 7)
-
 	now := time.Now().UTC()
+	s.addRelationStatusWithMessage(c, relationUUID, corestatus.Joining, "", now)
+
 	sts1 := status.StatusInfo[status.RelationStatusType]{
 		Status:  status.RelationStatusTypeSuspended,
 		Message: "message",
@@ -298,6 +274,55 @@ func (s *stateSuite) TestSetRelationStatusMultipleTimes(c *gc.C) {
 	// Assert:
 	foundStatus := s.getRelationStatus(c, relationUUID)
 	c.Assert(foundStatus, jc.DeepEquals, sts2)
+}
+
+// TestSetRelationStatusInvalidTransition checks that an invalid relation status
+// transition is blocked.
+func (s *stateSuite) TestSetRelationStatusInvalidTransition(c *gc.C) {
+	// Arrange: Add relation and set status to broken.
+	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, 7)
+	now := time.Now().UTC()
+	s.addRelationStatusWithMessage(c, relationUUID, corestatus.Broken, "", now)
+
+	// Arrange: Create joining status, which cannot be transitioned to from broken.
+	sts := status.StatusInfo[status.RelationStatusType]{
+		Status: status.RelationStatusTypeJoining,
+		Since:  ptr(now),
+	}
+
+	// Act: Change status to suspended.
+	err := s.state.SetRelationStatus(context.Background(), relationUUID, sts)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, statuserrors.RelationStatusTransitionNotValid)
+}
+
+// TestSetRelationStatusSuspendingToSuspended checks that the message from
+// Suspending status is preserved when the status is updated to Suspended.
+func (s *stateSuite) TestSetRelationStatusSuspendingToSuspended(c *gc.C) {
+	// Arrange: Add relation and create suspending status with message.
+	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, 7)
+	now := time.Now().UTC()
+	message := "suspending message"
+	s.addRelationStatusWithMessage(c, relationUUID, corestatus.Suspending, message, now)
+
+	// Arrange: Create suspended status without message to set.
+	suspendedStatus := status.StatusInfo[status.RelationStatusType]{
+		Status: status.RelationStatusTypeSuspended,
+		Since:  ptr(now),
+	}
+
+	// Act: Change status to suspended.
+	err := s.state.SetRelationStatus(context.Background(), relationUUID, suspendedStatus)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Assert:
+	foundStatus := s.getRelationStatus(c, relationUUID)
+	c.Assert(foundStatus, jc.DeepEquals, status.StatusInfo[status.RelationStatusType]{
+		Status:  status.RelationStatusTypeSuspended,
+		Message: message,
+		Since:   ptr(now),
+	})
 }
 
 func (s *stateSuite) TestSetRelationStatusRelationNotFound(c *gc.C) {

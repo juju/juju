@@ -84,11 +84,6 @@ func (s *serviceSuite) TestSetRelationStatus(c *gc.C) {
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	unitName := unittesting.GenNewName(c, "app/0")
 	appName := "app-name"
-	currentStatus := status.StatusInfo[status.RelationStatusType]{
-		Status: status.RelationStatusTypeBroken,
-	}
-	s.state.EXPECT().GetRelationStatus(gomock.Any(), relationUUID).Return(currentStatus, nil)
-
 	s.state.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).Return("", appName, nil)
 
 	sts := corestatus.StatusInfo{
@@ -120,12 +115,22 @@ func (s *serviceSuite) TestSetRelationStatusRelationNotFound(c *gc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
+	appName := "app-name"
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	unitName := unittesting.GenNewName(c, "app/0")
 	sts := corestatus.StatusInfo{
 		Status: corestatus.Broken,
 	}
-	s.state.EXPECT().GetRelationStatus(gomock.Any(), relationUUID).Return(status.StatusInfo[status.RelationStatusType]{}, statuserrors.RelationNotFound)
+	expectedStatus := status.StatusInfo[status.RelationStatusType]{
+		Status: status.RelationStatusTypeBroken,
+	}
+	s.state.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).Return("", appName, nil)
+	s.leadership.EXPECT().WithLeader(gomock.Any(), appName, unitName.String(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, _, _ string, fn func(context.Context) error) error {
+			return fn(ctx)
+		},
+	)
+	s.state.EXPECT().SetRelationStatus(gomock.Any(), relationUUID, expectedStatus).Return(statuserrors.RelationNotFound)
 
 	// Act
 	err := s.service.SetRelationStatus(context.Background(), unitName, relationUUID, sts)
@@ -144,10 +149,6 @@ func (s *serviceSuite) TestSetRelationStatusUnitNotFound(c *gc.C) {
 	sts := corestatus.StatusInfo{
 		Status: corestatus.Broken,
 	}
-	currentStatus := status.StatusInfo[status.RelationStatusType]{
-		Status: status.RelationStatusTypeBroken,
-	}
-	s.state.EXPECT().GetRelationStatus(gomock.Any(), relationUUID).Return(currentStatus, nil)
 	s.state.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).Return("", appName, statuserrors.UnitNotFound)
 
 	// Act
