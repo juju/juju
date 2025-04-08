@@ -601,29 +601,3 @@ func (s *Service) SetRelationUnitSettings(
 ) error {
 	return coreerrors.NotImplemented
 }
-
-// UpdateRelationApplicationSettings updates settings for a specific application
-// relation combination.
-func (s *Service) UpdateRelationApplicationSettings(
-	ctx context.Context,
-	relationUUID corerelation.UUID,
-	applicationID application.ID,
-	settings map[string]string,
-) error {
-	// TODO: (hml) 24-Mar-2025
-	// Implement leadership checking here: e.g.
-	// return s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
-	//		return s.st.SetRelationStatus(ctx, appID, encodedStatus)
-	//	})
-	return coreerrors.NotImplemented
-}
-
-// UpdateRelationUnitSettings updates settings for a specific unit
-// relation combination.
-func (s *Service) UpdateRelationUnitSettings(
-	ctx context.Context,
-	relationUnitUUID corerelation.UnitUUID,
-	settings map[string]string,
-) error {
-	return coreerrors.NotImplemented
-}

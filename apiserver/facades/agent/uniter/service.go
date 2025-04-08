@@ -311,18 +311,18 @@ type RelationService interface {
 	// LeaveScope updates the given relation to indicate it is not in scope.
 	LeaveScope(ctx context.Context, relationID corerelation.UnitUUID) error
 
-	// UpdateRelationApplicationSettings updates settings for a specific application
+	// SetRelationApplicationSettings updates settings for a specific application
 	// relation combination.
-	UpdateRelationApplicationSettings(
+	SetRelationApplicationSettings(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
 		applicationID coreapplication.ID,
 		settings map[string]string,
 	) error
 
-	// UpdateRelationUnitSettings updates settings for a specific unit
+	// SetRelationUnitSettings updates settings for a specific unit
 	// relation combination.
-	UpdateRelationUnitSettings(
+	SetRelationUnitSettings(
 		ctx context.Context,
 		relationUnitUUID corerelation.UnitUUID,
 		settings map[string]string,
