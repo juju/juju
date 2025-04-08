@@ -334,7 +334,6 @@ func makeUnitArgs(units []ImportUnitArg, charmUUID corecharm.ID) ([]application.
 
 		arg := application.InsertUnitArg{
 			UnitName:         u.UnitName,
-			CharmUUID:        charmUUID,
 			StorageParentDir: application.StorageParentDir,
 		}
 		if u.CloudContainer != nil {

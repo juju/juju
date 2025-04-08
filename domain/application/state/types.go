@@ -163,7 +163,7 @@ type cloudService struct {
 }
 
 type applicationCharmUUID struct {
-	CharmUUID string `db:"charm_uuid"`
+	CharmUUID corecharm.ID `db:"charm_uuid"`
 }
 
 type cloudContainerDevice struct {
@@ -194,11 +194,11 @@ type ipAddress struct {
 // charmID represents a single charm row from the charm table, that only
 // contains the charm ID.
 type charmID struct {
-	UUID string `db:"uuid"`
+	UUID corecharm.ID `db:"uuid"`
 }
 
 type charmUUID struct {
-	UUID string `db:"charm_uuid"`
+	UUID corecharm.ID `db:"charm_uuid"`
 }
 
 // charmName is used to pass the name to the query.
@@ -835,7 +835,7 @@ type spaceUUID struct {
 type storageInstance struct {
 	StorageUUID      corestorage.UUID `db:"uuid"`
 	StorageID        corestorage.ID   `db:"storage_id"`
-	CharmUUID        string           `db:"charm_uuid"`
+	CharmUUID        corecharm.ID     `db:"charm_uuid"`
 	StorageName      corestorage.Name `db:"storage_name"`
 	LifeID           life.Life        `db:"life_id"`
 	StoragePoolUUID  *string          `db:"storage_pool_uuid"`

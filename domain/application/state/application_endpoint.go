@@ -47,7 +47,7 @@ type insertApplicationEndpointsParams struct {
 // the application default space may have been updated if a binding without endpoint
 // was present in params.
 func (st *State) insertApplicationEndpoints(ctx context.Context, tx *sqlair.TX, params insertApplicationEndpointsParams) error {
-	charmUUID := charmID{UUID: params.charmUUID.String()}
+	charmUUID := charmID{UUID: params.charmUUID}
 
 	// Get charm relation.
 	relations, err := st.getCharmRelationNames(ctx, tx, charmUUID)
