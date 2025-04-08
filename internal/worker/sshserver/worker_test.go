@@ -161,7 +161,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	// Expect WatchControllerConfig call
 	mockFacadeClient.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher, nil)
 
-	// Expect first call to have port of 22 and called once on worker startup.
+	// Expect first call to have max concurrent connections of 10 and called once on worker startup.
 	mockFacadeClient.EXPECT().
 		ControllerConfig().
 		Return(
@@ -184,13 +184,14 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 			nil,
 		).
 		Times(1)
-	// On the third call, we're updating the port and should see it restart the worker.
+	// On the third call, we're updating the max concurrent connections and should
+	// see it restart the worker.
 	mockFacadeClient.EXPECT().
 		ControllerConfig().
 		Return(
 			controller.Config{
-				controller.SSHServerPort:               2222,
-				controller.SSHMaxConcurrentConnections: 10,
+				controller.SSHServerPort:               22,
+				controller.SSHMaxConcurrentConnections: 15,
 			},
 			nil,
 		).

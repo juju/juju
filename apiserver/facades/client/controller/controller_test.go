@@ -976,14 +976,12 @@ func (s *controllerSuite) TestConfigSet(c *gc.C) {
 
 	err = s.controller.ConfigSet(params.ControllerConfigSet{Config: map[string]interface{}{
 		"auditing-enabled": true,
-		"ssh-server-port":  17023,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 
 	config, err = s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config.AuditingEnabled(), gc.Equals, true)
-	c.Assert(config.SSHServerPort(), gc.Equals, 17023)
 }
 
 func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {

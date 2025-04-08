@@ -524,7 +524,6 @@ var (
 		QueryTracingEnabled,
 		QueryTracingThreshold,
 		SSHMaxConcurrentConnections,
-		SSHServerPort,
 	)
 
 	// DefaultAuditLogExcludeMethods is the default list of methods to
