@@ -99,6 +99,21 @@ type ExportService interface {
 	// If the application does not exist, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationCharmOrigin(ctx context.Context, name string) (application.CharmOrigin, error)
+
+	// IsApplicationExposed returns whether the provided application is exposed or not.
+	//
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	IsApplicationExposed(ctx context.Context, appName string) (bool, error)
+
+	// GetExposedEndpoints returns map where keys are endpoint names (or the ""
+	// value which represents all endpoints) and values are ExposedEndpoint
+	// instances that specify which sources (spaces or CIDRs) can access the
+	// opened ports for each endpoint once the application is exposed.
+	//
+	// If no application is found, an error satisfying
+	// [applicationerrors.ApplicationNotFound] is returned.
+	GetExposedEndpoints(ctx context.Context, appName string) (map[string]application.ExposedEndpoint, error)
 }
 
 // exportOperation describes a way to execute a migration for
@@ -229,7 +244,12 @@ func (e *exportOperation) createApplicationArgs(ctx context.Context, app applica
 		}
 	}
 
-	return description.ApplicationArgs{
+	isExposed, err := e.service.IsApplicationExposed(ctx, app.Name)
+	if err != nil {
+		return description.ApplicationArgs{}, errors.Errorf("checking if application %q is exposed: %w", app.Name, err)
+	}
+
+	args := description.ApplicationArgs{
 		Name:                 app.Name,
 		Type:                 modelType,
 		Subordinate:          app.Subordinate,
@@ -238,12 +258,23 @@ func (e *exportOperation) createApplicationArgs(ctx context.Context, app applica
 		ForceCharm:           app.CharmUpgradeOnError,
 		Placement:            app.Placement,
 		CloudService:         cloudService,
+		Exposed:              isExposed,
 
 		// Create a provisioning state for the application, incase a non-scaling
 		// application is being exported and someone tries to access the
 		// provisioning state, which will cause a panic.
 		ProvisioningState: &description.ProvisioningStateArgs{},
-	}, nil
+	}
+
+	if isExposed {
+		exposedEndpoints, err := e.service.GetExposedEndpoints(ctx, app.Name)
+		if err != nil {
+			return description.ApplicationArgs{}, errors.Errorf("getting exposed endpoints for application %q: %w", app.Name, err)
+		}
+		args.ExposedEndpoints = exportExposedEndpoints(exposedEndpoints)
+	}
+
+	return args, nil
 }
 
 func (e *exportOperation) exportModelType(modelType coremodel.ModelType) (string, error) {
@@ -739,6 +770,17 @@ func exportManifestBases(bases []internalcharm.Base) ([]description.CharmManifes
 		}
 	}
 	return result, nil
+}
+
+func exportExposedEndpoints(endpoints map[string]application.ExposedEndpoint) map[string]description.ExposedEndpointArgs {
+	result := make(map[string]description.ExposedEndpointArgs, len(endpoints))
+	for name, endpoint := range endpoints {
+		result[name] = description.ExposedEndpointArgs{
+			ExposeToSpaceIDs: endpoint.ExposeToSpaceIDs.Values(),
+			ExposeToCIDRs:    endpoint.ExposeToCIDRs.Values(),
+		}
+	}
+	return result
 }
 
 type relationType struct {

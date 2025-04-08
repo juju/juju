@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/description/v9"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -120,7 +121,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			return errors.Errorf("parsing charm URL %q: %w", app.CharmURL(), err)
 		}
 
-		charm, err := i.importCharm(ctx, charmData{
+		charm, err := importCharm(ctx, charmData{
 			Metadata: app.CharmMetadata(),
 			Manifest: app.CharmManifest(),
 			Actions:  app.CharmActions(),
@@ -130,17 +131,17 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			return errors.Errorf("importing model application %q charm: %w", app.Name(), err)
 		}
 
-		origin, err := i.importCharmOrigin(app)
+		origin, err := importCharmOrigin(app)
 		if err != nil {
 			return errors.Errorf("parsing charm origin %v: %w", app.CharmOrigin(), err)
 		}
 
-		applicationConfig, err := i.importApplicationConfig(app)
+		applicationConfig, err := importApplicationConfig(app)
 		if err != nil {
 			return errors.Errorf("importing application config: %w", err)
 		}
 
-		applicationSettings, err := i.importApplicationSettings(app)
+		applicationSettings, err := importApplicationSettings(app)
 		if err != nil {
 			return errors.Errorf("importing application settings: %w", err)
 		}
@@ -160,8 +161,9 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			Units:                  unitArgs,
 			ApplicationConfig:      applicationConfig,
 			ApplicationSettings:    applicationSettings,
-			ApplicationConstraints: i.importApplicationConstraints(app),
+			ApplicationConstraints: importApplicationConstraints(app),
 			ScaleState:             scaleState,
+			ExposedEndpoints:       importExposedEndpoints(app),
 
 			// ReferenceName is the name of the charm URL, not the application
 			// name and not the charm name in the metadata, but the name of
@@ -207,7 +209,7 @@ func (i *importOperation) Rollback(ctx context.Context, model description.Model)
 	return errors.Errorf("rollback failed: %w", errors.Join(errs...))
 }
 
-func (i *importOperation) importApplicationConfig(app description.Application) (config.ConfigAttributes, error) {
+func importApplicationConfig(app description.Application) (config.ConfigAttributes, error) {
 	// Application config is optional, so if we don't have any data, we can just
 	// return an empty config.
 	appConfig := app.CharmConfig()
@@ -239,7 +241,7 @@ func (i *importOperation) importApplicationConfig(app description.Application) (
 	return result, nil
 }
 
-func (i *importOperation) importApplicationSettings(app description.Application) (application.ApplicationSettings, error) {
+func importApplicationSettings(app description.Application) (application.ApplicationSettings, error) {
 	// Application settings are optional, so if we don't have any data, we can
 	// just return an empty settings.
 	appSettings := app.ApplicationConfig()
@@ -269,7 +271,7 @@ func (i *importOperation) importApplicationSettings(app description.Application)
 	}, nil
 }
 
-func (i *importOperation) importApplicationConstraints(app description.Application) constraints.Value {
+func importApplicationConstraints(app description.Application) constraints.Value {
 	result := constraints.Value{}
 
 	cons := app.Constraints()
@@ -329,7 +331,7 @@ func (i *importOperation) importApplicationConstraints(app description.Applicati
 // Due to LP:1986547: where the track is missing from the effective channel it implicitly
 // resolves to 'latest' if the charm does not have a default channel defined. So if the
 // received channel has no track, we can be confident it should be 'latest'
-func (i *importOperation) importCharmOrigin(a description.Application) (corecharm.Origin, error) {
+func importCharmOrigin(a description.Application) (corecharm.Origin, error) {
 	sourceOrigin := a.CharmOrigin()
 	if sourceOrigin == nil {
 		return corecharm.Origin{}, errors.Errorf("nil charm origin importing application %q", a.Name())
@@ -393,7 +395,7 @@ func (i *importOperation) importCharmOrigin(a description.Application) (corechar
 	return origin, nil
 }
 
-func (i *importOperation) makeAddress(addr description.Address) (*network.SpaceAddress, *network.Origin) {
+func makeAddress(addr description.Address) (*network.SpaceAddress, *network.Origin) {
 	if addr == nil {
 		return nil, nil
 	}
@@ -425,7 +427,7 @@ type charmData struct {
 // Import the application charm description from the migrating model into
 // the current model. This will then be saved with the application and allow
 // us to keep RI (referential integrity) of the application and the charm.
-func (i *importOperation) importCharm(ctx context.Context, data charmData) (internalcharm.Charm, error) {
+func importCharm(ctx context.Context, data charmData) (internalcharm.Charm, error) {
 	// Don't be tempted to just use the internal/charm package here, or to
 	// attempt to make the description package conform to the internal/charm
 	// package Charm interface. The internal/charm package is for dealing with
@@ -437,27 +439,27 @@ func (i *importOperation) importCharm(ctx context.Context, data charmData) (inte
 	//
 	// This is a good thing.
 
-	metadata, err := i.importCharmMetadata(data.Metadata)
+	metadata, err := importCharmMetadata(data.Metadata)
 	if err != nil {
 		return nil, errors.Errorf("import charm metadata: %w", err)
 	}
 
-	manifest, err := i.importCharmManifest(data.Manifest)
+	manifest, err := importCharmManifest(data.Manifest)
 	if err != nil {
 		return nil, errors.Errorf("import charm manifest: %w", err)
 	}
 
-	lxdProfile, err := i.importCharmLXDProfile(data.Metadata)
+	lxdProfile, err := importCharmLXDProfile(data.Metadata)
 	if err != nil {
 		return nil, errors.Errorf("import charm lxd profile: %w", err)
 	}
 
-	config, err := i.importCharmConfig(data.Config)
+	config, err := importCharmConfig(data.Config)
 	if err != nil {
 		return nil, errors.Errorf("import charm config: %w", err)
 	}
 
-	actions, err := i.importCharmActions(data.Actions)
+	actions, err := importCharmActions(data.Actions)
 	if err != nil {
 		return nil, errors.Errorf("import charm actions: %w", err)
 	}
@@ -467,7 +469,7 @@ func (i *importOperation) importCharm(ctx context.Context, data charmData) (inte
 	return internalcharm.NewCharmBase(metadata, manifest, config, actions, lxdProfile), nil
 }
 
-func (i *importOperation) importCharmMetadata(data description.CharmMetadata) (*internalcharm.Meta, error) {
+func importCharmMetadata(data description.CharmMetadata) (*internalcharm.Meta, error) {
 	if data == nil {
 		return nil, errors.Errorf("import charm metadata: %w", coreerrors.NotValid)
 	}
@@ -547,7 +549,7 @@ func (i *importOperation) importCharmMetadata(data description.CharmMetadata) (*
 	}, nil
 }
 
-func (i *importOperation) importCharmManifest(data description.CharmManifest) (*internalcharm.Manifest, error) {
+func importCharmManifest(data description.CharmManifest) (*internalcharm.Manifest, error) {
 	charmBases := data.Bases()
 	if data == nil || len(charmBases) == 0 {
 		return nil, errors.Errorf("manifest empty")
@@ -562,7 +564,7 @@ func (i *importOperation) importCharmManifest(data description.CharmManifest) (*
 	}, nil
 }
 
-func (i *importOperation) importCharmLXDProfile(data description.CharmMetadata) (*internalcharm.LXDProfile, error) {
+func importCharmLXDProfile(data description.CharmMetadata) (*internalcharm.LXDProfile, error) {
 	// LXDProfile is optional, so if we don't have any data, we can just return
 	// nil. If it does exist, then it's JSON encoded blob that we need to
 	// unmarshal into the internalcharm.LXDProfile struct.
@@ -580,7 +582,7 @@ func (i *importOperation) importCharmLXDProfile(data description.CharmMetadata) 
 	return &profile, nil
 }
 
-func (i *importOperation) importCharmConfig(data description.CharmConfigs) (*internalcharm.Config, error) {
+func importCharmConfig(data description.CharmConfigs) (*internalcharm.Config, error) {
 	// Charm config is optional, so if we don't have any data, we can just
 	// return nil.
 	if data == nil {
@@ -604,7 +606,7 @@ func (i *importOperation) importCharmConfig(data description.CharmConfigs) (*int
 
 }
 
-func (i *importOperation) importCharmActions(data description.CharmActions) (*internalcharm.Actions, error) {
+func importCharmActions(data description.CharmActions) (*internalcharm.Actions, error) {
 	// Charm actions is optional, so if we don't have any data, we can just
 	// return nil.
 	if data == nil {
@@ -631,6 +633,20 @@ func (i *importOperation) importCharmActions(data description.CharmActions) (*in
 	return &internalcharm.Actions{
 		ActionSpecs: actions,
 	}, nil
+}
+
+func importExposedEndpoints(app description.Application) map[string]application.ExposedEndpoint {
+	if !app.Exposed() {
+		return nil
+	}
+	exposedEndpoints := make(map[string]application.ExposedEndpoint)
+	for endpoint, exposedEndpoint := range app.ExposedEndpoints() {
+		exposedEndpoints[endpoint] = application.ExposedEndpoint{
+			ExposeToCIDRs:    set.NewStrings(exposedEndpoint.ExposeToCIDRs()...),
+			ExposeToSpaceIDs: set.NewStrings(exposedEndpoint.ExposeToSpaceIDs()...),
+		}
+	}
+	return exposedEndpoints
 }
 
 func importCharmUser(data description.CharmMetadata) (internalcharm.RunAs, error) {

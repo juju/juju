@@ -460,6 +460,45 @@ func (c *MockExportServiceGetCharmIDCall) DoAndReturn(f func(context.Context, ch
 	return c
 }
 
+// GetExposedEndpoints mocks base method.
+func (m *MockExportService) GetExposedEndpoints(arg0 context.Context, arg1 string) (map[string]application.ExposedEndpoint, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetExposedEndpoints", arg0, arg1)
+	ret0, _ := ret[0].(map[string]application.ExposedEndpoint)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetExposedEndpoints indicates an expected call of GetExposedEndpoints.
+func (mr *MockExportServiceMockRecorder) GetExposedEndpoints(arg0, arg1 any) *MockExportServiceGetExposedEndpointsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetExposedEndpoints", reflect.TypeOf((*MockExportService)(nil).GetExposedEndpoints), arg0, arg1)
+	return &MockExportServiceGetExposedEndpointsCall{Call: call}
+}
+
+// MockExportServiceGetExposedEndpointsCall wrap *gomock.Call
+type MockExportServiceGetExposedEndpointsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockExportServiceGetExposedEndpointsCall) Return(arg0 map[string]application.ExposedEndpoint, arg1 error) *MockExportServiceGetExposedEndpointsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockExportServiceGetExposedEndpointsCall) Do(f func(context.Context, string) (map[string]application.ExposedEndpoint, error)) *MockExportServiceGetExposedEndpointsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockExportServiceGetExposedEndpointsCall) DoAndReturn(f func(context.Context, string) (map[string]application.ExposedEndpoint, error)) *MockExportServiceGetExposedEndpointsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitUUIDByName mocks base method.
 func (m *MockExportService) GetUnitUUIDByName(arg0 context.Context, arg1 unit.Name) (unit.UUID, error) {
 	m.ctrl.T.Helper()
@@ -495,6 +534,45 @@ func (c *MockExportServiceGetUnitUUIDByNameCall) Do(f func(context.Context, unit
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockExportServiceGetUnitUUIDByNameCall) DoAndReturn(f func(context.Context, unit.Name) (unit.UUID, error)) *MockExportServiceGetUnitUUIDByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// IsApplicationExposed mocks base method.
+func (m *MockExportService) IsApplicationExposed(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsApplicationExposed", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsApplicationExposed indicates an expected call of IsApplicationExposed.
+func (mr *MockExportServiceMockRecorder) IsApplicationExposed(arg0, arg1 any) *MockExportServiceIsApplicationExposedCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsApplicationExposed", reflect.TypeOf((*MockExportService)(nil).IsApplicationExposed), arg0, arg1)
+	return &MockExportServiceIsApplicationExposedCall{Call: call}
+}
+
+// MockExportServiceIsApplicationExposedCall wrap *gomock.Call
+type MockExportServiceIsApplicationExposedCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockExportServiceIsApplicationExposedCall) Return(arg0 bool, arg1 error) *MockExportServiceIsApplicationExposedCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockExportServiceIsApplicationExposedCall) Do(f func(context.Context, string) (bool, error)) *MockExportServiceIsApplicationExposedCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockExportServiceIsApplicationExposedCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockExportServiceIsApplicationExposedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -320,12 +320,44 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 	if err := s.st.SetApplicationScalingState(ctx, name, args.ScaleState.ScaleTarget, args.ScaleState.Scaling); err != nil {
 		return errors.Errorf("setting scale state for application %q: %w", name, err)
 	}
+	if err := s.st.MergeExposeSettings(ctx, appID, args.ExposedEndpoints); err != nil {
+		return errors.Errorf("setting expose settings for application %q: %w", name, err)
+	}
 
 	if err := s.st.SetApplicationConstraints(ctx, appID, constraints.DecodeConstraints(args.ApplicationConstraints)); err != nil {
 		return errors.Errorf("setting application constraints for application %q: %w", name, err)
 	}
 
 	return nil
+}
+
+// IsApplicationExposed returns whether the provided application is exposed or not.
+//
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (s *MigrationService) IsApplicationExposed(ctx context.Context, appName string) (bool, error) {
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return s.st.IsApplicationExposed(ctx, appID)
+}
+
+// GetExposedEndpoints returns map where keys are endpoint names (or the ""
+// value which represents all endpoints) and values are ExposedEndpoint
+// instances that specify which sources (spaces or CIDRs) can access the
+// opened ports for each endpoint once the application is exposed.
+//
+// If no application is found, an error satisfying
+// [applicationerrors.ApplicationNotFound] is returned.
+func (s *MigrationService) GetExposedEndpoints(ctx context.Context, appName string) (map[string]application.ExposedEndpoint, error) {
+	appID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return s.st.GetExposedEndpoints(ctx, appID)
 }
 
 func makeUnitArgs(units []ImportUnitArg, charmUUID corecharm.ID) ([]application.InsertUnitArg, error) {

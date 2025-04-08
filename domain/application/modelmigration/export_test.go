@@ -6,6 +6,7 @@ package modelmigration
 import (
 	"context"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/description/v9"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
@@ -98,6 +99,8 @@ func (s *exportApplicationSuite) TestApplicationExportMultipleApplications(c *gc
 			Architecture: architecture.PPC64EL,
 		},
 	}}, nil)
+	s.exportService.EXPECT().IsApplicationExposed(gomock.Any(), "prometheus").Return(false, nil)
+	s.exportService.EXPECT().IsApplicationExposed(gomock.Any(), "prometheus-k8s").Return(false, nil)
 
 	s.expectCharmOriginFor("prometheus")
 	s.expectApplicationConfigFor("prometheus")
@@ -149,6 +152,7 @@ func (s *exportApplicationSuite) TestApplicationExportConstraints(c *gc.C) {
 	s.expectMinimalCharm()
 	s.expectApplicationConfig()
 	s.expectApplicationUnits()
+	s.exportService.EXPECT().IsApplicationExposed(gomock.Any(), "prometheus").Return(false, nil)
 
 	cons := constraints.Value{
 		AllocatePublicIP: ptr(true),
@@ -219,6 +223,7 @@ func (s *exportApplicationSuite) TestExportScalingState(c *gc.C) {
 			Architecture: architecture.AMD64,
 		},
 	}, nil)
+	s.exportService.EXPECT().IsApplicationExposed(gomock.Any(), "prometheus-k8s").Return(false, nil)
 
 	s.expectMinimalCharmFor("prometheus-k8s")
 	s.expectApplicationConfigFor("prometheus-k8s")
@@ -242,4 +247,38 @@ func (s *exportApplicationSuite) TestExportScalingState(c *gc.C) {
 	c.Check(app.ProvisioningState().ScaleTarget(), gc.Equals, 42)
 	c.Check(app.ProvisioningState().Scaling(), jc.IsTrue)
 	c.Check(app.DesiredScale(), gc.Equals, 1)
+}
+
+func (s *exportApplicationSuite) TestApplicationExportExposedEndpoints(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectApplication(c)
+	s.expectMinimalCharm()
+	s.expectApplicationConfig()
+	s.expectApplicationUnits()
+	s.expectApplicationConstraints(constraints.Value{})
+	s.exportService.EXPECT().IsApplicationExposed(gomock.Any(), "prometheus").Return(true, nil)
+	s.exportService.EXPECT().GetExposedEndpoints(gomock.Any(), "prometheus").Return(map[string]application.ExposedEndpoint{
+		"": {
+			ExposeToSpaceIDs: set.NewStrings("beta"),
+		},
+		"foo": {
+			ExposeToSpaceIDs: set.NewStrings("space0", "space1"),
+			ExposeToCIDRs:    set.NewStrings("10.0.0.0/24", "10.0.1.0/24"),
+		},
+	}, nil)
+
+	exportOp := s.newExportOperation()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	err := exportOp.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Applications(), gc.HasLen, 1)
+
+	app := model.Applications()[0]
+	c.Check(app.ExposedEndpoints(), gc.HasLen, 2)
+	c.Check(app.ExposedEndpoints()[""].ExposeToSpaceIDs(), jc.SameContents, []string{"beta"})
+	c.Check(app.ExposedEndpoints()["foo"].ExposeToSpaceIDs(), jc.SameContents, []string{"space0", "space1"})
+	c.Check(app.ExposedEndpoints()["foo"].ExposeToCIDRs(), jc.SameContents, []string{"10.0.0.0/24", "10.0.1.0/24"})
 }

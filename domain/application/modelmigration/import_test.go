@@ -6,6 +6,7 @@ package modelmigration
 import (
 	"context"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/description/v9"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -334,11 +335,7 @@ func (s *importSuite) TestApplicationImportWithConstraints(c *gc.C) {
 func (s *importSuite) TestImportCharmMetadataEmpty(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	importOp := importOperation{
-		service: s.importService,
-	}
-
-	_, err := importOp.importCharmMetadata(nil)
+	_, err := importCharmMetadata(nil)
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -348,11 +345,7 @@ func (s *importSuite) TestImportCharmMetadataInvalidUser(c *gc.C) {
 	metaExp := s.charmMetadata.EXPECT()
 	metaExp.RunAs().Return("foo").Times(2)
 
-	importOp := importOperation{
-		service: s.importService,
-	}
-
-	_, err := importOp.importCharmMetadata(s.charmMetadata)
+	_, err := importCharmMetadata(s.charmMetadata)
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -363,11 +356,7 @@ func (s *importSuite) TestImportCharmMetadataInvalidAssumes(c *gc.C) {
 	metaExp.RunAs().Return("root")
 	metaExp.Assumes().Return("!![]")
 
-	importOp := importOperation{
-		service: s.importService,
-	}
-
-	_, err := importOp.importCharmMetadata(s.charmMetadata)
+	_, err := importCharmMetadata(s.charmMetadata)
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -379,11 +368,7 @@ func (s *importSuite) TestImportCharmMetadataInvalidMinJujuVersion(c *gc.C) {
 	metaExp.Assumes().Return("[]")
 	metaExp.MinJujuVersion().Return("foo")
 
-	importOp := importOperation{
-		service: s.importService,
-	}
-
-	_, err := importOp.importCharmMetadata(s.charmMetadata)
+	_, err := importCharmMetadata(s.charmMetadata)
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -402,11 +387,7 @@ func (s *importSuite) TestImportCharmMetadataInvalidRelationRole(c *gc.C) {
 		"provides": s.charmProvides,
 	})
 
-	importOp := importOperation{
-		service: s.importService,
-	}
-
-	_, err := importOp.importCharmMetadata(s.charmMetadata)
+	_, err := importCharmMetadata(s.charmMetadata)
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -426,11 +407,7 @@ func (s *importSuite) TestImportCharmMetadataInvalidRelationScope(c *gc.C) {
 		"provides": s.charmProvides,
 	})
 
-	importOp := importOperation{
-		service: s.importService,
-	}
-
-	_, err := importOp.importCharmMetadata(s.charmMetadata)
+	_, err := importCharmMetadata(s.charmMetadata)
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -462,11 +439,7 @@ func (s *importSuite) TestImportCharmMetadataInvalidStorage(c *gc.C) {
 		"storage": s.storage,
 	})
 
-	importOp := importOperation{
-		service: s.importService,
-	}
-
-	_, err := importOp.importCharmMetadata(s.charmMetadata)
+	_, err := importCharmMetadata(s.charmMetadata)
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -510,11 +483,7 @@ func (s *importSuite) TestImportCharmMetadataInvalidResource(c *gc.C) {
 		"resource": s.resources,
 	})
 
-	importOp := importOperation{
-		service: s.importService,
-	}
-
-	_, err := importOp.importCharmMetadata(s.charmMetadata)
+	_, err := importCharmMetadata(s.charmMetadata)
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -565,11 +534,7 @@ func (s *importSuite) TestImportCharmMetadata(c *gc.C) {
 		"resource": s.resources,
 	})
 
-	importOp := importOperation{
-		service: s.importService,
-	}
-
-	meta, err := importOp.importCharmMetadata(s.charmMetadata)
+	meta, err := importCharmMetadata(s.charmMetadata)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(meta, gc.DeepEquals, &internalcharm.Meta{
 		Name:           "foo",
@@ -674,11 +639,7 @@ func (s *importSuite) TestImportEmptyCharmManifest(c *gc.C) {
 
 	s.expectEmptyManifestBases()
 
-	importOp := importOperation{
-		service: s.importService,
-	}
-
-	_, err := importOp.importCharmManifest(s.charmManifest)
+	_, err := importCharmManifest(s.charmManifest)
 	c.Assert(err, gc.NotNil)
 }
 
@@ -687,11 +648,7 @@ func (s *importSuite) TestImportCharmManifest(c *gc.C) {
 
 	s.expectManifestBases()
 
-	importOp := importOperation{
-		service: s.importService,
-	}
-
-	meta, err := importOp.importCharmManifest(s.charmManifest)
+	meta, err := importCharmManifest(s.charmManifest)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(meta, gc.DeepEquals, &internalcharm.Manifest{
 		Bases: []internalcharm.Base{
@@ -722,11 +679,7 @@ func (s *importSuite) TestImportCharmManifestWithInvalidBase(c *gc.C) {
 		s.charmBase,
 	})
 
-	importOp := importOperation{
-		service: s.importService,
-	}
-
-	_, err := importOp.importCharmManifest(s.charmManifest)
+	_, err := importCharmManifest(s.charmManifest)
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -735,11 +688,7 @@ func (s *importSuite) TestImportEmptyCharmLXDProfile(c *gc.C) {
 
 	s.expectEmptyLXDProfile()
 
-	importOp := importOperation{
-		service: s.importService,
-	}
-
-	meta, err := importOp.importCharmLXDProfile(s.charmMetadata)
+	meta, err := importCharmLXDProfile(s.charmMetadata)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(meta, gc.IsNil)
 }
@@ -749,11 +698,7 @@ func (s *importSuite) TestImportCharmLXDProfile(c *gc.C) {
 
 	s.expectLXDProfile()
 
-	importOp := importOperation{
-		service: s.importService,
-	}
-
-	meta, err := importOp.importCharmLXDProfile(s.charmMetadata)
+	meta, err := importCharmLXDProfile(s.charmMetadata)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(meta, gc.DeepEquals, &internalcharm.LXDProfile{
 		Config: map[string]string{
@@ -767,11 +712,7 @@ func (s *importSuite) TestImportEmptyCharmConfig(c *gc.C) {
 
 	s.expectEmptyCharmConfigs()
 
-	importOp := importOperation{
-		service: s.importService,
-	}
-
-	meta, err := importOp.importCharmConfig(s.charmConfigs)
+	meta, err := importCharmConfig(s.charmConfigs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(meta, gc.NotNil)
 	c.Check(meta.Options, gc.HasLen, 0)
@@ -782,11 +723,7 @@ func (s *importSuite) TestImportCharmConfig(c *gc.C) {
 
 	s.expectCharmConfigs()
 
-	importOp := importOperation{
-		service: s.importService,
-	}
-
-	meta, err := importOp.importCharmConfig(s.charmConfigs)
+	meta, err := importCharmConfig(s.charmConfigs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(meta, gc.NotNil)
 	c.Check(meta.Options, gc.DeepEquals, map[string]internalcharm.Option{
@@ -803,11 +740,7 @@ func (s *importSuite) TestImportEmptyCharmActions(c *gc.C) {
 
 	s.expectEmptyCharmActions()
 
-	importOp := importOperation{
-		service: s.importService,
-	}
-
-	meta, err := importOp.importCharmActions(s.charmActions)
+	meta, err := importCharmActions(s.charmActions)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(meta, gc.NotNil)
 	c.Check(meta.ActionSpecs, gc.HasLen, 0)
@@ -818,11 +751,7 @@ func (s *importSuite) TestImportCharmActions(c *gc.C) {
 
 	s.expectCharmActions()
 
-	importOp := importOperation{
-		service: s.importService,
-	}
-
-	meta, err := importOp.importCharmActions(s.charmActions)
+	meta, err := importCharmActions(s.charmActions)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(meta, gc.NotNil)
 	c.Check(meta.ActionSpecs, gc.DeepEquals, map[string]internalcharm.ActionSpec{
@@ -842,11 +771,7 @@ func (s *importSuite) TestImportCharmActionsNestedMaps(c *gc.C) {
 
 	s.expectCharmActionsNested()
 
-	importOp := importOperation{
-		service: s.importService,
-	}
-
-	meta, err := importOp.importCharmActions(s.charmActions)
+	meta, err := importCharmActions(s.charmActions)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(meta, gc.NotNil)
 	c.Check(meta.ActionSpecs, gc.DeepEquals, map[string]internalcharm.ActionSpec{
@@ -867,6 +792,67 @@ func (s *importSuite) TestImportCharmActionsNestedMaps(c *gc.C) {
 			},
 		},
 	})
+}
+
+func (s *importSuite) TestImportExposedEndpoints(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	appArgs := description.ApplicationArgs{
+		Name:     "prometheus",
+		CharmURL: "ch:prometheus-1",
+		Exposed:  true,
+		ExposedEndpoints: map[string]description.ExposedEndpointArgs{
+			"": {
+				ExposeToSpaceIDs: []string{"alpha"},
+			},
+			"endpoint0": {
+				ExposeToCIDRs:    []string{"10.0.0.0/24", "10.0.1.0/24"},
+				ExposeToSpaceIDs: []string{"space0", "space1"},
+			},
+		},
+	}
+	app := model.AddApplication(appArgs)
+	app.SetCharmMetadata(description.CharmMetadataArgs{
+		Name: "prometheus",
+	})
+	app.SetCharmManifest(description.CharmManifestArgs{
+		Bases: []description.CharmManifestBase{baseType{
+			name:          "ubuntu",
+			channel:       "24.04",
+			architectures: []string{"amd64"},
+		}},
+	})
+	app.SetCharmOrigin(description.CharmOriginArgs{
+		Source:   "charm-hub",
+		ID:       "1234",
+		Hash:     "deadbeef",
+		Revision: 1,
+		Channel:  "666/stable",
+		Platform: "arm64/ubuntu/24.04",
+	})
+
+	s.importService.EXPECT().ImportApplication(
+		gomock.Any(),
+		"prometheus",
+		gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, args service.ImportApplicationArgs) error {
+		c.Assert(args.Charm.Meta().Name, gc.Equals, "prometheus")
+		c.Check(args.ExposedEndpoints, gc.HasLen, 2)
+		c.Check(args.ExposedEndpoints[""].ExposeToSpaceIDs, gc.DeepEquals, set.NewStrings("alpha"))
+		c.Check(args.ExposedEndpoints["endpoint0"].ExposeToCIDRs, gc.DeepEquals, set.NewStrings("10.0.0.0/24", "10.0.1.0/24"))
+		c.Check(args.ExposedEndpoints["endpoint0"].ExposeToSpaceIDs, gc.DeepEquals, set.NewStrings("space0", "space1"))
+		return nil
+	})
+
+	importOp := importOperation{
+		service: s.importService,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+
+	err := importOp.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
