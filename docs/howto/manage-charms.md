@@ -596,4 +596,3 @@ The command offers many other options, for example, the possibility to replace a
 As a charm / bundle is just the *means* by which (an) application(s) are deployed, there is no way to remove the *charm* / *bundle*. What you *can* do, however, is remove the *application* / *model*.
 
 > See more: {ref}`manage-applications`, {ref}`manage-models`
-

@@ -66,11 +66,9 @@ Connect to a k8s unit targeting the redis container:
 
 	juju ssh --container redis snappass/0
 
-Execute the `pebble plan` command in the workload container via the charm container:
+Interact with the Pebble instance in the workload container via the charm container:
 
     juju ssh snappass/0 PEBBLE_SOCKET=/charm/containers/redis/pebble.socket /charm/bin/pebble plan
-
-> See more: {ref}`Tips <debug-a-k8s-charm>`, [Pebble](https://documentation.ubuntu.com/pebble/)
 
 **For k8s controller:**
 
