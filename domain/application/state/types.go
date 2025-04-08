@@ -1156,7 +1156,7 @@ type setDeviceConstraintAttribute struct {
 }
 
 type createMachine struct {
-	MachineUUID machine.UUID `db:"machine_uuid"`
+	MachineUUID machine.UUID `db:"uuid"`
 	NetNodeUUID string       `db:"net_node_uuid"`
 	Name        machine.Name `db:"name"`
 	LifeID      life.Life    `db:"life_id"`

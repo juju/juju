@@ -69,11 +69,11 @@ func (st *State) placeNetNodeMachines(ctx context.Context, tx *sqlair.TX, direct
 func (st *State) getMachineNetNodeUUIDFromName(ctx context.Context, tx *sqlair.TX, name machine.Name) (string, error) {
 	machine := machineName{Name: name}
 	query := `
-SELECT &machineUUID.net_node_uuid
+SELECT &machineName.net_node_uuid
 FROM machine
-WHERE name = $machineUUID.name
+WHERE name = $machineName.name
 `
-	stmt, err := st.Prepare(query, machine, machineUUID{})
+	stmt, err := st.Prepare(query, machine)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
