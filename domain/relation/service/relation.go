@@ -121,6 +121,13 @@ type State interface {
 	//     relation.
 	EnterScope(ctx context.Context, relationUUID corerelation.UUID, unitName unit.Name) error
 
+	// LeaveScope updates the given relation to indicate it is not in scope.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationUnitNotFound] if the relation unit cannot be
+	//     found.
+	LeaveScope(ctx context.Context, relationUnitUUID corerelation.UnitUUID) error
+
 	// WatcherApplicationSettingsNamespace provides the table name to set up
 	// watchers for relation application settings.
 	WatcherApplicationSettingsNamespace() string
@@ -518,8 +525,16 @@ func (s *Service) IsRelationSuspended(ctx context.Context, relationUUID corerela
 }
 
 // LeaveScope updates the given relation to indicate it is not in scope.
-func (s *Service) LeaveScope(ctx context.Context, relationID corerelation.UnitUUID) error {
-	return coreerrors.NotImplemented
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationUnitNotFound] if the relation unit cannot be
+//     found.
+func (s *Service) LeaveScope(ctx context.Context, relationUnitUUID corerelation.UnitUUID) error {
+	if err := relationUnitUUID.Validate(); err != nil {
+		return errors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+	return s.st.LeaveScope(ctx, relationUnitUUID)
 }
 
 // ReestablishRelation brings the given relation back to normal after
