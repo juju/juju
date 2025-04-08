@@ -6,7 +6,7 @@ package docker
 import (
 	"encoding/json"
 
-	"github.com/docker/distribution/reference"
+	"github.com/distribution/reference"
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v3"
 
