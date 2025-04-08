@@ -160,6 +160,45 @@ func (c *MockStateGetMachineUUIDByNameCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
+// GetMachinesNotAtTargetAgentVersion mocks base method.
+func (m *MockState) GetMachinesNotAtTargetAgentVersion(arg0 context.Context) ([]machine.Name, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachinesNotAtTargetAgentVersion", arg0)
+	ret0, _ := ret[0].([]machine.Name)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachinesNotAtTargetAgentVersion indicates an expected call of GetMachinesNotAtTargetAgentVersion.
+func (mr *MockStateMockRecorder) GetMachinesNotAtTargetAgentVersion(arg0 any) *MockStateGetMachinesNotAtTargetAgentVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachinesNotAtTargetAgentVersion", reflect.TypeOf((*MockState)(nil).GetMachinesNotAtTargetAgentVersion), arg0)
+	return &MockStateGetMachinesNotAtTargetAgentVersionCall{Call: call}
+}
+
+// MockStateGetMachinesNotAtTargetAgentVersionCall wrap *gomock.Call
+type MockStateGetMachinesNotAtTargetAgentVersionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachinesNotAtTargetAgentVersionCall) Return(arg0 []machine.Name, arg1 error) *MockStateGetMachinesNotAtTargetAgentVersionCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachinesNotAtTargetAgentVersionCall) Do(f func(context.Context) ([]machine.Name, error)) *MockStateGetMachinesNotAtTargetAgentVersionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachinesNotAtTargetAgentVersionCall) DoAndReturn(f func(context.Context) ([]machine.Name, error)) *MockStateGetMachinesNotAtTargetAgentVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetModelTargetAgentVersion mocks base method.
 func (m *MockState) GetModelTargetAgentVersion(arg0 context.Context) (semversion.Number, error) {
 	m.ctrl.T.Helper()
@@ -312,6 +351,45 @@ func (c *MockStateGetUnitUUIDByNameCall) Do(f func(context.Context, unit.Name) (
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetUnitUUIDByNameCall) DoAndReturn(f func(context.Context, unit.Name) (unit.UUID, error)) *MockStateGetUnitUUIDByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitsNotAtTargetAgentVersion mocks base method.
+func (m *MockState) GetUnitsNotAtTargetAgentVersion(arg0 context.Context) ([]unit.Name, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitsNotAtTargetAgentVersion", arg0)
+	ret0, _ := ret[0].([]unit.Name)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitsNotAtTargetAgentVersion indicates an expected call of GetUnitsNotAtTargetAgentVersion.
+func (mr *MockStateMockRecorder) GetUnitsNotAtTargetAgentVersion(arg0 any) *MockStateGetUnitsNotAtTargetAgentVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitsNotAtTargetAgentVersion", reflect.TypeOf((*MockState)(nil).GetUnitsNotAtTargetAgentVersion), arg0)
+	return &MockStateGetUnitsNotAtTargetAgentVersionCall{Call: call}
+}
+
+// MockStateGetUnitsNotAtTargetAgentVersionCall wrap *gomock.Call
+type MockStateGetUnitsNotAtTargetAgentVersionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitsNotAtTargetAgentVersionCall) Return(arg0 []unit.Name, arg1 error) *MockStateGetUnitsNotAtTargetAgentVersionCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitsNotAtTargetAgentVersionCall) Do(f func(context.Context) ([]unit.Name, error)) *MockStateGetUnitsNotAtTargetAgentVersionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitsNotAtTargetAgentVersionCall) DoAndReturn(f func(context.Context) ([]unit.Name, error)) *MockStateGetUnitsNotAtTargetAgentVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
