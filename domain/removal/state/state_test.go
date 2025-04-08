@@ -70,6 +70,31 @@ VALUES (?, ?, ?, ?, ?, ?)`
 	})
 }
 
+func (s *stateSuite) TestDeleteJob(c *gc.C) {
+	ins := `
+INSERT INTO removal (uuid, removal_type_id, entity_uuid, force, scheduled_for, arg) 
+VALUES (?, ?, ?, ?, ?, ?)`
+
+	jID1, _ := removal.NewUUID()
+	now := time.Now().UTC()
+	_, err := s.DB().Exec(ins, jID1, 0, "rel-1", 0, now, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err = st.DeleteJob(context.Background(), jID1.String())
+	c.Assert(err, jc.ErrorIsNil)
+
+	row := s.DB().QueryRow("SELECT count(*) FROM removal where uuid = ?", jID1)
+	var count int
+	err = row.Scan(&count)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(count, gc.Equals, 0)
+
+	// Idempotent.
+	err = st.DeleteJob(context.Background(), jID1.String())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *stateSuite) TestRelationExists(c *gc.C) {
 	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
 		"some-relation-uuid", 0, "some-relation-id")

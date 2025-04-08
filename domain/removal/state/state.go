@@ -80,3 +80,27 @@ func (st *State) GetAllJobs(ctx context.Context) ([]removal.Job, error) {
 
 	return jobs, err
 }
+
+// DeleteJob ensures that a job with the input
+// UUID is not present in the removal table.
+func (st *State) DeleteJob(ctx context.Context, jUUID string) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	jobUUID := entityUUID{UUID: jUUID}
+
+	stmt, err := st.Prepare("DELETE FROM removal WHERE uuid=$entityUUID.uuid", jobUUID)
+	if err != nil {
+		return errors.Errorf("preparing job deletion: %w", err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, jobUUID).Run()
+		if err != nil {
+			return errors.Errorf("deleting removal row: %w", err)
+		}
+		return nil
+	}))
+}

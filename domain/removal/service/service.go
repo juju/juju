@@ -74,7 +74,7 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 	}
 
 	if err := s.st.DeleteJob(ctx, job.UUID.String()); err != nil {
-		return errors.Capture(err)
+		return errors.Errorf("completing removal %q: %w", job.UUID.String(), err)
 	}
 	return nil
 }
