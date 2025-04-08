@@ -9,6 +9,8 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/juju/domain/life"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -41,7 +43,7 @@ WHERE  uuid = $entityUUID.uuid`, relationUUID)
 		return nil
 	})
 
-	return relationExists, err
+	return relationExists, errors.Capture(err)
 }
 
 // RelationAdvanceLife ensures that there is no relation
@@ -104,6 +106,38 @@ func (st *State) RelationScheduleRemoval(
 		}
 		return nil
 	}))
+}
+
+// GetRelationLife returns the life of the relation with the input UUID.
+func (st *State) GetRelationLife(ctx context.Context, rUUID string) (life.Life, error) {
+	db, err := st.DB()
+	if err != nil {
+		return -1, errors.Capture(err)
+	}
+
+	var relationLife entityLife
+
+	relationUUID := entityUUID{UUID: rUUID}
+	existsStmt, err := st.Prepare(`
+SELECT &entityLife.life_id
+FROM   relation
+WHERE  uuid = $entityUUID.uuid`, relationLife, relationUUID)
+	if err != nil {
+		return -1, errors.Errorf("preparing relation life query: %w", err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, existsStmt, relationUUID).Get(&relationLife)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return relationerrors.RelationNotFound
+		} else if err != nil {
+			return errors.Errorf("running relation life query: %w", err)
+		}
+
+		return nil
+	})
+
+	return relationLife.Life, errors.Capture(err)
 }
 
 // NamespaceForWatchRemovals returns the table name whose UUIDs we

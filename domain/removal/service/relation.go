@@ -35,7 +35,7 @@ type RelationState interface {
 	// are watching in order to be notified of new removal jobs.
 	NamespaceForWatchRemovals() string
 
-	// GetRelationLife returns the life of the input relation.
+	// GetRelationLife returns the life of the relation with the input UUID.
 	GetRelationLife(ctx context.Context, rUUID string) (life.Life, error)
 
 	// UnitNamesInScope returns the names of units in
@@ -119,7 +119,7 @@ func (s *Service) processRelationRemovalJob(ctx context.Context, job removal.Job
 			// Indicate success so that this job will be deleted.
 			return nil
 		}
-		return errors.Capture(err)
+		return errors.Errorf("getting relation %q life: %w", job.EntityUUID, err)
 	}
 
 	if l == life.Alive {

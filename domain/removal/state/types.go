@@ -6,6 +6,8 @@ package state
 import (
 	"database/sql"
 	"time"
+
+	"github.com/juju/juju/domain/life"
 )
 
 // removalJob represents a record in the removal table
@@ -29,4 +31,9 @@ type removalJob struct {
 type entityUUID struct {
 	// UUID uniquely identifies a domain entity.
 	UUID string `db:"uuid"`
+}
+
+// entityLife holds an entity's life in integer
+type entityLife struct {
+	Life life.Life `db:"life_id"`
 }
