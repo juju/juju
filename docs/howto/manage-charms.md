@@ -282,13 +282,21 @@ To debug a charm:
 
 > See more: {ref}`view-details-about-an-application`, {ref}`view-details-about-a-unit`
 
-- (For a Kubernetes charm with a workload:) SSH into the workload container and view the Pebble plan.
+- For a Kubernetes charm with a workload, {ref}`command-juju-ssh` into the workload container and view the Pebble plan.
 
-````{dropdown} Example
+````{dropdown} Tips and examples
 
+(debug-a-k8s-charm)=
+
+```bash
+juju ssh --container=concourse-worker concourse-worker/0
+```
+This will drop you into an ssh session in the workload container (`concourse-worker`) of this unit (`concourse-worker/0`). Here you can interact with the `pebble` process running in your workload container. Note that `pebble` is not in `PATH`, so you need to use the full path to the executable, like so:
+```sh
+/charm/bin/pebble plan
+```
+Which, in this example, produces the following output:
 ```text
-$ juju ssh --container concourse-worker concourse-worker/0
-# /charm/bin/pebble plan
 services:
     concourse-worker:
         summary: concourse worker node
@@ -303,29 +311,30 @@ services:
             CONCOURSE_WORK_DIR: /opt/concourse/worker
 ```
 
-In some cases, your workload container might not allow you to run things in it, if, for instance, it’s based on a “scratch” image. To get around this, you can run the same command from your charm container with a small modification to point to the correct location for the pebble socket.
-
-```text
-$ juju ssh concourse-worker/0
-# PEBBLE_SOCKET=/charm/containers/concourse-worker/pebble.socket /charm/bin/pebble plan
-services:
-    concourse-worker:
-        summary: concourse worker node
-        startup: enabled
-        override: replace
-        command: /usr/local/bin/entrypoint.sh worker
-        environment:
-            CONCOURSE_BAGGAGECLAIM_DRIVER: overlay
-            CONCOURSE_TSA_HOST: 10.1.234.43:2222
-            CONCOURSE_TSA_PUBLIC_KEY: /concourse-keys/tsa_host_key.pub
-            CONCOURSE_TSA_WORKER_PRIVATE_KEY: /concourse-keys/worker_key
-            CONCOURSE_WORK_DIR: /opt/concourse/worker
+In some cases, your workload container might not allow you to run things in it, if, for instance, it’s based on a “scratch” image. To get around this, you can ssh into the charm container instead, and interact with the `pebble` instance in the workload container from there, just like the charm code does. To ssh into the charm container, drop the `--container=...` option or specify the `charm` container.
+```bash
+juju ssh concourse-worker/0
+```
+```bash
+juju --container=charm concourse-worker/0
+```
+The command to run in the charm container is the same, but with the `PEBBLE_SOCKET` envronment variable set, and will produce the same output.
+```sh
+PEBBLE_SOCKET=/charm/containers/concourse-worker/pebble.socket /charm/bin/pebble plan
+```
+An interactive session can be helpful for further debugging, but you can also specify the full command in the `juju ssh` invocation.
+```bash
+juju ssh concourse-worker/0 PEBBLE_SOCKET=/charm/containers/concourse-worker/pebble.socket /charm/bin/pebble plan
+```
+This is a bit of a mouthful, but if you're a [jhack](https://github.com/canonical/jhack) user then there's the `jhack pebble` command which takes care of the socket and Pebble paths for you.
+```bash
+jhack pebble --container=concourse-worker concourse-worker/0 plan
 ```
 ````
 > See more: {ref}`deploying-on-a-kubernetes-cloud`, [Pebble](https://documentation.ubuntu.com/pebble/)
 
 
-- (If the charm is involved in a relation:) Take a look at the relation data:
+- If the charm is involved in a relation, take a look at the relation data.
 
 ```text
 $ juju exec --unit your-charm/0 "relation-ids foo"
