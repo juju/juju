@@ -79,7 +79,6 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 		systemState.ControllerTag(),
 		statePoolShim{StatePool: pool},
 		toolsFinder,
-		newEnviron,
 		common.NewBlockChecker(domainServices.BlockCommand()),
 		auth,
 		registry.New,

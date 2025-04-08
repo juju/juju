@@ -26,7 +26,6 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/docker"
@@ -70,7 +69,6 @@ type modelUpgradeSuite struct {
 
 	statePool               *mocks.MockStatePool
 	toolsFinder             *mocks.MockToolsFinder
-	bootstrapEnviron        *mocks.MockBootstrapEnviron
 	blockChecker            *mocks.MockBlockCheckerInterface
 	upgradeService          *mocks.MockUpgradeService
 	controllerConfigService *mocks.MockControllerConfigService
@@ -100,7 +98,6 @@ func (s *modelUpgradeSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.statePool = mocks.NewMockStatePool(ctrl)
 	s.toolsFinder = mocks.NewMockToolsFinder(ctrl)
-	s.bootstrapEnviron = mocks.NewMockBootstrapEnviron(ctrl)
 	s.blockChecker = mocks.NewMockBlockCheckerInterface(ctrl)
 	s.registryProvider = registrymocks.NewMockRegistry(ctrl)
 	s.upgradeService = mocks.NewMockUpgradeService(ctrl)
@@ -116,9 +113,6 @@ func (s *modelUpgradeSuite) newFacade(c *gc.C) *modelupgrader.ModelUpgraderAPI {
 		coretesting.ControllerTag,
 		s.statePool,
 		s.toolsFinder,
-		func(ctx context.Context) (environs.BootstrapEnviron, error) {
-			return s.bootstrapEnviron, nil
-		},
 		s.blockChecker, s.authoriser,
 		func(docker.ImageRepoDetails) (registry.Registry, error) {
 			return s.registryProvider, nil
