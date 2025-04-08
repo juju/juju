@@ -286,7 +286,6 @@ SELECT
     a.charm_uuid,
     a.charm_modified_version,
     a.charm_upgrade_on_error,
-    a.placement,
     cm.subordinate,
     c.reference_name,
     c.source_id,

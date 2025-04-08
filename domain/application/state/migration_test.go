@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/life"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type migrationStateSuite struct {
@@ -153,8 +152,6 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExport(c *gc.C) {
 		},
 	})
 
-	machineName := s.createMachine(c)
-
 	unitUUID, err := st.GetUnitUUIDByName(context.Background(), "foo/0")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -164,7 +161,7 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExport(c *gc.C) {
 		{
 			UUID:    unitUUID,
 			Name:    "foo/0",
-			Machine: machineName,
+			Machine: machine.Name("0"),
 		},
 	})
 }
@@ -193,8 +190,6 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportDying(c *gc.C) {
 		},
 	})
 
-	machineName := s.createMachine(c)
-
 	unitUUID, err := st.GetUnitUUIDByName(context.Background(), "foo/0")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -210,7 +205,7 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportDying(c *gc.C) {
 		{
 			UUID:    unitUUID,
 			Name:    "foo/0",
-			Machine: machineName,
+			Machine: machine.Name("0"),
 		},
 	})
 }
@@ -229,8 +224,6 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportDead(c *gc.C) {
 		},
 	})
 
-	machineName := s.createMachine(c)
-
 	unitUUID, err := st.GetUnitUUIDByName(context.Background(), "foo/0")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -246,28 +239,7 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportDead(c *gc.C) {
 		{
 			UUID:    unitUUID,
 			Name:    "foo/0",
-			Machine: machineName,
+			Machine: machine.Name("0"),
 		},
 	})
-}
-
-func (s *migrationStateSuite) createMachine(c *gc.C) machine.Name {
-	machineUUID := uuid.MustNewUUID()
-
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		var netNodeUUID string
-		err := tx.QueryRowContext(ctx, `SELECT net_node_uuid FROM unit WHERE name = 'foo/0'`).Scan(&netNodeUUID)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO machine (uuid, name, life_id, net_node_uuid) 
-VALUES (?, ?, 0, ?)`, machineUUID.String(), "0", netNodeUUID)
-
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	return machine.Name("0")
 }

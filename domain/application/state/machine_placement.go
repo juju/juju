@@ -26,7 +26,12 @@ func (st *State) placeNetNodeMachines(ctx context.Context, tx *sqlair.TX, direct
 	case placement.PlacementTypeUnset:
 		// The placement is unset, so we need to create a machine for the
 		// net node to link the unit to.
-		_, _, netNode, err := st.insertMachineForNetNode(ctx, tx)
+		machineName, err := st.nextMachineSequence(ctx, tx)
+		if err != nil {
+			return "", errors.Capture(err)
+		}
+
+		_, netNode, err := st.insertMachineForNetNode(ctx, tx, machineName)
 		return netNode, errors.Capture(err)
 
 	case placement.PlacementTypeMachine:
@@ -39,20 +44,31 @@ func (st *State) placeNetNodeMachines(ctx context.Context, tx *sqlair.TX, direct
 		// create a parent machine (the next in the sequence) with the
 		// associated net node UUID. Then we need to create a child machine
 		// for the container and link it to the parent machine.
-		machineUUID, machineName, netNode, err := st.insertMachineForNetNode(ctx, tx)
+		machineName, err := st.nextMachineSequence(ctx, tx)
 		if err != nil {
 			return "", errors.Capture(err)
 		}
-		if err := st.insertChildMachineForContainerPlacement(ctx, tx, machineUUID, machineName, netNode, directive.Directive); err != nil {
+
+		machineUUID, _, err := st.insertMachineForNetNode(ctx, tx, machineName)
+		if err != nil {
+			return "", errors.Capture(err)
+		}
+		childNetNode, err := st.insertChildMachineForContainerPlacement(ctx, tx, machineUUID, machineName, directive.Directive)
+		if err != nil {
 			return "", errors.Errorf("inserting child machine for container placement: %w", err)
 		}
-		return netNode, nil
+		return childNetNode, nil
 
 	case placement.PlacementTypeProvider:
 		// The placement is handled by the provider, so we need to create a
 		// machine for the net node and then insert the provider placement
 		// for the machine.
-		machine, _, netNode, err := st.insertMachineForNetNode(ctx, tx)
+		machineName, err := st.nextMachineSequence(ctx, tx)
+		if err != nil {
+			return "", errors.Capture(err)
+		}
+
+		machine, netNode, err := st.insertMachineForNetNode(ctx, tx, machineName)
 		if err != nil {
 			return "", errors.Capture(err)
 		}
@@ -62,7 +78,7 @@ func (st *State) placeNetNodeMachines(ctx context.Context, tx *sqlair.TX, direct
 		return netNode, nil
 
 	default:
-		return "", errors.Errorf("invalid placement type %q", directive.Type)
+		return "", errors.Errorf("invalid placement type: %v", directive.Type)
 	}
 }
 
@@ -87,10 +103,10 @@ WHERE name = $machineName.name
 	return machine.NetNodeUUID, nil
 }
 
-func (st *State) insertMachineForNetNode(ctx context.Context, tx *sqlair.TX) (machine.UUID, machine.Name, string, error) {
+func (st *State) insertMachineForNetNode(ctx context.Context, tx *sqlair.TX, machineName machine.Name) (machine.UUID, string, error) {
 	uuid, err := uuid.NewUUID()
 	if err != nil {
-		return "", "", "", errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
 
 	netNodeUUID := netNodeUUID{NetNodeUUID: uuid.String()}
@@ -98,24 +114,17 @@ func (st *State) insertMachineForNetNode(ctx context.Context, tx *sqlair.TX) (ma
 	createNode := `INSERT INTO net_node (uuid) VALUES ($netNodeUUID.*)`
 	createNodeStmt, err := st.Prepare(createNode, netNodeUUID)
 	if err != nil {
-		return "", "", "", errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
 
 	if err := tx.Query(ctx, createNodeStmt, netNodeUUID).Run(); err != nil {
-		return "", "", "", errors.Errorf("creating net node for machine: %w", err)
+		return "", "", errors.Errorf("creating net node for machine: %w", err)
 	}
 
 	machineUUID, err := machine.NewUUID()
 	if err != nil {
-		return "", "", "", errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
-
-	seq, err := sequence.NextValue(ctx, st, tx, machineSequenceNamespace)
-	if err != nil {
-		return "", "", "", errors.Errorf("getting next machine sequence: %w", err)
-	}
-
-	machineName := machine.Name(fmt.Sprintf("%d", seq))
 
 	m := createMachine{
 		MachineUUID: machineUUID,
@@ -130,13 +139,13 @@ VALUES ($createMachine.*);
 `
 	createMachineStmt, err := st.Prepare(createMachineQuery, m)
 	if err != nil {
-		return "", "", "", errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
 	if err := tx.Query(ctx, createMachineStmt, m).Run(); err != nil {
-		return "", "", "", errors.Errorf("creating new machine: %w", err)
+		return "", "", errors.Errorf("creating new machine: %w", err)
 	}
 
-	return machineUUID, machineName, netNodeUUID.NetNodeUUID, nil
+	return machineUUID, netNodeUUID.NetNodeUUID, nil
 }
 
 func (st *State) insertMachineProviderPlacement(ctx context.Context, tx *sqlair.TX, machineUUID machine.UUID, placement string) error {
@@ -164,45 +173,20 @@ func (st *State) insertChildMachineForContainerPlacement(
 	tx *sqlair.TX,
 	parentUUID machine.UUID,
 	parentName machine.Name,
-	netNode string,
 	scope string,
-) error {
-	machineUUID, err := machine.NewUUID()
+) (string, error) {
+	machineName, err := st.nextContainerSequence(ctx, tx, scope, parentName)
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
-	seq, err := sequence.NextValue(ctx, st, tx, fmt.Sprintf(containerSequenceNamespace, parentName))
+	machineUUID, netNodeUUID, err := st.insertMachineForNetNode(ctx, tx, machineName)
 	if err != nil {
-		return errors.Errorf("getting next container machine sequence: %w", err)
-	}
-
-	machineName, err := parentName.NamedChild(scope, strconv.FormatUint(seq, 10))
-	if err != nil {
-		return errors.Errorf("creating container machine name: %w", err)
-	}
-
-	m := createMachine{
-		MachineUUID: machineUUID,
-		NetNodeUUID: netNode,
-		Name:        machineName,
-		LifeID:      life.Alive,
-	}
-
-	createMachineQuery := `
-INSERT INTO machine (uuid, net_node_uuid, name, life_id)
-VALUES ($createMachine.*);
-`
-	createMachineStmt, err := st.Prepare(createMachineQuery, m)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	if err := tx.Query(ctx, createMachineStmt, m).Run(); err != nil {
-		return errors.Errorf("creating new container machine: %w", err)
+		return "", errors.Capture(err)
 	}
 
 	parentMachineQuery := `
-INSERT INTO machine_parent (parent_uuid, child_uuid)
+INSERT INTO machine_parent (parent_uuid, machine_uuid)
 VALUES ($machineParent.*);
 `
 	p := machineParent{
@@ -211,11 +195,29 @@ VALUES ($machineParent.*);
 	}
 	parentMachineStmt, err := st.Prepare(parentMachineQuery, p)
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	if err := tx.Query(ctx, parentMachineStmt, p).Run(); err != nil {
-		return errors.Errorf("creating new container machine parent: %w", err)
+		return "", errors.Errorf("creating new container machine parent: %w", err)
 	}
-	return nil
+	return netNodeUUID, nil
+}
+
+func (st *State) nextMachineSequence(ctx context.Context, tx *sqlair.TX) (machine.Name, error) {
+	seq, err := sequence.NextValue(ctx, st, tx, machineSequenceNamespace)
+	if err != nil {
+		return "", errors.Errorf("getting next machine sequence: %w", err)
+	}
+
+	return machine.Name(strconv.FormatUint(seq, 10)), nil
+}
+
+func (st *State) nextContainerSequence(ctx context.Context, tx *sqlair.TX, scope string, parentName machine.Name) (machine.Name, error) {
+	seq, err := sequence.NextValue(ctx, st, tx, fmt.Sprintf(containerSequenceNamespace, parentName))
+	if err != nil {
+		return "", errors.Errorf("getting next container machine sequence: %w", err)
+	}
+
+	return parentName.NamedChild(scope, strconv.FormatUint(seq, 10))
 }
