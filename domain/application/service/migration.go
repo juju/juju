@@ -38,6 +38,12 @@ type MigrationState interface {
 	// If the application does not exist, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	GetApplicationUnitsForExport(ctx context.Context, appID coreapplication.ID) ([]application.ExportUnit, error)
+
+	// GetSpaceUUIDByName returns the UUID of the space with the given name.
+	// It returns an error satisfying [networkerrors.SpaceNotFound] if the provided
+	//
+	// space name doesn't exist.
+	GetSpaceUUIDByName(ctx context.Context, name string) (network.Id, error)
 }
 
 // MigrationService provides the API for migrating applications.
@@ -358,6 +364,14 @@ func (s *MigrationService) GetExposedEndpoints(ctx context.Context, appName stri
 	}
 
 	return s.st.GetExposedEndpoints(ctx, appID)
+}
+
+// GetSpaceUUIDByName returns the UUID of the space with the given name.
+//
+// It returns an error satisfying [networkerrors.SpaceNotFound] if the provided
+// space name doesn't exist.
+func (s *MigrationService) GetSpaceUUIDByName(ctx context.Context, name string) (network.Id, error) {
+	return s.st.GetSpaceUUIDByName(ctx, name)
 }
 
 func makeUnitArgs(units []ImportUnitArg, charmUUID corecharm.ID) ([]application.InsertUnitArg, error) {

@@ -487,3 +487,39 @@ WHERE uuid IN ($spaces[:]);
 	}
 	return nil
 }
+
+// GetSpaceUUIDByName returns the UUID of the space with the given name.
+//
+// It returns an error satisfying [networkerrors.SpaceNotFound] if the provided
+// space name doesn't exist.
+func (st *State) GetSpaceUUIDByName(ctx context.Context, name string) (network.Id, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	spaceName := spaceName{Name: name}
+	query := `
+SELECT &spaceUUID.uuid
+FROM space
+WHERE name = $spaceName.name;`
+	stmt, err := st.Prepare(query, spaceUUID{}, spaceName)
+	if err != nil {
+		return "", errors.Errorf("preparing space UUID by name %q query: %w", name, err)
+	}
+
+	var spaceUUID spaceUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, spaceName).Get(&spaceUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("%w: %q", networkerrors.SpaceNotFound, name)
+		} else if err != nil {
+			return errors.Errorf("getting space UUID by name %q: %w", name, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return network.Id(spaceUUID.UUID), nil
+}

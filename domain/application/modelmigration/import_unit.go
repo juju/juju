@@ -26,7 +26,7 @@ func (i *importOperation) importUnit(ctx context.Context, unit description.Unit)
 
 	var cloudContainer *application.CloudContainerParams
 	if cc := unit.CloudContainer(); cc != nil {
-		address, origin := makeAddress(cc.Address())
+		address, origin := i.makeAddress(cc.Address())
 
 		cloudContainer = &application.CloudContainerParams{
 			Address:       address,

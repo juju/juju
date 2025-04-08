@@ -16,6 +16,7 @@ import (
 	charm "github.com/juju/juju/core/charm"
 	config "github.com/juju/juju/core/config"
 	constraints "github.com/juju/juju/core/constraints"
+	network "github.com/juju/juju/core/network"
 	unit "github.com/juju/juju/core/unit"
 	application "github.com/juju/juju/domain/application"
 	charm0 "github.com/juju/juju/domain/application/charm"
@@ -45,6 +46,45 @@ func NewMockImportService(ctrl *gomock.Controller) *MockImportService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 	return m.recorder
+}
+
+// GetSpaceUUIDByName mocks base method.
+func (m *MockImportService) GetSpaceUUIDByName(arg0 context.Context, arg1 string) (network.Id, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSpaceUUIDByName", arg0, arg1)
+	ret0, _ := ret[0].(network.Id)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSpaceUUIDByName indicates an expected call of GetSpaceUUIDByName.
+func (mr *MockImportServiceMockRecorder) GetSpaceUUIDByName(arg0, arg1 any) *MockImportServiceGetSpaceUUIDByNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSpaceUUIDByName", reflect.TypeOf((*MockImportService)(nil).GetSpaceUUIDByName), arg0, arg1)
+	return &MockImportServiceGetSpaceUUIDByNameCall{Call: call}
+}
+
+// MockImportServiceGetSpaceUUIDByNameCall wrap *gomock.Call
+type MockImportServiceGetSpaceUUIDByNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockImportServiceGetSpaceUUIDByNameCall) Return(arg0 network.Id, arg1 error) *MockImportServiceGetSpaceUUIDByNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockImportServiceGetSpaceUUIDByNameCall) Do(f func(context.Context, string) (network.Id, error)) *MockImportServiceGetSpaceUUIDByNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockImportServiceGetSpaceUUIDByNameCall) DoAndReturn(f func(context.Context, string) (network.Id, error)) *MockImportServiceGetSpaceUUIDByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // ImportApplication mocks base method.
