@@ -5,9 +5,11 @@ package bootstrap
 
 import (
 	"context"
+	"io"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
@@ -31,6 +33,20 @@ type AgentPasswordService interface {
 	// not exist, an error satisfying [applicationerrors.UnitNotFound] is
 	// returned.
 	SetUnitPassword(ctx context.Context, unitName unit.Name, password string) error
+}
+
+// AgentBinaryStore is responsible for persisting agent binary's into a long
+// term store for later retrival.
+type AgentBinaryStore interface {
+	// AddWithSHA256 adds a new agent binary to the object store and saves its
+	// metadata to the database.
+	AddWithSHA256(
+		_ context.Context,
+		data io.Reader,
+		varions coreagentbinary.Version,
+		size int64,
+		sha256 string,
+	) error
 }
 
 // ApplicationService instances save an application to dqlite state.

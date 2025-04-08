@@ -85,7 +85,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		HTTPClientName:      "http-client",
 		StorageRegistryName: "storage-registry",
 		Logger:              s.logger,
-		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, logger.Logger) (func(), error) {
+		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
 			return func() {}, nil
 		},
 		ControllerCharmDeployer: func(ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {

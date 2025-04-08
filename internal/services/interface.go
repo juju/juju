@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/model"
 	accessservice "github.com/juju/juju/domain/access/service"
+	agentbinaryservice "github.com/juju/juju/domain/agentbinary/service"
 	agentpasswordservice "github.com/juju/juju/domain/agentpassword/service"
 	agentprovisionerservice "github.com/juju/juju/domain/agentprovisioner/service"
 	annotationService "github.com/juju/juju/domain/annotation/service"
@@ -52,6 +53,8 @@ import (
 // ControllerDomainServices provides access to the services required by the
 // apiserver.
 type ControllerDomainServices interface {
+	// AgentBinary returns the agent binary store for the entire controller.
+	AgentBinary() *agentbinaryservice.AgentBinaryStore
 	// Controller returns the controller service.
 	Controller() *controllerservice.Service
 	// ControllerConfig returns the controller configuration service.
