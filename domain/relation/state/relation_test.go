@@ -1065,6 +1065,57 @@ func (s *relationSuite) TestGetRelationEndpointsRelationNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
+func (s *relationSuite) TestGetApplicationEndpoints(c *gc.C) {
+	// Arrange: Add two endpoints to the same application.
+	charmRelationUUID1 := "fake-charm-relation-uuid-1"
+	applicationEndpointUUID1 := "fake-application-endpoint-uuid-1"
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Optional:  true,
+			Limit:     20,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+
+	charmRelationUUID2 := "fake-charm-relation-uuid-2"
+	applicationEndpointUUID2 := "fake-application-endpoint-uuid-2"
+	endpoint2 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Optional:  false,
+			Limit:     10,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID1, endpoint1.Relation)
+	s.addCharmRelation(c, s.fakeCharmUUID1, charmRelationUUID2, endpoint2.Relation)
+	s.addApplicationEndpoint(c, applicationEndpointUUID1, s.fakeApplicationUUID1, charmRelationUUID1)
+	s.addApplicationEndpoint(c, applicationEndpointUUID2, s.fakeApplicationUUID1, charmRelationUUID2)
+
+	// Act: Get relation endpoints.
+	endpoints, err := s.state.GetApplicationEndpoints(context.Background(), s.fakeApplicationUUID1)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(endpoints, jc.SameContents, []relation.Endpoint{endpoint1, endpoint2})
+}
+
+func (s *relationSuite) TestGetApplicationEndpointsEmptySlice(c *gc.C) {
+	// Act: Get relation endpoints.
+	endpoints, err := s.state.GetApplicationEndpoints(context.Background(), s.fakeApplicationUUID1)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(endpoints, gc.HasLen, 0)
+}
+
 func (s *relationSuite) TestGetRegularRelationUUIDByEndpointIdentifiers(c *gc.C) {
 	// Arrange: Add two endpoints and a relation on them.
 	expectedRelationUUID := corerelationtesting.GenRelationUUID(c)

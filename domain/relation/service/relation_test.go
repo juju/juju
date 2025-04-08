@@ -748,6 +748,86 @@ func (s *relationServiceSuite) TestEnterScopeRelationUnitNameNotValid(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
 }
 
+func (s *relationServiceSuite) TestGetRelationEndpoints(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+
+	expectedEndpoints := []relation.Endpoint{{
+		ApplicationName: "app-2",
+	}, {
+		ApplicationName: "app-1",
+	}}
+
+	s.state.EXPECT().GetRelationEndpoints(gomock.Any(), relationUUID).Return(expectedEndpoints, nil)
+
+	// Act:
+	endpoints, err := s.service.GetRelationEndpoints(context.Background(), relationUUID)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(endpoints, gc.DeepEquals, expectedEndpoints)
+}
+
+func (s *relationServiceSuite) TestGetRelationEndpointsRelationUUIDNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Act.
+	_, err := s.service.GetRelationEndpoints(context.Background(), "bad-uuid")
+
+	// Assert.
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
+}
+
+func (s *relationServiceSuite) TestGetApplicationEndpoints(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	applicationID := coreapplicationtesting.GenApplicationUUID(c)
+
+	expectedEndpoints := []relation.Endpoint{{
+		ApplicationName: "app-2",
+	}, {
+		ApplicationName: "app-1",
+	}}
+
+	s.state.EXPECT().GetApplicationEndpoints(gomock.Any(), applicationID).Return(expectedEndpoints, nil)
+
+	// Act:
+	endpoints, err := s.service.GetApplicationEndpoints(context.Background(), applicationID)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(endpoints, jc.SameContents, expectedEndpoints)
+}
+
+func (s *relationServiceSuite) TestGetApplicationEndpointsEmptySlice(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	applicationID := coreapplicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationEndpoints(gomock.Any(), applicationID).Return(nil, nil)
+
+	// Act:
+	endpoints, err := s.service.GetApplicationEndpoints(context.Background(), applicationID)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(endpoints, gc.HasLen, 0)
+}
+
+func (s *relationServiceSuite) TestGetApplicationEndpointsApplicationUUIDNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Act.
+	_, err := s.service.GetApplicationEndpoints(context.Background(), "bad-uuid")
+
+	// Assert.
+	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationIDNotValid)
+}
+
 func (s *relationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
