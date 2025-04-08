@@ -82,9 +82,14 @@ func (s *manifoldSuite) TestStartSuccess(c *gc.C) {
 	cfg := ManifoldConfig{
 		DomainServicesName: "domain-services",
 		GetRemovalService:  func(dependency.Getter, string) (RemovalService, error) { return noService{}, nil },
-		NewWorker:          func(Config) (worker.Worker, error) { return noWorker{}, nil },
-		Clock:              clock.WallClock,
-		Logger:             loggertesting.WrapCheckLog(c),
+		NewWorker: func(cfg Config) (worker.Worker, error) {
+			if err := cfg.Validate(); err != nil {
+				return nil, err
+			}
+			return noWorker{}, nil
+		},
+		Clock:  clock.WallClock,
+		Logger: loggertesting.WrapCheckLog(c),
 	}
 
 	w, err := Manifold(cfg).Start(context.Background(), noGetter{})

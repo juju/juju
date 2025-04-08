@@ -115,6 +115,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 
 	wCfg := Config{
 		RemovalService: removalService,
+		Clock:          config.Clock,
 		Logger:         config.Logger,
 	}
 

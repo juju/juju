@@ -29,6 +29,7 @@ require (
 	github.com/canonical/sqlair v0.0.0-20250120155751-a83645b9a121
 	github.com/chzyer/readline v1.5.1
 	github.com/coreos/go-systemd/v22 v22.5.0
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/dustin/go-humanize v1.0.1
 	github.com/fatih/color v1.16.0
@@ -167,7 +168,6 @@ require (
 	github.com/cilium/ebpf v0.11.0 // indirect
 	github.com/cjlapao/common-go v0.0.39 // indirect
 	github.com/cosiner/argv v0.1.0 // indirect
-	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/derekparker/trie v0.0.0-20230829180723-39f4de51ef7d // indirect
 	github.com/distribution/reference v0.5.0 // indirect
