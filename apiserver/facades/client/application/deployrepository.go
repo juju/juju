@@ -143,7 +143,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
-	unitArgs := make([]applicationservice.AddUnitArg, 0, dt.numUnits)
+	unitArgs := make([]applicationservice.AddUnitArg, dt.numUnits)
 	for i := 0; i < dt.numUnits; i++ {
 		var unitPlacement *instance.Placement
 		if i < len(dt.placement) {

@@ -6,6 +6,7 @@ package keyupdater
 import (
 	"context"
 
+	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -28,11 +29,12 @@ import (
 	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
 	"github.com/juju/juju/domain/keyupdater/service"
 	"github.com/juju/juju/domain/keyupdater/state"
-	machinebootstrap "github.com/juju/juju/domain/machine/bootstrap"
+	"github.com/juju/juju/domain/life"
 	domainmodel "github.com/juju/juju/domain/model"
 	modelbootstrap "github.com/juju/juju/domain/model/bootstrap"
 	"github.com/juju/juju/domain/model/state/testing"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -110,12 +112,7 @@ func (s *keyUpdaterSuite) SetUpTest(c *gc.C) {
 		context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machinebootstrap.InsertMachine("0")(
-		context.Background(),
-		s.ControllerTxnRunner(),
-		s.ModelTxnRunner(),
-	)
-	c.Assert(err, jc.ErrorIsNil)
+	s.createMachine(c, "0")
 }
 
 // TestWatchAuthorizedKeysForMachine is here to assert an integration test
@@ -224,4 +221,40 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *gc.C) {
 	})
 
 	harness.Run(c, struct{}{})
+}
+
+func (s *keyUpdaterSuite) createMachine(c *gc.C, machineId string) {
+	createMachine := `
+INSERT INTO machine (uuid, net_node_uuid, name, life_id)
+VALUES ($M.machine_uuid, $M.net_node_uuid, $M.name, $M.life_id)
+`
+	createMachineStmt, err := sqlair.Prepare(createMachine, sqlair.M{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	createNode := `INSERT INTO net_node (uuid) VALUES ($M.net_node_uuid)`
+	createNodeStmt, err := sqlair.Prepare(createNode, sqlair.M{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	nodeUUID, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	machineUUID, err := uuid.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.ModelTxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		createParams := sqlair.M{
+			"machine_uuid":  machineUUID.String(),
+			"net_node_uuid": nodeUUID.String(),
+			"name":          machineId,
+			"life_id":       life.Alive,
+		}
+		if err := tx.Query(ctx, createNodeStmt, createParams).Run(); err != nil {
+			return errors.Errorf("creating net node row for bootstrap machine %q: %w", machineId, err)
+		}
+		if err := tx.Query(ctx, createMachineStmt, createParams).Run(); err != nil {
+			return errors.Errorf("creating machine row for bootstrap machine %q: %w", machineId, err)
+		}
+		return nil
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
 }

@@ -199,7 +199,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 		}
 	}
 	if len(addedUnits) > 0 {
-		addUnitArgs := make([]applicationservice.AddUnitArg, 0, len(addedUnits))
+		addUnitArgs := make([]applicationservice.AddUnitArg, len(addedUnits))
 		for i := range addedUnits {
 			// Try and get the placement for this unit. If it doesn't exist,
 			// then the default behaviour is to create a new machine for the

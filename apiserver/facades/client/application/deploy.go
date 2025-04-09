@@ -154,7 +154,7 @@ func DeployApplication(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	unitArgs := make([]applicationservice.AddUnitArg, 0, args.NumUnits)
+	unitArgs := make([]applicationservice.AddUnitArg, args.NumUnits)
 	for i := 0; i < args.NumUnits; i++ {
 		var unitPlacement *instance.Placement
 		if i < len(args.Placement) {
