@@ -421,6 +421,7 @@ func (s *ModelServices) Relation() *relationservice.WatchableService {
 			s.logger.Child("relation.state"),
 		),
 		s.modelWatcherFactory("relation.watcher"),
+		domain.NewLeaseService(s.leaseManager),
 		s.logger.Child("relation.service"),
 	)
 }
