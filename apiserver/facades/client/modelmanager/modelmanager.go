@@ -18,7 +18,6 @@ import (
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
@@ -31,7 +30,6 @@ import (
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
@@ -43,8 +41,6 @@ import (
 var (
 	logger = internallogger.GetLogger("juju.apiserver.modelmanager")
 )
-
-type newCaasBrokerFunc func(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (caas.Broker, error)
 
 // StateBackend represents the mongo backend.
 type StateBackend interface {
@@ -85,8 +81,6 @@ type ModelManagerAPI struct {
 	// ToolsFinder is used to find tools for a given version.
 	toolsFinder common.ToolsFinder
 
-	// Broker/Provider management.
-	getBroker      newCaasBrokerFunc
 	controllerUUID uuid.UUID
 }
 
@@ -100,7 +94,6 @@ func NewModelManagerAPI(
 	controllerUUID uuid.UUID,
 	services Services,
 	toolsFinder common.ToolsFinder,
-	getBroker newCaasBrokerFunc,
 	blockChecker common.BlockCheckerInterface,
 	authorizer facade.Authorizer,
 	m commonmodel.Model,
@@ -138,7 +131,6 @@ func NewModelManagerAPI(
 		networkService:       services.NetworkService,
 		applicationService:   services.ApplicationService,
 		store:                services.ObjectStore,
-		getBroker:            getBroker,
 		check:                blockChecker,
 		authorizer:           authorizer,
 		toolsFinder:          toolsFinder,

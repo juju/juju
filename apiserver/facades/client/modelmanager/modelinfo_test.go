@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/instance"
@@ -256,7 +255,7 @@ func (s *modelInfoSuite) getAPIWithoutModelInfo(c *gc.C) (*modelmanager.ModelMan
 			SecretBackendService: s.mockSecretBackendService,
 			MachineService:       s.mockMachineService,
 		},
-		nil, nil, common.NewBlockChecker(s.mockBlockCommandService),
+		nil, common.NewBlockChecker(s.mockBlockCommandService),
 		&s.authorizer, s.st.model,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -298,7 +297,7 @@ func (s *modelInfoSuite) getAPIWithUser(c *gc.C, user names.UserTag) (*modelmana
 			SecretBackendService: s.mockSecretBackendService,
 			MachineService:       s.mockMachineService,
 		},
-		nil, nil,
+		nil,
 		common.NewBlockChecker(s.mockBlockCommandService), s.authorizer, s.st.model,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1102,13 +1101,6 @@ func (s *modelInfoSuite) testModelInfoError(c *gc.C, api *modelmanager.ModelMana
 
 type unitRetriever interface {
 	Unit(name string) (*state.Unit, error)
-}
-
-// mockCaasBroker is a CAAS broker placeholder.
-// It's not currently used in tests and can be
-// replaced by a real mock when more tests are fixed.
-type mockCaasBroker struct {
-	caas.Broker
 }
 
 type mockState struct {
