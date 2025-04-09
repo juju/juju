@@ -48,7 +48,7 @@ func (s *controllerSchemaSuite) TestControllerTables(c *gc.C) {
 		"cloud_auth_type",
 		"cloud_ca_cert",
 		"cloud_credential",
-		"cloud_credential_attributes",
+		"cloud_credential_attribute",
 		"cloud_defaults",
 		"cloud_region",
 		"cloud_region_defaults",
@@ -158,7 +158,7 @@ func (s *controllerSchemaSuite) TestControllerViews(c *gc.C) {
 
 		// v_cloud_credential
 		"v_cloud_credential",
-		"v_cloud_credential_attributes",
+		"v_cloud_credential_attribute",
 
 		// Models
 		"v_model",

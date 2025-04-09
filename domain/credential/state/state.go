@@ -225,7 +225,7 @@ func updateCredentialAttributes(ctx context.Context, tx *sqlair.TX, credentialUU
 	// Delete any keys no longer in the attributes map.
 	// TODO(wallyworld) - sqlair does not support IN operations with a list of values
 	deleteQuery := `
-DELETE FROM  cloud_credential_attributes
+DELETE FROM  cloud_credential_attribute
 WHERE        cloud_credential_uuid = $M.uuid
 `
 
@@ -238,7 +238,7 @@ WHERE        cloud_credential_uuid = $M.uuid
 	}
 
 	insertQuery := `
-INSERT INTO cloud_credential_attributes
+INSERT INTO cloud_credential_attribute
 VALUES (
     $CredentialAttribute.cloud_credential_uuid,
     $CredentialAttribute.key,
@@ -413,7 +413,7 @@ FROM   cloud_credential cc
        JOIN auth_type ON cc.auth_type_id = auth_type.id
        JOIN cloud ON cc.cloud_uuid = cloud.uuid
 	   JOIN user on cc.owner_uuid = user.uuid
-       LEFT JOIN cloud_credential_attributes cc_attr ON cc_attr.cloud_credential_uuid = cc.uuid
+       LEFT JOIN cloud_credential_attribute cc_attr ON cc_attr.cloud_credential_uuid = cc.uuid
 WHERE  user.removed = false
 AND    user.name = $ownerAndCloudName.owner_name
 AND    cloud.name = $ownerAndCloudName.cloud_name
@@ -475,7 +475,7 @@ FROM   cloud_credential cc
        JOIN auth_type ON cc.auth_type_id = auth_type.id
        JOIN cloud ON cc.cloud_uuid = cloud.uuid
 	   JOIN user on cc.owner_uuid = user.uuid
-       LEFT JOIN cloud_credential_attributes cc_attr ON cc_attr.cloud_credential_uuid = cc.uuid
+       LEFT JOIN cloud_credential_attribute cc_attr ON cc_attr.cloud_credential_uuid = cc.uuid
 WHERE  user.removed = false
 AND    cloud.name = $credentialKey.cloud_name
 AND    user.name = $credentialKey.owner_name
@@ -553,7 +553,7 @@ func GetCloudCredential(
 ) (credential.CloudCredentialResult, error) {
 	q := `
 SELECT ca.* AS &credentialWithAttribute.*
-FROM   v_cloud_credential_attributes ca
+FROM   v_cloud_credential_attribute ca
 WHERE  uuid = $M.id
 `
 
@@ -615,7 +615,7 @@ FROM   cloud_credential cc
        JOIN auth_type ON cc.auth_type_id = auth_type.id
        JOIN cloud ON cc.cloud_uuid = cloud.uuid
 	   JOIN user on cc.owner_uuid = user.uuid
-       LEFT JOIN cloud_credential_attributes cc_attr ON cc_attr.cloud_credential_uuid = cc.uuid
+       LEFT JOIN cloud_credential_attribute cc_attr ON cc_attr.cloud_credential_uuid = cc.uuid
 WHERE  user.removed = false
 AND    user.name = $ownerName.name
 `
@@ -671,8 +671,8 @@ func (st *State) RemoveCloudCredential(ctx context.Context, key corecredential.K
 	}
 
 	credAttrDeleteQ := `
-DELETE FROM cloud_credential_attributes
-WHERE  cloud_credential_attributes.cloud_credential_uuid = $M.uuid
+DELETE FROM cloud_credential_attribute
+WHERE  cloud_credential_attribute.cloud_credential_uuid = $M.uuid
 `
 
 	credDeleteQ := `

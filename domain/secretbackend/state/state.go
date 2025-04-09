@@ -483,7 +483,7 @@ FROM secret_backend_reference sbr
     JOIN v_model vm ON sbr.model_uuid = vm.uuid
     JOIN v_cloud_auth vc ON vm.cloud_uuid = vc.uuid
     JOIN cloud_ca_cert ccc ON vc.uuid = ccc.cloud_uuid
-    JOIN v_cloud_credential_attributes vcca ON vm.cloud_credential_uuid = vcca.uuid
+    JOIN v_cloud_credential_attribute vcca ON vm.cloud_credential_uuid = vcca.uuid
 WHERE b.name = '%s'
 GROUP BY vm.name, vcca.attribute_key`, kubernetes.BackendName)
 	backendStmt, err := s.Prepare(backendQuery, secretBackendForK8sModelRow{}, cloudRow{}, cloudCredentialRow{})
@@ -658,7 +658,7 @@ SELECT
 FROM v_model vm
     JOIN v_cloud_auth vc ON vm.cloud_uuid = vc.uuid
     JOIN cloud_ca_cert ccc ON vc.uuid = ccc.cloud_uuid
-    JOIN v_cloud_credential_attributes vcca ON vm.cloud_credential_uuid = vcca.uuid
+    JOIN v_cloud_credential_attribute vcca ON vm.cloud_credential_uuid = vcca.uuid
 WHERE vm.uuid = $modelIdentifier.uuid
 GROUP BY vm.name, vcca.attribute_key`, modelIdentifier{}, modelDetails{}, secretBackendForK8sModelRow{}, cloudRow{}, cloudCredentialRow{})
 	if err != nil {

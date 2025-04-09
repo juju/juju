@@ -200,6 +200,27 @@ CREATE TABLE application_status (
     REFERENCES workload_status_value (id)
 );
 
+CREATE TABLE device_constraint (
+    uuid TEXT NOT NULL PRIMARY KEY,
+    application_uuid TEXT NOT NULL,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    count INT,
+    CONSTRAINT fk_device_constraint_application
+    FOREIGN KEY (application_uuid)
+    REFERENCES application (uuid)
+);
+
+CREATE TABLE device_constraint_attribute (
+    device_constraint_uuid TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    value TEXT NOT NULL,
+    CONSTRAINT fk_device_constraint_attribute_device_constraint
+    FOREIGN KEY (device_constraint_uuid)
+    REFERENCES device_constraint (uuid),
+    PRIMARY KEY (device_constraint_uuid, "key")
+);
+
 CREATE VIEW v_application_constraint AS
 SELECT
     ac.application_uuid,
