@@ -62,40 +62,40 @@ func (m *MockAgentBinaryStore) EXPECT() *MockAgentBinaryStoreMockRecorder {
 	return m.recorder
 }
 
-// AddWithSHA256 mocks base method.
-func (m *MockAgentBinaryStore) AddWithSHA256(arg0 context.Context, arg1 io.Reader, arg2 agentbinary.Version, arg3 int64, arg4 string) error {
+// AddAgentBinaryWithSHA256 mocks base method.
+func (m *MockAgentBinaryStore) AddAgentBinaryWithSHA256(arg0 context.Context, arg1 io.Reader, arg2 agentbinary.Version, arg3 int64, arg4 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddWithSHA256", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "AddAgentBinaryWithSHA256", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// AddWithSHA256 indicates an expected call of AddWithSHA256.
-func (mr *MockAgentBinaryStoreMockRecorder) AddWithSHA256(arg0, arg1, arg2, arg3, arg4 any) *MockAgentBinaryStoreAddWithSHA256Call {
+// AddAgentBinaryWithSHA256 indicates an expected call of AddAgentBinaryWithSHA256.
+func (mr *MockAgentBinaryStoreMockRecorder) AddAgentBinaryWithSHA256(arg0, arg1, arg2, arg3, arg4 any) *MockAgentBinaryStoreAddAgentBinaryWithSHA256Call {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddWithSHA256", reflect.TypeOf((*MockAgentBinaryStore)(nil).AddWithSHA256), arg0, arg1, arg2, arg3, arg4)
-	return &MockAgentBinaryStoreAddWithSHA256Call{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddAgentBinaryWithSHA256", reflect.TypeOf((*MockAgentBinaryStore)(nil).AddAgentBinaryWithSHA256), arg0, arg1, arg2, arg3, arg4)
+	return &MockAgentBinaryStoreAddAgentBinaryWithSHA256Call{Call: call}
 }
 
-// MockAgentBinaryStoreAddWithSHA256Call wrap *gomock.Call
-type MockAgentBinaryStoreAddWithSHA256Call struct {
+// MockAgentBinaryStoreAddAgentBinaryWithSHA256Call wrap *gomock.Call
+type MockAgentBinaryStoreAddAgentBinaryWithSHA256Call struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockAgentBinaryStoreAddWithSHA256Call) Return(arg0 error) *MockAgentBinaryStoreAddWithSHA256Call {
+func (c *MockAgentBinaryStoreAddAgentBinaryWithSHA256Call) Return(arg0 error) *MockAgentBinaryStoreAddAgentBinaryWithSHA256Call {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAgentBinaryStoreAddWithSHA256Call) Do(f func(context.Context, io.Reader, agentbinary.Version, int64, string) error) *MockAgentBinaryStoreAddWithSHA256Call {
+func (c *MockAgentBinaryStoreAddAgentBinaryWithSHA256Call) Do(f func(context.Context, io.Reader, agentbinary.Version, int64, string) error) *MockAgentBinaryStoreAddAgentBinaryWithSHA256Call {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAgentBinaryStoreAddWithSHA256Call) DoAndReturn(f func(context.Context, io.Reader, agentbinary.Version, int64, string) error) *MockAgentBinaryStoreAddWithSHA256Call {
+func (c *MockAgentBinaryStoreAddAgentBinaryWithSHA256Call) DoAndReturn(f func(context.Context, io.Reader, agentbinary.Version, int64, string) error) *MockAgentBinaryStoreAddAgentBinaryWithSHA256Call {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

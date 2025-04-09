@@ -19,6 +19,7 @@ import (
 )
 
 // State represents a type for interacting with the underlying state.
+// It works with both controller and model databases.
 type State struct {
 	*domain.StateBase
 }
@@ -74,7 +75,7 @@ WHERE  path = $objectStorePath.path`, objectStore)
 	return objectStore.MetadataUUID, nil
 }
 
-// Add adds a new agent binary's metadata to the database.
+// RegisterAgentBinary registers a new agent binary's metadata to the database.
 // [agentbinaryerrors.AlreadyExists] when the provided agent binary already
 // exists.
 // [agentbinaryerrors.ObjectNotFound] when no object exists that matches
@@ -84,16 +85,16 @@ WHERE  path = $objectStorePath.path`, objectStore)
 // [agentbinaryerrors.AgentBinaryImmutable] if an existing agent binary
 // already exists with the same version and architecture but a different
 // SHA.
-func (s *State) Add(ctx context.Context, metadata agentbinary.Metadata) error {
+func (s *State) RegisterAgentBinary(ctx context.Context, arg agentbinary.RegisterAgentBinaryArg) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	archVal := architectureRecord{Name: metadata.Arch}
+	archVal := architectureRecord{Name: arg.Arch}
 	agentBinary := agentBinaryRecord{
-		Version:         metadata.Version,
-		ObjectStoreUUID: metadata.ObjectStoreUUID.String(),
+		Version:         arg.Version,
+		ObjectStoreUUID: arg.ObjectStoreUUID.String(),
 	}
 
 	archStmt, err := s.Prepare(`
@@ -115,14 +116,14 @@ VALUES ($agentBinaryRecord.*)
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check if the object exists in the database for RI.
-		exists, err := s.checkObjectExists(ctx, tx, metadata.ObjectStoreUUID)
+		exists, err := s.checkObjectExists(ctx, tx, arg.ObjectStoreUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
 		if !exists {
 			return errors.Errorf(
 				"object with id %q does not exist in store",
-				metadata.ObjectStoreUUID,
+				arg.ObjectStoreUUID,
 			).Add(agentbinaryerrors.ObjectNotFound)
 		}
 
@@ -131,7 +132,7 @@ VALUES ($agentBinaryRecord.*)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"architecture %q is not supported",
-				metadata.Arch,
+				arg.Arch,
 			).Add(coreerrors.NotSupported)
 		} else if err != nil {
 			return errors.Capture(err)
@@ -177,7 +178,7 @@ VALUES ($agentBinaryRecord.*)
 	if err != nil {
 		return errors.Errorf(
 			"adding agent binary for version %q and arch %q to state: %w",
-			metadata.Version, metadata.Arch, err,
+			arg.Version, arg.Arch, err,
 		)
 	}
 	return nil
@@ -247,4 +248,12 @@ WHERE  uuid = $objectStoreUUID.uuid
 		)
 	}
 	return true, nil
+}
+
+// ListAgentBinaries lists all agent binaries in the state.
+// It returns a slice of agent binary metadata.
+// An empty slice is returned if no agent binaries are found.
+func (s *State) ListAgentBinaries(ctx context.Context) ([]agentbinary.Metadata, error) {
+	// TODO: Implement this function to list all agent binaries.
+	return nil, errors.New("not implemented")
 }

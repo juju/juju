@@ -38,9 +38,9 @@ type AgentPasswordService interface {
 // AgentBinaryStore is responsible for persisting agent binary's into a long
 // term store for later retrival.
 type AgentBinaryStore interface {
-	// AddWithSHA256 adds a new agent binary to the object store and saves its
+	// AddAgentBinaryWithSHA256 adds a new agent binary to the object store and saves its
 	// metadata to the database.
-	AddWithSHA256(
+	AddAgentBinaryWithSHA256(
 		_ context.Context,
 		data io.Reader,
 		varions coreagentbinary.Version,

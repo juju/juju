@@ -41,7 +41,7 @@ func (s *stateSuite) TestAddSuccess(c *gc.C) {
 	archID := s.addArchitecture(c, "amd64")
 	objStoreUUID, _ := s.addObjectStore(c)
 
-	err := s.state.Add(context.Background(), agentbinary.Metadata{
+	err := s.state.RegisterAgentBinary(context.Background(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.0.0",
 		Arch:            "amd64",
 		ObjectStoreUUID: objStoreUUID,
@@ -60,14 +60,14 @@ func (s *stateSuite) TestAddAlreadyExists(c *gc.C) {
 	archID := s.addArchitecture(c, "amd64")
 	objStoreUUID1, _ := s.addObjectStore(c)
 
-	err := s.state.Add(context.Background(), agentbinary.Metadata{
+	err := s.state.RegisterAgentBinary(context.Background(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.0.0",
 		Arch:            "amd64",
 		ObjectStoreUUID: objStoreUUID1,
 	})
 	c.Check(err, jc.ErrorIsNil)
 
-	err = s.state.Add(context.Background(), agentbinary.Metadata{
+	err = s.state.RegisterAgentBinary(context.Background(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.0.0",
 		Arch:            "amd64",
 		ObjectStoreUUID: objStoreUUID1,
@@ -88,14 +88,14 @@ func (s *stateSuite) TestAddFailedUpdateExistingWithDifferentSHA(c *gc.C) {
 	objStoreUUID1, _ := s.addObjectStore(c)
 	objStoreUUID2, _ := s.addObjectStore(c)
 
-	err := s.state.Add(context.Background(), agentbinary.Metadata{
+	err := s.state.RegisterAgentBinary(context.Background(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.0.0",
 		Arch:            "amd64",
 		ObjectStoreUUID: objStoreUUID1,
 	})
 	c.Check(err, jc.ErrorIsNil)
 
-	err = s.state.Add(context.Background(), agentbinary.Metadata{
+	err = s.state.RegisterAgentBinary(context.Background(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.0.0",
 		Arch:            "amd64",
 		ObjectStoreUUID: objStoreUUID2,
@@ -113,7 +113,7 @@ func (s *stateSuite) TestAddFailedUpdateExistingWithDifferentSHA(c *gc.C) {
 func (s *stateSuite) TestAddErrorArchitectureNotFound(c *gc.C) {
 	objStoreUUID, _ := s.addObjectStore(c)
 
-	err := s.state.Add(context.Background(), agentbinary.Metadata{
+	err := s.state.RegisterAgentBinary(context.Background(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.0.0",
 		Arch:            "non-existent-arch",
 		ObjectStoreUUID: objStoreUUID,
@@ -127,7 +127,7 @@ func (s *stateSuite) TestAddErrorArchitectureNotFound(c *gc.C) {
 func (s *stateSuite) TestAddErrorObjectStoreUUIDNotFound(c *gc.C) {
 	s.addArchitecture(c, "amd64")
 
-	err := s.state.Add(context.Background(), agentbinary.Metadata{
+	err := s.state.RegisterAgentBinary(context.Background(), agentbinary.RegisterAgentBinaryArg{
 		Version:         "4.0.0",
 		Arch:            "amd64",
 		ObjectStoreUUID: objectstore.UUID(uuid.MustNewUUID().String()),

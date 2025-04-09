@@ -257,7 +257,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			w, err := NewWorker(WorkerConfig{
 				Agent:                      a,
 				ObjectStoreGetter:          objectStoreGetter,
-				ControllerAgentBinaryStore: controllerDomainServices.AgentBinary(),
+				ControllerAgentBinaryStore: controllerDomainServices.AgentBinaryStore(),
 				ControllerConfigService:    controllerDomainServices.ControllerConfig(),
 				CloudService:               controllerDomainServices.Cloud(),
 				UserService:                controllerDomainServices.Access(),

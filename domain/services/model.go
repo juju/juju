@@ -18,6 +18,8 @@ import (
 	coreresourcestore "github.com/juju/juju/core/resource/store"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain"
+	agentbinaryservice "github.com/juju/juju/domain/agentbinary/service"
+	agentbinarystate "github.com/juju/juju/domain/agentbinary/state"
 	agentpasswordservice "github.com/juju/juju/domain/agentpassword/service"
 	agentpasswordstate "github.com/juju/juju/domain/agentpassword/state"
 	agentprovisionerservice "github.com/juju/juju/domain/agentprovisioner/service"
@@ -441,6 +443,15 @@ func (s *ModelServices) Removal() *removalservice.WatchableService {
 func (s *ModelServices) AgentPassword() *agentpasswordservice.Service {
 	return agentpasswordservice.NewService(
 		agentpasswordstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+	)
+}
+
+// AgentBinary returns the service for working with agent binaries in the
+// current model.
+func (s *ModelServices) AgentBinary() *agentbinaryservice.AgentBinaryService {
+	return agentbinaryservice.NewAgentBinaryService(
+		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)
 }
 

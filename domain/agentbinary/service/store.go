@@ -24,14 +24,14 @@ import (
 
 // State describes the interface that the cache state must implement.
 type State interface {
-	// Add adds a new agent binary's metadata to the database.
+	// RegisterAgentBinary registers a new agent binary's metadata to the database.
 	// [agentbinaryerrors.AlreadyExists] when the provided agent binary already
 	// exists.
 	// [agentbinaryerrors.ObjectNotFound] when no object exists that matches
 	// this agent binary.
 	// [coreerrors.NotSupported] if the architecture is not supported by the
 	// state layer.
-	Add(ctx context.Context, metadata agentbinary.Metadata) error
+	RegisterAgentBinary(ctx context.Context, arg agentbinary.RegisterAgentBinaryArg) error
 
 	// GetObjectUUID returns the object store UUID for the given file path.
 	// The following errors can be returned:
@@ -75,7 +75,7 @@ func generatePath(version coreagentbinary.Version, sha384 string) string {
 	return fmt.Sprintf("agent-binaries/%s-%s-%s", numberStr, version.Arch, sha384)
 }
 
-// Add adds a new agent binary to the object store and saves its metadata to the
+// AddAgentBinary adds a new agent binary to the object store and saves its metadata to the
 // database. The following errors can be returned:
 // - [coreerrors.NotSupported] if the architecture is not supported.
 // - [agentbinaryerrors.AlreadyExists] if an agent binary already exists for
@@ -85,7 +85,7 @@ func generatePath(version coreagentbinary.Version, sha384 string) string {
 // should be considered an internal problem. It is
 // discussed here to make the caller aware of future problems.
 // - [coreerrors.NotValid] when the agent version is not considered valid.
-func (s *AgentBinaryStore) Add(
+func (s *AgentBinaryStore) AddAgentBinary(
 	ctx context.Context,
 	r io.Reader,
 	version coreagentbinary.Version,
@@ -132,7 +132,7 @@ func (s *AgentBinaryStore) add(
 		version.Arch,
 	)
 
-	err = s.st.Add(ctx, agentbinary.Metadata{
+	err = s.st.RegisterAgentBinary(ctx, agentbinary.RegisterAgentBinaryArg{
 		Version:         version.Number.String(),
 		Arch:            version.Arch,
 		ObjectStoreUUID: uuid,
@@ -158,7 +158,7 @@ func (s *AgentBinaryStore) add(
 	return nil
 }
 
-// AddWithSHA256 adds a new agent binary to the object store and saves its metadata to the database.
+// AddAgentBinaryWithSHA256 adds a new agent binary to the object store and saves its metadata to the database.
 // It always overwrites the binary in the store and the metadata in the database for the
 // given version and arch if it already exists.
 // It accepts the SHA256 hash of the binary.
@@ -171,7 +171,7 @@ func (s *AgentBinaryStore) add(
 // should be considered an internal problem. It is discussed here to make the
 // caller aware of future problems.
 // - [coreerrors.NotValid] if the agent version is not valid or the SHA256 hash doesn't match the generated hash.
-func (s *AgentBinaryStore) AddWithSHA256(
+func (s *AgentBinaryStore) AddAgentBinaryWithSHA256(
 	ctx context.Context, r io.Reader,
 	version coreagentbinary.Version,
 	size int64, sha256 string,

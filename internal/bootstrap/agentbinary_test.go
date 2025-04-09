@@ -56,7 +56,7 @@ func (s *agentBinarySuite) TestPopulateAgentBinary(c *gc.C) {
 		SHA256:  "sha256",
 	}).Return(nil)
 
-	s.agentBinaryStore.EXPECT().AddWithSHA256(
+	s.agentBinaryStore.EXPECT().AddAgentBinaryWithSHA256(
 		gomock.Any(),
 		gomock.Any(),
 		coreagentbinary.Version{
