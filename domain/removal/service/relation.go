@@ -42,7 +42,9 @@ type RelationState interface {
 	// the scope of the relation with the input UUID.
 	UnitNamesInScope(ctx context.Context, rUUID string) ([]string, error)
 
-	// DeleteRelationUnits deletes all relation unit records.
+	// DeleteRelationUnits deletes all relation unit records and their
+	// associated settings for a relation. It effectively departs all
+	// units from the scope of the input relation immediately.
 	DeleteRelationUnits(ctx context.Context, rUUID string) error
 
 	// DeleteRelation removes a relation from the database completely.

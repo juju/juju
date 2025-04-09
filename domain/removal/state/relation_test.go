@@ -177,6 +177,33 @@ func (s *relationSuite) TestUnitNamesInScopeNoRows(c *gc.C) {
 }
 
 func (s *relationSuite) TestUnitNamesInScopeSuccess(c *gc.C) {
+	rel, unit := s.addAppUnitRelationScope(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	inScope, err := st.UnitNamesInScope(context.Background(), rel)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(inScope, jc.SameContents, []string{unit})
+}
+
+func (s *relationSuite) TestDeleteRelationUnitsSuccess(c *gc.C) {
+	rel, _ := s.addAppUnitRelationScope(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteRelationUnits(context.Background(), rel)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inScope, err := st.UnitNamesInScope(context.Background(), rel)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(inScope, gc.HasLen, 0)
+}
+
+// addAppUnitRelationScope adds charm, application, unit and relation
+// infrastructure such that a single unit is in the scope of a single relation.
+// The relation and unit identifiers are returned.
+func (s *relationSuite) addAppUnitRelationScope(c *gc.C) (string, string) {
 	charm := "some-charm-uuid"
 	_, err := s.DB().Exec("INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, ?)", charm, charm, 0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -223,14 +250,16 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		unit, unit, 0, app, charm, node)
 	c.Assert(err, jc.ErrorIsNil)
 
+	relUnit := "some-rel-unit-uuid"
 	_, err = s.DB().Exec("INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
-		"some-rel-unit-uuid", relEndpoint, unit,
+		relUnit, relEndpoint, unit,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-
-	inScope, err := st.UnitNamesInScope(context.Background(), rel)
+	_, err = s.DB().Exec("INSERT INTO relation_unit_setting (relation_unit_uuid, key, value) VALUES (?, ?, ?)",
+		"some-rel-unit-uuid", "key", "value",
+	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(inScope, jc.SameContents, []string{unit})
+
+	return rel, unit
 }
