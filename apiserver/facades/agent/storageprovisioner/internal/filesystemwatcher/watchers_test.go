@@ -5,6 +5,7 @@ package filesystemwatcher_test
 
 import (
 	"errors"
+	"time"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
@@ -71,14 +72,19 @@ func (s *WatchersSuite) TestWatchModelManagedFilesystems(c *gc.C) {
 
 func (s *WatchersSuite) TestWatchModelManagedFilesystemsWatcherErrorsPropagate(c *gc.C) {
 	w := s.watchers.WatchModelManagedFilesystems()
-	s.backend.modelFilesystemsW.T.Kill(errors.New("rah"))
+	s.backend.modelFilesystemsW.KillErr(errors.New("rah"))
 	c.Assert(w.Wait(), gc.ErrorMatches, "rah")
 }
 
 func (s *WatchersSuite) TestWatchModelManagedFilesystemAttachments(c *gc.C) {
 	w := s.watchers.WatchModelManagedFilesystemAttachments()
 	defer workertest.CleanKill(c, w)
-	s.backend.modelFilesystemAttachmentsW.C <- []string{"0:0", "0:1"}
+
+	select {
+	case s.backend.modelFilesystemAttachmentsW.C <- []string{"0:0", "0:1"}:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timeout waiting for model filesystem attachments")
+	}
 
 	// Filesystem 1 has a backing volume, so should not be reported.
 	wc := watchertest.NewStringsWatcherC(c, w)
@@ -88,7 +94,7 @@ func (s *WatchersSuite) TestWatchModelManagedFilesystemAttachments(c *gc.C) {
 
 func (s *WatchersSuite) TestWatchModelManagedFilesystemAttachmentsWatcherErrorsPropagate(c *gc.C) {
 	w := s.watchers.WatchModelManagedFilesystemAttachments()
-	s.backend.modelFilesystemAttachmentsW.T.Kill(errors.New("rah"))
+	s.backend.modelFilesystemAttachmentsW.KillErr(errors.New("rah"))
 	c.Assert(w.Wait(), gc.ErrorMatches, "rah")
 }
 
@@ -106,7 +112,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystems(c *gc.C) {
 
 func (s *WatchersSuite) TestWatchMachineManagedFilesystemsErrorsPropagate(c *gc.C) {
 	w := s.watchers.WatchMachineManagedFilesystems(names.NewMachineTag("0"))
-	s.backend.modelFilesystemsW.T.Kill(errors.New("rah"))
+	s.backend.modelFilesystemsW.KillErr(errors.New("rah"))
 	c.Assert(w.Wait(), gc.ErrorMatches, "rah")
 }
 
@@ -184,7 +190,7 @@ func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachments(c *gc.C) {
 
 func (s *WatchersSuite) TestWatchMachineManagedFilesystemAttachmentsErrorsPropagate(c *gc.C) {
 	w := s.watchers.WatchMachineManagedFilesystemAttachments(names.NewMachineTag("0"))
-	s.backend.modelFilesystemAttachmentsW.T.Kill(errors.New("rah"))
+	s.backend.modelFilesystemAttachmentsW.KillErr(errors.New("rah"))
 	c.Assert(w.Wait(), gc.ErrorMatches, "rah")
 }
 
@@ -262,7 +268,7 @@ func (s *WatchersSuite) TestWatchUnitManagedFilesystems(c *gc.C) {
 
 func (s *WatchersSuite) TestWatchUnitManagedFilesystemsErrorsPropagate(c *gc.C) {
 	w := s.watchers.WatchUnitManagedFilesystems(names.NewApplicationTag("mariadb"))
-	s.backend.modelFilesystemsW.T.Kill(errors.New("rah"))
+	s.backend.modelFilesystemsW.KillErr(errors.New("rah"))
 	c.Assert(w.Wait(), gc.ErrorMatches, "rah")
 }
 
@@ -280,6 +286,6 @@ func (s *WatchersSuite) TestWatchUnitManagedFilesystemAttachments(c *gc.C) {
 
 func (s *WatchersSuite) TestWatchUnitManagedFilesystemAttachmentsErrorsPropagate(c *gc.C) {
 	w := s.watchers.WatchUnitManagedFilesystemAttachments(names.NewApplicationTag("mariadb"))
-	s.backend.modelFilesystemAttachmentsW.T.Kill(errors.New("rah"))
+	s.backend.modelFilesystemAttachmentsW.KillErr(errors.New("rah"))
 	c.Assert(w.Wait(), gc.ErrorMatches, "rah")
 }
