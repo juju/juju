@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
+	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
@@ -1574,7 +1575,7 @@ func (u *UniterAPI) readLocalApplicationSettings(
 	}
 
 	settings, err := u.relationService.GetLocalRelationApplicationSettings(ctx, unitName, relUUID, appID)
-	if errors.Is(err, errors.NotFound) {
+	if errors.Is(err, corelease.ErrNotHeld) || errors.Is(err, relationerrors.RelationNotFound) || errors.Is(err, relationerrors.ApplicationNotFoundForRelation) {
 		return nil, apiservererrors.ErrPerm
 	} else if err != nil {
 		return nil, errors.Trace(err)

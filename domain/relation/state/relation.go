@@ -1464,6 +1464,14 @@ WHERE uuid = $relationUnitUUID.uuid
 	return nil
 }
 
+// GetRelationApplicationSettings returns the application settings
+// for the given application and relation identifier combination.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.ApplicationNotFoundForRelation] is returned if the
+//     application is not part of the relation.
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+//     is not found.
 func (st *State) GetRelationApplicationSettings(
 	ctx context.Context,
 	relationUUID corerelation.UUID,

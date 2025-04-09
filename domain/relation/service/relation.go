@@ -31,6 +31,20 @@ type State interface {
 	// specific application identified by its ID.
 	GetApplicationRelations(ctx context.Context, id application.ID) ([]corerelation.UUID, error)
 
+	// GetRelationApplicationSettings returns the application settings
+	// for the given application and relation identifier combination.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.ApplicationNotFoundForRelation] is returned if the
+	//     application is not part of the relation.
+	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+	//     is not found.
+	GetRelationApplicationSettings(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		applicationID application.ID,
+	) (map[string]string, error)
+
 	// GetRelationID returns the relation ID for the given relation UUID.
 	//
 	// The following error types can be expected to be returned:
@@ -155,20 +169,46 @@ func NewLeadershipService(
 // GetLocalRelationApplicationSettings returns the application settings
 // for the given application and relation identifier combination.
 // ApplicationSettings may only be read by the application leader.
-// Returns NotFound if this unit is not the leader, if the application or
-// relation is not found.
+//
+// The following error types can be expected to be returned:
+//   - [corelease.ErrNotHeld] if the unit is not the leader.
+//   - [relationerrors.ApplicationNotFoundForRelation] is returned if the
+//     application is not part of the relation.
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+//     is not found.
 func (s *LeadershipService) GetLocalRelationApplicationSettings(
 	ctx context.Context,
 	unitName unit.Name,
 	relationUUID corerelation.UUID,
 	applicationID application.ID,
 ) (map[string]string, error) {
-	// TODO: (hml) 12-Mar-2025
-	// Implement leadership checking here: e.g.
-	// return s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
-	//		return s.st.SetRelationStatus(ctx, appID, encodedStatus)
-	//	})
-	return nil, coreerrors.NotImplemented
+	if err := unitName.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+	if err := relationUUID.Validate(); err != nil {
+		return nil, errors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+	if err := applicationID.Validate(); err != nil {
+		return nil, errors.Errorf(
+			"%w:%w", relationerrors.ApplicationIDNotValid, err)
+	}
+	settings := make(map[string]string)
+	err := s.leaderEnsurer.WithLeader(ctx, unitName.Application(), unitName.String(),
+		func(ctx context.Context) error {
+			var err error
+			settings, err = s.st.GetRelationApplicationSettings(ctx, relationUUID, applicationID)
+			if err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return settings, nil
 }
 
 // SetRelationApplicationSettings records settings for a specific application

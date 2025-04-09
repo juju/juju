@@ -903,3 +903,88 @@ func (s *relationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	return ctrl
 }
+
+type relationLeadershipServiceSuite struct {
+	relationServiceSuite
+
+	leadershipService *LeadershipService
+	leaderEnsurer     *MockEnsurer
+}
+
+var _ = gc.Suite(&relationLeadershipServiceSuite{})
+
+func (s *relationLeadershipServiceSuite) TestGetLocalRelationApplicationSettings(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	unitName := coreunittesting.GenNewName(c, "app/0")
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	applicationID := coreapplicationtesting.GenApplicationUUID(c)
+	s.leaderEnsurer.EXPECT().WithLeader(gomock.Any(), unitName.Application(), unitName.String(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, _, _ string, fn func(context.Context) error) error {
+			return fn(ctx)
+		},
+	)
+	expectedSettings := map[string]string{
+		"key": "value",
+	}
+	s.state.EXPECT().GetRelationApplicationSettings(gomock.Any(), relationUUID, applicationID).Return(expectedSettings, nil)
+
+	// Act:
+	settings, err := s.leadershipService.GetLocalRelationApplicationSettings(context.Background(), unitName, relationUUID, applicationID)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, expectedSettings)
+}
+
+func (s *relationLeadershipServiceSuite) TestGetLocalRelationApplicationSettingsUnitNameNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	applicationID := coreapplicationtesting.GenApplicationUUID(c)
+
+	// Act:
+	_, err := s.leadershipService.GetLocalRelationApplicationSettings(context.Background(), "", relationUUID, applicationID)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *relationLeadershipServiceSuite) TestGetLocalRelationApplicationSettingsApplicationIDNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	unitName := coreunittesting.GenNewName(c, "app/0")
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+
+	// Act:
+	_, err := s.leadershipService.GetLocalRelationApplicationSettings(context.Background(), unitName, relationUUID, "bad-uuid")
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationIDNotValid)
+}
+
+func (s *relationLeadershipServiceSuite) TestGetLocalRelationApplicationSettingsRelationUUIDNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	unitName := coreunittesting.GenNewName(c, "app/0")
+	applicationID := coreapplicationtesting.GenApplicationUUID(c)
+
+	// Act:
+	_, err := s.leadershipService.GetLocalRelationApplicationSettings(context.Background(), unitName, "bad-uuid", applicationID)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
+}
+
+func (s *relationLeadershipServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := s.relationServiceSuite.setupMocks(c)
+
+	s.leaderEnsurer = NewMockEnsurer(ctrl)
+	s.leadershipService = NewLeadershipService(s.state, s.leaderEnsurer, loggertesting.WrapCheckLog(c))
+
+	return ctrl
+}
