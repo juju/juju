@@ -23,14 +23,14 @@ type Constraints struct {
 	// - gpu
 	// - nvidia.com/gpu
 	// - amd.com/gpu
-	Type DeviceType `bson:"type"`
+	Type DeviceType
 
 	// Count is the number of devices that the user has asked for - count min and max are the
 	// number of devices the charm requires.
-	Count int64 `bson:"count"`
+	Count int
 
 	// Attributes is a collection of key value pairs device related (node affinity labels/tags etc.).
-	Attributes map[string]string `bson:"attributes"`
+	Attributes map[string]string
 }
 
 // ParseConstraints parses the specified string and creates a
@@ -94,14 +94,14 @@ func parseAttributes(s string) (map[string]string, error) {
 	return attr, nil
 }
 
-func parseCount(s string) (int64, error) {
+func parseCount(s string) (int, error) {
 	errMsg := errors.Errorf("count must be greater than zero, got %q", s)
 	i, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {
 		return 0, errMsg
 	}
 	if i > 0 {
-		return i, nil
+		return int(i), nil
 	}
 	return 0, errMsg
 }
