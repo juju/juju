@@ -1738,10 +1738,10 @@ func (u *UniterAPI) watchOneRelationUnit(
 		return params.RelationUnitsWatchResult{}, internalerrors.Capture(err)
 	}
 
-	watch, err := u.relationService.WatchRelationUnit(ctx, coreunit.Name(unit.Id()), relUUID)
+	watch, err := u.relationService.WatchRelatedUnits(ctx, coreunit.Name(unit.Id()), relUUID)
 	if err != nil {
 		return params.RelationUnitsWatchResult{},
-			internalerrors.Capture(internalerrors.Errorf("starting relation unit watcher: %w", err))
+			internalerrors.Capture(internalerrors.Errorf("starting related units watcher: %w", err))
 	}
 
 	// Consume the initial event and forward it to the result.
@@ -1749,7 +1749,7 @@ func (u *UniterAPI) watchOneRelationUnit(
 		id, err := u.watcherRegistry.Register(watch)
 		if err != nil {
 			return params.RelationUnitsWatchResult{},
-				internalerrors.Capture(internalerrors.Errorf("registering relation unit watcher : %w", err))
+				internalerrors.Capture(internalerrors.Errorf("registering related units watcher : %w", err))
 		}
 		return params.RelationUnitsWatchResult{
 			RelationUnitsWatcherId: id,

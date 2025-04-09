@@ -956,7 +956,7 @@ func (s *uniterRelationSuite) TestWatchRelationUnits(c *gc.C) {
 	watcherID := "watch1"
 	departed := []string{"unit-mysql-0"}
 	unitName := coreunit.Name(s.wordpressUnitTag.Id())
-	s.expectWatchRelationUnitsChange(ctrl, unitName, relUUID, departed, watcherID)
+	s.expectWatchRelatedUnitsChange(ctrl, unitName, relUUID, departed, watcherID)
 
 	expectedResult := params.RelationUnitsWatchResults{Results: []params.RelationUnitsWatchResult{
 		{
@@ -1235,7 +1235,7 @@ func (s *uniterRelationSuite) expectWatcherRegistry(watchID string, watch *watch
 	s.watcherRegistry.EXPECT().Register(watch).Return(watchID, err).AnyTimes()
 }
 
-func (s *uniterRelationSuite) expectWatchRelationUnitsChange(
+func (s *uniterRelationSuite) expectWatchRelatedUnitsChange(
 	ctrl *gomock.Controller,
 	unitName coreunit.Name,
 	relUUID corerelation.UUID,
@@ -1246,7 +1246,7 @@ func (s *uniterRelationSuite) expectWatchRelationUnitsChange(
 	channel := make(chan watcher.RelationUnitsChange, 1)
 	channel <- watcher.RelationUnitsChange{Departed: departed}
 	mockWatcher.EXPECT().Changes().Return(channel).AnyTimes()
-	s.relationService.EXPECT().WatchRelationUnit(gomock.Any(), unitName, relUUID).Return(mockWatcher, nil)
+	s.relationService.EXPECT().WatchRelatedUnits(gomock.Any(), unitName, relUUID).Return(mockWatcher, nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return(watcherID, nil)
 }
 
