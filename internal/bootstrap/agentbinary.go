@@ -37,7 +37,7 @@ type AgentBinaryStorage interface {
 // AgentBinaryStore is the service used to persist Juju agent binaries into the
 // controller.
 type AgentBinaryStore interface {
-	AddWithSHA256(context.Context, io.Reader, coreagentbinary.Version, int64, string) error
+	AddAgentBinaryWithSHA256(context.Context, io.Reader, coreagentbinary.Version, int64, string) error
 }
 
 // PopulateAgentBinary is the function that is used to populate the agent
@@ -80,7 +80,7 @@ func PopulateAgentBinary(
 		return nil, errors.Trace(err)
 	}
 
-	err = agentBinaryStore.AddWithSHA256(
+	err = agentBinaryStore.AddAgentBinaryWithSHA256(
 		ctx,
 		bytes.NewReader(data),
 		coreagentbinary.Version{
