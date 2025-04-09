@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -662,66 +661,6 @@ func (st *State) AllUnits() ([]*Unit, error) {
 		units = append(units, newUnit(st, m.Type(), &docs[i]))
 	}
 	return units, nil
-}
-
-// ModelMetrics contains metrics to be collected and sent to
-// Charmhub via the charm revision updater for a model.
-type ModelMetrics struct {
-	ApplicationCount string
-	MachineCount     string
-	UnitCount        string
-	CloudName        string
-	CloudRegion      string
-	Provider         string
-	UUID             string
-	ControllerUUID   string
-}
-
-// Metrics returns model level metrics to be collected and sent to
-// Charmhub via the charm revision updater.
-func (m *Model) Metrics() (ModelMetrics, error) {
-	appCnt, err := m.applicationCount()
-	if err != nil {
-		return ModelMetrics{}, errors.Trace(err)
-	}
-	machCnt, err := m.machineCount()
-	if err != nil {
-		return ModelMetrics{}, errors.Trace(err)
-	}
-	unitCnt, err := m.unitCount()
-	if err != nil {
-		return ModelMetrics{}, errors.Trace(err)
-	}
-
-	return ModelMetrics{
-		ApplicationCount: strconv.Itoa(appCnt),
-		MachineCount:     strconv.Itoa(machCnt),
-		UnitCount:        strconv.Itoa(unitCnt),
-		CloudName:        m.CloudName(),
-		CloudRegion:      m.CloudRegion(),
-		// TODO(wallyworld) - we no longer have cloud in state to get cloud type
-		//Provider:         cloud.Type,
-		UUID:           m.UUID(),
-		ControllerUUID: m.doc.ControllerUUID,
-	}, nil
-}
-
-func (m *Model) applicationCount() (int, error) {
-	coll, closer := m.st.db().GetCollection(applicationsC)
-	defer closer()
-	return coll.Find(isAliveDoc).Count()
-}
-
-func (m *Model) machineCount() (int, error) {
-	coll, closer := m.st.db().GetCollection(machinesC)
-	defer closer()
-	return coll.Find(isAliveDoc).Count()
-}
-
-func (m *Model) unitCount() (int, error) {
-	coll, closer := m.st.db().GetCollection(unitsC)
-	defer closer()
-	return coll.Find(isAliveDoc).Count()
 }
 
 // AllEndpointBindings returns all endpoint->space bindings
