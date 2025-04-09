@@ -861,11 +861,11 @@ func (st *State) GetRelationDetails(ctx context.Context, relationUUID corerelati
 //
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationUnitNotFound] if the relation unit cannot be found.
-func (s *State) GetRelationUnitEndpointName(
+func (st *State) GetRelationUnitEndpointName(
 	ctx context.Context,
 	relationUnitUUID corerelation.UnitUUID,
 ) (string, error) {
-	db, err := s.DB()
+	db, err := st.DB()
 	var result string
 	if err != nil {
 		return result, errors.Capture(err)
@@ -874,7 +874,7 @@ func (s *State) GetRelationUnitEndpointName(
 		args := getRelationUnitEndpointName{
 			RelationUnitUUID: relationUnitUUID,
 		}
-		stmt, err := s.Prepare(`
+		stmt, err := st.Prepare(`
 SELECT &getRelationUnitEndpointName.*
 FROM v_relation_unit_endpoint
 WHERE relation_unit_uuid = $getRelationUnitEndpointName.relation_unit_uuid`, args)
