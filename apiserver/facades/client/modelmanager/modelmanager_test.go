@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/credential"
@@ -74,7 +73,6 @@ type modelManagerSuite struct {
 	st                   *mockState
 	ctlrSt               *mockState
 	caasSt               *mockState
-	caasBroker           *mockCaasBroker
 	cloudService         *mockCloudService
 	accessService        *mocks.MockAccessService
 	modelService         *mocks.MockModelService
@@ -219,11 +217,6 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 		AuthTypes: []cloud.AuthType{cloud.UserPassAuthType},
 	}
 
-	newBroker := func(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (caas.Broker, error) {
-		s.caasBroker = &mockCaasBroker{}
-		return s.caasBroker, nil
-	}
-
 	s.cloudService = &mockCloudService{
 		clouds: map[string]cloud.Cloud{
 			"dummy": dummyCloud,
@@ -244,7 +237,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
-		nil, newBroker, common.NewBlockChecker(s.blockCommandService),
+		nil, common.NewBlockChecker(s.blockCommandService),
 		s.authoriser, s.st.model,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -268,7 +261,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 			ApplicationService:   s.applicationService,
 			ObjectStore:          &mockObjectStore{},
 		},
-		nil, newBroker, common.NewBlockChecker(s.blockCommandService),
+		nil, common.NewBlockChecker(s.blockCommandService),
 		s.authoriser, s.st.model,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -283,9 +276,6 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 
 func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
-	newBroker := func(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (caas.Broker, error) {
-		return s.caasBroker, nil
-	}
 	mm, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
 		s.st, modelExporter(s.modelExporter), s.ctlrSt,
@@ -302,7 +292,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 			ApplicationService:   s.applicationService,
 			ObjectStore:          &mockObjectStore{},
 		},
-		nil, newBroker, common.NewBlockChecker(s.blockCommandService),
+		nil, common.NewBlockChecker(s.blockCommandService),
 		s.authoriser, s.st.model,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -591,10 +581,6 @@ func (s *modelManagerSuite) TestCreateModelNoDefaultCredentialNonAdmin(c *gc.C) 
 //	//	nil,
 //	//)
 //	//s.expectCreateModelOnModelDB(ctrl, map[string]any{})
-//
-//	_, err := s.caasApi.CreateModel(context.Background(), args)
-//	s.caasBroker.CheckCallNames(c, "Create")
-//	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 //}
 
 func (s *modelManagerSuite) TestModelDefaults(c *gc.C) {
@@ -798,7 +784,7 @@ func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
-		nil, nil, common.NewBlockChecker(s.blockCommandService),
+		nil, common.NewBlockChecker(s.blockCommandService),
 		s.authoriser, s.st.model,
 	)
 	c.Check(err, jc.ErrorIsNil)
@@ -1010,7 +996,6 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 			ApplicationService:   s.applicationService,
 		},
 		toolsFinder,
-		nil,
 		common.NewBlockChecker(s.blockCommandService),
 		s.authoriser,
 		s.ControllerModel(c),
@@ -1133,7 +1118,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
-		nil, nil, common.NewBlockChecker(s.blockCommandService), anAuthoriser,
+		nil, common.NewBlockChecker(s.blockCommandService), anAuthoriser,
 		s.ControllerModel(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1354,7 +1339,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
-		nil, nil, common.NewBlockChecker(s.blockCommandService), s.authoriser,
+		nil, common.NewBlockChecker(s.blockCommandService), s.authoriser,
 		s.ControllerModel(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1423,7 +1408,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
-		nil, nil, common.NewBlockChecker(s.blockCommandService), s.authoriser,
+		nil, common.NewBlockChecker(s.blockCommandService), s.authoriser,
 		s.ControllerModel(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1478,7 +1463,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
-		nil, nil, common.NewBlockChecker(s.blockCommandService), s.authoriser, s.ControllerModel(c),
+		nil, common.NewBlockChecker(s.blockCommandService), s.authoriser, s.ControllerModel(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1581,7 +1566,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
-		nil, nil, common.NewBlockChecker(s.blockCommandService), anAuthoriser,
+		nil, common.NewBlockChecker(s.blockCommandService), anAuthoriser,
 		s.ControllerModel(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
