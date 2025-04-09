@@ -1868,32 +1868,6 @@ func (u *UniterAPI) getOneRelationById(ctx context.Context, relID int) (params.R
 	return result, nil
 }
 
-func (u *UniterAPI) getRelation(relTag string) (*state.Relation, error) {
-	tag, err := names.ParseRelationTag(relTag)
-	if err != nil {
-		return nil, apiservererrors.ErrPerm
-	}
-	rel, err := u.st.KeyRelation(tag.Id())
-	if errors.Is(err, errors.NotFound) {
-		return nil, apiservererrors.ErrPerm
-	} else if err != nil {
-		return nil, err
-	}
-	return rel, nil
-}
-
-func (u *UniterAPI) getRelationAndUnit(ctx context.Context, canAccess common.AuthFunc, relTag string, unitTag names.UnitTag) (*state.Relation, *state.Unit, error) {
-	rel, err := u.getRelation(relTag)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	if !canAccess(unitTag) {
-		return nil, nil, apiservererrors.ErrPerm
-	}
-	unit, err := u.getLegacyUnit(ctx, unitTag)
-	return rel, unit, err
-}
-
 func (u *UniterAPI) prepareRelationResult(
 	rel relation.RelationDetails,
 	applicationName string,
