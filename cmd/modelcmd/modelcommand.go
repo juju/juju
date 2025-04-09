@@ -430,7 +430,7 @@ func (c *ModelCommandBase) NewModelManagerAPIClient(ctx context.Context) (*model
 // NewModelUpgraderAPIClient returns an API client for the
 // ModelUpgrader on the current controller using the current credentials.
 func (c *ModelCommandBase) NewModelUpgraderAPIClient(ctx context.Context) (*modelupgrader.Client, error) {
-	root, err := c.NewControllerAPIRoot(ctx)
+	root, err := c.NewAPIRoot(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
