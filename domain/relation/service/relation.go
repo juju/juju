@@ -27,6 +27,10 @@ type State interface {
 	// GetAllRelationDetails return all uuid of all relation for the current model.
 	GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error)
 
+	// GetApplicationRelations retrieves all relation UUIDs associated with a
+	// specific application identified by its ID.
+	GetApplicationRelations(ctx context.Context, id application.ID) ([]corerelation.UUID, error)
+
 	// GetRelationID returns the relation ID for the given relation UUID.
 	//
 	// The following error types can be expected to be returned:
@@ -166,6 +170,13 @@ func (s *Service) AddRelation(ctx context.Context, ep1, ep2 string) (relation.En
 	return s.st.AddRelation(ctx, idep1, idep2)
 }
 
+// ApplicationRelationEndpointNames returns a slice of names of the given application's
+// relation endpoints.
+// Note: Replaces the functionality in CharmRelations method of the application facade.
+func (s *Service) ApplicationRelationEndpointNames(ctx context.Context, id application.ID) ([]string, error) {
+	return nil, coreerrors.NotImplemented
+}
+
 // ApplicationRelations returns relation UUIDs for the given
 // application ID.
 func (s *Service) ApplicationRelations(ctx context.Context, id application.ID) (
@@ -217,6 +228,23 @@ func (s *Service) GetApplicationEndpoints(ctx context.Context, applicationID app
 			"%w: %w", relationerrors.ApplicationIDNotValid, err)
 	}
 	return s.st.GetApplicationEndpoints(ctx, applicationID)
+}
+
+// GetApplicationRelations returns relation UUIDs for the given
+// application ID.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.ApplicationIDNotValid] is returned if the application
+//     UUID is not valid.
+//   - [relationerrors.ApplicationNotFound] is returned if the application is
+//     not found.
+func (s *Service) GetApplicationRelations(ctx context.Context, id application.ID) (
+	[]corerelation.UUID, error) {
+	if err := id.Validate(); err != nil {
+		return nil, errors.Errorf(
+			"%w: %w", relationerrors.ApplicationIDNotValid, err)
+	}
+	return s.st.GetApplicationRelations(ctx, id)
 }
 
 // GetLocalRelationApplicationSettings returns the application settings

@@ -187,6 +187,54 @@ func (st *State) GetAllRelationDetails(ctx context.Context) ([]relation.Relation
 	return relationsDetails, errors.Capture(err)
 }
 
+// GetApplicationRelations retrieves a list of relation UUIDs for a given
+// application ID within the specified context.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.ApplicationNotFound] is returned if application ID
+//     doesn't refer an existing application.
+func (st *State) GetApplicationRelations(ctx context.Context, id application.ID) ([]corerelation.UUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var relations []relationUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Check if the application exists
+		appFound, err := st.checkExistsByUUID(ctx, tx, "application", id.String())
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if !appFound {
+			return errors.Errorf("%w: %s", relationerrors.ApplicationNotFound, id)
+		}
+
+		appID := applicationID{ID: id}
+
+		stmt, err := st.Prepare(`
+SELECT re.relation_uuid AS &relationUUID.uuid
+FROM   relation_endpoint AS re
+JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+WHERE  ae.application_uuid = $applicationID.uuid
+`, relationUUID{}, appID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, stmt, appID).GetAll(&relations)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+
+	var results []corerelation.UUID
+	for _, rel := range relations {
+		results = append(results, rel.UUID)
+	}
+	return results, err
+}
+
 // GetOtherRelatedEndpointApplicationData returns an OtherApplicationForWatcher struct
 // for each Endpoint in a relation with the given application ID.
 //
