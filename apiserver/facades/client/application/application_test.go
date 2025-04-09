@@ -982,9 +982,9 @@ func (s *applicationSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *applicationSuite) setupAPI(c *gc.C) {
-	s.expectAuthClient(c)
-	s.expectAnyPermissions(c)
-	s.expectAnyChangeOrRemoval(c)
+	s.expectAuthClient()
+	s.expectAnyPermissions()
+	s.expectAnyChangeOrRemoval()
 
 	s.newIAASAPI(c)
 }

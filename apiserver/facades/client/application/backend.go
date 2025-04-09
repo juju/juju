@@ -127,21 +127,6 @@ type Unit interface {
 	ContainerInfo() (state.CloudContainer, error)
 }
 
-// Model defines a subset of the functionality provided by the
-// state.Model type, as required by the application facade. For
-// details on the methods, see the methods on state.Model with
-// the same names.
-type Model interface {
-	ModelTag() names.ModelTag
-	Type() state.ModelType
-	// The following methods are required for querying the featureset
-	// supported by the model.
-	CloudName() string
-	CloudCredentialTag() (names.CloudCredentialTag, bool)
-	CloudRegion() string
-	ControllerUUID() string
-}
-
 type stateShim struct {
 	*state.State
 	cmrBackend commoncrossmodel.Backend

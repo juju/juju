@@ -82,8 +82,8 @@ type UnitAdder interface {
 
 // DeployApplication takes a charm and various parameters and deploys it.
 func DeployApplication(
-	ctx context.Context, st ApplicationDeployer, model Model,
-	modelInfo coremodel.ModelInfo,
+	ctx context.Context, st ApplicationDeployer,
+	modelType coremodel.ModelType,
 	applicationService ApplicationService,
 	store objectstore.ObjectStore,
 	args DeployApplicationParams,
@@ -114,7 +114,7 @@ func DeployApplication(
 		logger.Warningf(context.TODO(), "proceeding with deployment of application %q even though the charm feature requirements could not be met as --force was specified", args.ApplicationName)
 	}
 
-	if modelInfo.Type == coremodel.CAAS {
+	if modelType == coremodel.CAAS {
 		if charm.MetaFormat(args.Charm) == charm.FormatV1 {
 			return nil, errors.NotSupportedf("deploying format v1 charm %q", args.ApplicationName)
 		}

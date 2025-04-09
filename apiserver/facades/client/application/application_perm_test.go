@@ -25,24 +25,24 @@ func (s *permBaseSuite) TestAPIConstruction(c *gc.C) {
 
 	s.authorizer.EXPECT().AuthClient().Return(false)
 
-	_, err := NewAPIBase(nil, Services{}, nil, s.authorizer, nil, nil, s.modelInfo, nil, nil, nil, nil, nil, nil, nil, nil)
+	_, err := NewAPIBase(nil, Services{}, nil, s.authorizer, nil, s.modelUUID, "", nil, nil, nil, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
 func (s *permBaseSuite) TestAPIServiceConstruction(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
+	s.expectAuthClient()
 
-	_, err := NewAPIBase(nil, Services{}, nil, s.authorizer, nil, nil, s.modelInfo, nil, nil, nil, nil, nil, nil, nil, nil)
+	_, err := NewAPIBase(nil, Services{}, nil, s.authorizer, nil, s.modelUUID, "", nil, nil, nil, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *permBaseSuite) TestDeployPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -53,9 +53,9 @@ func (s *permBaseSuite) TestDeployPermission(c *gc.C) {
 func (s *permBaseSuite) TestDeployBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasWritePermission(c)
-	s.expectDisallowBlockChange(c)
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.expectDisallowBlockChange()
 
 	s.newAPI(c)
 
@@ -66,8 +66,8 @@ func (s *permBaseSuite) TestDeployBlocked(c *gc.C) {
 func (s *permBaseSuite) TestSetCharmPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -78,9 +78,9 @@ func (s *permBaseSuite) TestSetCharmPermission(c *gc.C) {
 func (s *permBaseSuite) TestSetCharmBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasWritePermission(c)
-	s.expectDisallowBlockChange(c)
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.expectDisallowBlockChange()
 
 	s.newAPI(c)
 
@@ -91,8 +91,8 @@ func (s *permBaseSuite) TestSetCharmBlocked(c *gc.C) {
 func (s *permBaseSuite) TestSetCharmBlockIgnoredWithForceUnits(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasWritePermission(c)
+	s.expectAuthClient()
+	s.expectHasWritePermission()
 
 	// The check is not even called if force units is set.
 
@@ -110,9 +110,9 @@ func (s *permBaseSuite) TestSetCharmBlockIgnoredWithForceUnits(c *gc.C) {
 func (s *permBaseSuite) TestSetCharmValidOrigin(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasWritePermission(c)
-	s.expectAllowBlockChange(c)
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.expectAllowBlockChange()
 
 	s.backend.EXPECT().Application("foo").Return(nil, errors.NotFound)
 
@@ -134,8 +134,8 @@ func (s *permBaseSuite) TestSetCharmValidOrigin(c *gc.C) {
 func (s *permBaseSuite) TestGetCharmURLOriginPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -148,8 +148,8 @@ func (s *permBaseSuite) TestGetCharmURLOriginPermission(c *gc.C) {
 func (s *permBaseSuite) TestCharmRelationsPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -162,8 +162,8 @@ func (s *permBaseSuite) TestCharmRelationsPermission(c *gc.C) {
 func (s *permBaseSuite) TestExposePermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -176,8 +176,8 @@ func (s *permBaseSuite) TestExposePermission(c *gc.C) {
 func (s *permBaseSuite) TestUnexposePermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -190,8 +190,8 @@ func (s *permBaseSuite) TestUnexposePermission(c *gc.C) {
 func (s *permBaseSuite) TestDestroyApplicationPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -202,9 +202,9 @@ func (s *permBaseSuite) TestDestroyApplicationPermission(c *gc.C) {
 func (s *permBaseSuite) TestDestroyApplicationBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasWritePermission(c)
-	s.expectDisallowBlockRemoval(c)
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.expectDisallowBlockRemoval()
 
 	s.newAPI(c)
 
@@ -215,8 +215,8 @@ func (s *permBaseSuite) TestDestroyApplicationBlocked(c *gc.C) {
 func (s *permBaseSuite) TestDestroyConsumedApplicationsPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -227,9 +227,9 @@ func (s *permBaseSuite) TestDestroyConsumedApplicationsPermission(c *gc.C) {
 func (s *permBaseSuite) TestDestroyConsumedApplicationsBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasWritePermission(c)
-	s.expectDisallowBlockRemoval(c)
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.expectDisallowBlockRemoval()
 
 	s.newAPI(c)
 
@@ -240,8 +240,8 @@ func (s *permBaseSuite) TestDestroyConsumedApplicationsBlocked(c *gc.C) {
 func (s *permBaseSuite) TestGetConstraintsPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -252,8 +252,8 @@ func (s *permBaseSuite) TestGetConstraintsPermission(c *gc.C) {
 func (s *permBaseSuite) TestSetConstraintsPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -264,9 +264,9 @@ func (s *permBaseSuite) TestSetConstraintsPermission(c *gc.C) {
 func (s *permBaseSuite) TestSetConstraintsBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasWritePermission(c)
-	s.expectDisallowBlockChange(c)
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.expectDisallowBlockChange()
 
 	s.newAPI(c)
 
@@ -277,8 +277,8 @@ func (s *permBaseSuite) TestSetConstraintsBlocked(c *gc.C) {
 func (s *permBaseSuite) TestAddRelationPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -289,9 +289,9 @@ func (s *permBaseSuite) TestAddRelationPermission(c *gc.C) {
 func (s *permBaseSuite) TestAddRelationBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasWritePermission(c)
-	s.expectDisallowBlockChange(c)
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.expectDisallowBlockChange()
 
 	s.newAPI(c)
 
@@ -302,8 +302,8 @@ func (s *permBaseSuite) TestAddRelationBlocked(c *gc.C) {
 func (s *permBaseSuite) TestDestroyRelationPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -314,9 +314,9 @@ func (s *permBaseSuite) TestDestroyRelationPermission(c *gc.C) {
 func (s *permBaseSuite) TestDestroyRelationBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasWritePermission(c)
-	s.expectDisallowBlockRemoval(c)
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.expectDisallowBlockRemoval()
 
 	s.newAPI(c)
 
@@ -328,8 +328,8 @@ func (s *permBaseSuite) TestSetRelationsSuspendedPermission(c *gc.C) {
 	c.Skip("cross model relations are disabled until backend functionality is moved to domain")
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -341,9 +341,9 @@ func (s *permBaseSuite) TestSetRelationsSuspendedBlocked(c *gc.C) {
 	c.Skip("cross model relations are disabled until backend functionality is moved to domain")
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasWritePermission(c)
-	s.expectDisallowBlockChange(c)
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.expectDisallowBlockChange()
 
 	s.newAPI(c)
 
@@ -355,8 +355,8 @@ func (s *permBaseSuite) TestConsumePermission(c *gc.C) {
 	c.Skip("cross model relations are disabled until backend functionality is moved to domain")
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -368,9 +368,9 @@ func (s *permBaseSuite) TestConsumeBlocked(c *gc.C) {
 	c.Skip("cross model relations are disabled until backend functionality is moved to domain")
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasWritePermission(c)
-	s.expectDisallowBlockChange(c)
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.expectDisallowBlockChange()
 
 	s.newAPI(c)
 
@@ -381,8 +381,8 @@ func (s *permBaseSuite) TestConsumeBlocked(c *gc.C) {
 func (s *permBaseSuite) TestGetPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -393,8 +393,8 @@ func (s *permBaseSuite) TestGetPermission(c *gc.C) {
 func (s *permBaseSuite) TestCharmConfigPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -405,8 +405,8 @@ func (s *permBaseSuite) TestCharmConfigPermission(c *gc.C) {
 func (s *permBaseSuite) TestGetConfigPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -417,8 +417,8 @@ func (s *permBaseSuite) TestGetConfigPermission(c *gc.C) {
 func (s *permBaseSuite) TestSetConfigsPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -429,9 +429,9 @@ func (s *permBaseSuite) TestSetConfigsPermission(c *gc.C) {
 func (s *permBaseSuite) TestSetConfigsBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasWritePermission(c)
-	s.expectDisallowBlockChange(c)
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.expectDisallowBlockChange()
 
 	s.newAPI(c)
 
@@ -442,8 +442,8 @@ func (s *permBaseSuite) TestSetConfigsBlocked(c *gc.C) {
 func (s *permBaseSuite) TestUnsetApplicationsConfigPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -454,9 +454,9 @@ func (s *permBaseSuite) TestUnsetApplicationsConfigPermission(c *gc.C) {
 func (s *permBaseSuite) TestUnsetApplicationsConfigBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasWritePermission(c)
-	s.expectDisallowBlockChange(c)
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.expectDisallowBlockChange()
 
 	s.newAPI(c)
 
@@ -467,8 +467,8 @@ func (s *permBaseSuite) TestUnsetApplicationsConfigBlocked(c *gc.C) {
 func (s *permBaseSuite) TestResolveUnitErrorsPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -479,9 +479,9 @@ func (s *permBaseSuite) TestResolveUnitErrorsPermission(c *gc.C) {
 func (s *permBaseSuite) TestResolveUnitErrorsBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasWritePermission(c)
-	s.expectDisallowBlockChange(c)
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.expectDisallowBlockChange()
 
 	s.newAPI(c)
 
@@ -492,8 +492,8 @@ func (s *permBaseSuite) TestResolveUnitErrorsBlocked(c *gc.C) {
 func (s *permBaseSuite) TestApplicationsInfoPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -504,8 +504,8 @@ func (s *permBaseSuite) TestApplicationsInfoPermission(c *gc.C) {
 func (s *permBaseSuite) TestMergeBindingsPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -516,9 +516,9 @@ func (s *permBaseSuite) TestMergeBindingsPermission(c *gc.C) {
 func (s *permBaseSuite) TestMergeBindingsBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasWritePermission(c)
-	s.expectDisallowBlockChange(c)
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.expectDisallowBlockChange()
 
 	s.newAPI(c)
 
@@ -529,8 +529,8 @@ func (s *permBaseSuite) TestMergeBindingsBlocked(c *gc.C) {
 func (s *permBaseSuite) TestUnitsInfoPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -541,8 +541,8 @@ func (s *permBaseSuite) TestUnitsInfoPermission(c *gc.C) {
 func (s *permBaseSuite) TestLeaderPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -553,8 +553,8 @@ func (s *permBaseSuite) TestLeaderPermission(c *gc.C) {
 func (s *permBaseSuite) TestDeployFromRepositoryPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -565,9 +565,9 @@ func (s *permBaseSuite) TestDeployFromRepositoryPermission(c *gc.C) {
 func (s *permBaseSuite) TestDeployFromRepositoryBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasWritePermission(c)
-	s.expectDisallowBlockChange(c)
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.expectDisallowBlockChange()
 
 	s.newAPI(c)
 
@@ -588,8 +588,8 @@ func (s *permSuiteIAAS) SetUpTest(c *gc.C) {
 func (s *permSuiteIAAS) TestAddUnitsPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -602,9 +602,9 @@ func (s *permSuiteIAAS) TestAddUnitsPermission(c *gc.C) {
 func (s *permSuiteIAAS) TestAddUnitsBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasWritePermission(c)
-	s.expectDisallowBlockChange(c)
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.expectDisallowBlockChange()
 
 	s.newAPI(c)
 
@@ -617,8 +617,8 @@ func (s *permSuiteIAAS) TestAddUnitsBlocked(c *gc.C) {
 func (s *permSuiteIAAS) TestDestroyUnitPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -629,9 +629,9 @@ func (s *permSuiteIAAS) TestDestroyUnitPermission(c *gc.C) {
 func (s *permSuiteIAAS) TestDestroyUnitBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasWritePermission(c)
-	s.expectDisallowBlockRemoval(c)
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.expectDisallowBlockRemoval()
 
 	s.newAPI(c)
 
@@ -642,7 +642,7 @@ func (s *permSuiteIAAS) TestDestroyUnitBlocked(c *gc.C) {
 func (s *permSuiteIAAS) TestScaleApplicationsInvalidForIAAS(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
+	s.expectAuthClient()
 
 	s.newAPI(c)
 
@@ -663,7 +663,7 @@ func (s *permSuiteCAAS) SetUpTest(c *gc.C) {
 func (s *permSuiteCAAS) TestAddUnitsInvalidForCAAS(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
+	s.expectAuthClient()
 
 	s.newAPI(c)
 
@@ -676,7 +676,7 @@ func (s *permSuiteCAAS) TestAddUnitsInvalidForCAAS(c *gc.C) {
 func (s *permSuiteCAAS) TestDestroyUnitInvalidForCAAS(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
+	s.expectAuthClient()
 
 	s.newAPI(c)
 
@@ -687,8 +687,8 @@ func (s *permSuiteCAAS) TestDestroyUnitInvalidForCAAS(c *gc.C) {
 func (s *permSuiteCAAS) TestScaleApplicationsPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasIncorrectPermission(c)
+	s.expectAuthClient()
+	s.expectHasIncorrectPermission()
 
 	s.newAPI(c)
 
@@ -699,9 +699,9 @@ func (s *permSuiteCAAS) TestScaleApplicationsPermission(c *gc.C) {
 func (s *permSuiteCAAS) TestScaleApplicationsBlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient(c)
-	s.expectHasWritePermission(c)
-	s.expectDisallowBlockChange(c)
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.expectDisallowBlockChange()
 
 	s.newAPI(c)
 
