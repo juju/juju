@@ -233,11 +233,6 @@ func (s *uniterLegacySuite) TestPublicAddress(c *gc.C) {
 func (s *uniterLegacySuite) TestPrivateAddress(c *gc.C) {
 }
 
-// TestNetworkInfoSpaceless is in uniterSuite and not uniterNetworkInfoSuite since we don't want
-// all the spaces set up.
-func (s *uniterLegacySuite) TestNetworkInfoSpaceless(c *gc.C) {
-}
-
 func (s *uniterLegacySuite) TestAvailabilityZone(c *gc.C) {
 	s.PatchValue(uniter.GetZone, func(ctx context.Context, st *state.State, machineService uniter.MachineService, tag names.Tag) (string, error) {
 		return "a_zone", nil

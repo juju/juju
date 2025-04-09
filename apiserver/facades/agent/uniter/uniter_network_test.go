@@ -14,6 +14,7 @@ var _ = gc.Suite(&uniterNetworkInfoSuite{})
 func (s *uniterNetworkInfoSuite) TestStub(c *gc.C) {
 	c.Skip(`This suite had tests with the following names. To re-ensure coverage, check the 3.6 branch for definitions:
 - TestNetworkInfoPermissions
+- TestNetworkInfoSpaceless
 - TestNetworkInfoForExplicitlyBoundEndpointAndDefaultSpace
 - TestNetworkInfoForImplicitlyBoundEndpoint
 - TestNetworkInfoUsesRelationAddressNonDefaultBinding

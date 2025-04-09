@@ -1983,16 +1983,25 @@ func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoPara
 		return params.NetworkInfoResults{}, apiservererrors.ErrPerm
 	}
 
-	netInfo, err := NewNetworkInfo(ctx, u.st, u.clock, u.networkService, u.modelConfigService, unitTag, u.logger)
+	unit, err := u.st.Unit(unitTag.Id())
 	if err != nil {
-		return params.NetworkInfoResults{}, err
+		return params.NetworkInfoResults{}, internalerrors.Capture(err)
 	}
 
-	res, err := netInfo.ProcessAPIRequest(args)
+	addr, err := unit.PublicAddress()
 	if err != nil {
-		return params.NetworkInfoResults{}, err
+		return params.NetworkInfoResults{}, internalerrors.Capture(err)
 	}
-	return uniqueNetworkInfoResults(res), nil
+
+	results := params.NetworkInfoResults{
+		Results: make(map[string]params.NetworkInfoResult),
+	}
+	for _, binding := range args.Endpoints {
+		results.Results[binding] = params.NetworkInfoResult{
+			IngressAddresses: []string{addr.String()},
+		}
+	}
+	return results, nil
 }
 
 // WatchUnitRelations returns a StringsWatcher, for each given
@@ -2424,92 +2433,9 @@ func (u *UniterAPI) CloudAPIVersion(ctx context.Context) (params.StringResult, e
 // UpdateNetworkInfo refreshes the network settings for a unit's bound
 // endpoints.
 func (u *UniterAPI) UpdateNetworkInfo(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-
-	res := make([]params.ErrorResult, len(args.Entities))
-	for i, entity := range args.Entities {
-		unitTag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			res[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		if !canAccess(unitTag) {
-			res[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-
-		if err = u.updateUnitNetworkInfo(ctx, unitTag); err != nil {
-			res[i].Error = apiservererrors.ServerError(err)
-		}
-	}
-
-	return params.ErrorResults{Results: res}, nil
-}
-
-func (u *UniterAPI) updateUnitNetworkInfo(ctx context.Context, unitTag names.UnitTag) error {
-	unit, err := u.getLegacyUnit(ctx, unitTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	modelOp, err := u.updateUnitNetworkInfoOperation(ctx, unitTag, unit)
-	if err != nil {
-		return err
-	}
-	return u.st.ApplyOperation(modelOp)
-}
-
-func (u *UniterAPI) updateUnitNetworkInfoOperation(ctx context.Context, unitTag names.UnitTag, unit *state.Unit) (state.ModelOperation, error) {
-	joinedRelations, err := unit.RelationsJoined()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	modelOps := make([]state.ModelOperation, len(joinedRelations))
-	for idx, rel := range joinedRelations {
-		relUnit, err := rel.Unit(unit)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		relSettings, err := relUnit.Settings()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		netInfo, err := NewNetworkInfo(ctx, u.st, u.clock, u.networkService, u.modelConfigService, unitTag, u.logger)
-		if err != nil {
-			return nil, err
-		}
-
-		_, ingressAddresses, egressSubnets, err := netInfo.NetworksForRelation(relUnit.Endpoint().Name, rel)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		if len(ingressAddresses) == 0 {
-			relSettings.Delete("private-address")
-			relSettings.Delete("ingress-address")
-		} else {
-			ingressAddress := ingressAddresses[0].Value
-			relSettings.Set("private-address", ingressAddress)
-			relSettings.Set("ingress-address", ingressAddress)
-		}
-
-		if len(egressSubnets) == 0 {
-			relSettings.Delete("egress-subnets")
-		} else {
-			relSettings.Set("egress-subnets", strings.Join(egressSubnets, ","))
-		}
-
-		modelOps[idx] = relSettings.WriteOperation()
-	}
-
-	return state.ComposeModelOperations(modelOps...), nil
+	// TODO hmlanigan 2025-04-09
+	// Implement with the link layer devices domain.
+	return params.ErrorResults{}, nil
 }
 
 // CommitHookChanges batches together all required API calls for applying
@@ -2548,20 +2474,17 @@ func (u *UniterAPI) CommitHookChanges(ctx context.Context, args params.CommitHoo
 	return params.ErrorResults{Results: res}, nil
 }
 
-func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag names.UnitTag, changes params.CommitHookChangesArg, canAccessUnit, canAccessApp common.AuthFunc) error {
-	unit, err := u.getLegacyUnit(ctx, unitTag)
-	if err != nil {
-		return internalerrors.Capture(err)
-	}
-
+func (u *UniterAPI) commitHookChangesForOneUnit(
+	ctx context.Context,
+	unitTag names.UnitTag,
+	changes params.CommitHookChangesArg,
+	canAccessUnit, canAccessApp common.AuthFunc,
+) error {
 	var modelOps []state.ModelOperation
 
 	if changes.UpdateNetworkInfo {
-		modelOp, err := u.updateUnitNetworkInfoOperation(ctx, unitTag, unit)
-		if err != nil {
-			return internalerrors.Capture(err)
-		}
-		modelOps = append(modelOps, modelOp)
+		// TODO hmlanigan 2025-04-09
+		// Implement with the link layer devices domain.
 	}
 
 	for _, rus := range changes.RelationUnitSettings {

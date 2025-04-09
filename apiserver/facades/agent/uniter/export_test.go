@@ -77,8 +77,3 @@ type patcher interface {
 func PatchGetStorageStateError(patcher patcher, err error) {
 	patcher.PatchValue(&getStorageState, func(*state.State, coremodel.ModelType) (storageAccess, error) { return nil, err })
 }
-
-func (n *NetworkInfoIAAS) MachineNetworkInfos() (map[string][]NetInfoAddress, error) {
-	err := n.populateMachineAddresses()
-	return n.machineAddresses, err
-}
