@@ -22,4 +22,8 @@ const (
 	// errors, but that it is not complete and expected to be scheduled again
 	// later. It is not to be deleted from the removal table.
 	RemovalJobIncomplete = errors.ConstError("removal job incomplete")
+
+	// UnitsStillInScope indicates that a relation can not be deleted from
+	// the database because it has associated relation_unit records.
+	UnitsStillInScope = errors.ConstError("units still in relation scope")
 )

@@ -5,14 +5,15 @@ package state
 
 import (
 	"context"
-	"github.com/juju/juju/core/network"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/domain/removal/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -200,6 +201,30 @@ func (s *relationSuite) TestDeleteRelationUnitsSuccess(c *gc.C) {
 	c.Check(inScope, gc.HasLen, 0)
 }
 
+func (s *relationSuite) TestDeleteRelationUnitsInScopeFails(c *gc.C) {
+	rel, _ := s.addAppUnitRelationScope(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteRelation(context.Background(), rel)
+	c.Assert(err, jc.ErrorIs, errors.UnitsStillInScope)
+}
+
+func (s *relationSuite) TestDeleteRelationUnitsInScopeSuccess(c *gc.C) {
+	rel, _ := s.addAppUnitRelationScope(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteRelationUnits(context.Background(), rel)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.DeleteRelation(context.Background(), rel)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = st.GetRelationLife(context.Background(), rel)
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+}
+
 // addAppUnitRelationScope adds charm, application, unit and relation
 // infrastructure such that a single unit is in the scope of a single relation.
 // The relation and unit identifiers are returned.
@@ -239,6 +264,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		"INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid) VALUES (?, ?, ?)",
 		relEndpoint, rel, appEndpoint,
 	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	node := "some-net-node-uuid"
 	_, err = s.DB().Exec("INSERT INTO net_node (uuid) VALUES (?)", node)

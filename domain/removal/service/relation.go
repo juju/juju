@@ -147,12 +147,12 @@ func (s *Service) processRelationRemovalJob(ctx context.Context, job removal.Job
 			job.UUID, job.EntityUUID)
 
 		if err := s.st.DeleteRelationUnits(ctx, job.EntityUUID); err != nil {
-			return errors.Capture(err)
+			return errors.Errorf("departing units from relation %q scope: %w", job.EntityUUID, err)
 		}
 	}
 
 	if err := s.st.DeleteRelation(ctx, job.EntityUUID); err != nil {
-		return errors.Capture(err)
+		return errors.Errorf("deleting relation %q: %w", job.EntityUUID, err)
 	}
 	return nil
 }

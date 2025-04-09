@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
-
 	"github.com/juju/collections/transform"
+
 	"github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -227,7 +229,69 @@ WHERE  relation_endpoint_uuid IN (
 
 		return nil
 	}))
+}
 
+// DeleteRelation removes a relation from the database completely.
+// Note that if any units are in scope, this will return a
+// constraint violation error.
+func (st *State) DeleteRelation(ctx context.Context, rUUID string) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	relationUUID := entityUUID{UUID: rUUID}
+
+	settingsStmt, err := st.Prepare(`
+DELETE FROM relation_application_setting
+WHERE  relation_endpoint_uuid IN (
+    SELECT uuid FROM relation_endpoint WHERE relation_uuid = $entityUUID.uuid
+)`, relationUUID)
+	if err != nil {
+		return errors.Errorf("preparing relation app settings deletion: %w", err)
+	}
+
+	endpointStmt, err := st.Prepare("DELETE FROM relation_endpoint WHERE relation_uuid = $entityUUID.uuid", relationUUID)
+	if err != nil {
+		return errors.Errorf("preparing relation endpoint deletion: %w", err)
+	}
+
+	statusStmt, err := st.Prepare("DELETE FROM relation_status WHERE relation_uuid = $entityUUID.uuid ", relationUUID)
+	if err != nil {
+		return errors.Errorf("preparing relation status deletion: %w", err)
+	}
+
+	relStmt, err := st.Prepare("DELETE FROM relation WHERE uuid = $entityUUID.uuid ", relationUUID)
+	if err != nil {
+		return errors.Errorf("preparing relation deletion: %w", err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, settingsStmt, relationUUID).Run()
+		if err != nil {
+			return errors.Errorf("running relation app settings deletion: %w", err)
+		}
+
+		err = tx.Query(ctx, endpointStmt, relationUUID).Run()
+		if err != nil {
+			if database.IsErrConstraintForeignKey(err) {
+				err = removalerrors.UnitsStillInScope
+			}
+			return errors.Errorf("running relation endpoint deletion: %w", err)
+		}
+
+		err = tx.Query(ctx, statusStmt, relationUUID).Run()
+		if err != nil {
+			return errors.Errorf("running relation status deletion: %w", err)
+		}
+
+		err = tx.Query(ctx, relStmt, relationUUID).Run()
+		if err != nil {
+			return errors.Errorf("running relation deletion: %w", err)
+		}
+
+		return nil
+	}))
 }
 
 // NamespaceForWatchRemovals returns the table name whose UUIDs we
