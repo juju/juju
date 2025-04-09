@@ -4,6 +4,8 @@
 package placement
 
 import (
+	"strings"
+
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/internal/errors"
 )
@@ -57,6 +59,10 @@ func ParsePlacement(placement *instance.Placement) (Placement, error) {
 		}, nil
 
 	case instance.MachineScope:
+		if err := parseMachineParenting(placement.Directive); err != nil {
+			return Placement{}, errors.Capture(err)
+		}
+
 		return Placement{
 			Type:      PlacementTypeMachine,
 			Directive: placement.Directive,
@@ -88,5 +94,28 @@ func parseContainerType(containerType instance.ContainerType) (ContainerType, er
 		return ContainerTypeLXD, nil
 	default:
 		return 0, errors.Errorf("container type %q not supported", containerType)
+	}
+}
+
+func parseMachineParenting(directive string) error {
+	if directive == "" {
+		return errors.Errorf("placement directive %q cannot be empty", directive)
+	}
+
+	// We prevent an unbounded number of slashes by limiting the split to 4
+	// parts. This allows us to provide a more specific error message if the
+	// directive is not in the form of <parent>/<scope>/<child>.
+	parts := strings.SplitN(directive, "/", 4)
+	switch len(parts) {
+	case 1:
+		// There is no parenting directive, so there is no need to parse
+		// anything.
+		return nil
+	case 3:
+		// This should be in the form of `<parent>/<scope>/<child>`.
+		_, err := parseContainerType(instance.ContainerType(parts[1]))
+		return err
+	default:
+		return errors.Errorf("placement directive %q is not in the form of <parent>/<scope>/<child>", directive)
 	}
 }

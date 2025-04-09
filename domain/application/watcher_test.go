@@ -134,9 +134,9 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 
 		storageDir := c.MkDir()
 		ctx := context.Background()
-		err := svc.AddUnits(ctx, storageDir, "foo", u1, u2)
+		err := svc.AddUnits(ctx, storageDir, "foo", nil, u1, u2)
 		c.Assert(err, jc.ErrorIsNil)
-		err = svc.AddUnits(ctx, storageDir, "bar", u3, u4, u5)
+		err = svc.AddUnits(ctx, storageDir, "bar", nil, u3, u4, u5)
 		c.Assert(err, jc.ErrorIsNil)
 
 		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {

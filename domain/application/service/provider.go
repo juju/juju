@@ -291,16 +291,16 @@ func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstra
 // doesn't exist.
 // If no units are provided, it will return nil.
 func (s *ProviderService) AddUnits(ctx context.Context, storageParentDir, appName string, unitPlacement *instance.Placement, units ...AddUnitArg) error {
+	if len(units) == 0 {
+		return nil
+	}
+
 	if !isValidApplicationName(appName) {
 		return applicationerrors.ApplicationNameNotValid
 	}
 	placement, err := placement.ParsePlacement(unitPlacement)
 	if err != nil {
 		return errors.Errorf("invalid placement: %w", err)
-	}
-
-	if len(units) == 0 {
-		return nil
 	}
 
 	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)

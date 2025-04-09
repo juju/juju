@@ -51,6 +51,27 @@ func (s *PlacementSuite) TestPlacement(c *gc.C) {
 		},
 		{
 			input: &instance.Placement{
+				Scope:     instance.MachineScope,
+				Directive: "0/kvm/0",
+			},
+			err: ptr(`container type "kvm" not supported`),
+		},
+		{
+			input: &instance.Placement{
+				Scope:     instance.MachineScope,
+				Directive: "0/lxd",
+			},
+			err: ptr(`placement directive "0/lxd" is not in the form of <parent>/<scope>/<child>`),
+		},
+		{
+			input: &instance.Placement{
+				Scope:     instance.MachineScope,
+				Directive: "0/lxd/0/0",
+			},
+			err: ptr(`placement directive "0/lxd/0/0" is not in the form of <parent>/<scope>/<child>`),
+		},
+		{
+			input: &instance.Placement{
 				Scope: string(instance.LXD),
 			},
 			output: Placement{
