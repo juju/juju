@@ -40,6 +40,27 @@ func encodeCloudContainerStatusType(s corestatus.Status) (status.CloudContainerS
 	}
 }
 
+// encodeRelationStatusType maps a core status to corresponding db relation
+// status.
+func encodeRelationStatusType(s corestatus.Status) (status.RelationStatusType, error) {
+	switch s {
+	case corestatus.Joining:
+		return status.RelationStatusTypeJoining, nil
+	case corestatus.Joined:
+		return status.RelationStatusTypeJoined, nil
+	case corestatus.Broken:
+		return status.RelationStatusTypeBroken, nil
+	case corestatus.Suspending:
+		return status.RelationStatusTypeSuspending, nil
+	case corestatus.Suspended:
+		return status.RelationStatusTypeSuspended, nil
+	case corestatus.Error:
+		return status.RelationStatusTypeError, nil
+	default:
+		return -1, errors.Errorf("unknown relation status %q", s)
+	}
+}
+
 // decodeRelationStatusType maps a db relation status to a corresponding
 // core status.
 func decodeRelationStatusType(s status.RelationStatusType) (corestatus.Status, error) {
@@ -54,6 +75,8 @@ func decodeRelationStatusType(s status.RelationStatusType) (corestatus.Status, e
 		return corestatus.Suspending, nil
 	case status.RelationStatusTypeSuspended:
 		return corestatus.Suspended, nil
+	case status.RelationStatusTypeError:
+		return corestatus.Error, nil
 	default:
 		return "", errors.Errorf("unknown relation status %q", s)
 	}
@@ -214,6 +237,21 @@ func decodeCloudContainerStatus(s status.StatusInfo[status.CloudContainerStatusT
 		Message: s.Message,
 		Data:    data,
 		Since:   s.Since,
+	}, nil
+}
+
+// encodeRelationStatus converts a core status info into a db relation status
+// info.
+func encodeRelationStatus(s corestatus.StatusInfo) (status.StatusInfo[status.RelationStatusType], error) {
+	encodedStatus, err := encodeRelationStatusType(s.Status)
+	if err != nil {
+		return status.StatusInfo[status.RelationStatusType]{}, err
+	}
+
+	return status.StatusInfo[status.RelationStatusType]{
+		Status:  encodedStatus,
+		Since:   s.Since,
+		Message: s.Message,
 	}, nil
 }
 

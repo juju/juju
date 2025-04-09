@@ -74,7 +74,7 @@ FROM   relation_status`, relationStatus{})
 		relationsStatuses[relStatus.RelationUUID] = status.StatusInfo[status.RelationStatusType]{
 			Status:  statusType,
 			Message: relStatus.Reason,
-			Since:   &relStatus.Since,
+			Since:   relStatus.Since,
 		}
 	}
 
@@ -238,6 +238,127 @@ ON CONFLICT(application_uuid) DO UPDATE SET
 	})
 	if err != nil {
 		return errors.Errorf("updating application status for %q: %w", applicationID, err)
+	}
+	return nil
+}
+
+// GetRelationStatus gets the status of the given relation. It returns an error
+// satisfying [statuserrors.RelationNotFound] if the relation doesn't exist.
+func (st *State) getRelationStatus(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid corerelation.UUID,
+) (status.StatusInfo[status.RelationStatusType], error) {
+	empty := status.StatusInfo[status.RelationStatusType]{}
+	id := relationUUID{
+		RelationUUID: uuid,
+	}
+	var sts relationStatus
+
+	stmt, err := st.Prepare(`
+SELECT &relationStatus.*
+FROM   relation_status
+WHERE  relation_uuid = $relationUUID.relation_uuid
+`, id, sts)
+	if err != nil {
+		return empty, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, id).Get(&sts)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return empty, statuserrors.RelationNotFound
+	} else if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return empty, errors.Capture(err)
+	}
+
+	statusType, err := status.DecodeRelationStatus(sts.StatusID)
+	if err != nil {
+		return empty, errors.Capture(err)
+	}
+	return status.StatusInfo[status.RelationStatusType]{
+		Status:  statusType,
+		Message: sts.Reason,
+		Since:   sts.Since,
+	}, nil
+}
+
+// SetRelationStatus sets the given relation status and checks that the
+// transition to the new status from the current status is valid. It can
+// return the following errors:
+//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
+//   - [statuserrors.RelationStatusTransitionNotValid] if the current relation
+//     status cannot transition to the new relation status. the relation does
+//     not exist.
+func (st *State) SetRelationStatus(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	sts status.StatusInfo[status.RelationStatusType],
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Get current status.
+		currentStatus, err := st.getRelationStatus(ctx, tx, relationUUID)
+		if err != nil {
+			return errors.Errorf("getting current relation status: %w", err)
+		}
+
+		// Check we can transition from current status to the new status.
+		err = status.RelationStatusTransitionValid(currentStatus, sts)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		// If transitioning from Suspending to Suspended and the new message is
+		// empty, retain any existing message so that any previous reason for
+		// suspending is retained.
+		if sts.Message == "" &&
+			currentStatus.Status == status.RelationStatusTypeSuspending &&
+			sts.Status == status.RelationStatusTypeSuspended {
+			sts.Message = currentStatus.Message
+		}
+		return st.updateRelationStatus(ctx, tx, relationUUID, sts)
+	})
+	if err != nil {
+		return errors.Errorf("updating relation status for %q: %w", relationUUID, err)
+	}
+	return nil
+}
+
+func (st *State) updateRelationStatus(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relationUUID corerelation.UUID,
+	sts status.StatusInfo[status.RelationStatusType],
+) error {
+	statusID, err := status.EncodeRelationStatus(sts.Status)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	statusInfo := relationStatus{
+		RelationUUID: relationUUID,
+		StatusID:     statusID,
+		Reason:       sts.Message,
+		Since:        sts.Since,
+	}
+	stmt, err := st.Prepare(`
+UPDATE relation_status
+SET relation_status_type_id = $relationStatus.relation_status_type_id,
+    suspended_reason = $relationStatus.suspended_reason,
+    updated_at = $relationStatus.updated_at
+WHERE relation_uuid = $relationStatus.relation_uuid
+`, statusInfo)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, statusInfo).Run()
+	if err != nil {
+		return errors.Capture(err)
 	}
 	return nil
 }

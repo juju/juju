@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/unit"
+	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -91,7 +92,29 @@ const (
 	RelationStatusTypeBroken
 	RelationStatusTypeSuspending
 	RelationStatusTypeSuspended
+	RelationStatusTypeError
 )
+
+// EncodeRelationStatus encodes a RelationStatusType from into it's integer id, as
+// recorded in the relation_status_value lookup table.
+func EncodeRelationStatus(s RelationStatusType) (int, error) {
+	switch s {
+	case RelationStatusTypeJoining:
+		return 0, nil
+	case RelationStatusTypeJoined:
+		return 1, nil
+	case RelationStatusTypeBroken:
+		return 2, nil
+	case RelationStatusTypeSuspending:
+		return 3, nil
+	case RelationStatusTypeSuspended:
+		return 4, nil
+	case RelationStatusTypeError:
+		return 5, nil
+	default:
+		return -1, errors.Errorf("unknown status %d", s)
+	}
+}
 
 // DecodeRelationStatus decodes a RelationStatusType from it's integer id, as
 // recorded in the relation_status_value lookup table.
@@ -107,9 +130,42 @@ func DecodeRelationStatus(s int) (RelationStatusType, error) {
 		return RelationStatusTypeSuspending, nil
 	case 4:
 		return RelationStatusTypeSuspended, nil
+	case 5:
+		return RelationStatusTypeError, nil
 	default:
 		return -1, errors.Errorf("unknown status %d", s)
 	}
+}
+
+// RelationStatusTransitionValid returns the error
+// [statuserror.RelationStatusTransitionNotValid] if the transition from the
+// current relation status to the new relation status is not valid.
+func RelationStatusTransitionValid(current, new StatusInfo[RelationStatusType]) error {
+	if current.Status != new.Status {
+		validTransition := true
+		switch new.Status {
+		case RelationStatusTypeBroken:
+		case RelationStatusTypeSuspending:
+			validTransition = current.Status != RelationStatusTypeBroken && current.Status != RelationStatusTypeSuspended
+		case RelationStatusTypeJoining:
+			validTransition = current.Status != RelationStatusTypeBroken && current.Status != RelationStatusTypeJoined
+		case RelationStatusTypeJoined, RelationStatusTypeSuspended:
+			validTransition = current.Status != RelationStatusTypeBroken
+		case RelationStatusTypeError:
+			if new.Message == "" {
+				return errors.Errorf("cannot set status %q without info", new.Status)
+			}
+		default:
+			return errors.Errorf("cannot set invalid status %q", new.Status)
+		}
+		if !validTransition {
+			return errors.Errorf(
+				"cannot set status %q when relation has status %q: %w",
+				new.Status, current.Status, statuserrors.RelationStatusTransitionNotValid,
+			)
+		}
+	}
+	return nil
 }
 
 // UnitAgentStatusType represents the status of a unit agent

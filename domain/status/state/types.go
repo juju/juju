@@ -20,6 +20,10 @@ type applicationIDAndName struct {
 	Name string             `db:"name"`
 }
 
+type relationUUID struct {
+	RelationUUID corerelation.UUID `db:"relation_uuid"`
+}
+
 type unitUUID struct {
 	UnitUUID coreunit.UUID `db:"uuid"`
 }
@@ -117,5 +121,5 @@ type relationStatus struct {
 	RelationUUID corerelation.UUID `db:"relation_uuid"`
 	StatusID     int               `db:"relation_status_type_id"`
 	Reason       string            `db:"suspended_reason"`
-	Since        time.Time         `db:"updated_at"`
+	Since        *time.Time        `db:"updated_at"`
 }

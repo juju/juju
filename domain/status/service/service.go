@@ -60,6 +60,19 @@ type State interface {
 		status status.StatusInfo[status.WorkloadStatusType],
 	) error
 
+	// SetRelationStatus sets the given relation status and checks that the
+	// transition to the new status from the current status is valid. It can
+	// return the following errors:
+	//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
+	//   - [statuserrors.RelationStatusTransitionNotValid] if the current relation
+	//     status cannot transition to the new relation status. the relation does
+	//     not exist.
+	SetRelationStatus(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		sts status.StatusInfo[status.RelationStatusType],
+	) error
+
 	// GetUnitUUIDByName returns the UUID for the named unit, returning an
 	// error satisfying [statuserrors.UnitNotFound] if the unit doesn't
 	// exist.
@@ -274,6 +287,42 @@ func (s *LeadershipService) GetApplicationAndUnitStatusesForUnitWithLeader(
 	}
 
 	return applicationDisplayStatus, unitWorkloadStatuses, nil
+}
+
+// SetRelationStatus sets the status of the relation to the status provided.
+// Status may only be set by the application leader.
+// It can return the following errors:
+//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
+//   - [statuserrors.RelationStatusTransitionNotValid] if the current relation
+//     status cannot transition to the new relation status. the relation does
+//     not exist.
+func (s *LeadershipService) SetRelationStatus(
+	ctx context.Context,
+	unitName coreunit.Name,
+	relationUUID corerelation.UUID,
+	info corestatus.StatusInfo,
+) error {
+	// Get application name for leadership check.
+	_, applicationName, err := s.st.GetApplicationIDAndNameByUnitName(ctx, unitName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Status can only be set by the leader unit.
+	err = s.leaderEnsurer.WithLeader(ctx, applicationName, unitName.String(), func(ctx context.Context) error {
+		// Encode status.
+		relationStatus, err := encodeRelationStatus(info)
+		if err != nil {
+			return errors.Errorf("encoding relation status: %w", err)
+		}
+
+		return s.st.SetRelationStatus(ctx, relationUUID, relationStatus)
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
 }
 
 // Service provides the API for working with the statuses of applications and units.

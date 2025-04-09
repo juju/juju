@@ -154,7 +154,8 @@ INSERT INTO relation_status_type VALUES
 (1, 'joined'),
 (2, 'broken'),
 (3, 'suspending'),
-(4, 'suspended');
+(4, 'suspended'),
+(5, 'error');
 
 -- The relation_sequence table is used to keep track of the
 -- sequence number for relation IDs within a model. Each

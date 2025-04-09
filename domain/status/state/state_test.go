@@ -60,14 +60,12 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 
 func (s *stateSuite) TestGetAllRelationStatuses(c *gc.C) {
 	// Arrange: add two relation, one with a status, but not the second one.
-	relationUUID1 := corerelationtesting.GenRelationUUID(c)
-	relationUUID2 := corerelationtesting.GenRelationUUID(c)
 	now := time.Now().Truncate(time.Minute).UTC()
 
-	s.addRelationWithLifeAndID(c, relationUUID1.String(), corelife.Alive, 7)
-	s.addRelationWithLifeAndID(c, relationUUID2.String(), corelife.Alive, 8)
+	relationUUID1 := s.addRelationWithLifeAndID(c, corelife.Alive, 7)
+	_ = s.addRelationWithLifeAndID(c, corelife.Alive, 8)
 
-	s.addRelationStatusWithMessage(c, relationUUID1.String(), corestatus.Suspended, "this is a test", now)
+	s.addRelationStatusWithMessage(c, relationUUID1, corestatus.Suspended, "this is a test", now)
 
 	// Act
 	result, err := s.state.GetAllRelationStatuses(context.Background())
@@ -223,6 +221,144 @@ func (s *stateSuite) TestGetApplicationStatusNotSet(c *gc.C) {
 	c.Check(sts, gc.DeepEquals, status.StatusInfo[status.WorkloadStatusType]{
 		Status: status.WorkloadStatusUnset,
 	})
+}
+
+func (s *stateSuite) TestSetRelationStatus(c *gc.C) {
+	// Arrange: Create relation and statuses.
+	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, 7)
+	now := time.Now().UTC()
+	s.addRelationStatusWithMessage(c, relationUUID, corestatus.Joining, "", now)
+
+	sts := status.StatusInfo[status.RelationStatusType]{
+		Status:  status.RelationStatusTypeSuspended,
+		Message: "message",
+		Since:   ptr(now),
+	}
+
+	// Act:
+	err := s.state.SetRelationStatus(context.Background(), relationUUID, sts)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Assert:
+	foundStatus := s.getRelationStatus(c, relationUUID)
+	c.Assert(foundStatus, jc.DeepEquals, sts)
+}
+
+// TestSetRelationStatusMultipleTimes sets the status multiple times to ensure
+// that it is updated correctly the second time.
+func (s *stateSuite) TestSetRelationStatusMultipleTimes(c *gc.C) {
+	// Arrange: Add relation and create statuses.
+	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, 7)
+	now := time.Now().UTC()
+	s.addRelationStatusWithMessage(c, relationUUID, corestatus.Joining, "", now)
+
+	sts1 := status.StatusInfo[status.RelationStatusType]{
+		Status:  status.RelationStatusTypeSuspended,
+		Message: "message",
+		Since:   ptr(now),
+	}
+
+	sts2 := status.StatusInfo[status.RelationStatusType]{
+		Status:  status.RelationStatusTypeBroken,
+		Message: "message2",
+		Since:   ptr(now),
+	}
+
+	// Act: Set status twice.
+	err := s.state.SetRelationStatus(context.Background(), relationUUID, sts1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetRelationStatus(context.Background(), relationUUID, sts2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Assert:
+	foundStatus := s.getRelationStatus(c, relationUUID)
+	c.Assert(foundStatus, jc.DeepEquals, sts2)
+}
+
+// TestSetRelationStatusInvalidTransition checks that an invalid relation status
+// transition is blocked.
+func (s *stateSuite) TestSetRelationStatusInvalidTransition(c *gc.C) {
+	// Arrange: Add relation and set status to broken.
+	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, 7)
+	now := time.Now().UTC()
+	s.addRelationStatusWithMessage(c, relationUUID, corestatus.Broken, "", now)
+
+	// Arrange: Create joining status, which cannot be transitioned to from broken.
+	sts := status.StatusInfo[status.RelationStatusType]{
+		Status: status.RelationStatusTypeJoining,
+		Since:  ptr(now),
+	}
+
+	// Act: Change status to suspended.
+	err := s.state.SetRelationStatus(context.Background(), relationUUID, sts)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, statuserrors.RelationStatusTransitionNotValid)
+}
+
+// TestSetRelationStatusSuspendingToSuspended checks that the message from
+// Suspending status is preserved when the status is updated to Suspended.
+func (s *stateSuite) TestSetRelationStatusSuspendingToSuspended(c *gc.C) {
+	// Arrange: Add relation and create suspending status with message.
+	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, 7)
+	now := time.Now().UTC()
+	message := "suspending message"
+	s.addRelationStatusWithMessage(c, relationUUID, corestatus.Suspending, message, now)
+
+	// Arrange: Create suspended status without message to set.
+	suspendedStatus := status.StatusInfo[status.RelationStatusType]{
+		Status: status.RelationStatusTypeSuspended,
+		Since:  ptr(now),
+	}
+
+	// Act: Change status to suspended.
+	err := s.state.SetRelationStatus(context.Background(), relationUUID, suspendedStatus)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Assert:
+	foundStatus := s.getRelationStatus(c, relationUUID)
+	c.Assert(foundStatus, jc.DeepEquals, status.StatusInfo[status.RelationStatusType]{
+		Status:  status.RelationStatusTypeSuspended,
+		Message: message,
+		Since:   ptr(now),
+	})
+}
+
+func (s *stateSuite) TestSetRelationStatusRelationNotFound(c *gc.C) {
+	// Arrange: Create relation and statuses.
+	sts := status.StatusInfo[status.RelationStatusType]{
+		Since: ptr(time.Now().UTC()),
+	}
+
+	// Act:
+	err := s.state.SetRelationStatus(context.Background(), "bad-uuid", sts)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, statuserrors.RelationNotFound)
+}
+
+func (s *stateSuite) getRelationStatus(c *gc.C, relationUUID corerelation.UUID) status.StatusInfo[status.RelationStatusType] {
+	var (
+		statusType int
+		reason     string
+		updated_at *time.Time
+	)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT relation_status_type_id, suspended_reason, updated_at
+FROM   relation_status
+WHERE  relation_uuid = ?
+`, relationUUID).Scan(&statusType, &reason, &updated_at)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	encodedStatus, err := status.DecodeRelationStatus(statusType)
+	c.Assert(err, jc.ErrorIsNil)
+	return status.StatusInfo[status.RelationStatusType]{
+		Status:  encodedStatus,
+		Message: reason,
+		Since:   updated_at,
+	}
 }
 
 func (s *stateSuite) TestSetCloudContainerStatus(c *gc.C) {
@@ -1099,7 +1235,8 @@ func (s *stateSuite) TestDeleteUnitPresence(c *gc.C) {
 
 // addRelationWithLifeAndID inserts a new relation into the database with the
 // given details.
-func (s *stateSuite) addRelationWithLifeAndID(c *gc.C, relationUUID string, life corelife.Value, relationID int) {
+func (s *stateSuite) addRelationWithLifeAndID(c *gc.C, life corelife.Value, relationID int) corerelation.UUID {
+	relationUUID := corerelationtesting.GenRelationUUID(c)
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
 INSERT INTO relation (uuid, relation_id, life_id)
@@ -1110,10 +1247,11 @@ WHERE value = ?
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) Failed to insert relation %s, id %d", relationUUID, relationID))
+	return relationUUID
 }
 
 // addRelationStatusWithMessage inserts a relation status into the relation_status table.
-func (s *stateSuite) addRelationStatusWithMessage(c *gc.C, relationUUID string, status corestatus.Status,
+func (s *stateSuite) addRelationStatusWithMessage(c *gc.C, relationUUID corerelation.UUID, status corestatus.Status,
 	message string, since time.Time) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`
