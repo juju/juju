@@ -7,10 +7,11 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/juju/names/v6"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/names/v6"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -24,7 +25,7 @@ func Register(registry facade.FacadeRegistry) {
 func newUndertakerFacade(ctx facade.ModelContext) (*UndertakerAPI, error) {
 	st := ctx.State()
 
-	authFunc := common.AuthFuncForTag(names.NewModelTag(string(ctx.ModelUUID())))
+	authFunc := common.AuthFuncForTag(names.NewModelTag(ctx.ModelUUID().String()))
 
 	domainServices := ctx.DomainServices()
 	modelInfoService := domainServices.ModelInfo()

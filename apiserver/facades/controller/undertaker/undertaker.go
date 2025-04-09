@@ -13,7 +13,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/life"
-	coremodel "github.com/juju/juju/core/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -109,7 +108,7 @@ func (u *UndertakerAPI) removeModelSecrets(ctx context.Context) error {
 		return errors.Trace(err)
 	}
 
-	secretBackendCfg, err := u.secretBackendService.GetSecretBackendConfigForAdmin(ctx, coremodel.UUID(modelInfo.UUID))
+	secretBackendCfg, err := u.secretBackendService.GetSecretBackendConfigForAdmin(ctx, modelInfo.UUID)
 	if errors.Is(err, secretbackenderrors.NotFound) || errors.Is(err, modelerrors.NotFound) {
 		// If backends or settings are missing, then no secrets to remove.
 		return nil
