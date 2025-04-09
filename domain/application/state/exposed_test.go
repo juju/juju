@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/life"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -221,6 +222,20 @@ func (s *exposedStateSuite) TestSpacesExist(c *gc.C) {
 
 	err := s.state.SpacesExist(context.Background(), set.NewStrings("space0-uuid"))
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *exposedStateSuite) TestGetSpaceUUIDByNameNotFound(c *gc.C) {
+	_, err := s.state.GetSpaceUUIDByName(context.Background(), "missing-space")
+	c.Assert(err, gc.ErrorMatches, "space not found.*")
+}
+
+func (s *exposedStateSuite) TestGetSpaceUUIDByName(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive)
+	s.setUpEndpoint(c, appID)
+
+	uuid, err := s.state.GetSpaceUUIDByName(context.Background(), "space0")
+	c.Assert(err, gc.IsNil)
+	c.Check(uuid, gc.Equals, network.Id("space0-uuid"))
 }
 
 func (s *exposedStateSuite) TestUnsetExposeSettings(c *gc.C) {

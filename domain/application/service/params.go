@@ -228,6 +228,9 @@ type ImportApplicationArgs struct {
 	// ScaleState is the scale state (including scaling, scale and scale
 	// target) of the application.
 	ScaleState application.ScaleState
+
+	// ExposedEndpoints is the exposed endpoints for the application.
+	ExposedEndpoints map[string]application.ExposedEndpoint
 }
 
 // ApplicationConfig represents the application config for the specified

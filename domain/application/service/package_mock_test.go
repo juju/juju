@@ -2064,6 +2064,45 @@ func (c *MockStateGetModelTypeCall) DoAndReturn(f func(context.Context) (model.M
 	return c
 }
 
+// GetSpaceUUIDByName mocks base method.
+func (m *MockState) GetSpaceUUIDByName(ctx context.Context, name string) (network.Id, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSpaceUUIDByName", ctx, name)
+	ret0, _ := ret[0].(network.Id)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSpaceUUIDByName indicates an expected call of GetSpaceUUIDByName.
+func (mr *MockStateMockRecorder) GetSpaceUUIDByName(ctx, name any) *MockStateGetSpaceUUIDByNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSpaceUUIDByName", reflect.TypeOf((*MockState)(nil).GetSpaceUUIDByName), ctx, name)
+	return &MockStateGetSpaceUUIDByNameCall{Call: call}
+}
+
+// MockStateGetSpaceUUIDByNameCall wrap *gomock.Call
+type MockStateGetSpaceUUIDByNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetSpaceUUIDByNameCall) Return(arg0 network.Id, arg1 error) *MockStateGetSpaceUUIDByNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetSpaceUUIDByNameCall) Do(f func(context.Context, string) (network.Id, error)) *MockStateGetSpaceUUIDByNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetSpaceUUIDByNameCall) DoAndReturn(f func(context.Context, string) (network.Id, error)) *MockStateGetSpaceUUIDByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetStoragePoolByName mocks base method.
 func (m *MockState) GetStoragePoolByName(ctx context.Context, name string) (storage0.StoragePoolDetails, error) {
 	m.ctrl.T.Helper()

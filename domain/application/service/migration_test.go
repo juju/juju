@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -521,6 +522,15 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 	s.state.EXPECT().SetDesiredApplicationScale(gomock.Any(), id, 1).Return(nil)
 	s.state.EXPECT().SetApplicationScalingState(gomock.Any(), "ubuntu", 42, true).Return(nil)
 	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "ubuntu").Return(charmUUID, nil)
+	s.state.EXPECT().MergeExposeSettings(gomock.Any(), id, map[string]application.ExposedEndpoint{
+		"": {
+			ExposeToSpaceIDs: set.NewStrings("alpha"),
+		},
+		"endpoint0": {
+			ExposeToCIDRs:    set.NewStrings("10.0.0.0/24", "10.0.1.0/24"),
+			ExposeToSpaceIDs: set.NewStrings("space0", "space1"),
+		},
+	}).Return(nil)
 
 	err := s.service.ImportApplication(context.Background(), "ubuntu", ImportApplicationArgs{
 		Charm: s.charm,
@@ -545,6 +555,15 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 			Scale:       1,
 			Scaling:     true,
 			ScaleTarget: 42,
+		},
+		ExposedEndpoints: map[string]application.ExposedEndpoint{
+			"": {
+				ExposeToSpaceIDs: set.NewStrings("alpha"),
+			},
+			"endpoint0": {
+				ExposeToCIDRs:    set.NewStrings("10.0.0.0/24", "10.0.1.0/24"),
+				ExposeToSpaceIDs: set.NewStrings("space0", "space1"),
+			},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)

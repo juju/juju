@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/description/v9"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -73,6 +74,12 @@ type ImportService interface {
 	// application might be in an incomplete state, so it's important to remove
 	// as much of the application as possible, even on failure.
 	RemoveImportedApplication(context.Context, string) error
+
+	// GetSpaceUUIDByName returns the UUID of the space with the given name.
+	//
+	// It returns an error satisfying [networkerrors.SpaceNotFound] if the provided
+	// space name doesn't exist.
+	GetSpaceUUIDByName(ctx context.Context, name string) (network.Id, error)
 }
 
 // Name returns the name of this operation.
@@ -154,6 +161,11 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			scaleState.ScaleTarget = provisioningState.ScaleTarget()
 		}
 
+		exposedEndpoints, err := i.importExposedEndpoints(ctx, app, model.Spaces())
+		if err != nil {
+			return errors.Errorf("importing exposed endpoints: %w", err)
+		}
+
 		err = i.service.ImportApplication(ctx, app.Name(), service.ImportApplicationArgs{
 			Charm:                  charm,
 			CharmOrigin:            origin,
@@ -162,6 +174,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			ApplicationSettings:    applicationSettings,
 			ApplicationConstraints: i.importApplicationConstraints(app),
 			ScaleState:             scaleState,
+			ExposedEndpoints:       exposedEndpoints,
 
 			// ReferenceName is the name of the charm URL, not the application
 			// name and not the charm name in the metadata, but the name of
@@ -631,6 +644,58 @@ func (i *importOperation) importCharmActions(data description.CharmActions) (*in
 	return &internalcharm.Actions{
 		ActionSpecs: actions,
 	}, nil
+}
+
+func (i *importOperation) importExposedEndpoints(ctx context.Context, app description.Application, spaces []description.Space) (map[string]application.ExposedEndpoint, error) {
+	if !app.Exposed() {
+		return make(map[string]application.ExposedEndpoint), nil
+	}
+
+	exposedEndpoints := make(map[string]application.ExposedEndpoint)
+	for endpoint, exposedEndpoint := range app.ExposedEndpoints() {
+		// Since pre-4.0 spaces had only an Id (and not a UUID) set, we need to
+		// map the exposed endpoints to the spaces to the new UUIDs as inserted
+		// by the network domain. We do this implicit mapping by looking the
+		// spaces by name.
+		exposedToSpaceUUIDs := make([]string, 0, len(exposedEndpoint.ExposeToSpaceIDs()))
+		for _, spaceID := range exposedEndpoint.ExposeToSpaceIDs() {
+			// We don't export the alpha space to the description model, so we
+			// must verify if the space ID is either the 4.0+ alpha space ID or
+			// the legacy ID ("0"). In that case we just map it to the new alpha
+			// space UUID.
+			//
+			if spaceID == network.AlphaSpaceId || spaceID == "0" {
+				exposedToSpaceUUIDs = append(exposedToSpaceUUIDs, network.AlphaSpaceId)
+				continue
+			}
+
+			var spaceName string
+			for _, spaceInfo := range spaces {
+				if spaceInfo.Id() == spaceID {
+					spaceName = spaceInfo.Name()
+					break
+				} else if spaceInfo.UUID() == spaceID {
+					// This means that the space was inserted from a 4.0+ model.
+					spaceName = spaceInfo.Name()
+					break
+				}
+			}
+
+			if spaceName == "" {
+				return nil, errors.Errorf("endpoint exposed to space %q does not exist", spaceID)
+			}
+			spaceUUID, err := i.service.GetSpaceUUIDByName(ctx, spaceName)
+			if err != nil {
+				return nil, errors.Errorf("getting space UUID by name %q: %w", spaceID, err)
+			}
+			exposedToSpaceUUIDs = append(exposedToSpaceUUIDs, spaceUUID.String())
+		}
+		exposedEndpoints[endpoint] = application.ExposedEndpoint{
+			ExposeToCIDRs:    set.NewStrings(exposedEndpoint.ExposeToCIDRs()...),
+			ExposeToSpaceIDs: set.NewStrings(exposedToSpaceUUIDs...),
+		}
+	}
+	return exposedEndpoints, nil
 }
 
 func importCharmUser(data description.CharmMetadata) (internalcharm.RunAs, error) {

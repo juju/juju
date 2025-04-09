@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/description/v9"
 	jc "github.com/juju/testing/checkers"
+	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -31,6 +32,7 @@ func (s *exportCharmSuite) TestApplicationExportMinimalCharm(c *gc.C) {
 	s.expectApplicationConfig()
 	s.expectApplicationConstraints(constraints.Value{})
 	s.expectApplicationUnits()
+	s.exportService.EXPECT().IsApplicationExposed(gomock.Any(), "prometheus").Return(false, nil)
 
 	exportOp := s.newExportOperation()
 

@@ -166,7 +166,6 @@ func (st *State) resolveWildcardEndpoints(
 
 		for _, endpoint := range endpoints {
 			closePorts[endpoint] = append(closePorts[endpoint], openPortRange)
-
 		}
 	}
 

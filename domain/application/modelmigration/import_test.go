@@ -5,7 +5,9 @@ package modelmigration
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/description/v9"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -24,6 +26,7 @@ import (
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type importSuite struct {
@@ -867,6 +870,286 @@ func (s *importSuite) TestImportCharmActionsNestedMaps(c *gc.C) {
 			},
 		},
 	})
+}
+
+func (s *importSuite) TestImportExposedEndpointsFrom36(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	appArgs := description.ApplicationArgs{
+		Name:     "prometheus",
+		CharmURL: "ch:prometheus-1",
+		Exposed:  true,
+		ExposedEndpoints: map[string]description.ExposedEndpointArgs{
+			"": {
+				// The legacy alpha space ID ("0") should be mapped to the new
+				// alpha space UUID.
+				ExposeToSpaceIDs: []string{"0"},
+			},
+			"endpoint0": {
+				ExposeToCIDRs:    []string{"10.0.0.0/24", "10.0.1.0/24"},
+				ExposeToSpaceIDs: []string{"1"},
+			},
+		},
+	}
+	app := model.AddApplication(appArgs)
+	app.SetCharmMetadata(description.CharmMetadataArgs{
+		Name: "prometheus",
+	})
+	app.SetCharmManifest(description.CharmManifestArgs{
+		Bases: []description.CharmManifestBase{baseType{
+			name:          "ubuntu",
+			channel:       "24.04",
+			architectures: []string{"amd64"},
+		}},
+	})
+	app.SetCharmOrigin(description.CharmOriginArgs{
+		Source:   "charm-hub",
+		ID:       "1234",
+		Hash:     "deadbeef",
+		Revision: 1,
+		Channel:  "666/stable",
+		Platform: "arm64/ubuntu/24.04",
+	})
+
+	// We add a pre-4.0 space, which has a Id and not an UUID in description.
+	model.AddSpace(description.SpaceArgs{
+		Id:   "1",
+		Name: "beta",
+	})
+
+	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "beta").Return(network.Id("beta-space-uuid"), nil)
+
+	s.importService.EXPECT().ImportApplication(
+		gomock.Any(),
+		"prometheus",
+		gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, args service.ImportApplicationArgs) error {
+		c.Assert(args.Charm.Meta().Name, gc.Equals, "prometheus")
+		c.Check(args.ExposedEndpoints, gc.HasLen, 2)
+		c.Check(args.ExposedEndpoints[""].ExposeToSpaceIDs, gc.DeepEquals, set.NewStrings(network.AlphaSpaceId))
+		c.Check(args.ExposedEndpoints["endpoint0"].ExposeToCIDRs, gc.DeepEquals, set.NewStrings("10.0.0.0/24", "10.0.1.0/24"))
+		c.Check(args.ExposedEndpoints["endpoint0"].ExposeToSpaceIDs, gc.DeepEquals, set.NewStrings("beta-space-uuid"))
+		return nil
+	})
+
+	importOp := importOperation{
+		service: s.importService,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+
+	err := importOp.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *importSuite) TestImportExposedEndpointsFrom40(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	spaceUUID := uuid.MustNewUUID()
+	appArgs := description.ApplicationArgs{
+		Name:     "prometheus",
+		CharmURL: "ch:prometheus-1",
+		Exposed:  true,
+		ExposedEndpoints: map[string]description.ExposedEndpointArgs{
+			"": {
+				ExposeToSpaceIDs: []string{network.AlphaSpaceId},
+			},
+			"endpoint0": {
+				ExposeToCIDRs:    []string{"10.0.0.0/24", "10.0.1.0/24"},
+				ExposeToSpaceIDs: []string{spaceUUID.String()},
+			},
+		},
+	}
+	app := model.AddApplication(appArgs)
+	app.SetCharmMetadata(description.CharmMetadataArgs{
+		Name: "prometheus",
+	})
+	app.SetCharmManifest(description.CharmManifestArgs{
+		Bases: []description.CharmManifestBase{baseType{
+			name:          "ubuntu",
+			channel:       "24.04",
+			architectures: []string{"amd64"},
+		}},
+	})
+	app.SetCharmOrigin(description.CharmOriginArgs{
+		Source:   "charm-hub",
+		ID:       "1234",
+		Hash:     "deadbeef",
+		Revision: 1,
+		Channel:  "666/stable",
+		Platform: "arm64/ubuntu/24.04",
+	})
+
+	// We add a pre-4.0 space, which has a Id and not an UUID in description.
+	model.AddSpace(description.SpaceArgs{
+		UUID: spaceUUID.String(),
+		Name: "beta",
+	})
+
+	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "beta").Return(network.Id(spaceUUID.String()), nil)
+
+	s.importService.EXPECT().ImportApplication(
+		gomock.Any(),
+		"prometheus",
+		gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, args service.ImportApplicationArgs) error {
+		c.Assert(args.Charm.Meta().Name, gc.Equals, "prometheus")
+		c.Check(args.ExposedEndpoints, gc.HasLen, 2)
+		c.Check(args.ExposedEndpoints[""].ExposeToSpaceIDs, gc.DeepEquals, set.NewStrings(network.AlphaSpaceId))
+		c.Check(args.ExposedEndpoints["endpoint0"].ExposeToCIDRs, gc.DeepEquals, set.NewStrings("10.0.0.0/24", "10.0.1.0/24"))
+		c.Check(args.ExposedEndpoints["endpoint0"].ExposeToSpaceIDs, gc.DeepEquals, set.NewStrings(spaceUUID.String()))
+		return nil
+	})
+
+	importOp := importOperation{
+		service: s.importService,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+
+	err := importOp.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *importSuite) TestSpaceNameNotFoundFrom36(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	importOp := importOperation{
+		service: s.importService,
+	}
+
+	model := description.NewModel(description.ModelArgs{})
+
+	appArgs := description.ApplicationArgs{
+		Name:     "prometheus",
+		CharmURL: "ch:prometheus-1",
+		Exposed:  true,
+		ExposedEndpoints: map[string]description.ExposedEndpointArgs{
+			"": {
+				ExposeToSpaceIDs: []string{"1"},
+			},
+		},
+	}
+	app := model.AddApplication(appArgs)
+	// Space "1" is not in the model.
+	model.AddSpace(description.SpaceArgs{
+		Id:   "2",
+		Name: "beta",
+	})
+
+	_, err := importOp.importExposedEndpoints(context.Background(), app, model.Spaces())
+	c.Assert(err, gc.ErrorMatches, "endpoint exposed to space \"1\" does not exist")
+}
+
+func (s *importSuite) TestSpaceNameNotFoundFrom40(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	importOp := importOperation{
+		service: s.importService,
+	}
+
+	model := description.NewModel(description.ModelArgs{})
+
+	spaceUUID := uuid.MustNewUUID()
+	appArgs := description.ApplicationArgs{
+		Name:     "prometheus",
+		CharmURL: "ch:prometheus-1",
+		Exposed:  true,
+		ExposedEndpoints: map[string]description.ExposedEndpointArgs{
+			"": {
+				ExposeToSpaceIDs: []string{spaceUUID.String()},
+			},
+		},
+	}
+	app := model.AddApplication(appArgs)
+	// Space with UUID {spaceUUID} is not in the model.
+	model.AddSpace(description.SpaceArgs{
+		Id:   "other-space-uuid",
+		Name: "beta",
+	})
+
+	_, err := importOp.importExposedEndpoints(context.Background(), app, model.Spaces())
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("endpoint exposed to space %q does not exist", spaceUUID.String()))
+}
+
+func (s *importSuite) TestSpaceNameNotFoundInDB(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	importOp := importOperation{
+		service: s.importService,
+	}
+
+	model := description.NewModel(description.ModelArgs{})
+
+	spaceUUID := uuid.MustNewUUID()
+	appArgs := description.ApplicationArgs{
+		Name:     "prometheus",
+		CharmURL: "ch:prometheus-1",
+		Exposed:  true,
+		ExposedEndpoints: map[string]description.ExposedEndpointArgs{
+			"": {
+				ExposeToSpaceIDs: []string{spaceUUID.String()},
+			},
+		},
+	}
+	app := model.AddApplication(appArgs)
+	// Space with UUID {spaceUUID} is not in the model.
+	model.AddSpace(description.SpaceArgs{
+		Id:   spaceUUID.String(),
+		Name: "beta",
+	})
+
+	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "beta").Return(network.Id(""), errors.Errorf("boom"))
+
+	_, err := importOp.importExposedEndpoints(context.Background(), app, model.Spaces())
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("getting space UUID by name %q: boom", spaceUUID.String()))
+}
+
+func (s *importSuite) TestMultipleSpaceLookupExposedEndpoints(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	importOp := importOperation{
+		service: s.importService,
+	}
+
+	model := description.NewModel(description.ModelArgs{})
+
+	spaceUUID0 := uuid.MustNewUUID()
+	spaceUUID1 := uuid.MustNewUUID()
+	spaceUUID2 := uuid.MustNewUUID()
+	appArgs := description.ApplicationArgs{
+		Name:     "prometheus",
+		CharmURL: "ch:prometheus-1",
+		Exposed:  true,
+		ExposedEndpoints: map[string]description.ExposedEndpointArgs{
+			"": {
+				ExposeToSpaceIDs: []string{spaceUUID0.String(), spaceUUID1.String(), spaceUUID2.String()},
+			},
+		},
+	}
+	app := model.AddApplication(appArgs)
+	// All spaces are in the model.
+	model.AddSpace(description.SpaceArgs{
+		Id:   spaceUUID0.String(),
+		Name: "beta",
+	})
+	model.AddSpace(description.SpaceArgs{
+		Id:   spaceUUID1.String(),
+		Name: "gamma",
+	})
+	model.AddSpace(description.SpaceArgs{
+		Id:   spaceUUID2.String(),
+		Name: "delta",
+	})
+
+	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "beta").Return(network.Id(spaceUUID0.String()), nil)
+	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "gamma").Return(network.Id(spaceUUID1.String()), nil)
+	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "delta").Return(network.Id(spaceUUID2.String()), nil)
+
+	_, err := importOp.importExposedEndpoints(context.Background(), app, model.Spaces())
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
