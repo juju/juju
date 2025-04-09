@@ -78,8 +78,8 @@ type APIBase struct {
 	check                     BlockChecker
 	repoDeploy                DeployFromRepository
 
-	model              Model
-	modelInfo          model.ModelInfo
+	modelUUID          model.UUID
+	modelType          model.ModelType
 	modelConfigService ModelConfigService
 	machineService     MachineService
 	applicationService ApplicationService
@@ -110,7 +110,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		return nil, errors.Annotate(err, "getting model")
 	}
 	// modelShim wraps the AllPorts() API.
-	model := &modelShim{Model: m}
+	modelShim := &modelShim{Model: m}
 	storageAccess, err := getStorageState(ctx.State())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting state")
@@ -125,9 +125,14 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		return nil, errors.Annotate(err, "getting storage registry")
 	}
 
+	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
+	if err != nil {
+		return nil, fmt.Errorf("getting model info: %w", err)
+	}
+
 	var caasBroker caas.Broker
-	if model.Type() == state.ModelTypeCAAS {
-		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
+	if modelInfo.Type == model.CAAS {
+		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(modelShim, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
 		if err != nil {
 			return nil, errors.Annotate(err, "getting caas client")
 		}
@@ -153,17 +158,12 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	}
 
 	repoLogger := ctx.Logger().Child("deployfromrepo")
-	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
-	if err != nil {
-		return nil, fmt.Errorf("getting model info: %w", err)
-	}
 
 	applicationService := domainServices.Application()
 
 	validatorCfg := validatorConfig{
 		charmhubHTTPClient: charmhubHTTPClient,
 		caasBroker:         caasBroker,
-		model:              m,
 		modelInfo:          modelInfo,
 		modelConfigService: domainServices.Config(),
 		machineService:     domainServices.Machine(),
@@ -199,8 +199,8 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		storageAccess,
 		ctx.Auth(),
 		blockChecker,
-		model,
-		modelInfo,
+		modelInfo.UUID,
+		modelInfo.Type,
 		leadershipReader,
 		repoDeploy,
 		DeployApplication,
@@ -216,8 +216,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 type DeployApplicationFunc = func(
 	context.Context,
 	ApplicationDeployer,
-	Model,
-	model.ModelInfo,
+	model.ModelType,
 	ApplicationService,
 	objectstore.ObjectStore,
 	DeployApplicationParams,
@@ -231,8 +230,8 @@ func NewAPIBase(
 	storageAccess StorageInterface,
 	authorizer facade.Authorizer,
 	blockChecker BlockChecker,
-	model Model,
-	modelInfo model.ModelInfo,
+	modelUUID model.UUID,
+	modelType model.ModelType,
 	leadershipReader Leadership,
 	repoDeploy DeployFromRepository,
 	deployApplication DeployApplicationFunc,
@@ -256,8 +255,8 @@ func NewAPIBase(
 		authorizer:            authorizer,
 		repoDeploy:            repoDeploy,
 		check:                 blockChecker,
-		model:                 model,
-		modelInfo:             modelInfo,
+		modelUUID:             modelUUID,
+		modelType:             modelType,
 		leadershipReader:      leadershipReader,
 		deployApplicationFunc: deployApplication,
 		registry:              registry,
@@ -282,7 +281,7 @@ func NewAPIBase(
 
 // checkAccess checks if this API has the requested access level.
 func (api *APIBase) checkAccess(ctx context.Context, access permission.Access) error {
-	return api.authorizer.HasPermission(ctx, access, names.NewModelTag(api.modelInfo.UUID.String()))
+	return api.authorizer.HasPermission(ctx, access, names.NewModelTag(api.modelUUID.String()))
 }
 
 func (api *APIBase) checkCanRead(ctx context.Context) error {
@@ -512,7 +511,7 @@ func (api *APIBase) deployApplication(
 
 	// This check is done early so that errors deeper in the call-stack do not
 	// leave an application deployment in an unrecoverable error state.
-	if err := checkMachinePlacement(api.backend, api.modelInfo.UUID, args.ApplicationName, args.Placement); err != nil {
+	if err := checkMachinePlacement(api.backend, api.modelUUID, args.ApplicationName, args.Placement); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -539,7 +538,7 @@ func (api *APIBase) deployApplication(
 		return errors.Errorf("not all pending resources for charm provided")
 	}
 
-	if api.modelInfo.Type == model.CAAS {
+	if api.modelType == model.CAAS {
 		caas := caasDeployParams{
 			applicationName: args.ApplicationName,
 			attachStorage:   args.AttachStorage,
@@ -585,7 +584,7 @@ func (api *APIBase) deployApplication(
 	}
 
 	// TODO: replace model with model info/config services
-	_, err = api.deployApplicationFunc(ctx, api.backend, api.model, api.modelInfo, api.applicationService, api.store, DeployApplicationParams{
+	_, err = api.deployApplicationFunc(ctx, api.backend, api.modelType, api.applicationService, api.store, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
 		Charm:             ch,
 		CharmOrigin:       origin,
@@ -942,7 +941,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 		return errors.Trace(err)
 	}
 
-	if api.modelInfo.Type == model.CAAS {
+	if api.modelType == model.CAAS {
 		locator, err := api.getCharmLocatorByApplicationName(ctx, params.AppName)
 		if err != nil {
 			return errors.Trace(err)
@@ -1136,7 +1135,7 @@ func (api *APIBase) GetCharmURLOrigin(ctx context.Context, args params.Applicati
 		result.Error = apiservererrors.ServerError(errors.NotFoundf("charm origin for %q", args.ApplicationName))
 		return result, nil
 	}
-	result.Origin.InstanceKey = charmhub.CreateInstanceKey(oneApplication.ApplicationTag(), names.NewModelTag(api.modelInfo.UUID.String()))
+	result.Origin.InstanceKey = charmhub.CreateInstanceKey(oneApplication.ApplicationTag(), names.NewModelTag(api.modelUUID.String()))
 	return result, nil
 }
 
@@ -1264,7 +1263,7 @@ func (api *APIBase) Unexpose(ctx context.Context, args params.ApplicationUnexpos
 
 // AddUnits adds a given number of units to an application.
 func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnits) (params.AddApplicationUnitsResults, error) {
-	if api.modelInfo.Type == model.CAAS {
+	if api.modelType == model.CAAS {
 		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units to a container-based model")
 	}
 
@@ -1312,20 +1311,20 @@ func (api *APIBase) addApplicationUnits(
 	}
 
 	assignUnits := true
-	if api.modelInfo.Type != model.IAAS {
+	if api.modelType != model.IAAS {
 		// In a CAAS model, there are no machines for
 		// units to be assigned to.
 		assignUnits = false
 		if len(args.AttachStorage) > 0 {
 			return nil, errors.Errorf(
 				"AttachStorage may not be specified for %s models",
-				api.modelInfo.Type,
+				api.modelType,
 			)
 		}
 		if len(args.Placement) > 1 {
 			return nil, errors.Errorf(
 				"only 1 placement directive is supported for %s models, got %d",
-				api.modelInfo.Type,
+				api.modelType,
 				len(args.Placement),
 			)
 		}
@@ -1361,7 +1360,7 @@ func (api *APIBase) addApplicationUnits(
 
 // DestroyUnit removes a given set of application units.
 func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsParams) (params.DestroyUnitResults, error) {
-	if api.modelInfo.Type == model.CAAS {
+	if api.modelType == model.CAAS {
 		return params.DestroyUnitResults{}, errors.NotSupportedf("removing units on a non-container model")
 	}
 	if err := api.checkCanWrite(ctx); err != nil {
@@ -1609,7 +1608,7 @@ func (api *APIBase) DestroyConsumedApplications(ctx context.Context, args params
 
 // ScaleApplications scales the specified application to the requested number of units.
 func (api *APIBase) ScaleApplications(ctx context.Context, args params.ScaleApplicationsParams) (params.ScaleApplicationResults, error) {
-	if api.modelInfo.Type != model.CAAS {
+	if api.modelType != model.CAAS {
 		return params.ScaleApplicationResults{}, errors.NotSupportedf("scaling applications on a non-container model")
 	}
 	if err := api.checkCanWrite(ctx); err != nil {
