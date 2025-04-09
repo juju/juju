@@ -385,11 +385,6 @@ func (m *Model) Tag() names.Tag {
 	return m.ModelTag()
 }
 
-// Kind returns a human readable name identifying the model kind.
-func (m *Model) Kind() string {
-	return m.Tag().Kind()
-}
-
 // ModelTag is the concrete model tag for this model.
 func (m *Model) ModelTag() names.ModelTag {
 	return names.NewModelTag(m.doc.UUID)
