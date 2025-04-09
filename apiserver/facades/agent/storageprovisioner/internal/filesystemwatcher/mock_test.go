@@ -7,18 +7,18 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher/watchertest"
 )
 
 type mockBackend struct {
-	machineFilesystemsW           *watchertest.StringsWatcher
-	unitFilesystemsW              *watchertest.StringsWatcher
-	machineFilesystemAttachmentsW *watchertest.StringsWatcher
-	unitFilesystemAttachmentsW    *watchertest.StringsWatcher
-	modelFilesystemsW             *watchertest.StringsWatcher
-	modelFilesystemAttachmentsW   *watchertest.StringsWatcher
-	modelVolumeAttachmentsW       *watchertest.StringsWatcher
+	machineFilesystemsW           *StringsWatcher
+	unitFilesystemsW              *StringsWatcher
+	machineFilesystemAttachmentsW *StringsWatcher
+	unitFilesystemAttachmentsW    *StringsWatcher
+	modelFilesystemsW             *StringsWatcher
+	modelFilesystemAttachmentsW   *StringsWatcher
+	modelVolumeAttachmentsW       *StringsWatcher
 
 	filesystems               map[string]*mockFilesystem
 	volumeAttachments         map[string]*mockVolumeAttachment
@@ -82,8 +82,17 @@ func (b *mockBackend) WatchModelVolumeAttachments() state.StringsWatcher {
 	return b.modelVolumeAttachmentsW
 }
 
-func newStringsWatcher() *watchertest.StringsWatcher {
-	return watchertest.NewStringsWatcher(make(chan []string, 1))
+func newStringsWatcher() *StringsWatcher {
+	ch := make(chan []string, 1)
+	return &StringsWatcher{
+		MockStringsWatcher: watchertest.NewMockStringsWatcher(ch),
+		C:                  ch,
+	}
+}
+
+type StringsWatcher struct {
+	*watchertest.MockStringsWatcher
+	C chan []string
 }
 
 type mockFilesystem struct {
