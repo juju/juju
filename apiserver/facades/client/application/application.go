@@ -87,7 +87,6 @@ type APIBase struct {
 	portService        PortService
 	relationService    RelationService
 	resourceService    ResourceService
-	stubService        StubService
 	storageService     StorageService
 
 	resources        facade.Resources
@@ -194,7 +193,6 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 			RelationService:           domainServices.Relation(),
 			ResourceService:           domainServices.Resource(),
 			StorageService:            storageService,
-			StubService:               domainServices.Stub(),
 		},
 		storageAccess,
 		ctx.Auth(),
@@ -273,7 +271,6 @@ func NewAPIBase(
 		relationService:           services.RelationService,
 		resourceService:           services.ResourceService,
 		storageService:            services.StorageService,
-		stubService:               services.StubService,
 
 		logger: logger,
 	}, nil

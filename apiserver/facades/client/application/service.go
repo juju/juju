@@ -43,7 +43,6 @@ type Services struct {
 	RelationService           RelationService
 	ResourceService           ResourceService
 	StorageService            StorageService
-	StubService               StubService
 }
 
 // Validate checks that all the services are set.
@@ -71,9 +70,6 @@ func (s Services) Validate() error {
 	}
 	if s.StorageService == nil {
 		return errors.NotValidf("empty StorageService")
-	}
-	if s.StubService == nil {
-		return errors.NotValidf("empty StubService")
 	}
 	if s.RelationService == nil {
 		return errors.NotValidf("empty RelationService")
@@ -130,7 +126,7 @@ type ApplicationService interface {
 	// CreateApplication creates the specified application and units if required.
 	CreateApplication(ctx context.Context, name string, charm internalcharm.Charm, origin corecharm.Origin, params applicationservice.AddApplicationArgs, units ...applicationservice.AddUnitArg) (coreapplication.ID, error)
 	// AddUnits adds units to the application.
-	AddUnits(ctx context.Context, storageParentDir, name string, placement *instance.Placement, units ...applicationservice.AddUnitArg) error
+	AddUnits(ctx context.Context, storageParentDir, name string, units ...applicationservice.AddUnitArg) error
 	// SetApplicationCharm sets a new charm for the application, validating that aspects such
 	// as storage are still viable with the new charm.
 	SetApplicationCharm(ctx context.Context, name string, params applicationservice.UpdateCharmParams) error
@@ -285,21 +281,6 @@ type PortService interface {
 // service.
 type ResourceService interface {
 	DeleteResourcesAddedBeforeApplication(ctx context.Context, resources []coreresource.UUID) error
-}
-
-// StubService is the interface used to interact with the stub service. A special
-// service which collects temporary methods required to wire together together
-// domains which are not completely implemented or wired up.
-//
-// TODO: Remove this dependency once units are properly assigned to machines via
-// net nodes.
-type StubService interface {
-	// AssignUnitsToMachines assigns the given units to the given machines but setting
-	// unit net node to the machine net node.
-	//
-	// Deprecated: AssignUnitsToMachines will become redundant once the machine and
-	// application domains have become fully implemented.
-	AssignUnitsToMachines(context.Context, map[string][]unit.Name) error
 }
 
 // StorageService instances get a storage pool by name.

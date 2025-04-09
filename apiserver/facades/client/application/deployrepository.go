@@ -143,13 +143,21 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
-	unitArgs := make([]applicationservice.AddUnitArg, dt.numUnits)
+	unitArgs := make([]applicationservice.AddUnitArg, 0, dt.numUnits)
 	for i := 0; i < dt.numUnits; i++ {
+		var unitPlacement *instance.Placement
+		if i < len(dt.placement) {
+			unitPlacement = dt.placement[i]
+		}
+
 		unitName, err := unit.NewNameFromParts(dt.applicationName, nextUnitNum+i)
 		if err != nil {
 			return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 		}
-		unitArgs[i].UnitName = unitName
+		unitArgs[i] = applicationservice.AddUnitArg{
+			UnitName:  unitName,
+			Placement: unitPlacement,
+		}
 	}
 
 	_, err = api.applicationService.CreateApplication(ctx, dt.applicationName, dt.charm, dt.origin,

@@ -103,10 +103,10 @@ WHERE name = $machineName.name
 	return machine.NetNodeUUID, nil
 }
 
-func (st *State) insertMachineForNetNode(ctx context.Context, tx *sqlair.TX, machineName machine.Name) (machine.UUID, string, error) {
+func (st *State) insertNetNode(ctx context.Context, tx *sqlair.TX) (string, error) {
 	uuid, err := uuid.NewUUID()
 	if err != nil {
-		return "", "", errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	netNodeUUID := netNodeUUID{NetNodeUUID: uuid.String()}
@@ -114,11 +114,20 @@ func (st *State) insertMachineForNetNode(ctx context.Context, tx *sqlair.TX, mac
 	createNode := `INSERT INTO net_node (uuid) VALUES ($netNodeUUID.*)`
 	createNodeStmt, err := st.Prepare(createNode, netNodeUUID)
 	if err != nil {
-		return "", "", errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	if err := tx.Query(ctx, createNodeStmt, netNodeUUID).Run(); err != nil {
-		return "", "", errors.Errorf("creating net node for machine: %w", err)
+		return "", errors.Errorf("creating net node for machine: %w", err)
+	}
+
+	return netNodeUUID.NetNodeUUID, nil
+}
+
+func (st *State) insertMachineForNetNode(ctx context.Context, tx *sqlair.TX, machineName machine.Name) (machine.UUID, string, error) {
+	netNodeUUID, err := st.insertNetNode(ctx, tx)
+	if err != nil {
+		return "", "", errors.Capture(err)
 	}
 
 	machineUUID, err := machine.NewUUID()
@@ -128,7 +137,7 @@ func (st *State) insertMachineForNetNode(ctx context.Context, tx *sqlair.TX, mac
 
 	m := createMachine{
 		MachineUUID: machineUUID,
-		NetNodeUUID: netNodeUUID.NetNodeUUID,
+		NetNodeUUID: netNodeUUID,
 		Name:        machineName,
 		LifeID:      life.Alive,
 	}
@@ -145,7 +154,7 @@ VALUES ($createMachine.*);
 		return "", "", errors.Errorf("creating new machine: %w", err)
 	}
 
-	return machineUUID, netNodeUUID.NetNodeUUID, nil
+	return machineUUID, netNodeUUID, nil
 }
 
 func (st *State) insertMachineProviderPlacement(ctx context.Context, tx *sqlair.TX, machineUUID machine.UUID, placement string) error {

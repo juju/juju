@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -45,21 +44,6 @@ type NetworkService interface {
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 }
 
-// StubService is the interface used to interact with the stub service. A special
-// service which collects temporary methods required to wire together together
-// domains which are not completely implemented or wired up.
-//
-// TODO: Remove this dependency once units are properly assigned to machines via
-// net nodes.
-type StubService interface {
-	// AssignUnitsToMachines assigns the given units to the given machines but setting
-	// unit net node to the machine net node.
-	//
-	// Deprecated: AssignUnitsToMachines will become redundant once the machine and
-	// application domains have become fully implemented.
-	AssignUnitsToMachines(context.Context, map[string][]unit.Name) error
-}
-
 // ApplicationService is the interface that is used to interact with the
 // application domain.
 type StatusService interface {
@@ -73,7 +57,6 @@ type API struct {
 	machineService MachineService
 	networkService NetworkService
 	statusService  StatusService
-	stubService    StubService
 	clock          clock.Clock
 	res            facade.Resources
 }
@@ -127,11 +110,6 @@ func (a *API) AssignUnits(ctx context.Context, args params.Entities) (params.Err
 			resultMap[r.Unit] = err
 		}
 		machineToUnitMap[machineId] = append(machineToUnitMap[machineId], unit.Name(r.Unit))
-	}
-
-	// Assign units to machines via net nodes.
-	if err := a.stubService.AssignUnitsToMachines(ctx, machineToUnitMap); err != nil {
-		return result, internalerrors.Errorf("failed to assign units to machines: %v", err)
 	}
 
 	result.Results = make([]params.ErrorResult, len(args.Entities))

@@ -6,22 +6,17 @@ package stub
 import (
 	"context"
 
-	"github.com/canonical/sqlair"
-
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
-	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/cloud/state"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	credstate "github.com/juju/juju/domain/credential/state"
-	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/environs/cloudspec"
@@ -63,79 +58,6 @@ func NewStubService(
 		modelState:              domain.NewStateBase(modelFactory),
 		providerWithSecretToken: providerWithSecretToken,
 	}
-}
-
-// AssignUnitsToMachines assigns the given units to the given machines but setting
-// unit net node to the machine net node.
-//
-// Deprecated: AssignUnitsToMachines will become redundant once the machine and
-// application domains have become fully implemented.
-func (s *StubService) AssignUnitsToMachines(ctx context.Context, groupedUnitsByMachine map[string][]unit.Name) error {
-	db, err := s.modelState.DB()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	getNetNodeQuery, err := s.modelState.Prepare(`
-SELECT &netNodeUUID.*
-FROM machine
-WHERE name = $machine.name
-`, netNodeUUID{}, machine{})
-	if err != nil {
-		return errors.Errorf("preparing machine query: %v", err)
-	}
-
-	verifyUnitsExistQuery, err := s.modelState.Prepare(`
-SELECT COUNT(*) AS &count.count
-FROM unit
-WHERE name IN ($units[:])
-`, count{}, units{})
-	if err != nil {
-		return errors.Errorf("preparing verify units exist query: %v", err)
-	}
-
-	setUnitsNetNodeQuery, err := s.modelState.Prepare(`
-UPDATE unit
-SET net_node_uuid = $netNodeUUID.net_node_uuid
-WHERE name IN ($units[:])
-`, netNodeUUID{}, units{})
-	if err != nil {
-		return errors.Errorf("preparing set units query: %v", err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		for machine, units := range encodeGroupedUnitsByMachine(groupedUnitsByMachine) {
-			var netNodeUUID netNodeUUID
-			err = tx.Query(ctx, getNetNodeQuery, machine).Get(&netNodeUUID)
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Errorf("%w: %v", machineerrors.MachineNotFound, machine.MachineName)
-			}
-			if err != nil {
-				return errors.Errorf("getting machine net node: %v", err)
-			}
-
-			var count count
-			err = tx.Query(ctx, verifyUnitsExistQuery, units).Get(&count)
-			if err != nil {
-				return errors.Errorf("verifying units exist: %v", err)
-			}
-			if count.Count != len(units) {
-				return errors.Errorf("not all units found %q", units).
-					Add(applicationerrors.UnitNotFound)
-			}
-
-			err = tx.Query(ctx, setUnitsNetNodeQuery, netNodeUUID, units).Run()
-			if err != nil {
-				return errors.Errorf("setting unit: %v", err)
-			}
-		}
-		return nil
-	})
-
-	if err != nil {
-		return errors.Errorf("assigning units to machines: %w", err)
-	}
-	return err
 }
 
 // CloudSpec returns the cloud spec for the model.

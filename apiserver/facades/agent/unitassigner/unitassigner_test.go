@@ -24,8 +24,6 @@ import (
 
 type testsuite struct {
 	testing.IsolationSuite
-
-	statusService *MockStatusService
 }
 
 var _ = gc.Suite(&testsuite{})
@@ -42,7 +40,6 @@ func (s *testsuite) TestAssignUnits(c *gc.C) {
 		res:            common.NewResources(),
 		machineService: machineService,
 		networkService: &fakeNetworkService{},
-		stubService:    stubService,
 	}
 	args := params.Entities{Entities: []params.Entity{{Tag: "unit-foo-0"}, {Tag: "unit-bar-1"}}}
 	res, err := api.AssignUnits(context.Background(), args)
@@ -77,8 +74,6 @@ func (s *testsuite) TestSetStatus(c *gc.C) {
 		},
 	}
 
-	s.statusService.EXPECT().SetUnitAgentStatus(gomock.Any(), unit.Name("foo/0"), status).Return(nil)
-
 	api := s.newAPI(c)
 
 	args := params.SetStatus{
@@ -103,15 +98,11 @@ func (s *testsuite) TestSetStatus(c *gc.C) {
 func (s *testsuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.statusService = NewMockStatusService(ctrl)
-
 	return ctrl
 }
 
 func (s *testsuite) newAPI(c *gc.C) *API {
-	return &API{
-		statusService: s.statusService,
-	}
+	return &API{}
 }
 
 type fakeMachineService struct {

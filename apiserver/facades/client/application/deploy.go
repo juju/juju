@@ -154,13 +154,21 @@ func DeployApplication(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	unitArgs := make([]applicationservice.AddUnitArg, args.NumUnits)
+	unitArgs := make([]applicationservice.AddUnitArg, 0, args.NumUnits)
 	for i := 0; i < args.NumUnits; i++ {
+		var unitPlacement *instance.Placement
+		if i < len(args.Placement) {
+			unitPlacement = args.Placement[i]
+		}
+
 		unitName, err := coreunit.NewNameFromParts(args.ApplicationName, nextUnitNum+i)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		unitArgs[i].UnitName = unitName
+		unitArgs[i] = applicationservice.AddUnitArg{
+			UnitName:  unitName,
+			Placement: unitPlacement,
+		}
 	}
 	app, err := st.AddApplication(asa, store)
 
@@ -263,7 +271,18 @@ func (api *APIBase) addUnits(
 		if err != nil {
 			return nil, internalerrors.Errorf("parsing unit name %q: %w", unit.Name(), err)
 		}
-		if err := api.applicationService.AddUnits(ctx, domainapplication.StorageParentDir, appName, applicationservice.AddUnitArg{UnitName: unitName}); err != nil {
+
+		var unitPlacement *instance.Placement
+		if i < len(placement) {
+			unitPlacement = placement[i]
+		}
+
+		unitArg := applicationservice.AddUnitArg{
+			UnitName:  unitName,
+			Placement: unitPlacement,
+		}
+
+		if err := api.applicationService.AddUnits(ctx, domainapplication.StorageParentDir, appName, unitArg); err != nil {
 			return nil, internalerrors.Errorf("adding unit %q to application %q: %w", unitName, appName, err)
 		}
 		units[i] = unit
@@ -291,11 +310,6 @@ func (api *APIBase) addUnits(
 			return nil, internalerrors.Errorf("saving assigned machine %q for unit %q: %w", id, unitName, err)
 		}
 		machineToUnitMap[id] = append(machineToUnitMap[id], unitName)
-	}
-
-	// Assign units to machines via net nodes.
-	if err := api.stubService.AssignUnitsToMachines(ctx, machineToUnitMap); err != nil {
-		return nil, internalerrors.Errorf("assigning units to machines: %w", err)
 	}
 
 	return units, nil

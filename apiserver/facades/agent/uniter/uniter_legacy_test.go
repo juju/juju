@@ -24,7 +24,6 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	portservice "github.com/juju/juju/domain/port/service"
-	stubservice "github.com/juju/juju/domain/stub"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
 	"github.com/juju/juju/internal/services"
@@ -41,7 +40,6 @@ type uniterLegacySuite struct {
 	machineService     *machineservice.WatchableService
 	applicationService *applicationservice.WatchableService
 	portService        *portservice.WatchableService
-	stubService        *stubservice.StubService
 }
 
 var _ = gc.Suite(&uniterLegacySuite{})
@@ -55,7 +53,6 @@ func (s *uniterLegacySuite) SetUpTest(c *gc.C) {
 	s.machineService = s.domainServices.Machine()
 	s.applicationService = s.domainServices.Application()
 	s.portService = s.domainServices.Port()
-	s.stubService = s.domainServices.Stub()
 }
 
 func (s *uniterLegacySuite) controllerConfig(c *gc.C) (controller.Config, error) {
@@ -589,15 +586,6 @@ func (s *uniterLegacySuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 		applicationservice.AddUnitArg{
 			UnitName: "mysql/1",
 		})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.stubService.AssignUnitsToMachines(context.Background(), map[string][]coreunit.Name{
-		"0": {"wordpress/0"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.stubService.AssignUnitsToMachines(context.Background(), map[string][]coreunit.Name{
-		"0": {"mysql/1"},
-	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	wordpressUnitUUID, err := s.applicationService.GetUnitUUID(context.Background(), "wordpress/0")
