@@ -1800,7 +1800,6 @@ WHERE uuid = $applicationID.uuid;
 		charmConfig charm.Config
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-
 		if err := tx.Query(ctx, appStmt, appIdent).Get(&ident); errors.Is(err, sqlair.ErrNoRows) {
 			return applicationerrors.ApplicationNotFound
 		} else if err != nil {
@@ -1812,8 +1811,8 @@ WHERE uuid = $applicationID.uuid;
 		// this is impossible.
 		// TODO(jack-w-shaw): Retrieve the charm config directly using the application
 		// ID, instead of force-fitting the getCharmConfig method.
-		uuid := ident.UUID
-		charmConfig, err = st.getCharmConfig(ctx, tx, charmID{UUID: uuid})
+		charmUUID := ident.UUID
+		charmConfig, err = st.getCharmConfig(ctx, tx, charmID{UUID: charmUUID})
 		return errors.Capture(err)
 	}); err != nil {
 		return "", charm.Config{}, errors.Capture(err)

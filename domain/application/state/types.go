@@ -1162,10 +1162,6 @@ type createMachine struct {
 	LifeID      life.Life    `db:"life_id"`
 }
 
-type machineUUID struct {
-	MachineUUID machine.UUID `db:"uuid"`
-}
-
 type machineName struct {
 	Name        machine.Name `db:"name"`
 	NetNodeUUID string       `db:"net_node_uuid"`
