@@ -5,13 +5,14 @@ package state
 
 import (
 	"context"
-	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/core/network"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/life"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -165,4 +166,71 @@ func (s *relationSuite) TestGetRelationLifeNotFound(c *gc.C) {
 
 	_, err := st.GetRelationLife(context.Background(), "some-relation-uuid")
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *relationSuite) TestUnitNamesInScopeNoRows(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	inScope, err := st.UnitNamesInScope(context.Background(), "some-relation-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(inScope, gc.HasLen, 0)
+}
+
+func (s *relationSuite) TestUnitNamesInScopeSuccess(c *gc.C) {
+	charm := "some-charm-uuid"
+	_, err := s.DB().Exec("INSERT INTO charm (uuid, reference_name, architecture_id) VALUES (?, ?, ?)", charm, charm, 0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	app := "some-app-uuid"
+	_, err = s.DB().Exec(
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)",
+		app, app, 0, charm, network.AlphaSpaceId,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cr := "some-charm-relation-uuid"
+	_, err = s.DB().Exec(`
+INSERT INTO charm_relation (uuid, charm_uuid, kind_id, name, interface, capacity, role_id,  scope_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		cr, charm, 0, cr, "interface", 0, 0, 0,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	appEndpoint := "some-app-endpoint-uuid"
+	_, err = s.DB().Exec(
+		"INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, ?, ?)",
+		appEndpoint, app, network.AlphaSpaceId, cr,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	rel := "some-relation-uuid"
+	_, err = s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)", rel, 0, rel)
+	c.Assert(err, jc.ErrorIsNil)
+
+	relEndpoint := "some-relation-endpoint-uuid"
+	_, err = s.DB().Exec(
+		"INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid) VALUES (?, ?, ?)",
+		relEndpoint, rel, appEndpoint,
+	)
+
+	node := "some-net-node-uuid"
+	_, err = s.DB().Exec("INSERT INTO net_node (uuid) VALUES (?)", node)
+	c.Assert(err, jc.ErrorIsNil)
+
+	unit := "some-unit-uuid"
+	_, err = s.DB().Exec(
+		"INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?, ?)",
+		unit, unit, 0, app, charm, node)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.DB().Exec("INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid) VALUES (?, ?, ?)",
+		"some-rel-unit-uuid", relEndpoint, unit,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	inScope, err := st.UnitNamesInScope(context.Background(), rel)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(inScope, jc.SameContents, []string{unit})
 }

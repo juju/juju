@@ -9,6 +9,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/errors"
@@ -94,13 +95,13 @@ func (st *State) RelationScheduleRemoval(
 		ScheduledFor:  when,
 	}
 
-	removalStmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removalJob.*)", removalRec)
+	stmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removalJob.*)", removalRec)
 	if err != nil {
 		return errors.Errorf("preparing relation removal: %w", err)
 	}
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, removalStmt, removalRec).Run()
+		err = tx.Query(ctx, stmt, removalRec).Run()
 		if err != nil {
 			return errors.Errorf("scheduling relation removal: %w", err)
 		}
@@ -116,9 +117,9 @@ func (st *State) GetRelationLife(ctx context.Context, rUUID string) (life.Life, 
 	}
 
 	var relationLife entityLife
-
 	relationUUID := entityUUID{UUID: rUUID}
-	existsStmt, err := st.Prepare(`
+
+	stmt, err := st.Prepare(`
 SELECT &entityLife.life_id
 FROM   relation
 WHERE  uuid = $entityUUID.uuid`, relationLife, relationUUID)
@@ -127,7 +128,7 @@ WHERE  uuid = $entityUUID.uuid`, relationLife, relationUUID)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, existsStmt, relationUUID).Get(&relationLife)
+		err = tx.Query(ctx, stmt, relationUUID).Get(&relationLife)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return relationerrors.RelationNotFound
 		} else if err != nil {
@@ -138,6 +139,45 @@ WHERE  uuid = $entityUUID.uuid`, relationLife, relationUUID)
 	})
 
 	return relationLife.Life, errors.Capture(err)
+}
+
+// UnitNamesInScope returns the names of units in
+// the scope of the relation with the input UUID.
+func (st *State) UnitNamesInScope(ctx context.Context, rUUID string) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type uName struct {
+		Name string `db:"name"`
+	}
+
+	relationUUID := entityUUID{UUID: rUUID}
+
+	stmt, err := st.Prepare(`
+SELECT &uName.name 
+FROM   relation_endpoint re 
+       JOIN relation_unit ru ON re.uuid = ru.relation_endpoint_uuid
+       JOIN unit u on ru.unit_uuid = u.uuid 
+WHERE  re.relation_uuid = $entityUUID.uuid`, uName{}, relationUUID)
+	if err != nil {
+		return nil, errors.Errorf("preparing relation scopes query: %w", err)
+	}
+
+	var inScope []uName
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, relationUUID).GetAll(&inScope)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf("running relation scopes query: %w", err)
+		}
+
+		return nil
+	})
+
+	return transform.Slice(inScope, func(n uName) string { return n.Name }), errors.Capture(err)
 }
 
 // NamespaceForWatchRemovals returns the table name whose UUIDs we
