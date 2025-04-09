@@ -1514,7 +1514,7 @@ func (s *providerServiceSuite) TestAddUnitsEmptyConstraints(c *gc.C) {
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
 	}
-	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", nil, a)
+	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", a)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(received, jc.DeepEquals, u)
 }
@@ -1584,10 +1584,10 @@ func (s *providerServiceSuite) TestAddUnitsAppConstraints(c *gc.C) {
 	})
 
 	a := AddUnitArg{
-		UnitName: "ubuntu/666",
+		UnitName:  "ubuntu/666",
+		Placement: instance.MustParsePlacement("0/lxd/0"),
 	}
-	placement := instance.MustParsePlacement("0/lxd/0")
-	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", placement, a)
+	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", a)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(received, jc.DeepEquals, u)
 }
@@ -1655,7 +1655,7 @@ func (s *providerServiceSuite) TestAddUnitsModelConstraints(c *gc.C) {
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
 	}
-	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", nil, a)
+	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", a)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(received, jc.DeepEquals, u)
 }
@@ -1710,7 +1710,7 @@ func (s *providerServiceSuite) TestAddUnitsFullConstraints(c *gc.C) {
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
 	}
-	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", nil, a)
+	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", a)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(received, jc.DeepEquals, u)
 }
@@ -1731,7 +1731,7 @@ func (s *providerServiceSuite) TestAddUnitsInvalidName(c *gc.C) {
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
 	}
-	err := s.service.AddUnits(context.Background(), s.storageParentDir, "!!!", nil, a)
+	err := s.service.AddUnits(context.Background(), s.storageParentDir, "!!!", a)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
@@ -1748,7 +1748,7 @@ func (s *providerServiceSuite) TestAddUnitsNoUnits(c *gc.C) {
 		})
 	defer ctrl.Finish()
 
-	err := s.service.AddUnits(context.Background(), s.storageParentDir, "foo", nil)
+	err := s.service.AddUnits(context.Background(), s.storageParentDir, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1772,7 +1772,7 @@ func (s *providerServiceSuite) TestAddUnitsApplicationNotFound(c *gc.C) {
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
 	}
-	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", nil, a)
+	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", a)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
@@ -1799,21 +1799,43 @@ func (s *providerServiceSuite) TestAddUnitsGetModelTypeError(c *gc.C) {
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
 	}
-	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", nil, a)
+	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", a)
 	c.Assert(err, gc.ErrorMatches, ".*boom")
 }
 
 func (s *providerServiceSuite) TestAddUnitsInvalidPlacement(c *gc.C) {
+	ctrl := s.setupMocksWithProvider(c,
+		func(ctx context.Context) (Provider, error) {
+			return s.provider, nil
+		},
+		func(ctx context.Context) (SupportedFeatureProvider, error) {
+			return s.supportedFeaturesProvider, nil
+		},
+		func(ctx context.Context) (CAASApplicationProvider, error) {
+			return s.caasApplicationProvider, nil
+		})
+	defer ctrl.Finish()
+
+	appUUID := applicationtesting.GenApplicationUUID(c)
+	charmUUID := charmtesting.GenCharmID(c)
+	unitUUID := unittesting.GenUnitUUID(c)
+
+	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
+	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "ubuntu").Return(charmUUID, nil)
+	s.expectFullConstraints(c, unitUUID, appUUID)
+
 	placement := &instance.Placement{
 		Scope:     instance.MachineScope,
 		Directive: "0/kvm/0",
 	}
 
 	a := AddUnitArg{
-		UnitName: "ubuntu/666",
+		UnitName:  "ubuntu/666",
+		Placement: placement,
 	}
-	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", placement, a)
-	c.Assert(err, gc.ErrorMatches, "invalid placement:.*")
+	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", a)
+	c.Assert(err, gc.ErrorMatches, ".*invalid placement.*")
 }
 
 func (s *providerServiceSuite) TestAddUnitsGetCharmIDByApplicationNameError(c *gc.C) {
@@ -1838,7 +1860,7 @@ func (s *providerServiceSuite) TestAddUnitsGetCharmIDByApplicationNameError(c *g
 	a := AddUnitArg{
 		UnitName: "ubuntu/666",
 	}
-	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", nil, a)
+	err := s.service.AddUnits(context.Background(), s.storageParentDir, "ubuntu", a)
 	c.Assert(err, gc.ErrorMatches, ".*boom")
 }
 

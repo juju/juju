@@ -16,7 +16,6 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -28,7 +27,6 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	"github.com/juju/juju/domain/placement"
 	"github.com/juju/juju/domain/status"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/envcontext"
@@ -134,10 +132,6 @@ func (s *ProviderService) CreateApplication(
 	); err != nil {
 		return "", errors.Errorf("invalid application args: %w", err)
 	}
-	placement, err := placement.ParsePlacement(args.Placement)
-	if err != nil {
-		return "", errors.Errorf("invalid placement: %w", err)
-	}
 
 	if err := validateCreateApplicationResourceParams(charm, args.ResolvedResources, args.PendingResources); err != nil {
 		return "", errors.Errorf("create application: %w", err)
@@ -180,7 +174,7 @@ func (s *ProviderService) CreateApplication(
 		return "", err
 	}
 
-	unitArgs, err := s.makeUnitArgs(modelType, units, constraints.DecodeConstraints(cons), placement)
+	unitArgs, err := s.makeUnitArgs(modelType, units, constraints.DecodeConstraints(cons))
 	if err != nil {
 		return "", errors.Errorf("making unit args: %w", err)
 	}
@@ -290,17 +284,13 @@ func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstra
 // satisfying [applicationerrors.ApplicationNotFoundError] if the application
 // doesn't exist.
 // If no units are provided, it will return nil.
-func (s *ProviderService) AddUnits(ctx context.Context, storageParentDir, appName string, unitPlacement *instance.Placement, units ...AddUnitArg) error {
+func (s *ProviderService) AddUnits(ctx context.Context, storageParentDir, appName string, units ...AddUnitArg) error {
 	if len(units) == 0 {
 		return nil
 	}
 
 	if !isValidApplicationName(appName) {
 		return applicationerrors.ApplicationNameNotValid
-	}
-	placement, err := placement.ParsePlacement(unitPlacement)
-	if err != nil {
-		return errors.Errorf("invalid placement: %w", err)
 	}
 
 	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
@@ -328,7 +318,7 @@ func (s *ProviderService) AddUnits(ctx context.Context, storageParentDir, appNam
 		return errors.Capture(err)
 	}
 
-	args, err := s.makeUnitArgs(modelType, units, constraints.DecodeConstraints(cons), placement)
+	args, err := s.makeUnitArgs(modelType, units, constraints.DecodeConstraints(cons))
 	if err != nil {
 		return errors.Errorf("making unit args: %w", err)
 	}

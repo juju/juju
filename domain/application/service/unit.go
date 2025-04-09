@@ -111,7 +111,7 @@ type UnitState interface {
 	GetUnitRefreshAttributes(ctx context.Context, unitName coreunit.Name) (application.UnitAttributes, error)
 }
 
-func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg, constraints constraints.Constraints, placement placement.Placement) ([]application.AddUnitArg, error) {
+func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
 	now := ptr(s.clock.Now())
 	workloadMessage := corestatus.MessageInstallingAgent
 	if modelType == coremodel.IAAS {
@@ -122,6 +122,11 @@ func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg
 	for i, u := range units {
 		if err := u.UnitName.Validate(); err != nil {
 			return nil, errors.Errorf("validating unit name %q: %w", u.UnitName, err)
+		}
+
+		placement, err := placement.ParsePlacement(u.Placement)
+		if err != nil {
+			return nil, errors.Errorf("invalid placement for %q: %w", u.UnitName, err)
 		}
 
 		arg := application.AddUnitArg{

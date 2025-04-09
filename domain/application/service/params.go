@@ -94,7 +94,8 @@ type AddressParams struct {
 
 // AddUnitArg contains parameters for adding a unit to the model.
 type AddUnitArg struct {
-	UnitName coreunit.Name
+	UnitName  coreunit.Name
+	Placement *instance.Placement
 
 	// Storage params go here.
 }

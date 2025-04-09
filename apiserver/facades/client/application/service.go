@@ -130,7 +130,7 @@ type ApplicationService interface {
 	// CreateApplication creates the specified application and units if required.
 	CreateApplication(ctx context.Context, name string, charm internalcharm.Charm, origin corecharm.Origin, params applicationservice.AddApplicationArgs, units ...applicationservice.AddUnitArg) (coreapplication.ID, error)
 	// AddUnits adds units to the application.
-	AddUnits(ctx context.Context, storageParentDir, name string, units ...applicationservice.AddUnitArg) error
+	AddUnits(ctx context.Context, storageParentDir, name string, placement *instance.Placement, units ...applicationservice.AddUnitArg) error
 	// SetApplicationCharm sets a new charm for the application, validating that aspects such
 	// as storage are still viable with the new charm.
 	SetApplicationCharm(ctx context.Context, name string, params applicationservice.UpdateCharmParams) error
