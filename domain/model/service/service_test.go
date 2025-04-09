@@ -28,6 +28,7 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	accesserrors "github.com/juju/juju/domain/access/errors"
+	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -1137,7 +1138,7 @@ func (s *serviceSuite) TestWatchActivatedModels(c *gc.C) {
 
 	// Set up necessary mock return values.
 	s.mockState.EXPECT().InitialWatchActivatedModelsStatement().Return(
-		"SELECT uuid from model WHERE activated = true",
+		"model", "SELECT uuid from model WHERE activated = true",
 	)
 
 	changes := make(chan []string, 1)
@@ -1147,8 +1148,13 @@ func (s *serviceSuite) TestWatchActivatedModels(c *gc.C) {
 	activatedModelUUIDsStr := transform.Slice(activatedModelUUIDs, func(uuid coremodel.UUID) string {
 		return uuid.String()
 	})
-	changes <- activatedModelUUIDsStr
-	close(changes)
+
+	select {
+	case changes <- activatedModelUUIDsStr:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("failed to send changes to channel")
+	}
+
 	s.mockStringsWatcher.EXPECT().Changes().AnyTimes().Return(changes)
 
 	s.mockWatcherFactory.EXPECT().NewNamespaceMapperWatcher(
@@ -1159,7 +1165,12 @@ func (s *serviceSuite) TestWatchActivatedModels(c *gc.C) {
 	watcher, err := svc.WatchActivatedModels(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(<-watcher.Changes(), gc.DeepEquals, activatedModelUUIDsStr)
+	select {
+	case change := <-watcher.Changes():
+		c.Check(change, gc.DeepEquals, activatedModelUUIDsStr)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("failed to receive changes from watcher")
+	}
 }
 
 func (s *serviceSuite) createMockChangeEventsFromUUIDs(ctrl *gomock.Controller, uuids ...coremodel.UUID) []changestream.ChangeEvent {
@@ -1255,9 +1266,9 @@ func (s *serviceSuite) TestGetModelByNameAndOwnerSuccess(c *gc.C) {
 	c.Check(model, gc.Equals, svcModel)
 }
 
-// TestGetModelByNameAndOwnerInvalidUsername verifies that GetModelByNameAndOwner
-// returns a [accesserrors.UserNameNotValid] error when the provided owner username
-// is invalid.
+// TestGetModelByNameAndOwnerInvalidUsername verifies that
+// GetModelByNameAndOwner returns a [accesserrors.UserNameNotValid] error when
+// the provided owner username is invalid.
 func (s *serviceSuite) TestGetModelByNameAndOwnerInvalidUsername(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1294,5 +1305,59 @@ func (s *serviceSuite) TestGetModelByNameAndOwnerNotFound(c *gc.C) {
 	)
 
 	_, err := svc.GetModelByNameAndOwner(context.Background(), modelName, ownerUserName)
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *serviceSuite) TestGetModelLife(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	s.mockState.EXPECT().GetModelLife(gomock.Any(), modelUUID).Return(
+		domainlife.Alive,
+		nil,
+	)
+
+	svc := NewService(
+		s.mockState,
+		s.mockModelDeleter,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	result, err := svc.GetModelLife(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.Equals, life.Alive)
+}
+
+func (s *serviceSuite) TestGetModelLifeInvalidUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := NewService(
+		s.mockState,
+		s.mockModelDeleter,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	_, err := svc.GetModelLife(context.Background(), "!!!!")
+	c.Assert(err, gc.ErrorMatches, `*.not valid`)
+}
+
+func (s *serviceSuite) TestGetModelLifeNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+
+	s.mockState.EXPECT().GetModelLife(gomock.Any(), modelUUID).Return(
+		domainlife.Alive,
+		modelerrors.NotFound,
+	)
+
+	svc := NewService(
+		s.mockState,
+		s.mockModelDeleter,
+		loggertesting.WrapCheckLog(c),
+	)
+
+	_, err := svc.GetModelLife(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }

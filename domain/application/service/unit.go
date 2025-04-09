@@ -293,7 +293,7 @@ func (s *Service) GetUnitLife(ctx context.Context, unitName coreunit.Name) (core
 	if err != nil {
 		return "", errors.Errorf("getting life for %q: %w", unitName, err)
 	}
-	return unitLife.Value(), nil
+	return unitLife.Value()
 }
 
 // DeleteUnit deletes the specified unit.

@@ -209,6 +209,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"secrets-pruner": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"migration-fortress",
@@ -219,6 +220,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"user-secrets-drain-worker": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"migration-fortress",
@@ -279,6 +281,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"clock",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"migration-fortress",
@@ -292,6 +295,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"caas-storage-provisioner": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"migration-fortress",
@@ -327,6 +331,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"logging-config-updater": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"migration-fortress",
@@ -336,7 +341,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 
 	"migration-fortress": {
 		"agent",
-		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"not-dead-flag",
@@ -345,6 +350,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"migration-inactive-flag": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"not-dead-flag",
@@ -360,15 +366,20 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag",
 	},
 
-	"not-alive-flag": {"agent", "api-caller"},
+	"not-alive-flag": {
+		"domain-services",
+	},
 
-	"not-dead-flag": {"agent", "api-caller"},
+	"not-dead-flag": {
+		"domain-services",
+	},
 
 	"provider-service-factories": {},
 
 	"remote-relations": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"migration-fortress",
@@ -394,6 +405,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"state-cleaner": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"migration-fortress",
@@ -404,6 +416,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"undertaker": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"not-alive-flag",
@@ -417,6 +430,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"secrets-pruner": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"migration-fortress",
@@ -427,6 +441,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"user-secrets-drain-worker": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"migration-fortress",
@@ -498,6 +513,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"instance-mutater": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"migration-fortress",
@@ -512,6 +528,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"clock",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"migration-fortress",
@@ -529,6 +546,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"logging-config-updater": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"migration-fortress",
@@ -539,6 +557,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"machine-undertaker": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"migration-fortress",
@@ -551,17 +570,20 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 
 	"migration-fortress": {
 		"agent",
-		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
-		"not-dead-flag"},
+		"not-dead-flag",
+	},
 
 	"migration-inactive-flag": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
-		"not-dead-flag"},
+		"not-dead-flag",
+	},
 
 	"migration-master": {
 		"agent",
@@ -570,17 +592,23 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"is-responsible-flag",
 		"lease-manager",
 		"migration-fortress",
-		"not-dead-flag"},
+		"not-dead-flag",
+	},
 
-	"not-alive-flag": {"agent", "api-caller"},
+	"not-alive-flag": {
+		"domain-services",
+	},
 
-	"not-dead-flag": {"agent", "api-caller"},
+	"not-dead-flag": {
+		"domain-services",
+	},
 
 	"provider-service-factories": {},
 
 	"remote-relations": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"migration-fortress",
@@ -606,15 +634,18 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"state-cleaner": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"not-dead-flag"},
+		"not-dead-flag",
+	},
 
 	"storage-provisioner": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"migration-fortress",
@@ -628,6 +659,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"undertaker": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"not-alive-flag",
@@ -636,11 +668,13 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"unit-assigner": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"migration-fortress",
 		"migration-inactive-flag",
-		"not-dead-flag"},
+		"not-dead-flag",
+	},
 
 	"valid-credential-flag": {"agent", "api-caller"},
 }

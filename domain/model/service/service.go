@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
@@ -19,6 +20,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	accesserrors "github.com/juju/juju/domain/access/errors"
+	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -122,12 +124,24 @@ type State interface {
 	// UpdateCredential updates a model's cloud credential.
 	UpdateCredential(context.Context, coremodel.UUID, credential.Key) error
 
-	// GetActivatedModelUUIDs returns the subset of model UUIDS from the supplied list that are activated.
-	// If no model uuids are activated then an empty slice is returned.
+	// GetActivatedModelUUIDs returns the subset of model UUIDS from the
+	// supplied list that are activated. If no model uuids are activated then an
+	// empty slice is returned.
 	GetActivatedModelUUIDs(ctx context.Context, uuids []coremodel.UUID) ([]coremodel.UUID, error)
 
-	// InitialWatchActivatedModelsStatement returns a SQL statement that will get all the activated models UUIDS in the controller.
-	InitialWatchActivatedModelsStatement() string
+	// GetModelLife returns the life associated with the provided uuid.
+	// The following error types can be expected to be returned:
+	// - [modelerrors.NotFound]: When the model does not exist.
+	// - [modelerrors.NotActivated]: When the model has not been activated.
+	GetModelLife(ctx context.Context, uuid coremodel.UUID) (domainlife.Life, error)
+
+	// InitialWatchActivatedModelsStatement returns a SQL statement that will
+	// get all the activated models UUIDS in the controller.
+	InitialWatchActivatedModelsStatement() (string, string)
+
+	// InitialWatchModelTableName returns the name of the model table to be used
+	// for the initial watch statement.
+	InitialWatchModelTableName() string
 }
 
 // ModelDeleter is an interface for deleting models.
@@ -164,13 +178,22 @@ func NewService(
 
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
-	// NewNamespaceMapperWatcher returns a new namespace watcher for events based on the input change mask.
-	// The initialStateQuery ensures the watcher starts with the current state of the system,
-	// preventing data loss from prior events.
+	// NewNamespaceMapperWatcher returns a new namespace watcher for events
+	// based on the input change mask. The initialStateQuery ensures the watcher
+	// starts with the current state of the system, preventing data loss from
+	// prior events.
 	NewNamespaceMapperWatcher(
 		initialStateQuery eventsource.NamespaceQuery, mapper eventsource.Mapper,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
+
+	// NewNotifyWatcher returns a new watcher that filters changes from the input
+	// base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided.
+	NewNotifyWatcher(
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error)
 }
 
 // WatchableService extends Service to provide interactions with model state
@@ -181,8 +204,8 @@ type WatchableService struct {
 	watcherFactory WatcherFactory
 }
 
-// NewWatchableService provides a new Service for interacting with the underlying
-// state and the ability to create watchers.
+// NewWatchableService provides a new Service for interacting with the
+// underlying state and the ability to create watchers.
 func NewWatchableService(st State,
 	modelDeleter ModelDeleter,
 	logger logger.Logger,
@@ -400,7 +423,7 @@ func (s *Service) ControllerModel(ctx context.Context) (coremodel.Model, error) 
 
 // Model returns the model associated with the provided uuid.
 // The following error types can be expected to be returned:
-// - [modelerrors.ModelNotFound]: When the model does not exist.
+// - [modelerrors.NotFound]: When the model does not exist.
 func (s *Service) Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error) {
 	if err := uuid.Validate(); err != nil {
 		return coremodel.Model{}, errors.Errorf("model uuid: %w", err)
@@ -422,7 +445,7 @@ func (s *Service) ModelType(ctx context.Context, uuid coremodel.UUID) (coremodel
 // DeleteModel is responsible for removing a model from Juju and all of it's
 // associated metadata.
 // - errors.NotValid: When the model uuid is not valid.
-// - modelerrors.ModelNotFound: When the model does not exist.
+// - modelerrors.NotFound: When the model does not exist.
 func (s *Service) DeleteModel(
 	ctx context.Context,
 	uuid coremodel.UUID,
@@ -571,7 +594,7 @@ func (s *Service) ListAllModelSummaries(ctx context.Context) ([]coremodel.ModelS
 // associated with a model. The cloud credential must be of the same cloud type
 // as that of the model.
 // The following error types can be expected to be returned:
-// - modelerrors.ModelNotFound: When the model does not exist.
+// - modelerrors.NotFound: When the model does not exist.
 // - errors.NotFound: When the cloud or credential cannot be found.
 // - errors.NotValid: When the cloud credential is not of the same cloud as the
 // model or the model uuid is not valid.
@@ -588,6 +611,22 @@ func (s *Service) UpdateCredential(
 	}
 
 	return s.st.UpdateCredential(ctx, uuid, key)
+}
+
+// GetModelLife returns the life associated with the provided uuid.
+// The following error types can be expected to be returned:
+// - [modelerrors.NotFound]: When the model does not exist.
+// - [modelerrors.NotActivated]: When the model has not been activated.
+func (s *Service) GetModelLife(ctx context.Context, uuid coremodel.UUID) (life.Value, error) {
+	if err := uuid.Validate(); err != nil {
+		return "", errors.Errorf("model uuid: %w", err)
+	}
+
+	result, err := s.st.GetModelLife(ctx, uuid)
+	if err != nil {
+		return "", errors.Errorf("getting model life: %w", err)
+	}
+	return result.Value()
 }
 
 // GetModelByNameAndOwner returns the model associated with the given model name and owner name.
@@ -646,18 +685,27 @@ func getWatchActivatedModelsMapper(st State) func(ctx context.Context, db databa
 	}
 }
 
-// WatchActivatedModels returns a watcher that emits an event containing the model UUID
-// when a model becomes activated or an activated model receives an update.
-// The events returned are maintained in the same order as they are received.
-// Newly created models will not be reported since they are not activated at creation.
-// Deletion of activated models is also not reported.
+// WatchActivatedModels returns a watcher that emits an event containing the
+// model UUID when a model becomes activated or an activated model receives an
+// update. The events returned are maintained in the same order as they are
+// received. Newly created models will not be reported since they are not
+// activated at creation. Deletion of activated models is also not reported.
 func (s *WatchableService) WatchActivatedModels(ctx context.Context) (watcher.StringsWatcher, error) {
 	mapper := getWatchActivatedModelsMapper(s.st)
-	query := s.st.InitialWatchActivatedModelsStatement()
+	modelTableName, query := s.st.InitialWatchActivatedModelsStatement()
 
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		eventsource.InitialNamespaceChanges(query),
 		mapper,
-		eventsource.NamespaceFilter("model", changestream.Changed),
+		eventsource.NamespaceFilter(modelTableName, changestream.Changed),
+	)
+}
+
+// WatchModel returns a watcher that emits an event if the model changes.
+func (s WatchableService) WatchModel(ctx context.Context, modelUUID coremodel.UUID) (watcher.NotifyWatcher, error) {
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter("model", changestream.All, func(s string) bool {
+			return s == modelUUID.String()
+		}),
 	)
 }
