@@ -275,9 +275,6 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 	}
 	if !isCAAS {
 		databaseBootstrapOptions = append(databaseBootstrapOptions,
-			// TODO(wallyworld) - this is just a placeholder for now
-			//machinebootstrap.InsertMachine(agent.BootstrapControllerId),
-
 			cloudimagemetadatabootstrap.AddCustomImageMetadata(
 				clock.WallClock, stateParams.ControllerModelConfig.ImageStream(), stateParams.CustomImageMetadata),
 		)
