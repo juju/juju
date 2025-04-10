@@ -2196,13 +2196,15 @@ func (s *relationSuite) TestGetOtherRelatedEndpointApplicationData(c *gc.C) {
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
 
 	// Act:
-	result, err := s.state.GetOtherRelatedEndpointApplicationData(context.TODO(),
-		s.fakeApplicationUUID1)
+	result, err := s.state.GetOtherRelatedEndpointApplicationData(
+		context.TODO(),
+		relationUUID,
+		s.fakeApplicationUUID1,
+	)
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.HasLen, 1)
-	c.Check(result[0], gc.DeepEquals, relation.OtherApplicationForWatcher{
+	c.Check(result, gc.DeepEquals, relation.OtherApplicationForWatcher{
 		ApplicationID: s.fakeApplicationUUID2,
 		Subordinate:   false,
 	})

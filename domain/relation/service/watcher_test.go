@@ -84,7 +84,7 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationAnotherSubordinate(
 	}
 
 	s.expectGetRelationEndpointScope(relUUID, subordinateID, scope, nil)
-	s.expectGetOtherRelatedEndpointApplicationData(subordinateID, otherAppData, nil)
+	s.expectGetOtherRelatedEndpointApplicationData(relUUID, subordinateID, otherAppData, nil)
 
 	// Act
 	watcher := &subordinateLifeSuspendedStatusWatcher{
@@ -117,7 +117,7 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationPrincipal(c *gc.C) 
 	}
 
 	s.expectGetRelationEndpointScope(relUUID, subordinateID, scope, nil)
-	s.expectGetOtherRelatedEndpointApplicationData(subordinateID, otherAppData, nil)
+	s.expectGetOtherRelatedEndpointApplicationData(relUUID, subordinateID, otherAppData, nil)
 
 	// Act
 	watcher := &subordinateLifeSuspendedStatusWatcher{
@@ -151,7 +151,7 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationNoChange(c *gc.C) {
 	}
 
 	s.expectGetRelationEndpointScope(relUUID, subordinateID, scope, nil)
-	s.expectGetOtherRelatedEndpointApplicationData(subordinateID, otherAppData, nil)
+	s.expectGetOtherRelatedEndpointApplicationData(relUUID, subordinateID, otherAppData, nil)
 
 	// Act
 	watcher := &subordinateLifeSuspendedStatusWatcher{
@@ -267,7 +267,7 @@ func (s *watcherSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.state = NewMockState(ctrl)
 	s.watcherFactory = NewMockWatcherFactory(ctrl)
-	s.service = NewWatchableService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	s.service = NewWatchableService(s.state, s.watcherFactory, nil, loggertesting.WrapCheckLog(c))
 
 	return ctrl
 }
@@ -282,12 +282,13 @@ func (s *watcherSuite) expectGetRelationEndpointScope(
 }
 
 func (s *watcherSuite) expectGetOtherRelatedEndpointApplicationData(
+	relUUID corerelation.UUID,
 	id coreapplication.ID,
 	data relation.OtherApplicationForWatcher,
 	err error,
 ) {
-	s.state.EXPECT().GetOtherRelatedEndpointApplicationData(gomock.Any(), id).Return(
-		[]relation.OtherApplicationForWatcher{data}, err)
+	s.state.EXPECT().GetOtherRelatedEndpointApplicationData(gomock.Any(), relUUID, id).Return(
+		data, err)
 }
 
 func (s *watcherSuite) expectChanged(ctrl *gomock.Controller, uuid corerelation.UUID) changestream.ChangeEvent {

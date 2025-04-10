@@ -239,7 +239,7 @@ WHERE  ae.application_uuid = $applicationID.uuid
 }
 
 // GetOtherRelatedEndpointApplicationData returns an OtherApplicationForWatcher struct
-// for each Endpoint in a relation with the given application ID.
+// for the other Endpoint in a relation with the given application ID.
 //
 // The following error types can be expected to be returned:
 //   - [relationerrors.ApplicationNotFound] is returned if application ID
@@ -247,23 +247,24 @@ WHERE  ae.application_uuid = $applicationID.uuid
 //     are not found.
 func (st *State) GetOtherRelatedEndpointApplicationData(
 	ctx context.Context,
+	relUUID corerelation.UUID,
 	applicationID application.ID,
-) ([]relation.OtherApplicationForWatcher, error) {
+) (relation.OtherApplicationForWatcher, error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Capture(err)
+		return relation.OtherApplicationForWatcher{}, errors.Capture(err)
 	}
 
-	otherApps := []otherApplicationsForWatcher{}
+	otherAppSub := otherApplicationsForWatcher{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Find all applications in a relation with the given application.
-		getOtherApps, err := st.getOtherApplicationInRelations(ctx, tx, applicationID)
+		otherApp, err := st.getOtherApplicationInRelations(ctx, tx, relUUID, applicationID)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
 		// For all applications, determine if it is a subordinate.
-		otherApps, err = st.getApplicationSubordinate(ctx, tx, getOtherApps)
+		otherAppSub, err = st.getApplicationSubordinate(ctx, tx, otherApp)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -271,47 +272,47 @@ func (st *State) GetOtherRelatedEndpointApplicationData(
 		return nil
 	})
 	if err != nil {
-		return nil, errors.Capture(err)
+		return relation.OtherApplicationForWatcher{}, errors.Capture(err)
 	}
 
-	results := make([]relation.OtherApplicationForWatcher, len(otherApps))
-	for i, oneApp := range otherApps {
-		results[i] = relation.OtherApplicationForWatcher{
-			ApplicationID: oneApp.AppID,
-			Subordinate:   oneApp.Subordinate,
-		}
-	}
-
-	return results, nil
+	return relation.OtherApplicationForWatcher{
+		ApplicationID: otherAppSub.AppID,
+		Subordinate:   otherAppSub.Subordinate,
+	}, nil
 }
 
-// getOtherApplicationInRelations returns a slice of applications ID
-// in the given relations which are not the given application ID.
+// getOtherApplicationInRelations returns the applications ID
+// at the other end of the relation from the given application ID.
 func (st *State) getOtherApplicationInRelations(
 	ctx context.Context,
 	tx *sqlair.TX,
+	relUUID corerelation.UUID,
 	appID application.ID,
-) ([]applicationID, error) {
+) (application.ID, error) {
 
 	findOtherEndsStmt, err := st.Prepare(`
-SELECT other.application_uuid AS &applicationID.uuid
+SELECT other.application_uuid AS &relationAndApplicationUUID.application_uuid
 FROM   v_application_subordinate AS app
 JOIN   v_application_subordinate AS other ON app.relation_uuid = other.relation_uuid
-WHERE  app.application_uuid = $applicationID.uuid
-AND    other.application_uuid != $applicationID.uuid
-`, applicationID{})
+WHERE  app.application_uuid = $relationAndApplicationUUID.application_uuid
+AND    other.application_uuid != $relationAndApplicationUUID.application_uuid
+AND    app.relation_uuid = $relationAndApplicationUUID.relation_uuid
+`, relationAndApplicationUUID{})
 	if err != nil {
-		return nil, errors.Errorf("preparing other endpoint query: %w", err)
+		return "", errors.Errorf("preparing other endpoint query: %w", err)
 	}
 
-	app := applicationID{ID: appID}
-	otherApps := []applicationID{}
-
-	err = tx.Query(ctx, findOtherEndsStmt, app).GetAll(&otherApps)
-	if err != nil {
-		return nil, errors.Capture(err)
+	app := relationAndApplicationUUID{
+		ApplicationID: appID,
+		RelationUUID:  relUUID,
 	}
-	return otherApps, nil
+	otherApp := relationAndApplicationUUID{}
+
+	err = tx.Query(ctx, findOtherEndsStmt, app).Get(&otherApp)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return otherApp.ApplicationID, nil
 }
 
 // getApplicationSubordinate returns a otherApplicationsForWatcher structure
@@ -319,30 +320,27 @@ AND    other.application_uuid != $applicationID.uuid
 func (st *State) getApplicationSubordinate(
 	ctx context.Context,
 	tx *sqlair.TX,
-	apps []applicationID,
-) ([]otherApplicationsForWatcher, error) {
+	app application.ID,
+) (otherApplicationsForWatcher, error) {
 
 	appSubordinateStmt, err := st.Prepare(`
 SELECT application_uuid AS &otherApplicationsForWatcher.application_uuid,
        subordinate AS &otherApplicationsForWatcher.subordinate
 FROM   v_application_subordinate
-WHERE  application_uuid = ($uuids[:])
-`, otherApplicationsForWatcher{}, uuids{})
+WHERE  application_uuid = $applicationID.uuid
+`, otherApplicationsForWatcher{}, applicationID{})
 	if err != nil {
-		return nil, errors.Errorf("preparing other application query: %w", err)
+		return otherApplicationsForWatcher{}, errors.Errorf("preparing other application query: %w", err)
 	}
 
-	appIDs := uuids{}
-	for _, uuid := range apps {
-		appIDs = append(appIDs, uuid.ID.String())
-	}
-	otherApps := []otherApplicationsForWatcher{}
-	err = tx.Query(ctx, appSubordinateStmt, appIDs).GetAll(&otherApps)
+	appID := applicationID{ID: app}
+	otherApp := otherApplicationsForWatcher{}
+	err = tx.Query(ctx, appSubordinateStmt, appID).Get(&otherApp)
 	if err != nil {
-		return nil, errors.Capture(err)
+		return otherApplicationsForWatcher{}, errors.Capture(err)
 	}
 
-	return otherApps, nil
+	return otherApp, nil
 }
 
 // GetRelationID returns the relation ID for the given relation UUID.

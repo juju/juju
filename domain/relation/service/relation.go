@@ -68,8 +68,9 @@ type State interface {
 	// for each Endpoint in a relation with the given application ID.
 	GetOtherRelatedEndpointApplicationData(
 		ctx context.Context,
+		relUUID corerelation.UUID,
 		applicationID application.ID,
-	) ([]relation.OtherApplicationForWatcher, error)
+	) (relation.OtherApplicationForWatcher, error)
 
 	// GetPeerRelationUUIDByEndpointIdentifiers gets the UUID of a peer
 	// relation specified by a single endpoint identifier.

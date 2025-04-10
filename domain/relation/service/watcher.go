@@ -465,18 +465,17 @@ func (w *subordinateLifeSuspendedStatusWatcher) watchNewRelation(
 
 	// Only allow container relations if the other end is our
 	// principal or the other end is a subordinate.
-	otherApplications, err := w.s.st.GetOtherRelatedEndpointApplicationData(ctx, w.appID)
+	otherApplication, err := w.s.st.GetOtherRelatedEndpointApplicationData(ctx, relUUID, w.appID)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
-	for _, other := range otherApplications {
-		if other.ApplicationID == w.parentAppID {
-			return true, nil
-		}
-		if other.Subordinate {
-			return true, nil
-		}
+	if otherApplication.ApplicationID == w.parentAppID {
+		return true, nil
 	}
+	if otherApplication.Subordinate {
+		return true, nil
+	}
+	
 	return false, nil
 }
 

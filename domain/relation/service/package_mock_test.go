@@ -281,18 +281,18 @@ func (c *MockStateGetMapperDataForWatchLifeSuspendedStatusCall) DoAndReturn(f fu
 }
 
 // GetOtherRelatedEndpointApplicationData mocks base method.
-func (m *MockState) GetOtherRelatedEndpointApplicationData(arg0 context.Context, arg1 application.ID) ([]relation0.OtherApplicationForWatcher, error) {
+func (m *MockState) GetOtherRelatedEndpointApplicationData(arg0 context.Context, arg1 relation.UUID, arg2 application.ID) (relation0.OtherApplicationForWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetOtherRelatedEndpointApplicationData", arg0, arg1)
-	ret0, _ := ret[0].([]relation0.OtherApplicationForWatcher)
+	ret := m.ctrl.Call(m, "GetOtherRelatedEndpointApplicationData", arg0, arg1, arg2)
+	ret0, _ := ret[0].(relation0.OtherApplicationForWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetOtherRelatedEndpointApplicationData indicates an expected call of GetOtherRelatedEndpointApplicationData.
-func (mr *MockStateMockRecorder) GetOtherRelatedEndpointApplicationData(arg0, arg1 any) *MockStateGetOtherRelatedEndpointApplicationDataCall {
+func (mr *MockStateMockRecorder) GetOtherRelatedEndpointApplicationData(arg0, arg1, arg2 any) *MockStateGetOtherRelatedEndpointApplicationDataCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOtherRelatedEndpointApplicationData", reflect.TypeOf((*MockState)(nil).GetOtherRelatedEndpointApplicationData), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOtherRelatedEndpointApplicationData", reflect.TypeOf((*MockState)(nil).GetOtherRelatedEndpointApplicationData), arg0, arg1, arg2)
 	return &MockStateGetOtherRelatedEndpointApplicationDataCall{Call: call}
 }
 
@@ -302,19 +302,19 @@ type MockStateGetOtherRelatedEndpointApplicationDataCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetOtherRelatedEndpointApplicationDataCall) Return(arg0 []relation0.OtherApplicationForWatcher, arg1 error) *MockStateGetOtherRelatedEndpointApplicationDataCall {
+func (c *MockStateGetOtherRelatedEndpointApplicationDataCall) Return(arg0 relation0.OtherApplicationForWatcher, arg1 error) *MockStateGetOtherRelatedEndpointApplicationDataCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetOtherRelatedEndpointApplicationDataCall) Do(f func(context.Context, application.ID) ([]relation0.OtherApplicationForWatcher, error)) *MockStateGetOtherRelatedEndpointApplicationDataCall {
+func (c *MockStateGetOtherRelatedEndpointApplicationDataCall) Do(f func(context.Context, relation.UUID, application.ID) (relation0.OtherApplicationForWatcher, error)) *MockStateGetOtherRelatedEndpointApplicationDataCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetOtherRelatedEndpointApplicationDataCall) DoAndReturn(f func(context.Context, application.ID) ([]relation0.OtherApplicationForWatcher, error)) *MockStateGetOtherRelatedEndpointApplicationDataCall {
+func (c *MockStateGetOtherRelatedEndpointApplicationDataCall) DoAndReturn(f func(context.Context, relation.UUID, application.ID) (relation0.OtherApplicationForWatcher, error)) *MockStateGetOtherRelatedEndpointApplicationDataCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
