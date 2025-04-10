@@ -65,6 +65,13 @@ func (o *importOperation) Setup(scope modelmigration.Scope) error {
 // if the operation fails.
 func (o *importOperation) Execute(ctx context.Context, model description.Model) error {
 	for _, app := range model.Applications() {
+		if app.Leader() == "" {
+			// If no leader is set, we don't need to claim a lease. The lease
+			// worker will select one at the next iteration.
+			o.logger.Infof(ctx, "application %q has no leader", app.Name())
+			continue
+		}
+
 		key := lease.Key{
 			ModelUUID: model.UUID(),
 			Namespace: app.Name(),

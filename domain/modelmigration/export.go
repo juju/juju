@@ -76,7 +76,7 @@ func (e *Exporter) ExportOperations(registry corestorage.ModelStorageRegistryGet
 	storage.RegisterExport(e.coordinator, registry, e.logger.Child("storage"))
 	secret.RegisterExport(e.coordinator, e.logger.Child("secret"))
 	application.RegisterExport(e.coordinator, e.storageRegistryGetter, e.clock, e.logger.Child("application"))
-	lease.RegisterExport(e.coordinator)
+	lease.RegisterExport(e.coordinator, e.logger.Child("lease"))
 	agentpassword.RegisterExport(e.coordinator)
 	status.RegisterExport(e.coordinator, e.clock, e.logger.Child("status"))
 	resource.RegisterExport(e.coordinator, e.clock, e.logger.Child("resource"))
