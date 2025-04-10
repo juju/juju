@@ -83,7 +83,7 @@ func (*machineSuite) TestNamedChild(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d: %q", i, test.output)
 
-		name, err := Name(test.name).NamedChild(test.scope, test.childName)
+		name, err := test.name.NamedChild(test.scope, test.childName)
 		if test.err != nil {
 			c.Assert(err, jc.ErrorIs, test.err)
 		} else {

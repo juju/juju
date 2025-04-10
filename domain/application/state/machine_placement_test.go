@@ -10,13 +10,14 @@ import (
 	"strconv"
 
 	"github.com/canonical/sqlair"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/core/machine"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/placement"
 	"github.com/juju/juju/domain/sequence"
 	"github.com/juju/juju/internal/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesInvalidPlacement(c *gc.C) {

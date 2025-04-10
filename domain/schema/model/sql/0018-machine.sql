@@ -26,7 +26,7 @@ ON machine (name);
 CREATE UNIQUE INDEX idx_machine_net_node
 ON machine (net_node_uuid);
 
-CREATE TABLE machine_placement_scope  (
+CREATE TABLE machine_placement_scope (
     id INT PRIMARY KEY,
     value TEXT NOT NULL
 );
