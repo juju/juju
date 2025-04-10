@@ -108,7 +108,9 @@ type RelationUnitStatusResult struct {
 // RelationUnitsWatcher generates signals when units enter or leave
 // the scope of a RelationUnit, and changes to the settings of those
 // units known to have entered.
-type RelationUnitsWatcher = watcher.Watcher[watcher.RelationUnitsChange]
+type RelationUnitsWatcher interface {
+	watcher.Watcher[watcher.RelationUnitsChange]
+}
 
 // TODO: uncomment the below types when the methods are implemented,
 // copied from state for use.

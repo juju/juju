@@ -33,7 +33,6 @@ import (
 type MockApplicationService struct {
 	ctrl     *gomock.Controller
 	recorder *MockApplicationServiceMockRecorder
-	isgomock struct{}
 }
 
 // MockApplicationServiceMockRecorder is the mock recorder for MockApplicationService.
@@ -54,17 +53,17 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 }
 
 // DeleteUnit mocks base method.
-func (m *MockApplicationService) DeleteUnit(ctx context.Context, unitName unit.Name) error {
+func (m *MockApplicationService) DeleteUnit(arg0 context.Context, arg1 unit.Name) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteUnit", ctx, unitName)
+	ret := m.ctrl.Call(m, "DeleteUnit", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteUnit indicates an expected call of DeleteUnit.
-func (mr *MockApplicationServiceMockRecorder) DeleteUnit(ctx, unitName any) *MockApplicationServiceDeleteUnitCall {
+func (mr *MockApplicationServiceMockRecorder) DeleteUnit(arg0, arg1 any) *MockApplicationServiceDeleteUnitCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteUnit", reflect.TypeOf((*MockApplicationService)(nil).DeleteUnit), ctx, unitName)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteUnit", reflect.TypeOf((*MockApplicationService)(nil).DeleteUnit), arg0, arg1)
 	return &MockApplicationServiceDeleteUnitCall{Call: call}
 }
 
@@ -92,17 +91,17 @@ func (c *MockApplicationServiceDeleteUnitCall) DoAndReturn(f func(context.Contex
 }
 
 // DestroyUnit mocks base method.
-func (m *MockApplicationService) DestroyUnit(ctx context.Context, unitName unit.Name) error {
+func (m *MockApplicationService) DestroyUnit(arg0 context.Context, arg1 unit.Name) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DestroyUnit", ctx, unitName)
+	ret := m.ctrl.Call(m, "DestroyUnit", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DestroyUnit indicates an expected call of DestroyUnit.
-func (mr *MockApplicationServiceMockRecorder) DestroyUnit(ctx, unitName any) *MockApplicationServiceDestroyUnitCall {
+func (mr *MockApplicationServiceMockRecorder) DestroyUnit(arg0, arg1 any) *MockApplicationServiceDestroyUnitCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyUnit", reflect.TypeOf((*MockApplicationService)(nil).DestroyUnit), ctx, unitName)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyUnit", reflect.TypeOf((*MockApplicationService)(nil).DestroyUnit), arg0, arg1)
 	return &MockApplicationServiceDestroyUnitCall{Call: call}
 }
 
@@ -130,17 +129,17 @@ func (c *MockApplicationServiceDestroyUnitCall) DoAndReturn(f func(context.Conte
 }
 
 // EnsureUnitDead mocks base method.
-func (m *MockApplicationService) EnsureUnitDead(ctx context.Context, unitName unit.Name, leadershipRevoker leadership.Revoker) error {
+func (m *MockApplicationService) EnsureUnitDead(arg0 context.Context, arg1 unit.Name, arg2 leadership.Revoker) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureUnitDead", ctx, unitName, leadershipRevoker)
+	ret := m.ctrl.Call(m, "EnsureUnitDead", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // EnsureUnitDead indicates an expected call of EnsureUnitDead.
-func (mr *MockApplicationServiceMockRecorder) EnsureUnitDead(ctx, unitName, leadershipRevoker any) *MockApplicationServiceEnsureUnitDeadCall {
+func (mr *MockApplicationServiceMockRecorder) EnsureUnitDead(arg0, arg1, arg2 any) *MockApplicationServiceEnsureUnitDeadCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureUnitDead", reflect.TypeOf((*MockApplicationService)(nil).EnsureUnitDead), ctx, unitName, leadershipRevoker)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureUnitDead", reflect.TypeOf((*MockApplicationService)(nil).EnsureUnitDead), arg0, arg1, arg2)
 	return &MockApplicationServiceEnsureUnitDeadCall{Call: call}
 }
 
@@ -168,18 +167,18 @@ func (c *MockApplicationServiceEnsureUnitDeadCall) DoAndReturn(f func(context.Co
 }
 
 // GetApplicationConfig mocks base method.
-func (m *MockApplicationService) GetApplicationConfig(ctx context.Context, uuid application.ID) (config.ConfigAttributes, error) {
+func (m *MockApplicationService) GetApplicationConfig(arg0 context.Context, arg1 application.ID) (config.ConfigAttributes, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationConfig", ctx, uuid)
+	ret := m.ctrl.Call(m, "GetApplicationConfig", arg0, arg1)
 	ret0, _ := ret[0].(config.ConfigAttributes)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetApplicationConfig indicates an expected call of GetApplicationConfig.
-func (mr *MockApplicationServiceMockRecorder) GetApplicationConfig(ctx, uuid any) *MockApplicationServiceGetApplicationConfigCall {
+func (mr *MockApplicationServiceMockRecorder) GetApplicationConfig(arg0, arg1 any) *MockApplicationServiceGetApplicationConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationConfig", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationConfig), ctx, uuid)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationConfig", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationConfig), arg0, arg1)
 	return &MockApplicationServiceGetApplicationConfigCall{Call: call}
 }
 
@@ -207,18 +206,18 @@ func (c *MockApplicationServiceGetApplicationConfigCall) DoAndReturn(f func(cont
 }
 
 // GetApplicationIDByName mocks base method.
-func (m *MockApplicationService) GetApplicationIDByName(ctx context.Context, name string) (application.ID, error) {
+func (m *MockApplicationService) GetApplicationIDByName(arg0 context.Context, arg1 string) (application.ID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationIDByName", ctx, name)
+	ret := m.ctrl.Call(m, "GetApplicationIDByName", arg0, arg1)
 	ret0, _ := ret[0].(application.ID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetApplicationIDByName indicates an expected call of GetApplicationIDByName.
-func (mr *MockApplicationServiceMockRecorder) GetApplicationIDByName(ctx, name any) *MockApplicationServiceGetApplicationIDByNameCall {
+func (mr *MockApplicationServiceMockRecorder) GetApplicationIDByName(arg0, arg1 any) *MockApplicationServiceGetApplicationIDByNameCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationIDByName", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationIDByName), ctx, name)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationIDByName", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationIDByName), arg0, arg1)
 	return &MockApplicationServiceGetApplicationIDByNameCall{Call: call}
 }
 
@@ -246,18 +245,18 @@ func (c *MockApplicationServiceGetApplicationIDByNameCall) DoAndReturn(f func(co
 }
 
 // GetApplicationIDByUnitName mocks base method.
-func (m *MockApplicationService) GetApplicationIDByUnitName(ctx context.Context, unitName unit.Name) (application.ID, error) {
+func (m *MockApplicationService) GetApplicationIDByUnitName(arg0 context.Context, arg1 unit.Name) (application.ID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationIDByUnitName", ctx, unitName)
+	ret := m.ctrl.Call(m, "GetApplicationIDByUnitName", arg0, arg1)
 	ret0, _ := ret[0].(application.ID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetApplicationIDByUnitName indicates an expected call of GetApplicationIDByUnitName.
-func (mr *MockApplicationServiceMockRecorder) GetApplicationIDByUnitName(ctx, unitName any) *MockApplicationServiceGetApplicationIDByUnitNameCall {
+func (mr *MockApplicationServiceMockRecorder) GetApplicationIDByUnitName(arg0, arg1 any) *MockApplicationServiceGetApplicationIDByUnitNameCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationIDByUnitName", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationIDByUnitName), ctx, unitName)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationIDByUnitName", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationIDByUnitName), arg0, arg1)
 	return &MockApplicationServiceGetApplicationIDByUnitNameCall{Call: call}
 }
 
@@ -285,18 +284,18 @@ func (c *MockApplicationServiceGetApplicationIDByUnitNameCall) DoAndReturn(f fun
 }
 
 // GetApplicationLife mocks base method.
-func (m *MockApplicationService) GetApplicationLife(ctx context.Context, unitName string) (life.Value, error) {
+func (m *MockApplicationService) GetApplicationLife(arg0 context.Context, arg1 string) (life.Value, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationLife", ctx, unitName)
+	ret := m.ctrl.Call(m, "GetApplicationLife", arg0, arg1)
 	ret0, _ := ret[0].(life.Value)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetApplicationLife indicates an expected call of GetApplicationLife.
-func (mr *MockApplicationServiceMockRecorder) GetApplicationLife(ctx, unitName any) *MockApplicationServiceGetApplicationLifeCall {
+func (mr *MockApplicationServiceMockRecorder) GetApplicationLife(arg0, arg1 any) *MockApplicationServiceGetApplicationLifeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationLife", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationLife), ctx, unitName)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationLife", reflect.TypeOf((*MockApplicationService)(nil).GetApplicationLife), arg0, arg1)
 	return &MockApplicationServiceGetApplicationLifeCall{Call: call}
 }
 
@@ -324,18 +323,18 @@ func (c *MockApplicationServiceGetApplicationLifeCall) DoAndReturn(f func(contex
 }
 
 // GetAvailableCharmArchiveSHA256 mocks base method.
-func (m *MockApplicationService) GetAvailableCharmArchiveSHA256(ctx context.Context, locator charm.CharmLocator) (string, error) {
+func (m *MockApplicationService) GetAvailableCharmArchiveSHA256(arg0 context.Context, arg1 charm.CharmLocator) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAvailableCharmArchiveSHA256", ctx, locator)
+	ret := m.ctrl.Call(m, "GetAvailableCharmArchiveSHA256", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetAvailableCharmArchiveSHA256 indicates an expected call of GetAvailableCharmArchiveSHA256.
-func (mr *MockApplicationServiceMockRecorder) GetAvailableCharmArchiveSHA256(ctx, locator any) *MockApplicationServiceGetAvailableCharmArchiveSHA256Call {
+func (mr *MockApplicationServiceMockRecorder) GetAvailableCharmArchiveSHA256(arg0, arg1 any) *MockApplicationServiceGetAvailableCharmArchiveSHA256Call {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAvailableCharmArchiveSHA256", reflect.TypeOf((*MockApplicationService)(nil).GetAvailableCharmArchiveSHA256), ctx, locator)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAvailableCharmArchiveSHA256", reflect.TypeOf((*MockApplicationService)(nil).GetAvailableCharmArchiveSHA256), arg0, arg1)
 	return &MockApplicationServiceGetAvailableCharmArchiveSHA256Call{Call: call}
 }
 
@@ -363,9 +362,9 @@ func (c *MockApplicationServiceGetAvailableCharmArchiveSHA256Call) DoAndReturn(f
 }
 
 // GetCharmLXDProfile mocks base method.
-func (m *MockApplicationService) GetCharmLXDProfile(ctx context.Context, locator charm.CharmLocator) (charm0.LXDProfile, int, error) {
+func (m *MockApplicationService) GetCharmLXDProfile(arg0 context.Context, arg1 charm.CharmLocator) (charm0.LXDProfile, int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCharmLXDProfile", ctx, locator)
+	ret := m.ctrl.Call(m, "GetCharmLXDProfile", arg0, arg1)
 	ret0, _ := ret[0].(charm0.LXDProfile)
 	ret1, _ := ret[1].(int)
 	ret2, _ := ret[2].(error)
@@ -373,9 +372,9 @@ func (m *MockApplicationService) GetCharmLXDProfile(ctx context.Context, locator
 }
 
 // GetCharmLXDProfile indicates an expected call of GetCharmLXDProfile.
-func (mr *MockApplicationServiceMockRecorder) GetCharmLXDProfile(ctx, locator any) *MockApplicationServiceGetCharmLXDProfileCall {
+func (mr *MockApplicationServiceMockRecorder) GetCharmLXDProfile(arg0, arg1 any) *MockApplicationServiceGetCharmLXDProfileCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmLXDProfile", reflect.TypeOf((*MockApplicationService)(nil).GetCharmLXDProfile), ctx, locator)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmLXDProfile", reflect.TypeOf((*MockApplicationService)(nil).GetCharmLXDProfile), arg0, arg1)
 	return &MockApplicationServiceGetCharmLXDProfileCall{Call: call}
 }
 
@@ -403,18 +402,18 @@ func (c *MockApplicationServiceGetCharmLXDProfileCall) DoAndReturn(f func(contex
 }
 
 // GetCharmModifiedVersion mocks base method.
-func (m *MockApplicationService) GetCharmModifiedVersion(ctx context.Context, id application.ID) (int, error) {
+func (m *MockApplicationService) GetCharmModifiedVersion(arg0 context.Context, arg1 application.ID) (int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCharmModifiedVersion", ctx, id)
+	ret := m.ctrl.Call(m, "GetCharmModifiedVersion", arg0, arg1)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetCharmModifiedVersion indicates an expected call of GetCharmModifiedVersion.
-func (mr *MockApplicationServiceMockRecorder) GetCharmModifiedVersion(ctx, id any) *MockApplicationServiceGetCharmModifiedVersionCall {
+func (mr *MockApplicationServiceMockRecorder) GetCharmModifiedVersion(arg0, arg1 any) *MockApplicationServiceGetCharmModifiedVersionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmModifiedVersion", reflect.TypeOf((*MockApplicationService)(nil).GetCharmModifiedVersion), ctx, id)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmModifiedVersion", reflect.TypeOf((*MockApplicationService)(nil).GetCharmModifiedVersion), arg0, arg1)
 	return &MockApplicationServiceGetCharmModifiedVersionCall{Call: call}
 }
 
@@ -442,18 +441,18 @@ func (c *MockApplicationServiceGetCharmModifiedVersionCall) DoAndReturn(f func(c
 }
 
 // GetUnitLife mocks base method.
-func (m *MockApplicationService) GetUnitLife(ctx context.Context, unitName unit.Name) (life.Value, error) {
+func (m *MockApplicationService) GetUnitLife(arg0 context.Context, arg1 unit.Name) (life.Value, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitLife", ctx, unitName)
+	ret := m.ctrl.Call(m, "GetUnitLife", arg0, arg1)
 	ret0, _ := ret[0].(life.Value)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetUnitLife indicates an expected call of GetUnitLife.
-func (mr *MockApplicationServiceMockRecorder) GetUnitLife(ctx, unitName any) *MockApplicationServiceGetUnitLifeCall {
+func (mr *MockApplicationServiceMockRecorder) GetUnitLife(arg0, arg1 any) *MockApplicationServiceGetUnitLifeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitLife", reflect.TypeOf((*MockApplicationService)(nil).GetUnitLife), ctx, unitName)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitLife", reflect.TypeOf((*MockApplicationService)(nil).GetUnitLife), arg0, arg1)
 	return &MockApplicationServiceGetUnitLifeCall{Call: call}
 }
 
@@ -481,18 +480,18 @@ func (c *MockApplicationServiceGetUnitLifeCall) DoAndReturn(f func(context.Conte
 }
 
 // GetUnitRefreshAttributes mocks base method.
-func (m *MockApplicationService) GetUnitRefreshAttributes(ctx context.Context, unitName unit.Name) (application0.UnitAttributes, error) {
+func (m *MockApplicationService) GetUnitRefreshAttributes(arg0 context.Context, arg1 unit.Name) (application0.UnitAttributes, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitRefreshAttributes", ctx, unitName)
+	ret := m.ctrl.Call(m, "GetUnitRefreshAttributes", arg0, arg1)
 	ret0, _ := ret[0].(application0.UnitAttributes)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetUnitRefreshAttributes indicates an expected call of GetUnitRefreshAttributes.
-func (mr *MockApplicationServiceMockRecorder) GetUnitRefreshAttributes(ctx, unitName any) *MockApplicationServiceGetUnitRefreshAttributesCall {
+func (mr *MockApplicationServiceMockRecorder) GetUnitRefreshAttributes(arg0, arg1 any) *MockApplicationServiceGetUnitRefreshAttributesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitRefreshAttributes", reflect.TypeOf((*MockApplicationService)(nil).GetUnitRefreshAttributes), ctx, unitName)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitRefreshAttributes", reflect.TypeOf((*MockApplicationService)(nil).GetUnitRefreshAttributes), arg0, arg1)
 	return &MockApplicationServiceGetUnitRefreshAttributesCall{Call: call}
 }
 
@@ -520,18 +519,18 @@ func (c *MockApplicationServiceGetUnitRefreshAttributesCall) DoAndReturn(f func(
 }
 
 // GetUnitUUID mocks base method.
-func (m *MockApplicationService) GetUnitUUID(ctx context.Context, unitName unit.Name) (unit.UUID, error) {
+func (m *MockApplicationService) GetUnitUUID(arg0 context.Context, arg1 unit.Name) (unit.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitUUID", ctx, unitName)
+	ret := m.ctrl.Call(m, "GetUnitUUID", arg0, arg1)
 	ret0, _ := ret[0].(unit.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetUnitUUID indicates an expected call of GetUnitUUID.
-func (mr *MockApplicationServiceMockRecorder) GetUnitUUID(ctx, unitName any) *MockApplicationServiceGetUnitUUIDCall {
+func (mr *MockApplicationServiceMockRecorder) GetUnitUUID(arg0, arg1 any) *MockApplicationServiceGetUnitUUIDCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitUUID", reflect.TypeOf((*MockApplicationService)(nil).GetUnitUUID), ctx, unitName)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitUUID", reflect.TypeOf((*MockApplicationService)(nil).GetUnitUUID), arg0, arg1)
 	return &MockApplicationServiceGetUnitUUIDCall{Call: call}
 }
 
@@ -559,18 +558,18 @@ func (c *MockApplicationServiceGetUnitUUIDCall) DoAndReturn(f func(context.Conte
 }
 
 // WatchApplication mocks base method.
-func (m *MockApplicationService) WatchApplication(ctx context.Context, name string) (watcher.NotifyWatcher[struct{}], error) {
+func (m *MockApplicationService) WatchApplication(arg0 context.Context, arg1 string) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchApplication", ctx, name)
-	ret0, _ := ret[0].(watcher.NotifyWatcher[struct{}])
+	ret := m.ctrl.Call(m, "WatchApplication", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchApplication indicates an expected call of WatchApplication.
-func (mr *MockApplicationServiceMockRecorder) WatchApplication(ctx, name any) *MockApplicationServiceWatchApplicationCall {
+func (mr *MockApplicationServiceMockRecorder) WatchApplication(arg0, arg1 any) *MockApplicationServiceWatchApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplication", reflect.TypeOf((*MockApplicationService)(nil).WatchApplication), ctx, name)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplication", reflect.TypeOf((*MockApplicationService)(nil).WatchApplication), arg0, arg1)
 	return &MockApplicationServiceWatchApplicationCall{Call: call}
 }
 
@@ -580,19 +579,19 @@ type MockApplicationServiceWatchApplicationCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationServiceWatchApplicationCall) Return(arg0 watcher.NotifyWatcher[struct{}], arg1 error) *MockApplicationServiceWatchApplicationCall {
+func (c *MockApplicationServiceWatchApplicationCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockApplicationServiceWatchApplicationCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceWatchApplicationCall) Do(f func(context.Context, string) (watcher.NotifyWatcher[struct{}], error)) *MockApplicationServiceWatchApplicationCall {
+func (c *MockApplicationServiceWatchApplicationCall) Do(f func(context.Context, string) (watcher.Watcher[struct{}], error)) *MockApplicationServiceWatchApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceWatchApplicationCall) DoAndReturn(f func(context.Context, string) (watcher.NotifyWatcher[struct{}], error)) *MockApplicationServiceWatchApplicationCall {
+func (c *MockApplicationServiceWatchApplicationCall) DoAndReturn(f func(context.Context, string) (watcher.Watcher[struct{}], error)) *MockApplicationServiceWatchApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -601,7 +600,6 @@ func (c *MockApplicationServiceWatchApplicationCall) DoAndReturn(f func(context.
 type MockStatusService struct {
 	ctrl     *gomock.Controller
 	recorder *MockStatusServiceMockRecorder
-	isgomock struct{}
 }
 
 // MockStatusServiceMockRecorder is the mock recorder for MockStatusService.
@@ -701,18 +699,18 @@ func (c *MockStatusServiceGetUnitWorkloadStatusCall) DoAndReturn(f func(context.
 }
 
 // GetUnitWorkloadStatusesForApplication mocks base method.
-func (m *MockStatusService) GetUnitWorkloadStatusesForApplication(ctx context.Context, appID application.ID) (map[unit.Name]status.StatusInfo, error) {
+func (m *MockStatusService) GetUnitWorkloadStatusesForApplication(arg0 context.Context, arg1 application.ID) (map[unit.Name]status.StatusInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitWorkloadStatusesForApplication", ctx, appID)
+	ret := m.ctrl.Call(m, "GetUnitWorkloadStatusesForApplication", arg0, arg1)
 	ret0, _ := ret[0].(map[unit.Name]status.StatusInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetUnitWorkloadStatusesForApplication indicates an expected call of GetUnitWorkloadStatusesForApplication.
-func (mr *MockStatusServiceMockRecorder) GetUnitWorkloadStatusesForApplication(ctx, appID any) *MockStatusServiceGetUnitWorkloadStatusesForApplicationCall {
+func (mr *MockStatusServiceMockRecorder) GetUnitWorkloadStatusesForApplication(arg0, arg1 any) *MockStatusServiceGetUnitWorkloadStatusesForApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitWorkloadStatusesForApplication", reflect.TypeOf((*MockStatusService)(nil).GetUnitWorkloadStatusesForApplication), ctx, appID)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitWorkloadStatusesForApplication", reflect.TypeOf((*MockStatusService)(nil).GetUnitWorkloadStatusesForApplication), arg0, arg1)
 	return &MockStatusServiceGetUnitWorkloadStatusesForApplicationCall{Call: call}
 }
 
@@ -778,17 +776,17 @@ func (c *MockStatusServiceSetApplicationStatusForUnitLeaderCall) DoAndReturn(f f
 }
 
 // SetRelationStatus mocks base method.
-func (m *MockStatusService) SetRelationStatus(ctx context.Context, unitName unit.Name, relationUUID relation.UUID, info status.StatusInfo) error {
+func (m *MockStatusService) SetRelationStatus(arg0 context.Context, arg1 unit.Name, arg2 relation.UUID, arg3 status.StatusInfo) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetRelationStatus", ctx, unitName, relationUUID, info)
+	ret := m.ctrl.Call(m, "SetRelationStatus", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetRelationStatus indicates an expected call of SetRelationStatus.
-func (mr *MockStatusServiceMockRecorder) SetRelationStatus(ctx, unitName, relationUUID, info any) *MockStatusServiceSetRelationStatusCall {
+func (mr *MockStatusServiceMockRecorder) SetRelationStatus(arg0, arg1, arg2, arg3 any) *MockStatusServiceSetRelationStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRelationStatus", reflect.TypeOf((*MockStatusService)(nil).SetRelationStatus), ctx, unitName, relationUUID, info)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRelationStatus", reflect.TypeOf((*MockStatusService)(nil).SetRelationStatus), arg0, arg1, arg2, arg3)
 	return &MockStatusServiceSetRelationStatusCall{Call: call}
 }
 
@@ -895,7 +893,6 @@ func (c *MockStatusServiceSetUnitWorkloadStatusCall) DoAndReturn(f func(context.
 type MockRelationService struct {
 	ctrl     *gomock.Controller
 	recorder *MockRelationServiceMockRecorder
-	isgomock struct{}
 }
 
 // MockRelationServiceMockRecorder is the mock recorder for MockRelationService.
@@ -916,17 +913,17 @@ func (m *MockRelationService) EXPECT() *MockRelationServiceMockRecorder {
 }
 
 // EnterScope mocks base method.
-func (m *MockRelationService) EnterScope(ctx context.Context, relationID relation.UUID, unitName unit.Name) error {
+func (m *MockRelationService) EnterScope(arg0 context.Context, arg1 relation.UUID, arg2 unit.Name) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnterScope", ctx, relationID, unitName)
+	ret := m.ctrl.Call(m, "EnterScope", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // EnterScope indicates an expected call of EnterScope.
-func (mr *MockRelationServiceMockRecorder) EnterScope(ctx, relationID, unitName any) *MockRelationServiceEnterScopeCall {
+func (mr *MockRelationServiceMockRecorder) EnterScope(arg0, arg1, arg2 any) *MockRelationServiceEnterScopeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnterScope", reflect.TypeOf((*MockRelationService)(nil).EnterScope), ctx, relationID, unitName)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnterScope", reflect.TypeOf((*MockRelationService)(nil).EnterScope), arg0, arg1, arg2)
 	return &MockRelationServiceEnterScopeCall{Call: call}
 }
 
@@ -954,18 +951,18 @@ func (c *MockRelationServiceEnterScopeCall) DoAndReturn(f func(context.Context, 
 }
 
 // GetLocalRelationApplicationSettings mocks base method.
-func (m *MockRelationService) GetLocalRelationApplicationSettings(ctx context.Context, unitName unit.Name, relationUUID relation.UUID, applicationID application.ID) (map[string]string, error) {
+func (m *MockRelationService) GetLocalRelationApplicationSettings(arg0 context.Context, arg1 unit.Name, arg2 relation.UUID, arg3 application.ID) (map[string]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetLocalRelationApplicationSettings", ctx, unitName, relationUUID, applicationID)
+	ret := m.ctrl.Call(m, "GetLocalRelationApplicationSettings", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(map[string]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetLocalRelationApplicationSettings indicates an expected call of GetLocalRelationApplicationSettings.
-func (mr *MockRelationServiceMockRecorder) GetLocalRelationApplicationSettings(ctx, unitName, relationUUID, applicationID any) *MockRelationServiceGetLocalRelationApplicationSettingsCall {
+func (mr *MockRelationServiceMockRecorder) GetLocalRelationApplicationSettings(arg0, arg1, arg2, arg3 any) *MockRelationServiceGetLocalRelationApplicationSettingsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLocalRelationApplicationSettings", reflect.TypeOf((*MockRelationService)(nil).GetLocalRelationApplicationSettings), ctx, unitName, relationUUID, applicationID)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLocalRelationApplicationSettings", reflect.TypeOf((*MockRelationService)(nil).GetLocalRelationApplicationSettings), arg0, arg1, arg2, arg3)
 	return &MockRelationServiceGetLocalRelationApplicationSettingsCall{Call: call}
 }
 
@@ -993,18 +990,18 @@ func (c *MockRelationServiceGetLocalRelationApplicationSettingsCall) DoAndReturn
 }
 
 // GetRelationDetails mocks base method.
-func (m *MockRelationService) GetRelationDetails(ctx context.Context, relationUUID relation.UUID) (relation0.RelationDetails, error) {
+func (m *MockRelationService) GetRelationDetails(arg0 context.Context, arg1 relation.UUID) (relation0.RelationDetails, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRelationDetails", ctx, relationUUID)
+	ret := m.ctrl.Call(m, "GetRelationDetails", arg0, arg1)
 	ret0, _ := ret[0].(relation0.RelationDetails)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetRelationDetails indicates an expected call of GetRelationDetails.
-func (mr *MockRelationServiceMockRecorder) GetRelationDetails(ctx, relationUUID any) *MockRelationServiceGetRelationDetailsCall {
+func (mr *MockRelationServiceMockRecorder) GetRelationDetails(arg0, arg1 any) *MockRelationServiceGetRelationDetailsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationDetails", reflect.TypeOf((*MockRelationService)(nil).GetRelationDetails), ctx, relationUUID)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationDetails", reflect.TypeOf((*MockRelationService)(nil).GetRelationDetails), arg0, arg1)
 	return &MockRelationServiceGetRelationDetailsCall{Call: call}
 }
 
@@ -1032,18 +1029,18 @@ func (c *MockRelationServiceGetRelationDetailsCall) DoAndReturn(f func(context.C
 }
 
 // GetRelationUUIDByID mocks base method.
-func (m *MockRelationService) GetRelationUUIDByID(ctx context.Context, relationID int) (relation.UUID, error) {
+func (m *MockRelationService) GetRelationUUIDByID(arg0 context.Context, arg1 int) (relation.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRelationUUIDByID", ctx, relationID)
+	ret := m.ctrl.Call(m, "GetRelationUUIDByID", arg0, arg1)
 	ret0, _ := ret[0].(relation.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetRelationUUIDByID indicates an expected call of GetRelationUUIDByID.
-func (mr *MockRelationServiceMockRecorder) GetRelationUUIDByID(ctx, relationID any) *MockRelationServiceGetRelationUUIDByIDCall {
+func (mr *MockRelationServiceMockRecorder) GetRelationUUIDByID(arg0, arg1 any) *MockRelationServiceGetRelationUUIDByIDCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUUIDByID", reflect.TypeOf((*MockRelationService)(nil).GetRelationUUIDByID), ctx, relationID)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUUIDByID", reflect.TypeOf((*MockRelationService)(nil).GetRelationUUIDByID), arg0, arg1)
 	return &MockRelationServiceGetRelationUUIDByIDCall{Call: call}
 }
 
@@ -1071,18 +1068,18 @@ func (c *MockRelationServiceGetRelationUUIDByIDCall) DoAndReturn(f func(context.
 }
 
 // GetRelationUUIDByKey mocks base method.
-func (m *MockRelationService) GetRelationUUIDByKey(ctx context.Context, relationKey relation.Key) (relation.UUID, error) {
+func (m *MockRelationService) GetRelationUUIDByKey(arg0 context.Context, arg1 relation.Key) (relation.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRelationUUIDByKey", ctx, relationKey)
+	ret := m.ctrl.Call(m, "GetRelationUUIDByKey", arg0, arg1)
 	ret0, _ := ret[0].(relation.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetRelationUUIDByKey indicates an expected call of GetRelationUUIDByKey.
-func (mr *MockRelationServiceMockRecorder) GetRelationUUIDByKey(ctx, relationKey any) *MockRelationServiceGetRelationUUIDByKeyCall {
+func (mr *MockRelationServiceMockRecorder) GetRelationUUIDByKey(arg0, arg1 any) *MockRelationServiceGetRelationUUIDByKeyCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUUIDByKey", reflect.TypeOf((*MockRelationService)(nil).GetRelationUUIDByKey), ctx, relationKey)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUUIDByKey", reflect.TypeOf((*MockRelationService)(nil).GetRelationUUIDByKey), arg0, arg1)
 	return &MockRelationServiceGetRelationUUIDByKeyCall{Call: call}
 }
 
@@ -1110,18 +1107,18 @@ func (c *MockRelationServiceGetRelationUUIDByKeyCall) DoAndReturn(f func(context
 }
 
 // GetRelationUnit mocks base method.
-func (m *MockRelationService) GetRelationUnit(ctx context.Context, relationUUID relation.UUID, unitName unit.Name) (relation.UnitUUID, error) {
+func (m *MockRelationService) GetRelationUnit(arg0 context.Context, arg1 relation.UUID, arg2 unit.Name) (relation.UnitUUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRelationUnit", ctx, relationUUID, unitName)
+	ret := m.ctrl.Call(m, "GetRelationUnit", arg0, arg1, arg2)
 	ret0, _ := ret[0].(relation.UnitUUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetRelationUnit indicates an expected call of GetRelationUnit.
-func (mr *MockRelationServiceMockRecorder) GetRelationUnit(ctx, relationUUID, unitName any) *MockRelationServiceGetRelationUnitCall {
+func (mr *MockRelationServiceMockRecorder) GetRelationUnit(arg0, arg1, arg2 any) *MockRelationServiceGetRelationUnitCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUnit", reflect.TypeOf((*MockRelationService)(nil).GetRelationUnit), ctx, relationUUID, unitName)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUnit", reflect.TypeOf((*MockRelationService)(nil).GetRelationUnit), arg0, arg1, arg2)
 	return &MockRelationServiceGetRelationUnitCall{Call: call}
 }
 
@@ -1149,18 +1146,18 @@ func (c *MockRelationServiceGetRelationUnitCall) DoAndReturn(f func(context.Cont
 }
 
 // GetRelationUnitSettings mocks base method.
-func (m *MockRelationService) GetRelationUnitSettings(ctx context.Context, relationUnitUUID relation.UnitUUID) (map[string]string, error) {
+func (m *MockRelationService) GetRelationUnitSettings(arg0 context.Context, arg1 relation.UnitUUID) (map[string]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRelationUnitSettings", ctx, relationUnitUUID)
+	ret := m.ctrl.Call(m, "GetRelationUnitSettings", arg0, arg1)
 	ret0, _ := ret[0].(map[string]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetRelationUnitSettings indicates an expected call of GetRelationUnitSettings.
-func (mr *MockRelationServiceMockRecorder) GetRelationUnitSettings(ctx, relationUnitUUID any) *MockRelationServiceGetRelationUnitSettingsCall {
+func (mr *MockRelationServiceMockRecorder) GetRelationUnitSettings(arg0, arg1 any) *MockRelationServiceGetRelationUnitSettingsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUnitSettings", reflect.TypeOf((*MockRelationService)(nil).GetRelationUnitSettings), ctx, relationUnitUUID)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUnitSettings", reflect.TypeOf((*MockRelationService)(nil).GetRelationUnitSettings), arg0, arg1)
 	return &MockRelationServiceGetRelationUnitSettingsCall{Call: call}
 }
 
@@ -1188,18 +1185,18 @@ func (c *MockRelationServiceGetRelationUnitSettingsCall) DoAndReturn(f func(cont
 }
 
 // GetRelationsStatusForUnit mocks base method.
-func (m *MockRelationService) GetRelationsStatusForUnit(ctx context.Context, unitUUID unit.UUID) ([]relation0.RelationUnitStatus, error) {
+func (m *MockRelationService) GetRelationsStatusForUnit(arg0 context.Context, arg1 unit.UUID) ([]relation0.RelationUnitStatus, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRelationsStatusForUnit", ctx, unitUUID)
+	ret := m.ctrl.Call(m, "GetRelationsStatusForUnit", arg0, arg1)
 	ret0, _ := ret[0].([]relation0.RelationUnitStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetRelationsStatusForUnit indicates an expected call of GetRelationsStatusForUnit.
-func (mr *MockRelationServiceMockRecorder) GetRelationsStatusForUnit(ctx, unitUUID any) *MockRelationServiceGetRelationsStatusForUnitCall {
+func (mr *MockRelationServiceMockRecorder) GetRelationsStatusForUnit(arg0, arg1 any) *MockRelationServiceGetRelationsStatusForUnitCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationsStatusForUnit", reflect.TypeOf((*MockRelationService)(nil).GetRelationsStatusForUnit), ctx, unitUUID)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationsStatusForUnit", reflect.TypeOf((*MockRelationService)(nil).GetRelationsStatusForUnit), arg0, arg1)
 	return &MockRelationServiceGetRelationsStatusForUnitCall{Call: call}
 }
 
@@ -1227,18 +1224,18 @@ func (c *MockRelationServiceGetRelationsStatusForUnitCall) DoAndReturn(f func(co
 }
 
 // GetRemoteRelationApplicationSettings mocks base method.
-func (m *MockRelationService) GetRemoteRelationApplicationSettings(ctx context.Context, relationUUID relation.UUID, applicationID application.ID) (map[string]string, error) {
+func (m *MockRelationService) GetRemoteRelationApplicationSettings(arg0 context.Context, arg1 relation.UUID, arg2 application.ID) (map[string]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRemoteRelationApplicationSettings", ctx, relationUUID, applicationID)
+	ret := m.ctrl.Call(m, "GetRemoteRelationApplicationSettings", arg0, arg1, arg2)
 	ret0, _ := ret[0].(map[string]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetRemoteRelationApplicationSettings indicates an expected call of GetRemoteRelationApplicationSettings.
-func (mr *MockRelationServiceMockRecorder) GetRemoteRelationApplicationSettings(ctx, relationUUID, applicationID any) *MockRelationServiceGetRemoteRelationApplicationSettingsCall {
+func (mr *MockRelationServiceMockRecorder) GetRemoteRelationApplicationSettings(arg0, arg1, arg2 any) *MockRelationServiceGetRemoteRelationApplicationSettingsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteRelationApplicationSettings", reflect.TypeOf((*MockRelationService)(nil).GetRemoteRelationApplicationSettings), ctx, relationUUID, applicationID)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteRelationApplicationSettings", reflect.TypeOf((*MockRelationService)(nil).GetRemoteRelationApplicationSettings), arg0, arg1, arg2)
 	return &MockRelationServiceGetRemoteRelationApplicationSettingsCall{Call: call}
 }
 
@@ -1266,17 +1263,17 @@ func (c *MockRelationServiceGetRemoteRelationApplicationSettingsCall) DoAndRetur
 }
 
 // LeaveScope mocks base method.
-func (m *MockRelationService) LeaveScope(ctx context.Context, relationID relation.UnitUUID) error {
+func (m *MockRelationService) LeaveScope(arg0 context.Context, arg1 relation.UnitUUID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LeaveScope", ctx, relationID)
+	ret := m.ctrl.Call(m, "LeaveScope", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // LeaveScope indicates an expected call of LeaveScope.
-func (mr *MockRelationServiceMockRecorder) LeaveScope(ctx, relationID any) *MockRelationServiceLeaveScopeCall {
+func (mr *MockRelationServiceMockRecorder) LeaveScope(arg0, arg1 any) *MockRelationServiceLeaveScopeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LeaveScope", reflect.TypeOf((*MockRelationService)(nil).LeaveScope), ctx, relationID)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LeaveScope", reflect.TypeOf((*MockRelationService)(nil).LeaveScope), arg0, arg1)
 	return &MockRelationServiceLeaveScopeCall{Call: call}
 }
 
@@ -1302,7 +1299,6 @@ func (c *MockRelationServiceLeaveScopeCall) DoAndReturn(f func(context.Context, 
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
-
 
 // SetRelationApplicationSettings mocks base method.
 func (m *MockRelationService) SetRelationApplicationSettings(arg0 context.Context, arg1 relation.UUID, arg2 application.ID, arg3 map[string]string) error {
@@ -1381,18 +1377,18 @@ func (c *MockRelationServiceSetRelationUnitSettingsCall) DoAndReturn(f func(cont
 }
 
 // WatchLifeSuspendedStatus mocks base method.
-func (m *MockRelationService) WatchLifeSuspendedStatus(ctx context.Context, unitID unit.UUID) (watcher.StringsWatcher[[]string], error) {
+func (m *MockRelationService) WatchLifeSuspendedStatus(arg0 context.Context, arg1 unit.UUID) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchLifeSuspendedStatus", ctx, unitID)
-	ret0, _ := ret[0].(watcher.StringsWatcher[[]string])
+	ret := m.ctrl.Call(m, "WatchLifeSuspendedStatus", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchLifeSuspendedStatus indicates an expected call of WatchLifeSuspendedStatus.
-func (mr *MockRelationServiceMockRecorder) WatchLifeSuspendedStatus(ctx, unitID any) *MockRelationServiceWatchLifeSuspendedStatusCall {
+func (mr *MockRelationServiceMockRecorder) WatchLifeSuspendedStatus(arg0, arg1 any) *MockRelationServiceWatchLifeSuspendedStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLifeSuspendedStatus", reflect.TypeOf((*MockRelationService)(nil).WatchLifeSuspendedStatus), ctx, unitID)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLifeSuspendedStatus", reflect.TypeOf((*MockRelationService)(nil).WatchLifeSuspendedStatus), arg0, arg1)
 	return &MockRelationServiceWatchLifeSuspendedStatusCall{Call: call}
 }
 
@@ -1402,36 +1398,36 @@ type MockRelationServiceWatchLifeSuspendedStatusCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockRelationServiceWatchLifeSuspendedStatusCall) Return(arg0 watcher.StringsWatcher[[]string], arg1 error) *MockRelationServiceWatchLifeSuspendedStatusCall {
+func (c *MockRelationServiceWatchLifeSuspendedStatusCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockRelationServiceWatchLifeSuspendedStatusCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationServiceWatchLifeSuspendedStatusCall) Do(f func(context.Context, unit.UUID) (watcher.StringsWatcher[[]string], error)) *MockRelationServiceWatchLifeSuspendedStatusCall {
+func (c *MockRelationServiceWatchLifeSuspendedStatusCall) Do(f func(context.Context, unit.UUID) (watcher.Watcher[[]string], error)) *MockRelationServiceWatchLifeSuspendedStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationServiceWatchLifeSuspendedStatusCall) DoAndReturn(f func(context.Context, unit.UUID) (watcher.StringsWatcher[[]string], error)) *MockRelationServiceWatchLifeSuspendedStatusCall {
+func (c *MockRelationServiceWatchLifeSuspendedStatusCall) DoAndReturn(f func(context.Context, unit.UUID) (watcher.Watcher[[]string], error)) *MockRelationServiceWatchLifeSuspendedStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchRelatedUnits mocks base method.
-func (m *MockRelationService) WatchRelatedUnits(ctx context.Context, unitName unit.Name, relationUUID relation.UUID) (relation0.RelationUnitsWatcher[watcher.RelationUnitsChange], error) {
+func (m *MockRelationService) WatchRelatedUnits(arg0 context.Context, arg1 unit.Name, arg2 relation.UUID) (relation0.RelationUnitsWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchRelatedUnits", ctx, unitName, relationUUID)
-	ret0, _ := ret[0].(relation0.RelationUnitsWatcher[watcher.RelationUnitsChange])
+	ret := m.ctrl.Call(m, "WatchRelatedUnits", arg0, arg1, arg2)
+	ret0, _ := ret[0].(relation0.RelationUnitsWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchRelatedUnits indicates an expected call of WatchRelatedUnits.
-func (mr *MockRelationServiceMockRecorder) WatchRelatedUnits(ctx, unitName, relationUUID any) *MockRelationServiceWatchRelatedUnitsCall {
+func (mr *MockRelationServiceMockRecorder) WatchRelatedUnits(arg0, arg1, arg2 any) *MockRelationServiceWatchRelatedUnitsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRelatedUnits", reflect.TypeOf((*MockRelationService)(nil).WatchRelatedUnits), ctx, unitName, relationUUID)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRelatedUnits", reflect.TypeOf((*MockRelationService)(nil).WatchRelatedUnits), arg0, arg1, arg2)
 	return &MockRelationServiceWatchRelatedUnitsCall{Call: call}
 }
 
@@ -1441,19 +1437,19 @@ type MockRelationServiceWatchRelatedUnitsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockRelationServiceWatchRelatedUnitsCall) Return(arg0 relation0.RelationUnitsWatcher[watcher.RelationUnitsChange], arg1 error) *MockRelationServiceWatchRelatedUnitsCall {
+func (c *MockRelationServiceWatchRelatedUnitsCall) Return(arg0 relation0.RelationUnitsWatcher, arg1 error) *MockRelationServiceWatchRelatedUnitsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationServiceWatchRelatedUnitsCall) Do(f func(context.Context, unit.Name, relation.UUID) (relation0.RelationUnitsWatcher[watcher.RelationUnitsChange], error)) *MockRelationServiceWatchRelatedUnitsCall {
+func (c *MockRelationServiceWatchRelatedUnitsCall) Do(f func(context.Context, unit.Name, relation.UUID) (relation0.RelationUnitsWatcher, error)) *MockRelationServiceWatchRelatedUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationServiceWatchRelatedUnitsCall) DoAndReturn(f func(context.Context, unit.Name, relation.UUID) (relation0.RelationUnitsWatcher[watcher.RelationUnitsChange], error)) *MockRelationServiceWatchRelatedUnitsCall {
+func (c *MockRelationServiceWatchRelatedUnitsCall) DoAndReturn(f func(context.Context, unit.Name, relation.UUID) (relation0.RelationUnitsWatcher, error)) *MockRelationServiceWatchRelatedUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1462,7 +1458,6 @@ func (c *MockRelationServiceWatchRelatedUnitsCall) DoAndReturn(f func(context.Co
 type MockModelInfoService struct {
 	ctrl     *gomock.Controller
 	recorder *MockModelInfoServiceMockRecorder
-	isgomock struct{}
 }
 
 // MockModelInfoServiceMockRecorder is the mock recorder for MockModelInfoService.
