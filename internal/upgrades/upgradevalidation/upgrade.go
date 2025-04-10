@@ -16,8 +16,6 @@ func ValidatorsForControllerModelUpgrade(
 ) []Validator {
 	validators := []Validator{
 		getCheckTargetVersionForControllerModel(targetVersion),
-		checkMongoStatusForControllerUpgrade,
-		checkMongoVersionForControllerModel,
 		checkForDeprecatedUbuntuSeriesForModel,
 		getCheckForLXDVersion(cloudspec),
 	}
@@ -32,7 +30,6 @@ func ModelValidatorsForControllerModelUpgrade(
 ) []Validator {
 	validators := []Validator{
 		getCheckTargetVersionForModel(targetVersion, UpgradeControllerAllowed),
-		checkModelMigrationModeForControllerUpgrade,
 		checkForDeprecatedUbuntuSeriesForModel,
 		getCheckForLXDVersion(cloudspec),
 	}

@@ -32,8 +32,6 @@ type migrateSuite struct {
 	jujutesting.IsolationSuite
 
 	st           *mocks.MockState
-	statePool    *mocks.MockStatePool
-	model        *mocks.MockModel
 	agentService *mocks.MockModelAgentService
 }
 
@@ -43,7 +41,7 @@ func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju3(c *gc.C) {
 
 	validators := upgradevalidation.ValidatorsForModelMigrationSource(cloudSpec)
 
-	checker := upgradevalidation.NewModelUpgradeCheck(s.statePool, s.st, s.model, s.agentService, validators...)
+	checker := upgradevalidation.NewModelUpgradeCheck(s.st, "test-model", s.agentService, validators...)
 	blockers, err := checker.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blockers, gc.IsNil)
@@ -55,7 +53,7 @@ func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju31(c *gc.C) {
 
 	validators := upgradevalidation.ValidatorsForModelMigrationSource(cloudSpec)
 
-	checker := upgradevalidation.NewModelUpgradeCheck(s.statePool, s.st, s.model, s.agentService, validators...)
+	checker := upgradevalidation.NewModelUpgradeCheck(s.st, "test-model", s.agentService, validators...)
 	blockers, err := checker.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blockers, gc.IsNil)
@@ -63,9 +61,7 @@ func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju31(c *gc.C) {
 
 func (s *migrateSuite) initializeMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.statePool = mocks.NewMockStatePool(ctrl)
 	s.st = mocks.NewMockState(ctrl)
-	s.model = mocks.NewMockModel(ctrl)
 	s.agentService = mocks.NewMockModelAgentService(ctrl)
 	return ctrl
 }

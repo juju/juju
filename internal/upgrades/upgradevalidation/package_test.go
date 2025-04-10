@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/state_mock.go github.com/juju/juju/internal/upgrades/upgradevalidation StatePool,State,Model,ModelAgentService
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/state_mock.go github.com/juju/juju/internal/upgrades/upgradevalidation State,ModelAgentService
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/lxd_mock.go github.com/juju/juju/internal/provider/lxd ServerFactory,Server
 
 func TestAll(t *stdtesting.T) {
@@ -17,10 +17,7 @@ func TestAll(t *stdtesting.T) {
 }
 
 var (
-	CheckForDeprecatedUbuntuSeriesForModel      = checkForDeprecatedUbuntuSeriesForModel
-	GetCheckTargetVersionForModel               = getCheckTargetVersionForModel
-	CheckModelMigrationModeForControllerUpgrade = checkModelMigrationModeForControllerUpgrade
-	CheckMongoStatusForControllerUpgrade        = checkMongoStatusForControllerUpgrade
-	CheckMongoVersionForControllerModel         = checkMongoVersionForControllerModel
-	GetCheckForLXDVersion                       = getCheckForLXDVersion
+	CheckForDeprecatedUbuntuSeriesForModel = checkForDeprecatedUbuntuSeriesForModel
+	GetCheckTargetVersionForModel          = getCheckTargetVersionForModel
+	GetCheckForLXDVersion                  = getCheckForLXDVersion
 )
