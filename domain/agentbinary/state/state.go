@@ -275,7 +275,7 @@ FROM   v_agent_binary_store`, metadataRecord{})
 		return errors.Capture(err)
 	})
 	if err != nil {
-		return nil, errors.Errorf("listing agent binaries: %w", err)
+		return nil, errors.Errorf("listing agent binary metadata: %w", err)
 	}
 	return records.toMetadata(), nil
 }

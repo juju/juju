@@ -268,9 +268,9 @@ func (s *stateSuite) TestGetObjectUUIDFailedObjectNotFound(c *gc.C) {
 func getMetadata(c *gc.C, db *sql.DB, objStoreUUID objectstore.UUID) agentbinary.Metadata {
 	var data agentbinary.Metadata
 	err := db.QueryRow(`
-SELECT version, size, sha_256
+SELECT version, architecture_name, size, sha_256
 FROM   v_agent_binary_store
-WHERE  object_store_uuid = ?`, objStoreUUID).Scan(&data.Version, &data.Size, &data.SHA256)
+WHERE  object_store_uuid = ?`, objStoreUUID).Scan(&data.Version, &data.Arch, &data.Size, &data.SHA256)
 	c.Assert(err, gc.IsNil)
 	return data
 }

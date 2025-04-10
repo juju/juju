@@ -27,6 +27,8 @@ type agentBinaryRecord struct {
 type metadataRecord struct {
 	// Version is the version of the agent binary.
 	Version string `db:"version"`
+	// Arch is the architecture of the agent binary.
+	Arch string `db:"architecture_name"`
 	// Size is the size of the agent binary in bytes.
 	Size int64 `db:"size"`
 	// SHA256 is the SHA256 hash of the agent binary.
@@ -40,6 +42,7 @@ func (m metadataRecords) toMetadata() []agentbinary.Metadata {
 	for i, record := range m {
 		metadata[i] = agentbinary.Metadata{
 			Version: record.Version,
+			Arch:    record.Arch,
 			Size:    record.Size,
 			SHA256:  record.SHA256,
 		}

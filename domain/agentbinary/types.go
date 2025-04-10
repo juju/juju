@@ -25,6 +25,8 @@ type RegisterAgentBinaryArg struct {
 type Metadata struct {
 	// Version is the version of the agent binary.
 	Version string
+	// Arch is the architecture of the agent binary.
+	Arch string
 	// Size is the size of the agent binary.
 	Size int64
 	// SHA256 is the SHA256 hash of the agent binary.
