@@ -2343,6 +2343,213 @@ func (s *relationSuite) TestGetRelationApplicationSettingsApplicationNotFoundFor
 	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationNotFoundForRelation)
 }
 
+func (s *relationSuite) TestSetRelationApplicationSettings(c *gc.C) {
+	// Arrange: Add relation with one endpoint.
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeContainer,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	// Arrange: Declare settings and add initial settings.
+	initialSettings := map[string]string{
+		"key1": "value1",
+		"key2": "value2",
+		"key3": "value3",
+	}
+	settingsUpdate := map[string]string{
+		"key2": "value22",
+		"key3": "",
+	}
+	expectedSettings := map[string]string{
+		"key1": "value1",
+		"key2": "value22",
+	}
+	for k, v := range initialSettings {
+		s.addRelationApplicationSetting(c, relationEndpointUUID1, k, v)
+	}
+
+	// Act:
+	err := s.state.SetRelationApplicationSettings(
+		context.Background(),
+		relationUUID,
+		s.fakeApplicationUUID1,
+		settingsUpdate,
+	)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+
+	foundSettings := s.getRelationApplicationSettings(c, relationEndpointUUID1)
+	c.Assert(foundSettings, gc.DeepEquals, expectedSettings)
+}
+
+func (s *relationSuite) TestSetRelationApplicationSettingsNilMap(c *gc.C) {
+	// Arrange: Add relation with one endpoint.
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeContainer,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	// Act:
+	err := s.state.SetRelationApplicationSettings(
+		context.Background(),
+		relationUUID,
+		s.fakeApplicationUUID1,
+		nil,
+	)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+
+	foundSettings := s.getRelationApplicationSettings(c, relationEndpointUUID1)
+	c.Assert(foundSettings, gc.HasLen, 0)
+}
+
+// TestSetRelationApplicationSettingsCheckHash checks that the settings hash is
+// updated when the settings are updated.
+func (s *relationSuite) TestSetRelationApplicationSettingsHashUpdated(c *gc.C) {
+	// Arrange: Add relation with one endpoint.
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeContainer,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	// Arrange: Add some initial settings, this will also set the hash.
+	initialSettings := map[string]string{
+		"key1": "value1",
+	}
+	err := s.state.SetRelationApplicationSettings(
+		context.Background(),
+		relationUUID,
+		s.fakeApplicationUUID1,
+		initialSettings,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	initialHash := s.getRelationApplicationSettingsHash(c, relationEndpointUUID1)
+
+	// Act:
+	err = s.state.SetRelationApplicationSettings(
+		context.Background(),
+		relationUUID,
+		s.fakeApplicationUUID1,
+		map[string]string{
+			"key1": "value2",
+		},
+	)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+
+	// Assert: Check the hash has changed.
+	foundHash := s.getRelationApplicationSettingsHash(c, relationEndpointUUID1)
+	c.Assert(initialHash, gc.Not(gc.Equals), foundHash)
+}
+
+// TestSetRelationApplicationSettingsHashConstant checks that the settings hash
+// is stays the same if the update does not actually change the settings.
+func (s *relationSuite) TestSetRelationApplicationSettingsHashConstant(c *gc.C) {
+	// Arrange: Add relation with one endpoint.
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeContainer,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	// Arrange: Add some initial settings, this will also set the hash.
+	settings := map[string]string{
+		"key1": "value1",
+	}
+	err := s.state.SetRelationApplicationSettings(
+		context.Background(),
+		relationUUID,
+		s.fakeApplicationUUID1,
+		settings,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	initialHash := s.getRelationApplicationSettingsHash(c, relationEndpointUUID1)
+
+	// Act:
+	err = s.state.SetRelationApplicationSettings(
+		context.Background(),
+		relationUUID,
+		s.fakeApplicationUUID1,
+		settings,
+	)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf(errors.ErrorStack(err)))
+
+	// Assert: Check the hash has changed.
+	foundHash := s.getRelationApplicationSettingsHash(c, relationEndpointUUID1)
+	c.Assert(initialHash, gc.Equals, foundHash)
+}
+
+func (s *relationSuite) TestSetRelationApplicationSettingsApplicationNotFoundInRelation(c *gc.C) {
+	// Arrange: Add relation.
+	relationUUID := s.addRelation(c)
+
+	// Act:
+	err := s.state.SetRelationApplicationSettings(
+		context.Background(),
+		relationUUID,
+		s.fakeApplicationUUID1,
+		nil,
+	)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationNotFoundForRelation)
+}
+
+func (s *relationSuite) TestSetRelationApplicationSettingsRelationNotFound(c *gc.C) {
+	// Act:
+	err := s.state.SetRelationApplicationSettings(
+		context.Background(),
+		"bad-uuid",
+		s.fakeApplicationUUID1,
+		nil,
+	)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+}
+
 // addUnit adds a new unit to the specified application in the database with
 // the given UUID and name. Returns the unit uuid.
 func (s *relationSuite) addUnit(c *gc.C, unitName coreunit.Name, appUUID coreapplication.ID, charmUUID corecharm.ID) coreunit.UUID {
@@ -2534,6 +2741,53 @@ func (s *relationSuite) addRelationApplicationSetting(c *gc.C, relationEndpointU
 INSERT INTO relation_application_setting (relation_endpoint_uuid, key, value)
 VALUES (?,?,?)
 `, relationEndpointUUID, key, value)
+}
+
+// getRelationApplicationSettings gets the relation application settings.
+func (s *relationSuite) getRelationApplicationSettings(c *gc.C, relationEndpointUUID string) map[string]string {
+	settings := map[string]string{}
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT key, value
+FROM relation_application_setting 
+WHERE relation_endpoint_uuid = ?
+`, relationEndpointUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer rows.Close()
+		var (
+			key, value string
+		)
+		for rows.Next() {
+			if err := rows.Scan(&key, &value); err != nil {
+				return errors.Capture(err)
+			}
+			settings[key] = value
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) getting relation settings: %s",
+		errors.ErrorStack(err)))
+	return settings
+}
+
+func (s *relationSuite) getRelationApplicationSettingsHash(c *gc.C, relationEndpointUUID string) string {
+	var hash string
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRow(`
+SELECT sha256
+FROM   relation_application_settings_hash
+WHERE  relation_endpoint_uuid = ?
+`, relationEndpointUUID).Scan(&hash)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return hash
 }
 
 // fetchAllRelationStatusesOrderByRelationIDs retrieves all relation statuses

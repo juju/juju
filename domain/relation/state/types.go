@@ -113,8 +113,25 @@ type relationSetting struct {
 	Key   string `db:"key"`
 	Value string `db:"value"`
 }
+
+type relationApplicationSetting struct {
+	UUID  string `db:"relation_endpoint_uuid"`
+	Key   string `db:"key"`
+	Value string `db:"value"`
+}
+
+type applicationSettingsHash struct {
+	RelationEndpointUUID string `db:"relation_endpoint_uuid"`
+	Hash                 string `db:"sha256"`
+}
+
+type keys []string
 type relationUnitUUID struct {
 	RelationUnitUUID corerelation.UnitUUID `db:"uuid"`
+}
+
+type relationEndpointUUID struct {
+	UUID string `db:"uuid"`
 }
 
 // endpointIdentifier is an identifier for a relation endpoint.
