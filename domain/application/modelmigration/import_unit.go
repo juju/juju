@@ -11,9 +11,10 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/placement"
 )
 
-func (i *importOperation) importUnit(ctx context.Context, unit description.Unit) (service.ImportUnitArg, error) {
+func (i *importOperation) importCAASUnit(ctx context.Context, unit description.Unit) (service.ImportUnitArg, error) {
 	unitName, err := coreunit.NewName(unit.Name())
 	if err != nil {
 		return service.ImportUnitArg{}, err
@@ -44,5 +45,31 @@ func (i *importOperation) importUnit(ctx context.Context, unit description.Unit)
 		UnitName:       unitName,
 		PasswordHash:   passwordHash,
 		CloudContainer: cloudContainer,
+	}, nil
+}
+
+func (i *importOperation) importIAASUnit(ctx context.Context, unit description.Unit) (service.ImportUnitArg, error) {
+	unitName, err := coreunit.NewName(unit.Name())
+	if err != nil {
+		return service.ImportUnitArg{}, err
+	}
+
+	var passwordHash *string
+	if hash := unit.PasswordHash(); hash != "" {
+		passwordHash = ptr(hash)
+	}
+
+	var placementDirective placement.Placement
+	if machine := unit.Machine(); machine != "" {
+		placementDirective = placement.Placement{
+			Type:      placement.PlacementTypeMachine,
+			Directive: machine,
+		}
+	}
+
+	return service.ImportUnitArg{
+		UnitName:     unitName,
+		PasswordHash: passwordHash,
+		Placement:    placementDirective,
 	}, nil
 }

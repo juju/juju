@@ -20,6 +20,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
@@ -112,10 +113,26 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		}
 	}
 
+	modelType, err := coremodel.ParseModelType(model.Type())
+	if err != nil {
+		return errors.Errorf("parsing model type %q: %w", model.Type(), err)
+	}
+
 	for _, app := range append(principals, subordinates...) {
 		unitArgs := make([]service.ImportUnitArg, 0, len(app.Units()))
 		for _, unit := range app.Units() {
-			unitArg, err := i.importUnit(ctx, unit)
+			var (
+				unitArg service.ImportUnitArg
+				err     error
+			)
+			switch modelType {
+			case coremodel.CAAS:
+				unitArg, err = i.importCAASUnit(ctx, unit)
+			case coremodel.IAAS:
+				unitArg, err = i.importIAASUnit(ctx, unit)
+			default:
+				return errors.Errorf("unknown model type %q", modelType)
+			}
 			if err != nil {
 				return errors.Errorf("importing unit %q: %w", unit.Name(), err)
 			}

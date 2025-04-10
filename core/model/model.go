@@ -41,6 +41,17 @@ func (m ModelType) IsValid() bool {
 	return false
 }
 
+// ParseModelType parses a string into a ModelType.
+func ParseModelType(s string) (ModelType, error) {
+	switch s {
+	case string(CAAS):
+		return CAAS, nil
+	case string(IAAS):
+		return IAAS, nil
+	}
+	return "", errors.Errorf("unknown model type %q", s)
+}
+
 // Model represents the state of a model.
 type Model struct {
 	// Name returns the human friendly name of the model.
