@@ -76,11 +76,11 @@ type unitAgentVersion struct {
 	ArchtectureID int    `db:"architecture_id"`
 }
 
-// unitAgentVersionInfo represents a record from the v_unit_agent_version view.
+// unitAgentVersionInfo represents a record from the unit agent version table.
 type unitAgentVersionInfo struct {
 	UnitUUID         string `db:"unit_uuid"`
 	Version          string `db:"version"`
-	ArchitectureName string `db:"architecture_name"`
+	ArchitectureName string `db:"name"`
 }
 
 // unitName represents the single column of a unit that is the unit's name.

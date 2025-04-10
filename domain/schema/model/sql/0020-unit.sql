@@ -67,17 +67,6 @@ CREATE TABLE unit_agent_version (
     REFERENCES architecture (id)
 );
 
--- v_unit_agent_version procides a convenience view on the unit_agent_version
--- table reporting the architecture name as well as the id.
-CREATE VIEW v_unit_agent_version AS
-SELECT
-    uav.unit_uuid,
-    uav.architecture_id,
-    uav.version,
-    a.name AS architecture_name
-FROM unit_agent_version AS uav
-JOIN architecture AS a ON uav.architecture_id = a.id;
-
 -- v_unit_target_agent_version provides a convenience view for establishing what
 -- the current target agent version of a unit should be. A unit will only have
 -- a record in this view if a target agent version has been set for the model

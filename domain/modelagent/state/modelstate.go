@@ -407,8 +407,9 @@ func (st *State) GetUnitRunningAgentBinaryVersion(
 
 	stmt, err := st.Prepare(`
 SELECT &unitAgentVersionInfo.*
-FROM v_unit_agent_version
-WHERE unit_uuid = $unitUUIDRef.unit_uuid
+FROM unit_agent_version AS uav
+JOIN architecture AS a ON uav.architecture_id = a.id
+WHERE uav.unit_uuid = $unitUUIDRef.unit_uuid
 `, info, unitUUID)
 	if err != nil {
 		return coreagentbinary.Version{}, errors.Capture(err)
