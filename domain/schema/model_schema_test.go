@@ -38,6 +38,8 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"application_status",
 		"k8s_service",
 		"workload_status_value",
+		"device_constraint",
+		"device_constraint_attribute",
 
 		// Annotations
 		"annotation_application",

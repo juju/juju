@@ -228,7 +228,7 @@ JOIN cloud AS c ON cc.cloud_uuid = c.uuid
 JOIN user AS u ON cc.owner_uuid = u.uuid
 JOIN auth_type AS at ON cc.auth_type_id = at.id;
 
-CREATE TABLE cloud_credential_attributes (
+CREATE TABLE cloud_credential_attribute (
     cloud_credential_uuid TEXT NOT NULL,
     "key" TEXT NOT NULL,
     value TEXT,
@@ -239,9 +239,9 @@ CREATE TABLE cloud_credential_attributes (
     REFERENCES cloud_credential (uuid)
 );
 
--- v_cloud_credential_attributes is responsible for return a view of all cloud
+-- v_cloud_credential_attribute is responsible for return a view of all cloud
 -- credentials and their attributes repeated for every attribute.
-CREATE VIEW v_cloud_credential_attributes
+CREATE VIEW v_cloud_credential_attribute
 AS
 SELECT
     cc.uuid,
@@ -259,5 +259,5 @@ SELECT
     cca.value AS attribute_value
 FROM v_cloud_credential AS cc
 JOIN
-    cloud_credential_attributes AS cca
+    cloud_credential_attribute AS cca
     ON cc.uuid = cca.cloud_credential_uuid;

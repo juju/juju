@@ -48,7 +48,7 @@ type Credential struct {
 }
 
 // credentialWithAttribute represents a single returned from the
-// v_cloud_credential_attributes table.
+// v_cloud_credential_attribute table.
 type credentialWithAttribute struct {
 	ID string `db:"uuid"`
 
