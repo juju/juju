@@ -19,7 +19,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
@@ -59,7 +58,6 @@ type ModelUpgraderAPI struct {
 	authorizer              facade.Authorizer
 	toolsFinder             common.ToolsFinder
 	apiUser                 names.UserTag
-	newEnviron              common.NewEnvironFunc
 	modelAgentServiceGetter func(modelID coremodel.UUID) ModelAgentService
 	controllerAgentService  ModelAgentService
 	controllerConfigService ControllerConfigService
@@ -76,7 +74,6 @@ func NewModelUpgraderAPI(
 	controllerTag names.ControllerTag,
 	stPool StatePool,
 	toolsFinder common.ToolsFinder,
-	newEnviron common.NewEnvironFunc,
 	blockChecker common.BlockCheckerInterface,
 	authorizer facade.Authorizer,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
@@ -101,7 +98,6 @@ func NewModelUpgraderAPI(
 		authorizer:              authorizer,
 		toolsFinder:             toolsFinder,
 		apiUser:                 apiUser,
-		newEnviron:              newEnviron,
 		registryAPIFunc:         registryAPIFunc,
 		environsCloudSpecGetter: environsCloudSpecGetter,
 		upgradeService:          upgradeService,
@@ -230,18 +226,6 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx context.Context, arg params.UpgradeM
 		}
 	}
 
-	// Before changing the agent version to trigger an upgrade or downgrade,
-	// we'll do a very basic check to ensure the environment is accessible.
-	envOrBroker, err := m.newEnviron(ctx)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if err := preCheckEnvironForUpgradeModel(
-		ctx, envOrBroker, model.IsControllerModel(), currentVersion, targetVersion, m.logger,
-	); err != nil {
-		return result, errors.Trace(err)
-	}
-
 	if err := m.validateModelUpgrade(ctx, false, modelTag, targetVersion, st, model); err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
@@ -261,68 +245,6 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx context.Context, arg params.UpgradeM
 		return result, errors.Trace(err)
 	}
 	return result, nil
-}
-
-func preCheckEnvironForUpgradeModel(
-	ctx context.Context, env environs.BootstrapEnviron,
-	controllerModel bool, currentVersion, targetVersion semversion.Number,
-	logger corelogger.Logger,
-) error {
-	if err := environs.CheckProviderAPI(ctx, env); err != nil {
-		return errors.Trace(err)
-	}
-
-	if !controllerModel {
-		return nil
-	}
-
-	precheckEnv, ok := env.(environs.JujuUpgradePrechecker)
-	if !ok {
-		return nil
-	}
-
-	// skipTarget returns true if the from version is less than the target version
-	// AND the target version is greater than the to version.
-	// Borrowed from upgrades.opsIterator.
-	skipTarget := func(from, target, to semversion.Number) bool {
-		// Clear the version tag of the to release to ensure that all
-		// upgrade steps for the release are run for alpha and beta
-		// releases.
-		// ...but only do this if the from version has actually changed,
-		// lest we trigger upgrade mode unnecessarily for non-final
-		// versions.
-		if from.Compare(to) != 0 {
-			to.Tag = ""
-		}
-		// Do not run steps for versions of Juju earlier or same as we are upgrading from.
-		if target.Compare(from) <= 0 {
-			return true
-		}
-		// Do not run steps for versions of Juju later than we are upgrading to.
-		if target.Compare(to) > 0 {
-			return true
-		}
-		return false
-	}
-
-	if err := precheckEnv.PreparePrechecker(ctx); err != nil {
-		return err
-	}
-
-	for _, op := range precheckEnv.PrecheckUpgradeOperations() {
-		if skipTarget(currentVersion, op.TargetVersion, targetVersion) {
-			logger.Debugf(context.TODO(), "ignoring precheck upgrade operation for version %s", op.TargetVersion)
-			continue
-		}
-		logger.Debugf(context.TODO(), "running precheck upgrade operation for version %s", op.TargetVersion)
-		for _, step := range op.Steps {
-			logger.Debugf(context.TODO(), "running precheck step %q", step.Description())
-			if err := step.Run(); err != nil {
-				return errors.Annotatef(err, "Unable to upgrade to %s:", targetVersion)
-			}
-		}
-	}
-	return nil
 }
 
 func (m *ModelUpgraderAPI) validateModelUpgrade(
