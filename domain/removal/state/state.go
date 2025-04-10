@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	"github.com/canonical/sqlair"
 
@@ -82,95 +81,25 @@ func (st *State) GetAllJobs(ctx context.Context) ([]removal.Job, error) {
 	return jobs, err
 }
 
-// RelationExists returns true if a relation exists with the input UUID.
-func (st *State) RelationExists(ctx context.Context, rUUID string) (bool, error) {
-	db, err := st.DB()
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	relationUUID := entityUUID{UUID: rUUID}
-	existsStmt, err := st.Prepare(`
-SELECT uuid AS &entityUUID.uuid
-FROM   relation
-WHERE  uuid = $entityUUID.uuid`, relationUUID)
-	if err != nil {
-		return false, errors.Errorf("preparing relation exists query: %w", err)
-	}
-
-	var relationExists bool
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, existsStmt, relationUUID).Get(&relationUUID)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		} else if err != nil {
-			return errors.Errorf("running relation exists query: %w", err)
-		}
-
-		relationExists = true
-		return nil
-	})
-
-	return relationExists, err
-}
-
-// RelationAdvanceLife ensures that there is no relation
-// identified by the input UUID, that is still alive.
-func (st *State) RelationAdvanceLife(ctx context.Context, rUUID string) error {
+// DeleteJob ensures that a job with the input
+// UUID is not present in the removal table.
+func (st *State) DeleteJob(ctx context.Context, jUUID string) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	relationUUID := entityUUID{UUID: rUUID}
-	stmt, err := st.Prepare(`
-UPDATE relation
-SET    life_id = 1
-WHERE  uuid = $entityUUID.uuid
-AND    life_id = 0`, relationUUID)
+	jobUUID := entityUUID{UUID: jUUID}
+
+	stmt, err := st.Prepare("DELETE FROM removal WHERE uuid=$entityUUID.uuid", jobUUID)
 	if err != nil {
-		return errors.Errorf("preparing relation life update: %w", err)
+		return errors.Errorf("preparing job deletion: %w", err)
 	}
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, relationUUID).Run()
+		err = tx.Query(ctx, stmt, jobUUID).Run()
 		if err != nil {
-			return errors.Errorf("advancing relation life: %w", err)
-		}
-		return nil
-	}))
-}
-
-// RelationScheduleRemoval schedules a removal job for the relation with the
-// input UUID, qualified with the input force boolean.
-// We don't care if the relation does not exist at this point because:
-// - it should have been validated prior to calling this method,
-// - the removal job executor will handle that fact.
-func (st *State) RelationScheduleRemoval(
-	ctx context.Context, removalUUID, relUUID string, force bool, when time.Time,
-) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	removalRec := removalJob{
-		UUID:          removalUUID,
-		RemovalTypeID: 0,
-		EntityUUID:    relUUID,
-		Force:         force,
-		ScheduledFor:  when,
-	}
-
-	removalStmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removalJob.*)", removalRec)
-	if err != nil {
-		return errors.Errorf("preparing relation removal: %w", err)
-	}
-
-	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, removalStmt, removalRec).Run()
-		if err != nil {
-			return errors.Errorf("scheduling relation removal: %w", err)
+			return errors.Errorf("deleting removal row: %w", err)
 		}
 		return nil
 	}))

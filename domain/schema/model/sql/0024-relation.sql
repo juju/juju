@@ -112,6 +112,9 @@ CREATE TABLE relation_unit_setting (
     PRIMARY KEY (relation_unit_uuid, "key")
 );
 
+CREATE INDEX idx_relation_unit_setting_unit
+ON relation_unit_setting (relation_unit_uuid);
+
 -- The relation_application_setting holds key value pair settings
 -- for a relation at the application level. Keys must be unique
 -- per application.
@@ -125,6 +128,9 @@ CREATE TABLE relation_application_setting (
     REFERENCES relation_endpoint (uuid),
     PRIMARY KEY (relation_endpoint_uuid, "key")
 );
+
+CREATE INDEX idx_relation_ep_setting_ep
+ON relation_application_setting (relation_endpoint_uuid);
 
 -- The relation_status maps a relation to its status
 -- as defined in the relation_status_type table.
