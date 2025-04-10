@@ -1195,7 +1195,7 @@ func (st *State) checkSubordinateUnitCanEnterScope(
 	// is OK.
 	if subordinate, err := st.isSubordinate(ctx, tx, otherApplication); err != nil {
 		return errors.Errorf("checking if application is subordinate: %w", err)
-	} else if !subordinate {
+	} else if subordinate {
 		return nil
 	}
 

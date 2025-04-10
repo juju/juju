@@ -664,7 +664,7 @@ func (s *addRelationSuite) addApplication(
 	applicationName string,
 ) coreapplication.ID {
 	charmUUID := s.addCharm(c)
-	s.setCharmSubordinate(c, charmUUID, false)
+	s.addCharmMetadata(c, charmUUID, false)
 	appUUID := s.baseRelationSuite.addApplication(c, charmUUID, applicationName)
 	s.charmByApp[appUUID] = charmUUID
 	return appUUID
@@ -691,7 +691,7 @@ func (s *addRelationSuite) addSubordinateApplication(
 	applicationName string,
 ) coreapplication.ID {
 	charmUUID := s.addCharm(c)
-	s.setCharmSubordinate(c, charmUUID, true)
+	s.addCharmMetadata(c, charmUUID, true)
 	appUUID := s.baseRelationSuite.addApplication(c, charmUUID, applicationName)
 	s.charmByApp[appUUID] = charmUUID
 	return appUUID
@@ -1692,8 +1692,8 @@ func (s *relationSuite) TestGetApplicationRelationsApplicationNoRelation(c *gc.C
 
 func (s *relationSuite) TestEnterScope(c *gc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
-	s.setCharmSubordinate(c, s.fakeCharmUUID1, false)
-	s.setCharmSubordinate(c, s.fakeCharmUUID2, false)
+	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
+	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
 
 	// Arrange: Add two endpoints a
 	endpoint1 := relation.Endpoint{
@@ -1740,8 +1740,8 @@ func (s *relationSuite) TestEnterScope(c *gc.C) {
 // already in scope.
 func (s *relationSuite) TestEnterScopeIdempotent(c *gc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
-	s.setCharmSubordinate(c, s.fakeCharmUUID1, false)
-	s.setCharmSubordinate(c, s.fakeCharmUUID2, false)
+	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
+	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
 
 	// Arrange: Add two endpoints and a relation on them.
 	endpoint1 := relation.Endpoint{
@@ -1792,8 +1792,8 @@ func (s *relationSuite) TestEnterScopeIdempotent(c *gc.C) {
 // with its principle application.
 func (s *relationSuite) TestEnterScopeSubordinate(c *gc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
-	s.setCharmSubordinate(c, s.fakeCharmUUID1, true)
-	s.setCharmSubordinate(c, s.fakeCharmUUID2, false)
+	s.addCharmMetadata(c, s.fakeCharmUUID1, true)
+	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
 
 	// Arrange: Add container scoped endpoints on charm 1 and charm 2.
 	endpoint1 := relation.Endpoint{
@@ -1849,8 +1849,8 @@ func (s *relationSuite) TestEnterScopeSubordinate(c *gc.C) {
 // relation.
 func (s *relationSuite) TestEnterScopePotentialRelationUnitNotValidSubordinate(c *gc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
-	s.setCharmSubordinate(c, s.fakeCharmUUID1, true)
-	s.setCharmSubordinate(c, s.fakeCharmUUID2, false)
+	s.addCharmMetadata(c, s.fakeCharmUUID1, true)
+	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
 
 	// Arrange: Add container scoped endpoints on charm 1 and charm 2.
 	endpoint1 := relation.Endpoint{
@@ -1874,28 +1874,31 @@ func (s *relationSuite) TestEnterScopePotentialRelationUnitNotValidSubordinate(c
 	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
 	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
 
-	// Arrange: Add a unit to application 1 and application 2, and make the unit
-	// of application 1 a subordinate to the unit of application 2.
+	// Arrange: Add a unit to application 1 and application 2,
 	unitName1 := coreunittesting.GenNewName(c, "app1/0")
 	unitUUID1 := s.addUnit(c, unitName1, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 	unitName2 := coreunittesting.GenNewName(c, "app2/0")
 	unitUUID2 := s.addUnit(c, unitName2, s.fakeApplicationUUID2, s.fakeCharmUUID2)
+
+	// Arrange: Make the unit of application 1 a subordinate to the unit of
+	// application 2.
 	s.setUnitSubordinate(c, unitUUID1, unitUUID2)
 
-	// Arrange: Add a third application which is an instance of charm 2, so also
-	// a principle, and enter application 3 into a relation with the subordinate
-	// application (application 1).
+	// Arrange: Add application 3 which is an instance of charm 2, so also
+	// a principle,
 	applicationName3 := "application-name-3"
 	applicationUUID3 := s.addApplication(c, s.fakeCharmUUID2, applicationName3)
 
+	// Arrange: Enter application 3 into a relation with the subordinate
+	// application (application 1).
 	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
 	applicationEndpointUUID2 := s.addApplicationEndpoint(c, applicationUUID3, charmRelationUUID2)
 	relationUUID := s.addRelation(c)
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
 
-	// Act: Try and enter scope with the unit 1, which is a subordinate to an
-	// application not in the relation.
+	// Act: Try and enter scope with the unit 1 of application 1, which is a
+	// subordinate to an application not in the relation (application 2).
 	err := s.state.EnterScope(context.Background(), relationUUID, unitName1)
 
 	// Assert:
@@ -2322,13 +2325,6 @@ VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?)
 	return charmRelationUUID
 }
 
-func (s *relationSuite) addCharmMetadata(c *gc.C, charmUUID corecharm.ID, subordinate bool) {
-	s.query(c, `
-INSERT INTO charm_metadata (charm_uuid, name, subordinate) 
-VALUES (?, ?, ?)
-`, charmUUID, charmUUID, subordinate)
-}
-
 // encodeRoleID returns the ID used in the database for the given charm role. This
 // reflects the contents of the charm_relation_role table.
 func (s *relationSuite) encodeRoleID(role charm.RelationRole) int {
@@ -2522,16 +2518,6 @@ AND    ru.unit_uuid = ?
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return count == 1
-}
-
-// setCharmSubordinate updates the charm's metadata to mark it as subordinate,
-// or inserts it if not present in the database.
-func (s *relationSuite) setCharmSubordinate(c *gc.C, charmUUID corecharm.ID, subordinate bool) {
-	s.query(c, `
-INSERT INTO charm_metadata (charm_uuid, name, subordinate)
-VALUES (?,?,true)
-ON CONFLICT DO UPDATE SET subordinate = ?
-`, charmUUID, charmUUID, subordinate)
 }
 
 // setRelationStatus inserts a relation status into the relation_status table.
