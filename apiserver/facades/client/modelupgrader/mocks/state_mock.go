@@ -18,7 +18,6 @@ import (
 	semversion "github.com/juju/juju/core/semversion"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v6"
-	replicaset "github.com/juju/replicaset/v3"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -43,45 +42,6 @@ func NewMockStatePool(ctrl *gomock.Controller) *MockStatePool {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockStatePool) EXPECT() *MockStatePoolMockRecorder {
 	return m.recorder
-}
-
-// ControllerModel mocks base method.
-func (m *MockStatePool) ControllerModel() (modelupgrader.Model, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerModel")
-	ret0, _ := ret[0].(modelupgrader.Model)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ControllerModel indicates an expected call of ControllerModel.
-func (mr *MockStatePoolMockRecorder) ControllerModel() *MockStatePoolControllerModelCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerModel", reflect.TypeOf((*MockStatePool)(nil).ControllerModel))
-	return &MockStatePoolControllerModelCall{Call: call}
-}
-
-// MockStatePoolControllerModelCall wrap *gomock.Call
-type MockStatePoolControllerModelCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStatePoolControllerModelCall) Return(arg0 modelupgrader.Model, arg1 error) *MockStatePoolControllerModelCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStatePoolControllerModelCall) Do(f func() (modelupgrader.Model, error)) *MockStatePoolControllerModelCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStatePoolControllerModelCall) DoAndReturn(f func() (modelupgrader.Model, error)) *MockStatePoolControllerModelCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // Get mocks base method.
@@ -119,45 +79,6 @@ func (c *MockStatePoolGetCall) Do(f func(string) (modelupgrader.State, error)) *
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStatePoolGetCall) DoAndReturn(f func(string) (modelupgrader.State, error)) *MockStatePoolGetCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// MongoVersion mocks base method.
-func (m *MockStatePool) MongoVersion() (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MongoVersion")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// MongoVersion indicates an expected call of MongoVersion.
-func (mr *MockStatePoolMockRecorder) MongoVersion() *MockStatePoolMongoVersionCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoVersion", reflect.TypeOf((*MockStatePool)(nil).MongoVersion))
-	return &MockStatePoolMongoVersionCall{Call: call}
-}
-
-// MockStatePoolMongoVersionCall wrap *gomock.Call
-type MockStatePoolMongoVersionCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStatePoolMongoVersionCall) Return(arg0 string, arg1 error) *MockStatePoolMongoVersionCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStatePoolMongoVersionCall) Do(f func() (string, error)) *MockStatePoolMongoVersionCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStatePoolMongoVersionCall) DoAndReturn(f func() (string, error)) *MockStatePoolMongoVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -341,45 +262,6 @@ func (c *MockStateModelCall) Do(f func() (modelupgrader.Model, error)) *MockStat
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateModelCall) DoAndReturn(f func() (modelupgrader.Model, error)) *MockStateModelCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// MongoCurrentStatus mocks base method.
-func (m *MockState) MongoCurrentStatus() (*replicaset.Status, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MongoCurrentStatus")
-	ret0, _ := ret[0].(*replicaset.Status)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// MongoCurrentStatus indicates an expected call of MongoCurrentStatus.
-func (mr *MockStateMockRecorder) MongoCurrentStatus() *MockStateMongoCurrentStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoCurrentStatus", reflect.TypeOf((*MockState)(nil).MongoCurrentStatus))
-	return &MockStateMongoCurrentStatusCall{Call: call}
-}
-
-// MockStateMongoCurrentStatusCall wrap *gomock.Call
-type MockStateMongoCurrentStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateMongoCurrentStatusCall) Return(arg0 *replicaset.Status, arg1 error) *MockStateMongoCurrentStatusCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateMongoCurrentStatusCall) Do(f func() (*replicaset.Status, error)) *MockStateMongoCurrentStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateMongoCurrentStatusCall) DoAndReturn(f func() (*replicaset.Status, error)) *MockStateMongoCurrentStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

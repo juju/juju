@@ -441,7 +441,8 @@ func (ctx *precheckSource) checkModel(stdCtx context.Context) error {
 		return errors.Trace(err)
 	}
 	validators := upgradevalidation.ValidatorsForModelMigrationSource(cloudspec)
-	checker := upgradevalidation.NewModelUpgradeCheck(nil, ctx.backend, model, ctx.modelAgentService, validators...)
+	modelGroupedName := fmt.Sprintf("%s/%s", model.Owner().Id(), model.Name())
+	checker := upgradevalidation.NewModelUpgradeCheck(ctx.backend, modelGroupedName, ctx.modelAgentService, validators...)
 	blockers, err := checker.Validate()
 	if err != nil {
 		return errors.Trace(err)

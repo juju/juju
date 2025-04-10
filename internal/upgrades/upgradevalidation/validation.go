@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/replicaset/v3"
 
 	corebase "github.com/juju/juju/core/base"
 	corelogger "github.com/juju/juju/core/logger"
@@ -24,7 +23,7 @@ import (
 )
 
 // Validator returns a blocker.
-type Validator func(pool StatePool, st State, model Model, modelAgentService ModelAgentService) (*Blocker, error)
+type Validator func(st State, modelAgentService ModelAgentService) (*Blocker, error)
 
 // Blocker describes a model upgrade blocker.
 type Blocker struct {
@@ -101,25 +100,22 @@ func (e ModelUpgradeBlockers) string() string {
 
 // ModelUpgradeCheck sumarizes a list of blockers for upgrading the provided model.
 type ModelUpgradeCheck struct {
-	pool              StatePool
 	state             State
-	model             Model
+	modelName         string
 	modelAgentService ModelAgentService
 	validators        []Validator
 }
 
 // NewModelUpgradeCheck returns a ModelUpgradeCheck instance.
 func NewModelUpgradeCheck(
-	pool StatePool,
 	state State,
-	model Model,
+	modelName string,
 	modelAgentService ModelAgentService,
 	validators ...Validator,
 ) *ModelUpgradeCheck {
 	return &ModelUpgradeCheck{
-		pool:              pool,
 		state:             state,
-		model:             model,
+		modelName:         modelName,
 		modelAgentService: modelAgentService,
 		validators:        validators,
 	}
@@ -129,7 +125,7 @@ func NewModelUpgradeCheck(
 func (m *ModelUpgradeCheck) Validate() (*ModelUpgradeBlockers, error) {
 	var blockers []Blocker
 	for _, validator := range m.validators {
-		if blocker, err := validator(m.pool, m.state, m.model, m.modelAgentService); err != nil {
+		if blocker, err := validator(m.state, m.modelAgentService); err != nil {
 			return nil, errors.Trace(err)
 		} else if blocker != nil {
 			blockers = append(blockers, *blocker)
@@ -139,7 +135,7 @@ func (m *ModelUpgradeCheck) Validate() (*ModelUpgradeBlockers, error) {
 		return nil, nil
 	}
 	return NewModelUpgradeBlockers(
-		fmt.Sprintf("%s/%s", m.model.Owner().Name(), m.model.Name()), blockers...,
+		m.modelName, blockers...,
 	), nil
 }
 
@@ -148,7 +144,7 @@ func (m *ModelUpgradeCheck) Validate() (*ModelUpgradeBlockers, error) {
 var SupportedJujuBases = corebase.WorkloadBases
 
 func checkForDeprecatedUbuntuSeriesForModel(
-	_ StatePool, st State, _ Model, _ ModelAgentService,
+	st State, _ ModelAgentService,
 ) (*Blocker, error) {
 	supportedBases := SupportedJujuBases()
 	stateBases := transform.Slice(supportedBases, func(b corebase.Base) state.Base {
@@ -180,7 +176,7 @@ func checkForDeprecatedUbuntuSeriesForModel(
 func getCheckTargetVersionForControllerModel(
 	targetVersion semversion.Number,
 ) Validator {
-	return func(_ StatePool, _ State, _ Model, modelAgentService ModelAgentService) (*Blocker, error) {
+	return func(_ State, modelAgentService ModelAgentService) (*Blocker, error) {
 		agentVersion, err := modelAgentService.GetModelTargetAgentVersion(context.Background())
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -200,7 +196,7 @@ func getCheckTargetVersionForModel(
 	targetVersion semversion.Number,
 	versionChecker func(from, to semversion.Number) (bool, semversion.Number, error),
 ) Validator {
-	return func(_ StatePool, _ State, _ Model, modelAgentService ModelAgentService) (*Blocker, error) {
+	return func(_ State, modelAgentService ModelAgentService) (*Blocker, error) {
 		agentVersion, err := modelAgentService.GetModelTargetAgentVersion(context.Background())
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -219,59 +215,11 @@ func getCheckTargetVersionForModel(
 	}
 }
 
-func checkModelMigrationModeForControllerUpgrade(_ StatePool, _ State, model Model, _ ModelAgentService) (*Blocker, error) {
-	if mode := model.MigrationMode(); mode != state.MigrationModeNone {
-		return NewBlocker("model is under %q mode, upgrade blocked", mode), nil
-	}
-	return nil, nil
-}
-
-func checkMongoStatusForControllerUpgrade(_ StatePool, st State, _ Model, _ ModelAgentService) (*Blocker, error) {
-	replicaStatus, err := st.MongoCurrentStatus()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot check replicaset status")
-	}
-
-	// Iterate over the replicaset, and record any nodes that aren't either
-	// primary or secondary.
-	var notes []string
-	for _, member := range replicaStatus.Members {
-		switch member.State {
-		case replicaset.PrimaryState:
-			// All good.
-		case replicaset.SecondaryState:
-			// Also good.
-		default:
-			msg := fmt.Sprintf("node %d (%s) has state %s", member.Id, member.Address, member.State)
-			notes = append(notes, msg)
-		}
-	}
-	if len(notes) > 0 {
-		return NewBlocker("unable to upgrade, database %s", strings.Join(notes, ", ")), nil
-	}
-	return nil, nil
-}
-
-func checkMongoVersionForControllerModel(pool StatePool, _ State, _ Model, _ ModelAgentService) (*Blocker, error) {
-	v, err := pool.MongoVersion()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if !strings.Contains(v, "4.4") {
-		// Controllers with mongo version != 4.4 are not able to be upgraded further.
-		return NewBlocker(
-			`mongo version has to be "4.4" at least, but current version is %q`, v,
-		), nil
-	}
-	return nil, nil
-}
-
 // For testing.
 var NewServerFactory = lxd.NewServerFactory
 
 func getCheckForLXDVersion(cloudspec environscloudspec.CloudSpec) Validator {
-	return func(_ StatePool, _ State, _ Model, _ ModelAgentService) (*Blocker, error) {
+	return func(_ State, _ ModelAgentService) (*Blocker, error) {
 		if !lxdnames.IsDefaultCloud(cloudspec.Type) {
 			return nil, nil
 		}
