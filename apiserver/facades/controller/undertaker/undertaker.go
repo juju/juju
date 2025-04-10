@@ -13,7 +13,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/life"
-	coremodel "github.com/juju/juju/core/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -35,6 +34,7 @@ type UndertakerAPI struct {
 	resources facade.Resources
 
 	secretBackendService SecretBackendService
+	modelInfoService     ModelInfoService
 }
 
 func newUndertakerAPI(
@@ -44,6 +44,7 @@ func newUndertakerAPI(
 	cloudSpecer cloudspec.CloudSpecer,
 	secretBackendService SecretBackendService,
 	modelConfigService ModelConfigService,
+	modelInfoService ModelInfoService,
 	watcherRegistry facade.WatcherRegistry,
 ) (*UndertakerAPI, error) {
 	if !authorizer.AuthController() {
@@ -54,6 +55,7 @@ func newUndertakerAPI(
 		st:                   st,
 		resources:            resources,
 		secretBackendService: secretBackendService,
+		modelInfoService:     modelInfoService,
 		ModelConfigWatcher:   commonmodel.NewModelConfigWatcher(modelConfigService, watcherRegistry),
 		CloudSpecer:          cloudSpecer,
 	}, nil
@@ -67,10 +69,14 @@ func (u *UndertakerAPI) ModelInfo(ctx context.Context) (params.UndertakerModelIn
 		return result, errors.Trace(err)
 	}
 
+	modelInfo, err := u.modelInfoService.GetModelInfo(ctx)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
 	result.Result = params.UndertakerModelInfo{
-		UUID:           model.UUID(),
-		GlobalName:     model.Owner().String() + "/" + model.Name(),
-		Name:           model.Name(),
+		UUID:           modelInfo.UUID.String(),
+		Name:           modelInfo.Name,
 		IsSystem:       u.st.IsController(),
 		Life:           life.Value(model.Life().String()),
 		ForceDestroyed: model.ForceDestroyed(),
@@ -96,11 +102,12 @@ func (u *UndertakerAPI) RemoveModel(ctx context.Context) error {
 
 // TODO(secret): all these logic should be moved to secret service.
 func (u *UndertakerAPI) removeModelSecrets(ctx context.Context) error {
-	model, err := u.st.Model()
+	modelInfo, err := u.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	secretBackendCfg, err := u.secretBackendService.GetSecretBackendConfigForAdmin(ctx, coremodel.UUID(model.UUID()))
+
+	secretBackendCfg, err := u.secretBackendService.GetSecretBackendConfigForAdmin(ctx, modelInfo.UUID)
 	if errors.Is(err, secretbackenderrors.NotFound) || errors.Is(err, modelerrors.NotFound) {
 		// If backends or settings are missing, then no secrets to remove.
 		return nil

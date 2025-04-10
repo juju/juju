@@ -28,3 +28,11 @@ type ModelConfigService interface {
 	// config.
 	Watch() (watcher.StringsWatcher, error)
 }
+
+// ModelInfoService describe the service for interacting and reading the underlying
+// model information.
+type ModelInfoService interface {
+	// GetModelInfo returns the readonly model information for the model in
+	// question.
+	GetModelInfo(context.Context) (coremodel.ModelInfo, error)
+}
