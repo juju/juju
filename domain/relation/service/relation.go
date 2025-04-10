@@ -143,6 +143,21 @@ type State interface {
 	//     found.
 	LeaveScope(ctx context.Context, relationUnitUUID corerelation.UnitUUID) error
 
+	// SetRelationApplicationSettings records settings for a specific application
+	// relation combination.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.ApplicationNotFoundForRelation] is returned if the
+	//     application is not part of the relation.
+	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+	//     is not found.
+	SetRelationApplicationSettings(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		applicationID application.ID,
+		settings map[string]string,
+	) error
+
 	// WatcherApplicationSettingsNamespace provides the table name to set up
 	// watchers for relation application settings.
 	WatcherApplicationSettingsNamespace() string
@@ -213,18 +228,39 @@ func (s *LeadershipService) GetLocalRelationApplicationSettings(
 
 // SetRelationApplicationSettings records settings for a specific application
 // relation combination.
+//
+// When settings is not empty, the following error types can be expected to be
+// returned:
+//   - [corelease.ErrNotHeld] if the unit is not the leader.
+//   - [relationerrors.ApplicationNotFoundForRelation] is returned if the
+//     application is not part of the relation.
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+//     is not found.
 func (s *LeadershipService) SetRelationApplicationSettings(
 	ctx context.Context,
+	unitName unit.Name,
 	relationUUID corerelation.UUID,
 	applicationID application.ID,
 	settings map[string]string,
 ) error {
-	// TODO: (hml) 17-Mar-2025
-	// Implement leadership checking here: e.g.
-	// return s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
-	//		return s.st.SetRelationStatus(ctx, appID, encodedStatus)
-	//	})
-	return coreerrors.NotImplemented
+	if len(settings) == 0 {
+		return nil
+	}
+
+	if err := unitName.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+	if err := relationUUID.Validate(); err != nil {
+		return errors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+	if err := applicationID.Validate(); err != nil {
+		return errors.Errorf(
+			"%w:%w", relationerrors.ApplicationIDNotValid, err)
+	}
+	return s.leaderEnsurer.WithLeader(ctx, unitName.Application(), unitName.String(), func(ctx context.Context) error {
+		return s.st.SetRelationApplicationSettings(ctx, relationUUID, applicationID, settings)
+	})
 }
 
 // Service provides the API for working with relations.

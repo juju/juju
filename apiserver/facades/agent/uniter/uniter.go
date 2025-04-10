@@ -1679,8 +1679,10 @@ func (u *UniterAPI) updateUnitAndApplicationSettings(ctx context.Context, arg pa
 	if err != nil {
 		return internalerrors.Capture(err)
 	}
-	err = u.relationService.SetRelationApplicationSettings(ctx, relUUID, appID, arg.ApplicationSettings)
-	if err != nil {
+	err = u.relationService.SetRelationApplicationSettings(ctx, unitName, relUUID, appID, arg.ApplicationSettings)
+	if errors.Is(err, corelease.ErrNotHeld) {
+		return apiservererrors.ErrPerm
+	} else if err != nil {
 		return internalerrors.Capture(err)
 	}
 

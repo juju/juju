@@ -313,8 +313,12 @@ type RelationService interface {
 
 	// SetRelationApplicationSettings updates settings for a specific application
 	// relation combination.
+	//
+	// The following error types can be expected to be returned:
+	//   - [corelease.ErrNotHeld] if the unit is not the leader.
 	SetRelationApplicationSettings(
 		ctx context.Context,
+		unitName coreunit.Name,
 		relationUUID corerelation.UUID,
 		applicationID coreapplication.ID,
 		settings map[string]string,

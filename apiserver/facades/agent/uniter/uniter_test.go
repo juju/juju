@@ -1274,7 +1274,7 @@ func (s *commitHookChangesSuite) TestUpdateUnitAndApplicationSettings(c *gc.C) {
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID)
 	s.expectGetApplicationIDByName("wordpress", appID)
 	s.expectGetRelationUnit(relUUID, relUnitUUID, unitTag.Id())
-	s.expectedSetRelationApplicationSettings(relUUID, appID, appSettings)
+	s.expectedSetRelationApplicationSettings(coreunit.Name(unitTag.Id()), relUUID, appID, appSettings)
 	s.expectedSetRelationUnitSettings(relUnitUUID, unitSettings)
 	canAccess := func(tag names.Tag) bool {
 		return true
@@ -1367,8 +1367,8 @@ func (s *commitHookChangesSuite) expectGetRelationUnit(relUUID corerelation.UUID
 	s.relationService.EXPECT().GetRelationUnit(gomock.Any(), relUUID, coreunit.Name(unitTagID)).Return(uuid, nil)
 }
 
-func (s *commitHookChangesSuite) expectedSetRelationApplicationSettings(uuid corerelation.UUID, id coreapplication.ID, settings map[string]string) {
-	s.relationService.EXPECT().SetRelationApplicationSettings(gomock.Any(), uuid, id, settings).Return(nil)
+func (s *commitHookChangesSuite) expectedSetRelationApplicationSettings(unitName coreunit.Name, uuid corerelation.UUID, id coreapplication.ID, settings map[string]string) {
+	s.relationService.EXPECT().SetRelationApplicationSettings(gomock.Any(), unitName, uuid, id, settings).Return(nil)
 }
 
 func (s *commitHookChangesSuite) expectedSetRelationUnitSettings(uuid corerelation.UnitUUID, settings map[string]string) {

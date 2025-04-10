@@ -705,6 +705,44 @@ func (c *MockStateLeaveScopeCall) DoAndReturn(f func(context.Context, relation.U
 	return c
 }
 
+// SetRelationApplicationSettings mocks base method.
+func (m *MockState) SetRelationApplicationSettings(arg0 context.Context, arg1 relation.UUID, arg2 application.ID, arg3 map[string]string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetRelationApplicationSettings", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetRelationApplicationSettings indicates an expected call of SetRelationApplicationSettings.
+func (mr *MockStateMockRecorder) SetRelationApplicationSettings(arg0, arg1, arg2, arg3 any) *MockStateSetRelationApplicationSettingsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRelationApplicationSettings", reflect.TypeOf((*MockState)(nil).SetRelationApplicationSettings), arg0, arg1, arg2, arg3)
+	return &MockStateSetRelationApplicationSettingsCall{Call: call}
+}
+
+// MockStateSetRelationApplicationSettingsCall wrap *gomock.Call
+type MockStateSetRelationApplicationSettingsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetRelationApplicationSettingsCall) Return(arg0 error) *MockStateSetRelationApplicationSettingsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetRelationApplicationSettingsCall) Do(f func(context.Context, relation.UUID, application.ID, map[string]string) error) *MockStateSetRelationApplicationSettingsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetRelationApplicationSettingsCall) DoAndReturn(f func(context.Context, relation.UUID, application.ID, map[string]string) error) *MockStateSetRelationApplicationSettingsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // WatcherApplicationSettingsNamespace mocks base method.
 func (m *MockState) WatcherApplicationSettingsNamespace() string {
 	m.ctrl.T.Helper()
