@@ -269,12 +269,13 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 		return errors.Trace(err)
 	}
 
+	modelNameKey := fmt.Sprintf("%s/%s", model.Owner().Id(), model.Name())
 	modelAgentVersionService := m.modelAgentServiceGetter(coremodel.UUID(modelTag.Id()))
 
 	isControllerModel := model.IsControllerModel()
 	if !isControllerModel {
 		validators := upgradevalidation.ValidatorsForModelUpgrade(force, targetVersion, cloudspec)
-		checker := upgradevalidation.NewModelUpgradeCheck(m.statePool, st, model, modelAgentVersionService, validators...)
+		checker := upgradevalidation.NewModelUpgradeCheck(st, modelNameKey, modelAgentVersionService, validators...)
 		blockers, err = checker.Validate()
 		if err != nil {
 			return errors.Trace(err)
@@ -283,7 +284,7 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 	}
 
 	checker := upgradevalidation.NewModelUpgradeCheck(
-		m.statePool, st, model, modelAgentVersionService,
+		st, modelNameKey, modelAgentVersionService,
 		upgradevalidation.ValidatorsForControllerModelUpgrade(targetVersion, cloudspec)...,
 	)
 	blockers, err = checker.Validate()
@@ -322,8 +323,9 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 		}
 		validators := upgradevalidation.ModelValidatorsForControllerModelUpgrade(targetVersion, cloudspec)
 
+		modelNameKey = fmt.Sprintf("%s/%s", model.Owner().Id(), model.Name())
 		modelAgentVersionService := m.modelAgentServiceGetter(coremodel.UUID(modelUUID))
-		checker := upgradevalidation.NewModelUpgradeCheck(m.statePool, st, model, modelAgentVersionService, validators...)
+		checker := upgradevalidation.NewModelUpgradeCheck(st, modelNameKey, modelAgentVersionService, validators...)
 		blockersForModel, err := checker.Validate()
 		if err != nil {
 			return errors.Annotatef(err, "validating model %q for controller upgrade", model.Name())
