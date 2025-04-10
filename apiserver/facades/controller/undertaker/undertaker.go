@@ -76,7 +76,6 @@ func (u *UndertakerAPI) ModelInfo(ctx context.Context) (params.UndertakerModelIn
 
 	result.Result = params.UndertakerModelInfo{
 		UUID:           modelInfo.UUID.String(),
-		GlobalName:     modelInfo.CredentialOwner.String() + "/" + modelInfo.Name,
 		Name:           modelInfo.Name,
 		IsSystem:       u.st.IsController(),
 		Life:           life.Value(model.Life().String()),

@@ -31,14 +31,12 @@ type undertakerSuite struct {
 	mockSecretBackendService *MockSecretBackendService
 	mockModelConfigService   *MockModelConfigService
 	mockModelInfoService     *MockModelInfoService
-	ctx                      context.Context
 }
 
 var _ = gc.Suite(&undertakerSuite{})
 
 func (s *undertakerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.ctx = context.Background()
 }
 
 func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName string) (*mockState, *UndertakerAPI, *gomock.Controller) {
@@ -97,6 +95,7 @@ func (s *undertakerSuite) TestNoPerms(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestModelInfo(c *gc.C) {
+	ctx := context.Background()
 	name, err := user.NewName("user-admin")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -130,18 +129,17 @@ func (s *undertakerSuite) TestModelInfo(c *gc.C) {
 		minute := time.Minute
 		test.st.model.timeout = &minute
 
-		result, err := test.api.ModelInfo(s.ctx)
+		result, err := test.api.ModelInfo(ctx)
 		c.Assert(err, jc.ErrorIsNil)
 
 		info := result.Result
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(result.Error, gc.IsNil)
 
-		modelInfo, err := test.api.modelInfoService.GetModelInfo(s.ctx)
+		modelInfo, err := test.api.modelInfoService.GetModelInfo(ctx)
 		c.Assert(err, jc.ErrorIsNil)
 
 		c.Assert(info.UUID, gc.Equals, modelInfo.UUID.String())
-		c.Assert(info.GlobalName, gc.Equals, "user-admin/"+modelInfo.Name)
 		c.Assert(info.Name, gc.Equals, modelInfo.Name)
 		c.Assert(info.IsSystem, gc.Equals, test.isSystem)
 		c.Assert(info.Life, gc.Equals, life.Dying)
@@ -152,21 +150,23 @@ func (s *undertakerSuite) TestModelInfo(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestProcessDyingModel(c *gc.C) {
+	ctx := context.Background()
 	otherSt, hostedAPI, _ := s.setupStateAndAPI(c, false, "hostedmodel")
 	model, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = hostedAPI.ProcessDyingModel(s.ctx)
+	err = hostedAPI.ProcessDyingModel(ctx)
 	c.Assert(err, gc.ErrorMatches, "model is not dying")
 	c.Assert(model.Life(), gc.Equals, state.Alive)
 
 	otherSt.model.life = state.Dying
-	err = hostedAPI.ProcessDyingModel(s.ctx)
+	err = hostedAPI.ProcessDyingModel(ctx)
 	c.Assert(err, gc.IsNil)
 	c.Assert(model.Life(), gc.Equals, state.Dead)
 }
 
 func (s *undertakerSuite) TestRemoveAliveModel(c *gc.C) {
+	ctx := context.Background()
 	_, hostedAPI, ctrl := s.setupStateAndAPI(c, false, "hostedmodel")
 	defer ctrl.Finish()
 
@@ -176,16 +176,17 @@ func (s *undertakerSuite) TestRemoveAliveModel(c *gc.C) {
 		UUID: modelUUID,
 	}, nil).Times(2)
 
-	modelInfo, err := hostedAPI.modelInfoService.GetModelInfo(s.ctx)
+	modelInfo, err := hostedAPI.modelInfoService.GetModelInfo(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.mockSecretBackendService.EXPECT().GetSecretBackendConfigForAdmin(gomock.Any(), modelInfo.UUID).Return(&provider.ModelBackendConfigInfo{}, nil)
 
-	err = hostedAPI.RemoveModel(s.ctx)
+	err = hostedAPI.RemoveModel(ctx)
 	c.Assert(err, gc.ErrorMatches, "model not dying or dead")
 }
 
 func (s *undertakerSuite) TestRemoveDyingModel(c *gc.C) {
+	ctx := context.Background()
 	otherSt, hostedAPI, ctrl := s.setupStateAndAPI(c, false, "hostedmodel")
 	defer ctrl.Finish()
 
@@ -195,17 +196,18 @@ func (s *undertakerSuite) TestRemoveDyingModel(c *gc.C) {
 		UUID: modelUUID,
 	}, nil).Times(2)
 
-	modelInfo, err := hostedAPI.modelInfoService.GetModelInfo(s.ctx)
+	modelInfo, err := hostedAPI.modelInfoService.GetModelInfo(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.mockSecretBackendService.EXPECT().GetSecretBackendConfigForAdmin(gomock.Any(), modelInfo.UUID).Return(&provider.ModelBackendConfigInfo{}, nil)
 	// Set model to dying
 	otherSt.model.life = state.Dying
 
-	c.Assert(hostedAPI.RemoveModel(s.ctx), jc.ErrorIsNil)
+	c.Assert(hostedAPI.RemoveModel(ctx), jc.ErrorIsNil)
 }
 
 func (s *undertakerSuite) TestDeadRemoveModel(c *gc.C) {
+	ctx := context.Background()
 	otherSt, hostedAPI, ctrl := s.setupStateAndAPI(c, false, "hostedmodel")
 	defer ctrl.Finish()
 
@@ -215,7 +217,7 @@ func (s *undertakerSuite) TestDeadRemoveModel(c *gc.C) {
 		UUID: modelUUID,
 	}, nil).Times(2)
 
-	modelInfo, err := hostedAPI.modelInfoService.GetModelInfo(s.ctx)
+	modelInfo, err := hostedAPI.modelInfoService.GetModelInfo(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.mockSecretBackendService.EXPECT().GetSecretBackendConfigForAdmin(gomock.Any(), modelInfo.UUID).Return(&provider.ModelBackendConfigInfo{
@@ -232,10 +234,10 @@ func (s *undertakerSuite) TestDeadRemoveModel(c *gc.C) {
 
 	// Set model to dead
 	otherSt.model.life = state.Dying
-	err = hostedAPI.ProcessDyingModel(s.ctx)
+	err = hostedAPI.ProcessDyingModel(ctx)
 	c.Assert(err, gc.IsNil)
 
-	err = hostedAPI.RemoveModel(s.ctx)
+	err = hostedAPI.RemoveModel(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(otherSt.removed, jc.IsTrue)
@@ -244,6 +246,7 @@ func (s *undertakerSuite) TestDeadRemoveModel(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestDeadRemoveModelSecretsConfigNotFound(c *gc.C) {
+	ctx := context.Background()
 	otherSt, hostedAPI, ctrl := s.setupStateAndAPI(c, false, "hostedmodel")
 	defer ctrl.Finish()
 
@@ -253,16 +256,16 @@ func (s *undertakerSuite) TestDeadRemoveModelSecretsConfigNotFound(c *gc.C) {
 		UUID: modelUUID,
 	}, nil).Times(2)
 
-	modelInfo, err := hostedAPI.modelInfoService.GetModelInfo(s.ctx)
+	modelInfo, err := hostedAPI.modelInfoService.GetModelInfo(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.mockSecretBackendService.EXPECT().GetSecretBackendConfigForAdmin(gomock.Any(), modelInfo.UUID).Return(nil, secretbackenderrors.NotFound)
 	// Set model to dead
 	otherSt.model.life = state.Dying
-	err = hostedAPI.ProcessDyingModel(s.ctx)
+	err = hostedAPI.ProcessDyingModel(ctx)
 	c.Assert(err, gc.IsNil)
 
-	err = hostedAPI.RemoveModel(s.ctx)
+	err = hostedAPI.RemoveModel(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(otherSt.removed, jc.IsTrue)
@@ -270,13 +273,14 @@ func (s *undertakerSuite) TestDeadRemoveModelSecretsConfigNotFound(c *gc.C) {
 }
 
 func (s *undertakerSuite) TestModelConfig(c *gc.C) {
+	ctx := context.Background()
 	_, hostedAPI, _ := s.setupStateAndAPI(c, false, "hostedmodel")
 
 	expectedCfg, err := config.New(false, coretesting.FakeConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	s.mockModelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(expectedCfg, nil)
 
-	cfg, err := hostedAPI.ModelConfig(s.ctx)
+	cfg, err := hostedAPI.ModelConfig(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, gc.NotNil)
 }
