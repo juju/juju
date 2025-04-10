@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/machine"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	machinestate "github.com/juju/juju/domain/machine/state"
+	"github.com/juju/juju/domain/placement"
 	"github.com/juju/juju/domain/port"
 	porterrors "github.com/juju/juju/domain/port/errors"
 	"github.com/juju/juju/internal/changestream/testing"
@@ -63,7 +65,9 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	err = machineSt.CreateMachine(context.Background(), "m", netNodeUUIDs[0], machineUUIDs[0])
+	err = machineSt.CreateMachine(context.Background(), "0", netNodeUUIDs[0], machineUUIDs[0])
+	c.Assert(err, jc.ErrorIsNil)
+	err = machineSt.CreateMachine(context.Background(), "1", netNodeUUIDs[1], machineUUIDs[1])
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.appUUID = s.createApplicationWithRelations(c, appNames[0], "ep0", "ep1", "ep2")
@@ -118,7 +122,21 @@ func (s *baseSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreunit.U
 	charmUUID, err := applicationSt.GetCharmIDByApplicationName(ctx, appName)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = applicationSt.AddIAASUnits(ctx, c.MkDir(), appID, charmUUID, application.AddUnitArg{UnitName: unitName})
+	// Ensure that we place the unit on the same machine as the net node.
+	var machineName machine.Name
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT name FROM machine WHERE net_node_uuid = ?", netNodeUUID).Scan(&machineName)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = applicationSt.AddIAASUnits(ctx, c.MkDir(), appID, charmUUID, application.AddUnitArg{
+		UnitName: unitName,
+		Placement: placement.Placement{
+			Type:      placement.PlacementTypeMachine,
+			Directive: machineName.String(),
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.unitCount++
 
@@ -127,16 +145,6 @@ func (s *baseSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreunit.U
 	)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", unitName).Scan(&unitUUID)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, "INSERT INTO net_node VALUES (?) ON CONFLICT DO NOTHING", netNodeUUID)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, "UPDATE unit SET net_node_uuid = ? WHERE name = ?", netNodeUUID, unitName)
 		if err != nil {
 			return err
 		}
@@ -309,12 +317,8 @@ func (s *stateSuite) TestGetMachineOpenedPortsAcrossTwoUnitsDifferentMachines(c 
 	ctx := context.Background()
 	s.initialiseOpenPort(c, st)
 
-	machineSt := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
-	err := machineSt.CreateMachine(context.Background(), "m1", netNodeUUIDs[1], machineUUIDs[1])
-	c.Assert(err, jc.ErrorIsNil)
-
 	unit1UUID, unit1Name := s.createUnit(c, netNodeUUIDs[1], appNames[0])
-	err = st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
+	err := st.UpdateUnitPorts(ctx, unit1UUID, network.GroupedPortRanges{
 		"ep0": {
 			{Protocol: "tcp", FromPort: 443, ToPort: 443},
 			{Protocol: "udp", FromPort: 2000, ToPort: 2500},

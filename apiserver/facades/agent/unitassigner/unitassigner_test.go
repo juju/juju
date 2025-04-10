@@ -24,6 +24,8 @@ import (
 
 type testsuite struct {
 	testing.IsolationSuite
+
+	statusService *MockStatusService
 }
 
 var _ = gc.Suite(&testsuite{})
@@ -66,6 +68,8 @@ func (s *testsuite) TestWatchUnitAssignment(c *gc.C) {
 func (s *testsuite) TestSetStatus(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.statusService.EXPECT().SetUnitAgentStatus(gomock.Any(), unit.Name("foo/0"), gomock.Any()).Return(nil)
+
 	status := status.StatusInfo{
 		Status:  status.Idle,
 		Message: "message",
@@ -98,11 +102,15 @@ func (s *testsuite) TestSetStatus(c *gc.C) {
 func (s *testsuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.statusService = NewMockStatusService(ctrl)
+
 	return ctrl
 }
 
 func (s *testsuite) newAPI(c *gc.C) *API {
-	return &API{}
+	return &API{
+		statusService: s.statusService,
+	}
 }
 
 type fakeMachineService struct {

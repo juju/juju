@@ -465,6 +465,7 @@ func (st *State) AddIAASUnits(
 			insertArg := application.InsertUnitArg{
 				UnitName:    arg.UnitName,
 				Constraints: arg.Constraints,
+				Placement:   arg.Placement,
 				UnitStatusArg: application.UnitStatusArg{
 					AgentStatus:    arg.UnitStatusArg.AgentStatus,
 					WorkloadStatus: arg.UnitStatusArg.WorkloadStatus,
@@ -502,6 +503,7 @@ func (st *State) AddCAASUnits(
 			insertArg := application.InsertUnitArg{
 				UnitName:    arg.UnitName,
 				Constraints: arg.Constraints,
+				Placement:   arg.Placement,
 				UnitStatusArg: application.UnitStatusArg{
 					AgentStatus:    arg.UnitStatusArg.AgentStatus,
 					WorkloadStatus: arg.UnitStatusArg.WorkloadStatus,
