@@ -192,7 +192,6 @@ type mockApplication struct {
 	units                []*mockUnit
 	constraints          constraints.Value
 	storageConstraints   map[string]state.StorageConstraints
-	deviceConstraints    map[string]state.DeviceConstraints
 	charmModifiedVersion int
 	config               coreconfig.ConfigAttributes
 	unitsWatcher         *watchertest.MockStringsWatcher
@@ -250,14 +249,6 @@ func (a *mockApplication) StorageConstraints() (map[string]state.StorageConstrai
 		return nil, err
 	}
 	return a.storageConstraints, nil
-}
-
-func (a *mockApplication) DeviceConstraints() (map[string]state.DeviceConstraints, error) {
-	a.MethodCall(a, "DeviceConstraints")
-	if err := a.NextErr(); err != nil {
-		return nil, err
-	}
-	return a.deviceConstraints, nil
 }
 
 func (a *mockApplication) Name() string {

@@ -16,6 +16,7 @@ import (
 	controller "github.com/juju/juju/controller"
 	application "github.com/juju/juju/core/application"
 	constraints "github.com/juju/juju/core/constraints"
+	devices "github.com/juju/juju/core/devices"
 	leadership "github.com/juju/juju/core/leadership"
 	life "github.com/juju/juju/core/life"
 	model "github.com/juju/juju/core/model"
@@ -329,6 +330,21 @@ func (m *MockApplicationService) GetCharmMetadataStorage(arg0 context.Context, a
 func (mr *MockApplicationServiceMockRecorder) GetCharmMetadataStorage(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmMetadataStorage", reflect.TypeOf((*MockApplicationService)(nil).GetCharmMetadataStorage), arg0, arg1)
+}
+
+// GetDeviceConstraints mocks base method.
+func (m *MockApplicationService) GetDeviceConstraints(arg0 context.Context, arg1 string) (map[string]devices.Constraints, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDeviceConstraints", arg0, arg1)
+	ret0, _ := ret[0].(map[string]devices.Constraints)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDeviceConstraints indicates an expected call of GetDeviceConstraints.
+func (mr *MockApplicationServiceMockRecorder) GetDeviceConstraints(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDeviceConstraints", reflect.TypeOf((*MockApplicationService)(nil).GetDeviceConstraints), arg0, arg1)
 }
 
 // GetUnitLife mocks base method.
