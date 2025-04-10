@@ -18,7 +18,6 @@ import (
 type StatePool interface {
 	Get(string) (State, error)
 	ControllerModel() (Model, error)
-	MongoVersion() (string, error)
 }
 
 // State represents a point of use interface for modelling a current model.
@@ -28,7 +27,6 @@ type State interface {
 	AllModelUUIDs() ([]string, error)
 	MachineCountForBase(base ...state.Base) (map[string]int, error)
 	AllMachinesCount() (int, error)
-	MongoCurrentStatus() (*replicaset.Status, error)
 	SetModelAgentVersion(newVersion semversion.Number, stream *string, ignoreAgentVersions bool, upgrader state.Upgrader) error
 }
 
