@@ -861,11 +861,11 @@ func (st *State) GetRelationDetails(ctx context.Context, relationUUID corerelati
 //
 // The following error types can be expected to be returned:
 //   - [relationerrors.RelationUnitNotFound] if the relation unit cannot be found.
-func (s *State) GetRelationUnitEndpointName(
+func (st *State) GetRelationUnitEndpointName(
 	ctx context.Context,
 	relationUnitUUID corerelation.UnitUUID,
 ) (string, error) {
-	db, err := s.DB()
+	db, err := st.DB()
 	var result string
 	if err != nil {
 		return result, errors.Capture(err)
@@ -874,7 +874,7 @@ func (s *State) GetRelationUnitEndpointName(
 		args := getRelationUnitEndpointName{
 			RelationUnitUUID: relationUnitUUID,
 		}
-		stmt, err := s.Prepare(`
+		stmt, err := st.Prepare(`
 SELECT &getRelationUnitEndpointName.*
 FROM v_relation_unit_endpoint
 WHERE relation_unit_uuid = $getRelationUnitEndpointName.relation_unit_uuid`, args)
@@ -1462,6 +1462,112 @@ WHERE uuid = $relationUnitUUID.uuid
 	}
 
 	return nil
+}
+
+// GetRelationApplicationSettings returns the application settings
+// for the given application and relation identifier combination.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.ApplicationNotFoundForRelation] is returned if the
+//     application is not part of the relation.
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+//     is not found.
+func (st *State) GetRelationApplicationSettings(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	applicationID application.ID,
+) (map[string]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	arg := relationAndApplicationUUID{
+		RelationUUID:  relationUUID,
+		ApplicationID: applicationID,
+	}
+	stmt, err := st.Prepare(`
+SELECT &relationSetting.*
+FROM   relation_application_setting ras
+JOIN   relation_endpoint re ON re.uuid = ras.relation_endpoint_uuid
+JOIN   application_endpoint ae ON ae.uuid = re.endpoint_uuid
+WHERE  re.relation_uuid = $relationAndApplicationUUID.relation_uuid
+AND    ae.application_uuid = $relationAndApplicationUUID.application_uuid
+`, arg, relationSetting{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var settings []relationSetting
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, arg).GetAll(&settings)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// Check if we got no rows because the relation does not exist.
+			relationExists, err := st.checkExistsByUUID(ctx, tx, "relation", relationUUID.String())
+			if err != nil {
+				return errors.Capture(err)
+			} else if !relationExists {
+				return relationerrors.RelationNotFound
+			}
+
+			// Check if we got no rows because the application is not in the
+			// relation.
+			applicationFound, err := st.checkApplicationInRelation(ctx, tx, relationUUID, applicationID)
+			if err != nil {
+				return errors.Capture(err)
+			} else if !applicationFound {
+				return relationerrors.ApplicationNotFoundForRelation
+			}
+
+			// We got no rows because there are no application settings for this
+			// endpoint, leave the slice empty and return.
+			return nil
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	relationSettings := make(map[string]string, len(settings))
+	for _, setting := range settings {
+		relationSettings[setting.Key] = setting.Value
+	}
+	return relationSettings, nil
+}
+
+func (st *State) checkApplicationInRelation(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relationUUID corerelation.UUID,
+	applicationID application.ID,
+) (bool, error) {
+	id := relationAndApplicationUUID{
+		RelationUUID:  relationUUID,
+		ApplicationID: applicationID,
+	}
+	stmt, err := st.Prepare(`
+SELECT &relationAndApplicationUUID.*
+FROM   application_endpoint ae
+JOIN   relation_endpoint re ON re.endpoint_uuid = ae.uuid
+WHERE  ae.application_uuid = $relationAndApplicationUUID.application_uuid
+AND    re.relation_uuid = $relationAndApplicationUUID.relation_uuid
+`, id)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, id).Get(&id)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
 }
 
 // InitialWatchLifeSuspendedStatus returns the two tables to watch for

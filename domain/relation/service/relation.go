@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/unit"
@@ -29,6 +30,20 @@ type State interface {
 	// GetApplicationRelations retrieves all relation UUIDs associated with a
 	// specific application identified by its ID.
 	GetApplicationRelations(ctx context.Context, id application.ID) ([]corerelation.UUID, error)
+
+	// GetRelationApplicationSettings returns the application settings
+	// for the given application and relation identifier combination.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.ApplicationNotFoundForRelation] is returned if the
+	//     application is not part of the relation.
+	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+	//     is not found.
+	GetRelationApplicationSettings(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		applicationID application.ID,
+	) (map[string]string, error)
 
 	// GetRelationID returns the relation ID for the given relation UUID.
 	//
@@ -131,6 +146,85 @@ type State interface {
 	// WatcherApplicationSettingsNamespace provides the table name to set up
 	// watchers for relation application settings.
 	WatcherApplicationSettingsNamespace() string
+}
+
+// LeadershipService provides the API for working with the statuses of applications
+// and units, including the API handlers that require leadership checks.
+type LeadershipService struct {
+	*Service
+	leaderEnsurer leadership.Ensurer
+}
+
+func NewLeadershipService(
+	st State,
+	leaderEnsurer leadership.Ensurer,
+	logger logger.Logger,
+) *LeadershipService {
+	return &LeadershipService{
+		Service:       NewService(st, logger),
+		leaderEnsurer: leaderEnsurer,
+	}
+}
+
+// GetLocalRelationApplicationSettings returns the application settings
+// for the given application and relation identifier combination.
+// ApplicationSettings may only be read by the application leader.
+//
+// The following error types can be expected to be returned:
+//   - [corelease.ErrNotHeld] if the unit is not the leader.
+//   - [relationerrors.ApplicationNotFoundForRelation] is returned if the
+//     application is not part of the relation.
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+//     is not found.
+func (s *LeadershipService) GetLocalRelationApplicationSettings(
+	ctx context.Context,
+	unitName unit.Name,
+	relationUUID corerelation.UUID,
+	applicationID application.ID,
+) (map[string]string, error) {
+	if err := unitName.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+	if err := relationUUID.Validate(); err != nil {
+		return nil, errors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+	if err := applicationID.Validate(); err != nil {
+		return nil, errors.Errorf(
+			"%w:%w", relationerrors.ApplicationIDNotValid, err)
+	}
+	settings := make(map[string]string)
+	err := s.leaderEnsurer.WithLeader(ctx, unitName.Application(), unitName.String(),
+		func(ctx context.Context) error {
+			var err error
+			settings, err = s.st.GetRelationApplicationSettings(ctx, relationUUID, applicationID)
+			if err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return settings, nil
+}
+
+// SetRelationApplicationSettings records settings for a specific application
+// relation combination.
+func (s *LeadershipService) SetRelationApplicationSettings(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	applicationID application.ID,
+	settings map[string]string,
+) error {
+	// TODO: (hml) 17-Mar-2025
+	// Implement leadership checking here: e.g.
+	// return s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
+	//		return s.st.SetRelationStatus(ctx, appID, encodedStatus)
+	//	})
+	return coreerrors.NotImplemented
 }
 
 // Service provides the API for working with relations.
@@ -244,25 +338,6 @@ func (s *Service) GetApplicationRelations(ctx context.Context, id application.ID
 			"%w: %w", relationerrors.ApplicationIDNotValid, err)
 	}
 	return s.st.GetApplicationRelations(ctx, id)
-}
-
-// GetLocalRelationApplicationSettings returns the application settings
-// for the given application and relation identifier combination.
-// ApplicationSettings may only be read by the application leader.
-// Returns NotFound if this unit is not the leader, if the application or
-// relation is not found.
-func (s *Service) GetLocalRelationApplicationSettings(
-	ctx context.Context,
-	unitName unit.Name,
-	relationUUID corerelation.UUID,
-	applicationID application.ID,
-) (map[string]string, error) {
-	// TODO: (hml) 12-Mar-2025
-	// Implement leadership checking here: e.g.
-	// return s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
-	//		return s.st.SetRelationStatus(ctx, appID, encodedStatus)
-	//	})
-	return nil, coreerrors.NotImplemented
 }
 
 // GetRelationDetails returns RelationDetails for the given relationID.
@@ -576,51 +651,9 @@ func (s *Service) SetRelationSuspended(
 	return coreerrors.NotImplemented
 }
 
-// SetRelationApplicationSettings records settings for a specific application
-// relation combination.
-func (s *Service) SetRelationApplicationSettings(
-	ctx context.Context,
-	relationUUID corerelation.UUID,
-	applicationID application.ID,
-	settings map[string]string,
-) error {
-	// TODO: (hml) 17-Mar-2025
-	// Implement leadership checking here: e.g.
-	// return s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
-	//		return s.st.SetRelationStatus(ctx, appID, encodedStatus)
-	//	})
-	return coreerrors.NotImplemented
-}
-
 // SetRelationUnitSettings records settings for a specific unit
 // relation combination.
 func (s *Service) SetRelationUnitSettings(
-	ctx context.Context,
-	relationUnitUUID corerelation.UnitUUID,
-	settings map[string]string,
-) error {
-	return coreerrors.NotImplemented
-}
-
-// UpdateRelationApplicationSettings updates settings for a specific application
-// relation combination.
-func (s *Service) UpdateRelationApplicationSettings(
-	ctx context.Context,
-	relationUUID corerelation.UUID,
-	applicationID application.ID,
-	settings map[string]string,
-) error {
-	// TODO: (hml) 24-Mar-2025
-	// Implement leadership checking here: e.g.
-	// return s.leaderEnsurer.WithLeader(ctx, appName, unitName.String(), func(ctx context.Context) error {
-	//		return s.st.SetRelationStatus(ctx, appID, encodedStatus)
-	//	})
-	return coreerrors.NotImplemented
-}
-
-// UpdateRelationUnitSettings updates settings for a specific unit
-// relation combination.
-func (s *Service) UpdateRelationUnitSettings(
 	ctx context.Context,
 	relationUnitUUID corerelation.UnitUUID,
 	settings map[string]string,

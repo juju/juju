@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/unit"
@@ -32,7 +33,7 @@ type WatcherFactory interface {
 // WatchableService provides the API for working with applications and the
 // ability to create watchers.
 type WatchableService struct {
-	*Service
+	*LeadershipService
 	watcherFactory WatcherFactory
 }
 
@@ -40,11 +41,12 @@ type WatchableService struct {
 func NewWatchableService(
 	st State,
 	watcherFactory WatcherFactory,
+	leaderEnsurer leadership.Ensurer,
 	logger logger.Logger,
 ) *WatchableService {
 	return &WatchableService{
-		Service:        NewService(st, logger),
-		watcherFactory: watcherFactory,
+		LeadershipService: NewLeadershipService(st, leaderEnsurer, logger),
+		watcherFactory:    watcherFactory,
 	}
 }
 

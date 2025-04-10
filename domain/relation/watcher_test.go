@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/relation/service"
 	"github.com/juju/juju/domain/relation/state"
+	domaintesting "github.com/juju/juju/domain/testing"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -115,6 +116,7 @@ func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) 
 	return service.NewWatchableService(
 		state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c)),
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
+		domaintesting.NoopLeaderEnsurer(),
 		loggertesting.WrapCheckLog(c),
 	)
 }

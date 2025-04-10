@@ -2249,6 +2249,100 @@ func (s *relationSuite) TestGetRelationEndpointScopeRelationNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
+func (s *relationSuite) TestGetRelationApplicationSettings(c *gc.C) {
+	// Arrange: Add relation with one endpoint.
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Optional:  true,
+			Limit:     20,
+			Scope:     charm.ScopeContainer,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	// Arrange: Add application settings.
+	expectedSettings := map[string]string{
+		"key1": "value1",
+		"key2": "value2",
+	}
+	for k, v := range expectedSettings {
+		s.addRelationApplicationSetting(c, relationEndpointUUID1, k, v)
+	}
+
+	// Act:
+	settings, err := s.state.GetRelationApplicationSettings(
+		context.Background(),
+		relationUUID,
+		s.fakeApplicationUUID1,
+	)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, expectedSettings)
+}
+
+func (s *relationSuite) TestGetRelationApplicationSettingsEmptyList(c *gc.C) {
+	// Arrange: Add relation with one endpoint.
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Optional:  true,
+			Limit:     20,
+			Scope:     charm.ScopeContainer,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	relationUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	// Act:
+	settings, err := s.state.GetRelationApplicationSettings(
+		context.Background(),
+		relationUUID,
+		s.fakeApplicationUUID1,
+	)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.HasLen, 0)
+	c.Assert(settings, gc.NotNil)
+}
+
+func (s *relationSuite) TestGetRelationApplicationSettingsRelationNotFound(c *gc.C) {
+	// Arrange: Add relation with one endpoint.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+
+	// Act:
+	_, err := s.state.GetRelationApplicationSettings(context.Background(),
+		relationUUID, s.fakeApplicationUUID1)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *relationSuite) TestGetRelationApplicationSettingsApplicationNotFoundForRelation(c *gc.C) {
+	// Arrange: Add relation with one endpoint.
+	relationUUID := s.addRelation(c)
+
+	// Act:
+	_, err := s.state.GetRelationApplicationSettings(context.Background(),
+		relationUUID, s.fakeApplicationUUID1)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationNotFoundForRelation)
+}
+
 // addUnit adds a new unit to the specified application in the database with
 // the given UUID and name. Returns the unit uuid.
 func (s *relationSuite) addUnit(c *gc.C, unitName coreunit.Name, appUUID coreapplication.ID, charmUUID corecharm.ID) coreunit.UUID {
@@ -2431,6 +2525,15 @@ func (s *relationSuite) addRelationUnitSetting(c *gc.C, relationUnitUUID corerel
 INSERT INTO relation_unit_setting (relation_unit_uuid, key, value)
 VALUES (?,?,?)
 `, relationUnitUUID, key, value)
+}
+
+// addRelationApplicationSetting inserts a relation application setting into the database
+// using the provided relation and application ID.
+func (s *relationSuite) addRelationApplicationSetting(c *gc.C, relationEndpointUUID, key, value string) {
+	s.query(c, `
+INSERT INTO relation_application_setting (relation_endpoint_uuid, key, value)
+VALUES (?,?,?)
+`, relationEndpointUUID, key, value)
 }
 
 // fetchAllRelationStatusesOrderByRelationIDs retrieves all relation statuses

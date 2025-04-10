@@ -316,6 +316,45 @@ func (c *MockStateGetRegularRelationUUIDByEndpointIdentifiersCall) DoAndReturn(f
 	return c
 }
 
+// GetRelationApplicationSettings mocks base method.
+func (m *MockState) GetRelationApplicationSettings(arg0 context.Context, arg1 relation.UUID, arg2 application.ID) (map[string]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelationApplicationSettings", arg0, arg1, arg2)
+	ret0, _ := ret[0].(map[string]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRelationApplicationSettings indicates an expected call of GetRelationApplicationSettings.
+func (mr *MockStateMockRecorder) GetRelationApplicationSettings(arg0, arg1, arg2 any) *MockStateGetRelationApplicationSettingsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationApplicationSettings", reflect.TypeOf((*MockState)(nil).GetRelationApplicationSettings), arg0, arg1, arg2)
+	return &MockStateGetRelationApplicationSettingsCall{Call: call}
+}
+
+// MockStateGetRelationApplicationSettingsCall wrap *gomock.Call
+type MockStateGetRelationApplicationSettingsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetRelationApplicationSettingsCall) Return(arg0 map[string]string, arg1 error) *MockStateGetRelationApplicationSettingsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetRelationApplicationSettingsCall) Do(f func(context.Context, relation.UUID, application.ID) (map[string]string, error)) *MockStateGetRelationApplicationSettingsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetRelationApplicationSettingsCall) DoAndReturn(f func(context.Context, relation.UUID, application.ID) (map[string]string, error)) *MockStateGetRelationApplicationSettingsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetRelationDetails mocks base method.
 func (m *MockState) GetRelationDetails(arg0 context.Context, arg1 relation.UUID) (relation0.RelationDetailsResult, error) {
 	m.ctrl.T.Helper()
