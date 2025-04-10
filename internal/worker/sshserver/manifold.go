@@ -116,6 +116,7 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 		Logger:               config.Logger,
 		FacadeClient:         client,
 		NewSSHServerListener: config.NewSSHServerListener,
+		SessionHandler:       &stubSessionHandler{},
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

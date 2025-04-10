@@ -11,16 +11,18 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	"golang.org/x/crypto/ssh"
+	gossh "golang.org/x/crypto/ssh"
 	"google.golang.org/grpc/test/bufconn"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/virtualhostname"
 	pkitest "github.com/juju/juju/pki/test"
 	params "github.com/juju/juju/rpc/params"
 	jujutesting "github.com/juju/juju/testing"
@@ -32,10 +34,11 @@ const testVirtualHostname = "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.j
 type sshServerSuite struct {
 	testing.IsolationSuite
 
-	hostKey       []byte
-	publicHostKey ssh.PublicKey
-	userSigner    ssh.Signer
-	facadeClient  *MockFacadeClient
+	hostKey        []byte
+	publicHostKey  gossh.PublicKey
+	userSigner     gossh.Signer
+	facadeClient   *MockFacadeClient
+	sessionHandler *MockSessionHandler
 }
 
 var _ = gc.Suite(&sshServerSuite{})
@@ -47,7 +50,7 @@ func (s *sshServerSuite) SetUpSuite(c *gc.C) {
 	userKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	c.Assert(err, jc.ErrorIsNil)
 
-	userSigner, err := ssh.NewSignerFromKey(userKey)
+	userSigner, err := gossh.NewSignerFromKey(userKey)
 	c.Assert(err, jc.ErrorIsNil)
 	s.userSigner = userSigner
 
@@ -63,7 +66,7 @@ func (s *sshServerSuite) SetUpSuite(c *gc.C) {
 		},
 	)
 
-	privateKey, err := ssh.ParsePrivateKey(s.hostKey)
+	privateKey, err := gossh.ParsePrivateKey(s.hostKey)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.publicHostKey = privateKey.PublicKey()
@@ -72,6 +75,7 @@ func (s *sshServerSuite) SetUpSuite(c *gc.C) {
 func (s *sshServerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.facadeClient = NewMockFacadeClient(ctrl)
+	s.sessionHandler = NewMockSessionHandler(ctrl)
 	return ctrl
 }
 
@@ -138,6 +142,7 @@ func (s *sshServerSuite) TestSSHServerNoAuth(c *gc.C) {
 		NewSSHServerListener:     newTestingSSHServerListener,
 		FacadeClient:             s.facadeClient,
 		disableAuth:              true,
+		SessionHandler:           s.sessionHandler,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, server)
@@ -148,43 +153,49 @@ func (s *sshServerSuite) TestSSHServerNoAuth(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Open a client connection
-	jumpConn, chans, terminatingReqs, err := ssh.NewClientConn(
+	jumpConn, chans, terminatingReqs, err := gossh.NewClientConn(
 		conn,
 		"",
-		&ssh.ClientConfig{
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-			Auth: []ssh.AuthMethod{
-				ssh.Password(""), // No password needed
+		&gossh.ClientConfig{
+			HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+			Auth: []gossh.AuthMethod{
+				gossh.Password(""), // No password needed
 			},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Open jump connection
-	client := ssh.NewClient(jumpConn, chans, terminatingReqs)
+	client := gossh.NewClient(jumpConn, chans, terminatingReqs)
 	tunnel, err := client.Dial("tcp", fmt.Sprintf("%s:0", testVirtualHostname))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now with this opened direct-tcpip channel, open a session connection
-	terminatingClientConn, terminatingClientChan, terminatingReqs, err := ssh.NewClientConn(
+	terminatingClientConn, terminatingClientChan, terminatingReqs, err := gossh.NewClientConn(
 		tunnel,
 		"",
-		&ssh.ClientConfig{
+		&gossh.ClientConfig{
 			User:            "ubuntu",
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-			Auth: []ssh.AuthMethod{
-				ssh.PublicKeys(s.userSigner),
+			HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+			Auth: []gossh.AuthMethod{
+				gossh.PublicKeys(s.userSigner),
 			},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	terminatingClient := ssh.NewClient(terminatingClientConn, terminatingClientChan, terminatingReqs)
+	terminatingClient := gossh.NewClient(terminatingClientConn, terminatingClientChan, terminatingReqs)
 	terminatingSession, err := terminatingClient.NewSession()
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.sessionHandler.EXPECT().Handle(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(session ssh.Session, destination virtualhostname.Info) {
+			c.Check(destination.String(), gc.Equals, testVirtualHostname)
+			_, _ = session.Write(fmt.Appendf([]byte{}, "Your final destination is: %s\n", destination.String()))
+		},
+	)
 	output, err := terminatingSession.CombinedOutput("")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(output), gc.Equals, fmt.Sprintf("Your final destination is: 8419cd78-4993-4c3a-928e-c646226beeee as user: ubuntu\n"))
+	c.Assert(string(output), gc.Equals, fmt.Sprintf("Your final destination is: %s\n", testVirtualHostname))
 
 	// Server isn't gracefully closed, it's forcefully closed. All connections ended
 	// from server side.
@@ -194,12 +205,12 @@ func (s *sshServerSuite) TestSSHServerNoAuth(c *gc.C) {
 func (s *sshServerSuite) TestSSHPublicKeyHandler(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	listener := bufconn.Listen(8 * 1024)
+	listener := bufconn.Listen(1024)
 
 	s.facadeClient.EXPECT().ListPublicKeysForModel(gomock.Any()).
-		DoAndReturn(func(sshPKIAuthArgs params.ListAuthorizedKeysArgs) ([]ssh.PublicKey, error) {
+		DoAndReturn(func(sshPKIAuthArgs params.ListAuthorizedKeysArgs) ([]gossh.PublicKey, error) {
 			if strings.Contains(sshPKIAuthArgs.ModelUUID, "8419cd78-4993-4c3a-928e-c646226beeee") {
-				return []ssh.PublicKey{s.userSigner.PublicKey()}, nil
+				return []gossh.PublicKey{s.userSigner.PublicKey()}, nil
 			}
 			return nil, errors.NotFound
 		}).AnyTimes()
@@ -212,6 +223,7 @@ func (s *sshServerSuite) TestSSHPublicKeyHandler(c *gc.C) {
 		FacadeClient:             s.facadeClient,
 		NewSSHServerListener:     newTestingSSHServerListener,
 		MaxConcurrentConnections: maxConcurrentConnections,
+		SessionHandler:           s.sessionHandler,
 	})
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, server)
@@ -219,7 +231,7 @@ func (s *sshServerSuite) TestSSHPublicKeyHandler(c *gc.C) {
 	userKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	c.Assert(err, gc.IsNil)
 
-	notValidSigner, err := ssh.NewSignerFromKey(userKey)
+	notValidSigner, err := gossh.NewSignerFromKey(userKey)
 	c.Assert(err, gc.IsNil)
 
 	tests := []struct {
@@ -244,28 +256,28 @@ func (s *sshServerSuite) TestSSHPublicKeyHandler(c *gc.C) {
 
 	for _, test := range tests {
 		c.Log(test.name)
-		client := inMemoryDial(c, listener, &ssh.ClientConfig{
+		client := inMemoryDial(c, listener, &gossh.ClientConfig{
 			User:            "",
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-			Auth: []ssh.AuthMethod{
-				ssh.PublicKeys(test.key),
+			HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+			Auth: []gossh.AuthMethod{
+				gossh.PublicKeys(test.key),
 			},
 		})
 		conn, err := client.Dial("tcp", fmt.Sprintf("%s:%d", test.destinationAddress, 1))
 		c.Assert(err, gc.IsNil)
 		// we need to establish another client connection to perform the auth in the embedded server.
-		_, _, _, err = ssh.NewClientConn(
+		_, _, _, err = gossh.NewClientConn(
 			conn,
 			"",
-			&ssh.ClientConfig{
-				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-				Auth: []ssh.AuthMethod{
-					ssh.PublicKeys(test.key),
+			&gossh.ClientConfig{
+				HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+				Auth: []gossh.AuthMethod{
+					gossh.PublicKeys(test.key),
 				},
 			},
 		)
 		if !test.expectSuccess {
-			c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*ssh: handshake failed.*"))
+			c.Assert(err, gc.ErrorMatches, `.*ssh: handshake failed.*`)
 		} else {
 			c.Assert(err, gc.IsNil)
 		}
@@ -285,14 +297,15 @@ func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 		NewSSHServerListener:     newTestingSSHServerListener,
 		FacadeClient:             s.facadeClient,
 		disableAuth:              true,
+		SessionHandler:           s.sessionHandler,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	// Open a client connection
-	client := inMemoryDial(c, listener, &ssh.ClientConfig{
+	client := inMemoryDial(c, listener, &gossh.ClientConfig{
 		User:            "",
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Auth: []ssh.AuthMethod{
-			ssh.Password(""), // No password needed
+		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+		Auth: []gossh.AuthMethod{
+			gossh.Password(""), // No password needed
 		},
 	})
 	conn, err := client.Dial("tcp", fmt.Sprintf("%s:0", testVirtualHostname))
@@ -300,13 +313,13 @@ func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 
 	// we need to establish another client connection to perform the auth in the embedded server.
 	// In this way we verify the hostkey is the one coming from the facade.
-	_, _, _, err = ssh.NewClientConn(
+	_, _, _, err = gossh.NewClientConn(
 		conn,
 		"",
-		&ssh.ClientConfig{
-			HostKeyCallback: ssh.FixedHostKey(s.publicHostKey),
-			Auth: []ssh.AuthMethod{
-				ssh.PublicKeys(s.userSigner),
+		&gossh.ClientConfig{
+			HostKeyCallback: gossh.FixedHostKey(s.publicHostKey),
+			Auth: []gossh.AuthMethod{
+				gossh.PublicKeys(s.userSigner),
 			},
 		},
 	)
@@ -314,11 +327,11 @@ func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 
 	// we now test that the connection is closed when the controller cannot fetch the unit's host key.
 	s.facadeClient.EXPECT().HostKeyForTarget(gomock.Any()).Return(nil, errors.New("an error"))
-	client = inMemoryDial(c, listener, &ssh.ClientConfig{
+	client = inMemoryDial(c, listener, &gossh.ClientConfig{
 		User:            "",
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Auth: []ssh.AuthMethod{
-			ssh.Password(""), // No password needed
+		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+		Auth: []gossh.AuthMethod{
+			gossh.Password(""), // No password needed
 		},
 	})
 	_, err = client.Dial("tcp", fmt.Sprintf("%s:0", testVirtualHostname))
@@ -338,18 +351,19 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 		NewSSHServerListener:     newTestingSSHServerListener,
 		FacadeClient:             s.facadeClient,
 		disableAuth:              true,
+		SessionHandler:           s.sessionHandler,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	// the reason we repeat this test 2 times is to make sure that closing the connections on
 	// the first iteration completely resets the counter on the ssh server side.
 	for i := range 2 {
 		c.Logf("Run %d for TestSSHServerMaxConnections", i)
-		clients := make([]*ssh.Client, 0, maxConcurrentConnections)
-		config := &ssh.ClientConfig{
+		clients := make([]*gossh.Client, 0, maxConcurrentConnections)
+		config := &gossh.ClientConfig{
 			User:            "ubuntu",
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-			Auth: []ssh.AuthMethod{
-				ssh.PublicKeys(s.userSigner),
+			HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+			Auth: []gossh.AuthMethod{
+				gossh.PublicKeys(s.userSigner),
 			},
 		}
 		for range maxConcurrentConnections {
@@ -361,7 +375,7 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 		jumpServerConn, err := listener.Dial()
 		c.Assert(err, jc.ErrorIsNil)
 
-		_, _, _, err = ssh.NewClientConn(jumpServerConn, "", config)
+		_, _, _, err = gossh.NewClientConn(jumpServerConn, "", config)
 		c.Assert(err, gc.ErrorMatches, ".*handshake failed: EOF.*")
 
 		// close the connections
@@ -386,6 +400,7 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *gc.C) {
 		NewSSHServerListener:     newTestingSSHServerListener,
 		FacadeClient:             s.facadeClient,
 		disableAuth:              true,
+		SessionHandler:           s.sessionHandler,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -395,9 +410,9 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *gc.C) {
 	})
 
 	// Dial the in-memory listener
-	inMemoryDial(c, listener, &ssh.ClientConfig{
+	inMemoryDial(c, listener, &gossh.ClientConfig{
 		User:            "",
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
 	})
 
 	report = worker.(*ServerWorker).Report()
@@ -407,11 +422,11 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *gc.C) {
 }
 
 // inMemoryDial returns and SSH connection that uses an in-memory transport.
-func inMemoryDial(c *gc.C, listener *bufconn.Listener, config *ssh.ClientConfig) *ssh.Client {
+func inMemoryDial(c *gc.C, listener *bufconn.Listener, config *gossh.ClientConfig) *gossh.Client {
 	jumpServerConn, err := listener.Dial()
 	c.Assert(err, jc.ErrorIsNil)
 
-	sshConn, newChan, reqs, err := ssh.NewClientConn(jumpServerConn, "", config)
+	sshConn, newChan, reqs, err := gossh.NewClientConn(jumpServerConn, "", config)
 	c.Assert(err, jc.ErrorIsNil)
-	return ssh.NewClient(sshConn, newChan, reqs)
+	return gossh.NewClient(sshConn, newChan, reqs)
 }
