@@ -251,6 +251,15 @@ WHERE  relation_endpoint_uuid IN (
 		return errors.Errorf("preparing relation app settings deletion: %w", err)
 	}
 
+	settingsHashStmt, err := st.Prepare(`
+DELETE FROM relation_application_settings_hash
+WHERE  relation_endpoint_uuid IN (
+    SELECT uuid FROM relation_endpoint WHERE relation_uuid = $entityUUID.uuid
+)`, relationUUID)
+	if err != nil {
+		return errors.Errorf("preparing relation app settings deletion: %w", err)
+	}
+
 	endpointStmt, err := st.Prepare("DELETE FROM relation_endpoint WHERE relation_uuid = $entityUUID.uuid", relationUUID)
 	if err != nil {
 		return errors.Errorf("preparing relation endpoint deletion: %w", err)
@@ -270,6 +279,11 @@ WHERE  relation_endpoint_uuid IN (
 		err = tx.Query(ctx, settingsStmt, relationUUID).Run()
 		if err != nil {
 			return errors.Errorf("running relation app settings deletion: %w", err)
+		}
+
+		err = tx.Query(ctx, settingsHashStmt, relationUUID).Run()
+		if err != nil {
+			return errors.Errorf("running relation app settings hash deletion: %w", err)
 		}
 
 		err = tx.Query(ctx, endpointStmt, relationUUID).Run()
