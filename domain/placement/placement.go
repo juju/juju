@@ -28,11 +28,20 @@ const (
 type ContainerType int
 
 const (
-	// ContainerTypeNone is the type for no container.
-	ContainerTypeNone ContainerType = iota
+	// ContainerTypeUnknown is the type for no container.
+	ContainerTypeUnknown ContainerType = iota
 	// ContainerTypeLXD is the type for LXD containers.
 	ContainerTypeLXD
 )
+
+func (containerType ContainerType) String() string {
+	switch containerType {
+	case ContainerTypeLXD:
+		return "lxd"
+	default:
+		return "unknown"
+	}
+}
 
 // Placement is the placement of an application.
 type Placement struct {
@@ -93,7 +102,7 @@ func parseContainerType(containerType instance.ContainerType) (ContainerType, er
 	case instance.LXD:
 		return ContainerTypeLXD, nil
 	default:
-		return 0, errors.Errorf("container type %q not supported", containerType)
+		return ContainerTypeUnknown, errors.Errorf("container type %q not supported", containerType)
 	}
 }
 

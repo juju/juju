@@ -29,9 +29,9 @@ import (
 // These consts are the sequence namespaces used to generate
 // monotonically increasing ints to use for storage entity IDs.
 const (
-	filesystemNamespace = "filesystem"
-	volumeNamespace     = "volume"
-	storageNamespace    = "storage"
+	filesystemNamespace = domainsequence.StaticNamespace("filesystem")
+	volumeNamespace     = domainsequence.StaticNamespace("volume")
+	storageNamespace    = domainsequence.StaticNamespace("storage")
 )
 
 func (st *State) loadStoragePoolUUIDByName(ctx context.Context, tx *sqlair.TX, poolNames []string) (map[string]string, error) {

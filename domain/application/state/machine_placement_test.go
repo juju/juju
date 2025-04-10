@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/placement"
+	"github.com/juju/juju/domain/sequence"
 	"github.com/juju/juju/internal/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -211,7 +212,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainer(c *gc.C) {
 		var err error
 		netNode, err = s.state.placeNetNodeMachines(ctx, tx, placement.Placement{
 			Type:      placement.PlacementTypeContainer,
-			Directive: "lxd",
+			Container: placement.ContainerTypeLXD,
 		})
 		return err
 	})
@@ -242,7 +243,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerMultipleTimes(c *gc.C)
 		for range total {
 			netNode, err := s.state.placeNetNodeMachines(ctx, tx, placement.Placement{
 				Type:      placement.PlacementTypeContainer,
-				Directive: "lxd",
+				Container: placement.ContainerTypeLXD,
 			})
 			if err != nil {
 				return err
@@ -292,7 +293,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerMultipleTimesWithGaps(
 			for range stepTotal {
 				netNode, err := s.state.placeNetNodeMachines(ctx, tx, placement.Placement{
 					Type:      placement.PlacementTypeContainer,
-					Directive: "lxd",
+					Container: placement.ContainerTypeLXD,
 				})
 				if err != nil {
 					return err
@@ -433,7 +434,8 @@ func (s *unitStateSuite) ensureSequenceForMachineNamespace(c *gc.C, expected int
 func (s *unitStateSuite) ensureSequenceForContainerNamespace(c *gc.C, parentName machine.Name, expected int) {
 	var seq int
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRow("SELECT value FROM sequence WHERE namespace = ?", fmt.Sprintf(containerSequenceNamespace, parentName)).Scan(&seq)
+		namespace := sequence.MakePrefixNamespace(containerSequenceNamespace, parentName.String()).String()
+		err := tx.QueryRow("SELECT value FROM sequence WHERE namespace = ?", namespace).Scan(&seq)
 		if err != nil {
 			return err
 		}

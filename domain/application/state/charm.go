@@ -21,9 +21,9 @@ import (
 )
 
 const (
-	localCharmSequenceNamespace = "local_charm_sequence"
-	machineSequenceNamespace    = "machine_sequence"
-	containerSequenceNamespace  = "container_sequence_%s"
+	localCharmSequenceNamespace = domainsequence.StaticNamespace("local_charm_sequence")
+	machineSequenceNamespace    = domainsequence.StaticNamespace("machine_sequence")
+	containerSequenceNamespace  = domainsequence.StaticNamespace("container_sequence")
 )
 
 // GetCharmID returns the charm ID by the natural key, for a
@@ -669,7 +669,7 @@ WHERE uuid = $charmID.uuid;
 		// If the charm requires sequencing, get the next revision from
 		// the reference name.
 		if requiresSequencing {
-			rev, err := domainsequence.NextValue(ctx, s, tx, fmt.Sprintf("%s_%s", localCharmSequenceNamespace, ch.ReferenceName))
+			rev, err := domainsequence.NextValue(ctx, s, tx, domainsequence.MakePrefixNamespace(localCharmSequenceNamespace, ch.ReferenceName))
 			if err != nil {
 				return errors.Errorf("getting next charm revision: %w", err)
 			}

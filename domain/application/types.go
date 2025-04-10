@@ -72,13 +72,8 @@ type AddApplicationArg struct {
 	// EndpointBindings is a map to bind application endpoint by name to a
 	// specific space. The default space is referenced by an empty key, if any.
 	EndpointBindings map[string]network.SpaceName
-<<<<<<< HEAD
 	// Devices contains the device constraints for the application.
 	Devices map[string]devices.Constraints
-=======
-	// Placement is the placement of the application units.
-	Placement placement.Placement
->>>>>>> 65d505b54f (feat: assign units to machines)
 }
 
 // AddApplicationResourceArg defines the arguments required to add a resource to an application.

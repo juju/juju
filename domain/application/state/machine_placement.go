@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
 	"github.com/canonical/sqlair"
@@ -53,7 +52,11 @@ func (st *State) placeNetNodeMachines(ctx context.Context, tx *sqlair.TX, direct
 		if err != nil {
 			return "", errors.Capture(err)
 		}
-		childNetNode, err := st.insertChildMachineForContainerPlacement(ctx, tx, machineUUID, machineName, directive.Directive)
+
+		// Use the container type to determine the scope of the container.
+		// For example, lxd.
+		scope := directive.Container.String()
+		childNetNode, err := st.insertChildMachineForContainerPlacement(ctx, tx, machineUUID, machineName, scope)
 		if err != nil {
 			return "", errors.Errorf("inserting child machine for container placement: %w", err)
 		}
@@ -223,7 +226,7 @@ func (st *State) nextMachineSequence(ctx context.Context, tx *sqlair.TX) (machin
 }
 
 func (st *State) nextContainerSequence(ctx context.Context, tx *sqlair.TX, scope string, parentName machine.Name) (machine.Name, error) {
-	seq, err := sequence.NextValue(ctx, st, tx, fmt.Sprintf(containerSequenceNamespace, parentName))
+	seq, err := sequence.NextValue(ctx, st, tx, sequence.MakePrefixNamespace(containerSequenceNamespace, parentName.String()))
 	if err != nil {
 		return "", errors.Errorf("getting next container machine sequence: %w", err)
 	}

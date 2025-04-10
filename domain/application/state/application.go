@@ -280,7 +280,7 @@ func (st *State) insertApplicationUnits(
 		insertUnits[i] = application.InsertUnitArg{
 			UnitName:         unit.UnitName,
 			Constraints:      unit.Constraints,
-			Placement:        args.Placement,
+			Placement:        unit.Placement,
 			Storage:          args.Storage,
 			StoragePoolKind:  args.StoragePoolKind,
 			StorageParentDir: args.StorageParentDir,
