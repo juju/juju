@@ -16,6 +16,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	coreconstraints "github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/devices"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -1190,6 +1191,108 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageValidates(c *gc.C
 		},
 	}, a)
 	c.Assert(err, gc.ErrorMatches, `.*invalid storage directives: charm "mine" has no store called "logs"`)
+}
+
+func (s *providerServiceSuite) TestDeviceConstraintsValidateNotInCharmMeta(c *gc.C) {
+	deviceConstraints := map[string]devices.Constraints{
+		"dev0": {
+			Type:  "type0",
+			Count: 42,
+		},
+	}
+	charmMeta := &charm.Meta{
+		Name: "foo",
+		Devices: map[string]charm.Device{
+			"dev1": {
+				Description: "dev1 description",
+				Type:        "type1",
+				CountMin:    1,
+			},
+		},
+	}
+
+	err := validateDeviceConstraints(deviceConstraints, charmMeta)
+	c.Assert(err, gc.ErrorMatches, "charm \"foo\" has no device called \"dev0\"")
+}
+
+func (s *providerServiceSuite) TestDeviceConstraintsValidateCount(c *gc.C) {
+	deviceConstraints := map[string]devices.Constraints{
+		"dev0": {
+			Type:  "type0",
+			Count: 42,
+		},
+	}
+	charmMeta := &charm.Meta{
+		Name: "foo",
+		Devices: map[string]charm.Device{
+			"dev0": {
+				Description: "dev0 description",
+				Type:        "type0",
+				CountMin:    43,
+			},
+		},
+	}
+
+	err := validateDeviceConstraints(deviceConstraints, charmMeta)
+	c.Assert(err, gc.ErrorMatches, "minimum device count is 43, 42 specified")
+}
+
+func (s *providerServiceSuite) TestDeviceConstraintsMissingFromMeta(c *gc.C) {
+	deviceConstraints := map[string]devices.Constraints{
+		"dev0": {
+			Type:  "type0",
+			Count: 43,
+		},
+	}
+	charmMeta := &charm.Meta{
+		Name: "foo",
+		Devices: map[string]charm.Device{
+			"dev0": {
+				Description: "dev0 description",
+				Type:        "type0",
+				CountMin:    42,
+			},
+			"dev1": {
+				Description: "dev1 description",
+				Type:        "type1",
+				CountMin:    1,
+			},
+		},
+	}
+
+	err := validateDeviceConstraints(deviceConstraints, charmMeta)
+	c.Assert(err, gc.ErrorMatches, "no constraints specified for device \"dev1\"")
+}
+
+func (s *providerServiceSuite) TestDeviceConstraintsValid(c *gc.C) {
+	deviceConstraints := map[string]devices.Constraints{
+		"dev0": {
+			Type:  "type0",
+			Count: 43,
+		},
+		"dev1": {
+			Type:  "type1",
+			Count: 2,
+		},
+	}
+	charmMeta := &charm.Meta{
+		Name: "foo",
+		Devices: map[string]charm.Device{
+			"dev0": {
+				Description: "dev0 description",
+				Type:        "type0",
+				CountMin:    42,
+			},
+			"dev1": {
+				Description: "dev1 description",
+				Type:        "type1",
+				CountMin:    1,
+			},
+		},
+	}
+
+	err := validateDeviceConstraints(deviceConstraints, charmMeta)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *providerServiceSuite) TestGetSupportedFeatures(c *gc.C) {

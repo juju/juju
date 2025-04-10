@@ -3239,29 +3239,13 @@ func (s *applicationStateSuite) TestGetDeviceConstraints(c *gc.C) {
 	id := s.createApplication(c, "foo", life.Alive)
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		insertDeviceConstraint0 := `INSERT INTO device_constraint (uuid, application_uuid, name, type, count) VALUES (?, ?, ?, ?, ?)`
-		_, err := tx.ExecContext(ctx, insertDeviceConstraint0, "dev0-uuid", id.String(), "dev0", "type0", 42)
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, insertDeviceConstraint0, "dev1-uuid", id.String(), "dev1", "type1", 3)
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, insertDeviceConstraint0, "dev2-uuid", id.String(), "dev2", "type2", 1974)
+		_, err := tx.ExecContext(ctx, insertDeviceConstraint0, "dev3-uuid", id.String(), "dev3", "type3", 666)
 		if err != nil {
 			return err
 		}
 
 		insertDeviceConstraintAttrs0 := `INSERT INTO device_constraint_attribute (device_constraint_uuid, "key", value) VALUES (?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertDeviceConstraintAttrs0, "dev0-uuid", "k0", "v0")
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, insertDeviceConstraintAttrs0, "dev0-uuid", "k1", "v1")
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, insertDeviceConstraintAttrs0, "dev1-uuid", "k2", "v2")
+		_, err = tx.ExecContext(ctx, insertDeviceConstraintAttrs0, "dev3-uuid", "k666", "v666")
 		if err != nil {
 			return err
 		}
@@ -3271,7 +3255,8 @@ func (s *applicationStateSuite) TestGetDeviceConstraints(c *gc.C) {
 
 	cons, err := s.state.GetDeviceConstraints(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cons, gc.HasLen, 3)
+	c.Check(cons, gc.HasLen, 4)
+	// Device constraint added by createApplication().
 	c.Check(cons["dev0"].Type, gc.Equals, devices.DeviceType("type0"))
 	c.Check(cons["dev0"].Count, gc.Equals, 42)
 	c.Check(cons["dev0"].Attributes, gc.DeepEquals, map[string]string{
@@ -3284,6 +3269,10 @@ func (s *applicationStateSuite) TestGetDeviceConstraints(c *gc.C) {
 	c.Check(cons["dev2"].Type, gc.Equals, devices.DeviceType("type2"))
 	c.Check(cons["dev2"].Count, gc.Equals, 1974)
 	c.Check(cons["dev2"].Attributes, gc.DeepEquals, map[string]string{})
+	// Device constraint added manually via inserts.
+	c.Check(cons["dev3"].Type, gc.Equals, devices.DeviceType("type3"))
+	c.Check(cons["dev3"].Count, gc.Equals, 666)
+	c.Check(cons["dev3"].Attributes, gc.DeepEquals, map[string]string{"k666": "v666"})
 }
 
 func (s *applicationStateSuite) TestGetDeviceConstraintsFromCreatedApp(c *gc.C) {

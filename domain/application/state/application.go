@@ -365,6 +365,9 @@ WHERE application_uuid = $applicationDetails.uuid
 	}
 	app.UUID = appUUID
 
+	if err := st.deleteDeviceConstraintAttributes(ctx, tx, appUUID); err != nil {
+		return errors.Errorf("deleting device constraint attributes for application %q: %w", name, err)
+	}
 	// delete application endpoints
 	if err := st.deleteApplicationEndpoints(ctx, tx, appUUID); err != nil {
 		return errors.Errorf("deleting application endpoints for application %q: %w", name, err)
@@ -386,10 +389,6 @@ WHERE application_uuid = $applicationDetails.uuid
 
 	if err := st.deleteCloudServices(ctx, tx, appUUID); err != nil {
 		return errors.Errorf("deleting cloud service for application %q: %w", name, err)
-	}
-
-	if err := st.deleteDeviceConstraintAttributes(ctx, tx, appUUID); err != nil {
-		return errors.Errorf("deleting device constraint attributes for application %q: %w", name, err)
 	}
 
 	// TODO(units) - fix these tables to allow deletion of rows

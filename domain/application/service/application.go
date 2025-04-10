@@ -438,6 +438,29 @@ func validateResolvedResources(charmResources map[string]charmresource.Meta, res
 	return nil
 }
 
+func validateDeviceConstraints(cons map[string]devices.Constraints, charmMeta *internalcharm.Meta) error {
+	// For each provided device constraint, we must check that the charm for the
+	// application to be created has the same device (same name) defined.
+	for name, deviceConstraint := range cons {
+		charmDevice, ok := charmMeta.Devices[name]
+		if !ok {
+			return errors.Errorf("charm %q has no device called %q", charmMeta.Name, name)
+		}
+		// Ensure the provided count is valid.
+		if charmDevice.CountMin > 0 && int64(deviceConstraint.Count) < charmDevice.CountMin {
+			return errors.Errorf("minimum device count is %d, %d specified", charmDevice.CountMin, deviceConstraint.Count)
+		}
+	}
+
+	// Ensure all charm devices have device constraint specified.
+	for name, charmDevice := range charmMeta.Devices {
+		if _, ok := cons[name]; !ok && charmDevice.CountMin > 0 {
+			return errors.Errorf("no constraints specified for device %q", name)
+		}
+	}
+	return nil
+}
+
 func makeCreateApplicationArgs(
 	ctx context.Context,
 	state State,
