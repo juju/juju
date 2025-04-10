@@ -1090,6 +1090,8 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"api-caller",
 		"api-config-watcher",
 		"is-controller-flag",
+		"jwt-parser",
+		"state",
 		"state-config-watcher",
 	},
 }
@@ -1515,6 +1517,8 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"api-caller",
 		"api-config-watcher",
 		"is-controller-flag",
+		"jwt-parser",
+		"state",
 		"state-config-watcher",
 	},
 }

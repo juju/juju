@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -55,6 +56,9 @@ type ManifoldConfig struct {
 
 	// Logger is the logger to use for the worker.
 	Logger Logger
+
+	// JWTParserName is the name of the JWT parser worker.
+	JWTParserName string
 }
 
 // Validate validates the manifold configuration.
@@ -74,6 +78,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.NewSSHServerListener == nil {
 		return errors.NotValidf("nil NewSSHServerListener")
 	}
+	if config.JWTParserName == "" {
+		return errors.NotValidf("empty JWTParserName")
+	}
 	return nil
 }
 
@@ -83,6 +90,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.APICallerName,
+			config.JWTParserName,
 		},
 		Start: config.startWrapperWorker,
 	}
@@ -111,12 +119,18 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 		return nil, errors.Trace(err)
 	}
 
+	var jwtParser *jwtparser.Parser
+	if err := context.Get(config.JWTParserName, &jwtParser); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w, err := config.NewServerWrapperWorker(ServerWrapperWorkerConfig{
 		NewServerWorker:      config.NewServerWorker,
 		Logger:               config.Logger,
 		FacadeClient:         client,
 		NewSSHServerListener: config.NewSSHServerListener,
 		SessionHandler:       &stubSessionHandler{},
+		JWTParser:            jwtParser,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
