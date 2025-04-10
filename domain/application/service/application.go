@@ -16,6 +16,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	coreconstraints "github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/devices"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
@@ -314,6 +315,9 @@ type ApplicationState interface {
 	// SpacesExist returns an error satisfying [networkerrors.SpaceNotFound] if any
 	// of the provided spaces do not exist.
 	SpacesExist(ctx context.Context, spaceUUIDs set.Strings) error
+
+	// GetDeviceConstraints returns the device constraints for an application.
+	GetDeviceConstraints(ctx context.Context, appID coreapplication.ID) (map[string]devices.Constraints, error)
 }
 
 func validateCharmAndApplicationParams(
@@ -517,6 +521,7 @@ func makeCreateApplicationArgs(
 		Config:            applicationConfig,
 		Settings:          args.ApplicationSettings,
 		Status:            applicationStatus,
+		Devices:           args.Devices,
 	}, nil
 }
 
@@ -1190,6 +1195,19 @@ func (s *Service) GetApplicationConstraints(ctx context.Context, appID coreappli
 
 	cons, err := s.st.GetApplicationConstraints(ctx, appID)
 	return constraints.EncodeConstraints(cons), errors.Capture(err)
+}
+
+// GetDeviceConstraints returns the device constraints for an application.
+//
+// If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
+// If the application is not found, [applicationerrors.ApplicationNotFound]
+// is returned.
+func (s *Service) GetDeviceConstraints(ctx context.Context, name string) (map[string]devices.Constraints, error) {
+	appID, err := s.st.GetApplicationIDByName(ctx, name)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return s.st.GetDeviceConstraints(ctx, appID)
 }
 
 func getTrustSettingFromConfig(cfg map[string]string) (*bool, error) {

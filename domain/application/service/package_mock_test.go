@@ -20,6 +20,7 @@ import (
 	changestream "github.com/juju/juju/core/changestream"
 	charm "github.com/juju/juju/core/charm"
 	constraints "github.com/juju/juju/core/constraints"
+	devices "github.com/juju/juju/core/devices"
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
 	semversion "github.com/juju/juju/core/semversion"
@@ -1904,6 +1905,45 @@ func (c *MockStateGetCharmModifiedVersionCall) Do(f func(context.Context, applic
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetCharmModifiedVersionCall) DoAndReturn(f func(context.Context, application.ID) (int, error)) *MockStateGetCharmModifiedVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetDeviceConstraints mocks base method.
+func (m *MockState) GetDeviceConstraints(ctx context.Context, appID application.ID) (map[string]devices.Constraints, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDeviceConstraints", ctx, appID)
+	ret0, _ := ret[0].(map[string]devices.Constraints)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDeviceConstraints indicates an expected call of GetDeviceConstraints.
+func (mr *MockStateMockRecorder) GetDeviceConstraints(ctx, appID any) *MockStateGetDeviceConstraintsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDeviceConstraints", reflect.TypeOf((*MockState)(nil).GetDeviceConstraints), ctx, appID)
+	return &MockStateGetDeviceConstraintsCall{Call: call}
+}
+
+// MockStateGetDeviceConstraintsCall wrap *gomock.Call
+type MockStateGetDeviceConstraintsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetDeviceConstraintsCall) Return(arg0 map[string]devices.Constraints, arg1 error) *MockStateGetDeviceConstraintsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetDeviceConstraintsCall) Do(f func(context.Context, application.ID) (map[string]devices.Constraints, error)) *MockStateGetDeviceConstraintsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetDeviceConstraintsCall) DoAndReturn(f func(context.Context, application.ID) (map[string]devices.Constraints, error)) *MockStateGetDeviceConstraintsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

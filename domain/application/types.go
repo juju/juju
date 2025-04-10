@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -72,6 +73,8 @@ type AddApplicationArg struct {
 	// EndpointBindings is a map to bind application endpoint by name to a
 	// specific space. The default space is referenced by an empty key, if any.
 	EndpointBindings map[string]network.SpaceName
+	// Devices contains the device constraints for the application.
+	Devices map[string]devices.Constraints
 }
 
 // AddApplicationResourceArg defines the arguments required to add a resource to an application.

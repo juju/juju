@@ -1152,7 +1152,6 @@ type setDeviceConstraint struct {
 
 type setDeviceConstraintAttribute struct {
 	DeviceConstraintUUID string `db:"device_constraint_uuid"`
-	ApplicationUUID      string `db:"application_uuid"`
 	AttributeKey         string `db:"key"`
 	AttributeValue       string `db:"value"`
 }

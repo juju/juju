@@ -7,6 +7,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
@@ -73,6 +74,9 @@ type AddApplicationArgs struct {
 	// EndpointBindings is a map to bind application endpoint by name to a
 	// specific space. The default space is referenced by an empty key, if any.
 	EndpointBindings map[string]network.SpaceName
+
+	// Devices contains the device constraints for the application.
+	Devices map[string]devices.Constraints
 }
 
 // AddressParams contains parameters for a unit/cloud container address.
