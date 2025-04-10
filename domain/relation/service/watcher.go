@@ -465,18 +465,11 @@ func (w *subordinateLifeSuspendedStatusWatcher) watchNewRelation(
 
 	// Only allow container relations if the other end is our
 	// principal or the other end is a subordinate.
-	otherApplication, err := w.s.st.GetOtherRelatedEndpointApplicationData(ctx, relUUID, w.appID)
+	otherApp, err := w.s.st.GetOtherRelatedEndpointApplicationData(ctx, relUUID, w.appID)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
-	if otherApplication.ApplicationID == w.parentAppID {
-		return true, nil
-	}
-	if otherApplication.Subordinate {
-		return true, nil
-	}
-	
-	return false, nil
+	return otherApp.ApplicationID == w.parentAppID || otherApp.Subordinate, nil
 }
 
 // GetFirstFilterOption returns a predicate filter for the lifeTableNamespace.
