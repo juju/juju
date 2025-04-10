@@ -254,6 +254,28 @@ WHERE  uuid = $objectStoreUUID.uuid
 // It returns a slice of agent binary metadata.
 // An empty slice is returned if no agent binaries are found.
 func (s *State) ListAgentBinaries(ctx context.Context) ([]agentbinary.Metadata, error) {
-	// TODO: Implement this function to list all agent binaries.
-	return nil, errors.New("not implemented")
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT &metadataRecord.*
+FROM   v_agent_binary_store`, metadataRecord{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var records metadataRecords
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt).GetAll(&records)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// No agent binaries found.
+			return nil
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return nil, errors.Errorf("listing agent binaries: %w", err)
+	}
+	return records.toMetadata(), nil
 }
