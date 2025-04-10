@@ -17,7 +17,6 @@ import (
 // pool.
 type StatePool interface {
 	Get(string) (State, error)
-	ControllerModel() (Model, error)
 }
 
 // State represents a point of use interface for modelling a current model.

@@ -19,7 +19,7 @@ func (*modelUpgradeSuite) TestStub(c *gc.C) {
 - Upgrade a model that both as an invalid tag and also does not match the model uuid of the current facade scope.
 - Upgrading a model when you don't have permission to.
 - Upgrading a model when the block checker says that it is not allowed.
-- Happy path test of upgrading the controller mode. Including dry run.
+- Happy path test of upgrading the controller model. Including dry run.
 - Upgrading a model when the controller that it lives in is dying.
 - Upgrade validation checks fail for the controller model.
 - Upgrading a model to a different version that doesn't match the controller.
