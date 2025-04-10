@@ -23,9 +23,9 @@ type RelationState interface {
 	// RelationExists returns true if a relation exists with the input UUID.
 	RelationExists(ctx context.Context, rUUID string) (bool, error)
 
-	// RelationAdvanceLife ensures that there is no relation
+	// EnsureRelationNotAlive ensures that there is no relation
 	// identified by the input UUID, that is still alive.
-	RelationAdvanceLife(ctx context.Context, rUUID string) error
+	EnsureRelationNotAlive(ctx context.Context, rUUID string) error
 
 	// RelationScheduleRemoval schedules a removal job for the relation with the
 	// input UUID, qualified with the input force boolean.
@@ -66,7 +66,7 @@ func (s *Service) RemoveRelation(ctx context.Context, relUUID corerelation.UUID,
 		return "", errors.Errorf("relation %q does not exist", relUUID).Add(relationerrors.RelationNotFound)
 	}
 
-	if err := s.st.RelationAdvanceLife(ctx, relUUID.String()); err != nil {
+	if err := s.st.EnsureRelationNotAlive(ctx, relUUID.String()); err != nil {
 		return "", errors.Errorf("relation %q: %w", relUUID, err)
 	}
 

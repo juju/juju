@@ -156,6 +156,44 @@ func (c *MockStateDeleteRelationUnitsCall) DoAndReturn(f func(context.Context, s
 	return c
 }
 
+// EnsureRelationNotAlive mocks base method.
+func (m *MockState) EnsureRelationNotAlive(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnsureRelationNotAlive", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureRelationNotAlive indicates an expected call of EnsureRelationNotAlive.
+func (mr *MockStateMockRecorder) EnsureRelationNotAlive(arg0, arg1 any) *MockStateEnsureRelationNotAliveCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureRelationNotAlive", reflect.TypeOf((*MockState)(nil).EnsureRelationNotAlive), arg0, arg1)
+	return &MockStateEnsureRelationNotAliveCall{Call: call}
+}
+
+// MockStateEnsureRelationNotAliveCall wrap *gomock.Call
+type MockStateEnsureRelationNotAliveCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateEnsureRelationNotAliveCall) Return(arg0 error) *MockStateEnsureRelationNotAliveCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateEnsureRelationNotAliveCall) Do(f func(context.Context, string) error) *MockStateEnsureRelationNotAliveCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateEnsureRelationNotAliveCall) DoAndReturn(f func(context.Context, string) error) *MockStateEnsureRelationNotAliveCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetAllJobs mocks base method.
 func (m *MockState) GetAllJobs(arg0 context.Context) ([]removal.Job, error) {
 	m.ctrl.T.Helper()
@@ -268,44 +306,6 @@ func (c *MockStateNamespaceForWatchRemovalsCall) Do(f func() string) *MockStateN
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateNamespaceForWatchRemovalsCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchRemovalsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// RelationAdvanceLife mocks base method.
-func (m *MockState) RelationAdvanceLife(arg0 context.Context, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RelationAdvanceLife", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RelationAdvanceLife indicates an expected call of RelationAdvanceLife.
-func (mr *MockStateMockRecorder) RelationAdvanceLife(arg0, arg1 any) *MockStateRelationAdvanceLifeCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelationAdvanceLife", reflect.TypeOf((*MockState)(nil).RelationAdvanceLife), arg0, arg1)
-	return &MockStateRelationAdvanceLifeCall{Call: call}
-}
-
-// MockStateRelationAdvanceLifeCall wrap *gomock.Call
-type MockStateRelationAdvanceLifeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateRelationAdvanceLifeCall) Return(arg0 error) *MockStateRelationAdvanceLifeCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateRelationAdvanceLifeCall) Do(f func(context.Context, string) error) *MockStateRelationAdvanceLifeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateRelationAdvanceLifeCall) DoAndReturn(f func(context.Context, string) error) *MockStateRelationAdvanceLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -49,9 +49,9 @@ WHERE  uuid = $entityUUID.uuid`, relationUUID)
 	return relationExists, errors.Capture(err)
 }
 
-// RelationAdvanceLife ensures that there is no relation
+// EnsureRelationNotAlive ensures that there is no relation
 // identified by the input UUID, that is still alive.
-func (st *State) RelationAdvanceLife(ctx context.Context, rUUID string) error {
+func (st *State) EnsureRelationNotAlive(ctx context.Context, rUUID string) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)

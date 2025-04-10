@@ -40,14 +40,14 @@ func (s *relationSuite) TestRelationExists(c *gc.C) {
 	c.Check(exists, gc.Equals, false)
 }
 
-func (s *relationSuite) TestRelationAdvanceLifeNormalSuccess(c *gc.C) {
+func (s *relationSuite) TestEnsureRelationNotAliveNormalSuccess(c *gc.C) {
 	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
 		"some-relation-uuid", 0, "some-relation-id")
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err = st.RelationAdvanceLife(context.Background(), "some-relation-uuid")
+	err = st.EnsureRelationNotAlive(context.Background(), "some-relation-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Relation had life "alive" and should now be "dying".
@@ -58,14 +58,14 @@ func (s *relationSuite) TestRelationAdvanceLifeNormalSuccess(c *gc.C) {
 	c.Check(lifeID, gc.Equals, 1)
 }
 
-func (s *relationSuite) TestRelationAdvanceLifeDyingSuccess(c *gc.C) {
+func (s *relationSuite) TestEnsureRelationNotAliveDyingSuccess(c *gc.C) {
 	_, err := s.DB().Exec("INSERT INTO relation (uuid, life_id, relation_id) VALUES (?, ?, ?)",
 		"some-relation-uuid", 1, "some-relation-id")
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err = st.RelationAdvanceLife(context.Background(), "some-relation-uuid")
+	err = st.EnsureRelationNotAlive(context.Background(), "some-relation-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Relation was already "dying" and should be unchanged.
@@ -76,11 +76,11 @@ func (s *relationSuite) TestRelationAdvanceLifeDyingSuccess(c *gc.C) {
 	c.Check(lifeID, gc.Equals, 1)
 }
 
-func (s *relationSuite) TestRelationAdvanceLifeNotExistsSuccess(c *gc.C) {
+func (s *relationSuite) TestEnsureRelationNotAliveNotExistsSuccess(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// We don't care if it's already gone.
-	err := st.RelationAdvanceLife(context.Background(), "some-relation-uuid")
+	err := st.EnsureRelationNotAlive(context.Background(), "some-relation-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
