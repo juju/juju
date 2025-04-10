@@ -132,7 +132,6 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		CharmConfig:       dt.charmSettings,
 		CharmOrigin:       stOrigin,
 		Constraints:       dt.constraints,
-		Devices:           stateDeviceConstraints(arg.Devices),
 		EndpointBindings:  dt.endpoints,
 		Name:              dt.applicationName,
 		NumUnits:          dt.numUnits,
@@ -165,6 +164,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 			},
 			ResolvedResources: dt.resolvedResources,
 			EndpointBindings:  transformBindings(dt.endpoints),
+			Devices:           arg.Devices,
 		}, unitArgs...)
 	if err != nil {
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}

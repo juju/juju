@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -91,6 +92,13 @@ type ApplicationService interface {
 
 	// WatchApplication returns a NotifyWatcher for changes to the application.
 	WatchApplication(ctx context.Context, name string) (watcher.NotifyWatcher, error)
+
+	// GetDeviceConstraints returns the device constraints for an application.
+	//
+	// If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
+	// If the application is not found, [applicationerrors.ApplicationNotFound]
+	// is returned.
+	GetDeviceConstraints(ctx context.Context, name string) (map[string]devices.Constraints, error)
 }
 
 type StatusService interface {

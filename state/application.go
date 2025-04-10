@@ -2166,23 +2166,11 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 	return cons, nil
 }
 
-// DeviceConstraints returns the device constraints for the application.
-func (a *Application) DeviceConstraints() (map[string]DeviceConstraints, error) {
-	cons, err := readDeviceConstraints(a.st, a.deviceConstraintsKey())
-	if errors.Is(err, errors.NotFound) {
-		return nil, nil
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return cons, nil
-}
-
 type addApplicationOpsArgs struct {
 	applicationDoc    *applicationDoc
 	statusDoc         statusDoc
 	constraints       constraints.Value
 	storage           map[string]StorageConstraints
-	devices           map[string]DeviceConstraints
 	applicationConfig map[string]interface{}
 	charmConfig       map[string]interface{}
 	operatorStatus    *statusDoc
@@ -2198,12 +2186,10 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 	charmConfigKey := app.charmConfigKey()
 	applicationConfigKey := app.applicationConfigKey()
 	storageConstraintsKey := app.storageConstraintsKey()
-	deviceConstraintsKey := app.deviceConstraintsKey()
 
 	ops := []txn.Op{
 		createConstraintsOp(globalKey, args.constraints),
 		createStorageConstraintsOp(storageConstraintsKey, args.storage),
-		createDeviceConstraintsOp(deviceConstraintsKey, args.devices),
 		createSettingsOp(settingsC, charmConfigKey, args.charmConfig),
 		createSettingsOp(settingsC, applicationConfigKey, args.applicationConfig),
 		createStatusOp(mb, globalKey, args.statusDoc),
@@ -2426,9 +2412,6 @@ func finalAppCharmRemoveOps(appName string, curl *string) []txn.Op {
 	// ensure removing storage constraints doc
 	storageConstraintsKey := applicationStorageConstraintsKey(appName, curl)
 	removeStorageConstraintsOp := removeStorageConstraintsOp(storageConstraintsKey)
-	// ensure removing device constraints doc
-	deviceConstraintsKey := applicationDeviceConstraintsKey(appName, curl)
-	removeDeviceConstraintsOp := removeDeviceConstraintsOp(deviceConstraintsKey)
 
-	return []txn.Op{removeSettingsOp, removeStorageConstraintsOp, removeDeviceConstraintsOp}
+	return []txn.Op{removeSettingsOp, removeStorageConstraintsOp}
 }
