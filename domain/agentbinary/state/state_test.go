@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/sha512"
+	"database/sql"
 	"encoding/hex"
 	"io"
 	"strings"
@@ -262,4 +263,49 @@ func (s *stateSuite) TestGetObjectUUID(c *gc.C) {
 func (s *stateSuite) TestGetObjectUUIDFailedObjectNotFound(c *gc.C) {
 	_, err := s.state.GetObjectUUID(context.Background(), "non-existent-path")
 	c.Check(err, jc.ErrorIs, agentbinaryerrors.ObjectNotFound)
+}
+
+func getMetadata(c *gc.C, db *sql.DB, objStoreUUID objectstore.UUID) agentbinary.Metadata {
+	var data agentbinary.Metadata
+	err := db.QueryRow(`
+SELECT version, architecture_name, size, sha_256
+FROM   v_agent_binary_store
+WHERE  object_store_uuid = ?`, objStoreUUID).Scan(&data.Version, &data.Arch, &data.Size, &data.SHA256)
+	c.Assert(err, gc.IsNil)
+	return data
+}
+
+func (s *stateSuite) TestListAgentBinaries(c *gc.C) {
+	_ = s.addArchitecture(c, "amd64")
+
+	objStoreUUID, _ := s.addObjectStore(c)
+	err := s.state.RegisterAgentBinary(context.Background(), agentbinary.RegisterAgentBinaryArg{
+		Version:         "4.0.0",
+		Arch:            "amd64",
+		ObjectStoreUUID: objStoreUUID,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	binary1 := getMetadata(c, s.DB(), objStoreUUID)
+
+	objStoreUUID, _ = s.addObjectStore(c)
+	err = s.state.RegisterAgentBinary(context.Background(), agentbinary.RegisterAgentBinaryArg{
+		Version:         "4.0.1",
+		Arch:            "amd64",
+		ObjectStoreUUID: objStoreUUID,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	binary2 := getMetadata(c, s.DB(), objStoreUUID)
+
+	binaries, err := s.state.ListAgentBinaries(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(binaries, jc.SameContents, []agentbinary.Metadata{
+		binary1,
+		binary2,
+	})
+}
+
+func (s *stateSuite) TestListAgentBinariesEmpty(c *gc.C) {
+	binaries, err := s.state.ListAgentBinaries(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(binaries, gc.HasLen, 0)
 }
