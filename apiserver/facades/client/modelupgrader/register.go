@@ -41,7 +41,6 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	modelUUID := model.UUID()
 
 	systemState, err := ctx.StatePool().SystemState()
 	if err != nil {
@@ -64,7 +63,7 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 	controllerConfigService := domainServices.ControllerConfig()
 	controllerAgentService := domainServices.Agent()
 
-	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
+	urlGetter := common.NewToolsURLGetter(ctx.ModelUUID().String(), systemState)
 	toolsFinder := common.NewToolsFinder(controllerConfigService, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
 
 	modelAgentServiceGetter := func(modelID coremodel.UUID) ModelAgentService {
@@ -76,7 +75,8 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 	environsCloudSpecGetter := cloudspec.MakeCloudSpecGetter(pool, cloudService, credentialService, modelConfigServiceGetter)
 
 	return NewModelUpgraderAPI(
-		systemState.ControllerTag(),
+		ctx.ControllerUUID(),
+		ctx.ModelUUID(),
 		statePoolShim{StatePool: pool},
 		toolsFinder,
 		common.NewBlockChecker(domainServices.BlockCommand()),
@@ -86,6 +86,8 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 		modelAgentServiceGetter,
 		controllerAgentService,
 		controllerConfigService,
+		domainServices.Agent(),
+		domainServices.ModelInfo(),
 		domainServices.Upgrade(),
 		ctx.Logger().Child("modelupgrader"),
 	)
