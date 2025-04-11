@@ -5,9 +5,10 @@ package migrationtarget
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
+	"path/filepath"
 	"time"
 
 	"github.com/juju/description/v9"
@@ -22,7 +23,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/core/life"
-	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
@@ -438,19 +439,17 @@ func (api *API) LatestLogTime(ctx context.Context, args params.ModelArgs) (time.
 	}
 	defer release()
 
-	// Look up the last line in the model log file and get the timestamp.
-	modelLogFile := corelogger.ModelLogFile(api.logDir, corelogger.LoggerKey{
-		ModelUUID:  model.UUID(),
-		ModelName:  model.Name(),
-		ModelOwner: model.Owner().Id(),
-	})
+	// Look up the last line in the log file and get the timestamp.
+	// TODO (stickupkid): This should come from the logsink directly, to
+	// prevent unfettered access.
+	logFile := filepath.Join(api.logDir, "logsink.log")
 
-	f, err := os.Open(modelLogFile)
+	f, err := os.Open(logFile)
 	if err != nil && !os.IsNotExist(err) {
 		return time.Time{}, errors.Errorf(
-			"cannot open model %q log file %q: %w",
+			"cannot open %q log file %q: %w",
 			model.UUID(),
-			modelLogFile,
+			logFile,
 			err,
 		)
 	} else if err != nil {
@@ -463,9 +462,9 @@ func (api *API) LatestLogTime(ctx context.Context, args params.ModelArgs) (time.
 	fs, err := f.Stat()
 	if err != nil {
 		return time.Time{}, errors.Errorf(
-			"cannot interrogate model %q log file %q: %w",
+			"cannot interrogate %q log file %q: %w",
 			model.UUID(),
-			modelLogFile,
+			logFile,
 			err,
 		)
 	}
@@ -473,31 +472,30 @@ func (api *API) LatestLogTime(ctx context.Context, args params.ModelArgs) (time.
 
 	var lastTimestamp time.Time
 	for scanner.Scan() {
-		line := scanner.Text()
+		line := scanner.Bytes()
 		if len(line) == 0 {
 			continue
 		}
-		var err error
-		lastTimestamp, err = logLineTimestamp(line)
-		if err == nil {
-			break
+		logRecord, err := unmarshalLine(line)
+		if err != nil {
+			return time.Time{}, errors.Errorf(
+				"cannot unmarshal log line %q: %w", line, err,
+			)
+		} else if logRecord.ModelUUID != model.UUID() {
+			continue
 		}
-
+		lastTimestamp = logRecord.Time
+		break
 	}
 	return lastTimestamp, nil
 }
 
-func logLineTimestamp(line string) (time.Time, error) {
-	parts := strings.SplitN(line, " ", 7)
-	if len(parts) < 7 {
-		return time.Time{}, errors.Errorf("invalid log line %q", line)
+func unmarshalLine(line []byte) (logger.LogRecord, error) {
+	var logRecord logger.LogRecord
+	if err := json.Unmarshal(line, &logRecord); err != nil {
+		return logRecord, errors.Errorf("cannot unmarshal log line %q: %w", line, err)
 	}
-	timeStr := parts[1] + " " + parts[2]
-	timeStamp, err := time.Parse("2006-01-02 15:04:05", timeStr)
-	if err != nil {
-		return time.Time{}, errors.Errorf("invalid log timestamp %q: %w", timeStr, err)
-	}
-	return timeStamp, nil
+	return logRecord, nil
 }
 
 // AdoptResources asks the cloud provider to update the controller

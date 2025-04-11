@@ -10,7 +10,7 @@ import (
 )
 
 func NewHTTPHandlerForTest(
-	newLogWriteCloser NewLogWriteCloserFunc,
+	newLogWriter NewLogWriteFunc,
 	abort <-chan struct{},
 	ratelimit *RateLimitConfig,
 	metrics MetricsCollector,
@@ -18,12 +18,12 @@ func NewHTTPHandlerForTest(
 	makeChannel func() (chan struct{}, func()),
 ) http.Handler {
 	return &logSinkHandler{
-		newLogWriteCloser: newLogWriteCloser,
-		abort:             abort,
-		ratelimit:         ratelimit,
-		newStopChannel:    makeChannel,
-		metrics:           metrics,
-		modelUUID:         modelUUID,
+		newLogWriter:   newLogWriter,
+		abort:          abort,
+		ratelimit:      ratelimit,
+		newStopChannel: makeChannel,
+		metrics:        metrics,
+		modelUUID:      modelUUID,
 	}
 }
 
