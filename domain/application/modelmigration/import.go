@@ -178,6 +178,11 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			scaleState.ScaleTarget = provisioningState.ScaleTarget()
 		}
 
+		endpointBindings, err := i.importEndpointBindings(app, model.Spaces())
+		if err != nil {
+			return errors.Errorf("importing endpoint bindings: %w", err)
+		}
+
 		exposedEndpoints, err := i.importExposedEndpoints(ctx, app, model.Spaces())
 		if err != nil {
 			return errors.Errorf("importing exposed endpoints: %w", err)
@@ -191,6 +196,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			ApplicationSettings:    applicationSettings,
 			ApplicationConstraints: i.importApplicationConstraints(app),
 			ScaleState:             scaleState,
+			EndpointBindings:       endpointBindings,
 			ExposedEndpoints:       exposedEndpoints,
 
 			// ReferenceName is the name of the charm URL, not the application
@@ -661,6 +667,35 @@ func (i *importOperation) importCharmActions(data description.CharmActions) (*in
 	return &internalcharm.Actions{
 		ActionSpecs: actions,
 	}, nil
+}
+
+func (i *importOperation) importEndpointBindings(app description.Application, spaces []description.Space) (map[string]network.SpaceName, error) {
+	endpointBindings := make(map[string]network.SpaceName)
+	for endpoint, spaceID := range app.EndpointBindings() {
+		// We don't export the alpha space to the description model, so we
+		// must verify if the space ID is either the 4.0+ alpha space ID or
+		// the legacy ID ("0").
+		var spaceName string
+		if spaceID == network.AlphaSpaceId || spaceID == "0" {
+			spaceName = network.AlphaSpaceName
+		} else {
+			for _, spaceInfo := range spaces {
+				if spaceInfo.Id() == spaceID {
+					spaceName = spaceInfo.Name()
+					break
+				} else if spaceInfo.UUID() == spaceID {
+					// This means that the space was inserted from a 4.0+ model.
+					spaceName = spaceInfo.Name()
+					break
+				}
+			}
+			if spaceName == "" {
+				return nil, errors.Errorf("space with id %q not found", spaceID)
+			}
+		}
+		endpointBindings[endpoint] = network.SpaceName(spaceName)
+	}
+	return endpointBindings, nil
 }
 
 func (i *importOperation) importExposedEndpoints(ctx context.Context, app description.Application, spaces []description.Space) (map[string]application.ExposedEndpoint, error) {
