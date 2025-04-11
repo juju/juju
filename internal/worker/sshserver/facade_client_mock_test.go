@@ -83,45 +83,6 @@ func (c *MockFacadeClientControllerConfigCall) DoAndReturn(f func() (controller.
 	return c
 }
 
-// HostKeyForTarget mocks base method.
-func (m *MockFacadeClient) HostKeyForTarget(arg0 params.SSHHostKeyRequestArg) ([]byte, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HostKeyForTarget", arg0)
-	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// HostKeyForTarget indicates an expected call of HostKeyForTarget.
-func (mr *MockFacadeClientMockRecorder) HostKeyForTarget(arg0 any) *MockFacadeClientHostKeyForTargetCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HostKeyForTarget", reflect.TypeOf((*MockFacadeClient)(nil).HostKeyForTarget), arg0)
-	return &MockFacadeClientHostKeyForTargetCall{Call: call}
-}
-
-// MockFacadeClientHostKeyForTargetCall wrap *gomock.Call
-type MockFacadeClientHostKeyForTargetCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockFacadeClientHostKeyForTargetCall) Return(arg0 []byte, arg1 error) *MockFacadeClientHostKeyForTargetCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockFacadeClientHostKeyForTargetCall) Do(f func(params.SSHHostKeyRequestArg) ([]byte, error)) *MockFacadeClientHostKeyForTargetCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeClientHostKeyForTargetCall) DoAndReturn(f func(params.SSHHostKeyRequestArg) ([]byte, error)) *MockFacadeClientHostKeyForTargetCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ListPublicKeysForModel mocks base method.
 func (m *MockFacadeClient) ListPublicKeysForModel(arg0 params.ListAuthorizedKeysArgs) ([]ssh0.PublicKey, error) {
 	m.ctrl.T.Helper()
@@ -196,6 +157,45 @@ func (c *MockFacadeClientSSHServerHostKeyCall) Do(f func() (string, error)) *Moc
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockFacadeClientSSHServerHostKeyCall) DoAndReturn(f func() (string, error)) *MockFacadeClientSSHServerHostKeyCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// VirtualHostKey mocks base method.
+func (m *MockFacadeClient) VirtualHostKey(arg0 params.SSHVirtualHostKeyRequestArg) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VirtualHostKey", arg0)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// VirtualHostKey indicates an expected call of VirtualHostKey.
+func (mr *MockFacadeClientMockRecorder) VirtualHostKey(arg0 any) *MockFacadeClientVirtualHostKeyCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VirtualHostKey", reflect.TypeOf((*MockFacadeClient)(nil).VirtualHostKey), arg0)
+	return &MockFacadeClientVirtualHostKeyCall{Call: call}
+}
+
+// MockFacadeClientVirtualHostKeyCall wrap *gomock.Call
+type MockFacadeClientVirtualHostKeyCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockFacadeClientVirtualHostKeyCall) Return(arg0 []byte, arg1 error) *MockFacadeClientVirtualHostKeyCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockFacadeClientVirtualHostKeyCall) Do(f func(params.SSHVirtualHostKeyRequestArg) ([]byte, error)) *MockFacadeClientVirtualHostKeyCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockFacadeClientVirtualHostKeyCall) DoAndReturn(f func(params.SSHVirtualHostKeyRequestArg) ([]byte, error)) *MockFacadeClientVirtualHostKeyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

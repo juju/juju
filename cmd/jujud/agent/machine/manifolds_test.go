@@ -114,6 +114,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"secret-backend-rotate",
 			"ssh-authkeys-updater",
 			"ssh-identity-writer",
+			"ssh-tunneler",
 			"state",
 			"state-config-watcher",
 			"state-converter",
@@ -185,6 +186,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"secret-backend-rotate",
 			"ssh-identity-writer",
 			"ssh-server",
+			"ssh-tunneler",
 			"state",
 			"state-config-watcher",
 			"syslog",
@@ -262,6 +264,8 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"query-logger",
 		"state",
 		"state-config-watcher",
+		"ssh-server",
+		"ssh-tunneler",
 		"syslog",
 		"termination-signal-handler",
 		"migration-fortress",
@@ -279,7 +283,6 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"upgrade-steps-runner",
 		"upgrader",
 		"valid-credential-flag",
-		"ssh-server",
 	)
 	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
 		Agent: &mockAgent{},
@@ -317,6 +320,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"file-notify-watcher",
 		"control-socket",
 		"ssh-server",
+		"ssh-tunneler",
 	)
 
 	// Explicitly guarded by ifPrimaryController.
@@ -977,6 +981,23 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
+	"ssh-server": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"is-controller-flag",
+		"state-config-watcher",
+	},
+
+	"ssh-tunneler": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"clock",
+		"is-controller-flag",
+		"state-config-watcher",
+	},
+
 	"state": {"agent", "state-config-watcher"},
 
 	"state-config-watcher": {"agent"},
@@ -1083,14 +1104,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
-	},
-
-	"ssh-server": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"is-controller-flag",
-		"state-config-watcher",
 	},
 }
 
@@ -1447,6 +1460,23 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
+	"ssh-server": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"is-controller-flag",
+		"state-config-watcher",
+	},
+
+	"ssh-tunneler": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"clock",
+		"is-controller-flag",
+		"state-config-watcher",
+	},
+
 	"state": {"agent", "state-config-watcher"},
 
 	"state-config-watcher": {"agent"},
@@ -1508,14 +1538,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
-	},
-
-	"ssh-server": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"is-controller-flag",
-		"state-config-watcher",
 	},
 }
 

@@ -77,8 +77,8 @@ func (f *Facade) SSHServerHostKey() (params.StringResult, error) {
 	return result, nil
 }
 
-// HostKeyForTarget returns the private host key for the target virtual hostname.
-func (facade *Facade) HostKeyForTarget(arg params.SSHHostKeyRequestArg) (params.SSHHostKeyResult, error) {
+// VirtualHostKey returns the virtual private host key for the target virtual hostname.
+func (facade *Facade) VirtualHostKey(arg params.SSHVirtualHostKeyRequestArg) (params.SSHHostKeyResult, error) {
 	var res params.SSHHostKeyResult
 
 	info, err := virtualhostname.Parse(arg.Hostname)

@@ -32,7 +32,7 @@ type FacadeClient interface {
 	ControllerConfig() (controller.Config, error)
 	WatchControllerConfig() (watcher.NotifyWatcher, error)
 	SSHServerHostKey() (string, error)
-	HostKeyForTarget(arg params.SSHHostKeyRequestArg) ([]byte, error)
+	VirtualHostKey(arg params.SSHVirtualHostKeyRequestArg) ([]byte, error)
 	ListPublicKeysForModel(sshPKIAuthArgs params.ListAuthorizedKeysArgs) ([]gossh.PublicKey, error)
 }
 

@@ -14,9 +14,11 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
+	gossh "golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 
 	network "github.com/juju/juju/core/network"
+	"github.com/juju/juju/pki/test"
 	"github.com/juju/juju/state"
 )
 
@@ -64,9 +66,16 @@ func (s *sshTunnelerSuite) TestTunneler(c *gc.C) {
 
 	now := time.Now()
 
+	machineHostKey, err := test.InsecureKeyProfile()
+	c.Assert(err, jc.ErrorIsNil)
+	sshPublicHostKey, err := gossh.NewPublicKey(machineHostKey.Public())
+	c.Assert(err, jc.ErrorIsNil)
+
+	var hostKeyCallback gossh.HostKeyCallback
+
 	s.controller.EXPECT().Addresses().Return([]network.SpaceAddress{
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
-	})
+	}, nil)
 	s.state.EXPECT().InsertSSHConnRequest(gomock.Any()).DoAndReturn(
 		func(sra state.SSHConnRequestArg) error {
 			sshConnArgs = sra
@@ -74,7 +83,13 @@ func (s *sshTunnelerSuite) TestTunneler(c *gc.C) {
 			return nil
 		},
 	)
-	s.dialer.EXPECT().Dial(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
+	s.state.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any()).Return(
+		[]string{string(gossh.MarshalAuthorizedKey(sshPublicHostKey))}, nil)
+	s.dialer.EXPECT().Dial(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(c net.Conn, s1 string, s2 gossh.Signer, hkc gossh.HostKeyCallback) (*gossh.Client, error) {
+			hostKeyCallback = hkc
+			return nil, nil
+		})
 	s.clock.EXPECT().Now().AnyTimes().Return(now)
 
 	tunnelReqArgs := RequestArgs{
@@ -121,6 +136,9 @@ func (s *sshTunnelerSuite) TestTunneler(c *gc.C) {
 
 	wg.Wait()
 
+	// Check that the host key callback correctly validates the machine's public host key
+	c.Check(hostKeyCallback("", nil, sshPublicHostKey), jc.ErrorIsNil)
+
 	c.Check(tunnelTracker.tracker, gc.HasLen, 0)
 }
 
@@ -148,7 +166,7 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *gc.C) {
 
 	s.controller.EXPECT().Addresses().Return([]network.SpaceAddress{
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
-	})
+	}, nil)
 	s.state.EXPECT().InsertSSHConnRequest(gomock.Any()).DoAndReturn(
 		func(sra state.SSHConnRequestArg) error {
 			sshConnArgs = sra
@@ -156,7 +174,8 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *gc.C) {
 			return nil
 		},
 	)
-	s.dialer.EXPECT().Dial(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("failed-to-connect"))
+	s.state.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any()).Return([]string{}, nil)
+	s.dialer.EXPECT().Dial(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("failed-to-connect"))
 	s.clock.EXPECT().Now().AnyTimes().Return(now)
 
 	tunnelReqArgs := RequestArgs{
@@ -299,8 +318,9 @@ func (s *sshTunnelerSuite) TestRequestTunnelTimeout(c *gc.C) {
 	s.clock.EXPECT().Now().Times(1).Return(now)
 	s.controller.EXPECT().Addresses().Return([]network.SpaceAddress{
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
-	})
+	}, nil)
 	s.state.EXPECT().InsertSSHConnRequest(gomock.Any()).Return(nil)
+	s.state.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any()).Return([]string{}, nil)
 
 	tunnelReqArgs := RequestArgs{
 		MachineID: "0",
@@ -327,8 +347,9 @@ func (s *sshTunnelerSuite) TestRequestTunnelDeadline(c *gc.C) {
 	s.clock.EXPECT().Now().Times(1).Return(now)
 	s.controller.EXPECT().Addresses().Return([]network.SpaceAddress{
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
-	})
+	}, nil)
 	s.state.EXPECT().InsertSSHConnRequest(gomock.Any()).Return(nil)
+	s.state.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any()).Return([]string{}, nil)
 
 	tunnelReqArgs := RequestArgs{
 		MachineID: "0",
@@ -356,6 +377,27 @@ func (s *sshTunnelerSuite) TestPushTunnelTimeout(c *gc.C) {
 
 	err := tunnelTracker.PushTunnel(ctx, tunnelID, conn)
 	c.Check(err, gc.ErrorMatches, `no one waiting for tunnel: context deadline exceeded`)
+}
+
+func (s *sshTunnelerSuite) TestInvalidMachineHostKey(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tunnelTracker := s.newTracker(c)
+
+	now := time.Now()
+	s.clock.EXPECT().Now().Times(1).Return(now)
+	s.controller.EXPECT().Addresses().Return([]network.SpaceAddress{
+		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
+	}, nil)
+	s.state.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any()).Return([]string{"fake-host-key"}, nil)
+
+	tunnelReqArgs := RequestArgs{
+		MachineID: "0",
+		ModelUUID: "model-uuid",
+	}
+
+	_, err := tunnelTracker.RequestTunnel(context.Background(), tunnelReqArgs)
+	c.Assert(err, gc.ErrorMatches, "failed to parse machine host key: ssh: no key found")
 }
 
 func (s *sshTunnelerSuite) TestNewTunnelTrackerValidation(c *gc.C) {

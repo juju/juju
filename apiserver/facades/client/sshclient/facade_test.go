@@ -667,7 +667,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTarget(c *gc.C) {
 		s.mockBackend.EXPECT().UnitVirtualPublicKey("postgresql/1").Return([]byte{1}, nil).Times(1),
 		s.mockBackend.EXPECT().JumpServerVirtualPublicKey().Return([]byte{2}, nil).Times(1),
 	)
-	res := facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
+	res := facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "charm.1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
 	c.Assert(res, gc.DeepEquals, params.PublicSSHHostKeyResult{
@@ -681,7 +681,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTarget(c *gc.C) {
 		s.mockBackend.EXPECT().UnitVirtualPublicKey("openfga/1").Return([]byte{1}, nil).Times(1),
 		s.mockBackend.EXPECT().JumpServerVirtualPublicKey().Return([]byte{2}, nil).Times(1),
 	)
-	res = facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
+	res = facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "1.openfga.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
 	c.Assert(res, gc.DeepEquals, params.PublicSSHHostKeyResult{
@@ -695,7 +695,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTarget(c *gc.C) {
 		s.mockBackend.EXPECT().MachineVirtualPublicKey("1").Return([]byte{1}, nil).Times(1),
 		s.mockBackend.EXPECT().JumpServerVirtualPublicKey().Return([]byte{2}, nil).Times(1),
 	)
-	res = facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
+	res = facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
 	c.Assert(res, gc.DeepEquals, params.PublicSSHHostKeyResult{
@@ -723,7 +723,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetErrors(c *gc.C) {
 	s.mockAuthoriser.EXPECT().HasPermission(permission.SuperuserAccess, controllerTag).AnyTimes()
 
 	// Test failure to parse hostname.
-	res := facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
+	res := facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "BLAAAH 1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
 	c.Assert(res.Error, gc.ErrorMatches, "failed to parse hostname: could not parse hostname")
@@ -732,7 +732,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetErrors(c *gc.C) {
 	gomock.InOrder(
 		s.mockBackend.EXPECT().MachineVirtualPublicKey("1").Return([]byte{}, errors.New("an-error")).Times(1),
 	)
-	res = facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
+	res = facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
 	c.Assert(res.Error, gc.ErrorMatches, "failed to get machine host key: an-error")
@@ -741,7 +741,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetErrors(c *gc.C) {
 	gomock.InOrder(
 		s.mockBackend.EXPECT().UnitVirtualPublicKey("openfga/1").Return([]byte{}, errors.New("an-error")).Times(1),
 	)
-	res = facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
+	res = facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "1.openfga.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
 	c.Assert(res.Error, gc.ErrorMatches, "failed to get unit host key: an-error")
@@ -751,7 +751,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetErrors(c *gc.C) {
 		s.mockBackend.EXPECT().UnitVirtualPublicKey("postgresql/1").Return([]byte{}, nil).Times(1),
 		s.mockBackend.EXPECT().JumpServerVirtualPublicKey().Return([]byte{}, errors.New("an-error")).Times(1),
 	)
-	res = facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
+	res = facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "charm.1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
 	c.Assert(res.Error, gc.ErrorMatches, "failed to get controller jumpserver host key: an-error")
@@ -775,7 +775,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetUserAuth(c *gc.C) {
 	// Test a none ErrorEntityMissingPermission error on superuser check and is unrelated
 	// to permission errors.
 	s.mockAuthoriser.EXPECT().HasPermission(permission.SuperuserAccess, controllerTag).Return(errors.New("an-error")).Times(1)
-	res := facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
+	res := facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "1.openfga.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
 	c.Assert(res.Error, gc.ErrorMatches, "an-error")
@@ -787,7 +787,7 @@ func (s *facadeSuiteNewMocks) TestPublicHostKeyForTargetUserAuth(c *gc.C) {
 	s.mockBackend.EXPECT().ModelTag().Return(modelTag)
 	s.mockAuthoriser.EXPECT().HasPermission(permission.ReadAccess, modelTag).Return(authentication.ErrorEntityMissingPermission).Times(1)
 
-	res = facade.PublicHostKeyForTarget(params.SSHHostKeyRequestArg{
+	res = facade.PublicHostKeyForTarget(params.SSHVirtualHostKeyRequestArg{
 		Hostname: "1.openfga.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 	})
 	c.Assert(*res.Error, gc.ErrorMatches, "entity missing permission")

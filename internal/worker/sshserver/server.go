@@ -248,7 +248,7 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 
 // hostKeySignerForTarget returns a signer for the target hostname, by calling the facade client.
 func (s *ServerWorker) hostKeySignerForTarget(hostname string) (gossh.Signer, error) {
-	key, err := s.config.FacadeClient.HostKeyForTarget(params.SSHHostKeyRequestArg{Hostname: hostname})
+	key, err := s.config.FacadeClient.VirtualHostKey(params.SSHVirtualHostKeyRequestArg{Hostname: hostname})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -107,7 +107,7 @@ func (s *sshserverSuite) TestHostKeyForTarget(c *gc.C) {
 
 	f := sshserver.NewFacade(s.ctxMock, s.backendMock)
 
-	key, err := f.HostKeyForTarget(params.SSHHostKeyRequestArg{Hostname: "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local"})
+	key, err := f.VirtualHostKey(params.SSHVirtualHostKeyRequestArg{Hostname: "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local"})
 	c.Assert(err, gc.IsNil)
 	c.Assert(key, gc.DeepEquals, params.SSHHostKeyResult{HostKey: []byte("hostkey")})
 }

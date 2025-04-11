@@ -3,7 +3,12 @@
 
 package sshtunneler
 
-var (
-	NewExternalFacade = newExternalFacade
-	NewFacade         = newFacade
+import (
+	"testing"
+
+	gc "gopkg.in/check.v1"
 )
+
+func TestAll(t *testing.T) {
+	gc.TestingT(t)
+}

@@ -4,8 +4,11 @@
 package sshtunneler
 
 import (
+	"github.com/juju/names/v5"
+
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -14,6 +17,8 @@ import (
 type Backend interface {
 	InsertSSHConnRequest(arg state.SSHConnRequestArg) error
 	RemoveSSHConnRequest(arg state.SSHConnRequestRemoveArg) error
+	ControllerMachine(machineID string) (*state.Machine, error)
+	SSHHostKeys(modelUUID string, machineTag names.MachineTag) (state.SSHHostKeys, error)
 }
 
 // Facade is the interface exposing the SSHTunneler methods.
@@ -22,7 +27,7 @@ type Facade struct {
 }
 
 // newFacade creates the facade for the SSHTunneler.
-func newFacade(ctx facade.Context, backend Backend) *Facade {
+func newFacade(_ facade.Context, backend Backend) *Facade {
 	return &Facade{
 		backend: backend,
 	}
@@ -44,4 +49,41 @@ func (f *Facade) RemoveSSHConnRequest(arg params.SSHConnRequestRemoveArg) (param
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil
+}
+
+// ControllerAddresses returns the specified machine's public addresses.
+func (f *Facade) ControllerAddresses(machine params.Entity) (params.StringsResult, error) {
+	mt, err := names.ParseMachineTag(machine.Tag)
+	if err != nil {
+		return params.StringsResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+
+	m, err := f.backend.ControllerMachine(mt.Id())
+	if err != nil {
+		return params.StringsResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+
+	var result params.StringsResult
+	result.Result = append(result.Result, m.Addresses().AllMatchingScope(network.ScopeMatchPublic).Values()...)
+	return result, nil
+}
+
+// MachineHostKeys returns the host keys for a specified machine.
+func (f *Facade) MachineHostKeys(machine params.SSHMachineHostKeysArg) (params.SSHPublicKeysResult, error) {
+	var result params.SSHPublicKeysResult
+
+	mt, err := names.ParseMachineTag(machine.MachineTag)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+
+	keys, err := f.backend.SSHHostKeys(machine.ModelUUID, mt)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+
+	result.PublicKeys = keys
+	return result, nil
 }
