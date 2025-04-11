@@ -135,8 +135,9 @@ func (s *watcherSuite) TestSubordinateSendChangeEventRelationPrincipal(c *gc.C) 
 	c.Assert(change, jc.IsTrue)
 }
 
-// TestSubordinateSendChangeEventRelationNoChange checks that no change is requested
-// while all state calls are successful.
+// TestSubordinateSendChangeEventRelationNoChange checks that no change is
+// requested while all state calls are successful. Rhe relation is container
+// scoped but the application in the relation is not the subordinates principle.
 func (s *watcherSuite) TestSubordinateSendChangeEventRelationNoChange(c *gc.C) {
 	// Arrange:
 	defer s.setupMocks(c).Finish()
@@ -243,7 +244,7 @@ func (s *watcherSuite) TestChangeEventsForSubordinateLifeSuspendedStatusMapper(c
 	)
 
 	// Assert: changes contain the existing relation and the new relation,
-	// but not a relation for neither the principal nor subordinate.
+	// but not a relation for either the principal nor subordinate.
 	expectedRelations := make(map[corerelation.UUID]relation.RelationLifeSuspendedData)
 	expectedRelations[newSubordinateRelUUID] = newData
 	expectedRelations[principalSubordinateRelUUID] = newRelData

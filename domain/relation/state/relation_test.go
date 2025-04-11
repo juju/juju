@@ -2197,7 +2197,7 @@ func (s *relationSuite) TestGetOtherRelatedEndpointApplicationData(c *gc.C) {
 
 	// Act:
 	result, err := s.state.GetOtherRelatedEndpointApplicationData(
-		context.TODO(),
+		context.Background(),
 		relationUUID,
 		s.fakeApplicationUUID1,
 	)

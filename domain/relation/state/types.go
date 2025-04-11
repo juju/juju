@@ -205,9 +205,6 @@ type setRelationStatus struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
-// uuids is a helpful type for bulk db queries.
-type uuids []string
-
 // otherApplicationsForWatcher contains data required by
 // WatchLifeSuspendedStatus watchers.
 type otherApplicationsForWatcher struct {
