@@ -19,15 +19,19 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// WatcherFactory instances return watchers for a given namespace and UUID.
+// WatcherFactory is a subset of domain.WatcherFactory method that are used
+// in the relation domain.
 type WatcherFactory interface {
-	// NewNotifyWatcher returns a new watcher that filters changes from the
-	// input base watcher's db/queue. A single filter option is required, though
-	// additional filter options can be provided.
 	NewNotifyWatcher(
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
+
+	NewNamespaceMapperWatcher(
+		initialQuery eventsource.NamespaceQuery,
+		mapper eventsource.Mapper,
+		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
 }
 
 // WatchableService provides the API for working with applications and the
@@ -100,6 +104,17 @@ func (s *WatchableService) WatchRelatedUnits(
 	ctx context.Context,
 	unitName unit.Name,
 	relationUUID corerelation.UUID,
-) (relation.RelationUnitsWatcher, error) {
-	return nil, coreerrors.NotImplemented
+) (watcher.StringsWatcher, error) {
+	if err := unitName.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+	if err := relationUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+	relationUnitNamespace, relationEndpointNamespace, initialQuery, mapper := s.st.InitialWatchRelatedUnits(unitName,
+		relationUUID)
+	return s.watcherFactory.NewNamespaceMapperWatcher(initialQuery,
+		mapper,
+		eventsource.NamespaceFilter(relationUnitNamespace, changestream.All),
+		eventsource.NamespaceFilter(relationEndpointNamespace, changestream.All))
 }
