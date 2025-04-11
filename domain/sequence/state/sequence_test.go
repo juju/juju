@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package sequence
+package state
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 	coretesting "github.com/juju/juju/core/testing"
 	"github.com/juju/juju/domain"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	domainsequence "github.com/juju/juju/domain/sequence"
 )
 
 type sequenceSuite struct {
@@ -34,7 +35,7 @@ func (s *sequenceSuite) TestSequenceStaticNamespace(c *gc.C) {
 	var next uint64
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		next, err = NextValue(ctx, s.state, tx, StaticNamespace("foo"))
+		next, err = NextValue(ctx, s.state, tx, domainsequence.StaticNamespace("foo"))
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -42,7 +43,7 @@ func (s *sequenceSuite) TestSequenceStaticNamespace(c *gc.C) {
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		next, err = NextValue(ctx, s.state, tx, StaticNamespace("foo"))
+		next, err = NextValue(ctx, s.state, tx, domainsequence.StaticNamespace("foo"))
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -53,7 +54,7 @@ func (s *sequenceSuite) TestSequencePrefixNamespace(c *gc.C) {
 	var next uint64
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		next, err = NextValue(ctx, s.state, tx, MakePrefixNamespace(StaticNamespace("foo"), "bar"))
+		next, err = NextValue(ctx, s.state, tx, domainsequence.MakePrefixNamespace(domainsequence.StaticNamespace("foo"), "bar"))
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -61,7 +62,7 @@ func (s *sequenceSuite) TestSequencePrefixNamespace(c *gc.C) {
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		next, err = NextValue(ctx, s.state, tx, MakePrefixNamespace(StaticNamespace("foo"), "bar"))
+		next, err = NextValue(ctx, s.state, tx, domainsequence.MakePrefixNamespace(domainsequence.StaticNamespace("foo"), "bar"))
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -79,7 +80,7 @@ func (s *sequenceSuite) TestSequenceMultiple(c *gc.C) {
 			var next uint64
 			err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 				var err error
-				next, err = NextValue(ctx, s.state, tx, StaticNamespace("foo"))
+				next, err = NextValue(ctx, s.state, tx, domainsequence.StaticNamespace("foo"))
 				return err
 			})
 			c.Assert(err, jc.ErrorIsNil)

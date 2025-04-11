@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/placement"
 	"github.com/juju/juju/domain/sequence"
+	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -217,7 +218,7 @@ VALUES ($machineParent.*);
 }
 
 func (st *State) nextMachineSequence(ctx context.Context, tx *sqlair.TX) (machine.Name, error) {
-	seq, err := sequence.NextValue(ctx, st, tx, machineSequenceNamespace)
+	seq, err := sequencestate.NextValue(ctx, st, tx, machineSequenceNamespace)
 	if err != nil {
 		return "", errors.Errorf("getting next machine sequence: %w", err)
 	}
@@ -226,7 +227,7 @@ func (st *State) nextMachineSequence(ctx context.Context, tx *sqlair.TX) (machin
 }
 
 func (st *State) nextContainerSequence(ctx context.Context, tx *sqlair.TX, scope string, parentName machine.Name) (machine.Name, error) {
-	seq, err := sequence.NextValue(ctx, st, tx, sequence.MakePrefixNamespace(containerSequenceNamespace, parentName.String()))
+	seq, err := sequencestate.NextValue(ctx, st, tx, sequence.MakePrefixNamespace(containerSequenceNamespace, parentName.String()))
 	if err != nil {
 		return "", errors.Errorf("getting next container machine sequence: %w", err)
 	}

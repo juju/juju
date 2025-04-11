@@ -26,6 +26,7 @@ import (
 	network "github.com/juju/juju/domain/network/modelmigration"
 	resource "github.com/juju/juju/domain/resource/modelmigration"
 	secret "github.com/juju/juju/domain/secret/modelmigration"
+	sequence "github.com/juju/juju/domain/sequence/modelmigration"
 	status "github.com/juju/juju/domain/status/modelmigration"
 	storage "github.com/juju/juju/domain/storage/modelmigration"
 	unitstate "github.com/juju/juju/domain/unitstate/modelmigration"
@@ -64,6 +65,7 @@ func NewExporter(
 // This is a convenience function that can be used by the main migration package
 // to register all the export operations.
 func (e *Exporter) ExportOperations(registry corestorage.ModelStorageRegistryGetter) {
+	sequence.RegisterExport(e.coordinator)
 	blockcommand.RegisterExport(e.coordinator, e.logger.Child("blockcommand"))
 	modelconfig.RegisterExport(e.coordinator)
 	access.RegisterExport(e.coordinator, e.logger.Child("access"))

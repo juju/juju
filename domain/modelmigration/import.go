@@ -29,6 +29,7 @@ import (
 	port "github.com/juju/juju/domain/port/modelmigration"
 	resource "github.com/juju/juju/domain/resource/modelmigration"
 	secret "github.com/juju/juju/domain/secret/modelmigration"
+	sequence "github.com/juju/juju/domain/sequence/modelmigration"
 	status "github.com/juju/juju/domain/status/modelmigration"
 	storage "github.com/juju/juju/domain/storage/modelmigration"
 	unitstate "github.com/juju/juju/domain/unitstate/modelmigration"
@@ -67,6 +68,7 @@ func ImportOperations(
 	// Domain services is available for all the following services, but only
 	// after the model has been imported and activated.
 
+	sequence.RegisterImport(coordinator)
 	keymanager.RegisterImport(coordinator, logger.Child("keymanager"))
 	modelconfig.RegisterImport(coordinator, modelDefaultsProvider, logger.Child("modelconfig"))
 	access.RegisterImport(coordinator, logger.Child("access"))

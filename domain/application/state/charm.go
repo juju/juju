@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainsequence "github.com/juju/juju/domain/sequence"
+	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -669,7 +670,7 @@ WHERE uuid = $charmID.uuid;
 		// If the charm requires sequencing, get the next revision from
 		// the reference name.
 		if requiresSequencing {
-			rev, err := domainsequence.NextValue(ctx, s, tx, domainsequence.MakePrefixNamespace(localCharmSequenceNamespace, ch.ReferenceName))
+			rev, err := sequencestate.NextValue(ctx, s, tx, domainsequence.MakePrefixNamespace(localCharmSequenceNamespace, ch.ReferenceName))
 			if err != nil {
 				return errors.Errorf("getting next charm revision: %w", err)
 			}

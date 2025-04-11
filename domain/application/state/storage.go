@@ -19,6 +19,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	domainsequence "github.com/juju/juju/domain/sequence"
+	sequencestate "github.com/juju/juju/domain/sequence/state"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/charm"
@@ -228,7 +229,7 @@ func (st *State) insertUnitStorage(
 			if err != nil {
 				return result, errors.Capture(err)
 			}
-			id, err := domainsequence.NextValue(ctx, st, tx, storageNamespace)
+			id, err := sequencestate.NextValue(ctx, st, tx, storageNamespace)
 			if err != nil {
 				return result, errors.Errorf("generating next storage ID: %w", err)
 			}
@@ -946,7 +947,7 @@ INSERT INTO storage_volume_attachment (*) VALUES ($volumeAttachment.*)
 func (st *State) createFilesystem(
 	ctx context.Context, tx *sqlair.TX, storageUUID corestorage.UUID, netNodeUUID string,
 ) (corestorage.FilesystemUUID, error) {
-	filesystemId, err := domainsequence.NextValue(ctx, st, tx, filesystemNamespace)
+	filesystemId, err := sequencestate.NextValue(ctx, st, tx, filesystemNamespace)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -996,7 +997,7 @@ INSERT INTO storage_instance_filesystem (*) VALUES ($storageInstanceFilesystem.*
 func (st *State) createVolume(
 	ctx context.Context, tx *sqlair.TX, storageUUID corestorage.UUID, netNodeUUID string,
 ) (corestorage.VolumeUUID, error) {
-	volumeId, err := domainsequence.NextValue(ctx, st, tx, volumeNamespace)
+	volumeId, err := sequencestate.NextValue(ctx, st, tx, volumeNamespace)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
