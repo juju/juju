@@ -207,6 +207,20 @@ WHERE  relation_unit_uuid IN (
 		return errors.Errorf("preparing relation unit settings deletion: %w", err)
 	}
 
+	settingsHashStmt, err := st.Prepare(`
+WITH rru AS (
+    SELECT ru.uuid, re.relation_uuid
+    FROM   relation_unit ru 
+           JOIN relation_endpoint re ON ru.relation_endpoint_uuid = re.uuid
+)
+DELETE FROM relation_unit_settings_hash
+WHERE  relation_unit_uuid IN (
+    SELECT uuid FROM rru WHERE relation_uuid = $entityUUID.uuid
+)`, relationUUID)
+	if err != nil {
+		return errors.Errorf("preparing relation unit settings hash deletion: %w", err)
+	}
+
 	ruStmt, err := st.Prepare(`
 DELETE FROM relation_unit 
 WHERE  relation_endpoint_uuid IN (
@@ -220,6 +234,11 @@ WHERE  relation_endpoint_uuid IN (
 		err = tx.Query(ctx, settingsStmt, relationUUID).Run()
 		if err != nil {
 			return errors.Errorf("running relation unit settings deletion: %w", err)
+		}
+
+		err = tx.Query(ctx, settingsHashStmt, relationUUID).Run()
+		if err != nil {
+			return errors.Errorf("running relation unit settings hash deletion: %w", err)
 		}
 
 		err = tx.Query(ctx, ruStmt, relationUUID).Run()
