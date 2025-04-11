@@ -8,6 +8,8 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
@@ -77,6 +79,9 @@ type AddApplicationArgs struct {
 
 	// Devices contains the device constraints for the application.
 	Devices map[string]devices.Constraints
+
+	// Placement is the placement of the application units.
+	Placement *instance.Placement
 }
 
 // AddressParams contains parameters for a unit/cloud container address.
@@ -90,7 +95,8 @@ type AddressParams struct {
 
 // AddUnitArg contains parameters for adding a unit to the model.
 type AddUnitArg struct {
-	UnitName coreunit.Name
+	UnitName  coreunit.Name
+	Placement *instance.Placement
 
 	// Storage params go here.
 }
@@ -101,6 +107,7 @@ type ImportUnitArg struct {
 	UnitName       coreunit.Name
 	PasswordHash   *string
 	CloudContainer *application.CloudContainerParams
+	Machine        machine.Name
 }
 
 // UpdateCAASUnitParams contains parameters for updating a CAAS unit.

@@ -33,7 +33,6 @@ import (
 	cloudimagemetadatabootstrap "github.com/juju/juju/domain/cloudimagemetadata/bootstrap"
 	ccbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
 	credbootstrap "github.com/juju/juju/domain/credential/bootstrap"
-	machinebootstrap "github.com/juju/juju/domain/machine/bootstrap"
 	modeldomain "github.com/juju/juju/domain/model"
 	modelbootstrap "github.com/juju/juju/domain/model/bootstrap"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -276,9 +275,6 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 	}
 	if !isCAAS {
 		databaseBootstrapOptions = append(databaseBootstrapOptions,
-			// TODO(wallyworld) - this is just a placeholder for now
-			machinebootstrap.InsertMachine(agent.BootstrapControllerId),
-
 			cloudimagemetadatabootstrap.AddCustomImageMetadata(
 				clock.WallClock, stateParams.ControllerModelConfig.ImageStream(), stateParams.CustomImageMetadata),
 		)

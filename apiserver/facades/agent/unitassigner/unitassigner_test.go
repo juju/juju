@@ -36,24 +36,20 @@ func (s *testsuite) TestAssignUnits(c *gc.C) {
 	}
 	f.results = []state.UnitAssignmentResult{{Unit: "foo/0"}}
 	machineService := &fakeMachineService{}
-	stubService := &fakeStubService{assignments: map[string][]unit.Name{}}
 	api := API{
 		st:             f,
 		res:            common.NewResources(),
 		machineService: machineService,
 		networkService: &fakeNetworkService{},
-		stubService:    stubService,
 	}
 	args := params.Entities{Entities: []params.Entity{{Tag: "unit-foo-0"}, {Tag: "unit-bar-1"}}}
 	res, err := api.AssignUnits(context.Background(), args)
-	c.Assert(f.ids, gc.DeepEquals, []string{"foo/0", "bar/1"})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(f.ids, gc.DeepEquals, []string{"foo/0", "bar/1"})
 	c.Assert(res.Results, gc.HasLen, 2)
-	c.Assert(res.Results, gc.HasLen, 2)
-	c.Assert(res.Results[0].Error, gc.IsNil)
-	c.Assert(res.Results[1].Error, gc.ErrorMatches, `unit "unit-bar-1" not found`)
-	c.Assert(machineService.machineNames, jc.SameContents, []machine.Name{machine.Name("1"), machine.Name("1/lxd/2")})
-	c.Assert(stubService.assignments, jc.DeepEquals, map[string][]unit.Name{"1/lxd/2": {"foo/0"}})
+	c.Check(res.Results[0].Error, gc.IsNil)
+	c.Check(res.Results[1].Error, gc.ErrorMatches, `unit "unit-bar-1" not found`)
+	c.Check(machineService.machineNames, jc.SameContents, []machine.Name{machine.Name("1"), machine.Name("1/lxd/2")})
 }
 
 func (s *testsuite) TestWatchUnitAssignment(c *gc.C) {
@@ -69,6 +65,8 @@ func (s *testsuite) TestWatchUnitAssignment(c *gc.C) {
 func (s *testsuite) TestSetStatus(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.statusService.EXPECT().SetUnitAgentStatus(gomock.Any(), unit.Name("foo/0"), gomock.Any()).Return(nil)
+
 	status := status.StatusInfo{
 		Status:  status.Idle,
 		Message: "message",
@@ -76,8 +74,6 @@ func (s *testsuite) TestSetStatus(c *gc.C) {
 			"foo": "bar",
 		},
 	}
-
-	s.statusService.EXPECT().SetUnitAgentStatus(gomock.Any(), unit.Name("foo/0"), status).Return(nil)
 
 	api := s.newAPI(c)
 
@@ -128,17 +124,6 @@ type fakeNetworkService struct {
 
 func (f *fakeNetworkService) GetAllSpaces(_ context.Context) (network.SpaceInfos, error) {
 	return nil, nil
-}
-
-type fakeStubService struct {
-	assignments map[string][]unit.Name
-}
-
-func (f *fakeStubService) AssignUnitsToMachines(_ context.Context, machineToUnitMap map[string][]unit.Name) error {
-	for machine, units := range machineToUnitMap {
-		f.assignments[machine] = append(f.assignments[machine], units...)
-	}
-	return nil
 }
 
 type fakeState struct {

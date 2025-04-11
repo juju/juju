@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type exportSuite struct {
@@ -30,7 +31,7 @@ func (s *exportSuite) TestRegisterExport(c *gc.C) {
 
 	s.coordinator.EXPECT().Add(gomock.Any())
 
-	RegisterExport(s.coordinator)
+	RegisterExport(s.coordinator, loggertesting.WrapCheckLog(c))
 }
 
 func (s *exportSuite) TestExportLeader(c *gc.C) {
@@ -42,6 +43,7 @@ func (s *exportSuite) TestExportLeader(c *gc.C) {
 
 	op := exportOperation{
 		service: s.service,
+		logger:  loggertesting.WrapCheckLog(c),
 	}
 
 	model := description.NewModel(description.ModelArgs{
@@ -67,6 +69,7 @@ func (s *exportSuite) TestExportLeaderNoModel(c *gc.C) {
 
 	op := exportOperation{
 		service: s.service,
+		logger:  loggertesting.WrapCheckLog(c),
 	}
 
 	model := description.NewModel(description.ModelArgs{
@@ -89,6 +92,7 @@ func (s *exportSuite) TestExportLeaderNoApplications(c *gc.C) {
 
 	op := exportOperation{
 		service: s.service,
+		logger:  loggertesting.WrapCheckLog(c),
 	}
 
 	model := description.NewModel(description.ModelArgs{
@@ -101,7 +105,7 @@ func (s *exportSuite) TestExportLeaderNoApplications(c *gc.C) {
 	})
 
 	err := op.Execute(context.Background(), model)
-	c.Assert(err, gc.ErrorMatches, `application "prometheus" has no leadership`)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {

@@ -14,6 +14,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/machine"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationstate "github.com/juju/juju/domain/application/state"
+	"github.com/juju/juju/domain/deployment"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/port/service"
 	"github.com/juju/juju/domain/port/state"
@@ -98,7 +100,7 @@ func (s *watcherSuite) createApplicationWithRelations(c *gc.C, appName string, r
 		}
 	}
 
-	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.application"))
+	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	appUUID, err := applicationSt.CreateApplication(context.Background(), appName, application.AddApplicationArg{
 		Charm: charm.Charm{
 			Metadata: charm.Metadata{
@@ -125,7 +127,7 @@ func (s *watcherSuite) createApplicationWithRelations(c *gc.C, appName string, r
 // createUnit creates a new unit in state and returns its UUID. The unit is assigned
 // to the net node with uuid `netNodeUUID`.
 func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) coreunit.UUID {
-	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, logger.GetLogger("juju.test.application"))
+	applicationSt := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 	unitName, err := coreunit.NewNameFromParts(appName, s.unitCount)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := context.Background()
@@ -136,44 +138,42 @@ func (s *watcherSuite) createUnit(c *gc.C, netNodeUUID, appName string) coreunit
 	charmUUID, err := applicationSt.GetCharmIDByApplicationName(ctx, appName)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = applicationSt.AddIAASUnits(ctx, c.MkDir(), appID, charmUUID, application.AddUnitArg{UnitName: unitName})
+	// Ensure that we place the unit on the same machine as the net node.
+	var machineName machine.Name
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT name FROM machine WHERE net_node_uuid = ?", netNodeUUID).Scan(&machineName)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = applicationSt.AddIAASUnits(ctx, c.MkDir(), appID, charmUUID, application.AddUnitArg{
+		UnitName: unitName,
+		Placement: deployment.Placement{
+			Type:      deployment.PlacementTypeMachine,
+			Directive: machineName.String(),
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.unitCount++
 
 	var unitUUID coreunit.UUID
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", unitName).Scan(&unitUUID)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, "INSERT INTO net_node VALUES (?) ON CONFLICT DO NOTHING", netNodeUUID)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, "UPDATE unit SET net_node_uuid = ? WHERE name = ?", netNodeUUID, unitName)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return unitUUID
 }
 
-/*
-* The following tests will run with the following context:
-* - 3 units are deployed (with uuids stored in s.unitUUIDs)
-* - 2 machines are deployed (with uuids stored in machineUUIDs)
-*   - machine 0 hosts units 0 & 1
-*   - machine 1 hosts unit 2
-* - on 2 applications (with names stored in appNames; uuids s.appUUIDs)
-*   - unit 0 is deployed to app 0
-*   - units 1 & 2 are deployed to app 1
- */
-
+// The following tests will run with the following context:
+// - 3 units are deployed (with uuids stored in s.unitUUIDs)
+// - 2 machines are deployed (with uuids stored in machineUUIDs)
+//   - machine 0 hosts units 0 & 1
+//   - machine 1 hosts unit 2
+//
+// - on 2 applications (with names stored in appNames; uuids s.appUUIDs)
+//   - unit 0 is deployed to app 0
+//   - units 1 & 2 are deployed to app 1
 func (s *watcherSuite) TestWatchMachinePortRanges(c *gc.C) {
 	s.appUUIDs[0] = s.createApplicationWithRelations(c, appNames[0], "ep0", "ep1", "ep2", "ep3")
 	s.appUUIDs[1] = s.createApplicationWithRelations(c, appNames[1], "ep0", "ep1", "ep2", "ep3")

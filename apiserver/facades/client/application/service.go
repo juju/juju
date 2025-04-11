@@ -43,7 +43,6 @@ type Services struct {
 	RelationService           RelationService
 	ResourceService           ResourceService
 	StorageService            StorageService
-	StubService               StubService
 }
 
 // Validate checks that all the services are set.
@@ -71,9 +70,6 @@ func (s Services) Validate() error {
 	}
 	if s.StorageService == nil {
 		return errors.NotValidf("empty StorageService")
-	}
-	if s.StubService == nil {
-		return errors.NotValidf("empty StubService")
 	}
 	if s.RelationService == nil {
 		return errors.NotValidf("empty RelationService")
@@ -285,21 +281,6 @@ type PortService interface {
 // service.
 type ResourceService interface {
 	DeleteResourcesAddedBeforeApplication(ctx context.Context, resources []coreresource.UUID) error
-}
-
-// StubService is the interface used to interact with the stub service. A special
-// service which collects temporary methods required to wire together together
-// domains which are not completely implemented or wired up.
-//
-// TODO: Remove this dependency once units are properly assigned to machines via
-// net nodes.
-type StubService interface {
-	// AssignUnitsToMachines assigns the given units to the given machines but setting
-	// unit net node to the machine net node.
-	//
-	// Deprecated: AssignUnitsToMachines will become redundant once the machine and
-	// application domains have become fully implemented.
-	AssignUnitsToMachines(context.Context, map[string][]unit.Name) error
 }
 
 // StorageService instances get a storage pool by name.

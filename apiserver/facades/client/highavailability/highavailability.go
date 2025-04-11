@@ -49,7 +49,11 @@ type MachineService interface {
 
 // ApplicationService instances add units to an application in dqlite state.
 type ApplicationService interface {
-	AddUnits(ctx context.Context, storageParentDir, name string, units ...applicationservice.AddUnitArg) error
+	AddUnits(
+		ctx context.Context,
+		storageParentDir, name string,
+		units ...applicationservice.AddUnitArg,
+	) error
 }
 
 // ControllerConfigService instances read the controller config.
@@ -197,13 +201,33 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 	if len(addedUnits) > 0 {
 		addUnitArgs := make([]applicationservice.AddUnitArg, len(addedUnits))
 		for i := range addedUnits {
+			// Try and get the placement for this unit. If it doesn't exist,
+			// then the default behaviour is to create a new machine for the
+			// unit.
+			var placement *instance.Placement
+			if i < len(spec.Placement) {
+				var err error
+				placement, err = instance.ParsePlacement(spec.Placement[i])
+				if err != nil {
+					return params.ControllersChanges{}, errors.Annotate(err, "parsing placement")
+				}
+			}
+
 			unitName, err := coreunit.NewName(addedUnits[i])
 			if err != nil {
 				return params.ControllersChanges{}, internalerrors.Errorf("parsing unit name %q: %v", addedUnits[i], err)
 			}
-			addUnitArgs[i].UnitName = unitName
+			addUnitArgs[i] = applicationservice.AddUnitArg{
+				UnitName:  unitName,
+				Placement: placement,
+			}
 		}
-		if err := api.applicationService.AddUnits(ctx, domainapplication.StorageParentDir, application.ControllerApplicationName, addUnitArgs...); err != nil {
+		if err := api.applicationService.AddUnits(
+			ctx,
+			domainapplication.StorageParentDir,
+			application.ControllerApplicationName,
+			addUnitArgs...,
+		); err != nil {
 			return params.ControllersChanges{}, err
 		}
 	}

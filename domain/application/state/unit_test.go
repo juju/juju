@@ -829,42 +829,6 @@ func (s *unitStateSuite) assertAddUnits(c *gc.C, modelType model.ModelType) {
 	s.assertUnitConstraints(c, coreunit.UUID(unitUUID), constraints.Constraints{})
 }
 
-func (s *unitStateSuite) TestInsertMigratingIAASUnits(c *gc.C) {
-	s.assertInsertMigratingUnits(c, model.IAAS)
-}
-
-func (s *unitStateSuite) TestInsertMigratingCAASUnits(c *gc.C) {
-	s.assertInsertMigratingUnits(c, model.CAAS)
-}
-
-func (s *unitStateSuite) assertInsertMigratingUnits(c *gc.C, modelType model.ModelType) {
-	appID := s.createApplication(c, "foo", life.Alive)
-
-	u := application.InsertUnitArg{
-		UnitName: "foo/666",
-	}
-	ctx := context.Background()
-
-	var err error
-	if modelType == model.IAAS {
-		err = s.state.InsertMigratingIAASUnits(ctx, appID, u)
-	} else {
-		err = s.state.InsertMigratingCAASUnits(ctx, appID, u)
-	}
-	c.Assert(err, jc.ErrorIsNil)
-
-	var unitName string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT name FROM unit WHERE application_uuid=?", appID).Scan(&unitName)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitName, gc.Equals, "foo/666")
-}
-
 func (s *unitStateSuite) TestInitialWatchStatementUnitLife(c *gc.C) {
 	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",

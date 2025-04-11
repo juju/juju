@@ -25,6 +25,20 @@ func (i Name) String() string {
 	return string(i)
 }
 
+// NamedChild returns a new [Name] that is a child of the
+// current [Name]. The child name is appended to the
+// current [Name] with a "/" separator. The scope is
+// prepended to the child name with a "/" separator.
+func (i Name) NamedChild(scope string, childName string) (Name, error) {
+	if scope == "" {
+		return "", errors.Errorf("empty scope").Add(coreerrors.NotValid)
+	} else if childName == "" {
+		return "", errors.Errorf("empty child name").Add(coreerrors.NotValid)
+	}
+
+	return Name(string(i) + "/" + scope + "/" + childName), nil
+}
+
 // RebootAction defines the action a machine should
 // take when a hook needs to reboot
 type RebootAction string

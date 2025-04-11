@@ -203,7 +203,7 @@ func (s *Service) CreateMachine(ctx context.Context, machineName machine.Name) (
 	return machineUUID, nil
 }
 
-// CreateMachineWirhParent creates the specified machine with the specified
+// CreateMachineWithParent creates the specified machine with the specified
 // parent.
 // It returns a MachineAlreadyExists error if a machine with the same name
 // already exists.

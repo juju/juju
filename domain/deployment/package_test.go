@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package sequence
+package deployment
 
 import (
 	"testing"
@@ -9,6 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-func Test(t *testing.T) {
+func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
@@ -68,8 +69,6 @@ type AddApplicationArg struct {
 	StoragePoolKind map[string]storage.StorageKind
 	// StorageParentDir is the parent directory for mounting charm storage.
 	StorageParentDir string
-	// Placement is the placement directive for the application.
-	Placement string
 	// EndpointBindings is a map to bind application endpoint by name to a
 	// specific space. The default space is referenced by an empty key, if any.
 	EndpointBindings map[string]network.SpaceName
@@ -216,6 +215,7 @@ type AddUnitArg struct {
 	UnitStatusArg
 	UnitName    coreunit.Name
 	Constraints constraints.Constraints
+	Placement   deployment.Placement
 }
 
 // StorageParentDir is the parent directory for mounting charm storage.
@@ -228,6 +228,7 @@ type InsertUnitArg struct {
 	CloudContainer   *CloudContainer
 	Password         *PasswordInfo
 	Constraints      constraints.Constraints
+	Placement        deployment.Placement
 	Storage          []ApplicationStorageArg
 	StoragePoolKind  map[string]storage.StorageKind
 	StorageParentDir string
@@ -375,7 +376,6 @@ type ExportApplication struct {
 	ModelType            model.ModelType
 	CharmUUID            charm.ID
 	Life                 life.Life
-	Placement            string
 	Subordinate          bool
 	CharmModifiedVersion int
 	CharmUpgradeOnError  bool
@@ -388,6 +388,19 @@ type ExportUnit struct {
 	UUID    coreunit.UUID
 	Name    coreunit.Name
 	Machine machine.Name
+}
+
+// ImportUnitArg is used to import a unit.
+type ImportUnitArg struct {
+	UnitName         coreunit.Name
+	CloudContainer   *CloudContainer
+	Password         *PasswordInfo
+	Constraints      constraints.Constraints
+	Machine          machine.Name
+	Storage          []ApplicationStorageArg
+	StoragePoolKind  map[string]storage.StorageKind
+	StorageParentDir string
+	UnitStatusArg
 }
 
 // UnitAttributes contains parameters for exporting a unit.

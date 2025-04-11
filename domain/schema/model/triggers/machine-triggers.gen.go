@@ -38,7 +38,6 @@ WHEN
 	(NEW.password_hash_algorithm_id != OLD.password_hash_algorithm_id OR (NEW.password_hash_algorithm_id IS NOT NULL AND OLD.password_hash_algorithm_id IS NULL) OR (NEW.password_hash_algorithm_id IS NULL AND OLD.password_hash_algorithm_id IS NOT NULL)) OR
 	(NEW.password_hash != OLD.password_hash OR (NEW.password_hash IS NOT NULL AND OLD.password_hash IS NULL) OR (NEW.password_hash IS NULL AND OLD.password_hash IS NOT NULL)) OR
 	(NEW.force_destroyed != OLD.force_destroyed OR (NEW.force_destroyed IS NOT NULL AND OLD.force_destroyed IS NULL) OR (NEW.force_destroyed IS NULL AND OLD.force_destroyed IS NOT NULL)) OR
-	(NEW.placement != OLD.placement OR (NEW.placement IS NOT NULL AND OLD.placement IS NULL) OR (NEW.placement IS NULL AND OLD.placement IS NOT NULL)) OR
 	(NEW.agent_started_at != OLD.agent_started_at OR (NEW.agent_started_at IS NOT NULL AND OLD.agent_started_at IS NULL) OR (NEW.agent_started_at IS NULL AND OLD.agent_started_at IS NOT NULL)) OR
 	(NEW.hostname != OLD.hostname OR (NEW.hostname IS NOT NULL AND OLD.hostname IS NULL) OR (NEW.hostname IS NULL AND OLD.hostname IS NOT NULL)) OR
 	(NEW.is_controller != OLD.is_controller OR (NEW.is_controller IS NOT NULL AND OLD.is_controller IS NULL) OR (NEW.is_controller IS NULL AND OLD.is_controller IS NOT NULL)) OR

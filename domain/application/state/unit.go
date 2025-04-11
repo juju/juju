@@ -465,6 +465,7 @@ func (st *State) AddIAASUnits(
 			insertArg := application.InsertUnitArg{
 				UnitName:    arg.UnitName,
 				Constraints: arg.Constraints,
+				Placement:   arg.Placement,
 				UnitStatusArg: application.UnitStatusArg{
 					AgentStatus:    arg.UnitStatusArg.AgentStatus,
 					WorkloadStatus: arg.UnitStatusArg.WorkloadStatus,
@@ -502,6 +503,7 @@ func (st *State) AddCAASUnits(
 			insertArg := application.InsertUnitArg{
 				UnitName:    arg.UnitName,
 				Constraints: arg.Constraints,
+				Placement:   arg.Placement,
 				UnitStatusArg: application.UnitStatusArg{
 					AgentStatus:    arg.UnitStatusArg.AgentStatus,
 					WorkloadStatus: arg.UnitStatusArg.WorkloadStatus,
@@ -515,52 +517,6 @@ func (st *State) AddCAASUnits(
 		return nil
 	})
 	return errors.Capture(err)
-}
-
-// InsertIAASUnits inserts the fully formed units for the specified IAAS application.
-// This is only used when inserting units during model migration.
-//   - If any of the units already exists [applicationerrors.UnitAlreadyExists] is returned.
-//   - If the application is not alive, [applicationerrors.ApplicationNotAlive] is returned.
-//   - If the application is not found, [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) InsertMigratingIAASUnits(ctx context.Context, appUUID coreapplication.ID, units ...application.InsertUnitArg) error {
-	if len(units) == 0 {
-		return nil
-	}
-	db, err := st.DB()
-	if err != nil {
-		return errors.Capture(err)
-	}
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		for _, arg := range units {
-			if err := st.insertIAASUnit(ctx, tx, appUUID, arg); err != nil {
-				return errors.Errorf("inserting IAAS unit %q: %w", arg.UnitName, err)
-			}
-		}
-		return nil
-	})
-}
-
-// InsertCAASUnits inserts the fully formed units for the specified CAAS application.
-// This is only used when inserting units during model migration.
-//   - If any of the units already exists [applicationerrors.UnitAlreadyExists] is returned.
-//   - If the application is not alive, [applicationerrors.ApplicationNotAlive] is returned.
-//   - If the application is not found, [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) InsertMigratingCAASUnits(ctx context.Context, appUUID coreapplication.ID, units ...application.InsertUnitArg) error {
-	if len(units) == 0 {
-		return nil
-	}
-	db, err := st.DB()
-	if err != nil {
-		return errors.Capture(err)
-	}
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		for _, arg := range units {
-			if err := st.insertCAASUnit(ctx, tx, appUUID, arg); err != nil {
-				return errors.Errorf("inserting CAAS unit %q: %w", arg.UnitName, err)
-			}
-		}
-		return nil
-	})
 }
 
 // SetRunningAgentBinaryVersion sets the running agent binary version for the
@@ -852,10 +808,34 @@ func (st *State) insertCAASUnit(
 	appUUID coreapplication.ID,
 	args application.InsertUnitArg,
 ) error {
-	unitUUID, nodeUUID, err := st.insertUnit(ctx, tx, appUUID, args)
+	_, err := st.getUnitDetails(ctx, tx, args.UnitName)
+	if err == nil {
+		return errors.Errorf("unit %q already exists", args.UnitName).Add(applicationerrors.UnitAlreadyExists)
+	} else if !errors.Is(err, applicationerrors.UnitNotFound) {
+		return errors.Errorf("looking up unit %q: %w", args.UnitName, err)
+	}
+
+	unitUUID, err := coreunit.NewUUID()
 	if err != nil {
+		return errors.Capture(err)
+	}
+
+	netNodeUUID, err := st.insertNetNode(ctx, tx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, netNodeUUID, insertUnitArg{
+		UnitName:       args.UnitName,
+		CloudContainer: args.CloudContainer,
+		Password:       args.Password,
+		Constraints:    args.Constraints,
+		UnitStatusArg:  args.UnitStatusArg,
+	}); err != nil {
 		return errors.Errorf("inserting unit for CAAS application %q: %w", appUUID, err)
 	}
+
+	// If there is no storage, return early.
 	if len(args.Storage) == 0 {
 		return nil
 	}
@@ -864,7 +844,7 @@ func (st *State) insertCAASUnit(
 	if err != nil {
 		return errors.Errorf("creating storage for unit %q: %w", args.UnitName, err)
 	}
-	err = st.attachUnitStorage(ctx, tx, args.StorageParentDir, args.StoragePoolKind, unitUUID, nodeUUID, attachArgs)
+	err = st.attachUnitStorage(ctx, tx, args.StorageParentDir, args.StoragePoolKind, unitUUID, netNodeUUID, attachArgs)
 	if err != nil {
 		return errors.Errorf("attaching storage for unit %q: %w", args.UnitName, err)
 	}
@@ -880,13 +860,28 @@ func (st *State) insertIAASUnit(
 	_, err := st.getUnitDetails(ctx, tx, args.UnitName)
 	if err == nil {
 		return errors.Errorf("unit %q already exists", args.UnitName).Add(applicationerrors.UnitAlreadyExists)
-	}
-	if !errors.Is(err, applicationerrors.UnitNotFound) {
+	} else if !errors.Is(err, applicationerrors.UnitNotFound) {
 		return errors.Errorf("looking up unit %q: %w", args.UnitName, err)
 	}
 
-	unitUUID, _, err := st.insertUnit(ctx, tx, appUUID, args)
+	unitUUID, err := coreunit.NewUUID()
 	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Handle the placement of the net node and machines accompanying the unit.
+	nodeUUID, err := st.placeMachine(ctx, tx, args.Placement)
+	if err != nil {
+		return errors.Errorf("getting net node UUID from placement %q: %w", args.Placement, err)
+	}
+
+	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, nodeUUID, insertUnitArg{
+		UnitName:       args.UnitName,
+		CloudContainer: args.CloudContainer,
+		Password:       args.Password,
+		Constraints:    args.Constraints,
+		UnitStatusArg:  args.UnitStatusArg,
+	}); err != nil {
 		return errors.Errorf("inserting unit for application %q: %w", appUUID, err)
 	}
 	if _, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind); err != nil {
@@ -895,34 +890,36 @@ func (st *State) insertIAASUnit(
 	return nil
 }
 
+type insertUnitArg struct {
+	UnitName       coreunit.Name
+	CloudContainer *application.CloudContainer
+	Password       *application.PasswordInfo
+	Constraints    constraints.Constraints
+	application.UnitStatusArg
+}
+
 func (st *State) insertUnit(
 	ctx context.Context, tx *sqlair.TX,
 	appUUID coreapplication.ID,
-	args application.InsertUnitArg,
-) (coreunit.UUID, string, error) {
+	unitUUID coreunit.UUID,
+	netNodeUUID string,
+	args insertUnitArg,
+) error {
 	if err := st.checkApplicationAlive(ctx, tx, appUUID); err != nil {
-		return "", "", errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	charmUUID, err := st.getCharmIDByApplicationID(ctx, tx, appUUID)
 	if err != nil {
-		return "", "", errors.Errorf("getting charm for application %q: %w", appUUID, err)
+		return errors.Errorf("getting charm for application %q: %w", appUUID, err)
 	}
 
-	unitUUID, err := coreunit.NewUUID()
-	if err != nil {
-		return "", "", errors.Capture(err)
-	}
-	nodeUUID, err := uuid.NewUUID()
-	if err != nil {
-		return "", "", errors.Capture(err)
-	}
 	createParams := unitDetails{
 		ApplicationID: appUUID,
 		UnitUUID:      unitUUID,
 		CharmUUID:     charmUUID,
 		Name:          args.UnitName,
-		NetNodeID:     nodeUUID.String(),
+		NetNodeID:     netNodeUUID,
 		LifeID:        life.Alive,
 	}
 	if args.Password != nil {
@@ -942,38 +939,26 @@ func (st *State) insertUnit(
 	createUnit := `INSERT INTO unit (*) VALUES ($unitDetails.*)`
 	createUnitStmt, err := st.Prepare(createUnit, createParams)
 	if err != nil {
-		return "", "", errors.Capture(err)
-	}
-
-	createNode := `INSERT INTO net_node (uuid) VALUES ($unitDetails.net_node_uuid)`
-	createNodeStmt, err := st.Prepare(createNode, createParams)
-	if err != nil {
-		return "", "", errors.Capture(err)
-	}
-
-	if err := tx.Query(ctx, createNodeStmt, createParams).Run(); err != nil {
-		return "", "", errors.Errorf("creating net node for unit %q: %w", args.UnitName, err)
+		return errors.Capture(err)
 	}
 	if err := tx.Query(ctx, createUnitStmt, createParams).Run(); err != nil {
-		return "", "", errors.Errorf("creating unit for unit %q: %w", args.UnitName, err)
+		return errors.Errorf("creating unit for unit %q: %w", args.UnitName, err)
 	}
 	if args.CloudContainer != nil {
-		if err := st.upsertUnitCloudContainer(ctx, tx, args.UnitName, unitUUID, nodeUUID.String(), args.CloudContainer); err != nil {
-			return "", "", errors.Errorf("creating cloud container for unit %q: %w", args.UnitName, err)
+		if err := st.upsertUnitCloudContainer(ctx, tx, args.UnitName, unitUUID, netNodeUUID, args.CloudContainer); err != nil {
+			return errors.Errorf("creating cloud container for unit %q: %w", args.UnitName, err)
 		}
 	}
-
 	if err := st.setUnitConstraints(ctx, tx, unitUUID, args.Constraints); err != nil {
-		return "", "", errors.Errorf("setting constraints for unit %q: %w", args.UnitName, err)
+		return errors.Errorf("setting constraints for unit %q: %w", args.UnitName, err)
 	}
-
 	if err := st.setUnitAgentStatus(ctx, tx, unitUUID, args.AgentStatus); err != nil {
-		return "", "", errors.Errorf("saving agent status for unit %q: %w", args.UnitName, err)
+		return errors.Errorf("saving agent status for unit %q: %w", args.UnitName, err)
 	}
 	if err := st.setUnitWorkloadStatus(ctx, tx, unitUUID, args.WorkloadStatus); err != nil {
-		return "", "", errors.Errorf("saving workload status for unit %q: %w", args.UnitName, err)
+		return errors.Errorf("saving workload status for unit %q: %w", args.UnitName, err)
 	}
-	return unitUUID, nodeUUID.String(), nil
+	return nil
 }
 
 // UpdateCAASUnit updates the cloud container for specified unit,

@@ -35,7 +35,6 @@ WHEN
 	NEW.charm_uuid != OLD.charm_uuid OR
 	(NEW.charm_modified_version != OLD.charm_modified_version OR (NEW.charm_modified_version IS NOT NULL AND OLD.charm_modified_version IS NULL) OR (NEW.charm_modified_version IS NULL AND OLD.charm_modified_version IS NOT NULL)) OR
 	(NEW.charm_upgrade_on_error != OLD.charm_upgrade_on_error OR (NEW.charm_upgrade_on_error IS NOT NULL AND OLD.charm_upgrade_on_error IS NULL) OR (NEW.charm_upgrade_on_error IS NULL AND OLD.charm_upgrade_on_error IS NOT NULL)) OR
-	(NEW.placement != OLD.placement OR (NEW.placement IS NOT NULL AND OLD.placement IS NULL) OR (NEW.placement IS NULL AND OLD.placement IS NOT NULL)) OR
 	NEW.space_uuid != OLD.space_uuid 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)

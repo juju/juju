@@ -259,8 +259,7 @@ func (s *baseSuite) createApplication(c *gc.C, name string, l life.Life, units .
 			DownloadURL:        "https://example.com",
 			DownloadSize:       42,
 		},
-		Scale:     len(units),
-		Placement: "placement",
+		Scale: len(units),
 		Devices: map[string]devices.Constraints{
 			"dev0": {
 				Type:       devices.DeviceType("type0"),
