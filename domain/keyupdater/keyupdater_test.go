@@ -223,38 +223,46 @@ func (s *keyUpdaterSuite) TestWatchAuthorizedKeysForMachine(c *gc.C) {
 	harness.Run(c, struct{}{})
 }
 
-func (s *keyUpdaterSuite) createMachine(c *gc.C, machineId string) {
-	createMachine := `
-INSERT INTO machine (uuid, net_node_uuid, name, life_id)
-VALUES ($M.machine_uuid, $M.net_node_uuid, $M.name, $M.life_id)
-`
-	createMachineStmt, err := sqlair.Prepare(createMachine, sqlair.M{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	createNode := `INSERT INTO net_node (uuid) VALUES ($M.net_node_uuid)`
-	createNodeStmt, err := sqlair.Prepare(createNode, sqlair.M{})
-	c.Assert(err, jc.ErrorIsNil)
-
+func (s *keyUpdaterSuite) createMachine(c *gc.C, machineId machine.Name) {
 	nodeUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	machineUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
+	query := `
+INSERT INTO machine (*)
+VALUES ($createMachine.*)
+`
+	machine := createMachine{
+		MachineUUID: machine.UUID(machineUUID.String()),
+		NetNodeUUID: nodeUUID.String(),
+		Name:        machineId,
+		LifeID:      life.Alive,
+	}
+
+	createMachineStmt, err := sqlair.Prepare(query, machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	createNode := `INSERT INTO net_node (uuid) VALUES ($createMachine.net_node_uuid)`
+	createNodeStmt, err := sqlair.Prepare(createNode, machine)
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.ModelTxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		createParams := sqlair.M{
-			"machine_uuid":  machineUUID.String(),
-			"net_node_uuid": nodeUUID.String(),
-			"name":          machineId,
-			"life_id":       life.Alive,
-		}
-		if err := tx.Query(ctx, createNodeStmt, createParams).Run(); err != nil {
+		if err := tx.Query(ctx, createNodeStmt, machine).Run(); err != nil {
 			return errors.Errorf("creating net node row for bootstrap machine %q: %w", machineId, err)
 		}
-		if err := tx.Query(ctx, createMachineStmt, createParams).Run(); err != nil {
+		if err := tx.Query(ctx, createMachineStmt, machine).Run(); err != nil {
 			return errors.Errorf("creating machine row for bootstrap machine %q: %w", machineId, err)
 		}
 		return nil
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+type createMachine struct {
+	MachineUUID machine.UUID `db:"uuid"`
+	NetNodeUUID string       `db:"net_node_uuid"`
+	Name        machine.Name `db:"name"`
+	LifeID      life.Life    `db:"life_id"`
 }
