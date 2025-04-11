@@ -872,6 +872,149 @@ func (s *importSuite) TestImportCharmActionsNestedMaps(c *gc.C) {
 	})
 }
 
+// TestImportEndpointBindings36 checks that the endpoint bindings are correctly
+// imported with integer spaces Ids, as found in 3.6.
+func (s *importSuite) TestImportEndpointBindings36(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	// Arrange: Declare application args with endpoint bindings set.
+	appArgs := description.ApplicationArgs{
+		Name:     "prometheus",
+		CharmURL: "ch:prometheus-1",
+		Exposed:  true,
+		EndpointBindings: map[string]string{
+			"endpoint0": "0",
+			"endpoint1": "1",
+		},
+	}
+	app := model.AddApplication(appArgs)
+
+	// Arrange: Set required fields.
+	app.SetCharmMetadata(description.CharmMetadataArgs{
+		Name: "prometheus",
+	})
+	app.SetCharmManifest(description.CharmManifestArgs{
+		Bases: []description.CharmManifestBase{baseType{
+			name:          "ubuntu",
+			channel:       "24.04",
+			architectures: []string{"amd64"},
+		}},
+	})
+	app.SetCharmOrigin(description.CharmOriginArgs{
+		Source:   "charm-hub",
+		ID:       "1234",
+		Hash:     "deadbeef",
+		Revision: 1,
+		Channel:  "666/stable",
+		Platform: "arm64/ubuntu/24.04",
+	})
+
+	// Arrange: Add space id to name information. This is in the 3.6 format,
+	// where the Id is an integer.
+	model.AddSpace(description.SpaceArgs{
+		Id:   "1",
+		Name: "beta",
+	})
+
+	// Arrange: Expect the import of the application.
+	s.importService.EXPECT().ImportApplication(
+		gomock.Any(),
+		"prometheus",
+		gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, args service.ImportApplicationArgs) error {
+		// Assert: Check that the endpoints are mapped to the correct space names
+		c.Assert(args.Charm.Meta().Name, gc.Equals, "prometheus")
+		c.Check(args.EndpointBindings, gc.HasLen, 2)
+		c.Check(args.EndpointBindings["endpoint0"], gc.DeepEquals, network.SpaceName(network.AlphaSpaceName))
+		c.Check(args.EndpointBindings["endpoint1"], gc.DeepEquals, network.SpaceName("beta"))
+		return nil
+	})
+
+	// Act: Import the application.
+	importOp := importOperation{
+		service: s.importService,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+	err := importOp.Execute(context.Background(), model)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestImportEndpointBindings40 checks that the endpoint bindings are correctly
+// imported with UUIDs as spaces Ids, as found in 4.0.
+func (s *importSuite) TestImportEndpointBindings40(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	space1UUID := uuid.MustNewUUID().String()
+	// Arrange: Declare application args with endpoint bindings set.
+	appArgs := description.ApplicationArgs{
+		Name:     "prometheus",
+		CharmURL: "ch:prometheus-1",
+		Exposed:  true,
+		EndpointBindings: map[string]string{
+			"endpoint0": network.AlphaSpaceId,
+			"endpoint1": space1UUID,
+		},
+	}
+	app := model.AddApplication(appArgs)
+
+	// Arrange: Set required fields.
+	app.SetCharmMetadata(description.CharmMetadataArgs{
+		Name: "prometheus",
+	})
+	app.SetCharmManifest(description.CharmManifestArgs{
+		Bases: []description.CharmManifestBase{baseType{
+			name:          "ubuntu",
+			channel:       "24.04",
+			architectures: []string{"amd64"},
+		}},
+	})
+	app.SetCharmOrigin(description.CharmOriginArgs{
+		Source:   "charm-hub",
+		ID:       "1234",
+		Hash:     "deadbeef",
+		Revision: 1,
+		Channel:  "666/stable",
+		Platform: "arm64/ubuntu/24.04",
+	})
+
+	// Arrange: Add space id to name information. This is in the 4.0 format,
+	// where the Id is a UUID.
+	model.AddSpace(description.SpaceArgs{
+		Id:   space1UUID,
+		Name: "beta",
+	})
+
+	// Arrange: Expect the import of the application.
+	s.importService.EXPECT().ImportApplication(
+		gomock.Any(),
+		"prometheus",
+		gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, args service.ImportApplicationArgs) error {
+		// Assert: Check that the endpoints are mapped to the correct space names
+		c.Assert(args.Charm.Meta().Name, gc.Equals, "prometheus")
+		c.Check(args.EndpointBindings, gc.HasLen, 2)
+		c.Check(args.EndpointBindings["endpoint0"], gc.DeepEquals, network.SpaceName(network.AlphaSpaceName))
+		c.Check(args.EndpointBindings["endpoint1"], gc.DeepEquals, network.SpaceName("beta"))
+		return nil
+	})
+
+	// Act: Import the application.
+	importOp := importOperation{
+		service: s.importService,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+	err := importOp.Execute(context.Background(), model)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *importSuite) TestImportExposedEndpointsFrom36(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
