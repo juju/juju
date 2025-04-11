@@ -289,6 +289,7 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 		DownloadInfo:        args.DownloadInfo,
 		ApplicationConfig:   args.ApplicationConfig,
 		ApplicationSettings: args.ApplicationSettings,
+		EndpointBindings:    args.EndpointBindings,
 	})
 	if err != nil {
 		return errors.Errorf("creating application args: %w", err)

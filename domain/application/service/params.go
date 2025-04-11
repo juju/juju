@@ -233,6 +233,9 @@ type ImportApplicationArgs struct {
 	// target) of the application.
 	ScaleState application.ScaleState
 
+	// EndpointBindings are the endpoint bindings for the charm
+	EndpointBindings map[string]network.SpaceName
+
 	// ExposedEndpoints is the exposed endpoints for the application.
 	ExposedEndpoints map[string]application.ExposedEndpoint
 }
