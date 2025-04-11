@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/juju/core/machine"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/domain/placement"
 	"github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/internal/errors"
@@ -21,9 +21,9 @@ import (
 
 // placeNetNodeMachines places the net node and machines if required, depending
 // on the placement.
-func (st *State) placeNetNodeMachines(ctx context.Context, tx *sqlair.TX, directive placement.Placement) (string, error) {
+func (st *State) placeNetNodeMachines(ctx context.Context, tx *sqlair.TX, directive deployment.Placement) (string, error) {
 	switch directive.Type {
-	case placement.PlacementTypeUnset:
+	case deployment.PlacementTypeUnset:
 		// The placement is unset, so we need to create a machine for the
 		// net node to link the unit to.
 		machineName, err := st.nextMachineSequence(ctx, tx)
@@ -34,12 +34,12 @@ func (st *State) placeNetNodeMachines(ctx context.Context, tx *sqlair.TX, direct
 		_, netNode, err := st.insertMachineForNetNode(ctx, tx, machineName)
 		return netNode, errors.Capture(err)
 
-	case placement.PlacementTypeMachine:
+	case deployment.PlacementTypeMachine:
 		// Look up the existing machine by name (example: 0 or 0/lxd/0) and then
 		// return the associated net node UUID.
 		return st.getMachineNetNodeUUIDFromName(ctx, tx, machine.Name(directive.Directive))
 
-	case placement.PlacementTypeContainer:
+	case deployment.PlacementTypeContainer:
 		// The placement is container scoped (example: lxd), so we need to
 		// create a parent machine (the next in the sequence) with the
 		// associated net node UUID. Then we need to create a child machine
@@ -63,7 +63,7 @@ func (st *State) placeNetNodeMachines(ctx context.Context, tx *sqlair.TX, direct
 		}
 		return childNetNode, nil
 
-	case placement.PlacementTypeProvider:
+	case deployment.PlacementTypeProvider:
 		// The placement is handled by the provider, so we need to create a
 		// machine for the net node and then insert the provider placement
 		// for the machine.

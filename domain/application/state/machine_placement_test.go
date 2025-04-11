@@ -15,15 +15,15 @@ import (
 
 	"github.com/juju/juju/core/machine"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/placement"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/sequence"
 	"github.com/juju/juju/internal/errors"
 )
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesInvalidPlacement(c *gc.C) {
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, err := s.state.placeNetNodeMachines(ctx, tx, placement.Placement{
-			Type: placement.PlacementType(666),
+		_, err := s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+			Type: deployment.PlacementType(666),
 		})
 		return err
 	})
@@ -36,8 +36,8 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnset(c *gc.C) {
 	var netNode string
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		netNode, err = s.state.placeNetNodeMachines(ctx, tx, placement.Placement{
-			Type: placement.PlacementTypeUnset,
+		netNode, err = s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+			Type: deployment.PlacementTypeUnset,
 		})
 		return err
 	})
@@ -65,8 +65,8 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimes(c *gc.C) {
 	var netNodes []string
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		for range total {
-			netNode, err := s.state.placeNetNodeMachines(ctx, tx, placement.Placement{
-				Type: placement.PlacementTypeUnset,
+			netNode, err := s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+				Type: deployment.PlacementTypeUnset,
 			})
 			if err != nil {
 				return err
@@ -110,8 +110,8 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimesWithGaps(c *g
 	createMachines := func() {
 		err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 			for range stepTotal {
-				netNode, err := s.state.placeNetNodeMachines(ctx, tx, placement.Placement{
-					Type: placement.PlacementTypeUnset,
+				netNode, err := s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+					Type: deployment.PlacementTypeUnset,
 				})
 				if err != nil {
 					return err
@@ -172,8 +172,8 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachine(c *gc.C) {
 	var netNode string
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		netNode, err = s.state.placeNetNodeMachines(ctx, tx, placement.Placement{
-			Type: placement.PlacementTypeUnset,
+		netNode, err = s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+			Type: deployment.PlacementTypeUnset,
 		})
 		return err
 	})
@@ -182,8 +182,8 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachine(c *gc.C) {
 	var resultNetNode string
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		resultNetNode, err = s.state.placeNetNodeMachines(ctx, tx, placement.Placement{
-			Type:      placement.PlacementTypeMachine,
+		resultNetNode, err = s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+			Type:      deployment.PlacementTypeMachine,
 			Directive: "0",
 		})
 		return err
@@ -196,8 +196,8 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachineNotFound(c *gc.C
 	// Try and place a machine that doesn't exist.
 
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, err := s.state.placeNetNodeMachines(ctx, tx, placement.Placement{
-			Type:      placement.PlacementTypeMachine,
+		_, err := s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+			Type:      deployment.PlacementTypeMachine,
 			Directive: "0",
 		})
 		return err
@@ -211,9 +211,9 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainer(c *gc.C) {
 	var netNode string
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		netNode, err = s.state.placeNetNodeMachines(ctx, tx, placement.Placement{
-			Type:      placement.PlacementTypeContainer,
-			Container: placement.ContainerTypeLXD,
+		netNode, err = s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+			Type:      deployment.PlacementTypeContainer,
+			Container: deployment.ContainerTypeLXD,
 		})
 		return err
 	})
@@ -242,9 +242,9 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerMultipleTimes(c *gc.C)
 	var netNodes []string
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		for range total {
-			netNode, err := s.state.placeNetNodeMachines(ctx, tx, placement.Placement{
-				Type:      placement.PlacementTypeContainer,
-				Container: placement.ContainerTypeLXD,
+			netNode, err := s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+				Type:      deployment.PlacementTypeContainer,
+				Container: deployment.ContainerTypeLXD,
 			})
 			if err != nil {
 				return err
@@ -292,9 +292,9 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerMultipleTimesWithGaps(
 	createMachines := func() {
 		err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 			for range stepTotal {
-				netNode, err := s.state.placeNetNodeMachines(ctx, tx, placement.Placement{
-					Type:      placement.PlacementTypeContainer,
-					Container: placement.ContainerTypeLXD,
+				netNode, err := s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+					Type:      deployment.PlacementTypeContainer,
+					Container: deployment.ContainerTypeLXD,
 				})
 				if err != nil {
 					return err
@@ -382,8 +382,8 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesProvider(c *gc.C) {
 	var netNode string
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		netNode, err = s.state.placeNetNodeMachines(ctx, tx, placement.Placement{
-			Type:      placement.PlacementTypeProvider,
+		netNode, err = s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+			Type:      deployment.PlacementTypeProvider,
 			Directive: "zone=eu-west-1",
 		})
 		return err

@@ -20,10 +20,10 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
-	"github.com/juju/juju/domain/placement"
 	"github.com/juju/juju/domain/status"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -215,7 +215,7 @@ type AddUnitArg struct {
 	UnitStatusArg
 	UnitName    coreunit.Name
 	Constraints constraints.Constraints
-	Placement   placement.Placement
+	Placement   deployment.Placement
 }
 
 // StorageParentDir is the parent directory for mounting charm storage.
@@ -228,7 +228,7 @@ type InsertUnitArg struct {
 	CloudContainer   *CloudContainer
 	Password         *PasswordInfo
 	Constraints      constraints.Constraints
-	Placement        placement.Placement
+	Placement        deployment.Placement
 	Storage          []ApplicationStorageArg
 	StoragePoolKind  map[string]storage.StorageKind
 	StorageParentDir string

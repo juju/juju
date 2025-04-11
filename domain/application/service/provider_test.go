@@ -32,8 +32,8 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/deployment"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	"github.com/juju/juju/domain/placement"
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
@@ -1567,8 +1567,8 @@ func (s *providerServiceSuite) TestAddUnitsAppConstraints(c *gc.C) {
 				Since:   now,
 			},
 		},
-		Placement: placement.Placement{
-			Type:      placement.PlacementTypeMachine,
+		Placement: deployment.Placement{
+			Type:      deployment.PlacementTypeMachine,
 			Directive: "0/lxd/0",
 		},
 	}}

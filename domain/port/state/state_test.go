@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationstate "github.com/juju/juju/domain/application/state"
+	"github.com/juju/juju/domain/deployment"
 	machinestate "github.com/juju/juju/domain/machine/state"
-	"github.com/juju/juju/domain/placement"
 	"github.com/juju/juju/domain/port"
 	porterrors "github.com/juju/juju/domain/port/errors"
 	"github.com/juju/juju/internal/changestream/testing"
@@ -132,8 +132,8 @@ func (s *baseSuite) createUnit(c *gc.C, netNodeUUID, appName string) (coreunit.U
 
 	err = applicationSt.AddIAASUnits(ctx, c.MkDir(), appID, charmUUID, application.AddUnitArg{
 		UnitName: unitName,
-		Placement: placement.Placement{
-			Type:      placement.PlacementTypeMachine,
+		Placement: deployment.Placement{
+			Type:      deployment.PlacementTypeMachine,
 			Directive: machineName.String(),
 		},
 	})

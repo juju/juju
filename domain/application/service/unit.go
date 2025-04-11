@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/domain/placement"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 )
@@ -124,7 +124,7 @@ func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg
 			return nil, errors.Errorf("validating unit name %q: %w", u.UnitName, err)
 		}
 
-		placement, err := placement.ParsePlacement(u.Placement)
+		placement, err := deployment.ParsePlacement(u.Placement)
 		if err != nil {
 			return nil, errors.Errorf("invalid placement for %q: %w", u.UnitName, err)
 		}
