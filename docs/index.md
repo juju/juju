@@ -12,7 +12,7 @@ explanation/index
 For contributors <contributor/index>
 ```
 
-Juju is an open source orchestration engine for software operators that enables the deployment, integration and lifecycle management of applications in the cloud using special software operators called ‘charms’.
+Juju is an open source orchestration engine for software operators that enables the deployment, integration, and lifecycle management of applications in the cloud using special software operators called ‘charms’.
 
 Juju and charms provide a simple, consistent, and repeatable way to install, provision, maintain, update, upgrade, and integrate applications on and across Kubernetes containers, Linux containers, virtual machines, and bare metal machines, on public or private cloud.
 
@@ -64,17 +64,14 @@ Whether you are a CIO or SysAdmin, DevOps engineer, or SRE, Juju helps you take 
 (project-and-community)=
 ## Project and community
 
-Juju is an open source project that warmly welcomes community projects, contributions, suggestions, fixes and
-constructive feedback.
+Juju is an open source project that warmly welcomes community projects, contributions, suggestions, fixes and constructive feedback.
 
-* Learn about the [Roadmap & Releases](https://discourse.charmhub.io/t/5064)
-* Read our [Code of Conduct ](https://ubuntu.com/community/code-of-conduct)
-* Join our [Matrix chat](https://matrix.to/#/#charmhub-jujudev:ubuntu.com)
-* Join the [Discourse forum ](https://discourse.charmhub.io/t/welcome-to-the-charmed-operator-community/8) to talk
-  about [Juju](https://discourse.charmhub.io/tags/c/juju/6/community-workshop), [charms](https://discourse.charmhub.io/c/charm/41), [docs](https://discourse.charmhub.io/c/doc/22),
-  or [to meet the community](https://discourse.charmhub.io/tag/community-workshop)
-* Report a bug on [Launchpad ](https://bugs.launchpad.net/juju) (for code)
-  or [GitHub](https://github.com/juju/docs/issues) (for docs)
-* Contribute to the code or the docs on [GitHub](https://github.com/juju/juju/blob/develop/CONTRIBUTING.md)
-* Visit the [Juju careers page](https://juju.is/careers)
-* Read our [Juju contributor docs](./contributor/index)
+* [Roadmap & Releases](./reference/juju/juju-roadmap-and-releases.md)
+* [Code of Conduct ](https://ubuntu.com/community/code-of-conduct)
+* [Join our chat](https://matrix.to/#/#charmhub-jujudev:ubuntu.com)
+* [Join our forum ](https://discourse.charmhub.io/)
+* [Report a bug](https://github.com/juju/juju/issues)
+* [Contribute](https://github.com/juju/juju/blob/main/CONTRIBUTING.md)
+* [Visit our careers page](https://juju.is/careers)
+
+Thinking about using Juju for your next project? [Get in touch](https://canonical.com/contact-us)!
