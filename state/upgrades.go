@@ -179,6 +179,7 @@ func AddVirtualHostKeys(pool *StatePool) error {
 	}
 	return st.runRawTransaction(ops)
 }
+
 func SplitMigrationStatusMessages(pool *StatePool) error {
 	type legacyModelMigStatusDoc struct {
 		// These are the same as the ids as migrationsC.
@@ -249,4 +250,36 @@ func SplitMigrationStatusMessages(pool *StatePool) error {
 		})
 	}
 	return st.runRawTransaction(ops)
+}
+
+// AddJumpHostKey creates a new SSH server host key document for the
+// controller's jump SSH server if missing.
+func AddJumpHostKey(pool *StatePool) error {
+	st, err := pool.SystemState()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	key, err := ssh.NewMarshalledED25519()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	controllersColl, closer := st.db().GetRawCollection(controllersC)
+	defer closer()
+	// check the document exists before we insert it.
+	var doc sshServerHostKeyDoc
+	err = controllersColl.FindId(sshServerHostKeyDocId).One(&doc)
+	if err == nil {
+		return nil
+	}
+	op := txn.Op{
+		C:  controllersC,
+		Id: sshServerHostKeyDocId,
+		Insert: &sshServerHostKeyDoc{
+			Key: string(key),
+		},
+	}
+	if err := st.runRawTransaction([]txn.Op{op}); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
