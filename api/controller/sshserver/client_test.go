@@ -4,8 +4,6 @@
 package sshserver_test
 
 import (
-	"crypto/rsa"
-
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -109,9 +107,7 @@ func (s *sshserverSuite) TestSSHServerHostKeyError(c *gc.C) {
 func (s *sshserverSuite) TestListPublicKeysForModel(c *gc.C) {
 	key, err := pkitest.InsecureKeyProfile()
 	c.Assert(err, jc.ErrorIsNil)
-	rsaKey, ok := key.(*rsa.PrivateKey)
-	c.Assert(ok, jc.IsTrue)
-	signer, err := gossh.NewSignerFromKey(rsaKey)
+	signer, err := gossh.NewSignerFromKey(key)
 	c.Assert(err, jc.ErrorIsNil)
 	pubKey := signer.PublicKey()
 	authorizedKey := string(gossh.MarshalAuthorizedKey(pubKey))

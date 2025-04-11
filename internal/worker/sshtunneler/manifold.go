@@ -109,3 +109,10 @@ func (w *adapterClient) InsertSSHConnRequest(arg state.SSHConnRequestArg) error 
 func (w *adapterClient) Addresses() (network.SpaceAddresses, error) {
 	return w.client.ControllerAddresses(w.machineTag)
 }
+
+// MachineHostKeys implements FacadeClient.
+// It returns the host keys for a specified machine.
+func (w *adapterClient) MachineHostKeys(modelUUID, machineID string) ([]string, error) {
+	mt := names.NewMachineTag(machineID)
+	return w.client.MachineHostKeys(modelUUID, mt)
+}

@@ -801,6 +801,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			StateName: stateName,
 		})),
 
+		// The sshTunneler creates SSH connections to machines.
 		sshTunnelerName: ifController(sshtunneler.Manifold(sshtunneler.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,

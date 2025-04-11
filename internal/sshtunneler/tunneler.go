@@ -283,7 +283,7 @@ func (tt *Tracker) wait(ctx context.Context, recv chan (net.Conn), privateKey go
 	case conn := <-recv:
 		// We now have ownership of the connection, so we should close it
 		// if the SSH dial fails.
-		sshClient, err := tt.dialer.Dial(conn, defaultUser, privateKey, usefixedHostKeys(hostKeys))
+		sshClient, err := tt.dialer.Dial(conn, defaultUser, privateKey, useFixedHostKeys(hostKeys))
 		if err != nil {
 			conn.Close()
 			return nil, err
@@ -294,7 +294,7 @@ func (tt *Tracker) wait(ctx context.Context, recv chan (net.Conn), privateKey go
 	}
 }
 
-func usefixedHostKeys(keys []gossh.PublicKey) gossh.HostKeyCallback {
+func useFixedHostKeys(keys []gossh.PublicKey) gossh.HostKeyCallback {
 	hk := &fixedHostKeys{keys}
 	return hk.check
 }
