@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/domain/application"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	apperrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/placement"
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
@@ -107,7 +107,7 @@ type ImportUnitArg struct {
 	UnitName       coreunit.Name
 	PasswordHash   *string
 	CloudContainer *application.CloudContainerParams
-	Placement      placement.Placement
+	Machine        machine.Name
 }
 
 // UpdateCAASUnitParams contains parameters for updating a CAAS unit.

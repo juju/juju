@@ -374,14 +374,14 @@ func (s *MigrationService) GetSpaceUUIDByName(ctx context.Context, name string) 
 	return s.st.GetSpaceUUIDByName(ctx, name)
 }
 
-func makeUnitArgs(units []ImportUnitArg, charmUUID corecharm.ID) ([]application.InsertUnitArg, error) {
-	unitArgs := make([]application.InsertUnitArg, len(units))
+func makeUnitArgs(units []ImportUnitArg, charmUUID corecharm.ID) ([]application.ImportUnitArg, error) {
+	unitArgs := make([]application.ImportUnitArg, len(units))
 	for i, u := range units {
 
-		arg := application.InsertUnitArg{
+		arg := application.ImportUnitArg{
 			UnitName:         u.UnitName,
 			StorageParentDir: application.StorageParentDir,
-			Placement:        u.Placement,
+			Machine:          u.Machine,
 		}
 		if u.CloudContainer != nil {
 			arg.CloudContainer = makeCloudContainerArg(u.UnitName, *u.CloudContainer)

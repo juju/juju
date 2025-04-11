@@ -519,52 +519,6 @@ func (st *State) AddCAASUnits(
 	return errors.Capture(err)
 }
 
-// InsertIAASUnits inserts the fully formed units for the specified IAAS application.
-// This is only used when inserting units during model migration.
-//   - If any of the units already exists [applicationerrors.UnitAlreadyExists] is returned.
-//   - If the application is not alive, [applicationerrors.ApplicationNotAlive] is returned.
-//   - If the application is not found, [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) InsertMigratingIAASUnits(ctx context.Context, appUUID coreapplication.ID, units ...application.InsertUnitArg) error {
-	if len(units) == 0 {
-		return nil
-	}
-	db, err := st.DB()
-	if err != nil {
-		return errors.Capture(err)
-	}
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		for _, arg := range units {
-			if err := st.insertIAASUnit(ctx, tx, appUUID, arg); err != nil {
-				return errors.Errorf("inserting IAAS unit %q: %w", arg.UnitName, err)
-			}
-		}
-		return nil
-	})
-}
-
-// InsertCAASUnits inserts the fully formed units for the specified CAAS application.
-// This is only used when inserting units during model migration.
-//   - If any of the units already exists [applicationerrors.UnitAlreadyExists] is returned.
-//   - If the application is not alive, [applicationerrors.ApplicationNotAlive] is returned.
-//   - If the application is not found, [applicationerrors.ApplicationNotFound] is returned.
-func (st *State) InsertMigratingCAASUnits(ctx context.Context, appUUID coreapplication.ID, units ...application.InsertUnitArg) error {
-	if len(units) == 0 {
-		return nil
-	}
-	db, err := st.DB()
-	if err != nil {
-		return errors.Capture(err)
-	}
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		for _, arg := range units {
-			if err := st.insertCAASUnit(ctx, tx, appUUID, arg); err != nil {
-				return errors.Errorf("inserting CAAS unit %q: %w", arg.UnitName, err)
-			}
-		}
-		return nil
-	})
-}
-
 // SetRunningAgentBinaryVersion sets the running agent binary version for the
 // provided unit uuid. Any previously set values for this unit uuid will
 // be overwritten by this call.
@@ -871,7 +825,13 @@ func (st *State) insertCAASUnit(
 		return errors.Capture(err)
 	}
 
-	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, netNodeUUID, args); err != nil {
+	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, netNodeUUID, insertUnitArg{
+		UnitName:       args.UnitName,
+		CloudContainer: args.CloudContainer,
+		Password:       args.Password,
+		Constraints:    args.Constraints,
+		UnitStatusArg:  args.UnitStatusArg,
+	}); err != nil {
 		return errors.Errorf("inserting unit for CAAS application %q: %w", appUUID, err)
 	}
 
@@ -915,7 +875,13 @@ func (st *State) insertIAASUnit(
 		return errors.Errorf("getting net node UUID from placement %q: %w", args.Placement, err)
 	}
 
-	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, nodeUUID, args); err != nil {
+	if err := st.insertUnit(ctx, tx, appUUID, unitUUID, nodeUUID, insertUnitArg{
+		UnitName:       args.UnitName,
+		CloudContainer: args.CloudContainer,
+		Password:       args.Password,
+		Constraints:    args.Constraints,
+		UnitStatusArg:  args.UnitStatusArg,
+	}); err != nil {
 		return errors.Errorf("inserting unit for application %q: %w", appUUID, err)
 	}
 	if _, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind); err != nil {
@@ -924,12 +890,20 @@ func (st *State) insertIAASUnit(
 	return nil
 }
 
+type insertUnitArg struct {
+	UnitName       coreunit.Name
+	CloudContainer *application.CloudContainer
+	Password       *application.PasswordInfo
+	Constraints    constraints.Constraints
+	application.UnitStatusArg
+}
+
 func (st *State) insertUnit(
 	ctx context.Context, tx *sqlair.TX,
 	appUUID coreapplication.ID,
 	unitUUID coreunit.UUID,
 	netNodeUUID string,
-	args application.InsertUnitArg,
+	args insertUnitArg,
 ) error {
 	if err := st.checkApplicationAlive(ctx, tx, appUUID); err != nil {
 		return errors.Capture(err)

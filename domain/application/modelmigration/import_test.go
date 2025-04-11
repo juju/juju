@@ -17,12 +17,12 @@ import (
 	"github.com/juju/juju/core/config"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/service"
-	"github.com/juju/juju/domain/placement"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charm/resource"
@@ -251,10 +251,7 @@ func (s *importSuite) TestApplicationImportWithMinimalCharmForIAAS(c *gc.C) {
 	c.Check(importArgs.Units, gc.DeepEquals, []service.ImportUnitArg{{
 		UnitName:     "prometheus/0",
 		PasswordHash: ptr("passwordhash"),
-		Placement: placement.Placement{
-			Type:      placement.PlacementTypeMachine,
-			Directive: "0",
-		},
+		Machine:      machine.Name("0"),
 	}})
 }
 

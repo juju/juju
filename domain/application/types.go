@@ -390,6 +390,19 @@ type ExportUnit struct {
 	Machine machine.Name
 }
 
+// ImportUnitArg is used to import a unit.
+type ImportUnitArg struct {
+	UnitName         coreunit.Name
+	CloudContainer   *CloudContainer
+	Password         *PasswordInfo
+	Constraints      constraints.Constraints
+	Machine          machine.Name
+	Storage          []ApplicationStorageArg
+	StoragePoolKind  map[string]storage.StorageKind
+	StorageParentDir string
+	UnitStatusArg
+}
+
 // UnitAttributes contains parameters for exporting a unit.
 type UnitAttributes struct {
 	Life        life.Life

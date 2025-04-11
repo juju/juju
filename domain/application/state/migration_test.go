@@ -8,10 +8,12 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/application"
@@ -242,4 +244,46 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportDead(c *gc.C) {
 			Machine: machine.Name("0"),
 		},
 	})
+}
+
+func (s *unitStateSuite) TestInsertMigratingIAASUnits(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive)
+
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		_, _, err := s.state.insertMachineForNetNode(context.Background(), tx, machine.Name("0"))
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.InsertMigratingIAASUnits(context.Background(), appID, application.ImportUnitArg{
+		UnitName: "foo/666",
+		Machine:  "0",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertInsertMigratingUnits(c, appID)
+}
+
+func (s *unitStateSuite) TestInsertMigratingCAASUnits(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive)
+
+	err := s.state.InsertMigratingCAASUnits(context.Background(), appID, application.ImportUnitArg{
+		UnitName: "foo/666",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertInsertMigratingUnits(c, appID)
+}
+
+func (s *unitStateSuite) assertInsertMigratingUnits(c *gc.C, appID coreapplication.ID) {
+	var unitName string
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT name FROM unit WHERE application_uuid=?", appID).Scan(&unitName)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitName, gc.Equals, "foo/666")
 }
