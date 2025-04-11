@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -23,12 +24,12 @@ import (
 // non-Dead hosted models, then an error with the code
 // params.CodeHasHostedModels will be transmitted.
 func (c *ControllerAPI) DestroyController(ctx context.Context, args params.DestroyControllerArgs) error {
-	err := c.authorizer.HasPermission(ctx, permission.SuperuserAccess, c.controllerTag)
+	err := c.authorizer.HasPermission(ctx, permission.SuperuserAccess, names.NewControllerTag(c.controllerUUID))
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := ensureNotBlocked(ctx, c.state, c.blockCommandServiceGetter, c.logger); err != nil {
+	if err := ensureNotBlocked(ctx, c.modelService, c.blockCommandServiceGetter, c.logger); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -57,17 +58,18 @@ func (c *ControllerAPI) DestroyController(ctx context.Context, args params.Destr
 
 func ensureNotBlocked(
 	ctx context.Context,
-	st Backend,
+	modelService ModelService,
 	blockCommandServiceGetter func(context.Context, model.UUID) (BlockCommandService, error),
 	logger corelogger.Logger,
 ) error {
 	// If there are blocks let the user know.
-	uuids, err := st.AllModelUUIDs()
+	uuids, err := modelService.ListModelIDs(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	for _, uuid := range uuids {
-		blockService, err := blockCommandServiceGetter(ctx, model.UUID(uuid))
+		blockService, err := blockCommandServiceGetter(ctx, uuid)
 		if err != nil {
 			return errors.Trace(err)
 		}

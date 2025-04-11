@@ -7,6 +7,8 @@ import (
 	"context"
 	"encoding/json"
 	"regexp"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/juju/clock"
@@ -22,6 +24,8 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/cloudspec"
+	commonmodel "github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
@@ -31,6 +35,7 @@ import (
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -67,6 +72,7 @@ type controllerSuite struct {
 	hub              *pubsub.StructuredHub
 	context          facadetest.MultiModelContext
 	leadershipReader leadership.Reader
+	mockModelService *mocks.MockModelService
 }
 
 var _ = gc.Suite(&controllerSuite{})
@@ -124,16 +130,112 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 			DomainServices_:   s.ControllerDomainServices(c),
 			Logger_:           loggertesting.WrapCheckLog(c),
 			LeadershipReader_: s.leadershipReader,
+			ControllerUUID_:   modeltesting.GenModelUUID(c).String(),
+			ModelUUID_:        modeltesting.GenModelUUID(c),
 		},
 		DomainServicesForModelFunc_: func(modelUUID model.UUID) internalservices.DomainServices {
 			return s.ModelDomainServices(c, modelUUID)
 		},
 	}
-	controller, err := controller.LatestAPI(context.Background(), s.context)
-	c.Assert(err, jc.ErrorIsNil)
-	s.controller = controller
+
+	s.controller = s.controllerAPI(c)
 
 	loggo.GetLogger("juju.apiserver.controller").SetLogLevel(loggo.TRACE)
+}
+
+// controllerAPI sets up and returns a new instance of the controller API,
+// It provides custom service getter functions and mock services
+// to allow test-level control over their behavior.
+func (s *controllerSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
+	ctrl := gomock.NewController(c)
+	stdCtx := context.Background()
+	ctx := s.context
+	var (
+		st             = ctx.State()
+		authorizer     = ctx.Auth()
+		pool           = ctx.StatePool()
+		resources      = ctx.Resources()
+		hub            = ctx.Hub()
+		domainServices = ctx.DomainServices()
+	)
+
+	modelAgentServiceGetter := func(c context.Context, modelUUID model.UUID) (controller.ModelAgentService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Agent(), nil
+	}
+	modelConfigServiceGetter := func(c context.Context, modelUUID model.UUID) (cloudspec.ModelConfigService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Config(), nil
+	}
+	applicationServiceGetter := func(c context.Context, modelUUID model.UUID) (controller.ApplicationService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Application(), nil
+	}
+	statusServiceGetter := func(c context.Context, modelUUID model.UUID) (controller.StatusService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Status(), nil
+	}
+	blockCommandServiceGetter := func(c context.Context, modelUUID model.UUID) (controller.BlockCommandService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.BlockCommand(), nil
+	}
+	machineServiceGetter := func(c context.Context, modelUUID model.UUID) (commonmodel.MachineService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Machine(), nil
+	}
+	s.mockModelService = mocks.NewMockModelService(ctrl)
+
+	api, err := controller.NewControllerAPI(
+		stdCtx,
+		st,
+		pool,
+		authorizer,
+		resources,
+		hub,
+		ctx.Logger().Child("controller"),
+		domainServices.ControllerConfig(),
+		domainServices.ExternalController(),
+		domainServices.Cloud(),
+		domainServices.Credential(),
+		domainServices.Upgrade(),
+		domainServices.Access(),
+		machineServiceGetter,
+		s.mockModelService,
+		domainServices.ModelInfo(),
+		domainServices.BlockCommand(),
+		applicationServiceGetter,
+		statusServiceGetter,
+		modelAgentServiceGetter,
+		modelConfigServiceGetter,
+		blockCommandServiceGetter,
+		domainServices.Proxy(),
+		func(c context.Context, modelUUID model.UUID, legacyState facade.LegacyStateExporter) (controller.ModelExporter, error) {
+			return ctx.ModelExporter(c, modelUUID, legacyState)
+		},
+		ctx.ObjectStore(),
+		ctx.ControllerUUID(),
+		ctx.ModelUUID(),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	return api
 }
 
 func (s *controllerSuite) TearDownTest(c *gc.C) {
@@ -160,12 +262,20 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 
 func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *gc.C) {
 	owner := names.NewUserTag("owner")
-	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "first", Owner: owner}).Close()
-	remoteUserTag := names.NewUserTag("user@remote")
-	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "second", Owner: remoteUserTag}).Close()
+	remoteUserTag := names.NewUserTag("user").WithDomain("remote")
 
+	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
+		[]model.Model{
+			{
+				Name:      "first",
+				OwnerName: user.NameFromTag(owner),
+			},
+			{
+				Name:      "second",
+				OwnerName: user.NameFromTag(remoteUserTag),
+			},
+		}, nil,
+	)
 	results, err := s.controller.HostedModelConfigs(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(results.Models), gc.Equals, 2)
@@ -208,7 +318,7 @@ func (s *controllerSuite) TestHostedModelConfigs_CanOpenEnviron(c *gc.C) {
 	st1 := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "first", Owner: owner})
 	defer func() { _ = st1.Close() }()
-	remoteUserTag := names.NewUserTag("user@remote")
+	remoteUserTag := names.NewUserTag("user").WithDomain("remote")
 	st2 := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "second", Owner: remoteUserTag})
 	defer func() { _ = st2.Close() }()
@@ -340,11 +450,23 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 	defer func() { _ = st1.Close() }()
 	model1, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
+	s.mockModelService.EXPECT().Model(gomock.Any(), model1.ModelTag().Id()).Return(
+		model.Model{
+			Name:      model1.Name(),
+			OwnerName: user.NameFromTag(model1.Owner()),
+		}, nil,
+	)
 
 	st2 := s.Factory.MakeModel(c, nil)
 	defer func() { _ = st2.Close() }()
 	model2, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
+	s.mockModelService.EXPECT().Model(gomock.Any(), model2.ModelTag().Id()).Return(
+		model.Model{
+			Name:      model2.Name(),
+			OwnerName: user.NameFromTag(model2.Owner()),
+		}, nil,
+	)
 
 	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location", macaroon.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
@@ -449,6 +571,12 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
+	s.mockModelService.EXPECT().Model(gomock.Any(), m.ModelTag().Id()).Return(
+		model.Model{
+			Name:      m.Name(),
+			OwnerName: user.NameFromTag(m.Owner()),
+		}, nil,
+	)
 
 	args := params.InitiateMigrationArgs{
 		Specs: []params.MigrationSpec{
@@ -519,6 +647,13 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
 	controller.SetPrecheckResult(s, errors.New("boom"))
 
 	m, err := st.Model()
+	s.mockModelService.EXPECT().Model(gomock.Any(), m.ModelTag().Id()).Return(
+		model.Model{
+			Name:      m.Name(),
+			OwnerName: user.NameFromTag(m.Owner()),
+		}, nil,
+	)
+
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.InitiateMigrationArgs{
@@ -932,7 +1067,9 @@ type accessSuite struct {
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 
-	accessService *mocks.MockControllerAccessService
+	accessService  *mocks.MockControllerAccessService
+	modelService   *mocks.MockModelService
+	controllerUUID string
 }
 
 var _ = gc.Suite(&accessSuite{})
@@ -959,11 +1096,14 @@ func (s *accessSuite) SetUpTest(c *gc.C) {
 		AdminTag: s.Owner,
 	}
 
+	s.controllerUUID = modeltesting.GenModelUUID(c).String()
+
 }
 
 func (s *accessSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.accessService = mocks.NewMockControllerAccessService(ctrl)
+	s.modelService = mocks.NewMockModelService(ctrl)
 	return ctrl
 }
 
@@ -972,6 +1112,7 @@ func (s *accessSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *accessSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
+
 	api, err := controller.NewControllerAPI(
 		context.Background(),
 		s.State,
@@ -987,6 +1128,7 @@ func (s *accessSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 		nil,
 		s.accessService,
 		nil,
+		s.modelService,
 		nil,
 		nil,
 		nil,
@@ -997,7 +1139,8 @@ func (s *accessSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 		nil,
 		nil,
 		nil,
-		nil,
+		s.controllerUUID,
+		"",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1013,7 +1156,7 @@ func (s *accessSuite) TestModifyControllerAccess(c *gc.C) {
 			Access: permission.SuperuserAccess,
 			Target: permission.ID{
 				ObjectType: permission.Controller,
-				Key:        testing.ControllerTag.Id(),
+				Key:        s.controllerUUID,
 			},
 		},
 		Change:  permission.Grant,
@@ -1043,7 +1186,7 @@ func (s *accessSuite) TestGetControllerAccessPermissions(c *gc.C) {
 		Access: permission.SuperuserAccess,
 		Target: permission.ID{
 			ObjectType: permission.Controller,
-			Key:        testing.ControllerTag.Id(),
+			Key:        s.controllerUUID,
 		},
 	}
 	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), userName, target.Target).Return(permission.SuperuserAccess, nil)
@@ -1069,40 +1212,50 @@ func (s *accessSuite) TestGetControllerAccessPermissions(c *gc.C) {
 
 func (s *accessSuite) TestAllModels(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	testAdmin := names.NewUserTag("test-admin")
 	admin := names.NewUserTag("foobar")
+	remoteUserTag := names.NewUserTag("user").WithDomain("remote")
 
-	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "owned", Owner: admin}).Close()
-	remoteUserTag := names.NewUserTag("user@remote")
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "user", Owner: remoteUserTag})
-	defer func() { _ = st.Close() }()
+	models := []model.Model{
+		{
+			Name:      "controller",
+			OwnerName: user.NameFromTag(testAdmin),
+			ModelType: model.IAAS,
+		},
+		{
+			Name:      "no-access",
+			OwnerName: user.NameFromTag(remoteUserTag),
+			ModelType: model.IAAS,
+		},
+		{
+			Name:      "owned",
+			OwnerName: user.NameFromTag(admin),
+			ModelType: model.IAAS,
+		},
+		{
+			Name:      "user",
+			OwnerName: user.NameFromTag(remoteUserTag),
+			ModelType: model.IAAS,
+		},
+	}
+	s.modelService.EXPECT().ListAllModels(gomock.Any()).Return(
+		models, nil,
+	)
 
-	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "no-access", Owner: remoteUserTag}).Close()
-
-	s.accessService.EXPECT().LastModelLogin(gomock.Any(), usertesting.GenNewName(c, "test-admin"), gomock.Any()).Times(4)
+	// api user owner is "test-admin"
+	s.accessService.EXPECT().LastModelLogin(gomock.Any(), user.NameFromTag(testAdmin), gomock.Any()).Times(4)
 
 	response, err := s.controllerAPI(c).AllModels(context.Background())
+	slices.SortFunc(response.UserModels, func(x params.UserModel, y params.UserModel) int {
+		return strings.Compare(x.Name, y.Name)
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	// The results are sorted.
-	expected := []string{"controller", "no-access", "owned", "user"}
-	var obtained []string
-	for _, userModel := range response.UserModels {
-		c.Assert(userModel.Type, gc.Equals, "iaas")
-		obtained = append(obtained, userModel.Name)
-		stateModel, ph, err := s.StatePool.GetModel(userModel.UUID)
-		c.Assert(err, jc.ErrorIsNil)
-		defer ph.Release()
-		s.checkModelMatches(c, userModel.Model, stateModel)
+	for i, userModel := range response.UserModels {
+		c.Assert(userModel.Type, gc.DeepEquals, model.IAAS.String())
+		c.Assert(models[i].Name, gc.DeepEquals, userModel.Name)
+		c.Assert(names.NewUserTag(models[i].OwnerName.Name()).String(), gc.DeepEquals, userModel.OwnerTag)
+		c.Assert(models[i].ModelType.String(), gc.DeepEquals, userModel.Type)
 	}
-	c.Assert(obtained, jc.DeepEquals, expected)
-}
-
-func (s *accessSuite) checkModelMatches(c *gc.C, model params.Model, expected *state.Model) {
-	c.Check(model.Name, gc.Equals, expected.Name())
-	c.Check(model.UUID, gc.Equals, expected.UUID())
-	c.Check(model.OwnerTag, gc.Equals, expected.Owner().String())
 }
 
 type noopLeadershipReader struct {

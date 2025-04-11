@@ -10,7 +10,6 @@ import (
 	"github.com/juju/juju/cloud"
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
@@ -53,25 +52,6 @@ type ControllerAccessService interface {
 	LastModelLogin(context.Context, user.Name, coremodel.UUID) (time.Time, error)
 }
 
-// MachineService defines the methods that the facade assumes from the Machine
-// service.
-type MachineService interface {
-	// EnsureDeadMachine sets the provided machine's life status to Dead.
-	// No error is returned if the provided machine doesn't exist, just nothing
-	// gets updated.
-	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
-	// GetMachineUUID returns the UUID of a machine identified by its name.
-	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
-	// InstanceID returns the cloud specific instance id for this machine.
-	InstanceID(ctx context.Context, mUUID string) (instance.Id, error)
-	// InstanceIDAndName returns the cloud specific instance ID and display name for
-	// this machine.
-	InstanceIDAndName(ctx context.Context, machineUUID string) (instance.Id, string, error)
-	// HardwareCharacteristics returns the hardware characteristics of the
-	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error)
-}
-
 // ModelService provides access to information about running Juju agents.
 type ModelService interface {
 	// Model returns the model associated with the provided uuid.
@@ -81,6 +61,11 @@ type ModelService interface {
 	// GetModelUsers will retrieve basic information about users with permissions on
 	// the given model UUID.
 	GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error)
+	// ListAllModels returns a slice of all models in the controller. If no models
+	// exist an empty slice is returned.
+	ListAllModels(ctx context.Context) ([]coremodel.Model, error)
+	// ListModelIDs returns a list of all model UUIDs.
+	ListModelIDs(context.Context) ([]coremodel.UUID, error)
 }
 
 // ModelInfoService defines domain service methods for managing a model.

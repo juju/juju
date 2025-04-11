@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"
 )
@@ -30,8 +30,9 @@ func SetPrecheckResult(p patcher, err error) {
 		modelService ModelService,
 		applicationService ApplicationService,
 		statusService StatusService,
-		modelExporter func(context.Context, model.UUID, facade.LegacyStateExporter) (ModelExporter, error),
-		store objectstore.ObjectStore) error {
+		modelExporter func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error),
+		store objectstore.ObjectStore,
+		model coremodel.Model) error {
 		return err
 	})
 }
