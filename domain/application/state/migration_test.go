@@ -250,7 +250,7 @@ func (s *unitStateSuite) TestInsertMigratingIAASUnits(c *gc.C) {
 	appID := s.createApplication(c, "foo", life.Alive)
 
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, _, err := s.state.insertMachineForNetNode(context.Background(), tx, machine.Name("0"))
+		_, _, err := s.state.insertMachineAndNetNode(context.Background(), tx, machine.Name("0"))
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

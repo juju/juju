@@ -32,7 +32,7 @@ func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive depl
 			return "", errors.Capture(err)
 		}
 
-		_, netNode, err := st.insertMachineForNetNode(ctx, tx, machineName)
+		_, netNode, err := st.insertMachineAndNetNode(ctx, tx, machineName)
 		return netNode, errors.Capture(err)
 
 	case deployment.PlacementTypeMachine:
@@ -50,7 +50,7 @@ func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive depl
 			return "", errors.Capture(err)
 		}
 
-		machineUUID, _, err := st.insertMachineForNetNode(ctx, tx, machineName)
+		machineUUID, _, err := st.insertMachineAndNetNode(ctx, tx, machineName)
 		if err != nil {
 			return "", errors.Capture(err)
 		}
@@ -73,7 +73,7 @@ func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive depl
 			return "", errors.Capture(err)
 		}
 
-		machine, netNode, err := st.insertMachineForNetNode(ctx, tx, machineName)
+		machine, netNode, err := st.insertMachineAndNetNode(ctx, tx, machineName)
 		if err != nil {
 			return "", errors.Capture(err)
 		}
@@ -88,11 +88,11 @@ func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive depl
 }
 
 func (st *State) getMachineNetNodeUUIDFromName(ctx context.Context, tx *sqlair.TX, name machine.Name) (string, error) {
-	machine := machineName{Name: name}
+	machine := machineNameWithNetNode{Name: name}
 	query := `
-SELECT &machineName.net_node_uuid
+SELECT &machineNameWithNetNode.net_node_uuid
 FROM machine
-WHERE name = $machineName.name
+WHERE name = $machineNameWithNetNode.name
 `
 	stmt, err := st.Prepare(query, machine)
 	if err != nil {
@@ -129,7 +129,7 @@ func (st *State) insertNetNode(ctx context.Context, tx *sqlair.TX) (string, erro
 	return netNodeUUID.NetNodeUUID, nil
 }
 
-func (st *State) insertMachineForNetNode(ctx context.Context, tx *sqlair.TX, machineName machine.Name) (machine.UUID, string, error) {
+func (st *State) insertMachineAndNetNode(ctx context.Context, tx *sqlair.TX, machineName machine.Name) (machine.UUID, string, error) {
 	netNodeUUID, err := st.insertNetNode(ctx, tx)
 	if err != nil {
 		return "", "", errors.Capture(err)
@@ -194,7 +194,7 @@ func (st *State) insertChildMachineForContainerPlacement(
 		return "", errors.Capture(err)
 	}
 
-	machineUUID, netNodeUUID, err := st.insertMachineForNetNode(ctx, tx, machineName)
+	machineUUID, netNodeUUID, err := st.insertMachineAndNetNode(ctx, tx, machineName)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
