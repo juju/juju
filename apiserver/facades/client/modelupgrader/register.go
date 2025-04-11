@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/docker/registry"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -37,10 +36,6 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 
 	st := ctx.State()
 	pool := ctx.StatePool()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	systemState, err := ctx.StatePool().SystemState()
 	if err != nil {
@@ -50,21 +45,16 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 	domainServices := ctx.DomainServices()
 	cloudService := domainServices.Cloud()
 	credentialService := domainServices.Credential()
-	modelConfigService := domainServices.Config()
-
-	configGetter := stateenvirons.EnvironConfigGetter{
-		Model:              model,
-		CloudService:       cloudService,
-		CredentialService:  credentialService,
-		ModelConfigService: modelConfigService,
-	}
-	newEnviron := common.EnvironFuncForModel(model, cloudService, credentialService, configGetter)
 
 	controllerConfigService := domainServices.ControllerConfig()
 	controllerAgentService := domainServices.Agent()
 
 	urlGetter := common.NewToolsURLGetter(ctx.ModelUUID().String(), systemState)
-	toolsFinder := common.NewToolsFinder(controllerConfigService, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
+	toolsFinder := common.NewToolsFinder(
+		controllerConfigService, st, urlGetter,
+		ctx.ControllerObjectStore(),
+		domainServices.Stub(),
+	)
 
 	modelAgentServiceGetter := func(modelID coremodel.UUID) ModelAgentService {
 		return domainServices.Agent()

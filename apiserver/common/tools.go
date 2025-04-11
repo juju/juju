@@ -24,8 +24,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
-	"github.com/juju/juju/environs/simplestreams"
-	envtools "github.com/juju/juju/environs/tools"
+	stubdomain "github.com/juju/juju/domain/stub"
 	"github.com/juju/juju/internal/errors"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
@@ -56,8 +55,6 @@ type ModelAgentService interface {
 	// the unit belongs to no longer exists.
 	GetUnitTargetAgentVersion(context.Context, unit.Name) (coreagentbinary.Version, error)
 }
-
-var envtoolsFindTools = envtools.FindTools
 
 // ToolsURLGetter is an interface providing the ToolsURL method.
 type ToolsURLGetter interface {
@@ -233,8 +230,16 @@ type toolsFinder struct {
 	controllerConfigService ControllerConfigService
 	toolsStorageGetter      ToolsStorageGetter
 	urlGetter               ToolsURLGetter
-	newEnviron              NewEnvironFunc
 	store                   objectstore.ObjectStore
+	stubService             StubService
+}
+
+// StubService is an interface for getting the
+// EnvironAgentBinariesFinder function.
+type StubService interface {
+	// GetEnvironAgentBinariesFinder returns the function to find agent binaries.
+	// This is used to find the agent binaries.
+	GetEnvironAgentBinariesFinder() stubdomain.EnvironAgentBinariesFinderFunc
 }
 
 // NewToolsFinder returns a new ToolsFinder, returning tools
@@ -243,15 +248,15 @@ func NewToolsFinder(
 	controllerConfigService ControllerConfigService,
 	toolsStorageGetter ToolsStorageGetter,
 	urlGetter ToolsURLGetter,
-	newEnviron NewEnvironFunc,
 	store objectstore.ObjectStore,
+	stubService StubService,
 ) *toolsFinder {
 	return &toolsFinder{
 		controllerConfigService: controllerConfigService,
 		toolsStorageGetter:      toolsStorageGetter,
 		urlGetter:               urlGetter,
-		newEnviron:              newEnviron,
 		store:                   store,
+		stubService:             stubService,
 	}
 }
 
@@ -303,29 +308,22 @@ func (f *toolsFinder) findMatchingAgents(ctx context.Context, args FindAgentsPar
 
 	// Look for tools in simplestreams too, but don't replace
 	// any versions found in storage.
-	env, err := f.newEnviron(ctx)
-	if err != nil {
-		return nil, err
-	}
 	filter := toolsFilter(args)
-	cfg := env.Config()
-	requestedStream := cfg.AgentStream()
-	if args.AgentStream != "" {
-		requestedStream = args.AgentStream
-	}
-
-	streams := envtools.PreferredStreams(&args.Number, cfg.Development(), requestedStream)
-	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
 	majorVersion := args.Number.Major
 	minorVersion := args.Number.Minor
 	if args.Number == semversion.Zero {
 		majorVersion = args.MajorVersion
 		minorVersion = args.MinorVersion
 	}
-	simplestreamsList, err := envtoolsFindTools(ctx, ss,
-		env, majorVersion, minorVersion, streams, filter,
+	environAgentBinariesFinder := f.stubService.GetEnvironAgentBinariesFinder()
+	simplestreamsList, err := environAgentBinariesFinder(
+		ctx,
+		majorVersion, minorVersion,
+		args.Number,
+		args.AgentStream,
+		filter,
 	)
-	if len(storageList) == 0 && err != nil {
+	if err != nil && len(storageList) == 0 {
 		return nil, err
 	}
 

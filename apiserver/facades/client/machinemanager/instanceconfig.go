@@ -19,6 +19,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	stubdomain "github.com/juju/juju/domain/stub"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/password"
@@ -30,6 +31,14 @@ type InstanceConfigBackend interface {
 	ToolsStorage(objectstore.ObjectStore) (binarystorage.StorageCloser, error)
 }
 
+// StubService is an interface for getting the
+// EnvironAgentBinariesFinder function.
+type StubService interface {
+	// GetEnvironAgentBinariesFinder returns the function to find agent binaries.
+	// This is used to find the agent binaries.
+	GetEnvironAgentBinariesFinder() stubdomain.EnvironAgentBinariesFinderFunc
+}
+
 // InstanceConfigServices holds the services needed to configure instances.
 type InstanceConfigServices struct {
 	ControllerConfigService ControllerConfigService
@@ -38,6 +47,7 @@ type InstanceConfigServices struct {
 	ModelConfigService      ModelConfigService
 	MachineService          MachineService
 	ObjectStore             objectstore.ObjectStore
+	StubService             StubService
 }
 
 // InstanceConfig returns information from the model config that
@@ -92,8 +102,8 @@ func InstanceConfig(
 		services.ControllerConfigService,
 		st,
 		urlGetter,
-		common.NewEnvironFunc(providerGetter),
 		services.ObjectStore,
+		services.StubService,
 	)
 	toolsList, err := toolsFinder.FindAgents(ctx, common.FindAgentsParams{
 		Number: agentVersion,
