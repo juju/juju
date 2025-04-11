@@ -49,7 +49,7 @@ Get a quick sense of how to do things in Juju, from preparing your deployment en
 
 ## Administering Juju
 
-As a Juju admin, you'll want to install the `juju` CLI and any desired plugins; connect clouds; bootstrap a Juju controller and stand up the Juju dashbo take all the steps required to connect your cloud(s) to Juju and stand up a Juju controller and, if desired, the Juju dashboard; plan and set up users, SSH keys, models, and secret backends; and get comfortable extracting and analyzing logs.
+Everything from how to install or upgrade the `juju` CLI and any desired plugins; connect clouds; bootstrap a Juju controller; stand up the Juju dashboard; plan and set up users, SSH keys, models, and secret backends; and get comfortable extracting and analyzing logs.
 
 - {ref}`Manage the juju CLI <manage-juju>`
 - {ref}`Manage plugins <manage-plugins>`
@@ -67,10 +67,8 @@ As a Juju admin, you'll want to install the `juju` CLI and any desired plugins; 
 
 ## Building with Juju
 
-As a Juju user, you'll want to install the `juju` CLI; if you have permission to, add models; then deploy, configure, and maintain your infrastructure and applications with Juju.
+Deploy, configure, and maintain your infrastructure and applications with Juju.
 
-- {ref}`Manage the juju CLI <manage-juju>`
-- {ref}`Manage models <manage-models>`
 - {ref}`Manage charms or bundles <manage-charms>`
 - {ref}`Manage applications <manage-applications>`
 - {ref}`Manage resources <manage-charm-resources>`

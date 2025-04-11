@@ -16,9 +16,9 @@ Imagine your business needs a chat service such as Mattermost backed up by a dat
 
 On your machine, install Multipass and use it to set up an Ubuntu virtual machine (VM) called `my-juju-vm` from the `charm-dev` blueprint.
 
-> See more: {ref}`manage-your-deployment-environment` > Set things up (automatically)
+> See more: {ref}`set-things-up`
 >
-> Note: This document also contains a manual path, using which you can set things up without the Multipass VM or the `charm-dev` blueprint. However, please note that the manual path may yield slightly different results that may impact your experience of this tutorial. For best results we strongly recommend the automatic path, or else suggest that you follow the manual path in a way that stays very close to [the definition of the `charm-dev` blueprint](https://github.com/canonical/multipass-blueprints/blob/ae90147b811a79eaf4508f4776390141e0195fe7/v1/charm-dev.yaml#L134).
+> Note: We recommend you follow the automatic path, with the Multipass VM from the `charm-dev` blueprint. If you however decide to take the manual path, please make sure to stay very close to [the definition of the `charm-dev` blueprint](https://github.com/canonical/multipass-blueprints/blob/ae90147b811a79eaf4508f4776390141e0195fe7/v1/charm-dev.yaml#L134).
 
 
 ## Plan
@@ -599,6 +599,6 @@ Congratulations, you now have a functional observability setup! But your control
 
 To tear things down, remove your entire Multipass Ubuntu VM, then uninstall Multipass:
 
-> See more: {ref}`manage-your-deployment-environment` > Tear things down (automatically)
+> See more: {ref}`tear-things-down`
 
 
