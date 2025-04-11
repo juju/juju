@@ -27,6 +27,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corecontroller "github.com/juju/juju/controller"
+	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
@@ -39,6 +40,7 @@ import (
 	"github.com/juju/juju/domain/blockcommand"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/docker"
+	interrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/rpc/params"
@@ -83,7 +85,7 @@ type ControllerAPI struct {
 	modelExporter             func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error)
 	store                     objectstore.ObjectStore
 	logger                    corelogger.Logger
-	controllerTag             names.ControllerTag
+	controllerUUID            string
 }
 
 // LatestAPI is used for testing purposes to create the latest
@@ -118,6 +120,8 @@ func NewControllerAPI(
 	proxyService ProxyService,
 	modelExporter func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error),
 	store objectstore.ObjectStore,
+	controllerUUID string,
+	modelUUID coremodel.UUID,
 ) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
@@ -131,6 +135,7 @@ func NewControllerAPI(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return &ControllerAPI{
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
@@ -172,14 +177,15 @@ func NewControllerAPI(
 		modelConfigServiceGetter:  modelConfigServiceGetter,
 		blockCommandServiceGetter: blockCommandServiceGetter,
 		proxyService:              proxyService,
-		controllerTag:             st.ControllerTag(),
 		modelExporter:             modelExporter,
 		store:                     store,
+		controllerUUID:            controllerUUID,
 	}, nil
 }
 
 func (c *ControllerAPI) checkIsSuperUser(ctx context.Context) error {
-	return c.authorizer.HasPermission(ctx, permission.SuperuserAccess, c.controllerTag)
+	controllerTag := names.NewControllerTag(c.controllerUUID)
+	return c.authorizer.HasPermission(ctx, permission.SuperuserAccess, controllerTag)
 }
 
 // ControllerVersion returns the version information associated with this
@@ -249,36 +255,25 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 		return result, errors.Trace(err)
 	}
 
-	modelUUIDs, err := c.state.AllModelUUIDs()
+	models, err := c.modelService.ListAllModels(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	for _, modelUUID := range modelUUIDs {
-		st, err := c.statePool.Get(modelUUID)
-		if err != nil {
-			// This model could have been removed.
-			if errors.Is(err, errors.NotFound) {
-				continue
-			}
-			return result, errors.Trace(err)
+	for _, model := range models {
+		if !names.IsValidUser(model.OwnerName.String()) {
+			c.logger.Errorf(ctx, "parsing owner name %q into user tag, skipping model %q: %v", model.OwnerName.Name(), model.UUID, err)
+			continue
 		}
-		defer st.Release()
-
-		model, err := st.Model()
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-
 		userModel := params.UserModel{
 			Model: params.Model{
-				Name:     model.Name(),
-				UUID:     model.UUID(),
-				Type:     string(model.Type()),
-				OwnerTag: model.Owner().String(),
+				Name:     model.Name,
+				UUID:     model.UUID.String(),
+				Type:     model.ModelType.String(),
+				OwnerTag: names.NewUserTag(model.OwnerName.Name()).String(),
 			},
 		}
 
-		lastConn, err := c.accessService.LastModelLogin(ctx, user.NameFromTag(c.apiUser), coremodel.UUID(model.UUID()))
+		lastConn, err := c.accessService.LastModelLogin(ctx, user.NameFromTag(c.apiUser), model.UUID)
 		if errors.Is(err, accesserrors.UserNeverAccessedModel) {
 			userModel.LastConnection = nil
 		} else if errors.Is(err, modelerrors.NotFound) {
@@ -290,7 +285,7 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 			userModel.LastConnection = nil
 		} else if err != nil {
 			return result, errors.Annotatef(err,
-				"getting model last login time for user %q on model %q", c.apiUser.Name(), model.Name())
+				"getting model last login time for user %q on model %q", c.apiUser.Name(), model.Name)
 		} else {
 			userModel.LastConnection = &lastConn
 		}
@@ -311,14 +306,12 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 		return results, errors.Trace(err)
 	}
 
-	// If there are blocks let the user know.
-	uuids, err := c.state.AllModelUUIDs()
+	models, err := c.modelService.ListAllModels(ctx)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
-	modelBlocks := make(map[string]set.Strings)
-	for _, uuid := range uuids {
-		blockService, err := c.blockCommandServiceGetter(ctx, coremodel.UUID(uuid))
+	for _, model := range models {
+		blockService, err := c.blockCommandServiceGetter(ctx, model.UUID)
 		if err != nil {
 			return results, errors.Trace(err)
 		}
@@ -332,25 +325,16 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 		for _, block := range blocks {
 			blockTypes.Add(encodeBlockType(block.Type))
 		}
-		modelBlocks[uuid] = blockTypes
-	}
-
-	for uuid, blocks := range modelBlocks {
-		if len(blocks) == 0 {
-			continue
-		}
-		model, ph, err := c.statePool.GetModel(uuid)
-		if err != nil {
-			c.logger.Debugf(context.TODO(), "unable to retrieve model %s: %v", uuid, err)
+		if !names.IsValidUser(model.OwnerName.String()) {
+			c.logger.Errorf(ctx, "parsing owner name %q into user tag, skipping model %q: %v", model.OwnerName.Name(), model.UUID, err)
 			continue
 		}
 		results.Models = append(results.Models, params.ModelBlockInfo{
-			UUID:     model.UUID(),
-			Name:     model.Name(),
-			OwnerTag: model.Owner().String(),
-			Blocks:   blocks.SortedValues(),
+			UUID:     model.UUID.String(),
+			Name:     model.Name,
+			OwnerTag: names.NewUserTag(model.OwnerName.Name()).String(),
+			Blocks:   blockTypes.SortedValues(),
 		})
-		ph.Release()
 	}
 
 	// Sort the resulting sequence by model name, then owner.
@@ -380,34 +364,30 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 		return result, errors.Trace(err)
 	}
 
-	modelUUIDs, err := c.state.AllModelUUIDs()
+	models, err := c.modelService.ListAllModels(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	for _, modelUUID := range modelUUIDs {
-		if modelUUID == c.state.ControllerModelUUID() {
+	controllerModel, err := c.modelService.ControllerModel(ctx)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	for _, model := range models {
+
+		if model.UUID == controllerModel.UUID {
 			continue
 		}
-		st, err := c.statePool.Get(modelUUID)
-		if err != nil {
-			// This model could have been removed.
-			if errors.Is(err, errors.NotFound) {
-				continue
-			}
-			return result, errors.Trace(err)
-		}
-		defer st.Release()
-		model, err := st.Model()
-		if err != nil {
-			return result, errors.Trace(err)
+		if !names.IsValidUser(model.OwnerName.String()) {
+			c.logger.Errorf(ctx, "parsing owner name %q into user tag, skipping model %q: %v", model.OwnerName.Name(), model.UUID, err)
+			continue
 		}
 
 		config := params.HostedModelConfig{
-			Name:     model.Name(),
-			OwnerTag: model.Owner().String(),
+			Name:     model.Name,
+			OwnerTag: names.NewUserTag(model.OwnerName.Name()).String(),
 		}
-		svc, err := c.modelConfigServiceGetter(ctx, coremodel.UUID(modelUUID))
+		svc, err := c.modelConfigServiceGetter(ctx, model.UUID)
 		if err != nil {
 			return result, errors.Trace(err)
 		}
@@ -418,8 +398,10 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 			config.Config = modelConf.AllAttrs()
 		}
 
+		modelTag := names.NewModelTag(model.UUID.String())
+
 		if config.Error == nil {
-			cloudSpec := c.GetCloudSpec(ctx, model.ModelTag())
+			cloudSpec := c.GetCloudSpec(ctx, modelTag)
 			config.CloudSpec = cloudSpec.Result
 			config.Error = cloudSpec.Error
 		}
@@ -440,12 +422,12 @@ func (c *ControllerAPI) RemoveBlocks(ctx context.Context, args params.RemoveBloc
 	}
 
 	// If there are blocks let the user know.
-	uuids, err := c.state.AllModelUUIDs()
+	uuids, err := c.modelService.ListModelIDs(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, uuid := range uuids {
-		blockService, err := c.blockCommandServiceGetter(ctx, coremodel.UUID(uuid))
+		blockService, err := c.blockCommandServiceGetter(ctx, uuid)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -500,7 +482,8 @@ func (c *ControllerAPI) WatchModelSummaries(ctx context.Context) (params.Summary
 // have on the controller.
 func (c *ControllerAPI) GetControllerAccess(ctx context.Context, req params.Entities) (params.UserAccessResults, error) {
 	results := params.UserAccessResults{}
-	err := c.authorizer.HasPermission(ctx, permission.SuperuserAccess, c.controllerTag)
+	controllerTag := names.NewControllerTag(c.controllerUUID)
+	err := c.authorizer.HasPermission(ctx, permission.SuperuserAccess, controllerTag)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return results, errors.Trace(err)
 	}
@@ -520,7 +503,7 @@ func (c *ControllerAPI) GetControllerAccess(ctx context.Context, req params.Enti
 		}
 		target := permission.ID{
 			ObjectType: permission.Controller,
-			Key:        c.controllerTag.Id(),
+			Key:        c.controllerUUID,
 		}
 		accessLevel, err := c.accessService.ReadUserAccessLevelForTarget(ctx, user.NameFromTag(userTag), target)
 		if err != nil {
@@ -566,17 +549,12 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 	}
 
 	// Ensure the model exists.
-	if modelExists, err := c.state.ModelExists(modelTag.Id()); err != nil {
-		return "", errors.Annotate(err, "reading model")
-	} else if !modelExists {
-		return "", errors.NotFoundf("model")
+	model, err := c.modelService.Model(ctx, coremodel.UUID(modelTag.Id()))
+	if interrors.Is(err, modelerrors.NotFound) {
+		return "", interrors.Errorf("getting model: %w", coreerrors.NotFound)
+	} else if err != nil {
+		return "", interrors.Capture(err)
 	}
-
-	hostedState, err := c.statePool.Get(modelTag.Id())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	defer hostedState.Release()
 
 	// Construct target info.
 	specTarget := spec.TargetInfo
@@ -620,14 +598,21 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	applicationService, err := c.applicationServiceGetter(ctx, coremodel.UUID(hostedState.ModelUUID()))
+	applicationService, err := c.applicationServiceGetter(ctx, coremodel.UUID(modelTag.Id()))
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	statusService, err := c.statusServiceGetter(ctx, coremodel.UUID(hostedState.ModelUUID()))
+	statusService, err := c.statusServiceGetter(ctx, coremodel.UUID(modelTag.Id()))
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+
+	hostedState, err := c.statePool.Get(modelTag.Id())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	defer hostedState.Release()
+
 	if err := runMigrationPrechecks(
 		ctx,
 		hostedState.State,
@@ -644,6 +629,7 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		statusService,
 		c.modelExporter,
 		c.store,
+		model,
 	); err != nil {
 		return "", errors.Trace(err)
 	}
@@ -668,7 +654,8 @@ func (c *ControllerAPI) ModifyControllerAccess(ctx context.Context, args params.
 		return result, nil
 	}
 
-	err := c.authorizer.HasPermission(ctx, permission.SuperuserAccess, c.controllerTag)
+	controllerTag := names.NewControllerTag(c.controllerUUID)
+	err := c.authorizer.HasPermission(ctx, permission.SuperuserAccess, controllerTag)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return result, errors.Trace(err)
 	}
@@ -693,7 +680,7 @@ func (c *ControllerAPI) ModifyControllerAccess(ctx context.Context, args params.
 				Access: permission.Access(arg.Access),
 				Target: permission.ID{
 					ObjectType: permission.Controller,
-					Key:        c.controllerTag.Id(),
+					Key:        c.controllerUUID,
 				},
 			},
 		}
@@ -791,6 +778,7 @@ var runMigrationPrechecks = func(
 	statusService StatusService,
 	modelExporter func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error),
 	store objectstore.ObjectStore,
+	model coremodel.Model,
 ) error {
 	// Check model and source controller.
 	backend, err := migration.PrecheckShim(st, ctlrSt)
@@ -813,7 +801,7 @@ var runMigrationPrechecks = func(
 
 	// Check target controller.
 	modelInfo, srcUserList, err := makeModelInfo(ctx, st,
-		controllerConfigService, modelService, modelAgentService, modelExporter, store)
+		controllerConfigService, modelService, modelAgentService, modelExporter, store, model)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -918,16 +906,12 @@ func makeModelInfo(ctx context.Context, st *state.State,
 	modelAgentService ModelAgentService,
 	modelExporterFn func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error),
 	store objectstore.ObjectStore,
+	model coremodel.Model,
 ) (coremigration.ModelInfo, userList, error) {
 	var empty coremigration.ModelInfo
 	var ul userList
 
-	model, err := st.Model()
-	if err != nil {
-		return empty, ul, errors.Trace(err)
-	}
-
-	modelExporter, err := modelExporterFn(ctx, coremodel.UUID(model.UUID()), st)
+	modelExporter, err := modelExporterFn(ctx, model.UUID, st)
 	if err != nil {
 		return empty, ul, errors.Trace(err)
 	}
@@ -936,9 +920,7 @@ func makeModelInfo(ctx context.Context, st *state.State,
 		return empty, ul, errors.Trace(err)
 	}
 
-	modelID := coremodel.UUID(model.UUID())
-
-	users, err := modelService.GetModelUsers(ctx, modelID)
+	users, err := modelService.GetModelUsers(ctx, model.UUID)
 	if err != nil {
 		return empty, ul, errors.Trace(err)
 	}
@@ -950,7 +932,7 @@ func makeModelInfo(ctx context.Context, st *state.State,
 	// Retrieve agent version for the model.
 	agentVersion, err := modelAgentService.GetModelTargetAgentVersion(ctx)
 	if err != nil {
-		return empty, userList{}, fmt.Errorf("getting model %q: %w", modelID, err)
+		return empty, userList{}, fmt.Errorf("getting model %q: %w", model.UUID, err)
 	}
 
 	// Retrieve agent version for the controller.
@@ -963,11 +945,12 @@ func makeModelInfo(ctx context.Context, st *state.State,
 	if err != nil {
 		return empty, userList{}, errors.Trace(err)
 	}
+
 	ul.identityURL = coreConf.IdentityURL()
 	return coremigration.ModelInfo{
-		UUID:                   model.UUID(),
-		Name:                   model.Name(),
-		Owner:                  model.Owner(),
+		UUID:                   model.UUID.String(),
+		Name:                   model.Name,
+		Owner:                  names.NewUserTag(model.OwnerName.Name()),
 		AgentVersion:           agentVersion,
 		ControllerAgentVersion: controllerModel.AgentVersion,
 		ModelDescription:       description,
