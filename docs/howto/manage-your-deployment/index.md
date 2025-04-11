@@ -14,7 +14,7 @@ Take your deployment offline <take-your-deployment-offline>
 
 ```
 
-Everything in Juju is ultimately about standing up and maintaing a cloud deployment. These how-to guides give you the high-level logic.
+Everything in Juju is ultimately about standing up and maintaining a cloud deployment. These how-to guides give you the high-level logic.
 
 - {ref}`Manage your deployment environment <manage-your-deployment-environment>`
 - {ref}`Harden your deployment <harden-your-deployment>`
