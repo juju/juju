@@ -34,6 +34,32 @@ func NewState(factory database.TxnRunnerFactory) *State {
 	}
 }
 
+// checkMachineExists checks if the machine with the given uuid exists. This is
+// meant as a helper func to assert that a machine can be operated on inside
+// of a transaction. True or false is returned indicating if the machine exists.
+func (st *State) checkMachineExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid string,
+) (bool, error) {
+	machineUUID := machineUUID{UUID: uuid}
+	stmt, err := st.Prepare(`
+SELECT &machineUUID.* FROM machine WHERE uuid = $machineUUID.uuid
+`, machineUUID)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, machineUUID).Get(&machineUUID)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
+}
+
 // checkMachineNotDead checks if the machine with the given uuid exists and that
 // its current life status is not one of dead. This is meant as a helper func
 // to assert that a machine can be operated on inside of a transaction.
@@ -68,6 +94,33 @@ SELECT &machineLife.* FROM machine WHERE uuid = $machineLife.uuid
 	}
 
 	return nil
+}
+
+// checkUnitExists check if the unit exists. True or false is returned
+// indicating this fact.
+func (st *State) checkUnitExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid coreunit.UUID,
+) (bool, error) {
+	unitUUID := unitUUID{UnitUUID: uuid}
+
+	stmt, err := st.Prepare(
+		"SELECT &unitUUID.* FROM unit WHERE uuid = $unitUUID.uuid",
+		unitUUID,
+	)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, unitUUID).Get(&unitUUID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
 }
 
 // checkUnitNotDead checks if the unit exists and is not dead. It's possible to
@@ -224,15 +277,15 @@ WHERE machine_uuid = $machineUUIDRef.machine_uuid
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := st.checkMachineNotDead(ctx, tx, uuid)
-		if errors.Is(err, machineerrors.MachineNotFound) {
-			return errors.Errorf(
-				"machine %q does not exist", uuid,
-			).Add(machineerrors.MachineNotFound)
-		} else if err != nil && !errors.Is(err, machineerrors.MachineIsDead) {
+		exists, err := st.checkMachineExists(ctx, tx, uuid)
+		if err != nil {
 			return errors.Errorf(
 				"checking machine %q exists: %w", uuid, err,
 			)
+		} else if !exists {
+			return errors.Errorf(
+				"machine %q does not exist", uuid,
+			).Add(machineerrors.MachineNotFound)
 		}
 
 		err = tx.Query(ctx, stmt, machineUUID).Get(&rval)
@@ -293,15 +346,15 @@ WHERE machine_uuid = $machineUUIDRef.machine_uuid
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := st.checkMachineNotDead(ctx, tx, uuid)
-		if errors.Is(err, machineerrors.MachineNotFound) {
-			return errors.Errorf(
-				"machine %q does not exist", uuid,
-			).Add(machineerrors.MachineNotFound)
-		} else if err != nil && !errors.Is(err, machineerrors.MachineIsDead) {
+		exists, err := st.checkMachineExists(ctx, tx, uuid)
+		if err != nil {
 			return errors.Errorf(
 				"checking machine %q exists: %w", uuid, err,
 			)
+		} else if !exists {
+			return errors.Errorf(
+				"machine %q does not exist", uuid,
+			).Add(machineerrors.MachineNotFound)
 		}
 
 		err = tx.Query(ctx, stmt, machineUUID).Get(&info)
@@ -416,15 +469,15 @@ WHERE uav.unit_uuid = $unitUUIDRef.unit_uuid
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := st.checkUnitNotDead(ctx, tx, uuid)
-		if errors.Is(err, applicationerrors.UnitNotFound) {
-			return errors.Errorf(
-				"unit %q does not exist", uuid,
-			).Add(applicationerrors.UnitNotFound)
-		} else if err != nil && !errors.Is(err, applicationerrors.UnitIsDead) {
+		exists, err := st.checkUnitExists(ctx, tx, uuid)
+		if err != nil {
 			return errors.Errorf(
 				"checking if unit %q exists: %w", uuid, err,
 			)
+		} else if !exists {
+			return errors.Errorf(
+				"unit %q does not exist", uuid,
+			).Add(applicationerrors.UnitNotFound)
 		}
 
 		err = tx.Query(ctx, stmt, unitUUID).Get(&info)
@@ -479,15 +532,15 @@ WHERE unit_uuid = $unitUUIDRef.unit_uuid
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := st.checkUnitNotDead(ctx, tx, uuid)
-		if errors.Is(err, applicationerrors.UnitNotFound) {
-			return errors.Errorf(
-				"unit %q does not exist", uuid,
-			).Add(applicationerrors.UnitNotFound)
-		} else if err != nil && !errors.Is(err, applicationerrors.UnitIsDead) {
+		exists, err := st.checkUnitExists(ctx, tx, uuid)
+		if err != nil {
 			return errors.Errorf(
 				"checking if unit %q exists: %w", uuid, err,
 			)
+		} else if !exists {
+			return errors.Errorf(
+				"unit %q does not exist", uuid,
+			).Add(applicationerrors.UnitNotFound)
 		}
 
 		err = tx.Query(ctx, stmt, unitUUID).Get(&info)
