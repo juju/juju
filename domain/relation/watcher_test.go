@@ -41,6 +41,9 @@ type watcherSuite struct {
 	charmRelationUUID uuid.UUID
 	appUUID           coreapplication.ID
 	appEndpointUUID   uuid.UUID
+	appName           string
+	// helps generation of consecutive relation_id
+	relationCount int
 }
 
 var _ = gc.Suite(&watcherSuite{})
@@ -52,11 +55,13 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 	s.charmRelationUUID = uuid.MustNewUUID()
 	s.appUUID = applicationtesting.GenApplicationUUID(c)
 	s.appEndpointUUID = uuid.MustNewUUID()
+	s.appName = "my-application"
+	s.relationCount = 1
 
 	// Populate DB with charm, application and endpoints
 	s.addCharm(c, s.charmUUID, "app")
 	s.addCharmRelation(c, s.charmUUID, s.charmRelationUUID, 0)
-	s.addApplication(c, s.charmUUID, s.appUUID, "my-application")
+	s.addApplication(c, s.charmUUID, s.appUUID, s.appName)
 	s.addApplicationEndpoint(c, s.appEndpointUUID, s.appUUID, s.charmRelationUUID)
 }
 
@@ -119,23 +124,8 @@ AND key = 'key'
 func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *gc.C) {
 	// Arrange: create the required state, with one relation and its status.
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
-	relationUUID := relationtesting.GenRelationUUID(c)
-	relationEndpointUUID := relationtesting.GenEndpointUUID(c)
 
-	charmTwoUUID := charmtesting.GenCharmID(c)
-	charmRelationTwoUUID := uuid.MustNewUUID()
-	appTwoUUID := applicationtesting.GenApplicationUUID(c)
-	relationEndpointTwoUUID := relationtesting.GenEndpointUUID(c)
-	appEndpointTwoUUID := uuid.MustNewUUID()
-	s.addCharm(c, charmTwoUUID, "two")
-	s.addCharmRelation(c, charmTwoUUID, charmRelationTwoUUID, 1)
-	s.addApplication(c, charmTwoUUID, appTwoUUID, "two")
-	s.addApplicationEndpoint(c, appEndpointTwoUUID, appTwoUUID, charmRelationTwoUUID)
-	s.addRelation(c, relationUUID)
-	s.addRelationEndpoint(c, relationEndpointUUID, relationUUID, s.appEndpointUUID)
-	s.addRelationEndpoint(c, relationEndpointTwoUUID, relationUUID, appEndpointTwoUUID)
-	s.addRelationStatus(c, relationUUID, 1)
-
+	relationUUID, _, _ := s.setupSecondAppAndRelate(c, "two")
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.addUnit(c, unitUUID, "my-application/0", s.appUUID, s.charmUUID)
 
@@ -146,7 +136,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *gc.C) {
 	relationKey := relationtesting.GenNewKey(c, "two:fake-provides my-application:fake-provides").String()
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	// Act: change the relation life.
+	// Act 0: change the relation life.
 	harness.AddTest(func(c *gc.C) {
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE relation SET life_id = 1 WHERE uuid=?", relationUUID); err != nil {
@@ -162,7 +152,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *gc.C) {
 		)
 	})
 
-	// Act: change the relation status other than suspended.
+	// Act 1: change the relation status other than suspended.
 	harness.AddTest(func(c *gc.C) {
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE relation_status SET relation_status_type_id = 3 WHERE relation_uuid=?", relationUUID); err != nil {
@@ -177,7 +167,7 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *gc.C) {
 		w.AssertNoChange()
 	})
 
-	// Act: change the relation status to suspended.
+	// Act 2: change the relation status to suspended.
 	harness.AddTest(func(c *gc.C) {
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE relation_status SET relation_status_type_id = 4 WHERE relation_uuid=?", relationUUID); err != nil {
@@ -193,7 +183,14 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *gc.C) {
 		)
 	})
 
-	// Act: change the relation status to joined and life to dead, to get
+	// Act 3: add a relation unrelated to the current unit.
+	harness.AddTest(func(c *gc.C) {
+		_ = s.setupSecondRelationNotFound(c)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	// Act 4: change the relation status to joined and life to dead, to get
 	// changes on both tables watched.
 	harness.AddTest(func(c *gc.C) {
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -220,22 +217,8 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusPrincipal(c *gc.C) {
 func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *gc.C) {
 	// Arrange: create the required state, with one relation and its status.
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
-	relationUUID := relationtesting.GenRelationUUID(c)
-	relationEndpointUUID := relationtesting.GenEndpointUUID(c)
 
-	charmTwoUUID := charmtesting.GenCharmID(c)
-	charmRelationTwoUUID := uuid.MustNewUUID()
-	appTwoUUID := applicationtesting.GenApplicationUUID(c)
-	relationEndpointTwoUUID := relationtesting.GenEndpointUUID(c)
-	appEndpointTwoUUID := uuid.MustNewUUID()
-	s.addCharm(c, charmTwoUUID, "two")
-	s.addCharmRelation(c, charmTwoUUID, charmRelationTwoUUID, 1)
-	s.addApplication(c, charmTwoUUID, appTwoUUID, "two")
-	s.addApplicationEndpoint(c, appEndpointTwoUUID, appTwoUUID, charmRelationTwoUUID)
-	s.addRelation(c, relationUUID)
-	s.addRelationEndpoint(c, relationEndpointUUID, relationUUID, s.appEndpointUUID)
-	s.addRelationEndpoint(c, relationEndpointTwoUUID, relationUUID, appEndpointTwoUUID)
-	s.addRelationStatus(c, relationUUID, 1)
+	relationUUID, appTwoUUID, charmTwoUUID := s.setupSecondAppAndRelate(c, "two")
 
 	subordinateUnitUUID := unittesting.GenUnitUUID(c)
 	principalUnitUUID := unittesting.GenUnitUUID(c)
@@ -298,14 +281,26 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *gc.C) {
 		)
 	})
 
-	// Act 3: change the relation status to joined and life to dead, to get
-	// changes on both tables watched.
+	var relationTwoUUID relation.UUID
+	// Act 3: add a relation unrelated to the current unit.
+	harness.AddTest(func(c *gc.C) {
+		relationTwoUUID = s.setupSecondRelationNotFound(c)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	// Act 4: change the relation status to joined and life to dead, to get
+	// changes on both tables watched. Change the second relations status also,
+	// only the first relation should trigger an event.
 	harness.AddTest(func(c *gc.C) {
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, "UPDATE relation SET life_id = 2 WHERE uuid=?", relationUUID); err != nil {
 				return errors.Capture(err)
 			}
 			if _, err := tx.ExecContext(ctx, "UPDATE relation_status SET relation_status_type_id = 1 WHERE relation_uuid=?", relationUUID); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx, "UPDATE relation SET life_id = 2 WHERE uuid=?", relationTwoUUID); err != nil {
 				return errors.Capture(err)
 			}
 			return nil
@@ -322,6 +317,59 @@ func (s *watcherSuite) TestWatchLifeSuspendedStatusSubordinate(c *gc.C) {
 	// Act: run test harness.
 	// Assert: initial event is relationKey.
 	harness.Run(c, []string{relationKey})
+}
+
+func (s *watcherSuite) setupSecondAppAndRelate(c *gc.C, appNameTwo string) (relation.UUID, coreapplication.ID, corecharm.ID) {
+	relationUUID := relationtesting.GenRelationUUID(c)
+	relationEndpointUUID := relationtesting.GenEndpointUUID(c)
+
+	charmTwoUUID := charmtesting.GenCharmID(c)
+	charmRelationTwoUUID := uuid.MustNewUUID()
+	appTwoUUID := applicationtesting.GenApplicationUUID(c)
+	relationEndpointTwoUUID := relationtesting.GenEndpointUUID(c)
+	appEndpointTwoUUID := uuid.MustNewUUID()
+	s.addCharm(c, charmTwoUUID, appNameTwo)
+	s.addCharmRelation(c, charmTwoUUID, charmRelationTwoUUID, 1)
+	s.addApplication(c, charmTwoUUID, appTwoUUID, appNameTwo)
+	s.addApplicationEndpoint(c, appEndpointTwoUUID, appTwoUUID, charmRelationTwoUUID)
+	s.addRelation(c, relationUUID)
+	s.addRelationEndpoint(c, relationEndpointUUID, relationUUID, s.appEndpointUUID)
+	s.addRelationEndpoint(c, relationEndpointTwoUUID, relationUUID, appEndpointTwoUUID)
+	s.addRelationStatus(c, relationUUID, 1)
+
+	return relationUUID, appTwoUUID, charmTwoUUID
+}
+
+// setupSecondRelationNotFound adds a relation between new applications
+// foo and bar. Neither are the application under test.
+func (s *watcherSuite) setupSecondRelationNotFound(c *gc.C) relation.UUID {
+	charmOneUUID := charmtesting.GenCharmID(c)
+	charmRelationOneUUID := uuid.MustNewUUID()
+	appOneUUID := applicationtesting.GenApplicationUUID(c)
+	appEndpointOneUUID := uuid.MustNewUUID()
+	s.addCharm(c, charmOneUUID, "foo")
+	s.addCharmRelation(c, charmOneUUID, charmRelationOneUUID, 1)
+	s.addApplication(c, charmOneUUID, appOneUUID, "foo")
+	s.addApplicationEndpoint(c, appEndpointOneUUID, appOneUUID, charmRelationOneUUID)
+
+	charmTwoUUID := charmtesting.GenCharmID(c)
+	charmRelationTwoUUID := uuid.MustNewUUID()
+	appTwoUUID := applicationtesting.GenApplicationUUID(c)
+	appEndpointTwoUUID := uuid.MustNewUUID()
+	s.addCharm(c, charmTwoUUID, "bar")
+	s.addCharmRelation(c, charmTwoUUID, charmRelationTwoUUID, 1)
+	s.addApplication(c, charmTwoUUID, appTwoUUID, "bar")
+	s.addApplicationEndpoint(c, appEndpointTwoUUID, appTwoUUID, charmRelationTwoUUID)
+
+	relationUUID := relationtesting.GenRelationUUID(c)
+	relationEndpointOneUUID := relationtesting.GenEndpointUUID(c)
+	relationEndpointTwoUUID := relationtesting.GenEndpointUUID(c)
+	s.addRelation(c, relationUUID)
+	s.addRelationEndpoint(c, relationEndpointOneUUID, relationUUID, appEndpointOneUUID)
+	s.addRelationEndpoint(c, relationEndpointTwoUUID, relationUUID, appEndpointTwoUUID)
+	s.addRelationStatus(c, relationUUID, 1)
+
+	return relationUUID
 }
 
 func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) *service.WatchableService {
@@ -392,7 +440,8 @@ func (s *watcherSuite) addRelation(c *gc.C, relationUUID relation.UUID) {
 	s.arrange(c, `
 INSERT INTO relation (uuid, life_id, relation_id) 
 VALUES (?,0,?)
-`, relationUUID, 1)
+`, relationUUID, s.relationCount)
+	s.relationCount++
 }
 
 // addRelationEndpoint inserts a relation endpoint into the database using the provided UUIDs for relation and endpoint.
