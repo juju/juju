@@ -78,6 +78,7 @@ import (
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	unitstatestate "github.com/juju/juju/domain/unitstate/state"
 	"github.com/juju/juju/environs/config"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/resource/store"
 )
 
@@ -469,5 +470,7 @@ func (s *ModelServices) Stub() *stubservice.StubService {
 		changestream.NewTxnRunnerFactory(s.controllerDB),
 		changestream.NewTxnRunnerFactory(s.modelDB),
 		providertracker.ProviderRunner[stubservice.ProviderWithSecretToken](s.providerFactory, s.modelUUID.String()),
+		providertracker.ProviderRunner[stubservice.ProviderForAgentBinaryFinder](s.providerFactory, s.modelUUID.String()),
+		envtools.FindTools,
 	)
 }

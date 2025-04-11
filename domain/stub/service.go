@@ -14,6 +14,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -24,8 +25,12 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	modelstate "github.com/juju/juju/domain/model/state"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/simplestreams"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/errors"
+	coretools "github.com/juju/juju/internal/tools"
 )
 
 // StubService is a special service that collects temporary methods required for
@@ -42,7 +47,10 @@ type StubService struct {
 	modelState      *domain.StateBase
 	controllerState *domain.StateBase
 
-	providerWithSecretToken providertracker.ProviderGetter[ProviderWithSecretToken]
+	providerWithSecretToken      providertracker.ProviderGetter[ProviderWithSecretToken]
+	providerForAgentBinaryFinder providertracker.ProviderGetter[ProviderForAgentBinaryFinder]
+
+	agentBinaryFilter AgentBinaryFilter
 }
 
 // ProviderWithSecretToken is a subset of caas broker.
@@ -50,18 +58,35 @@ type ProviderWithSecretToken interface {
 	GetSecretToken(ctx context.Context, name string) (string, error)
 }
 
+// ProviderForAgentBinaryFinder is a subset of cloud provider.
+type ProviderForAgentBinaryFinder interface {
+	environs.BootstrapEnviron
+}
+
+// AgentBinaryFilter is a function that filters agent binaries based on the
+// given parameters. It returns a list of agent binaries that match the filter
+// criteria.
+type AgentBinaryFilter func(
+	ctx context.Context, ss envtools.SimplestreamsFetcher, env environs.BootstrapEnviron,
+	majorVersion, minorVersion int, streams []string, filter coretools.Filter,
+) (_ coretools.List, err error)
+
 // NewStubService returns a new StubService.
 func NewStubService(
 	modelUUID coremodel.UUID,
 	controllerFactory database.TxnRunnerFactory,
 	modelFactory database.TxnRunnerFactory,
 	providerWithSecretToken providertracker.ProviderGetter[ProviderWithSecretToken],
+	providerForAgentBinaryFinder providertracker.ProviderGetter[ProviderForAgentBinaryFinder],
+	agentBinaryFilter AgentBinaryFilter,
 ) *StubService {
 	return &StubService{
-		modelUUID:               modelUUID,
-		controllerState:         domain.NewStateBase(controllerFactory),
-		modelState:              domain.NewStateBase(modelFactory),
-		providerWithSecretToken: providerWithSecretToken,
+		modelUUID:                    modelUUID,
+		controllerState:              domain.NewStateBase(controllerFactory),
+		modelState:                   domain.NewStateBase(modelFactory),
+		providerWithSecretToken:      providerWithSecretToken,
+		providerForAgentBinaryFinder: providerForAgentBinaryFinder,
+		agentBinaryFilter:            agentBinaryFilter,
 	}
 }
 
@@ -185,4 +210,63 @@ func (s *StubService) GetExecSecretToken(ctx context.Context) (string, error) {
 	}
 
 	return provider.GetSecretToken(ctx, k8sprovider.ExecRBACResourceName)
+}
+
+type FindAgentBinariesArg struct {
+	// MajorVersion will be used to match the major version if non-zero.
+	MajorVersion int
+	// MinorVersion will be used to match the minor version if non-zero.
+	MinorVersion int
+	// Number is the version of the agent binary.
+	Number semversion.Number
+	// Arch is the architecture of the agent binary.
+	Arch string
+	// OSType will be used to match tools by os type if non-empty.
+	OSType string
+	// AgentStream will be used to set agent stream to search
+	AgentStream string
+}
+
+// FindAgentBinariesFromSimpleStreams finds agent binaries from the simplestreams
+// data sources.
+func (s *StubService) FindAgentBinariesFromSimpleStreams(
+	ctx context.Context,
+	arg FindAgentBinariesArg,
+) (coretools.List, error) {
+	provider, err := s.providerForAgentBinaryFinder(ctx)
+	if errors.Is(err, coreerrors.NotSupported) {
+		return nil, errors.Errorf("getting provider for agent binary finder %w", coreerrors.NotSupported)
+	}
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	cfg := provider.Config()
+	requestedStream := cfg.AgentStream()
+	if arg.AgentStream != "" {
+		requestedStream = arg.AgentStream
+	}
+
+	streams := envtools.PreferredStreams(&arg.Number, cfg.Development(), requestedStream)
+	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
+	majorVersion := arg.Number.Major
+	minorVersion := arg.Number.Minor
+	if arg.Number == semversion.Zero {
+		majorVersion = arg.MajorVersion
+		minorVersion = arg.MinorVersion
+	}
+
+	filter := coretools.Filter{
+		Number: arg.Number,
+		Arch:   arg.Arch,
+		OSType: arg.OSType,
+	}
+	simplestreamsList, err := s.agentBinaryFilter(
+		ctx, ss, provider,
+		majorVersion, minorVersion,
+		streams, filter,
+	)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return simplestreamsList, nil
 }
