@@ -297,5 +297,10 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	_, err = s.DB().Exec("INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256) VALUES (?, ?)",
+		"some-rel-unit-uuid", "hash",
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
 	return rel, unit
 }
