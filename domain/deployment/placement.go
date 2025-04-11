@@ -45,8 +45,19 @@ func (containerType ContainerType) String() string {
 
 // Placement is the placement of an application.
 type Placement struct {
-	Type      PlacementType
+	// Type is the type of placement.
+	Type PlacementType
+	// Container is the type of container (lxd for example) that we're going
+	// to associate a unit with.
 	Container ContainerType
+	// Directive is the raw placement directive. This will change depending on
+	// the type.
+	// - This will be empty if the placement is unset.
+	// - This will be the machine name (0 or 0/lxd/0) if the placement is a
+	//   machine.
+	// - This will be empty if the placement is a container.
+	// - For model scope, this will be the provider directive. This is up to
+	//   the provider to interpret.
 	Directive string
 }
 
