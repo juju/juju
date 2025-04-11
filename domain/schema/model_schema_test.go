@@ -489,6 +489,14 @@ func (s *modelSchemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_relation_application_setting_insert",
 		"trg_log_relation_application_setting_update",
 
+		"trg_log_relation_delete",
+		"trg_log_relation_insert",
+		"trg_log_relation_update",
+
+		"trg_log_relation_status_delete",
+		"trg_log_relation_status_insert",
+		"trg_log_relation_status_update",
+
 		"trg_log_unit_delete",
 		"trg_log_unit_insert",
 		"trg_log_unit_update",
