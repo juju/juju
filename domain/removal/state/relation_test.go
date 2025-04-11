@@ -266,6 +266,16 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	_, err = s.DB().Exec("INSERT INTO relation_application_setting (relation_endpoint_uuid, key, value) VALUES (?, ?, ?)",
+		relEndpoint, "key", "value",
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.DB().Exec("INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256) VALUES (?, ?)",
+		relEndpoint, "hash",
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
 	node := "some-net-node-uuid"
 	_, err = s.DB().Exec("INSERT INTO net_node (uuid) VALUES (?)", node)
 	c.Assert(err, jc.ErrorIsNil)

@@ -5,8 +5,11 @@ package state
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/canonical/sqlair"
@@ -1482,47 +1485,15 @@ func (st *State) GetRelationApplicationSettings(
 		return nil, errors.Capture(err)
 	}
 
-	arg := relationAndApplicationUUID{
-		RelationUUID:  relationUUID,
-		ApplicationID: applicationID,
-	}
-	stmt, err := st.Prepare(`
-SELECT &relationSetting.*
-FROM   relation_application_setting ras
-JOIN   relation_endpoint re ON re.uuid = ras.relation_endpoint_uuid
-JOIN   application_endpoint ae ON ae.uuid = re.endpoint_uuid
-WHERE  re.relation_uuid = $relationAndApplicationUUID.relation_uuid
-AND    ae.application_uuid = $relationAndApplicationUUID.application_uuid
-`, arg, relationSetting{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
 	var settings []relationSetting
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, arg).GetAll(&settings)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			// Check if we got no rows because the relation does not exist.
-			relationExists, err := st.checkExistsByUUID(ctx, tx, "relation", relationUUID.String())
-			if err != nil {
-				return errors.Capture(err)
-			} else if !relationExists {
-				return relationerrors.RelationNotFound
-			}
+		endpointUUID, err := st.getRelationEndpointUUID(ctx, tx, relationUUID, applicationID)
+		if err != nil {
+			return errors.Errorf("getting relation endpoint UUID: %w", err)
+		}
 
-			// Check if we got no rows because the application is not in the
-			// relation.
-			applicationFound, err := st.checkApplicationInRelation(ctx, tx, relationUUID, applicationID)
-			if err != nil {
-				return errors.Capture(err)
-			} else if !applicationFound {
-				return relationerrors.ApplicationNotFoundForRelation
-			}
-
-			// We got no rows because there are no application settings for this
-			// endpoint, leave the slice empty and return.
-			return nil
-		} else if err != nil {
+		settings, err = st.getApplicationSettings(ctx, tx, endpointUUID)
+		if err != nil {
 			return errors.Capture(err)
 		}
 
@@ -1539,35 +1510,229 @@ AND    ae.application_uuid = $relationAndApplicationUUID.application_uuid
 	return relationSettings, nil
 }
 
-func (st *State) checkApplicationInRelation(
+// SetRelationApplicationSettings records settings for a specific application
+// relation combination.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.ApplicationNotFoundForRelation] is returned if the
+//     application is not part of the relation.
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+//     is not found.
+func (st *State) SetRelationApplicationSettings(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	applicationID application.ID,
+	settings map[string]string,
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Get the relation endpoint UUID.
+		endpointUUID, err := st.getRelationEndpointUUID(ctx, tx, relationUUID, applicationID)
+		if err != nil {
+			return errors.Errorf("getting relation endpoint uuid: %w", err)
+		}
+
+		// Update the application settings specified in the settings argument.
+		err = st.updateApplicationSettings(ctx, tx, endpointUUID, settings)
+		if err != nil {
+			return errors.Errorf("updating relation application settings: %w", err)
+		}
+
+		// Fetch all the new settings in the relation for this application.
+		newSettings, err := st.getApplicationSettings(ctx, tx, endpointUUID)
+		if err != nil {
+			return errors.Errorf("getting new relation application settings: %w", err)
+		}
+
+		// Hash the new settings.
+		hash, err := hashSettings(newSettings)
+		if err != nil {
+			return errors.Errorf("generating hash of relation application settings: %w", err)
+		}
+
+		// Update the hash in the database.
+		err = st.updateApplicationSettingsHash(ctx, tx, endpointUUID, hash)
+		if err != nil {
+			return errors.Errorf("updating relation application settings hash: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+func (st *State) updateApplicationSettingsHash(
+	ctx context.Context,
+	tx *sqlair.TX,
+	endpointUUID, hash string,
+) error {
+	arg := applicationSettingsHash{
+		RelationEndpointUUID: endpointUUID,
+		Hash:                 hash,
+	}
+	stmt, err := st.Prepare(`
+INSERT INTO relation_application_settings_hash (*) 
+VALUES ($applicationSettingsHash.*) 
+ON CONFLICT (relation_endpoint_uuid) DO UPDATE SET sha256 = excluded.sha256
+`, applicationSettingsHash{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt, arg).Run()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+func hashSettings(settings []relationSetting) (string, error) {
+	h := sha256.New()
+
+	// Ensure we have a stable order for the keys.
+	sort.Slice(settings, func(i, j int) bool {
+		return settings[i].Key < settings[j].Key
+	})
+
+	for _, s := range settings {
+		if _, err := h.Write([]byte(s.Key + " " + s.Value + " ")); err != nil {
+			return "", errors.Errorf("writing relation setting: %w", err)
+		}
+	}
+
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+func (st *State) getApplicationSettings(
+	ctx context.Context,
+	tx *sqlair.TX,
+	endpointUUID string,
+) ([]relationSetting, error) {
+	id := relationEndpointUUID{UUID: endpointUUID}
+	stmt, err := st.Prepare(`
+SELECT &relationSetting.*
+FROM   relation_application_setting
+WHERE  relation_endpoint_uuid = $relationEndpointUUID.uuid
+`, id, relationSetting{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var settings []relationSetting
+	err = tx.Query(ctx, stmt, id).GetAll(&settings)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Capture(err)
+	}
+
+	return settings, nil
+}
+
+// updateApplicationSettings updates the settings for a relation endpoint
+// according to the provided settings map. If the value of a setting is empty
+// then the setting is deleted, otherwise it is inserted/updated.
+func (st *State) updateApplicationSettings(
+	ctx context.Context,
+	tx *sqlair.TX,
+	endpointUUID string,
+	settings map[string]string,
+) error {
+	if len(settings) == 0 {
+		return nil
+	}
+
+	// Determine the keys to set and unset.
+	var set []relationApplicationSetting
+	var unset keys
+	for k, v := range settings {
+		if v == "" {
+			unset = append(unset, k)
+		} else {
+			set = append(set, relationApplicationSetting{
+				UUID:  endpointUUID,
+				Key:   k,
+				Value: v,
+			})
+		}
+	}
+
+	// Update the keys to set.
+	updateStmt, err := st.Prepare(`
+INSERT INTO relation_application_setting (*) 
+VALUES ($relationApplicationSetting.*) 
+ON CONFLICT (relation_endpoint_uuid, key) DO UPDATE SET value = excluded.value
+`, relationApplicationSetting{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, updateStmt, set).Run()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Delete the keys to unset.
+	id := relationEndpointUUID{UUID: endpointUUID}
+	deleteStmt, err := st.Prepare(`
+DELETE FROM relation_application_setting
+WHERE       relation_endpoint_uuid = $relationEndpointUUID.uuid
+AND         key IN ($keys[:])
+`, id, unset)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, deleteStmt, id, unset).Run()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+func (st *State) getRelationEndpointUUID(
 	ctx context.Context,
 	tx *sqlair.TX,
 	relationUUID corerelation.UUID,
 	applicationID application.ID,
-) (bool, error) {
+) (string, error) {
 	id := relationAndApplicationUUID{
 		RelationUUID:  relationUUID,
 		ApplicationID: applicationID,
 	}
+	var endpointUUID relationEndpointUUID
 	stmt, err := st.Prepare(`
-SELECT &relationAndApplicationUUID.*
+SELECT re.uuid AS &relationEndpointUUID.uuid
 FROM   application_endpoint ae
 JOIN   relation_endpoint re ON re.endpoint_uuid = ae.uuid
 WHERE  ae.application_uuid = $relationAndApplicationUUID.application_uuid
 AND    re.relation_uuid = $relationAndApplicationUUID.relation_uuid
-`, id)
+`, id, endpointUUID)
 	if err != nil {
-		return false, errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, stmt, id).Get(&id)
+	err = tx.Query(ctx, stmt, id).Get(&endpointUUID)
 	if errors.Is(err, sqlair.ErrNoRows) {
-		return false, nil
+		// Check if we got no rows because the relation does not exist.
+		relationExists, err := st.checkExistsByUUID(ctx, tx, "relation", relationUUID.String())
+		if err != nil {
+			return "", errors.Capture(err)
+		} else if !relationExists {
+			return "", relationerrors.RelationNotFound
+		}
+		// We got no rows because the application was not in the relation.
+		return "", relationerrors.ApplicationNotFoundForRelation
 	} else if err != nil {
-		return false, errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
-	return true, nil
+	return endpointUUID.UUID, nil
 }
 
 // InitialWatchLifeSuspendedStatus returns the two tables to watch for

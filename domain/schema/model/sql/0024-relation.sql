@@ -132,6 +132,17 @@ CREATE TABLE relation_application_setting (
 CREATE INDEX idx_relation_ep_setting_ep
 ON relation_application_setting (relation_endpoint_uuid);
 
+-- relation_application_settings_hash holds a hash of all application settings
+-- for a relation endpoint. It allows watchers to easily determine when the
+-- relations application settings have changed.
+CREATE TABLE relation_application_settings_hash (
+    relation_endpoint_uuid TEXT NOT NULL PRIMARY KEY,
+    sha256 TEXT NOT NULL,
+    CONSTRAINT fk_relation_application_setting_hash_relation_endpoint
+    FOREIGN KEY (relation_endpoint_uuid)
+    REFERENCES relation_endpoint (uuid)
+);
+
 -- The relation_status maps a relation to its status
 -- as defined in the relation_status_type table.
 CREATE TABLE relation_status (

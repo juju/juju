@@ -261,6 +261,7 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"application_endpoint",
 		"application_extra_endpoint",
 		"relation_application_setting",
+		"relation_application_settings_hash",
 		"relation_endpoint",
 		"relation_sequence",
 		"relation_status_type",
