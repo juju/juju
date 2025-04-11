@@ -1609,28 +1609,61 @@ func (st *State) GetRelationUnitSettings(
 	return relationSettings, nil
 }
 
-func (st *State) getRelationUnitSettings(
+// SetRelationUnitSettings records settings for a specific relation unit.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationUnitNotFound] is returned if relation unit does
+//     not exist.
+func (st *State) SetRelationUnitSettings(
 	ctx context.Context,
-	tx *sqlair.TX,
-	relUnitUUID corerelation.UnitUUID,
-) ([]relationSetting, error) {
-	id := relationUnitUUID{RelationUnitUUID: relUnitUUID}
-	stmt, err := st.Prepare(`
-SELECT &relationSetting.*
-FROM   relation_unit_setting
-WHERE  relation_unit_uuid = $relationUnitUUID.uuid
-`, id, relationSetting{})
+	relationUnitUUID corerelation.UnitUUID,
+	settings map[string]string,
+) error {
+	db, err := st.DB()
 	if err != nil {
-		return nil, errors.Capture(err)
+		return errors.Capture(err)
 	}
 
-	var settings []relationSetting
-	err = tx.Query(ctx, stmt, id).GetAll(&settings)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Capture(err)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Get the relation endpoint UUID.
+		exists, err := st.checkExistsByUUID(ctx, tx, "relation_unit", relationUnitUUID.String())
+		if err != nil {
+			return errors.Errorf("checking relation unit exists: %w", err)
+		} else if !exists {
+			return relationerrors.RelationUnitNotFound
+		}
+
+		// Update the unit settings specified in the settings argument.
+		err = st.updateUnitSettings(ctx, tx, relationUnitUUID, settings)
+		if err != nil {
+			return errors.Errorf("updating relation unit settings: %w", err)
+		}
+
+		// Fetch all the new settings in the relation for this unit.
+		newSettings, err := st.getRelationUnitSettings(ctx, tx, relationUnitUUID)
+		if err != nil {
+			return errors.Errorf("getting new relation unit settings: %w", err)
+		}
+
+		// Hash the new settings.
+		hash, err := hashSettings(newSettings)
+		if err != nil {
+			return errors.Errorf("generating hash of relation unit settings: %w", err)
+		}
+
+		// Update the hash in the database.
+		err = st.updateUnitSettingsHash(ctx, tx, relationUnitUUID, hash)
+		if err != nil {
+			return errors.Errorf("updating relation unit settings hash: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return errors.Capture(err)
 	}
 
-	return settings, nil
+	return nil
 }
 
 func (st *State) updateApplicationSettingsHash(
@@ -1752,6 +1785,116 @@ AND         key IN ($keys[:])
 		return errors.Capture(err)
 	}
 	err = tx.Query(ctx, deleteStmt, id, unset).Run()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+func (st *State) getRelationUnitSettings(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relUnitUUID corerelation.UnitUUID,
+) ([]relationSetting, error) {
+	id := relationUnitUUID{RelationUnitUUID: relUnitUUID}
+	stmt, err := st.Prepare(`
+SELECT &relationSetting.*
+FROM   relation_unit_setting
+WHERE  relation_unit_uuid = $relationUnitUUID.uuid
+`, id, relationSetting{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var settings []relationSetting
+	err = tx.Query(ctx, stmt, id).GetAll(&settings)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Capture(err)
+	}
+
+	return settings, nil
+}
+
+// updateUnitSettings updates the settings for a relation unit according to the
+// provided settings map. If the value of a setting is empty then the setting is
+// deleted, otherwise it is inserted/updated.
+func (st *State) updateUnitSettings(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relUnitUUID corerelation.UnitUUID,
+	settings map[string]string,
+) error {
+	if len(settings) == 0 {
+		return nil
+	}
+
+	// Determine the keys to set and unset.
+	var set []relationUnitSetting
+	var unset keys
+	for k, v := range settings {
+		if v == "" {
+			unset = append(unset, k)
+		} else {
+			set = append(set, relationUnitSetting{
+				UUID:  relUnitUUID,
+				Key:   k,
+				Value: v,
+			})
+		}
+	}
+
+	// Update the keys to set.
+	updateStmt, err := st.Prepare(`
+INSERT INTO relation_unit_setting (*) 
+VALUES ($relationUnitSetting.*) 
+ON CONFLICT (relation_unit_uuid, key) DO UPDATE SET value = excluded.value
+`, relationUnitSetting{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, updateStmt, set).Run()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Delete the keys to unset.
+	id := relationUnitUUID{RelationUnitUUID: relUnitUUID}
+	deleteStmt, err := st.Prepare(`
+DELETE FROM relation_unit_setting
+WHERE       relation_unit_uuid = $relationUnitUUID.uuid
+AND         key IN ($keys[:])
+`, id, unset)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, deleteStmt, id, unset).Run()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+func (st *State) updateUnitSettingsHash(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitUUID corerelation.UnitUUID,
+	hash string,
+) error {
+	arg := unitSettingsHash{
+		RelationUnitUUID: unitUUID,
+		Hash:             hash,
+	}
+	stmt, err := st.Prepare(`
+INSERT INTO relation_unit_settings_hash (*) 
+VALUES ($unitSettingsHash.*) 
+ON CONFLICT (relation_unit_uuid) DO UPDATE SET sha256 = excluded.sha256
+`, unitSettingsHash{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt, arg).Run()
 	if err != nil {
 		return errors.Capture(err)
 	}
