@@ -230,6 +230,17 @@ type State interface {
 		settings map[string]string,
 	) error
 
+	// SetRelationUnitSettings records settings for a specific relation unit.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationUnitNotFound] is returned if the unit is not
+	//     part of the relation.
+	SetRelationUnitSettings(
+		ctx context.Context,
+		relationUnitUUID corerelation.UnitUUID,
+		settings map[string]string,
+	) error
+
 	// WatcherApplicationSettingsNamespace provides the table name to set up
 	// watchers for relation application settings.
 	WatcherApplicationSettingsNamespace() string
@@ -770,10 +781,23 @@ func (s *Service) SetRelationSuspended(
 
 // SetRelationUnitSettings records settings for a specific unit
 // relation combination.
+//
+// If settings is not empty, the following error types can be expected to be
+// returned:
+//   - [relationerrors.RelationUnitNotFound] is returned if the unit is not
+//     part of the relation.
 func (s *Service) SetRelationUnitSettings(
 	ctx context.Context,
 	relationUnitUUID corerelation.UnitUUID,
 	settings map[string]string,
 ) error {
-	return coreerrors.NotImplemented
+	if len(settings) == 0 {
+		return nil
+	}
+
+	if err := relationUnitUUID.Validate(); err != nil {
+		return errors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+	return s.st.SetRelationUnitSettings(ctx, relationUnitUUID, settings)
 }
