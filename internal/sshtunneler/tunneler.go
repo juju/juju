@@ -4,7 +4,9 @@
 package sshtunneler
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"net"
 	"sync"
 	"time"
@@ -34,6 +36,7 @@ const (
 // State defines an interface to write requests for tunnels to state.
 type State interface {
 	InsertSSHConnRequest(arg state.SSHConnRequestArg) error
+	MachineHostKeys(modelUUID, machineID string) ([]string, error)
 }
 
 // ControllerInfo defines an interface to fetch the controller's address.
@@ -125,6 +128,23 @@ func (tt *Tracker) generateEphemeralSSHKey() (gossh.Signer, gossh.PublicKey, err
 	return sshPrivateKey, sshPrivateKey.PublicKey(), nil
 }
 
+func (tt *Tracker) machineHostKeys(req RequestArgs) ([]gossh.PublicKey, error) {
+	stringHostKeys, err := tt.state.MachineHostKeys(req.ModelUUID, req.MachineID)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to get machine host key")
+	}
+	machineHostKeys := make([]gossh.PublicKey, len(stringHostKeys))
+
+	// Machine host keys in Mongo are stored in openSSH's authorized_keys format.
+	for i, key := range stringHostKeys {
+		machineHostKeys[i], _, _, _, err = gossh.ParseAuthorizedKey([]byte(key))
+		if err != nil {
+			return nil, errors.Annotate(err, "failed to parse machine host key")
+		}
+	}
+	return machineHostKeys, nil
+}
+
 // RequestTunnel requests a tunnel to a model specific unit.
 //
 // The returned tunnelRequest should be used to wait for the tunnel to be established.
@@ -158,6 +178,11 @@ func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.C
 		return nil, err
 	}
 
+	machineHostKeys, err := tt.machineHostKeys(req)
+	if err != nil {
+		return nil, err
+	}
+
 	// Make sure to use an unbuffered channel to ensure someone always
 	// has responsibility of the connection passed around.
 	connRecv := make(chan (net.Conn))
@@ -182,7 +207,7 @@ func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.C
 		return nil, err
 	}
 
-	return tt.wait(ctx, connRecv, privateKey)
+	return tt.wait(ctx, connRecv, privateKey, machineHostKeys)
 }
 
 func (tt *Tracker) add(tunnelID string, recv chan net.Conn) {
@@ -253,17 +278,12 @@ func (tt *Tracker) PushTunnel(ctx context.Context, tunnelID string, conn net.Con
 //
 // Use context.WithTimeout to control the maximum time to wait for the tunnel
 // to be established.
-func (tt *Tracker) wait(ctx context.Context, recv chan (net.Conn), privateKey gossh.Signer) (*gossh.Client, error) {
+func (tt *Tracker) wait(ctx context.Context, recv chan (net.Conn), privateKey gossh.Signer, hostKeys []gossh.PublicKey) (*gossh.Client, error) {
 	select {
 	case conn := <-recv:
 		// We now have ownership of the connection, so we should close it
 		// if the SSH dial fails.
-		//
-		// Safely ignore the host key since we are connecting through an
-		// SSH tunnel that the machine agent has established to the controller.
-		// We have already authenticated that this connection came from
-		// a specific machine, so we opt not to verify the host key.
-		sshClient, err := tt.dialer.Dial(conn, defaultUser, privateKey, gossh.InsecureIgnoreHostKey())
+		sshClient, err := tt.dialer.Dial(conn, defaultUser, privateKey, usefixedHostKeys(hostKeys))
 		if err != nil {
 			conn.Close()
 			return nil, err
@@ -272,4 +292,22 @@ func (tt *Tracker) wait(ctx context.Context, recv chan (net.Conn), privateKey go
 	case <-ctx.Done():
 		return nil, errors.Annotate(ctx.Err(), "waiting for tunnel")
 	}
+}
+
+func usefixedHostKeys(keys []gossh.PublicKey) gossh.HostKeyCallback {
+	hk := &fixedHostKeys{keys}
+	return hk.check
+}
+
+type fixedHostKeys struct {
+	keys []gossh.PublicKey
+}
+
+func (f *fixedHostKeys) check(hostname string, remote net.Addr, key gossh.PublicKey) error {
+	for _, ourKey := range f.keys {
+		if bytes.Equal(key.Marshal(), ourKey.Marshal()) {
+			return nil
+		}
+	}
+	return fmt.Errorf("ssh: host key mismatch")
 }

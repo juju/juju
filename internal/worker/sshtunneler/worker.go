@@ -21,6 +21,7 @@ import (
 type FacadeClient interface {
 	InsertSSHConnRequest(arg state.SSHConnRequestArg) error
 	Addresses() (network.SpaceAddresses, error)
+	MachineHostKeys(modelUUID, machineID string) ([]string, error)
 }
 
 type sshTunnelerWorker struct {

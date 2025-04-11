@@ -141,13 +141,13 @@ func (s *sshserverSuite) TestListPublicKeysForModel(c *gc.C) {
 	c.Assert(publicKeys, gc.DeepEquals, []gossh.PublicKey{pubKey})
 }
 
-func (s *sshserverSuite) TestHostKeyForTarget(c *gc.C) {
+func (s *sshserverSuite) TestVirtualHostKey(c *gc.C) {
 	client, err := newClient(
 		func(objType string, version int, id, request string, arg, result interface{}) error {
 			c.Check(objType, gc.Equals, "SSHServer")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "HostKeyForTarget")
-			c.Assert(arg, gc.FitsTypeOf, params.SSHHostKeyRequestArg{})
+			c.Check(request, gc.Equals, "VirtualHostKey")
+			c.Assert(arg, gc.FitsTypeOf, params.SSHVirtualHostKeyRequestArg{})
 			c.Assert(result, gc.FitsTypeOf, &params.SSHHostKeyResult{})
 
 			*(result.(*params.SSHHostKeyResult)) = params.SSHHostKeyResult{
@@ -158,7 +158,7 @@ func (s *sshserverSuite) TestHostKeyForTarget(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	key, err := client.HostKeyForTarget(params.SSHHostKeyRequestArg{Hostname: "host"})
+	key, err := client.VirtualHostKey(params.SSHVirtualHostKeyRequestArg{Hostname: "host"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(key, gc.DeepEquals, []byte("key"))
 }

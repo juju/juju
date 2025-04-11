@@ -341,9 +341,9 @@ func (facade *Facade) getExecSecretToken(cloudSpec environscloudspec.CloudSpec, 
 	return broker.GetSecretToken(k8sprovider.ExecRBACResourceName)
 }
 
-// PublicHostKeyForTarget returns the host key for the target host. In addition, it also returns
+// PublicHostKeyForTarget returns the virtual host key for the target host. In addition, it also returns
 // the jump server's host key.
-func (facade *Facade) PublicHostKeyForTarget(arg params.SSHHostKeyRequestArg) params.PublicSSHHostKeyResult {
+func (facade *Facade) PublicHostKeyForTarget(arg params.SSHVirtualHostKeyRequestArg) params.PublicSSHHostKeyResult {
 	var res params.PublicSSHHostKeyResult
 
 	// Check if superuser or at least model reader

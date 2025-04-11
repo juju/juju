@@ -107,7 +107,7 @@ func (s *sshtunnelerSuite) TestRemoveSSHConnRequestError(c *gc.C) {
 func (s *sshtunnelerSuite) TestControllerAddress(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.backend.EXPECT().Machine("1").Return(
+	s.backend.EXPECT().ControllerMachine("1").Return(
 		&state.Machine{}, nil,
 	)
 
@@ -117,4 +117,26 @@ func (s *sshtunnelerSuite) TestControllerAddress(c *gc.C) {
 	addresses, err := f.ControllerAddresses(entity)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.DeepEquals, params.StringsResult{})
+}
+
+func (s *sshtunnelerSuite) TestMachineHostKeys(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := "my-model"
+	machineTag := names.NewMachineTag("1")
+
+	s.backend.EXPECT().SSHHostKeys(modelUUID, machineTag).Return(
+		[]string{"key-1", "key-2"}, nil,
+	)
+
+	f := newFacade(s.ctx, s.backend)
+
+	arg := params.SSHMachineHostKeysArg{
+		ModelUUID:  modelUUID,
+		MachineTag: machineTag.String(),
+	}
+	result, err := f.MachineHostKeys(arg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.PublicKeys, gc.DeepEquals, []string{"key-1", "key-2"})
 }

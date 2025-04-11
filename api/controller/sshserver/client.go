@@ -53,10 +53,10 @@ func (c *Client) SSHServerHostKey() (string, error) {
 	return result.Result, nil
 }
 
-// HostKeyForTarget returns the private host key for the target machine/unit
-func (c *Client) HostKeyForTarget(arg params.SSHHostKeyRequestArg) ([]byte, error) {
+// VirtualHostKey returns the virtual private host key for the target machine/unit
+func (c *Client) VirtualHostKey(arg params.SSHVirtualHostKeyRequestArg) ([]byte, error) {
 	var result params.SSHHostKeyResult
-	err := c.facade.FacadeCall("HostKeyForTarget", arg, &result)
+	err := c.facade.FacadeCall("VirtualHostKey", arg, &result)
 	if err != nil {
 		return nil, err
 	}

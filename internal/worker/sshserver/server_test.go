@@ -129,7 +129,7 @@ func (s *sshServerSuite) TestValidate(c *gc.C) {
 func (s *sshServerSuite) TestSSHServerNoAuth(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.facadeClient.EXPECT().HostKeyForTarget(gomock.Any()).Return(s.hostKey, nil)
+	s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil)
 
 	// Start the server on an in-memory listener
 	listener := bufconn.Listen(1024)
@@ -214,7 +214,7 @@ func (s *sshServerSuite) TestSSHPublicKeyHandler(c *gc.C) {
 			}
 			return nil, errors.NotFound
 		}).AnyTimes()
-	s.facadeClient.EXPECT().HostKeyForTarget(gomock.Any()).Return(s.hostKey, nil).AnyTimes()
+	s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil).AnyTimes()
 
 	server, err := NewServerWorker(ServerWorkerConfig{
 		Logger:                   loggo.GetLogger("test"),
@@ -288,7 +288,7 @@ func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	// Firstly, start the server on an in-memory listener
 	listener := bufconn.Listen(8 * 1024)
-	s.facadeClient.EXPECT().HostKeyForTarget(gomock.Any()).Return(s.hostKey, nil)
+	s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil)
 	_, err := NewServerWorker(ServerWorkerConfig{
 		Logger:                   loggo.GetLogger("test"),
 		Listener:                 listener,
@@ -326,7 +326,7 @@ func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// we now test that the connection is closed when the controller cannot fetch the unit's host key.
-	s.facadeClient.EXPECT().HostKeyForTarget(gomock.Any()).Return(nil, errors.New("an error"))
+	s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(nil, errors.New("an error"))
 	client = inMemoryDial(c, listener, &gossh.ClientConfig{
 		User:            "",
 		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
@@ -340,7 +340,7 @@ func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 
 func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.facadeClient.EXPECT().HostKeyForTarget(gomock.Any()).Return(s.hostKey, nil).AnyTimes()
+	s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil).AnyTimes()
 	// Firstly, start the server on an in-memory listener
 	listener := bufconn.Listen(1024)
 	_, err := NewServerWorker(ServerWorkerConfig{

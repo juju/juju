@@ -65,8 +65,18 @@ type SSHPublicKeysResult struct {
 	PublicKeys []string `json:"public-keys,omitempty"`
 }
 
-// SSHHostKeyRequestArg provides a hostname to request the hostkey for.
-type SSHHostKeyRequestArg struct {
+// The parameters below have been introduced to support the
+// SSH proxy feature where we proxy SSH requests through the
+// Juju controller.
+
+// SSHHostKeyRequestArg species a request for a machine's host key.
+type SSHMachineHostKeysArg struct {
+	ModelUUID  string `json:"hostname"`
+	MachineTag string `json:"machine-tag"`
+}
+
+// SSHVirtualHostKeyRequestArg specifies a request for a virtual hostkey.
+type SSHVirtualHostKeyRequestArg struct {
 	Hostname string `json:"hostname"`
 }
 

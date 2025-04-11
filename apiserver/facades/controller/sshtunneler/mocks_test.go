@@ -13,6 +13,7 @@ import (
 	reflect "reflect"
 
 	state "github.com/juju/juju/state"
+	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -39,6 +40,21 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
 }
 
+// ControllerMachine mocks base method.
+func (m *MockBackend) ControllerMachine(arg0 string) (*state.Machine, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerMachine", arg0)
+	ret0, _ := ret[0].(*state.Machine)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllerMachine indicates an expected call of ControllerMachine.
+func (mr *MockBackendMockRecorder) ControllerMachine(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerMachine", reflect.TypeOf((*MockBackend)(nil).ControllerMachine), arg0)
+}
+
 // InsertSSHConnRequest mocks base method.
 func (m *MockBackend) InsertSSHConnRequest(arg0 state.SSHConnRequestArg) error {
 	m.ctrl.T.Helper()
@@ -53,21 +69,6 @@ func (mr *MockBackendMockRecorder) InsertSSHConnRequest(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertSSHConnRequest", reflect.TypeOf((*MockBackend)(nil).InsertSSHConnRequest), arg0)
 }
 
-// Machine mocks base method.
-func (m *MockBackend) Machine(arg0 string) (*state.Machine, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Machine", arg0)
-	ret0, _ := ret[0].(*state.Machine)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Machine indicates an expected call of Machine.
-func (mr *MockBackendMockRecorder) Machine(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machine", reflect.TypeOf((*MockBackend)(nil).Machine), arg0)
-}
-
 // RemoveSSHConnRequest mocks base method.
 func (m *MockBackend) RemoveSSHConnRequest(arg0 state.SSHConnRequestRemoveArg) error {
 	m.ctrl.T.Helper()
@@ -80,4 +81,19 @@ func (m *MockBackend) RemoveSSHConnRequest(arg0 state.SSHConnRequestRemoveArg) e
 func (mr *MockBackendMockRecorder) RemoveSSHConnRequest(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSSHConnRequest", reflect.TypeOf((*MockBackend)(nil).RemoveSSHConnRequest), arg0)
+}
+
+// SSHHostKeys mocks base method.
+func (m *MockBackend) SSHHostKeys(arg0 string, arg1 names.MachineTag) (state.SSHHostKeys, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SSHHostKeys", arg0, arg1)
+	ret0, _ := ret[0].(state.SSHHostKeys)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SSHHostKeys indicates an expected call of SSHHostKeys.
+func (mr *MockBackendMockRecorder) SSHHostKeys(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SSHHostKeys", reflect.TypeOf((*MockBackend)(nil).SSHHostKeys), arg0, arg1)
 }

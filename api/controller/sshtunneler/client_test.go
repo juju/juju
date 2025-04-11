@@ -100,3 +100,28 @@ func (s *sshTunnelerSuite) TestInsertSSHConnRequest(c *gc.C) {
 	err := client.InsertSSHConnRequest(req)
 	c.Assert(err, jc.ErrorIsNil)
 }
+
+func (s *sshTunnelerSuite) TestMachineHostKeys(c *gc.C) {
+	client := newClient(
+		func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Check(objType, gc.Equals, "SSHTunneler")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "MachineHostKeys")
+			c.Assert(arg, gc.DeepEquals, params.SSHMachineHostKeysArg{
+				ModelUUID:  "my-model",
+				MachineTag: "machine-1",
+			})
+			c.Assert(result, gc.FitsTypeOf, &params.SSHPublicKeysResult{})
+
+			*(result.(*params.SSHPublicKeysResult)) = params.SSHPublicKeysResult{
+				Error:      nil,
+				PublicKeys: []string{"key-1", "key-2"},
+			}
+			return nil
+		},
+	)
+
+	result, err := client.MachineHostKeys("my-model", names.NewMachineTag("1"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, []string{"key-1", "key-2"})
+}

@@ -50,3 +50,18 @@ func (c *Client) InsertSSHConnRequest(arg state.SSHConnRequestArg) error {
 	}
 	return nil
 }
+
+// MachineHostKeys returns the SSH host keys for a machine.
+func (c *Client) MachineHostKeys(modelUUID string, machineTag names.MachineTag) ([]string, error) {
+	var result params.SSHPublicKeysResult
+	if err := c.facade.FacadeCall("MachineHostKeys", params.SSHMachineHostKeysArg{
+		ModelUUID:  modelUUID,
+		MachineTag: machineTag.String(),
+	}, &result); err != nil {
+		return nil, err
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result.PublicKeys, nil
+}

@@ -80,6 +80,45 @@ func (c *MockStateInsertSSHConnRequestCall) DoAndReturn(f func(state.SSHConnRequ
 	return c
 }
 
+// MachineHostKeys mocks base method.
+func (m *MockState) MachineHostKeys(arg0, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MachineHostKeys", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MachineHostKeys indicates an expected call of MachineHostKeys.
+func (mr *MockStateMockRecorder) MachineHostKeys(arg0, arg1 any) *MockStateMachineHostKeysCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineHostKeys", reflect.TypeOf((*MockState)(nil).MachineHostKeys), arg0, arg1)
+	return &MockStateMachineHostKeysCall{Call: call}
+}
+
+// MockStateMachineHostKeysCall wrap *gomock.Call
+type MockStateMachineHostKeysCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateMachineHostKeysCall) Return(arg0 []string, arg1 error) *MockStateMachineHostKeysCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateMachineHostKeysCall) Do(f func(string, string) ([]string, error)) *MockStateMachineHostKeysCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateMachineHostKeysCall) DoAndReturn(f func(string, string) ([]string, error)) *MockStateMachineHostKeysCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockControllerInfo is a mock of ControllerInfo interface.
 type MockControllerInfo struct {
 	ctrl     *gomock.Controller
