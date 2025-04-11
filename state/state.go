@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
+	sshkeys "github.com/juju/juju/pki/ssh"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/watcher"
@@ -1419,10 +1420,19 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 		// Collect unit-adding operations.
 		for x := 0; x < args.NumUnits; x++ {
+			var virtualHostKey []byte
+			if model.Type() == ModelTypeCAAS {
+				// We require a distinct virtual host key for each CAAS unit.
+				virtualHostKey, err = sshkeys.NewMarshalledED25519()
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+			}
 			unitName, unitOps, err := app.addUnitOpsWithCons(applicationAddUnitOpsArgs{
-				cons:          args.Constraints,
-				storageCons:   args.Storage,
-				attachStorage: args.AttachStorage,
+				cons:           args.Constraints,
+				storageCons:    args.Storage,
+				attachStorage:  args.AttachStorage,
+				VirtualHostKey: virtualHostKey,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)

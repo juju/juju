@@ -2418,6 +2418,7 @@ func (a *Application) addUnitOps(
 		ports:              args.Ports,
 		unitName:           args.UnitName,
 		passwordHash:       args.PasswordHash,
+		VirtualHostKey:     args.VirtualHostKey,
 	})
 	if err != nil {
 		return uNames, ops, errors.Trace(err)
@@ -2425,14 +2426,6 @@ func (a *Application) addUnitOps(
 	// we verify the application is alive
 	asserts = append(isAliveDoc, asserts...)
 	ops = append(ops, a.incUnitCountOp(asserts))
-
-	if len(args.VirtualHostKey) > 0 {
-		hostKeyOps, err := newUnitVirtualHostKeysOps(a.st.ModelUUID(), uNames, args.VirtualHostKey)
-		if err != nil {
-			return "", nil, errors.Trace(err)
-		}
-		ops = append(ops, hostKeyOps...)
-	}
 	return uNames, ops, nil
 }
 
@@ -2445,11 +2438,12 @@ type applicationAddUnitOpsArgs struct {
 	attachStorage []names.StorageTag
 
 	// These optional attributes are relevant to CAAS models.
-	providerId   *string
-	address      *string
-	ports        *[]string
-	unitName     *string
-	passwordHash *string
+	providerId     *string
+	address        *string
+	ports          *[]string
+	unitName       *string
+	passwordHash   *string
+	VirtualHostKey []byte
 }
 
 // addUnitOpsWithCons is a helper method for returning addUnitOps.
@@ -2569,6 +2563,14 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		})
 	} else {
 		ops = append(ops, createConstraintsOp(agentGlobalKey, args.cons))
+	}
+
+	if len(args.VirtualHostKey) > 0 {
+		hostKeyOps, err := newUnitVirtualHostKeysOps(a.st.ModelUUID(), name, args.VirtualHostKey)
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		ops = append(ops, hostKeyOps...)
 	}
 
 	// At the last moment we still have the statusDocs in scope, set the initial

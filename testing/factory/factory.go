@@ -115,6 +115,7 @@ type ApplicationParams struct {
 	Password                string
 	Placement               []*instance.Placement
 	DesiredScale            int
+	NumUnits                int
 }
 
 // UnitParams are used to create units.
@@ -553,6 +554,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		Resources:         resourceMap,
 		EndpointBindings:  params.EndpointBindings,
 		Placement:         params.Placement,
+		NumUnits:          params.NumUnits,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.SetPassword(params.Password)
