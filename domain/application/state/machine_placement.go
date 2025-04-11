@@ -20,9 +20,9 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// placeNetNodeMachines places the net node and machines if required, depending
+// placeMachine places the net node and machines if required, depending
 // on the placement.
-func (st *State) placeNetNodeMachines(ctx context.Context, tx *sqlair.TX, directive deployment.Placement) (string, error) {
+func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive deployment.Placement) (string, error) {
 	switch directive.Type {
 	case deployment.PlacementTypeUnset:
 		// The placement is unset, so we need to create a machine for the

@@ -23,7 +23,7 @@ import (
 
 func (s *unitStateSuite) TestPlaceNetNodeMachinesInvalidPlacement(c *gc.C) {
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, err := s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+		_, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type: deployment.PlacementType(666),
 		})
 		return err
@@ -37,7 +37,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnset(c *gc.C) {
 	var netNode string
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		netNode, err = s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+		netNode, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type: deployment.PlacementTypeUnset,
 		})
 		return err
@@ -66,7 +66,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimes(c *gc.C) {
 	var netNodes []string
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		for range total {
-			netNode, err := s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+			netNode, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 				Type: deployment.PlacementTypeUnset,
 			})
 			if err != nil {
@@ -111,7 +111,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimesWithGaps(c *g
 	createMachines := func() {
 		err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 			for range stepTotal {
-				netNode, err := s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+				netNode, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 					Type: deployment.PlacementTypeUnset,
 				})
 				if err != nil {
@@ -173,7 +173,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachine(c *gc.C) {
 	var netNode string
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		netNode, err = s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+		netNode, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type: deployment.PlacementTypeUnset,
 		})
 		return err
@@ -183,7 +183,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachine(c *gc.C) {
 	var resultNetNode string
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		resultNetNode, err = s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+		resultNetNode, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type:      deployment.PlacementTypeMachine,
 			Directive: "0",
 		})
@@ -197,7 +197,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesExistingMachineNotFound(c *gc.C
 	// Try and place a machine that doesn't exist.
 
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		_, err := s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+		_, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type:      deployment.PlacementTypeMachine,
 			Directive: "0",
 		})
@@ -212,7 +212,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainer(c *gc.C) {
 	var netNode string
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		netNode, err = s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+		netNode, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type:      deployment.PlacementTypeContainer,
 			Container: deployment.ContainerTypeLXD,
 		})
@@ -243,7 +243,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerMultipleTimes(c *gc.C)
 	var netNodes []string
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		for range total {
-			netNode, err := s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+			netNode, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 				Type:      deployment.PlacementTypeContainer,
 				Container: deployment.ContainerTypeLXD,
 			})
@@ -293,7 +293,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerMultipleTimesWithGaps(
 	createMachines := func() {
 		err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 			for range stepTotal {
-				netNode, err := s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+				netNode, err := s.state.placeMachine(ctx, tx, deployment.Placement{
 					Type:      deployment.PlacementTypeContainer,
 					Container: deployment.ContainerTypeLXD,
 				})
@@ -383,7 +383,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesProvider(c *gc.C) {
 	var netNode string
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		netNode, err = s.state.placeNetNodeMachines(ctx, tx, deployment.Placement{
+		netNode, err = s.state.placeMachine(ctx, tx, deployment.Placement{
 			Type:      deployment.PlacementTypeProvider,
 			Directive: "zone=eu-west-1",
 		})
