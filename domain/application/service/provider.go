@@ -137,6 +137,10 @@ func (s *ProviderService) CreateApplication(
 		return "", errors.Errorf("create application: %w", err)
 	}
 
+	if err := validateDeviceConstraints(args.Devices, charm.Meta()); err != nil {
+		return "", errors.Errorf("validating device constraints: %w", err)
+	}
+
 	modelType, err := s.st.GetModelType(ctx)
 	if err != nil {
 		return "", errors.Errorf("getting model type: %w", err)

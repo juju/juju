@@ -22,6 +22,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/config"
+	"github.com/juju/juju/core/devices"
 	coreerrors "github.com/juju/juju/core/errors"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
@@ -942,6 +943,46 @@ func (s *applicationServiceSuite) TestDecodeRisk(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(decoded, gc.Equals, test.expected)
 	}
+}
+
+func (s *applicationServiceSuite) TestGetDeviceConstraintsAppNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "unknown-app").Return("", errors.Errorf("%w", applicationerrors.ApplicationNotFound))
+
+	_, err := s.service.GetDeviceConstraints(context.Background(), "unknown-app")
+	c.Assert(err, gc.ErrorMatches, applicationerrors.ApplicationNotFound.Error())
+}
+
+func (s *applicationServiceSuite) TestGetDeviceConstraintsDeadApp(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "dead-app").Return(coreapplication.ID("foo"), nil)
+	s.state.EXPECT().GetDeviceConstraints(gomock.Any(), coreapplication.ID("foo")).Return(nil, errors.Errorf("%w", applicationerrors.ApplicationIsDead))
+
+	_, err := s.service.GetDeviceConstraints(context.Background(), "dead-app")
+	c.Assert(err, gc.ErrorMatches, applicationerrors.ApplicationIsDead.Error())
+}
+
+func (s *applicationServiceSuite) TestGetDeviceConstraints(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.ID("foo-uuid"), nil)
+	s.state.EXPECT().GetDeviceConstraints(gomock.Any(), coreapplication.ID("foo-uuid")).Return(map[string]devices.Constraints{
+		"dev0": {
+			Type:  "type0",
+			Count: 42,
+		},
+	}, nil)
+
+	cons, err := s.service.GetDeviceConstraints(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cons, gc.DeepEquals, map[string]devices.Constraints{
+		"dev0": {
+			Type:  "type0",
+			Count: 42,
+		},
+	})
 }
 
 type applicationWatcherServiceSuite struct {

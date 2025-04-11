@@ -1133,3 +1133,25 @@ type spaces []string
 // endpointNames is a type used to pass a slice of endpoint names to a query
 // using `IN` and sqlair.
 type endpointNames []string
+
+type deviceConstraint struct {
+	Name           string         `db:"name"`
+	Type           string         `db:"type"`
+	Count          int            `db:"count"`
+	AttributeKey   sql.NullString `db:"key"`
+	AttributeValue sql.NullString `db:"value"`
+}
+
+type setDeviceConstraint struct {
+	UUID            string `db:"uuid"`
+	ApplicationUUID string `db:"application_uuid"`
+	Name            string `db:"name"`
+	Type            string `db:"type"`
+	Count           int    `db:"count"`
+}
+
+type setDeviceConstraintAttribute struct {
+	DeviceConstraintUUID string `db:"device_constraint_uuid"`
+	AttributeKey         string `db:"key"`
+	AttributeValue       string `db:"value"`
+}

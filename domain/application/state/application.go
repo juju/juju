@@ -21,6 +21,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -245,6 +246,9 @@ func (st *State) CreateApplication(
 		if err = st.insertApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
 			return errors.Errorf("inserting units for application %q: %w", appUUID, err)
 		}
+		if err := st.insertDeviceConstraints(ctx, tx, appUUID, args.Devices); err != nil {
+			return errors.Errorf("inserting device constraints for application %q: %w", appUUID, err)
+		}
 
 		// The channel is optional for local charms. Although, it would be
 		// nice to have a channel for local charms, it's not a requirement.
@@ -361,6 +365,9 @@ WHERE application_uuid = $applicationDetails.uuid
 	}
 	app.UUID = appUUID
 
+	if err := st.deleteDeviceConstraintAttributes(ctx, tx, appUUID); err != nil {
+		return errors.Errorf("deleting device constraint attributes for application %q: %w", name, err)
+	}
 	// delete application endpoints
 	if err := st.deleteApplicationEndpoints(ctx, tx, appUUID); err != nil {
 		return errors.Errorf("deleting application endpoints for application %q: %w", name, err)
@@ -402,14 +409,33 @@ WHERE application_uuid = $applicationDetails.uuid
 	return nil
 }
 
+func (st *State) deleteDeviceConstraintAttributes(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID) error {
+	appID := applicationID{ID: appUUID}
+	deleteDeviceConstraintAttributesStmt, err := st.Prepare(`
+DELETE FROM device_constraint_attribute
+WHERE device_constraint_uuid IN (
+    SELECT device_constraint_uuid
+    FROM device_constraint
+    WHERE application_uuid = $applicationID.uuid
+)`, appID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, deleteDeviceConstraintAttributesStmt, appID).Run(); err != nil {
+		return errors.Errorf("deleting device constraint attributes for application %q: %w", appUUID, err)
+	}
+	return nil
+}
+
 func (st *State) deleteCloudServices(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID) error {
-	app := applicationDetails{UUID: appUUID}
+	app := applicationID{ID: appUUID}
 
 	deleteNodeStmt, err := st.Prepare(`
 DELETE FROM net_node WHERE uuid IN (
     SELECT net_node_uuid
     FROM k8s_service
-    WHERE application_uuid = $applicationDetails.uuid
+    WHERE application_uuid = $applicationID.uuid
 )`, app)
 	if err != nil {
 		return errors.Capture(err)
@@ -417,7 +443,7 @@ DELETE FROM net_node WHERE uuid IN (
 
 	deleteCloudServiceStmt, err := st.Prepare(`
 DELETE FROM k8s_service
-WHERE application_uuid = $applicationDetails.uuid
+WHERE application_uuid = $applicationID.uuid
 `, app)
 	if err != nil {
 		return errors.Capture(err)
@@ -2195,7 +2221,126 @@ ON CONFLICT (application_uuid) DO NOTHING
 			}).Run(),
 		)
 	})
+}
 
+// GetDeviceConstraints returns the device constraints for an application.
+//
+// If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
+// If the application is not found, [applicationerrors.ApplicationNotFound]
+// is returned.
+func (st *State) GetDeviceConstraints(ctx context.Context, appID coreapplication.ID) (map[string]devices.Constraints, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ident := applicationID{ID: appID}
+
+	query := `
+SELECT &deviceConstraint.*
+FROM device_constraint AS dc
+LEFT JOIN device_constraint_attribute AS dca ON dca.device_constraint_uuid = dc.uuid
+WHERE dc.application_uuid = $applicationID.uuid;
+`
+
+	stmt, err := st.Prepare(query, deviceConstraint{}, ident)
+	if err != nil {
+		return nil, errors.Errorf("preparing query for application constraints: %w", err)
+	}
+
+	var result []deviceConstraint
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
+			return errors.Capture(err)
+		}
+
+		err := tx.Query(ctx, stmt, ident).GetAll(&result)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+
+		return nil
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return st.decodeDeviceConstraints(result), nil
+}
+
+func (st *State) decodeDeviceConstraints(cons []deviceConstraint) map[string]devices.Constraints {
+	res := make(map[string]devices.Constraints)
+	if len(cons) == 0 {
+		return res
+	}
+	for _, row := range cons {
+		if _, ok := res[row.Name]; !ok {
+			res[row.Name] = devices.Constraints{
+				Type:       devices.DeviceType(row.Type),
+				Count:      row.Count,
+				Attributes: make(map[string]string),
+			}
+		}
+		if row.AttributeKey.Valid {
+			res[row.Name].Attributes[row.AttributeKey.String] = row.AttributeValue.String
+		}
+	}
+	return res
+}
+
+func (st *State) insertDeviceConstraints(ctx context.Context, tx *sqlair.TX, appID coreapplication.ID, cons map[string]devices.Constraints) error {
+	if len(cons) == 0 {
+		return nil
+	}
+	setDeviceConstraints := make([]setDeviceConstraint, 0, len(cons))
+	setDeviceConstraintAttributes := make([]setDeviceConstraintAttribute, 0)
+	for name, deviceCons := range cons {
+		uuid, err := uuid.NewUUID()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		setDeviceConstraints = append(setDeviceConstraints, setDeviceConstraint{
+			UUID:            uuid.String(),
+			ApplicationUUID: appID.String(),
+			Name:            name,
+			Count:           deviceCons.Count,
+			Type:            string(deviceCons.Type),
+		})
+		for k, v := range deviceCons.Attributes {
+			setDeviceConstraintAttributes = append(setDeviceConstraintAttributes, setDeviceConstraintAttribute{
+				DeviceConstraintUUID: uuid.String(),
+				AttributeKey:         k,
+				AttributeValue:       v,
+			})
+		}
+	}
+
+	insertDeviceConstraintQuery := `
+INSERT INTO device_constraint (*)
+VALUES ($setDeviceConstraint.*)
+`
+	insertDeviceConstraintStmt, err := st.Prepare(insertDeviceConstraintQuery, setDeviceConstraint{})
+	if err != nil {
+		return errors.Errorf("preparing insert device constraints query: %w", err)
+	}
+	err = tx.Query(ctx, insertDeviceConstraintStmt, setDeviceConstraints).Run()
+	if err != nil {
+		return errors.Errorf("inserting device constraints: %w", err)
+	}
+
+	insertDeviceConstraintAttributesQuery := `
+INSERT INTO device_constraint_attribute (*)
+VALUES ($setDeviceConstraintAttribute.*)
+`
+	insertDeviceConstraintAttributesStmt, err := st.Prepare(insertDeviceConstraintAttributesQuery, setDeviceConstraintAttribute{})
+	if err != nil {
+		return errors.Errorf("preparing insert device constraint attributes query: %w", err)
+	}
+
+	err = tx.Query(ctx, insertDeviceConstraintAttributesStmt, setDeviceConstraintAttributes).Run()
+	if err != nil {
+		return errors.Errorf("inserting device constraint attributes: %w", err)
+	}
+	return nil
 }
 
 // NamespaceForWatchApplication returns the namespace identifier

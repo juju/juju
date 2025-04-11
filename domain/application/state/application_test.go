@@ -18,6 +18,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	charmtesting "github.com/juju/juju/core/charm/testing"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -3220,6 +3221,78 @@ func (s *applicationStateSuite) TestGetApplicationCharmOriginNoCharmhubIdentifie
 		Revision: 42,
 		Hash:     "hash",
 	})
+}
+
+func (s *applicationStateSuite) TestGetDeviceConstraintsAppNotFound(c *gc.C) {
+	_, err := s.state.GetDeviceConstraints(context.Background(), coreapplication.ID("foo"))
+	c.Assert(err, gc.ErrorMatches, applicationerrors.ApplicationNotFound.Error())
+}
+
+func (s *applicationStateSuite) TestGetDeviceConstraintsDeadApp(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Dead)
+
+	_, err := s.state.GetDeviceConstraints(context.Background(), id)
+	c.Assert(err, gc.ErrorMatches, applicationerrors.ApplicationIsDead.Error())
+}
+
+func (s *applicationStateSuite) TestGetDeviceConstraints(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		insertDeviceConstraint0 := `INSERT INTO device_constraint (uuid, application_uuid, name, type, count) VALUES (?, ?, ?, ?, ?)`
+		_, err := tx.ExecContext(ctx, insertDeviceConstraint0, "dev3-uuid", id.String(), "dev3", "type3", 666)
+		if err != nil {
+			return err
+		}
+
+		insertDeviceConstraintAttrs0 := `INSERT INTO device_constraint_attribute (device_constraint_uuid, "key", value) VALUES (?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertDeviceConstraintAttrs0, "dev3-uuid", "k666", "v666")
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons, err := s.state.GetDeviceConstraints(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cons, gc.HasLen, 4)
+	// Device constraint added by createApplication().
+	c.Check(cons["dev0"].Type, gc.Equals, devices.DeviceType("type0"))
+	c.Check(cons["dev0"].Count, gc.Equals, 42)
+	c.Check(cons["dev0"].Attributes, gc.DeepEquals, map[string]string{
+		"k0": "v0",
+		"k1": "v1",
+	})
+	c.Check(cons["dev1"].Type, gc.Equals, devices.DeviceType("type1"))
+	c.Check(cons["dev1"].Count, gc.Equals, 3)
+	c.Check(cons["dev1"].Attributes, gc.DeepEquals, map[string]string{"k2": "v2"})
+	c.Check(cons["dev2"].Type, gc.Equals, devices.DeviceType("type2"))
+	c.Check(cons["dev2"].Count, gc.Equals, 1974)
+	c.Check(cons["dev2"].Attributes, gc.DeepEquals, map[string]string{})
+	// Device constraint added manually via inserts.
+	c.Check(cons["dev3"].Type, gc.Equals, devices.DeviceType("type3"))
+	c.Check(cons["dev3"].Count, gc.Equals, 666)
+	c.Check(cons["dev3"].Attributes, gc.DeepEquals, map[string]string{"k666": "v666"})
+}
+
+func (s *applicationStateSuite) TestGetDeviceConstraintsFromCreatedApp(c *gc.C) {
+	id := s.createApplication(c, "foo", life.Alive)
+
+	cons, err := s.state.GetDeviceConstraints(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cons, gc.HasLen, 3)
+	c.Check(cons["dev0"].Type, gc.Equals, devices.DeviceType("type0"))
+	c.Check(cons["dev0"].Count, gc.Equals, 42)
+	c.Check(cons["dev0"].Attributes, gc.DeepEquals, map[string]string{
+		"k0": "v0",
+		"k1": "v1",
+	})
+	c.Check(cons["dev1"].Type, gc.Equals, devices.DeviceType("type1"))
+	c.Check(cons["dev1"].Count, gc.Equals, 3)
+	c.Check(cons["dev1"].Attributes, gc.DeepEquals, map[string]string{"k2": "v2"})
+	c.Check(cons["dev2"].Type, gc.Equals, devices.DeviceType("type2"))
+	c.Check(cons["dev2"].Count, gc.Equals, 1974)
+	c.Check(cons["dev2"].Attributes, gc.DeepEquals, map[string]string{})
 }
 
 func (s *applicationStateSuite) assertApplication(

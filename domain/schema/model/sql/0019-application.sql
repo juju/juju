@@ -211,6 +211,9 @@ CREATE TABLE device_constraint (
     REFERENCES application (uuid)
 );
 
+CREATE UNIQUE INDEX idx_device_constraint_application_name
+ON device_constraint (application_uuid, name);
+
 CREATE TABLE device_constraint_attribute (
     device_constraint_uuid TEXT NOT NULL,
     "key" TEXT NOT NULL,

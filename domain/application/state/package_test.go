@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/devices"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
@@ -260,6 +261,22 @@ func (s *baseSuite) createApplication(c *gc.C, name string, l life.Life, units .
 		},
 		Scale:     len(units),
 		Placement: "placement",
+		Devices: map[string]devices.Constraints{
+			"dev0": {
+				Type:       devices.DeviceType("type0"),
+				Count:      42,
+				Attributes: map[string]string{"k0": "v0", "k1": "v1"},
+			},
+			"dev1": {
+				Type:       devices.DeviceType("type1"),
+				Count:      3,
+				Attributes: map[string]string{"k2": "v2"},
+			},
+			"dev2": {
+				Type:  devices.DeviceType("type2"),
+				Count: 1974,
+			},
+		},
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -337,7 +337,7 @@ func stateDeviceConstraints(cons map[string]devices.Constraints) map[string]stat
 	for name, cons := range cons {
 		result[name] = state.DeviceConstraints{
 			Type:       state.DeviceType(cons.Type),
-			Count:      cons.Count,
+			Count:      int64(cons.Count),
 			Attributes: cons.Attributes,
 		}
 	}
