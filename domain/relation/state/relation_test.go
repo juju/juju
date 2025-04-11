@@ -2068,6 +2068,7 @@ func (s *relationSuite) TestLeaveScope(c *gc.C) {
 
 	// Arrange: Add some relation unit settings.
 	s.addRelationUnitSetting(c, relationUnitUUID, "test-key", "test-value")
+	s.addRelationUnitSettingsHash(c, relationUnitUUID)
 
 	// Act: Leave scope with the first unit.
 	err := s.state.LeaveScope(context.Background(), relationUnitUUID)
@@ -3076,6 +3077,15 @@ func (s *relationSuite) addRelationUnitSetting(c *gc.C, relationUnitUUID corerel
 INSERT INTO relation_unit_setting (relation_unit_uuid, key, value)
 VALUES (?,?,?)
 `, relationUnitUUID, key, value)
+}
+
+// addRelationUnitSettingsHash inserts a relation unit settings hash into the
+// database using the provided relationUnitUUID.
+func (s *relationSuite) addRelationUnitSettingsHash(c *gc.C, relationUnitUUID corerelation.UnitUUID) {
+	s.query(c, `
+INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256)
+VALUES (?,?)
+`, relationUnitUUID, "hash")
 }
 
 // addRelationApplicationSetting inserts a relation application setting into the database

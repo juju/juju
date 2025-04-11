@@ -1441,6 +1441,18 @@ WHERE relation_unit_uuid = $relationUnitUUID.uuid
 		return errors.Capture(err)
 	}
 
+	deleteSettingsHashStmt, err := st.Prepare(`
+DELETE FROM relation_unit_settings_hash
+WHERE relation_unit_uuid = $relationUnitUUID.uuid
+`, id)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, deleteSettingsHashStmt, id).Run()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	deleteRelationUnitStmt, err := st.Prepare(`
 DELETE FROM relation_unit 
 WHERE uuid = $relationUnitUUID.uuid
