@@ -7,12 +7,9 @@ Discussion and clarification of key topics, providing background information and
 ```{toctree}
 :maxdepth: 2
 :hidden:
+:glob:
 
-application-modelling
-charming-history
-charms-vs-kubernetes-operators
-juju-security
-performance-with-juju
+*
 ```
 
 ## Juju at a glance

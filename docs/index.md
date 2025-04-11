@@ -12,13 +12,13 @@ explanation/index
 For contributors <contributor/index>
 ```
 
-Juju is an open source orchestration engine for software operators that enables the deployment, integration and lifecycle management of applications at any scale, on any infrastructure, using special software operators called ‘charms’.
+Juju is an open source orchestration engine for software operators that enables the deployment, integration and lifecycle management of applications in the cloud using special software operators called ‘charms’.
 
-Juju provides a model-driven way to install, provision, maintain, update, upgrade, and integrate applications on and across Kubernetes containers, Linux containers, virtual machines, and bare metal machines, on public or private cloud.
+Juju and charms provide a simple, consistent, and repeatable way to install, provision, maintain, update, upgrade, and integrate applications on and across Kubernetes containers, Linux containers, virtual machines, and bare metal machines, on public or private cloud.
 
-As such, Juju makes it simple, intuitive, and efficient to manage the full lifecycle of complex applications in hybrid cloud.
+Application- and cloud-specific challenges can make operations complex, especially with sophisticated workloads in hybrid environments. Juju and charms abstract away that complexity, making all clouds and operations feel the same -- at any scale, on any cloud.
 
-For system operators and DevOps who manage applications in the cloud, Juju simplifies code; for CIOs, it helps align code with business decisions.
+Whether you are a CIO or SysAdmin, DevOps engineer, or SRE, Juju helps you take control.
 
 ## In this documentation
 
