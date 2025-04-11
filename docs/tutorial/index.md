@@ -3,23 +3,11 @@
 
 Imagine your business needs a chat service such as Mattermost backed up by a database such as PostgreSQL. In a traditional setup, this can be quite a challenge, but with Juju you'll find yourself deploying, configuring, scaling, integrating, etc., applications in no time. Let's get started!
 
-
-```{note}
-The tutorial will take about 1h to complete.
-
-If you'd like a quicker start:
-- Ignore the "Look around" expand boxes.
-- Try instead [GitHub | Juju > Give it a try](https://github.com/juju/juju?tab=readme-ov-file#give-it-a-try).
-
-At any point, to ask for help or give feedback or contribute: Get in touch: {ref}`project-and-community`.
-```
-
-
 **What you'll need:**
-- A workstation, e.g., a laptop, that has sufficient resources to launch a virtual machine with 4 CPUs, 8 GB RAM, and 50 GB disk space.
+- A workstation that has sufficient resources to launch a virtual machine with 4 CPUs, 8 GB RAM, and 50 GB disk space.
 
 **What you'll do:**
-- Set up an isolated test environment with Multipass and the `charm-dev` blueprint, which will provide all the necessary tools and configuration for the tutorial (a localhost machine cloud and Kubernetes cloud, Juju, etc.). *Note: The tutorial focuses on Juju charm deployment, making how to bootstrap a Juju controller on a specific cloud out-of-scope.*
+- Set up an isolated test environment with Multipass and the `charm-dev` blueprint, which will provide all the necessary tools and configuration for the tutorial (a localhost machine cloud and Kubernetes cloud, Juju, etc.).
 
 - Plan, deploy, and maintain a chat service based on Mattermost and backed by PostgreSQL on a local Kubernetes cloud with Juju.
 
@@ -28,9 +16,9 @@ At any point, to ask for help or give feedback or contribute: Get in touch: {ref
 
 On your machine, install Multipass and use it to set up an Ubuntu virtual machine (VM) called `my-juju-vm` from the `charm-dev` blueprint.
 
-> See more: {ref}`manage-your-deployment-environment` > Set things up (automatically)
+> See more: {ref}`set-things-up`
 >
-> Note: This document also contains a manual path, using which you can set things up without the Multipass VM or the `charm-dev` blueprint. However, please note that the manual path may yield slightly different results that may impact your experience of this tutorial. For best results we strongly recommend the automatic path, or else suggest that you follow the manual path in a way that stays very close to [the definition of the `charm-dev` blueprint](https://github.com/canonical/multipass-blueprints/blob/ae90147b811a79eaf4508f4776390141e0195fe7/v1/charm-dev.yaml#L134).
+> Note: We recommend you follow the automatic path, with the Multipass VM from the `charm-dev` blueprint. If you however decide to take the manual path, please make sure to stay very close to [the definition of the `charm-dev` blueprint](https://github.com/canonical/multipass-blueprints/blob/ae90147b811a79eaf4508f4776390141e0195fe7/v1/charm-dev.yaml#L134).
 
 
 ## Plan
@@ -38,10 +26,9 @@ On your machine, install Multipass and use it to set up an Ubuntu virtual machin
 
 In this tutorial your goal is to set up a chat service on a cloud.
 
-
 First, decide which cloud (i.e., anything that provides storage, compute, and networking) you want to use. Juju supports a long list of clouds; in this tutorial we will use a low-ops, minimal production Kubernetes called 'MicroK8s'. In a terminal, open a shell into your VM and verify that you already have MicroK8s installed (`microk8s version`).
 
-> See more: {ref}`cloud`, {ref}`list-of-supported-clouds`, {ref}`cloud-kubernetes-microk8s`, {ref}`manage-your-deployment-environment`> steps 3-4
+> See more: {ref}`cloud`, {ref}`list-of-supported-clouds`, {ref}`cloud-kubernetes-microk8s`, {ref}`manage-your-deployment-environment`
 
 
 Next, decide which charms (i.e., software operators) you want to use. Charmhub provides a large collection. For this tutorial we will use `mattermost-k8s`  for the chat service,  `postgresql-k8s` for its backing database, and `self-signed-certificates` to TLS-encrypt traffic from PostgreSQL.
@@ -612,17 +599,6 @@ Congratulations, you now have a functional observability setup! But your control
 
 To tear things down, remove your entire Multipass Ubuntu VM, then uninstall Multipass:
 
-> See more: {ref}`manage-your-deployment-environment` > Tear things down (automatically)
-
-
-## Next steps
-
-This tutorial has introduced you to the basic things you can do with `juju`. But there is a lot more to explore:
-
-| If you are wondering... | visit our...                          |
-|-------------------------|---------------------------------------|
-| "How do I...?"          | [How-to docs](../howto/index)            |
-| "What is...?"           | [Reference docs](../reference/index)     |
-| "Why...?", "So what?"   | [Explanation docs](../explanation/index) |
+> See more: {ref}`tear-things-down`
 
 

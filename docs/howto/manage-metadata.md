@@ -20,10 +20,6 @@ This metadata is stored in a JSON format called 'Simplestreams'. The image metad
 
 This document shows how to manage this metadata in Juju.
 
-
-> See also: {ref}`plugin-juju-metadata`
-
-
 ## Generate metadata
 
 **For cloud images.** To generate metadata for cloud images, use the `metadata` plugin with the `generate-image` subcommand. This is useful for creating metadata for custom images. The metadata is stored in *SimpleStreams*, a data format designed to provide a standardized way to represent and discover metadata about cloud resources.
