@@ -346,5 +346,5 @@ type RelationService interface {
 		ctx context.Context,
 		unitName coreunit.Name,
 		relationUUID corerelation.UUID,
-	) (relation.RelationUnitsWatcher, error)
+	) (watcher.StringsWatcher, error)
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/errors"
@@ -161,6 +162,11 @@ type State interface {
 	// WatcherApplicationSettingsNamespace provides the table name to set up
 	// watchers for relation application settings.
 	WatcherApplicationSettingsNamespace() string
+
+	// InitialWatchRelatedUnits initializes a watch for changes related to the
+	// specified unit in the given relation.
+	InitialWatchRelatedUnits(name unit.Name, uuid corerelation.UUID) (string, string, eventsource.NamespaceQuery,
+		eventsource.Mapper)
 }
 
 // LeadershipService provides the API for working with the statuses of applications

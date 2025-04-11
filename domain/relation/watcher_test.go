@@ -108,6 +108,36 @@ AND key = 'key'
 	harness.Run(c, struct{}{})
 }
 
+func (s *watcherSuite) TestWatchRelatedUnits(c *gc.C) {
+	c.Skip("To be implemented")
+	// Arrange:
+	// - 2 apps linked through a relation
+	//   - watched/0 : we will create a watcher on this unit
+	//   - watched/1 : second unit on the same app, required to verify watcher behavior
+	//   - other/0 : only one unit on the second app, no need more.
+
+	// todo: will requires several subtest, for each namespaces watched.
+
+	// Act: update setting_hash in watched => no event
+
+	// Act: update setting_hash in watched/0 unit setting => no event
+
+	// Act: update setting_hash in other app setting => event with endpoint uuid of other endpoint
+
+	// Act: update setting_hash in other/0 unit setting => event with other/0 unit_uuid
+
+	// Act: update setting_hash in watched/1 unit setting => event with watched/1 unit_uuid
+
+	// Act: insert relation_unit for other/0 (enter scope) => event with other/0 unit_uuid
+
+	// Act: delete relation_unit for other/0 (leave scope) => event with other/0 unit_uuid
+
+	// Act: insert relation_unit for watched/1 (enter scope) => event with watched/1 unit_uuid
+
+	// Act: delete relation_unit for watched/1 (leave scope) => event with watched/1 unit_uuid
+
+}
+
 func (s *watcherSuite) setupService(c *gc.C, factory domain.WatchableDBFactory) *service.WatchableService {
 	modelDB := func() (database.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
