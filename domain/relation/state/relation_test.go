@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -755,9 +754,6 @@ type relationSuite struct {
 	fakeApplicationName1          string
 	fakeApplicationName2          string
 	fakeCharmRelationProvidesUUID string
-
-	// helps generation of consecutive relation_id
-	relation_count int
 }
 
 var _ = gc.Suite(&relationSuite{})
@@ -3055,181 +3051,6 @@ func (s *relationSuite) TestSetRelationApplicationAndUnitSettingsRelationUnitNot
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUnitNotFound)
 }
 
-// addUnit adds a new unit to the specified application in the database with
-// the given UUID and name. Returns the unit uuid.
-func (s *relationSuite) addUnit(c *gc.C, unitName coreunit.Name, appUUID coreapplication.ID, charmUUID corecharm.ID) coreunit.UUID {
-	unitUUID := coreunittesting.GenUnitUUID(c)
-	netNodeUUID := uuid.MustNewUUID().String()
-	s.query(c, `
-INSERT INTO net_node (uuid) 
-VALUES (?)
-ON CONFLICT DO NOTHING
-`, netNodeUUID)
-
-	s.query(c, `
-INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid)
-VALUES (?, ?, ?, ?, ?, ?)
-`, unitUUID, unitName, 0 /* alive */, appUUID, charmUUID, netNodeUUID)
-	return unitUUID
-}
-
-// addUnitWithLife adds a new unit to the specified application in the database with
-// the given UUID, name and life. Returns the unit uuid.
-func (s *relationSuite) addUnitWithLife(c *gc.C, unitName coreunit.Name, appUUID coreapplication.ID,
-	charmUUID corecharm.ID, life corelife.Value) coreunit.UUID {
-	unitUUID := coreunittesting.GenUnitUUID(c)
-	netNodeUUID := uuid.MustNewUUID().String()
-	s.query(c, `
-INSERT INTO net_node (uuid) 
-VALUES (?)
-ON CONFLICT DO NOTHING
-`, netNodeUUID)
-
-	s.query(c, `
-INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid)
-SELECT ?, ?, id, ?, ?, ?
-FROM life
-WHERE value = ?
-`, unitUUID, unitName, appUUID, charmUUID, netNodeUUID, life)
-	return unitUUID
-}
-
-// addApplicationEndpoint inserts a new application endpoint into the database
-// with the specified UUIDs. Returns the endpoint uuid.
-func (s *relationSuite) addApplicationEndpoint(c *gc.C, applicationUUID coreapplication.ID,
-	charmRelationUUID string) string {
-	// TODO(gfouillet): introduce proper UUID for this one, from corerelation & corerelationtesting
-	applicationEndpointUUID := uuid.MustNewUUID().String()
-	s.query(c, `
-INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid,space_uuid)
-VALUES (?, ?, ?, ?)
-`, applicationEndpointUUID, applicationUUID, charmRelationUUID, network.AlphaSpaceId)
-	return applicationEndpointUUID
-}
-
-// addCharmRelationWithDefaults inserts a new charm relation into the database
-// with the given UUID and predefined attributes. Returns the relation UUID.
-func (s *relationSuite) addCharmRelationWithDefaults(c *gc.C, charmUUID corecharm.ID) string {
-	// TODO(gfouillet): introduce proper UUID for this one, from corecharm and corecharmtesting
-	charmRelationUUID := uuid.MustNewUUID().String()
-	s.query(c, `
-INSERT INTO charm_relation (uuid, charm_uuid, kind_id, scope_id, role_id, name) 
-VALUES (?, ?, 0, 0, 0, 'fake-provides')
-`, charmRelationUUID, charmUUID)
-	return charmRelationUUID
-}
-
-// addCharmRelation inserts a new charm relation into the database with the
-// given UUID and attributes. Returns the relation UUID.
-func (s *relationSuite) addCharmRelation(c *gc.C, charmUUID corecharm.ID, r charm.Relation) string {
-	// TODO(gfouillet): introduce proper UUID for this one, from corecharm and corecharmtesting
-	charmRelationUUID := uuid.MustNewUUID().String()
-	s.query(c, `
-INSERT INTO charm_relation (uuid, charm_uuid, kind_id, name, role_id, interface, optional, capacity, scope_id) 
-VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?)
-`, charmRelationUUID, charmUUID, r.Name, s.encodeRoleID(r.Role), r.Interface, r.Optional, r.Limit, s.encodeScopeID(r.Scope))
-	return charmRelationUUID
-}
-
-// encodeRoleID returns the ID used in the database for the given charm role. This
-// reflects the contents of the charm_relation_role table.
-func (s *relationSuite) encodeRoleID(role charm.RelationRole) int {
-	return map[charm.RelationRole]int{
-		charm.RoleProvider: 0,
-		charm.RoleRequirer: 1,
-		charm.RolePeer:     2,
-	}[role]
-}
-
-// encodeStatusID returns the ID used in the database for the given relation
-// status. This reflects the contents of the relation_status_type table.
-func (s *relationSuite) encodeStatusID(status corestatus.Status) int {
-	return map[corestatus.Status]int{
-		corestatus.Joining:    0,
-		corestatus.Joined:     1,
-		corestatus.Broken:     2,
-		corestatus.Suspending: 3,
-		corestatus.Suspended:  4,
-	}[status]
-}
-
-// encodeScopeID returns the ID used in the database for the given charm scope. This
-// reflects the contents of the charm_relation_scope table.
-func (s *relationSuite) encodeScopeID(role charm.RelationScope) int {
-	return map[charm.RelationScope]int{
-		charm.ScopeGlobal:    0,
-		charm.ScopeContainer: 1,
-	}[role]
-}
-
-// addRelation inserts a new relation into the database with default relation
-// and life IDs. Returns the relation UUID.
-func (s *relationSuite) addRelation(c *gc.C) corerelation.UUID {
-	relationUUID := corerelationtesting.GenRelationUUID(c)
-	s.query(c, `
-INSERT INTO relation (uuid, life_id, relation_id) 
-VALUES (?,0,?)
-`, relationUUID, s.relation_count)
-	s.relation_count++
-	return relationUUID
-}
-
-// addRelationWithID inserts a new relation into the database with the given
-// ID, and default life ID. Returns the relation UUID.
-func (s *relationSuite) addRelationWithID(c *gc.C, relationID int) corerelation.UUID {
-	relationUUID := corerelationtesting.GenRelationUUID(c)
-	s.query(c, `
-INSERT INTO relation (uuid, life_id, relation_id) 
-VALUES (?,0,?)
-`, relationUUID, relationID)
-	// avoid clashes when unit both addRelationHelper in the same method (even it should be avoided)
-	if s.relation_count < relationID {
-		s.relation_count = relationID + 1
-	}
-	return relationUUID
-}
-
-// addRelationWithLifeAndID inserts a new relation into the database with the
-// given details. Returns the relation UUID.
-func (s *relationSuite) addRelationWithLifeAndID(c *gc.C, life corelife.Value, relationID int) corerelation.UUID {
-	relationUUID := corerelationtesting.GenRelationUUID(c)
-	s.query(c, `
-INSERT INTO relation (uuid, relation_id, life_id)
-SELECT ?,  ?, id
-FROM life
-WHERE value = ?
-`, relationUUID, relationID, life)
-	// avoid clashes when unit both addRelationHelper in the same method (even it should be avoided)
-	if s.relation_count < relationID {
-		s.relation_count = relationID + 1
-	}
-	return relationUUID
-}
-
-// addRelationEndpoint inserts a relation endpoint into the database
-// using the provided UUIDs for relation. Returns the endpoint UUID.
-func (s *relationSuite) addRelationEndpoint(c *gc.C, relationUUID corerelation.UUID,
-	applicationEndpointUUID string) string {
-	// TODO(gfouillet): introduce proper UUID for this one, from corerelation & corerelationtesting
-	relationEndpointUUID := uuid.MustNewUUID().String()
-	s.query(c, `
-INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
-VALUES (?,?,?)
-`, relationEndpointUUID, relationUUID, applicationEndpointUUID)
-	return relationEndpointUUID
-}
-
-// addRelationUnit inserts a relation unit into the database using the
-// provided UUIDs for relation. Returns the relation unit UUID.
-func (s *relationSuite) addRelationUnit(c *gc.C, unitUUID coreunit.UUID, relationEndpointUUID string) corerelation.UnitUUID {
-	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
-	s.query(c, `
-INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid)
-VALUES (?,?,?)
-`, relationUnitUUID, relationEndpointUUID, unitUUID)
-	return relationUnitUUID
-}
-
 // addRelationUnitSetting inserts a relation unit setting into the database
 // using the provided relationUnitUUID.
 func (s *relationSuite) addRelationUnitSetting(c *gc.C, relationUnitUUID corerelation.UnitUUID, key, value string) {
@@ -3463,24 +3284,4 @@ VALUES (?,?)
 
 func (s *relationSuite) doesRelationUnitExist(c *gc.C, relationUnitUUID corerelation.UnitUUID) bool {
 	return s.doesUUIDExist(c, "relation_unit", relationUnitUUID.String())
-}
-
-func (s *relationSuite) doesUUIDExist(c *gc.C, table, uuid string) bool {
-	found := false
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRow(fmt.Sprintf(`
-SELECT uuid
-FROM   %s
-WHERE  uuid = ?
-`, table), uuid).Scan(&uuid)
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil
-		} else if err != nil {
-			return err
-		}
-		found = true
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return found
 }
