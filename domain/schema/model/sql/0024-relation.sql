@@ -115,6 +115,17 @@ CREATE TABLE relation_unit_setting (
 CREATE INDEX idx_relation_unit_setting_unit
 ON relation_unit_setting (relation_unit_uuid);
 
+-- relation_unit_settings_hash holds a hash of all settings for a relation unit.
+-- It allows watchers to easily determine when the relation units settings have
+-- changed.
+CREATE TABLE relation_unit_settings_hash (
+    relation_unit_uuid TEXT NOT NULL PRIMARY KEY,
+    sha256 TEXT NOT NULL,
+    CONSTRAINT fk_relation_unit_setting_hash_relation_unit
+    FOREIGN KEY (relation_unit_uuid)
+    REFERENCES relation_unit (uuid)
+);
+
 -- The relation_application_setting holds key value pair settings
 -- for a relation at the application level. Keys must be unique
 -- per application.
