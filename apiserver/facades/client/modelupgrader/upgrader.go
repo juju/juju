@@ -49,18 +49,26 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+type ModelInfoService interface {
+	// GetModelInfo returns the readonly model information for the model in
+	// question.
+	GetModelInfo(context.Context) (coremodel.ModelInfo, error)
+}
+
 // ModelUpgraderAPI implements the model upgrader interface and is
 // the concrete implementation of the api end point.
 type ModelUpgraderAPI struct {
-	controllerTag           names.ControllerTag
-	statePool               StatePool
-	check                   common.BlockCheckerInterface
-	authorizer              facade.Authorizer
-	toolsFinder             common.ToolsFinder
-	apiUser                 names.UserTag
+	controllerTag names.ControllerTag
+	statePool     StatePool
+	check         common.BlockCheckerInterface
+	authorizer    facade.Authorizer
+	toolsFinder   common.ToolsFinder
+
 	modelAgentServiceGetter func(modelID coremodel.UUID) ModelAgentService
 	controllerAgentService  ModelAgentService
 	controllerConfigService ControllerConfigService
+	modelAgentService       ModelAgentService
+	modelInfoService        ModelInfoService
 	upgradeService          UpgradeService
 
 	registryAPIFunc         func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
@@ -71,7 +79,8 @@ type ModelUpgraderAPI struct {
 // NewModelUpgraderAPI creates a new api server endpoint for managing
 // models.
 func NewModelUpgraderAPI(
-	controllerTag names.ControllerTag,
+	controllerUUID string,
+	modelUUID coremodel.UUID,
 	stPool StatePool,
 	toolsFinder common.ToolsFinder,
 	blockChecker common.BlockCheckerInterface,
@@ -81,27 +90,27 @@ func NewModelUpgraderAPI(
 	modelAgentServiceGetter func(modelID coremodel.UUID) ModelAgentService,
 	controllerAgentService ModelAgentService,
 	controllerConfigService ControllerConfigService,
+	modelAgentService ModelAgentService,
+	modelInfoService ModelInfoService,
 	upgradeService UpgradeService,
 	logger corelogger.Logger,
 ) (*ModelUpgraderAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
-	// Since we know this is a user tag (because AuthClient is true),
-	// we just do the type assertion to the UserTag.
-	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 
 	return &ModelUpgraderAPI{
-		controllerTag:           controllerTag,
+		controllerTag:           names.NewControllerTag(controllerUUID),
 		statePool:               stPool,
 		check:                   blockChecker,
 		authorizer:              authorizer,
 		toolsFinder:             toolsFinder,
-		apiUser:                 apiUser,
 		registryAPIFunc:         registryAPIFunc,
 		environsCloudSpecGetter: environsCloudSpecGetter,
 		upgradeService:          upgradeService,
 		modelAgentServiceGetter: modelAgentServiceGetter,
+		modelAgentService:       modelAgentService,
+		modelInfoService:        modelInfoService,
 		controllerAgentService:  controllerAgentService,
 		controllerConfigService: controllerConfigService,
 		logger:                  logger,
@@ -169,19 +178,22 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx context.Context, arg params.UpgradeM
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	model, err := st.Model()
+
+	model, err := m.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	if model.Life() != state.Alive {
-		result.Error = apiservererrors.ServerError(errors.NewNotValid(nil, "model is not alive"))
-		return result, nil
-	}
+	// TODO (tlm): Look at adding this check back in when upgrading logic lives
+	// in a domain. More then likely this check is incorrect here as it should
+	// be done at the stage where set the version upgrade into the database.
+	// It might be true now but not in x seconds time.
+	//if model.Life() != state.Alive {
+	//	result.Error = apiservererrors.ServerError(errors.NewNotValid(nil, "model is not alive"))
+	//	return result, nil
+	//}
 
-	modelAgentVersionService := m.modelAgentServiceGetter(coremodel.UUID(modelTag.Id()))
-
-	currentVersion, err := modelAgentVersionService.GetModelTargetAgentVersion(ctx)
+	currentVersion, err := m.modelAgentService.GetModelTargetAgentVersion(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -190,7 +202,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx context.Context, arg params.UpgradeM
 	// model version to upgrade to, unless an explicit target
 	// has been specified.
 	useControllerVersion := false
-	if !model.IsControllerModel() {
+	if !model.IsControllerModel {
 		vers, err := m.controllerAgentService.GetModelTargetAgentVersion(ctx)
 		if err != nil {
 			return result, errors.Trace(err)
@@ -207,7 +219,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx context.Context, arg params.UpgradeM
 		args := common.FindAgentsParams{
 			AgentStream:   arg.AgentStream,
 			ControllerCfg: controllerCfg,
-			ModelType:     model.Type(),
+			ModelType:     model.Type,
 		}
 		if targetVersion == semversion.Zero {
 			args.MajorVersion = currentVersion.Major
@@ -250,7 +262,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx context.Context, arg params.UpgradeM
 func (m *ModelUpgraderAPI) validateModelUpgrade(
 	ctx context.Context,
 	force bool, modelTag names.ModelTag, targetVersion semversion.Number,
-	st State, model Model,
+	st State, model coremodel.ModelInfo,
 ) (err error) {
 	var blockers *upgradevalidation.ModelUpgradeBlockers
 	defer func() {
@@ -269,13 +281,9 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 		return errors.Trace(err)
 	}
 
-	modelNameKey := fmt.Sprintf("%s/%s", model.Owner().Id(), model.Name())
-	modelAgentVersionService := m.modelAgentServiceGetter(coremodel.UUID(modelTag.Id()))
-
-	isControllerModel := model.IsControllerModel()
-	if !isControllerModel {
+	if !model.IsControllerModel {
 		validators := upgradevalidation.ValidatorsForModelUpgrade(force, targetVersion, cloudspec)
-		checker := upgradevalidation.NewModelUpgradeCheck(st, modelNameKey, modelAgentVersionService, validators...)
+		checker := upgradevalidation.NewModelUpgradeCheck(st, model.UUID.String(), m.modelAgentService, validators...)
 		blockers, err = checker.Validate()
 		if err != nil {
 			return errors.Trace(err)
@@ -284,7 +292,7 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 	}
 
 	checker := upgradevalidation.NewModelUpgradeCheck(
-		st, modelNameKey, modelAgentVersionService,
+		st, model.UUID.String(), m.modelAgentService,
 		upgradevalidation.ValidatorsForControllerModelUpgrade(targetVersion, cloudspec)...,
 	)
 	blockers, err = checker.Validate()
@@ -307,12 +315,12 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 			return errors.Trace(err)
 		}
 		defer st.Release()
-		model, err := st.Model()
+		stModel, err := st.Model()
 		if err != nil {
 			return errors.Trace(err)
 		}
 
-		if model.Life() != state.Alive {
+		if stModel.Life() != state.Alive {
 			m.logger.Tracef(context.TODO(), "skipping upgrade check for dying/dead model %s", modelUUID)
 			continue
 		}
@@ -323,12 +331,12 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 		}
 		validators := upgradevalidation.ModelValidatorsForControllerModelUpgrade(targetVersion, cloudspec)
 
-		modelNameKey = fmt.Sprintf("%s/%s", model.Owner().Id(), model.Name())
+		modelNameKey := fmt.Sprintf("%s/%s", stModel.Owner().Id(), stModel.Name())
 		modelAgentVersionService := m.modelAgentServiceGetter(coremodel.UUID(modelUUID))
 		checker := upgradevalidation.NewModelUpgradeCheck(st, modelNameKey, modelAgentVersionService, validators...)
 		blockersForModel, err := checker.Validate()
 		if err != nil {
-			return errors.Annotatef(err, "validating model %q for controller upgrade", model.Name())
+			return errors.Annotatef(err, "validating model %q for controller upgrade", stModel.Name())
 		}
 		if blockersForModel == nil {
 			// all good.

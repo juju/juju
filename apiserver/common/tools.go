@@ -16,6 +16,7 @@ import (
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
@@ -28,7 +29,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 )
 
@@ -203,7 +203,7 @@ type FindAgentsParams struct {
 	ControllerCfg controller.Config
 
 	// ModelType is the type of the model.
-	ModelType state.ModelType
+	ModelType coremodel.ModelType
 
 	// Number will be used to match tools versions exactly if non-zero.
 	Number semversion.Number

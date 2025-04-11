@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
+	coremodel "github.com/juju/juju/core/model"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/semversion"
 	envtools "github.com/juju/juju/environs/tools"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/featureflag"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/state"
 )
 
 var errUpToDate = errors.AlreadyExistsf("no upgrades available")
@@ -56,7 +56,7 @@ func (m *ModelUpgraderAPI) decideVersion(
 	// highest minor version with the same major version number.
 	// CAAS models exclude agents with dev builds unless the current version
 	// is also a dev build.
-	allowDevBuilds := args.ModelType == state.ModelTypeIAAS || currentVersion.Build > 0
+	allowDevBuilds := args.ModelType == coremodel.IAAS || currentVersion.Build > 0
 	newestCurrent, found := streamVersions.NewestCompatible(currentVersion, allowDevBuilds)
 	if found {
 		if newestCurrent.Compare(currentVersion) == 0 {
@@ -77,7 +77,7 @@ func (m *ModelUpgraderAPI) findAgents(
 	args common.FindAgentsParams,
 ) (coretools.Versions, error) {
 	list, err := m.toolsFinder.FindAgents(ctx, args)
-	if args.ModelType != state.ModelTypeCAAS {
+	if args.ModelType != coremodel.CAAS {
 		// We return now for non CAAS model.
 		return toolListToVersions(list), errors.Annotate(err, "cannot find agents from simple streams")
 	}
