@@ -123,6 +123,14 @@ type State interface {
 		unitName unit.Name,
 	) (corerelation.UnitUUID, error)
 
+	// GetRelationUnitSettings returns the relation unit settings for the given
+	// relation unit.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationUnitNotFound] is returned if the
+	//     unit is not part of the relation.
+	GetRelationUnitSettings(ctx context.Context, relationUnitUUID corerelation.UnitUUID) (map[string]string, error)
+
 	// EnterScope indicates that the provided unit has joined the relation.
 	//
 	// The following error types can be expected to be returned:
@@ -566,13 +574,22 @@ func (s *Service) GetRelationUnitEndpointName(
 	return s.st.GetRelationUnitEndpointName(ctx, relationUnitUUID)
 }
 
-// GetRelationUnitSettings returns the unit settings for the
-// given unit and relation identifier combination.
+// GetRelationUnitSettings returns the relation unit settings for the given
+// relation unit.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationUnitNotFound] is returned if the
+//     unit is not part of the relation.
 func (s *Service) GetRelationUnitSettings(
 	ctx context.Context,
 	relationUnitUUID corerelation.UnitUUID,
 ) (map[string]string, error) {
-	return nil, coreerrors.NotImplemented
+	if err := relationUnitUUID.Validate(); err != nil {
+		return nil, errors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+
+	return s.st.GetRelationUnitSettings(ctx, relationUnitUUID)
 }
 
 // GetRelationUUIDByID returns the relation UUID based on the relation ID.
