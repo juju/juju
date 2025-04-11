@@ -194,8 +194,8 @@ func (s *debugLogSocketImpl) sendOk() {
 // sendError implements debugLogSocket.
 func (s *debugLogSocketImpl) sendError(err error) {
 	if sendErr := s.conn.SendInitialErrorV0(err); sendErr != nil {
-		logger.Errorf(context.Background(), "closing websocket, %v", err)
-		s.conn.Close()
+		logger.Errorf(context.TODO(), "closing websocket, %v", err)
+		_ = s.conn.Close()
 		return
 	}
 }
