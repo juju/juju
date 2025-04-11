@@ -120,9 +120,20 @@ type relationApplicationSetting struct {
 	Value string `db:"value"`
 }
 
+type relationUnitSetting struct {
+	UUID  corerelation.UnitUUID `db:"relation_unit_uuid"`
+	Key   string                `db:"key"`
+	Value string                `db:"value"`
+}
+
 type applicationSettingsHash struct {
 	RelationEndpointUUID string `db:"relation_endpoint_uuid"`
 	Hash                 string `db:"sha256"`
+}
+
+type unitSettingsHash struct {
+	RelationUnitUUID corerelation.UnitUUID `db:"relation_unit_uuid"`
+	Hash             string                `db:"sha256"`
 }
 
 type keys []string
