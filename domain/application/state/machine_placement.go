@@ -10,6 +10,7 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/core/machine"
+	domainapplication "github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
@@ -218,7 +219,8 @@ VALUES ($machineParent.*);
 }
 
 func (st *State) nextMachineSequence(ctx context.Context, tx *sqlair.TX) (machine.Name, error) {
-	seq, err := sequencestate.NextValue(ctx, st, tx, machineSequenceNamespace)
+	namespace := domainapplication.MachineSequenceNamespace
+	seq, err := sequencestate.NextValue(ctx, st, tx, namespace)
 	if err != nil {
 		return "", errors.Errorf("getting next machine sequence: %w", err)
 	}
@@ -227,7 +229,8 @@ func (st *State) nextMachineSequence(ctx context.Context, tx *sqlair.TX) (machin
 }
 
 func (st *State) nextContainerSequence(ctx context.Context, tx *sqlair.TX, scope string, parentName machine.Name) (machine.Name, error) {
-	seq, err := sequencestate.NextValue(ctx, st, tx, sequence.MakePrefixNamespace(containerSequenceNamespace, parentName.String()))
+	namespace := sequence.MakePrefixNamespace(domainapplication.ContainerSequenceNamespace, parentName.String())
+	seq, err := sequencestate.NextValue(ctx, st, tx, namespace)
 	if err != nil {
 		return "", errors.Errorf("getting next container machine sequence: %w", err)
 	}

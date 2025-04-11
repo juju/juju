@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/machine"
+	domainapplication "github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/sequence"
@@ -422,11 +423,8 @@ WHERE m.net_node_uuid = ?
 func (s *unitStateSuite) ensureSequenceForMachineNamespace(c *gc.C, expected int) {
 	var seq int
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRow("SELECT value FROM sequence WHERE namespace = ?", machineSequenceNamespace).Scan(&seq)
-		if err != nil {
-			return err
-		}
-		return nil
+		namespace := domainapplication.MachineSequenceNamespace
+		return tx.QueryRow("SELECT value FROM sequence WHERE namespace = ?", namespace).Scan(&seq)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(seq, gc.Equals, expected)
@@ -435,12 +433,8 @@ func (s *unitStateSuite) ensureSequenceForMachineNamespace(c *gc.C, expected int
 func (s *unitStateSuite) ensureSequenceForContainerNamespace(c *gc.C, parentName machine.Name, expected int) {
 	var seq int
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		namespace := sequence.MakePrefixNamespace(containerSequenceNamespace, parentName.String()).String()
-		err := tx.QueryRow("SELECT value FROM sequence WHERE namespace = ?", namespace).Scan(&seq)
-		if err != nil {
-			return err
-		}
-		return nil
+		namespace := sequence.MakePrefixNamespace(domainapplication.ContainerSequenceNamespace, parentName.String()).String()
+		return tx.QueryRow("SELECT value FROM sequence WHERE namespace = ?", namespace).Scan(&seq)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(seq, gc.Equals, expected)

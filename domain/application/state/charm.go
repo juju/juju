@@ -13,18 +13,13 @@ import (
 
 	"github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainsequence "github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/internal/errors"
-)
-
-const (
-	localCharmSequenceNamespace = domainsequence.StaticNamespace("local_charm_sequence")
-	machineSequenceNamespace    = domainsequence.StaticNamespace("machine_sequence")
-	containerSequenceNamespace  = domainsequence.StaticNamespace("container_sequence")
 )
 
 // GetCharmID returns the charm ID by the natural key, for a
@@ -670,7 +665,8 @@ WHERE uuid = $charmID.uuid;
 		// If the charm requires sequencing, get the next revision from
 		// the reference name.
 		if requiresSequencing {
-			rev, err := sequencestate.NextValue(ctx, s, tx, domainsequence.MakePrefixNamespace(localCharmSequenceNamespace, ch.ReferenceName))
+			namespace := domainsequence.MakePrefixNamespace(domainapplication.CharmSequenceNamespace, ch.ReferenceName)
+			rev, err := sequencestate.NextValue(ctx, s, tx, namespace)
 			if err != nil {
 				return errors.Errorf("getting next charm revision: %w", err)
 			}
