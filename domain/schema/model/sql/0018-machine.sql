@@ -59,6 +59,8 @@ CREATE TABLE machine_agent_version (
 
 -- v_machine_agent_version provides a convenience view on the
 -- machine_agent_version reporting the architecture name as well as the id.
+-- This currently exists as a view because SQLAir doesn't support AS redefines
+-- on select columns. SQLAir issue #179 was created to track this.
 CREATE VIEW v_machine_agent_version AS
 SELECT
     m.name,
