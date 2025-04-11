@@ -898,7 +898,6 @@ type AddApplicationArgs struct {
 	CharmURL          string
 	CharmOrigin       *CharmOrigin
 	Storage           map[string]StorageConstraints
-	Devices           map[string]DeviceConstraints
 	AttachStorage     []names.StorageTag
 	EndpointBindings  map[string]string
 	ApplicationConfig *config.Config
@@ -993,15 +992,6 @@ func (st *State) AddApplication(
 	storagePools := make(set.Strings)
 	for _, storageParams := range args.Storage {
 		storagePools.Add(storageParams.Pool)
-	}
-
-	// ensure Devices
-	if args.Devices == nil {
-		args.Devices = make(map[string]DeviceConstraints)
-	}
-
-	if err := validateDeviceConstraints(args.Devices, args.Charm.Meta()); err != nil {
-		return nil, errors.Trace(err)
 	}
 
 	// Always ensure that we snapshot the application architecture when adding
@@ -1131,7 +1121,6 @@ func (st *State) AddApplication(
 			operatorStatus:    operatorStatusDoc,
 			constraints:       args.Constraints,
 			storage:           args.Storage,
-			devices:           args.Devices,
 			applicationConfig: appConfigAttrs,
 			charmConfig:       args.CharmConfig,
 		})
