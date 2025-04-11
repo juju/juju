@@ -226,6 +226,21 @@ func (c *precheckContext) checkMachines(ctx context.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "retrieving machines")
 	}
+
+	agentLaggingMachines, err := c.modelAgentService.GetMachinesNotAtTargetAgentVersion(ctx)
+	if err != nil {
+		return internalerrors.Errorf(
+			"getting machines that are not running the target agent version of the model: %w",
+			err,
+		)
+	}
+	if len(agentLaggingMachines) > 0 {
+		return internalerrors.Errorf(
+			"there exists machines in the model that are not running the target agent version of the model %v",
+			agentLaggingMachines,
+		)
+	}
+
 	for _, machine := range machines {
 		if machine.Life() != state.Alive {
 			return errors.Errorf("machine %s is %s", machine.Id(), machine.Life())
@@ -250,16 +265,6 @@ func (c *precheckContext) checkMachines(ctx context.Context) error {
 		// } else if rebootAction != state.ShouldDoNothing {
 		// 	return errors.Errorf("machine %s is scheduled to %s", machine.Id(), rebootAction)
 		// }
-
-		// TODO(tlm): Add this back in when we move agent tools into model
-		// migration.
-		//modelVersion, err := c.modelAgentService.GetModelTargetAgentVersion(ctx)
-		//if err != nil {
-		//	return errors.Annotate(err, "retrieving model version")
-		//}
-		//if err := checkAgentTools(modelVersion, machine, "machine "+machine.Id()); err != nil {
-		//	return errors.Trace(err)
-		//}
 	}
 	return nil
 }
@@ -278,6 +283,22 @@ func (c *precheckContext) checkApplications(ctx context.Context) (map[string][]P
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving model")
 	}
+
+	// We check all units in the model for every application. This checks to see
+	// that there agent versions are what we expect.
+	agentLaggingUnits, err := c.modelAgentService.GetUnitsNotAtTargetAgentVersion(ctx)
+	if err != nil {
+		return nil, internalerrors.Errorf(
+			"getting units that are not running the target agent version for the model: %w", err,
+		)
+	}
+	if len(agentLaggingUnits) > 0 {
+		return nil, internalerrors.Errorf(
+			"there exists units in the model that are not running the target agent version of the model %v",
+			agentLaggingUnits,
+		)
+	}
+
 	appUnits := make(map[string][]PrecheckUnit, len(apps))
 	for _, app := range apps {
 		appLife, err := c.applicationService.GetApplicationLife(ctx, app.Name())
@@ -313,14 +334,6 @@ func (c *precheckContext) checkUnits(ctx context.Context, app PrecheckApplicatio
 		if unit.Life() != state.Alive {
 			return errors.Errorf("unit %s is %s", unit.Name(), unit.Life())
 		}
-
-		// TODO(tlm): Add this back in when we move agent tools into model
-		// migration.
-		//if modelType == state.ModelTypeIAAS {
-		//	if err := checkAgentTools(modelVersion, unit, "unit "+unit.Name()); err != nil {
-		//		return errors.Trace(err)
-		//	}
-		//}
 
 		unitCharmURL := unit.CharmURL()
 		if unitCharmURL == nil || *appCharmURL != *unitCharmURL {
@@ -468,20 +481,6 @@ func checkNoFanConfig(modelConfig map[string]interface{}) error {
 	}
 	return nil
 }
-
-// TODO(tlm): Add this back in when we move agent tools into model migration.
-//func checkAgentTools(modelVersion semversion.Number, agent agentToolsGetter, agentLabel string) error {
-//	tools, err := agent.AgentTools()
-//	if err != nil {
-//		return errors.Annotatef(err, "retrieving agent binaries for %s", agentLabel)
-//	}
-//	agentVersion := tools.Version.Number
-//	if agentVersion != modelVersion {
-//		return errors.Errorf("%s agent binaries don't match model (%s != %s)",
-//			agentLabel, agentVersion, modelVersion)
-//	}
-//	return nil
-//}
 
 func newStatusError(format, id string, s status.Status) error {
 	msg := fmt.Sprintf(format, id)

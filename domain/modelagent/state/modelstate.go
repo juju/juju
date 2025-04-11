@@ -34,6 +34,32 @@ func NewState(factory database.TxnRunnerFactory) *State {
 	}
 }
 
+// checkMachineExists checks if the machine with the given uuid exists. This is
+// meant as a helper func to assert that a machine can be operated on inside
+// of a transaction. True or false is returned indicating if the machine exists.
+func (st *State) checkMachineExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid string,
+) (bool, error) {
+	machineUUID := machineUUID{UUID: uuid}
+	stmt, err := st.Prepare(`
+SELECT &machineUUID.* FROM machine WHERE uuid = $machineUUID.uuid
+`, machineUUID)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, machineUUID).Get(&machineUUID)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
+}
+
 // checkMachineNotDead checks if the machine with the given uuid exists and that
 // its current life status is not one of dead. This is meant as a helper func
 // to assert that a machine can be operated on inside of a transaction.
@@ -70,30 +96,63 @@ SELECT &machineLife.* FROM machine WHERE uuid = $machineLife.uuid
 	return nil
 }
 
+// checkUnitExists check if the unit exists. True or false is returned
+// indicating this fact.
+func (st *State) checkUnitExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid coreunit.UUID,
+) (bool, error) {
+	unitUUID := unitUUID{UnitUUID: uuid}
+
+	stmt, err := st.Prepare(
+		"SELECT &unitUUID.* FROM unit WHERE uuid = $unitUUID.uuid",
+		unitUUID,
+	)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, unitUUID).Get(&unitUUID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
+}
+
 // checkUnitNotDead checks if the unit exists and is not dead. It's possible to
 // access alive and dying units, but not dead ones:
 // - If the unit is not found, [applicationerrors.UnitNotFound] is returned.
 // - If the unit is dead, [applicationerrors.UnitIsDead] is returned.
-func (st *State) checkUnitNotDead(ctx context.Context, tx *sqlair.TX, ident unitUUID) error {
+func (st *State) checkUnitNotDead(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid coreunit.UUID,
+) error {
 	type life struct {
 		LifeID domainlife.Life `db:"life_id"`
 	}
 
+	unitUUID := unitUUID{UnitUUID: uuid}
+
 	stmt, err := st.Prepare(
 		"SELECT &life.* FROM unit WHERE uuid = $unitUUID.uuid",
-		ident,
+		unitUUID,
 		life{},
 	)
 	if err != nil {
-		return errors.Errorf("preparing query for unit %q: %w", ident.UnitUUID, err)
+		return errors.Capture(err)
 	}
 
 	var result life
-	err = tx.Query(ctx, stmt, ident).Get(&result)
+	err = tx.Query(ctx, stmt, unitUUID).Get(&result)
 	if errors.Is(err, sql.ErrNoRows) {
 		return applicationerrors.UnitNotFound
 	} else if err != nil {
-		return errors.Errorf("checking unit %q exists: %w", ident.UnitUUID, err)
+		return errors.Errorf("checking unit %q exists: %w", uuid, err)
 	}
 
 	switch result.LifeID {
@@ -104,9 +163,60 @@ func (st *State) checkUnitNotDead(ctx context.Context, tx *sqlair.TX, ident unit
 	}
 }
 
-// GetMachineUUID returns the UUID of a machine identified by its name.
+// GetMachinesNotAtTargetAgentVersion returns the list of machines where
+// their agent version is not the same as the models target agent version or
+// who have no agent version reproted at all. If no machines exist that match
+// this criteria an empty slice is returned.
+func (st *State) GetMachinesNotAtTargetAgentVersion(
+	ctx context.Context,
+) ([]machine.Name, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	query := `
+SELECT &machineName.*
+FROM v_machine_target_agent_version
+WHERE version != target_version
+UNION
+SELECT name
+FROM machine
+WHERE uuid NOT IN (SELECT machine_uuid
+                   FROM v_machine_target_agent_version)
+`
+
+	queryStmt, err := st.Prepare(query, machineName{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	rval := []machineName{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryStmt).GetAll(&rval)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+
+	if err != nil {
+		return nil, errors.Errorf(
+			"getting all machine names that are not at the target agent version: %w",
+			err,
+		)
+	}
+
+	names := make([]machine.Name, 0, len(rval))
+	for _, mNameVal := range rval {
+		names = append(names, machine.Name(mNameVal.Name))
+	}
+	return names, nil
+}
+
+// GetMachineUUIDByName returns the UUID of a machine identified by its name.
 // It returns a MachineNotFound if the machine does not exist.
-func (st *State) GetMachineUUID(ctx context.Context, name machine.Name) (string, error) {
+func (st *State) GetMachineUUIDByName(ctx context.Context, name machine.Name) (string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -137,35 +247,126 @@ func (st *State) GetMachineUUID(ctx context.Context, name machine.Name) (string,
 	return uuid.UUID, nil
 }
 
-// GetMachineTargetAgentVersion returns the target agent version for the specified machine.
+// GetMachineRunningAgentBinaryVersion reports the currently set agent binary
+// version value for a machine. The following errors can be expected:
+// - [machineerrors.MachineNotFound] when the machine being asked for does
+// not exist.
+// - [modelagenterrors.AgentVersionNotFound] when no
+// running agent version has been set for the given machine.
+func (st *State) GetMachineRunningAgentBinaryVersion(
+	ctx context.Context,
+	uuid string,
+) (coreagentbinary.Version, error) {
+	db, err := st.DB()
+	if err != nil {
+		return coreagentbinary.Version{}, errors.Capture(err)
+	}
+
+	rval := machineAgentVersionInfo{}
+	machineUUID := machineUUIDRef{
+		UUID: uuid,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &machineAgentVersionInfo.*
+FROM v_machine_agent_version
+WHERE machine_uuid = $machineUUIDRef.machine_uuid
+`, rval, machineUUID)
+	if err != nil {
+		return coreagentbinary.Version{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkMachineExists(ctx, tx, uuid)
+		if err != nil {
+			return errors.Errorf(
+				"checking machine %q exists: %w", uuid, err,
+			)
+		} else if !exists {
+			return errors.Errorf(
+				"machine %q does not exist", uuid,
+			).Add(machineerrors.MachineNotFound)
+		}
+
+		err = tx.Query(ctx, stmt, machineUUID).Get(&rval)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf(
+				"machine %q has no agent version set", uuid,
+			).Add(modelagenterrors.AgentVersionNotFound)
+		} else if err != nil {
+			return errors.Errorf(
+				"getting machine %q agent version: %w",
+				uuid, err,
+			)
+		}
+		return nil
+	})
+	if err != nil {
+		return coreagentbinary.Version{}, errors.Capture(err)
+	}
+
+	vers, err := semversion.Parse(rval.Version)
+	if err != nil {
+		return coreagentbinary.Version{}, errors.Errorf(
+			"parsing machine %q agent version: %w",
+			uuid, err,
+		)
+	}
+	return coreagentbinary.Version{
+		Number: vers,
+		Arch:   rval.Architecture,
+	}, nil
+}
+
+// GetMachineTargetAgentVersion returns the target agent version for the
+// specified machine.
 // The following error types can be expected:
-// - [modelagenterrors.AgentVersionNotFound] - when the agent version does not exist.
+// - [modelagenterrors.AgentVersionNotFound] when the agent version does not
+// exist.
+// - [machineerrors.MachineNotFound] when the machine specified by uuid  does
+// not exists.
 func (st *State) GetMachineTargetAgentVersion(ctx context.Context, uuid string) (coreagentbinary.Version, error) {
 	db, err := st.DB()
 	if err != nil {
 		return coreagentbinary.Version{}, errors.Capture(err)
 	}
 
-	info := machineAgentVersionInfo{MachineUUID: uuid}
+	info := machineTargetAgentVersionInfo{}
+	machineUUID := machineUUIDRef{
+		UUID: uuid,
+	}
 
 	stmt, err := st.Prepare(`
-SELECT av.target_version AS &machineAgentVersionInfo.target_version,
-       a.name AS &machineAgentVersionInfo.architecture_name
-FROM   agent_version AS av,
-       machine_agent_version AS mav
-JOIN   architecture AS a ON mav.architecture_id = a.id
-WHERE  mav.machine_uuid = $machineAgentVersionInfo.machine_uuid
-`, info)
+SELECT &machineTargetAgentVersionInfo.*
+FROM v_machine_target_agent_version
+WHERE machine_uuid = $machineUUIDRef.machine_uuid
+`, info, machineUUID)
 	if err != nil {
 		return coreagentbinary.Version{}, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, info).Get(&info)
+		exists, err := st.checkMachineExists(ctx, tx, uuid)
+		if err != nil {
+			return errors.Errorf(
+				"checking machine %q exists: %w", uuid, err,
+			)
+		} else if !exists {
+			return errors.Errorf(
+				"machine %q does not exist", uuid,
+			).Add(machineerrors.MachineNotFound)
+		}
+
+		err = tx.Query(ctx, stmt, machineUUID).Get(&info)
 		if errors.Is(err, sql.ErrNoRows) {
-			return modelagenterrors.AgentVersionNotFound
+			return errors.Errorf(
+				"machine %q has no target agent version set", uuid,
+			).Add(modelagenterrors.AgentVersionNotFound)
 		} else if err != nil {
-			return errors.Errorf("getting machine agent version: %w", err)
+			return errors.Errorf(
+				"getting machine %q target agent version: %w",
+				uuid, err,
+			)
 		}
 		return nil
 	})
@@ -175,7 +376,130 @@ WHERE  mav.machine_uuid = $machineAgentVersionInfo.machine_uuid
 
 	vers, err := semversion.Parse(info.TargetVersion)
 	if err != nil {
-		return coreagentbinary.Version{}, errors.Errorf("parsing machine agent version: %w", err)
+		return coreagentbinary.Version{}, errors.Errorf(
+			"parsing machine %q agent version: %w",
+			uuid, err,
+		)
+	}
+	return coreagentbinary.Version{
+		Number: vers,
+		Arch:   info.ArchitectureName,
+	}, nil
+}
+
+// GetUnitsNotAtTargetAgentVersion returns the list of units where
+// their agent version is not the same as the models target agent version or
+// who have no agent version reproted at all. If no units exist that match
+// this criteria an empty slice is returned.
+func (st *State) GetUnitsNotAtTargetAgentVersion(
+	ctx context.Context,
+) ([]coreunit.Name, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	query := `
+SELECT &unitName.*
+FROM v_unit_target_agent_version
+WHERE version != target_version
+UNION
+SELECT name
+FROM unit
+WHERE uuid NOT IN (SELECT unit_uuid
+                   FROM v_unit_target_agent_version)
+`
+
+	queryStmt, err := st.Prepare(query, unitName{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	rval := []unitName{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryStmt).GetAll(&rval)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+
+	if err != nil {
+		return nil, errors.Errorf(
+			"getting all unit names that are not at the target agent version: %w",
+			err,
+		)
+	}
+
+	names := make([]coreunit.Name, 0, len(rval))
+	for _, uNameVal := range rval {
+		names = append(names, coreunit.Name(uNameVal.Name))
+	}
+	return names, nil
+}
+
+// GetUnitRunningAgentBinaryVersion returns the running unit agent binary
+// version for the given unit uuid.
+// The following errors can be expected:
+// - [applicationerrors.UnitNotFound] when the unit in question does not exist.
+// - [modelagenterrors.AgentVersionNotFound] when no running agent version has
+// been reported for the given machine.
+func (st *State) GetUnitRunningAgentBinaryVersion(
+	ctx context.Context,
+	uuid coreunit.UUID,
+) (coreagentbinary.Version, error) {
+	db, err := st.DB()
+	if err != nil {
+		return coreagentbinary.Version{}, errors.Capture(err)
+	}
+
+	info := unitAgentVersionInfo{}
+	unitUUID := unitUUIDRef{
+		UUID: uuid,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &unitAgentVersionInfo.*
+FROM unit_agent_version AS uav
+JOIN architecture AS a ON uav.architecture_id = a.id
+WHERE uav.unit_uuid = $unitUUIDRef.unit_uuid
+`, info, unitUUID)
+	if err != nil {
+		return coreagentbinary.Version{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		exists, err := st.checkUnitExists(ctx, tx, uuid)
+		if err != nil {
+			return errors.Errorf(
+				"checking if unit %q exists: %w", uuid, err,
+			)
+		} else if !exists {
+			return errors.Errorf(
+				"unit %q does not exist", uuid,
+			).Add(applicationerrors.UnitNotFound)
+		}
+
+		err = tx.Query(ctx, stmt, unitUUID).Get(&info)
+		if errors.Is(err, sql.ErrNoRows) {
+			return modelagenterrors.AgentVersionNotFound
+		} else if err != nil {
+			return errors.Errorf(
+				"getting unit %q agent version: %w", uuid, err,
+			)
+		}
+		return nil
+	})
+	if err != nil {
+		return coreagentbinary.Version{}, errors.Capture(err)
+	}
+
+	vers, err := semversion.Parse(info.Version)
+	if err != nil {
+		return coreagentbinary.Version{}, errors.Errorf(
+			"parsing unit %q agent version %q: %w",
+			uuid, info.Version, err,
+		)
 	}
 	return coreagentbinary.Version{
 		Number: vers,
@@ -185,33 +509,48 @@ WHERE  mav.machine_uuid = $machineAgentVersionInfo.machine_uuid
 
 // GetUnitTargetAgentVersion returns the target agent version for the specified unit.
 // The following error types can be expected:
-// - [modelagenterrors.AgentVersionNotFound] - when the agent version does not exist.
+// - [applicationerrors.UnitNotFound] when the unit does not exist.
+// - [modelagenterrors.AgentVersionNotFound] when the agent version does not exist.
 func (st *State) GetUnitTargetAgentVersion(ctx context.Context, uuid coreunit.UUID) (coreagentbinary.Version, error) {
 	db, err := st.DB()
 	if err != nil {
 		return coreagentbinary.Version{}, errors.Capture(err)
 	}
 
-	info := unitAgentVersionInfo{UnitUUID: uuid}
+	info := unitTargetAgentVersionInfo{}
+	unitUUID := unitUUIDRef{
+		UUID: uuid,
+	}
 
 	stmt, err := st.Prepare(`
-SELECT av.target_version AS &unitAgentVersionInfo.target_version,
-       a.name AS &unitAgentVersionInfo.architecture_name
-FROM   agent_version AS av,
-       unit_agent_version AS uav
-JOIN   architecture AS a ON uav.architecture_id = a.id
-WHERE  uav.unit_uuid = $unitAgentVersionInfo.unit_uuid
-`, info)
+SELECT &unitTargetAgentVersionInfo.*
+FROM v_unit_target_agent_version
+WHERE unit_uuid = $unitUUIDRef.unit_uuid
+`, info, unitUUID)
 	if err != nil {
 		return coreagentbinary.Version{}, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, info).Get(&info)
+		exists, err := st.checkUnitExists(ctx, tx, uuid)
+		if err != nil {
+			return errors.Errorf(
+				"checking if unit %q exists: %w", uuid, err,
+			)
+		} else if !exists {
+			return errors.Errorf(
+				"unit %q does not exist", uuid,
+			).Add(applicationerrors.UnitNotFound)
+		}
+
+		err = tx.Query(ctx, stmt, unitUUID).Get(&info)
 		if errors.Is(err, sql.ErrNoRows) {
 			return modelagenterrors.AgentVersionNotFound
 		} else if err != nil {
-			return errors.Errorf("getting unit agent version: %w", err)
+			return errors.Errorf(
+				"getting unit %q target agent version: %w",
+				uuid, err,
+			)
 		}
 		return nil
 	})
@@ -221,7 +560,10 @@ WHERE  uav.unit_uuid = $unitAgentVersionInfo.unit_uuid
 
 	vers, err := semversion.Parse(info.TargetVersion)
 	if err != nil {
-		return coreagentbinary.Version{}, errors.Errorf("parsing unit agent version: %w", err)
+		return coreagentbinary.Version{}, errors.Errorf(
+			"parsing unit %q target agent version %q: %w",
+			uuid, info.TargetVersion, err,
+		)
 	}
 	return coreagentbinary.Version{
 		Number: vers,
@@ -402,10 +744,8 @@ SELECT id AS &architectureMap.id FROM architecture WHERE name = $architectureMap
 		return errors.Capture(err)
 	}
 
-	unitUUID := unitUUID{UnitUUID: uuid}
-
 	unitAgentVersion := unitAgentVersion{
-		UnitUUID: unitUUID.UnitUUID.String(),
+		UnitUUID: uuid.String(),
 		Version:  version.Number.String(),
 	}
 
@@ -423,7 +763,7 @@ UPDATE SET version = excluded.version,
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 
 		// Check if unit exists and is not dead.
-		err := st.checkUnitNotDead(ctx, tx, unitUUID)
+		err := st.checkUnitNotDead(ctx, tx, uuid)
 		if err != nil {
 			return errors.Errorf(
 				"checking unit %q exists: %w", uuid, err,

@@ -25,15 +25,7 @@ func (e *exportOperation) exportApplicationUnits(ctx context.Context, app descri
 		if err != nil {
 			return errors.Capture(err)
 		}
-		descriptionUnit := app.AddUnit(arg)
-
-		// This is a hack to get the tools for the unit.
-		descriptionUnit.SetTools(description.AgentToolsArgs{
-			Version: "4.0-beta6.1-ubuntu-amd64",
-			URL:     "tools/4.0-beta6.1-ubuntu-amd64-eb9e6949fd2fb1c4c6953619a4807ae1a3f54e355be1d37d14f5ba918fb07165",
-			Size:    52806385,
-			SHA256:  "eb9e6949fd2fb1c4c6953619a4807ae1a3f54e355be1d37d14f5ba918fb07165",
-		})
+		app.AddUnit(arg)
 	}
 	return nil
 }

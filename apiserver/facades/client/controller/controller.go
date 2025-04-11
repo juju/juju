@@ -76,7 +76,7 @@ type ControllerAPI struct {
 	blockCommandService       common.BlockCommandService
 	applicationServiceGetter  func(context.Context, coremodel.UUID) (ApplicationService, error)
 	statusServiceGetter       func(context.Context, coremodel.UUID) (StatusService, error)
-	modelAgentServiceGetter   func(context.Context, coremodel.UUID) (common.ModelAgentService, error)
+	modelAgentServiceGetter   func(context.Context, coremodel.UUID) (ModelAgentService, error)
 	modelConfigServiceGetter  func(context.Context, coremodel.UUID) (cloudspec.ModelConfigService, error)
 	blockCommandServiceGetter func(context.Context, coremodel.UUID) (BlockCommandService, error)
 	proxyService              ProxyService
@@ -112,7 +112,7 @@ func NewControllerAPI(
 	blockCommandService common.BlockCommandService,
 	applicationServiceGetter func(context.Context, coremodel.UUID) (ApplicationService, error),
 	statusServiceGetter func(context.Context, coremodel.UUID) (StatusService, error),
-	modelAgentServiceGetter func(context.Context, coremodel.UUID) (common.ModelAgentService, error),
+	modelAgentServiceGetter func(context.Context, coremodel.UUID) (ModelAgentService, error),
 	modelConfigServiceGetter func(context.Context, coremodel.UUID) (cloudspec.ModelConfigService, error),
 	blockCommandServiceGetter func(context.Context, coremodel.UUID) (BlockCommandService, error),
 	proxyService ProxyService,

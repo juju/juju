@@ -28,16 +28,20 @@ type machineAgentVersion struct {
 	ArchitectureID int    `db:"architecture_id"`
 }
 
+// machineAgentVersionInfo represents a record from the v_machine_agent_version
+// view.
 type machineAgentVersionInfo struct {
+	MachineUUID  string `db:"machine_uuid"`
+	Version      string `db:"version"`
+	Architecture string `db:"architecture_name"`
+}
+
+// machineTargetAgentVersionInfo represents a record from the
+// v_machine_target_agent_version view.
+type machineTargetAgentVersionInfo struct {
 	MachineUUID      string `db:"machine_uuid"`
 	TargetVersion    string `db:"target_version"`
 	ArchitectureName string `db:"architecture_name"`
-}
-
-type unitAgentVersionInfo struct {
-	UnitUUID         coreunit.UUID `db:"unit_uuid"`
-	TargetVersion    string        `db:"target_version"`
-	ArchitectureName string        `db:"architecture_name"`
 }
 
 // machineLife represents the struct to be used for the life_id column within
@@ -59,6 +63,11 @@ type machineUUID struct {
 	UUID string `db:"uuid"`
 }
 
+// machineUUIDRef represents a machine uuid reference to the machine table.
+type machineUUIDRef struct {
+	UUID string `db:"machine_uuid"`
+}
+
 // unitAgentVersion represents a record from the reported unit agent
 // version table.
 type unitAgentVersion struct {
@@ -67,12 +76,32 @@ type unitAgentVersion struct {
 	ArchtectureID int    `db:"architecture_id"`
 }
 
+// unitAgentVersionInfo represents a record from the unit agent version table.
+type unitAgentVersionInfo struct {
+	UnitUUID         string `db:"unit_uuid"`
+	Version          string `db:"version"`
+	ArchitectureName string `db:"name"`
+}
+
 // unitName represents the single column of a unit that is the unit's name.
 type unitName struct {
 	Name string `db:"name"`
 }
 
+// unitTargetAgentVersionInfo represents a record from the
+// v_unit_target_agent_version view.
+type unitTargetAgentVersionInfo struct {
+	UnitUUID         coreunit.UUID `db:"unit_uuid"`
+	TargetVersion    string        `db:"target_version"`
+	ArchitectureName string        `db:"architecture_name"`
+}
+
 // unitUUID represents the uuid for a unit from the unit table.
 type unitUUID struct {
 	UnitUUID coreunit.UUID `db:"uuid"`
+}
+
+// unitUUIDRef represents a unit uuid reference to the unit table.
+type unitUUIDRef struct {
+	UUID coreunit.UUID `db:"unit_uuid"`
 }

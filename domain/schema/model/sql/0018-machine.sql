@@ -57,6 +57,38 @@ CREATE TABLE machine_agent_version (
     REFERENCES architecture (id)
 );
 
+-- v_machine_agent_version provides a convenience view on the
+-- machine_agent_version reporting the architecture name as well as the id.
+-- This currently exists as a view because SQLAir doesn't support AS redefines
+-- on select columns. SQLAir issue #179 was created to track this.
+CREATE VIEW v_machine_agent_version AS
+SELECT
+    m.name,
+    mav.machine_uuid,
+    mav.architecture_id,
+    mav.version,
+    a.name AS architecture_name
+FROM machine_agent_version AS mav
+JOIN machine AS m ON mav.machine_uuid = m.uuid
+JOIN architecture AS a ON mav.architecture_id = a.id;
+
+-- v_machine_target_agent_version provides a convenience view for establishing
+-- what the current target agent version  for a machine. A machine will only
+-- have a record in this view if a target agent version has been set for the
+-- model and the machine has had its running machine agent version set.
+CREATE VIEW v_machine_target_agent_version AS
+SELECT
+    m.name,
+    mav.machine_uuid,
+    mav.architecture_id,
+    a.name AS architecture_name,
+    mav.version,
+    av.target_version
+FROM machine_agent_version AS mav
+JOIN machine AS m ON mav.machine_uuid = m.uuid
+JOIN architecture AS a ON mav.architecture_id = a.id
+JOIN agent_version AS av;
+
 CREATE TABLE machine_constraint (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
     constraint_uuid TEXT NOT NULL,
