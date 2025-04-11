@@ -14,7 +14,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -72,19 +71,15 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 	}
 
 	controllerConfigGetter := domainServices.ControllerConfig()
-	cloudService := domainServices.Cloud()
-	credentialService := domainServices.Credential()
-	modelConfigService := domainServices.Config()
-
 	getCanReadWrite := func() (common.AuthFunc, error) {
 		return auth.AuthOwner, nil
 	}
 
 	urlGetter := common.NewToolsURLGetter(ctx.ModelUUID().String(), ctrlSt)
-	configGetter := stateenvirons.EnvironConfigGetter{
-		Model: model, ModelConfigService: modelConfigService, CloudService: cloudService, CredentialService: credentialService}
-	newEnviron := common.EnvironFuncForModel(model, cloudService, credentialService, configGetter)
-	toolsFinder := common.NewToolsFinder(controllerConfigGetter, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
+	toolsFinder := common.NewToolsFinder(
+		controllerConfigGetter, st, urlGetter, ctx.ControllerObjectStore(),
+		domainServices.Stub(),
+	)
 	toolsGetter := common.NewToolsGetter(domainServices.Agent(), st, urlGetter, toolsFinder, getCanReadWrite)
 
 	return NewUpgraderAPI(
