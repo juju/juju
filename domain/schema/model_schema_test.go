@@ -267,6 +267,7 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"relation_status_type",
 		"relation_status",
 		"relation_unit_setting",
+		"relation_unit_settings_hash",
 		"relation_unit",
 		"relation",
 
