@@ -257,19 +257,19 @@ func (st *Client) SetHostMachineNetworkConfig(ctx context.Context, hostMachineTa
 	return nil
 }
 
-func (st *Client) HostChangesForContainer(ctx context.Context, containerTag names.MachineTag) ([]network.DeviceToBridge, int, error) {
+func (st *Client) HostChangesForContainer(ctx context.Context, containerTag names.MachineTag) ([]network.DeviceToBridge, error) {
 	var result params.HostNetworkChangeResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: containerTag.String()}},
 	}
 	if err := st.facade.FacadeCall(ctx, "HostChangesForContainers", args, &result); err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	if len(result.Results) != 1 {
-		return nil, 0, errors.Errorf("expected 1 result, got %d", len(result.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(result.Results))
 	}
 	if err := result.Results[0].Error; err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	newBridges := result.Results[0].NewBridges
 	res := make([]network.DeviceToBridge, len(newBridges))
@@ -278,7 +278,7 @@ func (st *Client) HostChangesForContainer(ctx context.Context, containerTag name
 		res[i].DeviceName = bridgeInfo.HostDeviceName
 		res[i].MACAddress = bridgeInfo.MACAddress
 	}
-	return res, result.Results[0].ReconfigureDelay, nil
+	return res, nil
 }
 
 // DistributionGroupByMachineId returns a slice of machine.Ids

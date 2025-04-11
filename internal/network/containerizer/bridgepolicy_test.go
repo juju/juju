@@ -566,10 +566,9 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoneMissing(c *gc.
 	s.containerNetworkingMethod = "provider"
 	bridgePolicy := s.policy()
 
-	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
+	missing, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
-	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *bridgePolicySuite) TestFindMissingBridgesForContainerDefaultUnbridged(c *gc.C) {
@@ -586,13 +585,12 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerDefaultUnbridged(c
 	s.containerNetworkingMethod = "provider"
 	bridgePolicy := s.policy()
 
-	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
+	missing, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(missing, gc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "eth0",
 		BridgeName: "br-eth0",
 	}})
-	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoHostDevices(c *gc.C) {
@@ -616,10 +614,9 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoHostDevices(c *g
 	s.containerNetworkingMethod = "provider"
 	bridgePolicy := s.policy()
 
-	_, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
+	_, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals, `host machine "host-id" has no available device in space(s) "dmz", "third"`)
-	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *bridgePolicySuite) TestFindMissingBridgesForContainerTwoSpacesOneMissing(c *gc.C) {
@@ -638,7 +635,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerTwoSpacesOneMissin
 	s.containerNetworkingMethod = "provider"
 	bridgePolicy := s.policy()
 
-	_, _, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
+	_, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, gc.NotNil)
 	// both somespace and dmz are needed, but somespace is missing
 	c.Assert(err.Error(), gc.Equals, `host machine "host-id" has no available device in space(s) "somespace"`)
@@ -667,7 +664,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoSpaces(c *gc.C) 
 
 	// No defined spaces for the container, no *known* spaces for the host
 	// machine. Triggers the fallback code to have us bridge all devices.
-	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
+	missing, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(missing, gc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "ens3",
@@ -676,7 +673,6 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoSpaces(c *gc.C) 
 		DeviceName: "ens4",
 		BridgeName: "br-ens4",
 	}})
-	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *bridgePolicySuite) TestFindMissingBridgesForContainerContainerNetworkingMethodLocal(c *gc.C) {
@@ -699,10 +695,9 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerContainerNetworkin
 
 	// No defined spaces for the container, no *known* spaces for the host
 	// machine. Triggers the fallback code to have us bridge all devices.
-	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
+	missing, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
-	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *bridgePolicySuite) TestFindMissingBridgesForContainerContainerNetworkingMethodLocalDefinedHostSpace(c *gc.C) {
@@ -725,10 +720,9 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerContainerNetworkin
 
 	// No defined spaces for the container, host has spaces but we have
 	// ContainerNetworkingMethodLocal set so we should fall back to lxdbr0
-	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
+	missing, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
-	c.Check(reconfigureDelay, gc.Equals, 0)
 
 	info, err := bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.guest, false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -755,12 +749,11 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerContainerNetworkin
 
 	// No defined spaces for the container, no *known* spaces for the host
 	// machine. Triggers the fallback code to have us bridge all devices.
-	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
+	missing, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{
 		{DeviceName: "ens3", BridgeName: "br-ens3", MACAddress: ""},
 	})
-	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *bridgePolicySuite) TestFindMissingBridgesForContainerUnknownWithConstraint(c *gc.C) {
@@ -782,7 +775,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerUnknownWithConstra
 	s.containerNetworkingMethod = "provider"
 	bridgePolicy := s.policy()
 
-	_, _, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
+	_, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals,
 		`host machine "host-id" has no available device in space(s) "somespace"`)
@@ -810,13 +803,12 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerUnknownAndDefault(
 	bridgePolicy := s.policy()
 
 	// We don't need a container constraint, as the host machine is in a single space.
-	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
+	missing, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(missing, gc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "ens3",
 		BridgeName: "br-ens3",
 	}})
-	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *bridgePolicySuite) TestFindMissingBridgesForContainerOneOfTwoBridged(c *gc.C) {
@@ -844,14 +836,13 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerOneOfTwoBridged(c 
 	s.containerNetworkingMethod = "provider"
 	bridgePolicy := s.policy()
 
-	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
+	missing, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, jc.ErrorIsNil)
 	// Only the first device (by sort order) should be selected
 	c.Check(missing, gc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "ens2.1",
 		BridgeName: "br-ens2-1",
 	}})
-	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *bridgePolicySuite) TestFindMissingBridgesForContainerTwoHostDevicesOneBridged(c *gc.C) {
@@ -870,10 +861,9 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerTwoHostDevicesOneB
 	s.containerNetworkingMethod = "provider"
 	bridgePolicy := s.policy()
 
-	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
+	missing, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{})
-	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoConstraintsDefaultNotSpecial(c *gc.C) {
@@ -897,10 +887,9 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNoConstraintsDefau
 	s.containerNetworkingMethod = "provider"
 	bridgePolicy := s.policy()
 
-	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
+	missing, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, gc.ErrorMatches, "no obvious space for container.*")
 	c.Assert(missing, gc.IsNil)
-	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *bridgePolicySuite) TestFindMissingBridgesForContainerTwoSpacesOneBridged(c *gc.C) {
@@ -920,14 +909,13 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerTwoSpacesOneBridge
 	s.containerNetworkingMethod = "provider"
 	bridgePolicy := s.policy()
 
-	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
+	missing, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, jc.ErrorIsNil)
 	// both somespace and dmz are needed, but somespace needs to be bridged
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "eth0",
 		BridgeName: "br-eth0",
 	}})
-	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *bridgePolicySuite) TestFindMissingBridgesForContainerMultipleSpacesNoneBridged(c *gc.C) {
@@ -955,7 +943,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerMultipleSpacesNone
 	s.containerNetworkingMethod = "provider"
 	bridgePolicy := s.policy()
 
-	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
+	missing, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, jc.ErrorIsNil)
 	// both default and dmz are needed, but default needs to be bridged
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{{
@@ -968,7 +956,6 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerMultipleSpacesNone
 		DeviceName: "eth1",
 		BridgeName: "br-eth1",
 	}})
-	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *bridgePolicySuite) TestFindMissingBridgesForContainerBondedNICs(c *gc.C) {
@@ -989,15 +976,13 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerBondedNICs(c *gc.C
 	s.containerNetworkingMethod = "provider"
 	bridgePolicy := s.policy()
 
-	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
+	missing, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, jc.ErrorIsNil)
 	// both somespace and dmz are needed, but somespace needs to be bridged
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "zbond0",
 		BridgeName: "br-zbond0",
 	}})
-	// We are creating a bridge on a bond, so we use a non-zero delay
-	c.Check(reconfigureDelay, gc.Equals, 13)
 }
 
 func (s *bridgePolicySuite) TestFindMissingBridgesForContainerVLAN(c *gc.C) {
@@ -1020,7 +1005,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerVLAN(c *gc.C) {
 	s.containerNetworkingMethod = "provider"
 	bridgePolicy := s.policy()
 
-	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
+	missing, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "eth0",
@@ -1029,7 +1014,6 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerVLAN(c *gc.C) {
 		DeviceName: "eth0.100",
 		BridgeName: "br-eth0-100",
 	}})
-	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
 func (s *bridgePolicySuite) TestFindMissingBridgesForContainerVLANOnBond(c *gc.C) {
@@ -1055,7 +1039,7 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerVLANOnBond(c *gc.C
 	s.containerNetworkingMethod = "provider"
 	bridgePolicy := s.policy()
 
-	missing, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
+	missing, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(missing, jc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "bond0",
@@ -1064,7 +1048,6 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerVLANOnBond(c *gc.C
 		DeviceName: "bond0.100",
 		BridgeName: "br-bond0-100",
 	}})
-	c.Check(reconfigureDelay, gc.Equals, 13)
 }
 
 var bridgeNames = map[string]string{
