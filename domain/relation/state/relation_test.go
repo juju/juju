@@ -2598,6 +2598,98 @@ func (s *relationSuite) TestGetPrincipalSubordinateApplicationIDsPrincipalOnly(c
 	c.Check(obtainedSubordinate.String(), gc.Equals, "")
 }
 
+func (s *relationSuite) TestGetRelationUnitSettings(c *gc.C) {
+	// Arrange: Add relation with one endpoint.
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Optional:  true,
+			Limit:     20,
+			Scope:     charm.ScopeContainer,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	// Arrange: Add a unit to the relation.
+	unitName := coreunittesting.GenNewName(c, "app/0")
+	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
+
+	// Arrange: Add application settings.
+	expectedSettings := map[string]string{
+		"key1": "value1",
+		"key2": "value2",
+	}
+	for k, v := range expectedSettings {
+		s.addRelationUnitSetting(c, relationUnitUUID, k, v)
+	}
+
+	// Act:
+	settings, err := s.state.GetRelationUnitSettings(
+		context.Background(),
+		relationUnitUUID,
+	)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, expectedSettings)
+}
+
+func (s *relationSuite) TestGetRelationUnitSettingsEmptyList(c *gc.C) {
+	// Arrange: Add relation with one endpoint.
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Optional:  true,
+			Limit:     20,
+			Scope:     charm.ScopeContainer,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	// Arrange: Add a unit to the relation.
+	unitName := coreunittesting.GenNewName(c, "app/0")
+	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
+
+	// Act:
+	settings, err := s.state.GetRelationUnitSettings(
+		context.Background(),
+		relationUnitUUID,
+	)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.HasLen, 0)
+	c.Assert(settings, gc.NotNil)
+}
+
+func (s *relationSuite) TestGetRelationUnitSettingsRelationUnitNotFound(c *gc.C) {
+	// Arrange: Add relation with one endpoint.
+	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+
+	// Act:
+	_, err := s.state.GetRelationUnitSettings(
+		context.Background(),
+		relationUnitUUID,
+	)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationUnitNotFound)
+}
+
 // addUnit adds a new unit to the specified application in the database with
 // the given UUID and name. Returns the unit uuid.
 func (s *relationSuite) addUnit(c *gc.C, unitName coreunit.Name, appUUID coreapplication.ID, charmUUID corecharm.ID) coreunit.UUID {

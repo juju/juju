@@ -1567,6 +1567,72 @@ func (st *State) SetRelationApplicationSettings(
 	return nil
 }
 
+// GetRelationUnitSettings returns the relation unit settings for the given
+// relation unit.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationUnitNotFound] is returned if the
+//     unit is not part of the relation.
+func (st *State) GetRelationUnitSettings(
+	ctx context.Context,
+	relationUnitUUID corerelation.UnitUUID,
+) (map[string]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var settings []relationSetting
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		relUnitExists, err := st.checkExistsByUUID(ctx, tx, "relation_unit", relationUnitUUID.String())
+		if err != nil {
+			return errors.Capture(err)
+		} else if !relUnitExists {
+			return relationerrors.RelationUnitNotFound
+		}
+
+		settings, err = st.getRelationUnitSettings(ctx, tx, relationUnitUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	relationSettings := make(map[string]string, len(settings))
+	for _, setting := range settings {
+		relationSettings[setting.Key] = setting.Value
+	}
+	return relationSettings, nil
+}
+
+func (st *State) getRelationUnitSettings(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relUnitUUID corerelation.UnitUUID,
+) ([]relationSetting, error) {
+	id := relationUnitUUID{RelationUnitUUID: relUnitUUID}
+	stmt, err := st.Prepare(`
+SELECT &relationSetting.*
+FROM   relation_unit_setting
+WHERE  relation_unit_uuid = $relationUnitUUID.uuid
+`, id, relationSetting{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var settings []relationSetting
+	err = tx.Query(ctx, stmt, id).GetAll(&settings)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Capture(err)
+	}
+
+	return settings, nil
+}
+
 func (st *State) updateApplicationSettingsHash(
 	ctx context.Context,
 	tx *sqlair.TX,
