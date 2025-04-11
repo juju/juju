@@ -26,6 +26,10 @@ ON machine (name);
 CREATE UNIQUE INDEX idx_machine_net_node
 ON machine (net_node_uuid);
 
+-- machine_placement_scope is a table which represents the valid scopes
+-- that can exist for a machine placement. The provider scope is the only
+-- placement that is deferred until the instance is started by the provider.
+-- Other scopes can be added i.e. scriptlets.
 CREATE TABLE machine_placement_scope (
     id INT PRIMARY KEY,
     value TEXT NOT NULL
