@@ -7,7 +7,7 @@
 ## Add a model
 
 ```{caution}
-**If you have multiple credentials:** Be careful which one you use for the new model. Any machines subsequently on the model will be associated with this credential. As such, make sure you're not spending resources for the wrong cloud account!
+**If you have multiple credentials:** Be careful which one you use for the new model. Any machines added to the model subsequently will be associated with this credential. As such, make sure you're not spending resources for the wrong cloud account!
 ```
 
 
