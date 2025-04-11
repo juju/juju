@@ -75,7 +75,7 @@ func (s *State) ImportSequences(ctx context.Context, seqs map[string]uint64) err
 	for namespace, value := range seqs {
 		sequences = append(sequences, sequence{
 			Namespace: namespace,
-			Value:     uint64(value),
+			Value:     value,
 		})
 	}
 
