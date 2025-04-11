@@ -19,9 +19,11 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	stubservice "github.com/juju/juju/domain/stub"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/password"
+	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state/binarystorage"
 )
 
@@ -30,14 +32,22 @@ type InstanceConfigBackend interface {
 	ToolsStorage(objectstore.ObjectStore) (binarystorage.StorageCloser, error)
 }
 
+type FindAgentBinariesFinderService interface {
+	FindAgentBinariesFromSimpleStreams(
+		ctx context.Context,
+		arg stubservice.FindAgentBinariesArg,
+	) (coretools.List, error)
+}
+
 // InstanceConfigServices holds the services needed to configure instances.
 type InstanceConfigServices struct {
-	ControllerConfigService ControllerConfigService
-	CloudService            common.CloudService
-	KeyUpdaterService       KeyUpdaterService
-	ModelConfigService      ModelConfigService
-	MachineService          MachineService
-	ObjectStore             objectstore.ObjectStore
+	ControllerConfigService        ControllerConfigService
+	CloudService                   common.CloudService
+	KeyUpdaterService              KeyUpdaterService
+	ModelConfigService             ModelConfigService
+	MachineService                 MachineService
+	ObjectStore                    objectstore.ObjectStore
+	FindAgentBinariesFinderService FindAgentBinariesFinderService
 }
 
 // InstanceConfig returns information from the model config that
@@ -92,8 +102,8 @@ func InstanceConfig(
 		services.ControllerConfigService,
 		st,
 		urlGetter,
-		common.NewEnvironFunc(providerGetter),
 		services.ObjectStore,
+		services.FindAgentBinariesFinderService,
 	)
 	toolsList, err := toolsFinder.FindAgents(ctx, common.FindAgentsParams{
 		Number: agentVersion,

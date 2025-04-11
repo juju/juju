@@ -156,10 +156,11 @@ type MachineManagerAPI struct {
 	store                   objectstore.ObjectStore
 	controllerStore         objectstore.ObjectStore
 
-	keyUpdaterService  KeyUpdaterService
-	machineService     MachineService
-	networkService     NetworkService
-	modelConfigService ModelConfigService
+	keyUpdaterService              KeyUpdaterService
+	machineService                 MachineService
+	networkService                 NetworkService
+	modelConfigService             ModelConfigService
+	findAgentBinariesFinderService FindAgentBinariesFinderService
 
 	logger corelogger.Logger
 }
@@ -182,25 +183,27 @@ func NewMachineManagerAPI(
 	keyUpdaterService KeyUpdaterService,
 	modelConfigService ModelConfigService,
 	blockCommandService BlockCommandService,
+	findAgentBinariesFinderService FindAgentBinariesFinderService,
 ) *MachineManagerAPI {
 	api := &MachineManagerAPI{
-		model:                   model,
-		controllerConfigService: controllerConfigService,
-		st:                      backend,
-		cloudService:            cloudService,
-		machineService:          machineService,
-		store:                   store,
-		controllerStore:         controllerStore,
-		pool:                    pool,
-		authorizer:              auth,
-		check:                   common.NewBlockChecker(blockCommandService),
-		resources:               resources,
-		leadership:              leadership,
-		storageAccess:           storageAccess,
-		logger:                  logger,
-		networkService:          networkService,
-		keyUpdaterService:       keyUpdaterService,
-		modelConfigService:      modelConfigService,
+		model:                          model,
+		controllerConfigService:        controllerConfigService,
+		st:                             backend,
+		cloudService:                   cloudService,
+		machineService:                 machineService,
+		store:                          store,
+		controllerStore:                controllerStore,
+		pool:                           pool,
+		authorizer:                     auth,
+		check:                          common.NewBlockChecker(blockCommandService),
+		resources:                      resources,
+		leadership:                     leadership,
+		storageAccess:                  storageAccess,
+		logger:                         logger,
+		networkService:                 networkService,
+		keyUpdaterService:              keyUpdaterService,
+		modelConfigService:             modelConfigService,
+		findAgentBinariesFinderService: findAgentBinariesFinderService,
 	}
 	return api
 }
@@ -381,12 +384,13 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 	}
 
 	services := InstanceConfigServices{
-		CloudService:            mm.cloudService,
-		ControllerConfigService: mm.controllerConfigService,
-		ObjectStore:             mm.controllerStore,
-		KeyUpdaterService:       mm.keyUpdaterService,
-		ModelConfigService:      mm.modelConfigService,
-		MachineService:          mm.machineService,
+		CloudService:                   mm.cloudService,
+		ControllerConfigService:        mm.controllerConfigService,
+		ObjectStore:                    mm.controllerStore,
+		KeyUpdaterService:              mm.keyUpdaterService,
+		ModelConfigService:             mm.modelConfigService,
+		MachineService:                 mm.machineService,
+		FindAgentBinariesFinderService: mm.findAgentBinariesFinderService,
 	}
 
 	icfg, err := InstanceConfig(

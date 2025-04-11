@@ -23,7 +23,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
-	"github.com/juju/juju/environs/simplestreams"
+	stubservice "github.com/juju/juju/domain/stub"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/errors"
 	coretools "github.com/juju/juju/internal/tools"
@@ -233,8 +233,12 @@ type toolsFinder struct {
 	controllerConfigService ControllerConfigService
 	toolsStorageGetter      ToolsStorageGetter
 	urlGetter               ToolsURLGetter
-	newEnviron              NewEnvironFunc
 	store                   objectstore.ObjectStore
+	stubService             StubService
+}
+
+type StubService interface {
+	FindAgentBinariesFromSimpleStreams(context.Context, stubservice.FindAgentBinariesArg) (coretools.List, error)
 }
 
 // NewToolsFinder returns a new ToolsFinder, returning tools
@@ -243,15 +247,15 @@ func NewToolsFinder(
 	controllerConfigService ControllerConfigService,
 	toolsStorageGetter ToolsStorageGetter,
 	urlGetter ToolsURLGetter,
-	newEnviron NewEnvironFunc,
 	store objectstore.ObjectStore,
+	stubService StubService,
 ) *toolsFinder {
 	return &toolsFinder{
 		controllerConfigService: controllerConfigService,
 		toolsStorageGetter:      toolsStorageGetter,
 		urlGetter:               urlGetter,
-		newEnviron:              newEnviron,
 		store:                   store,
+		stubService:             stubService,
 	}
 }
 
@@ -303,29 +307,17 @@ func (f *toolsFinder) findMatchingAgents(ctx context.Context, args FindAgentsPar
 
 	// Look for tools in simplestreams too, but don't replace
 	// any versions found in storage.
-	env, err := f.newEnviron(ctx)
-	if err != nil {
-		return nil, err
-	}
-	filter := toolsFilter(args)
-	cfg := env.Config()
-	requestedStream := cfg.AgentStream()
-	if args.AgentStream != "" {
-		requestedStream = args.AgentStream
-	}
-
-	streams := envtools.PreferredStreams(&args.Number, cfg.Development(), requestedStream)
-	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
-	majorVersion := args.Number.Major
-	minorVersion := args.Number.Minor
-	if args.Number == semversion.Zero {
-		majorVersion = args.MajorVersion
-		minorVersion = args.MinorVersion
-	}
-	simplestreamsList, err := envtoolsFindTools(ctx, ss,
-		env, majorVersion, minorVersion, streams, filter,
+	simplestreamsList, err := f.stubService.FindAgentBinariesFromSimpleStreams(
+		ctx, stubservice.FindAgentBinariesArg{
+			MajorVersion: args.MajorVersion,
+			MinorVersion: args.MinorVersion,
+			Number:       args.Number,
+			Arch:         args.Arch,
+			OSType:       args.OSType,
+			AgentStream:  args.AgentStream,
+		},
 	)
-	if len(storageList) == 0 && err != nil {
+	if err != nil && len(storageList) == 0 {
 		return nil, err
 	}
 
