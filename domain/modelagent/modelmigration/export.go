@@ -143,7 +143,7 @@ func (*exportUnitAgentBinaryOperation) Name() string {
 	return "export agent binary version for units"
 }
 
-// RegisterExport register's a set of new model migration exporters into the
+// RegisterExport registers a set of new model migration exporters into the
 // supplied coordinator. Specifically this registers export operations for
 // setting machine and unit agent binary versions on the out going model
 // description.

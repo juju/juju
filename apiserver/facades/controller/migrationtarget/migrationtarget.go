@@ -100,7 +100,7 @@ type ModelAgentService interface {
 	// GetMachinesNotAtTargetVersion reports all of the machines in the model that
 	// are currently not at the desired target version. This also returns machines
 	// that have no reported agent version set. If all units are up to the
-	// target version or no uints exist in the model a zero length slice is
+	// target version or no units exist in the model a zero length slice is
 	// returned.
 	GetMachinesNotAtTargetAgentVersion(context.Context) ([]machine.Name, error)
 
@@ -113,7 +113,7 @@ type ModelAgentService interface {
 	// GetUnitsNotAtTargetAgentVersion reports all of the units in the model that
 	// are currently not at the desired target agent version. This also returns
 	// units that have no reported agent version set. If all units are up to the
-	// target version or no uints exist in the model a zero length slice is
+	// target version or no units exist in the model a zero length slice is
 	// returned.
 	GetUnitsNotAtTargetAgentVersion(context.Context) ([]unit.Name, error)
 }
