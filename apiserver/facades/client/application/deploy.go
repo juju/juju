@@ -147,28 +147,9 @@ func DeployApplication(
 		asa.Constraints = args.Constraints
 	}
 
-	// TODO(dqlite) - remove mongo AddApplication call.
-	// To ensure dqlite unit names match those created in mongo, grab the next unit
-	// sequence number before writing the mongo units.
-	nextUnitNum, err := st.ReadSequence(args.ApplicationName)
+	unitArgs, err := makeUnitArgs(st, args)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-	unitArgs := make([]applicationservice.AddUnitArg, args.NumUnits)
-	for i := 0; i < args.NumUnits; i++ {
-		var unitPlacement *instance.Placement
-		if i < len(args.Placement) {
-			unitPlacement = args.Placement[i]
-		}
-
-		unitName, err := coreunit.NewNameFromParts(args.ApplicationName, nextUnitNum+i)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		unitArgs[i] = applicationservice.AddUnitArg{
-			UnitName:  unitName,
-			Placement: unitPlacement,
-		}
 	}
 	app, err := st.AddApplication(asa, store)
 
@@ -215,6 +196,34 @@ func DeployApplication(
 		}
 	}
 	return app, errors.Trace(err)
+}
+
+func makeUnitArgs(st ApplicationDeployer, args DeployApplicationParams) ([]applicationservice.AddUnitArg, error) {
+	// TODO(dqlite) - remove mongo AddApplication call.
+	// To ensure dqlite unit names match those created in mongo, grab the next unit
+	// sequence number before writing the mongo units.
+	nextUnitNum, err := st.ReadSequence(args.ApplicationName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	unitArgs := make([]applicationservice.AddUnitArg, args.NumUnits)
+	for i := range args.NumUnits {
+		var unitPlacement *instance.Placement
+		if i < len(args.Placement) {
+			unitPlacement = args.Placement[i]
+		}
+
+		unitName, err := coreunit.NewNameFromParts(args.ApplicationName, nextUnitNum+i)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		unitArgs[i] = applicationservice.AddUnitArg{
+			UnitName:  unitName,
+			Placement: unitPlacement,
+		}
+	}
+
+	return unitArgs, nil
 }
 
 func transformBindings(endpointBindings map[string]string) map[string]network.SpaceName {
