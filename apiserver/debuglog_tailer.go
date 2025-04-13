@@ -37,6 +37,11 @@ func handleDebugLogRequest(
 	stop <-chan struct{},
 	stateClosing <-chan struct{},
 ) error {
+	// We no longer support version 1 of the log tailer.
+	if reqParams.version < 2 {
+		return errors.NotSupportedf("version %d", reqParams.version)
+	}
+
 	tailerParams := makeLogTailerParams(reqParams)
 	tailer, err := logTailerFunc(tailerParams)
 	if err != nil {
@@ -65,7 +70,7 @@ func handleDebugLogRequest(
 				return errors.Annotate(tailer.Wait(), "tailer stopped")
 			}
 
-			if err := socket.sendLogRecord(formatLogRecord(rec), reqParams.version); err != nil {
+			if err := socket.sendLogRecord(formatLogRecord(rec)); err != nil {
 				return errors.Annotate(err, "sending failed")
 			}
 
@@ -78,7 +83,7 @@ func handleDebugLogRequest(
 }
 
 func makeLogTailerParams(reqParams debugLogParams) logtailer.LogTailerParams {
-	tailerParams := logtailer.LogTailerParams{
+	return logtailer.LogTailerParams{
 		MinLevel:      reqParams.filterLevel,
 		NoTail:        reqParams.noTail,
 		Firehose:      reqParams.firehose,
@@ -92,10 +97,9 @@ func makeLogTailerParams(reqParams debugLogParams) logtailer.LogTailerParams {
 		ExcludeLabels: reqParams.excludeLabels,
 		FromTheStart:  reqParams.fromTheStart,
 	}
-	return tailerParams
 }
 
-func formatLogRecord(r *corelogger.LogRecord) *params.LogMessage {
+func formatLogRecord(r corelogger.LogRecord) *params.LogMessage {
 	return &params.LogMessage{
 		ModelUUID: r.ModelUUID,
 		Entity:    r.Entity,

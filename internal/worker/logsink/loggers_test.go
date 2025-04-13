@@ -5,9 +5,8 @@ package logsink
 
 import (
 	"context"
-	"time"
 
-	"github.com/juju/clock"
+	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
@@ -15,13 +14,14 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corelogger "github.com/juju/juju/core/logger"
+	model "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type LoggersSuite struct {
 	testing.IsolationSuite
 
-	logWriter *MockLogWriterCloser
+	logWriter *MockLogSink
 	modelUUID string
 }
 
@@ -32,8 +32,6 @@ var _ LogSinkWriter = (*modelLogger)(nil)
 func (s *LoggersSuite) TestLoggers(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectClose()
-
 	logger := s.newModelLogger(c)
 
 	workertest.CheckKill(c, logger)
@@ -42,7 +40,6 @@ func (s *LoggersSuite) TestLoggers(c *gc.C) {
 func (s *LoggersSuite) TestLoggerLogs(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectClose()
 	s.logWriter.EXPECT().Log([]corelogger.LogRecord{{Message: "foo"}}).Return(nil)
 
 	logger := s.newModelLogger(c)
@@ -55,11 +52,9 @@ func (s *LoggersSuite) TestLoggerLogs(c *gc.C) {
 func (s *LoggersSuite) TestLoggerGetLogger(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectClose()
-
 	var logs []corelogger.LogRecord
 	s.logWriter.EXPECT().Log(gomock.Any()).DoAndReturn(func(records []corelogger.LogRecord) error {
-		logs = records
+		logs = append(logs, records...)
 		return nil
 	})
 
@@ -82,11 +77,9 @@ func (s *LoggersSuite) TestLoggerGetLogger(c *gc.C) {
 func (s *LoggersSuite) TestLoggerConfigureLoggers(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectClose()
-
 	var logs []corelogger.LogRecord
 	s.logWriter.EXPECT().Log(gomock.Any()).DoAndReturn(func(records []corelogger.LogRecord) error {
-		logs = records
+		logs = append(logs, records...)
 		return nil
 	})
 
@@ -114,25 +107,13 @@ func (s *LoggersSuite) TestLoggerConfigureLoggers(c *gc.C) {
 	c.Assert(logs, gc.HasLen, 1)
 	c.Check(logs[0].Message, gc.Equals, "message again and again")
 	c.Check(logs[0].Level, gc.Equals, corelogger.WARNING)
+	c.Check(logs[0].ModelUUID, gc.Equals, s.modelUUID)
 }
 
 func (s *LoggersSuite) newModelLogger(c *gc.C) *modelLogger {
 	s.modelUUID = uuid.MustNewUUID().String()
 
-	fn := func(ctx context.Context, key corelogger.LoggerKey) (corelogger.LogWriterCloser, error) {
-		return s.logWriter, nil
-	}
-	w, err := NewModelLogger(context.Background(), corelogger.LoggerKey{
-		ModelUUID:  s.modelUUID,
-		ModelName:  "foo",
-		ModelOwner: "bar",
-	}, ModelLoggerConfig{
-		MachineID:     "0",
-		NewLogWriter:  fn,
-		BufferSize:    10,
-		FlushInterval: time.Second,
-		Clock:         clock.WallClock,
-	})
+	w, err := NewModelLogger(s.logWriter, model.UUID(s.modelUUID), names.NewUnitTag("foo/0"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	return w.(*modelLogger)
@@ -141,11 +122,7 @@ func (s *LoggersSuite) newModelLogger(c *gc.C) *modelLogger {
 func (s *LoggersSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.logWriter = NewMockLogWriterCloser(ctrl)
+	s.logWriter = NewMockLogSink(ctrl)
 
 	return ctrl
-}
-
-func (s *LoggersSuite) expectClose() {
-	s.logWriter.EXPECT().Close().Return(nil)
 }

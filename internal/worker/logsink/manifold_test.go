@@ -5,8 +5,7 @@ package logsink
 
 import (
 	"context"
-	"fmt"
-	"time"
+	"maps"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -19,21 +18,17 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/logger"
-	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
+	model "github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/services"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type ManifoldSuite struct {
 	jujutesting.BaseSuite
 
-	manifold               dependency.Manifold
-	getter                 dependency.Getter
-	logSinkServices        services.LogSinkServices
-	controllerConfigGetter *controllerconfigservice.WatchableService
+	manifold dependency.Manifold
+	getter   dependency.Getter
 
 	logger logger.Logger
 
@@ -46,13 +41,6 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	service := controllerconfigservice.NewService(stubControllerConfigService{})
-	s.controllerConfigGetter = &controllerconfigservice.WatchableService{
-		Service: *service,
-	}
-	s.logSinkServices = stubLogSinkServices{
-		controllerConfigGetter: s.controllerConfigGetter,
-	}
 	s.clock = clock.WallClock
 
 	s.stub.ResetCalls()
@@ -61,80 +49,52 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.getter = s.newGetter(c, nil)
 	s.manifold = Manifold(ManifoldConfig{
-		ClockName:       "clock",
-		AgentName:       "agent",
-		LogSinkServices: "logsink",
-		DebugLogger:     s.logger,
-		NewWorker:       s.newWorker,
-		NewModelLogger: func(ctx context.Context, key logger.LoggerKey, cfg ModelLoggerConfig) (worker.Worker, error) {
+		LogSink:   loggertesting.WrapCheckLogSink(c),
+		Clock:     s.clock,
+		NewWorker: s.newWorker,
+		NewModelLogger: func(logger.LogSink, model.UUID, names.Tag) (worker.Worker, error) {
 			return nil, nil
-		},
-		ModelServiceGetter: func(s services.LogSinkServices) ModelService {
-			return nil
 		},
 	})
 }
 
 func (s *ManifoldSuite) TestValidateConfig(c *gc.C) {
-	cfg := s.getConfig()
+	cfg := s.getConfig(c)
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
-	cfg = s.getConfig()
-	cfg.DebugLogger = nil
+	cfg = s.getConfig(c)
+	cfg.LogSink = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.NewWorker = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.NewModelLogger = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
-	cfg.ClockName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
-	cfg.LogSinkServices = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
-	cfg.AgentName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
-	cfg.ModelServiceGetter = nil
+	cfg = s.getConfig(c)
+	cfg.Clock = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
-func (s *ManifoldSuite) getConfig() ManifoldConfig {
+func (s *ManifoldSuite) getConfig(c *gc.C) ManifoldConfig {
 	return ManifoldConfig{
-		DebugLogger: s.logger,
-		NewWorker:   s.newWorker,
-		NewModelLogger: func(ctx context.Context, key logger.LoggerKey, cfg ModelLoggerConfig) (worker.Worker, error) {
+		LogSink:   loggertesting.WrapCheckLogSink(c),
+		NewWorker: s.newWorker,
+		NewModelLogger: func(logger.LogSink, model.UUID, names.Tag) (worker.Worker, error) {
 			return nil, nil
 		},
-		ModelServiceGetter: func(s services.LogSinkServices) ModelService {
-			return nil
-		},
-		ClockName:       "clock",
-		LogSinkServices: "logsink",
-		AgentName:       "agent",
+		Clock: clock.WallClock,
 	}
 }
 
 func (s *ManifoldSuite) newGetter(c *gc.C, overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
-		"agent": &fakeAgent{
-			logDir: c.MkDir(),
-		},
-		"logsink": s.logSinkServices,
-		"clock":   s.clock,
+		"clock": s.clock,
 	}
-	for k, v := range overlay {
-		resources[k] = v
-	}
+	maps.Copy(resources, overlay)
 	return dt.StubGetter(resources)
 }
 
@@ -146,7 +106,7 @@ func (s *ManifoldSuite) newWorker(config Config) (worker.Worker, error) {
 	return worker.NewRunner(worker.RunnerParams{}), nil
 }
 
-var expectedInputs = []string{"logsink", "agent", "clock"}
+var expectedInputs = []string{}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -171,25 +131,8 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(args, gc.HasLen, 1)
 	c.Check(args[0], gc.FitsTypeOf, Config{})
 
-	config := args[0].(Config)
-	c.Assert(config.LogWriterForModelFunc, gc.NotNil)
-	config.LogWriterForModelFunc = nil
-
-	c.Assert(config.NewModelLogger, gc.NotNil)
-	config.NewModelLogger = nil
-
-	expectedConfig := Config{
-		Logger: s.logger,
-		Clock:  s.clock,
-		LogSinkConfig: LogSinkConfig{
-			LoggerBufferSize:    1000,
-			LoggerFlushInterval: time.Second,
-		},
-		MachineID: "1",
-	}
 	workertest.CleanKill(c, w)
 	s.stub.CheckCallNames(c, "NewWorker")
-	c.Assert(config, jc.DeepEquals, expectedConfig)
 }
 
 func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
@@ -197,48 +140,4 @@ func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
-}
-
-type fakeAgent struct {
-	agent.Agent
-	agent.Config
-	logDir string
-}
-
-func (f *fakeAgent) CurrentConfig() agent.Config {
-	return f
-}
-
-func (f *fakeAgent) Tag() names.Tag {
-	return names.NewMachineTag("1")
-}
-
-func (f *fakeAgent) Value(key string) string {
-	return ""
-}
-
-func (f *fakeAgent) LogDir() string {
-	return f.logDir
-}
-
-type stubLogSinkServices struct {
-	services.LogSinkServices
-	controllerConfigGetter *controllerconfigservice.WatchableService
-}
-
-func (s stubLogSinkServices) ControllerConfig() *controllerconfigservice.WatchableService {
-	return s.controllerConfigGetter
-}
-
-type stubControllerConfigService struct {
-	controllerconfigservice.State
-}
-
-func (stubControllerConfigService) ControllerConfig(context.Context) (map[string]string, error) {
-	cfg := jujutesting.FakeControllerConfig()
-	result := make(map[string]string)
-	for k, v := range cfg {
-		result[k] = fmt.Sprintf("%v", v)
-	}
-	return result, nil
 }
