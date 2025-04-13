@@ -38,43 +38,43 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		domainServices = ctx.DomainServices()
 	)
 
-	modelAgentServiceGetter := func(c context.Context, modelID model.UUID) (ModelAgentService, error) {
-		svc, err := ctx.DomainServicesForModel(c, modelID)
+	modelAgentServiceGetter := func(c context.Context, modelUUID model.UUID) (ModelAgentService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return svc.Agent(), nil
 	}
-	modelConfigServiceGetter := func(c context.Context, modelID model.UUID) (cloudspec.ModelConfigService, error) {
-		svc, err := ctx.DomainServicesForModel(c, modelID)
+	modelConfigServiceGetter := func(c context.Context, modelUUID model.UUID) (cloudspec.ModelConfigService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return svc.Config(), nil
 	}
-	applicationServiceGetter := func(c context.Context, modelID model.UUID) (ApplicationService, error) {
-		svc, err := ctx.DomainServicesForModel(c, modelID)
+	applicationServiceGetter := func(c context.Context, modelUUID model.UUID) (ApplicationService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return svc.Application(), nil
 	}
-	statusServiceGetter := func(c context.Context, modelID model.UUID) (StatusService, error) {
-		svc, err := ctx.DomainServicesForModel(c, modelID)
+	statusServiceGetter := func(c context.Context, modelUUID model.UUID) (StatusService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return svc.Status(), nil
 	}
-	blockCommandServiceGetter := func(c context.Context, modelID model.UUID) (BlockCommandService, error) {
-		svc, err := ctx.DomainServicesForModel(c, modelID)
+	blockCommandServiceGetter := func(c context.Context, modelUUID model.UUID) (BlockCommandService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return svc.BlockCommand(), nil
 	}
-	machineServiceGetter := func(c context.Context, modelID model.UUID) (commonmodel.MachineService, error) {
-		svc, err := ctx.DomainServicesForModel(c, modelID)
+	machineServiceGetter := func(c context.Context, modelUUID model.UUID) (commonmodel.MachineService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -109,5 +109,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 			return ctx.ModelExporter(c, modelUUID, legacyState)
 		},
 		ctx.ObjectStore(),
+		ctx.ControllerUUID(),
+		ctx.ModelUUID(),
 	)
 }
