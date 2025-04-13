@@ -239,7 +239,7 @@ type OtherApplicationForWatcher struct {
 // RelationLifeSuspendedData contains the necessary data to notify in
 // WatchLifeSuspendedStatus.
 type RelationLifeSuspendedData struct {
-	Endpoints []Endpoint
-	Life      life.Value
-	Suspended bool
+	EndpointIdentifiers []corerelation.EndpointIdentifier
+	Life                life.Value
+	Suspended           bool
 }

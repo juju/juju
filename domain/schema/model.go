@@ -21,7 +21,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-cloud-instance-triggers.gen.go -package=triggers -tables=machine_cloud_instance
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-requires-reboot-triggers.gen.go -package=triggers -tables=machine_requires_reboot
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-triggers.gen.go -package=triggers -tables=application,application_config_hash,charm,unit,application_scale,port_range,application_exposed_endpoint_space,application_exposed_endpoint_cidr
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_setting
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_setting,relation,relation_status
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/cleanup-triggers.gen.go -package=triggers -tables=removal
 
 //go:embed model/sql/*.sql
@@ -60,6 +60,8 @@ const (
 	tableApplicationConfigHash
 	tableAgentVersion
 	tableRelationApplicationSetting
+	tableRelation
+	tableRelationStatus
 )
 
 // ModelDDL is used to create model databases.
@@ -127,6 +129,10 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForApplicationConfigHash("application_uuid", tableApplicationConfigHash),
 		triggers.ChangeLogTriggersForRelationApplicationSetting("relation_endpoint_uuid",
 			tableRelationApplicationSetting),
+		triggers.ChangeLogTriggersForRelation("uuid",
+			tableRelation),
+		triggers.ChangeLogTriggersForRelationStatus("relation_uuid",
+			tableRelationStatus),
 	)
 
 	// Generic triggers.
