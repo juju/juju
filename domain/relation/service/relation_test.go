@@ -756,11 +756,11 @@ func (s *relationServiceSuite) TestEnterScope(c *gc.C) {
 	// Arrange.
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	unitName := coreunittesting.GenNewName(c, "app1/0")
-
-	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName).Return(nil)
+	settings := map[string]string{"ingress": "x.x.x.x"}
+	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings).Return(nil)
 
 	// Act.
-	err := s.service.EnterScope(context.Background(), relationUUID, unitName)
+	err := s.service.EnterScope(context.Background(), relationUUID, unitName, settings)
 
 	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
@@ -773,7 +773,7 @@ func (s *relationServiceSuite) TestEnterScopeRelationUUIDNotValid(c *gc.C) {
 	unitName := coreunittesting.GenNewName(c, "app1/0")
 
 	// Act.
-	err := s.service.EnterScope(context.Background(), "bad-uuid", unitName)
+	err := s.service.EnterScope(context.Background(), "bad-uuid", unitName, map[string]string{})
 
 	// Assert.
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
@@ -786,7 +786,7 @@ func (s *relationServiceSuite) TestEnterScopeRelationUnitNameNotValid(c *gc.C) {
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 
 	// Act.
-	err := s.service.EnterScope(context.Background(), relationUUID, "")
+	err := s.service.EnterScope(context.Background(), relationUUID, "", map[string]string{})
 
 	// Assert.
 	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)

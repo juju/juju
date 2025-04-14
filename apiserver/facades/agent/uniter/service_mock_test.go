@@ -913,17 +913,17 @@ func (m *MockRelationService) EXPECT() *MockRelationServiceMockRecorder {
 }
 
 // EnterScope mocks base method.
-func (m *MockRelationService) EnterScope(arg0 context.Context, arg1 relation.UUID, arg2 unit.Name) error {
+func (m *MockRelationService) EnterScope(arg0 context.Context, arg1 relation.UUID, arg2 unit.Name, arg3 map[string]string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnterScope", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "EnterScope", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // EnterScope indicates an expected call of EnterScope.
-func (mr *MockRelationServiceMockRecorder) EnterScope(arg0, arg1, arg2 any) *MockRelationServiceEnterScopeCall {
+func (mr *MockRelationServiceMockRecorder) EnterScope(arg0, arg1, arg2, arg3 any) *MockRelationServiceEnterScopeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnterScope", reflect.TypeOf((*MockRelationService)(nil).EnterScope), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnterScope", reflect.TypeOf((*MockRelationService)(nil).EnterScope), arg0, arg1, arg2, arg3)
 	return &MockRelationServiceEnterScopeCall{Call: call}
 }
 
@@ -939,13 +939,13 @@ func (c *MockRelationServiceEnterScopeCall) Return(arg0 error) *MockRelationServ
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationServiceEnterScopeCall) Do(f func(context.Context, relation.UUID, unit.Name) error) *MockRelationServiceEnterScopeCall {
+func (c *MockRelationServiceEnterScopeCall) Do(f func(context.Context, relation.UUID, unit.Name, map[string]string) error) *MockRelationServiceEnterScopeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationServiceEnterScopeCall) DoAndReturn(f func(context.Context, relation.UUID, unit.Name) error) *MockRelationServiceEnterScopeCall {
+func (c *MockRelationServiceEnterScopeCall) DoAndReturn(f func(context.Context, relation.UUID, unit.Name, map[string]string) error) *MockRelationServiceEnterScopeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
