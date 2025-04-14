@@ -944,6 +944,44 @@ func (c *MockStateLeaveScopeCall) DoAndReturn(f func(context.Context, relation.U
 	return c
 }
 
+// SetRelationApplicationAndUnitSettings mocks base method.
+func (m *MockState) SetRelationApplicationAndUnitSettings(arg0 context.Context, arg1 relation.UnitUUID, arg2, arg3 map[string]string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetRelationApplicationAndUnitSettings", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetRelationApplicationAndUnitSettings indicates an expected call of SetRelationApplicationAndUnitSettings.
+func (mr *MockStateMockRecorder) SetRelationApplicationAndUnitSettings(arg0, arg1, arg2, arg3 any) *MockStateSetRelationApplicationAndUnitSettingsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRelationApplicationAndUnitSettings", reflect.TypeOf((*MockState)(nil).SetRelationApplicationAndUnitSettings), arg0, arg1, arg2, arg3)
+	return &MockStateSetRelationApplicationAndUnitSettingsCall{Call: call}
+}
+
+// MockStateSetRelationApplicationAndUnitSettingsCall wrap *gomock.Call
+type MockStateSetRelationApplicationAndUnitSettingsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetRelationApplicationAndUnitSettingsCall) Return(arg0 error) *MockStateSetRelationApplicationAndUnitSettingsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetRelationApplicationAndUnitSettingsCall) Do(f func(context.Context, relation.UnitUUID, map[string]string, map[string]string) error) *MockStateSetRelationApplicationAndUnitSettingsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetRelationApplicationAndUnitSettingsCall) DoAndReturn(f func(context.Context, relation.UnitUUID, map[string]string, map[string]string) error) *MockStateSetRelationApplicationAndUnitSettingsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetRelationApplicationSettings mocks base method.
 func (m *MockState) SetRelationApplicationSettings(arg0 context.Context, arg1 relation.UUID, arg2 application.ID, arg3 map[string]string) error {
 	m.ctrl.T.Helper()

@@ -217,6 +217,18 @@ type State interface {
 		settings map[string]string,
 	) error
 
+	// SetRelationApplicationAndUnitSettings records settings for a unit and
+	// an application in a relation.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationUnitNotFound] is returned if the
+	//     relation unit is not found.
+	SetRelationApplicationAndUnitSettings(
+		ctx context.Context,
+		relationUnitUUID corerelation.UnitUUID,
+		applicationSettings, unitSettings map[string]string,
+	) error
+
 	// SetRelationUnitSettings records settings for a specific relation unit.
 	//
 	// The following error types can be expected to be returned:
@@ -331,6 +343,43 @@ func (s *LeadershipService) SetRelationApplicationSettings(
 	return s.leaderEnsurer.WithLeader(ctx, unitName.Application(), unitName.String(), func(ctx context.Context) error {
 		return s.st.SetRelationApplicationSettings(ctx, relationUUID, applicationID, settings)
 	})
+}
+
+// SetRelationApplicationAndUnitSettings records settings for a unit and
+// an application in a relation.
+//
+// The following error types can be expected to be returned:
+//   - [corelease.ErrNotHeld] if the unit is not the leader and
+//     applicationSettings has a none zero length.
+//   - [relationerrors.RelationUnitNotFound] is returned if the
+//     relation unit is not found.
+func (s *LeadershipService) SetRelationApplicationAndUnitSettings(
+	ctx context.Context,
+	unitName unit.Name,
+	relationUnitUUID corerelation.UnitUUID,
+	applicationSettings, unitSettings map[string]string,
+) error {
+	if len(applicationSettings) == 0 && len(unitSettings) == 0 {
+		return nil
+	}
+
+	if err := unitName.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+	if err := relationUnitUUID.Validate(); err != nil {
+		return errors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+
+	// If not setting the application settings, do not check leadership.
+	if len(applicationSettings) == 0 {
+		return s.st.SetRelationUnitSettings(ctx, relationUnitUUID, unitSettings)
+	}
+
+	return s.leaderEnsurer.WithLeader(ctx, unitName.Application(), unitName.String(), func(ctx context.Context) error {
+		return s.st.SetRelationApplicationAndUnitSettings(ctx, relationUnitUUID, applicationSettings, unitSettings)
+	})
+
 }
 
 // Service provides the API for working with relations.
