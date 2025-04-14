@@ -381,6 +381,7 @@ type ExportApplication struct {
 	CharmUpgradeOnError  bool
 	CharmLocator         domaincharm.CharmLocator
 	K8sServiceProviderID *string
+	EndpointBindings     map[string]string
 }
 
 // ExportUnit contains parameters for exporting a unit.
