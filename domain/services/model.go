@@ -457,15 +457,6 @@ func (s *ModelServices) AgentPassword() *agentpasswordservice.Service {
 	)
 }
 
-// AgentBinary returns the service for working with agent binaries in the
-// current model.
-func (s *ModelServices) AgentBinary() *agentbinaryservice.AgentBinaryService {
-	return agentbinaryservice.NewAgentBinaryService(
-		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-	)
-}
-
 // Stub returns the stub service. A special service which collects temporary
 // methods required to wire together domains which are not completely implemented
 // or wired up.

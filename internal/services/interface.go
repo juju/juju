@@ -53,8 +53,9 @@ import (
 // ControllerDomainServices provides access to the services required by the
 // apiserver.
 type ControllerDomainServices interface {
-	// AgentBinaryStore returns the agent binary store for the entire controller.
-	AgentBinaryStore() *agentbinaryservice.AgentBinaryStore
+	// ControllerAgentBinaryStore returns the agent binary store for the entire
+	// controller.
+	ControllerAgentBinaryStore() *agentbinaryservice.AgentBinaryStore
 	// Controller returns the controller service.
 	Controller() *controllerservice.Service
 	// ControllerConfig returns the controller configuration service.
@@ -93,8 +94,8 @@ type ModelDomainServices interface {
 	Agent() *modelagentservice.WatchableService
 	// AgentProvisioner returns the agent provisioner service.
 	AgentProvisioner() *agentprovisionerservice.Service
-	// AgentBinary returns the agent binary service.
-	AgentBinary() *agentbinaryservice.AgentBinaryService
+	// AgentBinaryStore returns the agent binary service.
+	AgentBinaryStore() *agentbinaryservice.AgentBinaryService
 	// Annotation returns the annotation service.
 	Annotation() *annotationService.Service
 	// Config returns the model config service.
