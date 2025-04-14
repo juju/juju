@@ -182,11 +182,6 @@ type State interface {
 		unitName unit.Name,
 	) (corerelation.UnitUUID, error)
 
-	// InitialWatchLifeSuspendedStatus returns the two tables to watch for
-	// a relation's Life and Suspended status when the relation contains
-	// the provided application and the initial namespace query.
-	InitialWatchLifeSuspendedStatus(id application.ID) (string, string, eventsource.NamespaceQuery)
-
 	// GetRelationUnitSettings returns the relation unit settings for the given
 	// relation unit.
 	//
@@ -195,18 +190,10 @@ type State interface {
 	//     unit is not part of the relation.
 	GetRelationUnitSettings(ctx context.Context, relationUnitUUID corerelation.UnitUUID) (map[string]string, error)
 
-	// EnterScope indicates that the provided unit has joined the relation.
-	//
-	// The following error types can be expected to be returned:
-	//   - [relationerrors.RelationNotFound] if the relation cannot be found.
-	//   - [relationerrors.UnitNotFound] if no unit by the given name can be found
-	//   - [relationerrors.RelationNotAlive] if the relation is not alive.
-	//   - [relationerrors.UnitNotAlive] if the unit is not alive.
-	//   - [relationerrors.PotentialRelationUnitNotValid] if the unit entering
-	//     scope is a subordinate and the endpoint scope is charm.ScopeContainer
-	//     where the other application is a principal, but not in the current
-	//     relation.
-	EnterScope(ctx context.Context, relationUUID corerelation.UUID, unitName unit.Name) error
+	// InitialWatchLifeSuspendedStatus returns the two tables to watch for
+	// a relation's Life and Suspended status when the relation contains
+	// the provided application and the initial namespace query.
+	InitialWatchLifeSuspendedStatus(id application.ID) (string, string, eventsource.NamespaceQuery)
 
 	// LeaveScope updates the given relation to indicate it is not in scope.
 	//
