@@ -8,6 +8,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -30,16 +31,14 @@ func newUserSecretsDrainAPI(stdCtx context.Context, ctx facade.ModelContext) (*S
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	model, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+
 	domainServices := ctx.DomainServices()
 	backendService := domainServices.SecretBackend()
 
 	secretService := ctx.DomainServices().Secret()
 
-	authTag := model.ModelTag()
+	authTag := names.NewModelTag(ctx.ModelUUID().String())
+
 	commonDrainAPI, err := commonsecrets.NewSecretsDrainAPI(
 		authTag,
 		ctx.Auth(),
@@ -56,7 +55,7 @@ func newUserSecretsDrainAPI(stdCtx context.Context, ctx facade.ModelContext) (*S
 
 	return &SecretsDrainAPI{
 		SecretsDrainAPI:      commonDrainAPI,
-		modelUUID:            ctx.ModelUUID().String(),
+		modelUUID:            ctx.ModelUUID(),
 		secretBackendService: backendService,
 		secretService:        secretService,
 	}, nil
