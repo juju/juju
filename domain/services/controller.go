@@ -56,7 +56,7 @@ type ControllerServices struct {
 func NewControllerServices(
 	controllerDB changestream.WatchableDBFactory,
 	dbDeleter database.DBDeleter,
-	controllerObjectStore objectstore.ModelObjectStoreGetter,
+	controllerObjectStoreGetter objectstore.ModelObjectStoreGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *ControllerServices {
@@ -67,7 +67,7 @@ func NewControllerServices(
 		},
 		dbDeleter:             dbDeleter,
 		clock:                 clock,
-		controllerObjectStore: controllerObjectStore,
+		controllerObjectStore: controllerObjectStoreGetter,
 	}
 }
 
