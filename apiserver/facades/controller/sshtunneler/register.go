@@ -24,5 +24,5 @@ func newExternalFacade(ctx facade.Context) (*Facade, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	return newFacade(ctx, ctx.State()), nil
+	return newFacade(ctx, backend{StatePool: ctx.StatePool()}), nil
 }
