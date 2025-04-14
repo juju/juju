@@ -46,36 +46,35 @@ END;`, columnName, namespaceID))
 	}
 }
 
-// ChangeLogTriggersForRelationApplicationSetting generates the triggers for the
-// relation_application_setting table.
-func ChangeLogTriggersForRelationApplicationSetting(columnName string, namespaceID int) func() schema.Patch {
+// ChangeLogTriggersForRelationApplicationSettingsHash generates the triggers for the
+// relation_application_settings_hash table.
+func ChangeLogTriggersForRelationApplicationSettingsHash(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- insert namespace for RelationApplicationSetting
-INSERT INTO change_log_namespace VALUES (%[2]d, 'relation_application_setting', 'RelationApplicationSetting changes based on %[1]s');
+-- insert namespace for RelationApplicationSettingsHash
+INSERT INTO change_log_namespace VALUES (%[2]d, 'relation_application_settings_hash', 'RelationApplicationSettingsHash changes based on %[1]s');
 
--- insert trigger for RelationApplicationSetting
-CREATE TRIGGER trg_log_relation_application_setting_insert
-AFTER INSERT ON relation_application_setting FOR EACH ROW
+-- insert trigger for RelationApplicationSettingsHash
+CREATE TRIGGER trg_log_relation_application_settings_hash_insert
+AFTER INSERT ON relation_application_settings_hash FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- update trigger for RelationApplicationSetting
-CREATE TRIGGER trg_log_relation_application_setting_update
-AFTER UPDATE ON relation_application_setting FOR EACH ROW
+-- update trigger for RelationApplicationSettingsHash
+CREATE TRIGGER trg_log_relation_application_settings_hash_update
+AFTER UPDATE ON relation_application_settings_hash FOR EACH ROW
 WHEN 
 	NEW.relation_endpoint_uuid != OLD.relation_endpoint_uuid OR
-	NEW.key != OLD.key OR
-	(NEW.value != OLD.value OR (NEW.value IS NOT NULL AND OLD.value IS NULL) OR (NEW.value IS NULL AND OLD.value IS NOT NULL)) 
+	NEW.sha256 != OLD.sha256 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
--- delete trigger for RelationApplicationSetting
-CREATE TRIGGER trg_log_relation_application_setting_delete
-AFTER DELETE ON relation_application_setting FOR EACH ROW
+-- delete trigger for RelationApplicationSettingsHash
+CREATE TRIGGER trg_log_relation_application_settings_hash_delete
+AFTER DELETE ON relation_application_settings_hash FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
@@ -114,6 +113,80 @@ END;
 -- delete trigger for RelationStatus
 CREATE TRIGGER trg_log_relation_status_delete
 AFTER DELETE ON relation_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;`, columnName, namespaceID))
+	}
+}
+
+// ChangeLogTriggersForRelationUnit generates the triggers for the
+// relation_unit table.
+func ChangeLogTriggersForRelationUnit(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for RelationUnit
+INSERT INTO change_log_namespace VALUES (%[2]d, 'relation_unit', 'RelationUnit changes based on %[1]s');
+
+-- insert trigger for RelationUnit
+CREATE TRIGGER trg_log_relation_unit_insert
+AFTER INSERT ON relation_unit FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+END;
+
+-- update trigger for RelationUnit
+CREATE TRIGGER trg_log_relation_unit_update
+AFTER UPDATE ON relation_unit FOR EACH ROW
+WHEN 
+	NEW.uuid != OLD.uuid OR
+	NEW.relation_endpoint_uuid != OLD.relation_endpoint_uuid OR
+	NEW.unit_uuid != OLD.unit_uuid OR
+	(NEW.departing != OLD.departing OR (NEW.departing IS NOT NULL AND OLD.departing IS NULL) OR (NEW.departing IS NULL AND OLD.departing IS NOT NULL)) 
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;
+-- delete trigger for RelationUnit
+CREATE TRIGGER trg_log_relation_unit_delete
+AFTER DELETE ON relation_unit FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;`, columnName, namespaceID))
+	}
+}
+
+// ChangeLogTriggersForRelationUnitSettingsHash generates the triggers for the
+// relation_unit_settings_hash table.
+func ChangeLogTriggersForRelationUnitSettingsHash(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for RelationUnitSettingsHash
+INSERT INTO change_log_namespace VALUES (%[2]d, 'relation_unit_settings_hash', 'RelationUnitSettingsHash changes based on %[1]s');
+
+-- insert trigger for RelationUnitSettingsHash
+CREATE TRIGGER trg_log_relation_unit_settings_hash_insert
+AFTER INSERT ON relation_unit_settings_hash FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+END;
+
+-- update trigger for RelationUnitSettingsHash
+CREATE TRIGGER trg_log_relation_unit_settings_hash_update
+AFTER UPDATE ON relation_unit_settings_hash FOR EACH ROW
+WHEN 
+	NEW.relation_unit_uuid != OLD.relation_unit_uuid OR
+	NEW.sha256 != OLD.sha256 
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;
+-- delete trigger for RelationUnitSettingsHash
+CREATE TRIGGER trg_log_relation_unit_settings_hash_delete
+AFTER DELETE ON relation_unit_settings_hash FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));

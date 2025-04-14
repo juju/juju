@@ -22,7 +22,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-requires-reboot-triggers.gen.go -package=triggers -tables=machine_requires_reboot
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-triggers.gen.go -package=triggers -tables=application,application_config_hash,charm,application_scale,port_range,application_exposed_endpoint_space,application_exposed_endpoint_cidr
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/unit-triggers.gen.go -package triggers -tables=unit,unit_principal,unit_resolved
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_setting,relation,relation_status
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_settings_hash,relation_unit_settings_hash,relation_unit,relation,relation_status
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/cleanup-triggers.gen.go -package=triggers -tables=removal
 
 //go:embed model/sql/*.sql
@@ -62,9 +62,11 @@ const (
 	tableRemoval
 	tableApplicationConfigHash
 	tableAgentVersion
-	tableRelationApplicationSetting
+	tableRelationApplicationSettingsHash
+	tableRelationUnitSettingsHash
 	tableRelation
 	tableRelationStatus
+	tableRelationUnit
 )
 
 // ModelDDL is used to create model databases.
@@ -134,12 +136,15 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForApplication("uuid", tableApplication),
 		triggers.ChangeLogTriggersForRemoval("uuid", tableRemoval),
 		triggers.ChangeLogTriggersForApplicationConfigHash("application_uuid", tableApplicationConfigHash),
-		triggers.ChangeLogTriggersForRelationApplicationSetting("relation_endpoint_uuid",
-			tableRelationApplicationSetting),
+		triggers.ChangeLogTriggersForRelationApplicationSettingsHash("relation_endpoint_uuid",
+			tableRelationApplicationSettingsHash),
+		triggers.ChangeLogTriggersForRelationUnitSettingsHash("relation_unit_uuid",
+			tableRelationUnitSettingsHash),
 		triggers.ChangeLogTriggersForRelation("uuid",
 			tableRelation),
 		triggers.ChangeLogTriggersForRelationStatus("relation_uuid",
 			tableRelationStatus),
+		triggers.ChangeLogTriggersForRelationUnit("unit_uuid", tableRelationUnit),
 	)
 
 	// Generic triggers.

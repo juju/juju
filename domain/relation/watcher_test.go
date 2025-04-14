@@ -71,7 +71,7 @@ func (s *watcherSuite) TestWatchUnitRelations(c *gc.C) {
 
 	// Arrange: create the required state, with one relation endpoint and related
 	// objects.
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "relation_application_setting")
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "relation_application_settings_hash")
 	relationUUID := relationtesting.GenRelationUUID(c)
 	relationEndpointUUID := relationtesting.GenEndpointUUID(c)
 
@@ -88,8 +88,8 @@ func (s *watcherSuite) TestWatchUnitRelations(c *gc.C) {
 	// Act: ensure we get the created event.
 	harness.AddTest(func(c *gc.C) {
 		s.act(c, `
-INSERT INTO relation_application_setting (relation_endpoint_uuid, key, value)
-VALUES (?, 'key', 'value')
+INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256)
+VALUES (?, 'hash')
 `, relationEndpointUUID)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
@@ -98,10 +98,9 @@ VALUES (?, 'key', 'value')
 	// Act: ensure we get the updated event.
 	harness.AddTest(func(c *gc.C) {
 		s.act(c, `
-UPDATE relation_application_setting
-SET value = 'new-value'
+UPDATE relation_application_settings_hash
+SET sha256 = 'new-hash'
 WHERE relation_endpoint_uuid = ?
-AND key = 'key'
 `, relationEndpointUUID)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))
@@ -110,9 +109,8 @@ AND key = 'key'
 	// Act: ensure we get the deleted event.
 	harness.AddTest(func(c *gc.C) {
 		s.act(c, `
-DELETE FROM relation_application_setting
+DELETE FROM relation_application_settings_hash
 WHERE relation_endpoint_uuid = ?
-AND key = 'key'
 `, relationEndpointUUID)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.Check(watchertest.SliceAssert(struct{}{}))

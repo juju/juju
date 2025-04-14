@@ -488,9 +488,13 @@ func (s *modelSchemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_subnet_insert",
 		"trg_log_subnet_update",
 
-		"trg_log_relation_application_setting_delete",
-		"trg_log_relation_application_setting_insert",
-		"trg_log_relation_application_setting_update",
+		"trg_log_relation_application_settings_hash_delete",
+		"trg_log_relation_application_settings_hash_insert",
+		"trg_log_relation_application_settings_hash_update",
+
+		"trg_log_relation_unit_settings_hash_delete",
+		"trg_log_relation_unit_settings_hash_insert",
+		"trg_log_relation_unit_settings_hash_update",
 
 		"trg_log_relation_delete",
 		"trg_log_relation_insert",
@@ -499,6 +503,10 @@ func (s *modelSchemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_relation_status_delete",
 		"trg_log_relation_status_insert",
 		"trg_log_relation_status_update",
+
+		"trg_log_relation_unit_delete",
+		"trg_log_relation_unit_insert",
+		"trg_log_relation_unit_update",
 
 		"trg_log_unit_delete",
 		"trg_log_unit_insert",
