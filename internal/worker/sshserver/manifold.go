@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/api/base"
 	sshserverapi "github.com/juju/juju/api/controller/sshserver"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/internal/jwtparser"
@@ -38,6 +39,7 @@ type FacadeClient interface {
 	SSHServerHostKey() (string, error)
 	VirtualHostKey(arg params.SSHVirtualHostKeyRequestArg) ([]byte, error)
 	ListPublicKeysForModel(sshPKIAuthArgs params.ListAuthorizedKeysArgs) ([]gossh.PublicKey, error)
+	ResolveK8sExecInfo(arg params.SSHK8sExecArg) (params.SSHK8sExecResult, error)
 }
 
 // ManifoldConfig holds the information necessary to run an embedded SSH server
@@ -150,13 +152,17 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
 		return nil, errors.Trace(err)
 	}
+	handlers, err := newHandlers(client, config.Logger, &stubConnector{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	w, err := config.NewServerWrapperWorker(ServerWrapperWorkerConfig{
 		NewServerWorker:      config.NewServerWorker,
 		Logger:               config.Logger,
 		FacadeClient:         client,
 		NewSSHServerListener: config.NewSSHServerListener,
-		ProxyHandlers:        &stubProxyHandlers{},
+		ProxyHandlers:        handlers,
 		JWTParser:            jwtParser,
 		TunnelTracker:        tunnelTracker,
 		metricsCollector:     metricsCollector,
@@ -174,4 +180,10 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 // NewSSHServerListener returns a listener based on the given listener.
 func NewSSHServerListener(l net.Listener, t time.Duration) net.Listener {
 	return l
+}
+
+type stubConnector struct{}
+
+func (c *stubConnector) Connect(destination virtualhostname.Info) (*gossh.Client, error) {
+	return nil, nil
 }

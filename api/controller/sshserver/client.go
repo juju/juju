@@ -101,5 +101,4 @@ func (c *Client) ResolveK8sExecInfo(arg params.SSHK8sExecArg) (params.SSHK8sExec
 		return result, err
 	}
 	return result, nil
-
 }

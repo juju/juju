@@ -124,6 +124,45 @@ func (c *MockFacadeClientListPublicKeysForModelCall) DoAndReturn(f func(params.L
 	return c
 }
 
+// ResolveK8sExecInfo mocks base method.
+func (m *MockFacadeClient) ResolveK8sExecInfo(arg0 params.SSHK8sExecArg) (params.SSHK8sExecResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveK8sExecInfo", arg0)
+	ret0, _ := ret[0].(params.SSHK8sExecResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResolveK8sExecInfo indicates an expected call of ResolveK8sExecInfo.
+func (mr *MockFacadeClientMockRecorder) ResolveK8sExecInfo(arg0 any) *MockFacadeClientResolveK8sExecInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveK8sExecInfo", reflect.TypeOf((*MockFacadeClient)(nil).ResolveK8sExecInfo), arg0)
+	return &MockFacadeClientResolveK8sExecInfoCall{Call: call}
+}
+
+// MockFacadeClientResolveK8sExecInfoCall wrap *gomock.Call
+type MockFacadeClientResolveK8sExecInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockFacadeClientResolveK8sExecInfoCall) Return(arg0 params.SSHK8sExecResult, arg1 error) *MockFacadeClientResolveK8sExecInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockFacadeClientResolveK8sExecInfoCall) Do(f func(params.SSHK8sExecArg) (params.SSHK8sExecResult, error)) *MockFacadeClientResolveK8sExecInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockFacadeClientResolveK8sExecInfoCall) DoAndReturn(f func(params.SSHK8sExecArg) (params.SSHK8sExecResult, error)) *MockFacadeClientResolveK8sExecInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SSHServerHostKey mocks base method.
 func (m *MockFacadeClient) SSHServerHostKey() (string, error) {
 	m.ctrl.T.Helper()
@@ -365,9 +404,11 @@ func (c *MockProxyHandlersDirectTCPIPHandlerCall) DoAndReturn(f func(connectionD
 }
 
 // SessionHandler mocks base method.
-func (m *MockProxyHandlers) SessionHandler(arg0 ssh.Session, arg1 connectionDetails) {
+func (m *MockProxyHandlers) SessionHandler(arg0 ssh.Session, arg1 connectionDetails) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SessionHandler", arg0, arg1)
+	ret := m.ctrl.Call(m, "SessionHandler", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // SessionHandler indicates an expected call of SessionHandler.
@@ -383,19 +424,19 @@ type MockProxyHandlersSessionHandlerCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockProxyHandlersSessionHandlerCall) Return() *MockProxyHandlersSessionHandlerCall {
-	c.Call = c.Call.Return()
+func (c *MockProxyHandlersSessionHandlerCall) Return(arg0 error) *MockProxyHandlersSessionHandlerCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockProxyHandlersSessionHandlerCall) Do(f func(ssh.Session, connectionDetails)) *MockProxyHandlersSessionHandlerCall {
+func (c *MockProxyHandlersSessionHandlerCall) Do(f func(ssh.Session, connectionDetails) error) *MockProxyHandlersSessionHandlerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockProxyHandlersSessionHandlerCall) DoAndReturn(f func(ssh.Session, connectionDetails)) *MockProxyHandlersSessionHandlerCall {
+func (c *MockProxyHandlersSessionHandlerCall) DoAndReturn(f func(ssh.Session, connectionDetails) error) *MockProxyHandlersSessionHandlerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
