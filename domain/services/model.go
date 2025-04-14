@@ -140,7 +140,7 @@ func NewModelServices(
 	}
 }
 
-// AgentBinaryStore returns the models [agentbinaryservice.AgentBinaryStore]
+// AgentBinaryStore returns the model's [agentbinaryservice.AgentBinaryStore]
 // for the current model.
 func (s *ModelServices) AgentBinaryStore() *agentbinaryservice.AgentBinaryStore {
 	return agentbinaryservice.NewAgentBinaryStore(
@@ -150,7 +150,7 @@ func (s *ModelServices) AgentBinaryStore() *agentbinaryservice.AgentBinaryStore 
 	)
 }
 
-// AgentBinary returns the models [agentbinaryservice.AgentBinaryService].
+// AgentBinary returns the model's [agentbinaryservice.AgentBinaryService].
 func (s *ModelServices) AgentBinary() *agentbinaryservice.AgentBinaryService {
 	return agentbinaryservice.NewAgentBinaryService(
 		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
