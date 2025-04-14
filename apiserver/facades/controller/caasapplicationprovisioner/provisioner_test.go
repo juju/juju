@@ -24,6 +24,7 @@ import (
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
 	jujuresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
@@ -180,6 +181,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	s.applicationService.EXPECT().GetApplicationScale(gomock.Any(), "gitlab").Return(3, nil)
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), "gitlab").Return(coreapplication.ID("deadbeef"), nil)
 	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), coreapplication.ID("deadbeef")).Return(constraints.Value{}, nil)
+	s.applicationService.EXPECT().GetDeviceConstraints(gomock.Any(), "gitlab").Return(map[string]devices.Constraints{}, nil)
 
 	result, err := s.api.ProvisioningInfo(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)

@@ -499,7 +499,7 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 		return nil, errors.Trace(err)
 	}
 
-	devices, err := a.devicesParams(app)
+	devices, err := a.devicesParams(ctx, appName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -849,8 +849,8 @@ func filesystemParams(
 	return fsParams, nil
 }
 
-func (a *API) devicesParams(app Application) ([]params.KubernetesDeviceParams, error) {
-	devices, err := app.DeviceConstraints()
+func (a *API) devicesParams(ctx context.Context, appName string) ([]params.KubernetesDeviceParams, error) {
+	devices, err := a.applicationService.GetDeviceConstraints(ctx, appName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -859,7 +859,7 @@ func (a *API) devicesParams(app Application) ([]params.KubernetesDeviceParams, e
 	for _, d := range devices {
 		devicesParams = append(devicesParams, params.KubernetesDeviceParams{
 			Type:       params.DeviceType(d.Type),
-			Count:      d.Count,
+			Count:      int64(d.Count),
 			Attributes: d.Attributes,
 		})
 	}

@@ -348,7 +348,6 @@ func allCollections() CollectionSchema {
 				Key: []string{"model-uuid"},
 			}},
 		},
-		deviceConstraintsC: {},
 		statusesC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "_id"},
@@ -418,7 +417,6 @@ const (
 	statusesC                = "statuses"
 	storageAttachmentsC      = "storageattachments"
 	storageConstraintsC      = "storageconstraints"
-	deviceConstraintsC       = "deviceConstraints"
 	storageInstancesC        = "storageinstances"
 	linkLayerDevicesC        = "linklayerdevices"
 	ipAddressesC             = "ip.addresses"
