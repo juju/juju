@@ -1540,34 +1540,86 @@ func (st *State) SetRelationApplicationSettings(
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Get the relation endpoint UUID.
-		endpointUUID, err := st.getRelationEndpointUUID(ctx, tx, relationUUID, applicationID)
+		return st.setRelationApplicationSettings(ctx, tx, relationUUID, applicationID, settings)
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+func (st *State) setRelationApplicationSettings(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relationUUID corerelation.UUID,
+	applicationID application.ID,
+	settings map[string]string,
+) error {
+	// Get the relation endpoint UUID.
+	endpointUUID, err := st.getRelationEndpointUUID(ctx, tx, relationUUID, applicationID)
+	if err != nil {
+		return errors.Errorf("getting relation endpoint uuid: %w", err)
+	}
+
+	// Update the application settings specified in the settings argument.
+	err = st.updateApplicationSettings(ctx, tx, endpointUUID, settings)
+	if err != nil {
+		return errors.Errorf("updating relation application settings: %w", err)
+	}
+
+	// Fetch all the new settings in the relation for this application.
+	newSettings, err := st.getApplicationSettings(ctx, tx, endpointUUID)
+	if err != nil {
+		return errors.Errorf("getting new relation application settings: %w", err)
+	}
+
+	// Hash the new settings.
+	hash, err := hashSettings(newSettings)
+	if err != nil {
+		return errors.Errorf("generating hash of relation application settings: %w", err)
+	}
+
+	// Update the hash in the database.
+	err = st.updateApplicationSettingsHash(ctx, tx, endpointUUID, hash)
+	if err != nil {
+		return errors.Errorf("updating relation application settings hash: %w", err)
+	}
+
+	return nil
+
+}
+
+// SetRelationApplicationAndUnitSettings records settings for a unit and
+// an application in a relation.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationUnitNotFound] is returned if the
+//     relation unit is not found.
+func (st *State) SetRelationApplicationAndUnitSettings(
+	ctx context.Context,
+	relationUnitUUID corerelation.UnitUUID,
+	applicationSettings, unitSettings map[string]string,
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.setRelationUnitSettings(ctx, tx, relationUnitUUID, unitSettings)
 		if err != nil {
-			return errors.Errorf("getting relation endpoint uuid: %w", err)
+			return errors.Errorf("setting relation unit settings: %w", err)
 		}
 
-		// Update the application settings specified in the settings argument.
-		err = st.updateApplicationSettings(ctx, tx, endpointUUID, settings)
+		relationUUID, applicationUUID, err := st.getRelationAndApplicationOfRelationUnit(ctx, tx, relationUnitUUID)
 		if err != nil {
-			return errors.Errorf("updating relation application settings: %w", err)
+			return errors.Capture(err)
 		}
 
-		// Fetch all the new settings in the relation for this application.
-		newSettings, err := st.getApplicationSettings(ctx, tx, endpointUUID)
+		err = st.setRelationApplicationSettings(ctx, tx, relationUUID, applicationUUID, applicationSettings)
 		if err != nil {
-			return errors.Errorf("getting new relation application settings: %w", err)
-		}
-
-		// Hash the new settings.
-		hash, err := hashSettings(newSettings)
-		if err != nil {
-			return errors.Errorf("generating hash of relation application settings: %w", err)
-		}
-
-		// Update the hash in the database.
-		err = st.updateApplicationSettingsHash(ctx, tx, endpointUUID, hash)
-		if err != nil {
-			return errors.Errorf("updating relation application settings hash: %w", err)
+			return errors.Errorf("setting relation unit settings: %w", err)
 		}
 
 		return nil
@@ -1637,42 +1689,52 @@ func (st *State) SetRelationUnitSettings(
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Get the relation endpoint UUID.
-		exists, err := st.checkExistsByUUID(ctx, tx, "relation_unit", relationUnitUUID.String())
-		if err != nil {
-			return errors.Errorf("checking relation unit exists: %w", err)
-		} else if !exists {
-			return relationerrors.RelationUnitNotFound
-		}
-
-		// Update the unit settings specified in the settings argument.
-		err = st.updateUnitSettings(ctx, tx, relationUnitUUID, settings)
-		if err != nil {
-			return errors.Errorf("updating relation unit settings: %w", err)
-		}
-
-		// Fetch all the new settings in the relation for this unit.
-		newSettings, err := st.getRelationUnitSettings(ctx, tx, relationUnitUUID)
-		if err != nil {
-			return errors.Errorf("getting new relation unit settings: %w", err)
-		}
-
-		// Hash the new settings.
-		hash, err := hashSettings(newSettings)
-		if err != nil {
-			return errors.Errorf("generating hash of relation unit settings: %w", err)
-		}
-
-		// Update the hash in the database.
-		err = st.updateUnitSettingsHash(ctx, tx, relationUnitUUID, hash)
-		if err != nil {
-			return errors.Errorf("updating relation unit settings hash: %w", err)
-		}
-
-		return nil
+		return st.setRelationUnitSettings(ctx, tx, relationUnitUUID, settings)
 	})
 	if err != nil {
 		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+func (st *State) setRelationUnitSettings(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relationUnitUUID corerelation.UnitUUID,
+	settings map[string]string,
+) error {
+
+	// Get the relation endpoint UUID.
+	exists, err := st.checkExistsByUUID(ctx, tx, "relation_unit", relationUnitUUID.String())
+	if err != nil {
+		return errors.Errorf("checking relation unit exists: %w", err)
+	} else if !exists {
+		return relationerrors.RelationUnitNotFound
+	}
+
+	// Update the unit settings specified in the settings argument.
+	err = st.updateUnitSettings(ctx, tx, relationUnitUUID, settings)
+	if err != nil {
+		return errors.Errorf("updating relation unit settings: %w", err)
+	}
+
+	// Fetch all the new settings in the relation for this unit.
+	newSettings, err := st.getRelationUnitSettings(ctx, tx, relationUnitUUID)
+	if err != nil {
+		return errors.Errorf("getting new relation unit settings: %w", err)
+	}
+
+	// Hash the new settings.
+	hash, err := hashSettings(newSettings)
+	if err != nil {
+		return errors.Errorf("generating hash of relation unit settings: %w", err)
+	}
+
+	// Update the hash in the database.
+	err = st.updateUnitSettingsHash(ctx, tx, relationUnitUUID, hash)
+	if err != nil {
+		return errors.Errorf("updating relation unit settings hash: %w", err)
 	}
 
 	return nil
@@ -2605,4 +2667,32 @@ WHERE  u.uuid = $getPrincipal.unit_uuid
 	}
 
 	return getApplication.ApplicationUUID, nil
+}
+
+func (st *State) getRelationAndApplicationOfRelationUnit(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relationUnitUUID corerelation.UnitUUID,
+) (corerelation.UUID, application.ID, error) {
+	args := getUnitRelAndApp{
+		RelationUnitUUID: relationUnitUUID,
+	}
+	stmt, err := st.Prepare(`
+SELECT (re.relation_uuid, ae.application_uuid) AS (&getUnitRelAndApp.*)
+FROM   relation_unit ru
+JOIN   relation_endpoint re ON re.uuid = ru.relation_endpoint_uuid
+JOIN   application_endpoint ae ON ae.uuid = re.endpoint_uuid
+WHERE  ru.uuid = $getUnitRelAndApp.uuid
+`, args)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt, args).Get(&args)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", "", relationerrors.UnitNotFound
+	} else if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	return args.RelationUUID, args.ApplicationUUID, nil
 }

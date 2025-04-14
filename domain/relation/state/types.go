@@ -89,6 +89,12 @@ type getUnitApp struct {
 	UnitUUID        unit.UUID      `db:"uuid"`
 }
 
+type getUnitRelAndApp struct {
+	ApplicationUUID  application.ID        `db:"application_uuid"`
+	RelationUnitUUID corerelation.UnitUUID `db:"uuid"`
+	RelationUUID     corerelation.UUID     `db:"relation_uuid"`
+}
+
 type getScope struct {
 	Scope charm.RelationScope `db:"scope"`
 }
