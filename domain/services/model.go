@@ -150,6 +150,14 @@ func (s *ModelServices) AgentBinaryStore() *agentbinaryservice.AgentBinaryStore 
 	)
 }
 
+// AgentBinary returns the models [agentbinaryservice.AgentBinaryService].
+func (s *ModelServices) AgentBinary() *agentbinaryservice.AgentBinaryService {
+	return agentbinaryservice.NewAgentBinaryService(
+		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+	)
+}
+
 // AgentProvisioner returns the agent provisioner service.
 func (s *ModelServices) AgentProvisioner() *agentprovisionerservice.Service {
 	return agentprovisionerservice.NewService(
