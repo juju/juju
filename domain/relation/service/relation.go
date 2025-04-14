@@ -182,6 +182,14 @@ type State interface {
 		unitName unit.Name,
 	) (corerelation.UnitUUID, error)
 
+	// GetRelationUnitSettings returns the relation unit settings for the given
+	// relation unit.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationUnitNotFound] is returned if the
+	//     unit is not part of the relation.
+	GetRelationUnitSettings(ctx context.Context, relationUnitUUID corerelation.UnitUUID) (map[string]string, error)
+
 	// InitialWatchLifeSuspendedStatus returns the two tables to watch for
 	// a relation's Life and Suspended status when the relation contains
 	// the provided application and the initial namespace query.
@@ -206,6 +214,17 @@ type State interface {
 		ctx context.Context,
 		relationUUID corerelation.UUID,
 		applicationID application.ID,
+		settings map[string]string,
+	) error
+
+	// SetRelationUnitSettings records settings for a specific relation unit.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationUnitNotFound] is returned if the unit is not
+	//     part of the relation.
+	SetRelationUnitSettings(
+		ctx context.Context,
+		relationUnitUUID corerelation.UnitUUID,
 		settings map[string]string,
 	) error
 
@@ -617,13 +636,22 @@ func (s *Service) GetRelationUnitEndpointName(
 	return s.st.GetRelationUnitEndpointName(ctx, relationUnitUUID)
 }
 
-// GetRelationUnitSettings returns the unit settings for the
-// given unit and relation identifier combination.
+// GetRelationUnitSettings returns the relation unit settings for the given
+// relation unit.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationUnitNotFound] is returned if the
+//     unit is not part of the relation.
 func (s *Service) GetRelationUnitSettings(
 	ctx context.Context,
 	relationUnitUUID corerelation.UnitUUID,
 ) (map[string]string, error) {
-	return nil, coreerrors.NotImplemented
+	if err := relationUnitUUID.Validate(); err != nil {
+		return nil, errors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+
+	return s.st.GetRelationUnitSettings(ctx, relationUnitUUID)
 }
 
 // GetRelationUUIDByID returns the relation UUID based on the relation ID.
@@ -740,10 +768,23 @@ func (s *Service) SetRelationSuspended(
 
 // SetRelationUnitSettings records settings for a specific unit
 // relation combination.
+//
+// If settings is not empty, the following error types can be expected to be
+// returned:
+//   - [relationerrors.RelationUnitNotFound] is returned if the unit is not
+//     part of the relation.
 func (s *Service) SetRelationUnitSettings(
 	ctx context.Context,
 	relationUnitUUID corerelation.UnitUUID,
 	settings map[string]string,
 ) error {
-	return coreerrors.NotImplemented
+	if len(settings) == 0 {
+		return nil
+	}
+
+	if err := relationUnitUUID.Validate(); err != nil {
+		return errors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+	return s.st.SetRelationUnitSettings(ctx, relationUnitUUID, settings)
 }
