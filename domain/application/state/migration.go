@@ -51,6 +51,15 @@ func (st *State) GetApplicationsForExport(ctx context.Context) ([]application.Ex
 		} else if err != nil {
 			return errors.Errorf("getting applications for export: %w", err)
 		}
+
+		for i := range apps {
+			bindings, err := st.getEndpointBindings(ctx, tx, apps[i].UUID)
+			if err != nil {
+				return errors.Errorf("getting endpoing bindings")
+			}
+			apps[i].EndpointBindings = bindings
+		}
+
 		return nil
 	}); err != nil {
 		return nil, err
@@ -89,6 +98,7 @@ func (st *State) GetApplicationsForExport(ctx context.Context) ([]application.Ex
 				Architecture: locator.Architecture,
 			},
 			K8sServiceProviderID: providerID,
+			EndpointBindings:     app.EndpointBindings,
 		}
 	}
 	return exportApps, nil

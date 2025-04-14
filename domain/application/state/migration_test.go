@@ -16,6 +16,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/life"
@@ -51,6 +52,11 @@ func (s *migrationStateSuite) TestGetApplicationsForExport(c *gc.C) {
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
+			EndpointBindings: map[string]string{
+				"":         network.AlphaSpaceId,
+				"endpoint": "",
+				"misc":     "",
+			},
 		},
 	})
 }
@@ -78,6 +84,11 @@ func (s *migrationStateSuite) TestGetApplicationsForExportMany(c *gc.C) {
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
+			EndpointBindings: map[string]string{
+				"":         network.AlphaSpaceId,
+				"endpoint": "",
+				"misc":     "",
+			},
 		})
 	}
 
@@ -115,6 +126,11 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *gc.C) {
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
+			EndpointBindings: map[string]string{
+				"":         network.AlphaSpaceId,
+				"endpoint": "",
+				"misc":     "",
+			},
 		},
 		{
 			UUID:      id1,
@@ -128,6 +144,11 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *gc.C) {
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
+			EndpointBindings: map[string]string{
+				"":         network.AlphaSpaceId,
+				"endpoint": "",
+				"misc":     "",
+			},
 		},
 	}
 

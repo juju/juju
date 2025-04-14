@@ -1097,6 +1097,7 @@ type exportApplication struct {
 	CharmRevision        int                `db:"revision"`
 	CharmArchitectureID  sql.NullInt64      `db:"architecture_id"`
 	K8sServiceProviderID sql.NullString     `db:"k8s_provider_id"`
+	EndpointBindings     map[string]string
 }
 
 // peerEndpoint represents a structure for defining a peer application endpoint
