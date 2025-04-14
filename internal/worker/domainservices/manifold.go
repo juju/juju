@@ -51,9 +51,6 @@ type DomainServicesGetterFn func(
 	changestream.WatchableDBGetter,
 	ModelDomainServicesFn,
 	providertracker.ProviderFactory,
-	// controller object store.
-	objectstore.ModelObjectStoreGetter,
-	// model object store.
 	objectstore.ObjectStoreGetter,
 	storage.StorageRegistryGetter,
 	domainservices.PublicKeyImporter,
@@ -77,9 +74,6 @@ type ModelDomainServicesFn func(
 	coremodel.UUID,
 	changestream.WatchableDBGetter,
 	providertracker.ProviderFactory,
-	// controller object store.
-	objectstore.ModelObjectStoreGetter,
-	// model object store.
 	objectstore.ModelObjectStoreGetter,
 	storage.ModelStorageRegistryGetter,
 	domainservices.PublicKeyImporter,
@@ -248,14 +242,14 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 func NewControllerDomainServices(
 	dbGetter changestream.WatchableDBGetter,
 	dbDeleter coredatabase.DBDeleter,
-	objectStoreGetter objectstore.ModelObjectStoreGetter,
+	controllerObjectStoreGetter objectstore.ModelObjectStoreGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ControllerDomainServices {
 	return domainservices.NewControllerServices(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		dbDeleter,
-		objectStoreGetter,
+		controllerObjectStoreGetter,
 		clock,
 		logger,
 	)
@@ -267,7 +261,6 @@ func NewProviderTrackerModelDomainServices(
 	modelUUID coremodel.UUID,
 	dbGetter changestream.WatchableDBGetter,
 	providerFactory providertracker.ProviderFactory,
-	controllerObjectStore objectstore.ModelObjectStoreGetter,
 	modelObjectStore objectstore.ModelObjectStoreGetter,
 	storageRegistry storage.ModelStorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
@@ -280,7 +273,6 @@ func NewProviderTrackerModelDomainServices(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		providerFactory,
-		controllerObjectStore,
 		modelObjectStore,
 		storageRegistry,
 		publicKeyImporter,
@@ -296,8 +288,7 @@ func NewDomainServicesGetter(
 	dbGetter changestream.WatchableDBGetter,
 	newModelDomainServices ModelDomainServicesFn,
 	providerFactory providertracker.ProviderFactory,
-	controllerObjectStoreGetter objectstore.ModelObjectStoreGetter,
-	modelObjectStoreGetter objectstore.ObjectStoreGetter,
+	objectStoreGetter objectstore.ObjectStoreGetter,
 	storageRegistryGetter storage.StorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
 	leaseManager lease.Manager,
@@ -305,17 +296,16 @@ func NewDomainServicesGetter(
 	loggerContextGetter logger.LoggerContextGetter,
 ) services.DomainServicesGetter {
 	return &domainServicesGetter{
-		ctrlFactory:                 ctrlFactory,
-		dbGetter:                    dbGetter,
-		newModelDomainServices:      newModelDomainServices,
-		providerFactory:             providerFactory,
-		controllerObjectStoreGetter: controllerObjectStoreGetter,
-		modelObjectStoreGetter:      modelObjectStoreGetter,
-		storageRegistryGetter:       storageRegistryGetter,
-		publicKeyImporter:           publicKeyImporter,
-		leaseManager:                leaseManager,
-		clock:                       clock,
-		loggerContextGetter:         loggerContextGetter,
+		ctrlFactory:            ctrlFactory,
+		dbGetter:               dbGetter,
+		newModelDomainServices: newModelDomainServices,
+		providerFactory:        providerFactory,
+		objectStoreGetter:      objectStoreGetter,
+		storageRegistryGetter:  storageRegistryGetter,
+		publicKeyImporter:      publicKeyImporter,
+		leaseManager:           leaseManager,
+		clock:                  clock,
+		loggerContextGetter:    loggerContextGetter,
 	}
 }
 

@@ -134,7 +134,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 			config.DBGetter,
 			config.NewModelDomainServices,
 			config.ProviderFactory,
-			controllerObjectStoreGetter,
 			config.ObjectStoreGetter,
 			config.StorageRegistryGetter,
 			config.PublicKeyImporter,
@@ -195,17 +194,16 @@ type domainServices struct {
 // for a model using the given model uuid. This is late binding, so the model
 // domain services is created on demand.
 type domainServicesGetter struct {
-	ctrlFactory                 services.ControllerDomainServices
-	dbGetter                    changestream.WatchableDBGetter
-	newModelDomainServices      ModelDomainServicesFn
-	providerFactory             providertracker.ProviderFactory
-	controllerObjectStoreGetter objectstore.ModelObjectStoreGetter
-	modelObjectStoreGetter      objectstore.ObjectStoreGetter
-	storageRegistryGetter       storage.StorageRegistryGetter
-	publicKeyImporter           domainservices.PublicKeyImporter
-	leaseManager                lease.Manager
-	clock                       clock.Clock
-	loggerContextGetter         logger.LoggerContextGetter
+	ctrlFactory            services.ControllerDomainServices
+	dbGetter               changestream.WatchableDBGetter
+	newModelDomainServices ModelDomainServicesFn
+	providerFactory        providertracker.ProviderFactory
+	objectStoreGetter      objectstore.ObjectStoreGetter
+	storageRegistryGetter  storage.StorageRegistryGetter
+	publicKeyImporter      domainservices.PublicKeyImporter
+	leaseManager           lease.Manager
+	clock                  clock.Clock
+	loggerContextGetter    logger.LoggerContextGetter
 }
 
 // ServicesForModel returns the domain services for the given model uuid.
@@ -221,10 +219,9 @@ func (s *domainServicesGetter) ServicesForModel(ctx context.Context, modelUUID c
 		ModelDomainServices: s.newModelDomainServices(
 			modelUUID, s.dbGetter,
 			s.providerFactory,
-			s.controllerObjectStoreGetter,
 			modelObjectStoreGetter{
 				modelUUID:         modelUUID,
-				objectStoreGetter: s.modelObjectStoreGetter,
+				objectStoreGetter: s.objectStoreGetter,
 			},
 			modelStorageRegistryGetter{
 				modelUUID:             modelUUID,
