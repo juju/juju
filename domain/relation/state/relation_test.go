@@ -761,9 +761,7 @@ var _ = gc.Suite(&relationSuite{})
 func (s *relationSuite) SetUpTest(c *gc.C) {
 	s.baseRelationSuite.SetUpTest(c)
 
-	s.fakeApplicationUUID1 = coreapplicationtesting.GenApplicationUUID(c)
 	s.fakeApplicationName1 = "fake-application-1"
-	s.fakeApplicationUUID2 = coreapplicationtesting.GenApplicationUUID(c)
 	s.fakeApplicationName2 = "fake-application-2"
 
 	// Populate DB with one application and charm.
@@ -3049,6 +3047,155 @@ func (s *relationSuite) TestSetRelationApplicationAndUnitSettingsRelationUnitNot
 
 	// Assert:
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUnitNotFound)
+}
+
+// TestApplicationRelationsInfo tests getting ApplicationRelationsInfo for
+// an application related to 2 other applications.
+func (s *relationSuite) TestApplicationRelationsInfo(c *gc.C) {
+	// Arrange: add application endpoints for the 2 default applications.
+	appEndpoint1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, s.fakeCharmRelationProvidesUUID)
+	charm2RelationUUID := s.addCharmRelationWithDefaults(c, s.fakeCharmUUID2)
+	appEndpoint2 := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charm2RelationUUID)
+
+	// Add a third application with 2 units, this is the one tested.
+	charm3 := s.addCharm(c)
+	app3 := s.addApplication(c, charm3, "three")
+	charm3RelationUUID := s.addCharmRelation(c, charm3, charm.Relation{
+		Name:  "relation",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	})
+	appEndpoint3 := s.addApplicationEndpoint(c, app3, charm3RelationUUID)
+	unit1 := s.addUnit(c, "three/0", app3, charm3)
+	unit2 := s.addUnit(c, "three/1", app3, charm3)
+
+	// Relate applications 1 and 3. Both of application 3's units
+	// are in scope and have settings.
+	relID1 := 3
+	relUUID1 := s.addRelationWithID(c, relID1)
+	_ = s.addRelationEndpoint(c, relUUID1, appEndpoint1)
+	relEndpoint13 := s.addRelationEndpoint(c, relUUID1, appEndpoint3)
+	rel1unit1 := s.addRelationUnit(c, unit1, relEndpoint13)
+	rel1unit2 := s.addRelationUnit(c, unit2, relEndpoint13)
+	s.addRelationUnitSetting(c, rel1unit1, "foo", "bar")
+	s.addRelationUnitSetting(c, rel1unit2, "foo", "baz")
+	rel13Data := relation.EndpointRelationData{
+		RelationID:      3,
+		Endpoint:        "relation",
+		RelatedEndpoint: "fake-provides",
+		ApplicationData: map[string]interface{}{},
+		UnitRelationData: map[string]relation.RelationData{
+			"three/0": {
+				InScope:  true,
+				UnitData: map[string]interface{}{"foo": "bar"},
+			},
+			"three/1": {
+				InScope:  true,
+				UnitData: map[string]interface{}{"foo": "baz"},
+			},
+		},
+	}
+
+	// Relate applications 2 and 3. Application 3 has settings.
+	relID2 := 4
+	relUUID2 := s.addRelationWithID(c, relID2)
+	_ = s.addRelationEndpoint(c, relUUID2, appEndpoint2)
+	relEndpoint23 := s.addRelationEndpoint(c, relUUID2, appEndpoint3)
+	s.addRelationApplicationSetting(c, relEndpoint23, "one", "two")
+	rel23Data := relation.EndpointRelationData{
+		RelationID:      4,
+		Endpoint:        "relation",
+		RelatedEndpoint: "fake-provides",
+		ApplicationData: map[string]interface{}{"one": "two"},
+		UnitRelationData: map[string]relation.RelationData{
+			"three/0": {InScope: false},
+			"three/1": {InScope: false},
+		},
+	}
+
+	expectedData := []relation.EndpointRelationData{
+		rel13Data,
+		rel23Data,
+	}
+
+	// Act:
+	results, err := s.state.ApplicationRelationsInfo(context.Background(), app3)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.HasLen, 2)
+	c.Assert(results, jc.SameContents, expectedData)
+}
+
+// TestApplicationRelationsInfo tests getting ApplicationRelationsInfo for
+// an application with a peer relation.
+func (s *relationSuite) TestApplicationRelationsInfoPeerRelation(c *gc.C) {
+	// Arrange: add a third application with 2 units, this is the one tested.
+	charm3 := s.addCharm(c)
+	app3 := s.addApplication(c, charm3, "three")
+	charm3RelationUUID := s.addCharmRelation(c, charm3, charm.Relation{
+		Name:  "peer-relation",
+		Role:  charm.RolePeer,
+		Scope: charm.ScopeGlobal,
+	})
+	appEndpoint3 := s.addApplicationEndpoint(c, app3, charm3RelationUUID)
+	unit1 := s.addUnit(c, "three/0", app3, charm3)
+	unit2 := s.addUnit(c, "three/1", app3, charm3)
+
+	// Relate applications 1 and 3. Both of application 3's units
+	// are in scope and have settings.
+	relID3 := 3
+	relUUID3 := s.addRelationWithID(c, relID3)
+	relEndpoint3 := s.addRelationEndpoint(c, relUUID3, appEndpoint3)
+	_ = s.addRelationUnit(c, unit1, relEndpoint3)
+	rel1unit2 := s.addRelationUnit(c, unit2, relEndpoint3)
+	s.addRelationUnitSetting(c, rel1unit2, "foo", "baz")
+	rel3Data := relation.EndpointRelationData{
+		RelationID:      3,
+		Endpoint:        "peer-relation",
+		RelatedEndpoint: "peer-relation",
+		ApplicationData: map[string]interface{}{},
+		UnitRelationData: map[string]relation.RelationData{
+			"three/0": {
+				InScope:  true,
+				UnitData: map[string]interface{}{},
+			},
+			"three/1": {
+				InScope:  true,
+				UnitData: map[string]interface{}{"foo": "baz"},
+			},
+		},
+	}
+
+	expectedData := []relation.EndpointRelationData{
+		rel3Data,
+	}
+
+	// Act:
+	results, err := s.state.ApplicationRelationsInfo(context.Background(), app3)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.SameContents, expectedData)
+}
+
+func (s *relationSuite) TestApplicationRelationsInfoNoApp(c *gc.C) {
+	// Arrange:
+	appID := coreapplicationtesting.GenApplicationUUID(c)
+
+	// Act:
+	_, err := s.state.ApplicationRelationsInfo(context.Background(), appID)
+
+	// Assert: fail if the application does not exist.
+	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationNotFound)
+}
+
+func (s *relationSuite) TestApplicationRelationsInfoNoRelations(c *gc.C) {
+	// Act:
+	_, err := s.state.ApplicationRelationsInfo(context.Background(), s.fakeApplicationUUID1)
+
+	// Assert: do not fail if an application has no relations.
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // addRelationUnitSetting inserts a relation unit setting into the database

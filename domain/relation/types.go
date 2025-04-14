@@ -78,8 +78,8 @@ type EndpointRelationData struct {
 	// ApplicationData are the settings for the relation and current application,
 	// set by the leader unit.
 	ApplicationData map[string]interface{}
-	// UnitRelationData are the settings for the relation and current unit,
-	// set by an individual unit.
+	// UnitRelationData are the RelationData for the relation and current unit,
+	// set by an individual unit, keyed on the unit name.
 	UnitRelationData map[string]RelationData
 }
 

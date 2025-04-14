@@ -36,6 +36,15 @@ type relationIDAndUUID struct {
 	ID int `db:"relation_id"`
 }
 
+type relationIDUUIDAppName struct {
+	// UUID is the UUID of the relation.
+	UUID corerelation.UUID `db:"uuid"`
+	// ID is the numeric ID of the relation
+	ID int `db:"relation_id"`
+	// AppName is the name of the application
+	AppName string `db:"application_name"`
+}
+
 type relationUUIDAndRole struct {
 	// UUID is the unique identifier of the relation.
 	UUID string `db:"relation_uuid"`
@@ -60,7 +69,6 @@ type relationUnit struct {
 // getRelationUnitEndpointName allows to fetch a endpoint name from a relation
 // unit, through the view v_relation_unit_endpoint
 type getRelationUnitEndpointName struct {
-
 	// RelationUnitUUID represents the unique identifier for a relation unit.
 	RelationUnitUUID corerelation.UnitUUID `db:"relation_unit_uuid"`
 	// EndpointName represents the name of the endpoint associated
@@ -149,6 +157,7 @@ type unitSettingsHash struct {
 }
 
 type keys []string
+
 type relationUnitUUID struct {
 	RelationUnitUUID corerelation.UnitUUID `db:"uuid"`
 }
@@ -248,3 +257,5 @@ type watcherMapperData struct {
 	Life         string `db:"value"`
 	Suspended    string `db:"name"`
 }
+
+type uuids []string

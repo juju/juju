@@ -86,6 +86,45 @@ func (c *MockStateAddRelationCall) DoAndReturn(f func(context.Context, relation0
 	return c
 }
 
+// ApplicationRelationsInfo mocks base method.
+func (m *MockState) ApplicationRelationsInfo(arg0 context.Context, arg1 application.ID) ([]relation0.EndpointRelationData, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplicationRelationsInfo", arg0, arg1)
+	ret0, _ := ret[0].([]relation0.EndpointRelationData)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplicationRelationsInfo indicates an expected call of ApplicationRelationsInfo.
+func (mr *MockStateMockRecorder) ApplicationRelationsInfo(arg0, arg1 any) *MockStateApplicationRelationsInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationRelationsInfo", reflect.TypeOf((*MockState)(nil).ApplicationRelationsInfo), arg0, arg1)
+	return &MockStateApplicationRelationsInfoCall{Call: call}
+}
+
+// MockStateApplicationRelationsInfoCall wrap *gomock.Call
+type MockStateApplicationRelationsInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateApplicationRelationsInfoCall) Return(arg0 []relation0.EndpointRelationData, arg1 error) *MockStateApplicationRelationsInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateApplicationRelationsInfoCall) Do(f func(context.Context, application.ID) ([]relation0.EndpointRelationData, error)) *MockStateApplicationRelationsInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateApplicationRelationsInfoCall) DoAndReturn(f func(context.Context, application.ID) ([]relation0.EndpointRelationData, error)) *MockStateApplicationRelationsInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // EnterScope mocks base method.
 func (m *MockState) EnterScope(arg0 context.Context, arg1 relation.UUID, arg2 unit.Name, arg3 map[string]string) error {
 	m.ctrl.T.Helper()

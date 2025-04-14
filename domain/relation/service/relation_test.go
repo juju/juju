@@ -941,6 +941,34 @@ func (s *relationServiceSuite) TestSetRelationUnitSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *relationServiceSuite) TestApplicationRelationsInfo(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	applicationID := coreapplicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetApplicationEndpoints(gomock.Any(), applicationID).Return(nil, nil)
+
+	// Act:
+	_, err := s.service.GetApplicationEndpoints(context.Background(), applicationID)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *relationServiceSuite) TestApplicationRelationsInfoError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	applicationID := coreapplicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetApplicationEndpoints(gomock.Any(), applicationID).Return(nil, relationerrors.UnitNotFound)
+
+	// Act:
+	_, err := s.service.GetApplicationEndpoints(context.Background(), applicationID)
+
+	// Assert: service returned the error from state without translation.
+	c.Assert(err, jc.ErrorIs, relationerrors.UnitNotFound)
+}
+
 func (s *relationServiceSuite) TestSetRelationUnitSettingsEmpty(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -980,6 +1008,16 @@ func (s *relationServiceSuite) TestSetRelationUnitSettingsRelationUUIDNotValid(c
 
 	// Assert:
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
+}
+
+func (s *relationServiceSuite) TestApplicationRelationsInfoApplicationUUIDNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Act.
+	_, err := s.service.ApplicationRelationsInfo(context.Background(), "bad-uuid")
+
+	// Assert.
+	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationIDNotValid)
 }
 
 func (s *relationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
