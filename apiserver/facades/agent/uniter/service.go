@@ -311,25 +311,18 @@ type RelationService interface {
 	// LeaveScope updates the given relation to indicate it is not in scope.
 	LeaveScope(ctx context.Context, relationID corerelation.UnitUUID) error
 
-	// SetRelationApplicationSettings updates settings for a specific application
-	// relation combination.
+	// SetRelationApplicationAndUnitSettings records settings for a unit and
+	// an application in a relation.
 	//
 	// The following error types can be expected to be returned:
 	//   - [corelease.ErrNotHeld] if the unit is not the leader.
-	SetRelationApplicationSettings(
+	//   - [relationerrors.RelationUnitNotFound] is returned if the
+	//     relation unit is not found.
+	SetRelationApplicationAndUnitSettings(
 		ctx context.Context,
 		unitName coreunit.Name,
-		relationUUID corerelation.UUID,
-		applicationID coreapplication.ID,
-		settings map[string]string,
-	) error
-
-	// SetRelationUnitSettings updates settings for a specific unit
-	// relation combination.
-	SetRelationUnitSettings(
-		ctx context.Context,
 		relationUnitUUID corerelation.UnitUUID,
-		settings map[string]string,
+		applicationSettings, unitSettings map[string]string,
 	) error
 
 	// WatchLifeSuspendedStatus returns a watcher that notifies of changes to

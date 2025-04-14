@@ -1675,24 +1675,15 @@ func (u *UniterAPI) updateUnitAndApplicationSettings(ctx context.Context, arg pa
 	}
 	unitName := coreunit.Name(unitTag.Id())
 
-	appID, err := u.applicationService.GetApplicationIDByName(ctx, unitName.Application())
-	if err != nil {
-		return internalerrors.Capture(err)
-	}
-	err = u.relationService.SetRelationApplicationSettings(ctx, unitName, relUUID, appID, arg.ApplicationSettings)
-	if errors.Is(err, corelease.ErrNotHeld) {
-		return apiservererrors.ErrPerm
-	} else if err != nil {
-		return internalerrors.Capture(err)
-	}
-
 	relUnitUUID, err := u.relationService.GetRelationUnit(ctx, relUUID, unitName)
 	if err != nil {
 		return internalerrors.Capture(err)
 	}
 
-	err = u.relationService.SetRelationUnitSettings(ctx, relUnitUUID, arg.Settings)
-	if err != nil {
+	err = u.relationService.SetRelationApplicationAndUnitSettings(ctx, unitName, relUnitUUID, arg.ApplicationSettings, arg.Settings)
+	if errors.Is(err, corelease.ErrNotHeld) {
+		return apiservererrors.ErrPerm
+	} else if err != nil {
 		return internalerrors.Capture(err)
 	}
 
