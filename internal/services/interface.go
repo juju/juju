@@ -94,8 +94,10 @@ type ModelDomainServices interface {
 	Agent() *modelagentservice.WatchableService
 	// AgentProvisioner returns the agent provisioner service.
 	AgentProvisioner() *agentprovisionerservice.Service
-	// AgentBinaryStore returns the agent binary service.
-	AgentBinaryStore() *agentbinaryservice.AgentBinaryService
+	// AgentBinary returns the agent binary service for the model.
+	AgentBinary() *agentbinaryservice.AgentBinaryService
+	// AgentBinaryStore returns the agent binary store for the current model.
+	AgentBinaryStore() *agentbinaryservice.AgentBinaryStore
 	// Annotation returns the annotation service.
 	Annotation() *annotationService.Service
 	// Config returns the model config service.

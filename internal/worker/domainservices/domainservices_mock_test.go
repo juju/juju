@@ -712,11 +712,49 @@ func (c *MockModelDomainServicesAgentCall) DoAndReturn(f func() *service21.Watch
 	return c
 }
 
+// AgentBinary mocks base method.
+func (m *MockModelDomainServices) AgentBinary() *service0.AgentBinaryService {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AgentBinary")
+	ret0, _ := ret[0].(*service0.AgentBinaryService)
+	return ret0
+}
+
+// AgentBinary indicates an expected call of AgentBinary.
+func (mr *MockModelDomainServicesMockRecorder) AgentBinary() *MockModelDomainServicesAgentBinaryCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentBinary", reflect.TypeOf((*MockModelDomainServices)(nil).AgentBinary))
+	return &MockModelDomainServicesAgentBinaryCall{Call: call}
+}
+
+// MockModelDomainServicesAgentBinaryCall wrap *gomock.Call
+type MockModelDomainServicesAgentBinaryCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelDomainServicesAgentBinaryCall) Return(arg0 *service0.AgentBinaryService) *MockModelDomainServicesAgentBinaryCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelDomainServicesAgentBinaryCall) Do(f func() *service0.AgentBinaryService) *MockModelDomainServicesAgentBinaryCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelDomainServicesAgentBinaryCall) DoAndReturn(f func() *service0.AgentBinaryService) *MockModelDomainServicesAgentBinaryCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // AgentBinaryStore mocks base method.
-func (m *MockModelDomainServices) AgentBinaryStore() *service0.AgentBinaryService {
+func (m *MockModelDomainServices) AgentBinaryStore() *service0.AgentBinaryStore {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AgentBinaryStore")
-	ret0, _ := ret[0].(*service0.AgentBinaryService)
+	ret0, _ := ret[0].(*service0.AgentBinaryStore)
 	return ret0
 }
 
@@ -733,19 +771,19 @@ type MockModelDomainServicesAgentBinaryStoreCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelDomainServicesAgentBinaryStoreCall) Return(arg0 *service0.AgentBinaryService) *MockModelDomainServicesAgentBinaryStoreCall {
+func (c *MockModelDomainServicesAgentBinaryStoreCall) Return(arg0 *service0.AgentBinaryStore) *MockModelDomainServicesAgentBinaryStoreCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDomainServicesAgentBinaryStoreCall) Do(f func() *service0.AgentBinaryService) *MockModelDomainServicesAgentBinaryStoreCall {
+func (c *MockModelDomainServicesAgentBinaryStoreCall) Do(f func() *service0.AgentBinaryStore) *MockModelDomainServicesAgentBinaryStoreCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDomainServicesAgentBinaryStoreCall) DoAndReturn(f func() *service0.AgentBinaryService) *MockModelDomainServicesAgentBinaryStoreCall {
+func (c *MockModelDomainServicesAgentBinaryStoreCall) DoAndReturn(f func() *service0.AgentBinaryStore) *MockModelDomainServicesAgentBinaryStoreCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1875,11 +1913,49 @@ func (c *MockDomainServicesAgentCall) DoAndReturn(f func() *service21.WatchableS
 	return c
 }
 
+// AgentBinary mocks base method.
+func (m *MockDomainServices) AgentBinary() *service0.AgentBinaryService {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AgentBinary")
+	ret0, _ := ret[0].(*service0.AgentBinaryService)
+	return ret0
+}
+
+// AgentBinary indicates an expected call of AgentBinary.
+func (mr *MockDomainServicesMockRecorder) AgentBinary() *MockDomainServicesAgentBinaryCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentBinary", reflect.TypeOf((*MockDomainServices)(nil).AgentBinary))
+	return &MockDomainServicesAgentBinaryCall{Call: call}
+}
+
+// MockDomainServicesAgentBinaryCall wrap *gomock.Call
+type MockDomainServicesAgentBinaryCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockDomainServicesAgentBinaryCall) Return(arg0 *service0.AgentBinaryService) *MockDomainServicesAgentBinaryCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockDomainServicesAgentBinaryCall) Do(f func() *service0.AgentBinaryService) *MockDomainServicesAgentBinaryCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockDomainServicesAgentBinaryCall) DoAndReturn(f func() *service0.AgentBinaryService) *MockDomainServicesAgentBinaryCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // AgentBinaryStore mocks base method.
-func (m *MockDomainServices) AgentBinaryStore() *service0.AgentBinaryService {
+func (m *MockDomainServices) AgentBinaryStore() *service0.AgentBinaryStore {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AgentBinaryStore")
-	ret0, _ := ret[0].(*service0.AgentBinaryService)
+	ret0, _ := ret[0].(*service0.AgentBinaryStore)
 	return ret0
 }
 
@@ -1896,19 +1972,19 @@ type MockDomainServicesAgentBinaryStoreCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockDomainServicesAgentBinaryStoreCall) Return(arg0 *service0.AgentBinaryService) *MockDomainServicesAgentBinaryStoreCall {
+func (c *MockDomainServicesAgentBinaryStoreCall) Return(arg0 *service0.AgentBinaryStore) *MockDomainServicesAgentBinaryStoreCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDomainServicesAgentBinaryStoreCall) Do(f func() *service0.AgentBinaryService) *MockDomainServicesAgentBinaryStoreCall {
+func (c *MockDomainServicesAgentBinaryStoreCall) Do(f func() *service0.AgentBinaryStore) *MockDomainServicesAgentBinaryStoreCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDomainServicesAgentBinaryStoreCall) DoAndReturn(f func() *service0.AgentBinaryService) *MockDomainServicesAgentBinaryStoreCall {
+func (c *MockDomainServicesAgentBinaryStoreCall) DoAndReturn(f func() *service0.AgentBinaryStore) *MockDomainServicesAgentBinaryStoreCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
