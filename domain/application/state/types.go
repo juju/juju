@@ -161,6 +161,14 @@ type cloudService struct {
 	ProviderID      string             `db:"provider_id"`
 }
 
+type cloudServiceDevice struct {
+	UUID              string `db:"uuid"`
+	Name              string `db:"name"`
+	NetNodeID         string `db:"net_node_uuid"`
+	DeviceTypeID      int    `db:"device_type_id"`
+	VirtualPortTypeID int    `db:"virtual_port_type_id"`
+}
+
 type applicationCharmUUID struct {
 	CharmUUID corecharm.ID `db:"charm_uuid"`
 }

@@ -155,11 +155,20 @@ type CloudService struct {
 // ServiceAddress contains parameters for a cloud service address.
 // This may be from a load balancer, or cluster service etc.
 type ServiceAddress struct {
+	Device      CloudServiceDevice
 	Value       string
 	AddressType ipaddress.AddressType
 	Scope       ipaddress.Scope
 	Origin      ipaddress.Origin
 	ConfigType  ipaddress.ConfigType
+}
+
+// CloudServiceDevice is the placeholder link layer device
+// used to tie the cloud service IP address to the application.
+type CloudServiceDevice struct {
+	Name              string
+	DeviceTypeID      linklayerdevice.DeviceType
+	VirtualPortTypeID linklayerdevice.VirtualPortType
 }
 
 // Origin contains parameters for an application's origin.
