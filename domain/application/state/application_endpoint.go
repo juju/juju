@@ -290,3 +290,48 @@ WHERE uuid =  $setDefaultSpace.uuid`, app)
 	}
 	return tx.Query(ctx, updateDefaultSpaceStmt, app).Run()
 }
+
+// getEndpointBindings gets a map of endpoint names to space UUIDs.
+func (st *State) getEndpointBindings(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID) (map[string]string, error) {
+	// Get application endpoints.
+	id := applicationID{ID: appUUID}
+	endpointStmt, err := st.Prepare(`
+SELECT (ae.space_uuid, cr.name) AS (&getApplicationEndpoint.*)
+FROM   application_endpoint ae
+JOIN   charm_relation cr ON cr.uuid = ae.charm_relation_uuid
+WHERE  ae.application_uuid = $applicationID.uuid
+`, getApplicationEndpoint{}, id)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+	var dbEndpoints []getApplicationEndpoint
+	err = tx.Query(ctx, endpointStmt, id).GetAll(&dbEndpoints)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, internalerrors.Errorf("getting application endpoints: %w", err)
+	}
+
+	endpoints := make(map[string]string, len(dbEndpoints))
+	for _, e := range dbEndpoints {
+		endpoints[e.EndpointName] = e.SpaceUUID
+	}
+
+	// Get default endpoint for application.
+	defaultSpaceUUID := spaceUUID{}
+	defaultEndpointStmt, err := st.Prepare(`
+SELECT space_uuid AS &spaceUUID.uuid
+FROM   application 
+WHERE  uuid = $applicationID.uuid
+`, defaultSpaceUUID, id)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+	err = tx.Query(ctx, defaultEndpointStmt, id).Get(&defaultSpaceUUID)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, applicationerrors.ApplicationNotFound
+	} else if err != nil {
+		return nil, internalerrors.Errorf("getting application endpoints: %w", err)
+	}
+	endpoints[""] = defaultSpaceUUID.UUID
+
+	return endpoints, nil
+}

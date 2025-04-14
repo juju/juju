@@ -1188,3 +1188,8 @@ type machineParent struct {
 	ParentUUID  machine.UUID `db:"parent_uuid"`
 	MachineUUID machine.UUID `db:"machine_uuid"`
 }
+
+type getApplicationEndpoint struct {
+	SpaceUUID    string `db:"space_uuid"`
+	EndpointName string `db:"name"`
+}
