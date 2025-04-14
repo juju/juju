@@ -46,9 +46,9 @@ import (
 type ControllerServices struct {
 	serviceFactoryBase
 
-	dbDeleter   database.DBDeleter
-	clock       clock.Clock
-	objectstore objectstore.ModelObjectStoreGetter
+	dbDeleter             database.DBDeleter
+	clock                 clock.Clock
+	controllerObjectStore objectstore.ModelObjectStoreGetter
 }
 
 // NewControllerServices returns a new registry which uses the provided controllerDB
@@ -56,7 +56,7 @@ type ControllerServices struct {
 func NewControllerServices(
 	controllerDB changestream.WatchableDBFactory,
 	dbDeleter database.DBDeleter,
-	objectStore objectstore.ModelObjectStoreGetter,
+	controllerObjectStore objectstore.ModelObjectStoreGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *ControllerServices {
@@ -65,9 +65,9 @@ func NewControllerServices(
 			controllerDB: controllerDB,
 			logger:       logger,
 		},
-		dbDeleter:   dbDeleter,
-		clock:       clock,
-		objectstore: objectStore,
+		dbDeleter:             dbDeleter,
+		clock:                 clock,
+		controllerObjectStore: controllerObjectStore,
 	}
 }
 
@@ -183,11 +183,13 @@ func (s *ControllerServices) Macaroon() *macaroonservice.Service {
 	)
 }
 
-// AgentBinaryStore returns the agent binary store for the entire controller.
-func (s *ControllerServices) AgentBinaryStore() *agentbinaryservice.AgentBinaryStore {
+// ControllerAgentBinaryStore returns the [agentbinaryservice.AgentBinaryStore]
+// for the entire controller. This should be used when wanting to cache agent
+// binaries controller wide.
+func (s *ControllerServices) ControllerAgentBinaryStore() *agentbinaryservice.AgentBinaryStore {
 	return agentbinaryservice.NewAgentBinaryStore(
 		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.logger.Child("agentbinary"),
-		s.objectstore,
+		s.controllerObjectStore,
 	)
 }
