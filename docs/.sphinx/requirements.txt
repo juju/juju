@@ -3,3 +3,4 @@ sphinx-autobuild
 sphinx-tabs
 sphinxext-rediraffe
 sphinx-new-tab-link
+sphinxcontrib.lightbox2
