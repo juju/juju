@@ -11,6 +11,7 @@ import (
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/cloud"
+	corecloud "github.com/juju/juju/core/cloud"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -1238,6 +1239,44 @@ WHERE uuid = $dbModelUUID.uuid
 	}
 
 	return cloudName, credentialKey, nil
+}
+
+// GetModelCloudAndCredential returns the cloud and credential UUID for the model.
+// The following errors can be expected:
+// - [modelerrors.NotFound] if the model is not found.
+func (st *State) GetModelCloudAndCredential(
+	ctx context.Context,
+	modelUUID coremodel.UUID,
+) (corecloud.UUID, credential.UUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	cloudCred := dbModelCloudCredentialUUID{
+		ModelUUID: modelUUID,
+	}
+	query := `
+SELECT m.* AS &dbModelCloudCredentialUUID.*
+FROM   v_model m
+WHERE  m.uuid = $dbModelCloudCredentialUUID.uuid
+`
+	stmt, err := st.Prepare(query, cloudCred)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, cloudCred).Get(&cloudCred)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("model %q not found", modelUUID).Add(modelerrors.NotFound)
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+	return cloudCred.CloudUUID, cloudCred.CredentialUUID, nil
 }
 
 // NamespaceForModel returns the database namespace that is provisioned for a

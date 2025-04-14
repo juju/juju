@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/cloud"
+	corecloud "github.com/juju/juju/core/cloud"
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
@@ -254,6 +255,13 @@ func (d *dummyState) GetModelCloudNameAndCredential(
 	_ coremodel.UUID,
 ) (string, credential.Key, error) {
 	return "", credential.Key{}, errors.Errorf("not implemented")
+}
+
+func (d *dummyState) GetModelCloudAndCredential(
+	_ context.Context,
+	_ coremodel.UUID,
+) (corecloud.UUID, credential.UUID, error) {
+	return "", "", errors.Errorf("not implemented")
 }
 
 func (d *dummyState) UpdateCredential(

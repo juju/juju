@@ -16,6 +16,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	corecloud "github.com/juju/juju/core/cloud"
+	cloudtesting "github.com/juju/juju/core/cloud/testing"
 	corecredential "github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
@@ -50,6 +52,9 @@ type stateSuite struct {
 	uuid     coremodel.UUID
 	userUUID user.UUID
 	userName user.Name
+
+	cloudUUID      corecloud.UUID
+	credentialUUID corecredential.UUID
 }
 
 var _ = gc.Suite(&stateSuite{})
@@ -88,7 +93,8 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	// We need to generate a cloud in the database so that we can set the model
 	// cloud.
 	cloudSt := dbcloud.NewState(m.TxnRunnerFactory())
-	err = cloudSt.CreateCloud(context.Background(), m.userName, uuid.MustNewUUID().String(),
+	m.cloudUUID = cloudtesting.GenCloudUUID(c)
+	err = cloudSt.CreateCloud(context.Background(), m.userName, m.cloudUUID.String(),
 		cloud.Cloud{
 			Name:      "my-cloud",
 			Type:      "ec2",
@@ -133,6 +139,12 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 		},
 		cred,
 	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT uuid FROM cloud_credential WHERE owner_uuid = ? AND name = ? AND cloud_uuid = ?", m.userUUID, "foobar", m.cloudUUID).
+			Scan(&m.credentialUUID)
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = credSt.UpsertCloudCredential(
 		context.Background(), corecredential.Key{
@@ -265,6 +277,27 @@ func (m *stateSuite) TestModelCloudNameAndCredentialNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 	c.Check(cloudName, gc.Equals, "")
 	c.Check(credentialID.IsZero(), jc.IsTrue)
+}
+
+func (m *stateSuite) TestGetModelCloudAndCredential(c *gc.C) {
+	st := NewState(m.TxnRunnerFactory())
+	// We are relying on the model setup as part of this suite.
+	cloudUUID, credentialUUID, err := st.GetModelCloudAndCredential(
+		context.Background(),
+		m.uuid,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cloudUUID, gc.Equals, m.cloudUUID)
+	c.Check(credentialUUID, gc.Equals, m.credentialUUID)
+}
+
+func (m *stateSuite) TestGetModelCloudAndCredentialNotFound(c *gc.C) {
+	st := NewState(m.TxnRunnerFactory())
+	_, _, err := st.GetModelCloudAndCredential(
+		context.Background(),
+		modeltesting.GenModelUUID(c),
+	)
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
 func (m *stateSuite) TestGetModel(c *gc.C) {

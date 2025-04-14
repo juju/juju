@@ -16,8 +16,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
-	changestream "github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/changestream"
 	changestreammock "github.com/juju/juju/core/changestream/mocks"
+	cloudtesting "github.com/juju/juju/core/cloud/testing"
 	"github.com/juju/juju/core/credential"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
@@ -27,6 +28,7 @@ import (
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/core/watcher/watchertest"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/model"
@@ -37,6 +39,7 @@ import (
 	jujusecrets "github.com/juju/juju/internal/secrets/provider/juju"
 	kubernetessecrets "github.com/juju/juju/internal/secrets/provider/kubernetes"
 	jujutesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type serviceSuite struct {
@@ -1360,4 +1363,40 @@ func (s *serviceSuite) TestGetModelLifeNotFound(c *gc.C) {
 
 	_, err := svc.GetModelLife(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *serviceSuite) TestWatchModelCloudCredential(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	cloudUUID := cloudtesting.GenCloudUUID(c)
+	credentialUUID := credential.UUID(uuid.MustNewUUID().String())
+	s.mockState.EXPECT().GetModelCloudAndCredential(gomock.Any(), modelUUID).Return(cloudUUID, credentialUUID, nil)
+
+	ch := make(chan struct{}, 1)
+	watcher := watchertest.NewMockNotifyWatcher(ch)
+	s.mockWatcherFactory.EXPECT().NewNotifyMapperWatcher(
+		gomock.Any(), gomock.Any(), gomock.Any(),
+	).Return(watcher, nil)
+
+	svc := NewWatchableService(
+		s.mockState,
+		s.mockModelDeleter,
+		loggertesting.WrapCheckLog(c),
+		s.mockWatcherFactory,
+	)
+	w, err := svc.WatchModelCloudCredential(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case ch <- struct{}{}:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("failed to send changes to channel")
+	}
+
+	select {
+	case <-w.Changes():
+	case <-time.After(testing.LongWait):
+		c.Fatalf("failed to receive changes from watcher")
+	}
 }
