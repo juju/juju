@@ -79,6 +79,9 @@ type ServerWorkerConfig struct {
 
 	// metricsCollector is collects Prometheus style metrics for the server.
 	metricsCollector *Collector
+
+	// portForwardHandler handles port forwarding requests.
+	portForwardHandler *portForwardHandler
 }
 
 // Validate validates the workers configuration is as expected.
@@ -399,29 +402,20 @@ func (s *ServerWorker) newTerminatingSSHServer(ctx ssh.Context, info virtualhost
 		}
 	}
 
-	forwardHandler := &ssh.ForwardedTCPHandler{}
 	server := &ssh.Server{
 		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
 			return authenticator.PublicKeyAuthentication(ctx, key)
 		},
-		LocalPortForwardingCallback: ssh.LocalPortForwardingCallback(func(ctx ssh.Context, dhost string, dport uint32) bool {
-			return true
-		}),
-		// ReversePortForwarding will not be supported.
-		ReversePortForwardingCallback: ssh.ReversePortForwardingCallback(func(ctx ssh.Context, host string, port uint32) bool {
-			return false
-		}),
 		ChannelHandlers: map[string]ssh.ChannelHandler{
-			"session":      ssh.DefaultSessionHandler,
-			"direct-tcpip": ssh.DirectTCPIPHandler,
-		},
-		RequestHandlers: map[string]ssh.RequestHandler{
-			"tcpip-forward":        forwardHandler.HandleSSHRequest,
-			"cancel-tcpip-forward": forwardHandler.HandleSSHRequest,
+			"session": ssh.DefaultSessionHandler,
 		},
 		Handler: func(session ssh.Session) {
 			s.config.SessionHandler.Handle(session, info)
 		},
+	}
+
+	if s.config.portForwardHandler != nil {
+		server.ChannelHandlers["direct-tcpip"] = s.config.portForwardHandler.DirectTCPIPHandler()
 	}
 
 	if s.config.disableAuth {
