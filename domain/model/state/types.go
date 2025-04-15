@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"time"
 
+	corecloud "github.com/juju/juju/core/cloud"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
 	corelife "github.com/juju/juju/core/life"
@@ -649,4 +650,10 @@ type dbModelLife struct {
 	UUID      coremodel.UUID `db:"uuid"`
 	Life      life.Life      `db:"life_id"`
 	Activated bool           `db:"activated"`
+}
+
+type dbModelCloudCredentialUUID struct {
+	ModelUUID      coremodel.UUID  `db:"uuid"`
+	CloudUUID      corecloud.UUID  `db:"cloud_uuid"`
+	CredentialUUID credential.UUID `db:"cloud_credential_uuid"`
 }

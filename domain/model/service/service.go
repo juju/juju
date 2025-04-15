@@ -5,11 +5,13 @@ package service
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
+	corecloud "github.com/juju/juju/core/cloud"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/life"
@@ -92,6 +94,14 @@ type State interface {
 	// for a model identified by the model uuid. If no model exists for the
 	// provided name and user a [modelerrors.NotFound] error is returned.
 	GetModelCloudNameAndCredential(context.Context, coremodel.UUID) (string, credential.Key, error)
+
+	// GetModelCloudAndCredential returns the cloud and credential UUID for the model.
+	// The following errors can be expected:
+	// - [modelerrors.NotFound] if the model is not found.
+	GetModelCloudAndCredential(
+		ctx context.Context,
+		modelUUID coremodel.UUID,
+	) (corecloud.UUID, credential.UUID, error)
 
 	// Delete removes a model and all of it's associated data from Juju.
 	Delete(context.Context, coremodel.UUID) error
@@ -191,6 +201,17 @@ type WatcherFactory interface {
 	// base watcher's db/queue. A single filter option is required, though
 	// additional filter options can be provided.
 	NewNotifyWatcher(
+		filter eventsource.FilterOption,
+		filterOpts ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error)
+
+	// NewNotifyMapperWatcher returns a new watcher that receives changes from the
+	// input base watcher's db/queue. A single filter option is required, though
+	// additional filter options can be provided. Filtering of values is done first
+	// by the filter, and then subsequently by the mapper. Based on the mapper's
+	// logic a subset of them (or none) may be emitted.
+	NewNotifyMapperWatcher(
+		mapper eventsource.Mapper,
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
@@ -708,4 +729,70 @@ func (s WatchableService) WatchModel(ctx context.Context, modelUUID coremodel.UU
 			return s == modelUUID.String()
 		}),
 	)
+}
+
+// WatchModelCloudCredential returns a new NotifyWatcher watching for changes that
+// result in the cloud spec for a model changing. The changes watched for are:
+// - updates to model cloud.
+// - updates to model credential.
+// - changes to the credential set on a model.
+// The following errors can be expected:
+// - [modelerrors.NotFound] when the model is not found.
+func (s *WatchableService) WatchModelCloudCredential(ctx context.Context, modelUUID coremodel.UUID) (watcher.NotifyWatcher, error) {
+	if err := modelUUID.Validate(); err != nil {
+		return nil, errors.Errorf("invalid model UUID watching model cloud credential: %w", err)
+	}
+
+	// Get the model's cloud and credential UUID to use in the watcher filters.
+	cloudUUID, credentialUUID, err := s.st.GetModelCloudAndCredential(ctx, modelUUID)
+	if err != nil {
+		return nil, errors.Errorf("getting model cloud and credential: %w", err)
+	}
+
+	var lastSeenCredentialUUID atomic.Pointer[credential.UUID]
+	lastSeenCredentialUUID.Store(&credentialUUID)
+
+	// The mapper is used to filter out any model events where the credential UUID has not changed.
+	mapper := func(ctx context.Context, txnRunner database.TxnRunner, events []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		// Get the current model credential UUID.
+		_, currentModelCredentialUUID, err := s.st.GetModelCloudAndCredential(ctx, modelUUID)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+
+		var out []changestream.ChangeEvent
+		for _, e := range events {
+			wantEvent := false
+			switch e.Namespace() {
+			case "cloud":
+				wantEvent = true
+			case "model":
+				if *lastSeenCredentialUUID.Load() != currentModelCredentialUUID {
+					wantEvent = true
+					lastSeenCredentialUUID.Store(&currentModelCredentialUUID)
+				}
+			case "cloud_credential":
+				wantEvent = currentModelCredentialUUID.String() == e.Changed()
+			}
+			if wantEvent {
+				out = append(out, e)
+			}
+		}
+		return out, nil
+	}
+
+	result, err := s.watcherFactory.NewNotifyMapperWatcher(
+		mapper,
+		eventsource.PredicateFilter("model", changestream.Changed, func(v string) bool {
+			return v == modelUUID.String()
+		}),
+		eventsource.PredicateFilter("cloud", changestream.Changed, func(v string) bool {
+			return v == cloudUUID.String()
+		}),
+		eventsource.NamespaceFilter("cloud_credential", changestream.Changed),
+	)
+	if err != nil {
+		return nil, errors.Errorf("watching model cloud and credential: %w", err)
+	}
+	return result, nil
 }
