@@ -26,7 +26,7 @@ var logger = internallogger.GetLogger("juju.apiserver.usersecretsdrain")
 type SecretsDrainAPI struct {
 	*commonsecrets.SecretsDrainAPI
 
-	modelUUID            string
+	modelUUID            model.UUID
 	secretBackendService SecretBackendService
 	secretService        SecretService
 }
@@ -47,9 +47,9 @@ func (s *SecretsDrainAPI) GetSecretBackendConfigs(ctx context.Context, arg param
 		GrantedSecretsGetter: s.secretService.ListGrantedSecretsForBackend,
 		Accessor: secretservice.SecretAccessor{
 			Kind: secretservice.ModelAccessor,
-			ID:   s.modelUUID,
+			ID:   s.modelUUID.String(),
 		},
-		ModelUUID: model.UUID(s.modelUUID),
+		ModelUUID: s.modelUUID,
 		BackendID: backendID,
 	})
 	if err != nil {
@@ -132,7 +132,7 @@ func (s *SecretsDrainAPI) getSecretContent(ctx context.Context, arg params.GetSe
 
 	val, valueRef, err := s.secretService.GetSecretValue(ctx, md.URI, md.LatestRevision, secretservice.SecretAccessor{
 		Kind: secretservice.ModelAccessor,
-		ID:   s.modelUUID,
+		ID:   s.modelUUID.String(),
 	})
 	if err != nil {
 		return nil, nil, false, errors.Trace(err)
@@ -152,9 +152,9 @@ func (s *SecretsDrainAPI) getBackend(ctx context.Context, backendID string) (*pr
 		GrantedSecretsGetter: s.secretService.ListGrantedSecretsForBackend,
 		Accessor: secretservice.SecretAccessor{
 			Kind: secretservice.ModelAccessor,
-			ID:   s.modelUUID,
+			ID:   s.modelUUID.String(),
 		},
-		ModelUUID:      model.UUID(s.modelUUID),
+		ModelUUID:      s.modelUUID,
 		BackendIDs:     []string{backendID},
 		SameController: true,
 	})
@@ -189,7 +189,7 @@ func (s *SecretsDrainAPI) GetSecretRevisionContentInfo(ctx context.Context, arg 
 	for i, rev := range arg.Revisions {
 		val, valueRef, err := s.secretService.GetSecretValue(ctx, uri, rev, secretservice.SecretAccessor{
 			Kind: secretservice.ModelAccessor,
-			ID:   s.modelUUID,
+			ID:   s.modelUUID.String(),
 		})
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
