@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/httpcontext"
+	coremodel "github.com/juju/juju/core/model"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -37,7 +38,7 @@ func (s *ModelHandlersSuite) SetUpTest(c *gc.C) {
 	})
 	s.controllerModelHandler = &httpcontext.ControllerModelHandler{
 		Handler:             h,
-		ControllerModelUUID: coretesting.ModelTag.Id(),
+		ControllerModelUUID: coremodel.UUID(coretesting.ModelTag.Id()),
 	}
 	s.queryHandler = &httpcontext.QueryModelHandler{
 		Handler: h,

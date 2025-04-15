@@ -42,12 +42,6 @@ import (
 
 var fastDialOpts = api.DialOpts{}
 
-func sendHTTPRequest(c *gc.C, p apitesting.HTTPRequestParams) *http.Response {
-	p.Tag = jujutesting.AdminUser.String()
-	p.Password = jujutesting.AdminSecret
-	return apitesting.SendHTTPRequest(c, p)
-}
-
 func dialWebsocketFromURL(c *gc.C, server string, header http.Header) (*websocket.Conn, *http.Response, error) {
 	// TODO(rogpeppe) merge this with the very similar dialWebsocket function.
 	if header == nil {

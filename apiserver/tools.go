@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/httpcontext"
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
@@ -30,6 +31,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	internalerrors "github.com/juju/juju/internal/errors"
 	jujuhttp "github.com/juju/juju/internal/http"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -65,6 +67,31 @@ type AgentBinaryStore interface {
 // AgentBinaryStore at exactly the time it is needed. This allows for the
 // context aware answers to be made.
 type AgentBinaryStoreGetter func(*http.Request) (AgentBinaryStore, error)
+
+type BlockChecker interface {
+	// ChangeAllowed checks if change block is in place.
+	// Change block prevents all operations that may change
+	// current model in any way from running successfully.
+	ChangeAllowed(context.Context) error
+}
+
+// DomainServicesGetter describes a type that can be used for getting
+// [services.DomainServices] from a given context that comes from a http
+// request.
+type DomainServicesGetter func(ctx context.Context) (services.DomainServices, error)
+
+// BlockCheckerGetterForServices returns a [BlockCheckerGetter] that is
+// constructed from the supplied context.
+func BlockCheckerGetterForServices(servicesGetter DomainServicesGetter) func(context.Context) (BlockChecker, error) {
+	return func(ctx context.Context) (BlockChecker, error) {
+		svc, err := servicesGetter(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		return common.NewBlockChecker(svc.BlockCommand()), nil
+	}
+}
 
 // controllerAgentBinaryStoreForHTTPContext provides a deferred getter that
 // will provide the controllers [AgentBinaryStore] for the given [httpContext].
@@ -134,7 +161,7 @@ func (t *toolsReadCloser) Close() error {
 
 // toolsHandler handles tool upload through HTTPS in the API server.
 type toolsUploadHandler struct {
-	blockCheckerGetter common.BlockCheckerGetter
+	blockCheckerGetter func(context.Context) (BlockChecker, error)
 	storeGetter        AgentBinaryStoreGetter
 }
 
@@ -154,7 +181,7 @@ func newToolsDownloadHandler(httpCtxt httpContext) *toolsDownloadHandler {
 // newToolsUploadHandler constructs a new [toolsUploadHandler] from the supplied
 // arguments.
 func newToolsUploadHandler(
-	blockChecker common.BlockCheckerGetter,
+	blockChecker func(context.Context) (BlockChecker, error),
 	storeGetter AgentBinaryStoreGetter,
 ) *toolsUploadHandler {
 	return &toolsUploadHandler{
@@ -430,14 +457,14 @@ func (h *toolsUploadHandler) processPost(r *http.Request) (tools.Tools, error) {
 	parsedBinaryVersion, err := semversion.ParseBinary(binaryVersionParam)
 	if err != nil {
 		return tools.Tools{}, internalerrors.Errorf(
-			"invalid agent binary version: %w",
-			err,
+			"invalid agent binary version %q",
+			binaryVersionParam,
 		).Add(coreerrors.BadRequest)
 	}
 
 	agentBinaryVersion := coreagentbinary.Version{
 		Number: parsedBinaryVersion.Number,
-		Arch:   corearch.Arch(parsedBinaryVersion.Arch),
+		Arch:   parsedBinaryVersion.Arch,
 	}
 
 	// Make sure the content type is x-tar-gz.
