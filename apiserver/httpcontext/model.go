@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/juju/names/v6"
+	coremodel "github.com/juju/juju/core/model"
 )
 
 // ControllerModelHandler is an http.Handler that associates requests that
@@ -16,12 +16,12 @@ import (
 // can then be extracted using the RequestModelUUID function in this package.
 type ControllerModelHandler struct {
 	http.Handler
-	ControllerModelUUID string
+	ControllerModelUUID coremodel.UUID
 }
 
 // ServeHTTP is part of the http.Handler interface.
 func (h *ControllerModelHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	ctx := context.WithValue(req.Context(), modelKey{}, h.ControllerModelUUID)
+	ctx := SetContextModelUUID(req.Context(), h.ControllerModelUUID)
 	req = req.WithContext(ctx)
 	h.Handler.ServeHTTP(w, req)
 }
@@ -57,16 +57,17 @@ func (h *BucketModelHandler) ServeHTTP(w http.ResponseWriter, req *http.Request)
 	validateModelAndServe(h.Handler, modelUUID, w, req)
 }
 
-func validateModelAndServe(handler http.Handler, modelUUID string, w http.ResponseWriter, req *http.Request) {
-	if modelUUID != "" {
-		if !names.IsValidModel(modelUUID) {
+func validateModelAndServe(handler http.Handler, modelUUIDStr string, w http.ResponseWriter, req *http.Request) {
+	if modelUUIDStr != "" {
+		modelUUID := coremodel.UUID(modelUUIDStr)
+		if err := modelUUID.Validate(); err != nil {
 			http.Error(w,
-				fmt.Sprintf("invalid model UUID %q", modelUUID),
+				fmt.Sprintf("invalid model UUID %q", modelUUIDStr),
 				http.StatusBadRequest,
 			)
 			return
 		}
-		ctx := context.WithValue(req.Context(), modelKey{}, modelUUID)
+		ctx := SetContextModelUUID(req.Context(), modelUUID)
 		req = req.WithContext(ctx)
 	}
 	handler.ServeHTTP(w, req)
@@ -84,4 +85,11 @@ func RequestModelUUID(ctx context.Context) (string, bool) {
 		return val, ok
 	}
 	return "", false
+}
+
+// SetContextModelUUID is responsible for taking a model uuid and setting it on
+// the supplied context. This is useful for associating a given http request
+// context with a model.
+func SetContextModelUUID(ctx context.Context, modelUUID coremodel.UUID) context.Context {
+	return context.WithValue(ctx, modelKey{}, modelUUID.String())
 }
