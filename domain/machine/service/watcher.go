@@ -92,9 +92,7 @@ func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context, machi
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchMachineCloudInstance(),
 			changestream.All,
-			func(s string) bool {
-				return s == machineUUID
-			},
+			eventsource.EqualsPredicate(machineUUID),
 		),
 	)
 }
@@ -109,9 +107,7 @@ func (s *WatchableService) WatchLXDProfiles(ctx context.Context, machineUUID str
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchMachineLXDProfiles(),
 			changestream.All,
-			func(s string) bool {
-				return s == machineUUID
-			},
+			eventsource.EqualsPredicate(machineUUID),
 		),
 	)
 }

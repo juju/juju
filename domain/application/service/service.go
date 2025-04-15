@@ -250,9 +250,7 @@ func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName st
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchApplicationScale(),
 			mask,
-			func(s string) bool {
-				return s == appID.String()
-			},
+			eventsource.EqualsPredicate(appID.String()),
 		),
 	)
 }
@@ -350,9 +348,7 @@ func (s *WatchableService) WatchApplication(ctx context.Context, name string) (w
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchApplication(),
 			changestream.All,
-			func(s string) bool {
-				return s == uuid.String()
-			},
+			eventsource.EqualsPredicate(uuid.String()),
 		),
 	)
 }
@@ -375,9 +371,7 @@ func (s *WatchableService) WatchApplicationConfig(ctx context.Context, name stri
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchApplicationConfig(),
 			changestream.All,
-			func(s string) bool {
-				return s == uuid.String()
-			},
+			eventsource.EqualsPredicate(uuid.String()),
 		),
 	)
 }
@@ -470,16 +464,12 @@ func (s *WatchableService) WatchApplicationExposed(ctx context.Context, name str
 		eventsource.PredicateFilter(
 			exposedToSpaces,
 			changestream.All,
-			func(s string) bool {
-				return s == uuid.String()
-			},
+			eventsource.EqualsPredicate(uuid.String()),
 		),
 		eventsource.PredicateFilter(
 			exposedToCIDRs,
 			changestream.All,
-			func(s string) bool {
-				return s == uuid.String()
-			},
+			eventsource.EqualsPredicate(uuid.String()),
 		),
 	)
 }
@@ -509,23 +499,17 @@ func (s *WatchableService) WatchUnitForLegacyUniter(ctx context.Context, unitNam
 		eventsource.PredicateFilter(
 			unitNamespace,
 			changestream.All,
-			func(s string) bool {
-				return s == uuid.String()
-			},
+			eventsource.EqualsPredicate(uuid.String()),
 		),
 		eventsource.PredicateFilter(
 			principalNamespace,
 			changestream.All,
-			func(s string) bool {
-				return s == uuid.String()
-			},
+			eventsource.EqualsPredicate(uuid.String()),
 		),
 		eventsource.PredicateFilter(
 			resolvedNamespace,
 			changestream.All,
-			func(s string) bool {
-				return s == uuid.String()
-			},
+			eventsource.EqualsPredicate(uuid.String()),
 		),
 	)
 }

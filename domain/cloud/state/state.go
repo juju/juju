@@ -792,9 +792,7 @@ WHERE name = $cloudID.name`, cloud)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	result, err := getWatcher(eventsource.PredicateFilter("cloud", changestream.All, func(s string) bool {
-		return s == cloud.UUID
-	}))
+	result, err := getWatcher(eventsource.PredicateFilter("cloud", changestream.All, eventsource.EqualsPredicate(cloud.UUID)))
 	if err != nil {
 		return result, errors.Errorf("watching cloud: %w", err)
 	}

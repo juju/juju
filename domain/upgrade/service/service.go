@@ -180,9 +180,7 @@ func (s *WatchableService) WatchForUpgradeReady(ctx context.Context, upgradeUUID
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchUpgradeReady(),
 			changestream.Changed,
-			func(s string) bool {
-				return s == upgradeUUID.String()
-			},
+			eventsource.EqualsPredicate(upgradeUUID.String()),
 		),
 	)
 }
@@ -209,9 +207,7 @@ func (s *WatchableService) WatchForUpgradeState(ctx context.Context, upgradeUUID
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchUpgradeState(),
 			changestream.Changed,
-			func(s string) bool {
-				return s == upgradeUUID.String()
-			},
+			eventsource.EqualsPredicate(upgradeUUID.String()),
 		),
 	)
 }
