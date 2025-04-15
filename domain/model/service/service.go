@@ -764,14 +764,14 @@ func (s *WatchableService) WatchModelCloudCredential(ctx context.Context, modelU
 		for _, e := range events {
 			wantEvent := false
 			switch e.Namespace() {
-			case "cloud":
+			case "cloud", "cloud_ca_cert":
 				wantEvent = true
 			case "model":
 				if *lastSeenCredentialUUID.Load() != currentModelCredentialUUID {
 					wantEvent = true
 					lastSeenCredentialUUID.Store(&currentModelCredentialUUID)
 				}
-			case "cloud_credential":
+			case "cloud_credential", "cloud_credential_attribute":
 				wantEvent = currentModelCredentialUUID.String() == e.Changed()
 			}
 			if wantEvent {
@@ -789,7 +789,11 @@ func (s *WatchableService) WatchModelCloudCredential(ctx context.Context, modelU
 		eventsource.PredicateFilter("cloud", changestream.Changed, func(v string) bool {
 			return v == cloudUUID.String()
 		}),
+		eventsource.PredicateFilter("cloud_ca_cert", changestream.Changed, func(v string) bool {
+			return v == cloudUUID.String()
+		}),
 		eventsource.NamespaceFilter("cloud_credential", changestream.Changed),
+		eventsource.NamespaceFilter("cloud_credential_attribute", changestream.Changed),
 	)
 	if err != nil {
 		return nil, errors.Errorf("watching model cloud and credential: %w", err)

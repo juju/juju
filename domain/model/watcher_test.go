@@ -32,6 +32,7 @@ import (
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/secrets/provider/juju"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -296,7 +297,6 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *gc.C) {
 				"foo": "foo val",
 				"bar": "bar val",
 			},
-			Revoked: true,
 		}
 		_, err := credSt.UpsertCloudCredential(context.Background(), originalKey, credInfo)
 		c.Assert(err, jc.ErrorIsNil)
@@ -333,7 +333,6 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *gc.C) {
 				"foo": "foo val3",
 				"bar": "bar val3",
 			},
-			Revoked: true,
 		}
 		_, err := credSt.UpsertCloudCredential(context.Background(), anotherKey, credInfo)
 		c.Assert(err, jc.ErrorIsNil)
@@ -348,6 +347,20 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *gc.C) {
 			Type:      "ec2",
 			AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType},
 			Endpoint:  "endpoint",
+		}
+		err := cloudSt.UpdateCloud(context.Background(), cld)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+	// Test that updating the cloud CA cert triggers the watcher.
+	harness.AddTest(func(c *gc.C) {
+		cld := cloud.Cloud{
+			Name:           "my-cloud",
+			Type:           "ec2",
+			AuthTypes:      cloud.AuthTypes{cloud.AccessKeyAuthType},
+			Endpoint:       "endpoint",
+			CACertificates: []string{testing.CACert},
 		}
 		err := cloudSt.UpdateCloud(context.Background(), cld)
 		c.Assert(err, jc.ErrorIsNil)
