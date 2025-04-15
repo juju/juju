@@ -11,6 +11,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/domain/blockcommand"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
+	"github.com/juju/juju/internal/services"
 )
 
 // BlockCommandService defines methods for interacting with block commands.
@@ -33,9 +34,32 @@ type BlockCheckerInterface interface {
 	DestroyAllowed(context.Context) error
 }
 
+// BlockCheckerGetter provides a signature of a function that can be used to
+// late defer getting a [BlockChecker]. This allows block checkers to be made
+// based on the context of the caller.
+type BlockCheckerGetter func(ctx context.Context) (*BlockChecker, error)
+
 // BlockChecker checks for current blocks if any.
 type BlockChecker struct {
 	service BlockCommandService
+}
+
+// DomainServicesGetter describes a type that can be used for getting
+// [services.DomainServices] from a given context that comes from a http
+// request.
+type DomainServicesGetter func(ctx context.Context) (services.DomainServices, error)
+
+// BlockCheckerGetterForServices returns a [BlockCheckerGetter] that is
+// constructed from the supplied context.
+func BlockCheckerGetterForServices(servicesGetter DomainServicesGetter) BlockCheckerGetter {
+	return func(ctx context.Context) (*BlockChecker, error) {
+		svc, err := servicesGetter(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		return NewBlockChecker(svc.BlockCommand()), nil
+	}
 }
 
 // NewBlockChecker returns a new BlockChecker.
