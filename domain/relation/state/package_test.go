@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -51,6 +52,14 @@ type baseRelationSuite struct {
 func (s *baseRelationSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+}
+
+// Txn executes a transactional function within a database context,
+// ensuring proper error handling and assertion.
+func (s *baseRelationSuite) Txn(c *gc.C, fn func(ctx context.Context, tx *sqlair.TX) error) error {
+	db, err := s.state.DB()
+	c.Assert(err, jc.ErrorIsNil)
+	return db.Txn(context.Background(), fn)
 }
 
 // query executes a given SQL query with optional arguments within a

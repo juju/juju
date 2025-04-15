@@ -1378,10 +1378,10 @@ func (c *MockRelationServiceWatchLifeSuspendedStatusCall) DoAndReturn(f func(con
 }
 
 // WatchRelatedUnits mocks base method.
-func (m *MockRelationService) WatchRelatedUnits(arg0 context.Context, arg1 unit.Name, arg2 relation.UUID) (relation0.RelationUnitsWatcher, error) {
+func (m *MockRelationService) WatchRelatedUnits(arg0 context.Context, arg1 unit.Name, arg2 relation.UUID) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchRelatedUnits", arg0, arg1, arg2)
-	ret0, _ := ret[0].(relation0.RelationUnitsWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1399,19 +1399,19 @@ type MockRelationServiceWatchRelatedUnitsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockRelationServiceWatchRelatedUnitsCall) Return(arg0 relation0.RelationUnitsWatcher, arg1 error) *MockRelationServiceWatchRelatedUnitsCall {
+func (c *MockRelationServiceWatchRelatedUnitsCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockRelationServiceWatchRelatedUnitsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationServiceWatchRelatedUnitsCall) Do(f func(context.Context, unit.Name, relation.UUID) (relation0.RelationUnitsWatcher, error)) *MockRelationServiceWatchRelatedUnitsCall {
+func (c *MockRelationServiceWatchRelatedUnitsCall) Do(f func(context.Context, unit.Name, relation.UUID) (watcher.Watcher[[]string], error)) *MockRelationServiceWatchRelatedUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationServiceWatchRelatedUnitsCall) DoAndReturn(f func(context.Context, unit.Name, relation.UUID) (relation0.RelationUnitsWatcher, error)) *MockRelationServiceWatchRelatedUnitsCall {
+func (c *MockRelationServiceWatchRelatedUnitsCall) DoAndReturn(f func(context.Context, unit.Name, relation.UUID) (watcher.Watcher[[]string], error)) *MockRelationServiceWatchRelatedUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

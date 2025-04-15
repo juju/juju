@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
@@ -24,25 +25,16 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// WatcherFactory instances return watchers for a given namespace and UUID.
+// WatcherFactory is a subset of [github.com/juju/juju/domain.WatcherFactory] method that are used
+// in the relation domain.
 type WatcherFactory interface {
-	// NewNotifyWatcher returns a new watcher that filters changes from the
-	// input base watcher's db/queue. A single filter option is required, though
-	// additional filter options can be provided.
 	NewNotifyWatcher(
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
 
-	// NewNamespaceMapperWatcher returns a new watcher that receives changes
-	// from the input base watcher's db/queue. Change-log events will be emitted
-	// only if the filter accepts them, and dispatching the notifications via
-	// the Changes channel, once the mapper has processed them. Filtering of
-	// values is done first by the filter, and then by the mapper. Based on the
-	// mapper's logic a subset of them (or none) may be emitted. A filter option
-	// is required, though additional filter options can be provided.
 	NewNamespaceMapperWatcher(
-		initialStateQuery eventsource.NamespaceQuery,
+		initialQuery eventsource.NamespaceQuery,
 		mapper eventsource.Mapper,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
@@ -510,8 +502,26 @@ func (s *WatchableService) WatchRelatedUnits(
 	ctx context.Context,
 	unitName unit.Name,
 	relationUUID corerelation.UUID,
-) (relation.RelationUnitsWatcher, error) {
-	return nil, coreerrors.NotImplemented
+) (watcher.StringsWatcher, error) {
+	if err := unitName.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+	if err := relationUUID.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
+	namespaces, initialQuery, mapper := s.st.InitialWatchRelatedUnits(unitName,
+		relationUUID)
+	if len(namespaces) < 1 {
+		// This is an error while updating underlying function. It shouldn't happen.
+		return nil, errors.New("no namespaces found")
+	}
+	filters := transform.Slice(namespaces, func(ns string) eventsource.FilterOption {
+		return eventsource.NamespaceFilter(ns, changestream.All)
+	})
+	return s.watcherFactory.NewNamespaceMapperWatcher(initialQuery,
+		mapper,
+		filters[0],
+		filters[1:]...)
 }
 
 type maskedChangeIDEvent struct {

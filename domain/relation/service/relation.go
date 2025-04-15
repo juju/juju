@@ -251,6 +251,10 @@ type State interface {
 	// WatcherApplicationSettingsNamespace provides the table name to set up
 	// watchers for relation application settings.
 	WatcherApplicationSettingsNamespace() string
+
+	// InitialWatchRelatedUnits initializes a watch for changes related to the
+	// specified unit in the given relation.
+	InitialWatchRelatedUnits(name unit.Name, uuid corerelation.UUID) ([]string, eventsource.NamespaceQuery, eventsource.Mapper)
 }
 
 // LeadershipService provides the API for working with the statuses of applications

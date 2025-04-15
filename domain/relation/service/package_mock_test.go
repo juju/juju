@@ -906,6 +906,46 @@ func (c *MockStateInitialWatchLifeSuspendedStatusCall) DoAndReturn(f func(applic
 	return c
 }
 
+// InitialWatchRelatedUnits mocks base method.
+func (m *MockState) InitialWatchRelatedUnits(arg0 unit.Name, arg1 relation.UUID) ([]string, eventsource.NamespaceQuery, eventsource.Mapper) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialWatchRelatedUnits", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(eventsource.NamespaceQuery)
+	ret2, _ := ret[2].(eventsource.Mapper)
+	return ret0, ret1, ret2
+}
+
+// InitialWatchRelatedUnits indicates an expected call of InitialWatchRelatedUnits.
+func (mr *MockStateMockRecorder) InitialWatchRelatedUnits(arg0, arg1 any) *MockStateInitialWatchRelatedUnitsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchRelatedUnits", reflect.TypeOf((*MockState)(nil).InitialWatchRelatedUnits), arg0, arg1)
+	return &MockStateInitialWatchRelatedUnitsCall{Call: call}
+}
+
+// MockStateInitialWatchRelatedUnitsCall wrap *gomock.Call
+type MockStateInitialWatchRelatedUnitsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateInitialWatchRelatedUnitsCall) Return(arg0 []string, arg1 eventsource.NamespaceQuery, arg2 eventsource.Mapper) *MockStateInitialWatchRelatedUnitsCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateInitialWatchRelatedUnitsCall) Do(f func(unit.Name, relation.UUID) ([]string, eventsource.NamespaceQuery, eventsource.Mapper)) *MockStateInitialWatchRelatedUnitsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateInitialWatchRelatedUnitsCall) DoAndReturn(f func(unit.Name, relation.UUID) ([]string, eventsource.NamespaceQuery, eventsource.Mapper)) *MockStateInitialWatchRelatedUnitsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // LeaveScope mocks base method.
 func (m *MockState) LeaveScope(arg0 context.Context, arg1 relation.UnitUUID) error {
 	m.ctrl.T.Helper()

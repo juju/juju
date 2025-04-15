@@ -73,6 +73,12 @@ type getUnit struct {
 	Name unit.Name `db:"name"`
 }
 
+type getRelatedUnit struct {
+	UUID             unit.UUID             `db:"uuid"`
+	Name             unit.Name             `db:"name"`
+	RelationUnitUUID corerelation.UnitUUID `db:"relation_unit_uuid"`
+}
+
 type getRelationUnit struct {
 	RelationUUID corerelation.UUID     `db:"relation_uuid"`
 	UnitUUID     corerelation.UnitUUID `db:"unit_uuid"`
@@ -202,6 +208,13 @@ func (e endpoint) toRelationEndpoint() relation.Endpoint {
 			Scope:     e.Scope,
 		},
 	}
+}
+
+type relationEndpoint struct {
+	// UUID is a unique identifier for the relation endpoint
+	UUID corerelation.EndpointUUID `db:"uuid"`
+	// ApplicationUUID is a unique identifier for the application associated with the endpoint.
+	ApplicationUUID application.ID `db:"application_uuid"`
 }
 
 // setRelationEndpoint represents the mapping to insert a new relation endpoint
