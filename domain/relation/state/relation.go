@@ -953,6 +953,7 @@ func (st *State) EnterScope(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
 	unitName unit.Name,
+	settings map[string]string,
 ) error {
 	db, err := st.DB()
 	if err != nil {
@@ -987,11 +988,36 @@ WHERE  name = $getUnit.name
 		}
 
 		// Upsert the row recording that the unit has entered scope.
-		err = st.insertRelationUnit(ctx, tx, relationUUID, unitArgs.UUID)
+		relationUnitUUID, err := st.insertRelationUnit(ctx, tx, relationUUID, unitArgs.UUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		return err
+
+		// Insert or replace relation unit settings
+		err = st.updateUnitSettings(ctx, tx, relationUnitUUID, settings)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		// Fetch all the new settings in the relation for this unit.
+		newSettings, err := st.getRelationUnitSettings(ctx, tx, relationUnitUUID)
+		if err != nil {
+			return errors.Errorf("getting new relation unit settings: %w", err)
+		}
+
+		// Hash the new settings.
+		hash, err := hashSettings(newSettings)
+		if err != nil {
+			return errors.Errorf("generating hash of relation unit settings: %w", err)
+		}
+
+		// Update the hash in the database.
+		err = st.updateUnitSettingsHash(ctx, tx, relationUnitUUID, hash)
+		if err != nil {
+			return errors.Errorf("updating relation unit settings hash: %w", err)
+		}
+
+		return nil
 	})
 	return errors.Capture(err)
 }
@@ -1332,37 +1358,36 @@ func (st *State) insertRelationUnit(
 	tx *sqlair.TX,
 	relationUUID corerelation.UUID,
 	unitUUID unit.UUID,
-) error {
+) (corerelation.UnitUUID, error) {
 	// Check if a relation_unit record already exists for this unit.
 	getRelationUnit := relationUnit{
 		RelationUUID: relationUUID,
 		UnitUUID:     unitUUID,
 	}
 	getRelationUnitStmt, err := st.Prepare(`
-SELECT   
-	ru.uuid AS &relationUnit.uuid
+SELECT  ru.uuid AS &relationUnit.uuid
 FROM    relation_unit AS ru
 JOIN    relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
 WHERE   re.relation_uuid = $relationUnit.relation_uuid
 AND     ru.unit_uuid = $relationUnit.unit_uuid
 `, getRelationUnit)
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 	err = tx.Query(ctx, getRelationUnitStmt, getRelationUnit).Get(&getRelationUnit)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 	if err == nil {
 		// If there is already a relation unit in the table,
 		// it means it is in scope
-		return nil
+		return getRelationUnit.RelationUnitUUID, nil
 	}
 
 	// Insert a new relation unit
 	uuid, err := corerelation.NewUnitUUID()
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 	insertRelationUnit := relationUnit{
 		RelationUnitUUID: uuid,
@@ -1380,10 +1405,10 @@ WHERE  re.relation_uuid = $relationUnit.relation_uuid
 AND    u.uuid = $relationUnit.unit_uuid
 `, insertRelationUnit)
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
-	return tx.Query(ctx, insertStmt, insertRelationUnit).Run()
+	return uuid, tx.Query(ctx, insertStmt, insertRelationUnit).Run()
 }
 
 // LeaveScope updates the given relation to indicate it is not in scope.

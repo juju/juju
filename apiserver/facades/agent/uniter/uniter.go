@@ -1340,7 +1340,22 @@ func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc
 		return internalerrors.Capture(err)
 	}
 
-	err = u.relationService.EnterScope(ctx, relUUID, unitName)
+	unit, err := u.st.Unit(unitTag.Id())
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	addr, err := unit.PublicAddress()
+	if err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	settings := map[string]string{}
+	// ingress-address is the preferred settings attribute name as it more accurately
+	// reflects the purpose of the attribute value. We'll deprecate private-address.
+	settings["ingress-address"] = addr.String()
+
+	err = u.relationService.EnterScope(ctx, relUUID, unitName, settings)
 	if internalerrors.Is(err, relationerrors.PotentialRelationUnitNotValid) {
 		u.logger.Debugf(ctx, "ignoring %q EnterScope for %q, not valid", unitName, relKey.String())
 		return nil

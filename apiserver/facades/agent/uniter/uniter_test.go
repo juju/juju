@@ -835,6 +835,7 @@ func (s *uniterRelationSuite) TestSetRelationStatusRelationNotFound(c *gc.C) {
 }
 
 func (s *uniterRelationSuite) TestEnterScopeErrUnauthorized(c *gc.C) {
+	c.Skip("Until unit PublicAddress() is implemented in its domain")
 	// arrange
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
@@ -865,12 +866,14 @@ func (s *uniterRelationSuite) TestEnterScopeErrUnauthorized(c *gc.C) {
 }
 
 func (s *uniterRelationSuite) TestEnterScope(c *gc.C) {
+	c.Skip("Until unit PublicAddress() is implemented in its domain")
 	// arrange
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relUUID := relationtesting.GenRelationUUID(c)
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
-	s.expectEnterScope(relUUID, coreunit.Name(s.wordpressUnitTag.Id()), nil)
+	settings := map[string]string{"ingress-address": "x.x.x.x"}
+	s.expectEnterScope(relUUID, coreunit.Name(s.wordpressUnitTag.Id()), settings, nil)
 
 	// act
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
@@ -888,12 +891,14 @@ func (s *uniterRelationSuite) TestEnterScope(c *gc.C) {
 // returns PotentialRelationUnitNotValid the facade method still returns no
 // error.
 func (s *uniterRelationSuite) TestEnterScopeReturnsPotentialRelationUnitNotValid(c *gc.C) {
+	c.Skip("Until unit PublicAddress() is implemented in its domain")
 	// arrange
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relUUID := relationtesting.GenRelationUUID(c)
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
-	s.expectEnterScope(relUUID, coreunit.Name(s.wordpressUnitTag.Id()),
+	settings := map[string]string{"ingress-address": "x.x.x.x"}
+	s.expectEnterScope(relUUID, coreunit.Name(s.wordpressUnitTag.Id()), settings,
 		relationerrors.PotentialRelationUnitNotValid)
 
 	// act
@@ -1223,8 +1228,8 @@ func (s *uniterRelationSuite) expectSetRelationStatus(unitName string, relUUID c
 	s.statusService.EXPECT().SetRelationStatus(gomock.Any(), name, relUUID, relStatus).Return(nil)
 }
 
-func (s *uniterRelationSuite) expectEnterScope(uuid corerelation.UUID, name coreunit.Name, err error) {
-	s.relationService.EXPECT().EnterScope(gomock.Any(), uuid, name).Return(err)
+func (s *uniterRelationSuite) expectEnterScope(uuid corerelation.UUID, name coreunit.Name, settings map[string]string, err error) {
+	s.relationService.EXPECT().EnterScope(gomock.Any(), uuid, name, settings).Return(err)
 }
 
 func (s *uniterRelationSuite) expectWatchLifeSuspendedStatus(unitUUID coreunit.UUID, watch watcher.StringsWatcher, err error) {

@@ -27,6 +27,9 @@ type State interface {
 	AddRelation(ctx context.Context, ep1, ep2 relation.CandidateEndpointIdentifier) (relation.Endpoint, relation.Endpoint, error)
 
 	// EnterScope indicates that the provided unit has joined the relation.
+	// When the unit has already entered its relation scope, EnterScope will report
+	// success but make no changes to state. The unit's settings are created or
+	// overwritten in the relation according to the supplied map.
 	//
 	// The following error types can be expected to be returned:
 	//   - [relationerrors.RelationNotFound] if the relation cannot be found.
@@ -37,7 +40,12 @@ type State interface {
 	//     scope is a subordinate and the endpoint scope is charm.ScopeContainer
 	//     where the other application is a principal, but not in the current
 	//     relation.
-	EnterScope(ctx context.Context, relationUUID corerelation.UUID, unitName unit.Name) error
+	EnterScope(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		unitName unit.Name,
+		settings map[string]string,
+	) error
 
 	// GetAllRelationDetails return all uuid of all relation for the current model.
 	GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error)
@@ -394,6 +402,9 @@ func (s *Service) ApplicationRelationsInfo(
 }
 
 // EnterScope indicates that the provided unit has joined the relation.
+// When the unit has already entered its relation scope, EnterScope will report
+// success but make no changes to state. The unit's settings are created or
+// overwritten in the relation according to the supplied map.
 //
 // The following error types can be expected to be returned:
 //   - [relationerrors.PotentialRelationUnitNotValid] if the unit entering
@@ -404,6 +415,7 @@ func (s *Service) EnterScope(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
 	unitName unit.Name,
+	settings map[string]string,
 ) error {
 	if err := relationUUID.Validate(); err != nil {
 		return errors.Errorf(
@@ -412,7 +424,7 @@ func (s *Service) EnterScope(
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
 	}
-	return s.st.EnterScope(ctx, relationUUID, unitName)
+	return s.st.EnterScope(ctx, relationUUID, unitName, settings)
 }
 
 // GetAllRelationDetails return all uuid of all relation for the current model.

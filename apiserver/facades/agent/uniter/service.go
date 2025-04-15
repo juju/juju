@@ -242,6 +242,9 @@ type MachineService interface {
 // Relation service.
 type RelationService interface {
 	// EnterScope indicates that the provided unit has joined the relation.
+	// When the unit has already entered its relation scope, EnterScope will report
+	// success but make no changes to state. The unit's settings are created or
+	// overwritten in the relation according to the supplied map.
 	//
 	// The following error types can be expected to be returned:
 	//   - [relationerrors.PotentialRelationUnitNotValid] if the unit entering
@@ -252,6 +255,7 @@ type RelationService interface {
 		ctx context.Context,
 		relationID corerelation.UUID,
 		unitName coreunit.Name,
+		settings map[string]string,
 	) error
 
 	// GetLocalRelationApplicationSettings returns the application settings
