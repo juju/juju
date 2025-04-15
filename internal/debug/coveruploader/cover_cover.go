@@ -15,10 +15,27 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"runtime/coverage"
 	"time"
 	_ "unsafe"
 )
+
+// init silences the GOCOVERDIR warning by setting the GOCOVERDIR env var
+// to a temporary directory.
+func init() {
+	if putURL == "" {
+		return
+	}
+	if os.Getenv("GOCOVERDIR") != "" {
+		return
+	}
+	tempDir, err := os.MkdirTemp("", "gocover")
+	if err != nil {
+		return
+	}
+	os.Setenv("GOCOVERDIR", tempDir)
+}
 
 // putURL is injected by build scripts as the target for the
 // uploaded coverage profile.
