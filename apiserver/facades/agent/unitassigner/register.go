@@ -28,7 +28,6 @@ func newFacade(ctx facade.ModelContext) (*API, error) {
 		machineService: domainServices.Machine(),
 		networkService: domainServices.Network(),
 		statusService:  domainServices.Status(),
-		stubService:    domainServices.Stub(),
 		clock:          ctx.Clock(),
 		res:            ctx.Resources(),
 	}, nil

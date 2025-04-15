@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/description/v9"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/lease/service"
@@ -18,8 +19,11 @@ import (
 // RegisterExport registers the export operations with the given coordinator.
 func RegisterExport(
 	coordinator Coordinator,
+	logger logger.Logger,
 ) {
-	coordinator.Add(&exportOperation{})
+	coordinator.Add(&exportOperation{
+		logger: logger,
+	})
 }
 
 // ExportService provides a subset of the leadership domain
@@ -36,6 +40,7 @@ type exportOperation struct {
 	modelmigration.BaseOperation
 
 	service ExportService
+	logger  logger.Logger
 }
 
 // Name returns the name of this operation.
@@ -64,7 +69,11 @@ func (e *exportOperation) Execute(ctx context.Context, m description.Model) erro
 	for _, app := range m.Applications() {
 		holder, ok := leases[app.Name()]
 		if !ok {
-			return errors.Errorf("application %q has no leadership", app.Name())
+			// If there is no leadership for the application, mention it, but
+			// don't fail the migration. The importing application should select
+			// a new leadership claim for the application.
+			e.logger.Warningf(ctx, "application %q has no leadership", app.Name())
+			continue
 		}
 		app.SetLeader(holder)
 	}

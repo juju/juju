@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
@@ -44,7 +45,7 @@ type UnitState interface {
 	// [applicationerrors.ApplicationNotFound] is returned. If any of the units
 	// already exists, an error satisfying [applicationerrors.UnitAlreadyExists]
 	// is returned.
-	InsertMigratingIAASUnits(context.Context, coreapplication.ID, ...application.InsertUnitArg) error
+	InsertMigratingIAASUnits(context.Context, coreapplication.ID, ...application.ImportUnitArg) error
 
 	// InsertMigratingCAASUnits inserts the fully formed units for the specified
 	// CAAS application. This is only used when inserting units during model
@@ -52,7 +53,7 @@ type UnitState interface {
 	// [applicationerrors.ApplicationNotFound] is returned. If any of the units
 	// already exists, an error satisfying [applicationerrors.UnitAlreadyExists]
 	// is returned.
-	InsertMigratingCAASUnits(context.Context, coreapplication.ID, ...application.InsertUnitArg) error
+	InsertMigratingCAASUnits(context.Context, coreapplication.ID, ...application.ImportUnitArg) error
 
 	// RegisterCAASUnit registers the specified CAAS application unit. The
 	// following errors can be expected:
@@ -123,9 +124,15 @@ func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg
 			return nil, errors.Errorf("validating unit name %q: %w", u.UnitName, err)
 		}
 
+		placement, err := deployment.ParsePlacement(u.Placement)
+		if err != nil {
+			return nil, errors.Errorf("invalid placement for %q: %w", u.UnitName, err)
+		}
+
 		arg := application.AddUnitArg{
 			UnitName:    u.UnitName,
 			Constraints: constraints,
+			Placement:   placement,
 			UnitStatusArg: application.UnitStatusArg{
 				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusAllocating,

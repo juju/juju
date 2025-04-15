@@ -8,17 +8,18 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/life"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type migrationStateSuite struct {
@@ -48,7 +49,6 @@ func (s *migrationStateSuite) TestGetApplicationsForExport(c *gc.C) {
 				Revision: 42,
 				Source:   charm.CharmHubSource,
 			},
-			Placement:   "placement",
 			Subordinate: false,
 		},
 	})
@@ -76,7 +76,6 @@ func (s *migrationStateSuite) TestGetApplicationsForExportMany(c *gc.C) {
 				Revision: 42,
 				Source:   charm.CharmHubSource,
 			},
-			Placement:   "placement",
 			Subordinate: false,
 		})
 	}
@@ -114,7 +113,6 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *gc.C) {
 				Revision: 42,
 				Source:   charm.CharmHubSource,
 			},
-			Placement:   "placement",
 			Subordinate: false,
 		},
 		{
@@ -128,7 +126,6 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *gc.C) {
 				Revision: 42,
 				Source:   charm.CharmHubSource,
 			},
-			Placement:   "placement",
 			Subordinate: false,
 		},
 	}
@@ -157,8 +154,6 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExport(c *gc.C) {
 		},
 	})
 
-	machineName := s.createMachine(c)
-
 	unitUUID, err := st.GetUnitUUIDByName(context.Background(), "foo/0")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -168,7 +163,7 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExport(c *gc.C) {
 		{
 			UUID:    unitUUID,
 			Name:    "foo/0",
-			Machine: machineName,
+			Machine: machine.Name("0"),
 		},
 	})
 }
@@ -197,8 +192,6 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportDying(c *gc.C) {
 		},
 	})
 
-	machineName := s.createMachine(c)
-
 	unitUUID, err := st.GetUnitUUIDByName(context.Background(), "foo/0")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -214,7 +207,7 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportDying(c *gc.C) {
 		{
 			UUID:    unitUUID,
 			Name:    "foo/0",
-			Machine: machineName,
+			Machine: machine.Name("0"),
 		},
 	})
 }
@@ -233,8 +226,6 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportDead(c *gc.C) {
 		},
 	})
 
-	machineName := s.createMachine(c)
-
 	unitUUID, err := st.GetUnitUUIDByName(context.Background(), "foo/0")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -250,28 +241,49 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportDead(c *gc.C) {
 		{
 			UUID:    unitUUID,
 			Name:    "foo/0",
-			Machine: machineName,
+			Machine: machine.Name("0"),
 		},
 	})
 }
 
-func (s *migrationStateSuite) createMachine(c *gc.C) machine.Name {
-	machineUUID := uuid.MustNewUUID()
+func (s *unitStateSuite) TestInsertMigratingIAASUnits(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive)
 
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		var netNodeUUID string
-		err := tx.QueryRowContext(ctx, `SELECT net_node_uuid FROM unit WHERE name = 'foo/0'`).Scan(&netNodeUUID)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO machine (uuid, name, life_id, net_node_uuid) 
-VALUES (?, ?, 0, ?)`, machineUUID.String(), "0", netNodeUUID)
-
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		_, _, err := s.state.insertMachineAndNetNode(context.Background(), tx, machine.Name("0"))
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	return machine.Name("0")
+	err = s.state.InsertMigratingIAASUnits(context.Background(), appID, application.ImportUnitArg{
+		UnitName: "foo/666",
+		Machine:  "0",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertInsertMigratingUnits(c, appID)
+}
+
+func (s *unitStateSuite) TestInsertMigratingCAASUnits(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive)
+
+	err := s.state.InsertMigratingCAASUnits(context.Background(), appID, application.ImportUnitArg{
+		UnitName: "foo/666",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertInsertMigratingUnits(c, appID)
+}
+
+func (s *unitStateSuite) assertInsertMigratingUnits(c *gc.C, appID coreapplication.ID) {
+	var unitName string
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT name FROM unit WHERE application_uuid=?", appID).Scan(&unitName)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitName, gc.Equals, "foo/666")
 }

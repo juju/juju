@@ -29,6 +29,24 @@ func (*ModelSuite) TestValidModelTypes(c *gc.C) {
 	}
 }
 
+func (*ModelSuite) TestParseModelTypes(c *gc.C) {
+	validTypes := []string{
+		"caas",
+		"iaas",
+	}
+
+	for _, vt := range validTypes {
+		mt, err := ParseModelType(vt)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(mt.IsValid(), jc.IsTrue)
+	}
+}
+
+func (*ModelSuite) TestParseModelTypesInvalid(c *gc.C) {
+	_, err := ParseModelType("foo")
+	c.Assert(err, gc.ErrorMatches, `unknown model type "foo"`)
+}
+
 func (*ModelSuite) TestUUIDValidate(c *gc.C) {
 	tests := []struct {
 		uuid string

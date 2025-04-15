@@ -285,12 +285,12 @@ func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstra
 // doesn't exist.
 // If no units are provided, it will return nil.
 func (s *ProviderService) AddUnits(ctx context.Context, storageParentDir, appName string, units ...AddUnitArg) error {
-	if !isValidApplicationName(appName) {
-		return applicationerrors.ApplicationNameNotValid
-	}
-
 	if len(units) == 0 {
 		return nil
+	}
+
+	if !isValidApplicationName(appName) {
+		return applicationerrors.ApplicationNameNotValid
 	}
 
 	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)

@@ -16,6 +16,10 @@ const (
 	// MachineScope is a special scope name that is used
 	// for machine placement directives (e.g. --to 0).
 	MachineScope = "#"
+
+	// ModelScope is a special scope name that is used
+	// for model placement directives.
+	ModelScope = "model-uuid"
 )
 
 var ErrPlacementScopeMissing = errors.Errorf("placement scope missing")

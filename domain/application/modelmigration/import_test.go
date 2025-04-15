@@ -17,6 +17,8 @@ import (
 	"github.com/juju/juju/core/config"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application"
@@ -107,10 +109,12 @@ func (s *importSuite) TestRollbackForMultipleApplicationsRollbacksAll(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "rollback failed: boom")
 }
 
-func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
+func (s *importSuite) TestApplicationImportWithMinimalCharmForCAAS(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.CAAS.String(),
+	})
 
 	appArgs := description.ApplicationArgs{
 		Name:     "prometheus",
@@ -189,10 +193,74 @@ func (s *importSuite) TestApplicationImportWithMinimalCharm(c *gc.C) {
 	}})
 }
 
+func (s *importSuite) TestApplicationImportWithMinimalCharmForIAAS(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
+
+	appArgs := description.ApplicationArgs{
+		Name:     "prometheus",
+		CharmURL: "ch:prometheus-1",
+	}
+	app := model.AddApplication(appArgs)
+	app.AddUnit(description.UnitArgs{
+		Name:         "prometheus/0",
+		PasswordHash: "passwordhash",
+		Machine:      "0",
+	})
+	app.SetCharmMetadata(description.CharmMetadataArgs{
+		Name: "prometheus",
+	})
+	app.SetCharmManifest(description.CharmManifestArgs{
+		Bases: []description.CharmManifestBase{baseType{
+			name:          "ubuntu",
+			channel:       "24.04",
+			architectures: []string{"amd64"},
+		}},
+	})
+	app.SetCharmOrigin(description.CharmOriginArgs{
+		Source:   "charm-hub",
+		ID:       "1234",
+		Hash:     "deadbeef",
+		Revision: 1,
+		Channel:  "666/stable",
+		Platform: "arm64/ubuntu/24.04",
+	})
+
+	var importArgs service.ImportApplicationArgs
+	s.importService.EXPECT().ImportApplication(
+		gomock.Any(),
+		"prometheus",
+		gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, args service.ImportApplicationArgs) error {
+		importArgs = args
+		return nil
+	})
+
+	importOp := importOperation{
+		service: s.importService,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+
+	err := importOp.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(importArgs.Charm.Meta().Name, gc.Equals, "prometheus")
+	c.Check(importArgs.Units, gc.DeepEquals, []service.ImportUnitArg{{
+		UnitName:     "prometheus/0",
+		PasswordHash: ptr("passwordhash"),
+		Machine:      machine.Name("0"),
+	}})
+}
+
 func (s *importSuite) TestApplicationImportWithApplicationConfigAndSettings(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
 
 	appArgs := description.ApplicationArgs{
 		Name:     "prometheus",
@@ -259,7 +327,9 @@ func (s *importSuite) TestApplicationImportWithApplicationConfigAndSettings(c *g
 func (s *importSuite) TestApplicationImportWithConstraints(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
 
 	appArgs := description.ApplicationArgs{
 		Name:     "prometheus",
@@ -875,7 +945,9 @@ func (s *importSuite) TestImportCharmActionsNestedMaps(c *gc.C) {
 func (s *importSuite) TestImportExposedEndpointsFrom36(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
 
 	appArgs := description.ApplicationArgs{
 		Name:     "prometheus",
@@ -946,7 +1018,9 @@ func (s *importSuite) TestImportExposedEndpointsFrom36(c *gc.C) {
 func (s *importSuite) TestImportExposedEndpointsFrom40(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	model := description.NewModel(description.ModelArgs{})
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
 
 	spaceUUID := uuid.MustNewUUID()
 	appArgs := description.ApplicationArgs{

@@ -146,20 +146,9 @@ func DeployApplication(
 		asa.Constraints = args.Constraints
 	}
 
-	// TODO(dqlite) - remove mongo AddApplication call.
-	// To ensure dqlite unit names match those created in mongo, grab the next unit
-	// sequence number before writing the mongo units.
-	nextUnitNum, err := st.ReadSequence(args.ApplicationName)
+	unitArgs, err := makeUnitArgs(st, args)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-	unitArgs := make([]applicationservice.AddUnitArg, args.NumUnits)
-	for i := 0; i < args.NumUnits; i++ {
-		unitName, err := coreunit.NewNameFromParts(args.ApplicationName, nextUnitNum+i)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		unitArgs[i].UnitName = unitName
 	}
 	app, err := st.AddApplication(asa, store)
 
@@ -207,6 +196,34 @@ func DeployApplication(
 		}
 	}
 	return app, errors.Trace(err)
+}
+
+func makeUnitArgs(st ApplicationDeployer, args DeployApplicationParams) ([]applicationservice.AddUnitArg, error) {
+	// TODO(dqlite) - remove mongo AddApplication call.
+	// To ensure dqlite unit names match those created in mongo, grab the next unit
+	// sequence number before writing the mongo units.
+	nextUnitNum, err := st.ReadSequence(args.ApplicationName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	unitArgs := make([]applicationservice.AddUnitArg, args.NumUnits)
+	for i := range args.NumUnits {
+		var unitPlacement *instance.Placement
+		if i < len(args.Placement) {
+			unitPlacement = args.Placement[i]
+		}
+
+		unitName, err := coreunit.NewNameFromParts(args.ApplicationName, nextUnitNum+i)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		unitArgs[i] = applicationservice.AddUnitArg{
+			UnitName:  unitName,
+			Placement: unitPlacement,
+		}
+	}
+
+	return unitArgs, nil
 }
 
 func transformBindings(endpointBindings map[string]string) map[string]network.SpaceName {
@@ -263,7 +280,18 @@ func (api *APIBase) addUnits(
 		if err != nil {
 			return nil, internalerrors.Errorf("parsing unit name %q: %w", unit.Name(), err)
 		}
-		if err := api.applicationService.AddUnits(ctx, domainapplication.StorageParentDir, appName, applicationservice.AddUnitArg{UnitName: unitName}); err != nil {
+
+		var unitPlacement *instance.Placement
+		if i < len(placement) {
+			unitPlacement = placement[i]
+		}
+
+		unitArg := applicationservice.AddUnitArg{
+			UnitName:  unitName,
+			Placement: unitPlacement,
+		}
+
+		if err := api.applicationService.AddUnits(ctx, domainapplication.StorageParentDir, appName, unitArg); err != nil {
 			return nil, internalerrors.Errorf("adding unit %q to application %q: %w", unitName, appName, err)
 		}
 		units[i] = unit
@@ -291,11 +319,6 @@ func (api *APIBase) addUnits(
 			return nil, internalerrors.Errorf("saving assigned machine %q for unit %q: %w", id, unitName, err)
 		}
 		machineToUnitMap[id] = append(machineToUnitMap[id], unitName)
-	}
-
-	// Assign units to machines via net nodes.
-	if err := api.stubService.AssignUnitsToMachines(ctx, machineToUnitMap); err != nil {
-		return nil, internalerrors.Errorf("assigning units to machines: %w", err)
 	}
 
 	return units, nil

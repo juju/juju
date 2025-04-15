@@ -449,14 +449,14 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(modelType, nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
 
-	var receivedUnitArgs []application.InsertUnitArg
+	var receivedUnitArgs []application.ImportUnitArg
 	if modelType == coremodel.IAAS {
-		s.state.EXPECT().InsertMigratingIAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.InsertUnitArg) error {
+		s.state.EXPECT().InsertMigratingIAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.ImportUnitArg) error {
 			receivedUnitArgs = args
 			return nil
 		})
 	} else {
-		s.state.EXPECT().InsertMigratingCAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.InsertUnitArg) error {
+		s.state.EXPECT().InsertMigratingCAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.ImportUnitArg) error {
 			receivedUnitArgs = args
 			return nil
 		})
@@ -568,7 +568,7 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedUnitArgs := []application.InsertUnitArg{{
+	expectedUnitArgs := []application.ImportUnitArg{{
 		UnitName:       "ubuntu/666",
 		CloudContainer: nil,
 		Password: ptr(application.PasswordInfo{

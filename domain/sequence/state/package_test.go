@@ -1,7 +1,7 @@
-// Copyright 2024 Canonical Ltd.
+// Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package stub
+package state
 
 import (
 	"testing"
@@ -9,6 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }

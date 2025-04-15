@@ -240,6 +240,10 @@ const (
 	// EndpointNotFound descries an error that occurs when the endpoint being
 	// operated on does not exist.
 	EndpointNotFound = errors.ConstError("endpoint not found")
+
+	// MachineNotFound describes an error that occurs when the machine being
+	// operated on does not exist.
+	MachineNotFound = errors.ConstError("machine not found")
 )
 
 const (

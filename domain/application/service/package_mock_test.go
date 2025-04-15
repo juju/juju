@@ -2456,7 +2456,7 @@ func (c *MockStateInitialWatchStatementUnitLifeCall) DoAndReturn(f func(string) 
 }
 
 // InsertMigratingCAASUnits mocks base method.
-func (m *MockState) InsertMigratingCAASUnits(arg0 context.Context, arg1 application.ID, arg2 ...application0.InsertUnitArg) error {
+func (m *MockState) InsertMigratingCAASUnits(arg0 context.Context, arg1 application.ID, arg2 ...application0.ImportUnitArg) error {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0, arg1}
 	for _, a := range arg2 {
@@ -2487,19 +2487,19 @@ func (c *MockStateInsertMigratingCAASUnitsCall) Return(arg0 error) *MockStateIns
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateInsertMigratingCAASUnitsCall) Do(f func(context.Context, application.ID, ...application0.InsertUnitArg) error) *MockStateInsertMigratingCAASUnitsCall {
+func (c *MockStateInsertMigratingCAASUnitsCall) Do(f func(context.Context, application.ID, ...application0.ImportUnitArg) error) *MockStateInsertMigratingCAASUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInsertMigratingCAASUnitsCall) DoAndReturn(f func(context.Context, application.ID, ...application0.InsertUnitArg) error) *MockStateInsertMigratingCAASUnitsCall {
+func (c *MockStateInsertMigratingCAASUnitsCall) DoAndReturn(f func(context.Context, application.ID, ...application0.ImportUnitArg) error) *MockStateInsertMigratingCAASUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // InsertMigratingIAASUnits mocks base method.
-func (m *MockState) InsertMigratingIAASUnits(arg0 context.Context, arg1 application.ID, arg2 ...application0.InsertUnitArg) error {
+func (m *MockState) InsertMigratingIAASUnits(arg0 context.Context, arg1 application.ID, arg2 ...application0.ImportUnitArg) error {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0, arg1}
 	for _, a := range arg2 {
@@ -2530,13 +2530,13 @@ func (c *MockStateInsertMigratingIAASUnitsCall) Return(arg0 error) *MockStateIns
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateInsertMigratingIAASUnitsCall) Do(f func(context.Context, application.ID, ...application0.InsertUnitArg) error) *MockStateInsertMigratingIAASUnitsCall {
+func (c *MockStateInsertMigratingIAASUnitsCall) Do(f func(context.Context, application.ID, ...application0.ImportUnitArg) error) *MockStateInsertMigratingIAASUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInsertMigratingIAASUnitsCall) DoAndReturn(f func(context.Context, application.ID, ...application0.InsertUnitArg) error) *MockStateInsertMigratingIAASUnitsCall {
+func (c *MockStateInsertMigratingIAASUnitsCall) DoAndReturn(f func(context.Context, application.ID, ...application0.ImportUnitArg) error) *MockStateInsertMigratingIAASUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
