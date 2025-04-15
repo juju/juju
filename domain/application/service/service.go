@@ -484,6 +484,52 @@ func (s *WatchableService) WatchApplicationExposed(ctx context.Context, name str
 	)
 }
 
+// WatchUnitForUniterChanged watches for some specific changes to the unit with
+// the given name. The watcher will emit a notification when there is a change to
+// the unit's inherent properties, it's subordinates or it's resolved mode.
+//
+// If the unit does not exist an error satisfying [applicationerrors.UnitNotFound]
+// will be returned.
+//
+// These tables are selected since they provide coverage for the events the uniter
+// watches for using the Watch agent facade method.
+//
+// TODO(jack-w-shaw): This watcher only exists to maintain backwards compatibility
+// with the uniter agent facade. Specifically, version 20 of the facade implements
+// a Watch endpoint, which can watches for _any_ change to the unit doc in Mongo.
+// Once we no longer need to support facade 20, we can drop this method.
+func (s *WatchableService) WatchUnitForLegacyUniter(ctx context.Context, unitName coreunit.Name) (watcher.NotifyWatcher, error) {
+	uuid, err := s.GetUnitUUID(ctx, unitName)
+	if err != nil {
+		return nil, errors.Errorf("getting ID of unit %s: %w", unitName, err)
+	}
+
+	unitNamespace, principalNamespace, resolvedNamespace := s.st.NamespaceForWatchUnitForLegacyUniter()
+	return s.watcherFactory.NewNotifyWatcher(
+		eventsource.PredicateFilter(
+			unitNamespace,
+			changestream.All,
+			func(s string) bool {
+				return s == uuid.String()
+			},
+		),
+		eventsource.PredicateFilter(
+			principalNamespace,
+			changestream.All,
+			func(s string) bool {
+				return s == uuid.String()
+			},
+		),
+		eventsource.PredicateFilter(
+			resolvedNamespace,
+			changestream.All,
+			func(s string) bool {
+				return s == uuid.String()
+			},
+		),
+	)
+}
+
 type maskedChangeIDEvent struct {
 	changestream.ChangeEvent
 	id string

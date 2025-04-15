@@ -279,6 +279,13 @@ type ApplicationState interface {
 	// table.
 	NamespaceForWatchApplicationExposed() (string, string)
 
+	// NamespaceForWatchUnitForLegacyUniter returns the namespace identifiers
+	// for unit changes needed for the uniter. The first return value is the
+	// namespace for the unit's inherent properties, the second is the namespace
+	// of unit principals (used to watch for changes in subordinates), and the
+	// third is the namespace for the unit's resolved mode.
+	NamespaceForWatchUnitForLegacyUniter() (string, string, string)
+
 	// GetExposedEndpoints returns map where keys are endpoint names (or the ""
 	// value which represents all endpoints) and values are ExposedEndpoint
 	// instances that specify which sources (spaces or CIDRs) can access the
