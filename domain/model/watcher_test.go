@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -257,8 +256,6 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *gc.C) {
 		Attributes: map[string]string{
 			"foo2": "foo val",
 		},
-		Revoked: true,
-		Label:   "foobar",
 	}
 	_, err := credSt.UpsertCloudCredential(context.Background(), anotherKey, credInfo2)
 	c.Assert(err, jc.ErrorIsNil)
@@ -291,7 +288,7 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *gc.C) {
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
-	// Test that updating the credential context triggers the watcher.
+	// Test that updating the credential content triggers the watcher.
 	harness.AddTest(func(c *gc.C) {
 		credInfo := credential.CloudCredentialInfo{
 			AuthType: string(cloud.AccessKeyAuthType),
@@ -300,12 +297,8 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *gc.C) {
 				"bar": "bar val",
 			},
 			Revoked: true,
-			Label:   "foobar",
 		}
-		err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-			_, err := credSt.UpsertCloudCredential(ctx, originalKey, credInfo)
-			return err
-		})
+		_, err := credSt.UpsertCloudCredential(context.Background(), originalKey, credInfo)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
@@ -313,6 +306,36 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *gc.C) {
 	// Test that updating the model credential reference triggers the watcher.
 	harness.AddTest(func(c *gc.C) {
 		err := st.UpdateCredential(context.Background(), modelUUID, anotherKey)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+	// Test that updating the old original credential after a reference update
+	// does not trigger the watcher.
+	harness.AddTest(func(c *gc.C) {
+		credInfo := credential.CloudCredentialInfo{
+			AuthType: string(cloud.AccessKeyAuthType),
+			Attributes: map[string]string{
+				"foo": "foo val2",
+				"bar": "bar val2",
+			},
+		}
+		_, err := credSt.UpsertCloudCredential(context.Background(), originalKey, credInfo)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+	// Test that updating the new credential triggers the watcher.
+	harness.AddTest(func(c *gc.C) {
+		credInfo := credential.CloudCredentialInfo{
+			AuthType: string(cloud.AccessKeyAuthType),
+			Attributes: map[string]string{
+				"foo": "foo val3",
+				"bar": "bar val3",
+			},
+			Revoked: true,
+		}
+		_, err := credSt.UpsertCloudCredential(context.Background(), anotherKey, credInfo)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
@@ -339,6 +362,11 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *gc.C) {
 		})
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	// Assert that nothing changes if nothing happens.
+	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 

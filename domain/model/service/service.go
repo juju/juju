@@ -749,41 +749,50 @@ func (s *WatchableService) WatchModelCloudCredential(ctx context.Context, modelU
 		return nil, errors.Errorf("getting model cloud and credential: %w", err)
 	}
 
-	var currentCredentialUUID atomic.Pointer[credential.UUID]
-	currentCredentialUUID.Store(&credentialUUID)
+	var lastSeenCredentialUUID atomic.Pointer[credential.UUID]
+	lastSeenCredentialUUID.Store(&credentialUUID)
 
 	// The mapper is used to filter out any model events where the credential UUID has not changed.
 	mapper := func(ctx context.Context, txnRunner database.TxnRunner, events []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		// Get the current model credential UUID.
-		_, newCredentialUUID, err := s.st.GetModelCloudAndCredential(ctx, modelUUID)
+		_, currentModelCredentialUUID, err := s.st.GetModelCloudAndCredential(ctx, modelUUID)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		gotNewCredential := *currentCredentialUUID.Load() != newCredentialUUID
+
 		var out []changestream.ChangeEvent
 		for _, e := range events {
-			if e.Namespace() != "model" || gotNewCredential {
+			wantEvent := false
+			switch e.Namespace() {
+			case "cloud":
+				wantEvent = true
+			case "model":
+				if *lastSeenCredentialUUID.Load() != currentModelCredentialUUID {
+					wantEvent = true
+					lastSeenCredentialUUID.Store(&currentModelCredentialUUID)
+				}
+			case "cloud_credential":
+				wantEvent = currentModelCredentialUUID.String() == e.Changed()
+			}
+			if wantEvent {
 				out = append(out, e)
 			}
 		}
-		currentCredentialUUID.Store(&newCredentialUUID)
 		return out, nil
 	}
 
 	result, err := s.watcherFactory.NewNotifyMapperWatcher(
 		mapper,
-		eventsource.PredicateFilter("model", changestream.Changed, func(s string) bool {
-			return s == modelUUID.String()
+		eventsource.PredicateFilter("model", changestream.Changed, func(v string) bool {
+			return v == modelUUID.String()
 		}),
-		eventsource.PredicateFilter("cloud", changestream.Changed, func(s string) bool {
-			return s == cloudUUID.String()
+		eventsource.PredicateFilter("cloud", changestream.Changed, func(v string) bool {
+			return v == cloudUUID.String()
 		}),
-		eventsource.PredicateFilter("cloud_credential", changestream.Changed, func(s string) bool {
-			return s == currentCredentialUUID.Load().String()
-		}),
+		eventsource.NamespaceFilter("cloud_credential", changestream.Changed),
 	)
 	if err != nil {
-		return result, errors.Errorf("watching model cloud and credential: %w", err)
+		return nil, errors.Errorf("watching model cloud and credential: %w", err)
 	}
 	return result, nil
 }
