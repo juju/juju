@@ -24,6 +24,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
+	agentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
@@ -133,8 +134,8 @@ func (t *toolsReadCloser) Close() error {
 
 // toolsHandler handles tool upload through HTTPS in the API server.
 type toolsUploadHandler struct {
-	ctxt          httpContext
-	stateAuthFunc func(*http.Request) (*state.PooledState, error)
+	blockCheckerGetter common.BlockCheckerGetter
+	storeGetter        AgentBinaryStoreGetter
 }
 
 // toolsHandler handles tool download through HTTPS in the API server.
@@ -147,6 +148,18 @@ func newToolsDownloadHandler(httpCtxt httpContext) *toolsDownloadHandler {
 	return &toolsDownloadHandler{
 		ctxt:       httpCtxt,
 		fetchMutex: kmutex.New(),
+	}
+}
+
+// newToolsUploadHandler constructs a new [toolsUploadHandler] from the supplied
+// arguments.
+func newToolsUploadHandler(
+	blockChecker common.BlockCheckerGetter,
+	storeGetter AgentBinaryStoreGetter,
+) *toolsUploadHandler {
+	return &toolsUploadHandler{
+		blockCheckerGetter: blockChecker,
+		storeGetter:        storeGetter,
 	}
 }
 
@@ -182,35 +195,24 @@ func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Validate before authenticate because the authentication is dependent
-	// on the state connection that is determined during the validation.
-	st, err := h.stateAuthFunc(r)
-	if err != nil {
-		if err := sendError(w, err); err != nil {
-			logger.Errorf(context.TODO(), "%v", err)
-		}
-		return
-	}
-	defer st.Release()
-
 	switch r.Method {
 	case "POST":
 		// Add tools to storage.
-		agentTools, err := h.processPost(r, st.State)
+		uploadedTools, err := h.processPost(r)
 		if err != nil {
 			if err := sendError(w, err); err != nil {
-				logger.Errorf(context.TODO(), "%v", err)
+				logger.Errorf(r.Context(), "sending err response for post upload tools request: %v", err)
 			}
 			return
 		}
 		if err := internalhttp.SendStatusAndJSON(w, http.StatusOK, &params.ToolsResult{
-			ToolsList: tools.List{agentTools},
+			ToolsList: tools.List{&uploadedTools},
 		}); err != nil {
-			logger.Errorf(context.TODO(), "%v", err)
+			logger.Errorf(r.Context(), "%v", err)
 		}
 	default:
 		if err := sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method)); err != nil {
-			logger.Errorf(context.TODO(), "%v", err)
+			logger.Errorf(r.Context(), "%v", err)
 		}
 	}
 }
@@ -413,41 +415,82 @@ func (h *toolsDownloadHandler) sendTools(w http.ResponseWriter, reader io.ReadCl
 	return nil
 }
 
-// processPost handles a tools upload POST request after authentication.
-func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*tools.Tools, error) {
+// processPost handles a tools upload POST request after authentication. It
+// checks that the binary version supplied is valid and that the uploader has
+// set the right content type before handling the uploaded data.
+func (h *toolsUploadHandler) processPost(r *http.Request) (tools.Tools, error) {
 	query := r.URL.Query()
-
 	binaryVersionParam := query.Get("binaryVersion")
 	if binaryVersionParam == "" {
-		return nil, errors.BadRequestf("expected binaryVersion argument")
+		return tools.Tools{}, internalerrors.New(
+			"expected binaryVersion argument",
+		).Add(coreerrors.BadRequest)
 	}
-	toolsVersion, err := semversion.ParseBinary(binaryVersionParam)
+
+	parsedBinaryVersion, err := semversion.ParseBinary(binaryVersionParam)
 	if err != nil {
-		return nil, errors.NewBadRequest(err, fmt.Sprintf("invalid agent binaries version %q", binaryVersionParam))
+		return tools.Tools{}, internalerrors.Errorf(
+			"invalid agent binary version: %w",
+			err,
+		).Add(coreerrors.BadRequest)
+	}
+
+	agentBinaryVersion := coreagentbinary.Version{
+		Number: parsedBinaryVersion.Number,
+		Arch:   corearch.Arch(parsedBinaryVersion.Arch),
 	}
 
 	// Make sure the content type is x-tar-gz.
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/x-tar-gz" {
-		return nil, errors.BadRequestf("expected Content-Type: application/x-tar-gz, got: %v", contentType)
+		return tools.Tools{}, internalerrors.Errorf(
+			"expected Content-Type: application/x-tar-gz, got: %v", contentType,
+		).Add(coreerrors.BadRequest)
 	}
 
-	logger.Debugf(context.TODO(), "request to upload agent binaries: %s", toolsVersion)
-	toolsVersions := []semversion.Binary{toolsVersion}
-	serverRoot, err := h.getServerRoot(r, query, st)
+	// We check to see if this request has authentication information attached
+	// to it. This is done so that we can associate the agent binary uploads to
+	// a user in log messages.
+	authInfo, has := httpcontext.RequestAuthInfo(r)
+	userIdentifier := "unathenticated"
+	if has {
+		userIdentifier = authInfo.Entity.Tag().Id()
+	}
+
+	logger.Infof(
+		r.Context(),
+		"agent binaries being uploaded to controller for version %q and arch %q on behalf of user %q",
+		agentBinaryVersion.Number.String(),
+		agentBinaryVersion.Arch,
+		userIdentifier,
+	)
+
+	agentBinaryStore, err := h.storeGetter(r)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return tools.Tools{}, internalerrors.Errorf(
+			"getting agent binary store for tools upload request: %w", err,
+		)
 	}
 
-	store, err := h.ctxt.controllerObjectStoreForRequest(r.Context())
+	size, sha, err := h.handleUpload(r.Context(), r.Body, agentBinaryStore, agentBinaryVersion)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return tools.Tools{}, internalerrors.Capture(err)
 	}
 
-	return h.handleUpload(r.Context(), r.Body, toolsVersions, serverRoot, st, store)
+	serverRoot, err := h.getServerRoot(r, query)
+	if err != nil {
+		return tools.Tools{}, internalerrors.Capture(err)
+	}
+
+	return tools.Tools{
+		Version: parsedBinaryVersion,
+		URL:     common.ToolsURL(serverRoot, parsedBinaryVersion.String()),
+		SHA256:  sha,
+		Size:    size,
+	}, nil
 }
 
-func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values, st *state.State) (string, error) {
+func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values) (string, error) {
 	modelUUID, valid := httpcontext.RequestModelUUID(r.Context())
 	if !valid {
 		return "", errors.BadRequestf("invalid model UUID")
@@ -459,60 +502,63 @@ func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values, st
 func (h *toolsUploadHandler) handleUpload(
 	ctx context.Context,
 	r io.Reader,
-	toolsVersions []semversion.Binary,
-	serverRoot string,
-	st *state.State,
-	store objectstore.ObjectStore,
-) (*tools.Tools, error) {
-	serviceFactory, err := h.ctxt.domainServicesForRequest(ctx)
+	agentBinaryStore AgentBinaryStore,
+	agentBinaryVersion coreagentbinary.Version,
+) (int64, string, error) {
+	blockChecker, err := h.blockCheckerGetter(ctx)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return 0, "", internalerrors.Errorf(
+			"failed getting block checker for tools upload request: %w", err,
+		)
 	}
 
-	// Check if changes are allowed and the command may proceed.
-	blockChecker := common.NewBlockChecker(serviceFactory.BlockCommand())
 	if err := blockChecker.ChangeAllowed(ctx); err != nil {
-		return nil, errors.Trace(err)
+		return 0, "", internalerrors.Capture(err)
 	}
-	storage, err := st.ToolsStorage(store)
-	if err != nil {
-		return nil, err
-	}
-	defer storage.Close()
 
 	// Read the tools tarball from the request, calculating the sha256 along the way.
 	data, sha256, size, err := tmpCacheAndHash(r)
 	if err != nil {
-		return nil, err
+		return 0, "", internalerrors.Errorf("caching and hashing agent binary upload: %w", err)
 	}
 	defer data.Close()
 
 	if size == 0 {
-		return nil, errors.BadRequestf("no agent binaries uploaded")
+		return 0, "", internalerrors.New("no agent binaries uploaded").Add(coreerrors.BadRequest)
 	}
 
-	// TODO(wallyworld): check integrity of tools tarball.
+	// TODO(wallyworld, tlm): check integrity of tools tarball. This todo was
+	// added before the integration of Dqlite into this handler. What we ideally
+	// should be doing is letting the agent binary store disect the upload if we
+	// wish for this to be done.
 
-	// Store tools and metadata in tools storage.
-	for _, v := range toolsVersions {
-		metadata := binarystorage.Metadata{
-			Version: v.String(),
-			Size:    size,
-			SHA256:  sha256,
-		}
-		logger.Debugf(context.TODO(), "uploading agent binaries %+v to storage", metadata)
-		if err := storage.Add(ctx, data, metadata); err != nil {
-			return nil, err
-		}
+	logger.Debugf(
+		ctx,
+		"uploading agent binaries for version %q and arch %q to agent binary store",
+		agentBinaryVersion.Number.String(), agentBinaryVersion.Arch,
+	)
+
+	err = agentBinaryStore.AddAgentBinaryWithSHA256(
+		ctx, data, agentBinaryVersion, size, sha256,
+	)
+	switch {
+	case errors.Is(err, coreerrors.NotSupported):
+		err = internalerrors.Errorf(
+			"unsupported architecture %q", agentBinaryVersion.Arch,
+		).Add(coreerrors.BadRequest)
+	case errors.Is(err, agentbinaryerrors.AlreadyExists):
+		err = internalerrors.Errorf(
+			"agent binary already exists for version %q and arch %q",
+			agentBinaryVersion.Number, agentBinaryVersion.Arch,
+		).Add(coreerrors.BadRequest)
+	case err != nil:
+		err = internalerrors.Errorf(
+			"unable to add uploaded agent binary for version %q and arch %q: %w",
+			agentBinaryVersion.Number, agentBinaryVersion.Arch, err,
+		)
 	}
 
-	tools := &tools.Tools{
-		Version: toolsVersions[0],
-		Size:    size,
-		SHA256:  sha256,
-		URL:     common.ToolsURL(serverRoot, toolsVersions[0].String()),
-	}
-	return tools, nil
+	return size, sha256, err
 }
 
 type cleanupCloser struct {
