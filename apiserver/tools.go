@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
+	internalerrors "github.com/juju/juju/internal/errors"
 	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
@@ -34,6 +35,77 @@ import (
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/stateenvirons"
 )
+
+// AgentBinaryStore is an interface that provides the ability to store new agent
+// binaries into a store for the controller or model.
+type AgentBinaryStore interface {
+	// AddAgentBinaryWithSHA256 adds a new agent binary to the object store and
+	// saves its metadata to the database.
+	// The following errors can be returned:
+	// - [coreerrors.NotSupported] if the architecture is not supported.
+	// - [agentbinaryerrors.AlreadyExists] if an agent binary already exists for
+	// this version and architecture.
+	// - [agentbinaryerrors.ObjectNotFound] if there was a problem referencing
+	// the agent binary metadata with the previously saved binary object.
+	// This error should be considered an internal problem. It is discussed here
+	// to make the caller aware of future problems.
+	// - [coreerrors.NotValid] if the agent version is not valid or the SHA256
+	// hash doesn't match the generated hash.
+	AddAgentBinaryWithSHA256(
+		context.Context,
+		io.Reader,
+		coreagentbinary.Version,
+		int64,
+		string,
+	) error
+}
+
+// AgentBinaryStoreGetter is a deferred type that can be used to get an
+// AgentBinaryStore at exactly the time it is needed. This allows for the
+// context aware answers to be made.
+type AgentBinaryStoreGetter func(*http.Request) (AgentBinaryStore, error)
+
+// controllerAgentBinaryStoreForHTTPContext provides a deferred getter that
+// will provide the controllers [AgentBinaryStore] for the given [httpContext].
+func controllerAgentBinaryStoreForHTTPContext(httpCtx httpContext) AgentBinaryStoreGetter {
+	return func(r *http.Request) (AgentBinaryStore, error) {
+		services, err := httpCtx.domainServicesForRequest(r.Context())
+		if err != nil {
+			return nil, internalerrors.Capture(err)
+		}
+
+		return services.AgentBinaryStore(), nil
+	}
+}
+
+// migratingAgentBinaryStoreForHTTPContext provides a deferred getter that will
+// provide the agent binary store for the model that is being migrated as part
+// of the request.
+func migratingAgentBinaryStoreForHTTPContext(httpCtx httpContext) AgentBinaryStoreGetter {
+	return func(r *http.Request) (AgentBinaryStore, error) {
+		services, err := httpCtx.domainServicesDuringMigrationForRequest(r)
+		if err != nil {
+			return nil, internalerrors.Capture(err)
+		}
+
+		// TODO (tlm): Add model binary store here.
+		return services.AgentBinaryStore(), nil
+	}
+}
+
+// modelAgentBinaryStoreForHTTPContext provides a deferred getter that will
+// provide the models [AgentBinaryStore] for the given [httpContext].
+func modelAgentBinaryStoreForHTTPContext(httpCtx httpContext) AgentBinaryStoreGetter {
+	return func(r *http.Request) (AgentBinaryStore, error) {
+		services, err := httpCtx.domainServicesForRequest(r.Context())
+		if err != nil {
+			return nil, internalerrors.Capture(err)
+		}
+
+		// TODO (tlm): Add model binary store here.
+		return services.AgentBinaryStore(), nil
+	}
+}
 
 // toolsReadCloser wraps the ReadCloser for the tools blob
 // and the state StorageCloser.
