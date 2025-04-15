@@ -99,13 +99,13 @@ type PublicKeyImporter interface {
 type ModelServices struct {
 	modelServiceFactoryBase
 
-	clock             clock.Clock
-	modelUUID         model.UUID
-	providerFactory   providertracker.ProviderFactory
-	objectstore       objectstore.ModelObjectStoreGetter
-	storageRegistry   corestorage.ModelStorageRegistryGetter
-	publicKeyImporter PublicKeyImporter
-	leaseManager      lease.ModelLeaseManagerGetter
+	clock                  clock.Clock
+	modelUUID              model.UUID
+	providerFactory        providertracker.ProviderFactory
+	modelObjectStoreGetter objectstore.ModelObjectStoreGetter
+	storageRegistry        corestorage.ModelStorageRegistryGetter
+	publicKeyImporter      PublicKeyImporter
+	leaseManager           lease.ModelLeaseManagerGetter
 }
 
 // NewModelServices returns a new registry which uses the provided modelDB
@@ -115,7 +115,7 @@ func NewModelServices(
 	controllerDB changestream.WatchableDBFactory,
 	modelDB changestream.WatchableDBFactory,
 	providerFactory providertracker.ProviderFactory,
-	objectStore objectstore.ModelObjectStoreGetter,
+	modelObjectStoreGetter objectstore.ModelObjectStoreGetter,
 	storageRegistry corestorage.ModelStorageRegistryGetter,
 	publicKeyImporter PublicKeyImporter,
 	leaseManager lease.ModelLeaseManagerGetter,
@@ -130,14 +130,32 @@ func NewModelServices(
 			},
 			modelDB: modelDB,
 		},
-		clock:             clock,
-		modelUUID:         modelUUID,
-		providerFactory:   providerFactory,
-		objectstore:       objectStore,
-		storageRegistry:   storageRegistry,
-		publicKeyImporter: publicKeyImporter,
-		leaseManager:      leaseManager,
+		clock:                  clock,
+		modelUUID:              modelUUID,
+		providerFactory:        providerFactory,
+		modelObjectStoreGetter: modelObjectStoreGetter,
+		storageRegistry:        storageRegistry,
+		publicKeyImporter:      publicKeyImporter,
+		leaseManager:           leaseManager,
 	}
+}
+
+// AgentBinaryStore returns the model's [agentbinaryservice.AgentBinaryStore]
+// for the current model.
+func (s *ModelServices) AgentBinaryStore() *agentbinaryservice.AgentBinaryStore {
+	return agentbinaryservice.NewAgentBinaryStore(
+		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.logger.Child("modelagentbinary"),
+		s.modelObjectStoreGetter,
+	)
+}
+
+// AgentBinary returns the model's [agentbinaryservice.AgentBinaryService].
+func (s *ModelServices) AgentBinary() *agentbinaryservice.AgentBinaryService {
+	return agentbinaryservice.NewAgentBinaryService(
+		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+	)
 }
 
 // AgentProvisioner returns the agent provisioner service.
@@ -198,7 +216,7 @@ func (s *ModelServices) Application() *applicationservice.WatchableService {
 		providertracker.ProviderRunner[applicationservice.Provider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[applicationservice.SupportedFeatureProvider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[applicationservice.CAASApplicationProvider](s.providerFactory, s.modelUUID.String()),
-		charmstore.NewCharmStore(s.objectstore, logger.Child("charmstore")),
+		charmstore.NewCharmStore(s.modelObjectStoreGetter, logger.Child("charmstore")),
 		domain.NewStatusHistory(logger, s.clock),
 		s.clock,
 		logger,
@@ -397,7 +415,7 @@ func (s *ModelServices) Resource() *resourceservice.Service {
 		)
 	}
 	resourceStoreFactory := store.NewResourceStoreFactory(
-		s.objectstore,
+		s.modelObjectStoreGetter,
 		containerImageResourceStoreGetter,
 	)
 	return resourceservice.NewService(
@@ -444,15 +462,6 @@ func (s *ModelServices) Removal() *removalservice.WatchableService {
 func (s *ModelServices) AgentPassword() *agentpasswordservice.Service {
 	return agentpasswordservice.NewService(
 		agentpasswordstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-	)
-}
-
-// AgentBinary returns the service for working with agent binaries in the
-// current model.
-func (s *ModelServices) AgentBinary() *agentbinaryservice.AgentBinaryService {
-	return agentbinaryservice.NewAgentBinaryService(
-		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)
 }
 

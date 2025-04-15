@@ -117,12 +117,13 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
+	controllerObjectStoreGetter := controllerObjectStoreGetter{
+		objectStoreGetter: config.ObjectStoreGetter,
+	}
 	ctrlFactory := config.NewControllerDomainServices(
 		config.DBGetter,
 		config.DBDeleter,
-		controllerObjectStoreGetter{
-			objectStoreGetter: config.ObjectStoreGetter,
-		},
+		controllerObjectStoreGetter,
 		config.Clock,
 		config.Logger,
 	)
