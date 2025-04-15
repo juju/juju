@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/juju/collections/set"
 
@@ -748,6 +749,9 @@ func (s *WatchableService) WatchModelCloudCredential(ctx context.Context, modelU
 		return nil, errors.Errorf("getting model cloud and credential: %w", err)
 	}
 
+	var currentCredentialUUID atomic.Pointer[credential.UUID]
+	currentCredentialUUID.Store(&credentialUUID)
+
 	// The mapper is used to filter out any model events where the credential UUID has not changed.
 	mapper := func(ctx context.Context, txnRunner database.TxnRunner, events []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		// Get the current model credential UUID.
@@ -755,13 +759,14 @@ func (s *WatchableService) WatchModelCloudCredential(ctx context.Context, modelU
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
+		gotNewCredential := *currentCredentialUUID.Load() != newCredentialUUID
 		var out []changestream.ChangeEvent
 		for _, e := range events {
-			if e.Namespace() != "model" || credentialUUID != newCredentialUUID {
+			if e.Namespace() != "model" || gotNewCredential {
 				out = append(out, e)
 			}
 		}
-		credentialUUID = newCredentialUUID
+		currentCredentialUUID.Store(&newCredentialUUID)
 		return out, nil
 	}
 
@@ -774,7 +779,7 @@ func (s *WatchableService) WatchModelCloudCredential(ctx context.Context, modelU
 			return s == cloudUUID.String()
 		}),
 		eventsource.PredicateFilter("cloud_credential", changestream.Changed, func(s string) bool {
-			return s == credentialUUID.String()
+			return s == currentCredentialUUID.Load().String()
 		}),
 	)
 	if err != nil {
