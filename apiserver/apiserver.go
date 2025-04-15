@@ -51,6 +51,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	coreresource "github.com/juju/juju/core/resource"
 	coretrace "github.com/juju/juju/core/trace"
@@ -730,7 +731,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			} else {
 				h = &httpcontext.ControllerModelHandler{
 					Handler:             h,
-					ControllerModelUUID: controllerModelUUID,
+					ControllerModelUUID: coremodel.UUID(controllerModelUUID),
 				}
 			}
 		}
@@ -788,11 +789,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	), "objects")
 
 	modelToolsUploadHandler := srv.monitoredHandler(newToolsUploadHandler(
-		common.BlockCheckerGetterForServices(httpCtxt.domainServicesForRequest),
+		BlockCheckerGetterForServices(httpCtxt.domainServicesForRequest),
 		modelAgentBinaryStoreForHTTPContext(httpCtxt),
 	), "tools")
 	controllerToolsUploadHandler := srv.monitoredHandler(newToolsUploadHandler(
-		common.BlockCheckerGetterForServices(httpCtxt.domainServicesForRequest),
+		BlockCheckerGetterForServices(httpCtxt.domainServicesForRequest),
 		controllerAgentBinaryStoreForHTTPContext(httpCtxt),
 	), "tools")
 	modelToolsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
@@ -880,7 +881,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		objects.CharmURLFromLocatorDuringMigration,
 	), "charms")
 	migrateToolsUploadHandler := srv.monitoredHandler(newToolsUploadHandler(
-		common.BlockCheckerGetterForServices(httpCtxt.domainServicesForRequest),
+		BlockCheckerGetterForServices(httpCtxt.domainServicesForRequest),
 		migratingAgentBinaryStoreForHTTPContext(httpCtxt),
 	), "tools")
 	resourcesMigrationUploadHandler := srv.monitoredHandler(handlersresources.NewResourceMigrationUploadHandler(
