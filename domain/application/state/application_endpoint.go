@@ -267,34 +267,6 @@ func (st *State) checkEndpointBindingName(
 	return nil
 }
 
-// deleteApplicationEndpoints deletes all endpoints and extra endpoints
-// associated with a specific application identified by appID.
-func (st *State) deleteApplicationEndpoints(ctx context.Context, tx *sqlair.TX, appID coreapplication.ID) error {
-	type application struct {
-		UUID coreapplication.ID `db:"uuid"`
-	}
-	app := application{UUID: appID}
-	deleteApplicationEndpointStmt, err := st.Prepare(`
-DELETE FROM application_endpoint
-WHERE application_uuid = $application.uuid`, app)
-	if err != nil {
-		return internalerrors.Errorf("preparing delete application endpoint: %w", err)
-	}
-	if err := tx.Query(ctx, deleteApplicationEndpointStmt, app).Run(); err != nil {
-		return internalerrors.Errorf("deleting application endpoint: %w", err)
-	}
-	deleteApplicationExtraEndpointStmt, err := st.Prepare(`
-DELETE FROM application_extra_endpoint
-WHERE application_uuid = $application.uuid`, app)
-	if err != nil {
-		return internalerrors.Errorf("preparing delete application extra endpoint: %w", err)
-	}
-	if err := tx.Query(ctx, deleteApplicationExtraEndpointStmt, app).Run(); err != nil {
-		return internalerrors.Errorf("deleting application extra endpoint: %w", err)
-	}
-	return nil
-}
-
 // updateDefaultSpace updates the default space binding for an application in the database.
 // It uses the provided transaction to set the default space based on the binding map.
 // If no default space is specified in the bindings map, the operation is a no-op.

@@ -370,10 +370,6 @@ WHERE application_uuid = $applicationDetails.uuid
 	if err := st.deleteDeviceConstraintAttributes(ctx, tx, appUUID); err != nil {
 		return errors.Errorf("deleting device constraint attributes for application %q: %w", name, err)
 	}
-	// delete application endpoints
-	if err := st.deleteApplicationEndpoints(ctx, tx, appUUID); err != nil {
-		return errors.Errorf("deleting application endpoints for application %q: %w", name, err)
-	}
 
 	// Check that there are no units.
 	var result countResult
@@ -474,6 +470,8 @@ func (st *State) deleteSimpleApplicationReferences(ctx context.Context, tx *sqla
 		"application_setting",
 		"application_exposed_endpoint_space",
 		"application_exposed_endpoint_cidr",
+		"application_endpoint",
+		"application_extra_endpoint",
 		"application_storage_directive",
 		"device_constraint",
 	} {
