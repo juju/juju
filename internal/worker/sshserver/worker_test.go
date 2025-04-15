@@ -37,6 +37,7 @@ func (s *workerSuite) newWorkerConfig(modifier func(*ServerWrapperWorkerConfig))
 		NewSSHServerListener: newTestingSSHServerListener,
 		SessionHandler:       s.sessionHandler,
 		JWTParser:            s.jwtParser,
+		metricsCollector:     NewMetricsCollector(),
 	}
 
 	if modifier != nil {
@@ -110,6 +111,13 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 	)
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
+	// Test no metricsCollector.
+	cfg = s.newWorkerConfig(
+		func(cfg *ServerWrapperWorkerConfig) {
+			cfg.metricsCollector = nil
+		},
+	)
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {

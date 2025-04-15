@@ -4,6 +4,8 @@
 package sshserver
 
 import (
+	"time"
+
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
 	gossh "golang.org/x/crypto/ssh"
@@ -30,12 +32,18 @@ type sessionHandler struct {
 	connector SSHConnector
 	modelType state.ModelType
 	logger    Logger
+	metrics   *Collector
+}
+
+type connectionDetails struct {
+	startTime   time.Time
+	destination virtualhostname.Info
 }
 
 // Handle proxies a user's SSH session to a target unit or machines.
 // Connections to machine will be proxied to the machine's SSH server.
 // Connections to k8s units will be proxied through the k8s API server.
-func (s *sessionHandler) Handle(session ssh.Session, destination virtualhostname.Info) {
+func (s *sessionHandler) Handle(session ssh.Session, details connectionDetails) {
 	handleError := func(err error) {
 		s.logger.Errorf("proxy failure: %v", err)
 		_, _ = session.Stderr().Write([]byte(err.Error() + "\n"))
@@ -49,7 +57,7 @@ func (s *sessionHandler) Handle(session ssh.Session, destination virtualhostname
 			handleError(err)
 		}
 	case state.ModelTypeIAAS:
-		if err := s.machineSessionProxy(session, destination); err != nil {
+		if err := s.machineSessionProxy(session, details); err != nil {
 			err = errors.Annotate(err, "failed to proxy machine session")
 			handleError(err)
 		}
@@ -62,8 +70,8 @@ func (s *sessionHandler) k8sSessionProxy(_ ssh.Session) error {
 	return errors.New("k8s session proxy not implemented")
 }
 
-func (s *sessionHandler) machineSessionProxy(userSession ssh.Session, destination virtualhostname.Info) error {
-	client, err := s.connector.Connect(destination)
+func (s *sessionHandler) machineSessionProxy(userSession ssh.Session, details connectionDetails) error {
+	client, err := s.connector.Connect(details.destination)
 	if err != nil {
 		return err
 	}
@@ -84,6 +92,7 @@ func (s *sessionHandler) machineSessionProxy(userSession ssh.Session, destinatio
 		return err
 	}
 
+	s.metrics.timeToSession.WithLabelValues(string(s.modelType)).Observe(time.Since(details.startTime).Seconds())
 	return machineSSHSession.Wait()
 }
 

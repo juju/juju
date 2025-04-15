@@ -14,6 +14,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package sshserver -destination listener_mock_test.go net Listener
 //go:generate go run go.uber.org/mock/mockgen -typed -package sshserver -destination session_mock_test.go github.com/juju/juju/internal/worker/sshserver SSHConnector
 //go:generate go run go.uber.org/mock/mockgen -typed -package sshserver -destination tunneler_mock_test.go github.com/juju/juju/internal/sshtunneler State,ControllerInfo,SSHDial,Clock
+//go:generate go run go.uber.org/mock/mockgen -package sshserver -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
 
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)

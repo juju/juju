@@ -152,9 +152,10 @@ func (s *machineSessionSuite) TestMachineSessionProxy(c *gc.C) {
 	sessionHandler := sessionHandler{
 		connector: s.mockConnector,
 		modelType: state.ModelTypeIAAS,
+		metrics:   NewMetricsCollector(),
 	}
 
-	err = sessionHandler.machineSessionProxy(s.userSession, virtualhostname.Info{})
+	err = sessionHandler.machineSessionProxy(s.userSession, connectionDetails{})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(s.userSession.stdout.String(), gc.Equals, "Hello from the server!\r\n")
 	c.Check(s.userSession.stderr.String(), gc.Equals, "An error from the server!\n")
@@ -193,9 +194,10 @@ func (s *machineSessionSuite) TestMachineCommandProxy(c *gc.C) {
 	sessionHandler := sessionHandler{
 		connector: s.mockConnector,
 		modelType: state.ModelTypeIAAS,
+		metrics:   NewMetricsCollector(),
 	}
 
-	err = sessionHandler.machineSessionProxy(s.userSession, virtualhostname.Info{})
+	err = sessionHandler.machineSessionProxy(s.userSession, connectionDetails{})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(s.userSession.stdout.String(), gc.Equals, "No PTY requested.\n")
 	c.Check(s.userSession.stderr.String(), gc.Equals, "An error from the server!\n")
@@ -218,9 +220,10 @@ func (s *machineSessionSuite) TestConnectToMachineError(c *gc.C) {
 		connector: s.mockConnector,
 		modelType: state.ModelTypeIAAS,
 		logger:    loggo.GetLogger("test"),
+		metrics:   NewMetricsCollector(),
 	}
 
-	sessionHandler.Handle(s.userSession, virtualhostname.Info{})
+	sessionHandler.Handle(s.userSession, connectionDetails{})
 	c.Check(s.userSession.exitCode, gc.Equals, 1)
 	c.Check(s.userSession.stdout.String(), gc.Equals, "")
 	c.Check(s.userSession.stderr.String(), gc.Equals, "failed to proxy machine session: fake-connection-error\n")

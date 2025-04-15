@@ -27,6 +27,8 @@ const (
 	jujuTunnelChannel = "juju-tunnel"
 )
 
+type connectionStartTime struct{}
+
 // SessionHandler is an interface that proxies SSH sessions to a target unit/machine.
 type SessionHandler interface {
 	Handle(s ssh.Session, destination virtualhostname.Info)
@@ -74,6 +76,9 @@ type ServerWorkerConfig struct {
 	// TunnelTracker holds the tunnel tracker used to requests SSH
 	// connections to machines.
 	TunnelTracker *sshtunneler.Tracker
+
+	// metricsCollector is collects Prometheus style metrics for the server.
+	metricsCollector *Collector
 }
 
 // Validate validates the workers configuration is as expected.
@@ -98,6 +103,9 @@ func (c ServerWorkerConfig) Validate() error {
 	}
 	if c.TunnelTracker == nil {
 		return errors.NotValidf("missing TunnelTracker")
+	}
+	if c.metricsCollector == nil {
+		return errors.NotValidf("missing metricsCollector")
 	}
 	return nil
 }
@@ -134,6 +142,7 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 		jwtParser:     config.JWTParser,
 		facadeClient:  config.FacadeClient,
 		tunnelTracker: config.TunnelTracker,
+		metrics:       config.metricsCollector,
 	}
 
 	s.Server = s.NewJumpServer()
@@ -340,7 +349,10 @@ func (s *ServerWorker) hostKeySignerForTarget(hostname string) (gossh.Signer, er
 // connCallback returns a connCallback function that limits the number of concurrent connections.
 func (s *ServerWorker) connCallback() ssh.ConnCallback {
 	return func(ctx ssh.Context, conn net.Conn) net.Conn {
+		ctx.SetValue(connectionStartTime{}, time.Now())
 		current := s.concurrentConnections.Add(1)
+		s.config.metricsCollector.connectionCount.Inc()
+
 		if int(current) > s.config.MaxConcurrentConnections {
 			// set the deadline because we don't want to block the connection to write an error.
 			err := conn.SetWriteDeadline(time.Now().Add(100 * time.Millisecond))
@@ -351,15 +363,22 @@ func (s *ServerWorker) connCallback() ssh.ConnCallback {
 			if err != nil {
 				logger.Errorf("failed to write to connection: %v", err)
 			}
-			// The connection is close before returning, otherwise
+			// The connection is closed before returning, otherwise
 			// the context is not cancelled and the counter is not decremented.
 			conn.Close()
+			s.config.metricsCollector.connectionCount.Dec()
 			s.concurrentConnections.Add(-1)
 			return conn
 		}
 		go func() {
 			<-ctx.Done()
+			s.config.metricsCollector.connectionCount.Dec()
 			s.concurrentConnections.Add(-1)
+
+			endTime, ok := ctx.Value(connectionStartTime{}).(time.Time)
+			if ok {
+				s.config.metricsCollector.connectionDuration.Observe(time.Since(endTime).Seconds())
+			}
 		}()
 		return conn
 	}

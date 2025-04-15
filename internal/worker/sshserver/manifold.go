@@ -11,6 +11,7 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/api/base"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/sshtunneler"
+	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -63,6 +65,9 @@ type ManifoldConfig struct {
 
 	// SSHTunnelerName holds the name of the SSH tunneler worker.
 	SSHTunnelerName string
+
+	// PrometheusRegisterer is the prometheus registerer to use for metrics.
+	PrometheusRegisterer prometheus.Registerer
 }
 
 // Validate validates the manifold configuration.
@@ -87,6 +92,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.SSHTunnelerName == "" {
 		return errors.NotValidf("empty SSHTunnelerName")
+	}
+	if config.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
 	}
 	return nil
 }
@@ -137,6 +145,12 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 		return nil, errors.Trace(err)
 	}
 
+	// Register the metrics collector against the prometheus register.
+	metricsCollector := NewMetricsCollector()
+	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w, err := config.NewServerWrapperWorker(ServerWrapperWorkerConfig{
 		NewServerWorker:      config.NewServerWorker,
 		Logger:               config.Logger,
@@ -145,11 +159,16 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 		SessionHandler:       &stubSessionHandler{},
 		JWTParser:            jwtParser,
 		TunnelTracker:        tunnelTracker,
+		metricsCollector:     metricsCollector,
 	})
 	if err != nil {
+		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
 		return nil, errors.Trace(err)
 	}
-	return w, nil
+
+	return common.NewCleanupWorker(w, func() {
+		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
+	}), nil
 }
 
 // NewSSHServerListener returns a listener based on the given listener.
