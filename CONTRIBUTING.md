@@ -58,10 +58,11 @@ git config --global commit.gpgsign true
 
 3. Fork juju/juju. This will create `https://github.com/<user>/juju`.
 
-4. Clone your fork locally.
+4. Clone your fork locally and enter the repo.
 
 ```
 git clone git@github.com:<user>/juju.git
+cd juju
 ```
 
 5. Add a new remote with the name `upstream` and set it to point to the upstream
@@ -74,6 +75,7 @@ git remote add upstream git@github.com:juju/juju.git
 6. Set your local branches to track the `upstream` remote (not your fork). E.g.,
 
 ```
+git fetch --all
 git checkout 3.6
 git branch --set-upstream-to=upstream/3.6
 git checkout main
