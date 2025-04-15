@@ -119,7 +119,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 func NewModelDomainServices(
 	modelUUID coremodel.UUID,
 	dbGetter changestream.WatchableDBGetter,
-	modelObjectStore objectstore.ModelObjectStoreGetter,
+	modelObjectStoreGetter objectstore.ModelObjectStoreGetter,
 	storageRegistry storage.ModelStorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
 	leaseManager lease.ModelLeaseManagerGetter,
@@ -131,7 +131,7 @@ func NewModelDomainServices(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		NoopProviderFactory{},
-		modelObjectStore,
+		modelObjectStoreGetter,
 		storageRegistry,
 		publicKeyImporter,
 		leaseManager,

@@ -304,7 +304,7 @@ func noopDomainServicesGetter(
 func noopControllerDomainServices(
 	changestream.WatchableDBGetter,
 	coredatabase.DBDeleter,
-	objectstore.ModelObjectStoreGetter,
+	objectstore.NamespacedObjectStoreGetter,
 	clock.Clock,
 	logger.Logger,
 ) services.ControllerDomainServices {

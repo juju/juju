@@ -64,7 +64,7 @@ type DomainServicesGetterFn func(
 type ControllerDomainServicesFn func(
 	changestream.WatchableDBGetter,
 	coredatabase.DBDeleter,
-	objectstore.ModelObjectStoreGetter,
+	objectstore.NamespacedObjectStoreGetter,
 	clock.Clock,
 	logger.Logger,
 ) services.ControllerDomainServices
@@ -242,7 +242,7 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 func NewControllerDomainServices(
 	dbGetter changestream.WatchableDBGetter,
 	dbDeleter coredatabase.DBDeleter,
-	controllerObjectStoreGetter objectstore.ModelObjectStoreGetter,
+	controllerObjectStoreGetter objectstore.NamespacedObjectStoreGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ControllerDomainServices {
@@ -261,7 +261,7 @@ func NewProviderTrackerModelDomainServices(
 	modelUUID coremodel.UUID,
 	dbGetter changestream.WatchableDBGetter,
 	providerFactory providertracker.ProviderFactory,
-	modelObjectStore objectstore.ModelObjectStoreGetter,
+	modelObjectStoreGetter objectstore.ModelObjectStoreGetter,
 	storageRegistry storage.ModelStorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
 	leaseManager lease.ModelLeaseManagerGetter,
@@ -273,7 +273,7 @@ func NewProviderTrackerModelDomainServices(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		providerFactory,
-		modelObjectStore,
+		modelObjectStoreGetter,
 		storageRegistry,
 		publicKeyImporter,
 		leaseManager,

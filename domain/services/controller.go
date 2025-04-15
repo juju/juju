@@ -48,7 +48,7 @@ type ControllerServices struct {
 
 	dbDeleter             database.DBDeleter
 	clock                 clock.Clock
-	controllerObjectStore objectstore.ModelObjectStoreGetter
+	controllerObjectStore objectstore.NamespacedObjectStoreGetter
 }
 
 // NewControllerServices returns a new registry which uses the provided controllerDB
@@ -56,7 +56,7 @@ type ControllerServices struct {
 func NewControllerServices(
 	controllerDB changestream.WatchableDBFactory,
 	dbDeleter database.DBDeleter,
-	controllerObjectStoreGetter objectstore.ModelObjectStoreGetter,
+	controllerObjectStoreGetter objectstore.NamespacedObjectStoreGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *ControllerServices {
