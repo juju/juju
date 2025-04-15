@@ -744,10 +744,14 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		&objectStoreServiceGetter{ctxt: httpCtxt},
 	), "objects")
 
-	modelToolsUploadHandler := srv.monitoredHandler(&toolsUploadHandler{
-		ctxt:          httpCtxt,
-		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
-	}, "tools")
+	modelToolsUploadHandler := srv.monitoredHandler(newToolsUploadHandler(
+		common.BlockCheckerGetterForServices(httpCtxt.domainServicesForRequest),
+		modelAgentBinaryStoreForHTTPContext(httpCtxt),
+	), "tools")
+	controllerToolsUploadHandler := srv.monitoredHandler(newToolsUploadHandler(
+		common.BlockCheckerGetterForServices(httpCtxt.domainServicesForRequest),
+		controllerAgentBinaryStoreForHTTPContext(httpCtxt),
+	), "tools")
 	modelToolsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
 	modelToolsDownloadHandler := srv.monitoredHandler(newToolsDownloadHandler(httpCtxt), "tools")
 
@@ -832,10 +836,10 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		&migratingObjectsApplicationServiceGetter{ctxt: httpCtxt},
 		objects.CharmURLFromLocatorDuringMigration,
 	), "charms")
-	migrateToolsUploadHandler := srv.monitoredHandler(&toolsUploadHandler{
-		ctxt:          httpCtxt,
-		stateAuthFunc: httpCtxt.stateForMigrationImporting,
-	}, "tools")
+	migrateToolsUploadHandler := srv.monitoredHandler(newToolsUploadHandler(
+		common.BlockCheckerGetterForServices(httpCtxt.domainServicesForRequest),
+		migratingAgentBinaryStoreForHTTPContext(httpCtxt),
+	), "tools")
 	resourcesMigrationUploadHandler := srv.monitoredHandler(handlersresources.NewResourceMigrationUploadHandler(
 		&migratingResourceServiceGetter{ctxt: httpCtxt},
 		logger,
@@ -942,7 +946,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		unauthenticated: true,
 	}, {
 		pattern:    "/tools",
-		handler:    modelToolsUploadHandler,
+		handler:    controllerToolsUploadHandler,
 		authorizer: modelToolsUploadAuthorizer,
 	}, {
 		pattern:         "/tools/:version",
