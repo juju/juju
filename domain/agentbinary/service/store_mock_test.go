@@ -41,41 +41,41 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
-// CheckSHA256Exists mocks base method.
-func (m *MockState) CheckSHA256Exists(arg0 context.Context, arg1 string) (bool, error) {
+// CheckAgentBinarySHA256Exists mocks base method.
+func (m *MockState) CheckAgentBinarySHA256Exists(arg0 context.Context, arg1 string) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckSHA256Exists", arg0, arg1)
+	ret := m.ctrl.Call(m, "CheckAgentBinarySHA256Exists", arg0, arg1)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// CheckSHA256Exists indicates an expected call of CheckSHA256Exists.
-func (mr *MockStateMockRecorder) CheckSHA256Exists(arg0, arg1 any) *MockStateCheckSHA256ExistsCall {
+// CheckAgentBinarySHA256Exists indicates an expected call of CheckAgentBinarySHA256Exists.
+func (mr *MockStateMockRecorder) CheckAgentBinarySHA256Exists(arg0, arg1 any) *MockStateCheckAgentBinarySHA256ExistsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckSHA256Exists", reflect.TypeOf((*MockState)(nil).CheckSHA256Exists), arg0, arg1)
-	return &MockStateCheckSHA256ExistsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAgentBinarySHA256Exists", reflect.TypeOf((*MockState)(nil).CheckAgentBinarySHA256Exists), arg0, arg1)
+	return &MockStateCheckAgentBinarySHA256ExistsCall{Call: call}
 }
 
-// MockStateCheckSHA256ExistsCall wrap *gomock.Call
-type MockStateCheckSHA256ExistsCall struct {
+// MockStateCheckAgentBinarySHA256ExistsCall wrap *gomock.Call
+type MockStateCheckAgentBinarySHA256ExistsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateCheckSHA256ExistsCall) Return(arg0 bool, arg1 error) *MockStateCheckSHA256ExistsCall {
+func (c *MockStateCheckAgentBinarySHA256ExistsCall) Return(arg0 bool, arg1 error) *MockStateCheckAgentBinarySHA256ExistsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCheckSHA256ExistsCall) Do(f func(context.Context, string) (bool, error)) *MockStateCheckSHA256ExistsCall {
+func (c *MockStateCheckAgentBinarySHA256ExistsCall) Do(f func(context.Context, string) (bool, error)) *MockStateCheckAgentBinarySHA256ExistsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCheckSHA256ExistsCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStateCheckSHA256ExistsCall {
+func (c *MockStateCheckAgentBinarySHA256ExistsCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStateCheckAgentBinarySHA256ExistsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

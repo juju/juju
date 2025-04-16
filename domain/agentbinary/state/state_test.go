@@ -320,7 +320,7 @@ func (s *stateSuite) TestListAgentBinariesEmpty(c *gc.C) {
 	c.Check(binaries, gc.HasLen, 0)
 }
 
-func (s *stateSuite) TestCheckSHA256Exists(c *gc.C) {
+func (s *stateSuite) TestCheckAgentBinarySHA256Exists(c *gc.C) {
 	objStoreUUID, _ := s.addObjectStore(c)
 
 	err := s.state.RegisterAgentBinary(context.Background(), agentbinary.RegisterAgentBinaryArg{
@@ -331,15 +331,15 @@ func (s *stateSuite) TestCheckSHA256Exists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	sha := getMetadata(c, s.DB(), objStoreUUID).SHA256
-	exists, err := s.state.CheckSHA256Exists(context.Background(), sha)
+	exists, err := s.state.CheckAgentBinarySHA256Exists(context.Background(), sha)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(exists, gc.Equals, true)
 }
 
-func (s *stateSuite) TestCheckSHA256NoExists(c *gc.C) {
+func (s *stateSuite) TestCheckAgentBinarySHA256NoExists(c *gc.C) {
 	objStoreUUID, _ := s.addObjectStore(c)
 	sha := getObjectSHA256(c, s.DB(), objStoreUUID)
-	exists, err := s.state.CheckSHA256Exists(context.Background(), sha)
+	exists, err := s.state.CheckAgentBinarySHA256Exists(context.Background(), sha)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(exists, gc.Equals, false)
 }

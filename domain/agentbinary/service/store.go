@@ -25,11 +25,11 @@ import (
 
 // State describes the interface that the cache state must implement.
 type State interface {
-	// CheckSHA256Exists checks that the given sha256 sum exists as an agent
+	// CheckAgentBinarySHA256Exists that the given sha256 sum exists as an agent
 	// binary in the object store. This sha256 sum could exist as an object in
 	// the object store but unless the association has been made this will
 	// always return false.
-	CheckSHA256Exists(context.Context, string) (bool, error)
+	CheckAgentBinarySHA256Exists(context.Context, string) (bool, error)
 
 	// GetObjectUUID returns the object store UUID for the given file path.
 	// The following errors can be returned:
@@ -213,7 +213,7 @@ func (s *AgentBinaryStore) GetAgentBinaryForSHA256(
 	// We check that this sha256 exists in the database and is associated with
 	// agent binaries. If we don't do this the possability exists to leak other
 	// non related objects out of the store via this interface.
-	exists, err := s.st.CheckSHA256Exists(ctx, sha256Sum)
+	exists, err := s.st.CheckAgentBinarySHA256Exists(ctx, sha256Sum)
 	if err != nil {
 		return nil, 0, errors.Errorf(
 			"checking if agent binaries exist for sha256 %q: %w", sha256Sum, err,

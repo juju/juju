@@ -367,7 +367,7 @@ func (s *storeSuite) TestGetAgentBinaryForSHA256NoObjectStore(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	sum := "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e"
 
-	s.mockState.EXPECT().CheckSHA256Exists(gomock.Any(), sum).Return(false, nil)
+	s.mockState.EXPECT().CheckAgentBinarySHA256Exists(gomock.Any(), sum).Return(false, nil)
 	s.mockObjectStore.EXPECT().GetBySHA256(gomock.Any(), sum).DoAndReturn(
 		func(_ context.Context, _ string) (io.ReadCloser, int64, error) {
 			c.Fatal("should never have got this far")
@@ -389,7 +389,7 @@ func (s *storeSuite) TestGetAgentBinaryForSHA256NotFound(c *gc.C) {
 
 	// This first step tests the not found error via the state reporting that
 	// it doesn't exist.
-	s.mockState.EXPECT().CheckSHA256Exists(gomock.Any(), sum).Return(false, nil)
+	s.mockState.EXPECT().CheckAgentBinarySHA256Exists(gomock.Any(), sum).Return(false, nil)
 
 	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
 	_, _, err := store.GetAgentBinaryForSHA256(context.Background(), sum)
@@ -397,7 +397,7 @@ func (s *storeSuite) TestGetAgentBinaryForSHA256NotFound(c *gc.C) {
 
 	// This second step tests the not found error via the object store reporting
 	// that the object doesn't exist.
-	s.mockState.EXPECT().CheckSHA256Exists(gomock.Any(), sum).Return(true, nil)
+	s.mockState.EXPECT().CheckAgentBinarySHA256Exists(gomock.Any(), sum).Return(true, nil)
 	s.mockObjectStore.EXPECT().GetBySHA256(gomock.Any(), sum).Return(
 		nil, 0, intobjectstoreerrors.ObjectNotFound,
 	)
@@ -410,7 +410,7 @@ func (s *storeSuite) TestGetAgentBinaryForSHA256(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	sum := "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e"
 
-	s.mockState.EXPECT().CheckSHA256Exists(gomock.Any(), sum).Return(true, nil)
+	s.mockState.EXPECT().CheckAgentBinarySHA256Exists(gomock.Any(), sum).Return(true, nil)
 	s.mockObjectStore.EXPECT().GetBySHA256(gomock.Any(), sum).Return(
 		nil, 0, nil,
 	)

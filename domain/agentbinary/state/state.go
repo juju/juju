@@ -32,11 +32,11 @@ func NewState(factory database.TxnRunnerFactory) *State {
 	}
 }
 
-// CheckSHA256Exists checks that the given sha256 sum exists as an agent
-// binary in the object store. This sha256 sum could exist as an object in
-// the object store but unless the association has been made this will
-// always return false.
-func (s *State) CheckSHA256Exists(ctx context.Context, sha256Sum string) (bool, error) {
+// CheckAgentBinarySHA256Exists checks that the given sha256 sum exists as an
+// agent binary in the object store. This sha256 sum could exist as an object in
+// the object store but unless the association has been made this will always
+// return false.
+func (s *State) CheckAgentBinarySHA256Exists(ctx context.Context, sha256Sum string) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
 		return false, errors.Capture(err)
