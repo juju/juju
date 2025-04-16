@@ -4,7 +4,6 @@
 package state
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/clock"
@@ -160,27 +159,6 @@ func getStatus(db Database, globalKey, badge string) (_ status.StatusInfo, err e
 	}
 
 	return doc.asStatusInfo(), nil
-}
-
-func getEntityKeysForStatus(mb modelBackend, keyType string, status status.Status) ([]string, error) {
-	statuses, closer := mb.db().GetCollection(statusesC)
-	defer closer()
-
-	var ids []bson.M
-	query := bson.D{
-		{"_id", bson.D{{"$regex", fmt.Sprintf(".+\\:%s#.+", keyType)}}},
-		{"status", status},
-	}
-	err := statuses.Find(query).Select(bson.D{{"_id", 1}}).All(&ids)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	keys := make([]string, len(ids))
-	for i, id := range ids {
-		keys[i] = mb.localID(id["_id"].(string))
-	}
-	return keys, nil
 }
 
 // setStatusParams configures a setStatus call. All parameters are presumed to

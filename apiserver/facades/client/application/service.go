@@ -27,6 +27,7 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/relation"
+	"github.com/juju/juju/domain/resolve"
 	"github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
@@ -35,6 +36,7 @@ import (
 // Services represents all the services that the application facade requires.
 type Services struct {
 	ApplicationService        ApplicationService
+	ResolveService            ResolveService
 	ExternalControllerService ExternalControllerService
 	MachineService            MachineService
 	ModelConfigService        ModelConfigService
@@ -61,6 +63,9 @@ func (s Services) Validate() error {
 	}
 	if s.ApplicationService == nil {
 		return errors.NotValidf("empty ApplicationService")
+	}
+	if s.ResolveService == nil {
+		return errors.NotValidf("empty ResolveService")
 	}
 	if s.PortService == nil {
 		return errors.NotValidf("empty PortService")
@@ -261,6 +266,15 @@ type ApplicationService interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	MergeExposeSettings(ctx context.Context, appName string, exposedEndpoints map[string]application.ExposedEndpoint) error
+}
+
+type ResolveService interface {
+	// ResolveUnit marks the unit as resolved. If the unit is not found, an error
+	// satisfying [resolveerrors.UnitNotFound] is returned.
+	ResolveUnit(context.Context, unit.Name, resolve.ResolveMode) error
+
+	// ResolveAllUnits marks all units as resolved.
+	ResolveAllUnits(context.Context, resolve.ResolveMode) error
 }
 
 // ModelConfigService provides access to the model configuration.

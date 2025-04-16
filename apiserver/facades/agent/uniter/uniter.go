@@ -40,6 +40,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -76,6 +77,7 @@ type UniterAPI struct {
 	watcherRegistry         facade.WatcherRegistry
 
 	applicationService      ApplicationService
+	resolveService          ResolveService
 	statusService           StatusService
 	controllerConfigService ControllerConfigService
 	machineService          MachineService
@@ -453,15 +455,23 @@ func (u *UniterAPI) ClearResolved(ctx context.Context, args params.Entities) (pa
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = apiservererrors.ErrPerm
-		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = u.getLegacyUnit(ctx, tag)
-			if err == nil {
-				err = unit.ClearResolved()
-			}
+		if !canAccess(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		unitName, err := coreunit.NewName(tag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		err = u.resolveService.ClearResolved(ctx, unitName)
+		if errors.Is(err, resolveerrors.UnitNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", unitName))
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 	}
 	return result, nil
 }
@@ -2722,6 +2732,10 @@ func (u *UniterAPI) APIAddresses(ctx context.Context) (result params.StringsResu
 
 // WatchApplication starts an NotifyWatcher for an application.
 // WatchApplication is not implemented in the UniterAPIv20 facade.
+//
+// TODO(jack-w-shaw): Replace this with a set of endpoints that watch for specific
+// changes to an application. This facade endpoint was added in 21, which has not
+// been released yet so we can remove it without worry.
 func (u *UniterAPI) WatchApplication(ctx context.Context, entity params.Entity) (params.NotifyWatchResult, error) {
 	canWatch, err := u.accessApplication()
 	if err != nil {
@@ -2751,6 +2765,10 @@ func (u *UniterAPI) WatchApplication(ctx context.Context, entity params.Entity) 
 
 // WatchUnit starts an NotifyWatcher for a unit.
 // WatchUnit is not implemented in the UniterAPIv20 facade.
+//
+// TODO(jack-w-shaw): Remove this ASAP. It was added on facade version 21, which
+// has not yet been released. We should not watch for _all_ (how do we define 'all')
+// changes to an entity. Instead, we should watch for specific changes.
 func (u *UniterAPI) WatchUnit(ctx context.Context, entity params.Entity) (params.NotifyWatchResult, error) {
 	canWatch, err := u.accessUnit()
 	if err != nil {
@@ -2766,7 +2784,7 @@ func (u *UniterAPI) WatchUnit(ctx context.Context, entity params.Entity) (params
 		return params.NotifyWatchResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
 	}
 
-	watcher, err := u.watchUnit(tag)
+	watcher, err := u.watchUnit(ctx, tag)
 	if err != nil {
 		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
 	}
@@ -2805,11 +2823,14 @@ func (u *UniterAPIv20) Watch(ctx context.Context, args params.Entities) (params.
 		}
 
 		var watcher watcher.NotifyWatcher
-		switch tag.(type) {
+		switch t := tag.(type) {
 		case names.ApplicationTag:
-			watcher, err = u.applicationService.WatchApplication(ctx, tag.Id())
+			watcher, err = u.applicationService.WatchApplication(ctx, t.Id())
+		case names.UnitTag:
+			watcher, err = u.watchUnit(ctx, t)
 		default:
-			watcher, err = u.watchUnit(tag)
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotSupportedf("tag type %T", tag))
+			continue
 		}
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
@@ -2824,17 +2845,19 @@ func (u *UniterAPIv20) Watch(ctx context.Context, args params.Entities) (params.
 }
 
 // watchUnit returns a state notify watcher for the given unit.
-func (u *UniterAPI) watchUnit(tag names.Tag) (watcher.NotifyWatcher, error) {
-	entity0, err := u.st.FindEntity(tag)
+func (u *UniterAPI) watchUnit(ctx context.Context, tag names.UnitTag) (watcher.NotifyWatcher, error) {
+	unitName, err := coreunit.NewName(tag.Id())
 	if err != nil {
-		return nil, err
+		return nil, internalerrors.Errorf("parsing unit name: %w", err)
 	}
-	entity, ok := entity0.(state.NotifyWatcherFactory)
-	if !ok {
-		return nil, apiservererrors.NotSupportedError(tag, "watching")
+
+	watcher, err := u.applicationService.WatchUnitForLegacyUniter(ctx, unitName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return nil, errors.NotFoundf("unit %q", unitName)
+	} else if err != nil {
+		return nil, internalerrors.Errorf("watching unit %q: %w", unitName, err)
 	}
-	watcher := entity.Watch()
-	return watcher, err
+	return watcher, nil
 }
 
 // Merge merges in the provided leadership settings. Only leaders for

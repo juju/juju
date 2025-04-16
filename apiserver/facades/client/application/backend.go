@@ -34,7 +34,6 @@ type Backend interface {
 	AddRemoteApplication(commoncrossmodel.AddRemoteApplicationParams) (RemoteApplication, error)
 	Machine(string) (Machine, error)
 	Unit(string) (Unit, error)
-	UnitsInError() ([]Unit, error)
 	ControllerTag() names.ControllerTag
 
 	// ReadSequence is a stop gap to allow the next unit number to be read from mongo
@@ -117,7 +116,6 @@ type Unit interface {
 	Destroy(objectstore.ObjectStore) error
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyUnitOperation
 	IsPrincipal() bool
-	Resolve(retryHooks bool) error
 	AgentTools() (*tools.Tools, error)
 
 	AssignedMachineId() (string, error)
@@ -255,21 +253,6 @@ func (s stateShim) Unit(name string) (Unit, error) {
 		Unit: u,
 		st:   s.State,
 	}, nil
-}
-
-func (s stateShim) UnitsInError() ([]Unit, error) {
-	units, err := s.State.UnitsInError()
-	if err != nil {
-		return nil, err
-	}
-	result := make([]Unit, len(units))
-	for i, u := range units {
-		result[i] = stateUnitShim{
-			Unit: u,
-			st:   s.State,
-		}
-	}
-	return result, nil
 }
 
 type OfferConnection interface {

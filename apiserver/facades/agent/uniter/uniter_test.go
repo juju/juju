@@ -30,6 +30,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -39,12 +40,67 @@ import (
 type uniterSuite struct {
 	testing.IsolationSuite
 
+	badTag names.Tag
+
 	applicationService *MockApplicationService
+	resolveService     *MockResolveService
 
 	uniter *UniterAPI
 }
 
 var _ = gc.Suite(&uniterSuite{})
+
+func (s *uniterSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
+	s.badTag = nil
+}
+
+func (s *uniterSuite) TestClearResolvedUnauthorised(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.badTag = names.NewUnitTag("foo/0")
+	res, err := s.uniter.ClearResolved(context.Background(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewUnitTag("foo/0").String(),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *uniterSuite) TestClearResolvedNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/0")
+	s.resolveService.EXPECT().ClearResolved(gomock.Any(), unitName).Return(resolveerrors.UnitNotFound)
+
+	res, err := s.uniter.ClearResolved(context.Background(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewUnitTag(unitName.String()).String(),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *uniterSuite) TestClearResolved(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/0")
+	s.resolveService.EXPECT().ClearResolved(gomock.Any(), unitName).Return(nil)
+
+	res, err := s.uniter.ClearResolved(context.Background(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewUnitTag(unitName.String()).String(),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error, gc.IsNil)
+}
 
 func (s *uniterSuite) TestCharmArchiveSha256Local(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -138,9 +194,16 @@ func (s *uniterSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.applicationService = NewMockApplicationService(ctrl)
+	s.resolveService = NewMockResolveService(ctrl)
 
 	s.uniter = &UniterAPI{
 		applicationService: s.applicationService,
+		resolveService:     s.resolveService,
+		accessUnit: func() (common.AuthFunc, error) {
+			return func(tag names.Tag) bool {
+				return tag != s.badTag
+			}, nil
+		},
 	}
 
 	return ctrl
