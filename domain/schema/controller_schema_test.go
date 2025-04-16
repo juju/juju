@@ -196,9 +196,17 @@ func (s *controllerSchemaSuite) TestControllerTriggers(c *gc.C) {
 		"trg_log_cloud_credential_update",
 		"trg_log_cloud_credential_delete",
 
+		"trg_log_cloud_credential_attribute_insert",
+		"trg_log_cloud_credential_attribute_update",
+		"trg_log_cloud_credential_attribute_delete",
+
 		"trg_log_cloud_insert",
 		"trg_log_cloud_update",
 		"trg_log_cloud_delete",
+
+		"trg_log_cloud_ca_cert_insert",
+		"trg_log_cloud_ca_cert_update",
+		"trg_log_cloud_ca_cert_delete",
 
 		"trg_log_controller_config_insert",
 		"trg_log_controller_config_update",

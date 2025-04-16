@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/domain/schema/controller/triggers"
 )
 
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/cloud-triggers.gen.go -package=triggers -tables=cloud,cloud_credential,external_controller
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/controller-triggers.gen.go -package=triggers -tables=controller_config,controller_node
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/cloud-triggers.gen.go -package=triggers -tables=cloud,cloud_ca_cert,cloud_credential,cloud_credential_attribute
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/controller-triggers.gen.go -package=triggers -tables=controller_config,controller_node,external_controller
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/migration-triggers.gen.go -package=triggers -tables=model_migration_status,model_migration_minion_sync
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/upgrade-triggers.gen.go -package=triggers -tables=upgrade_info,upgrade_info_controller_node
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path
@@ -33,8 +33,9 @@ const (
 	tableModelMigrationMinionSync
 	tableUpgradeInfo
 	tableCloud
+	tableCloudCACert
 	tableCloudCredential
-	tableAutocertCache
+	tableCloudCredentialAttribute
 	tableUpgradeInfoControllerNode
 	tableObjectStoreMetadata
 	tableSecretBackendRotation
@@ -78,7 +79,9 @@ func ControllerDDL() *schema.Schema {
 	// Changestream triggers.
 	patches = append(patches,
 		triggers.ChangeLogTriggersForCloud("uuid", tableCloud),
+		triggers.ChangeLogTriggersForCloudCaCert("cloud_uuid", tableCloudCACert),
 		triggers.ChangeLogTriggersForCloudCredential("uuid", tableCloudCredential),
+		triggers.ChangeLogTriggersForCloudCredentialAttribute("cloud_credential_uuid", tableCloudCredentialAttribute),
 		triggers.ChangeLogTriggersForExternalController("uuid", tableExternalController),
 		triggers.ChangeLogTriggersForControllerConfig("key", tableControllerConfig),
 		triggers.ChangeLogTriggersForControllerNode("controller_id", tableControllerNode),
