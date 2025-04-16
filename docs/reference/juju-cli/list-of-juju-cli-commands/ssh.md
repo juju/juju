@@ -59,11 +59,16 @@ Connect to a k8s unit targeting the workload pod by specifying --remote:
 
 Connect to a k8s unit targeting the charm container (the default):
 
+	juju ssh snappass/0
 	juju ssh --container charm snappass/0
 
 Connect to a k8s unit targeting the redis container:
 
 	juju ssh --container redis snappass/0
+
+Interact with the Pebble instance in the workload container via the charm container:
+
+    juju ssh snappass/0 PEBBLE_SOCKET=/charm/containers/redis/pebble.socket /charm/bin/pebble plan
 
 **For k8s controller:**
 
@@ -91,7 +96,7 @@ account; otherwise, the default 'ubuntu' account, created by Juju, is used.
 
 The optional command is executed on the remote machine, and any output is sent
 back to the user. If no command is specified, then an interactive shell session
-will be initiated.
+will be initiated if possible.
 
 When "juju ssh" is executed without a terminal attached, e.g. when piping the
 output of another command into it, then the default behavior is to not allocate
