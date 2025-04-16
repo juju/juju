@@ -188,14 +188,14 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	// The default worker Config used by most of the tests. Tests may
 	// tweak parts of this as needed.
 	s.config = migrationmaster.Config{
-		ModelUUID:       uuid.MustNewUUID().String(),
-		Facade:          s.facade,
-		CharmService:    fakeCharmService,
-		Guard:           newStubGuard(s.stub),
-		APIOpen:         s.apiOpen,
-		UploadBinaries:  nullUploadBinaries,
-		ToolsDownloader: fakeToolsDownloader,
-		Clock:           s.clock,
+		ModelUUID:        uuid.MustNewUUID().String(),
+		Facade:           s.facade,
+		CharmService:     fakeCharmService,
+		Guard:            newStubGuard(s.stub),
+		APIOpen:          s.apiOpen,
+		UploadBinaries:   nullUploadBinaries,
+		AgentBinaryStore: fakeAgentBinaryStore,
+		Clock:            s.clock,
 	}
 }
 
@@ -263,10 +263,11 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 			{FuncName: "UploadBinaries", Args: []interface{}{
 				[]string{"charm0", "charm1"},
 				fakeCharmService,
-				map[semversion.Binary]string{
-					semversion.MustParseBinary("2.1.0-ubuntu-amd64"): "/tools/0",
+				map[string]semversion.Binary{
+					//semversion.MustParseBinary("2.1.0-ubuntu-amd64"): "/tools/0",
+					"439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e": semversion.MustParseBinary("2.1.0-ubuntu-amd64"),
 				},
-				fakeToolsDownloader,
+				fakeAgentBinaryStore,
 				s.facade.exportedResources,
 				s.facade,
 			}},
@@ -1367,8 +1368,8 @@ func (f *stubMasterFacade) Export(ctx context.Context) (coremigration.Serialized
 	return coremigration.SerializedModel{
 		Bytes:  fakeModelBytes,
 		Charms: []string{"charm0", "charm1"},
-		Tools: map[semversion.Binary]string{
-			semversion.MustParseBinary("2.1.0-ubuntu-amd64"): "/tools/0",
+		Tools: map[string]semversion.Binary{
+			"439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e": semversion.MustParseBinary("2.1.0-ubuntu-amd64"),
 		},
 		Resources: f.exportedResources,
 	}, nil
@@ -1527,7 +1528,7 @@ func makeStubUploadBinaries(stub *jujutesting.Stub) func(context.Context, migrat
 			config.Charms,
 			config.CharmService,
 			config.Tools,
-			config.ToolsDownloader,
+			config.AgentBinaryStore,
 			config.Resources,
 			config.ResourceDownloader,
 		)
@@ -1543,7 +1544,7 @@ func nullUploadBinaries(context.Context, migration.UploadBinariesConfig, logger.
 
 var fakeCharmService = struct{ migrationmaster.CharmService }{}
 
-var fakeToolsDownloader = struct{ migration.ToolsDownloader }{}
+var fakeAgentBinaryStore = struct{ migration.AgentBinaryStore }{}
 
 func joinCalls(allCalls ...[]jujutesting.StubCall) (out []jujutesting.StubCall) {
 	for _, calls := range allCalls {

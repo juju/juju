@@ -126,16 +126,26 @@ type CharmService interface {
 	GetCharmArchive(context.Context, charm.CharmLocator) (io.ReadCloser, string, error)
 }
 
+// AgentBinaryStore provides an interface for interacting with the stored agent
+// binaries within a controller and model.
+type AgentBinaryStore interface {
+	// GetAgentBinaryForSHA256 returns the agent binary associated with the
+	// given SHA256 sum. The following errors can be expected:
+	// - [github.com/juju/juju/domain/agentbinary/errors.NotFound] when no agent
+	// binaries exist for the provided sha.
+	GetAgentBinaryForSHA256(context.Context, string) (io.ReadCloser, int64, error)
+}
+
 // Config defines the operation of a Worker.
 type Config struct {
-	ModelUUID       string
-	Facade          Facade
-	CharmService    CharmService
-	Guard           fortress.Guard
-	APIOpen         func(context.Context, *api.Info, api.DialOpts) (api.Connection, error)
-	UploadBinaries  func(context.Context, migration.UploadBinariesConfig, logger.Logger) error
-	ToolsDownloader migration.ToolsDownloader
-	Clock           clock.Clock
+	ModelUUID        string
+	Facade           Facade
+	CharmService     CharmService
+	Guard            fortress.Guard
+	APIOpen          func(context.Context, *api.Info, api.DialOpts) (api.Connection, error)
+	UploadBinaries   func(context.Context, migration.UploadBinariesConfig, logger.Logger) error
+	AgentBinaryStore AgentBinaryStore
+	Clock            clock.Clock
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -158,8 +168,8 @@ func (config Config) Validate() error {
 	if config.UploadBinaries == nil {
 		return errors.NotValidf("nil UploadBinaries")
 	}
-	if config.ToolsDownloader == nil {
-		return errors.NotValidf("nil ToolsDownloader")
+	if config.AgentBinaryStore == nil {
+		return errors.NotValidf("nil AgentBinaryStore")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -454,9 +464,9 @@ func (w *Worker) transferModel(ctx context.Context, targetInfo coremigration.Tar
 		CharmService:  w.config.CharmService,
 		CharmUploader: wrapper,
 
-		Tools:           serialized.Tools,
-		ToolsDownloader: w.config.ToolsDownloader,
-		ToolsUploader:   wrapper,
+		Tools:            serialized.Tools,
+		AgentBinaryStore: w.config.AgentBinaryStore,
+		ToolsUploader:    wrapper,
 
 		Resources:          serialized.Resources,
 		ResourceDownloader: w.config.Facade,

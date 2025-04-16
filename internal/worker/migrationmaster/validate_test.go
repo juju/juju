@@ -67,10 +67,10 @@ func (*ValidateSuite) TestMissingCharmService(c *gc.C) {
 	checkNotValid(c, config, "nil CharmService not valid")
 }
 
-func (*ValidateSuite) TestMissingToolsDownloader(c *gc.C) {
+func (*ValidateSuite) TestMissingAgentBinaryStore(c *gc.C) {
 	config := validConfig()
-	config.ToolsDownloader = nil
-	checkNotValid(c, config, "nil ToolsDownloader not valid")
+	config.AgentBinaryStore = nil
+	checkNotValid(c, config, "nil AgentBinaryStore not valid")
 }
 
 func (*ValidateSuite) TestMissingClock(c *gc.C) {
@@ -81,14 +81,14 @@ func (*ValidateSuite) TestMissingClock(c *gc.C) {
 
 func validConfig() migrationmaster.Config {
 	return migrationmaster.Config{
-		ModelUUID:       coretesting.ModelTag.Id(),
-		Guard:           struct{ fortress.Guard }{},
-		Facade:          struct{ migrationmaster.Facade }{},
-		APIOpen:         func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
-		UploadBinaries:  func(context.Context, migration.UploadBinariesConfig, logger.Logger) error { return nil },
-		CharmService:    struct{ migrationmaster.CharmService }{},
-		ToolsDownloader: struct{ migration.ToolsDownloader }{},
-		Clock:           struct{ clock.Clock }{},
+		ModelUUID:        coretesting.ModelTag.Id(),
+		Guard:            struct{ fortress.Guard }{},
+		Facade:           struct{ migrationmaster.Facade }{},
+		APIOpen:          func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
+		UploadBinaries:   func(context.Context, migration.UploadBinariesConfig, logger.Logger) error { return nil },
+		CharmService:     struct{ migrationmaster.CharmService }{},
+		AgentBinaryStore: struct{ migration.AgentBinaryStore }{},
+		Clock:            struct{ clock.Clock }{},
 	}
 }
 
