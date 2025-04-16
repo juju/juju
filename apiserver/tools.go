@@ -139,7 +139,7 @@ func controllerAgentBinaryStoreForHTTPContext(httpCtx httpContext) AgentBinarySt
 		}
 
 		return &agentBinaryStoreLogShim{
-			AgentBinaryStore: services.AgentBinaryStore(),
+			AgentBinaryStore: services.ControllerAgentBinaryStore(),
 			StoreName:        "controller agent binary store",
 		}, nil
 	}
@@ -160,7 +160,6 @@ func migratingAgentBinaryStoreForHTTPContext(httpCtx httpContext) AgentBinarySto
 			modelUUID = "unknown"
 		}
 
-		// TODO (tlm): Add model binary store here.
 		return &agentBinaryStoreLogShim{
 			AgentBinaryStore: services.AgentBinaryStore(),
 			StoreName:        "model " + modelUUID,
@@ -183,7 +182,6 @@ func modelAgentBinaryStoreForHTTPContext(httpCtx httpContext) AgentBinaryStoreGe
 			modelUUID = "unknown"
 		}
 
-		// TODO (tlm): Add model binary store here.
 		return &agentBinaryStoreLogShim{
 			AgentBinaryStore: services.AgentBinaryStore(),
 			StoreName:        "model " + modelUUID,
