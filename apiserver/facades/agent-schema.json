@@ -4188,9 +4188,6 @@
                                 "$ref": "#/definitions/Address"
                             }
                         },
-                        "cidr": {
-                            "type": "string"
-                        },
                         "config-type": {
                             "type": "string"
                         },
@@ -4280,7 +4277,6 @@
                     "required": [
                         "device-index",
                         "mac-address",
-                        "cidr",
                         "mtu",
                         "provider-id",
                         "provider-network-id",
@@ -6253,9 +6249,6 @@
                                 "$ref": "#/definitions/Address"
                             }
                         },
-                        "cidr": {
-                            "type": "string"
-                        },
                         "config-type": {
                             "type": "string"
                         },
@@ -6345,7 +6338,6 @@
                     "required": [
                         "device-index",
                         "mac-address",
-                        "cidr",
                         "mtu",
                         "provider-id",
                         "provider-network-id",
