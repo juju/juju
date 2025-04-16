@@ -4182,9 +4182,6 @@
                 "NetworkConfig": {
                     "type": "object",
                     "properties": {
-                        "address": {
-                            "type": "string"
-                        },
                         "addresses": {
                             "type": "array",
                             "items": {
@@ -6250,9 +6247,6 @@
                 "NetworkConfig": {
                     "type": "object",
                     "properties": {
-                        "address": {
-                            "type": "string"
-                        },
                         "addresses": {
                             "type": "array",
                             "items": {
