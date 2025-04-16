@@ -2128,7 +2128,7 @@ WHERE   ae.application_uuid = $applicationID.uuid
 // WatcherApplicationSettingsNamespace returns the namespace string used for
 // tracking application settings in the database.
 func (st *State) WatcherApplicationSettingsNamespace() string {
-	return "relation_application_setting"
+	return "relation_application_settings_hash"
 }
 
 // GetMapperDataForWatchLifeSuspendedStatus returns data needed to evaluate a relation

@@ -1752,6 +1752,9 @@ func (u *UniterAPI) watchOneRelationUnit(
 			internalerrors.Capture(internalerrors.Errorf("starting related units watcher: %w", err))
 	}
 
+	// todo(gfouillet) - encapsulate above StringsWatcher into a
+	//   relation.RelationUnitsWatcher before Registering it. JIRA-7430
+
 	// Consume the initial event and forward it to the result.
 	if changes, ok := <-watch.Changes(); ok {
 		id, err := u.watcherRegistry.Register(watch)
@@ -1759,28 +1762,23 @@ func (u *UniterAPI) watchOneRelationUnit(
 			return params.RelationUnitsWatchResult{},
 				internalerrors.Capture(internalerrors.Errorf("registering related units watcher : %w", err))
 		}
+		relationUnitChanges, err := u.fetchRelationUnitChanges(changes)
+		if err != nil {
+			return params.RelationUnitsWatchResult{},
+				internalerrors.Capture(internalerrors.Errorf("fetching related units watcher changes: %w", err))
+		}
 		return params.RelationUnitsWatchResult{
 			RelationUnitsWatcherId: id,
-			Changes:                convertRelationUnitsChange(changes),
+			Changes:                relationUnitChanges,
 		}, nil
 	}
 
 	return params.RelationUnitsWatchResult{}, nil
 }
 
-func convertRelationUnitsChange(changes watcher.RelationUnitsChange) params.RelationUnitsChange {
-	var changed map[string]params.UnitSettings
-	if changes.Changed != nil {
-		changed = make(map[string]params.UnitSettings, len(changes.Changed))
-		for key, val := range changes.Changed {
-			changed[key] = params.UnitSettings{Version: val.Version}
-		}
-	}
-	return params.RelationUnitsChange{
-		Changed:    changed,
-		AppChanged: changes.AppChanged,
-		Departed:   changes.Departed,
-	}
+func (u *UniterAPI) fetchRelationUnitChanges(changes []string) (params.RelationUnitsChange, error) {
+	// todo(gfouillet): implement me JIRA-7430
+	return params.RelationUnitsChange{}, nil
 }
 
 // SetRelationStatus updates the status of the specified relations.
