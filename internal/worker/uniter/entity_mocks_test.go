@@ -147,10 +147,10 @@ func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *
 		return nil
 	}).AnyTimes()
 
-	u.EXPECT().Resolved().DoAndReturn(func() params.ResolvedMode {
+	u.EXPECT().Resolved(gomock.Any()).DoAndReturn(func(context.Context) (params.ResolvedMode, error) {
 		u.mu.Lock()
 		defer u.mu.Unlock()
-		return u.resolved
+		return u.resolved, nil
 	}).AnyTimes()
 	u.EXPECT().ClearResolved(gomock.Any()).DoAndReturn(func(context.Context) error {
 		u.mu.Lock()

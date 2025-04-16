@@ -92,6 +92,7 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 				charmModifiedVersion: 5,
 			},
 			unitWatcher:                      newMockNotifyWatcher(),
+			unitResolveWatcher:               newMockNotifyWatcher(),
 			addressesWatcher:                 newMockStringsWatcher(),
 			configSettingsWatcher:            newMockStringsWatcher(),
 			applicationConfigSettingsWatcher: newMockStringsWatcher(),
@@ -258,6 +259,7 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 
 func (s *WatcherSuite) signalAll() {
 	s.uniterClient.unit.unitWatcher.changes <- struct{}{}
+	s.uniterClient.unit.unitResolveWatcher.changes <- struct{}{}
 	s.uniterClient.unit.configSettingsWatcher.changes <- []string{"confighash"}
 	s.uniterClient.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash"}
 	s.uniterClient.unit.actionWatcher.changes <- []string{}
@@ -334,7 +336,7 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	c.Assert(s.watcher.Snapshot().Life, gc.Equals, life.Dying)
 
 	s.uniterClient.unit.resolved = params.ResolvedRetryHooks
-	s.uniterClient.unit.unitWatcher.changes <- struct{}{}
+	s.uniterClient.unit.unitResolveWatcher.changes <- struct{}{}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().ResolvedMode, gc.Equals, params.ResolvedRetryHooks)
 
@@ -910,7 +912,7 @@ func (s *WatcherSuiteSidecarCharmModVer) TestRemoteStateChanged(c *gc.C) {
 	c.Assert(s.watcher.Snapshot().Life, gc.Equals, life.Dying)
 
 	s.uniterClient.unit.resolved = params.ResolvedRetryHooks
-	s.uniterClient.unit.unitWatcher.changes <- struct{}{}
+	s.uniterClient.unit.unitResolveWatcher.changes <- struct{}{}
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().ResolvedMode, gc.Equals, params.ResolvedRetryHooks)
 

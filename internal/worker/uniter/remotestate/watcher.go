@@ -345,6 +345,16 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	}
 	requiredEvents++
 
+	var seenResolveModeChange bool
+	resolveModew, err := w.unit.WatchResolveMode(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := w.catacomb.Add(resolveModew); err != nil {
+		return errors.Trace(err)
+	}
+	requiredEvents++
+
 	var seenConfigChange bool
 	charmConfigw, err := w.unit.WatchConfigSettingsHash(ctx)
 	if err != nil {
@@ -521,6 +531,16 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenUnitChange)
+
+		case _, ok := <-resolveModew.Changes():
+			w.logger.Debugf(ctx, "got resolve mode change for %s", w.unit.Tag().Id())
+			if !ok {
+				return errors.New("resolve mode watcher closed")
+			}
+			if err := w.resolveModeChanged(ctx); err != nil {
+				return errors.Trace(err)
+			}
+			observedEvent(&seenResolveModeChange)
 
 		case _, ok := <-applicationw.Changes():
 			w.logger.Debugf(ctx, "got application change for %s", w.unit.Tag().Id())
@@ -765,10 +785,20 @@ func (w *RemoteStateWatcher) unitChanged(ctx context.Context) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.current.Life = w.unit.Life()
-	w.current.ResolvedMode = w.unit.Resolved()
 	// It's ok to sync provider ID by watching unit rather than
 	// cloud container because it will not change once pod created.
 	w.current.ProviderID = w.unit.ProviderID()
+	return nil
+}
+
+func (w *RemoteStateWatcher) resolveModeChanged(ctx context.Context) error {
+	resolveMode, err := w.unit.Resolved(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.current.ResolvedMode = resolveMode
 	return nil
 }
 

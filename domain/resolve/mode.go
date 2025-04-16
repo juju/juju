@@ -5,6 +5,10 @@ package resolve
 
 type ResolveMode string
 
+func (m ResolveMode) String() string {
+	return string(m)
+}
+
 const (
 	// ResolveModeRetryHooks indicates that the unit should retry failed hooks
 	// when resolving.

@@ -288,9 +288,8 @@ func (s *unitSuite) TestRefresh(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.Refresh(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unit.Life(), gc.Equals, life.Dying)
-	c.Assert(unit.Resolved(), gc.Equals, params.ResolvedRetryHooks)
-	c.Assert(unit.Life(), gc.Equals, life.Dying)
+	c.Check(unit.Life(), gc.Equals, life.Dying)
+	c.Check(unit.ProviderID(), gc.Equals, "666")
 }
 
 func (s *unitSuite) TestRefreshNotImplemented(c *gc.C) {
@@ -378,6 +377,53 @@ func (s *unitSuite) TestWatchNotImplemented(c *gc.C) {
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	_, err := unit.Watch(context.Background())
+	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+}
+
+func (s *unitSuite) TestWatchResolveMode(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		if objType == "NotifyWatcher" {
+			if request != "Next" && request != "Stop" {
+				c.Fatalf("unexpected watcher request %q", request)
+			}
+			return nil
+		}
+		c.Assert(objType, gc.Equals, "Uniter")
+		c.Assert(request, gc.Equals, "WatchUnitResolveMode")
+		c.Assert(arg, gc.DeepEquals, params.Entity{Tag: "unit-mysql-0"})
+		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResult{})
+		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
+			NotifyWatcherId: "1",
+		}
+		return nil
+	})
+	tag := names.NewUnitTag("mysql/0")
+	client := uniter.NewClient(apiCaller, tag)
+
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	w, err := unit.WatchResolveMode(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	wc := watchertest.NewNotifyWatcherC(c, w)
+	defer wc.AssertStops()
+
+	// Initial event.
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("watcher did not send change")
+	}
+}
+
+func (s *unitSuite) TestWatchResolveModeNotImplemented(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
+	})
+	tag := names.NewUnitTag("mysql/0")
+	client := uniter.NewClient(apiCaller, tag)
+
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	_, err := unit.WatchResolveMode(context.Background())
 	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
 }
 
