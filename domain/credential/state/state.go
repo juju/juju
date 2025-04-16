@@ -730,9 +730,7 @@ func (st *State) WatchCredential(
 		return nil, errors.Capture(err)
 	}
 	result, err := getWatcher(
-		eventsource.PredicateFilter("cloud_credential", changestream.All, func(s string) bool {
-			return s == id.String()
-		}),
+		eventsource.PredicateFilter("cloud_credential", changestream.All, eventsource.EqualsPredicate(id.String())),
 	)
 	if err != nil {
 		return result, errors.Errorf("watching credential: %w", err)

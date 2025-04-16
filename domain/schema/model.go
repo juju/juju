@@ -20,7 +20,8 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-triggers.gen.go -package=triggers -tables=machine,machine_lxd_profile
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-cloud-instance-triggers.gen.go -package=triggers -tables=machine_cloud_instance
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-requires-reboot-triggers.gen.go -package=triggers -tables=machine_requires_reboot
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-triggers.gen.go -package=triggers -tables=application,application_config_hash,charm,unit,application_scale,port_range,application_exposed_endpoint_space,application_exposed_endpoint_cidr
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-triggers.gen.go -package=triggers -tables=application,application_config_hash,charm,application_scale,port_range,application_exposed_endpoint_space,application_exposed_endpoint_cidr
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/unit-triggers.gen.go -package triggers -tables=unit,unit_principal,unit_resolved
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_setting,relation,relation_status
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/cleanup-triggers.gen.go -package=triggers -tables=removal
 
@@ -50,6 +51,8 @@ const (
 	tableMachineRequireReboot
 	tableCharm
 	tableUnit
+	tableUnitPrincipal
+	tableUnitResolved
 	tableApplicationScale
 	tablePortRange
 	tableApplicationExposedEndpointSpace
@@ -119,6 +122,10 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForMachineRequiresReboot("machine_uuid", tableMachineRequireReboot),
 		triggers.ChangeLogTriggersForCharm("uuid", tableCharm),
 		triggers.ChangeLogTriggersForUnit("uuid", tableUnit),
+		// NOTE: we emit the uuid of the principal unit, not the subordinate, when
+		// there is a change on the unit_principal table.
+		triggers.ChangeLogTriggersForUnitPrincipal("principal_uuid", tableUnitPrincipal),
+		triggers.ChangeLogTriggersForUnitResolved("unit_uuid", tableUnitResolved),
 		triggers.ChangeLogTriggersForApplicationScale("application_uuid", tableApplicationScale),
 		triggers.ChangeLogTriggersForPortRange("unit_uuid", tablePortRange),
 		triggers.ChangeLogTriggersForApplicationExposedEndpointSpace("application_uuid", tableApplicationExposedEndpointSpace),

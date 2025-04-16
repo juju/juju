@@ -3004,6 +3004,46 @@ func (c *MockStateNamespaceForWatchCharmCall) DoAndReturn(f func() string) *Mock
 	return c
 }
 
+// NamespaceForWatchUnitForLegacyUniter mocks base method.
+func (m *MockState) NamespaceForWatchUnitForLegacyUniter() (string, string, string) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchUnitForLegacyUniter")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(string)
+	return ret0, ret1, ret2
+}
+
+// NamespaceForWatchUnitForLegacyUniter indicates an expected call of NamespaceForWatchUnitForLegacyUniter.
+func (mr *MockStateMockRecorder) NamespaceForWatchUnitForLegacyUniter() *MockStateNamespaceForWatchUnitForLegacyUniterCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchUnitForLegacyUniter", reflect.TypeOf((*MockState)(nil).NamespaceForWatchUnitForLegacyUniter))
+	return &MockStateNamespaceForWatchUnitForLegacyUniterCall{Call: call}
+}
+
+// MockStateNamespaceForWatchUnitForLegacyUniterCall wrap *gomock.Call
+type MockStateNamespaceForWatchUnitForLegacyUniterCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchUnitForLegacyUniterCall) Return(arg0, arg1, arg2 string) *MockStateNamespaceForWatchUnitForLegacyUniterCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchUnitForLegacyUniterCall) Do(f func() (string, string, string)) *MockStateNamespaceForWatchUnitForLegacyUniterCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchUnitForLegacyUniterCall) DoAndReturn(f func() (string, string, string)) *MockStateNamespaceForWatchUnitForLegacyUniterCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // RegisterCAASUnit mocks base method.
 func (m *MockState) RegisterCAASUnit(arg0 context.Context, arg1 string, arg2 application0.RegisterCAASUnitArg) error {
 	m.ctrl.T.Helper()

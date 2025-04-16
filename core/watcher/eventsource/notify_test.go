@@ -138,7 +138,7 @@ func (s *notifySuite) TestNotificationsByPredicateFilter(c *gc.C) {
 			return e, nil
 		}
 		return nil, nil
-	}, PredicateFilter("random_namespace", changestream.All, matches("some-key-value")))
+	}, PredicateFilter("random_namespace", changestream.All, EqualsPredicate("some-key-value")))
 	defer workertest.DirtyKill(c, w)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -207,7 +207,7 @@ func (s *notifySuite) TestNotificationsByMapperError(c *gc.C) {
 
 	w, err := NewNotifyMapperWatcher(s.newBaseWatcher(c), func(_ context.Context, _ database.TxnRunner, _ []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		return nil, errors.Errorf("boom")
-	}, PredicateFilter("random_namespace", changestream.All, matches("value")))
+	}, PredicateFilter("random_namespace", changestream.All, EqualsPredicate("value")))
 	defer workertest.DirtyKill(c, w)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -265,7 +265,7 @@ func (s *notifySuite) TestNotificationsSent(c *gc.C) {
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w, err := NewNotifyWatcher(s.newBaseWatcher(c), PredicateFilter("random_namespace", changestream.All, matches("value")))
+	w, err := NewNotifyWatcher(s.newBaseWatcher(c), PredicateFilter("random_namespace", changestream.All, EqualsPredicate("value")))
 	defer workertest.DirtyKill(c, w)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -313,7 +313,7 @@ func (s *notifySuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w, err := NewNotifyWatcher(s.newBaseWatcher(c), PredicateFilter("random_namespace", changestream.All, matches("value")))
+	w, err := NewNotifyWatcher(s.newBaseWatcher(c), PredicateFilter("random_namespace", changestream.All, EqualsPredicate("value")))
 	defer workertest.DirtyKill(c, w)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -334,7 +334,7 @@ func (s *notifySuite) TestEnsureCloseOnCleanKill(c *gc.C) {
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w, err := NewNotifyWatcher(s.newBaseWatcher(c), PredicateFilter("random_namespace", changestream.All, matches("value")))
+	w, err := NewNotifyWatcher(s.newBaseWatcher(c), PredicateFilter("random_namespace", changestream.All, EqualsPredicate("value")))
 	c.Assert(err, jc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
@@ -360,7 +360,7 @@ func (s *notifySuite) TestEnsureCloseOnDirtyKill(c *gc.C) {
 		subscriptionOptionMatcher{opt: changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w, err := NewNotifyWatcher(s.newBaseWatcher(c), PredicateFilter("random_namespace", changestream.All, matches("value")))
+	w, err := NewNotifyWatcher(s.newBaseWatcher(c), PredicateFilter("random_namespace", changestream.All, EqualsPredicate("value")))
 	c.Assert(err, jc.ErrorIsNil)
 
 	workertest.DirtyKill(c, w)

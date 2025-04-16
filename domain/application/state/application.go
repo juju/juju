@@ -2370,6 +2370,15 @@ func (*State) NamespaceForWatchApplicationExposed() (string, string) {
 	return "application_exposed_endpoint_space", "application_exposed_endpoint_cidr"
 }
 
+// NamespaceForWatchUnitForLegacyUniter returns the namespace identifiers
+// for unit changes needed for the uniter. The first return value is the
+// namespace for the unit's inherent properties, the second is the namespace
+// of unit principals (used to watch for changes in subordinates), and the
+// third is the namespace for the unit's resolved mode.
+func (*State) NamespaceForWatchUnitForLegacyUniter() (string, string, string) {
+	return "unit", "unit_principal", "unit_resolved"
+}
+
 // decodeConstraints flattens and maps the list of rows of applicatioConstraint
 // to get a single constraints.Constraints. The flattening is needed because of the
 // spaces, tags and zones constraints which are slices. We can safely assume

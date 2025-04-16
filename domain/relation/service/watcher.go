@@ -86,9 +86,7 @@ func (s *WatchableService) WatchApplicationSettings(
 		eventsource.PredicateFilter(
 			s.st.WatcherApplicationSettingsNamespace(),
 			changestream.All,
-			func(s string) bool {
-				return s == relationEndpointUUID.String()
-			},
+			eventsource.EqualsPredicate(relationEndpointUUID.String()),
 		),
 	)
 }

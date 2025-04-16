@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	corestorage "github.com/juju/juju/core/storage"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
@@ -26,6 +27,10 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
+	"github.com/juju/juju/domain/resolve"
+	resolvestate "github.com/juju/juju/domain/resolve/state"
+	"github.com/juju/juju/domain/status"
+	statusstate "github.com/juju/juju/domain/status/state"
 	domaintesting "github.com/juju/juju/domain/testing"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -791,6 +796,149 @@ func (s *watcherSuite) TestWatchApplicationExposedBadName(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
+func (s *watcherSuite) TestWatchUnitForLegacyUniter(c *gc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
+
+	svc := s.setupService(c, factory)
+
+	appName := "foo"
+	unitName := unit.Name("foo/0")
+	otherUnitName := unit.Name("foo/1")
+	s.createApplication(c, svc, appName, service.AddUnitArg{
+		UnitName: unitName,
+	}, service.AddUnitArg{
+		UnitName: otherUnitName,
+	})
+
+	ctx := context.Background()
+
+	unitUUID, err := svc.GetUnitUUID(ctx, unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	otherUnitUUID, err := svc.GetUnitUUID(ctx, otherUnitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelDB := func() (database.TxnRunner, error) {
+		return s.ModelTxnRunner(), nil
+	}
+	statusState := statusstate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c))
+	resolveState := resolvestate.NewState(modelDB)
+
+	alternateCharmID, _, err := svc.SetCharm(context.Background(), charm.SetCharmArgs{
+		Charm:         &stubCharm{},
+		Source:        corecharm.CharmHub,
+		ReferenceName: "alternate",
+		Revision:      1,
+		Architecture:  arch.AMD64,
+		DownloadInfo: &charm.DownloadInfo{
+			Provenance:  charm.ProvenanceDownload,
+			DownloadURL: "http://example.com",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	watcher, err := svc.WatchUnitForLegacyUniter(ctx, unitName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Capture the initial event
+	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+		w.AssertNoChange()
+	})
+
+	// Assert no change is emitted from just changing the status.
+	// Conveniently, setting this also allows us to resolve in the next test
+	harness.AddTest(func(c *gc.C) {
+		statusState.SetUnitAgentStatus(ctx, unitUUID, status.StatusInfo[status.UnitAgentStatusType]{Status: status.UnitAgentStatusError})
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	// Assert resolving the unit triggers a change.
+	harness.AddTest(func(c *gc.C) {
+		err := resolveState.ResolveUnit(ctx, unitUUID, resolve.ResolveModeNoHooks)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Assert that refreshing a unit's charm triggers a change.
+	// NOTE: refresh has not been implemented yet, so change the charm_uuid value
+	// manually
+	harness.AddTest(func(c *gc.C) {
+		stmt := `UPDATE unit SET charm_uuid = ? WHERE uuid = ?`
+		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, stmt, alternateCharmID, unitUUID)
+			return err
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Assert that adding a subordinate unit triggers a change
+	// NOTE: subordinate units have not been implemented yet, so insert directly into
+	// the unit_principal table
+	harness.AddTest(func(c *gc.C) {
+		stmt := `INSERT INTO unit_principal (unit_uuid, principal_uuid) VALUES (?, ?)`
+		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, stmt, otherUnitUUID, unitUUID)
+			return err
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Assert that removing a subordinate unit triggers a change
+	harness.AddTest(func(c *gc.C) {
+		stmt := `DELETE FROM unit_principal`
+		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, stmt)
+			return err
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Assert that changing the life of a unit triggers a change
+	harness.AddTest(func(c *gc.C) {
+		err := svc.EnsureUnitDead(ctx, unitName, noOpRevoker{})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Assert that refreshing another unit's charm does not trigger a change.
+	harness.AddTest(func(c *gc.C) {
+		stmt := `UPDATE unit SET charm_uuid = ? WHERE uuid = ?`
+		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, stmt, alternateCharmID, otherUnitUUID)
+			return err
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	// Assert that nothing changes if nothing happens.
+	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	harness.Run(c, struct{}{})
+}
+
+func (s *watcherSuite) TestWatchUnitForLegacyUniterBadName(c *gc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
+	svc := s.setupService(c, factory)
+
+	_, err := svc.WatchUnitForLegacyUniter(context.Background(), unit.Name("foo/0"))
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
 func (s *watcherSuite) getApplicationConfigHash(c *gc.C, db changestream.WatchableDB, appUUID coreapplication.ID) string {
 	var hash string
 	err := db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -906,4 +1054,10 @@ func (s *stubCharm) Revision() int {
 
 func (s *stubCharm) Version() string {
 	return ""
+}
+
+type noOpRevoker struct{}
+
+func (noOpRevoker) RevokeLeadership(applicationName string, unitName unit.Name) error {
+	return nil
 }

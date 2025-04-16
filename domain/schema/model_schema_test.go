@@ -504,6 +504,14 @@ func (s *modelSchemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_unit_insert",
 		"trg_log_unit_update",
 
+		"trg_log_unit_principal_delete",
+		"trg_log_unit_principal_insert",
+		"trg_log_unit_principal_update",
+
+		"trg_log_unit_resolved_delete",
+		"trg_log_unit_resolved_insert",
+		"trg_log_unit_resolved_update",
+
 		"trg_log_removal_delete",
 		"trg_log_removal_insert",
 		"trg_log_removal_update",

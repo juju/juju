@@ -689,9 +689,7 @@ func (s *WatchableService) WatchModelSecretBackendChanged(_ context.Context, mod
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchModelSecretBackend(),
 			changestream.Changed,
-			func(s string) bool {
-				return s == modelUUID.String()
-			},
+			eventsource.EqualsPredicate(modelUUID.String()),
 		),
 	)
 	if err != nil {

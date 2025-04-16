@@ -393,9 +393,7 @@ func (st *State) WatchBlockDevices(
 	}
 
 	baseWatcher, err := getWatcher(
-		eventsource.PredicateFilter("block_device", changestream.All, func(s string) bool {
-			return s == machineUUID
-		}),
+		eventsource.PredicateFilter("block_device", changestream.All, eventsource.EqualsPredicate(machineUUID)),
 	)
 	if err != nil {
 		return nil, errors.Errorf("watching machine %q block devices: %w", machineId, err)

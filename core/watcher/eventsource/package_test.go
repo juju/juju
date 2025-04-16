@@ -133,9 +133,3 @@ func (e changeEvent) Namespace() string {
 func (e changeEvent) Changed() string {
 	return e.changed
 }
-
-func matches(match string) func(string) bool {
-	return func(value string) bool {
-		return value == match
-	}
-}

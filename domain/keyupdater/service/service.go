@@ -208,7 +208,7 @@ func (s *WatchableService) WatchAuthorisedKeysForMachine(
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchModelAuthorizationKeys(),
 			changestream.All,
-			func(s string) bool { return s == modelId.String() },
+			eventsource.EqualsPredicate(modelId.String()),
 		),
 		eventsource.NamespaceFilter(
 			s.st.NamespaceForWatchUserAuthentication(),

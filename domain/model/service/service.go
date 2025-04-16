@@ -725,9 +725,7 @@ func (s *WatchableService) WatchActivatedModels(ctx context.Context) (watcher.St
 // WatchModel returns a watcher that emits an event if the model changes.
 func (s WatchableService) WatchModel(ctx context.Context, modelUUID coremodel.UUID) (watcher.NotifyWatcher, error) {
 	return s.watcherFactory.NewNotifyWatcher(
-		eventsource.PredicateFilter("model", changestream.All, func(s string) bool {
-			return s == modelUUID.String()
-		}),
+		eventsource.PredicateFilter("model", changestream.All, eventsource.EqualsPredicate(modelUUID.String())),
 	)
 }
 
@@ -783,15 +781,9 @@ func (s *WatchableService) WatchModelCloudCredential(ctx context.Context, modelU
 
 	result, err := s.watcherFactory.NewNotifyMapperWatcher(
 		mapper,
-		eventsource.PredicateFilter("model", changestream.Changed, func(v string) bool {
-			return v == modelUUID.String()
-		}),
-		eventsource.PredicateFilter("cloud", changestream.Changed, func(v string) bool {
-			return v == cloudUUID.String()
-		}),
-		eventsource.PredicateFilter("cloud_ca_cert", changestream.Changed, func(v string) bool {
-			return v == cloudUUID.String()
-		}),
+		eventsource.PredicateFilter("model", changestream.Changed, eventsource.EqualsPredicate(modelUUID.String())),
+		eventsource.PredicateFilter("cloud", changestream.Changed, eventsource.EqualsPredicate(cloudUUID.String())),
+		eventsource.PredicateFilter("cloud_ca_cert", changestream.Changed, eventsource.EqualsPredicate(cloudUUID.String())),
 		eventsource.NamespaceFilter("cloud_credential", changestream.Changed),
 		eventsource.NamespaceFilter("cloud_credential_attribute", changestream.Changed),
 	)
