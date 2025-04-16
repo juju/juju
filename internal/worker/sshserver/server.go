@@ -126,10 +126,10 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 	// Start server.
 	s.tomb.Go(func() error {
 		err := s.Server.Serve(listener)
-		if errors.Is(err, ssh.ErrServerClosed) {
-			return nil
+		if !errors.Is(err, ssh.ErrServerClosed) {
+			s.config.Logger.Errorf("serve returned an unexpected error: %v", err)
 		}
-		return errors.Trace(err)
+		return tomb.ErrDying
 	})
 
 	// Handle server cleanup.
