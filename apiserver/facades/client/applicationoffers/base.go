@@ -147,6 +147,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		}}
 		offer := params.ApplicationOfferAdminDetailsV5{
 			ApplicationOfferDetailsV5: *offerParams,
+			ApplicationName:           appOffer.ApplicationName,
 		}
 		// Only admins can see some sensitive details of the offer.
 		if isAdmin {
@@ -227,14 +228,34 @@ func (api *BaseAPI) getOfferAdminDetails(user names.UserTag, backend Backend, ap
 // checkOfferAccess returns the level of access the authenticated user has to the offer,
 // so long as it is greater than the requested perm.
 func (api *BaseAPI) checkOfferAccess(user names.UserTag, backend Backend, offerUUID string) (permission.Access, error) {
-	access, err := backend.GetOfferAccess(offerUUID, user)
-	if err != nil && !errors.IsNotFound(err) {
+	// If the authenticated user is controller superuser we return `admin`.
+	err := api.Authorizer.EntityHasPermission(user, permission.SuperuserAccess, backend.ControllerTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return permission.NoAccess, errors.Trace(err)
+	} else if err == nil {
+		return permission.AdminAccess, nil
 	}
-	if !access.EqualOrGreaterOfferAccessThan(permission.ReadAccess) {
-		return permission.NoAccess, nil
+
+	// If the authenticated user is model administrator we return `admin`.
+	err = api.Authorizer.EntityHasPermission(user, permission.AdminAccess, backend.ModelTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return permission.NoAccess, errors.Trace(err)
+	} else if err == nil {
+		return permission.AdminAccess, nil
 	}
-	return access, nil
+
+	// We loop through access levels in decreasing order to return the highest access level the authenticated
+	// user has to the application offer.
+	for _, access := range []permission.Access{permission.AdminAccess, permission.ConsumeAccess, permission.ReadAccess} {
+		err := api.Authorizer.EntityHasPermission(user, access, names.NewApplicationOfferTag(offerUUID))
+		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+			return permission.NoAccess, errors.Trace(err)
+		} else if err == nil {
+			return access, nil
+		}
+	}
+
+	return permission.NoAccess, nil
 }
 
 type offerModel struct {

@@ -441,8 +441,10 @@ func (s *applicationOffersSuite) TestShowPermission(c *gc.C) {
 	offerUUID := utils.MustNewUUID().String()
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
+	s.authorizer.HasReadTag = user
 	expected := []params.ApplicationOfferResult{{
 		Result: &params.ApplicationOfferAdminDetailsV5{
+			ApplicationName: "test",
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         testing.ModelTag.String(),
 				ApplicationDescription: "description",
@@ -588,8 +590,8 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
+	s.authorizer.HasConsumeTag = user
 	s.mockState.users[user.Name()] = &mockUser{user.Name()}
-	_ = s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-test-uuid"), user, permission.ReadAccess)
 
 	anotherState := &mockState{
 		modelUUID:   "uuid2",
@@ -610,7 +612,6 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 		},
 	}
 	anotherState.users[user.Name()] = &mockUser{user.Name()}
-	_ = anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-testagain-uuid"), user, permission.ConsumeAccess)
 	s.mockStatePool.st["uuid2"] = anotherState
 
 	found, err := s.api.ApplicationOffers(filter)
@@ -622,6 +623,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 	}
 	c.Assert(results, jc.DeepEquals, []params.ApplicationOfferAdminDetailsV5{
 		{
+			ApplicationName: name,
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         testing.ModelTag.String(),
 				ApplicationDescription: "description",
@@ -630,10 +632,11 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 				OfferURL:               url,
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 				Users: []params.OfferUserDetails{
-					{UserName: "someone", DisplayName: "someone", Access: "read"},
+					{UserName: "someone", DisplayName: "someone", Access: "consume"},
 				},
 			},
 		}, {
+			ApplicationName: name2,
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         "model-uuid2",
 				ApplicationDescription: "description2",
@@ -715,8 +718,10 @@ func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
 	offerUUID := s.setupOffers(c, "", true)
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
+	s.authorizer.HasReadTag = user
 	expected := []params.ApplicationOfferAdminDetailsV5{
 		{
+			ApplicationName: "test",
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
 				SourceModelTag:         testing.ModelTag.String(),
 				ApplicationDescription: "description",
@@ -730,7 +735,6 @@ func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
 		},
 	}
 	s.mockState.users[user.Name()] = &mockUser{user.Name()}
-	_ = s.mockState.CreateOfferAccess(names.NewApplicationOfferTag(offerUUID), user, permission.ReadAccess)
 	s.assertFind(c, expected)
 }
 
@@ -842,8 +846,9 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
+	s.authorizer.HasConsumeTag = user
+
 	s.mockState.users[user.Name()] = &mockUser{user.Name()}
-	_ = s.mockState.CreateOfferAccess(names.NewApplicationOfferTag(oneOfferUUID), user, permission.ConsumeAccess)
 
 	anotherState := &mockState{
 		modelUUID:   "uuid2",
@@ -902,8 +907,6 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 		},
 	}
 	anotherState.users[user.Name()] = &mockUser{user.Name()}
-	_ = anotherState.CreateOfferAccess(names.NewApplicationOfferTag(twoOfferUUID), user, permission.ReadAccess)
-	_ = anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-postgresql-uuid"), user, permission.AdminAccess)
 
 	s.mockState.allmodels = []applicationoffers.Model{
 		s.mockState.model,
@@ -937,53 +940,51 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	found, err := s.api.FindApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResultsV5{
-		[]params.ApplicationOfferAdminDetailsV5{
-			{
-				ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-					SourceModelTag:         testing.ModelTag.String(),
-					ApplicationDescription: "db2 description",
-					OfferName:              "hosted-db2",
-					OfferUUID:              oneOfferUUID,
-					OfferURL:               "fred@external/prod.hosted-db2",
-					Endpoints: []params.RemoteEndpoint{
-						{Name: "db"},
-					},
-					Users: []params.OfferUserDetails{
-						{UserName: "someone", DisplayName: "someone", Access: "consume"},
-					},
+		Results: []params.ApplicationOfferAdminDetailsV5{{
+			ApplicationName: "db2",
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+				SourceModelTag:         testing.ModelTag.String(),
+				ApplicationDescription: "db2 description",
+				OfferName:              "hosted-db2",
+				OfferUUID:              oneOfferUUID,
+				OfferURL:               "fred@external/prod.hosted-db2",
+				Endpoints: []params.RemoteEndpoint{
+					{Name: "db"},
+				},
+				Users: []params.OfferUserDetails{
+					{UserName: "someone", DisplayName: "someone", Access: "consume"},
 				},
 			},
-			{
-				ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-					SourceModelTag:         "model-uuid2",
-					ApplicationDescription: "mysql description",
-					OfferName:              "hosted-mysql",
-					OfferUUID:              twoOfferUUID,
-					OfferURL:               "mary/another.hosted-mysql",
-					Endpoints: []params.RemoteEndpoint{
-						{Name: "db"},
-					},
-					Users: []params.OfferUserDetails{
-						{UserName: "someone", DisplayName: "someone", Access: "read"},
-					},
+		}, {
+			ApplicationName: "mysql",
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+				SourceModelTag:         "model-uuid2",
+				ApplicationDescription: "mysql description",
+				OfferName:              "hosted-mysql",
+				OfferUUID:              twoOfferUUID,
+				OfferURL:               "mary/another.hosted-mysql",
+				Endpoints: []params.RemoteEndpoint{
+					{Name: "db"},
+				},
+				Users: []params.OfferUserDetails{
+					{UserName: "someone", DisplayName: "someone", Access: "consume"},
 				},
 			},
-			{
-				ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-					SourceModelTag:         "model-uuid2",
-					ApplicationDescription: "postgresql description",
-					OfferName:              "hosted-postgresql",
-					OfferUUID:              "hosted-postgresql-uuid",
-					OfferURL:               "mary/another.hosted-postgresql",
-					Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
-					Users: []params.OfferUserDetails{
-						{UserName: "someone", DisplayName: "someone", Access: "admin"},
-					},
+		}, {
+			ApplicationName: "postgresql",
+			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
+				SourceModelTag:         "model-uuid2",
+				ApplicationDescription: "postgresql description",
+				OfferName:              "hosted-postgresql",
+				OfferUUID:              "hosted-postgresql-uuid",
+				OfferURL:               "mary/another.hosted-postgresql",
+				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
+				Users: []params.OfferUserDetails{
+					{UserName: "someone", DisplayName: "someone", Access: "consume"},
 				},
-				CharmURL: "ch:postgresql-2",
 			},
 		},
-	})
+		}})
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall, listOffersBackendCall)
 }
 
@@ -1138,9 +1139,7 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(
 	apiUser := names.NewUserTag("someone")
 
 	userTag := configAuthorizer(s.authorizer, apiUser)
-	offer := names.NewApplicationOfferTag(offerUUID)
-	err := st.CreateOfferAccess(offer, apiUser, permission.ConsumeAccess)
-	c.Assert(err, jc.ErrorIsNil)
+	s.authorizer.HasConsumeTag = apiUser
 
 	results, err := s.api.GetConsumeDetails(params.ConsumeOfferDetailsArg{
 		UserTag: userTag,
@@ -1295,17 +1294,14 @@ func (s *consumeSuite) setupOffer() string {
 }
 
 func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
-	offerUUID := s.setupOffer()
+	s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
 
 	// Give user permission to see the offer.
 	user := names.NewUserTag("foobar")
-	offer := names.NewApplicationOfferTag(offerUUID)
-	err := st.CreateOfferAccess(offer, user, permission.ConsumeAccess)
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.authorizer.Tag = user
+	s.authorizer.HasConsumeTag = user
 	results, err := s.api.RemoteApplicationInfo(params.OfferURLs{
 		OfferURLs: []string{"fred@external/prod.hosted-mysql", "fred@external/prod.unknown"},
 	})
