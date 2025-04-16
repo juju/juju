@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 
 	"github.com/juju/clock"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
@@ -261,10 +261,14 @@ type CharmUploader interface {
 	UploadCharm(ctx context.Context, charmURL string, charmRef string, content io.Reader) (string, error)
 }
 
-// ToolsDownloader defines a single method that is used to download
-// tools from the source controller in a migration.
-type ToolsDownloader interface {
-	OpenURI(context.Context, string, url.Values) (io.ReadCloser, error)
+// AgentBinaryStore provides an interface for interacting with the stored agent
+// binaries within a controller and model.
+type AgentBinaryStore interface {
+	// GetAgentBinaryForSHA256 returns the agent binary associated with the
+	// given SHA256 sum. The following errors can be expected:
+	// - [github.com/juju/juju/domain/agentbinary/errors.NotFound] when no agent
+	// binaries exist for the provided sha.
+	GetAgentBinaryForSHA256(context.Context, string) (io.ReadCloser, int64, error)
 }
 
 // ToolsUploader defines a single method that is used to upload tools
@@ -293,9 +297,11 @@ type UploadBinariesConfig struct {
 	CharmService  CharmService
 	CharmUploader CharmUploader
 
-	Tools           map[semversion.Binary]string
-	ToolsDownloader ToolsDownloader
-	ToolsUploader   ToolsUploader
+	// Tools is a collection of agent binaries to be uploaded keyed on the
+	// sha256 sum and referenced to a version.
+	Tools            map[string]semversion.Binary
+	AgentBinaryStore AgentBinaryStore
+	ToolsUploader    ToolsUploader
 
 	Resources          []resource.Resource
 	ResourceDownloader ResourceDownloader
@@ -310,8 +316,8 @@ func (c *UploadBinariesConfig) Validate() error {
 	if c.CharmUploader == nil {
 		return errors.NotValidf("missing CharmUploader")
 	}
-	if c.ToolsDownloader == nil {
-		return errors.NotValidf("missing ToolsDownloader")
+	if c.AgentBinaryStore == nil {
+		return errors.NotValidf("missing AgentBinaryStore")
 	}
 	if c.ToolsUploader == nil {
 		return errors.NotValidf("missing ToolsUploader")
@@ -334,10 +340,9 @@ func UploadBinaries(ctx context.Context, config UploadBinariesConfig, logger cor
 	if err := uploadCharms(ctx, config, logger); err != nil {
 		return errors.Annotatef(err, "cannot upload charms")
 	}
-	// TODO (tlm): re-enable this when we have a way to upload tools.
-	//if err := uploadTools(ctx, config, logger); err != nil {
-	//	return errors.Annotatef(err, "cannot upload agent binaries")
-	//}
+	if err := uploadTools(ctx, config, logger); err != nil {
+		return errors.Annotatef(err, "cannot upload agent binaries")
+	}
 	if err := uploadResources(ctx, config, logger); err != nil {
 		return errors.Annotatef(err, "cannot upload resources")
 	}
@@ -409,28 +414,37 @@ func uploadCharms(ctx context.Context, config UploadBinariesConfig, logger corel
 	return nil
 }
 
-//func uploadTools(ctx context.Context, config UploadBinariesConfig, logger corelogger.Logger) error {
-//	for v, uri := range config.Tools {
-//		logger.Debugf(context.TODO(), "sending agent binaries to target: %s", v)
-//
-//		reader, err := config.ToolsDownloader.OpenURI(ctx, uri, nil)
-//		if err != nil {
-//			return errors.Annotate(err, "cannot open charm")
-//		}
-//		defer func() { _ = reader.Close() }()
-//
-//		content, cleanup, err := streamThroughTempFile(reader)
-//		if err != nil {
-//			return errors.Trace(err)
-//		}
-//		defer cleanup()
-//
-//		if _, err := config.ToolsUploader.UploadTools(context.TODO(), content, v); err != nil {
-//			return errors.Annotate(err, "cannot upload agent binaries")
-//		}
-//	}
-//	return nil
-//}
+func uploadTools(
+	ctx context.Context,
+	config UploadBinariesConfig,
+	logger corelogger.Logger,
+) error {
+	for sha256Sum, version := range config.Tools {
+		logger.Debugf(
+			ctx,
+			"sending agent binaries for sha256 %q and version %q to target controller",
+			sha256Sum, version,
+		)
+
+		reader, _, err := config.AgentBinaryStore.GetAgentBinaryForSHA256(ctx, sha256Sum)
+		if err != nil {
+			return internalerrors.Errorf(
+				"geting agent binaries for sha %q to upload in migration: %w",
+				sha256Sum, err,
+			)
+		}
+		defer func() { _ = reader.Close() }()
+
+		_, err = config.ToolsUploader.UploadTools(ctx, reader, version)
+		if err != nil {
+			return internalerrors.Errorf(
+				"upladoing agent binaries for sha256 %q and version %q: %w",
+				sha256Sum, version, err,
+			)
+		}
+	}
+	return nil
+}
 
 func uploadResources(ctx context.Context, config UploadBinariesConfig, logger corelogger.Logger) error {
 	for _, res := range config.Resources {

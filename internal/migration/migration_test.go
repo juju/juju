@@ -107,7 +107,8 @@ func (s *ExportSuite) TestExportValidationFails(c *gc.C) {
 
 type ImportSuite struct {
 	testing.IsolationSuite
-	charmService *MockCharmService
+	charmService     *MockCharmService
+	agentBinaryStore *MockAgentBinaryStore
 }
 
 var _ = gc.Suite(&ImportSuite{})
@@ -116,6 +117,7 @@ func (s *ImportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.charmService = NewMockCharmService(ctrl)
+	s.agentBinaryStore = NewMockAgentBinaryStore(ctrl)
 
 	return ctrl
 }
@@ -203,7 +205,7 @@ func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {
 		config := T{
 			CharmService:       struct{ migration.CharmService }{},
 			CharmUploader:      struct{ migration.CharmUploader }{},
-			ToolsDownloader:    struct{ migration.ToolsDownloader }{},
+			AgentBinaryStore:   struct{ migration.AgentBinaryStore }{},
 			ToolsUploader:      struct{ migration.ToolsUploader }{},
 			ResourceDownloader: struct{ migration.ResourceDownloader }{},
 			ResourceUploader:   struct{ migration.ResourceUploader }{},
@@ -215,14 +217,13 @@ func (s *ImportSuite) TestUploadBinariesConfigValidate(c *gc.C) {
 
 	check(func(c *T) { c.CharmService = nil }, "CharmService")
 	check(func(c *T) { c.CharmUploader = nil }, "CharmUploader")
-	check(func(c *T) { c.ToolsDownloader = nil }, "ToolsDownloader")
+	check(func(c *T) { c.AgentBinaryStore = nil }, "AgentBinaryStore")
 	check(func(c *T) { c.ToolsUploader = nil }, "ToolsUploader")
 	check(func(c *T) { c.ResourceDownloader = nil }, "ResourceDownloader")
 	check(func(c *T) { c.ResourceUploader = nil }, "ResourceUploader")
 }
 
 func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
-	c.Skip("(tlm): This will be turned back on the the completion of agent binary model migration")
 	defer s.setupMocks(c).Finish()
 
 	downloader := &fakeDownloader{}
@@ -231,9 +232,15 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 		resources: make(map[string]string),
 	}
 
-	toolsMap := map[semversion.Binary]string{
-		semversion.MustParseBinary("2.1.0-ubuntu-amd64"): "/tools/0",
-		semversion.MustParseBinary("2.0.0-ubuntu-amd64"): "/tools/1",
+	toolsMap := map[string]semversion.Binary{
+		"439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e": semversion.MustParseBinary("2.1.0-ubuntu-amd64"),
+		"c4e12eaa8a3bf7a1a3029e2cbfccb2d88f59e8efc19f2531c423ce515afcb436": semversion.MustParseBinary("2.0.0-ubuntu-amd64"),
+	}
+
+	dataStream := ioutil.NopCloser(strings.NewReader("test agent data"))
+
+	for sha, _ := range toolsMap {
+		s.agentBinaryStore.EXPECT().GetAgentBinaryForSHA256(gomock.Any(), sha).Return(dataStream, 15, nil)
 	}
 
 	app0Res := resourcetesting.NewResource(c, nil, "blob0", "app0", "blob0").Resource
@@ -266,7 +273,7 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 		CharmService:       s.charmService,
 		CharmUploader:      uploader,
 		Tools:              toolsMap,
-		ToolsDownloader:    downloader,
+		AgentBinaryStore:   s.agentBinaryStore,
 		ToolsUploader:      uploader,
 		Resources:          resources,
 		ResourceDownloader: downloader,
@@ -290,11 +297,11 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 	}
 	c.Assert(uploader.charmRefs, jc.DeepEquals, expectedRefs)
 
-	c.Assert(downloader.uris, jc.SameContents, []string{
-		"/tools/0",
-		"/tools/1",
-	})
-	c.Assert(uploader.tools, jc.DeepEquals, toolsMap)
+	c.Check(len(uploader.tools), gc.Equals, len(toolsMap))
+	for _, ver := range toolsMap {
+		_, exists := uploader.tools[ver]
+		c.Check(exists, jc.IsTrue)
+	}
 
 	c.Assert(downloader.resources, jc.SameContents, []string{
 		"app0/blob0",
@@ -323,7 +330,7 @@ func (s *ImportSuite) TestWrongCharmURLAssigned(c *gc.C) {
 		Charms:             []string{"ch:foo/bar-2"},
 		CharmService:       s.charmService,
 		CharmUploader:      uploader,
-		ToolsDownloader:    downloader,
+		AgentBinaryStore:   s.agentBinaryStore,
 		ToolsUploader:      uploader,
 		ResourceDownloader: downloader,
 		ResourceUploader:   uploader,
