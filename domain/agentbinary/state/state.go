@@ -59,7 +59,10 @@ WHERE sha_256 = $objectStoreSHA256Sum.sha_256
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
-			return err
+			return errors.Errorf(
+				"checking database to see if agent binary for sha256 %q exists: %w",
+				sha256Sum, err,
+			)
 		}
 		exists = true
 		return nil

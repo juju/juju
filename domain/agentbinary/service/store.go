@@ -31,7 +31,7 @@ type State interface {
 	// always return false.
 	CheckAgentBinarySHA256Exists(context.Context, string) (bool, error)
 
-	// GetObjectUUID returns the object store UUID for the given file path.
+	// GetObjectUUID returns the object store UUID for the given object path.
 	// The following errors can be returned:
 	// - [agentbinaryerrors.ObjectNotFound] when no object exists that matches this path.
 	GetObjectUUID(ctx context.Context, path string) (objectstore.UUID, error)
