@@ -23,6 +23,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -2098,7 +2099,7 @@ func (s *relationSuite) TestLeaveScope(c *gc.C) {
 
 	// Arrange: Add some relation unit settings.
 	s.addRelationUnitSetting(c, relationUnitUUID, "test-key", "test-value")
-	s.addRelationUnitSettingsHash(c, relationUnitUUID)
+	s.addRelationUnitSettingsHash(c, relationUnitUUID, "hash")
 
 	// Act: Leave scope with the first unit.
 	err := s.state.LeaveScope(context.Background(), relationUnitUUID)
@@ -2374,6 +2375,79 @@ func (s *relationSuite) TestGetRelationApplicationSettingsApplicationNotFoundFor
 
 	// Assert:
 	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationNotFoundForRelation)
+}
+
+func (s *relationSuite) TestGetRelationUnitChanges(c *gc.C) {
+
+	// Arrange
+	// - 1 application with no settings hash => will return a version of 0
+	// - 1 application with settings hash => will return a non nil hash
+	// - 1 unit with no settings hash => will return a version of 0
+	// - 1 unit with settings hash => will return a non nil hash
+	// - 1 unit requested but not found => will be added to departed
+	charmUUID := s.addCharm(c)
+	charmRelationUUID := s.addCharmRelationWithDefaults(c, charmUUID)
+	noSettingAppUUID := s.addApplication(c, charmUUID, "noSetting")
+	withSettingAppUUID := s.addApplication(c, charmUUID, "withSetting")
+	noSettingAppEndpointUUID := s.addApplicationEndpoint(c, noSettingAppUUID, charmRelationUUID)
+	withSettingAppEndpointUUID := s.addApplicationEndpoint(c, withSettingAppUUID, charmRelationUUID)
+	relationUUID := s.addRelation(c)
+	noSettingUnitUUID := s.addUnit(c, "noSetting/0", noSettingAppUUID, charmUUID)
+	withSettingUnitUUID := s.addUnit(c, "withSetting/0", withSettingAppUUID, charmUUID)
+	unknownUnitUUID := coreunittesting.GenUnitUUID(c)
+	noSettingRelationEndpointUUID := s.addRelationEndpoint(c, relationUUID, noSettingAppEndpointUUID)
+	withSettingRelationEndpointUUID := s.addRelationEndpoint(c, relationUUID, withSettingAppEndpointUUID)
+	s.addRelationUnit(c, noSettingUnitUUID, noSettingRelationEndpointUUID)
+	relUnitUUID := s.addRelationUnit(c, withSettingUnitUUID, withSettingRelationEndpointUUID)
+	s.addRelationUnitSettingsHash(c, relUnitUUID, "42")
+	s.addRelationApplicationSettingsHash(c, withSettingRelationEndpointUUID, "84")
+
+	db, err := s.state.DB()
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) cannot get the DB: %s", errors.ErrorStack(err)))
+
+	// Act
+	var changes watcher.RelationUnitsChange
+	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		changes, err = s.state.GetRelationUnitChanges(ctx,
+			[]coreunit.UUID{noSettingUnitUUID, withSettingUnitUUID, unknownUnitUUID},
+			[]coreapplication.ID{noSettingAppUUID, withSettingAppUUID},
+		)
+		return err
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error: %s", errors.ErrorStack(err)))
+	c.Assert(changes.Changed, jc.DeepEquals, map[string]watcher.UnitSettings{
+		noSettingUnitUUID.String():   {Version: 0},
+		withSettingUnitUUID.String(): {Version: hashToInt("42")},
+	})
+	c.Assert(changes.AppChanged, jc.DeepEquals, map[string]int64{
+		noSettingAppUUID.String():   0,
+		withSettingAppUUID.String(): hashToInt("84"),
+	})
+	c.Assert(changes.Departed, jc.SameContents, []string{unknownUnitUUID.String()})
+}
+
+func (s *relationSuite) TestGetRelationUnitChangesEmptyArgs(c *gc.C) {
+
+	// Arrange
+	db, err := s.state.DB()
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) cannot get the DB: %s", errors.ErrorStack(err)))
+
+	// Act
+	var changes watcher.RelationUnitsChange
+	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		changes, err = s.state.GetRelationUnitChanges(ctx, nil, nil)
+		return err
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error: %s", errors.ErrorStack(err)))
+	c.Check(changes, gc.DeepEquals, watcher.RelationUnitsChange{
+		Changed:    map[string]watcher.UnitSettings{},
+		AppChanged: map[string]int64{},
+		Departed:   []string{},
+	})
 }
 
 func (s *relationSuite) TestSetRelationApplicationSettings(c *gc.C) {
@@ -3403,11 +3477,11 @@ VALUES (?,?,?)
 
 // addRelationUnitSettingsHash inserts a relation unit settings hash into the
 // database using the provided relationUnitUUID.
-func (s *relationSuite) addRelationUnitSettingsHash(c *gc.C, relationUnitUUID corerelation.UnitUUID) {
+func (s *relationSuite) addRelationUnitSettingsHash(c *gc.C, relationUnitUUID corerelation.UnitUUID, hash string) {
 	s.query(c, `
 INSERT INTO relation_unit_settings_hash (relation_unit_uuid, sha256)
 VALUES (?,?)
-`, relationUnitUUID, "hash")
+`, relationUnitUUID, hash)
 }
 
 // addRelationApplicationSetting inserts a relation application setting into the database
@@ -3417,6 +3491,15 @@ func (s *relationSuite) addRelationApplicationSetting(c *gc.C, relationEndpointU
 INSERT INTO relation_application_setting (relation_endpoint_uuid, key, value)
 VALUES (?,?,?)
 `, relationEndpointUUID, key, value)
+}
+
+// addRelationApplicationSettingsHash inserts a relation application settings hash into the
+// database using the provided relationEndpointUUID.
+func (s *relationSuite) addRelationApplicationSettingsHash(c *gc.C, relationEndpointUUID string, hash string) {
+	s.query(c, `
+INSERT INTO relation_application_settings_hash (relation_endpoint_uuid, sha256)
+VALUES (?,?)
+`, relationEndpointUUID, hash)
 }
 
 // getRelationApplicationSettings gets the relation application settings.

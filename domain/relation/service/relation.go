@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -188,6 +189,12 @@ type State interface {
 	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
 	//     is not found.
 	GetRelationDetails(ctx context.Context, relationUUID corerelation.UUID) (relation.RelationDetailsResult, error)
+
+	// GetRelationUnitChanges retrieves changes to relation unit states and
+	// application settings for the provided UUIDs.
+	// It takes a list of unit UUIDs and application UUIDs, returning the
+	// current setting version for each one, or departed if any unit is not found
+	GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.UUID, appUUIDs []application.ID) (watcher.RelationUnitsChange, error)
 
 	// GetRelationUnitEndpointName returns the name of the endpoint for the given
 	// relation unit.
@@ -739,6 +746,26 @@ func (s *Service) GetRelationUnitByID(
 		return "", errors.Capture(err)
 	}
 	return s.st.GetRelationUnit(ctx, uuid, unitName)
+}
+
+// GetRelationUnitChanges validates the given unit and application UUIDs,
+// and retrieves related unit changes.
+// If any UUID is invalid, an appropriate error is returned.
+func (s *Service) GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.UUID,
+	appUUIDs []application.ID) (watcher.RelationUnitsChange,
+	error) {
+	for _, uuid := range unitUUIDs {
+		if err := uuid.Validate(); err != nil {
+			return watcher.RelationUnitsChange{}, relationerrors.UnitUUIDNotValid
+		}
+	}
+	for _, uuid := range appUUIDs {
+		if err := uuid.Validate(); err != nil {
+			return watcher.RelationUnitsChange{}, relationerrors.ApplicationIDNotValid
+		}
+	}
+
+	return s.st.GetRelationUnitChanges(ctx, unitUUIDs, appUUIDs)
 }
 
 // GetRelationUnitEndpointName returns the name of the endpoint for the given
