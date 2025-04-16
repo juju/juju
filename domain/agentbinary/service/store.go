@@ -92,6 +92,8 @@ func generatePath(version coreagentbinary.Version, sha384 string) string {
 // should be considered an internal problem. It is
 // discussed here to make the caller aware of future problems.
 // - [coreerrors.NotValid] when the agent version is not considered valid.
+// - [agentbinaryerrors.HashMismatch] when the expected sha does not match that
+// which was computed against the binary data.
 func (s *AgentBinaryStore) AddAgentBinary(
 	ctx context.Context,
 	r io.Reader,
@@ -117,19 +119,22 @@ func (s *AgentBinaryStore) add(
 
 	path := generatePath(version, sha384)
 	uuid, err := objectStore.PutAndCheckHash(ctx, path, r, size, sha384)
-	if err != nil && !errors.Is(err, objectstoreerrors.ErrHashAndSizeAlreadyExists) {
-		return errors.Errorf("putting agent binary of %q with hash %q in the object store: %w", version, sha384, err)
-	}
-	if errors.Is(err, objectstoreerrors.ErrHashAndSizeAlreadyExists) {
-		// This means that the binary already exists in the object store.
-		// Just in case this object is not stored in the agent binary store
-		// table yet because of a previous error, we need to get the UUID of
-		// the existing binary and store it.
+	switch {
+	// Happens when the agent binary data already exists in the object store.
+	case errors.Is(err, objectstoreerrors.ErrHashAndSizeAlreadyExists):
 		existingObjectUUID, err := s.st.GetObjectUUID(ctx, path)
 		if err != nil {
 			return errors.Errorf("getting object store UUID for %q: %w", path, err)
 		}
 		uuid = objectstore.UUID(existingObjectUUID.String())
+
+	// Happens when the computed hash is different to that of what we expected.
+	case errors.Is(err, objectstore.ErrHashMismatch):
+		return errors.New("agent binary data does not match expected hash").Add(agentbinaryerrors.HashMismatch)
+
+	// All other errors
+	case err != nil:
+		return errors.Errorf("putting agent binary of %q with hash %q in the object store: %w", version, sha384, err)
 	}
 
 	s.logger.Debugf(
@@ -174,7 +179,9 @@ func (s *AgentBinaryStore) add(
 // agent binary metadata with the previously saved binary object. This error
 // should be considered an internal problem. It is discussed here to make the
 // caller aware of future problems.
-// - [coreerrors.NotValid] if the agent version is not valid or the SHA256 hash doesn't match the generated hash.
+// - [coreerrors.NotValid] if the agent version is not valid.
+// - [agentbinaryerrors.HashMismatch] when the expected sha does not match that
+// which was computed against the binary data.
 func (s *AgentBinaryStore) AddAgentBinaryWithSHA256(
 	ctx context.Context, r io.Reader,
 	version coreagentbinary.Version,
@@ -197,7 +204,7 @@ func (s *AgentBinaryStore) AddAgentBinaryWithSHA256(
 		return errors.Errorf(
 			"SHA256 mismatch for agent binary %q: expected %q, got %q",
 			version, sha256, encoded256,
-		).Add(coreerrors.NotValid)
+		).Add(agentbinaryerrors.HashMismatch)
 	}
 	return s.add(ctx, data, version, size, encoded384)
 }

@@ -331,10 +331,23 @@ func (s *storeSuite) TestAddAgentBinaryWithSHA256FailedInvalidSHA(c *gc.C) {
 			Number: semversion.MustParse("4.6.8"),
 			Arch:   corearch.AMD64,
 		},
-		1234,
+		17,
 		"invalid-sha256",
 	)
-	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, jc.ErrorIs, agentbinaryerrors.HashMismatch)
+
+	s.mockObjectStore.EXPECT().PutAndCheckHash(
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), "invalid-sha",
+	).Return(coreobjectstore.UUID(""), coreobjectstore.ErrHashMismatch)
+	err = store.AddAgentBinary(context.Background(), agentBinary,
+		coreagentbinary.Version{
+			Number: semversion.MustParse("4.6.8"),
+			Arch:   corearch.AMD64,
+		},
+		17,
+		"invalid-sha",
+	)
+	c.Check(err, jc.ErrorIs, agentbinaryerrors.HashMismatch)
 }
 
 func (s *storeSuite) TestAddAgentBinaryWithSHA256FailedInvalidAgentVersion(c *gc.C) {
