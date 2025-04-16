@@ -96,6 +96,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		ValidateMigration: config.ValidateMigration,
 		NewFacade:         config.NewFacade,
 		Logger:            config.Logger,
+		ApplyJitter:       true,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

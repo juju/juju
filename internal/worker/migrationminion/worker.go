@@ -10,10 +10,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	jujuretry "github.com/juju/retry"
+	"github.com/juju/retry"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
-	"gopkg.in/retry.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -29,18 +28,69 @@ import (
 )
 
 const (
+	// ErrRetryable is returned when a retryable error occurs.
+	ErrRetryable = errors.ConstError("retryable")
+)
+
+// If we only receive one validation change request, then we need to keep
+// retrying until we successfully connect to the target controller, or we fail.
+// Constantly, retrying at a shorter interval is not a good idea, as it can
+// cause the target controller to be flooded with requests (DDoS). The default
+// time to wait for the migration validation to occur is 15 minutes. This time
+// can be changed by the user. The retry time should be increased exponentially,
+// along with additional jitter, to avoid flooding the target all at the same
+// time.
+//
+// The strategy below without the jitter is:
+//
+//   - 100ms
+//   - 160ms
+//   - 256ms
+//   - 410ms
+//   - 655ms
+//   - 1.049s
+//   - 1.678s
+//   - 2.684s
+//   - 4.295s
+//   - 6.872s
+//   - 10.995s
+//   - 17.592s
+//   - 25s
+//   - 25s
+//   - 25s
+//   - 25s
+//   - 25s
+//   - 25s
+//   - 25s
+//   - 25s
+//
+// With the total being: 4m6.746s. If we factor in jitter swing, that will give
+// us roughly the 5m max duration. Thus giving us a good balance between
+// retrying and not flooding the target controller.
+//
+// If the migration master does illicit another retry, even after the max
+// duration has been reached, this should give us at least 1 more retry before
+// the migration master gives up.
+
+const (
 	// maxRetries is the number of times we'll attempt validation
 	// before giving up.
-	maxRetries = 10
+	maxRetries = 20
 
 	// initialRetryDelay is the starting delay - this will be
 	// increased exponentially up maxRetries.
 	initialRetryDelay = 100 * time.Millisecond
 
-	// retryBackoffFactor is how much longer we wait after a failing
-	// retry. Retrying 10 times starting at 100ms and backing off 1.6x
-	// gives us a total delay time of about 45s.
-	retryBackoffFactor = 1.6
+	// retryMaxDelay is the maximum delay we'll wait between retries.
+	retryMaxDelay = 25 * time.Second
+
+	// retryMaxDuration is the maximum time we'll spend retrying the validation
+	// before giving up.
+	retryMaxDuration = 5 * time.Minute
+
+	// retryExpBackoff is the exponential backoff factor for retrying the
+	// validation.
+	retryExpBackoff = 1.6
 )
 
 // Facade exposes controller functionality to a Worker.
@@ -59,6 +109,11 @@ type Config struct {
 	ValidateMigration func(context.Context, base.APICaller) error
 	NewFacade         func(base.APICaller) (Facade, error)
 	Logger            logger.Logger
+
+	// ApplyJitter indicates whether to apply jitter to the retry
+	// backoff. This is useful when retrying validation requests to
+	// avoid flooding the target controller.
+	ApplyJitter bool
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -92,7 +147,10 @@ func New(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	w := &Worker{config: config}
+	w := &Worker{
+		config:    config,
+		processed: make(map[string]migration.Phase),
+	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
 		Work: w.loop,
@@ -108,6 +166,8 @@ func New(config Config) (worker.Worker, error) {
 type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
+
+	processed map[string]migration.Phase
 }
 
 // Kill implements worker.Worker.
@@ -152,7 +212,18 @@ func (w *Worker) handle(ctx context.Context, status watcher.MigrationStatus) err
 	w.config.Logger.Infof(ctx, "migration phase is now: %s", status.Phase)
 
 	if !status.Phase.IsRunning() {
+		// If the phase is not running, we can unlock the fortress, but remove
+		// the migration from the processed map first.
+		delete(w.processed, status.MigrationId)
+
 		return w.config.Guard.Unlock()
+	}
+
+	// We've already processed this phase, so we can ignore it.
+	// It's important to do this before we lockdown the fortress, as we want
+	// to pretend that we've never seen this message.
+	if p, ok := w.processed[status.MigrationId]; ok && p == status.Phase {
+		return nil
 	}
 
 	// Ensure that all workers related to migration fortress have
@@ -175,7 +246,23 @@ func (w *Worker) handle(ctx context.Context, status watcher.MigrationStatus) err
 		// The minion doesn't need to do anything for other
 		// migration phases.
 	}
-	return errors.Trace(err)
+
+	// If the error is ErrRetryable, then don't record the phase as processed.
+	// This will allow the worker to retry the phase again.
+	if errors.Is(err, ErrRetryable) {
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Prevent unbounded growth of the processed map, and remove the phase
+	// from the map if it's terminal.
+	if status.Phase.IsTerminal() {
+		delete(w.processed, status.MigrationId)
+	} else {
+		w.processed[status.MigrationId] = status.Phase
+	}
+	return nil
 }
 
 func (w *Worker) doQUIESCE(ctx context.Context, status watcher.MigrationStatus) error {
@@ -185,32 +272,29 @@ func (w *Worker) doQUIESCE(ctx context.Context, status watcher.MigrationStatus) 
 }
 
 func (w *Worker) doVALIDATION(ctx context.Context, status watcher.MigrationStatus) error {
-	attempt := retry.StartWithCancel(
-		retry.LimitCount(maxRetries, retry.Exponential{
-			Initial: initialRetryDelay,
-			Factor:  retryBackoffFactor,
-			Jitter:  true,
-		}),
-		w.config.Clock,
-		w.catacomb.Dying(),
-	)
-	var err error
-	for attempt.Next() {
-		err = w.validate(ctx, status)
-		if err == nil {
-			break
-		}
-		if attempt.More() {
-			w.config.Logger.Warningf(ctx, "validation failed (retrying): %v", err)
-		}
-	}
+	// Attempt the validation multiple times, with exponential backoff.
+	// If this fails, that's it, we can't proceed. There isn't a guarantee
+	// that we'll get another change event to retry.
+	err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			return w.validate(ctx, status)
+		},
+		NotifyFunc: func(lastError error, attempt int) {
+			w.config.Logger.Warningf(ctx, "validation failed (attempt %d): %v", attempt, lastError)
+		},
+		Clock:       w.config.Clock,
+		Attempts:    maxRetries,
+		Delay:       initialRetryDelay,
+		MaxDuration: retryMaxDuration,
+		BackoffFunc: retry.ExpBackoff(initialRetryDelay, retryMaxDelay, retryExpBackoff, w.config.ApplyJitter),
+		Stop:        w.catacomb.Dying(),
+	})
 	if errors.Is(err, apiservererrors.ErrTryAgain) || params.IsCodeTryAgain(err) {
-		// We treat TryAgainError as a retriable error,
-		// so ingore it and don't report to the migration master.
-		w.config.Logger.Errorf(ctx, "validation failed due to rate limit reached: %v", err)
-		return nil
-	}
-	if err != nil {
+		// Provide additional context about why the error occurred in the logs.
+		// Then report the error to the migrationmaster.
+		w.config.Logger.Warningf(ctx, `validation failed: try changing "agent-ratelimit-max" and "agent-ratelimit-rate", before trying again: %v`, err)
+		return ErrRetryable
+	} else if err != nil {
 		// Don't return this error just log it and report to the
 		// migrationmaster that things didn't work out.
 		w.config.Logger.Errorf(ctx, "validation failed: %v", err)
@@ -301,7 +385,7 @@ func (w *Worker) robustReport(ctx context.Context, status watcher.MigrationStatu
 	apiInfo.Addrs = status.SourceAPIAddrs
 	apiInfo.CACert = status.SourceCACert
 
-	err = jujuretry.Call(jujuretry.CallArgs{
+	err = retry.Call(retry.CallArgs{
 		Func: func() error {
 			w.config.Logger.Infof(ctx, "reporting back for phase %s: %v", status.Phase, success)
 
@@ -327,7 +411,7 @@ func (w *Worker) robustReport(ctx context.Context, status watcher.MigrationStatu
 		Clock:       w.config.Clock,
 		Delay:       initialRetryDelay,
 		Attempts:    maxRetries,
-		BackoffFunc: jujuretry.DoubleDelay,
+		BackoffFunc: retry.DoubleDelay,
 		Stop:        ctx.Done(),
 	})
 	if err != nil {
