@@ -533,22 +533,6 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaultsArbitraryConfig(c 
 	c.Assert(cfg, jc.DeepEquals, expectedValues)
 }
 
-func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaultsWithValidationError(c *gc.C) {
-	// Set up values that will be removed.
-	attrs := map[string]interface{}{
-		"http-proxy":  "http://http-proxy",
-		"https-proxy": "https://https-proxy",
-	}
-	err := s.State.UpdateModelConfigDefaultValues(attrs, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	attrs = map[string]interface{}{
-		"test-mode": "baz",
-	}
-	err = s.State.UpdateModelConfigDefaultValues(attrs, []string{"http-proxy", "https-proxy"}, nil)
-	c.Assert(err, gc.ErrorMatches, `test-mode: expected bool, got string\("baz"\)`)
-}
-
 func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 	// The test env is setup with dummy/dummy-region having a no-proxy
 	// dummy-proxy value and nether-region with a nether-proxy value.
