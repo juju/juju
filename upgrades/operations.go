@@ -21,6 +21,7 @@ var stateUpgradeOperations = func() []Operation {
 	steps := []Operation{
 		upgradeToVersion{version.MustParse("3.6.4"), stateStepsFor364()},
 		upgradeToVersion{version.MustParse("3.6.5"), stateStepsFor365()},
+		upgradeToVersion{version.MustParse("3.6.6"), stateStepsFor366()},
 	}
 	return steps
 }
