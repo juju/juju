@@ -98,9 +98,6 @@ type NetworkConfig struct {
 	// (e.g. "aa:bb:cc:dd:ee:ff").
 	MACAddress string `json:"mac-address"`
 
-	// CIDR of the network, in 123.45.67.89/24 format.
-	CIDR string `json:"cidr"`
-
 	// MTU is the Maximum Transmission Unit controlling the maximum size of the
 	// protocol packets that the interface can pass through. It is only used
 	// when > 0.
@@ -253,10 +250,6 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 			IsDefaultGateway:    v.IsDefaultGateway,
 			VirtualPortType:     string(v.VirtualPortType),
 			NetworkOrigin:       NetworkOrigin(v.Origin),
-
-			// TODO (manadart 2021-03-24): Retained for compatibility.
-			// Delete CIDR for Juju 3/4.
-			CIDR: v.PrimaryAddress().CIDR,
 		}
 	}
 	return result
@@ -309,21 +302,12 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			Origin:              network.Origin(v.NetworkOrigin),
 		}
 
-		// Compatibility accommodations follow.
-		// TODO (manadart 2021-03-05): Juju 3/4 should require that only the
-		// address collections are used, and the following fields removed from
-		// the top-level interface:
-		// - CIDR
-
-		// 1) For clients that populate Addresses, but still set
-		//    address-specific fields on the device.
-		//    Note that the assumption must hold (as it does at the time of
-		//    writing) that the collections are only populated with a single
-		//    member, with repeated devices for each address.
+		// For clients that populate Addresses, but still set
+		// address-specific fields on the device.
+		// Note that the assumption must hold (as it does at the time of
+		// writing) that the collections are only populated with a single
+		// member, with repeated devices for each address.
 		if len(result[i].Addresses) > 0 {
-			if result[i].Addresses[0].CIDR == "" {
-				result[i].Addresses[0].CIDR = v.CIDR
-			}
 			if result[i].Addresses[0].ConfigType == "" {
 				result[i].Addresses[0].ConfigType = configType
 			}

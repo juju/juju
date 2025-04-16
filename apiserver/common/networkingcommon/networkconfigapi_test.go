@@ -84,31 +84,31 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigCallsApplyOperation(c *
 		{
 			InterfaceName: "lo",
 			InterfaceType: "loopback",
-			CIDR:          "127.0.0.0/8",
 			Addresses: []params.Address{{
 				Value: "127.0.0.1",
 				Type:  "ipv4",
 				Scope: "local-machine",
+				CIDR:  "127.0.0.0/8",
 			}},
 		}, {
 			InterfaceName: "eth0",
 			InterfaceType: "ethernet",
 			MACAddress:    "aa:bb:cc:dd:ee:f0",
-			CIDR:          "0.10.0.0/24",
 			Addresses: []params.Address{{
 				Value: "0.10.0.2",
 				Type:  "ipv4",
 				Scope: "public",
+				CIDR:  "0.10.0.0/24",
 			}},
 		}, {
 			InterfaceName: "eth1",
 			InterfaceType: "ethernet",
 			MACAddress:    "aa:bb:cc:dd:ee:f1",
-			CIDR:          "0.20.0.0/24",
 			Addresses: []params.Address{{
 				Value: "0.20.0.2",
 				Type:  "ipv4",
 				Scope: "public",
+				CIDR:  "0.20.0.0/24",
 			}},
 		},
 	})
