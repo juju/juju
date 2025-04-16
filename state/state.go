@@ -2108,44 +2108,6 @@ func (st *State) UnitsFor(machineId string) ([]*Unit, error) {
 	return m.Units()
 }
 
-// UnitsInError returns the units which have an agent status of Error.
-func (st *State) UnitsInError() ([]*Unit, error) {
-	// First, find the agents in error state.
-	agentGlobalKeys, err := getEntityKeysForStatus(st, "u", status.Error)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// Extract the unit names.
-	unitNames := make([]string, len(agentGlobalKeys))
-	for i, key := range agentGlobalKeys {
-		// agent key prefix is "u#"
-		if !strings.HasPrefix(key, "u#") {
-			return nil, errors.NotValidf("unit agent global key %q", key)
-		}
-		unitNames[i] = key[2:]
-	}
-
-	// Query the units with the names of units in error.
-	units, closer := st.db().GetCollection(unitsC)
-	defer closer()
-
-	var docs []unitDoc
-	err = units.Find(bson.D{{"name", bson.D{{"$in", unitNames}}}}).All(&docs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	result := make([]*Unit, len(docs))
-	for i, doc := range docs {
-		result[i] = &Unit{st: st, doc: doc, modelType: model.Type()}
-	}
-	return result, nil
-}
-
 // AssignUnit places the unit on a machine. Depending on the policy, and the
 // state of the model, this may lead to new instances being launched
 // within the model.

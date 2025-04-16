@@ -30,6 +30,7 @@ import (
 // Services represents all the services that the uniter facade requires.
 type Services struct {
 	ApplicationService      ApplicationService
+	ResolveService          ResolveService
 	StatusService           StatusService
 	ControllerConfigService ControllerConfigService
 	MachineService          MachineService
@@ -97,6 +98,14 @@ type ApplicationService interface {
 	// WatchApplication returns a NotifyWatcher for changes to the application.
 	WatchApplication(ctx context.Context, name string) (watcher.NotifyWatcher, error)
 
+	// WatchUnitForLegacyUniter watches for some specific changes to the unit with
+	// the given name. The watcher will emit a notification when there is a change to
+	// the unit's inherent properties, it's subordinates or it's resolved mode.
+	//
+	// If the unit does not exist an error satisfying [applicationerrors.UnitNotFound]
+	// will be returned.
+	WatchUnitForLegacyUniter(ctx context.Context, unitName coreunit.Name) (watcher.NotifyWatcher, error)
+
 	// GetApplicationIDByUnitName returns the application ID for the named unit.
 	//
 	// Returns [applicationerrors.UnitNotFound] if the unit is not found.
@@ -129,6 +138,12 @@ type ApplicationService interface {
 
 	// GetUnitRefreshAttributes returns the refresh attributes for the unit.
 	GetUnitRefreshAttributes(ctx context.Context, unitName coreunit.Name) (domainapplication.UnitAttributes, error)
+}
+
+type ResolveService interface {
+	// ClearResolved removes any resolved marker from the unit. If the unit is not
+	// found, an error satisfying [resolveerrors.UnitNotFound] is returned.
+	ClearResolved(context.Context, coreunit.Name) error
 }
 
 // StatusService describes the ability to retrieve and persist

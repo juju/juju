@@ -398,45 +398,6 @@ func (c *MockBackendUnitCall) DoAndReturn(f func(string) (Unit, error)) *MockBac
 	return c
 }
 
-// UnitsInError mocks base method.
-func (m *MockBackend) UnitsInError() ([]Unit, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnitsInError")
-	ret0, _ := ret[0].([]Unit)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UnitsInError indicates an expected call of UnitsInError.
-func (mr *MockBackendMockRecorder) UnitsInError() *MockBackendUnitsInErrorCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitsInError", reflect.TypeOf((*MockBackend)(nil).UnitsInError))
-	return &MockBackendUnitsInErrorCall{Call: call}
-}
-
-// MockBackendUnitsInErrorCall wrap *gomock.Call
-type MockBackendUnitsInErrorCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendUnitsInErrorCall) Return(arg0 []Unit, arg1 error) *MockBackendUnitsInErrorCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendUnitsInErrorCall) Do(f func() ([]Unit, error)) *MockBackendUnitsInErrorCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendUnitsInErrorCall) DoAndReturn(f func() ([]Unit, error)) *MockBackendUnitsInErrorCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MockApplication is a mock of Application interface.
 type MockApplication struct {
 	ctrl     *gomock.Controller

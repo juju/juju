@@ -44,10 +44,6 @@ const unitAgentGlobalKeyPrefix = "u#"
 
 var unitLogger = internallogger.GetLogger("juju.state.unit")
 
-// ResolvedMode describes the way state transition errors
-// are resolved.
-type ResolvedMode string
-
 // MachineRef is a reference to a machine, without being a full machine.
 // This exists to allow us to use state functions without requiring a
 // state.Machine, without having to require a real machine.
@@ -64,13 +60,6 @@ type MachineRef interface {
 	FileSystems() []string
 }
 
-// These are available ResolvedMode values.
-const (
-	ResolvedNone       ResolvedMode = ""
-	ResolvedRetryHooks ResolvedMode = "retry-hooks"
-	ResolvedNoHooks    ResolvedMode = "no-hooks"
-)
-
 // unitDoc represents the internal state of a unit in MongoDB.
 // Note the correspondence with UnitInfo in core/multiwatcher.
 type unitDoc struct {
@@ -84,7 +73,6 @@ type unitDoc struct {
 	Subordinates           []string
 	StorageAttachmentCount int `bson:"storageattachmentcount"`
 	MachineId              string
-	Resolved               ResolvedMode
 	Tools                  *tools.Tools `bson:",omitempty"`
 	Life                   Life
 	PasswordHash           string
@@ -995,11 +983,6 @@ func (op *RemoveUnitOperation) removeOps() (ops []txn.Op, err error) {
 		return nil, err
 	}
 	return append(ops, unitRemoveOps...), nil
-}
-
-// Resolved returns the resolved mode for the unit.
-func (u *Unit) Resolved() ResolvedMode {
-	return u.doc.Resolved
 }
 
 // IsPrincipal returns whether the unit is deployed in its own container,
@@ -2227,74 +2210,6 @@ func (u *Unit) PendingActions() ([]Action, error) {
 // RunningActions returns a list of actions running on this unit.
 func (u *Unit) RunningActions() ([]Action, error) {
 	return u.st.matchingActionsRunning(u)
-}
-
-// Resolve marks the unit as having had any previous state transition
-// problems resolved, and informs the unit that it may attempt to
-// reestablish normal workflow. The retryHooks parameter informs
-// whether to attempt to reexecute previous failed hooks or to continue
-// as if they had succeeded before.
-//
-// NOTE(jack-w-shaw): Initially, method would check the unit workload
-// status to see if a unit is in error state. However, workload status
-// has been entirely cut over to DQLite, so this check was removed.
-func (u *Unit) Resolve(retryHooks bool) error {
-	mode := ResolvedNoHooks
-	if retryHooks {
-		mode = ResolvedRetryHooks
-	}
-	return u.SetResolved(mode)
-}
-
-// SetResolved marks the unit as having had any previous state transition
-// problems resolved, and informs the unit that it may attempt to
-// reestablish normal workflow. The resolved mode parameter informs
-// whether to attempt to reexecute previous failed hooks or to continue
-// as if they had succeeded before.
-func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot set resolved mode for unit %q", u)
-	switch mode {
-	case ResolvedRetryHooks, ResolvedNoHooks:
-	default:
-		return fmt.Errorf("invalid error resolution mode: %q", mode)
-	}
-	// TODO(fwereade): assert unit has error status.
-	resolvedNotSet := bson.D{{"resolved", ResolvedNone}}
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     u.doc.DocID,
-		Assert: append(notDeadDoc, resolvedNotSet...),
-		Update: bson.D{{"$set", bson.D{{"resolved", mode}}}},
-	}}
-	if err := u.st.db().RunTransaction(ops); err == nil {
-		u.doc.Resolved = mode
-		return nil
-	} else if err != txn.ErrAborted {
-		return err
-	}
-	if ok, err := isNotDead(u.st, unitsC, u.doc.DocID); err != nil {
-		return err
-	} else if !ok {
-		return stateerrors.ErrDead
-	}
-	// For now, the only remaining assert is that resolved was unset.
-	return fmt.Errorf("already resolved")
-}
-
-// ClearResolved removes any resolved setting on the unit.
-func (u *Unit) ClearResolved() error {
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     u.doc.DocID,
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"resolved", ResolvedNone}}}},
-	}}
-	err := u.st.db().RunTransaction(ops)
-	if err != nil {
-		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, errors.NotFoundf("unit"))
-	}
-	u.doc.Resolved = ResolvedNone
-	return nil
 }
 
 // StorageConstraints returns the unit's storage constraints.

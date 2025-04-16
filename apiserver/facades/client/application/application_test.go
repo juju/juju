@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -21,10 +22,13 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/resource/testing"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/relation"
+	"github.com/juju/juju/domain/resolve"
+	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -951,6 +955,104 @@ func (s *applicationSuite) TestSetConfigs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 1)
 	c.Assert(res.Results[0].Error, gc.IsNil)
+}
+
+func (s *applicationSuite) TestResolveUnitErrorsAllAndEntitesMutuallyExclusive(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	_, err := s.api.ResolveUnitErrors(context.Background(), params.UnitsResolved{
+		Tags: params.Entities{
+			Entities: []params.Entity{{Tag: "unit-1"}},
+		},
+		All: true,
+	})
+	c.Assert(err, jc.ErrorIs, errors.BadRequest)
+}
+
+func (s *applicationSuite) TestResolveUnitErrorsAllNoRetry(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	s.resolveService.EXPECT().ResolveAllUnits(gomock.Any(), resolve.ResolveModeNoHooks).Return(nil)
+
+	res, err := s.api.ResolveUnitErrors(context.Background(), params.UnitsResolved{
+		All: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 0)
+}
+
+func (s *applicationSuite) TestResolveUnitErrorsAllRetryHooks(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	s.resolveService.EXPECT().ResolveAllUnits(gomock.Any(), resolve.ResolveModeRetryHooks).Return(nil)
+
+	res, err := s.api.ResolveUnitErrors(context.Background(), params.UnitsResolved{
+		All:   true,
+		Retry: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 0)
+}
+
+func (s *applicationSuite) TestResolveUnitErrorsSpecificNoRetry(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	unitName := coreunit.Name("foo/1")
+	s.resolveService.EXPECT().ResolveUnit(gomock.Any(), unitName, resolve.ResolveModeNoHooks).Return(nil)
+
+	res, err := s.api.ResolveUnitErrors(context.Background(), params.UnitsResolved{
+		Tags: params.Entities{
+			Entities: []params.Entity{{Tag: names.NewUnitTag(unitName.String()).String()}},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error, gc.IsNil)
+}
+
+func (s *applicationSuite) TestResolveUnitErrorsSpecificRetryHooks(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	unitName := coreunit.Name("foo/1")
+	s.resolveService.EXPECT().ResolveUnit(gomock.Any(), unitName, resolve.ResolveModeRetryHooks).Return(nil)
+
+	res, err := s.api.ResolveUnitErrors(context.Background(), params.UnitsResolved{
+		Tags: params.Entities{
+			Entities: []params.Entity{{Tag: names.NewUnitTag(unitName.String()).String()}},
+		},
+		Retry: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error, gc.IsNil)
+}
+
+func (s *applicationSuite) TestResolveUnitErrorsUnitNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupAPI(c)
+
+	unitName := coreunit.Name("foo/1")
+	s.resolveService.EXPECT().ResolveUnit(gomock.Any(), unitName, resolve.ResolveModeNoHooks).Return(resolveerrors.UnitNotFound)
+
+	res, err := s.api.ResolveUnitErrors(context.Background(), params.UnitsResolved{
+		Tags: params.Entities{
+			Entities: []params.Entity{{Tag: names.NewUnitTag(unitName.String()).String()}},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *applicationSuite) TestDestroyRelationStub(c *gc.C) {

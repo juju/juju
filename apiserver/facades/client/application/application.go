@@ -41,6 +41,8 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/resolve"
+	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -83,6 +85,7 @@ type APIBase struct {
 	modelConfigService ModelConfigService
 	machineService     MachineService
 	applicationService ApplicationService
+	resolveService     ResolveService
 	networkService     NetworkService
 	portService        PortService
 	relationService    RelationService
@@ -189,6 +192,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 			ModelConfigService:        domainServices.Config(),
 			MachineService:            domainServices.Machine(),
 			ApplicationService:        applicationService,
+			ResolveService:            domainServices.Resolve(),
 			PortService:               domainServices.Port(),
 			RelationService:           domainServices.Relation(),
 			ResourceService:           domainServices.Resource(),
@@ -263,6 +267,7 @@ func NewAPIBase(
 		store:                 store,
 
 		applicationService:        services.ApplicationService,
+		resolveService:            services.ResolveService,
 		externalControllerService: services.ExternalControllerService,
 		machineService:            services.MachineService,
 		modelConfigService:        services.ModelConfigService,
@@ -1960,16 +1965,21 @@ func (api *APIBase) ResolveUnitErrors(ctx context.Context, p params.UnitsResolve
 		return result, errors.Trace(err)
 	}
 
+	if p.All && len(p.Tags.Entities) > 0 {
+		return params.ErrorResults{}, errors.BadRequestf("cannot resolve all units and specific units")
+	}
+
+	resolveMode := resolve.ResolveModeNoHooks
+	if p.Retry {
+		resolveMode = resolve.ResolveModeRetryHooks
+	}
+
 	if p.All {
-		unitsWithErrors, err := api.backend.UnitsInError()
+		err := api.resolveService.ResolveAllUnits(ctx, resolveMode)
 		if err != nil {
 			return params.ErrorResults{}, errors.Trace(err)
 		}
-		for _, u := range unitsWithErrors {
-			if err := u.Resolve(p.Retry); err != nil {
-				return params.ErrorResults{}, errors.Annotatef(err, "resolve error for unit %q", u.UnitTag().Id())
-			}
-		}
+		return params.ErrorResults{}, nil
 	}
 
 	result.Results = make([]params.ErrorResult, len(p.Tags.Entities))
@@ -1979,13 +1989,19 @@ func (api *APIBase) ResolveUnitErrors(ctx context.Context, p params.UnitsResolve
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		unit, err := api.backend.Unit(tag.Id())
+		unitName, err := coreunit.NewName(tag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		err = unit.Resolve(p.Retry)
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		err = api.resolveService.ResolveUnit(ctx, unitName, resolveMode)
+		if errors.Is(err, resolveerrors.UnitNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", unitName))
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 	}
 	return result, nil
 }
