@@ -959,6 +959,7 @@ func (s *importSuite) TestImportEndpointBindings36(c *gc.C) {
 		EndpointBindings: map[string]string{
 			"endpoint0": "0",
 			"endpoint1": "1",
+			"endpoint2": "2",
 			// An empty endpoint name represents the applications default space.
 			"": "2",
 		},
@@ -1044,6 +1045,7 @@ func (s *importSuite) TestImportEndpointBindings40(c *gc.C) {
 		EndpointBindings: map[string]string{
 			"endpoint0": network.AlphaSpaceId,
 			"endpoint1": space1UUID,
+			"endpoint2": "",
 			// An empty endpoint name represents the applications default space.
 			"": space2UUID,
 		},

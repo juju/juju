@@ -303,7 +303,6 @@ SELECT (ae.space_uuid, cr.name) AS (&getApplicationEndpoint.*)
 FROM   application_endpoint ae
 JOIN   charm_relation cr ON cr.uuid = ae.charm_relation_uuid
 WHERE  ae.application_uuid = $applicationID.uuid
-AND    ae.space_uuid IS NOT NULL
 `, getApplicationEndpoint{}, id)
 	if err != nil {
 		return nil, internalerrors.Capture(err)
@@ -315,7 +314,6 @@ SELECT (aee.space_uuid, ceb.name) AS (&getApplicationEndpoint.*)
 FROM   application_extra_endpoint aee
 JOIN   charm_extra_binding ceb ON ceb.uuid = aee.charm_extra_binding_uuid
 WHERE  aee.application_uuid = $applicationID.uuid
-AND    aee.space_uuid IS NOT NULL
 `, getApplicationEndpoint{}, id)
 	if err != nil {
 		return nil, internalerrors.Capture(err)
