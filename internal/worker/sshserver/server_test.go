@@ -4,18 +4,20 @@
 package sshserver
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
+	net "net"
 	"strings"
+	"time"
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	"github.com/lestrrat-go/jwx/v2/jwt"
@@ -24,9 +26,12 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 	gc "gopkg.in/check.v1"
 
+	network "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/virtualhostname"
+	"github.com/juju/juju/internal/sshtunneler"
 	pkitest "github.com/juju/juju/pki/test"
 	params "github.com/juju/juju/rpc/params"
+	state "github.com/juju/juju/state"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -34,8 +39,6 @@ const maxConcurrentConnections = 10
 const testVirtualHostname = "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local"
 
 type sshServerSuite struct {
-	testing.IsolationSuite
-
 	hostKey        []byte
 	publicHostKey  ssh.PublicKey
 	userSigner     ssh.Signer
@@ -47,8 +50,6 @@ type sshServerSuite struct {
 var _ = gc.Suite(&sshServerSuite{})
 
 func (s *sshServerSuite) SetUpSuite(c *gc.C) {
-	s.IsolationSuite.SetUpSuite(c)
-
 	// Setup user signer
 	userKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	c.Assert(err, jc.ErrorIsNil)
@@ -97,6 +98,7 @@ func (s *sshServerSuite) newServerWorkerConfig(
 		JWTParser:                s.jwtParser,
 		SessionHandler:           s.sessionHandler,
 		disableAuth:              true,
+		TunnelTracker:            &sshtunneler.Tracker{},
 	}
 
 	if modifier != nil {
@@ -376,9 +378,6 @@ func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 	client := inMemoryDial(c, listener, &gossh.ClientConfig{
 		User:            "",
 		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
-		Auth: []gossh.AuthMethod{
-			gossh.Password(""), // No password needed
-		},
 	})
 	conn, err := client.Dial("tcp", fmt.Sprintf("%s:0", testVirtualHostname))
 	c.Assert(err, gc.IsNil)
@@ -475,6 +474,220 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *gc.C) {
 	c.Assert(report, gc.DeepEquals, map[string]interface{}{
 		"concurrent_connections": int32(1),
 	})
+}
+
+type reverseTunnelSuite struct {
+	sshServerSuite
+
+	tunnelTracker  *sshtunneler.Tracker
+	tunnelState    *MockState
+	tunnelCtrlInfo *MockControllerInfo
+	tunnelClock    *MockClock
+	tunnelDial     *MockSSHDial
+}
+
+var _ = gc.Suite(&reverseTunnelSuite{})
+
+func (s *reverseTunnelSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := s.sshServerSuite.setupMocks(c)
+	s.tunnelState = NewMockState(ctrl)
+	s.tunnelCtrlInfo = NewMockControllerInfo(ctrl)
+	s.tunnelClock = NewMockClock(ctrl)
+	s.tunnelDial = NewMockSSHDial(ctrl)
+
+	return ctrl
+}
+
+func (s *reverseTunnelSuite) setupTunnelTracker(c *gc.C) {
+	var err error
+	s.tunnelTracker, err = sshtunneler.NewTracker(sshtunneler.TrackerArgs{
+		State:          s.tunnelState,
+		ControllerInfo: s.tunnelCtrlInfo,
+		Clock:          s.tunnelClock,
+		Dialer:         s.tunnelDial,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// This test is a fully in-memory test integrating the tunnel tracker
+// with the SSH server, verifying that the SSH server correctly handles
+// SSH connections from machines.
+func (s *reverseTunnelSuite) TestSSHServerReverseTunnel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Start the server on an in-memory listener
+	listener := bufconn.Listen(1024)
+
+	// Setup the tunnel tracker with mock dependencies.
+	// Then pass it into the server.
+	s.setupTunnelTracker(c)
+
+	server, err := NewServerWorker(s.newServerWorkerConfig(listener, func(swc *ServerWorkerConfig) {
+		swc.disableAuth = false
+		swc.TunnelTracker = s.tunnelTracker
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, server)
+	workertest.CheckAlive(c, server)
+
+	// Dial the in-memory listener
+	conn, err := listener.Dial()
+	c.Assert(err, jc.ErrorIsNil)
+	defer conn.Close()
+
+	// The client will now open a custom channel that indicates this is a reverse tunnel.
+	// We grab the underlying TCP connection to the server.
+	var machineConn net.Conn
+
+	s.tunnelDial.EXPECT().Dial(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(c net.Conn, s1 string, s2 gossh.Signer, hkc gossh.HostKeyCallback) (*gossh.Client, error) {
+			machineConn = c
+			// We return a nil SSH client because we're only
+			// going to test the underlying TCP connection.
+			return nil, nil
+		},
+	).Times(1)
+
+	// Create a tunnel request and use the username and password
+	// in the request to emulate a machine connecting to the server.
+	ctx := context.Background()
+	ctx, cancelF := context.WithTimeout(ctx, 1*time.Second)
+	defer cancelF()
+	username, password, tunnelReq := s.tunnelRequest(ctx)
+
+	jumpConn, chans, terminatingReqs, err := gossh.NewClientConn(conn, "",
+		&gossh.ClientConfig{
+			User:            username,
+			HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+			Auth: []gossh.AuthMethod{
+				gossh.Password(password),
+			},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	client := gossh.NewClient(jumpConn, chans, terminatingReqs)
+	defer client.Close()
+
+	serverConn := dialReverseTunnel(c, client)
+	defer serverConn.Close()
+
+	tunnelResp := <-tunnelReq
+	c.Assert(tunnelResp.err, jc.ErrorIsNil)
+
+	// We now have both ends of the pipe and we just need to validate that they are connected.
+
+	testConnection := func(tx net.Conn, rx net.Conn) {
+		_, err := tx.Write([]byte("ping"))
+		c.Check(err, jc.ErrorIsNil)
+		testBuffer := make([]byte, 4)
+		_, err = rx.Read(testBuffer)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(string(testBuffer), gc.Equals, "ping")
+	}
+
+	testConnection(serverConn, machineConn)
+	testConnection(machineConn, serverConn)
+
+	// Server isn't gracefully closed, it's forcefully closed. All connections ended
+	// from server side.
+	workertest.CleanKill(c, server)
+}
+
+// TestReverseTunnelNoTunnelID tests the case where a machine
+// connects to the server but we don't have a record of anyone
+// requesting a tunnel for this machine.
+func (s *reverseTunnelSuite) TestReverseTunnelNoTunnelID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Start the server on an in-memory listener
+	listener := bufconn.Listen(1024)
+
+	// Setup the tunnel tracker with mock dependencies.
+	// Then pass it into the server.
+	s.setupTunnelTracker(c)
+
+	server, err := NewServerWorker(s.newServerWorkerConfig(listener, func(swc *ServerWorkerConfig) {
+		swc.disableAuth = false
+		swc.TunnelTracker = s.tunnelTracker
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, server)
+	workertest.CheckAlive(c, server)
+
+	// Dial the in-memory listener
+	conn, err := listener.Dial()
+	c.Assert(err, jc.ErrorIsNil)
+	defer conn.Close()
+
+	// Connect as if we are a machine with an invalid password.
+	_, _, _, err = gossh.NewClientConn(conn, "",
+		&gossh.ClientConfig{
+			User:            "reverse-tunnel",
+			HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+			Auth: []gossh.AuthMethod{
+				gossh.Password("invalid-password"),
+			},
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, `ssh: handshake failed: ssh: unable to authenticate.*`)
+
+	// Server isn't gracefully closed, it's forcefully closed. All connections ended
+	// from server side.
+	workertest.CleanKill(c, server)
+}
+
+type sshConnRequest struct {
+	client *gossh.Client
+	err    error
+}
+
+// tunnelRequest is a helper test function that sets up a request for an SSH tunnel.
+// It returns the username and password that were used to create the request, as
+// well as a channel that returns a struct with the ssh client and error.
+func (s *reverseTunnelSuite) tunnelRequest(ctx context.Context) (string, string, chan sshConnRequest) {
+	var (
+		username string
+		password string
+		request  = make(chan sshConnRequest)
+		// ready indicates when the SSH connection request has
+		// been written to state and helps synchronize the test.
+		ready = make(chan struct{})
+	)
+	s.tunnelState.EXPECT().InsertSSHConnRequest(gomock.Any()).DoAndReturn(
+		func(sra state.SSHConnRequestArg) error {
+			username = sra.Username
+			password = sra.Password
+			close(ready)
+			return nil
+		},
+	).Return(nil).Times(1)
+
+	s.tunnelState.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any()).Return([]string{}, nil).Times(1)
+
+	s.tunnelCtrlInfo.EXPECT().Addresses().Return(network.SpaceAddresses{}, nil).Times(1)
+
+	now := time.Now()
+	s.tunnelClock.EXPECT().Now().Return(now).AnyTimes()
+
+	go func() {
+		client, err := s.tunnelTracker.RequestTunnel(ctx, sshtunneler.RequestArgs{
+			MachineID: "1",
+			ModelUUID: "foo",
+		})
+		request <- sshConnRequest{client: client, err: err}
+	}()
+
+	<-ready
+	return username, password, request
+}
+
+// dialReverseTunnel opens a Juju specific SSH channel for
+// reverse tunnels and returns the connection for that channel.
+func dialReverseTunnel(c *gc.C, client *gossh.Client) net.Conn {
+	ch, in, err := client.OpenChannel(jujuTunnelChannel, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	go gossh.DiscardRequests(in)
+	return newChannelConn(ch)
 }
 
 // inMemoryDial returns and SSH connection that uses an in-memory transport.

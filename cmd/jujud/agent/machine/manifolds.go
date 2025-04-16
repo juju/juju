@@ -795,6 +795,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewServerWrapperWorker: sshserver.NewServerWrapperWorker,
 			NewServerWorker:        sshserver.NewServerWorker,
 			NewSSHServerListener:   sshserver.NewSSHServerListener,
+			SSHTunnelerName:        sshTunnelerName,
 		})),
 
 		// The jwtParser worker runs on the controller machine.

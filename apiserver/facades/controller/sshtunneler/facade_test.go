@@ -7,7 +7,6 @@ import (
 	"errors"
 
 	"github.com/juju/names/v5"
-	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -51,8 +50,7 @@ func (s *sshtunnelerSuite) TestInsertSSHConnRequest(c *gc.C) {
 
 	s.backend.EXPECT().InsertSSHConnRequest(gomock.Any()).Return(nil)
 
-	result, err := f.InsertSSHConnRequest(arg)
-	c.Assert(err, jc.ErrorIsNil)
+	result := f.InsertSSHConnRequest(arg)
 	c.Assert(result.Error, gc.IsNil)
 }
 
@@ -67,8 +65,7 @@ func (s *sshtunnelerSuite) TestInsertSSHConnRequestError(c *gc.C) {
 
 	s.backend.EXPECT().InsertSSHConnRequest(gomock.Any()).Return(errors.New("insert error"))
 
-	result, err := f.InsertSSHConnRequest(arg)
-	c.Assert(err, jc.ErrorIsNil)
+	result := f.InsertSSHConnRequest(arg)
 	c.Assert(result.Error.Message, gc.Equals, "insert error")
 }
 
@@ -83,8 +80,7 @@ func (s *sshtunnelerSuite) TestRemoveSSHConnRequest(c *gc.C) {
 
 	s.backend.EXPECT().RemoveSSHConnRequest(gomock.Any()).Return(nil)
 
-	result, err := f.RemoveSSHConnRequest(arg)
-	c.Assert(err, jc.ErrorIsNil)
+	result := f.RemoveSSHConnRequest(arg)
 	c.Assert(result.Error, gc.IsNil)
 }
 
@@ -99,8 +95,7 @@ func (s *sshtunnelerSuite) TestRemoveSSHConnRequestError(c *gc.C) {
 
 	s.backend.EXPECT().RemoveSSHConnRequest(gomock.Any()).Return(errors.New("remove error"))
 
-	result, err := f.RemoveSSHConnRequest(arg)
-	c.Assert(err, jc.ErrorIsNil)
+	result := f.RemoveSSHConnRequest(arg)
 	c.Assert(result.Error.Message, gc.Equals, "remove error")
 }
 
@@ -114,8 +109,7 @@ func (s *sshtunnelerSuite) TestControllerAddress(c *gc.C) {
 	f := newFacade(s.ctx, s.backend)
 
 	entity := params.Entity{Tag: names.NewMachineTag("1").String()}
-	addresses, err := f.ControllerAddresses(entity)
-	c.Assert(err, jc.ErrorIsNil)
+	addresses := f.ControllerAddresses(entity)
 	c.Assert(addresses, gc.DeepEquals, params.StringsResult{})
 }
 
@@ -135,8 +129,7 @@ func (s *sshtunnelerSuite) TestMachineHostKeys(c *gc.C) {
 		ModelUUID:  modelUUID,
 		MachineTag: machineTag.String(),
 	}
-	result, err := f.MachineHostKeys(arg)
-	c.Assert(err, jc.ErrorIsNil)
+	result := f.MachineHostKeys(arg)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.PublicKeys, gc.DeepEquals, []string{"key-1", "key-2"})
 }

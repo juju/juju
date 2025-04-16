@@ -123,7 +123,7 @@ func (s *sshTunnelerSuite) TestTunneler(c *gc.C) {
 	}
 	c.Check(tunnels, gc.HasLen, 1)
 
-	tunnelID, err := tunnelTracker.AuthenticateTunnel(reverseTunnelUser, sshConnArgs.Password)
+	tunnelID, err := tunnelTracker.AuthenticateTunnel(ReverseTunnelUser, sshConnArgs.Password)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(tunnelID, gc.Equals, tunnels[0])
 
@@ -203,7 +203,7 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *gc.C) {
 		c.Error("timeout waiting for tunnel request to be processed")
 	}
 
-	tunnelID, err := tunnelTracker.AuthenticateTunnel(reverseTunnelUser, sshConnArgs.Password)
+	tunnelID, err := tunnelTracker.AuthenticateTunnel(ReverseTunnelUser, sshConnArgs.Password)
 	c.Check(err, jc.ErrorIsNil)
 
 	ctx := context.Background()
@@ -244,7 +244,7 @@ func (s *sshTunnelerSuite) TestAuthenticateTunnel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.clock.EXPECT().Now().AnyTimes().Return(now)
-	authTunnelID, err := tunnelTracker.AuthenticateTunnel(reverseTunnelUser, token)
+	authTunnelID, err := tunnelTracker.AuthenticateTunnel(ReverseTunnelUser, token)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(authTunnelID, gc.Equals, tunnelID)
 }

@@ -4,6 +4,7 @@
 package sshserver
 
 import (
+	"context"
 	"net"
 	"strconv"
 	"sync/atomic"
@@ -17,14 +18,21 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/virtualhostname"
+	"github.com/juju/juju/internal/sshtunneler"
 	jujussh "github.com/juju/juju/pki/ssh"
 	"github.com/juju/juju/rpc/params"
+)
+
+const (
+	jujuTunnelChannel = "juju-tunnel"
 )
 
 // SessionHandler is an interface that proxies SSH sessions to a target unit/machine.
 type SessionHandler interface {
 	Handle(s ssh.Session, destination virtualhostname.Info)
 }
+
+type tunnelIDKey struct{}
 
 // ServerWorkerConfig holds the configuration required by the server worker.
 type ServerWorkerConfig struct {
@@ -62,6 +70,10 @@ type ServerWorkerConfig struct {
 
 	// SessionHandler handles proxying SSH sessions to the target machine.
 	SessionHandler SessionHandler
+
+	// TunnelTracker holds the tunnel tracker used to requests SSH
+	// connections to machines.
+	TunnelTracker *sshtunneler.Tracker
 }
 
 // Validate validates the workers configuration is as expected.
@@ -83,6 +95,9 @@ func (c ServerWorkerConfig) Validate() error {
 	}
 	if c.JWTParser == nil {
 		return errors.NotValidf("missing JWTParser")
+	}
+	if c.TunnelTracker == nil {
+		return errors.NotValidf("missing TunnelTracker")
 	}
 	return nil
 }
@@ -110,12 +125,15 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	s := &ServerWorker{config: config}
+	s := &ServerWorker{
+		config: config,
+	}
 
-	var err error
-	s.authenticator, err = newAuthenticator(config.JWTParser, config.Logger, config.FacadeClient)
-	if err != nil {
-		return nil, errors.Trace(err)
+	s.authenticator = &authenticator{
+		logger:        config.Logger,
+		jwtParser:     config.JWTParser,
+		facadeClient:  config.FacadeClient,
+		tunnelTracker: config.TunnelTracker,
 	}
 
 	s.Server = s.NewJumpServer()
@@ -179,7 +197,8 @@ func (s *ServerWorker) NewJumpServer() *ssh.Server {
 			return s.authenticator.passwordAuthentication(ctx, password)
 		},
 		ChannelHandlers: map[string]ssh.ChannelHandler{
-			"direct-tcpip": s.directTCPIPHandler,
+			"direct-tcpip":    s.directTCPIPHandler,
+			jujuTunnelChannel: s.reverseTunnelHandler,
 		},
 	}
 
@@ -209,6 +228,43 @@ func (s *ServerWorker) setJumpServerHostKey() error {
 
 	s.Server.AddHostKey(signer)
 	return nil
+}
+
+// reverseTunnelHandler is a Juju specific SSH channel handler specifically
+// for reverse SSH tunnels established from machines.
+// These requests must always be associated with a tunnel ID obtained during
+// authentication so that we can push the tunnel to the tunnel tracker.
+//
+// We need to take care to only close the connection in case of an error, otherwise we
+// will be closing the connection before the object requesting the tunnel can use it.
+func (s *ServerWorker) reverseTunnelHandler(srv *ssh.Server, conn *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {
+	tunnelID, _ := ctx.Value(tunnelIDKey{}).(string)
+	if tunnelID == "" {
+		s.config.Logger.Errorf("missing tunnel ID")
+		_ = newChan.Reject(gossh.Prohibited, "missing tunnel ID")
+		_ = conn.Close()
+		return
+	}
+
+	ch, reqs, err := newChan.Accept()
+	if err != nil {
+		s.config.Logger.Errorf("failed to accept reverse tunnel channel creation request: %v", err)
+		_ = conn.Close()
+		return
+	}
+
+	go gossh.DiscardRequests(reqs)
+
+	// The timeout here is intentionally short because we expect there to be
+	// a routine waiting for the connection.
+	pushCtx, cancelF := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancelF()
+
+	err = s.config.TunnelTracker.PushTunnel(pushCtx, tunnelID, newChannelConn(ch))
+	if err != nil {
+		s.config.Logger.Errorf("failed to push tunnel: %v", err)
+		_ = conn.Close()
+	}
 }
 
 // directTCPIPHandler handles a user's request to connect to a remote host, in our case, used

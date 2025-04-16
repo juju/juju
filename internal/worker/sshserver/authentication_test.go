@@ -23,9 +23,10 @@ import (
 )
 
 type authenticationSuite struct {
-	ctx          *MockContext
-	jwtParser    *MockJWTParser
-	facadeClient *MockFacadeClient
+	ctx                 *MockContext
+	jwtParser           *MockJWTParser
+	facadeClient        *MockFacadeClient
+	tunnelAuthenticator *MockTunnelAuthenticator
 }
 
 var _ = gc.Suite(&authenticationSuite{})
@@ -35,16 +36,18 @@ func (s *authenticationSuite) SetupMocks(c *gc.C) *gomock.Controller {
 	s.jwtParser = NewMockJWTParser(ctrl)
 	s.facadeClient = NewMockFacadeClient(ctrl)
 	s.ctx = NewMockContext(ctrl)
+	s.tunnelAuthenticator = NewMockTunnelAuthenticator(ctrl)
 
 	return ctrl
 }
 
 func (s *authenticationSuite) SetupAuthenticator(c *gc.C) *authenticator {
-	auth, err := newAuthenticator(s.jwtParser, loggo.GetLogger("test"), s.facadeClient)
-	c.Assert(err, gc.IsNil)
-	c.Assert(auth, gc.NotNil)
-
-	return auth
+	return &authenticator{
+		logger:        loggo.GetLogger("test"),
+		jwtParser:     s.jwtParser,
+		facadeClient:  s.facadeClient,
+		tunnelTracker: s.tunnelAuthenticator,
+	}
 }
 
 func (s *authenticationSuite) TestPublicKeyAuthentication(c *gc.C) {
@@ -58,7 +61,7 @@ func (s *authenticationSuite) TestPublicKeyAuthentication(c *gc.C) {
 	c.Assert(ok, gc.Equals, true)
 }
 
-func (s *authenticationSuite) TestPasswordAuthentication(c *gc.C) {
+func (s *authenticationSuite) TestJWTPasswordAuthentication(c *gc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	authenticator := s.SetupAuthenticator(c)
@@ -73,12 +76,26 @@ func (s *authenticationSuite) TestPasswordAuthentication(c *gc.C) {
 	c.Assert(ok, gc.Equals, true)
 }
 
+func (s *authenticationSuite) TestTunnelPasswordAuthentication(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
+	authenticator := s.SetupAuthenticator(c)
+
+	s.tunnelAuthenticator.EXPECT().AuthenticateTunnel("juju-reverse-tunnel", "password").Return("tunnel-id", nil)
+	s.ctx.EXPECT().SetValue(tunnelIDKey{}, "tunnel-id")
+	s.ctx.EXPECT().SetValue(authenticatedViaPublicKey{}, false)
+	s.ctx.EXPECT().User().Return("juju-reverse-tunnel").Times(3)
+
+	ok := authenticator.passwordAuthentication(s.ctx, "password")
+	c.Assert(ok, gc.Equals, true)
+}
+
 func (s *authenticationSuite) TestPasswordAuthenticationInvalidUser(c *gc.C) {
 	defer s.SetupMocks(c).Finish()
 
 	authenticator := s.SetupAuthenticator(c)
 
-	s.ctx.EXPECT().User().Return("fake-user")
+	s.ctx.EXPECT().User().Return("fake-user").Times(2)
 	s.ctx.EXPECT().SetValue(authenticatedViaPublicKey{}, false)
 
 	ok := authenticator.passwordAuthentication(s.ctx, "password")

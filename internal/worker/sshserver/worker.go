@@ -11,6 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
+
+	"github.com/juju/juju/internal/sshtunneler"
 )
 
 // ServerWrapperWorkerConfig holds the configuration required by the server wrapper worker.
@@ -21,6 +23,7 @@ type ServerWrapperWorkerConfig struct {
 	NewSSHServerListener func(net.Listener, time.Duration) net.Listener
 	SessionHandler       SessionHandler
 	JWTParser            JWTParser
+	TunnelTracker        *sshtunneler.Tracker
 }
 
 // Validate validates the workers configuration is as expected.
@@ -152,6 +155,7 @@ func (ssw *serverWrapperWorker) loop() error {
 		FacadeClient:             ssw.config.FacadeClient,
 		SessionHandler:           ssw.config.SessionHandler,
 		JWTParser:                ssw.config.JWTParser,
+		TunnelTracker:            ssw.config.TunnelTracker,
 	})
 	if err != nil {
 		return errors.Trace(err)
