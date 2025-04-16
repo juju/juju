@@ -5,7 +5,7 @@ package httpcontext
 
 import "context"
 
-// EntityForContext is responsible for taking a regular context and determing
+// EntityForContext is responsible for taking a regular context and determining
 // the entity that is associated with the context. Entity is purposely left
 // vague in this context as it could resemble multiple things. It is not
 // expected that the caller will try and interpret the string returned. The
