@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -34,29 +35,31 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
-func newManifoldConfig(l loggo.Logger, modifier func(cfg *ManifoldConfig)) *ManifoldConfig {
+func newManifoldConfig(modifier func(cfg *ManifoldConfig)) *ManifoldConfig {
 	cfg := &ManifoldConfig{
 		NewServerWrapperWorker: func(ServerWrapperWorkerConfig) (worker.Worker, error) { return nil, nil },
 		NewServerWorker:        func(ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
-		Logger:                 l,
+		Logger:                 loggo.GetLogger("test"),
 		APICallerName:          "api-caller",
 		NewSSHServerListener:   newTestingSSHServerListener,
+		JWTParserName:          "jwt-parser",
 	}
 
-	modifier(cfg)
+	if modifier != nil {
+		modifier(cfg)
+	}
 
 	return cfg
 }
 
 func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
-	l := loggo.GetLogger("test")
 	// Check config as expected.
 
-	cfg := newManifoldConfig(l, func(cfg *ManifoldConfig) {})
+	cfg := newManifoldConfig(nil)
 	c.Assert(cfg.Validate(), jc.ErrorIsNil)
 
 	// Entirely missing.
-	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
+	cfg = newManifoldConfig(func(cfg *ManifoldConfig) {
 		cfg.NewServerWrapperWorker = nil
 		cfg.NewServerWorker = nil
 		cfg.Logger = nil
@@ -64,31 +67,31 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	// Missing NewServerWrapperWorker.
-	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
+	cfg = newManifoldConfig(func(cfg *ManifoldConfig) {
 		cfg.NewServerWrapperWorker = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	// Missing NewServerWorker.
-	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
+	cfg = newManifoldConfig(func(cfg *ManifoldConfig) {
 		cfg.NewServerWorker = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	// Missing Logger.
-	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
+	cfg = newManifoldConfig(func(cfg *ManifoldConfig) {
 		cfg.Logger = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	// Empty APICallerName.
-	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
+	cfg = newManifoldConfig(func(cfg *ManifoldConfig) {
 		cfg.APICallerName = ""
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	// Empty NewSSHServerListener.
-	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
+	cfg = newManifoldConfig(func(cfg *ManifoldConfig) {
 		cfg.NewSSHServerListener = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
@@ -96,25 +99,22 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 
 func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 	// Setup the manifold
-	manifold := Manifold(ManifoldConfig{
-		APICallerName: "api-caller",
-		NewServerWrapperWorker: func(ServerWrapperWorkerConfig) (worker.Worker, error) {
+	manifold := Manifold(*newManifoldConfig(func(cfg *ManifoldConfig) {
+		cfg.NewServerWrapperWorker = func(ServerWrapperWorkerConfig) (worker.Worker, error) {
 			return workertest.NewDeadWorker(nil), nil
-		},
-		NewServerWorker:      func(ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
-		Logger:               loggo.GetLogger("test"),
-		NewSSHServerListener: newTestingSSHServerListener,
-	})
+		}
+	}))
 
 	// Check the inputs are as expected
 	c.Assert(manifold.Inputs, gc.DeepEquals, []string{
-		"api-caller",
+		"api-caller", "jwt-parser",
 	})
 
 	// Start the worker
 	w, err := manifold.Start(
 		dt.StubContext(nil, map[string]interface{}{
 			"api-caller": mockAPICaller{},
+			"jwt-parser": &jwtparser.Parser{},
 		}),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -135,19 +135,16 @@ func (s *manifoldSuite) TestManifolUninstall(c *gc.C) {
 	os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
-	manifold := Manifold(ManifoldConfig{
-		APICallerName: "api-caller",
-		NewServerWrapperWorker: func(ServerWrapperWorkerConfig) (worker.Worker, error) {
+	manifold := Manifold(*newManifoldConfig(func(cfg *ManifoldConfig) {
+		cfg.NewServerWrapperWorker = func(ServerWrapperWorkerConfig) (worker.Worker, error) {
 			return workertest.NewDeadWorker(nil), nil
-		},
-		NewServerWorker:      func(ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
-		Logger:               loggo.GetLogger("test"),
-		NewSSHServerListener: newTestingSSHServerListener,
-	})
+		}
+	}))
 	// Start the worker
 	_, err := manifold.Start(
 		dt.StubContext(nil, map[string]interface{}{
 			"api-caller": mockAPICaller{},
+			"jwt-parser": &MockJWTParser{},
 		}),
 	)
 	c.Assert(err, jc.ErrorIs, dependency.ErrUninstall)

@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"go.uber.org/mock/gomock"
 	gossh "golang.org/x/crypto/ssh"
 	"google.golang.org/grpc/test/bufconn"
@@ -35,9 +37,10 @@ type sshServerSuite struct {
 	testing.IsolationSuite
 
 	hostKey        []byte
-	publicHostKey  gossh.PublicKey
-	userSigner     gossh.Signer
+	publicHostKey  ssh.PublicKey
+	userSigner     ssh.Signer
 	facadeClient   *MockFacadeClient
+	jwtParser      *MockJWTParser
 	sessionHandler *MockSessionHandler
 }
 
@@ -76,52 +79,65 @@ func (s *sshServerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.facadeClient = NewMockFacadeClient(ctrl)
 	s.sessionHandler = NewMockSessionHandler(ctrl)
+	s.jwtParser = NewMockJWTParser(ctrl)
 	return ctrl
 }
 
-func newServerWorkerConfig(
-	l Logger,
-	j string,
+func (s *sshServerSuite) newServerWorkerConfig(
+	listener *bufconn.Listener,
 	modifier func(*ServerWorkerConfig),
-) *ServerWorkerConfig {
+) ServerWorkerConfig {
 	cfg := &ServerWorkerConfig{
-		Logger:               l,
-		JumpHostKey:          j,
-		NewSSHServerListener: newTestingSSHServerListener,
+		Logger:                   loggo.GetLogger("test"),
+		Listener:                 listener,
+		MaxConcurrentConnections: maxConcurrentConnections,
+		JumpHostKey:              jujutesting.SSHServerHostKey,
+		NewSSHServerListener:     newTestingSSHServerListener,
+		FacadeClient:             s.facadeClient,
+		JWTParser:                s.jwtParser,
+		SessionHandler:           s.sessionHandler,
+		disableAuth:              true,
 	}
 
-	modifier(cfg)
+	if modifier != nil {
+		modifier(cfg)
+	}
 
-	return cfg
+	return *cfg
 }
 
 func (s *sshServerSuite) TestValidate(c *gc.C) {
-	cfg := &ServerWorkerConfig{}
-	l := loggo.GetLogger("test")
+	cfg := ServerWorkerConfig{}
 
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	// Test no Logger.
-	cfg = newServerWorkerConfig(l, "Logger", func(cfg *ServerWorkerConfig) {
+	cfg = s.newServerWorkerConfig(nil, func(cfg *ServerWorkerConfig) {
 		cfg.Logger = nil
 	})
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	// Test no JumpHostKey.
-	cfg = newServerWorkerConfig(l, "jumpHostKey", func(cfg *ServerWorkerConfig) {
+	cfg = s.newServerWorkerConfig(nil, func(cfg *ServerWorkerConfig) {
 		cfg.JumpHostKey = ""
 	})
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	// Test no NewSSHServerListener.
-	cfg = newServerWorkerConfig(l, "NewSSHServerListener", func(cfg *ServerWorkerConfig) {
+	cfg = s.newServerWorkerConfig(nil, func(cfg *ServerWorkerConfig) {
 		cfg.NewSSHServerListener = nil
 	})
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	// Test no FacadeClient.
-	cfg = newServerWorkerConfig(l, "NewSSHServerListener", func(cfg *ServerWorkerConfig) {
+	cfg = s.newServerWorkerConfig(nil, func(cfg *ServerWorkerConfig) {
 		cfg.FacadeClient = nil
+	})
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	// Test no JWTParser.
+	cfg = s.newServerWorkerConfig(nil, func(cfg *ServerWorkerConfig) {
+		cfg.JWTParser = nil
 	})
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
@@ -131,19 +147,9 @@ func (s *sshServerSuite) TestSSHServerNoAuth(c *gc.C) {
 
 	s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil)
 
-	// Start the server on an in-memory listener
 	listener := bufconn.Listen(1024)
 
-	server, err := NewServerWorker(ServerWorkerConfig{
-		Logger:                   loggo.GetLogger("test"),
-		Listener:                 listener,
-		MaxConcurrentConnections: maxConcurrentConnections,
-		JumpHostKey:              jujutesting.SSHServerHostKey,
-		NewSSHServerListener:     newTestingSSHServerListener,
-		FacadeClient:             s.facadeClient,
-		disableAuth:              true,
-		SessionHandler:           s.sessionHandler,
-	})
+	server, err := NewServerWorker(s.newServerWorkerConfig(listener, nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, server)
 	workertest.CheckAlive(c, server)
@@ -202,7 +208,7 @@ func (s *sshServerSuite) TestSSHServerNoAuth(c *gc.C) {
 	workertest.CleanKill(c, server)
 }
 
-func (s *sshServerSuite) TestSSHPublicKeyHandler(c *gc.C) {
+func (s *sshServerSuite) TestPublicKeyHandler(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	listener := bufconn.Listen(1024)
@@ -216,15 +222,9 @@ func (s *sshServerSuite) TestSSHPublicKeyHandler(c *gc.C) {
 		}).AnyTimes()
 	s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil).AnyTimes()
 
-	server, err := NewServerWorker(ServerWorkerConfig{
-		Logger:                   loggo.GetLogger("test"),
-		Listener:                 listener,
-		JumpHostKey:              jujutesting.SSHServerHostKey,
-		FacadeClient:             s.facadeClient,
-		NewSSHServerListener:     newTestingSSHServerListener,
-		MaxConcurrentConnections: maxConcurrentConnections,
-		SessionHandler:           s.sessionHandler,
-	})
+	server, err := NewServerWorker(s.newServerWorkerConfig(listener, func(swc *ServerWorkerConfig) {
+		swc.disableAuth = false
+	}))
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, server)
 
@@ -284,22 +284,94 @@ func (s *sshServerSuite) TestSSHPublicKeyHandler(c *gc.C) {
 	}
 }
 
+func (s *sshServerSuite) TestPasswordHandler(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	listener := bufconn.Listen(1024)
+
+	// This token holds the public key that the user must present
+	// at the terminating server proving they are the same user
+	// that authenticated at JIMM.
+	token, err := jwt.NewBuilder().
+		Claim("ssh_public_key", base64.StdEncoding.EncodeToString(s.userSigner.PublicKey().Marshal())).
+		Build()
+	c.Assert(err, jc.ErrorIsNil)
+
+	userKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	c.Assert(err, gc.IsNil)
+
+	notValidSigner, err := gossh.NewSignerFromKey(userKey)
+	c.Assert(err, gc.IsNil)
+
+	tests := []struct {
+		name          string
+		key           ssh.Signer
+		expectSuccess bool
+	}{
+		{
+			name:          "valid key matches JWT key",
+			key:           s.userSigner,
+			expectSuccess: true,
+		},
+		{
+			name:          "presented key doesn't match JWT key",
+			key:           notValidSigner,
+			expectSuccess: false,
+		},
+	}
+
+	for _, test := range tests {
+		c.Log(test.name)
+
+		s.jwtParser.EXPECT().Parse(gomock.Any(), "password").Return(token, nil)
+		s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil).AnyTimes()
+
+		server, err := NewServerWorker(s.newServerWorkerConfig(listener, func(swc *ServerWorkerConfig) {
+			swc.disableAuth = false
+		}))
+		c.Assert(err, gc.IsNil)
+		defer workertest.DirtyKill(c, server)
+
+		client := inMemoryDial(c, listener, &gossh.ClientConfig{
+			User:            "jimm",
+			HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+			Auth: []gossh.AuthMethod{
+				gossh.Password("password"),
+			},
+		})
+		defer client.Close()
+
+		conn, err := client.Dial("tcp", fmt.Sprintf("%s:%d", testVirtualHostname, 1))
+		c.Assert(err, gc.IsNil)
+		defer conn.Close()
+
+		// we need to establish another client connection to perform the auth in the embedded server.
+		_, _, _, err = gossh.NewClientConn(
+			conn,
+			"",
+			&gossh.ClientConfig{
+				HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+				Auth: []gossh.AuthMethod{
+					gossh.PublicKeys(test.key),
+				},
+			},
+		)
+		if !test.expectSuccess {
+			c.Assert(err, gc.ErrorMatches, `.*ssh: handshake failed.*`)
+		} else {
+			c.Assert(err, gc.IsNil)
+		}
+	}
+}
+
 func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	// Firstly, start the server on an in-memory listener
-	listener := bufconn.Listen(8 * 1024)
+
+	listener := bufconn.Listen(1024)
 	s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil)
-	_, err := NewServerWorker(ServerWorkerConfig{
-		Logger:                   loggo.GetLogger("test"),
-		Listener:                 listener,
-		JumpHostKey:              jujutesting.SSHServerHostKey,
-		MaxConcurrentConnections: maxConcurrentConnections,
-		NewSSHServerListener:     newTestingSSHServerListener,
-		FacadeClient:             s.facadeClient,
-		disableAuth:              true,
-		SessionHandler:           s.sessionHandler,
-	})
+	_, err := NewServerWorker(s.newServerWorkerConfig(listener, nil))
 	c.Assert(err, jc.ErrorIsNil)
+
 	// Open a client connection
 	client := inMemoryDial(c, listener, &gossh.ClientConfig{
 		User:            "",
@@ -340,20 +412,13 @@ func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 
 func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
 	s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil).AnyTimes()
-	// Firstly, start the server on an in-memory listener
+
 	listener := bufconn.Listen(1024)
-	_, err := NewServerWorker(ServerWorkerConfig{
-		Logger:                   loggo.GetLogger("test"),
-		Listener:                 listener,
-		MaxConcurrentConnections: maxConcurrentConnections,
-		JumpHostKey:              jujutesting.SSHServerHostKey,
-		NewSSHServerListener:     newTestingSSHServerListener,
-		FacadeClient:             s.facadeClient,
-		disableAuth:              true,
-		SessionHandler:           s.sessionHandler,
-	})
+	_, err := NewServerWorker(s.newServerWorkerConfig(listener, nil))
 	c.Assert(err, jc.ErrorIsNil)
+
 	// the reason we repeat this test 2 times is to make sure that closing the connections on
 	// the first iteration completely resets the counter on the ssh server side.
 	for i := range 2 {
@@ -390,18 +455,9 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 
 func (s *sshServerSuite) TestSSHWorkerReport(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	// Firstly, start the server on an in-memory listener
+
 	listener := bufconn.Listen(1024)
-	worker, err := NewServerWorker(ServerWorkerConfig{
-		Logger:                   loggo.GetLogger("test"),
-		Listener:                 listener,
-		MaxConcurrentConnections: maxConcurrentConnections,
-		JumpHostKey:              jujutesting.SSHServerHostKey,
-		NewSSHServerListener:     newTestingSSHServerListener,
-		FacadeClient:             s.facadeClient,
-		disableAuth:              true,
-		SessionHandler:           s.sessionHandler,
-	})
+	worker, err := NewServerWorker(s.newServerWorkerConfig(listener, nil))
 	c.Assert(err, jc.ErrorIsNil)
 
 	report := worker.(*ServerWorker).Report()

@@ -21,8 +21,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-type authenticatedViaPublicKey struct{}
-
 // SessionHandler is an interface that proxies SSH sessions to a target unit/machine.
 type SessionHandler interface {
 	Handle(s ssh.Session, destination virtualhostname.Info)
@@ -56,6 +54,9 @@ type ServerWorkerConfig struct {
 	// FacadeClient holds the SSH server's facade client.
 	FacadeClient FacadeClient
 
+	// JWTParser holds the JWT parser to use for auth.
+	JWTParser JWTParser
+
 	// disableAuth is a test-only flag that disables authentication.
 	disableAuth bool
 
@@ -80,6 +81,9 @@ func (c ServerWorkerConfig) Validate() error {
 	if c.SessionHandler == nil {
 		return errors.NotValidf("missing SessionHandler")
 	}
+	if c.JWTParser == nil {
+		return errors.NotValidf("missing JWTParser")
+	}
 	return nil
 }
 
@@ -87,8 +91,11 @@ func (c ServerWorkerConfig) Validate() error {
 type ServerWorker struct {
 	tomb tomb.Tomb
 
-	// Server holds the embedded server.
+	// Server holds the running SSH server.
 	Server *ssh.Server
+
+	// authenticator holds the authenticator for the server.
+	authenticator *authenticator
 
 	// config holds the configuration required by the server worker.
 	config ServerWorkerConfig
@@ -97,13 +104,19 @@ type ServerWorker struct {
 	concurrentConnections atomic.Int32
 }
 
-// NewServerWorker returns a running embedded SSH server.
+// NewServerWorker returns a worker with a running SSH server.
 func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	s := &ServerWorker{config: config}
+
+	var err error
+	s.authenticator, err = newAuthenticator(config.JWTParser, config.Logger, config.FacadeClient)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	s.Server = s.NewJumpServer()
 
@@ -155,15 +168,15 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 	return s, nil
 }
 
+// NewJumpServer creates a new SSH server with the given configuration.
 func (s *ServerWorker) NewJumpServer() *ssh.Server {
 	server := ssh.Server{
 		ConnCallback: s.connCallback(),
 		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
-			ctx.SetValue(authenticatedViaPublicKey{}, true)
-			return true
+			return s.authenticator.publicKeyAuthentication(ctx, key)
 		},
 		PasswordHandler: func(ctx ssh.Context, password string) bool {
-			return false
+			return s.authenticator.passwordAuthentication(ctx, password)
 		},
 		ChannelHandlers: map[string]ssh.ChannelHandler{
 			"direct-tcpip": s.directTCPIPHandler,
@@ -198,6 +211,9 @@ func (s *ServerWorker) setJumpServerHostKey() error {
 	return nil
 }
 
+// directTCPIPHandler handles a user's request to connect to a remote host, in our case, used
+// to connect to the target unit/machine. We use this approach to accept routing information
+// while being able to terminate the user's SSH connection at the Juju controller.
 func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {
 	d := struct {
 		DestAddr string
@@ -235,7 +251,7 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 	// Since we only need the raw data to redirect, we can discard them.
 	go gossh.DiscardRequests(reqs)
 
-	server, err := s.newEmbeddedSSHServer(ctx, info)
+	server, err := s.newTerminatingSSHServer(ctx, info)
 	if err != nil {
 		s.config.Logger.Errorf("failed to create embedded server: %v", err)
 		ch.Close()
@@ -293,35 +309,25 @@ func (s *ServerWorker) connCallback() ssh.ConnCallback {
 	}
 }
 
-// newEmbeddedSSHServer creates a new embedded SSH server for the given context and model info.
-func (s *ServerWorker) newEmbeddedSSHServer(ctx ssh.Context, info virtualhostname.Info) (*ssh.Server, error) {
-	authenticatedViaPublicKey, _ := ctx.Value(authenticatedViaPublicKey{}).(bool)
-	var keysToVerify []gossh.PublicKey
-	var err error
-	// if the user is authenticated via public key, we need to verify the key
-	// against the model's authorized keys.
-	// if the user is not authenticated via public key, we need to verify the
-	// key against the public keys in the jwt claims.
-	if authenticatedViaPublicKey {
-		sshPkiAuthArgs := params.ListAuthorizedKeysArgs{
-			ModelUUID: info.ModelUUID(),
-		}
-		keysToVerify, err = s.config.FacadeClient.ListPublicKeysForModel(sshPkiAuthArgs)
+// newTerminatingSSHServer creates a new SSH server for the given context and model info
+// that terminates the user's SSH connection and non-transparently proxies the traffic through
+// to the final destination.
+func (s *ServerWorker) newTerminatingSSHServer(ctx ssh.Context, info virtualhostname.Info) (*ssh.Server, error) {
+	// Note that the context we enter this function with is not
+	// the context that will be used in the terminating server.
+	var authenticator terminatingServerAuthenticator
+	if !s.config.disableAuth {
+		var err error
+		authenticator, err = s.authenticator.newTerminatingServerAuthenticator(ctx, info)
 		if err != nil {
-			s.config.Logger.Errorf("failed to fetch public keys for model: %v", err)
-			return nil, errors.Trace(err)
+			return nil, err
 		}
 	}
 
 	forwardHandler := &ssh.ForwardedTCPHandler{}
 	server := &ssh.Server{
-		PublicKeyHandler: func(ctx ssh.Context, keyPresented ssh.PublicKey) bool {
-			for _, key := range keysToVerify {
-				if ssh.KeysEqual(key, keyPresented) {
-					return true
-				}
-			}
-			return false
+		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
+			return authenticator.PublicKeyAuthentication(ctx, key)
 		},
 		LocalPortForwardingCallback: ssh.LocalPortForwardingCallback(func(ctx ssh.Context, dhost string, dport uint32) bool {
 			return true
