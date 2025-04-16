@@ -158,15 +158,6 @@ type NetworkConfig struct {
 	// backwards-compatibility, "dhcp" is assumed.
 	ConfigType string `json:"config-type,omitempty"`
 
-	// Address contains an optional static IP address to configure for
-	// this network interface. The subnet mask to set will be inferred
-	// from the CIDR value.
-	//
-	// NOTE(achilleasa) this field is retained for backwards compatibility
-	// purposes and will be removed in juju 3. New features should use
-	// the Addresses field below which also include scope information.
-	Address string `json:"address,omitempty"`
-
 	// Addresses contains an optional list of static IP address to
 	// configure for this network interface. The subnet mask to set will be
 	// inferred from the CIDR value of the first entry which is always
@@ -264,9 +255,8 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 			NetworkOrigin:       NetworkOrigin(v.Origin),
 
 			// TODO (manadart 2021-03-24): Retained for compatibility.
-			// Delete CIDR and Address for Juju 3/4.
-			CIDR:    v.PrimaryAddress().CIDR,
-			Address: v.PrimaryAddress().Value,
+			// Delete CIDR for Juju 3/4.
+			CIDR: v.PrimaryAddress().CIDR,
 		}
 	}
 	return result
@@ -324,7 +314,6 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 		// address collections are used, and the following fields removed from
 		// the top-level interface:
 		// - CIDR
-		// - Address
 
 		// 1) For clients that populate Addresses, but still set
 		//    address-specific fields on the device.
@@ -337,17 +326,6 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			}
 			if result[i].Addresses[0].ConfigType == "" {
 				result[i].Addresses[0].ConfigType = configType
-			}
-		} else {
-			// 2) For even older clients that do not populate Addresses.
-			if v.Address != "" {
-				result[i].Addresses = network.ProviderAddresses{
-					network.NewMachineAddress(
-						v.Address,
-						network.WithCIDR(v.CIDR),
-						network.WithConfigType(configType),
-					).AsProviderAddress(),
-				}
 			}
 		}
 	}

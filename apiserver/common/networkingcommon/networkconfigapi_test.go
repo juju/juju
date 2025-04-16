@@ -95,13 +95,21 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigCallsApplyOperation(c *
 			InterfaceType: "ethernet",
 			MACAddress:    "aa:bb:cc:dd:ee:f0",
 			CIDR:          "0.10.0.0/24",
-			Address:       "0.10.0.2",
+			Addresses: []params.Address{{
+				Value: "0.10.0.2",
+				Type:  "ipv4",
+				Scope: "public",
+			}},
 		}, {
 			InterfaceName: "eth1",
 			InterfaceType: "ethernet",
 			MACAddress:    "aa:bb:cc:dd:ee:f1",
 			CIDR:          "0.20.0.0/24",
-			Address:       "0.20.0.2",
+			Addresses: []params.Address{{
+				Value: "0.20.0.2",
+				Type:  "ipv4",
+				Scope: "public",
+			}},
 		},
 	})
 
