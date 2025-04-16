@@ -25,6 +25,7 @@ import (
 	application0 "github.com/juju/juju/domain/application"
 	charm "github.com/juju/juju/domain/application/charm"
 	relation0 "github.com/juju/juju/domain/relation"
+	resolve "github.com/juju/juju/domain/resolve"
 	charm0 "github.com/juju/juju/internal/charm"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -730,6 +731,84 @@ func (c *MockResolveServiceClearResolvedCall) Do(f func(context.Context, unit.Na
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockResolveServiceClearResolvedCall) DoAndReturn(f func(context.Context, unit.Name) error) *MockResolveServiceClearResolvedCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UnitResolveMode mocks base method.
+func (m *MockResolveService) UnitResolveMode(arg0 context.Context, arg1 unit.Name) (resolve.ResolveMode, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UnitResolveMode", arg0, arg1)
+	ret0, _ := ret[0].(resolve.ResolveMode)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UnitResolveMode indicates an expected call of UnitResolveMode.
+func (mr *MockResolveServiceMockRecorder) UnitResolveMode(arg0, arg1 any) *MockResolveServiceUnitResolveModeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitResolveMode", reflect.TypeOf((*MockResolveService)(nil).UnitResolveMode), arg0, arg1)
+	return &MockResolveServiceUnitResolveModeCall{Call: call}
+}
+
+// MockResolveServiceUnitResolveModeCall wrap *gomock.Call
+type MockResolveServiceUnitResolveModeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockResolveServiceUnitResolveModeCall) Return(arg0 resolve.ResolveMode, arg1 error) *MockResolveServiceUnitResolveModeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockResolveServiceUnitResolveModeCall) Do(f func(context.Context, unit.Name) (resolve.ResolveMode, error)) *MockResolveServiceUnitResolveModeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockResolveServiceUnitResolveModeCall) DoAndReturn(f func(context.Context, unit.Name) (resolve.ResolveMode, error)) *MockResolveServiceUnitResolveModeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WatchUnitResolveMode mocks base method.
+func (m *MockResolveService) WatchUnitResolveMode(arg0 context.Context, arg1 unit.Name) (watcher.Watcher[struct{}], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchUnitResolveMode", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchUnitResolveMode indicates an expected call of WatchUnitResolveMode.
+func (mr *MockResolveServiceMockRecorder) WatchUnitResolveMode(arg0, arg1 any) *MockResolveServiceWatchUnitResolveModeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUnitResolveMode", reflect.TypeOf((*MockResolveService)(nil).WatchUnitResolveMode), arg0, arg1)
+	return &MockResolveServiceWatchUnitResolveModeCall{Call: call}
+}
+
+// MockResolveServiceWatchUnitResolveModeCall wrap *gomock.Call
+type MockResolveServiceWatchUnitResolveModeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockResolveServiceWatchUnitResolveModeCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockResolveServiceWatchUnitResolveModeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockResolveServiceWatchUnitResolveModeCall) Do(f func(context.Context, unit.Name) (watcher.Watcher[struct{}], error)) *MockResolveServiceWatchUnitResolveModeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockResolveServiceWatchUnitResolveModeCall) DoAndReturn(f func(context.Context, unit.Name) (watcher.Watcher[struct{}], error)) *MockResolveServiceWatchUnitResolveModeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -112,7 +112,7 @@ type ModelDomainServices interface {
 	// Status returns the application status service.
 	Status() *statusservice.LeadershipService
 	// Resolve returns the resolve service.
-	Resolve() *resolveservice.Service
+	Resolve() *resolveservice.WatchableService
 	// KeyManager returns the key manager service.
 	KeyManager() *keymanagerservice.Service
 	// KeyManagerWithImporter returns they manager service that is capable of

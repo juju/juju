@@ -433,11 +433,85 @@ func (u *UniterAPI) AvailabilityZone(ctx context.Context, args params.Entities) 
 	return results, nil
 }
 
-// Resolved shadows an unused facade method from older versions to Juju.
-//
-// TODO: Remove this when the facade version is next bumped.
+// WatchUnitResolveMode starts a NotifyWatcher that will send notifications
+// when the reolve mode of the specified unit changes.
+func (u *UniterAPI) WatchUnitResolveMode(ctx context.Context, entity params.Entity) (params.NotifyWatchResult, error) {
+	canWatch, err := u.accessUnit()
+	if err != nil {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
+	}
+
+	tag, err := names.ParseUnitTag(entity.Tag)
+	if err != nil {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+
+	if !canWatch(tag) {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
+	}
+
+	unitName, err := coreunit.NewName(tag.Id())
+	if err != nil {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+
+	watcher, err := u.resolveService.WatchUnitResolveMode(ctx, unitName)
+	if errors.Is(err, resolveerrors.UnitNotFound) {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(errors.NotFoundf("unit %q", unitName))}, nil
+	} else if err != nil {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+
+	id, _, err := internal.EnsureRegisterWatcher[struct{}](ctx, u.watcherRegistry, watcher)
+	if err != nil {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+	return params.NotifyWatchResult{NotifyWatcherId: id}, nil
+}
+
+// Resolved returns the resolved mode for each of the given units.
 func (u *UniterAPI) Resolved(ctx context.Context, args params.Entities) (params.ResolvedModeResults, error) {
-	return params.ResolvedModeResults{}, errors.NotImplementedf("not implemented")
+	result := params.ResolvedModeResults{
+		Results: make([]params.ResolvedModeResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return result, err
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if !canAccess(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		unitName, err := coreunit.NewName(tag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		resolvedMode, err := u.resolveService.UnitResolveMode(ctx, unitName)
+		if errors.Is(err, resolveerrors.UnitNotResolved) {
+			result.Results[i].Mode = params.ResolvedNone
+			continue
+		} else if errors.Is(err, resolveerrors.UnitNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", unitName))
+			continue
+		} else if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		encodedResolveMode, err := encodeResolveMode(resolvedMode.String())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		result.Results[i].Mode = encodedResolveMode
+	}
+	return result, nil
 }
 
 // ClearResolved removes any resolved setting from each given unit.
@@ -1193,6 +1267,8 @@ func (u *UniterAPI) Life(ctx context.Context, args params.Entities) (params.Life
 }
 
 // Refresh retrieves the latest values for attributes on this unit.
+//
+// Deprecated: Please use purpose built getters instead.
 func (u *UniterAPI) Refresh(ctx context.Context, args params.Entities) (params.UnitRefreshResults, error) {
 	result := params.UnitRefreshResults{
 		Results: make([]params.UnitRefreshResult, len(args.Entities)),

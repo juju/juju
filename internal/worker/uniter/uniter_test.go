@@ -116,6 +116,7 @@ func (s *UniterSuite) newContext(c *gc.C) (*testContext, *gomock.Controller) {
 
 	// Initialise the channels used for the watchers.
 	// Some need a buffer to allow the test steps to run.
+	ctx.unitResolveCh = make(chan struct{}, 1)
 	ctx.configCh = make(chan []string, 5)
 	ctx.relCh = make(chan []string, 5)
 	ctx.storageCh = make(chan []string, 5)
@@ -143,6 +144,10 @@ func (s *UniterSuite) runUniterTest(c *gc.C, steps ...stepper) {
 	ctx, ctrl := s.newContext(c)
 	ctx.run(c, steps)
 	ctrl.Finish()
+}
+
+func (s *UniterSuite) TestRunUniterTestsNoop(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{})
 }
 
 func (s *UniterSuite) TestUniterStartup(c *gc.C) {

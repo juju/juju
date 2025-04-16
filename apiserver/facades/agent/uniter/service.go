@@ -21,6 +21,7 @@ import (
 	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/relation"
+	"github.com/juju/juju/domain/resolve"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -146,9 +147,22 @@ type ApplicationService interface {
 }
 
 type ResolveService interface {
+	// UnitResolveMode returns the resolve mode for the given unit. If no unit is found
+	// with the given name, an error satisfying [resolveerrors.UnitNotFound] is returned.
+	// if no resolved marker is found for the unit, an error satisfying
+	// [resolveerrors.UnitNotResolved] is returned.
+	UnitResolveMode(context.Context, coreunit.Name) (resolve.ResolveMode, error)
+
 	// ClearResolved removes any resolved marker from the unit. If the unit is not
 	// found, an error satisfying [resolveerrors.UnitNotFound] is returned.
 	ClearResolved(context.Context, coreunit.Name) error
+
+	// WatchUnitResolveMode returns a watcher that emits notification when the resolve
+	// mode of the specified unit changes.
+	//
+	// If the unit does not exist an error satisfying [resolveerrors.UnitNotFound]
+	// will be returned.
+	WatchUnitResolveMode(context.Context, coreunit.Name) (watcher.NotifyWatcher, error)
 }
 
 // StatusService describes the ability to retrieve and persist
