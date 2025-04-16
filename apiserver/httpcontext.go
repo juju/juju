@@ -93,7 +93,7 @@ func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (
 	resultEntity state.Entity,
 	err error,
 ) {
-	authInfo, ok := httpcontext.RequestAuthInfo(r)
+	authInfo, ok := httpcontext.RequestAuthInfo(r.Context())
 	if !ok {
 		return nil, nil, apiservererrors.ErrPerm
 	}
@@ -125,7 +125,7 @@ func (ctxt *httpContext) stateForMigration(
 	r *http.Request,
 	requiredMode state.MigrationMode,
 ) (_ *state.PooledState, err error) {
-	modelUUID := r.Header.Get(params.MigrationModelHTTPHeader)
+	modelUUID, _ := httpcontext.MigrationRequestModelUUID(r)
 	migrationSt, err := ctxt.srv.shared.statePool.Get(modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -201,8 +201,8 @@ func (ctxt *httpContext) stateForRequestAuthenticatedTag(r *http.Request, kinds 
 // domainServicesDuringMigrationForRequest returns the domain services for the
 // model being migrated, as indicated by the request header.
 func (ctxt *httpContext) domainServicesDuringMigrationForRequest(r *http.Request) (services.DomainServices, error) {
-	modelUUID := r.Header.Get(params.MigrationModelHTTPHeader)
-	if modelUUID == "" {
+	modelUUID, found := httpcontext.MigrationRequestModelUUID(r)
+	if !found {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
 	}
 	return ctxt.srv.shared.domainServicesGetter.ServicesForModel(r.Context(), model.UUID(modelUUID))
