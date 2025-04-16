@@ -112,6 +112,32 @@ var metadataTestCases = [...]struct {
 		},
 	},
 	{
+		name: "provides juju-info",
+		input: charm.Metadata{
+			Name:  "foo",
+			RunAs: charm.RunAsDefault,
+			Provides: map[string]charm.Relation{
+				"juju-info": {
+					Name:      "juju-info",
+					Role:      charm.RoleProvider,
+					Interface: "juju-info",
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+		},
+		output: internalcharm.Meta{
+			Name: "foo",
+			Provides: map[string]internalcharm.Relation{
+				"juju-info": {
+					Name:      "juju-info",
+					Role:      internalcharm.RoleProvider,
+					Interface: "juju-info",
+					Scope:     internalcharm.ScopeGlobal,
+				},
+			},
+		},
+	},
+	{
 		name: "requires",
 		input: charm.Metadata{
 			Name:  "foo",
