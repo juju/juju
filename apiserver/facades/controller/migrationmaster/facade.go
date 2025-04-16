@@ -426,25 +426,32 @@ func getUsedCharms(model description.Model) []string {
 
 func getUsedTools(model description.Model) []params.SerializedModelTools {
 	// Iterate through the model for all tools, and make a map of them.
-	usedVersions := set.NewStrings()
-	// It is most likely that the preconditions will limit the number of
-	// tools versions in use, but that is not relied on here.
-	for _, machine := range model.Machines() {
-		addToolsVersionForMachine(machine, usedVersions)
-	}
-	for _, application := range model.Applications() {
-		for _, unit := range application.Units() {
-			tools := unit.Tools()
-			usedVersions.Add(tools.Version())
+	tools := map[string]params.SerializedModelTools{}
+
+	addTools := func(agentTools description.AgentTools) {
+		if _, exists := tools[agentTools.SHA256()]; exists {
+			return
+		}
+
+		tools[agentTools.SHA256()] = params.SerializedModelTools{
+			Version: agentTools.Version(),
+			SHA256:  agentTools.SHA256(),
+			URI:     common.ToolsURL("", agentTools.Version()),
 		}
 	}
 
-	out := make([]params.SerializedModelTools, 0, len(usedVersions))
-	for v := range usedVersions {
-		out = append(out, params.SerializedModelTools{
-			Version: v,
-			URI:     common.ToolsURL("", v),
-		})
+	for _, machine := range model.Machines() {
+		addTools(machine.Tools())
+	}
+	for _, application := range model.Applications() {
+		for _, unit := range application.Units() {
+			addTools(unit.Tools())
+		}
+	}
+
+	out := make([]params.SerializedModelTools, 0, len(tools))
+	for _, v := range tools {
+		out = append(out, v)
 	}
 	return out
 }

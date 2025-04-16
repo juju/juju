@@ -211,13 +211,13 @@ func (c *Client) Export(ctx context.Context) (migration.SerializedModel, error) 
 	}
 
 	// Convert tools info to output map.
-	tools := make(map[semversion.Binary]string)
+	tools := make(map[string]semversion.Binary, len(serialized.Tools))
 	for _, toolsInfo := range serialized.Tools {
 		v, err := semversion.ParseBinary(toolsInfo.Version)
 		if err != nil {
 			return migration.SerializedModel{}, errors.Annotate(err, "error parsing agent binary version")
 		}
-		tools[v] = toolsInfo.URI
+		tools[toolsInfo.SHA256] = v
 	}
 
 	resources, err := convertResources(serialized.Resources)

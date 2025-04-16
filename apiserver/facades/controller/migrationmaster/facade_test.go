@@ -355,10 +355,11 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 	})
 
 	const tools0 = "2.0.0-ubuntu-amd64"
-	const tools1 = "2.0.1-ubuntu-amd64"
+	const tools1 = "2.0.0-ubuntu-amd64"
 	m := s.model.AddMachine(description.MachineArgs{Id: "9"})
 	m.SetTools(description.AgentToolsArgs{
 		Version: tools1,
+		SHA256:  "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e",
 	})
 
 	res := app.AddResource(description.ResourceArgs{Name: "bin"})
@@ -377,6 +378,7 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 	})
 	unit.SetTools(description.AgentToolsArgs{
 		Version: tools0,
+		SHA256:  "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e",
 	})
 
 	s.modelExporter.EXPECT().ExportModel(gomock.Any(), s.store).Return(s.model, nil)
@@ -394,8 +396,7 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 		c.Check(serialized.Tools, gc.HasLen, 0)
 	} else {
 		c.Check(serialized.Tools, jc.SameContents, []params.SerializedModelTools{
-			{Version: tools0, URI: "/tools/" + tools0},
-			{Version: tools1, URI: "/tools/" + tools1},
+			{Version: tools0, URI: "/tools/" + tools0, SHA256: "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e"},
 		})
 	}
 	c.Check(serialized.Resources, gc.DeepEquals, []params.SerializedModelResource{{
