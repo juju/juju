@@ -52,8 +52,9 @@ type AgentBinaryStore interface {
 	// the agent binary metadata with the previously saved binary object.
 	// This error should be considered an internal problem. It is discussed here
 	// to make the caller aware of future problems.
-	// - [coreerrors.NotValid] if the agent version is not valid or the SHA256
-	// hash doesn't match the generated hash.
+	// - [coreerrors.NotValid] if the agent version is not valid.
+	// - [agentbinaryerrors.HashMismatch] when the expected sha does not match
+	// that which was computed against the binary data.
 	AddAgentBinaryWithSHA256(
 		context.Context,
 		io.Reader,
