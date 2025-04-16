@@ -65,6 +65,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/feature"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/authenticationworker"
 	"github.com/juju/juju/internal/worker/charmrevision"
@@ -73,6 +74,7 @@ import (
 	"github.com/juju/juju/internal/worker/machiner"
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/pubsub/apiserver"
@@ -1173,6 +1175,12 @@ func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
 }
 
 func (s *MachineSuite) TestControllerMachineWorkers(c *gc.C) {
+	// We set the feature flag to enable the SSH jump server worker.
+	// In this way we can test the worker works as expected even
+	// if it is not enabled by default.
+	// TODO(simonedutto): remove this when the feature flag is removed.
+	s.SetFeatureFlags(osenv.JujuFeatureFlagEnvKey, feature.SSHJump)
+
 	testing.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
 
 	tracker := agenttest.NewEngineTracker()

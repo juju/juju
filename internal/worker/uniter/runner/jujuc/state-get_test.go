@@ -76,7 +76,7 @@ func (s *stateGetSuite) TestStateGet(c *gc.C) {
 		defer s.setupMocks(c).Finish()
 		test.expect()
 
-		toolCmd, err := jujuc.NewHookCommand(s.mockContext, "state-get")
+		toolCmd, err := jujuc.NewCommand(s.mockContext, "state-get")
 		c.Assert(err, jc.ErrorIsNil)
 
 		ctx := cmdtesting.Context(c)

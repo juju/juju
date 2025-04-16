@@ -45,7 +45,7 @@ func (c *helpActionCmdsCommand) Run(ctx *cmd.Context) error {
 	if c.actionCmd == "" {
 		fmt.Fprint(ctx.Stdout, listHelpActionCmds())
 	} else {
-		c, err := jujuc.NewActionCommand(dummyHookContext{}, c.actionCmd)
+		c, err := jujuc.NewActionCommandForHelp(dummyHookContext{}, c.actionCmd)
 		if err != nil {
 			return err
 		}
@@ -58,7 +58,7 @@ func (c *helpActionCmdsCommand) Run(ctx *cmd.Context) error {
 }
 
 var helpActionCmdsDoc = fmt.Sprintf(`
-In addition to hook commands, Juju charms also have access to a set of action-specific commands. 
+In addition to hook commands, Juju charms also have access to a set of action-specific commands.
 These action commands are available when an action is running, and are used to log progress
 and report the outcome of the action.
 The currently available charm action commands include:
@@ -80,7 +80,7 @@ func listHelpActionCmds() string {
 	cmds := []cmd.Command{}
 	longest := 0
 	for _, name := range names {
-		if c, err := jujuc.NewActionCommand(dummyHookContext{}, name); err == nil {
+		if c, err := jujuc.NewActionCommandForHelp(dummyHookContext{}, name); err == nil {
 			// On Windows name has a '.exe' suffix, while Info().Name does not
 			name := c.Info().Name
 			if len(name) > longest {

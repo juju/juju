@@ -1,12 +1,12 @@
 (manage-metadata)=
-# How to manage metadata
-
+# How to manage Simplestreams metadata
+> See also: {ref}`metadata`
 <!--
 Using this to replace https://juju.is/docs/juju/cloud-image-metadata (https://discourse.charmhub.io/t/how-to-configure-machine-image-metadata-for-your-openstack-cloud/1137), because the recipe here is actually generic -- not specific to OpenStack.
 
 Still, revisit that doc to see if there's anything else we'd like to bring here to make the story clearer.
 
-Also consider this section in our Ref vsphere doc: https://discourse.charmhub.io/t/vmware-vsphere-and-juju/1099#heading--using-templates 
+Also consider this section in our Ref vsphere doc: https://discourse.charmhub.io/t/vmware-vsphere-and-juju/1099#heading--using-templates
 
 -->
 
@@ -18,11 +18,7 @@ When Juju creates a controller it needs two critical pieces of information:
 
 This metadata is stored in a JSON format called 'Simplestreams'. The image metadata is available by default for all the public clouds that Juju supports but needs to be generated if you're setting up your own private cloud. The agent binary metadata is available by default for all clouds but developers may want to generate for testing (though an alternative is `juju sync-agent-binaries`).
 
-This document shows how to manage this metadata in Juju. 
-
-
-> See also: {ref}`plugin-juju-metadata`
-
+This document shows how to manage this metadata in Juju.
 
 ## Generate metadata
 
@@ -46,8 +42,8 @@ juju metadata generate-agent-binaries -d <workingdir>
 ```
 
 The simplestream stream for which metadata is generated is specified using the `--stream`
-parameter (default is "released"). Metadata can be generated for any supported 
-stream - released, proposed, testing, devel. 
+parameter (default is "released"). Metadata can be generated for any supported
+stream - released, proposed, testing, devel.
 
 ```text
 juju metadata generate-agent-binaries -d <workingdir> --stream proposed
@@ -64,7 +60,7 @@ juju metadata generate-agent-binaries -d <workingdir> --stream proposed --clean
 
 ## Validate metadata
 
-**For images.** To validate image metadata and ensure the specified image or images exist for a model, use the `metadata` plugin with the `validate-images` subcommand. 
+**For images.** To validate image metadata and ensure the specified image or images exist for a model, use the `metadata` plugin with the `validate-images` subcommand.
 
 ```text
 juju metadata validate-images

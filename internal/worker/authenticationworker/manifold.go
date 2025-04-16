@@ -14,15 +14,35 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 )
 
+type EphemeralKeysUpdater interface {
+	AddEphemeralKey(ephemeralKey string) error
+	RemoveEphemeralKey(ephemeralKey string) error
+}
+
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig engine.AgentAPIManifoldConfig
 
 // Manifold returns a dependency manifold that runs a authenticationworker worker,
 // using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	typedConfig := engine.AgentAPIManifoldConfig(config)
-
-	return engine.AgentAPIManifold(typedConfig, newWorker)
+	return dependency.Manifold{
+		Inputs: []string{
+			config.AgentName,
+			config.APICallerName,
+		},
+		Start: func(context dependency.Context) (worker.Worker, error) {
+			var agent agent.Agent
+			if err := context.Get(config.AgentName, &agent); err != nil {
+				return nil, err
+			}
+			var apiCaller base.APICaller
+			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
+				return nil, err
+			}
+			return newWorker(agent, apiCaller)
+		},
+		Output: outputFunc,
+	}
 }
 
 func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
@@ -31,4 +51,18 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 		return nil, errors.Annotate(err, "cannot start ssh auth-keys updater worker")
 	}
 	return w, nil
+}
+
+func outputFunc(in worker.Worker, out interface{}) error {
+	inWorker, _ := in.(*AuthWorker)
+	if inWorker == nil {
+		return errors.Errorf("in should be a %T; got %T", inWorker, in)
+	}
+	switch outPointer := out.(type) {
+	case *EphemeralKeysUpdater:
+		*outPointer = inWorker
+	default:
+		return errors.Errorf("out should be keyUpdater; got %T", out)
+	}
+	return nil
 }

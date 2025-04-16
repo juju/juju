@@ -22,39 +22,39 @@ type AnnotationKeySupplier func() string
 // storage object. The annotations returned by this function are storage
 // specific only and should be combined with other annotations where
 // appropriate.
-func AnnotationsForStorage(name string, legacy bool) annotations.Annotation {
+func AnnotationsForStorage(name string, labelVersion constants.LabelVersion) annotations.Annotation {
 	return annotations.Annotation{
-		AnnotationJujuStorageKey(legacy): name,
+		AnnotationJujuStorageKey(labelVersion): name,
 	}
 }
 
 // AnnotationJujuStorageKey returns the key used in annotations
 // to describe the storage UUID.
-func AnnotationJujuStorageKey(legacy bool) string {
-	if legacy {
+func AnnotationJujuStorageKey(labelVersion constants.LabelVersion) string {
+	if labelVersion == constants.LegacyLabelVersion {
 		return "juju-storage"
 	}
-	return annotationKey("storage", "name", false)
+	return annotationKey("storage", "name", labelVersion)
 }
 
 // AnnotationsForVersion provides the annotations that should be placed on an
 // object that requires juju version information. The annotations returned by
 // this function are version specific and may need to be combined with other
 // annotations for a complete set.
-func AnnotationsForVersion(vers string, legacy bool) annotations.Annotation {
+func AnnotationsForVersion(vers string, labelVersion constants.LabelVersion) annotations.Annotation {
 	return annotations.Annotation{
-		AnnotationVersionKey(legacy): vers,
+		AnnotationVersionKey(labelVersion): vers,
 	}
 }
 
 // AnnotationVersionKey returns the key used in annotations to describe the
 // Juju version. Legacy controls if the key returns is a legacy annotation key
 // or newer style.
-func AnnotationVersionKey(legacy bool) string {
-	if legacy {
+func AnnotationVersionKey(labelVersion constants.LabelVersion) string {
+	if labelVersion == constants.LegacyLabelVersion {
 		return "juju-version"
 	}
-	return annotationKey("", "version", false)
+	return annotationKey("", "version", labelVersion)
 }
 
 // MakeK8sDomain builds and returns a Kubernetes resource domain for the
@@ -69,8 +69,8 @@ func MakeK8sDomain(components ...string) string {
 	return strings.Join(append(parts, constants.Domain), ".")
 }
 
-func annotationKey(name, suffix string, legacy bool) string {
-	if legacy {
+func annotationKey(name, suffix string, labelVersion constants.LabelVersion) string {
+	if labelVersion == constants.LegacyLabelVersion {
 		return constants.LegacyDomain + "/" + name
 	}
 	return MakeK8sDomain(name) + "/" + suffix
@@ -78,65 +78,65 @@ func annotationKey(name, suffix string, legacy bool) string {
 
 // AnnotationModelUUIDKey returns the key used in annotations
 // to describe the model UUID.
-func AnnotationModelUUIDKey(legacy bool) string {
-	if legacy {
+func AnnotationModelUUIDKey(labelVersion constants.LabelVersion) string {
+	if labelVersion == constants.LegacyLabelVersion {
 		return "juju-model"
 	}
-	return annotationKey("model", "id", legacy)
+	return annotationKey("model", "id", labelVersion)
 }
 
 // AnnotationControllerUUIDKey returns the key used in annotations
 // to describe the controller UUID.
-func AnnotationControllerUUIDKey(legacy bool) string {
-	return annotationKey("controller", "id", legacy)
+func AnnotationControllerUUIDKey(labelVersion constants.LabelVersion) string {
+	return annotationKey("controller", "id", labelVersion)
 }
 
 // AnnotationControllerIsControllerKey returns the key used in annotations
 // to describe if this pod is a controller pod.
-func AnnotationControllerIsControllerKey(legacy bool) string {
-	if legacy {
-		return annotationKey("is-controller", "", true)
+func AnnotationControllerIsControllerKey(labelVersion constants.LabelVersion) string {
+	if labelVersion == constants.LegacyLabelVersion {
+		return annotationKey("is-controller", "", labelVersion)
 	}
-	return annotationKey("controller", "is-controller", false)
+	return annotationKey("controller", "is-controller", labelVersion)
 }
 
 // AnnotationUnitKey returns the key used in annotations
 // to describe the Juju unit.
-func AnnotationUnitKey(legacy bool) string {
-	return annotationKey("unit", "id", legacy)
+func AnnotationUnitKey(labelVersion constants.LabelVersion) string {
+	return annotationKey("unit", "id", labelVersion)
 }
 
 // AnnotationCharmModifiedVersionKey returns the key used in annotations
 // to describe the charm modified version.
-func AnnotationCharmModifiedVersionKey(legacy bool) string {
-	if legacy {
-		return annotationKey("charm-modified-version", "", true)
+func AnnotationCharmModifiedVersionKey(labelVersion constants.LabelVersion) string {
+	if labelVersion == constants.LegacyLabelVersion {
+		return annotationKey("charm-modified-version", "", labelVersion)
 	}
-	return annotationKey("charm", "modified-version", false)
+	return annotationKey("charm", "modified-version", labelVersion)
 }
 
 // AnnotationDisableNameKey returns the key used in annotations
 // to describe the disabled name prefix.
-func AnnotationDisableNameKey(legacy bool) string {
-	if legacy {
-		return annotationKey("disable-name-prefix", "", true)
+func AnnotationDisableNameKey(labelVersion constants.LabelVersion) string {
+	if labelVersion == constants.LegacyLabelVersion {
+		return annotationKey("disable-name-prefix", "", labelVersion)
 	}
-	return annotationKey("model", "disable-prefix", false)
+	return annotationKey("model", "disable-prefix", labelVersion)
 }
 
 // AnnotationKeyApplicationUUID is the key of annotation for recording pvc unique ID.
-func AnnotationKeyApplicationUUID(legacy bool) string {
-	if legacy {
+func AnnotationKeyApplicationUUID(labelVersion constants.LabelVersion) string {
+	if labelVersion == constants.LegacyLabelVersion {
 		return "juju-app-uuid"
 	}
 	return MakeK8sDomain("app") + "/uuid"
 }
 
 // ResourceTagsToAnnotations creates annotations from the resource tags.
-func ResourceTagsToAnnotations(in map[string]string, legacy bool) annotations.Annotation {
+func ResourceTagsToAnnotations(in map[string]string, labelVersion constants.LabelVersion) annotations.Annotation {
 	tagsAnnotationsMap := map[string]string{
-		tags.JujuController: AnnotationControllerUUIDKey(legacy),
-		tags.JujuModel:      AnnotationModelUUIDKey(legacy),
+		tags.JujuController: AnnotationControllerUUIDKey(labelVersion),
+		tags.JujuModel:      AnnotationModelUUIDKey(labelVersion),
 	}
 
 	out := annotations.New(nil)

@@ -39,10 +39,10 @@ func AppNameForServiceAccount(sa *core.ServiceAccount) (string, error) {
 }
 
 // RBACLabels returns a set of labels that should be present for RBAC objects.
-func RBACLabels(appName, model string, global, legacy bool) map[string]string {
-	labels := utils.LabelsForApp(appName, legacy)
+func RBACLabels(appName, modelName, modelUUID, controllerUUID string, global bool, labelVersion constants.LabelVersion) map[string]string {
+	labels := utils.LabelsForApp(appName, labelVersion)
 	if global {
-		labels = utils.LabelsMerge(labels, utils.LabelsForModel(model, legacy))
+		labels = utils.LabelsMerge(labels, utils.LabelsForModel(modelName, modelUUID, controllerUUID, labelVersion))
 	}
 	return labels
 }
@@ -65,7 +65,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		return v1.ObjectMeta{
 			Name:        name,
 			Namespace:   k.namespace,
-			Labels:      RBACLabels(appName, k.CurrentModel(), false, k.IsLegacyLabels()),
+			Labels:      RBACLabels(appName, k.ModelName(), k.ModelUUID(), k.ControllerUUID(), false, k.LabelVersion()),
 			Annotations: annotations,
 		}
 	}
@@ -88,7 +88,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		return v1.ObjectMeta{
 			Name:        getRoleClusterRoleName(roleName, serviceAccountName, index, false),
 			Namespace:   k.namespace,
-			Labels:      RBACLabels(appName, k.CurrentModel(), false, k.IsLegacyLabels()),
+			Labels:      RBACLabels(appName, k.ModelName(), k.ModelUUID(), k.ControllerUUID(), false, k.LabelVersion()),
 			Annotations: annotations,
 		}
 	}
@@ -96,7 +96,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		return v1.ObjectMeta{
 			Name:        getRoleClusterRoleName(roleName, serviceAccountName, index, true),
 			Namespace:   k.namespace,
-			Labels:      RBACLabels(appName, k.CurrentModel(), true, k.IsLegacyLabels()),
+			Labels:      RBACLabels(appName, k.ModelName(), k.ModelUUID(), k.ControllerUUID(), true, k.LabelVersion()),
 			Annotations: annotations,
 		}
 	}
@@ -104,7 +104,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		return v1.ObjectMeta{
 			Name:        getBindingName(sa, role),
 			Namespace:   k.namespace,
-			Labels:      RBACLabels(appName, k.CurrentModel(), false, k.IsLegacyLabels()),
+			Labels:      RBACLabels(appName, k.ModelName(), k.ModelUUID(), k.ControllerUUID(), false, k.LabelVersion()),
 			Annotations: annotations,
 		}
 	}
@@ -112,7 +112,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		return v1.ObjectMeta{
 			Name:        getBindingName(sa, clusterRole),
 			Namespace:   k.namespace,
-			Labels:      RBACLabels(appName, k.CurrentModel(), true, k.IsLegacyLabels()),
+			Labels:      RBACLabels(appName, k.ModelName(), k.ModelUUID(), k.ControllerUUID(), true, k.LabelVersion()),
 			Annotations: annotations,
 		}
 	}
@@ -178,9 +178,9 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 
 func (k *kubernetesClient) deleteAllServiceAccountResources(appName string) error {
 	selectorNamespaced := utils.LabelsToSelector(
-		RBACLabels(appName, k.CurrentModel(), false, k.IsLegacyLabels()))
+		RBACLabels(appName, k.ModelName(), k.ModelUUID(), k.ControllerUUID(), false, k.LabelVersion()))
 	selectorGlobal := utils.LabelsToSelector(
-		RBACLabels(appName, k.CurrentModel(), true, k.IsLegacyLabels()))
+		RBACLabels(appName, k.ModelName(), k.ModelUUID(), k.ControllerUUID(), true, k.LabelVersion()))
 	if err := k.deleteRoleBindings(selectorNamespaced); err != nil {
 		return errors.Trace(err)
 	}

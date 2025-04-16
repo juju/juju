@@ -89,7 +89,7 @@ func (s *GoalStateSuite) TestOutputPath(c *gc.C) {
 
 func (s *GoalStateSuite) getGoalStateCommand(c *gc.C, args []string) (*cmd.Context, int) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewHookCommand(hctx, "goal-state")
+	com, err := jujuc.NewCommand(hctx, "goal-state")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
@@ -98,7 +98,7 @@ func (s *GoalStateSuite) getGoalStateCommand(c *gc.C, args []string) (*cmd.Conte
 
 func (s *GoalStateSuite) TestUnknownArg(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewHookCommand(hctx, "goal-state")
+	com, err := jujuc.NewCommand(hctx, "goal-state")
 	c.Assert(err, jc.ErrorIsNil)
 	cmdtesting.TestInit(c, jujuc.NewJujucCommandWrappedForTest(com), []string{}, "")
 }

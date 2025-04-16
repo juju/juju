@@ -394,7 +394,15 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Deploy and set up the controller charm and application.
-	if err := c.deployControllerCharm(st, args.BootstrapMachineConstraints, args.ControllerCharmPath, args.ControllerCharmChannel, isCAAS, controllerUnitPassword); err != nil {
+	charmArgs := controllerCharmArgs{
+		cons:         args.BootstrapMachineConstraints,
+		charmPath:    args.ControllerCharmPath,
+		channel:      args.ControllerCharmChannel,
+		isCAAS:       isCAAS,
+		unitPassword: controllerUnitPassword,
+		sshProxyPort: args.ControllerConfig.SSHServerPort(),
+	}
+	if err := c.deployControllerCharm(st, charmArgs); err != nil {
 		return errors.Annotate(err, "cannot deploy controller application")
 	}
 

@@ -192,7 +192,7 @@ func (k *kubernetesClient) EnsureStorageProvisioner(cfg k8s.StorageProvisioner) 
 		sc.VolumeBindingMode = &bindMode
 	}
 	if cfg.Namespace != "" {
-		sc.Labels = utils.LabelsForModel(k.CurrentModel(), k.IsLegacyLabels())
+		sc.Labels = utils.LabelsForModel(k.ModelName(), k.ModelUUID(), k.ControllerUUID(), k.LabelVersion())
 	}
 	_, err = k.client().StorageV1().StorageClasses().Create(context.TODO(), sc, v1.CreateOptions{})
 	if err != nil {
@@ -281,14 +281,14 @@ func (k *kubernetesClient) filesystemToVolumeInfo(
 	}
 
 	labels := utils.LabelsMerge(
-		utils.LabelsForStorage(fs.StorageName, k.IsLegacyLabels()),
+		utils.LabelsForStorage(fs.StorageName, k.LabelVersion()),
 		utils.LabelsJuju)
 
 	pvc = &core.PersistentVolumeClaim{
 		ObjectMeta: v1.ObjectMeta{
 			Name: params.Name,
-			Annotations: utils.ResourceTagsToAnnotations(fs.ResourceTags, k.IsLegacyLabels()).
-				Merge(utils.AnnotationsForStorage(fs.StorageName, k.IsLegacyLabels())).
+			Annotations: utils.ResourceTagsToAnnotations(fs.ResourceTags, k.LabelVersion()).
+				Merge(utils.AnnotationsForStorage(fs.StorageName, k.LabelVersion())).
 				ToMap(),
 			Labels: labels,
 		},

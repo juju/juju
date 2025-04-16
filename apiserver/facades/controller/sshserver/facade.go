@@ -21,6 +21,7 @@ type Backend interface {
 	WatchControllerConfig() (state.NotifyWatcher, error)
 	SSHServerHostKey() (string, error)
 	HostKeyForVirtualHostname(info virtualhostname.Info) ([]byte, error)
+	AuthorizedKeysForModel(uuid string) ([]string, error)
 }
 
 // Facade allows model config manager clients to watch controller config changes and fetch controller config.
@@ -76,8 +77,8 @@ func (f *Facade) SSHServerHostKey() (params.StringResult, error) {
 	return result, nil
 }
 
-// HostKeyForTarget returns the private host key for the target virtual hostname.
-func (facade *Facade) HostKeyForTarget(arg params.SSHHostKeyRequestArg) (params.SSHHostKeyResult, error) {
+// VirtualHostKey returns the virtual private host key for the target virtual hostname.
+func (facade *Facade) VirtualHostKey(arg params.SSHVirtualHostKeyRequestArg) (params.SSHHostKeyResult, error) {
 	var res params.SSHHostKeyResult
 
 	info, err := virtualhostname.Parse(arg.Hostname)
@@ -93,4 +94,23 @@ func (facade *Facade) HostKeyForTarget(arg params.SSHHostKeyRequestArg) (params.
 	}
 
 	return params.SSHHostKeyResult{HostKey: key}, nil
+}
+
+// ListAuthorizedKeysForModel returns the authorized keys for the model.
+func (f *Facade) ListAuthorizedKeysForModel(args params.ListAuthorizedKeysArgs) (params.ListAuthorizedKeysResult, error) {
+	authKeys, err := f.backend.AuthorizedKeysForModel(args.ModelUUID)
+	if err != nil {
+		return params.ListAuthorizedKeysResult{
+			Error: apiservererrors.ServerError(errors.Annotate(err, "failed to get authorized keys for model")),
+		}, nil
+	}
+	if len(authKeys) == 0 {
+		return params.ListAuthorizedKeysResult{
+			Error: apiservererrors.ServerError(errors.NotValidf("no authorized keys for model")),
+		}, nil
+	}
+	return params.ListAuthorizedKeysResult{
+		AuthorizedKeys: authKeys,
+	}, nil
+
 }

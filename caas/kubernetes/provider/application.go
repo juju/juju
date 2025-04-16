@@ -11,10 +11,10 @@ import (
 // Application returns an Application interface.
 func (k *kubernetesClient) Application(name string, deploymentType caas.DeploymentType) caas.Application {
 	return application.NewApplication(name,
-		k.namespace,
-		k.modelUUID,
-		k.CurrentModel(),
-		k.IsLegacyLabels(),
+		k.Namespace(),
+		k.ModelUUID(),
+		k.ModelName(),
+		k.LabelVersion(),
 		deploymentType,
 		k.client(),
 		k.newWatcher,

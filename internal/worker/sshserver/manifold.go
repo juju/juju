@@ -8,13 +8,16 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
+	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/api/base"
 	sshserverapi "github.com/juju/juju/api/controller/sshserver"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -29,7 +32,8 @@ type FacadeClient interface {
 	ControllerConfig() (controller.Config, error)
 	WatchControllerConfig() (watcher.NotifyWatcher, error)
 	SSHServerHostKey() (string, error)
-	HostKeyForTarget(arg params.SSHHostKeyRequestArg) ([]byte, error)
+	VirtualHostKey(arg params.SSHVirtualHostKeyRequestArg) ([]byte, error)
+	ListPublicKeysForModel(sshPKIAuthArgs params.ListAuthorizedKeysArgs) ([]gossh.PublicKey, error)
 }
 
 // ManifoldConfig holds the information necessary to run an embedded SSH server
@@ -86,6 +90,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 // startWrapperWorker starts the SSH server worker wrapper passing the necessary dependencies.
 func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (worker.Worker, error) {
+	// ssh jump server is not enabled by default, but it must be enabled
+	// via a feature flag.
+	if !featureflag.Enabled(feature.SSHJump) {
+		config.Logger.Debugf("SSH jump server worker is not enabled.")
+		return nil, dependency.ErrUninstall
+	}
+
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -105,6 +116,7 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 		Logger:               config.Logger,
 		FacadeClient:         client,
 		NewSSHServerListener: config.NewSSHServerListener,
+		SessionHandler:       &stubSessionHandler{},
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

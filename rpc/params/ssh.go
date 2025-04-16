@@ -65,33 +65,42 @@ type SSHPublicKeysResult struct {
 	PublicKeys []string `json:"public-keys,omitempty"`
 }
 
-// SSHHostKeyRequestArg provides a hostname to request the hostkey for.
-type SSHHostKeyRequestArg struct {
+// The parameters below have been introduced to support the
+// SSH proxy feature where we proxy SSH requests through the
+// Juju controller.
+
+// SSHHostKeyRequestArg species a request for a machine's host key.
+type SSHMachineHostKeysArg struct {
+	ModelUUID  string `json:"hostname"`
+	MachineTag string `json:"machine-tag"`
+}
+
+// SSHVirtualHostKeyRequestArg specifies a request for a virtual hostkey.
+type SSHVirtualHostKeyRequestArg struct {
 	Hostname string `json:"hostname"`
 }
 
-// PublicSSHHostKeyResult returns the host key for the target hostname.
-// Additionally, it returns the controller's SSH jump server's host key.
-//
-// We return the jump server's host key as to SSH to this unit, clients MUST
-// jump through the controller.
+// PublicSSHHostKeyResult returns the public key for the target hostname
+// in SSH wire format.
+// Additionally, it returns the controller's jump server's public key
+// in SSH wire format.
 type PublicSSHHostKeyResult struct {
-	Error             *Error `json:"error,omitempty"`
-	HostKey           string `json:"host-key"`
-	JumpServerHostKey string `json:"jump-server-host-key"`
+	Error               *Error `json:"error,omitempty"`
+	PublicKey           []byte `json:"public-key"`
+	JumpServerPublicKey []byte `json:"jump-server-public-key"`
 }
 
 // SSHConnRequestArg holds the necessary info to create a ssh connection requests.
 type SSHConnRequestArg struct {
-	TunnelID           string                 `json:"tunnel-id"`
-	ModelUUID          string                 `json:"model-uuid"`
-	MachineId          string                 `json:"machine-id"`
-	Expires            time.Time              `json:"expires"`
-	Username           string                 `json:"username"`
-	Password           string                 `json:"password"`
-	ControllerAddress  network.SpaceAddresses `json:"controller-address"`
-	UnitPort           int                    `json:"unit-port"`
-	EphemeralPublicKey []byte                 `json:"ephemeral-public-key"`
+	TunnelID            string                 `json:"tunnel-id"`
+	ModelUUID           string                 `json:"model-uuid"`
+	MachineId           string                 `json:"machine-id"`
+	Expires             time.Time              `json:"expires"`
+	Username            string                 `json:"username"`
+	Password            string                 `json:"password"`
+	ControllerAddresses network.SpaceAddresses `json:"controller-addresses"`
+	UnitPort            int                    `json:"unit-port"`
+	EphemeralPublicKey  []byte                 `json:"ephemeral-public-key"`
 }
 
 // SSHConnRequestRemoveArg holds the necessary info to remove a ssh connection requests.
@@ -121,4 +130,16 @@ type SSHConnRequestResult struct {
 type SSHHostKeyResult struct {
 	Error   *Error `json:"error,omitempty"`
 	HostKey []byte `json:"host-key"`
+}
+
+// VerifyPublicKeyArgs is used to verify the Public Key presented is
+// inside of the model's config.
+type ListAuthorizedKeysArgs struct {
+	ModelUUID string `json:"model_uuid"`
+}
+
+// ListAuthorizedKeysResult is used to return the public keys for a model.
+type ListAuthorizedKeysResult struct {
+	Error          *Error   `json:"error,omitempty"`
+	AuthorizedKeys []string `json:"public-keys,omitempty"`
 }

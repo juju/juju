@@ -1,8 +1,8 @@
-(worker-dev)=
+(worker-cont)=
 # Worker
 <!---To see previous major version of this doc, see version 13.-->
 
-> See first: [Juju | Worker](https://juju.is/docs/juju/worker)
+> See first: {ref}`User docs | Worker <worker>`
 
 In Juju, a **worker** is any type that implements [the worker interface](worker-interface.md).
 

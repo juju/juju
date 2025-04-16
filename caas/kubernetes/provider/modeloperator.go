@@ -66,30 +66,39 @@ type ModelOperatorBroker interface {
 	// exists in the targets cluster.
 	EnsureServiceAccount(*core.ServiceAccount) ([]func(), error)
 
-	// Model returns the name of the current model being deployed to for the
+	// ModelName returns the name of the current model being deployed to for the
 	// broker
-	Model() string
+	ModelName() string
+
+	// ModelUUID returns the uuid of the current model being deployed to for the
+	// broker.
+	ModelUUID() string
 
 	// Namespace returns the current default namespace targeted by this broker.
 	Namespace() string
 
-	// IsLegacyLabels indicates if this provider is operating on a legacy label schema
-	IsLegacyLabels() bool
+	// LabelVersion returns the detected label version for k8s resources created
+	// for this model.
+	LabelVersion() constants.LabelVersion
 }
 
 // modelOperatorBrokerBridge provides a pluggable struct of funcs to implement
 // the ModelOperatorBroker interface
 type modelOperatorBrokerBridge struct {
-	client               kubernetes.Interface
+	client kubernetes.Interface
+
 	ensureConfigMap      func(*core.ConfigMap) ([]func(), error)
 	ensureDeployment     func(*apps.Deployment) ([]func(), error)
 	ensureRole           func(*rbac.Role) ([]func(), error)
 	ensureRoleBinding    func(*rbac.RoleBinding) ([]func(), error)
 	ensureService        func(*core.Service) ([]func(), error)
 	ensureServiceAccount func(*core.ServiceAccount) ([]func(), error)
-	model                func() string
-	namespace            func() string
-	isLegacyLabels       func() bool
+
+	modelName      string
+	modelUUID      string
+	controllerUUID string
+	namespace      string
+	labelVersion   constants.LabelVersion
 }
 
 const (
@@ -163,27 +172,29 @@ func (m *modelOperatorBrokerBridge) EnsureServiceAccount(s *core.ServiceAccount)
 	return m.ensureServiceAccount(s)
 }
 
-// Model implements ModelOperatorBroker
-func (m *modelOperatorBrokerBridge) Model() string {
-	if m.model == nil {
-		return ""
-	}
-	return m.model()
+// ModelName implements ModelOperatorBroker.
+func (m *modelOperatorBrokerBridge) ModelName() string {
+	return m.modelName
 }
 
-// Namespace implements ModelOperatorBroker
+// ModelUUID implements ModelOperatorBroker.
+func (m *modelOperatorBrokerBridge) ModelUUID() string {
+	return m.modelUUID
+}
+
+// ControllerUUID implements ModelOperatorBroker.
+func (m *modelOperatorBrokerBridge) ControllerUUID() string {
+	return m.controllerUUID
+}
+
+// Namespace implements ModelOperatorBroker.
 func (m *modelOperatorBrokerBridge) Namespace() string {
-	if m.namespace == nil {
-		return ""
-	}
-	return m.namespace()
+	return m.namespace
 }
 
-func (m *modelOperatorBrokerBridge) IsLegacyLabels() bool {
-	if m.isLegacyLabels == nil {
-		return true
-	}
-	return m.isLegacyLabels()
+// LabelVersion implements ModelOperatorBroker.
+func (m *modelOperatorBrokerBridge) LabelVersion() constants.LabelVersion {
+	return m.labelVersion
 }
 
 func ensureModelOperator(
@@ -198,9 +209,9 @@ func ensureModelOperator(
 	operatorName := modelOperatorName
 	modelTag := names.NewModelTag(modelUUID)
 
-	selectorLabels := modelOperatorLabels(operatorName, broker.IsLegacyLabels())
+	selectorLabels := modelOperatorLabels(operatorName, broker.LabelVersion())
 	labels := selectorLabels
-	if !broker.IsLegacyLabels() {
+	if broker.LabelVersion() != constants.LegacyLabelVersion {
 		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
 	}
 
@@ -329,9 +340,10 @@ func (k *kubernetesClient) EnsureModelOperator(
 			_, c, err := k.ensureServiceAccount(sa)
 			return c, err
 		},
-		namespace:      func() string { return k.namespace },
-		model:          func() string { return k.CurrentModel() },
-		isLegacyLabels: k.IsLegacyLabels,
+		modelUUID:      k.ModelUUID(),
+		modelName:      k.ModelName(),
+		controllerUUID: k.ControllerUUID(),
+		namespace:      k.Namespace(),
 	}
 
 	return ensureModelOperator(modelUUID, agentPath, k.clock, config, bridge)
@@ -506,11 +518,11 @@ func (k *kubernetesClient) modelOperatorDeploymentExists(operatorName string) (b
 	return true, nil
 }
 
-func modelOperatorLabels(operatorName string, legacy bool) labels.Set {
-	if legacy {
+func modelOperatorLabels(operatorName string, labelVersion constants.LabelVersion) labels.Set {
+	if labelVersion == constants.LegacyLabelVersion {
 		return utils.LabelForKeyValue(constants.LegacyLabelModelOperator, operatorName)
 	}
-	return utils.LabelsForOperator(operatorName, OperatorModelTarget, legacy)
+	return utils.LabelsForOperator(operatorName, OperatorModelTarget, labelVersion)
 }
 
 func modelOperatorService(
@@ -540,11 +552,11 @@ func modelOperatorService(
 	}
 }
 
-func modelOperatorGlobalScopedName(model, operatorName string) string {
-	if model == "" {
+func modelOperatorGlobalScopedName(modelName, operatorName string) string {
+	if modelName == "" {
 		return operatorName
 	}
-	return fmt.Sprintf("%s-%s", model, operatorName)
+	return fmt.Sprintf("%s-%s", modelName, operatorName)
 }
 
 func ensureModelOperatorRBAC(
@@ -557,7 +569,7 @@ func ensureModelOperatorRBAC(
 	cleanUpFuncs := []func(){}
 
 	objMetaGlobal := meta.ObjectMeta{
-		Name:   modelOperatorGlobalScopedName(broker.Model(), operatorName),
+		Name:   modelOperatorGlobalScopedName(broker.ModelName(), operatorName),
 		Labels: labels,
 	}
 	objMetaNamespaced := meta.ObjectMeta{

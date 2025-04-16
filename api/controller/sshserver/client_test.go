@@ -7,12 +7,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	gossh "golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/sshserver"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/controller"
+	pkitest "github.com/juju/juju/pki/test"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -102,13 +104,46 @@ func (s *sshserverSuite) TestSSHServerHostKeyError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "blah")
 }
 
-func (s *sshserverSuite) TestHostKeyForTarget(c *gc.C) {
+func (s *sshserverSuite) TestListPublicKeysForModel(c *gc.C) {
+	key, err := pkitest.InsecureKeyProfile()
+	c.Assert(err, jc.ErrorIsNil)
+	signer, err := gossh.NewSignerFromKey(key)
+	c.Assert(err, jc.ErrorIsNil)
+	pubKey := signer.PublicKey()
+	authorizedKey := string(gossh.MarshalAuthorizedKey(pubKey))
+
 	client, err := newClient(
 		func(objType string, version int, id, request string, arg, result interface{}) error {
 			c.Check(objType, gc.Equals, "SSHServer")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "HostKeyForTarget")
-			c.Assert(arg, gc.FitsTypeOf, params.SSHHostKeyRequestArg{})
+			c.Check(request, gc.Equals, "ListAuthorizedKeysForModel")
+			c.Assert(arg, gc.FitsTypeOf, params.ListAuthorizedKeysArgs{})
+			c.Assert(arg, gc.DeepEquals, params.ListAuthorizedKeysArgs{
+				ModelUUID: "abcd",
+			})
+			c.Assert(result, gc.FitsTypeOf, &params.ListAuthorizedKeysResult{})
+			*(result.(*params.ListAuthorizedKeysResult)) = params.ListAuthorizedKeysResult{
+				AuthorizedKeys: []string{authorizedKey},
+			}
+			return nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	publicKeys, err := client.ListPublicKeysForModel(params.ListAuthorizedKeysArgs{
+		ModelUUID: "abcd",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(publicKeys, gc.DeepEquals, []gossh.PublicKey{pubKey})
+}
+
+func (s *sshserverSuite) TestVirtualHostKey(c *gc.C) {
+	client, err := newClient(
+		func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Check(objType, gc.Equals, "SSHServer")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "VirtualHostKey")
+			c.Assert(arg, gc.FitsTypeOf, params.SSHVirtualHostKeyRequestArg{})
 			c.Assert(result, gc.FitsTypeOf, &params.SSHHostKeyResult{})
 
 			*(result.(*params.SSHHostKeyResult)) = params.SSHHostKeyResult{
@@ -119,7 +154,7 @@ func (s *sshserverSuite) TestHostKeyForTarget(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	key, err := client.HostKeyForTarget(params.SSHHostKeyRequestArg{Hostname: "host"})
+	key, err := client.VirtualHostKey(params.SSHVirtualHostKeyRequestArg{Hostname: "host"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(key, gc.DeepEquals, []byte("key"))
 }

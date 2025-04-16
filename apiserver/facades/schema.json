@@ -14108,7 +14108,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/SSHHostKeyRequestArg"
+                            "$ref": "#/definitions/SSHVirtualHostKeyRequestArg"
                         },
                         "Result": {
                             "$ref": "#/definitions/PublicSSHHostKeyResult"
@@ -14278,17 +14278,23 @@
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
-                        "host-key": {
-                            "type": "string"
+                        "jump-server-public-key": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
                         },
-                        "jump-server-host-key": {
-                            "type": "string"
+                        "public-key": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "host-key",
-                        "jump-server-host-key"
+                        "public-key",
+                        "jump-server-public-key"
                     ]
                 },
                 "SSHAddressResult": {
@@ -14351,18 +14357,6 @@
                         "results"
                     ]
                 },
-                "SSHHostKeyRequestArg": {
-                    "type": "object",
-                    "properties": {
-                        "hostname": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "hostname"
-                    ]
-                },
                 "SSHProxyResult": {
                     "type": "object",
                     "properties": {
@@ -14403,6 +14397,18 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "SSHVirtualHostKeyRequestArg": {
+                    "type": "object",
+                    "properties": {
+                        "hostname": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "hostname"
                     ]
                 },
                 "VirtualHostnameTargetArg": {

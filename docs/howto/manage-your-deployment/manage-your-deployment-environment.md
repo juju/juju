@@ -66,8 +66,8 @@ ubuntu@my-juju-vm:~$
 
 At any point:
 - To exit the shell, press {kbd}`mod` + {kbd}`C` (e.g., {kbd}`Ctrl`+{kbd}`C`) or type `exit`.
-- To stop the VM after exiting the VM shell, run `multipass stop charm-dev-vm`.
-- To restart the VM and re-open a shell into it, type `multipass shell charm-dev-vm`.
+- To stop the VM after exiting the VM shell, run `multipass stop my-juju-vm`.
+- To restart the VM and re-open a shell into it, type `multipass shell my-juju-vm`.
 
 
 ```
@@ -135,15 +135,15 @@ ubuntu@my-juju-vm:~$ sudo snap install docker
 $ mkdir ~/my-charm
 
 # Mount it to the Multipass VM:
-$ multipass mount --type native ~/my-charm charm-dev-vm:~/my-charm
+$ multipass mount --type native ~/my-charm my-juju-vm:~/my-charm
 
 # Verify that it's indeed on the VM:
-ubuntu@charm-dev-vm:~$ ls
+ubuntu@my-juju-vm:~$ ls
 my-charm  snap
 
 # Going forward:
 # - Use your host machine (on Linux, `cd ~/my-charm`) to create and edit your charm files. This will allow you to use your favorite local editor.
-# - Use the Multipass VM shell (on Linux, `ubuntu@charm-dev-vm:~$ cd ~/my-charm`) to run Charmcraft and Juju commands.
+# - Use the Multipass VM shell (on Linux, `ubuntu@my-juju-vm:~$ cd ~/my-charm`) to run Charmcraft and Juju commands.
 
 ```
 ````
@@ -177,8 +177,8 @@ $ multipass shell my-juju-vm
 ```{tip}
 At any point:
 - To exit the shell, press {kbd}`mod` + {kbd}`C` (e.g., {kbd}`Ctrl`+{kbd}`C`) or type `exit`.
-- To stop the VM after exiting the VM shell, run `multipass stop charm-dev-vm`.
-- To restart the VM and re-open a shell into it, type `multipass shell charm-dev-vm`.
+- To stop the VM after exiting the VM shell, run `multipass stop my-juju-vm`.
+- To restart the VM and re-open a shell into it, type `multipass shell my-juju-vm`.
 
 ```
 
@@ -322,15 +322,15 @@ $ sudo snap install docker
 $ mkdir ~/my-charm
 
 # Mount it to the Multipass VM:
-$ multipass mount --type native ~/my-charm charm-dev-vm:~/my-charm
+$ multipass mount --type native ~/my-charm my-juju-vm:~/my-charm
 
 # Verify that it's indeed on the VM:
-ubuntu@charm-dev-vm:~$ ls
+ubuntu@my-juju-vm:~$ ls
 my-charm  snap
 
 # Going forward:
 # - Use your host machine (on Linux, `cd ~/my-charm`) to create and edit your charm files. This will allow you to use your favorite local editor.
-# - Use the Multipass VM shell (on Linux, `ubuntu@charm-dev-vm:~$ cd ~/my-charm`) to run Charmcraft and Juju commands.
+# - Use the Multipass VM shell (on Linux, `ubuntu@my-juju-vm:~$ cd ~/my-charm`) to run Charmcraft and Juju commands.
 
 ```
 ````
@@ -388,7 +388,7 @@ $ sudo gpasswd -d $USER snap_microk8s
 3. If earlier you decided to use Multipass, delete the Multipass VM:
 
 ```text
-multipass delete --purge charm-dev-vm
+multipass delete --purge my-juju-vm
 ```
 
 Then uninstall Multipass.

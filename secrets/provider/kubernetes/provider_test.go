@@ -117,6 +117,8 @@ func (s *providerSuite) expectEnsureSecretAccessToken(consumer, appNameLabel str
 			"app.kubernetes.io/managed-by": "juju",
 			"app.kubernetes.io/name":       appNameLabel,
 			"model.juju.is/name":           "fred",
+			"secrets.juju.is/model-name":   "fred",
+			"secrets.juju.is/model-id":     coretesting.ModelTag.Id(),
 		},
 		Annotations: map[string]string{
 			"model.juju.is/id":      coretesting.ModelTag.Id(),
@@ -211,6 +213,8 @@ func (s *providerSuite) expectEnsureControllerModelSecretAccessToken(unit string
 			"app.kubernetes.io/managed-by": "juju",
 			"app.kubernetes.io/name":       "gitlab",
 			"model.juju.is/name":           "controller",
+			"secrets.juju.is/model-name":   "controller",
+			"secrets.juju.is/model-id":     coretesting.ModelTag.Id(),
 		},
 		Annotations: map[string]string{
 			"model.juju.is/id":      coretesting.ModelTag.Id(),
@@ -557,6 +561,8 @@ func (s *providerSuite) TestEnsureSecretAccessTokenUpdate(c *gc.C) {
 			"app.kubernetes.io/managed-by": "juju",
 			"app.kubernetes.io/name":       "gitlab",
 			"model.juju.is/name":           "fred",
+			"secrets.juju.is/model-name":   "fred",
+			"secrets.juju.is/model-id":     coretesting.ModelTag.Id(),
 		},
 		Annotations: map[string]string{
 			"model.juju.is/id":      coretesting.ModelTag.Id(),
@@ -725,8 +731,13 @@ func (s *providerSuite) TestSaveContent(c *gc.C) {
 	uri := secrets.NewURI()
 	secret := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      uri.ID + "-1",
-			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "model.juju.is/name": "fred"},
+			Name: uri.ID + "-1",
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "juju",
+				"model.juju.is/name":           "fred",
+				"secrets.juju.is/model-name":   "fred",
+				"secrets.juju.is/model-id":     coretesting.ModelTag.Id(),
+			},
 			Namespace: s.namespace,
 		},
 		Type: core.SecretTypeOpaque,

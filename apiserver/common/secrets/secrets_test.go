@@ -4,9 +4,11 @@
 package secrets_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -909,6 +911,48 @@ func (s *secretsSuite) TestRemoveSecretsByLabel(c *gc.C) {
 	})
 }
 
+func (s *secretsSuite) TestRemoveSecretsForModelAdminFromJujuBackend(c *gc.C) {
+	// Test that we correctly delete secrets held in the Juju backend rather than an external provider.
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// Data needed for mocks
+	uri := coresecrets.NewURI()
+	userTag := names.NewUserTag("foo")
+	// Secret that lives only in the Juju database, not a backend
+	revisionMetadata := &coresecrets.SecretRevisionMetadata{
+		Revision: 5,
+	}
+
+	removeState := mocks.NewMockSecretsRemoveState(ctrl)
+	// removeState.GetSecret always confirms a secrets exist
+	removeState.EXPECT().GetSecret(gomock.Any()).AnyTimes().Return(&coresecrets.SecretMetadata{}, nil)
+	removeState.EXPECT().GetSecretRevision(uri, 5).Return(revisionMetadata, nil)
+	removeState.EXPECT().DeleteSecret(uri, []int{5}).Return([]coresecrets.ValueRef{}, nil)
+
+	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+		return &provider.ModelBackendConfigInfo{}, nil
+	}
+
+	results, err := secrets.RemoveUserSecrets(
+		removeState, adminConfigGetter,
+		userTag,
+		params.DeleteSecretArgs{
+			Args: []params.DeleteSecretArg{{
+				URI:       (*uri).String(),
+				Revisions: []int{5},
+			}},
+		},
+		coretesting.ModelTag.Id(),
+		func(*coresecrets.URI) error { return nil },
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+
+}
+
 func (s *secretsSuite) TestRemoveSecretsForModelAdminWithRevisions(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -950,15 +994,7 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdminWithRevisions(c *gc.C) {
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",
 			Configs: map[string]provider.ModelBackendConfig{
-				"backend-id": {
-					ControllerUUID: coretesting.ControllerTag.Id(),
-					ModelUUID:      coretesting.ModelTag.Id(),
-					ModelName:      "fred",
-					BackendConfig: provider.BackendConfig{
-						BackendType: "some-backend",
-						Config:      map[string]interface{}{"foo": "admin"},
-					},
-				},
+				"backend-id": *cfg,
 			},
 		}, nil
 	}
@@ -1027,15 +1063,7 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdmin(c *gc.C) {
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",
 			Configs: map[string]provider.ModelBackendConfig{
-				"backend-id": {
-					ControllerUUID: coretesting.ControllerTag.Id(),
-					ModelUUID:      coretesting.ModelTag.Id(),
-					ModelName:      "fred",
-					BackendConfig: provider.BackendConfig{
-						BackendType: "some-backend",
-						Config:      map[string]interface{}{"foo": "admin"},
-					},
-				},
+				"backend-id": *cfg,
 			},
 		}, nil
 	}
@@ -1055,4 +1083,205 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdmin(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
 	})
+}
+
+func (s *secretsSuite) TestRemoveSecretsForModelAdminDuringBackendMigration(c *gc.C) {
+	// Tests when:
+	// * we delete a secret that has two revisions
+	// * the first revision is deleted successfully
+	// * the second revision is NotFound on the first deletion attempt (simulating a revision that was drained to
+	//   another backend while we were delating the other revision), so RemoveUserSecrets must attempt another deletion
+	// * the second revision is successfully deleted on the second attempt
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// Data needed for mocks
+	uri := coresecrets.NewURI()
+	userTag := names.NewUserTag("foo")
+	revisionMetadataBeforeMigration := []*coresecrets.SecretRevisionMetadata{
+		{
+			Revision: 5,
+			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id-before-migration", RevisionID: "rev-5"},
+		},
+		{
+			Revision: 6,
+			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id-before-migration", RevisionID: "rev-6"},
+		},
+	}
+	revisionMetadataAfterMigration := []*coresecrets.SecretRevisionMetadata{
+		{
+			Revision: 5,
+			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id-after-migration", RevisionID: "rev-5"},
+		},
+		{
+			Revision: 6,
+			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id-after-migration", RevisionID: "rev-6"},
+		},
+	}
+
+	backendBeforeMigrationCfg := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "some-backend",
+			Config:      map[string]interface{}{"before": "migration"},
+		},
+	}
+	backendAfterMigrationCfg := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "some-backend",
+			Config:      map[string]interface{}{"after": "migration"},
+		},
+	}
+
+	// backendBeforeMigration simulates a backend that has rev-5 but not rev-6, as if rev-6 was drained to another
+	// backend
+	backendBeforeMigration := mocks.NewMockSecretsBackend(ctrl)
+	backendBeforeMigration.EXPECT().DeleteContent(gomock.Any(), "rev-5").Return(nil)
+	backendBeforeMigration.EXPECT().DeleteContent(gomock.Any(), "rev-6").Return(errors.NotFound)
+
+	// backendAfterMigration simulates a backend that has rev-6 after drain
+	backendAfterMigration := mocks.NewMockSecretsBackend(ctrl)
+	backendAfterMigration.EXPECT().DeleteContent(gomock.Any(), "rev-6").Return(nil)
+
+	// Provider which has both backends
+	mockprovider := mocks.NewMockSecretBackendProvider(ctrl)
+	// Mock the package GetProvider function to return the mockprovider
+	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return mockprovider, nil })
+	// Uses AnyTimes as the number of calls to this is an implementation detail of the function under test
+	mockprovider.EXPECT().NewBackend(backendBeforeMigrationCfg).Return(backendBeforeMigration, nil)
+	mockprovider.EXPECT().NewBackend(backendAfterMigrationCfg).Return(backendAfterMigration, nil)
+	// Expect that we clean up secret revisions for both backends.
+	mockprovider.EXPECT().CleanupSecrets(
+		backendBeforeMigrationCfg, userTag,
+		provider.SecretRevisions{uri.ID: set.NewStrings("rev-5")},
+	).Return(nil)
+	mockprovider.EXPECT().CleanupSecrets(
+		backendAfterMigrationCfg, userTag,
+		provider.SecretRevisions{uri.ID: set.NewStrings("rev-6")},
+	).Return(nil)
+
+	removeState := mocks.NewMockSecretsRemoveState(ctrl)
+	// removeState.GetSecret always confirms a secrets exist
+	removeState.EXPECT().GetSecret(gomock.Any()).AnyTimes().Return(&coresecrets.SecretMetadata{}, nil)
+	// At first pass during deletion we ListSecretRevisions, so return the initial revisions pointing to the first
+	// backend.
+	removeState.EXPECT().ListSecretRevisions(uri).Return(revisionMetadataBeforeMigration, nil)
+	// After DeleteContent fails to delete rev-6 with NotFound, RemoveUserSecrets calls GetSecretRevision to see if the
+	// revision has moved. Simulate that here by returning new revision metadata.
+	removeState.EXPECT().GetSecretRevision(uri, 6).Return(revisionMetadataAfterMigration[1], nil)
+	// Expect that we DeleteSecret exactly once for the entire secret
+	removeState.EXPECT().DeleteSecret(uri, []int{}).Return([]coresecrets.ValueRef{}, nil)
+
+	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+		return &provider.ModelBackendConfigInfo{
+			ActiveID: "backend-id-before-migration",
+			Configs: map[string]provider.ModelBackendConfig{
+				"backend-id-before-migration": *backendBeforeMigrationCfg,
+				"backend-id-after-migration":  *backendAfterMigrationCfg,
+			},
+		}, nil
+	}
+
+	results, err := secrets.RemoveUserSecrets(
+		removeState, adminConfigGetter,
+		userTag,
+		params.DeleteSecretArgs{
+			Args: []params.DeleteSecretArg{{
+				URI: (*uri).String(),
+			}},
+		},
+		coretesting.ModelTag.Id(),
+		func(*coresecrets.URI) error { return nil },
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+
+}
+
+func (s *secretsSuite) TestRemoveSecretNotFoundForModelAdmin(c *gc.C) {
+	// Tests when we delete a secret with two revisions, neither of which are in the backend.
+	// Asserts that the revisions are successfully removed from the juju db and that RemoveUserSecrets returns without
+	// error.
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// Data needed for mocks
+	uri := coresecrets.NewURI()
+	userTag := names.NewUserTag("foo")
+
+	// Secret with two revisions with arbitrary revision numbers/IDs
+	var revisionMetadata []*coresecrets.SecretRevisionMetadata
+	revisionIDs := set.NewStrings()
+	revisions := []int{5, 6}
+	for _, rev := range revisions {
+		revisionID := fmt.Sprintf("rev-%d", rev)
+		revisionMetadata = append(revisionMetadata, &coresecrets.SecretRevisionMetadata{
+			Revision: rev,
+			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: revisionID},
+		})
+		revisionIDs.Add(revisionID)
+	}
+
+	backendCfg := &provider.ModelBackendConfig{}
+	backend := mocks.NewMockSecretsBackend(ctrl)
+	// backend.DeleteContent returns NotFound to any revisions to simulate a backend that has no secret revision data.
+	// backend.DeleteContent should be called exactly once for each secret revision, and return NotFound for each to
+	// simulate that the secret revision doesn't exist in this backend.
+	for _, rev := range revisionMetadata {
+		backend.EXPECT().DeleteContent(gomock.Any(), rev.ValueRef.RevisionID).Return(errors.NotFound)
+	}
+
+	// Provider which has our single backend that is missing the secret revisions we're trying to delete
+	mockprovider := mocks.NewMockSecretBackendProvider(ctrl)
+	// Mock the package GetProvider function to return the mockprovider
+	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return mockprovider, nil })
+	mockprovider.EXPECT().NewBackend(backendCfg).Return(backend, nil)
+
+	removeState := mocks.NewMockSecretsRemoveState(ctrl)
+	// removeState.GetSecret always confirms a secret exists
+	removeState.EXPECT().GetSecret(gomock.Any()).AnyTimes().Return(&coresecrets.SecretMetadata{}, nil)
+	// ListSecretRevisions reflects that we have the given revisions for our secret
+	removeState.EXPECT().ListSecretRevisions(uri).Return(revisionMetadata, nil)
+	// GetSecretRevision returns the original revision metadata to simulate that the database still thinks our secret is
+	// in this backend.
+	for _, rev := range revisionMetadata {
+		removeState.EXPECT().GetSecretRevision(uri, rev.Revision).Return(rev, nil)
+	}
+	// Expect that we DeleteSecret from the juju db exactly once for the entire secret
+	removeState.EXPECT().DeleteSecret(uri, []int{}).Return([]coresecrets.ValueRef{}, nil)
+
+	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+		return &provider.ModelBackendConfigInfo{
+			ActiveID: "backend",
+			Configs: map[string]provider.ModelBackendConfig{
+				"backend-id": *backendCfg,
+			},
+		}, nil
+	}
+
+	results, err := secrets.RemoveUserSecrets(
+		removeState, adminConfigGetter,
+		userTag,
+		params.DeleteSecretArgs{
+			Args: []params.DeleteSecretArg{{
+				URI: (*uri).String(),
+			}},
+		},
+		coretesting.ModelTag.Id(),
+		func(*coresecrets.URI) error { return nil },
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+
 }

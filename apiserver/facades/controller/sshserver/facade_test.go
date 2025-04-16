@@ -107,7 +107,52 @@ func (s *sshserverSuite) TestHostKeyForTarget(c *gc.C) {
 
 	f := sshserver.NewFacade(s.ctxMock, s.backendMock)
 
-	key, err := f.HostKeyForTarget(params.SSHHostKeyRequestArg{Hostname: "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local"})
+	key, err := f.VirtualHostKey(params.SSHVirtualHostKeyRequestArg{Hostname: "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local"})
 	c.Assert(err, gc.IsNil)
 	c.Assert(key, gc.DeepEquals, params.SSHHostKeyResult{HostKey: []byte("hostkey")})
+}
+
+func (s *sshserverSuite) TestAuthorizedKeysForModel(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.ctxMock.EXPECT().Resources().Times(1)
+	s.backendMock.EXPECT().AuthorizedKeysForModel("abcd").Return(
+		[]string{"key1", "key2"}, nil)
+
+	s.backendMock.EXPECT().AuthorizedKeysForModel("not-existing").Return(
+		[]string{""}, nil)
+
+	f := sshserver.NewFacade(s.ctxMock, s.backendMock)
+
+	testCases := []struct {
+		name            string
+		expectKeys      []string
+		modelUUID       string
+		expectedSuccess bool
+		expectedError   string
+	}{
+		{
+			name:            "test for key added to a model",
+			modelUUID:       "abcd",
+			expectKeys:      []string{"key1", "key2"},
+			expectedSuccess: true,
+		},
+		{
+			name:       "test for not-existing model",
+			modelUUID:  "not-existing",
+			expectKeys: []string{""},
+		},
+	}
+
+	for _, tc := range testCases {
+		c.Logf("test: %s", tc.name)
+		arg := params.ListAuthorizedKeysArgs{
+			ModelUUID: tc.modelUUID,
+		}
+		results, err := f.ListAuthorizedKeysForModel(arg)
+		c.Assert(err, gc.IsNil)
+		c.Assert(results.Error, gc.IsNil)
+		c.Assert(results.AuthorizedKeys, gc.DeepEquals, tc.expectKeys)
+	}
 }

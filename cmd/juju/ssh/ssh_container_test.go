@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/cmd/juju/ssh/mocks"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
 
@@ -709,6 +710,9 @@ func (s *sshContainerSuite) TestNamespaceControllerModel(c *gc.C) {
 
 	mc := mocks.NewMockModelCommand(ctrl)
 	mc.EXPECT().ModelIdentifier().Return("admin/controller", nil)
+	mc.EXPECT().ControllerDetails().Return(&jujuclient.ControllerDetails{
+		ControllerUUID: "badf00d",
+	}, nil)
 	mc.EXPECT().NewControllerAPIRoot().Return(nil, nil)
 	mc.EXPECT().NewAPIRoot().Return(nil, nil)
 	s.controllerAPI.EXPECT().ControllerConfig().Return(

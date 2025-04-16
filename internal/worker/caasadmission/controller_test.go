@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/internal/worker/caasadmission"
 	rbacmappertest "github.com/juju/juju/internal/worker/caasrbacmapper/test"
 )
@@ -66,7 +67,7 @@ func (s *ControllerSuite) TestControllerStartup(c *gc.C) {
 		},
 	}
 
-	ctrl, err := caasadmission.NewController(logger, mux, path, false, creator, rbacMapper)
+	ctrl, err := caasadmission.NewController(logger, mux, path, constants.LabelVersion1, creator, rbacMapper)
 	c.Assert(err, jc.ErrorIsNil)
 
 	waitGroup.Wait()
@@ -98,7 +99,7 @@ func (s *ControllerSuite) TestControllerStartupMuxError(c *gc.C) {
 	}
 	creator := &dummyAdmissionCreator{}
 
-	ctrl, err := caasadmission.NewController(logger, mux, path, false, creator, rbacMapper)
+	ctrl, err := caasadmission.NewController(logger, mux, path, constants.LabelVersion1, creator, rbacMapper)
 	c.Assert(err, jc.ErrorIsNil)
 
 	waitGroup.Wait()
@@ -124,7 +125,7 @@ func (s *ControllerSuite) TestControllerStartupAdmissionError(c *gc.C) {
 		},
 	}
 
-	ctrl, err := caasadmission.NewController(logger, mux, path, false, creator, rbacMapper)
+	ctrl, err := caasadmission.NewController(logger, mux, path, constants.LabelVersion1, creator, rbacMapper)
 	c.Assert(err, jc.ErrorIsNil)
 
 	waitGroup.Wait()

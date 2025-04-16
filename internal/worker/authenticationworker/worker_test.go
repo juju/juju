@@ -4,6 +4,7 @@
 package authenticationworker_test
 
 import (
+	"slices"
 	"strings"
 	"time"
 
@@ -83,6 +84,17 @@ func (s *workerSuite) setAuthorisedKeys(c *gc.C, keys ...string) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *workerSuite) compareKeys(c *gc.C, expected []string) bool {
+	keys, err := ssh.ListKeys(authenticationworker.SSHUser, ssh.FullKeys)
+	c.Assert(err, jc.ErrorIsNil)
+	// sort to ensure order does not matter
+	slices.Sort(keys)
+	slices.Sort(expected)
+	keysStr := strings.Join(keys, "\n")
+	expectedStr := strings.Join(expected, "\n")
+	return expectedStr == keysStr
+}
+
 func (s *workerSuite) waitSSHKeys(c *gc.C, expected []string) {
 	timeout := time.After(coretesting.LongWait)
 	for {
@@ -90,11 +102,7 @@ func (s *workerSuite) waitSSHKeys(c *gc.C, expected []string) {
 		case <-timeout:
 			c.Fatalf("timeout while waiting for authoirsed ssh keys to change")
 		case <-time.After(coretesting.ShortWait):
-			keys, err := ssh.ListKeys(authenticationworker.SSHUser, ssh.FullKeys)
-			c.Assert(err, jc.ErrorIsNil)
-			keysStr := strings.Join(keys, "\n")
-			expectedStr := strings.Join(expected, "\n")
-			if expectedStr != keysStr {
+			if !s.compareKeys(c, expected) {
 				continue
 			}
 			return
@@ -174,4 +182,68 @@ func (s *workerSuite) TestWorkerRestart(c *gc.C) {
 
 	yetAnotherKeyWithCommentPrefix := sshtesting.ValidKeyThree.Key + " Juju:yetanother@host"
 	s.waitSSHKeys(c, append(s.existingKeys, yetAnotherKeyWithCommentPrefix))
+}
+
+func (s *workerSuite) TestWorkerWithEphemeralKeys(c *gc.C) {
+	worker, err := authenticationworker.NewWorker(s.keyupdaterAPI, agentConfig(c, s.machine.Tag().(names.MachineTag)))
+	c.Assert(err, jc.ErrorIsNil)
+	defer stop(c, worker)
+	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey))
+
+	authWorker, ok := worker.(authenticationworker.AuthWorker)
+	c.Assert(ok, gc.Equals, true)
+
+	err = authWorker.AddEphemeralKey(sshtesting.ValidKeyThree.Key + " key3@host")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the key is added to the ssh auth keys. The check here is synchronous.
+	equals := s.compareKeys(c, append(s.existingKeys, s.existingEnvKey, sshtesting.ValidKeyThree.Key+" Juju:Ephemeral:key3@host"))
+	c.Assert(equals, gc.Equals, true)
+
+	err = authWorker.RemoveEphemeralKey(sshtesting.ValidKeyThree.Key + " key3@host")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the key is removed from the ssh auth keys. The check here is synchronous.
+	equals = s.compareKeys(c, append(s.existingKeys, s.existingEnvKey))
+	c.Assert(equals, gc.Equals, true)
+}
+
+func (s *workerSuite) TestWorkerWithEphemeralKeysFlushedAfterRestart(c *gc.C) {
+	worker, err := authenticationworker.NewWorker(s.keyupdaterAPI, agentConfig(c, s.machine.Tag().(names.MachineTag)))
+	c.Assert(err, jc.ErrorIsNil)
+	defer stop(c, worker)
+	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey))
+	authWorker, ok := worker.(authenticationworker.AuthWorker)
+	c.Assert(ok, gc.Equals, true)
+
+	err = authWorker.AddEphemeralKey(sshtesting.ValidKeyThree.Key + " key3@host")
+	c.Assert(err, jc.ErrorIsNil)
+	// Check that the key is added to the ssh auth keys. The check here is synchronous.
+	equals := s.compareKeys(c, append(s.existingKeys, s.existingEnvKey, sshtesting.ValidKeyThree.Key+" Juju:Ephemeral:key3@host"))
+	c.Assert(equals, gc.Equals, true)
+	// stop the watcher and check the ephemeral keys are removed after restart.
+	stop(c, authWorker)
+	worker, err = authenticationworker.NewWorker(s.keyupdaterAPI, agentConfig(c, s.machine.Tag().(names.MachineTag)))
+	c.Assert(err, jc.ErrorIsNil)
+	defer stop(c, worker)
+	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey))
+}
+
+func (s *workerSuite) TestWorkerWithEphemeralAndKeys(c *gc.C) {
+	worker, err := authenticationworker.NewWorker(s.keyupdaterAPI, agentConfig(c, s.machine.Tag().(names.MachineTag)))
+	c.Assert(err, jc.ErrorIsNil)
+	defer stop(c, worker)
+	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey))
+	authWorker, ok := worker.(authenticationworker.AuthWorker)
+	c.Assert(ok, gc.Equals, true)
+	// add a key in a go-routine to simulate a change while the worker is running another update.
+	go func() {
+		err = authWorker.AddEphemeralKey(sshtesting.ValidKeyFour.Key + " key4@host")
+		c.Check(err, jc.ErrorIsNil)
+	}()
+
+	s.setAuthorisedKeys(c, sshtesting.ValidKeyThree.Key+" yetanother@host")
+	yetAnotherKeyWithComment := sshtesting.ValidKeyThree.Key + " Juju:yetanother@host"
+	ephemeralKeyWithComment := sshtesting.ValidKeyFour.Key + " Juju:Ephemeral:key4@host"
+	s.waitSSHKeys(c, append(s.existingKeys, yetAnotherKeyWithComment, ephemeralKeyWithComment))
 }

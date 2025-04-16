@@ -63,7 +63,7 @@ func (s *ActionLogSuite) TestActionLog(c *gc.C) {
 	for i, t := range actionLogTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := &actionLogContext{}
-		com, err := jujuc.NewActionCommand(hctx, "action-log")
+		com, err := jujuc.NewCommand(hctx, "action-log")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.command)
@@ -75,7 +75,7 @@ func (s *ActionLogSuite) TestActionLog(c *gc.C) {
 
 func (s *ActionLogSuite) TestNonActionLogActionFails(c *gc.C) {
 	hctx := &nonActionLogContext{}
-	com, err := jujuc.NewActionCommand(hctx, "action-log")
+	com, err := jujuc.NewCommand(hctx, "action-log")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"oops"})

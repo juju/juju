@@ -164,6 +164,7 @@ type controllerStack struct {
 	storageClass               string
 	storageSize                resource.Quantity
 	portMongoDB, portAPIServer int
+	portSSHServer              int
 
 	resourceNameService,
 	resourceNameConfigMap,
@@ -206,7 +207,7 @@ func findControllerNamespace(
 	}
 
 	for _, ns := range namespaces.Items {
-		if ns.Annotations[providerutils.AnnotationControllerUUIDKey(false)] == controllerUUID {
+		if ns.Annotations[providerutils.AnnotationControllerUUIDKey(constants.LabelVersion1)] == controllerUUID {
 			return &ns, nil
 		}
 	}
@@ -226,7 +227,7 @@ func findControllerNamespace(
 	}
 
 	for _, ns := range namespaces.Items {
-		if ns.Annotations[providerutils.AnnotationControllerUUIDKey(true)] == controllerUUID {
+		if ns.Annotations[providerutils.AnnotationControllerUUIDKey(constants.LegacyLabelVersion)] == controllerUUID {
 			return &ns, nil
 		}
 	}
@@ -288,10 +289,10 @@ func newcontrollerStack(
 		return nil, errors.Trace(err)
 	}
 
-	selectorLabels := providerutils.SelectorLabelsForApp(stackName, false)
-	labels := providerutils.LabelsForApp(stackName, false)
+	selectorLabels := providerutils.SelectorLabelsForApp(stackName, constants.LastLabelVersion)
+	labels := providerutils.LabelsForApp(stackName, constants.LastLabelVersion)
 
-	controllerUUIDKey := providerutils.AnnotationControllerUUIDKey(false)
+	controllerUUIDKey := providerutils.AnnotationControllerUUIDKey(constants.LastLabelVersion)
 	cs := &controllerStack{
 		ctx:              ctx,
 		stackName:        stackName,
@@ -309,6 +310,7 @@ func newcontrollerStack(
 		storageClass:  storageClass,
 		portMongoDB:   pcfg.Bootstrap.ControllerConfig.StatePort(),
 		portAPIServer: pcfg.Bootstrap.ControllerConfig.APIPort(),
+		portSSHServer: pcfg.Bootstrap.ControllerConfig.SSHServerPort(),
 	}
 	cs.resourceNameService = cs.getResourceName("service")
 	cs.resourceNameConfigMap = cs.getResourceName("configmap")
@@ -382,7 +384,7 @@ func (c *controllerStack) getControllerSecret() (secret *core.Secret, err error)
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        c.resourceNameSecret,
 				Labels:      c.stackLabels,
-				Namespace:   c.broker.GetCurrentNamespace(),
+				Namespace:   c.broker.Namespace(),
 				Annotations: c.stackAnnotations,
 			},
 			Type: core.SecretTypeOpaque,
@@ -410,7 +412,7 @@ func (c *controllerStack) getControllerConfigMap() (cm *core.ConfigMap, err erro
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        c.resourceNameConfigMap,
 				Labels:      c.stackLabels,
-				Namespace:   c.broker.GetCurrentNamespace(),
+				Namespace:   c.broker.Namespace(),
 				Annotations: c.stackAnnotations,
 			},
 		})
@@ -431,7 +433,7 @@ func (c *controllerStack) doCleanUp() {
 // Deploy creates all resources for the controller stack.
 func (c *controllerStack) Deploy() (err error) {
 	// creating namespace for controller stack, this namespace will be removed by broker.DestroyController if bootstrap failed.
-	nsName := c.broker.GetCurrentNamespace()
+	nsName := c.broker.Namespace()
 	c.ctx.Infof("Creating k8s resources for controller %q", nsName)
 	if err = c.broker.createNamespace(nsName); err != nil {
 		return errors.Annotate(err, "creating namespace for controller stack")
@@ -503,7 +505,8 @@ func (c *controllerStack) Deploy() (err error) {
 	saName, saCleanUps, err := ensureControllerServiceAccount(
 		c.ctx.Context(),
 		c.broker.client(),
-		c.broker.GetCurrentNamespace(),
+		c.broker.Namespace(),
+		c.broker.ControllerUUID(),
 		c.stackLabels,
 		c.stackAnnotations,
 	)
@@ -599,7 +602,7 @@ func (c *controllerStack) createControllerProxy(ctx context.Context) error {
 	remotePort := intstr.FromInt(c.portAPIServer)
 	config := k8sproxy.ControllerProxyConfig{
 		Name:          c.getResourceName(proxyResourceName),
-		Namespace:     c.broker.GetCurrentNamespace(),
+		Namespace:     c.broker.Namespace(),
 		RemotePort:    remotePort.String(),
 		TargetService: c.resourceNameService,
 	}
@@ -609,11 +612,11 @@ func (c *controllerStack) createControllerProxy(ctx context.Context) error {
 		config,
 		c.stackLabels,
 		c.broker.clock,
-		k8sClient.CoreV1().ConfigMaps(c.broker.GetCurrentNamespace()),
-		k8sClient.RbacV1().Roles(c.broker.GetCurrentNamespace()),
-		k8sClient.RbacV1().RoleBindings(c.broker.GetCurrentNamespace()),
-		k8sClient.CoreV1().ServiceAccounts(c.broker.GetCurrentNamespace()),
-		k8sClient.CoreV1().Secrets(c.broker.GetCurrentNamespace()),
+		k8sClient.CoreV1().ConfigMaps(c.broker.Namespace()),
+		k8sClient.RbacV1().Roles(c.broker.Namespace()),
+		k8sClient.RbacV1().RoleBindings(c.broker.Namespace()),
+		k8sClient.CoreV1().ServiceAccounts(c.broker.Namespace()),
+		k8sClient.CoreV1().Secrets(c.broker.Namespace()),
 	)
 
 	return errors.Trace(err)
@@ -632,7 +635,7 @@ func (c *controllerStack) createControllerService(ctx context.Context) error {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        svcName,
 			Labels:      c.stackLabels,
-			Namespace:   c.broker.GetCurrentNamespace(),
+			Namespace:   c.broker.Namespace(),
 			Annotations: c.stackAnnotations,
 		},
 		Spec: core.ServiceSpec{
@@ -643,6 +646,11 @@ func (c *controllerStack) createControllerService(ctx context.Context) error {
 					Name:       "api-server",
 					TargetPort: intstr.FromInt(c.portAPIServer),
 					Port:       int32(c.portAPIServer),
+				},
+				{
+					Name:       "ssh-server",
+					TargetPort: intstr.FromInt(c.portSSHServer),
+					Port:       int32(c.portSSHServer),
 				},
 			},
 			ExternalName:   controllerSvcSpec.ExternalName,
@@ -867,6 +875,7 @@ func ensureControllerServiceAccount(
 	ctx context.Context,
 	client kubernetes.Interface,
 	namespace string,
+	controllerUUID string,
 	labels map[string]string,
 	annotations map[string]string,
 ) (string, []func(), error) {
@@ -890,8 +899,9 @@ func ensureControllerServiceAccount(
 	clusterRoleBindingName := namespace
 	crb := resources.NewClusterRoleBinding(clusterRoleBindingName, &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        clusterRoleBindingName,
-			Labels:      providerutils.LabelsForModel(environsbootstrap.ControllerModelName, false),
+			Name: clusterRoleBindingName,
+			Labels: providerutils.LabelsForModel(environsbootstrap.ControllerModelName, "",
+				controllerUUID, constants.LastLabelVersion),
 			Annotations: annotations,
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -920,7 +930,7 @@ func (c *controllerStack) createControllerStatefulset() error {
 				c.stackLabels,
 				providerutils.LabelsJujuModelOperatorDisableWebhook,
 			),
-			Namespace:   c.broker.GetCurrentNamespace(),
+			Namespace:   c.broker.Namespace(),
 			Annotations: c.stackAnnotations,
 		},
 		Spec: apps.StatefulSetSpec{
@@ -936,7 +946,7 @@ func (c *controllerStack) createControllerStatefulset() error {
 						providerutils.LabelsJujuModelOperatorDisableWebhook,
 					),
 					Name:        c.pcfg.GetPodName(), // This really should not be set.
-					Namespace:   c.broker.GetCurrentNamespace(),
+					Namespace:   c.broker.Namespace(),
 					Annotations: c.stackAnnotations,
 				},
 			},
@@ -1621,9 +1631,9 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 	controllerApp := application.NewApplication(
 		environsbootstrap.ControllerApplicationName,
 		c.broker.namespace,
-		c.broker.modelUUID,
+		c.broker.ModelUUID(),
 		environsbootstrap.ControllerModelName,
-		false,
+		constants.LastLabelVersion,
 		caas.DeploymentStateful,
 		c.broker.client(),
 		c.broker.newWatcher,
