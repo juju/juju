@@ -78,36 +78,6 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 	})
 }
 
-func (s *CloudSpecSuite) TestWatchCloudSpecChanges(c *gc.C) {
-	called := false
-	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}
-	facadeCaller.ReturnRawAPICaller = apitesting.BestVersionCaller{
-		APICallerFunc: apitesting.APICallerFunc(
-			func(objType string, version int, id, request string, a, response interface{}) error {
-				c.Assert(request, gc.Equals, "Next")
-				return nil
-			}),
-		BestVersion: 1}
-	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
-		c.Assert(name, gc.Equals, "WatchCloudSpecsChanges")
-		c.Assert(args, jc.DeepEquals, params.Entities{Entities: []params.Entity{
-			{Tag: coretesting.ModelTag.String()},
-		}})
-		*(response.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
-			Results: []params.NotifyWatchResult{{
-				NotifyWatcherId: "1",
-			}},
-		}
-		called = true
-		return nil
-	}
-	api := cloudspec.NewCloudSpecAPI(&facadeCaller, coretesting.ModelTag)
-	w, err := api.WatchCloudSpecChanges(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.NotNil)
-	c.Assert(called, jc.IsTrue)
-}
-
 func (s *CloudSpecSuite) TestCloudSpecOverallError(c *gc.C) {
 	expect := errors.New("bewm")
 	facadeCaller := apitesting.StubFacadeCaller{Stub: &testing.Stub{}}

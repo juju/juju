@@ -1163,17 +1163,6 @@
                         }
                     }
                 },
-                "GetCloudSpec": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ModelTag"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/CloudSpecResult"
-                        }
-                    }
-                },
                 "ModelConfig": {
                     "type": "object",
                     "properties": {
@@ -1420,10 +1409,6 @@
                     "required": [
                         "config"
                     ]
-                },
-                "ModelTag": {
-                    "type": "object",
-                    "additionalProperties": false
                 },
                 "NotifyWatchResult": {
                     "type": "object",
