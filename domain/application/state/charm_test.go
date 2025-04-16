@@ -1554,6 +1554,9 @@ func (s *charmStateSuite) TestSetCharmTwice(c *gc.C) {
 	}, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Add the implicit juju-info relation inserted with the charm.
+	expected.Provides = jujuInfoRelation()
+
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
@@ -1631,6 +1634,9 @@ func (s *charmStateSuite) TestSetCharmThenGetCharm(c *gc.C) {
 	}, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Add the implicit juju-info relation inserted with the charm.
+	expectedMetadata.Provides = jujuInfoRelation()
+
 	gotCharm, _, err := st.GetCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(gotCharm, gc.DeepEquals, charm.Charm{
@@ -1639,6 +1645,60 @@ func (s *charmStateSuite) TestSetCharmThenGetCharm(c *gc.C) {
 		Actions:       expectedActions,
 		Config:        expectedConfig,
 		LXDProfile:    expectedLXDProfile,
+		Source:        charm.LocalSource,
+		Revision:      42,
+		ReferenceName: "ubuntu",
+		Hash:          "hash",
+		ArchivePath:   "archive",
+		Version:       "deadbeef",
+	})
+}
+
+// TestSetCharmThenGetCharmProvidesJujuInfo checks that if the juju-info
+// provides relation is in the metadata, there is no error.
+func (s *charmStateSuite) TestSetCharmThenGetCharmProvidesJujuInfo(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	expectedMetadata := charm.Metadata{
+		Name:           "ubuntu",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: semversion.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+		Provides:       jujuInfoRelation(),
+	}
+	expectedManifest := charm.Manifest{
+		Bases: []charm.Base{
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Track: "latest",
+					Risk:  charm.RiskEdge,
+				},
+				Architectures: []string{"amd64", "arm64"},
+			},
+		},
+	}
+
+	id, _, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata:      expectedMetadata,
+		Manifest:      expectedManifest,
+		Source:        charm.LocalSource,
+		Revision:      42,
+		ReferenceName: "ubuntu",
+		Hash:          "hash",
+		ArchivePath:   "archive",
+		Version:       "deadbeef",
+	}, nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	gotCharm, _, err := st.GetCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(gotCharm, gc.DeepEquals, charm.Charm{
+		Metadata:      expectedMetadata,
+		Manifest:      expectedManifest,
 		Source:        charm.LocalSource,
 		Revision:      42,
 		ReferenceName: "ubuntu",
@@ -1714,6 +1774,9 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmWithDifferentReferenceName(c *
 	id, err := st.GetCharmID(context.Background(), "baz", 42, charm.LocalSource)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Add the implicit juju-info relation inserted with the charm.
+	expectedMetadata.Provides = jujuInfoRelation()
+
 	gotCharm, _, err := st.GetCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(gotCharm, gc.DeepEquals, charm.Charm{
@@ -1763,6 +1826,9 @@ func (s *charmStateSuite) TestSetCharmAllowsSameNameButDifferentRevision(c *gc.C
 		Source:       charm.LocalSource,
 		Architecture: architecture.AMD64,
 	})
+
+	// Add the implicit juju-info relation inserted with the charm.
+	expected.Provides = jujuInfoRelation()
 
 	got, err := st.GetCharmMetadata(context.Background(), id1)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1817,6 +1883,9 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadata(c *gc.C) {
 	}, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Add the implicit juju-info relation inserted with the charm.
+	expected.Provides = jujuInfoRelation()
+
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
@@ -1855,6 +1924,9 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithTagsAndCategories(
 	}, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Add the implicit juju-info relation inserted with the charm.
+	expected.Provides = jujuInfoRelation()
+
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
@@ -1891,6 +1963,9 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithTerms(c *gc.C) {
 		Version:       "deadbeef",
 	}, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Add the implicit juju-info relation inserted with the charm.
+	expected.Provides = jujuInfoRelation()
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1954,6 +2029,10 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithRelations(c *gc.C)
 	}, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Add the implicit juju-info relation inserted with the charm.
+	jujuInfo := jujuInfoRelation()
+	expected.Provides["juju-info"] = jujuInfo["juju-info"]
+
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
@@ -1997,6 +2076,9 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithExtraBindings(c *g
 		Version:       "deadbeef",
 	}, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Add the implicit juju-info relation inserted with the charm.
+	expected.Provides = jujuInfoRelation()
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2057,6 +2139,9 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithNoPrope
 		Version:       "deadbeef",
 	}, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Add the implicit juju-info relation inserted with the charm.
+	expected.Provides = jujuInfoRelation()
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2120,6 +2205,9 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithPropert
 	}, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Add the implicit juju-info relation inserted with the charm.
+	expected.Provides = jujuInfoRelation()
+
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
@@ -2173,6 +2261,9 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithDevices(c *gc.C) {
 	}, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Add the implicit juju-info relation inserted with the charm.
+	expected.Provides = jujuInfoRelation()
+
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
@@ -2223,6 +2314,9 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithResources(c *gc.C)
 	}, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Add the implicit juju-info relation inserted with the charm.
+	expected.Provides = jujuInfoRelation()
+
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
@@ -2268,6 +2362,9 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithNoMo
 		Version:       "deadbeef",
 	}, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Add the implicit juju-info relation inserted with the charm.
+	expected.Provides = jujuInfoRelation()
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2334,6 +2431,9 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithMoun
 		Version:       "deadbeef",
 	}, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Add the implicit juju-info relation inserted with the charm.
+	expected.Provides = jujuInfoRelation()
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2455,10 +2555,12 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmManifest(c *gc.C) {
 		},
 	}
 
+	expectedMetadata := charm.Metadata{
+		Name: "ubuntu",
+	}
+
 	id, _, err := st.SetCharm(context.Background(), charm.Charm{
-		Metadata: charm.Metadata{
-			Name: "ubuntu",
-		},
+		Metadata:      expectedMetadata,
 		Manifest:      expected,
 		Source:        charm.LocalSource,
 		Revision:      42,
@@ -2468,6 +2570,9 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmManifest(c *gc.C) {
 		Version:       "deadbeef",
 	}, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Add the implicit juju-info relation inserted with the charm.
+	expectedMetadata.Provides = jujuInfoRelation()
 
 	got, err := st.GetCharmManifest(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3651,4 +3756,14 @@ func assertCharmMetadata(c *gc.C, metadata charm.Metadata, expected func() charm
 
 func assertCharmManifest(c *gc.C, manifest charm.Manifest, expected func() charm.Manifest) {
 	c.Check(manifest, gc.DeepEquals, expected())
+}
+
+func jujuInfoRelation() map[string]charm.Relation {
+	return map[string]charm.Relation{
+		"juju-info": {
+			Name:      "juju-info",
+			Role:      charm.RoleProvider,
+			Interface: "juju-info",
+			Scope:     charm.ScopeGlobal},
+	}
 }

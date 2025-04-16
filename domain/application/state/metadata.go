@@ -472,6 +472,15 @@ func encodeRelations(id corecharm.ID, metatadata charm.Metadata) ([]setCharmRela
 	return result, nil
 }
 
+func encodeJujuInfoRelation(id corecharm.ID) (setCharmRelation, error) {
+	return encodeRelation(id, relationKindProvides, charm.Relation{
+		Name:      "juju-info",
+		Role:      charm.RoleProvider,
+		Interface: "juju-info",
+		Scope:     charm.ScopeGlobal,
+	})
+}
+
 func encodeRelation(id corecharm.ID, kind string, relation charm.Relation) (setCharmRelation, error) {
 	relationUUID, err := uuid.NewUUID()
 	if err != nil {
@@ -504,6 +513,16 @@ func encodeRelation(id corecharm.ID, kind string, relation charm.Relation) (setC
 		Capacity:  relation.Limit,
 		ScopeID:   scopeID,
 	}, nil
+}
+
+func hasJujuInfoRelation(encodedRelations []setCharmRelation) bool {
+	// Relation names must be unique.
+	for _, encodedRelation := range encodedRelations {
+		if encodedRelation.Name == "juju-info" {
+			return true
+		}
+	}
+	return false
 }
 
 func encodeRelationKind(kind string) (int, error) {

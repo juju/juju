@@ -360,6 +360,16 @@ func (s *State) setCharmRelations(ctx context.Context, tx *sqlair.TX, id corecha
 		return errors.Errorf("encoding charm relations: %w", err)
 	}
 
+	// juju-info is a implicit endpoint that must exist for all charms.
+	// Add it if the charm author has not.
+	if !hasJujuInfoRelation(encodedRelations) {
+		jujuInfoRelation, err := encodeJujuInfoRelation(id)
+		if err != nil {
+			return errors.Errorf("encoding juju-info relation: %w", err)
+		}
+		encodedRelations = append(encodedRelations, jujuInfoRelation)
+	}
+
 	// If there are no relations, we don't need to do anything.
 	if len(encodedRelations) == 0 {
 		return nil
