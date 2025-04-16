@@ -64,6 +64,19 @@ type AgentBinaryStore interface {
 	) error
 }
 
+// agentBinaryStoreLogStore is a wrapper around the [AgentBinaryStore] that
+// intercepts add binary requests and logs the fact that a binary is being added
+// with context about the caller of the add operation.
+type agentBinaryStoreLogShim struct {
+	// AgentBinaryStore is the [AgentBinaryStore] to wrap.
+	AgentBinaryStore
+
+	// StoreName represents a canonical name to assocaite to the store being
+	// wrapped. This is used in the subsequent log message to identify the
+	// destination of the add.
+	StoreName string
+}
+
 // AgentBinaryStoreGetter is a deferred type that can be used to get an
 // AgentBinaryStore at exactly the time it is needed. This allows for
 // context aware answers to be made.
@@ -81,6 +94,27 @@ type BlockChecker interface {
 // [services.DomainServices] from a given context that comes from a http
 // request.
 type DomainServicesGetter func(ctx context.Context) (services.DomainServices, error)
+
+// AddAgentBinaryWithSHA256 is a wrapper around
+// [AgentBinaryStore.AddAgentBinaryWithSHA256] that logs out the fact an agent
+// binary is being added to the store identified by
+// [agentBinaryStoreLogShim.StoreName]. As part of the log message an entity is
+// established that initiated this call helping identifying the who behind the
+// operation.
+func (a *agentBinaryStoreLogShim) AddAgentBinaryWithSHA256(
+	ctx context.Context,
+	data io.Reader,
+	version coreagentbinary.Version,
+	dataSize int64,
+	dataSHA256Sum string,
+) error {
+	logger.Infof(
+		ctx,
+		"agent binaries being added to %q for %q with sha %q on behalf of entity %q",
+		a.StoreName, version.String(), dataSHA256Sum, httpcontext.EntityForContext(ctx),
+	)
+	return a.AddAgentBinaryWithSHA256(ctx, data, version, dataSize, dataSHA256Sum)
+}
 
 // BlockCheckerGetterForServices returns a [BlockCheckerGetter] that is
 // constructed from the supplied context.
@@ -104,7 +138,10 @@ func controllerAgentBinaryStoreForHTTPContext(httpCtx httpContext) AgentBinarySt
 			return nil, internalerrors.Capture(err)
 		}
 
-		return services.AgentBinaryStore(), nil
+		return &agentBinaryStoreLogShim{
+			AgentBinaryStore: services.AgentBinaryStore(),
+			StoreName:        "controller agent binary store",
+		}, nil
 	}
 }
 
@@ -118,8 +155,16 @@ func migratingAgentBinaryStoreForHTTPContext(httpCtx httpContext) AgentBinarySto
 			return nil, internalerrors.Capture(err)
 		}
 
+		modelUUID, exists := httpcontext.MigrationRequestModelUUID(r)
+		if !exists {
+			modelUUID = "unknown"
+		}
+
 		// TODO (tlm): Add model binary store here.
-		return services.AgentBinaryStore(), nil
+		return &agentBinaryStoreLogShim{
+			AgentBinaryStore: services.AgentBinaryStore(),
+			StoreName:        "model " + modelUUID,
+		}, nil
 	}
 }
 
@@ -132,8 +177,17 @@ func modelAgentBinaryStoreForHTTPContext(httpCtx httpContext) AgentBinaryStoreGe
 			return nil, internalerrors.Capture(err)
 		}
 
+		modelUUID, exists := httpcontext.RequestModelUUID(r.Context())
+		// This should never happen but it needs to be accounted for.
+		if !exists {
+			modelUUID = "unknown"
+		}
+
 		// TODO (tlm): Add model binary store here.
-		return services.AgentBinaryStore(), nil
+		return &agentBinaryStoreLogShim{
+			AgentBinaryStore: services.AgentBinaryStore(),
+			StoreName:        "model " + modelUUID,
+		}, nil
 	}
 }
 
@@ -478,23 +532,6 @@ func (h *toolsUploadHandler) processPost(r *http.Request) (tools.Tools, error) {
 			"expected Content-Type: application/x-tar-gz, got: %v", contentType,
 		).Add(coreerrors.BadRequest)
 	}
-
-	// We check to see if this request has authentication information attached
-	// to it. This is done so that we can associate the agent binary uploads to
-	// a user in log messages.
-	authInfo, has := httpcontext.RequestAuthInfo(r)
-	userIdentifier := "unathenticated"
-	if has {
-		userIdentifier = authInfo.Entity.Tag().Id()
-	}
-
-	logger.Infof(
-		r.Context(),
-		"agent binaries being uploaded to controller for version %q and arch %q on behalf of user %q",
-		agentBinaryVersion.Number.String(),
-		agentBinaryVersion.Arch,
-		userIdentifier,
-	)
 
 	agentBinaryStore, err := h.storeGetter(r)
 	if err != nil {

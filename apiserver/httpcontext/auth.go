@@ -75,10 +75,10 @@ func (h *AuthHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 type authInfoKey struct{}
 
-// RequestAuthInfo returns the AuthInfo associated with the request,
-// if any, and a boolean indicating whether or not the request was
-// authenticated.
-func RequestAuthInfo(req *http.Request) (authentication.AuthInfo, bool) {
-	authInfo, ok := req.Context().Value(authInfoKey{}).(authentication.AuthInfo)
+// RequestAuthInfo returns the AuthInfo associated with the context form a
+// request. If the context has no auth information associated with it false is
+// returned.
+func RequestAuthInfo(ctx context.Context) (authentication.AuthInfo, bool) {
+	authInfo, ok := ctx.Value(authInfoKey{}).(authentication.AuthInfo)
 	return authInfo, ok
 }

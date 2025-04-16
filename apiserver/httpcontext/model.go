@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/rpc/params"
 )
 
 // ControllerModelHandler is an http.Handler that associates requests that
@@ -74,6 +75,17 @@ func validateModelAndServe(handler http.Handler, modelUUIDStr string, w http.Res
 }
 
 type modelKey struct{}
+
+// MigrationRequestModelUUID returns the model uuid associated with the given
+// http request assuming the request is associated with a migration request. If
+// no model uuid is found an empty string and false is returned.
+func MigrationRequestModelUUID(r *http.Request) (string, bool) {
+	modelUUID := r.Header.Get(params.MigrationModelHTTPHeader)
+	if modelUUID == "" {
+		return "", false
+	}
+	return modelUUID, true
+}
 
 // RequestModelUUID returns the model UUID associated with the given context
 // provided from an httpRequest. No attempt is made to validate the model UUID;
