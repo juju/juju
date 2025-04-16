@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/distribution/reference"
+	"github.com/distribution/reference"
 	"github.com/juju/errors"
 
 	internallogger "github.com/juju/juju/internal/logger"
