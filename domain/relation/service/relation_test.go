@@ -1007,11 +1007,7 @@ func (s *relationLeadershipServiceSuite) TestGetLocalRelationApplicationSettings
 	unitName := coreunittesting.GenNewName(c, "app/0")
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	applicationID := coreapplicationtesting.GenApplicationUUID(c)
-	s.leaderEnsurer.EXPECT().WithLeader(gomock.Any(), unitName.Application(), unitName.String(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, _, _ string, fn func(context.Context) error) error {
-			return fn(ctx)
-		},
-	)
+	s.expectWithLeader(c, unitName)
 	expectedSettings := map[string]string{
 		"key": "value",
 	}
@@ -1074,11 +1070,7 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettings(c *g
 	unitName := coreunittesting.GenNewName(c, "app/0")
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	applicationID := coreapplicationtesting.GenApplicationUUID(c)
-	s.leaderEnsurer.EXPECT().WithLeader(gomock.Any(), unitName.Application(), unitName.String(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, _, _ string, fn func(context.Context) error) error {
-			return fn(ctx)
-		},
-	)
+	s.expectWithLeader(c, unitName)
 	settings := map[string]string{
 		"key": "value",
 	}
@@ -1189,6 +1181,126 @@ func (s *relationLeadershipServiceSuite) TestSetRelationApplicationSettingsRelat
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
 }
 
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettings(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	unitName := coreunittesting.GenNewName(c, "app/0")
+	s.expectWithLeader(c, unitName)
+
+	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	appSettings := map[string]string{
+		"appKey": "appValue",
+	}
+	unitSettings := map[string]string{
+		"unitKey": "unitValue",
+	}
+	s.state.EXPECT().SetRelationApplicationAndUnitSettings(gomock.Any(), relationUnitUUID, appSettings, unitSettings).Return(nil)
+
+	// Act:
+	err := s.leadershipService.SetRelationApplicationAndUnitSettings(context.Background(), unitName, relationUnitUUID, appSettings, unitSettings)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestSetRelationApplicationAndUnitSettingsOnlyUnit checks that if only the
+// unit settings are changed, leadership is not checked.
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettingsOnlyUnit(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	unitName := coreunittesting.GenNewName(c, "app/0")
+	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	unitSettings := map[string]string{
+		"unitKey": "unitValue",
+	}
+	s.state.EXPECT().SetRelationUnitSettings(gomock.Any(), relationUnitUUID, unitSettings).Return(nil)
+
+	// Act:
+	err := s.leadershipService.SetRelationApplicationAndUnitSettings(context.Background(), unitName, relationUnitUUID, nil, unitSettings)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettingsNil(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	unitName := coreunittesting.GenNewName(c, "app/0")
+	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+
+	// Act:
+	err := s.leadershipService.SetRelationApplicationAndUnitSettings(context.Background(), unitName, relationUnitUUID, nil, nil)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettingsEmpty(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	unitName := coreunittesting.GenNewName(c, "app/0")
+
+	// Act:
+	err := s.leadershipService.SetRelationApplicationAndUnitSettings(context.Background(), unitName, "bad-uuid", make(map[string]string), make(map[string]string))
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettingsLeaseNotHeld(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	unitName := coreunittesting.GenNewName(c, "app/0")
+	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	s.leaderEnsurer.EXPECT().WithLeader(gomock.Any(), unitName.Application(), unitName.String(), gomock.Any()).Return(corelease.ErrNotHeld)
+	settings := map[string]string{
+		"key": "value",
+	}
+
+	// Act:
+	err := s.leadershipService.SetRelationApplicationAndUnitSettings(context.Background(), unitName, relationUnitUUID, settings, settings)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, corelease.ErrNotHeld)
+}
+
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettingsUnitNameNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	relationUnitUUID := corerelationtesting.GenRelationUnitUUID(c)
+	settings := map[string]string{
+		"key": "value",
+	}
+
+	// Act:
+	err := s.leadershipService.SetRelationApplicationAndUnitSettings(context.Background(), "", relationUnitUUID, settings, nil)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *relationLeadershipServiceSuite) TestSetRelationApplicationAndUnitSettingsRelationUnitUUIDNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	unitName := coreunittesting.GenNewName(c, "app/0")
+	settings := map[string]string{
+		"key": "value",
+	}
+
+	// Act:
+	err := s.leadershipService.SetRelationApplicationAndUnitSettings(context.Background(), unitName, "bad-uuid", nil, settings)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
+}
+
 func (s *relationLeadershipServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.relationServiceSuite.setupMocks(c)
 
@@ -1196,4 +1308,14 @@ func (s *relationLeadershipServiceSuite) setupMocks(c *gc.C) *gomock.Controller 
 	s.leadershipService = NewLeadershipService(s.state, s.leaderEnsurer, loggertesting.WrapCheckLog(c))
 
 	return ctrl
+}
+
+// expectWithLeader expects a call to with leader and executes the function to
+// be run with leadership.
+func (s *relationLeadershipServiceSuite) expectWithLeader(c *gc.C, unitName coreunit.Name) {
+	s.leaderEnsurer.EXPECT().WithLeader(gomock.Any(), unitName.Application(), unitName.String(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, _, _ string, fn func(context.Context) error) error {
+			return fn(ctx)
+		},
+	)
 }
