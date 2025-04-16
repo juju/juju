@@ -56,19 +56,20 @@ type AgentBinaryStore interface {
 	// - [agentbinaryerrors.HashMismatch] when the expected sha does not match
 	// that which was computed against the binary data.
 	AddAgentBinaryWithSHA256(
-		context.Context,
-		io.Reader,
-		coreagentbinary.Version,
-		int64,
-		string,
+		ctx context.Context,
+		data io.Reader,
+		version coreagentbinary.Version,
+		dataSize int64,
+		dataSHA256Sum string,
 	) error
 }
 
 // AgentBinaryStoreGetter is a deferred type that can be used to get an
-// AgentBinaryStore at exactly the time it is needed. This allows for the
+// AgentBinaryStore at exactly the time it is needed. This allows for
 // context aware answers to be made.
 type AgentBinaryStoreGetter func(*http.Request) (AgentBinaryStore, error)
 
+// BlockChecker checks for current blocks if any.
 type BlockChecker interface {
 	// ChangeAllowed checks if change block is in place.
 	// Change block prevents all operations that may change
@@ -95,7 +96,7 @@ func BlockCheckerGetterForServices(servicesGetter DomainServicesGetter) func(con
 }
 
 // controllerAgentBinaryStoreForHTTPContext provides a deferred getter that
-// will provide the controllers [AgentBinaryStore] for the given [httpContext].
+// will provide the controller's [AgentBinaryStore] for the given [httpContext].
 func controllerAgentBinaryStoreForHTTPContext(httpCtx httpContext) AgentBinaryStoreGetter {
 	return func(r *http.Request) (AgentBinaryStore, error) {
 		services, err := httpCtx.domainServicesForRequest(r.Context())
@@ -160,7 +161,9 @@ func (t *toolsReadCloser) Close() error {
 	return err
 }
 
-// toolsHandler handles tool upload through HTTPS in the API server.
+// toolsHandler handles agent binary uploads through HTTPS in the API server. We
+// still refer to the handler with the word tools as the apiserver paths that
+// this is exposed through still encompasses this wording.
 type toolsUploadHandler struct {
 	blockCheckerGetter func(context.Context) (BlockChecker, error)
 	storeGetter        AgentBinaryStoreGetter
