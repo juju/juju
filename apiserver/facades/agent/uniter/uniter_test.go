@@ -6,6 +6,7 @@ package uniter
 import (
 	"context"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -1011,8 +1012,6 @@ func (s *uniterRelationSuite) TestLeaveScopeFails(c *gc.C) {
 }
 
 func (s *uniterRelationSuite) TestWatchRelationUnits(c *gc.C) {
-	// todo(gfouillet) -  update me when watcher is reimplemented JIRA-7430
-	c.Skip("Need to be reimplemented since the watcher on domain has changed its signature. ")
 	// arrange
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
@@ -1023,16 +1022,40 @@ func (s *uniterRelationSuite) TestWatchRelationUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
 	watcherID := "watch1"
-	departed := []string{"unit-mysql-0"}
+	unitUUIDs := []coreunit.UUID{
+		unittesting.GenUnitUUID(c),
+		unittesting.GenUnitUUID(c),
+	}
+	appUUIDs := []coreapplication.ID{
+		applicationtesting.GenApplicationUUID(c),
+	}
 	unitName := coreunit.Name(s.wordpressUnitTag.Id())
-	s.expectWatchRelatedUnitsChange(ctrl, unitName, relUUID, departed, watcherID)
 
+	// Changes and expected results should matches.
+	changes := watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
+			unitUUIDs[0].String(): {Version: 42},
+		},
+		AppChanged: map[string]int64{
+			appUUIDs[0].String(): 47,
+		},
+		Departed: []string{unitUUIDs[1].String()},
+	}
 	expectedResult := params.RelationUnitsWatchResults{Results: []params.RelationUnitsWatchResult{
 		{
 			RelationUnitsWatcherId: watcherID,
-			Changes:                params.RelationUnitsChange{Departed: departed},
+			Changes: params.RelationUnitsChange{
+				Changed: map[string]params.UnitSettings{
+					unitUUIDs[0].String(): {Version: 42},
+				},
+				AppChanged: map[string]int64{
+					appUUIDs[0].String(): 47,
+				},
+				Departed: []string{unitUUIDs[1].String()},
+			},
 		},
 	}}
+	s.expectWatchRelatedUnitsChange(unitName, relUUID, unitUUIDs, appUUIDs, watcherID, changes)
 
 	// act
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
@@ -1305,20 +1328,21 @@ func (s *uniterRelationSuite) expectWatcherRegistry(watchID string, watch *watch
 }
 
 func (s *uniterRelationSuite) expectWatchRelatedUnitsChange(
-	ctrl *gomock.Controller,
 	unitName coreunit.Name,
 	relUUID corerelation.UUID,
-	departed []string,
+	unitUUIDs []coreunit.UUID,
+	appUUIDS []coreapplication.ID,
 	watcherID string,
+	changes watcher.RelationUnitsChange,
 ) {
-	// todo(gfouillet) - reimplement while updating uniter part for
-	//   WatchRelatedUnit - JIRA-7430
-	//mockWatcher := NewMockRelationUnitsWatcher(ctrl)
-	//channel := make(chan watcher.RelationUnitsChange, 1)
-	//channel <- watcher.RelationUnitsChange{Departed: departed}
-	//mockWatcher.EXPECT().Changes().Return(channel).AnyTimes()
-	//s.relationService.EXPECT().WatchRelatedUnits(gomock.Any(), unitName, relUUID).Return(mockWatcher, nil)
-	//s.watcherRegistry.EXPECT().Register(gomock.Any()).Return(watcherID, nil)
+	channel := make(chan []string, 1)
+	mockWatcher := watchertest.NewMockStringsWatcher(channel)
+	channel <- append(transform.Slice(unitUUIDs, relation.EncodeUnitUUID), transform.Slice(appUUIDS,
+		relation.EncodeApplicationUUID)...)
+	close(channel)
+	s.relationService.EXPECT().WatchRelatedUnits(gomock.Any(), unitName, relUUID).Return(mockWatcher, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return(watcherID, nil)
+	s.relationService.EXPECT().GetRelationUnitChanges(gomock.Any(), unitUUIDs, appUUIDS).Return(changes, nil)
 }
 
 type commitHookChangesSuite struct {

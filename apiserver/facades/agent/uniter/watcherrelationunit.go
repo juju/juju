@@ -1,0 +1,142 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package uniter
+
+import (
+	"context"
+
+	"github.com/juju/names/v6"
+	"github.com/juju/worker/v4/catacomb"
+
+	"github.com/juju/juju/core/application"
+	corerelation "github.com/juju/juju/core/relation"
+	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/relation"
+	internalerrors "github.com/juju/juju/internal/errors"
+)
+
+// relationUnitsWatcher watches changes in related units for a specific unit
+// and relation.  It handles lifecycle management and manages buffers for
+// internal event streaming, working as a proxy around the domain watcher to
+// enrich its events.
+type relationUnitsWatcher struct {
+	catacomb catacomb.Catacomb
+
+	relation RelationService
+
+	unitName     coreunit.Name
+	relationUUID corerelation.UUID
+
+	out chan watcher.RelationUnitsChange
+}
+
+// newRelationUnitsWatcher creates and starts a watcher for observing changes
+// in relation units for a given unit and relation. Changes are generated
+// whenever any related units or application (ie, unit or application that are
+// bound to this unit through this relation):
+// - has its settings updated
+// - enter or leave scope (for related units)
+//
+// It initializes a relationUnitsWatcher instance,
+// sets up its internal state, and starts its lifecycle management.
+func newRelationUnitsWatcher(
+	ctx context.Context,
+	unit names.UnitTag,
+	relUUID corerelation.UUID,
+	relationService RelationService,
+) (watcher.RelationUnitsWatcher, error) {
+	w := &relationUnitsWatcher{
+		relation:     relationService,
+		unitName:     coreunit.Name(unit.Id()),
+		relationUUID: relUUID,
+		out:          make(chan watcher.RelationUnitsChange),
+	}
+	return w, catacomb.Invoke(catacomb.Plan{
+		Site: &w.catacomb,
+		Work: func() error {
+			return w.loop(w.catacomb.Context(ctx))
+		},
+	})
+}
+
+// fetchRelationUnitChanges processes a list of changes from domain watcher,
+// categorizing them by type, and retrieves the updated relation unit data.
+func (w *relationUnitsWatcher) fetchRelationUnitChanges(ctx context.Context,
+	changes []string) (watcher.RelationUnitsChange, error) {
+	var changedUnitUUIDs []coreunit.UUID
+	var changedAppUUIDs []application.ID
+
+	// sort uuid by kind
+	for _, change := range changes {
+		kind, uuid, err := relation.DecodeWatchRelationUnitChangeUUID(change)
+		if err != nil {
+			return watcher.RelationUnitsChange{}, internalerrors.Capture(err)
+		}
+		switch kind {
+		case relation.UnitUUID:
+			changedUnitUUIDs = append(changedUnitUUIDs, coreunit.UUID(uuid))
+		case relation.ApplicationUUID:
+			changedAppUUIDs = append(changedAppUUIDs, application.ID(uuid))
+		default:
+			return watcher.RelationUnitsChange{}, internalerrors.Errorf("unknown relation unit change kind: %q", kind)
+		}
+	}
+
+	return w.relation.GetRelationUnitChanges(ctx, changedUnitUUIDs, changedAppUUIDs)
+}
+
+// loop manages the lifecycle of the relationUnitsWatcher, processes related
+// unit changes, and outputs them to a channel.
+func (w *relationUnitsWatcher) loop(ctx context.Context) error {
+	defer close(w.out)
+
+	domainWatcher, err := w.relation.WatchRelatedUnits(ctx, w.unitName, w.relationUUID)
+	if err != nil {
+		return internalerrors.Errorf("starting related units watcher for relation %q and unit %q: %w",
+			w.relationUUID, w.unitName, err)
+	}
+	if err := w.catacomb.Add(domainWatcher); err != nil {
+		return internalerrors.Errorf("adding related units watcher to catacomb: %w", err)
+	}
+
+	var change watcher.RelationUnitsChange
+	var out chan watcher.RelationUnitsChange
+	in := domainWatcher.Changes()
+
+	for {
+		select {
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+		case changes, ok := <-in:
+			if !ok {
+				return w.catacomb.ErrDying()
+			}
+			change, err = w.fetchRelationUnitChanges(ctx, changes)
+			if err != nil {
+				return internalerrors.Errorf("fetching related units watcher changes: %w", err)
+			}
+			in, out = nil, w.out
+		case out <- change:
+			in, out = domainWatcher.Changes(), nil
+		}
+	}
+}
+
+// Kill is an implementation of [watcher.RelationUnitsWatcher]
+func (w *relationUnitsWatcher) Kill() {
+	w.catacomb.Kill(nil)
+}
+
+// Wait is an implementation of [watcher.RelationUnitsWatcher]
+func (w *relationUnitsWatcher) Wait() error {
+	return w.catacomb.Wait()
+}
+
+// Changes is an implementation of [watcher.RelationUnitsWatcher]
+func (w *relationUnitsWatcher) Changes() <-chan watcher.RelationUnitsChange {
+	return w.out
+}
+
+var _ watcher.RelationUnitsWatcher = &relationUnitsWatcher{}

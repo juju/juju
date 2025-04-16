@@ -302,6 +302,16 @@ type RelationService interface {
 		unitName coreunit.Name,
 	) (corerelation.UnitUUID, error)
 
+	// GetRelationUnitChanges retrieves updates to relation units and
+	// applications based on provided UUIDs.
+	// It returns a RelationUnitsChange object describing changes and an error
+	// if the operation fails.
+	GetRelationUnitChanges(
+		ctx context.Context,
+		unitUUIDs []coreunit.UUID,
+		appUUIDs []coreapplication.ID,
+	) (watcher.RelationUnitsChange, error)
+
 	// GetRelationUnitSettings returns the unit settings for the
 	// given relation unit identifier.
 	GetRelationUnitSettings(
@@ -316,10 +326,10 @@ type RelationService interface {
 	// - [relationerrors.RelationNotFound]: when no relation exists for the given key.
 	GetRelationUUIDByKey(ctx context.Context, relationKey corerelation.Key) (corerelation.UUID, error)
 
-	// GetRelationByID returns the relation uuid based on the relation ID.
+	// GetRelationUUIDByID returns the relation uuid based on the relation ID.
 	GetRelationUUIDByID(ctx context.Context, relationID int) (corerelation.UUID, error)
 
-	// GetRelationsStatusesForUnit returns RelationUnitStatus for
+	// GetRelationsStatusForUnit returns RelationUnitStatus for
 	// any relation the unit is part of.
 	GetRelationsStatusForUnit(ctx context.Context, unitUUID coreunit.UUID) ([]relation.RelationUnitStatus, error)
 
