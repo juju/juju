@@ -86,22 +86,8 @@ func (s *ControllerConfigAPI) getModelControllerInfo(ctx context.Context, model 
 	if err != nil {
 		return params.ControllerAPIInfoResult{}, errors.Trace(err)
 	}
-	// First see if the requested model UUID is hosted by this controller.
-	modelExists, err := s.st.ModelExists(modelTag.Id())
-	if err != nil {
-		return params.ControllerAPIInfoResult{}, errors.Trace(err)
-	}
-	if modelExists {
-		addrs, caCert, err := ControllerAPIInfo(ctx, s.st, s.controllerConfigService)
-		if err != nil {
-			return params.ControllerAPIInfoResult{}, errors.Trace(err)
-		}
-		return params.ControllerAPIInfoResult{
-			Addresses: addrs,
-			CACert:    caCert,
-		}, nil
-	}
 
+	// First try to get the controller info for this model
 	ctrl, err := s.externalControllerService.ControllerForModel(ctx, modelTag.Id())
 	if err == nil {
 		return params.ControllerAPIInfoResult{

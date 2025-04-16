@@ -90,7 +90,7 @@ func (s *controllerConfigSuite) expectStateControllerInfo(c *gc.C) {
 func (s *controllerConfigSuite) TestControllerInfo(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.st.EXPECT().ModelExists(testing.ModelTag.Id()).Return(true, nil)
+	s.externalControllerService.EXPECT().ControllerForModel(gomock.Any(), testing.ModelTag.Id()).Return(nil, fmt.Errorf("pow"))
 	s.expectStateControllerInfo(c)
 
 	results, err := s.ctrlConfigAPI.ControllerAPIInfoForModels(context.Background(), params.Entities{
