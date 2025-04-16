@@ -959,6 +959,7 @@ func (s *importSuite) TestImportEndpointBindings36(c *gc.C) {
 		EndpointBindings: map[string]string{
 			"endpoint0": "0",
 			"endpoint1": "1",
+			"endpoint2": "2",
 			// An empty endpoint name represents the applications default space.
 			"": "2",
 		},
@@ -1044,6 +1045,7 @@ func (s *importSuite) TestImportEndpointBindings40(c *gc.C) {
 		EndpointBindings: map[string]string{
 			"endpoint0": network.AlphaSpaceId,
 			"endpoint1": space1UUID,
+			"endpoint2": "",
 			// An empty endpoint name represents the applications default space.
 			"": space2UUID,
 		},
@@ -1108,6 +1110,89 @@ func (s *importSuite) TestImportEndpointBindings40(c *gc.C) {
 	c.Check(importArgs.EndpointBindings["endpoint0"], gc.DeepEquals, network.SpaceName(network.AlphaSpaceName))
 	c.Check(importArgs.EndpointBindings["endpoint1"], gc.DeepEquals, network.SpaceName("beta"))
 	c.Check(importArgs.EndpointBindings[""], gc.DeepEquals, network.SpaceName("gamma"))
+}
+
+// TestImportEndpointBindingsDefaultSpace checks that the endpoint bindings are
+// imported correctly when the application default is the alpha space.
+func (s *importSuite) TestImportEndpointBindingsDefaultSpace(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
+
+	space1UUID := uuid.MustNewUUID().String()
+	space2UUID := uuid.MustNewUUID().String()
+	// Arrange: Declare application args with endpoint bindings set.
+	appArgs := description.ApplicationArgs{
+		Name:     "prometheus",
+		CharmURL: "ch:prometheus-1",
+		Exposed:  true,
+		EndpointBindings: map[string]string{
+			"endpoint1": space1UUID,
+			"endpoint2": "",
+			// An empty endpoint name represents the applications default space.
+			"": "",
+		},
+	}
+	app := model.AddApplication(appArgs)
+
+	// Arrange: Set required fields.
+	app.SetCharmMetadata(description.CharmMetadataArgs{
+		Name: "prometheus",
+	})
+	app.SetCharmManifest(description.CharmManifestArgs{
+		Bases: []description.CharmManifestBase{baseType{
+			name:          "ubuntu",
+			channel:       "24.04",
+			architectures: []string{"amd64"},
+		}},
+	})
+	app.SetCharmOrigin(description.CharmOriginArgs{
+		Source:   "charm-hub",
+		ID:       "1234",
+		Hash:     "deadbeef",
+		Revision: 1,
+		Channel:  "666/stable",
+		Platform: "arm64/ubuntu/24.04",
+	})
+
+	// Arrange: Add space id to name information. This is in the 4.0 format,
+	// where the Id is a UUID.
+	model.AddSpace(description.SpaceArgs{
+		Id:   space1UUID,
+		Name: "beta",
+	})
+	model.AddSpace(description.SpaceArgs{
+		Id:   space2UUID,
+		Name: "gamma",
+	})
+
+	// Arrange: Expect the import of the application.
+	var importArgs service.ImportApplicationArgs
+	s.importService.EXPECT().ImportApplication(
+		gomock.Any(),
+		"prometheus",
+		gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, args service.ImportApplicationArgs) error {
+		importArgs = args
+		return nil
+	})
+
+	// Act: Import the application.
+	importOp := importOperation{
+		service: s.importService,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+	err := importOp.Execute(context.Background(), model)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Assert: Check that the endpoints are mapped to the correct space names
+	c.Assert(importArgs.Charm.Meta().Name, gc.Equals, "prometheus")
+	c.Assert(importArgs.EndpointBindings, gc.HasLen, 1)
+	c.Check(importArgs.EndpointBindings["endpoint1"], gc.DeepEquals, network.SpaceName("beta"))
 }
 
 func (s *importSuite) TestImportExposedEndpointsFrom36(c *gc.C) {

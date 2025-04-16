@@ -403,17 +403,18 @@ func (s *applicationEndpointStateSuite) TestGetEndpointBindings(c *gc.C) {
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bindings, gc.HasLen, 5)
-	c.Assert(bindings[relationName1], gc.Equals, spaceUUID1)
-	c.Assert(bindings[relationName2], gc.Equals, spaceUUID2)
-	c.Assert(bindings[extraName1], gc.Equals, spaceUUID3)
-	c.Assert(bindings[extraName2], gc.Equals, spaceUUID4)
-	c.Assert(bindings[""], gc.Equals, spaceUUID5)
+	c.Assert(bindings, gc.DeepEquals, map[string]string{
+		relationName1: spaceUUID1,
+		relationName2: spaceUUID2,
+		extraName1:    spaceUUID3,
+		extraName2:    spaceUUID4,
+		"":            spaceUUID5,
+	})
 }
 
-// TestGetEndpointBindingsIgnoresUnset checks that endpoints with an unset
-// space_uuid are not included.
-func (s *applicationEndpointStateSuite) TestGetEndpointBindingsIgnoresUnset(c *gc.C) {
+// TestGetEndpointBindingsReturnsUnset checks that endpoints with an unset
+// space_uuid are included.
+func (s *applicationEndpointStateSuite) TestGetEndpointBindingsReturnsUnset(c *gc.C) {
 	// Arrange: Get DB.
 	db, err := s.state.DB()
 	c.Assert(err, jc.ErrorIsNil)
@@ -437,8 +438,11 @@ func (s *applicationEndpointStateSuite) TestGetEndpointBindingsIgnoresUnset(c *g
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bindings, gc.HasLen, 1)
-	c.Assert(bindings[""], gc.Equals, network.AlphaSpaceId)
+	c.Assert(bindings, gc.DeepEquals, map[string]string{
+		"":            network.AlphaSpaceId,
+		relationName1: "",
+		extraName1:    "",
+	})
 }
 
 // TestGetEndpointBindingsOnlyDefault checks that when no application endpoints
@@ -607,14 +611,7 @@ ORDER BY s.name`, s.appID)
 // addSpaceReturningName ensures a space with the given name exists in the database,
 // creating it if necessary, and returns its name.
 func (s *applicationEndpointStateSuite) addSpaceReturningName(c *gc.C, name string) network.SpaceName {
-	spaceUUID := uuid.MustNewUUID().String()
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO space (uuid, name)
-VALUES (?, ?)`, spaceUUID, name)
-		return errors.Capture(err)
-	})
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) Failed to add a space: %v", err))
+	s.addSpace(c, name)
 	return network.SpaceName(name)
 }
 

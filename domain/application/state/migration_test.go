@@ -53,7 +53,11 @@ func (s *migrationStateSuite) TestGetApplicationsForExport(c *gc.C) {
 			},
 			Subordinate: false,
 			EndpointBindings: map[string]string{
-				"": network.AlphaSpaceId,
+				"":          network.AlphaSpaceId,
+				"endpoint":  "",
+				"extra":     "",
+				"juju-info": "",
+				"misc":      "",
 			},
 		},
 	})
@@ -83,7 +87,11 @@ func (s *migrationStateSuite) TestGetApplicationsForExportMany(c *gc.C) {
 			},
 			Subordinate: false,
 			EndpointBindings: map[string]string{
-				"": network.AlphaSpaceId,
+				"":          network.AlphaSpaceId,
+				"endpoint":  "",
+				"extra":     "",
+				"juju-info": "",
+				"misc":      "",
 			},
 		})
 	}
@@ -123,7 +131,11 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *gc.C) {
 			},
 			Subordinate: false,
 			EndpointBindings: map[string]string{
-				"": network.AlphaSpaceId,
+				"":          network.AlphaSpaceId,
+				"endpoint":  "",
+				"extra":     "",
+				"misc":      "",
+				"juju-info": "",
 			},
 		},
 		{
@@ -139,7 +151,11 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *gc.C) {
 			},
 			Subordinate: false,
 			EndpointBindings: map[string]string{
-				"": network.AlphaSpaceId,
+				"":          network.AlphaSpaceId,
+				"endpoint":  "",
+				"extra":     "",
+				"misc":      "",
+				"juju-info": "",
 			},
 		},
 	}
@@ -288,9 +304,11 @@ func (s *migrationStateSuite) TestGetApplicationsForExportEndpointBindings(c *gc
 			},
 			Subordinate: false,
 			EndpointBindings: map[string]string{
-				"":         network.AlphaSpaceId,
-				"endpoint": spaceUUID1,
-				"misc":     spaceUUID2,
+				"":          network.AlphaSpaceId,
+				"endpoint":  spaceUUID1,
+				"misc":      spaceUUID2,
+				"extra":     "",
+				"juju-info": "",
 			},
 		},
 	})

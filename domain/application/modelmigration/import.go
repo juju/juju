@@ -671,14 +671,35 @@ func (i *importOperation) importCharmActions(data description.CharmActions) (*in
 
 func (i *importOperation) importEndpointBindings(app description.Application, spaces []description.Space) (map[string]network.SpaceName, error) {
 	endpointBindings := make(map[string]network.SpaceName)
+	// Get the application's default space
+	applicationDefaultSpaceID := network.AlphaSpaceName
 	for endpoint, spaceID := range app.EndpointBindings() {
-		// We don't export the alpha space to the description model, so we
-		// must verify if the space ID is either the 4.0+ alpha space ID or
-		// the legacy ID ("0").
-		var spaceName string
-		if spaceID == network.AlphaSpaceId || spaceID == "0" {
-			spaceName = network.AlphaSpaceName
+		if endpoint == "" {
+			applicationDefaultSpaceID = spaceID
+			break
+		}
+	}
+
+	// Find the spaces names associated with each endpoint.
+	for endpoint, spaceID := range app.EndpointBindings() {
+		if spaceID == "" || (spaceID == applicationDefaultSpaceID && endpoint != "") {
+			// In migrations from 4.0+, an empty space ID signifies that the
+			// endpoint is set to the applications default space. Any endpoints
+			// not included explicitly in create application will be set to the
+			// application default, so do not set it here.
+
+			// Similarly, if the spaceID is the application default space, then
+			// don't add insert it. In 3.6 endpoints had their spaceID
+			// explicitly set to the default space.
+			continue
+		} else if spaceID == network.AlphaSpaceId || spaceID == "0" {
+			// If the space ID is that of the alpha space, then bind the
+			// endpoint to the alpha space name.
+			endpointBindings[endpoint] = network.AlphaSpaceName
 		} else {
+			// Search through the imported spaceIDs to find the corresponding
+			// space name for the endpoint binding.
+			var spaceName string
 			for _, spaceInfo := range spaces {
 				if spaceInfo.Id() == spaceID {
 					spaceName = spaceInfo.Name()
@@ -692,8 +713,8 @@ func (i *importOperation) importEndpointBindings(app description.Application, sp
 			if spaceName == "" {
 				return nil, errors.Errorf("space with id %q not found", spaceID)
 			}
+			endpointBindings[endpoint] = network.SpaceName(spaceName)
 		}
-		endpointBindings[endpoint] = network.SpaceName(spaceName)
 	}
 	return endpointBindings, nil
 }
