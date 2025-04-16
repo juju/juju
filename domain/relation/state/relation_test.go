@@ -23,6 +23,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -2376,6 +2377,77 @@ func (s *relationSuite) TestGetRelationApplicationSettingsApplicationNotFoundFor
 
 	// Assert:
 	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationNotFoundForRelation)
+}
+
+func (s *relationSuite) TestGetRelationUnitChanges(c *gc.C) {
+	c.Skip("Wait for relation unit settings to be merged")
+
+	// Arrange
+	// - 1 application with no settings hash => will return a version of 0
+	// - 1 application with settings hash => will return a non nil hash
+	// - 1 unit with no settings hash => will return a version of 0
+	// - 1 unit with settings hash => will return a non nil hash
+	// - 1 unit requested but not found => will be added to departed
+	charmUUID := s.addCharm(c)
+	charmRelationUUID := s.addCharmRelationWithDefaults(c, charmUUID)
+	noSettingAppUUID := s.addApplication(c, charmUUID, "noSetting")
+	withSettingAppUUID := s.addApplication(c, charmUUID, "withSetting")
+	noSettingAppEndpointUUID := s.addApplicationEndpoint(c, noSettingAppUUID, charmRelationUUID)
+	withSettingAppEndpointUUID := s.addApplicationEndpoint(c, withSettingAppUUID, charmRelationUUID)
+	relationUUID := s.addRelation(c)
+	noSettingUnitUUID := s.addUnit(c, "noSetting/0", noSettingAppUUID, charmUUID)
+	withSettingUnitUUID := s.addUnit(c, "withSetting/0", withSettingAppUUID, charmUUID)
+	unknownUnitUUID := coreunittesting.GenUnitUUID(c)
+	noSettingRelationEndpointUUID := s.addRelationEndpoint(c, relationUUID, noSettingAppEndpointUUID)
+	withSettingRelationEndpointUUID := s.addRelationEndpoint(c, relationUUID, withSettingAppEndpointUUID)
+	s.addRelationUnit(c, noSettingUnitUUID, noSettingRelationEndpointUUID)
+	s.addRelationUnit(c, withSettingUnitUUID, withSettingRelationEndpointUUID)
+
+	// todo(gfouillet): Add relation unit and relation application settings hashes
+
+	db, err := s.state.DB()
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) cannot get the DB: %s", errors.ErrorStack(err)))
+
+	// Act
+	var changes watcher.RelationUnitsChange
+	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		changes, err = s.state.GetRelationUnitChanges(ctx,
+			[]coreunit.UUID{noSettingUnitUUID, withSettingUnitUUID, unknownUnitUUID},
+			[]coreapplication.ID{noSettingAppUUID, withSettingAppUUID},
+		)
+		return err
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error: %s", errors.ErrorStack(err)))
+	c.Assert(changes.Changed, jc.SameContents, map[string]watcher.UnitSettings{
+		noSettingUnitUUID.String():   {Version: 0},
+		withSettingUnitUUID.String(): {Version: 42}, // TODO
+	})
+	c.Assert(changes.AppChanged, jc.SameContents, map[string]watcher.UnitSettings{
+		noSettingAppUUID.String():   {Version: 0},
+		withSettingAppUUID.String(): {Version: 42}, // TODO
+	})
+	c.Assert(changes.Departed, jc.SameContents, []string{unknownUnitUUID.String()})
+}
+
+func (s *relationSuite) TestGetRelationUnitChangesEmptyArgs(c *gc.C) {
+	c.Skip("Wait for relation unit settings to be merged")
+
+	// Arrange
+	db, err := s.state.DB()
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) cannot get the DB: %s", errors.ErrorStack(err)))
+
+	// Act
+	var changes watcher.RelationUnitsChange
+	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		changes, err = s.state.GetRelationUnitChanges(ctx, nil, nil)
+		return err
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error: %s", errors.ErrorStack(err)))
+	c.Check(changes, gc.DeepEquals, watcher.RelationUnitsChange{})
 }
 
 func (s *relationSuite) TestSetRelationApplicationSettings(c *gc.C) {
