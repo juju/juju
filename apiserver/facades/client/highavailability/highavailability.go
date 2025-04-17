@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -54,6 +55,12 @@ type ApplicationService interface {
 		storageParentDir, name string,
 		units ...applicationservice.AddUnitArg,
 	) error
+}
+
+// ModelInfoService provides access to information about the model.
+type ModelInfoService interface {
+	// GetModelInfo returns information about the current model.
+	GetModelInfo(context.Context) (model.ModelInfo, error)
 }
 
 // ControllerConfigService instances read the controller config.
