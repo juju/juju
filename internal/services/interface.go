@@ -33,6 +33,7 @@ import (
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
+	modelproviderservice "github.com/juju/juju/domain/modelprovider/service"
 	networkservice "github.com/juju/juju/domain/network/service"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	portservice "github.com/juju/juju/domain/port/service"
@@ -156,6 +157,9 @@ type ModelDomainServices interface {
 	Removal() *removalservice.WatchableService
 	// AgentPassword returns the service for managing agent passwords.
 	AgentPassword() *agentpasswordservice.Service
+	// ModelProvider returns a service for accessing info relevant to the
+	// provider for a model.
+	ModelProvider() *modelproviderservice.Service
 
 	// Stub returns the stub service. A special service that collects temporary
 	// methods required for wiring together domains which are not completely
