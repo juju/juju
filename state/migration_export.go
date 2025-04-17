@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
@@ -19,7 +18,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 )
@@ -136,9 +134,6 @@ func (st *State) exportImpl(cfg ExportConfig, store objectstore.ObjectStore) (de
 	if err := export.machines(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := export.relations(); err != nil {
-		return nil, errors.Trace(err)
-	}
 	if err := export.ipAddresses(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -204,9 +199,6 @@ type exporter struct {
 	modelSettings           map[string]settingsDoc
 	modelStorageConstraints map[string]storageConstraintsDoc
 	status                  map[string]bson.M
-	// Map of application name to units. Populated as part
-	// of the applications export.
-	units map[string][]*Unit
 }
 
 func (e *exporter) sequences() error {
@@ -370,117 +362,6 @@ func (e *exporter) readAllStorageConstraints() error {
 	return nil
 }
 
-func (e *exporter) relations() error {
-	rels, err := e.st.AllRelations()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	e.logger.Debugf(context.TODO(), "read %d relations", len(rels))
-
-	relationScopes := set.NewStrings()
-	if !e.cfg.SkipRelationData {
-		relationScopes, err = e.readAllRelationScopes()
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	for _, relation := range rels {
-		exRelation := e.model.AddRelation(description.RelationArgs{
-			Id:  relation.Id(),
-			Key: relation.String(),
-		})
-		globalKey := relation.globalScope()
-		statusArgs, err := e.statusArgs(globalKey)
-		if err == nil {
-			exRelation.SetStatus(statusArgs)
-		} else if !errors.Is(err, errors.NotFound) {
-			return errors.Annotatef(err, "status for relation %v", relation.Id())
-		}
-
-		for _, ep := range relation.Endpoints() {
-			if err := e.relationEndpoint(relation, exRelation, ep, relationScopes); err != nil {
-				return errors.Trace(err)
-			}
-		}
-	}
-	return nil
-}
-
-func (e *exporter) relationEndpoint(
-	relation *Relation,
-	exRelation description.Relation,
-	ep relation.Endpoint,
-	relationScopes set.Strings,
-) error {
-	exEndPoint := exRelation.AddEndpoint(description.EndpointArgs{
-		ApplicationName: ep.ApplicationName,
-		Name:            ep.Name,
-		Role:            string(ep.Role),
-		Interface:       ep.Interface,
-		Optional:        ep.Optional,
-		Limit:           ep.Limit,
-		Scope:           string(ep.Scope),
-	})
-
-	key := relationApplicationSettingsKey(relation.Id(), ep.ApplicationName)
-	appSettingsDoc, found := e.modelSettings[key]
-	if !found && !e.cfg.SkipSettings && !e.cfg.SkipRelationData {
-		return errors.Errorf("missing application settings for %q application %q", relation, ep.ApplicationName)
-	}
-	delete(e.modelSettings, key)
-	exEndPoint.SetApplicationSettings(appSettingsDoc.Settings)
-
-	// We expect a relationScope and settings for each of
-	// the units of the specified application.
-	if units, ok := e.units[ep.ApplicationName]; ok {
-		for _, unit := range units {
-			ru, err := relation.Unit(unit)
-			if err != nil {
-				return errors.Trace(err)
-			}
-
-			if err := e.relationUnit(exEndPoint, ru, unit.Name(), relationScopes); err != nil {
-				return errors.Annotatef(err, "processing relation unit in %s", relation)
-			}
-		}
-	}
-
-	return nil
-}
-
-func (e *exporter) relationUnit(
-	exEndPoint description.Endpoint,
-	ru *RelationUnit,
-	unitName string,
-	relationScopes set.Strings,
-) error {
-	valid, err := ru.Valid()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !valid {
-		// It doesn't make sense for this application to have a
-		// relations scope for this endpoint. For example the
-		// situation where we have a subordinate charm related to
-		// two different principals.
-		return nil
-	}
-
-	key := ru.key()
-	if !e.cfg.SkipRelationData && !relationScopes.Contains(key) && !e.cfg.IgnoreIncompleteModel {
-		return errors.Errorf("missing relation scope for %s", unitName)
-	}
-	settingsDoc, found := e.modelSettings[key]
-	if !found && !e.cfg.SkipSettings && !e.cfg.SkipRelationData && !e.cfg.IgnoreIncompleteModel {
-		return errors.Errorf("missing relation settings for %s", unitName)
-	}
-	delete(e.modelSettings, key)
-	exEndPoint.SetUnitSettings(unitName, settingsDoc.Settings)
-
-	return nil
-}
-
 func (e *exporter) linklayerdevices() error {
 	if e.cfg.SkipLinkLayerDevices {
 		return nil
@@ -637,24 +518,6 @@ func (e *exporter) operations() error {
 		e.model.AddOperation(arg)
 	}
 	return nil
-}
-
-func (e *exporter) readAllRelationScopes() (set.Strings, error) {
-	relationScopes, closer := e.st.db().GetCollection(relationScopesC)
-	defer closer()
-
-	var docs []relationScopeDoc
-	err := relationScopes.Find(nil).All(&docs)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get all relation scopes")
-	}
-	e.logger.Debugf(context.TODO(), "found %d relationScope docs", len(docs))
-
-	result := set.NewStrings()
-	for _, doc := range docs {
-		result.Add(doc.Key)
-	}
-	return result, nil
 }
 
 func (e *exporter) readAllConstraints() error {

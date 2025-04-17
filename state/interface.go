@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/tools"
 )
 
@@ -217,16 +216,4 @@ type Action interface {
 type ApplicationEntity interface {
 	// Life returns the life status of the application.
 	Life() Life
-
-	// IsRemote returns true if the application is remote (hosted in a different model).
-	IsRemote() bool
-
-	// Endpoints returns the application's currently available relation endpoints.
-	Endpoints() ([]relation.Endpoint, error)
-
-	// Endpoint returns the relation endpoint with the supplied name, if it exists.
-	Endpoint(relationName string) (relation.Endpoint, error)
-
-	// Relations returns a Relation for every relation the application is in.
-	Relations() (relations []*Relation, err error)
 }

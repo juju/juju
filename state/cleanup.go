@@ -5,8 +5,6 @@ package state
 
 import (
 	"context"
-	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -21,7 +19,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/mongo"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -39,8 +36,6 @@ var (
 
 const (
 	// SCHEMACHANGE: the names are expressive, the values not so much.
-	cleanupRelationSettings              cleanupKind = "settings"
-	cleanupForceDestroyedRelation        cleanupKind = "forceDestroyRelation"
 	cleanupUnitsForDyingApplication      cleanupKind = "units"
 	cleanupDyingUnit                     cleanupKind = "dyingUnit"
 	cleanupForceDestroyedUnit            cleanupKind = "forceDestroyUnit"
@@ -216,10 +211,6 @@ func (st *State) Cleanup(
 			args[i] = arg.Value.(bson.Raw)
 		}
 		switch doc.Kind {
-		case cleanupRelationSettings:
-			err = st.cleanupRelationSettings(doc.Prefix)
-		case cleanupForceDestroyedRelation:
-			err = st.cleanupForceDestroyedRelation(doc.Prefix)
 		case cleanupApplication:
 			err = st.cleanupApplication(ctx, store, applicationService, doc.Prefix, args)
 		case cleanupForceApplication:
@@ -295,99 +286,6 @@ func (st *State) cleanupResourceBlob(ctx context.Context, store objectstore.Writ
 		return nil
 	}
 	return errors.Trace(err)
-}
-
-func (st *State) cleanupRelationSettings(prefix string) error {
-	change := relationSettingsCleanupChange{Prefix: st.docID(prefix)}
-	if err := Apply(st.database, change); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-func (st *State) cleanupForceDestroyedRelation(prefix string) (err error) {
-	var relation *Relation
-	var relId int
-	if relId, err = strconv.Atoi(prefix); err == nil {
-		relation, err = st.Relation(relId)
-	} else if err != nil {
-		logger.Warningf(context.TODO(), "handling legacy cleanupForceDestroyedRelation with relation key %q", prefix)
-		relation, err = st.KeyRelation(prefix)
-	}
-	if errors.Is(err, errors.NotFound) {
-		return nil
-	} else if err != nil {
-		return errors.Annotatef(err, "getting relation %q", prefix)
-	}
-
-	scopes, closer := st.db().GetCollection(relationScopesC)
-	defer closer()
-
-	sel := bson.M{"_id": bson.M{
-		"$regex": fmt.Sprintf("^%s#", st.docID(relation.globalScope())),
-	}}
-	iter := scopes.Find(sel).Iter()
-	defer closeIter(iter, &err, "reading relation scopes")
-
-	var doc struct {
-		Key string `bson:"key"`
-	}
-	haveRelationUnits := false
-	for iter.Next(&doc) {
-		scope, role, unitName, err := unpackScopeKey(doc.Key)
-		if err != nil {
-			return errors.Annotatef(err, "unpacking scope key %q", doc.Key)
-		}
-		var matchingEp domainrelation.Endpoint
-		for _, ep := range relation.Endpoints() {
-			if string(ep.Role) == role {
-				matchingEp = ep
-			}
-		}
-		if matchingEp.Role == "" {
-			return errors.NotFoundf("endpoint matching %q", doc.Key)
-		}
-
-		haveRelationUnits = true
-		// This is nasty but I can't see any other way to do it - we
-		// can't rely on the unit existing to determine the values of
-		// isPrincipal and isLocalUnit, and we're only using the RU to
-		// call LeaveScope on it.
-		ru := RelationUnit{
-			st:       st,
-			relation: relation,
-			unitName: unitName,
-			endpoint: matchingEp,
-			scope:    scope,
-		}
-		// Run the leave scope txn immediately rather than building
-		// one big transaction because each one decrements the
-		// relation's unitcount, and we need the last one to remove
-		// the relation (which wouldn't work if the ops were combined
-		// into one txn).
-
-		// We know this should be forced, and we've already waited the
-		// required time.
-		errs, err := ru.LeaveScopeWithForce(true, 0)
-		if len(errs) > 0 {
-			logger.Warningf(context.TODO(), "operational errors leaving scope for unit %q in relation %q: %v", unitName, relation, errs)
-		}
-		if err != nil {
-			return errors.Annotatef(err, "leaving scope for unit %q in relation %q", unitName, relation)
-		}
-	}
-	if !haveRelationUnits {
-		// We got here because a relation claimed to have units but
-		// there weren't any corresponding relation unit records.
-		// We know this should be forced, and we've already waited the
-		// required time.
-		errs, err := relation.DestroyWithForce(true, 0)
-		if len(errs) > 0 {
-			logger.Warningf(context.TODO(), "operational errors force destroying orphaned relation %q: %v", relation, errs)
-		}
-		return errors.Annotatef(err, "force destroying relation %q", relation)
-	}
-	return nil
 }
 
 // cleanupModelsForDyingController sets all models to dying, if
@@ -594,11 +492,11 @@ func (st *State) cleanupApplication(ctx context.Context, store objectstore.Objec
 		return errors.BadRequestf("cleanupApplication requested for an application (%s) that is still alive", appName)
 	}
 	// We know the app is at least Dying, so check if the unit/relation counts are no longer referencing this application.
-	if app.UnitCount() > 0 || app.RelationCount() > 0 {
+	if app.UnitCount() > 0 {
 		// this is considered a no-op because whatever is currently referencing the application
 		// should queue up a new cleanup once it stops
-		logger.Tracef(context.TODO(), "cleanupApplication(%s) called, but it still has references: unitcount: %d relationcount: %d",
-			appName, app.UnitCount(), app.RelationCount())
+		logger.Tracef(context.TODO(), "cleanupApplication(%s) called, but it still has references: unitcount: %d",
+			appName, app.UnitCount())
 		return nil
 	}
 	destroyStorage := false
@@ -857,35 +755,6 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 		return err
 	}
 
-	// Mark the unit as departing from its joined relations, allowing
-	// related units to start converging to a state in which that unit
-	// is gone as quickly as possible.
-	relations, err := unit.RelationsJoined()
-	if err != nil {
-		if !force {
-			return err
-		}
-		logger.Warningf(context.TODO(), "could not get joined relations for unit %v during dying unit cleanup: %v", unit.Name(), err)
-	}
-	for _, relation := range relations {
-		relationUnit, err := relation.Unit(unit)
-		if errors.Is(err, errors.NotFound) {
-			continue
-		} else if err != nil {
-			if !force {
-				return err
-			}
-			logger.Warningf(context.TODO(), "could not get unit relation for unit %v during dying unit cleanup: %v", unit.Name(), err)
-		} else {
-			if err := relationUnit.PrepareLeaveScope(); err != nil {
-				if !force {
-					return err
-				}
-				logger.Warningf(context.TODO(), "could not prepare to leave scope for relation %v for unit %v during dying unit cleanup: %v", relation, unit.Name(), err)
-			}
-		}
-	}
-
 	// If we're forcing, set up a backstop cleanup to really remove
 	// the unit in the case that the unit and machine agents don't for
 	// some reason.
@@ -975,27 +844,6 @@ func (st *State) cleanupForceDestroyedUnit(ctx context.Context, store objectstor
 		if len(opErrs) != 0 || err != nil {
 			logger.Warningf(context.TODO(), "errors while destroying subordinate %q: %v, %v", subName, err, opErrs)
 		}
-	}
-
-	// LeaveScope on all of the unit's relations.
-	relations, err := unit.RelationsInScope()
-	if err == nil {
-		for _, relation := range relations {
-			ru, err := relation.Unit(unit)
-			if err != nil {
-				logger.Warningf(context.TODO(), "couldn't get relation unit for %q in %q: %v", unit, relation, err)
-				continue
-			}
-			errs, err := ru.LeaveScopeWithForce(true, maxWait)
-			if len(errs) != 0 {
-				logger.Warningf(context.TODO(), "operational errors cleaning up force destroyed unit %v in relation %v: %v", unit, relation, errs)
-			}
-			if err != nil {
-				logger.Warningf(context.TODO(), "unit %q couldn't leave scope of relation %q: %v", unitName, relation, err)
-			}
-		}
-	} else {
-		logger.Warningf(context.TODO(), "couldn't get in-scope relations for unit %q: %v", unitName, err)
 	}
 
 	// Detach all storage.

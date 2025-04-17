@@ -96,7 +96,7 @@ func (r *mockRelation) Endpoints() []relation.Endpoint {
 	return r.endpoints
 }
 
-func (r *mockRelation) WatchUnits(applicationName string) (state.RelationUnitsWatcher, error) {
+func (r *mockRelation) WatchUnits(applicationName string) (relation.RelationUnitsWatcher, error) {
 	r.MethodCall(r, "WatchUnits", applicationName)
 	if err := r.NextErr(); err != nil {
 		return nil, err

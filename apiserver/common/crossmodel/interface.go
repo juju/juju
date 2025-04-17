@@ -141,7 +141,7 @@ type Relation interface {
 
 	// WatchUnits returns a watcher that notifies of changes to the units of the
 	// specified application in the relation.
-	WatchUnits(applicationName string) (state.RelationUnitsWatcher, error)
+	WatchUnits(applicationName string) (relation.RelationUnitsWatcher, error)
 
 	// WatchLifeSuspendedStatus returns a watcher that notifies of changes to the life
 	// or suspended status of the relation.
