@@ -5,7 +5,13 @@ package state
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/sha512"
 	"database/sql"
+	"encoding/hex"
+	"fmt"
+	"io"
+	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -17,11 +23,14 @@ import (
 	corearch "github.com/juju/juju/core/arch"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/agentbinary"
+	agentbinarystate "github.com/juju/juju/domain/agentbinary/state"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -63,6 +72,85 @@ func (s *modelStateSuite) createMachineWithName(c *gc.C, name machine.Name) stri
 	c.Assert(machineUUID, gc.Equals, uuid.String())
 
 	return uuid.String()
+}
+
+// registerAgentBinary is a testing utility function that registers the fact
+// that an agent binary exists in the models store for the provided version. The
+// metadata for the newly created binary is returned to the caller upon creation.
+func (s *modelStateSuite) registerAgentBinary(
+	c *gc.C,
+	version coreagentbinary.Version,
+) coreagentbinary.Metadata {
+	runner := s.TxnRunner()
+
+	type objectStoreMeta struct {
+		UUID   string `db:"uuid"`
+		SHA256 string `db:"sha_256"`
+		SHA384 string `db:"sha_384"`
+		Size   int    `db:"size"`
+	}
+
+	storeUUID := uuid.MustNewUUID().String()
+	stmt, err := sqlair.Prepare(`
+INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size)
+VALUES ($objectStoreMeta.uuid, $objectStoreMeta.sha_256, $objectStoreMeta.sha_384, $objectStoreMeta.size)
+`, objectStoreMeta{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	hasher256 := sha256.New()
+	hasher384 := sha512.New384()
+	_, err = io.Copy(io.MultiWriter(hasher256, hasher384), strings.NewReader(storeUUID))
+	c.Assert(err, jc.ErrorIsNil)
+	sha256Hash := hex.EncodeToString(hasher256.Sum(nil))
+	sha384Hash := hex.EncodeToString(hasher384.Sum(nil))
+
+	metaRecord := objectStoreMeta{
+		UUID:   storeUUID,
+		SHA256: sha256Hash,
+		SHA384: sha384Hash,
+		Size:   1234,
+	}
+	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt, metaRecord).Run()
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	type dbMetadataPath struct {
+		// UUID is the uuid for the metadata.
+		UUID string `db:"metadata_uuid"`
+		// Path is the path to the object.
+		Path string `db:"path"`
+	}
+	path := "/path/" + storeUUID
+	pathRecord := dbMetadataPath{
+		UUID: storeUUID,
+		Path: path,
+	}
+	pathStmt, err := sqlair.Prepare(`
+INSERT INTO object_store_metadata_path (path, metadata_uuid)
+VALUES ($dbMetadataPath.*)`, pathRecord)
+	c.Assert(err, jc.ErrorIsNil)
+	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, pathStmt, pathRecord).Run()
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = agentbinarystate.NewState(s.TxnRunnerFactory()).RegisterAgentBinary(
+		context.Background(),
+		agentbinary.RegisterAgentBinaryArg{
+			Arch:            version.Arch,
+			ObjectStoreUUID: objectstore.UUID(storeUUID),
+			Version:         version.Number.String(),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return coreagentbinary.Metadata{
+		SHA256:  sha256Hash,
+		SHA384:  sha384Hash,
+		Size:    1234,
+		Version: version,
+	}
 }
 
 // Set the agent version for the given model in the DB.
@@ -129,7 +217,7 @@ func (s *modelStateSuite) createTestingApplicationWithName(
 	}
 	ctx := context.Background()
 
-	appID, err := appState.CreateApplication(ctx, "foo", application.AddApplicationArg{
+	appID, err := appState.CreateApplication(ctx, appName, application.AddApplicationArg{
 		Platform: platform,
 		Channel:  channel,
 		Charm: charm.Charm{
@@ -793,4 +881,251 @@ func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionAllUptoDate(c *gc.C) {
 	list, err := st.GetUnitsNotAtTargetAgentVersion(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(len(list), gc.Equals, 0)
+}
+
+// TestGetMachinesAgentBinaryMetadataNoMachines is testing that if the model
+// has no machines we get back an empty list of machine agent binary metadata.
+func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadataNoMachines(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	data, err := st.GetMachinesAgentBinaryMetadata(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(len(data), gc.Equals, 0)
+}
+
+// TestGetMachinesAgentBinaryMetadata tests the happy path of
+// [State.GetMachinesAgentBinaryMetadata]. We assert that with multiple machines
+// on different agent binaries the each machine is correctly associated.
+func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadata(c *gc.C) {
+	versionAMD64 := coreagentbinary.Version{
+		Number: semversion.MustParse("4.1.0"),
+		Arch:   corearch.AMD64,
+	}
+	versionARM64 := coreagentbinary.Version{
+		Number: semversion.MustParse("4.1.0"),
+		Arch:   corearch.ARM64,
+	}
+
+	metaAMD64 := s.registerAgentBinary(c, versionAMD64)
+	metaARM64 := s.registerAgentBinary(c, versionARM64)
+
+	st := NewState(s.TxnRunnerFactory())
+	expected := map[machine.Name]coreagentbinary.Metadata{}
+
+	for i := range 5 {
+		machineName := machine.Name(fmt.Sprintf("amd64-%d", i))
+		machineUUID := s.createMachineWithName(c, machineName)
+		err := st.SetMachineRunningAgentBinaryVersion(
+			context.Background(), machineUUID, versionAMD64,
+		)
+		c.Assert(err, jc.ErrorIsNil)
+		expected[machineName] = metaAMD64
+	}
+	for i := range 5 {
+		machineName := machine.Name(fmt.Sprintf("arm64-%d", i))
+		machineUUID := s.createMachineWithName(c, machineName)
+		err := st.SetMachineRunningAgentBinaryVersion(
+			context.Background(), machineUUID, versionARM64,
+		)
+		c.Assert(err, jc.ErrorIsNil)
+		expected[machineName] = metaARM64
+	}
+
+	data, err := st.GetMachinesAgentBinaryMetadata(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(data, jc.DeepEquals, expected)
+}
+
+// TestGetMachinesAgentBinaryMetadataMachineNotSet is testing that given a set
+// of machines within the model if at least one of these machines does not have
+// an agent binary version set we get back an error that satisfies
+// [modelagenterrors.MachineAgentVersionNotSet].
+//
+// We would expect to see this situation arise when a machine has been
+// provisioned by Juju but the machine agent running on the machine has not yet
+// come to life and reported their agent version back up to the controller.
+func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadataMachineNotSet(c *gc.C) {
+	versionAMD64 := coreagentbinary.Version{
+		Number: semversion.MustParse("4.1.0"),
+		Arch:   corearch.AMD64,
+	}
+	s.registerAgentBinary(c, versionAMD64)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	for i := range 5 {
+		machineName := machine.Name(fmt.Sprintf("amd64-%d", i))
+		machineUUID := s.createMachineWithName(c, machineName)
+		err := st.SetMachineRunningAgentBinaryVersion(
+			context.Background(), machineUUID, versionAMD64,
+		)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	// This is our rogue machine with no agent version set.
+	machineName := machine.Name("amd64-6")
+	s.createMachineWithName(c, machineName)
+
+	data, err := st.GetMachinesAgentBinaryMetadata(context.Background())
+	c.Check(err, jc.ErrorIs, modelagenterrors.MachineAgentVersionNotSet)
+	c.Check(len(data), gc.Equals, 0)
+}
+
+// TestGetMachinesAgentBinaryMetadataMissingAgentBinary is testing that if every
+// machine in the model correctly has their agent version set but the agent
+// binary store is missing records for at least one of the agent binaries on
+// the machine we get back an error that satisfies
+// [modelagenterrors.MissingAgentBinaries]
+func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadataMissingAgentBinary(c *gc.C) {
+	versionAMD64 := coreagentbinary.Version{
+		Number: semversion.MustParse("4.1.0"),
+		Arch:   corearch.AMD64,
+	}
+	s.registerAgentBinary(c, versionAMD64)
+
+	st := NewState(s.TxnRunnerFactory())
+
+	for i := range 5 {
+		machineName := machine.Name(fmt.Sprintf("amd64-%d", i))
+		machineUUID := s.createMachineWithName(c, machineName)
+		err := st.SetMachineRunningAgentBinaryVersion(
+			context.Background(), machineUUID, versionAMD64,
+		)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	// This is the machine that is running an agent version for which there
+	// exists no agent binaries in the store.
+	machineName := machine.Name("arm64-6")
+	machineUUID := s.createMachineWithName(c, machineName)
+	st.SetMachineRunningAgentBinaryVersion(
+		context.Background(),
+		machineUUID,
+		coreagentbinary.Version{
+			Number: semversion.MustParse("4.1.0"),
+			Arch:   corearch.ARM64,
+		},
+	)
+
+	data, err := st.GetMachinesAgentBinaryMetadata(context.Background())
+	c.Check(err, jc.ErrorIs, modelagenterrors.MissingAgentBinaries)
+	c.Check(len(data), gc.Equals, 0)
+}
+
+// TestGetUnitAgentBinaryMetadata tests the happy path of
+// [State.GetUnitsAgentBinaryMetadata]. We assert that with multiple units on
+// different agent binaries the each unit is correctly associated.
+func (s *modelStateSuite) TestGetUnitAgentBinaryMetadata(c *gc.C) {
+	versionAMD64 := coreagentbinary.Version{
+		Number: semversion.MustParse("4.1.0"),
+		Arch:   corearch.AMD64,
+	}
+	versionARM64 := coreagentbinary.Version{
+		Number: semversion.MustParse("4.1.0"),
+		Arch:   corearch.ARM64,
+	}
+
+	metaAMD64 := s.registerAgentBinary(c, versionAMD64)
+	metaARM64 := s.registerAgentBinary(c, versionARM64)
+
+	appID1 := s.createTestingApplicationWithName(c, "foo")
+
+	st := NewState(s.TxnRunnerFactory())
+	expected := map[coreunit.Name]coreagentbinary.Metadata{}
+
+	for i := range 5 {
+		unitName, err := coreunit.NewNameFromParts("foo", i)
+		c.Assert(err, jc.ErrorIsNil)
+		unitUUID := s.createTestingUnitWithName(c, "foo", appID1, unitName)
+		st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionAMD64)
+		expected[unitName] = metaAMD64
+	}
+
+	appID2 := s.createTestingApplicationWithName(c, "foo1")
+	for i := range 5 {
+		unitName, err := coreunit.NewNameFromParts("foo1", i)
+		c.Assert(err, jc.ErrorIsNil)
+		unitUUID := s.createTestingUnitWithName(c, "foo1", appID2, unitName)
+		st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionARM64)
+		expected[unitName] = metaARM64
+	}
+
+	data, err := st.GetUnitsAgentBinaryMetadata(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(data, jc.DeepEquals, expected)
+}
+
+// TestGetUnitsAgentBinaryMetadataUnitNotSet is testing that given a set
+// of units within the model if at least one of these units does not have
+// an agent binary version set we get back an error that satisfies
+// [modelagenterrors.UnitAgentVersionNotSet].
+//
+// We would expect to see this situation arise when a unit has been
+// provisioned by Juju but the agent running on the unit has not yet
+// come to life and reported their agent version back up to the controller.
+func (s *modelStateSuite) TestGetUnitsAgentBinaryMetadataUnitNotSet(c *gc.C) {
+	versionAMD64 := coreagentbinary.Version{
+		Number: semversion.MustParse("4.1.0"),
+		Arch:   corearch.AMD64,
+	}
+	s.registerAgentBinary(c, versionAMD64)
+
+	appID := s.createTestingApplicationWithName(c, "foo")
+	st := NewState(s.TxnRunnerFactory())
+
+	for i := range 5 {
+		unitName, err := coreunit.NewNameFromParts("foo", i)
+		c.Assert(err, jc.ErrorIsNil)
+		unitUUID := s.createTestingUnitWithName(c, "foo", appID, unitName)
+		st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionAMD64)
+	}
+
+	// This is our rogue machine with no agent version set.
+	unitName, err := coreunit.NewNameFromParts("foo", 6)
+	c.Assert(err, jc.ErrorIsNil)
+	s.createTestingUnitWithName(c, "foo", appID, unitName)
+
+	data, err := st.GetUnitsAgentBinaryMetadata(context.Background())
+	c.Check(err, jc.ErrorIs, modelagenterrors.UnitAgentVersionNotSet)
+	c.Check(len(data), gc.Equals, 0)
+}
+
+// TestGetUnitsAgentBinaryMetadataMissingAgentBinary is testing that if every
+// unit in the model correctly has their agent version set but the agent
+// binary store is missing records for at least one of the agent binaries on
+// the unit we get back an error that satisfies
+// [modelagenterrors.MissingAgentBinaries]
+func (s *modelStateSuite) TestGetUnitAgentBinaryMetadataMissingAgentBinary(c *gc.C) {
+	versionAMD64 := coreagentbinary.Version{
+		Number: semversion.MustParse("4.1.0"),
+		Arch:   corearch.AMD64,
+	}
+	s.registerAgentBinary(c, versionAMD64)
+
+	appID := s.createTestingApplicationWithName(c, "foo")
+	st := NewState(s.TxnRunnerFactory())
+
+	for i := range 5 {
+		unitName, err := coreunit.NewNameFromParts("foo", i)
+		c.Assert(err, jc.ErrorIsNil)
+		unitUUID := s.createTestingUnitWithName(c, "foo", appID, unitName)
+		st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionAMD64)
+	}
+
+	// This is the unit that is running an agent version for which there
+	// exists no agent binaries in the store.
+	unitName, err := coreunit.NewNameFromParts("foo", 6)
+	c.Assert(err, jc.ErrorIsNil)
+	unitUUID := s.createTestingUnitWithName(c, "foo", appID, unitName)
+	st.SetUnitRunningAgentBinaryVersion(
+		context.Background(),
+		unitUUID,
+		coreagentbinary.Version{
+			Number: semversion.MustParse("4.1.0"),
+			Arch:   corearch.ARM64,
+		},
+	)
+
+	data, err := st.GetUnitsAgentBinaryMetadata(context.Background())
+	c.Check(err, jc.ErrorIs, modelagenterrors.MissingAgentBinaries)
+	c.Check(len(data), gc.Equals, 0)
 }

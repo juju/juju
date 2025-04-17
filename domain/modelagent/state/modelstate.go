@@ -10,6 +10,7 @@ import (
 	"github.com/canonical/sqlair"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
@@ -161,6 +162,132 @@ func (st *State) checkUnitNotDead(
 	default:
 		return nil
 	}
+}
+
+// GetMachinesAgentBinaryMetada reports the agent binary metadata that each
+// machine in the model is currently running. This is a bulk call to support
+// operations such as model export where it is expected that the state of a
+// model stays relatively static over the operation. This function will never
+// provide enough granuality into what machine fails as part of the checks.
+//
+// The following errors can be expected:
+// - [modelagenterrors.MachineAgentVersionNotSet] when one or more machines in
+// the model do not have their agent version set.
+// - [modelagenterrors.MissingAgentBinaries] when the agent binaries don't exist
+// for one or more machines in the model.
+func (st *State) GetMachinesAgentBinaryMetadata(
+	ctx context.Context,
+) (map[machine.Name]coreagentbinary.Metadata, error) {
+	// As of writing this we do not maintain a strong RI between the agent
+	// binary that a machine should be running and an agent binary in the
+	// model's store. To do this we would need to start refactoring how machines
+	// work and that is to record the intent with which a machine is provisioned.
+	// i.e we would need to start caching the fact that we expect machine x to
+	// use version y with agent binaries z.
+	//
+	// This would also actively getting agent binaries from external sources
+	// when creating machines. This is currently done lazily.
+
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT    mav.name AS &machineAgentBinaryMetadata.name,
+          mav.version AS &machineAgentBinaryMetadata.version,
+          mav.architecture_name AS &machineAgentBinaryMetadata.architecture_name,
+          osm.size AS &machineAgentBinaryMetadata.size,
+          osm.sha_256 AS &machineAgentBinaryMetadata.sha_256,
+          osm.sha_384 AS &machineAgentBinaryMetadata.sha_384
+FROM      v_machine_agent_version AS mav
+LEFT JOIN v_agent_binary_store AS abs ON (
+          mav.version = abs.version
+AND       mav.architecture_id = abs.architecture_id)
+LEFT JOIN object_store_metadata AS osm ON abs.object_store_uuid = osm.uuid
+`, machineAgentBinaryMetadata{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	machineCount := rowCount{}
+	stmtMachineCount, err := st.Prepare(`
+SELECT (count(*)) AS (&rowCount.count)
+FROM   machine
+`, machineCount)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	machineBinaryMetadata := []machineAgentBinaryMetadata{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&machineBinaryMetadata)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"getting machine binary information from database: %w", err,
+			)
+		}
+
+		if err := tx.Query(ctx, stmtMachineCount).Get(&machineCount); err != nil {
+			return errors.Errorf(
+				"getting the number of machines currently in the model: %w", err,
+			)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	if len(machineBinaryMetadata) != machineCount.Count {
+		return nil, errors.New(
+			"not all machines in the model have their agent version set",
+		).Add(modelagenterrors.MachineAgentVersionNotSet)
+	}
+
+	rval := make(map[machine.Name]coreagentbinary.Metadata, len(machineBinaryMetadata))
+	for _, machineRecord := range machineBinaryMetadata {
+		// Because we are performing a left join aginst agent binary store with
+		// no RI there exists the possability that machine might be using a
+		// version that isn't in the model store. In theory this should never
+		// happen. We need to check all of the agent binary store values from
+		// the query for null to work out if this case exists.
+		//
+		// In theory just checking one of these values should be enough to
+		// identify the condition but all three are done for safety and
+		// correctness.
+		if !machineRecord.SHA256.Valid ||
+			!machineRecord.SHA384.Valid ||
+			!machineRecord.Size.Valid {
+			return nil, errors.Errorf(
+				"machine %q has missing agent binaries in the model",
+				machineRecord.MachineName,
+			).Add(modelagenterrors.MissingAgentBinaries)
+		}
+
+		number, err := semversion.Parse(machineRecord.Version)
+		if err != nil {
+			return nil, errors.Errorf(
+				"parsing machine %q version %q number: %w",
+				machineRecord.MachineName, machineRecord.Version, err,
+			)
+		}
+
+		machineName := machine.Name(machineRecord.MachineName)
+		rval[machineName] = coreagentbinary.Metadata{
+			SHA256: machineRecord.SHA256.String,
+			SHA384: machineRecord.SHA384.String,
+			Size:   machineRecord.Size.Int64,
+			Version: coreagentbinary.Version{
+				Number: number,
+				Arch:   corearch.Arch(machineRecord.Architecture),
+			},
+		}
+	}
+
+	return rval, nil
 }
 
 // GetMachinesNotAtTargetAgentVersion returns the list of machines where
@@ -385,6 +512,139 @@ WHERE machine_uuid = $machineUUIDRef.machine_uuid
 		Number: vers,
 		Arch:   info.ArchitectureName,
 	}, nil
+}
+
+// GetUnitsAgentBinaryMetadata reports the agent binary metadata that each
+// unit in the model is currently running. This is a bulk call to support
+// operations such as model export where it is expected that the state of a
+// model stays relatively static over the operation. This function will never
+// provide enough granuality into what unit fails as part of the checks.
+//
+// The following errors can be expected:
+// - [modelagenterrors.UnitAgentVersionNotSet] when one or more units in
+// the model do not have their agent version set.
+// - [modelagenterrors.MissingAgentBinaries] when the agent binaries don't exist
+// for one or more units in the model.
+func (st *State) GetUnitsAgentBinaryMetadata(
+	ctx context.Context,
+) (map[coreunit.Name]coreagentbinary.Metadata, error) {
+	// As of writing this we do not maintain a strong RI between the agent
+	// binary that a unit should be running and an agent binary in the
+	// model's store. To do this we would need to start refactoring how units
+	// work and that is to record the intent with which a unit is provisioned.
+	// i.e we would need to start caching the fact that we expect unit x to
+	// use version y with agent binaries z.
+	//
+	// This would also actively getting agent binaries from external sources
+	// when creating units. This is currently done lazily.
+
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT    u.name AS &unitAgentBinaryMetadata.name,
+          uav.version AS &unitAgentBinaryMetadata.version,
+          a.name AS &unitAgentBinaryMetadata.architecture_name,
+          osm.size AS &unitAgentBinaryMetadata.size,
+          osm.sha_256 AS &unitAgentBinaryMetadata.sha_256,
+          osm.sha_384 AS &unitAgentBinaryMetadata.sha_384
+FROM      unit_agent_version AS uav
+JOIN      unit AS u ON uav.unit_uuid = u.uuid
+JOIN      architecture AS a ON uav.architecture_id = a.id
+LEFT JOIN v_agent_binary_store AS abs ON (
+          uav.version = abs.version
+AND       uav.architecture_id = abs.architecture_id)
+LEFT JOIN object_store_metadata AS osm ON abs.object_store_uuid = osm.uuid
+`, unitAgentBinaryMetadata{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	unitCount := rowCount{}
+	stmtUnitCount, err := st.Prepare(`
+SELECT (count(*)) AS (&rowCount.count)
+FROM   unit
+`, unitCount)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	unitBinaryMetadata := []unitAgentBinaryMetadata{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&unitBinaryMetadata)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"getting unit binary information from database: %w", err,
+			)
+		}
+
+		if err := tx.Query(ctx, stmtUnitCount).Get(&unitCount); err != nil {
+			return errors.Errorf(
+				"getting the number of units currently in the model: %w", err,
+			)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	if len(unitBinaryMetadata) != unitCount.Count {
+		return nil, errors.New(
+			"not all units in the model have their agent version set",
+		).Add(modelagenterrors.UnitAgentVersionNotSet)
+	}
+
+	rval := make(map[coreunit.Name]coreagentbinary.Metadata, len(unitBinaryMetadata))
+	for _, unitRecord := range unitBinaryMetadata {
+		// Because we are performing a left join aginst agent binary store with
+		// no RI there exists the possability that unit might be using a
+		// version that isn't in the model store. In theory this should never
+		// happen. We need to check all of the agent binary store values from
+		// the query for null to work out if this case exists.
+		//
+		// In theory just checking one of these values should be enough to
+		// identify the condition but all three are done for safety and
+		// correctness.
+		if !unitRecord.SHA256.Valid ||
+			!unitRecord.SHA384.Valid ||
+			!unitRecord.Size.Valid {
+			return nil, errors.Errorf(
+				"unit %q has missing agent binaries in the model",
+				unitRecord.UnitName,
+			).Add(modelagenterrors.MissingAgentBinaries)
+		}
+
+		number, err := semversion.Parse(unitRecord.Version)
+		if err != nil {
+			return nil, errors.Errorf(
+				"parsing unit %q version %q number: %w",
+				unitRecord.UnitName, unitRecord.Version, err,
+			)
+		}
+
+		unitName, err := coreunit.NewName(unitRecord.UnitName)
+		if err != nil {
+			return nil, errors.Errorf(
+				"parsing unit name %q: %w", unitRecord.UnitName, err,
+			)
+		}
+		rval[unitName] = coreagentbinary.Metadata{
+			SHA256: unitRecord.SHA256.String,
+			SHA384: unitRecord.SHA384.String,
+			Size:   unitRecord.Size.Int64,
+			Version: coreagentbinary.Version{
+				Number: number,
+				Arch:   corearch.Arch(unitRecord.Architecture),
+			},
+		}
+	}
+
+	return rval, nil
 }
 
 // GetUnitsNotAtTargetAgentVersion returns the list of units where
