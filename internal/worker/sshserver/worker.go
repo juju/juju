@@ -24,6 +24,7 @@ type ServerWrapperWorkerConfig struct {
 	SessionHandler       SessionHandler
 	JWTParser            JWTParser
 	TunnelTracker        *sshtunneler.Tracker
+	metricsCollector     *Collector
 }
 
 // Validate validates the workers configuration is as expected.
@@ -45,6 +46,9 @@ func (c ServerWrapperWorkerConfig) Validate() error {
 	}
 	if c.JWTParser == nil {
 		return errors.NotValidf("JWTParser is required")
+	}
+	if c.metricsCollector == nil {
+		return errors.NotValidf("metricsCollector is required")
 	}
 	return nil
 }
@@ -156,6 +160,7 @@ func (ssw *serverWrapperWorker) loop() error {
 		SessionHandler:           ssw.config.SessionHandler,
 		JWTParser:                ssw.config.JWTParser,
 		TunnelTracker:            ssw.config.TunnelTracker,
+		metricsCollector:         ssw.config.metricsCollector,
 	})
 	if err != nil {
 		return errors.Trace(err)

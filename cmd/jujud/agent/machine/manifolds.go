@@ -796,6 +796,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewServerWorker:        sshserver.NewServerWorker,
 			NewSSHServerListener:   sshserver.NewSSHServerListener,
 			SSHTunnelerName:        sshTunnelerName,
+			PrometheusRegisterer:   config.PrometheusRegisterer,
 		})),
 
 		// The jwtParser worker runs on the controller machine.

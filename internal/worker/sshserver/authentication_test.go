@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/lestrrat-go/jwx/v2/jwt"
@@ -47,6 +48,7 @@ func (s *authenticationSuite) SetupAuthenticator(c *gc.C) *authenticator {
 		jwtParser:     s.jwtParser,
 		facadeClient:  s.facadeClient,
 		tunnelTracker: s.tunnelAuthenticator,
+		metrics:       NewMetricsCollector(),
 	}
 }
 
@@ -76,6 +78,19 @@ func (s *authenticationSuite) TestJWTPasswordAuthentication(c *gc.C) {
 	c.Assert(ok, gc.Equals, true)
 }
 
+func (s *authenticationSuite) TestInvalidJWTPasswordAuthentication(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
+	authenticator := s.SetupAuthenticator(c)
+
+	s.jwtParser.EXPECT().Parse(gomock.Any(), "password").Return(nil, errors.New("invalid token"))
+	s.ctx.EXPECT().SetValue(authenticatedViaPublicKey{}, false)
+	s.ctx.EXPECT().User().Return("jimm")
+
+	ok := authenticator.passwordAuthentication(s.ctx, "password")
+	c.Assert(ok, gc.Equals, false)
+}
+
 func (s *authenticationSuite) TestTunnelPasswordAuthentication(c *gc.C) {
 	defer s.SetupMocks(c).Finish()
 
@@ -84,10 +99,23 @@ func (s *authenticationSuite) TestTunnelPasswordAuthentication(c *gc.C) {
 	s.tunnelAuthenticator.EXPECT().AuthenticateTunnel("juju-reverse-tunnel", "password").Return("tunnel-id", nil)
 	s.ctx.EXPECT().SetValue(tunnelIDKey{}, "tunnel-id")
 	s.ctx.EXPECT().SetValue(authenticatedViaPublicKey{}, false)
-	s.ctx.EXPECT().User().Return("juju-reverse-tunnel").Times(3)
+	s.ctx.EXPECT().User().Return("juju-reverse-tunnel").Times(2)
 
 	ok := authenticator.passwordAuthentication(s.ctx, "password")
 	c.Assert(ok, gc.Equals, true)
+}
+
+func (s *authenticationSuite) TestInvalidTunnelPasswordAuthentication(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
+	authenticator := s.SetupAuthenticator(c)
+
+	s.tunnelAuthenticator.EXPECT().AuthenticateTunnel("juju-reverse-tunnel", "password").Return("", errors.New("invalid tunnel"))
+	s.ctx.EXPECT().SetValue(authenticatedViaPublicKey{}, false)
+	s.ctx.EXPECT().User().Return("juju-reverse-tunnel").Times(2)
+
+	ok := authenticator.passwordAuthentication(s.ctx, "password")
+	c.Assert(ok, gc.Equals, false)
 }
 
 func (s *authenticationSuite) TestPasswordAuthenticationInvalidUser(c *gc.C) {
@@ -95,7 +123,7 @@ func (s *authenticationSuite) TestPasswordAuthenticationInvalidUser(c *gc.C) {
 
 	authenticator := s.SetupAuthenticator(c)
 
-	s.ctx.EXPECT().User().Return("fake-user").Times(2)
+	s.ctx.EXPECT().User().Return("fake-user").Times(1)
 	s.ctx.EXPECT().SetValue(authenticatedViaPublicKey{}, false)
 
 	ok := authenticator.passwordAuthentication(s.ctx, "password")

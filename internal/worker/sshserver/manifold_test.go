@@ -9,12 +9,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
 	"github.com/juju/worker/v3/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
@@ -25,7 +25,7 @@ import (
 )
 
 type manifoldSuite struct {
-	testing.IsolationSuite
+	MockRegisterer *MockRegisterer
 }
 
 var _ = gc.Suite(&manifoldSuite{})
@@ -36,7 +36,14 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
-func newManifoldConfig(modifier func(cfg *ManifoldConfig)) *ManifoldConfig {
+func (s *manifoldSuite) SetupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.MockRegisterer = NewMockRegisterer(ctrl)
+
+	return ctrl
+}
+
+func (s *manifoldSuite) newManifoldConfig(modifier func(cfg *ManifoldConfig)) *ManifoldConfig {
 	cfg := &ManifoldConfig{
 		NewServerWrapperWorker: func(ServerWrapperWorkerConfig) (worker.Worker, error) { return nil, nil },
 		NewServerWorker:        func(ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
@@ -45,6 +52,7 @@ func newManifoldConfig(modifier func(cfg *ManifoldConfig)) *ManifoldConfig {
 		NewSSHServerListener:   newTestingSSHServerListener,
 		JWTParserName:          "jwt-parser",
 		SSHTunnelerName:        "ssh-tunneler",
+		PrometheusRegisterer:   s.MockRegisterer,
 	}
 
 	if modifier != nil {
@@ -55,63 +63,68 @@ func newManifoldConfig(modifier func(cfg *ManifoldConfig)) *ManifoldConfig {
 }
 
 func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	// Check config as expected.
 
-	cfg := newManifoldConfig(nil)
+	cfg := s.newManifoldConfig(nil)
 	c.Assert(cfg.Validate(), jc.ErrorIsNil)
 
-	// Entirely missing.
-	cfg = newManifoldConfig(func(cfg *ManifoldConfig) {
-		cfg.NewServerWrapperWorker = nil
-		cfg.NewServerWorker = nil
-		cfg.Logger = nil
-	})
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
-
 	// Missing NewServerWrapperWorker.
-	cfg = newManifoldConfig(func(cfg *ManifoldConfig) {
+	cfg = s.newManifoldConfig(func(cfg *ManifoldConfig) {
 		cfg.NewServerWrapperWorker = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	// Missing NewServerWorker.
-	cfg = newManifoldConfig(func(cfg *ManifoldConfig) {
+	cfg = s.newManifoldConfig(func(cfg *ManifoldConfig) {
 		cfg.NewServerWorker = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	// Missing Logger.
-	cfg = newManifoldConfig(func(cfg *ManifoldConfig) {
+	cfg = s.newManifoldConfig(func(cfg *ManifoldConfig) {
 		cfg.Logger = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	// Empty APICallerName.
-	cfg = newManifoldConfig(func(cfg *ManifoldConfig) {
+	cfg = s.newManifoldConfig(func(cfg *ManifoldConfig) {
 		cfg.APICallerName = ""
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	// Empty NewSSHServerListener.
-	cfg = newManifoldConfig(func(cfg *ManifoldConfig) {
+	cfg = s.newManifoldConfig(func(cfg *ManifoldConfig) {
 		cfg.NewSSHServerListener = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	// Empty SSHTunnelerName.
-	cfg = newManifoldConfig(func(cfg *ManifoldConfig) {
+	cfg = s.newManifoldConfig(func(cfg *ManifoldConfig) {
 		cfg.SSHTunnelerName = ""
+	})
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+
+	// Empty PrometheusRegisterer.
+	cfg = s.newManifoldConfig(func(cfg *ManifoldConfig) {
+		cfg.PrometheusRegisterer = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 }
 
 func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	// Setup the manifold
-	manifold := Manifold(*newManifoldConfig(func(cfg *ManifoldConfig) {
+	manifold := Manifold(*s.newManifoldConfig(func(cfg *ManifoldConfig) {
 		cfg.NewServerWrapperWorker = func(ServerWrapperWorkerConfig) (worker.Worker, error) {
 			return workertest.NewDeadWorker(nil), nil
 		}
 	}))
+
+	s.MockRegisterer.EXPECT().Register(gomock.Any()).Return(nil)
+	s.MockRegisterer.EXPECT().Unregister(gomock.Any()).Return(true)
 
 	// Check the inputs are as expected
 	c.Assert(manifold.Inputs, gc.DeepEquals, []string{
@@ -140,11 +153,13 @@ func (a mockAPICaller) BestFacadeVersion(facade string) int {
 }
 
 func (s *manifoldSuite) TestManifolUninstall(c *gc.C) {
+	defer s.SetupMocks(c).Finish()
+
 	// Unset feature flag
 	os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
-	manifold := Manifold(*newManifoldConfig(func(cfg *ManifoldConfig) {
+	manifold := Manifold(*s.newManifoldConfig(func(cfg *ManifoldConfig) {
 		cfg.NewServerWrapperWorker = func(ServerWrapperWorkerConfig) (worker.Worker, error) {
 			return workertest.NewDeadWorker(nil), nil
 		}

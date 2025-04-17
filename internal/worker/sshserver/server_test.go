@@ -99,6 +99,7 @@ func (s *sshServerSuite) newServerWorkerConfig(
 		SessionHandler:           s.sessionHandler,
 		disableAuth:              true,
 		TunnelTracker:            &sshtunneler.Tracker{},
+		metricsCollector:         NewMetricsCollector(),
 	}
 
 	if modifier != nil {
@@ -142,6 +143,12 @@ func (s *sshServerSuite) TestValidate(c *gc.C) {
 		cfg.JWTParser = nil
 	})
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	// Test no metricsCollector.
+	cfg = s.newServerWorkerConfig(nil, func(cfg *ServerWorkerConfig) {
+		cfg.metricsCollector = nil
+	})
+	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *sshServerSuite) TestSSHServerNoAuth(c *gc.C) {
@@ -150,6 +157,7 @@ func (s *sshServerSuite) TestSSHServerNoAuth(c *gc.C) {
 	s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil)
 
 	listener := bufconn.Listen(1024)
+	defer listener.Close()
 
 	server, err := NewServerWorker(s.newServerWorkerConfig(listener, nil))
 	c.Assert(err, jc.ErrorIsNil)
@@ -214,6 +222,7 @@ func (s *sshServerSuite) TestPublicKeyHandler(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	listener := bufconn.Listen(1024)
+	defer listener.Close()
 
 	s.facadeClient.EXPECT().ListPublicKeysForModel(gomock.Any()).
 		DoAndReturn(func(sshPKIAuthArgs params.ListAuthorizedKeysArgs) ([]gossh.PublicKey, error) {
@@ -289,8 +298,6 @@ func (s *sshServerSuite) TestPublicKeyHandler(c *gc.C) {
 func (s *sshServerSuite) TestPasswordHandler(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	listener := bufconn.Listen(1024)
-
 	// This token holds the public key that the user must present
 	// at the terminating server proving they are the same user
 	// that authenticated at JIMM.
@@ -324,6 +331,9 @@ func (s *sshServerSuite) TestPasswordHandler(c *gc.C) {
 
 	for _, test := range tests {
 		c.Log(test.name)
+
+		listener := bufconn.Listen(1024)
+		defer listener.Close()
 
 		s.jwtParser.EXPECT().Parse(gomock.Any(), "password").Return(token, nil)
 		s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil).AnyTimes()
@@ -370,6 +380,8 @@ func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	listener := bufconn.Listen(1024)
+	defer listener.Close()
+
 	s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil)
 	_, err := NewServerWorker(s.newServerWorkerConfig(listener, nil))
 	c.Assert(err, jc.ErrorIsNil)
@@ -415,6 +427,8 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 	s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil).AnyTimes()
 
 	listener := bufconn.Listen(1024)
+	defer listener.Close()
+
 	_, err := NewServerWorker(s.newServerWorkerConfig(listener, nil))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -456,6 +470,8 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	listener := bufconn.Listen(1024)
+	defer listener.Close()
+
 	worker, err := NewServerWorker(s.newServerWorkerConfig(listener, nil))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -517,6 +533,7 @@ func (s *reverseTunnelSuite) TestSSHServerReverseTunnel(c *gc.C) {
 
 	// Start the server on an in-memory listener
 	listener := bufconn.Listen(1024)
+	defer listener.Close()
 
 	// Setup the tunnel tracker with mock dependencies.
 	// Then pass it into the server.
@@ -601,6 +618,7 @@ func (s *reverseTunnelSuite) TestReverseTunnelNoTunnelID(c *gc.C) {
 
 	// Start the server on an in-memory listener
 	listener := bufconn.Listen(1024)
+	defer listener.Close()
 
 	// Setup the tunnel tracker with mock dependencies.
 	// Then pass it into the server.

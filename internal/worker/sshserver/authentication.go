@@ -43,6 +43,7 @@ type authenticator struct {
 	jwtParser     JWTParser
 	facadeClient  FacadeClient
 	tunnelTracker TunnelAuthenticator
+	metrics       *Collector
 }
 
 // TODO(JUJU-7777): implement public key authentication in the jump server in addition to the terminating server.
@@ -59,24 +60,36 @@ func (auth authenticator) publicKeyAuthentication(ctx ssh.Context, key ssh.Publi
 func (auth authenticator) passwordAuthentication(ctx ssh.Context, password string) bool {
 	ctx.SetValue(authenticatedViaPublicKey{}, false)
 	// If the authenticating user is jimm, we can assume the password
-	// is a JWT. Otherwise we can't assume anything.
-	if ctx.User() == "jimm" {
+	// is a JWT. Otherwise if it's a tunnel user, we can assume the password
+	// will be recognised by the tunnel tracker.
+	// In all other cases we return false.
+
+	// The default method of password is useful to obtain metrics on how
+	// often we see login attempts with passwords that have invalid users.
+	authMethod := "password"
+	switch ctx.User() {
+	case "jimm":
+		authMethod = "jwt"
+
 		token, err := auth.jwtParser.Parse(ctx, password)
 		if err != nil {
 			auth.logger.Errorf("failed to parse jwt token: %v", err)
-			return false
+			break
 		}
 		ctx.SetValue(userJWT{}, token)
 		return true
-	}
-	if ctx.User() == sshtunneler.ReverseTunnelUser {
+	case sshtunneler.ReverseTunnelUser:
+		authMethod = "tunnel"
+
 		tunnelID, err := auth.tunnelTracker.AuthenticateTunnel(ctx.User(), password)
 		if err != nil {
-			return false
+			auth.logger.Errorf("failed to authenticate tunnel: %v", err)
+			break
 		}
 		ctx.SetValue(tunnelIDKey{}, tunnelID)
 		return true
 	}
+	auth.metrics.authenticationFailures.WithLabelValues(authMethod).Inc()
 	return false
 }
 
@@ -91,7 +104,9 @@ func (auth authenticator) newTerminatingServerAuthenticator(ctx ssh.Context, tar
 		return terminatingServerAuthenticator{}, errors.New("failed to get authenticatedViaPublicKey from context")
 	}
 
-	var tsa terminatingServerAuthenticator
+	tsa := terminatingServerAuthenticator{
+		metrics: auth.metrics,
+	}
 
 	if authenticatedViaPublicKey {
 		// if the user is authenticated via public key, we need to verify the key
@@ -139,6 +154,7 @@ func (auth authenticator) newTerminatingServerAuthenticator(ctx ssh.Context, tar
 // This struct is derived from the base authenticator.
 type terminatingServerAuthenticator struct {
 	keysToVerify []gossh.PublicKey
+	metrics      *Collector
 }
 
 // PublicKeyAuthentication verifies the public key provided by the user matches
@@ -150,5 +166,6 @@ func (tsa terminatingServerAuthenticator) PublicKeyAuthentication(ctx ssh.Contex
 			return true
 		}
 	}
+	tsa.metrics.authenticationFailures.WithLabelValues("public_key").Inc()
 	return false
 }
