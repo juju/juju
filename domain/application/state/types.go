@@ -1097,6 +1097,7 @@ type exportApplication struct {
 	CharmRevision        int                `db:"revision"`
 	CharmArchitectureID  sql.NullInt64      `db:"architecture_id"`
 	K8sServiceProviderID sql.NullString     `db:"k8s_provider_id"`
+	EndpointBindings     map[string]string
 }
 
 // peerEndpoint represents a structure for defining a peer application endpoint
@@ -1187,4 +1188,9 @@ type machinePlacement struct {
 type machineParent struct {
 	ParentUUID  machine.UUID `db:"parent_uuid"`
 	MachineUUID machine.UUID `db:"machine_uuid"`
+}
+
+type getApplicationEndpoint struct {
+	SpaceUUID    string `db:"space_uuid"`
+	EndpointName string `db:"name"`
 }

@@ -290,3 +290,76 @@ WHERE uuid =  $setDefaultSpace.uuid`, app)
 	}
 	return tx.Query(ctx, updateDefaultSpaceStmt, app).Run()
 }
+
+// getEndpointBindings gets a map of endpoint names to space UUIDs. This
+// includes the application endpoints, and the application extra endpoints. An
+// endpoint name of "" is used to record the default application space. If the
+// endpoint has the default space, it is not included in the map.
+func (st *State) getEndpointBindings(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID) (map[string]string, error) {
+	// Query application endpoints.
+	id := applicationID{ID: appUUID}
+	endpointStmt, err := st.Prepare(`
+SELECT (ae.space_uuid, cr.name) AS (&getApplicationEndpoint.*)
+FROM   application_endpoint ae
+JOIN   charm_relation cr ON cr.uuid = ae.charm_relation_uuid
+WHERE  ae.application_uuid = $applicationID.uuid
+`, getApplicationEndpoint{}, id)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	// Query application extra endpoints.
+	extraEndpointStmt, err := st.Prepare(`
+SELECT (aee.space_uuid, ceb.name) AS (&getApplicationEndpoint.*)
+FROM   application_extra_endpoint aee
+JOIN   charm_extra_binding ceb ON ceb.uuid = aee.charm_extra_binding_uuid
+WHERE  aee.application_uuid = $applicationID.uuid
+`, getApplicationEndpoint{}, id)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	// Query default endpoint for application.
+	defaultSpaceUUID := spaceUUID{}
+	defaultEndpointStmt, err := st.Prepare(`
+SELECT space_uuid AS &spaceUUID.uuid
+FROM   application 
+WHERE  uuid = $applicationID.uuid
+`, defaultSpaceUUID, id)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	// Get application endpoints.
+	var dbEndpoints []getApplicationEndpoint
+	err = tx.Query(ctx, endpointStmt, id).GetAll(&dbEndpoints)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, internalerrors.Errorf("getting application endpoints: %w", err)
+	}
+
+	// Get application extra endpoints.
+	var dbExtraEndpoints []getApplicationEndpoint
+	err = tx.Query(ctx, extraEndpointStmt, id).GetAll(&dbExtraEndpoints)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, internalerrors.Errorf("getting application endpoints: %w", err)
+	}
+
+	// Get application default endpoint.
+	err = tx.Query(ctx, defaultEndpointStmt, id).Get(&defaultSpaceUUID)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, applicationerrors.ApplicationNotFound
+	} else if err != nil {
+		return nil, internalerrors.Errorf("getting application endpoints: %w", err)
+	}
+
+	endpoints := make(map[string]string, len(dbEndpoints)+len(dbExtraEndpoints)+1)
+	for _, e := range dbEndpoints {
+		endpoints[e.EndpointName] = e.SpaceUUID
+	}
+	for _, e := range dbExtraEndpoints {
+		endpoints[e.EndpointName] = e.SpaceUUID
+	}
+	endpoints[""] = defaultSpaceUUID.UUID
+
+	return endpoints, nil
+}
