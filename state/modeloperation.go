@@ -4,8 +4,6 @@
 package state
 
 import (
-	"sort"
-
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	jujutxn "github.com/juju/txn/v3"
@@ -105,20 +103,4 @@ func ComposeModelOperations(modelOps ...ModelOperation) ModelOperation {
 func (st *State) ApplyOperation(op ModelOperation) error {
 	err := st.db().Run(op.Build)
 	return op.Done(err)
-}
-
-// sortRemovalOpsLast re-orders a slice of transaction operations so that any
-// document removals occur at the end of the slice.
-// This is important for server-side transactions because of two execution
-// characteristics:
-// 1. All assertions are verified first.
-// 2. We can read our own writes inside the transaction.
-// This means it is possible for a removal and a subsequent update operation
-// on the same document to pass the assertions, then fail with "not found" upon
-// actual processing.
-// Legacy client-side transactions do not exhibit this behaviour.
-func sortRemovalOpsLast(ops []txn.Op) {
-	sort.Slice(ops, func(i, j int) bool {
-		return !ops[i].Remove && ops[j].Remove
-	})
 }

@@ -947,34 +947,6 @@ func (op *RemoveUnitOperation) removeOps() (ops []txn.Op, err error) {
 	if op.unit.doc.Life != Dead {
 		return nil, errors.New("unit is not dead")
 	}
-	// Now the unit is Dead, we can be sure that it's impossible for it to
-	// enter relation scopes (once it's Dying, we can be sure of this; but
-	// EnsureDead does not require that it already be Dying, so this is the
-	// only point at which we can safely backstop lp:1233457 and mitigate
-	// the impact of unit agent bugs that leave relation scopes occupied).
-	relations, err := matchingRelations(op.unit.st, op.unit.doc.Application)
-	if op.FatalError(err) {
-		return nil, err
-	} else {
-		failRelations := false
-		for _, rel := range relations {
-			ru, err := rel.Unit(op.unit)
-			if err != nil {
-				op.AddError(err)
-				failRelations = true
-				continue
-			}
-			leaveScopeOps, err := ru.leaveScopeForcedOps(&op.ForcedOperation)
-			if err != nil && err != jujutxn.ErrNoOperations {
-				op.AddError(err)
-				failRelations = true
-			}
-			ops = append(ops, leaveScopeOps...)
-		}
-		if !op.Force && failRelations {
-			return nil, op.LastError()
-		}
-	}
 
 	// Now we're sure we haven't left any scopes occupied by this unit, we
 	// can safely remove the document.
@@ -996,45 +968,6 @@ func (u *Unit) SubordinateNames() []string {
 	subNames := make([]string, len(u.doc.Subordinates))
 	copy(subNames, u.doc.Subordinates)
 	return subNames
-}
-
-// RelationsJoined returns the relations for which the unit has entered scope
-// and neither left it nor prepared to leave it
-func (u *Unit) RelationsJoined() ([]*Relation, error) {
-	return u.relations(func(ru *RelationUnit) (bool, error) {
-		return ru.Joined()
-	})
-}
-
-// RelationsInScope returns the relations for which the unit has entered scope
-// and not left it.
-func (u *Unit) RelationsInScope() ([]*Relation, error) {
-	return u.relations(func(ru *RelationUnit) (bool, error) {
-		return ru.InScope()
-	})
-}
-
-type relationPredicate func(ru *RelationUnit) (bool, error)
-
-// relations implements RelationsJoined and RelationsInScope.
-func (u *Unit) relations(predicate relationPredicate) ([]*Relation, error) {
-	candidates, err := matchingRelations(u.st, u.doc.Application)
-	if err != nil {
-		return nil, err
-	}
-	var filtered []*Relation
-	for _, relation := range candidates {
-		relationUnit, err := relation.Unit(u)
-		if err != nil {
-			return nil, err
-		}
-		if include, err := predicate(relationUnit); err != nil {
-			return nil, err
-		} else if include {
-			filtered = append(filtered, relation)
-		}
-	}
-	return filtered, nil
 }
 
 // PrincipalName returns the name of the unit's principal.

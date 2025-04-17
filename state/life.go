@@ -80,16 +80,6 @@ func isNotDeadWithSession(coll mongo.Collection, id interface{}) (bool, error) {
 	return checkLifeWithSession(coll, id, bson.DocElem{"life", bson.D{{"$ne", Dead}}})
 }
 
-func isDying(mb modelBackend, collName string, id interface{}) (bool, error) {
-	coll, closer := mb.db().GetCollection(collName)
-	defer closer()
-	return isDyingWithSession(coll, id)
-}
-
-func isDyingWithSession(coll mongo.Collection, id interface{}) (bool, error) {
-	return checkLifeWithSession(coll, id, bson.DocElem{"life", Dying})
-}
-
 func checkLifeWithSession(coll mongo.Collection, id interface{}, sel bson.DocElem) (bool, error) {
 	n, err := coll.Find(bson.D{{"_id", id}, sel}).Count()
 	return n == 1, err
