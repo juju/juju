@@ -11,6 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
+
+	"github.com/juju/juju/internal/sshtunneler"
 )
 
 // ServerWrapperWorkerConfig holds the configuration required by the server wrapper worker.
@@ -20,6 +22,9 @@ type ServerWrapperWorkerConfig struct {
 	FacadeClient         FacadeClient
 	NewSSHServerListener func(net.Listener, time.Duration) net.Listener
 	SessionHandler       SessionHandler
+	JWTParser            JWTParser
+	TunnelTracker        *sshtunneler.Tracker
+	metricsCollector     *Collector
 }
 
 // Validate validates the workers configuration is as expected.
@@ -38,6 +43,12 @@ func (c ServerWrapperWorkerConfig) Validate() error {
 	}
 	if c.SessionHandler == nil {
 		return errors.NotValidf("SessionHandler is required")
+	}
+	if c.JWTParser == nil {
+		return errors.NotValidf("JWTParser is required")
+	}
+	if c.metricsCollector == nil {
+		return errors.NotValidf("metricsCollector is required")
 	}
 	return nil
 }
@@ -147,14 +158,19 @@ func (ssw *serverWrapperWorker) loop() error {
 		NewSSHServerListener:     ssw.config.NewSSHServerListener,
 		FacadeClient:             ssw.config.FacadeClient,
 		SessionHandler:           ssw.config.SessionHandler,
+		JWTParser:                ssw.config.JWTParser,
+		TunnelTracker:            ssw.config.TunnelTracker,
+		metricsCollector:         ssw.config.metricsCollector,
 	})
-	ssw.addWorkerReporter("ssh-server", srv)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	if err := ssw.catacomb.Add(srv); err != nil {
 		return errors.Trace(err)
 	}
+
+	ssw.addWorkerReporter("ssh-server", srv)
 
 	for {
 		select {

@@ -36,20 +36,14 @@ func NewParserWithHTTPClient(ctx context.Context, client jwk.HTTPClient) *Parser
 // It will return a NotProvisioned error if SetJWKSCache
 // has not been run on the parser.
 func (j *Parser) Parse(ctx context.Context, tok string) (jwt.Token, error) {
-	j.mu.RLock()
-	defer j.mu.RUnlock()
-
-	if j.refreshURL == "" {
-		return nil, errors.NotProvisionedf("no refresh url configured")
-	}
 	tokBytes, err := base64.StdEncoding.DecodeString(tok)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid jwt authToken in request")
 	}
 
-	jwkSet, err := j.cache.Get(ctx, j.refreshURL)
+	jwkSet, err := j.getJWKSet(ctx)
 	if err != nil {
-		return nil, errors.Annotate(err, "refreshing jwt key")
+		return nil, err
 	}
 
 	jwtTok, err := jwt.Parse(
@@ -60,6 +54,23 @@ func (j *Parser) Parse(ctx context.Context, tok string) (jwt.Token, error) {
 		return nil, errors.Trace(err)
 	}
 	return jwtTok, err
+}
+
+// getJWKSet retrieves the JWK set from the cache.
+func (j *Parser) getJWKSet(ctx context.Context) (jwk.Set, error) {
+	j.mu.RLock()
+	defer j.mu.RUnlock()
+
+	if j.refreshURL == "" {
+		return nil, errors.NotProvisionedf("no refresh url configured")
+	}
+
+	jwkSet, err := j.cache.Get(ctx, j.refreshURL)
+	if err != nil {
+		return nil, errors.Annotate(err, "refreshing jwt key")
+	}
+
+	return jwkSet, nil
 }
 
 // SetJWKSCache sets up the token key cache and refreshes the public key.

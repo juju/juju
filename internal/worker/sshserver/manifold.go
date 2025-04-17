@@ -11,6 +11,7 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/api/base"
@@ -18,6 +19,9 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/internal/jwtparser"
+	"github.com/juju/juju/internal/sshtunneler"
+	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -55,6 +59,15 @@ type ManifoldConfig struct {
 
 	// Logger is the logger to use for the worker.
 	Logger Logger
+
+	// JWTParserName is the name of the JWT parser worker.
+	JWTParserName string
+
+	// SSHTunnelerName holds the name of the SSH tunneler worker.
+	SSHTunnelerName string
+
+	// PrometheusRegisterer is the prometheus registerer to use for metrics.
+	PrometheusRegisterer prometheus.Registerer
 }
 
 // Validate validates the manifold configuration.
@@ -74,6 +87,15 @@ func (config ManifoldConfig) Validate() error {
 	if config.NewSSHServerListener == nil {
 		return errors.NotValidf("nil NewSSHServerListener")
 	}
+	if config.JWTParserName == "" {
+		return errors.NotValidf("empty JWTParserName")
+	}
+	if config.SSHTunnelerName == "" {
+		return errors.NotValidf("empty SSHTunnelerName")
+	}
+	if config.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
+	}
 	return nil
 }
 
@@ -83,6 +105,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.APICallerName,
+			config.JWTParserName,
+			config.SSHTunnelerName,
 		},
 		Start: config.startWrapperWorker,
 	}
@@ -111,17 +135,40 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 		return nil, errors.Trace(err)
 	}
 
+	var jwtParser *jwtparser.Parser
+	if err := context.Get(config.JWTParserName, &jwtParser); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var tunnelTracker *sshtunneler.Tracker
+	if err := context.Get(config.SSHTunnelerName, &tunnelTracker); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Register the metrics collector against the prometheus register.
+	metricsCollector := NewMetricsCollector()
+	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w, err := config.NewServerWrapperWorker(ServerWrapperWorkerConfig{
 		NewServerWorker:      config.NewServerWorker,
 		Logger:               config.Logger,
 		FacadeClient:         client,
 		NewSSHServerListener: config.NewSSHServerListener,
 		SessionHandler:       &stubSessionHandler{},
+		JWTParser:            jwtParser,
+		TunnelTracker:        tunnelTracker,
+		metricsCollector:     metricsCollector,
 	})
 	if err != nil {
+		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
 		return nil, errors.Trace(err)
 	}
-	return w, nil
+
+	return common.NewCleanupWorker(w, func() {
+		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
+	}), nil
 }
 
 // NewSSHServerListener returns a listener based on the given listener.
