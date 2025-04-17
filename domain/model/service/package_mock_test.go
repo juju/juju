@@ -505,6 +505,45 @@ func (c *MockModelStateGetModelMetricsCall) DoAndReturn(f func(context.Context) 
 	return c
 }
 
+// IsControllerModel mocks base method.
+func (m *MockModelState) IsControllerModel(arg0 context.Context) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsControllerModel", arg0)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsControllerModel indicates an expected call of IsControllerModel.
+func (mr *MockModelStateMockRecorder) IsControllerModel(arg0 any) *MockModelStateIsControllerModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsControllerModel", reflect.TypeOf((*MockModelState)(nil).IsControllerModel), arg0)
+	return &MockModelStateIsControllerModelCall{Call: call}
+}
+
+// MockModelStateIsControllerModelCall wrap *gomock.Call
+type MockModelStateIsControllerModelCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelStateIsControllerModelCall) Return(arg0 bool, arg1 error) *MockModelStateIsControllerModelCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelStateIsControllerModelCall) Do(f func(context.Context) (bool, error)) *MockModelStateIsControllerModelCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelStateIsControllerModelCall) DoAndReturn(f func(context.Context) (bool, error)) *MockModelStateIsControllerModelCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetModelConstraints mocks base method.
 func (m *MockModelState) SetModelConstraints(arg0 context.Context, arg1 constraints.Constraints) error {
 	m.ctrl.T.Helper()

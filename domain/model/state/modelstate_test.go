@@ -594,3 +594,65 @@ func (s *modelSuite) TestGetModelCloudRegionAndCredentialNotFound(c *gc.C) {
 	_, _, _, err := state.GetModelCloudRegionAndCredential(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
+
+func (s *modelSuite) TestIsControllerModelTrue(c *gc.C) {
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	uuid := modeltesting.GenModelUUID(c)
+	cloudType := "ec2"
+	args := model.ModelDetailArgs{
+		UUID:              uuid,
+		AgentVersion:      jujuversion.Current,
+		ControllerUUID:    s.controllerUUID,
+		Name:              "mycontrollermodel",
+		Type:              coremodel.IAAS,
+		Cloud:             "aws",
+		CloudType:         cloudType,
+		CloudRegion:       "myregion",
+		CredentialOwner:   usertesting.GenNewName(c, "myowner"),
+		CredentialName:    "mycredential",
+		IsControllerModel: true,
+	}
+	err := state.Create(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	isControllerModel, err := state.IsControllerModel(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(isControllerModel, jc.IsTrue)
+}
+
+func (s *modelSuite) TestIsControllerModelFalse(c *gc.C) {
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	uuid := modeltesting.GenModelUUID(c)
+	cloudType := "ec2"
+	args := model.ModelDetailArgs{
+		UUID:              uuid,
+		AgentVersion:      jujuversion.Current,
+		ControllerUUID:    s.controllerUUID,
+		Name:              "mycontrollermodel",
+		Type:              coremodel.IAAS,
+		Cloud:             "aws",
+		CloudType:         cloudType,
+		CloudRegion:       "myregion",
+		CredentialOwner:   usertesting.GenNewName(c, "myowner"),
+		CredentialName:    "mycredential",
+		IsControllerModel: false,
+	}
+	err := state.Create(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	isControllerModel, err := state.IsControllerModel(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(isControllerModel, jc.IsFalse)
+}
+
+func (s *modelSuite) TestIsControllerModelNotFound(c *gc.C) {
+	runner := s.TxnRunnerFactory()
+	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
+
+	_, err := state.IsControllerModel(context.Background())
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+}

@@ -37,8 +37,8 @@ type RemoteFirewallerSuite struct {
 	authorizer *apiservertesting.FakeAuthorizer
 	st         *MockState
 
-	watcherRegistry     *facademocks.MockWatcherRegistry
 	controllerConfigAPI *MockControllerConfigAPI
+	watcherRegistry     *facademocks.MockWatcherRegistry
 	api                 *firewaller.FirewallerAPI
 
 	controllerConfigService *MockControllerConfigService
@@ -46,6 +46,7 @@ type RemoteFirewallerSuite struct {
 	networkService          *MockNetworkService
 	applicationService      *MockApplicationService
 	machineService          *MockMachineService
+	modelInfoService        *MockModelInfoService
 }
 
 func (s *RemoteFirewallerSuite) SetUpTest(c *gc.C) {
@@ -73,6 +74,7 @@ func (s *RemoteFirewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.networkService = NewMockNetworkService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
+	s.modelInfoService = NewMockModelInfoService(ctrl)
 
 	return ctrl
 }
@@ -91,6 +93,7 @@ func (s *RemoteFirewallerSuite) setupAPI(c *gc.C) {
 		s.modelConfigService,
 		s.applicationService,
 		s.machineService,
+		s.modelInfoService,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -103,7 +106,6 @@ func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *gc.C) {
 	s.setupAPI(c)
 
 	db2Relation := newMockRelation(123)
-	s.st.EXPECT().ModelUUID().Return(coretesting.ModelTag.Id()).AnyTimes()
 	s.st.EXPECT().KeyRelation("remote-db2:db django:db").Return(db2Relation, nil)
 
 	result, err := s.api.WatchIngressAddressesForRelations(
@@ -154,7 +156,7 @@ func (s *RemoteFirewallerSuite) TestSetRelationStatus(c *gc.C) {
 
 	db2Relation := newMockRelation(123)
 	entity := names.NewRelationTag("remote-db2:db django:db")
-	s.st.EXPECT().ModelUUID().Return(coretesting.ModelTag.Id()).AnyTimes()
+
 	s.st.EXPECT().KeyRelation("remote-db2:db django:db").Return(db2Relation, nil)
 
 	result, err := s.api.SetRelationsStatus(
@@ -179,8 +181,8 @@ type FirewallerSuite struct {
 
 	st *MockState
 
-	watcherRegistry     *facademocks.MockWatcherRegistry
 	controllerConfigAPI *MockControllerConfigAPI
+	watcherRegistry     *facademocks.MockWatcherRegistry
 	api                 *firewaller.FirewallerAPI
 
 	controllerConfigService *MockControllerConfigService
@@ -188,6 +190,7 @@ type FirewallerSuite struct {
 	networkService          *MockNetworkService
 	applicationService      *MockApplicationService
 	machineService          *MockMachineService
+	modelInfoService        *MockModelInfoService
 }
 
 func (s *FirewallerSuite) SetUpTest(c *gc.C) {
@@ -212,6 +215,7 @@ func (s *FirewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.networkService = NewMockNetworkService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
+	s.modelInfoService = NewMockModelInfoService(ctrl)
 
 	return ctrl
 }
@@ -230,6 +234,7 @@ func (s *FirewallerSuite) setupAPI(c *gc.C) {
 		s.modelConfigService,
 		s.applicationService,
 		s.machineService,
+		s.modelInfoService,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -246,7 +251,10 @@ func (s *FirewallerSuite) TestModelFirewallRules(c *gc.C) {
 		config.SSHAllowKey: "192.168.0.0/24,192.168.1.0/24",
 	})
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, modelAttrs))
-	s.st.EXPECT().IsController().Return(false)
+
+	s.modelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(
+		false, nil,
+	)
 
 	rules, err := s.api.ModelFirewallRules(context.Background())
 
@@ -272,8 +280,9 @@ func (s *FirewallerSuite) TestModelFirewallRulesController(c *gc.C) {
 		config.SSHAllowKey: "192.168.0.0/24,192.168.1.0/24",
 	})
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, modelAttrs))
-	s.st.EXPECT().IsController().Return(true)
-
+	s.modelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(
+		true, nil,
+	)
 	rules, err := s.api.ModelFirewallRules(context.Background())
 
 	c.Assert(err, jc.ErrorIsNil)

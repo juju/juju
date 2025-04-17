@@ -891,3 +891,33 @@ func InsertModelInfo(
 
 	return nil
 }
+
+// IsControllerModel returns true if the model is the controller model.
+// The following errors may be returned:
+// - [modelerrors.NotFound] when the model does not exist.
+func (s *ModelState) IsControllerModel(ctx context.Context) (bool, error) {
+	db, err := s.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	m := dbReadOnlyModel{}
+	stmt, err := s.Prepare(`SELECT &dbReadOnlyModel.is_controller_model FROM model`, m)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&m)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Errorf("model does not exist").Add(modelerrors.NotFound)
+		}
+		return err
+	})
+
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return m.IsControllerModel, nil
+}

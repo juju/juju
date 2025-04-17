@@ -162,44 +162,6 @@ func (c *MockStateGetMacaroonCall) DoAndReturn(f func(names.Tag) (*macaroon.Maca
 	return c
 }
 
-// IsController mocks base method.
-func (m *MockState) IsController() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsController")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// IsController indicates an expected call of IsController.
-func (mr *MockStateMockRecorder) IsController() *MockStateIsControllerCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsController", reflect.TypeOf((*MockState)(nil).IsController))
-	return &MockStateIsControllerCall{Call: call}
-}
-
-// MockStateIsControllerCall wrap *gomock.Call
-type MockStateIsControllerCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateIsControllerCall) Return(arg0 bool) *MockStateIsControllerCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateIsControllerCall) Do(f func() bool) *MockStateIsControllerCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateIsControllerCall) DoAndReturn(f func() bool) *MockStateIsControllerCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // KeyRelation mocks base method.
 func (m *MockState) KeyRelation(arg0 string) (firewall.Relation, error) {
 	m.ctrl.T.Helper()
@@ -274,44 +236,6 @@ func (c *MockStateMachineCall) Do(f func(string) (firewall.Machine, error)) *Moc
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateMachineCall) DoAndReturn(f func(string) (firewall.Machine, error)) *MockStateMachineCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ModelUUID mocks base method.
-func (m *MockState) ModelUUID() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelUUID")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// ModelUUID indicates an expected call of ModelUUID.
-func (mr *MockStateMockRecorder) ModelUUID() *MockStateModelUUIDCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUUID", reflect.TypeOf((*MockState)(nil).ModelUUID))
-	return &MockStateModelUUIDCall{Call: call}
-}
-
-// MockStateModelUUIDCall wrap *gomock.Call
-type MockStateModelUUIDCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateModelUUIDCall) Return(arg0 string) *MockStateModelUUIDCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateModelUUIDCall) Do(f func() string) *MockStateModelUUIDCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateModelUUIDCall) DoAndReturn(f func() string) *MockStateModelUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -452,45 +376,6 @@ func NewMockControllerConfigAPI(ctrl *gomock.Controller) *MockControllerConfigAP
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockControllerConfigAPI) EXPECT() *MockControllerConfigAPIMockRecorder {
 	return m.recorder
-}
-
-// ControllerAPIInfoForModels mocks base method.
-func (m *MockControllerConfigAPI) ControllerAPIInfoForModels(arg0 context.Context, arg1 params.Entities) (params.ControllerAPIInfoResults, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerAPIInfoForModels", arg0, arg1)
-	ret0, _ := ret[0].(params.ControllerAPIInfoResults)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ControllerAPIInfoForModels indicates an expected call of ControllerAPIInfoForModels.
-func (mr *MockControllerConfigAPIMockRecorder) ControllerAPIInfoForModels(arg0, arg1 any) *MockControllerConfigAPIControllerAPIInfoForModelsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerAPIInfoForModels", reflect.TypeOf((*MockControllerConfigAPI)(nil).ControllerAPIInfoForModels), arg0, arg1)
-	return &MockControllerConfigAPIControllerAPIInfoForModelsCall{Call: call}
-}
-
-// MockControllerConfigAPIControllerAPIInfoForModelsCall wrap *gomock.Call
-type MockControllerConfigAPIControllerAPIInfoForModelsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockControllerConfigAPIControllerAPIInfoForModelsCall) Return(arg0 params.ControllerAPIInfoResults, arg1 error) *MockControllerConfigAPIControllerAPIInfoForModelsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockControllerConfigAPIControllerAPIInfoForModelsCall) Do(f func(context.Context, params.Entities) (params.ControllerAPIInfoResults, error)) *MockControllerConfigAPIControllerAPIInfoForModelsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerConfigAPIControllerAPIInfoForModelsCall) DoAndReturn(f func(context.Context, params.Entities) (params.ControllerAPIInfoResults, error)) *MockControllerConfigAPIControllerAPIInfoForModelsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // ControllerConfig mocks base method.

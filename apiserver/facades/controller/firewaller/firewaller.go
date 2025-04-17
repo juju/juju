@@ -49,7 +49,6 @@ type ModelConfigService interface {
 type FirewallerAPI struct {
 	*common.LifeGetter
 	*commonmodel.ModelConfigWatcher
-	*common.AgentEntityWatcher
 	*common.UnitsWatcher
 	*commonmodel.ModelMachinesWatcher
 	*common.InstanceIdGetter
@@ -65,12 +64,12 @@ type FirewallerAPI struct {
 	accessUnit                               common.GetAuthFunc
 	accessApplication                        common.GetAuthFunc
 	accessMachine                            common.GetAuthFunc
-	accessModel                              common.GetAuthFunc
 	accessUnitApplicationOrMachineOrRelation common.GetAuthFunc
 	logger                                   corelogger.Logger
 
 	controllerConfigService ControllerConfigService
 	modelConfigService      ModelConfigService
+	modelInfoService        ModelInfoService
 }
 
 // NewStateFirewallerAPI creates a new server-side FirewallerAPIV7 facade.
@@ -86,6 +85,7 @@ func NewStateFirewallerAPI(
 	modelConfigService ModelConfigService,
 	applicationService ApplicationService,
 	machineService MachineService,
+	modelInfoService ModelInfoService,
 	logger corelogger.Logger,
 ) (*FirewallerAPI, error) {
 	if !authorizer.AuthController() {
@@ -93,12 +93,10 @@ func NewStateFirewallerAPI(
 		return nil, apiservererrors.ErrPerm
 	}
 	// Set up the various authorization checkers.
-	accessModel := common.AuthFuncForTagKind(names.ModelTagKind)
 	accessUnit := common.AuthFuncForTagKind(names.UnitTagKind)
-	accessApplication := common.AuthFuncForTagKind(names.ApplicationTagKind)
 	accessMachine := common.AuthFuncForTagKind(names.MachineTagKind)
 	accessRelation := common.AuthFuncForTagKind(names.RelationTagKind)
-	accessUnitApplicationOrMachineOrRelation := common.AuthAny(accessUnit, accessApplication, accessMachine, accessRelation)
+	accessUnitApplicationOrMachineOrRelation := common.AuthAny(accessUnit, accessMachine, accessRelation)
 
 	// Life() is supported for units, applications or machines.
 	lifeGetter := common.NewLifeGetter(
@@ -110,12 +108,6 @@ func NewStateFirewallerAPI(
 	modelConfigWatcher := commonmodel.NewModelConfigWatcher(
 		modelConfigService,
 		watcherRegistry,
-	)
-	// Watch() is supported for applications only.
-	entityWatcher := common.NewAgentEntityWatcher(
-		st,
-		watcherRegistry,
-		accessApplication,
 	)
 	// WatchUnits() is supported for machines.
 	unitsWatcher := common.NewUnitsWatcher(st,
@@ -137,7 +129,6 @@ func NewStateFirewallerAPI(
 	return &FirewallerAPI{
 		LifeGetter:                               lifeGetter,
 		ModelConfigWatcher:                       modelConfigWatcher,
-		AgentEntityWatcher:                       entityWatcher,
 		UnitsWatcher:                             unitsWatcher,
 		ModelMachinesWatcher:                     machinesWatcher,
 		InstanceIdGetter:                         instanceIdGetter,
@@ -148,14 +139,13 @@ func NewStateFirewallerAPI(
 		watcherRegistry:                          watcherRegistry,
 		authorizer:                               authorizer,
 		accessUnit:                               accessUnit,
-		accessApplication:                        accessApplication,
 		accessMachine:                            accessMachine,
 		accessUnitApplicationOrMachineOrRelation: accessUnitApplicationOrMachineOrRelation,
-		accessModel:                              accessModel,
 		controllerConfigService:                  controllerConfigService,
 		modelConfigService:                       modelConfigService,
 		networkService:                           networkService,
 		applicationService:                       applicationService,
+		modelInfoService:                         modelInfoService,
 		logger:                                   logger,
 	}, nil
 }
@@ -218,7 +208,11 @@ func (f *FirewallerAPI) ModelFirewallRules(ctx context.Context) (params.IngressR
 	if err != nil {
 		return params.IngressRulesResult{Error: apiservererrors.ServerError(err)}, nil
 	}
-	isController := f.st.IsController()
+
+	isController, err := f.modelInfoService.IsControllerModel(ctx)
+	if err != nil {
+		return params.IngressRulesResult{Error: apiservererrors.ServerError(err)}, nil
+	}
 
 	var rules []params.IngressRule
 	sshAllow := cfg.SSHAllow()
