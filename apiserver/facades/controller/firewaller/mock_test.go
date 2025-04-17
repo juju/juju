@@ -8,17 +8,11 @@ import (
 	"github.com/juju/testing"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
-
-type mockCloudSpecAPI struct {
-	// TODO - implement when remaining firewaller tests become unit tests
-	cloudspec.CloudSpecAPI
-}
 
 type mockWatcher struct {
 	testing.Stub

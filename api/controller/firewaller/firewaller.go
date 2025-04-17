@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/api/common/cloudspec"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
@@ -37,21 +36,15 @@ type Client struct {
 	facade base.FacadeCaller
 	*common.ModelConfigWatcher
 	*common.ControllerConfigAPI
-	*cloudspec.CloudSpecAPI
 }
 
 // NewClient creates a new client-side Firewaller API facade.
 func NewClient(caller base.APICaller, options ...Option) (*Client, error) {
-	modelTag, isModel := caller.ModelTag()
-	if !isModel {
-		return nil, errors.New("expected model specific API connection")
-	}
 	facadeCaller := base.NewFacadeCaller(caller, firewallerFacade, options...)
 	return &Client{
 		facade:              facadeCaller,
 		ModelConfigWatcher:  common.NewModelConfigWatcher(facadeCaller),
 		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
-		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
 	}, nil
 }
 

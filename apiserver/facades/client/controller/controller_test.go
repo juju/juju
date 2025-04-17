@@ -24,7 +24,6 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/cloudspec"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
@@ -166,7 +165,7 @@ func (s *controllerSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 		}
 		return svc.Agent(), nil
 	}
-	modelConfigServiceGetter := func(c context.Context, modelUUID model.UUID) (cloudspec.ModelConfigService, error) {
+	modelConfigServiceGetter := func(c context.Context, modelUUID model.UUID) (controller.ModelConfigService, error) {
 		svc, err := ctx.DomainServicesForModel(c, modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -201,6 +200,13 @@ func (s *controllerSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 		}
 		return svc.Machine(), nil
 	}
+	cloudSpecServiceGetter := func(c context.Context, modelUUID model.UUID) (controller.StubService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Stub(), nil
+	}
 	s.mockModelService = mocks.NewMockModelService(ctrl)
 
 	api, err := controller.NewControllerAPI(
@@ -213,7 +219,6 @@ func (s *controllerSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),
 		domainServices.ExternalController(),
-		domainServices.Cloud(),
 		domainServices.Credential(),
 		domainServices.Upgrade(),
 		domainServices.Access(),
@@ -226,13 +231,13 @@ func (s *controllerSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 		modelAgentServiceGetter,
 		modelConfigServiceGetter,
 		blockCommandServiceGetter,
+		cloudSpecServiceGetter,
 		domainServices.Proxy(),
 		func(c context.Context, modelUUID model.UUID, legacyState facade.LegacyStateExporter) (controller.ModelExporter, error) {
 			return ctx.ModelExporter(c, modelUUID, legacyState)
 		},
 		ctx.ObjectStore(),
 		ctx.ControllerUUID(),
-		ctx.ModelUUID(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
@@ -1125,7 +1130,6 @@ func (s *accessSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 		nil,
 		nil,
 		nil,
-		nil,
 		s.accessService,
 		nil,
 		s.modelService,
@@ -1139,8 +1143,8 @@ func (s *accessSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 		nil,
 		nil,
 		nil,
+		nil,
 		s.controllerUUID,
-		"",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
