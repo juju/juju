@@ -9557,7 +9557,229 @@
             "machine-agent"
         ],
         "Schema": {
-            "type": "object"
+            "type": "object",
+            "properties": {
+                "GetSSHConnRequest": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SSHConnRequestGetArg"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SSHConnRequestResult"
+                        }
+                    }
+                },
+                "WatchSSHConnRequest": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SSHConnRequestWatchArg"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResult"
+                        }
+                    }
+                }
+            },
+            "definitions": {
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
+                "MachineAddress": {
+                    "type": "object",
+                    "properties": {
+                        "CIDR": {
+                            "type": "string"
+                        },
+                        "ConfigType": {
+                            "type": "string"
+                        },
+                        "IsSecondary": {
+                            "type": "boolean"
+                        },
+                        "Scope": {
+                            "type": "string"
+                        },
+                        "Type": {
+                            "type": "string"
+                        },
+                        "Value": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Value",
+                        "Type",
+                        "Scope",
+                        "CIDR",
+                        "ConfigType",
+                        "IsSecondary"
+                    ]
+                },
+                "SSHConnRequest": {
+                    "type": "object",
+                    "properties": {
+                        "addresses": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SpaceAddress"
+                            }
+                        },
+                        "ephemeral-public-key": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "expires": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "password": {
+                            "type": "string"
+                        },
+                        "unit-port": {
+                            "type": "integer"
+                        },
+                        "username": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "expires",
+                        "username",
+                        "password",
+                        "addresses",
+                        "unit-port",
+                        "ephemeral-public-key"
+                    ]
+                },
+                "SSHConnRequestGetArg": {
+                    "type": "object",
+                    "properties": {
+                        "tunnel-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tunnel-id"
+                    ]
+                },
+                "SSHConnRequestResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "ssh-conn-request": {
+                            "$ref": "#/definitions/SSHConnRequest"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "ssh-conn-request"
+                    ]
+                },
+                "SSHConnRequestWatchArg": {
+                    "type": "object",
+                    "properties": {
+                        "machine-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "machine-id"
+                    ]
+                },
+                "SpaceAddress": {
+                    "type": "object",
+                    "properties": {
+                        "CIDR": {
+                            "type": "string"
+                        },
+                        "ConfigType": {
+                            "type": "string"
+                        },
+                        "IsSecondary": {
+                            "type": "boolean"
+                        },
+                        "MachineAddress": {
+                            "$ref": "#/definitions/MachineAddress"
+                        },
+                        "Scope": {
+                            "type": "string"
+                        },
+                        "SpaceID": {
+                            "type": "string"
+                        },
+                        "Type": {
+                            "type": "string"
+                        },
+                        "Value": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "Value",
+                        "Type",
+                        "Scope",
+                        "CIDR",
+                        "ConfigType",
+                        "IsSecondary",
+                        "MachineAddress",
+                        "SpaceID"
+                    ]
+                },
+                "StringsWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "watcher-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "watcher-id"
+                    ]
+                }
+            }
         }
     },
     {

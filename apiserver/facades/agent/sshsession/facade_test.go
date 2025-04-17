@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/agent/sshsession"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -53,7 +54,7 @@ func (s *sshreqconnSuite) TestGetSSHConnRequest(c *gc.C) {
 		Password: "password",
 	}, nil)
 
-	result, err := f.GetSSHConnRequest("doc-id")
+	result, err := f.GetSSHConnRequest(params.SSHConnRequestGetArg{RequestId: "doc-id"})
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.SSHConnRequest.Username, gc.Equals, "username")
@@ -74,13 +75,13 @@ func (s *sshreqconnSuite) TestWatchSSHConnReq(c *gc.C) {
 	f := sshsession.NewFacade(s.ctxMock, s.backendMock)
 
 	sshConnChanges <- []string{"doc-id"}
-	result, err := f.WatchSSHConnRequest("")
+	result, err := f.WatchSSHConnRequest(params.SSHConnRequestWatchArg{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.StringsWatcherId, gc.Equals, "id")
 	c.Assert(result.Changes, gc.DeepEquals, []string{"doc-id"})
 
 	sshConnChanges <- []string{"doc-id2"}
-	result, err = f.WatchSSHConnRequest("")
+	result, err = f.WatchSSHConnRequest(params.SSHConnRequestWatchArg{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.StringsWatcherId, gc.Equals, "id")
 	c.Assert(result.Changes, gc.DeepEquals, []string{"doc-id2"})

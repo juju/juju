@@ -25,13 +25,12 @@ func (s *sshsessionSuite) TestWatchSSHConnRequest(c *gc.C) {
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "WatchSSHConnRequest")
-		c.Assert(arg, jc.DeepEquals, "1")
-		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
-		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
-			Results: []params.StringsWatchResult{{
-				Error: &params.Error{Message: "FAIL"},
-			}},
+		c.Assert(arg, gc.FitsTypeOf, params.SSHConnRequestWatchArg{MachineId: "1"})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResult{})
+		*(result.(*params.StringsWatchResult)) = params.StringsWatchResult{
+			Error: &params.Error{Message: "FAIL"},
 		}
+
 		return nil
 	})
 
@@ -47,7 +46,7 @@ func (s *sshsessionSuite) TestGetSSHConnRequest(c *gc.C) {
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "GetSSHConnRequest")
-		c.Assert(arg, jc.DeepEquals, "1")
+		c.Assert(arg, gc.FitsTypeOf, params.SSHConnRequestGetArg{RequestId: "1"})
 		c.Assert(result, gc.FitsTypeOf, &params.SSHConnRequestResult{})
 		*(result.(*params.SSHConnRequestResult)) = params.SSHConnRequestResult{
 			SSHConnRequest: params.SSHConnRequest{},
@@ -66,7 +65,7 @@ func (s *sshsessionSuite) TestGetSSHConnRequest(c *gc.C) {
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "GetSSHConnRequest")
-		c.Assert(arg, jc.DeepEquals, "1")
+		c.Assert(arg, gc.FitsTypeOf, params.SSHConnRequestGetArg{RequestId: "1"})
 		c.Assert(result, gc.FitsTypeOf, &params.SSHConnRequestResult{})
 		*(result.(*params.SSHConnRequestResult)) = params.SSHConnRequestResult{
 			SSHConnRequest: params.SSHConnRequest{

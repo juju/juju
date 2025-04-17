@@ -27,20 +27,20 @@ func NewClient(caller base.APICaller) *Client {
 
 // WatchSSHConnRequest creates a watcher and returns its ID for watching changes.
 func (c *Client) WatchSSHConnRequest(machineId string) (watcher.StringsWatcher, error) {
-	var results params.StringsWatchResults
-	if err := c.facade.FacadeCall("WatchSSHConnRequest", machineId, &results); err != nil {
+	var result params.StringsWatchResult
+	sshConnRequestWatchArg := params.SSHConnRequestWatchArg{
+		MachineId: machineId,
+	}
+
+	if err := c.facade.FacadeCall("WatchSSHConnRequest", sshConnRequestWatchArg, &result); err != nil {
 		return nil, err
 	}
 
-	if n := len(results.Results); n != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", n)
-	}
-
-	if err := results.Results[0].Error; err != nil {
+	if err := result.Error; err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), results.Results[0])
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -50,8 +50,11 @@ func (c *Client) GetSSHConnRequest(requestId string) (params.SSHConnRequest, err
 	if requestId == "" {
 		return results.SSHConnRequest, errors.New("connection request id cannot be empty")
 	}
+	arg := params.SSHConnRequestGetArg{
+		RequestId: requestId,
+	}
 
-	if err := c.facade.FacadeCall("GetSSHConnRequest", requestId, &results); err != nil {
+	if err := c.facade.FacadeCall("GetSSHConnRequest", arg, &results); err != nil {
 		return results.SSHConnRequest, errors.Trace(err)
 	}
 
