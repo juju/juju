@@ -21,6 +21,7 @@ import (
 	apitesting "github.com/juju/juju/api/base/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/life"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/hooks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -813,7 +814,7 @@ func (s *relationResolverSuite) TestImplicitRelationNoHooks(c *gc.C) {
 				Life: life.Alive,
 				Endpoint: params.Endpoint{
 					ApplicationName: "wordpress",
-					Relation:        params.CharmRelation{Name: "juju-info", Role: string(charm.RoleProvider), Interface: "juju-info", Scope: "global"},
+					Relation:        params.CharmRelation{Name: corerelation.JujuInfo, Role: string(charm.RoleProvider), Interface: corerelation.JujuInfo, Scope: "global"},
 				}},
 		},
 	}
@@ -911,7 +912,7 @@ func subSubRelationAPICalls() []apiCall {
 				Relation: params.CharmRelation{
 					Name:      "general-info",
 					Role:      string(charm.RoleRequirer),
-					Interface: "juju-info",
+					Interface: corerelation.JujuInfo,
 					Scope:     "container",
 				},
 			},
@@ -1132,7 +1133,7 @@ func principalWithSubordinateAPICalls() []apiCall {
 				Relation: params.CharmRelation{
 					Name:      "general-info",
 					Role:      string(charm.RoleRequirer),
-					Interface: "juju-info",
+					Interface: corerelation.JujuInfo,
 					Scope:     "container",
 				},
 			},

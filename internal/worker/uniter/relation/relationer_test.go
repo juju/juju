@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/hooks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -239,8 +240,8 @@ func implicitRelationEndpoint() apiuniter.Endpoint {
 	return apiuniter.Endpoint{
 		Relation: charm.Relation{
 			Role:      charm.RoleProvider,
-			Name:      "juju-info",
-			Interface: "juju-info",
+			Name:      corerelation.JujuInfo,
+			Interface: corerelation.JujuInfo,
 		}}
 }
 

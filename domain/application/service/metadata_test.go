@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -117,10 +118,10 @@ var metadataTestCases = [...]struct {
 			Name:  "foo",
 			RunAs: charm.RunAsDefault,
 			Provides: map[string]charm.Relation{
-				"juju-info": {
-					Name:      "juju-info",
+				relation.JujuInfo: {
+					Name:      relation.JujuInfo,
 					Role:      charm.RoleProvider,
-					Interface: "juju-info",
+					Interface: relation.JujuInfo,
 					Scope:     charm.ScopeGlobal,
 				},
 			},
@@ -128,10 +129,10 @@ var metadataTestCases = [...]struct {
 		output: internalcharm.Meta{
 			Name: "foo",
 			Provides: map[string]internalcharm.Relation{
-				"juju-info": {
-					Name:      "juju-info",
+				relation.JujuInfo: {
+					Name:      relation.JujuInfo,
 					Role:      internalcharm.RoleProvider,
-					Interface: "juju-info",
+					Interface: relation.JujuInfo,
 					Scope:     internalcharm.ScopeGlobal,
 				},
 			},

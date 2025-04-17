@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -1140,7 +1141,7 @@ func (s *applicationSuite) TestApplicationsInfo(c *gc.C) {
 				Channel:   "development",
 				Principal: true,
 				EndpointBindings: map[string]string{
-					"juju-info": "myspace",
+					relation.JujuInfo: "myspace",
 				},
 				Remote: true,
 			},
@@ -1168,7 +1169,7 @@ func (s *applicationSuite) TestApplicationsInfo(c *gc.C) {
 			Channel:   "development",
 			Principal: true,
 			EndpointBindings: map[string]string{
-				"juju-info": "myspace",
+				relation.JujuInfo: "myspace",
 			},
 			Remote: true,
 		}},

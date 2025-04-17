@@ -19,6 +19,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/cmd"
@@ -224,7 +225,7 @@ func (c *debugHooksCommand) getValidActions(actions *charm.Actions) (set.Strings
 func (c *debugHooksCommand) getValidHooks(meta *charm.Meta) (set.Strings, error) {
 	validHooks := set.NewStrings()
 	for _, hook := range hooks.RelationHooks() {
-		hook := fmt.Sprintf("juju-info-%s", hook)
+		hook := fmt.Sprintf("%s-%s", relation.JujuInfo, hook)
 		validHooks.Add(hook)
 	}
 	return validHooks.Union(meta.Hooks()), nil

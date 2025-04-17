@@ -13,6 +13,7 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/logger"
+	corerelation "github.com/juju/juju/core/relation"
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -1296,10 +1297,10 @@ func (s *diffSuite) TestRelations(c *gc.C) {
 			App1:      "prometheus",
 			Endpoint1: "target",
 			App2:      "memcached",
-			Endpoint2: "juju-info",
+			Endpoint2: corerelation.JujuInfo,
 		}, {
 			App1:      "prometheus",
-			Endpoint1: "juju-info",
+			Endpoint1: corerelation.JujuInfo,
 			App2:      "memcached",
 			Endpoint2: "fish",
 		}, {
@@ -1377,7 +1378,7 @@ func (s *diffSuite) TestRelationsWithMissingEndpoints(c *gc.C) {
 			App1:      "prometheus",
 			Endpoint1: "target",
 			App2:      "memcached",
-			Endpoint2: "juju-info",
+			Endpoint2: corerelation.JujuInfo,
 		}},
 	}
 	expectedDiff := &bundlechanges.BundleDiff{

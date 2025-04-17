@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -307,8 +308,8 @@ func (s *diffSuite) TestRelationsWithMissingEndpoints(c *gc.C) {
 	rels := []params.RelationStatus{
 		{
 			Endpoints: []params.EndpointStatus{
-				{ApplicationName: "prometheus", Name: "juju-info"},
-				{ApplicationName: "grafana", Name: "juju-info"},
+				{ApplicationName: "prometheus", Name: relation.JujuInfo},
+				{ApplicationName: "grafana", Name: relation.JujuInfo},
 			},
 		},
 	}

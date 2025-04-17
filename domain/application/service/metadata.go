@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/collections/set"
 
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -573,8 +574,8 @@ func reservedRelationName(name string) bool {
 // implicitRelation returns whether the relation is supplied by juju itself,
 // rather than by a charm.
 func implicitRelation(r charm.Relation) bool {
-	return r.Name == "juju-info" &&
-		r.Interface == "juju-info" &&
+	return r.Name == relation.JujuInfo &&
+		r.Interface == relation.JujuInfo &&
 		r.Role == charm.RoleProvider
 }
 

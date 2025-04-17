@@ -5,6 +5,7 @@ package state
 
 import (
 	corecharm "github.com/juju/juju/core/charm"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/internal/errors"
@@ -474,9 +475,9 @@ func encodeRelations(id corecharm.ID, metatadata charm.Metadata) ([]setCharmRela
 
 func encodeJujuInfoRelation(id corecharm.ID) (setCharmRelation, error) {
 	return encodeRelation(id, relationKindProvides, charm.Relation{
-		Name:      "juju-info",
+		Name:      corerelation.JujuInfo,
 		Role:      charm.RoleProvider,
-		Interface: "juju-info",
+		Interface: corerelation.JujuInfo,
 		Scope:     charm.ScopeGlobal,
 	})
 }
@@ -518,7 +519,7 @@ func encodeRelation(id corecharm.ID, kind string, relation charm.Relation) (setC
 func hasJujuInfoRelation(encodedRelations []setCharmRelation) bool {
 	// Relation names must be unique.
 	for _, encodedRelation := range encodedRelations {
-		if encodedRelation.Name == "juju-info" {
+		if encodedRelation.Name == corerelation.JujuInfo {
 			return true
 		}
 	}

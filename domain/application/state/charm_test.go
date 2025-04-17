@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -2031,7 +2032,7 @@ func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithRelations(c *gc.C)
 
 	// Add the implicit juju-info relation inserted with the charm.
 	jujuInfo := jujuInfoRelation()
-	expected.Provides["juju-info"] = jujuInfo["juju-info"]
+	expected.Provides[corerelation.JujuInfo] = jujuInfo[corerelation.JujuInfo]
 
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3760,10 +3761,10 @@ func assertCharmManifest(c *gc.C, manifest charm.Manifest, expected func() charm
 
 func jujuInfoRelation() map[string]charm.Relation {
 	return map[string]charm.Relation{
-		"juju-info": {
-			Name:      "juju-info",
+		corerelation.JujuInfo: {
+			Name:      corerelation.JujuInfo,
 			Role:      charm.RoleProvider,
-			Interface: "juju-info",
+			Interface: corerelation.JujuInfo,
 			Scope:     charm.ScopeGlobal},
 	}
 }
