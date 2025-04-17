@@ -160,6 +160,45 @@ func (c *MockStateGetMachineUUIDByNameCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
+// GetMachinesAgentBinaryMetadata mocks base method.
+func (m *MockState) GetMachinesAgentBinaryMetadata(arg0 context.Context) (map[machine.Name]agentbinary.Metadata, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachinesAgentBinaryMetadata", arg0)
+	ret0, _ := ret[0].(map[machine.Name]agentbinary.Metadata)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachinesAgentBinaryMetadata indicates an expected call of GetMachinesAgentBinaryMetadata.
+func (mr *MockStateMockRecorder) GetMachinesAgentBinaryMetadata(arg0 any) *MockStateGetMachinesAgentBinaryMetadataCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachinesAgentBinaryMetadata", reflect.TypeOf((*MockState)(nil).GetMachinesAgentBinaryMetadata), arg0)
+	return &MockStateGetMachinesAgentBinaryMetadataCall{Call: call}
+}
+
+// MockStateGetMachinesAgentBinaryMetadataCall wrap *gomock.Call
+type MockStateGetMachinesAgentBinaryMetadataCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachinesAgentBinaryMetadataCall) Return(arg0 map[machine.Name]agentbinary.Metadata, arg1 error) *MockStateGetMachinesAgentBinaryMetadataCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachinesAgentBinaryMetadataCall) Do(f func(context.Context) (map[machine.Name]agentbinary.Metadata, error)) *MockStateGetMachinesAgentBinaryMetadataCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachinesAgentBinaryMetadataCall) DoAndReturn(f func(context.Context) (map[machine.Name]agentbinary.Metadata, error)) *MockStateGetMachinesAgentBinaryMetadataCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetMachinesNotAtTargetAgentVersion mocks base method.
 func (m *MockState) GetMachinesNotAtTargetAgentVersion(arg0 context.Context) ([]machine.Name, error) {
 	m.ctrl.T.Helper()
@@ -351,6 +390,45 @@ func (c *MockStateGetUnitUUIDByNameCall) Do(f func(context.Context, unit.Name) (
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetUnitUUIDByNameCall) DoAndReturn(f func(context.Context, unit.Name) (unit.UUID, error)) *MockStateGetUnitUUIDByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitsAgentBinaryMetadata mocks base method.
+func (m *MockState) GetUnitsAgentBinaryMetadata(arg0 context.Context) (map[unit.Name]agentbinary.Metadata, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitsAgentBinaryMetadata", arg0)
+	ret0, _ := ret[0].(map[unit.Name]agentbinary.Metadata)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitsAgentBinaryMetadata indicates an expected call of GetUnitsAgentBinaryMetadata.
+func (mr *MockStateMockRecorder) GetUnitsAgentBinaryMetadata(arg0 any) *MockStateGetUnitsAgentBinaryMetadataCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitsAgentBinaryMetadata", reflect.TypeOf((*MockState)(nil).GetUnitsAgentBinaryMetadata), arg0)
+	return &MockStateGetUnitsAgentBinaryMetadataCall{Call: call}
+}
+
+// MockStateGetUnitsAgentBinaryMetadataCall wrap *gomock.Call
+type MockStateGetUnitsAgentBinaryMetadataCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitsAgentBinaryMetadataCall) Return(arg0 map[unit.Name]agentbinary.Metadata, arg1 error) *MockStateGetUnitsAgentBinaryMetadataCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitsAgentBinaryMetadataCall) Do(f func(context.Context) (map[unit.Name]agentbinary.Metadata, error)) *MockStateGetUnitsAgentBinaryMetadataCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitsAgentBinaryMetadataCall) DoAndReturn(f func(context.Context) (map[unit.Name]agentbinary.Metadata, error)) *MockStateGetUnitsAgentBinaryMetadataCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

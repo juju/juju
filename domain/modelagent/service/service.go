@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	"github.com/juju/juju/core/agentbinary"
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/machine"
@@ -19,6 +20,20 @@ import (
 )
 
 type State interface {
+	// GetMachinesAgentBinaryMetada reports the agent binary metadata that each
+	// machine in the model is currently running. This is a bulk call to support
+	// operations such as model export where it is expected that the state of a
+	// model stays relatively static over the operation. This function will
+	// never provide enough granuality into what machine fails as part of the
+	// checks.
+	//
+	// The following errors can be expected:
+	// - [modelagenterrors.MachineAgentVersionNotSet] when one or more machines
+	// in the model do not have their agent version set.
+	// - [modelagenterrors.MissingAgentBinaries] when the agent binaries don't
+	// exist for one or more machines in the model.
+	GetMachinesAgentBinaryMetadata(context.Context) (map[machine.Name]agentbinary.Metadata, error)
+
 	// GetMachinesNotAtTargetAgentVersion returns the list of machines where
 	// their agent version is not the same as the models target agent version or
 	// who have no agent version reproted at all. If no machines exist  that
@@ -47,6 +62,20 @@ type State interface {
 
 	// GetModelTargetAgentVersion returns the target agent version for this model.
 	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
+
+	// GetUnitsAgentBinaryMetadata reports the agent binary metadata that each
+	// unit in the model is currently running. This is a bulk call to support
+	// operations such as model export where it is expected that the state of a
+	// model stays relatively static over the operation. This function will
+	// never provide enough granuality into what unit fails as part of the
+	// checks.
+	//
+	// The following errors can be expected:
+	// - [modelagenterrors.UnitAgentVersionNotSet] when one or more units in
+	// the model do not have their agent version set.
+	// - [modelagenterrors.MissingAgentBinaries] when the agent binaries don't
+	// exist for one or more units in the model.
+	GetUnitsAgentBinaryMetadata(context.Context) (map[coreunit.Name]agentbinary.Metadata, error)
 
 	// GetUnitsNotAtTargetAgentVersion returns the list of units where their
 	// agent version is not the same as the models target agent version or who
@@ -182,6 +211,26 @@ func (s *Service) GetMachineReportedAgentVersion(
 	return ver, nil
 }
 
+// GetMachinesAgentBinaryMetadata returns the agent binary metadata that is
+// running for each machine in the model. This call expects that every
+// machine in the model has their agent binary version set and there exist agent
+// binaries available for each machine and the version that it is running.
+//
+// This is a bulk call to support operations such as model export where it will
+// never provide enough granuality into what machine fails as part of the
+// checks.
+//
+// The following error types can be expected:
+// - [modelagenterrors.MachineAgentVersionNotSet] when one or more machines in
+// the model do not have their agent binary version set.
+// - [modelagenterrors.MissingAgentBinaries] when the agent binaries don't exist
+// for one or more units in the model.
+func (s *Service) GetMachinesAgentBinaryMetadata(
+	ctx context.Context,
+) (map[machine.Name]coreagentbinary.Metadata, error) {
+	return s.st.GetMachinesAgentBinaryMetadata(ctx)
+}
+
 // GetMachineTargetAgentVersion reports the target agent version that should be
 // running on the provided machine identified by name. The following errors are
 // possible:
@@ -202,6 +251,25 @@ func (s *Service) GetMachineTargetAgentVersion(
 	}
 
 	return s.st.GetMachineTargetAgentVersion(ctx, uuid)
+}
+
+// GetUnitsAgentBinaryMetadata returns the agent binary metadata that is running
+// for each unit in the model. This call expects that every unit in the model
+// has their agent binary version set and there exist agent binaries available
+// for each unit and the version that it is running.
+//
+// This is a bulk call to support operations such as model export where it will
+// never provide enough granuality into what unit fails as part of the checks.
+//
+// The following error types can be expected:
+// - [modelagenterrors.UnitAgentVersionNotSet] when one or more units in the
+// model do not have their agent binary version set.
+// - [modelagenterrors.MissingAgentBinaries] when the agent binaries don't exist
+// for one or more units in the model.
+func (s *Service) GetUnitsAgentBinaryMetadata(
+	ctx context.Context,
+) (map[coreunit.Name]coreagentbinary.Metadata, error) {
+	return s.st.GetUnitsAgentBinaryMetadata(ctx)
 }
 
 // GetUnitsNotAtTargetAgentVersion reports all of the units in the model that
