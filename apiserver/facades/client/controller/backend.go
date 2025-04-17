@@ -13,7 +13,3 @@ type Backend interface {
 	Model() (*state.Model, error)
 	MongoVersion() (string, error)
 }
-
-type stateShim struct {
-	*state.State
-}

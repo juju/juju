@@ -106,6 +106,5 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 		toolsFinder,
 		common.NewBlockChecker(domainServices.BlockCommand()),
 		auth,
-		model,
 	)
 }

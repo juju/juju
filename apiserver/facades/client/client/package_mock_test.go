@@ -14,7 +14,6 @@ import (
 	time "time"
 
 	crossmodel "github.com/juju/juju/apiserver/common/crossmodel"
-	client "github.com/juju/juju/apiserver/facades/client/client"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v6"
 	gomock "go.uber.org/mock/gomock"
@@ -546,45 +545,6 @@ func (c *MockBackendMachineConstraintsCall) Do(f func() (*state.MachineConstrain
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackendMachineConstraintsCall) DoAndReturn(f func() (*state.MachineConstraints, error)) *MockBackendMachineConstraintsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Unit mocks base method.
-func (m *MockBackend) Unit(arg0 string) (client.Unit, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Unit", arg0)
-	ret0, _ := ret[0].(client.Unit)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Unit indicates an expected call of Unit.
-func (mr *MockBackendMockRecorder) Unit(arg0 any) *MockBackendUnitCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockBackend)(nil).Unit), arg0)
-	return &MockBackendUnitCall{Call: call}
-}
-
-// MockBackendUnitCall wrap *gomock.Call
-type MockBackendUnitCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendUnitCall) Return(arg0 client.Unit, arg1 error) *MockBackendUnitCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendUnitCall) Do(f func(string) (client.Unit, error)) *MockBackendUnitCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendUnitCall) DoAndReturn(f func(string) (client.Unit, error)) *MockBackendUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

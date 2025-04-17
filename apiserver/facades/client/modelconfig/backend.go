@@ -5,8 +5,6 @@ package modelconfig
 
 import (
 	"github.com/juju/names/v6"
-
-	"github.com/juju/juju/state"
 )
 
 // Backend contains the state.State methods used in this package,
@@ -14,17 +12,4 @@ import (
 type Backend interface {
 	ControllerTag() names.ControllerTag
 	Sequences() (map[string]int, error)
-}
-
-type stateShim struct {
-	*state.State
-	model *state.Model
-}
-
-// NewStateBackend creates a backend for the facade to use.
-func NewStateBackend(m *state.Model) Backend {
-	return stateShim{
-		State: m.State(),
-		model: m,
-	}
 }

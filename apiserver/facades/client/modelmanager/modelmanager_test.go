@@ -238,7 +238,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 			ObjectStore:          &mockObjectStore{},
 		},
 		nil, common.NewBlockChecker(s.blockCommandService),
-		s.authoriser, s.st.model,
+		s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -262,7 +262,7 @@ func (s *modelManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 			ObjectStore:          &mockObjectStore{},
 		},
 		nil, common.NewBlockChecker(s.blockCommandService),
-		s.authoriser, s.st.model,
+		s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.caasApi = caasApi
@@ -293,7 +293,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 			ObjectStore:          &mockObjectStore{},
 		},
 		nil, common.NewBlockChecker(s.blockCommandService),
-		s.authoriser, s.st.model,
+		s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = mm
@@ -785,7 +785,7 @@ func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 			ObjectStore:          &mockObjectStore{},
 		},
 		nil, common.NewBlockChecker(s.blockCommandService),
-		s.authoriser, s.st.model,
+		s.authoriser,
 	)
 	c.Check(err, jc.ErrorIsNil)
 
@@ -998,7 +998,6 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		toolsFinder,
 		common.NewBlockChecker(s.blockCommandService),
 		s.authoriser,
-		s.ControllerModel(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.modelmanager = modelmanager
@@ -1119,7 +1118,6 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 			ObjectStore:          &mockObjectStore{},
 		},
 		nil, common.NewBlockChecker(s.blockCommandService), anAuthoriser,
-		s.ControllerModel(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)
@@ -1340,7 +1338,6 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 			ObjectStore:          &mockObjectStore{},
 		},
 		nil, common.NewBlockChecker(s.blockCommandService), s.authoriser,
-		s.ControllerModel(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1409,7 +1406,6 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 			ObjectStore:          &mockObjectStore{},
 		},
 		nil, common.NewBlockChecker(s.blockCommandService), s.authoriser,
-		s.ControllerModel(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1463,7 +1459,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
-		nil, common.NewBlockChecker(s.blockCommandService), s.authoriser, s.ControllerModel(c),
+		nil, common.NewBlockChecker(s.blockCommandService), s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1567,7 +1563,6 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 			ObjectStore:          &mockObjectStore{},
 		},
 		nil, common.NewBlockChecker(s.blockCommandService), anAuthoriser,
-		s.ControllerModel(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)

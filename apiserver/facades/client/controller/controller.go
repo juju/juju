@@ -156,7 +156,7 @@ func NewControllerAPI(
 			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, credentialService),
 			common.AuthFuncForTag(model.ModelTag()),
 		),
-		state:                     stateShim{State: st},
+		state:                     st,
 		statePool:                 pool,
 		authorizer:                authorizer,
 		apiUser:                   apiUser,

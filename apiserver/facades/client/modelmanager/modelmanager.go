@@ -61,7 +61,6 @@ type ModelManagerAPI struct {
 	// Legacy state access.
 	state     StateBackend
 	ctlrState commonmodel.ModelManagerBackend
-	model     commonmodel.Model
 	check     common.BlockCheckerInterface
 
 	// Services required by the model manager.
@@ -96,7 +95,6 @@ func NewModelManagerAPI(
 	toolsFinder common.ToolsFinder,
 	blockChecker common.BlockCheckerInterface,
 	authorizer facade.Authorizer,
-	m commonmodel.Model,
 ) (*ModelManagerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -136,7 +134,6 @@ func NewModelManagerAPI(
 		toolsFinder:          toolsFinder,
 		apiUser:              apiUser,
 		isAdmin:              isAdmin,
-		model:                m,
 		modelService:         services.ModelService,
 		modelDefaultsService: services.ModelDefaultsService,
 		accessService:        services.AccessService,
