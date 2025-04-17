@@ -155,19 +155,12 @@ func (w *updaterWorker) loop() error {
 				logger.Infof(ctx, "starting watcher for external controller %q", tag.Id())
 				watchers.Add(tag)
 				if err := w.runner.StartWorker(tag.Id(), func() (worker.Worker, error) {
-					cw := controllerWatcher{
-						tag:                                tag,
-						setExternalControllerInfo:          w.setExternalControllerInfo,
-						externalControllerInfo:             w.externalControllerInfo,
-						newExternalControllerWatcherClient: w.newExternalControllerWatcherClient,
-					}
-					if err := catacomb.Invoke(catacomb.Plan{
-						Site: &cw.catacomb,
-						Work: cw.loop,
-					}); err != nil {
-						return nil, errors.Trace(err)
-					}
-					return &cw, nil
+					return newControllerWatcher(
+						tag,
+						w.setExternalControllerInfo,
+						w.externalControllerInfo,
+						w.newExternalControllerWatcherClient,
+					)
 				}); err != nil {
 					return errors.Annotatef(err, "starting watcher for external controller %q", tag.Id())
 				}
@@ -190,6 +183,29 @@ type controllerWatcher struct {
 	setExternalControllerInfo          func(context.Context, crossmodel.ControllerInfo) error
 	externalControllerInfo             func(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error)
 	newExternalControllerWatcherClient NewExternalControllerWatcherClientFunc
+}
+
+func newControllerWatcher(
+	tag names.ControllerTag,
+	setExternalControllerInfo func(context.Context, crossmodel.ControllerInfo) error,
+	externalControllerInfo func(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error),
+	newExternalControllerWatcherClient NewExternalControllerWatcherClientFunc,
+) (*controllerWatcher, error) {
+	cw := &controllerWatcher{
+		tag:                                tag,
+		setExternalControllerInfo:          setExternalControllerInfo,
+		externalControllerInfo:             externalControllerInfo,
+		newExternalControllerWatcherClient: newExternalControllerWatcherClient,
+	}
+
+	if err := catacomb.Invoke(catacomb.Plan{
+		Site: &cw.catacomb,
+		Work: cw.loop,
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return cw, nil
 }
 
 // Kill is part of the worker.Worker interface.
@@ -299,27 +315,43 @@ func (w *controllerWatcher) connectAndWatch(ctx context.Context, apiInfo *api.In
 		client ExternalControllerWatcherClientCloser
 		nw     watcher.NotifyWatcher
 	}
-	donec := make(chan result, 1)
-	errc := make(chan error, 1)
+
+	response := make(chan result)
+	errs := make(chan error)
+
 	go func() {
 		client, err := w.newExternalControllerWatcherClient(ctx, apiInfo)
 		if err != nil {
-			errc <- errors.Annotate(err, "getting external controller client")
+			select {
+			case <-ctx.Done():
+			case errs <- errors.Annotate(err, "getting external controller client"):
+			}
 			return
 		}
+
 		nw, err := client.WatchControllerInfo(ctx)
 		if err != nil {
-			errc <- errors.Annotate(err, "watching external controller")
+			_ = client.Close()
+			select {
+			case <-ctx.Done():
+			case errs <- errors.Annotate(err, "watching external controller"):
+			}
 			return
 		}
-		donec <- result{client, nw}
+
+		select {
+		case <-ctx.Done():
+			_ = client.Close()
+		case response <- result{client: client, nw: nw}:
+		}
 	}()
+
 	select {
 	case <-ctx.Done():
 		return nil, nil, w.catacomb.ErrDying()
-	case err := <-errc:
+	case err := <-errs:
 		return nil, nil, errors.Trace(err)
-	case r := <-donec:
+	case r := <-response:
 		return r.client, r.nw, nil
 	}
 }
