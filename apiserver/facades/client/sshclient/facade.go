@@ -11,9 +11,9 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
@@ -28,10 +28,10 @@ type Facade struct {
 
 	leadershipReader leadership.Reader
 
-	modelConfigService ModelConfigService
-	stubService        StubService
-	modelTag           names.ModelTag
-	controllerTag      names.ControllerTag
+	modelConfigService   ModelConfigService
+	modelProviderService ModelProviderService
+	modelTag             names.ModelTag
+	controllerTag        names.ControllerTag
 }
 
 // FacadeV5 provides the SSH Client API facade version 5
@@ -50,7 +50,7 @@ func internalFacade(
 	modelTag names.ModelTag,
 	backend Backend,
 	modelConfigService ModelConfigService,
-	stubService StubService,
+	modelProviderService ModelProviderService,
 	leadershipReader leadership.Reader, auth facade.Authorizer,
 ) (*Facade, error) {
 	if !auth.AuthClient() {
@@ -58,13 +58,13 @@ func internalFacade(
 	}
 
 	return &Facade{
-		backend:            backend,
-		modelConfigService: modelConfigService,
-		stubService:        stubService,
-		controllerTag:      controllerTag,
-		modelTag:           modelTag,
-		authorizer:         auth,
-		leadershipReader:   leadershipReader,
+		backend:              backend,
+		modelConfigService:   modelConfigService,
+		modelProviderService: modelProviderService,
+		controllerTag:        controllerTag,
+		modelTag:             modelTag,
+		authorizer:           auth,
+		leadershipReader:     leadershipReader,
 	}, nil
 }
 
@@ -261,13 +261,7 @@ func (facade *Facade) ModelCredentialForSSH(ctx context.Context) (params.CloudSp
 		return result, err
 	}
 
-	token, err := facade.stubService.GetExecSecretToken(ctx)
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-
-	spec, err := facade.stubService.CloudSpec(ctx)
+	spec, err := facade.modelProviderService.GetCloudSpecForSSH(ctx)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
@@ -276,27 +270,7 @@ func (facade *Facade) ModelCredentialForSSH(ctx context.Context) (params.CloudSp
 		result.Error = apiservererrors.ServerError(errors.NotValidf("cloud spec %q has empty credential", spec.Name))
 		return result, nil
 	}
-
-	cred, err := k8scloud.UpdateCredentialWithToken(*spec.Credential, token)
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-	result.Result = &params.CloudSpec{
-		Type:             spec.Type,
-		Name:             spec.Name,
-		Region:           spec.Region,
-		Endpoint:         spec.Endpoint,
-		IdentityEndpoint: spec.IdentityEndpoint,
-		StorageEndpoint:  spec.StorageEndpoint,
-		Credential: &params.CloudCredential{
-			AuthType:   string(cred.AuthType()),
-			Attributes: cred.Attributes(),
-		},
-		CACertificates:    spec.CACertificates,
-		SkipTLSVerify:     spec.SkipTLSVerify,
-		IsControllerCloud: spec.IsControllerCloud,
-	}
+	result.Result = common.CloudSpecToParams(spec)
 	return result, nil
 }
 

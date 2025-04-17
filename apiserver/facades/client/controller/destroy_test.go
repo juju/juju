@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
@@ -122,7 +121,7 @@ func (s *destroyControllerSuite) controllerAPI(c *gc.C) *controller.ControllerAP
 		}
 		return svc.Agent(), nil
 	}
-	modelConfigServiceGetter := func(c context.Context, modelUUID coremodel.UUID) (cloudspec.ModelConfigService, error) {
+	modelConfigServiceGetter := func(c context.Context, modelUUID coremodel.UUID) (controller.ModelConfigService, error) {
 		svc, err := ctx.DomainServicesForModel(c, modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -157,6 +156,14 @@ func (s *destroyControllerSuite) controllerAPI(c *gc.C) *controller.ControllerAP
 		}
 		return svc.Machine(), nil
 	}
+	cloudSpecServiceGetter := func(c context.Context, modelUUID coremodel.UUID) (controller.ModelProviderService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.ModelProvider(), nil
+	}
+	s.mockModelService = mocks.NewMockModelService(ctrl)
 
 	api, err := controller.NewControllerAPI(
 		stdCtx,
@@ -168,7 +175,6 @@ func (s *destroyControllerSuite) controllerAPI(c *gc.C) *controller.ControllerAP
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),
 		domainServices.ExternalController(),
-		domainServices.Cloud(),
 		domainServices.Credential(),
 		domainServices.Upgrade(),
 		domainServices.Access(),
@@ -181,13 +187,13 @@ func (s *destroyControllerSuite) controllerAPI(c *gc.C) *controller.ControllerAP
 		modelAgentServiceGetter,
 		modelConfigServiceGetter,
 		blockCommandServiceGetter,
+		cloudSpecServiceGetter,
 		domainServices.Proxy(),
 		func(c context.Context, modelUUID coremodel.UUID, legacyState facade.LegacyStateExporter) (controller.ModelExporter, error) {
 			return ctx.ModelExporter(c, modelUUID, legacyState)
 		},
 		ctx.ObjectStore(),
 		ctx.ControllerUUID(),
-		ctx.ModelUUID(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api

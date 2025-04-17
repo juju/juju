@@ -29,7 +29,6 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -50,7 +49,6 @@ type Suite struct {
 	statusService           *mocks.MockStatusService
 	controllerConfigService *mocks.MockControllerConfigService
 	credentialService       *mocks.MockCredentialService
-	modelConfigService      *mocks.MockModelConfigService
 	modelInfoService        *mocks.MockModelInfoService
 	modelService            *mocks.MockModelService
 	upgradeService          *mocks.MockUpgradeService
@@ -182,19 +180,11 @@ func (s *Suite) TestModelInfo(c *gc.C) {
 		UUID:            "model-uuid",
 		Name:            "model-name",
 		CredentialOwner: usertesting.GenNewName(c, "owner"),
+		AgentVersion:    semversion.MustParse("1.2.3"),
 	}, nil)
 
 	modelDescription := description.NewModel(description.ModelArgs{})
 	s.modelExporter.EXPECT().ExportModel(gomock.Any(), gomock.Any()).Return(modelDescription, nil)
-
-	modelConfig, err := config.New(false, map[string]any{
-		config.UUIDKey:         "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		config.NameKey:         "model-name",
-		config.TypeKey:         "ec2",
-		config.AgentVersionKey: "1.2.3",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(modelConfig, nil)
 
 	mod, err := s.mustMakeAPI(c).ModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -574,7 +564,6 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	s.credentialService = mocks.NewMockCredentialService(ctrl)
 	s.controllerBackend = mocks.NewMockControllerState(ctrl)
 	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
-	s.modelConfigService = mocks.NewMockModelConfigService(ctrl)
 	s.modelExporter = mocks.NewMockModelExporter(ctrl)
 	s.modelInfoService = mocks.NewMockModelInfoService(ctrl)
 	s.modelService = mocks.NewMockModelService(ctrl)
@@ -600,11 +589,9 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 		nil, // pool
 		s.resources,
 		s.authorizer,
-		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) { return s.cloudSpec, nil },
 		stubLeadership{},
 		s.credentialService,
 		s.controllerConfigService,
-		s.modelConfigService,
 		s.modelInfoService,
 		s.modelService,
 		s.applicationService,

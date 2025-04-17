@@ -22,7 +22,6 @@ func SetPrecheckResult(p patcher, err error) {
 		st, ctlrSt *state.State,
 		targetInfo *coremigration.TargetInfo,
 		controllerConfigService ControllerConfigService,
-		cloudService CloudService,
 		credentialService CredentialService,
 		modelAgentService ModelAgentService,
 		modelConfigService ModelConfigService,

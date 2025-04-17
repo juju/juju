@@ -17,10 +17,10 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/user"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
 	domainmodel "github.com/juju/juju/domain/model"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/proxy"
 )
@@ -111,22 +111,10 @@ type BlockCommandService interface {
 	RemoveAllBlocks(ctx context.Context) error
 }
 
-// CloudService provides access to clouds.
-type CloudService interface {
-	// Cloud returns the named cloud.
-	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
-	// WatchCloud returns a watcher that observes changes to the specified cloud.
-	WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error)
-}
-
 // CredentialService provides access to credentials.
 type CredentialService interface {
-	// CloudCredential returns the cloud credential for the given tag.
+	// CloudCredential returns the cloud credential for the given key.
 	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
-
-	// WatchCredential returns a watcher that observes changes to the specified
-	// credential.
-	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
 }
 
 // ModelConfigService is an interface that provides access to the
@@ -136,9 +124,15 @@ type ModelConfigService interface {
 	ModelConfig(ctx context.Context) (*config.Config, error)
 }
 
+// ModelProviderService providers access to the model provider service.
+type ModelProviderService interface {
+	// GetCloudSpec returns the cloud spec for the model.
+	GetCloudSpec(ctx context.Context) (cloudspec.CloudSpec, error)
+}
+
 // ModelAgentService provides access to the Juju agent version for the model.
 type ModelAgentService interface {
-	// GetMachinesNotAtTargetVersion reports all of the machines in the model that
+	// GetMachinesNotAtTargetAgentVersion reports all of the machines in the model that
 	// are currently not at the desired target version. This also returns machines
 	// that have no reported agent version set. If all units are up to the
 	// target version or no units exist in the model a zero length slice is

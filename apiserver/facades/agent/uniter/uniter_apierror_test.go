@@ -63,7 +63,7 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 		PortService:             domainServices.Port(),
 		SecretService:           domainServices.Secret(),
 		UnitStateService:        domainServices.UnitState(),
-		StubService:             domainServices.Stub(),
+		ModelProviderService:    domainServices.ModelProvider(),
 	}
 
 	_, err := uniter.NewUniterAPIWithServices(context.Background(), facadeContext, services)

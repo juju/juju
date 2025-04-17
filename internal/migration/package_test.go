@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/testing"
-	upgradevalidationmocks "github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration AgentBinaryStore,ControllerConfigService,UpgradeService,ApplicationService,StatusService,OperationExporter,Coordinator,ModelAgentService,CharmService
@@ -32,9 +31,6 @@ type precheckBaseSuite struct {
 	applicationService *MockApplicationService
 	statusService      *MockStatusService
 	agentService       *MockModelAgentService
-
-	server        *upgradevalidationmocks.MockServer
-	serverFactory *upgradevalidationmocks.MockServerFactory
 }
 
 func (s *precheckBaseSuite) checkRebootRequired(c *gc.C, runPrecheck precheckRunner) {
@@ -55,9 +51,6 @@ func (s *precheckBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
 	s.agentService = NewMockModelAgentService(ctrl)
-
-	s.server = upgradevalidationmocks.NewMockServer(ctrl)
-	s.serverFactory = upgradevalidationmocks.NewMockServerFactory(ctrl)
 
 	return ctrl
 }

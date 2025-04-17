@@ -7,12 +7,14 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/apiserver/common/cloudspec"
+	"github.com/juju/juju/apiserver/common"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/life"
+	coremodel "github.com/juju/juju/core/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -28,20 +30,22 @@ var (
 // UndertakerAPI implements the API used by the model undertaker worker.
 type UndertakerAPI struct {
 	*commonmodel.ModelConfigWatcher
-	cloudspec.CloudSpecer
 
 	st        State
 	resources facade.Resources
 
+	modelUUID            coremodel.UUID
+	cloudSpecGetter      ModelProviderService
 	secretBackendService SecretBackendService
 	modelInfoService     ModelInfoService
 }
 
 func newUndertakerAPI(
+	modelUUID coremodel.UUID,
 	st State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	cloudSpecer cloudspec.CloudSpecer,
+	cloudSpecGetter ModelProviderService,
 	secretBackendService SecretBackendService,
 	modelConfigService ModelConfigService,
 	modelInfoService ModelInfoService,
@@ -54,11 +58,43 @@ func newUndertakerAPI(
 	return &UndertakerAPI{
 		st:                   st,
 		resources:            resources,
+		modelUUID:            modelUUID,
 		secretBackendService: secretBackendService,
 		modelInfoService:     modelInfoService,
+		cloudSpecGetter:      cloudSpecGetter,
 		ModelConfigWatcher:   commonmodel.NewModelConfigWatcher(modelConfigService, watcherRegistry),
-		CloudSpecer:          cloudSpecer,
 	}, nil
+}
+
+// CloudSpec returns the cloud spec used by the specified models.
+func (u *UndertakerAPI) CloudSpec(ctx context.Context, args params.Entities) (params.CloudSpecResults, error) {
+	results := params.CloudSpecResults{
+		Results: make([]params.CloudSpecResult, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		tag, err := names.ParseModelTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if tag.Id() != u.modelUUID.String() {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		spec, err := u.cloudSpecGetter.GetCloudSpec(ctx)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		result := params.CloudSpecResult{
+			Error: apiservererrors.ServerError(err),
+		}
+		if err == nil {
+			result.Result = common.CloudSpecToParams(spec)
+		}
+		results.Results[i] = result
+	}
+	return results, nil
 }
 
 // ModelInfo returns information on the model needed by the undertaker worker.

@@ -16,12 +16,8 @@ type ModelConfigService interface {
 	ModelConfig(ctx context.Context) (*config.Config, error)
 }
 
-// StubService will be replaced once the implementation is finished.
-type StubService interface {
-	// CloudSpec returns the cloud spec for the model.
-	CloudSpec(ctx context.Context) (cloudspec.CloudSpec, error)
-
-	// GetExecSecretToken returns a token that can be used to run exec operations
-	// on the provider cloud.
-	GetExecSecretToken(ctx context.Context) (string, error)
+// ModelProviderService providers access to the model provider service.
+type ModelProviderService interface {
+	// GetCloudSpecForSSH returns the cloud spec for sshing into a k8s pod.
+	GetCloudSpecForSSH(ctx context.Context) (cloudspec.CloudSpec, error)
 }

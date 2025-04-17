@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common/cloudspec"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/model"
@@ -45,7 +44,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		}
 		return svc.Agent(), nil
 	}
-	modelConfigServiceGetter := func(c context.Context, modelUUID model.UUID) (cloudspec.ModelConfigService, error) {
+	modelConfigServiceGetter := func(c context.Context, modelUUID model.UUID) (ModelConfigService, error) {
 		svc, err := ctx.DomainServicesForModel(c, modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -80,6 +79,13 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		}
 		return svc.Machine(), nil
 	}
+	cloudSpecServiceGetter := func(c context.Context, modelUUID model.UUID) (ModelProviderService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.ModelProvider(), nil
+	}
 
 	return NewControllerAPI(
 		stdCtx,
@@ -91,7 +97,6 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),
 		domainServices.ExternalController(),
-		domainServices.Cloud(),
 		domainServices.Credential(),
 		domainServices.Upgrade(),
 		domainServices.Access(),
@@ -104,12 +109,12 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		modelAgentServiceGetter,
 		modelConfigServiceGetter,
 		blockCommandServiceGetter,
+		cloudSpecServiceGetter,
 		domainServices.Proxy(),
 		func(c context.Context, modelUUID model.UUID, legacyState facade.LegacyStateExporter) (ModelExporter, error) {
 			return ctx.ModelExporter(c, modelUUID, legacyState)
 		},
 		ctx.ObjectStore(),
 		ctx.ControllerUUID(),
-		ctx.ModelUUID(),
 	)
 }

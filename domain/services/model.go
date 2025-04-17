@@ -496,6 +496,5 @@ func (s *ModelServices) Stub() *stubservice.StubService {
 		s.modelUUID,
 		changestream.NewTxnRunnerFactory(s.controllerDB),
 		changestream.NewTxnRunnerFactory(s.modelDB),
-		providertracker.ProviderRunner[stubservice.ProviderWithSecretToken](s.providerFactory, s.modelUUID.String()),
 	)
 }

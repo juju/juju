@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/firewall"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -53,7 +52,6 @@ type FirewallerAPI struct {
 	*commonmodel.ModelMachinesWatcher
 	*common.InstanceIdGetter
 	ControllerConfigAPI
-	cloudspec.CloudSpecer
 
 	st                                       State
 	networkService                           NetworkService
@@ -79,7 +77,6 @@ func NewStateFirewallerAPI(
 	resources facade.Resources,
 	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
-	cloudSpecAPI cloudspec.CloudSpecer,
 	controllerConfigAPI ControllerConfigAPI,
 	controllerConfigService ControllerConfigService,
 	modelConfigService ModelConfigService,
@@ -132,7 +129,6 @@ func NewStateFirewallerAPI(
 		UnitsWatcher:                             unitsWatcher,
 		ModelMachinesWatcher:                     machinesWatcher,
 		InstanceIdGetter:                         instanceIdGetter,
-		CloudSpecer:                              cloudSpecAPI,
 		ControllerConfigAPI:                      controllerConfigAPI,
 		st:                                       st,
 		resources:                                resources,

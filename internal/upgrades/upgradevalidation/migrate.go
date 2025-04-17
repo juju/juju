@@ -3,18 +3,11 @@
 
 package upgradevalidation
 
-import (
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-)
-
 // ValidatorsForModelMigrationSource returns a list of validators to run source
 // controller for model migration.
 // Note: the target version can never be lower than the current version.
-func ValidatorsForModelMigrationSource(
-	cloudspec environscloudspec.CloudSpec,
-) []Validator {
+func ValidatorsForModelMigrationSource() []Validator {
 	return []Validator{
 		checkForDeprecatedUbuntuSeriesForModel,
-		getCheckForLXDVersion(cloudspec),
 	}
 }

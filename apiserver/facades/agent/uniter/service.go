@@ -41,7 +41,7 @@ type Services struct {
 	RelationService         RelationService
 	SecretService           SecretService
 	UnitStateService        UnitStateService
-	StubService             StubService
+	ModelProviderService    ModelProviderService
 }
 
 // ControllerConfigService provides the controller configuration for the model.
@@ -69,10 +69,10 @@ type ModelInfoService interface {
 	CloudAPIVersion(context.Context) (string, error)
 }
 
-// StubService will be replaced once the implementation is finished.
-type StubService interface {
-	// CloudSpec returns the cloud spec for the model.
-	CloudSpec(ctx context.Context) (cloudspec.CloudSpec, error)
+// ModelProviderService providers access to the model provider service.
+type ModelProviderService interface {
+	// GetCloudSpec returns the cloud spec for the model.
+	GetCloudSpec(ctx context.Context) (cloudspec.CloudSpec, error)
 }
 
 // ApplicationService provides access to the application service.

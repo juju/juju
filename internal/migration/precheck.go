@@ -11,7 +11,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
@@ -31,14 +30,13 @@ import (
 func SourcePrecheck(
 	ctx context.Context,
 	backend PrecheckBackend,
-	environscloudspecGetter environsCloudSpecGetter,
 	credentialService CredentialService,
 	upgradeService UpgradeService,
 	applicationService ApplicationService,
 	statusService StatusService,
 	modelAgentService ModelAgentService,
 ) error {
-	c := newPrecheckSource(backend, environscloudspecGetter, credentialService, upgradeService, applicationService, statusService, modelAgentService)
+	c := newPrecheckSource(backend, credentialService, upgradeService, applicationService, statusService, modelAgentService)
 	if err := c.checkModel(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -403,12 +401,11 @@ func (c *precheckContext) checkRelations(appUnits map[string][]PrecheckUnit) err
 
 type precheckSource struct {
 	precheckContext
-	environscloudspecGetter environsCloudSpecGetter
-	credentialService       CredentialService
+	credentialService CredentialService
 }
 
 func newPrecheckSource(
-	backend PrecheckBackend, environscloudspecGetter environsCloudSpecGetter,
+	backend PrecheckBackend,
 	credentialService CredentialService,
 	upgradeService UpgradeService,
 	applicationService ApplicationService,
@@ -423,8 +420,7 @@ func newPrecheckSource(
 			statusService:      statusService,
 			modelAgentService:  modelAgentService,
 		},
-		environscloudspecGetter: environscloudspecGetter,
-		credentialService:       credentialService,
+		credentialService: credentialService,
 	}
 }
 
@@ -449,11 +445,7 @@ func (ctx *precheckSource) checkModel(stdCtx context.Context) error {
 		}
 	}
 
-	cloudspec, err := ctx.environscloudspecGetter(stdCtx, names.NewModelTag(model.UUID()))
-	if err != nil {
-		return errors.Trace(err)
-	}
-	validators := upgradevalidation.ValidatorsForModelMigrationSource(cloudspec)
+	validators := upgradevalidation.ValidatorsForModelMigrationSource()
 	modelGroupedName := fmt.Sprintf("%s/%s", model.Owner().Id(), model.Name())
 	checker := upgradevalidation.NewModelUpgradeCheck(ctx.backend, modelGroupedName, ctx.modelAgentService, validators...)
 	blockers, err := checker.Validate()
