@@ -26,10 +26,11 @@ var _ = gc.Suite(&manifoldSuite{})
 
 func newManifoldConfig(l loggo.Logger, modifier func(cfg *sshsession.ManifoldConfig)) *sshsession.ManifoldConfig {
 	cfg := &sshsession.ManifoldConfig{
-		APICallerName: "api-caller",
-		AgentName:     "agent",
-		Logger:        l,
-		NewWorker:     func(cfg sshsession.WorkerConfig) (worker.Worker, error) { return nil, nil },
+		APICallerName:            "api-caller",
+		AgentName:                "agent",
+		Logger:                   l,
+		AuthenticationWorkerName: "authentication-worker",
+		NewWorker:                func(cfg sshsession.WorkerConfig) (worker.Worker, error) { return nil, nil },
 	}
 
 	modifier(cfg)
@@ -81,23 +82,27 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 
 	// Setup the manifold
 	manifold := sshsession.Manifold(sshsession.ManifoldConfig{
-		APICallerName: "api-caller",
-		AgentName:     "agent",
-		Logger:        loggo.GetLogger("test"),
-		NewWorker:     func(cfg sshsession.WorkerConfig) (worker.Worker, error) { return nil, nil },
+		APICallerName:            "api-caller",
+		AgentName:                "agent",
+		AuthenticationWorkerName: "authentication-worker",
+		Logger:                   loggo.GetLogger("test"),
+
+		NewWorker: func(cfg sshsession.WorkerConfig) (worker.Worker, error) { return nil, nil },
 	})
 
 	// Check the inputs are as expected
 	c.Assert(manifold.Inputs, gc.DeepEquals, []string{
 		"api-caller",
 		"agent",
+		"authentication-worker",
 	})
 
 	// Start the worker
 	w, err := manifold.Start(
 		dt.StubContext(nil, map[string]interface{}{
-			"api-caller": mockAPICaller{},
-			"agent":      mockAgent,
+			"api-caller":            mockAPICaller{},
+			"agent":                 mockAgent,
+			"authentication-worker": MockEphemeralKeysUpdater{},
 		}),
 	)
 	c.Assert(err, jc.ErrorIsNil)

@@ -9,9 +9,10 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package sshsession_test -destination ./facade_client_mock_test.go github.com/juju/juju/internal/worker/sshsession FacadeClient,KeyManager
+//go:generate go run go.uber.org/mock/mockgen -package sshsession_test -destination ./facade_client_mock_test.go github.com/juju/juju/internal/worker/sshsession FacadeClient
 //go:generate go run go.uber.org/mock/mockgen -package sshsession_test -destination ./stringswatcher_mock_test.go github.com/juju/juju/core/watcher StringsWatcher
 //go:generate go run go.uber.org/mock/mockgen -package sshsession_test -destination ./agent_mock_test.go github.com/juju/juju/agent Agent,Config
+//go:generate go run go.uber.org/mock/mockgen -package sshsession_test -destination ./ephemeral_keys_updater_mock_test.go github.com/juju/juju/internal/worker/authenticationworker EphemeralKeysUpdater
 
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)

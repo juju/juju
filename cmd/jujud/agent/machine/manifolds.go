@@ -88,6 +88,7 @@ import (
 	"github.com/juju/juju/internal/worker/secretbackendrotate"
 	"github.com/juju/juju/internal/worker/singular"
 	"github.com/juju/juju/internal/worker/sshserver"
+	"github.com/juju/juju/internal/worker/sshsession"
 	"github.com/juju/juju/internal/worker/sshtunneler"
 	workerstate "github.com/juju/juju/internal/worker/state"
 	"github.com/juju/juju/internal/worker/stateconfigwatcher"
@@ -810,6 +811,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			ClockName:     clockName,
 		})),
+
+		sshSessionName: sshsession.Manifold(sshsession.ManifoldConfig{
+			APICallerName:            apiCallerName,
+			AuthenticationWorkerName: authenticationWorkerName,
+			AgentName:                agentName,
+			Logger:                   loggo.GetLogger("juju.worker.sshsession"),
+			NewWorker:                sshsession.NewWorker,
+		}),
 	}
 
 	return manifolds
@@ -1227,4 +1236,6 @@ const (
 	jwtParserName = "jwt-parser"
 
 	sshTunnelerName = "ssh-tunneler"
+
+	sshSessionName = "ssh-session"
 )

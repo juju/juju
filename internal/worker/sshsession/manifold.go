@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/sshsession"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/internal/worker/authenticationworker"
 )
 
 // Logger holds the methods required to log messages.
@@ -27,6 +28,11 @@ type ManifoldConfig struct {
 
 	// AgentName holds the agent dependency name.
 	AgentName string
+
+	// AuthenticationWorkerName holds the authentication worker dependency name.
+	// This worker is in change of updating the authorized_keys file, and in particular
+	// ephemeral keys.
+	AuthenticationWorkerName string
 
 	// Logger is the logger to use for the worker.
 	Logger Logger
@@ -46,6 +52,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
 	}
+	if config.AuthenticationWorkerName == "" {
+		return errors.NotValidf("empty AuthenticationWorkerName")
+	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
@@ -59,6 +68,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.APICallerName,
 			config.AgentName,
+			config.AuthenticationWorkerName,
 		},
 		Start: config.start,
 	}
@@ -82,12 +92,17 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	machineId := agent.CurrentConfig().Tag().Id()
 
+	var ephemeralKeysUpdater authenticationworker.EphemeralKeysUpdater
+	if err := context.Get(config.AuthenticationWorkerName, ephemeralKeysUpdater); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w, err := config.NewWorker(WorkerConfig{
-		Logger:           config.Logger,
-		MachineId:        machineId,
-		FacadeClient:     sshsession.NewClient(apiCaller),
-		ConnectionGetter: NewConnectionGetter(config.Logger),
-		KeyManager:       NewKeyManager(config.Logger),
+		Logger:               config.Logger,
+		MachineId:            machineId,
+		FacadeClient:         sshsession.NewClient(apiCaller),
+		ConnectionGetter:     NewConnectionGetter(config.Logger),
+		EphemeralKeysUpdater: ephemeralKeysUpdater,
 	})
 
 	if err != nil {

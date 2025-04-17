@@ -1,3 +1,6 @@
+// Copyright 2025 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package sshsession
 
 import (
@@ -10,29 +13,17 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	jujussh "github.com/juju/utils/v3/ssh"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/worker/authenticationworker"
 	"github.com/juju/juju/rpc/params"
 )
 
-var (
-	// ControllerSSHUser is the user that will connect to the controller's embedded
-	// SSH server.
-	ControllerSSHUser = "reverse-ssh"
-	// We use authorized_keys2 as it's a default configured alternative file to
-	// authorized_keys. Our existing SSH implementation was hardcoded against authorized_keys
-	// and using this file allows us to not interfere with existing setups. The user may
-	// still add another file to the "AuthorizedKeysFile" directive in sshd_config.
-	//
-	// TODO(ale8k): At somepoint, update juju documentation to explain should they wish
-	// to ssh directly to a machine, this is the way to do so.
-	AuthorizedKeysFile = "authorized_keys2"
-)
+var ControllerSSHUser = "reverse-ssh"
 
 // FacadeClient holds the facade methods for the SSH session worker.
 type FacadeClient interface {
@@ -46,11 +37,11 @@ type FacadeClient interface {
 // WorkerConfig encapsulates the configuration options for
 // instantiating a new ssh session worker.
 type WorkerConfig struct {
-	Logger           Logger
-	MachineId        string
-	FacadeClient     FacadeClient
-	ConnectionGetter ConnectionGetter
-	KeyManager       KeyManager
+	Logger               Logger
+	MachineId            string
+	FacadeClient         FacadeClient
+	ConnectionGetter     ConnectionGetter
+	EphemeralKeysUpdater authenticationworker.EphemeralKeysUpdater
 }
 
 // Validate checks whether the worker configuration settings are valid.
@@ -67,8 +58,8 @@ func (cfg WorkerConfig) Validate() error {
 	if cfg.ConnectionGetter == nil {
 		return errors.NotValidf("nil ConnectionGetter")
 	}
-	if cfg.KeyManager == nil {
-		return errors.NotValidf("nil KeyManager")
+	if cfg.EphemeralKeysUpdater == nil {
+		return errors.NotValidf("nil EphemeralKeysUpdater")
 	}
 
 	return nil
@@ -78,11 +69,11 @@ func (cfg WorkerConfig) Validate() error {
 type sshSessionWorker struct {
 	catacomb catacomb.Catacomb
 
-	logger           Logger
-	machineId        string
-	facadeClient     FacadeClient
-	connectionGetter ConnectionGetter
-	keyManager       KeyManager
+	logger               Logger
+	machineId            string
+	facadeClient         FacadeClient
+	connectionGetter     ConnectionGetter
+	ephemeralKeysUpdater authenticationworker.EphemeralKeysUpdater
 }
 
 // NewWorker returns an SSH session worker.
@@ -92,11 +83,11 @@ func NewWorker(cfg WorkerConfig) (worker.Worker, error) {
 	}
 
 	w := &sshSessionWorker{
-		logger:           cfg.Logger,
-		machineId:        cfg.MachineId,
-		facadeClient:     cfg.FacadeClient,
-		connectionGetter: cfg.ConnectionGetter,
-		keyManager:       cfg.KeyManager,
+		logger:               cfg.Logger,
+		machineId:            cfg.MachineId,
+		facadeClient:         cfg.FacadeClient,
+		connectionGetter:     cfg.ConnectionGetter,
+		ephemeralKeysUpdater: cfg.EphemeralKeysUpdater,
 	}
 
 	err := catacomb.Invoke(catacomb.Plan{
@@ -172,12 +163,12 @@ func (w *sshSessionWorker) handleConnection(ctx context.Context, connID string) 
 		ctrlAddress := reqParams.ControllerAddresses.Values()[0]
 		ephemeralPublicKey := string(reqParams.EphemeralPublicKey)
 
-		if err := w.keyManager.AddPublicKey(ephemeralPublicKey); err != nil {
+		if err := w.ephemeralKeysUpdater.AddEphemeralKey(ephemeralPublicKey); err != nil {
 			return errors.Trace(err)
 		}
 
 		defer func() {
-			if err := w.keyManager.CleanupPublicKey(ephemeralPublicKey); err != nil {
+			if err := w.ephemeralKeysUpdater.RemoveEphemeralKey(ephemeralPublicKey); err != nil {
 				w.logger.Errorf("Error cleaning up ephemeral public key: %v", err)
 			}
 		}()
@@ -228,45 +219,6 @@ func (w *sshSessionWorker) pipeConnectionToSSHD(ctx context.Context, ctrlAddress
 	})
 
 	if err := eg.Wait(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
-// KeyManager holds the methods necessary to add/cleanup public keys.
-type KeyManager interface {
-	AddPublicKey(ephemeralPublicKey string) error
-	CleanupPublicKey(ephemeralPublicKey string) error
-}
-
-// keyManager handles the addition and removal of public keys to the authorized_keys2 file.
-type keyManager struct {
-	logger Logger
-}
-
-// NewKeyManager returns a new keyManager.
-func NewKeyManager(l Logger) *keyManager {
-	return &keyManager{l}
-}
-
-// AddPublicKey adds the provided public key to the authorized_keys2 file.
-func (w *keyManager) AddPublicKey(ephemeralPublicKey string) error {
-	if err := jujussh.AddKeysToFile(ControllerSSHUser, AuthorizedKeysFile, []string{ephemeralPublicKey}); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-// CleanupPublicKey finds the fingerprint of the provided key and attempts to delete the key
-// from authorized_keys2.
-func (w *keyManager) CleanupPublicKey(ephemeralPublicKey string) error {
-	fingerprint, _, err := jujussh.KeyFingerprint(ephemeralPublicKey)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := jujussh.DeleteKeysFromFile(ControllerSSHUser, AuthorizedKeysFile, []string{fingerprint}); err != nil {
 		return errors.Trace(err)
 	}
 

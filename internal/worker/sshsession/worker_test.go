@@ -28,9 +28,9 @@ import (
 type workerSuite struct {
 	testing.IsolationSuite
 
-	facadeClientMock *MockFacadeClient
-	watcherMock      *MockStringsWatcher
-	keyManagerMock   *MockKeyManager
+	facadeClientMock        *MockFacadeClient
+	watcherMock             *MockStringsWatcher
+	ephemeralkeyUpdaterMock *MockEphemeralKeysUpdater
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -40,7 +40,7 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.facadeClientMock = NewMockFacadeClient(ctrl)
 	s.watcherMock = NewMockStringsWatcher(ctrl)
-	s.keyManagerMock = NewMockKeyManager(ctrl)
+	s.ephemeralkeyUpdaterMock = NewMockEphemeralKeysUpdater(ctrl)
 
 	return ctrl
 }
@@ -52,11 +52,11 @@ func (s *workerSuite) newWorkerConfig(
 	cg, _, _ := newStubConnectionGetter()
 
 	cfg := &sshsession.WorkerConfig{
-		Logger:           logger,
-		MachineId:        "1",
-		FacadeClient:     s.facadeClientMock,
-		ConnectionGetter: cg,
-		KeyManager:       s.keyManagerMock,
+		Logger:               logger,
+		MachineId:            "1",
+		FacadeClient:         s.facadeClientMock,
+		ConnectionGetter:     cg,
+		EphemeralKeysUpdater: s.ephemeralkeyUpdaterMock,
 	}
 
 	modifier(cfg)
@@ -113,12 +113,12 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 	)
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	// Test no KeyManager.
+	// Test no EphemeralKeysUpdater.
 	cfg = s.newWorkerConfig(
 		l,
 
 		func(cfg *sshsession.WorkerConfig) {
-			cfg.KeyManager = nil
+			cfg.EphemeralKeysUpdater = nil
 		},
 	)
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)
@@ -142,11 +142,11 @@ func (s *workerSuite) TestSSHSessionWorkerCanBeKilled(c *gc.C) {
 	defer connGetter.close()
 
 	w, err := sshsession.NewWorker(sshsession.WorkerConfig{
-		Logger:           l,
-		MachineId:        "0",
-		FacadeClient:     s.facadeClientMock,
-		ConnectionGetter: connGetter,
-		KeyManager:       s.keyManagerMock,
+		Logger:               l,
+		MachineId:            "0",
+		FacadeClient:         s.facadeClientMock,
+		ConnectionGetter:     connGetter,
+		EphemeralKeysUpdater: s.ephemeralkeyUpdaterMock,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(workertest.CheckKill(c, w), jc.ErrorIsNil)
@@ -180,19 +180,19 @@ func (s *workerSuite) TestSSHSessionWorkerHandlesConnectionPipesData(c *gc.C) {
 		nil,
 	)
 
-	s.keyManagerMock.EXPECT().AddPublicKey(string([]byte{1})).Times(1)
-	s.keyManagerMock.EXPECT().CleanupPublicKey(string([]byte{1})).Times(1)
+	s.ephemeralkeyUpdaterMock.EXPECT().AddEphemeralKey(string([]byte{1})).Times(1)
+	s.ephemeralkeyUpdaterMock.EXPECT().RemoveEphemeralKey(string([]byte{1})).Times(1)
 
 	// Setup an in-memory conn getter to stub the controller and SSHD side.
 	connGetter, controllerConn, sshdConn := newStubConnectionGetter()
 	defer connGetter.close()
 
 	w, err := sshsession.NewWorker(sshsession.WorkerConfig{
-		Logger:           l,
-		MachineId:        "0",
-		FacadeClient:     s.facadeClientMock,
-		ConnectionGetter: connGetter,
-		KeyManager:       s.keyManagerMock,
+		Logger:               l,
+		MachineId:            "0",
+		FacadeClient:         s.facadeClientMock,
+		ConnectionGetter:     connGetter,
+		EphemeralKeysUpdater: s.ephemeralkeyUpdaterMock,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
