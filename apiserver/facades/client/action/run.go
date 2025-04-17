@@ -16,6 +16,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/model"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -30,7 +31,7 @@ func (a *ActionAPI) Run(ctx context.Context, run params.RunParams) (results para
 		return results, errors.Trace(err)
 	}
 
-	units, err := a.getAllUnitNames(run.Units, run.Applications)
+	units, err := a.getAllUnitNames(ctx, run.Units, run.Applications)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -117,7 +118,7 @@ func (a *ActionAPI) createRunActionsParams(
 
 // getAllUnitNames returns a sequence of valid Unit objects from state. If any
 // of the application names or unit names are not found, an error is returned.
-func (a *ActionAPI) getAllUnitNames(units, applications []string) (result []names.Tag, err error) {
+func (a *ActionAPI) getAllUnitNames(ctx context.Context, units, applications []string) (result []names.Tag, err error) {
 	var leaders map[string]string
 	getLeader := func(appName string) (string, error) {
 		if leaders == nil {
@@ -151,17 +152,15 @@ func (a *ActionAPI) getAllUnitNames(units, applications []string) (result []name
 		unitsSet.Add(leaderUnit)
 	}
 
-	for _, name := range applications {
-		service, err := a.state.Application(name)
-		if err != nil {
-			return nil, err
+	for _, aName := range applications {
+		unitNames, err := a.applicationService.GetUnitNamesForApplication(ctx, aName)
+		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			return nil, errors.NotFoundf("application %q", aName)
+		} else if err != nil {
+			return nil, errors.Trace(err)
 		}
-		units, err := service.AllUnits()
-		if err != nil {
-			return nil, err
-		}
-		for _, unit := range units {
-			unitsSet.Add(unit.Name())
+		for _, unitName := range unitNames {
+			unitsSet.Add(unitName.String())
 		}
 	}
 	for _, unitName := range unitsSet.SortedValues() {

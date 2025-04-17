@@ -12,9 +12,7 @@ import (
 // State provides the subset of global state required by the
 // action facade.
 type State interface {
-	AllApplications() ([]*state.Application, error)
 	AllMachines() ([]*state.Machine, error)
-	Application(name string) (*state.Application, error)
 	FindEntity(tag names.Tag) (state.Entity, error)
 	Model() (Model, error)
 	WatchActionLogs(actionId string) state.StringsWatcher
@@ -41,16 +39,8 @@ func (s *stateShim) ActionByTag(tag names.ActionTag) (state.Action, error) {
 	return s.st.ActionByTag(tag)
 }
 
-func (s *stateShim) AllApplications() ([]*state.Application, error) {
-	return s.st.AllApplications()
-}
-
 func (s *stateShim) AllMachines() ([]*state.Machine, error) {
 	return s.st.AllMachines()
-}
-
-func (s *stateShim) Application(name string) (*state.Application, error) {
-	return s.st.Application(name)
 }
 
 func (s *stateShim) FindEntity(tag names.Tag) (state.Entity, error) {

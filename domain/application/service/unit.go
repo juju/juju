@@ -109,6 +109,15 @@ type UnitState interface {
 	// This doesn't take into account life, so it can return the life of a unit
 	// even if it's dead.
 	GetUnitRefreshAttributes(ctx context.Context, unitName coreunit.Name) (application.UnitAttributes, error)
+
+	// GetAllUnitNames returns a slice of all unit names in the model.
+	GetAllUnitNames(ctx context.Context) ([]coreunit.Name, error)
+
+	// GetUnitNamesForApplication returns a slice of the unit names for the given application
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationIsDead] if the application is dead
+	// - [applicationerrors.ApplicationNotFound] if the application does not exist
+	GetUnitNamesForApplication(ctx context.Context, uuid coreapplication.ID) ([]coreunit.Name, error)
 }
 
 func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
@@ -337,4 +346,29 @@ func (s *Service) GetUnitRefreshAttributes(ctx context.Context, unitName coreuni
 	}
 
 	return s.st.GetUnitRefreshAttributes(ctx, unitName)
+}
+
+// GetAllUnitNames returns a slice of all unit names in the model.
+func (s *Service) GetAllUnitNames(ctx context.Context) ([]coreunit.Name, error) {
+	names, err := s.st.GetAllUnitNames(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return names, nil
+}
+
+// GetUnitNamesForApplication returns a slice of the unit names for the given application
+// The following errors may be returned:
+// - [applicationerrors.ApplicationIsDead] if the application is dead
+// - [applicationerrors.ApplicationNotFound] if the application does not exist
+func (s *Service) GetUnitNamesForApplication(ctx context.Context, appName string) ([]coreunit.Name, error) {
+	appUUID, err := s.st.GetApplicationIDByName(ctx, appName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	names, err := s.st.GetUnitNamesForApplication(ctx, appUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return names, nil
 }

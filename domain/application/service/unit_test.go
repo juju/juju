@@ -270,3 +270,61 @@ func (s *unitServiceSuite) TestGetUnitRefreshAttributesError(c *gc.C) {
 	_, err := s.service.GetUnitRefreshAttributes(context.Background(), unitName)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
+
+func (s *unitServiceSuite) TestGetAllUnitNames(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitNames := []coreunit.Name{"foo/666", "foo/667"}
+
+	s.state.EXPECT().GetAllUnitNames(gomock.Any()).Return(unitNames, nil)
+
+	names, err := s.service.GetAllUnitNames(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(names, jc.SameContents, unitNames)
+}
+
+func (s *unitServiceSuite) TestGetAllUnitNamesError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetAllUnitNames(gomock.Any()).Return(nil, errors.Errorf("boom"))
+
+	_, err := s.service.GetAllUnitNames(context.Background())
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *unitServiceSuite) TestGetUnitNamesForApplication(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "foo"
+	appID := applicationtesting.GenApplicationUUID(c)
+	unitNames := []coreunit.Name{"foo/666", "foo/667"}
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appID, nil)
+	s.state.EXPECT().GetUnitNamesForApplication(gomock.Any(), appID).Return(unitNames, nil)
+
+	names, err := s.service.GetUnitNamesForApplication(context.Background(), appName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(names, jc.SameContents, unitNames)
+}
+
+func (s *unitServiceSuite) TestGetUnitNamesForApplicationNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return("", applicationerrors.ApplicationNotFound)
+
+	_, err := s.service.GetUnitNamesForApplication(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *unitServiceSuite) TestGetUnitNamesForApplicationDead(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appName := "foo"
+	appID := applicationtesting.GenApplicationUUID(c)
+
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(appID, nil)
+	s.state.EXPECT().GetUnitNamesForApplication(gomock.Any(), appID).Return(nil, applicationerrors.ApplicationIsDead)
+
+	_, err := s.service.GetUnitNamesForApplication(context.Background(), appName)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationIsDead)
+}

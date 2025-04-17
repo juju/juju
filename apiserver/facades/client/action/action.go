@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -38,6 +39,15 @@ type ApplicationService interface {
 	// If the charm does not exist, a [applicationerrors.CharmNotFound] error is
 	// returned.
 	GetCharmActions(ctx context.Context, locator applicationcharm.CharmLocator) (internalcharm.Actions, error)
+
+	// GetAllUnitNames returns a slice of all unit names in the model.
+	GetAllUnitNames(ctx context.Context) ([]coreunit.Name, error)
+
+	// GetUnitNamesForApplication returns a slice of the unit names for the given application
+	// The following errors may be returned:
+	// - [applicationerrors.ApplicationIsDead] if the application is dead
+	// - [applicationerrors.ApplicationNotFound] if the application does not exist
+	GetUnitNamesForApplication(ctx context.Context, name string) ([]coreunit.Name, error)
 }
 
 // ModelInfoService provides access to information about the model.

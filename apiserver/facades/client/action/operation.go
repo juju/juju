@@ -14,6 +14,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	coreunit "github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -139,28 +141,28 @@ func (a *ActionAPI) ListOperations(ctx context.Context, arg params.OperationQuer
 	for _, id := range arg.Machines {
 		receiverTags = append(receiverTags, names.NewMachineTag(id))
 	}
-	appNames := arg.Applications
-	if len(arg.ActionNames) == 0 && len(appNames) == 0 && len(receiverTags) == 0 {
-		apps, err := a.state.AllApplications()
+
+	var unitNames []coreunit.Name
+	if len(arg.ActionNames) == 0 && len(arg.Applications) == 0 && len(receiverTags) == 0 {
+		var err error
+		unitNames, err = a.applicationService.GetAllUnitNames(ctx)
 		if err != nil {
 			return params.OperationResults{}, errors.Trace(err)
 		}
-		for _, a := range apps {
-			appNames = append(appNames, a.Name())
+	} else {
+		for _, aName := range arg.Applications {
+			appUnitName, err := a.applicationService.GetUnitNamesForApplication(ctx, aName)
+			if errors.Is(err, applicationerrors.ApplicationNotFound) {
+				return params.OperationResults{}, errors.NotFoundf("application %q", aName)
+			} else if err != nil {
+				return params.OperationResults{}, errors.Trace(err)
+			}
+			unitNames = append(unitNames, appUnitName...)
 		}
 	}
-	for _, aName := range appNames {
-		app, err := a.state.Application(aName)
-		if err != nil {
-			return params.OperationResults{}, errors.Trace(err)
-		}
-		units, err := app.AllUnits()
-		if err != nil {
-			return params.OperationResults{}, errors.Trace(err)
-		}
-		for _, u := range units {
-			receiverTags = append(receiverTags, u.Tag())
-		}
+	for _, unitName := range unitNames {
+		tag := names.NewUnitTag(unitName.String())
+		receiverTags = append(receiverTags, tag)
 	}
 
 	status := set.NewStrings(arg.Status...)

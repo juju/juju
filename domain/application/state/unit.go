@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreapplication "github.com/juju/juju/core/application"
@@ -1147,6 +1148,72 @@ func (st *State) SetUnitConstraints(ctx context.Context, inUnitUUID coreunit.UUI
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return st.setUnitConstraints(ctx, tx, inUnitUUID, cons)
 	})
+}
+
+// GetAllUnitNames returns a slice of all unit names in the model.
+func (st *State) GetAllUnitNames(ctx context.Context) ([]coreunit.Name, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	query := `SELECT &unitName.* FROM unit`
+	stmt, err := st.Prepare(query, unitName{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result []unitName
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&result)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return transform.Slice(result, func(r unitName) coreunit.Name {
+		return r.Name
+	}), nil
+}
+
+// GetUnitNamesForApplication returns a slice of the unit names for the given application
+// The following errors may be returned:
+// - [applicationerrors.ApplicationIsDead] if the application is dead
+// - [applicationerrors.ApplicationNotFound] if the application does not exist
+func (st *State) GetUnitNamesForApplication(ctx context.Context, uuid coreapplication.ID) ([]coreunit.Name, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	appUUID := applicationID{ID: uuid}
+	query := ` SELECT &unitName.* FROM unit WHERE application_uuid = $applicationID.uuid`
+	stmt, err := st.Prepare(query, unitName{}, appUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result []unitName
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.checkApplicationNotDead(ctx, tx, uuid)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, stmt, appUUID).GetAll(&result)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return transform.Slice(result, func(r unitName) coreunit.Name {
+		return r.Name
+	}), nil
 }
 
 func (st *State) setUnitConstraints(ctx context.Context, tx *sqlair.TX, inUnitUUID coreunit.UUID, cons constraints.Constraints) error {

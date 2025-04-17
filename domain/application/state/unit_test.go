@@ -1055,6 +1055,60 @@ func (s *unitStateSuite) TestSetConstraintsUnitNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
+func (s *unitStateSuite) TestGetAllUnitNamesNoUnits(c *gc.C) {
+	names, err := s.state.GetAllUnitNames(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(names, jc.DeepEquals, []coreunit.Name{})
+}
+
+func (s *unitStateSuite) TestGetAllUnitNames(c *gc.C) {
+	s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/666",
+	}, application.InsertUnitArg{
+		UnitName: "foo/667",
+	})
+	s.createApplication(c, "bar", life.Alive, application.InsertUnitArg{
+		UnitName: "bar/666",
+	})
+
+	names, err := s.state.GetAllUnitNames(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(names, jc.SameContents, []coreunit.Name{"foo/666", "foo/667", "bar/666"})
+}
+
+func (s *unitStateSuite) TestGetUnitNamesForApplicationNotFound(c *gc.C) {
+	_, err := s.state.GetUnitNamesForApplication(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *unitStateSuite) TestGetUnitNamesForApplicationDead(c *gc.C) {
+	appUUID := s.createApplication(c, "deadapp", life.Dead)
+	_, err := s.state.GetUnitNamesForApplication(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationIsDead)
+}
+
+func (s *unitStateSuite) TestGetUnitNamesForApplicationNoUnits(c *gc.C) {
+	appUUID := s.createApplication(c, "foo", life.Alive)
+	names, err := s.state.GetUnitNamesForApplication(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(names, jc.DeepEquals, []coreunit.Name{})
+}
+
+func (s *unitStateSuite) TestGetUnitNamesForApplication(c *gc.C) {
+	appUUID := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/666",
+	}, application.InsertUnitArg{
+		UnitName: "foo/667",
+	})
+	s.createApplication(c, "bar", life.Alive, application.InsertUnitArg{
+		UnitName: "bar/666",
+	})
+
+	names, err := s.state.GetUnitNamesForApplication(context.Background(), appUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(names, jc.SameContents, []coreunit.Name{"foo/666", "foo/667"})
+}
+
 type applicationSpace struct {
 	SpaceName    string `db:"space"`
 	SpaceExclude bool   `db:"exclude"`
