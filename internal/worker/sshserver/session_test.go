@@ -35,10 +35,10 @@ type testServer struct {
 	listener *bufconn.Listener
 }
 
-// startTestServer creates a test server that emulates the
+// startTestSessionServer creates a test server that emulates the
 // SSH server of the target machine.
 // Defer the returned listener's Close() method to cleanup the server.
-func startTestServer(_ *gc.C) *testServer {
+func startTestSessionServer(_ *gc.C) *testServer {
 	ts := &testServer{}
 	ts.server = &ssh.Server{
 		Handler: func(session ssh.Session) {
@@ -129,7 +129,7 @@ func (s *machineSessionSuite) TestMachineSessionProxy(c *gc.C) {
 	isPty := true
 	s.setupUserSession(c, isPty, "Hello from the client!\n")
 
-	testServer := startTestServer(c)
+	testServer := startTestSessionServer(c)
 	defer testServer.listener.Close()
 
 	machineConn, err := testServer.listener.Dial()
@@ -173,7 +173,7 @@ func (s *machineSessionSuite) TestMachineCommandProxy(c *gc.C) {
 	isPty := false
 	s.setupUserSession(c, isPty, "neovim")
 
-	testServer := startTestServer(c)
+	testServer := startTestSessionServer(c)
 	defer testServer.listener.Close()
 
 	conn, err := testServer.listener.Dial()
