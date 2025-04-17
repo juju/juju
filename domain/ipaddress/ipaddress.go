@@ -34,6 +34,21 @@ func MarshallConfigType(configType corenetwork.AddressConfigType) ConfigType {
 	return ConfigTypeUnknown
 }
 
+// UnMarshallConfigType converts db config type id to an IP address config type.
+func UnMarshallConfigType(configType ConfigType) corenetwork.AddressConfigType {
+	switch configType {
+	case ConfigTypeDHCP:
+		return corenetwork.ConfigDHCP
+	case ConfigTypeStatic:
+		return corenetwork.ConfigStatic
+	case ConfigTypeManual:
+		return corenetwork.ConfigManual
+	case ConfigTypeLoopback:
+		return corenetwork.ConfigLoopback
+	}
+	return corenetwork.ConfigUnknown
+}
+
 // Scope represents the scope of an IP address, as recorded in
 // the ip_address_scope lookup table.
 type Scope int
@@ -61,6 +76,21 @@ func MarshallScope(scope corenetwork.Scope) Scope {
 	return ScopeUnknown
 }
 
+// UnMarshallScope converts a db scope id to an IP address scope.
+func UnMarshallScope(scope Scope) corenetwork.Scope {
+	switch scope {
+	case ScopePublic:
+		return corenetwork.ScopePublic
+	case ScopeCloudLocal:
+		return corenetwork.ScopeCloudLocal
+	case ScopeMachineLocal:
+		return corenetwork.ScopeMachineLocal
+	case ScopeLinkLocal:
+		return corenetwork.ScopeLinkLocal
+	}
+	return corenetwork.ScopeUnknown
+}
+
 // AddressType represents the type of an IP address, as recorded in
 // the ip_address_type lookup table.
 type AddressType int
@@ -81,6 +111,17 @@ func MarshallAddressType(addressType corenetwork.AddressType) AddressType {
 	return AddressTypeIPv4
 }
 
+// UnMarshallAddressType converts a db address type id to an IP address type.
+func UnMarshallAddressType(addressType AddressType) corenetwork.AddressType {
+	switch addressType {
+	case AddressTypeIPv4:
+		return corenetwork.IPv4Address
+	case AddressTypeIPv6:
+		return corenetwork.IPv6Address
+	}
+	return corenetwork.IPv4Address
+}
+
 // Origin represents the origin of an IP address, as recorded in
 // the ip_address_origin lookup table.
 type Origin int
@@ -99,4 +140,15 @@ func MarshallOrigin(origin corenetwork.Origin) Origin {
 		return OriginProvider
 	}
 	return OriginHost
+}
+
+// UnMarshallOrigin converts a db origin id to an IP address origin.
+func UnMarshallOrigin(origin Origin) corenetwork.Origin {
+	switch origin {
+	case OriginHost:
+		return corenetwork.OriginMachine
+	case OriginProvider:
+		return corenetwork.OriginProvider
+	}
+	return corenetwork.OriginMachine
 }

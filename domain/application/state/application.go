@@ -828,6 +828,53 @@ WHERE application_uuid = $applicationScale.application_uuid
 	return errors.Capture(err)
 }
 
+// CloudServiceAddresses returns the addresses of the cloud service for the
+// specified application, returning an error satisfying
+// [applicationerrors.ApplicationNotFoundError] if the application doesn't
+// exist.
+func (st *State) CloudServiceAddresses(ctx context.Context, applicationName string) (network.SpaceAddresses, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var addresses []ipAddress
+	ident := dbUUID{}
+	queryCloudServiceAddressesStmt, err := st.Prepare(`
+SELECT    
+    ip.address_value AS &ipAddress.address_value,
+    ip.config_type_id AS &ipAddress.config_type_id,
+    ip.type_id AS &ipAddress.type_id,
+    ip.origin_id AS &ipAddress.origin_id,
+    ip.scope_id AS &ipAddress.scope_id,
+    ip.device_uuid AS &ipAddress.device_uuid
+FROM      ip_address AS ip
+JOIN      link_layer_device AS lld ON lld.uuid = ip.device_uuid
+JOIN      net_node AS nn ON nn.uuid = lld.net_node_uuid
+JOIN      k8s_service AS ks ON nn.uuid = ks.net_node_uuid
+WHERE     ks.application_uuid = $dbUUID.uuid;
+`, ipAddress{}, ident)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		appUUID, err := st.lookupApplication(ctx, tx, applicationName)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		ident.UUID = appUUID.String()
+		if err = tx.Query(ctx, queryCloudServiceAddressesStmt, ident).GetAll(&addresses); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying cloud service addresses for application %q: %w", applicationName, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return encodeIpAddresses(addresses), nil
+}
+
 // UpsertCloudService updates the cloud service for the specified application,
 // returning an error satisfying [applicationerrors.ApplicationNotFoundError] if
 // the application doesn't exist.
@@ -2655,6 +2702,25 @@ func encodeConstraints(constraintUUID string, cons constraints.Constraints, cont
 	}
 	if cons.Container != nil {
 		res.ContainerTypeID = &containerTypeID
+	}
+	return res
+}
+
+func encodeIpAddresses(addresses []ipAddress) network.SpaceAddresses {
+	res := make(network.SpaceAddresses, len(addresses))
+	for i, addr := range addresses {
+		res[i] = network.SpaceAddress{
+			// TODO(nvinuesa): The subnet CIDR and the space ID are not
+			// inserted. This should be done when migrating machines to dqlite
+			// and rework the MachineAddress modelling so it takes a subnet UUID
+			// instead of a CIDR.
+			MachineAddress: network.MachineAddress{
+				Value:      addr.Value,
+				Type:       ipaddress.UnMarshallAddressType(ipaddress.AddressType(addr.TypeID)),
+				Scope:      ipaddress.UnMarshallScope(ipaddress.Scope(addr.ScopeID)),
+				ConfigType: ipaddress.UnMarshallConfigType(ipaddress.ConfigType(addr.ConfigTypeID)),
+			},
+		}
 	}
 	return res
 }

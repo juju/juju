@@ -1124,6 +1124,41 @@ func (s *applicationStateSuite) TestUpsertCloudServiceNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
+func (s *applicationStateSuite) TestCloudServiceAddresses(c *gc.C) {
+	s.createApplication(c, "foo", life.Alive)
+
+	expectedAddresses := network.SpaceAddresses{
+		{
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.1",
+				ConfigType: network.ConfigStatic,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeCloudLocal,
+			},
+		},
+		{
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.2",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv6Address,
+				Scope:      network.ScopeLinkLocal,
+			},
+		},
+	}
+	err := s.state.UpsertCloudService(context.Background(), "foo", "provider-id", expectedAddresses)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addresses, err := s.state.CloudServiceAddresses(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(addresses, gc.HasLen, 2)
+	c.Check(addresses, gc.DeepEquals, expectedAddresses)
+}
+
+func (s *applicationStateSuite) TestCloudServiceAddressesNotFound(c *gc.C) {
+	_, err := s.state.CloudServiceAddresses(context.Background(), "unknown-app")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
 func (s *applicationStateSuite) TestGetApplicationIDByUnitName(c *gc.C) {
 	u1 := application.InsertUnitArg{
 		UnitName: "foo/666",
