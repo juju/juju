@@ -4,11 +4,8 @@
 package sshsession_test
 
 import (
-	"bytes"
 	"io"
 	"net"
-	"sync"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -16,7 +13,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
-	"golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
@@ -28,9 +24,10 @@ import (
 type workerSuite struct {
 	testing.IsolationSuite
 
-	facadeClientMock        *MockFacadeClient
-	watcherMock             *MockStringsWatcher
-	ephemeralkeyUpdaterMock *MockEphemeralKeysUpdater
+	facadeClient        *MockFacadeClient
+	watcher             *MockStringsWatcher
+	ephemeralkeyUpdater *MockEphemeralKeysUpdater
+	connectionGetter    *MockConnectionGetter
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -38,9 +35,10 @@ var _ = gc.Suite(&workerSuite{})
 func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.facadeClientMock = NewMockFacadeClient(ctrl)
-	s.watcherMock = NewMockStringsWatcher(ctrl)
-	s.ephemeralkeyUpdaterMock = NewMockEphemeralKeysUpdater(ctrl)
+	s.facadeClient = NewMockFacadeClient(ctrl)
+	s.watcher = NewMockStringsWatcher(ctrl)
+	s.ephemeralkeyUpdater = NewMockEphemeralKeysUpdater(ctrl)
+	s.connectionGetter = NewMockConnectionGetter(ctrl)
 
 	return ctrl
 }
@@ -49,14 +47,13 @@ func (s *workerSuite) newWorkerConfig(
 	logger sshsession.Logger,
 	modifier func(*sshsession.WorkerConfig),
 ) *sshsession.WorkerConfig {
-	cg, _, _ := newStubConnectionGetter()
 
 	cfg := &sshsession.WorkerConfig{
 		Logger:               logger,
 		MachineId:            "1",
-		FacadeClient:         s.facadeClientMock,
-		ConnectionGetter:     cg,
-		EphemeralKeysUpdater: s.ephemeralkeyUpdaterMock,
+		FacadeClient:         s.facadeClient,
+		ConnectionGetter:     s.connectionGetter,
+		EphemeralKeysUpdater: s.ephemeralkeyUpdater,
 	}
 
 	modifier(cfg)
@@ -131,22 +128,19 @@ func (s *workerSuite) TestSSHSessionWorkerCanBeKilled(c *gc.C) {
 	l := loggo.GetLogger("test")
 
 	stringChan := watcher.StringsChannel(make(chan []string))
-	s.watcherMock.EXPECT().Changes().Return(stringChan).AnyTimes()
-	s.facadeClientMock.EXPECT().WatchSSHConnRequest("0").Return(s.watcherMock, nil).AnyTimes()
+	s.watcher.EXPECT().Changes().Return(stringChan).AnyTimes()
+	s.facadeClient.EXPECT().WatchSSHConnRequest("0").Return(s.watcher, nil).AnyTimes()
 
 	// Check the water is Wait()'ed and Kill()'ed exactly once.
-	s.watcherMock.EXPECT().Wait().Times(1)
-	s.watcherMock.EXPECT().Kill().Times(1)
-
-	connGetter, _, _ := newStubConnectionGetter()
-	defer connGetter.close()
+	s.watcher.EXPECT().Wait().Times(1)
+	s.watcher.EXPECT().Kill().Times(1)
 
 	w, err := sshsession.NewWorker(sshsession.WorkerConfig{
 		Logger:               l,
 		MachineId:            "0",
-		FacadeClient:         s.facadeClientMock,
-		ConnectionGetter:     connGetter,
-		EphemeralKeysUpdater: s.ephemeralkeyUpdaterMock,
+		FacadeClient:         s.facadeClient,
+		ConnectionGetter:     s.connectionGetter,
+		EphemeralKeysUpdater: s.ephemeralkeyUpdater,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(workertest.CheckKill(c, w), jc.ErrorIsNil)
@@ -167,12 +161,12 @@ func (s *workerSuite) TestSSHSessionWorkerHandlesConnectionPipesData(c *gc.C) {
 	}()
 	stringChan := watcher.StringsChannel(innerChan)
 
-	s.watcherMock.EXPECT().Wait().AnyTimes()
-	s.watcherMock.EXPECT().Kill().AnyTimes()
-	s.watcherMock.EXPECT().Changes().Return(stringChan).AnyTimes()
+	s.watcher.EXPECT().Wait().AnyTimes()
+	s.watcher.EXPECT().Kill().AnyTimes()
+	s.watcher.EXPECT().Changes().Return(stringChan).AnyTimes()
 
-	s.facadeClientMock.EXPECT().WatchSSHConnRequest("0").Return(s.watcherMock, nil).Times(1)
-	s.facadeClientMock.EXPECT().GetSSHConnRequest("machine-0-sshconnectionreq-0").Return(
+	s.facadeClient.EXPECT().WatchSSHConnRequest("0").Return(s.watcher, nil)
+	s.facadeClient.EXPECT().GetSSHConnRequest("machine-0-sshconnectionreq-0").Return(
 		params.SSHConnRequest{
 			ControllerAddresses: network.NewSpaceAddresses("127.0.0.1:17022"),
 			EphemeralPublicKey:  []byte{1},
@@ -180,136 +174,32 @@ func (s *workerSuite) TestSSHSessionWorkerHandlesConnectionPipesData(c *gc.C) {
 		nil,
 	)
 
-	s.ephemeralkeyUpdaterMock.EXPECT().AddEphemeralKey(string([]byte{1})).Times(1)
-	s.ephemeralkeyUpdaterMock.EXPECT().RemoveEphemeralKey(string([]byte{1})).Times(1)
+	s.ephemeralkeyUpdater.EXPECT().AddEphemeralKey(string([]byte{1}))
+	s.ephemeralkeyUpdater.EXPECT().RemoveEphemeralKey(string([]byte{1}))
 
 	// Setup an in-memory conn getter to stub the controller and SSHD side.
-	connGetter, controllerConn, sshdConn := newStubConnectionGetter()
-	defer connGetter.close()
+	connSSHD, workerConnSSHD := net.Pipe()
+	workerControllerConn, controllerConn := net.Pipe()
+
+	s.connectionGetter.EXPECT().GetSSHDConnection().Return(workerConnSSHD, nil)
+	s.connectionGetter.EXPECT().GetControllerConnection(gomock.Any(), gomock.Any()).Return(workerControllerConn, nil)
 
 	w, err := sshsession.NewWorker(sshsession.WorkerConfig{
 		Logger:               l,
 		MachineId:            "0",
-		FacadeClient:         s.facadeClientMock,
-		ConnectionGetter:     connGetter,
-		EphemeralKeysUpdater: s.ephemeralkeyUpdaterMock,
+		FacadeClient:         s.facadeClient,
+		ConnectionGetter:     s.connectionGetter,
+		EphemeralKeysUpdater: s.ephemeralkeyUpdater,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	go func() {
-		controllerConn.Write([]byte{254})
+		controllerConn.Write([]byte("hello world"))
 		controllerConn.Close()
 	}()
 
-	buf := make([]byte, 1)
-	read, err := sshdConn.Read(buf)
+	buf, err := io.ReadAll(connSSHD)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(read, gc.Equals, 1)
-	c.Assert(buf[0], gc.Equals, uint8(254))
+	c.Assert(buf, gc.DeepEquals, []byte("hello world"))
 }
-
-// stubConnectionGetter is a stubbed connection getter that returns two in-memory
-// buffered connections. One of a net.Conn representing the sshd connection
-// and the other an ssh.Channel (wrapping a net.Conn) representing the controller
-// connection.
-type stubConnectionGetter struct {
-	sshConn  ssh.Channel
-	sshdConn net.Conn
-}
-
-// newStubConnectionGetter creates a stubConnectionGetter..
-func newStubConnectionGetter() (*stubConnectionGetter, net.Conn, net.Conn) {
-	conn1 := newBufferedConn()
-	conn2 := newBufferedConn()
-	return &stubConnectionGetter{sshConn: &stubSSHChannel{Conn: conn1}, sshdConn: conn2}, conn1, conn2
-}
-
-func (cg *stubConnectionGetter) GetControllerConnection(password, ctrlAddress string) (ssh.Channel, error) {
-	return cg.sshConn, nil
-}
-func (cg *stubConnectionGetter) GetSSHDConnection() (net.Conn, error) {
-	return cg.sshdConn, nil
-}
-
-func (cg *stubConnectionGetter) close() {
-	cg.sshConn.Close()
-	cg.sshdConn.Close()
-}
-
-// stubSSHChannel is a wrapper over a net.Conn.
-type stubSSHChannel struct {
-	net.Conn
-}
-
-// Implements sshChannel.
-func (ssc *stubSSHChannel) CloseWrite() error {
-	return nil
-}
-
-// Implements sshChannel.
-func (ssc *stubSSHChannel) SendRequest(name string, wantReply bool, payload []byte) (bool, error) {
-	return false, nil
-}
-
-// Implements sshChannel.
-func (ssc *stubSSHChannel) Stderr() io.ReadWriter {
-	return nil
-}
-
-// bufferedConn is an in-memory, buffered net.Conn implementation.
-type bufferedConn struct {
-	buf      bytes.Buffer
-	mu       sync.Mutex
-	cond     *sync.Cond
-	closed   bool
-	deadline time.Time
-}
-
-// newBufferedConn creates a new buffered connection.
-func newBufferedConn() *bufferedConn {
-	bc := &bufferedConn{}
-	bc.cond = sync.NewCond(&bc.mu)
-	return bc
-}
-
-// Write writes data into the buffer
-func (c *bufferedConn) Write(p []byte) (n int, err error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.closed {
-		return 0, io.ErrClosedPipe
-	}
-	n, err = c.buf.Write(p)
-	c.cond.Broadcast() // Notify readers
-	return
-}
-
-// Read reads data from the buffer
-func (c *bufferedConn) Read(p []byte) (n int, err error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for c.buf.Len() == 0 {
-		if c.closed {
-			return 0, io.EOF
-		}
-		c.cond.Wait() // Wait until there’s data
-	}
-	return c.buf.Read(p)
-}
-
-// Close marks the connection as closed
-func (c *bufferedConn) Close() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.closed = true
-	c.cond.Broadcast()
-	return nil
-}
-
-// Stubs net.Conn.
-func (c *bufferedConn) LocalAddr() net.Addr                { return nil }
-func (c *bufferedConn) RemoteAddr() net.Addr               { return nil }
-func (c *bufferedConn) SetDeadline(t time.Time) error      { c.deadline = t; return nil }
-func (c *bufferedConn) SetReadDeadline(t time.Time) error  { c.deadline = t; return nil }
-func (c *bufferedConn) SetWriteDeadline(t time.Time) error { c.deadline = t; return nil }

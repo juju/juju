@@ -48,7 +48,7 @@ func (s *workerWhiteboxSuite) TestConnectionGetterGetLocalSSHPort(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	l := loggo.GetLogger("test")
-	cg := NewConnectionGetter(l)
+	cg := newConnectionGetter(l)
 	port := cg.getLocalSSHPort(file.Name())
 	c.Assert(port, gc.Equals, "17023")
 }

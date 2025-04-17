@@ -27,7 +27,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	network "github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/virtualhostname"
+	"github.com/juju/juju/internal/sshconn"
 	"github.com/juju/juju/internal/sshtunneler"
 	pkitest "github.com/juju/juju/pki/test"
 	params "github.com/juju/juju/rpc/params"
@@ -39,12 +39,12 @@ const maxConcurrentConnections = 10
 const testVirtualHostname = "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local"
 
 type sshServerSuite struct {
-	hostKey        []byte
-	publicHostKey  ssh.PublicKey
-	userSigner     ssh.Signer
-	facadeClient   *MockFacadeClient
-	jwtParser      *MockJWTParser
-	sessionHandler *MockSessionHandler
+	hostKey       []byte
+	publicHostKey ssh.PublicKey
+	userSigner    ssh.Signer
+	facadeClient  *MockFacadeClient
+	jwtParser     *MockJWTParser
+	proxyHandlers *MockProxyHandlers
 }
 
 var _ = gc.Suite(&sshServerSuite{})
@@ -79,7 +79,7 @@ func (s *sshServerSuite) SetUpSuite(c *gc.C) {
 func (s *sshServerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.facadeClient = NewMockFacadeClient(ctrl)
-	s.sessionHandler = NewMockSessionHandler(ctrl)
+	s.proxyHandlers = NewMockProxyHandlers(ctrl)
 	s.jwtParser = NewMockJWTParser(ctrl)
 	return ctrl
 }
@@ -96,7 +96,7 @@ func (s *sshServerSuite) newServerWorkerConfig(
 		NewSSHServerListener:     newTestingSSHServerListener,
 		FacadeClient:             s.facadeClient,
 		JWTParser:                s.jwtParser,
-		SessionHandler:           s.sessionHandler,
+		ProxyHandlers:            s.proxyHandlers,
 		disableAuth:              true,
 		TunnelTracker:            &sshtunneler.Tracker{},
 		metricsCollector:         NewMetricsCollector(),
@@ -107,6 +107,21 @@ func (s *sshServerSuite) newServerWorkerConfig(
 	}
 
 	return *cfg
+}
+
+// setupDefaultProxyHandlers ensures that the default proxy handlers
+// return values, any number of times. This is necessary for tests
+// that dial the server and make a "jump" connection to the
+// terminating server.
+//
+// if your test uses `client.Dial` to reach the terminating server,
+// you must call setupDefaultProxyHandlers after setting up the server worker.
+//
+// Don't use this function in tests where you want to explicitly handle
+// the behaviour of the proxy handlers.
+func (s *sshServerSuite) setupDefaultProxyHandlers() {
+	s.proxyHandlers.EXPECT().SessionHandler(gomock.Any(), gomock.Any()).AnyTimes()
+	s.proxyHandlers.EXPECT().DirectTCPIPHandler(gomock.Any()).Return(nil).AnyTimes()
 }
 
 func (s *sshServerSuite) TestValidate(c *gc.C) {
@@ -164,6 +179,14 @@ func (s *sshServerSuite) TestSSHServerNoAuth(c *gc.C) {
 	defer workertest.DirtyKill(c, server)
 	workertest.CheckAlive(c, server)
 
+	s.proxyHandlers.EXPECT().SessionHandler(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(session ssh.Session, details connectionDetails) {
+			c.Check(details.destination.String(), gc.Equals, testVirtualHostname)
+			_, _ = session.Write(fmt.Appendf([]byte{}, "Your final destination is: %s\n", details.destination.String()))
+		},
+	)
+	s.proxyHandlers.EXPECT().DirectTCPIPHandler(gomock.Any()).Return(nil)
+
 	// Dial the in-memory listener
 	conn, err := listener.Dial()
 	c.Assert(err, jc.ErrorIsNil)
@@ -203,12 +226,6 @@ func (s *sshServerSuite) TestSSHServerNoAuth(c *gc.C) {
 	terminatingSession, err := terminatingClient.NewSession()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.sessionHandler.EXPECT().Handle(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(session ssh.Session, destination virtualhostname.Info) {
-			c.Check(destination.String(), gc.Equals, testVirtualHostname)
-			_, _ = session.Write(fmt.Appendf([]byte{}, "Your final destination is: %s\n", destination.String()))
-		},
-	)
 	output, err := terminatingSession.CombinedOutput("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(output), gc.Equals, fmt.Sprintf("Your final destination is: %s\n", testVirtualHostname))
@@ -238,6 +255,8 @@ func (s *sshServerSuite) TestPublicKeyHandler(c *gc.C) {
 	}))
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, server)
+
+	s.setupDefaultProxyHandlers()
 
 	userKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	c.Assert(err, gc.IsNil)
@@ -344,6 +363,8 @@ func (s *sshServerSuite) TestPasswordHandler(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		defer workertest.DirtyKill(c, server)
 
+		s.setupDefaultProxyHandlers()
+
 		client := inMemoryDial(c, listener, &gossh.ClientConfig{
 			User:            "jimm",
 			HostKeyCallback: gossh.InsecureIgnoreHostKey(),
@@ -383,27 +404,26 @@ func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 	defer listener.Close()
 
 	s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil)
-	_, err := NewServerWorker(s.newServerWorkerConfig(listener, nil))
+	server, err := NewServerWorker(s.newServerWorkerConfig(listener, nil))
 	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, server)
+
+	s.setupDefaultProxyHandlers()
 
 	// Open a client connection
 	client := inMemoryDial(c, listener, &gossh.ClientConfig{
-		User:            "",
 		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
 	})
 	conn, err := client.Dial("tcp", fmt.Sprintf("%s:0", testVirtualHostname))
 	c.Assert(err, gc.IsNil)
 
-	// we need to establish another client connection to perform the auth in the embedded server.
+	// we need to establish an SSH client with the terminating server.
 	// In this way we verify the hostkey is the one coming from the facade.
 	_, _, _, err = gossh.NewClientConn(
 		conn,
 		"",
 		&gossh.ClientConfig{
 			HostKeyCallback: gossh.FixedHostKey(s.publicHostKey),
-			Auth: []gossh.AuthMethod{
-				gossh.PublicKeys(s.userSigner),
-			},
 		},
 	)
 	c.Assert(err, gc.IsNil)
@@ -411,11 +431,7 @@ func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 	// we now test that the connection is closed when the controller cannot fetch the unit's host key.
 	s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(nil, errors.New("an error"))
 	client = inMemoryDial(c, listener, &gossh.ClientConfig{
-		User:            "",
 		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
-		Auth: []gossh.AuthMethod{
-			gossh.Password(""), // No password needed
-		},
 	})
 	_, err = client.Dial("tcp", fmt.Sprintf("%s:0", testVirtualHostname))
 	c.Assert(err.Error(), gc.Equals, "ssh: rejected: connect failed (Failed to get host key)")
@@ -446,8 +462,6 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 		}
 		for range maxConcurrentConnections {
 			client := inMemoryDial(c, listener, config)
-			_, err := client.Dial("tcp", fmt.Sprintf("%s:0", testVirtualHostname))
-			c.Assert(err, jc.ErrorIsNil)
 			clients = append(clients, client)
 		}
 		jumpServerConn, err := listener.Dial()
@@ -702,10 +716,10 @@ func (s *reverseTunnelSuite) tunnelRequest(ctx context.Context) (string, string,
 // dialReverseTunnel opens a Juju specific SSH channel for
 // reverse tunnels and returns the connection for that channel.
 func dialReverseTunnel(c *gc.C, client *gossh.Client) net.Conn {
-	ch, in, err := client.OpenChannel(jujuTunnelChannel, nil)
+	ch, in, err := client.OpenChannel(sshtunneler.JujuTunnelChannel, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	go gossh.DiscardRequests(in)
-	return newChannelConn(ch)
+	return sshconn.NewChannelConn(ch)
 }
 
 // inMemoryDial returns and SSH connection that uses an in-memory transport.

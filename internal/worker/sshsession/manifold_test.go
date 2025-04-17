@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	dt "github.com/juju/worker/v3/dependency/testing"
@@ -18,9 +17,7 @@ import (
 	"github.com/juju/juju/internal/worker/sshsession"
 )
 
-type manifoldSuite struct {
-	testing.IsolationSuite
-}
+type manifoldSuite struct{}
 
 var _ = gc.Suite(&manifoldSuite{})
 

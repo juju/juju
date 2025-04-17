@@ -101,7 +101,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Logger:               config.Logger,
 		MachineId:            machineId,
 		FacadeClient:         sshsession.NewClient(apiCaller),
-		ConnectionGetter:     NewConnectionGetter(config.Logger),
+		ConnectionGetter:     newConnectionGetter(config.Logger),
 		EphemeralKeysUpdater: ephemeralKeysUpdater,
 	})
 

@@ -28,6 +28,7 @@ const (
 	// ReverseTunnelUser is the user name unit agents use to connect to
 	// the controller.
 	ReverseTunnelUser = "juju-reverse-tunnel"
+	JujuTunnelChannel = "juju-tunnel"
 	tokenIssuer       = "sshtunneler"
 	tokenSubject      = "reverse-tunnel"
 	tunnelIDClaimKey  = "tunnelID"

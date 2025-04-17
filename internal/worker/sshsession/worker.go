@@ -19,11 +19,11 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/sshconn"
+	"github.com/juju/juju/internal/sshtunneler"
 	"github.com/juju/juju/internal/worker/authenticationworker"
 	"github.com/juju/juju/rpc/params"
 )
-
-var ControllerSSHUser = "reverse-ssh"
 
 // FacadeClient holds the facade methods for the SSH session worker.
 type FacadeClient interface {
@@ -145,11 +145,11 @@ func (w *sshSessionWorker) Wait() error {
 // This function does the following:
 //  1. Gets the controllers address and ephemeral public key for the connection.
 //  2. Verifies the address is known to this machine agent.
-//  3. Adds the ephemeral public key to the authorized_keys2 file.
+//  3. Adds the ephemeral public key.
 //  4. Dials the controllers SSH server expecting an SSH connection to come
 //     back from the controller's SSH server.
 //  5. Pipes the connection to the local sshd.
-//  6. On connection close, removes the ephemeral public key from the authorized_keys2 file.
+//  6. On connection close, removes the ephemeral public key.
 func (w *sshSessionWorker) handleConnection(ctx context.Context, connID string) error {
 	select {
 	case <-ctx.Done():
@@ -202,6 +202,8 @@ func (w *sshSessionWorker) pipeConnectionToSSHD(ctx context.Context, ctrlAddress
 
 	eg.Go(func() error {
 		// sshd -> conn
+		defer controllerConn.Close()
+		defer sshdConn.Close()
 		_, err := io.Copy(cancellableControllerConnection, cancellableSSHDConnection)
 		if err != nil {
 			return err
@@ -211,6 +213,8 @@ func (w *sshSessionWorker) pipeConnectionToSSHD(ctx context.Context, ctrlAddress
 
 	eg.Go(func() error {
 		// conn -> sshd
+		defer controllerConn.Close()
+		defer sshdConn.Close()
 		_, err = io.Copy(cancellableSSHDConnection, cancellableControllerConnection)
 		if err != nil {
 			return err
@@ -227,7 +231,7 @@ func (w *sshSessionWorker) pipeConnectionToSSHD(ctx context.Context, ctrlAddress
 
 // ConnectionGetter provides the methods to connect to a controller and the local SSHD.
 type ConnectionGetter interface {
-	GetControllerConnection(password, ctrlAddress string) (ssh.Channel, error)
+	GetControllerConnection(password, ctrlAddress string) (net.Conn, error)
 	GetSSHDConnection() (net.Conn, error)
 }
 
@@ -241,16 +245,16 @@ type connectionGetter struct {
 	logger Logger
 }
 
-// NewConnectionGetter returns a new connectionGetter.
-func NewConnectionGetter(l Logger) *connectionGetter {
+// newConnectionGetter returns a new connectionGetter.
+func newConnectionGetter(l Logger) *connectionGetter {
 	return &connectionGetter{l}
 }
 
 // GetControllerConnection initiates an SSH connection to the target ctrlAddress.
-func (w *connectionGetter) GetControllerConnection(password, ctrlAddress string) (ssh.Channel, error) {
+func (w *connectionGetter) GetControllerConnection(password, ctrlAddress string) (net.Conn, error) {
 	// TODO(ale8k): Watch will return host key in subsequent PR.
 	sshConfig := &ssh.ClientConfig{
-		User:            ControllerSSHUser,
+		User:            sshtunneler.ReverseTunnelUser,
 		Auth:            []ssh.AuthMethod{ssh.Password(password)},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // TODO(ale8k): Fill in host key here
 	}
@@ -261,13 +265,13 @@ func (w *connectionGetter) GetControllerConnection(password, ctrlAddress string)
 	}
 
 	// TODO(ale8k): Make this a constant that both the server and session worker can use.
-	ch, in, err := client.OpenChannel("juju-tunnel", nil)
+	ch, in, err := client.OpenChannel(sshtunneler.JujuTunnelChannel, nil)
 	if err != nil {
 		return nil, err
 	}
 	go ssh.DiscardRequests(in)
 
-	return ch, nil
+	return sshconn.NewChannelConn(ch), nil
 }
 
 // GetSSHConnection performs a stand TCP dial to the SSHD running on the machine.

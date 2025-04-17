@@ -10,7 +10,8 @@
 //
 // The purpose of this worker is to watch for connection requests and do the following:
 //
-//  1. Update the authorised_keys for this machine (over the lifetime of the SSH connection).
+//  1. Update the authorised_keys for this machine (over the lifetime of the SSH connection). To add/remove
+//     the keys we use the EphemeralKeysUpdater interface exposed by the authentication worker.
 //  2. Perform an SSH connection to the controller's SSH server using the address provided.
 //     It will authenticate using a JWT given in the update and provide it in the password handler.
 //

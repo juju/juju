@@ -18,20 +18,19 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/virtualhostname"
+	"github.com/juju/juju/internal/sshconn"
 	"github.com/juju/juju/internal/sshtunneler"
 	jujussh "github.com/juju/juju/pki/ssh"
 	"github.com/juju/juju/rpc/params"
 )
 
-const (
-	jujuTunnelChannel = "juju-tunnel"
-)
-
 type connectionStartTime struct{}
 
-// SessionHandler is an interface that proxies SSH sessions to a target unit/machine.
-type SessionHandler interface {
-	Handle(s ssh.Session, destination virtualhostname.Info)
+// ProxyHandlers is an interface that provides methods for all SSH handlers.
+// These methods proxies connections to the target unit/machine.
+type ProxyHandlers interface {
+	SessionHandler(s ssh.Session, details connectionDetails)
+	DirectTCPIPHandler(details connectionDetails) ssh.ChannelHandler
 }
 
 type tunnelIDKey struct{}
@@ -70,8 +69,8 @@ type ServerWorkerConfig struct {
 	// disableAuth is a test-only flag that disables authentication.
 	disableAuth bool
 
-	// SessionHandler handles proxying SSH sessions to the target machine.
-	SessionHandler SessionHandler
+	// ProxyHandlers handles proxying SSH connections to the target machine.
+	ProxyHandlers ProxyHandlers
 
 	// TunnelTracker holds the tunnel tracker used to requests SSH
 	// connections to machines.
@@ -95,8 +94,8 @@ func (c ServerWorkerConfig) Validate() error {
 	if c.FacadeClient == nil {
 		return errors.NotValidf("missing FacadeClient")
 	}
-	if c.SessionHandler == nil {
-		return errors.NotValidf("missing SessionHandler")
+	if c.ProxyHandlers == nil {
+		return errors.NotValidf("missing ProxyHandlers")
 	}
 	if c.JWTParser == nil {
 		return errors.NotValidf("missing JWTParser")
@@ -206,8 +205,8 @@ func (s *ServerWorker) NewJumpServer() *ssh.Server {
 			return s.authenticator.passwordAuthentication(ctx, password)
 		},
 		ChannelHandlers: map[string]ssh.ChannelHandler{
-			"direct-tcpip":    s.directTCPIPHandler,
-			jujuTunnelChannel: s.reverseTunnelHandler,
+			"direct-tcpip":                s.directTCPIPHandler,
+			sshtunneler.JujuTunnelChannel: s.reverseTunnelHandler,
 		},
 	}
 
@@ -269,7 +268,7 @@ func (s *ServerWorker) reverseTunnelHandler(srv *ssh.Server, conn *gossh.ServerC
 	pushCtx, cancelF := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancelF()
 
-	err = s.config.TunnelTracker.PushTunnel(pushCtx, tunnelID, newChannelConn(ch))
+	err = s.config.TunnelTracker.PushTunnel(pushCtx, tunnelID, sshconn.NewChannelConn(ch))
 	if err != nil {
 		s.config.Logger.Errorf("failed to push tunnel: %v", err)
 		_ = conn.Close()
@@ -324,7 +323,7 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 	}
 
 	server.AddHostKey(signer)
-	server.HandleConn(newChannelConn(ch))
+	server.HandleConn(sshconn.NewChannelConn(ch))
 }
 
 // hostKeySignerForTarget returns a signer for the target hostname, by calling the facade client.
@@ -399,28 +398,22 @@ func (s *ServerWorker) newTerminatingSSHServer(ctx ssh.Context, info virtualhost
 		}
 	}
 
-	forwardHandler := &ssh.ForwardedTCPHandler{}
+	startTime, _ := ctx.Value(connectionStartTime{}).(time.Time)
+	details := connectionDetails{
+		destination: info,
+		startTime:   startTime,
+	}
+
 	server := &ssh.Server{
 		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
 			return authenticator.PublicKeyAuthentication(ctx, key)
 		},
-		LocalPortForwardingCallback: ssh.LocalPortForwardingCallback(func(ctx ssh.Context, dhost string, dport uint32) bool {
-			return true
-		}),
-		// ReversePortForwarding will not be supported.
-		ReversePortForwardingCallback: ssh.ReversePortForwardingCallback(func(ctx ssh.Context, host string, port uint32) bool {
-			return false
-		}),
 		ChannelHandlers: map[string]ssh.ChannelHandler{
 			"session":      ssh.DefaultSessionHandler,
-			"direct-tcpip": ssh.DirectTCPIPHandler,
-		},
-		RequestHandlers: map[string]ssh.RequestHandler{
-			"tcpip-forward":        forwardHandler.HandleSSHRequest,
-			"cancel-tcpip-forward": forwardHandler.HandleSSHRequest,
+			"direct-tcpip": s.config.ProxyHandlers.DirectTCPIPHandler(details),
 		},
 		Handler: func(session ssh.Session) {
-			s.config.SessionHandler.Handle(session, info)
+			s.config.ProxyHandlers.SessionHandler(session, details)
 		},
 	}
 
