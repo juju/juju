@@ -267,6 +267,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"state-config-watcher",
 		"ssh-server",
 		"ssh-tunneler",
+		"ssh-session",
 		"syslog",
 		"termination-signal-handler",
 		"migration-fortress",

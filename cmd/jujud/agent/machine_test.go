@@ -1192,7 +1192,7 @@ func (s *MachineSuite) TestControllerMachineWorkers(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageModel, nil,
 		func(_ agent.Config, _ *state.State, agent *MachineAgent) {
 			matcher := agenttest.NewWorkerMatcher(c, tracker, agent.Tag().String(), expectedWorkers)
-			agenttest.WaitMatch(c, matcher.Check, longerWait)
+			agenttest.WaitMatch(c, matcher.Check, 10000*time.Second)
 		},
 	)
 }

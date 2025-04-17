@@ -153,6 +153,7 @@ var (
 		"ssh-authkeys-updater",
 		"ssh-server",
 		"ssh-tunneler",
+		"ssh-session",
 		"state",
 		"state-config-watcher",
 		"storage-provisioner",
