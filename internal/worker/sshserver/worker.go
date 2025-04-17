@@ -21,7 +21,7 @@ type ServerWrapperWorkerConfig struct {
 	Logger               Logger
 	FacadeClient         FacadeClient
 	NewSSHServerListener func(net.Listener, time.Duration) net.Listener
-	SessionHandler       SessionHandler
+	ProxyHandlers        ProxyHandlers
 	JWTParser            JWTParser
 	TunnelTracker        *sshtunneler.Tracker
 	metricsCollector     *Collector
@@ -41,7 +41,7 @@ func (c ServerWrapperWorkerConfig) Validate() error {
 	if c.NewSSHServerListener == nil {
 		return errors.NotValidf("NewSSHServerListener is required")
 	}
-	if c.SessionHandler == nil {
+	if c.ProxyHandlers == nil {
 		return errors.NotValidf("SessionHandler is required")
 	}
 	if c.JWTParser == nil {
@@ -157,7 +157,7 @@ func (ssw *serverWrapperWorker) loop() error {
 		MaxConcurrentConnections: maxConns,
 		NewSSHServerListener:     ssw.config.NewSSHServerListener,
 		FacadeClient:             ssw.config.FacadeClient,
-		SessionHandler:           ssw.config.SessionHandler,
+		ProxyHandlers:            ssw.config.ProxyHandlers,
 		JWTParser:                ssw.config.JWTParser,
 		TunnelTracker:            ssw.config.TunnelTracker,
 		metricsCollector:         ssw.config.metricsCollector,

@@ -99,7 +99,11 @@ func (s *portForwardSuite) TestLocalPortForwarding(c *gc.C) {
 		logger:    loggo.GetLogger("test"),
 	}
 
-	controllerServer := startTestControllerPortforwardServer(c, handler.MachineDirectTCPIPHandler())
+	details := connectionDetails{
+		destination: virtualhostname.Info{},
+	}
+
+	controllerServer := startTestControllerPortforwardServer(c, handler.MachineDirectTCPIPHandler(details))
 	defer controllerServer.listener.Close()
 
 	machineServer := startTestMachinePortforwardServer(c)
@@ -110,6 +114,7 @@ func (s *portForwardSuite) TestLocalPortForwarding(c *gc.C) {
 			conn, err := machineServer.listener.Dial()
 			if err != nil {
 				return nil, err
+
 			}
 			sshConn, newChan, reqs, err := gossh.NewClientConn(conn, "", &gossh.ClientConfig{
 				HostKeyCallback: gossh.InsecureIgnoreHostKey(),
@@ -151,7 +156,11 @@ func (s *portForwardSuite) TestLocalPortForwardingFailsToConnect(c *gc.C) {
 		logger:    loggo.GetLogger("test"),
 	}
 
-	controllerServer := startTestControllerPortforwardServer(c, handler.MachineDirectTCPIPHandler())
+	details := connectionDetails{
+		destination: virtualhostname.Info{},
+	}
+
+	controllerServer := startTestControllerPortforwardServer(c, handler.MachineDirectTCPIPHandler(details))
 	defer controllerServer.listener.Close()
 
 	s.mockConnector.EXPECT().Connect(gomock.Any()).DoAndReturn(

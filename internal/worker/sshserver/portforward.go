@@ -12,7 +12,6 @@ import (
 	"github.com/gliderlabs/ssh"
 	gossh "golang.org/x/crypto/ssh"
 
-	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/state"
 )
 
@@ -22,12 +21,14 @@ type portForwardHandler struct {
 	logger    Logger
 }
 
-func (p *portForwardHandler) DirectTCPIPHandler() ssh.ChannelHandler {
+// DirectTCPIPHandler returns a handler for the DirectTCPIP channel type
+// based on the model type, K8s or machine.
+func (p *portForwardHandler) DirectTCPIPHandler(details connectionDetails) ssh.ChannelHandler {
 	switch p.modelType {
 	case state.ModelTypeCAAS:
-		return p.K8sDirectTCPIPHandler()
+		return p.K8sDirectTCPIPHandler(details)
 	case state.ModelTypeIAAS:
-		return p.MachineDirectTCPIPHandler()
+		return p.MachineDirectTCPIPHandler(details)
 	default:
 		p.logger.Errorf("unknown model type %s", p.modelType)
 		return func(srv *ssh.Server, conn *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {
@@ -46,7 +47,7 @@ type localForwardChannelData struct {
 
 // K8sDirectTCPIPHandler returns a handler for the DirectTCPIP channel type.
 // This handler is not currently implemented for Kubernetes models.
-func (p *portForwardHandler) K8sDirectTCPIPHandler() ssh.ChannelHandler {
+func (p *portForwardHandler) K8sDirectTCPIPHandler(details connectionDetails) ssh.ChannelHandler {
 	return func(srv *ssh.Server, conn *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {
 		_ = newChan.Reject(gossh.ConnectionFailed, "local port forwarding unavailable for k8s models")
 	}
@@ -56,7 +57,7 @@ func (p *portForwardHandler) K8sDirectTCPIPHandler() ssh.ChannelHandler {
 // This handler is used for local port forwarding. While the handler is nearly
 // identical to the default DirectTCPIPHandler, it first connects to the target
 // machine and proxies the port forwarding request through the machine's SSH server.
-func (p *portForwardHandler) MachineDirectTCPIPHandler() ssh.ChannelHandler {
+func (p *portForwardHandler) MachineDirectTCPIPHandler(details connectionDetails) ssh.ChannelHandler {
 	return func(srv *ssh.Server, conn *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {
 		d := localForwardChannelData{}
 		if err := gossh.Unmarshal(newChan.ExtraData(), &d); err != nil {
@@ -66,7 +67,7 @@ func (p *portForwardHandler) MachineDirectTCPIPHandler() ssh.ChannelHandler {
 
 		dest := net.JoinHostPort(d.DestAddr, strconv.FormatInt(int64(d.DestPort), 10))
 
-		client, err := p.connector.Connect(virtualhostname.Info{})
+		client, err := p.connector.Connect(details.destination)
 		if err != nil {
 			_ = newChan.Reject(gossh.ConnectionFailed, fmt.Sprintf("failed to connect to machine: %s", err.Error()))
 			return

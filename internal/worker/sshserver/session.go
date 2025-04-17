@@ -14,12 +14,22 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type stubSessionHandler struct{}
+type stubProxyHandlers struct{}
 
-// Handle is a stub implementation of the SessionHandler interface.
+// SessionHandler is a stub implementation of the SessionHandler method.
 // It currently does nothing but will be replaced with a real implementation
 // that proxies user's requests to the target unit or machine.
-func (s *stubSessionHandler) Handle(session ssh.Session, destination virtualhostname.Info) {
+func (s *stubProxyHandlers) SessionHandler(session ssh.Session, details connectionDetails) {
+}
+
+// DirectTCPIPHandler is a stub implementation of the SessionHandler method.
+// It rejects the request but will be replaced with a real implementation
+// that proxies user's requests to the target unit or machine.
+func (s *stubProxyHandlers) DirectTCPIPHandler(details connectionDetails) ssh.ChannelHandler {
+	return func(srv *ssh.Server, conn *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {
+		_ = newChan.Reject(gossh.Prohibited, "not implemented")
+		return
+	}
 }
 
 // SSHConnector is an interface that defines the methods required to

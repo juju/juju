@@ -29,9 +29,11 @@ const (
 
 type connectionStartTime struct{}
 
-// SessionHandler is an interface that proxies SSH sessions to a target unit/machine.
-type SessionHandler interface {
-	Handle(s ssh.Session, destination virtualhostname.Info)
+// ProxyHandlers is an interface that provides methods for all SSH handlers.
+// These methods proxies connections to the target unit/machine.
+type ProxyHandlers interface {
+	SessionHandler(s ssh.Session, details connectionDetails)
+	DirectTCPIPHandler(details connectionDetails) ssh.ChannelHandler
 }
 
 type tunnelIDKey struct{}
@@ -70,8 +72,8 @@ type ServerWorkerConfig struct {
 	// disableAuth is a test-only flag that disables authentication.
 	disableAuth bool
 
-	// SessionHandler handles proxying SSH sessions to the target machine.
-	SessionHandler SessionHandler
+	// ProxyHandlers handles proxying SSH connections to the target machine.
+	ProxyHandlers ProxyHandlers
 
 	// TunnelTracker holds the tunnel tracker used to requests SSH
 	// connections to machines.
@@ -79,9 +81,6 @@ type ServerWorkerConfig struct {
 
 	// metricsCollector is collects Prometheus style metrics for the server.
 	metricsCollector *Collector
-
-	// portForwardHandler handles port forwarding requests.
-	portForwardHandler *portForwardHandler
 }
 
 // Validate validates the workers configuration is as expected.
@@ -98,8 +97,8 @@ func (c ServerWorkerConfig) Validate() error {
 	if c.FacadeClient == nil {
 		return errors.NotValidf("missing FacadeClient")
 	}
-	if c.SessionHandler == nil {
-		return errors.NotValidf("missing SessionHandler")
+	if c.ProxyHandlers == nil {
+		return errors.NotValidf("missing ProxyHandlers")
 	}
 	if c.JWTParser == nil {
 		return errors.NotValidf("missing JWTParser")
@@ -402,20 +401,23 @@ func (s *ServerWorker) newTerminatingSSHServer(ctx ssh.Context, info virtualhost
 		}
 	}
 
+	startTime, _ := ctx.Value(connectionStartTime{}).(time.Time)
+	details := connectionDetails{
+		destination: info,
+		startTime:   startTime,
+	}
+
 	server := &ssh.Server{
 		PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
 			return authenticator.PublicKeyAuthentication(ctx, key)
 		},
 		ChannelHandlers: map[string]ssh.ChannelHandler{
-			"session": ssh.DefaultSessionHandler,
+			"session":      ssh.DefaultSessionHandler,
+			"direct-tcpip": s.config.ProxyHandlers.DirectTCPIPHandler(details),
 		},
 		Handler: func(session ssh.Session) {
-			s.config.SessionHandler.Handle(session, info)
+			s.config.ProxyHandlers.SessionHandler(session, details)
 		},
-	}
-
-	if s.config.portForwardHandler != nil {
-		server.ChannelHandlers["direct-tcpip"] = s.config.portForwardHandler.DirectTCPIPHandler()
 	}
 
 	if s.config.disableAuth {

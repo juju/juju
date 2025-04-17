@@ -156,7 +156,7 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 		Logger:               config.Logger,
 		FacadeClient:         client,
 		NewSSHServerListener: config.NewSSHServerListener,
-		SessionHandler:       &stubSessionHandler{},
+		ProxyHandlers:        &stubProxyHandlers{},
 		JWTParser:            jwtParser,
 		TunnelTracker:        tunnelTracker,
 		metricsCollector:     metricsCollector,
