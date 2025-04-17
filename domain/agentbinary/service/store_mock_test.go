@@ -41,6 +41,45 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// CheckAgentBinarySHA256Exists mocks base method.
+func (m *MockState) CheckAgentBinarySHA256Exists(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckAgentBinarySHA256Exists", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CheckAgentBinarySHA256Exists indicates an expected call of CheckAgentBinarySHA256Exists.
+func (mr *MockStateMockRecorder) CheckAgentBinarySHA256Exists(arg0, arg1 any) *MockStateCheckAgentBinarySHA256ExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAgentBinarySHA256Exists", reflect.TypeOf((*MockState)(nil).CheckAgentBinarySHA256Exists), arg0, arg1)
+	return &MockStateCheckAgentBinarySHA256ExistsCall{Call: call}
+}
+
+// MockStateCheckAgentBinarySHA256ExistsCall wrap *gomock.Call
+type MockStateCheckAgentBinarySHA256ExistsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateCheckAgentBinarySHA256ExistsCall) Return(arg0 bool, arg1 error) *MockStateCheckAgentBinarySHA256ExistsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateCheckAgentBinarySHA256ExistsCall) Do(f func(context.Context, string) (bool, error)) *MockStateCheckAgentBinarySHA256ExistsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateCheckAgentBinarySHA256ExistsCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStateCheckAgentBinarySHA256ExistsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetObjectUUID mocks base method.
 func (m *MockState) GetObjectUUID(arg0 context.Context, arg1 string) (objectstore.UUID, error) {
 	m.ctrl.T.Helper()

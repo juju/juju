@@ -271,8 +271,18 @@ func getMetadata(c *gc.C, db *sql.DB, objStoreUUID objectstore.UUID) agentbinary
 SELECT version, architecture_name, size, sha_256
 FROM   v_agent_binary_store
 WHERE  object_store_uuid = ?`, objStoreUUID).Scan(&data.Version, &data.Arch, &data.Size, &data.SHA256)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return data
+}
+
+func getObjectSHA256(c *gc.C, db *sql.DB, objStoreUUID objectstore.UUID) string {
+	var sha string
+	err := db.QueryRow(`
+SELECT sha_256
+FROM   object_store_metadata
+WHERE  uuid = ?`, objStoreUUID).Scan(&sha)
+	c.Assert(err, jc.ErrorIsNil)
+	return sha
 }
 
 func (s *stateSuite) TestListAgentBinaries(c *gc.C) {
@@ -308,4 +318,28 @@ func (s *stateSuite) TestListAgentBinariesEmpty(c *gc.C) {
 	binaries, err := s.state.ListAgentBinaries(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(binaries, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestCheckAgentBinarySHA256Exists(c *gc.C) {
+	objStoreUUID, _ := s.addObjectStore(c)
+
+	err := s.state.RegisterAgentBinary(context.Background(), agentbinary.RegisterAgentBinaryArg{
+		Version:         "4.0.0",
+		Arch:            "amd64",
+		ObjectStoreUUID: objStoreUUID,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	sha := getMetadata(c, s.DB(), objStoreUUID).SHA256
+	exists, err := s.state.CheckAgentBinarySHA256Exists(context.Background(), sha)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(exists, gc.Equals, true)
+}
+
+func (s *stateSuite) TestCheckAgentBinarySHA256NoExists(c *gc.C) {
+	objStoreUUID, _ := s.addObjectStore(c)
+	sha := getObjectSHA256(c, s.DB(), objStoreUUID)
+	exists, err := s.state.CheckAgentBinarySHA256Exists(context.Background(), sha)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(exists, gc.Equals, false)
 }

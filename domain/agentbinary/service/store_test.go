@@ -25,6 +25,7 @@ import (
 	agentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	intobjectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
 )
 
 type storeSuite struct {
@@ -352,4 +353,69 @@ func (s *storeSuite) TestAddAgentBinaryWithSHA256FailedInvalidAgentVersion(c *gc
 		sha256Hash,
 	)
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestGetAgentBinaryForSHA256NoObjectStore is here as a protection mechanism.
+// Because we are allowing the fetching of agent binaries based on sha it is
+// possible that this interface could be used to fetch objects for a given sha
+// that isn't related to agent binaries. This could and will pose a security
+// risk.
+//
+// This test asserts that when the database says the sha doesn't exist the
+// objectstore is never called.
+func (s *storeSuite) TestGetAgentBinaryForSHA256NoObjectStore(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	sum := "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e"
+
+	s.mockState.EXPECT().CheckAgentBinarySHA256Exists(gomock.Any(), sum).Return(false, nil)
+	s.mockObjectStore.EXPECT().GetBySHA256(gomock.Any(), sum).DoAndReturn(
+		func(_ context.Context, _ string) (io.ReadCloser, int64, error) {
+			c.Fatal("should never have got this far")
+			return nil, 0, nil
+		},
+	).AnyTimes()
+
+	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
+	_, _, err := store.GetAgentBinaryForSHA256(context.Background(), sum)
+	c.Check(err, jc.ErrorIs, agentbinaryerrors.NotFound)
+}
+
+// TestGetAgentBinaryForSHA256NotFound asserts that if no agent binaries exist
+// for a given sha we get back an error that satisfies
+// [agentbinaryerrors.NotFound].
+func (s *storeSuite) TestGetAgentBinaryForSHA256NotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	sum := "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e"
+
+	// This first step tests the not found error via the state reporting that
+	// it doesn't exist.
+	s.mockState.EXPECT().CheckAgentBinarySHA256Exists(gomock.Any(), sum).Return(false, nil)
+
+	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
+	_, _, err := store.GetAgentBinaryForSHA256(context.Background(), sum)
+	c.Check(err, jc.ErrorIs, agentbinaryerrors.NotFound)
+
+	// This second step tests the not found error via the object store reporting
+	// that the object doesn't exist.
+	s.mockState.EXPECT().CheckAgentBinarySHA256Exists(gomock.Any(), sum).Return(true, nil)
+	s.mockObjectStore.EXPECT().GetBySHA256(gomock.Any(), sum).Return(
+		nil, 0, intobjectstoreerrors.ObjectNotFound,
+	)
+
+	_, _, err = store.GetAgentBinaryForSHA256(context.Background(), sum)
+	c.Check(err, jc.ErrorIs, agentbinaryerrors.NotFound)
+}
+
+func (s *storeSuite) TestGetAgentBinaryForSHA256(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	sum := "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e"
+
+	s.mockState.EXPECT().CheckAgentBinarySHA256Exists(gomock.Any(), sum).Return(true, nil)
+	s.mockObjectStore.EXPECT().GetBySHA256(gomock.Any(), sum).Return(
+		nil, 0, nil,
+	)
+
+	store := NewAgentBinaryStore(s.mockState, loggertesting.WrapCheckLog(c), s.mockObjectStoreGetter)
+	_, _, err := store.GetAgentBinaryForSHA256(context.Background(), sum)
+	c.Check(err, jc.ErrorIsNil)
 }

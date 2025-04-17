@@ -18,6 +18,10 @@ const (
 	// This is used to prevent the agent binary from being modified after it has been created.
 	AgentBinaryImmutable = errors.ConstError("agent binary is immutable")
 
+	// NotFound defines an error that occurs when an agent binary is request and
+	// it doesn't exist.
+	NotFound = errors.ConstError("agent binary not found")
+
 	// ObjectNotFound defines an error that indicates the binary object
 	// associated with the agent binary does not exist.
 	ObjectNotFound = errors.ConstError("agent binary object not found")

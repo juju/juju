@@ -17,6 +17,12 @@ type objectStoreUUID struct {
 	UUID string `db:"uuid"`
 }
 
+// objectStoreSHA256Sum is a database type for representing the sha 256 sum
+// of an object store row.
+type objectStoreSHA256Sum struct {
+	Sum string `db:"sha_256"`
+}
+
 // agentBinaryRecord represents an agent binary entry in the database.
 type agentBinaryRecord struct {
 	Version         string `db:"version"`

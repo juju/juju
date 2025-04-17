@@ -32,6 +32,49 @@ func NewState(factory database.TxnRunnerFactory) *State {
 	}
 }
 
+// CheckAgentBinarySHA256Exists checks that the given sha256 sum exists as an
+// agent binary in the object store. This sha256 sum could exist as an object in
+// the object store but unless the association has been made this will always
+// return false.
+func (s *State) CheckAgentBinarySHA256Exists(ctx context.Context, sha256Sum string) (bool, error) {
+	db, err := s.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	dbVal := objectStoreSHA256Sum{Sum: sha256Sum}
+
+	stmt, err := s.Prepare(`
+SELECT &objectStoreSHA256Sum.*
+FROM v_agent_binary_store
+WHERE sha_256 = $objectStoreSHA256Sum.sha_256
+`, dbVal)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	exists := false
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, dbVal).Get(&dbVal)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf(
+				"checking database to see if agent binary for sha256 %q exists: %w",
+				sha256Sum, err,
+			)
+		}
+		exists = true
+		return nil
+	})
+
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return exists, nil
+}
+
 // GetObjectUUID returns the object store UUID for the given file path.
 // The following errors can be returned:
 // - [agentbinaryerrors.ObjectNotFound] when no object exists that matches this path.
@@ -107,7 +150,7 @@ WHERE  name = $architectureRecord.name
 	}
 
 	insertStmt, err := s.Prepare(`
-INSERT INTO agent_binary_store (*) 
+INSERT INTO agent_binary_store (*)
 VALUES ($agentBinaryRecord.*)
 `, agentBinary)
 	if err != nil {
