@@ -199,19 +199,6 @@ func allCollections() CollectionSchema {
 			global: true,
 		},
 
-		relationsC: {
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "endpoints.applicationname", "endpoints.relation.name"},
-			}, {
-				Key: []string{"model-uuid", "id"}, // id here is the relation id not the doc _id
-			}},
-		},
-		relationScopesC: {
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "key", "departing"},
-			}},
-		},
-
 		// -----
 
 		// These collections hold information associated with machines.
@@ -406,8 +393,6 @@ const (
 	modelEntityRefsC         = "modelEntityRefs"
 	operationsC              = "operations"
 	providerIDsC             = "providerIDs"
-	relationScopesC          = "relationscopes"
-	relationsC               = "relations"
 	sequenceC                = "sequence"
 	applicationsC            = "applications"
 	endpointBindingsC        = "endpointbindings"

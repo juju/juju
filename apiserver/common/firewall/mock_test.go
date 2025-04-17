@@ -283,7 +283,7 @@ func (r *mockRelation) Endpoints() []relation.Endpoint {
 	return r.endpoints
 }
 
-func (r *mockRelation) WatchUnits(applicationName string) (state.RelationUnitsWatcher, error) {
+func (r *mockRelation) WatchUnits(applicationName string) (relation.RelationUnitsWatcher, error) {
 	if r.ruwApp != applicationName {
 		return nil, errors.Errorf("unexpected app %v", applicationName)
 	}
