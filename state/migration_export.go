@@ -203,9 +203,6 @@ type exporter struct {
 	modelSettings           map[string]settingsDoc
 	modelStorageConstraints map[string]storageConstraintsDoc
 	status                  map[string]bson.M
-	// Map of application name to units. Populated as part
-	// of the applications export.
-	units map[string][]*Unit
 }
 
 func (e *exporter) sequences() error {

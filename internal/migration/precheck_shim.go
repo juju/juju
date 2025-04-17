@@ -110,26 +110,3 @@ func (s *precheckAppShim) AllUnits() ([]PrecheckUnit, error) {
 	}
 	return out, nil
 }
-
-// precheckRelationShim implements PrecheckRelation.
-type precheckRelationShim struct {
-}
-
-// Unit implements PreCheckRelation.
-func (s *precheckRelationShim) Unit(pu PrecheckUnit) (PrecheckRelationUnit, error) {
-	return nil, errors.NotImplementedf("cross model relations are disabled until " +
-		"backend functionality is moved to domain")
-}
-
-// AllRemoteUnits implements PreCheckRelation.
-func (s *precheckRelationShim) AllRemoteUnits(appName string) ([]PrecheckRelationUnit, error) {
-	return nil, errors.NotImplementedf("implmement me when wiring relation domain to migration")
-}
-
-// RemoteApplication implements PreCheckRelation.
-func (s *precheckRelationShim) RemoteApplication() (string, bool, error) {
-	// todo(gfouillet): cross model relations are disabled until backend
-	//   functionality is moved to domain, so we just return false there until it
-	//   is done.
-	return "", false, nil
-}

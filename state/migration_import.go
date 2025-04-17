@@ -171,9 +171,6 @@ type importer struct {
 	dbModel *Model
 	model   description.Model
 	logger  corelogger.Logger
-	// applicationUnits is populated at the end of loading the applications, and is a
-	// map of application name to the units of that application.
-	applicationUnits map[string]map[string]*Unit
 }
 
 func (i *importer) modelExtras() error {

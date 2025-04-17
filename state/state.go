@@ -1465,10 +1465,6 @@ func (st *State) AllApplications() (applications []*Application, err error) {
 	return applications, nil
 }
 
-func applicationByName(st *State, name string) (ApplicationEntity, error) {
-	return st.Application(name)
-}
-
 // Report conforms to the Dependency Engine Report() interface, giving an opportunity to introspect
 // what is going on at runtime.
 func (st *State) Report() map[string]interface{} {

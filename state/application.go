@@ -600,28 +600,6 @@ func (a *Application) Endpoint(relationName string) (relation.Endpoint, error) {
 	return relation.Endpoint{}, errors.Errorf("application %q has no %q relation", a, relationName)
 }
 
-// extraPeerRelations returns only the peer relations in newMeta not
-// present in the application's current charm meta data.
-func (a *Application) extraPeerRelations(newMeta *charm.Meta) map[string]charm.Relation {
-	if newMeta == nil {
-		// This should never happen, since we're checking the charm in SetCharm already.
-		panic("newMeta is nil")
-	}
-	ch, _, err := a.Charm()
-	if err != nil {
-		return nil
-	}
-	newPeers := newMeta.Peers
-	oldPeers := ch.Meta().Peers
-	extraPeers := make(map[string]charm.Relation)
-	for relName, rel := range newPeers {
-		if _, ok := oldPeers[relName]; !ok {
-			extraPeers[relName] = rel
-		}
-	}
-	return extraPeers
-}
-
 func (a *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []*Unit) (_ []txn.Op, err error) {
 	// Make sure no storage instances are added or removed.
 
