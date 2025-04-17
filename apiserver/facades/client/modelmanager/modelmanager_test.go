@@ -52,7 +52,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 func createArgs(owner names.UserTag) params.ModelCreateArgs {
@@ -971,16 +970,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	domainServices := s.ControllerDomainServices(c)
 
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), ctlrSt)
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	configGetter := stateenvirons.EnvironConfigGetter{
-		Model:              s.ControllerModel(c),
-		ModelConfigService: domainServices.Config(),
-		CloudService:       domainServices.Cloud(),
-		CredentialService:  domainServices.Credential(),
-	}
-	newEnviron := common.EnvironFuncForModel(model, domainServices.Cloud(), domainServices.Credential(), configGetter)
-	toolsFinder := common.NewToolsFinder(s.controllerConfigService, st, urlGetter, newEnviron, s.store)
+	toolsFinder := common.NewToolsFinder(s.controllerConfigService, st, urlGetter, s.store, nil)
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
 		mockCredentialShim{ModelManagerBackend: st}, nil, ctlrSt,

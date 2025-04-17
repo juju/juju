@@ -5,5 +5,4 @@ package common
 
 var (
 	MachineJobFromParams = machineJobFromParams
-	EnvtoolsFindTools    = &envtoolsFindTools
 )

@@ -211,12 +211,14 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		return api, nil
 	}
 
-	newEnviron := func(ctx context.Context) (environs.BootstrapEnviron, error) {
-		return environs.GetEnviron(ctx, configGetter, environs.NoopCredentialInvalidator(), environs.New)
-	}
-
 	api.InstanceIdGetter = common.NewInstanceIdGetter(domainServices.Machine(), getAuthFunc)
-	api.toolsFinder = common.NewToolsFinder(domainServices.ControllerConfig(), st, urlGetter, newEnviron, ctx.ControllerObjectStore())
+
+	api.toolsFinder = common.NewToolsFinder(
+		domainServices.ControllerConfig(),
+		st, urlGetter,
+		ctx.ControllerObjectStore(),
+		domainServices.Stub(),
+	)
 	api.ToolsGetter = common.NewToolsGetter(domainServices.Agent(), st, urlGetter, api.toolsFinder, getAuthOwner)
 	return api, nil
 }
