@@ -53,6 +53,14 @@ type destroyControllerSuite struct {
 
 var _ = gc.Suite(&destroyControllerSuite{})
 
+func (s *destroyControllerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.mockModelService = mocks.NewMockModelService(ctrl)
+	s.controller = s.controllerAPI(c)
+
+	return ctrl
+}
+
 func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
@@ -73,8 +81,6 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 		},
 		DomainServicesForModel_: s.DefaultModelDomainServices(c),
 	}
-
-	s.controller = s.controllerAPI(c)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -98,7 +104,6 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 // It provides custom service getter functions and mock services
 // to allow test-level control over their behavior.
 func (s *destroyControllerSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
-	ctrl := gomock.NewController(c)
 	stdCtx := context.Background()
 	ctx := s.context
 	var (
@@ -152,7 +157,6 @@ func (s *destroyControllerSuite) controllerAPI(c *gc.C) *controller.ControllerAP
 		}
 		return svc.Machine(), nil
 	}
-	s.mockModelService = mocks.NewMockModelService(ctrl)
 
 	api, err := controller.NewControllerAPI(
 		stdCtx,
@@ -198,9 +202,16 @@ func (s *destroyControllerSuite) TestStub(c *gc.C) {
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerKillErrsOnHostedModelsWithBlocks(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 
+	s.mockModelService.EXPECT().ListModelIDs(gomock.Any()).Return(
+		[]coremodel.UUID{
+			coremodel.UUID(s.ControllerUUID),
+			coremodel.UUID(s.otherModelUUID),
+		}, nil,
+	)
 	err := s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{
 		DestroyModels: true,
 	})
@@ -210,6 +221,7 @@ func (s *destroyControllerSuite) TestDestroyControllerKillErrsOnHostedModelsWith
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedModelErr(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 
@@ -230,6 +242,7 @@ func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedModelErr(c *
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerKillsHostedModels(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	s.mockModelService.EXPECT().ListModelIDs(gomock.Any()).Return(
 		[]coremodel.UUID{
 			coremodel.UUID(s.ControllerUUID),
@@ -244,6 +257,7 @@ func (s *destroyControllerSuite) TestDestroyControllerKillsHostedModels(c *gc.C)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 
@@ -262,6 +276,7 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	domainServices := s.DefaultModelDomainServices(c)
 
 	err := model.DestroyModel(
@@ -288,6 +303,7 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *gc.C) {
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBlock(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	domainServices := s.DefaultModelDomainServices(c)
 	s.mockModelService.EXPECT().ListModelIDs(gomock.Any()).Return(
 		[]coremodel.UUID{
@@ -311,6 +327,7 @@ func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBl
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFail(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	domainServices := s.DefaultModelDomainServices(c)
 
 	err := model.DestroyModel(

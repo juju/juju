@@ -551,7 +551,7 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 	// Ensure the model exists.
 	model, err := c.modelService.Model(ctx, coremodel.UUID(modelTag.Id()))
 	if interrors.Is(err, modelerrors.NotFound) {
-		return "", interrors.Errorf("getting model: %w", coreerrors.NotFound)
+		return "", interrors.Errorf("model %q not found", modelTag.Id()).Add(coreerrors.NotFound)
 	} else if err != nil {
 		return "", interrors.Capture(err)
 	}
