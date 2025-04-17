@@ -6,6 +6,7 @@ package controller_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -42,6 +43,7 @@ import (
 	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	servicefactorytesting "github.com/juju/juju/domain/services/testing"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -76,6 +78,14 @@ type controllerSuite struct {
 }
 
 var _ = gc.Suite(&controllerSuite{})
+
+func (s *controllerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.mockModelService = mocks.NewMockModelService(ctrl)
+	s.controller = s.controllerAPI(c)
+
+	return ctrl
+}
 
 func (s *controllerSuite) SetUpSuite(c *gc.C) {
 	s.StateSuite.SetUpSuite(c)
@@ -138,8 +148,6 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	s.controller = s.controllerAPI(c)
-
 	loggo.GetLogger("juju.apiserver.controller").SetLogLevel(loggo.TRACE)
 }
 
@@ -147,7 +155,6 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 // It provides custom service getter functions and mock services
 // to allow test-level control over their behavior.
 func (s *controllerSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
-	ctrl := gomock.NewController(c)
 	stdCtx := context.Background()
 	ctx := s.context
 	var (
@@ -201,7 +208,6 @@ func (s *controllerSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 		}
 		return svc.Machine(), nil
 	}
-	s.mockModelService = mocks.NewMockModelService(ctrl)
 
 	api, err := controller.NewControllerAPI(
 		stdCtx,
@@ -261,6 +267,7 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 }
 
 func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	owner := names.NewUserTag("owner")
 	remoteUserTag := names.NewUserTag("user").WithDomain("remote")
 
@@ -269,11 +276,20 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *gc.
 			{
 				Name:      "first",
 				OwnerName: user.NameFromTag(owner),
+				UUID:      modeltesting.GenModelUUID(c),
 			},
 			{
 				Name:      "second",
 				OwnerName: user.NameFromTag(remoteUserTag),
+				UUID:      modeltesting.GenModelUUID(c),
 			},
+		}, nil,
+	)
+	s.mockModelService.EXPECT().ControllerModel(gomock.Any()).Return(
+		model.Model{
+			Name:      "controller",
+			OwnerName: user.NameFromTag(owner),
+			UUID:      s.ControllerModelUUID,
 		}, nil,
 	)
 	results, err := s.controller.HostedModelConfigs(context.Background())
@@ -313,6 +329,7 @@ func (s *controllerSuite) makeCloudSpec(c *gc.C, pSpec *params.CloudSpec) enviro
 }
 
 func (s *controllerSuite) TestHostedModelConfigs_CanOpenEnviron(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	c.Skip("Hosted model config is skipped because the tests aren't wired up correctly")
 	owner := names.NewUserTag("owner")
 	st1 := s.Factory.MakeModel(c, &factory.ModelParams{
@@ -342,6 +359,7 @@ func (s *controllerSuite) TestHostedModelConfigs_CanOpenEnviron(c *gc.C) {
 }
 
 func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "test"})
 	defer func() { _ = st.Close() }()
@@ -350,6 +368,16 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 	otherBlockCommands := otherDomainServices.BlockCommand()
 	otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.ChangeBlock, "ChangeBlock")
 	otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.DestroyBlock, "DestroyBlock")
+	models := []model.Model{
+		{
+			Name:      "test",
+			OwnerName: user.NameFromTag(s.Owner),
+			ModelType: model.IAAS,
+		},
+	}
+	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
+		models, nil,
+	)
 
 	list, err := s.controller.ListBlockedModels(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -369,12 +397,17 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 }
 
 func (s *controllerSuite) TestListBlockedModelsNoBlocks(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
+		nil, nil,
+	)
 	list, err := s.controller.ListBlockedModels(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(list.Models, gc.HasLen, 0)
 }
 
 func (s *controllerSuite) TestControllerConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	cfg, err := s.controller.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -418,6 +451,7 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 }
 
 func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "test"})
 	defer func() { _ = st.Close() }()
@@ -431,6 +465,11 @@ func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(otherBlocks, gc.HasLen, 2)
 
+	s.mockModelService.EXPECT().ListModelIDs(gomock.Any()).Return(
+		[]model.UUID{
+			model.UUID(st.ModelUUID()),
+		}, nil,
+	)
 	err = s.controller.RemoveBlocks(context.Background(), params.RemoveBlocksArgs{All: true})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -440,18 +479,21 @@ func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 }
 
 func (s *controllerSuite) TestRemoveBlocksNotAll(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	err := s.controller.RemoveBlocks(context.Background(), params.RemoveBlocksArgs{})
 	c.Assert(err, gc.ErrorMatches, "not supported")
 }
 
 func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	// Create two hosted models to migrate.
 	st1 := s.Factory.MakeModel(c, nil)
 	defer func() { _ = st1.Close() }()
 	model1, err := st1.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	s.mockModelService.EXPECT().Model(gomock.Any(), model1.ModelTag().Id()).Return(
+	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(model1.ModelTag().Id())).Return(
 		model.Model{
+			UUID:      model.UUID(model1.UUID()),
 			Name:      model1.Name(),
 			OwnerName: user.NameFromTag(model1.Owner()),
 		}, nil,
@@ -461,8 +503,9 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 	defer func() { _ = st2.Close() }()
 	model2, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	s.mockModelService.EXPECT().Model(gomock.Any(), model2.ModelTag().Id()).Return(
+	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(model2.ModelTag().Id())).Return(
 		model.Model{
+			UUID:      model.UUID(model2.UUID()),
 			Name:      model2.Name(),
 			OwnerName: user.NameFromTag(model2.Owner()),
 		}, nil,
@@ -502,6 +545,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 			},
 		},
 	}
+
 	out, err := s.controller.InitiateMigration(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.Results, gc.HasLen, 2)
@@ -542,19 +586,28 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 }
 
 func (s *controllerSuite) TestInitiateMigrationSpecError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	// Create a hosted model to migrate.
 	st := s.Factory.MakeModel(c, nil)
 	defer func() { _ = st.Close() }()
-	model, err := st.Model()
+	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Kick off the migration with missing details.
 	args := params.InitiateMigrationArgs{
 		Specs: []params.MigrationSpec{{
-			ModelTag: model.ModelTag().String(),
+			ModelTag: m.ModelTag().String(),
 			// TargetInfo missing
 		}},
 	}
+
+	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(m.ModelTag().Id())).Return(
+		model.Model{
+			UUID:      model.UUID(m.UUID()),
+			Name:      m.Name(),
+			OwnerName: user.NameFromTag(m.Owner()),
+		}, nil,
+	)
 	out, err := s.controller.InitiateMigration(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.Results, gc.HasLen, 1)
@@ -565,17 +618,26 @@ func (s *controllerSuite) TestInitiateMigrationSpecError(c *gc.C) {
 }
 
 func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	st := s.Factory.MakeModel(c, nil)
 	defer func() { _ = st.Close() }()
 	controller.SetPrecheckResult(s, nil)
 
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	s.mockModelService.EXPECT().Model(gomock.Any(), m.ModelTag().Id()).Return(
+	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(m.ModelTag().Id())).Return(
 		model.Model{
+			UUID:      model.UUID(m.UUID()),
 			Name:      m.Name(),
 			OwnerName: user.NameFromTag(m.Owner()),
 		}, nil,
+	)
+
+	randomUUID := modeltesting.GenModelUUID(c)
+	randomModelTag := names.NewModelTag(randomUUID.String())
+
+	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(randomModelTag.Id())).Return(
+		model.Model{}, modelerrors.NotFound,
 	)
 
 	args := params.InitiateMigrationArgs{
@@ -590,7 +652,7 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 					Password:      "secret",
 				},
 			}, {
-				ModelTag: randomModelTag(), // Doesn't exist.
+				ModelTag: randomModelTag.String(), // Doesn't exist.
 			},
 		},
 	}
@@ -602,10 +664,11 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 	c.Check(out.Results[0].Error, gc.IsNil)
 
 	c.Check(out.Results[1].ModelTag, gc.Equals, args.Specs[1].ModelTag)
-	c.Check(out.Results[1].Error, gc.ErrorMatches, "model not found")
+	c.Check(out.Results[1].Error.Error(), gc.Equals, fmt.Sprintf("model %q not found", randomModelTag.Id()))
 }
 
 func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -626,6 +689,13 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *gc.C) {
 			},
 		},
 	}
+	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(m.ModelTag().Id())).Return(
+		model.Model{
+			UUID:      model.UUID(m.UUID()),
+			Name:      m.Name(),
+			OwnerName: user.NameFromTag(m.Owner()),
+		}, nil,
+	)
 	out, err := s.controller.InitiateMigration(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.Results, gc.HasLen, 1)
@@ -639,6 +709,7 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
 	// part in a service domain, a model with the same uuid is required
 	// in both places for the test to work. Necessary after model config
 	// was move to the domain services.
+	defer s.setupMocks(c).Finish()
 	modelUUID, err := uuid.UUIDFromString(s.DefaultModelUUID.String())
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.Factory.MakeModel(c, &factory.ModelParams{UUID: &modelUUID})
@@ -647,8 +718,9 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
 	controller.SetPrecheckResult(s, errors.New("boom"))
 
 	m, err := st.Model()
-	s.mockModelService.EXPECT().Model(gomock.Any(), m.ModelTag().Id()).Return(
+	s.mockModelService.EXPECT().Model(gomock.Any(), model.UUID(m.ModelTag().Id())).Return(
 		model.Model{
+			UUID:      model.UUID(m.UUID()),
 			Name:      m.Name(),
 			OwnerName: user.NameFromTag(m.Owner()),
 		}, nil,
@@ -683,12 +755,8 @@ func randomControllerTag() string {
 	return names.NewControllerTag(uuid).String()
 }
 
-func randomModelTag() string {
-	uuid := uuid.MustNewUUID().String()
-	return names.NewModelTag(uuid).String()
-}
-
 func (s *controllerSuite) TestGrantControllerInvalidUserTag(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	for _, testParam := range []struct {
 		tag      string
 		validTag bool
@@ -712,9 +780,6 @@ func (s *controllerSuite) TestGrantControllerInvalidUserTag(c *gc.C) {
 		validTag: true,
 	}, {
 		tag:      "user@",
-		validTag: false,
-	}, {
-		tag:      "user@ubuntuone",
 		validTag: false,
 	}, {
 		tag:      "user@ubuntuone",
@@ -755,6 +820,7 @@ func (s *controllerSuite) TestGrantControllerInvalidUserTag(c *gc.C) {
 }
 
 func (s *controllerSuite) TestModelStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	// Check that we don't err out immediately if a model errs.
 	results, err := s.controller.ModelStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: "bad-tag",
@@ -784,6 +850,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 }
 
 func (s *controllerSuite) TestConfigSet(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 
 	config, err := controllerConfigService.ControllerConfig(context.Background())
@@ -829,6 +896,7 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
 }
 
 func (s *controllerSuite) TestConfigSetPublishesEvent(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	done := make(chan struct{})
 	var config corecontroller.Config
 	s.hub.Subscribe(pscontroller.ConfigChanged, func(topic string, data pscontroller.ConfigChangedMessage, err error) {
@@ -852,6 +920,7 @@ func (s *controllerSuite) TestConfigSetPublishesEvent(c *gc.C) {
 }
 
 func (s *controllerSuite) TestConfigSetCAASImageRepo(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	// TODO(dqlite): move this test when ConfigSet CAASImageRepo logic moves.
 	controllerConfigService := s.ControllerDomainServices(c).ControllerConfig()
 
@@ -907,6 +976,7 @@ func (s *controllerSuite) TestConfigSetCAASImageRepo(c *gc.C) {
 }
 
 func (s *controllerSuite) TestMongoVersion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	result, err := s.controller.MongoVersion(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -924,10 +994,12 @@ func (s *controllerSuite) TestIdentityProviderURL(c *gc.C) {
 		s.controllerConfigAttrs = orig
 	}(s.controllerConfigAttrs)
 
+	ctrl := s.setupMocks(c)
 	// Our default test configuration does not specify an IdentityURL
 	urlRes, err := s.controller.IdentityProviderURL(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(urlRes.Result, gc.Equals, "")
+	ctrl.Finish()
 
 	// IdentityURL cannot be changed after bootstrap; we need to spin up
 	// another controller with IdentityURL pre-configured
@@ -939,6 +1011,8 @@ func (s *controllerSuite) TestIdentityProviderURL(c *gc.C) {
 	}
 
 	s.SetUpTest(c)
+	ctrl = s.setupMocks(c)
+	defer ctrl.Finish()
 
 	urlRes, err = s.controller.IdentityProviderURL(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -954,6 +1028,7 @@ func (s *controllerSuite) newSummaryWatcherFacade(c *gc.C, id string) *apiserver
 }
 
 func (s *controllerSuite) TestWatchAllModelSummariesByAdmin(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	// TODO(dqlite) - implement me
 	c.Skip("watch model summaries to be implemented")
 	// Default authorizer is an admin.
@@ -1015,13 +1090,14 @@ func (s *controllerSuite) makeBobsModel(c *gc.C) string {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Owner: bob,
 		Name:  "bobs-model"})
+	defer st.Close()
 	uuid := st.ModelUUID()
 	s.WaitForModelWatchersIdle(c, uuid)
-	st.Close()
 	return uuid
 }
 
 func (s *controllerSuite) TestWatchModelSummariesByNonAdmin(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	// TODO(dqlite) - implement me
 	c.Skip("watch model summaries to be implemented")
 	s.makeBobsModel(c)
