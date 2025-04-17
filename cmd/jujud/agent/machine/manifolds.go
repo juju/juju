@@ -811,14 +811,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			ClockName:     clockName,
 		})),
-
-		sshSessionName: sshsession.Manifold(sshsession.ManifoldConfig{
-			APICallerName:            apiCallerName,
-			AuthenticationWorkerName: authenticationWorkerName,
-			AgentName:                agentName,
-			Logger:                   loggo.GetLogger("juju.worker.sshsession"),
-			NewWorker:                sshsession.NewWorker,
-		}),
 	}
 
 	return manifolds
@@ -1023,6 +1015,15 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			Logger:        loggo.GetLogger("juju.worker.stateconverter"),
 		}))),
+		// The ssh session worker watches for ssh connection requests and
+		// dials the controller to establish a connection.
+		sshSessionName: sshsession.Manifold(sshsession.ManifoldConfig{
+			APICallerName:            apiCallerName,
+			AuthenticationWorkerName: authenticationWorkerName,
+			AgentName:                agentName,
+			Logger:                   loggo.GetLogger("juju.worker.sshsession"),
+			NewWorker:                sshsession.NewWorker,
+		}),
 	}
 
 	return mergeManifolds(config, manifolds)

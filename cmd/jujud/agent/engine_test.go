@@ -209,6 +209,7 @@ var (
 		"proxy-config-updater",
 		"reboot-executor",
 		"ssh-authkeys-updater",
+		"ssh-session",
 		"state-converter",
 		"storage-provisioner",
 		"upgrade-series",

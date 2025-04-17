@@ -102,7 +102,7 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 		dt.StubContext(nil, map[string]interface{}{
 			"api-caller":            mockAPICaller{},
 			"agent":                 mockAgent,
-			"authentication-worker": MockEphemeralKeysUpdater{},
+			"authentication-worker": &MockEphemeralKeysUpdater{},
 		}),
 	)
 	c.Assert(err, jc.ErrorIsNil)

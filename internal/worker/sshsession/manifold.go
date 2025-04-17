@@ -93,7 +93,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	machineId := agent.CurrentConfig().Tag().Id()
 
 	var ephemeralKeysUpdater authenticationworker.EphemeralKeysUpdater
-	if err := context.Get(config.AuthenticationWorkerName, ephemeralKeysUpdater); err != nil {
+	if err := context.Get(config.AuthenticationWorkerName, &ephemeralKeysUpdater); err != nil {
 		return nil, errors.Trace(err)
 	}
 
