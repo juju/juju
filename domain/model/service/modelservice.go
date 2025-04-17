@@ -58,6 +58,11 @@ type ModelState interface {
 	// the constraints is invalid.
 	// - [modelerrors.NotFound]: when no model exists to set constraints for.
 	SetModelConstraints(context.Context, constraints.Constraints) error
+
+	// IsControllerModel returns true if the model is the controller model.
+	// The following errors may be returned:
+	// - [modelerrors.NotFound] when the model does not exist.
+	IsControllerModel(context.Context) (bool, error)
 }
 
 // ControllerState is the controller state required by this service. This is the
@@ -468,4 +473,11 @@ func EnvironVersionProviderGetter() EnvironVersionProviderFunc {
 
 		return environVersionProvider, nil
 	}
+}
+
+// IsControllerModel returns true if the model is the controller model.
+// The following errors may be returned:
+// - [modelerrors.NotFound] when the model does not exist.
+func (s *ModelService) IsControllerModel(ctx context.Context) (bool, error) {
+	return s.modelSt.IsControllerModel(ctx)
 }

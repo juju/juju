@@ -58,6 +58,7 @@ func newFirewallerAPIV7(ctx facade.ModelContext) (*FirewallerAPI, error) {
 		domainServices.Config(),
 		domainServices.Application(),
 		domainServices.Machine(),
+		domainServices.ModelInfo(),
 		ctx.Logger().Child("firewaller"),
 	)
 }

@@ -690,3 +690,54 @@ func (s *providerModelServiceSuite) TestCloudAPIVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vers, gc.Equals, "666")
 }
+
+func (s *modelServiceSuite) TestIsControllerModel(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.mockModelState.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
+
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+	isControllerModel, err := svc.IsControllerModel(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(isControllerModel, jc.IsTrue)
+
+	modelUUID = modeltesting.GenModelUUID(c)
+	s.mockModelState.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
+
+	svc = NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+	isControllerModel, err = svc.IsControllerModel(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(isControllerModel, jc.IsFalse)
+}
+
+func (s *modelServiceSuite) TestIsControllerModelNotFound(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.mockModelState.EXPECT().IsControllerModel(gomock.Any()).Return(false, modelerrors.NotFound)
+
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+	_, err := svc.IsControllerModel(context.Background())
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+}

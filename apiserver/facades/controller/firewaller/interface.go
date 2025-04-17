@@ -27,8 +27,6 @@ import (
 type State interface {
 	firewall.State
 
-	IsController() bool
-	ModelUUID() string
 	GetMacaroon(entity names.Tag) (*macaroon.Macaroon, error)
 	FindEntity(tag names.Tag) (state.Entity, error)
 }
@@ -90,9 +88,14 @@ type ApplicationService interface {
 type ControllerConfigAPI interface {
 	// ControllerConfig returns the controller's configuration.
 	ControllerConfig(context.Context) (params.ControllerConfigResult, error)
+}
 
-	// ControllerAPIInfoForModels returns the controller api connection details for the specified models.
-	ControllerAPIInfoForModels(ctx context.Context, args params.Entities) (params.ControllerAPIInfoResults, error)
+// ModelInfoService provides access to the model services.
+type ModelInfoService interface {
+	// IsControllerModel returns true if the model is the controller model.
+	// The following errors may be returned:
+	// - [modelerrors.NotFound] when the model does not exist.
+	IsControllerModel(ctx context.Context) (bool, error)
 }
 
 type MacaroonGetter interface {
@@ -103,14 +106,6 @@ type stateShim struct {
 	firewall.State
 	st *state.State
 	MacaroonGetter
-}
-
-func (st stateShim) IsController() bool {
-	return st.st.IsController()
-}
-
-func (st stateShim) ModelUUID() string {
-	return st.st.ModelUUID()
 }
 
 func (st stateShim) FindEntity(tag names.Tag) (state.Entity, error) {
