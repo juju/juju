@@ -7781,17 +7781,6 @@
                         }
                     }
                 },
-                "CloudSpec": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/CloudSpecResults"
-                        }
-                    }
-                },
                 "ConfigSet": {
                     "type": "object",
                     "properties": {
@@ -7840,17 +7829,6 @@
                     "properties": {
                         "Params": {
                             "$ref": "#/definitions/DestroyControllerArgs"
-                        }
-                    }
-                },
-                "GetCloudSpec": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ModelTag"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/CloudSpecResult"
                         }
                     }
                 },
@@ -7954,17 +7932,6 @@
                         }
                     }
                 },
-                "WatchCloudSpecsChanges": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/NotifyWatchResults"
-                        }
-                    }
-                },
                 "WatchModelSummaries": {
                     "type": "object",
                     "properties": {
@@ -8055,30 +8022,6 @@
                         "type",
                         "name"
                     ]
-                },
-                "CloudSpecResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "$ref": "#/definitions/CloudSpec"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "CloudSpecResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CloudSpecResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
                 },
                 "ControllerAPIInfoResult": {
                     "type": "object",
@@ -8703,10 +8646,6 @@
                         "models"
                     ]
                 },
-                "ModelTag": {
-                    "type": "object",
-                    "additionalProperties": false
-                },
                 "ModelVolumeInfo": {
                     "type": "object",
                     "properties": {
@@ -8764,36 +8703,6 @@
                     "additionalProperties": false,
                     "required": [
                         "changes"
-                    ]
-                },
-                "NotifyWatchResult": {
-                    "type": "object",
-                    "properties": {
-                        "NotifyWatcherId": {
-                            "type": "string"
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "NotifyWatcherId"
-                    ]
-                },
-                "NotifyWatchResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/NotifyWatchResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
                     ]
                 },
                 "Proxy": {

@@ -19,7 +19,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
@@ -64,30 +63,27 @@ type ModelUpgraderAPI struct {
 	authorizer    facade.Authorizer
 	toolsFinder   common.ToolsFinder
 
-	modelAgentServiceGetter func(modelID coremodel.UUID) ModelAgentService
+	modelAgentServiceGetter func(ctx context.Context, modelUUID coremodel.UUID) (ModelAgentService, error)
 	controllerAgentService  ModelAgentService
 	controllerConfigService ControllerConfigService
 	modelAgentService       ModelAgentService
 	modelInfoService        ModelInfoService
 	upgradeService          UpgradeService
 
-	registryAPIFunc         func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
-	environsCloudSpecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error)
-	logger                  corelogger.Logger
+	registryAPIFunc func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
+	logger          corelogger.Logger
 }
 
 // NewModelUpgraderAPI creates a new api server endpoint for managing
 // models.
 func NewModelUpgraderAPI(
 	controllerUUID string,
-	modelUUID coremodel.UUID,
 	stPool StatePool,
 	toolsFinder common.ToolsFinder,
 	blockChecker common.BlockCheckerInterface,
 	authorizer facade.Authorizer,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
-	environsCloudSpecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error),
-	modelAgentServiceGetter func(modelID coremodel.UUID) ModelAgentService,
+	modelAgentServiceGetter func(ctx context.Context, modelUUID coremodel.UUID) (ModelAgentService, error),
 	controllerAgentService ModelAgentService,
 	controllerConfigService ControllerConfigService,
 	modelAgentService ModelAgentService,
@@ -106,7 +102,6 @@ func NewModelUpgraderAPI(
 		authorizer:              authorizer,
 		toolsFinder:             toolsFinder,
 		registryAPIFunc:         registryAPIFunc,
-		environsCloudSpecGetter: environsCloudSpecGetter,
 		upgradeService:          upgradeService,
 		modelAgentServiceGetter: modelAgentServiceGetter,
 		modelAgentService:       modelAgentService,
@@ -276,13 +271,8 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 		}
 	}()
 
-	cloudspec, err := m.environsCloudSpecGetter(ctx, modelTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	if !model.IsControllerModel {
-		validators := upgradevalidation.ValidatorsForModelUpgrade(force, targetVersion, cloudspec)
+		validators := upgradevalidation.ValidatorsForModelUpgrade(force, targetVersion)
 		checker := upgradevalidation.NewModelUpgradeCheck(st, model.UUID.String(), m.modelAgentService, validators...)
 		blockers, err = checker.Validate()
 		if err != nil {
@@ -293,7 +283,7 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 
 	checker := upgradevalidation.NewModelUpgradeCheck(
 		st, model.UUID.String(), m.modelAgentService,
-		upgradevalidation.ValidatorsForControllerModelUpgrade(targetVersion, cloudspec)...,
+		upgradevalidation.ValidatorsForControllerModelUpgrade(targetVersion)...,
 	)
 	blockers, err = checker.Validate()
 	if err != nil {
@@ -325,14 +315,13 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 			continue
 		}
 
-		cloudspec, err := m.environsCloudSpecGetter(ctx, names.NewModelTag(modelUUID))
+		validators := upgradevalidation.ModelValidatorsForControllerModelUpgrade(targetVersion)
+
+		modelNameKey := fmt.Sprintf("%s/%s", stModel.Owner().Id(), stModel.Name())
+		modelAgentVersionService, err := m.modelAgentServiceGetter(ctx, coremodel.UUID(modelUUID))
 		if err != nil {
 			return errors.Trace(err)
 		}
-		validators := upgradevalidation.ModelValidatorsForControllerModelUpgrade(targetVersion, cloudspec)
-
-		modelNameKey := fmt.Sprintf("%s/%s", stModel.Owner().Id(), stModel.Name())
-		modelAgentVersionService := m.modelAgentServiceGetter(coremodel.UUID(modelUUID))
 		checker := upgradevalidation.NewModelUpgradeCheck(st, modelNameKey, modelAgentVersionService, validators...)
 		blockersForModel, err := checker.Validate()
 		if err != nil {

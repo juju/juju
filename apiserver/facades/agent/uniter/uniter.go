@@ -2111,27 +2111,8 @@ func (u *UniterAPI) CloudSpec(ctx context.Context) (params.CloudSpecResult, erro
 	if err != nil {
 		return params.CloudSpecResult{}, errors.Trace(err)
 	}
-	var paramsCloudCredential *params.CloudCredential
-	if spec.Credential != nil && spec.Credential.AuthType() != "" {
-		paramsCloudCredential = &params.CloudCredential{
-			AuthType:   string(spec.Credential.AuthType()),
-			Attributes: spec.Credential.Attributes(),
-		}
-	}
-
 	return params.CloudSpecResult{
-		Result: &params.CloudSpec{
-			Type:              spec.Type,
-			Name:              spec.Name,
-			Region:            spec.Region,
-			Endpoint:          spec.Endpoint,
-			IdentityEndpoint:  spec.IdentityEndpoint,
-			StorageEndpoint:   spec.StorageEndpoint,
-			Credential:        paramsCloudCredential,
-			CACertificates:    spec.CACertificates,
-			SkipTLSVerify:     spec.SkipTLSVerify,
-			IsControllerCloud: spec.IsControllerCloud,
-		},
+		Result: common.CloudSpecToParams(spec),
 	}, nil
 }
 

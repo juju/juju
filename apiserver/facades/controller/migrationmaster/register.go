@@ -9,9 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/migration"
 )
 
@@ -48,10 +46,6 @@ func newMigrationMasterFacade(stdCtx context.Context, ctx facade.ModelContext) (
 	domainServices := ctx.DomainServices()
 	credentialService := domainServices.Credential()
 
-	modelConfigServiceGetter := func(ctx context.Context, modelID coremodel.UUID) (cloudspec.ModelConfigService, error) {
-		return domainServices.Config(), nil
-	}
-
 	modelExporter, err := ctx.ModelExporter(stdCtx, ctx.ModelUUID(), backend)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -66,11 +60,9 @@ func newMigrationMasterFacade(stdCtx context.Context, ctx facade.ModelContext) (
 		migration.PoolShim(pool),
 		ctx.Resources(),
 		ctx.Auth(),
-		cloudspec.MakeCloudSpecGetter(pool, domainServices.Cloud(), credentialService, modelConfigServiceGetter),
 		leadership,
 		credentialService,
 		domainServices.ControllerConfig(),
-		domainServices.Config(),
 		domainServices.ModelInfo(),
 		domainServices.Model(),
 		domainServices.Application(),

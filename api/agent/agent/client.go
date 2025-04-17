@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/api/common/cloudspec"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
@@ -30,23 +29,16 @@ var WithTracer = base.WithTracer
 type Client struct {
 	facade base.FacadeCaller
 	*common.ModelConfigWatcher
-	*cloudspec.CloudSpecAPI
 	*common.ControllerConfigAPI
 }
 
 // NewClient returns a version of the state that provides functionality
 // required by agent code.
 func NewClient(caller base.APICaller, options ...Option) (*Client, error) {
-	modelTag, isModel := caller.ModelTag()
-	if !isModel {
-		return nil, errors.New("expected model specific API connection")
-	}
-
 	facadeCaller := base.NewFacadeCaller(caller, "Agent", options...)
 	return &Client{
 		facade:              facadeCaller,
 		ModelConfigWatcher:  common.NewModelConfigWatcher(facadeCaller),
-		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
 		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
 	}, nil
 }

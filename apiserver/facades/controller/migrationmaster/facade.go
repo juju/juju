@@ -20,7 +20,6 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
@@ -45,13 +44,11 @@ type API struct {
 	pool                    migration.Pool
 	authorizer              facade.Authorizer
 	resources               facade.Resources
-	environscloudspecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error)
 	leadership              leadership.Reader
 	credentialService       CredentialService
 	upgradeService          UpgradeService
 	controllerConfigService ControllerConfigService
 	modelAgentService       ModelAgentService
-	modelConfigService      ModelConfigService
 	modelInfoService        ModelInfoService
 	modelService            ModelService
 	applicationService      ApplicationService
@@ -70,11 +67,9 @@ func NewAPI(
 	pool migration.Pool,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	environscloudspecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error),
 	leadership leadership.Reader,
 	credentialService CredentialService,
 	controllerConfigService ControllerConfigService,
-	modelConfigService ModelConfigService,
 	modelInfoService ModelInfoService,
 	modelService ModelService,
 	applicationService ApplicationService,
@@ -95,11 +90,9 @@ func NewAPI(
 		pool:                    pool,
 		authorizer:              authorizer,
 		resources:               resources,
-		environscloudspecGetter: environscloudspecGetter,
 		leadership:              leadership,
 		credentialService:       credentialService,
 		controllerConfigService: controllerConfigService,
-		modelConfigService:      modelConfigService,
 		modelInfoService:        modelInfoService,
 		modelService:            modelService,
 		applicationService:      applicationService,
@@ -173,15 +166,6 @@ func (api *API) ModelInfo(ctx context.Context) (params.MigrationModelInfo, error
 		return empty, errors.Annotate(err, "retrieving model info")
 	}
 
-	modelConfig, err := api.modelConfigService.ModelConfig(ctx)
-	if err != nil {
-		return empty, errors.Annotate(err, "retrieving model config")
-	}
-	vers, ok := modelConfig.AgentVersion()
-	if !ok {
-		return empty, errors.New("no agent version")
-	}
-
 	model, err := api.modelExporter.ExportModel(ctx, api.store)
 	if err != nil {
 		return empty, errors.Annotate(err, "retrieving model")
@@ -196,7 +180,7 @@ func (api *API) ModelInfo(ctx context.Context) (params.MigrationModelInfo, error
 		UUID:             modelInfo.UUID.String(),
 		Name:             modelInfo.Name,
 		OwnerTag:         names.NewUserTag(modelInfo.CredentialOwner.Name()).String(),
-		AgentVersion:     vers,
+		AgentVersion:     modelInfo.AgentVersion,
 		ModelDescription: modelDescription,
 	}, nil
 }
@@ -268,7 +252,6 @@ func (api *API) Prechecks(ctx context.Context, arg params.PrechecksArgs) error {
 	return migration.SourcePrecheck(
 		ctx,
 		api.precheckBackend,
-		api.environscloudspecGetter,
 		api.credentialService,
 		api.upgradeService,
 		api.applicationService,

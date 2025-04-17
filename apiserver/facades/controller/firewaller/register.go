@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facade"
@@ -31,14 +30,6 @@ func newFirewallerAPIV7(ctx facade.ModelContext) (*FirewallerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	domainServices := ctx.DomainServices()
-	cloudSpecAPI := cloudspec.NewCloudSpecV2(
-		ctx.Resources(),
-		cloudspec.MakeCloudSpecGetterForModel(st, domainServices.Cloud(), domainServices.Credential(), domainServices.Config()),
-		cloudspec.MakeCloudSpecWatcherForModel(st, domainServices.Cloud()),
-		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
-		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, domainServices.Credential()),
-		common.AuthFuncForTag(m.ModelTag()),
-	)
 	controllerConfigAPI := common.NewControllerConfigAPI(
 		st,
 		domainServices.ControllerConfig(),
@@ -52,7 +43,6 @@ func newFirewallerAPIV7(ctx facade.ModelContext) (*FirewallerAPI, error) {
 		ctx.Resources(),
 		ctx.WatcherRegistry(),
 		ctx.Auth(),
-		cloudSpecAPI,
 		controllerConfigAPI,
 		domainServices.ControllerConfig(),
 		domainServices.Config(),

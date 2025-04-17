@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/replicaset/v3"
 	jc "github.com/juju/testing/checkers"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -24,9 +24,7 @@ import (
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/relation"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/migration"
-	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
@@ -58,9 +56,6 @@ func sourcePrecheck(
 	return migration.SourcePrecheck(
 		context.Background(),
 		backend,
-		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
-			return environscloudspec.CloudSpec{Type: "lxd"}, nil
-		},
 		credentialService,
 		upgradeService,
 		applicationService,
@@ -83,9 +78,6 @@ func (s *SourcePrecheckSuite) TestSuccess(c *gc.C) {
 	err := migration.SourcePrecheck(
 		context.Background(),
 		backend,
-		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
-			return environscloudspec.CloudSpec{Type: "lxd"}, nil
-		},
 		&fakeCredentialService{},
 		s.upgradeService,
 		s.applicationService,
@@ -129,12 +121,6 @@ func (s *SourcePrecheckSuite) TestCharmUpgrades(c *gc.C) {
 func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.PatchValue(&upgradevalidation.NewServerFactory,
-		func(_ lxd.NewHTTPClientFunc) lxd.ServerFactory {
-			return s.serverFactory
-		},
-	)
-
 	s.PatchValue(&upgradevalidation.SupportedJujuBases, func() []base.Base {
 		return []base.Base{
 			base.MustParseBaseFromString("ubuntu@24.04"),
@@ -142,8 +128,6 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 			base.MustParseBaseFromString("ubuntu@20.04"),
 		}
 	})
-
-	cloudSpec := lxd.CloudSpec{CloudSpec: environscloudspec.CloudSpec{Type: "lxd"}}
 
 	backend := newFakeBackend()
 	backend.machineCountForSeriesUbuntu = map[string]int{"ubuntu@22.04": 1}
@@ -154,16 +138,9 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 	backend.model.name = "model-1"
 	backend.model.owner = names.NewUserTag("foo")
 
-	// - check LXD version.
-	s.serverFactory.EXPECT().RemoteServer(cloudSpec).Return(s.server, nil)
-	s.server.EXPECT().ServerVersion().Return("4.0")
-
 	err := migration.SourcePrecheck(
 		context.Background(),
 		backend,
-		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
-			return cloudSpec.CloudSpec, nil
-		},
 		&fakeCredentialService{},
 		s.upgradeService,
 		s.applicationService,
@@ -173,8 +150,7 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, `
 cannot migrate to controller due to issues:
 "foo/model-1":
-- the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@24.04, ubuntu@22.04, ubuntu@20.04
-- LXD version has to be at least "5.0.0", but current version is only "4.0.0"`[1:])
+- the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@24.04, ubuntu@22.04, ubuntu@20.04`[1:])
 }
 
 func (s *SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
@@ -199,9 +175,6 @@ func (s *SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
 	err := migration.SourcePrecheck(
 		context.Background(),
 		backend,
-		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
-			return environscloudspec.CloudSpec{Type: "lxd"}, nil
-		},
 		&fakeCredentialService{},
 		s.upgradeService,
 		s.applicationService,
@@ -333,9 +306,6 @@ func (s *SourcePrecheckSuite) TestDownMachineAgent(c *gc.C) {
 	err := migration.SourcePrecheck(
 		context.Background(),
 		backend,
-		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
-			return environscloudspec.CloudSpec{Type: "foo"}, nil
-		},
 		&fakeCredentialService{},
 		s.upgradeService,
 		s.applicationService,
