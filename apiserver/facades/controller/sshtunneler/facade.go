@@ -4,6 +4,8 @@
 package sshtunneler
 
 import (
+	stderr "errors"
+
 	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -52,19 +54,27 @@ func (f *Facade) RemoveSSHConnRequest(arg params.SSHConnRequestRemoveArg) params
 }
 
 // ControllerAddresses returns the specified machine's public addresses.
-func (f *Facade) ControllerAddresses(machine params.Entity) params.StringsResult {
-	mt, err := names.ParseMachineTag(machine.Tag)
+func (f *Facade) ControllerAddresses(et params.Entity) params.StringsResult {
+	tag, err := names.ParseTag(et.Tag)
 	if err != nil {
 		return params.StringsResult{Error: apiservererrors.ServerError(err)}
 	}
 
-	m, err := f.backend.ControllerMachine(mt.Id())
-	if err != nil {
-		return params.StringsResult{Error: apiservererrors.ServerError(err)}
-	}
-
+	// We expect a controller tag for controllers bootstrapped on K8s
+	// and a machine tag for controllers bootstrapped on machines.
 	var result params.StringsResult
-	result.Result = append(result.Result, m.Addresses().AllMatchingScope(network.ScopeMatchPublic).Values()...)
+	switch tag.Kind() {
+	case names.ControllerTagKind:
+		// TODO (JUJU-7887): Support SSH from machines to K8s controller.
+		result.Error = apiservererrors.ServerError(stderr.New("SSH proxy from machine to k8s controller not supported"))
+	case names.MachineTagKind:
+		m, err := f.backend.ControllerMachine(tag.Id())
+		if err != nil {
+			return params.StringsResult{Error: apiservererrors.ServerError(err)}
+		}
+		result.Result = append(result.Result, m.Addresses().AllMatchingScope(network.ScopeMatchPublic).Values()...)
+	}
+
 	return result
 }
 
