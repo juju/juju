@@ -12,6 +12,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/model"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/caasagent"
@@ -19,6 +21,7 @@ import (
 	"github.com/juju/juju/cloud"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/cloudspec"
@@ -80,9 +83,21 @@ func (s *caasagentSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.externalControllerService = NewMockExternalControllerService(ctrl)
 	s.controllerConfigState = NewMockControllerConfigState(ctrl)
 
+	controllerConfigAPI := common.NewControllerConfigAPI(
+		s.controllerConfigState,
+		s.controllerConfigService,
+		s.externalControllerService,
+	)
+	modelConfigAPI := model.NewModelConfigWatcher(
+		s.modelConfigService, s.registry,
+	)
 	s.facade = caasagent.NewFacadeV2(
-		s.modelUUID, s.registry, s.controllerConfigService, s.modelConfigService,
-		s.externalControllerService, s.controllerConfigState, s.stubService, s.modelService)
+		s.modelUUID, s.registry, modelConfigAPI,
+		controllerConfigAPI,
+		s.stubService,
+		func(ctx context.Context) (watcher.NotifyWatcher, error) {
+			return s.modelService.WatchModelCloudCredential(ctx, s.modelUUID)
+		})
 
 	return ctrl
 }
