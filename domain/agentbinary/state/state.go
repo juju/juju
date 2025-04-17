@@ -46,7 +46,7 @@ func (s *State) CheckAgentBinarySHA256Exists(ctx context.Context, sha256Sum stri
 
 	stmt, err := s.Prepare(`
 SELECT &objectStoreSHA256Sum.*
-FROM v_agent_binary_store
+FROM   v_agent_binary_store
 WHERE sha_256 = $objectStoreSHA256Sum.sha_256
 `, dbVal)
 	if err != nil {
