@@ -4182,17 +4182,11 @@
                 "NetworkConfig": {
                     "type": "object",
                     "properties": {
-                        "address": {
-                            "type": "string"
-                        },
                         "addresses": {
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/Address"
                             }
-                        },
-                        "cidr": {
-                            "type": "string"
                         },
                         "config-type": {
                             "type": "string"
@@ -4283,7 +4277,6 @@
                     "required": [
                         "device-index",
                         "mac-address",
-                        "cidr",
                         "mtu",
                         "provider-id",
                         "provider-network-id",
@@ -6250,17 +6243,11 @@
                 "NetworkConfig": {
                     "type": "object",
                     "properties": {
-                        "address": {
-                            "type": "string"
-                        },
                         "addresses": {
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/Address"
                             }
-                        },
-                        "cidr": {
-                            "type": "string"
                         },
                         "config-type": {
                             "type": "string"
@@ -6351,7 +6338,6 @@
                     "required": [
                         "device-index",
                         "mac-address",
-                        "cidr",
                         "mtu",
                         "provider-id",
                         "provider-network-id",

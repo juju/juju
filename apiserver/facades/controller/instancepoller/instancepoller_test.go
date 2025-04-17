@@ -663,11 +663,6 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *gc.C) {
 				Tag: "machine-1",
 				Configs: []params.NetworkConfig{
 					{
-						// TODO (manadart 2021-05-31): This tests that we
-						// consider the individual CIDRs and not the deprecated
-						// CIDR for the device.
-						// Remove for Juju 3/4.
-						CIDR: "10.0.0.0/24",
 						Addresses: []params.Address{
 							{
 								Value: "10.0.0.42",
@@ -964,8 +959,10 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 						ProviderAddressId: "p-addr",
 						ProviderNetworkId: "p-net",
 						ProviderSubnetId:  "p-sub",
-						CIDR:              "10.0.0.0/24",
-						Addresses:         []params.Address{{Value: "10.0.0.42"}},
+						Addresses: []params.Address{{
+							Value: "10.0.0.42",
+							CIDR:  "10.0.0.0/24",
+						}},
 					},
 					{
 						// A duplicate (MAC and addresses) should make no difference.
@@ -975,8 +972,10 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 						ProviderAddressId: "p-addr",
 						ProviderNetworkId: "p-net",
 						ProviderSubnetId:  "p-sub",
-						CIDR:              "10.0.0.0/24",
-						Addresses:         []params.Address{{Value: "10.0.0.42"}},
+						Addresses: []params.Address{{
+							Value: "10.0.0.42",
+							CIDR:  "10.0.0.0/24",
+						}},
 					},
 				},
 			},

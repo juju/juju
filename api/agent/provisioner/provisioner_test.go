@@ -754,7 +754,6 @@ func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c
 			Config: []params.NetworkConfig{{
 				DeviceIndex:         1,
 				MACAddress:          "de:ad:be:ff:11:22",
-				CIDR:                "192.168.0.5/24",
 				MTU:                 9000,
 				ProviderId:          "prov-id",
 				ProviderSubnetId:    "prov-sub-id",
@@ -768,10 +767,15 @@ func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c
 				Disabled:            false,
 				NoAutoStart:         false,
 				ConfigType:          "static",
-				Address:             "192.168.0.6",
-				DNSServers:          []string{"8.8.8.8"},
-				DNSSearchDomains:    []string{"mydomain"},
-				GatewayAddress:      "192.168.0.1",
+				Addresses: []params.Address{{
+					Value: "192.168.0.6",
+					Type:  "ipv4",
+					Scope: "local-cloud",
+					CIDR:  "192.168.0.5/24",
+				}},
+				DNSServers:       []string{"8.8.8.8"},
+				DNSSearchDomains: []string{"mydomain"},
+				GatewayAddress:   "192.168.0.1",
 				Routes: []params.NetworkRoute{{
 					DestinationCIDR: "10.0.0.0/16",
 					GatewayIP:       "192.168.0.1",

@@ -98,9 +98,6 @@ type NetworkConfig struct {
 	// (e.g. "aa:bb:cc:dd:ee:ff").
 	MACAddress string `json:"mac-address"`
 
-	// CIDR of the network, in 123.45.67.89/24 format.
-	CIDR string `json:"cidr"`
-
 	// MTU is the Maximum Transmission Unit controlling the maximum size of the
 	// protocol packets that the interface can pass through. It is only used
 	// when > 0.
@@ -157,15 +154,6 @@ type NetworkConfig struct {
 	// See network.AddressConfigType for more info. If not set, for
 	// backwards-compatibility, "dhcp" is assumed.
 	ConfigType string `json:"config-type,omitempty"`
-
-	// Address contains an optional static IP address to configure for
-	// this network interface. The subnet mask to set will be inferred
-	// from the CIDR value.
-	//
-	// NOTE(achilleasa) this field is retained for backwards compatibility
-	// purposes and will be removed in juju 3. New features should use
-	// the Addresses field below which also include scope information.
-	Address string `json:"address,omitempty"`
 
 	// Addresses contains an optional list of static IP address to
 	// configure for this network interface. The subnet mask to set will be
@@ -262,11 +250,6 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 			IsDefaultGateway:    v.IsDefaultGateway,
 			VirtualPortType:     string(v.VirtualPortType),
 			NetworkOrigin:       NetworkOrigin(v.Origin),
-
-			// TODO (manadart 2021-03-24): Retained for compatibility.
-			// Delete CIDR and Address for Juju 3/4.
-			CIDR:    v.PrimaryAddress().CIDR,
-			Address: v.PrimaryAddress().Value,
 		}
 	}
 	return result
@@ -319,35 +302,14 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			Origin:              network.Origin(v.NetworkOrigin),
 		}
 
-		// Compatibility accommodations follow.
-		// TODO (manadart 2021-03-05): Juju 3/4 should require that only the
-		// address collections are used, and the following fields removed from
-		// the top-level interface:
-		// - CIDR
-		// - Address
-
-		// 1) For clients that populate Addresses, but still set
-		//    address-specific fields on the device.
-		//    Note that the assumption must hold (as it does at the time of
-		//    writing) that the collections are only populated with a single
-		//    member, with repeated devices for each address.
+		// For clients that populate Addresses, but still set
+		// address-specific fields on the device.
+		// Note that the assumption must hold (as it does at the time of
+		// writing) that the collections are only populated with a single
+		// member, with repeated devices for each address.
 		if len(result[i].Addresses) > 0 {
-			if result[i].Addresses[0].CIDR == "" {
-				result[i].Addresses[0].CIDR = v.CIDR
-			}
 			if result[i].Addresses[0].ConfigType == "" {
 				result[i].Addresses[0].ConfigType = configType
-			}
-		} else {
-			// 2) For even older clients that do not populate Addresses.
-			if v.Address != "" {
-				result[i].Addresses = network.ProviderAddresses{
-					network.NewMachineAddress(
-						v.Address,
-						network.WithCIDR(v.CIDR),
-						network.WithConfigType(configType),
-					).AsProviderAddress(),
-				}
 			}
 		}
 	}
