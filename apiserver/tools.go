@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/httpcontext"
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	corearch "github.com/juju/juju/core/arch"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
@@ -188,7 +190,35 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 		return nil, 0, errors.Trace(err)
 	}
 
-	return &toolsReadCloser{f: reader, st: storage}, md.Size, nil
+	domainServices, err := h.ctxt.domainServicesForRequest(r.Context())
+	if err != nil {
+		return nil, 0, errors.Trace(err)
+	}
+
+	// TODO (tlm): This is a temporary workaround in the transition to Dqlite
+	// that will be. This will be removed as part of JUJU-7812. We need to dual
+	// write what is downloaded to the model agent store so that migration
+	// continues to work.
+	dataCache := bytes.NewBuffer(nil)
+	agentStream := io.TeeReader(reader, dataCache)
+	metadata, err := storage.Metadata(vers.String())
+
+	err = domainServices.AgentBinaryStore().AddAgentBinaryWithSHA256(
+		r.Context(),
+		agentStream,
+		coreagentbinary.Version{
+			Number: vers.Number,
+			Arch:   corearch.Arch(vers.Arch),
+		},
+		md.Size,
+		metadata.SHA256,
+	)
+	reader.Close()
+	if err != nil {
+		logger.Errorf(r.Context(), "replicating downloaded agent binary into model store: %v", err)
+	}
+
+	return &toolsReadCloser{f: io.NopCloser(dataCache), st: storage}, md.Size, nil
 }
 
 // fetchAndCacheTools fetches tools with the specified version by searching for a URL
@@ -280,12 +310,15 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 		return errors.Errorf("hash mismatch for %s", exactTools.URL)
 	}
 
+	dataCache := bytes.NewBuffer(nil)
+	reader := io.TeeReader(data, dataCache)
+
 	md := binarystorage.Metadata{
 		Version: v.String(),
 		Size:    exactTools.Size,
 		SHA256:  exactTools.SHA256,
 	}
-	if err := storage.Add(ctx, data, md); err != nil {
+	if err := storage.Add(ctx, reader, md); err != nil {
 		return errors.Annotate(err, "error caching agent binaries")
 	}
 
