@@ -13,87 +13,42 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/crossmodel"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	corewatcher "github.com/juju/juju/core/watcher"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
-// StubService will be replaced once the implementation is finished.
-type StubService interface {
-	// CloudSpec returns the cloud spec for the model.
-	CloudSpec(ctx context.Context) (environscloudspec.CloudSpec, error)
+// ModelProviderService providers access to the model provider service.
+type ModelProviderService interface {
+	// GetCloudSpec returns the cloud spec for the model.
+	GetCloudSpec(ctx context.Context) (environscloudspec.CloudSpec, error)
 }
 
-// ModelService represents the credential service provided by the
-// provider.
+// ModelService defines a service used to watch a model's cloud and credential.
 type ModelService interface {
+	// WatchModelCloudCredential returns a new NotifyWatcher watching for changes that
+	// result in the cloud spec for a model changing.
 	WatchModelCloudCredential(ctx context.Context, modelUUID coremodel.UUID) (corewatcher.NotifyWatcher, error)
-}
-
-// ControllerConfigService is an interface that provides the controller
-// configuration for the model.
-type ControllerConfigService interface {
-	ControllerConfig(context.Context) (controller.Config, error)
-}
-
-// ExternalControllerService defines the methods that the controller
-// facade needs from the controller state.
-type ExternalControllerService interface {
-	// ControllerForModel returns the controller record that's associated
-	// with the modelUUID.
-	ControllerForModel(ctx context.Context, modelUUID string) (*crossmodel.ControllerInfo, error)
-
-	// UpdateExternalController persists the input controller
-	// record.
-	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
-}
-
-// ModelConfigService is an interface that provides access to the
-// model configuration.
-type ModelConfigService interface {
-	// ModelConfig returns the current config for the model.
-	ModelConfig(ctx context.Context) (*config.Config, error)
-	// Watch returns a watcher that returns keys for any changes to model
-	// config.
-	Watch() (corewatcher.StringsWatcher, error)
-}
-
-// ControllerConfigState defines the methods needed by
-// ControllerConfigAPI
-type ControllerConfigState interface {
-	ModelExists(string) (bool, error)
-	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
-	CompletedMigrationForModel(string) (state.ModelMigration, error)
 }
 
 // NewFacadeV2 creates a new caas admission facade v2.
 func NewFacadeV2(
 	modelUUID coremodel.UUID,
 	registry facade.WatcherRegistry,
-	controllerConfigService ControllerConfigService,
-	modelConfigService ModelConfigService,
-	externalControllerService ExternalControllerService,
-	controllerConfigState ControllerConfigState,
-	cloudSpecGetter StubService,
-	modelService ModelService,
+	modelConfigWatcher *commonmodel.ModelConfigWatcher,
+	controllerConfigAPI *common.ControllerConfigAPI,
+	cloudSpecGetter ModelProviderService,
+	modelCredentialWatcher func(stdCtx context.Context) (corewatcher.NotifyWatcher, error),
 ) *FacadeV2 {
 	return &FacadeV2{
-		modelUUID:          modelUUID,
-		registry:           registry,
-		cloudSpecGetter:    cloudSpecGetter,
-		modelService:       modelService,
-		ModelConfigWatcher: commonmodel.NewModelConfigWatcher(modelConfigService, registry),
-		ControllerConfigAPI: common.NewControllerConfigAPI(
-			controllerConfigState,
-			controllerConfigService,
-			externalControllerService,
-		),
+		modelUUID:              modelUUID,
+		registry:               registry,
+		cloudSpecGetter:        cloudSpecGetter,
+		modelCredentialWatcher: modelCredentialWatcher,
+		ModelConfigWatcher:     modelConfigWatcher,
+		ControllerConfigAPI:    controllerConfigAPI,
 	}
 }
 
@@ -102,10 +57,10 @@ type FacadeV2 struct {
 	*commonmodel.ModelConfigWatcher
 	*common.ControllerConfigAPI
 
-	registry        facade.WatcherRegistry
-	modelUUID       coremodel.UUID
-	cloudSpecGetter StubService
-	modelService    ModelService
+	registry               facade.WatcherRegistry
+	modelUUID              coremodel.UUID
+	cloudSpecGetter        ModelProviderService
+	modelCredentialWatcher func(stdCtx context.Context) (corewatcher.NotifyWatcher, error)
 }
 
 // CloudSpec returns the cloud spec used by the specified models.
@@ -123,7 +78,7 @@ func (f *FacadeV2) CloudSpec(ctx context.Context, args params.Entities) (params.
 			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		spec, err := f.cloudSpecGetter.CloudSpec(ctx)
+		spec, err := f.cloudSpecGetter.GetCloudSpec(ctx)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -144,6 +99,7 @@ func (f *FacadeV2) WatchCloudSpecsChanges(ctx context.Context, args params.Entit
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
+	gotWantedModel := false
 	for i, arg := range args.Entities {
 		tag, err := names.ParseModelTag(arg.Tag)
 		if err != nil {
@@ -154,7 +110,16 @@ func (f *FacadeV2) WatchCloudSpecsChanges(ctx context.Context, args params.Entit
 			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		w, err := f.modelService.WatchModelCloudCredential(ctx, f.modelUUID)
+		// This is being paranoid - the caller is expected to just pass in
+		// the one entity arg with the model uuid to watch. In case they
+		// pass it in more than once, we'll error for any duplicates.
+		if gotWantedModel {
+			dupeErr := errors.Errorf("duplicate model %q", f.modelUUID)
+			results.Results[i].Error = apiservererrors.ServerError(dupeErr)
+			continue
+		}
+		gotWantedModel = true
+		w, err := f.modelCredentialWatcher(ctx)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
