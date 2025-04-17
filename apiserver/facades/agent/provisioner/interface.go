@@ -27,7 +27,7 @@ type BridgePolicy interface {
 	// FindMissingBridgesForContainer looks at the spaces that the container should
 	// have access to, and returns any host devices need to be bridged for use as
 	// the container network.
-	FindMissingBridgesForContainer(containerizer.Machine, containerizer.Container, corenetwork.SubnetInfos) ([]network.DeviceToBridge, int, error)
+	FindMissingBridgesForContainer(containerizer.Machine, containerizer.Container, corenetwork.SubnetInfos) ([]network.DeviceToBridge, error)
 
 	// PopulateContainerLinkLayerDevices sets the link-layer devices of the input
 	// guest, setting each device to be a child of the corresponding bridge on the
