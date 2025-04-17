@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/core/life"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/charm/hooks"
@@ -1302,7 +1303,7 @@ func (s *UniterSuite) TestUniterSubordinates(c *gc.C) {
 		ut(
 			"unit becomes dying while subordinates exist",
 			quickStart{},
-			addSubordinateRelation{"juju-info"},
+			addSubordinateRelation{corerelation.JujuInfo},
 			waitSubordinateExists{"logging/0"},
 			unitDying,
 			waitSubordinateDying{},
@@ -1313,9 +1314,9 @@ func (s *UniterSuite) TestUniterSubordinates(c *gc.C) {
 		), ut(
 			"new subordinate becomes necessary while old one is dying",
 			quickStart{},
-			addSubordinateRelation{"juju-info"},
+			addSubordinateRelation{corerelation.JujuInfo},
 			waitSubordinateExists{"logging/0"},
-			removeSubordinateRelation{"juju-info"},
+			removeSubordinateRelation{corerelation.JujuInfo},
 			// The subordinate Uniter would usually set Dying in this situation.
 			subordinateDying,
 			addSubordinateRelation{"logging-dir"},

@@ -15,6 +15,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	porterrors "github.com/juju/juju/domain/port/errors"
@@ -209,7 +210,7 @@ func (s *updateUnitPortsSuite) TestGetEndpointsForPopulatedUnit(c *gc.C) {
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(endpoints, jc.DeepEquals, []string{"ep0", "ep1", "ep2"})
+	c.Check(endpoints, jc.DeepEquals, []string{"ep0", "ep1", "ep2", relation.JujuInfo})
 }
 
 func (s *updateUnitPortsSuite) TestGetEndpointsForUnpopulatedUnit(c *gc.C) {
@@ -226,7 +227,7 @@ func (s *updateUnitPortsSuite) TestGetEndpointsForUnpopulatedUnit(c *gc.C) {
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(endpoints, jc.DeepEquals, []string{"ep0", "ep1", "ep2"})
+	c.Check(endpoints, jc.DeepEquals, []string{"ep0", "ep1", "ep2", relation.JujuInfo})
 }
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenPort(c *gc.C) {
@@ -742,13 +743,16 @@ func (s *updateUnitPortsSuite) TestUpdateUnitPortsClosePortRangeOpenOnWildcard(c
 
 	groupedPortRanges, err := st.GetUnitOpenedPorts(ctx, s.unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(groupedPortRanges, gc.HasLen, 2)
+	c.Check(groupedPortRanges, gc.HasLen, 3)
 
 	c.Check(groupedPortRanges["ep1"], gc.HasLen, 1)
 	c.Check(groupedPortRanges["ep1"][0], jc.DeepEquals, network.MustParsePortRange("100-200/tcp"))
 
 	c.Check(groupedPortRanges["ep2"], gc.HasLen, 1)
 	c.Check(groupedPortRanges["ep2"][0], jc.DeepEquals, network.MustParsePortRange("100-200/tcp"))
+
+	c.Check(groupedPortRanges[relation.JujuInfo], gc.HasLen, 1)
+	c.Check(groupedPortRanges[relation.JujuInfo][0], jc.DeepEquals, network.MustParsePortRange("100-200/tcp"))
 }
 
 func (s *updateUnitPortsSuite) TestUpdateUnitPortsOpenWildcardAndOtherRangeOnEndpoint(c *gc.C) {

@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -106,6 +107,32 @@ var metadataTestCases = [...]struct {
 					Interface: "mysql",
 					Optional:  true,
 					Limit:     2,
+					Scope:     internalcharm.ScopeGlobal,
+				},
+			},
+		},
+	},
+	{
+		name: "provides juju-info",
+		input: charm.Metadata{
+			Name:  "foo",
+			RunAs: charm.RunAsDefault,
+			Provides: map[string]charm.Relation{
+				relation.JujuInfo: {
+					Name:      relation.JujuInfo,
+					Role:      charm.RoleProvider,
+					Interface: relation.JujuInfo,
+					Scope:     charm.ScopeGlobal,
+				},
+			},
+		},
+		output: internalcharm.Meta{
+			Name: "foo",
+			Provides: map[string]internalcharm.Relation{
+				relation.JujuInfo: {
+					Name:      relation.JujuInfo,
+					Role:      internalcharm.RoleProvider,
+					Interface: relation.JujuInfo,
 					Scope:     internalcharm.ScopeGlobal,
 				},
 			},

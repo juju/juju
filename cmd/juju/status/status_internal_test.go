@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
@@ -502,7 +503,7 @@ var (
 			},
 			"info": L{
 				M{
-					"interface":           "juju-info",
+					"interface":           relation.JujuInfo,
 					"related-application": "mysql",
 					"scope":               "container",
 				},
@@ -2101,9 +2102,9 @@ var statusTests = []testCase{
 									"scope":               "global",
 								},
 							},
-							"juju-info": L{
+							relation.JujuInfo: L{
 								M{
-									"interface":           "juju-info",
+									"interface":           relation.JujuInfo,
 									"related-application": "logging",
 									"scope":               "container",
 								},
@@ -4049,9 +4050,9 @@ func appEndpoints(c *gc.C, ctx *ctx, appName string) ([]charm.Relation, bool) {
 	}
 	if !ch.charm.Meta().Subordinate {
 		result = append(result, charm.Relation{
-			Name:      "juju-info",
+			Name:      relation.JujuInfo,
 			Role:      charm.RoleProvider,
-			Interface: "juju-info",
+			Interface: relation.JujuInfo,
 			Scope:     charm.ScopeGlobal,
 		})
 	}

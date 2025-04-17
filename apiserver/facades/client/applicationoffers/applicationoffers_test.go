@@ -23,6 +23,7 @@ import (
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	corerelation "github.com/juju/juju/core/relation"
 	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -1690,7 +1691,7 @@ func (s *consumeSuite) setupOffer() string {
 		name:     "mysql",
 		bindings: map[string]string{"database": "myspace"},
 		endpoints: []relation.Endpoint{
-			{Relation: charm.Relation{Name: "juju-info", Role: "provider", Interface: "juju-info", Limit: 0, Scope: "global"}},
+			{Relation: charm.Relation{Name: corerelation.JujuInfo, Role: "provider", Interface: corerelation.JujuInfo, Limit: 0, Scope: "global"}},
 			{Relation: charm.Relation{Name: "server", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"}},
 			{Relation: charm.Relation{Name: "server-admin", Role: "provider", Interface: "mysql-root", Limit: 0, Scope: "global"}}},
 	}

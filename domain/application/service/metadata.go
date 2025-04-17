@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/collections/set"
 
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -522,6 +523,9 @@ func verifyNoReservedNameMisuses(metadata *internalcharm.Meta, provides, require
 	}
 
 	for _, rel := range provides {
+		if implicitRelation(rel) {
+			continue
+		}
 		if reservedRelationName(rel.Interface) {
 			return errors.Errorf("%w; provides relation %q has reserved interface name %q",
 				applicationerrors.CharmRelationReservedNameMisuse, rel.Name, rel.Interface)
@@ -565,6 +569,14 @@ func verifyNoReservedNameMisuses(metadata *internalcharm.Meta, provides, require
 
 func reservedRelationName(name string) bool {
 	return name == "juju" || strings.HasPrefix(name, "juju-")
+}
+
+// implicitRelation returns whether the relation is supplied by juju itself,
+// rather than by a charm.
+func implicitRelation(r charm.Relation) bool {
+	return r.Name == relation.JujuInfo &&
+		r.Interface == relation.JujuInfo &&
+		r.Role == charm.RoleProvider
 }
 
 func encodeMetadataStorage(storage map[string]internalcharm.Storage) (map[string]charm.Storage, error) {

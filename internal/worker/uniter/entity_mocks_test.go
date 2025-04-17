@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
 	jujucharm "github.com/juju/juju/internal/charm"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
@@ -280,9 +281,9 @@ var endpointsForTest = map[string]apiuniter.Endpoint{
 	},
 	"logging:info u:juju-info": {
 		Relation: jujucharm.Relation{
-			Name:      "juju-info",
+			Name:      corerelation.JujuInfo,
 			Role:      "provider",
-			Interface: "juju-info",
+			Interface: corerelation.JujuInfo,
 			Scope:     "container",
 		},
 	},
@@ -290,7 +291,7 @@ var endpointsForTest = map[string]apiuniter.Endpoint{
 
 func subordinateRelationKey(ifce string) string {
 	relKey := "logging:logging-directory u:logging-dir"
-	if ifce == "juju-info" {
+	if ifce == corerelation.JujuInfo {
 		relKey = "logging:info u:juju-info"
 	}
 	return relKey

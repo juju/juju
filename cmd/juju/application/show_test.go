@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	jujutesting "github.com/juju/juju/internal/testing"
@@ -141,7 +142,7 @@ func (s *ShowSuite) createTestApplicationInfo(name string, suffix string) *param
 		Principal:   true,
 		Life:        state.Alive.String(),
 		EndpointBindings: map[string]string{
-			"juju-info": "myspace",
+			relation.JujuInfo: "myspace",
 		},
 	}
 }

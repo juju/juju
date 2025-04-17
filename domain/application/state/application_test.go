@@ -1804,6 +1804,9 @@ func (s *applicationStateSuite) TestGetCharmByApplicationID(c *gc.C) {
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Add the implicit juju-info relation inserted with the charm.
+	expectedMetadata.Provides = jujuInfoRelation()
+
 	ch, err := s.state.GetCharmByApplicationID(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(ch, gc.DeepEquals, charm.Charm{
@@ -1895,6 +1898,9 @@ func (s *applicationStateSuite) TestCreateApplicationDefaultSourceIsCharmhub(c *
 		},
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Add the implicit juju-info relation inserted with the charm.
+	expectedMetadata.Provides = jujuInfoRelation()
 
 	ch, err := s.state.GetCharmByApplicationID(context.Background(), appID)
 	c.Assert(err, jc.ErrorIsNil)
