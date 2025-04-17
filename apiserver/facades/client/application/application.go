@@ -15,7 +15,6 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -147,8 +146,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	}
 
 	state := &stateShim{
-		State:      ctx.State(),
-		cmrBackend: commoncrossmodel.GetBackend(ctx.State()),
+		State: ctx.State(),
 	}
 
 	charmhubHTTPClient, err := ctx.HTTPClient(corehttp.CharmhubPurpose)

@@ -13,7 +13,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	crossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	config "github.com/juju/juju/core/config"
 	constraints "github.com/juju/juju/core/constraints"
 	objectstore "github.com/juju/juju/core/objectstore"
@@ -84,45 +83,6 @@ func (c *MockBackendAddApplicationCall) Do(f func(state.AddApplicationArgs, obje
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackendAddApplicationCall) DoAndReturn(f func(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)) *MockBackendAddApplicationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// AddRemoteApplication mocks base method.
-func (m *MockBackend) AddRemoteApplication(arg0 crossmodel.AddRemoteApplicationParams) (RemoteApplication, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddRemoteApplication", arg0)
-	ret0, _ := ret[0].(RemoteApplication)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddRemoteApplication indicates an expected call of AddRemoteApplication.
-func (mr *MockBackendMockRecorder) AddRemoteApplication(arg0 any) *MockBackendAddRemoteApplicationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRemoteApplication", reflect.TypeOf((*MockBackend)(nil).AddRemoteApplication), arg0)
-	return &MockBackendAddRemoteApplicationCall{Call: call}
-}
-
-// MockBackendAddRemoteApplicationCall wrap *gomock.Call
-type MockBackendAddRemoteApplicationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendAddRemoteApplicationCall) Return(arg0 RemoteApplication, arg1 error) *MockBackendAddRemoteApplicationCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendAddRemoteApplicationCall) Do(f func(crossmodel.AddRemoteApplicationParams) (RemoteApplication, error)) *MockBackendAddRemoteApplicationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendAddRemoteApplicationCall) DoAndReturn(f func(crossmodel.AddRemoteApplicationParams) (RemoteApplication, error)) *MockBackendAddRemoteApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -204,44 +164,6 @@ func (c *MockBackendApplyOperationCall) DoAndReturn(f func(state.ModelOperation)
 	return c
 }
 
-// ControllerTag mocks base method.
-func (m *MockBackend) ControllerTag() names.ControllerTag {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerTag")
-	ret0, _ := ret[0].(names.ControllerTag)
-	return ret0
-}
-
-// ControllerTag indicates an expected call of ControllerTag.
-func (mr *MockBackendMockRecorder) ControllerTag() *MockBackendControllerTagCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerTag", reflect.TypeOf((*MockBackend)(nil).ControllerTag))
-	return &MockBackendControllerTagCall{Call: call}
-}
-
-// MockBackendControllerTagCall wrap *gomock.Call
-type MockBackendControllerTagCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendControllerTagCall) Return(arg0 names.ControllerTag) *MockBackendControllerTagCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendControllerTagCall) Do(f func() names.ControllerTag) *MockBackendControllerTagCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendControllerTagCall) DoAndReturn(f func() names.ControllerTag) *MockBackendControllerTagCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Machine mocks base method.
 func (m *MockBackend) Machine(arg0 string) (Machine, error) {
 	m.ctrl.T.Helper()
@@ -316,45 +238,6 @@ func (c *MockBackendReadSequenceCall) Do(f func(string) (int, error)) *MockBacke
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackendReadSequenceCall) DoAndReturn(f func(string) (int, error)) *MockBackendReadSequenceCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// RemoteApplication mocks base method.
-func (m *MockBackend) RemoteApplication(arg0 string) (RemoteApplication, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoteApplication", arg0)
-	ret0, _ := ret[0].(RemoteApplication)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// RemoteApplication indicates an expected call of RemoteApplication.
-func (mr *MockBackendMockRecorder) RemoteApplication(arg0 any) *MockBackendRemoteApplicationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteApplication", reflect.TypeOf((*MockBackend)(nil).RemoteApplication), arg0)
-	return &MockBackendRemoteApplicationCall{Call: call}
-}
-
-// MockBackendRemoteApplicationCall wrap *gomock.Call
-type MockBackendRemoteApplicationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendRemoteApplicationCall) Return(arg0 RemoteApplication, arg1 error) *MockBackendRemoteApplicationCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendRemoteApplicationCall) Do(f func(string) (RemoteApplication, error)) *MockBackendRemoteApplicationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendRemoteApplicationCall) DoAndReturn(f func(string) (RemoteApplication, error)) *MockBackendRemoteApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -499,45 +382,6 @@ func (c *MockApplicationAllUnitsCall) DoAndReturn(f func() ([]Unit, error)) *Moc
 	return c
 }
 
-// ApplicationConfig mocks base method.
-func (m *MockApplication) ApplicationConfig() (config.ConfigAttributes, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationConfig")
-	ret0, _ := ret[0].(config.ConfigAttributes)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ApplicationConfig indicates an expected call of ApplicationConfig.
-func (mr *MockApplicationMockRecorder) ApplicationConfig() *MockApplicationApplicationConfigCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationConfig", reflect.TypeOf((*MockApplication)(nil).ApplicationConfig))
-	return &MockApplicationApplicationConfigCall{Call: call}
-}
-
-// MockApplicationApplicationConfigCall wrap *gomock.Call
-type MockApplicationApplicationConfigCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationApplicationConfigCall) Return(arg0 config.ConfigAttributes, arg1 error) *MockApplicationApplicationConfigCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationApplicationConfigCall) Do(f func() (config.ConfigAttributes, error)) *MockApplicationApplicationConfigCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationApplicationConfigCall) DoAndReturn(f func() (config.ConfigAttributes, error)) *MockApplicationApplicationConfigCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ApplicationTag mocks base method.
 func (m *MockApplication) ApplicationTag() names.ApplicationTag {
 	m.ctrl.T.Helper()
@@ -572,45 +416,6 @@ func (c *MockApplicationApplicationTagCall) Do(f func() names.ApplicationTag) *M
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockApplicationApplicationTagCall) DoAndReturn(f func() names.ApplicationTag) *MockApplicationApplicationTagCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// CharmConfig mocks base method.
-func (m *MockApplication) CharmConfig() (charm.Settings, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CharmConfig")
-	ret0, _ := ret[0].(charm.Settings)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CharmConfig indicates an expected call of CharmConfig.
-func (mr *MockApplicationMockRecorder) CharmConfig() *MockApplicationCharmConfigCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmConfig", reflect.TypeOf((*MockApplication)(nil).CharmConfig))
-	return &MockApplicationCharmConfigCall{Call: call}
-}
-
-// MockApplicationCharmConfigCall wrap *gomock.Call
-type MockApplicationCharmConfigCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationCharmConfigCall) Return(arg0 charm.Settings, arg1 error) *MockApplicationCharmConfigCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationCharmConfigCall) Do(f func() (charm.Settings, error)) *MockApplicationCharmConfigCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationCharmConfigCall) DoAndReturn(f func() (charm.Settings, error)) *MockApplicationCharmConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

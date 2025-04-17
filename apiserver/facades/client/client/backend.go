@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v6"
 	"github.com/juju/replicaset/v3"
 
@@ -33,7 +32,6 @@ type Backend interface {
 	HAPrimaryMachine() (names.MachineTag, error)
 	Machine(string) (*state.Machine, error)
 	MachineConstraints() (*state.MachineConstraints, error)
-	Unit(string) (Unit, error)
 }
 
 // MongoSession provides a way to get the status for the mongo replicaset.
@@ -52,20 +50,11 @@ type Unit interface {
 // removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
-	session    MongoSession
 	cmrBackend commoncrossmodel.Backend
 }
 
 func (s *stateShim) AllRemoteApplications() ([]commoncrossmodel.RemoteApplication, error) {
 	return s.cmrBackend.AllRemoteApplications()
-}
-
-func (s *stateShim) Unit(name string) (Unit, error) {
-	u, err := s.State.Unit(name)
-	if err != nil {
-		return nil, err
-	}
-	return u, nil
 }
 
 func (s stateShim) ControllerNodes() ([]state.ControllerNode, error) {
@@ -78,24 +67,6 @@ func (s stateShim) ControllerNodes() ([]state.ControllerNode, error) {
 		result[i] = n
 	}
 	return result, nil
-}
-
-func (s stateShim) MongoSession() MongoSession {
-	if s.session != nil {
-		return s.session
-	}
-	return MongoSessionShim{s.State.MongoSession()}
-}
-
-// MongoSessionShim wraps a *mgo.Session to conform to the
-// MongoSession interface.
-type MongoSessionShim struct {
-	*mgo.Session
-}
-
-// CurrentStatus returns the current status of the replicaset.
-func (s MongoSessionShim) CurrentStatus() (*replicaset.Status, error) {
-	return replicaset.CurrentStatus(s.Session)
 }
 
 type StorageInterface interface {

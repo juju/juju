@@ -46,7 +46,6 @@ func newFacadeV8(ctx facade.ModelContext) (*Client, error) {
 		modelTag:      names.NewModelTag(ctx.ModelUUID().String()),
 		stateAccessor: &stateShim{
 			State:      st,
-			session:    nil,
 			cmrBackend: commoncrossmodel.GetBackend(st),
 		},
 		storageAccessor:  storageAccessor,

@@ -20,8 +20,6 @@ import (
 )
 
 type Backend interface {
-	// Application returns a application state by name.
-	Application(string) (Application, error)
 	Machine(string) (Machine, error)
 	AllMachines() ([]Machine, error)
 	AddOneMachine(template state.MachineTemplate) (Machine, error)
@@ -60,22 +58,8 @@ type Machine interface {
 	SetInstanceStatus(sInfo status.StatusInfo) error
 }
 
-type Application interface {
-	Name() string
-}
-
 type stateShim struct {
 	*state.State
-}
-
-func (s stateShim) Application(name string) (Application, error) {
-	a, err := s.State.Application(name)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return applicationShim{
-		Application: a,
-	}, nil
 }
 
 func (s stateShim) Machine(name string) (Machine, error) {
@@ -121,10 +105,6 @@ type poolShim struct {
 
 func (p *poolShim) SystemState() (ControllerBackend, error) {
 	return p.pool.SystemState()
-}
-
-type applicationShim struct {
-	*state.Application
 }
 
 type machineShim struct {

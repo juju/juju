@@ -97,7 +97,7 @@ func (s *ListModelsWithInfoSuite) setupMocks(c *gc.C) *gomock.Controller {
 			ObjectStore:          &mockObjectStore{},
 		},
 		nil,
-		common.NewBlockChecker(s.mockBlockCommandService), s.authoriser, s.st.model,
+		common.NewBlockChecker(s.mockBlockCommandService), s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -134,7 +134,7 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 			ObjectStore:          &mockObjectStore{},
 		},
 		nil,
-		common.NewBlockChecker(s.mockBlockCommandService), s.authoriser, s.st.model,
+		common.NewBlockChecker(s.mockBlockCommandService), s.authoriser,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = modelmanager

@@ -35,11 +35,6 @@ func Register(registry facade.FacadeRegistry) {
 func makeFacade(ctx facade.ModelContext) (*ModelConfigAPI, error) {
 	auth := ctx.Auth()
 
-	model, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	domainServices := ctx.DomainServices()
 	modelSecretBackend := domainServices.ModelSecretBackend()
 
@@ -47,7 +42,7 @@ func makeFacade(ctx facade.ModelContext) (*ModelConfigAPI, error) {
 	modelSericve := domainServices.ModelInfo()
 	return NewModelConfigAPI(
 		ctx.ModelUUID(),
-		NewStateBackend(model),
+		ctx.State(),
 		modelSecretBackend, configService, modelSericve, auth,
 		domainServices.BlockCommand(),
 	)

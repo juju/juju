@@ -256,7 +256,7 @@ func (s *modelInfoSuite) getAPIWithoutModelInfo(c *gc.C) (*modelmanager.ModelMan
 			MachineService:       s.mockMachineService,
 		},
 		nil, common.NewBlockChecker(s.mockBlockCommandService),
-		&s.authorizer, s.st.model,
+		&s.authorizer,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -298,7 +298,7 @@ func (s *modelInfoSuite) getAPIWithUser(c *gc.C, user names.UserTag) (*modelmana
 			MachineService:       s.mockMachineService,
 		},
 		nil,
-		common.NewBlockChecker(s.mockBlockCommandService), s.authorizer, s.st.model,
+		common.NewBlockChecker(s.mockBlockCommandService), s.authorizer,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

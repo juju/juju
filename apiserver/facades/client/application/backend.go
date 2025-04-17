@@ -7,19 +7,15 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/schema"
 
-	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/configschema"
-	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
 )
 
@@ -30,11 +26,8 @@ type Backend interface {
 	Application(string) (Application, error)
 	ApplyOperation(state.ModelOperation) error
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
-	RemoteApplication(string) (RemoteApplication, error)
-	AddRemoteApplication(commoncrossmodel.AddRemoteApplicationParams) (RemoteApplication, error)
 	Machine(string) (Machine, error)
 	Unit(string) (Unit, error)
-	ControllerTag() names.ControllerTag
 
 	// ReadSequence is a stop gap to allow the next unit number to be read from mongo
 	// so that correctly matching units can be written to dqlite.
@@ -49,11 +42,9 @@ type Application interface {
 	Name() string
 	AddUnit(state.AddUnitParams) (Unit, error)
 	AllUnits() ([]Unit, error)
-	ApplicationConfig() (coreconfig.ConfigAttributes, error)
 	ApplicationTag() names.ApplicationTag
 	CharmURL() (*string, bool)
 	CharmOrigin() *state.CharmOrigin
-	CharmConfig() (charm.Settings, error)
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyApplicationOperation
 	EndpointBindings() (Bindings, error)
 	Endpoints() ([]relation.Endpoint, error)
@@ -113,10 +104,8 @@ type Unit interface {
 	Tag() names.Tag
 	UnitTag() names.UnitTag
 	ApplicationName() string
-	Destroy(objectstore.ObjectStore) error
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyUnitOperation
 	IsPrincipal() bool
-	AgentTools() (*tools.Tools, error)
 
 	AssignedMachineId() (string, error)
 	WorkloadVersion() (string, error)
@@ -127,7 +116,6 @@ type Unit interface {
 
 type stateShim struct {
 	*state.State
-	cmrBackend commoncrossmodel.Backend
 }
 
 type modelShim struct {
@@ -212,30 +200,6 @@ func (s stateShim) AddApplication(args state.AddApplicationArgs, store objectsto
 	}, nil
 }
 
-type remoteApplicationShim struct {
-	commoncrossmodel.RemoteApplication
-}
-
-type RemoteApplication interface {
-	Name() string
-	SourceModel() names.ModelTag
-	Endpoints() ([]relation.Endpoint, error)
-	AddEndpoints(eps []charm.Relation) error
-	Destroy() error
-	Status() (status.StatusInfo, error)
-	Life() state.Life
-}
-
-func (s stateShim) RemoteApplication(name string) (RemoteApplication, error) {
-	app, err := s.cmrBackend.RemoteApplication(name)
-	return &remoteApplicationShim{RemoteApplication: app}, err
-}
-
-func (s stateShim) AddRemoteApplication(args commoncrossmodel.AddRemoteApplicationParams) (RemoteApplication, error) {
-	app, err := s.cmrBackend.AddRemoteApplication(args)
-	return &remoteApplicationShim{RemoteApplication: app}, err
-}
-
 func (s stateShim) Machine(name string) (Machine, error) {
 	m, err := s.State.Machine(name)
 	if err != nil {
@@ -253,19 +217,6 @@ func (s stateShim) Unit(name string) (Unit, error) {
 		Unit: u,
 		st:   s.State,
 	}, nil
-}
-
-type OfferConnection interface {
-	UserName() string
-	OfferUUID() string
-}
-
-func (s stateShim) OfferConnectionForRelation(key string) (OfferConnection, error) {
-	return s.cmrBackend.OfferConnectionForRelation(key)
-}
-
-func (s stateShim) ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error) {
-	return s.cmrBackend.ApplicationOfferForUUID(offerUUID)
 }
 
 type stateApplicationShim struct {
@@ -325,11 +276,4 @@ func (u stateUnitShim) AssignUnit() error {
 
 func (u stateUnitShim) AssignWithPlacement(placement *instance.Placement, allSpaces network.SpaceInfos) error {
 	return u.st.AssignUnitWithPlacement(u.Unit, placement, allSpaces)
-}
-
-type Subnet interface {
-	CIDR() string
-	VLANTag() int
-	ProviderId() network.Id
-	ProviderNetworkId() network.Id
 }
