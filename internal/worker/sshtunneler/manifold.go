@@ -47,12 +47,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, err
 	}
 
-	agentTag := agent.CurrentConfig().Tag()
-	machineTag, ok := agentTag.(names.MachineTag)
-	if !ok {
-		return nil, errors.NotValidf("machine tag %v", agentTag)
-	}
-
 	var clock clock.Clock
 	if err := context.Get(config.ClockName, &clock); err != nil {
 		return nil, err
@@ -66,8 +60,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	client := tunnelerClient.NewClient(apiCaller)
 
 	adapterClient := &adapterClient{
-		machineTag: machineTag,
-		client:     client,
+		tag:    agent.CurrentConfig().Tag(),
+		client: client,
 	}
 
 	return NewWorker(adapterClient, clock)
@@ -91,11 +85,11 @@ func outputFunc(in worker.Worker, out interface{}) error {
 
 // adapterClient is a wrapper around the tunnelerClient.Client
 // to implement the FacadeClient interface.
-// We pass the machine tag of the current controller machine
-// to the tunnelerClient.Client to fetch its address.
+// We pass the controller's agent tag to the tunnelerClient.Client
+// to let the facade figure out this controller unit's address.
 type adapterClient struct {
-	machineTag names.MachineTag
-	client     *tunnelerClient.Client
+	tag    names.Tag
+	client *tunnelerClient.Client
 }
 
 // InsertSSHConnRequest implements FacadeClient.
@@ -107,7 +101,7 @@ func (w *adapterClient) InsertSSHConnRequest(arg state.SSHConnRequestArg) error 
 // Addresses implements FacadeClient.
 // It returns the public addresses of the current controller machine.
 func (w *adapterClient) Addresses() (network.SpaceAddresses, error) {
-	return w.client.ControllerAddresses(w.machineTag)
+	return w.client.ControllerAddresses(w.tag)
 }
 
 // MachineHostKeys implements FacadeClient.

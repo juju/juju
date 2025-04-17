@@ -26,8 +26,8 @@ func NewClient(caller base.APICaller) *Client {
 }
 
 // ControllerAddresses returns a list of addresses for the specified controller machine.
-func (c *Client) ControllerAddresses(machineTag names.MachineTag) (network.SpaceAddresses, error) {
-	machine := params.Entity{Tag: machineTag.String()}
+func (c *Client) ControllerAddresses(tag names.Tag) (network.SpaceAddresses, error) {
+	machine := params.Entity{Tag: tag.String()}
 	var result params.StringsResult
 	if err := c.facade.FacadeCall("ControllerAddresses", machine, &result); err != nil {
 		return network.SpaceAddresses{}, err
