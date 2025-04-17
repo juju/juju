@@ -22,7 +22,7 @@ const (
 	// it doesn't exist.
 	NotFound = errors.ConstError("agent binary not found")
 
-	// HashMismatch is returned when the has of the agent binary does not match
+	// HashMismatch is returned when the hash of the agent binary does not match
 	// the expected hash.
 	HashMismatch = errors.ConstError("agent binary has mismatch")
 

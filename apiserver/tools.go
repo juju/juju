@@ -177,9 +177,10 @@ func modelAgentBinaryStoreForHTTPContext(httpCtx httpContext) AgentBinaryStoreGe
 		}
 
 		modelUUID, exists := httpcontext.RequestModelUUID(r.Context())
-		// This should never happen but it needs to be accounted for.
 		if !exists {
-			modelUUID = "unknown"
+			return nil, internalerrors.New(
+				"getting agent binary store for model, request does not contain model information",
+			)
 		}
 
 		return &agentBinaryStoreLogShim{
