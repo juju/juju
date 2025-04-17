@@ -31,7 +31,9 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/linklayerdevice"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -835,29 +837,15 @@ func (st *State) UpsertCloudService(ctx context.Context, applicationName, provid
 		return errors.Capture(err)
 	}
 
-	// TODO(units) - handle addresses
-
-	serviceInfo := cloudService{ProviderID: providerID}
+	serviceInfo := cloudService{
+		ProviderID: providerID,
+	}
 
 	// Query any existing records for application and provider id.
 	queryExistingStmt, err := st.Prepare(`
 SELECT &cloudService.* FROM k8s_service
-WHERE application_uuid = $cloudService.application_uuid
-AND provider_id = $cloudService.provider_id`, serviceInfo)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	createNodeStmt, err := st.Prepare(`
-INSERT INTO net_node (uuid) VALUES ($cloudService.net_node_uuid)
-`, serviceInfo)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	insertStmt, err := st.Prepare(`
-INSERT INTO k8s_service (*) VALUES ($cloudService.*)
-`, serviceInfo)
+WHERE  application_uuid = $cloudService.application_uuid
+AND    provider_id = $cloudService.provider_id`, serviceInfo)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -875,30 +863,204 @@ INSERT INTO k8s_service (*) VALUES ($cloudService.*)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"querying cloud service for application %q and provider id %q: %w", applicationName, providerID, err)
-		}
-		if err == nil {
-			return nil
+		} else if errors.Is(err, sqlair.ErrNoRows) {
+			// Nothing already exists so create a new net node and the cloud
+			// service.
+			netNodeUUID, cloudServiceUUID, err := st.createCloudService(ctx, tx, serviceInfo)
+			if err != nil {
+				return errors.Errorf("creating cloud service for application %q: %w", applicationName, err)
+			}
+			serviceInfo.NetNodeUUID = netNodeUUID.String()
+			serviceInfo.UUID = cloudServiceUUID.String()
 		}
 
-		// Nothing already exists so create a new net node for the cloud service.
-		nodeUUID, err := uuid.NewUUID()
-		if err != nil {
-			return errors.Capture(err)
+		if len(sAddrs) > 0 {
+			// If we have addresses to insert, then first create the link layer
+			// device (if needed) and then insert the addresses.
+			if err := st.upsertCloudServiceAddresses(ctx, tx, serviceInfo, applicationName, sAddrs); err != nil {
+				return errors.Capture(err)
+			}
 		}
-		serviceInfo.NetNodeUUID = nodeUUID.String()
-		if err := tx.Query(ctx, createNodeStmt, serviceInfo).Run(); err != nil {
-			return errors.Errorf("creating cloud service net node for application %q: %w", applicationName, err)
-		}
-		serviceInfo.ProviderID = providerID
-		uuid, err := uuid.NewUUID()
-		if err != nil {
-			return errors.Capture(err)
-		}
-		serviceInfo.UUID = uuid.String()
-		return tx.Query(ctx, insertStmt, serviceInfo).Run()
+		return nil
 	})
 	if err != nil {
 		return errors.Errorf("updating cloud service for application %q: %w", applicationName, err)
+	}
+	return nil
+}
+
+// createCloudService creates a cloud service for the specified application and
+// its associated net node. It returns the net node UUID, the cloud service UUID
+// and an error if any.
+func (st *State) createCloudService(ctx context.Context, tx *sqlair.TX, serviceInfo cloudService) (uuid.UUID, uuid.UUID, error) {
+	netNodeUUID, err := uuid.NewUUID()
+	if err != nil {
+		return uuid.UUID{}, uuid.UUID{}, errors.Capture(err)
+	}
+	nodeDBUUID := dbUUID{UUID: netNodeUUID.String()}
+
+	insertNetNodeStmt, err := st.Prepare(`
+INSERT INTO net_node (uuid) VALUES ($dbUUID.uuid)
+`, nodeDBUUID)
+	if err != nil {
+		return uuid.UUID{}, uuid.UUID{}, errors.Capture(err)
+	}
+	serviceInfo.NetNodeUUID = netNodeUUID.String()
+
+	if err := tx.Query(ctx, insertNetNodeStmt, nodeDBUUID).Run(); err != nil {
+		return uuid.UUID{}, uuid.UUID{}, errors.Errorf("inserting net node for cloud service application %q: %w", serviceInfo.ApplicationUUID, err)
+	}
+
+	insertCloudServiceStmt, err := st.Prepare(`
+INSERT INTO k8s_service (*) VALUES ($cloudService.*)
+`, serviceInfo)
+	if err != nil {
+		return uuid.UUID{}, uuid.UUID{}, errors.Capture(err)
+	}
+
+	cloudServiceUUID, err := uuid.NewUUID()
+	if err != nil {
+		return uuid.UUID{}, uuid.UUID{}, errors.Capture(err)
+	}
+	serviceInfo.UUID = cloudServiceUUID.String()
+	if err := tx.Query(ctx, insertCloudServiceStmt, serviceInfo).Run(); err != nil {
+		return uuid.UUID{}, uuid.UUID{}, errors.Errorf("inserting cloud service for application %q: %w", serviceInfo.ApplicationUUID, err)
+	}
+	return netNodeUUID, cloudServiceUUID, nil
+}
+
+func (st *State) upsertCloudServiceAddresses(
+	ctx context.Context,
+	tx *sqlair.TX,
+	serviceInfo cloudService,
+	applicationName string,
+	addresses network.SpaceAddresses,
+) error {
+	var linkLayerDeviceUUID dbUUID
+	queryLinkLayerDeviceFromServiceStmt, err := st.Prepare(`
+SELECT lld.uuid AS &dbUUID.uuid
+FROM   link_layer_device AS lld
+JOIN   net_node AS nn ON nn.uuid = lld.net_node_uuid
+WHERE  nn.uuid = $cloudService.net_node_uuid
+		`, linkLayerDeviceUUID, serviceInfo)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Retrieve the link layer device UUID for the service.
+	var lldUUIDStr string
+	err = tx.Query(ctx, queryLinkLayerDeviceFromServiceStmt, serviceInfo).Get(&linkLayerDeviceUUID)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("querying cloud service link layer device for application %q: %w", serviceInfo.ApplicationUUID, err)
+	} else if errors.Is(err, sqlair.ErrNoRows) {
+		// Ensure the address link layer device is inserted.
+		lldUUID, err := st.insertCloudServiceDevice(ctx, tx, applicationName, serviceInfo.NetNodeUUID)
+		if err != nil {
+			return errors.Errorf("inserting cloud service link layer device for application %q: %w", serviceInfo.ApplicationUUID, err)
+		}
+		lldUUIDStr = lldUUID.String()
+	} else {
+		lldUUIDStr = linkLayerDeviceUUID.UUID
+	}
+
+	// Before inserting the new addresses, we need to remove any existing
+	// ones for the given application and provider id.
+	if err := st.deleteCloudServiceAddresses(ctx, tx, serviceInfo.ApplicationUUID, serviceInfo.ProviderID); err != nil {
+		return errors.Capture(err)
+	}
+	if err := st.insertCloudServiceAddresses(ctx, tx, lldUUIDStr, addresses); err != nil {
+		return errors.Errorf("inserting cloud service addresses for application %q: %w", applicationName, err)
+	}
+	return nil
+}
+
+func (st *State) insertCloudServiceDevice(ctx context.Context, tx *sqlair.TX, applicationName string, netNodeUUID string) (uuid.UUID, error) {
+	// For cloud services, the device is a placeholder without
+	// a MAC address and once inserted, not updated. It just exists
+	// to tie the address to the net node corresponding to the
+	// cloud service.
+	devUUID, err := uuid.NewUUID()
+	if err != nil {
+		return uuid.UUID{}, errors.Capture(err)
+	}
+	cloudServiceDeviceInfo := cloudServiceDevice{
+		UUID:              devUUID.String(),
+		Name:              fmt.Sprintf("placeholder for %q cloud service", applicationName),
+		DeviceTypeID:      int(linklayerdevice.DeviceTypeUnknown),
+		VirtualPortTypeID: int(linklayerdevice.NonVirtualPortType),
+		NetNodeID:         netNodeUUID,
+	}
+	insertCloudServiceDeviceStmt, err := st.Prepare(`
+INSERT INTO link_layer_device (*) VALUES ($cloudServiceDevice.*)
+`, cloudServiceDeviceInfo)
+	if err != nil {
+		return uuid.UUID{}, errors.Capture(err)
+	}
+
+	if err := tx.Query(ctx, insertCloudServiceDeviceStmt, cloudServiceDeviceInfo).Run(); err != nil {
+		return uuid.UUID{}, errors.Capture(err)
+	}
+	return devUUID, nil
+}
+
+func (st *State) deleteCloudServiceAddresses(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID, providerID string) error {
+	cloudService := cloudService{
+		ApplicationUUID: appUUID,
+		ProviderID:      providerID,
+	}
+	deleteAddressStmt, err := st.Prepare(`
+DELETE FROM ip_address
+WHERE device_uuid IN (
+    SELECT device_uuid 
+    FROM   link_layer_device AS lld
+    JOIN   net_node AS nn ON nn.uuid = lld.net_node_uuid
+    JOIN   k8s_service AS ks ON ks.net_node_uuid = nn.uuid
+    WHERE  ks.application_uuid = $cloudService.application_uuid
+    AND    ks.provider_id = $cloudService.provider_id
+);
+`, cloudService)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, deleteAddressStmt, cloudService).Run(); err != nil {
+		return errors.Errorf("removing cloud service addresses for application %q and providerID %q: %w", appUUID, providerID, err)
+	}
+	return nil
+}
+
+func (st *State) insertCloudServiceAddresses(ctx context.Context, tx *sqlair.TX, linkLayerDeviceUUID string, addresses network.SpaceAddresses) error {
+	if len(addresses) == 0 {
+		return nil
+	}
+
+	ipAddresses := make([]ipAddress, len(addresses))
+	for i, address := range addresses {
+		// Create a UUID for new addresses.
+		addrUUID, err := uuid.NewUUID()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		ipAddresses[i] = ipAddress{
+			AddressUUID:  addrUUID.String(),
+			Value:        address.Value,
+			ConfigTypeID: int(ipaddress.MarshallConfigType(address.ConfigType)),
+			TypeID:       int(ipaddress.MarshallAddressType(address.AddressType())),
+			OriginID:     int(ipaddress.MarshallOrigin(network.OriginProvider)),
+			ScopeID:      int(ipaddress.MarshallScope(address.AddressScope())),
+			DeviceID:     linkLayerDeviceUUID,
+		}
+	}
+
+	insertAddressStmt, err := sqlair.Prepare(`
+INSERT INTO ip_address (*)
+VALUES ($ipAddress.*);
+`, ipAddress{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err = tx.Query(ctx, insertAddressStmt, ipAddresses).Run(); err != nil {
+		return errors.Capture(err)
 	}
 	return nil
 }

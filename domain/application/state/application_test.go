@@ -980,6 +980,145 @@ func (s *applicationStateSuite) TestUpsertCloudServiceAnother(c *gc.C) {
 	c.Assert(providerIds, jc.SameContents, []string{"provider-id", "another-provider-id"})
 }
 
+func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingEmptyAddresses(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive)
+	s.createApplication(c, "bar", life.Alive)
+	err := s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.SpaceAddresses{
+		network.SpaceAddress{
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.1",
+				ConfigType: network.ConfigStatic,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeCloudLocal,
+			},
+		},
+		network.SpaceAddress{
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.2",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv6Address,
+				Scope:      network.ScopeLinkLocal,
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkAddresses := func(c *gc.C, expectedAddresses ...string) {
+		var resultAddresses []string
+		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			rows, err := tx.QueryContext(ctx, `
+SELECT address_value 
+FROM ip_address
+JOIN link_layer_device ON link_layer_device.uuid = ip_address.device_uuid
+JOIN net_node ON net_node.uuid = link_layer_device.net_node_uuid
+JOIN k8s_service ON k8s_service.net_node_uuid = net_node.uuid
+WHERE application_uuid = ?
+			`, appID)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = rows.Close() }()
+
+			for rows.Next() {
+				var addressVal string
+				if err := rows.Scan(&addressVal); err != nil {
+					return err
+				}
+				resultAddresses = append(resultAddresses, addressVal)
+			}
+			return rows.Err()
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(resultAddresses, jc.SameContents, expectedAddresses)
+	}
+
+	checkAddresses(c, "10.0.0.1", "10.0.0.2")
+
+	err = s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.SpaceAddresses{})
+	c.Assert(err, jc.ErrorIsNil)
+	// Since no addresses were passed as input, the previous addresses should
+	// be returned.
+	checkAddresses(c, "10.0.0.1", "10.0.0.2")
+}
+
+func (s *applicationStateSuite) TestUpsertCloudServiceUpdateExistingWithAddresses(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive)
+	s.createApplication(c, "bar", life.Alive)
+	err := s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.SpaceAddresses{
+		network.SpaceAddress{
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.1",
+				ConfigType: network.ConfigStatic,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeCloudLocal,
+			},
+		},
+		network.SpaceAddress{
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.2",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv6Address,
+				Scope:      network.ScopeLinkLocal,
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkAddresses := func(c *gc.C, expectedAddresses ...string) {
+		var resultAddresses []string
+		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+			rows, err := tx.QueryContext(ctx, `
+SELECT address_value 
+FROM ip_address
+JOIN link_layer_device ON link_layer_device.uuid = ip_address.device_uuid
+JOIN net_node ON net_node.uuid = link_layer_device.net_node_uuid
+JOIN k8s_service ON k8s_service.net_node_uuid = net_node.uuid
+WHERE application_uuid = ?
+			`, appID)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = rows.Close() }()
+
+			for rows.Next() {
+				var addressVal string
+				if err := rows.Scan(&addressVal); err != nil {
+					return err
+				}
+				resultAddresses = append(resultAddresses, addressVal)
+			}
+			return rows.Err()
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(resultAddresses, jc.SameContents, expectedAddresses)
+	}
+
+	checkAddresses(c, "10.0.0.1", "10.0.0.2")
+
+	err = s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.SpaceAddresses{
+		network.SpaceAddress{
+			MachineAddress: network.MachineAddress{
+				Value:      "192.168.0.0",
+				ConfigType: network.ConfigStatic,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeCloudLocal,
+			},
+		},
+		network.SpaceAddress{
+			MachineAddress: network.MachineAddress{
+				Value:      "192.168.0.1",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv6Address,
+				Scope:      network.ScopeLinkLocal,
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// Since no addresses were passed as input, the previous addresses should
+	// be returned.
+	checkAddresses(c, "192.168.0.0", "192.168.0.1")
+}
+
 func (s *applicationStateSuite) TestUpsertCloudServiceNotFound(c *gc.C) {
 	err := s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.SpaceAddresses{})
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
