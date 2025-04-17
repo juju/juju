@@ -21,6 +21,12 @@ import (
 
 // State describes retrieval and persistence methods for relations.
 type State interface {
+	// ApplicationRelationEndpointNames returns a slice of names of the given application's
+	// relation endpoints.
+	ApplicationRelationsInfo(
+		ctx context.Context,
+		applicationID application.ID,
+	) ([]relation.EndpointRelationData, error)
 
 	// AddRelation establishes a relation between two endpoints identified
 	// by ep1 and ep2 and returns the created endpoints.
@@ -445,13 +451,19 @@ func (s *Service) ApplicationRelations(ctx context.Context, id application.ID) (
 }
 
 // ApplicationRelationsInfo returns all EndpointRelationData for an application.
-// Note: Replaces the functionality of the relationData method in the application
-// facade. Used for UnitInfo call.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.ApplicationIDNotValid] if the application id is not valid.
+//   - [relationerrors.ApplicationNotFound] is returned if the application is
+//     not found.
 func (s *Service) ApplicationRelationsInfo(
 	ctx context.Context,
 	applicationID application.ID,
 ) ([]relation.EndpointRelationData, error) {
-	return nil, coreerrors.NotImplemented
+	if err := applicationID.Validate(); err != nil {
+		return nil, relationerrors.ApplicationIDNotValid
+	}
+	return s.st.ApplicationRelationsInfo(ctx, applicationID)
 }
 
 // EnterScope indicates that the provided unit has joined the relation.
