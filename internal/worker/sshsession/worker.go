@@ -11,12 +11,12 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/sshconn"
@@ -118,12 +118,13 @@ func (w *sshSessionWorker) loop() error {
 			return w.catacomb.ErrDying()
 		case changes := <-connRequestWatcher.Changes():
 			for _, connId := range changes {
-				requestContext := w.catacomb.Context(context.Background())
-
-				err := w.handleConnection(requestContext, connId)
-				if err != nil {
-					w.logger.Errorf("Failed to handle connection %q: %v", connId, err)
-				}
+				go func() {
+					requestContext := w.catacomb.Context(context.Background())
+					err := w.handleConnection(requestContext, connId)
+					if err != nil {
+						w.logger.Errorf("Failed to handle connection %q: %v", connId, err)
+					}
+				}()
 			}
 		}
 	}
@@ -151,34 +152,29 @@ func (w *sshSessionWorker) Wait() error {
 //  5. Pipes the connection to the local sshd.
 //  6. On connection close, removes the ephemeral public key.
 func (w *sshSessionWorker) handleConnection(ctx context.Context, connID string) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-		reqParams, err := w.facadeClient.GetSSHConnRequest(connID)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		ctrlAddress := reqParams.ControllerAddresses.Values()[0]
-		ephemeralPublicKey := string(reqParams.EphemeralPublicKey)
-
-		if err := w.ephemeralKeysUpdater.AddEphemeralKey(ephemeralPublicKey); err != nil {
-			return errors.Trace(err)
-		}
-
-		defer func() {
-			if err := w.ephemeralKeysUpdater.RemoveEphemeralKey(ephemeralPublicKey); err != nil {
-				w.logger.Errorf("Error cleaning up ephemeral public key: %v", err)
-			}
-		}()
-
-		if err := w.pipeConnectionToSSHD(ctx, ctrlAddress, reqParams.Password); err != nil {
-			return errors.Trace(err)
-		}
-
-		return nil
+	reqParams, err := w.facadeClient.GetSSHConnRequest(connID)
+	if err != nil {
+		return errors.Trace(err)
 	}
+
+	ctrlAddress := reqParams.ControllerAddresses.Values()[0]
+	ephemeralPublicKey := string(reqParams.EphemeralPublicKey)
+
+	if err := w.ephemeralKeysUpdater.AddEphemeralKey(ephemeralPublicKey); err != nil {
+		return errors.Trace(err)
+	}
+
+	defer func() {
+		if err := w.ephemeralKeysUpdater.RemoveEphemeralKey(ephemeralPublicKey); err != nil {
+			w.logger.Errorf("Error cleaning up ephemeral public key: %v", err)
+		}
+	}()
+
+	if err := w.pipeConnectionToSSHD(ctx, ctrlAddress, reqParams.Password); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 // pipeConnectionToSSHD initiates the connection back to the controller and pipes
@@ -188,44 +184,41 @@ func (w *sshSessionWorker) pipeConnectionToSSHD(ctx context.Context, ctrlAddress
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer controllerConn.Close()
-
 	sshdConn, err := w.connectionGetter.GetSSHDConnection()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer sshdConn.Close()
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	// We make sure to close the connections when the context is done.
+	doneChan := make(chan struct{})
+	defer close(doneChan)
+	go func() {
+		select {
+		case <-ctx.Done():
+			controllerConn.Close()
+			sshdConn.Close()
+		case <-doneChan:
+		}
+	}()
 
-	cancellableControllerConnection := newCancellableReadWriter(ctx, controllerConn)
-	cancellableSSHDConnection := newCancellableReadWriter(ctx, sshdConn)
-	eg := errgroup.Group{}
-
-	eg.Go(func() error {
+	go func() {
+		defer wg.Done()
 		// sshd -> conn
 		defer controllerConn.Close()
 		defer sshdConn.Close()
-		_, err := io.Copy(cancellableControllerConnection, cancellableSSHDConnection)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
+		_, _ = io.Copy(sshdConn, controllerConn)
 
-	eg.Go(func() error {
+	}()
+
+	go func() {
+		defer wg.Done()
 		// conn -> sshd
 		defer controllerConn.Close()
 		defer sshdConn.Close()
-		_, err = io.Copy(cancellableSSHDConnection, cancellableControllerConnection)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-
-	if err := eg.Wait(); err != nil {
-		return errors.Trace(err)
-	}
-
+		_, _ = io.Copy(controllerConn, sshdConn)
+	}()
+	wg.Wait()
 	return nil
 }
 
@@ -330,38 +323,4 @@ func (w *connectionGetter) getLocalSSHPort(filePaths ...string) string {
 	}
 
 	return port
-}
-
-// cancellableReadWriter provides a means to cancel a read or write operation via context.
-type cancellableReadWriter struct {
-	ctx context.Context
-	rw  io.ReadWriter
-}
-
-// newCancellableReadWriter returns a new cancellableReadWriter.
-func newCancellableReadWriter(ctx context.Context, rw io.ReadWriter) *cancellableReadWriter {
-	return &cancellableReadWriter{
-		ctx: ctx,
-		rw:  rw,
-	}
-}
-
-// Implements io.ReadWriter.
-func (crw *cancellableReadWriter) Read(p []byte) (int, error) {
-	select {
-	case <-crw.ctx.Done():
-		return 0, crw.ctx.Err()
-	default:
-		return crw.rw.Read(p)
-	}
-}
-
-// Implements io.ReadWriter.
-func (crw *cancellableReadWriter) Write(p []byte) (int, error) {
-	select {
-	case <-crw.ctx.Done():
-		return 0, crw.ctx.Err()
-	default:
-		return crw.rw.Write(p)
-	}
 }

@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package sshsession_test
+package sshsession
 
 import (
 	"github.com/juju/errors"
@@ -14,20 +14,19 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/internal/worker/sshsession"
 )
 
 type manifoldSuite struct{}
 
 var _ = gc.Suite(&manifoldSuite{})
 
-func newManifoldConfig(l loggo.Logger, modifier func(cfg *sshsession.ManifoldConfig)) *sshsession.ManifoldConfig {
-	cfg := &sshsession.ManifoldConfig{
+func newManifoldConfig(l loggo.Logger, modifier func(cfg *ManifoldConfig)) *ManifoldConfig {
+	cfg := &ManifoldConfig{
 		APICallerName:            "api-caller",
 		AgentName:                "agent",
 		Logger:                   l,
 		AuthenticationWorkerName: "authentication-worker",
-		NewWorker:                func(cfg sshsession.WorkerConfig) (worker.Worker, error) { return nil, nil },
+		NewWorker:                func(cfg WorkerConfig) (worker.Worker, error) { return nil, nil },
 	}
 
 	modifier(cfg)
@@ -39,29 +38,29 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 	l := loggo.GetLogger("test")
 	// Check config as expected.
 
-	cfg := newManifoldConfig(l, func(cfg *sshsession.ManifoldConfig) {})
+	cfg := newManifoldConfig(l, func(cfg *ManifoldConfig) {})
 	c.Assert(cfg.Validate(), jc.ErrorIsNil)
 
 	// Test empty APICallerName.
-	cfg = newManifoldConfig(l, func(cfg *sshsession.ManifoldConfig) {
+	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
 		cfg.APICallerName = ""
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	// Test empty AgentName.
-	cfg = newManifoldConfig(l, func(cfg *sshsession.ManifoldConfig) {
+	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
 		cfg.AgentName = ""
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	// Test Nil Logger.
-	cfg = newManifoldConfig(l, func(cfg *sshsession.ManifoldConfig) {
+	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
 		cfg.Logger = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	// Test Nil NewWorker.
-	cfg = newManifoldConfig(l, func(cfg *sshsession.ManifoldConfig) {
+	cfg = newManifoldConfig(l, func(cfg *ManifoldConfig) {
 		cfg.NewWorker = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
@@ -78,13 +77,13 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 	mockAgent.EXPECT().CurrentConfig().Return(mockAgentConfig)
 
 	// Setup the manifold
-	manifold := sshsession.Manifold(sshsession.ManifoldConfig{
+	manifold := Manifold(ManifoldConfig{
 		APICallerName:            "api-caller",
 		AgentName:                "agent",
 		AuthenticationWorkerName: "authentication-worker",
 		Logger:                   loggo.GetLogger("test"),
 
-		NewWorker: func(cfg sshsession.WorkerConfig) (worker.Worker, error) { return nil, nil },
+		NewWorker: func(cfg WorkerConfig) (worker.Worker, error) { return nil, nil },
 	})
 
 	// Check the inputs are as expected
