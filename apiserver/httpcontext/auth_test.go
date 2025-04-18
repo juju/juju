@@ -36,7 +36,7 @@ func (s *BasicAuthHandlerSuite) SetUpTest(c *gc.C) {
 		Authenticator: s,
 		Authorizer:    s,
 		NextHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			authInfo, ok := httpcontext.RequestAuthInfo(r)
+			authInfo, ok := httpcontext.RequestAuthInfo(r.Context())
 			if !ok || authInfo.Entity != s.authInfo.Entity {
 				w.WriteHeader(http.StatusBadRequest)
 			} else {
@@ -74,7 +74,7 @@ func (s *BasicAuthHandlerSuite) Authorize(ctx context.Context, authInfo authenti
 }
 
 func (s *BasicAuthHandlerSuite) TestRequestAuthInfoNoContext(c *gc.C) {
-	_, ok := httpcontext.RequestAuthInfo(&http.Request{})
+	_, ok := httpcontext.RequestAuthInfo(context.Background())
 	c.Assert(ok, jc.IsFalse)
 }
 
