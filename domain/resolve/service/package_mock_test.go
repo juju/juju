@@ -118,6 +118,44 @@ func (c *MockStateGetUnitUUIDCall) DoAndReturn(f func(context.Context, unit.Name
 	return c
 }
 
+// NamespaceForWatchUnitResolveMode mocks base method.
+func (m *MockState) NamespaceForWatchUnitResolveMode() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchUnitResolveMode")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForWatchUnitResolveMode indicates an expected call of NamespaceForWatchUnitResolveMode.
+func (mr *MockStateMockRecorder) NamespaceForWatchUnitResolveMode() *MockStateNamespaceForWatchUnitResolveModeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchUnitResolveMode", reflect.TypeOf((*MockState)(nil).NamespaceForWatchUnitResolveMode))
+	return &MockStateNamespaceForWatchUnitResolveModeCall{Call: call}
+}
+
+// MockStateNamespaceForWatchUnitResolveModeCall wrap *gomock.Call
+type MockStateNamespaceForWatchUnitResolveModeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchUnitResolveModeCall) Return(arg0 string) *MockStateNamespaceForWatchUnitResolveModeCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchUnitResolveModeCall) Do(f func() string) *MockStateNamespaceForWatchUnitResolveModeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchUnitResolveModeCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchUnitResolveModeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ResolveAllUnits mocks base method.
 func (m *MockState) ResolveAllUnits(arg0 context.Context, arg1 resolve.ResolveMode) error {
 	m.ctrl.T.Helper()

@@ -64,13 +64,14 @@ type Unit interface {
 	AssignedMachine(context.Context) (names.MachineTag, error)
 	AvailabilityZone(context.Context) (string, error)
 	PrivateAddress(context.Context) (string, error)
-	Resolved() params.ResolvedMode
+	Resolved(context.Context) (params.ResolvedMode, error)
 
 	// Used by remotestate watcher.
 
 	WatchConfigSettingsHash(context.Context) (watcher.StringsWatcher, error)
 	WatchTrustConfigSettingsHash(context.Context) (watcher.StringsWatcher, error)
 	WatchRelations(context.Context) (watcher.StringsWatcher, error)
+	WatchResolveMode(context.Context) (watcher.NotifyWatcher, error)
 	WatchAddressesHash(context.Context) (watcher.StringsWatcher, error)
 	WatchActionNotifications(context.Context) (watcher.StringsWatcher, error)
 	WatchStorage(context.Context) (watcher.StringsWatcher, error)

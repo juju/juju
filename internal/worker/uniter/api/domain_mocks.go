@@ -1050,17 +1050,18 @@ func (c *MockUnitRequestRebootCall) DoAndReturn(f func(context.Context) error) *
 }
 
 // Resolved mocks base method.
-func (m *MockUnit) Resolved() params.ResolvedMode {
+func (m *MockUnit) Resolved(arg0 context.Context) (params.ResolvedMode, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Resolved")
+	ret := m.ctrl.Call(m, "Resolved", arg0)
 	ret0, _ := ret[0].(params.ResolvedMode)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Resolved indicates an expected call of Resolved.
-func (mr *MockUnitMockRecorder) Resolved() *MockUnitResolvedCall {
+func (mr *MockUnitMockRecorder) Resolved(arg0 any) *MockUnitResolvedCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resolved", reflect.TypeOf((*MockUnit)(nil).Resolved))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resolved", reflect.TypeOf((*MockUnit)(nil).Resolved), arg0)
 	return &MockUnitResolvedCall{Call: call}
 }
 
@@ -1070,19 +1071,19 @@ type MockUnitResolvedCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockUnitResolvedCall) Return(arg0 params.ResolvedMode) *MockUnitResolvedCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockUnitResolvedCall) Return(arg0 params.ResolvedMode, arg1 error) *MockUnitResolvedCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitResolvedCall) Do(f func() params.ResolvedMode) *MockUnitResolvedCall {
+func (c *MockUnitResolvedCall) Do(f func(context.Context) (params.ResolvedMode, error)) *MockUnitResolvedCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitResolvedCall) DoAndReturn(f func() params.ResolvedMode) *MockUnitResolvedCall {
+func (c *MockUnitResolvedCall) DoAndReturn(f func(context.Context) (params.ResolvedMode, error)) *MockUnitResolvedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1585,6 +1586,45 @@ func (c *MockUnitWatchRelationsCall) Do(f func(context.Context) (watcher.Watcher
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockUnitWatchRelationsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockUnitWatchRelationsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// WatchResolveMode mocks base method.
+func (m *MockUnit) WatchResolveMode(arg0 context.Context) (watcher.Watcher[struct{}], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchResolveMode", arg0)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchResolveMode indicates an expected call of WatchResolveMode.
+func (mr *MockUnitMockRecorder) WatchResolveMode(arg0 any) *MockUnitWatchResolveModeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchResolveMode", reflect.TypeOf((*MockUnit)(nil).WatchResolveMode), arg0)
+	return &MockUnitWatchResolveModeCall{Call: call}
+}
+
+// MockUnitWatchResolveModeCall wrap *gomock.Call
+type MockUnitWatchResolveModeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockUnitWatchResolveModeCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockUnitWatchResolveModeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockUnitWatchResolveModeCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockUnitWatchResolveModeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockUnitWatchResolveModeCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockUnitWatchResolveModeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

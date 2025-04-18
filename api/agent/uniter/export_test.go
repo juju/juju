@@ -7,16 +7,14 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/rpc/params"
 )
 
 // CreateUnit creates uniter.Unit for tests.
 func CreateUnit(client *Client, tag names.UnitTag) *Unit {
 	return &Unit{
-		client:       client,
-		tag:          tag,
-		life:         life.Alive,
-		resolvedMode: params.ResolvedNone,
+		client: client,
+		tag:    tag,
+		life:   life.Alive,
 	}
 }
 
