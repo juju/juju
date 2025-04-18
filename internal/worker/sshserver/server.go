@@ -26,11 +26,17 @@ import (
 
 type connectionStartTime struct{}
 
-// ProxyHandlers is an interface that provides methods for all SSH handlers.
-// These methods proxies connections to the target unit/machine.
+// ProxyHandlers is an interface that provides methods handling SSH connections.
+// These methods proxy connections to the target unit/machine.
 type ProxyHandlers interface {
-	SessionHandler(s ssh.Session, details connectionDetails) error
-	DirectTCPIPHandler(details connectionDetails) ssh.ChannelHandler
+	SessionHandler(s ssh.Session)
+	DirectTCPIPHandler() ssh.ChannelHandler
+}
+
+// ProxyFactory is an interface that creates new proxy handlers
+// based on the target destination.
+type ProxyFactory interface {
+	New(ConnectionInfo) (ProxyHandlers, error)
 }
 
 type tunnelIDKey struct{}
@@ -69,8 +75,8 @@ type ServerWorkerConfig struct {
 	// disableAuth is a test-only flag that disables authentication.
 	disableAuth bool
 
-	// ProxyHandlers handles proxying SSH connections to the target machine.
-	ProxyHandlers ProxyHandlers
+	// ProxyFactory creates objects that can proxy SSH connection.
+	ProxyFactory ProxyFactory
 
 	// TunnelTracker holds the tunnel tracker used to requests SSH
 	// connections to machines.
@@ -94,7 +100,7 @@ func (c ServerWorkerConfig) Validate() error {
 	if c.FacadeClient == nil {
 		return errors.NotValidf("missing FacadeClient")
 	}
-	if c.ProxyHandlers == nil {
+	if c.ProxyFactory == nil {
 		return errors.NotValidf("missing ProxyHandlers")
 	}
 	if c.JWTParser == nil {
@@ -387,22 +393,26 @@ func (s *ServerWorker) connCallback() ssh.ConnCallback {
 // newTerminatingSSHServer creates a new SSH server for the given context and model info
 // that terminates the user's SSH connection and non-transparently proxies the traffic through
 // to the final destination.
-func (s *ServerWorker) newTerminatingSSHServer(ctx ssh.Context, info virtualhostname.Info) (*ssh.Server, error) {
+func (s *ServerWorker) newTerminatingSSHServer(ctx ssh.Context, destination virtualhostname.Info) (*ssh.Server, error) {
 	// Note that the context we enter this function with is not
 	// the context that will be used in the terminating server.
 	var authenticator terminatingServerAuthenticator
 	if !s.config.disableAuth {
 		var err error
-		authenticator, err = s.authenticator.newTerminatingServerAuthenticator(ctx, info)
+		authenticator, err = s.authenticator.newTerminatingServerAuthenticator(ctx, destination)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	startTime, _ := ctx.Value(connectionStartTime{}).(time.Time)
-	details := connectionDetails{
-		destination: info,
+	connInfo := ConnectionInfo{
 		startTime:   startTime,
+		destination: destination,
+	}
+	proxier, err := s.config.ProxyFactory.New(connInfo)
+	if err != nil {
+		return nil, err
 	}
 
 	server := &ssh.Server{
@@ -411,10 +421,10 @@ func (s *ServerWorker) newTerminatingSSHServer(ctx ssh.Context, info virtualhost
 		},
 		ChannelHandlers: map[string]ssh.ChannelHandler{
 			"session":      ssh.DefaultSessionHandler,
-			"direct-tcpip": s.config.ProxyHandlers.DirectTCPIPHandler(details),
+			"direct-tcpip": proxier.DirectTCPIPHandler(),
 		},
 		Handler: func(session ssh.Session) {
-			_ = s.config.ProxyHandlers.SessionHandler(session, details)
+			proxier.SessionHandler(session)
 		},
 	}
 

@@ -45,6 +45,7 @@ type sshServerSuite struct {
 	facadeClient  *MockFacadeClient
 	jwtParser     *MockJWTParser
 	proxyHandlers *MockProxyHandlers
+	proxyFactory  *MockProxyFactory
 }
 
 var _ = gc.Suite(&sshServerSuite{})
@@ -81,6 +82,7 @@ func (s *sshServerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.facadeClient = NewMockFacadeClient(ctrl)
 	s.proxyHandlers = NewMockProxyHandlers(ctrl)
 	s.jwtParser = NewMockJWTParser(ctrl)
+	s.proxyFactory = NewMockProxyFactory(ctrl)
 	return ctrl
 }
 
@@ -96,7 +98,7 @@ func (s *sshServerSuite) newServerWorkerConfig(
 		NewSSHServerListener:     newTestingSSHServerListener,
 		FacadeClient:             s.facadeClient,
 		JWTParser:                s.jwtParser,
-		ProxyHandlers:            s.proxyHandlers,
+		ProxyFactory:             s.proxyFactory,
 		disableAuth:              true,
 		TunnelTracker:            &sshtunneler.Tracker{},
 		metricsCollector:         NewMetricsCollector(),
@@ -120,8 +122,9 @@ func (s *sshServerSuite) newServerWorkerConfig(
 // Don't use this function in tests where you want to explicitly handle
 // the behaviour of the proxy handlers.
 func (s *sshServerSuite) setupDefaultProxyHandlers() {
-	s.proxyHandlers.EXPECT().SessionHandler(gomock.Any(), gomock.Any()).AnyTimes()
-	s.proxyHandlers.EXPECT().DirectTCPIPHandler(gomock.Any()).Return(nil).AnyTimes()
+	s.proxyFactory.EXPECT().New(gomock.Any()).Return(s.proxyHandlers, nil)
+	s.proxyHandlers.EXPECT().SessionHandler(gomock.Any()).AnyTimes()
+	s.proxyHandlers.EXPECT().DirectTCPIPHandler().Return(nil).AnyTimes()
 }
 
 func (s *sshServerSuite) TestValidate(c *gc.C) {
@@ -179,14 +182,20 @@ func (s *sshServerSuite) TestSSHServerNoAuth(c *gc.C) {
 	defer workertest.DirtyKill(c, server)
 	workertest.CheckAlive(c, server)
 
-	s.proxyHandlers.EXPECT().SessionHandler(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(session ssh.Session, details connectionDetails) error {
-			c.Check(details.destination.String(), gc.Equals, testVirtualHostname)
-			_, _ = session.Write(fmt.Appendf([]byte{}, "Your final destination is: %s\n", details.destination.String()))
-			return nil
+	var destination string
+	s.proxyFactory.EXPECT().New(gomock.Any()).DoAndReturn(
+		func(ci ConnectionInfo) (ProxyHandlers, error) {
+			c.Check(ci.destination.String(), gc.Equals, testVirtualHostname)
+			destination = ci.destination.String()
+			return s.proxyHandlers, nil
 		},
 	)
-	s.proxyHandlers.EXPECT().DirectTCPIPHandler(gomock.Any()).Return(nil)
+	s.proxyHandlers.EXPECT().SessionHandler(gomock.Any()).DoAndReturn(
+		func(session ssh.Session) {
+			_, _ = session.Write(fmt.Appendf([]byte{}, "Your final destination is: %s\n", destination))
+		},
+	)
+	s.proxyHandlers.EXPECT().DirectTCPIPHandler().Return(nil)
 
 	// Dial the in-memory listener
 	conn, err := listener.Dial()

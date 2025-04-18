@@ -22,9 +22,9 @@ import (
 type workerSuite struct {
 	testing.IsolationSuite
 
-	facadeClient  *MockFacadeClient
-	jwtParser     *MockJWTParser
-	proxyHandlers *MockProxyHandlers
+	facadeClient *MockFacadeClient
+	jwtParser    *MockJWTParser
+	proxyFactory *MockProxyFactory
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -35,7 +35,7 @@ func (s *workerSuite) newWorkerConfig(modifier func(*ServerWrapperWorkerConfig))
 		Logger:               loggo.GetLogger("test"),
 		FacadeClient:         s.facadeClient,
 		NewSSHServerListener: newTestingSSHServerListener,
-		ProxyHandlers:        s.proxyHandlers,
+		ProxyFactory:         s.proxyFactory,
 		JWTParser:            s.jwtParser,
 		metricsCollector:     NewMetricsCollector(),
 	}
@@ -52,7 +52,7 @@ func (s *workerSuite) SetupMocks(c *gc.C) *gomock.Controller {
 
 	s.facadeClient = NewMockFacadeClient(ctrl)
 	s.jwtParser = NewMockJWTParser(ctrl)
-	s.proxyHandlers = NewMockProxyHandlers(ctrl)
+	s.proxyFactory = NewMockProxyFactory(ctrl)
 
 	return ctrl
 }
@@ -106,7 +106,7 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 	// Test no SessionHandler.
 	cfg = s.newWorkerConfig(
 		func(cfg *ServerWrapperWorkerConfig) {
-			cfg.ProxyHandlers = nil
+			cfg.ProxyFactory = nil
 		},
 	)
 	c.Assert(cfg.Validate(), jc.ErrorIs, errors.NotValid)

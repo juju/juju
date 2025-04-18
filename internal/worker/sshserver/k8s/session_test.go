@@ -1,13 +1,15 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package sshserver
+package k8s
 
 import (
+	"bytes"
 	"errors"
 
 	"github.com/google/uuid"
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -17,16 +19,16 @@ import (
 )
 
 type k8sSessionSuite struct {
-	facadeClient *MockFacadeClient
-	executor     *MockExecutor
-	session      *MockSession
+	resolver *MockResolver
+	executor *MockExecutor
+	session  *MockSession
 }
 
 var _ = gc.Suite(&k8sSessionSuite{})
 
 func (s *k8sSessionSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.facadeClient = NewMockFacadeClient(ctrl)
+	s.resolver = NewMockResolver(ctrl)
 	s.executor = NewMockExecutor(ctrl)
 	s.session = NewMockSession(ctrl)
 	return ctrl
@@ -35,7 +37,7 @@ func (s *k8sSessionSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *k8sSessionSuite) TestSessionHandler(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	l := loggo.GetLogger("test")
-	s.facadeClient.EXPECT().ResolveK8sExecInfo(gomock.Any()).Return(params.SSHK8sExecResult{
+	s.resolver.EXPECT().ResolveK8sExecInfo(gomock.Any()).Return(params.SSHK8sExecResult{
 		PodName:   "test-pod",
 		Namespace: "test-namespace",
 	}, nil)
@@ -45,36 +47,35 @@ func (s *k8sSessionSuite) TestSessionHandler(c *gc.C) {
 		return nil
 	})
 
-	k8sHandlers, err := newK8sHandlers(
-		s.facadeClient,
+	virtualHostame, err := virtualhostname.NewInfoContainerTarget(uuid.New().String(), "test/0", "test-container")
+	c.Assert(err, jc.ErrorIsNil)
+
+	k8sHandlers, err := NewHandlers(
+		virtualHostame,
+		s.resolver,
 		l,
 		func(string) (k8sexec.Executor, error) {
 			return s.executor, nil
 		},
 	)
-	c.Assert(err, gc.IsNil)
-	virtualHostame, err := virtualhostname.NewInfoContainerTarget(uuid.New().String(), "test/0", "test-container")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.session.EXPECT().Pty()
 	s.session.EXPECT().Environ()
 	s.session.EXPECT().Command()
 	s.session.EXPECT().Stderr()
 
 	// test happy path
-	k8sHandlers.SessionHandler(
-		s.session,
-		connectionDetails{
-			destination: virtualHostame,
-		},
-	)
+	k8sHandlers.SessionHandler(s.session)
+
+	// test error path
+	readWriter := bytes.Buffer{}
+
+	s.session.EXPECT().Stderr().Return(&readWriter)
+	s.session.EXPECT().Exit(1)
 
 	// test error from facade is sent to the session
-	s.facadeClient.EXPECT().ResolveK8sExecInfo(gomock.Any()).Return(params.SSHK8sExecResult{}, errors.New("error")).Times(1)
-	err = k8sHandlers.SessionHandler(
-		s.session,
-		connectionDetails{
-			destination: virtualHostame,
-		},
-	)
-	c.Assert(err, gc.ErrorMatches, "failed to resolve k8s exec info: error")
+	s.resolver.EXPECT().ResolveK8sExecInfo(gomock.Any()).Return(params.SSHK8sExecResult{}, errors.New("error")).Times(1)
+	k8sHandlers.SessionHandler(s.session)
+	c.Assert(readWriter.String(), gc.Equals, "failed to resolve k8s exec info: error\n")
 }

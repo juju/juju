@@ -4,7 +4,9 @@
 package sshserver
 
 import (
+	"context"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/juju/errors"
@@ -24,6 +26,10 @@ import (
 	"github.com/juju/juju/internal/sshtunneler"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/rpc/params"
+)
+
+const (
+	connectionTimeout = 60 * time.Second
 )
 
 // Logger holds the methods required to log messages.
@@ -152,9 +158,11 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
 		return nil, errors.Trace(err)
 	}
-	handlers, err := newHandlers(client, config.Logger, &stubConnector{})
-	if err != nil {
-		return nil, errors.Trace(err)
+
+	proxyFactory := proxyFactory{
+		k8sResolver: client,
+		logger:      config.Logger,
+		connector:   tunnelAdaper{tunnelTracker: tunnelTracker},
 	}
 
 	w, err := config.NewServerWrapperWorker(ServerWrapperWorkerConfig{
@@ -162,7 +170,7 @@ func (config ManifoldConfig) startWrapperWorker(context dependency.Context) (wor
 		Logger:               config.Logger,
 		FacadeClient:         client,
 		NewSSHServerListener: config.NewSSHServerListener,
-		ProxyHandlers:        handlers,
+		ProxyFactory:         proxyFactory,
 		JWTParser:            jwtParser,
 		TunnelTracker:        tunnelTracker,
 		metricsCollector:     metricsCollector,
@@ -182,8 +190,19 @@ func NewSSHServerListener(l net.Listener, t time.Duration) net.Listener {
 	return l
 }
 
-type stubConnector struct{}
+type tunnelAdaper struct {
+	tunnelTracker *sshtunneler.Tracker
+}
 
-func (c *stubConnector) Connect(destination virtualhostname.Info) (*gossh.Client, error) {
-	return nil, nil
+// Connect establishes a connection to the destination using the SSH tunneler.
+func (t tunnelAdaper) Connect(destination virtualhostname.Info) (*gossh.Client, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), connectionTimeout)
+	defer cancel()
+
+	machineID, _ := destination.Machine()
+	req := sshtunneler.RequestArgs{
+		MachineID: strconv.Itoa(machineID),
+		ModelUUID: destination.ModelUUID(),
+	}
+	return t.tunnelTracker.RequestTunnel(ctx, req)
 }
