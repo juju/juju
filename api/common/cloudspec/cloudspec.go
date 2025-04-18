@@ -10,9 +10,7 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/api/base"
-	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/watcher"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/rpc/params"
 )
@@ -28,25 +26,6 @@ type CloudSpecAPI struct {
 // FacadeCaller.
 func NewCloudSpecAPI(facade base.FacadeCaller, modelTag names.ModelTag) *CloudSpecAPI {
 	return &CloudSpecAPI{facade, modelTag}
-}
-
-// WatchCloudSpecChanges returns a NotifyWatcher waiting for the
-// model's cloud to change.
-func (api *CloudSpecAPI) WatchCloudSpecChanges(ctx context.Context) (watcher.NotifyWatcher, error) {
-	var results params.NotifyWatchResults
-	args := params.Entities{Entities: []params.Entity{{Tag: api.modelTag.String()}}}
-	err := api.facade.FacadeCall(ctx, "WatchCloudSpecsChanges", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if n := len(results.Results); n != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", n)
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, errors.Annotate(result.Error, "API request failed")
-	}
-	return apiwatcher.NewNotifyWatcher(api.facade.RawAPICaller(), result), nil
 }
 
 // CloudSpec returns the cloud specification for the model associated
