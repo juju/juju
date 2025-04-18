@@ -32,9 +32,8 @@ import (
 type clientSuite struct {
 	testing.ApiServerSuite
 
-	authorizer       apiservertesting.FakeAuthorizer
-	haServer         *highavailability.HighAvailabilityAPI
-	modelInfoService *highavailability.MockModelInfoService
+	authorizer apiservertesting.FakeAuthorizer
+	haServer   *highavailability.HighAvailabilityAPI
 
 	store objectstore.ObjectStore
 }
@@ -56,7 +55,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	}
 	st := s.ControllerModel(c).State()
 	var err error
-	s.haServer, err = highavailability.NewHighAvailabilityAPI(ctx, facadetest.ModelContext{
+	s.haServer, err = highavailability.NewHighAvailabilityAPITest(ctx, facadetest.ModelContext{
 		State_:          st,
 		Auth_:           s.authorizer,
 		DomainServices_: s.ControllerDomainServices(c),
@@ -569,7 +568,7 @@ func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
 	st2 := f.MakeModel(c, &factory.ModelParams{ConfigAttrs: coretesting.Attrs{"controller": false}})
 	defer st2.Close()
 
-	haServer, err := highavailability.NewHighAvailabilityAPI(ctx, facadetest.ModelContext{
+	haServer, err := highavailability.NewHighAvailabilityAPITest(ctx, facadetest.ModelContext{
 		State_:          st2,
 		Auth_:           s.authorizer,
 		DomainServices_: s.ControllerDomainServices(c),
@@ -628,13 +627,22 @@ func (s *clientSuite) TestEnableHABootstrap(c *gc.C) {
 func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
 	ctx := context.Background()
 
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{Type: model.CAAS}, nil)
+	mockModelInfo := highavailability.NewMockModelInfoService(gomock.NewController(c))
+	mockModelInfo.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{Type: model.CAAS}, nil).AnyTimes()
 
-	_, err := highavailability.NewHighAvailabilityAPI(ctx, facadetest.ModelContext{
-		Auth_:           s.authorizer,
-		DomainServices_: s.ControllerDomainServices(c),
-		Logger_:         loggertesting.WrapCheckLog(c),
-	})
+	_, err := highavailability.NewHighAvailabilityAPI(
+		ctx,
+		s.ControllerModel(c).State(),
+		s.authorizer,
+		nil,
+		nil,
+		nil,
+		mockModelInfo,
+		nil,
+		nil,
+		nil,
+		loggertesting.WrapCheckLog(c),
+	)
 	c.Assert(err, gc.ErrorMatches, "high availability on kubernetes controllers not supported")
 }
 

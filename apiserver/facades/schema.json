@@ -9006,6 +9006,9 @@
         "Description": "",
         "Version": 3,
         "AvailableTo": [
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
             "controller-user",
             "model-user"
         ],
