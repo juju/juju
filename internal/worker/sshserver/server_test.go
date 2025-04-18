@@ -27,6 +27,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	network "github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/sshconn"
 	"github.com/juju/juju/internal/sshtunneler"
 	pkitest "github.com/juju/juju/pki/test"
 	params "github.com/juju/juju/rpc/params"
@@ -739,10 +740,10 @@ func (s *reverseTunnelSuite) tunnelRequest(ctx context.Context) (string, string,
 // dialReverseTunnel opens a Juju specific SSH channel for
 // reverse tunnels and returns the connection for that channel.
 func dialReverseTunnel(c *gc.C, client *gossh.Client) net.Conn {
-	ch, in, err := client.OpenChannel(jujuTunnelChannel, nil)
+	ch, in, err := client.OpenChannel(sshtunneler.JujuTunnelChannel, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	go gossh.DiscardRequests(in)
-	return newChannelConn(ch)
+	return sshconn.NewChannelConn(ch)
 }
 
 // inMemoryDial returns and SSH connection that uses an in-memory transport.

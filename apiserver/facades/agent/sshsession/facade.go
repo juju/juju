@@ -32,9 +32,9 @@ func newFacade(ctx facade.Context, backend Backend) *Facade {
 }
 
 // GetSSHConnRequest returns a ssh connection request by its document ID.
-func (f *Facade) GetSSHConnRequest(arg string) (params.SSHConnRequestResult, error) {
+func (f *Facade) GetSSHConnRequest(arg params.SSHConnRequestGetArg) (params.SSHConnRequestResult, error) {
 	result := params.SSHConnRequestResult{}
-	connReq, err := f.backend.GetSSHConnRequest(arg)
+	connReq, err := f.backend.GetSSHConnRequest(arg.RequestId)
 	if err != nil {
 		return result, err
 	}
@@ -43,9 +43,9 @@ func (f *Facade) GetSSHConnRequest(arg string) (params.SSHConnRequestResult, err
 }
 
 // WatchSSHConnRequest creates a watcher and returns its ID for watching changes.
-func (f *Facade) WatchSSHConnRequest(machineId string) (params.StringsWatchResult, error) {
+func (f *Facade) WatchSSHConnRequest(arg params.SSHConnRequestWatchArg) (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
-	w := f.backend.WatchSSHConnRequest(machineId)
+	w := f.backend.WatchSSHConnRequest(arg.MachineId)
 	if changes, ok := <-w.Changes(); ok {
 		result.StringsWatcherId = f.resources.Register(w)
 		result.Changes = changes

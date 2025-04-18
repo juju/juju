@@ -115,6 +115,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"ssh-authkeys-updater",
 			"ssh-identity-writer",
 			"ssh-tunneler",
+			"ssh-session",
 			"state",
 			"state-config-watcher",
 			"state-converter",
@@ -266,6 +267,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"state-config-watcher",
 		"ssh-server",
 		"ssh-tunneler",
+		"ssh-session",
 		"syslog",
 		"termination-signal-handler",
 		"migration-fortress",
@@ -991,6 +993,19 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"state",
 		"state-config-watcher",
 		"ssh-tunneler",
+	},
+
+	"ssh-session": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"ssh-authkeys-updater",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"ssh-tunneler": {

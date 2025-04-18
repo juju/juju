@@ -190,7 +190,7 @@ func (s *workerSuite) TestWorkerWithEphemeralKeys(c *gc.C) {
 	defer stop(c, worker)
 	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey))
 
-	authWorker, ok := worker.(authenticationworker.AuthWorker)
+	authWorker, ok := worker.(*authenticationworker.AuthWorker)
 	c.Assert(ok, gc.Equals, true)
 
 	err = authWorker.AddEphemeralKey(sshtesting.ValidKeyThree.Key + " key3@host")
@@ -213,7 +213,7 @@ func (s *workerSuite) TestWorkerWithEphemeralKeysFlushedAfterRestart(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer stop(c, worker)
 	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey))
-	authWorker, ok := worker.(authenticationworker.AuthWorker)
+	authWorker, ok := worker.(*authenticationworker.AuthWorker)
 	c.Assert(ok, gc.Equals, true)
 
 	err = authWorker.AddEphemeralKey(sshtesting.ValidKeyThree.Key + " key3@host")
@@ -234,7 +234,7 @@ func (s *workerSuite) TestWorkerWithEphemeralAndKeys(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer stop(c, worker)
 	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey))
-	authWorker, ok := worker.(authenticationworker.AuthWorker)
+	authWorker, ok := worker.(*authenticationworker.AuthWorker)
 	c.Assert(ok, gc.Equals, true)
 	// add a key in a go-routine to simulate a change while the worker is running another update.
 	go func() {

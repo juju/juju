@@ -18,13 +18,10 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/virtualhostname"
+	"github.com/juju/juju/internal/sshconn"
 	"github.com/juju/juju/internal/sshtunneler"
 	jujussh "github.com/juju/juju/pki/ssh"
 	"github.com/juju/juju/rpc/params"
-)
-
-const (
-	jujuTunnelChannel = "juju-tunnel"
 )
 
 type connectionStartTime struct{}
@@ -208,8 +205,8 @@ func (s *ServerWorker) NewJumpServer() *ssh.Server {
 			return s.authenticator.passwordAuthentication(ctx, password)
 		},
 		ChannelHandlers: map[string]ssh.ChannelHandler{
-			"direct-tcpip":    s.directTCPIPHandler,
-			jujuTunnelChannel: s.reverseTunnelHandler,
+			"direct-tcpip":                s.directTCPIPHandler,
+			sshtunneler.JujuTunnelChannel: s.reverseTunnelHandler,
 		},
 	}
 
@@ -271,7 +268,7 @@ func (s *ServerWorker) reverseTunnelHandler(srv *ssh.Server, conn *gossh.ServerC
 	pushCtx, cancelF := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancelF()
 
-	err = s.config.TunnelTracker.PushTunnel(pushCtx, tunnelID, newChannelConn(ch))
+	err = s.config.TunnelTracker.PushTunnel(pushCtx, tunnelID, sshconn.NewChannelConn(ch))
 	if err != nil {
 		s.config.Logger.Errorf("failed to push tunnel: %v", err)
 		_ = conn.Close()
@@ -326,7 +323,7 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 	}
 
 	server.AddHostKey(signer)
-	server.HandleConn(newChannelConn(ch))
+	server.HandleConn(sshconn.NewChannelConn(ch))
 }
 
 // hostKeySignerForTarget returns a signer for the target hostname, by calling the facade client.

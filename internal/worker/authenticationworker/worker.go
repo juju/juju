@@ -61,7 +61,7 @@ func NewWorker(st *keyupdater.State, agentConfig agent.Config) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	return AuthWorker{
+	return &AuthWorker{
 		NotifyWorker: w,
 	}, nil
 }
