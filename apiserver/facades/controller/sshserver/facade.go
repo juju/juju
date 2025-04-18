@@ -22,6 +22,7 @@ type Backend interface {
 	SSHServerHostKey() (string, error)
 	HostKeyForVirtualHostname(info virtualhostname.Info) ([]byte, error)
 	AuthorizedKeysForModel(uuid string) ([]string, error)
+	K8sNamespaceAndPodName(modelUUID string, unitName string) (string, string, error)
 }
 
 // Facade allows model config manager clients to watch controller config changes and fetch controller config.
@@ -112,5 +113,16 @@ func (f *Facade) ListAuthorizedKeysForModel(args params.ListAuthorizedKeysArgs) 
 	return params.ListAuthorizedKeysResult{
 		AuthorizedKeys: authKeys,
 	}, nil
+}
 
+// ResolveK8sExecInfo returns the namespace and pod name for the given model UUID and unit name.
+func (f *Facade) ResolveK8sExecInfo(arg params.SSHK8sExecArg) (params.SSHK8sExecResult, error) {
+	result := params.SSHK8sExecResult{}
+	var err error
+	result.Namespace, result.PodName, err = f.backend.K8sNamespaceAndPodName(arg.ModelUUID, arg.UnitName)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+	return result, nil
 }

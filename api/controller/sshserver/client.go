@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -86,4 +87,18 @@ func (c *Client) ListPublicKeysForModel(sshPKIAuthArgs params.ListAuthorizedKeys
 		publicKeys = append(publicKeys, pubKey)
 	}
 	return publicKeys, nil
+}
+
+// ResolveK8sExecInfo resolves the k8s exec info for the given arg.
+func (c *Client) ResolveK8sExecInfo(arg params.SSHK8sExecArg) (params.SSHK8sExecResult, error) {
+	var result params.SSHK8sExecResult
+	err := c.facade.FacadeCall("ResolveK8sExecInfo", arg, &result)
+	if err != nil {
+		return result, err
+	}
+	if result.Error != nil {
+		err := apiservererrors.RestoreError(result.Error)
+		return result, err
+	}
+	return result, nil
 }

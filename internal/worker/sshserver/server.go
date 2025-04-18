@@ -32,7 +32,7 @@ type connectionStartTime struct{}
 // ProxyHandlers is an interface that provides methods for all SSH handlers.
 // These methods proxies connections to the target unit/machine.
 type ProxyHandlers interface {
-	SessionHandler(s ssh.Session, details connectionDetails)
+	SessionHandler(s ssh.Session, details connectionDetails) error
 	DirectTCPIPHandler(details connectionDetails) ssh.ChannelHandler
 }
 
@@ -303,6 +303,7 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 	}
 	signer, err := s.hostKeySignerForTarget(info.String())
 	if err != nil {
+		s.config.Logger.Errorf("failed to get host key signer: %v", err)
 		s.rejectChannel(newChan, "Failed to get host key")
 		return
 	}
@@ -416,7 +417,7 @@ func (s *ServerWorker) newTerminatingSSHServer(ctx ssh.Context, info virtualhost
 			"direct-tcpip": s.config.ProxyHandlers.DirectTCPIPHandler(details),
 		},
 		Handler: func(session ssh.Session) {
-			s.config.ProxyHandlers.SessionHandler(session, details)
+			_ = s.config.ProxyHandlers.SessionHandler(session, details)
 		},
 	}
 

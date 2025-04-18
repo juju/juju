@@ -156,3 +156,24 @@ func (s *sshserverSuite) TestAuthorizedKeysForModel(c *gc.C) {
 		c.Assert(results.AuthorizedKeys, gc.DeepEquals, tc.expectKeys)
 	}
 }
+
+func (s *sshserverSuite) TestResolveK8sExecInfo(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.ctxMock.EXPECT().Resources().Times(1)
+	s.backendMock.EXPECT().K8sNamespaceAndPodName("abcd", "unit").Return(
+		"namespace", "pod-name", nil)
+
+	f := sshserver.NewFacade(s.ctxMock, s.backendMock)
+
+	arg := params.SSHK8sExecArg{
+		ModelUUID: "abcd",
+		UnitName:  "unit",
+	}
+	result, err := f.ResolveK8sExecInfo(arg)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Namespace, gc.Equals, "namespace")
+	c.Assert(result.PodName, gc.Equals, "pod-name")
+}

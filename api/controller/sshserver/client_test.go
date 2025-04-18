@@ -158,3 +158,27 @@ func (s *sshserverSuite) TestVirtualHostKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(key, gc.DeepEquals, []byte("key"))
 }
+
+func (s *sshserverSuite) TestResolveK8sExecInfo(c *gc.C) {
+	client, err := newClient(
+		func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Check(objType, gc.Equals, "SSHServer")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ResolveK8sExecInfo")
+			c.Assert(arg, gc.FitsTypeOf, params.SSHK8sExecArg{})
+			c.Assert(result, gc.FitsTypeOf, &params.SSHK8sExecResult{})
+
+			*(result.(*params.SSHK8sExecResult)) = params.SSHK8sExecResult{
+				Namespace: "default",
+				PodName:   "pod-name",
+			}
+			return nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := client.ResolveK8sExecInfo(params.SSHK8sExecArg{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Namespace, gc.Equals, "default")
+	c.Assert(result.PodName, gc.Equals, "pod-name")
+}

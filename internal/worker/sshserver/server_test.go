@@ -179,9 +179,10 @@ func (s *sshServerSuite) TestSSHServerNoAuth(c *gc.C) {
 	workertest.CheckAlive(c, server)
 
 	s.proxyHandlers.EXPECT().SessionHandler(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(session ssh.Session, details connectionDetails) {
+		func(session ssh.Session, details connectionDetails) error {
 			c.Check(details.destination.String(), gc.Equals, testVirtualHostname)
 			_, _ = session.Write(fmt.Appendf([]byte{}, "Your final destination is: %s\n", details.destination.String()))
+			return nil
 		},
 	)
 	s.proxyHandlers.EXPECT().DirectTCPIPHandler(gomock.Any()).Return(nil)

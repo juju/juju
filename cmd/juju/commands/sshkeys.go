@@ -10,7 +10,6 @@ import (
 
 type SSHKeysBase struct {
 	modelcmd.ModelCommandBase
-	modelcmd.IAASOnlyCommand
 }
 
 // NewKeyManagerClient returns a keymanager client for the root api endpoint
