@@ -20,6 +20,7 @@ import (
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	coreerrors "github.com/juju/juju/core/errors"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/charm/store"
@@ -27,7 +28,6 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/state/watcher/watchertest"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -1904,7 +1904,7 @@ func (s *watchableServiceSuite) TestWatchCharms(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := make(chan []string)
-	stringsWatcher := watchertest.NewStringsWatcher(ch)
+	stringsWatcher := watchertest.NewMockStringsWatcher(ch)
 	defer workertest.DirtyKill(c, stringsWatcher)
 
 	s.state.EXPECT().NamespaceForWatchCharm().Return("charm")
