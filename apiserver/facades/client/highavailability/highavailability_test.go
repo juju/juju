@@ -9,13 +9,14 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/highavailability"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
+	model "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain/blockcommand"
@@ -30,8 +31,9 @@ import (
 type clientSuite struct {
 	testing.ApiServerSuite
 
-	authorizer apiservertesting.FakeAuthorizer
-	haServer   *highavailability.HighAvailabilityAPI
+	authorizer       apiservertesting.FakeAuthorizer
+	haServer         *highavailability.HighAvailabilityAPI
+	modelInfoService *highavailability.MockModelInfoService
 
 	store objectstore.ObjectStore
 }
@@ -44,6 +46,7 @@ var (
 )
 
 func (s *clientSuite) SetUpTest(c *gc.C) {
+	ctx := context.Background()
 	s.ApiServerSuite.SetUpTest(c)
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -52,12 +55,14 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	}
 	st := s.ControllerModel(c).State()
 	var err error
-	s.haServer, err = highavailability.NewHighAvailabilityAPI(facadetest.ModelContext{
-		State_:          st,
-		Auth_:           s.authorizer,
-		DomainServices_: s.ControllerDomainServices(c),
-		Logger_:         loggertesting.WrapCheckLog(c),
-	})
+
+	// Initialize mock controller
+	ctrl := gomock.NewController(c)
+	s.modelInfoService = highavailability.NewMockModelInfoService(ctrl)
+
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{Type: model.IAAS}, nil).AnyTimes()
+
+	s.haServer, err = highavailability.NewHighAvailabilityAPI(ctx, st, s.authorizer, nil, nil, nil, s.modelInfoService, nil, nil, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We have to ensure the agents are alive, or EnableHA will create more to
@@ -559,17 +564,15 @@ func (s *clientSuite) TestEnableHAErrors(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
+	ctx := context.Background()
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	st2 := f.MakeModel(c, &factory.ModelParams{ConfigAttrs: coretesting.Attrs{"controller": false}})
 	defer st2.Close()
 
-	haServer, err := highavailability.NewHighAvailabilityAPI(facadetest.ModelContext{
-		State_:          st2,
-		Auth_:           s.authorizer,
-		DomainServices_: s.ControllerDomainServices(c),
-		Logger_:         loggertesting.WrapCheckLog(c),
-	})
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{Type: model.IAAS}, nil).AnyTimes()
+
+	haServer, err := highavailability.NewHighAvailabilityAPI(ctx, st2, s.authorizer, nil, nil, nil, nil, nil, nil, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	enableHAResult, err := enableHA(c, haServer, 3, constraints.MustParse("mem=4G"), nil)
@@ -621,17 +624,24 @@ func (s *clientSuite) TestEnableHABootstrap(c *gc.C) {
 }
 
 func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
+	ctx := context.Background()
 
-	st := f.MakeCAASModel(c, nil)
-	defer st.Close()
+	mockModelInfo := highavailability.NewMockModelInfoService(gomock.NewController(c))
+	mockModelInfo.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{Type: model.CAAS}, nil).AnyTimes()
 
-	_, err := highavailability.NewHighAvailabilityAPI(facadetest.ModelContext{
-		State_:          st,
-		Auth_:           s.authorizer,
-		DomainServices_: s.ControllerDomainServices(c),
-	})
+	_, err := highavailability.NewHighAvailabilityAPI(
+		ctx,
+		s.ControllerModel(c).State(),
+		s.authorizer,
+		nil,
+		nil,
+		nil,
+		mockModelInfo,
+		nil,
+		nil,
+		nil,
+		loggertesting.WrapCheckLog(c),
+	)
 	c.Assert(err, gc.ErrorMatches, "high availability on kubernetes controllers not supported")
 }
 
