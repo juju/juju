@@ -16,10 +16,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
+	gossh "golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/pki/test"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -177,9 +179,16 @@ func (s *workerSuite) TestSSHSessionWorkerHandlesConnectionPipesData(c *gc.C) {
 
 	l := loggo.GetLogger("test")
 
+	connID := "machine-0-sshconnectionreq-0"
+
+	testKey, err := test.InsecureKeyProfile()
+	c.Assert(err, jc.ErrorIsNil)
+	ephemeralPublicKey, err := gossh.NewPublicKey(testKey.Public())
+	c.Assert(err, jc.ErrorIsNil)
+
 	innerChan := make(chan []string)
 	go func() {
-		innerChan <- []string{"machine-0-sshconnectionreq-0"}
+		innerChan <- []string{connID}
 	}()
 	stringChan := watcher.StringsChannel(innerChan)
 
@@ -188,16 +197,16 @@ func (s *workerSuite) TestSSHSessionWorkerHandlesConnectionPipesData(c *gc.C) {
 	s.watcher.EXPECT().Changes().Return(stringChan).AnyTimes()
 
 	s.facadeClient.EXPECT().WatchSSHConnRequest("0").Return(s.watcher, nil)
-	s.facadeClient.EXPECT().GetSSHConnRequest("machine-0-sshconnectionreq-0").Return(
+	s.facadeClient.EXPECT().GetSSHConnRequest(connID).Return(
 		params.SSHConnRequest{
 			ControllerAddresses: network.NewSpaceAddresses("127.0.0.1:17022"),
-			EphemeralPublicKey:  []byte{1},
+			EphemeralPublicKey:  ephemeralPublicKey.Marshal(),
 		},
 		nil,
 	)
 
-	s.ephemeralkeyUpdater.EXPECT().AddEphemeralKey(string([]byte{1}))
-	s.ephemeralkeyUpdater.EXPECT().RemoveEphemeralKey(string([]byte{1}))
+	s.ephemeralkeyUpdater.EXPECT().AddEphemeralKey(ephemeralPublicKey, connID)
+	s.ephemeralkeyUpdater.EXPECT().RemoveEphemeralKey(ephemeralPublicKey)
 
 	// Setup an in-memory conn getter to stub the controller and SSHD side.
 	connSSHD, workerConnSSHD := net.Pipe()
@@ -217,10 +226,16 @@ func (s *workerSuite) TestSSHSessionWorkerHandlesConnectionPipesData(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	go func() {
-		controllerConn.Write([]byte("hello world"))
-		controllerConn.Close()
+		// use a different error var to avoid shadowing the others
+		// and causing a race condition.
+		_, err := controllerConn.Write([]byte("hello world"))
+		c.Check(err, jc.ErrorIsNil)
+		err = controllerConn.Close()
+		c.Check(err, jc.ErrorIsNil)
 	}()
 
+	err = connSSHD.SetReadDeadline(time.Now().Add(1 * time.Second))
+	c.Assert(err, jc.ErrorIsNil)
 	buf, err := io.ReadAll(connSSHD)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(buf, gc.DeepEquals, []byte("hello world"))
@@ -235,6 +250,11 @@ func (s *workerSuite) TestContextCancelledIsPropagated(c *gc.C) {
 	innerChan := make(chan []string)
 	stringChan := watcher.StringsChannel(innerChan)
 
+	testKey, err := test.InsecureKeyProfile()
+	c.Assert(err, jc.ErrorIsNil)
+	ephemeralPublicKey, err := gossh.NewPublicKey(testKey.Public())
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.watcher.EXPECT().Wait().AnyTimes()
 	s.watcher.EXPECT().Kill().AnyTimes()
 	s.watcher.EXPECT().Changes().Return(stringChan).AnyTimes()
@@ -243,12 +263,12 @@ func (s *workerSuite) TestContextCancelledIsPropagated(c *gc.C) {
 	s.facadeClient.EXPECT().GetSSHConnRequest(connID).Return(
 		params.SSHConnRequest{
 			ControllerAddresses: network.NewSpaceAddresses("127.0.0.1:17022"),
-			EphemeralPublicKey:  []byte{1},
+			EphemeralPublicKey:  ephemeralPublicKey.Marshal(),
 		},
 		nil,
 	)
-	s.ephemeralkeyUpdater.EXPECT().AddEphemeralKey(string([]byte{1}))
-	s.ephemeralkeyUpdater.EXPECT().RemoveEphemeralKey(string([]byte{1}))
+	s.ephemeralkeyUpdater.EXPECT().AddEphemeralKey(ephemeralPublicKey, connID)
+	s.ephemeralkeyUpdater.EXPECT().RemoveEphemeralKey(ephemeralPublicKey)
 	connSSHD, workerConnSSHD := net.Pipe()
 	workerControllerConn, controllerConn := net.Pipe()
 
@@ -269,17 +289,14 @@ func (s *workerSuite) TestContextCancelledIsPropagated(c *gc.C) {
 	doneChan := make(chan struct{})
 	go func() {
 		_ = sessionWorker.handleConnection(ctx, connID)
-		doneChan <- struct{}{}
+		close(doneChan)
 	}()
-	// write something to both ends to force the read to be called
-	controllerConn.Write([]byte("hello world"))
-	connSSHD.Write([]byte("hello world"))
 
 	// Cancel the context to simulate a cancellation.
 	cancel()
 	select {
 	case <-doneChan:
-		// check both end of the pipe are closed
+		// check both ends of the pipe are closed
 		_, err := connSSHD.Read(make([]byte, 1))
 		c.Assert(err, jc.ErrorIs, io.EOF) // error when remote end is closed
 		_, err = controllerConn.Read(make([]byte, 1))
@@ -294,9 +311,16 @@ func (s *workerSuite) TestSSHSessionWorkerMultipleConnections(c *gc.C) {
 
 	l := loggo.GetLogger("test")
 
+	connID := "machine-0-sshconnectionreq-0"
+
+	testKey, err := test.InsecureKeyProfile()
+	c.Assert(err, jc.ErrorIsNil)
+	ephemeralPublicKey, err := gossh.NewPublicKey(testKey.Public())
+	c.Assert(err, jc.ErrorIsNil)
+
 	innerChan := make(chan []string)
 	go func() {
-		innerChan <- []string{"machine-0-sshconnectionreq-0", "machine-0-sshconnectionreq-0"}
+		innerChan <- []string{connID, connID}
 	}()
 	stringChan := watcher.StringsChannel(innerChan)
 
@@ -305,16 +329,16 @@ func (s *workerSuite) TestSSHSessionWorkerMultipleConnections(c *gc.C) {
 	s.watcher.EXPECT().Changes().Return(stringChan).AnyTimes()
 
 	s.facadeClient.EXPECT().WatchSSHConnRequest("0").Return(s.watcher, nil)
-	s.facadeClient.EXPECT().GetSSHConnRequest("machine-0-sshconnectionreq-0").Return(
+	s.facadeClient.EXPECT().GetSSHConnRequest(connID).Return(
 		params.SSHConnRequest{
 			ControllerAddresses: network.NewSpaceAddresses("127.0.0.1:17022"),
-			EphemeralPublicKey:  []byte{1},
+			EphemeralPublicKey:  ephemeralPublicKey.Marshal(),
 		},
 		nil,
 	).Times(2)
 
-	s.ephemeralkeyUpdater.EXPECT().AddEphemeralKey(string([]byte{1})).Times(2)
-	s.ephemeralkeyUpdater.EXPECT().RemoveEphemeralKey(string([]byte{1})).Times(2)
+	s.ephemeralkeyUpdater.EXPECT().AddEphemeralKey(ephemeralPublicKey, connID).Times(2)
+	s.ephemeralkeyUpdater.EXPECT().RemoveEphemeralKey(ephemeralPublicKey).Times(2)
 
 	// Setup an in-memory conn getter to stub the controller and SSHD side.
 	connSSHD1, workerConnSSHD1 := net.Pipe()
@@ -340,20 +364,32 @@ func (s *workerSuite) TestSSHSessionWorkerMultipleConnections(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 	// test the second pipe is working even if the first one is blocked.
 	go func() {
-		controllerConn2.Write([]byte("hello world"))
-		controllerConn2.Close()
+		// use a different error var to avoid shadowing the others
+		// and causing a race condition.
+		_, err := controllerConn2.Write([]byte("hello world"))
+		c.Check(err, jc.ErrorIsNil)
+		err = controllerConn2.Close()
+		c.Check(err, jc.ErrorIsNil)
 	}()
 
+	err = connSSHD2.SetReadDeadline(time.Now().Add(1 * time.Second))
+	c.Assert(err, jc.ErrorIsNil)
 	buf, err := io.ReadAll(connSSHD2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(buf, gc.DeepEquals, []byte("hello world"))
 
 	// test the first pipe is working.
 	go func() {
-		controllerConn1.Write([]byte("hello world"))
-		controllerConn1.Close()
+		// use a different error var to avoid shadowing the others
+		// and causing a race condition.
+		_, err := controllerConn1.Write([]byte("hello world"))
+		c.Check(err, jc.ErrorIsNil)
+		err = controllerConn1.Close()
+		c.Check(err, jc.ErrorIsNil)
 	}()
 
+	err = connSSHD1.SetReadDeadline(time.Now().Add(1 * time.Second))
+	c.Assert(err, jc.ErrorIsNil)
 	buf, err = io.ReadAll(connSSHD1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(buf, gc.DeepEquals, []byte("hello world"))

@@ -73,7 +73,7 @@ func sshReqConnKeyID(machineId string, tunnelID string) string {
 
 func newSSHConnRequestDoc(arg SSHConnRequestArg) (sshConnRequestDoc, error) {
 	return sshConnRequestDoc{
-		DocId:               ensureModelUUID(arg.ModelUUID, sshReqConnKeyID(arg.MachineId, arg.TunnelID)),
+		DocId:               sshReqConnKeyID(arg.MachineId, arg.TunnelID),
 		MachineId:           arg.MachineId,
 		UnitPort:            arg.UnitPort,
 		Expires:             arg.Expires,
@@ -134,11 +134,11 @@ func (st *State) RemoveSSHConnRequest(arg SSHConnRequestRemoveArg) error {
 
 // GetSSHConnRequest returns a ssh connection request by its document ID.
 func (st *State) GetSSHConnRequest(docID string) (SSHConnRequest, error) {
-	vhkeys, closer := st.db().GetCollection(sshConnRequestsC)
+	sshConnReq, closer := st.db().GetCollection(sshConnRequestsC)
 	defer closer()
 
 	doc := sshConnRequestDoc{}
-	err := vhkeys.FindId(st.docID(docID)).One(&doc)
+	err := sshConnReq.FindId(st.docID(docID)).One(&doc)
 	if err == mgo.ErrNotFound {
 		return SSHConnRequest{}, errors.NotFoundf("sshreqconn key %q", docID)
 	}

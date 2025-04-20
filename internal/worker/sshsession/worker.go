@@ -6,9 +6,9 @@ package sshsession
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
 	"net"
-	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -152,13 +152,18 @@ func (w *sshSessionWorker) Wait() error {
 //  5. Pipes the connection to the local sshd.
 //  6. On connection close, removes the ephemeral public key.
 func (w *sshSessionWorker) handleConnection(ctx context.Context, connID string) error {
+	w.logger.Errorf("Handling connection %q", connID)
 	reqParams, err := w.facadeClient.GetSSHConnRequest(connID)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	ctrlAddress := reqParams.ControllerAddresses.Values()[0]
-	ephemeralPublicKey := string(reqParams.EphemeralPublicKey)
+
+	ephemeralPublicKey, err := ssh.ParsePublicKey(reqParams.EphemeralPublicKey)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	if err := w.ephemeralKeysUpdater.AddEphemeralKey(ephemeralPublicKey); err != nil {
 		return errors.Trace(err)
@@ -252,7 +257,7 @@ func (w *connectionGetter) GetControllerConnection(password, ctrlAddress string)
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // TODO(ale8k): Fill in host key here
 	}
 
-	client, err := ssh.Dial("tcp", ctrlAddress, sshConfig)
+	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%s", ctrlAddress, "17022"), sshConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -272,12 +277,8 @@ func (w *connectionGetter) GetSSHDConnection() (net.Conn, error) {
 	etcPath := "/etc/ssh/sshd_config"
 	openSSHPath := "/usr/share/openssh/sshd_config"
 	port := w.getLocalSSHPort(etcPath, openSSHPath)
-	u, err := url.Parse("localhost" + port)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
-	localSSHD, err := net.Dial("tcp", u.String())
+	localSSHD, err := net.Dial("tcp", "localhost:"+port)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

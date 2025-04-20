@@ -5,36 +5,22 @@ package authenticationworker
 
 import (
 	"fmt"
-	"strings"
+
+	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/utils/v3/ssh"
 )
 
 const jujuEphemeralCommentPrefix = ssh.JujuCommentPrefix + "Ephemeral:"
 
-// ensureJujuEphemeralComment ensures that the key has a Juju ephemeral comment.
+// ensureJujuEphemeralComment returns a key for inclusion in an OpenSSH authorized_keys file
+// that includes a comment to identify the key.
 // The comment is used to identify the ephemeral keys and delete them when the worker is restarted.
-// This is a copy paste from ssh.EnsureJujuComment, but we need to add the ephemeral prefix
-// to the comment if it is not already present.
-func ensureJujuEphemeralComment(key string) string {
-	ak, err := ssh.ParseAuthorisedKey(key)
-	// Just return an invalid key as is. The method ssh.AddKeys will return
-	// an error if the key is invalid.
-	if err != nil {
-		logger.Warningf("invalid Juju ssh key %s: %v", key, err)
-		return key
-	}
-	if ak.Comment == "" {
-		return fmt.Sprintf("%s %ssshkey", key, jujuEphemeralCommentPrefix)
-	} else {
-		// Add the Juju prefix to the comment if necessary.
-		if !strings.HasPrefix(ak.Comment, jujuEphemeralCommentPrefix) {
-			commentIndex := strings.LastIndex(key, ak.Comment)
-			keyWithoutComment := key[:commentIndex]
-			return keyWithoutComment + jujuEphemeralCommentPrefix + ak.Comment
-		}
-	}
-	return key
+func ensureJujuEphemeralComment(key gossh.PublicKey) string {
+	auth_key := gossh.MarshalAuthorizedKey(key)
+	// Strip off the trailing new line so we can add a comment.
+	auth_key = auth_key[:len(auth_key)-1]
+	return fmt.Sprintf("%s %s", auth_key, jujuEphemeralCommentPrefix)
 }
 
 // ensureJujuCommentForKeys applies the Juju comment prefix to all keys.

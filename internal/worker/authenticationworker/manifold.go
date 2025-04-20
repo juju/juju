@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
+	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/keyupdater"
@@ -15,8 +16,8 @@ import (
 )
 
 type EphemeralKeysUpdater interface {
-	AddEphemeralKey(ephemeralKey string) error
-	RemoveEphemeralKey(ephemeralKey string) error
+	AddEphemeralKey(ephemeralKey gossh.PublicKey) error
+	RemoveEphemeralKey(ephemeralKey gossh.PublicKey) error
 }
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.

@@ -13,6 +13,7 @@ import (
 	reflect "reflect"
 
 	gomock "go.uber.org/mock/gomock"
+	ssh "golang.org/x/crypto/ssh"
 )
 
 // MockEphemeralKeysUpdater is a mock of EphemeralKeysUpdater interface.
@@ -39,21 +40,21 @@ func (m *MockEphemeralKeysUpdater) EXPECT() *MockEphemeralKeysUpdaterMockRecorde
 }
 
 // AddEphemeralKey mocks base method.
-func (m *MockEphemeralKeysUpdater) AddEphemeralKey(arg0 string) error {
+func (m *MockEphemeralKeysUpdater) AddEphemeralKey(arg0 ssh.PublicKey, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddEphemeralKey", arg0)
+	ret := m.ctrl.Call(m, "AddEphemeralKey", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddEphemeralKey indicates an expected call of AddEphemeralKey.
-func (mr *MockEphemeralKeysUpdaterMockRecorder) AddEphemeralKey(arg0 any) *gomock.Call {
+func (mr *MockEphemeralKeysUpdaterMockRecorder) AddEphemeralKey(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddEphemeralKey", reflect.TypeOf((*MockEphemeralKeysUpdater)(nil).AddEphemeralKey), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddEphemeralKey", reflect.TypeOf((*MockEphemeralKeysUpdater)(nil).AddEphemeralKey), arg0, arg1)
 }
 
 // RemoveEphemeralKey mocks base method.
-func (m *MockEphemeralKeysUpdater) RemoveEphemeralKey(arg0 string) error {
+func (m *MockEphemeralKeysUpdater) RemoveEphemeralKey(arg0 ssh.PublicKey) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveEphemeralKey", arg0)
 	ret0, _ := ret[0].(error)
