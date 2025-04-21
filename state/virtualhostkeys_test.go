@@ -27,7 +27,7 @@ func (s *VirtualHostKeysSuite) TestMachineVirtualHostKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(key.HostKey(), gc.Not(gc.HasLen), 0)
 
-	// check the same result with the info utility.
+	// check the same result with the machine's hostname.
 	info, err := virtualhostname.NewInfoMachineTarget(s.State.ModelUUID(), machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	key, err = s.State.HostKeyForVirtualHostname(info)
@@ -67,10 +67,17 @@ func (s *VirtualHostKeysSuite) TestCAASUnitVirtualHostKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(key.HostKey()), gc.Matches, "(?s)-----BEGIN OPENSSH PRIVATE KEY-----\n.*")
 
-	// check you get the same result via hostname.
-	info, err := virtualhostname.NewInfoUnitTarget(caasSt.ModelUUID(), unitName)
+	// check you get the same result via container hostname.
+	info, err := virtualhostname.NewInfoContainerTarget(caasSt.ModelUUID(), unitName, "ubuntu-container")
 	c.Assert(err, jc.ErrorIsNil)
 	keyViaHostname, err := caasSt.HostKeyForVirtualHostname(info)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(key.HostKey(), gc.DeepEquals, keyViaHostname.HostKey())
+
+	// check you get the same result via unit hostname.
+	info, err = virtualhostname.NewInfoUnitTarget(caasSt.ModelUUID(), unit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	key, err = caasSt.HostKeyForVirtualHostname(info)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(key.HostKey(), gc.DeepEquals, keyViaHostname.HostKey())
 
@@ -121,13 +128,6 @@ func (s *VirtualHostKeysSuite) TestCAASUnitVirtualHostKeyOnScale(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(key.HostKey()), gc.Equals, "foo")
 
-	// check you get the same result via hostname.
-	info, err := virtualhostname.NewInfoUnitTarget(caasSt.ModelUUID(), unit.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	key, err = caasSt.HostKeyForVirtualHostname(info)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(key.HostKey()), gc.Equals, "foo")
-
 	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.EnsureDead()
@@ -137,6 +137,29 @@ func (s *VirtualHostKeysSuite) TestCAASUnitVirtualHostKeyOnScale(c *gc.C) {
 
 	_, err = caasSt.UnitVirtualHostKey(unit.UnitTag().Id())
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
+}
+
+func (s *VirtualHostKeysSuite) TestIAASUnitVirtualHostKeyViaHostname(c *gc.C) {
+	charm := s.AddTestingCharm(c, "wordpress")
+	application := s.AddTestingApplication(c, "wordpress", charm)
+	unit, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = unit.AssignToNewMachine()
+	c.Assert(err, jc.ErrorIsNil)
+
+	machineID, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+
+	vhk, err := s.State.MachineVirtualHostKey(machineID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	info, err := virtualhostname.NewInfoUnitTarget(s.State.ModelUUID(), unit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	key, err := s.State.HostKeyForVirtualHostname(info)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(key.HostKey(), gc.Not(gc.HasLen), 0)
+	c.Assert(vhk.HostKey(), gc.DeepEquals, key.HostKey())
 }
 
 func (s *VirtualHostKeysSuite) TestIAASUnitVirtualHostKeyDoesNotExist(c *gc.C) {

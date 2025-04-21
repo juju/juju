@@ -145,18 +145,25 @@ func (st *State) HostKeyForVirtualHostname(info virtualhostname.Info) (*VirtualH
 	switch info.Target() {
 	case virtualhostname.MachineTarget:
 		machineId, _ := info.Machine()
-		hostkey, err := st.MachineVirtualHostKey(strconv.Itoa(machineId))
+		return st.MachineVirtualHostKey(strconv.Itoa(machineId))
+	case virtualhostname.UnitTarget:
+		unitName, _ := info.Unit()
+		unit, err := st.Unit(unitName)
 		if err != nil {
 			return nil, err
 		}
-		return hostkey, nil
-	case virtualhostname.ContainerTarget, virtualhostname.UnitTarget:
-		unitName, _ := info.Unit()
-		hostkey, err := st.UnitVirtualHostKey(unitName)
-		if err != nil {
-			return nil, errors.Annotate(err, "failed to get unit host key")
+		if unit.modelType == ModelTypeIAAS {
+			machineID, err := unit.AssignedMachineId()
+			if err != nil {
+				return nil, err
+			}
+			return st.MachineVirtualHostKey(machineID)
+		} else {
+			return st.UnitVirtualHostKey(unitName)
 		}
-		return hostkey, nil
+	case virtualhostname.ContainerTarget:
+		unitName, _ := info.Unit()
+		return st.UnitVirtualHostKey(unitName)
 	default:
 		return nil, errors.NotValidf("unsupported target: %v", info.Target())
 	}
