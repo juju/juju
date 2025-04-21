@@ -16,7 +16,10 @@ import (
 	"github.com/juju/juju/api/base"
 )
 
-type manifoldSuite struct{}
+type manifoldSuite struct {
+	agent       *MockAgent
+	agentConfig *MockConfig
+}
 
 var _ = gc.Suite(&manifoldSuite{})
 
@@ -34,6 +37,13 @@ func newManifoldConfig(l loggo.Logger, modifier func(cfg *ManifoldConfig)) *Mani
 	return cfg
 }
 
+func (s *manifoldSuite) SetupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.agent = NewMockAgent(ctrl)
+	s.agentConfig = NewMockConfig(ctrl)
+
+	return ctrl
+}
 func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 	l := loggo.GetLogger("test")
 	// Check config as expected.
@@ -67,14 +77,10 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.SetupMocks(c).Finish()
 
-	mockAgent := NewMockAgent(ctrl)
-	mockAgentConfig := NewMockConfig(ctrl)
-
-	mockAgentConfig.EXPECT().Tag().Return(names.NewMachineTag("0"))
-	mockAgent.EXPECT().CurrentConfig().Return(mockAgentConfig)
+	s.agentConfig.EXPECT().Tag().Return(names.NewMachineTag("0"))
+	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
 
 	// Setup the manifold
 	manifold := Manifold(ManifoldConfig{
@@ -97,7 +103,7 @@ func (s *manifoldSuite) TestManifoldStart(c *gc.C) {
 	w, err := manifold.Start(
 		dt.StubContext(nil, map[string]interface{}{
 			"api-caller":            mockAPICaller{},
-			"agent":                 mockAgent,
+			"agent":                 s.agent,
 			"authentication-worker": &MockEphemeralKeysUpdater{},
 		}),
 	)

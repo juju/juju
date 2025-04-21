@@ -82,12 +82,12 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	var agent agent.Agent
 	if err := context.Get(config.AgentName, &agent); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	var apiCaller base.APICaller
 	if err := context.Get(config.APICallerName, &apiCaller); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	machineId := agent.CurrentConfig().Tag().Id()

@@ -159,6 +159,9 @@ func (st *State) HostKeyForVirtualHostname(info virtualhostname.Info) (*VirtualH
 			}
 			return st.MachineVirtualHostKey(machineID)
 		} else {
+			// Fetch the virtual host key for a CAAS unit.
+			// This is the same key as any container
+			// within this unit / K8s pod.
 			return st.UnitVirtualHostKey(unitName)
 		}
 	case virtualhostname.ContainerTarget:

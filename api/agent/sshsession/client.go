@@ -64,3 +64,18 @@ func (c *Client) GetSSHConnRequest(requestId string) (params.SSHConnRequest, err
 
 	return results.SSHConnRequest, nil
 }
+
+// ControllerSSHPort returns the SSH port of the controller.
+func (c *Client) ControllerSSHPort() (string, error) {
+	var result params.StringResult
+
+	if err := c.facade.FacadeCall("ControllerSSHPort", nil, &result); err != nil {
+		return "", err
+	}
+
+	if err := result.Error; err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return result.Result, nil
+}
