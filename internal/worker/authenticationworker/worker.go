@@ -173,8 +173,8 @@ func (kw *keyUpdater) TearDown() error {
 }
 
 // AddEphemeralKey adds an ephemeral key to authorized_keys file.
-func (a *AuthWorker) AddEphemeralKey(key gossh.PublicKey) error {
-	keyWithComment := ensureJujuEphemeralComment(key)
+func (a *AuthWorker) AddEphemeralKey(key gossh.PublicKey, comment string) error {
+	keyWithComment := ensureJujuEphemeralComment(key, comment)
 	err := ssh.AddKeys(SSHUser, keyWithComment)
 	if err != nil {
 		return err

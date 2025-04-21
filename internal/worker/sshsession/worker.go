@@ -165,7 +165,7 @@ func (w *sshSessionWorker) handleConnection(ctx context.Context, connID string) 
 		return errors.Trace(err)
 	}
 
-	if err := w.ephemeralKeysUpdater.AddEphemeralKey(ephemeralPublicKey); err != nil {
+	if err := w.ephemeralKeysUpdater.AddEphemeralKey(ephemeralPublicKey, connID); err != nil {
 		return errors.Trace(err)
 	}
 

@@ -16,7 +16,7 @@ import (
 )
 
 type EphemeralKeysUpdater interface {
-	AddEphemeralKey(ephemeralKey gossh.PublicKey) error
+	AddEphemeralKey(ephemeralKey gossh.PublicKey, comment string) error
 	RemoveEphemeralKey(ephemeralKey gossh.PublicKey) error
 }
 
