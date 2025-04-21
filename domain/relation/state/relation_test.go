@@ -1313,7 +1313,7 @@ func (s *relationSuite) TestGetRelationsStatusForUnit(c *gc.C) {
 
 	// Arrange: Add unit to relation and set relation status.
 	s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
-	s.setRelationStatus(c, relationUUID, corestatus.Suspended)
+	s.setRelationStatus(c, relationUUID, corestatus.Suspended, time.Now())
 
 	expectedResults := []relation.RelationUnitStatusResult{{
 		Endpoints: []relation.Endpoint{endpoint1, endpoint2},
@@ -1369,8 +1369,8 @@ func (s *relationSuite) TestGetRelationsStatusForUnitPeer(c *gc.C) {
 
 	// Arrange: Add unit to both the relation and set their status.
 	s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
-	s.setRelationStatus(c, relationUUID1, corestatus.Joined)
-	s.setRelationStatus(c, relationUUID2, corestatus.Suspended)
+	s.setRelationStatus(c, relationUUID1, corestatus.Joined, time.Now())
+	s.setRelationStatus(c, relationUUID2, corestatus.Suspended, time.Now())
 
 	expectedResults := []relation.RelationUnitStatusResult{{
 		Endpoints: []relation.Endpoint{endpoint1},
@@ -2153,7 +2153,7 @@ func (s *relationSuite) TestGetMapperDataForWatchLifeSuspendedStatus(c *gc.C) {
 	relationUUID := s.addRelation(c)
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
 	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
-	s.setRelationStatus(c, relationUUID, corestatus.Suspended)
+	s.setRelationStatus(c, relationUUID, corestatus.Suspended, time.Now())
 
 	// Act:
 	result, err := s.state.GetMapperDataForWatchLifeSuspendedStatus(
@@ -3392,6 +3392,89 @@ func (s *relationSuite) TestCreateSubordinateParamsUnitNotAlive(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, relationerrors.UnitNotAlive)
 }
 
+func (s *relationSuite) TestGetGoalStateRelationDataForApplication(c *gc.C) {
+	// Arrange: add application endpoints for the 2 default applications.
+	appEndpoint1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, s.fakeCharmRelationProvidesUUID)
+	charm2RelationUUID := s.addCharmRelationWithDefaults(c, s.fakeCharmUUID2)
+	appEndpoint2 := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charm2RelationUUID)
+
+	// Add a third application with 2 units, this is the one tested.
+	charm3 := s.addCharm(c)
+	appName3 := "three"
+	app3 := s.addApplication(c, charm3, appName3)
+	relationName3 := "relation"
+	charm3RelationUUID := s.addCharmRelation(c, charm3, charm.Relation{
+		Name:  relationName3,
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	})
+	appEndpoint3 := s.addApplicationEndpoint(c, app3, charm3RelationUUID)
+
+	testTime := time.Now().UTC()
+
+	// Relate applications 1 and 3.
+	relID1 := 3
+	relUUID1 := s.addRelationWithID(c, relID1)
+	s.setRelationStatus(c, relUUID1, corestatus.Joining, testTime)
+	_ = s.addRelationEndpoint(c, relUUID1, appEndpoint1)
+	_ = s.addRelationEndpoint(c, relUUID1, appEndpoint3)
+
+	// Relate applications 2 and 3.
+	relID2 := 4
+	relUUID2 := s.addRelationWithID(c, relID2)
+	s.setRelationStatus(c, relUUID2, corestatus.Joined, testTime)
+	_ = s.addRelationEndpoint(c, relUUID2, appEndpoint2)
+	_ = s.addRelationEndpoint(c, relUUID2, appEndpoint3)
+
+	expected := []relation.GoalStateRelationData{
+		{
+			EndpointIdentifiers: []corerelation.EndpointIdentifier{
+				{
+					ApplicationName: appName3,
+					EndpointName:    relationName3,
+					Role:            charm.RoleRequirer,
+				}, {
+					ApplicationName: s.fakeApplicationName1,
+					EndpointName:    "fake-provides",
+					Role:            charm.RoleProvider,
+				},
+			},
+			Since:  &testTime,
+			Status: corestatus.Joining,
+		}, {
+			EndpointIdentifiers: []corerelation.EndpointIdentifier{
+				{
+					ApplicationName: appName3,
+					EndpointName:    relationName3,
+					Role:            charm.RoleRequirer,
+				}, {
+					ApplicationName: s.fakeApplicationName2,
+					EndpointName:    "fake-provides",
+					Role:            charm.RoleProvider,
+				},
+			},
+			Since:  &testTime,
+			Status: corestatus.Joined,
+		},
+	}
+
+	// Act
+	obtained, err := s.state.GetGoalStateRelationDataForApplication(context.Background(), app3)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.HasLen, 2)
+	c.Assert(obtained, jc.SameContents, expected)
+}
+
+func (s *relationSuite) TestGetGoalStateRelationDataForApplicationNoRows(c *gc.C) {
+	// Act
+	_, err := s.state.GetGoalStateRelationDataForApplication(context.Background(), s.fakeApplicationUUID1)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 // addRelationUnitSetting inserts a relation unit setting into the database
 // using the provided relationUnitUUID.
 func (s *relationSuite) addRelationUnitSetting(c *gc.C, relationUnitUUID corerelation.UnitUUID, key, value string) {
@@ -3605,14 +3688,13 @@ AND    ru.unit_uuid = ?
 }
 
 // setRelationStatus inserts a relation status into the relation_status table.
-func (s *relationSuite) setRelationStatus(c *gc.C, relationUUID corerelation.UUID, status corestatus.Status) {
+func (s *relationSuite) setRelationStatus(c *gc.C, relationUUID corerelation.UUID, status corestatus.Status, since time.Time) {
 	encodedStatus := s.encodeStatusID(status)
-	now := time.Now()
 	s.query(c, `
 INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
 VALUES (?,?,?)
 ON CONFLICT (relation_uuid) DO UPDATE SET relation_status_type_id = ?, updated_at = ?
-`, relationUUID, encodedStatus, now, encodedStatus, now)
+`, relationUUID, encodedStatus, since, encodedStatus, since)
 }
 
 // setUnitSubordinate sets unit 1 to be a subordinate of unit 2.

@@ -18,6 +18,7 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
+	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/relation"
@@ -1051,6 +1052,49 @@ func (s *relationServiceSuite) TestApplicationRelationsInfoApplicationUUIDNotVal
 
 	// Assert.
 	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationIDNotValid)
+}
+
+func (s *relationServiceSuite) TestGetGoalStateRelationDataForApplication(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	appID := coreapplicationtesting.GenApplicationUUID(c)
+	expected := []relation.GoalStateRelationData{
+		{Status: status.Joined},
+		{Status: status.Joining},
+	}
+	s.state.EXPECT().GetGoalStateRelationDataForApplication(gomock.Any(), appID).Return(expected, nil)
+
+	// Act
+	obtained, err := s.service.GetGoalStateRelationDataForApplication(context.Background(), appID)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtained, gc.DeepEquals, expected)
+}
+
+func (s *relationServiceSuite) TestGetGoalStateRelationDataForApplicationNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Act:
+	_, err := s.service.GetGoalStateRelationDataForApplication(context.Background(), "bad-uuid")
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationIDNotValid)
+}
+
+func (s *relationServiceSuite) TestGetGoalStateRelationDataForApplicationError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	appID := coreapplicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetGoalStateRelationDataForApplication(gomock.Any(), appID).Return(nil, relationerrors.RelationNotFound)
+
+	// Act
+	_, err := s.service.GetGoalStateRelationDataForApplication(context.Background(), appID)
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
 func (s *relationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
