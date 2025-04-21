@@ -120,6 +120,17 @@ type SSHConnRequest struct {
 	EphemeralPublicKey  []byte                 `json:"ephemeral-public-key"`
 }
 
+// SSHConnRequestGetArg holds the necessary info to get a ssh connection request.
+type SSHConnRequestGetArg struct {
+	RequestId string `json:"tunnel-id"`
+}
+
+// SSHConnRequestWatchArg holds the necessary info to watch ssh connection requests
+// for a machine id.
+type SSHConnRequestWatchArg struct {
+	MachineId string `json:"machine-id"`
+}
+
 // SSHConnRequestResult holds the result of a SSH connection request.
 type SSHConnRequestResult struct {
 	Error          *Error         `json:"error,omitempty"`

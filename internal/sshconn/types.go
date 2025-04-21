@@ -30,7 +30,7 @@
 // The original code can be found at:
 // https://cs.opensource.google/go/x/crypto/+/refs/tags/v0.36.0:ssh/tcpip.go
 
-package sshserver
+package sshconn
 
 import (
 	"net"
@@ -40,23 +40,23 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 )
 
-// chanConn fulfills the net.Conn interface without
+// ChanConn fulfills the net.Conn interface without
 // the tcpChan having to hold laddr or raddr directly.
-type chanConn struct {
+type ChanConn struct {
 	gossh.Channel
 	laddr, raddr net.Addr
 }
 
-// newChannelConn creates a struct that fulfills the net.Conn
-// interface using the provided SSH channel. The client side
-// of the connection should also be treated as a TCP pipe.
-func newChannelConn(ch gossh.Channel) *chanConn {
+// NewChannelConn creates a struct that fulfills the net.Conn
+// interface using the provided SSH channel. Both the client and
+// server sides of the connection should be treated as a TCP connection.
+func NewChannelConn(ch gossh.Channel) *ChanConn {
 	// Use a zero address for local and remote address.
 	zeroAddr := &net.TCPAddr{
 		IP:   net.IPv4zero,
 		Port: 0,
 	}
-	return &chanConn{
+	return &ChanConn{
 		Channel: ch,
 		laddr:   zeroAddr,
 		raddr:   zeroAddr,
@@ -64,18 +64,18 @@ func newChannelConn(ch gossh.Channel) *chanConn {
 }
 
 // LocalAddr returns the local network address.
-func (t *chanConn) LocalAddr() net.Addr {
+func (t *ChanConn) LocalAddr() net.Addr {
 	return t.laddr
 }
 
 // RemoteAddr returns the remote network address.
-func (t *chanConn) RemoteAddr() net.Addr {
+func (t *ChanConn) RemoteAddr() net.Addr {
 	return t.raddr
 }
 
 // SetDeadline sets the read and write deadlines associated
 // with the connection.
-func (t *chanConn) SetDeadline(deadline time.Time) error {
+func (t *ChanConn) SetDeadline(deadline time.Time) error {
 	if err := t.SetReadDeadline(deadline); err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func (t *chanConn) SetDeadline(deadline time.Time) error {
 // A zero value for t means Read will not time out.
 // After the deadline, the error from Read will implement net.Error
 // with Timeout() == true.
-func (t *chanConn) SetReadDeadline(deadline time.Time) error {
+func (t *ChanConn) SetReadDeadline(deadline time.Time) error {
 	// for compatibility with previous version,
 	// the error message contains "tcpChan"
 	return errors.New("ssh: tcpChan: deadline not supported")
@@ -94,6 +94,6 @@ func (t *chanConn) SetReadDeadline(deadline time.Time) error {
 
 // SetWriteDeadline exists to satisfy the net.Conn interface
 // but is not implemented by this type.  It always returns an error.
-func (t *chanConn) SetWriteDeadline(deadline time.Time) error {
+func (t *ChanConn) SetWriteDeadline(deadline time.Time) error {
 	return errors.New("ssh: tcpChan: deadline not supported")
 }
