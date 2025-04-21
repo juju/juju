@@ -32,15 +32,44 @@ type baseAgentBinaryExportOperation struct {
 // ExportService describes the service required for exporting agent binary
 // versions of a model to a new controller.
 type ExportService interface {
-	GetMachineReportedAgentVersion(
-		ctx context.Context,
-		machineName coremachine.Name,
-	) (coreagentbinary.Version, error)
+	// GetMachinesAgentBinaryMetadata returns the agent binary metadata that is
+	// running for each machine in the model. This call expects that every
+	// machine in the model has their agent binary version set and there exist
+	// agent binaries available for each machine and the version that it is
+	// running.
+	//
+	// This is a bulk call to support operations such as model export where it
+	// will never provide enough granuality into what machine fails as part of
+	// the checks.
+	//
+	// The following error types can be expected:
+	// - [github.com/juju/juju/domain/modelagent/errors.MachineAgentVersionNotSet]
+	// when one or more machines in the model do not have their agent binary
+	// version set.
+	// - [github.com/juju/juju/domain/modelagent/errors.MissingAgentBinaries]
+	// when the agent binaries don't exist for one or more units in the model.
+	GetMachinesAgentBinaryMetadata(
+		context.Context,
+	) (map[coremachine.Name]coreagentbinary.Metadata, error)
 
-	GetUnitReportedAgentVersion(
-		ctx context.Context,
-		unitName coreunit.Name,
-	) (coreagentbinary.Version, error)
+	// GetUnitsAgentBinaryMetadata returns the agent binary metadata that is
+	// running for each unit in the model. This call expects that every unit in
+	// the model has their agent binary version set and there exist agent
+	// binaries available for each unit and the version that it is running.
+	//
+	// This is a bulk call to support operations such as model export where it
+	// will never provide enough granuality into what unit fails as part of the
+	// checks.
+	//
+	// The following error types can be expected:
+	// - [github.com/juju/juju/domain/modelagent/errors.UnitAgentVersionNotSet]
+	// when one or more units in the model do not have their agent binary
+	// version set.
+	// - [github.com/juju/juju/domain/modelagent/errors.MissingAgentBinaries]
+	// when theagent binaries don't exist for one or more units in the model.
+	GetUnitsAgentBinaryMetadata(
+		context.Context,
+	) (map[coreunit.Name]coreagentbinary.Metadata, error)
 }
 
 // exportMachineAgentBinaryOperation is a model migration export operation for
@@ -65,29 +94,42 @@ func (e *exportMachineAgentBinaryOperation) Execute(
 	ctx context.Context,
 	model description.Model,
 ) error {
+	machinesAgentBinaries, err := e.exportService.GetMachinesAgentBinaryMetadata(ctx)
+	if err != nil {
+		return errors.Errorf(
+			"getting agent binary information for each machine in the model to export: %w",
+			err,
+		)
+	}
+
 	for _, machine := range model.Machines() {
 		mName := coremachine.Name(machine.Id())
-		agentVersion, err := e.exportService.GetMachineReportedAgentVersion(ctx, mName)
-
-		if err != nil {
+		machineAgentBinaryMetadata, exists := machinesAgentBinaries[mName]
+		if !exists {
 			return errors.Errorf(
-				"getting reported agent version for machine %q: %w",
-				mName, err,
+				"getting agent binary information for machine %q not found during export",
+				mName,
 			)
 		}
 
 		exportVer := semversion.Binary{
-			Number:  agentVersion.Number,
-			Arch:    agentVersion.Arch,
+			Number:  machineAgentBinaryMetadata.Version.Number,
+			Arch:    machineAgentBinaryMetadata.Version.Arch,
 			Release: coreostype.Ubuntu.String(),
 		}
 
-		// We purposely don't record the other information on agent tools that
-		// is asked for in model description. Specifically because Juju has
-		// never had an association between version running and binaries in
-		// store.
+		// We do not record the path when exporting tools. This was created in
+		// description to signal back to other Juju components what the
+		// apiserver path was for downloading the agent binaires. This is a
+		// leaky abstraction as the api server does not form a contract with the
+		// description package.
+		//
+		// The sha is enough for the model migration master to figure out what
+		// to do.
 		machine.SetTools(description.AgentToolsArgs{
 			Version: exportVer.String(),
+			SHA256:  machineAgentBinaryMetadata.SHA256,
+			Size:    machineAgentBinaryMetadata.Size,
 		})
 	}
 
@@ -102,30 +144,43 @@ func (e *exportUnitAgentBinaryOperation) Execute(
 	ctx context.Context,
 	model description.Model,
 ) error {
+	unitsAgentBinaries, err := e.exportService.GetUnitsAgentBinaryMetadata(ctx)
+	if err != nil {
+		return errors.Errorf(
+			"getting agent binary information for each unit in the model to export: %w",
+			err,
+		)
+	}
+
 	for _, application := range model.Applications() {
 		for _, unit := range application.Units() {
 			uName := coreunit.Name(unit.Name())
-			agentVersion, err := e.exportService.GetUnitReportedAgentVersion(ctx, uName)
-
-			if err != nil {
+			machineAgentBinaryMetadata, exists := unitsAgentBinaries[uName]
+			if !exists {
 				return errors.Errorf(
-					"getting reported agent version for unit %q: %w",
-					uName.String(), err,
+					"getting agent binary information for unit %q not found during export",
+					uName,
 				)
 			}
 
 			exportVer := semversion.Binary{
-				Number:  agentVersion.Number,
-				Arch:    agentVersion.Arch,
+				Number:  machineAgentBinaryMetadata.Version.Number,
+				Arch:    machineAgentBinaryMetadata.Version.Arch,
 				Release: coreostype.Ubuntu.String(),
 			}
 
-			// We purposely don't record the other information on agent tools
-			// that is asked for in model description. Specifically because Juju
-			// has never had an association between version running and binaries in
-			// store.
+			// We do not record the path when exporting tools. This was created
+			// in description to signal back to other Juju components what the
+			// apiserver path was for downloading the agent binaires. This is a
+			// leaky abstraction as the api server does not form a contract with
+			// the description package.
+			//
+			// The sha is enough for the model migration master to figure out what
+			// to do.
 			unit.SetTools(description.AgentToolsArgs{
 				Version: exportVer.String(),
+				SHA256:  machineAgentBinaryMetadata.SHA256,
+				Size:    machineAgentBinaryMetadata.Size,
 			})
 		}
 	}
