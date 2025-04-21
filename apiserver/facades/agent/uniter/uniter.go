@@ -2170,12 +2170,17 @@ func (u *UniterAPI) GoalStates(ctx context.Context, args params.Entities) (param
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
+		unitName, err := coreunit.NewName(tag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 		unit, err := u.getLegacyUnit(ctx, tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		result.Results[i].Result, err = u.oneGoalState(ctx, unit)
+		result.Results[i].Result, err = u.oneGoalState(ctx, unitName, unit)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
@@ -2184,7 +2189,7 @@ func (u *UniterAPI) GoalStates(ctx context.Context, args params.Entities) (param
 }
 
 // oneGoalState creates the goal state for a given unit.
-func (u *UniterAPI) oneGoalState(ctx context.Context, unit *state.Unit) (*params.GoalState, error) {
+func (u *UniterAPI) oneGoalState(ctx context.Context, unitName coreunit.Name, unit *state.Unit) (*params.GoalState, error) {
 	app, err := unit.Application()
 	if err != nil {
 		return nil, err
@@ -2195,30 +2200,35 @@ func (u *UniterAPI) oneGoalState(ctx context.Context, unit *state.Unit) (*params
 	if err != nil {
 		return nil, err
 	}
-	allRelations, err := app.Relations()
+
+	appID, err := u.applicationService.GetApplicationIDByUnitName(ctx, unitName)
 	if err != nil {
 		return nil, err
 	}
-	if allRelations != nil {
-		gs.Relations, err = u.goalStateRelations(ctx, app.Name(), unit.Name(), allRelations)
-		if err != nil {
-			return nil, err
-		}
+
+	allRelations, err := u.relationService.GetGoalStateRelationDataForApplication(ctx, appID)
+	if err != nil {
+		return nil, err
 	}
+
+	gs.Relations, err = u.goalStateRelations(ctx, app.Name(), unit.Name(), allRelations)
+	if err != nil {
+		return nil, err
+	}
+
 	return &gs, nil
 }
 
 // goalStateRelations creates the structure with all the relations between endpoints in an application.
-func (u *UniterAPI) goalStateRelations(ctx context.Context, appName, principalName string, allRelations []*state.Relation) (map[string]params.UnitsGoalState, error) {
-
+func (u *UniterAPI) goalStateRelations(
+	ctx context.Context,
+	appName, principalName string,
+	allRelations []relation.GoalStateRelationData,
+) (map[string]params.UnitsGoalState, error) {
 	result := map[string]params.UnitsGoalState{}
 
-	for _, r := range allRelations {
-		statusInfo, err := r.Status()
-		if err != nil {
-			return nil, errors.Annotate(err, "getting relation status")
-		}
-		endPoints := r.Endpoints()
+	for _, rel := range allRelations {
+		endPoints := rel.EndpointIdentifiers
 		if len(endPoints) == 1 {
 			// Ignore peer relations here.
 			continue
@@ -2229,7 +2239,7 @@ func (u *UniterAPI) goalStateRelations(ctx context.Context, appName, principalNa
 		var resultEndpointName string
 		for _, e := range endPoints {
 			if e.ApplicationName == appName {
-				resultEndpointName = e.Name
+				resultEndpointName = e.EndpointName
 			}
 		}
 		if resultEndpointName == "" {
@@ -2265,9 +2275,9 @@ func (u *UniterAPI) goalStateRelations(ctx context.Context, appName, principalNa
 			}
 
 			goalState := params.GoalStateStatus{}
-			goalState.Status = statusInfo.Status.String()
-			goalState.Since = statusInfo.Since
-			relationGoalState := result[e.Name]
+			goalState.Status = rel.Status.String()
+			goalState.Since = rel.Since
+			relationGoalState := result[e.EndpointName]
 			if relationGoalState == nil {
 				relationGoalState = params.UnitsGoalState{}
 			}

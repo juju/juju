@@ -278,6 +278,17 @@ type RelationService interface {
 		createSubordinate relation.SubordinateCreator,
 	) error
 
+	// GetGoalStateRelationDataForApplication returns GoalStateRelationData for all
+	// relations the given application is in, modulo peer relations.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.ApplicationIDNotValid] is returned if the application
+	//     UUID is not valid.
+	GetGoalStateRelationDataForApplication(
+		ctx context.Context,
+		applicationID coreapplication.ID,
+	) ([]relation.GoalStateRelationData, error)
+
 	// GetLocalRelationApplicationSettings returns the application settings
 	// for the given application and relation identifier combination.
 	// ApplicationSettings may only be read by the application leader.
