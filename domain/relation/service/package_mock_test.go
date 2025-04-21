@@ -1023,6 +1023,45 @@ func (c *MockStateLeaveScopeCall) DoAndReturn(f func(context.Context, relation.U
 	return c
 }
 
+// NeedsSubordinateUnit mocks base method.
+func (m *MockState) NeedsSubordinateUnit(arg0 context.Context, arg1 relation.UUID, arg2 unit.Name) (*application.ID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NeedsSubordinateUnit", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*application.ID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NeedsSubordinateUnit indicates an expected call of NeedsSubordinateUnit.
+func (mr *MockStateMockRecorder) NeedsSubordinateUnit(arg0, arg1, arg2 any) *MockStateNeedsSubordinateUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NeedsSubordinateUnit", reflect.TypeOf((*MockState)(nil).NeedsSubordinateUnit), arg0, arg1, arg2)
+	return &MockStateNeedsSubordinateUnitCall{Call: call}
+}
+
+// MockStateNeedsSubordinateUnitCall wrap *gomock.Call
+type MockStateNeedsSubordinateUnitCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNeedsSubordinateUnitCall) Return(arg0 *application.ID, arg1 error) *MockStateNeedsSubordinateUnitCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNeedsSubordinateUnitCall) Do(f func(context.Context, relation.UUID, unit.Name) (*application.ID, error)) *MockStateNeedsSubordinateUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNeedsSubordinateUnitCall) DoAndReturn(f func(context.Context, relation.UUID, unit.Name) (*application.ID, error)) *MockStateNeedsSubordinateUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetRelationApplicationAndUnitSettings mocks base method.
 func (m *MockState) SetRelationApplicationAndUnitSettings(arg0 context.Context, arg1 relation.UnitUUID, arg2, arg3 map[string]string) error {
 	m.ctrl.T.Helper()

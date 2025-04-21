@@ -4,6 +4,7 @@
 package relation
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
@@ -242,4 +244,11 @@ type RelationLifeSuspendedData struct {
 	EndpointIdentifiers []corerelation.EndpointIdentifier
 	Life                life.Value
 	Suspended           bool
+}
+
+// SubordinateCreator creates subordinate units in the database.
+type SubordinateCreator interface {
+	// CreateSubordinate is the signature of the function used to create units on a
+	// subordinate application.
+	CreateSubordinate(ctx context.Context, subordinateAppID application.ID, principalUnitName unit.Name) error
 }

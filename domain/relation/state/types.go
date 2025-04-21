@@ -88,9 +88,10 @@ type getRelatedUnit struct {
 }
 
 type getRelationUnit struct {
-	RelationUUID corerelation.UUID     `db:"relation_uuid"`
-	UnitUUID     corerelation.UnitUUID `db:"unit_uuid"`
-	Name         unit.Name             `db:"name"`
+	RelationUUID     corerelation.UUID     `db:"relation_uuid"`
+	RelationUnitUUID corerelation.UnitUUID `db:"relation_unit_uuid"`
+	UnitUUID         unit.UUID             `db:"unit_uuid"`
+	Name             unit.Name             `db:"name"`
 }
 
 type getLife struct {

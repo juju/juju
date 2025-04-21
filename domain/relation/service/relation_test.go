@@ -30,7 +30,8 @@ import (
 type relationServiceSuite struct {
 	jujutesting.IsolationSuite
 
-	state *MockState
+	state              *MockState
+	subordinateCreator *MockSubordinateCreator
 
 	service *Service
 }
@@ -758,9 +759,41 @@ func (s *relationServiceSuite) TestEnterScope(c *gc.C) {
 	unitName := coreunittesting.GenNewName(c, "app1/0")
 	settings := map[string]string{"ingress": "x.x.x.x"}
 	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings).Return(nil)
+	s.state.EXPECT().NeedsSubordinateUnit(gomock.Any(), relationUUID, unitName).Return(nil, nil)
 
 	// Act.
-	err := s.service.EnterScope(context.Background(), relationUUID, unitName, settings)
+	err := s.service.EnterScope(
+		context.Background(),
+		relationUUID,
+		unitName,
+		settings,
+		nil,
+	)
+	// Assert.
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *relationServiceSuite) TestEnterScopeCreatingSubordinate(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	settings := map[string]string{"ingress": "x.x.x.x"}
+	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings).Return(nil)
+
+	subAppID := coreapplicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().NeedsSubordinateUnit(gomock.Any(), relationUUID, unitName).Return(&subAppID, nil)
+	s.subordinateCreator.EXPECT().CreateSubordinate(gomock.Any(), subAppID, unitName).Return(nil)
+
+	// Act.
+	err := s.service.EnterScope(
+		context.Background(),
+		relationUUID,
+		unitName,
+		settings,
+		s.subordinateCreator,
+	)
 
 	// Assert.
 	c.Assert(err, jc.ErrorIsNil)
@@ -773,7 +806,7 @@ func (s *relationServiceSuite) TestEnterScopeRelationUUIDNotValid(c *gc.C) {
 	unitName := coreunittesting.GenNewName(c, "app1/0")
 
 	// Act.
-	err := s.service.EnterScope(context.Background(), "bad-uuid", unitName, map[string]string{})
+	err := s.service.EnterScope(context.Background(), "bad-uuid", unitName, map[string]string{}, nil)
 
 	// Assert.
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
@@ -786,7 +819,7 @@ func (s *relationServiceSuite) TestEnterScopeRelationUnitNameNotValid(c *gc.C) {
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 
 	// Act.
-	err := s.service.EnterScope(context.Background(), relationUUID, "", map[string]string{})
+	err := s.service.EnterScope(context.Background(), relationUUID, "", map[string]string{}, nil)
 
 	// Assert.
 	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
@@ -1024,6 +1057,8 @@ func (s *relationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)
+	s.subordinateCreator = NewMockSubordinateCreator(ctrl)
+
 	s.service = NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	return ctrl
