@@ -180,7 +180,6 @@ func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
 				BridgeName:     "bridge",
 				MACAddress:     "mac",
 			}},
-			ReconfigureDelay: 666,
 		}},
 	}
 
@@ -188,14 +187,13 @@ func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
 	s.expectCall(caller, "HostChangesForContainers", args, results)
 
 	client := provisioner.NewClient(caller)
-	result, delay, err := client.HostChangesForContainer(context.Background(), names.NewMachineTag("666"))
+	result, err := client.HostChangesForContainer(context.Background(), names.NewMachineTag("666"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "host",
 		BridgeName: "bridge",
 		MACAddress: "mac",
 	}})
-	c.Assert(delay, gc.Equals, 666)
 }
 
 func (s *provisionerSuite) TestContainerManagerConfig(c *gc.C) {

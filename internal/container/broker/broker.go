@@ -34,7 +34,7 @@ type APICalls interface {
 	GetContainerProfileInfo(context.Context, names.MachineTag) ([]*apiprovisioner.LXDProfileResult, error)
 	ReleaseContainerAddresses(context.Context, names.MachineTag) error
 	SetHostMachineNetworkConfig(context.Context, names.MachineTag, []params.NetworkConfig) error
-	HostChangesForContainer(context.Context, names.MachineTag) ([]network.DeviceToBridge, int, error)
+	HostChangesForContainer(context.Context, names.MachineTag) ([]network.DeviceToBridge, error)
 }
 
 // resolvConf contains the full path to common resolv.conf files on the local
