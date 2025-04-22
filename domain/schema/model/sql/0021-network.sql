@@ -36,23 +36,18 @@ CREATE TABLE link_layer_device (
     net_node_uuid TEXT NOT NULL,
     name TEXT NOT NULL,
     mtu INT,
-    -- will be NULL for a placeholder link layer device.
+    -- NULL for a placeholder link layer device.
     mac_address TEXT,
-    -- provider_id comes from the provider, no FK.
-    provider_id TEXT,
-    -- one of loopback, ethernet, bridge etc.
     device_type_id INT NOT NULL,
-    -- one of nonvirtualport, openvswitch
     virtual_port_type_id INT NOT NULL,
-    -- true if the device should be activated on boot.
-    is_auto_start BOOLEAN NOT NULL DEFAULT false,
-    -- true when the device is up (enabled).
+    -- True if the device should be activated on boot.
+    is_auto_start BOOLEAN NOT NULL DEFAULT true,
+    -- True when the device is in the up state.
     is_enabled BOOLEAN NOT NULL DEFAULT true,
-    -- the link layer device which is the parent to this device.
-    parent_device_uuid TEXT,
-    CONSTRAINT fk_link_layer_device_parent_device
-    FOREIGN KEY (parent_device_uuid)
-    REFERENCES link_layer_device (uuid),
+    -- True if traffic is routed out of this device by default.
+    is_default_gateway BOOLEAN NOT NULL DEFAULT false,
+    -- IP address of the default gateway.
+    gateway_address TEXT,
     CONSTRAINT fk_link_layer_device_net_node
     FOREIGN KEY (net_node_uuid)
     REFERENCES net_node (uuid),
@@ -62,6 +57,43 @@ CREATE TABLE link_layer_device (
     CONSTRAINT fk_link_layer_device_virtual_port_type
     FOREIGN KEY (virtual_port_type_id)
     REFERENCES virtual_port_type (id)
+);
+
+CREATE TABLE link_layer_device_parent (
+    device_uuid TEXT NOT NULL PRIMARY KEY,
+    parent_uuid TEXT NOT NULL,
+    CONSTRAINT fk_link_layer_device_parent_device
+    FOREIGN KEY (device_uuid)
+    REFERENCES link_layer_device (uuid),
+    CONSTRAINT fk_link_layer_device_parent_parent
+    FOREIGN KEY (parent_uuid)
+    REFERENCES link_layer_device (uuid)
+);
+
+CREATE TABLE provider_link_layer_device (
+    provider_id TEXT NOT NULL PRIMARY KEY,
+    device_uuid TEXT NOT NULL,
+    CONSTRAINT fk_provider_device_uuid
+    FOREIGN KEY (device_uuid)
+    REFERENCES link_layer_device (uuid)
+);
+
+CREATE TABLE link_layer_device_dns_domain (
+    device_uuid TEXT NOT NULL,
+    search_domain TEXT NOT NULL,
+    CONSTRAINT fk_dns_search_domain_dev
+    FOREIGN KEY (device_uuid)
+    REFERENCES link_layer_device (uuid),
+    PRIMARY KEY (device_uuid, search_domain)
+);
+
+CREATE TABLE link_layer_device_dns_address (
+    device_uuid TEXT NOT NULL,
+    dns_address TEXT NOT NULL,
+    CONSTRAINT fk_dns_server_device
+    FOREIGN KEY (device_uuid)
+    REFERENCES link_layer_device (uuid),
+    PRIMARY KEY (device_uuid, dns_address)
 );
 
 -- ip_address_type represents the possible ways of specifying
@@ -181,25 +213,12 @@ CREATE TABLE ip_address (
     REFERENCES ip_address_scope (id)
 );
 
-CREATE TABLE ip_address_dns_server_address (
+CREATE TABLE provider_ip_address (
+    provider_id TEXT NOT NULL PRIMARY KEY,
     address_uuid TEXT NOT NULL,
-    dns_server_address_uuid TEXT NOT NULL,
-    CONSTRAINT fk_ip_address_dns_server_address_dns_server_address
-    FOREIGN KEY (dns_server_address_uuid)
-    REFERENCES ip_address (uuid),
-    CONSTRAINT fk_ip_address_dns_server_address_ip_address
+    CONSTRAINT fk_provider_ip_address
     FOREIGN KEY (address_uuid)
-    REFERENCES ip_address (uuid),
-    PRIMARY KEY (dns_server_address_uuid, address_uuid)
-);
-
-CREATE TABLE ip_address_dns_search_domain (
-    address_uuid TEXT NOT NULL,
-    search_domain TEXT NOT NULL,
-    CONSTRAINT fk_ip_address_dns_search_domain_ip_address
-    FOREIGN KEY (address_uuid)
-    REFERENCES ip_address (uuid),
-    PRIMARY KEY (address_uuid, search_domain)
+    REFERENCES ip_address (uuid)
 );
 
 -- network_address_scope denotes the context a network address may apply to.
@@ -295,26 +314,3 @@ SELECT
     null AS origin_id,
     fa.scope_id
 FROM fqdn_address AS fa;
-
-CREATE TABLE ip_address_provider (
-    -- a provider-specific ID of the IP address.
-    provider_id TEXT NOT NULL PRIMARY KEY,
-    address_uuid TEXT NOT NULL,
-    CONSTRAINT fk_provider_ip_address_ip_address
-    FOREIGN KEY (address_uuid)
-    REFERENCES ip_address (uuid)
-);
-
-CREATE TABLE ip_address_gateway (
-    address_uuid TEXT NOT NULL,
-    -- The IP address of the gateway this IP address's
-    -- device uses.
-    gateway_address TEXT NOT NULL,
-    -- true if that device/subnet is the default gateway
-    -- of the node.
-    is_default_gateway BOOLEAN DEFAULT false,
-    CONSTRAINT fk_ip_address_subnet_ip_address
-    FOREIGN KEY (address_uuid)
-    REFERENCES ip_address (uuid),
-    PRIMARY KEY (address_uuid, gateway_address)
-);
