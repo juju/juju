@@ -400,7 +400,6 @@ var (
 )
 
 func (c *addCommand) tryManualProvision(ctx *cmd.Context, client manual.ProvisioningClientAPI, config *config.Config) error {
-
 	var provisionMachine manual.ProvisionMachineFunc
 	switch c.Placement.Scope {
 	case sshScope:
