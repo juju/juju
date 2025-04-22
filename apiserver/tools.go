@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/apiserver/httpcontext"
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
-	corearch "github.com/juju/juju/core/arch"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
@@ -208,7 +207,7 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 		agentStream,
 		coreagentbinary.Version{
 			Number: vers.Number,
-			Arch:   corearch.Arch(vers.Arch),
+			Arch:   vers.Arch,
 		},
 		md.Size,
 		metadata.SHA256,

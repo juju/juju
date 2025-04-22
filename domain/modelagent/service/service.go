@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/juju/core/agentbinary"
-	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/semversion"
@@ -20,7 +19,7 @@ import (
 )
 
 type State interface {
-	// GetMachinesAgentBinaryMetada reports the agent binary metadata that each
+	// GetMachinesAgentBinaryMetadata reports the agent binary metadata that each
 	// machine in the model is currently running. This is a bulk call to support
 	// operations such as model export where it is expected that the state of a
 	// model stays relatively static over the operation. This function will
@@ -47,13 +46,13 @@ type State interface {
 	// not exist.
 	// - [github.com/juju/juju/domain/modelagent/errors.AgentVersionNotFound]
 	// when no running agent version has been set for the given machine.
-	GetMachineRunningAgentBinaryVersion(context.Context, string) (coreagentbinary.Version, error)
+	GetMachineRunningAgentBinaryVersion(context.Context, string) (agentbinary.Version, error)
 
 	// GetMachineTargetAgentVersion returns the target agent version for the specified machine.
 	// The following error types can be expected:
 	// - [github.com/juju/juju/domain/modelagent/errors.AgentVersionNotFound] when
 	// the agent version does not exist.
-	GetMachineTargetAgentVersion(context.Context, string) (coreagentbinary.Version, error)
+	GetMachineTargetAgentVersion(context.Context, string) (agentbinary.Version, error)
 
 	// GetMachineUUIDByName returns the UUID of a machine identified by its
 	// name. If no machine exists for this name an error satisfying
@@ -90,7 +89,7 @@ type State interface {
 	// exist.
 	// - [github.com/juju/juju/domain/modelagent/errors.AgentVersionNotFound] when no
 	// running agent version has been reported for the given machine.
-	GetUnitRunningAgentBinaryVersion(context.Context, coreunit.UUID) (coreagentbinary.Version, error)
+	GetUnitRunningAgentBinaryVersion(context.Context, coreunit.UUID) (agentbinary.Version, error)
 
 	// GetUnitTargetAgentVersion returns the target agent version for the specified unit.
 	// The following error types can be expected:
@@ -98,7 +97,7 @@ type State interface {
 	// unit does not exist.
 	// - [github.com/juju/juju/domain/modelagent/errors.AgentVersionNotFound] when
 	// the agent version does not exist.
-	GetUnitTargetAgentVersion(context.Context, coreunit.UUID) (coreagentbinary.Version, error)
+	GetUnitTargetAgentVersion(context.Context, coreunit.UUID) (agentbinary.Version, error)
 
 	// GetUnitUUIDByName returns the UUID for the named unit, returning an
 	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
@@ -116,7 +115,7 @@ type State interface {
 	// - [machineerrors.MachineIsDead] if the machine is dead.
 	// - [github.com/juju/juju/core/errors.NotSupported] if the architecture is
 	// not known to the database.
-	SetMachineRunningAgentBinaryVersion(context.Context, string, coreagentbinary.Version) error
+	SetMachineRunningAgentBinaryVersion(context.Context, string, agentbinary.Version) error
 
 	// SetUnitRunningAgentBinaryVersion sets the running agent version for the unit.
 	// The following error types can be expected:
@@ -124,7 +123,7 @@ type State interface {
 	// - [applicationerrors.UnitIsDead] - when the unit is dead.
 	// - [github.com/juju/juju/core/errors.NotSupported] if the architecture is
 	// not known to the database.
-	SetUnitRunningAgentBinaryVersion(context.Context, coreunit.UUID, coreagentbinary.Version) error
+	SetUnitRunningAgentBinaryVersion(context.Context, coreunit.UUID, agentbinary.Version) error
 }
 
 // WatcherFactory provides a factory for constructing new watchers.
@@ -190,14 +189,14 @@ func (s *Service) GetMachinesNotAtTargetAgentVersion(
 func (s *Service) GetMachineReportedAgentVersion(
 	ctx context.Context,
 	machineName machine.Name,
-) (coreagentbinary.Version, error) {
+) (agentbinary.Version, error) {
 	uuid, err := s.st.GetMachineUUIDByName(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
-		return coreagentbinary.Version{}, errors.Errorf(
+		return agentbinary.Version{}, errors.Errorf(
 			"machine %q does not exist", machineName,
 		).Add(machineerrors.MachineNotFound)
 	} else if err != nil {
-		return coreagentbinary.Version{}, errors.Errorf(
+		return agentbinary.Version{}, errors.Errorf(
 			"getting machine uuid for machine name %q: %w",
 			machineName.String(), err,
 		)
@@ -205,7 +204,7 @@ func (s *Service) GetMachineReportedAgentVersion(
 
 	ver, err := s.st.GetMachineRunningAgentBinaryVersion(ctx, uuid)
 	if err != nil {
-		return coreagentbinary.Version{}, errors.Capture(err)
+		return agentbinary.Version{}, errors.Capture(err)
 	}
 
 	return ver, nil
@@ -227,7 +226,7 @@ func (s *Service) GetMachineReportedAgentVersion(
 // for one or more units in the model.
 func (s *Service) GetMachinesAgentBinaryMetadata(
 	ctx context.Context,
-) (map[machine.Name]coreagentbinary.Metadata, error) {
+) (map[machine.Name]agentbinary.Metadata, error) {
 	return s.st.GetMachinesAgentBinaryMetadata(ctx)
 }
 
@@ -239,12 +238,12 @@ func (s *Service) GetMachinesAgentBinaryMetadata(
 func (s *Service) GetMachineTargetAgentVersion(
 	ctx context.Context,
 	machineName machine.Name,
-) (coreagentbinary.Version, error) {
+) (agentbinary.Version, error) {
 	uuid, err := s.st.GetMachineUUIDByName(ctx, machineName)
 	if errors.Is(err, machineerrors.MachineNotFound) {
-		return coreagentbinary.Version{}, errors.Errorf("machine %q does not exist", machineName).Add(machineerrors.MachineNotFound)
+		return agentbinary.Version{}, errors.Errorf("machine %q does not exist", machineName).Add(machineerrors.MachineNotFound)
 	} else if err != nil {
-		return coreagentbinary.Version{}, errors.Errorf(
+		return agentbinary.Version{}, errors.Errorf(
 			"checking if machine %q exists when getting target agent version: %w",
 			machineName, err,
 		)
@@ -268,7 +267,7 @@ func (s *Service) GetMachineTargetAgentVersion(
 // for one or more units in the model.
 func (s *Service) GetUnitsAgentBinaryMetadata(
 	ctx context.Context,
-) (map[coreunit.Name]coreagentbinary.Metadata, error) {
+) (map[coreunit.Name]agentbinary.Metadata, error) {
 	return s.st.GetUnitsAgentBinaryMetadata(ctx)
 }
 
@@ -292,14 +291,14 @@ func (s *Service) GetUnitsNotAtTargetAgentVersion(
 func (s *Service) GetUnitReportedAgentVersion(
 	ctx context.Context,
 	unitName coreunit.Name,
-) (coreagentbinary.Version, error) {
+) (agentbinary.Version, error) {
 	uuid, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
-		return coreagentbinary.Version{}, errors.Errorf(
+		return agentbinary.Version{}, errors.Errorf(
 			"unit %q does not exist", unitName,
 		).Add(applicationerrors.UnitNotFound)
 	} else if err != nil {
-		return coreagentbinary.Version{}, errors.Errorf(
+		return agentbinary.Version{}, errors.Errorf(
 			"getting unit uuid for unit name %q: %w",
 			unitName.String(), err,
 		)
@@ -307,7 +306,7 @@ func (s *Service) GetUnitReportedAgentVersion(
 
 	ver, err := s.st.GetUnitRunningAgentBinaryVersion(ctx, uuid)
 	if err != nil {
-		return coreagentbinary.Version{}, errors.Capture(err)
+		return agentbinary.Version{}, errors.Capture(err)
 	}
 
 	return ver, nil
@@ -322,12 +321,12 @@ func (s *Service) GetUnitReportedAgentVersion(
 func (s *Service) GetUnitTargetAgentVersion(
 	ctx context.Context,
 	unitName coreunit.Name,
-) (coreagentbinary.Version, error) {
+) (agentbinary.Version, error) {
 	uuid, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
-		return coreagentbinary.Version{}, errors.Errorf("unit %q does not exist", unitName).Add(applicationerrors.UnitNotFound)
+		return agentbinary.Version{}, errors.Errorf("unit %q does not exist", unitName).Add(applicationerrors.UnitNotFound)
 	} else if err != nil {
-		return coreagentbinary.Version{}, errors.Errorf(
+		return agentbinary.Version{}, errors.Errorf(
 			"checking if unit %q exists when getting target agent version: %w",
 			unitName, err,
 		)
@@ -358,7 +357,7 @@ func (s *Service) GetModelTargetAgentVersion(ctx context.Context) (semversion.Nu
 func (s *Service) SetMachineReportedAgentVersion(
 	ctx context.Context,
 	machineName machine.Name,
-	reportedVersion coreagentbinary.Version,
+	reportedVersion agentbinary.Version,
 ) error {
 	if err := machineName.Validate(); err != nil {
 		return errors.Errorf("setting reported agent version for machine: %w", err)
@@ -403,7 +402,7 @@ func (s *Service) SetMachineReportedAgentVersion(
 func (s *Service) SetUnitReportedAgentVersion(
 	ctx context.Context,
 	unitName coreunit.Name,
-	reportedVersion coreagentbinary.Version,
+	reportedVersion agentbinary.Version,
 ) error {
 	if err := unitName.Validate(); err != nil {
 		return errors.Errorf("unit name %q is not valid: %w", unitName, err)

@@ -429,7 +429,7 @@ func uploadTools(
 		reader, _, err := config.AgentBinaryStore.GetAgentBinaryForSHA256(ctx, sha256Sum)
 		if err != nil {
 			return internalerrors.Errorf(
-				"geting agent binaries for sha %q to upload in migration: %w",
+				"getting agent binaries for sha %q to upload in migration: %w",
 				sha256Sum, err,
 			)
 		}

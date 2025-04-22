@@ -10,7 +10,6 @@ import (
 	"github.com/canonical/sqlair"
 
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
-	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
@@ -249,8 +248,8 @@ FROM   machine
 
 	rval := make(map[machine.Name]coreagentbinary.Metadata, len(machineBinaryMetadata))
 	for _, machineRecord := range machineBinaryMetadata {
-		// Because we are performing a left join aginst agent binary store with
-		// no RI there exists the possability that machine might be using a
+		// Because we are performing a left join against agent binary store with
+		// no RI there exists the possibility that machine might be using a
 		// version that isn't in the model store. In theory this should never
 		// happen. We need to check all of the agent binary store values from
 		// the query for null to work out if this case exists.
@@ -282,7 +281,7 @@ FROM   machine
 			Size:   machineRecord.Size.Int64,
 			Version: coreagentbinary.Version{
 				Number: number,
-				Arch:   corearch.Arch(machineRecord.Architecture),
+				Arch:   machineRecord.Architecture,
 			},
 		}
 	}
@@ -601,8 +600,8 @@ FROM   unit
 
 	rval := make(map[coreunit.Name]coreagentbinary.Metadata, len(unitBinaryMetadata))
 	for _, unitRecord := range unitBinaryMetadata {
-		// Because we are performing a left join aginst agent binary store with
-		// no RI there exists the possability that unit might be using a
+		// Because we are performing a left join against agent binary store with
+		// no RI there exists the possibility that unit might be using a
 		// version that isn't in the model store. In theory this should never
 		// happen. We need to check all of the agent binary store values from
 		// the query for null to work out if this case exists.
@@ -639,7 +638,7 @@ FROM   unit
 			Size:   unitRecord.Size.Int64,
 			Version: coreagentbinary.Version{
 				Number: number,
-				Arch:   corearch.Arch(unitRecord.Architecture),
+				Arch:   unitRecord.Architecture,
 			},
 		}
 	}

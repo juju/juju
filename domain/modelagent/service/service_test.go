@@ -569,7 +569,7 @@ func (s *suite) TestGetUnitReportedAgentVersion(c *gc.C) {
 
 // TestGetMachinesReportedAgentVersionMachineAgentVersionNotSet asserts error
 // pass through on state of modelagenterrors.MachineAgentVersionNotSet to
-// satsify contract.
+// satisfy contract.
 func (s *suite) TestGetMachinesReportedAgentVersionMachineAgentVersionNotSet(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().GetMachinesAgentBinaryMetadata(gomock.Any()).Return(

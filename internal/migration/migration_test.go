@@ -239,7 +239,7 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 
 	dataStream := ioutil.NopCloser(strings.NewReader("test agent data"))
 
-	for sha, _ := range toolsMap {
+	for sha := range toolsMap {
 		s.agentBinaryStore.EXPECT().GetAgentBinaryForSHA256(gomock.Any(), sha).Return(dataStream, 15, nil)
 	}
 

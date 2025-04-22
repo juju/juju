@@ -456,14 +456,6 @@ func getUsedTools(model description.Model) []params.SerializedModelTools {
 	return out
 }
 
-func addToolsVersionForMachine(machine description.Machine, usedVersions set.Strings) {
-	tools := machine.Tools()
-	usedVersions.Add(tools.Version())
-	for _, container := range machine.Containers() {
-		addToolsVersionForMachine(container, usedVersions)
-	}
-}
-
 func getUsedResources(model description.Model) []params.SerializedModelResource {
 	var out []params.SerializedModelResource
 	for _, app := range model.Applications() {
