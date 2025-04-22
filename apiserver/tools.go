@@ -188,19 +188,23 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 	if err != nil {
 		return nil, 0, errors.Trace(err)
 	}
+	defer func() { _ = reader.Close() }()
 
 	domainServices, err := h.ctxt.domainServicesForRequest(r.Context())
 	if err != nil {
 		return nil, 0, errors.Trace(err)
 	}
 
-	// TODO (tlm): This is a temporary workaround in the transition to Dqlite
-	// that will be. This will be removed as part of JUJU-7812. We need to dual
-	// write what is downloaded to the model agent store so that migration
-	// continues to work.
+	// TODO (tlm): This is a temporary workaround in the transition to Dqlite.
+	//  This will be removed as part of JUJU-7812. We need to dual
+	//  write what is downloaded to the model agent store so that migration
+	//  continues to work.
 	dataCache := bytes.NewBuffer(nil)
 	agentStream := io.TeeReader(reader, dataCache)
 	metadata, err := storage.Metadata(vers.String())
+	if err != nil {
+		return nil, 0, errors.Annotatef(err, "getting metadata for agent binary version %s", vers.String())
+	}
 
 	err = domainServices.AgentBinaryStore().AddAgentBinaryWithSHA256(
 		r.Context(),
@@ -212,7 +216,6 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 		md.Size,
 		metadata.SHA256,
 	)
-	reader.Close()
 	if err != nil {
 		logger.Errorf(r.Context(), "replicating downloaded agent binary into model store: %v", err)
 	}

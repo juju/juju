@@ -50,20 +50,18 @@ import (
 // during the export. The intent of this is to be able to get a partial
 // export to support other API calls, like status.
 type ExportConfig struct {
-	IgnoreIncompleteModel    bool
-	SkipActions              bool
-	SkipAnnotations          bool
-	SkipCloudImageMetadata   bool
-	SkipCredentials          bool
-	SkipIPAddresses          bool
-	SkipSettings             bool
-	SkipSSHHostKeys          bool
-	SkipLinkLayerDevices     bool
-	SkipUnitAgentBinaries    bool
-	SkipMachineAgentBinaries bool
-	SkipRelationData         bool
-	SkipInstanceData         bool
-	SkipSecrets              bool
+	IgnoreIncompleteModel  bool
+	SkipActions            bool
+	SkipAnnotations        bool
+	SkipCloudImageMetadata bool
+	SkipCredentials        bool
+	SkipIPAddresses        bool
+	SkipSettings           bool
+	SkipSSHHostKeys        bool
+	SkipLinkLayerDevices   bool
+	SkipRelationData       bool
+	SkipInstanceData       bool
+	SkipSecrets            bool
 }
 
 // ExportPartial the current model for the State optionally skipping

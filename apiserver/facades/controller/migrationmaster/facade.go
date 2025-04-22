@@ -442,6 +442,9 @@ func getUsedTools(model description.Model) []params.SerializedModelTools {
 
 	for _, machine := range model.Machines() {
 		addTools(machine.Tools())
+		for _, container := range machine.Containers() {
+			addTools(container.Tools())
+		}
 	}
 	for _, application := range model.Applications() {
 		for _, unit := range application.Units() {

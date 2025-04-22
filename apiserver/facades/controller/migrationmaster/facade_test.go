@@ -355,9 +355,20 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 	})
 
 	const tools0 = "2.0.0-ubuntu-amd64"
-	const tools1 = "2.0.0-ubuntu-amd64"
+	const tools1 = "2.0.1-ubuntu-amd64"
+	const tools2 = "2.0.2-ubuntu-amd64"
 	m := s.model.AddMachine(description.MachineArgs{Id: "9"})
 	m.SetTools(description.AgentToolsArgs{
+		Version: tools1,
+		SHA256:  "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e",
+	})
+	c1 := m.AddContainer(description.MachineArgs{Id: "9/lxd/0"})
+	c1.SetTools(description.AgentToolsArgs{
+		Version: tools2,
+		SHA256:  "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3daaa",
+	})
+	c2 := m.AddContainer(description.MachineArgs{Id: "9/lxd/1"})
+	c2.SetTools(description.AgentToolsArgs{
 		Version: tools1,
 		SHA256:  "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e",
 	})
@@ -378,7 +389,7 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 	})
 	unit.SetTools(description.AgentToolsArgs{
 		Version: tools0,
-		SHA256:  "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e",
+		SHA256:  "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3dbbb",
 	})
 
 	s.modelExporter.EXPECT().ExportModel(gomock.Any(), s.store).Return(s.model, nil)
@@ -396,7 +407,9 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 		c.Check(serialized.Tools, gc.HasLen, 0)
 	} else {
 		c.Check(serialized.Tools, jc.SameContents, []params.SerializedModelTools{
-			{Version: tools0, URI: "/tools/" + tools0, SHA256: "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e"},
+			{Version: tools0, URI: "/tools/" + tools0, SHA256: "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3dbbb"},
+			{Version: tools1, URI: "/tools/" + tools1, SHA256: "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e"},
+			{Version: tools2, URI: "/tools/" + tools2, SHA256: "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3daaa"},
 		})
 	}
 	c.Check(serialized.Resources, gc.DeepEquals, []params.SerializedModelResource{{

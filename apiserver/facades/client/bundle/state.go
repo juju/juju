@@ -29,8 +29,6 @@ func (m *stateShim) GetExportConfig() state.ExportConfig {
 	cfg.SkipSSHHostKeys = true
 	cfg.SkipLinkLayerDevices = true
 	cfg.SkipRelationData = true
-	cfg.SkipMachineAgentBinaries = true
-	cfg.SkipUnitAgentBinaries = true
 	cfg.SkipInstanceData = true
 	cfg.SkipSecrets = true
 

@@ -21,8 +21,8 @@ import (
 )
 
 // baseAgentBinaryExportOperation describes the base set of operation
-// characteristics shared between export operations of this package.
-// Specifically the common need for the export service.
+// characteristics shared between export operations of this package,
+// specifically the common need for the export service.
 type baseAgentBinaryExportOperation struct {
 	modelmigration.BaseOperation
 	exportService ExportService
@@ -47,7 +47,7 @@ type ExportService interface {
 	// when one or more machines in the model do not have their agent binary
 	// version set.
 	// - [github.com/juju/juju/domain/modelagent/errors.MissingAgentBinaries]
-	// when the agent binaries don't exist for one or more units in the model.
+	// when the agent binaries don't exist for one or more machines in the model.
 	GetMachinesAgentBinaryMetadata(
 		context.Context,
 	) (map[coremachine.Name]coreagentbinary.Metadata, error)

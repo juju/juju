@@ -223,7 +223,7 @@ func (s *Service) GetMachineReportedAgentVersion(
 // - [modelagenterrors.MachineAgentVersionNotSet] when one or more machines in
 // the model do not have their agent binary version set.
 // - [modelagenterrors.MissingAgentBinaries] when the agent binaries don't exist
-// for one or more units in the model.
+// for one or more machines in the model.
 func (s *Service) GetMachinesAgentBinaryMetadata(
 	ctx context.Context,
 ) (map[machine.Name]agentbinary.Metadata, error) {

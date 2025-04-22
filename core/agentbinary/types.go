@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// Metadata describes the data around an available agent binary with in the
+// Metadata describes the data around an available agent binary within the
 // system.
 type Metadata struct {
 	// Version is the version of the agent binary blob.

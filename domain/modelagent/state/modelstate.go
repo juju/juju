@@ -163,7 +163,7 @@ func (st *State) checkUnitNotDead(
 	}
 }
 
-// GetMachinesAgentBinaryMetada reports the agent binary metadata that each
+// GetMachinesAgentBinaryMetadata reports the agent binary metadata that each
 // machine in the model is currently running. This is a bulk call to support
 // operations such as model export where it is expected that the state of a
 // model stays relatively static over the operation. This function will never
@@ -177,14 +177,14 @@ func (st *State) checkUnitNotDead(
 func (st *State) GetMachinesAgentBinaryMetadata(
 	ctx context.Context,
 ) (map[machine.Name]coreagentbinary.Metadata, error) {
-	// As of writing this we do not maintain a strong RI between the agent
+	// As of writing we do not maintain a strong RI between the agent
 	// binary that a machine should be running and an agent binary in the
 	// model's store. To do this we would need to start refactoring how machines
 	// work and that is to record the intent with which a machine is provisioned.
 	// i.e we would need to start caching the fact that we expect machine x to
 	// use version y with agent binaries z.
 	//
-	// This would also actively getting agent binaries from external sources
+	// This would also require actively getting agent binaries from external sources
 	// when creating machines. This is currently done lazily.
 
 	db, err := st.DB()
@@ -527,14 +527,14 @@ WHERE machine_uuid = $machineUUIDRef.machine_uuid
 func (st *State) GetUnitsAgentBinaryMetadata(
 	ctx context.Context,
 ) (map[coreunit.Name]coreagentbinary.Metadata, error) {
-	// As of writing this we do not maintain a strong RI between the agent
+	// As of writing we do not maintain a strong RI between the agent
 	// binary that a unit should be running and an agent binary in the
 	// model's store. To do this we would need to start refactoring how units
 	// work and that is to record the intent with which a unit is provisioned.
 	// i.e we would need to start caching the fact that we expect unit x to
 	// use version y with agent binaries z.
 	//
-	// This would also actively getting agent binaries from external sources
+	// This would also require actively getting agent binaries from external sources
 	// when creating units. This is currently done lazily.
 
 	db, err := st.DB()
@@ -626,13 +626,7 @@ FROM   unit
 			)
 		}
 
-		unitName, err := coreunit.NewName(unitRecord.UnitName)
-		if err != nil {
-			return nil, errors.Errorf(
-				"parsing unit name %q: %w", unitRecord.UnitName, err,
-			)
-		}
-		rval[unitName] = coreagentbinary.Metadata{
+		rval[coreunit.Name(unitRecord.UnitName)] = coreagentbinary.Metadata{
 			SHA256: unitRecord.SHA256.String,
 			SHA384: unitRecord.SHA384.String,
 			Size:   unitRecord.Size.Int64,
