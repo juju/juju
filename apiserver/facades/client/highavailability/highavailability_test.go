@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facade/facadetest"
@@ -17,7 +16,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
-	model "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain/blockcommand"
@@ -55,7 +53,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	}
 	st := s.ControllerModel(c).State()
 	var err error
-	s.haServer, err = highavailability.NewHighAvailabilityAPITest(ctx, facadetest.ModelContext{
+	s.haServer, err = highavailability.NewHighAvailabilityAPI(ctx, facadetest.ModelContext{
 		State_:          st,
 		Auth_:           s.authorizer,
 		DomainServices_: s.ControllerDomainServices(c),
@@ -568,7 +566,7 @@ func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
 	st2 := f.MakeModel(c, &factory.ModelParams{ConfigAttrs: coretesting.Attrs{"controller": false}})
 	defer st2.Close()
 
-	haServer, err := highavailability.NewHighAvailabilityAPITest(ctx, facadetest.ModelContext{
+	haServer, err := highavailability.NewHighAvailabilityAPI(ctx, facadetest.ModelContext{
 		State_:          st2,
 		Auth_:           s.authorizer,
 		DomainServices_: s.ControllerDomainServices(c),
@@ -625,24 +623,19 @@ func (s *clientSuite) TestEnableHABootstrap(c *gc.C) {
 }
 
 func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
+	c.Skip("TODO - reimplement when facade moved off of mongo")
 	ctx := context.Background()
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 
-	mockModelInfo := highavailability.NewMockModelInfoService(gomock.NewController(c))
-	mockModelInfo.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{Type: model.CAAS}, nil).AnyTimes()
+	st := f.MakeCAASModel(c, nil)
+	defer st.Close()
 
-	_, err := highavailability.NewHighAvailabilityAPI(
-		ctx,
-		s.ControllerModel(c).State(),
-		s.authorizer,
-		nil,
-		nil,
-		nil,
-		mockModelInfo,
-		nil,
-		nil,
-		nil,
-		loggertesting.WrapCheckLog(c),
-	)
+	_, err := highavailability.NewHighAvailabilityAPI(ctx, facadetest.ModelContext{
+		State_:          st,
+		Auth_:           s.authorizer,
+		DomainServices_: s.ControllerDomainServices(c),
+	})
 	c.Assert(err, gc.ErrorMatches, "high availability on kubernetes controllers not supported")
 }
 

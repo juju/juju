@@ -4,5 +4,5 @@
 package highavailability
 
 var (
-	NewHighAvailabilityAPITest = newHighAvailabilityAPI
+	NewHighAvailabilityAPI = newHighAvailabilityAPI
 )

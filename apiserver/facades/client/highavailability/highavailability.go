@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -55,12 +54,6 @@ type ApplicationService interface {
 		storageParentDir, name string,
 		units ...applicationservice.AddUnitArg,
 	) error
-}
-
-// ModelInfoService provides access to information about the model.
-type ModelInfoService interface {
-	// GetModelInfo returns information about the current model.
-	GetModelInfo(context.Context) (model.ModelInfo, error)
 }
 
 // ControllerConfigService instances read the controller config.
@@ -457,43 +450,4 @@ func (api *HighAvailabilityAPI) ControllerDetails(
 		})
 	}
 	return results, nil
-}
-
-// NewHighAvailabilityAPI returns a new HighAvailabilityAPI instance.
-func NewHighAvailabilityAPI(
-	ctx context.Context,
-	st *state.State,
-	auth facade.Authorizer,
-	nodeService NodeService,
-	machineService MachineService,
-	applicationService ApplicationService,
-	modelInfoService ModelInfoService,
-	controllerConfigService ControllerConfigService,
-	networkService NetworkService,
-	blockCommandService BlockCommandService,
-	logger corelogger.Logger,
-) (*HighAvailabilityAPI, error) {
-	if !auth.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
-
-	modelInfo, err := modelInfoService.GetModelInfo(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if modelInfo.Type == model.CAAS {
-		return nil, errors.NotSupportedf("high availability on kubernetes controllers")
-	}
-
-	return &HighAvailabilityAPI{
-		st:                      st,
-		nodeService:             nodeService,
-		machineService:          machineService,
-		applicationService:      applicationService,
-		controllerConfigService: controllerConfigService,
-		networkService:          networkService,
-		blockCommandService:     blockCommandService,
-		authorizer:              auth,
-		logger:                  logger,
-	}, nil
 }
