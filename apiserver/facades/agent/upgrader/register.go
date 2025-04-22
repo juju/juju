@@ -78,7 +78,7 @@ func newUpgraderFacade(ctx facade.ModelContext) (Upgrader, error) {
 	urlGetter := common.NewToolsURLGetter(ctx.ModelUUID().String(), ctrlSt)
 	toolsFinder := common.NewToolsFinder(
 		controllerConfigGetter, st, urlGetter, ctx.ControllerObjectStore(),
-		domainServices.Stub(),
+		domainServices.AgentBinary(),
 	)
 	toolsGetter := common.NewToolsGetter(domainServices.Agent(), st, urlGetter, toolsFinder, getCanReadWrite)
 

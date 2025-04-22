@@ -21,10 +21,10 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
+	agentbinaryservice "github.com/juju/juju/domain/agentbinary/service"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
-	stubdomain "github.com/juju/juju/domain/stub"
 	"github.com/juju/juju/internal/errors"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
@@ -231,15 +231,15 @@ type toolsFinder struct {
 	toolsStorageGetter      ToolsStorageGetter
 	urlGetter               ToolsURLGetter
 	store                   objectstore.ObjectStore
-	stubService             StubService
+	agentBinaryService      AgentBinaryService
 }
 
-// StubService is an interface for getting the
+// AgentBinaryService is an interface for getting the
 // EnvironAgentBinariesFinder function.
-type StubService interface {
+type AgentBinaryService interface {
 	// GetEnvironAgentBinariesFinder returns the function to find agent binaries.
 	// This is used to find the agent binaries.
-	GetEnvironAgentBinariesFinder() stubdomain.EnvironAgentBinariesFinderFunc
+	GetEnvironAgentBinariesFinder() agentbinaryservice.EnvironAgentBinariesFinderFunc
 }
 
 // NewToolsFinder returns a new ToolsFinder, returning tools
@@ -249,14 +249,14 @@ func NewToolsFinder(
 	toolsStorageGetter ToolsStorageGetter,
 	urlGetter ToolsURLGetter,
 	store objectstore.ObjectStore,
-	stubService StubService,
+	agentBinaryService AgentBinaryService,
 ) *toolsFinder {
 	return &toolsFinder{
 		controllerConfigService: controllerConfigService,
 		toolsStorageGetter:      toolsStorageGetter,
 		urlGetter:               urlGetter,
 		store:                   store,
-		stubService:             stubService,
+		agentBinaryService:      agentBinaryService,
 	}
 }
 
@@ -315,7 +315,7 @@ func (f *toolsFinder) findMatchingAgents(ctx context.Context, args FindAgentsPar
 		majorVersion = args.MajorVersion
 		minorVersion = args.MinorVersion
 	}
-	environAgentBinariesFinder := f.stubService.GetEnvironAgentBinariesFinder()
+	environAgentBinariesFinder := f.agentBinaryService.GetEnvironAgentBinariesFinder()
 	simplestreamsList, err := environAgentBinariesFinder(
 		ctx,
 		majorVersion, minorVersion,

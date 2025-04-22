@@ -156,6 +156,10 @@ func (s *ModelServices) AgentBinary() *agentbinaryservice.AgentBinaryService {
 	return agentbinaryservice.NewAgentBinaryService(
 		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		providertracker.ProviderRunner[agentbinaryservice.ProviderForAgentBinaryFinder](
+			s.providerFactory, s.modelUUID.String(),
+		),
+		envtools.PreferredStreams, envtools.FindTools,
 	)
 }
 
@@ -480,7 +484,5 @@ func (s *ModelServices) Stub() *stubservice.StubService {
 		changestream.NewTxnRunnerFactory(s.controllerDB),
 		changestream.NewTxnRunnerFactory(s.modelDB),
 		providertracker.ProviderRunner[stubservice.ProviderWithSecretToken](s.providerFactory, s.modelUUID.String()),
-		providertracker.ProviderRunner[stubservice.ProviderForAgentBinaryFinder](s.providerFactory, s.modelUUID.String()),
-		envtools.PreferredStreams, envtools.FindTools,
 	)
 }

@@ -160,7 +160,7 @@ type MachineManagerAPI struct {
 	machineService     MachineService
 	networkService     NetworkService
 	modelConfigService ModelConfigService
-	stubService        StubService
+	agentBinaryService AgentBinaryService
 
 	logger corelogger.Logger
 }
@@ -183,7 +183,7 @@ func NewMachineManagerAPI(
 	keyUpdaterService KeyUpdaterService,
 	modelConfigService ModelConfigService,
 	blockCommandService BlockCommandService,
-	stubService StubService,
+	agentBinaryService AgentBinaryService,
 ) *MachineManagerAPI {
 	api := &MachineManagerAPI{
 		model:                   model,
@@ -203,7 +203,7 @@ func NewMachineManagerAPI(
 		networkService:          networkService,
 		keyUpdaterService:       keyUpdaterService,
 		modelConfigService:      modelConfigService,
-		stubService:             stubService,
+		agentBinaryService:      agentBinaryService,
 	}
 	return api
 }
@@ -390,7 +390,7 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 		KeyUpdaterService:       mm.keyUpdaterService,
 		ModelConfigService:      mm.modelConfigService,
 		MachineService:          mm.machineService,
-		StubService:             mm.stubService,
+		AgentBinaryService:      mm.agentBinaryService,
 	}
 
 	icfg, err := InstanceConfig(

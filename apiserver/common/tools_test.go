@@ -131,7 +131,7 @@ type findToolsSuite struct {
 	storage            *mocks.MockStorageCloser
 	store              *mocks.MockObjectStore
 
-	mockStubService *mocks.MockStubService
+	mockAgentBinaryService *mocks.MockAgentBinaryService
 }
 
 var _ = gc.Suite(&findToolsSuite{})
@@ -150,7 +150,7 @@ func (s *findToolsSuite) setup(c *gc.C) *gomock.Controller {
 	}).AnyTimes()
 
 	s.storage = mocks.NewMockStorageCloser(ctrl)
-	s.mockStubService = mocks.NewMockStubService(ctrl)
+	s.mockAgentBinaryService = mocks.NewMockAgentBinaryService(ctrl)
 	s.store = mocks.NewMockObjectStore(ctrl)
 	return ctrl
 }
@@ -175,7 +175,7 @@ func (s *findToolsSuite) TestFindToolsMatchMajor(c *gc.C) {
 		},
 	}
 
-	s.mockStubService.EXPECT().GetEnvironAgentBinariesFinder().Return(
+	s.mockAgentBinaryService.EXPECT().GetEnvironAgentBinariesFinder().Return(
 		func(_ context.Context, major, minor int, version semversion.Number, _ string, filter coretools.Filter) (coretools.List, error) {
 			c.Assert(major, gc.Equals, 123)
 			c.Assert(minor, gc.Equals, 456)
@@ -195,7 +195,7 @@ func (s *findToolsSuite) TestFindToolsMatchMajor(c *gc.C) {
 	}}
 	s.expectMatchingStorageTools(storageMetadata, nil)
 
-	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, s.urlGetter, s.store, s.mockStubService)
+	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, s.urlGetter, s.store, s.mockAgentBinaryService)
 
 	result, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{
 		MajorVersion: 123,
@@ -233,7 +233,7 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *gc.C) {
 		},
 	}
 
-	s.mockStubService.EXPECT().GetEnvironAgentBinariesFinder().Return(
+	s.mockAgentBinaryService.EXPECT().GetEnvironAgentBinariesFinder().Return(
 		func(_ context.Context, major, minor int, version semversion.Number, requestedStream string, filter coretools.Filter) (coretools.List, error) {
 			c.Assert(major, gc.Equals, 123)
 			c.Assert(minor, gc.Equals, 456)
@@ -251,7 +251,7 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *gc.C) {
 	}}
 	s.expectMatchingStorageTools(storageMetadata, nil)
 
-	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, s.urlGetter, s.store, s.mockStubService)
+	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, s.urlGetter, s.store, s.mockAgentBinaryService)
 	result, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{
 		MajorVersion: 123,
 		MinorVersion: 456,
@@ -277,7 +277,7 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *gc.C) {
 func (s *findToolsSuite) TestFindToolsNotFound(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.mockStubService.EXPECT().GetEnvironAgentBinariesFinder().Return(
+	s.mockAgentBinaryService.EXPECT().GetEnvironAgentBinariesFinder().Return(
 		func(_ context.Context, major, minor int, version semversion.Number, requestedStream string, filter coretools.Filter) (coretools.List, error) {
 			return nil, errors.NotFoundf("tools")
 		},
@@ -285,7 +285,7 @@ func (s *findToolsSuite) TestFindToolsNotFound(c *gc.C) {
 
 	s.expectMatchingStorageTools([]binarystorage.Metadata{}, nil)
 
-	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, nil, s.store, s.mockStubService)
+	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, nil, s.store, s.mockAgentBinaryService)
 	_, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{})
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
@@ -295,7 +295,7 @@ func (s *findToolsSuite) TestFindToolsToolsStorageError(c *gc.C) {
 
 	s.expectMatchingStorageTools(nil, errors.New("AllMetadata failed"))
 
-	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, s.urlGetter, s.store, s.mockStubService)
+	toolsFinder := common.NewToolsFinder(controllerConfigService{}, s.toolsStorageGetter, s.urlGetter, s.store, s.mockAgentBinaryService)
 	_, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{})
 	// ToolsStorage errors always cause FindAgents to bail. Only
 	// if AllMetadata succeeds but returns nothing that matches

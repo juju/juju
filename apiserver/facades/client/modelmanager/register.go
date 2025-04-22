@@ -70,7 +70,7 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 	toolsFinder := common.NewToolsFinder(
 		controllerConfigService, st, urlGetter,
 		ctx.ControllerObjectStore(),
-		domainServices.Stub(),
+		domainServices.AgentBinary(),
 	)
 
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)

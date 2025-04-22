@@ -53,7 +53,7 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 	toolsFinder := common.NewToolsFinder(
 		controllerConfigService, st, urlGetter,
 		ctx.ControllerObjectStore(),
-		domainServices.Stub(),
+		domainServices.AgentBinary(),
 	)
 
 	modelAgentServiceGetter := func(modelID coremodel.UUID) ModelAgentService {

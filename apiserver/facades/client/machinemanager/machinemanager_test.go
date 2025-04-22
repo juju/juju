@@ -52,7 +52,7 @@ type AddMachineManagerSuite struct {
 	networkService          *MockNetworkService
 	keyUpdaterService       *MockKeyUpdaterService
 	blockCommandService     *MockBlockCommandService
-	stubService             *MockStubService
+	agentBinaryService      *MockAgentBinaryService
 }
 
 var _ = gc.Suite(&AddMachineManagerSuite{})
@@ -81,7 +81,7 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.blockCommandService = NewMockBlockCommandService(ctrl)
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound).AnyTimes()
-	s.stubService = NewMockStubService(ctrl)
+	s.agentBinaryService = NewMockAgentBinaryService(ctrl)
 
 	s.api = NewMachineManagerAPI(
 		s.model,
@@ -103,7 +103,7 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		s.keyUpdaterService,
 		nil,
 		s.blockCommandService,
-		s.stubService,
+		s.agentBinaryService,
 	)
 
 	return ctrl
@@ -205,7 +205,7 @@ type DestroyMachineManagerSuite struct {
 	networkService          *MockNetworkService
 	keyUpdaterService       *MockKeyUpdaterService
 	blockCommandService     *MockBlockCommandService
-	stubService             *MockStubService
+	agentBinaryService      *MockAgentBinaryService
 }
 
 var _ = gc.Suite(&DestroyMachineManagerSuite{})
@@ -239,7 +239,7 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.blockCommandService = NewMockBlockCommandService(ctrl)
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound).AnyTimes()
-	s.stubService = NewMockStubService(ctrl)
+	s.agentBinaryService = NewMockAgentBinaryService(ctrl)
 
 	s.api = NewMachineManagerAPI(
 		s.model,
@@ -261,7 +261,7 @@ func (s *DestroyMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller {
 		s.keyUpdaterService,
 		nil,
 		s.blockCommandService,
-		s.stubService,
+		s.agentBinaryService,
 	)
 
 	return ctrl
@@ -735,7 +735,7 @@ type ProvisioningMachineManagerSuite struct {
 	modelConfigService      *MockModelConfigService
 	bootstrapEnviron        *MockBootstrapEnviron
 	blockCommandService     *MockBlockCommandService
-	stubService             *MockStubService
+	agentBinaryService      *MockAgentBinaryService
 }
 
 var _ = gc.Suite(&ProvisioningMachineManagerSuite{})
@@ -774,7 +774,7 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller
 	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound).AnyTimes()
 
 	s.machineService.EXPECT().GetBootstrapEnviron(gomock.Any()).Return(s.bootstrapEnviron, nil).AnyTimes()
-	s.stubService = NewMockStubService(ctrl)
+	s.agentBinaryService = NewMockAgentBinaryService(ctrl)
 
 	s.api = NewMachineManagerAPI(
 		s.model,
@@ -796,7 +796,7 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *gc.C) *gomock.Controller
 		s.keyUpdaterService,
 		s.modelConfigService,
 		s.blockCommandService,
-		s.stubService,
+		s.agentBinaryService,
 	)
 	return ctrl
 }

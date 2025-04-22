@@ -12,7 +12,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
-	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/cloud/state"
@@ -20,12 +19,8 @@ import (
 	credstate "github.com/juju/juju/domain/credential/state"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	modelstate "github.com/juju/juju/domain/model/state"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/simplestreams"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/errors"
-	coretools "github.com/juju/juju/internal/tools"
 )
 
 // StubService is a special service that collects temporary methods required for
@@ -42,42 +37,12 @@ type StubService struct {
 	modelState      *domain.StateBase
 	controllerState *domain.StateBase
 
-	providerWithSecretToken      providertracker.ProviderGetter[ProviderWithSecretToken]
-	providerForAgentBinaryFinder providertracker.ProviderGetter[ProviderForAgentBinaryFinder]
-
-	getPreferredSimpleStreams PreferredSimpleStreamsFunc
-	agentBinaryFilter         AgentBinaryFinder
+	providerWithSecretToken providertracker.ProviderGetter[ProviderWithSecretToken]
 }
-
-// PreferredSimpleStreamsFunc is a function that returns the preferred streams
-// for the given version and stream.
-type PreferredSimpleStreamsFunc func(
-	vers *semversion.Number,
-	forceDevel bool,
-	stream string,
-) []string
-
-// AgentBinaryFinder is a function that filters agent binaries based on the
-// given parameters. It returns a list of agent binaries that match the filter
-// criteria.
-type AgentBinaryFinder func(
-	ctx context.Context,
-	ss envtools.SimplestreamsFetcher,
-	env environs.BootstrapEnviron,
-	majorVersion,
-	minorVersion int,
-	streams []string,
-	filter coretools.Filter,
-) (coretools.List, error)
 
 // ProviderWithSecretToken is a subset of caas broker.
 type ProviderWithSecretToken interface {
 	GetSecretToken(ctx context.Context, name string) (string, error)
-}
-
-// ProviderForAgentBinaryFinder is a subset of cloud provider.
-type ProviderForAgentBinaryFinder interface {
-	environs.BootstrapEnviron
 }
 
 // NewStubService returns a new StubService.
@@ -86,18 +51,12 @@ func NewStubService(
 	controllerFactory database.TxnRunnerFactory,
 	modelFactory database.TxnRunnerFactory,
 	providerWithSecretToken providertracker.ProviderGetter[ProviderWithSecretToken],
-	providerForAgentBinaryFinder providertracker.ProviderGetter[ProviderForAgentBinaryFinder],
-	getPreferredSimpleStreams PreferredSimpleStreamsFunc,
-	agentBinaryFilter AgentBinaryFinder,
 ) *StubService {
 	return &StubService{
-		modelUUID:                    modelUUID,
-		controllerState:              domain.NewStateBase(controllerFactory),
-		modelState:                   domain.NewStateBase(modelFactory),
-		providerWithSecretToken:      providerWithSecretToken,
-		providerForAgentBinaryFinder: providerForAgentBinaryFinder,
-		getPreferredSimpleStreams:    getPreferredSimpleStreams,
-		agentBinaryFilter:            agentBinaryFilter,
+		modelUUID:               modelUUID,
+		controllerState:         domain.NewStateBase(controllerFactory),
+		modelState:              domain.NewStateBase(modelFactory),
+		providerWithSecretToken: providerWithSecretToken,
 	}
 }
 
@@ -148,44 +107,4 @@ func (s *StubService) GetExecSecretToken(ctx context.Context) (string, error) {
 	}
 
 	return provider.GetSecretToken(ctx, k8sprovider.ExecRBACResourceName)
-}
-
-// EnvironAgentBinariesFinderFunc is a function that can be used to find agent binaries
-// from the simplestreams data sources.
-type EnvironAgentBinariesFinderFunc func(
-	ctx context.Context,
-	major,
-	minor int,
-	version semversion.Number,
-	requestedStream string,
-	filter coretools.Filter,
-) (coretools.List, error)
-
-// GetEnvironAgentBinariesFinder returns a function that can be used to find
-// agent binaries from the simplestreams data sources.
-func (s *StubService) GetEnvironAgentBinariesFinder() EnvironAgentBinariesFinderFunc {
-	return func(
-		ctx context.Context,
-		major,
-		minor int,
-		version semversion.Number,
-		requestedStream string,
-		filter coretools.Filter,
-	) (coretools.List, error) {
-		provider, err := s.providerForAgentBinaryFinder(ctx)
-		if errors.Is(err, coreerrors.NotSupported) {
-			return nil, errors.Errorf("getting provider for agent binary finder %w", coreerrors.NotSupported)
-		}
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-		cfg := provider.Config()
-		if requestedStream == "" {
-			requestedStream = cfg.AgentStream()
-		}
-
-		streams := s.getPreferredSimpleStreams(&version, cfg.Development(), requestedStream)
-		ssFetcher := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
-		return s.agentBinaryFilter(ctx, ssFetcher, provider, major, minor, streams, filter)
-	}
 }
