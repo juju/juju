@@ -9,12 +9,14 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/application"
 	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/relation"
 	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/rpc/params"
 )
 
 // relationUnitsWatcher watches changes in related units for a specific unit
@@ -29,7 +31,7 @@ type relationUnitsWatcher struct {
 	unitName     coreunit.Name
 	relationUUID corerelation.UUID
 
-	out chan watcher.RelationUnitsChange
+	out chan params.RelationUnitsChange
 }
 
 // newRelationUnitsWatcher creates and starts a watcher for observing changes
@@ -46,12 +48,12 @@ func newRelationUnitsWatcher(
 	unit names.UnitTag,
 	relUUID corerelation.UUID,
 	relationService RelationService,
-) (watcher.RelationUnitsWatcher, error) {
+) (common.RelationUnitsWatcher, error) {
 	w := &relationUnitsWatcher{
 		relation:     relationService,
 		unitName:     coreunit.Name(unit.Id()),
 		relationUUID: relUUID,
-		out:          make(chan watcher.RelationUnitsChange),
+		out:          make(chan params.RelationUnitsChange),
 	}
 	return w, catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -64,7 +66,7 @@ func newRelationUnitsWatcher(
 // fetchRelationUnitChanges processes a list of changes from domain watcher,
 // categorizing them by type, and retrieves the updated relation unit data.
 func (w *relationUnitsWatcher) fetchRelationUnitChanges(ctx context.Context,
-	changes []string) (watcher.RelationUnitsChange, error) {
+	changes []string) (params.RelationUnitsChange, error) {
 	var changedUnitUUIDs []coreunit.UUID
 	var changedAppUUIDs []application.ID
 
@@ -72,7 +74,7 @@ func (w *relationUnitsWatcher) fetchRelationUnitChanges(ctx context.Context,
 	for _, change := range changes {
 		kind, uuid, err := relation.DecodeWatchRelationUnitChangeUUID(change)
 		if err != nil {
-			return watcher.RelationUnitsChange{}, internalerrors.Capture(err)
+			return params.RelationUnitsChange{}, internalerrors.Capture(err)
 		}
 		switch kind {
 		case relation.UnitUUID:
@@ -80,11 +82,31 @@ func (w *relationUnitsWatcher) fetchRelationUnitChanges(ctx context.Context,
 		case relation.ApplicationUUID:
 			changedAppUUIDs = append(changedAppUUIDs, application.ID(uuid))
 		default:
-			return watcher.RelationUnitsChange{}, internalerrors.Errorf("unknown relation unit change kind: %q", kind)
+			return params.RelationUnitsChange{}, internalerrors.Errorf("unknown relation unit change kind: %q", kind)
 		}
 	}
 
-	return w.relation.GetRelationUnitChanges(ctx, changedUnitUUIDs, changedAppUUIDs)
+	fetched, err := w.relation.GetRelationUnitChanges(ctx, changedUnitUUIDs, changedAppUUIDs)
+	if err != nil {
+		return params.RelationUnitsChange{}, internalerrors.Errorf("fetching related units watcher changes: %w", err)
+	}
+
+	return convertRelationUnitsChange(fetched), nil
+}
+
+func convertRelationUnitsChange(changes watcher.RelationUnitsChange) params.RelationUnitsChange {
+	var changed map[string]params.UnitSettings
+	if changes.Changed != nil {
+		changed = make(map[string]params.UnitSettings, len(changes.Changed))
+		for key, val := range changes.Changed {
+			changed[key] = params.UnitSettings{Version: val.Version}
+		}
+	}
+	return params.RelationUnitsChange{
+		Changed:    changed,
+		AppChanged: changes.AppChanged,
+		Departed:   changes.Departed,
+	}
 }
 
 // loop manages the lifecycle of the relationUnitsWatcher, processes related
@@ -101,8 +123,8 @@ func (w *relationUnitsWatcher) loop(ctx context.Context) error {
 		return internalerrors.Errorf("adding related units watcher to catacomb: %w", err)
 	}
 
-	var change watcher.RelationUnitsChange
-	var out chan watcher.RelationUnitsChange
+	var change params.RelationUnitsChange
+	var out chan params.RelationUnitsChange
 	in := domainWatcher.Changes()
 
 	for {
@@ -135,8 +157,8 @@ func (w *relationUnitsWatcher) Wait() error {
 }
 
 // Changes is an implementation of [watcher.RelationUnitsWatcher]
-func (w *relationUnitsWatcher) Changes() <-chan watcher.RelationUnitsChange {
+func (w *relationUnitsWatcher) Changes() <-chan params.RelationUnitsChange {
 	return w.out
 }
 
-var _ watcher.RelationUnitsWatcher = &relationUnitsWatcher{}
+var _ common.RelationUnitsWatcher = &relationUnitsWatcher{}

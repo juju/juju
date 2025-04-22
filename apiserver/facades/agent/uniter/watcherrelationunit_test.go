@@ -18,6 +18,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/application"
 	coreapplicationtesting "github.com/juju/juju/core/application/testing"
@@ -342,18 +343,18 @@ func (s *watcherrelationunitSuite) expectWatchRelatedUnitWithEvents(c *gc.C, rel
 		return w, nil
 	})
 	registerWatcher := s.watcherRegistry.EXPECT().Register(gomock.Any()).DoAndReturn(func(worker worker.Worker) (string, error) {
-		w, ok := worker.(watcher.RelationUnitsWatcher)
+		w, ok := worker.(common.RelationUnitsWatcher)
 		c.Assert(ok, jc.IsTrue)
 		notStartedSafeGuard = nil // allow watcher to finish, since it is started
 		go func() {
 			wg.Add(1)
 			defer wg.Done()
-			watcherEvents := make([]watcher.RelationUnitsChange, 0, len(init.expectedEvents))
+			watcherEvents := make([]params.RelationUnitsChange, 0, len(init.expectedEvents))
 			for v := range w.Changes() { // consume all remaining events
 				c.Logf("%+v", v)
 				watcherEvents = append(watcherEvents, v)
 			}
-			c.Check(watcherEvents, gc.DeepEquals, init.expectedEvents)
+			c.Check(watcherEvents, gc.DeepEquals, transform.Slice(init.expectedEvents, convertRelationUnitsChange))
 			close(unexpectedFinishSafeGuard)
 		}()
 

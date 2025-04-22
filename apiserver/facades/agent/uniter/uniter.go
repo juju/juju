@@ -1786,26 +1786,11 @@ func (u *UniterAPI) watchOneRelationUnit(
 		}
 		return params.RelationUnitsWatchResult{
 			RelationUnitsWatcherId: id,
-			Changes:                convertRelationUnitsChange(changes),
+			Changes:                changes,
 		}, nil
 	}
 
 	return params.RelationUnitsWatchResult{}, nil
-}
-
-func convertRelationUnitsChange(changes watcher.RelationUnitsChange) params.RelationUnitsChange {
-	var changed map[string]params.UnitSettings
-	if changes.Changed != nil {
-		changed = make(map[string]params.UnitSettings, len(changes.Changed))
-		for key, val := range changes.Changed {
-			changed[key] = params.UnitSettings{Version: val.Version}
-		}
-	}
-	return params.RelationUnitsChange{
-		Changed:    changed,
-		AppChanged: changes.AppChanged,
-		Departed:   changes.Departed,
-	}
 }
 
 // SetRelationStatus updates the status of the specified relations.
