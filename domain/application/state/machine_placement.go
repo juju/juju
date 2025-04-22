@@ -41,16 +41,13 @@ func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive depl
 		return st.getMachineNetNodeUUIDFromName(ctx, tx, machine.Name(directive.Directive))
 
 	case deployment.PlacementTypeContainer:
-		// The placement is container scoped (example: lxd), so we need to
-		// create a parent machine (the next in the sequence) with the
-		// associated net node UUID. Then we need to create a child machine
-		// for the container and link it to the parent machine.
-		machineName, err := st.nextMachineSequence(ctx, tx)
-		if err != nil {
-			return "", errors.Capture(err)
-		}
-
-		machineUUID, _, err := st.insertMachineAndNetNode(ctx, tx, machineName)
+		// The placement is container scoped (example: lxd or lxd:0). If there
+		// is no directive, we need to create a parent machine (the next in the
+		// sequence) with the associated net node UUID. With a directive we need
+		// to look up the existing machine and place it there. Then we need to
+		// create a child machine for the container and link it to the parent
+		// machine.
+		machineUUID, machineName, err := st.acquireParentMachineForContainer(ctx, tx, directive.Directive)
 		if err != nil {
 			return "", errors.Capture(err)
 		}
@@ -85,6 +82,55 @@ func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive depl
 	default:
 		return "", errors.Errorf("invalid placement type: %v", directive.Type)
 	}
+}
+
+func (st *State) acquireParentMachineForContainer(ctx context.Context, tx *sqlair.TX, directive string) (machine.UUID, machine.Name, error) {
+	// If the directive is not empty, we need to look up the existing machine
+	// by name (example: 0) and then return the associated machine
+	// UUID.
+	if directive != "" {
+		machineName := machine.Name(directive)
+		machineUUID, err := st.getMachineUUIDFromName(ctx, tx, machineName)
+		if err != nil {
+			return "", "", errors.Capture(err)
+		}
+		return machineUUID, machineName, nil
+	}
+
+	// The directive is empty, so we need to create a new machine for the
+	// parent machine. We need to get the next machine sequence and then
+	// create the machine and net node.
+	machineName, err := st.nextMachineSequence(ctx, tx)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	machineUUID, _, err := st.insertMachineAndNetNode(ctx, tx, machineName)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+	return machineUUID, machineName, nil
+}
+
+func (st *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, name machine.Name) (machine.UUID, error) {
+	machine := machineNameWithMachineUUID{Name: name}
+	query := `
+SELECT &machineNameWithMachineUUID.uuid
+FROM machine
+WHERE name = $machineNameWithMachineUUID.name
+`
+	stmt, err := st.Prepare(query, machine)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt, machine).Get(&machine)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", errors.Errorf("machine %q not found", name).
+			Add(applicationerrors.MachineNotFound)
+	} else if err != nil {
+		return "", errors.Errorf("querying machine %q: %w", name, err)
+	}
+	return machine.UUID, nil
 }
 
 func (st *State) getMachineNetNodeUUIDFromName(ctx context.Context, tx *sqlair.TX, name machine.Name) (string, error) {

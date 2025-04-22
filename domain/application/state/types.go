@@ -1175,6 +1175,11 @@ type machineNameWithNetNode struct {
 	NetNodeUUID string       `db:"net_node_uuid"`
 }
 
+type machineNameWithMachineUUID struct {
+	Name machine.Name `db:"name"`
+	UUID machine.UUID `db:"uuid"`
+}
+
 type netNodeUUID struct {
 	NetNodeUUID string `db:"uuid"`
 }

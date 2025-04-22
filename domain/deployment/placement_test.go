@@ -91,8 +91,11 @@ func (s *PlacementSuite) TestPlacement(c *gc.C) {
 				Scope:     "lxd",
 				Directive: "0",
 			},
-			output: Placement{},
-			err:    ptr(`placement directive "0" is not supported for container type "lxd"`),
+			output: Placement{
+				Type:      PlacementTypeContainer,
+				Container: ContainerTypeLXD,
+				Directive: "0",
+			},
 		},
 		{
 			input: &instance.Placement{
