@@ -6,7 +6,6 @@ package logtailer
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"regexp"
@@ -284,7 +283,6 @@ func (t *logTailer) tailFile(seekTo *tail.SeekInfo) (err error) {
 
 func (t *logTailer) includeRecord(rec corelogger.LogRecord) bool {
 	// If it's not firehose we need to check the model UUID.
-	fmt.Println(t.params.Firehose, rec.ModelUUID, t.modelUUID)
 	if !t.params.Firehose && rec.ModelUUID != t.modelUUID {
 		return false
 	}
