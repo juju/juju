@@ -152,10 +152,10 @@ func (tt *Tracker) machineHostKeys(req RequestArgs) ([]gossh.PublicKey, error) {
 	return machineHostKeys, nil
 }
 
-// RequestTunnel requests a tunnel to a model specific unit.
+// RequestTunnel establishes an SSH connection to a model specific unit.
 //
-// The returned tunnelRequest should be used to wait for the tunnel to be established.
-// See Wait() for more information.
+// This method will block until the tunnel is established or the context
+// is cancelled or a maximum timeout of `maxTimeout` is reached.
 func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.Client, error) {
 	tunnelID, err := uuid.NewRandom()
 	if err != nil {
