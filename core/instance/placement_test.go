@@ -30,6 +30,10 @@ func (s *PlacementSuite) TestParsePlacement(c *gc.C) {
 		expectScope:     instance.MachineScope,
 		expectDirective: "0/lxd/0",
 	}, {
+		arg:             "lxd:0",
+		expectScope:     string(instance.LXD),
+		expectDirective: "0",
+	}, {
 		arg: "#:x",
 		err: `invalid value "x" for "#" scope: expected machine-id`,
 	}, {

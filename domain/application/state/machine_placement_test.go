@@ -234,6 +234,56 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainer(c *gc.C) {
 	s.ensureSequenceForContainerNamespace(c, machine.Name("0"), 0)
 }
 
+func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *gc.C) {
+	// Ensure the child machine got created on the parent machine.
+
+	// Insert a machine with no placement, then place a container on it.
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		_, err := s.state.placeMachine(ctx, tx, deployment.Placement{
+			Type: deployment.PlacementTypeUnset,
+		})
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var netNode string
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		netNode, err = s.state.placeMachine(ctx, tx, deployment.Placement{
+			Type:      deployment.PlacementTypeContainer,
+			Container: deployment.ContainerTypeLXD,
+			Directive: "0",
+		})
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(netNode, gc.Not(gc.Equals), "")
+
+	var resultNetNode string
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		resultNetNode, err = s.state.getMachineNetNodeUUIDFromName(ctx, tx, machine.Name("0/lxd/0"))
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(resultNetNode, gc.Equals, netNode)
+
+	s.ensureSequenceForMachineNamespace(c, 0)
+	s.ensureSequenceForContainerNamespace(c, machine.Name("0"), 0)
+}
+
+func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirectiveMachineNotFound(c *gc.C) {
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		_, err := s.state.placeMachine(ctx, tx, deployment.Placement{
+			Type:      deployment.PlacementTypeContainer,
+			Container: deployment.ContainerTypeLXD,
+			Directive: "1",
+		})
+		return err
+	})
+	c.Assert(err, jc.ErrorIs, applicationerrors.MachineNotFound)
+}
+
 func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerMultipleTimes(c *gc.C) {
 	total := 10
 

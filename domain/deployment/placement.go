@@ -92,8 +92,6 @@ func ParsePlacement(placement *instance.Placement) (Placement, error) {
 		container, err := instance.ParseContainerType(placement.Scope)
 		if err != nil {
 			return Placement{}, errors.Capture(err)
-		} else if placement.Directive != "" {
-			return Placement{}, errors.Errorf("placement directive %q is not supported for container type %q", placement.Directive, placement.Scope)
 		}
 
 		containerType, err := parseContainerType(container)
@@ -104,6 +102,7 @@ func ParsePlacement(placement *instance.Placement) (Placement, error) {
 		return Placement{
 			Type:      PlacementTypeContainer,
 			Container: containerType,
+			Directive: placement.Directive,
 		}, nil
 	}
 }
