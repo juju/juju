@@ -58,6 +58,5 @@ func (s *LogRecordSuite) TestMarshallRoundTrip(c *gc.C) {
 	var got logger.LogRecord
 	err = json.Unmarshal(data, &got)
 	c.Assert(err, jc.ErrorIsNil)
-	rec.ModelUUID = ""
 	c.Assert(got, jc.DeepEquals, *rec)
 }

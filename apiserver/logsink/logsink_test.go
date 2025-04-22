@@ -118,7 +118,7 @@ func (s *logsinkSuite) TestSuccess(c *gc.C) {
 			break
 		}
 	}
-	s.stub.CheckCallNames(c, "Open", "WriteLog", "Close")
+	s.stub.CheckCallNames(c, "Open", "WriteLog")
 }
 
 func (s *logsinkSuite) TestLogMessages(c *gc.C) {
@@ -210,7 +210,7 @@ func (s *logsinkSuite) TestSuccessWithLabels(c *gc.C) {
 			break
 		}
 	}
-	s.stub.CheckCallNames(c, "Open", "WriteLog", "WriteLog", "WriteLog", "Close")
+	s.stub.CheckCallNames(c, "Open", "WriteLog", "WriteLog", "WriteLog")
 }
 
 func (s *logsinkSuite) TestLogOpenFails(c *gc.C) {

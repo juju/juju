@@ -89,7 +89,6 @@ import (
 	"github.com/juju/juju/internal/worker/leaseexpiry"
 	"github.com/juju/juju/internal/worker/logger"
 	"github.com/juju/juju/internal/worker/logsink"
-	"github.com/juju/juju/internal/worker/logsinkservices"
 	"github.com/juju/juju/internal/worker/machineactions"
 	"github.com/juju/juju/internal/worker/machiner"
 	"github.com/juju/juju/internal/worker/migrationflag"
@@ -611,13 +610,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewModelLogger: logsink.NewModelLogger,
 			LogSink:        config.LogSink,
 		})),
-
-		logSinkServicesName: logsinkservices.Manifold(logsinkservices.ManifoldConfig{
-			ChangeStreamName:   changeStreamName,
-			Logger:             internallogger.GetLogger("juju.worker.logsinkservices"),
-			NewWorker:          logsinkservices.NewWorker,
-			NewLogSinkServices: logsinkservices.NewLogSinkServices,
-		}),
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
 			AgentName:              agentName,
@@ -1343,9 +1335,7 @@ const (
 	leaseExpiryName               = "lease-expiry"
 	leaseManagerName              = "lease-manager"
 	loggingConfigUpdaterName      = "logging-config-updater"
-	logSenderName                 = "log-sender"
 	logSinkName                   = "log-sink"
-	logSinkServicesName           = "log-sink-services"
 	lxdContainerProvisioner       = "lxd-container-provisioner"
 	machineActionName             = "machine-action-runner"
 	machinerName                  = "machiner"
