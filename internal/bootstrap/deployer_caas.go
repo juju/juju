@@ -8,14 +8,12 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/version"
 	applicationservice "github.com/juju/juju/domain/application/service"
-	"github.com/juju/juju/state"
 )
 
 // CloudService is the interface that is used to get the cloud service
@@ -30,17 +28,10 @@ type CloudServiceGetter interface {
 	CloudService(string) (CloudService, error)
 }
 
-// OperationApplier is the interface that is used to apply operations.
-type OperationApplier interface {
-	// ApplyOperation applies the given operation.
-	ApplyOperation(*state.UpdateUnitOperation) error
-}
-
 // CAASDeployerConfig holds the configuration for a CAASDeployer.
 type CAASDeployerConfig struct {
 	BaseDeployerConfig
 	CloudServiceGetter CloudServiceGetter
-	OperationApplier   OperationApplier
 	UnitPassword       string
 }
 
@@ -52,9 +43,6 @@ func (c CAASDeployerConfig) Validate() error {
 	if c.CloudServiceGetter == nil {
 		return errors.NotValidf("CloudServiceGetter")
 	}
-	if c.OperationApplier == nil {
-		return errors.NotValidf("OperationApplier")
-	}
 	return nil
 }
 
@@ -63,7 +51,6 @@ func (c CAASDeployerConfig) Validate() error {
 type CAASDeployer struct {
 	baseDeployer
 	cloudServiceGetter CloudServiceGetter
-	operationApplier   OperationApplier
 	unitPassword       string
 }
 
@@ -75,14 +62,13 @@ func NewCAASDeployer(config CAASDeployerConfig) (*CAASDeployer, error) {
 	return &CAASDeployer{
 		baseDeployer:       makeBaseDeployer(config.BaseDeployerConfig),
 		cloudServiceGetter: config.CloudServiceGetter,
-		operationApplier:   config.OperationApplier,
 		unitPassword:       config.UnitPassword,
 	}, nil
 }
 
 // ControllerAddress returns the address of the controller that should be
 // used.
-func (d *CAASDeployer) ControllerAddress(context.Context) (string, error) {
+func (d *CAASDeployer) ControllerAddress(ctx context.Context) (string, error) {
 	s, err := d.cloudServiceGetter.CloudService(d.controllerConfig.ControllerUUID())
 	if err != nil {
 		return "", errors.Trace(err)
@@ -94,7 +80,7 @@ func (d *CAASDeployer) ControllerAddress(context.Context) (string, error) {
 	if len(addr) > 0 {
 		controllerAddress = addr[0]
 	}
-	d.logger.Debugf(context.TODO(), "CAAS controller address %v", controllerAddress)
+	d.logger.Debugf(ctx, "CAAS controller address %v", controllerAddress)
 	return controllerAddress, nil
 }
 
@@ -105,33 +91,19 @@ func (d *CAASDeployer) ControllerCharmBase() (corebase.Base, error) {
 }
 
 // CompleteProcess is called when the bootstrap process is complete.
-func (d *CAASDeployer) CompleteProcess(ctx context.Context, controllerUnit Unit) error {
-	providerID := controllerProviderID(controllerUnit.UnitTag())
-	controllerUnitName, err := coreunit.NewName(controllerUnit.UnitTag().Id())
-	if err != nil {
-		return errors.Annotatef(err, "parsing controller unit name %q", controllerUnit.UnitTag().Id())
-	}
-	if err := d.applicationService.UpdateCAASUnit(ctx, controllerUnitName, applicationservice.UpdateCAASUnitParams{
+func (d *CAASDeployer) CompleteProcess(ctx context.Context, controllerUnit coreunit.Name) error {
+	providerID := controllerProviderID(controllerUnit)
+	if err := d.applicationService.UpdateCAASUnit(ctx, controllerUnit, applicationservice.UpdateCAASUnitParams{
 		ProviderID: &providerID,
 	}); err != nil {
 		return errors.Annotatef(err, "updating controller unit")
 	}
-	if err := d.passwordService.SetUnitPassword(ctx, controllerUnitName, d.unitPassword); err != nil {
+	if err := d.passwordService.SetUnitPassword(ctx, controllerUnit, d.unitPassword); err != nil {
 		return errors.Annotate(err, "setting controller unit password")
 	}
-
-	// TODO(units) - remove dual write to state
-	op := controllerUnit.UpdateOperation(state.UnitUpdateProperties{
-		ProviderId: &providerID,
-	})
-
-	if err := d.operationApplier.ApplyOperation(op); err != nil {
-		return errors.Annotate(err, "cannot update controller unit")
-	}
-
 	return nil
 }
 
-func controllerProviderID(unitTag names.UnitTag) string {
-	return fmt.Sprintf("controller-%d", unitTag.Number())
+func controllerProviderID(name coreunit.Name) string {
+	return fmt.Sprintf("controller-%d", name.Number())
 }

@@ -10,19 +10,15 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/errors"
-	"github.com/juju/schema"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/errors"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/unit"
 	domainapplication "github.com/juju/juju/domain/application"
@@ -34,7 +30,6 @@ import (
 	"github.com/juju/juju/internal/charm/charmdownloader"
 	charmtesting "github.com/juju/juju/internal/charm/testing"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/state"
 )
 
 type deployerSuite struct {
@@ -52,16 +47,6 @@ func (s *deployerSuite) TestValidate(c *gc.C) {
 
 	cfg = s.newConfig(c)
 	cfg.DataDir = ""
-	err = cfg.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
-
-	cfg = s.newConfig(c)
-	cfg.StateBackend = nil
-	err = cfg.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
-
-	cfg = s.newConfig(c)
-	cfg.CharmUploader = nil
 	err = cfg.Validate()
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 
@@ -242,50 +227,6 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 
 	curl := "ch:juju-controller-0"
 
-	s.stateBackend.EXPECT().AddApplication(gomock.Any(), s.objectStore).DoAndReturn(func(args state.AddApplicationArgs, store objectstore.ObjectStore) (Application, error) {
-		appCfg, err := coreconfig.NewConfig(nil, configSchema, schema.Defaults{
-			coreapplication.TrustConfigOptionName: true,
-		})
-		c.Assert(err, jc.ErrorIsNil)
-
-		// It's interesting that although we don't pass a channel, a stable one
-		// is set when persisting the charm origin. I wonder if it would be
-		// better to not persist anything at all. In that way we can be sure
-		// that we didn't accidentally persist something that we shouldn't have.
-		c.Check(args, gc.DeepEquals, state.AddApplicationArgs{
-			Name:     bootstrap.ControllerApplicationName,
-			Charm:    s.charm,
-			CharmURL: "ch:juju-controller-0",
-			CharmOrigin: &state.CharmOrigin{
-				Source:   "charm-hub",
-				Type:     "charm",
-				Revision: ptr(1),
-				Channel: &state.Channel{
-					Risk: "stable",
-				},
-				Platform: &state.Platform{
-					Architecture: "arm64",
-					OS:           "ubuntu",
-					Channel:      "22.04",
-				},
-			},
-			CharmConfig: map[string]any{
-				"is-juju":               true,
-				"controller-url":        "wss://obscura.com:1234/api",
-				"identity-provider-url": "https://inferi.com",
-			},
-			Constraints:       constraints.Value{},
-			ApplicationConfig: appCfg,
-			NumUnits:          1,
-		})
-
-		return s.application, nil
-	})
-	unitName, err := unit.NewNameFromParts(bootstrap.ControllerApplicationName, 0)
-	c.Assert(err, jc.ErrorIsNil)
-	s.application.EXPECT().Name().Return(bootstrap.ControllerApplicationName)
-	s.stateBackend.EXPECT().Unit(unitName.String()).Return(s.unit, nil)
-
 	// The application is called "controller" and the charm is called
 	// "juju-controller". Do not change this, or the controller charm won't
 	// come back up.
@@ -316,8 +257,11 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 			},
 			CharmStoragePath:     "path",
 			CharmObjectStoreUUID: "1234",
+			ApplicationSettings: domainapplication.ApplicationSettings{
+				Trust: true,
+			},
 		},
-		applicationservice.AddUnitArg{UnitName: unitName},
+		applicationservice.AddUnitArg{UnitName: unit.Name("controller/0")},
 	)
 
 	deployer := s.newBaseDeployer(c, cfg)
@@ -411,8 +355,6 @@ bases:
 func (s *deployerSuite) newBaseDeployer(c *gc.C, cfg BaseDeployerConfig) baseDeployer {
 	deployer := makeBaseDeployer(cfg)
 
-	deployer.stateBackend = s.stateBackend
-	deployer.charmUploader = s.charmUploader
 	deployer.objectStore = s.objectStore
 
 	return deployer

@@ -14,24 +14,17 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/errors"
-	"github.com/juju/names/v6"
-	"github.com/juju/schema"
-
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/controller"
-	coreapplication "github.com/juju/juju/core/application"
 	corearch "github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/unit"
+	coreunit "github.com/juju/juju/core/unit"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -39,7 +32,7 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/charmdownloader"
 	"github.com/juju/juju/internal/charm/repository"
-	"github.com/juju/juju/internal/configschema"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/state"
 )
 
@@ -56,16 +49,16 @@ type DeployCharmInfo struct {
 // Validate validates the DeployCharmInfo.
 func (d DeployCharmInfo) Validate() error {
 	if d.URL == nil {
-		return errors.NotValidf("URL is nil")
+		return errors.Errorf("URL is nil").Add(coreerrors.NotValid)
 	}
 	if d.Charm == nil {
-		return errors.New("Charm is nil")
+		return errors.Errorf("Charm is nil").Add(coreerrors.NotValid)
 	}
 	if d.Origin == nil {
-		return errors.New("Origin is nil")
+		return errors.Errorf("Origin is nil").Add(coreerrors.NotValid)
 	}
 	if err := d.Origin.Validate(); err != nil {
-		return errors.Annotate(err, "Origin")
+		return errors.Errorf("Origin: %w", err)
 	}
 	return nil
 }
@@ -81,7 +74,7 @@ type ControllerCharmDeployer interface {
 	DeployCharmhubCharm(context.Context, string, corebase.Base) (DeployCharmInfo, error)
 
 	// AddControllerApplication adds the controller application.
-	AddControllerApplication(context.Context, DeployCharmInfo, string) (Unit, error)
+	AddControllerApplication(context.Context, DeployCharmInfo, string) (coreunit.Name, error)
 
 	// ControllerAddress returns the address of the controller that should be
 	// used.
@@ -96,21 +89,12 @@ type ControllerCharmDeployer interface {
 	ControllerCharmArch() string
 
 	// CompleteProcess is called when the bootstrap process is complete.
-	CompleteProcess(context.Context, Unit) error
+	CompleteProcess(context.Context, coreunit.Name) error
 }
 
 // Machine is the interface that is used to get information about a machine.
 type Machine interface {
-	DocID() string
-	Id() string
-	MachineTag() names.MachineTag
-	Life() state.Life
-	Clean() bool
-	ContainerType() instance.ContainerType
 	Base() state.Base
-	Jobs() []state.MachineJob
-	AddPrincipal(string)
-	FileSystems() []string
 	PublicAddress() (network.SpaceAddress, error)
 }
 
@@ -123,12 +107,6 @@ type MachineGetter interface {
 // HTTPClient is the interface that is used to make HTTP requests.
 type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
-}
-
-// CharmUploader is an interface that is used to update the charm in
-// state and upload it to the object store.
-type CharmUploader interface {
-	ModelUUID() string
 }
 
 // CharmHubRepoFunc is the function that is used to create a charm repository.
@@ -163,27 +141,14 @@ type Application interface {
 type Unit interface {
 	// UpdateOperation returns a model operation that will update a unit.
 	UpdateOperation(state.UnitUpdateProperties) *state.UpdateUnitOperation
-	// AssignToMachineRef assigns this unit to a given machine.
-	AssignToMachineRef(state.MachineRef) error
-	// UnitTag returns the tag of the unit.
-	UnitTag() names.UnitTag
-}
-
-// StateBackend is the interface that is used to get information about the
-// state.
-type StateBackend interface {
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
-	Unit(string) (Unit, error)
 }
 
 // BaseDeployerConfig holds the configuration for a baseDeployer.
 type BaseDeployerConfig struct {
 	DataDir              string
-	StateBackend         StateBackend
 	ApplicationService   ApplicationService
 	AgentPasswordService AgentPasswordService
 	ModelConfigService   ModelConfigService
-	CharmUploader        CharmUploader
 	ObjectStore          objectstore.ObjectStore
 	Constraints          constraints.Value
 	ControllerConfig     controller.Config
@@ -198,51 +163,43 @@ type BaseDeployerConfig struct {
 // Validate validates the configuration.
 func (c BaseDeployerConfig) Validate() error {
 	if c.DataDir == "" {
-		return errors.NotValidf("DataDir")
-	}
-	if c.StateBackend == nil {
-		return errors.NotValidf("StateBackend")
+		return errors.Errorf("DataDir").Add(coreerrors.NotValid)
 	}
 	if c.ApplicationService == nil {
-		return errors.NotValidf("ApplicationService")
+		return errors.Errorf("ApplicationService").Add(coreerrors.NotValid)
 	}
 	if c.AgentPasswordService == nil {
-		return errors.NotValidf("AgentPasswordService")
+		return errors.Errorf("AgentPasswordService").Add(coreerrors.NotValid)
 	}
 	if c.ModelConfigService == nil {
-		return errors.NotValidf("ModelConfigService")
-	}
-	if c.CharmUploader == nil {
-		return errors.NotValidf("CharmUploader")
+		return errors.Errorf("ModelConfigService").Add(coreerrors.NotValid)
 	}
 	if c.ObjectStore == nil {
-		return errors.NotValidf("ObjectStore")
+		return errors.Errorf("ObjectStore").Add(coreerrors.NotValid)
 	}
 	if c.ControllerConfig == nil {
-		return errors.NotValidf("ControllerConfig")
+		return errors.Errorf("ControllerConfig").Add(coreerrors.NotValid)
 	}
 	if c.NewCharmHubRepo == nil {
-		return errors.NotValidf("NewCharmHubRepo")
+		return errors.Errorf("NewCharmHubRepo").Add(coreerrors.NotValid)
 	}
 	if c.NewCharmDownloader == nil {
-		return errors.NotValidf("NewCharmDownloader")
+		return errors.Errorf("NewCharmDownloader").Add(coreerrors.NotValid)
 	}
 	if c.CharmhubHTTPClient == nil {
-		return errors.NotValidf("CharmhubHTTPClient")
+		return errors.Errorf("CharmhubHTTPClient").Add(coreerrors.NotValid)
 	}
 	if c.Logger == nil {
-		return errors.NotValidf("Logger")
+		return errors.Errorf("Logger").Add(coreerrors.NotValid)
 	}
 	return nil
 }
 
 type baseDeployer struct {
 	dataDir             string
-	stateBackend        StateBackend
 	applicationService  ApplicationService
 	passwordService     AgentPasswordService
 	modelConfigService  ModelConfigService
-	charmUploader       CharmUploader
 	objectStore         objectstore.ObjectStore
 	constraints         constraints.Value
 	controllerConfig    controller.Config
@@ -257,11 +214,9 @@ type baseDeployer struct {
 func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
 	return baseDeployer{
 		dataDir:             config.DataDir,
-		stateBackend:        config.StateBackend,
 		passwordService:     config.AgentPasswordService,
 		applicationService:  config.ApplicationService,
 		modelConfigService:  config.ModelConfigService,
-		charmUploader:       config.CharmUploader,
 		objectStore:         config.ObjectStore,
 		constraints:         config.Constraints,
 		controllerConfig:    config.ControllerConfig,
@@ -290,14 +245,14 @@ func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base c
 	path := filepath.Join(b.dataDir, "charms", bootstrap.ControllerCharmArchive)
 	info, err := os.Stat(path)
 	if os.IsNotExist(err) {
-		return DeployCharmInfo{}, errors.NotFoundf(path)
+		return DeployCharmInfo{}, errors.Errorf("opening charm with path %q", path).Add(coreerrors.NotFound)
 	} else if err != nil {
-		return DeployCharmInfo{}, errors.Trace(err)
+		return DeployCharmInfo{}, errors.Capture(err)
 	}
 
 	sha256, sha384, err := b.calculateLocalCharmHashes(path, info.Size())
 	if err != nil {
-		return DeployCharmInfo{}, errors.Annotatef(err, "calculating hashes for %q", path)
+		return DeployCharmInfo{}, errors.Errorf("calculating hashes for %q: %w", path, err)
 	}
 
 	result, err := b.applicationService.ResolveControllerCharmDownload(ctx, domainapplication.ResolveControllerCharmDownload{
@@ -307,7 +262,7 @@ func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base c
 		Size:   info.Size(),
 	})
 	if err != nil {
-		return DeployCharmInfo{}, errors.Annotatef(err, "resolving controller charm download")
+		return DeployCharmInfo{}, errors.Errorf("resolving controller charm download: %w", err)
 	}
 
 	b.logger.Debugf(ctx, "Successfully deployed local Juju controller charm")
@@ -346,7 +301,7 @@ func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base c
 func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, base corebase.Base) (DeployCharmInfo, error) {
 	modelCfg, err := b.modelConfigService.ModelConfig(ctx)
 	if err != nil {
-		return DeployCharmInfo{}, errors.Trace(err)
+		return DeployCharmInfo{}, errors.Capture(err)
 	}
 	charmhubURL, _ := modelCfg.CharmHubURL()
 
@@ -356,7 +311,7 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 		CharmhubHTTPClient: b.charmhubHTTPClient,
 	})
 	if err != nil {
-		return DeployCharmInfo{}, errors.Trace(err)
+		return DeployCharmInfo{}, errors.Capture(err)
 	}
 
 	var curl *charm.URL
@@ -388,20 +343,20 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 	// The controller charm doesn't have any base specific code.
 	resolved, err := charmRepo.ResolveWithPreferredChannel(ctx, curl.Name, origin)
 	if err != nil {
-		return DeployCharmInfo{}, errors.Annotatef(err, "resolving %q", controllerCharmURL)
+		return DeployCharmInfo{}, errors.Errorf("resolving %q: %w", controllerCharmURL, err)
 	}
 
 	downloadInfo := resolved.EssentialMetadata.DownloadInfo
 
 	downloadURL, err := url.Parse(downloadInfo.DownloadURL)
 	if err != nil {
-		return DeployCharmInfo{}, errors.Annotatef(err, "parsing download URL %q", downloadInfo.DownloadURL)
+		return DeployCharmInfo{}, errors.Errorf("parsing download URL %q: %w", downloadInfo.DownloadURL, err)
 	}
 
 	charmDownloader := b.charmDownloader(b.charmhubHTTPClient, b.logger)
 	downloadResult, err := charmDownloader.Download(ctx, downloadURL, resolved.Origin.Hash)
 	if err != nil {
-		return DeployCharmInfo{}, errors.Annotatef(err, "downloading %q", downloadURL)
+		return DeployCharmInfo{}, errors.Errorf("downloading %q: %w", downloadURL, err)
 	}
 
 	// We can pass the computed SHA384 because we've ensured that the download
@@ -414,7 +369,7 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 		Size:   downloadResult.Size,
 	})
 	if err != nil {
-		return DeployCharmInfo{}, errors.Annotatef(err, "resolving controller charm download")
+		return DeployCharmInfo{}, errors.Errorf("resolving controller charm download: %w", err)
 	}
 
 	if resolved.Origin.Revision == nil {
@@ -438,9 +393,9 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 }
 
 // AddControllerApplication adds the controller application.
-func (b *baseDeployer) AddControllerApplication(ctx context.Context, info DeployCharmInfo, controllerAddress string) (Unit, error) {
+func (b *baseDeployer) AddControllerApplication(ctx context.Context, info DeployCharmInfo, controllerAddress string) (coreunit.Name, error) {
 	if err := info.Validate(); err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Capture(err)
 	}
 
 	origin := *info.Origin
@@ -459,47 +414,10 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, info Deploy
 		cfg["controller-url"] = api.ControllerAPIURL(addr, b.controllerConfig.APIPort())
 	}
 
-	appCfg, err := coreconfig.NewConfig(nil, configSchema, schema.Defaults{
-		coreapplication.TrustConfigOptionName: true,
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	stateOrigin, err := application.StateCharmOrigin(origin)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// Remove this horrible hack once we've removed all of the .Charm calls
-	// in the state package. This is just to service the current add
-	// application code base.
-
-	stateOrigin.Hash = ""
-	stateOrigin.ID = ""
-
-	app, err := b.stateBackend.AddApplication(state.AddApplicationArgs{
-		Name:              bootstrap.ControllerApplicationName,
-		Charm:             info.Charm,
-		CharmURL:          info.URL.String(),
-		CharmOrigin:       stateOrigin,
-		CharmConfig:       cfg,
-		Constraints:       b.constraints,
-		ApplicationConfig: appCfg,
-		NumUnits:          1,
-	}, b.objectStore)
-	if err != nil {
-		return nil, errors.Annotatef(err, "adding controller application")
-	}
-	unitName, err := unit.NewNameFromParts(bootstrap.ControllerApplicationName, 0)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	// DownloadInfo is not required for local charms, so we only set it if
 	// it's not nil.
 	if info.URL.Schema == charm.Local.String() && info.DownloadInfo != nil {
-		return nil, errors.New("download info should not be set for local charms")
+		return "", errors.New("download info should not be set for local charms")
 	}
 
 	var downloadInfo *applicationcharm.DownloadInfo
@@ -512,34 +430,42 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, info Deploy
 		}
 	}
 
+	unitName, err := coreunit.NewNameFromParts(bootstrap.ControllerApplicationName, 0)
+	if err != nil {
+		return "", errors.Errorf("creating unit name %q: %w", bootstrap.ControllerApplicationName, err)
+	}
 	_, err = b.applicationService.CreateApplication(ctx,
 		bootstrap.ControllerApplicationName,
-		info.Charm, origin,
+		info.Charm,
+		origin,
 		applicationservice.AddApplicationArgs{
 			ReferenceName:        bootstrap.ControllerCharmName,
 			CharmStoragePath:     info.ArchivePath,
 			CharmObjectStoreUUID: info.ObjectStoreUUID,
 			DownloadInfo:         downloadInfo,
+			ApplicationSettings: domainapplication.ApplicationSettings{
+				Trust: true,
+			},
 		},
 		applicationservice.AddUnitArg{UnitName: unitName},
 	)
 	if err != nil {
-		return nil, errors.Annotatef(err, "creating controller application")
+		return "", errors.Errorf("creating controller application: %w", err)
 	}
-	return b.stateBackend.Unit(app.Name() + "/0")
+	return unitName, nil
 }
 
 func (b *baseDeployer) calculateLocalCharmHashes(path string, expectedSize int64) (string, string, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return "", "", errors.Annotatef(err, "opening %q", path)
+		return "", "", errors.Errorf("opening %q: %w", path, err)
 	}
 
 	hasher256 := sha256.New()
 	hasher384 := sha512.New384()
 
 	if size, err := io.Copy(io.MultiWriter(hasher256, hasher384), file); err != nil {
-		return "", "", errors.Annotatef(err, "hashing %q", path)
+		return "", "", errors.Errorf("hashing %q: %w", path, err)
 	} else if size != expectedSize {
 		return "", "", errors.Errorf("expected %d bytes, got %d", expectedSize, size)
 	}
@@ -547,14 +473,6 @@ func (b *baseDeployer) calculateLocalCharmHashes(path string, expectedSize int64
 	sha256 := hex.EncodeToString(hasher256.Sum(nil))
 	sha384 := hex.EncodeToString(hasher384.Sum(nil))
 	return sha256, sha384, nil
-}
-
-// ConfigSchema is used to force the trust config option to be true for all
-// controllers.
-var configSchema = configschema.Fields{
-	coreapplication.TrustConfigOptionName: {
-		Type: configschema.Tbool,
-	},
 }
 
 func ptr[T any](v T) *T {

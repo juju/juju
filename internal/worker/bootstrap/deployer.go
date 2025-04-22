@@ -27,18 +27,6 @@ import (
 	"github.com/juju/juju/state/binarystorage"
 )
 
-// charmUploader is an implementation of
-// [github.com/juju/juju/internal/bootstrap.CharmUploader]. We have made this
-// transition type to bridge the gap between [SystemState] and the information
-// that we now get from domain services.
-type charmUploader struct {
-	SystemState
-
-	// modelID is the model id to be used by the charm uploader. See
-	// [charmUploader.ModelUUID]
-	modelID coremodel.UUID
-}
-
 // SystemState is the interface that is used to get the legacy state (mongo).
 //
 // Note: It is expected over time for each one of these methods to be replaced
@@ -49,14 +37,8 @@ type SystemState interface {
 	// ToolsStorage returns a new binarystorage.StorageCloser that stores tools
 	// metadata in the "juju" database "toolsmetadata" collection.
 	ToolsStorage(store objectstore.ObjectStore) (binarystorage.StorageCloser, error)
-	// AddApplication adds an application to the model.
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (bootstrap.Application, error)
-	// Unit returns the unit with the given id.
-	Unit(string) (bootstrap.Unit, error)
 	// Machine returns the machine with the given id.
 	Machine(string) (bootstrap.Machine, error)
-	// ApplyOperation applies the given operation.
-	ApplyOperation(*state.UpdateUnitOperation) error
 	// CloudService returns the cloud service for the given cloud.
 	CloudService(string) (bootstrap.CloudService, error)
 	// SetAPIHostPorts sets the addresses, if changed, of two collections:
@@ -159,7 +141,6 @@ func CAASControllerCharmUploader(cfg ControllerCharmDeployerConfig) (bootstrap.C
 	return bootstrap.NewCAASDeployer(bootstrap.CAASDeployerConfig{
 		BaseDeployerConfig: makeBaseDeployerConfig(cfg),
 		CloudServiceGetter: cfg.StateBackend,
-		OperationApplier:   cfg.StateBackend,
 		UnitPassword:       cfg.UnitPassword,
 	})
 }
@@ -177,19 +158,14 @@ func makeBaseDeployerConfig(cfg ControllerCharmDeployerConfig) bootstrap.BaseDep
 	return bootstrap.BaseDeployerConfig{
 		DataDir:              cfg.DataDir,
 		ObjectStore:          cfg.ObjectStore,
-		StateBackend:         cfg.StateBackend,
 		AgentPasswordService: cfg.AgentPasswordService,
 		ApplicationService:   cfg.ApplicationService,
 		ModelConfigService:   cfg.ModelConfigService,
-		CharmUploader: charmUploader{
-			SystemState: cfg.StateBackend,
-			modelID:     cfg.Model.UUID,
-		},
-		Constraints:         cfg.BootstrapMachineConstraints,
-		ControllerConfig:    cfg.ControllerConfig,
-		Channel:             cfg.ControllerCharmChannel,
-		CharmhubHTTPClient:  cfg.CharmhubHTTPClient,
-		ControllerCharmName: cfg.ControllerCharmName,
+		Constraints:          cfg.BootstrapMachineConstraints,
+		ControllerConfig:     cfg.ControllerConfig,
+		Channel:              cfg.ControllerCharmChannel,
+		CharmhubHTTPClient:   cfg.CharmhubHTTPClient,
+		ControllerCharmName:  cfg.ControllerCharmName,
 		NewCharmHubRepo: func(cfg repository.CharmHubRepositoryConfig) (corecharm.Repository, error) {
 			return repository.NewCharmHubRepository(cfg)
 		},
@@ -201,31 +177,8 @@ func makeBaseDeployerConfig(cfg ControllerCharmDeployerConfig) bootstrap.BaseDep
 	}
 }
 
-// ModelUUID implements [github.com/juju/juju/internal/bootstrap.CharmUploader].
-// This method implements the missing pieces of [SystemState] that are now being
-// served by services.
-func (c charmUploader) ModelUUID() string {
-	return c.modelID.String()
-}
-
 type stateShim struct {
 	*state.State
-}
-
-func (s *stateShim) AddApplication(args state.AddApplicationArgs, objectStore objectstore.ObjectStore) (bootstrap.Application, error) {
-	a, err := s.State.AddApplication(args, objectStore)
-	if err != nil {
-		return nil, err
-	}
-	return &applicationShim{Application: a}, nil
-}
-
-func (s *stateShim) Unit(tag string) (bootstrap.Unit, error) {
-	u, err := s.State.Unit(tag)
-	if err != nil {
-		return nil, err
-	}
-	return &unitShim{Unit: u}, nil
 }
 
 func (s *stateShim) Machine(name string) (bootstrap.Machine, error) {
@@ -236,24 +189,8 @@ func (s *stateShim) Machine(name string) (bootstrap.Machine, error) {
 	return &machineShim{Machine: m}, nil
 }
 
-func (s *stateShim) ApplyOperation(op *state.UpdateUnitOperation) error {
-	return s.State.ApplyOperation(op)
-}
-
 func (s *stateShim) CloudService(name string) (bootstrap.CloudService, error) {
 	return s.State.CloudService(name)
-}
-
-type applicationShim struct {
-	*state.Application
-}
-
-type unitShim struct {
-	*state.Unit
-}
-
-func (u *unitShim) AssignToMachineRef(ref state.MachineRef) error {
-	return u.Unit.AssignToMachineRef(ref)
 }
 
 type machineShim struct {

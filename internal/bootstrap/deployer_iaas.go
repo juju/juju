@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/agent"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
 )
 
 // IAASDeployerConfig holds the configuration for a IAASDeployer.
@@ -50,7 +51,7 @@ func NewIAASDeployer(config IAASDeployerConfig) (*IAASDeployer, error) {
 
 // ControllerAddress returns the address of the controller that should be
 // used.
-func (d *IAASDeployer) ControllerAddress(context.Context) (string, error) {
+func (d *IAASDeployer) ControllerAddress(ctx context.Context) (string, error) {
 	m, err := d.machineGetter.Machine(agent.BootstrapControllerId)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -64,7 +65,7 @@ func (d *IAASDeployer) ControllerAddress(context.Context) (string, error) {
 	if err == nil {
 		controllerAddress = pa.Value
 	}
-	d.logger.Debugf(context.TODO(), "IAAS controller address %v", controllerAddress)
+	d.logger.Debugf(ctx, "IAAS controller address %v", controllerAddress)
 	return controllerAddress, nil
 }
 
@@ -81,14 +82,6 @@ func (d *IAASDeployer) ControllerCharmBase() (corebase.Base, error) {
 }
 
 // CompleteProcess is called when the bootstrap process is complete.
-func (d *IAASDeployer) CompleteProcess(ctx context.Context, controllerUnit Unit) error {
-	m, err := d.machineGetter.Machine(agent.BootstrapControllerId)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := controllerUnit.AssignToMachineRef(m); err != nil {
-		return errors.Annotate(err, "cannot assign controller unit to machine")
-	}
+func (d *IAASDeployer) CompleteProcess(ctx context.Context, controllerUnit coreunit.Name) error {
 	return nil
 }
