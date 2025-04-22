@@ -494,7 +494,7 @@ func (s *suite) assertStarts(c *gc.C, expect ...string) {
 	workers := s.waitWorkers(c, count)
 	for i, worker := range workers {
 		actual[i] = worker.config.ModelUUID
-		c.Assert(worker.config.ModelType, gc.Equals, state.ModelTypeIAAS)
+		c.Assert(worker.config.ModelType, gc.Equals, coremodel.IAAS)
 	}
 	c.Assert(actual, jc.SameContents, expect)
 }

@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/services"
 	internalworker "github.com/juju/juju/internal/worker"
-	"github.com/juju/juju/state"
 )
 
 // MetricSink describes a way to unregister a model metrics collector. This
@@ -60,7 +59,7 @@ type NewModelConfig struct {
 	ModelName              string
 	ModelOwner             string
 	ModelUUID              string
-	ModelType              state.ModelType
+	ModelType              model.ModelType
 	ModelMetrics           MetricSink
 	LoggerContext          corelogger.LoggerContext
 	ControllerConfig       controller.Config
@@ -236,7 +235,7 @@ func (m *modelWorkerManager) modelChanged(ctx context.Context, modelUUID string)
 		ModelName:    model.Name,
 		ModelOwner:   model.OwnerName.Name(),
 		ModelUUID:    modelUUID,
-		ModelType:    state.ModelType(model.ModelType),
+		ModelType:    model.ModelType,
 		ModelMetrics: m.config.ModelMetrics.ForModel(names.NewModelTag(modelUUID)),
 	}
 

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	modelservice "github.com/juju/juju/domain/model/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki"
@@ -163,7 +164,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		ModelName:    "test",
 		ModelOwner:   "owner",
 		ModelUUID:    "foo",
-		ModelType:    state.ModelTypeIAAS,
+		ModelType:    coremodel.IAAS,
 		ModelMetrics: dummyMetricSink{},
 	}
 	mw, err := config.NewModelWorker(modelConfig)
