@@ -100,6 +100,9 @@ type SerializedModelTools struct {
 	// with the API server scheme, address and model prefix before it
 	// can be used.
 	URI string `json:"uri"`
+
+	// SHA256 is the sha 256 sum of the tools backed by the URI.
+	SHA256 string
 }
 
 // SerializedModelResource holds the details for a single resource for

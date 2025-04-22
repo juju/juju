@@ -15,12 +15,10 @@ import (
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/container"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
-	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -52,20 +50,18 @@ import (
 // during the export. The intent of this is to be able to get a partial
 // export to support other API calls, like status.
 type ExportConfig struct {
-	IgnoreIncompleteModel    bool
-	SkipActions              bool
-	SkipAnnotations          bool
-	SkipCloudImageMetadata   bool
-	SkipCredentials          bool
-	SkipIPAddresses          bool
-	SkipSettings             bool
-	SkipSSHHostKeys          bool
-	SkipLinkLayerDevices     bool
-	SkipUnitAgentBinaries    bool
-	SkipMachineAgentBinaries bool
-	SkipRelationData         bool
-	SkipInstanceData         bool
-	SkipSecrets              bool
+	IgnoreIncompleteModel  bool
+	SkipActions            bool
+	SkipAnnotations        bool
+	SkipCloudImageMetadata bool
+	SkipCredentials        bool
+	SkipIPAddresses        bool
+	SkipSettings           bool
+	SkipSSHHostKeys        bool
+	SkipLinkLayerDevices   bool
+	SkipRelationData       bool
+	SkipInstanceData       bool
+	SkipSecrets            bool
 }
 
 // ExportPartial the current model for the State optionally skipping
@@ -322,22 +318,6 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, bl
 		return nil, errors.Annotatef(err, "status for machine %s", machine.Id())
 	}
 	exMachine.SetStatus(statusArgs)
-
-	if !e.cfg.SkipMachineAgentBinaries {
-		// TODO (tlm): A future task is coming up to add model migration support for
-		// tools.
-		ver := semversion.Binary{
-			Number:  jujuversion.Current,
-			Arch:    arch.DefaultArchitecture,
-			Release: "ubuntu",
-		}
-		exMachine.SetTools(description.AgentToolsArgs{
-			Version: ver.String(),
-			URL:     "tools-foobar.tar.gz",
-			SHA256:  "19c9cbd09c01329ce419c6a6945f75ec80134e2a24dfe73e81db4fa59a2db202",
-			Size:    1024,
-		})
-	}
 
 	constraintsArgs, err := e.constraintsArgs(globalKey)
 	if err != nil {

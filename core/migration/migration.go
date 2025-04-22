@@ -46,10 +46,9 @@ type SerializedModel struct {
 	// Charms lists the charm URLs in use in the model.
 	Charms []string
 
-	// Tools lists the tools versions in use with the model along with
-	// their URIs. The URIs can be used to download the tools from the
-	// source controller.
-	Tools map[semversion.Binary]string // version -> tools URI
+	// Tools is a map of tools in use by the model keyed on the tools sha256
+	// value and associated with the version number.
+	Tools map[string]semversion.Binary
 
 	// Resources represents all the resources in use in the model.
 	Resources []resource.Resource

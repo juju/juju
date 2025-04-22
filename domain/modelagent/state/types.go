@@ -4,6 +4,8 @@
 package state
 
 import (
+	"database/sql"
+
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/life"
 )
@@ -36,6 +38,23 @@ type machineAgentVersionInfo struct {
 	Architecture string `db:"architecture_name"`
 }
 
+// rowCount is a quick type that can be used with aggregation queries to store
+// the value of a count().
+type rowCount struct {
+	Count int `db:"count"`
+}
+
+// machineAgentBinaryMetadata represents information about a machine and the
+// agent binaries that it is running.
+type machineAgentBinaryMetadata struct {
+	MachineName  string         `db:"name"`
+	Version      string         `db:"version"`
+	Architecture string         `db:"architecture_name"`
+	Size         sql.NullInt64  `db:"size"`
+	SHA256       sql.NullString `db:"sha_256"`
+	SHA384       sql.NullString `db:"sha_384"`
+}
+
 // machineTargetAgentVersionInfo represents a record from the
 // v_machine_target_agent_version view.
 type machineTargetAgentVersionInfo struct {
@@ -66,6 +85,17 @@ type machineUUID struct {
 // machineUUIDRef represents a machine uuid reference to the machine table.
 type machineUUIDRef struct {
 	UUID string `db:"machine_uuid"`
+}
+
+// unitAgentBinaryMetadata represents information about a unit and the
+// agent binaries that it is running.
+type unitAgentBinaryMetadata struct {
+	UnitName     string         `db:"name"`
+	Version      string         `db:"version"`
+	Architecture string         `db:"architecture_name"`
+	Size         sql.NullInt64  `db:"size"`
+	SHA256       sql.NullString `db:"sha_256"`
+	SHA384       sql.NullString `db:"sha_384"`
 }
 
 // unitAgentVersion represents a record from the reported unit agent

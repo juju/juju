@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/http"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/fortress"
@@ -85,19 +84,15 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	toolsDownloader, err := http.NewURIOpener(apiConn)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	w, err := config.NewWorker(Config{
-		ModelUUID:       agent.CurrentConfig().Model().Id(),
-		Facade:          facade,
-		CharmService:    domainServices.Application(),
-		Guard:           guard,
-		APIOpen:         api.Open,
-		UploadBinaries:  migration.UploadBinaries,
-		ToolsDownloader: toolsDownloader,
-		Clock:           config.Clock,
+		ModelUUID:        agent.CurrentConfig().Model().Id(),
+		Facade:           facade,
+		CharmService:     domainServices.Application(),
+		Guard:            guard,
+		APIOpen:          api.Open,
+		UploadBinaries:   migration.UploadBinaries,
+		AgentBinaryStore: domainServices.AgentBinaryStore(),
+		Clock:            config.Clock,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -12,6 +12,22 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// Metadata describes the data around an available agent binary within the
+// system.
+type Metadata struct {
+	// Version is the version of the agent binary blob.
+	Version Version
+
+	// SHA256 is the sha256 sum of the agent binary blob.
+	SHA256 string
+
+	// SHA384 string is the sha384 sum of the agent binary blob.
+	SHA384 string
+
+	// Size is the number of bytes for the agent binary blob.
+	Size int64
+}
+
 // Version represents the version of an agent binary. [Version] was created so
 // that Juju can move itself off of [version.Binary] as this contains the
 // release field that we no longer want.

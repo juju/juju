@@ -323,6 +323,7 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 			Tools: []params.SerializedModelTools{{
 				Version: "2.0.0-ubuntu-amd64",
 				URI:     "/tools/0",
+				SHA256:  "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e",
 			}},
 			Resources: []params.SerializedModelResource{{
 				Application:    "fooapp",
@@ -347,8 +348,8 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 	c.Assert(out, gc.DeepEquals, migration.SerializedModel{
 		Bytes:  []byte("foo"),
 		Charms: []string{"ch:foo-1"},
-		Tools: map[semversion.Binary]string{
-			semversion.MustParseBinary("2.0.0-ubuntu-amd64"): "/tools/0",
+		Tools: map[string]semversion.Binary{
+			"439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e": semversion.MustParseBinary("2.0.0-ubuntu-amd64"),
 		},
 		Resources: []resource.Resource{{
 			Resource: charmresource.Resource{

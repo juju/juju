@@ -566,3 +566,55 @@ func (s *suite) TestGetUnitReportedAgentVersion(c *gc.C) {
 		Arch:   corearch.ARM64,
 	})
 }
+
+// TestGetMachinesReportedAgentVersionAgentVersionNotSet asserts error
+// pass through on state of modelagenterrors.AgentVersionNotSet to
+// satisfy contract.
+func (s *suite) TestGetMachinesReportedAgentVersionAgentVersionNotSet(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.state.EXPECT().GetMachinesAgentBinaryMetadata(gomock.Any()).Return(
+		nil, modelagenterrors.AgentVersionNotSet,
+	)
+	svc := NewService(s.state)
+	_, err := svc.GetMachinesAgentBinaryMetadata(context.Background())
+	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotSet)
+}
+
+// TestGetMachinesReportedAgentVersionMissingAgentBinaries asserts error pass
+// through on state of modelagenterrors.MissingAgentBinaries to satisfy
+// contract.
+func (s *suite) TestGetMachinesReportedAgentVersionMissingAgentBinaries(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.state.EXPECT().GetMachinesAgentBinaryMetadata(gomock.Any()).Return(
+		nil, modelagenterrors.MissingAgentBinaries,
+	)
+	svc := NewService(s.state)
+	_, err := svc.GetMachinesAgentBinaryMetadata(context.Background())
+	c.Check(err, jc.ErrorIs, modelagenterrors.MissingAgentBinaries)
+}
+
+// TestGetUnitReportedAgentVersionAgentVersionNotSet asserts error pass
+// through on state of modelagenterrors.AgentVersionNotSet to satisfy
+// contract.
+func (s *suite) TestGetUnitReportedAgentVersionAgentVersionNotSet(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.state.EXPECT().GetUnitsAgentBinaryMetadata(gomock.Any()).Return(
+		nil, modelagenterrors.AgentVersionNotSet,
+	)
+	svc := NewService(s.state)
+	_, err := svc.GetUnitsAgentBinaryMetadata(context.Background())
+	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotSet)
+}
+
+// TestGetUnitReportedAgentVersionMissingAgentBinaries asserts error pass
+// through on state of modelagenterrors.MissingAgentBinaries to satisfy
+// contract.
+func (s *suite) TestGetUnitReportedAgentVersionMissingAgentBinaries(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.state.EXPECT().GetUnitsAgentBinaryMetadata(gomock.Any()).Return(
+		nil, modelagenterrors.MissingAgentBinaries,
+	)
+	svc := NewService(s.state)
+	_, err := svc.GetUnitsAgentBinaryMetadata(context.Background())
+	c.Check(err, jc.ErrorIs, modelagenterrors.MissingAgentBinaries)
+}
