@@ -567,17 +567,17 @@ func (s *suite) TestGetUnitReportedAgentVersion(c *gc.C) {
 	})
 }
 
-// TestGetMachinesReportedAgentVersionMachineAgentVersionNotSet asserts error
-// pass through on state of modelagenterrors.MachineAgentVersionNotSet to
+// TestGetMachinesReportedAgentVersionAgentVersionNotSet asserts error
+// pass through on state of modelagenterrors.AgentVersionNotSet to
 // satisfy contract.
-func (s *suite) TestGetMachinesReportedAgentVersionMachineAgentVersionNotSet(c *gc.C) {
+func (s *suite) TestGetMachinesReportedAgentVersionAgentVersionNotSet(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().GetMachinesAgentBinaryMetadata(gomock.Any()).Return(
-		nil, modelagenterrors.MachineAgentVersionNotSet,
+		nil, modelagenterrors.AgentVersionNotSet,
 	)
 	svc := NewService(s.state)
 	_, err := svc.GetMachinesAgentBinaryMetadata(context.Background())
-	c.Check(err, jc.ErrorIs, modelagenterrors.MachineAgentVersionNotSet)
+	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotSet)
 }
 
 // TestGetMachinesReportedAgentVersionMissingAgentBinaries asserts error pass
@@ -593,17 +593,17 @@ func (s *suite) TestGetMachinesReportedAgentVersionMissingAgentBinaries(c *gc.C)
 	c.Check(err, jc.ErrorIs, modelagenterrors.MissingAgentBinaries)
 }
 
-// TestGetUnitReportedAgentVersionUnitAgentVersionNotSet asserts error pass
-// through on state of modelagenterrors.UnitAgentVersionNotSet to satisfy
+// TestGetUnitReportedAgentVersionAgentVersionNotSet asserts error pass
+// through on state of modelagenterrors.AgentVersionNotSet to satisfy
 // contract.
-func (s *suite) TestGetUnitReportedAgentVersionUnitAgentVersionNotSet(c *gc.C) {
+func (s *suite) TestGetUnitReportedAgentVersionAgentVersionNotSet(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().GetUnitsAgentBinaryMetadata(gomock.Any()).Return(
-		nil, modelagenterrors.UnitAgentVersionNotSet,
+		nil, modelagenterrors.AgentVersionNotSet,
 	)
 	svc := NewService(s.state)
 	_, err := svc.GetUnitsAgentBinaryMetadata(context.Background())
-	c.Check(err, jc.ErrorIs, modelagenterrors.UnitAgentVersionNotSet)
+	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotSet)
 }
 
 // TestGetUnitReportedAgentVersionMissingAgentBinaries asserts error pass

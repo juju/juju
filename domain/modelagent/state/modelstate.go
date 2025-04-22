@@ -170,7 +170,7 @@ func (st *State) checkUnitNotDead(
 // provide enough granuality into what machine fails as part of the checks.
 //
 // The following errors can be expected:
-// - [modelagenterrors.MachineAgentVersionNotSet] when one or more machines in
+// - [modelagenterrors.AgentVersionNotSet] when one or more machines in
 // the model do not have their agent version set.
 // - [modelagenterrors.MissingAgentBinaries] when the agent binaries don't exist
 // for one or more machines in the model.
@@ -243,7 +243,7 @@ FROM   machine
 	if len(machineBinaryMetadata) != machineCount.Count {
 		return nil, errors.New(
 			"not all machines in the model have their agent version set",
-		).Add(modelagenterrors.MachineAgentVersionNotSet)
+		).Add(modelagenterrors.AgentVersionNotSet)
 	}
 
 	rval := make(map[machine.Name]coreagentbinary.Metadata, len(machineBinaryMetadata))
@@ -520,7 +520,7 @@ WHERE machine_uuid = $machineUUIDRef.machine_uuid
 // provide enough granuality into what unit fails as part of the checks.
 //
 // The following errors can be expected:
-// - [modelagenterrors.UnitAgentVersionNotSet] when one or more units in
+// - [modelagenterrors.AgentVersionNotSet] when one or more units in
 // the model do not have their agent version set.
 // - [modelagenterrors.MissingAgentBinaries] when the agent binaries don't exist
 // for one or more units in the model.
@@ -595,7 +595,7 @@ FROM   unit
 	if len(unitBinaryMetadata) != unitCount.Count {
 		return nil, errors.New(
 			"not all units in the model have their agent version set",
-		).Add(modelagenterrors.UnitAgentVersionNotSet)
+		).Add(modelagenterrors.AgentVersionNotSet)
 	}
 
 	rval := make(map[coreunit.Name]coreagentbinary.Metadata, len(unitBinaryMetadata))

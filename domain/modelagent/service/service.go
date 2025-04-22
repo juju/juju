@@ -27,7 +27,7 @@ type State interface {
 	// checks.
 	//
 	// The following errors can be expected:
-	// - [modelagenterrors.MachineAgentVersionNotSet] when one or more machines
+	// - [modelagenterrors.AgentVersionNotSet] when one or more machines
 	// in the model do not have their agent version set.
 	// - [modelagenterrors.MissingAgentBinaries] when the agent binaries don't
 	// exist for one or more machines in the model.
@@ -70,7 +70,7 @@ type State interface {
 	// checks.
 	//
 	// The following errors can be expected:
-	// - [modelagenterrors.UnitAgentVersionNotSet] when one or more units in
+	// - [modelagenterrors.AgentVersionNotSet] when one or more units in
 	// the model do not have their agent version set.
 	// - [modelagenterrors.MissingAgentBinaries] when the agent binaries don't
 	// exist for one or more units in the model.
@@ -220,7 +220,7 @@ func (s *Service) GetMachineReportedAgentVersion(
 // checks.
 //
 // The following error types can be expected:
-// - [modelagenterrors.MachineAgentVersionNotSet] when one or more machines in
+// - [modelagenterrors.AgentVersionNotSet] when one or more machines in
 // the model do not have their agent binary version set.
 // - [modelagenterrors.MissingAgentBinaries] when the agent binaries don't exist
 // for one or more machines in the model.
@@ -261,7 +261,7 @@ func (s *Service) GetMachineTargetAgentVersion(
 // never provide enough granuality into what unit fails as part of the checks.
 //
 // The following error types can be expected:
-// - [modelagenterrors.UnitAgentVersionNotSet] when one or more units in the
+// - [modelagenterrors.AgentVersionNotSet] when one or more units in the
 // model do not have their agent binary version set.
 // - [modelagenterrors.MissingAgentBinaries] when the agent binaries don't exist
 // for one or more units in the model.

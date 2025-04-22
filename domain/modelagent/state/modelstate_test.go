@@ -689,6 +689,7 @@ func (s *modelStateSuite) TestSetUnitRunningAgentBinaryVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ver, err := st.GetUnitRunningAgentBinaryVersion(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(ver.Arch, gc.Equals, corearch.ARM64)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(ver.Number.String(), gc.Equals, jujuversion.Current.String())
@@ -711,6 +712,7 @@ func (s *modelStateSuite) TestSetUnitRunningAgentBinaryVersionUpdate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ver, err := st.GetUnitRunningAgentBinaryVersion(context.Background(), unitUUID)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(ver.Arch, gc.Equals, corearch.ARM64)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(ver.Number.String(), gc.Equals, jujuversion.Current.String())
@@ -938,7 +940,7 @@ func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadata(c *gc.C) {
 // TestGetMachinesAgentBinaryMetadataMachineNotSet is testing that given a set
 // of machines within the model if at least one of these machines does not have
 // an agent binary version set we get back an error that satisfies
-// [modelagenterrors.MachineAgentVersionNotSet].
+// [modelagenterrors.AgentVersionNotSet].
 //
 // We would expect to see this situation arise when a machine has been
 // provisioned by Juju but the machine agent running on the machine has not yet
@@ -966,7 +968,7 @@ func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadataMachineNotSet(c *gc.
 	s.createMachineWithName(c, machineName)
 
 	data, err := st.GetMachinesAgentBinaryMetadata(context.Background())
-	c.Check(err, jc.ErrorIs, modelagenterrors.MachineAgentVersionNotSet)
+	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotSet)
 	c.Check(len(data), gc.Equals, 0)
 }
 
@@ -997,7 +999,7 @@ func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadataMissingAgentBinary(c
 	// exists no agent binaries in the store.
 	machineName := machine.Name("arm64-6")
 	machineUUID := s.createMachineWithName(c, machineName)
-	st.SetMachineRunningAgentBinaryVersion(
+	err := st.SetMachineRunningAgentBinaryVersion(
 		context.Background(),
 		machineUUID,
 		coreagentbinary.Version{
@@ -1005,6 +1007,7 @@ func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadataMissingAgentBinary(c
 			Arch:   corearch.ARM64,
 		},
 	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	data, err := st.GetMachinesAgentBinaryMetadata(context.Background())
 	c.Check(err, jc.ErrorIs, modelagenterrors.MissingAgentBinaries)
@@ -1036,7 +1039,8 @@ func (s *modelStateSuite) TestGetUnitAgentBinaryMetadata(c *gc.C) {
 		unitName, err := coreunit.NewNameFromParts("foo", i)
 		c.Assert(err, jc.ErrorIsNil)
 		unitUUID := s.createTestingUnitWithName(c, "foo", appID1, unitName)
-		st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionAMD64)
+		err = st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionAMD64)
+		c.Assert(err, jc.ErrorIsNil)
 		expected[unitName] = metaAMD64
 	}
 
@@ -1045,7 +1049,8 @@ func (s *modelStateSuite) TestGetUnitAgentBinaryMetadata(c *gc.C) {
 		unitName, err := coreunit.NewNameFromParts("foo1", i)
 		c.Assert(err, jc.ErrorIsNil)
 		unitUUID := s.createTestingUnitWithName(c, "foo1", appID2, unitName)
-		st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionARM64)
+		err = st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionARM64)
+		c.Assert(err, jc.ErrorIsNil)
 		expected[unitName] = metaARM64
 	}
 
@@ -1057,7 +1062,7 @@ func (s *modelStateSuite) TestGetUnitAgentBinaryMetadata(c *gc.C) {
 // TestGetUnitsAgentBinaryMetadataUnitNotSet is testing that given a set
 // of units within the model if at least one of these units does not have
 // an agent binary version set we get back an error that satisfies
-// [modelagenterrors.UnitAgentVersionNotSet].
+// [modelagenterrors.AgentVersionNotSet].
 //
 // We would expect to see this situation arise when a unit has been
 // provisioned by Juju but the agent running on the unit has not yet
@@ -1076,7 +1081,8 @@ func (s *modelStateSuite) TestGetUnitsAgentBinaryMetadataUnitNotSet(c *gc.C) {
 		unitName, err := coreunit.NewNameFromParts("foo", i)
 		c.Assert(err, jc.ErrorIsNil)
 		unitUUID := s.createTestingUnitWithName(c, "foo", appID, unitName)
-		st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionAMD64)
+		err = st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionAMD64)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	// This is our rogue machine with no agent version set.
@@ -1085,7 +1091,7 @@ func (s *modelStateSuite) TestGetUnitsAgentBinaryMetadataUnitNotSet(c *gc.C) {
 	s.createTestingUnitWithName(c, "foo", appID, unitName)
 
 	data, err := st.GetUnitsAgentBinaryMetadata(context.Background())
-	c.Check(err, jc.ErrorIs, modelagenterrors.UnitAgentVersionNotSet)
+	c.Check(err, jc.ErrorIs, modelagenterrors.AgentVersionNotSet)
 	c.Check(len(data), gc.Equals, 0)
 }
 
@@ -1108,7 +1114,8 @@ func (s *modelStateSuite) TestGetUnitAgentBinaryMetadataMissingAgentBinary(c *gc
 		unitName, err := coreunit.NewNameFromParts("foo", i)
 		c.Assert(err, jc.ErrorIsNil)
 		unitUUID := s.createTestingUnitWithName(c, "foo", appID, unitName)
-		st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionAMD64)
+		err = st.SetUnitRunningAgentBinaryVersion(context.Background(), unitUUID, versionAMD64)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	// This is the unit that is running an agent version for which there
@@ -1116,7 +1123,7 @@ func (s *modelStateSuite) TestGetUnitAgentBinaryMetadataMissingAgentBinary(c *gc
 	unitName, err := coreunit.NewNameFromParts("foo", 6)
 	c.Assert(err, jc.ErrorIsNil)
 	unitUUID := s.createTestingUnitWithName(c, "foo", appID, unitName)
-	st.SetUnitRunningAgentBinaryVersion(
+	err = st.SetUnitRunningAgentBinaryVersion(
 		context.Background(),
 		unitUUID,
 		coreagentbinary.Version{
@@ -1124,6 +1131,7 @@ func (s *modelStateSuite) TestGetUnitAgentBinaryMetadataMissingAgentBinary(c *gc
 			Arch:   corearch.ARM64,
 		},
 	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	data, err := st.GetUnitsAgentBinaryMetadata(context.Background())
 	c.Check(err, jc.ErrorIs, modelagenterrors.MissingAgentBinaries)

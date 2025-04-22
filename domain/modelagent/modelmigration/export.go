@@ -43,7 +43,7 @@ type ExportService interface {
 	// the checks.
 	//
 	// The following error types can be expected:
-	// - [github.com/juju/juju/domain/modelagent/errors.MachineAgentVersionNotSet]
+	// - [github.com/juju/juju/domain/modelagent/errors.AgentVersionNotSet]
 	// when one or more machines in the model do not have their agent binary
 	// version set.
 	// - [github.com/juju/juju/domain/modelagent/errors.MissingAgentBinaries]
@@ -62,7 +62,7 @@ type ExportService interface {
 	// checks.
 	//
 	// The following error types can be expected:
-	// - [github.com/juju/juju/domain/modelagent/errors.UnitAgentVersionNotSet]
+	// - [github.com/juju/juju/domain/modelagent/errors.AgentVersionNotSet]
 	// when one or more units in the model do not have their agent binary
 	// version set.
 	// - [github.com/juju/juju/domain/modelagent/errors.MissingAgentBinaries]
