@@ -1523,7 +1523,7 @@ func (s *relationSuite) TestGetRelationUnitNotFound(c *gc.C) {
 	_, err := s.state.GetRelationUnit(context.Background(), "unknown-relation-uuid", "some-unit-name")
 
 	// Assert
-	c.Assert(err, jc.ErrorIs, relationerrors.UnitNotFound)
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationUnitNotFound)
 }
 
 func (s *relationSuite) TestGetAllRelationDetails(c *gc.C) {
@@ -3198,6 +3198,200 @@ func (s *relationSuite) TestApplicationRelationsInfoNoRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *relationSuite) TestCreateSubordinateParams(c *gc.C) {
+	// Arrange: Populate charm metadata with subordinate data.
+	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
+	s.addCharmMetadata(c, s.fakeCharmUUID2, true)
+
+	principalApplicationID := s.fakeApplicationUUID1
+	subordinateApplicationID := s.fakeApplicationUUID2
+
+	// Arrange: add container scoped relation.
+	relationUUID, principalRelationEndpointUUID, _ := s.addContainerScopedRelation(c, principalApplicationID, subordinateApplicationID)
+
+	// Arrange: Add unit to the principal application.
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	principalUnitUUID := s.addUnit(c, unitName, principalApplicationID, s.fakeCharmUUID1)
+
+	// Arrange: enter the principal unit into scope.
+	s.addRelationUnit(c, principalUnitUUID, principalRelationEndpointUUID)
+
+	// Act:
+	subAppID, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, unitName)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subAppID, gc.NotNil)
+	c.Check(*subAppID, gc.Equals, subordinateApplicationID)
+}
+
+// TestCreateSubordinateParamsGlobalScopedRelation checks that no parameters are
+// returned if the relation is globally scoped.
+func (s *relationSuite) TestCreateSubordinateParamsGlobalScopedRelation(c *gc.C) {
+	// Arrange: Populate charm metadata with subordinate data.
+	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
+	s.addCharmMetadata(c, s.fakeCharmUUID2, true)
+
+	principalApplicationID := s.fakeApplicationUUID1
+	subordinateApplicationID := s.fakeApplicationUUID2
+
+	// Arrange: add container scoped relation.
+	relationUUID, principalRelationEndpointUUID, _ := s.addGlobalScopedRelation(c, principalApplicationID, subordinateApplicationID)
+
+	// Arrange: Add unit to the principal application.
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	principalUnitUUID := s.addUnit(c, unitName, principalApplicationID, s.fakeCharmUUID1)
+
+	// Arrange: enter the principal unit into scope.
+	s.addRelationUnit(c, principalUnitUUID, principalRelationEndpointUUID)
+
+	// Act:
+	subAppID, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, unitName)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subAppID, gc.IsNil)
+}
+
+// TestCreateSubordinateParamsPeerRelation checks that no parameters are
+// returned for a peer relation.
+func (s *relationSuite) TestCreateSubordinateParamsPeerRelation(c *gc.C) {
+	// Arrange: Populate charm metadata with subordinate data.
+	s.addCharmMetadata(c, s.fakeCharmUUID2, true)
+
+	subordinateApplicationID := s.fakeApplicationUUID2
+
+	// Arrange: add container scoped relation.
+	relationUUID, relEndpointUUID := s.addPeerRelation(c, s.fakeCharmUUID2, subordinateApplicationID)
+
+	// Arrange: Add unit to the principal application.
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	principalUnitUUID := s.addUnit(c, unitName, subordinateApplicationID, s.fakeCharmUUID1)
+
+	// Arrange: enter the principal unit into scope.
+	s.addRelationUnit(c, principalUnitUUID, relEndpointUUID)
+
+	// Act:
+	subAppID, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, unitName)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subAppID, gc.IsNil)
+}
+
+// TestCreateSubordinateParamsAppNotSubordinate checks that no parameters are
+// returned if the related app is not a subordinate.
+func (s *relationSuite) TestCreateSubordinateParamsAppNotSubordinate(c *gc.C) {
+	// Arrange: Populate charm metadata with subordinate data.
+	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
+	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
+
+	// Arrange: add container scoped relation.
+	relationUUID, principalRelationEndpointUUID, _ := s.addContainerScopedRelation(c, s.fakeApplicationUUID1, s.fakeApplicationUUID2)
+
+	// Arrange: Add unit to the principal application.
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	principalUnitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+
+	// Arrange: enter the principal unit into scope.
+	s.addRelationUnit(c, principalUnitUUID, principalRelationEndpointUUID)
+
+	// Act:
+	subAppID, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, unitName)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subAppID, gc.IsNil)
+}
+
+// TestCreateSubordinateParamsSubordinateAlreadyExists checks that no parameters
+// are returned if a subordinate unit already exists
+func (s *relationSuite) TestCreateSubordinateParamsSubordinateAlreadyExists(c *gc.C) {
+	// Arrange: Populate charm metadata with subordinate data.
+	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
+	s.addCharmMetadata(c, s.fakeCharmUUID2, true)
+
+	principalApplicationID := s.fakeApplicationUUID1
+	subordinateApplicationID := s.fakeApplicationUUID2
+
+	// Arrange: add container scoped relation.
+	relationUUID, principalRelationEndpointUUID, _ := s.addContainerScopedRelation(c, principalApplicationID, subordinateApplicationID)
+
+	// Arrange: Add unit to the principal application and enter into scope.
+	principalUnitName := coreunittesting.GenNewName(c, "app1/0")
+	principalUnitUUID := s.addUnit(c, principalUnitName, principalApplicationID, s.fakeCharmUUID1)
+	s.addRelationUnit(c, principalUnitUUID, principalRelationEndpointUUID)
+
+	// Arrange: Add unit to the subordinate application and set its principal unit.
+	subordinateUnitName := coreunittesting.GenNewName(c, "app2/0")
+	subordinateUnitUUID := s.addUnit(c, subordinateUnitName, subordinateApplicationID, s.fakeCharmUUID2)
+	s.addUnitPrincipal(c, principalUnitUUID, subordinateUnitUUID)
+
+	// Act:
+	subAppID, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, principalUnitName)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subAppID, gc.IsNil)
+}
+
+func (s *relationSuite) TestCreateSubordinateParamsRelationNotAlive(c *gc.C) {
+	// Arrange: Populate charm metadata with subordinate data.
+	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
+	s.addCharmMetadata(c, s.fakeCharmUUID2, true)
+
+	principalApplicationID := s.fakeApplicationUUID1
+	subordinateApplicationID := s.fakeApplicationUUID2
+
+	// Arrange: add container scoped relation.
+	relationUUID, principalRelationEndpointUUID, _ := s.addContainerScopedRelation(c, principalApplicationID, subordinateApplicationID)
+
+	// Arrange: Add unit to the principal application.
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	principalUnitUUID := s.addUnit(c, unitName, principalApplicationID, s.fakeCharmUUID1)
+
+	// Arrange: enter the principal unit into scope.
+	s.addRelationUnit(c, principalUnitUUID, principalRelationEndpointUUID)
+
+	// Arrange: set relation to dying.
+	s.setLife(c, "relation", relationUUID.String(), life.Dying)
+
+	// Act:
+	_, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, unitName)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotAlive)
+}
+
+func (s *relationSuite) TestCreateSubordinateParamsRelationUnitNotFound(c *gc.C) {
+	// Arrange:
+	relationUUID := s.addRelation(c)
+
+	// Act:
+	_, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, "")
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationUnitNotFound)
+}
+
+func (s *relationSuite) TestCreateSubordinateParamsUnitNotAlive(c *gc.C) {
+	// Arrange: Add unit to application in the relation.
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	unitUUID := s.addUnitWithLife(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1, corelife.Dying)
+
+	// Arrange: add container scoped relation.
+	relationUUID, relEndpointUUID, _ := s.addContainerScopedRelation(c, s.fakeApplicationUUID1, s.fakeApplicationUUID2)
+
+	// Arrange: enter the principal unit into scope.
+	s.addRelationUnit(c, unitUUID, relEndpointUUID)
+
+	// Act:
+	_, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, unitName)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.UnitNotAlive)
+}
+
 // addRelationUnitSetting inserts a relation unit setting into the database
 // using the provided relationUnitUUID.
 func (s *relationSuite) addRelationUnitSetting(c *gc.C, relationUnitUUID corerelation.UnitUUID, key, value string) {
@@ -3431,4 +3625,76 @@ VALUES (?,?)
 
 func (s *relationSuite) doesRelationUnitExist(c *gc.C, relationUnitUUID corerelation.UnitUUID) bool {
 	return s.doesUUIDExist(c, "relation_unit", relationUnitUUID.String())
+}
+
+func (s *relationSuite) addContainerScopedRelation(c *gc.C, app1ID, app2ID coreapplication.ID) (corerelation.UUID, string, string) {
+	// Arrange: Add two endpoints
+	endpoint1 := charm.Relation{
+		Name:      "fake-endpoint-name-1",
+		Role:      charm.RoleProvider,
+		Interface: "database",
+		Scope:     charm.ScopeContainer,
+	}
+	endpoint2 := charm.Relation{
+		Name:      "fake-endpoint-name-2",
+		Role:      charm.RoleRequirer,
+		Interface: "database",
+		Scope:     charm.ScopeContainer,
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, app1ID, charmRelationUUID1)
+	applicationEndpointUUID2 := s.addApplicationEndpoint(c, app2ID, charmRelationUUID2)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+	relationEndpointUUID2 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
+
+	return relationUUID, relationEndpointUUID1, relationEndpointUUID2
+}
+
+func (s *relationSuite) addGlobalScopedRelation(c *gc.C, app1ID, app2ID coreapplication.ID) (corerelation.UUID, string, string) {
+	// Arrange: Add two endpoints
+	endpoint1 := charm.Relation{
+		Name:      "fake-endpoint-name-1",
+		Role:      charm.RoleProvider,
+		Interface: "database",
+		Scope:     charm.ScopeGlobal,
+	}
+	endpoint2 := charm.Relation{
+		Name:      "fake-endpoint-name-2",
+		Role:      charm.RoleRequirer,
+		Interface: "database",
+		Scope:     charm.ScopeGlobal,
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, app1ID, charmRelationUUID1)
+	applicationEndpointUUID2 := s.addApplicationEndpoint(c, app2ID, charmRelationUUID2)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+	relationEndpointUUID2 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
+
+	return relationUUID, relationEndpointUUID1, relationEndpointUUID2
+}
+
+func (s *relationSuite) addPeerRelation(c *gc.C, charmUUID corecharm.ID, appUUID coreapplication.ID) (corerelation.UUID, string) {
+	endpoint1 := charm.Relation{
+		Name:      "fake-endpoint-name-1",
+		Role:      charm.RoleProvider,
+		Interface: "database",
+		Scope:     charm.ScopeContainer,
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, charmUUID, endpoint1)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, appUUID, charmRelationUUID1)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	return relationUUID, relationEndpointUUID
+}
+
+func (s *relationSuite) addUnitPrincipal(c *gc.C, principalUnit, subordinateUnit coreunit.UUID) {
+	s.query(c, `
+INSERT INTO unit_principal (principal_uuid, unit_uuid)
+VALUES (?, ?)
+`, principalUnit, subordinateUnit)
 }

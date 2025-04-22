@@ -925,7 +925,6 @@ func (s *uniterRelationSuite) TestEnterScopeErrUnauthorized(c *gc.C) {
 			{apiservertesting.ErrUnauthorized},
 		},
 	})
-
 }
 
 func (s *uniterRelationSuite) TestEnterScope(c *gc.C) {
@@ -1294,7 +1293,7 @@ func (s *uniterRelationSuite) expectSetRelationStatus(unitName string, relUUID c
 }
 
 func (s *uniterRelationSuite) expectEnterScope(uuid corerelation.UUID, name coreunit.Name, settings map[string]string, err error) {
-	s.relationService.EXPECT().EnterScope(gomock.Any(), uuid, name, settings).Return(err)
+	s.relationService.EXPECT().EnterScope(gomock.Any(), uuid, name, settings, gomock.Any()).Return(err)
 }
 
 func (s *uniterRelationSuite) expectWatchLifeSuspendedStatus(unitUUID coreunit.UUID, watch watcher.StringsWatcher, err error) {

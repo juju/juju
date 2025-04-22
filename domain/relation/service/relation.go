@@ -32,6 +32,14 @@ type State interface {
 	// by ep1 and ep2 and returns the created endpoints.
 	AddRelation(ctx context.Context, ep1, ep2 relation.CandidateEndpointIdentifier) (relation.Endpoint, relation.Endpoint, error)
 
+	// NeedsSubordinateUnit checks if there is a subordinate application
+	// related to the principal unit that needs a subordinate unit created.
+	NeedsSubordinateUnit(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		principalUnitName unit.Name,
+	) (*application.ID, error)
+
 	// EnterScope indicates that the provided unit has joined the relation.
 	// When the unit has already entered its relation scope, EnterScope will report
 	// success but make no changes to state. The unit's settings are created or
@@ -471,6 +479,10 @@ func (s *Service) ApplicationRelationsInfo(
 // success but make no changes to state. The unit's settings are created or
 // overwritten in the relation according to the supplied map.
 //
+// If there is a subordinate application related to the unit entering scope that
+// needs a subordinate unit creating, then the subordinate unit will be created
+// with the provided createSubordinate function.
+//
 // The following error types can be expected to be returned:
 //   - [relationerrors.PotentialRelationUnitNotValid] if the unit entering
 //     scope is a subordinate and the endpoint scope is charm.ScopeContainer
@@ -481,6 +493,7 @@ func (s *Service) EnterScope(
 	relationUUID corerelation.UUID,
 	unitName unit.Name,
 	settings map[string]string,
+	subordinateCreator relation.SubordinateCreator,
 ) error {
 	if err := relationUUID.Validate(); err != nil {
 		return errors.Errorf(
@@ -489,7 +502,34 @@ func (s *Service) EnterScope(
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
 	}
-	return s.st.EnterScope(ctx, relationUUID, unitName, settings)
+
+	// Enter the unit into the relation scope.
+	err := s.st.EnterScope(ctx, relationUUID, unitName, settings)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Check if a subordinate unit needs creating.
+	subID, err := s.st.NeedsSubordinateUnit(ctx, relationUUID, unitName)
+	if err != nil {
+		return errors.Capture(err)
+	} else if subID != nil {
+		// Create the required unit on the related subordinate application.
+		//
+		// TODO(aflynn): In 3.6 the subordinate was created in the same
+		// transaction as the principal entering scope. This is not the case
+		// here. If the subordinate creation fails, there should be some retry
+		// mechanism, or a rollback of enter scope.
+		if subordinateCreator == nil {
+			return errors.Errorf("subordinate creator is nil")
+		}
+		err := subordinateCreator.CreateSubordinate(ctx, *subID, unitName)
+		if err != nil {
+			return errors.Errorf("creating subordinate unit on application %q: %w", *subID, err)
+		}
+	}
+
+	return nil
 }
 
 // GetAllRelationDetails return all uuid of all relation for the current model.

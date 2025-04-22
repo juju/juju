@@ -1303,6 +1303,13 @@ func (u *UniterAPI) ProviderType(ctx context.Context) (params.StringResult, erro
 	return result, err
 }
 
+type subordinateCreator func(ctx context.Context, subordinateAppID application.ID, principalUnitName coreunit.Name) error
+
+// CreateSubordinate creates units on a subordinate application.
+func (c subordinateCreator) CreateSubordinate(ctx context.Context, subordinateAppID application.ID, principalUnitName coreunit.Name) error {
+	return c(ctx, subordinateAppID, principalUnitName)
+}
+
 // EnterScope ensures each unit has entered its scope in the relation,
 // for all of the given relation/unit pairs.
 func (u *UniterAPI) EnterScope(ctx context.Context, args params.RelationUnits) (params.ErrorResults, error) {
@@ -1365,7 +1372,15 @@ func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc
 	// reflects the purpose of the attribute value. We'll deprecate private-address.
 	settings["ingress-address"] = addr.String()
 
-	err = u.relationService.EnterScope(ctx, relUUID, unitName, settings)
+	err = u.relationService.EnterScope(
+		ctx,
+		relUUID,
+		unitName,
+		settings,
+		// TODO(aflynn): pass in a create subordinate application function from
+		// the application service here
+		subordinateCreator(nil),
+	)
 	if internalerrors.Is(err, relationerrors.PotentialRelationUnitNotValid) {
 		u.logger.Debugf(ctx, "ignoring %q EnterScope for %q, not valid", unitName, relKey.String())
 		return nil

@@ -978,6 +978,10 @@ WHERE relation_unit_uuid = $getRelationUnitEndpointName.relation_unit_uuid`, arg
 
 // GetRelationUnit retrieves the UUID of a relation unit based on the given
 // relation UUID and unit name.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationUnitNotFound] if the relation unit cannot be
+//     found.
 func (st *State) GetRelationUnit(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
@@ -990,32 +994,49 @@ func (st *State) GetRelationUnit(
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		args := getRelationUnit{
-			RelationUUID: relationUUID,
-			Name:         unitName,
-		}
-		stmt, err := st.Prepare(`
-SELECT ru.uuid AS &getRelationUnit.unit_uuid
+		result, _, err = st.getRelationUnit(ctx, tx, relationUUID, unitName)
+		return err
+	})
+	return result, errors.Capture(err)
+}
+
+// getRelationUnit returns the unit UUID and the relation unit UUID for the
+// given relation and unit name.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationUnitNotFound] if the relation unit cannot be
+//     found.
+func (st *State) getRelationUnit(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relationUUID corerelation.UUID,
+	unitName unit.Name,
+) (corerelation.UnitUUID, unit.UUID, error) {
+	args := getRelationUnit{
+		RelationUUID: relationUUID,
+		Name:         unitName,
+	}
+	stmt, err := st.Prepare(`
+SELECT 
+       ru.uuid AS &getRelationUnit.relation_unit_uuid,
+       u.uuid  AS &getRelationUnit.unit_uuid
 FROM   relation_unit ru
 JOIN   unit AS u ON ru.unit_uuid = u.uuid 
 JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
 WHERE  u.name = $getRelationUnit.name
 AND    re.relation_uuid = $getRelationUnit.relation_uuid`, args)
-		if err != nil {
-			return errors.Capture(err)
-		}
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
 
-		err = tx.Query(ctx, stmt, args).Get(&args)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("unit %q: %w", unitName, relationerrors.UnitNotFound)
-		}
-		if err != nil {
-			return errors.Errorf("getting unit: %w", err)
-		}
-		result = args.UnitUUID
-		return nil
-	})
-	return result, errors.Capture(err)
+	err = tx.Query(ctx, stmt, args).Get(&args)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", "", errors.Errorf("unit %q: %w", unitName, relationerrors.RelationUnitNotFound)
+	}
+	if err != nil {
+		return "", "", errors.Errorf("getting unit: %w", err)
+	}
+	return args.RelationUnitUUID, args.UnitUUID, nil
 }
 
 // EnterScope indicates that the provided unit has joined the relation.
@@ -1072,33 +1093,175 @@ WHERE  name = $getUnit.name
 			return errors.Capture(err)
 		}
 
-		// Insert or replace relation unit settings
-		err = st.updateUnitSettings(ctx, tx, relationUnitUUID, settings)
+		// Set the relation unit settings.
+		err = st.setRelationUnitSettings(ctx, tx, relationUnitUUID, settings)
 		if err != nil {
-			return errors.Capture(err)
-		}
-
-		// Fetch all the new settings in the relation for this unit.
-		newSettings, err := st.getRelationUnitSettings(ctx, tx, relationUnitUUID)
-		if err != nil {
-			return errors.Errorf("getting new relation unit settings: %w", err)
-		}
-
-		// Hash the new settings.
-		hash, err := hashSettings(newSettings)
-		if err != nil {
-			return errors.Errorf("generating hash of relation unit settings: %w", err)
-		}
-
-		// Update the hash in the database.
-		err = st.updateUnitSettingsHash(ctx, tx, relationUnitUUID, hash)
-		if err != nil {
-			return errors.Errorf("updating relation unit settings hash: %w", err)
+			return errors.Errorf("setting relation unit settings: %w", err)
 		}
 
 		return nil
 	})
 	return errors.Capture(err)
+}
+
+// NeedsSubordinateUnit checks if there is a subordinate application
+// related to the principal unit that needs a subordinate unit created.
+//
+// In the case that all the following hold, parameters for creating a
+// subordinate unit will be returned:
+//   - The unit and relation are alive.
+//   - The unit is in the relation.
+//   - The relation is container scoped.
+//   - The relation relates a subordinate application to a principal application.
+//   - The unit is on the principal application.
+//   - The unit does not already have a subordinate unit from the subordinate app.
+//
+// If the unit or relation is not alive, or the unit is not in the relation, the
+// appropriate error will be returned, otherwise, nil will be returned.
+func (st *State) NeedsSubordinateUnit(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	principalUnitName unit.Name,
+) (*application.ID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result *application.ID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Find the unit in the relation.
+		relUnitUUID, unitUUID, err := st.getRelationUnit(ctx, tx, relationUUID, principalUnitName)
+		if err != nil {
+			return errors.Errorf("getting relation unit: %w", err)
+		}
+
+		// Check the relation is alive.
+		if alive, err := st.checkLife(ctx, tx, "relation", relationUUID.String(), life.IsAlive); err != nil {
+			return errors.Errorf("getting relation life: %w", err)
+		} else if !alive {
+			return relationerrors.RelationNotAlive
+		}
+
+		// Check the unit is alive.
+		if alive, err := st.checkLife(ctx, tx, "unit", unitUUID.String(), life.IsAlive); err != nil {
+			return errors.Errorf("getting unit life: %w", err)
+		} else if !alive {
+			return relationerrors.UnitNotAlive
+		}
+
+		// Check that we are in a container scoped relation.
+		scope, err := st.getRelationScope(ctx, tx, relationUUID)
+		if err != nil {
+			return errors.Errorf("getting relation scope: %w", err)
+		} else if scope != charm.ScopeContainer {
+			return nil
+		}
+
+		// Get the ID of the related subordinate application, if it exists.
+		subAppID, relatedSubExists, err := st.findRelatedSubordinateApplication(ctx, tx, relUnitUUID)
+		if err != nil {
+			return errors.Errorf("getting related subordinate application: %w", err)
+		} else if !relatedSubExists {
+			return nil
+		}
+
+		// Check if there is already a subordinate unit.
+		if exists, err := st.subordinateUnitExists(ctx, tx, subAppID, unitUUID); err != nil {
+			return errors.Errorf("checking if subordinate already exists: %w", err)
+		} else if exists {
+			return nil
+		}
+
+		result = &subAppID
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return result, nil
+}
+
+// findRelatedSubordinateApplication returns the application ID of the related
+// subordinate application there is one, if there is not, it returns false as
+// the boolean argument.
+func (st *State) findRelatedSubordinateApplication(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitUUID corerelation.UnitUUID,
+) (application.ID, bool, error) {
+	type getSub struct {
+		UnitUUID               corerelation.UnitUUID `db:"unit_uuid"`
+		Subordinate            bool                  `db:"subordinate"`
+		PrincipalApplicationID application.ID        `db:"application_uuid"`
+	}
+
+	arg := getSub{
+		UnitUUID: unitUUID,
+	}
+	stmt, err := st.Prepare(`
+SELECT (cm.subordinate, ae.application_uuid) AS (&getSub.*)
+FROM   relation_unit ru
+JOIN   relation_endpoint re1 ON ru.relation_endpoint_uuid = re1.uuid
+JOIN   relation_endpoint re2 ON re2.relation_uuid = re1.relation_uuid AND re1.uuid != re2.uuid 
+JOIN   application_endpoint ae ON ae.uuid = re2.endpoint_uuid
+JOIN   charm_relation cr ON cr.uuid = ae.charm_relation_uuid
+JOIN   charm_metadata cm ON cm.charm_uuid = cr.charm_uuid
+WHERE  ru.uuid = $getSub.unit_uuid
+`, arg)
+	if err != nil {
+		return "", false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, arg).Get(&arg)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		// Peer relations will return no rows, so will units not in relations.
+		// Return false for these.
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, errors.Capture(err)
+	}
+
+	return arg.PrincipalApplicationID, arg.Subordinate, nil
+}
+
+// subordinateUnitExists checks if the principal unit already has a subordinate
+// unit of the given application.
+func (st *State) subordinateUnitExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	subordinateAppID application.ID,
+	principalUnit unit.UUID,
+) (bool, error) {
+	type getSub struct {
+		PrincipalUnitUUID        unit.UUID      `db:"unit_uuid"`
+		SubordinateApplicationID application.ID `db:"application_uuid"`
+	}
+	arg := getSub{
+		PrincipalUnitUUID:        principalUnit,
+		SubordinateApplicationID: subordinateAppID,
+	}
+	stmt, err := st.Prepare(`
+SELECT &getSub.application_uuid
+FROM   unit_principal up
+JOIN   unit u ON u.uuid = up.unit_uuid
+WHERE  u.application_uuid = $getSub.application_uuid
+AND    up.principal_uuid  = $getSub.unit_uuid
+`, arg)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, arg).Get(&arg)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return true, nil
 }
 
 // checkUnitCanEnterScope checks that the unit can enter scope in the given

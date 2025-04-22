@@ -261,6 +261,10 @@ type RelationService interface {
 	// success but make no changes to state. The unit's settings are created or
 	// overwritten in the relation according to the supplied map.
 	//
+	// If there is a subordinate application related to the unit entering scope that
+	// needs a subordinate unit creating, then the subordinate unit will be created
+	// with the provided createSubordinate function.
+	//
 	// The following error types can be expected to be returned:
 	//   - [relationerrors.PotentialRelationUnitNotValid] if the unit entering
 	//     scope is a subordinate and the endpoint scope is charm.ScopeContainer
@@ -268,9 +272,10 @@ type RelationService interface {
 	//     relation.
 	EnterScope(
 		ctx context.Context,
-		relationID corerelation.UUID,
+		relationUUID corerelation.UUID,
 		unitName coreunit.Name,
 		settings map[string]string,
+		createSubordinate relation.SubordinateCreator,
 	) error
 
 	// GetLocalRelationApplicationSettings returns the application settings
