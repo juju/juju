@@ -39,6 +39,7 @@ type modelconfigSuite struct {
 	testing.IsolationSuite
 	coretesting.JujuOSEnvSuite
 	backend                       *mockBackend
+	controllerTag                 names.ControllerTag
 	authorizer                    apiservertesting.FakeAuthorizer
 	mockModelSecretBackendService *mocks.MockModelSecretBackendService
 	mockModelConfigService        *mocks.MockModelConfigService
@@ -85,9 +86,10 @@ func (s *modelconfigSuite) getAPI(c *gc.C) (*modelconfig.ModelConfigAPI, *gomock
 	).AnyTimes()
 
 	modelID := modeltesting.GenModelUUID(c)
+	s.controllerTag = names.NewControllerTag(coretesting.ControllerTag.Id())
 	api, err := modelconfig.NewModelConfigAPI(
 		modelID, s.backend,
-		s.mockModelSecretBackendService, s.mockModelConfigService, s.mockModelService,
+		s.controllerTag, s.mockModelSecretBackendService, s.mockModelConfigService, s.mockModelService,
 		&s.authorizer, s.mockBlockCommandService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -432,6 +434,7 @@ type modelSecretBackendSuite struct {
 	mockModelSecretBackendService *mocks.MockModelSecretBackendService
 	mockBlockCommandService       *mocks.MockBlockCommandService
 	modelID                       coremodel.UUID
+	controllerTag                 names.ControllerTag
 }
 
 var _ = gc.Suite(&modelSecretBackendSuite{})
@@ -444,7 +447,9 @@ func (s *modelSecretBackendSuite) setup(c *gc.C) (*modelconfig.ModelConfigAPI, *
 	s.mockModelSecretBackendService = mocks.NewMockModelSecretBackendService(ctrl)
 	s.mockBlockCommandService = mocks.NewMockBlockCommandService(ctrl)
 	s.modelID = modeltesting.GenModelUUID(c)
-	api, err := modelconfig.NewModelConfigAPI(s.modelID, nil, s.mockModelSecretBackendService, nil, nil, s.authorizer, s.mockBlockCommandService)
+	s.controllerTag = names.NewControllerTag(coretesting.ControllerTag.Id())
+
+	api, err := modelconfig.NewModelConfigAPI(s.modelID, nil, s.controllerTag, s.mockModelSecretBackendService, nil, nil, s.authorizer, s.mockBlockCommandService)
 	c.Assert(err, jc.ErrorIsNil)
 	return api, ctrl
 }
