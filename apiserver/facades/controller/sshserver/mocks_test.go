@@ -86,6 +86,22 @@ func (mr *MockBackendMockRecorder) HostKeyForVirtualHostname(arg0 any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HostKeyForVirtualHostname", reflect.TypeOf((*MockBackend)(nil).HostKeyForVirtualHostname), arg0)
 }
 
+// K8sNamespaceAndPodName mocks base method.
+func (m *MockBackend) K8sNamespaceAndPodName(arg0, arg1 string) (string, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "K8sNamespaceAndPodName", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// K8sNamespaceAndPodName indicates an expected call of K8sNamespaceAndPodName.
+func (mr *MockBackendMockRecorder) K8sNamespaceAndPodName(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "K8sNamespaceAndPodName", reflect.TypeOf((*MockBackend)(nil).K8sNamespaceAndPodName), arg0, arg1)
+}
+
 // SSHServerHostKey mocks base method.
 func (m *MockBackend) SSHServerHostKey() (string, error) {
 	m.ctrl.T.Helper()

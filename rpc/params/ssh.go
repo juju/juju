@@ -154,3 +154,18 @@ type ListAuthorizedKeysResult struct {
 	Error          *Error   `json:"error,omitempty"`
 	AuthorizedKeys []string `json:"public-keys,omitempty"`
 }
+
+// SSHK8sExecArg is used to resolve the namespace and pod name for a
+// given model uuid and unit name.
+type SSHK8sExecArg struct {
+	ModelUUID string `json:"model-uuid"`
+	UnitName  string `json:"unit-name"`
+}
+
+// SSHK8sExecResult is used to return the namespace and pod name for a
+// given model uuid and unit name.
+type SSHK8sExecResult struct {
+	Error     *Error `json:"error,omitempty"`
+	PodName   string `json:"pod-name"`
+	Namespace string `json:"namespace"`
+}
