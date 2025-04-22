@@ -52,6 +52,44 @@ func (m *MockApplicationService) EXPECT() *MockApplicationServiceMockRecorder {
 	return m.recorder
 }
 
+// AddSubordinateUnit mocks base method.
+func (m *MockApplicationService) AddSubordinateUnit(arg0 context.Context, arg1 application.ID, arg2 unit.Name) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddSubordinateUnit", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddSubordinateUnit indicates an expected call of AddSubordinateUnit.
+func (mr *MockApplicationServiceMockRecorder) AddSubordinateUnit(arg0, arg1, arg2 any) *MockApplicationServiceAddSubordinateUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSubordinateUnit", reflect.TypeOf((*MockApplicationService)(nil).AddSubordinateUnit), arg0, arg1, arg2)
+	return &MockApplicationServiceAddSubordinateUnitCall{Call: call}
+}
+
+// MockApplicationServiceAddSubordinateUnitCall wrap *gomock.Call
+type MockApplicationServiceAddSubordinateUnitCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceAddSubordinateUnitCall) Return(arg0 error) *MockApplicationServiceAddSubordinateUnitCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceAddSubordinateUnitCall) Do(f func(context.Context, application.ID, unit.Name) error) *MockApplicationServiceAddSubordinateUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceAddSubordinateUnitCall) DoAndReturn(f func(context.Context, application.ID, unit.Name) error) *MockApplicationServiceAddSubordinateUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DeleteUnit mocks base method.
 func (m *MockApplicationService) DeleteUnit(arg0 context.Context, arg1 unit.Name) error {
 	m.ctrl.T.Helper()

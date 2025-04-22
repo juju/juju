@@ -14,13 +14,16 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/application/testing"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
+	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/ipaddress"
@@ -29,6 +32,7 @@ import (
 	portstate "github.com/juju/juju/domain/port/state"
 	"github.com/juju/juju/domain/status"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type unitStateSuite struct {
@@ -1205,6 +1209,278 @@ func (s *unitStateSuite) assertUnitConstraints(c *gc.C, inUnitUUID coreunit.UUID
 	c.Check(imageID.String, gc.Equals, deptr(cons.ImageID))
 
 	return constraintSpaces, constraintTags, constraintZones
+}
+
+type unitStateSubordinateSuite struct {
+	unitStateSuite
+}
+
+var _ = gc.Suite(&unitStateSubordinateSuite{})
+
+func (s *unitStateSubordinateSuite) TestAddSubordinateUnit(c *gc.C) {
+	// Arrange:
+	pUnitName := coreunittesting.GenNewName(c, "foo/666")
+	s.createApplication(c, "principal", life.Alive, application.InsertUnitArg{
+		UnitName: pUnitName,
+	})
+
+	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
+
+	// Act:
+	sUnitName, err := s.state.AddSubordinateUnit(context.Background(), application.SubordinateUnitArg{
+		SubordinateAppID:  sAppID,
+		PrincipalUnitName: pUnitName,
+		ModelType:         model.IAAS,
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sUnitName, gc.Equals, coreunittesting.GenNewName(c, "subordinate/0"))
+	s.assertUnitPrincipal(c, pUnitName, sUnitName)
+	s.assertUnitMachinesMatch(c, pUnitName, sUnitName)
+}
+
+// TestAddSubordinateUnitSecondSubordinate tests that a second subordinate unit
+// can be added to an app with no issues.
+func (s *unitStateSubordinateSuite) TestAddSubordinateUnitSecondSubordinate(c *gc.C) {
+	// Arrange: add subordinate application.
+	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
+
+	// Arrange: add principal app and add a subordinate unit on it.
+	pUnitName1 := coreunittesting.GenNewName(c, "foo/666")
+	pUnitName2 := coreunittesting.GenNewName(c, "foo/667")
+	s.createApplication(c, "principal", life.Alive, application.InsertUnitArg{
+		UnitName: pUnitName1,
+	}, application.InsertUnitArg{
+		UnitName: pUnitName2,
+	})
+	_, err := s.state.AddSubordinateUnit(context.Background(), application.SubordinateUnitArg{
+		SubordinateAppID:  sAppID,
+		PrincipalUnitName: pUnitName1,
+		ModelType:         model.IAAS,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Act: Add a second subordinate unit
+	sUnitName2, err := s.state.AddSubordinateUnit(context.Background(), application.SubordinateUnitArg{
+		SubordinateAppID:  sAppID,
+		PrincipalUnitName: pUnitName2,
+		ModelType:         model.IAAS,
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sUnitName2, gc.Equals, coreunittesting.GenNewName(c, "subordinate/1"))
+	s.assertUnitPrincipal(c, pUnitName2, sUnitName2)
+	s.assertUnitMachinesMatch(c, pUnitName2, sUnitName2)
+}
+
+func (s *unitStateSubordinateSuite) TestAddSubordinateUnitCAAS(c *gc.C) {
+	// Arrange:
+	pUnitName := coreunittesting.GenNewName(c, "foo/666")
+	s.createApplication(c, "principal", life.Alive, application.InsertUnitArg{
+		UnitName: pUnitName,
+	})
+
+	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
+
+	// Act:
+	sUnitName, err := s.state.AddSubordinateUnit(context.Background(), application.SubordinateUnitArg{
+		SubordinateAppID:  sAppID,
+		PrincipalUnitName: pUnitName,
+		ModelType:         model.CAAS,
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sUnitName, gc.Equals, coreunittesting.GenNewName(c, "subordinate/0"))
+	s.assertUnitPrincipal(c, pUnitName, sUnitName)
+}
+
+func (s *unitStateSubordinateSuite) TestAddSubordinateUnitTwiceToSameUnit(c *gc.C) {
+	// Arrange:
+	pUnitName := coreunittesting.GenNewName(c, "foo/666")
+	s.createApplication(c, "principal", life.Alive, application.InsertUnitArg{
+		UnitName: pUnitName,
+	})
+
+	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
+
+	// Arrange: Add the first subordinate.
+	_, err := s.state.AddSubordinateUnit(context.Background(), application.SubordinateUnitArg{
+		SubordinateAppID:  sAppID,
+		PrincipalUnitName: pUnitName,
+		ModelType:         model.IAAS,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Act: try adding a second subordinate to the same unit.
+	_, err = s.state.AddSubordinateUnit(context.Background(), application.SubordinateUnitArg{
+		SubordinateAppID:  sAppID,
+		PrincipalUnitName: pUnitName,
+		ModelType:         model.IAAS,
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitAlreadyHasSubordinate)
+}
+
+func (s *unitStateSubordinateSuite) TestAddSubordinateUnitWithoutMachine(c *gc.C) {
+	// Arrange:
+	pUnitName := coreunittesting.GenNewName(c, "foo/666")
+	pAppUUID := s.createApplication(c, "principal", life.Alive)
+	s.addUnit(c, pUnitName, pAppUUID)
+
+	sAppID := s.createSubordinateApplication(c, "subordinate", life.Alive)
+
+	// Act:
+	_, err := s.state.AddSubordinateUnit(context.Background(), application.SubordinateUnitArg{
+		SubordinateAppID:  sAppID,
+		PrincipalUnitName: pUnitName,
+		ModelType:         model.IAAS,
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, applicationerrors.MachineNotFound)
+}
+
+func (s *unitStateSubordinateSuite) TestAddSubordinateUnitApplicationNotAlive(c *gc.C) {
+	// Arrange:
+	pUnitName := coreunittesting.GenNewName(c, "foo/666")
+
+	sAppID := s.createSubordinateApplication(c, "subordinate", life.Dying)
+
+	// Act:
+	_, err := s.state.AddSubordinateUnit(context.Background(), application.SubordinateUnitArg{
+		SubordinateAppID:  sAppID,
+		PrincipalUnitName: pUnitName,
+		ModelType:         model.IAAS,
+	})
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotAlive)
+}
+
+func (s *unitStateSubordinateSuite) TestIsSubordinateApplication(c *gc.C) {
+	// Arrange:
+	appID := s.createSubordinateApplication(c, "sub", life.Alive)
+
+	// Act:
+	isSub, err := s.state.IsSubordinateApplication(context.Background(), appID)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isSub, jc.IsTrue)
+}
+
+func (s *unitStateSubordinateSuite) TestIsSubordinateApplicationFalse(c *gc.C) {
+	// Arrange:
+	appID := s.createApplication(c, "notSubordinate", life.Alive)
+
+	// Act:
+	isSub, err := s.state.IsSubordinateApplication(context.Background(), appID)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isSub, jc.IsFalse)
+}
+
+func (s *unitStateSubordinateSuite) TestIsSubordinateApplicationNotFound(c *gc.C) {
+	// Act:
+	_, err := s.state.IsSubordinateApplication(context.Background(), "notfound")
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *unitStateSubordinateSuite) assertUnitMachinesMatch(c *gc.C, unit1, unit2 coreunit.Name) {
+	m1 := s.getUnitMachine(c, unit1)
+	m2 := s.getUnitMachine(c, unit2)
+	c.Assert(m1, gc.Equals, m2)
+}
+
+func (s *unitStateSubordinateSuite) getUnitMachine(c *gc.C, unitName coreunit.Name) string {
+	var machineName string
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+
+		err := tx.QueryRow(`
+SELECT machine.name
+FROM unit
+JOIN machine ON unit.net_node_uuid = machine.net_node_uuid
+WHERE unit.name = ?
+`, unitName).Scan(&machineName)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return machineName
+}
+
+func (s *unitStateSubordinateSuite) addUnit(c *gc.C, unitName coreunit.Name, appUUID coreapplication.ID) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		netNodeUUID := uuid.MustNewUUID().String()
+		_, err := tx.Exec(`
+INSERT INTO net_node (uuid)
+VALUES (?)
+`, netNodeUUID)
+		if err != nil {
+			return err
+		}
+
+		unitUUID := uuid.MustNewUUID().String()
+
+		_, err = tx.Exec(`
+INSERT INTO unit (uuid, name, life_id, net_node_uuid, application_uuid, charm_uuid)
+SELECT ?, ?, ?, ?, uuid, charm_uuid
+FROM application
+WHERE uuid = ?
+`, unitUUID, unitName, 0 /* alive */, netNodeUUID, appUUID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *unitStateSubordinateSuite) assertUnitPrincipal(c *gc.C, principalName, subordinateName coreunit.Name) {
+	var foundPrincipalName coreunit.Name
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRow(`
+SELECT u1.name
+FROM unit u1
+JOIN unit_principal up ON up.principal_uuid = u1.uuid
+JOIN unit u2 ON u2.uuid = up.unit_uuid
+WHERE u2.name = ?
+`, subordinateName).Scan(&foundPrincipalName)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(foundPrincipalName, gc.Equals, principalName)
+}
+
+func (s *unitStateSubordinateSuite) createSubordinateApplication(c *gc.C, name string, l life.Life) coreapplication.ID {
+	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	appID, err := state.CreateApplication(context.Background(), name, application.AddApplicationArg{
+		Charm: charm.Charm{
+			Metadata: charm.Metadata{
+				Name:        name,
+				Subordinate: true,
+			},
+			Manifest:      s.minimalManifest(c),
+			ReferenceName: name,
+			Source:        charm.CharmHubSource,
+			Revision:      42,
+		},
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE application SET life_id = ? WHERE name = ?", l, name)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	return appID
 }
 
 func deptr[T any](v *T) T {

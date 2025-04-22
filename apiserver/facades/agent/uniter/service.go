@@ -138,6 +138,11 @@ type ApplicationService interface {
 
 	// GetUnitRefreshAttributes returns the refresh attributes for the unit.
 	GetUnitRefreshAttributes(ctx context.Context, unitName coreunit.Name) (domainapplication.UnitAttributes, error)
+
+	// AddSubordinateUnit adds a unit to the specified subordinate application
+	// to the application on the same machine as the given principal unit and
+	// records the principal-subordinate relationship.
+	AddSubordinateUnit(ctx context.Context, subordinateAppID coreapplication.ID, principalUnitName coreunit.Name) error
 }
 
 type ResolveService interface {

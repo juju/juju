@@ -274,6 +274,13 @@ type UnitStatusArg struct {
 	WorkloadStatus *status.StatusInfo[status.WorkloadStatusType]
 }
 
+type SubordinateUnitArg struct {
+	UnitStatusArg
+	ModelType         model.ModelType
+	SubordinateAppID  application.ID
+	PrincipalUnitName coreunit.Name
+}
+
 // UpdateCAASUnitParams contains parameters for updating a CAAS unit.
 type UpdateCAASUnitParams struct {
 	ProviderID           *string

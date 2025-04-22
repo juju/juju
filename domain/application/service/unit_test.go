@@ -14,8 +14,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
+	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	coreerrors "github.com/juju/juju/core/errors"
+	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
@@ -327,4 +329,108 @@ func (s *unitServiceSuite) TestGetUnitNamesForApplicationDead(c *gc.C) {
 
 	_, err := s.service.GetUnitNamesForApplication(context.Background(), appName)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationIsDead)
+}
+
+func (s *unitServiceSuite) TestAddSubordinateUnit(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	appID := applicationtesting.GenApplicationUUID(c)
+	unitName := unittesting.GenNewName(c, "principal/0")
+
+	s.state.EXPECT().IsSubordinateApplication(gomock.Any(), appID).Return(true, nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(coremodel.IAAS, nil)
+	var foundApp coreapplication.ID
+	var foundUnit coreunit.Name
+	s.state.EXPECT().AddSubordinateUnit(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, arg application.SubordinateUnitArg) (coreunit.Name, error) {
+			foundApp = arg.SubordinateAppID
+			foundUnit = arg.PrincipalUnitName
+			return "subordinate/0", nil
+		},
+	)
+
+	// Act:
+	err := s.service.AddSubordinateUnit(context.Background(), appID, unitName)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(foundApp, gc.Equals, appID)
+	c.Assert(foundUnit, gc.Equals, unitName)
+}
+
+func (s *unitServiceSuite) TestAddSubordinateUnitUnitAlreadyHasSubordinate(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	appID := applicationtesting.GenApplicationUUID(c)
+	unitName := unittesting.GenNewName(c, "principal/0")
+	s.state.EXPECT().IsSubordinateApplication(gomock.Any(), appID).Return(true, nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(coremodel.IAAS, nil)
+	s.state.EXPECT().AddSubordinateUnit(gomock.Any(), gomock.Any()).Return("", applicationerrors.UnitAlreadyHasSubordinate)
+
+	// Act:
+	err := s.service.AddSubordinateUnit(context.Background(), appID, unitName)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *unitServiceSuite) TestAddSubordinateUnitServiceError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange:
+	appID := applicationtesting.GenApplicationUUID(c)
+	unitName := unittesting.GenNewName(c, "principal/0")
+
+	s.state.EXPECT().IsSubordinateApplication(gomock.Any(), appID).Return(true, nil)
+	s.state.EXPECT().GetModelType(gomock.Any()).Return(coremodel.IAAS, nil)
+
+	boom := errors.New("boom")
+	s.state.EXPECT().AddSubordinateUnit(gomock.Any(), gomock.Any()).Return("", boom)
+
+	// Act:
+	err := s.service.AddSubordinateUnit(context.Background(), appID, unitName)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, boom)
+}
+
+func (s *unitServiceSuite) TestAddSubordinateUnitApplicationNotSubordinate(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	appID := applicationtesting.GenApplicationUUID(c)
+	unitName := unittesting.GenNewName(c, "principal/0")
+	s.state.EXPECT().IsSubordinateApplication(gomock.Any(), appID).Return(false, nil)
+
+	// Act:
+	err := s.service.AddSubordinateUnit(context.Background(), appID, unitName)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotSubordinate)
+}
+
+func (s *unitServiceSuite) TestAddSubordinateUnitBadUnitName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	appID := applicationtesting.GenApplicationUUID(c)
+
+	// Act:
+	err := s.service.AddSubordinateUnit(context.Background(), appID, "bad-name")
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *unitServiceSuite) TestAddSubordinateUnitBadAppName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange:
+	unitName := unittesting.GenNewName(c, "principal/0")
+
+	// Act:
+	err := s.service.AddSubordinateUnit(context.Background(), "bad-app-uuid", unitName)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }

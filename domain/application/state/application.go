@@ -2047,6 +2047,34 @@ func (st *State) GetApplicationIDByName(ctx context.Context, name string) (corea
 	return id, nil
 }
 
+// getApplicationName returns the application name. If no application is found,
+// an error satisfying [applicationerrors.ApplicationNotFound] is returned.
+func (st *State) getApplicationName(
+	ctx context.Context,
+	tx *sqlair.TX,
+	id coreapplication.ID) (string, error) {
+	arg := applicationIDAndName{
+		ID: id,
+	}
+	stmt, err := st.Prepare(`
+SELECT &applicationIDAndName.*
+FROM   application
+WHERE  uuid = $applicationIDAndName.uuid
+`, arg)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, arg).Get(&arg)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", applicationerrors.ApplicationNotFound
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return arg.Name, nil
+}
+
 // GetApplicationConfigHash returns the SHA256 hash of the application config
 // for the specified application ID.
 // If no application is found, an error satisfying

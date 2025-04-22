@@ -1483,7 +1483,6 @@ func (s *providerServiceSuite) TestAddUnitsEmptyConstraints(c *gc.C) {
 
 	appUUID := applicationtesting.GenApplicationUUID(c)
 	charmUUID := charmtesting.GenCharmID(c)
-	unitUUID := unittesting.GenUnitUUID(c)
 
 	now := ptr(s.clock.Now())
 	u := []application.AddUnitArg{{
@@ -1503,7 +1502,7 @@ func (s *providerServiceSuite) TestAddUnitsEmptyConstraints(c *gc.C) {
 	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
 	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
 	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "ubuntu").Return(charmUUID, nil)
-	s.expectEmptyUnitConstraints(c, unitUUID, appUUID)
+	s.expectEmptyUnitConstraints(c, appUUID)
 
 	var received []application.AddUnitArg
 	s.state.EXPECT().AddCAASUnits(gomock.Any(), s.storageParentDir, appUUID, charmUUID, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ coreapplication.ID, _ corecharm.ID, args ...application.AddUnitArg) error {
@@ -1909,7 +1908,7 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsConstraint
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *providerServiceSuite) expectEmptyUnitConstraints(c *gc.C, unitUUID coreunit.UUID, appUUID coreapplication.ID) {
+func (s *providerServiceSuite) expectEmptyUnitConstraints(c *gc.C, appUUID coreapplication.ID) {
 	appConstraints := constraints.Constraints{}
 	modelConstraints := constraints.Constraints{}
 
