@@ -4,7 +4,9 @@
 package agent
 
 import (
+	"io/fs"
 	"os"
+	"os/user"
 	"path/filepath"
 	"time"
 
@@ -29,7 +31,7 @@ func PrimeLogSink(cfg agent.Config) (*logsink.LogSink, error) {
 	if err != nil {
 		return nil, errors.Errorf("unable to open log file %q: %w", path, err)
 	}
-	if err := paths.SetSyslogOwner(path); err != nil {
+	if err := paths.SetSyslogOwner(path); err != nil && !isChownPermError(err) {
 		return nil, errors.Errorf("unable to set syslog owner on %q: %w", path, err)
 	}
 	if err := f.Close(); err != nil {
@@ -44,4 +46,10 @@ func PrimeLogSink(cfg agent.Config) (*logsink.LogSink, error) {
 	}
 
 	return logsink.NewLogSink(logger, batchSize, flushInterval, clock.WallClock), nil
+}
+
+func isChownPermError(err error) bool {
+	return errors.Is(err, fs.ErrPermission) ||
+		errors.HasType[user.UnknownUserError](err) ||
+		errors.HasType[user.UnknownGroupError](err)
 }
