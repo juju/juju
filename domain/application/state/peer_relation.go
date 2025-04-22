@@ -12,6 +12,8 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/relation"
+	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -84,40 +86,25 @@ func (st *State) insertNewRelation(ctx context.Context, tx *sqlair.TX) (corerela
 
 	type relationIDAndUUID struct {
 		UUID corerelation.UUID `db:"uuid"`
-		ID   int               `db:"relation_id"`
+		ID   uint64            `db:"relation_id"`
 	}
 
-	relUUIDArg := relationIDAndUUID{
-		UUID: relUUID,
-	}
-
-	stmtGetID, err := st.Prepare(`
-SELECT sequence AS &relationIDAndUUID.relation_id 
-FROM relation_sequence`, relUUIDArg)
+	id, err := sequencestate.NextValue(ctx, st, tx, relation.SequenceNamespace)
 	if err != nil {
-		return relUUID, errors.Capture(err)
-	}
-
-	stmtUpdateID, err := st.Prepare(`
-UPDATE relation_sequence SET sequence = sequence + 1`)
-	if err != nil {
-		return relUUID, errors.Capture(err)
+		return relUUID, errors.Errorf("getting next relation id: %w", err)
 	}
 
 	stmtInsert, err := st.Prepare(`
 INSERT INTO relation (uuid, life_id, relation_id)
 VALUES ($relationIDAndUUID.uuid, 0, $relationIDAndUUID.relation_id)
-`, relUUIDArg)
+`, relationIDAndUUID{})
 	if err != nil {
 		return relUUID, errors.Capture(err)
 	}
 
-	if err := tx.Query(ctx, stmtGetID).Get(&relUUIDArg); err != nil {
-		return relUUID, errors.Capture(err)
-	}
-
-	if err := tx.Query(ctx, stmtUpdateID).Run(); err != nil {
-		return relUUID, errors.Capture(err)
+	relUUIDArg := relationIDAndUUID{
+		UUID: relUUID,
+		ID:   id,
 	}
 
 	if err := tx.Query(ctx, stmtInsert, relUUIDArg).Run(); err != nil {

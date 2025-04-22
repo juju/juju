@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 )
@@ -456,7 +457,7 @@ WHERE  uuid = $relationIDAndUUID.uuid
 		return 0, errors.Capture(err)
 	}
 
-	return id.ID, nil
+	return int(id.ID), nil
 }
 
 // GetRelationUUIDByID returns the relation UUID based on the relation ID.
@@ -471,7 +472,7 @@ func (st *State) GetRelationUUIDByID(ctx context.Context, relationID int) (corer
 	}
 
 	id := relationIDAndUUID{
-		ID: relationID,
+		ID: uint64(relationID),
 	}
 	stmt, err := st.Prepare(`
 SELECT &relationIDAndUUID.uuid
@@ -2784,37 +2785,22 @@ func (st *State) insertNewRelation(ctx context.Context, tx *sqlair.TX) (corerela
 		return relUUID, errors.Errorf("generating new relation UUID: %w", err)
 	}
 
-	relUUIDArg := relationIDAndUUID{
-		UUID: relUUID,
-	}
-
-	stmtGetID, err := st.Prepare(`
-SELECT sequence AS &relationIDAndUUID.relation_id 
-FROM relation_sequence`, relUUIDArg)
+	id, err := sequencestate.NextValue(ctx, st, tx, relation.SequenceNamespace)
 	if err != nil {
-		return relUUID, errors.Capture(err)
-	}
-
-	stmtUpdateID, err := st.Prepare(`
-UPDATE relation_sequence SET sequence = sequence + 1`)
-	if err != nil {
-		return relUUID, errors.Capture(err)
+		return relUUID, errors.Errorf("getting next relation id: %w", err)
 	}
 
 	stmtInsert, err := st.Prepare(`
 INSERT INTO relation (uuid, life_id, relation_id)
 VALUES ($relationIDAndUUID.uuid, 0, $relationIDAndUUID.relation_id)
-`, relUUIDArg)
+`, relationIDAndUUID{})
 	if err != nil {
 		return relUUID, errors.Capture(err)
 	}
 
-	if err := tx.Query(ctx, stmtGetID).Get(&relUUIDArg); err != nil {
-		return relUUID, errors.Capture(err)
-	}
-
-	if err := tx.Query(ctx, stmtUpdateID).Run(); err != nil {
-		return relUUID, errors.Capture(err)
+	relUUIDArg := relationIDAndUUID{
+		UUID: relUUID,
+		ID:   id,
 	}
 
 	if err := tx.Query(ctx, stmtInsert, relUUIDArg).Run(); err != nil {

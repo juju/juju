@@ -185,21 +185,6 @@ INSERT INTO relation_status_type VALUES
 (4, 'suspended'),
 (5, 'error');
 
--- The relation_sequence table is used to keep track of the
--- sequence number for relation IDs within a model. Each
--- relation must have an relation ID.
-CREATE TABLE relation_sequence (
-    -- The sequence number will start at 0 for each model and will be
-    -- incremented.
-    sequence INT NOT NULL DEFAULT 0
-);
-
-INSERT INTO relation_sequence (sequence) VALUES (0);
-
--- A unique constraint over a constant index ensures only 1 entry matching the
--- condition can exist.
-CREATE UNIQUE INDEX idx_singleton_relation_sequence ON relation_sequence ((1));
-
 CREATE VIEW v_application_endpoint AS
 SELECT
     ae.uuid AS endpoint_uuid,
