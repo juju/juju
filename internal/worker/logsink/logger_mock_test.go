@@ -15,7 +15,6 @@ import (
 
 	logger "github.com/juju/juju/core/logger"
 	model "github.com/juju/juju/core/model"
-	loggo "github.com/juju/loggo/v2"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -728,42 +727,6 @@ func (c *MockLogSinkLogCall) Do(f func([]logger.LogRecord) error) *MockLogSinkLo
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockLogSinkLogCall) DoAndReturn(f func([]logger.LogRecord) error) *MockLogSinkLogCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Write mocks base method.
-func (m *MockLogSink) Write(arg0 loggo.Entry) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Write", arg0)
-}
-
-// Write indicates an expected call of Write.
-func (mr *MockLogSinkMockRecorder) Write(arg0 any) *MockLogSinkWriteCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Write", reflect.TypeOf((*MockLogSink)(nil).Write), arg0)
-	return &MockLogSinkWriteCall{Call: call}
-}
-
-// MockLogSinkWriteCall wrap *gomock.Call
-type MockLogSinkWriteCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockLogSinkWriteCall) Return() *MockLogSinkWriteCall {
-	c.Call = c.Call.Return()
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockLogSinkWriteCall) Do(f func(loggo.Entry)) *MockLogSinkWriteCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockLogSinkWriteCall) DoAndReturn(f func(loggo.Entry)) *MockLogSinkWriteCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

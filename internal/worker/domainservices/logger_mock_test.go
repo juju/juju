@@ -15,7 +15,6 @@ import (
 
 	logger "github.com/juju/juju/core/logger"
 	model "github.com/juju/juju/core/model"
-	loggo "github.com/juju/loggo/v2"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -102,44 +101,6 @@ func NewMockLoggerContext(ctrl *gomock.Controller) *MockLoggerContext {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockLoggerContext) EXPECT() *MockLoggerContextMockRecorder {
 	return m.recorder
-}
-
-// AddWriter mocks base method.
-func (m *MockLoggerContext) AddWriter(arg0 string, arg1 loggo.Writer) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddWriter", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AddWriter indicates an expected call of AddWriter.
-func (mr *MockLoggerContextMockRecorder) AddWriter(arg0, arg1 any) *MockLoggerContextAddWriterCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddWriter", reflect.TypeOf((*MockLoggerContext)(nil).AddWriter), arg0, arg1)
-	return &MockLoggerContextAddWriterCall{Call: call}
-}
-
-// MockLoggerContextAddWriterCall wrap *gomock.Call
-type MockLoggerContextAddWriterCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockLoggerContextAddWriterCall) Return(arg0 error) *MockLoggerContextAddWriterCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockLoggerContextAddWriterCall) Do(f func(string, loggo.Writer) error) *MockLoggerContextAddWriterCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockLoggerContextAddWriterCall) DoAndReturn(f func(string, loggo.Writer) error) *MockLoggerContextAddWriterCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // Config mocks base method.
