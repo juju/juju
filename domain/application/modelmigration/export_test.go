@@ -16,10 +16,12 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type exportApplicationSuite struct {
@@ -281,4 +283,50 @@ func (s *exportApplicationSuite) TestApplicationExportExposedEndpoints(c *gc.C) 
 	c.Check(app.ExposedEndpoints()[""].ExposeToSpaceIDs(), jc.SameContents, []string{"beta"})
 	c.Check(app.ExposedEndpoints()["foo"].ExposeToSpaceIDs(), jc.SameContents, []string{"space0", "space1"})
 	c.Check(app.ExposedEndpoints()["foo"].ExposeToCIDRs(), jc.SameContents, []string{"10.0.0.0/24", "10.0.1.0/24"})
+}
+
+func (s *exportApplicationSuite) TestApplicationExportEndpointBindings(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	charmUUID := charmtesting.GenCharmID(c)
+	spaceUUID := uuid.MustNewUUID().String()
+
+	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{
+		Name:      "prometheus",
+		ModelType: model.IAAS,
+		CharmUUID: charmUUID,
+		CharmLocator: charm.CharmLocator{
+			Source:       charm.CharmHubSource,
+			Name:         "prometheus",
+			Revision:     42,
+			Architecture: architecture.AMD64,
+		},
+		EndpointBindings: map[string]string{
+			"":         network.AlphaSpaceId,
+			"endpoint": spaceUUID,
+			"misc":     "",
+		},
+	}}, nil)
+	s.expectCharmOriginFor("prometheus")
+	s.expectMinimalCharm()
+	s.expectApplicationConfig()
+	s.expectApplicationUnits()
+	s.expectApplicationConstraints(constraints.Value{})
+	s.exportService.EXPECT().IsApplicationExposed(gomock.Any(), "prometheus").Return(false, nil)
+
+	// Act:
+	exportOp := s.newExportOperation()
+	model := description.NewModel(description.ModelArgs{})
+	err := exportOp.Execute(context.Background(), model)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Applications(), gc.HasLen, 1)
+
+	app := model.Applications()[0]
+	c.Check(app.EndpointBindings(), gc.HasLen, 3)
+	c.Check(app.EndpointBindings()[""], gc.Equals, network.AlphaSpaceId)
+	c.Check(app.EndpointBindings()["endpoint"], gc.Equals, spaceUUID)
+	c.Check(app.EndpointBindings()["misc"], gc.Equals, "")
 }

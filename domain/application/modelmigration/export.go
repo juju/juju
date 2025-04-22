@@ -258,6 +258,9 @@ func (e *exportOperation) createApplicationArgs(ctx context.Context, app applica
 		ForceCharm:           app.CharmUpgradeOnError,
 		CloudService:         cloudService,
 		Exposed:              isExposed,
+		// EndpointBindings is a map of endpoint names to space UUIDs. In 3.6
+		// endpoints were mapped to space IDs, in 4.0+, space UUIDs.
+		EndpointBindings: app.EndpointBindings,
 
 		// Create a provisioning state for the application, incase a non-scaling
 		// application is being exported and someone tries to access the

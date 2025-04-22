@@ -178,6 +178,11 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			scaleState.ScaleTarget = provisioningState.ScaleTarget()
 		}
 
+		endpointBindings, err := i.importEndpointBindings(app, model.Spaces())
+		if err != nil {
+			return errors.Errorf("importing endpoint bindings: %w", err)
+		}
+
 		exposedEndpoints, err := i.importExposedEndpoints(ctx, app, model.Spaces())
 		if err != nil {
 			return errors.Errorf("importing exposed endpoints: %w", err)
@@ -191,6 +196,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			ApplicationSettings:    applicationSettings,
 			ApplicationConstraints: i.importApplicationConstraints(app),
 			ScaleState:             scaleState,
+			EndpointBindings:       endpointBindings,
 			ExposedEndpoints:       exposedEndpoints,
 
 			// ReferenceName is the name of the charm URL, not the application
@@ -661,6 +667,56 @@ func (i *importOperation) importCharmActions(data description.CharmActions) (*in
 	return &internalcharm.Actions{
 		ActionSpecs: actions,
 	}, nil
+}
+
+func (i *importOperation) importEndpointBindings(app description.Application, spaces []description.Space) (map[string]network.SpaceName, error) {
+	endpointBindings := make(map[string]network.SpaceName)
+	// Get the application's default space
+	applicationDefaultSpaceID := network.AlphaSpaceName
+	for endpoint, spaceID := range app.EndpointBindings() {
+		if endpoint == "" {
+			applicationDefaultSpaceID = spaceID
+			break
+		}
+	}
+
+	// Find the spaces names associated with each endpoint.
+	for endpoint, spaceID := range app.EndpointBindings() {
+		if spaceID == "" || (spaceID == applicationDefaultSpaceID && endpoint != "") {
+			// In migrations from 4.0+, an empty space ID signifies that the
+			// endpoint is set to the applications default space. Any endpoints
+			// not included explicitly in create application will be set to the
+			// application default, so do not set it here.
+
+			// Similarly, if the spaceID is the application default space, then
+			// don't add insert it. In 3.6 endpoints had their spaceID
+			// explicitly set to the default space.
+			continue
+		} else if spaceID == network.AlphaSpaceId || spaceID == "0" {
+			// If the space ID is that of the alpha space, then bind the
+			// endpoint to the alpha space name.
+			endpointBindings[endpoint] = network.AlphaSpaceName
+		} else {
+			// Search through the imported spaceIDs to find the corresponding
+			// space name for the endpoint binding.
+			var spaceName string
+			for _, spaceInfo := range spaces {
+				if spaceInfo.Id() == spaceID {
+					spaceName = spaceInfo.Name()
+					break
+				} else if spaceInfo.UUID() == spaceID {
+					// This means that the space was inserted from a 4.0+ model.
+					spaceName = spaceInfo.Name()
+					break
+				}
+			}
+			if spaceName == "" {
+				return nil, errors.Errorf("space with id %q not found", spaceID)
+			}
+			endpointBindings[endpoint] = network.SpaceName(spaceName)
+		}
+	}
+	return endpointBindings, nil
 }
 
 func (i *importOperation) importExposedEndpoints(ctx context.Context, app description.Application, spaces []description.Space) (map[string]application.ExposedEndpoint, error) {

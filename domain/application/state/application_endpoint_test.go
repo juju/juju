@@ -104,7 +104,7 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationNoCharmRelationWith
 	db, err := s.state.DB()
 	c.Assert(err, jc.ErrorIsNil)
 	bindings := map[string]network.SpaceName{
-		"": s.addSpace(c, "beta"),
+		"": s.addSpaceReturningName(c, "beta"),
 	}
 
 	// Act: noop, no error
@@ -168,7 +168,7 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationEndpointDefaultedSp
 	relUUID := s.addRelation(c, "default")
 	extraUUID := s.addExtraBinding(c, "extra")
 	bindings := map[string]network.SpaceName{
-		"": s.addSpace(c, "beta"),
+		"": s.addSpaceReturningName(c, "beta"),
 	}
 
 	// Act: Charm relation will create application endpoint bounded to the default space (beta)
@@ -212,8 +212,8 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationEndpointBindOneToBe
 	extraUUID := s.addExtraBinding(c, "extra")
 	boundExtraUUID := s.addExtraBinding(c, "bound-extra")
 	bindings := map[string]network.SpaceName{
-		"bound":       s.addSpace(c, "beta"),
-		"bound-extra": s.addSpace(c, "beta-extra"),
+		"bound":       s.addSpaceReturningName(c, "beta"),
+		"bound-extra": s.addSpaceReturningName(c, "beta-extra"),
 	}
 
 	// Act: Charm relation will create application endpoint bounded to the specified space (beta)
@@ -265,9 +265,9 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationEndpointBindOneToBe
 	boundUUID := s.addRelation(c, "bound")
 	extraUUID := s.addExtraBinding(c, "extra")
 	boundExtraUUID := s.addExtraBinding(c, "bound-extra")
-	beta := s.addSpace(c, "beta")
+	beta := s.addSpaceReturningName(c, "beta")
 	bindings := map[string]network.SpaceName{
-		"":            s.addSpace(c, "gamma"),
+		"":            s.addSpaceReturningName(c, "gamma"),
 		"bound":       beta,
 		"bound-extra": beta,
 	}
@@ -365,6 +365,170 @@ func (s *applicationEndpointStateSuite) TestInsertApplicationEndpointUnknownRela
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmRelationNotFound)
 }
 
+func (s *applicationEndpointStateSuite) TestGetEndpointBindings(c *gc.C) {
+	// Arrange: Get DB.
+	db, err := s.state.DB()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Arrange: create two application endpoints
+	relationName1 := "charmRelation1"
+	relationName2 := "charmRelation2"
+	relationUUID1 := s.addRelation(c, relationName1)
+	relationUUID2 := s.addRelation(c, relationName2)
+	spaceUUID1 := s.addSpace(c, "space1")
+	spaceUUID2 := s.addSpace(c, "space2")
+	s.addApplicationEndpoint(c, spaceUUID1, relationUUID1)
+	s.addApplicationEndpoint(c, spaceUUID2, relationUUID2)
+
+	// Arrange application extra endpoints.
+	extraName1 := "extra1"
+	extraName2 := "extra2"
+	extraBindingUUID1 := s.addExtraBinding(c, extraName1)
+	extraBindingUUID2 := s.addExtraBinding(c, extraName2)
+	spaceUUID3 := s.addSpace(c, "space3")
+	spaceUUID4 := s.addSpace(c, "space4")
+	s.addApplicationExtraEndpoint(c, spaceUUID3, extraBindingUUID1)
+	s.addApplicationExtraEndpoint(c, spaceUUID4, extraBindingUUID2)
+
+	// Arrange: Set the application default space.
+	spaceUUID5 := s.addSpace(c, "space5")
+	s.setApplicationDefaultSpace(c, spaceUUID5)
+
+	// Act:
+	var bindings map[string]string
+	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		bindings, err = s.state.getEndpointBindings(context.Background(), tx, s.appID)
+		return err
+	})
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bindings, gc.DeepEquals, map[string]string{
+		relationName1: spaceUUID1,
+		relationName2: spaceUUID2,
+		extraName1:    spaceUUID3,
+		extraName2:    spaceUUID4,
+		"":            spaceUUID5,
+	})
+}
+
+// TestGetEndpointBindingsReturnsUnset checks that endpoints with an unset
+// space_uuid are included.
+func (s *applicationEndpointStateSuite) TestGetEndpointBindingsReturnsUnset(c *gc.C) {
+	// Arrange: Get DB.
+	db, err := s.state.DB()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Arrange: create two application endpoints
+	relationName1 := "charmRelation1"
+	relationUUID1 := s.addRelation(c, relationName1)
+	s.addApplicationEndpointNullSpace(c, relationUUID1)
+
+	// Arrange application extra endpoints.
+	extraName1 := "extra1"
+	extraBindingUUID1 := s.addExtraBinding(c, extraName1)
+	s.addApplicationExtraEndpointNullSpace(c, extraBindingUUID1)
+
+	// Act:
+	var bindings map[string]string
+	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		bindings, err = s.state.getEndpointBindings(context.Background(), tx, s.appID)
+		return err
+	})
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bindings, gc.DeepEquals, map[string]string{
+		"":            network.AlphaSpaceId,
+		relationName1: "",
+		extraName1:    "",
+	})
+}
+
+// TestGetEndpointBindingsOnlyDefault checks that when no application endpoints
+// are set, the default application bindings is still returned. This is always
+// set.
+func (s *applicationEndpointStateSuite) TestGetEndpointBindingsOnlyDefault(c *gc.C) {
+	// Arrange: Get DB.
+	db, err := s.state.DB()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Arrange: Set the application default space.
+	spaceUUID := s.addSpace(c, "space")
+	s.setApplicationDefaultSpace(c, spaceUUID)
+
+	// Act:
+	var bindings map[string]string
+	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		bindings, err = s.state.getEndpointBindings(context.Background(), tx, s.appID)
+		return err
+	})
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bindings, gc.HasLen, 1)
+	c.Assert(bindings[""], gc.Equals, spaceUUID)
+}
+
+func (s *applicationEndpointStateSuite) TestGetEndpointBindingsApplicationNotFound(c *gc.C) {
+	// Arrange: Get DB.
+	db, err := s.state.DB()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Act:
+	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		_, err = s.state.getEndpointBindings(context.Background(), tx, "bad-uuid")
+		return err
+	})
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *applicationEndpointStateSuite) addApplicationEndpoint(c *gc.C, spaceUUID, relationUUID string) string {
+	endpointUUID := uuid.MustNewUUID().String()
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid)
+VALUES (?,?,?,?)`, endpointUUID, s.appID, spaceUUID, relationUUID)
+		return errors.Capture(err)
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) Failed to add application endpoint: %v", err))
+	return endpointUUID
+}
+
+func (s *applicationEndpointStateSuite) addApplicationExtraEndpoint(c *gc.C, spaceUUID, extraEndpointUUID string) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO application_extra_endpoint (application_uuid, space_uuid, charm_extra_binding_uuid)
+VALUES (?,?,?)`, s.appID, spaceUUID, extraEndpointUUID)
+		return errors.Capture(err)
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) Failed to add application extra endpoint: %v", err))
+}
+
+func (s *applicationEndpointStateSuite) addApplicationEndpointNullSpace(c *gc.C, relationUUID string) string {
+	endpointUUID := uuid.MustNewUUID().String()
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid)
+VALUES (?,?,?,?)`, endpointUUID, s.appID, nil, relationUUID)
+		return errors.Capture(err)
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) Failed to add application endpoint: %v", err))
+	return endpointUUID
+}
+
+func (s *applicationEndpointStateSuite) addApplicationExtraEndpointNullSpace(c *gc.C, extraEndpointUUID string) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO application_extra_endpoint (application_uuid, space_uuid, charm_extra_binding_uuid)
+VALUES (?,?,?)`, s.appID, nil, extraEndpointUUID)
+		return errors.Capture(err)
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) Failed to add application extra endpoint: %v", err))
+}
+
 // applicationEndpoint represents an association between a charm relation and a
 // specific network space. It is used to fetch the state in order to verify what
 // has been created
@@ -444,9 +608,16 @@ ORDER BY s.name`, s.appID)
 	return endpoints
 }
 
+// addSpaceReturningName ensures a space with the given name exists in the database,
+// creating it if necessary, and returns its name.
+func (s *applicationEndpointStateSuite) addSpaceReturningName(c *gc.C, name string) network.SpaceName {
+	s.addSpace(c, name)
+	return network.SpaceName(name)
+}
+
 // addSpace ensures a space with the given name exists in the database,
 // creating it if necessary, and returns its name.
-func (s *applicationEndpointStateSuite) addSpace(c *gc.C, name string) network.SpaceName {
+func (s *applicationEndpointStateSuite) addSpace(c *gc.C, name string) string {
 	spaceUUID := uuid.MustNewUUID().String()
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -455,7 +626,18 @@ VALUES (?, ?)`, spaceUUID, name)
 		return errors.Capture(err)
 	})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) Failed to add a space: %v", err))
-	return network.SpaceName(name)
+	return spaceUUID
+}
+
+func (s *applicationEndpointStateSuite) setApplicationDefaultSpace(c *gc.C, spaceUUID string) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE application
+SET    space_uuid = ? 
+WHERE  uuid = ?`, spaceUUID, s.appID)
+		return errors.Capture(err)
+	})
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) Failed to set application default space: %v", err))
 }
 
 // addRelation inserts a new charm relation into the database and returns its generated UUID.

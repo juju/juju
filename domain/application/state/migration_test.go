@@ -16,10 +16,12 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/life"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type migrationStateSuite struct {
@@ -50,6 +52,13 @@ func (s *migrationStateSuite) TestGetApplicationsForExport(c *gc.C) {
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
+			EndpointBindings: map[string]string{
+				"":          network.AlphaSpaceId,
+				"endpoint":  "",
+				"extra":     "",
+				"juju-info": "",
+				"misc":      "",
+			},
 		},
 	})
 }
@@ -77,6 +86,13 @@ func (s *migrationStateSuite) TestGetApplicationsForExportMany(c *gc.C) {
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
+			EndpointBindings: map[string]string{
+				"":          network.AlphaSpaceId,
+				"endpoint":  "",
+				"extra":     "",
+				"juju-info": "",
+				"misc":      "",
+			},
 		})
 	}
 
@@ -114,6 +130,13 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *gc.C) {
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
+			EndpointBindings: map[string]string{
+				"":          network.AlphaSpaceId,
+				"endpoint":  "",
+				"extra":     "",
+				"misc":      "",
+				"juju-info": "",
+			},
 		},
 		{
 			UUID:      id1,
@@ -127,6 +150,13 @@ func (s *migrationStateSuite) TestGetApplicationsForExportDeadOrDying(c *gc.C) {
 				Source:   charm.CharmHubSource,
 			},
 			Subordinate: false,
+			EndpointBindings: map[string]string{
+				"":          network.AlphaSpaceId,
+				"endpoint":  "",
+				"extra":     "",
+				"misc":      "",
+				"juju-info": "",
+			},
 		},
 	}
 
@@ -244,6 +274,80 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportDead(c *gc.C) {
 			Machine: machine.Name("0"),
 		},
 	})
+}
+
+func (s *migrationStateSuite) TestGetApplicationsForExportEndpointBindings(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	id := s.createApplication(c, "foo", life.Alive)
+	charmID, err := st.GetCharmIDByApplicationName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	spaceUUID1 := s.addSpace(c, "beta")
+	spaceUUID2 := s.addSpace(c, "gamma")
+	s.updateApplicationEndpoint(c, "endpoint", spaceUUID1)
+	s.updateApplicationEndpoint(c, "misc", spaceUUID2)
+
+	apps, err := st.GetApplicationsForExport(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(apps, gc.DeepEquals, []application.ExportApplication{
+		{
+			UUID:      id,
+			CharmUUID: charmID,
+			ModelType: model.IAAS,
+			Name:      "foo",
+			Life:      life.Alive,
+			CharmLocator: charm.CharmLocator{
+				Name:     "foo",
+				Revision: 42,
+				Source:   charm.CharmHubSource,
+			},
+			Subordinate: false,
+			EndpointBindings: map[string]string{
+				"":          network.AlphaSpaceId,
+				"endpoint":  spaceUUID1,
+				"misc":      spaceUUID2,
+				"extra":     "",
+				"juju-info": "",
+			},
+		},
+	})
+}
+
+// addSpace ensures a space with the given name exists in the database,
+// creating it if necessary, and returns its name.
+func (s *migrationStateSuite) addSpace(c *gc.C, name string) string {
+	spaceUUID := uuid.MustNewUUID().String()
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO space (uuid, name)
+VALUES (?, ?)`, spaceUUID, name)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return spaceUUID
+}
+
+func (s *migrationStateSuite) updateApplicationEndpoint(c *gc.C, endpoint, space_uuid string) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		var charmRelationUUID string
+		err := tx.QueryRowContext(ctx, `
+SELECT uuid 
+FROM   charm_relation 
+WHERE  name = ?
+`, endpoint).Scan(&charmRelationUUID)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+UPDATE application_endpoint
+SET    space_uuid = ?
+WHERE  charm_relation_uuid = ?
+`, space_uuid, charmRelationUUID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *unitStateSuite) TestInsertMigratingIAASUnits(c *gc.C) {
