@@ -176,7 +176,7 @@ type debugLogSocket interface {
 	sendError(err error)
 
 	// sendLogRecord sends record JSON encoded.
-	sendLogRecord(record *params.LogMessage) error
+	sendLogRecord(*params.LogMessage, int) error
 }
 
 // debugLogSocketImpl implements the debugLogSocket interface. It
@@ -200,7 +200,22 @@ func (s *debugLogSocketImpl) sendError(err error) {
 	}
 }
 
-func (s *debugLogSocketImpl) sendLogRecord(record *params.LogMessage) (err error) {
+func (s *debugLogSocketImpl) sendLogRecord(record *params.LogMessage, version int) (err error) {
+	if version == 1 {
+		// Older clients expect just logger tags as an array.
+		recordv1 := &params.LogMessageV1{
+			Entity:    record.Entity,
+			Timestamp: record.Timestamp,
+			Severity:  record.Severity,
+			Module:    record.Module,
+			Location:  record.Location,
+			Message:   record.Message,
+		}
+		if loggerTags, ok := record.Labels[loggo.LoggerTags]; ok {
+			recordv1.Labels = strings.Split(loggerTags, ",")
+		}
+		return s.conn.WriteJSON(recordv1)
+	}
 	return s.conn.WriteJSON(record)
 }
 
