@@ -114,7 +114,7 @@ var fakeInterfaceInfo = corenetwork.InterfaceInfo{
 	// Explicitly set only DNSServers, but not DNSSearchDomains to test this is
 	// detected and the latter populated by parsing the fake resolv.conf created
 	// by patchResolvConf(). See LP bug http://pad.lv/1575940 for more info.
-	DNSServers:       corenetwork.NewMachineAddresses([]string{"ns1.dummy"}).AsProviderAddresses(),
+	DNSServers:       []string{"ns1.dummy"},
 	DNSSearchDomains: nil,
 }
 

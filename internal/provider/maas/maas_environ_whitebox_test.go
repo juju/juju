@@ -969,10 +969,7 @@ func (suite *maasEnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 				"10.20.19.103", network.WithCIDR("10.20.19.0/24"), network.WithConfigType(network.ConfigStatic),
 			).AsProviderAddress(network.WithSpaceName("default")),
 		},
-		DNSServers: network.NewMachineAddresses([]string{
-			"10.20.19.2",
-			"10.20.19.3",
-		}).AsProviderAddresses(network.WithSpaceName("default")),
+		DNSServers:       []string{"10.20.19.2", "10.20.19.3"},
 		DNSSearchDomains: nil,
 		MTU:              1500,
 		GatewayAddress:   network.NewMachineAddress("10.20.19.2").AsProviderAddress(network.WithSpaceName("default")),
@@ -995,10 +992,7 @@ func (suite *maasEnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 				"10.20.19.104", network.WithCIDR("10.20.19.0/24"), network.WithConfigType(network.ConfigStatic),
 			).AsProviderAddress(network.WithSpaceName("default")),
 		},
-		DNSServers: network.NewMachineAddresses([]string{
-			"10.20.19.2",
-			"10.20.19.3",
-		}).AsProviderAddresses(network.WithSpaceName("default")),
+		DNSServers:       []string{"10.20.19.2", "10.20.19.3"},
 		DNSSearchDomains: nil,
 		MTU:              1500,
 		GatewayAddress:   network.NewMachineAddress("10.20.19.2").AsProviderAddress(network.WithSpaceName("default")),
@@ -1155,10 +1149,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C) 
 				"192.168.1.127", network.WithCIDR("192.168.1.0/24"), network.WithConfigType(network.ConfigStatic),
 			).AsProviderAddress(network.WithSpaceName("freckles")),
 		},
-		DNSServers: network.NewMachineAddresses([]string{
-			"10.20.19.2",
-			"10.20.19.3",
-		}).AsProviderAddresses(network.WithSpaceName("freckles")),
+		DNSServers:     []string{"10.20.19.2", "10.20.19.3"},
 		MTU:            1500,
 		GatewayAddress: network.NewMachineAddress("192.168.1.1").AsProviderAddress(network.WithSpaceName("freckles")),
 		Routes: []network.Route{{
@@ -1294,10 +1285,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesSingleNicWithNoVLAN
 				"192.168.1.127", network.WithCIDR("192.168.1.0/24"), network.WithConfigType(network.ConfigStatic),
 			).AsProviderAddress(network.WithSpaceName("freckles")),
 		},
-		DNSServers: network.NewMachineAddresses([]string{
-			"10.20.19.2",
-			"10.20.19.3",
-		}).AsProviderAddresses(network.WithSpaceName("freckles")),
+		DNSServers:     []string{"10.20.19.2", "10.20.19.3"},
 		MTU:            1500,
 		GatewayAddress: network.NewMachineAddress("192.168.1.1").AsProviderAddress(network.WithSpaceName("freckles")),
 		Routes: []network.Route{{
@@ -1429,10 +1417,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesNoStaticRoutesAPI(c
 				"10.20.19.104", network.WithCIDR("10.20.19.0/24"), network.WithConfigType(network.ConfigStatic),
 			).AsProviderAddress(network.WithSpaceName("freckles")),
 		},
-		DNSServers: network.NewMachineAddresses([]string{
-			"10.20.19.2",
-			"10.20.19.3",
-		}).AsProviderAddresses(network.WithSpaceName("freckles")),
+		DNSServers:     []string{"10.20.19.2", "10.20.19.3"},
 		MTU:            1500,
 		GatewayAddress: network.NewMachineAddress("10.20.19.2").AsProviderAddress(network.WithSpaceName("freckles")),
 		Routes:         []network.Route{},
@@ -1675,10 +1660,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 				"10.20.19.127", network.WithCIDR("10.20.19.0/24"), network.WithConfigType(network.ConfigStatic),
 			).AsProviderAddress(network.WithSpaceName("freckles")),
 		},
-		DNSServers: network.NewMachineAddresses([]string{
-			"10.20.19.2",
-			"10.20.19.3",
-		}).AsProviderAddresses(network.WithSpaceName("freckles")),
+		DNSServers:     []string{"10.20.19.2", "10.20.19.3"},
 		MTU:            1500,
 		GatewayAddress: network.NewMachineAddress("10.20.19.2").AsProviderAddress(network.WithSpaceName("freckles")),
 		Origin:         network.OriginProvider,
@@ -1696,10 +1678,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 				"192.168.1.127", network.WithCIDR("192.168.1.0/24"), network.WithConfigType(network.ConfigStatic),
 			).AsProviderAddress(network.WithSpaceName("freckles")),
 		},
-		DNSServers: network.NewMachineAddresses([]string{
-			"10.20.19.2",
-			"10.20.19.3",
-		}).AsProviderAddresses(network.WithSpaceName("freckles")),
+		DNSServers:     []string{"10.20.19.2", "10.20.19.3"},
 		MTU:            1500,
 		GatewayAddress: network.NewMachineAddress("192.168.1.1").AsProviderAddress(network.WithSpaceName("freckles")),
 		Routes: []network.Route{{
@@ -2163,10 +2142,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerReuseExistingDevice(c *gc.C)
 				"10.20.19.105", network.WithCIDR("10.20.19.0/24"), network.WithConfigType(network.ConfigStatic),
 			).AsProviderAddress(network.WithSpaceName("space-1")),
 		},
-		DNSServers: network.NewMachineAddresses([]string{
-			"10.20.19.2",
-			"10.20.19.3",
-		}).AsProviderAddresses(network.WithSpaceName("space-1")),
+		DNSServers:     []string{"10.20.19.2", "10.20.19.3"},
 		MTU:            1500,
 		GatewayAddress: network.NewMachineAddress("10.20.19.2").AsProviderAddress(network.WithSpaceName("space-1")),
 		Routes:         []network.Route{},
@@ -2368,10 +2344,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *gc
 				"10.20.19.105", network.WithCIDR("10.20.19.0/24"), network.WithConfigType(network.ConfigStatic),
 			).AsProviderAddress(network.WithSpaceName("freckles")),
 		},
-		DNSServers: network.NewMachineAddresses([]string{
-			"10.20.19.2",
-			"10.20.19.3",
-		}).AsProviderAddresses(network.WithSpaceName("freckles")),
+		DNSServers:     []string{"10.20.19.2", "10.20.19.3"},
 		MTU:            1500,
 		GatewayAddress: network.NewMachineAddress("10.20.19.2").AsProviderAddress(network.WithSpaceName("freckles")),
 		Routes:         []network.Route{},
@@ -2391,9 +2364,7 @@ func (suite *maasEnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *gc
 				"192.168.1.101", network.WithCIDR("192.168.1.0/24"), network.WithConfigType(network.ConfigStatic),
 			).AsProviderAddress(network.WithSpaceName("freckles")),
 		},
-		DNSServers: network.NewMachineAddresses([]string{
-			"192.168.1.2",
-		}).AsProviderAddresses(network.WithSpaceName("freckles")),
+		DNSServers:     []string{"192.168.1.2"},
 		MTU:            1500,
 		GatewayAddress: network.NewMachineAddress("192.168.1.1").AsProviderAddress(network.WithSpaceName("freckles")),
 		Routes:         []network.Route{},

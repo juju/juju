@@ -259,12 +259,9 @@ func maasNetworkInterfaces(
 			}
 
 			gwAddr := corenetwork.NewMachineAddress(sub.Gateway()).AsProviderAddress(corenetwork.WithSpaceName(space))
-			nicInfo.DNSServers = corenetwork.NewMachineAddresses(sub.DNSServers()).AsProviderAddresses(corenetwork.WithSpaceName(space))
+			nicInfo.DNSServers = sub.DNSServers()
 			if ok {
 				gwAddr.ProviderSpaceID = spaceId
-				for i := range nicInfo.DNSServers {
-					nicInfo.DNSServers[i].ProviderSpaceID = spaceId
-				}
 			}
 			nicInfo.DNSSearchDomains = dnsSearchDomains
 			nicInfo.GatewayAddress = gwAddr

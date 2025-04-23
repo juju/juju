@@ -95,9 +95,7 @@ func (env *maasEnviron) deviceInterfaceInfo(
 				).AsProviderAddress(corenetwork.WithSpaceName(subnet.Space()))
 			}
 			if len(subnet.DNSServers()) > 0 {
-				nicInfo.DNSServers = corenetwork.NewMachineAddresses(
-					subnet.DNSServers(),
-				).AsProviderAddresses(corenetwork.WithSpaceName(subnet.Space()))
+				nicInfo.DNSServers = subnet.DNSServers()
 			}
 
 			interfaceInfo = append(interfaceInfo, nicInfo)
