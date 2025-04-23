@@ -31,6 +31,7 @@ type connectionStartTime struct{}
 type ProxyHandlers interface {
 	SessionHandler(s ssh.Session)
 	DirectTCPIPHandler() ssh.ChannelHandler
+	SFTPHandler() ssh.SubsystemHandler
 }
 
 // ProxyFactory is an interface that creates new proxy handlers
@@ -425,6 +426,9 @@ func (s *ServerWorker) newTerminatingSSHServer(ctx ssh.Context, destination virt
 		},
 		Handler: func(session ssh.Session) {
 			proxier.SessionHandler(session)
+		},
+		SubsystemHandlers: map[string]ssh.SubsystemHandler{
+			"sftp": proxier.SFTPHandler(),
 		},
 	}
 

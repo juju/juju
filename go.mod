@@ -100,7 +100,7 @@ require (
 	github.com/oracle/oci-go-sdk/v65 v65.55.0
 	github.com/packethost/packngo v0.28.1
 	github.com/pkg/errors v0.9.1
-	github.com/pkg/sftp v1.13.7
+	github.com/pkg/sftp v1.13.9
 	github.com/prometheus/client_golang v1.21.0
 	github.com/prometheus/client_model v0.6.1
 	github.com/rs/xid v1.6.0
