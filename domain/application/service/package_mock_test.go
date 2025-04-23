@@ -532,6 +532,45 @@ func (c *MockStateEndpointsExistCall) DoAndReturn(f func(context.Context, applic
 	return c
 }
 
+// GetAddressesHash mocks base method.
+func (m *MockState) GetAddressesHash(ctx context.Context, appUUID application.ID) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAddressesHash", ctx, appUUID)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAddressesHash indicates an expected call of GetAddressesHash.
+func (mr *MockStateMockRecorder) GetAddressesHash(ctx, appUUID any) *MockStateGetAddressesHashCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddressesHash", reflect.TypeOf((*MockState)(nil).GetAddressesHash), ctx, appUUID)
+	return &MockStateGetAddressesHashCall{Call: call}
+}
+
+// MockStateGetAddressesHashCall wrap *gomock.Call
+type MockStateGetAddressesHashCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAddressesHashCall) Return(arg0 string, arg1 error) *MockStateGetAddressesHashCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAddressesHashCall) Do(f func(context.Context, application.ID) (string, error)) *MockStateGetAddressesHashCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAddressesHashCall) DoAndReturn(f func(context.Context, application.ID) (string, error)) *MockStateGetAddressesHashCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetAllUnitNames mocks base method.
 func (m *MockState) GetAllUnitNames(ctx context.Context) ([]unit.Name, error) {
 	m.ctrl.T.Helper()
@@ -2529,6 +2568,46 @@ func (c *MockStateInitialWatchStatementApplicationsWithPendingCharmsCall) Do(f f
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateInitialWatchStatementApplicationsWithPendingCharmsCall) DoAndReturn(f func() (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementApplicationsWithPendingCharmsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// InitialWatchStatementUnitAddressesHash mocks base method.
+func (m *MockState) InitialWatchStatementUnitAddressesHash(appUUID application.ID) (string, string, eventsource.NamespaceQuery) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialWatchStatementUnitAddressesHash", appUUID)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(eventsource.NamespaceQuery)
+	return ret0, ret1, ret2
+}
+
+// InitialWatchStatementUnitAddressesHash indicates an expected call of InitialWatchStatementUnitAddressesHash.
+func (mr *MockStateMockRecorder) InitialWatchStatementUnitAddressesHash(appUUID any) *MockStateInitialWatchStatementUnitAddressesHashCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementUnitAddressesHash", reflect.TypeOf((*MockState)(nil).InitialWatchStatementUnitAddressesHash), appUUID)
+	return &MockStateInitialWatchStatementUnitAddressesHashCall{Call: call}
+}
+
+// MockStateInitialWatchStatementUnitAddressesHashCall wrap *gomock.Call
+type MockStateInitialWatchStatementUnitAddressesHashCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateInitialWatchStatementUnitAddressesHashCall) Return(arg0, arg1 string, arg2 eventsource.NamespaceQuery) *MockStateInitialWatchStatementUnitAddressesHashCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateInitialWatchStatementUnitAddressesHashCall) Do(f func(application.ID) (string, string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementUnitAddressesHashCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateInitialWatchStatementUnitAddressesHashCall) DoAndReturn(f func(application.ID) (string, string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementUnitAddressesHashCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

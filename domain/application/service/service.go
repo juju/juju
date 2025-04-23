@@ -445,6 +445,73 @@ func (s *WatchableService) WatchApplicationConfigHash(ctx context.Context, name 
 	)
 }
 
+// WatchUnitAddressesHash watches for changes to the specified unit's
+// addresses hash, as well as changes to the endpoint bindings for the spaces
+// the addresses belong to.
+//
+// If the unit does not exist an error satisfying [applicationerrors.UnitNotFound]
+// will be returned.
+func (s *WatchableService) WatchUnitAddressesHash(ctx context.Context, unitName coreunit.Name) (watcher.StringsWatcher, error) {
+	appUUID, err := s.st.GetApplicationIDByUnitName(ctx, unitName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// currentHash is the current hash. This will be filled in by the initial
+	// query.
+	// If it's empty after the initial query, then a new address hash will be
+	// generated on the first change.
+	var currentHash string
+
+	ipAddressTable, appEndpointTable, query := s.st.InitialWatchStatementUnitAddressesHash(appUUID)
+	return s.watcherFactory.NewNamespaceMapperWatcher(
+		func(ctx context.Context, txn database.TxnRunner) ([]string, error) {
+			initialResults, err := query(ctx, txn)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+
+			if num := len(initialResults); num > 1 {
+				return nil, errors.Errorf("too many address hashes for unit %q", unitName)
+			} else if num == 1 {
+				currentHash = initialResults[0]
+			}
+
+			return initialResults, nil
+		},
+		func(ctx context.Context, _ database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+			// If there are no changes, return no changes.
+			if len(changes) == 0 {
+				return nil, nil
+			}
+
+			newHash, err := s.st.GetAddressesHash(ctx, appUUID)
+			if err != nil {
+				return nil, errors.Capture(err)
+			}
+			// If the hash hasn't changed, return no changes. The first hash
+			// might be empty, so if that's the case the new hash will not
+			// be empty. Either way we'll only return changes if the hash has
+			// changed.
+			if newHash == currentHash {
+				return nil, nil
+			}
+			currentHash = newHash
+
+			// There can be only one.
+			// Select the last change event, which will be naturally ordered
+			// by the grouping of the query (CREATE, UPDATE, DELETE).
+			change := changes[len(changes)-1]
+
+			return []changestream.ChangeEvent{
+				newMaskedChangeIDEvent(change, currentHash),
+			}, nil
+		},
+		eventsource.NamespaceFilter(ipAddressTable, changestream.All),
+		eventsource.NamespaceFilter(appEndpointTable, changestream.All),
+	)
+}
+
 // WatchApplicationExposed watches for changes to the specified application's
 // exposed endpoints.
 // This notifies on any changes to the application's exposed endpoints. It is up

@@ -1179,6 +1179,162 @@ WHERE a.name = $applicationName.name
 	return "application_config_hash", queryFunc
 }
 
+// InitialWatchStatementUnitAddressesHash returns the initial namespace query
+// for the unit addresses hash watcher as well as the tables to be watched
+// (ip_address and application_endpoint)
+func (st *State) InitialWatchStatementUnitAddressesHash(appUUID coreapplication.ID) (string, string, eventsource.NamespaceQuery) {
+	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
+
+		var (
+			spaceAddresses   []spaceAddress
+			endpointBindings map[string]string
+		)
+		err := runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			var err error
+			spaceAddresses, err = st.getApplicationSpaceAddresses(ctx, tx, appUUID)
+			if err != nil {
+				return errors.Capture(err)
+			}
+			endpointBindings, err = st.getEndpointBindings(ctx, tx, appUUID)
+			if err != nil {
+				return errors.Capture(err)
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Errorf("querying application %q addresses hash: %w", appUUID, err)
+		}
+		hash, err := st.hashAddressesAndEndpoints(spaceAddresses, endpointBindings)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		return []string{hash}, nil
+	}
+	return "ip_address", "application_endpoint", queryFunc
+}
+
+// GetAddressesHash returns the sha256 hash of the application unit and cloud
+// service (if any) addresses along with the associated endpoint bindings.
+func (st *State) GetAddressesHash(ctx context.Context, appUUID coreapplication.ID) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var (
+		spaceAddresses   []spaceAddress
+		endpointBindings map[string]string
+	)
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		spaceAddresses, err = st.getApplicationSpaceAddresses(ctx, tx, appUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		endpointBindings, err = st.getEndpointBindings(ctx, tx, appUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	}); err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return st.hashAddressesAndEndpoints(spaceAddresses, endpointBindings)
+}
+
+func (st *State) getApplicationSpaceAddresses(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID) ([]spaceAddress, error) {
+	var result []spaceAddress
+
+	app := applicationID{ID: appUUID}
+	stmt, err := st.Prepare(`
+WITH units_and_services AS (
+    SELECT
+        u.net_node_uuid AS net_node_uuid
+    FROM
+        unit u
+    WHERE
+        u.application_uuid = $applicationID.uuid
+    UNION ALL
+    SELECT
+        ks.net_node_uuid AS net_node_uuid
+    FROM
+        k8s_service ks
+    WHERE
+        ks.application_uuid = $applicationID.uuid
+)
+SELECT
+    ip.address_value AS &spaceAddress.address_value,
+    ip.type_id AS &spaceAddress.type_id,
+    ip.scope_id AS &spaceAddress.scope_id,
+    sn.space_uuid AS &spaceAddress.space_uuid
+FROM
+    units_and_services uas
+JOIN
+    link_layer_device lld ON lld.net_node_uuid = uas.net_node_uuid
+JOIN
+    ip_address ip ON ip.device_uuid = lld.uuid
+LEFT JOIN
+    subnet sn ON sn.uuid = ip.subnet_uuid;
+`, app, spaceAddress{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, app).GetAll(&result)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("querying application %q space addresses: %w", appUUID, err)
+	}
+	return result, nil
+}
+
+func (st *State) hashAddressesAndEndpoints(addresses []spaceAddress, endpointBindings map[string]string) (string, error) {
+	if len(addresses) == 0 {
+		return "", nil
+	}
+
+	hash := sha256.New()
+	// Sort addresses by value, which is needed for the hash to be consistent.
+	sort.Slice(addresses, func(i, j int) bool {
+		return addresses[i].Value < addresses[j].Value
+	})
+	// Add the hash parts for each address.
+	for _, spaceAddress := range addresses {
+		if _, err := hash.Write([]byte(spaceAddress.Value)); err != nil {
+			return "", errors.Errorf("hashing address %q: %w", spaceAddress.Value, err)
+		}
+		addressType := ipaddress.UnMarshallAddressType(ipaddress.AddressType(spaceAddress.TypeID))
+		if _, err := hash.Write([]byte(addressType)); err != nil {
+			return "", errors.Errorf("hashing address type %q: %w", addressType, err)
+		}
+		addressScope := ipaddress.UnMarshallScope(ipaddress.Scope(spaceAddress.ScopeID))
+		if _, err := hash.Write([]byte(addressScope)); err != nil {
+			return "", errors.Errorf("hashing address scope %q: %w", addressScope, err)
+		}
+		spaceUUID := network.AlphaSpaceId
+		if spaceAddress.SpaceUUID.Valid {
+			spaceUUID = spaceAddress.SpaceUUID.String
+		}
+		if _, err := hash.Write([]byte(spaceUUID)); err != nil {
+			return "", errors.Errorf("hashing space uuid %q: %w", spaceUUID, err)
+		}
+	}
+	// Sort the endpoint bindings by key (endpoint name) and add each binding to
+	// the hash.
+	endpointNames := make([]string, 0, len(endpointBindings))
+	for name := range endpointBindings {
+		endpointNames = append(endpointNames, name)
+	}
+	sort.Strings(endpointNames)
+	for _, endpointName := range endpointNames {
+		if _, err := hash.Write(fmt.Appendf(nil, "%s:%s", endpointName, endpointBindings[endpointName])); err != nil {
+			return "", errors.Capture(err)
+		}
+	}
+
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
+}
+
 // GetApplicationsWithPendingCharmsFromUUIDs returns the application IDs for the
 // applications with pending charms from the specified UUIDs.
 func (st *State) GetApplicationsWithPendingCharmsFromUUIDs(ctx context.Context, uuids []coreapplication.ID) ([]coreapplication.ID, error) {

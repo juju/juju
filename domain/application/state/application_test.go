@@ -3475,6 +3475,104 @@ func (s *applicationStateSuite) TestGetDeviceConstraintsFromCreatedApp(c *gc.C) 
 	c.Check(cons["dev2"].Attributes, gc.DeepEquals, map[string]string{})
 }
 
+func (s *applicationStateSuite) TestGetAddressesHash(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+	})
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		insertNetNode := `INSERT INTO net_node (uuid) VALUES (?)`
+		_, err := tx.ExecContext(ctx, insertNetNode, "net-node-uuid")
+		if err != nil {
+			return err
+		}
+		updateUnit := `UPDATE unit SET net_node_uuid = ? WHERE name = ?`
+		_, err = tx.ExecContext(ctx, updateUnit, "net-node-uuid", "foo/0")
+		if err != nil {
+			return err
+		}
+		insertLLD := `INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, provider_id, device_type_id, virtual_port_type_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertLLD, "lld-uuid", "net-node-uuid", "lld-name", 1500, "00:11:22:33:44:55", "provider-id", 0, 0)
+		if err != nil {
+			return err
+		}
+		insertSpace := `INSERT INTO space (uuid, name) VALUES (?, ?)`
+		_, err = tx.ExecContext(ctx, insertSpace, "space0-uuid", "space0")
+		if err != nil {
+			return err
+		}
+		insertSubnet := `INSERT INTO subnet (uuid, cidr, space_uuid) VALUES (?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertSubnet, "subnet-uuid", "10.0.0.0/24", "space0-uuid")
+		if err != nil {
+			return err
+		}
+		insertIPAddress := `INSERT INTO ip_address (uuid, device_uuid, address_value, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-address-uuid", "lld-uuid", "10.0.0.1", 0, 0, 0, 0, "subnet-uuid")
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	hash, err := s.state.GetAddressesHash(context.Background(), appID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(hash, gc.Equals, "0538c2f5578cd51ceea3bd5d256e6ff6d82788a3d8251eeba788f44106f95bf9")
+}
+
+func (s *applicationStateSuite) TestGetAddressesHashCloudService(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+	})
+
+	s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.NewSpaceAddresses("10.0.0.1"))
+
+	hash, err := s.state.GetAddressesHash(context.Background(), appID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(hash, gc.Equals, "174a8f73e9954accdb57d520896db667d1d202bdd707a5725b9b653fbaf71b5d")
+}
+
+func (s *applicationStateSuite) TestHashAddresses(c *gc.C) {
+	hash, err := s.state.hashAddressesAndEndpoints(nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(hash, gc.Equals, "")
+
+	hash0, err := s.state.hashAddressesAndEndpoints([]spaceAddress{
+		{
+			Value: "10.0.0.1",
+		},
+		{
+			Value: "10.0.0.2",
+		},
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	hash1, err := s.state.hashAddressesAndEndpoints([]spaceAddress{
+		{
+			Value: "10.0.0.2",
+		},
+		{
+			Value: "10.0.0.1",
+		},
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	// The hash should be consistent regardless of the order of the addresses.
+	c.Check(hash0, gc.Equals, hash1)
+
+	hash0, err = s.state.hashAddressesAndEndpoints([]spaceAddress{}, map[string]string{
+		"foo": "bar",
+		"foz": "baz",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	hash1, err = s.state.hashAddressesAndEndpoints([]spaceAddress{}, map[string]string{
+		"foz": "baz",
+		"foo": "bar",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// The hash should be consistent regardless of the order of the endpoint
+	// bindings.
+	c.Check(hash0, gc.Equals, hash1)
+}
+
 func (s *applicationStateSuite) assertApplication(
 	c *gc.C,
 	name string,
