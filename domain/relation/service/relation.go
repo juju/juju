@@ -61,8 +61,20 @@ type State interface {
 		settings map[string]string,
 	) error
 
-	// GetAllRelationDetails return all uuid of all relation for the current model.
+	// GetAllRelationDetails return RelationDetailResults for all relations
+	// for the current model.
 	GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error)
+
+	// GetGoalStateRelationDataForApplication returns GoalStateRelationData for all
+	// relations the given application is in, modulo peer relations.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.ApplicationNotFound] is returned if the application
+	//     is not found.
+	GetGoalStateRelationDataForApplication(
+		ctx context.Context,
+		applicationID application.ID,
+	) ([]relation.GoalStateRelationData, error)
 
 	// GetApplicationEndpoints returns all endpoints for the given application
 	// identifier.
@@ -532,9 +544,27 @@ func (s *Service) EnterScope(
 	return nil
 }
 
-// GetAllRelationDetails return all uuid of all relation for the current model.
+// GetAllRelationDetails return RelationDetailResults of all relation for the current model.
 func (s *Service) GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error) {
 	return s.st.GetAllRelationDetails(ctx)
+}
+
+// GetGoalStateRelationDataForApplication returns GoalStateRelationData for all
+// relations the given application is in, modulo peer relations. No error is
+// if the application is not in any relations.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.ApplicationIDNotValid] is returned if the application
+//     UUID is not valid.
+func (s *Service) GetGoalStateRelationDataForApplication(
+	ctx context.Context,
+	applicationID application.ID,
+) ([]relation.GoalStateRelationData, error) {
+	if err := applicationID.Validate(); err != nil {
+		return nil, errors.Errorf(
+			"%w: %w", relationerrors.ApplicationIDNotValid, err)
+	}
+	return s.st.GetGoalStateRelationDataForApplication(ctx, applicationID)
 }
 
 // GetApplicationEndpoints returns all endpoints for the given application identifier.

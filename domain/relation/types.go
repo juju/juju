@@ -7,12 +7,14 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/charm"
@@ -251,4 +253,12 @@ type SubordinateCreator interface {
 	// CreateSubordinate is the signature of the function used to create units on a
 	// subordinate application.
 	CreateSubordinate(ctx context.Context, subordinateAppID application.ID, principalUnitName unit.Name) error
+}
+
+// GoalStateRelationData contains the necessary data from the relation
+// domain to put together a unit's goal state.
+type GoalStateRelationData struct {
+	EndpointIdentifiers []corerelation.EndpointIdentifier
+	Status              corestatus.Status
+	Since               *time.Time
 }

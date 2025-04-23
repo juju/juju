@@ -280,6 +280,45 @@ func (c *MockStateGetApplicationRelationsCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// GetGoalStateRelationDataForApplication mocks base method.
+func (m *MockState) GetGoalStateRelationDataForApplication(arg0 context.Context, arg1 application.ID) ([]relation0.GoalStateRelationData, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetGoalStateRelationDataForApplication", arg0, arg1)
+	ret0, _ := ret[0].([]relation0.GoalStateRelationData)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetGoalStateRelationDataForApplication indicates an expected call of GetGoalStateRelationDataForApplication.
+func (mr *MockStateMockRecorder) GetGoalStateRelationDataForApplication(arg0, arg1 any) *MockStateGetGoalStateRelationDataForApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGoalStateRelationDataForApplication", reflect.TypeOf((*MockState)(nil).GetGoalStateRelationDataForApplication), arg0, arg1)
+	return &MockStateGetGoalStateRelationDataForApplicationCall{Call: call}
+}
+
+// MockStateGetGoalStateRelationDataForApplicationCall wrap *gomock.Call
+type MockStateGetGoalStateRelationDataForApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetGoalStateRelationDataForApplicationCall) Return(arg0 []relation0.GoalStateRelationData, arg1 error) *MockStateGetGoalStateRelationDataForApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetGoalStateRelationDataForApplicationCall) Do(f func(context.Context, application.ID) ([]relation0.GoalStateRelationData, error)) *MockStateGetGoalStateRelationDataForApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetGoalStateRelationDataForApplicationCall) DoAndReturn(f func(context.Context, application.ID) ([]relation0.GoalStateRelationData, error)) *MockStateGetGoalStateRelationDataForApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetMapperDataForWatchLifeSuspendedStatus mocks base method.
 func (m *MockState) GetMapperDataForWatchLifeSuspendedStatus(arg0 context.Context, arg1 relation.UUID, arg2 application.ID) (relation0.RelationLifeSuspendedData, error) {
 	m.ctrl.T.Helper()

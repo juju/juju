@@ -175,6 +175,36 @@ type endpointIdentifier struct {
 	EndpointName string `db:"endpoint_name"`
 }
 
+// goalStateData is per relation data to find goal state.
+type goalStateData struct {
+	EP1ApplicationName string             `db:"ep1_application_name"`
+	EP1EndpointName    string             `db:"ep1_endpoint_name"`
+	EP1Role            charm.RelationRole `db:"ep1_role"`
+	EP2ApplicationName string             `db:"ep2_application_name"`
+	EP2EndpointName    string             `db:"ep2_endpoint_name"`
+	EP2Role            charm.RelationRole `db:"ep2_role"`
+	Status             corestatus.Status  `db:"status"`
+	UpdatedAt          time.Time          `db:"updated_at"`
+}
+
+func (g goalStateData) convertToGoalStateRelationData() relation.GoalStateRelationData {
+	return relation.GoalStateRelationData{
+		Status: g.Status,
+		Since:  &g.UpdatedAt,
+		EndpointIdentifiers: []corerelation.EndpointIdentifier{
+			{
+				ApplicationName: g.EP1ApplicationName,
+				EndpointName:    g.EP1EndpointName,
+				Role:            g.EP1Role,
+			}, {
+				ApplicationName: g.EP2ApplicationName,
+				EndpointName:    g.EP2EndpointName,
+				Role:            g.EP2Role,
+			},
+		},
+	}
+}
+
 // endpoint is used to fetch an endpoint from the database.
 type endpoint struct {
 	// EndpointUUID is a unique identifier for the application endpoint

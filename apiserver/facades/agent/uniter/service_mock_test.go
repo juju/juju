@@ -1050,6 +1050,45 @@ func (c *MockRelationServiceEnterScopeCall) DoAndReturn(f func(context.Context, 
 	return c
 }
 
+// GetGoalStateRelationDataForApplication mocks base method.
+func (m *MockRelationService) GetGoalStateRelationDataForApplication(arg0 context.Context, arg1 application.ID) ([]relation0.GoalStateRelationData, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetGoalStateRelationDataForApplication", arg0, arg1)
+	ret0, _ := ret[0].([]relation0.GoalStateRelationData)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetGoalStateRelationDataForApplication indicates an expected call of GetGoalStateRelationDataForApplication.
+func (mr *MockRelationServiceMockRecorder) GetGoalStateRelationDataForApplication(arg0, arg1 any) *MockRelationServiceGetGoalStateRelationDataForApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGoalStateRelationDataForApplication", reflect.TypeOf((*MockRelationService)(nil).GetGoalStateRelationDataForApplication), arg0, arg1)
+	return &MockRelationServiceGetGoalStateRelationDataForApplicationCall{Call: call}
+}
+
+// MockRelationServiceGetGoalStateRelationDataForApplicationCall wrap *gomock.Call
+type MockRelationServiceGetGoalStateRelationDataForApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRelationServiceGetGoalStateRelationDataForApplicationCall) Return(arg0 []relation0.GoalStateRelationData, arg1 error) *MockRelationServiceGetGoalStateRelationDataForApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRelationServiceGetGoalStateRelationDataForApplicationCall) Do(f func(context.Context, application.ID) ([]relation0.GoalStateRelationData, error)) *MockRelationServiceGetGoalStateRelationDataForApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRelationServiceGetGoalStateRelationDataForApplicationCall) DoAndReturn(f func(context.Context, application.ID) ([]relation0.GoalStateRelationData, error)) *MockRelationServiceGetGoalStateRelationDataForApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetLocalRelationApplicationSettings mocks base method.
 func (m *MockRelationService) GetLocalRelationApplicationSettings(arg0 context.Context, arg1 unit.Name, arg2 relation.UUID, arg3 application.ID) (map[string]string, error) {
 	m.ctrl.T.Helper()

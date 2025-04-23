@@ -241,8 +241,8 @@ func (st *State) ApplicationRelationsInfo(
 	return results, err
 }
 
-// GetAllRelationDetails retrieves the details of all relations
-// from the database. It returns the list of endpoints, the life status and
+// GetAllRelationDetails retrieves the details of all relations from the
+// database. It returns the list of endpoints, the life status and
 // identification data (UUID and ID) for each relation.
 func (st *State) GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error) {
 	db, err := st.DB()
@@ -315,6 +315,59 @@ WHERE  ae.application_uuid = $applicationID.uuid
 		results = append(results, rel.UUID)
 	}
 	return results, err
+}
+
+// GetGoalStateRelationDataForApplication returns GoalStateRelationData for all
+// relations the given application is in, modulo peer relations.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.ApplicationNotFound] is returned if application ID
+//     doesn't refer an existing application.
+func (st *State) GetGoalStateRelationDataForApplication(
+	ctx context.Context,
+	applicationID application.ID,
+) ([]relation.GoalStateRelationData, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var dbResult []goalStateData
+	stmt, err := st.Prepare(`
+SELECT ep1.application_name AS &goalStateData.ep1_application_name,
+       ep1.endpoint_name AS &goalStateData.ep1_endpoint_name,
+       ep1.role AS &goalStateData.ep1_role,
+       ep2.application_name AS &goalStateData.ep2_application_name,
+       ep2.endpoint_name AS &goalStateData.ep2_endpoint_name,
+       ep2.role AS &goalStateData.ep2_role,
+       rs.status AS &goalStateData.status,
+       rs.updated_at AS &goalStateData.updated_at
+FROM   v_relation_endpoint AS ep1
+JOIN   v_relation_endpoint AS ep2 ON ep1.relation_uuid = ep2.relation_uuid
+JOIN   v_relation_status AS rs ON ep1.relation_uuid = rs.relation_uuid
+WHERE  ep1.application_uuid = $applicationUUID.application_uuid
+AND    ep1.application_uuid != ep2.application_uuid
+`, goalStateData{}, applicationUUID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		app := applicationUUID{UUID: applicationID}
+		err = tx.Query(ctx, stmt, app).GetAll(&dbResult)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	results := make([]relation.GoalStateRelationData, len(dbResult))
+	for i, rel := range dbResult {
+		results[i] = rel.convertToGoalStateRelationData()
+	}
+	return results, nil
 }
 
 // GetOtherRelatedEndpointApplicationData returns an OtherApplicationForWatcher struct
