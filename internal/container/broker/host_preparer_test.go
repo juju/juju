@@ -147,7 +147,6 @@ func (s *hostPreparerSuite) TestPrepareHostNoChanges(c *gc.C) {
 var cannedObservedNetworkConfig = []params.NetworkConfig{{
 	DeviceIndex:         0,
 	MACAddress:          "aa:bb:cc:dd:ee:ff",
-	CIDR:                "127.0.0.1/24",
 	MTU:                 1500,
 	InterfaceName:       "lo",
 	ParentInterfaceName: "",
@@ -158,7 +157,6 @@ var cannedObservedNetworkConfig = []params.NetworkConfig{{
 }, {
 	DeviceIndex:         1,
 	MACAddress:          "bb:cc:dd:ee:ff:00",
-	CIDR:                "",
 	MTU:                 1500,
 	InterfaceName:       "eth0",
 	ParentInterfaceName: "br-eth0",
@@ -169,7 +167,6 @@ var cannedObservedNetworkConfig = []params.NetworkConfig{{
 }, {
 	DeviceIndex:         2,
 	MACAddress:          "bb:cc:dd:ee:ff:00",
-	CIDR:                "",
 	MTU:                 1500,
 	InterfaceName:       "br-eth0",
 	ParentInterfaceName: "",
