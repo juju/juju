@@ -90,7 +90,11 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 
 		// Link layer device
 		"link_layer_device",
+		"link_layer_device_dns_domain",
+		"link_layer_device_dns_address",
+		"link_layer_device_parent",
 		"link_layer_device_type",
+		"provider_link_layer_device",
 		"virtual_port_type",
 
 		// Network address
@@ -99,10 +103,7 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"ip_address_type",
 		"ip_address_origin",
 		"ip_address_config_type",
-		"ip_address_provider",
-		"ip_address_gateway",
-		"ip_address_dns_search_domain",
-		"ip_address_dns_server_address",
+		"provider_ip_address",
 
 		// Unit
 		"k8s_pod_port",
