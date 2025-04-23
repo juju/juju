@@ -5,6 +5,9 @@ package service
 
 import (
 	"context"
+	"fmt"
+
+	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -28,9 +31,18 @@ type State interface {
 		applicationID application.ID,
 	) ([]relation.EndpointRelationData, error)
 
-	// AddRelation establishes a relation between two endpoints identified
+	// AddRelationWithID establishes a relation between two endpoints identified
 	// by ep1 and ep2 and returns the created endpoints.
 	AddRelation(ctx context.Context, ep1, ep2 relation.CandidateEndpointIdentifier) (relation.Endpoint, relation.Endpoint, error)
+
+	// AddRelationWithID establishes a relation between two endpoints identified
+	// by ep1 and ep2 and returns the relation UUID. Used for migration
+	// import.
+	AddRelationWithID(
+		ctx context.Context,
+		ep1, ep2 relation.CandidateEndpointIdentifier,
+		id uint64,
+	) (corerelation.UUID, error)
 
 	// NeedsSubordinateUnit checks if there is a subordinate application
 	// related to the principal unit that needs a subordinate unit created.
@@ -39,6 +51,12 @@ type State interface {
 		relationUUID corerelation.UUID,
 		principalUnitName unit.Name,
 	) (*application.ID, error)
+
+	// DeleteImportedRelations deletes all imported relations in a model during
+	// an import rollback.
+	DeleteImportedRelations(
+		ctx context.Context,
+	) error
 
 	// EnterScope indicates that the provided unit has joined the relation.
 	// When the unit has already entered its relation scope, EnterScope will report
@@ -79,6 +97,9 @@ type State interface {
 	// GetApplicationEndpoints returns all endpoints for the given application
 	// identifier.
 	GetApplicationEndpoints(ctx context.Context, applicationID application.ID) ([]relation.Endpoint, error)
+
+	// GetApplicationIDByName returns the application ID of the given application.
+	GetApplicationIDByName(ctx context.Context, appName string) (application.ID, error)
 
 	// GetApplicationRelations retrieves all relation UUIDs associated with a
 	// specific application identified by its ID.
@@ -958,4 +979,94 @@ func (s *Service) SetRelationUnitSettings(
 			"%w:%w", relationerrors.RelationUUIDNotValid, err)
 	}
 	return s.st.SetRelationUnitSettings(ctx, relationUnitUUID, settings)
+}
+
+// ImportRelations sets relations imported in migration. It first builds all the
+// relations to insert from the arguments, then inserts them at the end so as to
+// wait as long as possible before turning into a write transaction.
+func (s *Service) ImportRelations(ctx context.Context, args relation.ImportRelationsArgs) error {
+	s.logger.Criticalf(ctx, "ImportRelations(%+v)", args)
+	for _, arg := range args {
+		relUUID, err := s.importRelation(ctx, arg)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		for _, ep := range arg.Endpoints {
+			err = s.importRelationEndpoint(ctx, relUUID, ep)
+			if err != nil {
+				return errors.Capture(err)
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Service) importRelation(ctx context.Context, arg relation.ImportRelationArg) (corerelation.UUID, error) {
+	var relUUID corerelation.UUID
+
+	eps := arg.Key.EndpointIdentifiers()
+	s.logger.Criticalf(ctx, "importRelation(%d): %+v", arg.ID, eps)
+
+	switch len(eps) {
+	case 1:
+		// Peer relations are implicitly imported during migration of applications
+		// during the call to CreateApplication.
+		var err error
+		relUUID, err = s.st.GetPeerRelationUUIDByEndpointIdentifiers(ctx, eps[0])
+		if err != nil {
+			return relUUID, errors.Errorf("getting peer relation %d by endpoint %q: %w", arg.ID, eps[0], err)
+		}
+		// TODO - reset the relation ID.
+	case 2:
+		idep1, err := relation.NewCandidateEndpointIdentifier(eps[0].String())
+		if err != nil {
+			return relUUID, errors.Errorf("parsing endpoint identifier %q: %w", eps[0].String(), err)
+		}
+		idep2, err := relation.NewCandidateEndpointIdentifier(eps[1].String())
+		if err != nil {
+			return relUUID, errors.Errorf("parsing endpoint identifier %q: %w", eps[1].String(), err)
+		}
+
+		relUUID, err = s.st.AddRelationWithID(ctx, idep1, idep2, uint64(arg.ID))
+		if err != nil {
+			return relUUID, errors.Capture(err)
+		}
+	default:
+		return relUUID, errors.Errorf("unexpected number of endpoints %d for %q", len(eps), arg.Key)
+	}
+	return relUUID, nil
+}
+
+func (s *Service) importRelationEndpoint(ctx context.Context, relUUID corerelation.UUID, ep relation.ImportEndpoint) error {
+	appID, err := s.st.GetApplicationIDByName(ctx, ep.ApplicationName)
+	if err != nil {
+		return err
+	}
+
+	err = s.st.SetRelationApplicationSettings(ctx, relUUID, appID, settingsMap(ep.ApplicationSettings))
+	if err != nil {
+		return err
+	}
+	for unitName, settings := range ep.UnitSettings {
+		err = s.st.EnterScope(ctx, relUUID, unit.Name(unitName), settingsMap(settings))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func settingsMap(in map[string]interface{}) map[string]string {
+	return transform.Map(in, func(k string, v interface{}) (string, string) {
+		return k, fmt.Sprintf("%v", v)
+	})
+}
+
+// DeleteImportedRelations deletes all imported relations in a model during
+// an import rollback.
+func (s *Service) DeleteImportedRelations(
+	ctx context.Context,
+) error {
+	return s.st.DeleteImportedRelations(ctx)
 }

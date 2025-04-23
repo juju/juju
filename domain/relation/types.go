@@ -283,3 +283,21 @@ type GoalStateRelationData struct {
 	Status              corestatus.Status
 	Since               *time.Time
 }
+
+// ImportRelationsArgs are the arguments for ImportRelation.
+type ImportRelationsArgs []ImportRelationArg
+
+// ImportRelationArg is a single argument for the ImportRelation method.
+type ImportRelationArg struct {
+	ID        int
+	Key       corerelation.Key
+	Endpoints []ImportEndpoint
+}
+
+// ImportEndpoint is a data to import for a single endpoint.
+type ImportEndpoint struct {
+	ApplicationName     string
+	EndpointName        string
+	UnitSettings        map[string]map[string]interface{}
+	ApplicationSettings map[string]interface{}
+}
