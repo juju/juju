@@ -28,6 +28,10 @@ type State interface {
 	// model.
 	GetAllRelationStatuses(ctx context.Context) (map[corerelation.UUID]status.StatusInfo[status.RelationStatusType], error)
 
+	// GetAllRelationStatusesByID returns all the relation statuses of the given
+	// model, indexed by relation ID.
+	GetAllRelationStatusesByID(ctx context.Context) (map[int]status.StatusInfo[status.RelationStatusType], error)
+
 	// GetApplicationIDByName returns the application ID for the named
 	// application. If no application is found, an error satisfying
 	// [statuserrors.ApplicationNotFound] is returned.
@@ -579,4 +583,28 @@ func (s *Service) ExportApplicationStatuses(ctx context.Context) (map[string]cor
 	}
 
 	return ret, nil
+}
+
+// ExportRelationStatuses returns the statuses of all applications in the model,
+// indexed by application name, if they have a status set.
+func (s *Service) ExportRelationStatuses(ctx context.Context) (map[int]corestatus.StatusInfo, error) {
+	relStatuses, err := s.st.GetAllRelationStatusesByID(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[int]corestatus.StatusInfo, len(relStatuses))
+	for k, v := range relStatuses {
+		decodedStatus, err := decodeRelationStatusType(v.Status)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		result[k] = corestatus.StatusInfo{
+			Status:  decodedStatus,
+			Message: v.Message,
+			Since:   v.Since,
+		}
+	}
+
+	return result, nil
 }

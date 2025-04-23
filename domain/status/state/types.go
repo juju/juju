@@ -118,7 +118,7 @@ type fullUnitStatus struct {
 }
 
 // relationStatus represents the status of a relation
-// from v_relation_status
+// from relation_status
 type relationStatus struct {
 	RelationUUID corerelation.UUID `db:"relation_uuid"`
 	StatusID     int               `db:"relation_status_type_id"`

@@ -198,6 +198,45 @@ func (c *MockStateGetAllRelationStatusesCall) DoAndReturn(f func(context.Context
 	return c
 }
 
+// GetAllRelationStatusesByID mocks base method.
+func (m *MockState) GetAllRelationStatusesByID(ctx context.Context) (map[int]status.StatusInfo[status.RelationStatusType], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllRelationStatusesByID", ctx)
+	ret0, _ := ret[0].(map[int]status.StatusInfo[status.RelationStatusType])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllRelationStatusesByID indicates an expected call of GetAllRelationStatusesByID.
+func (mr *MockStateMockRecorder) GetAllRelationStatusesByID(ctx any) *MockStateGetAllRelationStatusesByIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllRelationStatusesByID", reflect.TypeOf((*MockState)(nil).GetAllRelationStatusesByID), ctx)
+	return &MockStateGetAllRelationStatusesByIDCall{Call: call}
+}
+
+// MockStateGetAllRelationStatusesByIDCall wrap *gomock.Call
+type MockStateGetAllRelationStatusesByIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAllRelationStatusesByIDCall) Return(arg0 map[int]status.StatusInfo[status.RelationStatusType], arg1 error) *MockStateGetAllRelationStatusesByIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAllRelationStatusesByIDCall) Do(f func(context.Context) (map[int]status.StatusInfo[status.RelationStatusType], error)) *MockStateGetAllRelationStatusesByIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAllRelationStatusesByIDCall) DoAndReturn(f func(context.Context) (map[int]status.StatusInfo[status.RelationStatusType], error)) *MockStateGetAllRelationStatusesByIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetAllUnitWorkloadAgentStatuses mocks base method.
 func (m *MockState) GetAllUnitWorkloadAgentStatuses(arg0 context.Context) (status.UnitWorkloadAgentStatuses, error) {
 	m.ctrl.T.Helper()

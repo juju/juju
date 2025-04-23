@@ -93,6 +93,39 @@ func (s *stateSuite) TestGetAllRelationStatusesNone(c *gc.C) {
 	c.Assert(result, gc.HasLen, 0)
 }
 
+func (s *stateSuite) TestGetAllRelationStatusesByID(c *gc.C) {
+	// Arrange: add two relation, one with a status, but not the second one.
+	now := time.Now().Truncate(time.Minute).UTC()
+
+	relationID := 7
+	relationUUID1 := s.addRelationWithLifeAndID(c, corelife.Alive, relationID)
+	_ = s.addRelationWithLifeAndID(c, corelife.Alive, 8)
+
+	s.addRelationStatusWithMessage(c, relationUUID1, corestatus.Suspended, "this is a test", now)
+
+	// Act
+	result, err := s.state.GetAllRelationStatusesByID(context.Background())
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, map[int]status.StatusInfo[status.RelationStatusType]{
+		relationID: {
+			Status:  status.RelationStatusTypeSuspended,
+			Message: "this is a test",
+			Since:   &now,
+		},
+	})
+}
+
+func (s *stateSuite) TestGetAllRelationStatusesByIDNone(c *gc.C) {
+	// Act
+	result, err := s.state.GetAllRelationStatusesByID(context.Background())
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 0)
+}
+
 func (s *stateSuite) TestGetApplicationIDByName(c *gc.C) {
 	id, _ := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()))
 

@@ -36,6 +36,9 @@ func (s *exportSuite) TestExportEmpty(c *gc.C) {
 		map[coreunit.Name]corestatus.StatusInfo{},
 		nil,
 	)
+	s.exportService.EXPECT().ExportRelationStatuses(gomock.Any()).Return(
+		map[int]corestatus.StatusInfo{}, nil,
+	)
 
 	model := description.NewModel(description.ModelArgs{})
 
@@ -64,6 +67,9 @@ func (s *exportSuite) TestExportApplicationStatuses(c *gc.C) {
 		map[coreunit.Name]corestatus.StatusInfo{},
 		map[coreunit.Name]corestatus.StatusInfo{},
 		nil,
+	)
+	s.exportService.EXPECT().ExportRelationStatuses(gomock.Any()).Return(
+		map[int]corestatus.StatusInfo{}, nil,
 	)
 
 	model := description.NewModel(description.ModelArgs{})
@@ -95,6 +101,9 @@ func (s *exportSuite) TestExportApplicationStatusesMissing(c *gc.C) {
 		map[coreunit.Name]corestatus.StatusInfo{},
 		map[coreunit.Name]corestatus.StatusInfo{},
 		nil,
+	)
+	s.exportService.EXPECT().ExportRelationStatuses(gomock.Any()).Return(
+		map[int]corestatus.StatusInfo{}, nil,
 	)
 
 	model := description.NewModel(description.ModelArgs{})
@@ -148,6 +157,9 @@ func (s *exportSuite) TestExportUnitStatuses(c *gc.C) {
 		},
 		nil,
 	)
+	s.exportService.EXPECT().ExportRelationStatuses(gomock.Any()).Return(
+		map[int]corestatus.StatusInfo{}, nil,
+	)
 
 	model := description.NewModel(description.ModelArgs{})
 	appArgs := description.ApplicationArgs{
@@ -186,6 +198,45 @@ func (s *exportSuite) TestExportUnitStatuses(c *gc.C) {
 	c.Check(u1.WorkloadStatus().Value(), gc.Equals, corestatus.Waiting.String())
 	c.Check(u1.WorkloadStatus().Data(), gc.DeepEquals, map[string]interface{}{"workload": "waiting"})
 	c.Check(u1.WorkloadStatus().Message(), gc.Equals, "it's workload waiting")
+}
+
+func (s *exportSuite) TestExportRelationStatuses(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.exportService.EXPECT().ExportApplicationStatuses(gomock.Any()).Return(
+		map[string]corestatus.StatusInfo{}, nil,
+	)
+	s.exportService.EXPECT().ExportUnitStatuses(gomock.Any()).Return(
+		map[coreunit.Name]corestatus.StatusInfo{},
+		map[coreunit.Name]corestatus.StatusInfo{},
+		nil,
+	)
+	s.exportService.EXPECT().ExportRelationStatuses(gomock.Any()).Return(
+		map[int]corestatus.StatusInfo{
+			1: {
+				Status: corestatus.Joining,
+			},
+		},
+		nil,
+	)
+
+	model := description.NewModel(description.ModelArgs{})
+	rel1 := model.AddRelation(description.RelationArgs{
+		Id: 1,
+	})
+	rel2 := model.AddRelation(description.RelationArgs{
+		Id: 2,
+	})
+
+	exportOp := exportOperation{
+		service: s.exportService,
+		clock:   clock.WallClock,
+	}
+	err := exportOp.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(rel1.Status().Value(), gc.Equals, corestatus.Joining.String())
+	c.Check(rel2.Status().NeverSet(), jc.IsTrue)
 }
 
 func (s *exportSuite) setupMocks(c *gc.C) *gomock.Controller {

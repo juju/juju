@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -65,20 +66,72 @@ FROM   relation_status`, relationStatus{})
 	if err != nil {
 		return nil, errors.Errorf("getting all relations statuses: %w", err)
 	}
-	relationsStatuses := make(map[corerelation.UUID]status.StatusInfo[status.RelationStatusType], len(statuses))
+
+	relationStatuses := make(map[corerelation.UUID]status.StatusInfo[status.RelationStatusType], len(statuses))
 	for _, relStatus := range statuses {
 		statusType, err := status.DecodeRelationStatus(relStatus.StatusID)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		relationsStatuses[relStatus.RelationUUID] = status.StatusInfo[status.RelationStatusType]{
+		relationStatuses[relStatus.RelationUUID] = status.StatusInfo[status.RelationStatusType]{
 			Status:  statusType,
 			Message: relStatus.Reason,
 			Since:   relStatus.Since,
 		}
 	}
 
-	return relationsStatuses, errors.Capture(err)
+	return relationStatuses, errors.Capture(err)
+}
+
+// GetAllRelationStatusesByID returns all the relation statuses of the given
+// model indexed by relation ID.
+func (st *State) GetAllRelationStatusesByID(ctx context.Context) (map[int]status.StatusInfo[status.RelationStatusType],
+	error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type relStatus struct {
+		RelationID int        `db:"relation_id"`
+		StatusID   int        `db:"relation_status_type_id"`
+		Reason     string     `db:"suspended_reason"`
+		Since      *time.Time `db:"updated_at"`
+	}
+	stmt, err := st.Prepare(`
+SELECT &relStatus.*
+FROM   relation_status rs
+JOIN   relation r ON r.uuid = rs.relation_uuid`, relStatus{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var statuses []relStatus
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt).GetAll(&statuses)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting all relations statuses: %w", err)
+	}
+
+	relationStatuses := make(map[int]status.StatusInfo[status.RelationStatusType], len(statuses))
+	for _, relStatus := range statuses {
+		statusType, err := status.DecodeRelationStatus(relStatus.StatusID)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		relationStatuses[relStatus.RelationID] = status.StatusInfo[status.RelationStatusType]{
+			Status:  statusType,
+			Message: relStatus.Reason,
+			Since:   relStatus.Since,
+		}
+	}
+
+	return relationStatuses, errors.Capture(err)
 }
 
 // GetApplicationIDByName returns the application ID for the named application.
