@@ -10,16 +10,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
-	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/logger"
-	corewatcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/watcher"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/watcher"
 )
 
 // CredentialValidatorV2 defines the methods on version 2 facade for the
@@ -49,7 +49,7 @@ type CredentialService interface {
 
 	// WatchCredential returns a watcher that observes changes to the specified
 	// credential.
-	WatchCredential(ctx context.Context, key credential.Key) (corewatcher.NotifyWatcher, error)
+	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
 }
 
 // CloudService provides access to clouds.
@@ -58,14 +58,33 @@ type CloudService interface {
 	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
 }
 
-type CredentialValidatorAPI struct {
-	*credentialcommon.CredentialManagerAPI
+// ModelService provides access to the model.
+type ModelService interface {
+	// WatchModelCloudCredential returns a new NotifyWatcher watching for changes that
+	// result in the cloud spec for a model changing. The changes watched for are:
+	// - updates to model cloud.
+	// - updates to model credential.
+	// - changes to the credential set on a model.
+	// The following errors can be expected:
+	// - [modelerrors.NotFound] when the model is not found.
+	WatchModelCloudCredential(ctx context.Context, modelUUID model.UUID) (watcher.NotifyWatcher, error)
+}
 
-	logger            logger.Logger
-	backend           StateAccessor
-	cloudService      CloudService
-	credentialService CredentialService
-	resources         facade.Resources
+// ModelInfoService provides access to the model info.
+type ModelInfoService interface {
+	// GetModelInfo returns the readonly model information for the model in
+	// question.
+	GetModelInfo(ctx context.Context) (model.ModelInfo, error)
+}
+
+type CredentialValidatorAPI struct {
+	logger                       logger.Logger
+	cloudService                 CloudService
+	credentialService            CredentialService
+	modelService                 ModelService
+	modelInfoService             ModelInfoService
+	modelCredentialWatcherGetter func(ctx context.Context) (watcher.NotifyWatcher, error)
+	watcherRegistry              facade.WatcherRegistry
 }
 
 var (
@@ -73,20 +92,26 @@ var (
 )
 
 func internalNewCredentialValidatorAPI(
-	backend StateAccessor, cloudService CloudService, credentialService CredentialService, resources facade.Resources,
-	authorizer facade.Authorizer, logger logger.Logger,
+	cloudService CloudService, credentialService CredentialService,
+	authorizer facade.Authorizer,
+	modelService ModelService,
+	modelInfoService ModelInfoService,
+	modelCredentialWatcherGetter func(ctx context.Context) (watcher.NotifyWatcher, error),
+	watcherRegistry facade.WatcherRegistry,
+	logger logger.Logger,
 ) (*CredentialValidatorAPI, error) {
 	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent()) {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	return &CredentialValidatorAPI{
-		CredentialManagerAPI: credentialcommon.NewCredentialManagerAPI(backend, credentialService),
-		resources:            resources,
-		backend:              backend,
-		cloudService:         cloudService,
-		credentialService:    credentialService,
-		logger:               logger,
+		cloudService:                 cloudService,
+		credentialService:            credentialService,
+		modelService:                 modelService,
+		modelInfoService:             modelInfoService,
+		modelCredentialWatcherGetter: modelCredentialWatcherGetter,
+		watcherRegistry:              watcherRegistry,
+		logger:                       logger,
 	}, nil
 }
 
@@ -101,17 +126,28 @@ func (api *CredentialValidatorAPI) WatchCredential(ctx context.Context, tag para
 	if err != nil {
 		return fail(err)
 	}
-	// Is credential used by the model that has created this backend?
-	modelCredentialTag, exists, err := api.backend.CloudCredentialTag()
+
+	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
 		return fail(err)
 	}
-	if !exists || credentialTag != modelCredentialTag {
+	exists := modelInfo.CredentialName != ""
+	if !exists {
+		return fail(apiservererrors.ErrPerm)
+	}
+
+	modelCredentialKey := credential.Key{
+		Cloud: modelInfo.Cloud,
+		Owner: modelInfo.CredentialOwner,
+		Name:  modelInfo.CredentialName,
+	}
+	credentialKey := credential.KeyFromTag(credentialTag)
+	if credentialKey != modelCredentialKey {
 		return fail(apiservererrors.ErrPerm)
 	}
 
 	result := params.NotifyWatchResult{}
-	watch, err := api.credentialService.WatchCredential(ctx, credential.KeyFromTag(credentialTag))
+	watcher, err := api.credentialService.WatchCredential(ctx, credentialKey)
 	if errors.Is(err, credentialerrors.NotFound) {
 		err = fmt.Errorf("credential %q %w", credentialTag, errors.NotFound)
 	}
@@ -119,14 +155,9 @@ func (api *CredentialValidatorAPI) WatchCredential(ctx context.Context, tag para
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
-	// Consume the initial event. Technically, API calls to Watch
-	// 'transmit' the initial event in the Watch response. But
-	// NotifyWatchers have no state to transmit.
-	if _, ok := <-watch.Changes(); ok {
-		result.NotifyWatcherId = api.resources.Register(watch)
-	} else {
-		watch.Kill()
-		result.Error = apiservererrors.ServerError(watch.Wait())
+	result.NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, watcher)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
@@ -140,27 +171,53 @@ func (api *CredentialValidatorAPI) ModelCredential(ctx context.Context) (params.
 
 	return params.ModelCredential{
 		Model:           c.Model.String(),
-		CloudCredential: c.Credential.String(),
+		CloudCredential: c.CredentialTag.String(),
 		Exists:          c.Exists,
 		Valid:           c.Valid,
 	}, nil
 }
 
-func (api *CredentialValidatorAPI) modelCredential(ctx context.Context) (*ModelCredential, error) {
-	m, err := api.backend.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+// modelCredential stores model's cloud credential information.
+type modelCredential struct {
+	// Model is a model tag.
+	Model names.ModelTag
 
-	modelCredentialTag, exists, err := api.backend.CloudCredentialTag()
+	// Exists indicates whether the model has  a cloud credential.
+	// On some clouds, that only require "empty" auth, cloud credential
+	// is not needed for the models to function properly.
+	Exists bool
+
+	// CredentialTag is a cloud credential tag.
+	CredentialTag names.CloudCredentialTag
+
+	// Valid indicates that this model's cloud authentication is valid.
+	//
+	// If this model has a cloud credential setup,
+	// then this property indicates that this credential itself is valid.
+	//
+	// If this model has no cloud credential, then this property indicates
+	// whether or not it is valid for this model to have no credential.
+	// There are some clouds that do not require auth and, hence,
+	// models on these clouds do not require credentials.
+	//
+	// If a model is on the cloud that does require credential and
+	// the model's credential is not set, this property will be set to 'false'.
+	Valid bool
+}
+
+func (api *CredentialValidatorAPI) modelCredential(ctx context.Context) (*modelCredential, error) {
+	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := &ModelCredential{Model: m.ModelTag(), Exists: exists}
+	exists := modelInfo.CredentialName != ""
+	modelTag := names.NewModelTag(modelInfo.UUID.String())
+
+	result := &modelCredential{Model: modelTag, Exists: exists}
 	if !exists {
 		// A model credential is not set, we must check if the model
 		// is on the cloud that requires a credential.
-		supportsEmptyAuth, err := api.cloudSupportsNoAuth(ctx, m.CloudName())
+		supportsEmptyAuth, err := api.cloudSupportsNoAuth(ctx, modelInfo.Cloud)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -172,8 +229,19 @@ func (api *CredentialValidatorAPI) modelCredential(ctx context.Context) (*ModelC
 		return result, nil
 	}
 
-	result.Credential = modelCredentialTag
-	credential, err := api.credentialService.CloudCredential(ctx, credential.KeyFromTag(modelCredentialTag))
+	modelCredentialKey := credential.Key{
+		Cloud: modelInfo.Cloud,
+		Owner: modelInfo.CredentialOwner,
+		Name:  modelInfo.CredentialName,
+	}
+
+	modelCredentialTag, err := modelCredentialKey.Tag()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result.CredentialTag = modelCredentialTag
+
+	credential, err := api.credentialService.CloudCredential(ctx, modelCredentialKey)
 	if err != nil {
 		if !errors.Is(err, credentialerrors.CredentialNotFound) {
 			return nil, errors.Trace(err)
@@ -185,6 +253,7 @@ func (api *CredentialValidatorAPI) modelCredential(ctx context.Context) (*ModelC
 		return result, nil
 	}
 	result.Valid = !credential.Invalid
+
 	return result, nil
 }
 
@@ -204,20 +273,32 @@ func (api *CredentialValidatorAPI) cloudSupportsNoAuth(ctx context.Context, clou
 // WatchModelCredential returns a NotifyWatcher that watches what cloud credential a model uses.
 func (api *CredentialValidatorAPI) WatchModelCredential(ctx context.Context) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	m, err := api.backend.Model()
+	watcher, err := api.modelCredentialWatcherGetter(ctx)
 	if err != nil {
 		return result, apiservererrors.ServerError(err)
 	}
-	watch := m.WatchModelCredential()
 
-	// Consume the initial event. Technically, API calls to Watch
-	// 'transmit' the initial event in the Watch response. But
-	// NotifyWatchers have no state to transmit.
-	if _, ok := <-watch.Changes(); ok {
-		result.NotifyWatcherId = api.resources.Register(watch)
-	} else {
-		err = watcher.EnsureErr(watch)
+	result.NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, watcher)
+	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
+}
+
+// InvalidateModelCredential marks the cloud credential for this model as invalid.
+func (api *CredentialValidatorAPI) InvalidateModelCredential(ctx context.Context, args params.InvalidateCredentialArg) (params.ErrorResult, error) {
+	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
+	if err != nil {
+		return params.ErrorResult{}, errors.Trace(err)
+	}
+	modelCredentialKey := credential.Key{
+		Cloud: modelInfo.Cloud,
+		Owner: modelInfo.CredentialOwner,
+		Name:  modelInfo.CredentialName,
+	}
+	err = api.credentialService.InvalidateCredential(ctx, modelCredentialKey, args.Reason)
+	if err != nil {
+		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+	return params.ErrorResult{}, nil
 }
