@@ -39,8 +39,6 @@ func (s *leaderServiceSuite) TestSetRelationStatus(c *gc.C) {
 
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	unitName := unittesting.GenNewName(c, "app/0")
-	appName := "app-name"
-	s.state.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).Return("", appName, nil)
 
 	sts := corestatus.StatusInfo{
 		Status:  corestatus.Broken,
@@ -53,7 +51,7 @@ func (s *leaderServiceSuite) TestSetRelationStatus(c *gc.C) {
 		Message: sts.Message,
 		Since:   sts.Since,
 	}
-	s.leadership.EXPECT().WithLeader(gomock.Any(), appName, unitName.String(), gomock.Any()).DoAndReturn(
+	s.leadership.EXPECT().WithLeader(gomock.Any(), unitName.Application(), unitName.String(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, _, _ string, fn func(context.Context) error) error {
 			return fn(ctx)
 		},
@@ -71,7 +69,6 @@ func (s *leaderServiceSuite) TestSetRelationStatusRelationNotFound(c *gc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
-	appName := "app-name"
 	relationUUID := corerelationtesting.GenRelationUUID(c)
 	unitName := unittesting.GenNewName(c, "app/0")
 	sts := corestatus.StatusInfo{
@@ -82,8 +79,7 @@ func (s *leaderServiceSuite) TestSetRelationStatusRelationNotFound(c *gc.C) {
 		Status: status.RelationStatusTypeBroken,
 		Since:  sts.Since,
 	}
-	s.state.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).Return("", appName, nil)
-	s.leadership.EXPECT().WithLeader(gomock.Any(), appName, unitName.String(), gomock.Any()).DoAndReturn(
+	s.leadership.EXPECT().WithLeader(gomock.Any(), unitName.Application(), unitName.String(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, _, _ string, fn func(context.Context) error) error {
 			return fn(ctx)
 		},
@@ -95,26 +91,6 @@ func (s *leaderServiceSuite) TestSetRelationStatusRelationNotFound(c *gc.C) {
 
 	// Assert
 	c.Assert(err, jc.ErrorIs, statuserrors.RelationNotFound)
-}
-
-func (s *leaderServiceSuite) TestSetRelationStatusUnitNotFound(c *gc.C) {
-	// Arrange
-	defer s.setupMocks(c).Finish()
-
-	relationUUID := corerelationtesting.GenRelationUUID(c)
-	unitName := unittesting.GenNewName(c, "app/0")
-	appName := "app-name"
-	sts := corestatus.StatusInfo{
-		Status: corestatus.Broken,
-		Since:  ptr(time.Now()),
-	}
-	s.state.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).Return("", appName, statuserrors.UnitNotFound)
-
-	// Act
-	err := s.service.SetRelationStatus(context.Background(), unitName, relationUUID, sts)
-
-	// Assert
-	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
 }
 
 func (s *leaderServiceSuite) TestSetApplicationStatusForUnitLeader(c *gc.C) {

@@ -172,14 +172,8 @@ func (s *LeadershipService) SetRelationStatus(
 		return errors.Errorf("invalid time: %v", info.Since)
 	}
 
-	// Get application name for leadership check.
-	_, applicationName, err := s.st.GetApplicationIDAndNameByUnitName(ctx, unitName)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	// Status can only be set by the leader unit.
-	err = s.leaderEnsurer.WithLeader(ctx, applicationName, unitName.String(), func(ctx context.Context) error {
+	err := s.leaderEnsurer.WithLeader(ctx, unitName.Application(), unitName.String(), func(ctx context.Context) error {
 		// Encode status.
 		relationStatus, err := encodeRelationStatus(info)
 		if err != nil {
