@@ -53,21 +53,21 @@ func (r LogRecord) MarshalJSON() ([]byte, error) {
 }
 
 func (r *LogRecord) UnmarshalJSON(data []byte) error {
-	var jrec logRecordJSON
-	if err := json.Unmarshal(data, &jrec); err != nil {
+	var rec logRecordJSON
+	if err := json.Unmarshal(data, &rec); err != nil {
 		return errors.Capture(err)
 	}
-	level, ok := ParseLevelFromString(jrec.Level)
+	level, ok := ParseLevelFromString(rec.Level)
 	if !ok {
-		return errors.Errorf("log level %q %w", jrec.Level, coreerrors.NotValid)
+		return errors.Errorf("log level %q %w", rec.Level, coreerrors.NotValid)
 	}
-	r.Time = jrec.Time
-	r.Entity = jrec.Entity
+	r.Time = rec.Time
+	r.Entity = rec.Entity
 	r.Level = level
-	r.Module = jrec.Module
-	r.Location = jrec.Location
-	r.Message = jrec.Message
-	r.Labels = jrec.Labels
-	r.ModelUUID = jrec.ModelUUID
+	r.Module = rec.Module
+	r.Location = rec.Location
+	r.Message = rec.Message
+	r.Labels = rec.Labels
+	r.ModelUUID = rec.ModelUUID
 	return nil
 }
