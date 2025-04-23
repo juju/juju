@@ -87,6 +87,11 @@ type getRelatedUnit struct {
 	RelationUnitUUID corerelation.UnitUUID `db:"relation_unit_uuid"`
 }
 
+type relationUnitUUIDAndName struct {
+	RelationUnitUUID corerelation.UnitUUID `db:"uuid"`
+	UnitName         unit.Name             `db:"name"`
+}
+
 type getRelationUnit struct {
 	RelationUUID     corerelation.UUID     `db:"relation_uuid"`
 	RelationUnitUUID corerelation.UnitUUID `db:"relation_unit_uuid"`
@@ -205,10 +210,18 @@ func (g goalStateData) convertToGoalStateRelationData() relation.GoalStateRelati
 	}
 }
 
-// endpoint is used to fetch an endpoint from the database.
-type endpoint struct {
-	// EndpointUUID is a unique identifier for the application endpoint
-	EndpointUUID corerelation.EndpointUUID `db:"endpoint_uuid"`
+// exportEndpoint contains information needed to export a relation endpoint.
+type exportEndpoint struct {
+	Endpoint
+	// RelationEndpointUUID is a unique identifier for the application endpoint
+	RelationEndpointUUID string `db:"relation_endpoint_uuid"`
+}
+
+// Endpoint is used to fetch an endpoint from the database. Endpoint is a public
+// struct to allow for embedding in exportEndpoint.
+type Endpoint struct {
+	// ApplicationEndpointUUID is a unique identifier for the application endpoint
+	ApplicationEndpointUUID corerelation.EndpointUUID `db:"application_endpoint_uuid"`
 	// Endpoint name is the name of the endpoint/relation.
 	EndpointName string `db:"endpoint_name"`
 	// Role is the name of the endpoints role in the relation.
@@ -230,13 +243,13 @@ type endpoint struct {
 
 // String returns a formatted string representation combining
 // the ApplicationName and EndpointName of the endpoint.
-func (e endpoint) String() string {
+func (e Endpoint) String() string {
 	return fmt.Sprintf("%s:%s", e.ApplicationName, e.EndpointName)
 }
 
 // toRelationEndpoint converts an endpoint read out of the database to a
 // relation.Endpoint.
-func (e endpoint) toRelationEndpoint() relation.Endpoint {
+func (e Endpoint) toRelationEndpoint() relation.Endpoint {
 	return relation.Endpoint{
 		ApplicationName: e.ApplicationName,
 		Relation: charm.Relation{

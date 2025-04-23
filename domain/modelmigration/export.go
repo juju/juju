@@ -24,6 +24,7 @@ import (
 	modelagent "github.com/juju/juju/domain/modelagent/modelmigration"
 	modelconfig "github.com/juju/juju/domain/modelconfig/modelmigration"
 	network "github.com/juju/juju/domain/network/modelmigration"
+	relation "github.com/juju/juju/domain/relation/modelmigration"
 	resource "github.com/juju/juju/domain/resource/modelmigration"
 	secret "github.com/juju/juju/domain/secret/modelmigration"
 	sequence "github.com/juju/juju/domain/sequence/modelmigration"
@@ -78,6 +79,7 @@ func (e *Exporter) ExportOperations(registry corestorage.ModelStorageRegistryGet
 	storage.RegisterExport(e.coordinator, registry, e.logger.Child("storage"))
 	secret.RegisterExport(e.coordinator, e.logger.Child("secret"))
 	application.RegisterExport(e.coordinator, e.storageRegistryGetter, e.clock, e.logger.Child("application"))
+	relation.RegisterExport(e.coordinator, e.clock, e.logger.Child("relation"))
 	lease.RegisterExport(e.coordinator, e.logger.Child("lease"))
 	agentpassword.RegisterExport(e.coordinator)
 	status.RegisterExport(e.coordinator, e.clock, e.logger.Child("status"))

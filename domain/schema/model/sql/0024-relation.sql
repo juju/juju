@@ -187,7 +187,7 @@ INSERT INTO relation_status_type VALUES
 
 CREATE VIEW v_application_endpoint AS
 SELECT
-    ae.uuid AS endpoint_uuid,
+    ae.uuid AS application_endpoint_uuid,
     cr.name AS endpoint_name,
     ae.application_uuid,
     a.name AS application_name,
@@ -213,7 +213,8 @@ JOIN charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid;
 
 CREATE VIEW v_relation_endpoint AS
 SELECT
-    re.endpoint_uuid,
+    re.uuid AS relation_endpoint_uuid,
+    re.endpoint_uuid AS application_endpoint_uuid,
     re.relation_uuid,
     ae.application_uuid,
     a.name AS application_name,

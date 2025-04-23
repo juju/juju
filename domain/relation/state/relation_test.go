@@ -562,8 +562,8 @@ func (s *addRelationSuite) TestInferEndpoints(c *gc.C) {
 		var uuid1, uuid2 corerelation.EndpointUUID
 		err := db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 			ep1, ep2, err := s.state.inferEndpoints(ctx, tx, identifier1, identifier2)
-			uuid1 = ep1.EndpointUUID
-			uuid2 = ep2.EndpointUUID
+			uuid1 = ep1.ApplicationEndpointUUID
+			uuid2 = ep2.ApplicationEndpointUUID
 			return err
 		})
 
@@ -3676,6 +3676,123 @@ FROM   %s
 		return nil
 	})
 	c.Check(values, jc.DeepEquals, []string{}, gc.Commentf("table %q first value: %q", tableName, strings.Join(values, ", ")))
+}
+
+func (s *relationSuite) TestExportRelations(c *gc.C) {
+	// Arrange: Add two endpoints and a relation on them.
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Optional:  true,
+			Limit:     20,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	endpoint2 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName2,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Optional:  false,
+			Limit:     10,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	applicationEndpointUUID2 := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	relationID := 7
+	relationUUID := s.addRelationWithID(c, relationID)
+	relEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+	relEndpointUUID2 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
+
+	// Arrange: add application settings.
+	s.addRelationApplicationSetting(c, relEndpointUUID2, "app-foo", "app-bar")
+
+	// Arrange: add two relation units on endpoint 1.
+	unitUUID1 := s.addUnit(c, "app1/0", s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	unitUUID2 := s.addUnit(c, "app1/1", s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	relUnitUUID1 := s.addRelationUnit(c, unitUUID1, relEndpointUUID1)
+	relUnitUUID2 := s.addRelationUnit(c, unitUUID2, relEndpointUUID1)
+
+	// Arrange: add unit settings.
+	s.addRelationUnitSetting(c, relUnitUUID1, "unit1-foo", "unit1-bar")
+	s.addRelationUnitSetting(c, relUnitUUID2, "unit2-foo", "unit2-bar")
+
+	// Arrange: add peer relation.
+	peerEndpoint := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-3",
+			Role:      charm.RolePeer,
+			Interface: "peer",
+			Optional:  true,
+			Limit:     20,
+			Scope:     charm.ScopeContainer,
+		},
+	}
+	charmRelationUUID3 := s.addCharmRelation(c, s.fakeCharmUUID1, peerEndpoint.Relation)
+	applicationEndpointUUID3 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID3)
+	peerRelationID := 27
+	peerRelationUUID := s.addRelationWithID(c, peerRelationID)
+	s.addRelationEndpoint(c, peerRelationUUID, applicationEndpointUUID3)
+
+	// Act:
+	exported, err := s.state.ExportRelations(context.Background())
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(exported, jc.SameContents, []relation.ExportRelation{{
+		ID: relationID,
+		Endpoints: []relation.ExportEndpoint{{
+			ApplicationName: s.fakeApplicationName1,
+			Name:            endpoint1.Name,
+			Role:            endpoint1.Role,
+			Interface:       endpoint1.Interface,
+			Optional:        endpoint1.Optional,
+			Limit:           endpoint1.Limit,
+			Scope:           endpoint1.Scope,
+			AllUnitSettings: map[string]map[string]any{
+				"app1/0": {
+					"unit1-foo": "unit1-bar",
+				},
+				"app1/1": {
+					"unit2-foo": "unit2-bar",
+				},
+			},
+			ApplicationSettings: make(map[string]any),
+		}, {
+			ApplicationName: s.fakeApplicationName2,
+			Name:            endpoint2.Name,
+			Role:            endpoint2.Role,
+			Interface:       endpoint2.Interface,
+			Optional:        endpoint2.Optional,
+			Limit:           endpoint2.Limit,
+			Scope:           endpoint2.Scope,
+			ApplicationSettings: map[string]any{
+				"app-foo": "app-bar",
+			},
+			AllUnitSettings: make(map[string]map[string]any),
+		}},
+	}, {
+		ID: peerRelationID,
+		Endpoints: []relation.ExportEndpoint{{
+			ApplicationName:     s.fakeApplicationName1,
+			Name:                peerEndpoint.Name,
+			Role:                peerEndpoint.Role,
+			Interface:           peerEndpoint.Interface,
+			Optional:            peerEndpoint.Optional,
+			Limit:               peerEndpoint.Limit,
+			Scope:               peerEndpoint.Scope,
+			AllUnitSettings:     make(map[string]map[string]any),
+			ApplicationSettings: make(map[string]any),
+		}},
+	}})
 }
 
 // addRelationUnitSetting inserts a relation unit setting into the database

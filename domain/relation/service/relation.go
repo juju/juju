@@ -79,6 +79,10 @@ type State interface {
 		settings map[string]string,
 	) error
 
+	// ExportRelations returns all relation information to be exported for the
+	// model.
+	ExportRelations(ctx context.Context) ([]relation.ExportRelation, error)
+
 	// GetAllRelationDetails return RelationDetailResults for all relations
 	// for the current model.
 	GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error)
@@ -997,6 +1001,33 @@ func (s *Service) ImportRelations(ctx context.Context, args relation.ImportRelat
 		}
 	}
 	return nil
+}
+
+// ExportRelations returns all relation information to be exported for the
+// model.
+func (s *Service) ExportRelations(ctx context.Context) ([]relation.ExportRelation, error) {
+	relations, err := s.st.ExportRelations(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Generate the relation keys.
+	for i, r := range relations {
+		var eids []corerelation.EndpointIdentifier
+		for _, ep := range r.Endpoints {
+			eids = append(eids, corerelation.EndpointIdentifier{
+				ApplicationName: ep.ApplicationName,
+				EndpointName:    ep.Name,
+				Role:            ep.Role,
+			})
+		}
+		relations[i].Key, err = corerelation.NewKey(eids)
+		if err != nil {
+			return nil, errors.Errorf("generating relation key: %w", err)
+		}
+	}
+
+	return relations, nil
 }
 
 func (s *Service) importRelation(ctx context.Context, arg relation.ImportRelationArg) (corerelation.UUID, error) {

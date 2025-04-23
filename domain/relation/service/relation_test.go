@@ -1254,6 +1254,54 @@ func (s *relationServiceSuite) TestDeleteImportedRelationsError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
+func (s *relationServiceSuite) TestExportRelations(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	s.state.EXPECT().ExportRelations(gomock.Any()).Return([]relation.ExportRelation{{
+		Endpoints: []relation.ExportEndpoint{{
+			ApplicationName: "app1",
+			Name:            "ep1",
+			Role:            internalcharm.RoleRequirer,
+		}, {
+			ApplicationName: "app2",
+			Name:            "ep2",
+			Role:            internalcharm.RoleProvider,
+		}},
+	}}, nil)
+
+	// Act:
+	relations, err := s.service.ExportRelations(context.Background())
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relations, gc.DeepEquals, []relation.ExportRelation{{
+		Endpoints: []relation.ExportEndpoint{{
+			ApplicationName: "app1",
+			Name:            "ep1",
+			Role:            internalcharm.RoleRequirer,
+		}, {
+			ApplicationName: "app2",
+			Name:            "ep2",
+			Role:            internalcharm.RoleProvider,
+		}},
+		Key: corerelationtesting.GenNewKey(c, "app1:ep1 app2:ep2"),
+	}})
+}
+
+func (s *relationServiceSuite) TestExportRelationsStateError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange:
+	boom := errors.New("boom")
+	s.state.EXPECT().ExportRelations(gomock.Any()).Return(nil, boom)
+
+	// Act:
+	_, err := s.service.ExportRelations(context.Background())
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, boom)
+}
+
 func (s *relationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

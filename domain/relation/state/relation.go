@@ -179,7 +179,7 @@ func (st *State) SetRelationWithID(
 func (st *State) addRelation(
 	ctx context.Context,
 	tx *sqlair.TX,
-	ep1, ep2 endpoint,
+	ep1, ep2 Endpoint,
 	id uint64,
 ) (corerelation.UUID, error) {
 	var (
@@ -229,10 +229,10 @@ func (st *State) addRelation(
 
 	// Insert both relation_endpoint from application_endpoint_uuid and relation
 	// uuid.
-	if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, ep1.EndpointUUID); err != nil {
+	if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, ep1.ApplicationEndpointUUID); err != nil {
 		return relUUID, errors.Errorf("inserting new relation endpoint for %q: %w", ep1.String(), err)
 	}
-	if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, ep2.EndpointUUID); err != nil {
+	if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, ep2.ApplicationEndpointUUID); err != nil {
 		return relUUID, errors.Errorf("inserting new relation endpoint for %q: %w", ep2.String(), err)
 	}
 	return relUUID, nil
@@ -878,7 +878,7 @@ func (st *State) GetRelationEndpoints(ctx context.Context, uuid corerelation.UUI
 	return endpoints, nil
 }
 
-// getRelationEndpoints retrieves the endpoints of the specified relation.
+// getRelationEndpoints retrieves the relation.Endpoints of the specified relation.
 func (st *State) getRelationEndpoints(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -887,16 +887,17 @@ func (st *State) getRelationEndpoints(
 	id := relationUUID{
 		UUID: uuid,
 	}
+
 	stmt, err := st.Prepare(`
-SELECT &endpoint.*
+SELECT &Endpoint.*
 FROM   v_relation_endpoint
 WHERE  relation_uuid = $relationUUID.uuid
-`, id, endpoint{})
+`, id, Endpoint{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var endpoints []endpoint
+	var endpoints []Endpoint
 	err = tx.Query(ctx, stmt, id).GetAll(&endpoints)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		return nil, relationerrors.RelationNotFound
@@ -916,6 +917,35 @@ WHERE  relation_uuid = $relationUUID.uuid
 	return relationEndpoints, nil
 }
 
+// exportEndpoints gets information needed to export the endpoints of a
+// relation.
+func (st *State) exportRelationEndpoints(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid corerelation.UUID,
+) ([]exportEndpoint, error) {
+	id := relationUUID{
+		UUID: uuid,
+	}
+	stmt, err := st.Prepare(`
+SELECT &exportEndpoint.*
+FROM   v_relation_endpoint
+WHERE  relation_uuid = $relationUUID.uuid
+ORDER BY endpoint_name
+`, id, exportEndpoint{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var endpoints []exportEndpoint
+	err = tx.Query(ctx, stmt, id).GetAll(&endpoints)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return endpoints, nil
+}
+
 // GetApplicationEndpoints returns all endpoints for the given application
 // identifier.
 func (st *State) GetApplicationEndpoints(
@@ -931,15 +961,15 @@ func (st *State) GetApplicationEndpoints(
 		UUID: applicationID,
 	}
 	stmt, err := st.Prepare(`
-SELECT &endpoint.*
+SELECT &Endpoint.*
 FROM   v_application_endpoint
 WHERE  application_uuid = $applicationUUID.application_uuid
-`, id, endpoint{})
+`, id, Endpoint{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var eps []endpoint
+	var eps []Endpoint
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, stmt, id).GetAll(&eps)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -2774,11 +2804,129 @@ func (st *State) DeleteImportedRelations(
 	return errors.Capture(err)
 }
 
+// ExportRelations returns all relation information to be exported for the
+// model.
+func (st *State) ExportRelations(ctx context.Context) ([]relation.ExportRelation, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var exportRelations []relation.ExportRelation
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		type getRelation struct {
+			UUID corerelation.UUID `db:"uuid"`
+			ID   int               `db:"relation_id"`
+		}
+		stmt, err := st.Prepare(`
+SELECT (r.uuid, r.relation_id) AS (&getRelation.*)
+FROM   relation r
+`, getRelation{})
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		var rels []getRelation
+		err = tx.Query(ctx, stmt).GetAll(&rels)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+
+		for _, rel := range rels {
+			exportRelation := relation.ExportRelation{
+				ID: rel.ID,
+			}
+
+			eps, err := st.exportRelationEndpoints(ctx, tx, rel.UUID)
+			if err != nil {
+				return errors.Errorf("getting relation endpoints: %w", err)
+			}
+			for _, ep := range eps {
+				exportEndpoint := relation.ExportEndpoint{
+					ApplicationName: ep.ApplicationName,
+					Name:            ep.EndpointName,
+					Role:            ep.Role,
+					Interface:       ep.Interface,
+					Optional:        ep.Optional,
+					Limit:           ep.Capacity,
+					Scope:           ep.Scope,
+				}
+
+				appSettings, err := st.getApplicationSettings(ctx, tx, ep.RelationEndpointUUID)
+				if err != nil {
+					return errors.Errorf("getting application settings: %w", err)
+				}
+				exportEndpoint.ApplicationSettings = make(map[string]any, len(appSettings))
+				for _, s := range appSettings {
+					exportEndpoint.ApplicationSettings[s.Key] = s.Value
+				}
+
+				relUnits, err := st.getRelationUnits(ctx, tx, ep.RelationEndpointUUID)
+				if err != nil {
+					return errors.Errorf("getting relation units: %w", err)
+				}
+
+				allUnitSettings := make(map[string]map[string]any)
+				for _, relUnit := range relUnits {
+					unitSettings, err := st.getRelationUnitSettings(ctx, tx, relUnit.RelationUnitUUID)
+					if err != nil {
+						return errors.Errorf("getting relation unit settings: %w", err)
+					}
+					exportUnitSettings := make(map[string]any, len(unitSettings))
+					for _, s := range unitSettings {
+						exportUnitSettings[s.Key] = s.Value
+					}
+					allUnitSettings[relUnit.UnitName.String()] = exportUnitSettings
+				}
+				exportEndpoint.AllUnitSettings = allUnitSettings
+
+				exportRelation.Endpoints = append(exportRelation.Endpoints, exportEndpoint)
+			}
+			exportRelations = append(exportRelations, exportRelation)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return exportRelations, nil
+}
+
+func (st *State) getRelationUnits(
+	ctx context.Context,
+	tx *sqlair.TX,
+	endpointUUID string,
+) ([]relationUnitUUIDAndName, error) {
+	relEndpoint := relationEndpointUUID{UUID: endpointUUID}
+	stmt, err := st.Prepare(`
+SELECT (ru.uuid, u.name) AS (&relationUnitUUIDAndName.*)
+FROM   relation_unit ru
+JOIN   unit u ON u.uuid = ru.unit_uuid
+WHERE  ru.relation_endpoint_uuid = $relationEndpointUUID.uuid
+`, relationUnitUUIDAndName{}, relEndpoint)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var relUnits []relationUnitUUIDAndName
+	err = tx.Query(ctx, stmt, relEndpoint).GetAll(&relUnits)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return relUnits, nil
+}
+
 // checkCompatibleBases determines if the bases of two application endpoints
 // are compatible for a relation.
 // It compares the OS and channel of the base configurations for both endpoints.
 // Returns an error if no compatible bases are found or if fetching bases fails.
-func (st *State) checkCompatibleBases(ctx context.Context, tx *sqlair.TX, ep1 endpoint, ep2 endpoint) error {
+func (st *State) checkCompatibleBases(ctx context.Context, tx *sqlair.TX, ep1 Endpoint, ep2 Endpoint) error {
 	if ep1.Scope != charm.ScopeContainer && ep2.Scope != charm.ScopeContainer {
 		return nil
 	}
@@ -2837,14 +2985,14 @@ WHERE  uuid = $search.uuid
 
 // checkEndpointCapacity validates whether adding a new relation to the given
 // endpoint exceeds its defined capacity limit.
-func (st *State) checkEndpointCapacity(ctx context.Context, tx *sqlair.TX, ep endpoint) error {
+func (st *State) checkEndpointCapacity(ctx context.Context, tx *sqlair.TX, ep Endpoint) error {
 	type related struct {
 		Count int `db:"count"`
 	}
 	countStmt, err := st.Prepare(`
 SELECT count(*) AS &related.count
 FROM   relation_endpoint
-WHERE  endpoint_uuid = $endpoint.endpoint_uuid`, related{}, ep)
+WHERE  endpoint_uuid = $Endpoint.application_endpoint_uuid`, related{}, ep)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2909,7 +3057,7 @@ FROM   relation
 // It queries based on application name and optionally endpoint name,
 // returning all matching endpoints or an error.
 func (st *State) getCandidateEndpoints(ctx context.Context, tx *sqlair.TX,
-	identifier relation.CandidateEndpointIdentifier) ([]endpoint, error) {
+	identifier relation.CandidateEndpointIdentifier) ([]Endpoint, error) {
 
 	epIdentifier := endpointIdentifier{
 		ApplicationName: identifier.ApplicationName,
@@ -2917,18 +3065,18 @@ func (st *State) getCandidateEndpoints(ctx context.Context, tx *sqlair.TX,
 	}
 
 	stmt, err := st.Prepare(`
-SELECT &endpoint.*
+SELECT &Endpoint.*
 FROM   v_application_endpoint
 WHERE  application_name = $endpointIdentifier.application_name
 AND    (
     endpoint_name    = $endpointIdentifier.endpoint_name
     OR $endpointIdentifier.endpoint_name = ''
 )
-`, endpoint{}, epIdentifier)
+`, Endpoint{}, epIdentifier)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	var endpoints []endpoint
+	var endpoints []Endpoint
 	err = tx.Query(ctx, stmt, epIdentifier).GetAll(&endpoints)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Errorf("getting candidate endpoints for %q: %w", identifier, err)
@@ -2969,14 +3117,14 @@ AND    a.name = $endpointIdentifier.application_name
 
 // getBases retrieves a list of OS and channel information for a specific
 // application, given an endpoint and transaction.
-func (st *State) getBases(ctx context.Context, tx *sqlair.TX, ep1 endpoint) ([]corebase.Base, error) {
+func (st *State) getBases(ctx context.Context, tx *sqlair.TX, ep1 Endpoint) ([]corebase.Base, error) {
 	stmt, err := st.Prepare(`
 SELECT 
     ap.channel AS &applicationPlatform.channel,
     os.name AS &applicationPlatform.os
 FROM application_platform ap
 JOIN os ON ap.os_id = os.id
-WHERE ap.application_uuid = $endpoint.application_uuid`, ep1, applicationPlatform{})
+WHERE ap.application_uuid = $Endpoint.application_uuid`, ep1, applicationPlatform{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -3049,16 +3197,16 @@ WHERE  r.uuid = $getRelation.uuid
 func (st *State) inferEndpoints(
 	ctx context.Context,
 	tx *sqlair.TX,
-	identifier1, identifier2 relation.CandidateEndpointIdentifier) (endpoint, endpoint, error) {
+	identifier1, identifier2 relation.CandidateEndpointIdentifier) (Endpoint, Endpoint, error) {
 
 	// Get candidate endpoints.
 	endpoints1, err := st.getCandidateEndpoints(ctx, tx, identifier1)
 	if err != nil {
-		return endpoint{}, endpoint{}, errors.Capture(err)
+		return Endpoint{}, Endpoint{}, errors.Capture(err)
 	}
 	endpoints2, err := st.getCandidateEndpoints(ctx, tx, identifier2)
 	if err != nil {
-		return endpoint{}, endpoint{}, errors.Capture(err)
+		return Endpoint{}, Endpoint{}, errors.Capture(err)
 	}
 
 	var noCandidates []string
@@ -3069,7 +3217,7 @@ func (st *State) inferEndpoints(
 		noCandidates = append(noCandidates, identifier2.String())
 	}
 	if len(noCandidates) > 0 {
-		return endpoint{}, endpoint{}, errors.Errorf("no candidates for %s: %w",
+		return Endpoint{}, Endpoint{}, errors.Errorf("no candidates for %s: %w",
 			strings.Join(noCandidates, " and "),
 			relationerrors.RelationEndpointNotFound)
 	}
@@ -3082,17 +3230,17 @@ func (st *State) inferEndpoints(
 	// Check if applications are subordinates.
 	isSubordinate1, err := st.isSubordinate(ctx, tx, app1UUID)
 	if err != nil {
-		return endpoint{}, endpoint{}, errors.Capture(err)
+		return Endpoint{}, Endpoint{}, errors.Capture(err)
 	}
 	isSubordinate2, err := st.isSubordinate(ctx, tx, app2UUID)
 	if err != nil {
-		return endpoint{}, endpoint{}, errors.Capture(err)
+		return Endpoint{}, Endpoint{}, errors.Capture(err)
 	}
 
 	// Compute matches.
 	type match struct {
-		ep1 *endpoint
-		ep2 *endpoint
+		ep1 *Endpoint
+		ep2 *Endpoint
 	}
 	var matches []match
 	for _, e1 := range endpoints1 {
@@ -3110,13 +3258,13 @@ func (st *State) inferEndpoints(
 	}
 
 	if matchCount := len(matches); matchCount == 0 {
-		return endpoint{}, endpoint{}, relationerrors.CompatibleEndpointsNotFound
+		return Endpoint{}, Endpoint{}, relationerrors.CompatibleEndpointsNotFound
 	} else if matchCount > 1 {
 		possibleMatches := make([]string, 0, matchCount)
 		for _, match := range matches {
 			possibleMatches = append(possibleMatches, fmt.Sprintf("\"%s %s\"", match.ep1, match.ep2))
 		}
-		return endpoint{}, endpoint{}, errors.Errorf("%w: %q could refer to %s",
+		return Endpoint{}, Endpoint{}, errors.Errorf("%w: %q could refer to %s",
 			relationerrors.AmbiguousRelation, fmt.Sprintf("%s %s", identifier1, identifier2),
 			strings.Join(possibleMatches, "; "))
 	}
@@ -3207,10 +3355,10 @@ WHERE  status.name = $setRelationStatus.status`, status)
 
 // relationAlreadyExists checks if a relation already exists between two
 // endpoints in the database and returns an error if it does.
-func (st *State) relationAlreadyExists(ctx context.Context, tx *sqlair.TX, ep1 endpoint, ep2 endpoint) error {
+func (st *State) relationAlreadyExists(ctx context.Context, tx *sqlair.TX, ep1 Endpoint, ep2 Endpoint) error {
 	type (
-		endpoint1 endpoint
-		endpoint2 endpoint
+		endpoint1 Endpoint
+		endpoint2 Endpoint
 	)
 	e1 := endpoint1(ep1)
 	e2 := endpoint2(ep2)
@@ -3220,8 +3368,8 @@ SELECT r.uuid as &relationUUID.uuid
 FROM   relation r
 JOIN   relation_endpoint e1 ON r.uuid = e1.relation_uuid
 JOIN   relation_endpoint e2 ON r.uuid = e2.relation_uuid
-WHERE  e1.endpoint_uuid = $endpoint1.endpoint_uuid                          
-AND    e2.endpoint_uuid = $endpoint2.endpoint_uuid
+WHERE  e1.endpoint_uuid = $endpoint1.application_endpoint_uuid                          
+AND    e2.endpoint_uuid = $endpoint2.application_endpoint_uuid
 `, relationUUID{}, e1, e2)
 	if err != nil {
 		return errors.Capture(err)
@@ -3373,7 +3521,7 @@ func (st *State) getUnitsRelationData(
 	})
 
 	// Get all relation unit uuids for units.
-	relationUnits, err := st.getRelationUnits(ctx, tx, endpointUUID, unitUUIDS)
+	relationUnits, err := st.getRelationUnitsByUnits(ctx, tx, endpointUUID, unitUUIDS)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -3435,10 +3583,10 @@ WHERE  u.application_uuid = $applicationID.uuid
 	return units, nil
 }
 
-// getRelationUnit returns all relation units for the give units and endpoint.
-// Data is in a map keyed to the unit uuids to facilitate the caller's processing
-// of the data.
-func (st *State) getRelationUnits(
+// getRelationUnitsByUnits returns all relation units for the give units and
+// endpoint. Data is in a map keyed to the unit uuids to facilitate the caller's
+// processing of the data.
+func (st *State) getRelationUnitsByUnits(
 	ctx context.Context,
 	tx *sqlair.TX,
 	endpointUUID string,
