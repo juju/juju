@@ -6,6 +6,7 @@ package bootstrap
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/dependency"
@@ -29,29 +30,40 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg := s.getConfig()
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
+	cfg = s.getConfig()
 	cfg.AgentName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
+	cfg = s.getConfig()
 	cfg.StateName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
+	cfg = s.getConfig()
 	cfg.ObjectStoreName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
+	cfg = s.getConfig()
 	cfg.DomainServicesName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
+	cfg = s.getConfig()
 	cfg.BootstrapGateName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
+	cfg = s.getConfig()
 	cfg.StorageRegistryName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
+	cfg = s.getConfig()
 	cfg.HTTPClientName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.Logger = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.Clock = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -85,6 +97,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		HTTPClientName:      "http-client",
 		StorageRegistryName: "storage-registry",
 		Logger:              s.logger,
+		Clock:               clock.WallClock,
 		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
 			return func() {}, nil
 		},

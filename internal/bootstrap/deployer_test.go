@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/errors"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -34,6 +36,8 @@ import (
 
 type deployerSuite struct {
 	baseSuite
+
+	clock *MockClock
 }
 
 var _ = gc.Suite(&deployerSuite{})
@@ -223,7 +227,11 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 	// query the backend to ensure that the charm we just uploaded exists before
 	// we can add the application.
 
+	now := clock.WallClock.Now()
+	s.clock.EXPECT().Now().Return(now).AnyTimes()
+
 	cfg := s.newConfig(c)
+	cfg.Clock = s.clock
 
 	curl := "ch:juju-controller-0"
 
@@ -259,6 +267,10 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 			CharmObjectStoreUUID: "1234",
 			ApplicationSettings: domainapplication.ApplicationSettings{
 				Trust: true,
+			},
+			ApplicationStatus: &status.StatusInfo{
+				Status: status.Unset,
+				Since:  ptr(now),
 			},
 		},
 		applicationservice.AddUnitArg{UnitName: unit.Name("controller/0")},
@@ -433,4 +445,12 @@ func (s *deployerSuite) expectDownloadAndResolve(c *gc.C, name string) {
 		ArchivePath:     "path",
 		ObjectStoreUUID: objectStoreUUID,
 	}, nil)
+}
+
+func (s *deployerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := s.baseSuite.setupMocks(c)
+
+	s.clock = NewMockClock(ctrl)
+
+	return ctrl
 }

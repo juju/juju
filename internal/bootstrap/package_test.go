@@ -6,6 +6,7 @@ package bootstrap
 import (
 	"testing"
 
+	"github.com/juju/clock"
 	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -24,6 +25,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination core_charm_mock_test.go github.com/juju/juju/core/charm Repository
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination internal_charm_mock_test.go github.com/juju/juju/internal/charm Charm
+//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination clock_mock_test.go github.com/juju/clock Clock
 
 func Test(t *testing.T) {
 	gc.TestingT(t)
@@ -93,5 +95,6 @@ func (s *baseSuite) newConfig(c *gc.C) BaseDeployerConfig {
 		CharmhubHTTPClient: s.httpClient,
 		Channel:            charm.Channel{},
 		Logger:             s.logger,
+		Clock:              clock.WallClock,
 	}
 }

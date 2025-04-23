@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -93,6 +94,7 @@ type ControllerCharmDeployerConfig struct {
 	CharmhubHTTPClient          HTTPClient
 	UnitPassword                string
 	Logger                      logger.Logger
+	Clock                       clock.Clock
 }
 
 // CAASControllerUnitPassword is the function that is used to get the unit
@@ -174,6 +176,7 @@ func makeBaseDeployerConfig(cfg ControllerCharmDeployerConfig) bootstrap.BaseDep
 			return charmdownloader.NewCharmDownloader(charmhubClient, logger)
 		},
 		Logger: cfg.Logger,
+		Clock:  cfg.Clock,
 	}
 }
 

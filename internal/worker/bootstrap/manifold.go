@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -79,6 +80,7 @@ type ManifoldConfig struct {
 	PopulateControllerCharm PopulateControllerCharmFunc
 
 	Logger logger.Logger
+	Clock  clock.Clock
 }
 
 // Validate validates the manifold configuration.
@@ -109,6 +111,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if cfg.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	if cfg.AgentBinaryUploader == nil {
 		return errors.NotValidf("nil AgentBinaryUploader")
@@ -282,6 +287,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				CharmhubHTTPClient:      charmhubHTTPClient,
 				UnitPassword:            unitPassword,
 				Logger:                  config.Logger,
+				Clock:                   config.Clock,
 				BootstrapAddressFinder:  addressFinder,
 			})
 			if err != nil {

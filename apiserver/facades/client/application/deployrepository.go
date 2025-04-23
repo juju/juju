@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -24,6 +25,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -69,6 +71,7 @@ type DeployFromRepositoryAPI struct {
 	validator          DeployFromRepositoryValidator
 	applicationService ApplicationService
 	logger             corelogger.Logger
+	clock              clock.Clock
 }
 
 // NewDeployFromRepositoryAPI creates a new DeployFromRepositoryAPI.
@@ -76,6 +79,7 @@ func NewDeployFromRepositoryAPI(
 	state DeployFromRepositoryState, applicationService ApplicationService,
 	store objectstore.ObjectStore, validator DeployFromRepositoryValidator,
 	logger corelogger.Logger,
+	clock clock.Clock,
 ) DeployFromRepository {
 	return &DeployFromRepositoryAPI{
 		state:              state,
@@ -83,11 +87,12 @@ func NewDeployFromRepositoryAPI(
 		validator:          validator,
 		applicationService: applicationService,
 		logger:             logger,
+		clock:              clock,
 	}
 }
 
 func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, arg params.DeployFromRepositoryArg) (params.DeployFromRepositoryInfo, []*params.PendingResourceUpload, []error) {
-	api.logger.Tracef(context.TODO(), "deployOneFromRepository(%s)", pretty.Sprint(arg))
+	api.logger.Tracef(ctx, "deployOneFromRepository(%s)", pretty.Sprint(arg))
 	// Validate the args.
 	dt, errs := api.validator.ValidateArg(ctx, arg)
 
@@ -173,6 +178,10 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 			ResolvedResources: dt.resolvedResources,
 			EndpointBindings:  transformBindings(dt.endpoints),
 			Devices:           arg.Devices,
+			ApplicationStatus: &status.StatusInfo{
+				Status: status.Unset,
+				Since:  ptr(api.clock.Now()),
+			},
 		}, unitArgs...)
 	if err != nil {
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}

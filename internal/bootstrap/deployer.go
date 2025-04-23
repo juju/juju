@@ -14,6 +14,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/clock"
+
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
 	corearch "github.com/juju/juju/core/arch"
@@ -24,6 +26,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -158,6 +161,7 @@ type BaseDeployerConfig struct {
 	ControllerCharmName  string
 	Channel              charm.Channel
 	Logger               logger.Logger
+	Clock                clock.Clock
 }
 
 // Validate validates the configuration.
@@ -192,6 +196,9 @@ func (c BaseDeployerConfig) Validate() error {
 	if c.Logger == nil {
 		return errors.Errorf("Logger").Add(coreerrors.NotValid)
 	}
+	if c.Clock == nil {
+		return errors.Errorf("Clock").Add(coreerrors.NotValid)
+	}
 	return nil
 }
 
@@ -209,6 +216,7 @@ type baseDeployer struct {
 	controllerCharmName string
 	channel             charm.Channel
 	logger              logger.Logger
+	clock               clock.Clock
 }
 
 func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
@@ -226,6 +234,7 @@ func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
 		controllerCharmName: config.ControllerCharmName,
 		channel:             config.Channel,
 		logger:              config.Logger,
+		clock:               config.Clock,
 	}
 }
 
@@ -445,6 +454,10 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, info Deploy
 			DownloadInfo:         downloadInfo,
 			ApplicationSettings: domainapplication.ApplicationSettings{
 				Trust: true,
+			},
+			ApplicationStatus: &status.StatusInfo{
+				Status: status.Unset,
+				Since:  ptr(b.clock.Now()),
 			},
 		},
 		applicationservice.AddUnitArg{UnitName: unitName},

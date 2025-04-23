@@ -6,6 +6,7 @@ package application
 import (
 	"context"
 
+	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -25,7 +26,7 @@ func (s *permBaseSuite) TestAPIConstruction(c *gc.C) {
 
 	s.authorizer.EXPECT().AuthClient().Return(false)
 
-	_, err := NewAPIBase(nil, Services{}, nil, s.authorizer, nil, s.modelUUID, "", nil, nil, nil, nil, nil, nil, nil, nil)
+	_, err := NewAPIBase(nil, Services{}, nil, s.authorizer, nil, s.modelUUID, "", nil, nil, nil, nil, nil, nil, nil, nil, clock.WallClock)
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -34,7 +35,7 @@ func (s *permBaseSuite) TestAPIServiceConstruction(c *gc.C) {
 
 	s.expectAuthClient()
 
-	_, err := NewAPIBase(nil, Services{}, nil, s.authorizer, nil, s.modelUUID, "", nil, nil, nil, nil, nil, nil, nil, nil)
+	_, err := NewAPIBase(nil, Services{}, nil, s.authorizer, nil, s.modelUUID, "", nil, nil, nil, nil, nil, nil, nil, nil, clock.WallClock)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
