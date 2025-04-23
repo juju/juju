@@ -433,6 +433,10 @@ func (s *ApiServerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ApiServerSuite) TearDownTest(c *gc.C) {
+	if s.LeaseManager != nil {
+		s.LeaseManager.Kill()
+	}
+
 	s.WithLeaseManager = false
 	s.WithAuditLogConfig = nil
 	s.WithUpgrading = false
