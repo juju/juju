@@ -623,6 +623,8 @@ type DeployFromRepositoryArg struct {
 
 	//  Trust allows charm to run hooks that require access credentials
 	Trust bool
+
+	StorageID string
 }
 
 type DeployFromRepositoryResults struct {

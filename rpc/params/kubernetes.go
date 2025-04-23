@@ -27,6 +27,7 @@ type KubernetesProvisioningInfo struct {
 	Devices              []KubernetesDeviceParams     `json:"devices,omitempty"`
 	CharmModifiedVersion int                          `json:"charm-modified-version,omitempty"`
 	ImageRepo            DockerImageInfo              `json:"image-repo,omitempty"`
+	StorageID            string                       `json:"storage-id,omitempty"`
 }
 
 // KubernetesProvisioningInfoResult holds unit provisioning info or an error.
@@ -48,6 +49,7 @@ type KubernetesFilesystemParams struct {
 	Attributes  map[string]interface{}                `json:"attributes,omitempty"`
 	Tags        map[string]string                     `json:"tags,omitempty"`
 	Attachment  *KubernetesFilesystemAttachmentParams `json:"attachment,omitempty"`
+	StorageID   string                                `json:"id,omitempty"`
 }
 
 // KubernetesFilesystemAttachmentParams holds the parameters for

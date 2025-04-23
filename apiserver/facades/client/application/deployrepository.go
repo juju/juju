@@ -141,6 +141,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 		Placement:         dt.placement,
 		Resources:         pendingIDs,
 		Storage:           stateStorageConstraints(dt.storage),
+		StorageID:         dt.storageID,
 	})
 
 	if addApplicationErr != nil {
@@ -247,6 +248,7 @@ type deployTemplate struct {
 	storage                map[string]storage.Constraints
 	pendingResourceUploads []*params.PendingResourceUpload
 	resolvedResources      []resource.Resource
+	storageID              string
 }
 
 type validatorConfig struct {
@@ -369,6 +371,7 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 	dt.origin = resolvedOrigin
 	dt.placement = arg.Placement
 	dt.storage = arg.Storage
+	dt.storageID = arg.StorageID
 	if len(arg.EndpointBindings) > 0 {
 		bindings, err := v.newStateBindings(v.state, arg.EndpointBindings)
 		if err != nil {

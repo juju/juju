@@ -168,7 +168,6 @@ func (d *factory) GetDeployer(cfg DeployerConfig, deployAPI CharmDeployAPI, reso
 			}
 		}
 	}
-
 	return dk.CreateDeployer(*d)
 }
 
@@ -389,6 +388,7 @@ func (d *factory) setConfig(cfg DeployerConfig) {
 	d.bundleMachines = cfg.BundleMachines
 	d.trust = cfg.Trust
 	d.flagSet = cfg.FlagSet
+	d.storageID = cfg.StorageID
 }
 
 // DeployerDependencies are required for any deployer to be run.
@@ -437,6 +437,7 @@ type DeployerConfig struct {
 	Storage              map[string]storage.Constraints
 	Trust                bool
 	UseExisting          bool
+	StorageID            string
 }
 
 type factory struct {
@@ -473,6 +474,7 @@ type factory struct {
 	useExisting        bool
 	bundleMachines     map[string]string
 	trust              bool
+	storageID          string
 	flagSet            *gnuflag.FlagSet
 
 	// Private
@@ -503,6 +505,7 @@ func (d *factory) newDeployCharm() deployCharm {
 		baseFlag:         d.base,
 		storage:          d.storage,
 		trust:            d.trust,
+		storageID:        d.storageID,
 
 		validateCharmBaseWithName: d.validateCharmBaseWithName,
 	}

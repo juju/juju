@@ -231,6 +231,7 @@ func provisionInfoToServiceParams(info *apicaasunitprovisioner.ProvisioningInfo)
 			DeploymentType: caas.DeploymentType(info.DeploymentInfo.DeploymentType),
 			ServiceType:    caas.ServiceType(info.DeploymentInfo.ServiceType),
 		},
+		StorageID: info.StorageID,
 	}
 	if len(info.PodSpec) > 0 {
 		if serviceParams.PodSpec, err = k8sspecs.ParsePodSpec(info.PodSpec); err != nil {
