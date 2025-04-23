@@ -33,7 +33,7 @@ type relationIDAndUUID struct {
 	// UUID is the UUID of the relation.
 	UUID corerelation.UUID `db:"uuid"`
 	// ID is the numeric ID of the relation
-	ID int `db:"relation_id"`
+	ID uint64 `db:"relation_id"`
 }
 
 type relationIDUUIDAppName struct {

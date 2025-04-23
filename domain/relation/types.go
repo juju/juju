@@ -17,9 +17,13 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	sequence "github.com/juju/juju/domain/sequence"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 )
+
+// SequenceNamespace for the sequence table.
+const SequenceNamespace = sequence.StaticNamespace("relation")
 
 // GetRelationEndpointUUIDArgs represents the arguments required to retrieve
 // the UUID of a relation endpoint.

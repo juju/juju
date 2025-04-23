@@ -14,7 +14,7 @@
 // the units of a single application and not added by a user.
 //
 // With any new row in the `relation` table, a sequential ID is assigned using
-// the `relation_sequence` table. The sequence is unique to a model. No relation
+// the `sequence` table. The sequence is unique to a model. No relation
 // ID is reused in the lifetime of a model. This ID is used by the units to
 // identify the relation.
 //
@@ -52,6 +52,9 @@
 // <insert>. When set to dead <insert>. A relation cannot be dead until all
 // relation units have left scope.
 //
+// The relation sequence is migrated in the sequence domain.
+//
+// Relation statuses are migrated in the status domain.
 // TODO:
 // * leave scope details
 // * more on Life
