@@ -8,6 +8,7 @@ import (
 	"reflect"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/watcher"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -19,10 +20,20 @@ func Register(registry facade.FacadeRegistry) {
 
 // newCredentialValidatorAPI creates a new CredentialValidator API endpoint on server-side.
 func newCredentialValidatorAPI(ctx facade.ModelContext) (*CredentialValidatorAPI, error) {
-	st := &stateShim{ctx.State()}
-	return internalNewCredentialValidatorAPI(st,
-		ctx.DomainServices().Cloud(),
-		ctx.DomainServices().Credential(),
-		ctx.Resources(), ctx.Auth(),
-		ctx.Logger().Child("credentialvalidator"))
+
+	domainServices := ctx.DomainServices()
+	modelCredentialWatcherGetter := func(stdCtx context.Context) (watcher.NotifyWatcher, error) {
+		return domainServices.Model().WatchModelCloudCredential(stdCtx, ctx.ModelUUID())
+	}
+
+	return internalNewCredentialValidatorAPI(
+		domainServices.Cloud(),
+		domainServices.Credential(),
+		ctx.Auth(),
+		domainServices.Model(),
+		domainServices.ModelInfo(),
+		modelCredentialWatcherGetter,
+		ctx.WatcherRegistry(),
+		ctx.Logger().Child("credentialvalidator"),
+	)
 }
