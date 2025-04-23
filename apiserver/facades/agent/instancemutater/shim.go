@@ -15,14 +15,6 @@ type instanceMutaterStateShim struct {
 	*state.State
 }
 
-func (s *instanceMutaterStateShim) ModelName() (string, error) {
-	m, err := s.State.Model()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return m.Name(), err
-}
-
 func (s *instanceMutaterStateShim) Application(appName string) (Application, error) {
 	app, err := s.State.Application(appName)
 	if err != nil {

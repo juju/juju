@@ -16,7 +16,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutatorWatcher,InstanceMutaterState,Machine,Unit,Application,MachineService,ApplicationService
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutatorWatcher,InstanceMutaterState,Machine,Unit,Application,MachineService,ApplicationService,ModelInfoService
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity,Lifer
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/state NotifyWatcher,StringsWatcher
 
@@ -31,6 +31,7 @@ func NewTestAPI(
 	st InstanceMutaterState,
 	machineService MachineService,
 	applicationService ApplicationService,
+	modelInfoService ModelInfoService,
 	mutatorWatcher InstanceMutatorWatcher,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -46,6 +47,7 @@ func NewTestAPI(
 		st:                 st,
 		machineService:     machineService,
 		applicationService: applicationService,
+		modelInfoService:   modelInfoService,
 		watcher:            mutatorWatcher,
 		resources:          resources,
 		authorizer:         authorizer,

@@ -15,7 +15,6 @@ import (
 type InstanceMutaterState interface {
 	state.EntityFinder
 
-	ModelName() (string, error)
 	Application(appName string) (Application, error)
 	Machine(id string) (Machine, error)
 	Unit(unitName string) (Unit, error)

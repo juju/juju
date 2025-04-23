@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -72,11 +73,18 @@ type ApplicationService interface {
 	WatchCharms() (watcher.StringsWatcher, error)
 }
 
+// ModelInfoService provides access to information about the model.
+type ModelInfoService interface {
+	// GetModelInfo returns information about the current model.
+	GetModelInfo(context.Context) (model.ModelInfo, error)
+}
+
 type InstanceMutaterAPI struct {
 	*common.LifeGetter
 
 	machineService     MachineService
 	applicationService ApplicationService
+	modelInfoService   ModelInfoService
 	st                 InstanceMutaterState
 	watcher            InstanceMutatorWatcher
 	resources          facade.Resources
@@ -94,6 +102,7 @@ type instanceMutatorWatcher struct {
 	st                 InstanceMutaterState
 	machineService     MachineService
 	applicationService ApplicationService
+	modelInfoService   ModelInfoService
 }
 
 // NewInstanceMutaterAPI creates a new API server endpoint for managing
@@ -102,6 +111,7 @@ func NewInstanceMutaterAPI(
 	st InstanceMutaterState,
 	machineService MachineService,
 	applicationService ApplicationService,
+	modelInfoService ModelInfoService,
 	watcher InstanceMutatorWatcher,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -121,6 +131,7 @@ func NewInstanceMutaterAPI(
 		getAuthFunc:        getAuthFunc,
 		machineService:     machineService,
 		applicationService: applicationService,
+		modelInfoService:   modelInfoService,
 		logger:             logger,
 	}, nil
 }
@@ -449,13 +460,13 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(ctx context.Context, m Mach
 			Profile:         normalised,
 		})
 	}
-	modelName, err := api.st.ModelName()
+	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
 	return lxdProfileInfo{
 		InstanceId:      instId,
-		ModelName:       modelName,
+		ModelName:       modelInfo.Name,
 		MachineProfiles: machineProfiles,
 		ProfileUnits:    changeResults,
 	}, nil

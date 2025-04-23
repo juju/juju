@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -40,6 +41,7 @@ type instanceMutaterAPISuite struct {
 	state              *mocks.MockInstanceMutaterState
 	machineService     *mocks.MockMachineService
 	applicationService *mocks.MockApplicationService
+	modelInfoService   *mocks.MockModelInfoService
 	mutatorWatcher     *mocks.MockInstanceMutatorWatcher
 	resources          *facademocks.MockResources
 
@@ -67,12 +69,13 @@ func (s *instanceMutaterAPISuite) setup(c *gc.C) *gomock.Controller {
 	s.resources = facademocks.NewMockResources(ctrl)
 	s.machineService = mocks.NewMockMachineService(ctrl)
 	s.applicationService = mocks.NewMockApplicationService(ctrl)
+	s.modelInfoService = mocks.NewMockModelInfoService(ctrl)
 
 	return ctrl
 }
 
 func (s *instanceMutaterAPISuite) facadeAPIForScenario(c *gc.C) *instancemutater.InstanceMutaterAPI {
-	facade, err := instancemutater.NewTestAPI(c, s.state, s.machineService, s.applicationService, s.mutatorWatcher, s.resources, s.authorizer)
+	facade, err := instancemutater.NewTestAPI(c, s.state, s.machineService, s.applicationService, s.modelInfoService, s.mutatorWatcher, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
 	return facade
 }
@@ -260,13 +263,16 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *gc
 	s.expectMachine(s.machineTag, s.machine)
 	s.expectUnits(state.Alive)
 	s.expectProfileExtraction(c)
-	s.expectName()
 	facade := s.facadeAPIForScenario(c)
 
 	s.machine.EXPECT().Id().Return("0")
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil)
 	s.machineService.EXPECT().AppliedLXDProfileNames(gomock.Any(), "uuid0").Return([]string{"charm-app-0"}, nil)
 	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid0").Return("0", nil)
+
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{
+		Name: "foo",
+	}, nil)
 
 	results, err := facade.CharmProfilingInfo(context.Background(), params.Entity{Tag: "machine-0"})
 	c.Assert(err, gc.IsNil)
@@ -306,13 +312,16 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithNo
 	s.expectUnits(state.Alive, state.Alive, state.Dead)
 	s.expectProfileExtraction(c)
 	s.expectProfileExtractionWithEmpty(c)
-	s.expectName()
 	facade := s.facadeAPIForScenario(c)
 
 	s.machine.EXPECT().Id().Return("0")
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil)
 	s.machineService.EXPECT().AppliedLXDProfileNames(gomock.Any(), "uuid0").Return([]string{"charm-app-0"}, nil)
 	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid0").Return("0", nil)
+
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{
+		Name: "foo",
+	}, nil)
 
 	results, err := facade.CharmProfilingInfo(context.Background(), params.Entity{Tag: "machine-0"})
 	c.Assert(err, gc.IsNil)
@@ -454,11 +463,6 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) assertCharmWithoutLXDProfile
 		Revision: curl.Revision,
 	}).
 		Return(internalcharm.LXDProfile{}, 0, nil)
-}
-
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectName() {
-	modelExp := s.state.EXPECT()
-	modelExp.ModelName().Return("foo", nil)
 }
 
 type InstanceMutaterAPISetCharmProfilesSuite struct {
