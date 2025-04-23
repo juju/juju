@@ -56,6 +56,15 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		return params.FullStatus{}, err
 	}
 
+	if len(args.Patterns) > 0 {
+		// Patterns have been disabled until we tackle the status epic. This
+		// will require pushing the patterns down through the status service.
+		// For now, just black hole the request.
+		return params.FullStatus{}, internalerrors.Errorf("patterns are not implemented").Add(
+			errors.NotImplemented,
+		)
+	}
+
 	var noStatus params.FullStatus
 	context := statusContext{
 		applicationService: c.applicationService,
@@ -162,184 +171,6 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		logger.Tracef(ctx, "Volumes: %v", context.volumes)
 	}
 
-	if len(args.Patterns) > 0 {
-		patterns := resolveLeaderUnits(args.Patterns, context.leaders)
-		predicate := c.BuildPredicateFor(patterns)
-		// First, attempt to match machines. Any units on those
-		// machines are implicitly matched.
-		matchedMachines := make(set.Strings)
-		for _, machineList := range context.machines {
-			for _, m := range machineList {
-				matches, err := predicate(ctx, m)
-				if err != nil {
-					return noStatus, internalerrors.Errorf("could not filter machines: %w", err)
-				}
-				if matches {
-					matchedMachines.Add(m.Id())
-				}
-			}
-		}
-
-		// Filter units
-		matchedApps := set.NewStrings()
-		matchedUnits := set.NewStrings()
-		unitChainPredicate := UnitChainPredicateFn(ctx, predicate, context.unitByName)
-		// It's possible that we will discover a unit that matches given filter
-		// half way through units collection. In that case, it may be that the machine
-		// for that unit has other applications' units on it that have already been examined
-		// prior. This means that we may miss these other application(s).
-		// This behavior has been inconsistent since we get units in a map where
-		// the order is not guaranteed.
-		// To cater for this scenario, we need to gather all units
-		// in a temporary collection keyed on machine to allow for the later
-		// pass. This fixes situations similar to inconsistencies
-		// observed in lp#1592872.
-		machineUnits := map[string][]string{}
-		for _, unitMap := range context.allAppsUnitsCharmBindings.units {
-			for name, unit := range unitMap {
-				machineId, err := unit.AssignedMachineId()
-				if err != nil {
-					machineId = ""
-				} else if matchedMachines.Contains(machineId) {
-					// Unit is on a matching machine.
-					matchedApps.Add(unit.ApplicationName())
-					continue
-				}
-				if machineId != "" {
-					machineUnits[machineId] = append(machineUnits[machineId], unit.ApplicationName())
-				}
-
-				// Always start examining at the top-level. This
-				// prevents a situation where we filter a subordinate
-				// before we discover its parent is a match.
-				if !unit.IsPrincipal() {
-					continue
-				} else if matches, err := unitChainPredicate(unit); err != nil {
-					return noStatus, internalerrors.Errorf("could not filter units: %w", err)
-				} else if !matches {
-					delete(unitMap, name)
-					continue
-				}
-				matchedApps.Add(unit.ApplicationName())
-				matchedUnits.Add(unit.Name())
-				matchedUnits = matchedUnits.Union(set.NewStrings(unit.SubordinateNames()...))
-				if machineId != "" {
-					matchedMachines.Add(machineId)
-				}
-			}
-		}
-		for _, m := range matchedMachines.SortedValues() {
-			for _, a := range machineUnits[m] {
-				if !matchedApps.Contains(a) {
-					matchedApps.Add(a)
-				}
-			}
-		}
-
-		// Filter applications
-		for appName, app := range context.allAppsUnitsCharmBindings.applications {
-			matches, err := predicate(ctx, app)
-			if err != nil {
-				return noStatus, internalerrors.Errorf("could not filter applications: %w", err)
-			}
-
-			// There are matched units for this application
-			// or the application matched the given criteria.
-			deleted := false
-			if !matchedApps.Contains(appName) && !matches {
-				delete(context.allAppsUnitsCharmBindings.applications, appName)
-				deleted = true
-			}
-
-			// Filter relations:
-			// Remove relations for applications that were deleted and
-			// for the applications that did not match the
-			// given criteria.
-			if deleted || !matches {
-				// delete relations for this app
-				if relations, ok := context.relations[appName]; ok {
-					for _, r := range relations {
-						delete(context.relationsByID, r.ID)
-					}
-					delete(context.relations, appName)
-				}
-			}
-		}
-		// TODO(wallyworld) - filter remote applications
-
-		// Filter machines
-		for aStatus, machineList := range context.machines {
-			matched := make([]*state.Machine, 0, len(machineList))
-			for _, m := range machineList {
-				machineContainers, err := m.Containers()
-				if err != nil {
-					return noStatus, err
-				}
-				machineContainersSet := set.NewStrings(machineContainers...)
-
-				if matchedMachines.Contains(m.Id()) || !matchedMachines.Intersection(machineContainersSet).IsEmpty() {
-					// The machine is matched directly, or contains a unit
-					// or container that matches.
-					logger.Tracef(ctx, "machine %s is hosting something.", m.Id())
-					matched = append(matched, m)
-					continue
-				}
-			}
-			context.machines[aStatus] = matched
-		}
-
-		// Filter storage
-		matchedStorageTags := set.NewStrings()
-		matchedStorageInstances := []state.StorageInstance{}
-		for _, storageInstance := range context.storageInstances {
-			owner, ok := storageInstance.Owner()
-			if !ok {
-				continue
-			}
-			matched := false
-			switch tag := owner.(type) {
-			case names.UnitTag:
-				matched = matchedUnits.Contains(tag.Id())
-			case names.ApplicationTag:
-				matched = matchedApps.Contains(tag.Id())
-			}
-			if !matched {
-				continue
-			}
-			matchedStorageInstances = append(matchedStorageInstances, storageInstance)
-			matchedStorageTags.Add(storageInstance.StorageTag().Id())
-		}
-		context.storageInstances = matchedStorageInstances
-
-		matchedFilesystems := []state.Filesystem{}
-		for _, filesystem := range context.filesystems {
-			storageTag, err := filesystem.Storage()
-			if internalerrors.Is(err, errors.NotAssigned) {
-				continue
-			} else if err != nil {
-				return noStatus, internalerrors.Capture(err)
-			}
-			if matchedStorageTags.Contains(storageTag.Id()) {
-				matchedFilesystems = append(matchedFilesystems, filesystem)
-			}
-		}
-		context.filesystems = matchedFilesystems
-
-		matchedVolumes := []state.Volume{}
-		for _, volume := range context.volumes {
-			storageTag, err := volume.StorageInstance()
-			if internalerrors.Is(err, errors.NotAssigned) {
-				continue
-			} else if err != nil {
-				return noStatus, internalerrors.Capture(err)
-			}
-			if matchedStorageTags.Contains(storageTag.Id()) {
-				matchedVolumes = append(matchedVolumes, volume)
-			}
-		}
-		context.volumes = matchedVolumes
-	}
-
 	modelStatus, err := c.modelStatus(ctx)
 	if err != nil {
 		return noStatus, internalerrors.Errorf("cannot determine model status: %w", err)
@@ -375,22 +206,6 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		Filesystems:         filesystemDetails,
 		Volumes:             volumeDetails,
 	}, nil
-}
-
-// resolveLeaderUnits resolves the passed in leader pattern to an existing application leader unit
-// and then replaces it inplace in the patterns
-func resolveLeaderUnits(patterns []string, leaders map[string]string) []string {
-	for i, v := range patterns {
-		if strings.Contains(v, "leader") {
-			application := strings.Split(v, "/")[0]
-			unit, ok := leaders[application]
-			if ok {
-				patterns[i] = unit
-				continue
-			}
-		}
-	}
-	return patterns
 }
 
 // modelStatus returns the status of the current model.
@@ -1063,17 +878,17 @@ func (c *statusContext) makeMachineStatus(
 	if err != nil {
 		logger.Debugf(context.TODO(), "error fetching lxd profiles: %w", err)
 	}
-	if charmProfiles != nil {
-		for _, v := range charmProfiles {
-			if profile, ok := appStatusInfo.lxdProfiles[v]; ok {
-				lxdProfiles[v] = params.LXDProfile{
-					Config:      profile.Config,
-					Description: profile.Description,
-					Devices:     profile.Devices,
-				}
+
+	for _, v := range charmProfiles {
+		if profile, ok := appStatusInfo.lxdProfiles[v]; ok {
+			lxdProfiles[v] = params.LXDProfile{
+				Config:      profile.Config,
+				Description: profile.Description,
+				Devices:     profile.Devices,
 			}
 		}
 	}
+
 	status.LXDProfiles = lxdProfiles
 
 	return
