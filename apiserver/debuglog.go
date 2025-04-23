@@ -144,7 +144,20 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 			return logtailer.NewLogTailer(modelUUID, logFile, p)
 		}
-		if err := h.handle(clock, maxDuration, params, socket, logTailerFunc, req.Context().Done(), st.Removing()); err != nil {
+
+		// This should really use a tomb, then we don't have to do this song
+		// and dance with the channel.
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+
+			select {
+			case <-req.Context().Done():
+			case <-h.ctxt.stop():
+			}
+		}()
+
+		if err := h.handle(clock, maxDuration, params, socket, logTailerFunc, done, st.Removing()); err != nil {
 			if isBrokenPipe(err) {
 				logger.Tracef(req.Context(), "debug-log handler stopped (client disconnected)")
 			} else {
