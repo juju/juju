@@ -288,11 +288,11 @@ To debug a charm:
 
 (debug-a-k8s-charm-with-a-workload)=
 
-```bash
+```text
 juju ssh --container=concourse-worker concourse-worker/0
 ```
 This will drop you into an ssh session in the workload container (`concourse-worker`) of this unit (`concourse-worker/0`). Here you can interact with the `pebble` process running in your workload container. Note that `pebble` is not in `PATH`, so you need to use the full path to the executable, like so:
-```sh
+```text
 /charm/bin/pebble plan
 ```
 Which, in this example, produces the following output:
@@ -312,22 +312,22 @@ services:
 ```
 
 In some cases, your workload container might not allow you to run things in it, if, for instance, it’s based on a “scratch” image. To get around this, you can ssh into the charm container instead, and interact with the `pebble` instance in the workload container from there, just like the charm code does. To ssh into the charm container, drop the `--container=...` option or specify the `charm` container.
-```bash
+```text
 juju ssh concourse-worker/0
 ```
-```bash
+```text
 juju --container=charm concourse-worker/0
 ```
 The command to run in the charm container is the same, but with the `PEBBLE_SOCKET` envronment variable set, and will produce the same output.
-```sh
+```text
 PEBBLE_SOCKET=/charm/containers/concourse-worker/pebble.socket /charm/bin/pebble plan
 ```
 An interactive session can be helpful for further debugging, but you can also specify the full command in the `juju ssh` invocation.
-```bash
+```text
 juju ssh concourse-worker/0 PEBBLE_SOCKET=/charm/containers/concourse-worker/pebble.socket /charm/bin/pebble plan
 ```
 This is a bit of a mouthful, but if you're a [jhack](https://github.com/canonical/jhack) user then there's the `jhack pebble` command which takes care of the socket and Pebble paths for you.
-```bash
+```text
 jhack pebble --container=concourse-worker concourse-worker/0 plan
 ```
 ````
