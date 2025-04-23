@@ -290,3 +290,9 @@ type watcherMapperData struct {
 }
 
 type uuids []string
+
+// applicationIDAndName is used to get the ID and name of an application.
+type applicationIDAndName struct {
+	ID   application.ID `db:"uuid"`
+	Name string         `db:"name"`
+}

@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
@@ -88,54 +89,14 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 r
 				epIdentifier2, err)
 		}
 
-		// Check the relation doesn't already exist.
-		if err := st.relationAlreadyExists(ctx, tx, ep1, ep2); err != nil {
-			return errors.Errorf("relation %s %s: %w", ep1, ep2, err)
-		}
-
-		// Check both application are alive
-		if alive, err := st.checkLife(ctx, tx, "application", ep1.ApplicationUUID.String(), life.IsAlive); err != nil {
-			return errors.Errorf("relation %s %s: cannot check application life: %w", ep1, ep2, err)
-		} else if !alive {
-			return errors.Errorf("relation %s %s: application %s is not alive", ep1, ep2, ep1.ApplicationName).Add(relationerrors.ApplicationNotAlive)
-		}
-		if alive, err := st.checkLife(ctx, tx, "application", ep2.ApplicationUUID.String(), life.IsAlive); err != nil {
-			return errors.Errorf("relation %s %s: cannot check application life: %w", ep1, ep2, err)
-		} else if !alive {
-			return errors.Errorf("relation %s %s: application %s is not alive", ep1, ep2, ep2.ApplicationName).Add(relationerrors.ApplicationNotAlive)
-		}
-
-		// Check the application bases are compatible, if required
-		if err := st.checkCompatibleBases(ctx, tx, ep1, ep2); err != nil {
-			return errors.Errorf("relation %s %s: %w", ep1, ep2, err)
-		}
-
-		// Check that adding a relation won't exceed any endpoint limit
-		if err := st.checkEndpointCapacity(ctx, tx, ep1); err != nil {
-			return errors.Errorf("relation %s %s: %w", ep1, ep2, err)
-		}
-		if err := st.checkEndpointCapacity(ctx, tx, ep2); err != nil {
-			return errors.Errorf("relation %s %s: %w", ep1, ep2, err)
-		}
-
-		// Insert a new relation with a new relation UUID.
-		relUUID, err := st.insertNewRelation(ctx, tx)
+		id, err := sequencestate.NextValue(ctx, st, tx, relation.SequenceNamespace)
 		if err != nil {
-			return errors.Errorf("inserting new relation: %w", err)
+			return errors.Errorf("getting next relation id: %w", err)
 		}
 
-		// Insert relation status.
-		if err := st.insertNewRelationStatus(ctx, tx, relUUID); err != nil {
-			return errors.Errorf("inserting new relation %s %s: %w", ep1, ep2, err)
-		}
-
-		// Insert both relation_endpoint from application_endpoint_uuid and relation
-		// uuid.
-		if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, ep1.EndpointUUID); err != nil {
-			return errors.Errorf("inserting new relation endpoint for %q: %w", epIdentifier1.String(), err)
-		}
-		if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, ep2.EndpointUUID); err != nil {
-			return errors.Errorf("inserting new relation endpoint for %q: %w", epIdentifier2.String(), err)
+		relUUID, err := st.addRelation(ctx, tx, ep1, ep2, id)
+		if err != nil {
+			return errors.Errorf("cannot add relation %q, %q: %w", epIdentifier1, epIdentifier2, err)
 		}
 
 		// Get endpoints from UUID.
@@ -163,6 +124,100 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 r
 
 		return nil
 	})
+}
+
+// AddRelationWithID establishes a relation between two endpoints identified
+// by ep1 and ep2 and returns the relation UUID. Used for migration
+// import.
+func (st *State) AddRelationWithID(
+	ctx context.Context,
+	epIdentifier1, epIdentifier2 relation.CandidateEndpointIdentifier,
+	id uint64,
+) (corerelation.UUID, error) {
+	var relUUID corerelation.UUID
+	db, err := st.DB()
+	if err != nil {
+		return relUUID, errors.Capture(err)
+	}
+
+	return relUUID, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Infers endpoint, ie get both application_endpoint_uuid.
+		ep1, ep2, err := st.inferEndpoints(ctx, tx, epIdentifier1, epIdentifier2)
+		if err != nil {
+			return errors.Errorf("cannot relate endpoints %q and %q: %w",
+				epIdentifier1,
+				epIdentifier2, err)
+		}
+
+		relUUID, err = st.addRelation(ctx, tx, ep1, ep2, id)
+		if err != nil {
+			return errors.Errorf("cannot add relation %q, %q: %w", epIdentifier1, epIdentifier2, err)
+		}
+
+		return nil
+	})
+}
+
+func (st *State) addRelation(
+	ctx context.Context,
+	tx *sqlair.TX,
+	ep1, ep2 endpoint,
+	id uint64,
+) (corerelation.UUID, error) {
+	var (
+		relUUID corerelation.UUID
+		err     error
+	)
+	// Check the relation doesn't already exist.
+	if err := st.relationAlreadyExists(ctx, tx, ep1, ep2); err != nil {
+		return relUUID, errors.Errorf("relation %s %s: %w", ep1, ep2, err)
+	}
+
+	// Check both application are alive
+	if alive, err := st.checkLife(ctx, tx, "application", ep1.ApplicationUUID.String(), life.IsAlive); err != nil {
+		return relUUID, errors.Errorf("relation %s %s: cannot check application life: %w", ep1, ep2, err)
+	} else if !alive {
+		return relUUID, errors.Errorf("relation %s %s: application %s is not alive", ep1, ep2, ep1.ApplicationName).Add(relationerrors.ApplicationNotAlive)
+	}
+	if alive, err := st.checkLife(ctx, tx, "application", ep2.ApplicationUUID.String(), life.IsAlive); err != nil {
+		return relUUID, errors.Errorf("relation %s %s: cannot check application life: %w", ep1, ep2, err)
+	} else if !alive {
+		return relUUID, errors.Errorf("relation %s %s: application %s is not alive", ep1, ep2, ep2.ApplicationName).Add(relationerrors.ApplicationNotAlive)
+	}
+
+	// Check the application bases are compatible, if required
+	if err := st.checkCompatibleBases(ctx, tx, ep1, ep2); err != nil {
+		return relUUID, errors.Errorf("relation %s %s: %w", ep1, ep2, err)
+	}
+
+	// Check that adding a relation won't exceed any endpoint limit
+	if err := st.checkEndpointCapacity(ctx, tx, ep1); err != nil {
+		return relUUID, errors.Errorf("relation %s %s: %w", ep1, ep2, err)
+	}
+	if err := st.checkEndpointCapacity(ctx, tx, ep2); err != nil {
+		return relUUID, errors.Errorf("relation %s %s: %w", ep1, ep2, err)
+	}
+
+	// Insert a new relation with a new relation UUID.
+	relUUID, err = st.insertNewRelation(ctx, tx, id)
+	if err != nil {
+		return relUUID, errors.Errorf("inserting new relation: %w", err)
+	}
+
+	// Insert relation status.
+	if err := st.insertNewRelationStatus(ctx, tx, relUUID); err != nil {
+		return relUUID, errors.Errorf("inserting new relation %s %s: %w", ep1, ep2, err)
+	}
+
+	// Insert both relation_endpoint from application_endpoint_uuid and relation
+	// uuid.
+	if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, ep1.EndpointUUID); err != nil {
+		return relUUID, errors.Errorf("inserting new relation endpoint for %q: %w", ep1.String(), err)
+	}
+	if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, ep2.EndpointUUID); err != nil {
+		return relUUID, errors.Errorf("inserting new relation endpoint for %q: %w", ep2.String(), err)
+	}
+	return relUUID, nil
 }
 
 // ApplicationRelationsInfo returns all EndpointRelationData for an application.
@@ -270,6 +325,42 @@ func (st *State) GetAllRelationDetails(ctx context.Context) ([]relation.Relation
 		return nil
 	})
 	return relationsDetails, errors.Capture(err)
+}
+
+// GetApplicationIDByName returns the application ID of the given application.
+//
+// The following error types can be expected to be returned:
+//   - [applicationerrors.ApplicationNotFound] is returned if application ID
+//     doesn't refer an existing application.
+func (st *State) GetApplicationIDByName(ctx context.Context, appName string) (application.ID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var id application.ID
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		app := applicationIDAndName{Name: appName}
+		queryApplicationStmt, err := st.Prepare(`
+SELECT uuid AS &applicationIDAndName.uuid
+FROM application
+WHERE name = $applicationIDAndName.name
+`, app)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, queryApplicationStmt, app).Get(&app)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("%w: %s", applicationerrors.ApplicationNotFound, appName)
+		} else if err != nil {
+			return errors.Errorf("looking up UUID for application %q: %w", appName, err)
+		}
+		id = app.ID
+		return nil
+	}); err != nil {
+		return "", errors.Capture(err)
+	}
+	return id, nil
 }
 
 // GetApplicationRelations retrieves a list of relation UUIDs for a given
@@ -2630,6 +2721,127 @@ WHERE  r.uuid = $watcherMapperData.uuid
 	}, nil
 }
 
+//machine-0: 22:10:54 ERROR juju.apiserver import failed: execute operation import relations: setting resources: unexpected number of endpoints 0 for ""
+//machine-0: 22:10:54 INFO juju.apiserver rolling back operation: import relations
+//machine-0: 22:10:54 ERROR juju.database constraint error deleting relations: FOREIGN KEY constraint failed - running queries:
+//BEGIN
+//
+//DELETE FROM relation_unit_settings
+//
+//
+//DELETE FROM relation_application_settings
+//
+//
+//DELETE FROM relation
+
+// DeleteImportedRelations deletes all imported relations in a model during
+// an import rollback.
+func (st *State) DeleteImportedRelations(
+	ctx context.Context,
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteRelationStmt, err := st.Prepare(`
+DELETE FROM relation
+`)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err = st.deleteUnitRelations(ctx, tx); err != nil {
+		}
+
+		if err = st.deleteApplicationRelations(ctx, tx); err != nil {
+		}
+
+		err = tx.Query(ctx, deleteRelationStmt).Run()
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf("deleting relations: %w", err)
+		}
+
+		return nil
+	})
+	return nil
+}
+
+func (st *State) deleteUnitRelations(ctx context.Context, tx *sqlair.TX) error {
+	deleteUnitSettingsStmt, err := st.Prepare(`
+DELETE FROM relation_unit_settings
+`)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, deleteUnitSettingsStmt).Run()
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("deleting unit settings: %w", err)
+	}
+
+	deleteUnitSettingsHashStmt, err := st.Prepare(`
+DELETE FROM relation_unit_settings_hash
+`)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, deleteUnitSettingsHashStmt).Run()
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("deleting unit settings hash: %w", err)
+	}
+
+	deleteRelationUnitStmt, err := st.Prepare(`
+DELETE FROM relation_unit
+`)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, deleteRelationUnitStmt).Run()
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("deleting relation units: %w", err)
+	}
+	return nil
+}
+
+func (st *State) deleteApplicationRelations(ctx context.Context, tx *sqlair.TX) error {
+	deleteAppSettingsStmt, err := st.Prepare(`
+DELETE FROM relation_application_settings
+`)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, deleteAppSettingsStmt).Run()
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("deleting application settings: %w", err)
+	}
+
+	deleteAppSettingsHashStmt, err := st.Prepare(`
+DELETE FROM relation_application_settings_hash
+`)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, deleteAppSettingsHashStmt).Run()
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("deleting application settings hash: %w", err)
+	}
+
+	deleteRelationEndpointStmt, err := st.Prepare(`
+DELETE FROM relation_endpoint
+`)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, deleteRelationEndpointStmt).Run()
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("deleting relation endpoints: %w", err)
+	}
+	return nil
+}
+
 // checkCompatibleBases determines if the bases of two application endpoints
 // are compatible for a relation.
 // It compares the OS and channel of the base configurations for both endpoints.
@@ -2951,15 +3163,10 @@ func (st *State) inferEndpoints(
 }
 
 // insertNewRelation creates a new relation entry in the database and returns its UUID or an error if the operation fails.
-func (st *State) insertNewRelation(ctx context.Context, tx *sqlair.TX) (corerelation.UUID, error) {
+func (st *State) insertNewRelation(ctx context.Context, tx *sqlair.TX, id uint64) (corerelation.UUID, error) {
 	relUUID, err := corerelation.NewUUID()
 	if err != nil {
 		return relUUID, errors.Errorf("generating new relation UUID: %w", err)
-	}
-
-	id, err := sequencestate.NextValue(ctx, st, tx, relation.SequenceNamespace)
-	if err != nil {
-		return relUUID, errors.Errorf("getting next relation id: %w", err)
 	}
 
 	stmtInsert, err := st.Prepare(`
