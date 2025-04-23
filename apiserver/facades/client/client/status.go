@@ -719,7 +719,7 @@ func (c *statusContext) processMachines(ctx context.Context, machineService Mach
 		for _, machine := range machines[1:] {
 			parent, ok := aCache[container.ParentId(machine.Id())]
 			if !ok {
-				logger.Errorf(context.TODO(), "programmer error, please file a bug, reference this whole log line: %q, %q", id,
+				logger.Errorf(ctx, "programmer error, please file a bug, reference this whole log line: %q, %q", id,
 					machine.Id())
 				continue
 			}
@@ -776,11 +776,11 @@ func (c *statusContext) makeMachineStatus(
 	)
 	machineUUID, err := machineService.GetMachineUUID(ctx, coremachine.Name(machineID))
 	if err != nil {
-		logger.Debugf(context.TODO(), "error retrieving uuid for machine: %q, %w", machineID, err)
+		logger.Debugf(ctx, "error retrieving uuid for machine: %q, %w", machineID, err)
 	} else {
 		instid, displayName, err = machineService.InstanceIDAndName(ctx, machineUUID)
 		if err != nil && !internalerrors.Is(err, machineerrors.NotProvisioned) {
-			logger.Debugf(context.TODO(), "error retrieving instance ID and display name for machine: %q, %w", machineID, err)
+			logger.Debugf(ctx, "error retrieving instance ID and display name for machine: %q, %w", machineID, err)
 		}
 	}
 	if instid != instance.UnknownId {
@@ -791,13 +791,13 @@ func (c *statusContext) makeMachineStatus(
 			// Usually this indicates that no addresses have been set on the
 			// machine yet.
 			addr = network.SpaceAddress{}
-			logger.Debugf(context.TODO(), "error fetching public address: %q", err)
+			logger.Debugf(ctx, "error fetching public address: %q", err)
 		}
 		status.DNSName = addr.Value
 		status.Hostname = machine.Hostname()
 		mAddrs := machine.Addresses()
 		if len(mAddrs) == 0 {
-			logger.Debugf(context.TODO(), "no IP addresses fetched for machine %q", instid)
+			logger.Debugf(ctx, "no IP addresses fetched for machine %q", instid)
 			// At least give it the newly created DNSName address, if it exists.
 			if addr.Value != "" {
 				mAddrs = append(mAddrs, addr)
@@ -851,7 +851,7 @@ func (c *statusContext) makeMachineStatus(
 				IsUp:           llDev.IsUp(),
 			}
 		}
-		logger.Tracef(context.TODO(), "NetworkInterfaces: %+v", status.NetworkInterfaces)
+		logger.Tracef(ctx, "NetworkInterfaces: %+v", status.NetworkInterfaces)
 	} else {
 		status.InstanceId = "pending"
 	}
@@ -861,10 +861,10 @@ func (c *statusContext) makeMachineStatus(
 
 	hc, err := machineService.HardwareCharacteristics(ctx, machineUUID)
 	if internalerrors.Is(err, machineerrors.NotProvisioned) {
-		logger.Debugf(context.TODO(), "can't retrieve hardware characteristics of machine %q: not provisioned", machineUUID)
+		logger.Debugf(ctx, "can't retrieve hardware characteristics of machine %q: not provisioned", machineUUID)
 	}
 	if err != nil {
-		logger.Debugf(context.TODO(), "error fetching hardware characteristics: %v", err)
+		logger.Debugf(ctx, "error fetching hardware characteristics: %v", err)
 	} else if hc != nil {
 		status.Hardware = hc.String()
 	}
@@ -873,10 +873,10 @@ func (c *statusContext) makeMachineStatus(
 	lxdProfiles := make(map[string]params.LXDProfile)
 	charmProfiles, err := machineService.AppliedLXDProfileNames(ctx, machineUUID)
 	if internalerrors.Is(err, machineerrors.NotProvisioned) {
-		logger.Debugf(context.TODO(), "can't retrieve lxd profiles for machine %q: not provisioned", machineUUID)
+		logger.Debugf(ctx, "can't retrieve lxd profiles for machine %q: not provisioned", machineUUID)
 	}
 	if err != nil {
-		logger.Debugf(context.TODO(), "error fetching lxd profiles: %w", err)
+		logger.Debugf(ctx, "error fetching lxd profiles: %w", err)
 	}
 
 	for _, v := range charmProfiles {
