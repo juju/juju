@@ -849,7 +849,7 @@ func (env *environ) NetworkInterfaces(_ envcontext.ProviderCallContext, ids []in
 						network.WithConfigType(network.ConfigDHCP),
 					).AsProviderAddress(),
 				},
-				DNSServers: network.NewMachineAddresses([]string{"ns1.dummy", "ns2.dummy"}).AsProviderAddresses(),
+				DNSServers: []string{"ns1.dummy", "ns2.dummy"},
 				GatewayAddress: network.NewMachineAddress(
 					fmt.Sprintf("0.%d.0.1", (i+1)*10+idIndex),
 				).AsProviderAddress(),

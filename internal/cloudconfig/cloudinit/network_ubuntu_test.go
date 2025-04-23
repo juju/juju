@@ -61,7 +61,7 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{
 			corenetwork.NewMachineAddress("0.1.2.3", corenetwork.WithCIDR("0.1.2.0/24")).AsProviderAddress()},
-		DNSServers:       corenetwork.NewMachineAddresses([]string{"ns1.invalid", "ns2.invalid"}).AsProviderAddresses(),
+		DNSServers:       []string{"ns1.invalid", "ns2.invalid"},
 		DNSSearchDomains: []string{"foo", "bar"},
 		GatewayAddress:   corenetwork.NewMachineAddress("0.1.2.1").AsProviderAddress(),
 		MACAddress:       "aa:bb:cc:dd:ee:f0",
@@ -72,7 +72,7 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 		NoAutoStart:   false,
 		Addresses: corenetwork.ProviderAddresses{
 			corenetwork.NewMachineAddress("0.2.2.4", corenetwork.WithCIDR("0.2.2.0/24")).AsProviderAddress()},
-		DNSServers:       corenetwork.NewMachineAddresses([]string{"ns1.invalid", "ns2.invalid"}).AsProviderAddresses(),
+		DNSServers:       []string{"ns1.invalid", "ns2.invalid"},
 		DNSSearchDomains: []string{"foo", "bar"},
 		GatewayAddress:   corenetwork.NewMachineAddress("0.2.2.1").AsProviderAddress(),
 		MACAddress:       "aa:bb:cc:dd:ee:f1",
@@ -356,10 +356,7 @@ func (s *NetworkUbuntuSuite) TestGenerateNetplanSkipIPv6LinkLocalDNS(c *gc.C) {
 		ConfigType:    corenetwork.ConfigStatic,
 		MACAddress:    "aa:bb:cc:dd:ee:f5",
 		NoAutoStart:   false,
-		DNSServers: corenetwork.ProviderAddresses{
-			corenetwork.NewMachineAddress(
-				"fe80:db8::dead:beef", corenetwork.WithCIDR("fe80:db8::/64")).AsProviderAddress(),
-		},
+		DNSServers:    []string{"fe80:db8::dead:beef"},
 		Addresses: corenetwork.ProviderAddresses{
 			corenetwork.NewMachineAddress(
 				"2001:db8::dead:beef", corenetwork.WithCIDR("2001:db8::/64")).AsProviderAddress(),

@@ -123,7 +123,7 @@ func findDNSServerConfig() (*corenetwork.DNSConfig, error) {
 			continue
 		}
 		for _, nameServer := range dnsConfig.Nameservers {
-			if nameServer.Scope != corenetwork.ScopeMachineLocal {
+			if corenetwork.NewMachineAddress(nameServer).Scope != corenetwork.ScopeMachineLocal {
 				logger.Debugf(context.TODO(), "The DNS configuration from %s has been selected for use", dnsConfigFile)
 				return dnsConfig, nil
 			}

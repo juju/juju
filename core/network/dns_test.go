@@ -69,7 +69,7 @@ nameserver 8.8.8.8 #comment #still the same comment
 	result, err := network.ParseResolvConf(fakeConf)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, &network.DNSConfig{
-		Nameservers:   network.NewMachineAddresses([]string{"8.8.8.8"}).AsProviderAddresses(),
+		Nameservers:   []string{"8.8.8.8"},
 		SearchDomains: []string{"foo", "example.com", "bar."},
 	})
 }

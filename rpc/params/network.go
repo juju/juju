@@ -207,11 +207,6 @@ type NetworkConfig struct {
 func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []NetworkConfig {
 	result := make([]NetworkConfig, len(interfaceInfos))
 	for i, v := range interfaceInfos {
-		var dnsServers []string
-		for _, nameserver := range v.DNSServers {
-			dnsServers = append(dnsServers, nameserver.Value)
-		}
-
 		var routes []NetworkRoute
 		if len(v.Routes) != 0 {
 			routes = make([]NetworkRoute, len(v.Routes))
@@ -243,7 +238,7 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 			NoAutoStart:         v.NoAutoStart,
 			Addresses:           FromProviderAddresses(v.Addresses...),
 			ShadowAddresses:     FromProviderAddresses(v.ShadowAddresses...),
-			DNSServers:          dnsServers,
+			DNSServers:          v.DNSServers,
 			DNSSearchDomains:    v.DNSSearchDomains,
 			GatewayAddress:      v.GatewayAddress.Value,
 			Routes:              routes,
@@ -293,7 +288,7 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			ConfigType:          configType,
 			Addresses:           ToProviderAddresses(v.Addresses...),
 			ShadowAddresses:     ToProviderAddresses(v.ShadowAddresses...),
-			DNSServers:          network.NewMachineAddresses(v.DNSServers).AsProviderAddresses(),
+			DNSServers:          v.DNSServers,
 			DNSSearchDomains:    v.DNSSearchDomains,
 			GatewayAddress:      network.NewMachineAddress(v.GatewayAddress).AsProviderAddress(),
 			Routes:              routes,

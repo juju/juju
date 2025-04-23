@@ -164,7 +164,7 @@ func networkAddressesToStateArgs(
 			ProviderSubnetID:  dev.ProviderSubnetId,
 			ConfigMethod:      configType,
 			CIDRAddress:       cidrAddress,
-			DNSServers:        dev.DNSServers.Values(),
+			DNSServers:        dev.DNSServers,
 			DNSSearchDomains:  dev.DNSSearchDomains,
 			GatewayAddress:    dev.GatewayAddress.Value,
 			IsDefaultGateway:  dev.IsDefaultGateway,

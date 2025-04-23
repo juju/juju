@@ -16,7 +16,7 @@ import (
 // DNSConfig holds a list of DNS nameserver addresses
 // and default search domains.
 type DNSConfig struct {
-	Nameservers   []ProviderAddress
+	Nameservers   []string
 	SearchDomains []string
 }
 
@@ -86,7 +86,7 @@ func ParseResolvConf(path string) (*DNSConfig, error) {
 	}
 
 	return &DNSConfig{
-		Nameservers:   NewMachineAddresses(nameservers).AsProviderAddresses(),
+		Nameservers:   nameservers,
 		SearchDomains: searchDomains,
 	}, nil
 }

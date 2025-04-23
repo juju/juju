@@ -166,11 +166,11 @@ func GenerateNetplan(interfaces corenetwork.InterfaceInfos, matchHWAddr bool) (s
 
 		for _, dns := range info.DNSServers {
 			// Netplan doesn't support IPv6 link-local addresses, so skip them.
-			if strings.HasPrefix(dns.Value, "fe80:") {
+			if strings.HasPrefix(dns, "fe80:") {
 				continue
 			}
 
-			iface.Nameservers.Addresses = append(iface.Nameservers.Addresses, dns.Value)
+			iface.Nameservers.Addresses = append(iface.Nameservers.Addresses, dns)
 		}
 		iface.Nameservers.Search = append(iface.Nameservers.Search, info.DNSSearchDomains...)
 
@@ -274,10 +274,7 @@ func PrepareNetworkConfigFromInterfaces(interfaces corenetwork.InterfaceInfos) (
 		}
 		nameToRoutes[ifaceName] = info.Routes
 
-		for _, dns := range info.DNSServers {
-			dnsServers.Add(dns.Value)
-		}
-
+		dnsServers = dnsServers.Union(set.NewStrings(info.DNSServers...))
 		dnsSearchDomains = dnsSearchDomains.Union(set.NewStrings(info.DNSSearchDomains...))
 
 		if info.GatewayAddress.Value != "" {

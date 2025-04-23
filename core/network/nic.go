@@ -152,7 +152,7 @@ type InterfaceInfo struct {
 
 	// DNSServers contains an optional list of IP addresses and/or
 	// host names to configure as DNS servers for this network interface.
-	DNSServers ProviderAddresses
+	DNSServers []string
 
 	// MTU is the Maximum Transmission Unit controlling the maximum size of the
 	// protocol packets that the interface can pass through. It is only used
