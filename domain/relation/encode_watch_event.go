@@ -45,9 +45,9 @@ func EncodeUnitUUID(uuid coreunit.UUID) string {
 	return fmt.Sprintf("%s%s%s", UnitUUID, separator, uuid)
 }
 
-// Decode parses an event string into its respective EncodedUUID
+// DecodeWatchRelationUnitChangeUUID parses an event string into its respective EncodedUUID
 // and associated value, returning an error for invalid input.
-func Decode(event string) (EncodedUUID, string, error) {
+func DecodeWatchRelationUnitChangeUUID(event string) (EncodedUUID, string, error) {
 	values := strings.Split(event, separator)
 	allowedTypes := set.NewStrings(
 		string(ApplicationUUID),

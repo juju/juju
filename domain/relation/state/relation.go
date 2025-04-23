@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"sort"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/application"
@@ -25,6 +27,7 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/relation"
@@ -990,6 +993,98 @@ func (st *State) GetRelationDetails(ctx context.Context, relationUUID corerelati
 	return result, errors.Capture(err)
 }
 
+// GetRelationUnitChanges retrieves changes to relation unit states and
+// application settings for the provided UUIDs.
+// It takes a list of unit UUIDs and application UUIDs, returning the
+// current setting version for each one, or departed if any unit is not found
+//
+// Note: a not found unit is assumed as departed, since this method is intended
+// to be called after the domain has notified through a watcher that "some rows
+// in relation_unit have been created, updated or deleted". So the only cause of
+// having a unit UUID as a parameter here and not finding a related row in
+// the relation_unit table is that the unit has departed, and thus, the related
+// row has been deleted.
+func (st *State) GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.UUID,
+	appUUIDs []application.ID) (watcher.RelationUnitsChange, error) {
+	db, err := st.DB()
+	if err != nil {
+		return watcher.RelationUnitsChange{}, errors.Capture(err)
+	}
+
+	type uuids []string
+	type change struct {
+		UUID string `db:"uuid"`
+		Hash string `db:"sha256"`
+	}
+
+	unitStmt, err := st.Prepare(`
+SELECT 
+    ru.unit_uuid AS &change.uuid,
+    rush.sha256 AS &change.sha256
+FROM relation_unit AS ru
+LEFT JOIN  relation_unit_settings_hash AS rush ON ru.uuid = rush.relation_unit_uuid
+WHERE ru.unit_uuid IN ($uuids[:])`, change{}, uuids{})
+	if err != nil {
+		return watcher.RelationUnitsChange{}, errors.Capture(err)
+	}
+
+	appStmt, err := st.Prepare(`
+SELECT 
+    ae.application_uuid AS &change.uuid,
+    rash.sha256 AS &change.sha256
+FROM application_endpoint AS ae
+JOIN relation_endpoint AS re ON ae.uuid = re.endpoint_uuid 
+LEFT JOIN relation_application_settings_hash AS rash ON re.uuid = rash.relation_endpoint_uuid
+WHERE ae.application_uuid IN ($uuids[:])`, change{}, uuids{})
+	if err != nil {
+		return watcher.RelationUnitsChange{}, errors.Capture(err)
+	}
+
+	var appChanges, unitChanges []change
+	apps := transform.Slice(appUUIDs, func(f application.ID) string {
+		return f.String()
+	})
+	units := transform.Slice(unitUUIDs, func(f unit.UUID) string {
+		return f.String()
+	})
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, unitStmt, uuids(units)).GetAll(&unitChanges)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("failed to get relation unit changes: %w", err)
+		}
+		err = tx.Query(ctx, appStmt, uuids(apps)).GetAll(&appChanges)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("failed to get relation application changes: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return watcher.RelationUnitsChange{}, errors.Capture(err)
+	}
+	result := watcher.RelationUnitsChange{}
+
+	result.Changed = transform.SliceToMap(unitChanges, func(c change) (string, watcher.UnitSettings) {
+		unitSettings := watcher.UnitSettings{
+			Version: hashToInt(c.Hash),
+		}
+		return c.UUID, unitSettings
+	})
+
+	result.AppChanged = transform.SliceToMap(appChanges, func(c change) (string, int64) {
+		return c.UUID, hashToInt(c.Hash)
+	})
+
+	// Compute departed units, which are requested units not found into the unitChanges
+	// (means we found them somehow, but there are not there anymore
+	requested := set.NewStrings(transform.Slice(unitUUIDs, unit.UUID.String)...)
+	for _, c := range unitChanges {
+		requested.Remove(c.UUID)
+	}
+	result.Departed = requested.Values()
+
+	return result, nil
+}
+
 // GetRelationUnitEndpointName returns the name of the endpoint for the given
 // relation unit.
 //
@@ -1584,6 +1679,21 @@ WHERE  relation_uuid = $relationUUID.uuid
 	}
 
 	return scope, nil
+}
+
+// hashToInt converts the first 8 bytes of a hash string into an int64
+// using little-endian byte order.
+// If the hash is shorter than 8 bytes, it pads it with zero bytes.
+// Returns 0 for an empty hash.
+func hashToInt(hash string) int64 {
+	sha := []byte(hash)
+	if len(sha) < 8 {
+		// Avoid panic in case of empty or short hash.
+		sha = append(sha, make([]byte, 8-len(sha))...)
+	}
+	// Empty hash should return 0, since we will have zero-bits.
+	uintValue := binary.LittleEndian.Uint64(sha[:8])
+	return int64(uintValue)
 }
 
 // isSubordinate returns true if the application is a subordinate application.

@@ -45,7 +45,7 @@ func (s *encodeWatchEventSuite) TestDecodeUnitUUID(c *gc.C) {
 	encoded := string(UnitUUID) + separator + uuid
 
 	// Act
-	kind, value, err := Decode(encoded)
+	kind, value, err := DecodeWatchRelationUnitChangeUUID(encoded)
 
 	// Assert
 	c.Assert(err, gc.IsNil)
@@ -59,7 +59,7 @@ func (s *encodeWatchEventSuite) TestDecodeApplicationUUID(c *gc.C) {
 	encoded := string(ApplicationUUID) + separator + uuid
 
 	// Act
-	kind, value, err := Decode(encoded)
+	kind, value, err := DecodeWatchRelationUnitChangeUUID(encoded)
 
 	// Assert
 	c.Assert(err, gc.IsNil)
@@ -73,7 +73,7 @@ func (s *encodeWatchEventSuite) TestDecodeErrorWrongKind(c *gc.C) {
 	encoded := "Wrong" + separator + uuid
 
 	// Act
-	_, _, err := Decode(encoded)
+	_, _, err := DecodeWatchRelationUnitChangeUUID(encoded)
 
 	// Assert
 	c.Assert(err, gc.ErrorMatches, "invalid event with uuid:.*")
@@ -85,7 +85,7 @@ func (s *encodeWatchEventSuite) TestDecodeErrorWrongFormat(c *gc.C) {
 	encoded := string(ApplicationUUID) + "#:broken sep:#" + uuid
 
 	// Act
-	_, _, err := Decode(encoded)
+	_, _, err := DecodeWatchRelationUnitChangeUUID(encoded)
 
 	// Assert
 	c.Assert(err, gc.ErrorMatches, "invalid event with uuid:.*")

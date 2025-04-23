@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -695,6 +696,85 @@ func (s *relationServiceSuite) TestGetRelationUnitByIDUnitStateError(c *gc.C) {
 
 	// Act
 	_, err := s.service.GetRelationUnitByID(context.Background(), relationID, unitName)
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, boom)
+}
+
+func (s *relationServiceSuite) TestGetRelationUnitChanges(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	appUUIDs := []coreapplication.ID{
+		coreapplicationtesting.GenApplicationUUID(c),
+		coreapplicationtesting.GenApplicationUUID(c),
+	}
+	unitUUIDS := []coreunit.UUID{
+		coreunittesting.GenUnitUUID(c),
+		coreunittesting.GenUnitUUID(c),
+		coreunittesting.GenUnitUUID(c),
+	}
+	expectedResult := watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
+			unitUUIDS[1].String(): {Version: 42},
+			unitUUIDS[2].String(): {Version: 43},
+		},
+		AppChanged: map[string]int64{
+			appUUIDs[0].String(): 42,
+			appUUIDs[1].String(): 43,
+		},
+		Departed: []string{unitUUIDS[0].String()},
+	}
+	s.state.EXPECT().GetRelationUnitChanges(gomock.Any(), unitUUIDS, appUUIDs).Return(expectedResult, nil)
+
+	// Act
+	result, err := s.service.GetRelationUnitChanges(context.Background(), unitUUIDS, appUUIDs)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, expectedResult)
+}
+
+func (s *relationServiceSuite) TestGetRelationUnitChangesUnitUUIDNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	unitUUIDS := []coreunit.UUID{
+		coreunittesting.GenUnitUUID(c),
+		coreunit.UUID("not-valid-uuid"),
+		coreunittesting.GenUnitUUID(c),
+	}
+
+	// Act
+	_, err := s.service.GetRelationUnitChanges(context.Background(), unitUUIDS, nil)
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.UnitUUIDNotValid)
+}
+
+func (s *relationServiceSuite) TestGetRelationUnitChangesAppUUIDNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	appUUIDs := []coreapplication.ID{
+		coreapplicationtesting.GenApplicationUUID(c),
+		coreapplication.ID("not-valid-uuid"),
+		coreapplicationtesting.GenApplicationUUID(c),
+	}
+
+	// Act
+	_, err := s.service.GetRelationUnitChanges(context.Background(), nil, appUUIDs)
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationIDNotValid)
+}
+
+func (s *relationServiceSuite) TestGetRelationUnitChangesUnitStateError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	// Arrange
+	boom := errors.Errorf("boom")
+	s.state.EXPECT().GetRelationUnitChanges(gomock.Any(), gomock.Any(),
+		gomock.Any()).Return(watcher.RelationUnitsChange{}, boom)
+
+	// Act
+	_, err := s.service.GetRelationUnitChanges(context.Background(), nil, nil)
 
 	// Assert
 	c.Assert(err, jc.ErrorIs, boom)

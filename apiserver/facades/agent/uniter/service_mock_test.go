@@ -1284,6 +1284,45 @@ func (c *MockRelationServiceGetRelationUnitCall) DoAndReturn(f func(context.Cont
 	return c
 }
 
+// GetRelationUnitChanges mocks base method.
+func (m *MockRelationService) GetRelationUnitChanges(arg0 context.Context, arg1 []unit.UUID, arg2 []application.ID) (watcher.RelationUnitsChange, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelationUnitChanges", arg0, arg1, arg2)
+	ret0, _ := ret[0].(watcher.RelationUnitsChange)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRelationUnitChanges indicates an expected call of GetRelationUnitChanges.
+func (mr *MockRelationServiceMockRecorder) GetRelationUnitChanges(arg0, arg1, arg2 any) *MockRelationServiceGetRelationUnitChangesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelationUnitChanges", reflect.TypeOf((*MockRelationService)(nil).GetRelationUnitChanges), arg0, arg1, arg2)
+	return &MockRelationServiceGetRelationUnitChangesCall{Call: call}
+}
+
+// MockRelationServiceGetRelationUnitChangesCall wrap *gomock.Call
+type MockRelationServiceGetRelationUnitChangesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRelationServiceGetRelationUnitChangesCall) Return(arg0 watcher.RelationUnitsChange, arg1 error) *MockRelationServiceGetRelationUnitChangesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRelationServiceGetRelationUnitChangesCall) Do(f func(context.Context, []unit.UUID, []application.ID) (watcher.RelationUnitsChange, error)) *MockRelationServiceGetRelationUnitChangesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRelationServiceGetRelationUnitChangesCall) DoAndReturn(f func(context.Context, []unit.UUID, []application.ID) (watcher.RelationUnitsChange, error)) *MockRelationServiceGetRelationUnitChangesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetRelationUnitSettings mocks base method.
 func (m *MockRelationService) GetRelationUnitSettings(arg0 context.Context, arg1 relation.UnitUUID) (map[string]string, error) {
 	m.ctrl.T.Helper()
