@@ -95,32 +95,3 @@ func (s *AuthKeysSuite) TestReadAuthorizedKeysClientKeys(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(keys, gc.Equals, prefix)
 }
-
-func (s *AuthKeysSuite) TestFinalizeAuthorizedKeysNoop(c *gc.C) {
-	attrs := map[string]interface{}{"authorized-keys": "meep"}
-	err := common.FinalizeAuthorizedKeys(cmdtesting.Context(c), attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(attrs, jc.DeepEquals, map[string]interface{}{"authorized-keys": "meep"})
-}
-
-func (s *AuthKeysSuite) TestFinalizeAuthorizedKeysPath(c *gc.C) {
-	writeFile(c, filepath.Join(s.dotssh, "whatever"), "meep")
-	attrs := map[string]interface{}{"authorized-keys-path": "whatever"}
-	err := common.FinalizeAuthorizedKeys(cmdtesting.Context(c), attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(attrs, jc.DeepEquals, map[string]interface{}{"authorized-keys": "meep\n"})
-}
-
-func (s *AuthKeysSuite) TestFinalizeAuthorizedKeysDefault(c *gc.C) {
-	writeFile(c, filepath.Join(s.dotssh, "id_ed25519.pub"), "meep")
-	attrs := map[string]interface{}{}
-	err := common.FinalizeAuthorizedKeys(cmdtesting.Context(c), attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(attrs, jc.DeepEquals, map[string]interface{}{"authorized-keys": "meep\n"})
-}
-
-func (s *AuthKeysSuite) TestFinalizeAuthorizedKeysConflict(c *gc.C) {
-	attrs := map[string]interface{}{"authorized-keys": "foo", "authorized-keys-path": "bar"}
-	err := common.FinalizeAuthorizedKeys(cmdtesting.Context(c), attrs)
-	c.Assert(err, gc.ErrorMatches, `"authorized-keys" and "authorized-keys-path" may not both be specified`)
-}

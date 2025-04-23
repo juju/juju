@@ -9,63 +9,15 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/schema"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/ssh"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/cmd"
 )
 
+// ErrNoAuthorizedKeys is returned by ReadAuthorizedKeys when no
+// authorized_keys files are found.
 var ErrNoAuthorizedKeys = errors.New("no public ssh keys found")
-
-// FinalizeAuthorizedKeys takes a set of configuration attributes and
-// ensures that it has an authorized-keys setting, or returns
-// ErrNoAuthorizedKeys if it cannot.
-//
-// If the attributes contains a non-empty value for "authorized-keys",
-// then it is left alone. If there is an "authorized-keys-path" setting,
-// its contents will be loaded into "authorized-keys". Otherwise, the
-// contents of standard public keys will be used: ~/.ssh/id_ed25519.pub,
-// ~/.ssh/id_ed25519.pub, and ~/.ssh/identity.pub.
-func FinalizeAuthorizedKeys(ctx *cmd.Context, attrs map[string]interface{}) error {
-	const authorizedKeysPathKey = "authorized-keys-path"
-	checker := schema.FieldMap(schema.Fields{
-		config.AuthorizedKeysKey: schema.String(),
-		authorizedKeysPathKey:    schema.String(),
-	}, schema.Defaults{
-		config.AuthorizedKeysKey: schema.Omit,
-		authorizedKeysPathKey:    schema.Omit,
-	})
-	coerced, err := checker.Coerce(attrs, nil)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	coercedAttrs := coerced.(map[string]interface{})
-
-	_, haveAuthorizedKeys := coercedAttrs[config.AuthorizedKeysKey].(string)
-	authorizedKeysPath, haveAuthorizedKeysPath := coercedAttrs[authorizedKeysPathKey].(string)
-	if haveAuthorizedKeys && haveAuthorizedKeysPath {
-		return errors.Errorf(
-			"%q and %q may not both be specified",
-			config.AuthorizedKeysKey, authorizedKeysPathKey,
-		)
-	}
-	if haveAuthorizedKeys {
-		// We have authorized-keys already; nothing to do.
-		return nil
-	}
-
-	authorizedKeys, err := ReadAuthorizedKeys(ctx, authorizedKeysPath)
-	if err != nil {
-		return errors.Annotate(err, "reading authorized-keys")
-	}
-	if haveAuthorizedKeysPath {
-		delete(attrs, authorizedKeysPathKey)
-	}
-	attrs[config.AuthorizedKeysKey] = authorizedKeys
-	return nil
-}
 
 // ReadAuthorizedKeys implements the standard juju behaviour for finding
 // authorized_keys. It returns a set of keys in authorized_keys format
