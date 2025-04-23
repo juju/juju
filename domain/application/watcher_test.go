@@ -737,8 +737,8 @@ func (s *watcherSuite) TestWatchApplicationExposed(c *gc.C) {
 		if err != nil {
 			return err
 		}
-		insertCharmRelation := `INSERT INTO charm_relation (uuid, charm_uuid, kind_id, scope_id, role_id, name) VALUES (?, ?, ?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertCharmRelation, "charm-relation0-uuid", "charm0-uuid", "0", "0", "0", "endpoint0")
+		insertCharmRelation := `INSERT INTO charm_relation (uuid, charm_uuid, scope_id, role_id, name) VALUES (?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertCharmRelation, "charm-relation0-uuid", "charm0-uuid", "0", "0", "endpoint0")
 		if err != nil {
 			return err
 		}

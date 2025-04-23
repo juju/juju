@@ -646,8 +646,8 @@ func (s *applicationEndpointStateSuite) addRelation(c *gc.C, name string) string
 	relUUID := uuid.MustNewUUID().String()
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO charm_relation (uuid, charm_uuid, kind_id, scope_id, role_id, name)
-VALUES (?,?,0,0,0,?)`, relUUID, s.charmUUID, name)
+INSERT INTO charm_relation (uuid, charm_uuid, scope_id, role_id, name)
+VALUES (?,?,0,0,?)`, relUUID, s.charmUUID, name)
 		return errors.Capture(err)
 	})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) Failed to add charm relation: %v", err))

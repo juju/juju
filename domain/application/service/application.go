@@ -651,7 +651,7 @@ func (s *Service) MarkApplicationDead(ctx context.Context, appName string) error
 // as storage are still viable with the new charm.
 func (s *Service) SetApplicationCharm(ctx context.Context, name string, params UpdateCharmParams) error {
 	//TODO(storage) - update charm and storage directive for app
-	return nil
+	return coreerrors.NotImplemented
 }
 
 // GetApplicationIDByName returns an application ID by application name. It

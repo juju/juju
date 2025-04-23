@@ -374,7 +374,6 @@ type setCharmTerm struct {
 // charmRelation is used to get the relations of a charm.
 type charmRelation struct {
 	CharmUUID string `db:"charm_uuid"`
-	Kind      string `db:"kind"`
 	Name      string `db:"name"`
 	Role      string `db:"role"`
 	Interface string `db:"interface"`
@@ -394,7 +393,6 @@ type charmRelationName struct {
 type setCharmRelation struct {
 	UUID      string `db:"uuid"`
 	CharmUUID string `db:"charm_uuid"`
-	KindID    int    `db:"kind_id"`
 	Name      string `db:"name"`
 	RoleID    int    `db:"role_id"`
 	Interface string `db:"interface"`
