@@ -74,11 +74,16 @@ type ApplicationState interface {
 	// exist.
 	UpsertCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error
 
-	// CloudServiceAddresses returns the addresses of the cloud service for the
-	// specified application, returning an error satisfying
-	// [applicationerrors.ApplicationNotFoundError] if the application doesn't
-	// exist.
-	CloudServiceAddresses(ctx context.Context, applicationName string) (network.SpaceAddresses, error)
+	// GetCloudServiceAddresses returns the addresses of the cloud service for the
+	// specified application.
+	GetCloudServiceAddresses(ctx context.Context, appUUID coreapplication.ID) (network.SpaceAddresses, error)
+
+	// GetCloudContainerAddresses returns the addresses of the cloud container for the
+	// specified unit.
+	//
+	// The following errors may be returned:
+	// - [uniterrors.UnitNotFound] if the unit does not exist
+	GetCloudContainerAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error)
 
 	// GetApplicationScaleState looks up the scale state of the specified
 	// application, returning an error satisfying
@@ -790,12 +795,16 @@ func (s *Service) GetCharmByApplicationID(ctx context.Context, id coreapplicatio
 	), locator, nil
 }
 
-// CloudServiceAddresses returns the addresses of the cloud service for the
+// GetCloudServiceAddresses returns the addresses of the cloud service for the
 // specified application, returning an error satisfying
 // [applicationerrors.ApplicationNotFoundError] if the application doesn't
 // exist.
-func (s *Service) CloudServiceAddresses(ctx context.Context, applicationName string) (network.SpaceAddresses, error) {
-	addrs, err := s.st.CloudServiceAddresses(ctx, applicationName)
+func (s *Service) GetCloudServiceAddresses(ctx context.Context, applicationName string) (network.SpaceAddresses, error) {
+	appUUID, err := s.st.GetApplicationIDByName(ctx, applicationName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	addrs, err := s.st.GetCloudServiceAddresses(ctx, appUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

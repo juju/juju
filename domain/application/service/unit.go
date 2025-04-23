@@ -12,6 +12,7 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -559,4 +560,93 @@ func (s *Service) GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.
 		return "", errors.Errorf("getting workload version for %q: %w", unitName, err)
 	}
 	return version, nil
+}
+
+// GetPublicAddress returns the public address for the specified unit.
+// For k8s provider, it will return the first public address of the cloud
+// service if any, the first public address of the cloud container otherwise.
+// For machines provider, it will return the first public address of the
+// machine.
+//
+// The following errors may be returned:
+// - [uniterrors.UnitNotFound] if the unit does not exist
+func (s *Service) GetPublicAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error) {
+	appUUID, err := s.st.GetApplicationIDByUnitName(ctx, unitName)
+	if err != nil {
+		return network.SpaceAddress{}, errors.Capture(err)
+	}
+
+	serviceAddresses, err := s.st.GetCloudServiceAddresses(ctx, appUUID)
+	if err != nil {
+		return network.SpaceAddress{}, errors.Capture(err)
+	}
+	if len(serviceAddresses) > 0 {
+		if addr, ok := serviceAddresses.OneMatchingScope(network.ScopeMatchPublic); ok {
+			return addr, nil
+		}
+	}
+
+	// Fallback to the cloud container address.
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return network.SpaceAddress{}, errors.Capture(err)
+	}
+	containerAddresses, err := s.st.GetCloudContainerAddresses(ctx, unitUUID)
+	if err != nil {
+		return network.SpaceAddress{}, errors.Capture(err)
+	}
+	if len(containerAddresses) > 0 {
+		if addr, ok := containerAddresses.OneMatchingScope(network.ScopeMatchPublic); ok {
+			return addr, nil
+		}
+	}
+	// TODO(nvinuesa): We should also use the address taken from the
+	// machine table here when we migrate machines to dqlite.
+	return network.SpaceAddress{}, network.NoAddressError(string(network.ScopePublic))
+}
+
+// GetPrivateAddress returns the private address for the specified unit.
+// For k8s provider, it will return the first private address of the cloud
+// service if any, the first private address of the cloud container otherwise.
+// For machines provider, it will return the first private address of the
+// machine.
+//
+// The following errors may be returned:
+// - [uniterrors.UnitNotFound] if the unit does not exist
+func (s *Service) GetPrivateAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error) {
+	appUUID, err := s.st.GetApplicationIDByUnitName(ctx, unitName)
+	if err != nil {
+		return network.SpaceAddress{}, errors.Capture(err)
+	}
+	serviceAddresses, err := s.st.GetCloudServiceAddresses(ctx, appUUID)
+	if err != nil {
+		return network.SpaceAddress{}, errors.Capture(err)
+	}
+	if len(serviceAddresses) > 0 {
+		if addr, ok := serviceAddresses.OneMatchingScope(network.ScopeMatchCloudLocal); ok {
+			return addr, nil
+		}
+	}
+
+	// Fallback to the cloud container address.
+	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
+	if err != nil {
+		return network.SpaceAddress{}, errors.Capture(err)
+	}
+	containerAddresses, err := s.st.GetCloudContainerAddresses(ctx, unitUUID)
+	if err != nil {
+		return network.SpaceAddress{}, errors.Capture(err)
+	}
+	if len(containerAddresses) > 0 {
+		if addr, ok := containerAddresses.OneMatchingScope(network.ScopeMatchCloudLocal); ok {
+			return addr, nil
+		} else {
+			// We always return (first) the container address even if it doesn't
+			// match the scope.
+			return containerAddresses[0], nil
+		}
+	}
+	// TODO(nvinuesa): We should also use the address taken from the
+	// machine table here when we migrate machines to dqlite.
+	return network.SpaceAddress{}, network.NoAddressError(string(network.ScopeCloudLocal))
 }

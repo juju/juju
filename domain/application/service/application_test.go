@@ -990,8 +990,10 @@ func (s *applicationServiceSuite) TestGetDeviceConstraints(c *gc.C) {
 func (s *applicationServiceSuite) TestCloudServiceAddresses(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().CloudServiceAddresses(gomock.Any(), "foo").Return(network.SpaceAddresses{
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.ID("foo-uuid"), nil)
+	s.state.EXPECT().GetCloudServiceAddresses(gomock.Any(), coreapplication.ID("foo-uuid")).Return(network.SpaceAddresses{
 		network.SpaceAddress{
+			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
 				Value:      "foo",
 				Type:       network.IPv4Address,
@@ -1000,6 +1002,7 @@ func (s *applicationServiceSuite) TestCloudServiceAddresses(c *gc.C) {
 			},
 		},
 		network.SpaceAddress{
+			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
 				Value:      "bar",
 				Type:       network.IPv6Address,
@@ -1009,10 +1012,11 @@ func (s *applicationServiceSuite) TestCloudServiceAddresses(c *gc.C) {
 		},
 	}, nil)
 
-	addrs, err := s.service.CloudServiceAddresses(context.Background(), "foo")
+	addrs, err := s.service.GetCloudServiceAddresses(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(addrs, gc.DeepEquals, network.SpaceAddresses{
 		network.SpaceAddress{
+			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
 				Value:      "foo",
 				Type:       network.IPv4Address,
@@ -1021,6 +1025,7 @@ func (s *applicationServiceSuite) TestCloudServiceAddresses(c *gc.C) {
 			},
 		},
 		network.SpaceAddress{
+			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
 				Value:      "bar",
 				Type:       network.IPv6Address,
@@ -1034,9 +1039,10 @@ func (s *applicationServiceSuite) TestCloudServiceAddresses(c *gc.C) {
 func (s *applicationServiceSuite) TestCloudServiceAddressesNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().CloudServiceAddresses(gomock.Any(), "foo").Return(nil, errors.Errorf("%w", applicationerrors.ApplicationNotFound))
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.ID("foo-uuid"), nil)
+	s.state.EXPECT().GetCloudServiceAddresses(gomock.Any(), coreapplication.ID("foo-uuid")).Return(nil, errors.Errorf("%w", applicationerrors.ApplicationNotFound))
 
-	_, err := s.service.CloudServiceAddresses(context.Background(), "foo")
+	_, err := s.service.GetCloudServiceAddresses(context.Background(), "foo")
 	c.Assert(err, gc.ErrorMatches, applicationerrors.ApplicationNotFound.Error())
 }
 

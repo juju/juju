@@ -1775,6 +1775,47 @@ WHERE  u.name = $getUnitMachine.unit_name
 	return arg.UnitMachine, nil
 }
 
+// GetCloudContainerAddresses returns the addresses of the cloud container for the
+// specified unit.
+//
+// The following errors may be returned:
+// - [uniterrors.UnitNotFound] if the unit does not exist
+func (st *State) GetCloudContainerAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var addresses []spaceAddress
+	ident := unitUUID{UnitUUID: uuid}
+	queryCloudContainerAddressesStmt, err := st.Prepare(`
+SELECT    &spaceAddress.*
+FROM      unit AS u 
+JOIN      net_node AS nn ON nn.uuid = u.net_node_uuid
+JOIN      link_layer_device AS lld ON lld.net_node_uuid = nn.uuid
+JOIN      ip_address AS ip ON ip.device_uuid = lld.uuid
+LEFT JOIN subnet sn ON sn.uuid = ip.subnet_uuid
+WHERE     u.uuid = $unitUUID.uuid;
+`, spaceAddress{}, ident)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryCloudContainerAddressesStmt, ident).GetAll(&addresses)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying cloud container addresses for unit %q: %w", uuid, err)
+		} else if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("%w: %s", applicationerrors.UnitNotFound, uuid)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return encodeIpAddresses(addresses), nil
+}
+
 func (st *State) setUnitConstraints(ctx context.Context, tx *sqlair.TX, inUnitUUID coreunit.UUID, cons constraints.Constraints) error {
 	cUUID, err := uuid.NewUUID()
 	if err != nil {
