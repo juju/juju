@@ -194,6 +194,31 @@ juju_start_unit () {
   juju_agent --post units action=start $args
 }
 
+juju_db_repl () {
+  local type=$1
+  local flag
+  if [ -z "$type" ]; then
+    flag="--machine-id"
+  elif [ "$type" = "caas" ]; then
+    flag="--controller-id"
+  elif [ "$type" = "iaas" ]; then
+    flag="--machine-id"
+  fi
+  local id=$2
+  if [ -z "$id" ]; then
+    id="0"
+  fi
+
+  flag="$flag=$id"
+
+  local agent=$(juju_machine_agent_name)
+  if [ -x "$(which sudo)" ]; then
+    sudo /var/lib/juju/tools/$agent/jujud db-repl $flag
+  else
+    /var/lib/juju/tools/$agent/jujud db-repl $flag
+  fi
+}
+
 # This asks for the command of the current pid.
 # Can't use $0 nor $SHELL due to this being wrong in various situations.
 shell=$(ps -p "$$" -o comm --no-headers)
@@ -215,5 +240,6 @@ if [ "$shell" = "bash" ]; then
   export -f juju_unit_status
   export -f juju_start_unit
   export -f juju_stop_unit
+  export -f juju_db_repl
 fi
 `

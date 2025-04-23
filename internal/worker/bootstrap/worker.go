@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"gopkg.in/tomb.v2"
 
@@ -70,6 +71,7 @@ type WorkerConfig struct {
 	UnitPassword               string
 	BootstrapAddressFinder     BootstrapAddressFinderFunc
 	Logger                     logger.Logger
+	Clock                      clock.Clock
 
 	// Deprecated: This is only here, until we can remove the state layer.
 	SystemState SystemState
@@ -139,6 +141,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if c.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	if c.SystemState == nil {
 		return errors.NotValidf("nil SystemState")
@@ -530,6 +535,7 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 		CharmhubHTTPClient:          w.cfg.CharmhubHTTPClient,
 		UnitPassword:                w.cfg.UnitPassword,
 		Logger:                      w.cfg.Logger,
+		Clock:                       w.cfg.Clock,
 	})
 	if err != nil {
 		return errors.Trace(err)

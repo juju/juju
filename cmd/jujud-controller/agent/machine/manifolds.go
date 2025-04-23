@@ -952,6 +952,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			RequiresBootstrap:       bootstrap.RequiresBootstrap,
 			PopulateControllerCharm: bootstrap.PopulateControllerCharm,
 			Logger:                  internallogger.GetLogger("juju.worker.bootstrap"),
+			Clock:                   config.Clock,
 			ProviderFactoryName:     providerTrackerName,
 			StorageRegistryName:     storageRegistryName,
 
@@ -1167,6 +1168,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			RequiresBootstrap:       bootstrap.RequiresBootstrap,
 			PopulateControllerCharm: bootstrap.PopulateControllerCharm,
 			Logger:                  internallogger.GetLogger("juju.worker.bootstrap"),
+			Clock:                   config.Clock,
 			ProviderFactoryName:     providerTrackerName,
 			StorageRegistryName:     storageRegistryName,
 

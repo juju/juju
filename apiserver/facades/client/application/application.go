@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -99,6 +100,7 @@ type APIBase struct {
 	deployApplicationFunc DeployApplicationFunc
 
 	logger corelogger.Logger
+	clock  clock.Clock
 }
 
 type CaasBrokerInterface interface {
@@ -180,6 +182,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		ctx.ObjectStore(),
 		makeDeployFromRepositoryValidator(stdCtx, validatorCfg),
 		repoLogger,
+		ctx.Clock(),
 	)
 
 	return NewAPIBase(
@@ -209,6 +212,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		caasBroker,
 		ctx.ObjectStore(),
 		ctx.Logger().Child("application"),
+		ctx.Clock(),
 	)
 }
 
@@ -221,6 +225,7 @@ type DeployApplicationFunc = func(
 	objectstore.ObjectStore,
 	DeployApplicationParams,
 	corelogger.Logger,
+	clock.Clock,
 ) (Application, error)
 
 // NewAPIBase returns a new application API facade.
@@ -240,6 +245,7 @@ func NewAPIBase(
 	caasBroker CaasBrokerInterface,
 	store objectstore.ObjectStore,
 	logger corelogger.Logger,
+	clock clock.Clock,
 ) (*APIBase, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -276,6 +282,7 @@ func NewAPIBase(
 		storageService:            services.StorageService,
 
 		logger: logger,
+		clock:  clock,
 	}, nil
 }
 
@@ -599,7 +606,7 @@ func (api *APIBase) deployApplication(
 		EndpointBindings:  bindings.Map(),
 		Resources:         args.Resources,
 		Force:             args.Force,
-	}, api.logger)
+	}, api.logger, api.clock)
 	return errors.Trace(err)
 }
 

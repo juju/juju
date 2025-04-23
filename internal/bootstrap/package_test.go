@@ -6,6 +6,7 @@ package bootstrap
 import (
 	"testing"
 
+	"github.com/juju/clock"
 	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -20,10 +21,11 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage,AgentBinaryStore,ControllerCharmDeployer,HTTPClient,CloudService,CloudServiceGetter,OperationApplier,Machine,MachineGetter,StateBackend,Application,Unit,CharmUploader,ApplicationService,ModelConfigService,Downloader,AgentPasswordService
+//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage,AgentBinaryStore,ControllerCharmDeployer,HTTPClient,CloudService,CloudServiceGetter,Machine,MachineGetter,ApplicationService,ModelConfigService,Downloader,AgentPasswordService
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination core_charm_mock_test.go github.com/juju/juju/core/charm Repository
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination internal_charm_mock_test.go github.com/juju/juju/internal/charm Charm
+//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination clock_mock_test.go github.com/juju/clock Clock
 
 func Test(t *testing.T) {
 	gc.TestingT(t)
@@ -37,13 +39,9 @@ type baseSuite struct {
 	deployer             *MockControllerCharmDeployer
 	httpClient           *MockHTTPClient
 	objectStore          *MockObjectStore
-	unit                 *MockUnit
-	application          *MockApplication
-	stateBackend         *MockStateBackend
 	agentPasswordService *MockAgentPasswordService
 	applicationService   *MockApplicationService
 	modelConfigService   *MockModelConfigService
-	charmUploader        *MockCharmUploader
 	charmDownloader      *MockDownloader
 	charmRepo            *MockRepository
 	charm                *MockCharm
@@ -60,13 +58,9 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.httpClient = NewMockHTTPClient(ctrl)
 	s.objectStore = NewMockObjectStore(ctrl)
 
-	s.unit = NewMockUnit(ctrl)
-	s.application = NewMockApplication(ctrl)
-	s.stateBackend = NewMockStateBackend(ctrl)
 	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
-	s.charmUploader = NewMockCharmUploader(ctrl)
 	s.charmDownloader = NewMockDownloader(ctrl)
 	s.charmRepo = NewMockRepository(ctrl)
 	s.charm = NewMockCharm(ctrl)
@@ -81,8 +75,6 @@ func (s *baseSuite) newConfig(c *gc.C) BaseDeployerConfig {
 
 	return BaseDeployerConfig{
 		DataDir:              c.MkDir(),
-		StateBackend:         s.stateBackend,
-		CharmUploader:        s.charmUploader,
 		AgentPasswordService: s.agentPasswordService,
 		ApplicationService:   s.applicationService,
 		ModelConfigService:   s.modelConfigService,
@@ -103,5 +95,6 @@ func (s *baseSuite) newConfig(c *gc.C) BaseDeployerConfig {
 		CharmhubHTTPClient: s.httpClient,
 		Channel:            charm.Channel{},
 		Logger:             s.logger,
+		Clock:              clock.WallClock,
 	}
 }

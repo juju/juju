@@ -347,83 +347,6 @@ func (m *MockSystemState) EXPECT() *MockSystemStateMockRecorder {
 	return m.recorder
 }
 
-// AddApplication mocks base method.
-func (m *MockSystemState) AddApplication(arg0 state.AddApplicationArgs, arg1 objectstore.ObjectStore) (bootstrap.Application, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddApplication", arg0, arg1)
-	ret0, _ := ret[0].(bootstrap.Application)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddApplication indicates an expected call of AddApplication.
-func (mr *MockSystemStateMockRecorder) AddApplication(arg0, arg1 any) *MockSystemStateAddApplicationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddApplication", reflect.TypeOf((*MockSystemState)(nil).AddApplication), arg0, arg1)
-	return &MockSystemStateAddApplicationCall{Call: call}
-}
-
-// MockSystemStateAddApplicationCall wrap *gomock.Call
-type MockSystemStateAddApplicationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockSystemStateAddApplicationCall) Return(arg0 bootstrap.Application, arg1 error) *MockSystemStateAddApplicationCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockSystemStateAddApplicationCall) Do(f func(state.AddApplicationArgs, objectstore.ObjectStore) (bootstrap.Application, error)) *MockSystemStateAddApplicationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSystemStateAddApplicationCall) DoAndReturn(f func(state.AddApplicationArgs, objectstore.ObjectStore) (bootstrap.Application, error)) *MockSystemStateAddApplicationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ApplyOperation mocks base method.
-func (m *MockSystemState) ApplyOperation(arg0 *state.UpdateUnitOperation) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplyOperation", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ApplyOperation indicates an expected call of ApplyOperation.
-func (mr *MockSystemStateMockRecorder) ApplyOperation(arg0 any) *MockSystemStateApplyOperationCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyOperation", reflect.TypeOf((*MockSystemState)(nil).ApplyOperation), arg0)
-	return &MockSystemStateApplyOperationCall{Call: call}
-}
-
-// MockSystemStateApplyOperationCall wrap *gomock.Call
-type MockSystemStateApplyOperationCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockSystemStateApplyOperationCall) Return(arg0 error) *MockSystemStateApplyOperationCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockSystemStateApplyOperationCall) Do(f func(*state.UpdateUnitOperation) error) *MockSystemStateApplyOperationCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSystemStateApplyOperationCall) DoAndReturn(f func(*state.UpdateUnitOperation) error) *MockSystemStateApplyOperationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // CloudService mocks base method.
 func (m *MockSystemState) CloudService(arg0 string) (bootstrap.CloudService, error) {
 	m.ctrl.T.Helper()
@@ -614,45 +537,6 @@ func (c *MockSystemStateToolsStorageCall) Do(f func(objectstore.ObjectStore) (bi
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockSystemStateToolsStorageCall) DoAndReturn(f func(objectstore.ObjectStore) (binarystorage.StorageCloser, error)) *MockSystemStateToolsStorageCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Unit mocks base method.
-func (m *MockSystemState) Unit(arg0 string) (bootstrap.Unit, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Unit", arg0)
-	ret0, _ := ret[0].(bootstrap.Unit)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Unit indicates an expected call of Unit.
-func (mr *MockSystemStateMockRecorder) Unit(arg0 any) *MockSystemStateUnitCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockSystemState)(nil).Unit), arg0)
-	return &MockSystemStateUnitCall{Call: call}
-}
-
-// MockSystemStateUnitCall wrap *gomock.Call
-type MockSystemStateUnitCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockSystemStateUnitCall) Return(arg0 bootstrap.Unit, arg1 error) *MockSystemStateUnitCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockSystemStateUnitCall) Do(f func(string) (bootstrap.Unit, error)) *MockSystemStateUnitCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSystemStateUnitCall) DoAndReturn(f func(string) (bootstrap.Unit, error)) *MockSystemStateUnitCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

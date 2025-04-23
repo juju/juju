@@ -1195,9 +1195,7 @@ func (s *applicationSuite) expectCharmFormatCheck(c *gc.C, name string) {
 	}
 
 	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), name).Return(locator, nil)
-
 	s.applicationService.EXPECT().GetCharm(gomock.Any(), locator).Return(s.charm, locator, true, nil)
-
 	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), locator).Return(true, nil)
 
 	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{
@@ -1218,9 +1216,7 @@ func (s *applicationSuite) expectCharmFormatCheckDowngrade(c *gc.C, name string)
 	}
 
 	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), name).Return(locator, nil)
-
 	s.applicationService.EXPECT().GetCharm(gomock.Any(), locator).Return(s.charm, locator, true, nil)
-
 	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), locator).Return(true, nil)
 
 	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{

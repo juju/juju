@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -172,6 +173,7 @@ func (s *baseSuite) newAPI(c *gc.C, modelType model.ModelType) {
 		s.caasBroker,
 		s.objectStore,
 		loggertesting.WrapCheckLog(c),
+		clock.WallClock,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

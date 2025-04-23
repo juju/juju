@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -17,7 +16,6 @@ import (
 	"github.com/juju/juju/core/version"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/state"
 )
 
 type deployerCAASSuite struct {
@@ -25,7 +23,6 @@ type deployerCAASSuite struct {
 
 	cloudService       *MockCloudService
 	cloudServiceGetter *MockCloudServiceGetter
-	operationApplier   *MockOperationApplier
 }
 
 var _ = gc.Suite(&deployerCAASSuite{})
@@ -39,11 +36,6 @@ func (s *deployerCAASSuite) TestValidate(c *gc.C) {
 
 	cfg = s.newConfig(c)
 	cfg.CloudServiceGetter = nil
-	err = cfg.Validate()
-	c.Assert(err, jc.ErrorIs, errors.NotValid)
-
-	cfg = s.newConfig(c)
-	cfg.OperationApplier = nil
 	err = cfg.Validate()
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
@@ -139,21 +131,15 @@ func (s *deployerCAASSuite) TestCompleteProcess(c *gc.C) {
 
 	cfg := s.newConfig(c)
 
-	op := &state.UpdateUnitOperation{}
+	unitName := unit.Name("controller/0")
 
-	s.unit.EXPECT().UnitTag().Return(names.NewUnitTag("controller/0")).AnyTimes()
-	s.unit.EXPECT().UpdateOperation(state.UnitUpdateProperties{
-		ProviderId: ptr("controller-0"),
-	}).Return(op)
-	s.operationApplier.EXPECT().ApplyOperation(op).Return(nil)
-
-	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unit.Name("controller/0"), applicationservice.UpdateCAASUnitParams{
+	s.applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{
 		ProviderID: ptr("controller-0"),
 	})
-	s.agentPasswordService.EXPECT().SetUnitPassword(gomock.Any(), unit.Name("controller/0"), cfg.UnitPassword)
+	s.agentPasswordService.EXPECT().SetUnitPassword(gomock.Any(), unitName, cfg.UnitPassword)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
-	err := deployer.CompleteProcess(context.Background(), s.unit)
+	err := deployer.CompleteProcess(context.Background(), unitName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -172,7 +158,6 @@ func (s *deployerCAASSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.cloudService = NewMockCloudService(ctrl)
 	s.cloudServiceGetter = NewMockCloudServiceGetter(ctrl)
-	s.operationApplier = NewMockOperationApplier(ctrl)
 
 	return ctrl
 }
@@ -181,7 +166,6 @@ func (s *deployerCAASSuite) newConfig(c *gc.C) CAASDeployerConfig {
 	return CAASDeployerConfig{
 		BaseDeployerConfig: s.baseSuite.newConfig(c),
 		CloudServiceGetter: s.cloudServiceGetter,
-		OperationApplier:   s.operationApplier,
 		UnitPassword:       uuid.MustNewUUID().String(),
 	}
 }

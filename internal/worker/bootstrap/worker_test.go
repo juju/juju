@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -345,6 +346,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		BootstrapAddressFinder: func(context.Context, instance.Id) (network.ProviderAddresses, error) {
 			return nil, nil
 		},
+		Clock: clock.WallClock,
 	}, s.states)
 	c.Assert(err, jc.ErrorIsNil)
 	return w

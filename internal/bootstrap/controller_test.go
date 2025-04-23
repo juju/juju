@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/charm"
 )
@@ -92,7 +93,7 @@ func (s *ControllerSuite) TestPopulateControllerAlreadyExists(c *gc.C) {
 		URL:    charm.MustParseURL("juju-controller"),
 		Origin: &origin,
 		Charm:  s.charm,
-	}, "10.0.0.1").Return(s.unit, applicationerrors.ApplicationAlreadyExists)
+	}, "10.0.0.1").Return(coreunit.Name("controller/0"), applicationerrors.ApplicationAlreadyExists)
 	s.expectCompletion()
 
 	err := PopulateControllerCharm(context.Background(), s.deployer)
@@ -137,9 +138,9 @@ func (s *ControllerSuite) expectAddApplication(origin corecharm.Origin) {
 		URL:    charm.MustParseURL("juju-controller"),
 		Origin: &origin,
 		Charm:  s.charm,
-	}, "10.0.0.1").Return(s.unit, nil)
+	}, "10.0.0.1").Return(coreunit.Name("controller/0"), nil)
 }
 
 func (s *ControllerSuite) expectCompletion() {
-	s.deployer.EXPECT().CompleteProcess(gomock.Any(), s.unit).Return(nil)
+	s.deployer.EXPECT().CompleteProcess(gomock.Any(), coreunit.Name("controller/0")).Return(nil)
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/agent"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
 	state "github.com/juju/juju/state"
 )
 
@@ -88,10 +89,11 @@ func (s *deployerIAASSuite) TestControllerCharmBase(c *gc.C) {
 func (s *deployerIAASSuite) TestCompleteProcess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.unit.EXPECT().AssignToMachineRef(s.machine).Return(nil)
+	// There should be no expectations, as the CompleteProcess method doesn't
+	// call any methods.
 
 	deployer := s.newDeployer(c)
-	err := deployer.CompleteProcess(context.Background(), s.unit)
+	err := deployer.CompleteProcess(context.Background(), coreunit.Name("controller/0"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

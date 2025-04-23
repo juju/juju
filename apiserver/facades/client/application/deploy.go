@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	coreresource "github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -88,6 +90,7 @@ func DeployApplication(
 	store objectstore.ObjectStore,
 	args DeployApplicationParams,
 	logger corelogger.Logger,
+	clock clock.Clock,
 ) (Application, error) {
 	charmConfig, err := args.Charm.Config().ValidateSettings(args.CharmConfig)
 	if err != nil {
@@ -188,6 +191,10 @@ func DeployApplication(
 				PendingResources: pendingResources,
 				EndpointBindings: transformBindings(args.EndpointBindings),
 				Devices:          args.Devices,
+				ApplicationStatus: &status.StatusInfo{
+					Status: status.Unset,
+					Since:  ptr(clock.Now()),
+				},
 			},
 			unitArgs...,
 		)
