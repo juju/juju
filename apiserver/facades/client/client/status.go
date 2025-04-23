@@ -6,6 +6,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -41,13 +42,71 @@ import (
 	statusservice "github.com/juju/juju/domain/status/service"
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
+func statusHistoryResultsError(err error, amount int) params.StatusHistoryResults {
+	results := make([]params.StatusHistoryResult, amount)
+	for i := range results {
+		results[i].Error = apiservererrors.ServerError(err)
+	}
+	return params.StatusHistoryResults{
+		Results: results,
+	}
+}
+
+func matches(hr statushistory.HistoryRecord, req params.StatusHistoryRequest) bool {
+	switch status.HistoryKind(req.Kind) {
+	case status.KindApplication:
+		return true
+	default:
+		return false
+	}
+}
+
 // StatusHistory returns a slice of past statuses for several entities.
 func (c *Client) StatusHistory(ctx context.Context, request params.StatusHistoryRequests) params.StatusHistoryResults {
-	return params.StatusHistoryResults{}
+	logFile := filepath.Join(c.logDir, "logsink.log")
+	reader, err := statushistory.StatusHistoryReaderFromFile(logFile)
+	if err != nil {
+		return statusHistoryResultsError(err, len(request.Requests))
+	}
+
+	statuses := make([][]params.DetailedStatus, len(request.Requests))
+	err = reader.Walk(func(hr statushistory.HistoryRecord) {
+		for i, req := range request.Requests {
+			if !matches(hr, req) {
+				continue
+			}
+
+			status := hr.Status
+
+			statuses[i] = append(statuses[i], params.DetailedStatus{
+				Status: status.Status.String(),
+				Info:   status.Info,
+				Data:   status.Data,
+				Since:  status.Since,
+			})
+		}
+	})
+	if err != nil {
+		return statusHistoryResultsError(err, len(request.Requests))
+	}
+
+	results := make([]params.StatusHistoryResult, len(request.Requests))
+	for i, s := range statuses {
+		results[i] = params.StatusHistoryResult{
+			History: params.History{
+				Statuses: s,
+			},
+		}
+	}
+
+	return params.StatusHistoryResults{
+		Results: results,
+	}
 }
 
 type lifer interface {

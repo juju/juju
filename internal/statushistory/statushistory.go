@@ -4,7 +4,12 @@
 package statushistory
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
 	"time"
 
 	"github.com/juju/clock"
@@ -82,4 +87,113 @@ func (s *StatusHistory) RecordStatus(ctx context.Context, ns Namespace, status s
 		Time:    now.Format(time.RFC3339),
 		Data:    status.Data,
 	})
+}
+
+// HistoryRecord represents a single record of status information.
+type HistoryRecord struct {
+	Tag    string
+	Status status.DetailedStatus
+}
+
+// StatusHistoryReader is a reader for status history records.
+// It reads records from an io.Reader and unmarshals them into Record structs.
+type StatusHistoryReader struct {
+	reader io.Reader
+}
+
+// NewStatusHistoryReader creates a new StatusHistoryReader that reads from the
+// given io.Reader.
+func NewStatusHistoryReader(reader io.Reader) *StatusHistoryReader {
+	return &StatusHistoryReader{
+		reader: reader,
+	}
+}
+
+// StatusHistoryReaderFromFile creates a new StatusHistoryReader that reads from
+// the given file path. It opens the file for reading and returns a
+// StatusHistoryReader.
+func StatusHistoryReaderFromFile(path string) (*StatusHistoryReader, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	return NewStatusHistoryReader(file), nil
+}
+
+// Walk reads the status history records from the reader and applies the
+// given function to each record.
+func (r *StatusHistoryReader) Walk(fn func(HistoryRecord)) error {
+	// Read each line of the log file and unmarshal it into a LogRecord.
+	// Filter out records that do not match the requested entities.
+	scanner := bufio.NewScanner(r.reader)
+	for scanner.Scan() {
+		line := scanner.Bytes()
+
+		var rec struct {
+			Labels map[string]string `json:"labels"`
+		}
+		if err := json.Unmarshal(line, &rec); err != nil {
+			continue
+		}
+
+		// If the record does not have the requested labels, skip it.
+		if len(rec.Labels) == 0 || rec.Labels[categoryKey] != statusHistoryCategory {
+			continue
+		}
+
+		kind, err := parseKind(rec.Labels[namespaceNameKey])
+		if err != nil {
+			continue
+		}
+
+		var data map[string]any
+		if data := rec.Labels[dataKey]; len(data) > 0 {
+			if err := json.Unmarshal([]byte(data), &data); err != nil {
+				continue
+			}
+		}
+
+		var since time.Time
+		if sinceStr := rec.Labels[sinceKey]; len(sinceStr) > 0 {
+			if t, err := time.Parse(time.RFC3339, sinceStr); err == nil {
+				since = t
+			}
+		}
+
+		record := status.DetailedStatus{
+			Kind:   kind,
+			Status: status.Status(rec.Labels[statusKey]),
+			Info:   rec.Labels[messageKey],
+			Since:  ptr(since),
+			Data:   data,
+		}
+
+		fn(HistoryRecord{
+			Tag:    rec.Labels[namespaceIDKey],
+			Status: record,
+		})
+	}
+
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func parseKind(kind string) (status.HistoryKind, error) {
+	switch kind {
+	case "machine":
+		return status.KindMachine, nil
+	case "unit":
+		return status.KindUnit, nil
+	case "application":
+		return status.KindApplication, nil
+	default:
+		return "", fmt.Errorf("unknown kind: %s", kind)
+	}
+}
+
+func ptr[T any](t T) *T {
+	return &t
 }

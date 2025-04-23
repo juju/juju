@@ -29,6 +29,8 @@ type Client struct {
 	auth             facade.Authorizer
 	leadershipReader leadership.Reader
 
+	logDir string
+
 	applicationService ApplicationService
 	statusService      StatusService
 	blockDeviceService BlockDeviceService
