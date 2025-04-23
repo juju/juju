@@ -328,6 +328,61 @@ func (st *State) SetRelationStatus(
 	return nil
 }
 
+// ImportRelationStatus sets the given relation status. It can return the
+// following errors:
+//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
+func (st *State) ImportRelationStatus(
+	ctx context.Context,
+	relationID int,
+	sts status.StatusInfo[status.RelationStatusType],
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		relationUUID, err := st.getRelationUUIDByID(ctx, tx, relationID)
+		if err != nil {
+			return errors.Errorf("getting relation UUID: %w", err)
+		}
+
+		return st.updateRelationStatus(ctx, tx, relationUUID, sts)
+	})
+}
+
+func (st *State) getRelationUUIDByID(
+	ctx context.Context,
+	tx *sqlair.TX,
+	id int,
+) (corerelation.UUID, error) {
+	type relationID struct {
+		ID   int               `db:"relation_id"`
+		UUID corerelation.UUID `db:"uuid"`
+	}
+	arg := relationID{
+		ID: id,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &relationID.uuid
+FROM   relation
+WHERE  relation_id = $relationID.relation_id
+`, arg)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, arg).Get(&arg)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", statuserrors.RelationNotFound
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return arg.UUID, nil
+}
+
 func (st *State) updateRelationStatus(
 	ctx context.Context,
 	tx *sqlair.TX,

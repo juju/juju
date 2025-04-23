@@ -65,6 +65,15 @@ type State interface {
 		sts status.StatusInfo[status.RelationStatusType],
 	) error
 
+	// ImportRelationStatus sets the given relation status. It can return the
+	// following errors:
+	//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
+	ImportRelationStatus(
+		ctx context.Context,
+		relationID int,
+		sts status.StatusInfo[status.RelationStatusType],
+	) error
+
 	// GetUnitUUIDByName returns the UUID for the named unit, returning an
 	// error satisfying [statuserrors.UnitNotFound] if the unit doesn't
 	// exist.
@@ -450,6 +459,23 @@ func (s *Service) GetApplicationAndUnitStatuses(ctx context.Context) (map[string
 	}
 
 	return results, nil
+}
+
+// ImportRelationStatus sets the status of the relation to the status provided.
+// It can return the following errors:
+//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
+func (s *Service) ImportRelationStatus(
+	ctx context.Context,
+	relationID int,
+	info corestatus.StatusInfo,
+) error {
+	// Encode status.
+	relationStatus, err := encodeRelationStatus(info)
+	if err != nil {
+		return errors.Errorf("encoding relation status: %w", err)
+	}
+
+	return s.st.ImportRelationStatus(ctx, relationID, relationStatus)
 }
 
 func (s *Service) decodeApplicationStatusDetails(ctx context.Context, app status.Application) (Application, error) {

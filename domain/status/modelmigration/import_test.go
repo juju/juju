@@ -150,6 +150,53 @@ func (s *importSuite) TestImportUnitStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *importSuite) TestImportRelationStatus(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	now := time.Now().UTC()
+
+	model := description.NewModel(description.ModelArgs{})
+	rel1 := model.AddRelation(description.RelationArgs{
+		Id: 1,
+	})
+	rel2 := model.AddRelation(description.RelationArgs{
+		Id: 2,
+	})
+	rel1.SetStatus(description.StatusArgs{
+		Value:   "foo",
+		Message: "bar",
+		Data:    map[string]any{"baz": "qux"},
+		Updated: now,
+	})
+	rel2.SetStatus(description.StatusArgs{
+		Value:   "foo2",
+		Message: "bar2",
+		Data:    map[string]any{"baz2": "qux2"},
+		Updated: now,
+	})
+
+	s.importService.EXPECT().ImportRelationStatus(gomock.Any(), 1, corestatus.StatusInfo{
+		Status:  "foo",
+		Message: "bar",
+		Data:    map[string]any{"baz": "qux"},
+		Since:   ptr(now),
+	})
+	s.importService.EXPECT().ImportRelationStatus(gomock.Any(), 2, corestatus.StatusInfo{
+		Status:  "foo2",
+		Message: "bar2",
+		Data:    map[string]any{"baz2": "qux2"},
+		Since:   ptr(now),
+	})
+
+	importOp := importOperation{
+		service: s.importService,
+		clock:   clock.WallClock,
+	}
+
+	err := importOp.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *importSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

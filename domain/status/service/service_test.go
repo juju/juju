@@ -81,6 +81,52 @@ func (s *serviceSuite) TestGetAllRelationStatusesError(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, expectedError)
 }
 
+func (s *serviceSuite) TestImportRelationStatus(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	relationID := 1
+	sts := corestatus.StatusInfo{
+		Status:  corestatus.Broken,
+		Message: "message",
+		Since:   ptr(time.Now()),
+	}
+
+	expectedStatus := status.StatusInfo[status.RelationStatusType]{
+		Status:  status.RelationStatusTypeBroken,
+		Message: sts.Message,
+		Since:   sts.Since,
+	}
+	s.state.EXPECT().ImportRelationStatus(gomock.Any(), relationID, expectedStatus).Return(nil)
+
+	// Act
+	err := s.service.ImportRelationStatus(context.Background(), relationID, sts)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestImportRelationServiceError(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	relationID := 1
+	boom := errors.New("boom")
+	sts := corestatus.StatusInfo{
+		Status: corestatus.Broken,
+	}
+	expectedStatus := status.StatusInfo[status.RelationStatusType]{
+		Status: status.RelationStatusTypeBroken,
+	}
+	s.state.EXPECT().ImportRelationStatus(gomock.Any(), relationID, expectedStatus).Return(boom)
+
+	// Act
+	err := s.service.ImportRelationStatus(context.Background(), relationID, sts)
+
+	// Assert
+	c.Assert(err, jc.ErrorIs, boom)
+}
+
 func (s *serviceSuite) TestSetApplicationStatus(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -62,6 +62,11 @@ type ImportService interface {
 	// returning an error satisfying [statuserrors.UnitNotFound] if the unit
 	// doesn't exist.
 	SetUnitAgentStatus(context.Context, coreunit.Name, corestatus.StatusInfo) error
+
+	// ImportRelationStatus saves the given relation status, overwriting any
+	// current status data. If returns an error satisfying
+	// [statuserrors.RelationNotFound] if the relation doesn't exist.
+	ImportRelationStatus(context.Context, int, corestatus.StatusInfo) error
 }
 
 // Name returns the name of this operation.
@@ -110,6 +115,14 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			}
 		}
 	}
+
+	for _, relation := range model.Relations() {
+		relationStatus := i.importStatus(relation.Status())
+		if err := i.service.ImportRelationStatus(ctx, relation.Id(), relationStatus); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

@@ -340,6 +340,41 @@ func (s *stateSuite) TestSetRelationStatusRelationNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, statuserrors.RelationNotFound)
 }
 
+func (s *stateSuite) TestImportRelationStatus(c *gc.C) {
+	// Arrange: Create relation and statuses.
+	relationID := 7
+	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, relationID)
+	now := time.Now().UTC()
+	s.addRelationStatusWithMessage(c, relationUUID, corestatus.Joining, "", now)
+
+	sts := status.StatusInfo[status.RelationStatusType]{
+		Status:  status.RelationStatusTypeSuspended,
+		Message: "message",
+		Since:   ptr(now),
+	}
+
+	// Act:
+	err := s.state.ImportRelationStatus(context.Background(), relationID, sts)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Assert:
+	foundStatus := s.getRelationStatus(c, relationUUID)
+	c.Assert(foundStatus, jc.DeepEquals, sts)
+}
+
+func (s *stateSuite) TestImportRelationStatusRelationNotFound(c *gc.C) {
+	// Arrange: Create relation and statuses.
+	sts := status.StatusInfo[status.RelationStatusType]{
+		Since: ptr(time.Now().UTC()),
+	}
+
+	// Act:
+	err := s.state.ImportRelationStatus(context.Background(), 0, sts)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, statuserrors.RelationNotFound)
+}
+
 func (s *stateSuite) getRelationStatus(c *gc.C, relationUUID corerelation.UUID) status.StatusInfo[status.RelationStatusType] {
 	var (
 		statusType int
