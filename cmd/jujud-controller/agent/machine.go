@@ -990,7 +990,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 	applyTestingOverrides(currentConfig, &manifoldsCfg)
 
 	var manifolds dependency.Manifolds
-	if cfg.ModelType == state.ModelTypeIAAS {
+	if cfg.ModelType == coremodel.IAAS {
 		manifolds = iaasModelManifolds(manifoldsCfg)
 	} else {
 		manifolds = caasModelManifolds(manifoldsCfg)
