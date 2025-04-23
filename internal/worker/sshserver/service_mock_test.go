@@ -15,6 +15,7 @@ import (
 
 	ssh "github.com/gliderlabs/ssh"
 	controller "github.com/juju/juju/controller"
+	virtualhostname "github.com/juju/juju/core/virtualhostname"
 	watcher "github.com/juju/juju/core/watcher"
 	params "github.com/juju/juju/rpc/params"
 	jwt "github.com/lestrrat-go/jwx/v2/jwt"
@@ -43,6 +44,45 @@ func NewMockFacadeClient(ctrl *gomock.Controller) *MockFacadeClient {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockFacadeClient) EXPECT() *MockFacadeClientMockRecorder {
 	return m.recorder
+}
+
+// CheckSSHAccess mocks base method.
+func (m *MockFacadeClient) CheckSSHAccess(arg0 string, arg1 virtualhostname.Info) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckSSHAccess", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CheckSSHAccess indicates an expected call of CheckSSHAccess.
+func (mr *MockFacadeClientMockRecorder) CheckSSHAccess(arg0, arg1 any) *MockFacadeClientCheckSSHAccessCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckSSHAccess", reflect.TypeOf((*MockFacadeClient)(nil).CheckSSHAccess), arg0, arg1)
+	return &MockFacadeClientCheckSSHAccessCall{Call: call}
+}
+
+// MockFacadeClientCheckSSHAccessCall wrap *gomock.Call
+type MockFacadeClientCheckSSHAccessCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockFacadeClientCheckSSHAccessCall) Return(arg0 bool, arg1 error) *MockFacadeClientCheckSSHAccessCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockFacadeClientCheckSSHAccessCall) Do(f func(string, virtualhostname.Info) (bool, error)) *MockFacadeClientCheckSSHAccessCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockFacadeClientCheckSSHAccessCall) DoAndReturn(f func(string, virtualhostname.Info) (bool, error)) *MockFacadeClientCheckSSHAccessCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // ControllerConfig mocks base method.

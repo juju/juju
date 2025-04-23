@@ -169,3 +169,11 @@ type SSHK8sExecResult struct {
 	PodName   string `json:"pod-name"`
 	Namespace string `json:"namespace"`
 }
+
+// CheckSSHAccessArg is used to check if SSH access is
+// available for a given user and destination.
+// The destination represents a virtual hostname.
+type CheckSSHAccessArg struct {
+	User        string `json:"user"`
+	Destination string `json:"destination"`
+}

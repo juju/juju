@@ -16,8 +16,10 @@ import (
 	"time"
 
 	"github.com/gliderlabs/ssh"
+	"github.com/google/uuid"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	"github.com/lestrrat-go/jwx/v2/jwt"
@@ -27,6 +29,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	network "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/internal/sshconn"
 	"github.com/juju/juju/internal/sshtunneler"
 	pkitest "github.com/juju/juju/pki/test"
@@ -122,7 +126,7 @@ func (s *sshServerSuite) newServerWorkerConfig(
 // Don't use this function in tests where you want to explicitly handle
 // the behaviour of the proxy handlers.
 func (s *sshServerSuite) setupDefaultProxyHandlers() {
-	s.proxyFactory.EXPECT().New(gomock.Any()).Return(s.proxyHandlers, nil)
+	s.proxyFactory.EXPECT().New(gomock.Any()).Return(s.proxyHandlers, nil).AnyTimes()
 	s.proxyHandlers.EXPECT().SessionHandler(gomock.Any()).AnyTimes()
 	s.proxyHandlers.EXPECT().DirectTCPIPHandler().Return(nil).AnyTimes()
 }
@@ -248,26 +252,6 @@ func (s *sshServerSuite) TestSSHServerNoAuth(c *gc.C) {
 func (s *sshServerSuite) TestPublicKeyHandler(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	listener := bufconn.Listen(1024)
-	defer listener.Close()
-
-	s.facadeClient.EXPECT().ListPublicKeysForModel(gomock.Any()).
-		DoAndReturn(func(sshPKIAuthArgs params.ListAuthorizedKeysArgs) ([]gossh.PublicKey, error) {
-			if strings.Contains(sshPKIAuthArgs.ModelUUID, "8419cd78-4993-4c3a-928e-c646226beeee") {
-				return []gossh.PublicKey{s.userSigner.PublicKey()}, nil
-			}
-			return nil, errors.NotFound
-		}).AnyTimes()
-	s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil).AnyTimes()
-
-	server, err := NewServerWorker(s.newServerWorkerConfig(listener, func(swc *ServerWorkerConfig) {
-		swc.disableAuth = false
-	}))
-	c.Assert(err, gc.IsNil)
-	defer workertest.DirtyKill(c, server)
-
-	s.setupDefaultProxyHandlers()
-
 	userKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	c.Assert(err, gc.IsNil)
 
@@ -296,6 +280,30 @@ func (s *sshServerSuite) TestPublicKeyHandler(c *gc.C) {
 
 	for _, test := range tests {
 		c.Log(test.name)
+
+		listener := bufconn.Listen(1024)
+		defer listener.Close()
+
+		s.facadeClient.EXPECT().ListPublicKeysForModel(gomock.Any()).
+			DoAndReturn(func(sshPKIAuthArgs params.ListAuthorizedKeysArgs) ([]gossh.PublicKey, error) {
+				if strings.Contains(sshPKIAuthArgs.ModelUUID, "8419cd78-4993-4c3a-928e-c646226beeee") {
+					return []gossh.PublicKey{s.userSigner.PublicKey()}, nil
+				}
+				return nil, errors.NotFound
+			})
+		s.facadeClient.EXPECT().CheckSSHAccess(gomock.Any(), gomock.Any()).Return(true, nil)
+		if test.expectSuccess {
+			s.facadeClient.EXPECT().VirtualHostKey(gomock.Any()).Return(s.hostKey, nil)
+		}
+
+		server, err := NewServerWorker(s.newServerWorkerConfig(listener, func(swc *ServerWorkerConfig) {
+			swc.disableAuth = false
+		}))
+		c.Assert(err, gc.IsNil)
+		defer workertest.DirtyKill(c, server)
+
+		s.setupDefaultProxyHandlers()
+
 		client := inMemoryDial(c, listener, &gossh.ClientConfig{
 			User:            "",
 			HostKeyCallback: gossh.InsecureIgnoreHostKey(),
@@ -304,6 +312,11 @@ func (s *sshServerSuite) TestPublicKeyHandler(c *gc.C) {
 			},
 		})
 		conn, err := client.Dial("tcp", fmt.Sprintf("%s:%d", test.destinationAddress, 1))
+		if !test.expectSuccess {
+			c.Assert(err, gc.FitsTypeOf, &gossh.OpenChannelError{})
+			c.Assert(err.(*gossh.OpenChannelError).Message, gc.Matches, "failed to create embedded server: failed to fetch public keys for model: not found")
+			continue
+		}
 		c.Assert(err, gc.IsNil)
 		// we need to establish another client connection to perform the auth in the embedded server.
 		_, _, _, err = gossh.NewClientConn(
@@ -316,22 +329,24 @@ func (s *sshServerSuite) TestPublicKeyHandler(c *gc.C) {
 				},
 			},
 		)
-		if !test.expectSuccess {
-			c.Assert(err, gc.ErrorMatches, `.*ssh: handshake failed.*`)
-		} else {
-			c.Assert(err, gc.IsNil)
-		}
+		c.Assert(err, gc.IsNil)
 	}
 }
 
 func (s *sshServerSuite) TestPasswordHandler(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	destination, err := virtualhostname.Parse(testVirtualHostname)
+	c.Assert(err, jc.ErrorIsNil)
+	destinationModel := names.NewModelTag(destination.ModelUUID())
+
 	// This token holds the public key that the user must present
 	// at the terminating server proving they are the same user
 	// that authenticated at JIMM.
 	token, err := jwt.NewBuilder().
 		Claim("ssh_public_key", base64.StdEncoding.EncodeToString(s.userSigner.PublicKey().Marshal())).
+		Claim(destinationModel.String(), permission.AdminAccess).
+		Subject("an-external-user@canonical"). // This user is not the same user in the initial connection (normally JIMM).
 		Build()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -407,6 +422,71 @@ func (s *sshServerSuite) TestPasswordHandler(c *gc.C) {
 	}
 }
 
+func (s *sshServerSuite) TestUnauthorizedAccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := uuid.NewString()
+	destination, err := virtualhostname.NewInfoMachineTarget(modelUUID, "0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedUser := "alice"
+
+	listener := bufconn.Listen(1024)
+	defer listener.Close()
+
+	s.facadeClient.EXPECT().CheckSSHAccess(expectedUser, destination).DoAndReturn(
+		func(s string, i virtualhostname.Info) (bool, error) {
+			return false, nil
+		},
+	)
+
+	server, err := NewServerWorker(s.newServerWorkerConfig(listener, func(swc *ServerWorkerConfig) {
+		swc.disableAuth = false
+	}))
+	c.Assert(err, gc.IsNil)
+	defer workertest.DirtyKill(c, server)
+
+	s.setupDefaultProxyHandlers()
+
+	client := inMemoryDial(c, listener, &gossh.ClientConfig{
+		User:            expectedUser,
+		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+		Auth: []gossh.AuthMethod{
+			gossh.PublicKeys(s.userSigner),
+		},
+	})
+	_, err = client.Dial("tcp", fmt.Sprintf("%s:%d", destination, 1))
+	c.Assert(err, gc.FitsTypeOf, &gossh.OpenChannelError{})
+	c.Assert(err.(*gossh.OpenChannelError).Message, gc.Equals, "unauthorized")
+}
+
+func (s *sshServerSuite) TestProxyFactoryError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := uuid.NewString()
+	destination, err := virtualhostname.NewInfoMachineTarget(modelUUID, "0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	listener := bufconn.Listen(1024)
+	defer listener.Close()
+
+	s.proxyFactory.EXPECT().New(gomock.Any()).Return(nil, errors.New("factory error"))
+
+	server, err := NewServerWorker(s.newServerWorkerConfig(listener, nil))
+	c.Assert(err, gc.IsNil)
+	defer workertest.DirtyKill(c, server)
+
+	client := inMemoryDial(c, listener, &gossh.ClientConfig{
+		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+		Auth: []gossh.AuthMethod{
+			gossh.PublicKeys(s.userSigner),
+		},
+	})
+	_, err = client.Dial("tcp", fmt.Sprintf("%s:%d", destination, 1))
+	c.Assert(err, gc.FitsTypeOf, &gossh.OpenChannelError{})
+	c.Assert(err.(*gossh.OpenChannelError).Message, gc.Equals, "failed to create embedded server: factory error")
+}
+
 func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -444,7 +524,7 @@ func (s *sshServerSuite) TestHostKeyForTarget(c *gc.C) {
 		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
 	})
 	_, err = client.Dial("tcp", fmt.Sprintf("%s:0", testVirtualHostname))
-	c.Assert(err.Error(), gc.Equals, "ssh: rejected: connect failed (Failed to get host key)")
+	c.Assert(err.Error(), gc.Equals, "ssh: rejected: connect failed (failed to get host key: an error)")
 }
 
 func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
