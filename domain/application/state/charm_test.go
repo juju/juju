@@ -737,12 +737,12 @@ func (s *charmStateSuite) TestGetCharmMetadataWithRelation(c *gc.C) {
 		}
 
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_relation (uuid, charm_uuid, kind_id, name, role_id, scope_id)
+INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, scope_id)
 VALUES
-    (?, ?, 0, 'foo', 0, 0),
-    (?, ?, 0, 'fred', 0, 1),
-    (?, ?, 1, 'faa', 1, 1),
-    (?, ?, 2, 'fee', 2, 0);`,
+    (?, ?, 'foo', 0, 0),
+    (?, ?, 'fred', 0, 1),
+    (?, ?, 'faa', 1, 1),
+    (?, ?, 'fee', 2, 0);`,
 			uuid.MustNewUUID().String(), charmUUID,
 			uuid.MustNewUUID().String(), charmUUID,
 			uuid.MustNewUUID().String(), charmUUID,

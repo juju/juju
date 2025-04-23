@@ -727,8 +727,8 @@ func (s *addRelationSuite) addApplicationEndpointFromRelation(c *gc.C,
 
 	// Add relation to charm
 	s.query(c, `
-INSERT INTO charm_relation (uuid, charm_uuid, kind_id, name, interface, capacity, role_id,  scope_id)
-SELECT ?, ?, 0, ?, ?, ?, crr.id, crs.id
+INSERT INTO charm_relation (uuid, charm_uuid, name, interface, capacity, role_id,  scope_id)
+SELECT ?, ?, ?, ?, ?, crr.id, crs.id
 FROM charm_relation_scope crs
 JOIN charm_relation_role crr ON crr.name = ?
 WHERE crs.name = ?

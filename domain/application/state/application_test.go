@@ -3570,7 +3570,7 @@ JOIN relation r ON r.uuid = re.relation_uuid
 LEFT JOIN relation_status rs ON rs.relation_uuid = re.relation_uuid
 LEFT JOIN relation_status_type rst ON rs.relation_status_type_id = rst.id
 WHERE a.name = ?
-AND cr.kind_id = 2 -- peer relation
+AND cr.role_id = 2 -- peer relation
 ORDER BY r.relation_id
 `, appName)
 		if err != nil {

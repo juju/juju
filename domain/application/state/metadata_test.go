@@ -106,7 +106,6 @@ var metadataDecodeTestCases = [...]struct {
 		inputArgs: decodeMetadataArgs{
 			relations: []charmRelation{
 				{
-					Kind:      "provides",
 					Name:      "db1",
 					Role:      "provider",
 					Interface: "mysql",
@@ -115,7 +114,6 @@ var metadataDecodeTestCases = [...]struct {
 					Scope:     "global",
 				},
 				{
-					Kind:      "provides",
 					Name:      "db2",
 					Role:      "provider",
 					Interface: "postgres",
@@ -124,7 +122,6 @@ var metadataDecodeTestCases = [...]struct {
 					Scope:     "global",
 				},
 				{
-					Kind:      "requires",
 					Name:      "blog",
 					Role:      "requirer",
 					Interface: "wordpress",
@@ -133,7 +130,6 @@ var metadataDecodeTestCases = [...]struct {
 					Scope:     "container",
 				},
 				{
-					Kind:      "peers",
 					Name:      "enclave",
 					Role:      "peer",
 					Interface: "vault",
@@ -487,42 +483,6 @@ SELECT charm_run_as_kind.* AS &charmRunAs.* FROM charm_run_as_kind ORDER BY id;
 func (s *metadataStateSuite) TestMetadataRunAsWithError(c *gc.C) {
 	_, err := encodeRunAs(charm.RunAs("invalid"))
 	c.Assert(err, gc.ErrorMatches, `unknown run as value "invalid"`)
-}
-
-func (s *metadataStateSuite) TestMetadataRelationKind(c *gc.C) {
-	type charmRelationKind struct {
-		ID   int    `db:"id"`
-		Name string `db:"name"`
-	}
-
-	stmt := sqlair.MustPrepare(`
-SELECT charm_relation_kind.* AS &charmRelationKind.* FROM charm_relation_kind ORDER BY id;
-`, charmRelationKind{})
-
-	var results []charmRelationKind
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt).GetAll(&results)
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 3)
-
-	m := []string{
-		relationKindProvides,
-		relationKindRequires,
-		relationKindPeers,
-	}
-
-	for i, value := range m {
-		c.Logf("result %d: %#v", i, value)
-		result, err := encodeRelationKind(value)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(result, gc.DeepEquals, results[i].ID)
-	}
-}
-
-func (s *metadataStateSuite) TestMetadataRelationKindWithError(c *gc.C) {
-	_, err := encodeRelationKind("invalid")
-	c.Assert(err, gc.ErrorMatches, `unknown relation kind "invalid"`)
 }
 
 func (s *metadataStateSuite) TestMetadataRelationRole(c *gc.C) {
