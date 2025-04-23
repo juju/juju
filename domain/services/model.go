@@ -78,6 +78,7 @@ import (
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	unitstatestate "github.com/juju/juju/domain/unitstate/state"
 	"github.com/juju/juju/environs/config"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/resource/store"
 )
 
@@ -155,6 +156,10 @@ func (s *ModelServices) AgentBinary() *agentbinaryservice.AgentBinaryService {
 	return agentbinaryservice.NewAgentBinaryService(
 		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		providertracker.ProviderRunner[agentbinaryservice.ProviderForAgentBinaryFinder](
+			s.providerFactory, s.modelUUID.String(),
+		),
+		envtools.PreferredStreams, envtools.FindTools,
 	)
 }
 

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -60,14 +59,6 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 
 	domainServices := ctx.DomainServices()
 
-	configGetter := stateenvirons.EnvironConfigGetter{
-		Model:              model,
-		CloudService:       domainServices.Cloud(),
-		CredentialService:  domainServices.Credential(),
-		ModelConfigService: domainServices.Config(),
-	}
-	newEnviron := common.EnvironFuncForModel(model, domainServices.Cloud(), domainServices.Credential(), configGetter)
-
 	ctrlModel, err := ctlrSt.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -76,7 +67,11 @@ func newFacadeV10(stdCtx context.Context, ctx facade.MultiModelContext) (*ModelM
 	controllerConfigService := domainServices.ControllerConfig()
 
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
-	toolsFinder := common.NewToolsFinder(controllerConfigService, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
+	toolsFinder := common.NewToolsFinder(
+		controllerConfigService, st, urlGetter,
+		ctx.ControllerObjectStore(),
+		domainServices.AgentBinary(),
+	)
 
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 	backend := commonmodel.NewUserAwareModelManagerBackend(model, pool, apiUser)
