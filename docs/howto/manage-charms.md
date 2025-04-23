@@ -286,7 +286,7 @@ To debug a charm:
 
 ````{dropdown} Tips and examples
 
-(debug-a-k8s-charm)=
+(debug-a-k8s-charm-with-a-workload)=
 
 ```bash
 juju ssh --container=concourse-worker concourse-worker/0
