@@ -9,7 +9,6 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/facade"
 )
@@ -41,12 +40,11 @@ func makeFacade(ctx facade.ModelContext) (*ModelConfigAPI, error) {
 
 	configService := domainServices.Config()
 	modelSericve := domainServices.ModelInfo()
-	controllerTag := names.NewControllerTag(ctx.ControllerUUID())
 
 	return NewModelConfigAPI(
 		ctx.ModelUUID(),
+		ctx.ControllerUUID(),
 		ctx.State(),
-		controllerTag,
 		modelSecretBackend, configService, modelSericve, auth,
 		domainServices.BlockCommand(),
 	)

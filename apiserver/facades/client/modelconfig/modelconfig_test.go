@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/featureflag"
 	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -39,7 +40,6 @@ type modelconfigSuite struct {
 	testing.IsolationSuite
 	coretesting.JujuOSEnvSuite
 	backend                       *mockBackend
-	controllerTag                 names.ControllerTag
 	authorizer                    apiservertesting.FakeAuthorizer
 	mockModelSecretBackendService *mocks.MockModelSecretBackendService
 	mockModelConfigService        *mocks.MockModelConfigService
@@ -86,10 +86,10 @@ func (s *modelconfigSuite) getAPI(c *gc.C) (*modelconfig.ModelConfigAPI, *gomock
 	).AnyTimes()
 
 	modelID := modeltesting.GenModelUUID(c)
-	s.controllerTag = names.NewControllerTag(coretesting.ControllerTag.Id())
+	controllerUUID := uuid.MustNewUUID().String()
 	api, err := modelconfig.NewModelConfigAPI(
-		modelID, s.backend,
-		s.controllerTag, s.mockModelSecretBackendService, s.mockModelConfigService, s.mockModelService,
+		modelID, controllerUUID, s.backend,
+		s.mockModelSecretBackendService, s.mockModelConfigService, s.mockModelService,
 		&s.authorizer, s.mockBlockCommandService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -434,7 +434,7 @@ type modelSecretBackendSuite struct {
 	mockModelSecretBackendService *mocks.MockModelSecretBackendService
 	mockBlockCommandService       *mocks.MockBlockCommandService
 	modelID                       coremodel.UUID
-	controllerTag                 names.ControllerTag
+	controllerUUID                string
 }
 
 var _ = gc.Suite(&modelSecretBackendSuite{})
@@ -447,9 +447,9 @@ func (s *modelSecretBackendSuite) setup(c *gc.C) (*modelconfig.ModelConfigAPI, *
 	s.mockModelSecretBackendService = mocks.NewMockModelSecretBackendService(ctrl)
 	s.mockBlockCommandService = mocks.NewMockBlockCommandService(ctrl)
 	s.modelID = modeltesting.GenModelUUID(c)
-	s.controllerTag = names.NewControllerTag(coretesting.ControllerTag.Id())
+	s.controllerUUID = uuid.MustNewUUID().String()
 
-	api, err := modelconfig.NewModelConfigAPI(s.modelID, nil, s.controllerTag, s.mockModelSecretBackendService, nil, nil, s.authorizer, s.mockBlockCommandService)
+	api, err := modelconfig.NewModelConfigAPI(s.modelID, s.controllerUUID, nil, s.mockModelSecretBackendService, nil, nil, s.authorizer, s.mockBlockCommandService)
 	c.Assert(err, jc.ErrorIsNil)
 	return api, ctrl
 }
@@ -570,23 +570,4 @@ type mockBackend struct {
 
 func (m *mockBackend) Sequences() (map[string]int, error) {
 	return nil, nil
-}
-
-func (m *mockBackend) ModelTag() names.ModelTag {
-	return names.NewModelTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
-}
-
-func (m *mockBackend) ControllerTag() names.ControllerTag {
-	return names.NewControllerTag("deadbeef-babe-4fd2-967d-db9663db7bea")
-}
-
-func (m *mockBackend) SpaceByName(string) error {
-	return nil
-}
-
-func (m *mockBackend) GetSecretBackend(name string) (*coresecrets.SecretBackend, error) {
-	if name == "invalid" {
-		return nil, errors.NotFoundf("invalid")
-	}
-	return m.secretBackend, nil
 }
