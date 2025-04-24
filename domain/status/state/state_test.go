@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -1253,6 +1254,22 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *gc.C) {
 	c.Check(statuses, jc.DeepEquals, map[string]status.Application{
 		"foo": {
 			Life: life.Alive,
+			CharmLocator: charm.CharmLocator{
+				Name:         "foo",
+				Revision:     42,
+				Source:       "charmhub",
+				Architecture: architecture.ARM64,
+			},
+			Platform: status.Platform{
+				OSType:       status.Ubuntu,
+				Channel:      "22.04/stable",
+				Architecture: architecture.ARM64,
+			},
+			Channel: &status.Channel{
+				Track:  "track",
+				Risk:   "stable",
+				Branch: "branch",
+			},
 		},
 	})
 }
@@ -1275,6 +1292,22 @@ func (s *stateSuite) TestGetApplicationAndUnitStatuses(c *gc.C) {
 		"foo": {
 			Life:   life.Alive,
 			Status: *appStatus,
+			CharmLocator: charm.CharmLocator{
+				Name:         "foo",
+				Revision:     42,
+				Source:       "charmhub",
+				Architecture: architecture.ARM64,
+			},
+			Platform: status.Platform{
+				OSType:       status.Ubuntu,
+				Channel:      "22.04/stable",
+				Architecture: architecture.ARM64,
+			},
+			Channel: &status.Channel{
+				Track:  "track",
+				Risk:   "stable",
+				Branch: "branch",
+			},
 		},
 	})
 }
@@ -1298,6 +1331,22 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *gc.C) {
 			Life:        life.Alive,
 			Status:      *appStatus,
 			Subordinate: true,
+			CharmLocator: charm.CharmLocator{
+				Name:         "foo",
+				Revision:     42,
+				Source:       "charmhub",
+				Architecture: architecture.ARM64,
+			},
+			Platform: status.Platform{
+				OSType:       status.Ubuntu,
+				Channel:      "22.04/stable",
+				Architecture: architecture.ARM64,
+			},
+			Channel: &status.Channel{
+				Track:  "track",
+				Risk:   "stable",
+				Branch: "branch",
+			},
 		},
 	})
 }
@@ -1324,8 +1373,74 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *gc.C) {
 		"foo": {
 			Life:   life.Alive,
 			Status: *appStatus,
+			CharmLocator: charm.CharmLocator{
+				Name:         "foo",
+				Revision:     42,
+				Source:       "charmhub",
+				Architecture: architecture.ARM64,
+			},
 			Relations: []corerelation.UUID{
 				relationUUID,
+			},
+			Platform: status.Platform{
+				OSType:       status.Ubuntu,
+				Channel:      "22.04/stable",
+				Architecture: architecture.ARM64,
+			},
+			Channel: &status.Channel{
+				Track:  "track",
+				Risk:   "stable",
+				Branch: "branch",
+			},
+		},
+	})
+}
+
+func (s *stateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	u2 := application.AddUnitArg{
+		UnitName: "foo/667",
+	}
+	now := time.Now()
+
+	appStatus := s.appStatus(now)
+	appUUID, _ := s.createApplication(c, "foo", life.Alive, false, appStatus, u1, u2)
+
+	var relations []corerelation.UUID
+	for range 3 {
+		relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, 7+len(relations))
+		s.addRelationStatusWithMessage(c, relationUUID, corestatus.Active, "this is a test", now)
+		s.addRelationToApplication(c, appUUID, relationUUID)
+		relations = append(relations, relationUUID)
+	}
+	sort.Slice(relations, func(i, j int) bool {
+		return relations[i].String() < relations[j].String()
+	})
+
+	statuses, err := s.state.GetApplicationAndUnitStatuses(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(statuses, jc.DeepEquals, map[string]status.Application{
+		"foo": {
+			Life:   life.Alive,
+			Status: *appStatus,
+			CharmLocator: charm.CharmLocator{
+				Name:         "foo",
+				Revision:     42,
+				Source:       "charmhub",
+				Architecture: architecture.ARM64,
+			},
+			Relations: relations,
+			Platform: status.Platform{
+				OSType:       status.Ubuntu,
+				Channel:      "22.04/stable",
+				Architecture: architecture.ARM64,
+			},
+			Channel: &status.Channel{
+				Track:  "track",
+				Risk:   "stable",
+				Branch: "branch",
 			},
 		},
 	})
@@ -1438,6 +1553,7 @@ func (s *stateSuite) createApplication(c *gc.C, name string, l life.Life, subord
 			Source:        charm.CharmHubSource,
 			Revision:      42,
 			Hash:          "hash",
+			Architecture:  architecture.ARM64,
 		},
 		CharmDownloadInfo: &charm.DownloadInfo{
 			Provenance:         charm.ProvenanceDownload,

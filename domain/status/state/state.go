@@ -16,6 +16,8 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/application/architecture"
+	"github.com/juju/juju/domain/application/charm"
 	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
@@ -1174,19 +1176,33 @@ func (st *State) GetApplicationAndUnitStatuses(ctx context.Context) (map[string]
 	// Get all the applications.
 	applicationQuery, err := st.Prepare(`
 SELECT a.name AS &applicationStatusDetails.name,
-	   a.life_id AS &applicationStatusDetails.life_id,
-	   cm.subordinate AS &applicationStatusDetails.subordinate,
-	   s.status_id AS &applicationStatusDetails.status_id,
-	   s.message AS &applicationStatusDetails.message,
-	   s.data AS &applicationStatusDetails.data,
-	   s.updated_at AS &applicationStatusDetails.updated_at,
-	   re.relation_uuid AS &applicationStatusDetails.relation_uuid
+	a.life_id AS &applicationStatusDetails.life_id,
+	ap.os_id AS &applicationStatusDetails.platform_os_id,
+	ap.channel AS &applicationStatusDetails.platform_channel,
+	ap.architecture_id AS &applicationStatusDetails.platform_architecture_id,
+	ac.track AS &applicationStatusDetails.channel_track,
+	ac.risk AS &applicationStatusDetails.channel_risk,
+	ac.branch AS &applicationStatusDetails.channel_branch,
+	cm.subordinate AS &applicationStatusDetails.subordinate,
+	s.status_id AS &applicationStatusDetails.status_id,
+	s.message AS &applicationStatusDetails.message,
+	s.data AS &applicationStatusDetails.data,
+	s.updated_at AS &applicationStatusDetails.updated_at,
+	re.relation_uuid AS &applicationStatusDetails.relation_uuid,
+	c.reference_name AS &applicationStatusDetails.charm_reference_name,
+	c.revision AS &applicationStatusDetails.charm_revision,
+	c.source_id AS &applicationStatusDetails.charm_source_id,
+	c.architecture_id AS &applicationStatusDetails.charm_architecture_id,
+	c.version AS &applicationStatusDetails.charm_version
 FROM application AS a
+JOIN application_platform AS ap ON ap.application_uuid = a.uuid
+LEFT JOIN application_channel AS ac ON ac.application_uuid = a.uuid
 JOIN charm AS c ON c.uuid = a.charm_uuid
 JOIN charm_metadata AS cm ON cm.charm_uuid = c.uuid
 LEFT JOIN application_status AS s ON s.application_uuid = a.uuid
 LEFT JOIN v_relation_endpoint AS re ON re.application_uuid = a.uuid
-LEFT JOIN v_relation_status AS rs ON rs.relation_uuid = re.relation_uuid;
+LEFT JOIN v_relation_status AS rs ON rs.relation_uuid = re.relation_uuid
+ORDER BY a.name, re.relation_uuid;
 `, applicationStatusDetails{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1219,9 +1235,14 @@ LEFT JOIN v_relation_status AS rs ON rs.relation_uuid = re.relation_uuid;
 
 		// If the application already exists, append the relation UUID to its
 		// relations.
-		if entry, exists := result[appName]; exists {
+		if entry, exists := result[appName]; exists && s.RelationUUID.Valid {
 			entry.Relations = append(entry.Relations, relationUUID)
+			result[appName] = entry
 			continue
+		} else if exists {
+			// This should never happen, but if it does, we have a duplicate
+			// application name with no relation UUID. This is a problem.
+			return nil, errors.Errorf("duplicate application name %q", appName)
 		}
 
 		// We've got a new application, so create a new status.
@@ -1235,6 +1256,21 @@ LEFT JOIN v_relation_status AS rs ON rs.relation_uuid = re.relation_uuid;
 			return nil, errors.Errorf("decoding workload status ID for application %q: %w", appName, err)
 		}
 
+		charmLocator, err := decodeCharmLocator(s)
+		if err != nil {
+			return nil, errors.Errorf("decoding charm locator for application %q: %w", appName, err)
+		}
+
+		platform, err := decodePlatform(s.PlatformChannel, s.PlatformOSID, s.PlatformArchitectureID)
+		if err != nil {
+			return nil, errors.Errorf("decoding platform: %w", err)
+		}
+
+		channel, err := decodeChannel(s.ChannelTrack, s.ChannelRisk, s.ChannelBranch)
+		if err != nil {
+			return nil, errors.Errorf("decoding channel: %w", err)
+		}
+
 		result[appName] = status.Application{
 			Life:        s.LifeID,
 			Subordinate: s.Subordinate,
@@ -1244,9 +1280,127 @@ LEFT JOIN v_relation_status AS rs ON rs.relation_uuid = re.relation_uuid;
 				Data:    s.Data,
 				Since:   s.UpdatedAt,
 			},
-			Relations: relations,
+			Relations:    relations,
+			CharmLocator: charmLocator,
+			CharmVersion: s.CharmVersion,
+			Platform:     platform,
+			Channel:      channel,
 		}
 	}
 
 	return result, nil
+}
+
+func decodeCharmLocator(c applicationStatusDetails) (charm.CharmLocator, error) {
+	source, err := decodeCharmSource(c.CharmSourceID)
+	if err != nil {
+		return charm.CharmLocator{}, errors.Errorf("decoding charm source: %w", err)
+	}
+
+	architecture, err := decodeArchitecture(c.CharmArchitectureID)
+	if err != nil {
+		return charm.CharmLocator{}, errors.Errorf("decoding architecture: %w", err)
+	}
+
+	return charm.CharmLocator{
+		Name:         c.CharmReferenceName,
+		Revision:     c.CharmRevision,
+		Source:       source,
+		Architecture: architecture,
+	}, nil
+}
+
+func decodeCharmSource(source int) (charm.CharmSource, error) {
+	switch source {
+	case 1:
+		return charm.CharmHubSource, nil
+	case 0:
+		return charm.LocalSource, nil
+	default:
+		return "", errors.Errorf("unsupported charm source: %d", source)
+	}
+}
+
+func decodeArchitecture(arch sql.NullInt64) (architecture.Architecture, error) {
+	if !arch.Valid {
+		return architecture.Unknown, nil
+	}
+
+	switch arch.Int64 {
+	case 0:
+		return architecture.AMD64, nil
+	case 1:
+		return architecture.ARM64, nil
+	case 2:
+		return architecture.PPC64EL, nil
+	case 3:
+		return architecture.S390X, nil
+	case 4:
+		return architecture.RISCV64, nil
+	default:
+		return -1, errors.Errorf("unsupported architecture: %d", arch.Int64)
+	}
+}
+
+func decodePlatform(channel string, os, arch sql.NullInt64) (status.Platform, error) {
+	osType, err := decodeOSType(os)
+	if err != nil {
+		return status.Platform{}, errors.Errorf("decoding os type: %w", err)
+	}
+
+	archType, err := decodeArchitecture(arch)
+	if err != nil {
+		return status.Platform{}, errors.Errorf("decoding architecture: %w", err)
+	}
+
+	return status.Platform{
+		Channel:      channel,
+		OSType:       osType,
+		Architecture: archType,
+	}, nil
+}
+
+func decodeChannel(track string, risk sql.NullString, branch string) (*status.Channel, error) {
+	if !risk.Valid {
+		return nil, nil
+	}
+
+	riskType, err := decodeRisk(risk.String)
+	if err != nil {
+		return nil, errors.Errorf("decoding risk: %w", err)
+	}
+
+	return &status.Channel{
+		Track:  track,
+		Risk:   riskType,
+		Branch: branch,
+	}, nil
+}
+
+func decodeRisk(risk string) (status.ChannelRisk, error) {
+	switch risk {
+	case "stable":
+		return status.RiskStable, nil
+	case "candidate":
+		return status.RiskCandidate, nil
+	case "beta":
+		return status.RiskBeta, nil
+	case "edge":
+		return status.RiskEdge, nil
+	default:
+		return "", errors.Errorf("unknown risk %q", risk)
+	}
+}
+
+func decodeOSType(osType sql.NullInt64) (status.OSType, error) {
+	if !osType.Valid {
+		return 0, errors.Errorf("os type is null")
+	}
+
+	switch osType.Int64 {
+	case 0:
+		return status.Ubuntu, nil
+	default:
+		return -1, errors.Errorf("unknown os type %v", osType)
+	}
 }

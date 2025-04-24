@@ -127,12 +127,23 @@ type relationStatus struct {
 }
 
 type applicationStatusDetails struct {
-	ApplicationName string          `db:"name"`
-	LifeID          domainlife.Life `db:"life_id"`
-	Subordinate     bool            `db:"subordinate"`
-	StatusID        int             `db:"status_id"`
-	Message         string          `db:"message"`
-	Data            []byte          `db:"data"`
-	UpdatedAt       *time.Time      `db:"updated_at"`
-	RelationUUID    sql.NullString  `db:"relation_uuid"`
+	ApplicationName        string          `db:"name"`
+	PlatformOSID           sql.NullInt64   `db:"platform_os_id"`
+	PlatformChannel        string          `db:"platform_channel"`
+	PlatformArchitectureID sql.NullInt64   `db:"platform_architecture_id"`
+	ChannelTrack           string          `db:"channel_track"`
+	ChannelRisk            sql.NullString  `db:"channel_risk"`
+	ChannelBranch          string          `db:"channel_branch"`
+	LifeID                 domainlife.Life `db:"life_id"`
+	Subordinate            bool            `db:"subordinate"`
+	StatusID               int             `db:"status_id"`
+	Message                string          `db:"message"`
+	Data                   []byte          `db:"data"`
+	UpdatedAt              *time.Time      `db:"updated_at"`
+	RelationUUID           sql.NullString  `db:"relation_uuid"`
+	CharmReferenceName     string          `db:"charm_reference_name"`
+	CharmRevision          int             `db:"charm_revision"`
+	CharmSourceID          int             `db:"charm_source_id"`
+	CharmArchitectureID    sql.NullInt64   `db:"charm_architecture_id"`
+	CharmVersion           string          `db:"charm_version"`
 }
