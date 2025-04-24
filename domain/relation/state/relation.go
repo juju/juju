@@ -2721,19 +2721,6 @@ WHERE  r.uuid = $watcherMapperData.uuid
 	}, nil
 }
 
-//machine-0: 22:10:54 ERROR juju.apiserver import failed: execute operation import relations: setting resources: unexpected number of endpoints 0 for ""
-//machine-0: 22:10:54 INFO juju.apiserver rolling back operation: import relations
-//machine-0: 22:10:54 ERROR juju.database constraint error deleting relations: FOREIGN KEY constraint failed - running queries:
-//BEGIN
-//
-//DELETE FROM relation_unit_settings
-//
-//
-//DELETE FROM relation_application_settings
-//
-//
-//DELETE FROM relation
-
 // DeleteImportedRelations deletes all imported relations in a model during
 // an import rollback.
 func (st *State) DeleteImportedRelations(
@@ -2744,102 +2731,32 @@ func (st *State) DeleteImportedRelations(
 		return errors.Capture(err)
 	}
 
-	deleteRelationStmt, err := st.Prepare(`
-DELETE FROM relation
-`)
-	if err != nil {
-		return errors.Capture(err)
+	tables := []string{
+		"relation_unit_setting",
+		"relation_unit_settings_hash",
+		"relation_unit",
+		"relation_application_setting",
+		"relation_application_settings_hash",
+		"relation_endpoint",
+		"relation_status",
+		"relation",
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err = st.deleteUnitRelations(ctx, tx); err != nil {
-		}
+		for _, table := range tables {
+			stmt, err := st.Prepare(fmt.Sprintf(`DELETE FROM %s`, table))
+			if err != nil {
+				return errors.Capture(err)
+			}
 
-		if err = st.deleteApplicationRelations(ctx, tx); err != nil {
-		}
-
-		err = tx.Query(ctx, deleteRelationStmt).Run()
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		} else if err != nil {
-			return errors.Errorf("deleting relations: %w", err)
+			if err = tx.Query(ctx, stmt).Run(); err != nil {
+				return errors.Errorf("deleting table %q: %w", table, err)
+			}
 		}
 
 		return nil
 	})
-	return nil
-}
-
-func (st *State) deleteUnitRelations(ctx context.Context, tx *sqlair.TX) error {
-	deleteUnitSettingsStmt, err := st.Prepare(`
-DELETE FROM relation_unit_settings
-`)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	err = tx.Query(ctx, deleteUnitSettingsStmt).Run()
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("deleting unit settings: %w", err)
-	}
-
-	deleteUnitSettingsHashStmt, err := st.Prepare(`
-DELETE FROM relation_unit_settings_hash
-`)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	err = tx.Query(ctx, deleteUnitSettingsHashStmt).Run()
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("deleting unit settings hash: %w", err)
-	}
-
-	deleteRelationUnitStmt, err := st.Prepare(`
-DELETE FROM relation_unit
-`)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	err = tx.Query(ctx, deleteRelationUnitStmt).Run()
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("deleting relation units: %w", err)
-	}
-	return nil
-}
-
-func (st *State) deleteApplicationRelations(ctx context.Context, tx *sqlair.TX) error {
-	deleteAppSettingsStmt, err := st.Prepare(`
-DELETE FROM relation_application_settings
-`)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	err = tx.Query(ctx, deleteAppSettingsStmt).Run()
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("deleting application settings: %w", err)
-	}
-
-	deleteAppSettingsHashStmt, err := st.Prepare(`
-DELETE FROM relation_application_settings_hash
-`)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	err = tx.Query(ctx, deleteAppSettingsHashStmt).Run()
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("deleting application settings hash: %w", err)
-	}
-
-	deleteRelationEndpointStmt, err := st.Prepare(`
-DELETE FROM relation_endpoint
-`)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	err = tx.Query(ctx, deleteRelationEndpointStmt).Run()
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("deleting relation endpoints: %w", err)
-	}
-	return nil
+	return errors.Capture(err)
 }
 
 // checkCompatibleBases determines if the bases of two application endpoints
