@@ -321,7 +321,7 @@ type RelationService interface {
 		ctx context.Context,
 		unitUUIDs []coreunit.UUID,
 		appUUIDs []coreapplication.ID,
-	) (watcher.RelationUnitsChange, error)
+	) (relation.RelationUnitsChange, error)
 
 	// GetRelationUnitSettings returns the unit settings for the
 	// given relation unit identifier.

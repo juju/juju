@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -206,7 +205,7 @@ type State interface {
 	// application settings for the provided UUIDs.
 	// It takes a list of unit UUIDs and application UUIDs, returning the
 	// current setting version for each one, or departed if any unit is not found
-	GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.UUID, appUUIDs []application.ID) (watcher.RelationUnitsChange, error)
+	GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.UUID, appUUIDs []application.ID) (relation.RelationUnitsChange, error)
 
 	// GetRelationUnitEndpointName returns the name of the endpoint for the given
 	// relation unit.
@@ -781,17 +780,15 @@ func (s *Service) GetRelationUnitByID(
 // GetRelationUnitChanges validates the given unit and application UUIDs,
 // and retrieves related unit changes.
 // If any UUID is invalid, an appropriate error is returned.
-func (s *Service) GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.UUID,
-	appUUIDs []application.ID) (watcher.RelationUnitsChange,
-	error) {
+func (s *Service) GetRelationUnitChanges(ctx context.Context, unitUUIDs []unit.UUID, appUUIDs []application.ID) (relation.RelationUnitsChange, error) {
 	for _, uuid := range unitUUIDs {
 		if err := uuid.Validate(); err != nil {
-			return watcher.RelationUnitsChange{}, relationerrors.UnitUUIDNotValid
+			return relation.RelationUnitsChange{}, relationerrors.UnitUUIDNotValid
 		}
 	}
 	for _, uuid := range appUUIDs {
 		if err := uuid.Validate(); err != nil {
-			return watcher.RelationUnitsChange{}, relationerrors.ApplicationIDNotValid
+			return relation.RelationUnitsChange{}, relationerrors.ApplicationIDNotValid
 		}
 	}
 

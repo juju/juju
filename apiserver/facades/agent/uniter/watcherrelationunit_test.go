@@ -193,26 +193,26 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnit(c *gc.C) {
 
 	// Generate fake but consistent events from apiserver watcher
 	// Initial change: all units.
-	initialChange := watcher.RelationUnitsChange{
-		Changed: transform.SliceToMap(unitNames, func(f unit.Name) (string, watcher.UnitSettings) {
-			return f.String(), watcher.UnitSettings{Version: 1}
+	initialChange := domainrelation.RelationUnitsChange{
+		Changed: transform.SliceToMap(unitNames, func(f unit.Name) (unit.Name, int64) {
+			return f, 1
 		}),
 	}
 	// Second change: all units and applications.
-	withAppsChange := watcher.RelationUnitsChange{
-		Changed: transform.SliceToMap(unitNames, func(f unit.Name) (string, watcher.UnitSettings) {
-			return f.String(), watcher.UnitSettings{Version: 2}
+	withAppsChange := domainrelation.RelationUnitsChange{
+		Changed: transform.SliceToMap(unitNames, func(f unit.Name) (unit.Name, int64) {
+			return f, 2
 		}),
 		AppChanged: transform.SliceToMap(appNames, func(f string) (string, int64) {
 			return f, 1
 		}),
 	}
 	// Third change: all applications (unit departed).
-	unitDepartedChange := watcher.RelationUnitsChange{
+	unitDepartedChange := domainrelation.RelationUnitsChange{
 		AppChanged: transform.SliceToMap(appNames, func(f string) (string, int64) {
 			return f, 2
 		}),
-		Departed: transform.Slice(unitNames, unit.Name.String),
+		Departed: unitNames,
 	}
 
 	// Generate watcher id that will be returned by the watcher registry.
@@ -234,7 +234,7 @@ func (s *watcherrelationunitSuite) TestWatchOneRelationUnit(c *gc.C) {
 		events:          events,
 		firstEventFetch: initial,
 		watcherID:       watcherID,
-		expectedEvents:  []watcher.RelationUnitsChange{withAppsChange, unitDepartedChange},
+		expectedEvents:  []domainrelation.RelationUnitsChange{withAppsChange, unitDepartedChange},
 	}).Finish(c)
 
 	// Act
@@ -301,7 +301,7 @@ type watcherInitParams struct {
 	// watcherID is a unique identifier for the watcher, utilized for tracking and managing watcher instances.
 	watcherID string
 	// expectedEvents are the events that will be returned by the proxy watcher, except the initial one.
-	expectedEvents []watcher.RelationUnitsChange
+	expectedEvents []domainrelation.RelationUnitsChange
 }
 
 // expectWatchRelatedUnitWithEvents sets up and validates a mock watcher for related unit events in a specific relation context.
