@@ -296,11 +296,6 @@ func (e *environ) SupportsSpaces() (bool, error) {
 	return false, nil
 }
 
-// AreSpacesRoutable implements environs.NetworkingEnviron.
-func (*environ) AreSpacesRoutable(ctx envcontext.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
-	return false, nil
-}
-
 // SuperSubnets implements environs.SuperSubnets
 func (e *environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error) {
 	subnets, err := e.Subnets(ctx, nil)

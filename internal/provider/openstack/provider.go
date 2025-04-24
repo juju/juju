@@ -2326,11 +2326,6 @@ func (e *Environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, er
 	return cidrs, nil
 }
 
-// AreSpacesRoutable is specified on environs.NetworkingEnviron.
-func (*Environ) AreSpacesRoutable(ctx envcontext.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
-	return false, nil
-}
-
 // SupportsRulesWithIPV6CIDRs returns true if the environment supports ingress
 // rules containing IPV6 CIDRs. It is part of the FirewallFeatureQuerier
 // interface.

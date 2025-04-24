@@ -29,11 +29,6 @@ func (e *manualEnviron) SuperSubnets(envcontext.ProviderCallContext) ([]string, 
 	return nil, errors.NotSupportedf("super subnets")
 }
 
-// AreSpacesRoutable implements environs.NetworkingEnviron.
-func (*manualEnviron) AreSpacesRoutable(_ envcontext.ProviderCallContext, _, _ *environs.ProviderSpaceInfo) (bool, error) {
-	return false, nil
-}
-
 // NetworkInterfaces implements environs.NetworkingEnviron.
 func (e *manualEnviron) NetworkInterfaces(
 	envcontext.ProviderCallContext, []instance.Id,

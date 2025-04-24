@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 )
@@ -1039,8 +1038,4 @@ func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContex
 
 func (e *Environ) SupportsSpaces() (bool, error) {
 	return false, nil
-}
-
-func (e *Environ) AreSpacesRoutable(ctx envcontext.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
-	return false, errors.NotImplementedf("AreSpacesRoutable")
 }

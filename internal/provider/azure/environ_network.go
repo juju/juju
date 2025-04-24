@@ -160,11 +160,6 @@ func (*azureEnviron) SuperSubnets(envcontext.ProviderCallContext) ([]string, err
 	return nil, errors.NotSupportedf("super subnets")
 }
 
-// AreSpacesRoutable implements environs.NetworkingEnviron.
-func (*azureEnviron) AreSpacesRoutable(_ envcontext.ProviderCallContext, _, _ *environs.ProviderSpaceInfo) (bool, error) {
-	return false, nil
-}
-
 // NetworkInterfaces implements environs.NetworkingEnviron. It returns back
 // a slice where the i_th element contains the list of network interfaces
 // for the i_th provided instance ID.
