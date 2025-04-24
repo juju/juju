@@ -39,9 +39,7 @@ func RegisterImport(
 // ImportService provides a subset of the resource domain service methods
 // needed for resource import.
 type ImportService interface {
-	// ImportRelations sets relations imported in migration. It first builds all the
-	// relations to insert from the arguments, then inserts them at the end so as to
-	// wait as long as possible before turning into a write transaction.
+	// ImportRelations sets relations imported in migration.
 	ImportRelations(ctx context.Context, args relation.ImportRelationsArgs) error
 
 	// DeleteImportedRelations deletes all imported relations in a model during
@@ -85,7 +83,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return nil
 	}
 	for _, rel := range relations {
-		arg, err := i.importRelation(rel)
+		arg, err := i.createImportArg(rel)
 		if err != nil {
 			return errors.Errorf("setting up relation data for import %d: %w", rel.Id(), err)
 		}
@@ -98,7 +96,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	return nil
 }
 
-func (i *importOperation) importRelation(rel description.Relation) (relation.ImportRelationArg, error) {
+func (i *importOperation) createImportArg(rel description.Relation) (relation.ImportRelationArg, error) {
 	key, err := corerelation.NewKeyFromString(rel.Key())
 	if err != nil {
 		return relation.ImportRelationArg{}, err

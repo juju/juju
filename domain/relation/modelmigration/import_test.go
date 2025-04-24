@@ -31,11 +31,10 @@ func (s *importSuite) TestImport(c *gc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
-	id1 := 3
-	key1 := relationtesting.GenNewKey(c, "ubuntu:peer")
-	id2 := 7
-	key2 := relationtesting.GenNewKey(c, "ubuntu:juju-info ntp:juju-info")
-	model := s.expectExecute(c, []int{id1, id2}, []corerelation.Key{key1, key2})
+	model := s.expectImportRelations(c, map[int]corerelation.Key{
+		3: relationtesting.GenNewKey(c, "ubuntu:peer"),
+		7: relationtesting.GenNewKey(c, "ubuntu:juju-info ntp:juju-info"),
+	})
 
 	importOp := importOperation{
 		service: s.service,
@@ -99,22 +98,22 @@ func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *importSuite) expectExecute(c *gc.C, ids []int, keys []corerelation.Key) description.Model {
+func (s *importSuite) expectImportRelations(c *gc.C, data map[int]corerelation.Key) description.Model {
 	model := description.NewModel(description.ModelArgs{
 		Type: coremodel.IAAS.String(),
 	})
-	args := make(relation.ImportRelationsArgs, len(ids))
-	for i, id := range ids {
+	args := []relation.ImportRelationArg{}
+	for id, key := range data {
 		rel := model.AddRelation(description.RelationArgs{
 			Id:  id,
-			Key: keys[i].String(),
+			Key: key.String(),
 		})
-		args[i] = relation.ImportRelationArg{
+		arg := relation.ImportRelationArg{
 			ID:  id,
-			Key: keys[i],
+			Key: key,
 		}
-		eps := keys[i].EndpointIdentifiers()
-		args[i].Endpoints = make([]relation.ImportEndpoint, len(eps))
+		eps := key.EndpointIdentifiers()
+		arg.Endpoints = make([]relation.ImportEndpoint, len(eps))
 		for j, ep := range eps {
 			rel.AddEndpoint(description.EndpointArgs{
 				ApplicationName: ep.ApplicationName,
@@ -122,14 +121,14 @@ func (s *importSuite) expectExecute(c *gc.C, ids []int, keys []corerelation.Key)
 				Role:            string(ep.Role),
 			})
 
-			args[i].Endpoints[j] = relation.ImportEndpoint{
+			arg.Endpoints[j] = relation.ImportEndpoint{
 				ApplicationName:     ep.ApplicationName,
 				EndpointName:        ep.EndpointName,
 				ApplicationSettings: map[string]interface{}{},
 				UnitSettings:        map[string]map[string]interface{}{},
 			}
 		}
-
+		args = append(args, arg)
 	}
 
 	s.service.EXPECT().ImportRelations(gomock.Any(), relationArgMatcher{c: c, expected: args}).Return(nil)
@@ -150,5 +149,5 @@ func (m relationArgMatcher) Matches(x interface{}) bool {
 }
 
 func (relationArgMatcher) String() string {
-	return "matches charm upload requests"
+	return "matches relation args for import"
 }

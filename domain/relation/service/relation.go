@@ -981,9 +981,7 @@ func (s *Service) SetRelationUnitSettings(
 	return s.st.SetRelationUnitSettings(ctx, relationUnitUUID, settings)
 }
 
-// ImportRelations sets relations imported in migration. It first builds all the
-// relations to insert from the arguments, then inserts them at the end so as to
-// wait as long as possible before turning into a write transaction.
+// ImportRelations sets relations imported in migration.
 func (s *Service) ImportRelations(ctx context.Context, args relation.ImportRelationsArgs) error {
 	for _, arg := range args {
 		relUUID, err := s.importRelation(ctx, arg)
