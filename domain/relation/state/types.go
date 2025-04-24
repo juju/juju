@@ -49,7 +49,7 @@ type relationUUIDAndRole struct {
 	// UUID is the unique identifier of the relation.
 	UUID string `db:"relation_uuid"`
 	// Role is the name of the endpoints role, e.g. provider/requirer/peer.
-	Role string `db:"scope"`
+	Role string `db:"role"`
 }
 
 // applicationPlatform represents a structure to get OS and channel information
