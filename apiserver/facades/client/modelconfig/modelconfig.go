@@ -27,6 +27,7 @@ import (
 // ModelConfigAPI provides the base implementation of the methods.
 type ModelConfigAPI struct {
 	backend                   Backend
+	controllerUUID            string
 	modelSecretBackendService ModelSecretBackendService
 	configService             ModelConfigService
 	modelSericve              ModelService
@@ -44,6 +45,7 @@ type ModelConfigAPIV3 struct {
 // NewModelConfigAPI creates a new instance of the ModelConfig Facade.
 func NewModelConfigAPI(
 	modelUUID coremodel.UUID,
+	controllerUUID string,
 	backend Backend,
 	modelSecretBackendService ModelSecretBackendService,
 	configService ModelConfigService,
@@ -58,6 +60,7 @@ func NewModelConfigAPI(
 	return &ModelConfigAPI{
 		modelUUID:                 modelUUID,
 		backend:                   backend,
+		controllerUUID:            controllerUUID,
 		modelSecretBackendService: modelSecretBackendService,
 		configService:             configService,
 		modelSericve:              modelSericve,
@@ -71,11 +74,11 @@ func (c *ModelConfigAPI) checkCanWrite(ctx context.Context) error {
 }
 
 func (c *ModelConfigAPI) isControllerAdmin(ctx context.Context) error {
-	return c.auth.HasPermission(ctx, permission.SuperuserAccess, c.backend.ControllerTag())
+	return c.auth.HasPermission(ctx, permission.SuperuserAccess, names.NewControllerTag(c.controllerUUID))
 }
 
 func (c *ModelConfigAPI) canReadModel(ctx context.Context) error {
-	err := c.auth.HasPermission(ctx, permission.SuperuserAccess, c.backend.ControllerTag())
+	err := c.auth.HasPermission(ctx, permission.SuperuserAccess, names.NewControllerTag(c.controllerUUID))
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	} else if err == nil {
@@ -95,7 +98,7 @@ func (c *ModelConfigAPI) canReadModel(ctx context.Context) error {
 }
 
 func (c *ModelConfigAPI) isModelAdmin(ctx context.Context) (bool, error) {
-	err := c.auth.HasPermission(ctx, permission.SuperuserAccess, c.backend.ControllerTag())
+	err := c.auth.HasPermission(ctx, permission.SuperuserAccess, names.NewControllerTag(c.controllerUUID))
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return false, errors.Trace(err)
 	} else if err == nil {

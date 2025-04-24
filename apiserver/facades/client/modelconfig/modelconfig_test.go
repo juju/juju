@@ -18,12 +18,10 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"
 	"github.com/juju/juju/apiserver/facades/client/modelconfig/mocks"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/constraints"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
-	coresecrets "github.com/juju/juju/core/secrets"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -32,6 +30,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/featureflag"
 	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -39,11 +38,14 @@ type modelconfigSuite struct {
 	testing.IsolationSuite
 	coretesting.JujuOSEnvSuite
 	backend                       *mockBackend
-	authorizer                    apiservertesting.FakeAuthorizer
+	authorizer                    *facademocks.MockAuthorizer
 	mockModelSecretBackendService *mocks.MockModelSecretBackendService
 	mockModelConfigService        *mocks.MockModelConfigService
 	mockModelService              *mocks.MockModelService
 	mockBlockCommandService       *mocks.MockBlockCommandService
+
+	modelUUID      coremodel.UUID
+	controllerUUID string
 }
 
 var _ = gc.Suite(&modelconfigSuite{})
@@ -52,29 +54,18 @@ func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 	s.SetInitialFeatureFlags(featureflag.DeveloperMode)
 	s.IsolationSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
-	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:      names.NewUserTag("bruce@local"),
-		AdminTag: names.NewUserTag("bruce@local"),
-	}
-	s.backend = &mockBackend{
-		secretBackend: &coresecrets.SecretBackend{
-			ID:          "backend-1",
-			Name:        "backend-1",
-			BackendType: "vault",
-			Config: map[string]interface{}{
-				"endpoint": "http://0.0.0.0:8200",
-			},
-		},
-	}
+	s.backend = &mockBackend{}
 }
 
 func (s *modelconfigSuite) getAPI(c *gc.C) (*modelconfig.ModelConfigAPI, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
+	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 	s.mockModelSecretBackendService = mocks.NewMockModelSecretBackendService(ctrl)
 	s.mockModelConfigService = mocks.NewMockModelConfigService(ctrl)
 	s.mockBlockCommandService = mocks.NewMockBlockCommandService(ctrl)
 	s.mockModelService = mocks.NewMockModelService(ctrl)
 
+	s.authorizer.EXPECT().AuthClient().Return(true)
 	s.mockModelConfigService.EXPECT().ModelConfigValues(gomock.Any()).Return(
 		config.ConfigValues{
 			"type":          {Value: "dummy", Source: "model"},
@@ -84,54 +75,117 @@ func (s *modelconfigSuite) getAPI(c *gc.C) (*modelconfig.ModelConfigAPI, *gomock
 		}, nil,
 	).AnyTimes()
 
-	modelID := modeltesting.GenModelUUID(c)
+	s.modelUUID = modeltesting.GenModelUUID(c)
+	s.controllerUUID = uuid.MustNewUUID().String()
 	api, err := modelconfig.NewModelConfigAPI(
-		modelID, s.backend,
+		s.modelUUID, s.controllerUUID, s.backend,
 		s.mockModelSecretBackendService, s.mockModelConfigService, s.mockModelService,
-		&s.authorizer, s.mockBlockCommandService,
+		s.authorizer, s.mockBlockCommandService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api, ctrl
 }
 
-func (s *modelconfigSuite) TestAdminModelGet(c *gc.C) {
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
-
-	result, err := api.ModelGet(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Config, jc.DeepEquals, map[string]params.ConfigValue{
-		"type":          {Value: "dummy", Source: "model"},
-		"ftp-proxy":     {Value: "http://proxy", Source: "model"},
-		"agent-version": {Value: "1.2.3.4", Source: "model"},
-		"charmhub-url":  {Value: "http://meshuggah.rocks", Source: "model"},
-	})
+func (s *modelconfigSuite) expectModelReadAccess() {
+	gomock.InOrder(
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, names.NewControllerTag(s.controllerUUID)).
+			Return(errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission)),
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, names.NewModelTag(s.modelUUID.String())).
+			Return(errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission)),
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, names.NewModelTag(s.modelUUID.String())),
+	)
 }
 
-func (s *modelconfigSuite) TestUserModelGet(c *gc.C) {
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
-
-	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:         names.NewUserTag("bruce@local"),
-		HasWriteTag: names.NewUserTag("bruce@local"),
-		AdminTag:    names.NewUserTag("mary@local"),
-	}
-	result, err := api.ModelGet(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Config, jc.DeepEquals, map[string]params.ConfigValue{
-		"type":          {Value: "dummy", Source: "model"},
-		"ftp-proxy":     {Value: "http://proxy", Source: "model"},
-		"agent-version": {Value: "1.2.3.4", Source: "model"},
-		"charmhub-url":  {Value: "http://meshuggah.rocks", Source: "model"},
-	})
+func (s *modelconfigSuite) expectModelWriteAccess() {
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelUUID.String()))
 }
 
-func (s *modelconfigSuite) TestAdminModelSet(c *gc.C) {
-	api, ctrl := s.getAPI(c)
-	defer ctrl.Finish()
+func (s *modelconfigSuite) expectModelAdminAccess() {
+	gomock.InOrder(
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, names.NewControllerTag(s.controllerUUID)).
+			Return(errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission)),
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, names.NewModelTag(s.modelUUID.String())),
+	)
+}
 
+func (s *modelconfigSuite) expectNoModelAdminAccess() {
+	gomock.InOrder(
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, names.NewControllerTag(s.controllerUUID)).
+			Return(errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission)),
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, names.NewModelTag(s.modelUUID.String())).
+			Return(errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission)),
+	)
+}
+
+func (s *modelconfigSuite) expectNoControllerAdminAccess() {
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, names.NewControllerTag(s.controllerUUID)).
+		Return(errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
+}
+
+func (s *modelconfigSuite) expectNoBlocks() {
 	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+}
+
+func (s *modelconfigSuite) TestModelGetModelAdmin(c *gc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	// Check read access.
+	s.expectModelReadAccess()
+	// Chck admin access.
+	s.expectModelAdminAccess()
+
+	result, err := api.ModelGet(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Config, jc.DeepEquals, map[string]params.ConfigValue{
+		"type":          {Value: "dummy", Source: "model"},
+		"ftp-proxy":     {Value: "http://proxy", Source: "model"},
+		"agent-version": {Value: "1.2.3.4", Source: "model"},
+		"charmhub-url":  {Value: "http://meshuggah.rocks", Source: "model"},
+	})
+}
+
+func (s *modelconfigSuite) TestModelGetControllerAdmin(c *gc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, names.NewControllerTag(s.controllerUUID)).Times(2)
+
+	result, err := api.ModelGet(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Config, jc.DeepEquals, map[string]params.ConfigValue{
+		"type":          {Value: "dummy", Source: "model"},
+		"ftp-proxy":     {Value: "http://proxy", Source: "model"},
+		"agent-version": {Value: "1.2.3.4", Source: "model"},
+		"charmhub-url":  {Value: "http://meshuggah.rocks", Source: "model"},
+	})
+}
+
+func (s *modelconfigSuite) TestModelGetReadAccess(c *gc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	s.expectModelReadAccess()
+	s.expectNoModelAdminAccess()
+
+	result, err := api.ModelGet(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Config, jc.DeepEquals, map[string]params.ConfigValue{
+		"type":          {Value: "dummy", Source: "model"},
+		"ftp-proxy":     {Value: "http://proxy", Source: "model"},
+		"agent-version": {Value: "1.2.3.4", Source: "model"},
+		"charmhub-url":  {Value: "http://meshuggah.rocks", Source: "model"},
+	})
+}
+
+func (s *modelconfigSuite) TestModelSetModelAdmin(c *gc.C) {
+	api, ctrl := s.getAPI(c)
+	defer ctrl.Finish()
+
+	s.expectModelWriteAccess()
+	s.expectModelAdminAccess()
+	s.expectNoControllerAdminAccess()
+	s.expectNoBlocks()
 
 	params := params.ModelSet{
 		Config: map[string]interface{}{
@@ -147,7 +201,7 @@ func (s *modelconfigSuite) TestAdminModelSet(c *gc.C) {
 		},
 		nil,
 		gomock.Any(),
-	).Return(nil)
+	)
 	err := api.ModelSet(context.Background(), params)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -164,6 +218,7 @@ func (s *modelconfigSuite) assertModelSetBlocked(c *gc.C, args map[string]interf
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 
+	s.expectModelWriteAccess()
 	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return(msg, nil)
 
 	err := api.ModelSet(context.Background(), params.ModelSet{Config: args})
@@ -222,17 +277,14 @@ func (s *modelconfigSuite) TestUserCanSetLogNoTrace(c *gc.C) {
 	c.Check(cfg.AllAttrs(), jc.DeepEquals, newConfig.AllAttrs())
 }
 
-func (s *modelconfigSuite) TestUserReadAccess(c *gc.C) {
+func (s *modelconfigSuite) TestModelSetNoWriteAccess(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 
-	apiUser := names.NewUserTag("read")
-	s.authorizer.Tag = apiUser
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelUUID.String())).
+		Return(errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
-	_, err := api.ModelGet(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = api.ModelSet(context.Background(), params.ModelSet{})
+	err := api.ModelSet(context.Background(), params.ModelSet{})
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "permission denied")
 }
 
@@ -267,14 +319,15 @@ func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 
-	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+	s.expectModelWriteAccess()
+	s.expectNoBlocks()
 
 	s.mockModelConfigService.EXPECT().UpdateModelConfig(
 		gomock.Any(),
 		nil,
 		[]string{"abc"},
 		gomock.Any(),
-	).Return(nil)
+	)
 
 	args := params.ModelUnset{Keys: []string{"abc"}}
 	err := api.ModelUnset(context.Background(), args)
@@ -285,6 +338,7 @@ func (s *modelconfigSuite) TestBlockModelUnset(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 
+	s.expectModelWriteAccess()
 	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("TestBlockModelUnset", nil)
 
 	args := params.ModelUnset{Keys: []string{"abc"}}
@@ -296,7 +350,8 @@ func (s *modelconfigSuite) TestModelUnsetMissing(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 
-	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+	s.expectModelWriteAccess()
+	s.expectNoBlocks()
 
 	// It's okay to unset a non-existent attribute.
 	s.mockModelConfigService.EXPECT().UpdateModelConfig(
@@ -318,8 +373,9 @@ func (s *modelconfigSuite) TestClientSetModelConstraints(c *gc.C) {
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
-	s.mockModelService.EXPECT().SetModelConstraints(gomock.Any(), cons).Return(nil)
+	s.expectModelWriteAccess()
+	s.expectNoBlocks()
+	s.mockModelService.EXPECT().SetModelConstraints(gomock.Any(), cons)
 
 	err = api.SetModelConstraints(context.Background(), params.SetConstraints{
 		ApplicationName: "app",
@@ -335,7 +391,8 @@ func (s *modelconfigSuite) TestClientSetModelConstraintsFailedModelNotFound(c *g
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+	s.expectModelWriteAccess()
+	s.expectNoBlocks()
 	s.mockModelService.EXPECT().SetModelConstraints(gomock.Any(), cons).Return(modelerrors.NotFound)
 
 	err = api.SetModelConstraints(context.Background(), params.SetConstraints{
@@ -352,7 +409,8 @@ func (s *modelconfigSuite) TestClientSetModelConstraintsFailedSpaceNotFound(c *g
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+	s.expectModelWriteAccess()
+	s.expectNoBlocks()
 	s.mockModelService.EXPECT().SetModelConstraints(gomock.Any(), cons).Return(networkerrors.SpaceNotFound)
 
 	err = api.SetModelConstraints(context.Background(), params.SetConstraints{
@@ -369,7 +427,8 @@ func (s *modelconfigSuite) TestClientSetModelConstraintsFailedInvalidContainerTy
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
+	s.expectModelWriteAccess()
+	s.expectNoBlocks()
 	s.mockModelService.EXPECT().SetModelConstraints(gomock.Any(), cons).Return(machineerrors.InvalidContainerType)
 
 	err = api.SetModelConstraints(context.Background(), params.SetConstraints{
@@ -387,6 +446,7 @@ func (s *modelconfigSuite) assertSetModelConstraintsBlocked(c *gc.C, msg string)
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.expectModelWriteAccess()
 	s.mockBlockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("TestBlockChangesClientSetModelConstraints", nil)
 
 	err = api.SetModelConstraints(context.Background(), params.SetConstraints{
@@ -404,6 +464,8 @@ func (s *modelconfigSuite) TestClientGetModelConstraints(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 
+	s.expectModelReadAccess()
+
 	// Set constraints for the model.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
@@ -419,6 +481,8 @@ func (s *modelconfigSuite) TestClientGetModelConstraintsFailedModelNotFound(c *g
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 
+	s.expectModelReadAccess()
+
 	s.mockModelService.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Value{}, modelerrors.NotFound)
 
 	_, err := api.GetModelConstraints(context.Background())
@@ -432,6 +496,7 @@ type modelSecretBackendSuite struct {
 	mockModelSecretBackendService *mocks.MockModelSecretBackendService
 	mockBlockCommandService       *mocks.MockBlockCommandService
 	modelID                       coremodel.UUID
+	controllerUUID                string
 }
 
 var _ = gc.Suite(&modelSecretBackendSuite{})
@@ -444,7 +509,9 @@ func (s *modelSecretBackendSuite) setup(c *gc.C) (*modelconfig.ModelConfigAPI, *
 	s.mockModelSecretBackendService = mocks.NewMockModelSecretBackendService(ctrl)
 	s.mockBlockCommandService = mocks.NewMockBlockCommandService(ctrl)
 	s.modelID = modeltesting.GenModelUUID(c)
-	api, err := modelconfig.NewModelConfigAPI(s.modelID, nil, s.mockModelSecretBackendService, nil, nil, s.authorizer, s.mockBlockCommandService)
+	s.controllerUUID = uuid.MustNewUUID().String()
+
+	api, err := modelconfig.NewModelConfigAPI(s.modelID, s.controllerUUID, nil, s.mockModelSecretBackendService, nil, nil, s.authorizer, s.mockBlockCommandService)
 	c.Assert(err, jc.ErrorIsNil)
 	return api, ctrl
 }
@@ -466,7 +533,7 @@ func (s *modelSecretBackendSuite) TestGetModelSecretBackendFailedModelNotFound(c
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, names.NewModelTag(s.modelID.String())).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, names.NewModelTag(s.modelID.String()))
 	s.mockModelSecretBackendService.EXPECT().GetModelSecretBackend(gomock.Any()).Return("", modelerrors.NotFound)
 
 	result, err := facade.GetModelSecretBackend(context.Background())
@@ -479,7 +546,7 @@ func (s *modelSecretBackendSuite) TestGetModelSecretBackend(c *gc.C) {
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, names.NewModelTag(s.modelID.String())).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, names.NewModelTag(s.modelID.String()))
 	s.mockModelSecretBackendService.EXPECT().GetModelSecretBackend(gomock.Any()).Return("myvault", nil)
 
 	result, err := facade.GetModelSecretBackend(context.Background())
@@ -504,7 +571,7 @@ func (s *modelSecretBackendSuite) TestSetModelSecretBackendFailedModelNotFound(c
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelID.String())).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelID.String()))
 	s.mockModelSecretBackendService.EXPECT().SetModelSecretBackend(gomock.Any(), "myvault").Return(modelerrors.NotFound)
 
 	result, err := facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{
@@ -519,7 +586,7 @@ func (s *modelSecretBackendSuite) TestSetModelSecretBackendFailedSecretBackendNo
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelID.String())).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelID.String()))
 	s.mockModelSecretBackendService.EXPECT().SetModelSecretBackend(gomock.Any(), "myvault").Return(secretbackenderrors.NotFound)
 
 	result, err := facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{
@@ -534,7 +601,7 @@ func (s *modelSecretBackendSuite) TestSetModelSecretBackendFailedSecretBackendNo
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelID.String())).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelID.String()))
 	s.mockModelSecretBackendService.EXPECT().SetModelSecretBackend(gomock.Any(), "myvault").Return(secretbackenderrors.NotValid)
 
 	result, err := facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{
@@ -549,8 +616,8 @@ func (s *modelSecretBackendSuite) TestSetModelSecretBackend(c *gc.C) {
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelID.String())).Return(nil)
-	s.mockModelSecretBackendService.EXPECT().SetModelSecretBackend(gomock.Any(), "myvault").Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelID.String()))
+	s.mockModelSecretBackendService.EXPECT().SetModelSecretBackend(gomock.Any(), "myvault")
 
 	result, err := facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{
 		SecretBackendName: "myvault",
@@ -560,28 +627,8 @@ func (s *modelSecretBackendSuite) TestSetModelSecretBackend(c *gc.C) {
 }
 
 type mockBackend struct {
-	secretBackend *coresecrets.SecretBackend
 }
 
 func (m *mockBackend) Sequences() (map[string]int, error) {
 	return nil, nil
-}
-
-func (m *mockBackend) ModelTag() names.ModelTag {
-	return names.NewModelTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
-}
-
-func (m *mockBackend) ControllerTag() names.ControllerTag {
-	return names.NewControllerTag("deadbeef-babe-4fd2-967d-db9663db7bea")
-}
-
-func (m *mockBackend) SpaceByName(string) error {
-	return nil
-}
-
-func (m *mockBackend) GetSecretBackend(name string) (*coresecrets.SecretBackend, error) {
-	if name == "invalid" {
-		return nil, errors.NotFoundf("invalid")
-	}
-	return m.secretBackend, nil
 }
