@@ -2064,14 +2064,6 @@ func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDev
 	addr := fmt.Sprintf("10.10.%s.5", index)
 	subnetId := network.Id("subnet-" + index)
 
-	// AvailabilityZones will either contain "test-available",
-	// "test-impaired" or "test-unavailable" depending on which subnet is
-	// picked. Any of these is fine.
-	zones := iface.AvailabilityZones
-	c.Assert(zones, gc.HasLen, 1)
-	re = regexp.MustCompile("test-available|test-unavailable|test-impaired")
-	c.Assert(re.Match([]byte(zones[0])), jc.IsTrue)
-
 	expectedInterface := network.InterfaceInfo{
 		DeviceIndex:      expDevIndex,
 		MACAddress:       iface.MACAddress,
@@ -2094,8 +2086,7 @@ func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDev
 			network.WithScope(network.ScopePublic),
 			network.WithConfigType(network.ConfigDHCP),
 		).AsProviderAddress()},
-		AvailabilityZones: zones,
-		Origin:            network.OriginProvider,
+		Origin: network.OriginProvider,
 	}
 	c.Assert(iface, gc.DeepEquals, expectedInterface)
 }

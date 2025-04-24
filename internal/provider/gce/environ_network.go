@@ -182,7 +182,6 @@ func (e *environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []in
 				ProviderId:        corenetwork.Id(fmt.Sprintf("%s/%s", ids[idx], iface.Name)),
 				ProviderSubnetId:  details.subnet,
 				ProviderNetworkId: details.network,
-				AvailabilityZones: copyStrings(zones),
 				InterfaceName:     iface.Name,
 				Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 					iface.NetworkIP,
