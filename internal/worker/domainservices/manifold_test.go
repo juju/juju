@@ -102,11 +102,19 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 
 	s.httpClientGetter.EXPECT().GetHTTPClient(gomock.Any(), corehttp.SSHImporterPurpose).Return(s.httpClient, nil)
 
+	type mergedObjectStore struct {
+		objectstore.ControllerObjectStoreGetter
+		objectstore.ObjectStoreGetter
+	}
+
 	getter := map[string]any{
 		"dbaccessor":      s.dbDeleter,
 		"changestream":    s.dbGetter,
 		"providerfactory": s.providerFactory,
-		"objectstore":     s.objectStoreGetter,
+		"objectstore": mergedObjectStore{
+			ControllerObjectStoreGetter: s.controllerObjectStoreGetter,
+			ObjectStoreGetter:           s.objectStoreGetter,
+		},
 		"storageregistry": s.storageRegistryGetter,
 		"httpclient":      s.httpClientGetter,
 		"leasemanager":    s.leaseManager,
@@ -146,6 +154,7 @@ func (s *manifoldSuite) TestOutputControllerDomainServices(c *gc.C) {
 		LoggerContextGetter:         s.loggerContextGetter,
 		ProviderFactory:             s.providerFactory,
 		ObjectStoreGetter:           s.objectStoreGetter,
+		ControllerObjectStoreGetter: s.controllerObjectStoreGetter,
 		StorageRegistryGetter:       s.storageRegistryGetter,
 		PublicKeyImporter:           s.publicKeyImporter,
 		LeaseManager:                s.leaseManager,
@@ -174,6 +183,7 @@ func (s *manifoldSuite) TestOutputDomainServicesGetter(c *gc.C) {
 		LoggerContextGetter:         s.loggerContextGetter,
 		ProviderFactory:             s.providerFactory,
 		ObjectStoreGetter:           s.objectStoreGetter,
+		ControllerObjectStoreGetter: s.controllerObjectStoreGetter,
 		StorageRegistryGetter:       s.storageRegistryGetter,
 		PublicKeyImporter:           s.publicKeyImporter,
 		LeaseManager:                s.leaseManager,
@@ -202,6 +212,7 @@ func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
 		LoggerContextGetter:         s.loggerContextGetter,
 		ProviderFactory:             s.providerFactory,
 		ObjectStoreGetter:           s.objectStoreGetter,
+		ControllerObjectStoreGetter: s.controllerObjectStoreGetter,
 		StorageRegistryGetter:       s.storageRegistryGetter,
 		PublicKeyImporter:           s.publicKeyImporter,
 		LeaseManager:                s.leaseManager,
@@ -221,7 +232,7 @@ func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestNewControllerDomainServices(c *gc.C) {
-	factory := NewControllerDomainServices(s.dbGetter, s.dbDeleter, s.modelObjectStoreGetter, s.clock, s.logger)
+	factory := NewControllerDomainServices(s.dbGetter, s.dbDeleter, s.controllerObjectStoreGetter, s.clock, s.logger)
 	c.Assert(factory, gc.NotNil)
 }
 
@@ -245,7 +256,7 @@ func (s *manifoldSuite) TestNewDomainServicesGetter(c *gc.C) {
 	s.loggerContextGetter.EXPECT().GetLoggerContext(gomock.Any(), coremodel.UUID("model")).Return(s.loggerContext, nil)
 	s.loggerContext.EXPECT().GetLogger("juju.services").Return(s.logger)
 
-	ctrlFactory := NewControllerDomainServices(s.dbGetter, s.dbDeleter, s.modelObjectStoreGetter, s.clock, s.logger)
+	ctrlFactory := NewControllerDomainServices(s.dbGetter, s.dbDeleter, s.controllerObjectStoreGetter, s.clock, s.logger)
 	factory := NewDomainServicesGetter(
 		ctrlFactory,
 		s.dbGetter,
@@ -304,7 +315,7 @@ func noopDomainServicesGetter(
 func noopControllerDomainServices(
 	changestream.WatchableDBGetter,
 	coredatabase.DBDeleter,
-	objectstore.NamespacedObjectStoreGetter,
+	objectstore.ControllerObjectStoreGetter,
 	clock.Clock,
 	logger.Logger,
 ) services.ControllerDomainServices {

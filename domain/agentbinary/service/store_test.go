@@ -32,7 +32,7 @@ type storeSuite struct {
 	testing.IsolationSuite
 
 	mockState             *MockState
-	mockObjectStoreGetter *MockModelObjectStoreGetter
+	mockObjectStoreGetter *MockControllerObjectStoreGetter
 	mockObjectStore       *MockObjectStore
 }
 
@@ -42,8 +42,8 @@ func (s *storeSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockState = NewMockState(ctrl)
 	s.mockObjectStore = NewMockObjectStore(ctrl)
-	s.mockObjectStoreGetter = NewMockModelObjectStoreGetter(ctrl)
-	s.mockObjectStoreGetter.EXPECT().GetObjectStore(gomock.Any()).Return(s.mockObjectStore, nil).AnyTimes()
+	s.mockObjectStoreGetter = NewMockControllerObjectStoreGetter(ctrl)
+	s.mockObjectStoreGetter.EXPECT().GetControllerObjectStore(gomock.Any()).Return(s.mockObjectStore, nil).AnyTimes()
 	return ctrl
 }
 

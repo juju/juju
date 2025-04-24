@@ -143,16 +143,6 @@ func NewModelServices(
 	}
 }
 
-// AgentBinaryStore returns the model's [agentbinaryservice.AgentBinaryStore]
-// for the current model.
-func (s *ModelServices) AgentBinaryStore() *agentbinaryservice.AgentBinaryStore {
-	return agentbinaryservice.NewAgentBinaryStore(
-		agentbinarystate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
-		s.logger.Child("modelagentbinary"),
-		s.modelObjectStoreGetter,
-	)
-}
-
 // AgentBinary returns the model's [agentbinaryservice.AgentBinaryService].
 func (s *ModelServices) AgentBinary() *agentbinaryservice.AgentBinaryService {
 	return agentbinaryservice.NewAgentBinaryService(

@@ -91,7 +91,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		Guard:            guard,
 		APIOpen:          api.Open,
 		UploadBinaries:   migration.UploadBinaries,
-		AgentBinaryStore: domainServices.AgentBinaryStore(),
+		AgentBinaryStore: domainServices.ControllerAgentBinaryStore(),
 		Clock:            config.Clock,
 	})
 	if err != nil {

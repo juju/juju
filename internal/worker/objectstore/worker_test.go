@@ -109,6 +109,37 @@ func (s *workerSuite) TestGetObjectStoreIsCached(c *gc.C) {
 	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(1))
 }
 
+func (s *workerSuite) TestGetControllerObjectStoreIsCached(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+
+	w := s.newWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.ensureStartup(c)
+
+	done := make(chan struct{})
+	s.trackedObjectStore.EXPECT().Kill().AnyTimes()
+	s.trackedObjectStore.EXPECT().Wait().DoAndReturn(func() error {
+		<-done
+		return nil
+	}).AnyTimes()
+
+	worker := w.(*objectStoreWorker)
+	for i := 0; i < 10; i++ {
+
+		_, err := worker.GetControllerObjectStore(context.Background())
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	close(done)
+
+	workertest.CleanKill(c, w)
+
+	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(1))
+}
+
 func (s *workerSuite) TestGetObjectStoreIsNotCachedForDifferentNamespaces(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

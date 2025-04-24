@@ -39,6 +39,10 @@ type Config struct {
 	// ObjectStoreGetter is used to get object store instances.
 	ObjectStoreGetter objectstore.ObjectStoreGetter
 
+	// ControllerObjectStoreGetter is used to get controller object store
+	// instances.
+	ControllerObjectStoreGetter objectstore.ControllerObjectStoreGetter
+
 	// StorageRegistryGetter is used to get storage registry instances.
 	StorageRegistryGetter storage.StorageRegistryGetter
 
@@ -81,6 +85,9 @@ func (config Config) Validate() error {
 	if config.ObjectStoreGetter == nil {
 		return errors.NotValidf("nil ObjectStoreGetter")
 	}
+	if config.ControllerObjectStoreGetter == nil {
+		return errors.NotValidf("nil ControllerObjectStoreGetter")
+	}
 	if config.StorageRegistryGetter == nil {
 		return errors.NotValidf("nil StorageRegistryGetter")
 	}
@@ -117,13 +124,10 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	controllerObjectStoreGetter := controllerObjectStoreGetter{
-		objectStoreGetter: config.ObjectStoreGetter,
-	}
 	ctrlFactory := config.NewControllerDomainServices(
 		config.DBGetter,
 		config.DBDeleter,
-		controllerObjectStoreGetter,
+		config.ControllerObjectStoreGetter,
 		config.Clock,
 		config.Logger,
 	)

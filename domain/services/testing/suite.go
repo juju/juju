@@ -268,7 +268,7 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *gc.C, o
 		controllerServices := domainservices.NewControllerServices(
 			databasetesting.ConstFactory(s.TxnRunner()),
 			stubDBDeleter{},
-			modelObjectStoreGetter(func(ctx context.Context) (objectstore.ObjectStore, error) {
+			controllerObjectStoreGetter(func(ctx context.Context) (objectstore.ObjectStore, error) {
 				return objectStore, nil
 			}),
 			clock,
@@ -362,6 +362,12 @@ func (s ObjectStoreServicesGetterFunc) ServicesForModel(modelUUID model.UUID) se
 type modelObjectStoreGetter func(context.Context) (objectstore.ObjectStore, error)
 
 func (s modelObjectStoreGetter) GetObjectStore(ctx context.Context) (objectstore.ObjectStore, error) {
+	return s(ctx)
+}
+
+type controllerObjectStoreGetter func(context.Context) (objectstore.ObjectStore, error)
+
+func (s controllerObjectStoreGetter) GetControllerObjectStore(ctx context.Context) (objectstore.ObjectStore, error) {
 	return s(ctx)
 }
 

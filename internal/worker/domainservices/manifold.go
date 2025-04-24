@@ -64,7 +64,7 @@ type DomainServicesGetterFn func(
 type ControllerDomainServicesFn func(
 	changestream.WatchableDBGetter,
 	coredatabase.DBDeleter,
-	objectstore.NamespacedObjectStoreGetter,
+	objectstore.ControllerObjectStoreGetter,
 	clock.Clock,
 	logger.Logger,
 ) services.ControllerDomainServices
@@ -174,6 +174,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
+	var controllerObjectStoreGetter objectstore.ControllerObjectStoreGetter
+	if err := getter.Get(config.ObjectStoreName, &controllerObjectStoreGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var storageRegistryGetter storage.StorageRegistryGetter
 	if err := getter.Get(config.StorageRegistryName, &storageRegistryGetter); err != nil {
 		return nil, errors.Trace(err)
@@ -204,6 +209,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		DBDeleter:                   dbDeleter,
 		ProviderFactory:             providerFactory,
 		ObjectStoreGetter:           objectStoreGetter,
+		ControllerObjectStoreGetter: controllerObjectStoreGetter,
 		StorageRegistryGetter:       storageRegistryGetter,
 		PublicKeyImporter:           sshimporter.NewImporter(sshImporterClient),
 		LeaseManager:                leaseManager,
@@ -242,7 +248,7 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 func NewControllerDomainServices(
 	dbGetter changestream.WatchableDBGetter,
 	dbDeleter coredatabase.DBDeleter,
-	controllerObjectStoreGetter objectstore.NamespacedObjectStoreGetter,
+	controllerObjectStoreGetter objectstore.ControllerObjectStoreGetter,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ControllerDomainServices {

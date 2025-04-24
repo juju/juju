@@ -73,6 +73,13 @@ type ObjectStoreGetter interface {
 	GetObjectStore(context.Context, string) (ObjectStore, error)
 }
 
+// ControllerObjectStoreGetter is the interface that is used to get a object
+// store.
+type ControllerObjectStoreGetter interface {
+	// GetControllerObjectStore returns a object store for the controller.
+	GetControllerObjectStore(context.Context) (ObjectStore, error)
+}
+
 // ModelObjectStoreGetter is the interface that is used to get a model's
 // object store.
 type ModelObjectStoreGetter interface {

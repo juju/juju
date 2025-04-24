@@ -232,6 +232,11 @@ func (w *objectStoreWorker) GetObjectStore(ctx context.Context, namespace string
 	return tracked.(objectstore.ObjectStore), nil
 }
 
+// GetControllerObjectStore returns a objectStore for the controller namespace.
+func (w *objectStoreWorker) GetControllerObjectStore(ctx context.Context) (objectstore.ObjectStore, error) {
+	return w.GetObjectStore(ctx, database.ControllerNS)
+}
+
 func (w *objectStoreWorker) workerFromCache(namespace string) (objectstore.ObjectStore, error) {
 	// If the worker already exists, return the existing worker early.
 	if objectStore, err := w.runner.Worker(namespace, w.catacomb.Dying()); err == nil {

@@ -209,6 +209,9 @@ func output(in worker.Worker, out any) error {
 	case *coreobjectstore.ObjectStoreGetter:
 		var target coreobjectstore.ObjectStoreGetter = w
 		*out = target
+	case *coreobjectstore.ControllerObjectStoreGetter:
+		var target coreobjectstore.ControllerObjectStoreGetter = w
+		*out = target
 	default:
 		return errors.Errorf("expected output of ObjectStore, got %T", out)
 	}

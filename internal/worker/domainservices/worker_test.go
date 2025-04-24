@@ -56,6 +56,10 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
+	cfg.ControllerObjectStoreGetter = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
 	cfg.StorageRegistryGetter = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
@@ -90,16 +94,17 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 
 func (s *workerSuite) getConfig() Config {
 	return Config{
-		DBGetter:              s.dbGetter,
-		DBDeleter:             s.dbDeleter,
-		ProviderFactory:       s.providerFactory,
-		ObjectStoreGetter:     s.objectStoreGetter,
-		StorageRegistryGetter: s.storageRegistryGetter,
-		PublicKeyImporter:     s.publicKeyImporter,
-		LeaseManager:          s.leaseManager,
-		Clock:                 s.clock,
-		Logger:                s.logger,
-		LoggerContextGetter:   s.loggerContextGetter,
+		DBGetter:                    s.dbGetter,
+		DBDeleter:                   s.dbDeleter,
+		ProviderFactory:             s.providerFactory,
+		ObjectStoreGetter:           s.objectStoreGetter,
+		ControllerObjectStoreGetter: s.controllerObjectStoreGetter,
+		StorageRegistryGetter:       s.storageRegistryGetter,
+		PublicKeyImporter:           s.publicKeyImporter,
+		LeaseManager:                s.leaseManager,
+		Clock:                       s.clock,
+		Logger:                      s.logger,
+		LoggerContextGetter:         s.loggerContextGetter,
 		NewDomainServicesGetter: func(
 			services.ControllerDomainServices,
 			changestream.WatchableDBGetter,
@@ -117,7 +122,7 @@ func (s *workerSuite) getConfig() Config {
 		NewControllerDomainServices: func(
 			changestream.WatchableDBGetter,
 			coredatabase.DBDeleter,
-			objectstore.NamespacedObjectStoreGetter,
+			objectstore.ControllerObjectStoreGetter,
 			clock.Clock,
 			logger.Logger,
 		) services.ControllerDomainServices {

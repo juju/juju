@@ -50,14 +50,14 @@ type State interface {
 type AgentBinaryStore struct {
 	st                State
 	logger            logger.Logger
-	objectStoreGetter objectstore.ModelObjectStoreGetter
+	objectStoreGetter objectstore.ControllerObjectStoreGetter
 }
 
 // NewAgentBinaryStore returns a new instance of AgentBinaryStore.
 func NewAgentBinaryStore(
 	st State,
 	logger logger.Logger,
-	objectStoreGetter objectstore.ModelObjectStoreGetter,
+	objectStoreGetter objectstore.ControllerObjectStoreGetter,
 ) *AgentBinaryStore {
 	return &AgentBinaryStore{
 		st:                st,
@@ -110,7 +110,7 @@ func (s *AgentBinaryStore) add(
 	version coreagentbinary.Version,
 	size int64, sha384 string,
 ) (resultErr error) {
-	objectStore, err := s.objectStoreGetter.GetObjectStore(ctx)
+	objectStore, err := s.objectStoreGetter.GetControllerObjectStore(ctx)
 	if err != nil {
 		return errors.Errorf("getting object store: %w", err)
 	}
@@ -226,7 +226,7 @@ func (s *AgentBinaryStore) GetAgentBinaryForSHA256(
 		).Add(agentbinaryerrors.NotFound)
 	}
 
-	objectStore, err := s.objectStoreGetter.GetObjectStore(ctx)
+	objectStore, err := s.objectStoreGetter.GetControllerObjectStore(ctx)
 	if err != nil {
 		return nil, 0, errors.Errorf(
 			"getting object store to fetch agent binaries: %w", err,

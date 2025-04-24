@@ -29,7 +29,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination database_mock_test.go github.com/juju/juju/core/database DBDeleter
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination changestream_mock_test.go github.com/juju/juju/core/changestream WatchableDBGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination providertracker_mock_test.go github.com/juju/juju/core/providertracker Provider,ProviderFactory
-//go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore,ObjectStoreGetter,ModelObjectStoreGetter
+//go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore,ObjectStoreGetter,ModelObjectStoreGetter,ControllerObjectStoreGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination storage_mock_test.go github.com/juju/juju/core/storage StorageRegistryGetter,ModelStorageRegistryGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination http_mock_test.go github.com/juju/juju/core/http HTTPClientGetter,HTTPClient
 //go:generate go run go.uber.org/mock/mockgen -typed -package domainservices -destination lease_mock_test.go github.com/juju/juju/core/lease Checker,Manager,LeaseManagerGetter,ModelLeaseManagerGetter
@@ -59,7 +59,7 @@ type baseSuite struct {
 
 	objectStore                 *MockObjectStore
 	objectStoreGetter           *MockObjectStoreGetter
-	controllerObjectStoreGetter *MockModelObjectStoreGetter
+	controllerObjectStoreGetter *MockControllerObjectStoreGetter
 	modelObjectStoreGetter      *MockModelObjectStoreGetter
 
 	storageRegistryGetter      *MockStorageRegistryGetter
@@ -95,7 +95,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.objectStore = NewMockObjectStore(ctrl)
 	s.objectStoreGetter = NewMockObjectStoreGetter(ctrl)
-	s.controllerObjectStoreGetter = NewMockModelObjectStoreGetter(ctrl)
+	s.controllerObjectStoreGetter = NewMockControllerObjectStoreGetter(ctrl)
 	s.modelObjectStoreGetter = NewMockModelObjectStoreGetter(ctrl)
 
 	s.storageRegistryGetter = NewMockStorageRegistryGetter(ctrl)

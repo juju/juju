@@ -206,7 +206,7 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 		return nil, 0, errors.Annotatef(err, "getting metadata for agent binary version %s", vers.String())
 	}
 
-	err = domainServices.AgentBinaryStore().AddAgentBinaryWithSHA256(
+	err = domainServices.ControllerAgentBinaryStore().AddAgentBinaryWithSHA256(
 		r.Context(),
 		agentStream,
 		coreagentbinary.Version{
