@@ -60,10 +60,6 @@ func (e *environ) Subnets(ctx envcontext.ProviderCallContext, subnetIDs []networ
 		networkName := networkDetails.Name
 		state, err := srv.GetNetworkState(networkName)
 		if err != nil {
-			// Unfortunately, LXD on bionic and earlier does not
-			// support the network_state extension out of the box
-			// so this call will fail. If that's the case then
-			// use a fallback method for detecting subnets.
 			if isErrMissingAPIExtension(err, "network_state") {
 				return nil, errors.Errorf("network_state extension unsupported; upgrade to a newer version of LXD")
 			}

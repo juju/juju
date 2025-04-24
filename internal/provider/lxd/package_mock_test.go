@@ -581,50 +581,6 @@ func (c *MockServerEnsureDefaultStorageCall) DoAndReturn(f func(*api.Profile, st
 	return c
 }
 
-// FilterContainers mocks base method.
-func (m *MockServer) FilterContainers(arg0 string, arg1 ...string) ([]lxd0.Container, error) {
-	m.ctrl.T.Helper()
-	varargs := []any{arg0}
-	for _, a := range arg1 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "FilterContainers", varargs...)
-	ret0, _ := ret[0].([]lxd0.Container)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FilterContainers indicates an expected call of FilterContainers.
-func (mr *MockServerMockRecorder) FilterContainers(arg0 any, arg1 ...any) *MockServerFilterContainersCall {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0}, arg1...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FilterContainers", reflect.TypeOf((*MockServer)(nil).FilterContainers), varargs...)
-	return &MockServerFilterContainersCall{Call: call}
-}
-
-// MockServerFilterContainersCall wrap *gomock.Call
-type MockServerFilterContainersCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockServerFilterContainersCall) Return(arg0 []lxd0.Container, arg1 error) *MockServerFilterContainersCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockServerFilterContainersCall) Do(f func(string, ...string) ([]lxd0.Container, error)) *MockServerFilterContainersCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServerFilterContainersCall) DoAndReturn(f func(string, ...string) ([]lxd0.Container, error)) *MockServerFilterContainersCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // FindImage mocks base method.
 func (m *MockServer) FindImage(arg0 context.Context, arg1 base.Base, arg2 string, arg3 instance.VirtType, arg4 []lxd0.ServerSpec, arg5 bool, arg6 environs.StatusCallbackFunc) (lxd0.SourcedImage, error) {
 	m.ctrl.T.Helper()

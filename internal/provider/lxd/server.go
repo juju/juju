@@ -51,7 +51,6 @@ type Server interface {
 	ContainerAddresses(name string) ([]network.ProviderAddress, error)
 	RemoveContainer(name string) error
 	RemoveContainers(names []string) error
-	FilterContainers(prefix string, statuses ...string) ([]lxd.Container, error)
 	CreateContainerFromSpec(spec lxd.ContainerSpec) (*lxd.Container, error)
 	WriteContainer(*lxd.Container) error
 	CreateProfileWithConfig(string, map[string]string) error
