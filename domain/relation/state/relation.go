@@ -126,10 +126,10 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 r
 	})
 }
 
-// AddRelationWithID establishes a relation between two endpoints identified
+// SetRelationWithID establishes a relation between two endpoints identified
 // by ep1 and ep2 and returns the relation UUID. Used for migration
 // import.
-func (st *State) AddRelationWithID(
+func (st *State) SetRelationWithID(
 	ctx context.Context,
 	epIdentifier1, epIdentifier2 relation.CandidateEndpointIdentifier,
 	id uint64,
@@ -149,9 +149,19 @@ func (st *State) AddRelationWithID(
 				epIdentifier2, err)
 		}
 
-		relUUID, err = st.addRelation(ctx, tx, ep1, ep2, id)
+		// Insert a new relation with a new relation UUID.
+		relUUID, err = st.insertNewRelation(ctx, tx, id)
 		if err != nil {
-			return errors.Errorf("cannot add relation %q, %q: %w", epIdentifier1, epIdentifier2, err)
+			return errors.Errorf("setting new relation: %w", err)
+		}
+
+		// Insert both relation_endpoint from application_endpoint_uuid and relation
+		// uuid.
+		if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, ep1.EndpointUUID); err != nil {
+			return errors.Errorf("setting new relation endpoint for %q: %w", ep1.String(), err)
+		}
+		if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, ep2.EndpointUUID); err != nil {
+			return errors.Errorf("setting new relation endpoint for %q: %w", ep2.String(), err)
 		}
 
 		return nil

@@ -460,7 +460,7 @@ func (s *addRelationSuite) TestAddRelationWithID(c *gc.C) {
 	expectedRelID := uint64(42)
 
 	// Act
-	obtainedRelUUID, err := s.state.AddRelationWithID(context.Background(), relation.CandidateEndpointIdentifier{
+	obtainedRelUUID, err := s.state.SetRelationWithID(context.Background(), relation.CandidateEndpointIdentifier{
 		ApplicationName: "application-1",
 		EndpointName:    "req",
 	}, relation.CandidateEndpointIdentifier{
@@ -3598,7 +3598,7 @@ func (s *relationSuite) TestGetApplicationIDByNameNotFound(c *gc.C) {
 }
 
 func (s *relationSuite) TestDeleteImportedRelations(c *gc.C) {
-	// Arrange: Add relation with one endpoint.
+	// Arrange: Add a peer relation with one endpoint.
 	endpoint1 := relation.Endpoint{
 		ApplicationName: s.fakeApplicationName1,
 		Relation: charm.Relation{

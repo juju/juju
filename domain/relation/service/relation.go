@@ -35,10 +35,10 @@ type State interface {
 	// by ep1 and ep2 and returns the created endpoints.
 	AddRelation(ctx context.Context, ep1, ep2 relation.CandidateEndpointIdentifier) (relation.Endpoint, relation.Endpoint, error)
 
-	// AddRelationWithID establishes a relation between two endpoints identified
+	// SetRelationWithID establishes a relation between two endpoints identified
 	// by ep1 and ep2 and returns the relation UUID. Used for migration
 	// import.
-	AddRelationWithID(
+	SetRelationWithID(
 		ctx context.Context,
 		ep1, ep2 relation.CandidateEndpointIdentifier,
 		id uint64,
@@ -985,7 +985,6 @@ func (s *Service) SetRelationUnitSettings(
 // relations to insert from the arguments, then inserts them at the end so as to
 // wait as long as possible before turning into a write transaction.
 func (s *Service) ImportRelations(ctx context.Context, args relation.ImportRelationsArgs) error {
-	s.logger.Criticalf(ctx, "ImportRelations(%+v)", args)
 	for _, arg := range args {
 		relUUID, err := s.importRelation(ctx, arg)
 		if err != nil {
@@ -1006,7 +1005,6 @@ func (s *Service) importRelation(ctx context.Context, arg relation.ImportRelatio
 	var relUUID corerelation.UUID
 
 	eps := arg.Key.EndpointIdentifiers()
-	s.logger.Criticalf(ctx, "importRelation(%d): %+v", arg.ID, eps)
 
 	switch len(eps) {
 	case 1:
@@ -1017,8 +1015,6 @@ func (s *Service) importRelation(ctx context.Context, arg relation.ImportRelatio
 		if err != nil {
 			return relUUID, errors.Errorf("getting peer relation %d by endpoint %q: %w", arg.ID, eps[0], err)
 		}
-		s.logger.Criticalf(ctx, "found the peer relation, its UUID is: %q", relUUID.String())
-		// TODO - reset the relation ID.
 	case 2:
 		idep1, err := relation.NewCandidateEndpointIdentifier(eps[0].String())
 		if err != nil {
@@ -1029,7 +1025,7 @@ func (s *Service) importRelation(ctx context.Context, arg relation.ImportRelatio
 			return relUUID, errors.Errorf("parsing endpoint identifier %q: %w", eps[1].String(), err)
 		}
 
-		relUUID, err = s.st.AddRelationWithID(ctx, idep1, idep2, uint64(arg.ID))
+		relUUID, err = s.st.SetRelationWithID(ctx, idep1, idep2, uint64(arg.ID))
 		if err != nil {
 			return relUUID, errors.Capture(err)
 		}
