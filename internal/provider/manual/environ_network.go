@@ -24,11 +24,6 @@ func (e *manualEnviron) Subnets(envcontext.ProviderCallContext, []network.Id) ([
 	return nil, errors.NotSupportedf("subnets")
 }
 
-// SuperSubnets implements environs.NetworkingEnviron.
-func (e *manualEnviron) SuperSubnets(envcontext.ProviderCallContext) ([]string, error) {
-	return nil, errors.NotSupportedf("super subnets")
-}
-
 // NetworkInterfaces implements environs.NetworkingEnviron.
 func (e *manualEnviron) NetworkInterfaces(
 	envcontext.ProviderCallContext, []instance.Id,

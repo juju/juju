@@ -296,19 +296,6 @@ func (e *environ) SupportsSpaces() (bool, error) {
 	return false, nil
 }
 
-// SuperSubnets implements environs.SuperSubnets
-func (e *environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error) {
-	subnets, err := e.Subnets(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	cidrs := make([]string, len(subnets))
-	for i, subnet := range subnets {
-		cidrs[i] = subnet.CIDR
-	}
-	return cidrs, nil
-}
-
 func copyStrings(items []string) []string {
 	if items == nil {
 		return nil

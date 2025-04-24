@@ -155,11 +155,6 @@ func (env *azureEnviron) allPublicIPs(ctx envcontext.ProviderCallContext) (map[s
 	return idToIPMap, nil
 }
 
-// SuperSubnets implements environs.NetworkingEnviron.
-func (*azureEnviron) SuperSubnets(envcontext.ProviderCallContext) ([]string, error) {
-	return nil, errors.NotSupportedf("super subnets")
-}
-
 // NetworkInterfaces implements environs.NetworkingEnviron. It returns back
 // a slice where the i_th element contains the list of network interfaces
 // for the i_th provided instance ID.

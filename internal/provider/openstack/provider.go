@@ -2313,19 +2313,6 @@ func (e *Environ) SupportsSpaces() (bool, error) {
 	return true, nil
 }
 
-// SuperSubnets is specified on environs.Networking
-func (e *Environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error) {
-	subnets, err := e.networking.Subnets(nil)
-	if err != nil {
-		return nil, e.HandleCredentialError(ctx, err)
-	}
-	cidrs := make([]string, len(subnets))
-	for i, subnet := range subnets {
-		cidrs[i] = subnet.CIDR
-	}
-	return cidrs, nil
-}
-
 // SupportsRulesWithIPV6CIDRs returns true if the environment supports ingress
 // rules containing IPV6 CIDRs. It is part of the FirewallFeatureQuerier
 // interface.
