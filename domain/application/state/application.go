@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"maps"
 	"slices"
 	"sort"
@@ -1182,7 +1183,7 @@ WHERE a.name = $applicationName.name
 // InitialWatchStatementUnitAddressesHash returns the initial namespace query
 // for the unit addresses hash watcher as well as the tables to be watched
 // (ip_address and application_endpoint)
-func (st *State) InitialWatchStatementUnitAddressesHash(appUUID coreapplication.ID) (string, string, eventsource.NamespaceQuery) {
+func (st *State) InitialWatchStatementUnitAddressesHash(appUUID coreapplication.ID, netNodeUUID string) (string, string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
 
 		var (
@@ -1191,7 +1192,7 @@ func (st *State) InitialWatchStatementUnitAddressesHash(appUUID coreapplication.
 		)
 		err := runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			var err error
-			spaceAddresses, err = st.getApplicationSpaceAddresses(ctx, tx, appUUID)
+			spaceAddresses, err = st.getNetNodeSpaceAddresses(ctx, tx, netNodeUUID)
 			if err != nil {
 				return errors.Capture(err)
 			}
@@ -1213,9 +1214,80 @@ func (st *State) InitialWatchStatementUnitAddressesHash(appUUID coreapplication.
 	return "ip_address", "application_endpoint", queryFunc
 }
 
+// GetNetNodeUUIDByUnitName returns the net node UUID for the named unit or the
+// cloud service associated with the unit's application. This method is meant
+// to be used in the WatchUnitAddressesHash watcher as a filter for ip address
+// changes.
+//
+// It first checks if a cloud service exists for the application, if there is
+// then it returns the net node UUID for the cloud service without checking for
+// the unit's net node since it corresponds to the cloud container address
+// instead.
+//
+// If the unit does not exist an error satisfying
+// [applicationerrors.UnitNotFound] will be returned.
+func (st *State) GetNetNodeUUIDByUnitName(ctx context.Context, name coreunit.Name) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	unitName := unitName{Name: name}
+	k8sServiceNetNodeStmt, err := st.Prepare(`
+SELECT k.net_node_uuid AS &dbUUID.uuid
+FROM   k8s_service k
+JOIN   application a ON a.uuid = k.application_uuid
+JOIN   unit u ON u.application_uuid = a.uuid
+WHERE  u.name = $unitName.name
+`, unitName, dbUUID{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	unitNetNodeStmt, err := st.Prepare(`
+SELECT net_node_uuid AS &dbUUID.uuid
+FROM   unit
+WHERE  name = $unitName.name
+`, unitName, dbUUID{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var netNodeUUID dbUUID
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// First try to get the net node UUID from the k8s service.
+		err := tx.Query(ctx, k8sServiceNetNodeStmt, unitName).Get(&netNodeUUID)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		} else if err == nil {
+			return nil
+		}
+
+		// If nothing found, try to get the net node UUID from the unit.
+		err = tx.Query(ctx, unitNetNodeStmt, unitName).Get(&netNodeUUID)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		} else if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("%w: %s", applicationerrors.UnitNotFound, name)
+		}
+
+		return nil
+	}); err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return netNodeUUID.UUID, nil
+}
+
 // GetAddressesHash returns the sha256 hash of the application unit and cloud
 // service (if any) addresses along with the associated endpoint bindings.
-func (st *State) GetAddressesHash(ctx context.Context, appUUID coreapplication.ID) (string, error) {
+//
+// NOTE(nvinuesa): This method is used in the `WatchUnitAddressesHash` watcher
+// to validate if a change has indeed occurred. The issue with this behavior is
+// that it will get fired very often and the probability of a change that is
+// of interest for the unit is low.
+// A possible future improvement would be to accumulate the change events and
+// check whether the unit of interest has been affaceted, before hitting the db.
+func (st *State) GetAddressesHash(ctx context.Context, appUUID coreapplication.ID, netNodeUUID string) (string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -1227,7 +1299,7 @@ func (st *State) GetAddressesHash(ctx context.Context, appUUID coreapplication.I
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		spaceAddresses, err = st.getApplicationSpaceAddresses(ctx, tx, appUUID)
+		spaceAddresses, err = st.getNetNodeSpaceAddresses(ctx, tx, netNodeUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -1243,53 +1315,46 @@ func (st *State) GetAddressesHash(ctx context.Context, appUUID coreapplication.I
 	return st.hashAddressesAndEndpoints(spaceAddresses, endpointBindings)
 }
 
-func (st *State) getApplicationSpaceAddresses(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID) ([]spaceAddress, error) {
+func (st *State) getNetNodeSpaceAddresses(ctx context.Context, tx *sqlair.TX, netNode string) ([]spaceAddress, error) {
 	var result []spaceAddress
 
-	app := applicationID{ID: appUUID}
+	netNodeUUID := netNodeUUID{NetNodeUUID: netNode}
 	stmt, err := st.Prepare(`
-WITH units_and_services AS (
-    SELECT
-        u.net_node_uuid AS net_node_uuid
-    FROM
-        unit u
-    WHERE
-        u.application_uuid = $applicationID.uuid
-    UNION ALL
-    SELECT
-        ks.net_node_uuid AS net_node_uuid
-    FROM
-        k8s_service ks
-    WHERE
-        ks.application_uuid = $applicationID.uuid
-)
 SELECT
     ip.address_value AS &spaceAddress.address_value,
     ip.type_id AS &spaceAddress.type_id,
     ip.scope_id AS &spaceAddress.scope_id,
     sn.space_uuid AS &spaceAddress.space_uuid
-FROM
-    units_and_services uas
-JOIN
-    link_layer_device lld ON lld.net_node_uuid = uas.net_node_uuid
-JOIN
-    ip_address ip ON ip.device_uuid = lld.uuid
-LEFT JOIN
-    subnet sn ON sn.uuid = ip.subnet_uuid;
-`, app, spaceAddress{})
+FROM      net_node nn
+JOIN      link_layer_device lld ON lld.net_node_uuid = nn.uuid
+JOIN      ip_address ip ON ip.device_uuid = lld.uuid
+LEFT JOIN subnet sn ON sn.uuid = ip.subnet_uuid
+WHERE     nn.uuid = $netNodeUUID.uuid;
+`, netNodeUUID, spaceAddress{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	err = tx.Query(ctx, stmt, app).GetAll(&result)
+	err = tx.Query(ctx, stmt, netNodeUUID).GetAll(&result)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Errorf("querying application %q space addresses: %w", appUUID, err)
+		return nil, errors.Errorf("querying net node %q space addresses: %w", netNode, err)
 	}
 	return result, nil
 }
 
+// hashAddressesAndEndpoints returns a hash of the addresses and endpoint
+// bindings.
+//
+// NOTE(nvinuesa): This type of methods should usually be located in the
+// service layer, since it contains pure business logic. However, this method
+// is used in the initial query of the `WatchUnitAddressesHash` watcher, and
+// since the initial query must return a []string, we cannot call this method
+// from the service layer. Another solution would have been passing this as a
+// closure to the watcher, but this would have required to create new service
+// layer structs that match exactly the ones in state, which is not a desirable
+// pattern.
 func (st *State) hashAddressesAndEndpoints(addresses []spaceAddress, endpointBindings map[string]string) (string, error) {
-	if len(addresses) == 0 {
+	if len(addresses) == 0 && len(endpointBindings) == 0 {
 		return "", nil
 	}
 
@@ -1298,27 +1363,14 @@ func (st *State) hashAddressesAndEndpoints(addresses []spaceAddress, endpointBin
 	sort.Slice(addresses, func(i, j int) bool {
 		return addresses[i].Value < addresses[j].Value
 	})
+
 	// Add the hash parts for each address.
 	for _, spaceAddress := range addresses {
-		if _, err := hash.Write([]byte(spaceAddress.Value)); err != nil {
-			return "", errors.Errorf("hashing address %q: %w", spaceAddress.Value, err)
-		}
-		addressType := ipaddress.UnMarshallAddressType(ipaddress.AddressType(spaceAddress.TypeID))
-		if _, err := hash.Write([]byte(addressType)); err != nil {
-			return "", errors.Errorf("hashing address type %q: %w", addressType, err)
-		}
-		addressScope := ipaddress.UnMarshallScope(ipaddress.Scope(spaceAddress.ScopeID))
-		if _, err := hash.Write([]byte(addressScope)); err != nil {
-			return "", errors.Errorf("hashing address scope %q: %w", addressScope, err)
-		}
-		spaceUUID := network.AlphaSpaceId
-		if spaceAddress.SpaceUUID.Valid {
-			spaceUUID = spaceAddress.SpaceUUID.String
-		}
-		if _, err := hash.Write([]byte(spaceUUID)); err != nil {
-			return "", errors.Errorf("hashing space uuid %q: %w", spaceUUID, err)
+		if err := st.hashAddress(hash, spaceAddress); err != nil {
+			return "", errors.Capture(err)
 		}
 	}
+
 	// Sort the endpoint bindings by key (endpoint name) and add each binding to
 	// the hash.
 	endpointNames := make([]string, 0, len(endpointBindings))
@@ -1332,7 +1384,29 @@ func (st *State) hashAddressesAndEndpoints(addresses []spaceAddress, endpointBin
 		}
 	}
 
-	return fmt.Sprintf("%x", hash.Sum(nil)), nil
+	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+func (st *State) hashAddress(writer io.Writer, address spaceAddress) error {
+	if _, err := writer.Write([]byte(address.Value)); err != nil {
+		return errors.Errorf("hashing address %q: %w", address.Value, err)
+	}
+	addressType := strconv.Itoa(address.TypeID)
+	if _, err := writer.Write([]byte(addressType)); err != nil {
+		return errors.Errorf("hashing address type %q: %w", addressType, err)
+	}
+	addressScope := strconv.Itoa(address.ScopeID)
+	if _, err := writer.Write([]byte(addressScope)); err != nil {
+		return errors.Errorf("hashing address scope %q: %w", addressScope, err)
+	}
+	spaceUUID := network.AlphaSpaceId
+	if address.SpaceUUID.Valid {
+		spaceUUID = address.SpaceUUID.String
+	}
+	if _, err := writer.Write([]byte(spaceUUID)); err != nil {
+		return errors.Errorf("hashing space uuid %q: %w", spaceUUID, err)
+	}
+	return nil
 }
 
 // GetApplicationsWithPendingCharmsFromUUIDs returns the application IDs for the

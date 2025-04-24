@@ -713,18 +713,18 @@ func (s *watcherSuite) TestWatchUnitAddressesHashEmptyInitial(c *gc.C) {
 	watcher, err := svc.WatchUnitAddressesHash(ctx, "foo/0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC[[]string](c, watcher))
 
 	// Assert that nothing changes if nothing happens.
 	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
-	// Hash of the initial (empty) state.
-	harness.Run(c, []string{""})
+	// Hash of the initial state, which only includes the default bindings.
+	harness.Run(c, []string{"09511b3ff5d870167ea4613c5b73f4ef4cb4a6953a828469ac456f31d468c2e7"})
 }
 
-func (s *watcherSuite) TestWatchUnitAddressesHashInitialState(c *gc.C) {
+func (s *watcherSuite) TestWatchUnitAddressesHash(c *gc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_addresses_hash")
 	svc := s.setupService(c, factory)
 
@@ -744,8 +744,8 @@ func (s *watcherSuite) TestWatchUnitAddressesHashInitialState(c *gc.C) {
 		if err != nil {
 			return err
 		}
-		insertLLD := `INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, provider_id, device_type_id, virtual_port_type_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertLLD, "lld-uuid", "net-node-uuid", "lld-name", 1500, "00:11:22:33:44:55", "provider-id", 0, 0)
+		insertLLD := `INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) VALUES (?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertLLD, "lld-uuid", "net-node-uuid", "lld-name", 1500, "00:11:22:33:44:55", 0, 0)
 		if err != nil {
 			return err
 		}
@@ -769,8 +769,8 @@ func (s *watcherSuite) TestWatchUnitAddressesHashInitialState(c *gc.C) {
 		if err != nil {
 			return err
 		}
-		insertCharmRelation := `INSERT INTO charm_relation (uuid, charm_uuid, kind_id, scope_id, role_id, name) VALUES (?, ?, ?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertCharmRelation, "charm-relation0-uuid", "charm0-uuid", "0", "0", "0", "endpoint0")
+		insertCharmRelation := `INSERT INTO charm_relation (uuid, charm_uuid, scope_id, role_id, name) VALUES (?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertCharmRelation, "charm-relation0-uuid", "charm0-uuid", "0", "0", "endpoint0")
 		if err != nil {
 			return err
 		}
@@ -787,67 +787,13 @@ func (s *watcherSuite) TestWatchUnitAddressesHashInitialState(c *gc.C) {
 	watcher, err := svc.WatchUnitAddressesHash(ctx, "foo/0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
-
-	// Assert that nothing changes if nothing happens.
-	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
-		w.AssertNoChange()
-	})
-
-	// Hash of the initial state.
-	harness.Run(c, []string{"f688856bb363e86090e11b754125f7e4fabdf9f5b3344c31611e889ca037b443"})
-}
-
-func (s *watcherSuite) TestWatchUnitAddressesHash(c *gc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_addresses_hash")
-	svc := s.setupService(c, factory)
-
-	appName := "foo"
-	appID := s.createApplication(c, svc, appName, service.AddUnitArg{
-		UnitName: "foo/0",
-	})
-
-	ctx := context.Background()
-	watcher, err := svc.WatchUnitAddressesHash(ctx, "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
-
-	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
-
-	// Assert that nothing changes if nothing happens.
-	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
-		w.AssertNoChange()
-	})
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	harness.AddTest(func(c *gc.C) {
-		// Add an address for that unit should trigger a change.
+		// Change the address for that net node should trigger a change.
 		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-			insertNetNode := `INSERT INTO net_node (uuid) VALUES (?)`
-			_, err := tx.ExecContext(ctx, insertNetNode, "net-node-uuid")
-			if err != nil {
-				return err
-			}
-			updateUnit := `UPDATE unit SET net_node_uuid = ? WHERE name = ?`
-			_, err = tx.ExecContext(ctx, updateUnit, "net-node-uuid", "foo/0")
-			if err != nil {
-				return err
-			}
-			insertLLD := `INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, provider_id, device_type_id, virtual_port_type_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-			_, err = tx.ExecContext(ctx, insertLLD, "lld-uuid", "net-node-uuid", "lld-name", 1500, "00:11:22:33:44:55", "provider-id", 0, 0)
-			if err != nil {
-				return err
-			}
-			insertSpace := `INSERT INTO space (uuid, name) VALUES (?, ?)`
-			_, err = tx.ExecContext(ctx, insertSpace, "space0-uuid", "space0")
-			if err != nil {
-				return err
-			}
-			insertSubnet := `INSERT INTO subnet (uuid, cidr, space_uuid) VALUES (?, ?, ?)`
-			_, err = tx.ExecContext(ctx, insertSubnet, "subnet-uuid", "10.0.0.0/24", "space0-uuid")
-			if err != nil {
-				return err
-			}
-			insertIPAddress := `INSERT INTO ip_address (uuid, device_uuid, address_value, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-			_, err = tx.ExecContext(ctx, insertIPAddress, "ip-address-uuid", "lld-uuid", "10.0.0.1", 0, 0, 0, 0, "subnet-uuid")
+			updateIPAddress := `UPDATE ip_address SET address_value = ? WHERE uuid = ?`
+			_, err = tx.ExecContext(ctx, updateIPAddress, "192.168.0.1", "ip-address-uuid")
 			if err != nil {
 				return err
 			}
@@ -858,62 +804,13 @@ func (s *watcherSuite) TestWatchUnitAddressesHash(c *gc.C) {
 		w.AssertChange()
 	})
 
-	harness.AddTest(func(c *gc.C) {
-		// Add an endpoint binding should trigger a change.
-		err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-			insertCharm := `INSERT INTO charm (uuid, reference_name) VALUES (?, ?)`
-			_, err = tx.ExecContext(ctx, insertCharm, "charm0-uuid", "foo-charm")
-			if err != nil {
-				return err
-			}
-			insertCharmRelation := `INSERT INTO charm_relation (uuid, charm_uuid, kind_id, scope_id, role_id, name) VALUES (?, ?, ?, ?, ?, ?)`
-			_, err = tx.ExecContext(ctx, insertCharmRelation, "charm-relation0-uuid", "charm0-uuid", "0", "0", "0", "endpoint0")
-			if err != nil {
-				return err
-			}
-			insertEndpoint := `INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, ?, ?)`
-			_, err = tx.ExecContext(ctx, insertEndpoint, "app-endpoint0-uuid", appID, network.AlphaSpaceId, "charm-relation0-uuid")
-			if err != nil {
-				return err
-			}
-			return nil
-		})
-		c.Assert(err, jc.ErrorIsNil)
-	}, func(w watchertest.WatcherC[[]string]) {
-		w.AssertChange()
-	})
-
-	// Hash of the initial (empty) state.
-	harness.Run(c, []string{""})
-}
-
-func (s *watcherSuite) TestWatchCloudServiceAddressesHashInitialState(c *gc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_addresses_hash")
-	svc := s.setupService(c, factory)
-
-	appName := "foo"
-	_ = s.createApplication(c, svc, appName, service.AddUnitArg{
-		UnitName: "foo/0",
-	})
-
-	ctx := context.Background()
-
-	// Add a cloud service to get an initial state.
-	err := svc.UpdateCloudService(ctx, "foo", "foo-provider", network.NewSpaceAddresses("10.0.0.1"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	watcher, err := svc.WatchUnitAddressesHash(ctx, "foo/0")
-	c.Assert(err, jc.ErrorIsNil)
-
-	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
-
 	// Assert that nothing changes if nothing happens.
 	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
 
 	// Hash of the initial state.
-	harness.Run(c, []string{"2ddfd7bd79533c9c87d83db51a4e94f4867d83d7b758df94c3481264c9bae24f"})
+	harness.Run(c, []string{"524100834051ef8c675e3adea593c50cceab2eacbd485f0879100045d273aacf"})
 }
 
 func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *gc.C) {
@@ -926,19 +823,19 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *gc.C) {
 	})
 
 	ctx := context.Background()
+
+	// Add a cloud service to get an initial state.
+	err := svc.UpdateCloudService(ctx, "foo", "foo-provider", network.NewSpaceAddresses("10.0.0.1"))
+	c.Assert(err, jc.ErrorIsNil)
+
 	watcher, err := svc.WatchUnitAddressesHash(ctx, "foo/0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
-
-	// Assert that nothing changes if nothing happens.
-	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
-		w.AssertNoChange()
-	})
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	harness.AddTest(func(c *gc.C) {
-		// Add an addres for the cloud service should trigger a change.
-		err := svc.UpdateCloudService(ctx, "foo", "foo-provider", network.NewSpaceAddresses("10.0.0.1"))
+		// Change the address for the cloud service should trigger a change.
+		err := svc.UpdateCloudService(ctx, "foo", "foo-provider", network.NewSpaceAddresses("192.168.0.1"))
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertChange()
@@ -952,8 +849,8 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *gc.C) {
 			if err != nil {
 				return err
 			}
-			insertCharmRelation := `INSERT INTO charm_relation (uuid, charm_uuid, kind_id, scope_id, role_id, name) VALUES (?, ?, ?, ?, ?, ?)`
-			_, err = tx.ExecContext(ctx, insertCharmRelation, "charm-relation0-uuid", "charm0-uuid", "0", "0", "0", "endpoint0")
+			insertCharmRelation := `INSERT INTO charm_relation (uuid, charm_uuid, scope_id, role_id, name) VALUES (?, ?, ?, ?, ?)`
+			_, err = tx.ExecContext(ctx, insertCharmRelation, "charm-relation0-uuid", "charm0-uuid", "0", "0", "endpoint0")
 			if err != nil {
 				return err
 			}
@@ -969,9 +866,15 @@ func (s *watcherSuite) TestWatchCloudServiceAddressesHash(c *gc.C) {
 		w.AssertChange()
 	})
 
-	// Hash of the initial (empty) state.
-	harness.Run(c, []string{""})
+	// Assert that nothing changes if nothing happens.
+	harness.AddTest(func(c *gc.C) {}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	// Hash of the initial state.
+	harness.Run(c, []string{"5c83f0f6cd8dbec57a4503b85c7e807564fd2c8bf246f741a1da578aa570dbc2"})
 }
+
 func (s *watcherSuite) TestWatchUnitAddressesHashBadName(c *gc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "unit_addresses_hash")
 	svc := s.setupService(c, factory)

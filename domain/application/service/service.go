@@ -463,7 +463,14 @@ func (s *WatchableService) WatchUnitAddressesHash(ctx context.Context, unitName 
 	// generated on the first change.
 	var currentHash string
 
-	ipAddressTable, appEndpointTable, query := s.st.InitialWatchStatementUnitAddressesHash(appUUID)
+	// Retrieve the net node uuid that corresponds to the cloud service and if
+	// there isn't one, then the unit's net node.
+	netNodeUUID, err := s.st.GetNetNodeUUIDByUnitName(ctx, unitName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	ipAddressTable, appEndpointTable, query := s.st.InitialWatchStatementUnitAddressesHash(appUUID, netNodeUUID)
 	return s.watcherFactory.NewNamespaceMapperWatcher(
 		func(ctx context.Context, txn database.TxnRunner) ([]string, error) {
 			initialResults, err := query(ctx, txn)
@@ -485,7 +492,7 @@ func (s *WatchableService) WatchUnitAddressesHash(ctx context.Context, unitName 
 				return nil, nil
 			}
 
-			newHash, err := s.st.GetAddressesHash(ctx, appUUID)
+			newHash, err := s.st.GetAddressesHash(ctx, appUUID, netNodeUUID)
 			if err != nil {
 				return nil, errors.Capture(err)
 			}
