@@ -92,12 +92,12 @@ jobs:
             --constraints "arch=$(go env GOARCH)" \
             --model-default logging-config="#migration=TRACE" \
             --model-default enable-os-upgrade=false
-          juju switch controller
+          juju switch -m target-controller:controller
 
           attempt=0
-          until [[ $(juju status controller) ]]; do
+          until [[ $(juju status -m target-controller:controller) ]]; do
             echo "controller not found, waiting..."
-            juju status controller
+            juju status -m target-controller:controller
 
             if [[ ${attempt} -eq 10 ]]; then
               exit 1
@@ -186,9 +186,9 @@ jobs:
           juju switch test-migrate
           
           attempt=0
-          until [[ $(juju status ubuntu) ]]; do
+          until [[ $(juju status -m target-controller:test-migrate --format=json | jq ".applications | .ubuntu" | grep -v null) ]]; do
             echo "ubuntu not found, waiting..."
-            juju status ubuntu
+           juju status -m target-controller:test-migrate
 
             if [[ ${attempt} -eq 10 ]]; then
               exit 1
@@ -203,9 +203,9 @@ jobs:
           juju deploy ubuntu yet-another-ubuntu --constraints arch=$(go env GOARCH)
 
           attempt=0
-          until [[ $(juju status yet-another-ubuntu) ]]; do
+          until [[ $(juju status -m target-controller:test-migrate --format=json | jq ".applications | .[\"yet-another-ubuntu\"]" | grep -v null) ]]; do
             echo "yet-another-ubuntu not found, waiting..."
-            juju status yet-another-ubuntu
+            juju status -m target-controller:test-migrate
 
             if [[ ${attempt} -eq 10 ]]; then
               exit 1
@@ -220,15 +220,15 @@ jobs:
         run: |
           set -x
           echo " - Migration source status"
-          juju status -m source-controller:controller --format json || true
-          juju status -m source-controller:test-migrate --format json || true
+          juju status -m source-controller:controller --format json | jq || true
+          juju status -m source-controller:test-migrate --format json | jq  || true
           
           echo " - Migration source controller logs"
-          juju debug-log -m source-controller:controller --lines 200 --no-tail || true
+          juju debug-log -m source-controller:controller --lines 200 || true
           
           echo " - Migration target status"
-          juju status -m target-controller:controller --format json || true
-          juju status -m target-controller:test-migrate --format json || true
+          juju status -m target-controller:controller --format json | jq  || true
+          juju status -m target-controller:test-migrate --format json | jq  || true
           
           echo " - Migration target controller logs"
-          juju debug-log -m target-controller:controller --lines 200 --no-tail || true
+          juju debug-log -m target-controller:controller --lines 200 || true
