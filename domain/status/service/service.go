@@ -232,20 +232,7 @@ func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appName strin
 	if err != nil {
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
-	if applicationStatus.Status != status.WorkloadStatusUnset {
-		return decodeApplicationStatus(applicationStatus)
-	}
-
-	fullUnitStatuses, err := s.st.GetAllFullUnitStatusesForApplication(ctx, appID)
-	if err != nil {
-		return corestatus.StatusInfo{}, errors.Capture(err)
-	}
-
-	derivedApplicationStatus, err := applicationDisplayStatusFromUnits(fullUnitStatuses)
-	if err != nil {
-		return corestatus.StatusInfo{}, errors.Capture(err)
-	}
-	return derivedApplicationStatus, nil
+	return s.decodeApplicationDisplayStatus(ctx, appID, applicationStatus)
 }
 
 // SetUnitWorkloadStatus sets the workload status of the specified unit,
@@ -453,7 +440,7 @@ func (s *Service) GetApplicationAndUnitStatuses(ctx context.Context) (map[string
 
 	results := make(map[string]Application, len(statuses))
 	for appName, app := range statuses {
-		decoded, err := decodeApplicationStatusDetails(app)
+		decoded, err := s.decodeApplicationStatusDetails(ctx, app)
 		if err != nil {
 			return nil, errors.Errorf("decoding application status for %q: %w", appName, err)
 		}
@@ -463,12 +450,12 @@ func (s *Service) GetApplicationAndUnitStatuses(ctx context.Context) (map[string
 	return results, nil
 }
 
-func decodeApplicationStatusDetails(app status.Application) (Application, error) {
+func (s *Service) decodeApplicationStatusDetails(ctx context.Context, app status.Application) (Application, error) {
 	life, err := app.Life.Value()
 	if err != nil {
 		return Application{}, errors.Errorf("decoding application life: %w", err)
 	}
-	decodedStatus, err := decodeApplicationStatus(app.Status)
+	decodedStatus, err := s.decodeApplicationDisplayStatus(ctx, app.ID, app.Status)
 	if err != nil {
 		return Application{}, errors.Errorf("decoding application status: %w", err)
 	}
@@ -482,7 +469,30 @@ func decodeApplicationStatusDetails(app status.Application) (Application, error)
 		CharmVersion: app.CharmVersion,
 		Platform:     app.Platform,
 		Channel:      app.Channel,
+		Exposed:      app.Exposed,
 	}, nil
+}
+
+// GetApplicationDisplayStatus returns the display status of the specified
+// application. The display status is equal to the application status if it is
+// set, otherwise it is derived from the unit display statuses. If no
+// application is found, an error satisfying [statuserrors.ApplicationNotFound]
+// is returned.
+func (s *Service) decodeApplicationDisplayStatus(ctx context.Context, appID coreapplication.ID, statusInfo status.StatusInfo[status.WorkloadStatusType]) (corestatus.StatusInfo, error) {
+	if statusInfo.Status != status.WorkloadStatusUnset {
+		return decodeApplicationStatus(statusInfo)
+	}
+
+	fullUnitStatuses, err := s.st.GetAllFullUnitStatusesForApplication(ctx, appID)
+	if err != nil {
+		return corestatus.StatusInfo{}, errors.Capture(err)
+	}
+
+	derivedApplicationStatus, err := applicationDisplayStatusFromUnits(fullUnitStatuses)
+	if err != nil {
+		return corestatus.StatusInfo{}, errors.Capture(err)
+	}
+	return derivedApplicationStatus, nil
 }
 
 // ExportUnitStatuses returns the workload and agent statuses of all the units in

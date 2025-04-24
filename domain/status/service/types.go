@@ -21,4 +21,5 @@ type Application struct {
 	CharmVersion string
 	Platform     deployment.Platform
 	Channel      *deployment.Channel
+	Exposed      bool
 }

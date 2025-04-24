@@ -1177,6 +1177,7 @@ func (st *State) GetApplicationAndUnitStatuses(ctx context.Context) (map[string]
 	// Get all the applications.
 	applicationQuery, err := st.Prepare(`
 SELECT a.name AS &applicationStatusDetails.name,
+	a.uuid AS &applicationStatusDetails.uuid,
 	a.life_id AS &applicationStatusDetails.life_id,
 	ap.os_id AS &applicationStatusDetails.platform_os_id,
 	ap.channel AS &applicationStatusDetails.platform_channel,
@@ -1194,7 +1195,8 @@ SELECT a.name AS &applicationStatusDetails.name,
 	c.revision AS &applicationStatusDetails.charm_revision,
 	c.source_id AS &applicationStatusDetails.charm_source_id,
 	c.architecture_id AS &applicationStatusDetails.charm_architecture_id,
-	c.version AS &applicationStatusDetails.charm_version
+	c.version AS &applicationStatusDetails.charm_version,
+	EXISTS(SELECT 1 FROM v_application_exposed_endpoint AS ae WHERE ae.application_uuid = a.uuid) AS &applicationStatusDetails.exposed
 FROM application AS a
 JOIN application_platform AS ap ON ap.application_uuid = a.uuid
 LEFT JOIN application_channel AS ac ON ac.application_uuid = a.uuid
@@ -1224,7 +1226,7 @@ ORDER BY a.name, re.relation_uuid;
 
 	result := make(map[string]status.Application)
 	for _, s := range appStatuses {
-		appName := s.ApplicationName
+		appName := s.Name
 
 		var relationUUID corerelation.UUID
 		if s.RelationUUID.Valid {
@@ -1273,6 +1275,7 @@ ORDER BY a.name, re.relation_uuid;
 		}
 
 		result[appName] = status.Application{
+			ID:          s.UUID,
 			Life:        s.LifeID,
 			Subordinate: s.Subordinate,
 			Status: status.StatusInfo[status.WorkloadStatusType]{
@@ -1286,6 +1289,7 @@ ORDER BY a.name, re.relation_uuid;
 			CharmVersion: s.CharmVersion,
 			Platform:     platform,
 			Channel:      channel,
+			Exposed:      s.Exposed,
 		}
 	}
 

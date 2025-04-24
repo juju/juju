@@ -4,6 +4,7 @@
 package status
 
 import (
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/unit"
@@ -14,6 +15,7 @@ import (
 
 // Application represents the status of an application.
 type Application struct {
+	ID           application.ID
 	Life         life.Life
 	Status       StatusInfo[WorkloadStatusType]
 	Units        map[unit.Name]Unit
@@ -23,6 +25,7 @@ type Application struct {
 	CharmVersion string
 	Platform     deployment.Platform
 	Channel      *deployment.Channel
+	Exposed      bool
 }
 
 // Unit represents the status of a unit.

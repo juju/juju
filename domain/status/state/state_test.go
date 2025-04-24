@@ -1248,12 +1248,13 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *gc.C) {
 	u2 := application.AddUnitArg{
 		UnitName: "foo/667",
 	}
-	s.createApplication(c, "foo", life.Alive, false, nil, u1, u2)
+	appUUID, _ := s.createApplication(c, "foo", life.Alive, false, nil, u1, u2)
 
 	statuses, err := s.state.GetApplicationAndUnitStatuses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(statuses, jc.DeepEquals, map[string]status.Application{
 		"foo": {
+			ID:   appUUID,
 			Life: life.Alive,
 			CharmLocator: charm.CharmLocator{
 				Name:         "foo",
@@ -1285,12 +1286,13 @@ func (s *stateSuite) TestGetApplicationAndUnitStatuses(c *gc.C) {
 	now := time.Now()
 
 	appStatus := s.appStatus(now)
-	s.createApplication(c, "foo", life.Alive, false, appStatus, u1, u2)
+	appUUID, _ := s.createApplication(c, "foo", life.Alive, false, appStatus, u1, u2)
 
 	statuses, err := s.state.GetApplicationAndUnitStatuses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(statuses, jc.DeepEquals, map[string]status.Application{
 		"foo": {
+			ID:     appUUID,
 			Life:   life.Alive,
 			Status: *appStatus,
 			CharmLocator: charm.CharmLocator{
@@ -1323,12 +1325,13 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *gc.C) {
 	now := time.Now()
 
 	appStatus := s.appStatus(now)
-	s.createApplication(c, "foo", life.Alive, true, appStatus, u1, u2)
+	appUUID, _ := s.createApplication(c, "foo", life.Alive, true, appStatus, u1, u2)
 
 	statuses, err := s.state.GetApplicationAndUnitStatuses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(statuses, jc.DeepEquals, map[string]status.Application{
 		"foo": {
+			ID:          appUUID,
 			Life:        life.Alive,
 			Status:      *appStatus,
 			Subordinate: true,
@@ -1372,6 +1375,7 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(statuses, jc.DeepEquals, map[string]status.Application{
 		"foo": {
+			ID:     appUUID,
 			Life:   life.Alive,
 			Status: *appStatus,
 			CharmLocator: charm.CharmLocator{
@@ -1393,6 +1397,7 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *gc.C) {
 				Risk:   "stable",
 				Branch: "branch",
 			},
+			Exposed: true,
 		},
 	})
 }
@@ -1424,6 +1429,7 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations(c *g
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(statuses, jc.DeepEquals, map[string]status.Application{
 		"foo": {
+			ID:     appUUID,
 			Life:   life.Alive,
 			Status: *appStatus,
 			CharmLocator: charm.CharmLocator{
@@ -1443,6 +1449,7 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations(c *g
 				Risk:   "stable",
 				Branch: "branch",
 			},
+			Exposed: true,
 		},
 	})
 }
@@ -1505,6 +1512,11 @@ func (s *stateSuite) addRelationToApplication(c *gc.C, appUUID coreapplication.I
 
 		relationEndpointUUID := uuid.MustNewUUID().String()
 		_, err = tx.ExecContext(ctx, `INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid) VALUES (?, ?, ?);`, relationEndpointUUID, relationUUID, endpointUUID)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `INSERT INTO application_exposed_endpoint_cidr (application_uuid, application_endpoint_uuid, cidr) VALUES (?, ?, "10.0.0.0/24");`, appUUID, endpointUUID)
 		if err != nil {
 			return err
 		}

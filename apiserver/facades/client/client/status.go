@@ -955,28 +955,36 @@ func (context *statusContext) processApplications(ctx context.Context) map[strin
 	return applicationsMap
 }
 
-func (context *statusContext) processApplication(ctx context.Context, name string, application statusservice.Application) params.ApplicationStatus {
-	isExposed, err := context.applicationService.IsApplicationExposed(ctx, name)
-	if err != nil {
-		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
+func (context *statusContext) processApplicationExposedEndpoints(ctx context.Context, name string, application statusservice.Application) (map[string]params.ExposedEndpoint, error) {
+	// If the application is not exposed, then we don't need to try and get the
+	// exposed endpoints for the application. This reduces the number of default
+	// calls to the application service.
+	if !application.Exposed {
+		return nil, nil
 	}
 
 	exposedEndpoints, err := context.applicationService.GetExposedEndpoints(ctx, name)
 	if err != nil {
-		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
+		return nil, err
 	}
-	mappedExposedEndpoints, err := context.mapExposedEndpointsFromDomain(exposedEndpoints)
+	return context.mapExposedEndpointsFromDomain(exposedEndpoints)
+}
+
+func (context *statusContext) processApplication(ctx context.Context, name string, application statusservice.Application) params.ApplicationStatus {
+	exposedEndpoints, err := context.processApplicationExposedEndpoints(ctx, name, application)
 	if err != nil {
 		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
+
 	}
 
 	var channel string
 	if ch := application.Channel; ch != nil {
-		channel = (charm.Channel{
+		c := charm.Channel{
 			Track:  ch.Track,
 			Risk:   charm.Risk(ch.Risk),
 			Branch: ch.Branch,
-		}).Normalize().String()
+		}
+		channel = c.Normalize().String()
 	}
 
 	base, err := encodePlatform(application.Platform)
@@ -989,15 +997,22 @@ func (context *statusContext) processApplication(ctx context.Context, name strin
 		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 	}
 
+	appStatus := application.Status
 	processedStatus := params.ApplicationStatus{
 		Charm:            charmURL,
 		CharmVersion:     application.CharmVersion,
 		CharmRev:         application.CharmLocator.Revision,
 		CharmChannel:     channel,
 		Base:             base,
-		Exposed:          isExposed,
-		ExposedEndpoints: mappedExposedEndpoints,
+		Exposed:          application.Exposed,
+		ExposedEndpoints: exposedEndpoints,
 		Life:             application.Life,
+		Status: params.DetailedStatus{
+			Status: appStatus.Status.String(),
+			Info:   appStatus.Message,
+			Data:   appStatus.Data,
+			Since:  appStatus.Since,
+		},
 	}
 
 	curl, err := charm.ParseURL(charmURL)
@@ -1020,18 +1035,6 @@ func (context *statusContext) processApplication(ctx context.Context, name strin
 	if !application.Subordinate {
 		processedStatus.Units = context.processUnits(ctx, units, charmURL)
 	}
-
-	// NOTE(jack-w-shaw): If there is an error retrieving the application status,
-	// instead of returning an error we return the application status as unknown.
-	applicationStatus := status.StatusInfo{Status: status.Unknown}
-	displayStatus, err := context.statusService.GetApplicationDisplayStatus(ctx, name)
-	if err == nil {
-		applicationStatus = displayStatus
-	}
-	processedStatus.Status.Status = applicationStatus.Status.String()
-	processedStatus.Status.Info = applicationStatus.Message
-	processedStatus.Status.Data = applicationStatus.Data
-	processedStatus.Status.Since = applicationStatus.Since
 
 	versions := make([]status.StatusInfo, 0, len(units))
 	for _, unit := range units {
@@ -1072,8 +1075,9 @@ func (context *statusContext) processApplication(ctx context.Context, name strin
 	return processedStatus
 }
 
-func (context *statusContext) mapExposedEndpointsFromDomain(exposedEndpoints map[string]application.ExposedEndpoint) (map[string]params.ExposedEndpoint,
-	error) {
+func (context *statusContext) mapExposedEndpointsFromDomain(
+	exposedEndpoints map[string]application.ExposedEndpoint,
+) (map[string]params.ExposedEndpoint, error) {
 	if len(exposedEndpoints) == 0 {
 		return nil, nil
 	}
