@@ -1479,6 +1479,71 @@ func (s *importSuite) TestMultipleSpaceLookupExposedEndpoints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *importSuite) TestApplicationImportSubordinate(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
+
+	appArgs := description.ApplicationArgs{
+		Name:     "prometheus",
+		CharmURL: "ch:prometheus-1",
+	}
+	app := model.AddApplication(appArgs)
+	app.AddUnit(description.UnitArgs{
+		Name:         "prometheus/0",
+		PasswordHash: "passwordhash",
+		Machine:      "0",
+		Principal:    "principal/0",
+	})
+	app.SetCharmMetadata(description.CharmMetadataArgs{
+		Name:        "prometheus",
+		Subordinate: true,
+	})
+	app.SetCharmManifest(description.CharmManifestArgs{
+		Bases: []description.CharmManifestBase{baseType{
+			name:          "ubuntu",
+			channel:       "24.04",
+			architectures: []string{"amd64"},
+		}},
+	})
+	app.SetCharmOrigin(description.CharmOriginArgs{
+		Source:   "charm-hub",
+		ID:       "1234",
+		Hash:     "deadbeef",
+		Revision: 1,
+		Channel:  "666/stable",
+		Platform: "arm64/ubuntu/24.04",
+	})
+
+	var importArgs service.ImportApplicationArgs
+	s.importService.EXPECT().ImportApplication(
+		gomock.Any(),
+		"prometheus",
+		gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, args service.ImportApplicationArgs) error {
+		importArgs = args
+		return nil
+	})
+
+	importOp := importOperation{
+		service: s.importService,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+
+	err := importOp.Execute(context.Background(), model)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(importArgs.Charm.Meta().Name, gc.Equals, "prometheus")
+	c.Check(importArgs.Units, gc.DeepEquals, []service.ImportUnitArg{{
+		UnitName:     "prometheus/0",
+		PasswordHash: ptr("passwordhash"),
+		Machine:      machine.Name("0"),
+		Principal:    "principal/0",
+	}})
+}
+
 func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

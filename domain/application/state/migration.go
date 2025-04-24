@@ -218,6 +218,12 @@ func (st *State) importCAASUnit(
 		return errors.Errorf("importing unit for CAAS application %q: %w", appUUID, err)
 	}
 
+	if args.Principal != "" {
+		if err = st.recordUnitPrincipal(ctx, tx, args.Principal, args.UnitName); err != nil {
+			return errors.Errorf("importing subordinate info for unit %q: %w", args.UnitName, err)
+		}
+	}
+
 	// If there is no storage, return early.
 	if len(args.Storage) == 0 {
 		return nil
@@ -266,6 +272,13 @@ func (st *State) importIAASUnit(
 	}); err != nil {
 		return errors.Errorf("importing unit for application %q: %w", appUUID, err)
 	}
+
+	if args.Principal != "" {
+		if err = st.recordUnitPrincipal(ctx, tx, args.Principal, args.UnitName); err != nil {
+			return errors.Errorf("importing subordinate info for unit %q: %w", args.UnitName, err)
+		}
+	}
+
 	if _, err := st.insertUnitStorage(ctx, tx, appUUID, unitUUID, args.Storage, args.StoragePoolKind); err != nil {
 		return errors.Errorf("importing storage for unit %q: %w", args.UnitName, err)
 	}

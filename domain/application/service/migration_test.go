@@ -507,6 +507,7 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 		UnitName:       "ubuntu/666",
 		PasswordHash:   ptr("passwordhash"),
 		CloudContainer: nil,
+		Principal:      "principal/0",
 	}
 
 	cons := constraints.Value{
@@ -576,6 +577,7 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 			HashAlgorithm: 0,
 		}),
 		StorageParentDir: application.StorageParentDir,
+		Principal:        "principal/0",
 	}}
 	c.Check(receivedUnitArgs, gc.DeepEquals, expectedUnitArgs)
 }

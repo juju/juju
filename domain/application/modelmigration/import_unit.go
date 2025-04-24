@@ -12,9 +12,10 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/internal/errors"
 )
 
-func (i *importOperation) importCAASUnit(ctx context.Context, unit description.Unit) (service.ImportUnitArg, error) {
+func (i *importOperation) importUnit(ctx context.Context, unit description.Unit) (service.ImportUnitArg, error) {
 	unitName, err := coreunit.NewName(unit.Name())
 	if err != nil {
 		return service.ImportUnitArg{}, err
@@ -23,6 +24,27 @@ func (i *importOperation) importCAASUnit(ctx context.Context, unit description.U
 	var passwordHash *string
 	if hash := unit.PasswordHash(); hash != "" {
 		passwordHash = ptr(hash)
+	}
+
+	var principal coreunit.Name
+	if unit.Principal() != "" {
+		principal, err = coreunit.NewName(unit.Principal())
+		if err != nil {
+			return service.ImportUnitArg{}, errors.Capture(err)
+		}
+	}
+
+	return service.ImportUnitArg{
+		UnitName:     unitName,
+		PasswordHash: passwordHash,
+		Principal:    principal,
+	}, nil
+}
+
+func (i *importOperation) importCAASUnit(ctx context.Context, unit description.Unit) (service.ImportUnitArg, error) {
+	unitArgs, err := i.importUnit(ctx, unit)
+	if err != nil {
+		return service.ImportUnitArg{}, errors.Capture(err)
 	}
 
 	var cloudContainer *application.CloudContainerParams
@@ -40,28 +62,17 @@ func (i *importOperation) importCAASUnit(ctx context.Context, unit description.U
 			cloudContainer.Ports = ptr(cc.Ports())
 		}
 	}
+	unitArgs.CloudContainer = cloudContainer
 
-	return service.ImportUnitArg{
-		UnitName:       unitName,
-		PasswordHash:   passwordHash,
-		CloudContainer: cloudContainer,
-	}, nil
+	return unitArgs, nil
 }
 
 func (i *importOperation) importIAASUnit(ctx context.Context, unit description.Unit) (service.ImportUnitArg, error) {
-	unitName, err := coreunit.NewName(unit.Name())
+	unitArgs, err := i.importUnit(ctx, unit)
 	if err != nil {
-		return service.ImportUnitArg{}, err
+		return service.ImportUnitArg{}, errors.Capture(err)
 	}
 
-	var passwordHash *string
-	if hash := unit.PasswordHash(); hash != "" {
-		passwordHash = ptr(hash)
-	}
-
-	return service.ImportUnitArg{
-		UnitName:     unitName,
-		PasswordHash: passwordHash,
-		Machine:      machine.Name(unit.Machine()),
-	}, nil
+	unitArgs.Machine = machine.Name(unit.Machine())
+	return unitArgs, nil
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/life"
@@ -377,6 +378,43 @@ func (s *unitStateSuite) TestInsertMigratingCAASUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertInsertMigratingUnits(c, appID)
+}
+
+func (s *unitStateSubordinateSuite) TestInsertMigratingCAASUnitsSubordinate(c *gc.C) {
+	principal := unittesting.GenNewName(c, "bar/0")
+	sub := unittesting.GenNewName(c, "foo/666")
+	s.createApplication(c, "bar", life.Alive, application.InsertUnitArg{
+		UnitName: principal,
+	})
+	subAppID := s.createApplication(c, "foo", life.Alive)
+
+	err := s.state.InsertMigratingCAASUnits(context.Background(), subAppID, application.ImportUnitArg{
+		UnitName:  sub,
+		Principal: principal,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertInsertMigratingUnits(c, subAppID)
+	s.assertUnitPrincipal(c, principal, sub)
+}
+
+func (s *unitStateSubordinateSuite) TestInsertMigratingIAASUnitsSubordinate(c *gc.C) {
+	principal := unittesting.GenNewName(c, "bar/0")
+	sub := unittesting.GenNewName(c, "foo/666")
+	s.createApplication(c, "bar", life.Alive, application.InsertUnitArg{
+		UnitName: principal,
+	})
+	subAppID := s.createApplication(c, "foo", life.Alive)
+
+	err := s.state.InsertMigratingIAASUnits(context.Background(), subAppID, application.ImportUnitArg{
+		UnitName:  "foo/666",
+		Machine:   "0",
+		Principal: principal,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertInsertMigratingUnits(c, subAppID)
+	s.assertUnitPrincipal(c, principal, sub)
 }
 
 func (s *unitStateSuite) assertInsertMigratingUnits(c *gc.C, appID coreapplication.ID) {

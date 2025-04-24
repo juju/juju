@@ -417,6 +417,9 @@ type ImportUnitArg struct {
 	Storage          []ApplicationStorageArg
 	StoragePoolKind  map[string]storage.StorageKind
 	StorageParentDir string
+	// Principal contains the name of the units principal unit. If the unit is
+	// not a subordinate, this field is empty.
+	Principal coreunit.Name
 	UnitStatusArg
 }
 

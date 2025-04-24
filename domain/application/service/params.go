@@ -108,6 +108,9 @@ type ImportUnitArg struct {
 	PasswordHash   *string
 	CloudContainer *application.CloudContainerParams
 	Machine        machine.Name
+	// Principal contains the name of the units principal unit. If the unit is
+	// not a subordinate, this field is empty.
+	Principal coreunit.Name
 }
 
 // UpdateCAASUnitParams contains parameters for updating a CAAS unit.
