@@ -5,7 +5,9 @@ package uniter
 
 import (
 	"context"
+	"time"
 
+	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
@@ -849,6 +851,7 @@ func (s *uniterRelationSuite) TestSetRelationStatus(c *gc.C) {
 	s.expectGetRelationUUIDByID(relID, relationUUID, nil)
 	relStatus := status.StatusInfo{
 		Status: status.Joined,
+		Since:  ptr(s.uniter.clock.Now()),
 	}
 	s.expectSetRelationStatus(s.wordpressUnitTag.Id(), relationUUID, relStatus)
 
@@ -1192,6 +1195,7 @@ func (s *uniterRelationSuite) setupMocks(c *gc.C) *gomock.Controller {
 		accessApplication: appAuthFunc,
 		accessUnit:        unitAuthFunc,
 		auth:              authorizer,
+		clock:             testclock.NewClock(time.Now()),
 		logger:            loggertesting.WrapCheckLog(c),
 
 		applicationService: s.applicationService,
