@@ -93,6 +93,7 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"link_layer_device_dns_domain",
 		"link_layer_device_dns_address",
 		"link_layer_device_parent",
+		"link_layer_device_route",
 		"link_layer_device_type",
 		"provider_link_layer_device",
 		"virtual_port_type",

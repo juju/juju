@@ -96,6 +96,21 @@ CREATE TABLE link_layer_device_dns_address (
     PRIMARY KEY (device_uuid, dns_address)
 );
 
+-- Note that this table is defined for completeness in
+-- reflecting what we capture as network configuration.
+-- At the time of writing, we do not store any routes,
+-- but this can be easily changed at a later date.
+CREATE TABLE link_layer_device_route (
+    device_uuid TEXT NOT NULL,
+    destination_cidr TEXT NOT NULL,
+    gateway_ip TEXT NOT NULL,
+    metric INT NOT NULL,
+    CONSTRAINT fk_dns_server_device
+    FOREIGN KEY (device_uuid)
+    REFERENCES link_layer_device (uuid),
+    PRIMARY KEY (device_uuid, destination_cidr)
+);
+
 -- ip_address_type represents the possible ways of specifying
 -- an address, either a hostname resolvable by dns lookup,
 -- or IPv4 or IPv6 address.
@@ -314,3 +329,5 @@ SELECT
     null AS origin_id,
     fa.scope_id
 FROM fqdn_address AS fa;
+
+
