@@ -45,10 +45,7 @@ func (env *azureEnviron) networkInfo(ctx context.Context) (vnetRG string, vnetNa
 
 // Subnets implements environs.NetworkingEnviron.
 func (env *azureEnviron) Subnets(
-	ctx envcontext.ProviderCallContext, instanceID instance.Id, _ []network.Id) ([]network.SubnetInfo, error) {
-	if instanceID != instance.UnknownId {
-		return nil, errors.NotSupportedf("subnets for instance")
-	}
+	ctx envcontext.ProviderCallContext, _ []network.Id) ([]network.SubnetInfo, error) {
 	subnets, err := env.allSubnets(ctx)
 	if err != nil {
 		return nil, env.HandleCredentialError(ctx, err)

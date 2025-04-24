@@ -23,20 +23,16 @@ type networkMap map[string]*compute.Network
 
 // Subnets implements environs.NetworkingEnviron.
 func (e *environ) Subnets(
-	ctx envcontext.ProviderCallContext, inst instance.Id, subnetIds []corenetwork.Id,
+	ctx envcontext.ProviderCallContext, subnetIds []corenetwork.Id,
 ) ([]corenetwork.SubnetInfo, error) {
 	// In GCE all the subnets are in all AZs.
 	zones, err := e.zoneNames(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	ids := makeIncludeSet(subnetIds)
-	var results []corenetwork.SubnetInfo
-	if inst == instance.UnknownId {
-		results, err = e.getMatchingSubnets(ctx, ids, zones)
-	} else {
-		results, err = e.getInstanceSubnets(ctx, inst, ids, zones)
-	}
+	results, err := e.getMatchingSubnets(ctx, ids, zones)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -105,29 +101,6 @@ func (e *environ) getMatchingSubnets(
 				corenetwork.Id(netwk.Name),
 				corenetwork.Id(netwk.Name),
 				netwk.IPv4Range,
-				zones,
-			))
-		}
-	}
-	return results, nil
-}
-
-func (e *environ) getInstanceSubnets(
-	ctx envcontext.ProviderCallContext, inst instance.Id, subnetIds IncludeSet, zones []string,
-) ([]corenetwork.SubnetInfo, error) {
-	ifLists, err := e.NetworkInterfaces(ctx, []instance.Id{inst})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ifaces := ifLists[0]
-
-	var results []corenetwork.SubnetInfo
-	for _, iface := range ifaces {
-		if subnetIds.Include(string(iface.ProviderSubnetId)) {
-			results = append(results, makeSubnetInfo(
-				iface.ProviderSubnetId,
-				iface.ProviderNetworkId,
-				iface.PrimaryAddress().CIDR,
 				zones,
 			))
 		}
@@ -330,7 +303,7 @@ func (*environ) AreSpacesRoutable(ctx envcontext.ProviderCallContext, space1, sp
 
 // SuperSubnets implements environs.SuperSubnets
 func (e *environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error) {
-	subnets, err := e.Subnets(ctx, "", nil)
+	subnets, err := e.Subnets(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

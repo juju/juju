@@ -1182,23 +1182,15 @@ func (env *maasEnviron) Spaces(ctx envcontext.ProviderCallContext) (corenetwork.
 // by the provider for the specified instance. subnetIds must not be
 // empty. Implements NetworkingEnviron.Subnets.
 func (env *maasEnviron) Subnets(
-	ctx envcontext.ProviderCallContext, instId instance.Id, subnetIds []corenetwork.Id,
+	ctx envcontext.ProviderCallContext, subnetIds []corenetwork.Id,
 ) ([]corenetwork.SubnetInfo, error) {
 	var subnets []corenetwork.SubnetInfo
-	if instId == instance.UnknownId {
-		spaces, err := env.Spaces(ctx)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for _, space := range spaces {
-			subnets = append(subnets, space.Subnets...)
-		}
-	} else {
-		var err error
-		subnets, err = env.filteredSubnets(ctx, instId)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	spaces, err := env.Spaces(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, space := range spaces {
+		subnets = append(subnets, space.Subnets...)
 	}
 
 	if len(subnetIds) == 0 {
@@ -1220,48 +1212,6 @@ func (env *maasEnviron) Subnets(
 	}
 
 	return result, checkNotFound(subnetMap)
-}
-
-func (env *maasEnviron) filteredSubnets(
-	ctx envcontext.ProviderCallContext, instId instance.Id,
-) ([]corenetwork.SubnetInfo, error) {
-	args := gomaasapi.MachinesArgs{
-		AgentName: env.uuid,
-		SystemIDs: []string{string(instId)},
-	}
-	machines, err := env.maasController.Machines(args)
-	if err != nil {
-		return nil, env.HandleCredentialError(ctx, err)
-	}
-	if len(machines) == 0 {
-		return nil, errors.NotFoundf("machine %v", instId)
-	} else if len(machines) > 1 {
-		return nil, errors.Errorf("unexpected response getting machine details %v: %v", instId, machines)
-	}
-
-	machine := machines[0]
-	spaceMap, err := env.buildSpaceMap(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var result []corenetwork.SubnetInfo
-	for _, iface := range machine.InterfaceSet() {
-		for _, link := range iface.Links() {
-			subnet := link.Subnet()
-			space, ok := spaceMap[subnet.Space()]
-			if !ok {
-				return nil, errors.Errorf("missing space %v on subnet %v", subnet.Space(), subnet.CIDR())
-			}
-			subnetInfo := corenetwork.SubnetInfo{
-				ProviderId:      corenetwork.Id(strconv.Itoa(subnet.ID())),
-				VLANTag:         subnet.VLAN().VID(),
-				CIDR:            subnet.CIDR(),
-				ProviderSpaceId: space.ProviderId,
-			}
-			result = append(result, subnetInfo)
-		}
-	}
-	return result, nil
 }
 
 func checkNotFound(subnetIdSet map[string]bool) error {

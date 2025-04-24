@@ -24,9 +24,7 @@ var SupportsNetworking = supportsNetworking
 type Networking interface {
 	// Subnets returns basic information about subnets known
 	// by the provider for the environment.
-	Subnets(
-		ctx envcontext.ProviderCallContext, inst instance.Id, subnetIds []network.Id,
-	) ([]network.SubnetInfo, error)
+	Subnets(ctx envcontext.ProviderCallContext, subnetIds []network.Id) ([]network.SubnetInfo, error)
 
 	// NetworkInterfaces returns a slice with the network interfaces that
 	// correspond to the given instance IDs. If no instances where found,

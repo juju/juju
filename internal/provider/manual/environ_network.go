@@ -20,7 +20,7 @@ func (e *manualEnviron) SupportsSpaces() (bool, error) {
 }
 
 // Subnets implements environs.NetworkingEnviron.
-func (e *manualEnviron) Subnets(envcontext.ProviderCallContext, instance.Id, []network.Id) ([]network.SubnetInfo, error) {
+func (e *manualEnviron) Subnets(envcontext.ProviderCallContext, []network.Id) ([]network.SubnetInfo, error) {
 	return nil, errors.NotSupportedf("subnets")
 }
 

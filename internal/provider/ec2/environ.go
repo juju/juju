@@ -1636,7 +1636,7 @@ func makeSubnetInfo(
 // empty, in which case all known are returned. Implements
 // NetworkingEnviron.Subnets.
 func (e *environ) Subnets(
-	ctx envcontext.ProviderCallContext, instId instance.Id, subnetIds []network.Id,
+	ctx envcontext.ProviderCallContext, subnetIds []network.Id,
 ) ([]network.SubnetInfo, error) {
 	var results []network.SubnetInfo
 	subIdSet := make(map[string]bool)
@@ -1644,62 +1644,33 @@ func (e *environ) Subnets(
 		subIdSet[string(subId)] = false
 	}
 
-	if instId != instance.UnknownId {
-		interfaces, err := e.networkInterfacesForInstance(ctx, instId)
-		if err != nil {
-			return results, errors.Trace(err)
-		}
-		if len(subnetIds) == 0 {
-			for _, iface := range interfaces {
-				subIdSet[string(iface.ProviderSubnetId)] = false
-			}
-		}
-		for _, iface := range interfaces {
-			_, ok := subIdSet[string(iface.ProviderSubnetId)]
-			if !ok {
-				logger.Tracef(ctx, "subnet %q not in %v, skipping", iface.ProviderSubnetId, subnetIds)
-				continue
-			}
-			subIdSet[string(iface.ProviderSubnetId)] = true
-			info, err := makeSubnetInfo(
-				ctx,
-				iface.PrimaryAddress().CIDR, iface.ProviderSubnetId, iface.ProviderNetworkId, iface.AvailabilityZones)
-			if err != nil {
-				// Error will already have been logged.
-				continue
-			}
-			results = append(results, info)
-		}
-	} else {
-		subnets, _, err := e.subnetsForVPC(ctx)
-		if err != nil {
-			return nil, errors.Annotatef(err, "failed to retrieve subnets")
-		}
-		if len(subnetIds) == 0 {
-			for _, subnet := range subnets {
-				subIdSet[aws.ToString(subnet.SubnetId)] = false
-			}
-		}
-
+	subnets, _, err := e.subnetsForVPC(ctx)
+	if err != nil {
+		return nil, errors.Annotatef(err, "failed to retrieve subnets")
+	}
+	if len(subnetIds) == 0 {
 		for _, subnet := range subnets {
-			subnetID := aws.ToString(subnet.SubnetId)
-			_, ok := subIdSet[subnetID]
-			if !ok {
-				logger.Tracef(ctx, "subnet %q not in %v, skipping", subnetID, subnetIds)
-				continue
-			}
-			subIdSet[subnetID] = true
-			cidr := aws.ToString(subnet.CidrBlock)
-			info, err := makeSubnetInfo(
-				ctx,
-				cidr, network.Id(subnetID), network.Id(aws.ToString(subnet.VpcId)), []string{aws.ToString(subnet.AvailabilityZone)})
-			if err != nil {
-				// Error will already have been logged.
-				continue
-			}
-			results = append(results, info)
-
+			subIdSet[aws.ToString(subnet.SubnetId)] = false
 		}
+	}
+
+	for _, subnet := range subnets {
+		subnetID := aws.ToString(subnet.SubnetId)
+		_, ok := subIdSet[subnetID]
+		if !ok {
+			logger.Tracef(ctx, "subnet %q not in %v, skipping", subnetID, subnetIds)
+			continue
+		}
+		subIdSet[subnetID] = true
+		cidr := aws.ToString(subnet.CidrBlock)
+		info, err := makeSubnetInfo(
+			ctx,
+			cidr, network.Id(subnetID), network.Id(aws.ToString(subnet.VpcId)), []string{aws.ToString(subnet.AvailabilityZone)})
+		if err != nil {
+			// Error will already have been logged.
+			continue
+		}
+		results = append(results, info)
 	}
 
 	notFound := []string{}

@@ -4,7 +4,6 @@
 package lxd
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"sort"
@@ -25,20 +24,8 @@ var _ environs.Networking = (*environ)(nil)
 
 // Subnets returns basic information about subnets known by the provider for
 // the environment.
-func (e *environ) Subnets(ctx envcontext.ProviderCallContext, inst instance.Id, subnetIDs []network.Id) ([]network.SubnetInfo, error) {
+func (e *environ) Subnets(ctx envcontext.ProviderCallContext, subnetIDs []network.Id) ([]network.SubnetInfo, error) {
 	srv := e.server()
-
-	// All containers will have the same view on the LXD network. If an
-	// instance ID is provided, the best we can do is to also ensure the
-	// container actually exists at the cost of an additional API call.
-	if inst != instance.UnknownId {
-		contList, err := srv.FilterContainers(string(inst))
-		if err != nil {
-			return nil, errors.Trace(err)
-		} else if len(contList) == 0 {
-			return nil, errors.NotFoundf("container with instance ID %q", inst)
-		}
-	}
 
 	availabilityZones, err := e.AvailabilityZones(ctx)
 	if err != nil {
@@ -78,7 +65,7 @@ func (e *environ) Subnets(ctx envcontext.ProviderCallContext, inst instance.Id, 
 			// so this call will fail. If that's the case then
 			// use a fallback method for detecting subnets.
 			if isErrMissingAPIExtension(err, "network_state") {
-				return e.subnetDetectionFallback(ctx, srv, inst, keepList, availabilityZones)
+				return nil, errors.Errorf("network_state extension unsupported; upgrade to a newer version of LXD")
 			}
 			return nil, errors.Annotatef(err, "querying lxd server for state of network %q", networkName)
 		}
@@ -107,82 +94,6 @@ func (e *environ) Subnets(ctx envcontext.ProviderCallContext, inst instance.Id, 
 
 			uniqueSubnetIDs.Add(subnetID)
 			subnets = append(subnets, makeSubnetInfo(network.Id(subnetID), makeNetworkID(networkName), cidr, availabilityZones))
-		}
-	}
-
-	return subnets, nil
-}
-
-// subnetDetectionFallback provides a fallback mechanism for subnet discovery
-// on older LXD versions (e.g. the ones that ship with xenial and bionic) which
-// do not come with the network_state API extension enabled.
-//
-// The fallback exploits the fact that subnet discovery is performed after the
-// controller spins up. To this end, the method will query any of the available
-// juju containers and attempt to reconstruct the subnet information based on
-// the devices present inside the container.
-//
-// Caveat: this method offers lower data fidelity compared to Subnets() as it
-// cannot accurately detect the CIDRs for any host devices that are not bridged
-// into the container.
-func (e *environ) subnetDetectionFallback(ctx context.Context, srv Server, inst instance.Id, keepSubnetIDs set.Strings, availabilityZones network.AvailabilityZones) ([]network.SubnetInfo, error) {
-	logger.Warningf(ctx, "falling back to subnet discovery via introspection of devices bridged to the controller container; consider upgrading to a newer LXD version and running 'juju reload-spaces' to get full subnet discovery for the LXD host")
-
-	// If no instance ID is specified, list the alive containers, query the
-	// state of the first one on the list and use it to extrapolate the
-	// subnet layout.
-	if inst == instance.UnknownId {
-		aliveConts, err := srv.AliveContainers("juju-")
-		if err != nil {
-			return nil, errors.Trace(err)
-		} else if len(aliveConts) == 0 {
-			return nil, errors.New("no alive containers detected")
-		}
-		inst = instance.Id(aliveConts[0].Name)
-	}
-
-	container, state, err := getContainerDetails(srv, string(inst))
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var (
-		subnets         []network.SubnetInfo
-		uniqueSubnetIDs = set.NewStrings()
-	)
-
-	for guestNetworkName, netInfo := range state.Network {
-		hostNetworkName := hostNetworkForGuestNetwork(container, guestNetworkName)
-		if hostNetworkName == "" { // doesn't have a parent; assume non-bridged NIC
-			continue
-		}
-
-		// Ignore loopback devices and NICs in down state.
-		if detectInterfaceType(netInfo.Type) == network.LoopbackDevice || netInfo.State != "up" {
-			continue
-		}
-
-		for _, guestAddr := range netInfo.Addresses {
-			netAddr := network.NewMachineAddress(guestAddr.Address).AsProviderAddress()
-			if netAddr.Scope == network.ScopeLinkLocal || netAddr.Scope == network.ScopeMachineLocal {
-				continue
-			}
-
-			// Use the detected host network name and the guest
-			// address details to generate a subnetID for the host.
-			subnetID, cidr, err := makeSubnetIDForNetwork(hostNetworkName, guestAddr.Address, guestAddr.Netmask)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			if uniqueSubnetIDs.Contains(subnetID) {
-				continue
-			} else if keepSubnetIDs != nil && !keepSubnetIDs.Contains(subnetID) {
-				continue
-			}
-
-			uniqueSubnetIDs.Add(subnetID)
-			subnets = append(subnets, makeSubnetInfo(network.Id(subnetID), makeNetworkID(hostNetworkName), cidr, availabilityZones))
 		}
 	}
 
