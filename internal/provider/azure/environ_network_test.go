@@ -6,7 +6,6 @@ package azure_test
 import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -15,16 +14,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/provider/azure/internal/azuretesting"
 )
-
-func (s *environSuite) TestSubnetsInstanceIDError(c *gc.C) {
-	env := s.openEnviron(c)
-
-	netEnv, ok := environs.SupportsNetworking(env)
-	c.Assert(ok, jc.IsTrue)
-
-	_, err := netEnv.Subnets(s.callCtx, "some-ID", nil)
-	c.Assert(err, jc.ErrorIs, errors.NotSupported)
-}
 
 func (s *environSuite) TestSubnetsSuccessOld(c *gc.C) {
 	env := s.openEnviron(c)
@@ -52,7 +41,7 @@ func (s *environSuite) TestSubnetsSuccessOld(c *gc.C) {
 	netEnv, ok := environs.SupportsNetworking(env)
 	c.Assert(ok, jc.IsTrue)
 
-	subs, err := netEnv.Subnets(s.callCtx, instance.UnknownId, nil)
+	subs, err := netEnv.Subnets(s.callCtx, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subs, gc.HasLen, 1)
@@ -89,7 +78,7 @@ func (s *environSuite) TestSubnetsSuccessNew(c *gc.C) {
 	netEnv, ok := environs.SupportsNetworking(env)
 	c.Assert(ok, jc.IsTrue)
 
-	subs, err := netEnv.Subnets(s.callCtx, instance.UnknownId, nil)
+	subs, err := netEnv.Subnets(s.callCtx, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subs, gc.HasLen, 1)
