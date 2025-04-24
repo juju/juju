@@ -12,7 +12,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/internal/errors"
@@ -512,7 +511,7 @@ func (s *spaceSuite) TestReloadSpacesUsingSubnets(c *gc.C) {
 	}
 
 	s.providerWithNetworking.EXPECT().SupportsSpaceDiscovery().Return(false, nil)
-	s.providerWithNetworking.EXPECT().Subnets(gomock.Any(), instance.UnknownId, nil).Return(twoSubnets, nil)
+	s.providerWithNetworking.EXPECT().Subnets(gomock.Any(), nil).Return(twoSubnets, nil)
 
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
 		func(ctx context.Context, subnets []network.SubnetInfo) error {
@@ -537,7 +536,7 @@ func (s *spaceSuite) TestReloadSpacesUsingSubnetsFailsOnSave(c *gc.C) {
 	}
 
 	s.providerWithNetworking.EXPECT().SupportsSpaceDiscovery().Return(false, nil)
-	s.providerWithNetworking.EXPECT().Subnets(gomock.Any(), instance.UnknownId, nil).Return(twoSubnets, nil)
+	s.providerWithNetworking.EXPECT().Subnets(gomock.Any(), nil).Return(twoSubnets, nil)
 
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
 		func(ctx context.Context, subnets []network.SubnetInfo) error {
