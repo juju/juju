@@ -680,12 +680,12 @@ VALUES (?, ?, 0)
 }
 
 // addCharmRelation inserts a new charm relation into the database with the given UUID and predefined attributes.
-func (s *watcherSuite) addCharmRelation(c *gc.C, charmUUID corecharm.ID, charmRelationUUID uuid.UUID, kind int) {
-	name := fmt.Sprintf("fake-%d", kind)
+func (s *watcherSuite) addCharmRelation(c *gc.C, charmUUID corecharm.ID, charmRelationUUID uuid.UUID, roleID int) {
+	name := fmt.Sprintf("fake-%d", roleID)
 	s.arrange(c, `
-INSERT INTO charm_relation (uuid, charm_uuid, kind_id, scope_id, role_id, name)
-VALUES (?, ?, ?,0,?, ?)
-`, charmRelationUUID.String(), charmUUID, kind, kind, name)
+INSERT INTO charm_relation (uuid, charm_uuid, scope_id, role_id, name)
+VALUES (?, ?, 0,?, ?)
+`, charmRelationUUID.String(), charmUUID, roleID, name)
 }
 
 // addRelation inserts a new relation into the database with the given UUID and default relation and life IDs.

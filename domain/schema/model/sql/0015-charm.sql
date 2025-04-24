@@ -225,19 +225,6 @@ CREATE TABLE charm_hash (
     REFERENCES hash_kind (id)
 );
 
-CREATE TABLE charm_relation_kind (
-    id INT PRIMARY KEY,
-    name TEXT NOT NULL
-);
-
-CREATE UNIQUE INDEX idx_charm_relation_kind_name
-ON charm_relation_kind (name);
-
-INSERT INTO charm_relation_kind VALUES
-(0, 'provides'),
-(1, 'requires'),
-(2, 'peers');
-
 CREATE TABLE charm_relation_role (
     id INT PRIMARY KEY,
     name TEXT NOT NULL
@@ -266,7 +253,6 @@ INSERT INTO charm_relation_scope VALUES
 CREATE TABLE charm_relation (
     uuid TEXT NOT NULL PRIMARY KEY,
     charm_uuid TEXT NOT NULL,
-    kind_id TEXT NOT NULL,
     name TEXT NOT NULL,
     role_id INT NOT NULL,
     scope_id INT NOT NULL,
@@ -276,9 +262,6 @@ CREATE TABLE charm_relation (
     CONSTRAINT fk_charm_relation_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
-    CONSTRAINT fk_charm_relation_kind
-    FOREIGN KEY (kind_id)
-    REFERENCES charm_relation_kind (id),
     CONSTRAINT fk_charm_relation_role
     FOREIGN KEY (role_id)
     REFERENCES charm_relation_role (id),
@@ -293,7 +276,6 @@ ON charm_relation (charm_uuid, name);
 CREATE VIEW v_charm_relation AS
 SELECT
     cr.charm_uuid,
-    crk.name AS kind,
     cr.name,
     crr.name AS role,
     cr.interface,
@@ -301,7 +283,6 @@ SELECT
     cr.capacity,
     crs.name AS scope
 FROM charm_relation AS cr
-JOIN charm_relation_kind AS crk ON cr.kind_id = crk.id
 JOIN charm_relation_role AS crr ON cr.role_id = crr.id
 JOIN charm_relation_scope AS crs ON cr.scope_id = crs.id;
 

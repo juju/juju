@@ -12,14 +12,6 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-type relationKind = string
-
-const (
-	relationKindProvides relationKind = "provides"
-	relationKindRequires relationKind = "requires"
-	relationKindPeers    relationKind = "peers"
-)
-
 type decodeMetadataArgs struct {
 	tags          []charmTag
 	categories    []charmCategory
@@ -159,24 +151,24 @@ func decodeRelations(relations []charmRelation) (map[string]charm.Relation, map[
 			return nil, nil, nil, errors.Errorf("cannot make relation: %w", err)
 		}
 
-		switch relation.Kind {
-		case relationKindProvides:
+		switch rel.Role {
+		case charm.RoleProvider:
 			if provides == nil {
 				provides = make(map[string]charm.Relation)
 			}
 			provides[relation.Name] = rel
-		case relationKindRequires:
+		case charm.RoleRequirer:
 			if requires == nil {
 				requires = make(map[string]charm.Relation)
 			}
 			requires[relation.Name] = rel
-		case relationKindPeers:
+		case charm.RolePeer:
 			if peers == nil {
 				peers = make(map[string]charm.Relation)
 			}
 			peers[relation.Name] = rel
 		default:
-			return nil, nil, nil, errors.Errorf("unknown relation role %q", relation.Kind)
+			return nil, nil, nil, errors.Errorf("unknown relation role %q", relation.Role)
 		}
 	}
 
@@ -447,7 +439,7 @@ func encodeTerms(id corecharm.ID, terms []string) []setCharmTerm {
 func encodeRelations(id corecharm.ID, metatadata charm.Metadata) ([]setCharmRelation, error) {
 	var result []setCharmRelation
 	for _, relation := range metatadata.Provides {
-		encoded, err := encodeRelation(id, relationKindProvides, relation)
+		encoded, err := encodeRelation(id, relation)
 		if err != nil {
 			return nil, errors.Errorf("cannot encode provides relation: %w", err)
 		}
@@ -455,7 +447,7 @@ func encodeRelations(id corecharm.ID, metatadata charm.Metadata) ([]setCharmRela
 	}
 
 	for _, relation := range metatadata.Requires {
-		encoded, err := encodeRelation(id, relationKindRequires, relation)
+		encoded, err := encodeRelation(id, relation)
 		if err != nil {
 			return nil, errors.Errorf("cannot encode requires relation: %w", err)
 		}
@@ -463,7 +455,7 @@ func encodeRelations(id corecharm.ID, metatadata charm.Metadata) ([]setCharmRela
 	}
 
 	for _, relation := range metatadata.Peers {
-		encoded, err := encodeRelation(id, relationKindPeers, relation)
+		encoded, err := encodeRelation(id, relation)
 		if err != nil {
 			return nil, errors.Errorf("cannot encode peers relation: %w", err)
 		}
@@ -474,7 +466,7 @@ func encodeRelations(id corecharm.ID, metatadata charm.Metadata) ([]setCharmRela
 }
 
 func encodeJujuInfoRelation(id corecharm.ID) (setCharmRelation, error) {
-	return encodeRelation(id, relationKindProvides, charm.Relation{
+	return encodeRelation(id, charm.Relation{
 		Name:      corerelation.JujuInfo,
 		Role:      charm.RoleProvider,
 		Interface: corerelation.JujuInfo,
@@ -482,15 +474,10 @@ func encodeJujuInfoRelation(id corecharm.ID) (setCharmRelation, error) {
 	})
 }
 
-func encodeRelation(id corecharm.ID, kind string, relation charm.Relation) (setCharmRelation, error) {
+func encodeRelation(id corecharm.ID, relation charm.Relation) (setCharmRelation, error) {
 	relationUUID, err := uuid.NewUUID()
 	if err != nil {
 		return setCharmRelation{}, errors.Errorf("generating relation uuid")
-	}
-
-	kindID, err := encodeRelationKind(kind)
-	if err != nil {
-		return setCharmRelation{}, errors.Errorf("encoding relation kind %q: %w", kind, err)
 	}
 
 	roleID, err := encodeRelationRole(relation.Role)
@@ -506,7 +493,6 @@ func encodeRelation(id corecharm.ID, kind string, relation charm.Relation) (setC
 	return setCharmRelation{
 		UUID:      relationUUID.String(),
 		CharmUUID: id.String(),
-		KindID:    kindID,
 		Name:      relation.Name,
 		RoleID:    roleID,
 		Interface: relation.Interface,
@@ -524,21 +510,6 @@ func hasJujuInfoRelation(encodedRelations []setCharmRelation) bool {
 		}
 	}
 	return false
-}
-
-func encodeRelationKind(kind string) (int, error) {
-	// This values are hardcoded to match the index relation kind values in the
-	// database.
-	switch kind {
-	case relationKindProvides:
-		return 0, nil
-	case relationKindRequires:
-		return 1, nil
-	case relationKindPeers:
-		return 2, nil
-	default:
-		return -1, errors.Errorf("unknown relation kind %q", kind)
-	}
 }
 
 func encodeRelationRole(role charm.RelationRole) (int, error) {

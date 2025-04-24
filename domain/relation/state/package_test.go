@@ -126,8 +126,8 @@ func (s *baseRelationSuite) addCharmRelation(c *gc.C, charmUUID corecharm.ID, r 
 	// TODO(gfouillet): introduce proper UUID for this one, from corecharm and corecharmtesting
 	charmRelationUUID := uuid.MustNewUUID().String()
 	s.query(c, `
-INSERT INTO charm_relation (uuid, charm_uuid, kind_id, name, role_id, interface, optional, capacity, scope_id) 
-VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?)
+INSERT INTO charm_relation (uuid, charm_uuid, name, role_id, interface, optional, capacity, scope_id) 
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `, charmRelationUUID, charmUUID, r.Name, s.encodeRoleID(r.Role), r.Interface, r.Optional, r.Limit, s.encodeScopeID(r.Scope))
 	return charmRelationUUID
 }
@@ -138,8 +138,8 @@ func (s *baseRelationSuite) addCharmRelationWithDefaults(c *gc.C, charmUUID core
 	// TODO(gfouillet): introduce proper UUID for this one, from corecharm and corecharmtesting
 	charmRelationUUID := uuid.MustNewUUID().String()
 	s.query(c, `
-INSERT INTO charm_relation (uuid, charm_uuid, kind_id, scope_id, role_id, name) 
-VALUES (?, ?, 0, 0, 0, 'fake-provides')
+INSERT INTO charm_relation (uuid, charm_uuid, scope_id, role_id, name) 
+VALUES (?, ?, 0, 0, 'fake-provides')
 `, charmRelationUUID, charmUUID)
 	return charmRelationUUID
 }

@@ -242,9 +242,9 @@ func (s *relationSuite) addAppUnitRelationScope(c *gc.C) (string, string) {
 
 	cr := "some-charm-relation-uuid"
 	_, err = s.DB().Exec(`
-INSERT INTO charm_relation (uuid, charm_uuid, kind_id, name, interface, capacity, role_id,  scope_id)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		cr, charm, 0, cr, "interface", 0, 0, 0,
+INSERT INTO charm_relation (uuid, charm_uuid, name, interface, capacity, role_id,  scope_id)
+VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		cr, charm, cr, "interface", 0, 0, 0,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
