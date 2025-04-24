@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/caasagent"
@@ -25,6 +26,11 @@ type ClientSuite struct {
 func (s *ClientSuite) TestWatchCloudSpecChanges(c *gc.C) {
 	called := false
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		// We might get a second call to "Next" but
+		// we don't care.
+		if called {
+			return nil
+		}
 		c.Check(objType, gc.Equals, "CAASAgent")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
@@ -48,6 +54,6 @@ func (s *ClientSuite) TestWatchCloudSpecChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	w, err := api.WatchCloudSpecChanges(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.NotNil)
-	c.Assert(called, jc.IsTrue)
+	c.Check(called, jc.IsTrue)
+	workertest.CleanKill(c, w)
 }
