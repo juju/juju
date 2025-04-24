@@ -81,8 +81,6 @@ import (
 	"github.com/juju/juju/internal/worker/deployer"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/introspection"
-	"github.com/juju/juju/internal/worker/logsender"
-	"github.com/juju/juju/internal/worker/logsender/logsendermetrics"
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	psworker "github.com/juju/juju/internal/worker/pubsub"
@@ -279,7 +277,6 @@ func (a *machineAgentCommand) Info() *cmd.Info {
 // MachineAgent given a machineId.
 func MachineAgentFactoryFn(
 	agentConfWriter agentconfig.AgentConfigWriter,
-	bufferedLogger *logsender.BufferedLogWriter,
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
 	preUpgradeSteps PreUpgradeStepsFunc,
 	upgradeSteps UpgradeStepsFunc,
@@ -289,7 +286,6 @@ func MachineAgentFactoryFn(
 		return NewMachineAgent(
 			agentTag,
 			agentConfWriter,
-			bufferedLogger,
 			worker.NewRunner(worker.RunnerParams{
 				IsFatal:       agenterrors.IsFatal,
 				MoreImportant: agenterrors.MoreImportant,
@@ -310,7 +306,6 @@ func MachineAgentFactoryFn(
 func NewMachineAgent(
 	agentTag names.Tag,
 	agentConfWriter agentconfig.AgentConfigWriter,
-	bufferedLogger *logsender.BufferedLogWriter,
 	runner *worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
@@ -327,7 +322,6 @@ func NewMachineAgent(
 		agentTag:                    agentTag,
 		AgentConfigWriter:           agentConfWriter,
 		configChangedVal:            voyeur.NewValue(true),
-		bufferedLogger:              bufferedLogger,
 		workersStarted:              make(chan struct{}),
 		dead:                        make(chan struct{}),
 		runner:                      runner,
@@ -356,11 +350,6 @@ func (a *MachineAgent) registerPrometheusCollectors() error {
 		if err := a.prometheusRegistry.Register(collector); err != nil {
 			return errors.Annotate(err, "registering mgo stats collector")
 		}
-	}
-	if err := a.prometheusRegistry.Register(
-		logsendermetrics.BufferedLogWriterMetrics{BufferedLogWriter: a.bufferedLogger},
-	); err != nil {
-		return errors.Annotate(err, "registering logsender collector")
 	}
 	if err := a.prometheusRegistry.Register(a.mongoTxnCollector); err != nil {
 		return errors.Annotate(err, "registering mgo/txn collector")
@@ -401,7 +390,6 @@ type MachineAgent struct {
 	agentTag         names.Tag
 	runner           *worker.Runner
 	rootDir          string
-	bufferedLogger   *logsender.BufferedLogWriter
 	configChangedVal *voyeur.Value
 
 	workersStarted chan struct{}
@@ -512,9 +500,25 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 
 	agentconf.SetupAgentLogging(internallogger.DefaultContext(), a.CurrentConfig())
 
+	// Prime the log sink and create the writer.
+	logSink, err := PrimeLogSink(a.CurrentConfig())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer logSink.Close()
+
+	// Add the log sink to the default logger context.
+	if err := loggo.DefaultContext().AddWriter("logsink", corelogger.NewTaggedRedirectWriter(
+		logSink,
+		a.Tag().String(),
+		a.CurrentConfig().Model().Id(),
+	)); err != nil {
+		return errors.Trace(err)
+	}
+
 	if err := introspection.WriteProfileFunctions(introspection.ProfileDir); err != nil {
 		// This isn't fatal, just annoying.
-		logger.Errorf(context.TODO(), "failed to write profile funcs: %v", err)
+		logger.Errorf(context.Background(), "failed to write profile funcs: %v", err)
 	}
 
 	// When the API server and peergrouper have manifolds, they can
@@ -555,7 +559,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	a.upgradeDBLock = internalupgrade.NewLock(agentConfig, jujuversion.Current)
 	a.upgradeStepsLock = internalupgrade.NewLock(agentConfig, jujuversion.Current)
 
-	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion())
+	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion(), logSink)
 	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {
 		return err
 	}
@@ -566,10 +570,10 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	err = a.runner.Wait()
 	switch errors.Cause(err) {
 	case internalworker.ErrRebootMachine:
-		logger.Infof(context.TODO(), "Caught reboot error")
+		logger.Infof(ctx, "Caught reboot error")
 		err = a.executeRebootOrShutdown(params.ShouldReboot)
 	case internalworker.ErrShutdownMachine:
-		logger.Infof(context.TODO(), "Caught shutdown error")
+		logger.Infof(ctx, "Caught shutdown error")
 		err = a.executeRebootOrShutdown(params.ShouldShutdown)
 	}
 	return cmdutil.AgentDone(logger, err)
@@ -577,6 +581,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 
 func (a *MachineAgent) makeEngineCreator(
 	agentName string, previousAgentVersion semversion.Number,
+	logSink corelogger.LogSink,
 ) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		agentConfig := a.CurrentConfig()
@@ -624,7 +629,7 @@ func (a *MachineAgent) makeEngineCreator(
 			MachineStartup:                    a.machineStartup,
 			PreUpgradeSteps:                   a.preUpgradeSteps,
 			UpgradeSteps:                      a.upgradeSteps,
-			LogSource:                         a.bufferedLogger.Logs(),
+			LogSink:                           logSink,
 			NewDeployContext:                  deployer.NewNestedContext,
 			Clock:                             clock.WallClock,
 			ValidateMigration:                 a.validateMigration,

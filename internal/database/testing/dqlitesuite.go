@@ -63,7 +63,7 @@ type DqliteSuite struct {
 	trackedDB coredatabase.TxnRunner
 
 	mutex      sync.Mutex
-	references map[string]*sql.DB
+	references map[string][]*sql.DB
 }
 
 // SetUpTest creates a new sql.DB reference and ensures that the
@@ -130,9 +130,11 @@ func (s *DqliteSuite) SetUpTest(c *gc.C) {
 func (s *DqliteSuite) TearDownTest(c *gc.C) {
 	// Ensure we clean up any databases that were opened during the tests.
 	s.mutex.Lock()
-	for _, db := range s.references {
-		err := db.Close()
-		c.Check(err, jc.ErrorIsNil)
+	for _, ref := range s.references {
+		for _, db := range ref {
+			err := db.Close()
+			c.Check(err, jc.ErrorIsNil)
+		}
 	}
 	s.mutex.Unlock()
 
@@ -240,9 +242,9 @@ func (s *DqliteSuite) cleanupDB(c *gc.C, namespace string, db *sql.DB) {
 	defer s.mutex.Unlock()
 
 	if s.references == nil {
-		s.references = make(map[string]*sql.DB)
+		s.references = make(map[string][]*sql.DB)
 	}
-	s.references[namespace] = db
+	s.references[namespace] = append(s.references[namespace], db)
 }
 
 // FindTCPPort finds an unused TCP port and returns it.

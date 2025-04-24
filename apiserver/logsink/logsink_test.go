@@ -118,7 +118,7 @@ func (s *logsinkSuite) TestSuccess(c *gc.C) {
 			break
 		}
 	}
-	s.stub.CheckCallNames(c, "Open", "WriteLog", "Close")
+	s.stub.CheckCallNames(c, "Open", "WriteLog")
 }
 
 func (s *logsinkSuite) TestLogMessages(c *gc.C) {
@@ -210,7 +210,7 @@ func (s *logsinkSuite) TestSuccessWithLabels(c *gc.C) {
 			break
 		}
 	}
-	s.stub.CheckCallNames(c, "Open", "WriteLog", "WriteLog", "WriteLog", "Close")
+	s.stub.CheckCallNames(c, "Open", "WriteLog", "WriteLog", "WriteLog")
 }
 
 func (s *logsinkSuite) TestLogOpenFails(c *gc.C) {
@@ -262,9 +262,9 @@ func (s *logsinkSuite) TestRateLimit(c *gc.C) {
 
 	testClock := testclock.NewClock(time.Time{})
 	srv := httptest.NewServer(logsink.NewHTTPHandler(
-		func(req *http.Request) (logsink.LogWriteCloser, error) {
+		func(req *http.Request) (logsink.LogWriter, error) {
 			s.stub.AddCall("Open")
-			return &mockLogWriteCloser{
+			return &mockLogWriter{
 				s.stub,
 				s.written,
 				nil,
@@ -336,7 +336,7 @@ func (s *logsinkSuite) TestReceiverStopsWhenAsked(c *gc.C) {
 	defer finish()
 
 	handler := logsink.NewHTTPHandlerForTest(
-		func(req *http.Request) (logsink.LogWriteCloser, error) {
+		func(req *http.Request) (logsink.LogWriter, error) {
 			s.stub.AddCall("Open")
 			return &slowWriteCloser{}, s.stub.NextErr()
 		},
@@ -392,8 +392,8 @@ func (s *logsinkSuite) TestHandlerClosesStopChannel(c *gc.C) {
 
 	var stub testing.Stub
 	handler := logsink.NewHTTPHandlerForTest(
-		func(req *http.Request) (logsink.LogWriteCloser, error) {
-			return &mockLogWriteCloser{
+		func(req *http.Request) (logsink.LogWriter, error) {
+			return &mockLogWriter{
 				s.stub,
 				s.written,
 				nil,
@@ -458,9 +458,9 @@ func (s *logsinkSuite) createServer(c *gc.C) (*httptest.Server, func()) {
 	metricsCollector, finish := createMockMetrics(c, modelUUID.String())
 
 	srv := httptest.NewServer(logsink.NewHTTPHandler(
-		func(req *http.Request) (logsink.LogWriteCloser, error) {
+		func(req *http.Request) (logsink.LogWriter, error) {
 			s.stub.AddCall("Open")
-			return &mockLogWriteCloser{
+			return &mockLogWriter{
 				s.stub,
 				s.written,
 				recordStack,
@@ -477,13 +477,13 @@ func (s *logsinkSuite) createServer(c *gc.C) (*httptest.Server, func()) {
 	}
 }
 
-type mockLogWriteCloser struct {
+type mockLogWriter struct {
 	*testing.Stub
 	written  chan<- params.LogRecord
 	callback func()
 }
 
-func (m *mockLogWriteCloser) Close() error {
+func (m *mockLogWriter) Close() error {
 	m.MethodCall(m, "Close")
 	if m.callback != nil {
 		m.callback()
@@ -491,7 +491,7 @@ func (m *mockLogWriteCloser) Close() error {
 	return m.NextErr()
 }
 
-func (m *mockLogWriteCloser) WriteLog(r params.LogRecord) error {
+func (m *mockLogWriter) WriteLog(r params.LogRecord) error {
 	m.MethodCall(m, "WriteLog", r)
 	m.written <- r
 	return m.NextErr()

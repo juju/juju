@@ -29,7 +29,7 @@ var logger = internallogger.GetLogger("logger.tailer")
 type LogTailer interface {
 	// Logs returns the channel through which the LogTailer returns Juju logs.
 	// It will be closed when the tailer stops.
-	Logs() <-chan *corelogger.LogRecord
+	Logs() <-chan corelogger.LogRecord
 
 	// Dying returns a channel which will be closed as the LogTailer stops.
 	Dying() <-chan struct{}
@@ -65,12 +65,13 @@ var maxInitialLines = 10000
 // NewLogTailer returns a LogTailer which returns lines from a
 // log file and filters according to the parameters given.
 func NewLogTailer(
-	modelUUID, logFile string, params LogTailerParams,
+	modelUUID string,
+	logFile string, params LogTailerParams,
 ) (LogTailer, error) {
 	t := &logTailer{
 		modelUUID:       modelUUID,
 		params:          params,
-		logCh:           make(chan *corelogger.LogRecord),
+		logCh:           make(chan corelogger.LogRecord),
 		maxInitialLines: maxInitialLines,
 		logFile:         logFile,
 	}
@@ -86,7 +87,7 @@ type logTailer struct {
 	tomb            tomb.Tomb
 	modelUUID       string
 	params          LogTailerParams
-	logCh           chan *corelogger.LogRecord
+	logCh           chan corelogger.LogRecord
 	lastTime        time.Time
 	maxInitialLines int
 
@@ -94,7 +95,7 @@ type logTailer struct {
 }
 
 // Logs implements the LogTailer interface.
-func (t *logTailer) Logs() <-chan *corelogger.LogRecord {
+func (t *logTailer) Logs() <-chan corelogger.LogRecord {
 	return t.logCh
 }
 
@@ -152,10 +153,10 @@ func (t *logTailer) processInitialLines() (int64, error) {
 	}
 	scanner := rscanner.NewScanner(f, fs.Size())
 
-	queue := make([]*corelogger.LogRecord, t.params.InitialLines)
+	queue := make([]corelogger.LogRecord, t.params.InitialLines)
 	cur := t.params.InitialLines
 
-	deserialisationFailures := 0
+	var failures int
 	for scanner.Scan() {
 		line := scanner.Text()
 		if len(line) == 0 {
@@ -163,17 +164,18 @@ func (t *logTailer) processInitialLines() (int64, error) {
 		}
 		rec, err := logLineToRecord(t.modelUUID, line)
 		if err != nil {
-			if deserialisationFailures == 0 {
-				logger.Warningf(context.TODO(), "log deserialization failed, %v", err)
+			if failures == 0 {
+				logger.Warningf(context.Background(), "log deserialization failed, %v", err)
 			}
-			deserialisationFailures++
+			failures++
 			continue
-		} else {
-			if deserialisationFailures > 1 {
-				logger.Debugf(context.TODO(), "total of %d log serialisation errors", deserialisationFailures)
-			}
-			deserialisationFailures = 0
 		}
+
+		if failures > 1 {
+			logger.Debugf(context.Background(), "total of %d log serialisation errors", failures)
+		}
+		failures = 0
+
 		if !t.includeRecord(rec) {
 			continue
 		}
@@ -188,8 +190,8 @@ func (t *logTailer) processInitialLines() (int64, error) {
 			break
 		}
 	}
-	if deserialisationFailures > 1 {
-		logger.Debugf(context.TODO(), "total of %d log serialisation errors", deserialisationFailures)
+	if failures > 1 {
+		logger.Debugf(context.Background(), "total of %d log serialisation errors", failures)
 	}
 	if err := scanner.Err(); err != nil {
 		return -1, errors.Trace(err)
@@ -240,7 +242,7 @@ func (t *logTailer) tailFile(seekTo *tail.SeekInfo) (err error) {
 	// If we get a deserialisation error, write out the first failure,
 	// but don't write out any additional errors until we either hit
 	// a good value, or end the method.
-	deserialisationFailures := 0
+	var failures int
 	for {
 		select {
 		case <-t.tomb.Dying():
@@ -252,19 +254,21 @@ func (t *logTailer) tailFile(seekTo *tail.SeekInfo) (err error) {
 			if line.Text == "" {
 				continue
 			}
+
 			rec, err := logLineToRecord(t.modelUUID, line.Text)
 			if err != nil {
-				if deserialisationFailures == 0 {
-					logger.Warningf(context.TODO(), "log deserialization failed, %v", err)
+				if failures == 0 {
+					logger.Warningf(context.Background(), "log deserialization failed, %v", err)
 				}
-				deserialisationFailures++
+				failures++
 				continue
-			} else {
-				if deserialisationFailures > 1 {
-					logger.Debugf(context.TODO(), "total of %d log serialisation errors", deserialisationFailures)
-				}
-				deserialisationFailures = 0
 			}
+
+			if failures > 1 {
+				logger.Debugf(context.Background(), "total of %d log serialisation errors", failures)
+			}
+			failures = 0
+
 			if !t.includeRecord(rec) {
 				continue
 			}
@@ -277,7 +281,11 @@ func (t *logTailer) tailFile(seekTo *tail.SeekInfo) (err error) {
 	}
 }
 
-func (t *logTailer) includeRecord(rec *corelogger.LogRecord) bool {
+func (t *logTailer) includeRecord(rec corelogger.LogRecord) bool {
+	// If it's not firehose we need to check the model UUID.
+	if !t.params.Firehose && rec.ModelUUID != t.modelUUID {
+		return false
+	}
 	if rec.Time.Before(t.params.StartTime) {
 		return false
 	}
@@ -355,23 +363,8 @@ func makeModulePattern(modules []string) string {
 	return `^(` + strings.Join(patterns, "|") + `)(\..+)?$`
 }
 
-func logLineToRecord(modelUUID string, line string) (*corelogger.LogRecord, error) {
-	// If no model uuid is supplied, it is expected to be the first record on each line.
-	// ie we are parsing logsink.log.
-	if modelUUID == "" {
-		parts := strings.SplitN(line, ":", 2)
-		if len(parts) < 2 {
-			return nil, errors.Errorf("unexpected log line: %s", line)
-		}
-		modelUUID = parts[0]
-		line = parts[1]
-	}
-
+func logLineToRecord(modelUUID string, line string) (corelogger.LogRecord, error) {
 	var result corelogger.LogRecord
 	err := json.Unmarshal([]byte(line), &result)
-	if err != nil {
-		return nil, errors.Errorf("invalid log line %q", line)
-	}
-	result.ModelUUID = modelUUID
-	return &result, nil
+	return result, err
 }

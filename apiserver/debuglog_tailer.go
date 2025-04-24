@@ -78,7 +78,7 @@ func handleDebugLogRequest(
 }
 
 func makeLogTailerParams(reqParams debugLogParams) logtailer.LogTailerParams {
-	tailerParams := logtailer.LogTailerParams{
+	return logtailer.LogTailerParams{
 		MinLevel:      reqParams.filterLevel,
 		NoTail:        reqParams.noTail,
 		Firehose:      reqParams.firehose,
@@ -92,10 +92,9 @@ func makeLogTailerParams(reqParams debugLogParams) logtailer.LogTailerParams {
 		ExcludeLabels: reqParams.excludeLabels,
 		FromTheStart:  reqParams.fromTheStart,
 	}
-	return tailerParams
 }
 
-func formatLogRecord(r *corelogger.LogRecord) *params.LogMessage {
+func formatLogRecord(r corelogger.LogRecord) *params.LogMessage {
 	return &params.LogMessage{
 		ModelUUID: r.ModelUUID,
 		Entity:    r.Entity,

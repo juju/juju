@@ -30,7 +30,7 @@ var _ = gc.Suite(&TailerSuite{})
 
 func (s *TailerSuite) TestProcessForwardNoTail(c *gc.C) {
 	testFileName := filepath.Join(c.MkDir(), "test.log")
-	err := os.WriteFile(testFileName, []byte(logContent), 0644)
+	err := os.WriteFile(testFileName, []byte(createLogFileContent(c)), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	tailer, err := logtailer.NewLogTailer(coretesting.ModelTag.Id(), testFileName, logtailer.LogTailerParams{
@@ -38,7 +38,7 @@ func (s *TailerSuite) TestProcessForwardNoTail(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var records []*corelogger.LogRecord
+	var records []corelogger.LogRecord
 	logs := tailer.Logs()
 	for {
 		rec, ok := <-logs
@@ -52,7 +52,7 @@ func (s *TailerSuite) TestProcessForwardNoTail(c *gc.C) {
 
 func (s *TailerSuite) TestWithModelUUID(c *gc.C) {
 	testFileName := filepath.Join(c.MkDir(), "test.log")
-	err := os.WriteFile(testFileName, []byte(logContentWithModelUUID), 0644)
+	err := os.WriteFile(testFileName, []byte(createLogFileContent(c)), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	tailer, err := logtailer.NewLogTailer("", testFileName, logtailer.LogTailerParams{
@@ -61,7 +61,7 @@ func (s *TailerSuite) TestWithModelUUID(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var records []*corelogger.LogRecord
+	var records []corelogger.LogRecord
 	logs := tailer.Logs()
 	for {
 		rec, ok := <-logs
@@ -79,7 +79,7 @@ func (s *TailerSuite) TestWithModelUUID(c *gc.C) {
 
 func (s *TailerSuite) TestProcessReverseNoTail(c *gc.C) {
 	testFileName := filepath.Join(c.MkDir(), "test.log")
-	err := os.WriteFile(testFileName, []byte(logContent), 0644)
+	err := os.WriteFile(testFileName, []byte(createLogFileContent(c)), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	tailer, err := logtailer.NewLogTailer(coretesting.ModelTag.Id(), testFileName, logtailer.LogTailerParams{
@@ -88,7 +88,7 @@ func (s *TailerSuite) TestProcessReverseNoTail(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	var records []*corelogger.LogRecord
+	var records []corelogger.LogRecord
 	logs := tailer.Logs()
 	for {
 		rec, ok := <-logs
@@ -100,8 +100,8 @@ func (s *TailerSuite) TestProcessReverseNoTail(c *gc.C) {
 	c.Assert(records, jc.DeepEquals, logRecords[2:])
 }
 
-func (s *TailerSuite) fetchLogs(tailer logtailer.LogTailer, expected int) []*corelogger.LogRecord {
-	var records []*corelogger.LogRecord
+func (s *TailerSuite) fetchLogs(tailer logtailer.LogTailer, expected int) []corelogger.LogRecord {
+	var records []corelogger.LogRecord
 	timeout := time.After(testing.LongWait)
 	for {
 		select {
@@ -138,7 +138,7 @@ func (s *TailerSuite) writeAdditionalLogs(c *gc.C, fileName string, lines []stri
 }
 
 func (s *TailerSuite) TestProcessForwardTail(c *gc.C) {
-	logLines := strings.Split(logContent, "\n")
+	logLines := strings.Split(createLogFileContent(c), "\n")
 	testFileName := filepath.Join(c.MkDir(), "test.log")
 	f, err := os.OpenFile(testFileName, os.O_CREATE|os.O_WRONLY, 0644)
 	c.Assert(err, jc.ErrorIsNil)
@@ -161,7 +161,7 @@ func (s *TailerSuite) TestProcessForwardTail(c *gc.C) {
 }
 
 func (s *TailerSuite) TestProcessReverseTail(c *gc.C) {
-	logLines := strings.Split(logContent, "\n")
+	logLines := strings.Split(createLogFileContent(c), "\n")
 	testFileName := filepath.Join(c.MkDir(), "test.log")
 	f, err := os.OpenFile(testFileName, os.O_CREATE|os.O_WRONLY, 0644)
 	c.Assert(err, jc.ErrorIsNil)
@@ -186,19 +186,19 @@ func (s *TailerSuite) TestProcessReverseTail(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, logRecords[1:])
 }
 
-var logContent = `
-{"timestamp":"2024-02-15T06:23:22.00000000Z","entity":"machine-0","level":"DEBUG","module":"juju.worker.dependency","location":"engine.go:598","message":"\"db-accessor\" manifold worker started at 2024-02-15 06:23:23.006402802 +0000 UTC"}
-{"timestamp":"2024-02-15T06:23:23.00000000Z","entity":"machine-0","level":"INFO","module":"juju.worker.dbaccessor","location":"worker.go:518","message":"host is configured to use cloud-local address as a Dqlite node"}
-{"timestamp":"2024-02-15T06:23:24.00000000Z","entity":"machine-1","level":"WARNING","module":"juju.worker.dependency","location":"engine.go:598","message":"\"lease-manager\" manifold worker started at 2024-02-15 06:23:23.016373586 +0000 UTC"}
-{"timestamp":"2024-02-15T06:23:25.00000000Z","entity":"machine-0","level":"CRITICAL","module":"juju.worker.dependency","location":"engine.go:598","message":"\"change-stream\" manifold worker started at 2024-02-15 06:23:23.01677874 +0000 UTC"}`[1:]
+func createLogFileContent(c *gc.C) string {
+	buffer := new(strings.Builder)
 
-var logContentWithModelUUID = `
-modelUUID1: {"timestamp":"2024-02-15T06:23:22.00000000Z","entity":"machine-0","level":"DEBUG","module":"juju.worker.dependency","location":"engine.go:598","message":"\"db-accessor\" manifold worker started at 2024-02-15 06:23:23.006402802 +0000 UTC"}
-modelUUID2: {"timestamp":"2024-02-15T06:23:23.00000000Z","entity":"machine-0","level":"INFO","module":"juju.worker.dbaccessor","location":"worker.go:518","message":"host is configured to use cloud-local address as a Dqlite node"}
-modelUUID3: {"timestamp":"2024-02-15T06:23:24.00000000Z","entity":"machine-1","level":"WARNING","module":"juju.worker.dependency","location":"engine.go:598","message":"\"lease-manager\" manifold worker started at 2024-02-15 06:23:23.016373586 +0000 UTC"}
-modelUUID4: {"timestamp":"2024-02-15T06:23:25.00000000Z","entity":"machine-0","level":"CRITICAL","module":"juju.worker.dependency","location":"engine.go:598","message":"\"change-stream\" manifold worker started at 2024-02-15 06:23:23.01677874 +0000 UTC"}`[1:]
+	jsonEncoder := json.NewEncoder(buffer)
+	for _, record := range logRecords {
+		err := jsonEncoder.Encode(record)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
-var logRecords = []*corelogger.LogRecord{
+	return buffer.String()
+}
+
+var logRecords = []corelogger.LogRecord{
 	{
 		Time:      mustParseTime("2024-02-15 06:23:22"),
 		ModelUUID: coretesting.ModelTag.Id(),
@@ -499,6 +499,9 @@ func (s *LogFilterSuite) normaliseLogTemplate(template *corelogger.LogRecord) *c
 	if rec.Message == "" {
 		rec.Message = "message"
 	}
+	if rec.ModelUUID == "" {
+		rec.ModelUUID = coretesting.ModelTag.Id()
+	}
 	return &rec
 }
 
@@ -520,12 +523,17 @@ func (s *LogFilterSuite) writeLogsT(c *gc.C, logFile string, startTime, endTime 
 
 	interval := endTime.Sub(startTime) / time.Duration(count)
 	t := startTime
-	for i := 0; i < count; i++ {
+
+	buffer := new(strings.Builder)
+	jsonEncoder := json.NewEncoder(buffer)
+	for range count {
 		rec := s.normaliseLogTemplate(template)
-		line, err := json.Marshal(rec)
+		err := jsonEncoder.Encode(rec)
 		c.Assert(err, jc.ErrorIsNil)
-		_, err = f.WriteString(fmt.Sprintf("%s\n", line))
-		c.Assert(err, jc.ErrorIsNil)
+
 		t = t.Add(interval)
 	}
+
+	_, err = io.WriteString(f, buffer.String())
+	c.Assert(err, jc.ErrorIsNil)
 }

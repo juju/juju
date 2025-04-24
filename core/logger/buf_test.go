@@ -73,7 +73,7 @@ func (s *BufferedLogWriterSuite) TestLogFlushes(c *gc.C) {
 	err = b.Log(in[2:])
 	c.Assert(err, jc.ErrorIsNil)
 	mock.CheckCalls(c, []testing.StubCall{
-		{"Log", []interface{}{in}},
+		{FuncName: "Log", Args: []any{in}},
 	})
 
 	err = clock.WaitAdvance(0, coretesting.LongWait, 0)
@@ -100,9 +100,9 @@ func (s *BufferedLogWriterSuite) TestLogFlushesMultiple(c *gc.C) {
 	err := b.Log(in)
 	c.Assert(err, jc.ErrorIsNil)
 	mock.CheckCalls(c, []testing.StubCall{
-		{"Log", []interface{}{in[:1]}},
-		{"Log", []interface{}{in[1:2]}},
-		{"Log", []interface{}{in[2:]}},
+		{FuncName: "Log", Args: []any{in[:1]}},
+		{FuncName: "Log", Args: []any{in[1:2]}},
+		{FuncName: "Log", Args: []any{in[2:]}},
 	})
 }
 
@@ -138,7 +138,7 @@ func (s *BufferedLogWriterSuite) TestTimerFlushes(c *gc.C) {
 	clock.Advance(30 * time.Second)
 	c.Assert(s.waitFlush(c, &mock), jc.DeepEquals, in)
 	mock.CheckCalls(c, []testing.StubCall{
-		{"Log", []interface{}{in}},
+		{FuncName: "Log", Args: []any{in}},
 	})
 	s.assertNoFlush(c, &mock, clock)
 	mock.ResetCalls()
@@ -152,7 +152,7 @@ func (s *BufferedLogWriterSuite) TestTimerFlushes(c *gc.C) {
 	clock.Advance(1 * time.Second)
 	c.Assert(s.waitFlush(c, &mock), jc.DeepEquals, in)
 	mock.CheckCalls(c, []testing.StubCall{
-		{"Log", []interface{}{in}},
+		{FuncName: "Log", Args: []any{in}},
 	})
 	s.assertNoFlush(c, &mock, clock)
 }
@@ -186,8 +186,8 @@ func (s *BufferedLogWriterSuite) TestLogOverCapacity(c *gc.C) {
 	c.Assert(s.waitFlush(c, &mock), jc.DeepEquals, in[bufsz:])
 
 	mock.CheckCalls(c, []testing.StubCall{
-		{"Log", []interface{}{in[:bufsz]}},
-		{"Log", []interface{}{in[bufsz:]}},
+		{FuncName: "Log", Args: []any{in[:bufsz]}},
+		{FuncName: "Log", Args: []any{in[bufsz:]}},
 	})
 }
 
@@ -227,8 +227,8 @@ func (s *BufferedLogWriterSuite) TestFlushSorts(c *gc.C) {
 	c.Assert(s.waitFlush(c, &mock), jc.DeepEquals, []corelogger.LogRecord{r1})
 
 	mock.CheckCalls(c, []testing.StubCall{
-		{"Log", []interface{}{[]corelogger.LogRecord{r3, r2}}},
-		{"Log", []interface{}{[]corelogger.LogRecord{r1}}},
+		{FuncName: "Log", Args: []any{[]corelogger.LogRecord{r3, r2}}},
+		{FuncName: "Log", Args: []any{[]corelogger.LogRecord{r1}}},
 	})
 }
 

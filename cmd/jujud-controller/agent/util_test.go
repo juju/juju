@@ -55,7 +55,6 @@ import (
 	"github.com/juju/juju/internal/worker/dbaccessor/testing"
 	"github.com/juju/juju/internal/worker/diskmanager"
 	"github.com/juju/juju/internal/worker/gate"
-	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/machiner"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -244,7 +243,6 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers se
 func NewTestMachineAgentFactory(
 	c *gc.C,
 	agentConfWriter agentconfig.AgentConfigWriter,
-	bufferedLogger *logsender.BufferedLogWriter,
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
 	rootDir string,
 	cmdRunner CommandRunner,
@@ -265,7 +263,6 @@ func NewTestMachineAgentFactory(
 			agentTag:          agentTag,
 			AgentConfigWriter: agentConfWriter,
 			configChangedVal:  voyeur.NewValue(true),
-			bufferedLogger:    bufferedLogger,
 			workersStarted:    make(chan struct{}),
 			dead:              make(chan struct{}),
 			runner: worker.NewRunner(worker.RunnerParams{
@@ -296,20 +293,13 @@ func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) (*gomock.Contro
 
 	agentConf := agentconf.NewAgentConf(s.DataDir)
 	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
-	logger := s.newBufferedLogWriter()
 	newDBWorkerFunc := func(context.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
 		return testing.NewTrackedDB(s.TxnRunnerFactory()), nil
 	}
-	machineAgentFactory := NewTestMachineAgentFactory(c, agentConf, logger, newDBWorkerFunc, c.MkDir(), s.cmdRunner)
+	machineAgentFactory := NewTestMachineAgentFactory(c, agentConf, newDBWorkerFunc, c.MkDir(), s.cmdRunner)
 	machineAgent, err := machineAgentFactory(m.Tag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl, machineAgent
-}
-
-func (s *commonMachineSuite) newBufferedLogWriter() *logsender.BufferedLogWriter {
-	logger := logsender.NewBufferedLogWriter(1024)
-	s.AddCleanup(func(*gc.C) { logger.Close() })
-	return logger
 }
 
 func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine, instanceId instance.Id) {

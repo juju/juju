@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -21,6 +22,7 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v4"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
@@ -154,6 +156,9 @@ type ApiServerSuite struct {
 	//
 	// Deprecated: This will be removed in the future.
 	InstancePrechecker func(*gc.C, *state.State) environs.InstancePrechecker
+
+	objectStoresMutex sync.Mutex
+	objectStores      []objectstore.ObjectStore
 }
 
 type noopRegisterer struct {
@@ -362,6 +367,7 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	}
 
 	cfg.ObjectStoreGetter = &stubObjectStoreGetter{
+		suite:                     s,
 		rootDir:                   c.MkDir(),
 		claimer:                   objectstoretesting.MemoryClaimer(),
 		objectStoreServicesGetter: s.ObjectStoreServicesGetter(c),
@@ -452,6 +458,18 @@ func (s *ApiServerSuite) TearDownTest(c *gc.C) {
 	if s.httpServer != nil {
 		s.httpServer.Close()
 	}
+
+	s.objectStoresMutex.Lock()
+	for _, store := range s.objectStores {
+		w, ok := store.(worker.Worker)
+		if !ok {
+			c.Fatalf("object store %T does not implement worker.Worker", store)
+		}
+		w.Kill()
+	}
+	s.objectStores = nil
+	s.objectStoresMutex.Unlock()
+
 	s.DomainServicesSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 }
@@ -721,6 +739,7 @@ func (s *stubTracerGetter) GetTracer(ctx context.Context, namespace trace.Tracer
 }
 
 type stubObjectStoreGetter struct {
+	suite                     *ApiServerSuite
 	rootDir                   string
 	claimer                   internalobjectstore.Claimer
 	objectStoreServicesGetter services.ObjectStoreServicesGetter
@@ -729,7 +748,7 @@ type stubObjectStoreGetter struct {
 func (s *stubObjectStoreGetter) GetObjectStore(ctx context.Context, namespace string) (objectstore.ObjectStore, error) {
 	services := s.objectStoreServicesGetter.ServicesForModel(coremodel.UUID(namespace))
 
-	return internalobjectstore.ObjectStoreFactory(ctx,
+	store, err := internalobjectstore.ObjectStoreFactory(ctx,
 		internalobjectstore.DefaultBackendType(),
 		namespace,
 		internalobjectstore.WithRootDir(s.rootDir),
@@ -737,6 +756,15 @@ func (s *stubObjectStoreGetter) GetObjectStore(ctx context.Context, namespace st
 		internalobjectstore.WithClaimer(s.claimer),
 		internalobjectstore.WithLogger(internallogger.GetLogger("juju.objectstore")),
 	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	s.suite.objectStoresMutex.Lock()
+	defer s.suite.objectStoresMutex.Unlock()
+	s.suite.objectStores = append(s.suite.objectStores, store)
+
+	return store, nil
 }
 
 type stubMetadataService struct {
@@ -765,7 +793,7 @@ func (noopLogWriter) Close() error { return nil }
 
 type noopLogSink struct{}
 
-func (s noopLogSink) GetLogWriter(ctx context.Context, modelUUID coremodel.UUID) (corelogger.LogWriterCloser, error) {
+func (s noopLogSink) GetLogWriter(ctx context.Context, modelUUID coremodel.UUID) (corelogger.LogWriter, error) {
 	return &noopLogWriter{}, nil
 }
 

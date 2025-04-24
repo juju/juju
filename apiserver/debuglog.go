@@ -97,11 +97,11 @@ func newDebugLogHandler(
 //	   - but the command does not wait for new ones.
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	handler := func(conn *websocket.Conn) {
-		socket := &debugLogSocketImpl{conn}
+		socket := &debugLogSocketImpl{conn: conn}
 		defer conn.Close()
+
 		// Authentication and authorization has to be done after the http
 		// connection has been upgraded to a websocket.
-
 		authInfo, err := h.authenticator.Authenticate(req)
 		if err != nil {
 			socket.sendError(errors.Annotate(err, "authentication failed"))
@@ -133,28 +133,35 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			var (
-				logFile   string
-				modelUUID string
-			)
-			if p.Firehose {
-				logFile = filepath.Join(h.logDir, "logsink.log")
-			} else {
-				logFile = corelogger.ModelLogFile(h.logDir, corelogger.LoggerKey{
-					ModelUUID:  m.UUID(),
-					ModelName:  m.Name(),
-					ModelOwner: m.Owner().Id(),
-				})
+
+			// TODO (stickupkid): This should come from the logsink directly, to
+			// prevent unfettered access.
+			var modelUUID string
+			logFile := filepath.Join(h.logDir, "logsink.log")
+			if !p.Firehose {
 				modelUUID = m.UUID()
 			}
 
 			return logtailer.NewLogTailer(modelUUID, logFile, p)
 		}
-		if err := h.handle(clock, maxDuration, params, socket, logTailerFunc, h.ctxt.stop(), st.Removing()); err != nil {
+
+		// This should really use a tomb, then we don't have to do this song
+		// and dance with the channel.
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+
+			select {
+			case <-req.Context().Done():
+			case <-h.ctxt.stop():
+			}
+		}()
+
+		if err := h.handle(clock, maxDuration, params, socket, logTailerFunc, done, st.Removing()); err != nil {
 			if isBrokenPipe(err) {
-				logger.Tracef(context.TODO(), "debug-log handler stopped (client disconnected)")
+				logger.Tracef(req.Context(), "debug-log handler stopped (client disconnected)")
 			} else {
-				logger.Errorf(context.TODO(), "debug-log handler error: %v", err)
+				logger.Errorf(req.Context(), "debug-log handler error: %v", err)
 			}
 		}
 	}
@@ -182,7 +189,7 @@ type debugLogSocket interface {
 	sendError(err error)
 
 	// sendLogRecord sends record JSON encoded.
-	sendLogRecord(record *params.LogMessage, version int) error
+	sendLogRecord(*params.LogMessage, int) error
 }
 
 // debugLogSocketImpl implements the debugLogSocket interface. It
@@ -201,7 +208,7 @@ func (s *debugLogSocketImpl) sendOk() {
 func (s *debugLogSocketImpl) sendError(err error) {
 	if sendErr := s.conn.SendInitialErrorV0(err); sendErr != nil {
 		logger.Errorf(context.TODO(), "closing websocket, %v", err)
-		s.conn.Close()
+		_ = s.conn.Close()
 		return
 	}
 }

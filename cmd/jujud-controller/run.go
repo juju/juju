@@ -213,11 +213,7 @@ type versionDetail struct {
 func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	// Assuming an average of 200 bytes per log message, use up to
 	// 200MB for the log buffer.
-	defer logger.Debugf(context.TODO(), "jujud complete, code %d, err %v", code, err)
-	bufferedLogger, err := logsender.InstallBufferedLogWriter(loggo.DefaultContext(), 1048576)
-	if err != nil {
-		return 1, errors.Trace(err)
-	}
+	defer logger.Debugf(ctx, "jujud complete, code %d, err %v", code, err)
 
 	// Set the default transport to use the in-process proxy
 	// configuration.
@@ -256,6 +252,10 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		return &jujudWriter{target: target}
 	}
 
+	bufferedLogger, err := logsender.InstallBufferedLogWriter(loggo.DefaultContext(), 1048576)
+	if err != nil {
+		return 1, errors.Trace(err)
+	}
 	jujud.Register(jujudagentcmd.NewModelCommand(bufferedLogger))
 	jujud.Register(agentcmd.NewBootstrapCommand())
 
@@ -265,7 +265,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	agentConf := agentconf.NewAgentConf("")
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
 		agentConf,
-		bufferedLogger,
 		dbaccessor.NewTrackedDBWorker,
 		func(mt state.ModelType) upgrades.PreUpgradeStepsFunc {
 			if mt == state.ModelTypeCAAS {
