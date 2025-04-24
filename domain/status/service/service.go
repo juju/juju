@@ -17,23 +17,17 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/statushistory"
 )
 
-var (
-	applicationNamespace  = statushistory.Namespace{Name: "application"}
-	unitAgentNamespace    = statushistory.Namespace{Name: "unit-agent"}
-	unitWorkloadNamespace = statushistory.Namespace{Name: "unit-workload"}
-)
-
-// State describes retrieval and persistence methods for the statuses of applications
-// and units.
+// State describes retrieval and persistence methods for the statuses of
+// applications and units.
 type State interface {
-	// GetAllRelationStatuses returns all the relation statuses of the given model.
+	// GetAllRelationStatuses returns all the relation statuses of the given
+	// model.
 	GetAllRelationStatuses(ctx context.Context) (map[corerelation.UUID]status.StatusInfo[status.RelationStatusType], error)
 
-	// GetApplicationIDByName returns the application ID for the named application.
-	// If no application is found, an error satisfying
+	// GetApplicationIDByName returns the application ID for the named
+	// application. If no application is found, an error satisfying
 	// [statuserrors.ApplicationNotFound] is returned.
 	GetApplicationIDByName(ctx context.Context, name string) (coreapplication.ID, error)
 
@@ -60,9 +54,9 @@ type State interface {
 	// transition to the new status from the current status is valid. It can
 	// return the following errors:
 	//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
-	//   - [statuserrors.RelationStatusTransitionNotValid] if the current relation
-	//     status cannot transition to the new relation status. the relation does
-	//     not exist.
+	//   - [statuserrors.RelationStatusTransitionNotValid] if the current
+	//     relation status cannot transition to the new relation status. the
+	//     relation does not exist.
 	SetRelationStatus(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
@@ -101,8 +95,9 @@ type State interface {
 	//     application is dead.
 	GetUnitWorkloadStatusesForApplication(context.Context, coreapplication.ID) (status.UnitWorkloadStatuses, error)
 
-	// GetAllFullUnitStatusesForApplication returns the workload statuses
-	// and the cloud container statuses for all units of the specified application, returning:
+	// GetAllFullUnitStatusesForApplication returns the workload statuses and
+	// the cloud container statuses for all units of the specified application,
+	// returning:
 	//   - an error satisfying [statuserrors.ApplicationNotFound] if the application
 	//     doesn't exist or;
 	//   - an error satisfying [statuserrors.ApplicationIsDead] if the application
@@ -124,18 +119,18 @@ type State interface {
 	// unit doesn't exist.
 	SetUnitAgentStatus(context.Context, coreunit.UUID, status.StatusInfo[status.UnitAgentStatusType]) error
 
-	// GetAllUnitWorkloadAgentStatuses retrieves the presence, workload status, and agent status
-	// of every unit in the model. Returns an error satisfying [statuserrors.UnitStatusNotFound]
-	// if any units do not have statuses.
+	// GetAllUnitWorkloadAgentStatuses retrieves the presence, workload status,
+	// and agent status of every unit in the model. Returns an error satisfying
+	// [statuserrors.UnitStatusNotFound] if any units do not have statuses.
 	GetAllUnitWorkloadAgentStatuses(context.Context) (status.UnitWorkloadAgentStatuses, error)
 
-	// GetAllApplicationStatuses returns the statuses of all the applications in the model,
-	// indexed by application name, if they have a status set.
+	// GetAllApplicationStatuses returns the statuses of all the applications in
+	// the model, indexed by application name, if they have a status set.
 	GetAllApplicationStatuses(context.Context) (map[string]status.StatusInfo[status.WorkloadStatusType], error)
 
-	// SetUnitPresence marks the presence of the specified unit, returning an error
-	// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	// The unit life is not considered when making this query.
+	// SetUnitPresence marks the presence of the specified unit, returning an
+	// error satisfying [applicationerrors.UnitNotFound] if the unit doesn't
+	// exist. The unit life is not considered when making this query.
 	SetUnitPresence(ctx context.Context, name coreunit.Name) error
 
 	// DeleteUnitPresence removes the presence of the specified unit. If the
@@ -144,7 +139,8 @@ type State interface {
 	DeleteUnitPresence(ctx context.Context, name coreunit.Name) error
 }
 
-// Service provides the API for working with the statuses of applications and units.
+// Service provides the API for working with the statuses of applications and
+// units.
 type Service struct {
 	st            State
 	logger        logger.Logger
@@ -194,16 +190,10 @@ func (s *Service) GetAllRelationStatuses(ctx context.Context) (map[corerelation.
 func (s *Service) SetApplicationStatus(
 	ctx context.Context,
 	applicationName string,
-	status corestatus.StatusInfo,
+	statusInfo corestatus.StatusInfo,
 ) error {
-	// Ensure we have a valid timestamp. It's optional at the API server level.
-	// but it is a requirement for the database.
-	if status.Since == nil {
-		status.Since = ptr(s.clock.Now())
-	}
-
 	// This will implicitly verify that the status is valid.
-	encodedStatus, err := encodeWorkloadStatus(status)
+	encodedStatus, err := encodeWorkloadStatus(statusInfo)
 	if err != nil {
 		return errors.Errorf("encoding workload status: %w", err)
 	}
@@ -217,17 +207,17 @@ func (s *Service) SetApplicationStatus(
 		return errors.Capture(err)
 	}
 
-	if err := s.statusHistory.RecordStatus(ctx, applicationNamespace.WithID(applicationID.String()), status); err != nil {
+	if err := s.statusHistory.RecordStatus(ctx, status.ApplicationNamespace.WithID(applicationID.String()), statusInfo); err != nil {
 		s.logger.Infof(ctx, "failed recording setting application status history: %v", err)
 	}
 
 	return nil
 }
 
-// GetApplicationDisplayStatus returns the display status of the specified application.
-// The display status is equal to the application status if it is set, otherwise it is
-// derived from the unit display statuses.
-// If no application is found, an error satisfying [statuserrors.ApplicationNotFound]
+// GetApplicationDisplayStatus returns the display status of the specified
+// application. The display status is equal to the application status if it is
+// set, otherwise it is derived from the unit display statuses. If no
+// application is found, an error satisfying [statuserrors.ApplicationNotFound]
 // is returned.
 func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appName string) (corestatus.StatusInfo, error) {
 	appID, err := s.st.GetApplicationIDByName(ctx, appName)
@@ -257,18 +247,12 @@ func (s *Service) GetApplicationDisplayStatus(ctx context.Context, appName strin
 // SetUnitWorkloadStatus sets the workload status of the specified unit,
 // returning an error satisfying [statuserrors.UnitNotFound] if the unit
 // doesn't exist.
-func (s *Service) SetUnitWorkloadStatus(ctx context.Context, unitName coreunit.Name, status corestatus.StatusInfo) error {
+func (s *Service) SetUnitWorkloadStatus(ctx context.Context, unitName coreunit.Name, statusInfo corestatus.StatusInfo) error {
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
 	}
 
-	// Ensure we have a valid timestamp. It's optional at the API server level.
-	// but it is a requirement for the database.
-	if status.Since == nil {
-		status.Since = ptr(s.clock.Now())
-	}
-
-	workloadStatus, err := encodeWorkloadStatus(status)
+	workloadStatus, err := encodeWorkloadStatus(statusInfo)
 	if err != nil {
 		return errors.Errorf("encoding workload status: %w", err)
 	}
@@ -280,7 +264,7 @@ func (s *Service) SetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 		return errors.Errorf("setting workload status: %w", err)
 	}
 
-	if err := s.statusHistory.RecordStatus(ctx, unitWorkloadNamespace.WithID(unitName.String()), status); err != nil {
+	if err := s.statusHistory.RecordStatus(ctx, status.UnitWorkloadNamespace.WithID(unitName.String()), statusInfo); err != nil {
 		s.logger.Infof(ctx, "failed recording setting workload status for unit %q: %v", unitName, err)
 	}
 	return nil
@@ -308,28 +292,22 @@ func (s *Service) GetUnitWorkloadStatus(ctx context.Context, unitName coreunit.N
 // SetUnitAgentStatus sets the agent status of the specified unit,
 // returning an error satisfying [statuserrors.UnitNotFound] if the unit
 // doesn't exist.
-func (s *Service) SetUnitAgentStatus(ctx context.Context, unitName coreunit.Name, status corestatus.StatusInfo) error {
+func (s *Service) SetUnitAgentStatus(ctx context.Context, unitName coreunit.Name, statusInfo corestatus.StatusInfo) error {
 	if err := unitName.Validate(); err != nil {
 		return errors.Capture(err)
 	}
 
-	// Ensure we have a valid timestamp. It's optional at the API server level.
-	// but it is a requirement for the database.
-	if status.Since == nil {
-		status.Since = ptr(s.clock.Now())
-	}
-
 	// Encoding the status will handle invalid status values.
-	switch status.Status {
+	switch statusInfo.Status {
 	case corestatus.Error:
-		if status.Message == "" {
-			return errors.Errorf("setting status %q without message", status.Status)
+		if statusInfo.Message == "" {
+			return errors.Errorf("setting status %q without message", statusInfo.Status)
 		}
 	case corestatus.Lost, corestatus.Allocating:
-		return errors.Errorf("setting status %q is not allowed", status.Status)
+		return errors.Errorf("setting status %q is not allowed", statusInfo.Status)
 	}
 
-	agentStatus, err := encodeUnitAgentStatus(status)
+	agentStatus, err := encodeUnitAgentStatus(statusInfo)
 	if err != nil {
 		return errors.Errorf("encoding agent status: %w", err)
 	}
@@ -341,7 +319,7 @@ func (s *Service) SetUnitAgentStatus(ctx context.Context, unitName coreunit.Name
 		return errors.Errorf("setting agent status: %w", err)
 	}
 
-	if err := s.statusHistory.RecordStatus(ctx, unitAgentNamespace.WithID(unitName.String()), status); err != nil {
+	if err := s.statusHistory.RecordStatus(ctx, status.UnitAgentNamespace.WithID(unitName.String()), statusInfo); err != nil {
 		s.logger.Infof(ctx, "failed recording setting agent status for unit %q: %v", unitName, err)
 	}
 	return nil
@@ -369,16 +347,16 @@ func (s *Service) GetUnitWorkloadStatusesForApplication(ctx context.Context, app
 }
 
 // GetUnitDisplayAndAgentStatus returns the unit and agent display status of the
-// specified unit. The display status a function of both the unit workload status
-// and the cloud container status. It returns an error satisfying
+// specified unit. The display status a function of both the unit workload
+// status and the cloud container status. It returns an error satisfying
 // [statuserrors.UnitNotFound] if the unit doesn't exist.
 func (s *Service) GetUnitDisplayAndAgentStatus(ctx context.Context, unitName coreunit.Name) (agent corestatus.StatusInfo, workload corestatus.StatusInfo, _ error) {
 	if err := unitName.Validate(); err != nil {
 		return agent, workload, errors.Capture(err)
 	}
 
-	// TODO (stickupkid/jack-w-shaw) This should just be 1 or 2 calls to the state layer
-	// to get the statuses. We even have a view for this!
+	// TODO (stickupkid/jack-w-shaw) This should just be 1 or 2 calls to the
+	// state layer to get the statuses. We even have a view for this!
 
 	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
@@ -437,7 +415,7 @@ func (s *Service) CheckUnitStatusesReadyForMigration(ctx context.Context) error 
 		return errors.Errorf("getting unit statuses: %w", err)
 	}
 
-	failedChecks := []string{}
+	var failedChecks []string
 	for unitName, fullStatus := range fullStatuses {
 		present, agentStatus, workloadStatus, err := decodeUnitWorkloadAgentStatus(fullStatus)
 		if err != nil {

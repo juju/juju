@@ -37,14 +37,7 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/storage"
-)
-
-var (
-	applicationNamespace  = statushistory.Namespace{Name: "application"}
-	unitAgentNamespace    = statushistory.Namespace{Name: "unit-agent"}
-	unitWorkloadNamespace = statushistory.Namespace{Name: "unit-workload"}
 )
 
 // ApplicationState describes retrieval and persistence methods for

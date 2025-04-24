@@ -60,12 +60,6 @@ func (s *LeadershipService) SetApplicationStatusForUnitLeader(
 		return errors.Errorf("unit name: %w", err)
 	}
 
-	// Ensure we have a valid timestamp. It's optional at the API server level.
-	// but it is a requirement for the database.
-	if status.Since == nil {
-		status.Since = ptr(s.clock.Now())
-	}
-
 	// This will implicitly verify that the status is valid.
 	encodedStatus, err := encodeWorkloadStatus(status)
 	if err != nil {

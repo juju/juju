@@ -28,6 +28,7 @@ type StatusAPI struct {
 	unitSetter   *common.UnitStatusSetter
 	unitGetter   *common.UnitStatusGetter
 	getCanModify common.GetAuthFunc
+	clock        clock.Clock
 }
 
 // NewStatusAPI creates a new server-side Status setter API facade.
@@ -41,6 +42,7 @@ func NewStatusAPI(statusService StatusService, getCanModify common.GetAuthFunc, 
 		unitSetter:    unitSetter,
 		unitGetter:    unitGetter,
 		getCanModify:  getCanModify,
+		clock:         clock,
 	}
 }
 
@@ -78,6 +80,7 @@ func (s *StatusAPI) SetAgentStatus(ctx context.Context, args params.SetStatus) (
 			Status:  status.Status(arg.Status),
 			Message: arg.Info,
 			Data:    arg.Data,
+			Since:   ptr(s.clock.Now()),
 		}); errors.Is(err, statuserrors.UnitNotFound) {
 			results.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", tag.Id()))
 		} else if err != nil {
@@ -130,6 +133,7 @@ func (s *StatusAPI) SetApplicationStatus(ctx context.Context, args params.SetSta
 			Status:  status.Status(arg.Status),
 			Message: arg.Info,
 			Data:    arg.Data,
+			Since:   ptr(s.clock.Now()),
 		}); errors.Is(err, statuserrors.UnitNotFound) {
 			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", unitName))
 			continue
