@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -713,16 +712,16 @@ func (s *relationServiceSuite) TestGetRelationUnitChanges(c *gc.C) {
 		coreunittesting.GenUnitUUID(c),
 		coreunittesting.GenUnitUUID(c),
 	}
-	expectedResult := watcher.RelationUnitsChange{
-		Changed: map[string]watcher.UnitSettings{
-			unitUUIDS[1].String(): {Version: 42},
-			unitUUIDS[2].String(): {Version: 43},
+	expectedResult := relation.RelationUnitsChange{
+		Changed: map[coreunit.Name]int64{
+			"foo/1": 42,
+			"foo/2": 43,
 		},
 		AppChanged: map[string]int64{
-			appUUIDs[0].String(): 42,
-			appUUIDs[1].String(): 43,
+			"foo": 42,
+			"bar": 43,
 		},
-		Departed: []string{unitUUIDS[0].String()},
+		Departed: []coreunit.Name{"bar/0"},
 	}
 	s.state.EXPECT().GetRelationUnitChanges(gomock.Any(), unitUUIDS, appUUIDs).Return(expectedResult, nil)
 
@@ -771,7 +770,7 @@ func (s *relationServiceSuite) TestGetRelationUnitChangesUnitStateError(c *gc.C)
 	// Arrange
 	boom := errors.Errorf("boom")
 	s.state.EXPECT().GetRelationUnitChanges(gomock.Any(), gomock.Any(),
-		gomock.Any()).Return(watcher.RelationUnitsChange{}, boom)
+		gomock.Any()).Return(relation.RelationUnitsChange{}, boom)
 
 	// Act
 	_, err := s.service.GetRelationUnitChanges(context.Background(), nil, nil)

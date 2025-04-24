@@ -1035,26 +1035,26 @@ func (s *uniterRelationSuite) TestWatchRelationUnits(c *gc.C) {
 	unitName := coreunit.Name(s.wordpressUnitTag.Id())
 
 	// Changes and expected results should matches.
-	changes := watcher.RelationUnitsChange{
-		Changed: map[string]watcher.UnitSettings{
-			unitUUIDs[0].String(): {Version: 42},
+	changes := relation.RelationUnitsChange{
+		Changed: map[coreunit.Name]int64{
+			"wordpress/0": 42,
 		},
 		AppChanged: map[string]int64{
-			appUUIDs[0].String(): 47,
+			"wordpress": 47,
 		},
-		Departed: []string{unitUUIDs[1].String()},
+		Departed: []coreunit.Name{"mysql/0"},
 	}
 	expectedResult := params.RelationUnitsWatchResults{Results: []params.RelationUnitsWatchResult{
 		{
 			RelationUnitsWatcherId: watcherID,
 			Changes: params.RelationUnitsChange{
 				Changed: map[string]params.UnitSettings{
-					unitUUIDs[0].String(): {Version: 42},
+					"wordpress/0": {Version: 42},
 				},
 				AppChanged: map[string]int64{
-					appUUIDs[0].String(): 47,
+					"wordpress": 47,
 				},
-				Departed: []string{unitUUIDs[1].String()},
+				Departed: []string{"mysql/0"},
 			},
 		},
 	}}
@@ -1337,7 +1337,7 @@ func (s *uniterRelationSuite) expectWatchRelatedUnitsChange(
 	unitUUIDs []coreunit.UUID,
 	appUUIDS []coreapplication.ID,
 	watcherID string,
-	changes watcher.RelationUnitsChange,
+	changes relation.RelationUnitsChange,
 ) {
 	channel := make(chan []string, 1)
 	mockWatcher := watchertest.NewMockStringsWatcher(channel)

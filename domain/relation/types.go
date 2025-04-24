@@ -252,6 +252,23 @@ type RelationLifeSuspendedData struct {
 	Suspended           bool
 }
 
+// RelationUnitsChange describes the membership and settings of; or changes to;
+// some relation scope.
+type RelationUnitsChange struct {
+
+	// Changed holds a set of units that are known to be in scope, and the
+	// latest known settings version for each, referenced by unit name.
+	Changed map[unit.Name]int64
+
+	// AppChanged holds the latest known settings version for associated
+	// applications, referenced by name
+	AppChanged map[string]int64
+
+	// Departed holds a set of units that have previously been reported to
+	// be in scope, but which no longer are, referenced by unit name.
+	Departed []unit.Name
+}
+
 // SubordinateCreator creates subordinate units in the database.
 type SubordinateCreator interface {
 	// CreateSubordinate is the signature of the function used to create units on a

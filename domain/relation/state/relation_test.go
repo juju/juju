@@ -23,7 +23,6 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -2392,9 +2391,9 @@ func (s *relationSuite) TestGetRelationUnitChanges(c *gc.C) {
 	noSettingAppEndpointUUID := s.addApplicationEndpoint(c, noSettingAppUUID, charmRelationUUID)
 	withSettingAppEndpointUUID := s.addApplicationEndpoint(c, withSettingAppUUID, charmRelationUUID)
 	relationUUID := s.addRelation(c)
+	departedUnitUUID := s.addUnit(c, "noSetting/1", noSettingAppUUID, charmUUID)
 	noSettingUnitUUID := s.addUnit(c, "noSetting/0", noSettingAppUUID, charmUUID)
 	withSettingUnitUUID := s.addUnit(c, "withSetting/0", withSettingAppUUID, charmUUID)
-	unknownUnitUUID := coreunittesting.GenUnitUUID(c)
 	noSettingRelationEndpointUUID := s.addRelationEndpoint(c, relationUUID, noSettingAppEndpointUUID)
 	withSettingRelationEndpointUUID := s.addRelationEndpoint(c, relationUUID, withSettingAppEndpointUUID)
 	s.addRelationUnit(c, noSettingUnitUUID, noSettingRelationEndpointUUID)
@@ -2406,10 +2405,10 @@ func (s *relationSuite) TestGetRelationUnitChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) cannot get the DB: %s", errors.ErrorStack(err)))
 
 	// Act
-	var changes watcher.RelationUnitsChange
+	var changes relation.RelationUnitsChange
 	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		changes, err = s.state.GetRelationUnitChanges(ctx,
-			[]coreunit.UUID{noSettingUnitUUID, withSettingUnitUUID, unknownUnitUUID},
+			[]coreunit.UUID{noSettingUnitUUID, withSettingUnitUUID, departedUnitUUID},
 			[]coreapplication.ID{noSettingAppUUID, withSettingAppUUID},
 		)
 		return err
@@ -2417,15 +2416,15 @@ func (s *relationSuite) TestGetRelationUnitChanges(c *gc.C) {
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error: %s", errors.ErrorStack(err)))
-	c.Assert(changes.Changed, jc.DeepEquals, map[string]watcher.UnitSettings{
-		noSettingUnitUUID.String():   {Version: 0},
-		withSettingUnitUUID.String(): {Version: hashToInt("42")},
+	c.Assert(changes.Changed, jc.DeepEquals, map[coreunit.Name]int64{
+		"noSetting/0":   0,
+		"withSetting/0": hashToInt("42"),
 	})
 	c.Assert(changes.AppChanged, jc.DeepEquals, map[string]int64{
-		noSettingAppUUID.String():   0,
-		withSettingAppUUID.String(): hashToInt("84"),
+		"noSetting":   0,
+		"withSetting": hashToInt("84"),
 	})
-	c.Assert(changes.Departed, jc.SameContents, []string{unknownUnitUUID.String()})
+	c.Assert(changes.Departed, jc.SameContents, []coreunit.Name{"noSetting/1"})
 }
 
 func (s *relationSuite) TestGetRelationUnitChangesEmptyArgs(c *gc.C) {
@@ -2435,7 +2434,7 @@ func (s *relationSuite) TestGetRelationUnitChangesEmptyArgs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Arrange) cannot get the DB: %s", errors.ErrorStack(err)))
 
 	// Act
-	var changes watcher.RelationUnitsChange
+	var changes relation.RelationUnitsChange
 	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		changes, err = s.state.GetRelationUnitChanges(ctx, nil, nil)
 		return err
@@ -2443,10 +2442,10 @@ func (s *relationSuite) TestGetRelationUnitChangesEmptyArgs(c *gc.C) {
 
 	// Assert
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) unexpected error: %s", errors.ErrorStack(err)))
-	c.Check(changes, gc.DeepEquals, watcher.RelationUnitsChange{
-		Changed:    map[string]watcher.UnitSettings{},
+	c.Check(changes, gc.DeepEquals, relation.RelationUnitsChange{
+		Changed:    map[coreunit.Name]int64{},
 		AppChanged: map[string]int64{},
-		Departed:   []string{},
+		Departed:   []coreunit.Name{},
 	})
 }
 

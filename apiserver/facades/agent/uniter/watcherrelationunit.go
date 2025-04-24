@@ -6,6 +6,7 @@ package uniter
 import (
 	"context"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v4/catacomb"
 
@@ -13,7 +14,6 @@ import (
 	"github.com/juju/juju/core/application"
 	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/relation"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -94,18 +94,20 @@ func (w *relationUnitsWatcher) fetchRelationUnitChanges(ctx context.Context,
 	return convertRelationUnitsChange(fetched), nil
 }
 
-func convertRelationUnitsChange(changes watcher.RelationUnitsChange) params.RelationUnitsChange {
+func convertRelationUnitsChange(changes relation.RelationUnitsChange) params.RelationUnitsChange {
 	var changed map[string]params.UnitSettings
 	if changes.Changed != nil {
 		changed = make(map[string]params.UnitSettings, len(changes.Changed))
 		for key, val := range changes.Changed {
-			changed[key] = params.UnitSettings{Version: val.Version}
+			changed[key.String()] = params.UnitSettings{Version: val}
 		}
 	}
 	return params.RelationUnitsChange{
-		Changed:    changed,
+		Changed: transform.Map(changes.Changed, func(k coreunit.Name, v int64) (string, params.UnitSettings) {
+			return k.String(), params.UnitSettings{Version: v}
+		}),
 		AppChanged: changes.AppChanged,
-		Departed:   changes.Departed,
+		Departed:   transform.Slice(changes.Departed, coreunit.Name.String),
 	}
 }
 
