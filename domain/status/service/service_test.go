@@ -120,9 +120,11 @@ func (s *serviceSuite) TestSetRelationStatusRelationNotFound(c *gc.C) {
 	unitName := unittesting.GenNewName(c, "app/0")
 	sts := corestatus.StatusInfo{
 		Status: corestatus.Broken,
+		Since:  ptr(time.Now()),
 	}
 	expectedStatus := status.StatusInfo[status.RelationStatusType]{
 		Status: status.RelationStatusTypeBroken,
+		Since:  sts.Since,
 	}
 	s.state.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).Return("", appName, nil)
 	s.leadership.EXPECT().WithLeader(gomock.Any(), appName, unitName.String(), gomock.Any()).DoAndReturn(
@@ -148,6 +150,7 @@ func (s *serviceSuite) TestSetRelationStatusUnitNotFound(c *gc.C) {
 	appName := "app-name"
 	sts := corestatus.StatusInfo{
 		Status: corestatus.Broken,
+		Since:  ptr(time.Now()),
 	}
 	s.state.EXPECT().GetApplicationIDAndNameByUnitName(gomock.Any(), unitName).Return("", appName, statuserrors.UnitNotFound)
 

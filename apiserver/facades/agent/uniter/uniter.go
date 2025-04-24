@@ -1834,6 +1834,7 @@ func (u *UniterAPI) oneSetRelationStatus(
 	err = u.statusService.SetRelationStatus(ctx, unitName, relationUUID, status.StatusInfo{
 		Status:  status.Status(relStatus),
 		Message: message,
+		Since:   ptr(u.clock.Now()),
 	})
 	if errors.Is(err, errors.NotFound) {
 		return apiservererrors.ErrPerm

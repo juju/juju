@@ -302,6 +302,11 @@ func (s *LeadershipService) SetRelationStatus(
 	relationUUID corerelation.UUID,
 	info corestatus.StatusInfo,
 ) error {
+	// Check that the time has been provided
+	if info.Since == nil || info.Since.IsZero() {
+		return errors.Errorf("invalid time: %v", info.Since)
+	}
+
 	// Get application name for leadership check.
 	_, applicationName, err := s.st.GetApplicationIDAndNameByUnitName(ctx, unitName)
 	if err != nil {
