@@ -35,6 +35,7 @@ import (
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/charm/store"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/deployment"
 	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
@@ -735,13 +736,13 @@ func (s *applicationServiceSuite) TestGetApplicationAndCharmConfig(c *gc.C) {
 	charmOrigin := application.CharmOrigin{
 		Name:   "foo",
 		Source: applicationcharm.CharmHubSource,
-		Platform: application.Platform{
+		Platform: deployment.Platform{
 			Architecture: architecture.AMD64,
 			Channel:      "stable",
-			OSType:       application.Ubuntu,
+			OSType:       deployment.Ubuntu,
 		},
-		Channel: &application.Channel{
-			Risk: application.RiskStable,
+		Channel: &deployment.Channel{
+			Risk: deployment.RiskStable,
 		},
 	}
 
@@ -813,13 +814,13 @@ func (s *applicationServiceSuite) TestDecodeCharmOrigin(c *gc.C) {
 	origin := application.CharmOrigin{
 		Name:   "foo",
 		Source: applicationcharm.CharmHubSource,
-		Platform: application.Platform{
+		Platform: deployment.Platform{
 			Architecture: architecture.AMD64,
 			Channel:      "stable",
-			OSType:       application.Ubuntu,
+			OSType:       deployment.Ubuntu,
 		},
-		Channel: &application.Channel{
-			Risk: application.RiskStable,
+		Channel: &deployment.Channel{
+			Risk: deployment.RiskStable,
 		},
 	}
 
@@ -855,10 +856,10 @@ func (s *applicationServiceSuite) TestDecodeCharmSource(c *gc.C) {
 }
 
 func (s *applicationServiceSuite) TestDecodePlatform(c *gc.C) {
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Architecture: architecture.AMD64,
 		Channel:      "stable",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 	}
 
 	decoded, err := decodePlatform(platform)
@@ -872,10 +873,10 @@ func (s *applicationServiceSuite) TestDecodePlatform(c *gc.C) {
 }
 
 func (s *applicationServiceSuite) TestDecodePlatformArchError(c *gc.C) {
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Architecture: 99,
 		Channel:      "stable",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 	}
 
 	_, err := decodePlatform(platform)
@@ -883,7 +884,7 @@ func (s *applicationServiceSuite) TestDecodePlatformArchError(c *gc.C) {
 }
 
 func (s *applicationServiceSuite) TestDecodePlatformOSError(c *gc.C) {
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Architecture: architecture.AMD64,
 		Channel:      "stable",
 		OSType:       99,
@@ -900,8 +901,8 @@ func (s *applicationServiceSuite) TestDecodeChannelNilChannel(c *gc.C) {
 }
 
 func (s *applicationServiceSuite) TestDecodeChannel(c *gc.C) {
-	ch, err := decodeChannel(&application.Channel{
-		Risk: application.RiskStable,
+	ch, err := decodeChannel(&deployment.Channel{
+		Risk: deployment.RiskStable,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(ch, gc.DeepEquals, &charm.Channel{
@@ -910,7 +911,7 @@ func (s *applicationServiceSuite) TestDecodeChannel(c *gc.C) {
 }
 
 func (s *applicationServiceSuite) TestDecodeChannelInvalidRisk(c *gc.C) {
-	_, err := decodeChannel(&application.Channel{
+	_, err := decodeChannel(&deployment.Channel{
 		Risk: "risk",
 	})
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
@@ -918,23 +919,23 @@ func (s *applicationServiceSuite) TestDecodeChannelInvalidRisk(c *gc.C) {
 
 func (s *applicationServiceSuite) TestDecodeRisk(c *gc.C) {
 	tests := []struct {
-		risk     application.ChannelRisk
+		risk     deployment.ChannelRisk
 		expected charm.Risk
 	}{
 		{
-			risk:     application.RiskStable,
+			risk:     deployment.RiskStable,
 			expected: charm.Stable,
 		},
 		{
-			risk:     application.RiskCandidate,
+			risk:     deployment.RiskCandidate,
 			expected: charm.Candidate,
 		},
 		{
-			risk:     application.RiskBeta,
+			risk:     deployment.RiskBeta,
 			expected: charm.Beta,
 		},
 		{
-			risk:     application.RiskEdge,
+			risk:     deployment.RiskEdge,
 			expected: charm.Edge,
 		},
 	}

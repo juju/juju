@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationstate "github.com/juju/juju/domain/application/state"
+	"github.com/juju/juju/domain/deployment"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/domain/status/service"
 	"github.com/juju/juju/domain/status/state"
@@ -178,12 +179,12 @@ func (s *leadershipSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *leadershipSuite) createApplication(c *gc.C, name string, units ...application.AddUnitArg) coreapplication.ID {
 	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "22.04/stable",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
-	channel := &application.Channel{
+	channel := &deployment.Channel{
 		Track:  "track",
 		Risk:   "stable",
 		Branch: "branch",

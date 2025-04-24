@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/deployment"
 	domainresource "github.com/juju/juju/domain/resource"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -755,24 +756,24 @@ func encodeArchitecture(a architecture.Architecture) (string, error) {
 	}
 }
 
-func encodeOSType(t application.OSType) (string, error) {
+func encodeOSType(t deployment.OSType) (string, error) {
 	switch t {
-	case application.Ubuntu:
+	case deployment.Ubuntu:
 		return strings.ToLower(ostype.Ubuntu.String()), nil
 	default:
 		return "", internalerrors.Errorf("unsupported OS type %v", t)
 	}
 }
 
-func encodeRisk(r application.ChannelRisk) (string, error) {
+func encodeRisk(r deployment.ChannelRisk) (string, error) {
 	switch r {
-	case application.RiskStable:
+	case deployment.RiskStable:
 		return charm.Stable.String(), nil
-	case application.RiskCandidate:
+	case deployment.RiskCandidate:
 		return charm.Candidate.String(), nil
-	case application.RiskBeta:
+	case deployment.RiskBeta:
 		return charm.Beta.String(), nil
-	case application.RiskEdge:
+	case deployment.RiskEdge:
 		return charm.Edge.String(), nil
 	default:
 		return "", internalerrors.Errorf("unsupported risk %v", r)

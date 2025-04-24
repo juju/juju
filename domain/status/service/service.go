@@ -445,8 +445,44 @@ func (s *Service) CheckUnitStatusesReadyForMigration(ctx context.Context) error 
 
 // GetApplicationAndUnitStatuses returns the application statuses of all the
 // applications in the model, indexed by application name.
-func (s *Service) GetApplicationAndUnitStatuses(ctx context.Context) (map[string]status.Application, error) {
-	return s.st.GetApplicationAndUnitStatuses(ctx)
+func (s *Service) GetApplicationAndUnitStatuses(ctx context.Context) (map[string]Application, error) {
+	statuses, err := s.st.GetApplicationAndUnitStatuses(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	results := make(map[string]Application, len(statuses))
+	for appName, app := range statuses {
+		decoded, err := decodeApplicationStatusDetails(app)
+		if err != nil {
+			return nil, errors.Errorf("decoding application status for %q: %w", appName, err)
+		}
+		results[appName] = decoded
+	}
+
+	return results, nil
+}
+
+func decodeApplicationStatusDetails(app status.Application) (Application, error) {
+	life, err := app.Life.Value()
+	if err != nil {
+		return Application{}, errors.Errorf("decoding application life: %w", err)
+	}
+	decodedStatus, err := decodeApplicationStatus(app.Status)
+	if err != nil {
+		return Application{}, errors.Errorf("decoding application status: %w", err)
+	}
+
+	return Application{
+		Life:         life,
+		Status:       decodedStatus,
+		Relations:    app.Relations,
+		Subordinate:  app.Subordinate,
+		CharmLocator: app.CharmLocator,
+		CharmVersion: app.CharmVersion,
+		Platform:     app.Platform,
+		Channel:      app.Channel,
+	}, nil
 }
 
 // ExportUnitStatuses returns the workload and agent statuses of all the units in

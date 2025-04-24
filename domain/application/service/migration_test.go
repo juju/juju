@@ -25,6 +25,7 @@ import (
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainconstraints "github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/deployment"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
@@ -434,9 +435,9 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 		Revision:      42,
 		Architecture:  architecture.ARM64,
 	}
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "24.04",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
 	downloadInfo := &domaincharm.DownloadInfo{

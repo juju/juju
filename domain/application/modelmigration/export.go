@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
+	"github.com/juju/juju/domain/deployment"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/errors"
@@ -339,7 +340,7 @@ func exportSource(source charm.CharmSource) (string, error) {
 	}
 }
 
-func exportChannel(channel *application.Channel) (string, error) {
+func exportChannel(channel *deployment.Channel) (string, error) {
 	if channel == nil {
 		return "", nil
 	}
@@ -353,22 +354,22 @@ func exportChannel(channel *application.Channel) (string, error) {
 	return ch.String(), nil
 }
 
-func exportRisk(risk application.ChannelRisk) (string, error) {
+func exportRisk(risk deployment.ChannelRisk) (string, error) {
 	switch risk {
-	case application.RiskStable:
+	case deployment.RiskStable:
 		return "stable", nil
-	case application.RiskCandidate:
+	case deployment.RiskCandidate:
 		return "candidate", nil
-	case application.RiskBeta:
+	case deployment.RiskBeta:
 		return "beta", nil
-	case application.RiskEdge:
+	case deployment.RiskEdge:
 		return "edge", nil
 	default:
 		return "", errors.Errorf("unsupported risk %q", risk)
 	}
 }
 
-func (e *exportOperation) exportPlatform(ctx context.Context, platform application.Platform, defaultArch string) (string, error) {
+func (e *exportOperation) exportPlatform(ctx context.Context, platform deployment.Platform, defaultArch string) (string, error) {
 	arch := e.exportArchitecture(ctx, platform.Architecture, defaultArch)
 
 	os, err := exportOSType(platform.OSType)
@@ -384,7 +385,7 @@ func (e *exportOperation) exportPlatform(ctx context.Context, platform applicati
 	return p.String(), nil
 }
 
-func (e *exportOperation) exportArchitecture(ctx context.Context, a application.Architecture, defaultArch string) string {
+func (e *exportOperation) exportArchitecture(ctx context.Context, a deployment.Architecture, defaultArch string) string {
 	switch a {
 	case architecture.AMD64:
 		return arch.AMD64
@@ -402,9 +403,9 @@ func (e *exportOperation) exportArchitecture(ctx context.Context, a application.
 	}
 }
 
-func exportOSType(osType application.OSType) (string, error) {
+func exportOSType(osType deployment.OSType) (string, error) {
 	switch osType {
-	case application.Ubuntu:
+	case deployment.Ubuntu:
 		// For some reason, all ostype values are title case, but we match
 		// against the non-title case values.
 		return strings.ToLower(ostype.Ubuntu.String()), nil
@@ -499,7 +500,7 @@ func exportCharmURLSource(source charm.CharmSource) (string, error) {
 	}
 }
 
-func exportCharmURLArchitecture(a application.Architecture) (string, error) {
+func exportCharmURLArchitecture(a architecture.Architecture) (string, error) {
 	switch a {
 	case architecture.AMD64:
 		return arch.AMD64, nil

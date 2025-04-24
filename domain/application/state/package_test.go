@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -93,12 +94,12 @@ func (s *baseSuite) addApplicationArgForResources(c *gc.C,
 	charmResources map[string]charm.Resource,
 	addResourcesArgs []application.AddApplicationResourceArg,
 ) application.AddApplicationArg {
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "666",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
-	channel := &application.Channel{
+	channel := &deployment.Channel{
 		Track:  "track",
 		Risk:   "risk",
 		Branch: "branch",
@@ -152,12 +153,12 @@ func (s *baseSuite) addApplicationArgForStorage(c *gc.C,
 	storageParentDir string,
 	charmStorage []charm.Storage,
 	addStorageArgs []application.ApplicationStorageArg) application.AddApplicationArg {
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "666",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
-	channel := &application.Channel{
+	channel := &deployment.Channel{
 		Track:  "track",
 		Risk:   "risk",
 		Branch: "branch",
@@ -211,12 +212,12 @@ func (s *baseSuite) addApplicationArgForStorage(c *gc.C,
 func (s *baseSuite) createApplication(c *gc.C, name string, l life.Life, units ...application.InsertUnitArg) coreapplication.ID {
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "22.04/stable",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
-	channel := &application.Channel{
+	channel := &deployment.Channel{
 		Track:  "track",
 		Risk:   "stable",
 		Branch: "branch",
@@ -310,12 +311,12 @@ func (s *baseSuite) createApplication(c *gc.C, name string, l life.Life, units .
 func (s *baseSuite) createScalingApplication(c *gc.C, name string, l life.Life, scale int) coreapplication.ID {
 	state := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "22.04/stable",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
-	channel := &application.Channel{
+	channel := &deployment.Channel{
 		Track:  "track",
 		Risk:   "stable",
 		Branch: "branch",

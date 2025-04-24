@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -219,8 +220,8 @@ func (s *exportApplicationSuite) TestExportScalingState(c *gc.C) {
 	s.exportService.EXPECT().GetApplicationCharmOrigin(gomock.Any(), "prometheus-k8s").Return(application.CharmOrigin{
 		Name:   "prometheus-k8s",
 		Source: charm.CharmHubSource,
-		Platform: application.Platform{
-			OSType:       application.Ubuntu,
+		Platform: deployment.Platform{
+			OSType:       deployment.Ubuntu,
 			Channel:      "24.04",
 			Architecture: architecture.AMD64,
 		},

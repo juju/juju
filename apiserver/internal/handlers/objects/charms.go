@@ -18,7 +18,6 @@ import (
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -364,7 +363,7 @@ func convertSource(source applicationcharm.CharmSource) (string, error) {
 	}
 }
 
-func encodeArchitecture(a application.Architecture) (string, error) {
+func encodeArchitecture(a architecture.Architecture) (string, error) {
 	switch a {
 	case architecture.AMD64:
 		return arch.AMD64, nil

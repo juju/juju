@@ -156,3 +156,24 @@ func decodeArchitecture(a arch.Arch) (architecture.Architecture, error) {
 		return -1, errors.BadRequestf("unsupported architecture %q", a)
 	}
 }
+
+// CharmURLFromLocator returns the charm URL for the current charm.
+func CharmURLFromLocator(name string, locator charm.CharmLocator) (string, error) {
+	schema, err := convertSource(locator.Source)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	architecture, err := convertApplication(locator.Architecture)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	url := internalcharm.URL{
+		Schema:       schema,
+		Name:         name,
+		Revision:     locator.Revision,
+		Architecture: architecture,
+	}
+	return url.String(), nil
+}

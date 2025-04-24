@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
@@ -1699,12 +1700,12 @@ FROM v_revision_updater_application_unit
 			Origin: application.Origin{
 				ID:       r.CharmhubIdentifier,
 				Revision: r.Revision,
-				Channel: application.Channel{
+				Channel: deployment.Channel{
 					Track:  r.ChannelTrack,
 					Risk:   risk,
 					Branch: r.ChannelBranch,
 				},
-				Platform: application.Platform{
+				Platform: deployment.Platform{
 					Channel:      r.PlatformChannel,
 					OSType:       osType,
 					Architecture: appArch,
@@ -2973,29 +2974,29 @@ ON CONFLICT (application_uuid) DO UPDATE SET
 	return nil
 }
 
-func decodeRisk(risk string) (application.ChannelRisk, error) {
+func decodeRisk(risk string) (deployment.ChannelRisk, error) {
 	switch risk {
 	case "stable":
-		return application.RiskStable, nil
+		return deployment.RiskStable, nil
 	case "candidate":
-		return application.RiskCandidate, nil
+		return deployment.RiskCandidate, nil
 	case "beta":
-		return application.RiskBeta, nil
+		return deployment.RiskBeta, nil
 	case "edge":
-		return application.RiskEdge, nil
+		return deployment.RiskEdge, nil
 	default:
 		return "", errors.Errorf("unknown risk %q", risk)
 	}
 }
 
-func decodeOSType(osType sql.NullInt64) (application.OSType, error) {
+func decodeOSType(osType sql.NullInt64) (deployment.OSType, error) {
 	if !osType.Valid {
 		return 0, errors.Errorf("os type is null")
 	}
 
 	switch osType.Int64 {
 	case 0:
-		return application.Ubuntu, nil
+		return deployment.Ubuntu, nil
 	default:
 		return -1, errors.Errorf("unknown os type %v", osType)
 	}
@@ -3024,25 +3025,25 @@ func hashConfigAndSettings(config []applicationConfig, settings applicationSetti
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-func decodePlatform(channel string, os, arch sql.NullInt64) (application.Platform, error) {
+func decodePlatform(channel string, os, arch sql.NullInt64) (deployment.Platform, error) {
 	osType, err := decodeOSType(os)
 	if err != nil {
-		return application.Platform{}, errors.Errorf("decoding os type: %w", err)
+		return deployment.Platform{}, errors.Errorf("decoding os type: %w", err)
 	}
 
 	archType, err := decodeArchitecture(arch)
 	if err != nil {
-		return application.Platform{}, errors.Errorf("decoding architecture: %w", err)
+		return deployment.Platform{}, errors.Errorf("decoding architecture: %w", err)
 	}
 
-	return application.Platform{
+	return deployment.Platform{
 		Channel:      channel,
 		OSType:       osType,
 		Architecture: archType,
 	}, nil
 }
 
-func decodeChannel(track string, risk sql.NullString, branch string) (*application.Channel, error) {
+func decodeChannel(track string, risk sql.NullString, branch string) (*deployment.Channel, error) {
 	if !risk.Valid {
 		return nil, nil
 	}
@@ -3052,7 +3053,7 @@ func decodeChannel(track string, risk sql.NullString, branch string) (*applicati
 		return nil, errors.Errorf("decoding risk: %w", err)
 	}
 
-	return &application.Channel{
+	return &deployment.Channel{
 		Track:  track,
 		Risk:   riskType,
 		Branch: branch,

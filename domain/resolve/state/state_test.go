@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationstate "github.com/juju/juju/domain/application/state"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -379,12 +380,12 @@ func (s *stateSuite) TestClearResolvedNoHooks(c *gc.C) {
 func (s *stateSuite) createApplication(c *gc.C, name string, units ...application.AddUnitArg) []coreunit.UUID {
 	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "22.04/stable",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
-	channel := &application.Channel{
+	channel := &deployment.Channel{
 		Track:  "track",
 		Risk:   "stable",
 		Branch: "branch",

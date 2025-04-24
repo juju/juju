@@ -8,8 +8,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
+	"github.com/juju/juju/domain/deployment"
 	internalcharm "github.com/juju/juju/internal/charm"
 )
 
@@ -29,14 +29,14 @@ func (s *serviceSuite) TestEncodeChannelAndPlatform(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(ch, gc.DeepEquals, &application.Channel{
+	c.Check(ch, gc.DeepEquals, &deployment.Channel{
 		Track:  "track",
-		Risk:   application.RiskStable,
+		Risk:   deployment.RiskStable,
 		Branch: "branch",
 	})
-	c.Check(pl, gc.DeepEquals, application.Platform{
+	c.Check(pl, gc.DeepEquals, deployment.Platform{
 		Architecture: architecture.AMD64,
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Channel:      "24.04",
 	})
 }
@@ -51,14 +51,14 @@ func (s *serviceSuite) TestEncodeChannelAndPlatformInvalidArch(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(ch, gc.DeepEquals, &application.Channel{
+	c.Check(ch, gc.DeepEquals, &deployment.Channel{
 		Track:  "track",
-		Risk:   application.RiskStable,
+		Risk:   deployment.RiskStable,
 		Branch: "branch",
 	})
-	c.Check(pl, gc.DeepEquals, application.Platform{
+	c.Check(pl, gc.DeepEquals, deployment.Platform{
 		Architecture: architecture.Unknown,
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Channel:      "24.04",
 	})
 }

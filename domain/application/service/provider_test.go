@@ -87,9 +87,9 @@ func (s *providerServiceSuite) TestCreateApplication(c *gc.C) {
 		Architecture:    architecture.ARM64,
 		ObjectStoreUUID: objectStoreUUID,
 	}
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "24.04",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
 
@@ -289,9 +289,9 @@ func (s *providerServiceSuite) TestCreateApplicationPendingResources(c *gc.C) {
 		Architecture:    architecture.ARM64,
 		ObjectStoreUUID: objectStoreUUID,
 	}
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "24.04",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
 
@@ -680,9 +680,9 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlock(c *gc.C) {
 		Revision:      42,
 		Architecture:  architecture.AMD64,
 	}
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "24.04",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.AMD64,
 	}
 	app := application.AddApplicationArg{
@@ -795,9 +795,9 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlockDefaultSourc
 		Revision:      42,
 		Architecture:  architecture.AMD64,
 	}
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "24.04",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.AMD64,
 	}
 	app := application.AddApplicationArg{
@@ -915,9 +915,9 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystem(c *gc.
 		Revision:      42,
 		Architecture:  architecture.AMD64,
 	}
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "24.04",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.AMD64,
 	}
 	app := application.AddApplicationArg{
@@ -1032,9 +1032,9 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystemDefault
 		Revision:      42,
 		Architecture:  architecture.AMD64,
 	}
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "24.04",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.AMD64,
 	}
 	app := application.AddApplicationArg{

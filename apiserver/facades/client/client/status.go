@@ -17,8 +17,8 @@ import (
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/arch"
-	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/apiserver/internal/charms"
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/errors"
@@ -32,13 +32,14 @@ import (
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
-	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/deployment"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainmodelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/port"
 	"github.com/juju/juju/domain/relation"
+	statusservice "github.com/juju/juju/domain/status/service"
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -48,6 +49,10 @@ import (
 // StatusHistory returns a slice of past statuses for several entities.
 func (c *Client) StatusHistory(ctx context.Context, request params.StatusHistoryRequests) params.StatusHistoryResults {
 	return params.StatusHistoryResults{}
+}
+
+type lifer interface {
+	Life() state.Life
 }
 
 // FullStatus gives the information needed for juju status over the api
@@ -84,7 +89,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		return noStatus, internalerrors.Errorf("could not load model status values: %w", err)
 	}
 	if context.allAppsUnitsCharmBindings, err =
-		fetchAllApplicationsAndUnits(ctx, c.applicationService, c.stateAccessor, context.spaceInfos); err != nil {
+		fetchAllApplicationsAndUnits(ctx, c.statusService, c.applicationService, c.stateAccessor, context.spaceInfos); err != nil {
 		return noStatus, internalerrors.Errorf("could not fetch applications and units: %w", err)
 	}
 	if context.consumerRemoteApplications, err =
@@ -255,7 +260,7 @@ func (c *Client) modelStatus(ctx context.Context) (params.ModelStatusInfo, error
 
 type applicationStatusInfo struct {
 	// application: application name -> application
-	applications map[string]*state.Application
+	applications map[string]statusservice.Application
 
 	// units: application name -> units name -> units
 	units map[string]map[string]*state.Unit
@@ -519,14 +524,14 @@ func fetchNetworkInterfaces(st Backend, subnetInfos network.SubnetInfos, spaceIn
 
 // fetchAllApplicationsAndUnits returns a map from application name to application,
 // a map from application name to unit name to unit, and a map from base charm URL to latest URL.
-func fetchAllApplicationsAndUnits(ctx context.Context, applicationService ApplicationService, st Backend, spaceInfos network.SpaceInfos) (applicationStatusInfo, error) {
+func fetchAllApplicationsAndUnits(ctx context.Context, statusService StatusService, applicationService ApplicationService, st Backend, spaceInfos network.SpaceInfos) (applicationStatusInfo, error) {
 	var (
-		appMap       = make(map[string]*state.Application)
+		appMap       = make(map[string]statusservice.Application)
 		unitMap      = make(map[string]map[string]*state.Unit)
 		latestCharms = make(map[charm.URL]applicationcharm.CharmLocator)
 	)
 
-	applications, err := st.AllApplications()
+	applications, err := statusService.GetApplicationAndUnitStatuses(ctx)
 	if err != nil {
 		return applicationStatusInfo{}, err
 	}
@@ -571,16 +576,16 @@ func fetchAllApplicationsAndUnits(ctx context.Context, applicationService Applic
 	}
 
 	lxdProfiles := make(map[string]*charm.LXDProfile)
-	for _, app := range applications {
-		appMap[app.Name()] = app
-		appUnits := allUnitsByApp[app.Name()]
+	for name, app := range applications {
+		appMap[name] = app
+		appUnits := allUnitsByApp[name]
 		if len(appUnits) > 0 {
-			unitMap[app.Name()] = appUnits
+			unitMap[name] = appUnits
 
 			// Record the base URL for the application's charm so that
 			// the latest store revision can be looked up.
-			cURL, _ := app.CharmURL()
-			charmURL, err := charm.ParseURL(*cURL)
+			cURL, _ := charms.CharmURLFromLocator(app.CharmLocator.Name, app.CharmLocator)
+			charmURL, err := charm.ParseURL(cURL)
 			if err != nil {
 				continue
 			}
@@ -926,14 +931,11 @@ func (context *statusContext) processRelations(ctx context.Context) []params.Rel
 
 func (context *statusContext) isSubordinate(ep *relation.Endpoint) bool {
 	application := context.allAppsUnitsCharmBindings.applications[ep.ApplicationName]
-	if application == nil {
-		return false
-	}
 	return isSubordinate(ep, application)
 }
 
-func isSubordinate(ep *relation.Endpoint, application *state.Application) bool {
-	return ep.Scope == charm.ScopeContainer && !application.IsPrincipal()
+func isSubordinate(ep *relation.Endpoint, application statusservice.Application) bool {
+	return ep.Scope == charm.ScopeContainer && application.Subordinate
 }
 
 // paramsJobsFromJobs converts state jobs to params jobs.
@@ -947,24 +949,19 @@ func paramsJobsFromJobs(jobs []state.MachineJob) []model.MachineJob {
 
 func (context *statusContext) processApplications(ctx context.Context) map[string]params.ApplicationStatus {
 	applicationsMap := make(map[string]params.ApplicationStatus)
-	for _, app := range context.allAppsUnitsCharmBindings.applications {
-		applicationsMap[app.Name()] = context.processApplication(ctx, app)
+	for name, app := range context.allAppsUnitsCharmBindings.applications {
+		applicationsMap[name] = context.processApplication(ctx, name, app)
 	}
 	return applicationsMap
 }
 
-func (context *statusContext) processApplication(ctx context.Context, application *state.Application) params.ApplicationStatus {
-	applicationCharm, _, err := application.Charm()
+func (context *statusContext) processApplication(ctx context.Context, name string, application statusservice.Application) params.ApplicationStatus {
+	isExposed, err := context.applicationService.IsApplicationExposed(ctx, name)
 	if err != nil {
 		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 	}
 
-	isExposed, err := context.applicationService.IsApplicationExposed(ctx, application.Name())
-	if err != nil {
-		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
-	}
-
-	exposedEndpoints, err := context.applicationService.GetExposedEndpoints(ctx, application.Name())
+	exposedEndpoints, err := context.applicationService.GetExposedEndpoints(ctx, name)
 	if err != nil {
 		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 	}
@@ -974,59 +971,60 @@ func (context *statusContext) processApplication(ctx context.Context, applicatio
 	}
 
 	var channel string
-	if origin := application.CharmOrigin(); origin != nil && origin.Channel != nil {
-		stChannel := origin.Channel
+	if ch := application.Channel; ch != nil {
 		channel = (charm.Channel{
-			Track:  stChannel.Track,
-			Risk:   charm.Risk(stChannel.Risk),
-			Branch: stChannel.Branch,
+			Track:  ch.Track,
+			Risk:   charm.Risk(ch.Risk),
+			Branch: ch.Branch,
 		}).Normalize().String()
 	}
 
-	origin := application.CharmOrigin()
-	base, err := corebase.ParseBase(origin.Platform.OS, origin.Platform.Channel)
+	base, err := encodePlatform(application.Platform)
 	if err != nil {
 		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 	}
-	var processedStatus = params.ApplicationStatus{
-		Charm:        applicationCharm.URL(),
-		CharmVersion: applicationCharm.Version(),
-		CharmRev:     applicationCharm.Revision(),
-		CharmChannel: channel,
-		Base: params.Base{
-			Name:    base.OS,
-			Channel: base.Channel.String(),
-		},
-		Exposed:          isExposed,
-		ExposedEndpoints: mappedExposedEndpoints,
-		Life:             processLife(application),
+
+	charmURL, err := charms.CharmURLFromLocator(application.CharmLocator.Name, application.CharmLocator)
+	if err != nil {
+		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 	}
 
-	curl, err := charm.ParseURL(applicationCharm.URL())
+	processedStatus := params.ApplicationStatus{
+		Charm:            charmURL,
+		CharmVersion:     application.CharmVersion,
+		CharmRev:         application.CharmLocator.Revision,
+		CharmChannel:     channel,
+		Base:             base,
+		Exposed:          isExposed,
+		ExposedEndpoints: mappedExposedEndpoints,
+		Life:             application.Life,
+	}
+
+	curl, err := charm.ParseURL(charmURL)
 	if err != nil {
 		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 	}
 	if latestCharm, ok := context.allAppsUnitsCharmBindings.latestCharms[*curl.WithRevision(-1)]; ok && !latestCharm.IsZero() {
-		processedStatus.CanUpgradeTo, err = charmURLFromLocator(latestCharm)
+		processedStatus.CanUpgradeTo, err = charms.CharmURLFromLocator(latestCharm.Name, latestCharm)
 		if err != nil {
 			return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 		}
 	}
 
-	processedStatus.Relations, processedStatus.SubordinateTo, err = context.processApplicationRelations(application)
+	processedStatus.Relations, processedStatus.SubordinateTo, err = context.processApplicationRelations(name, application)
 	if err != nil {
 		processedStatus.Err = apiservererrors.ServerError(err)
 		return processedStatus
 	}
-	units := context.allAppsUnitsCharmBindings.units[application.Name()]
-	if application.IsPrincipal() {
-		processedStatus.Units = context.processUnits(ctx, units, applicationCharm.URL())
+	units := context.allAppsUnitsCharmBindings.units[name]
+	if !application.Subordinate {
+		processedStatus.Units = context.processUnits(ctx, units, charmURL)
 	}
 
 	// NOTE(jack-w-shaw): If there is an error retrieving the application status,
 	// instead of returning an error we return the application status as unknown.
 	applicationStatus := status.StatusInfo{Status: status.Unknown}
-	displayStatus, err := context.statusService.GetApplicationDisplayStatus(ctx, application.Name())
+	displayStatus, err := context.statusService.GetApplicationDisplayStatus(ctx, name)
 	if err == nil {
 		applicationStatus = displayStatus
 	}
@@ -1049,24 +1047,28 @@ func (context *statusContext) processApplication(ctx context.Context, applicatio
 		processedStatus.WorkloadVersion = versions[0].Message
 	}
 
-	if context.model.Type == model.CAAS {
-		serviceInfo, err := application.ServiceInfo()
-		if err == nil {
+	processedStatus.EndpointBindings = context.allAppsUnitsCharmBindings.endpointBindings[name]
+
+	if context.model.Type == model.IAAS {
+		return processedStatus
+	}
+
+	/*
+		if serviceInfo, err := application.ServiceInfo(); err == nil {
 			processedStatus.ProviderId = serviceInfo.ProviderId()
 			if len(serviceInfo.Addresses()) > 0 {
 				processedStatus.PublicAddress = serviceInfo.Addresses()[0].Value
 			}
 		} else {
-			logger.Debugf(ctx, "no service details for %v: %v", application.Name(), err)
+			logger.Debugf(ctx, "no service details for %v: %v", name, err)
 		}
-		appScale, err := context.applicationService.GetApplicationScale(ctx, application.Name())
-		if err == nil {
-			processedStatus.Scale = appScale
-		} else {
-			logger.Debugf(ctx, "no application scale for %v: %v", application.Name(), err)
-		}
+	*/
+	if appScale, err := context.applicationService.GetApplicationScale(ctx, name); err == nil {
+		processedStatus.Scale = appScale
+	} else {
+		logger.Debugf(ctx, "no application scale for %v: %v", name, err)
 	}
-	processedStatus.EndpointBindings = context.allAppsUnitsCharmBindings.endpointBindings[application.Name()]
+
 	return processedStatus
 }
 
@@ -1250,18 +1252,20 @@ func (context *statusContext) unitByName(name string) *state.Unit {
 	return context.allAppsUnitsCharmBindings.units[applicationName][name]
 }
 
-func (context *statusContext) processApplicationRelations(application *state.Application) (related map[string][]string,
-	subord []string, err error) {
+func (context *statusContext) processApplicationRelations(
+	name string,
+	application statusservice.Application,
+) (related map[string][]string, subord []string, err error) {
 	subordSet := make(set.Strings)
 	related = make(map[string][]string)
-	relations := context.relations[application.Name()]
+	relations := context.relations[name]
 	for _, relation := range relations {
-		ep, err := relation.Endpoint(application.Name())
+		ep, err := relation.Endpoint(name)
 		if err != nil {
 			return nil, nil, err
 		}
 		relationName := ep.Relation.Name
-		eps, err := relation.RelatedEndpoints(application.Name())
+		eps, err := relation.RelatedEndpoints(name)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1333,10 +1337,6 @@ func (c *statusContext) processVolumes(ctx context.Context, storageAccessor Stor
 		volumeDetails = append(volumeDetails, *volumeDetail)
 	}
 	return volumeDetails, nil
-}
-
-type lifer interface {
-	Life() state.Life
 }
 
 // processUnitAndAgentStatus retrieves status information for both unit and
@@ -1430,56 +1430,28 @@ func (s bySinceDescending) Swap(a, b int) { s[a], s[b] = s[b], s[a] }
 // Less implements sort.Interface.
 func (s bySinceDescending) Less(a, b int) bool { return s[a].Since.After(*s[b].Since) }
 
-// charmURLFromLocator returns the charm URL for the current model.
-func charmURLFromLocator(locator applicationcharm.CharmLocator) (string, error) {
-	schema, err := convertSource(locator.Source)
+func encodePlatform(platform deployment.Platform) (params.Base, error) {
+	os, err := encodeOSType(platform.OSType)
 	if err != nil {
-		return "", internalerrors.Capture(err)
+		return params.Base{}, err
 	}
 
-	architecture, err := convertApplication(locator.Architecture)
+	base, err := base.ParseBase(os, platform.Channel)
 	if err != nil {
-		return "", internalerrors.Capture(err)
+		return params.Base{}, internalerrors.Errorf("parsing base %q: %w", os, err)
 	}
 
-	url := charm.URL{
-		Schema:       schema,
-		Name:         locator.Name,
-		Revision:     locator.Revision,
-		Architecture: architecture,
-	}
-	return url.String(), nil
+	return params.Base{
+		Name:    base.OS,
+		Channel: base.Channel.String(),
+	}, nil
 }
 
-func convertSource(source applicationcharm.CharmSource) (string, error) {
-	switch source {
-	case applicationcharm.CharmHubSource:
-		return charm.CharmHub.String(), nil
-	case applicationcharm.LocalSource:
-		return charm.Local.String(), nil
+func encodeOSType(ostype deployment.OSType) (string, error) {
+	switch ostype {
+	case deployment.Ubuntu:
+		return base.UbuntuOS, nil
 	default:
-		return "", internalerrors.Errorf("unsupported source %q", source)
-	}
-}
-
-func convertApplication(a application.Architecture) (string, error) {
-	switch a {
-	case architecture.AMD64:
-		return arch.AMD64, nil
-	case architecture.ARM64:
-		return arch.ARM64, nil
-	case architecture.PPC64EL:
-		return arch.PPC64EL, nil
-	case architecture.S390X:
-		return arch.S390X, nil
-	case architecture.RISCV64:
-		return arch.RISCV64, nil
-
-	// This is a valid case if we're uploading charms and the value isn't
-	// supplied.
-	case architecture.Unknown:
-		return "", nil
-	default:
-		return "", internalerrors.Errorf("unsupported architecture %q", a)
+		return "", internalerrors.Errorf("unknown os type %q", ostype)
 	}
 }

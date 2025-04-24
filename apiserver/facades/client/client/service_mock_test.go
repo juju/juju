@@ -21,6 +21,7 @@ import (
 	unit "github.com/juju/juju/core/unit"
 	model0 "github.com/juju/juju/domain/model"
 	relation0 "github.com/juju/juju/domain/relation"
+	service "github.com/juju/juju/domain/status/service"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -242,6 +243,21 @@ func (m *MockStatusService) GetAllRelationStatuses(arg0 context.Context) (map[re
 func (mr *MockStatusServiceMockRecorder) GetAllRelationStatuses(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllRelationStatuses", reflect.TypeOf((*MockStatusService)(nil).GetAllRelationStatuses), arg0)
+}
+
+// GetApplicationAndUnitStatuses mocks base method.
+func (m *MockStatusService) GetApplicationAndUnitStatuses(arg0 context.Context) (map[string]service.Application, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApplicationAndUnitStatuses", arg0)
+	ret0, _ := ret[0].(map[string]service.Application)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetApplicationAndUnitStatuses indicates an expected call of GetApplicationAndUnitStatuses.
+func (mr *MockStatusServiceMockRecorder) GetApplicationAndUnitStatuses(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationAndUnitStatuses", reflect.TypeOf((*MockStatusService)(nil).GetApplicationAndUnitStatuses), arg0)
 }
 
 // GetApplicationDisplayStatus mocks base method.

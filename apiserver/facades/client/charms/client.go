@@ -20,14 +20,13 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	charmsinterfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
+	"github.com/juju/juju/apiserver/internal/charms"
 	charmscommon "github.com/juju/juju/apiserver/internal/charms"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	corelogger "github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/domain/application"
-	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -90,7 +89,7 @@ func (a *API) checkCanWrite(ctx context.Context) error {
 // charms with supplied names. The order of the charms is not guaranteed to be
 // the same as the order of the names passed in.
 func (a *API) List(ctx context.Context, args params.CharmsList) (params.CharmsListResult, error) {
-	a.logger.Tracef(context.TODO(), "List %+v", args)
+	a.logger.Tracef(ctx, "List %+v", args)
 	if err := a.checkCanRead(ctx); err != nil {
 		return params.CharmsListResult{}, errors.Trace(err)
 	}
@@ -98,14 +97,14 @@ func (a *API) List(ctx context.Context, args params.CharmsList) (params.CharmsLi
 	// Select all the charms from state. If no names are passed, all the charms
 	// will be returned.
 	names := set.NewStrings(args.Names...).SortedValues()
-	charms, err := a.applicationService.ListCharmLocators(ctx, names...)
+	list, err := a.applicationService.ListCharmLocators(ctx, names...)
 	if err != nil {
 		return params.CharmsListResult{}, errors.Annotatef(err, "listing charms")
 	}
 
 	var charmURLs []string
-	for _, aCharm := range charms {
-		curl, err := charmURLFromLocator(aCharm.Name, aCharm)
+	for _, aCharm := range list {
+		curl, err := charms.CharmURLFromLocator(aCharm.Name, aCharm)
 		if err != nil {
 			return params.CharmsListResult{}, errors.Trace(err)
 		}
@@ -118,7 +117,7 @@ func (a *API) List(ctx context.Context, args params.CharmsList) (params.CharmsLi
 // GetDownloadInfos attempts to get the bundle corresponding to the charm url
 // and origin.
 func (a *API) GetDownloadInfos(ctx context.Context, args params.CharmURLAndOrigins) (params.DownloadInfoResults, error) {
-	a.logger.Tracef(context.TODO(), "GetDownloadInfos %+v", args)
+	a.logger.Tracef(ctx, "GetDownloadInfos %+v", args)
 
 	results := params.DownloadInfoResults{
 		Results: make([]params.DownloadInfoResult, len(args.Entities)),
@@ -191,7 +190,7 @@ func (a *API) AddCharm(ctx context.Context, args params.AddCharmWithOrigin) (par
 		return params.CharmOriginResult{}, err
 	}
 
-	a.logger.Debugf(context.TODO(), "AddCharm request: %+v", args)
+	a.logger.Debugf(ctx, "AddCharm request: %+v", args)
 	if commoncharm.OriginSource(args.Origin.Source) != commoncharm.OriginCharmHub {
 		return params.CharmOriginResult{}, errors.Errorf("unknown schema for charm URL %q", args.URL)
 	}
@@ -210,7 +209,7 @@ func (a *API) AddCharm(ctx context.Context, args params.AddCharmWithOrigin) (par
 		return params.CharmOriginResult{}, errors.Trace(err)
 	}
 
-	a.logger.Debugf(context.TODO(), "AddCharm result: %+v", origin)
+	a.logger.Debugf(ctx, "AddCharm result: %+v", origin)
 
 	return params.CharmOriginResult{
 		Origin: origin,
@@ -266,7 +265,7 @@ func (a *API) addCharm(ctx context.Context, args params.AddCharmWithOrigin) (cor
 	}); err != nil && !errors.Is(err, applicationerrors.CharmAlreadyExists) {
 		return corecharm.Origin{}, errors.Annotatef(err, "setting charm %q", args.URL)
 	} else if len(warnings) > 0 {
-		a.logger.Infof(context.TODO(), "setting charm %q: %v", args.URL, warnings)
+		a.logger.Infof(ctx, "setting charm %q: %v", args.URL, warnings)
 	}
 
 	return essentialMetadata.ResolvedOrigin, nil
@@ -287,7 +286,7 @@ func makeCharmRevision(origin corecharm.Origin, url string) (int, error) {
 // ResolveCharms resolves the given charm URLs with an optionally specified
 // preferred channel.  Channel provided via CharmOrigin.
 func (a *API) ResolveCharms(ctx context.Context, args params.ResolveCharmsWithChannel) (params.ResolveCharmWithChannelResults, error) {
-	a.logger.Tracef(context.TODO(), "ResolveCharms %+v", args)
+	a.logger.Tracef(ctx, "ResolveCharms %+v", args)
 	if err := a.checkCanRead(ctx); err != nil {
 		return params.ResolveCharmWithChannelResults{}, errors.Trace(err)
 	}
@@ -648,58 +647,4 @@ func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string, logger
 	}
 
 	return o, nil
-}
-
-// charmURLFromLocator returns the charm URL for the current model.
-func charmURLFromLocator(name string, locator applicationcharm.CharmLocator) (string, error) {
-	schema, err := convertSource(locator.Source)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	architecture, err := convertApplication(locator.Architecture)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	url := charm.URL{
-		Schema:       schema,
-		Name:         name,
-		Revision:     locator.Revision,
-		Architecture: architecture,
-	}
-	return url.String(), nil
-}
-
-func convertSource(source applicationcharm.CharmSource) (string, error) {
-	switch source {
-	case applicationcharm.CharmHubSource:
-		return charm.CharmHub.String(), nil
-	case applicationcharm.LocalSource:
-		return charm.Local.String(), nil
-	default:
-		return "", errors.Errorf("unsupported source %q", source)
-	}
-}
-
-func convertApplication(a application.Architecture) (string, error) {
-	switch a {
-	case architecture.AMD64:
-		return arch.AMD64, nil
-	case architecture.ARM64:
-		return arch.ARM64, nil
-	case architecture.PPC64EL:
-		return arch.PPC64EL, nil
-	case architecture.S390X:
-		return arch.S390X, nil
-	case architecture.RISCV64:
-		return arch.RISCV64, nil
-
-	// This is a valid case if we're uploading charms and the value isn't
-	// supplied.
-	case architecture.Unknown:
-		return "", nil
-	default:
-		return "", errors.Errorf("unsupported architecture %q", a)
-	}
 }

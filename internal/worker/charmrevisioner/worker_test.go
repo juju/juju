@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/deployment"
 	domainresource "github.com/juju/juju/domain/resource"
 	config "github.com/juju/juju/environs/config"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -226,13 +227,13 @@ func (s *WorkerSuite) TestFetch(c *gc.C) {
 			Origin: application.Origin{
 				ID:       "foo",
 				Revision: 42,
-				Channel: application.Channel{
+				Channel: deployment.Channel{
 					Risk: "stable",
 				},
-				Platform: application.Platform{
+				Platform: deployment.Platform{
 					Architecture: architecture.AMD64,
 					Channel:      "22.04",
-					OSType:       application.Ubuntu,
+					OSType:       deployment.Ubuntu,
 				},
 			},
 		}}, nil
@@ -1009,14 +1010,14 @@ func (s *WorkerSuite) TestEncodeCharmID(c *gc.C) {
 		},
 		Origin: application.Origin{
 			ID: "abc123",
-			Channel: application.Channel{
+			Channel: deployment.Channel{
 				Track:  "track",
 				Risk:   "stable",
 				Branch: "branch",
 			},
-			Platform: application.Platform{
+			Platform: deployment.Platform{
 				Channel:      "22.04",
-				OSType:       application.Ubuntu,
+				OSType:       deployment.Ubuntu,
 				Architecture: architecture.AMD64,
 			},
 			Revision: 42,
@@ -1051,7 +1052,7 @@ func (s *WorkerSuite) TestEncodeCharmIDInvalidRisk(c *gc.C) {
 		Name: "application-foo",
 		Origin: application.Origin{
 			ID: "abc123",
-			Channel: application.Channel{
+			Channel: deployment.Channel{
 				Track:  "track",
 				Risk:   "blah",
 				Branch: "branch",
@@ -1067,12 +1068,12 @@ func (s *WorkerSuite) TestEncodeCharmIDInvalidArchitecture(c *gc.C) {
 		Name: "application-foo",
 		Origin: application.Origin{
 			ID: "abc123",
-			Channel: application.Channel{
+			Channel: deployment.Channel{
 				Track:  "track",
 				Risk:   "stable",
 				Branch: "branch",
 			},
-			Platform: application.Platform{
+			Platform: deployment.Platform{
 				Architecture: architecture.Architecture(99),
 			},
 		},
@@ -1086,14 +1087,14 @@ func (s *WorkerSuite) TestEncodeCharmIDInvalidOSType(c *gc.C) {
 		Name: "application-foo",
 		Origin: application.Origin{
 			ID: "abc123",
-			Channel: application.Channel{
+			Channel: deployment.Channel{
 				Track:  "track",
 				Risk:   "stable",
 				Branch: "branch",
 			},
-			Platform: application.Platform{
+			Platform: deployment.Platform{
 				Architecture: architecture.AMD64,
-				OSType:       application.OSType(99),
+				OSType:       deployment.OSType(99),
 			},
 		},
 	}, modelTag)
@@ -1138,23 +1139,23 @@ func (s *WorkerSuite) TestEncodeArchitecture(c *gc.C) {
 
 func (s *WorkerSuite) TestEncodeRisk(c *gc.C) {
 	tests := []struct {
-		value    application.ChannelRisk
+		value    deployment.ChannelRisk
 		expected string
 	}{
 		{
-			value:    application.RiskStable,
+			value:    deployment.RiskStable,
 			expected: "stable",
 		},
 		{
-			value:    application.RiskCandidate,
+			value:    deployment.RiskCandidate,
 			expected: "candidate",
 		},
 		{
-			value:    application.RiskBeta,
+			value:    deployment.RiskBeta,
 			expected: "beta",
 		},
 		{
-			value:    application.RiskEdge,
+			value:    deployment.RiskEdge,
 			expected: "edge",
 		},
 	}

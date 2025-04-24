@@ -20,6 +20,7 @@ import (
 	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/port"
 	domainrelation "github.com/juju/juju/domain/relation"
+	statusservice "github.com/juju/juju/domain/status/service"
 )
 
 // ApplicationService defines the methods that the facade assumes from the
@@ -56,7 +57,6 @@ type ApplicationService interface {
 }
 
 type StatusService interface {
-
 	// GetAllRelationStatuses returns all the relation statuses of the given model.
 	GetAllRelationStatuses(ctx context.Context) (map[relation.UUID]status.StatusInfo, error)
 
@@ -72,6 +72,10 @@ type StatusService interface {
 	// workload status and the cloud container status. It returns an error
 	// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
 	GetUnitDisplayAndAgentStatus(context.Context, unit.Name) (agent status.StatusInfo, workload status.StatusInfo, _ error)
+
+	// GetApplicationAndUnitStatuses returns the application statuses of all the
+	// applications in the model, indexed by application name.
+	GetApplicationAndUnitStatuses(ctx context.Context) (map[string]statusservice.Application, error)
 }
 
 // BlockDeviceService instances can fetch block devices for a machine.

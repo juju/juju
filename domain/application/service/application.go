@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -1351,7 +1352,7 @@ func decodeCharmSource(source charm.CharmSource) (corecharm.Source, error) {
 	}
 }
 
-func decodePlatform(platform application.Platform) (corecharm.Platform, error) {
+func decodePlatform(platform deployment.Platform) (corecharm.Platform, error) {
 	decodedArch, err := decodeArchitecture(platform.Architecture)
 	if err != nil {
 		return corecharm.Platform{}, errors.Errorf("decoding architecture: %w", err)
@@ -1386,16 +1387,16 @@ func decodeArchitecture(a architecture.Architecture) (arch.Arch, error) {
 	}
 }
 
-func decodeOS(osType application.OSType) (os.OSType, error) {
+func decodeOS(osType deployment.OSType) (os.OSType, error) {
 	switch osType {
-	case application.Ubuntu:
+	case deployment.Ubuntu:
 		return os.Ubuntu, nil
 	default:
 		return -1, errors.Errorf("unsupported OS type %q", osType)
 	}
 }
 
-func decodeChannel(channel *application.Channel) (*internalcharm.Channel, error) {
+func decodeChannel(channel *deployment.Channel) (*internalcharm.Channel, error) {
 	if channel == nil {
 		return nil, nil
 	}
@@ -1412,15 +1413,15 @@ func decodeChannel(channel *application.Channel) (*internalcharm.Channel, error)
 	return &ch, nil
 }
 
-func decodeRisk(r application.ChannelRisk) (internalcharm.Risk, error) {
+func decodeRisk(r deployment.ChannelRisk) (internalcharm.Risk, error) {
 	switch r {
-	case application.RiskStable:
+	case deployment.RiskStable:
 		return internalcharm.Stable, nil
-	case application.RiskCandidate:
+	case deployment.RiskCandidate:
 		return internalcharm.Candidate, nil
-	case application.RiskBeta:
+	case deployment.RiskBeta:
 		return internalcharm.Beta, nil
-	case application.RiskEdge:
+	case deployment.RiskEdge:
 		return internalcharm.Edge, nil
 	default:
 		return "", errors.Errorf("unsupported risk %q", r)

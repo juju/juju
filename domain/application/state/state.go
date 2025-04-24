@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -1404,7 +1403,7 @@ func decodeCharmState(state charmState) (charm.Charm, error) {
 
 }
 
-func decodeArchitecture(arch sql.NullInt64) (application.Architecture, error) {
+func decodeArchitecture(arch sql.NullInt64) (architecture.Architecture, error) {
 	if !arch.Valid {
 		return architecture.Unknown, nil
 	}

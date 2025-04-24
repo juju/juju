@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/deployment"
 	internalcharm "github.com/juju/juju/internal/charm"
 )
 
@@ -71,8 +72,8 @@ func (s *exportSuite) expectApplicationFor(c *gc.C, name string) {
 	s.exportService.EXPECT().GetApplicationCharmOrigin(gomock.Any(), name).Return(application.CharmOrigin{
 		Name:   name,
 		Source: charm.CharmHubSource,
-		Platform: application.Platform{
-			OSType:       application.Ubuntu,
+		Platform: deployment.Platform{
+			OSType:       deployment.Ubuntu,
 			Channel:      "24.04",
 			Architecture: architecture.AMD64,
 		},
@@ -83,8 +84,8 @@ func (s *exportSuite) expectCharmOriginFor(name string) {
 	s.exportService.EXPECT().GetApplicationCharmOrigin(gomock.Any(), name).Return(application.CharmOrigin{
 		Name:   name,
 		Source: charm.CharmHubSource,
-		Platform: application.Platform{
-			OSType:       application.Ubuntu,
+		Platform: deployment.Platform{
+			OSType:       deployment.Ubuntu,
 			Channel:      "24.04",
 			Architecture: architecture.AMD64,
 		},

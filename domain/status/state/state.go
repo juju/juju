@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/deployment"
 	domainlife "github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
@@ -1342,25 +1343,25 @@ func decodeArchitecture(arch sql.NullInt64) (architecture.Architecture, error) {
 	}
 }
 
-func decodePlatform(channel string, os, arch sql.NullInt64) (status.Platform, error) {
+func decodePlatform(channel string, os, arch sql.NullInt64) (deployment.Platform, error) {
 	osType, err := decodeOSType(os)
 	if err != nil {
-		return status.Platform{}, errors.Errorf("decoding os type: %w", err)
+		return deployment.Platform{}, errors.Errorf("decoding os type: %w", err)
 	}
 
 	archType, err := decodeArchitecture(arch)
 	if err != nil {
-		return status.Platform{}, errors.Errorf("decoding architecture: %w", err)
+		return deployment.Platform{}, errors.Errorf("decoding architecture: %w", err)
 	}
 
-	return status.Platform{
+	return deployment.Platform{
 		Channel:      channel,
 		OSType:       osType,
 		Architecture: archType,
 	}, nil
 }
 
-func decodeChannel(track string, risk sql.NullString, branch string) (*status.Channel, error) {
+func decodeChannel(track string, risk sql.NullString, branch string) (*deployment.Channel, error) {
 	if !risk.Valid {
 		return nil, nil
 	}
@@ -1370,36 +1371,36 @@ func decodeChannel(track string, risk sql.NullString, branch string) (*status.Ch
 		return nil, errors.Errorf("decoding risk: %w", err)
 	}
 
-	return &status.Channel{
+	return &deployment.Channel{
 		Track:  track,
 		Risk:   riskType,
 		Branch: branch,
 	}, nil
 }
 
-func decodeRisk(risk string) (status.ChannelRisk, error) {
+func decodeRisk(risk string) (deployment.ChannelRisk, error) {
 	switch risk {
 	case "stable":
-		return status.RiskStable, nil
+		return deployment.RiskStable, nil
 	case "candidate":
-		return status.RiskCandidate, nil
+		return deployment.RiskCandidate, nil
 	case "beta":
-		return status.RiskBeta, nil
+		return deployment.RiskBeta, nil
 	case "edge":
-		return status.RiskEdge, nil
+		return deployment.RiskEdge, nil
 	default:
 		return "", errors.Errorf("unknown risk %q", risk)
 	}
 }
 
-func decodeOSType(osType sql.NullInt64) (status.OSType, error) {
+func decodeOSType(osType sql.NullInt64) (deployment.OSType, error) {
 	if !osType.Valid {
 		return 0, errors.Errorf("os type is null")
 	}
 
 	switch osType.Int64 {
 	case 0:
-		return status.Ubuntu, nil
+		return deployment.Ubuntu, nil
 	default:
 		return -1, errors.Errorf("unknown os type %v", osType)
 	}

@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationstate "github.com/juju/juju/domain/application/state"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/status"
@@ -1260,12 +1261,12 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *gc.C) {
 				Source:       "charmhub",
 				Architecture: architecture.ARM64,
 			},
-			Platform: status.Platform{
-				OSType:       status.Ubuntu,
+			Platform: deployment.Platform{
+				OSType:       deployment.Ubuntu,
 				Channel:      "22.04/stable",
 				Architecture: architecture.ARM64,
 			},
-			Channel: &status.Channel{
+			Channel: &deployment.Channel{
 				Track:  "track",
 				Risk:   "stable",
 				Branch: "branch",
@@ -1298,12 +1299,12 @@ func (s *stateSuite) TestGetApplicationAndUnitStatuses(c *gc.C) {
 				Source:       "charmhub",
 				Architecture: architecture.ARM64,
 			},
-			Platform: status.Platform{
-				OSType:       status.Ubuntu,
+			Platform: deployment.Platform{
+				OSType:       deployment.Ubuntu,
 				Channel:      "22.04/stable",
 				Architecture: architecture.ARM64,
 			},
-			Channel: &status.Channel{
+			Channel: &deployment.Channel{
 				Track:  "track",
 				Risk:   "stable",
 				Branch: "branch",
@@ -1337,12 +1338,12 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *gc.C) {
 				Source:       "charmhub",
 				Architecture: architecture.ARM64,
 			},
-			Platform: status.Platform{
-				OSType:       status.Ubuntu,
+			Platform: deployment.Platform{
+				OSType:       deployment.Ubuntu,
 				Channel:      "22.04/stable",
 				Architecture: architecture.ARM64,
 			},
-			Channel: &status.Channel{
+			Channel: &deployment.Channel{
 				Track:  "track",
 				Risk:   "stable",
 				Branch: "branch",
@@ -1382,12 +1383,12 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *gc.C) {
 			Relations: []corerelation.UUID{
 				relationUUID,
 			},
-			Platform: status.Platform{
-				OSType:       status.Ubuntu,
+			Platform: deployment.Platform{
+				OSType:       deployment.Ubuntu,
 				Channel:      "22.04/stable",
 				Architecture: architecture.ARM64,
 			},
-			Channel: &status.Channel{
+			Channel: &deployment.Channel{
 				Track:  "track",
 				Risk:   "stable",
 				Branch: "branch",
@@ -1432,12 +1433,12 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations(c *g
 				Architecture: architecture.ARM64,
 			},
 			Relations: relations,
-			Platform: status.Platform{
-				OSType:       status.Ubuntu,
+			Platform: deployment.Platform{
+				OSType:       deployment.Ubuntu,
 				Channel:      "22.04/stable",
 				Architecture: architecture.ARM64,
 			},
-			Channel: &status.Channel{
+			Channel: &deployment.Channel{
 				Track:  "track",
 				Risk:   "stable",
 				Branch: "branch",
@@ -1516,12 +1517,12 @@ func (s *stateSuite) addRelationToApplication(c *gc.C, appUUID coreapplication.I
 func (s *stateSuite) createApplication(c *gc.C, name string, l life.Life, subordinate bool, appStatus *status.StatusInfo[status.WorkloadStatusType], units ...application.AddUnitArg) (coreapplication.ID, []coreunit.UUID) {
 	appState := applicationstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "22.04/stable",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
-	channel := &application.Channel{
+	channel := &deployment.Channel{
 		Track:  "track",
 		Risk:   "stable",
 		Branch: "branch",
