@@ -12,10 +12,11 @@ import (
 
 // Application represents the status of an application.
 type Application struct {
-	Life      life.Life
-	Status    StatusInfo[WorkloadStatusType]
-	Units     map[unit.Name]Unit
-	Relations []relation.UUID
+	Life        life.Life
+	Status      StatusInfo[WorkloadStatusType]
+	Units       map[unit.Name]Unit
+	Relations   []relation.UUID
+	Subordinate bool
 }
 
 // Unit represents the status of a unit.

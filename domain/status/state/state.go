@@ -1175,12 +1175,15 @@ func (st *State) GetApplicationAndUnitStatuses(ctx context.Context) (map[string]
 	applicationQuery, err := st.Prepare(`
 SELECT a.name AS &applicationStatusDetails.name,
 	   a.life_id AS &applicationStatusDetails.life_id,
+	   cm.subordinate AS &applicationStatusDetails.subordinate,
 	   s.status_id AS &applicationStatusDetails.status_id,
 	   s.message AS &applicationStatusDetails.message,
 	   s.data AS &applicationStatusDetails.data,
 	   s.updated_at AS &applicationStatusDetails.updated_at,
 	   re.relation_uuid AS &applicationStatusDetails.relation_uuid
 FROM application AS a
+JOIN charm AS c ON c.uuid = a.charm_uuid
+JOIN charm_metadata AS cm ON cm.charm_uuid = c.uuid
 LEFT JOIN application_status AS s ON s.application_uuid = a.uuid
 LEFT JOIN v_relation_endpoint AS re ON re.application_uuid = a.uuid
 LEFT JOIN v_relation_status AS rs ON rs.relation_uuid = re.relation_uuid;
@@ -1233,7 +1236,8 @@ LEFT JOIN v_relation_status AS rs ON rs.relation_uuid = re.relation_uuid;
 		}
 
 		result[appName] = status.Application{
-			Life: s.LifeID,
+			Life:        s.LifeID,
+			Subordinate: s.Subordinate,
 			Status: status.StatusInfo[status.WorkloadStatusType]{
 				Status:  statusID,
 				Message: s.Message,

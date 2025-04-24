@@ -129,6 +129,7 @@ type relationStatus struct {
 type applicationStatusDetails struct {
 	ApplicationName string          `db:"name"`
 	LifeID          domainlife.Life `db:"life_id"`
+	Subordinate     bool            `db:"subordinate"`
 	StatusID        int             `db:"status_id"`
 	Message         string          `db:"message"`
 	Data            []byte          `db:"data"`
