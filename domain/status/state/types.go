@@ -4,11 +4,13 @@
 package state
 
 import (
+	"database/sql"
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
+	domainlife "github.com/juju/juju/domain/life"
 )
 
 type applicationID struct {
@@ -122,4 +124,14 @@ type relationStatus struct {
 	StatusID     int               `db:"relation_status_type_id"`
 	Reason       string            `db:"suspended_reason"`
 	Since        *time.Time        `db:"updated_at"`
+}
+
+type applicationStatusDetails struct {
+	ApplicationName string          `db:"name"`
+	LifeID          domainlife.Life `db:"life_id"`
+	StatusID        int             `db:"status_id"`
+	Message         string          `db:"message"`
+	Data            []byte          `db:"data"`
+	UpdatedAt       *time.Time      `db:"updated_at"`
+	RelationUUID    sql.NullString  `db:"relation_uuid"`
 }

@@ -137,6 +137,10 @@ type State interface {
 	// unit isn't found it ignores the error.
 	// The unit life is not considered when making this query.
 	DeleteUnitPresence(ctx context.Context, name coreunit.Name) error
+
+	// GetApplicationAndUnitStatuses returns the application statuses of all the
+	// applications in the model, indexed by application name.
+	GetApplicationAndUnitStatuses(ctx context.Context) (map[string]status.Application, error)
 }
 
 // Service provides the API for working with the statuses of applications and
@@ -439,6 +443,12 @@ func (s *Service) CheckUnitStatusesReadyForMigration(ctx context.Context) error 
 	return nil
 }
 
+// GetApplicationAndUnitStatuses returns the application statuses of all the
+// applications in the model, indexed by application name.
+func (s *Service) GetApplicationAndUnitStatuses(ctx context.Context) (map[string]status.Application, error) {
+	return s.st.GetApplicationAndUnitStatuses(ctx)
+}
+
 // ExportUnitStatuses returns the workload and agent statuses of all the units in
 // in the model, indexed by unit name.
 //
@@ -480,8 +490,4 @@ func (s *Service) ExportApplicationStatuses(ctx context.Context) (map[string]cor
 	}
 
 	return ret, nil
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

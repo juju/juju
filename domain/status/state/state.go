@@ -1162,3 +1162,87 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 	}
 	return nil
 }
+
+// GetApplicationAndUnitStatuses returns the application and unit statuses of
+// all the applications in the model, indexed by application name.
+func (st *State) GetApplicationAndUnitStatuses(ctx context.Context) (map[string]status.Application, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Get all the applications.
+	applicationQuery, err := st.Prepare(`
+SELECT a.name AS &applicationStatusDetails.name,
+	   a.life_id AS &applicationStatusDetails.life_id,
+	   s.status_id AS &applicationStatusDetails.status_id,
+	   s.message AS &applicationStatusDetails.message,
+	   s.data AS &applicationStatusDetails.data,
+	   s.updated_at AS &applicationStatusDetails.updated_at,
+	   re.relation_uuid AS &applicationStatusDetails.relation_uuid
+FROM application AS a
+LEFT JOIN application_status AS s ON s.application_uuid = a.uuid
+LEFT JOIN v_relation_endpoint AS re ON re.application_uuid = a.uuid
+LEFT JOIN v_relation_status AS rs ON rs.relation_uuid = re.relation_uuid;
+`, applicationStatusDetails{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var appStatuses []applicationStatusDetails
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, applicationQuery).GetAll(&appStatuses)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[string]status.Application)
+	for _, s := range appStatuses {
+		appName := s.ApplicationName
+
+		var relationUUID corerelation.UUID
+		if s.RelationUUID.Valid {
+			relationUUID = corerelation.UUID(s.RelationUUID.String)
+			if err := relationUUID.Validate(); err != nil {
+				return nil, errors.Errorf("invalid relation UUID %q: %w", s.RelationUUID.String, err)
+			}
+		}
+
+		// If the application already exists, append the relation UUID to its
+		// relations.
+		if entry, exists := result[appName]; exists {
+			entry.Relations = append(entry.Relations, relationUUID)
+			continue
+		}
+
+		// We've got a new application, so create a new status.
+		var relations []corerelation.UUID
+		if s.RelationUUID.Valid {
+			relations = append(relations, relationUUID)
+		}
+
+		statusID, err := status.DecodeWorkloadStatus(s.StatusID)
+		if err != nil {
+			return nil, errors.Errorf("decoding workload status ID for application %q: %w", appName, err)
+		}
+
+		result[appName] = status.Application{
+			Life: s.LifeID,
+			Status: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  statusID,
+				Message: s.Message,
+				Data:    s.Data,
+				Since:   s.UpdatedAt,
+			},
+			Relations: relations,
+		}
+	}
+
+	return result, nil
+}
