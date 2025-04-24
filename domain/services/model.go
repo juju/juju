@@ -53,6 +53,8 @@ import (
 	modeldefaultsstate "github.com/juju/juju/domain/modeldefaults/state"
 	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
 	modelmigrationstate "github.com/juju/juju/domain/modelmigration/state"
+	modelproviderservice "github.com/juju/juju/domain/modelprovider/service"
+	modelproviderstate "github.com/juju/juju/domain/modelprovider/state"
 	networkservice "github.com/juju/juju/domain/network/service"
 	networkstate "github.com/juju/juju/domain/network/state"
 	portservice "github.com/juju/juju/domain/port/service"
@@ -467,6 +469,17 @@ func (s *ModelServices) Removal() *removalservice.WatchableService {
 func (s *ModelServices) AgentPassword() *agentpasswordservice.Service {
 	return agentpasswordservice.NewService(
 		agentpasswordstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+	)
+}
+
+// ModelProvider returns a service for accessing info relevant to the
+// provider for a model.
+func (s *ModelServices) ModelProvider() *modelproviderservice.Service {
+	return modelproviderservice.NewService(
+		s.modelUUID,
+		modelproviderstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		s.logger.Child("modelprovider"),
+		providertracker.ProviderRunner[modelproviderservice.ProviderWithSecretToken](s.providerFactory, s.modelUUID.String()),
 	)
 }
 
