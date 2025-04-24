@@ -2100,22 +2100,7 @@ func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDev
 	c.Assert(iface, gc.DeepEquals, expectedInterface)
 }
 
-func (t *localServerSuite) TestSubnetsWithInstanceId(c *gc.C) {
-	env, instId := t.setUpInstanceWithDefaultVpc(c)
-	subnets, err := env.Subnets(t.callCtx, instId, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets, gc.HasLen, 1)
-	validateSubnets(c, subnets, "")
-
-	interfaceList, err := env.NetworkInterfaces(t.callCtx, []instance.Id{instId})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(interfaceList, gc.HasLen, 1)
-	interfaces := interfaceList[0]
-	c.Assert(interfaces, gc.HasLen, 1)
-	c.Assert(interfaces[0].ProviderSubnetId, gc.Equals, subnets[0].ProviderId)
-}
-
-func (t *localServerSuite) TestSubnetsWithInstanceIdAndSubnetId(c *gc.C) {
+func (t *localServerSuite) TestSubnetsWithSubnetId(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
 	interfaceList, err := env.NetworkInterfaces(t.callCtx, []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2123,18 +2108,11 @@ func (t *localServerSuite) TestSubnetsWithInstanceIdAndSubnetId(c *gc.C) {
 	interfaces := interfaceList[0]
 	c.Assert(interfaces, gc.HasLen, 1)
 
-	subnets, err := env.Subnets(t.callCtx, instId, []network.Id{interfaces[0].ProviderSubnetId})
+	subnets, err := env.Subnets(t.callCtx, []network.Id{interfaces[0].ProviderSubnetId})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 1)
 	c.Assert(subnets[0].ProviderId, gc.Equals, interfaces[0].ProviderSubnetId)
-	validateSubnets(c, subnets, "")
-}
-
-func (t *localServerSuite) TestSubnetsWithInstanceIdMissingSubnet(c *gc.C) {
-	env, instId := t.setUpInstanceWithDefaultVpc(c)
-	subnets, err := env.Subnets(t.callCtx, instId, []network.Id{"missing"})
-	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[missing\]`)
-	c.Assert(subnets, gc.HasLen, 0)
+	validateSubnets(c, subnets, "vpc-0")
 }
 
 func (t *localServerSuite) TestInstanceInformation(c *gc.C) {
@@ -2196,12 +2174,12 @@ func validateSubnets(c *gc.C, subnets []network.SubnetInfo, vpcId network.Id) {
 func (t *localServerSuite) TestSubnets(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
 
-	subnets, err := env.Subnets(t.callCtx, instance.UnknownId, []network.Id{"subnet-0"})
+	subnets, err := env.Subnets(t.callCtx, []network.Id{"subnet-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 1)
 	validateSubnets(c, subnets, "vpc-0")
 
-	subnets, err = env.Subnets(t.callCtx, instance.UnknownId, nil)
+	subnets, err = env.Subnets(t.callCtx, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 4)
 	validateSubnets(c, subnets, "vpc-0")
@@ -2210,7 +2188,7 @@ func (t *localServerSuite) TestSubnets(c *gc.C) {
 func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
 
-	_, err := env.Subnets(t.callCtx, "", []network.Id{"subnet-0", "Missing"})
+	_, err := env.Subnets(t.callCtx, []network.Id{"subnet-0", "Missing"})
 	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[Missing\]`)
 }
 
