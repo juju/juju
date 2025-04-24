@@ -81,7 +81,7 @@ func (s *environNetSuite) cannedData() {
 func (s *environNetSuite) TestSubnetsInvalidCredentialError(c *gc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	_, err := s.NetEnv.Subnets(s.CallCtx, instance.UnknownId, nil)
+	_, err := s.NetEnv.Subnets(s.CallCtx, nil)
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
@@ -89,7 +89,7 @@ func (s *environNetSuite) TestSubnetsInvalidCredentialError(c *gc.C) {
 func (s *environNetSuite) TestGettingAllSubnets(c *gc.C) {
 	s.cannedData()
 
-	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.UnknownId, nil)
+	subnets, err := s.NetEnv.Subnets(s.CallCtx, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
@@ -116,9 +116,7 @@ func (s *environNetSuite) TestGettingAllSubnets(c *gc.C) {
 func (s *environNetSuite) TestRestrictingToSubnets(c *gc.C) {
 	s.cannedData()
 
-	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.UnknownId, []corenetwork.Id{
-		"shellac",
-	})
+	subnets, err := s.NetEnv.Subnets(s.CallCtx, []corenetwork.Id{"shellac"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
 		ProviderId:        "shellac",
@@ -132,50 +130,8 @@ func (s *environNetSuite) TestRestrictingToSubnets(c *gc.C) {
 func (s *environNetSuite) TestRestrictingToSubnetsWithMissing(c *gc.C) {
 	s.cannedData()
 
-	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.UnknownId, []corenetwork.Id{"shellac", "brunettes"})
+	subnets, err := s.NetEnv.Subnets(s.CallCtx, []corenetwork.Id{"shellac", "brunettes"})
 	c.Assert(err, gc.ErrorMatches, `subnets \["brunettes"\] not found`)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-	c.Assert(subnets, gc.IsNil)
-}
-
-func (s *environNetSuite) TestSpecificInstance(c *gc.C) {
-	s.cannedData()
-	s.FakeEnviron.Insts = []instances.Instance{s.NewInstance(c, "moana")}
-
-	subnets, err := s.NetEnv.Subnets(s.CallCtx, "moana", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
-		ProviderId:        "go-team",
-		ProviderNetworkId: "go-team1",
-		CIDR:              "10.0.10.0/24",
-		AvailabilityZones: []string{"a-zone", "b-zone"},
-		VLANTag:           0,
-	}})
-}
-
-func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnets(c *gc.C) {
-	s.cannedData()
-	s.FakeEnviron.Insts = []instances.Instance{s.NewInstance(c, "moana")}
-
-	subnets, err := s.NetEnv.Subnets(s.CallCtx, "moana", []corenetwork.Id{"go-team"})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(subnets, gc.DeepEquals, []corenetwork.SubnetInfo{{
-		ProviderId:        "go-team",
-		ProviderNetworkId: "go-team1",
-		CIDR:              "10.0.10.0/24",
-		AvailabilityZones: []string{"a-zone", "b-zone"},
-		VLANTag:           0,
-	}})
-}
-
-func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnetsWithMissing(c *gc.C) {
-	s.cannedData()
-	s.FakeEnviron.Insts = []instances.Instance{s.NewInstance(c, "moana")}
-
-	subnets, err := s.NetEnv.Subnets(s.CallCtx, "moana", []corenetwork.Id{"go-team", "shellac"})
-	c.Assert(err, gc.ErrorMatches, `subnets \["shellac"\] not found`)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(subnets, gc.IsNil)
 }

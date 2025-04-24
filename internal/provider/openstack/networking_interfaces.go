@@ -27,7 +27,7 @@ type Networking interface {
 	// Subnets returns basic information about subnets known
 	// by OpenStack for the environment.
 	// Needed for Environ.Networking
-	Subnets(instance.Id, []corenetwork.Id) ([]corenetwork.SubnetInfo, error)
+	Subnets([]corenetwork.Id) ([]corenetwork.SubnetInfo, error)
 
 	// CreatePort creates a port for a given network id with a subnet ID.
 	CreatePort(string, string, corenetwork.Id) (*neutron.PortV2, error)

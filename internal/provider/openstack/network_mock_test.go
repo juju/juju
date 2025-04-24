@@ -338,18 +338,18 @@ func (c *MockNetworkingResolveNetworksCall) DoAndReturn(f func(string, bool) ([]
 }
 
 // Subnets mocks base method.
-func (m *MockNetworking) Subnets(arg0 instance.Id, arg1 []network.Id) ([]network.SubnetInfo, error) {
+func (m *MockNetworking) Subnets(arg0 []network.Id) ([]network.SubnetInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Subnets", arg0, arg1)
+	ret := m.ctrl.Call(m, "Subnets", arg0)
 	ret0, _ := ret[0].([]network.SubnetInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Subnets indicates an expected call of Subnets.
-func (mr *MockNetworkingMockRecorder) Subnets(arg0, arg1 any) *MockNetworkingSubnetsCall {
+func (mr *MockNetworkingMockRecorder) Subnets(arg0 any) *MockNetworkingSubnetsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subnets", reflect.TypeOf((*MockNetworking)(nil).Subnets), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subnets", reflect.TypeOf((*MockNetworking)(nil).Subnets), arg0)
 	return &MockNetworkingSubnetsCall{Call: call}
 }
 
@@ -365,13 +365,13 @@ func (c *MockNetworkingSubnetsCall) Return(arg0 []network.SubnetInfo, arg1 error
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkingSubnetsCall) Do(f func(instance.Id, []network.Id) ([]network.SubnetInfo, error)) *MockNetworkingSubnetsCall {
+func (c *MockNetworkingSubnetsCall) Do(f func([]network.Id) ([]network.SubnetInfo, error)) *MockNetworkingSubnetsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkingSubnetsCall) DoAndReturn(f func(instance.Id, []network.Id) ([]network.SubnetInfo, error)) *MockNetworkingSubnetsCall {
+func (c *MockNetworkingSubnetsCall) DoAndReturn(f func([]network.Id) ([]network.SubnetInfo, error)) *MockNetworkingSubnetsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

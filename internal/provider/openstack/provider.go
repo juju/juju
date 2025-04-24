@@ -2291,7 +2291,7 @@ func validateAuthURL(authURL string) error {
 
 // Subnets is specified on environs.Networking.
 func (e *Environ) Subnets(ctx envcontext.ProviderCallContext, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	subnets, err := e.networking.Subnets(instance.UnknownId, subnetIds)
+	subnets, err := e.networking.Subnets(subnetIds)
 	if err != nil {
 		return subnets, e.HandleCredentialError(ctx, err)
 	}
@@ -2315,7 +2315,7 @@ func (e *Environ) SupportsSpaces() (bool, error) {
 
 // SuperSubnets is specified on environs.Networking
 func (e *Environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error) {
-	subnets, err := e.networking.Subnets("", nil)
+	subnets, err := e.networking.Subnets(nil)
 	if err != nil {
 		return nil, e.HandleCredentialError(ctx, err)
 	}
