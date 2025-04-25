@@ -1209,7 +1209,6 @@ LEFT JOIN application_status AS s ON s.application_uuid = a.uuid
 LEFT JOIN k8s_service AS k8s ON k8s.application_uuid = a.uuid
 LEFT JOIN application_scale AS aps ON aps.application_uuid = a.uuid
 LEFT JOIN v_relation_endpoint AS re ON re.application_uuid = a.uuid
-LEFT JOIN v_relation_status AS rs ON rs.relation_uuid = re.relation_uuid
 ORDER BY a.name, re.relation_uuid;
 `, applicationStatusDetails{})
 	if err != nil {
