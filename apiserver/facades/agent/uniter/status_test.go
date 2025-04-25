@@ -87,7 +87,8 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusNotFound(c *gc.C) {
 	s.statusService.EXPECT().SetApplicationStatusForUnitLeader(gomock.Any(), coreunit.Name("foo/0"), status.StatusInfo{
 		Status:  status.Active,
 		Message: "it's active",
-		Data:    map[string]interface{}{"foo": "bar"},
+		Data:    map[string]any{"foo": "bar"},
+		Since:   &s.now,
 	}).Return(statuserrors.UnitNotFound)
 
 	result, err := s.api.SetApplicationStatus(context.Background(), params.SetStatus{
@@ -95,7 +96,7 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusNotFound(c *gc.C) {
 			Tag:    tag.String(),
 			Status: "active",
 			Info:   "it's active",
-			Data:   map[string]interface{}{"foo": "bar"},
+			Data:   map[string]any{"foo": "bar"},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -142,7 +143,8 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusUnitNotLeader(c *gc.
 	s.statusService.EXPECT().SetApplicationStatusForUnitLeader(gomock.Any(), coreunit.Name("foo/0"), status.StatusInfo{
 		Status:  status.Active,
 		Message: "it's active",
-		Data:    map[string]interface{}{"foo": "bar"},
+		Data:    map[string]any{"foo": "bar"},
+		Since:   &s.now,
 	}).Return(statuserrors.UnitNotLeader)
 
 	result, err := s.api.SetApplicationStatus(context.Background(), params.SetStatus{
@@ -150,7 +152,7 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatusUnitNotLeader(c *gc.
 			Tag:    tag.String(),
 			Status: "active",
 			Info:   "it's active",
-			Data:   map[string]interface{}{"foo": "bar"},
+			Data:   map[string]any{"foo": "bar"},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -165,7 +167,8 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatus(c *gc.C) {
 	s.statusService.EXPECT().SetApplicationStatusForUnitLeader(gomock.Any(), coreunit.Name("foo/0"), status.StatusInfo{
 		Status:  status.Active,
 		Message: "it's active",
-		Data:    map[string]interface{}{"foo": "bar"},
+		Data:    map[string]any{"foo": "bar"},
+		Since:   &s.now,
 	}).Return(nil)
 
 	result, err := s.api.SetApplicationStatus(context.Background(), params.SetStatus{
@@ -173,7 +176,7 @@ func (s *ApplicationStatusAPISuite) TestSetApplicationStatus(c *gc.C) {
 			Tag:    tag.String(),
 			Status: "active",
 			Info:   "it's active",
-			Data:   map[string]interface{}{"foo": "bar"},
+			Data:   map[string]any{"foo": "bar"},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -377,7 +380,7 @@ func (s *UnitStatusAPISuite) TestSetUnitStatus(c *gc.C) {
 	sInfo := status.StatusInfo{
 		Status:  status.Active,
 		Message: "msg",
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"key": "value",
 		},
 		Since: &s.now,
@@ -389,7 +392,7 @@ func (s *UnitStatusAPISuite) TestSetUnitStatus(c *gc.C) {
 		Tag:    tag.String(),
 		Status: status.Active.String(),
 		Info:   "msg",
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"key": "value",
 		},
 	}}})
@@ -458,7 +461,7 @@ func (s *UnitStatusAPISuite) TestUnitStatus(c *gc.C) {
 	sInfo := status.StatusInfo{
 		Status:  status.Active,
 		Message: "msg",
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"key": "value",
 		},
 		Since: &s.now,
@@ -474,7 +477,7 @@ func (s *UnitStatusAPISuite) TestUnitStatus(c *gc.C) {
 	c.Check(result.Results[0].Error, gc.IsNil)
 	c.Check(result.Results[0].Status, gc.Equals, status.Active.String())
 	c.Check(result.Results[0].Info, gc.Equals, "msg")
-	c.Check(result.Results[0].Data, gc.DeepEquals, map[string]interface{}{
+	c.Check(result.Results[0].Data, gc.DeepEquals, map[string]any{
 		"key": "value",
 	})
 	c.Check(result.Results[0].Since, gc.DeepEquals, &s.now)
