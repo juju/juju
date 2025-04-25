@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
@@ -197,6 +198,59 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExport(c *gc.C) {
 			Machine: machine.Name("0"),
 		},
 	})
+}
+
+func (s *migrationStateSuite) TestGetApplicationUnitsForExportSubordinate(c *gc.C) {
+	// Arrange:
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	subName := coreunit.Name("foo/0")
+	principalName := coreunit.Name("principal/0")
+	id := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: subName,
+		Password: &application.PasswordInfo{
+			PasswordHash:  "password",
+			HashAlgorithm: 0,
+		},
+	})
+	s.createApplication(c, "principal", life.Alive, application.InsertUnitArg{
+		UnitName: principalName,
+	})
+
+	principalUUID, err := st.GetUnitUUIDByName(context.Background(), principalName)
+	c.Assert(err, jc.ErrorIsNil)
+	subUUID, err := st.GetUnitUUIDByName(context.Background(), subName)
+	c.Assert(err, jc.ErrorIsNil)
+	s.insertUnitPrincipal(c, principalUUID, subUUID)
+
+	// Act:
+	units, err := st.GetApplicationUnitsForExport(context.Background(), id)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(units, jc.DeepEquals, []application.ExportUnit{
+		{
+			UUID:      subUUID,
+			Name:      "foo/0",
+			Machine:   "0",
+			Principal: principalName,
+		}, {
+			UUID:    principalUUID,
+			Name:    "principal/0",
+			Machine: "1",
+		},
+	})
+}
+
+func (s *migrationStateSuite) insertUnitPrincipal(c *gc.C, pUUID, sUUID coreunit.UUID) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(`
+INSERT INTO unit_principal (principal_uuid, unit_uuid) VALUES (?,?)`, pUUID, sUUID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *migrationStateSuite) TestGetApplicationUnitsForExportNoUnits(c *gc.C) {

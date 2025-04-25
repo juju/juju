@@ -1108,9 +1108,10 @@ type peerEndpoint struct {
 }
 
 type exportUnit struct {
-	UUID    coreunit.UUID `db:"uuid"`
-	Name    coreunit.Name `db:"name"`
-	Machine machine.Name  `db:"machine_name"`
+	UUID      coreunit.UUID `db:"uuid"`
+	Name      coreunit.Name `db:"name"`
+	Machine   machine.Name  `db:"machine_name"`
+	Principal coreunit.Name `db:"principal_name"`
 }
 
 type setExposedSpace struct {

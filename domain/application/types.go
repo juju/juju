@@ -402,9 +402,10 @@ type ExportApplication struct {
 
 // ExportUnit contains parameters for exporting a unit.
 type ExportUnit struct {
-	UUID    coreunit.UUID
-	Name    coreunit.Name
-	Machine machine.Name
+	UUID      coreunit.UUID
+	Name      coreunit.Name
+	Machine   machine.Name
+	Principal coreunit.Name
 }
 
 // ImportUnitArg is used to import a unit.
