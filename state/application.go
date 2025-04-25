@@ -61,7 +61,6 @@ type applicationDoc struct {
 	ForceCharm           bool         `bson:"forcecharm"`
 	Life                 Life         `bson:"life"`
 	UnitCount            int          `bson:"unitcount"`
-	RelationCount        int          `bson:"relationcount"`
 	Tools                *tools.Tools `bson:",omitempty"`
 	TxnRevno             int64        `bson:"txn-revno"`
 
@@ -327,48 +326,8 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 // When the 'force' is not set, any operational errors will be considered fatal. All operations
 // constructed up until the error will be discarded and the error will be returned.
 func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore) ([]txn.Op, error) {
-	rels, err := op.app.Relations()
-	if op.FatalError(err) {
-		return nil, err
-	}
-	if len(rels) != op.app.doc.RelationCount {
-		// This is just an early bail out. The relations obtained may still
-		// be wrong, but that situation will be caught by a combination of
-		// asserts on relationcount and on each known relation, below.
-		logger.Tracef(context.TODO(), "DestroyApplicationOperation(%s).destroyOps mismatched relation count %d != %d",
-			op.app.doc.Name, len(rels), op.app.doc.RelationCount)
-		return nil, errRefresh
-	}
 	var ops []txn.Op
-	removeCount := 0
-	failedRels := false
-	for _, rel := range rels {
-		// When forced, this call will return both operations to remove this
-		// relation as well as all operational errors encountered.
-		// If the 'force' is not set and the call came across some errors,
-		// these errors will be fatal and no operations will be returned.
-		relOps, isRemove, err := rel.destroyOps(op.app.doc.Name, &op.ForcedOperation)
-		if errors.Cause(err) == errAlreadyDying {
-			relOps = []txn.Op{{
-				C:      relationsC,
-				Id:     rel.doc.DocID,
-				Assert: bson.D{{"life", Dying}},
-			}}
-		} else if err != nil {
-			op.AddError(err)
-			failedRels = true
-			continue
-		}
-		if isRemove {
-			removeCount++
-		}
-		ops = append(ops, relOps...)
-	}
 	op.PostDestroyAppLife = Dying
-	if !op.Force && failedRels {
-		return nil, op.LastError()
-	}
-
 	removeUnitAssignmentOps, err := op.app.removeUnitAssignmentsOps()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -378,14 +337,13 @@ func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore)
 	// If the application has no units, and all its known relations will be
 	// removed, the application can also be removed, so long as there are
 	// no other cluster resources, as can be the case for k8s charms.
-	if op.app.doc.UnitCount == 0 && op.app.doc.RelationCount == removeCount {
+	if op.app.doc.UnitCount == 0 {
 		logger.Tracef(context.TODO(), "DestroyApplicationOperation(%s).destroyOps removing application", op.app.doc.Name)
 		// If we're forcing destruction the assertion shouldn't be that
 		// life is alive, but that it's what we think it is now.
 		assertion := bson.D{
 			{"life", op.app.doc.Life},
 			{"unitcount", 0},
-			{"relationcount", removeCount},
 		}
 
 		// When forced, this call will return operations to remove this
@@ -412,7 +370,6 @@ func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore)
 	// will be caught by virtue of being a remove.
 	notLastRefs := bson.D{
 		{"life", op.app.doc.Life},
-		{"relationcount", op.app.doc.RelationCount},
 	}
 	// With respect to unit count, a changing value doesn't matter, so long
 	// as the count's equality with zero does not change, because all we care
@@ -434,10 +391,6 @@ func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore)
 		notLastRefs = append(notLastRefs, bson.D{{"unitcount", 0}}...)
 	}
 	update := bson.D{{"$set", bson.D{{"life", Dying}}}}
-	if removeCount != 0 {
-		decref := bson.D{{"$inc", bson.D{{"relationcount", -removeCount}}}}
-		update = append(update, decref...)
-	}
 	ops = append(ops, txn.Op{
 		C:      applicationsC,
 		Id:     op.app.doc.DocID,
@@ -547,17 +500,6 @@ func (a *Application) cancelScheduledCleanupOps() ([]txn.Op, error) {
 		{cleanupForceRemoveUnit, appOrUnitPattern},
 		{cleanupForceApplication, appOrUnitPattern},
 	}
-	relations, err := a.Relations()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, rel := range relations {
-		cancelCleanupOpsArgs = append(cancelCleanupOpsArgs, cancelCleanupOpsArg{
-			cleanupForceDestroyedRelation,
-			bson.DocElem{
-				Name: "prefix", Value: relationKey(rel.Endpoints())},
-		})
-	}
 
 	cancelCleanupOps, err := a.st.cancelCleanupOps(cancelCleanupOpsArgs...)
 	if err != nil {
@@ -654,55 +596,6 @@ func (a *Application) Endpoint(relationName string) (relation.Endpoint, error) {
 		}
 	}
 	return relation.Endpoint{}, errors.Errorf("application %q has no %q relation", a, relationName)
-}
-
-// extraPeerRelations returns only the peer relations in newMeta not
-// present in the application's current charm meta data.
-func (a *Application) extraPeerRelations(newMeta *charm.Meta) map[string]charm.Relation {
-	if newMeta == nil {
-		// This should never happen, since we're checking the charm in SetCharm already.
-		panic("newMeta is nil")
-	}
-	ch, _, err := a.Charm()
-	if err != nil {
-		return nil
-	}
-	newPeers := newMeta.Peers
-	oldPeers := ch.Meta().Peers
-	extraPeers := make(map[string]charm.Relation)
-	for relName, rel := range newPeers {
-		if _, ok := oldPeers[relName]; !ok {
-			extraPeers[relName] = rel
-		}
-	}
-	return extraPeers
-}
-
-func (a *Application) checkRelationsOps(ch CharmRefFull, relations []*Relation) ([]txn.Op, error) {
-	asserts := make([]txn.Op, 0, len(relations))
-
-	// All relations must still exist and their endpoints are implemented by the charm.
-	for _, rel := range relations {
-		if ep, err := rel.Endpoint(a.doc.Name); err != nil {
-			return nil, err
-		} else if !ep.ImplementedBy(ch.Meta()) {
-			// When switching charms, we should allow peer
-			// relations to be broken (e.g. because a newer charm
-			// version removes a particular peer relation) even if
-			// they are already established as those particular
-			// relations will become irrelevant once the upgrade is
-			// complete.
-			if !isPeer(ep) {
-				return nil, errors.Errorf("would break relation %q", rel)
-			}
-		}
-		asserts = append(asserts, txn.Op{
-			C:      relationsC,
-			Id:     rel.doc.DocID,
-			Assert: txn.DocExists,
-		})
-	}
-	return asserts, nil
 }
 
 func (a *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []*Unit) (_ []txn.Op, err error) {
@@ -895,45 +788,6 @@ func (a *Application) changeCharmOps(
 	ops = append(ops, upgradeStorageOps...)
 
 	ops = append(ops, incCharmModifiedVersionOps(a.doc.DocID)...)
-
-	// Get all relations - we need to check them later.
-	relations, err := a.Relations()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// Remove any stale peer relation entries when switching charms
-	removeStalePeerOps, err := a.st.removeStalePeerRelationsOps(a.doc.Name, relations, ch.Meta())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, removeStalePeerOps...)
-
-	// Add any extra peer relations that need creation.
-	newPeers := a.extraPeerRelations(ch.Meta())
-	addPeerOps, err := a.st.addPeerRelationsOps(a.doc.Name, newPeers)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, addPeerOps...)
-
-	// Update the relation count as well.
-	if len(newPeers) > 0 {
-		// Make sure the relation count does not change.
-		sameRelCount := bson.D{{"relationcount", len(relations)}}
-		ops = append(ops, txn.Op{
-			C:      applicationsC,
-			Id:     a.doc.DocID,
-			Assert: append(notDeadDoc, sameRelCount...),
-			Update: bson.D{{"$inc", bson.D{{"relationcount", len(newPeers)}}}},
-		})
-	}
-	// Check relations to ensure no active relations are removed.
-	relOps, err := a.checkRelationsOps(ch, relations)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, relOps...)
 
 	// And finally, decrement the old charm and settings.
 	return ops, nil
@@ -1199,19 +1053,6 @@ func (a *Application) SetCharm(
 				Update: bson.D{{"$set", updates}},
 			})
 		} else {
-			// Check if the new charm specifies a relation max limit
-			// that cannot be satisfied by the currently established
-			// relation count.
-			quotaErr := a.preUpgradeRelationLimitCheck(cfg.Charm)
-
-			// If the operator specified --force, we still allow
-			// the upgrade to continue with a warning.
-			if errors.Is(quotaErr, errors.QuotaLimitExceeded) && cfg.Force {
-				logger.Warningf(context.TODO(), "%v; allowing upgrade to proceed as the operator specified --force", quotaErr)
-			} else if quotaErr != nil {
-				return nil, errors.Trace(quotaErr)
-			}
-
 			chng, err := a.changeCharmOps(
 				cfg.Charm,
 				updatedSettings,
@@ -1261,60 +1102,6 @@ func (a *Application) SetCharm(
 		return err
 	}
 	return a.Refresh()
-}
-
-// preUpgradeRelationLimitCheck ensures that the already established relation
-// counts do not violate the max relation limits specified by the charm version
-// we are attempting to upgrade to.
-func (a *Application) preUpgradeRelationLimitCheck(newCharm CharmRef) error {
-	var (
-		existingRels []*Relation
-		err          error
-	)
-
-	for relName, relSpec := range newCharm.Meta().CombinedRelations() {
-		if relSpec.Limit == 0 {
-			continue
-		}
-
-		// Load and memoize relation list
-		if existingRels == nil {
-			if existingRels, err = a.Relations(); err != nil {
-				return errors.Trace(err)
-			}
-
-		}
-
-		establishedCount := establishedRelationCount(existingRels, a.Name(), relSpec)
-		if establishedCount > relSpec.Limit {
-			return errors.QuotaLimitExceededf("new charm version imposes a maximum relation limit of %d for %s:%s which cannot be satisfied by the number of already established relations (%d)", relSpec.Limit, a.Name(), relName, establishedCount)
-		}
-	}
-
-	return nil
-}
-
-// establishedRelationCount returns the number of already established relations
-// for appName and the endpoint specified in the provided relation details.
-func establishedRelationCount(existingRelList []*Relation, appName string, rel charm.Relation) int {
-	var establishedCount int
-	for _, existingRel := range existingRelList {
-		// Suspended relations don't count
-		if existingRel.Suspended() {
-			continue
-		}
-
-		for _, existingRelEp := range existingRel.Endpoints() {
-			if existingRelEp.ApplicationName == appName &&
-				existingRelEp.Relation.Name == rel.Name &&
-				existingRelEp.Relation.Interface == rel.Interface {
-				establishedCount++
-				break
-			}
-		}
-	}
-
-	return establishedCount
 }
 
 // MergeBindings merges the provided bindings map with the existing application
@@ -1886,48 +1673,6 @@ func allUnits(st *State, application string) (units []*Unit, err error) {
 	return units, nil
 }
 
-// Relations returns a Relation for every relation the application is in.
-func (a *Application) Relations() (relations []*Relation, err error) {
-	return matchingRelations(a.st, a.doc.Name)
-}
-
-// matchingRelations returns all relations matching the application(s)/endpoint(s) provided
-// There must be 1 or 2 supplied names, of the form <application>[:<endpoint>]
-func matchingRelations(st *State, names ...string) (relations []*Relation, err error) {
-	defer errors.DeferredAnnotatef(&err, "can't get relations matching %q", strings.Join(names, " "))
-	relationsCollection, closer := st.db().GetCollection(relationsC)
-	defer closer()
-
-	var conditions []bson.D
-	for _, name := range names {
-		appName, relName, err := splitEndpointName(name)
-		if err != nil {
-			return nil, err
-		}
-		if relName == "" {
-			conditions = append(conditions, bson.D{{"endpoints.applicationname", appName}})
-		} else {
-			conditions = append(conditions, bson.D{{"endpoints", bson.D{{"$elemMatch", bson.D{
-				{"applicationname", appName},
-				{"relation.name", relName},
-			}}}}})
-		}
-	}
-
-	docs := []relationDoc{}
-	err = relationsCollection.Find(bson.D{{
-		"$and", conditions,
-	}}).All(&docs)
-
-	if err != nil {
-		return nil, err
-	}
-	for _, v := range docs {
-		relations = append(relations, newRelation(st, &v))
-	}
-	return relations, nil
-}
-
 // CharmConfig returns the raw user configuration for the application's charm.
 func (a *Application) CharmConfig() (charm.Settings, error) {
 	if a.doc.CharmURL == nil {
@@ -2382,12 +2127,6 @@ func (a *Application) ServiceInfo() (CloudServicer, error) {
 // UnitCount returns the of number of units for this application.
 func (a *Application) UnitCount() int {
 	return a.doc.UnitCount
-}
-
-// RelationCount returns the of number of active relations for this application.
-func (a *Application) RelationCount() int {
-	return a.doc.RelationCount
-
 }
 
 // finalAppCharmRemoveOps returns operations to delete the settings

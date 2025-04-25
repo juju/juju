@@ -26,13 +26,6 @@ type stateBackendShim struct {
 }
 
 func (s *stateBackendShim) HasEndpoint(key string, app string) (bool, error) {
-	rel, err := s.State.KeyRelation(key)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	if rel.Suspended() {
-		return false, nil
-	}
-	_, err = rel.Endpoint(app)
-	return err == nil, nil
+	return false, errors.NotImplementedf("cross model relations are disabled until " +
+		"backend functionality is moved to domain")
 }
