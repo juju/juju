@@ -4,14 +4,15 @@
 package statushistory
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"time"
 
+	"github.com/icza/backscanner"
 	"github.com/juju/clock"
 
 	"github.com/juju/juju/core/status"
@@ -91,21 +92,27 @@ func (s *StatusHistory) RecordStatus(ctx context.Context, ns Namespace, status s
 
 // HistoryRecord represents a single record of status information.
 type HistoryRecord struct {
+	Kind   status.HistoryKind
 	Tag    string
 	Status status.DetailedStatus
+}
+
+// Scanner is an interface for reading lines from a source.
+type Scanner interface {
+	LineBytes() (line []byte, pos int, err error)
 }
 
 // StatusHistoryReader is a reader for status history records.
 // It reads records from an io.Reader and unmarshals them into Record structs.
 type StatusHistoryReader struct {
-	reader io.Reader
+	scanner Scanner
 }
 
 // NewStatusHistoryReader creates a new StatusHistoryReader that reads from the
 // given io.Reader.
-func NewStatusHistoryReader(reader io.Reader) *StatusHistoryReader {
+func NewStatusHistoryReader(scanner Scanner) *StatusHistoryReader {
 	return &StatusHistoryReader{
-		reader: reader,
+		scanner: scanner,
 	}
 }
 
@@ -117,21 +124,32 @@ func StatusHistoryReaderFromFile(path string) (*StatusHistoryReader, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewStatusHistoryReader(file), nil
+
+	size, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewStatusHistoryReader(backscanner.New(file, int(size.Size()))), nil
 }
 
 // Walk reads the status history records from the reader and applies the
 // given function to each record.
 func (r *StatusHistoryReader) Walk(fn func(HistoryRecord)) error {
+	var rec struct {
+		Labels map[string]string `json:"labels"`
+	}
+
 	// Read each line of the log file and unmarshal it into a LogRecord.
 	// Filter out records that do not match the requested entities.
-	scanner := bufio.NewScanner(r.reader)
-	for scanner.Scan() {
-		line := scanner.Bytes()
-
-		var rec struct {
-			Labels map[string]string `json:"labels"`
+	for {
+		line, _, err := r.scanner.LineBytes()
+		if errors.Is(err, io.EOF) {
+			return nil
+		} else if err != nil {
+			return err
 		}
+
 		if err := json.Unmarshal(line, &rec); err != nil {
 			continue
 		}
@@ -147,8 +165,8 @@ func (r *StatusHistoryReader) Walk(fn func(HistoryRecord)) error {
 		}
 
 		var data map[string]any
-		if data := rec.Labels[dataKey]; len(data) > 0 {
-			if err := json.Unmarshal([]byte(data), &data); err != nil {
+		if labelData := rec.Labels[dataKey]; len(labelData) > 0 {
+			if err := json.Unmarshal([]byte(labelData), &data); err != nil {
 				continue
 			}
 		}
@@ -169,16 +187,11 @@ func (r *StatusHistoryReader) Walk(fn func(HistoryRecord)) error {
 		}
 
 		fn(HistoryRecord{
+			Kind:   kind,
 			Tag:    rec.Labels[namespaceIDKey],
 			Status: record,
 		})
 	}
-
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func parseKind(kind string) (status.HistoryKind, error) {

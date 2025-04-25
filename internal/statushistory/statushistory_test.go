@@ -5,6 +5,14 @@ package statushistory
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"math/rand/v2"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
 	"time"
 
 	"github.com/juju/clock"
@@ -13,6 +21,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/errors"
 )
@@ -172,4 +181,235 @@ func (s *statusHistorySuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.recorder = NewMockRecorder(ctrl)
 
 	return ctrl
+}
+
+type statusHistoryReaderSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&statusHistoryReaderSuite{})
+
+func (s *statusHistoryReaderSuite) TestWalk(c *gc.C) {
+	var expected []HistoryRecord
+
+	rnd := rand.IntN(50) + 100
+
+	path := s.createFile(c, func(c *gc.C, w io.Writer) {
+		now := time.Now().Truncate(time.Minute).UTC()
+
+		encoder := json.NewEncoder(w)
+		for i := range rnd {
+			record := Record{
+				Name:    "application",
+				ID:      strconv.Itoa(i),
+				Status:  status.Active.String(),
+				Message: "foo",
+				Time:    now.Format(time.RFC3339),
+			}
+			data := `{"bar": "baz"}`
+
+			labels := logger.Labels{
+				categoryKey:      statusHistoryCategory,
+				namespaceNameKey: record.Name,
+				namespaceIDKey:   record.ID,
+				statusKey:        record.Status,
+				messageKey:       record.Message,
+				sinceKey:         record.Time,
+				dataKey:          string(data),
+			}
+
+			err := encoder.Encode(logger.LogRecord{
+				ModelUUID: "model-uuid",
+				Time:      time.Now(),
+				Labels:    labels,
+			})
+			c.Assert(err, jc.ErrorIsNil)
+
+			expected = append(expected, HistoryRecord{
+				Kind: status.KindApplication,
+				Tag:  record.ID,
+				Status: status.DetailedStatus{
+					Kind:   status.KindApplication,
+					Status: status.Active,
+					Info:   "foo",
+					Since:  &now,
+					Data: map[string]interface{}{
+						"bar": "baz",
+					},
+				},
+			})
+		}
+
+		sort.Slice(expected, func(i, j int) bool {
+			tag1, _ := strconv.Atoi(expected[i].Tag)
+			tag2, _ := strconv.Atoi(expected[j].Tag)
+			return tag1 >= tag2
+		})
+	})
+
+	history, err := StatusHistoryReaderFromFile(path)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var records []HistoryRecord
+	err = history.Walk(func(rec HistoryRecord) {
+		records = append(records, rec)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(records, gc.DeepEquals, expected)
+}
+
+func (s *statusHistoryReaderSuite) TestWalkWithDifferentLabel(c *gc.C) {
+	var expected []HistoryRecord
+
+	path := s.createFile(c, func(c *gc.C, w io.Writer) {
+		now := time.Now().Truncate(time.Minute).UTC()
+
+		encoder := json.NewEncoder(w)
+		for i := range 10 {
+			record := Record{
+				Name:    "application",
+				ID:      strconv.Itoa(i),
+				Status:  status.Active.String(),
+				Message: "foo",
+				Time:    now.Format(time.RFC3339),
+			}
+			data := `{"bar": "baz"}`
+
+			labels := logger.Labels{
+				categoryKey:      "foo",
+				namespaceNameKey: record.Name,
+				namespaceIDKey:   record.ID,
+				statusKey:        record.Status,
+				messageKey:       record.Message,
+				sinceKey:         record.Time,
+				dataKey:          string(data),
+			}
+
+			err := encoder.Encode(logger.LogRecord{
+				ModelUUID: "model-uuid",
+				Time:      time.Now(),
+				Labels:    labels,
+			})
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	})
+
+	history, err := StatusHistoryReaderFromFile(path)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var records []HistoryRecord
+	err = history.Walk(func(rec HistoryRecord) {
+		records = append(records, rec)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(records, gc.DeepEquals, expected)
+}
+
+func (s *statusHistoryReaderSuite) TestWalkNoDocuments(c *gc.C) {
+	var expected []HistoryRecord
+
+	path := s.createFile(c, func(c *gc.C, w io.Writer) {})
+
+	history, err := StatusHistoryReaderFromFile(path)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var records []HistoryRecord
+	err = history.Walk(func(rec HistoryRecord) {
+		records = append(records, rec)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(records, gc.DeepEquals, expected)
+}
+
+func (s *statusHistoryReaderSuite) TestWalkCorruptLine(c *gc.C) {
+	var expected []HistoryRecord
+
+	rnd := rand.IntN(9)
+
+	path := s.createFile(c, func(c *gc.C, w io.Writer) {
+		now := time.Now().Truncate(time.Minute).UTC()
+
+		encoder := json.NewEncoder(w)
+		for i := range 10 {
+			record := Record{
+				Name:    "application",
+				ID:      strconv.Itoa(i),
+				Status:  status.Active.String(),
+				Message: "foo",
+				Time:    now.Format(time.RFC3339),
+			}
+			data := `{"bar": "baz"}`
+
+			labels := logger.Labels{
+				categoryKey:      statusHistoryCategory,
+				namespaceNameKey: record.Name,
+				namespaceIDKey:   record.ID,
+				statusKey:        record.Status,
+				messageKey:       record.Message,
+				sinceKey:         record.Time,
+				dataKey:          string(data),
+			}
+
+			err := encoder.Encode(logger.LogRecord{
+				ModelUUID: "model-uuid",
+				Time:      time.Now(),
+				Labels:    labels,
+			})
+			c.Assert(err, jc.ErrorIsNil)
+
+			// Corrupt a line, by adding a non-JSON prefix to the line, after
+			// the current has been written.
+			if i == rnd-1 {
+				fmt.Fprintf(w, "!!!")
+			} else if i == rnd {
+				continue
+			}
+
+			expected = append(expected, HistoryRecord{
+				Kind: status.KindApplication,
+				Tag:  record.ID,
+				Status: status.DetailedStatus{
+					Kind:   status.KindApplication,
+					Status: status.Active,
+					Info:   "foo",
+					Since:  &now,
+					Data: map[string]interface{}{
+						"bar": "baz",
+					},
+				},
+			})
+		}
+
+		sort.Slice(expected, func(i, j int) bool {
+			return expected[i].Tag > expected[j].Tag
+		})
+	})
+
+	history, err := StatusHistoryReaderFromFile(path)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var records []HistoryRecord
+	err = history.Walk(func(rec HistoryRecord) {
+		records = append(records, rec)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(records, gc.DeepEquals, expected)
+}
+
+func (s *statusHistoryReaderSuite) createFile(c *gc.C, fn func(*gc.C, io.Writer)) string {
+	path := c.MkDir()
+
+	filePath := filepath.Join(path, "logsink.log")
+	file, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		_ = file.Close()
+	}()
+
+	fn(c, file)
+
+	err = file.Sync()
+	c.Assert(err, jc.ErrorIsNil)
+
+	return filePath
 }
