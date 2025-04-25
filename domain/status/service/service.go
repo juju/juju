@@ -24,13 +24,8 @@ import (
 // State describes retrieval and persistence methods for the statuses of
 // applications and units.
 type State interface {
-	// GetAllRelationStatuses returns all the relation statuses of the given
-	// model.
-	GetAllRelationStatuses(ctx context.Context) (map[corerelation.UUID]status.StatusInfo[status.RelationStatusType], error)
-
-	// GetAllRelationStatusesByID returns all the relation statuses of the given
-	// model, indexed by relation ID.
-	GetAllRelationStatusesByID(ctx context.Context) (map[int]status.StatusInfo[status.RelationStatusType], error)
+	// GetAllRelationStatuses returns all the relation statuses of the given model.
+	GetAllRelationStatuses(ctx context.Context) ([]status.RelationStatusInfo, error)
 
 	// GetApplicationIDByName returns the application ID for the named
 	// application. If no application is found, an error satisfying
@@ -189,15 +184,15 @@ func (s *Service) GetAllRelationStatuses(ctx context.Context) (map[corerelation.
 		return nil, errors.Capture(err)
 	}
 	result := make(map[corerelation.UUID]corestatus.StatusInfo, len(statuses))
-	for k, v := range statuses {
-		decodedStatus, err := decodeRelationStatusType(v.Status)
+	for _, sts := range statuses {
+		decodedStatus, err := decodeRelationStatusType(sts.StatusInfo.Status)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		result[k] = corestatus.StatusInfo{
+		result[sts.RelationUUID] = corestatus.StatusInfo{
 			Status:  decodedStatus,
-			Message: v.Message,
-			Since:   v.Since,
+			Message: sts.StatusInfo.Message,
+			Since:   sts.StatusInfo.Since,
 		}
 	}
 	return result, nil
@@ -585,24 +580,23 @@ func (s *Service) ExportApplicationStatuses(ctx context.Context) (map[string]cor
 	return ret, nil
 }
 
-// ExportRelationStatuses returns the statuses of all applications in the model,
-// indexed by application name, if they have a status set.
+// ExportRelationStatuses returns the statuses of all relations in the model.
 func (s *Service) ExportRelationStatuses(ctx context.Context) (map[int]corestatus.StatusInfo, error) {
-	relStatuses, err := s.st.GetAllRelationStatusesByID(ctx)
+	relStatuses, err := s.st.GetAllRelationStatuses(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	result := make(map[int]corestatus.StatusInfo, len(relStatuses))
-	for k, v := range relStatuses {
-		decodedStatus, err := decodeRelationStatusType(v.Status)
+	for _, sts := range relStatuses {
+		decodedStatus, err := decodeRelationStatusType(sts.StatusInfo.Status)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		result[k] = corestatus.StatusInfo{
+		result[sts.RelationID] = corestatus.StatusInfo{
 			Status:  decodedStatus,
-			Message: v.Message,
-			Since:   v.Since,
+			Message: sts.StatusInfo.Message,
+			Since:   sts.StatusInfo.Since,
 		}
 	}
 

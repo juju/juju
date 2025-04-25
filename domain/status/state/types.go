@@ -152,3 +152,12 @@ type applicationStatusDetails struct {
 	Scale                  sql.Null[int]      `db:"scale"`
 	K8sProviderID          sql.NullString     `db:"k8s_provider_id"`
 }
+
+// relationStatus represents the status of a relation and the relations ID.
+type relationStatusAndID struct {
+	RelationUUID corerelation.UUID `db:"relation_uuid"`
+	RelationID   int               `db:"relation_id"`
+	StatusID     int               `db:"relation_status_type_id"`
+	Reason       string            `db:"suspended_reason"`
+	Since        *time.Time        `db:"updated_at"`
+}

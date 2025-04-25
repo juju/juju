@@ -6,6 +6,7 @@ package status
 import (
 	"time"
 
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/unit"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/internal/errors"
@@ -80,6 +81,12 @@ func DecodeCloudContainerStatus(s int) (CloudContainerStatusType, error) {
 	default:
 		return -1, errors.Errorf("unknown status %d", s)
 	}
+}
+
+type RelationStatusInfo struct {
+	RelationUUID corerelation.UUID
+	RelationID   int
+	StatusInfo   StatusInfo[RelationStatusType]
 }
 
 // RelationStatusType represents the status of a relation as recorded in the

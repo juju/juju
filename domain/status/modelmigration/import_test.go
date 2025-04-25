@@ -153,7 +153,8 @@ func (s *importSuite) TestImportUnitStatus(c *gc.C) {
 func (s *importSuite) TestImportRelationStatus(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	now := time.Now().UTC()
+	clock := clock.WallClock
+	now := clock.Now().UTC()
 
 	model := description.NewModel(description.ModelArgs{})
 	rel1 := model.AddRelation(description.RelationArgs{
@@ -190,7 +191,7 @@ func (s *importSuite) TestImportRelationStatus(c *gc.C) {
 
 	importOp := importOperation{
 		service: s.importService,
-		clock:   clock.WallClock,
+		clock:   clock,
 	}
 
 	err := importOp.Execute(context.Background(), model)

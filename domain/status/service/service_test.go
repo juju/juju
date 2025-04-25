@@ -47,10 +47,11 @@ func (s *serviceSuite) TestGetAllRelationStatuses(c *gc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	relUUID := corerelationtesting.GenRelationUUID(c)
-	stateRelationStatus := map[corerelation.UUID]status.StatusInfo[status.RelationStatusType]{
-		relUUID: {
+	stateRelationStatus := []status.RelationStatusInfo{{
+		RelationUUID: relUUID,
+		StatusInfo: status.StatusInfo[status.RelationStatusType]{
 			Status: status.RelationStatusTypeBroken,
-		},
+		}},
 	}
 	s.state.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(stateRelationStatus, nil)
 
@@ -1307,12 +1308,13 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatusesInvalidLXDProfile(c *gc.
 func (s *serviceSuite) TestExportRelationStatuses(c *gc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
-	stateRelationStatus := map[int]status.StatusInfo[status.RelationStatusType]{
-		1: {
+	stateRelationStatus := []status.RelationStatusInfo{{
+		RelationID: 1,
+		StatusInfo: status.StatusInfo[status.RelationStatusType]{
 			Status: status.RelationStatusTypeBroken,
-		},
+		}},
 	}
-	s.state.EXPECT().GetAllRelationStatusesByID(gomock.Any()).Return(stateRelationStatus, nil)
+	s.state.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(stateRelationStatus, nil)
 
 	// Act
 	details, err := s.service.ExportRelationStatuses(context.Background())
@@ -1332,7 +1334,7 @@ func (s *serviceSuite) TestExportRelationStatusesError(c *gc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	expectedError := errors.New("state error")
-	s.state.EXPECT().GetAllRelationStatusesByID(gomock.Any()).Return(nil, expectedError)
+	s.state.EXPECT().GetAllRelationStatuses(gomock.Any()).Return(nil, expectedError)
 
 	// Act
 	_, err := s.service.ExportRelationStatuses(context.Background())

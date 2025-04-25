@@ -80,6 +80,23 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 // Execute the export operation, loading the statuses of the various entities in
 // the model onto their description representation.
 func (e *exportOperation) Execute(ctx context.Context, m description.Model) error {
+	err := e.exportApplicationAndUnitStatus(ctx, m)
+	if err != nil {
+		return errors.Errorf("exporting application and unit status: %w", err)
+	}
+
+	err = e.exportRelationStatus(ctx, m)
+	if err != nil {
+		return errors.Errorf("exporting reltaion status: %w", err)
+	}
+
+	return nil
+}
+
+func (e *exportOperation) exportApplicationAndUnitStatus(
+	ctx context.Context,
+	m description.Model,
+) error {
 	appStatuses, err := e.service.ExportApplicationStatuses(ctx)
 	if err != nil {
 		return errors.Errorf("retrieving application statuses: %w", err)
@@ -119,6 +136,13 @@ func (e *exportOperation) Execute(ctx context.Context, m description.Model) erro
 		}
 	}
 
+	return nil
+}
+
+func (e *exportOperation) exportRelationStatus(
+	ctx context.Context,
+	m description.Model,
+) error {
 	relStatuses, err := e.service.ExportRelationStatuses(ctx)
 	if err != nil {
 		return errors.Errorf("retrieving relation statuses: %w", err)

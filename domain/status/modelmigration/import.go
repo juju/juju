@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/status/service"
 	"github.com/juju/juju/domain/status/state"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -93,6 +94,23 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 // Execute the import, loading the statuses of the various entities out of the
 // description representation, into the domain.
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
+	err := i.importApplicationAndUnitStatus(ctx, model)
+	if err != nil {
+		return errors.Errorf("importing application and unit status: %w", err)
+	}
+
+	err = i.importRelationStatus(ctx, model)
+	if err != nil {
+		return errors.Errorf("importing relation status: %w", err)
+	}
+
+	return nil
+}
+
+func (i *importOperation) importApplicationAndUnitStatus(
+	ctx context.Context,
+	model description.Model,
+) error {
 	for _, app := range model.Applications() {
 		appStatus := i.importStatus(app.Status())
 		if err := i.service.SetApplicationStatus(ctx, app.Name(), appStatus); err != nil {
@@ -116,6 +134,13 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		}
 	}
 
+	return nil
+}
+
+func (i *importOperation) importRelationStatus(
+	ctx context.Context,
+	model description.Model,
+) error {
 	for _, relation := range model.Relations() {
 		relationStatus := i.importStatus(relation.Status())
 		if err := i.service.ImportRelationStatus(ctx, relation.Id(), relationStatus); err != nil {
