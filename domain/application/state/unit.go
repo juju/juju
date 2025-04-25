@@ -16,6 +16,8 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -24,10 +26,13 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	domainsequence "github.com/juju/juju/domain/sequence"
+	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/domain/status"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
@@ -520,6 +525,170 @@ func (st *State) AddCAASUnits(
 	return errors.Capture(err)
 }
 
+// AddSubordinateUnit adds a unit to the specified subordinate application to
+// the application on the same machine as the given principal unit and records
+// the principal-subordinate relationship.
+//
+// The following error types can be expected:
+//   - [applicationerrors.ApplicationNotFound] when the subordinate application
+//     cannot be found.
+//   - [applicationerrors.UnitNotFound] when the unit cannot be found.
+func (st *State) AddSubordinateUnit(
+	ctx context.Context,
+	arg application.SubordinateUnitArg,
+) (coreunit.Name, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var unitName coreunit.Name
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Check the application is alive.
+		if err := st.checkApplicationAlive(ctx, tx, arg.SubordinateAppID); err != nil {
+			return errors.Capture(err)
+		}
+
+		// Check this unit does not already have a subordinate unit from this
+		// application.
+		if err := st.checkNoSubordinateExists(ctx, tx, arg.SubordinateAppID, arg.PrincipalUnitName); err != nil {
+			return errors.Errorf("checking if subordinate already exists: %w", err)
+		}
+
+		// Generate a new unit name.
+		unitName, err = st.newUnitName(ctx, tx, arg.SubordinateAppID)
+		if err != nil {
+			return errors.Errorf("getting new unit name for application %q: %w", arg.SubordinateAppID, err)
+		}
+
+		// Insert the new unit.
+		// TODO(storage) - read and use storage directives
+		insertArg := application.InsertUnitArg{
+			UnitName:         unitName,
+			UnitStatusArg:    arg.UnitStatusArg,
+			StorageParentDir: application.StorageParentDir,
+		}
+		switch arg.ModelType {
+		case model.IAAS:
+			// Place the subordinate on the same machine as the principal unit.
+			machineName, err := st.getUnitMachineName(ctx, tx, arg.PrincipalUnitName)
+			if err != nil {
+				return errors.Errorf("getting unit machine name: %w", err)
+			}
+			insertArg.Placement = deployment.Placement{
+				Type:      deployment.PlacementTypeMachine,
+				Directive: machineName.String(),
+			}
+
+			if err := st.insertIAASUnit(ctx, tx, arg.SubordinateAppID, insertArg); err != nil {
+				return errors.Errorf("inserting subordinate unit %q: %w", unitName, err)
+			}
+		case model.CAAS:
+			if err := st.insertCAASUnit(ctx, tx, arg.SubordinateAppID, insertArg); err != nil {
+				return errors.Errorf("inserting subordinate unit %q: %w", unitName, err)
+			}
+		default:
+			return errors.Errorf("unknown model type %q", arg.ModelType)
+		}
+
+		// Record the principal/subordinate relationship.
+		if err := st.recordUnitPrincipal(ctx, tx, arg.PrincipalUnitName, unitName); err != nil {
+			return errors.Errorf("recording principal-subordinate relationship: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return unitName, nil
+}
+
+// checkNoSubordinateExists returns
+// [applicationerrors.UnitAlreadyHasSubordinate] if the specified unit already
+// has a subordinate for the given application.
+func (st *State) checkNoSubordinateExists(
+	ctx context.Context,
+	tx *sqlair.TX,
+	subordinateAppID coreapplication.ID,
+	unitName coreunit.Name,
+) error {
+	type getSubordinate struct {
+		PrincipalUnitName coreunit.Name      `db:"principal_unit_name"`
+		ApplicationID     coreapplication.ID `db:"application_uuid"`
+	}
+	subordinate := getSubordinate{
+		PrincipalUnitName: unitName,
+		ApplicationID:     subordinateAppID,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT u1.name AS &getSubordinate.principal_unit_name
+FROM   unit u1
+JOIN   unit_principal up ON up.principal_uuid = u1.uuid
+JOIN   unit u2 ON u2.uuid = up.unit_uuid
+WHERE  u1.name = $getSubordinate.principal_unit_name
+AND    u2.application_uuid = $getSubordinate.application_uuid
+`, subordinate)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, subordinate).Get(&subordinate)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil
+	} else if err != nil {
+		return errors.Capture(err)
+	}
+
+	return applicationerrors.UnitAlreadyHasSubordinate
+}
+
+// IsSubordinateApplication returns true if the application is a subordinate
+// application.
+func (st *State) IsSubordinateApplication(
+	ctx context.Context,
+	applicationUUID coreapplication.ID,
+) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	type getSubordinate struct {
+		ApplicationUUID coreapplication.ID `db:"application_uuid"`
+		Subordinate     bool               `db:"subordinate"`
+	}
+	subordinate := getSubordinate{
+		ApplicationUUID: applicationUUID,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT subordinate AS &getSubordinate.subordinate
+FROM   charm_metadata cm
+JOIN   charm c ON c.uuid = cm.charm_uuid
+JOIN   application a ON a.charm_uuid = c.uuid
+WHERE  a.uuid = $getSubordinate.application_uuid
+`, subordinate)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, subordinate).Get(&subordinate)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.ApplicationNotFound
+		}
+		return err
+	})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return subordinate.Subordinate, nil
+}
+
 // SetRunningAgentBinaryVersion sets the running agent binary version for the
 // provided unit uuid. Any previously set values for this unit uuid will
 // be overwritten by this call.
@@ -603,22 +772,12 @@ func (st *State) GetUnitUUIDByName(ctx context.Context, name coreunit.Name) (cor
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	unitName := unitName{Name: name}
 
-	query, err := st.Prepare(`
-SELECT &unitUUID.*
-FROM unit
-WHERE name = $unitName.name
-`, unitUUID{}, unitName)
-	if err != nil {
-		return "", errors.Errorf("preparing query: %w", err)
-	}
-
-	unitUUID := unitUUID{}
+	var uuid coreunit.UUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, query, unitName).Get(&unitUUID)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("unit %q not found", name).Add(applicationerrors.UnitNotFound)
+		uuid, err = st.getUnitUUIDByName(ctx, tx, name)
+		if err != nil {
+			return errors.Errorf("querying unit name: %w", err)
 		}
 		return err
 	})
@@ -626,7 +785,31 @@ WHERE name = $unitName.name
 		return "", errors.Errorf("querying unit name: %w", err)
 	}
 
-	return unitUUID.UnitUUID, nil
+	return uuid, nil
+}
+
+func (st *State) getUnitUUIDByName(
+	ctx context.Context,
+	tx *sqlair.TX,
+	name coreunit.Name,
+) (coreunit.UUID, error) {
+	unitName := unitName{Name: name}
+
+	query, err := st.Prepare(`
+SELECT &unitUUID.*
+FROM   unit
+WHERE  name = $unitName.name
+`, unitUUID{}, unitName)
+	if err != nil {
+		return "", errors.Errorf("preparing query: %w", err)
+	}
+
+	unitUUID := unitUUID{}
+	err = tx.Query(ctx, query, unitName).Get(&unitUUID)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", errors.Errorf("unit %q not found", name).Add(applicationerrors.UnitNotFound)
+	}
+	return unitUUID.UnitUUID, errors.Capture(err)
 }
 
 func (st *State) getUnitDetails(ctx context.Context, tx *sqlair.TX, unitName coreunit.Name) (*unitDetails, error) {
@@ -1214,6 +1397,100 @@ func (st *State) GetUnitNamesForApplication(ctx context.Context, uuid coreapplic
 	return transform.Slice(result, func(r unitName) coreunit.Name {
 		return r.Name
 	}), nil
+}
+
+// newUnitName returns a new name for the unit. It increments the unit counter
+// on the application.
+func (st *State) newUnitName(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appID coreapplication.ID,
+) (coreunit.Name, error) {
+
+	var nextUnitNum uint64
+	appName, err := st.getApplicationName(ctx, tx, appID)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	namespace := domainsequence.MakePrefixNamespace(application.ApplicationSequenceNamespace, appName)
+	nextUnitNum, err = sequencestate.NextValue(ctx, st, tx, namespace)
+	if err != nil {
+		return "", errors.Errorf("getting next unit number: %w", err)
+	}
+
+	return coreunit.NewNameFromParts(appName, int(nextUnitNum))
+}
+
+// recordUnitPrincipal records a subordinate-principal relationship between
+// units.
+func (st *State) recordUnitPrincipal(
+	ctx context.Context,
+	tx *sqlair.TX,
+	principalUnitName, subordinateUnitName coreunit.Name,
+) error {
+	type unitPrincipal struct {
+		PrincipalUUID   coreunit.UUID `db:"principal_uuid"`
+		SubordinateUUID coreunit.UUID `db:"unit_uuid"`
+	}
+	arg := unitPrincipal{}
+	stmt, err := st.Prepare(`
+INSERT INTO unit_principal (*)
+VALUES ($unitPrincipal.*)
+`, arg)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	arg.PrincipalUUID, err = st.getUnitUUIDByName(ctx, tx, principalUnitName)
+	if err != nil {
+		return errors.Errorf("getting principal unit uuid: %w", err)
+	}
+
+	arg.SubordinateUUID, err = st.getUnitUUIDByName(ctx, tx, subordinateUnitName)
+	if err != nil {
+		return errors.Errorf("getting principal unit uuid: %w", err)
+	}
+
+	err = tx.Query(ctx, stmt, arg).Run()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return nil
+}
+
+// getUnitMachineName returns the name of the machine the unit is running on. If
+// the unit is not associated with a machine, the name returned is empty.
+func (st *State) getUnitMachineName(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitName coreunit.Name,
+) (machine.Name, error) {
+	type getUnitMachine struct {
+		UnitName    coreunit.Name `db:"unit_name"`
+		UnitMachine machine.Name  `db:"machine_name"`
+	}
+	arg := getUnitMachine{
+		UnitName: unitName,
+	}
+	stmt, err := st.Prepare(`
+SELECT m.name AS &getUnitMachine.machine_name
+FROM   unit u 
+JOIN   machine m ON u.net_node_uuid = m.net_node_uuid
+WHERE  u.name = $getUnitMachine.unit_name
+`, arg)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	err = tx.Query(ctx, stmt, arg).Get(&arg)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", applicationerrors.MachineNotFound
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return arg.UnitMachine, nil
 }
 
 func (st *State) setUnitConstraints(ctx context.Context, tx *sqlair.TX, inUnitUUID coreunit.UUID, cons constraints.Constraints) error {

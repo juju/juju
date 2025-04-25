@@ -14,4 +14,7 @@ const (
 
 	// ContainerSequenceNamespace is the namespace for container sequences.
 	ContainerSequenceNamespace = sequence.StaticNamespace("machine_container")
+
+	// ApplicationSequenceNamespace is the namespace for application unit sequences.
+	ApplicationSequenceNamespace = sequence.StaticNamespace("application")
 )

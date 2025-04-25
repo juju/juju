@@ -333,32 +333,42 @@ func (s *ProviderService) AddUnits(ctx context.Context, storageParentDir, appNam
 	}
 
 	for _, arg := range args {
-		unitName := arg.UnitName.String()
-
-		// The agent and workload status are required to be provided when adding
-		// a unit.
-		if arg.AgentStatus == nil || arg.WorkloadStatus == nil {
-			return errors.Errorf("unit %q status not provided", unitName)
+		if err := s.recordStatusHistory(ctx, arg.UnitName, arg.UnitStatusArg); err != nil {
+			return errors.Errorf("recording status history: %w", err)
 		}
+	}
 
-		// Force the presence to be recorded as true, as the unit has just been
-		// added.
-		if agentStatus, err := decodeUnitAgentStatus(&status.UnitStatusInfo[status.UnitAgentStatusType]{
-			StatusInfo: *arg.AgentStatus,
-			Present:    true,
-		}); err == nil && agentStatus != nil {
-			if err := s.statusHistory.RecordStatus(ctx, unitAgentNamespace.WithID(unitName), *agentStatus); err != nil {
-				s.logger.Infof(ctx, "failed recording agent status for unit %q: %v", unitName, err)
-			}
+	return nil
+}
+
+func (s *Service) recordStatusHistory(
+	ctx context.Context,
+	unitName coreunit.Name,
+	statusArg application.UnitStatusArg,
+) error {
+	// The agent and workload status are required to be provided when adding
+	// a unit.
+	if statusArg.AgentStatus == nil || statusArg.WorkloadStatus == nil {
+		return errors.Errorf("unit %q status not provided", unitName)
+	}
+
+	// Force the presence to be recorded as true, as the unit has just been
+	// added.
+	if agentStatus, err := decodeUnitAgentStatus(&status.UnitStatusInfo[status.UnitAgentStatusType]{
+		StatusInfo: *statusArg.AgentStatus,
+		Present:    true,
+	}); err == nil && agentStatus != nil {
+		if err := s.statusHistory.RecordStatus(ctx, unitAgentNamespace.WithID(unitName.String()), *agentStatus); err != nil {
+			s.logger.Infof(ctx, "failed recording agent status for unit %q: %v", unitName, err)
 		}
+	}
 
-		if workloadStatus, err := decodeUnitWorkloadStatus(&status.UnitStatusInfo[status.WorkloadStatusType]{
-			StatusInfo: *arg.WorkloadStatus,
-			Present:    true,
-		}); err == nil && workloadStatus != nil {
-			if err := s.statusHistory.RecordStatus(ctx, unitWorkloadNamespace.WithID(unitName), *workloadStatus); err != nil {
-				s.logger.Infof(ctx, "failed recording workload status for unit %q: %v", unitName, err)
-			}
+	if workloadStatus, err := decodeUnitWorkloadStatus(&status.UnitStatusInfo[status.WorkloadStatusType]{
+		StatusInfo: *statusArg.WorkloadStatus,
+		Present:    true,
+	}); err == nil && workloadStatus != nil {
+		if err := s.statusHistory.RecordStatus(ctx, unitWorkloadNamespace.WithID(unitName.String()), *workloadStatus); err != nil {
+			s.logger.Infof(ctx, "failed recording workload status for unit %q: %v", unitName, err)
 		}
 	}
 

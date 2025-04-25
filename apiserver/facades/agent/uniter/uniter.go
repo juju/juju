@@ -1377,9 +1377,7 @@ func (u *UniterAPI) oneEnterScope(ctx context.Context, canAccess common.AuthFunc
 		relUUID,
 		unitName,
 		settings,
-		// TODO(aflynn): pass in a create subordinate application function from
-		// the application service here
-		subordinateCreator(nil),
+		subordinateCreator(u.applicationService.AddSubordinateUnit),
 	)
 	if internalerrors.Is(err, relationerrors.PotentialRelationUnitNotValid) {
 		u.logger.Debugf(ctx, "ignoring %q EnterScope for %q, not valid", unitName, relKey.String())

@@ -187,6 +187,45 @@ func (c *MockStateAddStorageForUnitCall) DoAndReturn(f func(context.Context, sto
 	return c
 }
 
+// AddSubordinateUnit mocks base method.
+func (m *MockState) AddSubordinateUnit(ctx context.Context, arg application0.SubordinateUnitArg) (unit.Name, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddSubordinateUnit", ctx, arg)
+	ret0, _ := ret[0].(unit.Name)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddSubordinateUnit indicates an expected call of AddSubordinateUnit.
+func (mr *MockStateMockRecorder) AddSubordinateUnit(ctx, arg any) *MockStateAddSubordinateUnitCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSubordinateUnit", reflect.TypeOf((*MockState)(nil).AddSubordinateUnit), ctx, arg)
+	return &MockStateAddSubordinateUnitCall{Call: call}
+}
+
+// MockStateAddSubordinateUnitCall wrap *gomock.Call
+type MockStateAddSubordinateUnitCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateAddSubordinateUnitCall) Return(arg0 unit.Name, arg1 error) *MockStateAddSubordinateUnitCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateAddSubordinateUnitCall) Do(f func(context.Context, application0.SubordinateUnitArg) (unit.Name, error)) *MockStateAddSubordinateUnitCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateAddSubordinateUnitCall) DoAndReturn(f func(context.Context, application0.SubordinateUnitArg) (unit.Name, error)) *MockStateAddSubordinateUnitCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // AttachStorage mocks base method.
 func (m *MockState) AttachStorage(ctx context.Context, parentDir string, storageUUID storage.UUID, unitUUID unit.UUID) error {
 	m.ctrl.T.Helper()
@@ -2771,6 +2810,45 @@ func (c *MockStateIsControllerCharmCall) Do(f func(context.Context, charm.ID) (b
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateIsControllerCharmCall) DoAndReturn(f func(context.Context, charm.ID) (bool, error)) *MockStateIsControllerCharmCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// IsSubordinateApplication mocks base method.
+func (m *MockState) IsSubordinateApplication(ctx context.Context, applicationUUID application.ID) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsSubordinateApplication", ctx, applicationUUID)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsSubordinateApplication indicates an expected call of IsSubordinateApplication.
+func (mr *MockStateMockRecorder) IsSubordinateApplication(ctx, applicationUUID any) *MockStateIsSubordinateApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsSubordinateApplication", reflect.TypeOf((*MockState)(nil).IsSubordinateApplication), ctx, applicationUUID)
+	return &MockStateIsSubordinateApplicationCall{Call: call}
+}
+
+// MockStateIsSubordinateApplicationCall wrap *gomock.Call
+type MockStateIsSubordinateApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateIsSubordinateApplicationCall) Return(arg0 bool, arg1 error) *MockStateIsSubordinateApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateIsSubordinateApplicationCall) Do(f func(context.Context, application.ID) (bool, error)) *MockStateIsSubordinateApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateIsSubordinateApplicationCall) DoAndReturn(f func(context.Context, application.ID) (bool, error)) *MockStateIsSubordinateApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

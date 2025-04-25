@@ -118,15 +118,20 @@ type UnitState interface {
 	// - [applicationerrors.ApplicationIsDead] if the application is dead
 	// - [applicationerrors.ApplicationNotFound] if the application does not exist
 	GetUnitNamesForApplication(ctx context.Context, uuid coreapplication.ID) ([]coreunit.Name, error)
+
+	// AddSubordinateUnit adds a new unit to the subordinate application. On
+	// IAAS, the new unit will be colocated on machine with the principal unit.
+	// The principal-subordinate relationship is also recorded.
+	AddSubordinateUnit(
+		ctx context.Context,
+		arg application.SubordinateUnitArg,
+	) (coreunit.Name, error)
+
+	// IsSubordinateApplication returns true if the application is a subordinate application.
+	IsSubordinateApplication(ctx context.Context, applicationUUID coreapplication.ID) (bool, error)
 }
 
 func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
-	now := ptr(s.clock.Now())
-	workloadMessage := corestatus.MessageInstallingAgent
-	if modelType == coremodel.IAAS {
-		workloadMessage = corestatus.MessageWaitForMachine
-	}
-
 	args := make([]application.AddUnitArg, len(units))
 	for i, u := range units {
 		if err := u.UnitName.Validate(); err != nil {
@@ -139,25 +144,93 @@ func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg
 		}
 
 		arg := application.AddUnitArg{
-			UnitName:    u.UnitName,
-			Constraints: constraints,
-			Placement:   placement,
-			UnitStatusArg: application.UnitStatusArg{
-				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
-					Status: status.UnitAgentStatusAllocating,
-					Since:  now,
-				},
-				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
-					Status:  status.WorkloadStatusWaiting,
-					Message: workloadMessage,
-					Since:   now,
-				},
-			},
+			UnitName:      u.UnitName,
+			Constraints:   constraints,
+			Placement:     placement,
+			UnitStatusArg: s.makeUnitStatusArgs(modelType),
 		}
 		args[i] = arg
 	}
 
 	return args, nil
+}
+
+func (s *Service) makeUnitStatusArgs(modelType coremodel.ModelType) application.UnitStatusArg {
+	workloadMessage := corestatus.MessageInstallingAgent
+	if modelType == coremodel.IAAS {
+		workloadMessage = corestatus.MessageWaitForMachine
+	}
+	now := ptr(s.clock.Now())
+	return application.UnitStatusArg{
+		AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+			Status: status.UnitAgentStatusAllocating,
+			Since:  now,
+		},
+		WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+			Status:  status.WorkloadStatusWaiting,
+			Message: workloadMessage,
+			Since:   now,
+		},
+	}
+}
+
+// AddSubordinateUnit adds a new unit to the subordinate application. On
+// IAAS, the new unit will be colocated on machine with the principal unit.
+// The principal-subordinate relationship is also recorded.
+//
+// If there is already a subordinate unit of the application for the principal
+// unit then this is a no-op.
+//
+// The following error types can be expected:
+//   - [applicationerrors.MachineNotFound] when the model type is IAAS and the
+//     principal unit does not have a machine.
+//   - [applicationerrors.SubordinateUnitAlreadyExists] when the principal unit
+//     already has a subordinate from this application
+func (s *Service) AddSubordinateUnit(
+	ctx context.Context,
+	subordinateAppID coreapplication.ID,
+	principalUnitName coreunit.Name,
+) error {
+	if err := subordinateAppID.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+	if err := principalUnitName.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+
+	isSub, err := s.st.IsSubordinateApplication(ctx, subordinateAppID)
+	if err != nil {
+		return errors.Errorf("checking app is subordinate: %w", err)
+	} else if !isSub {
+		return applicationerrors.ApplicationNotSubordinate
+	}
+
+	modelType, err := s.st.GetModelType(ctx)
+	if err != nil {
+		return errors.Errorf("getting model type: %w", err)
+	}
+
+	statusArg := s.makeUnitStatusArgs(modelType)
+	unitName, err := s.st.AddSubordinateUnit(
+		ctx,
+		application.SubordinateUnitArg{
+			SubordinateAppID:  subordinateAppID,
+			PrincipalUnitName: principalUnitName,
+			UnitStatusArg:     statusArg,
+			ModelType:         modelType,
+		},
+	)
+	if errors.Is(err, applicationerrors.UnitAlreadyHasSubordinate) {
+		return nil
+	} else if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := s.recordStatusHistory(ctx, unitName, statusArg); err != nil {
+		return errors.Errorf("recording status history: %w", err)
+	}
+
+	return nil
 }
 
 // UpdateCAASUnit updates the specified CAAS unit, returning an error satisfying

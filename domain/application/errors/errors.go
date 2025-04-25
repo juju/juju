@@ -26,6 +26,10 @@ const (
 	// being deleted still has associated units.
 	ApplicationHasUnits = errors.ConstError("application has units")
 
+	// ApplicationNotSubordinate describes an error that occurs when a
+	// subordinate application is expected but a prinicpal application is found.
+	ApplicationNotSubordinate = errors.ConstError("application not subordinate")
+
 	// ScalingStateInconsistent is returned by SetScalingState when the scaling
 	// state is inconsistent with the application scale.
 	ScalingStateInconsistent = errors.ConstError("scaling state is inconsistent")
@@ -81,6 +85,10 @@ const (
 	// UnitIsDead describes an error that occurs when trying to access
 	// an application that is dead.
 	UnitIsDead = errors.ConstError("unit is dead")
+
+	// UnitAlreadyHasSubordinate describes an error that occurs when trying to
+	// add a subordinate to a unit but one already exists.
+	UnitAlreadyHasSubordinate = errors.ConstError("unit already has subordinate")
 
 	// InvalidApplicationState describes an error where the application state is
 	// invalid. There are missing required fields.
