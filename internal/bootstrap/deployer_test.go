@@ -273,6 +273,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 				Since:  ptr(now),
 			},
 		},
+		gomock.Any(),
 		applicationservice.AddUnitArg{UnitName: unit.Name("controller/0")},
 	)
 

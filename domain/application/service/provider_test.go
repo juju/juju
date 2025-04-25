@@ -43,6 +43,8 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
+var fakeCreatePeerRelationFunc = func(context.Context, coreapplication.ID) error { return nil }
+
 type providerServiceSuite struct {
 	baseSuite
 }
@@ -197,7 +199,7 @@ func (s *providerServiceSuite) TestCreateApplication(c *gc.C) {
 			"":         "default",
 			"provider": "beta",
 		},
-	}, a)
+	}, fakeCreatePeerRelationFunc, a)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(receivedArgs, jc.DeepEquals, us)
 }
@@ -263,9 +265,71 @@ func (s *providerServiceSuite) TestCreateApplicationWithApplicationStatus(c *gc.
 			Data:    map[string]interface{}{"active": true},
 			Since:   now,
 		},
-	})
+	}, fakeCreatePeerRelationFunc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(receivedArgs.Status, jc.DeepEquals, status)
+}
+
+func (s *providerServiceSuite) TestCreateApplicationCallCreatePeerRelations(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := applicationtesting.GenApplicationUUID(c)
+	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
+
+	now := ptr(s.clock.Now())
+
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(nil, nil)
+
+	s.state.EXPECT().GetModelType(gomock.Any()).Return("caas", nil)
+	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
+
+	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", gomock.Any(), gomock.Any()).Return(id, nil)
+
+	s.charm.EXPECT().Actions().Return(&charm.Actions{})
+	s.charm.EXPECT().Config().Return(&charm.Config{})
+	s.charm.EXPECT().Manifest().Return(&charm.Manifest{
+		Bases: []charm.Base{
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Risk: charm.Stable,
+				},
+				Architectures: []string{"amd64"},
+			},
+		},
+	}).MinTimes(1)
+	s.charm.EXPECT().Meta().Return(&charm.Meta{
+		Name: "ubuntu",
+	}).MinTimes(1)
+
+	createPeerRelationFuncCalled := false
+	createPeerRelationFunc := func(ctx context.Context, id2 coreapplication.ID) error {
+		createPeerRelationFuncCalled = true
+		return nil
+	}
+
+	_, err := s.service.CreateApplication(context.Background(), "ubuntu", s.charm, corecharm.Origin{
+		Source:   corecharm.CharmHub,
+		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
+		Revision: ptr(42),
+	}, AddApplicationArgs{
+		ReferenceName: "ubuntu",
+		DownloadInfo: &applicationcharm.DownloadInfo{
+			Provenance:         applicationcharm.ProvenanceDownload,
+			CharmhubIdentifier: "foo",
+			DownloadURL:        "https://example.com/foo",
+			DownloadSize:       42,
+		},
+		CharmObjectStoreUUID: objectStoreUUID,
+		ApplicationStatus: &corestatus.StatusInfo{
+			Status:  corestatus.Active,
+			Message: "active",
+			Data:    map[string]interface{}{"active": true},
+			Since:   now,
+		},
+	}, createPeerRelationFunc)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(createPeerRelationFuncCalled, jc.IsTrue)
 }
 
 func (s *providerServiceSuite) TestCreateApplicationPendingResources(c *gc.C) {
@@ -354,7 +418,7 @@ func (s *providerServiceSuite) TestCreateApplicationPendingResources(c *gc.C) {
 		},
 		CharmObjectStoreUUID: objectStoreUUID,
 		PendingResources:     []resource.UUID{resourceUUID},
-	}, a)
+	}, fakeCreatePeerRelationFunc, a)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -367,7 +431,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidApplicationName(c
 		Revision: ptr(42),
 	}, AddApplicationArgs{
 		ReferenceName: "ubuntu",
-	})
+	}, fakeCreatePeerRelationFunc)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
@@ -384,7 +448,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidCharmName(c *gc.C
 		Revision: ptr(42),
 	}, AddApplicationArgs{
 		ReferenceName: "ubuntu",
-	})
+	}, fakeCreatePeerRelationFunc)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
 
@@ -409,7 +473,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidReferenceName(c *
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
 		},
-	})
+	}, fakeCreatePeerRelationFunc)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
 
@@ -420,7 +484,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithNoCharmName(c *gc.C) {
 
 	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-	}, AddApplicationArgs{})
+	}, AddApplicationArgs{}, fakeCreatePeerRelationFunc)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
 
@@ -431,7 +495,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithNoApplicationOrCharmName
 
 	_, err := s.service.CreateApplication(context.Background(), "", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-	}, AddApplicationArgs{})
+	}, AddApplicationArgs{}, fakeCreatePeerRelationFunc)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNameNotValid)
 }
 
@@ -442,7 +506,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithNoMeta(c *gc.C) {
 
 	_, err := s.service.CreateApplication(context.Background(), "foo", s.charm, corecharm.Origin{
 		Platform: corecharm.MustParsePlatform("arm64/ubuntu/24.04"),
-	}, AddApplicationArgs{})
+	}, AddApplicationArgs{}, fakeCreatePeerRelationFunc)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmMetadataNotValid)
 }
 
@@ -465,7 +529,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithNoArchitecture(c *gc.C) 
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
 		},
-	})
+	}, fakeCreatePeerRelationFunc)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmOriginNotValid)
 }
 
@@ -492,7 +556,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourcesNotAllRe
 		AddApplicationArgs{
 			ReferenceName:     "foo",
 			ResolvedResources: nil,
-		})
+		}, fakeCreatePeerRelationFunc)
 	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidResourceArgs)
 	c.Assert(err, gc.ErrorMatches,
 		"create application: charm has resources which have not provided: invalid resource args")
@@ -525,7 +589,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithInvalidResourceBothTypes
 			ReferenceName:     "foo",
 			ResolvedResources: ResolvedResources{ResolvedResource{Name: "testme"}},
 			PendingResources:  []resource.UUID{resourcetesting.GenResourceUUID(c)},
-		})
+		}, fakeCreatePeerRelationFunc)
 	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidResourceArgs)
 	// There are many places where InvalidResourceArgs are returned,
 	// verify we have the expected one.
@@ -596,7 +660,7 @@ func (s *providerServiceSuite) testCreateApplicationWithInvalidResource(c *gc.C,
 		AddApplicationArgs{
 			ReferenceName:     "foo",
 			ResolvedResources: resources,
-		})
+		}, fakeCreatePeerRelationFunc)
 	c.Assert(err, jc.ErrorIs, applicationerrors.InvalidResourceArgs)
 }
 
@@ -634,7 +698,7 @@ func (s *providerServiceSuite) TestCreateApplicationError(c *gc.C) {
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
 		},
-	})
+	}, fakeCreatePeerRelationFunc)
 	c.Check(err, jc.ErrorIs, rErr)
 	c.Assert(err, gc.ErrorMatches, `creating application "foo": boom`)
 }
@@ -750,7 +814,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlock(c *gc.C) {
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
 		},
-	}, a)
+	}, fakeCreatePeerRelationFunc, a)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -870,7 +934,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageBlockDefaultSourc
 		Storage: map[string]storage.Directive{
 			"data": {Count: 2},
 		},
-	}, a)
+	}, fakeCreatePeerRelationFunc, a)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -987,7 +1051,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystem(c *gc.
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
 		},
-	}, a)
+	}, fakeCreatePeerRelationFunc, a)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1107,7 +1171,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageFilesystemDefault
 		Storage: map[string]storage.Directive{
 			"data": {Count: 2},
 		},
-	}, a)
+	}, fakeCreatePeerRelationFunc, a)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1144,7 +1208,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithSharedStorageMissingDire
 			DownloadURL:        "https://example.com/foo",
 			DownloadSize:       42,
 		},
-	}, a)
+	}, fakeCreatePeerRelationFunc, a)
 	c.Assert(err, jc.ErrorIs, storageerrors.MissingSharedStorageDirectiveError)
 	c.Assert(err, gc.ErrorMatches, `.*adding default storage directives: no storage directive specified for shared charm storage "data"`)
 }
@@ -1190,7 +1254,7 @@ func (s *providerServiceSuite) TestCreateApplicationWithStorageValidates(c *gc.C
 		Storage: map[string]storage.Directive{
 			"logs": {Count: 2},
 		},
-	}, a)
+	}, fakeCreatePeerRelationFunc, a)
 	c.Assert(err, gc.ErrorMatches, `.*invalid storage directives: charm "mine" has no store called "logs"`)
 }
 

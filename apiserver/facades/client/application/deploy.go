@@ -87,6 +87,7 @@ func DeployApplication(
 	ctx context.Context, st ApplicationDeployer,
 	modelType coremodel.ModelType,
 	applicationService ApplicationService,
+	relationService RelationService,
 	store objectstore.ObjectStore,
 	args DeployApplicationParams,
 	logger corelogger.Logger,
@@ -196,6 +197,7 @@ func DeployApplication(
 					Since:  ptr(clock.Now()),
 				},
 			},
+			relationService.CreatePeerRelations,
 			unitArgs...,
 		)
 		if err != nil {

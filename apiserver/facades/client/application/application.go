@@ -162,6 +162,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	repoLogger := ctx.Logger().Child("deployfromrepo")
 
 	applicationService := domainServices.Application()
+	relationService := domainServices.Relation()
 
 	validatorCfg := validatorConfig{
 		charmhubHTTPClient: charmhubHTTPClient,
@@ -179,6 +180,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	repoDeploy := NewDeployFromRepositoryAPI(
 		state,
 		applicationService,
+		relationService,
 		ctx.ObjectStore(),
 		makeDeployFromRepositoryValidator(stdCtx, validatorCfg),
 		repoLogger,
@@ -195,7 +197,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 			ApplicationService:        applicationService,
 			ResolveService:            domainServices.Resolve(),
 			PortService:               domainServices.Port(),
-			RelationService:           domainServices.Relation(),
+			RelationService:           relationService,
 			ResourceService:           domainServices.Resource(),
 			StorageService:            storageService,
 		},
@@ -222,6 +224,7 @@ type DeployApplicationFunc = func(
 	ApplicationDeployer,
 	model.ModelType,
 	ApplicationService,
+	RelationService,
 	objectstore.ObjectStore,
 	DeployApplicationParams,
 	corelogger.Logger,
@@ -591,22 +594,31 @@ func (api *APIBase) deployApplication(
 	}
 
 	// TODO: replace model with model info/config services
-	_, err = api.deployApplicationFunc(ctx, api.backend, api.modelType, api.applicationService, api.store, DeployApplicationParams{
-		ApplicationName:   args.ApplicationName,
-		Charm:             ch,
-		CharmOrigin:       origin,
-		NumUnits:          args.NumUnits,
-		ApplicationConfig: appConfig,
-		CharmConfig:       charmSettings,
-		Constraints:       args.Constraints,
-		Placement:         args.Placement,
-		Storage:           args.Storage,
-		Devices:           args.Devices,
-		AttachStorage:     attachStorage,
-		EndpointBindings:  bindings.Map(),
-		Resources:         args.Resources,
-		Force:             args.Force,
-	}, api.logger, api.clock)
+	_, err = api.deployApplicationFunc(
+		ctx,
+		api.backend,
+		api.modelType,
+		api.applicationService,
+		api.relationService,
+		api.store,
+		DeployApplicationParams{
+			ApplicationName:   args.ApplicationName,
+			Charm:             ch,
+			CharmOrigin:       origin,
+			NumUnits:          args.NumUnits,
+			ApplicationConfig: appConfig,
+			CharmConfig:       charmSettings,
+			Constraints:       args.Constraints,
+			Placement:         args.Placement,
+			Storage:           args.Storage,
+			Devices:           args.Devices,
+			AttachStorage:     attachStorage,
+			EndpointBindings:  bindings.Map(),
+			Resources:         args.Resources,
+			Force:             args.Force,
+		},
+		api.logger,
+		api.clock)
 	return errors.Trace(err)
 }
 

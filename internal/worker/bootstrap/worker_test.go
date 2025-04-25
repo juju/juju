@@ -332,6 +332,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		ProviderRegistry:           provider.CommonStorageProviders(),
 		CloudService:               s.cloudService,
 		NetworkService:             s.networkService,
+		RelationService:            s.relationService,
 		BakeryConfigService:        s.bakeryConfigService,
 		FlagService:                s.flagService,
 		PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {

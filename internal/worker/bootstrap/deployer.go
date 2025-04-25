@@ -85,6 +85,7 @@ type ControllerCharmDeployerConfig struct {
 	ApplicationService          ApplicationService
 	Model                       coremodel.Model
 	ModelConfigService          ModelConfigService
+	RelationService             RelationService
 	ObjectStore                 objectstore.ObjectStore
 	ControllerConfig            controller.Config
 	DataDir                     string
@@ -163,6 +164,7 @@ func makeBaseDeployerConfig(cfg ControllerCharmDeployerConfig) bootstrap.BaseDep
 		AgentPasswordService: cfg.AgentPasswordService,
 		ApplicationService:   cfg.ApplicationService,
 		ModelConfigService:   cfg.ModelConfigService,
+		RelationService:      cfg.RelationService,
 		Constraints:          cfg.BootstrapMachineConstraints,
 		ControllerConfig:     cfg.ControllerConfig,
 		Channel:              cfg.ControllerCharmChannel,

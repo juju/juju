@@ -21,6 +21,7 @@ import (
 	userservice "github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/domain/application"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/relation"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -55,7 +56,8 @@ type ApplicationService interface {
 	// charm.
 	CreateApplication(
 		context.Context, string, charm.Charm, corecharm.Origin,
-		applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg,
+		applicationservice.AddApplicationArgs, relation.CreatePeerRelationsFunc,
+	...applicationservice.AddUnitArg,
 	) (coreapplication.ID, error)
 
 	// ResolveControllerCharmDownload resolves the controller charm download
@@ -145,6 +147,13 @@ type NetworkService interface {
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 	// ReloadSpaces loads spaces and subnets from the provider into state.
 	ReloadSpaces(ctx context.Context) error
+}
+
+// RelationService defines operations for managing relations between application
+// endpoints.
+type RelationService interface {
+	// CreatePeerRelations creates the peer relations for an application.
+	CreatePeerRelations(ctx context.Context, appId coreapplication.ID) error
 }
 
 // StorageService instances save a storage pool to dqlite state.

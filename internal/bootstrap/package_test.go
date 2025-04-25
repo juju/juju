@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage,AgentBinaryStore,ControllerCharmDeployer,HTTPClient,CloudService,CloudServiceGetter,Machine,MachineGetter,ApplicationService,ModelConfigService,Downloader,AgentPasswordService
+//go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage,AgentBinaryStore,ControllerCharmDeployer,HTTPClient,CloudService,CloudServiceGetter,Machine,MachineGetter,ApplicationService,ModelConfigService,Downloader,AgentPasswordService,RelationService
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination core_charm_mock_test.go github.com/juju/juju/core/charm Repository
 //go:generate go run go.uber.org/mock/mockgen -typed -package bootstrap -destination internal_charm_mock_test.go github.com/juju/juju/internal/charm Charm
@@ -42,6 +42,7 @@ type baseSuite struct {
 	agentPasswordService *MockAgentPasswordService
 	applicationService   *MockApplicationService
 	modelConfigService   *MockModelConfigService
+	relationService      *MockRelationService
 	charmDownloader      *MockDownloader
 	charmRepo            *MockRepository
 	charm                *MockCharm
@@ -61,6 +62,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.relationService = NewMockRelationService(ctrl)
 	s.charmDownloader = NewMockDownloader(ctrl)
 	s.charmRepo = NewMockRepository(ctrl)
 	s.charm = NewMockCharm(ctrl)
@@ -78,6 +80,7 @@ func (s *baseSuite) newConfig(c *gc.C) BaseDeployerConfig {
 		AgentPasswordService: s.agentPasswordService,
 		ApplicationService:   s.applicationService,
 		ModelConfigService:   s.modelConfigService,
+		RelationService:      s.relationService,
 		ObjectStore:          s.objectStore,
 		Constraints:          constraints.Value{},
 		ControllerConfig: controller.Config{

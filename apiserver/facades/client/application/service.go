@@ -129,7 +129,16 @@ type MachineService interface {
 // ApplicationService instances save an application to dqlite state.
 type ApplicationService interface {
 	// CreateApplication creates the specified application and units if required.
-	CreateApplication(ctx context.Context, name string, charm internalcharm.Charm, origin corecharm.Origin, params applicationservice.AddApplicationArgs, units ...applicationservice.AddUnitArg) (coreapplication.ID, error)
+	CreateApplication(
+		ctx context.Context,
+		name string,
+		charm internalcharm.Charm,
+		origin corecharm.Origin,
+		params applicationservice.AddApplicationArgs,
+		createPeerRelations relation.CreatePeerRelationsFunc,
+		units ...applicationservice.AddUnitArg,
+	) (coreapplication.ID, error)
+
 	// AddUnits adds units to the application.
 	AddUnits(ctx context.Context, storageParentDir, name string, units ...applicationservice.AddUnitArg) error
 	// SetApplicationCharm sets a new charm for the application, validating that aspects such
@@ -335,4 +344,7 @@ type RelationService interface {
 
 	// ApplicationRelationsInfo returns all EndpointRelationData for an application.
 	ApplicationRelationsInfo(ctx context.Context, applicationID coreapplication.ID) ([]relation.EndpointRelationData, error)
+
+	// CreatePeerRelations creates the peer relations for an application.
+	CreatePeerRelations(ctx context.Context, appId coreapplication.ID) error
 }

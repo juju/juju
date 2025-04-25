@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 )
@@ -29,7 +30,8 @@ type ApplicationService interface {
 	// charm.
 	CreateApplication(
 		context.Context, string, charm.Charm, corecharm.Origin,
-		applicationservice.AddApplicationArgs, ...applicationservice.AddUnitArg,
+		applicationservice.AddApplicationArgs, relation.CreatePeerRelationsFunc,
+	...applicationservice.AddUnitArg,
 	) (coreapplication.ID, error)
 
 	// ResolveControllerCharmDownload resolves the controller charm download
@@ -47,4 +49,11 @@ type ApplicationService interface {
 type ModelConfigService interface {
 	// ModelConfig returns the current config for the model.
 	ModelConfig(context.Context) (*config.Config, error)
+}
+
+// RelationService defines operations for managing relations between application
+// endpoints.
+type RelationService interface {
+	// CreatePeerRelations creates the peer relations for an application.
+	CreatePeerRelations(ctx context.Context, appId coreapplication.ID) error
 }

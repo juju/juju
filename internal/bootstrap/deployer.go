@@ -152,6 +152,7 @@ type BaseDeployerConfig struct {
 	ApplicationService   ApplicationService
 	AgentPasswordService AgentPasswordService
 	ModelConfigService   ModelConfigService
+	RelationService      RelationService
 	ObjectStore          objectstore.ObjectStore
 	Constraints          constraints.Value
 	ControllerConfig     controller.Config
@@ -177,6 +178,9 @@ func (c BaseDeployerConfig) Validate() error {
 	}
 	if c.ModelConfigService == nil {
 		return errors.Errorf("ModelConfigService").Add(coreerrors.NotValid)
+	}
+	if c.RelationService == nil {
+		return errors.Errorf("RelationService").Add(coreerrors.NotValid)
 	}
 	if c.ObjectStore == nil {
 		return errors.Errorf("ObjectStore").Add(coreerrors.NotValid)
@@ -207,6 +211,7 @@ type baseDeployer struct {
 	applicationService  ApplicationService
 	passwordService     AgentPasswordService
 	modelConfigService  ModelConfigService
+	relationService     RelationService
 	objectStore         objectstore.ObjectStore
 	constraints         constraints.Value
 	controllerConfig    controller.Config
@@ -225,6 +230,7 @@ func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
 		passwordService:     config.AgentPasswordService,
 		applicationService:  config.ApplicationService,
 		modelConfigService:  config.ModelConfigService,
+		relationService:     config.RelationService,
 		objectStore:         config.ObjectStore,
 		constraints:         config.Constraints,
 		controllerConfig:    config.ControllerConfig,
@@ -460,6 +466,7 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, info Deploy
 				Since:  ptr(b.clock.Now()),
 			},
 		},
+		b.relationService.CreatePeerRelations,
 		applicationservice.AddUnitArg{UnitName: unitName},
 	)
 	if err != nil {

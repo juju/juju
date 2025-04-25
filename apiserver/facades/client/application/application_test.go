@@ -1116,6 +1116,7 @@ func (s *applicationSuite) expectCreateApplicationForDeploy(name string, retErr 
 		gomock.Any(),
 		gomock.Any(),
 		gomock.AssignableToTypeOf(applicationservice.AddApplicationArgs{}),
+		gomock.Any(),
 	).Return(application.ID("app-"+name), retErr)
 }
 

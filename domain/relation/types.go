@@ -25,6 +25,10 @@ import (
 // SequenceNamespace for the sequence table.
 const SequenceNamespace = sequence.StaticNamespace("relation")
 
+// CreatePeerRelationsFunc will create peer relations for the given
+// application ID.
+type CreatePeerRelationsFunc func(ctx context.Context, appId application.ID) error
+
 // GetRelationEndpointUUIDArgs represents the arguments required to retrieve
 // the UUID of a relation endpoint.
 type GetRelationEndpointUUIDArgs struct {

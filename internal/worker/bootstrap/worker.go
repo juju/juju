@@ -61,6 +61,7 @@ type WorkerConfig struct {
 	MachineService             MachineService
 	KeyManagerService          KeyManagerService
 	FlagService                FlagService
+	RelationService            RelationService
 	NetworkService             NetworkService
 	BakeryConfigService        BakeryConfigService
 	BootstrapUnlocker          gate.Unlocker
@@ -123,6 +124,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.FlagService == nil {
 		return errors.NotValidf("nil FlagService")
+	}
+	if c.RelationService == nil {
+		return errors.NotValidf("nil RelationService")
 	}
 	if c.NetworkService == nil {
 		return errors.NotValidf("nil NetworkService")

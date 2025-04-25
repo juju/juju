@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/domain/status"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/envcontext"
@@ -121,8 +122,12 @@ func (s *ProviderService) CreateApplication(
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
 	args AddApplicationArgs,
+	createPeerRelations relation.CreatePeerRelationsFunc,
 	units ...AddUnitArg,
 ) (coreapplication.ID, error) {
+	if createPeerRelations == nil {
+		return "", errors.Errorf("invalid application create peer relations func").Add(coreerrors.NotValid)
+	}
 	if err := validateCharmAndApplicationParams(
 		name,
 		args.ReferenceName,
@@ -200,6 +205,11 @@ func (s *ProviderService) CreateApplication(
 	}
 
 	s.logger.Infof(ctx, "created application %q with ID %q", name, appID)
+
+	err = createPeerRelations(ctx, appID)
+	if err != nil {
+		return "", errors.Errorf("creating peer relations %q: %w", name, err)
+	}
 
 	if args.ApplicationStatus != nil {
 		if err := s.statusHistory.RecordStatus(ctx, applicationNamespace.WithID(appID.String()), *args.ApplicationStatus); err != nil {

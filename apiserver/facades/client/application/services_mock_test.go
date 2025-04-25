@@ -888,10 +888,10 @@ func (c *MockApplicationServiceChangeApplicationScaleCall) DoAndReturn(f func(co
 }
 
 // CreateApplication mocks base method.
-func (m *MockApplicationService) CreateApplication(arg0 context.Context, arg1 string, arg2 charm1.Charm, arg3 charm.Origin, arg4 service.AddApplicationArgs, arg5 ...service.AddUnitArg) (application.ID, error) {
+func (m *MockApplicationService) CreateApplication(arg0 context.Context, arg1 string, arg2 charm1.Charm, arg3 charm.Origin, arg4 service.AddApplicationArgs, arg5 relation.CreatePeerRelationsFunc, arg6 ...service.AddUnitArg) (application.ID, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1, arg2, arg3, arg4}
-	for _, a := range arg5 {
+	varargs := []any{arg0, arg1, arg2, arg3, arg4, arg5}
+	for _, a := range arg6 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "CreateApplication", varargs...)
@@ -901,9 +901,9 @@ func (m *MockApplicationService) CreateApplication(arg0 context.Context, arg1 st
 }
 
 // CreateApplication indicates an expected call of CreateApplication.
-func (mr *MockApplicationServiceMockRecorder) CreateApplication(arg0, arg1, arg2, arg3, arg4 any, arg5 ...any) *MockApplicationServiceCreateApplicationCall {
+func (mr *MockApplicationServiceMockRecorder) CreateApplication(arg0, arg1, arg2, arg3, arg4, arg5 any, arg6 ...any) *MockApplicationServiceCreateApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1, arg2, arg3, arg4}, arg5...)
+	varargs := append([]any{arg0, arg1, arg2, arg3, arg4, arg5}, arg6...)
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateApplication", reflect.TypeOf((*MockApplicationService)(nil).CreateApplication), varargs...)
 	return &MockApplicationServiceCreateApplicationCall{Call: call}
 }
@@ -920,13 +920,13 @@ func (c *MockApplicationServiceCreateApplicationCall) Return(arg0 application.ID
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationServiceCreateApplicationCall) Do(f func(context.Context, string, charm1.Charm, charm.Origin, service.AddApplicationArgs, ...service.AddUnitArg) (application.ID, error)) *MockApplicationServiceCreateApplicationCall {
+func (c *MockApplicationServiceCreateApplicationCall) Do(f func(context.Context, string, charm1.Charm, charm.Origin, service.AddApplicationArgs, relation.CreatePeerRelationsFunc, ...service.AddUnitArg) (application.ID, error)) *MockApplicationServiceCreateApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationServiceCreateApplicationCall) DoAndReturn(f func(context.Context, string, charm1.Charm, charm.Origin, service.AddApplicationArgs, ...service.AddUnitArg) (application.ID, error)) *MockApplicationServiceCreateApplicationCall {
+func (c *MockApplicationServiceCreateApplicationCall) DoAndReturn(f func(context.Context, string, charm1.Charm, charm.Origin, service.AddApplicationArgs, relation.CreatePeerRelationsFunc, ...service.AddUnitArg) (application.ID, error)) *MockApplicationServiceCreateApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2243,6 +2243,44 @@ func (c *MockRelationServiceApplicationRelationsInfoCall) Do(f func(context.Cont
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockRelationServiceApplicationRelationsInfoCall) DoAndReturn(f func(context.Context, application.ID) ([]relation.EndpointRelationData, error)) *MockRelationServiceApplicationRelationsInfoCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// CreatePeerRelations mocks base method.
+func (m *MockRelationService) CreatePeerRelations(arg0 context.Context, arg1 application.ID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreatePeerRelations", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreatePeerRelations indicates an expected call of CreatePeerRelations.
+func (mr *MockRelationServiceMockRecorder) CreatePeerRelations(arg0, arg1 any) *MockRelationServiceCreatePeerRelationsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePeerRelations", reflect.TypeOf((*MockRelationService)(nil).CreatePeerRelations), arg0, arg1)
+	return &MockRelationServiceCreatePeerRelationsCall{Call: call}
+}
+
+// MockRelationServiceCreatePeerRelationsCall wrap *gomock.Call
+type MockRelationServiceCreatePeerRelationsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRelationServiceCreatePeerRelationsCall) Return(arg0 error) *MockRelationServiceCreatePeerRelationsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRelationServiceCreatePeerRelationsCall) Do(f func(context.Context, application.ID) error) *MockRelationServiceCreatePeerRelationsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRelationServiceCreatePeerRelationsCall) DoAndReturn(f func(context.Context, application.ID) error) *MockRelationServiceCreatePeerRelationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -70,14 +70,18 @@ type DeployFromRepositoryAPI struct {
 	store              objectstore.ObjectStore
 	validator          DeployFromRepositoryValidator
 	applicationService ApplicationService
+	relationService    RelationService
 	logger             corelogger.Logger
 	clock              clock.Clock
 }
 
 // NewDeployFromRepositoryAPI creates a new DeployFromRepositoryAPI.
 func NewDeployFromRepositoryAPI(
-	state DeployFromRepositoryState, applicationService ApplicationService,
-	store objectstore.ObjectStore, validator DeployFromRepositoryValidator,
+	state DeployFromRepositoryState,
+	applicationService ApplicationService,
+	relationService RelationService,
+	store objectstore.ObjectStore,
+	validator DeployFromRepositoryValidator,
 	logger corelogger.Logger,
 	clock clock.Clock,
 ) DeployFromRepository {
@@ -86,6 +90,7 @@ func NewDeployFromRepositoryAPI(
 		store:              store,
 		validator:          validator,
 		applicationService: applicationService,
+		relationService:    relationService,
 		logger:             logger,
 		clock:              clock,
 	}
@@ -164,7 +169,10 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		}
 	}
 
-	_, err = api.applicationService.CreateApplication(ctx, dt.applicationName, dt.charm, dt.origin,
+	_, err = api.applicationService.CreateApplication(ctx,
+		dt.applicationName,
+		dt.charm,
+		dt.origin,
 		applicationservice.AddApplicationArgs{
 			ReferenceName: dt.charmURL.Name,
 			Storage:       dt.storage,
@@ -182,7 +190,9 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 				Status: status.Unset,
 				Since:  ptr(api.clock.Now()),
 			},
-		}, unitArgs...)
+		},
+		api.relationService.CreatePeerRelations,
+		unitArgs...)
 	if err != nil {
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
