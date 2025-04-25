@@ -20,7 +20,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	charmsinterfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
-	"github.com/juju/juju/apiserver/internal/charms"
 	charmscommon "github.com/juju/juju/apiserver/internal/charms"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -104,7 +103,7 @@ func (a *API) List(ctx context.Context, args params.CharmsList) (params.CharmsLi
 
 	var charmURLs []string
 	for _, aCharm := range list {
-		curl, err := charms.CharmURLFromLocator(aCharm.Name, aCharm)
+		curl, err := charmscommon.CharmURLFromLocator(aCharm.Name, aCharm)
 		if err != nil {
 			return params.CharmsListResult{}, errors.Trace(err)
 		}
