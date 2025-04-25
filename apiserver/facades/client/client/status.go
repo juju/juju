@@ -268,10 +268,10 @@ type applicationStatusInfo struct {
 	// allUnits: unit name -> unit
 	allUnits map[string]*state.Unit
 
-	// endpointpointBindings: application name -> endpoint -> space
+	// endpointBindings: application name -> endpoint -> space
 	endpointBindings map[string]map[string]string
 
-	// latestcharm: charm URL -> charm locator
+	// latestCharms: charm URL -> charm locator
 	latestCharms map[charm.URL]applicationcharm.CharmLocator
 
 	// lxdProfiles: lxd profile name -> lxd profile
@@ -1052,24 +1052,20 @@ func (context *statusContext) processApplication(ctx context.Context, name strin
 
 	processedStatus.EndpointBindings = context.allAppsUnitsCharmBindings.endpointBindings[name]
 
+	// IAAS applications have all the information they need in the application
+	// status. CAAS applications have some additional information.
 	if context.model.Type == model.IAAS {
 		return processedStatus
 	}
 
-	/*
-		if serviceInfo, err := application.ServiceInfo(); err == nil {
-			processedStatus.ProviderId = serviceInfo.ProviderId()
-			if len(serviceInfo.Addresses()) > 0 {
-				processedStatus.PublicAddress = serviceInfo.Addresses()[0].Value
-			}
-		} else {
-			logger.Debugf(ctx, "no service details for %v: %v", name, err)
-		}
-	*/
-	if appScale, err := context.applicationService.GetApplicationScale(ctx, name); err == nil {
-		processedStatus.Scale = appScale
-	} else {
-		logger.Debugf(ctx, "no application scale for %v: %v", name, err)
+	// Handle CAAS applications fields independently of the IAAS ones.
+	if providerID := application.K8sProviderID; providerID != nil {
+		processedStatus.ProviderId = *providerID
+		// TODO (stickupkid): Add addresses to the status for k8s applications.
+	}
+
+	if scale := application.Scale; scale != nil {
+		processedStatus.Scale = *scale
 	}
 
 	return processedStatus

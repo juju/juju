@@ -147,5 +147,8 @@ type applicationStatusDetails struct {
 	CharmSourceID          int                `db:"charm_source_id"`
 	CharmArchitectureID    sql.NullInt64      `db:"charm_architecture_id"`
 	CharmVersion           string             `db:"charm_version"`
+	LXDProfile             sql.Null[[]byte]   `db:"lxd_profile"`
 	Exposed                bool               `db:"exposed"`
+	Scale                  sql.Null[int]      `db:"scale"`
+	K8sProviderID          sql.NullString     `db:"k8s_provider_id"`
 }

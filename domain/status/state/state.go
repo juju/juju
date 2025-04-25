@@ -1196,6 +1196,9 @@ SELECT a.name AS &applicationStatusDetails.name,
 	c.source_id AS &applicationStatusDetails.charm_source_id,
 	c.architecture_id AS &applicationStatusDetails.charm_architecture_id,
 	c.version AS &applicationStatusDetails.charm_version,
+	c.lxd_profile AS &applicationStatusDetails.lxd_profile,
+	aps.scale AS &applicationStatusDetails.scale,
+	k8s.provider_id AS &applicationStatusDetails.k8s_provider_id,
 	EXISTS(SELECT 1 FROM v_application_exposed_endpoint AS ae WHERE ae.application_uuid = a.uuid) AS &applicationStatusDetails.exposed
 FROM application AS a
 JOIN application_platform AS ap ON ap.application_uuid = a.uuid
@@ -1203,6 +1206,8 @@ LEFT JOIN application_channel AS ac ON ac.application_uuid = a.uuid
 JOIN charm AS c ON c.uuid = a.charm_uuid
 JOIN charm_metadata AS cm ON cm.charm_uuid = c.uuid
 LEFT JOIN application_status AS s ON s.application_uuid = a.uuid
+LEFT JOIN k8s_service AS k8s ON k8s.application_uuid = a.uuid
+LEFT JOIN application_scale AS aps ON aps.application_uuid = a.uuid
 LEFT JOIN v_relation_endpoint AS re ON re.application_uuid = a.uuid
 LEFT JOIN v_relation_status AS rs ON rs.relation_uuid = re.relation_uuid
 ORDER BY a.name, re.relation_uuid;
@@ -1274,6 +1279,21 @@ ORDER BY a.name, re.relation_uuid;
 			return nil, errors.Errorf("decoding channel: %w", err)
 		}
 
+		var lxdProfile []byte
+		if s.LXDProfile.Valid {
+			lxdProfile = s.LXDProfile.V
+		}
+
+		var scale *int
+		if s.Scale.Valid {
+			scale = &s.Scale.V
+		}
+
+		var k8sProviderID *string
+		if s.K8sProviderID.Valid {
+			k8sProviderID = &s.K8sProviderID.String
+		}
+
 		result[appName] = status.Application{
 			ID:          s.UUID,
 			Life:        s.LifeID,
@@ -1284,12 +1304,15 @@ ORDER BY a.name, re.relation_uuid;
 				Data:    s.Data,
 				Since:   s.UpdatedAt,
 			},
-			Relations:    relations,
-			CharmLocator: charmLocator,
-			CharmVersion: s.CharmVersion,
-			Platform:     platform,
-			Channel:      channel,
-			Exposed:      s.Exposed,
+			Relations:     relations,
+			CharmLocator:  charmLocator,
+			CharmVersion:  s.CharmVersion,
+			LXDProfile:    lxdProfile,
+			Platform:      platform,
+			Channel:       channel,
+			Exposed:       s.Exposed,
+			Scale:         scale,
+			K8sProviderID: k8sProviderID,
 		}
 	}
 

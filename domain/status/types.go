@@ -15,17 +15,20 @@ import (
 
 // Application represents the status of an application.
 type Application struct {
-	ID           application.ID
-	Life         life.Life
-	Status       StatusInfo[WorkloadStatusType]
-	Units        map[unit.Name]Unit
-	Relations    []relation.UUID
-	Subordinate  bool
-	CharmLocator charm.CharmLocator
-	CharmVersion string
-	Platform     deployment.Platform
-	Channel      *deployment.Channel
-	Exposed      bool
+	ID            application.ID
+	Life          life.Life
+	Status        StatusInfo[WorkloadStatusType]
+	Units         map[unit.Name]Unit
+	Relations     []relation.UUID
+	Subordinate   bool
+	CharmLocator  charm.CharmLocator
+	CharmVersion  string
+	LXDProfile    []byte
+	Platform      deployment.Platform
+	Channel       *deployment.Channel
+	Exposed       bool
+	Scale         *int
+	K8sProviderID *string
 }
 
 // Unit represents the status of a unit.

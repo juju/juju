@@ -1272,6 +1272,7 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *gc.C) {
 				Risk:   "stable",
 				Branch: "branch",
 			},
+			Scale: ptr(2),
 		},
 	})
 }
@@ -1311,6 +1312,7 @@ func (s *stateSuite) TestGetApplicationAndUnitStatuses(c *gc.C) {
 				Risk:   "stable",
 				Branch: "branch",
 			},
+			Scale: ptr(2),
 		},
 	})
 }
@@ -1351,6 +1353,49 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *gc.C) {
 				Risk:   "stable",
 				Branch: "branch",
 			},
+			Scale: ptr(2),
+		},
+	})
+}
+
+func (s *stateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	u2 := application.AddUnitArg{
+		UnitName: "foo/667",
+	}
+	now := time.Now()
+
+	appStatus := s.appStatus(now)
+	appUUID, _ := s.createApplication(c, "foo", life.Alive, false, appStatus, u1, u2)
+	s.setApplicationLXDProfile(c, appUUID, "{}")
+
+	statuses, err := s.state.GetApplicationAndUnitStatuses(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(statuses, jc.DeepEquals, map[string]status.Application{
+		"foo": {
+			ID:     appUUID,
+			Life:   life.Alive,
+			Status: *appStatus,
+			CharmLocator: charm.CharmLocator{
+				Name:         "foo",
+				Revision:     42,
+				Source:       "charmhub",
+				Architecture: architecture.ARM64,
+			},
+			Platform: deployment.Platform{
+				OSType:       deployment.Ubuntu,
+				Channel:      "22.04/stable",
+				Architecture: architecture.ARM64,
+			},
+			Channel: &deployment.Channel{
+				Track:  "track",
+				Risk:   "stable",
+				Branch: "branch",
+			},
+			LXDProfile: []byte("{}"),
+			Scale:      ptr(2),
 		},
 	})
 }
@@ -1398,6 +1443,7 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *gc.C) {
 				Branch: "branch",
 			},
 			Exposed: true,
+			Scale:   ptr(2),
 		},
 	})
 }
@@ -1450,6 +1496,7 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations(c *g
 				Branch: "branch",
 			},
 			Exposed: true,
+			Scale:   ptr(2),
 		},
 	})
 }
@@ -1612,6 +1659,16 @@ func (s *stateSuite) createApplication(c *gc.C, name string, l life.Life, subord
 	c.Assert(err, jc.ErrorIsNil)
 
 	return appID, unitUUIDs
+}
+
+func (s *stateSuite) setApplicationLXDProfile(c *gc.C, appUUID coreapplication.ID, profile string) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE charm SET lxd_profile = ? WHERE uuid = (SELECT charm_uuid FROM application WHERE uuid = ?)
+`, profile, appUUID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *stateSuite) minimalManifest(c *gc.C) charm.Manifest {

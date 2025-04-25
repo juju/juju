@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -16,6 +17,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/status"
+	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -460,24 +462,27 @@ func (s *Service) decodeApplicationStatusDetails(ctx context.Context, app status
 		return Application{}, errors.Errorf("decoding application status: %w", err)
 	}
 
+	lxdProfile, err := s.decodeLXDProfile(app.LXDProfile)
+	if err != nil {
+		return Application{}, errors.Errorf("decoding LXD profile: %w", err)
+	}
+
 	return Application{
-		Life:         life,
-		Status:       decodedStatus,
-		Relations:    app.Relations,
-		Subordinate:  app.Subordinate,
-		CharmLocator: app.CharmLocator,
-		CharmVersion: app.CharmVersion,
-		Platform:     app.Platform,
-		Channel:      app.Channel,
-		Exposed:      app.Exposed,
+		Life:          life,
+		Status:        decodedStatus,
+		Relations:     app.Relations,
+		Subordinate:   app.Subordinate,
+		CharmLocator:  app.CharmLocator,
+		CharmVersion:  app.CharmVersion,
+		Platform:      app.Platform,
+		Channel:       app.Channel,
+		Exposed:       app.Exposed,
+		LXDProfile:    lxdProfile,
+		Scale:         app.Scale,
+		K8sProviderID: app.K8sProviderID,
 	}, nil
 }
 
-// GetApplicationDisplayStatus returns the display status of the specified
-// application. The display status is equal to the application status if it is
-// set, otherwise it is derived from the unit display statuses. If no
-// application is found, an error satisfying [statuserrors.ApplicationNotFound]
-// is returned.
 func (s *Service) decodeApplicationDisplayStatus(ctx context.Context, appID coreapplication.ID, statusInfo status.StatusInfo[status.WorkloadStatusType]) (corestatus.StatusInfo, error) {
 	if statusInfo.Status != status.WorkloadStatusUnset {
 		return decodeApplicationStatus(statusInfo)
@@ -493,6 +498,18 @@ func (s *Service) decodeApplicationDisplayStatus(ctx context.Context, appID core
 		return corestatus.StatusInfo{}, errors.Capture(err)
 	}
 	return derivedApplicationStatus, nil
+}
+
+func (s *Service) decodeLXDProfile(lxdProfile []byte) (*internalcharm.LXDProfile, error) {
+	if len(lxdProfile) == 0 {
+		return nil, nil
+	}
+
+	var profile *internalcharm.LXDProfile
+	if err := json.Unmarshal(lxdProfile, &profile); err != nil {
+		return nil, errors.Errorf("decoding LXD profile: %w", err)
+	}
+	return profile, nil
 }
 
 // ExportUnitStatuses returns the workload and agent statuses of all the units in

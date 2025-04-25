@@ -35,17 +35,6 @@ type ApplicationService interface {
 	// latest created at date is returned first.
 	GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch arch.Arch) (charm.CharmLocator, error)
 
-	// GetApplicationScale returns the desired scale of an application, returning an error
-	// satisfying [applicationerrors.ApplicationNotFoundError] if the application doesn't exist.
-	// This is used on CAAS models.
-	GetApplicationScale(ctx context.Context, appName string) (int, error)
-
-	// IsApplicationExposed returns whether the provided application is exposed or not.
-	//
-	// If no application is found, an error satisfying
-	// [applicationerrors.ApplicationNotFound] is returned.
-	IsApplicationExposed(ctx context.Context, appName string) (bool, error)
-
 	// GetExposedEndpoints returns map where keys are endpoint names (or the ""
 	// value which represents all endpoints) and values are ExposedEndpoint
 	// instances that specify which sources (spaces or CIDRs) can access the
