@@ -20,18 +20,8 @@ func (e *manualEnviron) SupportsSpaces() (bool, error) {
 }
 
 // Subnets implements environs.NetworkingEnviron.
-func (e *manualEnviron) Subnets(envcontext.ProviderCallContext, instance.Id, []network.Id) ([]network.SubnetInfo, error) {
+func (e *manualEnviron) Subnets(envcontext.ProviderCallContext, []network.Id) ([]network.SubnetInfo, error) {
 	return nil, errors.NotSupportedf("subnets")
-}
-
-// SuperSubnets implements environs.NetworkingEnviron.
-func (e *manualEnviron) SuperSubnets(envcontext.ProviderCallContext) ([]string, error) {
-	return nil, errors.NotSupportedf("super subnets")
-}
-
-// AreSpacesRoutable implements environs.NetworkingEnviron.
-func (*manualEnviron) AreSpacesRoutable(_ envcontext.ProviderCallContext, _, _ *environs.ProviderSpaceInfo) (bool, error) {
-	return false, nil
 }
 
 // NetworkInterfaces implements environs.NetworkingEnviron.

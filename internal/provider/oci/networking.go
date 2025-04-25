@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 )
@@ -912,7 +911,7 @@ func (e *Environ) allSubnetsAsMap(modelUUID string) (map[string]ociCore.Subnet, 
 
 // Subnets is defined on the environs.Networking interface.
 func (e *Environ) Subnets(
-	ctx envcontext.ProviderCallContext, id instance.Id, subnets []network.Id,
+	ctx envcontext.ProviderCallContext, subnets []network.Id,
 ) ([]network.SubnetInfo, error) {
 	var results []network.SubnetInfo
 	subIdSet := set.NewStrings()
@@ -928,49 +927,16 @@ func (e *Environ) Subnets(
 	if len(subIdSet) > 0 {
 		hasSubnetList = true
 	}
-	if id != instance.UnknownId {
-		oInst, err := e.getOCIInstance(ctx, id)
-		if err != nil {
-			return nil, e.HandleCredentialError(ctx, err)
-		}
-
-		vnics, err := oInst.getVnics()
-		if err != nil {
-			return nil, e.HandleCredentialError(ctx, err)
-		}
-		for _, nic := range vnics {
-			if nic.Vnic.SubnetId == nil {
+	for subnetId, subnet := range allSubnets {
+		if hasSubnetList {
+			if !subIdSet.Contains(subnetId) {
 				continue
+			} else {
+				subIdSet.Remove(subnetId)
 			}
-			if hasSubnetList {
-				if !subIdSet.Contains(*nic.Vnic.SubnetId) {
-					continue
-				} else {
-					subIdSet.Remove(*nic.Vnic.SubnetId)
-				}
-			}
-			subnet, ok := allSubnets[*nic.Vnic.SubnetId]
-			if !ok {
-				continue
-			}
-			info := network.SubnetInfo{
-				CIDR:       *subnet.CidrBlock,
-				ProviderId: network.Id(*nic.Vnic.SubnetId),
-			}
+		}
+		if info, err := makeSubnetInfo(subnet); err == nil {
 			results = append(results, info)
-		}
-	} else {
-		for subnetId, subnet := range allSubnets {
-			if hasSubnetList {
-				if !subIdSet.Contains(subnetId) {
-					continue
-				} else {
-					subIdSet.Remove(subnetId)
-				}
-			}
-			if info, err := makeSubnetInfo(subnet); err == nil {
-				results = append(results, info)
-			}
 		}
 	}
 	if hasSubnetList && !subIdSet.IsEmpty() {
@@ -1072,8 +1038,4 @@ func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContex
 
 func (e *Environ) SupportsSpaces() (bool, error) {
 	return false, nil
-}
-
-func (e *Environ) AreSpacesRoutable(ctx envcontext.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
-	return false, errors.NotImplementedf("AreSpacesRoutable")
 }

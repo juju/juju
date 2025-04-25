@@ -416,9 +416,9 @@ type StubNetworkingEnviron struct {
 var _ environs.NetworkingEnviron = (*StubNetworkingEnviron)(nil)
 
 func (se *StubNetworkingEnviron) Subnets(
-	ctx envcontext.ProviderCallContext, instId instance.Id, subIds []network.Id,
+	ctx envcontext.ProviderCallContext, subIds []network.Id,
 ) ([]network.SubnetInfo, error) {
-	se.MethodCall(se, "Subnets", ctx, instId, subIds)
+	se.MethodCall(se, "Subnets", ctx, subIds)
 	if err := se.NextErr(); err != nil {
 		return nil, err
 	}

@@ -919,9 +919,7 @@ func (env *environ) DeriveAvailabilityZones(envcontext.ProviderCallContext, envi
 }
 
 // Subnets implements environs.Environ.Subnets.
-func (env *environ) Subnets(
-	ctx envcontext.ProviderCallContext, instId instance.Id, subnetIds []network.Id,
-) ([]network.SubnetInfo, error) {
+func (env *environ) Subnets(ctx envcontext.ProviderCallContext, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	if err := env.checkBroken("Subnets"); err != nil {
 		return nil, err
 	}

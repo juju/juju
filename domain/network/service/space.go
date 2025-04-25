@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v6"
 
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
@@ -172,7 +171,7 @@ func (s *ProviderService) ReloadSpaces(ctx context.Context) error {
 	}
 
 	s.Service.logger.Debugf(ctx, "environ does not support space discovery, falling back to subnet discovery")
-	subnets, err := networkProvider.Subnets(callContext, instance.UnknownId, nil)
+	subnets, err := networkProvider.Subnets(callContext, nil)
 	if err != nil {
 		return errors.Capture(err)
 	}

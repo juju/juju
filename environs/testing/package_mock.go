@@ -3976,18 +3976,18 @@ func (c *MockNetworkingEnvironStorageProviderTypesCall) DoAndReturn(f func() ([]
 }
 
 // Subnets mocks base method.
-func (m *MockNetworkingEnviron) Subnets(arg0 envcontext.ProviderCallContext, arg1 instance.Id, arg2 []network.Id) ([]network.SubnetInfo, error) {
+func (m *MockNetworkingEnviron) Subnets(arg0 envcontext.ProviderCallContext, arg1 []network.Id) ([]network.SubnetInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Subnets", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Subnets", arg0, arg1)
 	ret0, _ := ret[0].([]network.SubnetInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Subnets indicates an expected call of Subnets.
-func (mr *MockNetworkingEnvironMockRecorder) Subnets(arg0, arg1, arg2 any) *MockNetworkingEnvironSubnetsCall {
+func (mr *MockNetworkingEnvironMockRecorder) Subnets(arg0, arg1 any) *MockNetworkingEnvironSubnetsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subnets", reflect.TypeOf((*MockNetworkingEnviron)(nil).Subnets), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subnets", reflect.TypeOf((*MockNetworkingEnviron)(nil).Subnets), arg0, arg1)
 	return &MockNetworkingEnvironSubnetsCall{Call: call}
 }
 
@@ -4003,13 +4003,13 @@ func (c *MockNetworkingEnvironSubnetsCall) Return(arg0 []network.SubnetInfo, arg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkingEnvironSubnetsCall) Do(f func(envcontext.ProviderCallContext, instance.Id, []network.Id) ([]network.SubnetInfo, error)) *MockNetworkingEnvironSubnetsCall {
+func (c *MockNetworkingEnvironSubnetsCall) Do(f func(envcontext.ProviderCallContext, []network.Id) ([]network.SubnetInfo, error)) *MockNetworkingEnvironSubnetsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkingEnvironSubnetsCall) DoAndReturn(f func(envcontext.ProviderCallContext, instance.Id, []network.Id) ([]network.SubnetInfo, error)) *MockNetworkingEnvironSubnetsCall {
+func (c *MockNetworkingEnvironSubnetsCall) DoAndReturn(f func(envcontext.ProviderCallContext, []network.Id) ([]network.SubnetInfo, error)) *MockNetworkingEnvironSubnetsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

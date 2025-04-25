@@ -360,7 +360,7 @@ func makeSubnetInfo(ctx context.Context, neutron NetworkingNeutron, subnet neutr
 // Subnets returns basic information about the specified subnets known
 // by the provider for the specified instance or list of ids. subnetIds can be
 // empty, in which case all known are returned.
-func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (n *NeutronNetworking) Subnets(subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	netIds := set.NewStrings()
 	internalNets := n.ecfg().networks()
 
@@ -399,44 +399,38 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) 
 	}
 
 	var results []network.SubnetInfo
-	if instId != instance.UnknownId {
-		// TODO(hml): 2017-03-20
-		// Implement Subnets() for case where instId is specified
-		return nil, errors.NotSupportedf("neutron subnets with instance Id")
-	} else {
-		// TODO(jam): 2018-05-23 It is likely that ListSubnetsV2 could
-		// take a Filter rather that doing the filtering client side.
-		neutron := n.neutron()
-		subnets, err := neutron.ListSubnetsV2()
-		if err != nil {
-			return nil, errors.Annotatef(err, "failed to retrieve subnets")
-		}
-		if len(subnetIds) == 0 {
-			for _, subnet := range subnets {
-				// TODO (manadart 2018-07-17): If there was an error resolving
-				// an internal network ID, then no subnets will be discovered.
-				// The user will get an error attempting to add machines to
-				// this model and will have to update model config with a
-				// network name; but this does not re-discover the subnets.
-				// If subnets/spaces become important, we will have to address
-				// this somehow.
-				if !netIds.Contains(subnet.NetworkId) {
-					logger.Tracef(context.TODO(), "ignoring subnet %q, part of network %q", subnet.Id, subnet.NetworkId)
-					continue
-				}
-				subIdSet.Add(subnet.Id)
-			}
-		}
+	// TODO(jam): 2018-05-23 It is likely that ListSubnetsV2 could
+	// take a Filter rather that doing the filtering client side.
+	neutron := n.neutron()
+	subnets, err := neutron.ListSubnetsV2()
+	if err != nil {
+		return nil, errors.Annotatef(err, "failed to retrieve subnets")
+	}
+	if len(subnetIds) == 0 {
 		for _, subnet := range subnets {
-			if !subIdSet.Contains(subnet.Id) {
-				logger.Tracef(context.TODO(), "subnet %q not in %v, skipping", subnet.Id, subnetIds)
+			// TODO (manadart 2018-07-17): If there was an error resolving
+			// an internal network ID, then no subnets will be discovered.
+			// The user will get an error attempting to add machines to
+			// this model and will have to update model config with a
+			// network name; but this does not re-discover the subnets.
+			// If subnets/spaces become important, we will have to address
+			// this somehow.
+			if !netIds.Contains(subnet.NetworkId) {
+				logger.Tracef(context.TODO(), "ignoring subnet %q, part of network %q", subnet.Id, subnet.NetworkId)
 				continue
 			}
-			subIdSet.Remove(subnet.Id)
-			if info, err := makeSubnetInfo(context.TODO(), neutron, subnet); err == nil {
-				// Error will already have been logged.
-				results = append(results, info)
-			}
+			subIdSet.Add(subnet.Id)
+		}
+	}
+	for _, subnet := range subnets {
+		if !subIdSet.Contains(subnet.Id) {
+			logger.Tracef(context.TODO(), "subnet %q not in %v, skipping", subnet.Id, subnetIds)
+			continue
+		}
+		subIdSet.Remove(subnet.Id)
+		if info, err := makeSubnetInfo(context.TODO(), neutron, subnet); err == nil {
+			// Error will already have been logged.
+			results = append(results, info)
 		}
 	}
 	if !subIdSet.IsEmpty() {
@@ -454,7 +448,7 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) 
 // value for the missing instances and a ErrPartialInstances error will be
 // returned.
 func (n *NeutronNetworking) NetworkInterfaces(instanceIDs []instance.Id) ([]network.InterfaceInfos, error) {
-	allSubnets, err := n.Subnets(instance.UnknownId, nil)
+	allSubnets, err := n.Subnets(nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "listing subnets")
 	}

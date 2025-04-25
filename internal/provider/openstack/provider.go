@@ -2290,10 +2290,8 @@ func validateAuthURL(authURL string) error {
 }
 
 // Subnets is specified on environs.Networking.
-func (e *Environ) Subnets(
-	ctx envcontext.ProviderCallContext, instId instance.Id, subnetIds []network.Id,
-) ([]network.SubnetInfo, error) {
-	subnets, err := e.networking.Subnets(instId, subnetIds)
+func (e *Environ) Subnets(ctx envcontext.ProviderCallContext, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	subnets, err := e.networking.Subnets(subnetIds)
 	if err != nil {
 		return subnets, e.HandleCredentialError(ctx, err)
 	}
@@ -2313,24 +2311,6 @@ func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []in
 // SupportsSpaces is specified on environs.Networking.
 func (e *Environ) SupportsSpaces() (bool, error) {
 	return true, nil
-}
-
-// SuperSubnets is specified on environs.Networking
-func (e *Environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error) {
-	subnets, err := e.networking.Subnets("", nil)
-	if err != nil {
-		return nil, e.HandleCredentialError(ctx, err)
-	}
-	cidrs := make([]string, len(subnets))
-	for i, subnet := range subnets {
-		cidrs[i] = subnet.CIDR
-	}
-	return cidrs, nil
-}
-
-// AreSpacesRoutable is specified on environs.NetworkingEnviron.
-func (*Environ) AreSpacesRoutable(ctx envcontext.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
-	return false, nil
 }
 
 // SupportsRulesWithIPV6CIDRs returns true if the environment supports ingress

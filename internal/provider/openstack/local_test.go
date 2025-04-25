@@ -1428,7 +1428,7 @@ func (s *localServerSuite) prepareNetworkingEnviron(c *gc.C, cfg *config.Config)
 func (s *localServerSuite) TestSubnetsFindAll(c *gc.C) {
 	env := s.prepareNetworkingEnviron(c, s.env.Config())
 	// the environ is opened with network:"private_999" which maps to network id "999"
-	obtainedSubnets, err := env.Subnets(s.callCtx, "", []network.Id{})
+	obtainedSubnets, err := env.Subnets(s.callCtx, []network.Id{})
 	c.Assert(err, jc.ErrorIsNil)
 	neutronClient := openstack.GetNeutronClient(s.env)
 	openstackSubnets, err := neutronClient.ListSubnetsV2()
@@ -1466,7 +1466,7 @@ func (s *localServerSuite) TestSubnetsFindAllWithExternal(c *gc.C) {
 	env := s.prepareNetworkingEnviron(c, cfg)
 	// private_999 is the internal network, 998 is the external network
 	// the environ is opened with network:"private_999" which maps to network id "999"
-	obtainedSubnets, err := env.Subnets(s.callCtx, "", []network.Id{})
+	obtainedSubnets, err := env.Subnets(s.callCtx, []network.Id{})
 	c.Assert(err, jc.ErrorIsNil)
 	neutronClient := openstack.GetNeutronClient(s.env)
 	openstackSubnets, err := neutronClient.ListSubnetsV2()
@@ -1527,7 +1527,7 @@ func (s *localServerSuite) testFindNetworks(c *gc.C, internal bool) {
 
 func (s *localServerSuite) TestSubnetsWithMissingSubnet(c *gc.C) {
 	env := s.prepareNetworkingEnviron(c, s.env.Config())
-	subnets, err := env.Subnets(s.callCtx, "", []network.Id{"missing"})
+	subnets, err := env.Subnets(s.callCtx, []network.Id{"missing"})
 	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[missing\]`)
 	c.Assert(subnets, gc.HasLen, 0)
 }

@@ -45,10 +45,7 @@ func (env *azureEnviron) networkInfo(ctx context.Context) (vnetRG string, vnetNa
 
 // Subnets implements environs.NetworkingEnviron.
 func (env *azureEnviron) Subnets(
-	ctx envcontext.ProviderCallContext, instanceID instance.Id, _ []network.Id) ([]network.SubnetInfo, error) {
-	if instanceID != instance.UnknownId {
-		return nil, errors.NotSupportedf("subnets for instance")
-	}
+	ctx envcontext.ProviderCallContext, _ []network.Id) ([]network.SubnetInfo, error) {
 	subnets, err := env.allSubnets(ctx)
 	if err != nil {
 		return nil, env.HandleCredentialError(ctx, err)
@@ -156,16 +153,6 @@ func (env *azureEnviron) allPublicIPs(ctx envcontext.ProviderCallContext) (map[s
 	}
 
 	return idToIPMap, nil
-}
-
-// SuperSubnets implements environs.NetworkingEnviron.
-func (*azureEnviron) SuperSubnets(envcontext.ProviderCallContext) ([]string, error) {
-	return nil, errors.NotSupportedf("super subnets")
-}
-
-// AreSpacesRoutable implements environs.NetworkingEnviron.
-func (*azureEnviron) AreSpacesRoutable(_ envcontext.ProviderCallContext, _, _ *environs.ProviderSpaceInfo) (bool, error) {
-	return false, nil
 }
 
 // NetworkInterfaces implements environs.NetworkingEnviron. It returns back
