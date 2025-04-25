@@ -32,6 +32,9 @@ type State interface {
 	// by ep1 and ep2 and returns the created endpoints.
 	AddRelation(ctx context.Context, ep1, ep2 relation.CandidateEndpointIdentifier) (relation.Endpoint, relation.Endpoint, error)
 
+	// CreatePeerRelations creates the peer relations for an application.
+	CreatePeerRelations(ctx context.Context, appId application.ID) error
+
 	// NeedsSubordinateUnit checks if there is a subordinate application
 	// related to the principal unit that needs a subordinate unit created.
 	NeedsSubordinateUnit(
@@ -958,4 +961,17 @@ func (s *Service) SetRelationUnitSettings(
 			"%w:%w", relationerrors.RelationUUIDNotValid, err)
 	}
 	return s.st.SetRelationUnitSettings(ctx, relationUnitUUID, settings)
+}
+
+// CreatePeerRelations creates the peer relations for an application.
+//
+// If settings is not empty, the following error types can be expected to be
+// returned:
+//   - [relationerrors.ApplicationIDNotValid] is returned if the application ID
+//     is not valid.
+func (s *Service) CreatePeerRelations(ctx context.Context, appId application.ID) error {
+	if err := appId.Validate(); err != nil {
+		return relationerrors.ApplicationIDNotValid
+	}
+	return s.st.CreatePeerRelations(ctx, appId)
 }

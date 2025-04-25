@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"slices"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -3548,6 +3549,43 @@ func (s *relationSuite) TestGetGoalStateRelationDataForApplicationNoRows(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *relationSuite) TestCreatePeerRelations(c *gc.C) {
+	// Arrange
+	relation1 := charm.Relation{
+		Name:      "pollux",
+		Role:      charm.RolePeer,
+		Interface: "pollux",
+		Scope:     charm.ScopeGlobal,
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, relation1)
+	_ = s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	relation2 := charm.Relation{
+		Name:      "castor",
+		Role:      charm.RolePeer,
+		Interface: "castor",
+		Scope:     charm.ScopeGlobal,
+	}
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID1, relation2)
+	_ = s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID2)
+
+	// Act
+	err := s.state.CreatePeerRelations(context.Background(), s.fakeApplicationUUID1)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertPeerRelation(c, s.fakeApplicationName1, "pollux", "castor")
+}
+
+func (s *relationSuite) TestCreatePeerRelationsNoRelations(c *gc.C) {
+	// Act
+	err := s.state.CreatePeerRelations(context.Background(), s.fakeApplicationUUID1)
+
+	// Assert that CreatePeerRelations does not return an error when no
+	// peer relations exist for the application.
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 // addRelationUnitSetting inserts a relation unit setting into the database
 // using the provided relationUnitUUID.
 func (s *relationSuite) addRelationUnitSetting(c *gc.C, relationUnitUUID corerelation.UnitUUID, key, value string) {
@@ -3861,4 +3899,63 @@ func (s *relationSuite) addUnitPrincipal(c *gc.C, principalUnit, subordinateUnit
 INSERT INTO unit_principal (principal_uuid, unit_uuid)
 VALUES (?, ?)
 `, principalUnit, subordinateUnit)
+}
+
+func (s *relationSuite) assertPeerRelation(c *gc.C, appName string, peerRelationNames ...string) {
+	type peerRelation struct {
+		id     int
+		name   string
+		status corestatus.Status
+	}
+	var expected []peerRelation
+	slices.Sort(peerRelationNames)
+	for i, name := range peerRelationNames {
+		expected = append(expected, peerRelation{
+			id:     i,
+			name:   name,
+			status: corestatus.Joining,
+		})
+	}
+
+	var peerRelations []peerRelation
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT cr.name, r.relation_id, rst.name
+FROM charm_relation cr
+JOIN application_endpoint ae ON ae.charm_relation_uuid = cr.uuid
+JOIN application a ON a.uuid = ae.application_uuid
+JOIN relation_endpoint re ON  re.endpoint_uuid = ae.uuid
+JOIN relation r ON r.uuid = re.relation_uuid
+LEFT JOIN relation_status rs ON rs.relation_uuid = re.relation_uuid
+LEFT JOIN relation_status_type rst ON rs.relation_status_type_id = rst.id
+WHERE a.name = ?
+AND cr.role_id = 2 -- peer relation
+ORDER BY r.relation_id
+`, appName)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var row peerRelation
+			var statusName *corestatus.Status // allows graceful error if status not set
+			if err := rows.Scan(&row.name, &row.id, &statusName); err != nil {
+				return errors.Capture(err)
+			}
+			row.status = deptr(statusName)
+			peerRelations = append(peerRelations, row)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(peerRelations, gc.DeepEquals, expected)
+}
+
+func deptr[T any](v *T) T {
+	var zero T
+	if v == nil {
+		return zero
+	}
+	return *v
 }

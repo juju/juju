@@ -95,7 +95,7 @@ func (s *baseRelationSuite) addApplicationEndpoint(c *gc.C, applicationUUID core
 	// TODO(gfouillet): introduce proper UUID for this one, from corerelation & corerelationtesting
 	applicationEndpointUUID := uuid.MustNewUUID().String()
 	s.query(c, `
-INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid,space_uuid)
+INSERT INTO application_endpoint (uuid, application_uuid, charm_relation_uuid, space_uuid)
 VALUES (?, ?, ?, ?)
 `, applicationEndpointUUID, applicationUUID, charmRelationUUID, network.AlphaSpaceId)
 	return applicationEndpointUUID

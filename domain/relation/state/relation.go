@@ -119,7 +119,11 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 r
 		}
 
 		// Insert a new relation with a new relation UUID.
-		relUUID, err := st.insertNewRelation(ctx, tx)
+		id, err := sequencestate.NextValue(ctx, st, tx, relation.SequenceNamespace)
+		if err != nil {
+			return errors.Errorf("getting next relation id: %w", err)
+		}
+		relUUID, err := st.insertNewRelation(ctx, tx, id)
 		if err != nil {
 			return errors.Errorf("inserting new relation: %w", err)
 		}
@@ -2630,6 +2634,92 @@ WHERE  r.uuid = $watcherMapperData.uuid
 	}, nil
 }
 
+// CreatePeerRelations creates peer relations for the given application.
+// The following error types can be expected to be returned:
+//
+//   - [relationerrors.ApplicationNotAlive] is returned if the
+//     application is dying or dead.
+func (st *State) CreatePeerRelations(ctx context.Context, appId application.ID) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if alive, err := st.checkLife(ctx, tx, "application", appId.String(), life.IsAlive); err != nil {
+			return errors.Errorf("cannot check application %q life: %w", appId, err)
+		} else if !alive {
+			return errors.Errorf("%w: %s", relationerrors.ApplicationNotAlive, appId)
+		}
+
+		return st.insertPeerRelations(ctx, tx, appId)
+	})
+	return nil
+}
+
+// getPeerEndpoints retrieves a list of peer endpoint for the given
+// application UUID from the database.
+func (st *State) getPeerEndpoints(ctx context.Context, tx *sqlair.TX, uuid application.ID) ([]peerEndpoint, error) {
+	app := applicationID{ID: uuid}
+
+	stmt, err := st.Prepare(`
+SELECT
+    ae.uuid AS &peerEndpoint.uuid,
+    cr.name AS &peerEndpoint.name
+FROM   application_endpoint ae
+JOIN   charm_relation cr ON cr.uuid = ae.charm_relation_uuid
+JOIN   charm_relation_role crr ON crr.id = cr.role_id
+WHERE  ae.application_uuid = &applicationID.uuid
+AND    crr.name = 'peer'
+ORDER BY cr.name -- ensure that peer endpoints relation id are always generated in alphabetical order
+`, app, peerEndpoint{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var endpoints []peerEndpoint
+	if err := tx.Query(ctx, stmt, app).GetAll(&endpoints); errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	}
+
+	return endpoints, err
+}
+
+// insertPeerRelations inserts peer relations for the specified application UUID
+// within a transactional context.
+// It retrieves peer endpoints, creates new relations for them,
+// and inserts their statuses and endpoints. Returns an error if any step fails.
+func (st *State) insertPeerRelations(ctx context.Context, tx *sqlair.TX, appUUID application.ID) error {
+	peerEndpoints, err := st.getPeerEndpoints(ctx, tx, appUUID)
+	if err != nil {
+		return errors.Errorf("getting peer endpoints: %w", err)
+	}
+
+	for _, peer := range peerEndpoints {
+		id, err := sequencestate.NextValue(ctx, st, tx, relation.SequenceNamespace)
+		if err != nil {
+			return errors.Errorf("getting next relation id: %w", err)
+		}
+
+		// Insert a new relation with a new relation UUID.
+		relUUID, err := st.insertNewRelation(ctx, tx, id)
+		if err != nil {
+			return errors.Errorf("inserting new relation for peer endpoint %q: %w", peer.Name, err)
+		}
+
+		// Insert relation status.
+		if err := st.insertNewRelationStatus(ctx, tx, relUUID); err != nil {
+			return errors.Errorf("inserting new relation status for peer endpoint %q: %w", peer.Name, err)
+		}
+
+		// Insert the relation endpoint
+		if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, peer.UUID); err != nil {
+			return errors.Errorf("inserting new relation endpoint for %q: %w", peer.Name, err)
+		}
+	}
+	return nil
+}
+
 // checkCompatibleBases determines if the bases of two application endpoints
 // are compatible for a relation.
 // It compares the OS and channel of the base configurations for both endpoints.
@@ -2951,15 +3041,10 @@ func (st *State) inferEndpoints(
 }
 
 // insertNewRelation creates a new relation entry in the database and returns its UUID or an error if the operation fails.
-func (st *State) insertNewRelation(ctx context.Context, tx *sqlair.TX) (corerelation.UUID, error) {
+func (st *State) insertNewRelation(ctx context.Context, tx *sqlair.TX, id uint64) (corerelation.UUID, error) {
 	relUUID, err := corerelation.NewUUID()
 	if err != nil {
 		return relUUID, errors.Errorf("generating new relation UUID: %w", err)
-	}
-
-	id, err := sequencestate.NextValue(ctx, st, tx, relation.SequenceNamespace)
-	if err != nil {
-		return relUUID, errors.Errorf("getting next relation id: %w", err)
 	}
 
 	stmtInsert, err := st.Prepare(`

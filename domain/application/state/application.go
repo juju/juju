@@ -242,9 +242,6 @@ func (st *State) CreateApplication(
 		}); err != nil {
 			return errors.Errorf("inserting exposed endpoints for application %q: %w", name, err)
 		}
-		if err := st.insertPeerRelations(ctx, tx, appDetails.UUID); err != nil {
-			return errors.Errorf("inserting peer relation for application %q: %w", name, err)
-		}
 		if err = st.insertApplicationUnits(ctx, tx, appUUID, args, units); err != nil {
 			return errors.Errorf("inserting units for application %q: %w", appUUID, err)
 		}

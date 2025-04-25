@@ -1098,15 +1098,6 @@ type exportApplication struct {
 	EndpointBindings     map[string]string
 }
 
-// peerEndpoint represents a structure for defining a peer application endpoint
-// with a UUID and a name.
-type peerEndpoint struct {
-	// UUID is the unique identifier of the peer endpoint.
-	UUID corerelation.EndpointUUID `db:"uuid"`
-	// Name is the human-readable name of the peer endpoint.
-	Name string `db:"name"`
-}
-
 type exportUnit struct {
 	UUID    coreunit.UUID `db:"uuid"`
 	Name    coreunit.Name `db:"name"`

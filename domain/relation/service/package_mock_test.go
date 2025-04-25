@@ -125,6 +125,44 @@ func (c *MockStateApplicationRelationsInfoCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// CreatePeerRelations mocks base method.
+func (m *MockState) CreatePeerRelations(arg0 context.Context, arg1 application.ID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreatePeerRelations", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreatePeerRelations indicates an expected call of CreatePeerRelations.
+func (mr *MockStateMockRecorder) CreatePeerRelations(arg0, arg1 any) *MockStateCreatePeerRelationsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePeerRelations", reflect.TypeOf((*MockState)(nil).CreatePeerRelations), arg0, arg1)
+	return &MockStateCreatePeerRelationsCall{Call: call}
+}
+
+// MockStateCreatePeerRelationsCall wrap *gomock.Call
+type MockStateCreatePeerRelationsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateCreatePeerRelationsCall) Return(arg0 error) *MockStateCreatePeerRelationsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateCreatePeerRelationsCall) Do(f func(context.Context, application.ID) error) *MockStateCreatePeerRelationsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateCreatePeerRelationsCall) DoAndReturn(f func(context.Context, application.ID) error) *MockStateCreatePeerRelationsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // EnterScope mocks base method.
 func (m *MockState) EnterScope(arg0 context.Context, arg1 relation.UUID, arg2 unit.Name, arg3 map[string]string) error {
 	m.ctrl.T.Helper()
