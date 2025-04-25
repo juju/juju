@@ -57,13 +57,21 @@ func statusHistoryResultsError(err error, amount int) params.StatusHistoryResult
 	}
 }
 
-func matches(hr statushistory.HistoryRecord, req params.StatusHistoryRequest) bool {
-	switch status.HistoryKind(req.Kind) {
-	case status.KindApplication:
-		return true
-	default:
-		return false
+func matches(hr statushistory.HistoryRecord, req params.StatusHistoryRequest) (bool, error) {
+	// Check that the kinds match.
+	if status.HistoryKind(req.Kind) != hr.Kind {
+		return false, nil
 	}
+
+	// Check that the tag matches.
+	requestTag, err := names.ParseTag(req.Tag)
+	if err != nil {
+		return false, err
+	} else if hr.Tag != requestTag.Id() {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 // StatusHistory returns a slice of past statuses for several entities.
@@ -75,15 +83,30 @@ func (c *Client) StatusHistory(ctx context.Context, request params.StatusHistory
 	}
 
 	statuses := make([][]params.DetailedStatus, len(request.Requests))
-	err = reader.Walk(func(hr statushistory.HistoryRecord) {
+	errors := make([]error, len(request.Requests))
+	err = reader.Walk(func(record statushistory.HistoryRecord) {
+		// Loop over each log record and check if it matches the request. If a
+		// log record matches any of the requests add it to the request result.
+		//
+		// If we didn't support bulk requests, this would be a lot more
+		// efficient.
 		for i, req := range request.Requests {
-			if !matches(hr, req) {
+			if errors[i] != nil {
+				// This request has already failed, so skip it.
 				continue
 			}
 
-			status := hr.Status
+			if ok, err := matches(record, req); !ok {
+				continue
+			} else if err != nil {
+				errors[i] = err
+				continue
+			}
+
+			status := record.Status
 
 			statuses[i] = append(statuses[i], params.DetailedStatus{
+				Kind:   status.Kind.String(),
 				Status: status.Status.String(),
 				Info:   status.Info,
 				Data:   status.Data,
@@ -97,9 +120,15 @@ func (c *Client) StatusHistory(ctx context.Context, request params.StatusHistory
 
 	results := make([]params.StatusHistoryResult, len(request.Requests))
 	for i, s := range statuses {
+		var err *params.Error
+		if errors[i] != nil {
+			err = apiservererrors.ServerError(errors[i])
+		}
+
 		results[i] = params.StatusHistoryResult{
 			History: params.History{
 				Statuses: s,
+				Error:    err,
 			},
 		}
 	}
