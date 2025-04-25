@@ -1559,14 +1559,13 @@ func mapNetworkInterface(iface types.NetworkInterface, subnet types.Subnet) netw
 	subnetCIDR := aws.ToString(subnet.CidrBlock)
 	// Device names and VLAN tags are not returned by EC2.
 	ni := network.InterfaceInfo{
-		DeviceIndex:       int(aws.ToInt32(iface.Attachment.DeviceIndex)),
-		MACAddress:        aws.ToString(iface.MacAddress),
-		ProviderId:        network.Id(aws.ToString(iface.NetworkInterfaceId)),
-		ProviderSubnetId:  network.Id(aws.ToString(iface.SubnetId)),
-		AvailabilityZones: []string{aws.ToString(iface.AvailabilityZone)},
-		Disabled:          false,
-		NoAutoStart:       false,
-		InterfaceType:     network.EthernetDevice,
+		DeviceIndex:      int(aws.ToInt32(iface.Attachment.DeviceIndex)),
+		MACAddress:       aws.ToString(iface.MacAddress),
+		ProviderId:       network.Id(aws.ToString(iface.NetworkInterfaceId)),
+		ProviderSubnetId: network.Id(aws.ToString(iface.SubnetId)),
+		Disabled:         false,
+		NoAutoStart:      false,
+		InterfaceType:    network.EthernetDevice,
 		// The describe interface responses that we get back from EC2
 		// define a *list* of private IP addresses with one entry that
 		// is tagged as primary and whose value is encoded in the

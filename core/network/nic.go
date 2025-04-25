@@ -104,10 +104,6 @@ type InterfaceInfo struct {
 	// ProviderAddressId is the provider-specific id of the assigned address.
 	ProviderAddressId Id
 
-	// AvailabilityZones describes the availability zones the associated
-	// subnet is in.
-	AvailabilityZones []string
-
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
 	// normal networks. It's defined by IEEE 802.1Q standard.
 	VLANTag int
