@@ -7,7 +7,7 @@
 :maxdepth: 2
 :hidden:
 
-Manage your deployment <manage-your-deployment/index>
+Manage your deployment <manage-your-deployment>
 Manage juju <manage-juju>
 Manage plugins <manage-plugins>
 Manage clouds <manage-clouds>
