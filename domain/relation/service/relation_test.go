@@ -1183,8 +1183,7 @@ func (s *relationServiceSuite) TestImportRelations(c *gc.C) {
 	ep1 := key1.EndpointIdentifiers()
 	key2 := corerelationtesting.GenNewKey(c, "ubuntu:juju-info ntp:juju-info")
 	ep2 := key2.EndpointIdentifiers()
-	idep2, _ := relation.NewCandidateEndpointIdentifier(ep2[0].String())
-	idep3, _ := relation.NewCandidateEndpointIdentifier(ep2[1].String())
+
 	args := relation.ImportRelationsArgs{
 		{
 			ID:  7,
@@ -1222,7 +1221,7 @@ func (s *relationServiceSuite) TestImportRelations(c *gc.C) {
 		},
 	}
 	peerRelUUID := s.expectGetPeerRelationUUIDByEndpointIdentifiers(c, ep1[0])
-	relUUID := s.expectSetRelationWithID(c, idep2, idep3, uint64(8))
+	relUUID := s.expectSetRelationWithID(c, ep2[0], ep2[1], uint64(8))
 	app1ID := s.expectGetApplicationIDByName(c, args[0].Endpoints[0].ApplicationName)
 	app2ID := s.expectGetApplicationIDByName(c, args[1].Endpoints[0].ApplicationName)
 	app3ID := s.expectGetApplicationIDByName(c, args[1].Endpoints[1].ApplicationName)
@@ -1277,11 +1276,11 @@ func (s *relationServiceSuite) expectGetPeerRelationUUIDByEndpointIdentifiers(
 
 func (s *relationServiceSuite) expectSetRelationWithID(
 	c *gc.C,
-	idep2, idep3 relation.CandidateEndpointIdentifier,
+	ep2, ep3 corerelation.EndpointIdentifier,
 	id uint64,
 ) corerelation.UUID {
 	relUUID := corerelationtesting.GenRelationUUID(c)
-	s.state.EXPECT().SetRelationWithID(gomock.Any(), idep2, idep3, id).Return(relUUID, nil)
+	s.state.EXPECT().SetRelationWithID(gomock.Any(), ep2, ep3, id).Return(relUUID, nil)
 	return relUUID
 }
 

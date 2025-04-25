@@ -1332,7 +1332,7 @@ func (c *MockStateSetRelationUnitSettingsCall) DoAndReturn(f func(context.Contex
 }
 
 // SetRelationWithID mocks base method.
-func (m *MockState) SetRelationWithID(arg0 context.Context, arg1, arg2 relation0.CandidateEndpointIdentifier, arg3 uint64) (relation.UUID, error) {
+func (m *MockState) SetRelationWithID(arg0 context.Context, arg1, arg2 relation.EndpointIdentifier, arg3 uint64) (relation.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetRelationWithID", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(relation.UUID)
@@ -1359,13 +1359,13 @@ func (c *MockStateSetRelationWithIDCall) Return(arg0 relation.UUID, arg1 error) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetRelationWithIDCall) Do(f func(context.Context, relation0.CandidateEndpointIdentifier, relation0.CandidateEndpointIdentifier, uint64) (relation.UUID, error)) *MockStateSetRelationWithIDCall {
+func (c *MockStateSetRelationWithIDCall) Do(f func(context.Context, relation.EndpointIdentifier, relation.EndpointIdentifier, uint64) (relation.UUID, error)) *MockStateSetRelationWithIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetRelationWithIDCall) DoAndReturn(f func(context.Context, relation0.CandidateEndpointIdentifier, relation0.CandidateEndpointIdentifier, uint64) (relation.UUID, error)) *MockStateSetRelationWithIDCall {
+func (c *MockStateSetRelationWithIDCall) DoAndReturn(f func(context.Context, relation.EndpointIdentifier, relation.EndpointIdentifier, uint64) (relation.UUID, error)) *MockStateSetRelationWithIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

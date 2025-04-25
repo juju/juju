@@ -131,7 +131,7 @@ func (st *State) AddRelation(ctx context.Context, epIdentifier1, epIdentifier2 r
 // import.
 func (st *State) SetRelationWithID(
 	ctx context.Context,
-	epIdentifier1, epIdentifier2 relation.CandidateEndpointIdentifier,
+	epIdentifier1, epIdentifier2 corerelation.EndpointIdentifier,
 	id uint64,
 ) (corerelation.UUID, error) {
 	var relUUID corerelation.UUID
@@ -140,32 +140,40 @@ func (st *State) SetRelationWithID(
 		return relUUID, errors.Capture(err)
 	}
 
-	return relUUID, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Infers endpoint, ie get both application_endpoint_uuid.
-		ep1, ep2, err := st.inferEndpoints(ctx, tx, epIdentifier1, epIdentifier2)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Get endpoint uuids for both endpoints of the relation.
+		endpointUUID1, err := st.getApplicationEndpointUUID(ctx, tx, epIdentifier1.ApplicationName, epIdentifier1.EndpointName)
 		if err != nil {
-			return errors.Errorf("cannot relate endpoints %q and %q: %w",
-				epIdentifier1,
-				epIdentifier2, err)
+			return err
+		}
+		endpointUUID2, err := st.getApplicationEndpointUUID(ctx, tx, epIdentifier2.ApplicationName, epIdentifier2.EndpointName)
+		if err != nil {
+			return err
 		}
 
 		// Insert a new relation with a new relation UUID.
 		relUUID, err = st.insertNewRelation(ctx, tx, id)
 		if err != nil {
-			return errors.Errorf("setting new relation: %w", err)
+			return errors.Errorf("setting new relation: %s %s: %w", epIdentifier1, epIdentifier2, err)
+		}
+
+		// Insert relation status.
+		if err := st.insertNewRelationStatus(ctx, tx, relUUID); err != nil {
+			return errors.Errorf("setting new relation status: %s %s: %w", epIdentifier1, epIdentifier2, err)
 		}
 
 		// Insert both relation_endpoint from application_endpoint_uuid and relation
 		// uuid.
-		if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, ep1.EndpointUUID); err != nil {
-			return errors.Errorf("setting new relation endpoint for %q: %w", ep1.String(), err)
+		if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, endpointUUID1); err != nil {
+			return errors.Errorf("setting new relation endpoint for %q: %w", epIdentifier1.String(), err)
 		}
-		if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, ep2.EndpointUUID); err != nil {
-			return errors.Errorf("setting new relation endpoint for %q: %w", ep2.String(), err)
+		if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, endpointUUID2); err != nil {
+			return errors.Errorf("setting new relation endpoint for %q: %w", epIdentifier2.String(), err)
 		}
 
 		return nil
 	})
+	return relUUID, errors.Capture(err)
 }
 
 func (st *State) addRelation(
@@ -725,9 +733,6 @@ func (st *State) GetRelationEndpointUUID(ctx context.Context, args relation.GetR
 		return "", errors.Capture(err)
 	}
 
-	type relationEndpointUUID struct {
-		UUID string `db:"uuid"`
-	}
 	type relationEndpointArgs struct {
 		AppID        string `db:"application_uuid"`
 		RelationUUID string `db:"relation_uuid"`
@@ -2930,6 +2935,36 @@ AND    (
 	}
 
 	return endpoints, nil
+}
+
+// getApplicationEndpointUUID returns the application endpoint uuid for given
+// application and endpoint name pair.
+func (st *State) getApplicationEndpointUUID(ctx context.Context, tx *sqlair.TX,
+	applicationName, endpointName string) (corerelation.EndpointUUID, error) {
+	type applicationEndpointUUID relationEndpointUUID
+
+	epIdentifier := endpointIdentifier{
+		ApplicationName: applicationName,
+		EndpointName:    endpointName,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT aeu.uuid AS &applicationEndpointUUID.uuid
+FROM   v_application_endpoint_uuid AS aeu
+JOIN   application a ON a.uuid = aeu.application_uuid
+WHERE  aeu.name = $endpointIdentifier.endpoint_name
+AND    a.name = $endpointIdentifier.application_name
+`, applicationEndpointUUID{}, endpointIdentifier{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	var endpoint applicationEndpointUUID
+	err = tx.Query(ctx, stmt, epIdentifier).Get(&endpoint)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return "", errors.Errorf("getting application endpoint uuid for %q:%q : %w", applicationName, endpointName, err)
+	}
+
+	return corerelation.EndpointUUID(endpoint.UUID), nil
 }
 
 // getBases retrieves a list of OS and channel information for a specific

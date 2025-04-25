@@ -31,7 +31,7 @@ type State interface {
 		applicationID application.ID,
 	) ([]relation.EndpointRelationData, error)
 
-	// AddRelationWithID establishes a relation between two endpoints identified
+	// AddRelation establishes a relation between two endpoints identified
 	// by ep1 and ep2 and returns the created endpoints.
 	AddRelation(ctx context.Context, ep1, ep2 relation.CandidateEndpointIdentifier) (relation.Endpoint, relation.Endpoint, error)
 
@@ -40,7 +40,7 @@ type State interface {
 	// import.
 	SetRelationWithID(
 		ctx context.Context,
-		ep1, ep2 relation.CandidateEndpointIdentifier,
+		ep1, ep2 corerelation.EndpointIdentifier,
 		id uint64,
 	) (corerelation.UUID, error)
 
@@ -1003,27 +1003,18 @@ func (s *Service) importRelation(ctx context.Context, arg relation.ImportRelatio
 	var relUUID corerelation.UUID
 
 	eps := arg.Key.EndpointIdentifiers()
+	var err error
 
 	switch len(eps) {
 	case 1:
 		// Peer relations are implicitly imported during migration of applications
 		// during the call to CreateApplication.
-		var err error
 		relUUID, err = s.st.GetPeerRelationUUIDByEndpointIdentifiers(ctx, eps[0])
 		if err != nil {
 			return relUUID, errors.Errorf("getting peer relation %d by endpoint %q: %w", arg.ID, eps[0], err)
 		}
 	case 2:
-		idep1, err := relation.NewCandidateEndpointIdentifier(eps[0].String())
-		if err != nil {
-			return relUUID, errors.Errorf("parsing endpoint identifier %q: %w", eps[0].String(), err)
-		}
-		idep2, err := relation.NewCandidateEndpointIdentifier(eps[1].String())
-		if err != nil {
-			return relUUID, errors.Errorf("parsing endpoint identifier %q: %w", eps[1].String(), err)
-		}
-
-		relUUID, err = s.st.SetRelationWithID(ctx, idep1, idep2, uint64(arg.ID))
+		relUUID, err = s.st.SetRelationWithID(ctx, eps[0], eps[1], uint64(arg.ID))
 		if err != nil {
 			return relUUID, errors.Capture(err)
 		}

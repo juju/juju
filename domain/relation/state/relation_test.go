@@ -460,10 +460,10 @@ func (s *addRelationSuite) TestAddRelationWithID(c *gc.C) {
 	expectedRelID := uint64(42)
 
 	// Act
-	obtainedRelUUID, err := s.state.SetRelationWithID(context.Background(), relation.CandidateEndpointIdentifier{
+	obtainedRelUUID, err := s.state.SetRelationWithID(context.Background(), corerelation.EndpointIdentifier{
 		ApplicationName: "application-1",
 		EndpointName:    "req",
-	}, relation.CandidateEndpointIdentifier{
+	}, corerelation.EndpointIdentifier{
 		ApplicationName: "application-2",
 		EndpointName:    "prov",
 	}, expectedRelID)
