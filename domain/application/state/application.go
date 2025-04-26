@@ -2956,25 +2956,29 @@ func encodeConstraints(constraintUUID string, cons constraints.Constraints, cont
 func encodeIpAddresses(addresses []spaceAddress) network.SpaceAddresses {
 	res := make(network.SpaceAddresses, len(addresses))
 	for i, addr := range addresses {
-		spaceUUID := network.AlphaSpaceId
-		if addr.SpaceUUID.Valid {
-			spaceUUID = addr.SpaceUUID.String
-		}
-		res[i] = network.SpaceAddress{
-			SpaceID: spaceUUID,
-			// TODO(nvinuesa): The subnet CIDR is not inserted. This should be
-			// done when migrating machines to dqlite and rework the
-			// MachineAddress modelling so it takes a subnet UUID instead of a
-			// CIDR.
-			MachineAddress: network.MachineAddress{
-				Value:      addr.Value,
-				Type:       ipaddress.UnMarshallAddressType(ipaddress.AddressType(addr.TypeID)),
-				Scope:      ipaddress.UnMarshallScope(ipaddress.Scope(addr.ScopeID)),
-				ConfigType: ipaddress.UnMarshallConfigType(ipaddress.ConfigType(addr.ConfigTypeID)),
-			},
-		}
+		res[i] = encodeIpAddress(addr)
 	}
 	return res
+}
+
+func encodeIpAddress(address spaceAddress) network.SpaceAddress {
+	spaceUUID := network.AlphaSpaceId
+	if address.SpaceUUID.Valid {
+		spaceUUID = address.SpaceUUID.String
+	}
+	return network.SpaceAddress{
+		SpaceID: spaceUUID,
+		// TODO(nvinuesa): The subnet CIDR is not inserted. This should be
+		// done when migrating machines to dqlite and rework the
+		// MachineAddress modelling so it takes a subnet UUID instead of a
+		// CIDR.
+		MachineAddress: network.MachineAddress{
+			Value:      address.Value,
+			Type:       ipaddress.UnMarshallAddressType(ipaddress.AddressType(address.TypeID)),
+			Scope:      ipaddress.UnMarshallScope(ipaddress.Scope(address.ScopeID)),
+			ConfigType: ipaddress.UnMarshallConfigType(ipaddress.ConfigType(address.ConfigTypeID)),
+		},
+	}
 }
 
 // lookupApplication looks up the application by name and returns the

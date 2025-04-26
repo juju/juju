@@ -980,9 +980,12 @@ func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.Cl
 			},
 			Value:       cloudContainer.Address.Value,
 			AddressType: ipaddress.MarshallAddressType(cloudContainer.Address.AddressType()),
-			Scope:       ipaddress.MarshallScope(cloudContainer.Address.Scope),
-			Origin:      ipaddress.MarshallOrigin(network.OriginProvider),
-			ConfigType:  ipaddress.MarshallConfigType(network.ConfigDHCP),
+			// The k8s container must have the lowest scope. This is needed to
+			// ensure that these are correctly matched with respect to k8s
+			// service addresses when retrieving unit public/private addresses.
+			Scope:      ipaddress.MarshallScope(network.ScopeMachineLocal),
+			Origin:     ipaddress.MarshallOrigin(network.OriginProvider),
+			ConfigType: ipaddress.MarshallConfigType(network.ConfigDHCP),
 		}
 		if cloudContainer.AddressOrigin != nil {
 			result.Address.Origin = ipaddress.MarshallOrigin(*cloudContainer.AddressOrigin)
@@ -1775,36 +1778,46 @@ WHERE  u.name = $getUnitMachine.unit_name
 	return arg.UnitMachine, nil
 }
 
-// GetCloudContainerAddresses returns the addresses of the cloud container for the
-// specified unit.
+// GetUnitAddresses returns the addresses of the specified unit.
+// The addresses are taken by unioning the net node UUIDs of the cloud service
+// (if any) and the net node UUIDs of the unit, where each net node has an
+// associated address.
+// This apprach allows us to get the addresses regardless of the substrate
+// (k8s or machines).
 //
 // The following errors may be returned:
 // - [uniterrors.UnitNotFound] if the unit does not exist
-func (st *State) GetCloudContainerAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error) {
+func (st *State) GetUnitAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var addresses []spaceAddress
+	var address []spaceAddress
 	ident := unitUUID{UnitUUID: uuid}
-	queryCloudContainerAddressesStmt, err := st.Prepare(`
+	queryUnitPublicAddressesStmt, err := st.Prepare(`
 SELECT    &spaceAddress.*
-FROM      unit AS u 
-JOIN      net_node AS nn ON nn.uuid = u.net_node_uuid
-JOIN      link_layer_device AS lld ON lld.net_node_uuid = nn.uuid
-JOIN      ip_address AS ip ON ip.device_uuid = lld.uuid
+FROM (
+    SELECT s.net_node_uuid, u.uuid
+    FROM unit u
+    JOIN application a on a.uuid = u.application_uuid
+    JOIN k8s_service s on s.application_uuid = a.uuid
+    UNION
+    SELECT net_node_uuid, uuid FROM unit
+) AS n
+JOIN      link_layer_device lld ON lld.net_node_uuid = n.net_node_uuid
+JOIN      ip_address ip ON ip.device_uuid = lld.uuid
 LEFT JOIN subnet sn ON sn.uuid = ip.subnet_uuid
-WHERE     u.uuid = $unitUUID.uuid;
+WHERE     n.uuid = $unitUUID.uuid
 `, spaceAddress{}, ident)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, queryCloudContainerAddressesStmt, ident).GetAll(&addresses)
+		err := tx.Query(ctx, queryUnitPublicAddressesStmt, ident).GetAll(&address)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("querying cloud container addresses for unit %q: %w", uuid, err)
+			return errors.Errorf("querying public addresses for unit %q: %w", uuid, err)
 		} else if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("%w: %s", applicationerrors.UnitNotFound, uuid)
 		}
@@ -1813,7 +1826,7 @@ WHERE     u.uuid = $unitUUID.uuid;
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return encodeIpAddresses(addresses), nil
+	return encodeIpAddresses(address), nil
 }
 
 func (st *State) setUnitConstraints(ctx context.Context, tx *sqlair.TX, inUnitUUID coreunit.UUID, cons constraints.Constraints) error {

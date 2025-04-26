@@ -590,7 +590,7 @@ func (s *unitServiceSuite) TestGetPublicAddressUnitNotFound(c *gc.C) {
 
 	unitName := coreunit.Name("foo/0")
 
-	s.state.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(coreapplication.ID(""), errors.New("boom"))
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID(""), errors.New("boom"))
 
 	_, err := s.service.GetPublicAddress(context.Background(), unitName)
 	c.Assert(err, gc.ErrorMatches, "boom")
@@ -601,14 +601,14 @@ func (s *unitServiceSuite) TestGetPublicAddressWithCloudServiceError(c *gc.C) {
 
 	unitName := coreunit.Name("foo/0")
 
-	s.state.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(coreapplication.ID("foo"), nil)
-	s.state.EXPECT().GetCloudServiceAddresses(gomock.Any(), coreapplication.ID("foo")).Return(nil, errors.New("boom"))
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
+	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(nil, errors.New("boom"))
 
 	_, err := s.service.GetPublicAddress(context.Background(), unitName)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
-func (s *unitServiceSuite) TestGetPublicAddressWithCloudServiceAddressesNotMatchingScopeCloudContainerError(c *gc.C) {
+func (s *unitServiceSuite) TestGetPublicAddressNonMatchingAddresses(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -632,43 +632,6 @@ func (s *unitServiceSuite) TestGetPublicAddressWithCloudServiceAddressesNotMatch
 				Scope:      network.ScopeMachineLocal,
 			},
 		},
-	}
-
-	s.state.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(coreapplication.ID("foo"), nil)
-	s.state.EXPECT().GetCloudServiceAddresses(gomock.Any(), coreapplication.ID("foo")).Return(nonMatchingScopeAddrs, nil)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(coreunit.UUID("foo-uuid"), nil)
-	s.state.EXPECT().GetCloudContainerAddresses(gomock.Any(), coreunit.UUID("foo-uuid")).Return(nil, errors.New("boom"))
-
-	_, err := s.service.GetPublicAddress(context.Background(), unitName)
-	c.Assert(err, gc.ErrorMatches, "boom")
-}
-
-func (s *unitServiceSuite) TestGetPublicAddressNonMatchingAddresses(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitName := coreunit.Name("foo/0")
-
-	nonMatchingScopeServiceAddrs := network.SpaceAddresses{
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1",
-				ConfigType: network.ConfigStatic,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeMachineLocal,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.2",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv6Address,
-				Scope:      network.ScopeMachineLocal,
-			},
-		},
-	}
-	nonMatchingScopeContainerAddrs := network.SpaceAddresses{
 		{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
@@ -689,16 +652,14 @@ func (s *unitServiceSuite) TestGetPublicAddressNonMatchingAddresses(c *gc.C) {
 		},
 	}
 
-	s.state.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(coreapplication.ID("foo"), nil)
-	s.state.EXPECT().GetCloudServiceAddresses(gomock.Any(), coreapplication.ID("foo")).Return(nonMatchingScopeServiceAddrs, nil)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(coreunit.UUID("foo-uuid"), nil)
-	s.state.EXPECT().GetCloudContainerAddresses(gomock.Any(), coreunit.UUID("foo-uuid")).Return(nonMatchingScopeContainerAddrs, nil)
+	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo-uuid")).Return(nonMatchingScopeAddrs, nil)
 
 	_, err := s.service.GetPublicAddress(context.Background(), unitName)
 	c.Assert(err, gc.ErrorMatches, "no public address.*")
 }
 
-func (s *unitServiceSuite) TestGetPublicAddressCloudService(c *gc.C) {
+func (s *unitServiceSuite) TestGetPublicAddressMatchingAddress(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -710,13 +671,13 @@ func (s *unitServiceSuite) TestGetPublicAddressCloudService(c *gc.C) {
 				Value:      "10.0.0.1",
 				ConfigType: network.ConfigStatic,
 				Type:       network.IPv4Address,
-				Scope:      network.ScopeCloudLocal,
+				Scope:      network.ScopeMachineLocal,
 			},
 		},
 		{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.2",
+				Value:      "54.32.1.2",
 				ConfigType: network.ConfigDHCP,
 				Type:       network.IPv6Address,
 				Scope:      network.ScopePublic,
@@ -724,46 +685,8 @@ func (s *unitServiceSuite) TestGetPublicAddressCloudService(c *gc.C) {
 		},
 	}
 
-	s.state.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(coreapplication.ID("foo"), nil)
-	s.state.EXPECT().GetCloudServiceAddresses(gomock.Any(), coreapplication.ID("foo")).Return(matchingScopeAddrs, nil)
-
-	addrs, err := s.service.GetPublicAddress(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
-	// Since the second address is higher in hierarchy of scope match, it should
-	// be returned.
-	c.Check(addrs, gc.DeepEquals, matchingScopeAddrs[1])
-}
-
-func (s *unitServiceSuite) TestGetPublicAddressCloudContainer(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitName := coreunit.Name("foo/0")
-
-	matchingScopeAddrs := network.SpaceAddresses{
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1",
-				ConfigType: network.ConfigStatic,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeCloudLocal,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.2",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv6Address,
-				Scope:      network.ScopePublic,
-			},
-		},
-	}
-
-	s.state.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(coreapplication.ID("foo"), nil)
-	s.state.EXPECT().GetCloudServiceAddresses(gomock.Any(), coreapplication.ID("foo")).Return(nil, nil)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(coreunit.UUID("foo-uuid"), nil)
-	s.state.EXPECT().GetCloudContainerAddresses(gomock.Any(), coreunit.UUID("foo-uuid")).Return(matchingScopeAddrs, nil)
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
+	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(matchingScopeAddrs, nil)
 
 	addrs, err := s.service.GetPublicAddress(context.Background(), unitName)
 	c.Assert(err, jc.ErrorIsNil)
@@ -777,25 +700,25 @@ func (s *unitServiceSuite) TestGetPrivateAddressUnitNotFound(c *gc.C) {
 
 	unitName := coreunit.Name("foo/0")
 
-	s.state.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(coreapplication.ID("foo"), errors.New("boom"))
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), errors.New("boom"))
 
 	_, err := s.service.GetPrivateAddress(context.Background(), unitName)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
-func (s *unitServiceSuite) TestGetPrivateAddressWithCloudServiceError(c *gc.C) {
+func (s *unitServiceSuite) TestGetPrivateAddressError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
 
-	s.state.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(coreapplication.ID("foo"), nil)
-	s.state.EXPECT().GetCloudServiceAddresses(gomock.Any(), coreapplication.ID("foo")).Return(nil, errors.New("boom"))
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
+	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(nil, errors.New("boom"))
 
 	_, err := s.service.GetPrivateAddress(context.Background(), unitName)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
-func (s *unitServiceSuite) TestGetPrivateAddressWithCloudServiceAddressesNotMatchingScopeCloudContainerError(c *gc.C) {
+func (s *unitServiceSuite) TestGetPrivateAddressNonMatchingAddresses(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -819,78 +742,6 @@ func (s *unitServiceSuite) TestGetPrivateAddressWithCloudServiceAddressesNotMatc
 				Scope:      network.ScopeMachineLocal,
 			},
 		},
-	}
-
-	s.state.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(coreapplication.ID("foo"), nil)
-	s.state.EXPECT().GetCloudServiceAddresses(gomock.Any(), coreapplication.ID("foo")).Return(nonMatchingScopeAddrs, nil)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(coreunit.UUID("foo-uuid"), nil)
-	s.state.EXPECT().GetCloudContainerAddresses(gomock.Any(), coreunit.UUID("foo-uuid")).Return(nil, errors.New("boom"))
-
-	_, err := s.service.GetPrivateAddress(context.Background(), unitName)
-	c.Assert(err, gc.ErrorMatches, "boom")
-}
-
-func (s *unitServiceSuite) TestGetPrivateAddressNoAddresses(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitName := coreunit.Name("foo/0")
-
-	nonMatchingScopeServiceAddrs := network.SpaceAddresses{
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1",
-				ConfigType: network.ConfigStatic,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeMachineLocal,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.2",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv6Address,
-				Scope:      network.ScopeMachineLocal,
-			},
-		},
-	}
-
-	s.state.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(coreapplication.ID("foo"), nil)
-	s.state.EXPECT().GetCloudServiceAddresses(gomock.Any(), coreapplication.ID("foo")).Return(nonMatchingScopeServiceAddrs, nil)
-	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(coreunit.UUID("foo-uuid"), nil)
-	s.state.EXPECT().GetCloudContainerAddresses(gomock.Any(), coreunit.UUID("foo-uuid")).Return(nil, nil)
-
-	_, err := s.service.GetPrivateAddress(context.Background(), unitName)
-	c.Assert(err, gc.ErrorMatches, "no local-cloud address.*")
-}
-
-func (s *unitServiceSuite) TestGetPrivateAddressNonMatchingAddresses(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitName := coreunit.Name("foo/0")
-
-	nonMatchingScopeServiceAddrs := network.SpaceAddresses{
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1",
-				ConfigType: network.ConfigStatic,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeMachineLocal,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.2",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv6Address,
-				Scope:      network.ScopeMachineLocal,
-			},
-		},
-	}
-	nonMatchingScopeContainerAddrs := network.SpaceAddresses{
 		{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
@@ -911,19 +762,17 @@ func (s *unitServiceSuite) TestGetPrivateAddressNonMatchingAddresses(c *gc.C) {
 		},
 	}
 
-	s.state.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(coreapplication.ID("foo"), nil)
-	s.state.EXPECT().GetCloudServiceAddresses(gomock.Any(), coreapplication.ID("foo")).Return(nonMatchingScopeServiceAddrs, nil)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(coreunit.UUID("foo-uuid"), nil)
-	s.state.EXPECT().GetCloudContainerAddresses(gomock.Any(), coreunit.UUID("foo-uuid")).Return(nonMatchingScopeContainerAddrs, nil)
+	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo-uuid")).Return(nonMatchingScopeAddrs, nil)
 
 	addr, err := s.service.GetPrivateAddress(context.Background(), unitName)
 	c.Assert(err, jc.ErrorIsNil)
 	// We always return the (first) container address even if it doesn't match
 	// the scope.
-	c.Assert(addr, gc.DeepEquals, nonMatchingScopeContainerAddrs[0])
+	c.Assert(addr, gc.DeepEquals, nonMatchingScopeAddrs[0])
 }
 
-func (s *unitServiceSuite) TestGetPrivateAddressCloudService(c *gc.C) {
+func (s *unitServiceSuite) TestGetPrivateAddressMatchingAddress(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := coreunit.Name("foo/0")
@@ -932,7 +781,7 @@ func (s *unitServiceSuite) TestGetPrivateAddressCloudService(c *gc.C) {
 		{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1",
+				Value:      "54.32.1.2",
 				ConfigType: network.ConfigStatic,
 				Type:       network.IPv4Address,
 				Scope:      network.ScopePublic,
@@ -941,37 +790,10 @@ func (s *unitServiceSuite) TestGetPrivateAddressCloudService(c *gc.C) {
 		{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.2",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv6Address,
-				Scope:      network.ScopeCloudLocal,
-			},
-		},
-	}
-
-	s.state.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(coreapplication.ID("foo"), nil)
-	s.state.EXPECT().GetCloudServiceAddresses(gomock.Any(), coreapplication.ID("foo")).Return(matchingScopeAddrs, nil)
-
-	addrs, err := s.service.GetPrivateAddress(context.Background(), unitName)
-	c.Assert(err, jc.ErrorIsNil)
-	// Since the second address is higher in hierarchy of scope match, it should
-	// be returned.
-	c.Check(addrs, gc.DeepEquals, matchingScopeAddrs[1])
-}
-
-func (s *unitServiceSuite) TestGetPrivateAddressCloudContainer(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitName := coreunit.Name("foo/0")
-
-	matchingScopeAddrs := network.SpaceAddresses{
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
-				Value:      "10.0.0.1",
+				Value:      "192.168.1.2",
 				ConfigType: network.ConfigStatic,
 				Type:       network.IPv4Address,
-				Scope:      network.ScopePublic,
+				Scope:      network.ScopeCloudLocal,
 			},
 		},
 		{
@@ -980,15 +802,13 @@ func (s *unitServiceSuite) TestGetPrivateAddressCloudContainer(c *gc.C) {
 				Value:      "10.0.0.2",
 				ConfigType: network.ConfigDHCP,
 				Type:       network.IPv6Address,
-				Scope:      network.ScopeCloudLocal,
+				Scope:      network.ScopeMachineLocal,
 			},
 		},
 	}
 
-	s.state.EXPECT().GetApplicationIDByUnitName(gomock.Any(), unitName).Return(coreapplication.ID("foo"), nil)
-	s.state.EXPECT().GetCloudServiceAddresses(gomock.Any(), coreapplication.ID("foo")).Return(nil, nil)
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(coreunit.UUID("foo-uuid"), nil)
-	s.state.EXPECT().GetCloudContainerAddresses(gomock.Any(), coreunit.UUID("foo-uuid")).Return(matchingScopeAddrs, nil)
+	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo-uuid")).Return(matchingScopeAddrs, nil)
 
 	addrs, err := s.service.GetPrivateAddress(context.Background(), unitName)
 	c.Assert(err, jc.ErrorIsNil)

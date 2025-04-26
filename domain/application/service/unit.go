@@ -570,39 +570,22 @@ func (s *Service) GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.
 //
 // The following errors may be returned:
 // - [uniterrors.UnitNotFound] if the unit does not exist
+// - [network.NoAddressError] if the unit has no address associated
 func (s *Service) GetPublicAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error) {
-	appUUID, err := s.st.GetApplicationIDByUnitName(ctx, unitName)
-	if err != nil {
-		return network.SpaceAddress{}, errors.Capture(err)
-	}
-
-	serviceAddresses, err := s.st.GetCloudServiceAddresses(ctx, appUUID)
-	if err != nil {
-		return network.SpaceAddress{}, errors.Capture(err)
-	}
-	if len(serviceAddresses) > 0 {
-		if addr, ok := serviceAddresses.OneMatchingScope(network.ScopeMatchPublic); ok {
-			return addr, nil
-		}
-	}
-
-	// Fallback to the cloud container address.
 	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
 		return network.SpaceAddress{}, errors.Capture(err)
 	}
-	containerAddresses, err := s.st.GetCloudContainerAddresses(ctx, unitUUID)
+	addrs, err := s.st.GetUnitAddresses(ctx, unitUUID)
 	if err != nil {
 		return network.SpaceAddress{}, errors.Capture(err)
 	}
-	if len(containerAddresses) > 0 {
-		if addr, ok := containerAddresses.OneMatchingScope(network.ScopeMatchPublic); ok {
-			return addr, nil
-		}
+
+	addr, found := addrs.OneMatchingScope(network.ScopeMatchPublic)
+	if !found {
+		return network.SpaceAddress{}, network.NoAddressError(string(network.ScopePublic))
 	}
-	// TODO(nvinuesa): We should also use the address taken from the
-	// machine table here when we migrate machines to dqlite.
-	return network.SpaceAddress{}, network.NoAddressError(string(network.ScopePublic))
+	return addr, nil
 }
 
 // GetPrivateAddress returns the private address for the specified unit.
@@ -613,40 +596,23 @@ func (s *Service) GetPublicAddress(ctx context.Context, unitName coreunit.Name) 
 //
 // The following errors may be returned:
 // - [uniterrors.UnitNotFound] if the unit does not exist
+// - [network.NoAddressError] if the unit has no address associated
 func (s *Service) GetPrivateAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error) {
-	appUUID, err := s.st.GetApplicationIDByUnitName(ctx, unitName)
-	if err != nil {
-		return network.SpaceAddress{}, errors.Capture(err)
-	}
-	serviceAddresses, err := s.st.GetCloudServiceAddresses(ctx, appUUID)
-	if err != nil {
-		return network.SpaceAddress{}, errors.Capture(err)
-	}
-	if len(serviceAddresses) > 0 {
-		if addr, ok := serviceAddresses.OneMatchingScope(network.ScopeMatchCloudLocal); ok {
-			return addr, nil
-		}
-	}
-
-	// Fallback to the cloud container address.
 	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
 		return network.SpaceAddress{}, errors.Capture(err)
 	}
-	containerAddresses, err := s.st.GetCloudContainerAddresses(ctx, unitUUID)
+	addrs, err := s.st.GetUnitAddresses(ctx, unitUUID)
 	if err != nil {
 		return network.SpaceAddress{}, errors.Capture(err)
 	}
-	if len(containerAddresses) > 0 {
-		if addr, ok := containerAddresses.OneMatchingScope(network.ScopeMatchCloudLocal); ok {
-			return addr, nil
-		} else {
-			// We always return (first) the container address even if it doesn't
-			// match the scope.
-			return containerAddresses[0], nil
-		}
+
+	addr, found := addrs.OneMatchingScope(network.ScopeMatchCloudLocal)
+	if !found && len(addrs) > 0 {
+		// Even if we don't match the scope, we return the first unit address.
+		return addrs[0], nil
+	} else if !found {
+		return network.SpaceAddress{}, network.NoAddressError(string(network.ScopeCloudLocal))
 	}
-	// TODO(nvinuesa): We should also use the address taken from the
-	// machine table here when we migrate machines to dqlite.
-	return network.SpaceAddress{}, network.NoAddressError(string(network.ScopeCloudLocal))
+	return addr, nil
 }

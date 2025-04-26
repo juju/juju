@@ -78,12 +78,16 @@ type ApplicationState interface {
 	// specified application.
 	GetCloudServiceAddresses(ctx context.Context, appUUID coreapplication.ID) (network.SpaceAddresses, error)
 
-	// GetCloudContainerAddresses returns the addresses of the cloud container for the
-	// specified unit.
+	// GetUnitAddresses returns the addresses of the specified unit.
+	// The addresses are taken by unioning the net node UUIDs of the cloud service
+	// (if any) and the net node UUIDs of the unit, where each net node has an
+	// associated address.
+	// This apprach allows us to get the addresses regardless of the substrate
+	// (k8s or machines).
 	//
 	// The following errors may be returned:
 	// - [uniterrors.UnitNotFound] if the unit does not exist
-	GetCloudContainerAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error)
+	GetUnitAddresses(ctx context.Context, uuid coreunit.UUID) (network.SpaceAddresses, error)
 
 	// GetApplicationScaleState looks up the scale state of the specified
 	// application, returning an error satisfying

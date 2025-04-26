@@ -2026,45 +2026,6 @@ func (c *MockStateGetCharmModifiedVersionCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
-// GetCloudContainerAddresses mocks base method.
-func (m *MockState) GetCloudContainerAddresses(ctx context.Context, uuid unit.UUID) (network.SpaceAddresses, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCloudContainerAddresses", ctx, uuid)
-	ret0, _ := ret[0].(network.SpaceAddresses)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetCloudContainerAddresses indicates an expected call of GetCloudContainerAddresses.
-func (mr *MockStateMockRecorder) GetCloudContainerAddresses(ctx, uuid any) *MockStateGetCloudContainerAddressesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCloudContainerAddresses", reflect.TypeOf((*MockState)(nil).GetCloudContainerAddresses), ctx, uuid)
-	return &MockStateGetCloudContainerAddressesCall{Call: call}
-}
-
-// MockStateGetCloudContainerAddressesCall wrap *gomock.Call
-type MockStateGetCloudContainerAddressesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetCloudContainerAddressesCall) Return(arg0 network.SpaceAddresses, arg1 error) *MockStateGetCloudContainerAddressesCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetCloudContainerAddressesCall) Do(f func(context.Context, unit.UUID) (network.SpaceAddresses, error)) *MockStateGetCloudContainerAddressesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetCloudContainerAddressesCall) DoAndReturn(f func(context.Context, unit.UUID) (network.SpaceAddresses, error)) *MockStateGetCloudContainerAddressesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetCloudServiceAddresses mocks base method.
 func (m *MockState) GetCloudServiceAddresses(ctx context.Context, appUUID application.ID) (network.SpaceAddresses, error) {
 	m.ctrl.T.Helper()
@@ -2490,6 +2451,45 @@ func (c *MockStateGetStorageUUIDByIDCall) Do(f func(context.Context, storage.ID)
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetStorageUUIDByIDCall) DoAndReturn(f func(context.Context, storage.ID) (storage.UUID, error)) *MockStateGetStorageUUIDByIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitAddresses mocks base method.
+func (m *MockState) GetUnitAddresses(ctx context.Context, uuid unit.UUID) (network.SpaceAddresses, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitAddresses", ctx, uuid)
+	ret0, _ := ret[0].(network.SpaceAddresses)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitAddresses indicates an expected call of GetUnitAddresses.
+func (mr *MockStateMockRecorder) GetUnitAddresses(ctx, uuid any) *MockStateGetUnitAddressesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitAddresses", reflect.TypeOf((*MockState)(nil).GetUnitAddresses), ctx, uuid)
+	return &MockStateGetUnitAddressesCall{Call: call}
+}
+
+// MockStateGetUnitAddressesCall wrap *gomock.Call
+type MockStateGetUnitAddressesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitAddressesCall) Return(arg0 network.SpaceAddresses, arg1 error) *MockStateGetUnitAddressesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitAddressesCall) Do(f func(context.Context, unit.UUID) (network.SpaceAddresses, error)) *MockStateGetUnitAddressesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitAddressesCall) DoAndReturn(f func(context.Context, unit.UUID) (network.SpaceAddresses, error)) *MockStateGetUnitAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
