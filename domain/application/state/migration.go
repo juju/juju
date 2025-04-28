@@ -115,15 +115,21 @@ func (st *State) GetApplicationUnitsForExport(ctx context.Context, appID coreapp
 	}
 
 	var unit exportUnit
-	query := `SELECT &exportUnit.* FROM v_unit_export`
-	stmt, err := st.Prepare(query, unit)
+	id := applicationID{
+		ID: appID,
+	}
+	query := `
+SELECT &exportUnit.* FROM v_unit_export
+WHERE application_uuid = $applicationID.uuid
+`
+	stmt, err := st.Prepare(query, unit, id)
 	if err != nil {
 		return nil, errors.Errorf("preparing statement: %w", err)
 	}
 
 	var units []exportUnit
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt).GetAll(&units)
+		err := tx.Query(ctx, stmt, id).GetAll(&units)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		} else if err != nil {
