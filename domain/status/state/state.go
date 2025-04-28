@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	domainlife "github.com/juju/juju/domain/life"
@@ -1235,7 +1236,29 @@ func (st *State) GetApplicationAndUnitStatuses(ctx context.Context) (map[string]
 	var result map[string]status.Application
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		result, err = st.getApplicationsStatus(ctx, tx)
+		if result, err = st.getApplicationsStatuses(ctx, tx); err != nil {
+			return errors.Errorf("getting application statuses: %w", err)
+		}
+
+		unitStatues, err := st.getUnitsStatuses(ctx, tx)
+		if err != nil {
+			return errors.Errorf("getting unit statuses: %w", err)
+		}
+
+		// Assign the unit statuses to the applications.
+		for appName, units := range unitStatues {
+			app, ok := result[appName]
+			if !ok {
+				// A orphaned unit exists, but the application doesn't. This is
+				// probably a bug, but we can ignore it for now.
+				st.logger.Debugf(ctx, "application %q not found in application statuses", appName)
+				continue
+			}
+
+			app.Units = units
+			result[appName] = app
+		}
+
 		return err
 	}); err != nil {
 		return nil, errors.Errorf("getting application statuses: %w", err)
@@ -1244,9 +1267,9 @@ func (st *State) GetApplicationAndUnitStatuses(ctx context.Context) (map[string]
 	return result, nil
 }
 
-func (st *State) getApplicationsStatus(ctx context.Context, tx *sqlair.TX) (map[string]status.Application, error) {
+func (st *State) getApplicationsStatuses(ctx context.Context, tx *sqlair.TX) (map[string]status.Application, error) {
 	// Get all the applications.
-	applicationQuery, err := st.Prepare(`
+	query, err := st.Prepare(`
 SELECT
 	a.name AS &applicationStatusDetails.name,
 	a.uuid AS &applicationStatusDetails.uuid,
@@ -1284,15 +1307,11 @@ LEFT JOIN v_relation_endpoint AS re ON re.application_uuid = a.uuid
 ORDER BY a.name, re.relation_uuid;
 `, applicationStatusDetails{})
 	if err != nil {
-		return nil, errors.Capture(err)
+		return nil, errors.Errorf("preparing application query: %w", err)
 	}
 
 	var appStatuses []applicationStatusDetails
-	if err := tx.Query(ctx, applicationQuery).GetAll(&appStatuses); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Capture(err)
-	}
-
-	if err != nil {
+	if err := tx.Query(ctx, query).GetAll(&appStatuses); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Capture(err)
 	}
 
@@ -1381,6 +1400,50 @@ ORDER BY a.name, re.relation_uuid;
 			Scale:         scale,
 			K8sProviderID: k8sProviderID,
 		}
+	}
+
+	return result, nil
+}
+
+func (st *State) getUnitsStatuses(ctx context.Context, tx *sqlair.TX) (map[string]map[unit.Name]status.Unit, error) {
+	// Get all the units.
+	query, err := st.Prepare(`
+SELECT
+	u.name AS &unitStatusDetails.name,
+	u.uuid AS &unitStatusDetails.uuid,
+	life.life_id AS &unitStatusDetails.life_id,
+	u.application_uuid AS &unitStatusDetails.application_uuid,
+	a.name AS &unitStatusDetails.application_name,
+FROM unit AS u
+JOIN unit_life AS life ON life.unit_uuid = u.uuid
+JOIN application AS a ON a.uuid = u.application_uuid
+ORDER BY u.name;
+`, unitStatusDetails{})
+	if err != nil {
+		return nil, errors.Errorf("preparing unit query: %w", err)
+	}
+
+	var unitStatuses []unitStatusDetails
+	if err := tx.Query(ctx, query).GetAll(&unitStatuses); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[string]map[unit.Name]status.Unit)
+	for _, s := range unitStatuses {
+		appName := s.ApplicationName
+		unitName := s.Name
+
+		if _, exists := result[appName]; !exists {
+			result[appName] = make(map[unit.Name]status.Unit)
+		}
+		if _, exists := result[appName][unitName]; exists {
+
+		}
+
+		result[appName][unitName] = status.Unit{
+			Life: s.LifeID,
+		}
+
 	}
 
 	return result, nil

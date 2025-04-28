@@ -153,6 +153,13 @@ type applicationStatusDetails struct {
 	K8sProviderID          sql.NullString     `db:"k8s_provider_id"`
 }
 
+type unitStatusDetails struct {
+	UUID            coreunit.UUID   `db:"uuid"`
+	Name            coreunit.Name   `db:"name"`
+	ApplicationName string          `db:"application_name"`
+	LifeID          domainlife.Life `db:"life_id"`
+}
+
 // relationStatus represents the status of a relation and the relations ID.
 type relationStatusAndID struct {
 	RelationUUID corerelation.UUID `db:"relation_uuid"`

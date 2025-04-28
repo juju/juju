@@ -36,6 +36,7 @@ type Unit struct {
 	AgentStatus     StatusInfo[UnitAgentStatusType]
 	WorkloadStatus  StatusInfo[WorkloadStatusType]
 	WorkloadVersion string
+	Life            life.Life
 	Leader          bool
 	Machine         machine.Name
 	OpenedPorts     []string
