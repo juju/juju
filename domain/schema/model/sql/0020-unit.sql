@@ -398,6 +398,9 @@ SELECT
     u.uuid,
     u.name,
     u.password_hash,
-    m.name AS machine_name
+    m.name AS machine_name,
+    upname.name AS principal_name
 FROM unit AS u
-LEFT JOIN machine AS m ON u.net_node_uuid = m.net_node_uuid;
+LEFT JOIN machine AS m ON u.net_node_uuid = m.net_node_uuid
+LEFT JOIN unit_principal AS up ON u.uuid = up.unit_uuid
+LEFT JOIN unit AS upname ON up.principal_uuid = upname.uuid;

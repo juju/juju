@@ -147,6 +147,58 @@ func (s *exportApplicationSuite) TestApplicationExportMultipleApplications(c *gc
 	c.Check(apps[1].DesiredScale(), gc.Equals, 1)
 }
 
+func (s *exportApplicationSuite) TestApplicationExportUnits(c *gc.C) {
+	// Arrange:
+	defer s.setupMocks(c).Finish()
+
+	s.exportService.EXPECT().GetApplications(gomock.Any()).Return([]application.ExportApplication{{
+		Name:      "prometheus",
+		ModelType: model.IAAS,
+		CharmLocator: charm.CharmLocator{
+			Source: charm.CharmHubSource,
+		},
+	}}, nil)
+	s.exportService.EXPECT().IsApplicationExposed(gomock.Any(), "prometheus").Return(false, nil)
+
+	s.expectCharmOriginFor("prometheus")
+	s.expectApplicationConfigFor("prometheus")
+	s.expectMinimalCharmFor("prometheus")
+	s.expectApplicationConstraintsFor("prometheus", constraints.Value{})
+
+	s.exportService.EXPECT().GetApplicationUnits(gomock.Any(), "prometheus").Return([]application.ExportUnit{{
+		Name:      "prometheus/0",
+		Machine:   "0",
+		Principal: "principal1/0",
+	}, {
+		Name:      "prometheus/1",
+		Machine:   "1",
+		Principal: "principal2/0",
+	}}, nil)
+
+	// Act:
+	exportOp := s.newExportOperation()
+	model := description.NewModel(description.ModelArgs{})
+	err := exportOp.Execute(context.Background(), model)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Applications(), gc.HasLen, 1)
+
+	apps := model.Applications()
+	c.Check(apps[0].Name(), gc.Equals, "prometheus")
+
+	// Check that the scaling state is set for the second application.
+	units := apps[0].Units()
+	c.Check(units, gc.HasLen, 2)
+	c.Check(units[0].Name(), gc.Equals, "prometheus/0")
+	c.Check(units[0].Machine(), gc.Equals, "0")
+	c.Check(units[0].Principal(), gc.Equals, "principal1/0")
+
+	c.Check(units[1].Name(), gc.Equals, "prometheus/1")
+	c.Check(units[1].Machine(), gc.Equals, "1")
+	c.Check(units[1].Principal(), gc.Equals, "principal2/0")
+}
+
 func (s *exportApplicationSuite) TestApplicationExportConstraints(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
