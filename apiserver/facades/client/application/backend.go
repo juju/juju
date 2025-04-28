@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/configschema"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 )
 
@@ -118,8 +119,38 @@ type stateShim struct {
 	*state.State
 }
 
-type modelShim struct {
-	*state.Model
+// Needed for legacy code to create a CAAS provider in the facade.
+// This would be removed once the logic is migrated to the domain service.
+type modelInfoShim struct {
+	cloud              string
+	cloudRegion        string
+	cloudCredentialTag names.CloudCredentialTag
+	modelTag           names.ModelTag
+	controllerUUID     uuid.UUID
+	modelType          state.ModelType
+}
+
+func (m *modelInfoShim) CloudName() string {
+	return m.cloud
+}
+
+func (m *modelInfoShim) CloudRegion() string {
+	return m.cloudRegion
+}
+
+func (m *modelInfoShim) CloudCredentialTag() (names.CloudCredentialTag, bool) {
+	return m.cloudCredentialTag, !m.cloudCredentialTag.IsZero()
+}
+
+func (m *modelInfoShim) ModelTag() names.ModelTag {
+	return m.modelTag
+}
+func (m *modelInfoShim) ControllerUUID() string {
+	return m.controllerUUID.String()
+}
+
+func (m *modelInfoShim) Type() state.ModelType {
+	return m.modelType
 }
 
 type StorageInterface interface {

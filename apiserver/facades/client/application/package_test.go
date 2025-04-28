@@ -21,11 +21,11 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application ExternalControllerService,NetworkService,StorageInterface,DeployFromRepository,BlockChecker,ModelConfigService,MachineService,ApplicationService,ResolveService,PortService,Leadership,StorageService,RelationService,ResourceService
+//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination services_mock_test.go github.com/juju/juju/apiserver/facades/client/application NetworkService,StorageInterface,DeployFromRepository,BlockChecker,ModelConfigService,MachineService,ApplicationService,ResolveService,PortService,Leadership,StorageService,RelationService,ResourceService
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination legacy_mock_test.go github.com/juju/juju/apiserver/facades/client/application Backend,Application,CaasBrokerInterface
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry
-//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination facade_mock_test.go github.com/juju/juju/apiserver/facade Authorizer,Resources
+//go:generate go run go.uber.org/mock/mockgen -typed -package application -destination facade_mock_test.go github.com/juju/juju/apiserver/facade Authorizer
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination charm_mock_test.go github.com/juju/juju/internal/charm Charm,CharmMeta
 //go:generate go run go.uber.org/mock/mockgen -typed -package application -destination core_charm_mock_test.go github.com/juju/juju/core/charm Repository,RepositoryFactory
 
@@ -38,16 +38,15 @@ type baseSuite struct {
 
 	api *APIBase
 
-	applicationService        *MockApplicationService
-	resolveService            *MockResolveService
-	externalControllerService *MockExternalControllerService
-	machineService            *MockMachineService
-	modelConfigService        *MockModelConfigService
-	networkService            *MockNetworkService
-	portService               *MockPortService
-	resourceService           *MockResourceService
-	storageService            *MockStorageService
-	relationService           *MockRelationService
+	applicationService *MockApplicationService
+	resolveService     *MockResolveService
+	machineService     *MockMachineService
+	modelConfigService *MockModelConfigService
+	networkService     *MockNetworkService
+	portService        *MockPortService
+	resourceService    *MockResourceService
+	storageService     *MockStorageService
+	relationService    *MockRelationService
 
 	storageAccess    *MockStorageInterface
 	authorizer       *MockAuthorizer
@@ -66,14 +65,12 @@ type baseSuite struct {
 	backend           *MockBackend
 	deployApplication DeployApplicationFunc
 	providerRegistry  *MockProviderRegistry
-	resources         *MockResources
 	caasBroker        *MockCaasBrokerInterface
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.externalControllerService = NewMockExternalControllerService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.resolveService = NewMockResolveService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
@@ -149,16 +146,15 @@ func (s *baseSuite) newAPI(c *gc.C, modelType model.ModelType) {
 	s.api, err = NewAPIBase(
 		s.backend,
 		Services{
-			ExternalControllerService: s.externalControllerService,
-			NetworkService:            s.networkService,
-			ModelConfigService:        s.modelConfigService,
-			MachineService:            s.machineService,
-			ApplicationService:        s.applicationService,
-			ResolveService:            s.resolveService,
-			PortService:               s.portService,
-			ResourceService:           s.resourceService,
-			StorageService:            s.storageService,
-			RelationService:           s.relationService,
+			NetworkService:     s.networkService,
+			ModelConfigService: s.modelConfigService,
+			MachineService:     s.machineService,
+			ApplicationService: s.applicationService,
+			ResolveService:     s.resolveService,
+			PortService:        s.portService,
+			ResourceService:    s.resourceService,
+			StorageService:     s.storageService,
+			RelationService:    s.relationService,
 		},
 		s.storageAccess,
 		s.authorizer,
@@ -169,7 +165,6 @@ func (s *baseSuite) newAPI(c *gc.C, modelType model.ModelType) {
 		s.deployFromRepo,
 		s.deployApplication,
 		s.providerRegistry,
-		s.resources,
 		s.caasBroker,
 		s.objectStore,
 		loggertesting.WrapCheckLog(c),

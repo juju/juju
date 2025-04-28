@@ -26,6 +26,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/credential"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
@@ -75,10 +76,9 @@ type APIBase struct {
 	storageAccess StorageInterface
 	store         objectstore.ObjectStore
 
-	externalControllerService ExternalControllerService
-	authorizer                facade.Authorizer
-	check                     BlockChecker
-	repoDeploy                DeployFromRepository
+	authorizer facade.Authorizer
+	check      BlockChecker
+	repoDeploy DeployFromRepository
 
 	modelUUID          model.UUID
 	modelType          model.ModelType
@@ -92,7 +92,6 @@ type APIBase struct {
 	resourceService    ResourceService
 	storageService     StorageService
 
-	resources        facade.Resources
 	leadershipReader leadership.Reader
 
 	registry              storage.ProviderRegistry
@@ -108,12 +107,7 @@ type CaasBrokerInterface interface {
 }
 
 func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, error) {
-	m, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting model")
-	}
-	// modelShim wraps the AllPorts() API.
-	modelShim := &modelShim{Model: m}
+
 	storageAccess, err := getStorageState(ctx.State())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting state")
@@ -130,17 +124,41 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 
 	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
 	if err != nil {
-		return nil, fmt.Errorf("getting model info: %w", err)
+		return nil, internalerrors.Errorf("getting model info: %w", err)
+	}
+
+	cloud := modelInfo.Cloud
+	cloudRegion := modelInfo.CloudRegion
+	modelTag := names.NewModelTag(modelInfo.UUID.String())
+	controllerUUID := modelInfo.ControllerUUID
+	modelType := modelInfo.Type
+
+	cloudCredentialKey := credential.Key{
+		Cloud: modelInfo.Cloud,
+		Owner: modelInfo.CredentialOwner,
+		Name:  modelInfo.CredentialName,
+	}
+	cloudCredentialTag, err := cloudCredentialKey.Tag()
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	modelInfoShim := &modelInfoShim{
+		cloud:              cloud,
+		cloudRegion:        cloudRegion,
+		cloudCredentialTag: cloudCredentialTag,
+		modelTag:           modelTag,
+		controllerUUID:     controllerUUID,
+		modelType:          state.ModelType(modelType),
 	}
 
 	var caasBroker caas.Broker
-	if modelInfo.Type == model.CAAS {
-		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(modelShim, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
+	if modelType == model.CAAS {
+		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(modelInfoShim, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
 		if err != nil {
 			return nil, errors.Annotate(err, "getting caas client")
 		}
 	}
-	resources := ctx.Resources()
 
 	leadershipReader, err := ctx.LeadershipReader()
 	if err != nil {
@@ -188,16 +206,15 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	return NewAPIBase(
 		state,
 		Services{
-			ExternalControllerService: domainServices.ExternalController(),
-			NetworkService:            domainServices.Network(),
-			ModelConfigService:        domainServices.Config(),
-			MachineService:            domainServices.Machine(),
-			ApplicationService:        applicationService,
-			ResolveService:            domainServices.Resolve(),
-			PortService:               domainServices.Port(),
-			RelationService:           domainServices.Relation(),
-			ResourceService:           domainServices.Resource(),
-			StorageService:            storageService,
+			NetworkService:     domainServices.Network(),
+			ModelConfigService: domainServices.Config(),
+			MachineService:     domainServices.Machine(),
+			ApplicationService: applicationService,
+			ResolveService:     domainServices.Resolve(),
+			PortService:        domainServices.Port(),
+			RelationService:    domainServices.Relation(),
+			ResourceService:    domainServices.Resource(),
+			StorageService:     storageService,
 		},
 		storageAccess,
 		ctx.Auth(),
@@ -208,7 +225,6 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		repoDeploy,
 		DeployApplication,
 		registry,
-		resources,
 		caasBroker,
 		ctx.ObjectStore(),
 		ctx.Logger().Child("application"),
@@ -241,7 +257,6 @@ func NewAPIBase(
 	repoDeploy DeployFromRepository,
 	deployApplication DeployApplicationFunc,
 	registry storage.ProviderRegistry,
-	resources facade.Resources,
 	caasBroker CaasBrokerInterface,
 	store objectstore.ObjectStore,
 	logger corelogger.Logger,
@@ -266,20 +281,18 @@ func NewAPIBase(
 		leadershipReader:      leadershipReader,
 		deployApplicationFunc: deployApplication,
 		registry:              registry,
-		resources:             resources,
 		caasBroker:            caasBroker,
 		store:                 store,
 
-		applicationService:        services.ApplicationService,
-		resolveService:            services.ResolveService,
-		externalControllerService: services.ExternalControllerService,
-		machineService:            services.MachineService,
-		modelConfigService:        services.ModelConfigService,
-		networkService:            services.NetworkService,
-		portService:               services.PortService,
-		relationService:           services.RelationService,
-		resourceService:           services.ResourceService,
-		storageService:            services.StorageService,
+		applicationService: services.ApplicationService,
+		resolveService:     services.ResolveService,
+		machineService:     services.MachineService,
+		modelConfigService: services.ModelConfigService,
+		networkService:     services.NetworkService,
+		portService:        services.PortService,
+		relationService:    services.RelationService,
+		resourceService:    services.ResourceService,
+		storageService:     services.StorageService,
 
 		logger: logger,
 		clock:  clock,
