@@ -1295,7 +1295,8 @@ func (s *relationServiceSuite) expectSetRelationApplicationSettings(
 	id coreapplication.ID,
 	settings map[string]interface{},
 ) {
-	s.state.EXPECT().SetRelationApplicationSettings(gomock.Any(), uuid, id, settingsMap(settings)).Return(nil)
+	appSettings, _ := settingsMap(settings)
+	s.state.EXPECT().SetRelationApplicationSettings(gomock.Any(), uuid, id, appSettings).Return(nil)
 }
 
 func (s *relationServiceSuite) expectEnterScope(
@@ -1303,7 +1304,8 @@ func (s *relationServiceSuite) expectEnterScope(
 	name coreunit.Name,
 	settings map[string]interface{},
 ) {
-	s.state.EXPECT().EnterScope(gomock.Any(), uuid, name, settingsMap(settings)).Return(nil)
+	unitSettings, _ := settingsMap(settings)
+	s.state.EXPECT().EnterScope(gomock.Any(), uuid, name, unitSettings).Return(nil)
 }
 
 type relationLeadershipServiceSuite struct {

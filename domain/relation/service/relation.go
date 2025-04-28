@@ -1030,12 +1030,20 @@ func (s *Service) importRelationEndpoint(ctx context.Context, relUUID corerelati
 		return err
 	}
 
-	err = s.st.SetRelationApplicationSettings(ctx, relUUID, appID, settingsMap(ep.ApplicationSettings))
+	settings, err := settingsMap(ep.ApplicationSettings)
 	if err != nil {
 		return err
 	}
-	for unitName, settings := range ep.UnitSettings {
-		err = s.st.EnterScope(ctx, relUUID, unit.Name(unitName), settingsMap(settings))
+	err = s.st.SetRelationApplicationSettings(ctx, relUUID, appID, settings)
+	if err != nil {
+		return err
+	}
+	for unitName, unitSettings := range ep.UnitSettings {
+		settings, err = settingsMap(unitSettings)
+		if err != nil {
+			return err
+		}
+		err = s.st.EnterScope(ctx, relUUID, unit.Name(unitName), settings)
 		if err != nil {
 			return err
 		}
@@ -1043,10 +1051,16 @@ func (s *Service) importRelationEndpoint(ctx context.Context, relUUID corerelati
 	return nil
 }
 
-func settingsMap(in map[string]interface{}) map[string]string {
+func settingsMap(in map[string]interface{}) (map[string]string, error) {
+	var errs error
 	return transform.Map(in, func(k string, v interface{}) (string, string) {
+		switch v.(type) {
+		case string:
+		default:
+			errs = errors.Join(errs, errors.Errorf("%+v no a string", v))
+		}
 		return k, fmt.Sprintf("%v", v)
-	})
+	}), errs
 }
 
 // DeleteImportedRelations deletes all imported relations in a model during
