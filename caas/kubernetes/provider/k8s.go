@@ -89,6 +89,10 @@ type kubernetesClient struct {
 
 	// modelUUID is the UUID of the model this client acts on.
 	modelUUID string
+	// modelName is the name of the model.
+	modelName string
+	// controllerUUID is the UUID of the controller.
+	controllerUUID string
 
 	// newWatcher is the k8s watcher generator.
 	newWatcher        k8swatcher.NewK8sWatcherFunc
@@ -97,9 +101,9 @@ type kubernetesClient struct {
 	// informerFactoryUnlocked informer factory setup for tracking this model
 	informerFactoryUnlocked informers.SharedInformerFactory
 
-	// isLegacyLabels describes if this client should use and implement legacy
+	// labelVersion describes if this client should use and implement legacy
 	// labels or new ones
-	isLegacyLabels bool
+	labelVersion constants.LabelVersion
 
 	// randomPrefix generates an annotation for stateful sets.
 	randomPrefix utils.RandomPrefixFunc
@@ -158,11 +162,15 @@ func newK8sBroker(
 	if modelUUID == "" {
 		return nil, errors.NotValidf("modelUUID is required")
 	}
+	modelName := newCfg.Name()
+	if modelName == "" {
+		return nil, errors.NotValidf("modelName is required")
+	}
 
-	isLegacy := false
+	labelVersion := constants.LastLabelVersion
 	if namespace != "" {
-		isLegacy, err = utils.IsLegacyModelLabels(
-			ctx, namespace, newCfg.Config.Name(), k8sClient.CoreV1().Namespaces())
+		labelVersion, err = utils.DetectModelLabelVersion(
+			ctx, namespace, modelName, modelUUID, controllerUUID, k8sClient.CoreV1().Namespaces())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -182,17 +190,19 @@ func newK8sBroker(
 		),
 		namespace:         namespace,
 		modelUUID:         modelUUID,
+		modelName:         modelName,
+		controllerUUID:    controllerUUID,
 		newWatcher:        newWatcher,
 		newStringsWatcher: newStringsWatcher,
 		newClient:         newClient,
 		newRestClient:     newRestClient,
 		randomPrefix:      randomPrefix,
 		annotations: k8sannotations.New(nil).
-			Add(utils.AnnotationModelUUIDKey(isLegacy), modelUUID),
-		isLegacyLabels: isLegacy,
+			Add(utils.AnnotationModelUUIDKey(labelVersion), modelUUID),
+		labelVersion: labelVersion,
 	}
 	if len(controllerUUID) > 0 {
-		client.annotations.Add(utils.AnnotationControllerUUIDKey(isLegacy), controllerUUID)
+		client.annotations.Add(utils.AnnotationControllerUUIDKey(labelVersion), controllerUUID)
 	}
 	if namespace == "" {
 		return client, nil
@@ -209,7 +219,7 @@ func newK8sBroker(
 		return client, nil
 	}
 
-	if err := client.ensureNamespaceAnnotationForControllerUUID(ctx, ns, controllerUUID, isLegacy); err != nil {
+	if err := client.ensureNamespaceAnnotationForControllerUUID(ctx, ns, controllerUUID, labelVersion); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return client, nil
@@ -219,16 +229,14 @@ func (k *kubernetesClient) ensureNamespaceAnnotationForControllerUUID(
 	ctx context.Context,
 	ns *core.Namespace,
 	controllerUUID string,
-	isLegacy bool,
+	labelVersion constants.LabelVersion,
 ) error {
 	if len(controllerUUID) == 0 {
 		// controllerUUID could be empty in add-k8s without -c because there might be no controller yet.
 		return nil
 	}
-
-	annotationControllerUUIDKey := utils.AnnotationControllerUUIDKey(isLegacy)
-
-	if !isLegacy {
+	annotationControllerUUIDKey := utils.AnnotationControllerUUIDKey(labelVersion)
+	if labelVersion > 0 {
 		// Ignore the controller uuid since it is handled below for model migrations.
 		expected := k.annotations.Copy()
 		expected.Remove(annotationControllerUUIDKey)
@@ -470,7 +478,7 @@ func (k *kubernetesClient) Bootstrap(
 			if errors.Is(err, errors.NotFound) {
 				// all good.
 				// ensure controller specific annotations.
-				_ = broker.addAnnotations(utils.AnnotationControllerIsControllerKey(k.IsLegacyLabels()), "true")
+				_ = broker.addAnnotations(utils.AnnotationControllerIsControllerKey(k.LabelVersion()), "true")
 				return nil
 			}
 			if err == nil {
@@ -512,8 +520,8 @@ func (k *kubernetesClient) DestroyController(ctx envcontext.ProviderCallContext,
 	// ensures all annnotations are set correctly, then we will accurately find the controller namespace to destroy it.
 	k.annotations.Merge(
 		k8sannotations.New(nil).
-			Add(utils.AnnotationControllerUUIDKey(k.IsLegacyLabels()), controllerUUID).
-			Add(utils.AnnotationControllerIsControllerKey(k.IsLegacyLabels()), "true"),
+			Add(utils.AnnotationControllerUUIDKey(k.LabelVersion()), controllerUUID).
+			Add(utils.AnnotationControllerIsControllerKey(k.LabelVersion()), "true"),
 	)
 	return k.Destroy(ctx)
 }
@@ -526,10 +534,24 @@ func (k *kubernetesClient) SharedInformerFactory() informers.SharedInformerFacto
 	return k.informerFactoryUnlocked
 }
 
-func (k *kubernetesClient) CurrentModel() string {
-	k.lock.Lock()
-	defer k.lock.Unlock()
-	return k.envCfgUnlocked.Name()
+// ModelUUID returns the UUID of the model this broker was created for.
+func (k *kubernetesClient) ModelUUID() string {
+	return k.modelUUID
+}
+
+// ModelName returns the name of the model this broker was created for.
+func (k *kubernetesClient) ModelName() string {
+	return k.modelName
+}
+
+// ControllerUUID returns the UUID of the controller this broker was created for.
+func (k *kubernetesClient) ControllerUUID() string {
+	return k.controllerUUID
+}
+
+// Namespace returns the namespace of the model this broker was created for.
+func (k *kubernetesClient) Namespace() string {
+	return k.namespace
 }
 
 // Provider is part of the Broker interface.
@@ -614,8 +636,8 @@ func (k *kubernetesClient) GetService(ctx context.Context, appName string, inclu
 		return nil, errNoNamespace
 	}
 	services := k.client().CoreV1().Services(k.namespace)
-	labels := utils.LabelsForApp(appName, k.IsLegacyLabels())
-	if !k.IsLegacyLabels() {
+	labels := utils.LabelsForApp(appName, k.LabelVersion())
+	if k.LabelVersion() != constants.LegacyLabelVersion {
 		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
 	}
 
@@ -783,7 +805,7 @@ func CaasServiceToK8s(in caas.ServiceType) (core.ServiceType, error) {
 
 func (k *kubernetesClient) applicationSelector(appName string) string {
 	return utils.LabelsToSelector(
-		utils.SelectorLabelsForApp(appName, k.IsLegacyLabels())).String()
+		utils.SelectorLabelsForApp(appName, k.LabelVersion())).String()
 }
 
 // AnnotateUnit annotates the specified pod (name or uid) with a unit tag.
@@ -818,7 +840,7 @@ func (k *kubernetesClient) AnnotateUnit(ctx context.Context, appName string, pod
 	}
 
 	unitID := unit.Id()
-	if pod.Annotations != nil && pod.Annotations[utils.AnnotationUnitKey(k.IsLegacyLabels())] == unitID {
+	if pod.Annotations != nil && pod.Annotations[utils.AnnotationUnitKey(k.LabelVersion())] == unitID {
 		return nil
 	}
 
@@ -828,7 +850,7 @@ func (k *kubernetesClient) AnnotateUnit(ctx context.Context, appName string, pod
 		} `json:"metadata"`
 	}{}
 	patch.ObjectMeta.Annotations = map[string]string{
-		utils.AnnotationUnitKey(k.IsLegacyLabels()): unitID,
+		utils.AnnotationUnitKey(k.LabelVersion()): unitID,
 	}
 	jsonPatch, err := json.Marshal(patch)
 	if err != nil {

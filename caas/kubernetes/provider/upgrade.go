@@ -13,6 +13,7 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	appstyped "k8s.io/client-go/kubernetes/typed/apps/v1"
 
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/semversion"
@@ -46,7 +47,7 @@ func upgradeDeployment(
 	name,
 	imagePath string,
 	vers semversion.Number,
-	legacyLabels bool,
+	labelVersion constants.LabelVersion,
 	broker appstyped.DeploymentInterface,
 ) error {
 	de, err := broker.Get(ctx, name, meta.GetOptions{})
@@ -75,11 +76,11 @@ func upgradeDeployment(
 	// just ensure juju-version to current version for now.
 	de.SetAnnotations(
 		k8sannotations.New(de.GetAnnotations()).
-			Merge(utils.AnnotationsForVersion(vers.String(), legacyLabels)).ToMap(),
+			Merge(utils.AnnotationsForVersion(vers.String(), labelVersion)).ToMap(),
 	)
 	de.Spec.Template.SetAnnotations(
 		k8sannotations.New(de.Spec.Template.GetAnnotations()).
-			Merge(utils.AnnotationsForVersion(vers.String(), legacyLabels)).ToMap(),
+			Merge(utils.AnnotationsForVersion(vers.String(), labelVersion)).ToMap(),
 	)
 
 	if _, err := broker.Update(ctx, de, meta.UpdateOptions{}); err != nil {
@@ -94,7 +95,7 @@ func upgradeOperatorOrControllerStatefulSet(
 	name string,
 	imagePath string,
 	vers semversion.Number,
-	legacyLabels bool,
+	labelVersion constants.LabelVersion,
 	broker appstyped.StatefulSetInterface,
 ) error {
 	ss, err := broker.Get(ctx, name, meta.GetOptions{})
@@ -123,11 +124,11 @@ func upgradeOperatorOrControllerStatefulSet(
 	// just ensure juju-version to current version for now.
 	ss.SetAnnotations(
 		k8sannotations.New(ss.GetAnnotations()).
-			Merge(utils.AnnotationsForVersion(vers.String(), legacyLabels)).ToMap(),
+			Merge(utils.AnnotationsForVersion(vers.String(), labelVersion)).ToMap(),
 	)
 	ss.Spec.Template.SetAnnotations(
 		k8sannotations.New(ss.Spec.Template.GetAnnotations()).
-			Merge(utils.AnnotationsForVersion(vers.String(), legacyLabels)).ToMap(),
+			Merge(utils.AnnotationsForVersion(vers.String(), labelVersion)).ToMap(),
 	)
 
 	if _, err := broker.Update(ctx, ss, meta.UpdateOptions{}); err != nil {

@@ -61,9 +61,9 @@ func findServiceForApplication(
 	ctx context.Context,
 	serviceI corev1.ServiceInterface,
 	appName string,
-	legacyLabels bool,
+	labelVersion constants.LabelVersion,
 ) (*core.Service, error) {
-	labels := utils.LabelsForApp(appName, legacyLabels)
+	labels := utils.LabelsForApp(appName, labelVersion)
 	servicesList, err := serviceI.List(ctx, meta.ListOptions{
 		LabelSelector: utils.LabelsToSelector(labels).String(),
 	})

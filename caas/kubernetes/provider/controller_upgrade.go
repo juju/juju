@@ -10,6 +10,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/semversion"
@@ -17,9 +18,9 @@ import (
 )
 
 type upgradeCAASControllerBridge struct {
-	clientFn    func() kubernetes.Interface
-	isLegacyFn  func() bool
-	namespaceFn func() string
+	clientFn       func() kubernetes.Interface
+	labelVersionFn func() constants.LabelVersion
+	namespaceFn    func() string
 }
 
 // UpgradeCAASControllerBroker describes the interface needed for upgrading
@@ -29,8 +30,9 @@ type UpgradeCAASControllerBroker interface {
 	// cluster
 	Client() kubernetes.Interface
 
-	// IsLegacyLabels indicates if this provider is operating on a legacy label schema
-	IsLegacyLabels() bool
+	// LabelVersion returns the detected label version for k8s resources created
+	// for this model.
+	LabelVersion() constants.LabelVersion
 
 	// Namespace returns the targeted Kubernetes namespace for this broker
 	Namespace() string
@@ -40,8 +42,8 @@ func (u *upgradeCAASControllerBridge) Client() kubernetes.Interface {
 	return u.clientFn()
 }
 
-func (u *upgradeCAASControllerBridge) IsLegacyLabels() bool {
-	return u.isLegacyFn()
+func (u *upgradeCAASControllerBridge) LabelVersion() constants.LabelVersion {
+	return u.labelVersionFn()
 }
 
 func (u *upgradeCAASControllerBridge) Namespace() string {
@@ -54,15 +56,15 @@ func controllerUpgrade(ctx context.Context, appName string, vers semversion.Numb
 		appName,
 		"",
 		vers,
-		broker.IsLegacyLabels(),
+		broker.LabelVersion(),
 		broker.Client().AppsV1().StatefulSets(broker.Namespace()))
 }
 
 func (k *kubernetesClient) upgradeController(ctx context.Context, vers semversion.Number) error {
 	broker := &upgradeCAASControllerBridge{
-		clientFn:    k.client,
-		namespaceFn: k.GetCurrentNamespace,
-		isLegacyFn:  k.IsLegacyLabels,
+		clientFn:       k.client,
+		namespaceFn:    k.Namespace,
+		labelVersionFn: k.LabelVersion,
 	}
 	return controllerUpgrade(ctx, bootstrap.ControllerModelName, vers, broker)
 }
@@ -73,23 +75,26 @@ func (k *kubernetesClient) InClusterCredentialUpgrade(ctx context.Context) error
 	return inClusterCredentialUpgrade(
 		ctx,
 		k.client(),
-		k.IsLegacyLabels(),
-		k.GetCurrentNamespace(),
+		k.LabelVersion(),
+		k.Namespace(),
+		k.ControllerUUID(),
 	)
 }
 
 func inClusterCredentialUpgrade(
 	ctx context.Context,
 	client kubernetes.Interface,
-	legacyLabels bool,
+	labelVersion constants.LabelVersion,
 	namespace string,
+	controllerUUID string,
 ) error {
-	labels := providerutils.LabelsForApp("controller", legacyLabels)
+	labels := providerutils.LabelsForApp("controller", labelVersion)
 
 	saName, cleanUps, err := ensureControllerServiceAccount(
 		ctx,
 		client,
 		namespace,
+		controllerUUID,
 		labels,
 		map[string]string{},
 	)

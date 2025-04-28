@@ -32,12 +32,13 @@ import (
 // and DebugHooksCommand for CAAS model.
 type sshContainer struct {
 	leaderResolver
-	target    string
-	container string
-	args      []string
-	modelUUID string
-	modelName string
-	namespace string
+	target         string
+	container      string
+	args           []string
+	modelUUID      string
+	controllerUUID string
+	modelName      string
+	namespace      string
 
 	applicationAPI   ApplicationAPI
 	charmAPI         CharmAPI
@@ -95,6 +96,14 @@ func (c *sshContainer) initRun(ctx context.Context, mc ModelCommand) (err error)
 			return err
 		}
 		c.modelUUID = mDetails.ModelUUID
+	}
+
+	if len(c.controllerUUID) == 0 {
+		controllerDetails, err := mc.ControllerDetails()
+		if err != nil {
+			return err
+		}
+		c.controllerUUID = controllerDetails.ControllerUUID
 	}
 
 	cAPI, err := mc.NewControllerAPIRoot(ctx)

@@ -38,29 +38,33 @@ func HasLabels(src, has labels.Set) bool {
 	return true
 }
 
-// IsLegacyModelLabels checks to see if the provided model is running on an older
+// ErrUnexpectedModelLabels is returned when the namespace does not have
+// any of the expected variants of labels.
+const ErrUnexpectedModelLabels errors.ConstError = "unexpected model labels"
+
+// DetectModelLabelVersion checks to see if the provided model is running on an older
 // labeling scheme or a newer one.
-func IsLegacyModelLabels(ctx context.Context, namespace, model string, namespaceI core.NamespaceInterface) (bool, error) {
+func DetectModelLabelVersion(ctx context.Context, namespace, modelName, modelUUID, controllerUUID string, namespaceI core.NamespaceInterface) (constants.LabelVersion, error) {
 	ns, err := namespaceI.Get(ctx, namespace, meta.GetOptions{})
 	if k8serrors.IsNotFound(err) {
-		return false, nil
+		return constants.LabelVersion2, nil
 	}
 	if err != nil {
-		return true, errors.Annotatef(err, "unable to determine legacy status for namespace %q", namespace)
+		return -1, errors.Annotatef(err, "unable to determine model label version for namespace %q", namespace)
 	}
-
-	if !HasLabels(ns.Labels, LabelsForModel(model, false)) &&
-		HasLabels(ns.Labels, LabelsForModel(model, true)) {
-		return true, nil
+	for i := constants.LastLabelVersion; i >= constants.FirstLabelVersion; i-- {
+		if HasLabels(ns.Labels, LabelsForModel(modelName, modelUUID, controllerUUID, i)) {
+			return i, nil
+		}
 	}
-	return false, nil
+	return -1, ErrUnexpectedModelLabels
 }
 
 // LabelsForApp returns the labels that should be on a k8s object for a given
 // application name
-func LabelsForApp(name string, legacy bool) labels.Set {
-	result := SelectorLabelsForApp(name, legacy)
-	if legacy {
+func LabelsForApp(name string, labelVersion constants.LabelVersion) labels.Set {
+	result := SelectorLabelsForApp(name, labelVersion)
+	if labelVersion == constants.LegacyLabelVersion {
 		return result
 	}
 	return LabelsMerge(result, LabelsJuju)
@@ -68,8 +72,8 @@ func LabelsForApp(name string, legacy bool) labels.Set {
 
 // SelectorLabelsForApp returns the pod selector labels that should be on
 // a k8s object for a given application name
-func SelectorLabelsForApp(name string, legacy bool) labels.Set {
-	if legacy {
+func SelectorLabelsForApp(name string, labelVersion constants.LabelVersion) labels.Set {
+	if labelVersion == constants.LegacyLabelVersion {
 		return labels.Set{
 			constants.LegacyLabelKubernetesAppName: name,
 		}
@@ -97,22 +101,37 @@ func LabelsMerge(a labels.Set, merges ...labels.Set) labels.Set {
 
 // LabelsForModel returns the labels that should be on a k8s object for a given
 // model name
-func LabelsForModel(name string, legacy bool) labels.Set {
-	if legacy {
+func LabelsForModel(modelName string, modelUUID string, controllerUUID string, labelVersion constants.LabelVersion) labels.Set {
+	switch labelVersion {
+	case constants.LegacyLabelVersion:
 		return map[string]string{
-			constants.LegacyLabelModelName: name,
+			constants.LegacyLabelModelName: modelName,
 		}
-	}
-	return map[string]string{
-		constants.LabelJujuModelName: name,
+	case constants.LabelVersion1:
+		return map[string]string{
+			constants.LabelJujuModelName: modelName,
+		}
+	case constants.LabelVersion2:
+		fallthrough
+	default:
+		if modelName == constants.JujuControllerModelName {
+			return map[string]string{
+				constants.LabelJujuModelName:      modelName,
+				constants.LabelJujuControllerUUID: controllerUUID,
+			}
+		}
+		return map[string]string{
+			constants.LabelJujuModelName: modelName,
+			constants.LabelJujuModelUUID: modelUUID,
+		}
 	}
 }
 
 // LabelsForOperator returns the labels that should be placed on a juju operator
 // Takes the operator name, type and a legacy flag to indicate these labels are
 // being used on a model that is operating in "legacy" label mode
-func LabelsForOperator(name, target string, legacy bool) labels.Set {
-	if legacy {
+func LabelsForOperator(name, target string, labelVersion constants.LabelVersion) labels.Set {
+	if labelVersion == constants.LegacyLabelVersion {
 		return map[string]string{
 			constants.LegacyLabelKubernetesOperatorName: name,
 		}
@@ -125,8 +144,8 @@ func LabelsForOperator(name, target string, legacy bool) labels.Set {
 
 // LabelsForStorage return the labels that should be placed on a k8s storage
 // object. Takes the storage name and a legacy flat.
-func LabelsForStorage(name string, legacy bool) labels.Set {
-	if legacy {
+func LabelsForStorage(name string, labelVersion constants.LabelVersion) labels.Set {
+	if labelVersion == constants.LegacyLabelVersion {
 		return map[string]string{
 			constants.LegacyLabelStorageName: name,
 		}
