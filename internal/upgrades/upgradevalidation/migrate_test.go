@@ -11,8 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/base"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
 	"github.com/juju/juju/state"
@@ -36,10 +34,9 @@ type migrateSuite struct {
 }
 
 func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju3(c *gc.C) {
-	ctrl, cloudSpec := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
-	validators := upgradevalidation.ValidatorsForModelMigrationSource(cloudSpec)
+	validators := upgradevalidation.ValidatorsForModelMigrationSource()
 
 	checker := upgradevalidation.NewModelUpgradeCheck(s.st, "test-model", s.agentService, validators...)
 	blockers, err := checker.Validate()
@@ -48,10 +45,9 @@ func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju3(c *gc.C) {
 }
 
 func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju31(c *gc.C) {
-	ctrl, cloudSpec := s.setupMocks(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
-	validators := upgradevalidation.ValidatorsForModelMigrationSource(cloudSpec)
+	validators := upgradevalidation.ValidatorsForModelMigrationSource()
 
 	checker := upgradevalidation.NewModelUpgradeCheck(s.st, "test-model", s.agentService, validators...)
 	blockers, err := checker.Validate()
@@ -66,20 +62,8 @@ func (s *migrateSuite) initializeMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *migrateSuite) setupMocks(c *gc.C) (*gomock.Controller, environscloudspec.CloudSpec) {
+func (s *migrateSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.initializeMocks(c)
-	server := mocks.NewMockServer(ctrl)
-	serverFactory := mocks.NewMockServerFactory(ctrl)
-	// - check LXD version.
-	cloudSpec := lxd.CloudSpec{CloudSpec: environscloudspec.CloudSpec{Type: "lxd"}}
-	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
-	server.EXPECT().ServerVersion().Return("5.2")
-
-	s.PatchValue(&upgradevalidation.NewServerFactory,
-		func(_ lxd.NewHTTPClientFunc) lxd.ServerFactory {
-			return serverFactory
-		},
-	)
 
 	s.PatchValue(&upgradevalidation.SupportedJujuBases, func() []base.Base {
 		return transform.Slice([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.MustParseBaseFromString)
@@ -89,5 +73,5 @@ func (s *migrateSuite) setupMocks(c *gc.C) (*gomock.Controller, environscloudspe
 	s.st.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"24.04/stable", "22.04/stable", "20.04/stable"})).Return(nil, nil)
 	s.st.EXPECT().AllMachinesCount().Return(0, nil)
 
-	return ctrl, cloudSpec.CloudSpec
+	return ctrl
 }

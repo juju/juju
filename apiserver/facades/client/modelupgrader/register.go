@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/cloudspec"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	coremodel "github.com/juju/juju/core/model"
@@ -19,13 +18,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("ModelUpgrader", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+	registry.MustRegisterForMultiModel("ModelUpgrader", 1, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 		return newFacadeV1(ctx)
 	}, reflect.TypeOf((*ModelUpgraderAPI)(nil)))
 }
 
 // newFacadeV1 is used for API registration.
-func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
+func newFacadeV1(ctx facade.MultiModelContext) (*ModelUpgraderAPI, error) {
 	auth := ctx.Auth()
 
 	// Since we know this is a user tag (because AuthClient is true),
@@ -43,9 +42,6 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 	}
 
 	domainServices := ctx.DomainServices()
-	cloudService := domainServices.Cloud()
-	credentialService := domainServices.Credential()
-
 	controllerConfigService := domainServices.ControllerConfig()
 	controllerAgentService := domainServices.Agent()
 
@@ -56,23 +52,21 @@ func newFacadeV1(ctx facade.ModelContext) (*ModelUpgraderAPI, error) {
 		domainServices.AgentBinary(),
 	)
 
-	modelAgentServiceGetter := func(modelID coremodel.UUID) ModelAgentService {
-		return domainServices.Agent()
+	modelAgentServiceGetter := func(c context.Context, modelUUID coremodel.UUID) (ModelAgentService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Agent(), nil
 	}
-	modelConfigServiceGetter := func(ctx context.Context, modelID coremodel.UUID) (cloudspec.ModelConfigService, error) {
-		return domainServices.Config(), nil
-	}
-	environsCloudSpecGetter := cloudspec.MakeCloudSpecGetter(pool, cloudService, credentialService, modelConfigServiceGetter)
 
 	return NewModelUpgraderAPI(
 		ctx.ControllerUUID(),
-		ctx.ModelUUID(),
 		statePoolShim{StatePool: pool},
 		toolsFinder,
 		common.NewBlockChecker(domainServices.BlockCommand()),
 		auth,
 		registry.New,
-		environsCloudSpecGetter,
 		modelAgentServiceGetter,
 		controllerAgentService,
 		controllerConfigService,

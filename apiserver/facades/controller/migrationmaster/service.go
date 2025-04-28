@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/environs/config"
 )
 
 // UpgradeService provides a subset of the upgrade domain service methods.
@@ -27,12 +26,6 @@ type UpgradeService interface {
 type ControllerConfigService interface {
 	// ControllerConfig returns the config values for the controller.
 	ControllerConfig(context.Context) (controller.Config, error)
-}
-
-// ModelConfigService provides access to the model configuration.
-type ModelConfigService interface {
-	// ModelConfig returns the current config for the model.
-	ModelConfig(context.Context) (*config.Config, error)
 }
 
 // ModelInfoService provides access to information about the model.
@@ -63,7 +56,7 @@ type StatusService interface {
 
 // ModelAgentService provides access to the Juju agent version for the model.
 type ModelAgentService interface {
-	// GetMachinesNotAtTargetVersion reports all of the machines in the model that
+	// GetMachinesNotAtTargetAgentVersion reports all of the machines in the model that
 	// are currently not at the desired target version. This also returns machines
 	// that have no reported agent version set. If all units are up to the
 	// target version or no units exist in the model a zero length slice is

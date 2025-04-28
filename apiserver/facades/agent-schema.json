@@ -305,17 +305,6 @@
                         }
                     }
                 },
-                "CloudSpec": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/CloudSpecResults"
-                        }
-                    }
-                },
                 "ControllerAPIInfoForModels": {
                     "type": "object",
                     "properties": {
@@ -332,17 +321,6 @@
                     "properties": {
                         "Result": {
                             "$ref": "#/definitions/ControllerConfigResult"
-                        }
-                    }
-                },
-                "GetCloudSpec": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ModelTag"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/CloudSpecResult"
                         }
                     }
                 },
@@ -389,17 +367,6 @@
                     "properties": {
                         "Result": {
                             "$ref": "#/definitions/StateServingInfo"
-                        }
-                    }
-                },
-                "WatchCloudSpecsChanges": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/NotifyWatchResults"
                         }
                     }
                 },
@@ -464,99 +431,6 @@
                     "required": [
                         "entities"
                     ]
-                },
-                "CloudCredential": {
-                    "type": "object",
-                    "properties": {
-                        "attrs": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "auth-type": {
-                            "type": "string"
-                        },
-                        "redacted": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "auth-type"
-                    ]
-                },
-                "CloudSpec": {
-                    "type": "object",
-                    "properties": {
-                        "cacertificates": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "credential": {
-                            "$ref": "#/definitions/CloudCredential"
-                        },
-                        "endpoint": {
-                            "type": "string"
-                        },
-                        "identity-endpoint": {
-                            "type": "string"
-                        },
-                        "is-controller-cloud": {
-                            "type": "boolean"
-                        },
-                        "name": {
-                            "type": "string"
-                        },
-                        "region": {
-                            "type": "string"
-                        },
-                        "skip-tls-verify": {
-                            "type": "boolean"
-                        },
-                        "storage-endpoint": {
-                            "type": "string"
-                        },
-                        "type": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "type",
-                        "name"
-                    ]
-                },
-                "CloudSpecResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "$ref": "#/definitions/CloudSpec"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "CloudSpecResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CloudSpecResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
                 },
                 "ControllerAPIInfoResult": {
                     "type": "object",
@@ -749,10 +623,6 @@
                     "required": [
                         "config"
                     ]
-                },
-                "ModelTag": {
-                    "type": "object",
-                    "additionalProperties": false
                 },
                 "NotifyWatchResult": {
                     "type": "object",

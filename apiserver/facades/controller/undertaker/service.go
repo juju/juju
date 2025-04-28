@@ -8,6 +8,7 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/secrets/provider"
 )
@@ -35,4 +36,10 @@ type ModelInfoService interface {
 	// GetModelInfo returns the readonly model information for the model in
 	// question.
 	GetModelInfo(context.Context) (coremodel.ModelInfo, error)
+}
+
+// ModelProviderService providers access to the model provider service.
+type ModelProviderService interface {
+	// GetCloudSpec returns the cloud spec for the model.
+	GetCloudSpec(ctx context.Context) (cloudspec.CloudSpec, error)
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/cloudspec"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -115,7 +114,6 @@ type AgentAPI struct {
 	*common.RebootFlagClearer
 	*commonmodel.ModelConfigWatcher
 	*common.ControllerConfigAPI
-	cloudspec.CloudSpecer
 
 	credentialService       CredentialService
 	controllerConfigService ControllerConfigService
@@ -128,14 +126,11 @@ type AgentAPI struct {
 // NewAgentAPI returns an agent API facade.
 func NewAgentAPI(
 	auth facade.Authorizer,
-	modelAuthFn common.GetAuthFunc,
 	resources facade.Resources,
 	st *state.State,
 	agentPasswordService AgentPasswordService,
 	controllerConfigService ControllerConfigService,
 	externalControllerService ExternalControllerService,
-	cloudService CloudService,
-	credentialService CredentialService,
 	rebootMachineService MachineRebootService,
 	modelConfigService ModelConfigService,
 	applicationService ApplicationService,
@@ -154,15 +149,6 @@ func NewAgentAPI(
 			controllerConfigService,
 			externalControllerService,
 		),
-		CloudSpecer: cloudspec.NewCloudSpecV2(
-			resources,
-			cloudspec.MakeCloudSpecGetterForModel(st, cloudService, credentialService, modelConfigService),
-			cloudspec.MakeCloudSpecWatcherForModel(st, cloudService),
-			cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
-			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, credentialService),
-			modelAuthFn,
-		),
-		credentialService:       credentialService,
 		controllerConfigService: controllerConfigService,
 		applicationService:      applicationService,
 		st:                      st,

@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/api/controller/migrationtarget"
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/cloudspec"
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -60,7 +59,6 @@ type ModelExporter interface {
 type ControllerAPI struct {
 	*common.ControllerConfigAPI
 	*commonmodel.ModelStatusAPI
-	cloudspec.CloudSpecer
 
 	state                     Backend
 	statePool                 *state.StatePool
@@ -68,7 +66,6 @@ type ControllerAPI struct {
 	apiUser                   names.UserTag
 	resources                 facade.Resources
 	hub                       facade.Hub
-	cloudService              CloudService
 	credentialService         CredentialService
 	upgradeService            UpgradeService
 	controllerConfigService   ControllerConfigService
@@ -79,8 +76,9 @@ type ControllerAPI struct {
 	applicationServiceGetter  func(context.Context, coremodel.UUID) (ApplicationService, error)
 	statusServiceGetter       func(context.Context, coremodel.UUID) (StatusService, error)
 	modelAgentServiceGetter   func(context.Context, coremodel.UUID) (ModelAgentService, error)
-	modelConfigServiceGetter  func(context.Context, coremodel.UUID) (cloudspec.ModelConfigService, error)
+	modelConfigServiceGetter  func(context.Context, coremodel.UUID) (ModelConfigService, error)
 	blockCommandServiceGetter func(context.Context, coremodel.UUID) (BlockCommandService, error)
+	cloudSpecServiceGetter    func(context.Context, coremodel.UUID) (ModelProviderService, error)
 	proxyService              ProxyService
 	modelExporter             func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error)
 	store                     objectstore.ObjectStore
@@ -104,7 +102,6 @@ func NewControllerAPI(
 	logger corelogger.Logger,
 	controllerConfigService ControllerConfigService,
 	externalControllerService common.ExternalControllerService,
-	cloudService CloudService,
 	credentialService CredentialService,
 	upgradeService UpgradeService,
 	accessService ControllerAccessService,
@@ -115,13 +112,13 @@ func NewControllerAPI(
 	applicationServiceGetter func(context.Context, coremodel.UUID) (ApplicationService, error),
 	statusServiceGetter func(context.Context, coremodel.UUID) (StatusService, error),
 	modelAgentServiceGetter func(context.Context, coremodel.UUID) (ModelAgentService, error),
-	modelConfigServiceGetter func(context.Context, coremodel.UUID) (cloudspec.ModelConfigService, error),
+	modelConfigServiceGetter func(context.Context, coremodel.UUID) (ModelConfigService, error),
 	blockCommandServiceGetter func(context.Context, coremodel.UUID) (BlockCommandService, error),
+	cloudSpecServiceGetter func(context.Context, coremodel.UUID) (ModelProviderService, error),
 	proxyService ProxyService,
 	modelExporter func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error),
 	store objectstore.ObjectStore,
 	controllerUUID string,
-	modelUUID coremodel.UUID,
 ) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
@@ -148,14 +145,6 @@ func NewControllerAPI(
 			authorizer,
 			apiUser,
 		),
-		CloudSpecer: cloudspec.NewCloudSpecV2(
-			resources,
-			cloudspec.MakeCloudSpecGetter(pool, cloudService, credentialService, modelConfigServiceGetter),
-			cloudspec.MakeCloudSpecWatcherForModel(st, cloudService),
-			cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
-			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, credentialService),
-			common.AuthFuncForTag(model.ModelTag()),
-		),
 		state:                     st,
 		statePool:                 pool,
 		authorizer:                authorizer,
@@ -166,7 +155,6 @@ func NewControllerAPI(
 		controllerConfigService:   controllerConfigService,
 		credentialService:         credentialService,
 		upgradeService:            upgradeService,
-		cloudService:              cloudService,
 		applicationServiceGetter:  applicationServiceGetter,
 		statusServiceGetter:       statusServiceGetter,
 		accessService:             accessService,
@@ -176,6 +164,7 @@ func NewControllerAPI(
 		modelAgentServiceGetter:   modelAgentServiceGetter,
 		modelConfigServiceGetter:  modelConfigServiceGetter,
 		blockCommandServiceGetter: blockCommandServiceGetter,
+		cloudSpecServiceGetter:    cloudSpecServiceGetter,
 		proxyService:              proxyService,
 		modelExporter:             modelExporter,
 		store:                     store,
@@ -398,17 +387,27 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 			config.Config = modelConf.AllAttrs()
 		}
 
-		modelTag := names.NewModelTag(model.UUID.String())
-
 		if config.Error == nil {
-			cloudSpec := c.GetCloudSpec(ctx, modelTag)
-			config.CloudSpec = cloudSpec.Result
-			config.Error = cloudSpec.Error
+			cloudSpec, err := c.getCloudSpec(ctx, model.UUID)
+			config.CloudSpec = cloudSpec
+			config.Error = apiservererrors.ServerError(err)
 		}
 		result.Models = append(result.Models, config)
 	}
 
 	return result, nil
+}
+
+func (c *ControllerAPI) getCloudSpec(ctx context.Context, modelUUID coremodel.UUID) (*params.CloudSpec, error) {
+	cloudSpecService, err := c.cloudSpecServiceGetter(ctx, modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	spec, err := cloudSpecService.GetCloudSpec(ctx)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting cloud spec for model %q", modelUUID)
+	}
+	return common.CloudSpecToParams(spec), nil
 }
 
 // RemoveBlocks removes all the blocks in the controller.
@@ -619,7 +618,6 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		systemState,
 		&targetInfo,
 		c.controllerConfigService,
-		c.cloudService,
 		c.credentialService,
 		modelAgentService,
 		modelConfigService,
@@ -768,7 +766,6 @@ var runMigrationPrechecks = func(
 	st, ctlrSt *state.State,
 	targetInfo *coremigration.TargetInfo,
 	controllerConfigService ControllerConfigService,
-	cloudService CloudService,
 	credentialService CredentialService,
 	modelAgentService ModelAgentService,
 	modelConfigService ModelConfigService,
@@ -789,7 +786,6 @@ var runMigrationPrechecks = func(
 	if err := migration.SourcePrecheck(
 		ctx,
 		backend,
-		cloudspec.MakeCloudSpecGetterForModel(st, cloudService, credentialService, modelConfigService),
 		credentialService,
 		upgradeService,
 		applicationService,

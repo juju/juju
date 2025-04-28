@@ -88,7 +88,7 @@ type UniterAPI struct {
 	relationService         RelationService
 	secretService           SecretService
 	unitStateService        UnitStateService
-	stubService             StubService
+	modelProviderService    ModelProviderService
 
 	// cmrBackend is a wrapper around state to handle CMR request
 	// todo(gfouillet): remove it whenever CMR have their domain.
@@ -2108,31 +2108,12 @@ func (u *UniterAPI) CloudSpec(ctx context.Context) (params.CloudSpecResult, erro
 		return params.CloudSpecResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
 	}
 
-	spec, err := u.stubService.CloudSpec(ctx)
+	spec, err := u.modelProviderService.GetCloudSpec(ctx)
 	if err != nil {
 		return params.CloudSpecResult{}, errors.Trace(err)
 	}
-	var paramsCloudCredential *params.CloudCredential
-	if spec.Credential != nil && spec.Credential.AuthType() != "" {
-		paramsCloudCredential = &params.CloudCredential{
-			AuthType:   string(spec.Credential.AuthType()),
-			Attributes: spec.Credential.Attributes(),
-		}
-	}
-
 	return params.CloudSpecResult{
-		Result: &params.CloudSpec{
-			Type:              spec.Type,
-			Name:              spec.Name,
-			Region:            spec.Region,
-			Endpoint:          spec.Endpoint,
-			IdentityEndpoint:  spec.IdentityEndpoint,
-			StorageEndpoint:   spec.StorageEndpoint,
-			Credential:        paramsCloudCredential,
-			CACertificates:    spec.CACertificates,
-			SkipTLSVerify:     spec.SkipTLSVerify,
-			IsControllerCloud: spec.IsControllerCloud,
-		},
+		Result: common.CloudSpecToParams(spec),
 	}, nil
 }
 

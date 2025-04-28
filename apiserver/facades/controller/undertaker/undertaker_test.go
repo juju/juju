@@ -13,24 +13,31 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/user"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/secrets/provider"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
 	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 type undertakerSuite struct {
 	coretesting.BaseSuite
+
+	modelUUID coremodel.UUID
+
 	secrets                  *mockSecrets
 	mockSecretBackendService *MockSecretBackendService
 	mockModelConfigService   *MockModelConfigService
 	mockModelInfoService     *MockModelInfoService
+	mockCloudSpecGetter      *MockModelProviderService
 }
 
 var _ = gc.Suite(&undertakerSuite{})
@@ -44,6 +51,7 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName str
 	s.mockSecretBackendService = NewMockSecretBackendService(ctrl)
 	s.mockModelConfigService = NewMockModelConfigService(ctrl)
 	s.mockModelInfoService = NewMockModelInfoService(ctrl)
+	s.mockCloudSpecGetter = NewMockModelProviderService(ctrl)
 
 	machineNo := "1"
 	if isSystem {
@@ -59,11 +67,13 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName str
 	s.secrets = &mockSecrets{}
 	s.PatchValue(&GetProvider, func(string) (provider.SecretBackendProvider, error) { return s.secrets, nil })
 
+	s.modelUUID = modeltesting.GenModelUUID(c)
 	api, err := newUndertakerAPI(
+		s.modelUUID,
 		st,
 		nil,
 		authorizer,
-		nil,
+		s.mockCloudSpecGetter,
 		s.mockSecretBackendService,
 		s.mockModelConfigService,
 		s.mockModelInfoService,
@@ -81,6 +91,7 @@ func (s *undertakerSuite) TestNoPerms(c *gc.C) {
 	}} {
 		st := newMockState(names.NewUserTag("admin"), "admin", true)
 		_, err := newUndertakerAPI(
+			modeltesting.GenModelUUID(c),
 			st,
 			nil,
 			authorizer,
@@ -283,4 +294,38 @@ func (s *undertakerSuite) TestModelConfig(c *gc.C) {
 	cfg, err := hostedAPI.ModelConfig(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, gc.NotNil)
+}
+
+func (s *undertakerSuite) TestCloudSpec(c *gc.C) {
+	ctx := context.Background()
+	_, hostedAPI, _ := s.setupStateAndAPI(c, false, "hostedmodel")
+
+	cred := cloud.NewCredential("userpass", map[string]string{"user": "fred", "password": "secret"})
+	result := environscloudspec.CloudSpec{
+		Name:       "cloud",
+		Credential: &cred,
+	}
+	s.mockCloudSpecGetter.EXPECT().GetCloudSpec(gomock.Any()).Return(result, nil)
+
+	got, err := hostedAPI.CloudSpec(ctx, params.Entities{Entities: []params.Entity{{
+		Tag: names.NewModelTag(s.modelUUID.String()).String(),
+	}, {
+		Tag: names.NewModelTag(modeltesting.GenModelUUID(c).String()).String(),
+	}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, params.CloudSpecResults{
+		Results: []params.CloudSpecResult{{
+			Result: &params.CloudSpec{
+				Name: "cloud",
+				Credential: &params.CloudCredential{
+					AuthType:   "userpass",
+					Attributes: map[string]string{"user": "fred", "password": "secret"},
+				},
+			},
+		}, {
+			Error: &params.Error{
+				Code:    params.CodeUnauthorized,
+				Message: "permission denied",
+			},
+		}}})
 }
