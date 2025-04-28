@@ -146,7 +146,7 @@ func (t *RetryingTxnRunner) Txn(ctx context.Context, db *sqlair.DB, fn func(cont
 
 		if err := fn(ctx, tx); err != nil {
 			if rErr := t.retryStrategy(ctx, tx.Rollback); rErr != nil {
-				t.logger.Warningf(context.TODO(), "failed to rollback transaction: %v", rErr)
+				t.logger.Warningf(ctx, "failed to rollback transaction: %v", rErr)
 			}
 			return errors.Trace(err)
 		}
@@ -172,7 +172,7 @@ func (t *RetryingTxnRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(cont
 
 		if err := fn(ctx, tx); err != nil {
 			if rErr := t.retryStrategy(ctx, tx.Rollback); rErr != nil {
-				t.logger.Warningf(context.TODO(), "failed to rollback transaction: %v", rErr)
+				t.logger.Warningf(ctx, "failed to rollback transaction: %v", rErr)
 			}
 			return errors.Trace(err)
 		}
@@ -186,7 +186,7 @@ func (t *RetryingTxnRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(cont
 // done at the dqlite level.
 func (t *RetryingTxnRunner) commit(ctx context.Context, tx committable) (err error) {
 	if t.logger.IsLevelEnabled(logger.TRACE) {
-		t.logger.Tracef(context.TODO(), "running txn (id: %d) with query: COMMIT", ctx.Value(txnIDKey))
+		t.logger.Tracef(ctx, "running txn (id: %d) with query: COMMIT", ctx.Value(txnIDKey))
 	}
 
 	// Hardcode the name of the span
@@ -274,7 +274,7 @@ func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) er
 
 	// If there is any constraint error then we should log it as an error.
 	if drivererrors.IsConstraintError(err) {
-		t.logger.Errorf(context.TODO(), "constraint error %v - running queries:\n %v", err, queryable.Queries())
+		t.logger.Errorf(ctx, "constraint error %v - running queries:\n %v", err, queryable.Queries())
 	}
 
 	return errors.Trace(err)
@@ -314,7 +314,7 @@ func DefaultRetryStrategy(clock clock.Clock, log logger.Logger) func(context.Con
 					metrics.RecordError(retryableError)
 
 					if log.IsLevelEnabled(logger.TRACE) {
-						log.Tracef(context.TODO(), "retrying transaction: %v", err)
+						log.Tracef(ctx, "retrying transaction: %v", err)
 					}
 					return false
 				}
@@ -378,7 +378,7 @@ func (d *logTracer) Start(ctx context.Context, name string, query string) (conte
 
 	// Log the start of the transaction.
 	if d.traceEnabled {
-		d.logger.Tracef(context.TODO(), "running txn (id: %d) with query: %s", d.txnID, query)
+		d.logger.Tracef(ctx, "running txn (id: %d) with query: %s", d.txnID, query)
 	}
 
 	// This is less than ideal, it might be better to bulk create an array
@@ -432,7 +432,7 @@ func (d *dqliteTracer) Start(ctx context.Context, name string, query string) (co
 	// Log the start of the transaction.
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.logger.Tracef(context.TODO(), "running txn (id: %d) with query: %s", d.txnID, query)
+	d.logger.Tracef(ctx, "running txn (id: %d) with query: %s", d.txnID, query)
 
 	// Start the span.
 	ctx, span := d.tracer.Start(ctx, name, trace.WithAttributes(trace.StringAttr("query", query)))

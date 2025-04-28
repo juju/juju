@@ -748,7 +748,7 @@ func (v *deployFromRepositoryValidator) platformFromPlacement(ctx context.Contex
 
 	if machineScopeCnt == 0 {
 		// Not all placements refer to actual machines, no need to continue.
-		v.logger.Tracef(context.TODO(), "no machine scoped directives found in placements")
+		v.logger.Tracef(ctx, "no machine scoped directives found in placements")
 		return nil, false, nil
 	}
 
@@ -782,7 +782,7 @@ func (v *deployFromRepositoryValidator) platformFromPlacement(ctx context.Contex
 		platStrings.Add(p.String())
 	}
 	if platStrings.Size() != 1 {
-		v.logger.Errorf(context.TODO(), "mismatched platforms for machine scoped placements %s", platStrings.SortedValues())
+		v.logger.Errorf(ctx, "mismatched platforms for machine scoped placements %s", platStrings.SortedValues())
 	}
 
 	return &platform, platStrings.Size() == 1, nil

@@ -13,7 +13,6 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -164,7 +163,7 @@ func convertSource(source applicationcharm.CharmSource) (string, error) {
 	}
 }
 
-func convertApplication(a application.Architecture) (string, error) {
+func convertApplication(a architecture.Architecture) (string, error) {
 	switch a {
 	case architecture.AMD64:
 		return arch.AMD64, nil
@@ -187,26 +186,14 @@ func convertApplication(a application.Architecture) (string, error) {
 }
 
 func convertCharm(name string, ch charm.Charm, locator applicationcharm.CharmLocator) (params.Charm, error) {
-	schema, err := convertSource(locator.Source)
+	url, err := CharmURLFromLocator(name, locator)
 	if err != nil {
 		return params.Charm{}, errors.Trace(err)
-	}
-
-	architecture, err := convertApplication(locator.Architecture)
-	if err != nil {
-		return params.Charm{}, errors.Trace(err)
-	}
-
-	url := charm.URL{
-		Schema:       schema,
-		Name:         name,
-		Revision:     locator.Revision,
-		Architecture: architecture,
 	}
 
 	result := params.Charm{
 		Revision: locator.Revision,
-		URL:      url.String(),
+		URL:      url,
 		Config:   params.ToCharmOptionMap(ch.Config()),
 		Meta:     convertCharmMeta(ch.Meta()),
 		Actions:  convertCharmActions(ch.Actions()),

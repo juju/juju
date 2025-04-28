@@ -176,6 +176,7 @@ func (a *API) SetAgentStatus(ctx context.Context, args params.SetStatus) (params
 			Status:  status.Status(arg.Status),
 			Message: arg.Info,
 			Data:    arg.Data,
+			Since:   ptr(a.clock.Now()),
 		}); errors.Is(err, applicationerrors.UnitNotFound) {
 			results.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", tag.Id()))
 		} else if err != nil {
@@ -184,4 +185,8 @@ func (a *API) SetAgentStatus(ctx context.Context, args params.SetStatus) (params
 	}
 
 	return results, nil
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/resource"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
@@ -41,10 +40,10 @@ type AddApplicationArg struct {
 	CharmDownloadInfo *domaincharm.DownloadInfo
 	// Platform contains the platform information for the application. The
 	// operating system and architecture.
-	Platform Platform
+	Platform deployment.Platform
 	// Channel contains the channel information for the application. The track,
 	// risk and branch of the charm when it was downloaded from the charm store.
-	Channel *Channel
+	Channel *deployment.Channel
 	// Resources defines the list of resources to add to an application.
 	// They should match all the resources defined in the Charm.
 	Resources []AddApplicationResourceArg
@@ -91,49 +90,12 @@ type ApplicationStorageArg struct {
 	Count          uint64
 }
 
-// Channel represents the channel of a application charm.
-// Do not confuse this with a channel that is in the manifest file found
-// in the charm package. They represent different concepts, yet hold the
-// same data.
-type Channel struct {
-	Track  string
-	Risk   ChannelRisk
-	Branch string
-}
-
-// ChannelRisk describes the type of risk in a current channel.
-type ChannelRisk string
-
-const (
-	RiskStable    ChannelRisk = "stable"
-	RiskCandidate ChannelRisk = "candidate"
-	RiskBeta      ChannelRisk = "beta"
-	RiskEdge      ChannelRisk = "edge"
-)
-
-// OSType represents the type of an application's OS.
-type OSType int
-
-const (
-	Ubuntu OSType = iota
-)
-
-// Platform contains parameters for an application's platform.
-type Platform struct {
-	Channel      string
-	OSType       OSType
-	Architecture Architecture
-}
-
-// Architecture represents the architecture of a application charm.
-type Architecture = architecture.Architecture
-
 // CharmOrigin represents the origin of a charm.
 type CharmOrigin struct {
 	Name               string
 	Source             domaincharm.CharmSource
-	Channel            *Channel
-	Platform           Platform
+	Channel            *deployment.Channel
+	Platform           deployment.Platform
 	Revision           int
 	Hash               string
 	CharmhubIdentifier string
@@ -174,8 +136,8 @@ type CloudServiceDevice struct {
 // Origin contains parameters for an application's origin.
 type Origin struct {
 	ID       string
-	Channel  Channel
-	Platform Platform
+	Channel  deployment.Channel
+	Platform deployment.Platform
 	Revision int
 }
 

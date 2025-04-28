@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/resource"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -84,12 +85,12 @@ func (s *applicationStateSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "666",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
-	channel := &application.Channel{
+	channel := &deployment.Channel{
 		Track:  "track",
 		Risk:   "risk",
 		Branch: "branch",
@@ -135,12 +136,12 @@ func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestCreateApplicationWithConfigAndSettings(c *gc.C) {
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "666",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
-	channel := &application.Channel{
+	channel := &deployment.Channel{
 		Track:  "track",
 		Risk:   "risk",
 		Branch: "branch",
@@ -192,12 +193,12 @@ func (s *applicationStateSuite) TestCreateApplicationWithConfigAndSettings(c *gc
 }
 
 func (s *applicationStateSuite) TestCreateApplicationWithPeerRelation(c *gc.C) {
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "666",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
-	channel := &application.Channel{
+	channel := &deployment.Channel{
 		Track:  "track",
 		Risk:   "risk",
 		Branch: "branch",
@@ -231,12 +232,12 @@ func (s *applicationStateSuite) TestCreateApplicationWithPeerRelation(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestCreateApplicationWithStatus(c *gc.C) {
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "666",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
-	channel := &application.Channel{
+	channel := &deployment.Channel{
 		Track:  "track",
 		Risk:   "risk",
 		Branch: "branch",
@@ -285,12 +286,12 @@ func (s *applicationStateSuite) TestCreateApplicationWithStatus(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestCreateApplicationWithUnits(c *gc.C) {
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "666",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
-	channel := &application.Channel{
+	channel := &deployment.Channel{
 		Track:  "track",
 		Risk:   "risk",
 		Branch: "branch",
@@ -340,12 +341,12 @@ func (s *applicationStateSuite) TestCreateApplicationWithUnits(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *gc.C) {
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "666",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
-	channel := &application.Channel{
+	channel := &deployment.Channel{
 		Track:  "track",
 		Risk:   "stable",
 		Branch: "branch",
@@ -386,9 +387,9 @@ func (s *applicationStateSuite) TestCreateApplicationsWithSameCharm(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestCreateApplicationWithoutChannel(c *gc.C) {
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "666",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
 	ctx := context.Background()
@@ -412,12 +413,12 @@ func (s *applicationStateSuite) TestCreateApplicationWithoutChannel(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestCreateApplicationWithEmptyChannel(c *gc.C) {
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "666",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
-	channel := &application.Channel{}
+	channel := &deployment.Channel{}
 	ctx := context.Background()
 
 	_, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
@@ -437,12 +438,12 @@ func (s *applicationStateSuite) TestCreateApplicationWithEmptyChannel(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestCreateApplicationWithCharmStoragePath(c *gc.C) {
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "666",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
-	channel := &application.Channel{}
+	channel := &deployment.Channel{}
 	ctx := context.Background()
 
 	_, err := s.state.CreateApplication(ctx, "666", application.AddApplicationArg{
@@ -1776,8 +1777,8 @@ func (s *applicationStateSuite) TestGetCharmByApplicationID(c *gc.C) {
 		},
 	}
 	expectedLXDProfile := []byte("[{}]")
-	platform := application.Platform{
-		OSType:       application.Ubuntu,
+	platform := deployment.Platform{
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.AMD64,
 		Channel:      "22.04",
 	}
@@ -1795,7 +1796,7 @@ func (s *applicationStateSuite) TestGetCharmByApplicationID(c *gc.C) {
 			Architecture:  architecture.AMD64,
 			ReferenceName: "ubuntu",
 		},
-		Channel: &application.Channel{
+		Channel: &deployment.Channel{
 			Track:  "track",
 			Risk:   "stable",
 			Branch: "branch",
@@ -1823,7 +1824,7 @@ func (s *applicationStateSuite) TestGetCharmByApplicationID(c *gc.C) {
 
 	// Ensure that the charm platform is also set AND it's the same as the
 	// application platform.
-	var gotPlatform application.Platform
+	var gotPlatform deployment.Platform
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, `
 
@@ -1891,8 +1892,8 @@ func (s *applicationStateSuite) TestCreateApplicationDefaultSourceIsCharmhub(c *
 			Architecture:  architecture.AMD64,
 			ReferenceName: "ubuntu",
 		},
-		Platform: application.Platform{
-			OSType:       application.Ubuntu,
+		Platform: deployment.Platform{
+			OSType:       deployment.Ubuntu,
 			Architecture: architecture.AMD64,
 			Channel:      "22.04",
 		},
@@ -2175,13 +2176,13 @@ func (s *applicationStateSuite) TestResolveCharmDownloadNotFound(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestGetAsyncCharmDownloadInfoLocalCharm(c *gc.C) {
-	platform := application.Platform{
+	platform := deployment.Platform{
 		Channel:      "22.04/stable",
-		OSType:       application.Ubuntu,
+		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
-	channel := &application.Channel{
-		Risk: application.RiskStable,
+	channel := &deployment.Channel{
+		Risk: deployment.RiskStable,
 	}
 	ctx := context.Background()
 
@@ -2223,14 +2224,14 @@ func (s *applicationStateSuite) TestGetApplicationsForRevisionUpdater(c *gc.C) {
 			Architecture: architecture.AMD64,
 		},
 		Origin: application.Origin{
-			Channel: application.Channel{
+			Channel: deployment.Channel{
 				Track:  "track",
 				Risk:   "stable",
 				Branch: "branch",
 			},
-			Platform: application.Platform{
+			Platform: deployment.Platform{
 				Channel:      "22.04/stable",
-				OSType:       application.Ubuntu,
+				OSType:       deployment.Ubuntu,
 				Architecture: architecture.ARM64,
 			},
 			Revision: 42,
@@ -2246,14 +2247,14 @@ func (s *applicationStateSuite) TestGetApplicationsForRevisionUpdater(c *gc.C) {
 			Architecture: architecture.AMD64,
 		},
 		Origin: application.Origin{
-			Channel: application.Channel{
+			Channel: deployment.Channel{
 				Track:  "track",
 				Risk:   "stable",
 				Branch: "branch",
 			},
-			Platform: application.Platform{
+			Platform: deployment.Platform{
 				Channel:      "22.04/stable",
-				OSType:       application.Ubuntu,
+				OSType:       deployment.Ubuntu,
 				Architecture: architecture.ARM64,
 			},
 			Revision: 42,
@@ -3286,7 +3287,7 @@ func (s *applicationStateSuite) TestGetApplicationCharmOriginEmptyChannel(c *gc.
 	c.Check(origin, gc.DeepEquals, application.CharmOrigin{
 		Name:   "foo",
 		Source: charm.CharmHubSource,
-		Platform: application.Platform{
+		Platform: deployment.Platform{
 			Channel:      "22.04/stable",
 			OSType:       0,
 			Architecture: 1,
@@ -3311,12 +3312,12 @@ func (s *applicationStateSuite) TestGetApplicationCharmOriginRiskOnlyChannel(c *
 	c.Check(origin, gc.DeepEquals, application.CharmOrigin{
 		Name:   "foo",
 		Source: charm.CharmHubSource,
-		Platform: application.Platform{
+		Platform: deployment.Platform{
 			Channel:      "22.04/stable",
 			OSType:       0,
 			Architecture: 1,
 		},
-		Channel: &application.Channel{
+		Channel: &deployment.Channel{
 			Risk: "stable",
 		},
 		Revision:           42,
@@ -3355,12 +3356,12 @@ func (s *applicationStateSuite) TestGetApplicationCharmOriginNoRevision(c *gc.C)
 	c.Check(origin, gc.DeepEquals, application.CharmOrigin{
 		Name:   "foo",
 		Source: charm.CharmHubSource,
-		Platform: application.Platform{
+		Platform: deployment.Platform{
 			Channel:      "22.04/stable",
 			OSType:       0,
 			Architecture: 1,
 		},
-		Channel: &application.Channel{
+		Channel: &deployment.Channel{
 			Track:  "track",
 			Risk:   "stable",
 			Branch: "branch",
@@ -3388,12 +3389,12 @@ func (s *applicationStateSuite) TestGetApplicationCharmOriginNoCharmhubIdentifie
 	c.Check(origin, gc.DeepEquals, application.CharmOrigin{
 		Name:   "foo",
 		Source: charm.CharmHubSource,
-		Platform: application.Platform{
+		Platform: deployment.Platform{
 			Channel:      "22.04/stable",
 			OSType:       0,
 			Architecture: 1,
 		},
-		Channel: &application.Channel{
+		Channel: &deployment.Channel{
 			Track:  "track",
 			Risk:   "stable",
 			Branch: "branch",
@@ -3478,8 +3479,8 @@ func (s *applicationStateSuite) TestGetDeviceConstraintsFromCreatedApp(c *gc.C) 
 func (s *applicationStateSuite) assertApplication(
 	c *gc.C,
 	name string,
-	platform application.Platform,
-	channel *application.Channel,
+	platform deployment.Platform,
+	channel *deployment.Channel,
 	scale application.ScaleState,
 	available bool,
 ) {
@@ -3487,8 +3488,8 @@ func (s *applicationStateSuite) assertApplication(
 		gotName      string
 		gotUUID      string
 		gotCharmUUID string
-		gotPlatform  application.Platform
-		gotChannel   application.Channel
+		gotPlatform  deployment.Platform
+		gotChannel   deployment.Channel
 		gotScale     application.ScaleState
 		gotAvailable bool
 	)
@@ -3530,7 +3531,7 @@ func (s *applicationStateSuite) assertApplication(
 	} else {
 		// Ensure it's empty if the original origin channel isn't set.
 		// Prevent the db from sending back bogus values.
-		c.Check(gotChannel, gc.DeepEquals, application.Channel{})
+		c.Check(gotChannel, gc.DeepEquals, deployment.Channel{})
 	}
 }
 

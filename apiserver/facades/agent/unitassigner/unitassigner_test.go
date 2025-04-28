@@ -6,6 +6,7 @@ package unitassigner
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -107,6 +108,7 @@ func (s *testsuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *testsuite) newAPI(c *gc.C) *API {
 	return &API{
 		statusService: s.statusService,
+		clock:         clock.WallClock,
 	}
 }
 

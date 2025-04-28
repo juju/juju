@@ -266,7 +266,11 @@ func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
 	ctrl := s.setupAPI(c)
 	defer ctrl.Finish()
 
-	s.statusService.EXPECT().SetApplicationStatus(gomock.Any(), "gitlab", status.StatusInfo{Status: status.Started})
+	var got status.StatusInfo
+	s.statusService.EXPECT().SetApplicationStatus(gomock.Any(), "gitlab", gomock.Any()).DoAndReturn(func(_ context.Context, appName string, status status.StatusInfo) error {
+		got = status
+		return nil
+	})
 
 	result, err := s.api.SetOperatorStatus(context.Background(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{{
@@ -275,7 +279,8 @@ func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Check(result.Results[0].Error, gc.IsNil)
+	c.Check(got.Status, gc.Equals, status.Started)
 }
 
 func (s *CAASApplicationProvisionerSuite) TestUnits(c *gc.C) {

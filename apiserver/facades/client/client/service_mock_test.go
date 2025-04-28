@@ -21,6 +21,7 @@ import (
 	unit "github.com/juju/juju/core/unit"
 	model0 "github.com/juju/juju/domain/model"
 	relation0 "github.com/juju/juju/domain/relation"
+	service "github.com/juju/juju/domain/status/service"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -244,19 +245,19 @@ func (mr *MockStatusServiceMockRecorder) GetAllRelationStatuses(arg0 any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllRelationStatuses", reflect.TypeOf((*MockStatusService)(nil).GetAllRelationStatuses), arg0)
 }
 
-// GetApplicationDisplayStatus mocks base method.
-func (m *MockStatusService) GetApplicationDisplayStatus(arg0 context.Context, arg1 string) (status.StatusInfo, error) {
+// GetApplicationAndUnitStatuses mocks base method.
+func (m *MockStatusService) GetApplicationAndUnitStatuses(arg0 context.Context) (map[string]service.Application, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApplicationDisplayStatus", arg0, arg1)
-	ret0, _ := ret[0].(status.StatusInfo)
+	ret := m.ctrl.Call(m, "GetApplicationAndUnitStatuses", arg0)
+	ret0, _ := ret[0].(map[string]service.Application)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetApplicationDisplayStatus indicates an expected call of GetApplicationDisplayStatus.
-func (mr *MockStatusServiceMockRecorder) GetApplicationDisplayStatus(arg0, arg1 any) *gomock.Call {
+// GetApplicationAndUnitStatuses indicates an expected call of GetApplicationAndUnitStatuses.
+func (mr *MockStatusServiceMockRecorder) GetApplicationAndUnitStatuses(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationDisplayStatus", reflect.TypeOf((*MockStatusService)(nil).GetApplicationDisplayStatus), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationAndUnitStatuses", reflect.TypeOf((*MockStatusService)(nil).GetApplicationAndUnitStatuses), arg0)
 }
 
 // GetUnitDisplayAndAgentStatus mocks base method.

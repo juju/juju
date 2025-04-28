@@ -599,6 +599,7 @@ func (a *API) SetOperatorStatus(ctx context.Context, args params.SetStatus) (par
 			Status:  status.Status(arg.Status),
 			Message: arg.Info,
 			Data:    arg.Data,
+			Since:   ptr(a.clock.Now()),
 		}
 		err = a.statusService.SetApplicationStatus(ctx, tag.Id(), info)
 		if errors.Is(err, statuserrors.ApplicationNotFound) {
@@ -990,12 +991,11 @@ func (a *API) UpdateApplicationsUnits(ctx context.Context, args params.UpdateApp
 
 		appStatus := appUpdate.Status
 		if appStatus.Status != "" && appStatus.Status != status.Unknown {
-			now := a.clock.Now()
 			err = a.statusService.SetApplicationStatus(ctx, appTag.Id(), status.StatusInfo{
 				Status:  appStatus.Status,
 				Message: appStatus.Info,
 				Data:    appStatus.Data,
-				Since:   &now,
+				Since:   ptr(a.clock.Now()),
 			})
 			if errors.Is(err, statuserrors.ApplicationNotFound) {
 				result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("application %q", appTag.Id()))
@@ -1704,4 +1704,8 @@ func (a *API) ProvisionerConfig(ctx context.Context) (params.CAASApplicationProv
 		)
 	}
 	return result, nil
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

@@ -202,7 +202,7 @@ func (s *ProviderService) CreateApplication(
 	s.logger.Infof(ctx, "created application %q with ID %q", name, appID)
 
 	if args.ApplicationStatus != nil {
-		if err := s.statusHistory.RecordStatus(ctx, applicationNamespace.WithID(appID.String()), *args.ApplicationStatus); err != nil {
+		if err := s.statusHistory.RecordStatus(ctx, status.ApplicationNamespace.WithID(appID.String()), *args.ApplicationStatus); err != nil {
 			s.logger.Infof(ctx, "failed recording application status history: %w", err)
 		}
 	}
@@ -358,7 +358,7 @@ func (s *Service) recordStatusHistory(
 		StatusInfo: *statusArg.AgentStatus,
 		Present:    true,
 	}); err == nil && agentStatus != nil {
-		if err := s.statusHistory.RecordStatus(ctx, unitAgentNamespace.WithID(unitName.String()), *agentStatus); err != nil {
+		if err := s.statusHistory.RecordStatus(ctx, status.UnitAgentNamespace.WithID(unitName.String()), *agentStatus); err != nil {
 			s.logger.Infof(ctx, "failed recording agent status for unit %q: %v", unitName, err)
 		}
 	}
@@ -367,7 +367,7 @@ func (s *Service) recordStatusHistory(
 		StatusInfo: *statusArg.WorkloadStatus,
 		Present:    true,
 	}); err == nil && workloadStatus != nil {
-		if err := s.statusHistory.RecordStatus(ctx, unitWorkloadNamespace.WithID(unitName.String()), *workloadStatus); err != nil {
+		if err := s.statusHistory.RecordStatus(ctx, status.UnitWorkloadNamespace.WithID(unitName.String()), *workloadStatus); err != nil {
 			s.logger.Infof(ctx, "failed recording workload status for unit %q: %v", unitName, err)
 		}
 	}

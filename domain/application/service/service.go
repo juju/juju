@@ -28,10 +28,10 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
@@ -589,15 +589,15 @@ func validateStorageDirectives(
 	return nil
 }
 
-func encodeChannelAndPlatform(origin corecharm.Origin) (*application.Channel, application.Platform, error) {
+func encodeChannelAndPlatform(origin corecharm.Origin) (*deployment.Channel, deployment.Platform, error) {
 	channel, err := encodeChannel(origin.Channel)
 	if err != nil {
-		return nil, application.Platform{}, errors.Capture(err)
+		return nil, deployment.Platform{}, errors.Capture(err)
 	}
 
 	platform, err := encodePlatform(origin.Platform)
 	if err != nil {
-		return nil, application.Platform{}, errors.Capture(err)
+		return nil, deployment.Platform{}, errors.Capture(err)
 	}
 
 	return channel, platform, nil
@@ -615,7 +615,7 @@ func encodeCharmSource(source corecharm.Source) (charm.CharmSource, error) {
 	}
 }
 
-func encodeChannel(ch *internalcharm.Channel) (*application.Channel, error) {
+func encodeChannel(ch *internalcharm.Channel) (*deployment.Channel, error) {
 	// Empty channels (not nil), with empty strings for track, risk and branch,
 	// will be normalized to "stable", so aren't officially empty.
 	// We need to handle that case correctly.
@@ -632,51 +632,51 @@ func encodeChannel(ch *internalcharm.Channel) (*application.Channel, error) {
 		return nil, errors.Capture(err)
 	}
 
-	return &application.Channel{
+	return &deployment.Channel{
 		Track:  normalize.Track,
 		Risk:   risk,
 		Branch: normalize.Branch,
 	}, nil
 }
 
-func encodeChannelRisk(risk internalcharm.Risk) (application.ChannelRisk, error) {
+func encodeChannelRisk(risk internalcharm.Risk) (deployment.ChannelRisk, error) {
 	switch risk {
 	case internalcharm.Stable:
-		return application.RiskStable, nil
+		return deployment.RiskStable, nil
 	case internalcharm.Candidate:
-		return application.RiskCandidate, nil
+		return deployment.RiskCandidate, nil
 	case internalcharm.Beta:
-		return application.RiskBeta, nil
+		return deployment.RiskBeta, nil
 	case internalcharm.Edge:
-		return application.RiskEdge, nil
+		return deployment.RiskEdge, nil
 	default:
 		return "", errors.Errorf("unknown risk %q, expected stable, candidate, beta or edge", risk)
 	}
 }
 
-func encodePlatform(platform corecharm.Platform) (application.Platform, error) {
+func encodePlatform(platform corecharm.Platform) (deployment.Platform, error) {
 	ostype, err := encodeOSType(platform.OS)
 	if err != nil {
-		return application.Platform{}, errors.Capture(err)
+		return deployment.Platform{}, errors.Capture(err)
 	}
 
-	return application.Platform{
+	return deployment.Platform{
 		Channel:      platform.Channel,
 		OSType:       ostype,
 		Architecture: encodeArchitecture(platform.Architecture),
 	}, nil
 }
 
-func encodeOSType(os string) (application.OSType, error) {
+func encodeOSType(os string) (deployment.OSType, error) {
 	switch ostype.OSTypeForName(os) {
 	case ostype.Ubuntu:
-		return application.Ubuntu, nil
+		return deployment.Ubuntu, nil
 	default:
 		return 0, errors.Errorf("unknown os type %q, expected ubuntu", os)
 	}
 }
 
-func encodeArchitecture(a string) application.Architecture {
+func encodeArchitecture(a string) architecture.Architecture {
 	switch a {
 	case arch.AMD64:
 		return architecture.AMD64

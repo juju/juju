@@ -4,11 +4,13 @@
 package state
 
 import (
+	"database/sql"
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
+	domainlife "github.com/juju/juju/domain/life"
 )
 
 type applicationID struct {
@@ -122,4 +124,31 @@ type relationStatus struct {
 	StatusID     int               `db:"relation_status_type_id"`
 	Reason       string            `db:"suspended_reason"`
 	Since        *time.Time        `db:"updated_at"`
+}
+
+type applicationStatusDetails struct {
+	UUID                   coreapplication.ID `db:"uuid"`
+	Name                   string             `db:"name"`
+	PlatformOSID           sql.NullInt64      `db:"platform_os_id"`
+	PlatformChannel        string             `db:"platform_channel"`
+	PlatformArchitectureID sql.NullInt64      `db:"platform_architecture_id"`
+	ChannelTrack           string             `db:"channel_track"`
+	ChannelRisk            sql.NullString     `db:"channel_risk"`
+	ChannelBranch          string             `db:"channel_branch"`
+	LifeID                 domainlife.Life    `db:"life_id"`
+	Subordinate            bool               `db:"subordinate"`
+	StatusID               int                `db:"status_id"`
+	Message                string             `db:"message"`
+	Data                   []byte             `db:"data"`
+	UpdatedAt              *time.Time         `db:"updated_at"`
+	RelationUUID           sql.NullString     `db:"relation_uuid"`
+	CharmReferenceName     string             `db:"charm_reference_name"`
+	CharmRevision          int                `db:"charm_revision"`
+	CharmSourceID          int                `db:"charm_source_id"`
+	CharmArchitectureID    sql.NullInt64      `db:"charm_architecture_id"`
+	CharmVersion           string             `db:"charm_version"`
+	LXDProfile             sql.Null[[]byte]   `db:"lxd_profile"`
+	Exposed                bool               `db:"exposed"`
+	Scale                  sql.Null[int]      `db:"scale"`
+	K8sProviderID          sql.NullString     `db:"k8s_provider_id"`
 }

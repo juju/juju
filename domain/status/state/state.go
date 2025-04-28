@@ -1162,3 +1162,156 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 	}
 	return nil
 }
+
+// GetApplicationAndUnitStatuses returns the application and unit statuses of
+// all the applications in the model, indexed by application name.
+func (st *State) GetApplicationAndUnitStatuses(ctx context.Context) (map[string]status.Application, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Get all the applications.
+	applicationQuery, err := st.Prepare(`
+SELECT
+	a.name AS &applicationStatusDetails.name,
+	a.uuid AS &applicationStatusDetails.uuid,
+	a.life_id AS &applicationStatusDetails.life_id,
+	ap.os_id AS &applicationStatusDetails.platform_os_id,
+	ap.channel AS &applicationStatusDetails.platform_channel,
+	ap.architecture_id AS &applicationStatusDetails.platform_architecture_id,
+	ac.track AS &applicationStatusDetails.channel_track,
+	ac.risk AS &applicationStatusDetails.channel_risk,
+	ac.branch AS &applicationStatusDetails.channel_branch,
+	cm.subordinate AS &applicationStatusDetails.subordinate,
+	s.status_id AS &applicationStatusDetails.status_id,
+	s.message AS &applicationStatusDetails.message,
+	s.data AS &applicationStatusDetails.data,
+	s.updated_at AS &applicationStatusDetails.updated_at,
+	re.relation_uuid AS &applicationStatusDetails.relation_uuid,
+	c.reference_name AS &applicationStatusDetails.charm_reference_name,
+	c.revision AS &applicationStatusDetails.charm_revision,
+	c.source_id AS &applicationStatusDetails.charm_source_id,
+	c.architecture_id AS &applicationStatusDetails.charm_architecture_id,
+	c.version AS &applicationStatusDetails.charm_version,
+	c.lxd_profile AS &applicationStatusDetails.lxd_profile,
+	aps.scale AS &applicationStatusDetails.scale,
+	k8s.provider_id AS &applicationStatusDetails.k8s_provider_id,
+	EXISTS(SELECT 1 FROM v_application_exposed_endpoint AS ae WHERE ae.application_uuid = a.uuid) AS &applicationStatusDetails.exposed
+FROM application AS a
+JOIN application_platform AS ap ON ap.application_uuid = a.uuid
+LEFT JOIN application_channel AS ac ON ac.application_uuid = a.uuid
+JOIN charm AS c ON c.uuid = a.charm_uuid
+JOIN charm_metadata AS cm ON cm.charm_uuid = c.uuid
+LEFT JOIN application_status AS s ON s.application_uuid = a.uuid
+LEFT JOIN k8s_service AS k8s ON k8s.application_uuid = a.uuid
+LEFT JOIN application_scale AS aps ON aps.application_uuid = a.uuid
+LEFT JOIN v_relation_endpoint AS re ON re.application_uuid = a.uuid
+ORDER BY a.name, re.relation_uuid;
+`, applicationStatusDetails{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var appStatuses []applicationStatusDetails
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, applicationQuery).GetAll(&appStatuses)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[string]status.Application)
+	for _, s := range appStatuses {
+		appName := s.Name
+
+		var relationUUID corerelation.UUID
+		if s.RelationUUID.Valid {
+			relationUUID = corerelation.UUID(s.RelationUUID.String)
+			if err := relationUUID.Validate(); err != nil {
+				return nil, errors.Errorf("invalid relation UUID %q: %w", s.RelationUUID.String, err)
+			}
+		}
+
+		// If the application already exists, append the relation UUID to its
+		// relations.
+		if entry, exists := result[appName]; exists && s.RelationUUID.Valid {
+			entry.Relations = append(entry.Relations, relationUUID)
+			result[appName] = entry
+			continue
+		} else if exists {
+			// This should never happen, but if it does, we have a duplicate
+			// application name with no relation UUID. This is a problem.
+			return nil, errors.Errorf("duplicate application name %q", appName)
+		}
+
+		// We've got a new application, so create a new status.
+		var relations []corerelation.UUID
+		if s.RelationUUID.Valid {
+			relations = append(relations, relationUUID)
+		}
+
+		statusID, err := status.DecodeWorkloadStatus(s.StatusID)
+		if err != nil {
+			return nil, errors.Errorf("decoding workload status ID for application %q: %w", appName, err)
+		}
+
+		charmLocator, err := decodeCharmLocator(s)
+		if err != nil {
+			return nil, errors.Errorf("decoding charm locator for application %q: %w", appName, err)
+		}
+
+		platform, err := decodePlatform(s.PlatformChannel, s.PlatformOSID, s.PlatformArchitectureID)
+		if err != nil {
+			return nil, errors.Errorf("decoding platform: %w", err)
+		}
+
+		channel, err := decodeChannel(s.ChannelTrack, s.ChannelRisk, s.ChannelBranch)
+		if err != nil {
+			return nil, errors.Errorf("decoding channel: %w", err)
+		}
+
+		var lxdProfile []byte
+		if s.LXDProfile.Valid {
+			lxdProfile = s.LXDProfile.V
+		}
+
+		var scale *int
+		if s.Scale.Valid {
+			scale = &s.Scale.V
+		}
+
+		var k8sProviderID *string
+		if s.K8sProviderID.Valid {
+			k8sProviderID = &s.K8sProviderID.String
+		}
+
+		result[appName] = status.Application{
+			ID:          s.UUID,
+			Life:        s.LifeID,
+			Subordinate: s.Subordinate,
+			Status: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  statusID,
+				Message: s.Message,
+				Data:    s.Data,
+				Since:   s.UpdatedAt,
+			},
+			Relations:     relations,
+			CharmLocator:  charmLocator,
+			CharmVersion:  s.CharmVersion,
+			LXDProfile:    lxdProfile,
+			Platform:      platform,
+			Channel:       channel,
+			Exposed:       s.Exposed,
+			Scale:         scale,
+			K8sProviderID: k8sProviderID,
+		}
+	}
+
+	return result, nil
+}
