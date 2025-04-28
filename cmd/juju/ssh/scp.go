@@ -131,6 +131,7 @@ type scpCommand struct {
 	modelcmd.ModelCommandBase
 
 	modelType model.ModelType
+	container string
 
 	sshMachine
 	sshContainer
@@ -144,6 +145,9 @@ type scpCommand struct {
 }
 
 func (c *scpCommand) SetFlags(f *gnuflag.FlagSet) {
+	// the container flag is top-level because it has to be propagated to
+	// both sshContainer and sshJump provider.
+	f.StringVar(&c.container, "container", "", "the container name of the target pod")
 	c.sshMachine.SetFlags(f)
 	c.sshContainer.SetFlags(f)
 }
@@ -170,6 +174,7 @@ func (c *scpCommand) Init(args []string) (err error) {
 	}
 	if c.modelType == model.CAAS {
 		c.provider = &c.sshContainer
+		c.sshContainer.container = c.container
 	} else {
 		c.provider = &c.sshMachine
 	}

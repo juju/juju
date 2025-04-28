@@ -451,3 +451,27 @@ func (s *FacadeSuite) TestVirtualHostnameError(c *gc.C) {
 	_, err := facade.VirtualHostname("foo/0", nil)
 	c.Check(err, gc.ErrorMatches, "boom")
 }
+
+func (s *FacadeSuite) TestPublicHostKeyForTarget(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	expectedArg := params.SSHVirtualHostKeyRequestArg{
+		Hostname: "virtual-hostname",
+	}
+
+	res := new(params.PublicSSHHostKeyResult)
+	ress1 := params.PublicSSHHostKeyResult{
+		PublicKey:           []byte("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3"),
+		JumpServerPublicKey: []byte("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC4"),
+	}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall("PublicHostKeyForTarget", expectedArg, res).SetArg(2, ress1).Return(nil)
+	facade := sshclient.NewFacadeFromCaller(mockFacadeCaller)
+
+	result, err := facade.PublicHostKeyForTarget("virtual-hostname")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.PublicKey, gc.DeepEquals, []byte("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3"))
+	c.Check(result.JumpServerPublicKey, gc.DeepEquals, []byte("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC4"))
+}

@@ -3526,9 +3526,10 @@ func (s *MigrationImportSuite) TestGenerateMissingVirtualHostKeys(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
+
 	existingVirtualHostKey, err := s.State.MachineVirtualHostKey(machine.Tag().Id())
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(existingVirtualHostKey.HostKey()), gc.Equals, "fake-host-key")
+	c.Assert(string(existingVirtualHostKey.HostKey()), gc.Matches, `(?s)-----BEGIN OPENSSH PRIVATE KEY-----.*`)
 
 	state.RemoveVirtualHostKey(c, s.State, existingVirtualHostKey)
 
