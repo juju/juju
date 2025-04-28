@@ -49,7 +49,7 @@ type relationUUIDAndRole struct {
 	// UUID is the unique identifier of the relation.
 	UUID string `db:"relation_uuid"`
 	// Role is the name of the endpoints role, e.g. provider/requirer/peer.
-	Role string `db:"scope"`
+	Role string `db:"role"`
 }
 
 // applicationPlatform represents a structure to get OS and channel information
@@ -290,3 +290,9 @@ type watcherMapperData struct {
 }
 
 type uuids []string
+
+// applicationIDAndName is used to get the ID and name of an application.
+type applicationIDAndName struct {
+	ID   application.ID `db:"uuid"`
+	Name string         `db:"name"`
+}

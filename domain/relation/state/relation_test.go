@@ -6,6 +6,8 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -23,6 +25,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -434,6 +437,41 @@ func (s *addRelationSuite) TestAddRelationErrorRequirerCapacityExceeded(c *gc.C)
 
 	// Assert
 	c.Assert(err, jc.ErrorIs, relationerrors.EndpointQuotaLimitExceeded)
+}
+
+func (s *addRelationSuite) TestAddRelationWithID(c *gc.C) {
+	// Arrange
+	relProvider := charm.Relation{
+		Name:  "prov",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal,
+	}
+	relRequirer := charm.Relation{
+		Name:  "req",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	}
+	appUUID1 := s.addApplication(c, "application-1")
+	appUUID2 := s.addApplication(c, "application-2")
+	_ = s.addApplicationEndpointFromRelation(c, appUUID1, relProvider)
+	_ = s.addApplicationEndpointFromRelation(c, appUUID2, relRequirer)
+	_ = s.addApplicationEndpointFromRelation(c, appUUID2, relProvider)
+	_ = s.addApplicationEndpointFromRelation(c, appUUID1, relRequirer)
+	expectedRelID := uint64(42)
+
+	// Act
+	obtainedRelUUID, err := s.state.SetRelationWithID(context.Background(), corerelation.EndpointIdentifier{
+		ApplicationName: "application-1",
+		EndpointName:    "req",
+	}, corerelation.EndpointIdentifier{
+		ApplicationName: "application-2",
+		EndpointName:    "prov",
+	}, expectedRelID)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	foundRelUUID := s.fetchRelationUUIDByRelationID(c, expectedRelID)
+	c.Assert(obtainedRelUUID, gc.Equals, foundRelUUID)
 }
 
 func (s *addRelationSuite) TestInferEndpoints(c *gc.C) {
@@ -3548,6 +3586,98 @@ func (s *relationSuite) TestGetGoalStateRelationDataForApplicationNoRows(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *relationSuite) TestGetApplicationIDByName(c *gc.C) {
+	obtainedID, err := s.state.GetApplicationIDByName(context.Background(), s.fakeApplicationName1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(obtainedID, gc.Equals, s.fakeApplicationUUID1)
+}
+
+func (s *relationSuite) TestGetApplicationIDByNameNotFound(c *gc.C) {
+	_, err := s.state.GetApplicationIDByName(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *relationSuite) TestDeleteImportedRelations(c *gc.C) {
+	// Arrange: Add a peer relation with one endpoint.
+	endpoint1 := relation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeContainer,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	// Arrange: Declare settings and add initial settings.
+	appInitialSettings := map[string]string{
+		"key1": "value1",
+		"key2": "value2",
+		"key3": "value3",
+	}
+	for k, v := range appInitialSettings {
+		s.addRelationApplicationSetting(c, relationEndpointUUID1, k, v)
+	}
+
+	// Arrange: Add a unit to the relation.
+	unitName := coreunittesting.GenNewName(c, "app/0")
+	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
+
+	unitInitialSettings := map[string]string{
+		"key1": "value1",
+		"key2": "value2",
+		"key3": "value3",
+	}
+	for k, v := range unitInitialSettings {
+		s.addRelationUnitSetting(c, relationUnitUUID, k, v)
+	}
+
+	// Act
+	err := s.state.DeleteImportedRelations(context.Background())
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+	s.checkTableEmpty(c, "relation_unit_uuid", "relation_unit_settings")
+	s.checkTableEmpty(c, "relation_unit_uuid", "relation_unit_settings_hash")
+	s.checkTableEmpty(c, "uuid", "relation_unit")
+	s.checkTableEmpty(c, "relation_endpoint_uuid", "relation_application_settings")
+	s.checkTableEmpty(c, "relation_endpoint_uuid", "relation_application_settings_hash")
+	s.checkTableEmpty(c, "uuid", "relation_endpoint")
+	s.checkTableEmpty(c, "uuid", "relation")
+}
+
+func (s *relationSuite) checkTableEmpty(c *gc.C, colName, tableName string) {
+	query := fmt.Sprintf(`
+SELECT %s
+FROM   %s
+`, colName, tableName)
+
+	values := []string{}
+	_ = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, query)
+
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer func() { _ = rows.Close() }()
+
+		for rows.Next() {
+			var value string
+			if err := rows.Scan(&value); err != nil {
+				return errors.Capture(err)
+			}
+			values = append(values, value)
+		}
+		return nil
+	})
+	c.Check(values, jc.DeepEquals, []string{}, gc.Commentf("table %q first value: %q", tableName, strings.Join(values, ", ")))
+}
+
 // addRelationUnitSetting inserts a relation unit setting into the database
 // using the provided relationUnitUUID.
 func (s *relationSuite) addRelationUnitSetting(c *gc.C, relationUnitUUID corerelation.UnitUUID, key, value string) {
@@ -3741,6 +3871,24 @@ JOIN relation r  ON re.relation_uuid = r.uuid
 	})
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("(Assert) fetching inserted relation endpoint: %s", errors.ErrorStack(err)))
 	return epUUIDsByRelID
+}
+
+func (s *addRelationSuite) fetchRelationUUIDByRelationID(c *gc.C, id uint64) corerelation.UUID {
+	var relationUUID corerelation.UUID
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRow(`
+SELECT r.uuid
+FROM   relation AS r
+WHERE  r.relation_id = ?
+`, id).Scan(&relationUUID)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return relationUUID
 }
 
 // getRelationUnitInScope verifies that the expected row is populated in

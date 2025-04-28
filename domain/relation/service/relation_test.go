@@ -1176,6 +1176,84 @@ func (s *relationServiceSuite) TestGetGoalStateRelationDataForApplicationError(c
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotFound)
 }
 
+func (s *relationServiceSuite) TestImportRelations(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	key1 := corerelationtesting.GenNewKey(c, "ubuntu:peer")
+	ep1 := key1.EndpointIdentifiers()
+	key2 := corerelationtesting.GenNewKey(c, "ubuntu:juju-info ntp:juju-info")
+	ep2 := key2.EndpointIdentifiers()
+
+	args := relation.ImportRelationsArgs{
+		{
+			ID:  7,
+			Key: key1,
+			Endpoints: []relation.ImportEndpoint{
+				{
+					ApplicationName:     ep1[0].ApplicationName,
+					EndpointName:        ep1[0].EndpointName,
+					ApplicationSettings: map[string]interface{}{"five": "six"},
+					UnitSettings: map[string]map[string]interface{}{
+						"ubuntu/0": {"one": "two"},
+					},
+				},
+			},
+		}, {
+			ID:  8,
+			Key: key2,
+			Endpoints: []relation.ImportEndpoint{
+				{
+					ApplicationName:     ep2[0].ApplicationName,
+					EndpointName:        ep2[0].EndpointName,
+					ApplicationSettings: map[string]interface{}{"foo": "six"},
+					UnitSettings: map[string]map[string]interface{}{
+						"ubuntu/0": {"test": "two"},
+					},
+				}, {
+					ApplicationName:     ep2[1].ApplicationName,
+					EndpointName:        ep2[1].EndpointName,
+					ApplicationSettings: map[string]interface{}{"three": "four"},
+					UnitSettings: map[string]map[string]interface{}{
+						"ntp/0": {"seven": "six"},
+					},
+				},
+			},
+		},
+	}
+	peerRelUUID := s.expectGetPeerRelationUUIDByEndpointIdentifiers(c, ep1[0])
+	relUUID := s.expectSetRelationWithID(c, ep2[0], ep2[1], uint64(8))
+	app1ID := s.expectGetApplicationIDByName(c, args[0].Endpoints[0].ApplicationName)
+	app2ID := s.expectGetApplicationIDByName(c, args[1].Endpoints[0].ApplicationName)
+	app3ID := s.expectGetApplicationIDByName(c, args[1].Endpoints[1].ApplicationName)
+	s.expectSetRelationApplicationSettings(peerRelUUID, app1ID, args[0].Endpoints[0].ApplicationSettings)
+	s.expectSetRelationApplicationSettings(relUUID, app2ID, args[1].Endpoints[0].ApplicationSettings)
+	s.expectSetRelationApplicationSettings(relUUID, app3ID, args[1].Endpoints[1].ApplicationSettings)
+	settings := args[0].Endpoints[0].UnitSettings["ubuntu/0"]
+	s.expectEnterScope(peerRelUUID, coreunittesting.GenNewName(c, "ubuntu/0"), settings)
+	settings = args[1].Endpoints[0].UnitSettings["ubuntu/0"]
+	s.expectEnterScope(relUUID, coreunittesting.GenNewName(c, "ubuntu/0"), settings)
+	settings = args[1].Endpoints[1].UnitSettings["ntp/0"]
+	s.expectEnterScope(relUUID, coreunittesting.GenNewName(c, "ntp/0"), settings)
+
+	// Act
+	err := s.service.ImportRelations(context.Background(), args)
+
+	// Assert
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *relationServiceSuite) TestDeleteImportedRelationsError(c *gc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	s.state.EXPECT().DeleteImportedRelations(gomock.Any()).Return(errors.New("boom"))
+
+	// Act
+	err := s.service.DeleteImportedRelations(context.Background())
+
+	// Assert
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
 func (s *relationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -1185,6 +1263,49 @@ func (s *relationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.service = NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	return ctrl
+}
+
+func (s *relationServiceSuite) expectGetPeerRelationUUIDByEndpointIdentifiers(
+	c *gc.C,
+	endpoint corerelation.EndpointIdentifier,
+) corerelation.UUID {
+	relUUID := corerelationtesting.GenRelationUUID(c)
+	s.state.EXPECT().GetPeerRelationUUIDByEndpointIdentifiers(gomock.Any(), endpoint).Return(relUUID, nil)
+	return relUUID
+}
+
+func (s *relationServiceSuite) expectSetRelationWithID(
+	c *gc.C,
+	ep2, ep3 corerelation.EndpointIdentifier,
+	id uint64,
+) corerelation.UUID {
+	relUUID := corerelationtesting.GenRelationUUID(c)
+	s.state.EXPECT().SetRelationWithID(gomock.Any(), ep2, ep3, id).Return(relUUID, nil)
+	return relUUID
+}
+
+func (s *relationServiceSuite) expectGetApplicationIDByName(c *gc.C, name string) coreapplication.ID {
+	appID := coreapplicationtesting.GenApplicationUUID(c)
+	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), name).Return(appID, nil)
+	return appID
+}
+
+func (s *relationServiceSuite) expectSetRelationApplicationSettings(
+	uuid corerelation.UUID,
+	id coreapplication.ID,
+	settings map[string]interface{},
+) {
+	appSettings, _ := settingsMap(settings)
+	s.state.EXPECT().SetRelationApplicationSettings(gomock.Any(), uuid, id, appSettings).Return(nil)
+}
+
+func (s *relationServiceSuite) expectEnterScope(
+	uuid corerelation.UUID,
+	name coreunit.Name,
+	settings map[string]interface{},
+) {
+	unitSettings, _ := settingsMap(settings)
+	s.state.EXPECT().EnterScope(gomock.Any(), uuid, name, unitSettings).Return(nil)
 }
 
 type relationLeadershipServiceSuite struct {
