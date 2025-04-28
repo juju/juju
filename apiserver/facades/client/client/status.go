@@ -930,7 +930,10 @@ func (context *statusContext) processRelations(ctx context.Context) []params.Rel
 }
 
 func (context *statusContext) isSubordinate(ep *relation.Endpoint) bool {
-	application := context.allAppsUnitsCharmBindings.applications[ep.ApplicationName]
+	application, ok := context.allAppsUnitsCharmBindings.applications[ep.ApplicationName]
+	if !ok {
+		return false
+	}
 	return isSubordinate(ep, application)
 }
 
