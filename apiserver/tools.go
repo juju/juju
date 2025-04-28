@@ -113,7 +113,7 @@ func (a *agentBinaryStoreLogShim) AddAgentBinaryWithSHA256(
 		"agent binaries being added to %q for %q with sha %q on behalf of entity %q",
 		a.StoreName, version.String(), dataSHA256Sum, httpcontext.EntityForContext(ctx),
 	)
-	return a.AddAgentBinaryWithSHA256(ctx, data, version, dataSize, dataSHA256Sum)
+	return a.AgentBinaryStore.AddAgentBinaryWithSHA256(ctx, data, version, dataSize, dataSHA256Sum)
 }
 
 // BlockCheckerGetterForServices returns a [BlockCheckerGetter] that is
