@@ -134,9 +134,6 @@ type principalLifeSuspendedStatusWatcher struct {
 	// being watched, to check if the values have changed when the Mapper is
 	// triggered.
 	currentRelations map[corerelation.UUID]relation.RelationLifeSuspendedData
-	// relationsIgnored is the set of relations which are not relevant to
-	// this unit. No need to evaluate them again.
-	relationsIgnored set.Strings
 	// lifeNameSpace is the namespace where the relation's life can be found.
 	lifeNameSpace string
 	// suspendedNameSpace is the namespace where relation suspension can be found.
@@ -149,7 +146,6 @@ func newPrincipalLifeSuspendedStatusWatcher(s *WatchableService, appID applicati
 		s:                s,
 		appID:            appID,
 		currentRelations: make(map[corerelation.UUID]relation.RelationLifeSuspendedData),
-		relationsIgnored: set.NewStrings(),
 	}
 	// returns a set of relation keys if the life or suspended status has changed
 	// for any relation this application is part of.
@@ -191,6 +187,9 @@ func (w *principalLifeSuspendedStatusWatcher) GetInitialQuery() eventsource.Name
 // GetMapper returns a function which decides which relations
 // the watcher should notify on for future events.
 func (w *principalLifeSuspendedStatusWatcher) GetMapper() eventsource.Mapper {
+	// relationsIgnored is the set of relations which are not relevant to
+	// this unit. No need to evaluate them again.
+	relationsIgnored := set.NewStrings()
 	return func(ctx context.Context, txn database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		// If there are no changes, return no changes.
 		if len(changes) == 0 {
@@ -201,6 +200,7 @@ func (w *principalLifeSuspendedStatusWatcher) GetMapper() eventsource.Mapper {
 		changeEvents, err = w.filterChangeEvents(
 			ctx,
 			changes,
+			relationsIgnored,
 		)
 		if err != nil {
 			return nil, errors.Capture(err)
@@ -212,6 +212,7 @@ func (w *principalLifeSuspendedStatusWatcher) GetMapper() eventsource.Mapper {
 func (w *principalLifeSuspendedStatusWatcher) filterChangeEvents(
 	ctx context.Context,
 	changes []changestream.ChangeEvent,
+	relationsIgnored set.Strings,
 ) ([]changestream.ChangeEvent, error) {
 	var changeEvents []changestream.ChangeEvent
 
@@ -221,13 +222,17 @@ func (w *principalLifeSuspendedStatusWatcher) filterChangeEvents(
 	// each relation.
 	changedRelations := make(map[corerelation.UUID]changestream.ChangeEvent)
 	for _, change := range changes {
-		relUUID := corerelation.UUID(change.Changed())
+		changed := change.Changed()
+		if relationsIgnored.Contains(changed) {
+			continue
+		}
+		relUUID := corerelation.UUID(changed)
 		changedRelations[relUUID] = change
 	}
 	for relUUID, change := range changedRelations {
 		changedRelationData, err := w.s.st.GetMapperDataForWatchLifeSuspendedStatus(ctx, relUUID, w.appID)
 		if errors.Is(err, relationerrors.ApplicationNotFoundForRelation) {
-			w.relationsIgnored.Add(relUUID.String())
+			relationsIgnored.Add(relUUID.String())
 			continue
 		} else if errors.Is(err, relationerrors.RelationNotFound) {
 			delete(w.currentRelations, relUUID)
@@ -259,25 +264,15 @@ func (w *principalLifeSuspendedStatusWatcher) filterChangeEvents(
 // Relations the Mapper has chosen to ignore will be filtered out of future
 // calls to the Mapper.
 func (w *principalLifeSuspendedStatusWatcher) GetFirstFilterOption() eventsource.FilterOption {
-	return eventsource.PredicateFilter(w.lifeNameSpace, changestream.All, func(s string) bool {
-		if w.relationsIgnored.Contains(s) {
-			return false
-		}
-		return true
-	})
+	return eventsource.NamespaceFilter(w.lifeNameSpace, changestream.All)
 }
 
 // GetFilterOptions returns a predicate filter for the suspendedNameSpace.
 // Relations the Mapper has chosen to ignore will be filtered out of future
 // calls to the Mapper.
 func (w *principalLifeSuspendedStatusWatcher) GetFilterOptions() []eventsource.FilterOption {
-	pf := eventsource.PredicateFilter(w.suspendedNameSpace, changestream.All, func(s string) bool {
-		if w.relationsIgnored.Contains(s) {
-			return false
-		}
-		return true
-	})
-	return []eventsource.FilterOption{pf}
+
+	return []eventsource.FilterOption{eventsource.NamespaceFilter(w.suspendedNameSpace, changestream.All)}
 }
 
 // subordinateLifeSuspendedStatusWatcher is the namespaceMapperWatcherMethods
@@ -295,9 +290,6 @@ type subordinateLifeSuspendedStatusWatcher struct {
 	// being watched, to check if the values have changed when the Mapper is
 	// triggered.
 	currentRelations map[corerelation.UUID]relation.RelationLifeSuspendedData
-	// relationsIgnored is the set of relations which are not relevant to
-	// this unit. No need to evaluate them again.
-	relationsIgnored set.Strings
 	// lifeNameSpace is the namespace where the relation's life can be found.
 	lifeNameSpace string
 	// suspendedNameSpace is the namespace where relation suspension can be found.
@@ -311,7 +303,6 @@ func newSubordinateLifeSuspendedStatusWatcher(s *WatchableService, subordinateID
 		appID:            subordinateID,
 		parentAppID:      principalID,
 		currentRelations: make(map[corerelation.UUID]relation.RelationLifeSuspendedData),
-		relationsIgnored: set.NewStrings(),
 	}
 	// returns a set of relation keys if the life or suspended status has changed
 	// for any relation this application is part of.
@@ -353,6 +344,9 @@ func (w *subordinateLifeSuspendedStatusWatcher) GetInitialQuery() eventsource.Na
 // GetMapper returns a function which decides which relations
 // the watcher should notify on for future events.
 func (w *subordinateLifeSuspendedStatusWatcher) GetMapper() eventsource.Mapper {
+	// relationsIgnored is the set of relations which are not relevant to
+	// this unit. No need to evaluate them again.
+	relationsIgnored := set.NewStrings()
 	return func(ctx context.Context, txn database.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		// If there are no changes, return no changes.
 		if len(changes) == 0 {
@@ -363,6 +357,7 @@ func (w *subordinateLifeSuspendedStatusWatcher) GetMapper() eventsource.Mapper {
 		changeEvents, err = w.filterChangeEvents(
 			ctx,
 			changes,
+			relationsIgnored,
 		)
 		if err != nil {
 			return nil, errors.Capture(err)
@@ -374,6 +369,7 @@ func (w *subordinateLifeSuspendedStatusWatcher) GetMapper() eventsource.Mapper {
 func (w *subordinateLifeSuspendedStatusWatcher) filterChangeEvents(
 	ctx context.Context,
 	changes []changestream.ChangeEvent,
+	relationsIgnored set.Strings,
 ) ([]changestream.ChangeEvent, error) {
 	var changeEvents []changestream.ChangeEvent
 
@@ -383,13 +379,18 @@ func (w *subordinateLifeSuspendedStatusWatcher) filterChangeEvents(
 	// changed for the notification as only the relation key is returned.
 	changedRelations := make(map[corerelation.UUID]changestream.ChangeEvent, 0)
 	for _, change := range changes {
-		relUUID := corerelation.UUID(change.Changed())
+		changed := change.Changed()
+		if relationsIgnored.Contains(changed) {
+			continue
+		}
+		relUUID := corerelation.UUID(changed)
 		changedRelations[relUUID] = change
 	}
 	for relUUID, change := range changedRelations {
+
 		changedRelationData, err := w.s.st.GetMapperDataForWatchLifeSuspendedStatus(ctx, relUUID, w.appID)
 		if errors.Is(err, relationerrors.ApplicationNotFoundForRelation) {
-			w.relationsIgnored.Add(relUUID.String())
+			relationsIgnored.Add(relUUID.String())
 			continue
 		} else if errors.Is(err, relationerrors.RelationNotFound) {
 			delete(w.currentRelations, relUUID)
@@ -422,7 +423,7 @@ func (w *subordinateLifeSuspendedStatusWatcher) filterChangeEvents(
 		if err != nil {
 			return nil, errors.Capture(err)
 		} else if !send {
-			w.relationsIgnored.Add(relUUID.String())
+			relationsIgnored.Add(relUUID.String())
 			continue
 		}
 
@@ -466,25 +467,14 @@ func (w *subordinateLifeSuspendedStatusWatcher) watchNewRelation(
 // Relations the Mapper has chosen to ignore will be filtered out of future
 // calls to the Mapper.
 func (w *subordinateLifeSuspendedStatusWatcher) GetFirstFilterOption() eventsource.FilterOption {
-	return eventsource.PredicateFilter(w.lifeNameSpace, changestream.All, func(s string) bool {
-		if w.relationsIgnored.Contains(s) {
-			return false
-		}
-		return true
-	})
+	return eventsource.NamespaceFilter(w.lifeNameSpace, changestream.All)
 }
 
 // GetFilterOptions returns a predicate filter for the suspendedNameSpace.
 // Relations the Mapper has chosen to ignore will be filtered out of future
 // calls to the Mapper.
 func (w *subordinateLifeSuspendedStatusWatcher) GetFilterOptions() []eventsource.FilterOption {
-	pf := eventsource.PredicateFilter(w.suspendedNameSpace, changestream.All, func(s string) bool {
-		if w.relationsIgnored.Contains(s) {
-			return false
-		}
-		return true
-	})
-	return []eventsource.FilterOption{pf}
+	return []eventsource.FilterOption{eventsource.NamespaceFilter(w.suspendedNameSpace, changestream.All)}
 }
 
 // WatchUnitScopes returns a watcher which notifies of counterpart units

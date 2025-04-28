@@ -236,11 +236,13 @@ func (s *watcherSuite) TestChangeEventsForSubordinateLifeSuspendedStatusMapper(c
 		parentAppID:      principalID,
 		appID:            subordinateID,
 		currentRelations: currentRelations,
-		relationsIgnored: set.NewStrings(),
 	}
+
+	relationsIgnored := set.NewStrings()
 	obtainedChanges, err := watcher.filterChangeEvents(
 		context.Background(),
 		changes,
+		relationsIgnored,
 	)
 
 	// Assert: changes contain the existing relation and the new relation,
@@ -260,7 +262,7 @@ func (s *watcherSuite) TestChangeEventsForSubordinateLifeSuspendedStatusMapper(c
 		c.Check(expectedChanged.Contains(change.Changed()), jc.IsTrue)
 	}
 	c.Check(watcher.currentRelations, gc.DeepEquals, currentRelations)
-	c.Check(watcher.relationsIgnored.Contains(unrelatedRelUUID.String()), jc.IsTrue)
+	c.Check(relationsIgnored.Contains(unrelatedRelUUID.String()), jc.IsTrue)
 }
 
 func (s *watcherSuite) setupMocks(c *gc.C) *gomock.Controller {
