@@ -33,6 +33,11 @@ type BlockCheckerInterface interface {
 	DestroyAllowed(context.Context) error
 }
 
+// BlockCheckerGetter provides a signature of a function that can be used to
+// late defer getting a [BlockChecker]. This allows block checkers to be made
+// based on the context of the caller.
+type BlockCheckerGetter func(ctx context.Context) (*BlockChecker, error)
+
 // BlockChecker checks for current blocks if any.
 type BlockChecker struct {
 	service BlockCommandService

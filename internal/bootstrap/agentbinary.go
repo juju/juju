@@ -37,6 +37,22 @@ type AgentBinaryStorage interface {
 // AgentBinaryStore is the service used to persist Juju agent binaries into the
 // controller.
 type AgentBinaryStore interface {
+	// AddAgentBinary adds a new agent binary to the object store and saves its
+	// metadata to the database. The following errors can be returned:
+	// - [github.com/juju/juju/core/errors.NotSupported] if the architecture is
+	// not supported.
+	// - [github.com/juju/juju/domain/agentbinary/errors.AlreadyExists] if an
+	// agent binary already exists for this version and architecture.
+	// - [github.com/juju/juju/domain/agentbinary/errors.ObjectNotFound] if
+	// there was a problem referencing the
+	// agent binary metadata with the previously saved binary object. This error
+	// should be considered an internal problem. It is
+	// discussed here to make the caller aware of future problems.
+	// - [github.com/juju/juju/core/errors.NotValid] when the agent version is
+	// not considered valid.
+	// - [github.com/juju/juju/domain/agentbinary/errors.HashMismatch] when the
+	// expected sha does not match that which was computed against the binary
+	// data.
 	AddAgentBinaryWithSHA256(context.Context, io.Reader, coreagentbinary.Version, int64, string) error
 }
 

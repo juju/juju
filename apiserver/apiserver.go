@@ -47,7 +47,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	coreresource "github.com/juju/juju/core/resource"
 	coretrace "github.com/juju/juju/core/trace"
@@ -148,7 +148,7 @@ type ServerConfig struct {
 	ControllerUUID string
 
 	// ControllerModelUUID is the ID for the controller model.
-	ControllerModelUUID model.UUID
+	ControllerModelUUID coremodel.UUID
 
 	// LocalMacaroonAuthenticator is the request authenticator used for verifying
 	// local user macaroons.
@@ -687,7 +687,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			} else {
 				h = &httpcontext.ControllerModelHandler{
 					Handler:             h,
-					ControllerModelUUID: controllerModelUUID,
+					ControllerModelUUID: coremodel.UUID(controllerModelUUID),
 				}
 			}
 		}
@@ -744,10 +744,14 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		&objectStoreServiceGetter{ctxt: httpCtxt},
 	), "objects")
 
-	modelToolsUploadHandler := srv.monitoredHandler(&toolsUploadHandler{
-		ctxt:          httpCtxt,
-		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
-	}, "tools")
+	modelToolsUploadHandler := srv.monitoredHandler(newToolsUploadHandler(
+		BlockCheckerGetterForServices(httpCtxt.domainServicesForRequest),
+		modelAgentBinaryStoreForHTTPContext(httpCtxt),
+	), "tools")
+	controllerToolsUploadHandler := srv.monitoredHandler(newToolsUploadHandler(
+		BlockCheckerGetterForServices(httpCtxt.domainServicesForRequest),
+		controllerAgentBinaryStoreForHTTPContext(httpCtxt),
+	), "tools")
 	modelToolsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
 	modelToolsDownloadHandler := srv.monitoredHandler(newToolsDownloadHandler(httpCtxt), "tools")
 
@@ -832,10 +836,10 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		&migratingObjectsApplicationServiceGetter{ctxt: httpCtxt},
 		objects.CharmURLFromLocatorDuringMigration,
 	), "charms")
-	migrateToolsUploadHandler := srv.monitoredHandler(&toolsUploadHandler{
-		ctxt:          httpCtxt,
-		stateAuthFunc: httpCtxt.stateForMigrationImporting,
-	}, "tools")
+	migrateToolsUploadHandler := srv.monitoredHandler(newToolsUploadHandler(
+		BlockCheckerGetterForServices(httpCtxt.domainServicesForRequest),
+		migratingAgentBinaryStoreForHTTPContext(httpCtxt),
+	), "tools")
 	resourcesMigrationUploadHandler := srv.monitoredHandler(handlersresources.NewResourceMigrationUploadHandler(
 		&migratingResourceServiceGetter{ctxt: httpCtxt},
 		logger,
@@ -942,7 +946,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		unauthenticated: true,
 	}, {
 		pattern:    "/tools",
-		handler:    modelToolsUploadHandler,
+		handler:    controllerToolsUploadHandler,
 		authorizer: modelToolsUploadAuthorizer,
 	}, {
 		pattern:         "/tools/:version",
@@ -1049,7 +1053,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 
 		// If the request is for the controller model, then we need to
 		// resolve the modelUUID to the controller model.
-		resolvedModelUUID := model.UUID(modelUUID)
+		resolvedModelUUID := coremodel.UUID(modelUUID)
 		if controllerOnlyLogin {
 			resolvedModelUUID = srv.shared.controllerModelUUID
 		}
@@ -1057,7 +1061,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 		// Put the modelUUID into the context for the request. This will
 		// allow the peeling of the modelUUID from the request to be
 		// deferred to the facade methods.
-		ctx := model.WithContextModelUUID(req.Context(), resolvedModelUUID)
+		ctx := coremodel.WithContextModelUUID(req.Context(), resolvedModelUUID)
 
 		logger.Tracef(context.TODO(), "got a request for model %q", modelUUID)
 		if err := srv.serveConn(
@@ -1077,7 +1081,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 func (srv *Server) serveConn(
 	ctx context.Context,
 	wsConn *websocket.Conn,
-	modelUUID model.UUID,
+	modelUUID coremodel.UUID,
 	controllerOnlyLogin bool,
 	connectionID uint64,
 	apiObserver observer.Observer,
