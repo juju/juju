@@ -1176,7 +1176,8 @@ func (st *State) GetApplicationAndUnitStatuses(ctx context.Context) (map[string]
 
 	// Get all the applications.
 	applicationQuery, err := st.Prepare(`
-SELECT a.name AS &applicationStatusDetails.name,
+SELECT
+	a.name AS &applicationStatusDetails.name,
 	a.uuid AS &applicationStatusDetails.uuid,
 	a.life_id AS &applicationStatusDetails.life_id,
 	ap.os_id AS &applicationStatusDetails.platform_os_id,
