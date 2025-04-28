@@ -158,7 +158,7 @@ func (b *backend) JumpServerVirtualPublicKey() ([]byte, error) {
 
 // UnitVirtualAuthorizedKey returns the public key in SSH wire format.
 func (b *backend) UnitVirtualPublicKey(unitID string) ([]byte, error) {
-	vhk, err := b.controllerState.UnitVirtualHostKey(unitID)
+	vhk, err := b.State.UnitVirtualHostKey(unitID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -173,7 +173,7 @@ func (b *backend) UnitVirtualPublicKey(unitID string) ([]byte, error) {
 
 // MachineVirtualAuthorizedKey returns the public key in SSH wire format.
 func (b *backend) MachineVirtualPublicKey(machineID string) ([]byte, error) {
-	vhk, err := b.controllerState.MachineVirtualHostKey(machineID)
+	vhk, err := b.State.MachineVirtualHostKey(machineID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

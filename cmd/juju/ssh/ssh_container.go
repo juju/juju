@@ -87,7 +87,6 @@ type SSHControllerAPI interface {
 // SetFlags sets up options and flags for the command.
 func (c *sshContainer) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.remote, "remote", false, "Target on the workload or operator pod (k8s-only)")
-	f.StringVar(&c.container, "container", "", "the container name of the target pod")
 }
 
 func (c *sshContainer) setHostChecker(_ jujussh.ReachableChecker) {}

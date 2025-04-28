@@ -45,6 +45,8 @@ var allowedMethodsDuringUpgrades = map[string]set.Strings{
 		"PublicKeys",
 		"Proxy",
 		"Leader",
+		"VirtualHostname",
+		"PublicHostKeyForTarget",
 	),
 	"Pinger": set.NewStrings(
 		"Ping",
