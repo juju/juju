@@ -200,6 +200,34 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExport(c *gc.C) {
 	})
 }
 
+func (s *migrationStateSuite) TestGetApplicationUnitsForExportMultipleApplications(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	id := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+		Password: &application.PasswordInfo{
+			PasswordHash:  "password",
+			HashAlgorithm: 0,
+		},
+	})
+	s.createApplication(c, "bar", life.Alive, application.InsertUnitArg{
+		UnitName: "bar/0",
+	})
+
+	unitUUID, err := st.GetUnitUUIDByName(context.Background(), "foo/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := st.GetApplicationUnitsForExport(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(units, jc.DeepEquals, []application.ExportUnit{
+		{
+			UUID:    unitUUID,
+			Name:    "foo/0",
+			Machine: machine.Name("0"),
+		},
+	})
+}
+
 func (s *migrationStateSuite) TestGetApplicationUnitsForExportSubordinate(c *gc.C) {
 	// Arrange:
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
@@ -233,10 +261,6 @@ func (s *migrationStateSuite) TestGetApplicationUnitsForExportSubordinate(c *gc.
 			Name:      "foo/0",
 			Machine:   "0",
 			Principal: principalName,
-		}, {
-			UUID:    principalUUID,
-			Name:    "principal/0",
-			Machine: "1",
 		},
 	})
 }

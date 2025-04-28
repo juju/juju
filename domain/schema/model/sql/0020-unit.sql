@@ -398,6 +398,7 @@ SELECT
     u.uuid,
     u.name,
     u.password_hash,
+    u.application_uuid,
     m.name AS machine_name,
     upname.name AS principal_name
 FROM unit AS u
