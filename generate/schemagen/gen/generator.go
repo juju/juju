@@ -35,10 +35,6 @@ type PackageRegistry interface {
 	LoadPackage() (*packages.Package, error)
 }
 
-type Linker interface {
-	Links(string, facade.MultiModelFactory) []string
-}
-
 // Option to be passed to Connect to customize the resulting instance.
 type Option func(*options)
 
@@ -73,7 +69,7 @@ var (
 )
 
 // Generate a FacadeSchema from the APIServer
-func Generate(pkgRegistry PackageRegistry, linker Linker, client APIServer, options ...Option) ([]FacadeSchema, error) {
+func Generate(pkgRegistry PackageRegistry, client APIServer, options ...Option) ([]FacadeSchema, error) {
 	opts := newOptions()
 	for _, option := range options {
 		option(opts)
@@ -127,7 +123,6 @@ func Generate(pkgRegistry PackageRegistry, linker Linker, client APIServer, opti
 
 		result[i].Name = facade.Name
 		result[i].Version = version
-		result[i].AvailableTo = linker.Links(facade.Name, facade.Factory)
 
 		var objType *rpcreflect.ObjType
 		kind, err := registry.GetType(facade.Name, version)
@@ -189,7 +184,6 @@ type FacadeSchema struct {
 	Name        string
 	Description string
 	Version     int
-	AvailableTo []string
 	Schema      *jsonschema.Schema
 }
 

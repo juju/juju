@@ -3,13 +3,6 @@
         "Name": "Admin",
         "Description": "",
         "Version": 3,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "controller-user",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -286,11 +279,6 @@
         "Name": "Agent",
         "Description": "",
         "Version": 3,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -830,12 +818,6 @@
         "Name": "AgentLifeFlag",
         "Description": "",
         "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -982,10 +964,6 @@
         "Name": "CAASAdmission",
         "Description": "",
         "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -1124,12 +1102,6 @@
         "Name": "CAASAgent",
         "Description": "",
         "Version": 2,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -1447,12 +1419,6 @@
         "Name": "CAASApplication",
         "Description": "",
         "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -1587,12 +1553,6 @@
         "Name": "CredentialValidator",
         "Description": "",
         "Version": 2,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -1735,10 +1695,6 @@
         "Name": "Deployer",
         "Description": "",
         "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -2220,10 +2176,6 @@
         "Name": "DiskManager",
         "Description": "",
         "Version": 2,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -2388,12 +2340,6 @@
         "Name": "HostKeyReporter",
         "Description": "",
         "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -2500,12 +2446,6 @@
         "Name": "InstanceMutater",
         "Description": "",
         "Version": 3,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -2950,12 +2890,6 @@
         "Name": "KeyUpdater",
         "Description": "",
         "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -3102,12 +3036,6 @@
         "Name": "LeadershipService",
         "Description": "",
         "Version": 2,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -3238,12 +3166,6 @@
         "Name": "Logger",
         "Description": "",
         "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -3390,10 +3312,6 @@
         "Name": "MachineActions",
         "Description": "",
         "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -3752,12 +3670,6 @@
         "Name": "Machiner",
         "Description": "",
         "Version": 6,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -4427,12 +4339,6 @@
         "Name": "MigrationFlag",
         "Description": "",
         "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -4576,12 +4482,6 @@
         "Name": "MigrationMinion",
         "Description": "",
         "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -4670,12 +4570,6 @@
         "Name": "PayloadsHookContext",
         "Description": "",
         "Version": 2,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object"
         }
@@ -4684,13 +4578,6 @@
         "Name": "Pinger",
         "Description": "",
         "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "controller-user",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -4707,10 +4594,6 @@
         "Name": "Provisioner",
         "Description": "",
         "Version": 11,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -7149,12 +7032,6 @@
         "Name": "ProxyUpdater",
         "Description": "",
         "Version": 2,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -7347,12 +7224,6 @@
         "Name": "Reboot",
         "Description": "",
         "Version": 2,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -7521,12 +7392,6 @@
         "Name": "ResourcesHookContext",
         "Description": "",
         "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -7749,12 +7614,6 @@
         "Name": "RetryStrategy",
         "Description": "",
         "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -7926,9 +7785,6 @@
         "Name": "SecretsManager",
         "Description": "",
         "Version": 3,
-        "AvailableTo": [
-            "unit-agent"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -8714,12 +8570,6 @@
         "Name": "StorageProvisioner",
         "Description": "",
         "Version": 4,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -10258,12 +10108,6 @@
         "Name": "UnitAssigner",
         "Description": "",
         "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -10448,12 +10292,6 @@
         "Name": "Uniter",
         "Description": "",
         "Version": 21,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -13598,11 +13436,6 @@
         "Name": "Upgrader",
         "Description": "",
         "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent"
-        ],
         "Schema": {
             "type": "object",
             "properties": {

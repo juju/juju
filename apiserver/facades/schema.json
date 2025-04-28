@@ -3,12 +3,6 @@
         "Name": "Action",
         "Description": "",
         "Version": 7,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -541,13 +535,6 @@
         "Name": "Admin",
         "Description": "",
         "Version": 3,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "controller-user",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -824,9 +811,6 @@
         "Name": "Annotations",
         "Description": "",
         "Version": 2,
-        "AvailableTo": [
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -1012,12 +996,6 @@
         "Name": "Application",
         "Description": "",
         "Version": 20,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -3260,12 +3238,6 @@
         "Name": "ApplicationOffers",
         "Description": "",
         "Version": 5,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "controller-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -4034,12 +4006,6 @@
         "Name": "Backups",
         "Description": "",
         "Version": 3,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -4194,9 +4160,6 @@
         "Name": "Block",
         "Description": "",
         "Version": 2,
-        "AvailableTo": [
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -4338,13 +4301,6 @@
         "Name": "Bundle",
         "Description": "",
         "Version": 8,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "controller-user",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -4495,9 +4451,6 @@
         "Name": "Charms",
         "Description": "",
         "Version": 7,
-        "AvailableTo": [
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -5524,9 +5477,6 @@
         "Name": "Client",
         "Description": "",
         "Version": 8,
-        "AvailableTo": [
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -6805,12 +6755,6 @@
         "Name": "Cloud",
         "Description": "",
         "Version": 7,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "controller-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -7764,12 +7708,6 @@
         "Name": "Controller",
         "Description": "",
         "Version": 12,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "controller-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -8936,9 +8874,6 @@
         "Name": "CredentialManager",
         "Description": "",
         "Version": 1,
-        "AvailableTo": [
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -9005,10 +8940,6 @@
         "Name": "HighAvailability",
         "Description": "",
         "Version": 3,
-        "AvailableTo": [
-            "controller-user",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -9258,12 +9189,6 @@
         "Name": "ImageMetadataManager",
         "Description": "",
         "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -9486,12 +9411,6 @@
         "Name": "KeyManager",
         "Description": "",
         "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -9689,12 +9608,6 @@
         "Name": "MachineManager",
         "Description": "",
         "Version": 11,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -10348,13 +10261,6 @@
         "Name": "ModelConfig",
         "Description": "",
         "Version": 4,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "controller-user",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -10667,12 +10573,6 @@
         "Name": "ModelManager",
         "Description": "",
         "Version": 10,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "controller-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -11977,9 +11877,6 @@
         "Name": "ModelUpgrader",
         "Description": "",
         "Version": 1,
-        "AvailableTo": [
-            "controller-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -12116,13 +12013,6 @@
         "Name": "Pinger",
         "Description": "",
         "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "controller-user",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -12139,9 +12029,6 @@
         "Name": "Resources",
         "Description": "",
         "Version": 3,
-        "AvailableTo": [
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -12550,12 +12437,6 @@
         "Name": "SSHClient",
         "Description": "",
         "Version": 5,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -12889,9 +12770,6 @@
         "Name": "SecretBackends",
         "Description": "",
         "Version": 1,
-        "AvailableTo": [
-            "controller-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -13225,9 +13103,6 @@
         "Name": "Secrets",
         "Description": "",
         "Version": 2,
-        "AvailableTo": [
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -13821,9 +13696,6 @@
         "Name": "Spaces",
         "Description": "",
         "Version": 6,
-        "AvailableTo": [
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -14344,12 +14216,6 @@
         "Name": "Storage",
         "Description": "",
         "Version": 6,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -15465,9 +15331,6 @@
         "Name": "Subnets",
         "Description": "",
         "Version": 5,
-        "AvailableTo": [
-            "model-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
@@ -15734,9 +15597,6 @@
         "Name": "UserManager",
         "Description": "",
         "Version": 3,
-        "AvailableTo": [
-            "controller-user"
-        ],
         "Schema": {
             "type": "object",
             "properties": {
