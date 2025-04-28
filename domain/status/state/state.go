@@ -40,21 +40,22 @@ func NewState(factory database.TxnRunnerFactory, clock clock.Clock, logger logge
 }
 
 // GetAllRelationStatuses returns all the relation statuses of the given model.
-func (st *State) GetAllRelationStatuses(ctx context.Context) (map[corerelation.UUID]status.StatusInfo[status.RelationStatusType],
-	error) {
+func (st *State) GetAllRelationStatuses(ctx context.Context) ([]status.RelationStatusInfo, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	stmt, err := st.Prepare(`
-SELECT &relationStatus.*
-FROM   relation_status`, relationStatus{})
+SELECT &relationStatusAndID.*
+FROM   relation_status rs
+JOIN   relation r ON r.uuid = rs.relation_uuid
+`, relationStatusAndID{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var statuses []relationStatus
+	var statuses []relationStatusAndID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, stmt).GetAll(&statuses)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
@@ -65,20 +66,25 @@ FROM   relation_status`, relationStatus{})
 	if err != nil {
 		return nil, errors.Errorf("getting all relations statuses: %w", err)
 	}
-	relationsStatuses := make(map[corerelation.UUID]status.StatusInfo[status.RelationStatusType], len(statuses))
-	for _, relStatus := range statuses {
+
+	relationStatuses := make([]status.RelationStatusInfo, len(statuses))
+	for i, relStatus := range statuses {
 		statusType, err := status.DecodeRelationStatus(relStatus.StatusID)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		relationsStatuses[relStatus.RelationUUID] = status.StatusInfo[status.RelationStatusType]{
-			Status:  statusType,
-			Message: relStatus.Reason,
-			Since:   relStatus.Since,
+		relationStatuses[i] = status.RelationStatusInfo{
+			RelationUUID: relStatus.RelationUUID,
+			RelationID:   relStatus.RelationID,
+			StatusInfo: status.StatusInfo[status.RelationStatusType]{
+				Status:  statusType,
+				Message: relStatus.Reason,
+				Since:   relStatus.Since,
+			},
 		}
 	}
 
-	return relationsStatuses, errors.Capture(err)
+	return relationStatuses, errors.Capture(err)
 }
 
 // GetApplicationIDByName returns the application ID for the named application.
@@ -326,6 +332,61 @@ func (st *State) SetRelationStatus(
 		return errors.Errorf("updating relation status for %q: %w", relationUUID, err)
 	}
 	return nil
+}
+
+// ImportRelationStatus sets the given relation status. It can return the
+// following errors:
+//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
+func (st *State) ImportRelationStatus(
+	ctx context.Context,
+	relationID int,
+	sts status.StatusInfo[status.RelationStatusType],
+) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		relationUUID, err := st.getRelationUUIDByID(ctx, tx, relationID)
+		if err != nil {
+			return errors.Errorf("getting relation UUID: %w", err)
+		}
+
+		return st.updateRelationStatus(ctx, tx, relationUUID, sts)
+	})
+}
+
+func (st *State) getRelationUUIDByID(
+	ctx context.Context,
+	tx *sqlair.TX,
+	id int,
+) (corerelation.UUID, error) {
+	type relationID struct {
+		ID   int               `db:"relation_id"`
+		UUID corerelation.UUID `db:"uuid"`
+	}
+	arg := relationID{
+		ID: id,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &relationID.uuid
+FROM   relation
+WHERE  relation_id = $relationID.relation_id
+`, arg)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = tx.Query(ctx, stmt, arg).Get(&arg)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", statuserrors.RelationNotFound
+	} else if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return arg.UUID, nil
 }
 
 func (st *State) updateRelationStatus(

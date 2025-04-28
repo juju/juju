@@ -41,6 +41,44 @@ func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 	return m.recorder
 }
 
+// ImportRelationStatus mocks base method.
+func (m *MockImportService) ImportRelationStatus(arg0 context.Context, arg1 int, arg2 status.StatusInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ImportRelationStatus", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ImportRelationStatus indicates an expected call of ImportRelationStatus.
+func (mr *MockImportServiceMockRecorder) ImportRelationStatus(arg0, arg1, arg2 any) *MockImportServiceImportRelationStatusCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportRelationStatus", reflect.TypeOf((*MockImportService)(nil).ImportRelationStatus), arg0, arg1, arg2)
+	return &MockImportServiceImportRelationStatusCall{Call: call}
+}
+
+// MockImportServiceImportRelationStatusCall wrap *gomock.Call
+type MockImportServiceImportRelationStatusCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockImportServiceImportRelationStatusCall) Return(arg0 error) *MockImportServiceImportRelationStatusCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockImportServiceImportRelationStatusCall) Do(f func(context.Context, int, status.StatusInfo) error) *MockImportServiceImportRelationStatusCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockImportServiceImportRelationStatusCall) DoAndReturn(f func(context.Context, int, status.StatusInfo) error) *MockImportServiceImportRelationStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetApplicationStatus mocks base method.
 func (m *MockImportService) SetApplicationStatus(arg0 context.Context, arg1 string, arg2 status.StatusInfo) error {
 	m.ctrl.T.Helper()
@@ -213,6 +251,45 @@ func (c *MockExportServiceExportApplicationStatusesCall) Do(f func(context.Conte
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockExportServiceExportApplicationStatusesCall) DoAndReturn(f func(context.Context) (map[string]status.StatusInfo, error)) *MockExportServiceExportApplicationStatusesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ExportRelationStatuses mocks base method.
+func (m *MockExportService) ExportRelationStatuses(arg0 context.Context) (map[int]status.StatusInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExportRelationStatuses", arg0)
+	ret0, _ := ret[0].(map[int]status.StatusInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExportRelationStatuses indicates an expected call of ExportRelationStatuses.
+func (mr *MockExportServiceMockRecorder) ExportRelationStatuses(arg0 any) *MockExportServiceExportRelationStatusesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportRelationStatuses", reflect.TypeOf((*MockExportService)(nil).ExportRelationStatuses), arg0)
+	return &MockExportServiceExportRelationStatusesCall{Call: call}
+}
+
+// MockExportServiceExportRelationStatusesCall wrap *gomock.Call
+type MockExportServiceExportRelationStatusesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockExportServiceExportRelationStatusesCall) Return(arg0 map[int]status.StatusInfo, arg1 error) *MockExportServiceExportRelationStatusesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockExportServiceExportRelationStatusesCall) Do(f func(context.Context) (map[int]status.StatusInfo, error)) *MockExportServiceExportRelationStatusesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockExportServiceExportRelationStatusesCall) DoAndReturn(f func(context.Context) (map[int]status.StatusInfo, error)) *MockExportServiceExportRelationStatusesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

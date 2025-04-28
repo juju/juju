@@ -118,7 +118,7 @@ type fullUnitStatus struct {
 }
 
 // relationStatus represents the status of a relation
-// from v_relation_status
+// from relation_status
 type relationStatus struct {
 	RelationUUID corerelation.UUID `db:"relation_uuid"`
 	StatusID     int               `db:"relation_status_type_id"`
@@ -151,4 +151,13 @@ type applicationStatusDetails struct {
 	Exposed                bool               `db:"exposed"`
 	Scale                  sql.Null[int]      `db:"scale"`
 	K8sProviderID          sql.NullString     `db:"k8s_provider_id"`
+}
+
+// relationStatus represents the status of a relation and the relations ID.
+type relationStatusAndID struct {
+	RelationUUID corerelation.UUID `db:"relation_uuid"`
+	RelationID   int               `db:"relation_id"`
+	StatusID     int               `db:"relation_status_type_id"`
+	Reason       string            `db:"suspended_reason"`
+	Since        *time.Time        `db:"updated_at"`
 }

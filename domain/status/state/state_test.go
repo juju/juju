@@ -64,24 +64,26 @@ func (s *stateSuite) TestGetAllRelationStatuses(c *gc.C) {
 	// Arrange: add two relation, one with a status, but not the second one.
 	now := time.Now().Truncate(time.Minute).UTC()
 
-	relationUUID1 := s.addRelationWithLifeAndID(c, corelife.Alive, 7)
+	relationID := 7
+	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, relationID)
 	_ = s.addRelationWithLifeAndID(c, corelife.Alive, 8)
 
-	s.addRelationStatusWithMessage(c, relationUUID1, corestatus.Suspended, "this is a test", now)
+	s.addRelationStatusWithMessage(c, relationUUID, corestatus.Suspended, "this is a test", now)
 
 	// Act
 	result, err := s.state.GetAllRelationStatuses(context.Background())
 
 	// Assert:
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, map[corerelation.UUID]status.StatusInfo[status.RelationStatusType]{
-		relationUUID1: {
+	c.Assert(result, gc.DeepEquals, []status.RelationStatusInfo{{
+		RelationUUID: relationUUID,
+		RelationID:   relationID,
+		StatusInfo: status.StatusInfo[status.RelationStatusType]{
 			Status:  status.RelationStatusTypeSuspended,
 			Message: "this is a test",
 			Since:   &now,
 		},
-	})
-
+	}})
 }
 
 func (s *stateSuite) TestGetAllRelationStatusesNone(c *gc.C) {
@@ -335,6 +337,41 @@ func (s *stateSuite) TestSetRelationStatusRelationNotFound(c *gc.C) {
 
 	// Act:
 	err := s.state.SetRelationStatus(context.Background(), "bad-uuid", sts)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, statuserrors.RelationNotFound)
+}
+
+func (s *stateSuite) TestImportRelationStatus(c *gc.C) {
+	// Arrange: Create relation and statuses.
+	relationID := 7
+	relationUUID := s.addRelationWithLifeAndID(c, corelife.Alive, relationID)
+	now := time.Now().UTC()
+	s.addRelationStatusWithMessage(c, relationUUID, corestatus.Joining, "", now)
+
+	sts := status.StatusInfo[status.RelationStatusType]{
+		Status:  status.RelationStatusTypeSuspended,
+		Message: "message",
+		Since:   ptr(now),
+	}
+
+	// Act:
+	err := s.state.ImportRelationStatus(context.Background(), relationID, sts)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Assert:
+	foundStatus := s.getRelationStatus(c, relationUUID)
+	c.Assert(foundStatus, jc.DeepEquals, sts)
+}
+
+func (s *stateSuite) TestImportRelationStatusRelationNotFound(c *gc.C) {
+	// Arrange: Create relation and statuses.
+	sts := status.StatusInfo[status.RelationStatusType]{
+		Since: ptr(time.Now().UTC()),
+	}
+
+	// Act:
+	err := s.state.ImportRelationStatus(context.Background(), 0, sts)
 
 	// Assert:
 	c.Assert(err, jc.ErrorIs, statuserrors.RelationNotFound)

@@ -36,7 +36,3 @@ func (r *statusHistoryRecorder) RecordStatus(ctx context.Context, ns statushisto
 	r.records = append(r.records, statusHistoryRecord{ns: ns, s: s})
 	return nil
 }
-
-func ptr[T any](v T) *T {
-	return &v
-}

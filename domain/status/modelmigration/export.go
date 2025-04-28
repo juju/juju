@@ -41,6 +41,10 @@ type ExportService interface {
 	// ExportApplicationStatuses returns the statuses of all applications in the model,
 	// indexed by application name, if they have a status set.
 	ExportApplicationStatuses(ctx context.Context) (map[string]corestatus.StatusInfo, error)
+
+	// ExportRelationStatuses returns the statuses of all relations in the model,
+	// indexed by relation id, if they have a status set.
+	ExportRelationStatuses(ctx context.Context) (map[int]corestatus.StatusInfo, error)
 }
 
 type exportOperation struct {
@@ -76,6 +80,23 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 // Execute the export operation, loading the statuses of the various entities in
 // the model onto their description representation.
 func (e *exportOperation) Execute(ctx context.Context, m description.Model) error {
+	err := e.exportApplicationAndUnitStatus(ctx, m)
+	if err != nil {
+		return errors.Errorf("exporting application and unit status: %w", err)
+	}
+
+	err = e.exportRelationStatus(ctx, m)
+	if err != nil {
+		return errors.Errorf("exporting reltaion status: %w", err)
+	}
+
+	return nil
+}
+
+func (e *exportOperation) exportApplicationAndUnitStatus(
+	ctx context.Context,
+	m description.Model,
+) error {
 	appStatuses, err := e.service.ExportApplicationStatuses(ctx)
 	if err != nil {
 		return errors.Errorf("retrieving application statuses: %w", err)
@@ -112,6 +133,28 @@ func (e *exportOperation) Execute(ctx context.Context, m description.Model) erro
 				return errors.Errorf("unit %q has no workload status", unitName)
 			}
 			unit.SetWorkloadStatus(e.exportStatus(workloadStatus))
+		}
+	}
+
+	return nil
+}
+
+func (e *exportOperation) exportRelationStatus(
+	ctx context.Context,
+	m description.Model,
+) error {
+	relStatuses, err := e.service.ExportRelationStatuses(ctx)
+	if err != nil {
+		return errors.Errorf("retrieving relation statuses: %w", err)
+	}
+
+	for _, relation := range m.Relations() {
+		if relationStatus, ok := relStatuses[relation.Id()]; ok {
+			relation.SetStatus(e.exportStatus(relationStatus))
+		} else {
+			relation.SetStatus(description.StatusArgs{
+				NeverSet: true,
+			})
 		}
 	}
 	return nil

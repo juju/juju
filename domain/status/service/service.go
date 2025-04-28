@@ -24,9 +24,8 @@ import (
 // State describes retrieval and persistence methods for the statuses of
 // applications and units.
 type State interface {
-	// GetAllRelationStatuses returns all the relation statuses of the given
-	// model.
-	GetAllRelationStatuses(ctx context.Context) (map[corerelation.UUID]status.StatusInfo[status.RelationStatusType], error)
+	// GetAllRelationStatuses returns all the relation statuses of the given model.
+	GetAllRelationStatuses(ctx context.Context) ([]status.RelationStatusInfo, error)
 
 	// GetApplicationIDByName returns the application ID for the named
 	// application. If no application is found, an error satisfying
@@ -62,6 +61,15 @@ type State interface {
 	SetRelationStatus(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
+		sts status.StatusInfo[status.RelationStatusType],
+	) error
+
+	// ImportRelationStatus sets the given relation status. It can return the
+	// following errors:
+	//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
+	ImportRelationStatus(
+		ctx context.Context,
+		relationID int,
 		sts status.StatusInfo[status.RelationStatusType],
 	) error
 
@@ -176,15 +184,15 @@ func (s *Service) GetAllRelationStatuses(ctx context.Context) (map[corerelation.
 		return nil, errors.Capture(err)
 	}
 	result := make(map[corerelation.UUID]corestatus.StatusInfo, len(statuses))
-	for k, v := range statuses {
-		decodedStatus, err := decodeRelationStatusType(v.Status)
+	for _, sts := range statuses {
+		decodedStatus, err := decodeRelationStatusType(sts.StatusInfo.Status)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		result[k] = corestatus.StatusInfo{
+		result[sts.RelationUUID] = corestatus.StatusInfo{
 			Status:  decodedStatus,
-			Message: v.Message,
-			Since:   v.Since,
+			Message: sts.StatusInfo.Message,
+			Since:   sts.StatusInfo.Since,
 		}
 	}
 	return result, nil
@@ -452,6 +460,23 @@ func (s *Service) GetApplicationAndUnitStatuses(ctx context.Context) (map[string
 	return results, nil
 }
 
+// ImportRelationStatus sets the status of the relation to the status provided.
+// It can return the following errors:
+//   - [statuserrors.RelationNotFound] if the relation doesn't exist.
+func (s *Service) ImportRelationStatus(
+	ctx context.Context,
+	relationID int,
+	info corestatus.StatusInfo,
+) error {
+	// Encode status.
+	relationStatus, err := encodeRelationStatus(info)
+	if err != nil {
+		return errors.Errorf("encoding relation status: %w", err)
+	}
+
+	return s.st.ImportRelationStatus(ctx, relationID, relationStatus)
+}
+
 func (s *Service) decodeApplicationStatusDetails(ctx context.Context, app status.Application) (Application, error) {
 	life, err := app.Life.Value()
 	if err != nil {
@@ -553,4 +578,27 @@ func (s *Service) ExportApplicationStatuses(ctx context.Context) (map[string]cor
 	}
 
 	return ret, nil
+}
+
+// ExportRelationStatuses returns the statuses of all relations in the model.
+func (s *Service) ExportRelationStatuses(ctx context.Context) (map[int]corestatus.StatusInfo, error) {
+	relStatuses, err := s.st.GetAllRelationStatuses(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[int]corestatus.StatusInfo, len(relStatuses))
+	for _, sts := range relStatuses {
+		decodedStatus, err := decodeRelationStatusType(sts.StatusInfo.Status)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		result[sts.RelationID] = corestatus.StatusInfo{
+			Status:  decodedStatus,
+			Message: sts.StatusInfo.Message,
+			Since:   sts.StatusInfo.Since,
+		}
+	}
+
+	return result, nil
 }

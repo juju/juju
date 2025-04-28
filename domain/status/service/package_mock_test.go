@@ -160,10 +160,10 @@ func (c *MockStateGetAllFullUnitStatusesForApplicationCall) DoAndReturn(f func(c
 }
 
 // GetAllRelationStatuses mocks base method.
-func (m *MockState) GetAllRelationStatuses(ctx context.Context) (map[relation.UUID]status.StatusInfo[status.RelationStatusType], error) {
+func (m *MockState) GetAllRelationStatuses(ctx context.Context) ([]status.RelationStatusInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllRelationStatuses", ctx)
-	ret0, _ := ret[0].(map[relation.UUID]status.StatusInfo[status.RelationStatusType])
+	ret0, _ := ret[0].([]status.RelationStatusInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -181,19 +181,19 @@ type MockStateGetAllRelationStatusesCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetAllRelationStatusesCall) Return(arg0 map[relation.UUID]status.StatusInfo[status.RelationStatusType], arg1 error) *MockStateGetAllRelationStatusesCall {
+func (c *MockStateGetAllRelationStatusesCall) Return(arg0 []status.RelationStatusInfo, arg1 error) *MockStateGetAllRelationStatusesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetAllRelationStatusesCall) Do(f func(context.Context) (map[relation.UUID]status.StatusInfo[status.RelationStatusType], error)) *MockStateGetAllRelationStatusesCall {
+func (c *MockStateGetAllRelationStatusesCall) Do(f func(context.Context) ([]status.RelationStatusInfo, error)) *MockStateGetAllRelationStatusesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetAllRelationStatusesCall) DoAndReturn(f func(context.Context) (map[relation.UUID]status.StatusInfo[status.RelationStatusType], error)) *MockStateGetAllRelationStatusesCall {
+func (c *MockStateGetAllRelationStatusesCall) DoAndReturn(f func(context.Context) ([]status.RelationStatusInfo, error)) *MockStateGetAllRelationStatusesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -585,6 +585,44 @@ func (c *MockStateGetUnitWorkloadStatusesForApplicationCall) Do(f func(context.C
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetUnitWorkloadStatusesForApplicationCall) DoAndReturn(f func(context.Context, application.ID) (status.UnitWorkloadStatuses, error)) *MockStateGetUnitWorkloadStatusesForApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ImportRelationStatus mocks base method.
+func (m *MockState) ImportRelationStatus(ctx context.Context, relationID int, sts status.StatusInfo[status.RelationStatusType]) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ImportRelationStatus", ctx, relationID, sts)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ImportRelationStatus indicates an expected call of ImportRelationStatus.
+func (mr *MockStateMockRecorder) ImportRelationStatus(ctx, relationID, sts any) *MockStateImportRelationStatusCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportRelationStatus", reflect.TypeOf((*MockState)(nil).ImportRelationStatus), ctx, relationID, sts)
+	return &MockStateImportRelationStatusCall{Call: call}
+}
+
+// MockStateImportRelationStatusCall wrap *gomock.Call
+type MockStateImportRelationStatusCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateImportRelationStatusCall) Return(arg0 error) *MockStateImportRelationStatusCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateImportRelationStatusCall) Do(f func(context.Context, int, status.StatusInfo[status.RelationStatusType]) error) *MockStateImportRelationStatusCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateImportRelationStatusCall) DoAndReturn(f func(context.Context, int, status.StatusInfo[status.RelationStatusType]) error) *MockStateImportRelationStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
