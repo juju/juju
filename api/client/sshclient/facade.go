@@ -203,3 +203,19 @@ func (facade *Facade) ModelCredentialForSSH() (cloudspec.CloudSpec, error) {
 	}
 	return spec, nil
 }
+
+// PublicHostKeyForTarget returns the public SSH host key for the target virtualhostname and
+// the controller's jump server public key.
+func (facade *Facade) PublicHostKeyForTarget(target string) (params.PublicSSHHostKeyResult, error) {
+	var arg params.SSHVirtualHostKeyRequestArg
+	arg.Hostname = target
+	var out params.PublicSSHHostKeyResult
+	err := facade.caller.FacadeCall("PublicHostKeyForTarget", arg, &out)
+	if err != nil {
+		return params.PublicSSHHostKeyResult{}, errors.Trace(err)
+	}
+	if err := out.Error; err != nil {
+		return params.PublicSSHHostKeyResult{}, errors.Trace(apiservererrors.RestoreError(err))
+	}
+	return out, nil
+}

@@ -59,6 +59,7 @@ type statusClient interface {
 type sshAPIClient interface {
 	PublicAddress(target string) (string, error)
 	PrivateAddress(target string) (string, error)
+	VirtualHostname(target string, container *string) (string, error)
 	AllAddresses(target string) ([]string, error)
 	PublicKeys(target string) ([]string, error)
 	Proxy() (bool, error)

@@ -29,6 +29,8 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/pki/ssh"
+	"github.com/juju/juju/pki/test"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
@@ -296,8 +298,13 @@ func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *Mach
 		}
 		params.Characteristics = &hardware
 	}
+
 	if params.VirtualHostKey == nil {
-		params.VirtualHostKey = []byte("fake-host-key")
+		machineHostKey, err := test.InsecureKeyProfile()
+		c.Assert(err, jc.ErrorIsNil)
+		privateKey, err := ssh.MarshalPrivateKey(machineHostKey)
+		c.Assert(err, jc.ErrorIsNil)
+		params.VirtualHostKey = privateKey
 	}
 
 	return params
@@ -649,7 +656,13 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		params.Password, err = utils.RandomPassword()
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	unit, err := params.Application.AddUnit(state.AddUnitParams{})
+	machineHostKey, err := test.InsecureKeyProfile()
+	c.Assert(err, jc.ErrorIsNil)
+	privateKey, err := ssh.MarshalPrivateKey(machineHostKey)
+	c.Assert(err, jc.ErrorIsNil)
+	unit, err := params.Application.AddUnit(state.AddUnitParams{
+		VirtualHostKey: privateKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	if params.Machine != nil {

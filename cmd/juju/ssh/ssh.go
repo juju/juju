@@ -13,6 +13,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
+	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 	"github.com/juju/retry"
 	"github.com/mattn/go-isatty"
@@ -23,6 +24,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 	jujussh "github.com/juju/juju/network/ssh"
 	"github.com/juju/juju/rpc/params"
@@ -173,13 +175,15 @@ type sshCommand struct {
 
 	sshMachine
 	sshContainer
+	sshJump
 
 	provider sshProvider
 
-	hostChecker jujussh.ReachableChecker
-	isTerminal  func(interface{}) bool
-	pty         autoBoolValue
-
+	hostChecker            jujussh.ReachableChecker
+	isTerminal             func(interface{}) bool
+	pty                    autoBoolValue
+	jump                   bool
+	container              string
 	retryStrategy          retry.CallArgs
 	publicKeyRetryStrategy retry.CallArgs
 }
@@ -188,6 +192,14 @@ func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.sshMachine.SetFlags(f)
 	c.sshContainer.SetFlags(f)
 	f.Var(&c.pty, "pty", "Enable pseudo-tty allocation")
+	// jump is a feature in development. And it is only allowed when the
+	// feature flag is enabled.
+	if featureflag.Enabled(feature.SSHJump) {
+		f.BoolVar(&c.jump, "jump", false, "Jump through the controller")
+	}
+	// the container flag is top-level because it has to be propagated to
+	// both sshContainer and sshJump provider.
+	f.StringVar(&c.container, "container", "", "the container name of the target pod")
 }
 
 func (c *sshCommand) Info() *cmd.Info {
@@ -210,11 +222,18 @@ func (c *sshCommand) Init(args []string) (err error) {
 	if c.modelType, err = c.ModelType(); err != nil {
 		return err
 	}
-	if c.modelType == model.CAAS {
-		c.provider = &c.sshContainer
+	if c.jump {
+		c.provider = &c.sshJump
+		c.sshJump.container = c.container
 	} else {
-		c.provider = &c.sshMachine
+		if c.modelType == model.CAAS {
+			c.provider = &c.sshContainer
+			c.sshContainer.container = c.container
+		} else {
+			c.provider = &c.sshMachine
+		}
 	}
+
 	c.provider.setTarget(args[0])
 	c.provider.setArgs(args[1:])
 	c.provider.setHostChecker(c.hostChecker)
