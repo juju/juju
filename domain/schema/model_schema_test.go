@@ -326,6 +326,7 @@ func (s *modelSchemaSuite) TestModelViews(c *gc.C) {
 		"v_hardware_characteristics",
 		"v_machine_agent_version",
 		"v_machine_cloud_instance_status",
+		"v_machine_interface",
 		"v_machine_status",
 		"v_machine_target_agent_version",
 		"v_model_constraint_space",
