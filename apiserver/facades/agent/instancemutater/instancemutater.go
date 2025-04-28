@@ -102,7 +102,6 @@ type instanceMutatorWatcher struct {
 	st                 InstanceMutaterState
 	machineService     MachineService
 	applicationService ApplicationService
-	modelInfoService   ModelInfoService
 }
 
 // NewInstanceMutaterAPI creates a new API server endpoint for managing
@@ -116,11 +115,7 @@ func NewInstanceMutaterAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	logger logger.Logger,
-) (*InstanceMutaterAPI, error) {
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
-		return nil, apiservererrors.ErrPerm
-	}
-
+) *InstanceMutaterAPI {
 	getAuthFunc := common.AuthFuncForMachineAgent(authorizer)
 	return &InstanceMutaterAPI{
 		LifeGetter:         common.NewLifeGetter(st, getAuthFunc),
@@ -133,7 +128,7 @@ func NewInstanceMutaterAPI(
 		applicationService: applicationService,
 		modelInfoService:   modelInfoService,
 		logger:             logger,
-	}, nil
+	}
 }
 
 // CharmProfilingInfo returns info to update lxd profiles on the machine. If

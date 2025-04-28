@@ -7,6 +7,7 @@ import (
 	"context"
 	"reflect"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -19,6 +20,9 @@ func Register(registry facade.FacadeRegistry) {
 
 // newFacadeV3 is used for API registration.
 func newFacadeV3(ctx facade.ModelContext) (*InstanceMutaterAPI, error) {
+	if !ctx.Auth().AuthMachineAgent() && !ctx.Auth().AuthController() {
+		return nil, apiservererrors.ErrPerm
+	}
 	st := &instanceMutaterStateShim{State: ctx.State()}
 
 	machineService := ctx.DomainServices().Machine()
@@ -28,7 +32,6 @@ func newFacadeV3(ctx facade.ModelContext) (*InstanceMutaterAPI, error) {
 		st:                 st,
 		machineService:     machineService,
 		applicationService: applicationService,
-		modelInfoService:   modelInfoService,
 	}
 	return NewInstanceMutaterAPI(
 		st,
@@ -39,5 +42,5 @@ func newFacadeV3(ctx facade.ModelContext) (*InstanceMutaterAPI, error) {
 		ctx.Resources(),
 		ctx.Auth(),
 		ctx.Logger().Child("instancemutater"),
-	)
+	), nil
 }
