@@ -28,7 +28,7 @@ type precheckShim struct {
 // Model implements PrecheckBackend.
 func (s *precheckShim) Model() (PrecheckModel, error) {
 	model, err := s.State.Model()
-	return model, errors.Trace(err)
+	return modelShim{model}, errors.Trace(err)
 }
 
 // IsMigrationActive implements PrecheckBackend.
@@ -90,7 +90,15 @@ func (p *poolShim) GetModel(uuid string) (PrecheckModel, func(), error) {
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	return model, func() { ph.Release() }, nil
+	return modelShim{model}, func() { ph.Release() }, nil
+}
+
+type modelShim struct {
+	*state.Model
+}
+
+func (m modelShim) MigrationMode() (state.MigrationMode, error) {
+	return m.State().MigrationMode()
 }
 
 // precheckAppShim implements PrecheckApplication.

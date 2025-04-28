@@ -222,7 +222,9 @@ func (s *Suite) TestImport(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer ph.Release()
 	c.Assert(model.Name(), gc.Equals, "some-model")
-	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeImporting)
+	mode, err := model.State().MigrationMode()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mode, gc.Equals, state.MigrationModeImporting)
 }
 
 func (s *Suite) TestAbort(c *gc.C) {
@@ -311,11 +313,13 @@ func (s *Suite) TestActivate(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	mode, err := s.State.MigrationMode()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mode, gc.Equals, state.MigrationModeNone)
+
 	model, ph, err := s.StatePool.GetModel(tag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	defer ph.Release()
-	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeNone)
-
 	app, err := commoncrossmodel.GetBackend(model.State()).RemoteApplication("foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(app.SourceController(), gc.Equals, jujutesting.ControllerTag.Id())

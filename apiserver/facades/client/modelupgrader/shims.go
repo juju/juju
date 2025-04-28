@@ -39,7 +39,6 @@ type Model interface {
 
 	Owner() names.UserTag
 	Name() string
-	MigrationMode() state.MigrationMode
 	Type() state.ModelType
 	Life() state.Life
 }
@@ -136,8 +135,4 @@ type modelShim struct {
 
 func (s modelShim) IsControllerModel() bool {
 	return s.Model.IsControllerModel()
-}
-
-func (s modelShim) MigrationMode() state.MigrationMode {
-	return s.Model.MigrationMode()
 }

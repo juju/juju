@@ -308,44 +308,36 @@ func (api *API) Import(ctx context.Context, serialized params.SerializedModel) e
 	return err
 }
 
-func (api *API) getModel(modelTag string) (*state.Model, func(), error) {
+func (api *API) getImportingModelState(modelTag string) (*state.State, func() bool, error) {
 	tag, err := names.ParseModelTag(modelTag)
 	if err != nil {
 		return nil, nil, errors.Errorf("cannot parse model tag: %w", err)
 	}
-	model, ph, err := api.pool.GetModel(tag.Id())
-	if err != nil {
-		return nil, nil, errors.Errorf("cannot get model %q: %w", tag.Id(), err)
-	}
-	return model, func() { ph.Release() }, nil
-}
 
-func (api *API) getImportingModel(tag string) (*state.Model, func(), error) {
-	model, release, err := api.getModel(tag)
+	pooledSt, err := api.pool.Get(tag.Id())
 	if err != nil {
-		return nil, nil, errors.Errorf("cannot get importing model: %w", err)
+		return nil, nil, errors.Errorf("getting importing model state: %w", err)
 	}
-	if model.MigrationMode() != state.MigrationModeImporting {
-		release()
+	mode, err := pooledSt.State.MigrationMode()
+	if err != nil {
+		pooledSt.Release()
+		return nil, nil, errors.Errorf("getting model migration mode: %w", err)
+	}
+	if mode != state.MigrationModeImporting {
+		pooledSt.Release()
 		return nil, nil, errors.New("migration mode for the model is not importing")
 	}
-	return model, release, nil
+	return pooledSt.State, pooledSt.Release, nil
 }
 
 // Abort removes the specified model from the database. It is an error to
 // attempt to Abort a model that has a migration mode other than importing.
 func (api *API) Abort(ctx context.Context, args params.ModelArgs) error {
-	model, releaseModel, err := api.getImportingModel(args.ModelTag)
+	st, release, err := api.getImportingModelState(args.ModelTag)
 	if err != nil {
 		return errors.Errorf("cannot get model to abort: %w", err)
 	}
-	defer releaseModel()
-
-	st, err := api.pool.Get(model.UUID())
-	if err != nil {
-		return errors.Errorf("cannot get model %q state to abort: %w", model.UUID(), err)
-	}
-	defer st.Release()
+	defer release()
 	return st.RemoveImportingModelDocs()
 }
 
@@ -354,7 +346,7 @@ func (api *API) Abort(ctx context.Context, args params.ModelArgs) error {
 // external controller records for those controllers hosting offers used
 // by the model.
 func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) error {
-	model, release, err := api.getImportingModel(args.ModelTag)
+	st, release, err := api.getImportingModelState(args.ModelTag)
 	if err != nil {
 		return errors.Errorf("cannot get model to activate: %w", err)
 	}
@@ -368,7 +360,7 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 		if err != nil {
 			return errors.Errorf(
 				"cannot parse controller tag when activating model %q: %w",
-				model.UUID(),
+				st.ModelUUID(),
 				err,
 			)
 		}
@@ -383,7 +375,7 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 			return errors.Errorf(
 				"cannot save source controller %q info when activating model %q: %w",
 				cTag.Id(),
-				model.UUID(),
+				st.ModelUUID(),
 				err,
 			)
 		}
@@ -391,9 +383,9 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 
 	// Update the source controller attribute on remote applications
 	// to allow external controller ref counts to function properly.
-	remoteApps, err := commoncrossmodel.GetBackend(model.State()).AllRemoteApplications()
+	remoteApps, err := commoncrossmodel.GetBackend(st).AllRemoteApplications()
 	if err != nil {
-		return errors.Errorf("cannot get remote applications for model %q: %w", model.UUID(), err)
+		return errors.Errorf("cannot get remote applications for model %q: %w", st.ModelUUID(), err)
 	}
 	for _, app := range remoteApps {
 		var sourceControllerUUID string
@@ -419,7 +411,7 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 	}
 
 	// TODO(fwereade) - need to validate binaries here.
-	return model.SetMigrationMode(state.MigrationModeNone)
+	return st.SetMigrationMode(state.MigrationModeNone)
 }
 
 // LatestLogTime returns the time of the most recent log record
@@ -433,11 +425,11 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 //
 // Returns the zero time if no logs have been transferred.
 func (api *API) LatestLogTime(ctx context.Context, args params.ModelArgs) (time.Time, error) {
-	model, release, err := api.getModel(args.ModelTag)
+	tag, err := names.ParseModelTag(args.ModelTag)
 	if err != nil {
-		return time.Time{}, errors.Errorf("cannot get model: %w", err)
+		return time.Time{}, errors.Errorf("cannot parse model tag: %w", err)
 	}
-	defer release()
+	modelUUID := tag.Id()
 
 	// Look up the last line in the log file and get the timestamp.
 	// TODO (stickupkid): This should come from the logsink directly, to
@@ -448,7 +440,7 @@ func (api *API) LatestLogTime(ctx context.Context, args params.ModelArgs) (time.
 	if err != nil && !os.IsNotExist(err) {
 		return time.Time{}, errors.Errorf(
 			"cannot open %q log file %q: %w",
-			model.UUID(),
+			modelUUID,
 			logFile,
 			err,
 		)
@@ -463,7 +455,7 @@ func (api *API) LatestLogTime(ctx context.Context, args params.ModelArgs) (time.
 	if err != nil {
 		return time.Time{}, errors.Errorf(
 			"cannot interrogate %q log file %q: %w",
-			model.UUID(),
+			modelUUID,
 			logFile,
 			err,
 		)
@@ -481,7 +473,7 @@ func (api *API) LatestLogTime(ctx context.Context, args params.ModelArgs) (time.
 			return time.Time{}, errors.Errorf(
 				"cannot unmarshal log line %q: %w", line, err,
 			)
-		} else if logRecord.ModelUUID != model.UUID() {
+		} else if logRecord.ModelUUID != modelUUID {
 			continue
 		}
 		lastTimestamp = logRecord.Time

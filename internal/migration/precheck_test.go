@@ -1254,8 +1254,8 @@ func (m *fakeModel) Life() state.Life {
 	return m.life
 }
 
-func (m *fakeModel) MigrationMode() state.MigrationMode {
-	return m.migrationMode
+func (m *fakeModel) MigrationMode() (state.MigrationMode, error) {
+	return m.migrationMode, nil
 }
 
 func (m *fakeModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {

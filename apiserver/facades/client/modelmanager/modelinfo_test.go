@@ -949,7 +949,7 @@ func (s *modelInfoSuite) TestImportingModelGetsAllInfo(c *gc.C) {
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
-	s.st.model.migrationStatus = state.MigrationModeImporting
+	s.st.migrationStatus = state.MigrationModeImporting
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
@@ -965,7 +965,7 @@ func (s *modelInfoSuite) TestImportingModelWithGetModelInfoFailure(c *gc.C) {
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
-	s.st.model.migrationStatus = state.MigrationModeImporting
+	s.st.migrationStatus = state.MigrationModeImporting
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
@@ -993,7 +993,7 @@ func (s *modelInfoSuite) TestImportingModelWithGetModelTargetAgentVersionFailure
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
-	s.st.model.migrationStatus = state.MigrationModeImporting
+	s.st.migrationStatus = state.MigrationModeImporting
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
@@ -1020,7 +1020,7 @@ func (s *modelInfoSuite) TestImportingModelWithStatusFailure(c *gc.C) {
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
 	s.mockModelService.EXPECT().GetModelUsers(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(s.modelUserInfo, nil)
-	s.st.model.migrationStatus = state.MigrationModeImporting
+	s.st.migrationStatus = state.MigrationModeImporting
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelStatusError,
 		desiredLife:  state.Alive,
@@ -1038,7 +1038,7 @@ func (s *modelInfoSuite) TestImportingModelWithUsersFailure(c *gc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()
 	s.mockSecretBackendService.EXPECT().BackendSummaryInfoForModel(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(nil, nil)
-	s.st.model.migrationStatus = state.MigrationModeImporting
+	s.st.migrationStatus = state.MigrationModeImporting
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("deadbeef1", nil)
 	s.mockMachineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("deadbeef2", nil)
 	s.mockMachineService.EXPECT().InstanceIDAndName(gomock.Any(), "deadbeef1").Return("inst-deadbeef1", "", nil)
@@ -1118,6 +1118,7 @@ type mockState struct {
 	machines        []commonmodel.Machine
 	controllerNodes []commonmodel.ControllerNode
 	migration       *mockMigration
+	migrationStatus state.MigrationMode
 	modelConfig     *config.Config
 }
 
@@ -1260,6 +1261,11 @@ func (st *mockState) InvalidateModelCredential(reason string) error {
 	return nil
 }
 
+func (st *mockState) MigrationMode() (state.MigrationMode, error) {
+	st.MethodCall(st, "MigrationMode")
+	return st.migrationStatus, nil
+}
+
 type mockControllerNode struct {
 	id        string
 	hasVote   bool
@@ -1326,7 +1332,6 @@ type mockModel struct {
 	status              status.StatusInfo
 	cfg                 *config.Config
 	users               []*mockModelUser
-	migrationStatus     state.MigrationMode
 	controllerUUID      string
 	isController        bool
 	setCloudCredentialF func(tag names.CloudCredentialTag) (bool, error)
@@ -1390,11 +1395,6 @@ func (m *mockModel) UUID() string {
 func (m *mockModel) Name() string {
 	m.MethodCall(m, "Name")
 	return m.cfg.Name()
-}
-
-func (m *mockModel) MigrationMode() state.MigrationMode {
-	m.MethodCall(m, "MigrationMode")
-	return m.migrationStatus
 }
 
 func (m *mockModel) SetCloudCredential(tag names.CloudCredentialTag) (bool, error) {
