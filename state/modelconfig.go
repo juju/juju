@@ -11,7 +11,6 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/model"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 )
@@ -230,18 +229,22 @@ func (st *State) UpdateModelConfigDefaultValues(
 // required for validation to succeed. This is due to validation assuming a
 // fully formed model config, rather than a subset of defaults.
 func (st *State) validateModelDefaults(attrs map[string]any) error {
-	forValidation := copyMap(attrs, nil)
+	m, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-	forValidation["name"] = "valid-model-name"
-	forValidation["type"] = model.IAAS
-	forValidation["uuid"] = st.ModelUUID()
+	forValidation := copyMap(attrs, nil)
+	forValidation["name"] = m.Name()
+	forValidation["type"] = m.Type()
+	forValidation["uuid"] = m.UUID()
 
 	cfg, err := config.New(config.NoDefaults, forValidation)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := config.Validate(cfg, &config.Config{}); err != nil {
+	if err := config.Validate(cfg, nil); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
