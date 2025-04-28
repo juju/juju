@@ -133,7 +133,7 @@ func (k *kubernetesClient) EnsureStorageProvisioner(ctx context.Context, cfg k8s
 		sc.VolumeBindingMode = &bindMode
 	}
 	if cfg.Namespace != "" {
-		sc.Labels = utils.LabelsForModel(k.CurrentModel(), k.IsLegacyLabels())
+		sc.Labels = utils.LabelsForModel(k.ModelName(), k.ModelUUID(), k.ControllerUUID(), k.LabelVersion())
 	}
 	_, err = k.client().StorageV1().StorageClasses().Create(ctx, sc, v1.CreateOptions{})
 	if err != nil {

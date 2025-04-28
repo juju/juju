@@ -149,7 +149,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDMigrated(
 	})
 	nsAfter := *nsBefore
 	nsAfter.SetAnnotations(annotations.New(nsAfter.GetAnnotations()).Add(
-		k8sutils.AnnotationControllerUUIDKey(false), newControllerUUID,
+		k8sutils.AnnotationControllerUUIDKey(1), newControllerUUID,
 	))
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().Get(gomock.Any(), s.getNamespace(), v1.GetOptions{}).Times(2).
@@ -209,6 +209,10 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpace
 			Return(&core.Namespace{
 				ObjectMeta: v1.ObjectMeta{
 					Name: "test",
+					Labels: map[string]string{
+						"model.juju.is/name": "test",
+						"model.juju.is/id":   "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+					},
 				},
 			}, nil),
 	)
@@ -333,7 +337,7 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrap(c *gc.C) {
 	c.Assert(
 		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), jc.ErrorIsNil,
 	)
-	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller-ctrl-1")
+	c.Assert(s.broker.Namespace(), jc.DeepEquals, "controller-ctrl-1")
 }
 
 func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistNamespaceError(c *gc.C) {
@@ -425,7 +429,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "tfjobs.kubeflow.org",
 			Namespace: "test",
-			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d", "model.juju.is/name": "test"},
 		},
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
 			Group: "kubeflow.org",
@@ -482,7 +486,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "tfjobs.kubeflow.org",
 			Namespace: "test",
-			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/name": "test"},
+			Labels:    map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d", "model.juju.is/name": "test"},
 		},
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
 			Group: "kubeflow.org",
@@ -542,29 +546,29 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 	s.k8sWatcherFn = k8swatchertest.NewKubernetesTestWatcherFunc(namespaceWatcher)
 
 	// timer +1.
-	s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/name=test"}).
+	s.mockClusterRoleBindings.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"}).
 		Return(&rbacv1.ClusterRoleBindingList{}, nil).
 		After(
 			s.mockClusterRoleBindings.EXPECT().DeleteCollection(gomock.Any(),
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
-				v1.ListOptions{LabelSelector: "model.juju.is/name=test"},
+				v1.ListOptions{LabelSelector: "model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"},
 			).Return(s.k8sNotFoundError()).Call,
 		)
 
 	// timer +1.
-	s.mockClusterRoles.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/name=test"}).
+	s.mockClusterRoles.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"}).
 		Return(&rbacv1.ClusterRoleList{}, nil).
 		After(
 			s.mockClusterRoles.EXPECT().DeleteCollection(gomock.Any(),
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
-				v1.ListOptions{LabelSelector: "model.juju.is/name=test"},
+				v1.ListOptions{LabelSelector: "model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"},
 			).Return(s.k8sNotFoundError()).Call,
 		)
 
 	// timer +1.
 	s.mockNamespaceableResourceClient.EXPECT().List(gomock.Any(),
 		// list all custom resources for crd "v1alpha2".
-		v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/name=test"},
+		v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"},
 	).Return(&unstructured.UnstructuredList{}, nil).After(
 		s.mockDynamicClient.EXPECT().Resource(
 			schema.GroupVersionResource{
@@ -576,7 +580,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 	).After(
 		// list all custom resources for crd "v1".
 		s.mockNamespaceableResourceClient.EXPECT().List(gomock.Any(),
-			v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/name=test"},
+			v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"},
 		).Return(&unstructured.UnstructuredList{}, nil).Call,
 	).After(
 		s.mockDynamicClient.EXPECT().Resource(
@@ -594,7 +598,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 		// delete all custom resources for crd "v1alpha2".
 		s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/name=test"},
+			v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"},
 		).Return(nil).Call,
 	).After(
 		s.mockDynamicClient.EXPECT().Resource(
@@ -608,7 +612,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 		// delete all custom resources for crd "v1".
 		s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(gomock.Any(),
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/name=test"},
+			v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"},
 		).Return(nil).Call,
 	).After(
 		s.mockDynamicClient.EXPECT().Resource(
@@ -626,43 +630,43 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 
 	// timer +1.
 	s.mockCustomResourceDefinitionV1.EXPECT().List(gomock.Any(), v1.ListOptions{
-		LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/name=test",
+		LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test",
 	}).AnyTimes().
 		Return(&apiextensionsv1.CustomResourceDefinitionList{}, nil).
 		After(
 			s.mockCustomResourceDefinitionV1.EXPECT().DeleteCollection(gomock.Any(),
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
-				v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/name=test"},
+				v1.ListOptions{LabelSelector: "juju-resource-lifecycle notin (persistent),model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"},
 			).Return(s.k8sNotFoundError()).Call,
 		)
 
 	// timer +1.
-	s.mockMutatingWebhookConfigurationV1.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/name=test"}).
+	s.mockMutatingWebhookConfigurationV1.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"}).
 		Return(&admissionregistrationv1.MutatingWebhookConfigurationList{}, nil).
 		After(
 			s.mockMutatingWebhookConfigurationV1.EXPECT().DeleteCollection(gomock.Any(),
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
-				v1.ListOptions{LabelSelector: "model.juju.is/name=test"},
+				v1.ListOptions{LabelSelector: "model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"},
 			).Return(s.k8sNotFoundError()).Call,
 		)
 
 	// timer +1.
-	s.mockValidatingWebhookConfigurationV1.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/name=test"}).
+	s.mockValidatingWebhookConfigurationV1.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"}).
 		Return(&admissionregistrationv1.ValidatingWebhookConfigurationList{}, nil).
 		After(
 			s.mockValidatingWebhookConfigurationV1.EXPECT().DeleteCollection(gomock.Any(),
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
-				v1.ListOptions{LabelSelector: "model.juju.is/name=test"},
+				v1.ListOptions{LabelSelector: "model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"},
 			).Return(s.k8sNotFoundError()).Call,
 		)
 
 	// timer +1.
-	s.mockStorageClass.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/name=test"}).
+	s.mockStorageClass.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: "model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"}).
 		Return(&storagev1.StorageClassList{}, nil).
 		After(
 			s.mockStorageClass.EXPECT().DeleteCollection(gomock.Any(),
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
-				v1.ListOptions{LabelSelector: "model.juju.is/name=test"},
+				v1.ListOptions{LabelSelector: "model.juju.is/id=deadbeef-0bad-400d-8000-4b1d0d06f00d,model.juju.is/name=test"},
 			).Return(nil).Call,
 		)
 
@@ -755,7 +759,7 @@ func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
 func (s *K8sBrokerSuite) TestGetCurrentNamespace(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
-	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, s.getNamespace())
+	c.Assert(s.broker.Namespace(), jc.DeepEquals, s.getNamespace())
 }
 
 func (s *K8sBrokerSuite) TestCreateModelResources(c *gc.C) {
@@ -764,7 +768,7 @@ func (s *K8sBrokerSuite) TestCreateModelResources(c *gc.C) {
 
 	ns := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{
 		ObjectMeta: v1.ObjectMeta{
-			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "model.juju.is/name": "test"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d", "model.juju.is/name": "test"},
 			Name:   "test",
 		},
 	})
@@ -797,7 +801,7 @@ func (s *K8sBrokerSuite) TestValidateProviderForNewModelAlreadyExists(c *gc.C) {
 
 	ns := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{
 		ObjectMeta: v1.ObjectMeta{
-			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "model.juju.is/name": "test"},
+			Labels: map[string]string{"app.kubernetes.io/managed-by": "juju", "model.juju.is/id": "deadbeef-0bad-400d-8000-4b1d0d06f00d", "model.juju.is/name": "test"},
 			Name:   "test",
 		},
 	})

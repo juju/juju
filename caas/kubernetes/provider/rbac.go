@@ -36,10 +36,10 @@ func AppNameForServiceAccount(sa *core.ServiceAccount) (string, error) {
 }
 
 // RBACLabels returns a set of labels that should be present for RBAC objects.
-func RBACLabels(appName, model string, global, legacy bool) map[string]string {
-	labels := utils.LabelsForApp(appName, legacy)
+func RBACLabels(appName, modelName, modelUUID, controllerUUID string, global bool, labelVersion constants.LabelVersion) map[string]string {
+	labels := utils.LabelsForApp(appName, labelVersion)
 	if global {
-		labels = utils.LabelsMerge(labels, utils.LabelsForModel(model, legacy))
+		labels = utils.LabelsMerge(labels, utils.LabelsForModel(modelName, modelUUID, controllerUUID, labelVersion))
 	}
 	return labels
 }

@@ -1429,6 +1429,45 @@ func (m *MockModelCommand) EXPECT() *MockModelCommandMockRecorder {
 	return m.recorder
 }
 
+// ControllerDetails mocks base method.
+func (m *MockModelCommand) ControllerDetails() (*jujuclient.ControllerDetails, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerDetails")
+	ret0, _ := ret[0].(*jujuclient.ControllerDetails)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllerDetails indicates an expected call of ControllerDetails.
+func (mr *MockModelCommandMockRecorder) ControllerDetails() *MockModelCommandControllerDetailsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerDetails", reflect.TypeOf((*MockModelCommand)(nil).ControllerDetails))
+	return &MockModelCommandControllerDetailsCall{Call: call}
+}
+
+// MockModelCommandControllerDetailsCall wrap *gomock.Call
+type MockModelCommandControllerDetailsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockModelCommandControllerDetailsCall) Return(arg0 *jujuclient.ControllerDetails, arg1 error) *MockModelCommandControllerDetailsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockModelCommandControllerDetailsCall) Do(f func() (*jujuclient.ControllerDetails, error)) *MockModelCommandControllerDetailsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockModelCommandControllerDetailsCall) DoAndReturn(f func() (*jujuclient.ControllerDetails, error)) *MockModelCommandControllerDetailsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ModelDetails mocks base method.
 func (m *MockModelCommand) ModelDetails(arg0 context.Context) (string, *jujuclient.ModelDetails, error) {
 	m.ctrl.T.Helper()

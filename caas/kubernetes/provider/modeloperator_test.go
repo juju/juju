@@ -42,7 +42,6 @@ func (m *ModelOperatorSuite) assertEnsure(c *gc.C, isPrivateImageRepo bool) {
 		ensureRoleBindingCalled    = false
 		ensureServiceCalled        = false
 		ensureServiceAccountCalled = false
-		namespaceCalled            = false
 		modelUUID                  = "abcd-efff-face"
 		agentPath                  = "/var/app/juju"
 		model                      = "test-model"
@@ -89,13 +88,8 @@ func (m *ModelOperatorSuite) assertEnsure(c *gc.C, isPrivateImageRepo bool) {
 			_, err := m.client.CoreV1().Services(namespace).Create(context.Background(), s, meta.CreateOptions{})
 			return nil, err
 		},
-		model: func() string {
-			return model
-		},
-		namespace: func() string {
-			namespaceCalled = true
-			return namespace
-		},
+		modelName: model,
+		namespace: namespace,
 	}
 
 	// fake k8sclient does not populate the token for secret, so we have to do it manually.
@@ -276,7 +270,6 @@ func (m *ModelOperatorSuite) assertEnsure(c *gc.C, isPrivateImageRepo bool) {
 	c.Assert(ensureRoleBindingCalled, jc.IsTrue)
 	c.Assert(ensureServiceAccountCalled, jc.IsTrue)
 	c.Assert(ensureServiceCalled, jc.IsTrue)
-	c.Assert(namespaceCalled, jc.IsTrue)
 }
 
 func (m *ModelOperatorSuite) TestDefaultImageRepo(c *gc.C) {

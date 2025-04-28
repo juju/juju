@@ -91,7 +91,7 @@ func (h *HandlerSuite) TestEmptyBodyFails(c *gc.C) {
 	req := httptest.NewRequest(http.MethodPost, "/", nil)
 	recorder := httptest.NewRecorder()
 
-	admissionHandler(h.logger, &rbacmappertest.Mapper{}, false).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacmappertest.Mapper{}, providerconst.LabelVersion1).ServeHTTP(recorder, req)
 
 	c.Assert(recorder.Code, gc.Equals, http.StatusBadRequest)
 }
@@ -101,7 +101,7 @@ func (h *HandlerSuite) TestUnknownContentType(c *gc.C) {
 	req.Header.Set("junk", "junk")
 	recorder := httptest.NewRecorder()
 
-	admissionHandler(h.logger, &rbacmappertest.Mapper{}, false).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacmappertest.Mapper{}, providerconst.LabelVersion1).ServeHTTP(recorder, req)
 
 	c.Assert(recorder.Code, gc.Equals, http.StatusUnsupportedMediaType)
 }
@@ -123,7 +123,7 @@ func (h *HandlerSuite) TestUnknownServiceAccount(c *gc.C) {
 	req.Header.Set(HeaderContentType, ExpectedContentType)
 	recorder := httptest.NewRecorder()
 
-	admissionHandler(h.logger, &rbacmappertest.Mapper{}, false).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacmappertest.Mapper{}, providerconst.LabelVersion1).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusOK)
 	c.Assert(recorder.Body, gc.NotNil)
 
@@ -158,7 +158,7 @@ func (h *HandlerSuite) TestRBACMapperFailure(c *gc.C) {
 		},
 	}
 
-	admissionHandler(h.logger, &rbacMapper, false).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacMapper, providerconst.LabelVersion1).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusInternalServerError)
 }
 
@@ -197,7 +197,7 @@ func (h *HandlerSuite) TestPatchLabelsAdd(c *gc.C) {
 		},
 	}
 
-	admissionHandler(h.logger, &rbacMapper, false).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacMapper, providerconst.LabelVersion1).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusOK)
 	c.Assert(recorder.Body, gc.NotNil)
 
@@ -285,7 +285,7 @@ func (h *HandlerSuite) TestPatchLabelsReplace(c *gc.C) {
 		},
 	}
 
-	admissionHandler(h.logger, &rbacMapper, false).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacMapper, providerconst.LabelVersion1).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusOK)
 	c.Assert(recorder.Body, gc.NotNil)
 
@@ -360,7 +360,50 @@ func (h *HandlerSuite) TestSelfSubjectAccessReviewIgnore(c *gc.C) {
 		},
 	}
 
-	admissionHandler(h.logger, &rbacMapper, false).ServeHTTP(recorder, req)
+	admissionHandler(h.logger, &rbacMapper, providerconst.LabelVersion1).ServeHTTP(recorder, req)
+	c.Assert(recorder.Code, gc.Equals, http.StatusOK)
+	c.Assert(recorder.Body, gc.NotNil)
+
+	outReview := admission.AdmissionReview{}
+	err = json.Unmarshal(recorder.Body.Bytes(), &outReview)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(outReview.Response.Allowed, jc.IsTrue)
+	c.Assert(outReview.Response.UID, gc.Equals, inReview.Request.UID)
+
+	c.Assert(len(outReview.Response.Patch), gc.Equals, 0)
+}
+
+func (h *HandlerSuite) TestSelfSubjectAccessReviewIgnoreLabelsV2(c *gc.C) {
+	inReview := &admission.AdmissionReview{
+		Request: &admission.AdmissionRequest{
+			Kind: meta.GroupVersionKind{
+				Group:   "authorization.k8s.io",
+				Kind:    "SelfSubjectAccessReview",
+				Version: "v1",
+			},
+			UID: types.UID("test"),
+			UserInfo: authentication.UserInfo{
+				UID: "juju-tst-sa",
+			},
+		},
+	}
+
+	body, err := json.Marshal(inReview)
+	c.Assert(err, jc.ErrorIsNil)
+
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req.Header.Set(HeaderContentType, ExpectedContentType)
+	recorder := httptest.NewRecorder()
+
+	appName := "test-app"
+	rbacMapper := rbacmappertest.Mapper{
+		AppNameForServiceAccountFunc: func(_ types.UID) (string, error) {
+			return appName, nil
+		},
+	}
+
+	admissionHandler(h.logger, &rbacMapper, providerconst.LabelVersion2).ServeHTTP(recorder, req)
 	c.Assert(recorder.Code, gc.Equals, http.StatusOK)
 	c.Assert(recorder.Body, gc.NotNil)
 

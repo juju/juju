@@ -93,7 +93,7 @@ func (s *applicationSuite) getApp(c *gc.C, deploymentType caas.DeploymentType, m
 	s.applier = resourcesmocks.NewMockApplier(ctrl)
 
 	return application.NewApplicationForTest(
-		s.appName, s.namespace, "deadbeef", s.namespace, false,
+		s.appName, s.namespace, "deadbeef", s.namespace, 2,
 		deploymentType,
 		s.client,
 		watcherFn,

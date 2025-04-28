@@ -38,8 +38,8 @@ func (d *dummyUpgradeCAASController) Client() kubernetes.Interface {
 	return d.client
 }
 
-func (d *dummyUpgradeCAASController) IsLegacyLabels() bool {
-	return false
+func (d *dummyUpgradeCAASController) LabelVersion() k8sconstants.LabelVersion {
+	return k8sconstants.LabelVersion2
 }
 
 func (d *dummyUpgradeCAASController) Namespace() string {
@@ -90,8 +90,8 @@ func (s *ControllerUpgraderSuite) TestControllerUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ss.Spec.Template.Spec.Containers[0].Image, gc.Equals, newImagePath)
 
-	c.Assert(ss.Annotations[utils.AnnotationVersionKey(false)], gc.Equals, semversion.MustParse("9.9.9").String())
-	c.Assert(ss.Spec.Template.Annotations[utils.AnnotationVersionKey(false)], gc.Equals, semversion.MustParse("9.9.9").String())
+	c.Assert(ss.Annotations[utils.AnnotationVersionKey(k8sconstants.LabelVersion2)], gc.Equals, semversion.MustParse("9.9.9").String())
+	c.Assert(ss.Spec.Template.Annotations[utils.AnnotationVersionKey(k8sconstants.LabelVersion2)], gc.Equals, semversion.MustParse("9.9.9").String())
 }
 
 func (s *ControllerUpgraderSuite) TestControllerDoesNotExist(c *gc.C) {

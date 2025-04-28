@@ -99,14 +99,10 @@ func (k *kubernetesClient) listNamespacesByAnnotations(ctx context.Context, anno
 	return nil, errors.NotFoundf("namespace for %v", k.annotations)
 }
 
-// GetCurrentNamespace returns current namespace name.
-func (k *kubernetesClient) GetCurrentNamespace() string {
-	return k.namespace
-}
-
 func (k *kubernetesClient) ensureNamespaceAnnotations(ns *core.Namespace) error {
 	annotations := k8sannotations.New(ns.GetAnnotations()).Merge(k.annotations)
-	err := annotations.CheckKeysNonEmpty(utils.AnnotationControllerUUIDKey(false), utils.AnnotationModelUUIDKey(false))
+	err := annotations.CheckKeysNonEmpty(utils.AnnotationControllerUUIDKey(k.LabelVersion()),
+		utils.AnnotationModelUUIDKey(k.LabelVersion()))
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -119,7 +115,7 @@ func (k *kubernetesClient) createNamespace(ctx context.Context, name string) err
 	ns := &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: name}}
 	ns.SetLabels(utils.LabelsMerge(
 		ns.GetLabels(),
-		utils.LabelsForModel(k.CurrentModel(), false),
+		utils.LabelsForModel(k.ModelName(), k.ModelUUID(), k.ControllerUUID(), k.LabelVersion()),
 		utils.LabelsJuju))
 
 	if err := k.ensureNamespaceAnnotations(ns); err != nil {

@@ -58,6 +58,9 @@ const (
 	// JujuControllerStackName is the juju CAAS controller stack name.
 	JujuControllerStackName = "controller"
 
+	// JujuControllerModelName is the name of the juju controller model.
+	JujuControllerModelName = "controller"
+
 	// ControllerServiceFQDNTemplate is the FQDN of the controller service using the cluster DNS.
 	ControllerServiceFQDNTemplate = "controller-service.controller-%s.svc.cluster.local"
 
