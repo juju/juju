@@ -314,8 +314,9 @@ func (s *watcherrelationunitSuite) expectWatchRelatedUnitWithEvents(c *gc.C, rel
 	wg := sync.WaitGroup{}
 	notStartedSafeGuard := make(chan struct{})       // used as a safeguard to avoid deadlock if the watcher is not started
 	unexpectedFinishSafeGuard := make(chan struct{}) // used as a safeguard to avoid deadlock if the proxy finish early
+	consumerStarted := false
 	finisher := func(c *gc.C) {
-		if notStartedSafeGuard != nil {
+		if !consumerStarted {
 			close(notStartedSafeGuard)
 		}
 		wg.Wait()
@@ -345,9 +346,9 @@ func (s *watcherrelationunitSuite) expectWatchRelatedUnitWithEvents(c *gc.C, rel
 	registerWatcher := s.watcherRegistry.EXPECT().Register(gomock.Any()).DoAndReturn(func(worker worker.Worker) (string, error) {
 		w, ok := worker.(common.RelationUnitsWatcher)
 		c.Assert(ok, jc.IsTrue)
-		notStartedSafeGuard = nil // allow watcher to finish, since it is started
+		consumerStarted = true
+		wg.Add(1)
 		go func() {
-			wg.Add(1)
 			defer wg.Done()
 			watcherEvents := make([]params.RelationUnitsChange, 0, len(init.expectedEvents))
 			for v := range w.Changes() { // consume all remaining events
