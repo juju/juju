@@ -2381,34 +2381,37 @@ func (st *State) updateApplicationSettings(
 	}
 
 	// Update the keys to set.
-	updateStmt, err := st.Prepare(`
+	if len(set) > 0 {
+		updateStmt, err := st.Prepare(`
 INSERT INTO relation_application_setting (*) 
 VALUES ($relationApplicationSetting.*) 
 ON CONFLICT (relation_endpoint_uuid, key) DO UPDATE SET value = excluded.value
 `, relationApplicationSetting{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-	err = tx.Query(ctx, updateStmt, set).Run()
-	if err != nil {
-		return errors.Capture(err)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, updateStmt, set).Run()
+		if err != nil {
+			return errors.Capture(err)
+		}
 	}
 
 	// Delete the keys to unset.
-	id := relationEndpointUUID{UUID: endpointUUID}
-	deleteStmt, err := st.Prepare(`
+	if len(unset) > 0 {
+		id := relationEndpointUUID{UUID: endpointUUID}
+		deleteStmt, err := st.Prepare(`
 DELETE FROM relation_application_setting
 WHERE       relation_endpoint_uuid = $relationEndpointUUID.uuid
 AND         key IN ($keys[:])
 `, id, unset)
-	if err != nil {
-		return errors.Capture(err)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, deleteStmt, id, unset).Run()
+		if err != nil {
+			return errors.Capture(err)
+		}
 	}
-	err = tx.Query(ctx, deleteStmt, id, unset).Run()
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	return nil
 }
 
@@ -2465,32 +2468,36 @@ func (st *State) updateUnitSettings(
 	}
 
 	// Update the keys to set.
-	updateStmt, err := st.Prepare(`
+	if len(set) > 0 {
+		updateStmt, err := st.Prepare(`
 INSERT INTO relation_unit_setting (*) 
 VALUES ($relationUnitSetting.*) 
 ON CONFLICT (relation_unit_uuid, key) DO UPDATE SET value = excluded.value
 `, relationUnitSetting{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-	err = tx.Query(ctx, updateStmt, set).Run()
-	if err != nil {
-		return errors.Capture(err)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, updateStmt, set).Run()
+		if err != nil {
+			return errors.Capture(err)
+		}
 	}
 
 	// Delete the keys to unset.
-	id := relationUnitUUID{RelationUnitUUID: relUnitUUID}
-	deleteStmt, err := st.Prepare(`
+	if len(unset) > 0 {
+		id := relationUnitUUID{RelationUnitUUID: relUnitUUID}
+		deleteStmt, err := st.Prepare(`
 DELETE FROM relation_unit_setting
 WHERE       relation_unit_uuid = $relationUnitUUID.uuid
 AND         key IN ($keys[:])
 `, id, unset)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	err = tx.Query(ctx, deleteStmt, id, unset).Run()
-	if err != nil {
-		return errors.Capture(err)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, deleteStmt, id, unset).Run()
+		if err != nil {
+			return errors.Capture(err)
+		}
 	}
 
 	return nil
