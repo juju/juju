@@ -15,6 +15,7 @@ import (
 	"github.com/icza/backscanner"
 	"github.com/juju/clock"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 )
 
@@ -92,35 +93,39 @@ func (s *StatusHistory) RecordStatus(ctx context.Context, ns Namespace, status s
 
 // HistoryRecord represents a single record of status information.
 type HistoryRecord struct {
-	Kind   status.HistoryKind
-	Tag    string
-	Status status.DetailedStatus
+	ModelUUID model.UUID
+	Kind      status.HistoryKind
+	Tag       string
+	Status    status.DetailedStatus
 }
 
 // Scanner is an interface for reading lines from a source.
 type Scanner interface {
 	LineBytes() (line []byte, pos int, err error)
+	Close() error
 }
 
 // StatusHistoryReader is a reader for status history records.
 // It reads records from an io.Reader and unmarshals them into Record structs.
 type StatusHistoryReader struct {
-	scanner Scanner
+	modelUUID model.UUID
+	scanner   Scanner
 }
 
 // NewStatusHistoryReader creates a new StatusHistoryReader that reads from the
 // given io.Reader.
-func NewStatusHistoryReader(scanner Scanner) *StatusHistoryReader {
+func NewStatusHistoryReader(modelUUID model.UUID, scanner Scanner) *StatusHistoryReader {
 	return &StatusHistoryReader{
-		scanner: scanner,
+		modelUUID: modelUUID,
+		scanner:   scanner,
 	}
 }
 
 // StatusHistoryReaderFromFile creates a new StatusHistoryReader that reads from
 // the given file path. It opens the file for reading and returns a
 // StatusHistoryReader.
-func StatusHistoryReaderFromFile(path string) (*StatusHistoryReader, error) {
-	file, err := os.Open(path)
+func ModelStatusHistoryReaderFromFile(modelUUID model.UUID, path string) (*StatusHistoryReader, error) {
+	file, err := os.OpenFile(path, os.O_RDONLY, 0600)
 	if err != nil {
 		return nil, err
 	}
@@ -130,16 +135,20 @@ func StatusHistoryReaderFromFile(path string) (*StatusHistoryReader, error) {
 		return nil, err
 	}
 
-	return NewStatusHistoryReader(backscanner.New(file, int(size.Size()))), nil
+	return NewStatusHistoryReader(modelUUID, scannerCloser{
+		Scanner: backscanner.New(file, int(size.Size())),
+		Closer:  file,
+	}), nil
+}
+
+type jsonRecord struct {
+	ModelUUID model.UUID        `json:"model-uuid"`
+	Labels    map[string]string `json:"labels"`
 }
 
 // Walk reads the status history records from the reader and applies the
 // given function to each record.
-func (r *StatusHistoryReader) Walk(fn func(HistoryRecord)) error {
-	var rec struct {
-		Labels map[string]string `json:"labels"`
-	}
-
+func (r *StatusHistoryReader) Walk(fn func(HistoryRecord) (bool, error)) error {
 	// Read each line of the log file and unmarshal it into a LogRecord.
 	// Filter out records that do not match the requested entities.
 	for {
@@ -150,7 +159,13 @@ func (r *StatusHistoryReader) Walk(fn func(HistoryRecord)) error {
 			return err
 		}
 
+		var rec jsonRecord
 		if err := json.Unmarshal(line, &rec); err != nil {
+			continue
+		}
+
+		// Check if the record belongs to the current model.
+		if rec.ModelUUID == "" || rec.ModelUUID != r.modelUUID {
 			continue
 		}
 
@@ -186,12 +201,40 @@ func (r *StatusHistoryReader) Walk(fn func(HistoryRecord)) error {
 			Data:   data,
 		}
 
-		fn(HistoryRecord{
-			Kind:   kind,
-			Tag:    rec.Labels[namespaceIDKey],
-			Status: record,
-		})
+		if terminal, err := fn(HistoryRecord{
+			ModelUUID: r.modelUUID,
+			Kind:      kind,
+			Tag:       rec.Labels[namespaceIDKey],
+			Status:    record,
+		}); err != nil {
+			return err
+		} else if terminal {
+			return nil
+		}
 	}
+}
+
+func (r *StatusHistoryReader) Close() error {
+	if r.scanner != nil {
+		return r.scanner.Close()
+	}
+	return nil
+}
+
+type scannerCloser struct {
+	Scanner *backscanner.Scanner
+	Closer  io.Closer
+}
+
+func (s scannerCloser) LineBytes() (line []byte, pos int, err error) {
+	return s.Scanner.LineBytes()
+}
+
+func (s scannerCloser) Close() error {
+	if s.Closer != nil {
+		return s.Closer.Close()
+	}
+	return nil
 }
 
 func parseKind(kind string) (status.HistoryKind, error) {

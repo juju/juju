@@ -57,7 +57,11 @@ func statusHistoryResultsError(err error, amount int) params.StatusHistoryResult
 	}
 }
 
-func matches(hr statushistory.HistoryRecord, req params.StatusHistoryRequest) (bool, error) {
+func statusHistoryResultError(err error) params.StatusHistoryResults {
+	return statusHistoryResultsError(err, 1)
+}
+
+func matches(hr statushistory.HistoryRecord, req params.StatusHistoryRequest, now time.Time) (bool, error) {
 	// Check that the kinds match.
 	if status.HistoryKind(req.Kind) != hr.Kind {
 		return false, nil
@@ -71,70 +75,84 @@ func matches(hr statushistory.HistoryRecord, req params.StatusHistoryRequest) (b
 		return false, nil
 	}
 
+	filter := req.Filter
+
+	// If the date is set on the filter, check that the record's date is
+	// after the filter date.
+	if filter.Date != nil && hr.Status.Since != nil && !hr.Status.Since.After(*filter.Date) {
+		return false, nil
+	}
+
+	// If the delta is set on the filter, check that the record's delta
+	// is after the filter delta.
+	if filter.Delta != nil && hr.Status.Since != nil && !hr.Status.Since.After(now.Add(-(*filter.Delta))) {
+		return false, nil
+	}
+
 	return true, nil
 }
 
 // StatusHistory returns a slice of past statuses for several entities.
-func (c *Client) StatusHistory(ctx context.Context, request params.StatusHistoryRequests) params.StatusHistoryResults {
-	logFile := filepath.Join(c.logDir, "logsink.log")
-	reader, err := statushistory.StatusHistoryReaderFromFile(logFile)
-	if err != nil {
-		return statusHistoryResultsError(err, len(request.Requests))
+func (c *Client) StatusHistory(ctx context.Context, requests params.StatusHistoryRequests) params.StatusHistoryResults {
+	if err := c.checkCanRead(ctx); err != nil {
+		return statusHistoryResultsError(err, len(requests.Requests))
 	}
 
-	statuses := make([][]params.DetailedStatus, len(request.Requests))
-	errors := make([]error, len(request.Requests))
-	err = reader.Walk(func(record statushistory.HistoryRecord) {
-		// Loop over each log record and check if it matches the request. If a
-		// log record matches any of the requests add it to the request result.
-		//
-		// If we didn't support bulk requests, this would be a lot more
-		// efficient.
-		for i, req := range request.Requests {
-			if errors[i] != nil {
-				// This request has already failed, so skip it.
-				continue
-			}
+	// This API officially supports bulk requests, but the client only sends
+	// single requests. This prevents excessive memory usage in the server.
+	if num := len(requests.Requests); num == 0 {
+		return statusHistoryResultsError(nil, num)
+	} else if num != 1 {
+		return statusHistoryResultsError(internalerrors.Errorf("multiple requests are not supported"), num)
+	}
 
-			if ok, err := matches(record, req); !ok {
-				continue
-			} else if err != nil {
-				errors[i] = err
-				continue
-			}
+	// We know we only have one request, so we can just use the first one.
+	request := requests.Requests[0]
 
-			status := record.Status
+	logFile := filepath.Join(c.logDir, "logsink.log")
+	reader, err := statushistory.ModelStatusHistoryReaderFromFile(model.UUID(c.modelTag.Id()), logFile)
+	if err != nil {
+		return statusHistoryResultError(err)
+	}
+	defer reader.Close()
 
-			statuses[i] = append(statuses[i], params.DetailedStatus{
-				Kind:   status.Kind.String(),
-				Status: status.Status.String(),
-				Info:   status.Info,
-				Data:   status.Data,
-				Since:  status.Since,
-			})
+	now := c.clock.Now()
+
+	var results []params.DetailedStatus
+	err = reader.Walk(func(record statushistory.HistoryRecord) (bool, error) {
+		if ok, err := matches(record, request, now); !ok {
+			return false, nil
+		} else if err != nil {
+			return false, err
 		}
+
+		status := record.Status
+
+		results = append(results, params.DetailedStatus{
+			Kind:   status.Kind.String(),
+			Status: status.Status.String(),
+			Info:   status.Info,
+			Data:   status.Data,
+			Since:  status.Since,
+		})
+
+		// If we have more than the requested limit, so we can stop reading.
+		if limit := request.Filter.Size; limit > 0 && len(results) > limit {
+			return true, nil
+		}
+
+		return false, nil
 	})
 	if err != nil {
-		return statusHistoryResultsError(err, len(request.Requests))
-	}
-
-	results := make([]params.StatusHistoryResult, len(request.Requests))
-	for i, s := range statuses {
-		var err *params.Error
-		if errors[i] != nil {
-			err = apiservererrors.ServerError(errors[i])
-		}
-
-		results[i] = params.StatusHistoryResult{
-			History: params.History{
-				Statuses: s,
-				Error:    err,
-			},
-		}
+		return statusHistoryResultError(err)
 	}
 
 	return params.StatusHistoryResults{
-		Results: results,
+		Results: []params.StatusHistoryResult{{
+			History: params.History{
+				Statuses: results,
+			},
+		}},
 	}
 }
 

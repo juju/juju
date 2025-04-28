@@ -6,6 +6,7 @@ package client
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -30,6 +31,7 @@ type Client struct {
 	leadershipReader leadership.Reader
 
 	logDir string
+	clock  clock.Clock
 
 	applicationService ApplicationService
 	statusService      StatusService
