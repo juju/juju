@@ -24,14 +24,14 @@ func newUndertakerFacade(ctx facade.ModelContext) (*UndertakerAPI, error) {
 	domainServices := ctx.DomainServices()
 	modelInfoService := domainServices.ModelInfo()
 	backendService := domainServices.SecretBackend()
-	cloudSpecService := domainServices.ModelProvider()
+	modelProviderService := domainServices.ModelProvider()
 
 	return newUndertakerAPI(
 		ctx.ModelUUID(),
 		&stateShim{st},
 		ctx.Resources(),
 		ctx.Auth(),
-		cloudSpecService,
+		modelProviderService,
 		backendService,
 		domainServices.Config(),
 		modelInfoService,

@@ -35,7 +35,7 @@ type UndertakerAPI struct {
 	resources facade.Resources
 
 	modelUUID            coremodel.UUID
-	cloudSpecGetter      ModelProviderService
+	modelProviderService ModelProviderService
 	secretBackendService SecretBackendService
 	modelInfoService     ModelInfoService
 }
@@ -45,7 +45,7 @@ func newUndertakerAPI(
 	st State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	cloudSpecGetter ModelProviderService,
+	modelProviderService ModelProviderService,
 	secretBackendService SecretBackendService,
 	modelConfigService ModelConfigService,
 	modelInfoService ModelInfoService,
@@ -61,7 +61,7 @@ func newUndertakerAPI(
 		modelUUID:            modelUUID,
 		secretBackendService: secretBackendService,
 		modelInfoService:     modelInfoService,
-		cloudSpecGetter:      cloudSpecGetter,
+		modelProviderService: modelProviderService,
 		ModelConfigWatcher:   commonmodel.NewModelConfigWatcher(modelConfigService, watcherRegistry),
 	}, nil
 }
@@ -81,18 +81,12 @@ func (u *UndertakerAPI) CloudSpec(ctx context.Context, args params.Entities) (pa
 			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		spec, err := u.cloudSpecGetter.GetCloudSpec(ctx)
+		spec, err := u.modelProviderService.GetCloudSpec(ctx)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		result := params.CloudSpecResult{
-			Error: apiservererrors.ServerError(err),
-		}
-		if err == nil {
-			result.Result = common.CloudSpecToParams(spec)
-		}
-		results.Results[i] = result
+		results.Results[i].Result = common.CloudSpecToParams(spec)
 	}
 	return results, nil
 }

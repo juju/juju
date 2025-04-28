@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/relation"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
 )
@@ -132,5 +131,3 @@ type PrecheckRelationUnit interface {
 	InScope() (bool, error)
 	UnitName() string
 }
-
-type environsCloudSpecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error)

@@ -214,7 +214,6 @@ func (s *controllerSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 		}
 		return svc.ModelProvider(), nil
 	}
-	s.mockModelService = mocks.NewMockModelService(ctrl)
 
 	api, err := controller.NewControllerAPI(
 		stdCtx,
