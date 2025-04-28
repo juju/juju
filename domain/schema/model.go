@@ -16,13 +16,13 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/model-triggers.gen.go -package=triggers -tables=model_config
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/secret-triggers.gen.go -package=triggers -tables=secret_metadata,secret_rotation,secret_revision,secret_revision_expire,secret_revision_obsolete,secret_revision,secret_reference,secret_deleted_value_ref
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/network-triggers.gen.go -package=triggers -tables=subnet
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/network-triggers.gen.go -package=triggers -tables=subnet,ip_address
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-triggers.gen.go -package=triggers -tables=machine,machine_lxd_profile
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-cloud-instance-triggers.gen.go -package=triggers -tables=machine_cloud_instance
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-requires-reboot-triggers.gen.go -package=triggers -tables=machine_requires_reboot
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-triggers.gen.go -package=triggers -tables=application,application_config_hash,charm,application_scale,port_range,application_exposed_endpoint_space,application_exposed_endpoint_cidr
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/unit-triggers.gen.go -package triggers -tables=unit,unit_principal,unit_resolved
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_settings_hash,relation_unit_settings_hash,relation_unit,relation,relation_status
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_settings_hash,relation_unit_settings_hash,relation_unit,relation,relation_status,application_endpoint
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/cleanup-triggers.gen.go -package=triggers -tables=removal
 
 //go:embed model/sql/*.sql
@@ -67,6 +67,8 @@ const (
 	tableRelation
 	tableRelationStatus
 	tableRelationUnit
+	tableIpAddress
+	tableApplicationEndpoint
 )
 
 // ModelDDL is used to create model databases.
@@ -145,6 +147,8 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForRelationStatus("relation_uuid",
 			tableRelationStatus),
 		triggers.ChangeLogTriggersForRelationUnit("unit_uuid", tableRelationUnit),
+		triggers.ChangeLogTriggersForIpAddress("uuid", tableIpAddress),
+		triggers.ChangeLogTriggersForApplicationEndpoint("application_uuid", tableApplicationEndpoint),
 	)
 
 	// Generic triggers.

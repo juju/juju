@@ -9,6 +9,44 @@ import (
 )
 
 
+// ChangeLogTriggersForApplicationEndpoint generates the triggers for the
+// application_endpoint table.
+func ChangeLogTriggersForApplicationEndpoint(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ApplicationEndpoint
+INSERT INTO change_log_namespace VALUES (%[2]d, 'application_endpoint', 'ApplicationEndpoint changes based on %[1]s');
+
+-- insert trigger for ApplicationEndpoint
+CREATE TRIGGER trg_log_application_endpoint_insert
+AFTER INSERT ON application_endpoint FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+END;
+
+-- update trigger for ApplicationEndpoint
+CREATE TRIGGER trg_log_application_endpoint_update
+AFTER UPDATE ON application_endpoint FOR EACH ROW
+WHEN 
+	NEW.uuid != OLD.uuid OR
+	NEW.application_uuid != OLD.application_uuid OR
+	(NEW.space_uuid != OLD.space_uuid OR (NEW.space_uuid IS NOT NULL AND OLD.space_uuid IS NULL) OR (NEW.space_uuid IS NULL AND OLD.space_uuid IS NOT NULL)) OR
+	NEW.charm_relation_uuid != OLD.charm_relation_uuid 
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;
+-- delete trigger for ApplicationEndpoint
+CREATE TRIGGER trg_log_application_endpoint_delete
+AFTER DELETE ON application_endpoint FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;`, columnName, namespaceID))
+	}
+}
+
 // ChangeLogTriggersForRelation generates the triggers for the
 // relation table.
 func ChangeLogTriggersForRelation(columnName string, namespaceID int) func() schema.Patch {

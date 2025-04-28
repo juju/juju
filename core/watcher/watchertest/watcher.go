@@ -138,7 +138,18 @@ func (w *WatcherC[T]) Check(assertion WatcherAssert[T]) {
 		select {
 		case actual, ok := <-w.Watcher.Changes():
 			w.c.Logf("WatcherC Watcher.Changes() => %# v", actual)
-			w.c.Assert(ok, jc.IsTrue)
+			if !ok {
+				wait := make(chan error)
+				go func() {
+					wait <- w.Watcher.Wait()
+				}()
+				select {
+				case <-time.After(testing.LongWait):
+					w.c.Fatalf("watcher never stopped")
+				case err := <-wait:
+					w.c.Fatalf("watcher killed with err: %q", err.Error())
+				}
+			}
 
 			received = append(received, actual)
 			w.c.Logf("received %+v", received)

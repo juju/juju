@@ -3476,6 +3476,299 @@ func (s *applicationStateSuite) TestGetDeviceConstraintsFromCreatedApp(c *gc.C) 
 	c.Check(cons["dev2"].Attributes, gc.DeepEquals, map[string]string{})
 }
 
+func (s *applicationStateSuite) TestGetAddressesHashEmpty(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+	})
+
+	hash, err := s.state.GetAddressesHash(context.Background(), appID, "net-node-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+	// The resulting hash is not the empty string because it always contains
+	// the default bindings.
+	c.Check(hash, gc.Equals, "5ec8be1eeb06c2f67dc76a85843d4461bd51668aab3f27df2af8b3e89a28d703")
+}
+
+func (s *applicationStateSuite) TestGetAddressesHash(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+	})
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		insertNetNode := `INSERT INTO net_node (uuid) VALUES (?)`
+		_, err := tx.ExecContext(ctx, insertNetNode, "net-node-uuid")
+		if err != nil {
+			return err
+		}
+		updateUnit := `UPDATE unit SET net_node_uuid = ? WHERE name = ?`
+		_, err = tx.ExecContext(ctx, updateUnit, "net-node-uuid", "foo/0")
+		if err != nil {
+			return err
+		}
+		insertLLD := `INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) VALUES (?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertLLD, "lld-uuid", "net-node-uuid", "lld-name", 1500, "00:11:22:33:44:55", 0, 0)
+		if err != nil {
+			return err
+		}
+		insertSpace := `INSERT INTO space (uuid, name) VALUES (?, ?)`
+		_, err = tx.ExecContext(ctx, insertSpace, "space0-uuid", "space0")
+		if err != nil {
+			return err
+		}
+		insertSubnet := `INSERT INTO subnet (uuid, cidr, space_uuid) VALUES (?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertSubnet, "subnet-uuid", "10.0.0.0/24", "space0-uuid")
+		if err != nil {
+			return err
+		}
+		insertIPAddress := `INSERT INTO ip_address (uuid, device_uuid, address_value, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-address-uuid", "lld-uuid", "10.0.0.1", 0, 0, 0, 0, "subnet-uuid")
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	hash, err := s.state.GetAddressesHash(context.Background(), appID, "net-node-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(hash, gc.Equals, "7166b95ec684e8452e796e2d82bfa7c6f74c7597a4c56af8d763c4be4fcefc77")
+}
+
+func (s *applicationStateSuite) TestGetAddressesHashWithEndpointBindings(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+	})
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		insertNetNode := `INSERT INTO net_node (uuid) VALUES (?)`
+		_, err := tx.ExecContext(ctx, insertNetNode, "net-node-uuid")
+		if err != nil {
+			return err
+		}
+		updateUnit := `UPDATE unit SET net_node_uuid = ? WHERE name = ?`
+		_, err = tx.ExecContext(ctx, updateUnit, "net-node-uuid", "foo/0")
+		if err != nil {
+			return err
+		}
+		insertLLD := `INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) VALUES (?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertLLD, "lld-uuid", "net-node-uuid", "lld-name", 1500, "00:11:22:33:44:55", 0, 0)
+		if err != nil {
+			return err
+		}
+		insertSpace := `INSERT INTO space (uuid, name) VALUES (?, ?)`
+		_, err = tx.ExecContext(ctx, insertSpace, "space0-uuid", "space0")
+		if err != nil {
+			return err
+		}
+		insertSubnet := `INSERT INTO subnet (uuid, cidr, space_uuid) VALUES (?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertSubnet, "subnet-uuid", "10.0.0.0/24", "space0-uuid")
+		if err != nil {
+			return err
+		}
+		insertIPAddress := `INSERT INTO ip_address (uuid, device_uuid, address_value, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertIPAddress, "ip-address-uuid", "lld-uuid", "10.0.0.1", 0, 0, 0, 0, "subnet-uuid")
+		if err != nil {
+			return err
+		}
+
+		insertCharm := `INSERT INTO charm (uuid, reference_name) VALUES (?, ?)`
+		_, err = tx.ExecContext(ctx, insertCharm, "charm0-uuid", "foo-charm")
+		if err != nil {
+			return err
+		}
+		insertCharmRelation := `INSERT INTO charm_relation (uuid, charm_uuid,  scope_id, role_id, name) VALUES (?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertCharmRelation, "charm-relation0-uuid", "charm0-uuid", "0", "0", "endpoint0")
+		if err != nil {
+			return err
+		}
+		insertEndpoint := `INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertEndpoint, "app-endpoint0-uuid", appID, "space0-uuid", "charm-relation0-uuid")
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	hash, err := s.state.GetAddressesHash(context.Background(), appID, "net-node-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(hash, gc.Equals, "2b94c712836ade07adcac5d9742f7a77e989d74893168bdbf9aa956f670c8290")
+}
+
+func (s *applicationStateSuite) TestGetAddressesHashCloudService(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+	})
+
+	err := s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.NewSpaceAddresses("10.0.0.1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	var netNodeUUID string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM k8s_service WHERE application_uuid=?", appID).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	hash, err := s.state.GetAddressesHash(context.Background(), appID, netNodeUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(hash, gc.Equals, "aba7ff161442bff8b0b29c4a88599eeb32eaa89b3e53d80a35ee8b4efd367d14")
+}
+
+func (s *applicationStateSuite) TestGetAddressesHashCloudServiceWithEndpointBindings(c *gc.C) {
+	appID := s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+	})
+
+	err := s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.NewSpaceAddresses("10.0.0.1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	var netNodeUUID string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT net_node_uuid FROM k8s_service WHERE application_uuid=?", appID).Scan(&netNodeUUID)
+		if err != nil {
+			return err
+		}
+
+		insertSpace := `INSERT INTO space (uuid, name) VALUES (?, ?)`
+		_, err = tx.ExecContext(ctx, insertSpace, "space0-uuid", "space0")
+		if err != nil {
+			return err
+		}
+
+		insertCharm := `INSERT INTO charm (uuid, reference_name) VALUES (?, ?)`
+		_, err = tx.ExecContext(ctx, insertCharm, "charm0-uuid", "foo-charm")
+		if err != nil {
+			return err
+		}
+		insertCharmRelation := `INSERT INTO charm_relation (uuid, charm_uuid, scope_id, role_id, name) VALUES (?, ?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertCharmRelation, "charm-relation0-uuid", "charm0-uuid", "0", "0", "endpoint0")
+		if err != nil {
+			return err
+		}
+		insertEndpoint := `INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) VALUES (?, ?, ?, ?)`
+		_, err = tx.ExecContext(ctx, insertEndpoint, "app-endpoint0-uuid", appID, "space0-uuid", "charm-relation0-uuid")
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	hash, err := s.state.GetAddressesHash(context.Background(), appID, netNodeUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(hash, gc.Equals, "7b3da67858305e4297f5cc6968a34e383af675dff6bb85a15c95ff39923ad31d")
+}
+
+func (s *applicationStateSuite) TestHashAddresses(c *gc.C) {
+	hash, err := s.state.hashAddressesAndEndpoints(nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(hash, gc.Equals, "")
+
+	hash0, err := s.state.hashAddressesAndEndpoints([]spaceAddress{
+		{
+			Value: "10.0.0.1",
+		},
+		{
+			Value: "10.0.0.2",
+		},
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	hash1, err := s.state.hashAddressesAndEndpoints([]spaceAddress{
+		{
+			Value: "10.0.0.2",
+		},
+		{
+			Value: "10.0.0.1",
+		},
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	// The hash should be consistent regardless of the order of the addresses.
+	c.Check(hash0, gc.Equals, hash1)
+
+	hash0, err = s.state.hashAddressesAndEndpoints([]spaceAddress{}, map[string]string{
+		"foo": "bar",
+		"foz": "baz",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	hash1, err = s.state.hashAddressesAndEndpoints([]spaceAddress{}, map[string]string{
+		"foz": "baz",
+		"foo": "bar",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// The hash should be consistent regardless of the order of the endpoint
+	// bindings.
+	c.Check(hash0, gc.Equals, hash1)
+}
+
+func (s *applicationStateSuite) TestGetNetNodeFromK8sService(c *gc.C) {
+	_ = s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+	})
+
+	err := s.state.UpsertCloudService(context.Background(), "foo", "provider-id", network.NewSpaceAddresses("10.0.0.1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Also insert the unit net node to make sure the k8s service one is
+	// returned.
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		insertNetNode := `INSERT INTO net_node (uuid) VALUES (?)`
+		_, err := tx.ExecContext(ctx, insertNetNode, "net-node-uuid")
+		if err != nil {
+			return err
+		}
+		updateUnit := `UPDATE unit SET net_node_uuid = ? WHERE name = ?`
+		_, err = tx.ExecContext(ctx, updateUnit, "net-node-uuid", "foo/0")
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check the k8s service net node is returned (since the uuid is generated
+	// we check that the unit net node uuid, which is manually crafted, is not
+	// returned).
+	netNode, err := s.state.GetNetNodeUUIDByUnitName(context.Background(), "foo/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(netNode, gc.Not(gc.Equals), "net-node-uuid")
+}
+
+func (s *applicationStateSuite) TestGetNetNodeFromUnit(c *gc.C) {
+	_ = s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+	})
+
+	// Insert the unit net node to make sure the k8s service one is
+	// returned.
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		insertNetNode := `INSERT INTO net_node (uuid) VALUES (?)`
+		_, err := tx.ExecContext(ctx, insertNetNode, "net-node-uuid")
+		if err != nil {
+			return err
+		}
+		updateUnit := `UPDATE unit SET net_node_uuid = ? WHERE name = ?`
+		_, err = tx.ExecContext(ctx, updateUnit, "net-node-uuid", "foo/0")
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check the unit net node is returned.
+	netNode, err := s.state.GetNetNodeUUIDByUnitName(context.Background(), "foo/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(netNode, gc.Equals, "net-node-uuid")
+}
+
+func (s *applicationStateSuite) TestGetNetNodeUnitNotFound(c *gc.C) {
+	_, err := s.state.GetNetNodeUUIDByUnitName(context.Background(), "foo/0")
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
 func (s *applicationStateSuite) assertApplication(
 	c *gc.C,
 	name string,
