@@ -1310,18 +1310,55 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *gc.C) {
 				Branch: "branch",
 			},
 			Scale: ptr(2),
+			Units: map[coreunit.Name]status.Unit{
+				"foo/666": {
+					Life: life.Alive,
+				},
+				"foo/667": {
+					Life: life.Alive,
+				},
+			},
 		},
 	})
 }
 
 func (s *stateSuite) TestGetApplicationAndUnitStatuses(c *gc.C) {
+	now := time.Now()
+
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
+		UnitStatusArg: application.UnitStatusArg{
+			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusIdle,
+				Message: "it's idle",
+				Data:    []byte(`{"foo": "bar"}`),
+				Since:   ptr(now),
+			},
+			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "it's active",
+				Data:    []byte(`{"bar": "foo"}`),
+				Since:   ptr(now),
+			},
+		},
 	}
 	u2 := application.AddUnitArg{
 		UnitName: "foo/667",
+		UnitStatusArg: application.UnitStatusArg{
+			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusError,
+				Message: "error",
+				Data:    []byte(`{"error": "error"}`),
+				Since:   ptr(now),
+			},
+			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusError,
+				Message: "also in error",
+				Data:    []byte(`{"error": "oh noes"}`),
+				Since:   ptr(now),
+			},
+		},
 	}
-	now := time.Now()
 
 	appStatus := s.appStatus(now)
 	appUUID, _ := s.createApplication(c, "foo", life.Alive, false, appStatus, u1, u2)
@@ -1350,30 +1387,86 @@ func (s *stateSuite) TestGetApplicationAndUnitStatuses(c *gc.C) {
 				Branch: "branch",
 			},
 			Scale: ptr(2),
+			Units: map[coreunit.Name]status.Unit{
+				"foo/666": {
+					Life: life.Alive,
+					AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+						Status:  status.UnitAgentStatusIdle,
+						Message: "it's idle",
+						Data:    []byte(`{"foo": "bar"}`),
+						Since:   ptr(now),
+					},
+					WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+						Status:  status.WorkloadStatusActive,
+						Message: "it's active",
+						Data:    []byte(`{"bar": "foo"}`),
+						Since:   ptr(now),
+					},
+				},
+				"foo/667": {
+					Life: life.Alive,
+					AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+						Status:  status.UnitAgentStatusError,
+						Message: "error",
+						Data:    []byte(`{"error": "error"}`),
+						Since:   ptr(now),
+					},
+					WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+						Status:  status.WorkloadStatusError,
+						Message: "also in error",
+						Data:    []byte(`{"error": "oh noes"}`),
+						Since:   ptr(now),
+					},
+				},
+			},
 		},
 	})
 }
 
 func (s *stateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *gc.C) {
+	now := time.Now()
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
 	}
 	u2 := application.AddUnitArg{
-		UnitName: "foo/667",
+		UnitName: "sub/667",
 	}
-	now := time.Now()
+	u3 := application.AddUnitArg{
+		UnitName: "sub/668",
+		UnitStatusArg: application.UnitStatusArg{
+			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusError,
+				Message: "error",
+				Data:    []byte(`{"error": "error"}`),
+				Since:   ptr(now),
+			},
+			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusError,
+				Message: "also in error",
+				Data:    []byte(`{"error": "oh noes"}`),
+				Since:   ptr(now),
+			},
+		},
+	}
 
 	appStatus := s.appStatus(now)
-	appUUID, _ := s.createApplication(c, "foo", life.Alive, true, appStatus, u1, u2)
+	appUUID0, units0 := s.createApplication(c, "foo", life.Alive, false, appStatus, u1)
+	c.Assert(units0, gc.HasLen, 1)
+
+	appUUID1, units1 := s.createApplication(c, "sub", life.Alive, true, appStatus, u2, u3)
+	c.Assert(units1, gc.HasLen, 2)
+	for _, unit := range units1 {
+		s.setApplicationSubordinate(c, units0[0], unit)
+	}
 
 	statuses, err := s.state.GetApplicationAndUnitStatuses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(statuses, jc.DeepEquals, map[string]status.Application{
 		"foo": {
-			ID:          appUUID,
+			ID:          appUUID0,
 			Life:        life.Alive,
 			Status:      *appStatus,
-			Subordinate: true,
+			Subordinate: false,
 			CharmLocator: charm.CharmLocator{
 				Name:         "foo",
 				Revision:     42,
@@ -1390,7 +1483,59 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *gc.C) {
 				Risk:   "stable",
 				Branch: "branch",
 			},
+			Scale: ptr(1),
+			Units: map[coreunit.Name]status.Unit{
+				"foo/666": {
+					Life: life.Alive,
+					Subordinates: []coreunit.Name{
+						"sub/667",
+						"sub/668",
+					},
+				},
+			},
+		},
+		"sub": {
+			ID:          appUUID1,
+			Life:        life.Alive,
+			Status:      *appStatus,
+			Subordinate: true,
+			CharmLocator: charm.CharmLocator{
+				Name:         "sub",
+				Revision:     42,
+				Source:       "charmhub",
+				Architecture: architecture.ARM64,
+			},
+			Platform: deployment.Platform{
+				OSType:       deployment.Ubuntu,
+				Channel:      "22.04/stable",
+				Architecture: architecture.ARM64,
+			},
+			Channel: &deployment.Channel{
+				Track:  "track",
+				Risk:   "stable",
+				Branch: "branch",
+			},
 			Scale: ptr(2),
+			Units: map[coreunit.Name]status.Unit{
+				"sub/667": {
+					Life: life.Alive,
+				},
+				"sub/668": {
+					Life: life.Alive,
+					AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+						Status:  status.UnitAgentStatusError,
+						Message: "error",
+						Data:    []byte(`{"error": "error"}`),
+						Since:   ptr(now),
+					},
+					WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+						Status:  status.WorkloadStatusError,
+						Message: "also in error",
+						Data:    []byte(`{"error": "oh noes"}`),
+						Since:   ptr(now),
+					},
+				},
+			},
 		},
 	})
 }
@@ -1433,6 +1578,14 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *gc.C) {
 			},
 			LXDProfile: []byte("{}"),
 			Scale:      ptr(2),
+			Units: map[coreunit.Name]status.Unit{
+				"foo/666": {
+					Life: life.Alive,
+				},
+				"foo/667": {
+					Life: life.Alive,
+				},
+			},
 		},
 	})
 }
@@ -1481,6 +1634,14 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *gc.C) {
 			},
 			Exposed: true,
 			Scale:   ptr(2),
+			Units: map[coreunit.Name]status.Unit{
+				"foo/666": {
+					Life: life.Alive,
+				},
+				"foo/667": {
+					Life: life.Alive,
+				},
+			},
 		},
 	})
 }
@@ -1534,6 +1695,14 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations(c *g
 			},
 			Exposed: true,
 			Scale:   ptr(2),
+			Units: map[coreunit.Name]status.Unit{
+				"foo/666": {
+					Life: life.Alive,
+				},
+				"foo/667": {
+					Life: life.Alive,
+				},
+			},
 		},
 	})
 }
@@ -1703,6 +1872,16 @@ func (s *stateSuite) setApplicationLXDProfile(c *gc.C, appUUID coreapplication.I
 		_, err := tx.ExecContext(ctx, `
 UPDATE charm SET lxd_profile = ? WHERE uuid = (SELECT charm_uuid FROM application WHERE uuid = ?)
 `, profile, appUUID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *stateSuite) setApplicationSubordinate(c *gc.C, principal coreunit.UUID, subordinate coreunit.UUID) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO unit_principal (unit_uuid, principal_uuid)
+VALUES (?, ?);`, subordinate, principal)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

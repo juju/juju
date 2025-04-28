@@ -40,7 +40,7 @@ ON unit (application_uuid);
 CREATE INDEX idx_unit_net_node
 ON unit (net_node_uuid);
 
--- unit_principal table is a table which is used to store the.
+-- unit_principal table is a table which is used to store the
 -- principal units for subordinate units.
 CREATE TABLE unit_principal (
     unit_uuid TEXT NOT NULL PRIMARY KEY,

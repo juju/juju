@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
-	"github.com/juju/juju/core/unit"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	domainlife "github.com/juju/juju/domain/life"
@@ -1405,18 +1404,33 @@ ORDER BY a.name, re.relation_uuid;
 	return result, nil
 }
 
-func (st *State) getUnitsStatuses(ctx context.Context, tx *sqlair.TX) (map[string]map[unit.Name]status.Unit, error) {
+func (st *State) getUnitsStatuses(ctx context.Context, tx *sqlair.TX) (map[string]map[coreunit.Name]status.Unit, error) {
 	// Get all the units.
 	query, err := st.Prepare(`
+WITH unit_subordinate AS (
+	SELECT u.name AS subordinate_name, principal_uuid
+	FROM unit_principal
+	JOIN unit AS u ON u.uuid = unit_principal.unit_uuid
+)
 SELECT
 	u.name AS &unitStatusDetails.name,
 	u.uuid AS &unitStatusDetails.uuid,
-	life.life_id AS &unitStatusDetails.life_id,
-	u.application_uuid AS &unitStatusDetails.application_uuid,
+	u.life_id AS &unitStatusDetails.life_id,
 	a.name AS &unitStatusDetails.application_name,
+	us.subordinate_name AS &unitStatusDetails.subordinate_name,
+	uas.status_id AS &unitStatusDetails.agent_status_id,
+	uas.message AS &unitStatusDetails.agent_message,
+	uas.data AS &unitStatusDetails.agent_data,
+	uas.updated_at AS &unitStatusDetails.agent_updated_at,
+	uws.status_id AS &unitStatusDetails.workload_status_id,
+	uws.message AS &unitStatusDetails.workload_message,
+	uws.data AS &unitStatusDetails.workload_data,
+	uws.updated_at AS &unitStatusDetails.workload_updated_at
 FROM unit AS u
-JOIN unit_life AS life ON life.unit_uuid = u.uuid
 JOIN application AS a ON a.uuid = u.application_uuid
+LEFT JOIN unit_subordinate AS us ON us.principal_uuid = u.uuid
+LEFT JOIN unit_agent_status AS uas ON uas.unit_uuid = u.uuid
+LEFT JOIN unit_workload_status AS uws ON uws.unit_uuid = u.uuid
 ORDER BY u.name;
 `, unitStatusDetails{})
 	if err != nil {
@@ -1428,20 +1442,61 @@ ORDER BY u.name;
 		return nil, errors.Capture(err)
 	}
 
-	result := make(map[string]map[unit.Name]status.Unit)
+	result := make(map[string]map[coreunit.Name]status.Unit)
 	for _, s := range unitStatuses {
 		appName := s.ApplicationName
 		unitName := s.Name
 
 		if _, exists := result[appName]; !exists {
-			result[appName] = make(map[unit.Name]status.Unit)
+			result[appName] = make(map[coreunit.Name]status.Unit)
 		}
-		if _, exists := result[appName][unitName]; exists {
 
+		var subordinateName coreunit.Name
+		if s.SubordinateName.Valid {
+			subordinateName = s.SubordinateName.V
+		}
+
+		if a, exists := result[appName][unitName]; exists && s.SubordinateName.Valid {
+			// If we already have a subordinate unit, we don't need to add it again.
+			a.Subordinates = append(a.Subordinates, subordinateName)
+			result[appName][unitName] = a
+
+			continue
+		} else if exists {
+			// This should never happen, but if it does, we have a duplicate
+			// unit name with no subordinate name. This is a problem.
+			return nil, errors.Errorf("duplicate unit name %q", unitName)
+		}
+
+		var subordinates []coreunit.Name
+		if s.SubordinateName.Valid {
+			subordinates = append(subordinates, subordinateName)
+		}
+
+		agentStatusID, err := status.DecodeAgentStatus(s.AgentStatusID)
+		if err != nil {
+			return nil, errors.Errorf("decoding agent status ID for unit %q: %w", unitName, err)
+		}
+		workloadStatusID, err := status.DecodeWorkloadStatus(s.WorkloadStatusID)
+		if err != nil {
+			return nil, errors.Errorf("decoding workload status ID for unit %q: %w", unitName, err)
 		}
 
 		result[appName][unitName] = status.Unit{
-			Life: s.LifeID,
+			Life:         s.LifeID,
+			Subordinates: subordinates,
+			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  agentStatusID,
+				Message: s.AgentMessage,
+				Data:    s.AgentData,
+				Since:   s.AgentUpdatedAt,
+			},
+			WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+				Status:  workloadStatusID,
+				Message: s.WorkloadMessage,
+				Data:    s.WorkloadData,
+				Since:   s.WorkloadUpdatedAt,
+			},
 		}
 
 	}
