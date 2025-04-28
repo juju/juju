@@ -1232,6 +1232,19 @@ func (st *State) GetApplicationAndUnitStatuses(ctx context.Context) (map[string]
 		return nil, errors.Capture(err)
 	}
 
+	var result map[string]status.Application
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		result, err = st.getApplicationsStatus(ctx, tx)
+		return err
+	}); err != nil {
+		return nil, errors.Errorf("getting application statuses: %w", err)
+	}
+
+	return result, nil
+}
+
+func (st *State) getApplicationsStatus(ctx context.Context, tx *sqlair.TX) (map[string]status.Application, error) {
 	// Get all the applications.
 	applicationQuery, err := st.Prepare(`
 SELECT
@@ -1275,14 +1288,10 @@ ORDER BY a.name, re.relation_uuid;
 	}
 
 	var appStatuses []applicationStatusDetails
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, applicationQuery).GetAll(&appStatuses)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Capture(err)
-		}
+	if err := tx.Query(ctx, applicationQuery).GetAll(&appStatuses); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Capture(err)
+	}
 
-		return nil
-	})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
