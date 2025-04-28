@@ -308,12 +308,19 @@ type RelationService interface {
 		applicationID coreapplication.ID,
 	) ([]relation.GoalStateRelationData, error)
 
-	// GetLocalRelationApplicationSettings returns the application settings
+	// GetRelationApplicationSettingsWithLeader returns the application settings
 	// for the given application and relation identifier combination.
-	// ApplicationSettings may only be read by the application leader.
-	// Returns NotFound if this unit is not the leader, if the application or
-	// relation is not found.
-	GetLocalRelationApplicationSettings(
+	//
+	// Only the leader unit may read the settings of the application in the local
+	// side of the relation.
+	//
+	// The following error types can be expected to be returned:
+	//   - [corelease.ErrNotHeld] if the unit is not the leader.
+	//   - [relationerrors.ApplicationNotFoundForRelation] is returned if the
+	//     application is not part of the relation.
+	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+	//     is not found.
+	GetRelationApplicationSettingsWithLeader(
 		ctx context.Context,
 		unitName coreunit.Name,
 		relationUUID corerelation.UUID,
@@ -363,10 +370,12 @@ type RelationService interface {
 	// any relation the unit is part of.
 	GetRelationsStatusForUnit(ctx context.Context, unitUUID coreunit.UUID) ([]relation.RelationUnitStatus, error)
 
-	// GetRemoteRelationApplicationSettings returns the application settings
+	// GetRelationApplicationSettings returns the application settings
 	// for the given application and relation identifier combination.
-	// Returns NotFound if the application or relation is not found.
-	GetRemoteRelationApplicationSettings(
+	//
+	// This function does not check leadership, so should only be used to check
+	// the settings of applications on the other end of the relation to the caller.
+	GetRelationApplicationSettings(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
 		applicationID coreapplication.ID,

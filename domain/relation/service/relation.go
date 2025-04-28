@@ -332,9 +332,11 @@ func NewLeadershipService(
 	}
 }
 
-// GetLocalRelationApplicationSettings returns the application settings
+// GetRelationApplicationSettingsWithLeader returns the application settings
 // for the given application and relation identifier combination.
-// ApplicationSettings may only be read by the application leader.
+//
+// Only the leader unit may read the settings of the application in the local
+// side of the relation.
 //
 // The following error types can be expected to be returned:
 //   - [corelease.ErrNotHeld] if the unit is not the leader.
@@ -342,7 +344,7 @@ func NewLeadershipService(
 //     application is not part of the relation.
 //   - [relationerrors.RelationNotFound] is returned if the relation UUID
 //     is not found.
-func (s *LeadershipService) GetLocalRelationApplicationSettings(
+func (s *LeadershipService) GetRelationApplicationSettingsWithLeader(
 	ctx context.Context,
 	unitName unit.Name,
 	relationUUID corerelation.UUID,
@@ -898,10 +900,16 @@ func (s *Service) GetRelationUUIDByKey(ctx context.Context, relationKey corerela
 	}
 }
 
-// GetRemoteRelationApplicationSettings returns the application settings
+// GetRelationApplicationSettings returns the application settings
 // for the given application and relation identifier combination.
+//
+// This function does not check leadership, so should only be used to check
+// the settings of applications on the other end of the relation to the caller.
+// To get the application settings with a leadership check, use
+// [LeadershipService.GetRelationApplicationSettingsWithLeader].
+//
 // Returns NotFound if the application or relation is not found.
-func (s *Service) GetRemoteRelationApplicationSettings(
+func (s *Service) GetRelationApplicationSettings(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
 	applicationID application.ID,
