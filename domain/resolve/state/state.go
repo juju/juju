@@ -276,3 +276,9 @@ WHERE unit_uuid = $unitUUID.uuid
 	}
 	return nil
 }
+
+// NamespaceForWatchUnitResolveMode returns the namespace for watching
+// changes to the resolve mode of a unit.
+func (st *State) NamespaceForWatchUnitResolveMode() string {
+	return "unit_resolved"
+}

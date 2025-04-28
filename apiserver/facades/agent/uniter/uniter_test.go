@@ -33,6 +33,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -47,6 +48,7 @@ type uniterSuite struct {
 
 	applicationService *MockApplicationService
 	resolveService     *MockResolveService
+	watcherRegistry    *MockWatcherRegistry
 
 	uniter *UniterAPI
 }
@@ -57,6 +59,128 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.badTag = nil
+}
+
+func (s *uniterSuite) TestWatchUnitResolveModeUnauthorised(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.badTag = names.NewUnitTag("foo/0")
+
+	res, err := s.uniter.WatchUnitResolveMode(context.Background(), params.Entity{
+		Tag: names.NewUnitTag("foo/0").String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res.Error, jc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *uniterSuite) TestWatchUnitResolveModeNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/0")
+	s.resolveService.EXPECT().WatchUnitResolveMode(gomock.Any(), unitName).Return(nil, resolveerrors.UnitNotFound)
+
+	res, err := s.uniter.WatchUnitResolveMode(context.Background(), params.Entity{
+		Tag: names.NewUnitTag(unitName.String()).String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res.Error, jc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *uniterSuite) TestWatchUnitResolveMode(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	unitName := coreunit.Name("foo/0")
+	s.expectWatchUnitResolveMode(ctrl, unitName, "1")
+
+	res, err := s.uniter.WatchUnitResolveMode(context.Background(), params.Entity{
+		Tag: names.NewUnitTag(unitName.String()).String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(res.Error, gc.IsNil)
+	c.Check(res.NotifyWatcherId, gc.Equals, "1")
+}
+
+func (s *uniterSuite) TestResolvedUnauthorised(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.badTag = names.NewUnitTag("foo/0")
+	res, err := s.uniter.Resolved(context.Background(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewUnitTag("foo/0").String(),
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *uniterSuite) TestResolvedNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/0")
+	s.resolveService.EXPECT().UnitResolveMode(gomock.Any(), unitName).Return("", resolveerrors.UnitNotFound)
+
+	res, err := s.uniter.Resolved(context.Background(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewUnitTag(unitName.String()).String(),
+		}},
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *uniterSuite) TestResolvedNotResolved(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/0")
+	s.resolveService.EXPECT().UnitResolveMode(gomock.Any(), unitName).Return("", resolveerrors.UnitNotResolved)
+
+	res, err := s.uniter.Resolved(context.Background(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewUnitTag(unitName.String()).String(),
+		}},
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Mode, gc.Equals, params.ResolvedNone)
+}
+
+func (s *uniterSuite) TestResolvedRetryHooks(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/0")
+	s.resolveService.EXPECT().UnitResolveMode(gomock.Any(), unitName).Return(resolve.ResolveModeRetryHooks, nil)
+
+	res, err := s.uniter.Resolved(context.Background(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewUnitTag(unitName.String()).String(),
+		}},
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Mode, gc.Equals, params.ResolvedRetryHooks)
+}
+
+func (s *uniterSuite) TestResolvedNoRetry(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/0")
+	s.resolveService.EXPECT().UnitResolveMode(gomock.Any(), unitName).Return(resolve.ResolveModeNoHooks, nil)
+
+	res, err := s.uniter.Resolved(context.Background(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewUnitTag(unitName.String()).String(),
+		}},
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Mode, gc.Equals, params.ResolvedNoHooks)
 }
 
 func (s *uniterSuite) TestClearResolvedUnauthorised(c *gc.C) {
@@ -198,6 +322,7 @@ func (s *uniterSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.resolveService = NewMockResolveService(ctrl)
+	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
 
 	s.uniter = &UniterAPI{
 		applicationService: s.applicationService,
@@ -207,9 +332,23 @@ func (s *uniterSuite) setupMocks(c *gc.C) *gomock.Controller {
 				return tag != s.badTag
 			}, nil
 		},
+		watcherRegistry: s.watcherRegistry,
 	}
 
 	return ctrl
+}
+
+func (s *uniterSuite) expectWatchUnitResolveMode(
+	ctrl *gomock.Controller,
+	unitName coreunit.Name,
+	watcherID string,
+) {
+	mockWatcher := NewMockNotifyWatcher(ctrl)
+	channel := make(chan struct{}, 1)
+	channel <- struct{}{}
+	mockWatcher.EXPECT().Changes().Return(channel).AnyTimes()
+	s.resolveService.EXPECT().WatchUnitResolveMode(gomock.Any(), unitName).Return(mockWatcher, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return(watcherID, nil).AnyTimes()
 }
 
 type leadershipSettings interface {

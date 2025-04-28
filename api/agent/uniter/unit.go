@@ -25,11 +25,10 @@ import (
 
 // Unit represents a juju unit as seen by a uniter worker.
 type Unit struct {
-	client       *Client
-	tag          names.UnitTag
-	life         life.Value
-	resolvedMode params.ResolvedMode
-	providerID   string
+	client     *Client
+	tag        names.UnitTag
+	life       life.Value
+	providerID string
 }
 
 // Tag returns the unit's tag.
@@ -58,11 +57,36 @@ func (u *Unit) Life() life.Value {
 }
 
 // Resolved returns the unit's resolved mode value.
-func (u *Unit) Resolved() params.ResolvedMode {
-	return u.resolvedMode
+func (u *Unit) Resolved(ctx context.Context) (params.ResolvedMode, error) {
+	var results params.ResolvedModeResults
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: u.tag.String()},
+		},
+	}
+	err := u.client.facade.FacadeCall(ctx, "Resolved", args, &results)
+	if err != nil {
+		return "", errors.Trace(apiservererrors.RestoreError(err))
+	}
+	if len(results.Results) != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		// We should be able to use apiserver.common.RestoreError here,
+		// but because of poor design, it causes import errors.
+		if params.IsCodeNotFound(result.Error) {
+			return "", errors.NewNotFound(result.Error, "")
+		}
+		return "", errors.Trace(result.Error)
+	}
+
+	return result.Mode, nil
 }
 
 // Refresh updates the cached local copy of the unit's data.
+//
+// Deprecated: Please use a purpose-built getter instead.
 func (u *Unit) Refresh(ctx context.Context) error {
 	var results params.UnitRefreshResults
 	args := params.Entities{
@@ -88,7 +112,6 @@ func (u *Unit) Refresh(ctx context.Context) error {
 	}
 
 	u.life = result.Life
-	u.resolvedMode = result.Resolved
 	u.providerID = result.ProviderID
 	return nil
 }
@@ -165,6 +188,23 @@ func (s *Unit) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
 
 	err := s.client.facade.FacadeCall(ctx, "WatchUnit", arg, &result)
+	if err != nil {
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
+	}
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return apiwatcher.NewNotifyWatcher(s.client.facade.RawAPICaller(), result), nil
+}
+
+// WatchResolveMode returns a NotifyWatcher that will send notifications when
+// the resolve mode of the unit changes.
+func (s *Unit) WatchResolveMode(ctx context.Context) (watcher.NotifyWatcher, error) {
+	arg := params.Entity{Tag: s.tag.String()}
+	var result params.NotifyWatchResult
+
+	err := s.client.facade.FacadeCall(ctx, "WatchUnitResolveMode", arg, &result)
 	if err != nil {
 		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}

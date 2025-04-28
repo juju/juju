@@ -3,7 +3,12 @@
 
 package resolve
 
+// ResolveMode is represents the resolve mode of a unit.
 type ResolveMode string
+
+func (m ResolveMode) String() string {
+	return string(m)
+}
 
 const (
 	// ResolveModeRetryHooks indicates that the unit should retry failed hooks

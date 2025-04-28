@@ -243,9 +243,10 @@ func (s *ModelServices) Status() *statusservice.LeadershipService {
 }
 
 // Resolve returns the resolve service.
-func (s *ModelServices) Resolve() *resolveservice.Service {
-	return resolveservice.NewService(
+func (s *ModelServices) Resolve() *resolveservice.WatchableService {
+	return resolveservice.NewWatchableService(
 		resolveState.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.modelWatcherFactory("resolve"),
 	)
 }
 

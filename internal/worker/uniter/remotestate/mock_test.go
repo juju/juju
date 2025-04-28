@@ -226,6 +226,7 @@ type mockUnit struct {
 	resolved                         params.ResolvedMode
 	application                      mockApplication
 	unitWatcher                      *mockNotifyWatcher
+	unitResolveWatcher               *mockNotifyWatcher
 	addressesWatcher                 *mockStringsWatcher
 	configSettingsWatcher            *mockStringsWatcher
 	applicationConfigSettingsWatcher *mockStringsWatcher
@@ -252,8 +253,8 @@ func (u *mockUnit) ProviderID() string {
 	return u.providerID
 }
 
-func (u *mockUnit) Resolved() params.ResolvedMode {
-	return u.resolved
+func (u *mockUnit) Resolved(context.Context) (params.ResolvedMode, error) {
+	return u.resolved, nil
 }
 
 func (u *mockUnit) Application(context.Context) (api.Application, error) {
@@ -266,6 +267,10 @@ func (u *mockUnit) Tag() names.UnitTag {
 
 func (u *mockUnit) Watch(context.Context) (watcher.NotifyWatcher, error) {
 	return u.unitWatcher, nil
+}
+
+func (u *mockUnit) WatchResolveMode(context.Context) (watcher.NotifyWatcher, error) {
+	return u.unitResolveWatcher, nil
 }
 
 func (u *mockUnit) WatchAddressesHash(_ context.Context) (watcher.StringsWatcher, error) {

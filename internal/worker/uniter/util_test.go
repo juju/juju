@@ -99,6 +99,7 @@ type testContext struct {
 	sendEvents           bool
 	unitWatchCounter     atomic.Int32
 	unitCh               sync.Map
+	unitResolveCh        chan struct{}
 	configCh             chan []string
 	relCh                chan []string
 	consumedSecretsCh    chan []string
@@ -691,6 +692,12 @@ func (s *startUniter) expectRemoteStateWatchers(c *gc.C, ctx *testContext) {
 		return w, nil
 	}).AnyTimes()
 
+	ctx.unit.EXPECT().WatchResolveMode(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
+		ctx.sendNotify(c, ctx.unitResolveCh, "initial resolve event")
+		w := watchertest.NewMockNotifyWatcher(ctx.unitResolveCh)
+		return w, nil
+	}).AnyTimes()
+
 	ctx.unit.EXPECT().WatchInstanceData(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
 		ch := make(chan struct{}, 1)
 		ch <- struct{}{}
@@ -1186,7 +1193,7 @@ func (s resolveError) step(c *gc.C, ctx *testContext) {
 	ctx.unit.mu.Lock()
 	ctx.unit.resolved = s.resolved
 	ctx.unit.mu.Unlock()
-	ctx.sendUnitNotify(c, "resolved event")
+	ctx.sendNotify(c, ctx.unitResolveCh, "resolved event")
 }
 
 type statusfunc func() (status.StatusInfo, error)

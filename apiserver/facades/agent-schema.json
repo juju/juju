@@ -10960,6 +10960,17 @@
                         }
                     }
                 },
+                "WatchUnitResolveMode": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResult"
+                        }
+                    }
+                },
                 "WatchUnitStorageAttachments": {
                     "type": "object",
                     "properties": {
