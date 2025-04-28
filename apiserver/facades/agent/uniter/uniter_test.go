@@ -648,7 +648,7 @@ func (s *uniterRelationSuite) TestReadSettingsApplication(c *gc.C) {
 
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
 	s.expectGetApplicationIDByName(s.wordpressAppTag.Id(), appID)
-	s.expectGetLocalRelationApplicationSettings(coreunit.Name(s.wordpressUnitTag.Id()), relUUID, appID, settings)
+	s.expectGetRelationApplicationSettingsWithLeader(coreunit.Name(s.wordpressUnitTag.Id()), relUUID, appID, settings)
 
 	// act
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
@@ -753,7 +753,7 @@ func (s *uniterRelationSuite) TestReadSettingsForLocalApplication(c *gc.C) {
 
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
 	s.expectGetApplicationIDByName(s.wordpressAppTag.Id(), appID)
-	s.expectGetLocalRelationApplicationSettings(coreunit.Name(s.wordpressUnitTag.Id()), relUUID, appID, settings)
+	s.expectGetRelationApplicationSettingsWithLeader(coreunit.Name(s.wordpressUnitTag.Id()), relUUID, appID, settings)
 
 	// act
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
@@ -870,7 +870,7 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsForApplication(c *gc.C) {
 
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
 	s.expectGetApplicationIDByName(remoteAppTag.Id(), appID)
-	s.expectGetRemoteRelationApplicationSettings(relUUID, appID, settings)
+	s.expectGetRelationApplicationSettings(relUUID, appID, settings)
 
 	// act
 	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{
@@ -903,7 +903,7 @@ func (s *uniterRelationSuite) TestReadRemoteApplicationSettingsWithLocalApplicat
 
 	s.expectGetRelationUUIDByKey(relationtesting.GenNewKey(c, relTag.Id()), relUUID, nil)
 	s.expectGetApplicationIDByName(s.wordpressAppTag.Id(), appID)
-	s.expectGetRemoteRelationApplicationSettings(relUUID, appID, settings)
+	s.expectGetRelationApplicationSettings(relUUID, appID, settings)
 
 	// act
 	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{
@@ -1415,12 +1415,12 @@ func (s *uniterRelationSuite) expectGetApplicationIDByName(appName string, id co
 	s.applicationService.EXPECT().GetApplicationIDByName(gomock.Any(), appName).Return(id, nil)
 }
 
-func (s *uniterRelationSuite) expectGetLocalRelationApplicationSettings(unitName coreunit.Name, uuid corerelation.UUID, id coreapplication.ID, settings map[string]string) {
-	s.relationService.EXPECT().GetLocalRelationApplicationSettings(gomock.Any(), unitName, uuid, id).Return(settings, nil)
+func (s *uniterRelationSuite) expectGetRelationApplicationSettingsWithLeader(unitName coreunit.Name, uuid corerelation.UUID, id coreapplication.ID, settings map[string]string) {
+	s.relationService.EXPECT().GetRelationApplicationSettingsWithLeader(gomock.Any(), unitName, uuid, id).Return(settings, nil)
 }
 
-func (s *uniterRelationSuite) expectGetRemoteRelationApplicationSettings(uuid corerelation.UUID, id coreapplication.ID, settings map[string]string) {
-	s.relationService.EXPECT().GetRemoteRelationApplicationSettings(gomock.Any(), uuid, id).Return(settings, nil)
+func (s *uniterRelationSuite) expectGetRelationApplicationSettings(uuid corerelation.UUID, id coreapplication.ID, settings map[string]string) {
+	s.relationService.EXPECT().GetRelationApplicationSettings(gomock.Any(), uuid, id).Return(settings, nil)
 }
 
 func (s *uniterRelationSuite) expectGetRelationUnit(relUUID corerelation.UUID, uuid corerelation.UnitUUID, unitTagID string) {

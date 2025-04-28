@@ -1054,6 +1054,51 @@ func (s *relationServiceSuite) TestSetRelationUnitSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *relationServiceSuite) TestGetRelationApplicationSettings(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	applicationID := coreapplicationtesting.GenApplicationUUID(c)
+	expectedSettings := map[string]string{
+		"key": "value",
+	}
+	s.state.EXPECT().GetRelationApplicationSettings(gomock.Any(), relationUUID, applicationID).Return(expectedSettings, nil)
+
+	// Act:
+	settings, err := s.service.GetRelationApplicationSettings(context.Background(), relationUUID, applicationID)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, expectedSettings)
+}
+
+func (s *relationServiceSuite) TestGetRelationApplicationSettingsApplicationIDNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+
+	// Act:
+	_, err := s.service.GetRelationApplicationSettings(context.Background(), relationUUID, "bad-uuid")
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.ApplicationIDNotValid)
+}
+
+func (s *relationServiceSuite) TestGetRelationApplicationSettingsRelationUUIDNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	applicationID := coreapplicationtesting.GenApplicationUUID(c)
+
+	// Act:
+	_, err := s.service.GetRelationApplicationSettings(context.Background(), "bad-uuid", applicationID)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.RelationUUIDNotValid)
+}
+
 func (s *relationServiceSuite) TestApplicationRelationsInfo(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

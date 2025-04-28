@@ -914,7 +914,21 @@ func (s *Service) GetRelationApplicationSettings(
 	relationUUID corerelation.UUID,
 	applicationID application.ID,
 ) (map[string]string, error) {
-	return nil, coreerrors.NotImplemented
+	if err := relationUUID.Validate(); err != nil {
+		return nil, errors.Errorf(
+			"%w:%w", relationerrors.RelationUUIDNotValid, err)
+	}
+	if err := applicationID.Validate(); err != nil {
+		return nil, errors.Errorf(
+			"%w:%w", relationerrors.ApplicationIDNotValid, err)
+	}
+
+	settings, err := s.st.GetRelationApplicationSettings(ctx, relationUUID, applicationID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return settings, nil
 }
 
 // IsRelationSuspended returns a boolean to indicate if the given
