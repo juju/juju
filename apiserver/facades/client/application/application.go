@@ -20,13 +20,11 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	apiservercharms "github.com/juju/juju/apiserver/internal/charms"
-	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/credential"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
@@ -54,7 +52,6 @@ import (
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
@@ -127,39 +124,6 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		return nil, internalerrors.Errorf("getting model info: %w", err)
 	}
 
-	cloud := modelInfo.Cloud
-	cloudRegion := modelInfo.CloudRegion
-	modelTag := names.NewModelTag(modelInfo.UUID.String())
-	controllerUUID := modelInfo.ControllerUUID
-	modelType := modelInfo.Type
-
-	cloudCredentialKey := credential.Key{
-		Cloud: modelInfo.Cloud,
-		Owner: modelInfo.CredentialOwner,
-		Name:  modelInfo.CredentialName,
-	}
-	cloudCredentialTag, err := cloudCredentialKey.Tag()
-	if err != nil {
-		return nil, internalerrors.Capture(err)
-	}
-
-	modelInfoShim := &modelInfoShim{
-		cloud:              cloud,
-		cloudRegion:        cloudRegion,
-		cloudCredentialTag: cloudCredentialTag,
-		modelTag:           modelTag,
-		controllerUUID:     controllerUUID,
-		modelType:          state.ModelType(modelType),
-	}
-
-	var caasBroker caas.Broker
-	if modelType == model.CAAS {
-		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(modelInfoShim, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
-		if err != nil {
-			return nil, errors.Annotate(err, "getting caas client")
-		}
-	}
-
 	leadershipReader, err := ctx.LeadershipReader()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -183,7 +147,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 
 	validatorCfg := validatorConfig{
 		charmhubHTTPClient: charmhubHTTPClient,
-		caasBroker:         caasBroker,
+		caasBroker:         nil,
 		modelInfo:          modelInfo,
 		modelConfigService: domainServices.Config(),
 		machineService:     domainServices.Machine(),
@@ -225,7 +189,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		repoDeploy,
 		DeployApplication,
 		registry,
-		caasBroker,
+		nil,
 		ctx.ObjectStore(),
 		ctx.Logger().Child("application"),
 		ctx.Clock(),
@@ -506,9 +470,10 @@ func (c caasDeployParams) precheck(
 			return errors.Errorf(
 				"the %q storage pool requires a provider type of %q, not %q", poolName, k8sconstants.StorageProviderType, sp.Provider)
 		}
-		if err := caasBroker.ValidateStorageClass(ctx, sp.Attributes); err != nil {
-			return errors.Trace(err)
-		}
+		// TODO: implement this when caasBroker logic is migrated to the domain service and update the callers.
+		// if err := caasBroker.ValidateStorageClass(ctx, sp.Attributes); err != nil {
+		// 	return errors.Trace(err)
+		// }
 	}
 
 	return nil
