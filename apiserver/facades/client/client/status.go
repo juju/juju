@@ -384,12 +384,12 @@ type statusContext struct {
 // machine and machines[1..n] are any containers (including nested ones).
 //
 // If machineIds is non-nil, only machines whose IDs are in the set are returned.
-func (context *statusContext) fetchMachines(st Backend) error {
-	if context.model.Type == model.CAAS {
+func (c *statusContext) fetchMachines(st Backend) error {
+	if c.model.Type == model.CAAS {
 		return nil
 	}
-	context.machines = make(map[string][]*state.Machine)
-	context.allMachines = make(map[string]*state.Machine)
+	c.machines = make(map[string][]*state.Machine)
+	c.allMachines = make(map[string]*state.Machine)
 
 	machines, err := st.AllMachines()
 	if err != nil {
@@ -397,19 +397,19 @@ func (context *statusContext) fetchMachines(st Backend) error {
 	}
 	// AllMachines gives us machines sorted by id.
 	for _, m := range machines {
-		context.allMachines[m.Id()] = m
+		c.allMachines[m.Id()] = m
 		_, ok := m.ParentId()
 		if !ok {
 			// Only top level host machines go directly into the machine map.
-			context.machines[m.Id()] = []*state.Machine{m}
+			c.machines[m.Id()] = []*state.Machine{m}
 		} else {
 			topParentId := container.TopParentId(m.Id())
-			machines := context.machines[topParentId]
-			context.machines[topParentId] = append(machines, m)
+			machines := c.machines[topParentId]
+			c.machines[topParentId] = append(machines, m)
 		}
 	}
 
-	context.machineConstraints, err = st.MachineConstraints()
+	c.machineConstraints, err = st.MachineConstraints()
 	if err != nil {
 		return err
 	}
@@ -417,9 +417,9 @@ func (context *statusContext) fetchMachines(st Backend) error {
 	return nil
 }
 
-func (context *statusContext) fetchAllOpenPortRanges(ctx context.Context, portService PortService) error {
+func (c *statusContext) fetchAllOpenPortRanges(ctx context.Context, portService PortService) error {
 	var err error
-	context.allOpenPortRanges, err = portService.GetAllOpenedPorts(ctx)
+	c.allOpenPortRanges, err = portService.GetAllOpenedPorts(ctx)
 	return err
 }
 
@@ -871,9 +871,9 @@ func (c *statusContext) makeMachineStatus(
 	return
 }
 
-func (context *statusContext) processRelations(ctx context.Context) []params.RelationStatus {
+func (c *statusContext) processRelations(ctx context.Context) []params.RelationStatus {
 	var out []params.RelationStatus
-	for _, current := range context.relationsByID {
+	for _, current := range c.relationsByID {
 		var eps []params.EndpointStatus
 		var scope charm.RelationScope
 		var relationInterface string
@@ -882,7 +882,7 @@ func (context *statusContext) processRelations(ctx context.Context) []params.Rel
 				ApplicationName: ep.ApplicationName,
 				Name:            ep.Name,
 				Role:            string(ep.Role),
-				Subordinate:     context.isSubordinate(&ep),
+				Subordinate:     c.isSubordinate(&ep),
 			})
 			// these should match on both sides so use the last
 			relationInterface = ep.Interface
@@ -901,8 +901,8 @@ func (context *statusContext) processRelations(ctx context.Context) []params.Rel
 	return out
 }
 
-func (context *statusContext) isSubordinate(ep *relation.Endpoint) bool {
-	application, ok := context.allAppsUnitsCharmBindings.applications[ep.ApplicationName]
+func (c *statusContext) isSubordinate(ep *relation.Endpoint) bool {
+	application, ok := c.allAppsUnitsCharmBindings.applications[ep.ApplicationName]
 	if !ok {
 		return false
 	}
@@ -922,15 +922,15 @@ func paramsJobsFromJobs(jobs []state.MachineJob) []model.MachineJob {
 	return paramsJobs
 }
 
-func (context *statusContext) processApplications(ctx context.Context) map[string]params.ApplicationStatus {
+func (c *statusContext) processApplications(ctx context.Context) map[string]params.ApplicationStatus {
 	applicationsMap := make(map[string]params.ApplicationStatus)
-	for name, app := range context.allAppsUnitsCharmBindings.applications {
-		applicationsMap[name] = context.processApplication(ctx, name, app)
+	for name, app := range c.allAppsUnitsCharmBindings.applications {
+		applicationsMap[name] = c.processApplication(ctx, name, app)
 	}
 	return applicationsMap
 }
 
-func (context *statusContext) processApplicationExposedEndpoints(ctx context.Context, name string, application statusservice.Application) (map[string]params.ExposedEndpoint, error) {
+func (c *statusContext) processApplicationExposedEndpoints(ctx context.Context, name string, application statusservice.Application) (map[string]params.ExposedEndpoint, error) {
 	// If the application is not exposed, then we don't need to try and get the
 	// exposed endpoints for the application. This reduces the number of default
 	// calls to the application service.
@@ -938,15 +938,15 @@ func (context *statusContext) processApplicationExposedEndpoints(ctx context.Con
 		return nil, nil
 	}
 
-	exposedEndpoints, err := context.applicationService.GetExposedEndpoints(ctx, name)
+	exposedEndpoints, err := c.applicationService.GetExposedEndpoints(ctx, name)
 	if err != nil {
 		return nil, err
 	}
-	return context.mapExposedEndpointsFromDomain(exposedEndpoints)
+	return c.mapExposedEndpointsFromDomain(exposedEndpoints)
 }
 
-func (context *statusContext) processApplication(ctx context.Context, name string, application statusservice.Application) params.ApplicationStatus {
-	exposedEndpoints, err := context.processApplicationExposedEndpoints(ctx, name, application)
+func (c *statusContext) processApplication(ctx context.Context, name string, application statusservice.Application) params.ApplicationStatus {
+	exposedEndpoints, err := c.processApplicationExposedEndpoints(ctx, name, application)
 	if err != nil {
 		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 
@@ -990,32 +990,32 @@ func (context *statusContext) processApplication(ctx context.Context, name strin
 		},
 	}
 
-	if latestCharm, ok := context.allAppsUnitsCharmBindings.latestCharms[application.CharmLocator.WithoutRevision()]; ok && !latestCharm.IsZero() {
+	if latestCharm, ok := c.allAppsUnitsCharmBindings.latestCharms[application.CharmLocator.WithoutRevision()]; ok && !latestCharm.IsZero() {
 		processedStatus.CanUpgradeTo, err = charms.CharmURLFromLocator(latestCharm.Name, latestCharm)
 		if err != nil {
 			return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 		}
 	}
 
-	processedStatus.Relations, processedStatus.SubordinateTo, err = context.processApplicationRelations(name, application)
+	processedStatus.Relations, processedStatus.SubordinateTo, err = c.processApplicationRelations(name, application)
 	if err != nil {
 		processedStatus.Err = apiservererrors.ServerError(err)
 		return processedStatus
 	}
 	units := application.Units
 	if !application.Subordinate {
-		processedStatus.Units = context.processUnits(ctx, units, charmURL)
+		processedStatus.Units = c.processUnits(ctx, units, charmURL)
 	}
 
 	if application.WorkloadVersion != nil {
 		processedStatus.WorkloadVersion = *application.WorkloadVersion
 	}
 
-	processedStatus.EndpointBindings = context.allAppsUnitsCharmBindings.endpointBindings[name]
+	processedStatus.EndpointBindings = c.allAppsUnitsCharmBindings.endpointBindings[name]
 
 	// IAAS applications have all the information they need in the application
 	// status. CAAS applications have some additional information.
-	if context.model.Type == model.IAAS {
+	if c.model.Type == model.IAAS {
 		return processedStatus
 	}
 
@@ -1032,7 +1032,7 @@ func (context *statusContext) processApplication(ctx context.Context, name strin
 	return processedStatus
 }
 
-func (context *statusContext) mapExposedEndpointsFromDomain(
+func (c *statusContext) mapExposedEndpointsFromDomain(
 	exposedEndpoints map[string]application.ExposedEndpoint,
 ) (map[string]params.ExposedEndpoint, error) {
 	if len(exposedEndpoints) == 0 {
@@ -1048,7 +1048,7 @@ func (context *statusContext) mapExposedEndpointsFromDomain(
 		if len(exposeDetails.ExposeToSpaceIDs) != 0 {
 			spaceNames := make([]string, len(exposeDetails.ExposeToSpaceIDs))
 			for i, spaceID := range exposeDetails.ExposeToSpaceIDs.Values() {
-				sp := context.spaceInfos.GetByID(spaceID)
+				sp := c.spaceInfos.GetByID(spaceID)
 				if sp == nil {
 					return nil, internalerrors.Errorf("space with ID %q: %w", spaceID, errors.NotFound)
 				}
@@ -1064,9 +1064,9 @@ func (context *statusContext) mapExposedEndpointsFromDomain(
 	return res, nil
 }
 
-func (context *statusContext) processRemoteApplications() map[string]params.RemoteApplicationStatus {
+func (c *statusContext) processRemoteApplications() map[string]params.RemoteApplicationStatus {
 	applicationsMap := make(map[string]params.RemoteApplicationStatus)
-	for _, app := range context.consumerRemoteApplications {
+	for _, app := range c.consumerRemoteApplications {
 		applicationsMap[app.Name()] = params.RemoteApplicationStatus{
 			Err: apiservererrors.ServerError(internalerrors.Errorf("cross model relations are disabled until "+
 				"backend functionality is moved to domain: %w", errors.NotImplemented)),
@@ -1083,9 +1083,9 @@ type offerStatus struct {
 	totalConnectedCount  int
 }
 
-func (context *statusContext) processOffers() map[string]params.ApplicationOfferStatus {
+func (c *statusContext) processOffers() map[string]params.ApplicationOfferStatus {
 	offers := make(map[string]params.ApplicationOfferStatus)
-	for name, offer := range context.offers {
+	for name, offer := range c.offers {
 		offerStatus := params.ApplicationOfferStatus{
 			Err:                  apiservererrors.ServerError(offer.err),
 			ApplicationName:      offer.ApplicationName,
@@ -1107,15 +1107,15 @@ func (context *statusContext) processOffers() map[string]params.ApplicationOffer
 	return offers
 }
 
-func (context *statusContext) processUnits(ctx context.Context, units map[coreunit.Name]statusservice.Unit, applicationCharm string) map[string]params.UnitStatus {
+func (c *statusContext) processUnits(ctx context.Context, units map[coreunit.Name]statusservice.Unit, applicationCharm string) map[string]params.UnitStatus {
 	unitsMap := make(map[string]params.UnitStatus)
 	for name, unit := range units {
-		unitsMap[name.String()] = context.processUnit(ctx, name, unit, applicationCharm)
+		unitsMap[name.String()] = c.processUnit(ctx, name, unit, applicationCharm)
 	}
 	return unitsMap
 }
 
-func (context *statusContext) unitMachineID(unit statusservice.Unit) coremachine.Name {
+func (c *statusContext) unitMachineID(unit statusservice.Unit) coremachine.Name {
 	if !unit.Subordinate {
 		// machineID will be empty if not currently assigned.
 		var machineName coremachine.Name
@@ -1125,20 +1125,21 @@ func (context *statusContext) unitMachineID(unit statusservice.Unit) coremachine
 		return machineName
 	}
 
-	// We're a subordinate, so we need to look at the principal unit.
+	// We're a subordinate, so we need to look at the principal unit. If it's
+	// not set, we can't do anything, so return early.
 	if unit.PrincipalName == nil {
 		return ""
 	}
 
 	// Locate the principal unit.
-	if unit, ok := context.unitByName(*unit.PrincipalName); ok {
-		return context.unitMachineID(unit)
+	if unit, ok := c.unitByName(*unit.PrincipalName); ok {
+		return c.unitMachineID(unit)
 	}
 	return ""
 }
 
-func (context *statusContext) unitPublicAddress(unit statusservice.Unit) string {
-	machine := context.allMachines[context.unitMachineID(unit).String()]
+func (c *statusContext) unitPublicAddress(unit statusservice.Unit) string {
+	machine := c.allMachines[c.unitMachineID(unit).String()]
 	if machine == nil {
 		return ""
 	}
@@ -1147,13 +1148,13 @@ func (context *statusContext) unitPublicAddress(unit statusservice.Unit) string 
 	return addr.Value
 }
 
-func (context *statusContext) processUnit(ctx context.Context, unitName coreunit.Name, unit statusservice.Unit, applicationCharm string) params.UnitStatus {
+func (c *statusContext) processUnit(ctx context.Context, unitName coreunit.Name, unit statusservice.Unit, applicationCharm string) params.UnitStatus {
 	var result params.UnitStatus
-	if prs, ok := context.allOpenPortRanges[unitName]; ok {
+	if prs, ok := c.allOpenPortRanges[unitName]; ok {
 		result.OpenedPorts = transform.Slice(prs, network.PortRange.String)
 	}
-	if context.model.Type == model.IAAS {
-		result.PublicAddress = context.unitPublicAddress(unit)
+	if c.model.Type == model.IAAS {
+		result.PublicAddress = c.unitPublicAddress(unit)
 	} else if unit.K8sProviderID != nil {
 		// For CAAS units we want to provide the container address.
 		// TODO (stickupkid): Get the K8s pod address once link layer devices
@@ -1170,9 +1171,9 @@ func (context *statusContext) processUnit(ctx context.Context, unitName coreunit
 	if unit.WorkloadVersion != nil {
 		result.WorkloadVersion = *unit.WorkloadVersion
 	}
-	result.AgentStatus, result.WorkloadStatus = context.processUnitAndAgentStatus(unit, unitName)
+	result.AgentStatus, result.WorkloadStatus = c.processUnitAndAgentStatus(unit, unitName)
 
-	if leader := context.leaders[unit.ApplicationName]; leader == unitName.String() {
+	if leader := c.leaders[unit.ApplicationName]; leader == unitName.String() {
 		result.Leader = true
 	}
 
@@ -1184,26 +1185,26 @@ func (context *statusContext) processUnit(ctx context.Context, unitName coreunit
 	// Handle any subordinate units.
 	result.Subordinates = make(map[string]params.UnitStatus)
 	for _, name := range subUnits {
-		subUnit, ok := context.unitByName(name)
+		subUnit, ok := c.unitByName(name)
 		if !ok {
 			continue
 		}
 
-		subCharmURL, ok := context.allAppsUnitsCharmBindings.applicationCharmURL[subUnit.ApplicationName]
+		subCharmURL, ok := c.allAppsUnitsCharmBindings.applicationCharmURL[subUnit.ApplicationName]
 		if !ok {
 			logger.Debugf(ctx, "missing subordinate application %q", subUnit.ApplicationName)
 			continue
 		}
 
-		result.Subordinates[name.String()] = context.processUnit(ctx, name, subUnit, subCharmURL)
+		result.Subordinates[name.String()] = c.processUnit(ctx, name, subUnit, subCharmURL)
 	}
 
 	return result
 }
 
-func (context *statusContext) unitByName(name coreunit.Name) (statusservice.Unit, bool) {
+func (c *statusContext) unitByName(name coreunit.Name) (statusservice.Unit, bool) {
 	applicationName := name.Application()
-	application, ok := context.allAppsUnitsCharmBindings.applications[applicationName]
+	application, ok := c.allAppsUnitsCharmBindings.applications[applicationName]
 	if !ok {
 		return statusservice.Unit{}, false
 	}
@@ -1211,13 +1212,13 @@ func (context *statusContext) unitByName(name coreunit.Name) (statusservice.Unit
 	return unit, ok
 }
 
-func (context *statusContext) processApplicationRelations(
+func (c *statusContext) processApplicationRelations(
 	name string,
 	application statusservice.Application,
 ) (related map[string][]string, subord []string, err error) {
 	subordSet := make(set.Strings)
 	related = make(map[string][]string)
-	relations := context.relations[name]
+	relations := c.relations[name]
 	for _, relation := range relations {
 		ep, err := relation.Endpoint(name)
 		if err != nil {
