@@ -28,20 +28,6 @@ func (m *machineShim) AllAddresses() ([]Address, error) {
 	return shimAddr, nil
 }
 
-// Units implements Machine by wrapping each state.Unit
-// reference in the Unit indirection.
-func (m *machineShim) Units() ([]Unit, error) {
-	units, err := m.Machine.Units()
-	if err != nil {
-		return nil, err
-	}
-	indirected := make([]Unit, len(units))
-	for i, unit := range units {
-		indirected[i] = unit
-	}
-	return indirected, nil
-}
-
 // stateShim forwards and adapts state.State
 // methods to Backing methods.
 type stateShim struct {
@@ -58,7 +44,7 @@ func NewStateShim(st *state.State) (*stateShim, error) {
 // AllEndpointBindings returns all endpoint bindings,
 // with the map values indirected.
 func (s *stateShim) AllEndpointBindings() (map[string]Bindings, error) {
-	allBindings, err := s.AllEndpointBindings()
+	allBindings, err := s.State.AllEndpointBindings()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

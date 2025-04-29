@@ -16,7 +16,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,Constraints,Address,Unit,Bindings,NetworkService,ControllerConfigService
+//go:generate go run go.uber.org/mock/mockgen -typed -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,Constraints,Address,Bindings,NetworkService,ControllerConfigService,ApplicationService
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -37,6 +37,7 @@ type APISuite struct {
 
 	ControllerConfigService *MockControllerConfigService
 	NetworkService          *MockNetworkService
+	ApplicationService      *MockApplicationService
 }
 
 var _ = gc.Suite(&APISuite{})
@@ -62,6 +63,7 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 
 	s.ControllerConfigService = NewMockControllerConfigService(ctrl)
 	s.NetworkService = NewMockNetworkService(ctrl)
+	s.ApplicationService = NewMockApplicationService(ctrl)
 
 	s.NetworkService.EXPECT().SupportsSpaces(gomock.Any()).Return(supportSpaces, nil).AnyTimes()
 	s.NetworkService.EXPECT().SupportsSpaceDiscovery(gomock.Any()).Return(providerSpaces, nil).AnyTimes()
@@ -75,6 +77,7 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 		Authorizer:              s.authorizer,
 		ControllerConfigService: s.ControllerConfigService,
 		NetworkService:          s.NetworkService,
+		ApplicationService:      s.ApplicationService,
 		logger:                  loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)

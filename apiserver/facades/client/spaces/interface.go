@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/state"
 )
 
 // BlockChecker defines the block-checking functionality required by
@@ -28,16 +27,10 @@ type Address interface {
 	Value() string
 }
 
-// Unit is an indirection for state.Unit.
-type Unit interface {
-	Name() string
-	ApplicationName() string
-}
-
 // Machine defines the methods supported by a machine used in the space context.
 type Machine interface {
+	Id() string
 	AllAddresses() ([]Address, error)
-	Units() ([]Unit, error)
 	AllSpaces(allSubnets network.SubnetInfos) (set.Strings, error)
 }
 
@@ -61,9 +54,6 @@ type Backing interface {
 
 	// AllMachines loads all machines.
 	AllMachines() ([]Machine, error)
-
-	// ApplyOperation applies a given ModelOperation to the model.
-	ApplyOperation(state.ModelOperation) error
 
 	// AllConstraints returns all constraints in the model.
 	AllConstraints() ([]Constraints, error)

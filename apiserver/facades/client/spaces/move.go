@@ -126,7 +126,7 @@ func (api *API) getAffectedNetworks(subnets network.SubnetInfos, spaceName strin
 		movingSubnetIDs.Add(subnet.ID)
 	}
 
-	affected, err := newAffectedNetworks(movingSubnetIDs, spaceName, allSpaces, force, api.logger)
+	affected, err := newAffectedNetworks(api.applicationService, movingSubnetIDs, spaceName, allSpaces, force, api.logger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

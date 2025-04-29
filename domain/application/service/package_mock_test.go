@@ -21,6 +21,7 @@ import (
 	charm "github.com/juju/juju/core/charm"
 	constraints "github.com/juju/juju/core/constraints"
 	devices "github.com/juju/juju/core/devices"
+	machine "github.com/juju/juju/core/machine"
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
 	semversion "github.com/juju/juju/core/semversion"
@@ -188,18 +189,18 @@ func (c *MockStateAddStorageForUnitCall) DoAndReturn(f func(context.Context, sto
 }
 
 // AddSubordinateUnit mocks base method.
-func (m *MockState) AddSubordinateUnit(ctx context.Context, arg application0.SubordinateUnitArg) (unit.Name, error) {
+func (m *MockState) AddSubordinateUnit(arg0 context.Context, arg1 application0.SubordinateUnitArg) (unit.Name, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddSubordinateUnit", ctx, arg)
+	ret := m.ctrl.Call(m, "AddSubordinateUnit", arg0, arg1)
 	ret0, _ := ret[0].(unit.Name)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddSubordinateUnit indicates an expected call of AddSubordinateUnit.
-func (mr *MockStateMockRecorder) AddSubordinateUnit(ctx, arg any) *MockStateAddSubordinateUnitCall {
+func (mr *MockStateMockRecorder) AddSubordinateUnit(arg0, arg1 any) *MockStateAddSubordinateUnitCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSubordinateUnit", reflect.TypeOf((*MockState)(nil).AddSubordinateUnit), ctx, arg)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSubordinateUnit", reflect.TypeOf((*MockState)(nil).AddSubordinateUnit), arg0, arg1)
 	return &MockStateAddSubordinateUnitCall{Call: call}
 }
 
@@ -611,18 +612,18 @@ func (c *MockStateGetAddressesHashCall) DoAndReturn(f func(context.Context, appl
 }
 
 // GetAllUnitNames mocks base method.
-func (m *MockState) GetAllUnitNames(ctx context.Context) ([]unit.Name, error) {
+func (m *MockState) GetAllUnitNames(arg0 context.Context) ([]unit.Name, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllUnitNames", ctx)
+	ret := m.ctrl.Call(m, "GetAllUnitNames", arg0)
 	ret0, _ := ret[0].([]unit.Name)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetAllUnitNames indicates an expected call of GetAllUnitNames.
-func (mr *MockStateMockRecorder) GetAllUnitNames(ctx any) *MockStateGetAllUnitNamesCall {
+func (mr *MockStateMockRecorder) GetAllUnitNames(arg0 any) *MockStateGetAllUnitNamesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUnitNames", reflect.TypeOf((*MockState)(nil).GetAllUnitNames), ctx)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUnitNames", reflect.TypeOf((*MockState)(nil).GetAllUnitNames), arg0)
 	return &MockStateGetAllUnitNamesCall{Call: call}
 }
 
@@ -2182,19 +2183,58 @@ func (c *MockStateGetLatestPendingCharmhubCharmCall) DoAndReturn(f func(context.
 	return c
 }
 
-// GetModelConstraints mocks base method.
-func (m *MockState) GetModelConstraints(ctx context.Context) (constraints0.Constraints, error) {
+// GetMachineNetNodeUUIDFromName mocks base method.
+func (m *MockState) GetMachineNetNodeUUIDFromName(arg0 context.Context, arg1 machine.Name) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetModelConstraints", ctx)
+	ret := m.ctrl.Call(m, "GetMachineNetNodeUUIDFromName", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMachineNetNodeUUIDFromName indicates an expected call of GetMachineNetNodeUUIDFromName.
+func (mr *MockStateMockRecorder) GetMachineNetNodeUUIDFromName(arg0, arg1 any) *MockStateGetMachineNetNodeUUIDFromNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineNetNodeUUIDFromName", reflect.TypeOf((*MockState)(nil).GetMachineNetNodeUUIDFromName), arg0, arg1)
+	return &MockStateGetMachineNetNodeUUIDFromNameCall{Call: call}
+}
+
+// MockStateGetMachineNetNodeUUIDFromNameCall wrap *gomock.Call
+type MockStateGetMachineNetNodeUUIDFromNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachineNetNodeUUIDFromNameCall) Return(arg0 string, arg1 error) *MockStateGetMachineNetNodeUUIDFromNameCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachineNetNodeUUIDFromNameCall) Do(f func(context.Context, machine.Name) (string, error)) *MockStateGetMachineNetNodeUUIDFromNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachineNetNodeUUIDFromNameCall) DoAndReturn(f func(context.Context, machine.Name) (string, error)) *MockStateGetMachineNetNodeUUIDFromNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetModelConstraints mocks base method.
+func (m *MockState) GetModelConstraints(arg0 context.Context) (constraints0.Constraints, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelConstraints", arg0)
 	ret0, _ := ret[0].(constraints0.Constraints)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetModelConstraints indicates an expected call of GetModelConstraints.
-func (mr *MockStateMockRecorder) GetModelConstraints(ctx any) *MockStateGetModelConstraintsCall {
+func (mr *MockStateMockRecorder) GetModelConstraints(arg0 any) *MockStateGetModelConstraintsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelConstraints", reflect.TypeOf((*MockState)(nil).GetModelConstraints), ctx)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelConstraints", reflect.TypeOf((*MockState)(nil).GetModelConstraints), arg0)
 	return &MockStateGetModelConstraintsCall{Call: call}
 }
 
@@ -2456,18 +2496,18 @@ func (c *MockStateGetUnitLifeCall) DoAndReturn(f func(context.Context, unit.Name
 }
 
 // GetUnitNamesForApplication mocks base method.
-func (m *MockState) GetUnitNamesForApplication(ctx context.Context, uuid application.ID) ([]unit.Name, error) {
+func (m *MockState) GetUnitNamesForApplication(arg0 context.Context, arg1 application.ID) ([]unit.Name, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitNamesForApplication", ctx, uuid)
+	ret := m.ctrl.Call(m, "GetUnitNamesForApplication", arg0, arg1)
 	ret0, _ := ret[0].([]unit.Name)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetUnitNamesForApplication indicates an expected call of GetUnitNamesForApplication.
-func (mr *MockStateMockRecorder) GetUnitNamesForApplication(ctx, uuid any) *MockStateGetUnitNamesForApplicationCall {
+func (mr *MockStateMockRecorder) GetUnitNamesForApplication(arg0, arg1 any) *MockStateGetUnitNamesForApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitNamesForApplication", reflect.TypeOf((*MockState)(nil).GetUnitNamesForApplication), ctx, uuid)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitNamesForApplication", reflect.TypeOf((*MockState)(nil).GetUnitNamesForApplication), arg0, arg1)
 	return &MockStateGetUnitNamesForApplicationCall{Call: call}
 }
 
@@ -2494,19 +2534,58 @@ func (c *MockStateGetUnitNamesForApplicationCall) DoAndReturn(f func(context.Con
 	return c
 }
 
-// GetUnitRefreshAttributes mocks base method.
-func (m *MockState) GetUnitRefreshAttributes(ctx context.Context, unitName unit.Name) (application0.UnitAttributes, error) {
+// GetUnitNamesForNetNode mocks base method.
+func (m *MockState) GetUnitNamesForNetNode(arg0 context.Context, arg1 string) ([]unit.Name, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitRefreshAttributes", ctx, unitName)
+	ret := m.ctrl.Call(m, "GetUnitNamesForNetNode", arg0, arg1)
+	ret0, _ := ret[0].([]unit.Name)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitNamesForNetNode indicates an expected call of GetUnitNamesForNetNode.
+func (mr *MockStateMockRecorder) GetUnitNamesForNetNode(arg0, arg1 any) *MockStateGetUnitNamesForNetNodeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitNamesForNetNode", reflect.TypeOf((*MockState)(nil).GetUnitNamesForNetNode), arg0, arg1)
+	return &MockStateGetUnitNamesForNetNodeCall{Call: call}
+}
+
+// MockStateGetUnitNamesForNetNodeCall wrap *gomock.Call
+type MockStateGetUnitNamesForNetNodeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitNamesForNetNodeCall) Return(arg0 []unit.Name, arg1 error) *MockStateGetUnitNamesForNetNodeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitNamesForNetNodeCall) Do(f func(context.Context, string) ([]unit.Name, error)) *MockStateGetUnitNamesForNetNodeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitNamesForNetNodeCall) DoAndReturn(f func(context.Context, string) ([]unit.Name, error)) *MockStateGetUnitNamesForNetNodeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetUnitRefreshAttributes mocks base method.
+func (m *MockState) GetUnitRefreshAttributes(arg0 context.Context, arg1 unit.Name) (application0.UnitAttributes, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitRefreshAttributes", arg0, arg1)
 	ret0, _ := ret[0].(application0.UnitAttributes)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetUnitRefreshAttributes indicates an expected call of GetUnitRefreshAttributes.
-func (mr *MockStateMockRecorder) GetUnitRefreshAttributes(ctx, unitName any) *MockStateGetUnitRefreshAttributesCall {
+func (mr *MockStateMockRecorder) GetUnitRefreshAttributes(arg0, arg1 any) *MockStateGetUnitRefreshAttributesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitRefreshAttributes", reflect.TypeOf((*MockState)(nil).GetUnitRefreshAttributes), ctx, unitName)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitRefreshAttributes", reflect.TypeOf((*MockState)(nil).GetUnitRefreshAttributes), arg0, arg1)
 	return &MockStateGetUnitRefreshAttributesCall{Call: call}
 }
 
@@ -2933,18 +3012,18 @@ func (c *MockStateIsControllerCharmCall) DoAndReturn(f func(context.Context, cha
 }
 
 // IsSubordinateApplication mocks base method.
-func (m *MockState) IsSubordinateApplication(ctx context.Context, applicationUUID application.ID) (bool, error) {
+func (m *MockState) IsSubordinateApplication(arg0 context.Context, arg1 application.ID) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsSubordinateApplication", ctx, applicationUUID)
+	ret := m.ctrl.Call(m, "IsSubordinateApplication", arg0, arg1)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // IsSubordinateApplication indicates an expected call of IsSubordinateApplication.
-func (mr *MockStateMockRecorder) IsSubordinateApplication(ctx, applicationUUID any) *MockStateIsSubordinateApplicationCall {
+func (mr *MockStateMockRecorder) IsSubordinateApplication(arg0, arg1 any) *MockStateIsSubordinateApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsSubordinateApplication", reflect.TypeOf((*MockState)(nil).IsSubordinateApplication), ctx, applicationUUID)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsSubordinateApplication", reflect.TypeOf((*MockState)(nil).IsSubordinateApplication), arg0, arg1)
 	return &MockStateIsSubordinateApplicationCall{Call: call}
 }
 
@@ -3703,17 +3782,17 @@ func (c *MockStateSetDesiredApplicationScaleCall) DoAndReturn(f func(context.Con
 }
 
 // SetUnitConstraints mocks base method.
-func (m *MockState) SetUnitConstraints(ctx context.Context, inUnitUUID unit.UUID, cons constraints0.Constraints) error {
+func (m *MockState) SetUnitConstraints(arg0 context.Context, arg1 unit.UUID, arg2 constraints0.Constraints) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetUnitConstraints", ctx, inUnitUUID, cons)
+	ret := m.ctrl.Call(m, "SetUnitConstraints", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetUnitConstraints indicates an expected call of SetUnitConstraints.
-func (mr *MockStateMockRecorder) SetUnitConstraints(ctx, inUnitUUID, cons any) *MockStateSetUnitConstraintsCall {
+func (mr *MockStateMockRecorder) SetUnitConstraints(arg0, arg1, arg2 any) *MockStateSetUnitConstraintsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitConstraints", reflect.TypeOf((*MockState)(nil).SetUnitConstraints), ctx, inUnitUUID, cons)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitConstraints", reflect.TypeOf((*MockState)(nil).SetUnitConstraints), arg0, arg1, arg2)
 	return &MockStateSetUnitConstraintsCall{Call: call}
 }
 

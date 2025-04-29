@@ -45,12 +45,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnset(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(netNode, gc.Not(gc.Equals), "")
 
-	var resultNetNode string
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		resultNetNode, err = s.state.getMachineNetNodeUUIDFromName(ctx, tx, machine.Name("0"))
-		return err
-	})
+	resultNetNode, err := s.state.GetMachineNetNodeUUIDFromName(context.Background(), machine.Name("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(resultNetNode, gc.Equals, netNode)
 
@@ -80,17 +75,11 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var resultNetNodes []string
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		for i := range total {
-			netNode, err := s.state.getMachineNetNodeUUIDFromName(ctx, tx, machine.Name(strconv.Itoa(i)))
-			if err != nil {
-				return err
-			}
-			resultNetNodes = append(resultNetNodes, netNode)
-		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	for i := range total {
+		netNode, err := s.state.GetMachineNetNodeUUIDFromName(context.Background(), machine.Name(strconv.Itoa(i)))
+		c.Assert(err, jc.ErrorIsNil)
+		resultNetNodes = append(resultNetNodes, netNode)
+	}
 	c.Check(resultNetNodes, gc.DeepEquals, netNodes)
 
 	s.ensureSequenceForMachineNamespace(c, total-1)
@@ -145,25 +134,16 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesUnsetMultipleTimesWithGaps(c *g
 	s.ensureSequenceForMachineNamespace(c, (stepTotal*2)-1)
 
 	var resultNetNodes []string
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		for i := range stepTotal * 2 {
-			netNode, err := s.state.getMachineNetNodeUUIDFromName(ctx, tx, machine.Name(strconv.Itoa(i)))
-			if errors.Is(err, applicationerrors.MachineNotFound) {
-				if i == stepTotal-1 {
-					// This machine was deleted, this is fine.
-					c.Logf("machine %d not found, this is expected", i)
-					continue
-				}
-				return err
-			} else if err != nil {
-				return err
-			}
-
-			resultNetNodes = append(resultNetNodes, netNode)
+	for i := range stepTotal * 2 {
+		netNode, err := s.state.GetMachineNetNodeUUIDFromName(context.Background(), machine.Name(strconv.Itoa(i)))
+		if errors.Is(err, applicationerrors.MachineNotFound) && i == stepTotal-1 {
+			// This machine was deleted, this is fine.
+			c.Logf("machine %d not found, this is expected", i)
+			continue
 		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, jc.ErrorIsNil)
+		resultNetNodes = append(resultNetNodes, netNode)
+	}
 	c.Check(resultNetNodes, gc.DeepEquals, netNodes)
 }
 
@@ -221,12 +201,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(netNode, gc.Not(gc.Equals), "")
 
-	var resultNetNode string
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		resultNetNode, err = s.state.getMachineNetNodeUUIDFromName(ctx, tx, machine.Name("0/lxd/0"))
-		return err
-	})
+	resultNetNode, err := s.state.GetMachineNetNodeUUIDFromName(context.Background(), machine.Name("0/lxd/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(resultNetNode, gc.Equals, netNode)
 
@@ -259,12 +234,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerWithDirective(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(netNode, gc.Not(gc.Equals), "")
 
-	var resultNetNode string
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		resultNetNode, err = s.state.getMachineNetNodeUUIDFromName(ctx, tx, machine.Name("0/lxd/0"))
-		return err
-	})
+	resultNetNode, err := s.state.GetMachineNetNodeUUIDFromName(context.Background(), machine.Name("0/lxd/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(resultNetNode, gc.Equals, netNode)
 
@@ -308,18 +278,12 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesContainerMultipleTimes(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var resultNetNodes []string
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		for i := range total {
-			name := fmt.Sprintf("%d/lxd/0", i)
-			netNode, err := s.state.getMachineNetNodeUUIDFromName(ctx, tx, machine.Name(name))
-			if err != nil {
-				return err
-			}
-			resultNetNodes = append(resultNetNodes, netNode)
-		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	for i := range total {
+		name := fmt.Sprintf("%d/lxd/0", i)
+		netNode, err := s.state.GetMachineNetNodeUUIDFromName(context.Background(), machine.Name(name))
+		c.Assert(err, jc.ErrorIsNil)
+		resultNetNodes = append(resultNetNodes, netNode)
+	}
 	c.Check(resultNetNodes, gc.DeepEquals, netNodes)
 
 	s.ensureSequenceForMachineNamespace(c, total-1)
@@ -403,26 +367,17 @@ WHERE m.net_node_uuid = ?
 	s.ensureSequenceForMachineNamespace(c, (stepTotal*2)-1)
 
 	var resultNetNodes []string
-	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		for i := range stepTotal * 2 {
-			name := fmt.Sprintf("%d/lxd/0", i)
-			netNode, err := s.state.getMachineNetNodeUUIDFromName(ctx, tx, machine.Name(name))
-			if errors.Is(err, applicationerrors.MachineNotFound) {
-				if i == stepTotal-1 {
-					// This machine was deleted, this is fine.
-					c.Logf("machine %d not found, this is expected", i)
-					continue
-				}
-				return err
-			} else if err != nil {
-				return err
-			}
-
-			resultNetNodes = append(resultNetNodes, netNode)
+	for i := range stepTotal * 2 {
+		name := fmt.Sprintf("%d/lxd/0", i)
+		netNode, err := s.state.GetMachineNetNodeUUIDFromName(context.Background(), machine.Name(name))
+		if errors.Is(err, applicationerrors.MachineNotFound) && i == stepTotal-1 {
+			// This machine was deleted, this is fine.
+			c.Logf("machine %d not found, this is expected", i)
+			continue
 		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, jc.ErrorIsNil)
+		resultNetNodes = append(resultNetNodes, netNode)
+	}
 	c.Check(resultNetNodes, gc.DeepEquals, netNodes)
 }
 
@@ -442,12 +397,7 @@ func (s *unitStateSuite) TestPlaceNetNodeMachinesProvider(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(netNode, gc.Not(gc.Equals), "")
 
-	var resultNetNode string
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		resultNetNode, err = s.state.getMachineNetNodeUUIDFromName(ctx, tx, machine.Name("0"))
-		return err
-	})
+	resultNetNode, err := s.state.GetMachineNetNodeUUIDFromName(context.Background(), machine.Name("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(resultNetNode, gc.Equals, netNode)
 
