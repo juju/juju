@@ -1688,7 +1688,7 @@ func (u *UniterAPI) readLocalApplicationSettings(
 		return nil, errors.Trace(err)
 	}
 
-	settings, err := u.relationService.GetLocalRelationApplicationSettings(ctx, unitName, relUUID, appID)
+	settings, err := u.relationService.GetRelationApplicationSettingsWithLeader(ctx, unitName, relUUID, appID)
 	if errors.Is(err, corelease.ErrNotHeld) || errors.Is(err, relationerrors.RelationNotFound) || errors.Is(err, relationerrors.ApplicationNotFoundForRelation) {
 		return nil, apiservererrors.ErrPerm
 	} else if err != nil {
@@ -1742,13 +1742,13 @@ func (u *UniterAPI) readOneRemoteSettings(ctx context.Context, canAccess common.
 
 	var settings map[string]string
 
-	switch tag := remoteTag.(type) {
+	switch remoteTag := remoteTag.(type) {
 	case names.UnitTag:
-		unitName, err := coreunit.NewName(tag.Id())
+		remoteUnitName, err := coreunit.NewName(remoteTag.Id())
 		if err != nil {
 			return nil, internalerrors.Capture(err)
 		}
-		relUnitUUID, err := u.relationService.GetRelationUnit(ctx, relUUID, unitName)
+		relUnitUUID, err := u.relationService.GetRelationUnit(ctx, relUUID, remoteUnitName)
 		if err != nil {
 			return nil, internalerrors.Capture(err)
 		}
@@ -1757,11 +1757,11 @@ func (u *UniterAPI) readOneRemoteSettings(ctx context.Context, canAccess common.
 			return nil, internalerrors.Capture(err)
 		}
 	case names.ApplicationTag:
-		appID, err := u.applicationService.GetApplicationIDByName(ctx, tag.Id())
+		remoteAppID, err := u.applicationService.GetApplicationIDByName(ctx, remoteTag.Id())
 		if err != nil {
 			return nil, internalerrors.Capture(err)
 		}
-		settings, err = u.relationService.GetRemoteRelationApplicationSettings(ctx, relUUID, appID)
+		settings, err = u.relationService.GetRelationApplicationSettings(ctx, relUUID, remoteAppID)
 		if err != nil {
 			return nil, internalerrors.Capture(err)
 		}
