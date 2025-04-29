@@ -144,6 +144,12 @@ type ApplicationService interface {
 	// to the application on the same machine as the given principal unit and
 	// records the principal-subordinate relationship.
 	AddSubordinateUnit(ctx context.Context, subordinateAppID coreapplication.ID, principalUnitName coreunit.Name) error
+
+	// SetUnitWorkloadVersion sets the workload version for the given unit.
+	SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name, version string) error
+
+	// GetUnitWorkloadVersion returns the workload version for the given unit.
+	GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name) (string, error)
 }
 
 type ResolveService interface {

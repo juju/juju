@@ -596,6 +596,83 @@ func (c *MockApplicationServiceGetUnitUUIDCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// GetUnitWorkloadVersion mocks base method.
+func (m *MockApplicationService) GetUnitWorkloadVersion(arg0 context.Context, arg1 unit.Name) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitWorkloadVersion", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitWorkloadVersion indicates an expected call of GetUnitWorkloadVersion.
+func (mr *MockApplicationServiceMockRecorder) GetUnitWorkloadVersion(arg0, arg1 any) *MockApplicationServiceGetUnitWorkloadVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitWorkloadVersion", reflect.TypeOf((*MockApplicationService)(nil).GetUnitWorkloadVersion), arg0, arg1)
+	return &MockApplicationServiceGetUnitWorkloadVersionCall{Call: call}
+}
+
+// MockApplicationServiceGetUnitWorkloadVersionCall wrap *gomock.Call
+type MockApplicationServiceGetUnitWorkloadVersionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetUnitWorkloadVersionCall) Return(arg0 string, arg1 error) *MockApplicationServiceGetUnitWorkloadVersionCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetUnitWorkloadVersionCall) Do(f func(context.Context, unit.Name) (string, error)) *MockApplicationServiceGetUnitWorkloadVersionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetUnitWorkloadVersionCall) DoAndReturn(f func(context.Context, unit.Name) (string, error)) *MockApplicationServiceGetUnitWorkloadVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetUnitWorkloadVersion mocks base method.
+func (m *MockApplicationService) SetUnitWorkloadVersion(arg0 context.Context, arg1 unit.Name, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetUnitWorkloadVersion", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetUnitWorkloadVersion indicates an expected call of SetUnitWorkloadVersion.
+func (mr *MockApplicationServiceMockRecorder) SetUnitWorkloadVersion(arg0, arg1, arg2 any) *MockApplicationServiceSetUnitWorkloadVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitWorkloadVersion", reflect.TypeOf((*MockApplicationService)(nil).SetUnitWorkloadVersion), arg0, arg1, arg2)
+	return &MockApplicationServiceSetUnitWorkloadVersionCall{Call: call}
+}
+
+// MockApplicationServiceSetUnitWorkloadVersionCall wrap *gomock.Call
+type MockApplicationServiceSetUnitWorkloadVersionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceSetUnitWorkloadVersionCall) Return(arg0 error) *MockApplicationServiceSetUnitWorkloadVersionCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceSetUnitWorkloadVersionCall) Do(f func(context.Context, unit.Name, string) error) *MockApplicationServiceSetUnitWorkloadVersionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceSetUnitWorkloadVersionCall) DoAndReturn(f func(context.Context, unit.Name, string) error) *MockApplicationServiceSetUnitWorkloadVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // WatchApplication mocks base method.
 func (m *MockApplicationService) WatchApplication(arg0 context.Context, arg1 string) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()

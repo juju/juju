@@ -457,3 +457,61 @@ func (s *unitServiceSuite) TestAddSubordinateUnitBadAppName(c *gc.C) {
 	// Assert:
 	c.Assert(err, jc.ErrorIs, coreerrors.NotValid)
 }
+
+func (s *unitServiceSuite) TestSetUnitWorkloadVersion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/666")
+	workloadVersion := "v1.0.0"
+
+	s.state.EXPECT().SetUnitWorkloadVersion(gomock.Any(), unitName, workloadVersion).Return(nil)
+
+	err := s.service.SetUnitWorkloadVersion(context.Background(), unitName, workloadVersion)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *unitServiceSuite) TestSetUnitWorkloadVersionError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/666")
+	workloadVersion := "v1.0.0"
+
+	s.state.EXPECT().SetUnitWorkloadVersion(gomock.Any(), unitName, workloadVersion).Return(errors.Errorf("boom"))
+
+	err := s.service.SetUnitWorkloadVersion(context.Background(), unitName, workloadVersion)
+	c.Assert(err, gc.ErrorMatches, ".*boom")
+}
+
+func (s *unitServiceSuite) TestSetUnitWorkloadVersionInvalidName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("!!!")
+	workloadVersion := "v1.0.0"
+
+	err := s.service.SetUnitWorkloadVersion(context.Background(), unitName, workloadVersion)
+	c.Assert(err, jc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *unitServiceSuite) TestGetUnitWorkloadVersion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/666")
+	workloadVersion := "v1.0.0"
+
+	s.state.EXPECT().GetUnitWorkloadVersion(gomock.Any(), unitName).Return(workloadVersion, nil)
+
+	version, err := s.service.GetUnitWorkloadVersion(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(version, gc.Equals, workloadVersion)
+}
+
+func (s *unitServiceSuite) TestGetUnitWorkloadVersionError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/666")
+
+	s.state.EXPECT().GetUnitWorkloadVersion(gomock.Any(), unitName).Return("", errors.Errorf("boom"))
+
+	_, err := s.service.GetUnitWorkloadVersion(context.Background(), unitName)
+	c.Assert(err, gc.ErrorMatches, ".*boom")
+}

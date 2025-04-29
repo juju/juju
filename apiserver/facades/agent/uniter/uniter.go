@@ -851,13 +851,12 @@ func (u *UniterAPI) WorkloadVersion(ctx context.Context, args params.Entities) (
 			resultItem.Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		unit, err := u.getLegacyUnit(ctx, tag)
-		if err != nil {
-			resultItem.Error = apiservererrors.ServerError(err)
+		unitName := coreunit.Name(tag.Id())
+		version, err := u.applicationService.GetUnitWorkloadVersion(ctx, unitName)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			resultItem.Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", unitName))
 			continue
-		}
-		version, err := unit.WorkloadVersion()
-		if err != nil {
+		} else if err != nil {
 			resultItem.Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -887,14 +886,13 @@ func (u *UniterAPI) SetWorkloadVersion(ctx context.Context, args params.EntityWo
 			resultItem.Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		unit, err := u.getLegacyUnit(ctx, tag)
-		if err != nil {
+		unitName := coreunit.Name(tag.Id())
+		if err := u.applicationService.SetUnitWorkloadVersion(ctx, unitName, entity.WorkloadVersion); errors.Is(err, applicationerrors.UnitNotFound) {
+			resultItem.Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", unitName))
+			continue
+		} else if err != nil {
 			resultItem.Error = apiservererrors.ServerError(err)
 			continue
-		}
-		err = unit.SetWorkloadVersion(entity.WorkloadVersion)
-		if err != nil {
-			resultItem.Error = apiservererrors.ServerError(err)
 		}
 	}
 	return result, nil

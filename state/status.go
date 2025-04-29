@@ -79,22 +79,6 @@ func (s *AllStatus) MachineModification(machineID string) (status.StatusInfo, er
 	return s.getStatus(machineGlobalModificationKey(machineID), "modification")
 }
 
-// FullUnitWorkloadVersion returns the full status info for the workload
-// version of a unit. This is used for selecting the workload version for
-// an application.
-func (s *AllStatus) FullUnitWorkloadVersion(unitName string) (status.StatusInfo, error) {
-	return s.getStatus(globalWorkloadVersionKey(unitName), "workload")
-}
-
-// UnitWorkloadVersion returns workload version for the unit
-func (s *AllStatus) UnitWorkloadVersion(unitName string) (string, error) {
-	info, err := s.getStatus(globalWorkloadVersionKey(unitName), "workload")
-	if err != nil {
-		return "", err
-	}
-	return info.Message, nil
-}
-
 type statusDocWithID struct {
 	ID         string                 `bson:"_id"`
 	ModelUUID  string                 `bson:"model-uuid"`

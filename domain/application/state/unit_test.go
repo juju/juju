@@ -1163,6 +1163,83 @@ func (s *unitStateSuite) TestGetUnitNamesForNetNode(c *gc.C) {
 	c.Assert(names, jc.DeepEquals, []coreunit.Name{"foo/0", "foo/1"})
 }
 
+func (s *unitStateSuite) TestGetUnitWorkloadVersion(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u)
+
+	workloadVersion, err := s.state.GetUnitWorkloadVersion(context.Background(), u.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(workloadVersion, gc.Equals, "")
+}
+
+func (s *unitStateSuite) TestGetUnitWorkloadVersionNotFound(c *gc.C) {
+	_, err := s.state.GetUnitWorkloadVersion(context.Background(), coreunit.Name("foo/666"))
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitStateSuite) TestSetUnitWorkloadVersion(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u)
+
+	err := s.state.SetUnitWorkloadVersion(context.Background(), u.UnitName, "v1.0.0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	workloadVersion, err := s.state.GetUnitWorkloadVersion(context.Background(), u.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(workloadVersion, gc.Equals, "v1.0.0")
+}
+
+func (s *unitStateSuite) TestSetUnitWorkloadVersionMultiple(c *gc.C) {
+	u1 := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	u2 := application.InsertUnitArg{
+		UnitName: "foo/667",
+	}
+	appID := s.createApplication(c, "foo", life.Alive, u1, u2)
+
+	s.assertApplicationWorkloadVersion(c, appID, "")
+
+	err := s.state.SetUnitWorkloadVersion(context.Background(), u1.UnitName, "v1.0.0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertApplicationWorkloadVersion(c, appID, "v1.0.0")
+
+	err = s.state.SetUnitWorkloadVersion(context.Background(), u2.UnitName, "v2.0.0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertApplicationWorkloadVersion(c, appID, "v2.0.0")
+
+	workloadVersion, err := s.state.GetUnitWorkloadVersion(context.Background(), u1.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(workloadVersion, gc.Equals, "v1.0.0")
+
+	workloadVersion, err = s.state.GetUnitWorkloadVersion(context.Background(), u2.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(workloadVersion, gc.Equals, "v2.0.0")
+
+	s.assertApplicationWorkloadVersion(c, appID, "v2.0.0")
+}
+
+func (s *unitStateSuite) assertApplicationWorkloadVersion(c *gc.C, appID coreapplication.ID, expected string) {
+	var version string
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT version FROM application_workload_version WHERE application_uuid=?", appID).Scan(&version)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(version, gc.Equals, expected)
+}
+
+func (s *unitStateSuite) TestSetUnitWorkloadVersionNotFound(c *gc.C) {
+	err := s.state.SetUnitWorkloadVersion(context.Background(), coreunit.Name("foo/666"), "v1.0.0")
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
 type applicationSpace struct {
 	SpaceName    string `db:"space"`
 	SpaceExclude bool   `db:"exclude"`

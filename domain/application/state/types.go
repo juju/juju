@@ -1205,3 +1205,13 @@ type getApplicationEndpoint struct {
 	SpaceUUID    string `db:"space_uuid"`
 	EndpointName string `db:"name"`
 }
+
+type unitWorkloadVersion struct {
+	UnitUUID coreunit.UUID `db:"unit_uuid"`
+	Version  string        `db:"version"`
+}
+
+type applicationWorkloadVersion struct {
+	ApplicationUUID coreapplication.ID `db:"application_uuid"`
+	Version         string             `db:"version"`
+}

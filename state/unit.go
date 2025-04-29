@@ -168,12 +168,6 @@ func (u *Unit) unitWorkloadVersionKind() string {
 	return u.Kind() + "-version"
 }
 
-// globalWorkloadVersionKey returns the global database key for the
-// workload version status key for this unit.
-func globalWorkloadVersionKey(name string) string {
-	return unitGlobalKey(name) + "#sat#workload-version"
-}
-
 // globalAgentKey returns the global database key for the unit.
 func (u *Unit) globalAgentKey() string {
 	return unitAgentGlobalKey(u.doc.Name)
@@ -182,12 +176,6 @@ func (u *Unit) globalAgentKey() string {
 // globalKey returns the global database key for the unit.
 func (u *Unit) globalKey() string {
 	return unitGlobalKey(u.doc.Name)
-}
-
-// globalWorkloadVersionKey returns the global database key for the unit's
-// workload version info.
-func (u *Unit) globalWorkloadVersionKey() string {
-	return globalWorkloadVersionKey(u.doc.Name)
 }
 
 // globalCloudContainerKey returns the global database key for the unit's
@@ -199,37 +187,6 @@ func (u *Unit) globalCloudContainerKey() string {
 // Life returns whether the unit is Alive, Dying or Dead.
 func (u *Unit) Life() Life {
 	return u.doc.Life
-}
-
-// WorkloadVersion returns the version of the running workload set by
-// the charm (eg, the version of postgresql that is running, as
-// opposed to the version of the postgresql charm).
-func (u *Unit) WorkloadVersion() (string, error) {
-	unitStatus, err := getStatus(u.st.db(), u.globalWorkloadVersionKey(), "workload")
-	if errors.Is(err, errors.NotFound) {
-		return "", nil
-	} else if err != nil {
-		return "", errors.Trace(err)
-	}
-	return unitStatus.Message, nil
-}
-
-// SetWorkloadVersion sets the version of the workload that the unit
-// is currently running.
-func (u *Unit) SetWorkloadVersion(version string) error {
-	// Store in status rather than an attribute of the unit doc - we
-	// want to avoid everything being an attr of the main docs to
-	// stop a swarm of watchers being notified for irrelevant changes.
-	now := u.st.clock().Now()
-	return setStatus(u.st.db(), setStatusParams{
-		badge:      "workload",
-		statusKind: u.unitWorkloadVersionKind(),
-		statusId:   u.Name(),
-		globalKey:  u.globalWorkloadVersionKey(),
-		status:     status.Active,
-		message:    version,
-		updated:    &now,
-	})
 }
 
 // AgentTools returns the tools that the agent is currently running.
@@ -2165,11 +2122,10 @@ func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
 }
 
 type addUnitOpsArgs struct {
-	unitDoc            *unitDoc
-	containerDoc       *cloudContainerDoc
-	agentStatusDoc     statusDoc
-	workloadStatusDoc  *statusDoc
-	workloadVersionDoc *statusDoc
+	unitDoc           *unitDoc
+	containerDoc      *cloudContainerDoc
+	agentStatusDoc    statusDoc
+	workloadStatusDoc *statusDoc
 }
 
 // addUnitOps returns the operations required to add a unit to the units
@@ -2194,7 +2150,6 @@ func addUnitOps(st *State, args addUnitOpsArgs) ([]txn.Op, error) {
 	prereqOps = append(prereqOps,
 		createStatusOp(st, agentGlobalKey, args.agentStatusDoc),
 		createStatusOp(st, unitGlobalKey(name), *args.workloadStatusDoc),
-		createStatusOp(st, globalWorkloadVersionKey(name), *args.workloadVersionDoc),
 	)
 
 	return append(prereqOps, txn.Op{

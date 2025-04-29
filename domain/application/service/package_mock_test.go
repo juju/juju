@@ -2651,6 +2651,45 @@ func (c *MockStateGetUnitUUIDByNameCall) DoAndReturn(f func(context.Context, uni
 	return c
 }
 
+// GetUnitWorkloadVersion mocks base method.
+func (m *MockState) GetUnitWorkloadVersion(ctx context.Context, unitName unit.Name) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitWorkloadVersion", ctx, unitName)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUnitWorkloadVersion indicates an expected call of GetUnitWorkloadVersion.
+func (mr *MockStateMockRecorder) GetUnitWorkloadVersion(ctx, unitName any) *MockStateGetUnitWorkloadVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitWorkloadVersion", reflect.TypeOf((*MockState)(nil).GetUnitWorkloadVersion), ctx, unitName)
+	return &MockStateGetUnitWorkloadVersionCall{Call: call}
+}
+
+// MockStateGetUnitWorkloadVersionCall wrap *gomock.Call
+type MockStateGetUnitWorkloadVersionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetUnitWorkloadVersionCall) Return(arg0 string, arg1 error) *MockStateGetUnitWorkloadVersionCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetUnitWorkloadVersionCall) Do(f func(context.Context, unit.Name) (string, error)) *MockStateGetUnitWorkloadVersionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetUnitWorkloadVersionCall) DoAndReturn(f func(context.Context, unit.Name) (string, error)) *MockStateGetUnitWorkloadVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InitialWatchStatementApplicationConfigHash mocks base method.
 func (m *MockState) InitialWatchStatementApplicationConfigHash(appName string) (string, eventsource.NamespaceQuery) {
 	m.ctrl.T.Helper()
@@ -3853,6 +3892,44 @@ func (c *MockStateSetUnitLifeCall) Do(f func(context.Context, unit.Name, life.Li
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateSetUnitLifeCall) DoAndReturn(f func(context.Context, unit.Name, life.Life) error) *MockStateSetUnitLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetUnitWorkloadVersion mocks base method.
+func (m *MockState) SetUnitWorkloadVersion(ctx context.Context, unitName unit.Name, version string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetUnitWorkloadVersion", ctx, unitName, version)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetUnitWorkloadVersion indicates an expected call of SetUnitWorkloadVersion.
+func (mr *MockStateMockRecorder) SetUnitWorkloadVersion(ctx, unitName, version any) *MockStateSetUnitWorkloadVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitWorkloadVersion", reflect.TypeOf((*MockState)(nil).SetUnitWorkloadVersion), ctx, unitName, version)
+	return &MockStateSetUnitWorkloadVersionCall{Call: call}
+}
+
+// MockStateSetUnitWorkloadVersionCall wrap *gomock.Call
+type MockStateSetUnitWorkloadVersionCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetUnitWorkloadVersionCall) Return(arg0 error) *MockStateSetUnitWorkloadVersionCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetUnitWorkloadVersionCall) Do(f func(context.Context, unit.Name, string) error) *MockStateSetUnitWorkloadVersionCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetUnitWorkloadVersionCall) DoAndReturn(f func(context.Context, unit.Name, string) error) *MockStateSetUnitWorkloadVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
