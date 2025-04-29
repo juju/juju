@@ -48,6 +48,8 @@ CREATE TABLE link_layer_device (
     is_default_gateway BOOLEAN NOT NULL DEFAULT false,
     -- IP address of the default gateway.
     gateway_address TEXT,
+    -- 0 for normal networks; 1-4094 for VLANs.
+    vlan_tag INT NOT NULL DEFAULT 0,
     CONSTRAINT fk_link_layer_device_net_node
     FOREIGN KEY (net_node_uuid)
     REFERENCES net_node (uuid),
@@ -345,6 +347,7 @@ SELECT
     d.is_enabled,
     d.is_default_gateway,
     d.gateway_address,
+    d.vlan_tag,
     pd.provider_id AS device_provider_id,
     dp.parent_uuid AS parent_device_uuid,
     dd.name AS parent_device_name,

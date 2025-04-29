@@ -274,14 +274,15 @@ type machineInterfaceRow struct {
 	MTU               sql.NullInt64  `db:"mtu"`
 	MacAddress        sql.NullString `db:"mac_address"`
 	ProviderID        sql.NullString `db:"device_provider_id"`
-	DeviceTypeID      int            `db:"device_type_id"`
-	VirtualPortTypeID int            `db:"virtual_port_type_id"`
+	DeviceTypeID      int64          `db:"device_type_id"`
+	VirtualPortTypeID int64          `db:"virtual_port_type_id"`
 	IsAutoStart       bool           `db:"is_auto_start"`
 	IsEnabled         bool           `db:"is_enabled"`
 	ParentDeviceUUID  sql.NullString `db:"parent_device_uuid"`
 	ParentDeviceName  sql.NullString `db:"parent_device_name"`
 	GatewayAddress    sql.NullString `db:"gateway_address"`
 	IsDefaultGateway  bool           `db:"is_default_gateway"`
+	VLANTag           int64          `db:"vlan_tag"`
 
 	// AddressUUID and associated IP address fields.
 	AddressUUID      sql.NullString `db:"address_uuid"`
