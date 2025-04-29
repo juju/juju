@@ -131,6 +131,12 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 		}}
 }
 
+func (s *InstancePollerSuite) TestStub(c *gc.C) {
+	c.Skip(`This suite is missing tests for the following scenarios:
+- Updating a machine-sourced address should change its origin to "provider".
+`)
+}
+
 func (s *InstancePollerSuite) TestNewInstancePollerAPIRequiresController(c *gc.C) {
 	s.authoriser.Controller = false
 
@@ -906,94 +912,6 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigRelinquishUnseen(c *gc
 				{C: "machine-alive"},
 				{C: "dev-provider-id"},
 				{C: "address-origin-manual"},
-			}})
-		}
-	}
-	c.Assert(buildCalled, jc.IsTrue)
-}
-
-func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C) {
-	ctrl := s.setUpMocks(c)
-	defer ctrl.Finish()
-	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.expectDefaultSpaces()
-
-	// Hardware address will match; provider ID will be set.
-	dev := mocks.NewMockLinkLayerDevice(ctrl)
-	dExp := dev.EXPECT()
-	dExp.MACAddress().Return("00:00:00:00:00:00").MinTimes(1)
-	dExp.Name().Return("eth0").MinTimes(1)
-	dExp.ProviderID().Return(network.Id(""))
-	dExp.SetProviderIDOps(network.Id("p-dev")).Return([]txn.Op{{C: "dev-provider-id"}}, nil)
-
-	// Address matched on device/value will have provider IDs set.
-	addr := mocks.NewMockLinkLayerAddress(ctrl)
-	aExp := addr.EXPECT()
-	aExp.DeviceName().Return("eth0")
-	aExp.Value().Return("10.0.0.42")
-	aExp.SetProviderIDOps(network.Id("p-addr")).Return([]txn.Op{{C: "addr-provider-id"}}, nil)
-	aExp.SetProviderNetIDsOps(network.Id("p-net"), network.Id("p-sub")).Return([]txn.Op{{C: "addr-provider-net-ids"}})
-
-	s.st.SetMachineInfo(c, machineInfo{
-		id:               "1",
-		instanceStatus:   statusInfo("foo"),
-		linkLayerDevices: []networkingcommon.LinkLayerDevice{dev},
-		addresses:        []networkingcommon.LinkLayerAddress{addr},
-	})
-
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(
-		jujutesting.FakeControllerConfig(), nil)
-
-	result, err := s.api.SetProviderNetworkConfig(context.Background(), params.SetProviderNetworkConfig{
-		Args: []params.ProviderNetworkConfig{
-			{
-				Tag: "machine-1",
-				Configs: []params.NetworkConfig{
-					{
-						// This should still be matched based on hardware address.
-						InterfaceName:     "",
-						MACAddress:        "00:00:00:00:00:00",
-						ProviderId:        "p-dev",
-						ProviderAddressId: "p-addr",
-						ProviderNetworkId: "p-net",
-						ProviderSubnetId:  "p-sub",
-						Addresses: []params.Address{{
-							Value: "10.0.0.42",
-							CIDR:  "10.0.0.0/24",
-						}},
-					},
-					{
-						// A duplicate (MAC and addresses) should make no difference.
-						InterfaceName:     "",
-						MACAddress:        "00:00:00:00:00:00",
-						ProviderId:        "p-dev",
-						ProviderAddressId: "p-addr",
-						ProviderNetworkId: "p-net",
-						ProviderSubnetId:  "p-sub",
-						Addresses: []params.Address{{
-							Value: "10.0.0.42",
-							CIDR:  "10.0.0.0/24",
-						}},
-					},
-				},
-			},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-
-	var buildCalled bool
-	for _, call := range s.st.Calls() {
-		if call.FuncName == "ApplyOperation.Build" {
-			buildCalled = true
-			c.Check(call.Args, gc.DeepEquals, []interface{}{[]txn.Op{
-				{C: "machine-alive"},
-				{C: "dev-provider-id"},
-				{C: "addr-provider-id"},
-				{C: "addr-provider-net-ids"},
 			}})
 		}
 	}

@@ -158,18 +158,17 @@ func networkAddressesToStateArgs(
 		}
 
 		res = append(res, state.LinkLayerDeviceAddress{
-			DeviceName:        dev.InterfaceName,
-			ProviderID:        dev.ProviderAddressId,
-			ProviderNetworkID: dev.ProviderNetworkId,
-			ProviderSubnetID:  dev.ProviderSubnetId,
-			ConfigMethod:      configType,
-			CIDRAddress:       cidrAddress,
-			DNSServers:        dev.DNSServers,
-			DNSSearchDomains:  dev.DNSSearchDomains,
-			GatewayAddress:    dev.GatewayAddress.Value,
-			IsDefaultGateway:  dev.IsDefaultGateway,
-			Origin:            dev.Origin,
-			IsSecondary:       addr.IsSecondary,
+			DeviceName:       dev.InterfaceName,
+			ProviderID:       dev.ProviderAddressId,
+			ProviderSubnetID: dev.ProviderSubnetId,
+			ConfigMethod:     configType,
+			CIDRAddress:      cidrAddress,
+			DNSServers:       dev.DNSServers,
+			DNSSearchDomains: dev.DNSSearchDomains,
+			GatewayAddress:   dev.GatewayAddress.Value,
+			IsDefaultGateway: dev.IsDefaultGateway,
+			Origin:           dev.Origin,
+			IsSecondary:      addr.IsSecondary,
 		})
 	}
 

@@ -515,9 +515,8 @@ func mapInterfaceList(
 
 	for idx, port := range in {
 		ni := network.InterfaceInfo{
-			DeviceIndex:       idx,
-			ProviderId:        network.Id(port.Id),
-			ProviderNetworkId: network.Id(port.NetworkId),
+			DeviceIndex: idx,
+			ProviderId:  network.Id(port.Id),
 			// NOTE(achilleasa): on microstack port.Name is always empty.
 			InterfaceName: port.Name,
 			Disabled:      port.Status != "ACTIVE",

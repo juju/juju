@@ -14096,9 +14096,6 @@
                         "space-tag": {
                             "type": "string"
                         },
-                        "status": {
-                            "type": "string"
-                        },
                         "vlan-tag": {
                             "type": "integer"
                         },
@@ -15351,9 +15348,6 @@
                         "space-tag": {
                             "type": "string"
                         },
-                        "status": {
-                            "type": "string"
-                        },
                         "vlan-tag": {
                             "type": "integer"
                         },
@@ -15398,9 +15392,6 @@
                             "type": "string"
                         },
                         "space-tag": {
-                            "type": "string"
-                        },
-                        "status": {
                             "type": "string"
                         },
                         "vlan-tag": {

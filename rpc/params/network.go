@@ -43,12 +43,6 @@ type Subnet struct {
 	// Zones contain one or more availability zones this subnet is
 	// associated with.
 	Zones []string `json:"zones"`
-
-	// TODO (jack-w-shaw 2022-02-22): Remove this. It is unused
-	//
-	// Status returns the status of the subnet, whether it is in use, not
-	// in use or terminating.
-	Status string `json:"status,omitempty"`
 }
 
 // SubnetV2 is used by versions of spaces/subnets APIs that must include
@@ -108,6 +102,7 @@ type NetworkConfig struct {
 
 	// ProviderNetworkId is a provider-specific id for the network this
 	// interface is part of.
+	// Deprecated: no longer written or read.
 	ProviderNetworkId string `json:"provider-network-id"`
 
 	// ProviderSubnetId is a provider-specific subnet id, to which the
@@ -225,7 +220,6 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos network.InterfaceInfos) []Net
 			ConfigType:          string(v.ConfigType),
 			MTU:                 v.MTU,
 			ProviderId:          string(v.ProviderId),
-			ProviderNetworkId:   string(v.ProviderNetworkId),
 			ProviderSubnetId:    string(v.ProviderSubnetId),
 			ProviderSpaceId:     string(v.ProviderSpaceId),
 			ProviderVLANId:      string(v.ProviderVLANId),
@@ -274,7 +268,6 @@ func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) network.InterfaceIn
 			MACAddress:          network.NormalizeMACAddress(v.MACAddress),
 			MTU:                 v.MTU,
 			ProviderId:          network.Id(v.ProviderId),
-			ProviderNetworkId:   network.Id(v.ProviderNetworkId),
 			ProviderSubnetId:    network.Id(v.ProviderSubnetId),
 			ProviderSpaceId:     network.Id(v.ProviderSpaceId),
 			ProviderVLANId:      network.Id(v.ProviderVLANId),
