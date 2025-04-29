@@ -43,12 +43,6 @@ type Subnet struct {
 	// Zones contain one or more availability zones this subnet is
 	// associated with.
 	Zones []string `json:"zones"`
-
-	// TODO (jack-w-shaw 2022-02-22): Remove this. It is unused
-	//
-	// Status returns the status of the subnet, whether it is in use, not
-	// in use or terminating.
-	Status string `json:"status,omitempty"`
 }
 
 // SubnetV2 is used by versions of spaces/subnets APIs that must include
