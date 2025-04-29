@@ -4,17 +4,23 @@
 package migration_test
 
 import (
+	"context"
 	stdtesting "testing"
 
+	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
+	"github.com/juju/errors"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/semversion"
+	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration AgentBinaryStore,ControllerConfigService,UpgradeService,ApplicationService,StatusService,OperationExporter,Coordinator,ModelAgentService,CharmService
+//go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration AgentBinaryStore,ControllerConfigService,UpgradeService,ApplicationService,RelationService,StatusService,OperationExporter,Coordinator,ModelAgentService,CharmService
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination domainservices_mock_test.go github.com/juju/juju/internal/services DomainServicesGetter,DomainServices
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination storage_mock_test.go github.com/juju/juju/core/storage ModelStorageRegistryGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package migration_test -destination description_mock_test.go github.com/juju/description/v9 Model
@@ -29,12 +35,14 @@ type precheckBaseSuite struct {
 
 	upgradeService     *MockUpgradeService
 	applicationService *MockApplicationService
+	relationService    *MockRelationService
 	statusService      *MockStatusService
 	agentService       *MockModelAgentService
 }
 
 func (s *precheckBaseSuite) checkRebootRequired(c *gc.C, runPrecheck precheckRunner) {
-	err := runPrecheck(newBackendWithRebootingMachine(), &fakeCredentialService{}, s.upgradeService, s.applicationService, s.statusService, s.agentService)
+	err := runPrecheck(newBackendWithRebootingMachine(), &fakeCredentialService{}, s.upgradeService,
+		s.applicationService, s.relationService, s.statusService, s.agentService)
 	c.Assert(err, gc.ErrorMatches, "machine 0 is scheduled to reboot")
 }
 
@@ -49,6 +57,7 @@ func (s *precheckBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.upgradeService = NewMockUpgradeService(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
+	s.relationService = NewMockRelationService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
 	s.agentService = NewMockModelAgentService(ctrl)
 
@@ -57,6 +66,33 @@ func (s *precheckBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *precheckBaseSuite) expectApplicationLife(appName string, l life.Value) {
 	s.applicationService.EXPECT().GetApplicationLife(gomock.Any(), appName).Return(l, nil)
+}
+
+func (s *precheckBaseSuite) expectCheckRelation(rels fakeRelations) {
+	result := transform.MapToSlice(rels, func(k int, rel fakeRelation) []relation.RelationDetailsResult {
+		return []relation.RelationDetailsResult{{
+			ID:        k,
+			Endpoints: rel.eps,
+		}}
+	})
+	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return(result, nil)
+	s.relationService.EXPECT().RelationUnitInScopeByID(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, i int, name coreunit.Name) (bool, error) {
+			rel, ok := rels[i]
+			if !ok {
+				return false, errors.Errorf("no relation %d", i)
+			}
+			return rel.units.Contains(string(name)), nil
+		}).AnyTimes()
+}
+
+// fakeRelation is a type that represents basic information for a relation,
+// grouped by relation id.
+type fakeRelations map[int]fakeRelation
+
+type fakeRelation struct {
+	eps   []relation.Endpoint
+	units set.Strings
 }
 
 func (s *precheckBaseSuite) expectCheckUnitStatuses(res error) {

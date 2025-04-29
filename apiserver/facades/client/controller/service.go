@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/blockcommand"
 	domainmodel "github.com/juju/juju/domain/model"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/proxy"
@@ -83,6 +84,18 @@ type ApplicationService interface {
 	// GetApplicationLife returns the life value of the application with the
 	// given name.
 	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
+}
+
+// RelationService provides access to the relation service.
+type RelationService interface {
+	// GetAllRelationDetails return RelationDetailResults for all relations
+	// for the current model.
+	GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error)
+
+	// RelationUnitInScopeByID returns a boolean to indicate whether the given
+	// unit is in scopen of a given relation
+	RelationUnitInScopeByID(ctx context.Context, relationID int, unitName unit.Name) (bool,
+		error)
 }
 
 type StatusService interface {

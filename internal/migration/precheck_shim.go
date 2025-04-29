@@ -62,11 +62,6 @@ func (s *precheckShim) AllApplications() ([]PrecheckApplication, error) {
 	return out, nil
 }
 
-func (s *precheckShim) AllRelations() ([]PrecheckRelation, error) {
-	// TODO(gfouillet) - implement it when wire up relation domain.
-	return nil, nil
-}
-
 // ControllerBackend implements PrecheckBackend.
 func (s *precheckShim) ControllerBackend() (PrecheckBackend, error) {
 	return PrecheckShim(s.controllerState, s.controllerState)

@@ -9,15 +9,19 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/description/v9"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/environs/config"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
@@ -33,10 +37,13 @@ func SourcePrecheck(
 	credentialService CredentialService,
 	upgradeService UpgradeService,
 	applicationService ApplicationService,
+	relationService RelationService,
 	statusService StatusService,
 	modelAgentService ModelAgentService,
 ) error {
-	c := newPrecheckSource(backend, credentialService, upgradeService, applicationService, statusService, modelAgentService)
+	c := newPrecheckSource(backend, credentialService, upgradeService, applicationService, relationService,
+		statusService,
+		modelAgentService)
 	if err := c.checkModel(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -54,7 +61,7 @@ func SourcePrecheck(
 		return errors.Trace(err)
 	}
 
-	if err := c.checkRelations(appUnits); err != nil {
+	if err := c.checkRelations(ctx, appUnits); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -69,7 +76,7 @@ func SourcePrecheck(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	controllerCtx := newPrecheckTarget(controllerBackend, upgradeService, applicationService, statusService, modelAgentService)
+	controllerCtx := newPrecheckTarget(controllerBackend, upgradeService, applicationService, relationService, statusService, modelAgentService)
 	if err := controllerCtx.checkController(ctx); err != nil {
 		return errors.Annotate(err, "controller")
 	}
@@ -93,12 +100,14 @@ func ImportPrecheck(
 // TargetPrecheck checks the state of the target controller to make
 // sure that the preconditions for model migration are met. The
 // backend provided must be for the target controller.
-func TargetPrecheck(ctx context.Context,
+func TargetPrecheck(
+	ctx context.Context,
 	backend PrecheckBackend,
 	pool Pool,
 	modelInfo coremigration.ModelInfo,
 	upgradeService UpgradeService,
 	applicationService ApplicationService,
+	relationService RelationService,
 	statusService StatusService,
 	modelAgentService ModelAgentService,
 ) error {
@@ -134,7 +143,7 @@ func TargetPrecheck(ctx context.Context,
 			modelInfo.ControllerAgentVersion, controllerVersion)
 	}
 
-	controllerCtx := newPrecheckTarget(backend, upgradeService, applicationService, statusService, modelAgentService)
+	controllerCtx := newPrecheckTarget(backend, upgradeService, applicationService, relationService, statusService, modelAgentService)
 	if err := controllerCtx.checkController(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -179,6 +188,7 @@ func newPrecheckTarget(
 	backend PrecheckBackend,
 	upgradeService UpgradeService,
 	applicationService ApplicationService,
+	relationService RelationService,
 	statusService StatusService,
 	modelAgentService ModelAgentService,
 ) *precheckTarget {
@@ -187,6 +197,7 @@ func newPrecheckTarget(
 			backend:            backend,
 			upgradeService:     upgradeService,
 			applicationService: applicationService,
+			relationService:    relationService,
 			statusService:      statusService,
 			modelAgentService:  modelAgentService,
 		},
@@ -197,6 +208,7 @@ type precheckContext struct {
 	backend            PrecheckBackend
 	upgradeService     UpgradeService
 	applicationService ApplicationService
+	relationService    RelationService
 	statusService      StatusService
 	modelAgentService  ModelAgentService
 }
@@ -341,57 +353,32 @@ func (c *precheckContext) checkUnits(ctx context.Context, app PrecheckApplicatio
 	return nil
 }
 
-func (c *precheckContext) checkRelations(appUnits map[string][]PrecheckUnit) error {
-	relations, err := c.backend.AllRelations()
+// checkRelations verify that all units involved in a relation are actually in
+// scope and valid.
+func (c *precheckContext) checkRelations(ctx context.Context, appUnits map[string][]PrecheckUnit) error {
+	// todo(gfouillet): Handle crossmodel relation
+	//  This code doesn't rely on future crossmodel domain, but similar check
+	//  would be required on remote units.
+	relations, err := c.relationService.GetAllRelationDetails(ctx)
 	if err != nil {
 		return errors.Annotate(err, "retrieving model relations")
 	}
+
 	for _, rel := range relations {
-		remoteAppName, crossModel, err := rel.RemoteApplication()
-		if err != nil && !errors.Is(err, errors.NotFound) {
-			return errors.Annotatef(err, "checking whether relation %s is cross-model", rel)
-		}
-
-		checkRelationUnit := func(ru PrecheckRelationUnit) error {
-			valid, err := ru.Valid()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if !valid {
-				return nil
-			}
-			inScope, err := ru.InScope()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if !inScope {
-				return errors.Errorf("unit %s hasn't joined relation %q yet", ru.UnitName(), rel)
-			}
-			return nil
-		}
-
-		for _, ep := range rel.Endpoints() {
-			// The endpoint app is either local or cross model.
-			// Handle each one as appropriate.
-			if crossModel && ep.ApplicationName == remoteAppName {
-				remoteUnits, err := rel.AllRemoteUnits(remoteAppName)
+		for _, ep := range rel.Endpoints {
+			for _, unit := range appUnits[ep.ApplicationName] {
+				ok, err := c.relationService.RelationUnitInScopeByID(ctx, rel.ID, coreunit.Name(unit.Name()))
 				if err != nil {
-					return errors.Trace(err)
+					return errors.Annotatef(err, "retrieving relation unit %s", unit.Name())
 				}
-				for _, ru := range remoteUnits {
-					if err := checkRelationUnit(ru); err != nil {
-						return errors.Trace(err)
-					}
-				}
-			} else {
-				for _, unit := range appUnits[ep.ApplicationName] {
-					ru, err := rel.Unit(unit)
+				if !ok {
+					// means the unit is not in scope
+					key, err := relation.NewKey(transform.Slice(rel.Endpoints,
+						domainrelation.Endpoint.EndpointIdentifier))
 					if err != nil {
 						return errors.Trace(err)
 					}
-					if err := checkRelationUnit(ru); err != nil {
-						return errors.Trace(err)
-					}
+					return errors.Errorf("unit %s hasn't joined relation %q yet", unit.Name(), key)
 				}
 			}
 		}
@@ -409,6 +396,7 @@ func newPrecheckSource(
 	credentialService CredentialService,
 	upgradeService UpgradeService,
 	applicationService ApplicationService,
+	relationService RelationService,
 	statusService StatusService,
 	modelAgentService ModelAgentService,
 ) *precheckSource {
@@ -417,6 +405,7 @@ func newPrecheckSource(
 			backend:            backend,
 			upgradeService:     upgradeService,
 			applicationService: applicationService,
+			relationService:    relationService,
 			statusService:      statusService,
 			modelAgentService:  modelAgentService,
 		},

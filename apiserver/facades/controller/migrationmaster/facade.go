@@ -52,6 +52,7 @@ type API struct {
 	modelInfoService        ModelInfoService
 	modelService            ModelService
 	applicationService      ApplicationService
+	relationService         RelationService
 	statusService           StatusService
 	store                   objectstore.ObjectStore
 }
@@ -73,6 +74,7 @@ func NewAPI(
 	modelInfoService ModelInfoService,
 	modelService ModelService,
 	applicationService ApplicationService,
+	relationService RelationService,
 	statusService StatusService,
 	upgradeService UpgradeService,
 	modelAgentService ModelAgentService,
@@ -96,6 +98,7 @@ func NewAPI(
 		modelInfoService:        modelInfoService,
 		modelService:            modelService,
 		applicationService:      applicationService,
+		relationService:         relationService,
 		statusService:           statusService,
 		upgradeService:          upgradeService,
 		modelAgentService:       modelAgentService,
@@ -255,6 +258,7 @@ func (api *API) Prechecks(ctx context.Context, arg params.PrechecksArgs) error {
 		api.credentialService,
 		api.upgradeService,
 		api.applicationService,
+		api.relationService,
 		api.statusService,
 		api.modelAgentService,
 	)

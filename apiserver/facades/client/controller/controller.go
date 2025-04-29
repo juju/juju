@@ -74,6 +74,7 @@ type ControllerAPI struct {
 	modelInfoService          ModelInfoService
 	blockCommandService       common.BlockCommandService
 	applicationServiceGetter  func(context.Context, coremodel.UUID) (ApplicationService, error)
+	relationServiceGetter     func(context.Context, coremodel.UUID) (RelationService, error)
 	statusServiceGetter       func(context.Context, coremodel.UUID) (StatusService, error)
 	modelAgentServiceGetter   func(context.Context, coremodel.UUID) (ModelAgentService, error)
 	modelConfigServiceGetter  func(context.Context, coremodel.UUID) (ModelConfigService, error)
@@ -110,6 +111,7 @@ func NewControllerAPI(
 	modelInfoService ModelInfoService,
 	blockCommandService common.BlockCommandService,
 	applicationServiceGetter func(context.Context, coremodel.UUID) (ApplicationService, error),
+	relationServiceGetter func(context.Context, coremodel.UUID) (RelationService, error),
 	statusServiceGetter func(context.Context, coremodel.UUID) (StatusService, error),
 	modelAgentServiceGetter func(context.Context, coremodel.UUID) (ModelAgentService, error),
 	modelConfigServiceGetter func(context.Context, coremodel.UUID) (ModelConfigService, error),
@@ -156,6 +158,7 @@ func NewControllerAPI(
 		credentialService:         credentialService,
 		upgradeService:            upgradeService,
 		applicationServiceGetter:  applicationServiceGetter,
+		relationServiceGetter:     relationServiceGetter,
 		statusServiceGetter:       statusServiceGetter,
 		accessService:             accessService,
 		modelService:              modelService,
@@ -601,6 +604,10 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+	relationService, err := c.relationServiceGetter(ctx, coremodel.UUID(modelTag.Id()))
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	statusService, err := c.statusServiceGetter(ctx, coremodel.UUID(modelTag.Id()))
 	if err != nil {
 		return "", errors.Trace(err)
@@ -624,6 +631,7 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		c.upgradeService,
 		c.modelService,
 		applicationService,
+		relationService,
 		statusService,
 		c.modelExporter,
 		c.store,
@@ -772,6 +780,7 @@ var runMigrationPrechecks = func(
 	upgradeService UpgradeService,
 	modelService ModelService,
 	applicationService ApplicationService,
+	relationService RelationService,
 	statusService StatusService,
 	modelExporter func(context.Context, coremodel.UUID, facade.LegacyStateExporter) (ModelExporter, error),
 	store objectstore.ObjectStore,
@@ -789,6 +798,7 @@ var runMigrationPrechecks = func(
 		credentialService,
 		upgradeService,
 		applicationService,
+		relationService,
 		statusService,
 		modelAgentService,
 	); err != nil {
