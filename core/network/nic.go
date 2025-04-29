@@ -89,10 +89,6 @@ type InterfaceInfo struct {
 	// subnet.
 	ProviderSubnetId Id
 
-	// ProviderNetworkId is the provider-specific id for the
-	// associated network.
-	ProviderNetworkId Id
-
 	// ProviderSpaceId is the provider-specific id for the associated space,
 	// if known and supported.
 	ProviderSpaceId Id
