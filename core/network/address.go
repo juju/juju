@@ -139,6 +139,23 @@ func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
 	return false
 }
 
+// SortOrderOrigin calculates the "weight" of the address origin to use when
+// sorting such that the most accessible addresses will appear first:
+// - provider addresses first;
+// - machine addresses next;
+// - unknown addresses last.
+func SortOrderOrigin(sas SpaceAddress) int {
+	switch sas.Origin {
+	case OriginProvider:
+		return 0
+	case OriginMachine:
+		return 1
+	case OriginUnknown:
+		return 2
+	}
+	return 3
+}
+
 // SortOrderMostPublic calculates the "weight" of the address to use when
 // sorting such that the most accessible addresses will appear first:
 // - public IPs first;
@@ -567,6 +584,7 @@ func (pas ProviderAddresses) OneMatchingScope(getMatcher ScopeMatchFunc) (Provid
 // It is used in logic for filtering addresses by space.
 type SpaceAddress struct {
 	MachineAddress
+	Origin  Origin
 	SpaceID string
 }
 
@@ -703,10 +721,16 @@ func (sas SpaceAddresses) Swap(i, j int) { sas[i], sas[j] = sas[j], sas[i] }
 func (sas SpaceAddresses) Less(i, j int) bool {
 	addr1 := sas[i]
 	addr2 := sas[j]
+	// Sort by scope first, then by origin then by address value.
 	order1 := SortOrderMostPublic(addr1)
 	order2 := SortOrderMostPublic(addr2)
 	if order1 == order2 {
-		return addr1.Value < addr2.Value
+		originOrder1 := SortOrderOrigin(addr1)
+		originOrder2 := SortOrderOrigin(addr2)
+		if originOrder1 == originOrder2 {
+			return addr1.Value < addr2.Value
+		}
+		return originOrder1 < originOrder2
 	}
 	return order1 < order2
 }

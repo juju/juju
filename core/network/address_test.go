@@ -1185,6 +1185,144 @@ func (s *AddressSuite) TestConvertToSpaceAddresses(c *gc.C) {
 	})
 }
 
+func (s *AddressSuite) TestSortOrderScope(c *gc.C) {
+	sas := network.SpaceAddresses{
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.0.0.0",
+				Type:  network.IPv4Address,
+				Scope: network.ScopeCloudLocal,
+			},
+			Origin:  network.OriginMachine,
+			SpaceID: "0",
+		},
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.0.0.1",
+				Type:  network.IPv4Address,
+				Scope: network.ScopePublic,
+			},
+			Origin:  network.OriginProvider,
+			SpaceID: "0",
+		},
+	}
+
+	sort.Sort(sas)
+	// Public addresses first.
+	c.Check(sas, gc.DeepEquals, network.SpaceAddresses{
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.0.0.1",
+				Type:  network.IPv4Address,
+				Scope: network.ScopePublic,
+			},
+			Origin:  network.OriginProvider,
+			SpaceID: "0",
+		},
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.0.0.0",
+				Type:  network.IPv4Address,
+				Scope: network.ScopeCloudLocal,
+			},
+			Origin:  network.OriginMachine,
+			SpaceID: "0",
+		},
+	})
+}
+
+func (s *AddressSuite) TestSortOrderSameScopeDiffOrigin(c *gc.C) {
+	sas := network.SpaceAddresses{
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.0.0.0",
+				Type:  network.IPv4Address,
+				Scope: network.ScopePublic,
+			},
+			Origin:  network.OriginMachine,
+			SpaceID: "0",
+		},
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.0.0.1",
+				Type:  network.IPv4Address,
+				Scope: network.ScopePublic,
+			},
+			Origin:  network.OriginProvider,
+			SpaceID: "0",
+		},
+	}
+
+	sort.Sort(sas)
+	// Public addresses first.
+	c.Check(sas, gc.DeepEquals, network.SpaceAddresses{
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.0.0.1",
+				Type:  network.IPv4Address,
+				Scope: network.ScopePublic,
+			},
+			Origin:  network.OriginProvider,
+			SpaceID: "0",
+		},
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.0.0.0",
+				Type:  network.IPv4Address,
+				Scope: network.ScopePublic,
+			},
+			Origin:  network.OriginMachine,
+			SpaceID: "0",
+		},
+	})
+}
+
+func (s *AddressSuite) TestSortOrderSameScopeSameOriginDiffValue(c *gc.C) {
+	sas := network.SpaceAddresses{
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.0.0.0",
+				Type:  network.IPv4Address,
+				Scope: network.ScopePublic,
+			},
+			Origin:  network.OriginProvider,
+			SpaceID: "0",
+		},
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.0.0.1",
+				Type:  network.IPv4Address,
+				Scope: network.ScopePublic,
+			},
+			Origin:  network.OriginProvider,
+			SpaceID: "0",
+		},
+	}
+
+	sort.Sort(sas)
+	// Public addresses first.
+	c.Check(sas, gc.DeepEquals, network.SpaceAddresses{
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.0.0.0",
+				Type:  network.IPv4Address,
+				Scope: network.ScopePublic,
+			},
+			Origin:  network.OriginProvider,
+			SpaceID: "0",
+		},
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.0.0.1",
+				Type:  network.IPv4Address,
+				Scope: network.ScopePublic,
+			},
+			Origin:  network.OriginProvider,
+			SpaceID: "0",
+		},
+	})
+}
+
 type testFindSubnetAddr struct {
 	val string
 }

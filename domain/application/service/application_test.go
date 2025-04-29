@@ -994,6 +994,7 @@ func (s *applicationServiceSuite) TestCloudServiceAddresses(c *gc.C) {
 	s.state.EXPECT().GetCloudServiceAddresses(gomock.Any(), coreapplication.ID("foo-uuid")).Return(network.SpaceAddresses{
 		network.SpaceAddress{
 			SpaceID: network.AlphaSpaceId,
+			Origin:  network.OriginProvider,
 			MachineAddress: network.MachineAddress{
 				Value:      "foo",
 				Type:       network.IPv4Address,
@@ -1003,6 +1004,7 @@ func (s *applicationServiceSuite) TestCloudServiceAddresses(c *gc.C) {
 		},
 		network.SpaceAddress{
 			SpaceID: network.AlphaSpaceId,
+			Origin:  network.OriginProvider,
 			MachineAddress: network.MachineAddress{
 				Value:      "bar",
 				Type:       network.IPv6Address,
@@ -1017,6 +1019,7 @@ func (s *applicationServiceSuite) TestCloudServiceAddresses(c *gc.C) {
 	c.Check(addrs, gc.DeepEquals, network.SpaceAddresses{
 		network.SpaceAddress{
 			SpaceID: network.AlphaSpaceId,
+			Origin:  network.OriginProvider,
 			MachineAddress: network.MachineAddress{
 				Value:      "foo",
 				Type:       network.IPv4Address,
@@ -1026,6 +1029,7 @@ func (s *applicationServiceSuite) TestCloudServiceAddresses(c *gc.C) {
 		},
 		network.SpaceAddress{
 			SpaceID: network.AlphaSpaceId,
+			Origin:  network.OriginProvider,
 			MachineAddress: network.MachineAddress{
 				Value:      "bar",
 				Type:       network.IPv6Address,

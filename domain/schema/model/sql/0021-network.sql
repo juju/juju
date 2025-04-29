@@ -137,7 +137,7 @@ CREATE UNIQUE INDEX idx_ip_address_origin_name
 ON ip_address_origin (name);
 
 INSERT INTO ip_address_origin VALUES
-(0, 'host'),
+(0, 'machine'),
 (1, 'provider');
 
 -- ip_address_scope denotes the context an ip address may apply to.

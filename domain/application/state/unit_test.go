@@ -1374,7 +1374,7 @@ func (s *unitStateSuite) TestGetUnitAddressesIncludingK8sService(c *gc.C) {
 			return err
 		}
 		insertIPAddress1 := `INSERT INTO ip_address (uuid, device_uuid, address_value, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertIPAddress1, "ip-address1-uuid", "lld1-uuid", "10.0.0.2", 0, 1, 0, 1, "subnet-uuid")
+		_, err = tx.ExecContext(ctx, insertIPAddress1, "ip-address1-uuid", "lld1-uuid", "10.0.0.2", 0, 1, 1, 1, "subnet-uuid")
 		if err != nil {
 			return err
 		}
@@ -1387,6 +1387,7 @@ func (s *unitStateSuite) TestGetUnitAddressesIncludingK8sService(c *gc.C) {
 	c.Check(addr, gc.DeepEquals, network.SpaceAddresses{
 		{
 			SpaceID: "space0-uuid",
+			Origin:  network.OriginMachine,
 			MachineAddress: network.MachineAddress{
 				Value:      "10.0.0.1",
 				Type:       network.IPv4Address,
@@ -1396,6 +1397,7 @@ func (s *unitStateSuite) TestGetUnitAddressesIncludingK8sService(c *gc.C) {
 		},
 		{
 			SpaceID: "space0-uuid",
+			Origin:  network.OriginProvider,
 			MachineAddress: network.MachineAddress{
 				Value:      "10.0.0.2",
 				Type:       network.IPv4Address,
@@ -1440,7 +1442,7 @@ func (s *unitStateSuite) TestGetUnitAddressesWithoutK8sService(c *gc.C) {
 			return err
 		}
 		insertIPAddress0 := `INSERT INTO ip_address (uuid, device_uuid, address_value, type_id, scope_id, origin_id, config_type_id, subnet_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-		_, err = tx.ExecContext(ctx, insertIPAddress0, "ip-address0-uuid", "lld0-uuid", "10.0.0.1", 0, 3, 0, 1, "subnet-uuid")
+		_, err = tx.ExecContext(ctx, insertIPAddress0, "ip-address0-uuid", "lld0-uuid", "10.0.0.1", 0, 3, 1, 1, "subnet-uuid")
 		if err != nil {
 			return err
 		}
@@ -1453,6 +1455,7 @@ func (s *unitStateSuite) TestGetUnitAddressesWithoutK8sService(c *gc.C) {
 	c.Check(addr, gc.DeepEquals, network.SpaceAddresses{
 		{
 			SpaceID: "space0-uuid",
+			Origin:  network.OriginProvider,
 			MachineAddress: network.MachineAddress{
 				Value:      "10.0.0.1",
 				Type:       network.IPv4Address,

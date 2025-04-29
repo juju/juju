@@ -1131,6 +1131,7 @@ func (s *applicationStateSuite) TestCloudServiceAddresses(c *gc.C) {
 	expectedAddresses := network.SpaceAddresses{
 		{
 			SpaceID: network.AlphaSpaceId,
+			Origin:  network.OriginProvider,
 			MachineAddress: network.MachineAddress{
 				Value:      "10.0.0.1",
 				ConfigType: network.ConfigStatic,
@@ -1140,6 +1141,7 @@ func (s *applicationStateSuite) TestCloudServiceAddresses(c *gc.C) {
 		},
 		{
 			SpaceID: network.AlphaSpaceId,
+			Origin:  network.OriginProvider,
 			MachineAddress: network.MachineAddress{
 				Value:      "10.0.0.2",
 				ConfigType: network.ConfigDHCP,

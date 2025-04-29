@@ -5,6 +5,8 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"sort"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
@@ -570,8 +572,8 @@ func (s *Service) GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.
 //
 // The following errors may be returned:
 // - [uniterrors.UnitNotFound] if the unit does not exist
-// - [network.NoAddressError] if the unit has no address associated
-func (s *Service) GetPublicAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error) {
+// - [network.NoAddressError] if the unit has no public address associated
+func (s *Service) GetUnitPublicAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error) {
 	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
 		return network.SpaceAddress{}, errors.Capture(err)
@@ -581,14 +583,20 @@ func (s *Service) GetPublicAddress(ctx context.Context, unitName coreunit.Name) 
 		return network.SpaceAddress{}, errors.Capture(err)
 	}
 
-	addr, found := addrs.OneMatchingScope(network.ScopeMatchPublic)
-	if !found {
+	// First match the scope, then sort by origin.
+	matchedAddrs := addrs.AllMatchingScope(network.ScopeMatchCloudLocal)
+	fmt.Printf("out addrs: %v\n", addrs)
+	fmt.Printf("matched addrs: %v\n", matchedAddrs)
+	if len(matchedAddrs) == 0 {
 		return network.SpaceAddress{}, network.NoAddressError(string(network.ScopePublic))
 	}
-	return addr, nil
+	sort.Slice(matchedAddrs, matchedAddrs.Less)
+	fmt.Printf("sorted addrs: %v\n", matchedAddrs)
+
+	return matchedAddrs[0], nil
 }
 
-// GetPrivateAddress returns the private address for the specified unit.
+// GetUnitPrivateAddress returns the private address for the specified unit.
 // For k8s provider, it will return the first private address of the cloud
 // service if any, the first private address of the cloud container otherwise.
 // For machines provider, it will return the first private address of the
@@ -596,8 +604,7 @@ func (s *Service) GetPublicAddress(ctx context.Context, unitName coreunit.Name) 
 //
 // The following errors may be returned:
 // - [uniterrors.UnitNotFound] if the unit does not exist
-// - [network.NoAddressError] if the unit has no address associated
-func (s *Service) GetPrivateAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error) {
+func (s *Service) GetUnitPrivateAddress(ctx context.Context, unitName coreunit.Name) (network.SpaceAddress, error) {
 	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
 		return network.SpaceAddress{}, errors.Capture(err)
@@ -607,12 +614,14 @@ func (s *Service) GetPrivateAddress(ctx context.Context, unitName coreunit.Name)
 		return network.SpaceAddress{}, errors.Capture(err)
 	}
 
-	addr, found := addrs.OneMatchingScope(network.ScopeMatchCloudLocal)
-	if !found && len(addrs) > 0 {
-		// Even if we don't match the scope, we return the first unit address.
+	// First match the scope.
+	matchedAddrs := addrs.AllMatchingScope(network.ScopeMatchCloudLocal)
+	if len(matchedAddrs) == 0 {
+		// If no address matches the scope, return the first private address.
 		return addrs[0], nil
-	} else if !found {
-		return network.SpaceAddress{}, network.NoAddressError(string(network.ScopeCloudLocal))
 	}
-	return addr, nil
+	// Then sort by origin.
+	sort.Slice(matchedAddrs, matchedAddrs.Less)
+
+	return matchedAddrs[0], nil
 }

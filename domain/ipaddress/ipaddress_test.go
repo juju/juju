@@ -115,7 +115,7 @@ func (s *ipAddressSuite) TestOriginDBValues(c *gc.C) {
 		dbValues[Origin(id)] = name
 	}
 	c.Assert(dbValues, jc.DeepEquals, map[Origin]string{
-		OriginHost:     "host",
+		OriginHost:     "machine",
 		OriginProvider: "provider",
 	})
 }

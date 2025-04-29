@@ -592,7 +592,7 @@ func (s *unitServiceSuite) TestGetPublicAddressUnitNotFound(c *gc.C) {
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID(""), errors.New("boom"))
 
-	_, err := s.service.GetPublicAddress(context.Background(), unitName)
+	_, err := s.service.GetUnitPublicAddress(context.Background(), unitName)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -604,7 +604,7 @@ func (s *unitServiceSuite) TestGetPublicAddressWithCloudServiceError(c *gc.C) {
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
 	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(nil, errors.New("boom"))
 
-	_, err := s.service.GetPublicAddress(context.Background(), unitName)
+	_, err := s.service.GetUnitPublicAddress(context.Background(), unitName)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -655,7 +655,7 @@ func (s *unitServiceSuite) TestGetPublicAddressNonMatchingAddresses(c *gc.C) {
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(coreunit.UUID("foo-uuid"), nil)
 	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo-uuid")).Return(nonMatchingScopeAddrs, nil)
 
-	_, err := s.service.GetPublicAddress(context.Background(), unitName)
+	_, err := s.service.GetUnitPublicAddress(context.Background(), unitName)
 	c.Assert(err, gc.ErrorMatches, "no public address.*")
 }
 
@@ -688,11 +688,155 @@ func (s *unitServiceSuite) TestGetPublicAddressMatchingAddress(c *gc.C) {
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
 	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(matchingScopeAddrs, nil)
 
-	addrs, err := s.service.GetPublicAddress(context.Background(), unitName)
+	addr, err := s.service.GetUnitPublicAddress(context.Background(), unitName)
 	c.Assert(err, jc.ErrorIsNil)
 	// Since the second address is higher in hierarchy of scope match, it should
 	// be returned.
-	c.Check(addrs, gc.DeepEquals, matchingScopeAddrs[1])
+	c.Check(addr, gc.DeepEquals, matchingScopeAddrs[1])
+}
+
+func (s *unitServiceSuite) TestGetPublicAddressMatchingAddressSameOrigin(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/0")
+
+	matchingScopeAddrs := network.SpaceAddresses{
+		{
+			SpaceID: network.AlphaSpaceId,
+			Origin:  network.OriginProvider,
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.1",
+				ConfigType: network.ConfigStatic,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeMachineLocal,
+			},
+		},
+		{
+			SpaceID: network.AlphaSpaceId,
+			Origin:  network.OriginProvider,
+			MachineAddress: network.MachineAddress{
+				Value:      "54.32.1.2",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv6Address,
+				Scope:      network.ScopePublic,
+			},
+		},
+		{
+			SpaceID: network.AlphaSpaceId,
+			Origin:  network.OriginProvider,
+			MachineAddress: network.MachineAddress{
+				Value:      "54.32.1.3",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv6Address,
+				Scope:      network.ScopePublic,
+			},
+		},
+	}
+
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
+	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(matchingScopeAddrs, nil)
+
+	addr, err := s.service.GetUnitPublicAddress(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	// Since the second address is higher in hierarchy of scope match, it should
+	// be returned.
+	c.Check(addr, gc.DeepEquals, matchingScopeAddrs[1])
+}
+
+func (s *unitServiceSuite) TestGetPublicAddressMatchingAddressOneProviderOnly(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/0")
+
+	matchingScopeAddrs := network.SpaceAddresses{
+		{
+			SpaceID: network.AlphaSpaceId,
+			Origin:  network.OriginMachine,
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.1",
+				ConfigType: network.ConfigStatic,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeMachineLocal,
+			},
+		},
+		{
+			SpaceID: network.AlphaSpaceId,
+			Origin:  network.OriginMachine,
+			MachineAddress: network.MachineAddress{
+				Value:      "54.32.1.2",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv6Address,
+				Scope:      network.ScopePublic,
+			},
+		},
+		{
+			SpaceID: network.AlphaSpaceId,
+			Origin:  network.OriginProvider,
+			MachineAddress: network.MachineAddress{
+				Value:      "54.32.1.3",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv6Address,
+				Scope:      network.ScopePublic,
+			},
+		},
+	}
+
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
+	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(matchingScopeAddrs, nil)
+
+	addr, err := s.service.GetUnitPublicAddress(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	// Since the second address is higher in hierarchy of scope match, it should
+	// be returned.
+	c.Check(addr, gc.DeepEquals, matchingScopeAddrs[2])
+}
+
+func (s *unitServiceSuite) TestGetPublicAddressMatchingAddressOneProviderOtherUnknown(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/0")
+
+	matchingScopeAddrs := network.SpaceAddresses{
+		{
+			SpaceID: network.AlphaSpaceId,
+			Origin:  network.OriginMachine,
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.1",
+				ConfigType: network.ConfigStatic,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeMachineLocal,
+			},
+		},
+		{
+			SpaceID: network.AlphaSpaceId,
+			Origin:  network.OriginUnknown,
+			MachineAddress: network.MachineAddress{
+				Value:      "54.32.1.2",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv6Address,
+				Scope:      network.ScopePublic,
+			},
+		},
+		{
+			SpaceID: network.AlphaSpaceId,
+			Origin:  network.OriginProvider,
+			MachineAddress: network.MachineAddress{
+				Value:      "54.32.1.3",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv6Address,
+				Scope:      network.ScopePublic,
+			},
+		},
+	}
+
+	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
+	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(matchingScopeAddrs, nil)
+
+	addr, err := s.service.GetUnitPublicAddress(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	// Since the second address is higher in hierarchy of scope match, it should
+	// be returned.
+	c.Check(addr, gc.DeepEquals, matchingScopeAddrs[2])
 }
 
 func (s *unitServiceSuite) TestGetPrivateAddressUnitNotFound(c *gc.C) {
@@ -702,7 +846,7 @@ func (s *unitServiceSuite) TestGetPrivateAddressUnitNotFound(c *gc.C) {
 
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), errors.New("boom"))
 
-	_, err := s.service.GetPrivateAddress(context.Background(), unitName)
+	_, err := s.service.GetUnitPrivateAddress(context.Background(), unitName)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -714,7 +858,7 @@ func (s *unitServiceSuite) TestGetPrivateAddressError(c *gc.C) {
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(coreunit.UUID("foo"), nil)
 	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo")).Return(nil, errors.New("boom"))
 
-	_, err := s.service.GetPrivateAddress(context.Background(), unitName)
+	_, err := s.service.GetUnitPrivateAddress(context.Background(), unitName)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -765,7 +909,7 @@ func (s *unitServiceSuite) TestGetPrivateAddressNonMatchingAddresses(c *gc.C) {
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(coreunit.UUID("foo-uuid"), nil)
 	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo-uuid")).Return(nonMatchingScopeAddrs, nil)
 
-	addr, err := s.service.GetPrivateAddress(context.Background(), unitName)
+	addr, err := s.service.GetUnitPrivateAddress(context.Background(), unitName)
 	c.Assert(err, jc.ErrorIsNil)
 	// We always return the (first) container address even if it doesn't match
 	// the scope.
@@ -810,7 +954,7 @@ func (s *unitServiceSuite) TestGetPrivateAddressMatchingAddress(c *gc.C) {
 	s.state.EXPECT().GetUnitUUIDByName(gomock.Any(), coreunit.Name("foo/0")).Return(coreunit.UUID("foo-uuid"), nil)
 	s.state.EXPECT().GetUnitAddresses(gomock.Any(), coreunit.UUID("foo-uuid")).Return(matchingScopeAddrs, nil)
 
-	addrs, err := s.service.GetPrivateAddress(context.Background(), unitName)
+	addrs, err := s.service.GetUnitPrivateAddress(context.Background(), unitName)
 	c.Assert(err, jc.ErrorIsNil)
 	// Since the second address is higher in hierarchy of scope match, it should
 	// be returned.

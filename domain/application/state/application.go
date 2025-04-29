@@ -2968,6 +2968,7 @@ func encodeIpAddress(address spaceAddress) network.SpaceAddress {
 	}
 	return network.SpaceAddress{
 		SpaceID: spaceUUID,
+		Origin:  ipaddress.UnMarshallOrigin(ipaddress.Origin(address.OriginID)),
 		// TODO(nvinuesa): The subnet CIDR is not inserted. This should be
 		// done when migrating machines to dqlite and rework the
 		// MachineAddress modelling so it takes a subnet UUID instead of a
