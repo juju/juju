@@ -33,7 +33,7 @@ func (s *SecretRemoveSuite) TestRemoveSecretInvalidArgs(c *gc.C) {
 			err:  `ERROR secret URI "foo" not valid`,
 		},
 	} {
-		com, err := jujuc.NewHookCommand(hctx, "secret-remove")
+		com, err := jujuc.NewCommand(hctx, "secret-remove")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
@@ -46,7 +46,7 @@ func (s *SecretRemoveSuite) TestRemoveSecretInvalidArgs(c *gc.C) {
 func (s *SecretRemoveSuite) TestRemoveSecret(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
-	com, err := jujuc.NewHookCommand(hctx, "secret-remove")
+	com, err := jujuc.NewCommand(hctx, "secret-remove")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{
@@ -64,7 +64,7 @@ func (s *SecretRemoveSuite) TestRemoveSecret(c *gc.C) {
 func (s *SecretRemoveSuite) TestRemoveSecretRevision(c *gc.C) {
 	hctx, _ := s.ContextSuite.NewHookContext()
 
-	com, err := jujuc.NewHookCommand(hctx, "secret-remove")
+	com, err := jujuc.NewCommand(hctx, "secret-remove")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{

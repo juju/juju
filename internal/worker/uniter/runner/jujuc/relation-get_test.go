@@ -146,7 +146,7 @@ func (s *RelationGetSuite) TestRelationGet(c *gc.C) {
 	for i, t := range relationGetTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx, _ := s.newHookContext(t.relid, t.unit, "")
-		com, err := jujuc.NewHookCommand(hctx, "relation-get")
+		com, err := jujuc.NewCommand(hctx, "relation-get")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.args)
@@ -202,7 +202,7 @@ func (s *RelationGetSuite) TestRelationGetFormat(c *gc.C) {
 		for i, t := range relationGetFormatTests {
 			c.Logf("test %d: %s %s", i, format, t.summary)
 			hctx, _ := s.newHookContext(t.relid, t.unit, "")
-			com, err := jujuc.NewHookCommand(hctx, "relation-get")
+			com, err := jujuc.NewCommand(hctx, "relation-get")
 			c.Assert(err, jc.ErrorIsNil)
 			ctx := cmdtesting.Context(c)
 			args := append(t.args, "--format", format)
@@ -246,7 +246,7 @@ func (s *RelationGetSuite) TestHelp(c *gc.C) {
 	for i, t := range relationGetHelpTests {
 		c.Logf("test %d", i)
 		hctx, _ := s.newHookContext(t.relid, t.unit, "")
-		com, err := jujuc.NewHookCommand(hctx, "relation-get")
+		com, err := jujuc.NewCommand(hctx, "relation-get")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
@@ -262,7 +262,7 @@ func (s *RelationGetSuite) TestHelp(c *gc.C) {
 
 func (s *RelationGetSuite) TestOutputPath(c *gc.C) {
 	hctx, _ := s.newHookContext(1, "m/0", "")
-	com, err := jujuc.NewHookCommand(hctx, "relation-get")
+	com, err := jujuc.NewCommand(hctx, "relation-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--output", "some-file", "pew"})
@@ -300,7 +300,7 @@ func (t relationGetInitTest) init(c *gc.C, s *RelationGetSuite) (cmd.Command, []
 	copy(args, t.args)
 
 	hctx, _ := s.newHookContext(t.ctxrelid, t.ctxunit, t.ctxapp)
-	com, err := jujuc.NewHookCommand(hctx, "relation-get")
+	com, err := jujuc.NewCommand(hctx, "relation-get")
 	c.Assert(err, jc.ErrorIsNil)
 
 	return com, args
