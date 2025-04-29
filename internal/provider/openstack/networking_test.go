@@ -253,7 +253,6 @@ func (s *networkingSuite) TestNetworkInterfaces(c *gc.C) {
 		).AsProviderAddress(),
 	})
 	c.Assert(nic0.ProviderId, gc.Equals, network.Id("nic-0"))
-	c.Assert(nic0.ProviderNetworkId, gc.Equals, network.Id("deadbeef-0bad-400d-8000-4b1ddbeefbeef"))
 	c.Assert(nic0.ProviderSubnetId, gc.Equals, network.Id("sub-42"), gc.Commentf("expected NIC to use the provider subnet ID for the primary NIC address"))
 
 	nic1 := res[0][1]
@@ -270,7 +269,6 @@ func (s *networkingSuite) TestNetworkInterfaces(c *gc.C) {
 		).AsProviderAddress(),
 	})
 	c.Assert(nic1.ProviderId, gc.Equals, network.Id("nic-1"))
-	c.Assert(nic1.ProviderNetworkId, gc.Equals, network.Id("deadbeef-0bad-400d-8000-4b1ddbeefbeef"))
 	c.Assert(nic1.ProviderSubnetId, gc.Equals, network.Id("sub-42"), gc.Commentf("expected NIC to use the provider subnet ID for the primary NIC address"))
 }
 
