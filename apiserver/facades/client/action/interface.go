@@ -13,7 +13,6 @@ import (
 // action facade.
 type State interface {
 	AllMachines() ([]*state.Machine, error)
-	FindEntity(tag names.Tag) (state.Entity, error)
 	Model() (Model, error)
 	WatchActionLogs(actionId string) state.StringsWatcher
 	ActionByTag(tag names.ActionTag) (state.Action, error)
@@ -41,10 +40,6 @@ func (s *stateShim) ActionByTag(tag names.ActionTag) (state.Action, error) {
 
 func (s *stateShim) AllMachines() ([]*state.Machine, error) {
 	return s.st.AllMachines()
-}
-
-func (s *stateShim) FindEntity(tag names.Tag) (state.Entity, error) {
-	return s.st.FindEntity(tag)
 }
 
 func (s *stateShim) Model() (Model, error) {

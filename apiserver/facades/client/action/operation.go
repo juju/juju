@@ -75,7 +75,16 @@ func (a *ActionAPI) enqueue(ctx context.Context, arg params.Actions) (string, pa
 		return "", params.ActionResults{}, errors.Annotate(err, "creating operation for actions")
 	}
 
-	tagToActionReceiver := a.tagToActionReceiverFn(a.state.FindEntity)
+	// NOTE(jack-w-shaw): The mongo-based implementation of this method would use
+	// FindEntity to retrieve a unit or machine (which both implement ActionReceiver)
+	// here, and then pass them to AddAction. I have replaced this with a stub
+	// since we will no longer write units to Mongo. This allows us to drop the
+	// dependency on FindEntity in this facade.
+	// TODO: When we come to implement the actions domain, this whole thing should
+	// be extracted into a service method.
+	tagToActionReceiver := func(string) (state.ActionReceiver, error) {
+		return nil, errors.NotImplementedf("actions are broken until they are cut over to domain")
+	}
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Actions))}
 	for i, action := range arg.Actions {
 		actionReceiver := action.Receiver

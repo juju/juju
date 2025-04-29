@@ -6,7 +6,6 @@ package action
 import (
 	"testing"
 
-	"github.com/juju/names/v6"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -44,14 +43,7 @@ func (s *MockBaseSuite) NewActionAPI(c *gc.C) *ActionAPI {
 	api, err := newActionAPI(s.State, nil, s.Authorizer, LeaderFactory(s.Leadership), s.ApplicationService, s.BlockCommandService, s.ModelInfoService, modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	api.tagToActionReceiverFn = s.tagToActionReceiverFn
 	return api
-}
-
-func (s *MockBaseSuite) tagToActionReceiverFn(
-	func(names.Tag) (state.Entity, error),
-) func(tag string) (state.ActionReceiver, error) {
-	return func(tag string) (state.ActionReceiver, error) { return s.ActionReceiver, nil }
 }
 
 func NewActionAPI(
