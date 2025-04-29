@@ -16,11 +16,12 @@ type backend struct {
 
 // InsertSSHConnRequest inserts a new ssh connection request into the state.
 func (b backend) InsertSSHConnRequest(arg state.SSHConnRequestArg) error {
-	systemState, err := b.StatePool.SystemState()
+	model, poolHelper, err := b.StatePool.GetModel(arg.ModelUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return systemState.InsertSSHConnRequest(arg)
+	defer poolHelper.Release()
+	return model.State().InsertSSHConnRequest(arg)
 }
 
 // RemoveSSHConnRequest removes a ssh connection request from the state.

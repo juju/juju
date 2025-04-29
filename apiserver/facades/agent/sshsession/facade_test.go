@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/agent/sshsession"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -85,4 +86,20 @@ func (s *sshreqconnSuite) TestWatchSSHConnReq(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.StringsWatcherId, gc.Equals, "id")
 	c.Assert(result.Changes, gc.DeepEquals, []string{"doc-id2"})
+}
+
+func (s *sshreqconnSuite) TestControllerSSHPort(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.ctxMock.EXPECT().Resources().Return(s.resourceMock)
+
+	f := sshsession.NewFacade(s.ctxMock, s.backendMock)
+
+	s.backendMock.EXPECT().ControllerConfig().Return(controller.Config{
+		"ssh-server-port": 17022,
+	}, nil)
+
+	result := f.ControllerSSHPort()
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Result, gc.Equals, "17022")
 }

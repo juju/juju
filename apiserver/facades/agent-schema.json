@@ -9559,6 +9559,14 @@
         "Schema": {
             "type": "object",
             "properties": {
+                "ControllerSSHPort": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/StringResult"
+                        }
+                    }
+                },
                 "GetSSHConnRequest": {
                     "type": "object",
                     "properties": {
@@ -9756,6 +9764,21 @@
                         "IsSecondary",
                         "MachineAddress",
                         "SpaceID"
+                    ]
+                },
+                "StringResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "result"
                     ]
                 },
                 "StringsWatchResult": {

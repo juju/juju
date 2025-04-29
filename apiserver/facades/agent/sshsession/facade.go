@@ -4,7 +4,11 @@
 package sshsession
 
 import (
+	"strconv"
+
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -14,6 +18,7 @@ import (
 type Backend interface {
 	GetSSHConnRequest(docID string) (state.SSHConnRequest, error)
 	WatchSSHConnRequest(machineId string) state.StringsWatcher
+	ControllerConfig() (controller.Config, error)
 }
 
 // Facade allows model config manager clients to watch controller config changes and fetch controller config.
@@ -53,4 +58,13 @@ func (f *Facade) WatchSSHConnRequest(arg params.SSHConnRequestWatchArg) (params.
 		return result, watcher.EnsureErr(w)
 	}
 	return result, nil
+}
+
+// ControllerSSHPort returns the SSH port of the controller.
+func (f *Facade) ControllerSSHPort() params.StringResult {
+	ctrlConfig, err := f.backend.ControllerConfig()
+	if err != nil {
+		return params.StringResult{Error: apiservererrors.ServerError(err)}
+	}
+	return params.StringResult{Result: strconv.Itoa(ctrlConfig.SSHServerPort())}
 }

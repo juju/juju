@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3/ssh"
 	"github.com/juju/worker/v3"
+	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/keyupdater"
@@ -172,9 +173,9 @@ func (kw *keyUpdater) TearDown() error {
 }
 
 // AddEphemeralKey adds an ephemeral key to authorized_keys file.
-func (a *AuthWorker) AddEphemeralKey(ephemeralKey string) error {
-	ephemeralKey = ensureJujuEphemeralComment(ephemeralKey)
-	err := ssh.AddKeys(SSHUser, ephemeralKey)
+func (a *AuthWorker) AddEphemeralKey(key gossh.PublicKey, comment string) error {
+	keyWithComment := ensureJujuEphemeralComment(key, comment)
+	err := ssh.AddKeys(SSHUser, keyWithComment)
 	if err != nil {
 		return err
 	}
@@ -182,12 +183,9 @@ func (a *AuthWorker) AddEphemeralKey(ephemeralKey string) error {
 }
 
 // RemoveEphemeralKey removes an ephemeral key from authorized_keys file.
-func (a *AuthWorker) RemoveEphemeralKey(ephemeralKey string) error {
-	fingerprint, _, err := ssh.KeyFingerprint(ephemeralKey)
-	if err != nil {
-		return errors.Annotatef(err, "removing ephemeral key %q", ephemeralKey)
-	}
-	err = ssh.DeleteKeys(SSHUser, fingerprint)
+func (a *AuthWorker) RemoveEphemeralKey(ephemeralKey gossh.PublicKey) error {
+	fingerprint := gossh.FingerprintLegacyMD5(ephemeralKey)
+	err := ssh.DeleteKeys(SSHUser, fingerprint)
 	if err != nil {
 		return err
 	}

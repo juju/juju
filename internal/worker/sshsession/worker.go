@@ -6,12 +6,13 @@ package sshsession
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
 	"net"
-	"net/url"
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
@@ -32,6 +33,9 @@ type FacadeClient interface {
 
 	// GetSSHConnRequest returns a ssh connection request by its connection request ID.
 	GetSSHConnRequest(arg string) (params.SSHConnRequest, error)
+
+	// ControllerSSHPort returns the SSH port of the controller.
+	ControllerSSHPort() (string, error)
 }
 
 // WorkerConfig encapsulates the configuration options for
@@ -112,6 +116,11 @@ func (w *sshSessionWorker) loop() error {
 		return errors.Trace(err)
 	}
 
+	controllerSSHPort, err := w.facadeClient.ControllerSSHPort()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -120,7 +129,7 @@ func (w *sshSessionWorker) loop() error {
 			for _, connId := range changes {
 				go func() {
 					requestContext := w.catacomb.Context(context.Background())
-					err := w.handleConnection(requestContext, connId)
+					err := w.handleConnection(requestContext, connId, controllerSSHPort)
 					if err != nil {
 						w.logger.Errorf("Failed to handle connection %q: %v", connId, err)
 					}
@@ -151,16 +160,21 @@ func (w *sshSessionWorker) Wait() error {
 //     back from the controller's SSH server.
 //  5. Pipes the connection to the local sshd.
 //  6. On connection close, removes the ephemeral public key.
-func (w *sshSessionWorker) handleConnection(ctx context.Context, connID string) error {
+func (w *sshSessionWorker) handleConnection(ctx context.Context, connID, ctrlPort string) error {
+	w.logger.Errorf("Handling connection %q", connID)
 	reqParams, err := w.facadeClient.GetSSHConnRequest(connID)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	ctrlAddress := reqParams.ControllerAddresses.Values()[0]
-	ephemeralPublicKey := string(reqParams.EphemeralPublicKey)
 
-	if err := w.ephemeralKeysUpdater.AddEphemeralKey(ephemeralPublicKey); err != nil {
+	ephemeralPublicKey, err := ssh.ParsePublicKey(reqParams.EphemeralPublicKey)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := w.ephemeralKeysUpdater.AddEphemeralKey(ephemeralPublicKey, connID); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -170,7 +184,7 @@ func (w *sshSessionWorker) handleConnection(ctx context.Context, connID string) 
 		}
 	}()
 
-	if err := w.pipeConnectionToSSHD(ctx, ctrlAddress, reqParams.Password); err != nil {
+	if err := w.pipeConnectionToSSHD(ctx, ctrlAddress, ctrlPort, reqParams.Password); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -179,8 +193,8 @@ func (w *sshSessionWorker) handleConnection(ctx context.Context, connID string) 
 
 // pipeConnectionToSSHD initiates the connection back to the controller and pipes
 // it over to the local SSHD. This call blocks until the connection has finished.
-func (w *sshSessionWorker) pipeConnectionToSSHD(ctx context.Context, ctrlAddress, password string) error {
-	controllerConn, err := w.connectionGetter.GetControllerConnection(password, ctrlAddress)
+func (w *sshSessionWorker) pipeConnectionToSSHD(ctx context.Context, ctrlAddress, ctrlPort, password string) error {
+	controllerConn, err := w.connectionGetter.GetControllerConnection(password, ctrlAddress, ctrlPort)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -224,7 +238,7 @@ func (w *sshSessionWorker) pipeConnectionToSSHD(ctx context.Context, ctrlAddress
 
 // ConnectionGetter provides the methods to connect to a controller and the local SSHD.
 type ConnectionGetter interface {
-	GetControllerConnection(password, ctrlAddress string) (net.Conn, error)
+	GetControllerConnection(password, ctrlAddress, ctrlPort string) (net.Conn, error)
 	GetSSHDConnection() (net.Conn, error)
 }
 
@@ -235,29 +249,33 @@ type ConnectionGetter interface {
 //
 // The consumer is expect to pipe these connections together.
 type connectionGetter struct {
-	logger Logger
+	logger          Logger
+	sshdConfigPaths []string
 }
 
 // newConnectionGetter returns a new connectionGetter.
 func newConnectionGetter(l Logger) *connectionGetter {
-	return &connectionGetter{l}
+	return &connectionGetter{
+		logger:          l,
+		sshdConfigPaths: []string{"/etc/ssh/sshd_config", "/usr/share/openssh/sshd_config"},
+	}
 }
 
 // GetControllerConnection initiates an SSH connection to the target ctrlAddress.
-func (w *connectionGetter) GetControllerConnection(password, ctrlAddress string) (net.Conn, error) {
+func (w *connectionGetter) GetControllerConnection(password, ctrlAddress, port string) (net.Conn, error) {
 	// TODO(ale8k): Watch will return host key in subsequent PR.
 	sshConfig := &ssh.ClientConfig{
 		User:            sshtunneler.ReverseTunnelUser,
 		Auth:            []ssh.AuthMethod{ssh.Password(password)},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // TODO(ale8k): Fill in host key here
+		Timeout:         30 * time.Second,
 	}
 
-	client, err := ssh.Dial("tcp", ctrlAddress, sshConfig)
+	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%s", ctrlAddress, port), sshConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	// TODO(ale8k): Make this a constant that both the server and session worker can use.
 	ch, in, err := client.OpenChannel(sshtunneler.JujuTunnelChannel, nil)
 	if err != nil {
 		return nil, err
@@ -269,15 +287,9 @@ func (w *connectionGetter) GetControllerConnection(password, ctrlAddress string)
 
 // GetSSHConnection performs a stand TCP dial to the SSHD running on the machine.
 func (w *connectionGetter) GetSSHDConnection() (net.Conn, error) {
-	etcPath := "/etc/ssh/sshd_config"
-	openSSHPath := "/usr/share/openssh/sshd_config"
-	port := w.getLocalSSHPort(etcPath, openSSHPath)
-	u, err := url.Parse("localhost" + port)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	port := w.getLocalSSHPort()
 
-	localSSHD, err := net.Dial("tcp", u.String())
+	localSSHD, err := net.Dial("tcp", "localhost:"+port)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -287,10 +299,10 @@ func (w *connectionGetter) GetSSHDConnection() (net.Conn, error) {
 // getLocalSSHPort parses the local sshd_config file to get the port sshd is listening on.
 // It will try all the provided paths.
 // If it cannot get it for any reason, it'll log the error and return the default port 22.
-func (w *connectionGetter) getLocalSSHPort(filePaths ...string) string {
+func (w *connectionGetter) getLocalSSHPort() string {
 	port := "22"
 
-	for _, filePath := range filePaths {
+	for _, filePath := range w.sshdConfigPaths {
 		file, err := os.Open(filePath)
 		if err != nil {
 			w.logger.Errorf("Error opening sshd_config file: %v", err)

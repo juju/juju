@@ -80,3 +80,24 @@ func (s *sshsessionSuite) TestGetSSHConnRequest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(connReq, jc.DeepEquals, params.SSHConnRequest{Username: "alice"})
 }
+
+func (s *sshsessionSuite) TestControllerSSHPort(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "SSHSession")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ControllerSSHPort")
+		c.Assert(arg, gc.IsNil)
+		c.Assert(result, gc.FitsTypeOf, &params.StringResult{})
+		*(result.(*params.StringResult)) = params.StringResult{
+			Result: "17022",
+		}
+
+		return nil
+	})
+
+	client := sshsession.NewClient(apiCaller)
+	result, err := client.ControllerSSHPort()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.Equals, "17022")
+}

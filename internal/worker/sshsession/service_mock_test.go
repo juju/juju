@@ -41,6 +41,45 @@ func (m *MockFacadeClient) EXPECT() *MockFacadeClientMockRecorder {
 	return m.recorder
 }
 
+// ControllerSSHPort mocks base method.
+func (m *MockFacadeClient) ControllerSSHPort() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerSSHPort")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllerSSHPort indicates an expected call of ControllerSSHPort.
+func (mr *MockFacadeClientMockRecorder) ControllerSSHPort() *MockFacadeClientControllerSSHPortCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerSSHPort", reflect.TypeOf((*MockFacadeClient)(nil).ControllerSSHPort))
+	return &MockFacadeClientControllerSSHPortCall{Call: call}
+}
+
+// MockFacadeClientControllerSSHPortCall wrap *gomock.Call
+type MockFacadeClientControllerSSHPortCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockFacadeClientControllerSSHPortCall) Return(arg0 string, arg1 error) *MockFacadeClientControllerSSHPortCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockFacadeClientControllerSSHPortCall) Do(f func() (string, error)) *MockFacadeClientControllerSSHPortCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockFacadeClientControllerSSHPortCall) DoAndReturn(f func() (string, error)) *MockFacadeClientControllerSSHPortCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetSSHConnRequest mocks base method.
 func (m *MockFacadeClient) GetSSHConnRequest(arg0 string) (params.SSHConnRequest, error) {
 	m.ctrl.T.Helper()
@@ -143,18 +182,18 @@ func (m *MockConnectionGetter) EXPECT() *MockConnectionGetterMockRecorder {
 }
 
 // GetControllerConnection mocks base method.
-func (m *MockConnectionGetter) GetControllerConnection(arg0, arg1 string) (net.Conn, error) {
+func (m *MockConnectionGetter) GetControllerConnection(arg0, arg1, arg2 string) (net.Conn, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetControllerConnection", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetControllerConnection", arg0, arg1, arg2)
 	ret0, _ := ret[0].(net.Conn)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetControllerConnection indicates an expected call of GetControllerConnection.
-func (mr *MockConnectionGetterMockRecorder) GetControllerConnection(arg0, arg1 any) *MockConnectionGetterGetControllerConnectionCall {
+func (mr *MockConnectionGetterMockRecorder) GetControllerConnection(arg0, arg1, arg2 any) *MockConnectionGetterGetControllerConnectionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerConnection", reflect.TypeOf((*MockConnectionGetter)(nil).GetControllerConnection), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerConnection", reflect.TypeOf((*MockConnectionGetter)(nil).GetControllerConnection), arg0, arg1, arg2)
 	return &MockConnectionGetterGetControllerConnectionCall{Call: call}
 }
 
@@ -170,13 +209,13 @@ func (c *MockConnectionGetterGetControllerConnectionCall) Return(arg0 net.Conn, 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockConnectionGetterGetControllerConnectionCall) Do(f func(string, string) (net.Conn, error)) *MockConnectionGetterGetControllerConnectionCall {
+func (c *MockConnectionGetterGetControllerConnectionCall) Do(f func(string, string, string) (net.Conn, error)) *MockConnectionGetterGetControllerConnectionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConnectionGetterGetControllerConnectionCall) DoAndReturn(f func(string, string) (net.Conn, error)) *MockConnectionGetterGetControllerConnectionCall {
+func (c *MockConnectionGetterGetControllerConnectionCall) DoAndReturn(f func(string, string, string) (net.Conn, error)) *MockConnectionGetterGetControllerConnectionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

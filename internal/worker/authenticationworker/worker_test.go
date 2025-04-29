@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/v3/ssh"
 	sshtesting "github.com/juju/utils/v3/ssh/testing"
 	"github.com/juju/worker/v3"
+	gossh "golang.org/x/crypto/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -193,14 +194,17 @@ func (s *workerSuite) TestWorkerWithEphemeralKeys(c *gc.C) {
 	authWorker, ok := worker.(*authenticationworker.AuthWorker)
 	c.Assert(ok, gc.Equals, true)
 
-	err = authWorker.AddEphemeralKey(sshtesting.ValidKeyThree.Key + " key3@host")
+	key3, _, _, _, err := gossh.ParseAuthorizedKey([]byte(sshtesting.ValidKeyThree.Key))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = authWorker.AddEphemeralKey(key3, "key3-comment")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the key is added to the ssh auth keys. The check here is synchronous.
-	equals := s.compareKeys(c, append(s.existingKeys, s.existingEnvKey, sshtesting.ValidKeyThree.Key+" Juju:Ephemeral:key3@host"))
+	equals := s.compareKeys(c, append(s.existingKeys, s.existingEnvKey, sshtesting.ValidKeyThree.Key+" Juju:Ephemeral:key3-comment"))
 	c.Assert(equals, gc.Equals, true)
 
-	err = authWorker.RemoveEphemeralKey(sshtesting.ValidKeyThree.Key + " key3@host")
+	err = authWorker.RemoveEphemeralKey(key3)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the key is removed from the ssh auth keys. The check here is synchronous.
@@ -216,11 +220,16 @@ func (s *workerSuite) TestWorkerWithEphemeralKeysFlushedAfterRestart(c *gc.C) {
 	authWorker, ok := worker.(*authenticationworker.AuthWorker)
 	c.Assert(ok, gc.Equals, true)
 
-	err = authWorker.AddEphemeralKey(sshtesting.ValidKeyThree.Key + " key3@host")
+	key3, _, _, _, err := gossh.ParseAuthorizedKey([]byte(sshtesting.ValidKeyThree.Key))
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = authWorker.AddEphemeralKey(key3, "key3-comment")
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Check that the key is added to the ssh auth keys. The check here is synchronous.
-	equals := s.compareKeys(c, append(s.existingKeys, s.existingEnvKey, sshtesting.ValidKeyThree.Key+" Juju:Ephemeral:key3@host"))
+	equals := s.compareKeys(c, append(s.existingKeys, s.existingEnvKey, sshtesting.ValidKeyThree.Key+" Juju:Ephemeral:key3-comment"))
 	c.Assert(equals, gc.Equals, true)
+
 	// stop the watcher and check the ephemeral keys are removed after restart.
 	stop(c, authWorker)
 	worker, err = authenticationworker.NewWorker(s.keyupdaterAPI, agentConfig(c, s.machine.Tag().(names.MachineTag)))
@@ -236,14 +245,18 @@ func (s *workerSuite) TestWorkerWithEphemeralAndKeys(c *gc.C) {
 	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey))
 	authWorker, ok := worker.(*authenticationworker.AuthWorker)
 	c.Assert(ok, gc.Equals, true)
+
+	key4, _, _, _, err := gossh.ParseAuthorizedKey([]byte(sshtesting.ValidKeyFour.Key))
+	c.Assert(err, jc.ErrorIsNil)
+
 	// add a key in a go-routine to simulate a change while the worker is running another update.
 	go func() {
-		err = authWorker.AddEphemeralKey(sshtesting.ValidKeyFour.Key + " key4@host")
+		err = authWorker.AddEphemeralKey(key4, "key4-comment")
 		c.Check(err, jc.ErrorIsNil)
 	}()
 
 	s.setAuthorisedKeys(c, sshtesting.ValidKeyThree.Key+" yetanother@host")
 	yetAnotherKeyWithComment := sshtesting.ValidKeyThree.Key + " Juju:yetanother@host"
-	ephemeralKeyWithComment := sshtesting.ValidKeyFour.Key + " Juju:Ephemeral:key4@host"
+	ephemeralKeyWithComment := sshtesting.ValidKeyFour.Key + " Juju:Ephemeral:key4-comment"
 	s.waitSSHKeys(c, append(s.existingKeys, yetAnotherKeyWithComment, ephemeralKeyWithComment))
 }
