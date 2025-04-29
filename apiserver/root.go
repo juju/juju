@@ -148,18 +148,23 @@ func newAPIHandler(
 	connectionID uint64,
 	serverHost string,
 ) (*apiHandler, error) {
-	_, err := domainServices.Model().Model(ctx, modelUUID)
+	// We return a core errors NotFound because we are still mixing
+	// mongo State and domain service calls and this is easier till
+	// we fully convert across.
+	exists, err := domainServices.Model().CheckModelExists(ctx, modelUUID)
 	if err != nil {
-		if !errors.Is(err, modelerrors.NotFound) {
-			return nil, errors.Trace(err)
+		if errors.Is(err, modelerrors.NotFound) {
+			err = errors.NotFound
 		}
-
+		return nil, errors.Trace(err)
+	}
+	if !exists {
 		// If this model used to be hosted on this controller but got
 		// migrated allow clients to connect and wait for a login
 		// request to decide whether the users should be redirected to
 		// the new controller for this model or not.
 		if _, migErr := st.CompletedMigration(); migErr != nil {
-			return nil, errors.Trace(err) // return original modelerrors.NotFound error
+			return nil, errors.NotFound // return errors.NotFound on any error
 		}
 	}
 

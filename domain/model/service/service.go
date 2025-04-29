@@ -250,7 +250,7 @@ func NewWatchableService(st State,
 // CheckModelExists checks if a model exists within the controller. True or
 // false is returned indiciating of the model exists.
 func (s *Service) CheckModelExists(ctx context.Context, modelUUID coremodel.UUID) (bool, error) {
-	return s.CheckModelExists(ctx, modelUUID)
+	return s.st.CheckModelExists(ctx, modelUUID)
 }
 
 // DefaultModelCloudNameAndCredential returns the default cloud name and

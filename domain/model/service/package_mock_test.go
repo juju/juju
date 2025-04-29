@@ -643,6 +643,45 @@ func (c *MockStateActivateCall) DoAndReturn(f func(context.Context, model.UUID) 
 	return c
 }
 
+// CheckModelExists mocks base method.
+func (m *MockState) CheckModelExists(arg0 context.Context, arg1 model.UUID) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckModelExists", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CheckModelExists indicates an expected call of CheckModelExists.
+func (mr *MockStateMockRecorder) CheckModelExists(arg0, arg1 any) *MockStateCheckModelExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckModelExists", reflect.TypeOf((*MockState)(nil).CheckModelExists), arg0, arg1)
+	return &MockStateCheckModelExistsCall{Call: call}
+}
+
+// MockStateCheckModelExistsCall wrap *gomock.Call
+type MockStateCheckModelExistsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateCheckModelExistsCall) Return(arg0 bool, arg1 error) *MockStateCheckModelExistsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateCheckModelExistsCall) Do(f func(context.Context, model.UUID) (bool, error)) *MockStateCheckModelExistsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateCheckModelExistsCall) DoAndReturn(f func(context.Context, model.UUID) (bool, error)) *MockStateCheckModelExistsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // CloudSupportsAuthType mocks base method.
 func (m *MockState) CloudSupportsAuthType(arg0 context.Context, arg1 string, arg2 cloud.AuthType) (bool, error) {
 	m.ctrl.T.Helper()

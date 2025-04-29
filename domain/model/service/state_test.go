@@ -40,6 +40,11 @@ type dummyState struct {
 	controllerModelUUID coremodel.UUID
 }
 
+func (d *dummyState) CheckModelExists(ctx context.Context, uuid coremodel.UUID) (bool, error) {
+	_, exists := d.models[uuid]
+	return exists, nil
+}
+
 type dummyDeleter struct {
 	deleted map[string]struct{}
 }

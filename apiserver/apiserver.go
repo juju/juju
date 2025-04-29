@@ -52,7 +52,6 @@ import (
 	coreresource "github.com/juju/juju/core/resource"
 	coretrace "github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
@@ -1142,7 +1141,7 @@ func (srv *Server) serveConn(
 			host,
 		)
 	}
-	if errors.Is(err, modelerrors.NotFound) {
+	if errors.Is(err, errors.NotFound) {
 		err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, modelUUID)
 	}
 
