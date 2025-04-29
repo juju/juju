@@ -96,6 +96,21 @@ CREATE TABLE link_layer_device_dns_address (
     PRIMARY KEY (device_uuid, dns_address)
 );
 
+-- Note that this table is defined for completeness in
+-- reflecting what we capture as network configuration.
+-- At the time of writing, we do not store any routes,
+-- but this can be easily changed at a later date.
+CREATE TABLE link_layer_device_route (
+    device_uuid TEXT NOT NULL,
+    destination_cidr TEXT NOT NULL,
+    gateway_ip TEXT NOT NULL,
+    metric INT NOT NULL,
+    CONSTRAINT fk_dns_server_device
+    FOREIGN KEY (device_uuid)
+    REFERENCES link_layer_device (uuid),
+    PRIMARY KEY (device_uuid, destination_cidr)
+);
+
 -- ip_address_type represents the possible ways of specifying
 -- an address, either a hostname resolvable by dns lookup,
 -- or IPv4 or IPv6 address.
@@ -314,3 +329,43 @@ SELECT
     null AS origin_id,
     fa.scope_id
 FROM fqdn_address AS fa;
+
+CREATE VIEW v_machine_interface AS
+SELECT
+    m.uuid AS machine_uuid,
+    m.name AS machine_name,
+    d.net_node_uuid,
+    d.uuid AS device_uuid,
+    d.name AS device_name,
+    d.mtu,
+    d.mac_address,
+    d.device_type_id,
+    d.virtual_port_type_id,
+    d.is_auto_start,
+    d.is_enabled,
+    d.is_default_gateway,
+    d.gateway_address,
+    pd.provider_id AS device_provider_id,
+    dp.parent_uuid AS parent_device_uuid,
+    dd.name AS parent_device_name,
+    dns.dns_address,
+    a.uuid AS address_uuid,
+    a.address_value,
+    a.subnet_uuid,
+    s.cidr,
+    ps.provider_id AS provider_subnet_id,
+    a.type_id AS address_type_id,
+    a.config_type_id,
+    a.origin_id,
+    a.scope_id,
+    a.is_secondary,
+    a.is_shadow
+FROM machine AS m
+JOIN link_layer_device AS d ON m.net_node_uuid = d.net_node_uuid
+LEFT JOIN provider_link_layer_device AS pd ON d.uuid = pd.device_uuid
+LEFT JOIN link_layer_device_parent AS dp ON d.uuid = dp.device_uuid
+LEFT JOIN link_layer_device AS dd ON dp.parent_uuid = dd.uuid
+LEFT JOIN link_layer_device_dns_address AS dns ON d.uuid = dns.device_uuid
+LEFT JOIN ip_address AS a ON d.uuid = a.device_uuid
+LEFT JOIN subnet AS s ON a.subnet_uuid = s.uuid
+LEFT JOIN provider_subnet AS ps ON a.subnet_uuid = ps.subnet_uuid
