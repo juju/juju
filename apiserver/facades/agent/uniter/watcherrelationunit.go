@@ -43,12 +43,7 @@ type relationUnitsWatcher struct {
 //
 // It initializes a relationUnitsWatcher instance,
 // sets up its internal state, and starts its lifecycle management.
-func newRelationUnitsWatcher(
-	ctx context.Context,
-	unit names.UnitTag,
-	relUUID corerelation.UUID,
-	relationService RelationService,
-) (common.RelationUnitsWatcher, error) {
+func newRelationUnitsWatcher(unit names.UnitTag, relUUID corerelation.UUID, relationService RelationService) (common.RelationUnitsWatcher, error) {
 	w := &relationUnitsWatcher{
 		relation:     relationService,
 		unitName:     coreunit.Name(unit.Id()),
@@ -58,7 +53,7 @@ func newRelationUnitsWatcher(
 	return w, catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
 		Work: func() error {
-			return w.loop(w.catacomb.Context(ctx))
+			return w.loop(w.catacomb.Context(nil))
 		},
 	})
 }

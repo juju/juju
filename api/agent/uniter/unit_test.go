@@ -428,7 +428,6 @@ func (s *unitSuite) TestWatchResolveModeNotImplemented(c *gc.C) {
 }
 
 func (s *unitSuite) TestWatchRelations(c *gc.C) {
-	c.Skip("disabled while WatchRelations returns the disabledRelationsWatcher")
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		if objType == "StringsWatcher" {
 			if request != "Next" && request != "Stop" {
@@ -458,6 +457,18 @@ func (s *unitSuite) TestWatchRelations(c *gc.C) {
 
 	// Initial event.
 	wc.AssertChange("666")
+}
+
+func (s *unitSuite) TestWatchRelationsNotImplemented(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
+	})
+	tag := names.NewUnitTag("mysql/0")
+	client := uniter.NewClient(apiCaller, tag)
+
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+	_, err := unit.WatchRelations(context.Background())
+	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestAssignedMachine(c *gc.C) {
@@ -943,8 +954,7 @@ func (s *unitSuite) TestWatchAddressesHashNotImplemented(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *unitSuite) TestRelationsStatus(c *gc.C) {
-	c.Skip("disabled while RelationsStatus method returns no content")
+func (s *unitSuite) TestRelationStatus(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
 		c.Assert(request, gc.Equals, "RelationsStatus")
@@ -971,6 +981,19 @@ func (s *unitSuite) TestRelationsStatus(c *gc.C) {
 		Suspended: true,
 		InScope:   true,
 	}})
+}
+
+func (s *unitSuite) TestRelationStatusNotImplemented(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
+	})
+	tag := names.NewUnitTag("mysql/0")
+	client := uniter.NewClient(apiCaller, tag)
+
+	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
+
+	_, err := unit.RelationsStatus(context.Background())
+	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *unitSuite) TestUnitState(c *gc.C) {

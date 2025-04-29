@@ -1845,7 +1845,7 @@ func (u *UniterAPI) watchOneRelationUnit(
 		return params.RelationUnitsWatchResult{}, internalerrors.Capture(err)
 	}
 
-	watch, err := newRelationUnitsWatcher(ctx, unit, relUUID, u.relationService)
+	watch, err := newRelationUnitsWatcher(unit, relUUID, u.relationService)
 	if err != nil {
 		return params.RelationUnitsWatchResult{},
 			internalerrors.Capture(internalerrors.Errorf("starting related units watcher: %w", err))

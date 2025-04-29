@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -218,54 +217,23 @@ func (s *Unit) WatchResolveMode(ctx context.Context) (watcher.NotifyWatcher, err
 // WatchRelations returns a StringsWatcher that notifies of changes to
 // the lifecycles of relations involving u.
 func (u *Unit) WatchRelations(ctx context.Context) (watcher.StringsWatcher, error) {
-	// To keep the uniter running while the relations domain epic
-	// is underway, temporarily disable relations in the uniter.
-	// JUJU-4856
-	return newDisabledRelationWatcher(), nil
-}
-
-func newDisabledRelationWatcher() watcher.StringsWatcher {
-	out := make(chan []string)
-	w := &disabledRelationWatcher{out: out}
-	emptySlice := []string{}
-	w.tomb.Go(func() error {
-		return w.loop(emptySlice)
-	})
-	return w
-}
-
-// disabledRelationWatcher returns a watcher which only has empty string
-// arrays on it's channel. This mimics the behavior of a unit have no
-// relations for the uniter. The uniter is unable to work properly without
-// this watcher. Thus the fake watcher, until the real watcher is wired
-// up to the relation domain and functional. JUJU-4856
-type disabledRelationWatcher struct {
-	tomb tomb.Tomb
-	out  chan []string
-}
-
-func (d *disabledRelationWatcher) Changes() watcher.StringsChannel {
-	return d.out
-}
-
-func (d *disabledRelationWatcher) loop(changes []string) error {
-	defer close(d.out)
-	select {
-	// Send the initial event only.
-	case d.out <- changes:
-	case <-d.tomb.Dying():
-		return nil
+	var results params.StringsWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	<-d.tomb.Dying()
-	return nil
-}
-
-func (d *disabledRelationWatcher) Kill() {
-	d.tomb.Kill(nil)
-}
-
-func (d *disabledRelationWatcher) Wait() error {
-	return d.tomb.Wait()
+	err := u.client.facade.FacadeCall(ctx, "WatchUnitRelations", args, &results)
+	if err != nil {
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewStringsWatcher(u.client.facade.RawAPICaller(), result)
+	return w, nil
 }
 
 // Application returns the unit's application.
@@ -672,10 +640,34 @@ type RelationStatus struct {
 // RelationsStatus returns the tags of the relations the unit has joined
 // and entered scope, or the relation is suspended.
 func (u *Unit) RelationsStatus(ctx context.Context) ([]RelationStatus, error) {
-	// To keep the uniter running while the relations domain epic
-	// is underway, temporarily disable relations in the uniter.
-	// JUJU-4856
-	return []RelationStatus{}, nil
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+	var results params.RelationUnitStatusResults
+	err := u.client.facade.FacadeCall(ctx, "RelationsStatus", args, &results)
+	if err != nil {
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	var statusResult []RelationStatus
+	for _, result := range result.RelationResults {
+		tag, err := names.ParseRelationTag(result.RelationTag)
+		if err != nil {
+			return nil, err
+		}
+		statusResult = append(statusResult, RelationStatus{
+			Tag:       tag,
+			InScope:   result.InScope,
+			Suspended: result.Suspended,
+		})
+	}
+	return statusResult, nil
 }
 
 // WatchStorage returns a watcher for observing changes to the
