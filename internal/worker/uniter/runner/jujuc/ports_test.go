@@ -74,7 +74,7 @@ func makeAllEndpointsRanges(stringRanges ...string) network.GroupedPortRanges {
 func (s *PortsSuite) TestOpenClose(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	for _, t := range portsTests {
-		com, err := jujuc.NewHookCommand(hctx, t.cmd[0])
+		com, err := jujuc.NewCommand(hctx, t.cmd[0])
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.cmd[1:])
@@ -98,7 +98,7 @@ func (s *PortsSuite) TestOpenCloseDeprecation(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	for _, t := range portsFormatDeprecationTests {
 		name := t.cmd[0]
-		com, err := jujuc.NewHookCommand(hctx, name)
+		com, err := jujuc.NewCommand(hctx, name)
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, t.cmd[1:])

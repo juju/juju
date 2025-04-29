@@ -40,7 +40,7 @@ func (s *statusSetSuite) TestStatusSetInit(c *gc.C) {
 	for i, t := range statusSetInitTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetStatusHookContext(c)
-		com, err := jujuc.NewHookCommand(hctx, "status-set")
+		com, err := jujuc.NewCommand(hctx, "status-set")
 		c.Assert(err, jc.ErrorIsNil)
 		cmdtesting.TestInit(c, com, t.args, t.err)
 	}
@@ -53,7 +53,7 @@ func (s *statusSetSuite) TestStatus(c *gc.C) {
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
-		com, err := jujuc.NewHookCommand(hctx, "status-set")
+		com, err := jujuc.NewCommand(hctx, "status-set")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
@@ -74,7 +74,7 @@ func (s *statusSetSuite) TestApplicationStatus(c *gc.C) {
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
-		com, err := jujuc.NewHookCommand(hctx, "status-set")
+		com, err := jujuc.NewCommand(hctx, "status-set")
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
 		code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
