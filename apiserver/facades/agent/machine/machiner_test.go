@@ -20,7 +20,6 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -54,7 +53,7 @@ func (s *machinerSuite) makeAPI(c *gc.C) {
 		st,
 		clock.WallClock,
 		s.ControllerDomainServices(c).ControllerConfig(),
-		apiservertesting.ConstCloudGetter(&testing.DefaultCloud),
+		s.ControllerDomainServices(c).ModelInfo(),
 		s.networkService,
 		s.machineService,
 		s.watcherRegistry,

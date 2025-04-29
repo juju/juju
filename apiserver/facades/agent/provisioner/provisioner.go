@@ -159,7 +159,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	storageProviderRegistry := provider.NewStorageProviderRegistry(env)
 
 	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(
-		stdCtx, st, domainServices.Cloud(), domainServices.Network(), getCanModify)
+		stdCtx, st, domainServices.ModelInfo(), domainServices.Network(), getCanModify)
 	if err != nil {
 		return nil, errors.Annotate(err, "instantiating network config API")
 	}

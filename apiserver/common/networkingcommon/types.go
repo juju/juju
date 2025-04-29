@@ -28,9 +28,6 @@ type NetworkBacking interface {
 	// SetAvailabilityZones replaces the cached list of availability
 	// zones with the given zones.
 	SetAvailabilityZones(network.AvailabilityZones) error
-
-	// ModelTag returns the tag of the model this state is associated to.
-	ModelTag() names.ModelTag
 }
 
 // BackingSubnetToParamsSubnetV2 converts a network backing subnet to the new
