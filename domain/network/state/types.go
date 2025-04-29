@@ -9,6 +9,11 @@ import (
 	"github.com/juju/juju/core/network"
 )
 
+type entityUUID struct {
+	// UUID uniquely identifies an entity.
+	UUID string `db:"uuid"`
+}
+
 // subnet represents a single row from the subnet table.
 type subnet struct {
 	// UUID is the subnet's UUID.
@@ -283,6 +288,8 @@ type machineInterfaceRow struct {
 	GatewayAddress    sql.NullString `db:"gateway_address"`
 	IsDefaultGateway  bool           `db:"is_default_gateway"`
 	VLANTag           int64          `db:"vlan_tag"`
+	DNSAddress        sql.NullString `db:"dns_address"`
+	DNSSearchDomain   sql.NullString `db:"search_domain"`
 
 	// AddressUUID and associated IP address fields.
 	AddressUUID       sql.NullString `db:"address_uuid"`
