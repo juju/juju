@@ -280,7 +280,8 @@ type machineInterfaceRow struct {
 	IsEnabled         bool           `db:"is_enabled"`
 	ParentDeviceUUID  sql.NullString `db:"parent_device_uuid"`
 	ParentDeviceName  sql.NullString `db:"parent_device_name"`
-	DefaultGateway    sql.NullString `db:"is_default_gateway"`
+	GatewayAddress    sql.NullString `db:"gateway_address"`
+	IsDefaultGateway  bool           `db:"is_default_gateway"`
 
 	// AddressUUID and associated IP address fields.
 	AddressUUID      sql.NullString `db:"address_uuid"`
