@@ -166,7 +166,6 @@ func (ssw *serverWrapperWorker) loop() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	if err := ssw.catacomb.Add(srv); err != nil {
 		return errors.Trace(err)
 	}

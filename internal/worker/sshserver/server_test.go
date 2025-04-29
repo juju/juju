@@ -6,6 +6,7 @@ package sshserver
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -22,6 +23,7 @@ import (
 )
 
 const maxConcurrentConnections = 10
+const testVirtualHostname = "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local"
 
 type sshServerSuite struct {
 	testing.IsolationSuite
@@ -126,7 +128,7 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 
 	// Open jump connection
 	client := ssh.NewClient(jumpConn, chans, terminatingReqs)
-	tunnel, err := client.Dial("tcp", "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local:20")
+	tunnel, err := client.Dial("tcp", fmt.Sprintf("%s:0", testVirtualHostname))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now with this opened direct-tcpip channel, open a session connection
@@ -148,7 +150,7 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 
 	output, err := terminatingSession.CombinedOutput("")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(output), gc.Equals, "Your final destination is: 1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local as user: ubuntu\n")
+	c.Assert(string(output), gc.Equals, fmt.Sprintf("Your final destination is: 8419cd78-4993-4c3a-928e-c646226beeee as user: ubuntu\n"))
 
 	// Server isn't gracefully closed, it's forcefully closed. All connections ended
 	// from server side.
@@ -182,7 +184,7 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
 		}
 		for range maxConcurrentConnections {
 			client := inMemoryDial(c, listener, config)
-			_, err := client.Dial("tcp", "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local:20")
+			_, err := client.Dial("tcp", fmt.Sprintf("%s:0", testVirtualHostname))
 			c.Assert(err, jc.ErrorIsNil)
 			clients = append(clients, client)
 		}
