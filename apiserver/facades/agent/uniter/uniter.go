@@ -1395,7 +1395,17 @@ func (u *UniterAPI) EnterScope(ctx context.Context, args params.RelationUnits) (
 			continue
 		}
 		err = u.oneEnterScope(ctx, canAccess, arg.Relation, tag)
-		if err != nil {
+		if errors.Is(err, relationerrors.CannotEnterScopeNotAlive) {
+			result.Results[i].Error = &params.Error{
+				Message: err.Error(),
+				Code:    params.CodeCannotEnterScope,
+			}
+		} else if errors.Is(err, relationerrors.CannotEnterScopeSubordinateNotAlive) {
+			result.Results[i].Error = &params.Error{
+				Message: err.Error(),
+				Code:    params.CodeCannotEnterScopeYet,
+			}
+		} else if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
