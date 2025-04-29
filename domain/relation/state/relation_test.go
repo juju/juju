@@ -2031,7 +2031,7 @@ func (s *relationSuite) TestEnterScopeRelationNotAlive(c *gc.C) {
 	err := s.state.EnterScope(context.Background(), relationUUID, unitName, map[string]string{})
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotAlive)
+	c.Assert(err, jc.ErrorIs, relationerrors.CannotEnterScopeNotAlive)
 }
 
 func (s *relationSuite) TestEnterScopeUnitNotAlive(c *gc.C) {
@@ -2067,7 +2067,7 @@ func (s *relationSuite) TestEnterScopeUnitNotAlive(c *gc.C) {
 	err := s.state.EnterScope(context.Background(), relationUUID, unitName, map[string]string{})
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.UnitNotAlive)
+	c.Assert(err, jc.ErrorIs, relationerrors.CannotEnterScopeNotAlive)
 }
 
 func (s *relationSuite) TestEnterScopeRelationNotFound(c *gc.C) {
@@ -3511,7 +3511,7 @@ func (s *relationSuite) TestApplicationRelationsInfoNoRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *relationSuite) TestCreateSubordinateParams(c *gc.C) {
+func (s *relationSuite) TestNeedsSubordinateUnit(c *gc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
 	s.addCharmMetadata(c, s.fakeCharmUUID2, true)
@@ -3538,9 +3538,9 @@ func (s *relationSuite) TestCreateSubordinateParams(c *gc.C) {
 	c.Check(*subAppID, gc.Equals, subordinateApplicationID)
 }
 
-// TestCreateSubordinateParamsGlobalScopedRelation checks that no parameters are
+// TestNeedsSubordinateUnitGlobalScopedRelation checks that no parameters are
 // returned if the relation is globally scoped.
-func (s *relationSuite) TestCreateSubordinateParamsGlobalScopedRelation(c *gc.C) {
+func (s *relationSuite) TestNeedsSubordinateUnitGlobalScopedRelation(c *gc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
 	s.addCharmMetadata(c, s.fakeCharmUUID2, true)
@@ -3566,9 +3566,9 @@ func (s *relationSuite) TestCreateSubordinateParamsGlobalScopedRelation(c *gc.C)
 	c.Assert(subAppID, gc.IsNil)
 }
 
-// TestCreateSubordinateParamsPeerRelation checks that no parameters are
+// TestNeedsSubordinateUnitPeerRelation checks that no parameters are
 // returned for a peer relation.
-func (s *relationSuite) TestCreateSubordinateParamsPeerRelation(c *gc.C) {
+func (s *relationSuite) TestNeedsSubordinateUnitPeerRelation(c *gc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID2, true)
 
@@ -3592,9 +3592,9 @@ func (s *relationSuite) TestCreateSubordinateParamsPeerRelation(c *gc.C) {
 	c.Assert(subAppID, gc.IsNil)
 }
 
-// TestCreateSubordinateParamsAppNotSubordinate checks that no parameters are
+// TestNeedsSubordinateUnitAppNotSubordinate checks that no parameters are
 // returned if the related app is not a subordinate.
-func (s *relationSuite) TestCreateSubordinateParamsAppNotSubordinate(c *gc.C) {
+func (s *relationSuite) TestNeedsSubordinateUnitAppNotSubordinate(c *gc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
 	s.addCharmMetadata(c, s.fakeCharmUUID2, false)
@@ -3617,9 +3617,9 @@ func (s *relationSuite) TestCreateSubordinateParamsAppNotSubordinate(c *gc.C) {
 	c.Assert(subAppID, gc.IsNil)
 }
 
-// TestCreateSubordinateParamsSubordinateAlreadyExists checks that no parameters
+// TestNeedsSubordinateUnitSubordinateAlreadyExists checks that no parameters
 // are returned if a subordinate unit already exists
-func (s *relationSuite) TestCreateSubordinateParamsSubordinateAlreadyExists(c *gc.C) {
+func (s *relationSuite) TestNeedsSubordinateUnitSubordinateAlreadyExists(c *gc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
 	s.addCharmMetadata(c, s.fakeCharmUUID2, true)
@@ -3648,7 +3648,36 @@ func (s *relationSuite) TestCreateSubordinateParamsSubordinateAlreadyExists(c *g
 	c.Assert(subAppID, gc.IsNil)
 }
 
-func (s *relationSuite) TestCreateSubordinateParamsRelationNotAlive(c *gc.C) {
+func (s *relationSuite) TestNeedsSubordinateUnitSubordinateAlreadyExistsButIsDying(c *gc.C) {
+	// Arrange: Populate charm metadata with subordinate data.
+	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
+	s.addCharmMetadata(c, s.fakeCharmUUID2, true)
+
+	principalApplicationID := s.fakeApplicationUUID1
+	subordinateApplicationID := s.fakeApplicationUUID2
+
+	// Arrange: add container scoped relation.
+	relationUUID, principalRelationEndpointUUID, _ := s.addContainerScopedRelation(c, principalApplicationID, subordinateApplicationID)
+
+	// Arrange: Add unit to the principal application and enter into scope.
+	principalUnitName := coreunittesting.GenNewName(c, "app1/0")
+	principalUnitUUID := s.addUnit(c, principalUnitName, principalApplicationID, s.fakeCharmUUID1)
+	s.addRelationUnit(c, principalUnitUUID, principalRelationEndpointUUID)
+
+	// Arrange: Add unit to the subordinate application and set its principal unit.
+	subordinateUnitName := coreunittesting.GenNewName(c, "app2/0")
+	subordinateUnitUUID := s.addUnit(c, subordinateUnitName, subordinateApplicationID, s.fakeCharmUUID2)
+	s.setLife(c, "unit", subordinateUnitUUID.String(), life.Dying)
+	s.addUnitPrincipal(c, principalUnitUUID, subordinateUnitUUID)
+
+	// Act:
+	_, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, principalUnitName)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIs, relationerrors.CannotEnterScopeSubordinateNotAlive)
+}
+
+func (s *relationSuite) TestNeedsSubordinateUnitRelationNotAlive(c *gc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID1, false)
 	s.addCharmMetadata(c, s.fakeCharmUUID2, true)
@@ -3673,10 +3702,10 @@ func (s *relationSuite) TestCreateSubordinateParamsRelationNotAlive(c *gc.C) {
 	_, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, unitName)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.RelationNotAlive)
+	c.Assert(err, jc.ErrorIs, relationerrors.CannotEnterScopeNotAlive)
 }
 
-func (s *relationSuite) TestCreateSubordinateParamsRelationUnitNotFound(c *gc.C) {
+func (s *relationSuite) TestNeedsSubordinateUnitRelationUnitNotFound(c *gc.C) {
 	// Arrange:
 	relationUUID := s.addRelation(c)
 
@@ -3687,7 +3716,7 @@ func (s *relationSuite) TestCreateSubordinateParamsRelationUnitNotFound(c *gc.C)
 	c.Assert(err, jc.ErrorIs, relationerrors.RelationUnitNotFound)
 }
 
-func (s *relationSuite) TestCreateSubordinateParamsUnitNotAlive(c *gc.C) {
+func (s *relationSuite) TestNeedsSubordinateUnitUnitNotAlive(c *gc.C) {
 	// Arrange: Add unit to application in the relation.
 	unitName := coreunittesting.GenNewName(c, "app1/0")
 	unitUUID := s.addUnitWithLife(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1, corelife.Dying)
@@ -3702,7 +3731,7 @@ func (s *relationSuite) TestCreateSubordinateParamsUnitNotAlive(c *gc.C) {
 	_, err := s.state.NeedsSubordinateUnit(context.Background(), relationUUID, unitName)
 
 	// Assert:
-	c.Assert(err, jc.ErrorIs, relationerrors.UnitNotAlive)
+	c.Assert(err, jc.ErrorIs, relationerrors.CannotEnterScopeNotAlive)
 }
 
 func (s *relationSuite) TestGetGoalStateRelationDataForApplication(c *gc.C) {
