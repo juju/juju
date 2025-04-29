@@ -205,10 +205,6 @@ func makeInterfaceInfo(container *lxdapi.Instance, guestNetworkName string, netI
 		configType = network.ConfigLoopback
 	}
 
-	if ni.ParentInterfaceName != "" {
-		ni.ProviderNetworkId = makeNetworkID(ni.ParentInterfaceName)
-	}
-
 	// Iterate the list of addresses assigned to this interface ignoring
 	// any link-local ones. The first non link-local address is treated as
 	// the primary address and is used to populate the interface CIDR and
