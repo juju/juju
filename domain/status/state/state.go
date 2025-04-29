@@ -13,6 +13,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	coremachine "github.com/juju/juju/core/machine"
 	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
@@ -595,14 +596,14 @@ func (st *State) SetUnitWorkloadStatus(ctx context.Context, unitUUID coreunit.UU
 	return nil
 }
 
-// GetUnitCloudContainerStatus returns the cloud container status of the specified
+// GetUnitK8sPodStatus returns the cloud container status of the specified
 // unit. It returns;
 // - an error satisfying [statuserrors.UnitNotFound] if the unit doesn't exist or;
 // - an error satisfying [statuserrors.UnitIsDead] if the unit is dead or;
-func (st *State) GetUnitCloudContainerStatus(ctx context.Context, uuid coreunit.UUID) (status.StatusInfo[status.CloudContainerStatusType], error) {
+func (st *State) GetUnitK8sPodStatus(ctx context.Context, uuid coreunit.UUID) (status.StatusInfo[status.K8sPodStatusType], error) {
 	db, err := st.DB()
 	if err != nil {
-		return status.StatusInfo[status.CloudContainerStatusType]{}, errors.Capture(err)
+		return status.StatusInfo[status.K8sPodStatusType]{}, errors.Capture(err)
 	}
 
 	unitUUID := unitUUID{UnitUUID: uuid}
@@ -612,7 +613,7 @@ FROM   k8s_pod_status
 WHERE  unit_uuid = $unitUUID.uuid
 	`, statusInfo{}, unitUUID)
 	if err != nil {
-		return status.StatusInfo[status.CloudContainerStatusType]{}, errors.Capture(err)
+		return status.StatusInfo[status.K8sPodStatusType]{}, errors.Capture(err)
 	}
 
 	var containerStatusInfo statusInfo
@@ -633,14 +634,14 @@ WHERE  unit_uuid = $unitUUID.uuid
 		return nil
 	})
 	if err != nil {
-		return status.StatusInfo[status.CloudContainerStatusType]{}, errors.Errorf("getting cloud container status for unit %q: %w", unitUUID, err)
+		return status.StatusInfo[status.K8sPodStatusType]{}, errors.Errorf("getting cloud container status for unit %q: %w", unitUUID, err)
 	}
 
-	statusID, err := status.DecodeCloudContainerStatus(containerStatusInfo.StatusID)
+	statusID, err := status.DecodeK8sPodStatus(containerStatusInfo.StatusID)
 	if err != nil {
-		return status.StatusInfo[status.CloudContainerStatusType]{}, errors.Errorf("decoding cloud container status ID for unit %q: %w", uuid, err)
+		return status.StatusInfo[status.K8sPodStatusType]{}, errors.Errorf("decoding cloud container status ID for unit %q: %w", uuid, err)
 	}
-	return status.StatusInfo[status.CloudContainerStatusType]{
+	return status.StatusInfo[status.K8sPodStatusType]{
 		Status:  statusID,
 		Message: containerStatusInfo.Message,
 		Data:    containerStatusInfo.Data,
@@ -734,19 +735,19 @@ WHERE application_uuid = $applicationID.uuid
 		}
 
 		// Container status is optional.
-		containerStatus := status.StatusInfo[status.CloudContainerStatusType]{
-			Status: status.CloudContainerStatusUnset,
+		k8sPodStatus := status.StatusInfo[status.K8sPodStatusType]{
+			Status: status.K8sPodStatusUnset,
 		}
-		if s.ContainerStatusID != nil {
-			containerStatusID, err := status.DecodeCloudContainerStatus(*s.ContainerStatusID)
+		if s.K8sPodStatusID != nil {
+			k8sPodStatusID, err := status.DecodeK8sPodStatus(*s.K8sPodStatusID)
 			if err != nil {
-				return nil, errors.Errorf("decoding cloud container status ID for unit %q: %w", s.UnitName, err)
+				return nil, errors.Errorf("decoding K8ssPodStatus status ID for unit %q: %w", s.UnitName, err)
 			}
-			containerStatus = status.StatusInfo[status.CloudContainerStatusType]{
-				Status:  containerStatusID,
-				Message: s.ContainerMessage,
-				Data:    s.ContainerData,
-				Since:   s.ContainerUpdatedAt,
+			k8sPodStatus = status.StatusInfo[status.K8sPodStatusType]{
+				Status:  k8sPodStatusID,
+				Message: s.K8sPodMessage,
+				Data:    s.K8sPodData,
+				Since:   s.K8sPodUpdatedAt,
 			}
 		}
 
@@ -763,8 +764,8 @@ WHERE application_uuid = $applicationID.uuid
 				Data:    s.AgentData,
 				Since:   s.AgentUpdatedAt,
 			},
-			ContainerStatus: containerStatus,
-			Present:         s.Present,
+			K8sPodStatus: k8sPodStatus,
+			Present:      s.Present,
 		}
 	}
 	return ret, nil
@@ -1183,16 +1184,16 @@ ON CONFLICT(unit_uuid) DO UPDATE SET
 	return nil
 }
 
-// setCloudContainerStatus saves the given cloud container status, overwriting
+// setK8sPodStatus saves the given cloud container status, overwriting
 // any current status data. If returns an error satisfying
 // [statuserrors.UnitNotFound] if the unit doesn't exist.
-func (st *State) setCloudContainerStatus(
+func (st *State) setK8sPodStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
-	sts status.StatusInfo[status.CloudContainerStatusType],
+	sts status.StatusInfo[status.K8sPodStatusType],
 ) error {
-	statusID, err := status.EncodeCloudContainerStatus(sts.Status)
+	statusID, err := status.EncodeK8sPodStatus(sts.Status)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1417,6 +1418,7 @@ SELECT
 	u.uuid AS &unitStatusDetails.uuid,
 	u.life_id AS &unitStatusDetails.life_id,
 	a.name AS &unitStatusDetails.application_name,
+	m.name AS &unitStatusDetails.machine_name,
 	us.subordinate_name AS &unitStatusDetails.subordinate_name,
 	uas.status_id AS &unitStatusDetails.agent_status_id,
 	uas.message AS &unitStatusDetails.agent_message,
@@ -1425,12 +1427,20 @@ SELECT
 	uws.status_id AS &unitStatusDetails.workload_status_id,
 	uws.message AS &unitStatusDetails.workload_message,
 	uws.data AS &unitStatusDetails.workload_data,
-	uws.updated_at AS &unitStatusDetails.workload_updated_at
+	uws.updated_at AS &unitStatusDetails.workload_updated_at,
+	k8s.provider_id AS &unitStatusDetails.k8s_provider_id,
+	EXISTS(
+        SELECT 1 FROM unit_agent_presence AS uap
+        WHERE u.uuid = uap.unit_uuid
+    ) AS &unitStatusDetails.present
 FROM unit AS u
 JOIN application AS a ON a.uuid = u.application_uuid
+JOIN net_node AS n ON n.uuid = u.net_node_uuid
+LEFT JOIN machine AS m ON m.uuid = u.net_node_uuid
 LEFT JOIN unit_subordinate AS us ON us.principal_uuid = u.uuid
 LEFT JOIN unit_agent_status AS uas ON uas.unit_uuid = u.uuid
 LEFT JOIN unit_workload_status AS uws ON uws.unit_uuid = u.uuid
+LEFT JOIN k8s_pod AS k8s ON k8s.unit_uuid = u.uuid
 ORDER BY u.name;
 `, unitStatusDetails{})
 	if err != nil {
@@ -1482,9 +1492,21 @@ ORDER BY u.name;
 			return nil, errors.Errorf("decoding workload status ID for unit %q: %w", unitName, err)
 		}
 
+		var machineName *coremachine.Name
+		if s.MachineName.Valid {
+			machineName = &s.MachineName.V
+		}
+
+		var k8sProviderID *string
+		if s.K8sProviderID.Valid {
+			k8sProviderID = &s.K8sProviderID.String
+		}
+
 		result[appName][unitName] = status.Unit{
-			Life:         s.LifeID,
-			Subordinates: subordinates,
+			ApplicationName: s.ApplicationName,
+			MachineName:     machineName,
+			Life:            s.LifeID,
+			Subordinates:    subordinates,
 			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 				Status:  agentStatusID,
 				Message: s.AgentMessage,
@@ -1497,8 +1519,9 @@ ORDER BY u.name;
 				Data:    s.WorkloadData,
 				Since:   s.WorkloadUpdatedAt,
 			},
+			Present:       s.Present,
+			K8sProviderID: k8sProviderID,
 		}
-
 	}
 
 	return result, nil

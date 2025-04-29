@@ -19,33 +19,33 @@ var _ = gc.Suite(&statusSuite{})
 
 var now = time.Now()
 
-func (s *statusSuite) TestEncodeCloudContainerStatus(c *gc.C) {
+func (s *statusSuite) TestEncodeK8sPodStatus(c *gc.C) {
 	testCases := []struct {
 		input  corestatus.StatusInfo
-		output status.StatusInfo[status.CloudContainerStatusType]
+		output status.StatusInfo[status.K8sPodStatusType]
 	}{
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Waiting,
 			},
-			output: status.StatusInfo[status.CloudContainerStatusType]{
-				Status: status.CloudContainerStatusWaiting,
+			output: status.StatusInfo[status.K8sPodStatusType]{
+				Status: status.K8sPodStatusWaiting,
 			},
 		},
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Blocked,
 			},
-			output: status.StatusInfo[status.CloudContainerStatusType]{
-				Status: status.CloudContainerStatusBlocked,
+			output: status.StatusInfo[status.K8sPodStatusType]{
+				Status: status.K8sPodStatusBlocked,
 			},
 		},
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Running,
 			},
-			output: status.StatusInfo[status.CloudContainerStatusType]{
-				Status: status.CloudContainerStatusRunning,
+			output: status.StatusInfo[status.K8sPodStatusType]{
+				Status: status.K8sPodStatusRunning,
 			},
 		},
 		{
@@ -55,8 +55,8 @@ func (s *statusSuite) TestEncodeCloudContainerStatus(c *gc.C) {
 				Data:    map[string]interface{}{"foo": "bar"},
 				Since:   &now,
 			},
-			output: status.StatusInfo[status.CloudContainerStatusType]{
-				Status:  status.CloudContainerStatusRunning,
+			output: status.StatusInfo[status.K8sPodStatusType]{
+				Status:  status.K8sPodStatusRunning,
 				Message: "I'm active!",
 				Data:    []byte(`{"foo":"bar"}`),
 				Since:   &now,
@@ -66,7 +66,7 @@ func (s *statusSuite) TestEncodeCloudContainerStatus(c *gc.C) {
 
 	for i, test := range testCases {
 		c.Logf("test %d: %v", i, test.input)
-		output, err := encodeCloudContainerStatus(&test.input)
+		output, err := encodeK8sPodStatus(&test.input)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(output, jc.DeepEquals, &test.output)
 	}

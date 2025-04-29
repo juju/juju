@@ -21,18 +21,18 @@ type StatusHistory interface {
 	RecordStatus(context.Context, statushistory.Namespace, corestatus.StatusInfo) error
 }
 
-// encodeCloudContainerStatusType converts a core status to a db cloud container
+// encodeK8sPodStatusType converts a core status to a db cloud container
 // status id.
-func encodeCloudContainerStatusType(s corestatus.Status) (status.CloudContainerStatusType, error) {
+func encodeK8sPodStatusType(s corestatus.Status) (status.K8sPodStatusType, error) {
 	switch s {
 	case corestatus.Unset:
-		return status.CloudContainerStatusUnset, nil
+		return status.K8sPodStatusUnset, nil
 	case corestatus.Waiting:
-		return status.CloudContainerStatusWaiting, nil
+		return status.K8sPodStatusWaiting, nil
 	case corestatus.Blocked:
-		return status.CloudContainerStatusBlocked, nil
+		return status.K8sPodStatusBlocked, nil
 	case corestatus.Running:
-		return status.CloudContainerStatusRunning, nil
+		return status.K8sPodStatusRunning, nil
 	default:
 		return -1, errors.Errorf("unknown cloud container status %q", s)
 	}
@@ -133,16 +133,16 @@ func decodeWorkloadStatusType(s status.WorkloadStatusType) (corestatus.Status, e
 	}
 }
 
-// encodeCloudContainerStatus converts a core status info to a db status info.
+// encodeK8sPodStatus converts a core status info to a db status info.
 //
 // TODO(jack-w-shaw): This function should be imported from the status domain instead
 // of implemented here.
-func encodeCloudContainerStatus(s *corestatus.StatusInfo) (*status.StatusInfo[status.CloudContainerStatusType], error) {
+func encodeK8sPodStatus(s *corestatus.StatusInfo) (*status.StatusInfo[status.K8sPodStatusType], error) {
 	if s == nil {
 		return nil, nil
 	}
 
-	encodedStatus, err := encodeCloudContainerStatusType(s.Status)
+	encodedStatus, err := encodeK8sPodStatusType(s.Status)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func encodeCloudContainerStatus(s *corestatus.StatusInfo) (*status.StatusInfo[st
 		}
 	}
 
-	return &status.StatusInfo[status.CloudContainerStatusType]{
+	return &status.StatusInfo[status.K8sPodStatusType]{
 		Status:  encodedStatus,
 		Message: s.Message,
 		Data:    bytes,

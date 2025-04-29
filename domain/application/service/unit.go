@@ -264,18 +264,18 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 	if err != nil {
 		return errors.Errorf("encoding workload status: %w", err)
 	}
-	cloudContainerStatus, err := encodeCloudContainerStatus(params.CloudContainerStatus)
+	k8sPodStatus, err := encodeK8sPodStatus(params.CloudContainerStatus)
 	if err != nil {
-		return errors.Errorf("encoding cloud container status: %w", err)
+		return errors.Errorf("encoding k8s pod status: %w", err)
 	}
 
 	cassUnitUpdate := application.UpdateCAASUnitParams{
-		ProviderID:           params.ProviderID,
-		Address:              params.Address,
-		Ports:                params.Ports,
-		AgentStatus:          agentStatus,
-		WorkloadStatus:       workloadStatus,
-		CloudContainerStatus: cloudContainerStatus,
+		ProviderID:     params.ProviderID,
+		Address:        params.Address,
+		Ports:          params.Ports,
+		AgentStatus:    agentStatus,
+		WorkloadStatus: workloadStatus,
+		K8sPodStatus:   k8sPodStatus,
 	}
 
 	if err := s.st.UpdateCAASUnit(ctx, unitName, cassUnitUpdate); err != nil {

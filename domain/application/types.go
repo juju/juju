@@ -245,12 +245,12 @@ type SubordinateUnitArg struct {
 
 // UpdateCAASUnitParams contains parameters for updating a CAAS unit.
 type UpdateCAASUnitParams struct {
-	ProviderID           *string
-	Address              *string
-	Ports                *[]string
-	AgentStatus          *status.StatusInfo[status.UnitAgentStatusType]
-	WorkloadStatus       *status.StatusInfo[status.WorkloadStatusType]
-	CloudContainerStatus *status.StatusInfo[status.CloudContainerStatusType]
+	ProviderID     *string
+	Address        *string
+	Ports          *[]string
+	AgentStatus    *status.StatusInfo[status.UnitAgentStatusType]
+	WorkloadStatus *status.StatusInfo[status.WorkloadStatusType]
+	K8sPodStatus   *status.StatusInfo[status.K8sPodStatusType]
 }
 
 // CloudContainerParams contains parameters for a unit cloud container.

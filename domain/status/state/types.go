@@ -8,6 +8,7 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
+	coremachine "github.com/juju/juju/core/machine"
 	corerelation "github.com/juju/juju/core/relation"
 	coreunit "github.com/juju/juju/core/unit"
 	domainlife "github.com/juju/juju/domain/life"
@@ -101,20 +102,20 @@ type workloadAgentStatus struct {
 }
 
 type fullUnitStatus struct {
-	UnitName           coreunit.Name `db:"unit_name"`
-	WorkloadStatusID   *int          `db:"workload_status_id"`
-	WorkloadMessage    string        `db:"workload_message"`
-	WorkloadData       []byte        `db:"workload_data"`
-	WorkloadUpdatedAt  *time.Time    `db:"workload_updated_at"`
-	AgentStatusID      *int          `db:"agent_status_id"`
-	AgentMessage       string        `db:"agent_message"`
-	AgentData          []byte        `db:"agent_data"`
-	AgentUpdatedAt     *time.Time    `db:"agent_updated_at"`
-	ContainerStatusID  *int          `db:"container_status_id"`
-	ContainerMessage   string        `db:"container_message"`
-	ContainerData      []byte        `db:"container_data"`
-	ContainerUpdatedAt *time.Time    `db:"container_updated_at"`
-	Present            bool          `db:"present"`
+	UnitName          coreunit.Name `db:"unit_name"`
+	WorkloadStatusID  *int          `db:"workload_status_id"`
+	WorkloadMessage   string        `db:"workload_message"`
+	WorkloadData      []byte        `db:"workload_data"`
+	WorkloadUpdatedAt *time.Time    `db:"workload_updated_at"`
+	AgentStatusID     *int          `db:"agent_status_id"`
+	AgentMessage      string        `db:"agent_message"`
+	AgentData         []byte        `db:"agent_data"`
+	AgentUpdatedAt    *time.Time    `db:"agent_updated_at"`
+	K8sPodStatusID    *int          `db:"k8s_pod_status_id"`
+	K8sPodMessage     string        `db:"k8s_pod_message"`
+	K8sPodData        []byte        `db:"k8s_pod_data"`
+	K8sPodUpdatedAt   *time.Time    `db:"k8s_pod_updated_at"`
+	Present           bool          `db:"present"`
 }
 
 // relationStatus represents the status of a relation
@@ -154,19 +155,22 @@ type applicationStatusDetails struct {
 }
 
 type unitStatusDetails struct {
-	UUID              coreunit.UUID           `db:"uuid"`
-	Name              coreunit.Name           `db:"name"`
-	LifeID            domainlife.Life         `db:"life_id"`
-	ApplicationName   string                  `db:"application_name"`
-	SubordinateName   sql.Null[coreunit.Name] `db:"subordinate_name"`
-	AgentStatusID     int                     `db:"agent_status_id"`
-	AgentMessage      string                  `db:"agent_message"`
-	AgentData         []byte                  `db:"agent_data"`
-	AgentUpdatedAt    *time.Time              `db:"agent_updated_at"`
-	WorkloadStatusID  int                     `db:"workload_status_id"`
-	WorkloadMessage   string                  `db:"workload_message"`
-	WorkloadData      []byte                  `db:"workload_data"`
-	WorkloadUpdatedAt *time.Time              `db:"workload_updated_at"`
+	UUID              coreunit.UUID              `db:"uuid"`
+	Name              coreunit.Name              `db:"name"`
+	LifeID            domainlife.Life            `db:"life_id"`
+	ApplicationName   string                     `db:"application_name"`
+	MachineName       sql.Null[coremachine.Name] `db:"machine_name"`
+	SubordinateName   sql.Null[coreunit.Name]    `db:"subordinate_name"`
+	AgentStatusID     int                        `db:"agent_status_id"`
+	AgentMessage      string                     `db:"agent_message"`
+	AgentData         []byte                     `db:"agent_data"`
+	AgentUpdatedAt    *time.Time                 `db:"agent_updated_at"`
+	WorkloadStatusID  int                        `db:"workload_status_id"`
+	WorkloadMessage   string                     `db:"workload_message"`
+	WorkloadData      []byte                     `db:"workload_data"`
+	WorkloadUpdatedAt *time.Time                 `db:"workload_updated_at"`
+	Present           bool                       `db:"present"`
+	K8sProviderID     sql.NullString             `db:"k8s_provider_id"`
 }
 
 // relationStatus represents the status of a relation and the relations ID.

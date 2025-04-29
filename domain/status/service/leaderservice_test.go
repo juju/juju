@@ -321,8 +321,8 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderA
 				AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusIdle,
 				},
-				ContainerStatus: status.StatusInfo[status.CloudContainerStatusType]{
-					Status:  status.CloudContainerStatusBlocked,
+				K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
+					Status:  status.K8sPodStatusBlocked,
 					Message: "zoink",
 					Data:    []byte(`{"foo":"baz"}`),
 					Since:   &now,
@@ -339,8 +339,8 @@ func (s *leaderServiceSuite) TestGetApplicationAndUnitStatusesForUnitWithLeaderA
 				AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 					Status: status.UnitAgentStatusIdle,
 				},
-				ContainerStatus: status.StatusInfo[status.CloudContainerStatusType]{
-					Status:  status.CloudContainerStatusRunning,
+				K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
+					Status:  status.K8sPodStatusRunning,
 					Message: "yoink",
 					Data:    []byte(`{"foo":"bat"}`),
 					Since:   &now,

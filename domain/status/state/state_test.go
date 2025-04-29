@@ -400,22 +400,22 @@ WHERE  relation_uuid = ?
 	}
 }
 
-func (s *stateSuite) TestSetCloudContainerStatus(c *gc.C) {
+func (s *stateSuite) TestSetK8sPodStatus(c *gc.C) {
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
 	}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
-	status := status.StatusInfo[status.CloudContainerStatusType]{
-		Status:  status.CloudContainerStatusRunning,
+	status := status.StatusInfo[status.K8sPodStatusType]{
+		Status:  status.K8sPodStatusRunning,
 		Message: "it's running",
 		Data:    []byte(`{"foo": "bar"}`),
 		Since:   ptr(time.Now()),
 	}
 
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.setCloudContainerStatus(ctx, tx, unitUUID, status)
+		return s.state.setK8sPodStatus(ctx, tx, unitUUID, status)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitStatus(
@@ -683,37 +683,37 @@ func (s *stateSuite) TestSetUnitWorkloadStatusNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
 }
 
-func (s *stateSuite) TestGetUnitCloudContainerStatusUnset(c *gc.C) {
+func (s *stateSuite) TestGetUnitK8sPodStatusUnset(c *gc.C) {
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
 	}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
-	sts, err := s.state.GetUnitCloudContainerStatus(context.Background(), unitUUID)
+	sts, err := s.state.GetUnitK8sPodStatus(context.Background(), unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sts, gc.DeepEquals, status.StatusInfo[status.CloudContainerStatusType]{
-		Status: status.CloudContainerStatusUnset,
+	c.Check(sts, gc.DeepEquals, status.StatusInfo[status.K8sPodStatusType]{
+		Status: status.K8sPodStatusUnset,
 	})
 }
 
-func (s *stateSuite) TestGetUnitCloudContainerStatusUnitNotFound(c *gc.C) {
-	_, err := s.state.GetUnitCloudContainerStatus(context.Background(), "missing-uuid")
+func (s *stateSuite) TestGetUnitK8sPodStatusUnitNotFound(c *gc.C) {
+	_, err := s.state.GetUnitK8sPodStatus(context.Background(), "missing-uuid")
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
 }
 
-func (s *stateSuite) TestGetUnitCloudContainerStatusDead(c *gc.C) {
+func (s *stateSuite) TestGetUnitK8sPodStatusDead(c *gc.C) {
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
 	}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Dead, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
-	_, err := s.state.GetUnitCloudContainerStatus(context.Background(), unitUUID)
+	_, err := s.state.GetUnitK8sPodStatus(context.Background(), unitUUID)
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitIsDead)
 }
 
-func (s *stateSuite) TestGetUnitCloudContainerStatus(c *gc.C) {
+func (s *stateSuite) TestGetUnitK8sPodStatus(c *gc.C) {
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
 	}
@@ -723,18 +723,18 @@ func (s *stateSuite) TestGetUnitCloudContainerStatus(c *gc.C) {
 	now := time.Now()
 
 	s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.setCloudContainerStatus(ctx, tx, unitUUID, status.StatusInfo[status.CloudContainerStatusType]{
-			Status:  status.CloudContainerStatusRunning,
+		return s.state.setK8sPodStatus(ctx, tx, unitUUID, status.StatusInfo[status.K8sPodStatusType]{
+			Status:  status.K8sPodStatusRunning,
 			Message: "it's running",
 			Data:    []byte(`{"foo": "bar"}`),
 			Since:   &now,
 		})
 	})
 
-	sts, err := s.state.GetUnitCloudContainerStatus(context.Background(), unitUUID)
+	sts, err := s.state.GetUnitK8sPodStatus(context.Background(), unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	assertStatusInfoEqual(c, sts, status.StatusInfo[status.CloudContainerStatusType]{
-		Status:  status.CloudContainerStatusRunning,
+	assertStatusInfoEqual(c, sts, status.StatusInfo[status.K8sPodStatusType]{
+		Status:  status.K8sPodStatusRunning,
 		Message: "it's running",
 		Data:    []byte(`{"foo": "bar"}`),
 		Since:   &now,
@@ -889,14 +889,14 @@ func (s *stateSuite) TestGetAllUnitStatusesForApplication(c *gc.C) {
 		Data:    []byte(`{"baz": "qux"}`),
 		Since:   ptr(time.Now()),
 	}
-	cloudContainerStatus := status.StatusInfo[status.CloudContainerStatusType]{
-		Status:  status.CloudContainerStatusRunning,
+	k8sPodStatus := status.StatusInfo[status.K8sPodStatusType]{
+		Status:  status.K8sPodStatusRunning,
 		Message: "it's running",
 		Data:    []byte(`{"foo": "bar"}`),
 		Since:   ptr(time.Now()),
 	}
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		err := s.state.setCloudContainerStatus(ctx, tx, unitUUID, cloudContainerStatus)
+		err := s.state.setK8sPodStatus(ctx, tx, unitUUID, k8sPodStatus)
 		if err != nil {
 			return err
 		}
@@ -920,10 +920,10 @@ func (s *stateSuite) TestGetAllUnitStatusesForApplication(c *gc.C) {
 
 	assertStatusInfoEqual(c, fullStatus.WorkloadStatus, workloadStatus)
 	assertStatusInfoEqual(c, fullStatus.AgentStatus, agentStatus)
-	assertStatusInfoEqual(c, fullStatus.ContainerStatus, cloudContainerStatus)
+	assertStatusInfoEqual(c, fullStatus.K8sPodStatus, k8sPodStatus)
 }
 
-func (s *stateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUnits(c *gc.C) {
+func (s *stateSuite) TestGetUnitK8sPodStatusForApplicationMultipleUnits(c *gc.C) {
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
 	}
@@ -941,8 +941,8 @@ func (s *stateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUnits(
 		Status: status.UnitAgentStatusIdle,
 	}
 
-	status1 := status.StatusInfo[status.CloudContainerStatusType]{
-		Status:  status.CloudContainerStatusRunning,
+	status1 := status.StatusInfo[status.K8sPodStatusType]{
+		Status:  status.K8sPodStatusRunning,
 		Message: "it's running!",
 		Data:    []byte(`{"foo": "bar"}`),
 		Since:   ptr(time.Now()),
@@ -956,12 +956,12 @@ func (s *stateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUnits(
 		if err != nil {
 			return err
 		}
-		return s.state.setCloudContainerStatus(ctx, tx, unitUUID1, status1)
+		return s.state.setK8sPodStatus(ctx, tx, unitUUID1, status1)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	status2 := status.StatusInfo[status.CloudContainerStatusType]{
-		Status:  status.CloudContainerStatusBlocked,
+	status2 := status.StatusInfo[status.K8sPodStatusType]{
+		Status:  status.K8sPodStatusBlocked,
 		Message: "it's blocked",
 		Data:    []byte(`{"bar": "foo"}`),
 		Since:   ptr(time.Now()),
@@ -975,7 +975,7 @@ func (s *stateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUnits(
 		if err != nil {
 			return err
 		}
-		return s.state.setCloudContainerStatus(ctx, tx, unitUUID2, status2)
+		return s.state.setK8sPodStatus(ctx, tx, unitUUID2, status2)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -984,11 +984,11 @@ func (s *stateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUnits(
 	c.Assert(fullStatuses, gc.HasLen, 2)
 	result1, ok := fullStatuses["foo/666"]
 	c.Assert(ok, jc.IsTrue)
-	assertStatusInfoEqual(c, result1.ContainerStatus, status1)
+	assertStatusInfoEqual(c, result1.K8sPodStatus, status1)
 
 	result2, ok := fullStatuses["foo/667"]
 	c.Assert(ok, jc.IsTrue)
-	assertStatusInfoEqual(c, result2.ContainerStatus, status2)
+	assertStatusInfoEqual(c, result2.K8sPodStatus, status2)
 }
 
 func (s *stateSuite) TestGetAllUnitStatusesForApplicationNotFound(c *gc.C) {
@@ -1312,10 +1312,12 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *gc.C) {
 			Scale: ptr(2),
 			Units: map[coreunit.Name]status.Unit{
 				"foo/666": {
-					Life: life.Alive,
+					Life:            life.Alive,
+					ApplicationName: "foo",
 				},
 				"foo/667": {
-					Life: life.Alive,
+					Life:            life.Alive,
+					ApplicationName: "foo",
 				},
 			},
 		},
@@ -1389,7 +1391,8 @@ func (s *stateSuite) TestGetApplicationAndUnitStatuses(c *gc.C) {
 			Scale: ptr(2),
 			Units: map[coreunit.Name]status.Unit{
 				"foo/666": {
-					Life: life.Alive,
+					Life:            life.Alive,
+					ApplicationName: "foo",
 					AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 						Status:  status.UnitAgentStatusIdle,
 						Message: "it's idle",
@@ -1404,7 +1407,8 @@ func (s *stateSuite) TestGetApplicationAndUnitStatuses(c *gc.C) {
 					},
 				},
 				"foo/667": {
-					Life: life.Alive,
+					Life:            life.Alive,
+					ApplicationName: "foo",
 					AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 						Status:  status.UnitAgentStatusError,
 						Message: "error",
@@ -1486,7 +1490,8 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *gc.C) {
 			Scale: ptr(1),
 			Units: map[coreunit.Name]status.Unit{
 				"foo/666": {
-					Life: life.Alive,
+					Life:            life.Alive,
+					ApplicationName: "foo",
 					Subordinates: []coreunit.Name{
 						"sub/667",
 						"sub/668",
@@ -1518,10 +1523,12 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *gc.C) {
 			Scale: ptr(2),
 			Units: map[coreunit.Name]status.Unit{
 				"sub/667": {
-					Life: life.Alive,
+					Life:            life.Alive,
+					ApplicationName: "sub",
 				},
 				"sub/668": {
-					Life: life.Alive,
+					Life:            life.Alive,
+					ApplicationName: "sub",
 					AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 						Status:  status.UnitAgentStatusError,
 						Message: "error",
@@ -1580,10 +1587,12 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *gc.C) {
 			Scale:      ptr(2),
 			Units: map[coreunit.Name]status.Unit{
 				"foo/666": {
-					Life: life.Alive,
+					Life:            life.Alive,
+					ApplicationName: "foo",
 				},
 				"foo/667": {
-					Life: life.Alive,
+					Life:            life.Alive,
+					ApplicationName: "foo",
 				},
 			},
 		},
@@ -1636,10 +1645,12 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *gc.C) {
 			Scale:   ptr(2),
 			Units: map[coreunit.Name]status.Unit{
 				"foo/666": {
-					Life: life.Alive,
+					Life:            life.Alive,
+					ApplicationName: "foo",
 				},
 				"foo/667": {
-					Life: life.Alive,
+					Life:            life.Alive,
+					ApplicationName: "foo",
 				},
 			},
 		},
@@ -1697,10 +1708,12 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations(c *g
 			Scale:   ptr(2),
 			Units: map[coreunit.Name]status.Unit{
 				"foo/666": {
-					Life: life.Alive,
+					Life:            life.Alive,
+					ApplicationName: "foo",
 				},
 				"foo/667": {
-					Life: life.Alive,
+					Life:            life.Alive,
+					ApplicationName: "foo",
 				},
 			},
 		},

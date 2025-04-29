@@ -184,8 +184,8 @@ func (s *unitServiceSuite) TestUpdateCAASUnit(c *gc.C) {
 			Data:    []byte(`{"foo":"bar"}`),
 			Since:   ptr(now),
 		}),
-		CloudContainerStatus: ptr(status.StatusInfo[status.CloudContainerStatusType]{
-			Status:  status.CloudContainerStatusRunning,
+		K8sPodStatus: ptr(status.StatusInfo[status.K8sPodStatusType]{
+			Status:  status.K8sPodStatusRunning,
 			Message: "container status",
 			Data:    []byte(`{"foo":"bar"}`),
 			Since:   ptr(now),

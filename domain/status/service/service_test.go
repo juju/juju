@@ -412,8 +412,8 @@ func (s *serviceSuite) TestGetUnitDisplayAndAgentStatus(c *gc.C) {
 			Present: true,
 		}, nil)
 
-	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.CloudContainerStatusType]{
-		Status: status.CloudContainerStatusUnset,
+	s.state.EXPECT().GetUnitK8sPodStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.K8sPodStatusType]{
+		Status: status.K8sPodStatusUnset,
 	}, nil)
 
 	agent, workload, err := s.service.GetUnitDisplayAndAgentStatus(context.Background(), coreunit.Name("foo/666"))
@@ -460,8 +460,8 @@ func (s *serviceSuite) TestGetUnitDisplayAndAgentStatusWithAllocatingPresence(c 
 			Present: true,
 		}, nil)
 
-	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.CloudContainerStatusType]{
-		Status: status.CloudContainerStatusUnset,
+	s.state.EXPECT().GetUnitK8sPodStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.K8sPodStatusType]{
+		Status: status.K8sPodStatusUnset,
 	}, nil)
 
 	agent, workload, err := s.service.GetUnitDisplayAndAgentStatus(context.Background(), coreunit.Name("foo/666"))
@@ -508,8 +508,8 @@ func (s *serviceSuite) TestGetUnitDisplayAndAgentStatusWithNoPresence(c *gc.C) {
 			Present: false,
 		}, nil)
 
-	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.CloudContainerStatusType]{
-		Status: status.CloudContainerStatusUnset,
+	s.state.EXPECT().GetUnitK8sPodStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.K8sPodStatusType]{
+		Status: status.K8sPodStatusUnset,
 	}, nil)
 
 	agent, workload, err := s.service.GetUnitDisplayAndAgentStatus(context.Background(), coreunit.Name("foo/666"))
@@ -1243,6 +1243,7 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatuses(c *gc.C) {
 				Exposed:       true,
 				Scale:         ptr(2),
 				K8sProviderID: ptr("k8s-provider-id"),
+				Units:         map[coreunit.Name]status.Unit{},
 			},
 		}, nil,
 	)
@@ -1282,6 +1283,7 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatuses(c *gc.C) {
 			Exposed:       true,
 			Scale:         ptr(2),
 			K8sProviderID: ptr("k8s-provider-id"),
+			Units:         map[coreunit.Name]Unit{},
 		},
 	})
 }

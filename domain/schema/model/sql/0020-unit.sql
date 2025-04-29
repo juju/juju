@@ -339,10 +339,10 @@ SELECT
     uas.message AS agent_message,
     uas.data AS agent_data,
     uas.updated_at AS agent_updated_at,
-    kps.status_id AS container_status_id,
-    kps.message AS container_message,
-    kps.data AS container_data,
-    kps.updated_at AS container_updated_at,
+    kps.status_id AS k8s_pod_status_id,
+    kps.message AS k8s_pod_message,
+    kps.data AS k8s_pod_data,
+    kps.updated_at AS k8s_pod_updated_at,
     EXISTS(
         SELECT 1 FROM unit_agent_presence AS uap
         WHERE u.uuid = uap.unit_uuid

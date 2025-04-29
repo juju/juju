@@ -33,14 +33,14 @@ type Application struct {
 
 // Unit represents the status of a unit.
 type Unit struct {
+	ApplicationName string
+	MachineName     *machine.Name
 	AgentStatus     StatusInfo[UnitAgentStatusType]
 	WorkloadStatus  StatusInfo[WorkloadStatusType]
 	WorkloadVersion string
 	Life            life.Life
 	Leader          bool
-	Machine         machine.Name
-	OpenedPorts     []string
-	PublicAddress   string
 	Subordinates    []unit.Name
 	Present         bool
+	K8sProviderID   *string
 }

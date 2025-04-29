@@ -1189,8 +1189,8 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 		if err := st.setUnitWorkloadStatus(ctx, tx, toUpdate.UnitUUID, params.WorkloadStatus); err != nil {
 			return errors.Errorf("saving unit %q workload status: %w", unitName, err)
 		}
-		if err := st.setCloudContainerStatus(ctx, tx, toUpdate.UnitUUID, params.CloudContainerStatus); err != nil {
-			return errors.Errorf("saving unit %q cloud container status: %w", unitName, err)
+		if err := st.setK8sPodStatus(ctx, tx, toUpdate.UnitUUID, params.K8sPodStatus); err != nil {
+			return errors.Errorf("saving unit %q k8s pod status: %w", unitName, err)
 		}
 
 		return nil
@@ -2041,20 +2041,20 @@ WHERE unit_uuid = $minimalUnit.uuid
 	return nil
 }
 
-// SetCloudContainerStatusAtomic saves the given cloud container status, overwriting
+// setK8sPodStatus saves the given k8s pod status, overwriting
 // any current status data. If returns an error satisfying
 // [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *State) setCloudContainerStatus(
+func (st *State) setK8sPodStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
-	sts *status.StatusInfo[status.CloudContainerStatusType],
+	sts *status.StatusInfo[status.K8sPodStatusType],
 ) error {
 	if sts == nil {
 		return nil
 	}
 
-	statusID, err := status.EncodeCloudContainerStatus(sts.Status)
+	statusID, err := status.EncodeK8sPodStatus(sts.Status)
 	if err != nil {
 		return errors.Capture(err)
 	}

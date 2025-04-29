@@ -225,8 +225,8 @@ func (s *unitStateSuite) TestUpdateCAASUnitStatuses(c *gc.C) {
 			Data:    []byte(`{"foo": "bar"}`),
 			Since:   now,
 		}),
-		CloudContainerStatus: ptr(status.StatusInfo[status.CloudContainerStatusType]{
-			Status:  status.CloudContainerStatusRunning,
+		K8sPodStatus: ptr(status.StatusInfo[status.K8sPodStatusType]{
+			Status:  status.K8sPodStatusRunning,
 			Message: "container status",
 			Data:    []byte(`{"foo": "bar"}`),
 			Since:   now,
@@ -241,7 +241,7 @@ func (s *unitStateSuite) TestUpdateCAASUnitStatuses(c *gc.C) {
 		c, "unit_workload", unitUUID, int(status.WorkloadStatusWaiting), "workload status", now, []byte(`{"foo": "bar"}`),
 	)
 	s.assertUnitStatus(
-		c, "k8s_pod", unitUUID, int(status.CloudContainerStatusRunning), "container status", now, []byte(`{"foo": "bar"}`),
+		c, "k8s_pod", unitUUID, int(status.K8sPodStatusRunning), "container status", now, []byte(`{"foo": "bar"}`),
 	)
 }
 
@@ -571,8 +571,8 @@ func (s *unitStateSuite) TestDeleteUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		if err := s.state.setCloudContainerStatus(ctx, tx, unitUUID, &status.StatusInfo[status.CloudContainerStatusType]{
-			Status:  status.CloudContainerStatusBlocked,
+		if err := s.state.setK8sPodStatus(ctx, tx, unitUUID, &status.StatusInfo[status.K8sPodStatusType]{
+			Status:  status.K8sPodStatusRunning,
 			Message: "test",
 			Data:    []byte(`{"foo": "bar"}`),
 			Since:   ptr(time.Now()),
