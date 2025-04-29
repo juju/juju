@@ -201,6 +201,45 @@ func (c *MockStateEnterScopeCall) DoAndReturn(f func(context.Context, relation.U
 	return c
 }
 
+// ExportRelations mocks base method.
+func (m *MockState) ExportRelations(arg0 context.Context) ([]relation0.ExportRelation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExportRelations", arg0)
+	ret0, _ := ret[0].([]relation0.ExportRelation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExportRelations indicates an expected call of ExportRelations.
+func (mr *MockStateMockRecorder) ExportRelations(arg0 any) *MockStateExportRelationsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportRelations", reflect.TypeOf((*MockState)(nil).ExportRelations), arg0)
+	return &MockStateExportRelationsCall{Call: call}
+}
+
+// MockStateExportRelationsCall wrap *gomock.Call
+type MockStateExportRelationsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateExportRelationsCall) Return(arg0 []relation0.ExportRelation, arg1 error) *MockStateExportRelationsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateExportRelationsCall) Do(f func(context.Context) ([]relation0.ExportRelation, error)) *MockStateExportRelationsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateExportRelationsCall) DoAndReturn(f func(context.Context) ([]relation0.ExportRelation, error)) *MockStateExportRelationsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetAllRelationDetails mocks base method.
 func (m *MockState) GetAllRelationDetails(arg0 context.Context) ([]relation0.RelationDetailsResult, error) {
 	m.ctrl.T.Helper()

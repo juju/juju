@@ -307,3 +307,24 @@ type ImportEndpoint struct {
 	// application's settings.
 	ApplicationSettings map[string]interface{}
 }
+
+// ExportRelation holds information about a relation to use in export.
+type ExportRelation struct {
+	ID        int
+	Key       corerelation.Key
+	Endpoints []ExportEndpoint
+}
+
+// ExportEndpoint holds information about a relation endpoint to be used in
+// migration.
+type ExportEndpoint struct {
+	ApplicationName     string
+	Name                string
+	Role                charm.RelationRole
+	Interface           string
+	Optional            bool
+	Limit               int
+	Scope               charm.RelationScope
+	ApplicationSettings map[string]any
+	AllUnitSettings     map[string]map[string]any
+}
