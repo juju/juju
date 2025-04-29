@@ -431,4 +431,6 @@ type InsertApplicationArgs struct {
 	EndpointBindings map[string]network.SpaceName
 	// Devices contains the device constraints for the application.
 	Devices map[string]devices.Constraints
+	// PeerRelations is a map of peer relation endpoint to relation id.
+	PeerRelations map[string]int
 }

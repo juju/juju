@@ -397,6 +397,7 @@ func makeInsertApplicationArg(
 		StorageParentDir: application.StorageParentDir,
 		Config:           applicationConfig,
 		Settings:         args.ApplicationSettings,
+		PeerRelations:    args.PeerRelations,
 	}, nil
 }
 

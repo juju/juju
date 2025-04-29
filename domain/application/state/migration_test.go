@@ -398,6 +398,7 @@ func (s *migrationStateSuite) TestGetApplicationsForExportEndpointBindings(c *gc
 
 func (s *migrationStateSuite) TestInsertMigratingApplication(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
 	platform := deployment.Platform{
 		Channel:      "666",
 		OSType:       deployment.Ubuntu,
@@ -412,7 +413,7 @@ func (s *migrationStateSuite) TestInsertMigratingApplication(c *gc.C) {
 	args := application.InsertApplicationArgs{
 		Platform: platform,
 		Charm: charm.Charm{
-			Metadata:      s.minimalMetadataWithPeerRelation(c, "666", "castor", "pollux"),
+			Metadata:      s.minimalMetadata(c, "666"),
 			Manifest:      s.minimalManifest(c),
 			Source:        charm.CharmHubSource,
 			ReferenceName: "666",
@@ -446,6 +447,44 @@ func (s *migrationStateSuite) TestInsertMigratingApplication(c *gc.C) {
 		},
 	})
 	c.Check(settings, gc.DeepEquals, application.ApplicationSettings{Trust: true})
+}
+
+func (s *migrationStateSuite) TestInsertMigratingApplicationPeerRelations(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	platform := deployment.Platform{
+		Channel:      "666",
+		OSType:       deployment.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+	channel := &deployment.Channel{
+		Track:  "track",
+		Risk:   "risk",
+		Branch: "branch",
+	}
+	ctx := context.Background()
+	args := application.InsertApplicationArgs{
+		Platform: platform,
+		Charm: charm.Charm{
+			Metadata:      s.minimalMetadataWithPeerRelation(c, "666", "castor", "pollux"),
+			Manifest:      s.minimalManifest(c),
+			Source:        charm.CharmHubSource,
+			ReferenceName: "666",
+			Revision:      42,
+			Architecture:  architecture.ARM64,
+		},
+		Scale:   1,
+		Channel: channel,
+		PeerRelations: map[string]int{
+			"pollux": 7,
+			"castor": 4,
+		},
+	}
+	_, err := st.InsertMigratingApplication(ctx, "666", args)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Failed to create application: %s", errors.ErrorStack(err)))
+	scale := application.ScaleState{Scale: 1}
+	s.assertApplication(c, "666", platform, channel, scale, false)
+	s.assertPeerRelation(c, "666", map[string]int{"pollux": 7, "castor": 4})
 }
 
 // addSpace ensures a space with the given name exists in the database,

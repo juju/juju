@@ -55,11 +55,11 @@ type ApplicationState interface {
 	// if the charm for the application is not found.
 	CreateApplication(context.Context, string, application.AddApplicationArg, []application.AddUnitArg) (coreapplication.ID, error)
 
-    // InsertMigratingApplication inserts a migrating application. Returns as 
-    // error satisfying [applicationerrors.ApplicationAlreadyExists] if the
-    // application already exists. If returns as error satisfying
-    // [applicationerrors.CharmNotFound] if the charm for the application is
-    // not found.
+	// InsertMigratingApplication inserts a migrating application. Returns as
+	// error satisfying [applicationerrors.ApplicationAlreadyExists] if the
+	// application already exists. If returns as error satisfying
+	// [applicationerrors.CharmNotFound] if the charm for the application is
+	// not found.
 	InsertMigratingApplication(context.Context, string, application.InsertApplicationArgs) (coreapplication.ID, error)
 
 	// GetModelType returns the model type for the underlying model. If the

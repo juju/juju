@@ -1544,6 +1544,40 @@ func (s *importSuite) TestApplicationImportSubordinate(c *gc.C) {
 	}})
 }
 
+func (s *importSuite) TestImportPeerRelations(c *gc.C) {
+	model := description.NewModel(description.ModelArgs{})
+
+	rel1 := model.AddRelation(description.RelationArgs{
+		Id: 1,
+	})
+	rel1.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "prometheus",
+		Name:            "testtwo",
+		Role:            "peer",
+	})
+	rel2 := model.AddRelation(description.RelationArgs{
+		Id: 7,
+	})
+	rel2.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "prometheus",
+		Name:            "testone",
+		Role:            "peer",
+	})
+	rel3 := model.AddRelation(description.RelationArgs{
+		Id: 27,
+	})
+	rel3.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "failme",
+		Name:            "testone",
+		Role:            "peer",
+	})
+	expected := map[string]int{"testone": 7, "testtwo": 1}
+
+	op := &importOperation{}
+	obtained := op.importPeerRelations("prometheus", model.Relations())
+	c.Check(obtained, jc.DeepEquals, expected)
+}
+
 func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

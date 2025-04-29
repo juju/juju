@@ -228,7 +228,7 @@ func (s *applicationStateSuite) TestCreateApplicationWithPeerRelation(c *gc.C) {
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)
 
-	s.assertPeerRelation(c, "666", "pollux", "castor")
+	s.assertPeerRelation(c, "666", map[string]int{"pollux": 1, "castor": 0})
 }
 
 func (s *applicationStateSuite) TestCreateApplicationWithStatus(c *gc.C) {
@@ -3777,17 +3777,16 @@ func (s *applicationStateSuite) addCharmModifiedVersion(c *gc.C, appID coreappli
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *applicationStateSuite) assertPeerRelation(c *gc.C, appName string, peerRelationNames ...string) {
+func (s *baseSuite) assertPeerRelation(c *gc.C, appName string, peerRelationInput map[string]int) {
 	type peerRelation struct {
 		id     int
 		name   string
 		status corestatus.Status
 	}
 	var expected []peerRelation
-	slices.Sort(peerRelationNames)
-	for i, name := range peerRelationNames {
+	for name, id := range peerRelationInput {
 		expected = append(expected, peerRelation{
-			id:     i,
+			id:     id,
 			name:   name,
 			status: corestatus.Joining,
 		})
@@ -3825,5 +3824,5 @@ ORDER BY r.relation_id
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(peerRelations, gc.DeepEquals, expected)
+	c.Check(peerRelations, jc.SameContents, expected)
 }

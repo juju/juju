@@ -223,6 +223,7 @@ type ImportApplicationArgs struct {
 	ApplicationSettings application.ApplicationSettings
 
 	// ResolvedResources contains a list of ResolvedResource instances,
+	// TODO (stickupkid): This isn't currently wired up.
 	ResolvedResources ResolvedResources
 
 	// Units contains the units to import.
@@ -244,6 +245,9 @@ type ImportApplicationArgs struct {
 
 	// ExposedEndpoints is the exposed endpoints for the application.
 	ExposedEndpoints map[string]application.ExposedEndpoint
+
+	// PeerRelations is a map of peer relation endpoint to relation id.
+	PeerRelations map[string]int
 }
 
 // ApplicationConfig represents the application config for the specified
