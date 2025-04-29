@@ -20,7 +20,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -67,11 +66,7 @@ type ActionAPI struct {
 	check              *common.BlockChecker
 	leadership         leadership.Reader
 	applicationService ApplicationService
-
-	tagToActionReceiverFn TagToActionReceiverFunc
 }
-
-type TagToActionReceiverFunc func(findEntity func(names.Tag) (state.Entity, error)) func(tag string) (state.ActionReceiver, error)
 
 // APIv7 provides the Action API facade for version 7.
 type APIv7 struct {
@@ -105,16 +100,15 @@ func newActionAPI(
 	modelTag := names.NewModelTag(modelUUID.String())
 
 	return &ActionAPI{
-		state:                 st,
-		model:                 m,
-		modelTag:              modelTag,
-		modelInfoService:      modelInfoService,
-		resources:             resources,
-		authorizer:            authorizer,
-		check:                 common.NewBlockChecker(blockCommandService),
-		leadership:            leaders,
-		tagToActionReceiverFn: common.TagToActionReceiverFn,
-		applicationService:    applicationService,
+		state:              st,
+		model:              m,
+		modelTag:           modelTag,
+		modelInfoService:   modelInfoService,
+		resources:          resources,
+		authorizer:         authorizer,
+		check:              common.NewBlockChecker(blockCommandService),
+		leadership:         leaders,
+		applicationService: applicationService,
 	}, nil
 }
 

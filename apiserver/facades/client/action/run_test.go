@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type runSuite struct {
@@ -69,58 +68,8 @@ func (s *runSuite) TestBlockRunMachineAndApplication(c *gc.C) {
 func (s *runSuite) TestStub(c *gc.C) {
 	c.Skip(`This suite is missing tests for the following scenarios:
 Running juju-exec with machine, application and unit targets.
+Running juju-exec against all machines.
 `)
-}
-
-func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.blockCommandService.EXPECT().GetBlockSwitchedOn(gomock.Any(), gomock.Any()).Return("", blockcommanderrors.NotFound)
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{Type: model.IAAS}, nil)
-
-	// We only test that we create the actions correctly
-	// There is no need to test anything else at this level.
-	expectedPayload := map[string]interface{}{
-		"command":          "hostname",
-		"timeout":          testing.LongWait.Nanoseconds(),
-		"workload-context": false,
-	}
-	parallel := true
-	executionGroup := "group"
-	arg := params.Actions{
-		Actions: []params.Action{
-			{Receiver: "machine-0", Name: "juju-exec", Parameters: expectedPayload, Parallel: &parallel, ExecutionGroup: &executionGroup},
-			{Receiver: "machine-1", Name: "juju-exec", Parameters: expectedPayload, Parallel: &parallel, ExecutionGroup: &executionGroup},
-			{Receiver: "machine-2", Name: "juju-exec", Parameters: expectedPayload, Parallel: &parallel, ExecutionGroup: &executionGroup},
-		},
-	}
-	// Make three machines.
-	s.addMachine(c)
-	s.addMachine(c)
-	s.addMachine(c)
-
-	s.client.RunOnAllMachines(
-		context.Background(),
-		params.RunParams{
-			Commands:       "hostname",
-			Timeout:        testing.LongWait,
-			Parallel:       &parallel,
-			ExecutionGroup: &executionGroup,
-		})
-	op, err := s.client.EnqueueOperation(context.Background(), arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op.Actions, gc.HasLen, 3)
-
-	emptyActionTag := names.ActionTag{}
-	for i, r := range op.Actions {
-		c.Assert(r.Action, gc.NotNil)
-		c.Assert(r.Action.Tag, gc.Not(gc.Equals), emptyActionTag)
-		c.Assert(r.Action.Name, gc.Equals, "juju-exec")
-		c.Assert(r.Action.Receiver, gc.Equals, arg.Actions[i].Receiver)
-		c.Assert(r.Action.Parameters, jc.DeepEquals, expectedPayload)
-		c.Assert(r.Action.Parallel, jc.DeepEquals, &parallel)
-		c.Assert(r.Action.ExecutionGroup, jc.DeepEquals, &executionGroup)
-	}
 }
 
 func (s *runSuite) TestRunRequiresAdmin(c *gc.C) {
@@ -189,13 +138,6 @@ func (s *runSuite) setupMocks(c *gc.C) *gomock.Controller {
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
-}
-
-func (s *runSuite) addMachine(c *gc.C) *state.Machine {
-	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	return machine
 }
 
 func (s *runSuite) assertBlocked(c *gc.C, err error, msg string) {
