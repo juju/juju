@@ -3,7 +3,7 @@
 > See first: {ref}`User docs | Agent <agent>`
 
 In Juju, an **agent** is any process that runs a dependency engine ([
-`dependency.NewEngine`](dependency-package#newengine)) to start and manage [workers](worker.md) for a particular domain
+`dependency.NewEngine`](dependency-package#newengine)) to start and manage {ref}`workers <worker-cont>` for a particular domain
 entity in a particular deployment environment.
 
 ## List of agents
