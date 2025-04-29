@@ -146,14 +146,13 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 	infos := infoList[0]
 
 	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
-		DeviceIndex:       0,
-		ProviderId:        "moana/somenetif",
-		ProviderSubnetId:  "go-team",
-		ProviderNetworkId: "go-team1",
-		InterfaceName:     "somenetif",
-		InterfaceType:     corenetwork.EthernetDevice,
-		Disabled:          false,
-		NoAutoStart:       false,
+		DeviceIndex:      0,
+		ProviderId:       "moana/somenetif",
+		ProviderSubnetId: "go-team",
+		InterfaceName:    "somenetif",
+		InterfaceType:    corenetwork.EthernetDevice,
+		Disabled:         false,
+		NoAutoStart:      false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.10.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
@@ -232,14 +231,13 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 	// Check interfaces for first instance
 	infos := infoLists[0]
 	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
-		DeviceIndex:       0,
-		ProviderId:        "i-1/somenetif",
-		ProviderSubnetId:  "go-team",
-		ProviderNetworkId: "go-team1",
-		InterfaceName:     "somenetif",
-		InterfaceType:     corenetwork.EthernetDevice,
-		Disabled:          false,
-		NoAutoStart:       false,
+		DeviceIndex:      0,
+		ProviderId:       "i-1/somenetif",
+		ProviderSubnetId: "go-team",
+		InterfaceName:    "somenetif",
+		InterfaceType:    corenetwork.EthernetDevice,
+		Disabled:         false,
+		NoAutoStart:      false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.10.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
@@ -252,14 +250,13 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 	// Check interfaces for second instance
 	infos = infoLists[1]
 	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
-		DeviceIndex:       0,
-		ProviderId:        "i-2/netif-0",
-		ProviderSubnetId:  "go-team",
-		ProviderNetworkId: "go-team1",
-		InterfaceName:     "netif-0",
-		InterfaceType:     corenetwork.EthernetDevice,
-		Disabled:          false,
-		NoAutoStart:       false,
+		DeviceIndex:      0,
+		ProviderId:       "i-2/netif-0",
+		ProviderSubnetId: "go-team",
+		InterfaceName:    "netif-0",
+		InterfaceType:    corenetwork.EthernetDevice,
+		Disabled:         false,
+		NoAutoStart:      false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.10.42",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
@@ -271,14 +268,13 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 		},
 		Origin: corenetwork.OriginProvider,
 	}, {
-		DeviceIndex:       1,
-		ProviderId:        "i-2/netif-1",
-		ProviderSubnetId:  "shellac",
-		ProviderNetworkId: "albini",
-		InterfaceName:     "netif-1",
-		InterfaceType:     corenetwork.EthernetDevice,
-		Disabled:          false,
-		NoAutoStart:       false,
+		DeviceIndex:      1,
+		ProviderId:       "i-2/netif-1",
+		ProviderSubnetId: "shellac",
+		InterfaceName:    "netif-1",
+		InterfaceType:    corenetwork.EthernetDevice,
+		Disabled:         false,
+		NoAutoStart:      false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.20.42",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
@@ -301,14 +297,13 @@ func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
 	// Check interfaces for first instance
 	infos := infoLists[0]
 	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
-		DeviceIndex:       0,
-		ProviderId:        "i-1/somenetif",
-		ProviderSubnetId:  "go-team",
-		ProviderNetworkId: "go-team1",
-		InterfaceName:     "somenetif",
-		InterfaceType:     corenetwork.EthernetDevice,
-		Disabled:          false,
-		NoAutoStart:       false,
+		DeviceIndex:      0,
+		ProviderId:       "i-1/somenetif",
+		ProviderSubnetId: "go-team",
+		InterfaceName:    "somenetif",
+		InterfaceType:    corenetwork.EthernetDevice,
+		Disabled:         false,
+		NoAutoStart:      false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.10.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
@@ -347,14 +342,13 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 	infos := infoList[0]
 
 	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
-		DeviceIndex:       0,
-		ProviderId:        "moana/somenetif",
-		ProviderSubnetId:  "go-team",
-		ProviderNetworkId: "go-team1",
-		InterfaceName:     "somenetif",
-		InterfaceType:     corenetwork.EthernetDevice,
-		Disabled:          false,
-		NoAutoStart:       false,
+		DeviceIndex:      0,
+		ProviderId:       "moana/somenetif",
+		ProviderSubnetId: "go-team",
+		InterfaceName:    "somenetif",
+		InterfaceType:    corenetwork.EthernetDevice,
+		Disabled:         false,
+		NoAutoStart:      false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.10.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
@@ -363,14 +357,13 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 		).AsProviderAddress()},
 		Origin: corenetwork.OriginProvider,
 	}, {
-		DeviceIndex:       1,
-		ProviderId:        "moana/othernetif",
-		ProviderSubnetId:  "shellac",
-		ProviderNetworkId: "albini",
-		InterfaceName:     "othernetif",
-		InterfaceType:     corenetwork.EthernetDevice,
-		Disabled:          false,
-		NoAutoStart:       false,
+		DeviceIndex:      1,
+		ProviderId:       "moana/othernetif",
+		ProviderSubnetId: "shellac",
+		InterfaceName:    "othernetif",
+		InterfaceType:    corenetwork.EthernetDevice,
+		Disabled:         false,
+		NoAutoStart:      false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.20.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
@@ -408,14 +401,13 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 	infos := infoList[0]
 
 	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
-		DeviceIndex:       0,
-		ProviderId:        "moana/somenetif",
-		ProviderSubnetId:  "",
-		ProviderNetworkId: "legacy",
-		InterfaceName:     "somenetif",
-		InterfaceType:     corenetwork.EthernetDevice,
-		Disabled:          false,
-		NoAutoStart:       false,
+		DeviceIndex:      0,
+		ProviderId:       "moana/somenetif",
+		ProviderSubnetId: "",
+		InterfaceName:    "somenetif",
+		InterfaceType:    corenetwork.EthernetDevice,
+		Disabled:         false,
+		NoAutoStart:      false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.240.0.2",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
@@ -454,14 +446,13 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 	infos := infoList[0]
 
 	c.Assert(infos, gc.DeepEquals, corenetwork.InterfaceInfos{{
-		DeviceIndex:       0,
-		ProviderId:        "moana/somenetif",
-		ProviderSubnetId:  "go-team",
-		ProviderNetworkId: "go-team1",
-		InterfaceName:     "somenetif",
-		InterfaceType:     corenetwork.EthernetDevice,
-		Disabled:          false,
-		NoAutoStart:       false,
+		DeviceIndex:      0,
+		ProviderId:       "moana/somenetif",
+		ProviderSubnetId: "go-team",
+		InterfaceName:    "somenetif",
+		InterfaceType:    corenetwork.EthernetDevice,
+		Disabled:         false,
+		NoAutoStart:      false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.10.3",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
@@ -470,14 +461,13 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 		).AsProviderAddress()},
 		Origin: corenetwork.OriginProvider,
 	}, {
-		DeviceIndex:       1,
-		ProviderId:        "moana/othernetif",
-		ProviderSubnetId:  "go-team",
-		ProviderNetworkId: "go-team1",
-		InterfaceName:     "othernetif",
-		InterfaceType:     corenetwork.EthernetDevice,
-		Disabled:          false,
-		NoAutoStart:       false,
+		DeviceIndex:      1,
+		ProviderId:       "moana/othernetif",
+		ProviderSubnetId: "go-team",
+		InterfaceName:    "othernetif",
+		InterfaceType:    corenetwork.EthernetDevice,
+		Disabled:         false,
+		NoAutoStart:      false,
 		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 			"10.0.10.4",
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),

@@ -179,10 +179,9 @@ func (e *environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []in
 				DeviceIndex: i,
 				// The network interface has no id in GCE so it's
 				// identified by the machine's id + its name.
-				ProviderId:        corenetwork.Id(fmt.Sprintf("%s/%s", ids[idx], iface.Name)),
-				ProviderSubnetId:  details.subnet,
-				ProviderNetworkId: details.network,
-				InterfaceName:     iface.Name,
+				ProviderId:       corenetwork.Id(fmt.Sprintf("%s/%s", ids[idx], iface.Name)),
+				ProviderSubnetId: details.subnet,
+				InterfaceName:    iface.Name,
 				Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
 					iface.NetworkIP,
 					corenetwork.WithScope(corenetwork.ScopeCloudLocal),
