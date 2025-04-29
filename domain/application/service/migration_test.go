@@ -440,12 +440,6 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
-	downloadInfo := &domaincharm.DownloadInfo{
-		Provenance:         domaincharm.ProvenanceDownload,
-		DownloadURL:        "http://example.com",
-		DownloadSize:       24,
-		CharmhubIdentifier: "foobar",
-	}
 
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(modelType, nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
@@ -486,11 +480,10 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 		},
 	}).MinTimes(1)
 
-	args := application.AddApplicationArg{
-		Charm:             ch,
-		Platform:          platform,
-		Scale:             1,
-		CharmDownloadInfo: downloadInfo,
+	args := application.InsertApplicationArgs{
+		Charm:    ch,
+		Platform: platform,
+		Scale:    1,
 		Config: map[string]application.ApplicationConfig{
 			"foo": {
 				Type:  domaincharm.OptionString,
@@ -502,7 +495,7 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 		},
 		StorageParentDir: application.StorageParentDir,
 	}
-	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", args, nil).Return(id, nil)
+	s.state.EXPECT().InsertMigratingApplication(gomock.Any(), "ubuntu", args).Return(id, nil)
 
 	unitArg := ImportUnitArg{
 		UnitName:       "ubuntu/666",
@@ -543,7 +536,6 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 		},
 		ApplicationConstraints: cons,
 		ReferenceName:          "ubuntu",
-		DownloadInfo:           downloadInfo,
 		ApplicationConfig: map[string]any{
 			"foo": "bar",
 		},

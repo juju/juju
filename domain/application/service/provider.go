@@ -128,8 +128,11 @@ func (s *ProviderService) CreateApplication(
 		args.ReferenceName,
 		charm,
 		origin,
-		args.DownloadInfo,
 	); err != nil {
+		return "", errors.Errorf("invalid application args: %w", err)
+	}
+
+	if err := validateDownloadInfoParams(origin.Source, args.DownloadInfo); err != nil {
 		return "", errors.Errorf("invalid application args: %w", err)
 	}
 

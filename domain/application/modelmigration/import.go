@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain/application"
-	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -203,17 +202,6 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			// name and not the charm name in the metadata, but the name of
 			// the charm from the store if it's a charm from the store.
 			ReferenceName: chURL.Name,
-			// When importing a charm, we don't have all the information
-			// about the charm. We could call charmhub store directly, but
-			// that has the potential to block a migration if the charmhub
-			// store is down. If we require that information, then it's
-			// possible to fill this missing information in the charmhub
-			// store using the charmhub identifier.
-			// If the controllers do not have the same charmhub url, then
-			// all bets are off.
-			DownloadInfo: &applicationcharm.DownloadInfo{
-				Provenance: applicationcharm.ProvenanceMigration,
-			},
 		})
 		if err != nil {
 			return errors.Errorf(

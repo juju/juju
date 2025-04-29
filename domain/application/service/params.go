@@ -216,9 +216,6 @@ type ImportApplicationArgs struct {
 	// via the name is use the proxy name.
 	ReferenceName string
 
-	// DownloadInfo contains the download information for the charm.
-	DownloadInfo *domaincharm.DownloadInfo
-
 	// ApplicationConfig contains the application config.
 	ApplicationConfig config.ConfigAttributes
 
@@ -226,7 +223,6 @@ type ImportApplicationArgs struct {
 	ApplicationSettings application.ApplicationSettings
 
 	// ResolvedResources contains a list of ResolvedResource instances,
-	// TODO (stickupkid): This isn't currently wired up.
 	ResolvedResources ResolvedResources
 
 	// Units contains the units to import.

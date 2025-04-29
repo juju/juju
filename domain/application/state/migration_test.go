@@ -20,8 +20,11 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -391,6 +394,58 @@ func (s *migrationStateSuite) TestGetApplicationsForExportEndpointBindings(c *gc
 			},
 		},
 	})
+}
+
+func (s *migrationStateSuite) TestInsertMigratingApplication(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	platform := deployment.Platform{
+		Channel:      "666",
+		OSType:       deployment.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+	channel := &deployment.Channel{
+		Track:  "track",
+		Risk:   "risk",
+		Branch: "branch",
+	}
+	ctx := context.Background()
+	args := application.InsertApplicationArgs{
+		Platform: platform,
+		Charm: charm.Charm{
+			Metadata:      s.minimalMetadataWithPeerRelation(c, "666", "castor", "pollux"),
+			Manifest:      s.minimalManifest(c),
+			Source:        charm.CharmHubSource,
+			ReferenceName: "666",
+			Revision:      42,
+			Architecture:  architecture.ARM64,
+		},
+		Scale:   1,
+		Channel: channel,
+		Config: map[string]application.ApplicationConfig{
+			"foo": {
+				Value: "bar",
+				Type:  charm.OptionString,
+			},
+		},
+		Settings: application.ApplicationSettings{
+			Trust: true,
+		},
+	}
+	id, err := st.InsertMigratingApplication(ctx, "666", args)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Failed to create application: %s", errors.ErrorStack(err)))
+	scale := application.ScaleState{Scale: 1}
+	s.assertApplication(c, "666", platform, channel, scale, false)
+
+	// Ensure that config is empty and trust is false.
+	config, settings, err := st.GetApplicationConfigAndSettings(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, gc.DeepEquals, map[string]application.ApplicationConfig{
+		"foo": {
+			Value: "bar",
+			Type:  charm.OptionString,
+		},
+	})
+	c.Check(settings, gc.DeepEquals, application.ApplicationSettings{Trust: true})
 }
 
 // addSpace ensures a space with the given name exists in the database,

@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/domain/linklayerdevice"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/storage"
 )
 
 // MigrationState is the state required for migrating applications.
@@ -276,7 +277,7 @@ func (s *MigrationService) GetApplicationScaleState(ctx context.Context, name st
 // returning an error satisfying [applicationerrors.ApplicationAlreadyExists]
 // if the application already exists.
 func (s *MigrationService) ImportApplication(ctx context.Context, name string, args ImportApplicationArgs) error {
-	if err := validateCharmAndApplicationParams(name, args.ReferenceName, args.Charm, args.CharmOrigin, args.DownloadInfo); err != nil {
+	if err := validateCharmAndApplicationParams(name, args.ReferenceName, args.Charm, args.CharmOrigin); err != nil {
 		return errors.Errorf("invalid application args: %w", err)
 	}
 
@@ -284,20 +285,15 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 	if err != nil {
 		return errors.Errorf("getting model type: %w", err)
 	}
-	appArg, err := makeCreateApplicationArgs(ctx, s.st, s.storageRegistryGetter, modelType, args.Charm, args.CharmOrigin, AddApplicationArgs{
-		ReferenceName:       args.ReferenceName,
-		DownloadInfo:        args.DownloadInfo,
-		ApplicationConfig:   args.ApplicationConfig,
-		ApplicationSettings: args.ApplicationSettings,
-		EndpointBindings:    args.EndpointBindings,
-	})
+
+	appArg, err := makeInsertApplicationArg(ctx, s.st, s.storageRegistryGetter, modelType, args)
 	if err != nil {
 		return errors.Errorf("creating application args: %w", err)
 	}
 
 	appArg.Scale = len(args.Units)
 
-	appID, err := s.st.CreateApplication(ctx, name, appArg, nil)
+	appID, err := s.st.InsertMigratingApplication(ctx, name, appArg)
 	if err != nil {
 		return errors.Errorf("creating application %q: %w", name, err)
 	}
@@ -336,6 +332,72 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 	}
 
 	return nil
+}
+
+func makeInsertApplicationArg(
+	ctx context.Context,
+	state State,
+	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
+	modelType model.ModelType,
+	args ImportApplicationArgs,
+) (application.InsertApplicationArgs, error) {
+	storageDirectives := make(map[string]storage.Directive)
+
+	meta := args.Charm.Meta()
+
+	var err error
+	if storageDirectives, err = addDefaultStorageDirectives(ctx, state, modelType, storageDirectives, meta.Storage); err != nil {
+		return application.InsertApplicationArgs{}, errors.Errorf("adding default storage directives: %w", err)
+	}
+	if err := validateStorageDirectives(ctx, state, storageRegistryGetter, modelType, storageDirectives, meta); err != nil {
+		return application.InsertApplicationArgs{}, errors.Errorf("invalid storage directives: %w", err)
+	}
+
+	// When encoding the charm, this will also validate the charm metadata,
+	// when parsing it.
+	ch, _, err := encodeCharm(args.Charm)
+	if err != nil {
+		return application.InsertApplicationArgs{}, errors.Errorf("encoding charm: %w", err)
+	}
+
+	revision := -1
+	origin := args.CharmOrigin
+	if origin.Revision != nil {
+		revision = *origin.Revision
+	}
+
+	source, err := encodeCharmSource(origin.Source)
+	if err != nil {
+		return application.InsertApplicationArgs{}, errors.Errorf("encoding charm source: %w", err)
+	}
+
+	ch.Source = source
+	ch.ReferenceName = args.ReferenceName
+	ch.Revision = revision
+	ch.Hash = origin.Hash
+	ch.Architecture = encodeArchitecture(origin.Platform.Architecture)
+
+	channelArg, platformArg, err := encodeChannelAndPlatform(origin)
+	if err != nil {
+		return application.InsertApplicationArgs{}, errors.Errorf("encoding charm origin: %w", err)
+	}
+
+	applicationConfig, err := encodeApplicationConfig(args.ApplicationConfig, ch.Config)
+	if err != nil {
+		return application.InsertApplicationArgs{}, errors.Errorf("encoding application config: %w", err)
+	}
+
+	return application.InsertApplicationArgs{
+		Charm:            ch,
+		Platform:         platformArg,
+		Channel:          channelArg,
+		EndpointBindings: args.EndpointBindings,
+		Resources:        makeResourcesArgs(args.ResolvedResources),
+		Storage:          makeStorageArgs(storageDirectives),
+		StorageParentDir: application.StorageParentDir,
+		Config:           applicationConfig,
+		Settings:         args.ApplicationSettings,
+	}, nil
 }
 
 // IsApplicationExposed returns whether the provided application is exposed or not.

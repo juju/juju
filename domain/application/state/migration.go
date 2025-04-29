@@ -9,11 +9,14 @@ import (
 	"github.com/canonical/sqlair"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -150,6 +153,189 @@ WHERE application_uuid = $applicationID.uuid
 		}
 	}
 	return exportUnits, nil
+}
+
+// InsertMigratingApplication inserts a migrating application. Returns an
+// error satisfying [applicationerrors.ApplicationAlreadyExists]
+// if the application already exists.
+func (st *State) InsertMigratingApplication(
+	ctx context.Context,
+	name string,
+	args application.InsertApplicationArgs,
+) (coreapplication.ID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	appUUID, err := coreapplication.NewID()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	charmID, err := corecharm.NewID()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	appDetails := applicationDetails{
+		UUID:      appUUID,
+		Name:      name,
+		CharmUUID: charmID,
+		LifeID:    life.Alive,
+
+		// The space is defaulted to Alpha, which is guaranteed to exist.
+		// However, if there is default space defined in endpoints bindings
+		// (through a binding with an empty endpoint), the application space
+		// will be updated later in the transaction, during the insertion
+		// of application_endpoints.
+		// The space defined here will be used as default space when creating
+		// relation where application_endpoint doesn't have a defined space.
+		SpaceUUID: network.AlphaSpaceId,
+	}
+
+	createApplication := `INSERT INTO application (*) VALUES ($applicationDetails.*)`
+	createApplicationStmt, err := st.Prepare(createApplication, appDetails)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	scaleInfo := applicationScale{
+		ApplicationID: appUUID,
+		Scale:         args.Scale,
+	}
+	createScale := `INSERT INTO application_scale (*) VALUES ($applicationScale.*)`
+	createScaleStmt, err := st.Prepare(createScale, scaleInfo)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	platformInfo := applicationPlatform{
+		ApplicationID:  appUUID,
+		OSTypeID:       int(args.Platform.OSType),
+		Channel:        args.Platform.Channel,
+		ArchitectureID: int(args.Platform.Architecture),
+	}
+	createPlatform := `INSERT INTO application_platform (*) VALUES ($applicationPlatform.*)`
+	createPlatformStmt, err := st.Prepare(createPlatform, platformInfo)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var (
+		referenceName = args.Charm.ReferenceName
+		revision      = args.Charm.Revision
+		charmName     = args.Charm.Metadata.Name
+	)
+
+	var (
+		createChannelStmt *sqlair.Statement
+		channelInfo       applicationChannel
+	)
+	if ch := args.Channel; ch != nil {
+		channelInfo = applicationChannel{
+			ApplicationID: appUUID,
+			Track:         ch.Track,
+			Risk:          string(ch.Risk),
+			Branch:        ch.Branch,
+		}
+		createChannel := `INSERT INTO application_channel (*) VALUES ($applicationChannel.*)`
+		if createChannelStmt, err = st.Prepare(createChannel, channelInfo); err != nil {
+			return "", errors.Capture(err)
+		}
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Check if the application already exists.
+		if err := st.checkApplicationNameAvailable(ctx, tx, name); err != nil {
+			return errors.Errorf("checking if application %q exists: %w", name, err)
+		}
+
+		shouldInsertCharm := true
+
+		// Check if the charm already exists.
+		existingCharmID, err := st.checkCharmReferenceExists(ctx, tx, referenceName, revision)
+		if err != nil && !errors.Is(err, applicationerrors.CharmAlreadyExists) {
+			return errors.Errorf("checking if charm %q exists: %w", charmName, err)
+		} else if errors.Is(err, applicationerrors.CharmAlreadyExists) {
+			// We already have an existing charm, in this case we just want
+			// to point the application to the existing charm.
+			appDetails.CharmUUID = existingCharmID
+
+			shouldInsertCharm = false
+		}
+
+		if shouldInsertCharm {
+			// When importing a charm, we don't have all the information
+			// about the charm. We could call charmhub store directly, but
+			// that has the potential to block a migration if the charmhub
+			// store is down. If we require that information, then it's
+			// possible to fill this missing information in the charmhub
+			// store using the charmhub identifier.
+			// If the controllers do not have the same charmhub url, then
+			// all bets are off.
+			downloadInfo := &charm.DownloadInfo{Provenance: charm.ProvenanceMigration}
+			if err := st.setCharm(ctx, tx, charmID, args.Charm, downloadInfo); err != nil {
+				return errors.Errorf("setting charm: %w", err)
+			}
+		}
+
+		// If the application doesn't exist, create it.
+		if err := tx.Query(ctx, createApplicationStmt, appDetails).Run(); err != nil {
+			return errors.Errorf("inserting row for application %q: %w", name, err)
+		}
+		if err := tx.Query(ctx, createPlatformStmt, platformInfo).Run(); err != nil {
+			return errors.Errorf("inserting platform row for application %q: %w", name, err)
+		}
+		if err := tx.Query(ctx, createScaleStmt, scaleInfo).Run(); err != nil {
+			return errors.Errorf("inserting scale row for application %q: %w", name, err)
+		}
+		if err := st.createApplicationResources(
+			ctx, tx,
+			insertResourcesArgs{
+				appID:        appDetails.UUID,
+				charmUUID:    appDetails.CharmUUID,
+				charmSource:  args.Charm.Source,
+				appResources: args.Resources,
+			},
+			nil,
+		); err != nil {
+			return errors.Errorf("inserting or resolving resources for application %q: %w", name, err)
+		}
+
+		if err := st.insertApplicationConfig(ctx, tx, appDetails.UUID, args.Config); err != nil {
+			return errors.Errorf("inserting config for application %q: %w", name, err)
+		}
+		if err := st.insertApplicationSettings(ctx, tx, appDetails.UUID, args.Settings); err != nil {
+			return errors.Errorf("inserting settings for application %q: %w", name, err)
+		}
+		if err := st.updateConfigHash(ctx, tx, applicationID{ID: appUUID}); err != nil {
+			return errors.Errorf("refreshing config hash for application %q: %w", name, err)
+		}
+		if err := st.insertApplicationEndpoints(ctx, tx, insertApplicationEndpointsParams{
+			appID:     appDetails.UUID,
+			charmUUID: appDetails.CharmUUID,
+			bindings:  args.EndpointBindings,
+		}); err != nil {
+			return errors.Errorf("inserting exposed endpoints for application %q: %w", name, err)
+		}
+		if err := st.insertDeviceConstraints(ctx, tx, appUUID, args.Devices); err != nil {
+			return errors.Errorf("inserting device constraints for application %q: %w", appUUID, err)
+		}
+
+		// The channel is optional for local charms. Although, it would be
+		// nice to have a channel for local charms, it's not a requirement.
+		if createChannelStmt != nil {
+			if err := tx.Query(ctx, createChannelStmt, channelInfo).Run(); err != nil {
+				return errors.Errorf("inserting channel row for application %q: %w", name, err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Errorf("creating application %q: %w", name, err)
+	}
+	return appUUID, nil
 }
 
 // InsertIAASUnits imports the fully formed units for the specified IAAS

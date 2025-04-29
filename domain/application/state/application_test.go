@@ -3769,65 +3769,6 @@ func (s *applicationStateSuite) TestGetNetNodeUnitNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-func (s *applicationStateSuite) assertApplication(
-	c *gc.C,
-	name string,
-	platform deployment.Platform,
-	channel *deployment.Channel,
-	scale application.ScaleState,
-	available bool,
-) {
-	var (
-		gotName      string
-		gotUUID      string
-		gotCharmUUID string
-		gotPlatform  deployment.Platform
-		gotChannel   deployment.Channel
-		gotScale     application.ScaleState
-		gotAvailable bool
-	)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT uuid, charm_uuid, name FROM application WHERE name=?", name).Scan(&gotUUID, &gotCharmUUID, &gotName)
-		if err != nil {
-			return err
-		}
-		err = tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", gotUUID).
-			Scan(&gotScale.Scale, &gotScale.Scaling, &gotScale.ScaleTarget)
-		if err != nil {
-			return err
-		}
-		err = tx.QueryRowContext(ctx, "SELECT channel, os_id, architecture_id FROM application_platform WHERE application_uuid=?", gotUUID).
-			Scan(&gotPlatform.Channel, &gotPlatform.OSType, &gotPlatform.Architecture)
-		if err != nil {
-			return err
-		}
-		err = tx.QueryRowContext(ctx, "SELECT track, risk, branch FROM application_channel WHERE application_uuid=?", gotUUID).
-			Scan(&gotChannel.Track, &gotChannel.Risk, &gotChannel.Branch)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return err
-		}
-		err = tx.QueryRowContext(ctx, "SELECT available FROM charm WHERE uuid=?", gotCharmUUID).Scan(&gotAvailable)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gotName, gc.Equals, name)
-	c.Check(gotPlatform, jc.DeepEquals, platform)
-	c.Check(gotScale, jc.DeepEquals, scale)
-	c.Check(gotAvailable, gc.Equals, available)
-
-	// Channel is optional, so we need to check it separately.
-	if channel != nil {
-		c.Check(gotChannel, gc.DeepEquals, *channel)
-	} else {
-		// Ensure it's empty if the original origin channel isn't set.
-		// Prevent the db from sending back bogus values.
-		c.Check(gotChannel, gc.DeepEquals, deployment.Channel{})
-	}
-}
-
 func (s *applicationStateSuite) addCharmModifiedVersion(c *gc.C, appID coreapplication.ID, charmModifiedVersion int) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "UPDATE application SET charm_modified_version = ? WHERE uuid = ?", charmModifiedVersion, appID)
