@@ -15,7 +15,6 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
@@ -35,23 +34,19 @@ import (
 
 // Services represents all the services that the application facade requires.
 type Services struct {
-	ApplicationService        ApplicationService
-	ResolveService            ResolveService
-	ExternalControllerService ExternalControllerService
-	MachineService            MachineService
-	ModelConfigService        ModelConfigService
-	NetworkService            NetworkService
-	PortService               PortService
-	RelationService           RelationService
-	ResourceService           ResourceService
-	StorageService            StorageService
+	ApplicationService ApplicationService
+	ResolveService     ResolveService
+	MachineService     MachineService
+	ModelConfigService ModelConfigService
+	NetworkService     NetworkService
+	PortService        PortService
+	RelationService    RelationService
+	ResourceService    ResourceService
+	StorageService     StorageService
 }
 
 // Validate checks that all the services are set.
 func (s Services) Validate() error {
-	if s.ExternalControllerService == nil {
-		return errors.NotValidf("empty ExternalControllerService")
-	}
 	if s.NetworkService == nil {
 		return errors.NotValidf("empty NetworkService")
 	}
@@ -80,14 +75,6 @@ func (s Services) Validate() error {
 		return errors.NotValidf("empty RelationService")
 	}
 	return nil
-}
-
-// ExternalControllerService provides a subset of the external controller domain
-// service methods.
-type ExternalControllerService interface {
-	// UpdateExternalController persists the input controller
-	// record.
-	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
 }
 
 // CredentialService provides access to credentials.

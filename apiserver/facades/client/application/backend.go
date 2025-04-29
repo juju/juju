@@ -117,11 +117,6 @@ type Unit interface {
 type stateShim struct {
 	*state.State
 }
-
-type modelShim struct {
-	*state.Model
-}
-
 type StorageInterface interface {
 	storagecommon.StorageAccess
 	VolumeAccess() storagecommon.VolumeAccess

@@ -20,7 +20,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	apiservercharms "github.com/juju/juju/apiserver/internal/charms"
-	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
@@ -53,7 +52,6 @@ import (
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
 )
 
 var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
@@ -75,10 +73,9 @@ type APIBase struct {
 	storageAccess StorageInterface
 	store         objectstore.ObjectStore
 
-	externalControllerService ExternalControllerService
-	authorizer                facade.Authorizer
-	check                     BlockChecker
-	repoDeploy                DeployFromRepository
+	authorizer facade.Authorizer
+	check      BlockChecker
+	repoDeploy DeployFromRepository
 
 	modelUUID          model.UUID
 	modelType          model.ModelType
@@ -92,7 +89,6 @@ type APIBase struct {
 	resourceService    ResourceService
 	storageService     StorageService
 
-	resources        facade.Resources
 	leadershipReader leadership.Reader
 
 	registry              storage.ProviderRegistry
@@ -108,12 +104,7 @@ type CaasBrokerInterface interface {
 }
 
 func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, error) {
-	m, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting model")
-	}
-	// modelShim wraps the AllPorts() API.
-	modelShim := &modelShim{Model: m}
+
 	storageAccess, err := getStorageState(ctx.State())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting state")
@@ -130,17 +121,8 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 
 	modelInfo, err := domainServices.ModelInfo().GetModelInfo(stdCtx)
 	if err != nil {
-		return nil, fmt.Errorf("getting model info: %w", err)
+		return nil, internalerrors.Errorf("getting model info: %w", err)
 	}
-
-	var caasBroker caas.Broker
-	if modelInfo.Type == model.CAAS {
-		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(modelShim, domainServices.Cloud(), domainServices.Credential(), domainServices.Config())
-		if err != nil {
-			return nil, errors.Annotate(err, "getting caas client")
-		}
-	}
-	resources := ctx.Resources()
 
 	leadershipReader, err := ctx.LeadershipReader()
 	if err != nil {
@@ -165,7 +147,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 
 	validatorCfg := validatorConfig{
 		charmhubHTTPClient: charmhubHTTPClient,
-		caasBroker:         caasBroker,
+		caasBroker:         nil,
 		modelInfo:          modelInfo,
 		modelConfigService: domainServices.Config(),
 		machineService:     domainServices.Machine(),
@@ -188,16 +170,15 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	return NewAPIBase(
 		state,
 		Services{
-			ExternalControllerService: domainServices.ExternalController(),
-			NetworkService:            domainServices.Network(),
-			ModelConfigService:        domainServices.Config(),
-			MachineService:            domainServices.Machine(),
-			ApplicationService:        applicationService,
-			ResolveService:            domainServices.Resolve(),
-			PortService:               domainServices.Port(),
-			RelationService:           domainServices.Relation(),
-			ResourceService:           domainServices.Resource(),
-			StorageService:            storageService,
+			NetworkService:     domainServices.Network(),
+			ModelConfigService: domainServices.Config(),
+			MachineService:     domainServices.Machine(),
+			ApplicationService: applicationService,
+			ResolveService:     domainServices.Resolve(),
+			PortService:        domainServices.Port(),
+			RelationService:    domainServices.Relation(),
+			ResourceService:    domainServices.Resource(),
+			StorageService:     storageService,
 		},
 		storageAccess,
 		ctx.Auth(),
@@ -208,8 +189,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		repoDeploy,
 		DeployApplication,
 		registry,
-		resources,
-		caasBroker,
+		nil,
 		ctx.ObjectStore(),
 		ctx.Logger().Child("application"),
 		ctx.Clock(),
@@ -241,7 +221,6 @@ func NewAPIBase(
 	repoDeploy DeployFromRepository,
 	deployApplication DeployApplicationFunc,
 	registry storage.ProviderRegistry,
-	resources facade.Resources,
 	caasBroker CaasBrokerInterface,
 	store objectstore.ObjectStore,
 	logger corelogger.Logger,
@@ -266,20 +245,18 @@ func NewAPIBase(
 		leadershipReader:      leadershipReader,
 		deployApplicationFunc: deployApplication,
 		registry:              registry,
-		resources:             resources,
 		caasBroker:            caasBroker,
 		store:                 store,
 
-		applicationService:        services.ApplicationService,
-		resolveService:            services.ResolveService,
-		externalControllerService: services.ExternalControllerService,
-		machineService:            services.MachineService,
-		modelConfigService:        services.ModelConfigService,
-		networkService:            services.NetworkService,
-		portService:               services.PortService,
-		relationService:           services.RelationService,
-		resourceService:           services.ResourceService,
-		storageService:            services.StorageService,
+		applicationService: services.ApplicationService,
+		resolveService:     services.ResolveService,
+		machineService:     services.MachineService,
+		modelConfigService: services.ModelConfigService,
+		networkService:     services.NetworkService,
+		portService:        services.PortService,
+		relationService:    services.RelationService,
+		resourceService:    services.ResourceService,
+		storageService:     services.StorageService,
 
 		logger: logger,
 		clock:  clock,
@@ -493,9 +470,10 @@ func (c caasDeployParams) precheck(
 			return errors.Errorf(
 				"the %q storage pool requires a provider type of %q, not %q", poolName, k8sconstants.StorageProviderType, sp.Provider)
 		}
-		if err := caasBroker.ValidateStorageClass(ctx, sp.Attributes); err != nil {
-			return errors.Trace(err)
-		}
+		// TODO: implement this when caasBroker logic is migrated to the domain service and update the callers.
+		// if err := caasBroker.ValidateStorageClass(ctx, sp.Attributes); err != nil {
+		// 	return errors.Trace(err)
+		// }
 	}
 
 	return nil
