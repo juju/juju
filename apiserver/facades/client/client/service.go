@@ -49,12 +49,6 @@ type StatusService interface {
 	// GetAllRelationStatuses returns all the relation statuses of the given model.
 	GetAllRelationStatuses(ctx context.Context) (map[relation.UUID]status.StatusInfo, error)
 
-	// GetUnitDisplayAndAgentStatus returns the unit and agent display status of
-	// the specified unit. The display status a function of both the unit
-	// workload status and the cloud container status. It returns an error
-	// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	GetUnitDisplayAndAgentStatus(context.Context, unit.Name) (agent status.StatusInfo, workload status.StatusInfo, _ error)
-
 	// GetApplicationAndUnitStatuses returns the application statuses of all the
 	// applications in the model, indexed by application name.
 	GetApplicationAndUnitStatuses(ctx context.Context) (map[string]statusservice.Application, error)

@@ -24,7 +24,6 @@ CREATE TABLE unit (
     REFERENCES password_hash_algorithm (id)
 );
 
-
 CREATE UNIQUE INDEX idx_unit_name
 ON unit (name);
 
@@ -50,6 +49,14 @@ CREATE TABLE unit_principal (
     REFERENCES unit (uuid),
     CONSTRAINT fk_unit_principal_principal
     FOREIGN KEY (principal_uuid)
+    REFERENCES unit (uuid)
+);
+
+CREATE TABLE unit_workload_version (
+    unit_uuid TEXT NOT NULL PRIMARY KEY,
+    version TEXT NOT NULL,
+    CONSTRAINT fk_unit_workload_version_unit
+    FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid)
 );
 

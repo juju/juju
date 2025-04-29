@@ -6,7 +6,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -262,11 +261,8 @@ type applicationStatusInfo struct {
 	// application: application name -> application
 	applications map[string]statusservice.Application
 
-	// units: application name -> units name -> units
-	units map[string]map[string]*state.Unit
-
-	// allUnits: unit name -> unit
-	allUnits map[string]*state.Unit
+	// applicationCharmURL holds the charm URL for a given application
+	applicationCharmURL map[string]string
 
 	// endpointBindings: application name -> endpoint -> space
 	endpointBindings map[string]map[string]string
@@ -526,33 +522,14 @@ func fetchNetworkInterfaces(st Backend, subnetInfos network.SubnetInfos, spaceIn
 // a map from application name to unit name to unit, and a map from base charm URL to latest URL.
 func fetchAllApplicationsAndUnits(ctx context.Context, statusService StatusService, applicationService ApplicationService, st Backend, spaceInfos network.SpaceInfos) (applicationStatusInfo, error) {
 	var (
-		appMap       = make(map[string]statusservice.Application)
-		unitMap      = make(map[string]map[string]*state.Unit)
+		apps         = make(map[string]statusservice.Application)
+		appCharmURL  = make(map[string]string)
 		latestCharms = make(map[charm.URL]applicationcharm.CharmLocator)
 	)
 
 	applications, err := statusService.GetApplicationAndUnitStatuses(ctx)
 	if err != nil {
 		return applicationStatusInfo{}, err
-	}
-	units, err := st.AllUnits()
-	if err != nil {
-		return applicationStatusInfo{}, err
-	}
-	allUnitsByApp := make(map[string]map[string]*state.Unit)
-	allUnits := make(map[string]*state.Unit)
-	for _, unit := range units {
-		appName := unit.ApplicationName()
-
-		if inner, found := allUnitsByApp[appName]; found {
-			inner[unit.Name()] = unit
-		} else {
-			allUnitsByApp[appName] = map[string]*state.Unit{
-				unit.Name(): unit,
-			}
-		}
-
-		allUnits[unit.Name()] = unit
 	}
 
 	endpointBindings, err := st.AllEndpointBindings()
@@ -577,26 +554,25 @@ func fetchAllApplicationsAndUnits(ctx context.Context, statusService StatusServi
 
 	lxdProfiles := make(map[string]*charm.LXDProfile)
 	for name, app := range applications {
-		appMap[name] = app
-		appUnits := allUnitsByApp[name]
-		if len(appUnits) > 0 {
-			unitMap[name] = appUnits
+		apps[name] = app
 
-			// Record the base URL for the application's charm so that
-			// the latest store revision can be looked up.
-			cURL, _ := charms.CharmURLFromLocator(app.CharmLocator.Name, app.CharmLocator)
-			charmURL, err := charm.ParseURL(cURL)
-			if err != nil {
-				continue
-			}
+		applicationCharmURL, err := charms.CharmURLFromLocator(app.CharmLocator.Name, app.CharmLocator)
+		if err != nil {
+			logger.Warningf(ctx, "failed to get charm URL for %q: %v", app.CharmLocator.Name, err)
+			continue
+		}
+		appCharmURL[name] = applicationCharmURL
 
-			// De-duplicate charms with the same name and architecture.
-			switch {
-			case charm.CharmHub.Matches(charmURL.Schema):
-				latestCharms[*charmURL.WithRevision(-1)] = applicationcharm.CharmLocator{}
-			default:
-				// Don't look up revision for local charms
-			}
+		if len(app.Units) == 0 {
+			continue
+		}
+
+		// De-duplicate charms with the same name and architecture.
+		switch {
+		case charm.CharmHub.Matches(charmURL.Schema):
+			latestCharms[app.CharmLocator.WithoutRevision()] = applicationcharm.CharmLocator{}
+		default:
+			// Don't look up revision for local charms
 		}
 	}
 
@@ -613,9 +589,7 @@ func fetchAllApplicationsAndUnits(ctx context.Context, statusService StatusServi
 	}
 
 	return applicationStatusInfo{
-		applications:     appMap,
-		units:            unitMap,
-		allUnits:         allUnits,
+		applications:     apps,
 		endpointBindings: allBindingsByApp,
 		latestCharms:     latestCharms,
 		lxdProfiles:      lxdProfiles,
@@ -1034,23 +1008,13 @@ func (context *statusContext) processApplication(ctx context.Context, name strin
 		processedStatus.Err = apiservererrors.ServerError(err)
 		return processedStatus
 	}
-	units := context.allAppsUnitsCharmBindings.units[name]
+	units := application.Units
 	if !application.Subordinate {
 		processedStatus.Units = context.processUnits(ctx, units, charmURL)
 	}
 
-	versions := make([]status.StatusInfo, 0, len(units))
-	for _, unit := range units {
-		workloadVersion, err := context.status.FullUnitWorkloadVersion(unit.Name())
-		if err != nil {
-			processedStatus.Err = apiservererrors.ServerError(err)
-			return processedStatus
-		}
-		versions = append(versions, workloadVersion)
-	}
-	if len(versions) > 0 {
-		sort.Sort(bySinceDescending(versions))
-		processedStatus.WorkloadVersion = versions[0].Message
+	if application.WorkloadVersion != nil {
+		processedStatus.WorkloadVersion = *application.WorkloadVersion
 	}
 
 	processedStatus.EndpointBindings = context.allAppsUnitsCharmBindings.endpointBindings[name]
@@ -1149,31 +1113,38 @@ func (context *statusContext) processOffers() map[string]params.ApplicationOffer
 	return offers
 }
 
-func (context *statusContext) processUnits(ctx context.Context, units map[string]*state.Unit, applicationCharm string) map[string]params.UnitStatus {
+func (context *statusContext) processUnits(ctx context.Context, units map[coreunit.Name]statusservice.Unit, applicationCharm string) map[string]params.UnitStatus {
 	unitsMap := make(map[string]params.UnitStatus)
-	for _, unit := range units {
-		unitsMap[unit.Name()] = context.processUnit(ctx, unit, applicationCharm)
+	for name, unit := range units {
+		unitsMap[name.String()] = context.processUnit(ctx, name, unit, applicationCharm)
 	}
 	return unitsMap
 }
 
-func (context *statusContext) unitMachineID(unit *state.Unit) string {
-	// This should never happen, but guarding against segfaults if for
-	// some reason the unit isn't in the context.
-	if unit == nil {
+func (context *statusContext) unitMachineID(unit statusservice.Unit) coremachine.Name {
+	if !unit.Subordinate {
+		// machineID will be empty if not currently assigned.
+		var machineName coremachine.Name
+		if unit.MachineName != nil {
+			machineName = *unit.MachineName
+		}
+		return machineName
+	}
+
+	// We're a subordinate, so we need to look at the principal unit.
+	if unit.PrincipalName == nil {
 		return ""
 	}
-	principal, isSubordinate := unit.PrincipalName()
-	if isSubordinate {
-		return context.unitMachineID(context.unitByName(principal))
+
+	// Locate the principal unit.
+	if unit, ok := context.unitByName(*unit.PrincipalName); ok {
+		return context.unitMachineID(unit)
 	}
-	// machineID will be empty if not currently assigned.
-	machineID, _ := unit.AssignedMachineId()
-	return machineID
+	return ""
 }
 
-func (context *statusContext) unitPublicAddress(unit *state.Unit) string {
-	machine := context.allMachines[context.unitMachineID(unit)]
+func (context *statusContext) unitPublicAddress(unit statusservice.Unit) string {
+	machine := context.allMachines[context.unitMachineID(unit).String()]
 	if machine == nil {
 		return ""
 	}
@@ -1182,77 +1153,68 @@ func (context *statusContext) unitPublicAddress(unit *state.Unit) string {
 	return addr.Value
 }
 
-func (context *statusContext) processUnit(ctx context.Context, unit *state.Unit, applicationCharm string) params.UnitStatus {
+func (context *statusContext) processUnit(ctx context.Context, unitName coreunit.Name, unit statusservice.Unit, applicationCharm string) params.UnitStatus {
 	var result params.UnitStatus
-	// unit.Name was retrieved from Mongo, so we can trust it's valid.
-	unitName := coreunit.Name(unit.Name())
 	if prs, ok := context.allOpenPortRanges[unitName]; ok {
 		result.OpenedPorts = transform.Slice(prs, network.PortRange.String)
 	}
 	if context.model.Type == model.IAAS {
 		result.PublicAddress = context.unitPublicAddress(unit)
-	} else {
+	} else if unit.K8sProviderID != nil {
 		// For CAAS units we want to provide the container address.
-		// TODO: preload all the container info.
-		container, err := unit.ContainerInfo()
-		if err == nil {
-			if addr := container.Address(); addr != nil {
-				result.Address = addr.Value
-			}
-			result.ProviderId = container.ProviderId()
-
-		} else {
-			logger.Tracef(ctx, "container info not yet available for unit: %v", err)
-		}
+		// TODO (stickupkid): Get the K8s pod address once link layer devices
+		// are available.
+		result.ProviderId = *unit.K8sProviderID
 	}
-	if unit.IsPrincipal() {
-		result.Machine, _ = unit.AssignedMachineId()
-	}
-	unitCharm := unit.CharmURL()
-	if applicationCharm != "" && unitCharm != nil && *unitCharm != applicationCharm {
-		result.Charm = *unitCharm
-	}
-	workloadVersion, err := context.status.UnitWorkloadVersion(unit.Name())
-	if err == nil {
-		result.WorkloadVersion = workloadVersion
-	} else {
-		logger.Debugf(ctx, "error fetching workload version: %v", err)
+	if !unit.Subordinate && unit.MachineName != nil {
+		result.Machine = unit.MachineName.String()
 	}
 
-	result.AgentStatus, result.WorkloadStatus = context.processUnitAndAgentStatus(ctx, unit, unitName)
-
-	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
-		result.Subordinates = make(map[string]params.UnitStatus)
-		for _, name := range subUnits {
-			subUnit := context.unitByName(name)
-			// subUnit may be nil if subordinate was filtered out.
-			if subUnit != nil {
-				subUnitAppCharm := ""
-				subUnitApp, err := subUnit.Application()
-				if err == nil {
-					if subUnitAppCh, _, err := subUnitApp.Charm(); err == nil {
-						subUnitAppCharm = subUnitAppCh.URL()
-					} else {
-						logger.Debugf(ctx, "error fetching subordinate application charm for %q: %q", subUnit.ApplicationName(), err.Error())
-					}
-				} else {
-					// We can still run processUnit with an empty string for
-					// the ApplicationCharm.
-					logger.Debugf(ctx, "error fetching subordinate application for %q: %q", subUnit.ApplicationName(), err.Error())
-				}
-				result.Subordinates[name] = context.processUnit(ctx, subUnit, subUnitAppCharm)
-			}
-		}
+	if unitCharm, err := charms.CharmURLFromLocator(unit.CharmLocator.Name, unit.CharmLocator); err == nil && unitCharm != applicationCharm {
+		result.Charm = unitCharm
 	}
-	if leader := context.leaders[unit.ApplicationName()]; leader == unit.Name() {
+	if unit.WorkloadVersion != nil {
+		result.WorkloadVersion = *unit.WorkloadVersion
+	}
+	result.AgentStatus, result.WorkloadStatus = context.processUnitAndAgentStatus(unit, unitName)
+
+	if leader := context.leaders[unit.ApplicationName]; leader == unitName.String() {
 		result.Leader = true
 	}
+
+	subUnits := unit.SubordinateNames
+	if len(subUnits) == 0 {
+		return result
+	}
+
+	// Handle any subordinate units.
+	result.Subordinates = make(map[string]params.UnitStatus)
+	for _, name := range subUnits {
+		subUnit, ok := context.unitByName(name)
+		if !ok {
+			continue
+		}
+
+		subCharmURL, ok := context.allAppsUnitsCharmBindings.applicationCharmURL[subUnit.ApplicationName]
+		if !ok {
+			logger.Debugf(ctx, "missing subordinate application %q", subUnit.ApplicationName)
+			continue
+		}
+
+		result.Subordinates[name.String()] = context.processUnit(ctx, name, subUnit, subCharmURL)
+	}
+
 	return result
 }
 
-func (context *statusContext) unitByName(name string) *state.Unit {
-	applicationName := strings.Split(name, "/")[0]
-	return context.allAppsUnitsCharmBindings.units[applicationName][name]
+func (context *statusContext) unitByName(name coreunit.Name) (statusservice.Unit, bool) {
+	applicationName := name.Application()
+	application, ok := context.allAppsUnitsCharmBindings.applications[applicationName]
+	if !ok {
+		return statusservice.Unit{}, false
+	}
+	unit, ok := application.Units[name]
+	return unit, ok
 }
 
 func (context *statusContext) processApplicationRelations(
@@ -1287,15 +1249,11 @@ func (context *statusContext) processApplicationRelations(
 }
 
 func (c *statusContext) unitToMachine(unitTag names.UnitTag) (names.MachineTag, error) {
-	unit, ok := c.allAppsUnitsCharmBindings.allUnits[unitTag.Id()]
-	if !ok {
+	unit, ok := c.unitByName(coreunit.Name(unitTag.Id()))
+	if !ok || unit.MachineName == nil {
 		return names.MachineTag{}, internalerrors.Errorf("unit %v: %w", unitTag, errors.NotFound)
 	}
-	machine, err := unit.AssignedMachineId()
-	if err != nil {
-		return names.MachineTag{}, internalerrors.Capture(err)
-	}
-	return names.NewMachineTag(machine), nil
+	return names.NewMachineTag(string(*unit.MachineName)), nil
 }
 
 func (c *statusContext) processStorage(ctx context.Context, storageAccessor StorageInterface, blockDeviceService BlockDeviceService) ([]params.StorageDetails, error) {
@@ -1344,34 +1302,20 @@ func (c *statusContext) processVolumes(ctx context.Context, storageAccessor Stor
 
 // processUnitAndAgentStatus retrieves status information for both unit and
 // unitAgents.
-//
-// NOTE(jack-w-shaw): When this method was Mongo-backed, it will pull the unit
-// statuses out of a cache.
-func (c *statusContext) processUnitAndAgentStatus(ctx context.Context, unit *state.Unit, unitName coreunit.Name) (params.DetailedStatus, params.DetailedStatus) {
-	agentStatus, workloadStatus, err := c.statusService.GetUnitDisplayAndAgentStatus(ctx, unitName)
-	if internalerrors.Is(err, applicationerrors.UnitNotFound) {
-		return params.DetailedStatus{}, params.DetailedStatus{Err: apiservererrors.ServerError(internalerrors.Errorf(
-			"unit %q: %w", unitName, errors.NotFound))}
-	} else if err != nil {
-		return params.DetailedStatus{}, params.DetailedStatus{Err: apiservererrors.ServerError(err)}
-	}
-
+func (c *statusContext) processUnitAndAgentStatus(unit statusservice.Unit, unitName coreunit.Name) (params.DetailedStatus, params.DetailedStatus) {
 	detailedAgentStatus := params.DetailedStatus{
-		Status: agentStatus.Status.String(),
-		Info:   agentStatus.Message,
-		Data:   filterStatusData(agentStatus.Data),
-		Since:  agentStatus.Since,
-		Life:   processLife(unit),
+		Status:  unit.AgentStatus.Status.String(),
+		Info:    unit.AgentStatus.Message,
+		Data:    filterStatusData(unit.AgentStatus.Data),
+		Since:   unit.AgentStatus.Since,
+		Life:    unit.Life,
+		Version: unit.AgentVersion,
 	}
 	detailedWorkloadStatus := params.DetailedStatus{
-		Status: workloadStatus.Status.String(),
-		Info:   workloadStatus.Message,
-		Data:   filterStatusData(workloadStatus.Data),
-		Since:  workloadStatus.Since,
-	}
-
-	if t, err := unit.AgentTools(); err == nil {
-		detailedAgentStatus.Version = t.Version.Number.String()
+		Status: unit.WorkloadStatus.Status.String(),
+		Info:   unit.WorkloadStatus.Message,
+		Data:   filterStatusData(unit.WorkloadStatus.Data),
+		Since:  unit.WorkloadStatus.Since,
 	}
 	return detailedAgentStatus, detailedWorkloadStatus
 }
@@ -1421,17 +1365,6 @@ func processLife(entity lifer) life.Value {
 	}
 	return life.Value("")
 }
-
-type bySinceDescending []status.StatusInfo
-
-// Len implements sort.Interface.
-func (s bySinceDescending) Len() int { return len(s) }
-
-// Swap implements sort.Interface.
-func (s bySinceDescending) Swap(a, b int) { s[a], s[b] = s[b], s[a] }
-
-// Less implements sort.Interface.
-func (s bySinceDescending) Less(a, b int) bool { return s[a].Since.After(*s[b].Since) }
 
 func encodePlatform(platform deployment.Platform) (params.Base, error) {
 	os, err := encodeOSType(platform.OSType)

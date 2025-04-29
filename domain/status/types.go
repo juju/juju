@@ -15,32 +15,37 @@ import (
 
 // Application represents the status of an application.
 type Application struct {
-	ID            application.ID
-	Life          life.Life
-	Status        StatusInfo[WorkloadStatusType]
-	Units         map[unit.Name]Unit
-	Relations     []relation.UUID
-	Subordinate   bool
-	CharmLocator  charm.CharmLocator
-	CharmVersion  string
-	LXDProfile    []byte
-	Platform      deployment.Platform
-	Channel       *deployment.Channel
-	Exposed       bool
-	Scale         *int
-	K8sProviderID *string
+	ID              application.ID
+	Life            life.Life
+	Status          StatusInfo[WorkloadStatusType]
+	Units           map[unit.Name]Unit
+	Relations       []relation.UUID
+	Subordinate     bool
+	CharmLocator    charm.CharmLocator
+	CharmVersion    string
+	LXDProfile      []byte
+	Platform        deployment.Platform
+	Channel         *deployment.Channel
+	Exposed         bool
+	Scale           *int
+	WorkloadVersion *string
+	K8sProviderID   *string
 }
 
 // Unit represents the status of a unit.
 type Unit struct {
-	ApplicationName string
-	MachineName     *machine.Name
-	AgentStatus     StatusInfo[UnitAgentStatusType]
-	WorkloadStatus  StatusInfo[WorkloadStatusType]
-	WorkloadVersion string
-	Life            life.Life
-	Leader          bool
-	Subordinates    []unit.Name
-	Present         bool
-	K8sProviderID   *string
+	ApplicationName  string
+	CharmLocator     charm.CharmLocator
+	MachineName      *machine.Name
+	AgentStatus      StatusInfo[UnitAgentStatusType]
+	WorkloadStatus   StatusInfo[WorkloadStatusType]
+	K8sPodStatus     StatusInfo[K8sPodStatusType]
+	Life             life.Life
+	Subordinate      bool
+	PrincipalName    *unit.Name
+	SubordinateNames map[unit.Name]struct{}
+	Present          bool
+	AgentVersion     string
+	WorkloadVersion  *string
+	K8sProviderID    *string
 }

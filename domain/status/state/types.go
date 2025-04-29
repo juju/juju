@@ -127,14 +127,24 @@ type relationStatus struct {
 	Since        *time.Time        `db:"updated_at"`
 }
 
+// Note: this has to be public because it's embedded and sqlair can't see
+// the private struct because of reflection.
+type CharmLocatorDetails struct {
+	CharmReferenceName  string        `db:"charm_reference_name"`
+	CharmRevision       int           `db:"charm_revision"`
+	CharmSourceID       int           `db:"charm_source_id"`
+	CharmArchitectureID sql.NullInt64 `db:"charm_architecture_id"`
+}
+
 type applicationStatusDetails struct {
+	CharmLocatorDetails
 	UUID                   coreapplication.ID `db:"uuid"`
 	Name                   string             `db:"name"`
 	PlatformOSID           sql.NullInt64      `db:"platform_os_id"`
 	PlatformChannel        string             `db:"platform_channel"`
 	PlatformArchitectureID sql.NullInt64      `db:"platform_architecture_id"`
 	ChannelTrack           string             `db:"channel_track"`
-	ChannelRisk            sql.NullString     `db:"channel_risk"`
+	ChannelRisk            sql.Null[string]   `db:"channel_risk"`
 	ChannelBranch          string             `db:"channel_branch"`
 	LifeID                 domainlife.Life    `db:"life_id"`
 	Subordinate            bool               `db:"subordinate"`
@@ -142,24 +152,24 @@ type applicationStatusDetails struct {
 	Message                string             `db:"message"`
 	Data                   []byte             `db:"data"`
 	UpdatedAt              *time.Time         `db:"updated_at"`
-	RelationUUID           sql.NullString     `db:"relation_uuid"`
-	CharmReferenceName     string             `db:"charm_reference_name"`
-	CharmRevision          int                `db:"charm_revision"`
-	CharmSourceID          int                `db:"charm_source_id"`
-	CharmArchitectureID    sql.NullInt64      `db:"charm_architecture_id"`
+	RelationUUID           sql.Null[string]   `db:"relation_uuid"`
 	CharmVersion           string             `db:"charm_version"`
 	LXDProfile             sql.Null[[]byte]   `db:"lxd_profile"`
 	Exposed                bool               `db:"exposed"`
 	Scale                  sql.Null[int]      `db:"scale"`
-	K8sProviderID          sql.NullString     `db:"k8s_provider_id"`
+	WorkloadVersion        sql.Null[string]   `db:"workload_version"`
+	K8sProviderID          sql.Null[string]   `db:"k8s_provider_id"`
 }
 
 type unitStatusDetails struct {
+	CharmLocatorDetails
 	UUID              coreunit.UUID              `db:"uuid"`
 	Name              coreunit.Name              `db:"name"`
 	LifeID            domainlife.Life            `db:"life_id"`
 	ApplicationName   string                     `db:"application_name"`
 	MachineName       sql.Null[coremachine.Name] `db:"machine_name"`
+	PrincipalName     sql.Null[coreunit.Name]    `db:"principal_name"`
+	Subordinate       bool                       `db:"subordinate"`
 	SubordinateName   sql.Null[coreunit.Name]    `db:"subordinate_name"`
 	AgentStatusID     int                        `db:"agent_status_id"`
 	AgentMessage      string                     `db:"agent_message"`
@@ -169,8 +179,14 @@ type unitStatusDetails struct {
 	WorkloadMessage   string                     `db:"workload_message"`
 	WorkloadData      []byte                     `db:"workload_data"`
 	WorkloadUpdatedAt *time.Time                 `db:"workload_updated_at"`
+	K8sPodStatusID    int                        `db:"k8s_pod_status_id"`
+	K8sPodMessage     string                     `db:"k8s_pod_message"`
+	K8sPodData        []byte                     `db:"k8s_pod_data"`
+	K8sPodUpdatedAt   *time.Time                 `db:"k8s_pod_updated_at"`
 	Present           bool                       `db:"present"`
-	K8sProviderID     sql.NullString             `db:"k8s_provider_id"`
+	AgentVersion      string                     `db:"agent_version"`
+	WorkloadVersion   sql.Null[string]           `db:"workload_version"`
+	K8sProviderID     sql.Null[string]           `db:"k8s_provider_id"`
 }
 
 // relationStatus represents the status of a relation and the relations ID.

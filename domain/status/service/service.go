@@ -621,5 +621,44 @@ func (s *Service) decodeUnitsStatusDetails(unitStatuses map[coreunit.Name]status
 }
 
 func (s *Service) decodeUnitStatusDetails(unit status.Unit) (Unit, error) {
-	return Unit{}, nil
+	life, err := unit.Life.Value()
+	if err != nil {
+		return Unit{}, errors.Errorf("decoding unit life: %w", err)
+	}
+
+	agentStatus, workloadStatus, err := decodeUnitDisplayAndAgentStatus(status.FullUnitStatus{
+		AgentStatus:    unit.AgentStatus,
+		WorkloadStatus: unit.WorkloadStatus,
+		K8sPodStatus:   unit.K8sPodStatus,
+		Present:        unit.Present,
+	})
+	if err != nil {
+		return Unit{}, errors.Errorf("decoding unit status: %w", err)
+	}
+
+	k8sPodStatus, err := decodeK8sPodStatus(unit.K8sPodStatus)
+	if err != nil {
+		return Unit{}, errors.Errorf("decoding k8s pod status: %w", err)
+	}
+
+	var subordinateNames []coreunit.Name
+	for name := range unit.SubordinateNames {
+		subordinateNames = append(subordinateNames, name)
+	}
+
+	return Unit{
+		Life:             life,
+		ApplicationName:  unit.ApplicationName,
+		MachineName:      unit.MachineName,
+		AgentStatus:      agentStatus,
+		WorkloadStatus:   workloadStatus,
+		K8sPodStatus:     k8sPodStatus,
+		Present:          unit.Present,
+		Subordinate:      unit.Subordinate,
+		PrincipalName:    unit.PrincipalName,
+		SubordinateNames: subordinateNames,
+		CharmLocator:     unit.CharmLocator,
+		AgentVersion:     unit.AgentVersion,
+		K8sProviderID:    unit.K8sProviderID,
+	}, nil
 }

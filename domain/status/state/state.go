@@ -1294,7 +1294,11 @@ SELECT
 	c.lxd_profile AS &applicationStatusDetails.lxd_profile,
 	aps.scale AS &applicationStatusDetails.scale,
 	k8s.provider_id AS &applicationStatusDetails.k8s_provider_id,
-	EXISTS(SELECT 1 FROM v_application_exposed_endpoint AS ae WHERE ae.application_uuid = a.uuid) AS &applicationStatusDetails.exposed
+	EXISTS(
+		SELECT 1 FROM v_application_exposed_endpoint AS ae
+		WHERE ae.application_uuid = a.uuid
+	) AS &applicationStatusDetails.exposed,
+	awv.version AS &applicationStatusDetails.workload_version
 FROM application AS a
 JOIN application_platform AS ap ON ap.application_uuid = a.uuid
 LEFT JOIN application_channel AS ac ON ac.application_uuid = a.uuid
@@ -1304,6 +1308,7 @@ LEFT JOIN application_status AS s ON s.application_uuid = a.uuid
 LEFT JOIN k8s_service AS k8s ON k8s.application_uuid = a.uuid
 LEFT JOIN application_scale AS aps ON aps.application_uuid = a.uuid
 LEFT JOIN v_relation_endpoint AS re ON re.application_uuid = a.uuid
+LEFT JOIN application_workload_version AS awv ON awv.application_uuid = a.uuid
 ORDER BY a.name, re.relation_uuid;
 `, applicationStatusDetails{})
 	if err != nil {
@@ -1321,9 +1326,9 @@ ORDER BY a.name, re.relation_uuid;
 
 		var relationUUID corerelation.UUID
 		if s.RelationUUID.Valid {
-			relationUUID = corerelation.UUID(s.RelationUUID.String)
+			relationUUID = corerelation.UUID(s.RelationUUID.V)
 			if err := relationUUID.Validate(); err != nil {
-				return nil, errors.Errorf("invalid relation UUID %q: %w", s.RelationUUID.String, err)
+				return nil, errors.Errorf("invalid relation UUID %q: %w", s.RelationUUID.V, err)
 			}
 		}
 
@@ -1350,7 +1355,7 @@ ORDER BY a.name, re.relation_uuid;
 			return nil, errors.Errorf("decoding workload status ID for application %q: %w", appName, err)
 		}
 
-		charmLocator, err := decodeCharmLocator(s)
+		charmLocator, err := decodeCharmLocator(s.CharmLocatorDetails)
 		if err != nil {
 			return nil, errors.Errorf("decoding charm locator for application %q: %w", appName, err)
 		}
@@ -1377,7 +1382,12 @@ ORDER BY a.name, re.relation_uuid;
 
 		var k8sProviderID *string
 		if s.K8sProviderID.Valid {
-			k8sProviderID = &s.K8sProviderID.String
+			k8sProviderID = &s.K8sProviderID.V
+		}
+
+		var workloadVersion *string
+		if s.WorkloadVersion.Valid {
+			workloadVersion = &s.WorkloadVersion.V
 		}
 
 		result[appName] = status.Application{
@@ -1390,15 +1400,16 @@ ORDER BY a.name, re.relation_uuid;
 				Data:    s.Data,
 				Since:   s.UpdatedAt,
 			},
-			Relations:     relations,
-			CharmLocator:  charmLocator,
-			CharmVersion:  s.CharmVersion,
-			LXDProfile:    lxdProfile,
-			Platform:      platform,
-			Channel:       channel,
-			Exposed:       s.Exposed,
-			Scale:         scale,
-			K8sProviderID: k8sProviderID,
+			Relations:       relations,
+			CharmLocator:    charmLocator,
+			CharmVersion:    s.CharmVersion,
+			LXDProfile:      lxdProfile,
+			Platform:        platform,
+			Channel:         channel,
+			Exposed:         s.Exposed,
+			Scale:           scale,
+			WorkloadVersion: workloadVersion,
+			K8sProviderID:   k8sProviderID,
 		}
 	}
 
@@ -1419,6 +1430,12 @@ SELECT
 	u.life_id AS &unitStatusDetails.life_id,
 	a.name AS &unitStatusDetails.application_name,
 	m.name AS &unitStatusDetails.machine_name,
+	c.reference_name AS &unitStatusDetails.charm_reference_name,
+	c.revision AS &unitStatusDetails.charm_revision,
+	c.source_id AS &unitStatusDetails.charm_source_id,
+	c.architecture_id AS &unitStatusDetails.charm_architecture_id,
+	cm.subordinate AS &unitStatusDetails.subordinate,
+	upu.name AS &unitStatusDetails.principal_name,
 	us.subordinate_name AS &unitStatusDetails.subordinate_name,
 	uas.status_id AS &unitStatusDetails.agent_status_id,
 	uas.message AS &unitStatusDetails.agent_message,
@@ -1428,19 +1445,30 @@ SELECT
 	uws.message AS &unitStatusDetails.workload_message,
 	uws.data AS &unitStatusDetails.workload_data,
 	uws.updated_at AS &unitStatusDetails.workload_updated_at,
+	uks.status_id AS &unitStatusDetails.k8s_pod_status_id,
+	uks.message AS &unitStatusDetails.k8s_pod_message,
+	uks.data AS &unitStatusDetails.k8s_pod_data,
+	uws.updated_at AS &unitStatusDetails.k8s_pod_updated_at,
 	k8s.provider_id AS &unitStatusDetails.k8s_provider_id,
 	EXISTS(
-        SELECT 1 FROM unit_agent_presence AS uap
-        WHERE u.uuid = uap.unit_uuid
-    ) AS &unitStatusDetails.present
+		SELECT 1 FROM unit_agent_presence AS uap
+		WHERE u.uuid = uap.unit_uuid
+	) AS &unitStatusDetails.present,
+	uav.version AS &unitStatusDetails.agent_version
 FROM unit AS u
 JOIN application AS a ON a.uuid = u.application_uuid
 JOIN net_node AS n ON n.uuid = u.net_node_uuid
+JOIN charm AS c ON c.uuid = a.charm_uuid
+JOIN charm_metadata AS cm ON cm.charm_uuid = c.uuid
 LEFT JOIN machine AS m ON m.uuid = u.net_node_uuid
-LEFT JOIN unit_subordinate AS us ON us.principal_uuid = u.uuid
 LEFT JOIN unit_agent_status AS uas ON uas.unit_uuid = u.uuid
 LEFT JOIN unit_workload_status AS uws ON uws.unit_uuid = u.uuid
+LEFT JOIN k8s_pod_status AS uks ON uks.unit_uuid = u.uuid
 LEFT JOIN k8s_pod AS k8s ON k8s.unit_uuid = u.uuid
+LEFT JOIN unit_principal AS up ON u.uuid = up.unit_uuid
+LEFT JOIN unit AS upu ON up.principal_uuid = upu.uuid
+LEFT JOIN unit_subordinate AS us ON us.principal_uuid = u.uuid
+LEFT JOIN unit_agent_version AS uav ON uav.unit_uuid = u.uuid
 ORDER BY u.name;
 `, unitStatusDetails{})
 	if err != nil {
@@ -1467,10 +1495,14 @@ ORDER BY u.name;
 		}
 
 		if a, exists := result[appName][unitName]; exists && s.SubordinateName.Valid {
-			// If we already have a subordinate unit, we don't need to add it again.
-			a.Subordinates = append(a.Subordinates, subordinateName)
-			result[appName][unitName] = a
+			// If we already have a subordinate unit, we don't need to add it
+			// again.
+			if _, ok := a.SubordinateNames[subordinateName]; ok {
+				continue
+			}
 
+			a.SubordinateNames[subordinateName] = struct{}{}
+			result[appName][unitName] = a
 			continue
 		} else if exists {
 			// This should never happen, but if it does, we have a duplicate
@@ -1478,9 +1510,15 @@ ORDER BY u.name;
 			return nil, errors.Errorf("duplicate unit name %q", unitName)
 		}
 
-		var subordinates []coreunit.Name
+		charmLocator, err := decodeCharmLocator(s.CharmLocatorDetails)
+		if err != nil {
+			return nil, errors.Errorf("decoding charm locator for application %q: %w", appName, err)
+		}
+
+		var subordinates map[coreunit.Name]struct{}
 		if s.SubordinateName.Valid {
-			subordinates = append(subordinates, subordinateName)
+			subordinates = make(map[coreunit.Name]struct{})
+			subordinates[subordinateName] = struct{}{}
 		}
 
 		agentStatusID, err := status.DecodeAgentStatus(s.AgentStatusID)
@@ -1491,22 +1529,39 @@ ORDER BY u.name;
 		if err != nil {
 			return nil, errors.Errorf("decoding workload status ID for unit %q: %w", unitName, err)
 		}
+		k8sPodStatusID, err := status.DecodeK8sPodStatus(s.K8sPodStatusID)
+		if err != nil {
+			return nil, errors.Errorf("decoding k8s pod status ID for unit %q: %w", unitName, err)
+		}
 
 		var machineName *coremachine.Name
 		if s.MachineName.Valid {
 			machineName = &s.MachineName.V
 		}
 
+		var principalName *coreunit.Name
+		if s.PrincipalName.Valid {
+			principalName = &s.PrincipalName.V
+		}
+
 		var k8sProviderID *string
 		if s.K8sProviderID.Valid {
-			k8sProviderID = &s.K8sProviderID.String
+			k8sProviderID = &s.K8sProviderID.V
+		}
+
+		var workloadVersion *string
+		if s.WorkloadVersion.Valid {
+			workloadVersion = &s.WorkloadVersion.V
 		}
 
 		result[appName][unitName] = status.Unit{
-			ApplicationName: s.ApplicationName,
-			MachineName:     machineName,
-			Life:            s.LifeID,
-			Subordinates:    subordinates,
+			ApplicationName:  s.ApplicationName,
+			MachineName:      machineName,
+			Life:             s.LifeID,
+			CharmLocator:     charmLocator,
+			Subordinate:      s.Subordinate,
+			PrincipalName:    principalName,
+			SubordinateNames: subordinates,
 			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 				Status:  agentStatusID,
 				Message: s.AgentMessage,
@@ -1519,8 +1574,16 @@ ORDER BY u.name;
 				Data:    s.WorkloadData,
 				Since:   s.WorkloadUpdatedAt,
 			},
-			Present:       s.Present,
-			K8sProviderID: k8sProviderID,
+			K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
+				Status:  k8sPodStatusID,
+				Message: s.K8sPodMessage,
+				Data:    s.K8sPodData,
+				Since:   s.K8sPodUpdatedAt,
+			},
+			Present:         s.Present,
+			AgentVersion:    s.AgentVersion,
+			WorkloadVersion: workloadVersion,
+			K8sProviderID:   k8sProviderID,
 		}
 	}
 

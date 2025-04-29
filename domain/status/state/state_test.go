@@ -1314,10 +1314,22 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *gc.C) {
 				"foo/666": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
 				},
 				"foo/667": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
 				},
 			},
 		},
@@ -1405,6 +1417,16 @@ func (s *stateSuite) TestGetApplicationAndUnitStatuses(c *gc.C) {
 						Data:    []byte(`{"bar": "foo"}`),
 						Since:   ptr(now),
 					},
+					K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
+						Status: status.K8sPodStatusUnset,
+						Since:  ptr(now),
+					},
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
 				},
 				"foo/667": {
 					Life:            life.Alive,
@@ -1420,6 +1442,16 @@ func (s *stateSuite) TestGetApplicationAndUnitStatuses(c *gc.C) {
 						Message: "also in error",
 						Data:    []byte(`{"error": "oh noes"}`),
 						Since:   ptr(now),
+					},
+					K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
+						Status: status.K8sPodStatusUnset,
+						Since:  ptr(now),
+					},
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
 					},
 				},
 			},
@@ -1492,9 +1524,15 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *gc.C) {
 				"foo/666": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
-					Subordinates: []coreunit.Name{
-						"sub/667",
-						"sub/668",
+					SubordinateNames: map[coreunit.Name]struct{}{
+						"sub/667": {},
+						"sub/668": {},
+					},
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
 					},
 				},
 			},
@@ -1525,10 +1563,20 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *gc.C) {
 				"sub/667": {
 					Life:            life.Alive,
 					ApplicationName: "sub",
+					Subordinate:     true,
+					PrincipalName:   ptr(coreunit.Name("foo/666")),
+					CharmLocator: charm.CharmLocator{
+						Name:         "sub",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
 				},
 				"sub/668": {
 					Life:            life.Alive,
 					ApplicationName: "sub",
+					Subordinate:     true,
+					PrincipalName:   ptr(coreunit.Name("foo/666")),
 					AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 						Status:  status.UnitAgentStatusError,
 						Message: "error",
@@ -1540,6 +1588,16 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *gc.C) {
 						Message: "also in error",
 						Data:    []byte(`{"error": "oh noes"}`),
 						Since:   ptr(now),
+					},
+					K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
+						Status: status.K8sPodStatusUnset,
+						Since:  ptr(now),
+					},
+					CharmLocator: charm.CharmLocator{
+						Name:         "sub",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
 					},
 				},
 			},
@@ -1589,10 +1647,22 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *gc.C) {
 				"foo/666": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
 				},
 				"foo/667": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
 				},
 			},
 		},
@@ -1647,10 +1717,22 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *gc.C) {
 				"foo/666": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
 				},
 				"foo/667": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
 				},
 			},
 		},
@@ -1710,10 +1792,22 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations(c *g
 				"foo/666": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
 				},
 				"foo/667": {
 					Life:            life.Alive,
 					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
 				},
 			},
 		},
