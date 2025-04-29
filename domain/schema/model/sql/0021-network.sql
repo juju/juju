@@ -353,6 +353,7 @@ SELECT
     dd.name AS parent_device_name,
     dns.dns_address,
     a.uuid AS address_uuid,
+    pa.provider_id AS provider_address_id,
     a.address_value,
     a.subnet_uuid,
     s.cidr,
@@ -370,5 +371,6 @@ LEFT JOIN link_layer_device_parent AS dp ON d.uuid = dp.device_uuid
 LEFT JOIN link_layer_device AS dd ON dp.parent_uuid = dd.uuid
 LEFT JOIN link_layer_device_dns_address AS dns ON d.uuid = dns.device_uuid
 LEFT JOIN ip_address AS a ON d.uuid = a.device_uuid
+LEFT JOIN provider_ip_address AS pa ON a.uuid = pa.address_uuid
 LEFT JOIN subnet AS s ON a.subnet_uuid = s.uuid
 LEFT JOIN provider_subnet AS ps ON a.subnet_uuid = ps.subnet_uuid

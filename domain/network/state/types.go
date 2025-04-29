@@ -285,15 +285,16 @@ type machineInterfaceRow struct {
 	VLANTag           int64          `db:"vlan_tag"`
 
 	// AddressUUID and associated IP address fields.
-	AddressUUID      sql.NullString `db:"address_uuid"`
-	AddressValue     sql.NullString `db:"address_value"`
-	SubnetUUID       sql.NullString `db:"subnet_uuid"`
-	CIDR             sql.NullString `db:"cidr"`
-	ProviderSubnetID sql.NullString `db:"provider_subnet_id"`
-	AddressTypeID    sql.NullInt64  `db:"address_type_id"`
-	ConfigTypeID     sql.NullInt64  `db:"config_type_id"`
-	OriginID         sql.NullInt64  `db:"origin_id"`
-	ScopeID          sql.NullInt64  `db:"scope_id"`
-	IsSecondary      sql.NullBool   `db:"is_secondary"`
-	IsShadow         sql.NullBool   `db:"is_shadow"`
+	AddressUUID       sql.NullString `db:"address_uuid"`
+	ProviderAddressID sql.NullString `db:"provider_address_id"`
+	AddressValue      sql.NullString `db:"address_value"`
+	SubnetUUID        sql.NullString `db:"subnet_uuid"`
+	CIDR              sql.NullString `db:"cidr"`
+	ProviderSubnetID  sql.NullString `db:"provider_subnet_id"`
+	AddressTypeID     sql.NullInt64  `db:"address_type_id"`
+	ConfigTypeID      sql.NullInt64  `db:"config_type_id"`
+	OriginID          sql.NullInt64  `db:"origin_id"`
+	ScopeID           sql.NullInt64  `db:"scope_id"`
+	IsSecondary       sql.NullBool   `db:"is_secondary"`
+	IsShadow          sql.NullBool   `db:"is_shadow"`
 }
