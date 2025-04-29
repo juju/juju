@@ -1851,20 +1851,20 @@ func (u *UniterAPI) watchOneRelationUnit(
 			internalerrors.Capture(internalerrors.Errorf("starting related units watcher: %w", err))
 	}
 
-	// Consume the initial event and forward it to the result.
-	if changes, ok := <-watch.Changes(); ok {
-		id, err := u.watcherRegistry.Register(watch)
-		if err != nil {
-			return params.RelationUnitsWatchResult{},
-				internalerrors.Capture(internalerrors.Errorf("registering related units watcher : %w", err))
-		}
-		return params.RelationUnitsWatchResult{
-			RelationUnitsWatcherId: id,
-			Changes:                changes,
-		}, nil
+	id, changes, err := internal.EnsureRegisterWatcher[params.RelationUnitsChange](
+		ctx,
+		u.watcherRegistry,
+		watch,
+	)
+	if err != nil {
+		return params.RelationUnitsWatchResult{},
+			internalerrors.Capture(internalerrors.Errorf("registering related units watcher : %w", err))
 	}
 
-	return params.RelationUnitsWatchResult{}, nil
+	return params.RelationUnitsWatchResult{
+		RelationUnitsWatcherId: id,
+		Changes:                changes,
+	}, nil
 }
 
 // SetRelationStatus updates the status of the specified relations.
