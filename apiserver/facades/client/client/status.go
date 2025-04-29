@@ -267,8 +267,8 @@ type applicationStatusInfo struct {
 	// endpointBindings: application name -> endpoint -> space
 	endpointBindings map[string]map[string]string
 
-	// latestCharms: charm URL -> charm locator
-	latestCharms map[charm.URL]applicationcharm.CharmLocator
+	// latestCharms: charm locator (without revision) -> charm locator
+	latestCharms map[applicationcharm.CharmLocator]applicationcharm.CharmLocator
 
 	// lxdProfiles: lxd profile name -> lxd profile
 	lxdProfiles map[string]*charm.LXDProfile
@@ -524,7 +524,7 @@ func fetchAllApplicationsAndUnits(ctx context.Context, statusService StatusServi
 	var (
 		apps         = make(map[string]statusservice.Application)
 		appCharmURL  = make(map[string]string)
-		latestCharms = make(map[charm.URL]applicationcharm.CharmLocator)
+		latestCharms = make(map[applicationcharm.CharmLocator]applicationcharm.CharmLocator)
 	)
 
 	applications, err := statusService.GetApplicationAndUnitStatuses(ctx)
@@ -556,23 +556,21 @@ func fetchAllApplicationsAndUnits(ctx context.Context, statusService StatusServi
 	for name, app := range applications {
 		apps[name] = app
 
-		applicationCharmURL, err := charms.CharmURLFromLocator(app.CharmLocator.Name, app.CharmLocator)
+		charmURL, err := charms.CharmURLFromLocator(app.CharmLocator.Name, app.CharmLocator)
 		if err != nil {
 			logger.Warningf(ctx, "failed to get charm URL for %q: %v", app.CharmLocator.Name, err)
 			continue
 		}
-		appCharmURL[name] = applicationCharmURL
+		appCharmURL[name] = charmURL
 
 		if len(app.Units) == 0 {
 			continue
 		}
 
 		// De-duplicate charms with the same name and architecture.
-		switch {
-		case charm.CharmHub.Matches(charmURL.Schema):
+		// Don't look up revision for local charms
+		if applicationcharm.CharmHubSource == app.CharmLocator.Source {
 			latestCharms[app.CharmLocator.WithoutRevision()] = applicationcharm.CharmLocator{}
-		default:
-			// Don't look up revision for local charms
 		}
 	}
 
@@ -992,11 +990,7 @@ func (context *statusContext) processApplication(ctx context.Context, name strin
 		},
 	}
 
-	curl, err := charm.ParseURL(charmURL)
-	if err != nil {
-		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
-	}
-	if latestCharm, ok := context.allAppsUnitsCharmBindings.latestCharms[*curl.WithRevision(-1)]; ok && !latestCharm.IsZero() {
+	if latestCharm, ok := context.allAppsUnitsCharmBindings.latestCharms[application.CharmLocator.WithoutRevision()]; ok && !latestCharm.IsZero() {
 		processedStatus.CanUpgradeTo, err = charms.CharmURLFromLocator(latestCharm.Name, latestCharm)
 		if err != nil {
 			return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}

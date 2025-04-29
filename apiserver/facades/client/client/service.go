@@ -6,7 +6,6 @@ package client
 import (
 	"context"
 
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/port"
@@ -33,7 +33,7 @@ type ApplicationService interface {
 	// from the charmhub store. If there are no charms, returns is not found, as
 	// [applicationerrors.CharmNotFound]. If there are multiple charms, then the
 	// latest created at date is returned first.
-	GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch arch.Arch) (charm.CharmLocator, error)
+	GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch architecture.Architecture) (charm.CharmLocator, error)
 
 	// GetExposedEndpoints returns map where keys are endpoint names (or the ""
 	// value which represents all endpoints) and values are ExposedEndpoint

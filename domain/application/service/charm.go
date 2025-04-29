@@ -8,7 +8,6 @@ import (
 	"io"
 	"regexp"
 
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/watcher"
@@ -961,13 +960,12 @@ func (s *Service) ReserveCharmRevision(ctx context.Context, args charm.ReserveCh
 // [applicationerrors.CharmNotFound].
 // If there are multiple charms, then the latest created at date is returned
 // first.
-func (s *Service) GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch arch.Arch) (charm.CharmLocator, error) {
+func (s *Service) GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch architecture.Architecture) (charm.CharmLocator, error) {
 	if !isValidCharmName(name) {
 		return charm.CharmLocator{}, applicationerrors.CharmNameNotValid
 	}
 
-	a := encodeArchitecture(arch)
-	return s.st.GetLatestPendingCharmhubCharm(ctx, name, a)
+	return s.st.GetLatestPendingCharmhubCharm(ctx, name, arch)
 }
 
 // WatchCharms returns a watcher that observes changes to charms.

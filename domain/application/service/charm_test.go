@@ -1878,7 +1878,7 @@ func (s *charmServiceSuite) TestGetLatestPendingCharmhubCharm(c *gc.C) {
 	}
 	s.state.EXPECT().GetLatestPendingCharmhubCharm(gomock.Any(), "foo", architecture.AMD64).Return(expectedLocator, nil)
 
-	result, err := s.service.GetLatestPendingCharmhubCharm(context.Background(), "foo", arch.AMD64)
+	result, err := s.service.GetLatestPendingCharmhubCharm(context.Background(), "foo", architecture.AMD64)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, gc.DeepEquals, expectedLocator)
 }
@@ -1886,7 +1886,7 @@ func (s *charmServiceSuite) TestGetLatestPendingCharmhubCharm(c *gc.C) {
 func (s *charmServiceSuite) TestGetLatestPendingCharmhubCharmInvalidName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetLatestPendingCharmhubCharm(context.Background(), "!!!foo", arch.AMD64)
+	_, err := s.service.GetLatestPendingCharmhubCharm(context.Background(), "!!!foo", architecture.AMD64)
 	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
 
