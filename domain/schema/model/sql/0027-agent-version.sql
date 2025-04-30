@@ -18,7 +18,7 @@ CREATE TABLE agent_version (
     stream_id INT NOT NULL,
     target_version TEXT NOT NULL,
     FOREIGN KEY (stream_id)
-    REFERENCES agent_stream(id)
+    REFERENCES agent_stream (id)
 );
 
 -- A unique constraint over a constant index

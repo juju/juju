@@ -238,11 +238,10 @@ func (i *importModelOperation) Execute(ctx context.Context, model description.Mo
 			modelName, modelID, err)
 	}
 
-	// If not agent stream exists in the model config we will default to
+	// If no agent stream exists in the model config we will default to
 	// released.
 	agentStream := agentbinary.AgentStreamReleased
-	agentStreamStr, ok := model.Config()[config.AgentStreamKey].(string)
-	if ok {
+	if agentStreamStr, ok := model.Config()[config.AgentStreamKey].(string); ok {
 		agentStream = agentbinary.AgentStream(agentStreamStr)
 	}
 

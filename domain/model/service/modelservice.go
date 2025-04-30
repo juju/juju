@@ -348,11 +348,12 @@ func (s *ProviderModelService) CreateModel(
 	ctx context.Context,
 	controllerUUID uuid.UUID,
 ) error {
+	defaultAgentVersion, defaultAgentStream := agentVersionSelector()
 	if err := s.CreateModelForVersion(
 		ctx,
 		controllerUUID,
-		agentVersionSelector(),
-		agentbinary.AgentStreamReleased,
+		defaultAgentVersion,
+		defaultAgentStream,
 	); err != nil {
 		return errors.Capture(err)
 	}
@@ -444,11 +445,11 @@ func validateAgentVersion(
 	return nil
 }
 
-// agentVersionSelector is used to find a suitable agent version to use for
-// newly created models. This is useful when creating new models where no
-// specific version has been requested.
-func agentVersionSelector() semversion.Number {
-	return jujuversion.Current
+// agentVersionSelector is used to find a suitable agent version and stream to
+// use for newly created models. This is useful when creating new models where
+// no specific version or stream has been requested.
+func agentVersionSelector() (semversion.Number, agentbinary.AgentStream) {
+	return jujuversion.Current, agentbinary.AgentStreamReleased
 }
 
 // EnvironVersionProvider defines a minimal subset of the EnvironProvider interface
