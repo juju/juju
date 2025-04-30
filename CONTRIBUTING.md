@@ -125,6 +125,8 @@ discovered that way. To preview the docs as they will be rendered on RTD, in
 errors, try `make clean`, then `make run` again. For other checks, see `make
 [Tab]` and select the command for the desired check.
 
+> Note: If you are building locally on an Ubuntu Cloud VM or a container, you may experience issues accessing the page from a browser. To resolve this, add the export variable to your shell `export SPHINX_HOST=0.0.0.0`
+
 </details>
 
 ----------------
