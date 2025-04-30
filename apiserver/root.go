@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher/registry"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainmodelmigration "github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/rpcreflect"
@@ -153,9 +152,6 @@ func newAPIHandler(
 	// we fully convert across.
 	exists, err := domainServices.Model().CheckModelExists(ctx, modelUUID)
 	if err != nil {
-		if errors.Is(err, modelerrors.NotFound) {
-			err = errors.NotFound
-		}
 		return nil, errors.Trace(err)
 	}
 	if !exists {
@@ -164,7 +160,7 @@ func newAPIHandler(
 		// request to decide whether the users should be redirected to
 		// the new controller for this model or not.
 		if _, migErr := st.CompletedMigration(); migErr != nil {
-			return nil, errors.NotFound // return errors.NotFound on any error
+			return nil, errors.NotFoundf("model %q", modelUUID) // return errors.NotFound on any error
 		}
 	}
 
