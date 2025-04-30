@@ -50,7 +50,6 @@ type Machine interface {
 	ForceDestroy(time.Duration) error
 	Base() state.Base
 	Containers() ([]string, error)
-	Units() ([]Unit, error)
 	Principals() []string
 	IsManager() bool
 	ApplicationNames() ([]string, error)
@@ -109,23 +108,6 @@ func (p *poolShim) SystemState() (ControllerBackend, error) {
 
 type machineShim struct {
 	*state.Machine
-}
-
-func (m machineShim) Units() ([]Unit, error) {
-	units, err := m.Machine.Units()
-	if err != nil {
-		return nil, err
-	}
-	out := make([]Unit, len(units))
-	for i, u := range units {
-		out[i] = u
-	}
-	return out, nil
-}
-
-type Unit interface {
-	UnitTag() names.UnitTag
-	Name() string
 }
 
 type StorageInterface interface {
