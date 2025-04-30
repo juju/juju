@@ -45,6 +45,13 @@ type MigrationState interface {
 	//
 	// space name doesn't exist.
 	GetSpaceUUIDByName(ctx context.Context, name string) (network.Id, error)
+
+	// InsertMigratingApplication inserts a migrating application. Returns as
+	// error satisfying [applicationerrors.ApplicationAlreadyExists] if the
+	// application already exists. If returns as error satisfying
+	// [applicationerrors.CharmNotFound] if the charm for the application is
+	// not found.
+	InsertMigratingApplication(context.Context, string, application.InsertApplicationArgs) (coreapplication.ID, error)
 }
 
 // MigrationService provides the API for migrating applications.
@@ -273,17 +280,25 @@ func (s *MigrationService) GetApplicationScaleState(ctx context.Context, name st
 	return s.st.GetApplicationScaleState(ctx, appID)
 }
 
-// ImportApplication imports the specified application and units if required,
-// returning an error satisfying [applicationerrors.ApplicationAlreadyExists]
-// if the application already exists.
-func (s *MigrationService) ImportApplication(ctx context.Context, name string, args ImportApplicationArgs) error {
+// ImportCAASApplication imports the specified CAAS application and units
+// if required, returning an error satisfying
+// [applicationerrors.ApplicationAlreadyExists] if the application already
+// exists.
+func (s *MigrationService) ImportCAASApplication(ctx context.Context, name string, args ImportApplicationArgs) error {
+	return s.importApplication(ctx, name, model.CAAS, args)
+}
+
+// ImportIAASApplication imports the specified IAAS application and units
+// if required, returning an error satisfying
+// [applicationerrors.ApplicationAlreadyExists] if the application already
+// exists.
+func (s *MigrationService) ImportIAASApplication(ctx context.Context, name string, args ImportApplicationArgs) error {
+	return s.importApplication(ctx, name, model.IAAS, args)
+}
+
+func (s *MigrationService) importApplication(ctx context.Context, name string, modelType model.ModelType, args ImportApplicationArgs) error {
 	if err := validateCharmAndApplicationParams(name, args.ReferenceName, args.Charm, args.CharmOrigin); err != nil {
 		return errors.Errorf("invalid application args: %w", err)
-	}
-
-	modelType, err := s.st.GetModelType(ctx)
-	if err != nil {
-		return errors.Errorf("getting model type: %w", err)
 	}
 
 	appArg, err := makeInsertApplicationArg(ctx, s.st, s.storageRegistryGetter, modelType, args)

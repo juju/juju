@@ -441,7 +441,6 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 		Architecture: architecture.ARM64,
 	}
 
-	s.state.EXPECT().GetModelType(gomock.Any()).Return(modelType, nil)
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
 
 	var receivedUnitArgs []application.ImportUnitArg
@@ -527,7 +526,14 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 		},
 	}).Return(nil)
 
-	err := s.service.ImportApplication(context.Background(), "ubuntu", ImportApplicationArgs{
+	var importFunc func(ctx context.Context, name string, args ImportApplicationArgs) error
+	if modelType == coremodel.IAAS {
+		importFunc = s.service.ImportIAASApplication
+	} else {
+		importFunc = s.service.ImportCAASApplication
+	}
+
+	err := importFunc(context.Background(), "ubuntu", ImportApplicationArgs{
 		Charm: s.charm,
 		CharmOrigin: corecharm.Origin{
 			Source:   corecharm.CharmHub,

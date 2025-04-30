@@ -67,8 +67,11 @@ type importOperation struct {
 // ImportService defines the application service used to import applications
 // from another controller model to this controller.
 type ImportService interface {
-	// ImportApplication registers the existence of an application in the model.
-	ImportApplication(context.Context, string, service.ImportApplicationArgs) error
+	// ImportApplication registers the existence of an CAAS application in the model.
+	ImportCAASApplication(context.Context, string, service.ImportApplicationArgs) error
+
+	// ImportIAASApplication registers the existence of an IAAS application in the model.
+	ImportIAASApplication(context.Context, string, service.ImportApplicationArgs) error
 
 	// RemoveImportedApplication removes an application that was imported. The
 	// application might be in an incomplete state, so it's important to remove
@@ -189,7 +192,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 		peerRelations := i.importPeerRelations(app.Name(), model.Relations())
 
-		err = i.service.ImportApplication(ctx, app.Name(), service.ImportApplicationArgs{
+		args := service.ImportApplicationArgs{
 			Charm:                  charm,
 			CharmOrigin:            origin,
 			Units:                  unitArgs,
@@ -206,7 +209,16 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			ReferenceName: chURL.Name,
 
 			PeerRelations: peerRelations,
-		})
+		}
+
+		switch modelType {
+		case coremodel.CAAS:
+			err = i.service.ImportCAASApplication(ctx, app.Name(), args)
+		case coremodel.IAAS:
+			err = i.service.ImportIAASApplication(ctx, app.Name(), args)
+		default:
+			return errors.Errorf("unknown model type %q for import application", modelType)
+		}
 		if err != nil {
 			return errors.Errorf(
 				"import model application %q with %d units: %w",
