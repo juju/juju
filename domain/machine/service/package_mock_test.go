@@ -89,7 +89,7 @@ func (c *MockStateAllMachineNamesCall) DoAndReturn(f func(context.Context) ([]ma
 }
 
 // AppliedLXDProfileNames mocks base method.
-func (m *MockState) AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]string, error) {
+func (m *MockState) AppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID) ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AppliedLXDProfileNames", ctx, mUUID)
 	ret0, _ := ret[0].([]string)
@@ -116,19 +116,19 @@ func (c *MockStateAppliedLXDProfileNamesCall) Return(arg0 []string, arg1 error) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAppliedLXDProfileNamesCall) Do(f func(context.Context, string) ([]string, error)) *MockStateAppliedLXDProfileNamesCall {
+func (c *MockStateAppliedLXDProfileNamesCall) Do(f func(context.Context, machine.UUID) ([]string, error)) *MockStateAppliedLXDProfileNamesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAppliedLXDProfileNamesCall) DoAndReturn(f func(context.Context, string) ([]string, error)) *MockStateAppliedLXDProfileNamesCall {
+func (c *MockStateAppliedLXDProfileNamesCall) DoAndReturn(f func(context.Context, machine.UUID) ([]string, error)) *MockStateAppliedLXDProfileNamesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AvailabilityZone mocks base method.
-func (m *MockState) AvailabilityZone(arg0 context.Context, arg1 string) (string, error) {
+func (m *MockState) AvailabilityZone(arg0 context.Context, arg1 machine.UUID) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AvailabilityZone", arg0, arg1)
 	ret0, _ := ret[0].(string)
@@ -155,19 +155,19 @@ func (c *MockStateAvailabilityZoneCall) Return(arg0 string, arg1 error) *MockSta
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAvailabilityZoneCall) Do(f func(context.Context, string) (string, error)) *MockStateAvailabilityZoneCall {
+func (c *MockStateAvailabilityZoneCall) Do(f func(context.Context, machine.UUID) (string, error)) *MockStateAvailabilityZoneCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAvailabilityZoneCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockStateAvailabilityZoneCall {
+func (c *MockStateAvailabilityZoneCall) DoAndReturn(f func(context.Context, machine.UUID) (string, error)) *MockStateAvailabilityZoneCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ClearMachineReboot mocks base method.
-func (m *MockState) ClearMachineReboot(ctx context.Context, uuid string) error {
+func (m *MockState) ClearMachineReboot(ctx context.Context, uuid machine.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClearMachineReboot", ctx, uuid)
 	ret0, _ := ret[0].(error)
@@ -193,19 +193,19 @@ func (c *MockStateClearMachineRebootCall) Return(arg0 error) *MockStateClearMach
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateClearMachineRebootCall) Do(f func(context.Context, string) error) *MockStateClearMachineRebootCall {
+func (c *MockStateClearMachineRebootCall) Do(f func(context.Context, machine.UUID) error) *MockStateClearMachineRebootCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateClearMachineRebootCall) DoAndReturn(f func(context.Context, string) error) *MockStateClearMachineRebootCall {
+func (c *MockStateClearMachineRebootCall) DoAndReturn(f func(context.Context, machine.UUID) error) *MockStateClearMachineRebootCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // CreateMachine mocks base method.
-func (m *MockState) CreateMachine(arg0 context.Context, arg1 machine.Name, arg2, arg3 string) error {
+func (m *MockState) CreateMachine(arg0 context.Context, arg1 machine.Name, arg2 string, arg3 machine.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateMachine", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -231,19 +231,19 @@ func (c *MockStateCreateMachineCall) Return(arg0 error) *MockStateCreateMachineC
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCreateMachineCall) Do(f func(context.Context, machine.Name, string, string) error) *MockStateCreateMachineCall {
+func (c *MockStateCreateMachineCall) Do(f func(context.Context, machine.Name, string, machine.UUID) error) *MockStateCreateMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCreateMachineCall) DoAndReturn(f func(context.Context, machine.Name, string, string) error) *MockStateCreateMachineCall {
+func (c *MockStateCreateMachineCall) DoAndReturn(f func(context.Context, machine.Name, string, machine.UUID) error) *MockStateCreateMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // CreateMachineWithParent mocks base method.
-func (m *MockState) CreateMachineWithParent(arg0 context.Context, arg1, arg2 machine.Name, arg3, arg4 string) error {
+func (m *MockState) CreateMachineWithParent(arg0 context.Context, arg1, arg2 machine.Name, arg3 string, arg4 machine.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateMachineWithParent", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
@@ -269,13 +269,13 @@ func (c *MockStateCreateMachineWithParentCall) Return(arg0 error) *MockStateCrea
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCreateMachineWithParentCall) Do(f func(context.Context, machine.Name, machine.Name, string, string) error) *MockStateCreateMachineWithParentCall {
+func (c *MockStateCreateMachineWithParentCall) Do(f func(context.Context, machine.Name, machine.Name, string, machine.UUID) error) *MockStateCreateMachineWithParentCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCreateMachineWithParentCall) DoAndReturn(f func(context.Context, machine.Name, machine.Name, string, string) error) *MockStateCreateMachineWithParentCall {
+func (c *MockStateCreateMachineWithParentCall) DoAndReturn(f func(context.Context, machine.Name, machine.Name, string, machine.UUID) error) *MockStateCreateMachineWithParentCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -319,7 +319,7 @@ func (c *MockStateDeleteMachineCall) DoAndReturn(f func(context.Context, machine
 }
 
 // DeleteMachineCloudInstance mocks base method.
-func (m *MockState) DeleteMachineCloudInstance(arg0 context.Context, arg1 string) error {
+func (m *MockState) DeleteMachineCloudInstance(arg0 context.Context, arg1 machine.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteMachineCloudInstance", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -345,22 +345,22 @@ func (c *MockStateDeleteMachineCloudInstanceCall) Return(arg0 error) *MockStateD
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateDeleteMachineCloudInstanceCall) Do(f func(context.Context, string) error) *MockStateDeleteMachineCloudInstanceCall {
+func (c *MockStateDeleteMachineCloudInstanceCall) Do(f func(context.Context, machine.UUID) error) *MockStateDeleteMachineCloudInstanceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateDeleteMachineCloudInstanceCall) DoAndReturn(f func(context.Context, string) error) *MockStateDeleteMachineCloudInstanceCall {
+func (c *MockStateDeleteMachineCloudInstanceCall) DoAndReturn(f func(context.Context, machine.UUID) error) *MockStateDeleteMachineCloudInstanceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetAllMachineRemovals mocks base method.
-func (m *MockState) GetAllMachineRemovals(arg0 context.Context) ([]string, error) {
+func (m *MockState) GetAllMachineRemovals(arg0 context.Context) ([]machine.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllMachineRemovals", arg0)
-	ret0, _ := ret[0].([]string)
+	ret0, _ := ret[0].([]machine.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -378,19 +378,19 @@ type MockStateGetAllMachineRemovalsCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetAllMachineRemovalsCall) Return(arg0 []string, arg1 error) *MockStateGetAllMachineRemovalsCall {
+func (c *MockStateGetAllMachineRemovalsCall) Return(arg0 []machine.UUID, arg1 error) *MockStateGetAllMachineRemovalsCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetAllMachineRemovalsCall) Do(f func(context.Context) ([]string, error)) *MockStateGetAllMachineRemovalsCall {
+func (c *MockStateGetAllMachineRemovalsCall) Do(f func(context.Context) ([]machine.UUID, error)) *MockStateGetAllMachineRemovalsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetAllMachineRemovalsCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockStateGetAllMachineRemovalsCall {
+func (c *MockStateGetAllMachineRemovalsCall) DoAndReturn(f func(context.Context) ([]machine.UUID, error)) *MockStateGetAllMachineRemovalsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -474,10 +474,10 @@ func (c *MockStateGetMachineLifeCall) DoAndReturn(f func(context.Context, machin
 }
 
 // GetMachineParentUUID mocks base method.
-func (m *MockState) GetMachineParentUUID(ctx context.Context, machineUUID string) (string, error) {
+func (m *MockState) GetMachineParentUUID(ctx context.Context, machineUUID machine.UUID) (machine.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMachineParentUUID", ctx, machineUUID)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(machine.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -495,19 +495,19 @@ type MockStateGetMachineParentUUIDCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetMachineParentUUIDCall) Return(arg0 string, arg1 error) *MockStateGetMachineParentUUIDCall {
+func (c *MockStateGetMachineParentUUIDCall) Return(arg0 machine.UUID, arg1 error) *MockStateGetMachineParentUUIDCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetMachineParentUUIDCall) Do(f func(context.Context, string) (string, error)) *MockStateGetMachineParentUUIDCall {
+func (c *MockStateGetMachineParentUUIDCall) Do(f func(context.Context, machine.UUID) (machine.UUID, error)) *MockStateGetMachineParentUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetMachineParentUUIDCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockStateGetMachineParentUUIDCall {
+func (c *MockStateGetMachineParentUUIDCall) DoAndReturn(f func(context.Context, machine.UUID) (machine.UUID, error)) *MockStateGetMachineParentUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -552,10 +552,10 @@ func (c *MockStateGetMachineStatusCall) DoAndReturn(f func(context.Context, mach
 }
 
 // GetMachineUUID mocks base method.
-func (m *MockState) GetMachineUUID(arg0 context.Context, arg1 machine.Name) (string, error) {
+func (m *MockState) GetMachineUUID(arg0 context.Context, arg1 machine.Name) (machine.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMachineUUID", arg0, arg1)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(machine.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -573,25 +573,25 @@ type MockStateGetMachineUUIDCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetMachineUUIDCall) Return(arg0 string, arg1 error) *MockStateGetMachineUUIDCall {
+func (c *MockStateGetMachineUUIDCall) Return(arg0 machine.UUID, arg1 error) *MockStateGetMachineUUIDCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetMachineUUIDCall) Do(f func(context.Context, machine.Name) (string, error)) *MockStateGetMachineUUIDCall {
+func (c *MockStateGetMachineUUIDCall) Do(f func(context.Context, machine.Name) (machine.UUID, error)) *MockStateGetMachineUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetMachineUUIDCall) DoAndReturn(f func(context.Context, machine.Name) (string, error)) *MockStateGetMachineUUIDCall {
+func (c *MockStateGetMachineUUIDCall) DoAndReturn(f func(context.Context, machine.Name) (machine.UUID, error)) *MockStateGetMachineUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // HardwareCharacteristics mocks base method.
-func (m *MockState) HardwareCharacteristics(arg0 context.Context, arg1 string) (*instance.HardwareCharacteristics, error) {
+func (m *MockState) HardwareCharacteristics(arg0 context.Context, arg1 machine.UUID) (*instance.HardwareCharacteristics, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HardwareCharacteristics", arg0, arg1)
 	ret0, _ := ret[0].(*instance.HardwareCharacteristics)
@@ -618,13 +618,13 @@ func (c *MockStateHardwareCharacteristicsCall) Return(arg0 *instance.HardwareCha
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateHardwareCharacteristicsCall) Do(f func(context.Context, string) (*instance.HardwareCharacteristics, error)) *MockStateHardwareCharacteristicsCall {
+func (c *MockStateHardwareCharacteristicsCall) Do(f func(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)) *MockStateHardwareCharacteristicsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateHardwareCharacteristicsCall) DoAndReturn(f func(context.Context, string) (*instance.HardwareCharacteristics, error)) *MockStateHardwareCharacteristicsCall {
+func (c *MockStateHardwareCharacteristicsCall) DoAndReturn(f func(context.Context, machine.UUID) (*instance.HardwareCharacteristics, error)) *MockStateHardwareCharacteristicsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -708,7 +708,7 @@ func (c *MockStateInitialWatchStatementCall) DoAndReturn(f func() (string, strin
 }
 
 // InstanceID mocks base method.
-func (m *MockState) InstanceID(arg0 context.Context, arg1 string) (string, error) {
+func (m *MockState) InstanceID(arg0 context.Context, arg1 machine.UUID) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InstanceID", arg0, arg1)
 	ret0, _ := ret[0].(string)
@@ -735,19 +735,19 @@ func (c *MockStateInstanceIDCall) Return(arg0 string, arg1 error) *MockStateInst
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateInstanceIDCall) Do(f func(context.Context, string) (string, error)) *MockStateInstanceIDCall {
+func (c *MockStateInstanceIDCall) Do(f func(context.Context, machine.UUID) (string, error)) *MockStateInstanceIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInstanceIDCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockStateInstanceIDCall {
+func (c *MockStateInstanceIDCall) DoAndReturn(f func(context.Context, machine.UUID) (string, error)) *MockStateInstanceIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // InstanceIDAndName mocks base method.
-func (m *MockState) InstanceIDAndName(ctx context.Context, mUUID string) (string, string, error) {
+func (m *MockState) InstanceIDAndName(ctx context.Context, mUUID machine.UUID) (string, string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InstanceIDAndName", ctx, mUUID)
 	ret0, _ := ret[0].(string)
@@ -775,13 +775,13 @@ func (c *MockStateInstanceIDAndNameCall) Return(arg0, arg1 string, arg2 error) *
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateInstanceIDAndNameCall) Do(f func(context.Context, string) (string, string, error)) *MockStateInstanceIDAndNameCall {
+func (c *MockStateInstanceIDAndNameCall) Do(f func(context.Context, machine.UUID) (string, string, error)) *MockStateInstanceIDAndNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInstanceIDAndNameCall) DoAndReturn(f func(context.Context, string) (string, string, error)) *MockStateInstanceIDAndNameCall {
+func (c *MockStateInstanceIDAndNameCall) DoAndReturn(f func(context.Context, machine.UUID) (string, string, error)) *MockStateInstanceIDAndNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -826,7 +826,7 @@ func (c *MockStateIsMachineControllerCall) DoAndReturn(f func(context.Context, m
 }
 
 // IsMachineRebootRequired mocks base method.
-func (m *MockState) IsMachineRebootRequired(ctx context.Context, uuid string) (bool, error) {
+func (m *MockState) IsMachineRebootRequired(ctx context.Context, uuid machine.UUID) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsMachineRebootRequired", ctx, uuid)
 	ret0, _ := ret[0].(bool)
@@ -853,13 +853,13 @@ func (c *MockStateIsMachineRebootRequiredCall) Return(arg0 bool, arg1 error) *Mo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateIsMachineRebootRequiredCall) Do(f func(context.Context, string) (bool, error)) *MockStateIsMachineRebootRequiredCall {
+func (c *MockStateIsMachineRebootRequiredCall) Do(f func(context.Context, machine.UUID) (bool, error)) *MockStateIsMachineRebootRequiredCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateIsMachineRebootRequiredCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStateIsMachineRebootRequiredCall {
+func (c *MockStateIsMachineRebootRequiredCall) DoAndReturn(f func(context.Context, machine.UUID) (bool, error)) *MockStateIsMachineRebootRequiredCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1017,7 +1017,7 @@ func (c *MockStateNamespaceForWatchMachineRebootCall) DoAndReturn(f func() strin
 }
 
 // RequireMachineReboot mocks base method.
-func (m *MockState) RequireMachineReboot(ctx context.Context, uuid string) error {
+func (m *MockState) RequireMachineReboot(ctx context.Context, uuid machine.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RequireMachineReboot", ctx, uuid)
 	ret0, _ := ret[0].(error)
@@ -1043,19 +1043,19 @@ func (c *MockStateRequireMachineRebootCall) Return(arg0 error) *MockStateRequire
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateRequireMachineRebootCall) Do(f func(context.Context, string) error) *MockStateRequireMachineRebootCall {
+func (c *MockStateRequireMachineRebootCall) Do(f func(context.Context, machine.UUID) error) *MockStateRequireMachineRebootCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateRequireMachineRebootCall) DoAndReturn(f func(context.Context, string) error) *MockStateRequireMachineRebootCall {
+func (c *MockStateRequireMachineRebootCall) DoAndReturn(f func(context.Context, machine.UUID) error) *MockStateRequireMachineRebootCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetAppliedLXDProfileNames mocks base method.
-func (m *MockState) SetAppliedLXDProfileNames(ctx context.Context, mUUID string, profileNames []string) error {
+func (m *MockState) SetAppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID, profileNames []string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetAppliedLXDProfileNames", ctx, mUUID, profileNames)
 	ret0, _ := ret[0].(error)
@@ -1081,13 +1081,13 @@ func (c *MockStateSetAppliedLXDProfileNamesCall) Return(arg0 error) *MockStateSe
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetAppliedLXDProfileNamesCall) Do(f func(context.Context, string, []string) error) *MockStateSetAppliedLXDProfileNamesCall {
+func (c *MockStateSetAppliedLXDProfileNamesCall) Do(f func(context.Context, machine.UUID, []string) error) *MockStateSetAppliedLXDProfileNamesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetAppliedLXDProfileNamesCall) DoAndReturn(f func(context.Context, string, []string) error) *MockStateSetAppliedLXDProfileNamesCall {
+func (c *MockStateSetAppliedLXDProfileNamesCall) DoAndReturn(f func(context.Context, machine.UUID, []string) error) *MockStateSetAppliedLXDProfileNamesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1169,7 +1169,7 @@ func (c *MockStateSetKeepInstanceCall) DoAndReturn(f func(context.Context, machi
 }
 
 // SetMachineCloudInstance mocks base method.
-func (m *MockState) SetMachineCloudInstance(arg0 context.Context, arg1 string, arg2 instance.Id, arg3 string, arg4 *instance.HardwareCharacteristics) error {
+func (m *MockState) SetMachineCloudInstance(arg0 context.Context, arg1 machine.UUID, arg2 instance.Id, arg3 string, arg4 *instance.HardwareCharacteristics) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetMachineCloudInstance", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
@@ -1195,13 +1195,13 @@ func (c *MockStateSetMachineCloudInstanceCall) Return(arg0 error) *MockStateSetM
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetMachineCloudInstanceCall) Do(f func(context.Context, string, instance.Id, string, *instance.HardwareCharacteristics) error) *MockStateSetMachineCloudInstanceCall {
+func (c *MockStateSetMachineCloudInstanceCall) Do(f func(context.Context, machine.UUID, instance.Id, string, *instance.HardwareCharacteristics) error) *MockStateSetMachineCloudInstanceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetMachineCloudInstanceCall) DoAndReturn(f func(context.Context, string, instance.Id, string, *instance.HardwareCharacteristics) error) *MockStateSetMachineCloudInstanceCall {
+func (c *MockStateSetMachineCloudInstanceCall) DoAndReturn(f func(context.Context, machine.UUID, instance.Id, string, *instance.HardwareCharacteristics) error) *MockStateSetMachineCloudInstanceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1283,7 +1283,7 @@ func (c *MockStateSetMachineStatusCall) DoAndReturn(f func(context.Context, mach
 }
 
 // SetRunningAgentBinaryVersion mocks base method.
-func (m *MockState) SetRunningAgentBinaryVersion(arg0 context.Context, arg1 string, arg2 agentbinary.Version) error {
+func (m *MockState) SetRunningAgentBinaryVersion(arg0 context.Context, arg1 machine.UUID, arg2 agentbinary.Version) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetRunningAgentBinaryVersion", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -1309,13 +1309,13 @@ func (c *MockStateSetRunningAgentBinaryVersionCall) Return(arg0 error) *MockStat
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetRunningAgentBinaryVersionCall) Do(f func(context.Context, string, agentbinary.Version) error) *MockStateSetRunningAgentBinaryVersionCall {
+func (c *MockStateSetRunningAgentBinaryVersionCall) Do(f func(context.Context, machine.UUID, agentbinary.Version) error) *MockStateSetRunningAgentBinaryVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetRunningAgentBinaryVersionCall) DoAndReturn(f func(context.Context, string, agentbinary.Version) error) *MockStateSetRunningAgentBinaryVersionCall {
+func (c *MockStateSetRunningAgentBinaryVersionCall) DoAndReturn(f func(context.Context, machine.UUID, agentbinary.Version) error) *MockStateSetRunningAgentBinaryVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1360,7 +1360,7 @@ func (c *MockStateShouldKeepInstanceCall) DoAndReturn(f func(context.Context, ma
 }
 
 // ShouldRebootOrShutdown mocks base method.
-func (m *MockState) ShouldRebootOrShutdown(ctx context.Context, uuid string) (machine.RebootAction, error) {
+func (m *MockState) ShouldRebootOrShutdown(ctx context.Context, uuid machine.UUID) (machine.RebootAction, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ShouldRebootOrShutdown", ctx, uuid)
 	ret0, _ := ret[0].(machine.RebootAction)
@@ -1387,13 +1387,13 @@ func (c *MockStateShouldRebootOrShutdownCall) Return(arg0 machine.RebootAction, 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateShouldRebootOrShutdownCall) Do(f func(context.Context, string) (machine.RebootAction, error)) *MockStateShouldRebootOrShutdownCall {
+func (c *MockStateShouldRebootOrShutdownCall) Do(f func(context.Context, machine.UUID) (machine.RebootAction, error)) *MockStateShouldRebootOrShutdownCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateShouldRebootOrShutdownCall) DoAndReturn(f func(context.Context, string) (machine.RebootAction, error)) *MockStateShouldRebootOrShutdownCall {
+func (c *MockStateShouldRebootOrShutdownCall) DoAndReturn(f func(context.Context, machine.UUID) (machine.RebootAction, error)) *MockStateShouldRebootOrShutdownCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

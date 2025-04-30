@@ -323,9 +323,9 @@ func (s *InstancePollerSuite) TestInstanceIdSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("uuid-1", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid-1").Return("i-foo", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("uuid-1")).Return("i-foo", nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("uuid-2", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid-2").Return("", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("uuid-2")).Return("", nil)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("42")).Return("", machineerrors.MachineNotFound)
 
 	result, err := s.api.InstanceId(context.Background(), s.mixedEntities)
@@ -352,9 +352,9 @@ func (s *InstancePollerSuite) TestInstanceIdFailure(c *gc.C) {
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("1")).Return("", errors.New("pow!"))
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("2")).Return("uuid-2", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid-2").Return("i-2", errors.New("FAIL"))
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("uuid-2")).Return("i-2", errors.New("FAIL"))
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("3")).Return("uuid-3", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid-3").Return("", machineerrors.NotProvisioned)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("uuid-3")).Return("", machineerrors.NotProvisioned)
 	result, err := s.api.InstanceId(context.Background(), s.machineEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{

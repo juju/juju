@@ -237,15 +237,15 @@ type MachineService interface {
 	// gets updated.
 	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
 	// GetMachineUUID returns the UUID of a machine identified by its name.
-	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
+	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
 	// InstanceID returns the cloud specific instance id for this machine.
-	InstanceID(ctx context.Context, mUUID string) (instance.Id, error)
+	InstanceID(ctx context.Context, mUUID machine.UUID) (instance.Id, error)
 	// InstanceIDAndName returns the cloud specific instance ID and display name for
 	// this machine.
-	InstanceIDAndName(ctx context.Context, machineUUID string) (instance.Id, string, error)
+	InstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
 	// HardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error)
+	HardwareCharacteristics(ctx context.Context, machineUUID machine.UUID) (*instance.HardwareCharacteristics, error)
 }
 
 // SecretBackendService is an interface for interacting with secret backend service.

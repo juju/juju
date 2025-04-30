@@ -264,31 +264,31 @@ type NetworkService interface {
 // service.
 type MachineService interface {
 	// RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
-	RequireMachineReboot(ctx context.Context, uuid string) error
+	RequireMachineReboot(ctx context.Context, uuid coremachine.UUID) error
 
 	// ClearMachineReboot removes the reboot flag of the machine referenced by its UUID if a reboot has previously been required.
-	ClearMachineReboot(ctx context.Context, uuid string) error
+	ClearMachineReboot(ctx context.Context, uuid coremachine.UUID) error
 
 	// IsMachineRebootRequired checks if the machine referenced by its UUID requires a reboot.
-	IsMachineRebootRequired(ctx context.Context, uuid string) (bool, error)
+	IsMachineRebootRequired(ctx context.Context, uuid coremachine.UUID) (bool, error)
 
 	// ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
-	ShouldRebootOrShutdown(ctx context.Context, uuid string) (coremachine.RebootAction, error)
+	ShouldRebootOrShutdown(ctx context.Context, uuid coremachine.UUID) (coremachine.RebootAction, error)
 
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	// It returns an errors.MachineNotFound if the machine does not exist.
-	GetMachineUUID(ctx context.Context, machineName coremachine.Name) (string, error)
+	GetMachineUUID(ctx context.Context, machineName coremachine.Name) (coremachine.UUID, error)
 
 	// AppliedLXDProfileNames returns the names of the LXD profiles on the machine.
-	AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]string, error)
+	AppliedLXDProfileNames(ctx context.Context, mUUID coremachine.UUID) ([]string, error)
 
 	// WatchMachineCloudInstances returns a StringsWatcher that is subscribed to
 	// the changes in the machine_cloud_instance table in the model.
-	WatchLXDProfiles(ctx context.Context, machineUUID string) (watcher.NotifyWatcher, error)
+	WatchLXDProfiles(ctx context.Context, machineUUID coremachine.UUID) (watcher.NotifyWatcher, error)
 
 	// AvailabilityZone returns the hardware characteristics of the
 	// specified machine.
-	AvailabilityZone(ctx context.Context, machineUUID string) (string, error)
+	AvailabilityZone(ctx context.Context, machineUUID coremachine.UUID) (string, error)
 }
 
 // RelationService defines the methods that the facade assumes from the

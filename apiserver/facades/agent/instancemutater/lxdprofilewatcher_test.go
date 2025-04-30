@@ -378,7 +378,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherMachineProvisioned(
 	s.setupScenarioWithProfile(c)
 	s.machine0.EXPECT().Id().Return("0")
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid0").Return("0", nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("uuid0")).Return("0", nil)
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))
 
 	s.instanceChanges <- struct{}{}
@@ -407,7 +407,7 @@ func (s *lxdProfileWatcherSuite) setupWatchers(c *gc.C) {
 	s.state.EXPECT().WatchUnits().Return(s.unitsWatcher)
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil)
-	s.machineService.EXPECT().WatchLXDProfiles(gomock.Any(), "uuid0").Return(s.instanceWatcher, nil)
+	s.machineService.EXPECT().WatchLXDProfiles(gomock.Any(), machine.UUID("uuid0")).Return(s.instanceWatcher, nil)
 
 	s.applicationService.EXPECT().WatchCharms().Return(s.charmsWatcher, nil)
 

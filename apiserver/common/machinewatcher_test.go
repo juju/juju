@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/facade"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -44,7 +45,7 @@ func (s *MachineWatcherSuite) TestWatchForRebootEventCannotGetUUID(c *gc.C) {
 	// Arrange
 	defer s.setup(c).Finish()
 	errMachineNotFound := errors.New("machine not found")
-	getMachineUUID := func(ctx context.Context) (string, error) {
+	getMachineUUID := func(ctx context.Context) (machine.UUID, error) {
 		return "", errMachineNotFound
 	}
 	rebootWatcher := common.NewMachineRebootWatcher(s.mockWatchRebootService, s.watcherRegistry, getMachineUUID)
@@ -60,12 +61,12 @@ func (s *MachineWatcherSuite) TestWatchForRebootEventCannotGetUUID(c *gc.C) {
 func (s *MachineWatcherSuite) TestWatchForRebootEventErrorStartWatcher(c *gc.C) {
 	// Arrange
 	defer s.setup(c).Finish()
-	getMachineUUID := func(ctx context.Context) (string, error) {
+	getMachineUUID := func(ctx context.Context) (machine.UUID, error) {
 		return "machine-uuid", nil
 	}
 	rebootWatcher := common.NewMachineRebootWatcher(s.mockWatchRebootService, s.watcherRegistry, getMachineUUID)
 	errStartWatcher := errors.New("start watcher failed")
-	s.mockWatchRebootService.EXPECT().WatchMachineReboot(gomock.Any(), "machine-uuid").Return(nil, errStartWatcher)
+	s.mockWatchRebootService.EXPECT().WatchMachineReboot(gomock.Any(), machine.UUID("machine-uuid")).Return(nil, errStartWatcher)
 
 	// Act
 	_, err := rebootWatcher.WatchForRebootEvent(context.Background())
@@ -78,11 +79,11 @@ func (s *MachineWatcherSuite) TestWatchForRebootEventErrorStartWatcher(c *gc.C) 
 func (s *MachineWatcherSuite) TestWatchForRebootEvent(c *gc.C) {
 	// Arrange
 	defer s.setup(c).Finish()
-	getMachineUUID := func(ctx context.Context) (string, error) {
+	getMachineUUID := func(ctx context.Context) (machine.UUID, error) {
 		return "machine-uuid", nil
 	}
 	rebootWatcher := common.NewMachineRebootWatcher(s.mockWatchRebootService, s.watcherRegistry, getMachineUUID)
-	s.mockWatchRebootService.EXPECT().WatchMachineReboot(gomock.Any(), "machine-uuid").Return(apiservertesting.NewFakeNotifyWatcher(), nil)
+	s.mockWatchRebootService.EXPECT().WatchMachineReboot(gomock.Any(), machine.UUID("machine-uuid")).Return(apiservertesting.NewFakeNotifyWatcher(), nil)
 
 	// Act
 	result, err := rebootWatcher.WatchForRebootEvent(context.Background())

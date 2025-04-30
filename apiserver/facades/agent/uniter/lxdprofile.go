@@ -145,7 +145,7 @@ func (u *LXDProfileAPI) WatchInstanceData(ctx context.Context, args params.Entit
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		watcherId, err := u.watchOneInstanceData(ctx, machineUUID.String())
+		watcherId, err := u.watchOneInstanceData(ctx, machineUUID)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -158,7 +158,7 @@ func (u *LXDProfileAPI) WatchInstanceData(ctx context.Context, args params.Entit
 	return result, nil
 }
 
-func (u *LXDProfileAPI) watchOneInstanceData(ctx context.Context, machineUUID string) (string, error) {
+func (u *LXDProfileAPI) watchOneInstanceData(ctx context.Context, machineUUID coremachine.UUID) (string, error) {
 	watcher, err := u.machineService.WatchLXDProfiles(ctx, machineUUID)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -214,7 +214,7 @@ func (u *LXDProfileAPI) LXDProfileName(ctx context.Context, args params.Entities
 }
 
 func (u *LXDProfileAPI) getOneLXDProfileName(ctx context.Context, appName string, machineUUID coremachine.UUID) (string, error) {
-	profileNames, err := u.machineService.AppliedLXDProfileNames(ctx, machineUUID.String())
+	profileNames, err := u.machineService.AppliedLXDProfileNames(ctx, machineUUID)
 	if err != nil {
 		u.logger.Errorf(ctx, "unable to retrieve LXD profiles for machine %q: %v", machineUUID, err)
 		return "", err

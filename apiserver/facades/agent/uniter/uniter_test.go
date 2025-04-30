@@ -441,7 +441,7 @@ func (s *uniterSuite) expectGetUnitMachineName(unitName coreunit.Name, machineNa
 }
 
 func (s *uniterSuite) expectedGetAvailabilityZone(machineUUID coremachine.UUID, az string, err error) {
-	s.machineService.EXPECT().AvailabilityZone(gomock.Any(), machineUUID.String()).Return(az, err)
+	s.machineService.EXPECT().AvailabilityZone(gomock.Any(), machineUUID).Return(az, err)
 }
 
 func (s *uniterSuite) setupMocks(c *gc.C) *gomock.Controller {

@@ -806,7 +806,7 @@ func (s *ProvisioningMachineManagerSuite) expectProvisioningMachine(ctrl *gomock
 	machine.EXPECT().Base().Return(state.Base{OS: "ubuntu", Channel: "20.04/stable"}).AnyTimes()
 	machine.EXPECT().Tag().Return(names.NewMachineTag("0")).AnyTimes()
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return("deadbeef", nil)
-	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef").Return(&instance.HardwareCharacteristics{Arch: arch}, nil)
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(&instance.HardwareCharacteristics{Arch: arch}, nil)
 	if arch != nil {
 		machine.EXPECT().SetPassword(gomock.Any()).Return(nil)
 	}

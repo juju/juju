@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	cmachine "github.com/juju/juju/core/machine"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -94,13 +94,13 @@ func (s *MachineRebootTestSuite) TestRebootRequested(c *gc.C) {
 	expect := s.mockRebootService.EXPECT()
 
 	gomock.InOrder(
-		expect.GetMachineUUID(gomock.Any(), cmachine.Name("42/nouuid/0")).Return("", errors.New("machine not found")),
+		expect.GetMachineUUID(gomock.Any(), coremachine.Name("42/nouuid/0")).Return("", errors.New("machine not found")),
 
-		expect.GetMachineUUID(gomock.Any(), cmachine.Name("42/requestfailed/0")).Return("requestfailed-uuid", nil),
-		expect.RequireMachineReboot(gomock.Any(), "requestfailed-uuid").Return(errors.New("request failed")),
+		expect.GetMachineUUID(gomock.Any(), coremachine.Name("42/requestfailed/0")).Return("requestfailed-uuid", nil),
+		expect.RequireMachineReboot(gomock.Any(), coremachine.UUID("requestfailed-uuid")).Return(errors.New("request failed")),
 
-		expect.GetMachineUUID(gomock.Any(), cmachine.Name("42/autorized/0")).Return("authorized-uuid", nil),
-		expect.RequireMachineReboot(gomock.Any(), "authorized-uuid").Return(nil /* no error */),
+		expect.GetMachineUUID(gomock.Any(), coremachine.Name("42/autorized/0")).Return("authorized-uuid", nil),
+		expect.RequireMachineReboot(gomock.Any(), coremachine.UUID("authorized-uuid")).Return(nil /* no error */),
 	)
 
 	// Act
@@ -181,19 +181,19 @@ func (s *MachineRebootTestSuite) TestRebootActionGet(c *gc.C) {
 	expect := s.mockRebootService.EXPECT()
 
 	gomock.InOrder(
-		expect.GetMachineUUID(gomock.Any(), cmachine.Name("42/nouuid/0")).Return("", errors.New("machine not found")),
+		expect.GetMachineUUID(gomock.Any(), coremachine.Name("42/nouuid/0")).Return("", errors.New("machine not found")),
 
-		expect.GetMachineUUID(gomock.Any(), cmachine.Name("42/getfailed/0")).Return("getfailed-uuid", nil),
-		expect.ShouldRebootOrShutdown(gomock.Any(), "getfailed-uuid").Return("", errors.New("request failed")),
+		expect.GetMachineUUID(gomock.Any(), coremachine.Name("42/getfailed/0")).Return("getfailed-uuid", nil),
+		expect.ShouldRebootOrShutdown(gomock.Any(), coremachine.UUID("getfailed-uuid")).Return("", errors.New("request failed")),
 
-		expect.GetMachineUUID(gomock.Any(), cmachine.Name("42/autorizedreboot/0")).Return("autorizedreboot-uuid", nil),
-		expect.ShouldRebootOrShutdown(gomock.Any(), "autorizedreboot-uuid").Return(cmachine.ShouldReboot, nil /* no error */),
+		expect.GetMachineUUID(gomock.Any(), coremachine.Name("42/autorizedreboot/0")).Return("autorizedreboot-uuid", nil),
+		expect.ShouldRebootOrShutdown(gomock.Any(), coremachine.UUID("autorizedreboot-uuid")).Return(coremachine.ShouldReboot, nil /* no error */),
 
-		expect.GetMachineUUID(gomock.Any(), cmachine.Name("42/autorizedshutdown/0")).Return("autorizedshutdown-uuid", nil),
-		expect.ShouldRebootOrShutdown(gomock.Any(), "autorizedshutdown-uuid").Return(cmachine.ShouldShutdown, nil /* no error */),
+		expect.GetMachineUUID(gomock.Any(), coremachine.Name("42/autorizedshutdown/0")).Return("autorizedshutdown-uuid", nil),
+		expect.ShouldRebootOrShutdown(gomock.Any(), coremachine.UUID("autorizedshutdown-uuid")).Return(coremachine.ShouldShutdown, nil /* no error */),
 
-		expect.GetMachineUUID(gomock.Any(), cmachine.Name("42/autorizeddonothing/0")).Return("autorizeddonothing-uuid", nil),
-		expect.ShouldRebootOrShutdown(gomock.Any(), "autorizeddonothing-uuid").Return(cmachine.ShouldDoNothing, nil /* no error */),
+		expect.GetMachineUUID(gomock.Any(), coremachine.Name("42/autorizeddonothing/0")).Return("autorizeddonothing-uuid", nil),
+		expect.ShouldRebootOrShutdown(gomock.Any(), coremachine.UUID("autorizeddonothing-uuid")).Return(coremachine.ShouldDoNothing, nil /* no error */),
 	)
 
 	// Act
@@ -274,13 +274,13 @@ func (s *MachineRebootTestSuite) TestRebootCleared(c *gc.C) {
 
 	expect := s.mockRebootService.EXPECT()
 	gomock.InOrder(
-		expect.GetMachineUUID(gomock.Any(), cmachine.Name("42/nouuid/0")).Return("", errors.New("machine not found")),
+		expect.GetMachineUUID(gomock.Any(), coremachine.Name("42/nouuid/0")).Return("", errors.New("machine not found")),
 
-		expect.GetMachineUUID(gomock.Any(), cmachine.Name("42/requestfailed/0")).Return("requestfailed-uuid", nil),
-		expect.ClearMachineReboot(gomock.Any(), "requestfailed-uuid").Return(errors.New("request failed")),
+		expect.GetMachineUUID(gomock.Any(), coremachine.Name("42/requestfailed/0")).Return("requestfailed-uuid", nil),
+		expect.ClearMachineReboot(gomock.Any(), coremachine.UUID("requestfailed-uuid")).Return(errors.New("request failed")),
 
-		expect.GetMachineUUID(gomock.Any(), cmachine.Name("42/autorized/0")).Return("authorized-uuid", nil),
-		expect.ClearMachineReboot(gomock.Any(), "authorized-uuid").Return(nil /* no error */),
+		expect.GetMachineUUID(gomock.Any(), coremachine.Name("42/autorized/0")).Return("authorized-uuid", nil),
+		expect.ClearMachineReboot(gomock.Any(), coremachine.UUID("authorized-uuid")).Return(nil /* no error */),
 	)
 
 	// Act

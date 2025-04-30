@@ -602,20 +602,20 @@ func (s *charmsMockSuite) expectMachineConstraints(cons constraints.Value) {
 func (s *charmsMockSuite) expectHardwareCharacteristics() {
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("winnie-poo")).Return("deadbeef", nil)
 	arch := arch.DefaultArchitecture
-	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef").Return(&instance.HardwareCharacteristics{
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(&instance.HardwareCharacteristics{
 		Arch: &arch,
 	}, nil)
 }
 
 func (s *charmsMockSuite) expectEmptyHardwareCharacteristics() {
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("winnie-poo")).Return("deadbeef", nil)
-	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef").Return(&instance.HardwareCharacteristics{}, nil)
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(&instance.HardwareCharacteristics{}, nil)
 }
 
 func (s *charmsMockSuite) expectHardwareCharacteristics2() {
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), coremachine.Name("piglet")).Return("deadbeef", nil)
 	arch := "arm64"
-	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), "deadbeef").Return(&instance.HardwareCharacteristics{
+	s.machineService.EXPECT().HardwareCharacteristics(gomock.Any(), coremachine.UUID("deadbeef")).Return(&instance.HardwareCharacteristics{
 		Arch: &arch,
 	}, nil)
 }

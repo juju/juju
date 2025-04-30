@@ -592,7 +592,7 @@ func (s *stateSuite) TestGetMachineParentUUIDSuccess(c *gc.C) {
 	// Get the parent UUID of the machine.
 	parentUUID, err := s.state.GetMachineParentUUID(context.Background(), "456")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(parentUUID, gc.Equals, "123")
+	c.Assert(parentUUID, gc.Equals, machine.UUID("123"))
 }
 
 // TestGetMachineParentUUIDNotFound asserts that a NotFound error is returned
@@ -644,7 +644,7 @@ func (s *stateSuite) TestMarkMachineForRemovalSuccessIdempotent(c *gc.C) {
 	machines, err := s.state.GetAllMachineRemovals(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
-	c.Assert(machines[0], gc.Equals, "123")
+	c.Assert(machines[0], gc.Equals, machine.UUID("123"))
 }
 
 // TestMarkMachineForRemovalNotFound asserts that a NotFound error is returned
@@ -668,7 +668,7 @@ func (s *stateSuite) TestGetAllMachineRemovalsSuccess(c *gc.C) {
 	machines, err := s.state.GetAllMachineRemovals(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
-	c.Assert(machines[0], gc.Equals, "123")
+	c.Assert(machines[0], gc.Equals, machine.UUID("123"))
 }
 
 // TestGetAllMachineRemovalsEmpty asserts that GetAllMachineRemovals returns an
@@ -700,8 +700,8 @@ func (s *stateSuite) TestGetSomeMachineRemovals(c *gc.C) {
 	machines, err := s.state.GetAllMachineRemovals(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 2)
-	c.Assert(machines[0], gc.Equals, "123")
-	c.Assert(machines[1], gc.Equals, "125")
+	c.Assert(machines[0], gc.Equals, machine.UUID("123"))
+	c.Assert(machines[1], gc.Equals, machine.UUID("125"))
 }
 
 // TestGetMachineUUIDNotFound asserts that a NotFound error is returned
@@ -718,7 +718,7 @@ func (s *stateSuite) TestGetMachineUUID(c *gc.C) {
 
 	name, err := s.state.GetMachineUUID(context.Background(), "rage")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(name, gc.Equals, "123")
+	c.Assert(name, gc.Equals, machine.UUID("123"))
 }
 
 func (s *stateSuite) TestKeepInstance(c *gc.C) {

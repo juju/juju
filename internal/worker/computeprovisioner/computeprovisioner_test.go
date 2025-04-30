@@ -363,7 +363,7 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *gc.C) {
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("666")).Return("machine-666-uuid", nil)
 	s.machineService.EXPECT().SetMachineCloudInstance(
 		gomock.Any(),
-		"machine-666-uuid",
+		machine.UUID("machine-666-uuid"),
 		instance.Id("inst-666"),
 		"",
 		nil,

@@ -105,19 +105,19 @@ type ModelConfigService interface {
 // the machine cloud instance data.
 type MachineService interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
-	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
+	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
 	// SetMachineCloudInstance sets an entry in the machine cloud instance table
 	// along with the instance tags and the link to a lxd profile if any.
 	SetMachineCloudInstance(
 		ctx context.Context,
-		machineUUID string,
+		machineUUID machine.UUID,
 		instanceID instance.Id,
 		displayName string,
 		hardwareCharacteristics *instance.HardwareCharacteristics,
 	) error
 	// InstanceIDAndName returns the cloud specific instance ID and display name for
 	// this machine.
-	InstanceIDAndName(ctx context.Context, machineUUID string) (instance.Id, string, error)
+	InstanceIDAndName(ctx context.Context, machineUUID machine.UUID) (instance.Id, string, error)
 }
 
 // ModelService provides a means for interacting with the underlying models of

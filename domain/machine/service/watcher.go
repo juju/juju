@@ -87,12 +87,12 @@ func (s *WatchableService) WatchModelMachines() (watcher.StringsWatcher, error) 
 // WatchMachineCloudInstances returns a NotifyWatcher that is subscribed to
 // the changes in the machine_cloud_instance table in the model, for the given
 // machine UUID.
-func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context, machineUUID string) (watcher.NotifyWatcher, error) {
+func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context, machineUUID machine.UUID) (watcher.NotifyWatcher, error) {
 	return s.watcherFactory.NewNotifyWatcher(
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchMachineCloudInstance(),
 			changestream.All,
-			eventsource.EqualsPredicate(machineUUID),
+			eventsource.EqualsPredicate(machineUUID.String()),
 		),
 	)
 }
@@ -102,12 +102,12 @@ func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context, machi
 // Note: Sometime in the future, this watcher could react to logical changes
 // fired from `SetAppliedLXDProfileNames()` instead of the `machine_lxd_profile`
 // table, which could become noisy.
-func (s *WatchableService) WatchLXDProfiles(ctx context.Context, machineUUID string) (watcher.NotifyWatcher, error) {
+func (s *WatchableService) WatchLXDProfiles(ctx context.Context, machineUUID machine.UUID) (watcher.NotifyWatcher, error) {
 	return s.watcherFactory.NewNotifyWatcher(
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchMachineLXDProfiles(),
 			changestream.All,
-			eventsource.EqualsPredicate(machineUUID),
+			eventsource.EqualsPredicate(machineUUID.String()),
 		),
 	)
 }
@@ -115,12 +115,12 @@ func (s *WatchableService) WatchLXDProfiles(ctx context.Context, machineUUID str
 // WatchMachineReboot returns a NotifyWatcher that is subscribed to
 // the changes in the machine_requires_reboot table in the model.
 // It raises an event whenever the machine uuid or its parent is added to the reboot table.
-func (s *WatchableService) WatchMachineReboot(ctx context.Context, uuid string) (watcher.NotifyWatcher, error) {
+func (s *WatchableService) WatchMachineReboot(ctx context.Context, uuid machine.UUID) (watcher.NotifyWatcher, error) {
 	uuids, err := s.machineToCareForReboot(ctx, uuid)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	machines := set.NewStrings(uuids...)
+	machines := set.NewStrings(transform.Slice(uuids, func(u machine.UUID) string { return u.String() })...)
 	return s.watcherFactory.NewNotifyWatcher(
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchMachineReboot(),
@@ -132,15 +132,15 @@ func (s *WatchableService) WatchMachineReboot(ctx context.Context, uuid string) 
 	)
 }
 
-func (s *WatchableService) machineToCareForReboot(ctx context.Context, uuid string) ([]string, error) {
+func (s *WatchableService) machineToCareForReboot(ctx context.Context, uuid machine.UUID) ([]machine.UUID, error) {
 	parentUUID, err := s.st.GetMachineParentUUID(ctx, uuid)
 	if err != nil && !errors.Is(err, machineerrors.MachineHasNoParent) {
 		return nil, errors.Capture(err)
 	}
 	if errors.Is(err, machineerrors.MachineHasNoParent) {
-		return []string{uuid}, nil
+		return []machine.UUID{uuid}, nil
 	}
-	return []string{uuid, parentUUID}, nil
+	return []machine.UUID{uuid, parentUUID}, nil
 }
 
 // changeEventShim implements changestream.ChangeEvent and allows the

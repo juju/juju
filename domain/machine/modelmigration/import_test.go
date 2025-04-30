@@ -127,7 +127,7 @@ func (s *importSuite) TestFailImportMachineWithCloudInstance(c *gc.C) {
 	}
 	machine0.SetInstance(cloudInstanceArgs)
 
-	expectedMachineUUID := "deadbeef-1bad-500d-9000-4b1d0d06f00d"
+	expectedMachineUUID := machine.UUID("deadbeef-1bad-500d-9000-4b1d0d06f00d")
 	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("0")).
 		Return(expectedMachineUUID, nil)
 	expectedHardwareCharacteristics := &instance.HardwareCharacteristics{
@@ -176,7 +176,7 @@ func (s *importSuite) TestImportMachineWithCloudInstance(c *gc.C) {
 	}
 	machine0.SetInstance(cloudInstanceArgs)
 
-	expectedMachineUUID := "deadbeef-1bad-500d-9000-4b1d0d06f00d"
+	expectedMachineUUID := machine.UUID("deadbeef-1bad-500d-9000-4b1d0d06f00d")
 	s.service.EXPECT().CreateMachine(gomock.Any(), machine.Name("0")).
 		Return(expectedMachineUUID, nil)
 	expectedHardwareCharacteristics := &instance.HardwareCharacteristics{

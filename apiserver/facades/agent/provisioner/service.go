@@ -66,18 +66,18 @@ type MachineService interface {
 	SetKeepInstance(ctx context.Context, machineName coremachine.Name, keep bool) error
 	// SetMachineCloudInstance sets an entry in the machine cloud instance table
 	// along with the instance tags and the link to a lxd profile if any.
-	SetMachineCloudInstance(ctx context.Context, machineUUID string, instanceID instance.Id, displayName string, hardwareCharacteristics *instance.HardwareCharacteristics) error
+	SetMachineCloudInstance(ctx context.Context, machineUUID coremachine.UUID, instanceID instance.Id, displayName string, hardwareCharacteristics *instance.HardwareCharacteristics) error
 	// GetMachineUUID returns the UUID of a machine identified by its name.
-	GetMachineUUID(ctx context.Context, name coremachine.Name) (string, error)
+	GetMachineUUID(ctx context.Context, name coremachine.Name) (coremachine.UUID, error)
 	// SetAppliedLXDProfileNames sets the list of LXD profile names to the
 	// lxd_profile table for the given machine. This method will overwrite the list
 	// of profiles for the given machine without any checks.
-	SetAppliedLXDProfileNames(ctx context.Context, mUUID string, profileNames []string) error
+	SetAppliedLXDProfileNames(ctx context.Context, mUUID coremachine.UUID, profileNames []string) error
 	// HardwareCharacteristics returns the hardware characteristics of the
 	// specified machine.
-	HardwareCharacteristics(ctx context.Context, machineUUID string) (*instance.HardwareCharacteristics, error)
+	HardwareCharacteristics(ctx context.Context, machineUUID coremachine.UUID) (*instance.HardwareCharacteristics, error)
 	// InstanceID returns the cloud specific instance id for this machine.
-	InstanceID(ctx context.Context, mUUID string) (instance.Id, error)
+	InstanceID(ctx context.Context, mUUID coremachine.UUID) (instance.Id, error)
 }
 
 // StoragePoolGetter instances get a storage pool by name.

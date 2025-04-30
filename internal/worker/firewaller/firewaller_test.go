@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
+	coremachinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/relation"
@@ -38,7 +39,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/firewaller"
 	"github.com/juju/juju/internal/worker/firewaller/mocks"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -324,9 +324,9 @@ func (s *firewallerBaseSuite) addUnit(c *gc.C, ctrl *gomock.Controller, app *moc
 	u.EXPECT().Application().Return(app, nil).AnyTimes()
 	u.EXPECT().AssignedMachine(gomock.Any()).Return(m.Tag(), nil).AnyTimes()
 
-	machineUUID := uuid.MustNewUUID().String()
+	machineUUID := coremachinetesting.GenUUID(c)
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name(m.Tag().Id())).Return(machineUUID, nil).AnyTimes()
-	s.portService.EXPECT().GetMachineOpenedPorts(gomock.Any(), machineUUID).DoAndReturn(
+	s.portService.EXPECT().GetMachineOpenedPorts(gomock.Any(), machineUUID.String()).DoAndReturn(
 		func(ctx context.Context, machineUUID string) (map[coreunit.Name]network.GroupedPortRanges, error) {
 			s.mu.Lock()
 			defer s.mu.Unlock()
@@ -2274,6 +2274,7 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 	})
 	s.assertEnvironPorts(c, nil)
 }
+
 func (s *GlobalModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

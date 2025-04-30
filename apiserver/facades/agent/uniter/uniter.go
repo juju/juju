@@ -198,7 +198,7 @@ func (u *UniterAPI) getOneMachineOpenedPortRanges(ctx context.Context, canAccess
 	if err != nil {
 		return nil, internalerrors.Errorf("getting machine UUID for %q: %w", tag, err)
 	}
-	machineOpenedPortRanges, err := u.portService.GetMachineOpenedPorts(ctx, machineUUID)
+	machineOpenedPortRanges, err := u.portService.GetMachineOpenedPorts(ctx, machineUUID.String())
 	if err != nil {
 		return nil, internalerrors.Errorf("getting opened ports for machine %q: %w", tag, err)
 	}
@@ -407,7 +407,7 @@ func (u *UniterAPI) AvailabilityZone(ctx context.Context, args params.Entities) 
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		az, err := u.machineService.AvailabilityZone(ctx, machineUUID.String())
+		az, err := u.machineService.AvailabilityZone(ctx, machineUUID)
 		if errors.Is(err, machineerrors.AvailabilityZoneNotFound) {
 			results.Results[i].Error = apiservererrors.ServerError(errors.NotProvisioned)
 			continue

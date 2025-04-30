@@ -116,7 +116,7 @@ type fakeMachineService struct {
 	machineNames []machine.Name
 }
 
-func (f *fakeMachineService) CreateMachine(_ context.Context, machineName machine.Name) (string, error) {
+func (f *fakeMachineService) CreateMachine(_ context.Context, machineName machine.Name) (machine.UUID, error) {
 	f.machineNames = append(f.machineNames, machineName)
 	return "", nil
 }

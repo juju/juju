@@ -23,6 +23,7 @@ import (
 	corearch "github.com/juju/juju/core/arch"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
+	coremachinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
@@ -63,9 +64,8 @@ func (s *modelStateSuite) createMachineWithName(c *gc.C, name machine.Name) stri
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
-	uuid, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	err = machineSt.CreateMachine(context.Background(), name, uuid.String(), uuid.String())
+	uuid := coremachinetesting.GenUUID(c)
+	err := machineSt.CreateMachine(context.Background(), name, uuid.String(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory())
@@ -502,15 +502,13 @@ func (s *modelStateSuite) TestSetMachineRunningAgentBinaryVersionMachineNotFound
 }
 
 func (s *modelStateSuite) TestMachineSetRunningAgentBinaryVersionMachineDead(c *gc.C) {
-	machineUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-
+	machineUUID := coremachinetesting.GenUUID(c)
 	machineSt := machinestate.NewState(
 		s.TxnRunnerFactory(),
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
 	)
-	err = machineSt.CreateMachine(context.Background(), "666", "", machineUUID.String())
+	err := machineSt.CreateMachine(context.Background(), "666", "", machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machineSt.SetMachineLife(context.Background(), "666", life.Dead)

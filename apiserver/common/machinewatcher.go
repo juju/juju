@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -23,7 +24,7 @@ type WatchableMachineService interface {
 	// WatchMachineReboot returns a NotifyWatcher that is subscribed to
 	// the changes in the machine_requires_reboot table in the model.
 	// It raises an event whenever the machine uuid or its parent is added to the reboot table.
-	WatchMachineReboot(ctx context.Context, uuid string) (watcher.NotifyWatcher, error)
+	WatchMachineReboot(ctx context.Context, uuid coremachine.UUID) (watcher.NotifyWatcher, error)
 }
 
 // MachineWatcher is a struct that represents a watcher for various events produced by a specific
@@ -40,7 +41,7 @@ type MachineWatcher struct {
 // a string representation of the machine UUID and an error. It allows to smuggle machine
 // identification to the watcher, because retrieving the machine UUID implies a machine service calls
 // which requires a context.
-type GetMachineUUID func(context.Context) (string, error)
+type GetMachineUUID func(context.Context) (coremachine.UUID, error)
 
 // NewMachineRebootWatcher creates a new MachineWatcher instance with the given dependencies.
 // It takes a WatchableMachineService, a facade.WatcherRegistry, and a GetMachineUUID function as input.

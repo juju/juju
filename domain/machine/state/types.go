@@ -17,42 +17,42 @@ import (
 // instanceData represents the struct to be inserted into the instance_data
 // table.
 type instanceData struct {
-	MachineUUID          string  `db:"machine_uuid"`
-	InstanceID           string  `db:"instance_id"`
-	DisplayName          string  `db:"display_name"`
-	Arch                 *string `db:"arch"`
-	Mem                  *uint64 `db:"mem"`
-	RootDisk             *uint64 `db:"root_disk"`
-	RootDiskSource       *string `db:"root_disk_source"`
-	CPUCores             *uint64 `db:"cpu_cores"`
-	CPUPower             *uint64 `db:"cpu_power"`
-	AvailabilityZoneUUID *string `db:"availability_zone_uuid"`
-	VirtType             *string `db:"virt_type"`
+	MachineUUID          machine.UUID `db:"machine_uuid"`
+	InstanceID           string       `db:"instance_id"`
+	DisplayName          string       `db:"display_name"`
+	Arch                 *string      `db:"arch"`
+	Mem                  *uint64      `db:"mem"`
+	RootDisk             *uint64      `db:"root_disk"`
+	RootDiskSource       *string      `db:"root_disk_source"`
+	CPUCores             *uint64      `db:"cpu_cores"`
+	CPUPower             *uint64      `db:"cpu_power"`
+	AvailabilityZoneUUID *string      `db:"availability_zone_uuid"`
+	VirtType             *string      `db:"virt_type"`
 }
 
 // instanceDataResult represents the struct used to retrieve rows when joining
 // the machine_cloud_instance table with the availability_zone table.
 type instanceDataResult struct {
-	MachineUUID      string  `db:"machine_uuid"`
-	InstanceID       string  `db:"instance_id"`
-	Arch             *string `db:"arch"`
-	Mem              *uint64 `db:"mem"`
-	RootDisk         *uint64 `db:"root_disk"`
-	RootDiskSource   *string `db:"root_disk_source"`
-	CPUCores         *uint64 `db:"cpu_cores"`
-	CPUPower         *uint64 `db:"cpu_power"`
-	AvailabilityZone *string `db:"availability_zone_name"`
-	VirtType         *string `db:"virt_type"`
+	MachineUUID      machine.UUID `db:"machine_uuid"`
+	InstanceID       string       `db:"instance_id"`
+	Arch             *string      `db:"arch"`
+	Mem              *uint64      `db:"mem"`
+	RootDisk         *uint64      `db:"root_disk"`
+	RootDiskSource   *string      `db:"root_disk_source"`
+	CPUCores         *uint64      `db:"cpu_cores"`
+	CPUPower         *uint64      `db:"cpu_power"`
+	AvailabilityZone *string      `db:"availability_zone_name"`
+	VirtType         *string      `db:"virt_type"`
 }
 
 // instanceTag represents the struct to be inserted into the instance_tag
 // table.
 type instanceTag struct {
-	MachineUUID string `db:"machine_uuid"`
-	Tag         string `db:"tag"`
+	MachineUUID machine.UUID `db:"machine_uuid"`
+	Tag         string       `db:"tag"`
 }
 
-func tagsFromHardwareCharacteristics(machineUUID string, hc *instance.HardwareCharacteristics) []instanceTag {
+func tagsFromHardwareCharacteristics(machineUUID machine.UUID, hc *instance.HardwareCharacteristics) []instanceTag {
 	if hc == nil || hc.Tags == nil {
 		return nil
 	}
@@ -82,8 +82,8 @@ func (d *instanceDataResult) toHardwareCharacteristics() *instance.HardwareChara
 // machineLife represents the struct to be used for the life_id column within
 // the sqlair statements in the machine domain.
 type machineLife struct {
-	UUID   string    `db:"uuid"`
-	LifeID life.Life `db:"life_id"`
+	UUID   machine.UUID `db:"uuid"`
+	LifeID life.Life    `db:"life_id"`
 }
 
 // instanceID represents the struct to be used for the instance_id column within
@@ -110,11 +110,11 @@ type machineStatus struct {
 // setMachineStatus represents the struct to be used for the columns of the
 // machine_status table within the sqlair statements in the machine domain.
 type setMachineStatus struct {
-	MachineUUID string     `db:"machine_uuid"`
-	StatusID    int        `db:"status_id"`
-	Message     string     `db:"message"`
-	Data        []byte     `db:"data"`
-	Updated     *time.Time `db:"updated_at"`
+	MachineUUID machine.UUID `db:"machine_uuid"`
+	StatusID    int          `db:"status_id"`
+	Message     string       `db:"message"`
+	Data        []byte       `db:"data"`
+	Updated     *time.Time   `db:"updated_at"`
 }
 
 // availabilityZoneName represents the struct to be used for the name column
@@ -133,13 +133,13 @@ type machineName struct {
 // machineMarkForRemoval represents the struct to be used for the columns of the
 // machine_removals table within the sqlair statements in the machine domain.
 type machineMarkForRemoval struct {
-	UUID string `db:"machine_uuid"`
+	UUID machine.UUID `db:"machine_uuid"`
 }
 
 // machineUUID represents the struct to be used for the machine_uuid column
 // within the sqlair statements in the machine domain.
 type machineUUID struct {
-	UUID string `db:"uuid"`
+	UUID machine.UUID `db:"uuid"`
 }
 
 // machineIsController represents the struct to be used for the is_controller column within the sqlair statements in the machine domain.
@@ -156,13 +156,13 @@ type keepInstance struct {
 // machineParent represents the struct to be used for the columns of the
 // machine_parent table within the sqlair statements in the machine domain.
 type machineParent struct {
-	MachineUUID string `db:"machine_uuid"`
-	ParentUUID  string `db:"parent_uuid"`
+	MachineUUID machine.UUID `db:"machine_uuid"`
+	ParentUUID  machine.UUID `db:"parent_uuid"`
 }
 
 // uuidSliceTransform is a function that is used to transform a slice of
 // machineUUID into a slice of string.
-func (s machineMarkForRemoval) uuidSliceTransform() string {
+func (s machineMarkForRemoval) uuidSliceTransform() machine.UUID {
 	return s.UUID
 }
 
@@ -250,7 +250,7 @@ func encodeCloudInstanceStatus(s domainmachine.InstanceStatusType) (int, error) 
 // of the createMachine state method in the machine domain.
 type createMachineArgs struct {
 	name        machine.Name
-	machineUUID string
+	machineUUID machine.UUID
 	netNodeUUID string
 	parentName  machine.Name
 }
@@ -258,7 +258,7 @@ type createMachineArgs struct {
 // lxdProfile represents the struct to be used for the sqlair statements on the
 // lxd_profile table.
 type lxdProfile struct {
-	MachineUUID string `db:"machine_uuid"`
-	Name        string `db:"name"`
-	Index       int    `db:"array_index"`
+	MachineUUID machine.UUID `db:"machine_uuid"`
+	Name        string       `db:"name"`
+	Index       int          `db:"array_index"`
 }

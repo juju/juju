@@ -85,7 +85,7 @@ type PortService interface {
 type MachineService interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	// It returns a MachineNotFound if the machine does not exist.
-	GetMachineUUID(ctx context.Context, name machine.Name) (string, error)
+	GetMachineUUID(ctx context.Context, name machine.Name) (machine.UUID, error)
 }
 
 // ApplicationService provides methods to query applications.

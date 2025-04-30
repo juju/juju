@@ -24,7 +24,7 @@ import (
 // data retrieved from the machine cloud instance table.
 func (st *State) HardwareCharacteristics(
 	ctx context.Context,
-	machineUUID string,
+	machineUUID machine.UUID,
 ) (*instance.HardwareCharacteristics, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -63,7 +63,7 @@ WHERE     v.machine_uuid = $instanceDataResult.machine_uuid`
 // [machineerrors.AvailabilityZoneNotFound].
 func (st *State) AvailabilityZone(
 	ctx context.Context,
-	machineUUID string,
+	machineUUID machine.UUID,
 ) (string, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -105,7 +105,7 @@ WHERE     v.machine_uuid = $instanceDataResult.machine_uuid`
 // along with the instance tags and the link to a lxd profile if any.
 func (st *State) SetMachineCloudInstance(
 	ctx context.Context,
-	machineUUID string,
+	machineUUID machine.UUID,
 	instanceID instance.Id,
 	displayName string,
 	hardwareCharacteristics *instance.HardwareCharacteristics,
@@ -193,7 +193,7 @@ WHERE  availability_zone.name = $availabilityZoneName.name
 // well as any associated status data.
 func (st *State) DeleteMachineCloudInstance(
 	ctx context.Context,
-	mUUID string,
+	mUUID machine.UUID,
 ) error {
 	db, err := st.DB()
 	if err != nil {
@@ -253,7 +253,7 @@ WHERE machine_uuid=$machineUUID.uuid
 // InstanceID returns the cloud specific instance id for this machine.
 // If the machine is not provisioned, it returns a
 // [machineerrors.NotProvisionedError].
-func (st *State) InstanceID(ctx context.Context, mUUID string) (string, error) {
+func (st *State) InstanceID(ctx context.Context, mUUID machine.UUID) (string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -293,7 +293,7 @@ WHERE  machine_uuid = $machineUUID.uuid;`
 // this machine.
 // If the machine is not provisioned, it returns a
 // [machineerrors.NotProvisionedError].
-func (st *State) InstanceIDAndName(ctx context.Context, mUUID string) (string, string, error) {
+func (st *State) InstanceIDAndName(ctx context.Context, mUUID machine.UUID) (string, string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", "", errors.Capture(err)

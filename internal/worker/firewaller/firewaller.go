@@ -777,7 +777,7 @@ func (fw *Firewaller) openedPortsChanged(ctx context.Context, machineTag names.M
 		return err
 	}
 
-	openedPortRangesByEndpoint, err := fw.portService.GetMachineOpenedPorts(ctx, machineUUID)
+	openedPortRangesByEndpoint, err := fw.portService.GetMachineOpenedPorts(ctx, machineUUID.String())
 	if err != nil {
 		return err
 	}

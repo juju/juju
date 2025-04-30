@@ -267,8 +267,8 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *gc
 
 	s.machine.EXPECT().Id().Return("0")
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil)
-	s.machineService.EXPECT().AppliedLXDProfileNames(gomock.Any(), "uuid0").Return([]string{"charm-app-0"}, nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid0").Return("0", nil)
+	s.machineService.EXPECT().AppliedLXDProfileNames(gomock.Any(), machine.UUID("uuid0")).Return([]string{"charm-app-0"}, nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("uuid0")).Return("0", nil)
 
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{
 		Name: "foo",
@@ -316,8 +316,8 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithNo
 
 	s.machine.EXPECT().Id().Return("0")
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil)
-	s.machineService.EXPECT().AppliedLXDProfileNames(gomock.Any(), "uuid0").Return([]string{"charm-app-0"}, nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid0").Return("0", nil)
+	s.machineService.EXPECT().AppliedLXDProfileNames(gomock.Any(), machine.UUID("uuid0")).Return([]string{"charm-app-0"}, nil)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("uuid0")).Return("0", nil)
 
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ModelInfo{
 		Name: "foo",
@@ -378,7 +378,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithMa
 	facade := s.facadeAPIForScenario(c)
 	s.machine.EXPECT().Id().Return("0")
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil)
-	s.machineService.EXPECT().InstanceID(gomock.Any(), "uuid0").Return("", machineerrors.NotProvisioned)
+	s.machineService.EXPECT().InstanceID(gomock.Any(), machine.UUID("uuid0")).Return("", machineerrors.NotProvisioned)
 
 	results, err := facade.CharmProfilingInfo(context.Background(), params.Entity{Tag: "machine-0"})
 	c.Assert(err, gc.IsNil)
@@ -491,7 +491,7 @@ func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfiles(c *gc.C) 
 	facade := s.facadeAPIForScenario(c)
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil)
-	s.machineService.EXPECT().SetAppliedLXDProfileNames(gomock.Any(), "uuid0", profiles).Return(nil)
+	s.machineService.EXPECT().SetAppliedLXDProfileNames(gomock.Any(), machine.UUID("uuid0"), profiles).Return(nil)
 
 	results, err := facade.SetCharmProfiles(context.Background(), params.SetProfileArgs{
 		Args: []params.SetProfileArg{
@@ -516,8 +516,8 @@ func (s *InstanceMutaterAPISetCharmProfilesSuite) TestSetCharmProfilesWithError(
 	facade := s.facadeAPIForScenario(c)
 
 	s.machineService.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return("uuid0", nil).Times(2)
-	s.machineService.EXPECT().SetAppliedLXDProfileNames(gomock.Any(), "uuid0", profiles).Return(nil)
-	s.machineService.EXPECT().SetAppliedLXDProfileNames(gomock.Any(), "uuid0", profiles).Return(errors.New("Failure"))
+	s.machineService.EXPECT().SetAppliedLXDProfileNames(gomock.Any(), machine.UUID("uuid0"), profiles).Return(nil)
+	s.machineService.EXPECT().SetAppliedLXDProfileNames(gomock.Any(), machine.UUID("uuid0"), profiles).Return(errors.New("Failure"))
 
 	results, err := facade.SetCharmProfiles(context.Background(), params.SetProfileArgs{
 		Args: []params.SetProfileArg{

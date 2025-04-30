@@ -8,7 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
-	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
@@ -20,7 +20,7 @@ import (
 // Reboot requests are handled through the "machine_requires_reboot" table which
 // contains only machine UUID for which a reboot has been requested. This
 // function is idempotent.
-func (st *State) RequireMachineReboot(ctx context.Context, uuid string) error {
+func (st *State) RequireMachineReboot(ctx context.Context, uuid machine.UUID) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
@@ -52,7 +52,7 @@ func (st *State) RequireMachineReboot(ctx context.Context, uuid string) error {
 //
 // It basically removes the uuid from the "machine_requires_reboot" table if
 // present. This function is idempotent.
-func (st *State) ClearMachineReboot(ctx context.Context, uuid string) error {
+func (st *State) ClearMachineReboot(ctx context.Context, uuid machine.UUID) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Capture(err)
@@ -77,7 +77,7 @@ func (st *State) ClearMachineReboot(ctx context.Context, uuid string) error {
 // It queries the "machine_requires_reboot" table for the machine UUID to
 // determine if a reboot is required. Returns a boolean value indicating if a
 // reboot is required, and an error if any occur during the process.
-func (st *State) IsMachineRebootRequired(ctx context.Context, uuid string) (bool, error) {
+func (st *State) IsMachineRebootRequired(ctx context.Context, uuid machine.UUID) (bool, error) {
 	db, err := st.DB()
 	if err != nil {
 		return false, errors.Capture(err)
@@ -121,10 +121,10 @@ func (st *State) IsMachineRebootRequired(ctx context.Context, uuid string) (bool
 //
 // The function returns any error issued through interaction with the database,
 // annotated with the UUID of the machine.
-func (st *State) ShouldRebootOrShutdown(ctx context.Context, uuid string) (coremachine.RebootAction, error) {
+func (st *State) ShouldRebootOrShutdown(ctx context.Context, uuid machine.UUID) (machine.RebootAction, error) {
 	db, err := st.DB()
 	if err != nil {
-		return coremachine.ShouldDoNothing, errors.Capture(err)
+		return machine.ShouldDoNothing, errors.Capture(err)
 	}
 
 	// Prepare query to get parent UUID
@@ -132,14 +132,14 @@ func (st *State) ShouldRebootOrShutdown(ctx context.Context, uuid string) (corem
 	getParentQuery := `SELECT machine_parent.parent_uuid as &machineUUID.uuid  FROM machine_parent WHERE machine_uuid = $machineUUID.uuid`
 	getParentStmt, err := sqlair.Prepare(getParentQuery, machineUUIDParam)
 	if err != nil {
-		return coremachine.ShouldDoNothing, errors.Errorf("requiring reboot action for machine %q: %w", uuid, err)
+		return machine.ShouldDoNothing, errors.Errorf("requiring reboot action for machine %q: %w", uuid, err)
 	}
 
 	// Prepare query to check if a machine requires reboot
 	isRebootFlag := `SELECT machine_uuid as &machineUUID.uuid  FROM machine_requires_reboot WHERE machine_uuid = $machineUUID.uuid`
 	isRebootFlagStmt, err := sqlair.Prepare(isRebootFlag, machineUUIDParam)
 	if err != nil {
-		return coremachine.ShouldDoNothing, errors.Errorf("requiring reboot action for machine %q: %w", uuid, err)
+		return machine.ShouldDoNothing, errors.Errorf("requiring reboot action for machine %q: %w", uuid, err)
 	}
 
 	var parentShouldReboot, machineShouldReboot bool
@@ -190,16 +190,16 @@ func (st *State) ShouldRebootOrShutdown(ctx context.Context, uuid string) (corem
 		return nil
 	})
 	if err != nil {
-		return coremachine.ShouldDoNothing, errors.Errorf("requiring reboot action for machine %q: %w", uuid, err)
+		return machine.ShouldDoNothing, errors.Errorf("requiring reboot action for machine %q: %w", uuid, err)
 	}
 
 	// Parent need reboot
 	if parentShouldReboot {
-		return coremachine.ShouldShutdown, nil
+		return machine.ShouldShutdown, nil
 	}
 	// Machine need reboot, with no parent or no parent requesting reboot
 	if machineShouldReboot {
-		return coremachine.ShouldReboot, nil
+		return machine.ShouldReboot, nil
 	}
-	return coremachine.ShouldDoNothing, nil
+	return machine.ShouldDoNothing, nil
 }

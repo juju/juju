@@ -61,7 +61,7 @@ func NewRebootAPI(
 		return nil, errors.Errorf("%q should be a %s", tag, names.MachineTagKind)
 	}
 
-	uuid := func(ctx context.Context) (string, error) {
+	uuid := func(ctx context.Context) (machine.UUID, error) {
 		uuid, err := machineService.GetMachineUUID(ctx, machine.Name(tag.Id()))
 		if err != nil {
 			return "", errors.Annotatef(err, "find machine uuid for machine %q", tag.Id())
