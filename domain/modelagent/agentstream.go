@@ -19,7 +19,7 @@ const (
 	agentStreamZero AgentStream = 0
 
 	// AgentStreamReleased represents the released stream for agent binaries.
-	AgentStreamReleased AgentStream = iota
+	AgentStreamReleased AgentStream = iota - 1
 	// AgentStreamProposed represents the proposed stream for agent binaries.
 	AgentStreamProposed
 	// AgentStreamTesting represents the testing stream for agent binaries.
