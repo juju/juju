@@ -357,9 +357,6 @@ func (a *MachineAgent) registerPrometheusCollectors() error {
 	if err := a.prometheusRegistry.Register(a.mongoDialCollector); err != nil {
 		return errors.Annotate(err, "registering mongo dial collector")
 	}
-	if err := a.prometheusRegistry.Register(a.pubsubMetrics); err != nil {
-		return errors.Annotate(err, "registering pubsub collector")
-	}
 	return nil
 }
 
@@ -419,8 +416,7 @@ type MachineAgent struct {
 	upgradeDBLock    gate.Lock
 	upgradeStepsLock gate.Lock
 
-	centralHub    *pubsub.StructuredHub
-	pubsubMetrics *centralhub.PubsubMetrics
+	centralHub *pubsub.StructuredHub
 
 	isCaasAgent bool
 	cmdRunner   CommandRunner
@@ -523,8 +519,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 
 	// When the API server and peergrouper have manifolds, they can
 	// have dependencies on a central hub worker.
-	a.pubsubMetrics = centralhub.NewPubsubMetrics()
-	a.centralHub = centralhub.New(a.Tag(), a.pubsubMetrics)
+	a.centralHub = centralhub.New(a.Tag())
 
 	// Before doing anything else, we need to make sure the certificate
 	// generated for use by mongo to validate controller connections is correct.

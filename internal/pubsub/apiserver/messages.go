@@ -3,8 +3,6 @@
 
 package apiserver
 
-import "github.com/juju/juju/internal/pubsub/common"
-
 // DetailsTopic is the topic name for the published message when the details
 // of the api servers change. This message is normally published by the
 // peergrouper when the set of API servers changes.
@@ -69,28 +67,3 @@ type APIConnection struct {
 	Origin          string `yaml:"origin"`
 	UserData        string `yaml:"user-data,omitempty"`
 }
-
-// PresenceRequestTopic is used by the presence worker to ask another HA server
-// to report its connections.
-// data: `OriginTarget`
-const PresenceRequestTopic = "presence.request"
-
-// PresenceResponseTopic is used by the presence worker to respond to the
-// request topic above.
-// data: `PresenceResponse`
-const PresenceResponseTopic = "presence.response"
-
-// PresenceResponse contains all of the current connections for the server
-// identified by Origin.
-type PresenceResponse struct {
-	Origin      string          `yaml:"origin"`
-	Connections []APIConnection `yaml:"connections"`
-}
-
-// OriginTarget represents the data for the connect and disconnect
-// topics.
-type OriginTarget common.OriginTarget
-
-// Restart message only contains the local-only indicator as the restart
-// is only ever for the same agent.
-type Restart common.LocalOnly

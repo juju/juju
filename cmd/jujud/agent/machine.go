@@ -63,7 +63,6 @@ import (
 	"github.com/juju/juju/internal/mongo/mongometrics"
 	"github.com/juju/juju/internal/pki"
 	internalpubsub "github.com/juju/juju/internal/pubsub"
-	"github.com/juju/juju/internal/pubsub/centralhub"
 	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/storage/looputil"
@@ -314,9 +313,6 @@ func (a *MachineAgent) registerPrometheusCollectors() error {
 	); err != nil {
 		return errors.Annotate(err, "registering logsender collector")
 	}
-	if err := a.prometheusRegistry.Register(a.pubsubMetrics); err != nil {
-		return errors.Annotate(err, "registering pubsub collector")
-	}
 	return nil
 }
 
@@ -367,8 +363,6 @@ type MachineAgent struct {
 	upgradeSteps    UpgradeStepsFunc
 
 	upgradeStepsLock gate.Lock
-
-	pubsubMetrics *centralhub.PubsubMetrics
 
 	isCaasAgent bool
 	cmdRunner   CommandRunner
@@ -453,8 +447,6 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 		// This isn't fatal, just annoying.
 		logger.Errorf(context.TODO(), "failed to write profile funcs: %v", err)
 	}
-
-	a.pubsubMetrics = centralhub.NewPubsubMetrics()
 
 	// Before doing anything else, we need to make sure the certificate
 	// generated for use by mongo to validate controller connections is correct.

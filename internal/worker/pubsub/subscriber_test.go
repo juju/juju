@@ -140,7 +140,7 @@ func (s *SubscriberSuite) SetUpTest(c *gc.C) {
 	tag := names.NewMachineTag("42")
 
 	s.clock = testclock.NewClock(time.Now())
-	s.hub = centralhub.New(tag, centralhub.PubsubNoOpMetrics{})
+	s.hub = centralhub.New(tag)
 	s.origin = tag.String()
 	s.remotes = &fakeRemoteTracker{
 		remotes: make(map[string]*fakeRemote),
@@ -299,7 +299,7 @@ func (s *SubscriberSuite) TestSameMessagesForwardedForMachine(c *gc.C) {
 func (s *SubscriberSuite) TestSameMessagesForwardedForController(c *gc.C) {
 	tag := names.NewControllerAgentTag("42")
 	s.origin = tag.String()
-	s.hub = centralhub.New(tag, centralhub.PubsubNoOpMetrics{})
+	s.hub = centralhub.New(tag)
 	s.config.Origin = s.origin
 	s.config.Hub = s.hub
 	s.config.APIInfo.Tag = tag
