@@ -506,7 +506,7 @@ func (mig *modelMigration) getAllAgents() (names.Set, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if m.Type() != ModelTypeCAAS {
+	if m.TypeOld() != ModelTypeCAAS {
 		unitTags, err := mig.loadAgentTags(unitsC, "name",
 			func(name string) names.Tag { return names.NewUnitTag(name) },
 		)
