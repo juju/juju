@@ -10,8 +10,8 @@ ON agent_stream (name);
 
 INSERT INTO agent_stream VALUES
 (0, 'released'),
-(1, 'testing'),
-(2, 'proposed'),
+(1, 'proposed'),
+(2, 'testing'),
 (3, 'devel');
 
 CREATE TABLE agent_version (
