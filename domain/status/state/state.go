@@ -1386,7 +1386,7 @@ ORDER BY a.name, re.relation_uuid;
 		}
 
 		var workloadVersion *string
-		if s.WorkloadVersion.Valid {
+		if s.WorkloadVersion.Valid && s.WorkloadVersion.V != "" {
 			workloadVersion = &s.WorkloadVersion.V
 		}
 
@@ -1454,7 +1454,8 @@ SELECT
 		SELECT 1 FROM unit_agent_presence AS uap
 		WHERE u.uuid = uap.unit_uuid
 	) AS &unitStatusDetails.present,
-	uav.version AS &unitStatusDetails.agent_version
+	uav.version AS &unitStatusDetails.agent_version,
+	awv.version AS &unitStatusDetails.workload_version
 FROM unit AS u
 JOIN application AS a ON a.uuid = u.application_uuid
 JOIN net_node AS n ON n.uuid = u.net_node_uuid
@@ -1469,6 +1470,7 @@ LEFT JOIN unit_principal AS up ON u.uuid = up.unit_uuid
 LEFT JOIN unit AS upu ON up.principal_uuid = upu.uuid
 LEFT JOIN unit_subordinate AS us ON us.principal_uuid = u.uuid
 LEFT JOIN unit_agent_version AS uav ON uav.unit_uuid = u.uuid
+LEFT JOIN unit_workload_version AS awv ON awv.unit_uuid = u.uuid
 ORDER BY u.name;
 `, unitStatusDetails{})
 	if err != nil {
@@ -1550,7 +1552,7 @@ ORDER BY u.name;
 		}
 
 		var workloadVersion *string
-		if s.WorkloadVersion.Valid {
+		if s.WorkloadVersion.Valid && s.WorkloadVersion.V != "" {
 			workloadVersion = &s.WorkloadVersion.V
 		}
 

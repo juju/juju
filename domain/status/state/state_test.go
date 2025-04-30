@@ -1669,6 +1669,85 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *gc.C) {
 	})
 }
 
+func (s *stateSuite) TestGetApplicationAndUnitStatusesWorkloadVersion(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	u2 := application.AddUnitArg{
+		UnitName: "foo/667",
+	}
+	now := time.Now()
+
+	appStatus := s.appStatus(now)
+	appUUID, unitUUDs := s.createApplication(c, "foo", life.Alive, false, appStatus, u1, u2)
+	c.Assert(unitUUDs, gc.HasLen, 2)
+	s.setWorkloadVersion(c, appUUID, unitUUDs[0], "blah")
+
+	statuses, err := s.state.GetApplicationAndUnitStatuses(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(statuses, jc.DeepEquals, map[string]status.Application{
+		"foo": {
+			ID:     appUUID,
+			Life:   life.Alive,
+			Status: *appStatus,
+			CharmLocator: charm.CharmLocator{
+				Name:         "foo",
+				Revision:     42,
+				Source:       "charmhub",
+				Architecture: architecture.ARM64,
+			},
+			Platform: deployment.Platform{
+				OSType:       deployment.Ubuntu,
+				Channel:      "22.04/stable",
+				Architecture: architecture.ARM64,
+			},
+			Channel: &deployment.Channel{
+				Track:  "track",
+				Risk:   "stable",
+				Branch: "branch",
+			},
+			Scale:           ptr(2),
+			WorkloadVersion: ptr("blah"),
+			Units: map[coreunit.Name]status.Unit{
+				"foo/666": {
+					Life:            life.Alive,
+					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
+					WorkloadVersion: ptr("blah"),
+				},
+				"foo/667": {
+					Life:            life.Alive,
+					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
+				},
+			},
+		},
+	})
+}
+
+func (s *stateSuite) setWorkloadVersion(c *gc.C, appUUID coreapplication.ID, unitUUID coreunit.UUID, version string) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `UPDATE application_workload_version SET version=? WHERE application_uuid=?`, version, appUUID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE unit_workload_version SET version=? WHERE unit_uuid=?`, version, unitUUID); err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *stateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *gc.C) {
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",

@@ -563,19 +563,20 @@ func (s *Service) decodeApplicationStatusDetails(ctx context.Context, app status
 	}
 
 	return Application{
-		Life:          life,
-		Status:        decodedStatus,
-		Relations:     app.Relations,
-		Subordinate:   app.Subordinate,
-		CharmLocator:  app.CharmLocator,
-		CharmVersion:  app.CharmVersion,
-		Platform:      app.Platform,
-		Channel:       app.Channel,
-		Exposed:       app.Exposed,
-		LXDProfile:    lxdProfile,
-		Scale:         app.Scale,
-		K8sProviderID: app.K8sProviderID,
-		Units:         units,
+		Life:            life,
+		Status:          decodedStatus,
+		Relations:       app.Relations,
+		Subordinate:     app.Subordinate,
+		CharmLocator:    app.CharmLocator,
+		CharmVersion:    app.CharmVersion,
+		Platform:        app.Platform,
+		Channel:         app.Channel,
+		Exposed:         app.Exposed,
+		LXDProfile:      lxdProfile,
+		Scale:           app.Scale,
+		WorkloadVersion: app.WorkloadVersion,
+		K8sProviderID:   app.K8sProviderID,
+		Units:           units,
 	}, nil
 }
 
@@ -659,6 +660,7 @@ func (s *Service) decodeUnitStatusDetails(unit status.Unit) (Unit, error) {
 		SubordinateNames: subordinateNames,
 		CharmLocator:     unit.CharmLocator,
 		AgentVersion:     unit.AgentVersion,
+		WorkloadVersion:  unit.WorkloadVersion,
 		K8sProviderID:    unit.K8sProviderID,
 	}, nil
 }
