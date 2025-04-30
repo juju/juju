@@ -628,7 +628,7 @@ func (s *unitServiceSuite) TestGetPublicAddressNonMatchingAddresses(c *gc.C) {
 			MachineAddress: network.MachineAddress{
 				Value:      "10.0.0.2",
 				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv6Address,
+				Type:       network.IPv4Address,
 				Scope:      network.ScopeMachineLocal,
 			},
 		},
@@ -646,7 +646,7 @@ func (s *unitServiceSuite) TestGetPublicAddressNonMatchingAddresses(c *gc.C) {
 			MachineAddress: network.MachineAddress{
 				Value:      "10.0.1.2",
 				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv6Address,
+				Type:       network.IPv4Address,
 				Scope:      network.ScopeMachineLocal,
 			},
 		},
@@ -679,8 +679,17 @@ func (s *unitServiceSuite) TestGetPublicAddressMatchingAddress(c *gc.C) {
 			MachineAddress: network.MachineAddress{
 				Value:      "54.32.1.2",
 				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv6Address,
+				Type:       network.IPv4Address,
 				Scope:      network.ScopePublic,
+			},
+		},
+		{
+			SpaceID: network.AlphaSpaceId,
+			MachineAddress: network.MachineAddress{
+				Value:      "54.32.1.3",
+				ConfigType: network.ConfigDHCP,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeCloudLocal,
 			},
 		},
 	}
@@ -717,7 +726,7 @@ func (s *unitServiceSuite) TestGetPublicAddressMatchingAddressSameOrigin(c *gc.C
 			MachineAddress: network.MachineAddress{
 				Value:      "54.32.1.2",
 				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv6Address,
+				Type:       network.IPv4Address,
 				Scope:      network.ScopePublic,
 			},
 		},
@@ -727,7 +736,7 @@ func (s *unitServiceSuite) TestGetPublicAddressMatchingAddressSameOrigin(c *gc.C
 			MachineAddress: network.MachineAddress{
 				Value:      "54.32.1.3",
 				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv6Address,
+				Type:       network.IPv4Address,
 				Scope:      network.ScopePublic,
 			},
 		},
@@ -765,7 +774,7 @@ func (s *unitServiceSuite) TestGetPublicAddressMatchingAddressOneProviderOnly(c 
 			MachineAddress: network.MachineAddress{
 				Value:      "54.32.1.2",
 				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv6Address,
+				Type:       network.IPv4Address,
 				Scope:      network.ScopePublic,
 			},
 		},
@@ -775,7 +784,7 @@ func (s *unitServiceSuite) TestGetPublicAddressMatchingAddressOneProviderOnly(c 
 			MachineAddress: network.MachineAddress{
 				Value:      "54.32.1.3",
 				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv6Address,
+				Type:       network.IPv4Address,
 				Scope:      network.ScopePublic,
 			},
 		},
@@ -813,7 +822,7 @@ func (s *unitServiceSuite) TestGetPublicAddressMatchingAddressOneProviderOtherUn
 			MachineAddress: network.MachineAddress{
 				Value:      "54.32.1.2",
 				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv6Address,
+				Type:       network.IPv4Address,
 				Scope:      network.ScopePublic,
 			},
 		},
@@ -823,7 +832,7 @@ func (s *unitServiceSuite) TestGetPublicAddressMatchingAddressOneProviderOtherUn
 			MachineAddress: network.MachineAddress{
 				Value:      "54.32.1.3",
 				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv6Address,
+				Type:       network.IPv4Address,
 				Scope:      network.ScopePublic,
 			},
 		},
@@ -882,7 +891,7 @@ func (s *unitServiceSuite) TestGetPrivateAddressNonMatchingAddresses(c *gc.C) {
 			MachineAddress: network.MachineAddress{
 				Value:      "10.0.0.2",
 				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv6Address,
+				Type:       network.IPv4Address,
 				Scope:      network.ScopeMachineLocal,
 			},
 		},
@@ -900,7 +909,7 @@ func (s *unitServiceSuite) TestGetPrivateAddressNonMatchingAddresses(c *gc.C) {
 			MachineAddress: network.MachineAddress{
 				Value:      "10.0.1.2",
 				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv6Address,
+				Type:       network.IPv4Address,
 				Scope:      network.ScopeMachineLocal,
 			},
 		},
@@ -945,7 +954,7 @@ func (s *unitServiceSuite) TestGetPrivateAddressMatchingAddress(c *gc.C) {
 			MachineAddress: network.MachineAddress{
 				Value:      "10.0.0.2",
 				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv6Address,
+				Type:       network.IPv4Address,
 				Scope:      network.ScopeMachineLocal,
 			},
 		},

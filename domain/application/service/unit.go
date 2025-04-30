@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"sort"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -564,7 +563,7 @@ func (s *Service) GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.
 	return version, nil
 }
 
-// GetPublicAddress returns the public address for the specified unit.
+// GetUnitPublicAddress returns the public address for the specified unit.
 // For k8s provider, it will return the first public address of the cloud
 // service if any, the first public address of the cloud container otherwise.
 // For machines provider, it will return the first public address of the
@@ -584,14 +583,11 @@ func (s *Service) GetUnitPublicAddress(ctx context.Context, unitName coreunit.Na
 	}
 
 	// First match the scope, then sort by origin.
-	matchedAddrs := addrs.AllMatchingScope(network.ScopeMatchCloudLocal)
-	fmt.Printf("out addrs: %v\n", addrs)
-	fmt.Printf("matched addrs: %v\n", matchedAddrs)
+	matchedAddrs := addrs.AllMatchingScope(network.ScopeMatchPublic)
 	if len(matchedAddrs) == 0 {
 		return network.SpaceAddress{}, network.NoAddressError(string(network.ScopePublic))
 	}
 	sort.Slice(matchedAddrs, matchedAddrs.Less)
-	fmt.Printf("sorted addrs: %v\n", matchedAddrs)
 
 	return matchedAddrs[0], nil
 }

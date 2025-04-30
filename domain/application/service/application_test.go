@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/devices"
 	coreerrors "github.com/juju/juju/core/errors"
 	modeltesting "github.com/juju/juju/core/model/testing"
-	"github.com/juju/juju/core/network"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -985,69 +984,6 @@ func (s *applicationServiceSuite) TestGetDeviceConstraints(c *gc.C) {
 			Count: 42,
 		},
 	})
-}
-
-func (s *applicationServiceSuite) TestCloudServiceAddresses(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.ID("foo-uuid"), nil)
-	s.state.EXPECT().GetCloudServiceAddresses(gomock.Any(), coreapplication.ID("foo-uuid")).Return(network.SpaceAddresses{
-		network.SpaceAddress{
-			SpaceID: network.AlphaSpaceId,
-			Origin:  network.OriginProvider,
-			MachineAddress: network.MachineAddress{
-				Value:      "foo",
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeLinkLocal,
-				ConfigType: network.ConfigDHCP,
-			},
-		},
-		network.SpaceAddress{
-			SpaceID: network.AlphaSpaceId,
-			Origin:  network.OriginProvider,
-			MachineAddress: network.MachineAddress{
-				Value:      "bar",
-				Type:       network.IPv6Address,
-				Scope:      network.ScopeCloudLocal,
-				ConfigType: network.ConfigManual,
-			},
-		},
-	}, nil)
-
-	addrs, err := s.service.GetCloudServiceAddresses(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(addrs, gc.DeepEquals, network.SpaceAddresses{
-		network.SpaceAddress{
-			SpaceID: network.AlphaSpaceId,
-			Origin:  network.OriginProvider,
-			MachineAddress: network.MachineAddress{
-				Value:      "foo",
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeLinkLocal,
-				ConfigType: network.ConfigDHCP,
-			},
-		},
-		network.SpaceAddress{
-			SpaceID: network.AlphaSpaceId,
-			Origin:  network.OriginProvider,
-			MachineAddress: network.MachineAddress{
-				Value:      "bar",
-				Type:       network.IPv6Address,
-				Scope:      network.ScopeCloudLocal,
-				ConfigType: network.ConfigManual,
-			},
-		},
-	})
-}
-
-func (s *applicationServiceSuite) TestCloudServiceAddressesNotFound(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().GetApplicationIDByName(gomock.Any(), "foo").Return(coreapplication.ID("foo-uuid"), nil)
-	s.state.EXPECT().GetCloudServiceAddresses(gomock.Any(), coreapplication.ID("foo-uuid")).Return(nil, errors.Errorf("%w", applicationerrors.ApplicationNotFound))
-
-	_, err := s.service.GetCloudServiceAddresses(context.Background(), "foo")
-	c.Assert(err, gc.ErrorMatches, applicationerrors.ApplicationNotFound.Error())
 }
 
 type applicationWatcherServiceSuite struct {

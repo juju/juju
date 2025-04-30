@@ -74,10 +74,6 @@ type ApplicationState interface {
 	// exist.
 	UpsertCloudService(ctx context.Context, appName, providerID string, sAddrs network.SpaceAddresses) error
 
-	// GetCloudServiceAddresses returns the addresses of the cloud service for the
-	// specified application.
-	GetCloudServiceAddresses(ctx context.Context, appUUID coreapplication.ID) (network.SpaceAddresses, error)
-
 	// GetUnitAddresses returns the addresses of the specified unit.
 	// The addresses are taken by unioning the net node UUIDs of the cloud service
 	// (if any) and the net node UUIDs of the unit, where each net node has an
@@ -797,22 +793,6 @@ func (s *Service) GetCharmByApplicationID(ctx context.Context, id coreapplicatio
 		&actions,
 		&lxdProfile,
 	), locator, nil
-}
-
-// GetCloudServiceAddresses returns the addresses of the cloud service for the
-// specified application, returning an error satisfying
-// [applicationerrors.ApplicationNotFoundError] if the application doesn't
-// exist.
-func (s *Service) GetCloudServiceAddresses(ctx context.Context, applicationName string) (network.SpaceAddresses, error) {
-	appUUID, err := s.st.GetApplicationIDByName(ctx, applicationName)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	addrs, err := s.st.GetCloudServiceAddresses(ctx, appUUID)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return addrs, nil
 }
 
 // UpdateCloudService updates the cloud service for the specified application, returning an error
