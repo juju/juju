@@ -40,13 +40,13 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 		return
 	}
 	containerName, _ := h.destination.Container()
-	_, _, ptyRequested := session.Pty()
+	ptyReq, winCh, ptyRequested := session.Pty()
 
 	var stdin io.Reader = session
 	var stdout, stderr io.Writer = session, session.Stderr()
 
 	if ptyRequested {
-		// If pty is requested we need to similate a terminal device, passing
+		// If pty is requested we need to simulate a terminal device, passing
 		// the pty file descriptor to the executor. And pipe it back to the session.
 		ptmx, tty, err := pty.Open()
 		if err != nil {
@@ -55,6 +55,26 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 		}
 		defer func() { _ = ptmx.Close() }()
 		defer func() { _ = tty.Close() }()
+
+		// Set the terminal size
+		err = pty.Setsize(ptmx, &pty.Winsize{
+			Rows: uint16(ptyReq.Window.Height),
+			Cols: uint16(ptyReq.Window.Width),
+		})
+		if err != nil {
+			handleError(errors.Annotate(err, "failed to set pty size"))
+			return
+		}
+
+		// Listen for window size changes
+		go func() {
+			for win := range winCh {
+				_ = pty.Setsize(ptmx, &pty.Winsize{
+					Rows: uint16(win.Height),
+					Cols: uint16(win.Width),
+				})
+			}
+		}()
 
 		go func() {
 			_, _ = io.Copy(ptmx, session)
