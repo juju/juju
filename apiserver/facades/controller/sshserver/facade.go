@@ -155,18 +155,18 @@ func (f *Facade) CheckSSHAccess(arg params.CheckSSHAccessArg) params.BoolResult 
 		return result
 	}
 
-	var controllerAccess permission.UserAccess
-	// No model user found, so see if the user has been granted
-	// access to the controller.
-	if permission.IsEmptyUserAccess(modelAccess) {
-		controllerAccess, err = f.backend.ControllerAccess(userTag)
-		if err != nil && !errors.Is(err, errors.NotFound) {
-			result.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to get controller access"))
-			return result
-		}
+	if modelAccess.Access == permission.AdminAccess {
+		result.Result = true
+		return result
 	}
 
-	if modelAccess.Access == permission.AdminAccess || controllerAccess.Access == permission.AdminAccess {
+	controllerAccess, err := f.backend.ControllerAccess(userTag)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		result.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to get controller access"))
+		return result
+	}
+
+	if controllerAccess.Access == permission.AdminAccess {
 		result.Result = true
 	}
 

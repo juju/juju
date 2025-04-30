@@ -214,13 +214,14 @@ func (s *sshserverSuite) TestCheckSSHAccessViaControllerAccess(c *gc.C) {
 	userTag := names.NewUserTag("alice")
 	modelUUID := uuid.NewString()
 
+	// Check a user with no model access but controller superuser access.
 	s.ctxMock.EXPECT().Resources()
+	f := sshserver.NewFacade(s.ctxMock, s.backendMock)
+
 	s.backendMock.EXPECT().ModelAccess(userTag, modelUUID).Return(
 		permission.UserAccess{}, errors.NotFound)
 	s.backendMock.EXPECT().ControllerAccess(userTag).Return(
 		permission.UserAccess{Access: permission.AdminAccess}, nil)
-
-	f := sshserver.NewFacade(s.ctxMock, s.backendMock)
 
 	destination, err := virtualhostname.NewInfoMachineTarget(modelUUID, "0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -230,6 +231,16 @@ func (s *sshserverSuite) TestCheckSSHAccessViaControllerAccess(c *gc.C) {
 	}
 
 	result := f.CheckSSHAccess(arg)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Result, gc.Equals, true)
+
+	// Check a user with read model access but controller superuser access.
+	s.backendMock.EXPECT().ModelAccess(userTag, modelUUID).Return(
+		permission.UserAccess{Access: permission.ReadAccess}, nil)
+	s.backendMock.EXPECT().ControllerAccess(userTag).Return(
+		permission.UserAccess{Access: permission.AdminAccess}, nil)
+
+	result = f.CheckSSHAccess(arg)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.Result, gc.Equals, true)
 }
