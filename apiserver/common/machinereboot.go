@@ -69,7 +69,7 @@ func (r *RebootRequester) RequestReboot(ctx context.Context, args params.Entitie
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	auth, err := r.auth()
+	auth, err := r.auth(ctx)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -128,7 +128,7 @@ func (r *RebootActionGetter) GetRebootAction(ctx context.Context, args params.En
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	auth, err := r.auth()
+	auth, err := r.auth(ctx)
 	if err != nil {
 		return params.RebootActionResults{}, errors.Trace(err)
 	}
@@ -182,7 +182,7 @@ func (r *RebootFlagClearer) ClearReboot(ctx context.Context, args params.Entitie
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	auth, err := r.auth()
+	auth, err := r.auth(ctx)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

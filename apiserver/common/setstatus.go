@@ -69,7 +69,7 @@ func (s *StatusSetter) SetStatus(ctx context.Context, args params.SetStatus) (pa
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canModify, err := s.getCanModify()
+	canModify, err := s.getCanModify(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}

@@ -93,7 +93,7 @@ func newUniterAPIWithServices(
 		return nil, errors.Trace(err)
 	}
 
-	accessUnit := unitcommon.UnitAccessor(authorizer, unitcommon.Backend(st))
+	accessUnit := unitcommon.UnitAccessor(authorizer, services.ApplicationService)
 	accessApplication := applicationAccessor(authorizer, st)
 	accessMachine := machineAccessor(authorizer, st)
 	accessCloudSpec := cloudSpecAccessor(authorizer, services.ApplicationService)
@@ -119,10 +119,9 @@ func newUniterAPIWithServices(
 	)
 	logger := context.Logger().Child("uniter")
 
-	extUnitState := common.NewExternalUnitStateAPI(
+	unitState := common.NewUnitStateAPI(
 		services.ControllerConfigService,
 		services.UnitStateService,
-		st,
 		resources,
 		authorizer,
 		accessUnit,
@@ -156,7 +155,7 @@ func newUniterAPIWithServices(
 		APIAddresser:       common.NewAPIAddresser(systemState, resources),
 		ModelConfigWatcher: modelConfigWatcher,
 		RebootRequester:    common.NewRebootRequester(services.MachineService, accessMachine),
-		UnitStateAPI:       extUnitState,
+		UnitStateAPI:       unitState,
 		lxdProfileAPI:      extLXDProfile,
 		StatusAPI:          statusAPI,
 

@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 
@@ -17,16 +19,16 @@ import (
 type AuthFunc func(tag names.Tag) bool
 
 // GetAuthFunc returns an AuthFunc.
-type GetAuthFunc func() (AuthFunc, error)
+type GetAuthFunc func(ctx context.Context) (AuthFunc, error)
 
 // AuthAny returns an AuthFunc generator that returns an AuthFunc that
 // accepts any tag authorized by any of its arguments. If no arguments
 // are passed this is equivalent to AuthNever.
 func AuthAny(getFuncs ...GetAuthFunc) GetAuthFunc {
-	return func() (AuthFunc, error) {
+	return func(ctx context.Context) (AuthFunc, error) {
 		funcs := make([]AuthFunc, len(getFuncs))
 		for i, getFunc := range getFuncs {
-			f, err := getFunc()
+			f, err := getFunc(ctx)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -46,7 +48,7 @@ func AuthAny(getFuncs ...GetAuthFunc) GetAuthFunc {
 
 // AuthAlways returns an authentication function that always returns true iff it is passed a valid tag.
 func AuthAlways() GetAuthFunc {
-	return func() (AuthFunc, error) {
+	return func(ctx context.Context) (AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return true
 		}, nil
@@ -55,7 +57,7 @@ func AuthAlways() GetAuthFunc {
 
 // AuthFuncForTag returns an authentication function that always returns true iff it is passed a specific tag.
 func AuthFuncForTag(valid names.Tag) GetAuthFunc {
-	return func() (AuthFunc, error) {
+	return func(ctx context.Context) (AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return tag == valid
 		}, nil
@@ -66,7 +68,7 @@ func AuthFuncForTag(valid names.Tag) GetAuthFunc {
 // allowing only the given tag kind and denies all others. Passing an
 // empty kind is an error.
 func AuthFuncForTagKind(kind string) GetAuthFunc {
-	return func() (AuthFunc, error) {
+	return func(ctx context.Context) (AuthFunc, error) {
 		if kind == "" {
 			return nil, errors.Errorf("tag kind cannot be empty")
 		}
@@ -100,7 +102,7 @@ type Authorizer interface {
 // AuthFuncForMachineAgent returns a GetAuthFunc which creates an AuthFunc
 // allowing only machine agents and their controllers
 func AuthFuncForMachineAgent(authorizer Authorizer) GetAuthFunc {
-	return func() (AuthFunc, error) {
+	return func(ctx context.Context) (AuthFunc, error) {
 		isModelManager := authorizer.AuthController()
 		isMachineAgent := authorizer.AuthMachineAgent()
 		authEntityTag := authorizer.GetAuthTag()

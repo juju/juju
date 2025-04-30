@@ -15,7 +15,6 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // UnitStateService describes the ability to retrieve and persist
@@ -34,24 +33,10 @@ type UnitStateAPI struct {
 
 	resources facade.Resources
 
-	logger corelogger.Logger
-
 	AccessMachine GetAuthFunc
 	accessUnit    GetAuthFunc
-}
 
-// NewExternalUnitStateAPI can be used for API registration.
-func NewExternalUnitStateAPI(
-	controllerConfigService ControllerConfigService,
-	unitStateService UnitStateService,
-	st *state.State,
-	resources facade.Resources,
-	authorizer facade.Authorizer,
-	accessUnit GetAuthFunc,
-	logger corelogger.Logger,
-) *UnitStateAPI {
-	return NewUnitStateAPI(
-		controllerConfigService, unitStateService, resources, authorizer, accessUnit, logger)
+	logger corelogger.Logger
 }
 
 // NewUnitStateAPI returns a new UnitStateAPI. Currently both
@@ -76,7 +61,7 @@ func NewUnitStateAPI(
 // State returns the state persisted by the charm running in this unit
 // and the state internal to the uniter for this unit.
 func (u *UnitStateAPI) State(ctx context.Context, args params.Entities) (params.UnitStateResults, error) {
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.UnitStateResults{}, errors.Trace(err)
 	}
@@ -120,7 +105,7 @@ func (u *UnitStateAPI) State(ctx context.Context, args params.Entities) (params.
 // SetState sets the state persisted by the charm running in this unit
 // and the state internal to the uniter for this unit.
 func (u *UnitStateAPI) SetState(ctx context.Context, args params.SetUnitStateArgs) (params.ErrorResults, error) {
-	canAccess, err := u.accessUnit()
+	canAccess, err := u.accessUnit(ctx)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

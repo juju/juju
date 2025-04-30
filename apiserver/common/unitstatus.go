@@ -45,7 +45,7 @@ func NewUnitStatusSetter(statusService StatusService, clock clock.Clock, getCanM
 
 // SetStatus sets the workload status of the specified units.
 func (s *UnitStatusSetter) SetStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
-	canModify, err := s.getCanModify()
+	canModify, err := s.getCanModify(ctx)
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -111,7 +111,7 @@ func NewUnitStatusGetter(statusService StatusService, clock clock.Clock, getCanA
 
 // Status returns the workload status of the specified units.
 func (s *UnitStatusGetter) Status(ctx context.Context, args params.Entities) (params.StatusResults, error) {
-	canAccess, err := s.getCanAccess()
+	canAccess, err := s.getCanAccess(ctx)
 	if err != nil {
 		return params.StatusResults{}, err
 	}
