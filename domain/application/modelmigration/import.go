@@ -192,6 +192,13 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 		peerRelations := i.importPeerRelations(app.Name(), model.Relations())
 
+		// TODO hml 04-30-2024
+		// Investigate how device constraints for an application are
+		// migrated and implemented if necessary.
+
+		// TODO hml 04-30-2024
+		// Investigate how storage directives for an application are
+		// migrated and implemented if necessary.
 		args := service.ImportApplicationArgs{
 			Charm:                  charm,
 			CharmOrigin:            origin,

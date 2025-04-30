@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/domain/linklayerdevice"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/storage"
 )
 
 // MigrationState is the state required for migrating applications.
@@ -301,7 +300,7 @@ func (s *MigrationService) importApplication(ctx context.Context, name string, m
 		return errors.Errorf("invalid application args: %w", err)
 	}
 
-	appArg, err := makeInsertApplicationArg(ctx, s.st, s.storageRegistryGetter, modelType, args)
+	appArg, err := makeInsertApplicationArg(args)
 	if err != nil {
 		return errors.Errorf("creating application args: %w", err)
 	}
@@ -350,24 +349,8 @@ func (s *MigrationService) importApplication(ctx context.Context, name string, m
 }
 
 func makeInsertApplicationArg(
-	ctx context.Context,
-	state State,
-	storageRegistryGetter corestorage.ModelStorageRegistryGetter,
-	modelType model.ModelType,
 	args ImportApplicationArgs,
 ) (application.InsertApplicationArgs, error) {
-	storageDirectives := make(map[string]storage.Directive)
-
-	meta := args.Charm.Meta()
-
-	var err error
-	if storageDirectives, err = addDefaultStorageDirectives(ctx, state, modelType, storageDirectives, meta.Storage); err != nil {
-		return application.InsertApplicationArgs{}, errors.Errorf("adding default storage directives: %w", err)
-	}
-	if err := validateStorageDirectives(ctx, state, storageRegistryGetter, modelType, storageDirectives, meta); err != nil {
-		return application.InsertApplicationArgs{}, errors.Errorf("invalid storage directives: %w", err)
-	}
-
 	// When encoding the charm, this will also validate the charm metadata,
 	// when parsing it.
 	ch, _, err := encodeCharm(args.Charm)
@@ -408,7 +391,6 @@ func makeInsertApplicationArg(
 		Channel:          channelArg,
 		EndpointBindings: args.EndpointBindings,
 		Resources:        makeResourcesArgs(args.ResolvedResources),
-		Storage:          makeStorageArgs(storageDirectives),
 		StorageParentDir: application.StorageParentDir,
 		Config:           applicationConfig,
 		Settings:         args.ApplicationSettings,

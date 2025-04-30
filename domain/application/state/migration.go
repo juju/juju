@@ -295,9 +295,6 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 		); err != nil {
 			return errors.Errorf("inserting or resolving resources for application %q: %w", name, err)
 		}
-		//if err := st.insertApplicationStorage(ctx, tx, appDetails, args.Storage); err != nil {
-		//	return errors.Errorf("inserting storage for application %q: %w", name, err)
-		//}
 		if err := st.insertApplicationConfig(ctx, tx, appDetails.UUID, args.Config); err != nil {
 			return errors.Errorf("inserting config for application %q: %w", name, err)
 		}
@@ -307,9 +304,6 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 		if err := st.updateConfigHash(ctx, tx, applicationID{ID: appUUID}); err != nil {
 			return errors.Errorf("refreshing config hash for application %q: %w", name, err)
 		}
-		//if err := st.insertApplicationStatus(ctx, tx, appDetails.UUID, args.Status); err != nil {
-		//	return errors.Errorf("inserting status for application %q: %w", name, err)
-		//}
 		if err := st.insertApplicationEndpoints(ctx, tx, insertApplicationEndpointsParams{
 			appID:     appDetails.UUID,
 			charmUUID: appDetails.CharmUUID,
@@ -319,10 +313,6 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 		}
 		if err := st.insertMigratingPeerRelations(ctx, tx, appDetails.UUID, args.PeerRelations); err != nil {
 			return errors.Errorf("inserting peer relation for application %q: %w", name, err)
-		}
-
-		if err := st.insertDeviceConstraints(ctx, tx, appUUID, args.Devices); err != nil {
-			return errors.Errorf("inserting device constraints for application %q: %w", appUUID, err)
 		}
 
 		// The channel is optional for local charms. Although, it would be

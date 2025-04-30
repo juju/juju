@@ -26,7 +26,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainconstraints "github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
-	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -440,8 +439,6 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
-
-	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
 
 	var receivedUnitArgs []application.ImportUnitArg
 	if modelType == coremodel.IAAS {
