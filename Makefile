@@ -498,7 +498,7 @@ run-tests: musl-install-if-missing dqlite-install-if-missing
 # 6. Filter out packages in the generate directory.
 # 7. Filter out packages in the mocks directory.
 # 8. Filter out all mocks.
-	$(eval TEST_PACKAGES := $(shell go list -json $(PROJECT)/... | jq -s -r '[.[] | if (.TestGoFiles | length) + (.XTestGoFiles | length) > 0 then .ImportPath else null end]|del(..|nulls).[]' | sort | ([ -f "$(TEST_PACKAGE_LIST)" ] && comm -12 "$(TEST_PACKAGE_LIST)" - || cat) | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/generate/ | grep -v $(PROJECT)/mocks/ | grep -v $(PROJECT)/internal/ | grep -v mocks))
+	$(eval TEST_PACKAGES := $(shell go list -json $(PROJECT)/... | jq -s -r '[.[] | if (.TestGoFiles | length) + (.XTestGoFiles | length) > 0 then .ImportPath else null end]|del(..|nulls).[]' | sort | ([ -f "$(TEST_PACKAGE_LIST)" ] && comm -12 "$(TEST_PACKAGE_LIST)" - || cat) | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/generate/ | grep -v $(PROJECT)/mocks/ | grep -v mocks))
 	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v $(TEST_EXTRA_ARGS)'
 	@TMPDIR=$(TMP) \
 		PATH="${MUSL_BIN_PATH}:${PATH}" \
