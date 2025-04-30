@@ -25,6 +25,7 @@ import (
 const jumpUser = "ubuntu"
 const finalDestinationUser = "ubuntu"
 
+// SSHAPIClientJump is an interface for the SSH API client used in the SSH jump provider.
 type SSHAPIClientJump interface {
 	VirtualHostname(target string, container *string) (string, error)
 	PublicHostKeyForTarget(virtualHostname string) (params.PublicSSHHostKeyResult, error)
@@ -180,6 +181,7 @@ func (p *sshJump) getSSHOptions(pty bool, targets ...*resolvedTarget) (*ssh.Opti
 
 	}
 	// -o ProxyCommand is a substitute for the -J option.
+	// Due to a limitation in the github.com/juju/utils/v3/ssh pkg.
 	options.SetProxyCommand(
 		"ssh",
 		"-W",

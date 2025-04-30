@@ -197,6 +197,8 @@ func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
 	if featureflag.Enabled(feature.SSHJump) {
 		f.BoolVar(&c.jump, "jump", false, "Jump through the controller")
 	}
+	// the container flag is top-level because it has to be propagated to
+	// both sshContainer and sshJump provider.
 	f.StringVar(&c.container, "container", "", "the container name of the target pod")
 }
 
