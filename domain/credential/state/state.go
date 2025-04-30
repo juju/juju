@@ -68,18 +68,19 @@ func (st *State) credentialUUIDForKey(
 		CloudName:      key.Cloud,
 		OwnerName:      key.Owner.String(),
 	}
+	result := credentialUUID{}
+
 	selectStmt, err := st.Prepare(`
 SELECT &credentialUUID.uuid
 FROM   v_cloud_credential
 WHERE  name = $credentialKey.name
 AND    owner_name = $credentialKey.owner_name
 AND    cloud_name = $credentialKey.cloud_name
-`, dbKey, credentialUUID{})
+`, dbKey, result)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	result := credentialUUID{}
 	err = tx.Query(ctx, selectStmt, dbKey).Get(&result)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", errors.Errorf("cloud credential %q %w", key, credentialerrors.NotFound)

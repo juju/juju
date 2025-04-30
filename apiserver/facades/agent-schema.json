@@ -1445,17 +1445,6 @@
                         }
                     }
                 },
-                "WatchCredential": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entity"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/NotifyWatchResult"
-                        }
-                    }
-                },
                 "WatchModelCredential": {
                     "type": "object",
                     "properties": {
@@ -1466,18 +1455,6 @@
                 }
             },
             "definitions": {
-                "Entity": {
-                    "type": "object",
-                    "properties": {
-                        "tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag"
-                    ]
-                },
                 "Error": {
                     "type": "object",
                     "properties": {
