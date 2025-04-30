@@ -83,6 +83,11 @@ type UnitState interface {
 	// satisfying [applicationerrors.UnitNotFound] if the unit is not found.
 	GetUnitLife(context.Context, coreunit.Name) (life.Life, error)
 
+	// GetUnitPrincipal gets the subordinates principal unit. If no principal unit
+	// is found, for example, when the unit is not a subordinate, then false is
+	// returned.
+	GetUnitPrincipal(ctx context.Context, unitName coreunit.Name) (coreunit.Name, bool, error)
+
 	// SetUnitLife sets the life of the specified unit.
 	SetUnitLife(context.Context, coreunit.Name, life.Life) error
 
@@ -395,6 +400,17 @@ func (s *Service) GetUnitLife(ctx context.Context, unitName coreunit.Name) (core
 		return "", errors.Errorf("getting life for %q: %w", unitName, err)
 	}
 	return unitLife.Value()
+}
+
+// GetUnitPrincipal gets the subordinates principal unit. If no principal unit
+// is found, for example, when the unit is not a subordinate, then false is
+// returned.
+func (s *Service) GetUnitPrincipal(ctx context.Context, unitName coreunit.Name) (coreunit.Name, bool, error) {
+	if err := unitName.Validate(); err != nil {
+		return "", false, errors.Capture(err)
+	}
+
+	return s.st.GetUnitPrincipal(ctx, unitName)
 }
 
 // DeleteUnit deletes the specified unit.
