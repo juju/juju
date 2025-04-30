@@ -607,4 +607,3 @@ SELECT
     cc.description
 FROM charm_config AS cc
 LEFT JOIN charm_config_type AS cct ON cc.type_id = cct.id;
-

@@ -413,7 +413,10 @@ func (s *unitStateSuite) TestRegisterCAASUnitExceedsScale(c *gc.C) {
 	})
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scale = ?, scale_target = ? WHERE application_uuid = ?", 1, 3, appUUID)
+		_, err := tx.ExecContext(ctx, `
+UPDATE application_scale
+SET scale = ?, scale_target = ?
+WHERE application_uuid = ?`, 1, 3, appUUID)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -439,7 +442,10 @@ func (s *unitStateSuite) TestRegisterCAASUnitExceedsScaleTarget(c *gc.C) {
 	})
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scaling = ?, scale = ?, scale_target = ? WHERE application_uuid = ?", true, 3, 1, appUUID)
+		_, err := tx.ExecContext(ctx, `
+UPDATE application_scale
+SET scaling = ?, scale = ?, scale_target = ?
+WHERE application_uuid = ?`, true, 3, 1, appUUID)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1307,7 +1313,10 @@ func (s *unitStateSuite) assertUnitConstraints(c *gc.C, inUnitUUID coreunit.UUID
 			constraintZones = append(constraintZones, zone)
 		}
 
-		row := tx.QueryRowContext(ctx, "SELECT arch, cpu_cores, cpu_power, mem, root_disk, root_disk_source, instance_role, instance_type, virt_type, allocate_public_ip, image_id FROM \"constraint\" WHERE uuid=?", constraintUUID)
+		row := tx.QueryRowContext(ctx, `
+SELECT arch, cpu_cores, cpu_power, mem, root_disk, root_disk_source, instance_role, instance_type, virt_type, allocate_public_ip, image_id
+FROM "constraint"
+WHERE uuid=?`, constraintUUID)
 		err = row.Err()
 		if err != nil {
 			return err
