@@ -238,7 +238,6 @@ func (w *sshSessionWorker) pipeConnectionToSSHD(ctx context.Context, ctrlAddress
 		_, _ = io.Copy(controllerConn, sshdConn)
 	}()
 	wg.Wait()
-	w.logger.Errorf("Finished piping connection to SSHD")
 	return nil
 }
 

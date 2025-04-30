@@ -225,7 +225,10 @@ func (s *sftpSuite) TestSFTPHandlesErrorCode(c *gc.C) {
 				var payload struct {
 					Code uint32
 				}
-				err = gossh.Unmarshal(req.Payload, &payload)
+				// Use a new error var to avoid shadowing
+				// the error outside the go routine causing
+				// a race condition.
+				err := gossh.Unmarshal(req.Payload, &payload)
 				c.Check(err, jc.ErrorIsNil)
 				if payload.Code == 3 {
 					gotExitSignal.Store(true)

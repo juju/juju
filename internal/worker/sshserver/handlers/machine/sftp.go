@@ -47,8 +47,11 @@ func (s *Handlers) SFTPHandler() ssh.SubsystemHandler {
 		wg := sync.WaitGroup{}
 		wg.Add(2)
 
-		// Note that we don't close the session immediately after copying
-		// in order to propagate the exit code back to the client.
+		// Note that we don't run `session.Close()` in the routines
+		// where we run `io.Copy()` intentionally. The routine copying
+		// *from* session will return once the session is closed.
+		// Closing session is handled by `proxyReqs` in order to
+		// propagate the exit code back to the client.
 
 		go func() {
 			defer wg.Done()

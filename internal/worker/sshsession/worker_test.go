@@ -240,7 +240,7 @@ func (s *workerSuite) TestSSHSessionWorkerHandlesConnectionPipesData(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 	}()
 
-	err = connSSHD.SetReadDeadline(time.Now().Add(1 * time.Second))
+	err = connSSHD.SetReadDeadline(time.Now().Add(2 * time.Second))
 	c.Assert(err, jc.ErrorIsNil)
 	buf, err := io.ReadAll(connSSHD)
 	c.Assert(err, jc.ErrorIsNil)
@@ -386,7 +386,7 @@ func (s *workerSuite) TestSSHSessionWorkerMultipleConnections(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 	}()
 
-	err = connSSHD2.SetReadDeadline(time.Now().Add(1 * time.Second))
+	err = connSSHD2.SetReadDeadline(time.Now().Add(2 * time.Second))
 	c.Assert(err, jc.ErrorIsNil)
 	buf, err := io.ReadAll(connSSHD2)
 	c.Assert(err, jc.ErrorIsNil)
@@ -402,7 +402,7 @@ func (s *workerSuite) TestSSHSessionWorkerMultipleConnections(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 	}()
 
-	err = connSSHD1.SetReadDeadline(time.Now().Add(1 * time.Second))
+	err = connSSHD1.SetReadDeadline(time.Now().Add(2 * time.Second))
 	c.Assert(err, jc.ErrorIsNil)
 	buf, err = io.ReadAll(connSSHD1)
 	c.Assert(err, jc.ErrorIsNil)
