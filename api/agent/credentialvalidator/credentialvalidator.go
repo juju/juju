@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -61,26 +60,6 @@ func (c *Facade) ModelCredential(ctx context.Context) (base.StoredCredential, bo
 		CloudCredential: credentialTag.Id(),
 		Valid:           out.Valid,
 	}, true, nil
-}
-
-// WatchCredential provides a notify watcher that is responsive to changes
-// to a given cloud credential.
-func (c *Facade) WatchCredential(ctx context.Context, credentialID string) (watcher.NotifyWatcher, error) {
-	if !names.IsValidCloudCredential(credentialID) {
-		return nil, errors.NotValidf("cloud credential ID %q", credentialID)
-	}
-	in := names.NewCloudCredentialTag(credentialID).String()
-	var result params.NotifyWatchResult
-	err := c.facade.FacadeCall(ctx, "WatchCredential", params.Entity{in}, &result)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if err := result.Error; err != nil {
-		return nil, apiservererrors.RestoreError(err)
-	}
-	w := apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), result)
-	return w, nil
 }
 
 // InvalidateModelCredential invalidates cloud credential for the model that made a connection.

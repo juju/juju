@@ -88,27 +88,6 @@ func (s *CredentialValidatorSuite) TestModelCredentialCallError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "foo")
 }
 
-func (s *CredentialValidatorSuite) TestWatchCredentialError(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{Error: &params.Error{Message: "foo"}}
-		return nil
-	})
-
-	client := credentialvalidator.NewFacade(apiCaller)
-	_, err := client.WatchCredential(context.Background(), credentialID)
-	c.Assert(err, gc.ErrorMatches, "foo")
-}
-
-func (s *CredentialValidatorSuite) TestWatchCredentialCallError(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		return errors.New("foo")
-	})
-
-	client := credentialvalidator.NewFacade(apiCaller)
-	_, err := client.WatchCredential(context.Background(), credentialID)
-	c.Assert(err, gc.ErrorMatches, "foo")
-}
-
 var (
 	modelUUID = "e5757df7-c86a-4835-84bc-7174af535d25"
 	modelTag  = names.NewModelTag(modelUUID)

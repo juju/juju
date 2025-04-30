@@ -5,7 +5,6 @@ package credentialvalidator
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -30,10 +29,6 @@ type CredentialValidatorV2 interface {
 
 	// ModelCredential returns cloud credential information for a  model.
 	ModelCredential(context.Context) (params.ModelCredential, error)
-
-	// WatchCredential returns a NotifyWatcher that observes
-	// changes to a given cloud credential.
-	WatchCredential(context.Context, params.Entity) (params.NotifyWatchResult, error)
 
 	// WatchModelCredential returns a NotifyWatcher that watches what cloud credential a model uses.
 	WatchModelCredential(context.Context) (params.NotifyWatchResult, error)
@@ -113,53 +108,6 @@ func internalNewCredentialValidatorAPI(
 		watcherRegistry:              watcherRegistry,
 		logger:                       logger,
 	}, nil
-}
-
-// WatchCredential returns a NotifyWatcher that observes
-// changes to a given cloud credential.
-func (api *CredentialValidatorAPI) WatchCredential(ctx context.Context, tag params.Entity) (params.NotifyWatchResult, error) {
-	fail := func(failure error) (params.NotifyWatchResult, error) {
-		return params.NotifyWatchResult{}, apiservererrors.ServerError(failure)
-	}
-
-	credentialTag, err := names.ParseCloudCredentialTag(tag.Tag)
-	if err != nil {
-		return fail(err)
-	}
-
-	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
-	if err != nil {
-		return fail(err)
-	}
-	exists := modelInfo.CredentialName != ""
-	if !exists {
-		return fail(apiservererrors.ErrPerm)
-	}
-
-	modelCredentialKey := credential.Key{
-		Cloud: modelInfo.Cloud,
-		Owner: modelInfo.CredentialOwner,
-		Name:  modelInfo.CredentialName,
-	}
-	credentialKey := credential.KeyFromTag(credentialTag)
-	if credentialKey != modelCredentialKey {
-		return fail(apiservererrors.ErrPerm)
-	}
-
-	result := params.NotifyWatchResult{}
-	watcher, err := api.credentialService.WatchCredential(ctx, credentialKey)
-	if errors.Is(err, credentialerrors.NotFound) {
-		err = fmt.Errorf("credential %q %w", credentialTag, errors.NotFound)
-	}
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-	result.NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, watcher)
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
 }
 
 // ModelCredential returns cloud credential information for a  model.

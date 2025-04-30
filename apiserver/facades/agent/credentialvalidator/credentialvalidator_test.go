@@ -120,56 +120,6 @@ func (s *CredentialValidatorSuite) TestModelCredentialNotNeeded(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.ModelCredential{Model: names.NewModelTag(modelUUID.String()).String(), Valid: true})
 }
 
-func (s *CredentialValidatorSuite) TestWatchCredential(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
-	modelUUID := modeltesting.GenModelUUID(c)
-	modelInfo := model.ModelInfo{
-		UUID:            modelUUID,
-		CredentialName:  credentialTag.Name(),
-		Cloud:           "cloud",
-		CredentialOwner: usertesting.GenNewName(c, "user"),
-	}
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(modelInfo, nil)
-	modelCredentialKey := credential.Key{
-		Cloud: modelInfo.Cloud,
-		Owner: modelInfo.CredentialOwner,
-		Name:  modelInfo.CredentialName,
-	}
-
-	ch := make(chan struct{}, 1)
-	ch <- struct{}{}
-
-	s.modelCredentialWatcher.EXPECT().Changes().Return(ch)
-	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
-	s.credentialService.EXPECT().WatchCredential(gomock.Any(), modelCredentialKey).Return(s.modelCredentialWatcher, nil)
-
-	modelCredentialTag, err := modelCredentialKey.Tag()
-	c.Assert(err, jc.ErrorIsNil)
-	result, err := s.api.WatchCredential(context.Background(), params.Entity{Tag: modelCredentialTag.String()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{NotifyWatcherId: "1", Error: nil})
-}
-
-func (s *CredentialValidatorSuite) TestWatchCredentialNotUsedInThisModel(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
-	modelUUID := modeltesting.GenModelUUID(c)
-	modelInfo := model.ModelInfo{
-		UUID:            modelUUID,
-		CredentialName:  "not-tag-credential",
-		Cloud:           "cloud",
-		CredentialOwner: usertesting.GenNewName(c, "user"),
-	}
-	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(modelInfo, nil)
-	_, err := s.api.WatchCredential(context.Background(), params.Entity{"cloudcred-cloud_fred_default"})
-	c.Assert(err, gc.ErrorMatches, apiservererrors.ErrPerm.Error())
-}
-
-func (s *CredentialValidatorSuite) TestWatchCredentialInvalidTag(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
-	_, err := s.api.WatchCredential(context.Background(), params.Entity{"my-tag"})
-	c.Assert(err, gc.ErrorMatches, `"my-tag" is not a valid tag`)
-}
-
 func (s *CredentialValidatorSuite) TestInvalidateModelCredential(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	modelUUID := modeltesting.GenModelUUID(c)
