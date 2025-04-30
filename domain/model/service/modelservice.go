@@ -149,7 +149,7 @@ func (s *ModelService) GetModelConstraints(ctx context.Context) (coreconstraints
 	return constraints.EncodeConstraints(cons), nil
 }
 
-// GetCloudType returns the type of the cloud that is in use by this model.
+// GetModelCloudType returns the type of the cloud that is in use by this model.
 func (s *ModelService) GetModelCloudType(ctx context.Context) (string, error) {
 	return s.modelSt.GetModelCloudType(ctx)
 }

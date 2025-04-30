@@ -53,7 +53,7 @@ type MachineService interface {
 // ModelInfoService is the interface that is used to ask questions about the
 // current model.
 type ModelInfoService interface {
-	// GetCloudType returns the type of the cloud that is in use by this model.
+	// GetModelCloudType returns the type of the cloud that is in use by this model.
 	GetModelCloudType(context.Context) (string, error)
 }
 
