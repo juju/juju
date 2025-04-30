@@ -1215,3 +1215,8 @@ type applicationWorkloadVersion struct {
 	ApplicationUUID coreapplication.ID `db:"application_uuid"`
 	Version         string             `db:"version"`
 }
+
+type getPrincipal struct {
+	PrincipalUnitName   coreunit.Name `db:"principal_unit_name"`
+	SubordinateUnitName coreunit.Name `db:"subordinate_unit_name"`
+}

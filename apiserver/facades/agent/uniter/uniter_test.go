@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	"github.com/juju/juju/internal/charm"
+	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -315,6 +316,38 @@ func (s *uniterSuite) TestLeadershipSettings(c *gc.C) {
 	s.uniter.Merge(context.Background(), struct{}{}, struct{}{})
 	s.uniter.Read(context.Background(), struct{}{}, struct{}{})
 	s.uniter.WatchLeadershipSettings(context.Background(), struct{}{}, struct{}{})
+}
+
+func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.badTag = names.NewUnitTag("mysql/0")
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-subordinate-0"},
+		{Tag: "unit-foo-42"},
+	}}
+
+	boom := internalerrors.New("boom")
+	s.expectGetUnitPrincipal(c, "wordpress/0", "", false, nil)
+	s.expectGetUnitPrincipal(c, "subordinate/0", "principal/0", true, nil)
+	s.expectGetUnitPrincipal(c, "foo/42", "", false, boom)
+
+	result, err := s.uniter.GetPrincipal(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.StringBoolResults{
+		Results: []params.StringBoolResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Result: "", Ok: false, Error: nil},
+			{Result: "unit-principal-0", Ok: true, Error: nil},
+			{Result: "", Ok: false, Error: apiservererrors.ServerError(boom)},
+		},
+	})
+}
+
+func (s *uniterSuite) expectGetUnitPrincipal(c *gc.C, unitName, principalName coreunit.Name, ok bool, err error) {
+	s.applicationService.EXPECT().GetUnitPrincipal(gomock.Any(), unitName).Return(principalName, ok, err)
 }
 
 func (s *uniterSuite) setupMocks(c *gc.C) *gomock.Controller {

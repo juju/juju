@@ -515,3 +515,27 @@ func (s *unitServiceSuite) TestGetUnitWorkloadVersionError(c *gc.C) {
 	_, err := s.service.GetUnitWorkloadVersion(context.Background(), unitName)
 	c.Assert(err, gc.ErrorMatches, ".*boom")
 }
+
+func (s *unitServiceSuite) TestGetUnitPrincipal(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/666")
+	principalUnitName := coreunit.Name("principal/666")
+	s.state.EXPECT().GetUnitPrincipal(gomock.Any(), unitName).Return(principalUnitName, true, nil)
+
+	u, ok, err := s.service.GetUnitPrincipal(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(u, gc.Equals, principalUnitName)
+	c.Check(ok, jc.IsTrue)
+}
+
+func (s *unitServiceSuite) TestGetUnitPrincipalError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/666")
+	boom := errors.New("boom")
+	s.state.EXPECT().GetUnitPrincipal(gomock.Any(), unitName).Return("", false, boom)
+
+	_, _, err := s.service.GetUnitPrincipal(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIs, boom)
+}
