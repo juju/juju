@@ -130,7 +130,7 @@ contain the arguments passed to API methods.
 **Can be changed after bootstrap:** yes
 
 
-(controller-config-audit-log-exclude-methods-list)=
+(controller-config-audit-log-exclude-methods)=
 ## `audit-log-exclude-methods`
 
 `audit-log-exclude-methods` is a list of Facade.Method names that
@@ -337,7 +337,7 @@ snaps for focal or later. The value is ignored for older releases.
 **Can be changed after bootstrap:** no
 
 
-(controller-config-juju-ha-space-list)=
+(controller-config-juju-ha-space)=
 ## `juju-ha-space`
 
 `juju-ha-space` is the network space within which the MongoDB replica-set
@@ -348,7 +348,7 @@ should communicate.
 **Can be changed after bootstrap:** yes
 
 
-(controller-config-juju-mgmt-space-list)=
+(controller-config-juju-mgmt-space)=
 ## `juju-mgmt-space`
 
 `juju-mgmt-space` is the network space that agents should use to
