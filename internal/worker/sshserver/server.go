@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
-	"fmt"
 	"net"
 	"strconv"
 	"sync/atomic"
@@ -24,6 +23,11 @@ import (
 )
 
 type authenticatedViaPublicKey struct{}
+
+// SessionHandler is an interface that proxies SSH sessions to a target unit/machine.
+type SessionHandler interface {
+	Handle(s ssh.Session, destination virtualhostname.Info)
+}
 
 // ServerWorkerConfig holds the configuration required by the server worker.
 type ServerWorkerConfig struct {
@@ -51,6 +55,9 @@ type ServerWorkerConfig struct {
 
 	// disableAuth is a test-only flag that disables authentication.
 	disableAuth bool
+
+	// SessionHandler handles proxying SSH sessions to the target machine.
+	SessionHandler SessionHandler
 }
 
 // Validate validates the workers configuration is as expected.
@@ -63,6 +70,9 @@ func (c ServerWorkerConfig) Validate() error {
 	}
 	if c.NewSSHServerListener == nil {
 		return errors.NotValidf("missing NewSSHServerListener")
+	}
+	if c.SessionHandler == nil {
+		return errors.NotValidf("missing SessionHandler")
 	}
 	return nil
 }
@@ -286,8 +296,8 @@ func (s *ServerWorker) newEmbeddedSSHServer(ctx ssh.Context, info virtualhostnam
 			"tcpip-forward":        forwardHandler.HandleSSHRequest,
 			"cancel-tcpip-forward": forwardHandler.HandleSSHRequest,
 		},
-		Handler: func(s ssh.Session) {
-			_, _ = s.Write([]byte(fmt.Sprintf("Your final destination is: %s as user: %s\n", info.ModelUUID(), s.User())))
+		Handler: func(session ssh.Session) {
+			s.config.SessionHandler.Handle(session, info)
 		},
 	}
 

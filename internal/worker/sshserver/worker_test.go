@@ -32,6 +32,7 @@ func newServerWrapperWorkerConfig(
 		ControllerConfigService: NewMockControllerConfigService(ctrl),
 		Logger:                  loggertesting.WrapCheckLog(c),
 		NewSSHServerListener:    newTestingSSHServerListener,
+		SessionHandler:          &MockSessionHandler{},
 	}
 
 	modifier(cfg)
@@ -75,6 +76,16 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 		},
 	)
 	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
+
+	// Test no SessionHandler.
+	cfg = newServerWrapperWorkerConfig(
+		c,
+		ctrl,
+		func(cfg *ServerWrapperWorkerConfig) {
+			cfg.SessionHandler = nil
+		},
+	)
+	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
 }
 
 func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
@@ -105,6 +116,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 			return serverWorker, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
+		SessionHandler:       &stubSessionHandler{},
 	}
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -183,6 +195,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 			return serverWorker, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
+		SessionHandler:       &stubSessionHandler{},
 	}
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -245,6 +258,7 @@ func (s *workerSuite) TestWrapperWorkerReport(c *gc.C) {
 			return &reportWorker{serverWorker}, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
+		SessionHandler:       &stubSessionHandler{},
 	}
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
