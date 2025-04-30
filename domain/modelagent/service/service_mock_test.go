@@ -17,6 +17,7 @@ import (
 	machine "github.com/juju/juju/core/machine"
 	semversion "github.com/juju/juju/core/semversion"
 	unit "github.com/juju/juju/core/unit"
+	modelagent "github.com/juju/juju/domain/modelagent"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -544,6 +545,44 @@ func (c *MockStateSetMachineRunningAgentBinaryVersionCall) Do(f func(context.Con
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateSetMachineRunningAgentBinaryVersionCall) DoAndReturn(f func(context.Context, string, agentbinary.Version) error) *MockStateSetMachineRunningAgentBinaryVersionCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetModelAgentStream mocks base method.
+func (m *MockState) SetModelAgentStream(arg0 context.Context, arg1 modelagent.AgentStream) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetModelAgentStream", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetModelAgentStream indicates an expected call of SetModelAgentStream.
+func (mr *MockStateMockRecorder) SetModelAgentStream(arg0, arg1 any) *MockStateSetModelAgentStreamCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelAgentStream", reflect.TypeOf((*MockState)(nil).SetModelAgentStream), arg0, arg1)
+	return &MockStateSetModelAgentStreamCall{Call: call}
+}
+
+// MockStateSetModelAgentStreamCall wrap *gomock.Call
+type MockStateSetModelAgentStreamCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetModelAgentStreamCall) Return(arg0 error) *MockStateSetModelAgentStreamCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetModelAgentStreamCall) Do(f func(context.Context, modelagent.AgentStream) error) *MockStateSetModelAgentStreamCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetModelAgentStreamCall) DoAndReturn(f func(context.Context, modelagent.AgentStream) error) *MockStateSetModelAgentStreamCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
