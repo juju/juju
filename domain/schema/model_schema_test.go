@@ -69,6 +69,7 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 
 		// Model
 		"model",
+		"agent_stream",
 		"agent_version",
 
 		// Model config
