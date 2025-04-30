@@ -1,6 +1,8 @@
 # <old URL> <new URL>
 
-
+# redirects after updating landing pages
+explanation/performance-with-juju explanation/juju-performance
+reference/juju/juju-architecture explanation/juju-architecture
 # redirects after cleaning up charm best practices
 # redirects after cleaning up contributor unsorted docs
 user/reference/charm/channel/ reference/charm/

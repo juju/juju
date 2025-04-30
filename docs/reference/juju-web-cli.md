@@ -1,4 +1,4 @@
-(the-juju-web-cli)=
+(juju-web-cli)=
 # `juju` web CLI
 
 The Juju web CLI gives you access to model level Juju CLI commands from within the Juju Dashboard when viewing a model’s detail page.
