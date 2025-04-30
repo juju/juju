@@ -489,7 +489,16 @@ run-tests: musl-install-if-missing dqlite-install-if-missing
 	$(eval ARCH = $(shell go env GOARCH))
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	$(eval TMP := $(shell mktemp -d $${TMPDIR:-/tmp}/jj-XXX))
-	$(eval TEST_PACKAGES := $(shell go list $(PROJECT)/... | sort | ([ -f "$(TEST_PACKAGE_LIST)" ] && comm -12 "$(TEST_PACKAGE_LIST)" - || cat) | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/generate/ | grep -v mocks))
+# How this line selects packages to test:
+# 1. List all the project packages with json output.
+# 2. Filter out packages without test files and select their package import path.
+# 3. Sort the list for comm.
+# 4. If there is a list of packages in TEST_PACKAGE_LIST, use it as a filter.
+# 5. Filter out vendored packages.
+# 6. Filter out packages in the generate directory.
+# 7. Filter out packages in the mocks directory.
+# 8. Filter out all mocks.
+	$(eval TEST_PACKAGES := $(shell go list -json $(PROJECT)/... | jq -s -r '[.[] | if (.TestGoFiles | length) + (.XTestGoFiles | length) > 0 then .ImportPath else null end]|del(..|nulls).[]' | sort | ([ -f "$(TEST_PACKAGE_LIST)" ] && comm -12 "$(TEST_PACKAGE_LIST)" - || cat) | grep -v $(PROJECT)$$ | grep -v $(PROJECT)/vendor/ | grep -v $(PROJECT)/generate/ | grep -v $(PROJECT)/mocks/ | grep -v $(PROJECT)/internal/ | grep -v mocks))
 	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $$TEST_PACKAGES -check.v $(TEST_EXTRA_ARGS)'
 	@TMPDIR=$(TMP) \
 		PATH="${MUSL_BIN_PATH}:${PATH}" \
