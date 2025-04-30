@@ -45,6 +45,8 @@ type ApplicationService interface {
 	GetExposedEndpoints(ctx context.Context, appName string) (map[string]application.ExposedEndpoint, error)
 }
 
+// StatusService defines the methods that the facade assumes from the Status
+// service.
 type StatusService interface {
 	// GetAllRelationStatuses returns all the relation statuses of the given model.
 	GetAllRelationStatuses(ctx context.Context) (map[relation.UUID]status.StatusInfo, error)
@@ -56,6 +58,7 @@ type StatusService interface {
 
 // BlockDeviceService instances can fetch block devices for a machine.
 type BlockDeviceService interface {
+	// BlockDevices returns the block devices for a machine.
 	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
 }
 
@@ -110,7 +113,6 @@ type PortService interface {
 // RelationService provides methods to interact with and retrieve details of
 // relations within a model.
 type RelationService interface {
-
 	// GetAllRelationDetails return all uuid of all relation for the current model.
 	GetAllRelationDetails(ctx context.Context) ([]domainrelation.RelationDetailsResult, error)
 }

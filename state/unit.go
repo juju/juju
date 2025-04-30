@@ -163,11 +163,6 @@ func unitGlobalKey(name string) string {
 	return "u#" + name + "#charm"
 }
 
-// unitWorkloadVersionKind returns the unit workload version kind.
-func (u *Unit) unitWorkloadVersionKind() string {
-	return u.Kind() + "-version"
-}
-
 // globalAgentKey returns the global database key for the unit.
 func (u *Unit) globalAgentKey() string {
 	return unitAgentGlobalKey(u.doc.Name)

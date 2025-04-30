@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/network"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/unit"
-	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
@@ -256,7 +255,7 @@ type ApplicationService interface {
 	MergeExposeSettings(ctx context.Context, appName string, exposedEndpoints map[string]application.ExposedEndpoint) error
 
 	// GetUnitWorkloadVersion returns the workload version for the given unit.
-	GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name) (string, error)
+	GetUnitWorkloadVersion(ctx context.Context, unitName unit.Name) (string, error)
 }
 
 type ResolveService interface {

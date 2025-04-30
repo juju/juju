@@ -18,7 +18,6 @@ import (
 	network "github.com/juju/juju/core/network"
 	relation "github.com/juju/juju/core/relation"
 	status "github.com/juju/juju/core/status"
-	unit "github.com/juju/juju/core/unit"
 	model0 "github.com/juju/juju/domain/model"
 	relation0 "github.com/juju/juju/domain/relation"
 	service "github.com/juju/juju/domain/status/service"
@@ -258,20 +257,4 @@ func (m *MockStatusService) GetApplicationAndUnitStatuses(arg0 context.Context) 
 func (mr *MockStatusServiceMockRecorder) GetApplicationAndUnitStatuses(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationAndUnitStatuses", reflect.TypeOf((*MockStatusService)(nil).GetApplicationAndUnitStatuses), arg0)
-}
-
-// GetUnitDisplayAndAgentStatus mocks base method.
-func (m *MockStatusService) GetUnitDisplayAndAgentStatus(arg0 context.Context, arg1 unit.Name) (status.StatusInfo, status.StatusInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnitDisplayAndAgentStatus", arg0, arg1)
-	ret0, _ := ret[0].(status.StatusInfo)
-	ret1, _ := ret[1].(status.StatusInfo)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetUnitDisplayAndAgentStatus indicates an expected call of GetUnitDisplayAndAgentStatus.
-func (mr *MockStatusServiceMockRecorder) GetUnitDisplayAndAgentStatus(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitDisplayAndAgentStatus", reflect.TypeOf((*MockStatusService)(nil).GetUnitDisplayAndAgentStatus), arg0, arg1)
 }

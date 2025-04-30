@@ -2286,7 +2286,7 @@ func (api *APIBase) unitResultForUnit(ctx context.Context, unit Unit) (*params.U
 	}
 	unitUUID, err := api.applicationService.GetUnitUUID(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
-		err = errors.NotFoundf("unit %s", unitName)
+		return nil, errors.NotFoundf("unit %s", unitName)
 	} else if err != nil {
 		return nil, err
 	}
@@ -2297,7 +2297,7 @@ func (api *APIBase) unitResultForUnit(ctx context.Context, unit Unit) (*params.U
 
 	workloadVersion, err := api.applicationService.GetUnitWorkloadVersion(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
-		err = errors.NotFoundf("unit %s", unitName)
+		return nil, errors.NotFoundf("unit %s", unitName)
 	} else if err != nil {
 		return nil, err
 	}
