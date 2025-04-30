@@ -36,6 +36,7 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"application_scale",
 		"application_setting",
 		"application_status",
+		"application_workload_version",
 		"k8s_service",
 		"workload_status_value",
 		"device_constraint",
@@ -121,6 +122,7 @@ func (s *modelSchemaSuite) TestModelTables(c *gc.C) {
 		"unit_state_relation",
 		"unit_state",
 		"unit_workload_status",
+		"unit_workload_version",
 		"unit",
 
 		// Resolve
@@ -315,7 +317,6 @@ func (s *modelSchemaSuite) TestModelViews(c *gc.C) {
 		"v_charm_annotation_index",
 		"v_charm_config",
 		"v_charm_container",
-		"v_charm_locator",
 		"v_charm_manifest",
 		"v_charm_metadata",
 		"v_charm_relation",

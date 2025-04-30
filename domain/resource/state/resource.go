@@ -1521,7 +1521,7 @@ func (st *State) getCharmUUID(ctx context.Context, tx *sqlair.TX, locator charm.
 
 	locatorQuery := `
 SELECT     v.uuid AS &localUUID.*
-FROM       v_charm_locator AS v
+FROM       charm AS v
 LEFT JOIN  charm_source AS cs ON v.source_id = cs.id
 WHERE      v.reference_name = $charmLocator.reference_name
 AND        v.revision = $charmLocator.revision

@@ -163,7 +163,7 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 	watcher, err := svc.WatchApplicationUnitLife("foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 	harness.AddTest(func(c *gc.C) {
 		setup(c)
 		// Update non app unit first up.
@@ -215,6 +215,9 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_workload_status WHERE unit_uuid=?", unitID1); err != nil {
 				return errors.Capture(err)
 			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_workload_version WHERE unit_uuid=?", unitID1); err != nil {
+				return errors.Capture(err)
+			}
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_constraint WHERE unit_uuid=?", unitID1); err != nil {
 				return errors.Capture(err)
 			}
@@ -260,6 +263,9 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_workload_status WHERE unit_uuid=?", unitID2); err != nil {
 				return errors.Capture(err)
 			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_workload_version WHERE unit_uuid=?", unitID2); err != nil {
+				return errors.Capture(err)
+			}
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_constraint WHERE unit_uuid=?", unitID2); err != nil {
 				return errors.Capture(err)
 			}
@@ -293,6 +299,9 @@ func (s *watcherSuite) TestWatchUnitLife(c *gc.C) {
 				return errors.Capture(err)
 			}
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_workload_status WHERE unit_uuid=?", unitID3); err != nil {
+				return errors.Capture(err)
+			}
+			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_workload_version WHERE unit_uuid=?", unitID3); err != nil {
 				return errors.Capture(err)
 			}
 			if _, err := tx.ExecContext(ctx, "DELETE FROM unit_constraint WHERE unit_uuid=?", unitID3); err != nil {
