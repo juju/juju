@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -436,6 +437,7 @@ func (s *migrationStateSuite) TestInsertMigratingApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Failed to create application: %s", errors.ErrorStack(err)))
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)
+	s.assertDownloadProvenance(c, id, charm.ProvenanceMigration)
 
 	// Ensure that config is empty and trust is false.
 	config, settings, err := st.GetApplicationConfigAndSettings(context.Background(), id)
@@ -463,10 +465,18 @@ func (s *migrationStateSuite) TestInsertMigratingApplicationPeerRelations(c *gc.
 		Branch: "branch",
 	}
 	ctx := context.Background()
+	meta := s.minimalMetadataWithPeerRelation(c, "666", "castor", "pollux")
+	meta.Provides = map[string]charm.Relation{
+		"no-relation": {
+			Name:  "no-relation",
+			Role:  charm.RoleProvider,
+			Scope: charm.ScopeGlobal,
+		},
+	}
 	args := application.InsertApplicationArgs{
 		Platform: platform,
 		Charm: charm.Charm{
-			Metadata:      s.minimalMetadataWithPeerRelation(c, "666", "castor", "pollux"),
+			Metadata:      meta,
 			Manifest:      s.minimalManifest(c),
 			Source:        charm.CharmHubSource,
 			ReferenceName: "666",
@@ -485,6 +495,35 @@ func (s *migrationStateSuite) TestInsertMigratingApplicationPeerRelations(c *gc.
 	scale := application.ScaleState{Scale: 1}
 	s.assertApplication(c, "666", platform, channel, scale, false)
 	s.assertPeerRelation(c, "666", map[string]int{"pollux": 7, "castor": 4})
+	s.assertNoRelationEndpoint(c, "666", "no-relation")
+}
+
+func (s *migrationStateSuite) assertNoRelationEndpoint(c *gc.C, appName, endpointName string) {
+	values := []string{}
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT v.relation_endpoint_uuid
+FROM   v_relation_endpoint AS v
+WHERE  v.application_name = ?
+AND    v.endpoint_name = ?
+`, appName, endpointName)
+
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer func() { _ = rows.Close() }()
+
+		for rows.Next() {
+			var value string
+			if err := rows.Scan(&value); err != nil {
+				return errors.Capture(err)
+			}
+			values = append(values, value)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(values, jc.DeepEquals, []string{}, gc.Commentf("found relation_endpoint %q", strings.Join(values, ", ")))
 }
 
 // addSpace ensures a space with the given name exists in the database,
@@ -521,6 +560,23 @@ WHERE  charm_relation_uuid = ?
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *migrationStateSuite) assertDownloadProvenance(c *gc.C, appID coreapplication.ID, expectedProvenance charm.Provenance) {
+	var obtainedProvenance string
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, `
+SELECT v.provenance
+FROM   v_application_charm_download_info AS v
+WHERE  v.application_uuid=?
+`, appID).Scan(&obtainedProvenance)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedProvenance, gc.Equals, string(expectedProvenance))
 }
 
 func (s *unitStateSuite) TestInsertMigratingIAASUnits(c *gc.C) {

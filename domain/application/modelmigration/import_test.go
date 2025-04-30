@@ -1563,6 +1563,8 @@ func (s *importSuite) TestImportPeerRelations(c *gc.C) {
 		Name:            "testone",
 		Role:            "peer",
 	})
+	// rel3 is a peer relation for a different application
+	// should not be found.
 	rel3 := model.AddRelation(description.RelationArgs{
 		Id: 27,
 	})
@@ -1570,6 +1572,21 @@ func (s *importSuite) TestImportPeerRelations(c *gc.C) {
 		ApplicationName: "failme",
 		Name:            "testone",
 		Role:            "peer",
+	})
+	rel4 := model.AddRelation(description.RelationArgs{
+		Id: 29,
+	})
+	// rel4 is a non peer relation with the application
+	// under test, should not be found.
+	rel4.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "prometheus",
+		Name:            "testone",
+		Role:            "provider",
+	})
+	rel4.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "failme",
+		Name:            "testone",
+		Role:            "requirer",
 	})
 	expected := map[string]int{"testone": 7, "testtwo": 1}
 
