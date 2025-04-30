@@ -1220,3 +1220,17 @@ type getPrincipal struct {
 	PrincipalUnitName   coreunit.Name `db:"principal_unit_name"`
 	SubordinateUnitName coreunit.Name `db:"subordinate_unit_name"`
 }
+
+type getUnitMachineName struct {
+	UnitName    coreunit.Name `db:"unit_name"`
+	MachineName machine.Name  `db:"name"`
+}
+
+type getUnitMachineUUID struct {
+	UnitName    coreunit.Name `db:"unit_name"`
+	MachineUUID machine.UUID  `db:"uuid"`
+}
+
+type lifeID struct {
+	LifeID life.Life `db:"life_id"`
+}

@@ -446,6 +446,92 @@ AND a.name = $applicationName.name
 	return result, nil
 }
 
+// GetUnitMachineName gets the unit's machine name.
+//
+// The following errors may be returned:
+//   - [applicationerrors.UnitMachineNotAssigned] if the unit does not have a
+//     machine assigned.
+//   - [applicationerrors.UnitNotFound] if the unit cannot be found.
+//   - [applicationerrors.UnitIsDead] if the unit is dead.
+func (st *State) GetUnitMachineName(ctx context.Context, unitName coreunit.Name) (machine.Name, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	arg := getUnitMachineName{
+		UnitName: unitName,
+	}
+	stmt, err := st.Prepare(`
+SELECT (m.name) AS (&getUnitMachineName.*)
+FROM   unit AS u 
+JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
+WHERE  u.name = $getUnitMachineName.unit_name
+`, arg)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkUnitNotDeadByName(ctx, tx, unitName); err != nil {
+			return errors.Capture(err)
+		}
+
+		err = tx.Query(ctx, stmt, arg).Get(&arg)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.UnitMachineNotAssigned
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return arg.MachineName, nil
+}
+
+// GetUnitMachineUUID gets the unit's machine UUID.
+//
+// The following errors may be returned:
+//   - [applicationerrors.UnitMachineNotAssigned] if the unit does not have a
+//     machine assigned.
+//   - [applicationerrors.UnitNotFound] if the unit cannot be found.
+//   - [applicationerrors.UnitIsDead] if the unit is dead.
+func (st *State) GetUnitMachineUUID(ctx context.Context, unitName coreunit.Name) (machine.UUID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	arg := getUnitMachineUUID{
+		UnitName: unitName,
+	}
+	stmt, err := st.Prepare(`
+SELECT (m.uuid) AS (&getUnitMachineUUID.*)
+FROM   unit AS u 
+JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
+WHERE  u.name = $getUnitMachineUUID.unit_name
+`, arg)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkUnitNotDeadByName(ctx, tx, unitName); err != nil {
+			return errors.Capture(err)
+		}
+
+		err = tx.Query(ctx, stmt, arg).Get(&arg)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.UnitMachineNotAssigned
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return arg.MachineUUID, nil
+}
+
 // AddIAASUnits adds the specified units to the application.
 //   - If any of the units already exists [applicationerrors.UnitAlreadyExists] is returned.
 //   - If the application is not alive, [applicationerrors.ApplicationNotAlive] is returned.
