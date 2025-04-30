@@ -3,7 +3,7 @@
 
 Commonly, you may have to work with multiple versions of Juju at once. This document describes the compatibility rules between different versions of Juju.
 
-## {ref}`juju-cli`, {ref}`controllers <controller>`, and {ref}`agents <agent>
+## {ref}`juju-cli`, {ref}`controllers <controller>`, and {ref}`agents <agent>`
 
 Juju controllers, agents, and the `juju` CLI client all are [semantically versioned](https://semver.org/). This means:
 - Controllers/agents/clients **in the same major/minor series** (e.g. 3.5.0 and 3.5.2) are fully compatible.

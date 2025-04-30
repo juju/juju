@@ -105,6 +105,7 @@ func (config ManifoldConfig) startWrapperWorker(_ context.Context, getter depend
 		NewServerWorker:         config.NewServerWorker,
 		Logger:                  config.Logger,
 		NewSSHServerListener:    config.NewSSHServerListener,
+		SessionHandler:          &stubSessionHandler{},
 	})
 }
 

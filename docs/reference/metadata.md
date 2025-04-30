@@ -1,5 +1,6 @@
-(simplestreams-metadata)=
+(metadata)=
 # Simplestreams metadata
+> See also: {ref}`manage-metadata`
 
 When Juju bootstraps, it needs two critical pieces of information:
 1. The uuid of the image to use when starting new compute instances

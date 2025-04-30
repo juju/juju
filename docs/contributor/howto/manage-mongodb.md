@@ -1,7 +1,9 @@
-(diagnosing-mongodb-performance)=
-# Observing MongoDB performance
+(manage-mongodb)=
+# Manage MongoDB
 
-## Query profiling
+## Observe
+
+### Query profiling
 
 <!-- TODO(gfouillet): do not merge into 4.0, or delete whenever merged (reason: related to mongodb) -->
 
@@ -11,7 +13,7 @@ turning profiling on and off using the db.setProfilingLevel command.
 See here: https://docs.mongodb.com/manual/reference/method/db.setProfilingLevel/
 
 As well as logging slow queries the profiler also records them to the db.system.profile collection along with a bunch of
-stats about them. This let's you do interesting queries on the recorded queries.
+stats about them. This lets you do interesting queries on the recorded queries.
 
 Be aware that the profiler incurs a performance cost. It's probably not a good idea to leave it on all the time,
 especially at lower thresholds.
@@ -44,7 +46,7 @@ db.system.profile.aggregate([
 ])
 ```
 
-## `mongotop`
+### `mongotop`
 
 `mongotop` shows per collection stats at regular intervals. It's useful for find the busiest collections across all
 databases. This should be quite useful.
@@ -58,7 +60,7 @@ The base commmand for use on a Juju controller is:
 
 Get the username and password from the agent.conf as usual. The interval is optional.
 
-## `mongostat`
+### `mongostat`
 
 `mongostat` periodically reports various stats from the mongod server. It may help to point to an issue.
 
@@ -73,12 +75,12 @@ The meaning of the output fields is documented here: https://docs.mongodb.com/ma
 
 With MongoDB 3.4 you can add more fields but not with 3.2.
 
-## Observing current activity
+### Observing current activity
 
 If you suspect the MongoDB server may be taking a long time on a particular activity the `db.currentOp()` command will
 show you what the server is currently up to.
 
-## Collection stats
+### Collection stats
 
 A large amount of useful statistics about a particular collection can be obtained like this in the mongo shell:
 

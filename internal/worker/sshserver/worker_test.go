@@ -32,6 +32,7 @@ func newServerWrapperWorkerConfig(
 		ControllerConfigService: NewMockControllerConfigService(ctrl),
 		Logger:                  loggertesting.WrapCheckLog(c),
 		NewSSHServerListener:    newTestingSSHServerListener,
+		SessionHandler:          &MockSessionHandler{},
 	}
 
 	modifier(cfg)
@@ -75,6 +76,16 @@ func (s *workerSuite) TestValidate(c *gc.C) {
 		},
 	)
 	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
+
+	// Test no SessionHandler.
+	cfg = newServerWrapperWorkerConfig(
+		c,
+		ctrl,
+		func(cfg *ServerWrapperWorkerConfig) {
+			cfg.SessionHandler = nil
+		},
+	)
+	c.Assert(cfg.Validate(), gc.ErrorMatches, ".*is required.*")
 }
 
 func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
@@ -105,6 +116,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *gc.C) {
 			return serverWorker, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
+		SessionHandler:       &stubSessionHandler{},
 	}
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -137,7 +149,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 	controllerConfigService := NewMockControllerConfigService(ctrl)
 	controllerConfigService.EXPECT().WatchControllerConfig().Return(controllerConfigWatcher, nil)
 
-	// Expect first call to have port of 22 and called once on worker startup.
+	// Expect first call to have max concurrent connections of 10 and called once on worker startup.
 	controllerConfigService.EXPECT().
 		ControllerConfig(gomock.Any()).
 		Return(
@@ -160,13 +172,14 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 			nil,
 		).
 		Times(1)
-	// On the third call, we're updating the port and should see it restart the worker.
+	// On the third call, we're updating the max concurrent connections and should
+	// see it restart the worker.
 	controllerConfigService.EXPECT().
 		ControllerConfig(gomock.Any()).
 		Return(
 			controller.Config{
-				controller.SSHServerPort:               2222,
-				controller.SSHMaxConcurrentConnections: 10,
+				controller.SSHServerPort:               22,
+				controller.SSHMaxConcurrentConnections: 15,
 			},
 			nil,
 		).
@@ -182,6 +195,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *gc.C) {
 			return serverWorker, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
+		SessionHandler:       &stubSessionHandler{},
 	}
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -244,6 +258,7 @@ func (s *workerSuite) TestWrapperWorkerReport(c *gc.C) {
 			return &reportWorker{serverWorker}, nil
 		},
 		NewSSHServerListener: newTestingSSHServerListener,
+		SessionHandler:       &stubSessionHandler{},
 	}
 	w, err := NewServerWrapperWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)

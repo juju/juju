@@ -1,5 +1,5 @@
-(high_availability)=
-# Controller high availability (HA)
+(high-availability-cont)=
+# High Availability (HA)
 
 See first: [Juju user docs | How to make a controller highly available]
 

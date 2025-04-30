@@ -363,6 +363,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	}
 
 	apiPort := s.controllerCfg.APIPort()
+	sshServerPort := s.controllerCfg.SSHServerPort()
 	ns := &core.Namespace{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   s.namespace,
@@ -386,6 +387,11 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 					Name:       "api-server",
 					TargetPort: intstr.FromInt(apiPort),
 					Port:       int32(apiPort),
+				},
+				{
+					Name:       "ssh-server",
+					TargetPort: intstr.FromInt(sshServerPort),
+					Port:       int32(sshServerPort),
 				},
 			},
 			ExternalIPs: []string{"10.0.0.1"},

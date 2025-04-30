@@ -100,6 +100,10 @@ ogp_image = \
 
 # html_favicon = '.sphinx/_static/favicon.png'
 
+# Add any extra paths that contain custom files (such as robots.txt or
+# .htaccess) here, relative to this directory. These files are copied
+# directly to the root of the documentation.
+html_extra_path = ['.sphinx/_extra']
 
 # Dictionary of values to pass into the Sphinx context for all pages:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-html_context
@@ -219,7 +223,10 @@ extensions = [
     # Display an external link icon and open link in new tab:
     # new_tab_link_show_external_link_icon must also be set to True
     'sphinx_new_tab_link',
+    'sphinxcontrib.lightbox2',
     ]
+
+
 
 new_tab_link_show_external_link_icon = True
 
