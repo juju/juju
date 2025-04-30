@@ -85,7 +85,7 @@ func insertModelDependencies(c *gc.C, dbTxnRunnerFactory database.TxnRunnerFacto
 		},
 	}
 	credSt := credentialstate.NewState(dbTxnRunnerFactory)
-	_, err = credSt.UpsertCloudCredential(
+	err = credSt.UpsertCloudCredential(
 		context.Background(), corecredential.Key{
 			Cloud: "my-cloud",
 			Owner: userName,
@@ -258,7 +258,7 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *gc.C) {
 			"foo2": "foo val",
 		},
 	}
-	_, err := credSt.UpsertCloudCredential(context.Background(), anotherKey, credInfo2)
+	err := credSt.UpsertCloudCredential(context.Background(), anotherKey, credInfo2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	originalKey := corecredential.Key{
@@ -298,7 +298,7 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *gc.C) {
 				"bar": "bar val",
 			},
 		}
-		_, err := credSt.UpsertCloudCredential(context.Background(), originalKey, credInfo)
+		err := credSt.UpsertCloudCredential(context.Background(), originalKey, credInfo)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
@@ -320,7 +320,7 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *gc.C) {
 				"bar": "bar val2",
 			},
 		}
-		_, err := credSt.UpsertCloudCredential(context.Background(), originalKey, credInfo)
+		err := credSt.UpsertCloudCredential(context.Background(), originalKey, credInfo)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
@@ -334,7 +334,7 @@ func (s *watcherSuite) TestWatchModelCloudCredential(c *gc.C) {
 				"bar": "bar val3",
 			},
 		}
-		_, err := credSt.UpsertCloudCredential(context.Background(), anotherKey, credInfo)
+		err := credSt.UpsertCloudCredential(context.Background(), anotherKey, credInfo)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
