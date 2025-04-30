@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/mongo"
 	internalpassword "github.com/juju/juju/internal/password"
@@ -102,36 +101,10 @@ func (st *State) EnableHA(
 		return ControllersChanges{}, nil, errors.Errorf("controller count is too large (allowed %d)", controller.MaxPeers)
 	}
 
-		controllerIds, err := st.ControllerIds()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		intent, err := st.enableHAIntentions(controllerIds, placement)
-		if err != nil {
-			return nil, err
-		}
-		voteCount := 0
-		for _, m := range intent.maintain {
-			if m.WantsVote() {
-				voteCount++
-			}
-		}
-		if voteCount == desiredControllerCount {
-			return nil, jujutxn.ErrNoOperations
-		}
-
-		if n := desiredControllerCount - voteCount; n < len(intent.convert) {
-			intent.convert = intent.convert[:n]
-		}
-		voteCount += len(intent.convert)
-
-		intent.newCount = desiredControllerCount - voteCount
-
-		logger.Infof(context.TODO(), "%d new machines; converting %v", intent.newCount, intent.convert)
-
-		var ops []txn.Op
-		ops, change, addedUnits, err = st.enableHAIntentionOps(intent, cons, base)
-		return ops, err
+	// TODO(wallyworld) - only need until we transition away from enable-ha
+	controllerApp, err := st.Application(bootstrap.ControllerApplicationName)
+	if err != nil && !errors.IsNotFound(err) {
+		return ControllersChanges{}, nil, errors.Annotate(err, "getting controller application")
 	}
 
 	enableHAOp := &enableHAOperation{
@@ -147,10 +120,10 @@ func (st *State) EnableHA(
 		err = errors.Annotatef(err, "failed to enable HA with %d controllers", numControllers)
 		return ControllersChanges{}, nil, err
 	}
-	return change, addedUnits, nil
+	return enableHAOp.change, enableHAOp.addedUnits, nil
 }
 
-// ControllersChanges in controllers after the ensure availability txn has committed.
+// ControllersChanges records change in controllers after the ensure availability txn has committed.
 type ControllersChanges struct {
 	Added      []string
 	Removed    []string
@@ -167,7 +140,8 @@ type enableHAOperation struct {
 	base           Base
 	placement      []string
 
-	change ControllersChanges
+	change     ControllersChanges
+	addedUnits []string
 }
 
 func (e *enableHAOperation) Build(attempt int) ([]txn.Op, error) {
@@ -212,10 +186,10 @@ func (e *enableHAOperation) Build(attempt int) ([]txn.Op, error) {
 
 	intent.newCount = desiredControllerCount - voteCount
 
-	logger.Infof("%d new machines; converting %v", intent.newCount, intent.convert)
+	logger.Infof(context.TODO(), "%d new machines; converting %v", intent.newCount, intent.convert)
 
 	var ops []txn.Op
-	ops, e.change, err = e.st.enableHAIntentionOps(attempt, e.controllerApp, intent, e.cons, e.base)
+	ops, e.change, e.addedUnits, err = e.st.enableHAIntentionOps(attempt, e.controllerApp, intent, e.cons, e.base)
 	return ops, err
 }
 
@@ -237,12 +211,6 @@ func (st *State) enableHAIntentionOps(
 		addedUnits []string
 	)
 
-	// TODO(wallyworld) - only need until we transition away from enable-ha
-	controllerApp, err := st.Application(bootstrap.ControllerApplicationName)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, ControllersChanges{}, nil, errors.Trace(err)
-	}
-
 	for _, m := range intent.convert {
 		ops = append(ops, convertControllerOps(m)...)
 		change.Converted = append(change.Converted, m.Id())
@@ -250,7 +218,7 @@ func (st *State) enableHAIntentionOps(
 		if controllerApp != nil {
 			unitName, unitOps, err := st.addControllerUnitOps(attempt, controllerApp, AddUnitParams{machineID: m.Id()})
 			if err != nil {
-				return nil, ControllersChanges{}, nil, errors.Trace(err)
+				return nil, ControllersChanges{}, nil, errors.Annotate(err, "composing controller unit operations")
 			}
 			ops = append(ops, unitOps...)
 			addedUnits = append(addedUnits, unitName)
@@ -293,6 +261,7 @@ func (st *State) enableHAIntentionOps(
 		// The unit itself is created below.
 		var controllerUnitName string
 		if controllerApp != nil {
+			var err error
 			controllerUnitName, err = controllerApp.newUnitName()
 			if err != nil {
 				return nil, ControllersChanges{}, nil, errors.Trace(err)
