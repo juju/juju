@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock"
 
+	"github.com/juju/juju/core/agentbinary"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/domain/modelagent"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -184,10 +186,16 @@ func (s *ModelService) CreateModelForVersion(
 	ctx context.Context,
 	controllerUUID uuid.UUID,
 	agentVersion semversion.Number,
+	agentStream agentbinary.AgentStream,
 ) error {
 	m, err := s.controllerSt.GetModel(ctx, s.modelUUID)
 	if err != nil {
 		return err
+	}
+
+	argAgentStream, err := modelagent.AgentStreamFromCoreAgentStream(agentStream)
+	if err != nil {
+		return errors.Errorf("validating agent stream %q when creating new model: %w", err)
 	}
 
 	if err := validateAgentVersion(agentVersion, s.agentBinaryFinder); err != nil {
@@ -205,6 +213,7 @@ func (s *ModelService) CreateModelForVersion(
 		CredentialOwner: m.Credential.Owner,
 		CredentialName:  m.Credential.Name,
 
+		AgentStream: argAgentStream,
 		// TODO (manadart 2024-01-13): Note that this comes from the arg.
 		// It is not populated in the return from the controller state.
 		// So that method should not return the core type.
@@ -339,7 +348,12 @@ func (s *ProviderModelService) CreateModel(
 	ctx context.Context,
 	controllerUUID uuid.UUID,
 ) error {
-	if err := s.CreateModelForVersion(ctx, controllerUUID, agentVersionSelector()); err != nil {
+	if err := s.CreateModelForVersion(
+		ctx,
+		controllerUUID,
+		agentVersionSelector(),
+		agentbinary.AgentStreamReleased,
+	); err != nil {
 		return errors.Capture(err)
 	}
 

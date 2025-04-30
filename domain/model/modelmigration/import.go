@@ -9,6 +9,7 @@ import (
 	"github.com/juju/description/v9"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/agentbinary"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
 	coredatabase "github.com/juju/juju/core/database"
@@ -68,7 +69,7 @@ type ModelImportService interface {
 type ModelDetailService interface {
 	// CreateModelForVersion is responsible for adding the details of the model
 	// that is being imported.
-	CreateModelForVersion(context.Context, uuid.UUID, semversion.Number) error
+	CreateModelForVersion(context.Context, uuid.UUID, semversion.Number, agentbinary.AgentStream) error
 
 	// DeleteModel is responsible for removing a read only model from the system.
 	DeleteModel(context.Context) error
@@ -237,6 +238,14 @@ func (i *importModelOperation) Execute(ctx context.Context, model description.Mo
 			modelName, modelID, err)
 	}
 
+	// If not agent stream exists in the model config we will default to
+	// released.
+	agentStream := agentbinary.AgentStreamReleased
+	agentStreamStr, ok := model.Config()[config.AgentStreamKey].(string)
+	if ok {
+		agentStream = agentbinary.AgentStream(agentStreamStr)
+	}
+
 	args := domainmodel.ModelImportArgs{
 		GlobalModelCreationArgs: domainmodel.GlobalModelCreationArgs{
 			Cloud:       model.Cloud(),
@@ -289,7 +298,7 @@ func (i *importModelOperation) Execute(ctx context.Context, model description.Mo
 	}
 
 	// We need to establish the read only model information in the model database.
-	err = i.modelDetailServiceFunc(modelID).CreateModelForVersion(ctx, controllerUUID, args.AgentVersion)
+	err = i.modelDetailServiceFunc(modelID).CreateModelForVersion(ctx, controllerUUID, args.AgentVersion, agentStream)
 	if err != nil {
 		return errors.Errorf(
 			"importing read only model %q with uuid %q during migration: %w",

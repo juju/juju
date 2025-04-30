@@ -9,6 +9,7 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/cloud"
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
@@ -18,6 +19,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/model/service"
 	"github.com/juju/juju/domain/model/state"
+	"github.com/juju/juju/domain/modelagent"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
@@ -130,6 +132,7 @@ func CreateLocalModelRecord(
 	id coremodel.UUID,
 	controllerUUID uuid.UUID,
 	agentVersion semversion.Number,
+	agentStream coreagentbinary.AgentStream,
 ) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controllerDB, modelDB database.TxnRunner) error {
 		if err := id.Validate(); err != nil {
@@ -144,6 +147,17 @@ func CreateLocalModelRecord(
 		})
 		if err != nil {
 			return errors.Errorf("getting model for id %q: %w", id, err)
+		}
+
+		if agentStream == coreagentbinary.AgentStreamZero {
+			agentStream = coreagentbinary.AgentStreamReleased
+		}
+
+		agentStreamArg, err := modelagent.AgentStreamFromCoreAgentStream(agentStream)
+		if err != nil {
+			return errors.Errorf(
+				"converting agent stream %q to argument: %w", agentStream, err,
+			)
 		}
 
 		args := model.ModelDetailArgs{
@@ -161,6 +175,7 @@ func CreateLocalModelRecord(
 			// It is not populated in the return from the controller state.
 			// So that method should not return the core type.
 			AgentVersion: agentVersion,
+			AgentStream:  agentStreamArg,
 		}
 
 		return modelDB.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {

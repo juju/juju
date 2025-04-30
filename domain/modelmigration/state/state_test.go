@@ -18,6 +18,7 @@ import (
 	machinestate "github.com/juju/juju/domain/machine/state"
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
+	"github.com/juju/juju/domain/modelagent"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -41,6 +42,7 @@ func (s *migrationSuite) SetUpTest(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	args := model.ModelDetailArgs{
 		UUID:            id,
+		AgentStream:     modelagent.AgentStreamReleased,
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
 		Name:            "my-awesome-model",

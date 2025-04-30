@@ -18,6 +18,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
+	"github.com/juju/juju/domain/modelagent"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -102,6 +103,7 @@ func (s *stateSuite) TestGetModelId(c *gc.C) {
 	args := model.ModelDetailArgs{
 		UUID:            modelUUID,
 		AgentVersion:    jujuversion.Current,
+		AgentStream:     modelagent.AgentStreamReleased,
 		ControllerUUID:  uuid.MustNewUUID(),
 		Name:            "my-awesome-model",
 		Type:            coremodel.IAAS,

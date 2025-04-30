@@ -21,6 +21,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/domain/modelagent"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -47,6 +48,7 @@ func (s *modelSuite) createTestModel(c *gc.C) coremodel.UUID {
 	id := modeltesting.GenModelUUID(c)
 	args := model.ModelDetailArgs{
 		UUID:            id,
+		AgentStream:     modelagent.AgentStreamReleased,
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
 		Name:            "my-awesome-model",
@@ -69,6 +71,7 @@ func (s *modelSuite) TestCreateAndReadModel(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	args := model.ModelDetailArgs{
 		UUID:            id,
+		AgentStream:     modelagent.AgentStreamReleased,
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
 		Name:            "my-awesome-model",
@@ -106,6 +109,7 @@ func (s *modelSuite) TestDeleteModel(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	args := model.ModelDetailArgs{
 		UUID:            id,
+		AgentStream:     modelagent.AgentStreamReleased,
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
 		Name:            "my-awesome-model",
@@ -139,6 +143,7 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithSameUUID(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	args := model.ModelDetailArgs{
 		UUID:           id,
+		AgentStream:    modelagent.AgentStreamReleased,
 		AgentVersion:   jujuversion.Current,
 		ControllerUUID: s.controllerUUID,
 		Name:           "my-awesome-model",
@@ -161,6 +166,7 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithDifferentUUID(c *gc.C) {
 
 	err := state.Create(context.Background(), model.ModelDetailArgs{
 		UUID:         modeltesting.GenModelUUID(c),
+		AgentStream:  modelagent.AgentStreamReleased,
 		AgentVersion: jujuversion.Current,
 		Name:         "my-awesome-model",
 		Type:         coremodel.IAAS,
@@ -172,6 +178,7 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithDifferentUUID(c *gc.C) {
 
 	err = state.Create(context.Background(), model.ModelDetailArgs{
 		UUID:         modeltesting.GenModelUUID(c),
+		AgentStream:  modelagent.AgentStreamReleased,
 		AgentVersion: jujuversion.Current,
 		Name:         "my-awesome-model",
 		Type:         coremodel.IAAS,
@@ -191,6 +198,7 @@ func (s *modelSuite) TestCreateModelAndUpdate(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	err := state.Create(context.Background(), model.ModelDetailArgs{
 		UUID:           id,
+		AgentStream:    modelagent.AgentStreamReleased,
 		AgentVersion:   jujuversion.Current,
 		ControllerUUID: s.controllerUUID,
 		Name:           "my-awesome-model",
@@ -215,6 +223,7 @@ func (s *modelSuite) TestCreateModelAndDelete(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	err := state.Create(context.Background(), model.ModelDetailArgs{
 		UUID:         id,
+		AgentStream:  modelagent.AgentStreamReleased,
 		AgentVersion: jujuversion.Current,
 		Name:         "my-awesome-model",
 		Type:         coremodel.IAAS,
@@ -293,7 +302,7 @@ func (s *modelSuite) TestSetModelConstraints(c *gc.C) {
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
 	_, err := s.DB().ExecContext(context.Background(), `
-INSERT INTO space (uuid, name) VALUES 
+INSERT INTO space (uuid, name) VALUES
 	(?, ?),
 	(?, ?)`,
 		uuid.MustNewUUID().String(), "space1",
@@ -382,7 +391,7 @@ func (s *modelSuite) TestSetModelConstraintsOverwrites(c *gc.C) {
 	state := NewModelState(runner, loggertesting.WrapCheckLog(c))
 
 	_, err := s.DB().ExecContext(context.Background(), `
-INSERT INTO space (uuid, name) VALUES 
+INSERT INTO space (uuid, name) VALUES
 	(?, ?),
 	(?, ?)`,
 		uuid.MustNewUUID().String(), "space1",
@@ -526,6 +535,7 @@ func (s *modelSuite) TestGetModelCloudType(c *gc.C) {
 	cloudType := "ec2"
 	args := model.ModelDetailArgs{
 		UUID:            id,
+		AgentStream:     modelagent.AgentStreamReleased,
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
 		Name:            "mymodel",
@@ -560,6 +570,7 @@ func (s *modelSuite) TestGetModelCloudRegionAndCredential(c *gc.C) {
 	cloudType := "ec2"
 	args := model.ModelDetailArgs{
 		UUID:            uuid,
+		AgentStream:     modelagent.AgentStreamReleased,
 		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
 		Name:            "mymodel",
@@ -603,6 +614,7 @@ func (s *modelSuite) TestIsControllerModelTrue(c *gc.C) {
 	cloudType := "ec2"
 	args := model.ModelDetailArgs{
 		UUID:              uuid,
+		AgentStream:       modelagent.AgentStreamReleased,
 		AgentVersion:      jujuversion.Current,
 		ControllerUUID:    s.controllerUUID,
 		Name:              "mycontrollermodel",
@@ -630,6 +642,7 @@ func (s *modelSuite) TestIsControllerModelFalse(c *gc.C) {
 	cloudType := "ec2"
 	args := model.ModelDetailArgs{
 		UUID:              uuid,
+		AgentStream:       modelagent.AgentStreamReleased,
 		AgentVersion:      jujuversion.Current,
 		ControllerUUID:    s.controllerUUID,
 		Name:              "mycontrollermodel",

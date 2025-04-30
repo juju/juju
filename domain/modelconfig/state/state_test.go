@@ -155,7 +155,7 @@ func (s *stateSuite) TestAgentVersionNotFound(c *gc.C) {
 // is reported back correctly with no errors.
 func (s *stateSuite) TestAgentVersion(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "INSERT INTO agent_version VALUES ('1.2.3')")
+		_, err := tx.ExecContext(ctx, "INSERT INTO agent_version VALUES (0, '1.2.3')")
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

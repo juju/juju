@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
+	"github.com/juju/juju/domain/modelagent"
 	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/environs/config"
@@ -110,6 +111,7 @@ func (s *suite) TestModelID(c *gc.C) {
 	err := modelSt.Create(context.Background(), model.ModelDetailArgs{
 		UUID:           modelID,
 		AgentVersion:   semversion.Number{Major: 4, Minor: 21, Patch: 67},
+		AgentStream:    modelagent.AgentStreamReleased,
 		ControllerUUID: uuid.MustNewUUID(),
 		Name:           "test-model",
 		Type:           coremodel.IAAS,
