@@ -13,8 +13,10 @@ import (
 	reflect "reflect"
 
 	controller "github.com/juju/juju/controller"
+	permission "github.com/juju/juju/core/permission"
 	virtualhostname "github.com/juju/juju/core/virtualhostname"
 	state "github.com/juju/juju/state"
+	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -54,6 +56,21 @@ func (m *MockBackend) AuthorizedKeysForModel(arg0 string) ([]string, error) {
 func (mr *MockBackendMockRecorder) AuthorizedKeysForModel(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthorizedKeysForModel", reflect.TypeOf((*MockBackend)(nil).AuthorizedKeysForModel), arg0)
+}
+
+// ControllerAccess mocks base method.
+func (m *MockBackend) ControllerAccess(arg0 names.UserTag) (permission.UserAccess, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerAccess", arg0)
+	ret0, _ := ret[0].(permission.UserAccess)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllerAccess indicates an expected call of ControllerAccess.
+func (mr *MockBackendMockRecorder) ControllerAccess(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerAccess", reflect.TypeOf((*MockBackend)(nil).ControllerAccess), arg0)
 }
 
 // ControllerConfig mocks base method.
@@ -100,6 +117,21 @@ func (m *MockBackend) K8sNamespaceAndPodName(arg0, arg1 string) (string, string,
 func (mr *MockBackendMockRecorder) K8sNamespaceAndPodName(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "K8sNamespaceAndPodName", reflect.TypeOf((*MockBackend)(nil).K8sNamespaceAndPodName), arg0, arg1)
+}
+
+// ModelAccess mocks base method.
+func (m *MockBackend) ModelAccess(arg0 names.UserTag, arg1 string) (permission.UserAccess, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelAccess", arg0, arg1)
+	ret0, _ := ret[0].(permission.UserAccess)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ModelAccess indicates an expected call of ModelAccess.
+func (mr *MockBackendMockRecorder) ModelAccess(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelAccess", reflect.TypeOf((*MockBackend)(nil).ModelAccess), arg0, arg1)
 }
 
 // SSHServerHostKey mocks base method.

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/controller/sshserver"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/virtualhostname"
 	pkitest "github.com/juju/juju/pki/test"
 	"github.com/juju/juju/rpc/params"
 )
@@ -181,4 +182,27 @@ func (s *sshserverSuite) TestResolveK8sExecInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Namespace, gc.Equals, "default")
 	c.Assert(result.PodName, gc.Equals, "pod-name")
+}
+
+func (s *sshserverSuite) TestCheckSSHAccess(c *gc.C) {
+	client, err := newClient(
+		func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Check(objType, gc.Equals, "SSHServer")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "CheckSSHAccess")
+			c.Assert(arg, gc.FitsTypeOf, params.CheckSSHAccessArg{})
+			c.Assert(result, gc.FitsTypeOf, &params.BoolResult{})
+
+			*(result.(*params.BoolResult)) = params.BoolResult{
+				Error:  nil,
+				Result: true,
+			}
+			return nil
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := client.CheckSSHAccess("alice", virtualhostname.Info{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.Equals, true)
 }

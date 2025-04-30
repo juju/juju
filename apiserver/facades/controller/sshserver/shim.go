@@ -5,10 +5,12 @@ package sshserver
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	jujussh "github.com/juju/utils/v3/ssh"
 
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/virtualhostname"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/state"
@@ -102,4 +104,23 @@ func (b backend) K8sNamespaceAndPodName(modelUUID string, unitName string) (stri
 	}
 
 	return namespace, containerInfo.ProviderId(), nil
+}
+
+// ModelAccess returns a user's access to a model.
+func (b backend) ModelAccess(userTag names.UserTag, uuid string) (permission.UserAccess, error) {
+	model, p, err := b.GetModel(uuid)
+	if err != nil {
+		return permission.UserAccess{}, errors.Trace(err)
+	}
+	defer p.Release()
+	return model.State().UserAccess(userTag, model.ModelTag())
+}
+
+// ControllerAccess returns a user's access to the controller.
+func (b backend) ControllerAccess(userTag names.UserTag) (permission.UserAccess, error) {
+	st, err := b.SystemState()
+	if err != nil {
+		return permission.UserAccess{}, errors.Trace(err)
+	}
+	return state.ControllerAccess(st, userTag)
 }

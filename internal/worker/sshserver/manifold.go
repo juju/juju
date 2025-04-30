@@ -46,6 +46,7 @@ type FacadeClient interface {
 	VirtualHostKey(arg params.SSHVirtualHostKeyRequestArg) ([]byte, error)
 	ListPublicKeysForModel(sshPKIAuthArgs params.ListAuthorizedKeysArgs) ([]gossh.PublicKey, error)
 	ResolveK8sExecInfo(arg params.SSHK8sExecArg) (params.SSHK8sExecResult, error)
+	CheckSSHAccess(user string, destination virtualhostname.Info) (bool, error)
 }
 
 // ManifoldConfig holds the information necessary to run an embedded SSH server

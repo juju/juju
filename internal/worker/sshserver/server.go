@@ -5,6 +5,7 @@ package sshserver
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"strconv"
 	"sync/atomic"
@@ -125,6 +126,9 @@ type ServerWorker struct {
 	// authenticator holds the authenticator for the server.
 	authenticator *authenticator
 
+	// authorizer holds the authorizer for the server.
+	authorizer *authorizer
+
 	// config holds the configuration required by the server worker.
 	config ServerWorkerConfig
 
@@ -148,6 +152,11 @@ func NewServerWorker(config ServerWorkerConfig) (worker.Worker, error) {
 		facadeClient:  config.FacadeClient,
 		tunnelTracker: config.TunnelTracker,
 		metrics:       config.metricsCollector,
+	}
+
+	s.authorizer = &authorizer{
+		facadeClient: config.FacadeClient,
+		logger:       config.Logger,
 	}
 
 	s.Server = s.NewJumpServer()
@@ -293,21 +302,34 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 	}{}
 
 	if err := gossh.Unmarshal(newChan.ExtraData(), &d); err != nil {
-		err := newChan.Reject(gossh.ConnectionFailed, "Failed to parse channel data")
-		if err != nil {
-			s.config.Logger.Errorf("failed to reject channel: %v", err)
-		}
+		s.rejectChannel(newChan, gossh.ConnectionFailed, "failed to parse channel data")
 		return
 	}
-	info, err := virtualhostname.Parse(d.DestAddr)
+
+	destination, err := virtualhostname.Parse(d.DestAddr)
 	if err != nil {
-		s.rejectChannel(newChan, "Failed to parse destination address")
+		s.rejectChannel(newChan, gossh.ConnectionFailed, "failed to parse destination address")
 		return
 	}
-	signer, err := s.hostKeySignerForTarget(info.String())
+
+	if !s.config.disableAuth {
+		if !s.authorizer.authorize(ctx, destination) {
+			s.rejectChannel(newChan, gossh.Prohibited, "unauthorized")
+			return
+		}
+	}
+
+	server, err := s.newTerminatingSSHServer(ctx, destination)
+	if err != nil {
+		s.config.Logger.Errorf("failed to create embedded server: %v", err)
+		s.rejectChannel(newChan, gossh.ConnectionFailed, fmt.Sprintf("failed to create embedded server: %v", err))
+		return
+	}
+
+	signer, err := s.hostKeySignerForTarget(destination.String())
 	if err != nil {
 		s.config.Logger.Errorf("failed to get host key signer: %v", err)
-		s.rejectChannel(newChan, "Failed to get host key")
+		s.rejectChannel(newChan, gossh.ConnectionFailed, fmt.Sprintf("failed to get host key: %v", err))
 		return
 	}
 
@@ -321,13 +343,6 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 	// gossh.Request are requests sent outside of the normal stream of data (ex. pty-req for an interactive session).
 	// Since we only need the raw data to redirect, we can discard them.
 	go gossh.DiscardRequests(reqs)
-
-	server, err := s.newTerminatingSSHServer(ctx, info)
-	if err != nil {
-		s.config.Logger.Errorf("failed to create embedded server: %v", err)
-		ch.Close()
-		return
-	}
 
 	server.AddHostKey(signer)
 	server.HandleConn(sshconn.NewChannelConn(ch))
@@ -396,6 +411,9 @@ func (s *ServerWorker) connCallback() ssh.ConnCallback {
 func (s *ServerWorker) newTerminatingSSHServer(ctx ssh.Context, destination virtualhostname.Info) (*ssh.Server, error) {
 	// Note that the context we enter this function with is not
 	// the context that will be used in the terminating server.
+
+	// Perform authorization and second authentication step, additional
+	// authentication is only necessary since keys are not associated with users.
 	var authenticator terminatingServerAuthenticator
 	if !s.config.disableAuth {
 		var err error
@@ -443,8 +461,8 @@ func (s *ServerWorker) Report() map[string]any {
 	}
 }
 
-func (s *ServerWorker) rejectChannel(newChan gossh.NewChannel, reason string) {
-	err := newChan.Reject(gossh.ConnectionFailed, reason)
+func (s *ServerWorker) rejectChannel(newChan gossh.NewChannel, reason gossh.RejectionReason, message string) {
+	err := newChan.Reject(reason, message)
 	if err != nil {
 		s.config.Logger.Errorf("failed to reject channel: %v", err)
 	}

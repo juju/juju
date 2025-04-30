@@ -5,10 +5,12 @@ package sshserver
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -23,6 +25,8 @@ type Backend interface {
 	HostKeyForVirtualHostname(info virtualhostname.Info) ([]byte, error)
 	AuthorizedKeysForModel(uuid string) ([]string, error)
 	K8sNamespaceAndPodName(modelUUID string, unitName string) (string, string, error)
+	ModelAccess(userTag names.UserTag, uuid string) (permission.UserAccess, error)
+	ControllerAccess(userTag names.UserTag) (permission.UserAccess, error)
 }
 
 // Facade allows model config manager clients to watch controller config changes and fetch controller config.
@@ -125,4 +129,46 @@ func (f *Facade) ResolveK8sExecInfo(arg params.SSHK8sExecArg) (params.SSHK8sExec
 		return result, nil
 	}
 	return result, nil
+}
+
+// CheckSSHAccess checks whether the specified user has SSH access to the given destination
+// by consulting the state.
+func (f *Facade) CheckSSHAccess(arg params.CheckSSHAccessArg) params.BoolResult {
+	result := params.BoolResult{}
+
+	ok := names.IsValidUser(arg.User)
+	if !ok {
+		result.Error = apiservererrors.ServerError(errors.NotValidf("invalid user %q", arg.User))
+		return result
+	}
+	userTag := names.NewUserTag(arg.User)
+
+	destination, err := virtualhostname.Parse(arg.Destination)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to parse destination"))
+		return result
+	}
+
+	modelAccess, err := f.backend.ModelAccess(userTag, destination.ModelUUID())
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		result.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to get model access"))
+		return result
+	}
+
+	if modelAccess.Access == permission.AdminAccess {
+		result.Result = true
+		return result
+	}
+
+	controllerAccess, err := f.backend.ControllerAccess(userTag)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		result.Error = apiservererrors.ServerError(errors.Annotate(err, "failed to get controller access"))
+		return result
+	}
+
+	if controllerAccess.Access == permission.AdminAccess {
+		result.Result = true
+	}
+
+	return result
 }

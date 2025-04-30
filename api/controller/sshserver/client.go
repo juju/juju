@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -101,4 +102,23 @@ func (c *Client) ResolveK8sExecInfo(arg params.SSHK8sExecArg) (params.SSHK8sExec
 		return result, err
 	}
 	return result, nil
+}
+
+// CheckSSHAccess checks if the user has access to the given destination
+// by consulting state.
+func (c *Client) CheckSSHAccess(user string, destination virtualhostname.Info) (bool, error) {
+	arg := params.CheckSSHAccessArg{
+		User:        user,
+		Destination: destination.String(),
+	}
+	var result params.BoolResult
+	err := c.facade.FacadeCall("CheckSSHAccess", arg, &result)
+	if err != nil {
+		return false, err
+	}
+	if result.Error != nil {
+		err := apiservererrors.RestoreError(result.Error)
+		return false, err
+	}
+	return result.Result, nil
 }
