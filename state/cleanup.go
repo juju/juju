@@ -692,7 +692,7 @@ func (st *State) cleanupUnitsForDyingApplication(
 	unitsToDestroy := set.NewStrings()
 	var unitDoc unitDoc
 	for iter.Next(&unitDoc) {
-		unit := newUnit(st, m.Type(), &unitDoc)
+		unit := newUnit(st, m.TypeOld(), &unitDoc)
 		op := unit.DestroyOperation(store)
 		op.DestroyStorage = destroyStorage
 		op.Force = force

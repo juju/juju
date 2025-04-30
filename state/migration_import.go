@@ -88,7 +88,7 @@ func (ctrl *Controller) Import(
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	logger.Debugf(context.TODO(), "model created %s/%s", dbModel.Owner().Id(), dbModel.Name())
+	logger.Debugf(context.TODO(), "model created %s/%s", dbModel.Owner().Id(), dbModel.NameOld())
 	defer func() {
 		if err != nil {
 			newSt.Close()

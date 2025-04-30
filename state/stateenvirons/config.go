@@ -19,9 +19,9 @@ import (
 )
 
 type baseModel interface {
-	CloudName() string
-	CloudRegion() string
-	CloudCredentialTag() (names.CloudCredentialTag, bool)
+	CloudNameOld() string
+	CloudRegionOld() string
+	CloudCredentialTagOld() (names.CloudCredentialTag, bool)
 }
 
 // Model exposes the methods needed for an EnvironConfigGetter.
@@ -29,7 +29,7 @@ type Model interface {
 	baseModel
 	ModelTag() names.ModelTag
 	ControllerUUID() string
-	Type() state.ModelType
+	TypeOld() state.ModelType
 }
 
 // ModelConfigService is an interface that provides access to the
@@ -83,12 +83,12 @@ func CloudSpecForModel(
 	cloudService CloudService,
 	credentialService CredentialService,
 ) (environscloudspec.CloudSpec, error) {
-	cld, err := cloudService.Cloud(ctx, m.CloudName())
+	cld, err := cloudService.Cloud(ctx, m.CloudNameOld())
 	if err != nil {
 		return environscloudspec.CloudSpec{}, errors.Trace(err)
 	}
-	regionName := m.CloudRegion()
-	tag, ok := m.CloudCredentialTag()
+	regionName := m.CloudRegionOld()
+	tag, ok := m.CloudCredentialTagOld()
 	var cred cloud.Credential
 	if ok {
 		cred, err = credentialService.CloudCredential(ctx, credential.KeyFromTag(tag))

@@ -73,7 +73,7 @@ func (st *State) modelName() (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return m.Name(), nil
+	return m.NameOld(), nil
 }
 
 func (st *State) nowToTheSecond() time.Time {

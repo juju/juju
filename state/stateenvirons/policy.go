@@ -83,11 +83,11 @@ func (p *environStatePolicy) getDeployChecker() (deployChecker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	modelConfigService, err := p.modelConfigServiceGetter(coremodel.UUID(model.UUID()))
+	modelConfigService, err := p.modelConfigServiceGetter(coremodel.UUID(model.UUIDOld()))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if model.Type() == state.ModelTypeIAAS {
+	if model.TypeOld() == state.ModelTypeIAAS {
 		p.checker, err = p.getEnviron(model, p.cloudService, p.credentialService, modelConfigService)
 	} else {
 		p.checker, err = p.getBroker(model, p.cloudService, p.credentialService, modelConfigService)
@@ -111,5 +111,5 @@ func (p *environStatePolicy) StorageServices() (state.StoragePoolGetter, error) 
 		return nil, errors.Trace(err)
 	}
 
-	return p.storageServiceGetter(coremodel.UUID(model.UUID()))
+	return p.storageServiceGetter(coremodel.UUID(model.UUIDOld()))
 }

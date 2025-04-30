@@ -19,7 +19,7 @@ type CAASModel struct {
 
 // CAASModel returns an Containers-As-A-Service (CAAS) model.
 func (m *Model) CAASModel() (*CAASModel, error) {
-	if m.Type() != ModelTypeCAAS {
+	if m.TypeOld() != ModelTypeCAAS {
 		return nil, errors.NotSupportedf("called CAASModel() on a non-CAAS Model")
 	}
 	return &CAASModel{

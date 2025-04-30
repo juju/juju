@@ -99,9 +99,9 @@ func (st *State) exportImpl(cfg ExportConfig, store objectstore.ObjectStore) (de
 	}
 
 	args := description.ModelArgs{
-		Type:           string(dbModel.Type()),
-		Cloud:          dbModel.CloudName(),
-		CloudRegion:    dbModel.CloudRegion(),
+		Type:           string(dbModel.TypeOld()),
+		Cloud:          dbModel.CloudNameOld(),
+		CloudRegion:    dbModel.CloudRegionOld(),
 		Owner:          dbModel.Owner().Id(),
 		Config:         make(map[string]interface{}, 0),
 		PasswordHash:   dbModel.doc.PasswordHash,
@@ -114,7 +114,7 @@ func (st *State) exportImpl(cfg ExportConfig, store objectstore.ObjectStore) (de
 	// We used to export the model credential here but that is now done
 	// using the new domain/credential exporter. We still need to set the
 	// credential tag details so the exporter knows the credential to export.
-	credTag, exists := dbModel.CloudCredentialTag()
+	credTag, exists := dbModel.CloudCredentialTagOld()
 	if exists && !cfg.SkipCredentials {
 		export.model.SetCloudCredential(description.CloudCredentialArgs{
 			Owner: credTag.Owner().Id(),
