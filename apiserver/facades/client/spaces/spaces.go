@@ -18,8 +18,10 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 )
@@ -76,13 +78,13 @@ type NetworkService interface {
 // model configuration.
 type ModelConfigService interface {
 	// ModelConfig returns the current config for the model.
-	ModelConfig(ctx context.Context) (*config.Config, error)
+	ModelConfig(context.Context) (*config.Config, error)
 }
 
 // CredentialService provides access to credentials.
 type CredentialService interface {
 	// CloudCredential returns the cloud credential for the given tag.
-	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
+	CloudCredential(context.Context, credential.Key) (cloud.Credential, error)
 }
 
 // CloudService provides access to clouds.
@@ -91,16 +93,25 @@ type CloudService interface {
 	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
 }
 
+// ApplicationService provides access to applications.
+type ApplicationService interface {
+	// GetUnitNamesOnMachine returns a slice of the unit names on the given machine.
+	// The following errors may be returned:
+	// - [applicationerrors.MachineNotFound] if the machine does not exist
+	GetUnitNamesOnMachine(context.Context, machine.Name) ([]unit.Name, error)
+}
+
 // API provides the spaces API facade for version 6.
 type API struct {
 	controllerConfigService ControllerConfigService
+	networkService          NetworkService
+	applicationService      ApplicationService
 
 	modelTag names.ModelTag
 
-	networkService NetworkService
-	backing        Backing
-	resources      facade.Resources
-	auth           facade.Authorizer
+	backing   Backing
+	resources facade.Resources
+	auth      facade.Authorizer
 
 	check  BlockChecker
 	logger corelogger.Logger
@@ -110,6 +121,7 @@ type apiConfig struct {
 	modelTag                names.ModelTag
 	NetworkService          NetworkService
 	ControllerConfigService ControllerConfigService
+	ApplicationService      ApplicationService
 	Backing                 Backing
 	Check                   BlockChecker
 	Resources               facade.Resources
@@ -129,6 +141,7 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 		modelTag:                cfg.modelTag,
 		networkService:          cfg.NetworkService,
 		controllerConfigService: cfg.ControllerConfigService,
+		applicationService:      cfg.ApplicationService,
 		auth:                    cfg.Authorizer,
 		backing:                 cfg.Backing,
 		resources:               cfg.Resources,

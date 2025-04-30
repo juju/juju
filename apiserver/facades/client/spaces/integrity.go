@@ -12,7 +12,9 @@ import (
 	"github.com/juju/errors"
 
 	corelogger "github.com/juju/juju/core/logger"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 )
 
 // unitNetwork represents a group of units and the subnets
@@ -67,8 +69,9 @@ type affectedNetworks struct {
 	// force originates as a CLI option.
 	// When true, violations of constraints/bindings integrity are logged as
 	// warnings instead of being returned as errors.
-	force  bool
-	logger corelogger.Logger
+	force              bool
+	logger             corelogger.Logger
+	applicationService ApplicationService
 }
 
 // newAffectedNetworks returns a new affectedNetworks reference for
@@ -76,7 +79,7 @@ type affectedNetworks struct {
 // The input space topology is manipulated to represent the topology that
 // would result from the move.
 func newAffectedNetworks(
-	movingSubnets network.IDSet, spaceName string, currentTopology network.SpaceInfos, force bool, logger corelogger.Logger,
+	applicationService ApplicationService, movingSubnets network.IDSet, spaceName string, currentTopology network.SpaceInfos, force bool, logger corelogger.Logger,
 ) (*affectedNetworks, error) {
 	// Get the topology as would result from moving all of these subnets.
 	newTopology, err := currentTopology.MoveSubnets(movingSubnets, spaceName)
@@ -85,13 +88,14 @@ func newAffectedNetworks(
 	}
 
 	return &affectedNetworks{
-		subnets:           movingSubnets,
-		newSpace:          spaceName,
-		spaces:            newTopology,
-		changingNetworks:  make(map[string][]unitNetwork),
-		unchangedNetworks: make(map[string][]unitNetwork),
-		force:             force,
-		logger:            logger,
+		subnets:            movingSubnets,
+		newSpace:           spaceName,
+		spaces:             newTopology,
+		changingNetworks:   make(map[string][]unitNetwork),
+		unchangedNetworks:  make(map[string][]unitNetwork),
+		force:              force,
+		logger:             logger,
+		applicationService: applicationService,
 	}, nil
 }
 
@@ -173,8 +177,11 @@ func (n *affectedNetworks) addressSubnet(addr Address) (network.SubnetInfo, erro
 // The collection they are placed into depends on whether they are connected to
 // a moving subnet, indicated by the netChange argument.
 func (n *affectedNetworks) includeMachine(machine Machine, subnets network.SubnetInfos, netChange bool) error {
-	units, err := machine.Units()
-	if err != nil {
+	machineName := coremachine.Name(machine.Id())
+	unitNames, err := n.applicationService.GetUnitNamesOnMachine(context.TODO(), machineName)
+	if errors.Is(err, applicationerrors.MachineNotFound) {
+		return errors.NotFoundf("machine %q", machineName)
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -183,8 +190,8 @@ func (n *affectedNetworks) includeMachine(machine Machine, subnets network.Subne
 		collection = n.changingNetworks
 	}
 
-	for _, unit := range units {
-		appName := unit.ApplicationName()
+	for _, unitName := range unitNames {
+		appName := unitName.Application()
 		unitNets, ok := collection[appName]
 		if !ok {
 			collection[appName] = []unitNetwork{}
@@ -194,14 +201,14 @@ func (n *affectedNetworks) includeMachine(machine Machine, subnets network.Subne
 
 		for _, unitNet := range unitNets {
 			if unitNet.hasSameConnectivity(subnets) {
-				unitNet.unitNames.Add(unit.Name())
+				unitNet.unitNames.Add(unitName.String())
 				present = true
 			}
 		}
 
 		if !present {
 			collection[appName] = append(unitNets, unitNetwork{
-				unitNames: set.NewStrings(unit.Name()),
+				unitNames: set.NewStrings(unitName.String()),
 				subnets:   subnets,
 			})
 		}

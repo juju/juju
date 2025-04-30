@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/constraints"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/ipaddress"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/linklayerdevice"
@@ -1111,6 +1112,55 @@ func (s *unitStateSuite) TestGetUnitNamesForApplication(c *gc.C) {
 	names, err := s.state.GetUnitNamesForApplication(context.Background(), appUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(names, jc.SameContents, []coreunit.Name{"foo/666", "foo/667"})
+}
+
+func (s *unitStateSuite) TestGetUnitNamesForNetNodeNotFound(c *gc.C) {
+	_, err := s.state.GetUnitNamesForNetNode(context.Background(), "doink")
+	c.Assert(err, jc.ErrorIs, applicationerrors.NetNodeNotFound)
+}
+
+func (s *unitStateSuite) TestGetUnitNamesForNetNodeNoUnits(c *gc.C) {
+	var netNode string
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		netNode, err = s.state.placeMachine(ctx, tx, deployment.Placement{
+			Type: deployment.PlacementTypeUnset,
+		})
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(netNode, gc.Not(gc.Equals), "")
+
+	names, err := s.state.GetUnitNamesForNetNode(context.Background(), netNode)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(names, jc.DeepEquals, []coreunit.Name{})
+}
+
+func (s *unitStateSuite) TestGetUnitNamesForNetNode(c *gc.C) {
+	s.createApplication(c, "foo", life.Alive, application.InsertUnitArg{
+		UnitName: "foo/0",
+		Placement: deployment.Placement{
+			Directive: "0",
+		},
+	}, application.InsertUnitArg{
+		UnitName: "foo/1",
+		Placement: deployment.Placement{
+			Type:      deployment.PlacementTypeMachine,
+			Directive: "0",
+		},
+	}, application.InsertUnitArg{
+		UnitName: "foo/2",
+		Placement: deployment.Placement{
+			Directive: "1",
+		},
+	})
+
+	netNodeUUID, err := s.state.GetMachineNetNodeUUIDFromName(context.Background(), "0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	names, err := s.state.GetUnitNamesForNetNode(context.Background(), netNodeUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(names, jc.DeepEquals, []coreunit.Name{"foo/0", "foo/1"})
 }
 
 type applicationSpace struct {

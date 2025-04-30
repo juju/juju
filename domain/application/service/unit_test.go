@@ -17,6 +17,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -26,6 +27,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type unitServiceSuite struct {
@@ -329,6 +331,27 @@ func (s *unitServiceSuite) TestGetUnitNamesForApplicationDead(c *gc.C) {
 
 	_, err := s.service.GetUnitNamesForApplication(context.Background(), appName)
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationIsDead)
+}
+
+func (s *unitServiceSuite) TestGetUnitNamesOnMachineNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetMachineNetNodeUUIDFromName(gomock.Any(), machine.Name("0")).Return("", applicationerrors.MachineNotFound)
+
+	_, err := s.service.GetUnitNamesOnMachine(context.Background(), machine.Name("0"))
+	c.Assert(err, jc.ErrorIs, applicationerrors.MachineNotFound)
+}
+
+func (s *unitServiceSuite) TestGetUnitNamesOnMachine(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	netNodeUUID := uuid.MustNewUUID().String()
+	s.state.EXPECT().GetMachineNetNodeUUIDFromName(gomock.Any(), machine.Name("0")).Return(netNodeUUID, nil)
+	s.state.EXPECT().GetUnitNamesForNetNode(gomock.Any(), netNodeUUID).Return([]coreunit.Name{"foo/666", "bar/667"}, nil)
+
+	names, err := s.service.GetUnitNamesOnMachine(context.Background(), machine.Name("0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(names, jc.DeepEquals, []coreunit.Name{"foo/666", "bar/667"})
 }
 
 func (s *unitServiceSuite) TestAddSubordinateUnit(c *gc.C) {

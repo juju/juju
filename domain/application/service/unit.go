@@ -10,6 +10,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/leadership"
 	corelife "github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -91,7 +92,7 @@ type UnitState interface {
 	// - [modelerrors.ConstraintsNotFound]: when no model constraints have been
 	// set for the model.
 	// Note: This method should mirror the model domain method of the same name.
-	GetModelConstraints(ctx context.Context) (constraints.Constraints, error)
+	GetModelConstraints(context.Context) (constraints.Constraints, error)
 
 	// SetUnitConstraints sets the unit constraints for the
 	// specified application ID.
@@ -101,34 +102,39 @@ type UnitState interface {
 	// error is returned.
 	// If the unit is dead, an error satisfying [applicationerrors.UnitIsDead]
 	// is returned.
-	SetUnitConstraints(ctx context.Context, inUnitUUID coreunit.UUID, cons constraints.Constraints) error
+	SetUnitConstraints(context.Context, coreunit.UUID, constraints.Constraints) error
 
 	// GetUnitRefreshAttributes returns the unit refresh attributes for the
 	// specified unit. If the unit is not found, an error satisfying
 	// [applicationerrors.UnitNotFound] is returned.
 	// This doesn't take into account life, so it can return the life of a unit
 	// even if it's dead.
-	GetUnitRefreshAttributes(ctx context.Context, unitName coreunit.Name) (application.UnitAttributes, error)
+	GetUnitRefreshAttributes(context.Context, coreunit.Name) (application.UnitAttributes, error)
 
 	// GetAllUnitNames returns a slice of all unit names in the model.
-	GetAllUnitNames(ctx context.Context) ([]coreunit.Name, error)
+	GetAllUnitNames(context.Context) ([]coreunit.Name, error)
 
 	// GetUnitNamesForApplication returns a slice of the unit names for the given application
 	// The following errors may be returned:
 	// - [applicationerrors.ApplicationIsDead] if the application is dead
 	// - [applicationerrors.ApplicationNotFound] if the application does not exist
-	GetUnitNamesForApplication(ctx context.Context, uuid coreapplication.ID) ([]coreunit.Name, error)
+	GetUnitNamesForApplication(context.Context, coreapplication.ID) ([]coreunit.Name, error)
+
+	// GetUnitNamesForNetNode returns a slice of the unit names for the given net node
+	GetUnitNamesForNetNode(context.Context, string) ([]coreunit.Name, error)
 
 	// AddSubordinateUnit adds a new unit to the subordinate application. On
 	// IAAS, the new unit will be colocated on machine with the principal unit.
 	// The principal-subordinate relationship is also recorded.
-	AddSubordinateUnit(
-		ctx context.Context,
-		arg application.SubordinateUnitArg,
-	) (coreunit.Name, error)
+	AddSubordinateUnit(context.Context, application.SubordinateUnitArg) (coreunit.Name, error)
 
 	// IsSubordinateApplication returns true if the application is a subordinate application.
-	IsSubordinateApplication(ctx context.Context, applicationUUID coreapplication.ID) (bool, error)
+	IsSubordinateApplication(context.Context, coreapplication.ID) (bool, error)
+
+	// GetMachineNetNodeUUIDFromName returns the net node UUID for the named machine.
+	// The following errors may be returned:
+	// - [applicationerrors.MachineNotFound] if the machine does not exist
+	GetMachineNetNodeUUIDFromName(context.Context, machine.Name) (string, error)
 }
 
 func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
@@ -440,6 +446,21 @@ func (s *Service) GetUnitNamesForApplication(ctx context.Context, appName string
 		return nil, errors.Capture(err)
 	}
 	names, err := s.st.GetUnitNamesForApplication(ctx, appUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return names, nil
+}
+
+// GetUnitNamesOnMachine returns a slice of the unit names on the given machine.
+// The following errors may be returned:
+// - [applicationerrors.MachineNotFound] if the machine does not exist
+func (s *Service) GetUnitNamesOnMachine(ctx context.Context, machineName machine.Name) ([]coreunit.Name, error) {
+	netNodeUUID, err := s.st.GetMachineNetNodeUUIDFromName(ctx, machineName)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	names, err := s.st.GetUnitNamesForNetNode(ctx, netNodeUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

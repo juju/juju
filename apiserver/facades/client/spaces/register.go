@@ -33,7 +33,6 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 	st := ctx.State()
 
 	domainServices := ctx.DomainServices()
-	networkService := domainServices.Network()
 
 	stateShim, err := NewStateShim(st)
 	if err != nil {
@@ -44,12 +43,14 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 	auth := ctx.Auth()
 
 	return newAPIWithBacking(apiConfig{
-		modelTag:       names.NewModelTag(ctx.ModelUUID().String()),
-		NetworkService: networkService,
-		Backing:        stateShim,
-		Check:          check,
-		Resources:      ctx.Resources(),
-		Authorizer:     auth,
-		logger:         ctx.Logger().Child("spaces"),
+		modelTag:                names.NewModelTag(ctx.ModelUUID().String()),
+		ControllerConfigService: domainServices.ControllerConfig(),
+		NetworkService:          domainServices.Network(),
+		ApplicationService:      domainServices.Application(),
+		Backing:                 stateShim,
+		Check:                   check,
+		Resources:               ctx.Resources(),
+		Authorizer:              auth,
+		logger:                  ctx.Logger().Child("spaces"),
 	})
 }

@@ -1399,6 +1399,53 @@ func (st *State) GetUnitNamesForApplication(ctx context.Context, uuid coreapplic
 	}), nil
 }
 
+// GetUnitNamesForNetNode returns a slice of the unit names for the given net node
+// The following errors may be returned:
+func (st *State) GetUnitNamesForNetNode(ctx context.Context, uuid string) ([]coreunit.Name, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	netNodeUUID := netNodeUUID{NetNodeUUID: uuid}
+	verifyExistsQuery := `SELECT COUNT(*) AS &countResult.count FROM net_node WHERE uuid = $netNodeUUID.uuid`
+	verifyExistsStmt, err := st.Prepare(verifyExistsQuery, countResult{}, netNodeUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	query := `SELECT &unitName.* FROM unit WHERE net_node_uuid = $netNodeUUID.uuid`
+	stmt, err := st.Prepare(query, unitName{}, netNodeUUID)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result []unitName
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var count countResult
+		if err := tx.Query(ctx, verifyExistsStmt, netNodeUUID).Get(&count); err != nil {
+			return errors.Capture(err)
+		}
+		if count.Count == 0 {
+			return applicationerrors.NetNodeNotFound
+		}
+
+		err := tx.Query(ctx, stmt, netNodeUUID).GetAll(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Errorf("querying unit names for net node %q: %w", uuid, err)
+	}
+	return transform.Slice(result, func(r unitName) coreunit.Name {
+		return r.Name
+	}), nil
+}
+
 // newUnitName returns a new name for the unit. It increments the unit counter
 // on the application.
 func (st *State) newUnitName(

@@ -20,6 +20,31 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
+// GetMachineNetNodeUUIDFromName returns the net node UUID for the named machine.
+// The following errors may be returned:
+// - [applicationerrors.MachineNotFound] if the machine does not exist
+func (st *State) GetMachineNetNodeUUIDFromName(ctx context.Context, name machine.Name) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var netNodeUUID string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		netNodeUUID, err = st.getMachineNetNodeUUIDFromName(ctx, tx, name)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return netNodeUUID, nil
+}
+
 // placeMachine places the net node and machines if required, depending
 // on the placement.
 func (st *State) placeMachine(ctx context.Context, tx *sqlair.TX, directive deployment.Placement) (string, error) {
