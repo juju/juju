@@ -87,6 +87,9 @@ type ApplicationService interface {
 	// GetUnitUUID returns the UUID for the named unit.
 	GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error)
 
+	// GetUnitPrincipal returns the unit's principal unit if it exists
+	GetUnitPrincipal(ctx context.Context, unitName coreunit.Name) (coreunit.Name, bool, error)
+
 	// EnsureUnitDead is called by the unit agent just before it terminates.
 	EnsureUnitDead(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error
 

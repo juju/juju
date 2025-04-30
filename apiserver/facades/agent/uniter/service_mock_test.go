@@ -518,6 +518,46 @@ func (c *MockApplicationServiceGetUnitLifeCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// GetUnitPrincipal mocks base method.
+func (m *MockApplicationService) GetUnitPrincipal(arg0 context.Context, arg1 unit.Name) (unit.Name, bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUnitPrincipal", arg0, arg1)
+	ret0, _ := ret[0].(unit.Name)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetUnitPrincipal indicates an expected call of GetUnitPrincipal.
+func (mr *MockApplicationServiceMockRecorder) GetUnitPrincipal(arg0, arg1 any) *MockApplicationServiceGetUnitPrincipalCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnitPrincipal", reflect.TypeOf((*MockApplicationService)(nil).GetUnitPrincipal), arg0, arg1)
+	return &MockApplicationServiceGetUnitPrincipalCall{Call: call}
+}
+
+// MockApplicationServiceGetUnitPrincipalCall wrap *gomock.Call
+type MockApplicationServiceGetUnitPrincipalCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationServiceGetUnitPrincipalCall) Return(arg0 unit.Name, arg1 bool, arg2 error) *MockApplicationServiceGetUnitPrincipalCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationServiceGetUnitPrincipalCall) Do(f func(context.Context, unit.Name) (unit.Name, bool, error)) *MockApplicationServiceGetUnitPrincipalCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationServiceGetUnitPrincipalCall) DoAndReturn(f func(context.Context, unit.Name) (unit.Name, bool, error)) *MockApplicationServiceGetUnitPrincipalCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUnitRefreshAttributes mocks base method.
 func (m *MockApplicationService) GetUnitRefreshAttributes(arg0 context.Context, arg1 unit.Name) (application0.UnitAttributes, error) {
 	m.ctrl.T.Helper()

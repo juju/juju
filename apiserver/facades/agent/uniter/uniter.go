@@ -135,18 +135,6 @@ func (u *UniterAPI) EnsureDead(ctx context.Context, args params.Entities) (param
 			continue
 		}
 
-		// TODO(units) - remove me.
-		// Dual write dead status to state.
-		unit, err := u.getLegacyUnit(ctx, tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if err = unit.EnsureDead(); err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
 		unitName, err := coreunit.NewName(tag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
@@ -170,7 +158,6 @@ func (u *UniterAPI) OpenedMachinePortRangesByEndpoint(ctx context.Context, args 
 		return params.OpenPortRangesByEndpointResults{}, err
 	}
 	for i, entity := range args.Entities {
-
 		machPortRanges, err := u.getOneMachineOpenedPortRanges(ctx, canAccess, entity.Tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
@@ -566,19 +553,23 @@ func (u *UniterAPI) GetPrincipal(ctx context.Context, args params.Entities) (par
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = apiservererrors.ErrPerm
-		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = u.getLegacyUnit(ctx, tag)
-			if err == nil {
-				principal, ok := unit.PrincipalName()
-				if principal != "" {
-					result.Results[i].Result = names.NewUnitTag(principal).String()
-				}
-				result.Results[i].Ok = ok
-			}
+		if !canAccess(tag) {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		unitName, err := coreunit.NewName(tag.Id())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		principal, hasPrincipal, err := u.applicationService.GetUnitPrincipal(ctx, unitName)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+		} else if hasPrincipal {
+			result.Results[i].Result = names.NewUnitTag(principal.String()).String()
+			result.Results[i].Ok = true
+		}
 	}
 	return result, nil
 }
@@ -2376,11 +2367,18 @@ func (u *UniterAPI) goalStateUnits(ctx context.Context, app *state.Application, 
 
 	unitsGoalState := params.UnitsGoalState{}
 	for _, unit := range allUnits {
-		// Ignore subordinates belonging to other units.
-		pn, ok := unit.PrincipalName()
-		if ok && pn != principalName {
+		unitName, err := coreunit.NewName(unit.Name())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		pn, hasPrincipal, err := u.applicationService.GetUnitPrincipal(ctx, unitName)
+		if err != nil {
+			return nil, internalerrors.Errorf("getting principal for unit %q: %w", unitName, err)
+		} else if hasPrincipal && pn.String() != principalName {
 			continue
 		}
+
 		unitLife := unit.Life()
 		if unitLife == state.Dead {
 			// only show Alive and Dying units
@@ -2388,10 +2386,6 @@ func (u *UniterAPI) goalStateUnits(ctx context.Context, app *state.Application, 
 			continue
 		}
 		unitGoalState := params.GoalStateStatus{}
-		unitName, err := coreunit.NewName(unit.Name())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		statusInfo, ok := unitWorkloadStatuses[unitName]
 		if !ok {
 			return nil, errors.Errorf("status for unit %q not found", unitName)
