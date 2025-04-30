@@ -56,7 +56,7 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
 			}
 
 			// Ensure we have a nodeID in the controller node.
-			row := tx.QueryRowContext(ctx, "SELECT controller_id, dqlite_node_id, bind_address FROM controller_node")
+			row := tx.QueryRowContext(ctx, "SELECT controller_id, dqlite_node_id, dqlite_bind_address FROM controller_node")
 			var controllerID, nodeID uint64
 			var bindAddress string
 			err = row.Scan(&controllerID, &nodeID, &bindAddress)
@@ -71,7 +71,7 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
 				return fmt.Errorf("expected dqlite_node_id to be non-zero")
 			}
 			if bindAddress != "127.0.0.1" {
-				return fmt.Errorf("expected bind_address to be 127.0.0.1")
+				return fmt.Errorf("expected dqlite_bind_address to be 127.0.0.1")
 			}
 
 			return nil

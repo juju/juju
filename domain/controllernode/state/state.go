@@ -92,17 +92,17 @@ func (st *State) UpdateDqliteNode(ctx context.Context, controllerID string, node
 	// uint64 when querying the table.
 	nodeStr := strconv.FormatUint(nodeID, 10)
 	controllerNode := dbControllerNode{
-		ControllerID: controllerID,
-		DQLiteNodeID: nodeStr,
-		BindAddress:  addr,
+		ControllerID:      controllerID,
+		DqliteNodeID:      nodeStr,
+		DqliteBindAddress: addr,
 	}
 
 	q := `
 UPDATE controller_node 
 SET    dqlite_node_id = $dbControllerNode.dqlite_node_id,
-       bind_address = $dbControllerNode.bind_address 
+       dqlite_bind_address = $dbControllerNode.dqlite_bind_address 
 WHERE  controller_id = $dbControllerNode.controller_id
-AND    (dqlite_node_id != $dbControllerNode.dqlite_node_id OR bind_address != $dbControllerNode.bind_address)`
+AND    (dqlite_node_id != $dbControllerNode.dqlite_node_id OR dqlite_bind_address != $dbControllerNode.dqlite_bind_address)`
 	stmt, err := st.Prepare(q, controllerNode)
 	if err != nil {
 		return errors.Errorf("preparing update controller node statement: %w", err)

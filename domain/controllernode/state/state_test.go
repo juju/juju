@@ -70,7 +70,7 @@ func (s *stateSuite) TestUpdateDqliteNode(c *gc.C) {
 		context.Background(), "0", nodeID, "192.168.5.60")
 	c.Assert(err, jc.ErrorIsNil)
 
-	row := s.DB().QueryRowContext(context.Background(), "SELECT dqlite_node_id, bind_address FROM controller_node WHERE controller_id = '0'")
+	row := s.DB().QueryRowContext(context.Background(), "SELECT dqlite_node_id, dqlite_bind_address FROM controller_node WHERE controller_id = '0'")
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
 	var (

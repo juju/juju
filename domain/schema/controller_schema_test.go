@@ -75,6 +75,9 @@ func (s *controllerSchemaSuite) TestControllerTables(c *gc.C) {
 		"controller_node",
 		"controller_node_agent_version",
 
+		// Controller API addresses
+		"controller_api_address",
+
 		// Model migration
 		"model_migration",
 		"model_migration_status",
