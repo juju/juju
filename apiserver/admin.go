@@ -371,17 +371,14 @@ func (a *admin) getModelMigrationDetails(req params.LoginRequest) (state.Migrati
 	defer func() { _ = st.Release() }()
 
 	migrationMode, err := st.MigrationMode()
-	modelExists := err == nil
-	if errors.Is(err, errors.NotFound) {
-		if err := a.maybeEmitRedirectError(st.State, req); err != nil {
-			return "", false, errors.Trace(err)
-		}
-	}
 	if err != nil && !errors.Is(err, errors.NotFound) {
+		return "", false, errors.Trace(err)
+	} else if errors.Is(err, errors.NotFound) {
+		err := a.maybeEmitRedirectError(st.State, req)
 		return "", false, errors.Trace(err)
 	}
 
-	return migrationMode, modelExists, nil
+	return migrationMode, true, nil
 }
 
 func (a *admin) maybeEmitRedirectError(st *state.State, req params.LoginRequest) error {

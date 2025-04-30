@@ -969,7 +969,9 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 	// For these models we can ignore NotFound errors coming from persistence layer.
 	// However, for Alive models, these errors are genuine and cannot be ignored.
 	mode, err := st.MigrationMode()
-	if err != nil {
+	if errors.Is(err, errors.NotFound) {
+		return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
+	} else if err != nil {
 		return params.ModelInfo{}, errors.Trace(err)
 	}
 	ignoreNotFoundError := model.Life() != state.Alive || mode == state.MigrationModeImporting
