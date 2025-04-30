@@ -355,12 +355,13 @@ func (s *uniterLegacySuite) TestConfigSettings(c *gc.C) {
 }
 
 func (s *uniterLegacySuite) TestCurrentModel(c *gc.C) {
-	model := s.ControllerModel(c)
 	result, err := s.uniter.CurrentModel(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
+	modelInfo, err := s.ControllerDomainServices(c).ModelInfo().GetModelInfo(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
 	expected := params.ModelResult{
-		Name: model.Name(),
-		UUID: model.UUID(),
+		Name: modelInfo.Name,
+		UUID: s.ControllerModelUUID(),
 		Type: "iaas",
 	}
 	c.Assert(result, gc.DeepEquals, expected)
