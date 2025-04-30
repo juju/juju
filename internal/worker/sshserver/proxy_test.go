@@ -12,8 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/virtualhostname"
-	"github.com/juju/juju/internal/worker/sshserver/k8s"
-	"github.com/juju/juju/internal/worker/sshserver/machine"
+	"github.com/juju/juju/internal/worker/sshserver/handlers/k8s"
+	"github.com/juju/juju/internal/worker/sshserver/handlers/machine"
 )
 
 type proxySuite struct{}

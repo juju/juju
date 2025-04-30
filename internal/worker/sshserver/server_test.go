@@ -125,6 +125,7 @@ func (s *sshServerSuite) setupDefaultProxyHandlers() {
 	s.proxyFactory.EXPECT().New(gomock.Any()).Return(s.proxyHandlers, nil)
 	s.proxyHandlers.EXPECT().SessionHandler(gomock.Any()).AnyTimes()
 	s.proxyHandlers.EXPECT().DirectTCPIPHandler().Return(nil).AnyTimes()
+	s.proxyHandlers.EXPECT().SFTPHandler().Return(nil).AnyTimes()
 }
 
 func (s *sshServerSuite) TestValidate(c *gc.C) {
@@ -196,6 +197,7 @@ func (s *sshServerSuite) TestSSHServerNoAuth(c *gc.C) {
 		},
 	)
 	s.proxyHandlers.EXPECT().DirectTCPIPHandler().Return(nil)
+	s.proxyHandlers.EXPECT().SFTPHandler().Return(nil)
 
 	// Dial the in-memory listener
 	conn, err := listener.Dial()
