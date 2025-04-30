@@ -678,6 +678,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LogSinkName:                 logSinkName,
 			Logger:                      internallogger.GetLogger("juju.worker.services"),
 			Clock:                       config.Clock,
+			LogDir:                      agentConfig.LogDir(),
 			NewWorker:                   workerdomainservices.NewWorker,
 			NewDomainServicesGetter:     workerdomainservices.NewDomainServicesGetter,
 			NewControllerDomainServices: workerdomainservices.NewControllerDomainServices,

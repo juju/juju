@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -31,16 +32,20 @@ type LeadershipService struct {
 func NewLeadershipService(
 	st State,
 	leaderEnsurer leadership.Ensurer,
+	modelUUID model.UUID,
+	statusHistory StatusHistory,
+	statusHistoryReaderFn StatusHistoryReaderFunc,
 	clock clock.Clock,
 	logger logger.Logger,
-	statusHistory StatusHistory,
 ) *LeadershipService {
 	return &LeadershipService{
 		Service: NewService(
 			st,
+			modelUUID,
+			statusHistory,
+			statusHistoryReaderFn,
 			clock,
 			logger,
-			statusHistory,
 		),
 		leaderEnsurer: leaderEnsurer,
 	}

@@ -6,7 +6,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -42,7 +41,6 @@ import (
 	statusservice "github.com/juju/juju/domain/status/service"
 	"github.com/juju/juju/internal/charm"
 	internalerrors "github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -64,42 +62,38 @@ func (c *Client) StatusHistory(ctx context.Context, requests params.StatusHistor
 	// We know we only have one request, so we can just use the first one.
 	request := requests.Requests[0]
 
-	logFile := filepath.Join(c.logDir, "logsink.log")
-	reader, err := statushistory.ModelStatusHistoryReaderFromFile(model.UUID(c.modelTag.Id()), logFile)
-	if err != nil {
-		return statusHistoryResultError(err)
+	kind := status.HistoryKind(request.Kind)
+	if !kind.Valid() {
+		return statusHistoryResultError(internalerrors.Errorf("invalid status history kind %q", request.Kind))
 	}
-	defer reader.Close()
 
-	now := c.clock.Now()
+	tag, err := names.ParseTag(request.Tag)
+	if err != nil {
+		return statusHistoryResultError(internalerrors.Errorf("invalid tag %q: %w", request.Tag, err))
+	}
 
-	var results []params.DetailedStatus
-	err = reader.Walk(func(record statushistory.HistoryRecord) (bool, error) {
-		if ok, err := matches(record, request, now); !ok {
-			return false, nil
-		} else if err != nil {
-			return false, err
-		}
-
-		status := record.Status
-
-		results = append(results, params.DetailedStatus{
-			Kind:   status.Kind.String(),
-			Status: status.Status.String(),
-			Info:   status.Info,
-			Data:   status.Data,
-			Since:  status.Since,
-		})
-
-		// If we have more than the requested limit, so we can stop reading.
-		if limit := request.Filter.Size; limit > 0 && len(results) > limit {
-			return true, nil
-		}
-
-		return false, nil
+	history, err := c.statusService.GetStatusHistory(ctx, statusservice.StatusHistoryRequest{
+		Kind: kind,
+		Filter: statusservice.StatusHistoryFilter{
+			Size:  request.Filter.Size,
+			Date:  request.Filter.Date,
+			Delta: request.Filter.Delta,
+		},
+		Tag: tag.Id(),
 	})
 	if err != nil {
 		return statusHistoryResultError(err)
+	}
+
+	results := make([]params.DetailedStatus, len(history))
+	for i, status := range history {
+		results[i] = params.DetailedStatus{
+			Status: status.Status.String(),
+			Info:   status.Info,
+			Since:  status.Since,
+			Kind:   status.Kind.String(),
+			Data:   status.Data,
+		}
 	}
 
 	return params.StatusHistoryResults{
@@ -123,63 +117,6 @@ func statusHistoryResultsError(err error, amount int) params.StatusHistoryResult
 
 func statusHistoryResultError(err error) params.StatusHistoryResults {
 	return statusHistoryResultsError(err, 1)
-}
-
-func matchesUnit(hr statushistory.HistoryRecord, req params.StatusHistoryRequest) bool {
-	switch status.HistoryKind(req.Kind) {
-	case status.KindUnit:
-		return hr.Kind == status.KindUnit || hr.Kind == status.KindUnitAgent || hr.Kind == status.KindWorkload
-	case status.KindWorkload:
-		return hr.Kind == status.KindWorkload
-	case status.KindUnitAgent:
-		return hr.Kind == status.KindUnitAgent
-	default:
-		return false
-	}
-}
-
-func matches(hr statushistory.HistoryRecord, req params.StatusHistoryRequest, now time.Time) (bool, error) {
-	// Check that the kinds match.
-	switch status.HistoryKind(req.Kind) {
-	case status.KindApplication:
-		return hr.Kind == status.KindApplication, nil
-	case status.KindSAAS:
-		return hr.Kind == status.KindSAAS, nil
-	case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
-		if !matchesUnit(hr, req) {
-			return false, nil
-		}
-	case status.KindModel:
-		// TODO: implement model status history.
-	case status.KindMachine:
-		// TODO: implement machine status history.
-	default:
-		return false, internalerrors.Errorf("%q", req.Kind).Add(errors.NotImplemented)
-	}
-
-	// Check that the tag matches.
-	requestTag, err := names.ParseTag(req.Tag)
-	if err != nil {
-		return false, err
-	} else if hr.Tag != requestTag.Id() {
-		return false, nil
-	}
-
-	filter := req.Filter
-
-	// If the date is set on the filter, check that the record's date is
-	// after the filter date.
-	if filter.Date != nil && hr.Status.Since != nil && !hr.Status.Since.After(*filter.Date) {
-		return false, nil
-	}
-
-	// If the delta is set on the filter, check that the record's delta
-	// is after the filter delta.
-	if filter.Delta != nil && hr.Status.Since != nil && !hr.Status.Since.After(now.Add(-(*filter.Delta))) {
-		return false, nil
-	}
-
-	return true, nil
 }
 
 type lifer interface {

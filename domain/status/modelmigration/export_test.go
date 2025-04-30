@@ -13,6 +13,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 )
@@ -43,8 +44,10 @@ func (s *exportSuite) TestExportEmpty(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	exportOp := exportOperation{
-		service: s.exportService,
-		clock:   clock.WallClock,
+		serviceGetter: func(u coremodel.UUID) ExportService {
+			return s.exportService
+		},
+		clock: clock.WallClock,
 	}
 
 	err := exportOp.Execute(context.Background(), model)
@@ -79,8 +82,10 @@ func (s *exportSuite) TestExportApplicationStatuses(c *gc.C) {
 	app := model.AddApplication(appArgs)
 
 	exportOp := exportOperation{
-		service: s.exportService,
-		clock:   clock.WallClock,
+		serviceGetter: func(u coremodel.UUID) ExportService {
+			return s.exportService
+		},
+		clock: clock.WallClock,
 	}
 
 	err := exportOp.Execute(context.Background(), model)
@@ -113,8 +118,10 @@ func (s *exportSuite) TestExportApplicationStatusesMissing(c *gc.C) {
 	app := model.AddApplication(appArgs)
 
 	exportOp := exportOperation{
-		service: s.exportService,
-		clock:   clock.WallClock,
+		serviceGetter: func(u coremodel.UUID) ExportService {
+			return s.exportService
+		},
+		clock: clock.WallClock,
 	}
 
 	err := exportOp.Execute(context.Background(), model)
@@ -175,8 +182,10 @@ func (s *exportSuite) TestExportUnitStatuses(c *gc.C) {
 	})
 
 	exportOp := exportOperation{
-		service: s.exportService,
-		clock:   clock.WallClock,
+		serviceGetter: func(u coremodel.UUID) ExportService {
+			return s.exportService
+		},
+		clock: clock.WallClock,
 	}
 	err := exportOp.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)
@@ -229,8 +238,10 @@ func (s *exportSuite) TestExportRelationStatuses(c *gc.C) {
 	})
 
 	exportOp := exportOperation{
-		service: s.exportService,
-		clock:   clock.WallClock,
+		serviceGetter: func(u coremodel.UUID) ExportService {
+			return s.exportService
+		},
+		clock: clock.WallClock,
 	}
 	err := exportOp.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)

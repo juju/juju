@@ -6,6 +6,7 @@ package services
 import (
 	"context"
 	"net/url"
+	"path/filepath"
 
 	"github.com/juju/clock"
 
@@ -102,13 +103,14 @@ type PublicKeyImporter interface {
 type ModelServices struct {
 	modelServiceFactoryBase
 
-	clock                  clock.Clock
 	modelUUID              model.UUID
 	providerFactory        providertracker.ProviderFactory
 	modelObjectStoreGetter objectstore.ModelObjectStoreGetter
 	storageRegistry        corestorage.ModelStorageRegistryGetter
 	publicKeyImporter      PublicKeyImporter
 	leaseManager           lease.ModelLeaseManagerGetter
+	logDir                 string
+	clock                  clock.Clock
 }
 
 // NewModelServices returns a new registry which uses the provided modelDB
@@ -122,6 +124,7 @@ func NewModelServices(
 	storageRegistry corestorage.ModelStorageRegistryGetter,
 	publicKeyImporter PublicKeyImporter,
 	leaseManager lease.ModelLeaseManagerGetter,
+	logDir string,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *ModelServices {
@@ -133,13 +136,14 @@ func NewModelServices(
 			},
 			modelDB: modelDB,
 		},
-		clock:                  clock,
 		modelUUID:              modelUUID,
 		providerFactory:        providerFactory,
 		modelObjectStoreGetter: modelObjectStoreGetter,
 		storageRegistry:        storageRegistry,
 		publicKeyImporter:      publicKeyImporter,
 		leaseManager:           leaseManager,
+		logDir:                 logDir,
+		clock:                  clock,
 	}
 }
 
@@ -236,9 +240,14 @@ func (s *ModelServices) Status() *statusservice.LeadershipService {
 	return statusservice.NewLeadershipService(
 		statusstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, logger),
 		domain.NewLeaseService(s.leaseManager),
+		s.modelUUID,
+		domain.NewStatusHistory(logger, s.clock),
+		func() (statusservice.StatusHistoryReader, error) {
+			logsink := filepath.Join(s.logDir, "logsink.log")
+			return domain.NewStatusHistoryReader(logsink, s.modelUUID)
+		},
 		s.clock,
 		logger,
-		domain.NewStatusHistory(logger, s.clock),
 	)
 }
 

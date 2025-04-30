@@ -15,6 +15,7 @@ import (
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
@@ -1424,9 +1425,13 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.service = NewService(
 		s.state,
+		model.UUID("test-model"),
+		s.statusHistory,
+		func() (StatusHistoryReader, error) {
+			return nil, errors.Errorf("status history reader not available")
+		},
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
-		s.statusHistory,
 	)
 
 	return ctrl

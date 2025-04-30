@@ -54,6 +54,9 @@ type StatusService interface {
 	// GetApplicationAndUnitStatuses returns the application statuses of all the
 	// applications in the model, indexed by application name.
 	GetApplicationAndUnitStatuses(ctx context.Context) (map[string]statusservice.Application, error)
+
+	// GetStatusHistory returns the status history based on the request.
+	GetStatusHistory(ctx context.Context, request statusservice.StatusHistoryRequest) ([]status.DetailedStatus, error)
 }
 
 // BlockDeviceService instances can fetch block devices for a machine.

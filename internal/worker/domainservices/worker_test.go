@@ -32,63 +32,67 @@ var _ = gc.Suite(&workerSuite{})
 func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cfg := s.getConfig()
+	cfg := s.getConfig(c)
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.Logger = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.DBDeleter = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.DBGetter = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.ProviderFactory = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.ObjectStoreGetter = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.StorageRegistryGetter = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.LeaseManager = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.NewDomainServicesGetter = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.NewControllerDomainServices = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.NewModelDomainServices = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
+	cfg.LogDir = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
 	cfg.Clock = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.PublicKeyImporter = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.LoggerContextGetter = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
-func (s *workerSuite) getConfig() Config {
+func (s *workerSuite) getConfig(c *gc.C) Config {
 	return Config{
 		DBGetter:              s.dbGetter,
 		DBDeleter:             s.dbDeleter,
@@ -97,6 +101,7 @@ func (s *workerSuite) getConfig() Config {
 		StorageRegistryGetter: s.storageRegistryGetter,
 		PublicKeyImporter:     s.publicKeyImporter,
 		LeaseManager:          s.leaseManager,
+		LogDir:                c.MkDir(),
 		Clock:                 s.clock,
 		Logger:                s.logger,
 		LoggerContextGetter:   s.loggerContextGetter,
@@ -109,6 +114,7 @@ func (s *workerSuite) getConfig() Config {
 			storage.StorageRegistryGetter,
 			domainservices.PublicKeyImporter,
 			lease.Manager,
+			string,
 			clock.Clock,
 			logger.LoggerContextGetter,
 		) services.DomainServicesGetter {
@@ -131,6 +137,7 @@ func (s *workerSuite) getConfig() Config {
 			storage.ModelStorageRegistryGetter,
 			domainservices.PublicKeyImporter,
 			lease.ModelLeaseManagerGetter,
+			string,
 			clock.Clock,
 			logger.Logger,
 		) services.ModelDomainServices {
@@ -170,7 +177,7 @@ func (s *workerSuite) TestWorkerServicesGetter(c *gc.C) {
 }
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
-	w, err := NewWorker(s.getConfig())
+	w, err := NewWorker(s.getConfig(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return w
 }

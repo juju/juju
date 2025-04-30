@@ -258,3 +258,18 @@ func (mr *MockStatusServiceMockRecorder) GetApplicationAndUnitStatuses(arg0 any)
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApplicationAndUnitStatuses", reflect.TypeOf((*MockStatusService)(nil).GetApplicationAndUnitStatuses), arg0)
 }
+
+// GetStatusHistory mocks base method.
+func (m *MockStatusService) GetStatusHistory(arg0 context.Context, arg1 service.StatusHistoryRequest) ([]status.DetailedStatus, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStatusHistory", arg0, arg1)
+	ret0, _ := ret[0].([]status.DetailedStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStatusHistory indicates an expected call of GetStatusHistory.
+func (mr *MockStatusServiceMockRecorder) GetStatusHistory(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStatusHistory", reflect.TypeOf((*MockStatusService)(nil).GetStatusHistory), arg0, arg1)
+}

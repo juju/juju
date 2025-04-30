@@ -22,6 +22,19 @@ type StatusHistory interface {
 	RecordStatus(context.Context, statushistory.Namespace, corestatus.StatusInfo) error
 }
 
+// StatusHistoryReader reads status history records.
+type StatusHistoryReader interface {
+	// Walk walks the status history, calling the given function for each
+	// status record. The function should return true to continue walking, or
+	// false to stop.
+	Walk(func(statushistory.HistoryRecord) (bool, error)) error
+	// Close closes the status history reader.
+	Close() error
+}
+
+// StatusHistoryReaderFunc is a function that returns a StatusHistoryReader.
+type StatusHistoryReaderFunc func() (StatusHistoryReader, error)
+
 // encodeK8sPodStatusType converts a core status to a db cloud container
 // status id.
 func encodeK8sPodStatusType(s corestatus.Status) (status.K8sPodStatusType, error) {

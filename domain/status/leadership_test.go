@@ -16,6 +16,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/testing"
 	"github.com/juju/juju/domain"
@@ -28,6 +29,7 @@ import (
 	"github.com/juju/juju/domain/status/service"
 	"github.com/juju/juju/domain/status/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -160,9 +162,13 @@ func (s *leadershipSuite) setupService(c *gc.C) *service.LeadershipService {
 		domain.NewLeaseService(leaseGetter{
 			Checker: s.leadership,
 		}),
+		model.UUID(s.ModelUUID()),
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		func() (service.StatusHistoryReader, error) {
+			return nil, errors.Errorf("status history reader not available")
+		},
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
-		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
 	)
 }
 

@@ -13,6 +13,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -156,24 +157,30 @@ type State interface {
 // Service provides the API for working with the statuses of applications and
 // units.
 type Service struct {
-	st            State
-	logger        logger.Logger
-	clock         clock.Clock
-	statusHistory StatusHistory
+	st                    State
+	modelUUID             model.UUID
+	statusHistory         StatusHistory
+	statusHistoryReaderFn StatusHistoryReaderFunc
+	logger                logger.Logger
+	clock                 clock.Clock
 }
 
 // NewService returns a new service reference wrapping the input state.
 func NewService(
 	st State,
+	modelUUID model.UUID,
+	statusHistory StatusHistory,
+	statusHistoryReaderFn StatusHistoryReaderFunc,
 	clock clock.Clock,
 	logger logger.Logger,
-	statusHistory StatusHistory,
 ) *Service {
 	return &Service{
-		st:            st,
-		logger:        logger,
-		clock:         clock,
-		statusHistory: statusHistory,
+		st:                    st,
+		modelUUID:             modelUUID,
+		statusHistory:         statusHistory,
+		statusHistoryReaderFn: statusHistoryReaderFn,
+		logger:                logger,
+		clock:                 clock,
 	}
 }
 

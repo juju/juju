@@ -37,6 +37,7 @@ type ManifoldConfig struct {
 	HTTPClientName              string
 	LeaseManagerName            string
 	LogSinkName                 string
+	LogDir                      string
 	Logger                      logger.Logger
 	Clock                       clock.Clock
 	NewWorker                   func(Config) (worker.Worker, error)
@@ -55,6 +56,7 @@ type DomainServicesGetterFn func(
 	storage.StorageRegistryGetter,
 	domainservices.PublicKeyImporter,
 	lease.Manager,
+	string,
 	clock.Clock,
 	logger.LoggerContextGetter,
 ) services.DomainServicesGetter
@@ -78,6 +80,7 @@ type ModelDomainServicesFn func(
 	storage.ModelStorageRegistryGetter,
 	domainservices.PublicKeyImporter,
 	lease.ModelLeaseManagerGetter,
+	string,
 	clock.Clock,
 	logger.Logger,
 ) services.ModelDomainServices
@@ -119,6 +122,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewModelDomainServices == nil {
 		return errors.NotValidf("nil NewModelDomainServices")
+	}
+	if config.LogDir == "" {
+		return errors.NotValidf("empty LogDir")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -208,6 +214,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		PublicKeyImporter:           sshimporter.NewImporter(sshImporterClient),
 		LeaseManager:                leaseManager,
 		LoggerContextGetter:         loggerContextGetter,
+		LogDir:                      config.LogDir,
 		Logger:                      config.Logger,
 		Clock:                       config.Clock,
 		NewDomainServicesGetter:     config.NewDomainServicesGetter,
@@ -265,6 +272,7 @@ func NewProviderTrackerModelDomainServices(
 	storageRegistry storage.ModelStorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
 	leaseManager lease.ModelLeaseManagerGetter,
+	logDir string,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ModelDomainServices {
@@ -277,6 +285,7 @@ func NewProviderTrackerModelDomainServices(
 		storageRegistry,
 		publicKeyImporter,
 		leaseManager,
+		logDir,
 		clock,
 		logger,
 	)
@@ -292,6 +301,7 @@ func NewDomainServicesGetter(
 	storageRegistryGetter storage.StorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
 	leaseManager lease.Manager,
+	logDir string,
 	clock clock.Clock,
 	loggerContextGetter logger.LoggerContextGetter,
 ) services.DomainServicesGetter {
@@ -304,6 +314,7 @@ func NewDomainServicesGetter(
 		storageRegistryGetter:  storageRegistryGetter,
 		publicKeyImporter:      publicKeyImporter,
 		leaseManager:           leaseManager,
+		logDir:                 logDir,
 		clock:                  clock,
 		loggerContextGetter:    loggerContextGetter,
 	}
