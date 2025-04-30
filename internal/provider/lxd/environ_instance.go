@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/container/lxd"
@@ -95,7 +94,7 @@ func (env *environ) prefixedInstances(prefix string) ([]*environInstance, error)
 
 // ControllerInstances returns the IDs of the instances corresponding
 // to juju controllers.
-func (env *environ) ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+func (env *environ) ControllerInstances(ctx context.Context, controllerUUID string) ([]instance.Id, error) {
 	containers, err := env.server().AliveContainers("juju-")
 	if err != nil {
 		return nil, errors.Trace(env.HandleCredentialError(ctx, err))
@@ -118,7 +117,7 @@ func (env *environ) ControllerInstances(ctx envcontext.ProviderCallContext, cont
 
 // AdoptResources updates the controller tags on all instances to have the
 // new controller id. It's part of the Environ interface.
-func (env *environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion semversion.Number) error {
+func (env *environ) AdoptResources(ctx context.Context, controllerUUID string, fromVersion semversion.Number) error {
 	instances, err := env.AllInstances(ctx)
 	if err != nil {
 		return errors.Annotate(env.HandleCredentialError(ctx, err), "all instances")

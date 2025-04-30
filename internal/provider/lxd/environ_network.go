@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"sort"
@@ -17,14 +18,13 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 var _ environs.Networking = (*environ)(nil)
 
 // Subnets returns basic information about subnets known by the provider for
 // the environment.
-func (e *environ) Subnets(ctx envcontext.ProviderCallContext, subnetIDs []network.Id) ([]network.SubnetInfo, error) {
+func (e *environ) Subnets(ctx context.Context, subnetIDs []network.Id) ([]network.SubnetInfo, error) {
 	srv := e.server()
 
 	availabilityZones, err := e.AvailabilityZones(ctx)
@@ -127,7 +127,7 @@ func makeSubnetInfo(subnetID network.Id, networkID network.Id, cidr string, avai
 // was no other error, it will return ErrNoInstances. If some but not all of
 // the instances were found, the returned slice will have some nil slots, and
 // an ErrPartialInstances error will be returned.
-func (e *environ) NetworkInterfaces(_ envcontext.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error) {
+func (e *environ) NetworkInterfaces(_ context.Context, ids []instance.Id) ([]network.InterfaceInfos, error) {
 	var (
 		missing int
 		srv     = e.server()

@@ -15,7 +15,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/container"
@@ -57,7 +56,7 @@ type lxdBroker struct {
 	agentConfig agent.Config
 }
 
-func (broker *lxdBroker) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (broker *lxdBroker) StartInstance(ctx context.Context, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	containerMachineID := args.InstanceConfig.MachineId
 
 	config, err := broker.api.ContainerConfig(ctx)
@@ -137,7 +136,7 @@ func (broker *lxdBroker) StartInstance(ctx envcontext.ProviderCallContext, args 
 	}, nil
 }
 
-func (broker *lxdBroker) StopInstances(ctx envcontext.ProviderCallContext, ids ...instance.Id) error {
+func (broker *lxdBroker) StopInstances(ctx context.Context, ids ...instance.Id) error {
 	// TODO: potentially parallelise.
 	for _, id := range ids {
 		lxdLogger.Infof(context.TODO(), "stopping lxd container for instance: %s", id)

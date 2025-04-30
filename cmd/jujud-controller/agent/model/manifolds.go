@@ -36,7 +36,6 @@ import (
 	"github.com/juju/juju/internal/worker/caasmodeloperator"
 	"github.com/juju/juju/internal/worker/charmrevisioner"
 	"github.com/juju/juju/internal/worker/cleaner"
-	"github.com/juju/juju/internal/worker/common"
 	provisioner "github.com/juju/juju/internal/worker/computeprovisioner"
 	"github.com/juju/juju/internal/worker/credentialvalidator"
 	"github.com/juju/juju/internal/worker/firewaller"
@@ -389,12 +388,11 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The undertaker is currently the only ifNotAlive worker.
 		undertakerName: ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
-			APICallerName:                apiCallerName,
-			Clock:                        config.Clock,
-			Logger:                       config.LoggingContext.GetLogger("juju.worker.undertaker"),
-			NewFacade:                    undertaker.NewFacade,
-			NewWorker:                    undertaker.NewWorker,
-			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+			APICallerName: apiCallerName,
+			Clock:         config.Clock,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.undertaker"),
+			NewFacade:     undertaker.NewFacade,
+			NewWorker:     undertaker.NewWorker,
 			NewCloudDestroyerFunc: func(ctx context.Context, params environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.CloudDestroyer, error) {
 				return config.NewEnvironFunc(ctx, params, invalidator)
 			},
@@ -409,17 +407,15 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetMachineService:  provisioner.GetMachineService,
 			Logger:             config.LoggingContext.GetLogger("juju.worker.provisioner"),
 
-			NewProvisionerFunc:           provisioner.NewEnvironProvisioner,
-			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+			NewProvisionerFunc: provisioner.NewEnvironProvisioner,
 		})),
 		storageProvisionerName: ifNotMigrating(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
-			APICallerName:                apiCallerName,
-			Clock:                        config.Clock,
-			Logger:                       config.LoggingContext.GetLogger("juju.worker.storageprovisioner"),
-			StorageRegistryName:          providerTrackerName,
-			Model:                        modelTag,
-			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-			NewWorker:                    storageprovisioner.NewStorageProvisioner,
+			APICallerName:       apiCallerName,
+			Clock:               config.Clock,
+			Logger:              config.LoggingContext.GetLogger("juju.worker.storageprovisioner"),
+			StorageRegistryName: providerTrackerName,
+			Model:               modelTag,
+			NewWorker:           storageprovisioner.NewStorageProvisioner,
 		})),
 		firewallerName: ifNotMigrating(firewaller.Manifold(firewaller.ManifoldConfig{
 			AgentName:          agentName,
@@ -428,29 +424,26 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			EnvironName:        providerTrackerName,
 			Logger:             config.LoggingContext.GetLogger("juju.worker.firewaller"),
 
-			NewControllerConnection:      apicaller.NewExternalControllerConnection,
-			NewFirewallerWorker:          firewaller.NewWorker,
-			NewFirewallerFacade:          firewaller.NewFirewallerFacade,
-			NewRemoteRelationsFacade:     firewaller.NewRemoteRelationsFacade,
-			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+			NewControllerConnection:  apicaller.NewExternalControllerConnection,
+			NewFirewallerWorker:      firewaller.NewWorker,
+			NewFirewallerFacade:      firewaller.NewFirewallerFacade,
+			NewRemoteRelationsFacade: firewaller.NewRemoteRelationsFacade,
 		})),
 		unitAssignerName: ifNotMigrating(unitassigner.Manifold(unitassigner.ManifoldConfig{
 			APICallerName: apiCallerName,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.unitassigner"),
 		})),
 		instancePollerName: ifNotMigrating(instancepoller.Manifold(instancepoller.ManifoldConfig{
-			APICallerName:                apiCallerName,
-			EnvironName:                  providerTrackerName,
-			ClockName:                    clockName,
-			Logger:                       config.LoggingContext.GetLogger("juju.worker.instancepoller"),
-			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+			APICallerName: apiCallerName,
+			EnvironName:   providerTrackerName,
+			ClockName:     clockName,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.instancepoller"),
 		})),
 		machineUndertakerName: ifNotMigrating(machineundertaker.Manifold(machineundertaker.ManifoldConfig{
-			APICallerName:                apiCallerName,
-			EnvironName:                  providerTrackerName,
-			NewWorker:                    machineundertaker.NewWorker,
-			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-			Logger:                       config.LoggingContext.GetLogger("juju.worker.machineundertaker"),
+			APICallerName: apiCallerName,
+			EnvironName:   providerTrackerName,
+			NewWorker:     machineundertaker.NewWorker,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.machineundertaker"),
 		})),
 		instanceMutaterName: ifNotMigrating(instancemutater.ModelManifold(instancemutater.ModelManifoldConfig{
 			AgentName:     agentName,
@@ -477,12 +470,11 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	manifolds := dependency.Manifolds{
 		// The undertaker is currently the only ifNotAlive worker.
 		undertakerName: ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
-			APICallerName:                apiCallerName,
-			Clock:                        config.Clock,
-			Logger:                       config.LoggingContext.GetLogger("juju.worker.undertaker"),
-			NewFacade:                    undertaker.NewFacade,
-			NewWorker:                    undertaker.NewWorker,
-			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+			APICallerName: apiCallerName,
+			Clock:         config.Clock,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.undertaker"),
+			NewFacade:     undertaker.NewFacade,
+			NewWorker:     undertaker.NewWorker,
 			NewCloudDestroyerFunc: func(ctx context.Context, params environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.CloudDestroyer, error) {
 				return config.NewContainerBrokerFunc(ctx, params, invalidator)
 			},
@@ -530,13 +522,12 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		)),
 		caasStorageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
-			APICallerName:                apiCallerName,
-			Clock:                        config.Clock,
-			Logger:                       config.LoggingContext.GetLogger("juju.worker.storageprovisioner"),
-			StorageRegistryName:          providerTrackerName,
-			Model:                        modelTag,
-			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-			NewWorker:                    storageprovisioner.NewCaasWorker,
+			APICallerName:       apiCallerName,
+			Clock:               config.Clock,
+			Logger:              config.LoggingContext.GetLogger("juju.worker.storageprovisioner"),
+			StorageRegistryName: providerTrackerName,
+			Model:               modelTag,
+			NewWorker:           storageprovisioner.NewCaasWorker,
 		}))),
 	}
 	result := commonManifolds(config)

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 var _ environs.NetworkingEnviron = (*azureEnviron)(nil)
@@ -45,7 +44,7 @@ func (env *azureEnviron) networkInfo(ctx context.Context) (vnetRG string, vnetNa
 
 // Subnets implements environs.NetworkingEnviron.
 func (env *azureEnviron) Subnets(
-	ctx envcontext.ProviderCallContext, _ []network.Id) ([]network.SubnetInfo, error) {
+	ctx context.Context, _ []network.Id) ([]network.SubnetInfo, error) {
 	subnets, err := env.allSubnets(ctx)
 	if err != nil {
 		return nil, env.HandleCredentialError(ctx, err)
@@ -53,7 +52,7 @@ func (env *azureEnviron) Subnets(
 	return subnets, nil
 }
 
-func (env *azureEnviron) allProviderSubnets(ctx envcontext.ProviderCallContext) ([]*azurenetwork.Subnet, error) {
+func (env *azureEnviron) allProviderSubnets(ctx context.Context) ([]*azurenetwork.Subnet, error) {
 	// Subnet discovery happens immediately after model creation.
 	// We need to ensure that the asynchronously invoked resource creation has
 	// completed and added our networking assets.
@@ -80,7 +79,7 @@ func (env *azureEnviron) allProviderSubnets(ctx envcontext.ProviderCallContext) 
 	return result, nil
 }
 
-func (env *azureEnviron) allSubnets(ctx envcontext.ProviderCallContext) ([]network.SubnetInfo, error) {
+func (env *azureEnviron) allSubnets(ctx context.Context) ([]network.SubnetInfo, error) {
 	values, err := env.allProviderSubnets(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -122,7 +121,7 @@ func (env *azureEnviron) allSubnets(ctx envcontext.ProviderCallContext) ([]netwo
 	return results, nil
 }
 
-func (env *azureEnviron) allPublicIPs(ctx envcontext.ProviderCallContext) (map[string]network.ProviderAddress, error) {
+func (env *azureEnviron) allPublicIPs(ctx context.Context) (map[string]network.ProviderAddress, error) {
 	idToIPMap := make(map[string]network.ProviderAddress)
 
 	pipClient, err := env.publicAddressesClient()
@@ -163,7 +162,7 @@ func (env *azureEnviron) allPublicIPs(ctx envcontext.ProviderCallContext) (map[s
 // If only a subset of the instance IDs exist, the result will contain a nil
 // value for the missing instances and a ErrPartialInstances error will be
 // returned.
-func (env *azureEnviron) NetworkInterfaces(ctx envcontext.ProviderCallContext, instanceIDs []instance.Id) ([]network.InterfaceInfos, error) {
+func (env *azureEnviron) NetworkInterfaces(ctx context.Context, instanceIDs []instance.Id) ([]network.InterfaceInfos, error) {
 	// Create a subnet (provider) ID to CIDR map so we can identify the
 	// subnet for each NIC address when mapping azure NIC details.
 	allSubnets, err := env.allSubnets(ctx)
@@ -329,7 +328,7 @@ func (env *azureEnviron) defaultControllerSubnet() network.Id {
 	return network.Id(subnetID)
 }
 
-func (env *azureEnviron) findSubnetID(ctx envcontext.ProviderCallContext, subnetName string) (network.Id, error) {
+func (env *azureEnviron) findSubnetID(ctx context.Context, subnetName string) (network.Id, error) {
 	subnets, err := env.allProviderSubnets(ctx)
 	if err != nil {
 		return "", env.HandleCredentialError(ctx, err)
@@ -345,7 +344,7 @@ func (env *azureEnviron) findSubnetID(ctx envcontext.ProviderCallContext, subnet
 // networkInfoForInstance returns the virtual network and subnet to use
 // when provisioning an instance.
 func (env *azureEnviron) networkInfoForInstance(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	args environs.StartInstanceParams,
 	bootstrapping, controller bool,
 	placementSubnetID network.Id,
@@ -481,7 +480,7 @@ func (env *azureEnviron) parsePlacement(placement string) (string, error) {
 	return "", fmt.Errorf("unknown placement directive: %v", placement)
 }
 
-func (env *azureEnviron) findPlacementSubnet(ctx envcontext.ProviderCallContext, placement string) (network.Id, error) {
+func (env *azureEnviron) findPlacementSubnet(ctx context.Context, placement string) (network.Id, error) {
 	if placement == "" {
 		return "", nil
 	}

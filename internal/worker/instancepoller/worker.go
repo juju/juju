@@ -20,9 +20,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -45,7 +43,7 @@ var (
 // poller.
 type Environ interface {
 	Instances(ctx context.Context, ids []instance.Id) ([]instances.Instance, error)
-	NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error)
+	NetworkInterfaces(ctx context.Context, ids []instance.Id) ([]network.InterfaceInfos, error)
 }
 
 // Machine specifies an interface for machine instances processed by the
@@ -77,8 +75,6 @@ type Config struct {
 	Facade  FacadeAPI
 	Environ Environ
 	Logger  logger.Logger
-
-	CredentialAPI common.CredentialAPI
 }
 
 // Validate checks whether the worker configuration settings are valid.
@@ -94,9 +90,6 @@ func (config Config) Validate() error {
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
-	}
-	if config.CredentialAPI == nil {
-		return errors.NotValidf("nil CredentialAPI")
 	}
 	return nil
 }
@@ -137,7 +130,6 @@ type updaterWorker struct {
 
 	pollGroup              [2]map[names.MachineTag]*pollGroupEntry
 	instanceIDToGroupEntry map[instance.Id]*pollGroupEntry
-	callContextFunc        common.CloudCallContextFunc
 
 	// Hook function which tests can use to be notified when the worker
 	// has processed a full loop iteration.
@@ -158,7 +150,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 			make(map[names.MachineTag]*pollGroupEntry),
 		},
 		instanceIDToGroupEntry: make(map[instance.Id]*pollGroupEntry),
-		callContextFunc:        common.NewCloudCallContextFunc(config.CredentialAPI),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &u.catacomb,
@@ -355,7 +346,7 @@ func (u *updaterWorker) pollGroupMembers(ctx context.Context, groupType pollGrou
 		return nil
 	}
 
-	infoList, err := u.config.Environ.Instances(u.callContextFunc(ctx), instList)
+	infoList, err := u.config.Environ.Instances(ctx, instList)
 	if err != nil {
 		switch errors.Cause(err) {
 		case environs.ErrPartialInstances:
@@ -382,7 +373,7 @@ func (u *updaterWorker) pollGroupMembers(ctx context.Context, groupType pollGrou
 		}
 	}
 
-	netList, err := u.config.Environ.NetworkInterfaces(u.callContextFunc(ctx), instList)
+	netList, err := u.config.Environ.NetworkInterfaces(ctx, instList)
 	if err != nil && !isPartialOrNoInstancesError(err) {
 		// NOTE(achilleasa): 2022-01-24: all existing providers (with the
 		// exception of "manual" which we don't care about in this context)
@@ -481,7 +472,7 @@ func (u *updaterWorker) processProviderInfo(
 	}
 
 	// Check for status changes
-	providerStatus := info.Status(u.callContextFunc(context.Background()))
+	providerStatus := info.Status(ctx)
 	curInstStatus := instance.Status{
 		Status:  status.Status(curStatus.Status),
 		Message: curStatus.Info,

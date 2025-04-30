@@ -4,6 +4,8 @@
 package vsphere_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
@@ -11,7 +13,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/provider/vsphere/internal/vsphereclient"
 )
@@ -57,7 +58,7 @@ func (s *environAvailzonesSuite) TestAvailabilityZones(c *gc.C) {
 
 	c.Assert(s.env, gc.Implements, new(common.ZonedEnviron))
 	zonedEnviron := s.env.(common.ZonedEnviron)
-	zones, err := zonedEnviron.AvailabilityZones(s.callCtx)
+	zones, err := zonedEnviron.AvailabilityZones(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(zones), gc.Equals, 6)
 	// No zones for the empty resource.
@@ -84,7 +85,7 @@ func (s *environAvailzonesSuite) TestAvailabilityZonesInFolder(c *gc.C) {
 
 	c.Assert(s.env, gc.Implements, new(common.ZonedEnviron))
 	zonedEnviron := s.env.(common.ZonedEnviron)
-	zones, err := zonedEnviron.AvailabilityZones(s.callCtx)
+	zones, err := zonedEnviron.AvailabilityZones(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(zones), gc.Equals, 3)
 	c.Assert(zones[0].Name(), gc.Equals, "Folder/z1")
@@ -123,7 +124,7 @@ func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 	ids := []instance.Id{"inst-0", "inst-1", "inst-2", "inst-3", "inst-4"}
 
 	zonedEnviron := s.env.(common.ZonedEnviron)
-	zones, err := zonedEnviron.InstanceAvailabilityZoneNames(s.callCtx, ids)
+	zones, err := zonedEnviron.InstanceAvailabilityZoneNames(context.Background(), ids)
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
 	c.Assert(zones, jc.DeepEquals, map[instance.Id]string{
 		"inst-0": "z2",
@@ -135,7 +136,7 @@ func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNamesNoInstances(c *gc.C) {
 	s.client.folders = makeFolders("/DC/host")
 	zonedEnviron := s.env.(common.ZonedEnviron)
-	_, err := zonedEnviron.InstanceAvailabilityZoneNames(s.callCtx, []instance.Id{"inst-0"})
+	_, err := zonedEnviron.InstanceAvailabilityZoneNames(context.Background(), []instance.Id{"inst-0"})
 	c.Assert(err, gc.Equals, environs.ErrNoInstances)
 }
 
@@ -152,7 +153,7 @@ func (s *environAvailzonesSuite) TestDeriveAvailabilityZones(c *gc.C) {
 	zonedEnviron := s.env.(common.ZonedEnviron)
 
 	zones, err := zonedEnviron.DeriveAvailabilityZones(
-		s.callCtx,
+		context.Background(),
 		environs.StartInstanceParams{Placement: "zone=test-available"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.DeepEquals, []string{"test-available"})
@@ -164,7 +165,7 @@ func (s *environAvailzonesSuite) TestDeriveAvailabilityZonesUnknown(c *gc.C) {
 	zonedEnviron := s.env.(common.ZonedEnviron)
 
 	zones, err := zonedEnviron.DeriveAvailabilityZones(
-		s.callCtx,
+		context.Background(),
 		environs.StartInstanceParams{Placement: "zone=test-unknown"})
 	c.Assert(err, gc.ErrorMatches, `availability zone "test-unknown" not found`)
 	c.Assert(zones, gc.HasLen, 0)
@@ -176,7 +177,7 @@ func (s *environAvailzonesSuite) TestDeriveAvailabilityZonesInvalidPlacement(c *
 	zonedEnviron := s.env.(common.ZonedEnviron)
 
 	zones, err := zonedEnviron.DeriveAvailabilityZones(
-		s.callCtx,
+		context.Background(),
 		environs.StartInstanceParams{
 			Placement: "invalid-placement",
 		})
@@ -185,7 +186,7 @@ func (s *environAvailzonesSuite) TestDeriveAvailabilityZonesInvalidPlacement(c *
 }
 
 func (s *environAvailzonesSuite) TestAvailabilityZonesPermissionError(c *gc.C) {
-	AssertInvalidatesCredential(c, s.client, func(ctx envcontext.ProviderCallContext) error {
+	AssertInvalidatesCredential(c, s.client, func(ctx context.Context) error {
 		zonedEnv := s.env.(common.ZonedEnviron)
 		_, err := zonedEnv.AvailabilityZones(ctx)
 		return err

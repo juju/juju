@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/internal/provider/common"
@@ -34,10 +33,10 @@ const bootstrapMessage = `To configure your system to better support LXD contain
 
 type baseProvider interface {
 	// BootstrapEnv bootstraps a Juju environment.
-	BootstrapEnv(environs.BootstrapContext, envcontext.ProviderCallContext, environs.BootstrapParams) (*environs.BootstrapResult, error)
+	BootstrapEnv(environs.BootstrapContext, environs.BootstrapParams) (*environs.BootstrapResult, error)
 
 	// DestroyEnv destroys the provided Juju environment.
-	DestroyEnv(ctx envcontext.ProviderCallContext) error
+	DestroyEnv(ctx context.Context) error
 }
 
 type environ struct {
@@ -212,14 +211,14 @@ func (env *environ) PrepareForBootstrap(_ environs.BootstrapContext, _ string) e
 }
 
 // Bootstrap implements environs.Environ.
-func (env *environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	ctx.Infof("%s", bootstrapMessage)
-	return env.base.BootstrapEnv(ctx, callCtx, params)
+	return env.base.BootstrapEnv(ctx, params)
 }
 
 // Destroy shuts down all known machines and destroys the rest of the
 // known environment.
-func (env *environ) Destroy(ctx envcontext.ProviderCallContext) error {
+func (env *environ) Destroy(ctx context.Context) error {
 	if err := env.base.DestroyEnv(ctx); err != nil {
 		return errors.Trace(env.HandleCredentialError(ctx, err))
 	}
@@ -232,7 +231,7 @@ func (env *environ) Destroy(ctx envcontext.ProviderCallContext) error {
 }
 
 // DestroyController implements the Environ interface.
-func (env *environ) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
+func (env *environ) DestroyController(ctx context.Context, controllerUUID string) error {
 	if err := env.Destroy(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -319,7 +318,7 @@ func (env *environ) AvailabilityZones(ctx context.Context) (network.Availability
 // availability zones for the specified instances.
 // For containers, this means the LXD server node names where they reside.
 func (env *environ) InstanceAvailabilityZoneNames(
-	ctx envcontext.ProviderCallContext, ids []instance.Id,
+	ctx context.Context, ids []instance.Id,
 ) (map[instance.Id]string, error) {
 	instances, err := env.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {
@@ -350,7 +349,7 @@ func (env *environ) InstanceAvailabilityZoneNames(
 // DeriveAvailabilityZones (ZonedEnviron) attempts to derive availability zones
 // from the specified StartInstanceParams.
 func (env *environ) DeriveAvailabilityZones(
-	ctx envcontext.ProviderCallContext, args environs.StartInstanceParams,
+	ctx context.Context, args environs.StartInstanceParams,
 ) ([]string, error) {
 	p, err := env.parsePlacement(ctx, args.Placement)
 	if err != nil {

@@ -13,7 +13,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/testing"
@@ -25,14 +24,11 @@ type loopSuite struct {
 	testing.BaseSuite
 	storageDir string
 	commands   *mockRunCommand
-
-	callCtx envcontext.ProviderCallContext
 }
 
 func (s *loopSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.storageDir = c.MkDir()
-	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *loopSuite) TearDownTest(c *gc.C) {
@@ -93,7 +89,7 @@ func (s *loopSuite) TestCreateVolumes(c *gc.C) {
 	source, _ := s.loopVolumeSource(c)
 	s.commands.expect("fallocate", "-l", "2MiB", filepath.Join(s.storageDir, "volume-0"))
 
-	results, err := source.CreateVolumes(s.callCtx, []storage.VolumeParams{{
+	results, err := source.CreateVolumes(context.Background(), []storage.VolumeParams{{
 		Tag:  names.NewVolumeTag("0"),
 		Size: 2,
 		Attachment: &storage.VolumeAttachmentParams{
@@ -120,7 +116,7 @@ func (s *loopSuite) TestCreateVolumes(c *gc.C) {
 func (s *loopSuite) TestCreateVolumesNoAttachment(c *gc.C) {
 	source, _ := s.loopVolumeSource(c)
 	s.commands.expect("fallocate", "-l", "2MiB", filepath.Join(s.storageDir, "volume-0"))
-	_, err := source.CreateVolumes(s.callCtx, []storage.VolumeParams{{
+	_, err := source.CreateVolumes(context.Background(), []storage.VolumeParams{{
 		Tag:  names.NewVolumeTag("0"),
 		Size: 2,
 	}})
@@ -135,7 +131,7 @@ func (s *loopSuite) TestDestroyVolumes(c *gc.C) {
 	err := os.WriteFile(fileName, nil, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	errs, err := source.DestroyVolumes(s.callCtx, []string{"volume-0"})
+	errs, err := source.DestroyVolumes(context.Background(), []string{"volume-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.HasLen, 1)
 	c.Assert(errs[0], jc.ErrorIsNil)
@@ -146,7 +142,7 @@ func (s *loopSuite) TestDestroyVolumes(c *gc.C) {
 
 func (s *loopSuite) TestDestroyVolumesInvalidVolumeId(c *gc.C) {
 	source, _ := s.loopVolumeSource(c)
-	errs, err := source.DestroyVolumes(s.callCtx, []string{"../super/important/stuff"})
+	errs, err := source.DestroyVolumes(context.Background(), []string{"../super/important/stuff"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.HasLen, 1)
 	c.Assert(errs[0], gc.ErrorMatches, `.* invalid loop volume ID "\.\./super/important/stuff"`)
@@ -154,7 +150,7 @@ func (s *loopSuite) TestDestroyVolumesInvalidVolumeId(c *gc.C) {
 
 func (s *loopSuite) TestDescribeVolumes(c *gc.C) {
 	source, _ := s.loopVolumeSource(c)
-	_, err := source.DescribeVolumes(s.callCtx, []string{"a", "b"})
+	_, err := source.DescribeVolumes(context.Background(), []string{"a", "b"})
 	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
 }
 
@@ -171,7 +167,7 @@ func (s *loopSuite) TestAttachVolumes(c *gc.C) {
 	cmd = s.commands.expect("losetup", "-j", filepath.Join(s.storageDir, "volume-2"))
 	cmd.respond("/dev/loop42: foo\n/dev/loop1: foo\n", nil) // existing attachments
 
-	results, err := source.AttachVolumes(s.callCtx, []storage.VolumeAttachmentParams{{
+	results, err := source.AttachVolumes(context.Background(), []storage.VolumeAttachmentParams{{
 		Volume:   names.NewVolumeTag("0"),
 		VolumeId: "vol-ume0",
 		AttachmentParams: storage.AttachmentParams{
@@ -231,7 +227,7 @@ func (s *loopSuite) TestDetachVolumes(c *gc.C) {
 	err := os.WriteFile(fileName, nil, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	errs, err := source.DetachVolumes(s.callCtx, []storage.VolumeAttachmentParams{{
+	errs, err := source.DetachVolumes(context.Background(), []storage.VolumeAttachmentParams{{
 		Volume:   names.NewVolumeTag("0"),
 		VolumeId: "vol-ume0",
 		AttachmentParams: storage.AttachmentParams{
@@ -259,7 +255,7 @@ func (s *loopSuite) TestDetachVolumesDetachFails(c *gc.C) {
 	err := os.WriteFile(fileName, nil, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	errs, err := source.DetachVolumes(s.callCtx, []storage.VolumeAttachmentParams{{
+	errs, err := source.DetachVolumes(context.Background(), []storage.VolumeAttachmentParams{{
 		Volume:   names.NewVolumeTag("0"),
 		VolumeId: "vol-ume0",
 		AttachmentParams: storage.AttachmentParams{

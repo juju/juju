@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/undertaker"
 )
 
@@ -52,9 +51,6 @@ func (s *manifoldSuite) namesConfig(c *gc.C) undertaker.ManifoldConfig {
 	return undertaker.ManifoldConfig{
 		APICallerName: "api-caller",
 		Logger:        loggertesting.WrapCheckLog(c),
-		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) {
-			return &fakeCredentialAPI{}, nil
-		},
 		NewCloudDestroyerFunc: func(ctx context.Context, params environs.OpenParams, _ environs.CredentialInvalidator) (environs.CloudDestroyer, error) {
 			return &fakeEnviron{}, nil
 		},
@@ -91,22 +87,6 @@ func (s *manifoldSuite) TestNewFacadeError(c *gc.C) {
 	}
 	manifold := undertaker.Manifold(config)
 
-	worker, err := manifold.Start(context.Background(), resources.Getter())
-	c.Check(err, gc.ErrorMatches, "blort")
-	c.Check(worker, gc.IsNil)
-}
-
-func (s *manifoldSuite) TestNewCredentialAPIError(c *gc.C) {
-	config := s.namesConfig(c)
-	config.NewFacade = func(_ base.APICaller) (undertaker.Facade, error) {
-		return &fakeFacade{}, nil
-	}
-	config.NewCredentialValidatorFacade = func(apiCaller base.APICaller) (common.CredentialAPI, error) {
-		return nil, errors.New("blort")
-	}
-	manifold := undertaker.Manifold(config)
-
-	resources := resourcesMissing()
 	worker, err := manifold.Start(context.Background(), resources.Getter())
 	c.Check(err, gc.ErrorMatches, "blort")
 	c.Check(worker, gc.IsNil)
@@ -184,10 +164,4 @@ type fakeFacade struct {
 
 type fakeWorker struct {
 	worker.Worker
-}
-
-type fakeCredentialAPI struct{}
-
-func (*fakeCredentialAPI) InvalidateModelCredential(_ context.Context, reason string) error {
-	return nil
 }

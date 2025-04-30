@@ -4,6 +4,7 @@
 package gce_test
 
 import (
+	"context"
 	"errors"
 
 	jc "github.com/juju/testing/checkers"
@@ -95,7 +96,7 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	s.FakeEnviron.Inst = s.BaseInstance
 	s.FakeEnviron.Hwc = s.hardware
 
-	result, err := s.Env.StartInstance(s.CallCtx, s.StartInstArgs)
+	result, err := s.Env.StartInstance(context.Background(), s.StartInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Instance, jc.DeepEquals, s.Instance)
@@ -105,7 +106,7 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 func (s *environBrokerSuite) TestStartInstanceAvailabilityZoneIndependentError(c *gc.C) {
 	s.FakeEnviron.Err = errors.New("blargh")
 
-	_, err := s.Env.StartInstance(s.CallCtx, s.StartInstArgs)
+	_, err := s.Env.StartInstance(context.Background(), s.StartInstArgs)
 	c.Assert(err, gc.ErrorMatches, "blargh")
 	c.Assert(err, jc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
 }
@@ -118,12 +119,12 @@ func (s *environBrokerSuite) TestStartInstanceVolumeAvailabilityZone(c *gc.C) {
 	s.StartInstArgs.VolumeAttachments = []storage.VolumeAttachmentParams{{
 		VolumeId: "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
 	}}
-	derivedZones, err := s.Env.DeriveAvailabilityZones(s.CallCtx, s.StartInstArgs)
+	derivedZones, err := s.Env.DeriveAvailabilityZones(context.Background(), s.StartInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(derivedZones, gc.HasLen, 1)
 	s.StartInstArgs.AvailabilityZone = derivedZones[0]
 
-	result, err := s.Env.StartInstance(s.CallCtx, s.StartInstArgs)
+	result, err := s.Env.StartInstance(context.Background(), s.StartInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*result.Hardware.AvailabilityZone, gc.Equals, derivedZones[0])
@@ -139,7 +140,7 @@ func (s *environBrokerSuite) TestFinishInstanceConfig(c *gc.C) {
 func (s *environBrokerSuite) TestBuildInstanceSpec(c *gc.C) {
 	s.FakeEnviron.Spec = s.spec
 
-	spec, err := gce.BuildInstanceSpec(s.Env, s.CallCtx, s.StartInstArgs)
+	spec, err := gce.BuildInstanceSpec(s.Env, context.Background(), s.StartInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(spec.InstanceType, jc.DeepEquals, s.InstanceType)
@@ -159,7 +160,7 @@ func (s *environBrokerSuite) TestNewRawInstance(c *gc.C) {
 		Instances: []instance.Id{s.Instance.Id()},
 	}}
 
-	inst, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
+	inst, err := gce.NewRawInstance(s.Env, context.Background(), s.StartInstArgs, s.spec)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(inst, jc.DeepEquals, s.BaseInstance)
@@ -175,7 +176,7 @@ func (s *environBrokerSuite) TestNewRawInstanceNoPublicIP(c *gc.C) {
 	public := false
 	s.StartInstArgs.Constraints.AllocatePublicIP = &public
 
-	inst, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
+	inst, err := gce.NewRawInstance(s.Env, context.Background(), s.StartInstArgs, s.spec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	nics := inst.NetworkInterfaces()
@@ -186,7 +187,7 @@ func (s *environBrokerSuite) TestNewRawInstanceNoPublicIP(c *gc.C) {
 func (s *environBrokerSuite) TestNewRawInstanceZoneInvalidCredentialError(c *gc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	_, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
+	_, err := gce.NewRawInstance(s.Env, context.Background(), s.StartInstArgs, s.spec)
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 	c.Assert(err, gc.Not(jc.ErrorIs), environs.ErrAvailabilityZoneIndependent)
@@ -195,7 +196,7 @@ func (s *environBrokerSuite) TestNewRawInstanceZoneInvalidCredentialError(c *gc.
 func (s *environBrokerSuite) TestNewRawInstanceZoneSpecificError(c *gc.C) {
 	s.FakeConn.Err = errors.New("blargh")
 
-	_, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
+	_, err := gce.NewRawInstance(s.Env, context.Background(), s.StartInstArgs, s.spec)
 	c.Assert(err, gc.ErrorMatches, "blargh")
 	c.Assert(err, gc.Not(jc.ErrorIs), environs.ErrAvailabilityZoneIndependent)
 }
@@ -259,7 +260,7 @@ func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 func (s *environBrokerSuite) TestSettingImageStreamsViaConfig(c *gc.C) {
 	s.FakeConn.Inst = s.BaseInstance
 	s.UpdateConfig(c, map[string]interface{}{"image-stream": "released"})
-	result, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
+	result, err := gce.NewRawInstance(s.Env, context.Background(), s.StartInstArgs, s.spec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, gc.NotNil)
 	c.Check(c.GetTestLog(), jc.Contains, gce.UbuntuImageBasePath)
@@ -268,7 +269,7 @@ func (s *environBrokerSuite) TestSettingImageStreamsViaConfig(c *gc.C) {
 func (s *environBrokerSuite) TestSettingImageStreamsViaConfigToDaily(c *gc.C) {
 	s.FakeConn.Inst = s.BaseInstance
 	s.UpdateConfig(c, map[string]interface{}{"image-stream": "daily"})
-	result, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
+	result, err := gce.NewRawInstance(s.Env, context.Background(), s.StartInstArgs, s.spec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, gc.NotNil)
 	c.Check(c.GetTestLog(), jc.Contains, gce.UbuntuDailyImageBasePath)
@@ -277,7 +278,7 @@ func (s *environBrokerSuite) TestSettingImageStreamsViaConfigToDaily(c *gc.C) {
 func (s *environBrokerSuite) TestSettingImageStreamsViaConfigToPro(c *gc.C) {
 	s.FakeConn.Inst = s.BaseInstance
 	s.UpdateConfig(c, map[string]interface{}{"image-stream": "pro"})
-	result, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
+	result, err := gce.NewRawInstance(s.Env, context.Background(), s.StartInstArgs, s.spec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, gc.NotNil)
 	c.Check(c.GetTestLog(), jc.Contains, gce.UbuntuProImageBasePath)
@@ -289,7 +290,7 @@ func (s *environBrokerSuite) TestSettingBaseImagePathOverwritesImageStreams(c *g
 		"image-stream":    "daily",
 		"base-image-path": "/opt/custom-builds/",
 	})
-	result, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
+	result, err := gce.NewRawInstance(s.Env, context.Background(), s.StartInstArgs, s.spec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, gc.NotNil)
 	c.Check(c.GetTestLog(), jc.Contains, "/opt/custom-builds/")
@@ -310,13 +311,13 @@ func (s *environBrokerSuite) TestGetHardwareCharacteristics(c *gc.C) {
 func (s *environBrokerSuite) TestAllRunningInstances(c *gc.C) {
 	s.FakeEnviron.Insts = []instances.Instance{s.Instance}
 
-	insts, err := s.Env.AllRunningInstances(s.CallCtx)
+	insts, err := s.Env.AllRunningInstances(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(insts, jc.DeepEquals, []instances.Instance{s.Instance})
 }
 
 func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
-	err := s.Env.StopInstances(s.CallCtx, s.Instance.Id())
+	err := s.Env.StopInstances(context.Background(), s.Instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	called, calls := s.FakeConn.WasCalled("RemoveInstances")
@@ -329,7 +330,7 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 func (s *environBrokerSuite) TestStopInstancesInvalidCredentialError(c *gc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
-	err := s.Env.StopInstances(s.CallCtx, s.Instance.Id())
+	err := s.Env.StopInstances(context.Background(), s.Instance.Id())
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }

@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/provider/oci"
 	"github.com/juju/juju/internal/storage"
@@ -23,8 +22,7 @@ import (
 type storageVolumeSuite struct {
 	commonSuite
 
-	provider   storage.Provider
-	environCtx envcontext.ProviderCallContext
+	provider storage.Provider
 }
 
 var _ = gc.Suite(&storageVolumeSuite{})
@@ -32,7 +30,6 @@ var _ = gc.Suite(&storageVolumeSuite{})
 func (s *storageVolumeSuite) SetUpTest(c *gc.C) {
 	s.commonSuite.SetUpTest(c)
 
-	s.environCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 	var err error
 	s.provider, err = s.env.StorageProvider(oci.OciStorageProviderType)
 	c.Assert(err, gc.IsNil)
@@ -106,7 +103,7 @@ func (s *storageVolumeSuite) TestCreateVolumes(c *gc.C) {
 	s.setupListInstancesExpectations(s.testInstanceID, ociCore.InstanceLifecycleStateRunning, 0)
 	s.setupCreateVolumesExpectations(volumeTag, 61440)
 
-	results, err := source.CreateVolumes(s.environCtx, []storage.VolumeParams{
+	results, err := source.CreateVolumes(context.Background(), []storage.VolumeParams{
 		{
 			Size:     uint64(61440),
 			Tag:      names.NewVolumeTag("1"),
@@ -125,7 +122,7 @@ func (s *storageVolumeSuite) TestCreateVolumes(c *gc.C) {
 
 func (s *storageVolumeSuite) TestCreateVolumesInvalidSize(c *gc.C) {
 	source := s.newVolumeSource(c)
-	results, err := source.CreateVolumes(s.environCtx, []storage.VolumeParams{
+	results, err := source.CreateVolumes(context.Background(), []storage.VolumeParams{
 		{
 			Size:     uint64(2048),
 			Tag:      names.NewVolumeTag("1"),
@@ -144,7 +141,7 @@ func (s *storageVolumeSuite) TestCreateVolumesInvalidSize(c *gc.C) {
 
 func (s *storageVolumeSuite) TestCreateVolumesNilParams(c *gc.C) {
 	source := s.newVolumeSource(c)
-	results, err := source.CreateVolumes(s.environCtx, nil)
+	results, err := source.CreateVolumes(context.Background(), nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.HasLen, 0)
 }
@@ -188,7 +185,7 @@ func (s *storageVolumeSuite) TestListVolumes(c *gc.C) {
 
 	source := s.newVolumeSource(c)
 
-	volumes, err := source.ListVolumes(s.environCtx)
+	volumes, err := source.ListVolumes(context.Background())
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(volumes), gc.Equals, 2)
 	c.Assert(volumes, jc.SameContents, []string{"fakeVolumeId", "fakeVolumeId2"})
@@ -202,18 +199,18 @@ func (s *storageVolumeSuite) TestDescribeVolumes(c *gc.C) {
 
 	source := s.newVolumeSource(c)
 
-	results, err := source.DescribeVolumes(s.environCtx, []string{"fakeVolumeId"})
+	results, err := source.DescribeVolumes(context.Background(), []string{"fakeVolumeId"})
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 	c.Assert(results[0].VolumeInfo.VolumeId, gc.Equals, "fakeVolumeId")
 	c.Assert(results[0].VolumeInfo.Size, gc.Equals, uint64(60*1024))
 	c.Assert(results[0].VolumeInfo.Persistent, gc.Equals, true)
 
-	results, err = source.DescribeVolumes(s.environCtx, []string{"fakeVolumeId", "fakeVolumeId2"})
+	results, err = source.DescribeVolumes(context.Background(), []string{"fakeVolumeId", "fakeVolumeId2"})
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 2)
 
-	results, err = source.DescribeVolumes(s.environCtx, []string{"IDontExist", "fakeVolumeId2"})
+	results, err = source.DescribeVolumes(context.Background(), []string{"IDontExist", "fakeVolumeId2"})
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 2)
 	c.Assert(results[0].Error, gc.NotNil)
@@ -271,12 +268,12 @@ func (s *storageVolumeSuite) TestDestroyVolumes(c *gc.C) {
 
 	source := s.newVolumeSource(c)
 
-	results, err := source.DestroyVolumes(s.environCtx, []string{"fakeVolumeId"})
+	results, err := source.DestroyVolumes(context.Background(), []string{"fakeVolumeId"})
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 	c.Assert(results[0], gc.IsNil)
 
-	results, err = source.DestroyVolumes(s.environCtx, []string{"bogusId"})
+	results, err = source.DestroyVolumes(context.Background(), []string{"bogusId"})
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 	c.Assert(results[0], gc.ErrorMatches, "no such volume.*")
@@ -306,12 +303,12 @@ func (s *storageVolumeSuite) TestReleaseVolumes(c *gc.C) {
 	s.setupUpdateVolumesExpectations("fakeVolumeId")
 	source := s.newVolumeSource(c)
 
-	results, err := source.ReleaseVolumes(s.environCtx, []string{"fakeVolumeId"})
+	results, err := source.ReleaseVolumes(context.Background(), []string{"fakeVolumeId"})
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 	c.Assert(results[0], gc.IsNil)
 
-	results, err = source.ReleaseVolumes(s.environCtx, []string{"IAmNotHereWhatIsHereIsntHereJustThereButWithoutTheT"})
+	results, err = source.ReleaseVolumes(context.Background(), []string{"IAmNotHereWhatIsHereIsntHereJustThereButWithoutTheT"})
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 	c.Assert(results[0], gc.ErrorMatches, "no such volume.*")
@@ -377,7 +374,7 @@ func (s *storageVolumeSuite) TestAttachVolumeWithExistingAttachment(c *gc.C) {
 
 	source := s.newVolumeSource(c)
 
-	result, err := source.AttachVolumes(s.environCtx, []storage.VolumeAttachmentParams{
+	result, err := source.AttachVolumes(context.Background(), []storage.VolumeAttachmentParams{
 		{
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   oci.OciStorageProviderType,
@@ -410,7 +407,7 @@ func (s *storageVolumeSuite) TestAttachVolumeWithInvalidInstanceState(c *gc.C) {
 
 	source := s.newVolumeSource(c)
 
-	result, err := source.AttachVolumes(s.environCtx, []storage.VolumeAttachmentParams{
+	result, err := source.AttachVolumes(context.Background(), []storage.VolumeAttachmentParams{
 		{
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   oci.OciStorageProviderType,
@@ -499,7 +496,7 @@ func (s *storageVolumeSuite) TestAttachVolume(c *gc.C) {
 
 	source := s.newVolumeSource(c)
 
-	result, err := source.AttachVolumes(s.environCtx, []storage.VolumeAttachmentParams{
+	result, err := source.AttachVolumes(context.Background(), []storage.VolumeAttachmentParams{
 		{
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   oci.OciStorageProviderType,
@@ -543,7 +540,7 @@ func (s *storageVolumeSuite) TestDetachVolume(c *gc.C) {
 
 	source := s.newVolumeSource(c)
 
-	result, err := source.DetachVolumes(s.environCtx, []storage.VolumeAttachmentParams{
+	result, err := source.DetachVolumes(context.Background(), []storage.VolumeAttachmentParams{
 		{
 			AttachmentParams: storage.AttachmentParams{
 				Provider:   oci.OciStorageProviderType,

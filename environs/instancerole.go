@@ -4,7 +4,7 @@
 package environs
 
 import (
-	"github.com/juju/juju/environs/envcontext"
+	"context"
 )
 
 const (
@@ -18,9 +18,9 @@ const (
 type InstanceRole interface {
 	// CreateAutoInstanceRole is responsible for setting up an instance role on
 	// behalf of the user.
-	CreateAutoInstanceRole(envcontext.ProviderCallContext, BootstrapParams) (string, error)
+	CreateAutoInstanceRole(context.Context, BootstrapParams) (string, error)
 
 	// SupportsInstanceRoles indicates if Instance Roles are supported by this
 	// environ.
-	SupportsInstanceRoles(envcontext.ProviderCallContext) bool
+	SupportsInstanceRoles(context.Context) bool
 }

@@ -4,7 +4,6 @@
 package storageprovisioner_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -16,7 +15,6 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/envcontext"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -54,9 +52,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		Clock:        &mockClock{},
 		Logger:       loggertesting.WrapCheckLog(c),
 		Registry:     storage.StaticProviderRegistry{},
-		CloudCallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
-			return envcontext.WithoutCredentialInvalidator(ctx)
-		},
 	}
 }
 

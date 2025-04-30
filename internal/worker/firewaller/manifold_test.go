@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/firewaller"
 )
 
@@ -79,15 +78,14 @@ func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
 
 func validConfig(c *gc.C) firewaller.ManifoldConfig {
 	return firewaller.ManifoldConfig{
-		AgentName:                    "agent",
-		APICallerName:                "api-caller",
-		EnvironName:                  "environ",
-		Logger:                       loggertesting.WrapCheckLog(c),
-		NewControllerConnection:      func(context.Context, *api.Info) (api.Connection, error) { return nil, nil },
-		NewFirewallerFacade:          func(base.APICaller) (firewaller.FirewallerAPI, error) { return nil, nil },
-		NewFirewallerWorker:          func(firewaller.Config) (worker.Worker, error) { return nil, nil },
-		NewRemoteRelationsFacade:     func(base.APICaller) *remoterelations.Client { return nil },
-		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) { return nil, nil },
+		AgentName:                "agent",
+		APICallerName:            "api-caller",
+		EnvironName:              "environ",
+		Logger:                   loggertesting.WrapCheckLog(c),
+		NewControllerConnection:  func(context.Context, *api.Info) (api.Connection, error) { return nil, nil },
+		NewFirewallerFacade:      func(base.APICaller) (firewaller.FirewallerAPI, error) { return nil, nil },
+		NewFirewallerWorker:      func(firewaller.Config) (worker.Worker, error) { return nil, nil },
+		NewRemoteRelationsFacade: func(base.APICaller) *remoterelations.Client { return nil },
 	}
 }
 
@@ -133,11 +131,6 @@ func (s *ManifoldConfigSuite) TestMissingNewControllerConnection(c *gc.C) {
 func (s *ManifoldConfigSuite) TestMissingNewRemoteRelationsFacade(c *gc.C) {
 	s.config.NewRemoteRelationsFacade = nil
 	s.checkNotValid(c, "nil NewRemoteRelationsFacade not valid")
-}
-
-func (s *ManifoldConfigSuite) TestMissingNewCredentialValidatorFacade(c *gc.C) {
-	s.config.NewCredentialValidatorFacade = nil
-	s.checkNotValid(c, "nil NewCredentialValidatorFacade not valid")
 }
 
 func (s *ManifoldConfigSuite) checkNotValid(c *gc.C, expect string) {

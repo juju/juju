@@ -17,7 +17,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 const (
@@ -262,7 +261,7 @@ func getVPCSubnets(ctx context.Context, apiClient vpcAPIClient, vpcID string) ([
 // that conforms to NotFound is returned.
 func subnetsForIDs(
 	apiClient vpcAPIClient,
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	subnetIds []corenetwork.Id,
 ) ([]types.Subnet, error) {
 	if len(subnetIds) == 0 {

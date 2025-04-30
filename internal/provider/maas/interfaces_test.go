@@ -4,6 +4,8 @@
 package maas
 
 import (
+	"context"
+
 	"github.com/juju/gomaasapi/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -982,7 +984,7 @@ func (s *interfacesSuite) TestMAASNetworkInterfaces(c *gc.C) {
 	machine := &fakeMachine{interfaceSet: exampleInterfaces}
 	instance := &maasInstance{machine: machine}
 
-	infos, err := maasNetworkInterfaces(s.callCtx, instance, subnetsMap)
+	infos, err := maasNetworkInterfaces(context.Background(), instance, subnetsMap)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(infos, jc.DeepEquals, expected)
 }
@@ -1048,7 +1050,7 @@ func (s *interfacesSuite) TestMAASInterfacesNilVLAN(c *gc.C) {
 		Origin:           network.OriginProvider,
 	}}
 
-	infos, err := maasNetworkInterfaces(s.callCtx, instance, map[string]network.Id{})
+	infos, err := maasNetworkInterfaces(context.Background(), instance, map[string]network.Id{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(infos, jc.DeepEquals, expected)
 }

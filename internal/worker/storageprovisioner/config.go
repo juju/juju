@@ -10,24 +10,22 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/worker/common"
 )
 
 // Config holds configuration and dependencies for a storageprovisioner worker.
 type Config struct {
-	Model                names.ModelTag
-	Scope                names.Tag
-	StorageDir           string
-	Applications         ApplicationWatcher
-	Volumes              VolumeAccessor
-	Filesystems          FilesystemAccessor
-	Life                 LifecycleManager
-	Registry             storage.ProviderRegistry
-	Machines             MachineAccessor
-	Status               StatusSetter
-	Clock                clock.Clock
-	Logger               logger.Logger
-	CloudCallContextFunc common.CloudCallContextFunc
+	Model        names.ModelTag
+	Scope        names.Tag
+	StorageDir   string
+	Applications ApplicationWatcher
+	Volumes      VolumeAccessor
+	Filesystems  FilesystemAccessor
+	Life         LifecycleManager
+	Registry     storage.ProviderRegistry
+	Machines     MachineAccessor
+	Status       StatusSetter
+	Clock        clock.Clock
+	Logger       logger.Logger
 }
 
 // Validate returns an error if the config cannot be relied upon to start a worker.
@@ -76,9 +74,6 @@ func (config Config) Validate() error {
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
-	}
-	if config.CloudCallContextFunc == nil {
-		return errors.NotValidf("nil CloudCallContextFunc")
 	}
 	return nil
 }

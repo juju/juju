@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 // BootstrapAddressFinderFunc is responsible for finding the network provider
@@ -41,8 +40,7 @@ func getInstanceAddresses(
 			len(instances),
 		)
 	}
-	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
-	addrs, err := instances[0].Addresses(callCtx)
+	addrs, err := instances[0].Addresses(ctx)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"cannot get bootstrap instance %q provider addresses: %w",

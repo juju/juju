@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 )
 
@@ -187,13 +186,13 @@ func (i *instanceStub) Id() instance.Id {
 	return instance.Id(i.id)
 }
 
-func (i *instanceStub) Status(envcontext.ProviderCallContext) instance.Status {
+func (i *instanceStub) Status(context.Context) instance.Status {
 	return instance.Status{
 		Status:  status.Maintenance,
 		Message: "some message",
 	}
 }
 
-func (i *instanceStub) Addresses(envcontext.ProviderCallContext) (network.ProviderAddresses, error) {
+func (i *instanceStub) Addresses(context.Context) (network.ProviderAddresses, error) {
 	return network.ProviderAddresses{}, nil
 }

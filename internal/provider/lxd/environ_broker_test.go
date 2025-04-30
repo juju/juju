@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	containerlxd "github.com/juju/juju/internal/container/lxd"
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
@@ -30,7 +29,6 @@ import (
 type environBrokerSuite struct {
 	lxd.EnvironSuite
 
-	callCtx        envcontext.ProviderCallContext
 	defaultProfile *api.Profile
 }
 
@@ -38,9 +36,6 @@ var _ = gc.Suite(&environBrokerSuite{})
 
 func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
-		return nil
-	})
 	s.defaultProfile = &api.Profile{
 		Devices: map[string]map[string]string{
 			"eth0": {},
@@ -94,7 +89,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *gc.C) {
 	)
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
-	_, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c))
+	_, err := env.StartInstance(context.Background(), s.GetStartInstanceArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -135,7 +130,7 @@ func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *gc.C) {
 	)
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
-	_, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c))
+	_, err := env.StartInstance(context.Background(), s.GetStartInstanceArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -228,7 +223,7 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
 			"subnet-lxdbr0-10.99.0.0/24": {"locutus"},
 		},
 	}
-	_, err := env.StartInstance(s.callCtx, startArgs)
+	_, err := env.StartInstance(context.Background(), startArgs)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -290,7 +285,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
 	args := s.GetStartInstanceArgs(c)
 	args.Placement = "zone=node01"
 
-	_, err = env.StartInstance(s.callCtx, args)
+	_, err = env.StartInstance(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -318,7 +313,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotPresent(c *gc.C) {
 	args := s.GetStartInstanceArgs(c)
 	args.Placement = "zone=node03"
 
-	_, err := env.StartInstance(s.callCtx, args)
+	_, err := env.StartInstance(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, `availability zone "node03" not valid`)
 }
 
@@ -346,7 +341,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotAvailable(c *gc.C)
 	args := s.GetStartInstanceArgs(c)
 	args.Placement = "zone=node01"
 
-	_, err := env.StartInstance(s.callCtx, args)
+	_, err := env.StartInstance(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "zone \"node01\" is unavailable")
 }
 
@@ -366,7 +361,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementBadArgument(c *gc.C) 
 	args := s.GetStartInstanceArgs(c)
 	args.Placement = "breakfast=eggs"
 
-	_, err := env.StartInstance(s.callCtx, args)
+	_, err := env.StartInstance(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "unknown placement directive.*")
 }
 
@@ -410,7 +405,7 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
 	}
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
-	_, err := env.StartInstance(s.callCtx, args)
+	_, err := env.StartInstance(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -454,7 +449,7 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndVirtType(c *gc.C
 	}
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
-	_, err := env.StartInstance(s.callCtx, args)
+	_, err := env.StartInstance(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -494,7 +489,7 @@ func (s *environBrokerSuite) TestStartInstanceWithCharmLXDProfile(c *gc.C) {
 	args.CharmLXDProfiles = []string{"juju-model-test-0"}
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
-	_, err := env.StartInstance(s.callCtx, args)
+	_, err := env.StartInstance(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -509,7 +504,7 @@ func (s *environBrokerSuite) TestStartInstanceNoTools(c *gc.C) {
 	exp.HostArch().Return(arch.PPC64EL)
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
-	_, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c))
+	_, err := env.StartInstance(context.Background(), s.GetStartInstanceArgs(c))
 	c.Assert(err, gc.ErrorMatches, "no matching agent binaries available")
 }
 
@@ -532,7 +527,7 @@ func (s *environBrokerSuite) TestStartInstanceInvalidCredentials(c *gc.C) {
 	invalidator.EXPECT().InvalidateCredentials(gomock.Any(), environs.CredentialInvalidReason("cloud denied access: not authorized")).Return(nil)
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
-	_, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c))
+	_, err := env.StartInstance(context.Background(), s.GetStartInstanceArgs(c))
 	c.Assert(err, gc.ErrorMatches, "not authorized")
 }
 
@@ -546,7 +541,7 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"})
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
-	err := env.StopInstances(s.callCtx, "juju-f75cba-1", "juju-f75cba-2", "not-in-namespace-so-ignored")
+	err := env.StopInstances(context.Background(), "juju-f75cba-1", "juju-f75cba-2", "not-in-namespace-so-ignored")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -561,7 +556,7 @@ func (s *environBrokerSuite) TestStopInstancesInvalidCredentials(c *gc.C) {
 	svr.EXPECT().RemoveContainers([]string{"juju-f75cba-1", "juju-f75cba-2"}).Return(fmt.Errorf("not authorized"))
 
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
-	err := env.StopInstances(s.callCtx, "juju-f75cba-1", "juju-f75cba-2", "not-in-namespace-so-ignored")
+	err := env.StopInstances(context.Background(), "juju-f75cba-1", "juju-f75cba-2", "not-in-namespace-so-ignored")
 	c.Assert(err, gc.ErrorMatches, "not authorized")
 }
 

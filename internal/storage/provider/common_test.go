@@ -4,6 +4,7 @@
 package provider_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
@@ -11,7 +12,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 )
@@ -43,7 +43,6 @@ func (s *providerCommonSuite) TestCommonProvidersExported(c *gc.C) {
 func testDetachFilesystems(
 	c *gc.C, commands *mockRunCommand,
 	source storage.FilesystemSource,
-	callCtx envcontext.ProviderCallContext,
 	mounted bool,
 	etcDir, fstab string,
 ) {
@@ -51,7 +50,7 @@ func testDetachFilesystems(
 		commands.expect("umount", testMountPoint)
 	}
 
-	results, err := source.DetachFilesystems(callCtx, []storage.FilesystemAttachmentParams{{
+	results, err := source.DetachFilesystems(context.Background(), []storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("0/0"),
 		FilesystemId: "filesystem-0-0",
 		AttachmentParams: storage.AttachmentParams{

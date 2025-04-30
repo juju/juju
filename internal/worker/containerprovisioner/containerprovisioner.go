@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/provisionertask"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -88,7 +87,6 @@ type containerProvisioner struct {
 	logger                  logger.Logger
 	broker                  environs.InstanceBroker
 	catacomb                catacomb.Catacomb
-	callContextFunc         common.CloudCallContextFunc
 }
 
 // configObserver is implemented so that tests can see when the environment
@@ -126,7 +124,6 @@ func NewContainerProvisioner(
 	broker environs.InstanceBroker,
 	toolsFinder ToolsFinder,
 	distributionGroupFinder DistributionGroupFinder,
-	credentialAPI common.CredentialAPI,
 ) (Provisioner, error) {
 	p := &containerProvisioner{
 		agentConfig:             agentConfig,
@@ -134,7 +131,6 @@ func NewContainerProvisioner(
 		controllerAPI:           controllerAPI,
 		machinesAPI:             machinesAPI,
 		broker:                  broker,
-		callContextFunc:         common.NewCloudCallContextFunc(credentialAPI),
 		containerType:           containerType,
 		distributionGroupFinder: distributionGroupFinder,
 		toolsFinder:             toolsFinder,
@@ -282,8 +278,7 @@ func (p *containerProvisioner) getStartTask(ctx context.Context, harvestMode con
 			RetryDelay: retryStrategyDelay,
 			RetryCount: retryStrategyCount,
 		},
-		CloudCallContextFunc: p.callContextFunc,
-		NumProvisionWorkers:  workerCount, // event callback is currently only being used by tests
+		NumProvisionWorkers: workerCount, // event callback is currently only being used by tests
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -29,7 +29,6 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/status"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/environs/envcontext"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/password"
@@ -272,7 +271,7 @@ func (s *ProviderService) constraintsValidator(ctx context.Context) (coreconstra
 		return nil, errors.Capture(err)
 	}
 
-	validator, err := provider.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(ctx))
+	validator, err := provider.ConstraintsValidator(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

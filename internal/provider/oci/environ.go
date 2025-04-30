@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
@@ -110,7 +109,7 @@ func (e *Environ) allInstances(ctx context.Context, tags map[string]string) ([]*
 	return ret, nil
 }
 
-func (e *Environ) getOCIInstance(ctx envcontext.ProviderCallContext, id instance.Id) (*ociInstance, error) {
+func (e *Environ) getOCIInstance(ctx context.Context, id instance.Id) (*ociInstance, error) {
 	instanceId := string(id)
 	request := ociCore.GetInstanceRequest{
 		InstanceId: &instanceId,
@@ -197,7 +196,7 @@ func (e *Environ) AvailabilityZones(ctx context.Context) (network.AvailabilityZo
 }
 
 // InstanceAvailabilityZoneNames implements common.ZonedEnviron.
-func (e *Environ) InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
+func (e *Environ) InstanceAvailabilityZoneNames(ctx context.Context, ids []instance.Id) (map[instance.Id]string, error) {
 	instances, err := e.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {
 		return nil, e.HandleCredentialError(ctx, err)
@@ -217,7 +216,7 @@ func (e *Environ) InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallConte
 }
 
 // DeriveAvailabilityZones implements common.ZonedEnviron.
-func (e *Environ) DeriveAvailabilityZones(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
+func (e *Environ) DeriveAvailabilityZones(ctx context.Context, args environs.StartInstanceParams) ([]string, error) {
 	return nil, nil
 }
 
@@ -253,7 +252,7 @@ func (e *Environ) getOciInstances(ctx context.Context, ids ...instance.Id) ([]*o
 	return ret, nil
 }
 
-func (e *Environ) getOciInstancesAsMap(ctx envcontext.ProviderCallContext, ids ...instance.Id) (map[instance.Id]*ociInstance, error) {
+func (e *Environ) getOciInstancesAsMap(ctx context.Context, ids ...instance.Id) (map[instance.Id]*ociInstance, error) {
 	instances, err := e.getOciInstances(ctx, ids...)
 	if err != nil {
 		return nil, e.HandleCredentialError(ctx, err)
@@ -299,12 +298,12 @@ func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerN
 }
 
 // Bootstrap implements environs.Environ.
-func (e *Environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	return common.Bootstrap(ctx, e, callCtx, params)
+func (e *Environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	return common.Bootstrap(ctx, e, params)
 }
 
 // AdoptResources implements environs.Environ.
-func (e *Environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion semversion.Number) error {
+func (e *Environ) AdoptResources(ctx context.Context, controllerUUID string, fromVersion semversion.Number) error {
 	// TODO(cderici): implement AdoptResources for oci
 	return errors.NotImplementedf("AdoptResources")
 }
@@ -318,7 +317,7 @@ var unsupportedConstraints = []string{
 }
 
 // ConstraintsValidator implements environs.Environ.
-func (e *Environ) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
+func (e *Environ) ConstraintsValidator(ctx context.Context) (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
 	validator.RegisterVocabulary(constraints.Arch, []string{corearch.AMD64, corearch.ARM64})
@@ -340,7 +339,7 @@ func (e *Environ) SetConfig(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-func (e *Environ) allControllerManagedInstances(ctx envcontext.ProviderCallContext, controllerUUID string) ([]*ociInstance, error) {
+func (e *Environ) allControllerManagedInstances(ctx context.Context, controllerUUID string) ([]*ociInstance, error) {
 	tags := map[string]string{
 		tags.JujuController: controllerUUID,
 	}
@@ -348,7 +347,7 @@ func (e *Environ) allControllerManagedInstances(ctx envcontext.ProviderCallConte
 }
 
 // ControllerInstances implements environs.Environ.
-func (e *Environ) ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+func (e *Environ) ControllerInstances(ctx context.Context, controllerUUID string) ([]instance.Id, error) {
 	tags := map[string]string{
 		tags.JujuController:   controllerUUID,
 		tags.JujuIsController: "true",
@@ -365,12 +364,12 @@ func (e *Environ) ControllerInstances(ctx envcontext.ProviderCallContext, contro
 }
 
 // Destroy implements environs.Environ.
-func (e *Environ) Destroy(ctx envcontext.ProviderCallContext) error {
+func (e *Environ) Destroy(ctx context.Context) error {
 	return common.Destroy(e, ctx)
 }
 
 // DestroyController implements environs.Environ.
-func (e *Environ) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
+func (e *Environ) DestroyController(ctx context.Context, controllerUUID string) error {
 	err := e.Destroy(ctx)
 	if err != nil {
 		err = e.HandleCredentialError(ctx, err)
@@ -433,7 +432,7 @@ func (e *Environ) getCloudInitConfig(osname string, apiPort int, statePort int) 
 
 // StartInstance implements environs.InstanceBroker.
 func (e *Environ) StartInstance(
-	ctx envcontext.ProviderCallContext, args environs.StartInstanceParams,
+	ctx context.Context, args environs.StartInstanceParams,
 ) (*environs.StartInstanceResult, error) {
 	result, err := e.startInstance(ctx, args)
 	if err != nil {
@@ -443,7 +442,7 @@ func (e *Environ) StartInstance(
 }
 
 func (e *Environ) startInstance(
-	ctx envcontext.ProviderCallContext, args environs.StartInstanceParams,
+	ctx context.Context, args environs.StartInstanceParams,
 ) (*environs.StartInstanceResult, error) {
 	if args.ControllerUUID == "" {
 		return nil, errors.NotFoundf("Controller UUID")
@@ -658,7 +657,7 @@ func ensureShapeConfig(
 }
 
 // StopInstances implements environs.InstanceBroker.
-func (e *Environ) StopInstances(ctx envcontext.ProviderCallContext, ids ...instance.Id) error {
+func (e *Environ) StopInstances(ctx context.Context, ids ...instance.Id) error {
 	ociInstances, err := e.getOciInstances(ctx, ids...)
 	if err == environs.ErrNoInstances {
 		return nil
@@ -679,7 +678,7 @@ type instError struct {
 	err error
 }
 
-func (e *Environ) terminateInstances(ctx envcontext.ProviderCallContext, instances ...*ociInstance) error {
+func (e *Environ) terminateInstances(ctx context.Context, instances ...*ociInstance) error {
 	wg := sync.WaitGroup{}
 	wg.Add(len(instances))
 	errCh := make(chan instError, len(instances))
@@ -758,7 +757,7 @@ func (e *Environ) Config() *config.Config {
 }
 
 // PrecheckInstance implements environs.InstancePrechecker.
-func (e *Environ) PrecheckInstance(envcontext.ProviderCallContext, environs.PrecheckInstanceParams) error {
+func (e *Environ) PrecheckInstance(context.Context, environs.PrecheckInstanceParams) error {
 	return nil
 }
 

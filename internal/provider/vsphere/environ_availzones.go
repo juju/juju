@@ -16,7 +16,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 type vmwareAvailZone struct {
@@ -123,7 +122,7 @@ func makeAvailZoneName(hostFolder, crPath, poolPath string) string {
 }
 
 // InstanceAvailabilityZoneNames is part of the common.ZonedEnviron interface.
-func (env *environ) InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallContext, ids []instance.Id) (names map[instance.Id]string, err error) {
+func (env *environ) InstanceAvailabilityZoneNames(ctx context.Context, ids []instance.Id) (names map[instance.Id]string, err error) {
 	err = env.withSession(ctx, func(senv *sessionEnviron) error {
 		names, err = senv.InstanceAvailabilityZoneNames(ctx, ids)
 		return err
@@ -132,7 +131,7 @@ func (env *environ) InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallCon
 }
 
 // InstanceAvailabilityZoneNames is part of the common.ZonedEnviron interface.
-func (senv *sessionEnviron) InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
+func (senv *sessionEnviron) InstanceAvailabilityZoneNames(ctx context.Context, ids []instance.Id) (map[instance.Id]string, error) {
 	zones, err := senv.AvailabilityZones(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -171,7 +170,7 @@ func (senv *sessionEnviron) InstanceAvailabilityZoneNames(ctx envcontext.Provide
 }
 
 // DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
-func (env *environ) DeriveAvailabilityZones(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (names []string, err error) {
+func (env *environ) DeriveAvailabilityZones(ctx context.Context, args environs.StartInstanceParams) (names []string, err error) {
 	err = env.withSession(ctx, func(senv *sessionEnviron) error {
 		names, err = senv.DeriveAvailabilityZones(ctx, args)
 		return err
@@ -180,7 +179,7 @@ func (env *environ) DeriveAvailabilityZones(ctx envcontext.ProviderCallContext, 
 }
 
 // DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
-func (senv *sessionEnviron) DeriveAvailabilityZones(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
+func (senv *sessionEnviron) DeriveAvailabilityZones(ctx context.Context, args environs.StartInstanceParams) ([]string, error) {
 	if args.Placement != "" {
 		// args.Placement will always be a zone name or empty.
 		placement, err := senv.parsePlacement(ctx, args.Placement)
@@ -194,7 +193,7 @@ func (senv *sessionEnviron) DeriveAvailabilityZones(ctx envcontext.ProviderCallC
 	return nil, nil
 }
 
-func (senv *sessionEnviron) availZone(ctx envcontext.ProviderCallContext, name string) (*vmwareAvailZone, error) {
+func (senv *sessionEnviron) availZone(ctx context.Context, name string) (*vmwareAvailZone, error) {
 	zones, err := senv.AvailabilityZones(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)

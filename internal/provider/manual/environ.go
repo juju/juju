@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
@@ -67,11 +66,11 @@ var errNoStartInstance = errors.New("manual provider cannot start instances")
 
 var errNoStopInstance = errors.New("manual provider cannot stop instances")
 
-func (*manualEnviron) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (*manualEnviron) StartInstance(ctx context.Context, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	return nil, errNoStartInstance
 }
 
-func (*manualEnviron) StopInstances(envcontext.ProviderCallContext, ...instance.Id) error {
+func (*manualEnviron) StopInstances(context.Context, ...instance.Id) error {
 	return errNoStopInstance
 }
 
@@ -103,7 +102,7 @@ func (e *manualEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, contr
 }
 
 // Bootstrap is part of the Environ interface.
-func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	provisioned, err := sshprovisioner.CheckProvisioned(e.host, e.user)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to check provisioned status")
@@ -136,7 +135,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx envcont
 }
 
 // ControllerInstances is specified in the Environ interface.
-func (e *manualEnviron) ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+func (e *manualEnviron) ControllerInstances(ctx context.Context, controllerUUID string) ([]instance.Id, error) {
 	if !isRunningController() {
 		// Not running inside the controller, so we must
 		// verify the host.
@@ -179,7 +178,7 @@ func (e *manualEnviron) verifyBootstrapHost(ctx context.Context) error {
 }
 
 // AdoptResources is part of the Environ interface.
-func (e *manualEnviron) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion semversion.Number) error {
+func (e *manualEnviron) AdoptResources(ctx context.Context, controllerUUID string, fromVersion semversion.Number) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }
@@ -234,7 +233,7 @@ var runSSHCommand = func(host string, command []string, stdin string) (stdout, s
 }
 
 // Destroy implements the Environ interface.
-func (e *manualEnviron) Destroy(ctx envcontext.ProviderCallContext) error {
+func (e *manualEnviron) Destroy(ctx context.Context) error {
 	// There is nothing we can do for manual environments,
 	// except when destroying the controller as a whole
 	// (see DestroyController below).
@@ -242,7 +241,7 @@ func (e *manualEnviron) Destroy(ctx envcontext.ProviderCallContext) error {
 }
 
 // DestroyController implements the Environ interface.
-func (e *manualEnviron) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
+func (e *manualEnviron) DestroyController(ctx context.Context, controllerUUID string) error {
 	script := `
 # Signal the jujud process to stop, then check it has done so.
 set -x
@@ -308,7 +307,7 @@ exit 0
 	return err
 }
 
-func (e *manualEnviron) PrecheckInstance(ctx envcontext.ProviderCallContext, params environs.PrecheckInstanceParams) error {
+func (e *manualEnviron) PrecheckInstance(ctx context.Context, params environs.PrecheckInstanceParams) error {
 	validator, err := e.ConstraintsValidator(ctx)
 	if err != nil {
 		return err
@@ -336,7 +335,7 @@ var unsupportedConstraints = []string{
 }
 
 // ConstraintsValidator is defined on the Environs interface.
-func (e *manualEnviron) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
+func (e *manualEnviron) ConstraintsValidator(ctx context.Context) (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
 	if isRunningController() {

@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
@@ -139,7 +138,7 @@ func (s *lxdBrokerSuite) TestStartInstanceNoHostArchTools(c *gc.C) {
 	broker, brokerErr := s.newLXDBroker(c)
 	c.Assert(brokerErr, jc.ErrorIsNil)
 
-	_, err := broker.StartInstance(envcontext.WithoutCredentialInvalidator(context.Background()), environs.StartInstanceParams{
+	_, err := broker.StartInstance(context.Background(), environs.StartInstanceParams{
 		Tools: coretools.List{{
 			// non-host-arch tools should be filtered out by StartInstance
 			Version: semversion.MustParseBinary("2.3.4-ubuntu-arm64"),

@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 // SupportsNetworking is a convenience helper to check if an environment
@@ -24,7 +23,7 @@ var SupportsNetworking = supportsNetworking
 type Networking interface {
 	// Subnets returns basic information about subnets known
 	// by the provider for the environment.
-	Subnets(ctx envcontext.ProviderCallContext, subnetIds []network.Id) ([]network.SubnetInfo, error)
+	Subnets(ctx context.Context, subnetIds []network.Id) ([]network.SubnetInfo, error)
 
 	// NetworkInterfaces returns a slice with the network interfaces that
 	// correspond to the given instance IDs. If no instances where found,
@@ -32,7 +31,7 @@ type Networking interface {
 	// but not all of the instances were found, the returned slice will
 	// have some nil slots, and an ErrPartialInstances error will be
 	// returned.
-	NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error)
+	NetworkInterfaces(ctx context.Context, ids []instance.Id) ([]network.InterfaceInfos, error)
 
 	// SupportsSpaces returns whether the current environment supports
 	// spaces. The returned error satisfies errors.IsNotSupported(),
@@ -47,7 +46,7 @@ type Networking interface {
 	// Spaces returns a slice of network.SpaceInfo with info, including
 	// details of all associated subnets, about all spaces known to the
 	// provider that have subnets available.
-	Spaces(ctx envcontext.ProviderCallContext) (network.SpaceInfos, error)
+	Spaces(ctx context.Context) (network.SpaceInfos, error)
 
 	// ProviderSpaceInfo returns the details of the space requested as
 	// a ProviderSpaceInfo. This will contain everything needed to
@@ -68,7 +67,7 @@ type Networking interface {
 	// authoritative. In that case the provider should collect up any
 	// other information needed to determine routability and include
 	// the passed-in space info in the ProviderSpaceInfo returned.
-	ProviderSpaceInfo(ctx envcontext.ProviderCallContext, space *network.SpaceInfo) (*ProviderSpaceInfo, error)
+	ProviderSpaceInfo(ctx context.Context, space *network.SpaceInfo) (*ProviderSpaceInfo, error)
 
 	// SupportsContainerAddresses returns true if the current environment is
 	// able to allocate addresses for containers. If returning false, we also
@@ -87,7 +86,7 @@ type Networking interface {
 
 	// ReleaseContainerAddresses releases the previously allocated
 	// addresses matching the interface details passed in.
-	ReleaseContainerAddresses(ctx envcontext.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error
+	ReleaseContainerAddresses(ctx context.Context, interfaces []network.ProviderInterfaceInfo) error
 }
 
 // NetworkingEnviron combines the standard Environ interface with the
@@ -114,14 +113,14 @@ func (*NoSpaceDiscoveryEnviron) SupportsSpaceDiscovery() (bool, error) {
 
 // Spaces (Networking) indicates that this provider
 // does not support returning spaces.
-func (*NoSpaceDiscoveryEnviron) Spaces(envcontext.ProviderCallContext) (network.SpaceInfos, error) {
+func (*NoSpaceDiscoveryEnviron) Spaces(context.Context) (network.SpaceInfos, error) {
 	return nil, errors.NotSupportedf("Spaces")
 }
 
 // ProviderSpaceInfo (Networking) indicates that this provider
 // does not support returning provider info for the input space.
 func (*NoSpaceDiscoveryEnviron) ProviderSpaceInfo(
-	envcontext.ProviderCallContext, *network.SpaceInfo,
+	context.Context, *network.SpaceInfo,
 ) (*ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("ProviderSpaceInfo")
 }
@@ -148,7 +147,7 @@ func (*NoContainerAddressesEnviron) AllocateContainerAddresses(
 // ReleaseContainerAddresses (Networking) indicates that this provider does not
 // support releasing container addresses.
 func (*NoContainerAddressesEnviron) ReleaseContainerAddresses(
-	envcontext.ProviderCallContext, []network.ProviderInterfaceInfo,
+	context.Context, []network.ProviderInterfaceInfo,
 ) error {
 	return errors.NotSupportedf("ReleaseContainerAddresses")
 }

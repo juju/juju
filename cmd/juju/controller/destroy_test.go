@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
 	_ "github.com/juju/juju/internal/provider/dummy"
@@ -56,7 +55,7 @@ type baseDestroySuite struct {
 
 	controllerModelConfigAPI *fakeModelConfigAPI
 
-	environsDestroy func(string, environs.ControllerDestroyer, envcontext.ProviderCallContext, jujuclient.ControllerStore) error
+	environsDestroy func(string, environs.ControllerDestroyer, context.Context, jujuclient.ControllerStore) error
 }
 
 // fakeDestroyAPI mocks out the controller API

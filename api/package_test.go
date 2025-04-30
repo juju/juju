@@ -58,7 +58,6 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"domain/model/errors",
 		"domain/secret/errors",
 		"domain/secretbackend/errors",
-		"environs/envcontext",
 		"internal/charm",
 		"internal/charm/assumes",
 		"internal/charm/hooks",

@@ -30,12 +30,6 @@ func (*ValidateSuite) TestNilFacade(c *gc.C) {
 	checkInvalid(c, config, "nil Facade not valid")
 }
 
-func (*ValidateSuite) TestNilCredentialAPI(c *gc.C) {
-	config := validConfig(c)
-	config.CredentialAPI = nil
-	checkInvalid(c, config, "nil CredentialAPI not valid")
-}
-
 func (*ValidateSuite) TestNilLogger(c *gc.C) {
 	config := validConfig(c)
 	config.Logger = nil
@@ -56,10 +50,9 @@ func (*ValidateSuite) TestNilClock(c *gc.C) {
 
 func validConfig(c *gc.C) undertaker.Config {
 	return undertaker.Config{
-		Facade:        &fakeFacade{},
-		CredentialAPI: &fakeCredentialAPI{},
-		Logger:        loggertesting.WrapCheckLog(c),
-		Clock:         testclock.NewClock(time.Time{}),
+		Facade: &fakeFacade{},
+		Logger: loggertesting.WrapCheckLog(c),
+		Clock:  testclock.NewClock(time.Time{}),
 		NewCloudDestroyerFunc: func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (environs.CloudDestroyer, error) {
 			return nil, nil
 		},

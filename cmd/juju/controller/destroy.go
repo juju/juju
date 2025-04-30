@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
@@ -372,8 +371,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 		ctx.Infof("All models reclaimed, cleaning up controller machines")
-		callCtx := envcontext.WithoutCredentialInvalidator(ctx)
-		return c.environsDestroy(controllerName, controllerEnviron, callCtx, store)
+		return c.environsDestroy(controllerName, controllerEnviron, ctx, store)
 	}
 }
 
@@ -544,7 +542,7 @@ type destroyCommandBase struct {
 
 	controllerModelConfigAPI modelConfigAPI
 
-	environsDestroy func(string, environs.ControllerDestroyer, envcontext.ProviderCallContext, jujuclient.ControllerStore) error
+	environsDestroy func(string, environs.ControllerDestroyer, context.Context, jujuclient.ControllerStore) error
 }
 
 func (c *destroyCommandBase) getControllerAPI(ctx context.Context) (destroyControllerAPI, error) {

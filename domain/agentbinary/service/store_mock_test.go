@@ -18,7 +18,6 @@ import (
 	agentbinary "github.com/juju/juju/domain/agentbinary"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
-	envcontext "github.com/juju/juju/environs/envcontext"
 	storage "github.com/juju/juju/internal/storage"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -248,18 +247,18 @@ func (m *MockProviderForAgentBinaryFinder) EXPECT() *MockProviderForAgentBinaryF
 }
 
 // Bootstrap mocks base method.
-func (m *MockProviderForAgentBinaryFinder) Bootstrap(arg0 environs.BootstrapContext, arg1 envcontext.ProviderCallContext, arg2 environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (m *MockProviderForAgentBinaryFinder) Bootstrap(arg0 environs.BootstrapContext, arg1 environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Bootstrap", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Bootstrap", arg0, arg1)
 	ret0, _ := ret[0].(*environs.BootstrapResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Bootstrap indicates an expected call of Bootstrap.
-func (mr *MockProviderForAgentBinaryFinderMockRecorder) Bootstrap(arg0, arg1, arg2 any) *MockProviderForAgentBinaryFinderBootstrapCall {
+func (mr *MockProviderForAgentBinaryFinderMockRecorder) Bootstrap(arg0, arg1 any) *MockProviderForAgentBinaryFinderBootstrapCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bootstrap", reflect.TypeOf((*MockProviderForAgentBinaryFinder)(nil).Bootstrap), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bootstrap", reflect.TypeOf((*MockProviderForAgentBinaryFinder)(nil).Bootstrap), arg0, arg1)
 	return &MockProviderForAgentBinaryFinderBootstrapCall{Call: call}
 }
 
@@ -275,13 +274,13 @@ func (c *MockProviderForAgentBinaryFinderBootstrapCall) Return(arg0 *environs.Bo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockProviderForAgentBinaryFinderBootstrapCall) Do(f func(environs.BootstrapContext, envcontext.ProviderCallContext, environs.BootstrapParams) (*environs.BootstrapResult, error)) *MockProviderForAgentBinaryFinderBootstrapCall {
+func (c *MockProviderForAgentBinaryFinderBootstrapCall) Do(f func(environs.BootstrapContext, environs.BootstrapParams) (*environs.BootstrapResult, error)) *MockProviderForAgentBinaryFinderBootstrapCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockProviderForAgentBinaryFinderBootstrapCall) DoAndReturn(f func(environs.BootstrapContext, envcontext.ProviderCallContext, environs.BootstrapParams) (*environs.BootstrapResult, error)) *MockProviderForAgentBinaryFinderBootstrapCall {
+func (c *MockProviderForAgentBinaryFinderBootstrapCall) DoAndReturn(f func(environs.BootstrapContext, environs.BootstrapParams) (*environs.BootstrapResult, error)) *MockProviderForAgentBinaryFinderBootstrapCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -325,7 +324,7 @@ func (c *MockProviderForAgentBinaryFinderConfigCall) DoAndReturn(f func() *confi
 }
 
 // ConstraintsValidator mocks base method.
-func (m *MockProviderForAgentBinaryFinder) ConstraintsValidator(arg0 envcontext.ProviderCallContext) (constraints.Validator, error) {
+func (m *MockProviderForAgentBinaryFinder) ConstraintsValidator(arg0 context.Context) (constraints.Validator, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConstraintsValidator", arg0)
 	ret0, _ := ret[0].(constraints.Validator)
@@ -352,19 +351,19 @@ func (c *MockProviderForAgentBinaryFinderConstraintsValidatorCall) Return(arg0 c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockProviderForAgentBinaryFinderConstraintsValidatorCall) Do(f func(envcontext.ProviderCallContext) (constraints.Validator, error)) *MockProviderForAgentBinaryFinderConstraintsValidatorCall {
+func (c *MockProviderForAgentBinaryFinderConstraintsValidatorCall) Do(f func(context.Context) (constraints.Validator, error)) *MockProviderForAgentBinaryFinderConstraintsValidatorCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockProviderForAgentBinaryFinderConstraintsValidatorCall) DoAndReturn(f func(envcontext.ProviderCallContext) (constraints.Validator, error)) *MockProviderForAgentBinaryFinderConstraintsValidatorCall {
+func (c *MockProviderForAgentBinaryFinderConstraintsValidatorCall) DoAndReturn(f func(context.Context) (constraints.Validator, error)) *MockProviderForAgentBinaryFinderConstraintsValidatorCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Destroy mocks base method.
-func (m *MockProviderForAgentBinaryFinder) Destroy(arg0 envcontext.ProviderCallContext) error {
+func (m *MockProviderForAgentBinaryFinder) Destroy(arg0 context.Context) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Destroy", arg0)
 	ret0, _ := ret[0].(error)
@@ -390,19 +389,19 @@ func (c *MockProviderForAgentBinaryFinderDestroyCall) Return(arg0 error) *MockPr
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockProviderForAgentBinaryFinderDestroyCall) Do(f func(envcontext.ProviderCallContext) error) *MockProviderForAgentBinaryFinderDestroyCall {
+func (c *MockProviderForAgentBinaryFinderDestroyCall) Do(f func(context.Context) error) *MockProviderForAgentBinaryFinderDestroyCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockProviderForAgentBinaryFinderDestroyCall) DoAndReturn(f func(envcontext.ProviderCallContext) error) *MockProviderForAgentBinaryFinderDestroyCall {
+func (c *MockProviderForAgentBinaryFinderDestroyCall) DoAndReturn(f func(context.Context) error) *MockProviderForAgentBinaryFinderDestroyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // DestroyController mocks base method.
-func (m *MockProviderForAgentBinaryFinder) DestroyController(arg0 envcontext.ProviderCallContext, arg1 string) error {
+func (m *MockProviderForAgentBinaryFinder) DestroyController(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DestroyController", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -428,13 +427,13 @@ func (c *MockProviderForAgentBinaryFinderDestroyControllerCall) Return(arg0 erro
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockProviderForAgentBinaryFinderDestroyControllerCall) Do(f func(envcontext.ProviderCallContext, string) error) *MockProviderForAgentBinaryFinderDestroyControllerCall {
+func (c *MockProviderForAgentBinaryFinderDestroyControllerCall) Do(f func(context.Context, string) error) *MockProviderForAgentBinaryFinderDestroyControllerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockProviderForAgentBinaryFinderDestroyControllerCall) DoAndReturn(f func(envcontext.ProviderCallContext, string) error) *MockProviderForAgentBinaryFinderDestroyControllerCall {
+func (c *MockProviderForAgentBinaryFinderDestroyControllerCall) DoAndReturn(f func(context.Context, string) error) *MockProviderForAgentBinaryFinderDestroyControllerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

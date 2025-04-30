@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
-	workercommon "github.com/juju/juju/internal/worker/common"
 )
 
 type GetContainerWatcherFunc func(context.Context) (watcher.StringsWatcher, error)
@@ -41,12 +40,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // ManifoldConfig defines a container provisioner's dependencies,
 // including how to initialise the container system.
 type ManifoldConfig struct {
-	AgentName                    string
-	APICallerName                string
-	Logger                       logger.Logger
-	MachineLock                  machinelock.Lock
-	NewCredentialValidatorFacade func(base.APICaller) (workercommon.CredentialAPI, error)
-	ContainerType                instance.ContainerType
+	AgentName     string
+	APICallerName string
+	Logger        logger.Logger
+	MachineLock   machinelock.Lock
+	ContainerType instance.ContainerType
 }
 
 // Validate is called by start to check for bad configuration.
@@ -62,9 +60,6 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.MachineLock == nil {
 		return errors.NotValidf("missing MachineLock")
-	}
-	if cfg.NewCredentialValidatorFacade == nil {
-		return errors.NotValidf("missing NewCredentialValidatorFacade")
 	}
 	if cfg.ContainerType == "" {
 		return errors.NotValidf("missing Container Type")
@@ -102,11 +97,6 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		return nil, err
 	}
 
-	credentialAPI, err := workercommon.NewCredentialInvalidatorFacade(apiCaller)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get credential invalidator facade")
-	}
-
 	cs := NewContainerSetup(ContainerSetupParams{
 		Logger:        cfg.Logger,
 		ContainerType: cfg.ContainerType,
@@ -115,7 +105,6 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		Provisioner:   pr,
 		Config:        agentConfig,
 		MachineLock:   cfg.MachineLock,
-		CredentialAPI: credentialAPI,
 		GetNetConfig:  network.GetObservedNetworkConfig,
 	})
 

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/lxd"
 )
 
@@ -93,7 +92,7 @@ func (s *environNetSuite) TestSubnetsForClustered(c *gc.C) {
 
 	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}, invalidator).(environs.Networking)
 
-	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
+	ctx := context.Background()
 	subnets, err := env.Subnets(ctx, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -154,7 +153,7 @@ func (s *environNetSuite) TestSubnetsForSubnetFiltering(c *gc.C) {
 	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}, invalidator).(environs.Networking)
 
 	// Filter list so we only get a single subnet
-	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
+	ctx := context.Background()
 	subnets, err := env.Subnets(ctx, []network.Id{"subnet-lxdbr0-10.55.158.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -245,7 +244,7 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 
 	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}, invalidator).(environs.Networking)
 
-	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
+	ctx := context.Background()
 	infos, err := env.NetworkInterfaces(ctx, []instance.Id{"woot"})
 	c.Assert(err, jc.ErrorIsNil)
 	expInfos := []network.InterfaceInfos{
@@ -321,7 +320,7 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *gc.C) {
 
 	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}, invalidator).(environs.Networking)
 
-	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
+	ctx := context.Background()
 	infos, err := env.NetworkInterfaces(ctx, []instance.Id{"woot", "unknown"})
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances, gc.Commentf("expected a partial instances error to be returned if some of the instances were not found"))
 	expInfos := []network.InterfaceInfos{
@@ -358,7 +357,7 @@ func (s *environNetSuite) TestNetworkInterfacesNoResults(c *gc.C) {
 
 	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}, invalidator).(environs.Networking)
 
-	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
+	ctx := context.Background()
 	_, err := env.NetworkInterfaces(ctx, []instance.Id{"unknown1", "unknown2"})
 	c.Assert(err, gc.Equals, environs.ErrNoInstances, gc.Commentf("expected a no instances error to be returned if none of the requested instances exists"))
 }

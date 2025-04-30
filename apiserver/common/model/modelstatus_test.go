@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
@@ -179,7 +178,7 @@ func (noopStoragePoolGetter) GetStoragePoolByName(_ context.Context, name string
 
 type statePolicy struct{}
 
-func (statePolicy) ConstraintsValidator(envcontext.ProviderCallContext) (constraints.Validator, error) {
+func (statePolicy) ConstraintsValidator(context.Context) (constraints.Validator, error) {
 	return nil, errors.NotImplementedf("ConstraintsValidator")
 }
 

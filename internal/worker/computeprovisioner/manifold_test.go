@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/computeprovisioner"
 )
 
@@ -32,7 +31,7 @@ var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) makeManifold(c *gc.C) dependency.Manifold {
 	fakeNewProvFunc := func(computeprovisioner.ControllerAPI, computeprovisioner.MachineService, computeprovisioner.MachinesAPI, computeprovisioner.ToolsFinder,
-		computeprovisioner.DistributionGroupFinder, agent.Config, logger.Logger, computeprovisioner.Environ, common.CredentialAPI,
+		computeprovisioner.DistributionGroupFinder, agent.Config, logger.Logger, computeprovisioner.Environ,
 	) (computeprovisioner.Provisioner, error) {
 		s.stub.AddCall("NewProvisionerFunc")
 		return struct{ computeprovisioner.Provisioner }{}, nil
@@ -44,14 +43,13 @@ func (s *ManifoldSuite) makeManifold(c *gc.C) dependency.Manifold {
 		}{}, nil
 	}
 	return computeprovisioner.Manifold(computeprovisioner.ManifoldConfig{
-		AgentName:                    "agent",
-		APICallerName:                "api-caller",
-		Logger:                       loggertesting.WrapCheckLog(c),
-		EnvironName:                  "environ",
-		DomainServicesName:           "fake-domain-services",
-		GetMachineService:            fakeGetMachineServiceFunc,
-		NewProvisionerFunc:           fakeNewProvFunc,
-		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) { return nil, nil },
+		AgentName:          "agent",
+		APICallerName:      "api-caller",
+		Logger:             loggertesting.WrapCheckLog(c),
+		EnvironName:        "environ",
+		DomainServicesName: "fake-domain-services",
+		GetMachineService:  fakeGetMachineServiceFunc,
+		NewProvisionerFunc: fakeNewProvFunc,
 	})
 }
 

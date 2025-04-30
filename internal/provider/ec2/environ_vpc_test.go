@@ -17,7 +17,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/envcontext"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/provider/common"
 )
@@ -26,8 +25,6 @@ type vpcSuite struct {
 	testing.IsolationSuite
 
 	stubAPI *stubVPCAPIClient
-
-	cloudCallCtx envcontext.ProviderCallContext
 }
 
 var _ = gc.Suite(&vpcSuite{})
@@ -36,7 +33,6 @@ func (s *vpcSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.stubAPI = &stubVPCAPIClient{Stub: &testing.Stub{}}
-	s.cloudCallCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *vpcSuite) TestValidateBootstrapVPCUnexpectedError(c *gc.C) {
@@ -133,35 +129,35 @@ func (s *vpcSuite) TestValidateVPCWhenVPCNotAvailable(c *gc.C) {
 	s.stubAPI.PrepareValidateVPCResponses()
 	s.stubAPI.SetVPCsResponse(1, "bad-state", notDefaultVPC)
 
-	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c, s.cloudCallCtx, "DescribeVpcsWithContext")
+	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c, "DescribeVpcsWithContext")
 }
 
 func (s *vpcSuite) TestValidateVPCWhenVPCHasNoPublicSubnets(c *gc.C) {
 	s.stubAPI.PrepareValidateVPCResponses()
 	s.stubAPI.SetSubnetsResponse(1, anyZone, noPublicIPOnLaunch)
 
-	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c, s.cloudCallCtx, "DescribeSubnetsWithContext")
+	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c, "DescribeSubnetsWithContext")
 }
 
 func (s *vpcSuite) TestValidateVPCWhenVPCHasNoGateway(c *gc.C) {
 	s.stubAPI.PrepareValidateVPCResponses()
 	s.stubAPI.SetGatewaysResponse(noResults, anyState)
 
-	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c, s.cloudCallCtx, "DescribeInternetGatewaysWithContext")
+	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c, "DescribeInternetGatewaysWithContext")
 }
 
 func (s *vpcSuite) TestValidateVPCWhenVPCHasNoAttachedGateway(c *gc.C) {
 	s.stubAPI.PrepareValidateVPCResponses()
 	s.stubAPI.SetGatewaysResponse(1, "pending")
 
-	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c, s.cloudCallCtx, "DescribeInternetGatewaysWithContext")
+	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c, "DescribeInternetGatewaysWithContext")
 }
 
 func (s *vpcSuite) TestValidateVPCWhenVPCHasNoRouteTables(c *gc.C) {
 	s.stubAPI.PrepareValidateVPCResponses()
 	s.stubAPI.SetRouteTablesResponse() // no route tables at all
 
-	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c, s.cloudCallCtx, "DescribeRouteTablesWithContext")
+	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c, "DescribeRouteTablesWithContext")
 }
 
 func (s *vpcSuite) TestValidateVPCWhenVPCHasNoMainRouteTable(c *gc.C) {
@@ -170,7 +166,7 @@ func (s *vpcSuite) TestValidateVPCWhenVPCHasNoMainRouteTable(c *gc.C) {
 		makeEC2RouteTable(anyTableID, notMainRouteTable, nil, nil),
 	)
 
-	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c, s.cloudCallCtx, "DescribeRouteTablesWithContext")
+	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c, "DescribeRouteTablesWithContext")
 }
 
 func (s *vpcSuite) TestValidateVPCWhenVPCHasMainRouteTableWithoutRoutes(c *gc.C) {
@@ -179,7 +175,7 @@ func (s *vpcSuite) TestValidateVPCWhenVPCHasMainRouteTableWithoutRoutes(c *gc.C)
 		makeEC2RouteTable(anyTableID, mainRouteTable, nil, nil),
 	)
 
-	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c, s.cloudCallCtx, "DescribeRouteTablesWithContext")
+	s.stubAPI.CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c, "DescribeRouteTablesWithContext")
 }
 
 func (s *vpcSuite) TestValidateVPCSuccess(c *gc.C) {
@@ -815,8 +811,8 @@ func (s *stubVPCAPIClient) PrepareValidateVPCResponses() {
 	)
 }
 
-func (s *stubVPCAPIClient) CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c *gc.C, ctx envcontext.ProviderCallContext, lastExpectedCallName string) {
-	err := validateVPC(ctx, s, anyVPCID)
+func (s *stubVPCAPIClient) CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c *gc.C, lastExpectedCallName string) {
+	err := validateVPC(context.Background(), s, anyVPCID)
 	c.Assert(err, jc.ErrorIs, errorVPCNotRecommended)
 
 	allCalls := []string{"DescribeVpcsWithContext", "DescribeSubnetsWithContext", "DescribeInternetGatewaysWithContext", "DescribeRouteTablesWithContext"}

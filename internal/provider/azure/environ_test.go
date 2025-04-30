@@ -39,7 +39,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/sync"
@@ -115,8 +114,6 @@ type environSuite struct {
 	deployment       *armresources.Deployment
 	sshPublicKeys    []*armcompute.SSHPublicKey
 	linuxOsProfile   armcompute.OSProfile
-
-	callCtx envcontext.ProviderCallContext
 
 	credentialInvalidator environs.CredentialInvalidator
 	invalidatedCredential bool
@@ -277,8 +274,6 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 			},
 		},
 	}
-
-	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 
 	s.invalidatedCredential = false
 	s.credentialInvalidator = azure.CredentialInvalidator(func(context.Context, environs.CredentialInvalidReason) error {
@@ -764,7 +759,7 @@ func (s *environSuite) assertStartInstance(
 	if !publicIP {
 		args.Constraints.AllocatePublicIP = &publicIP
 	}
-	result, err := env.StartInstance(s.callCtx, args)
+	result, err := env.StartInstance(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 	c.Assert(result.Instance, gc.NotNil)
@@ -813,7 +808,7 @@ func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
 	s.requests = nil
 	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
 	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
-	_, err = env.StartInstance(s.callCtx, params)
+	_, err = env.StartInstance(context.Background(), params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.linuxOsProfile.LinuxConfiguration.SSH.PublicKeys = []*armcompute.SSHPublicKey{{
@@ -846,7 +841,7 @@ func (s *environSuite) TestStartInstanceInvalidCredential(c *gc.C) {
 	s.requests = nil
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
 
-	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04")))
+	_, err = env.StartInstance(context.Background(), makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04")))
 	c.Assert(err, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
 }
@@ -863,7 +858,7 @@ func (s *environSuite) TestStartInstanceCommonDeployment(c *gc.C) {
 	s.sender = senders
 	s.requests = nil
 
-	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04")))
+	_, err := env.StartInstance(context.Background(), makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04")))
 	c.Assert(err, gc.ErrorMatches,
 		`creating virtual machine "juju-06f00d-0": `+
 			`waiting for common resources to be created: `+
@@ -887,7 +882,7 @@ func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
 	s.sender = senders
 	s.requests = nil
 
-	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04")))
+	_, err := env.StartInstance(context.Background(), makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04")))
 	c.Assert(err, gc.ErrorMatches,
 		`creating virtual machine "juju-06f00d-0": `+
 			`waiting for common resources to be created: `+
@@ -911,7 +906,7 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 	params.InstanceConfig.Tags[tags.JujuUnitsDeployed] = "mysql/0 wordpress/0"
 	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
 
-	_, err := env.StartInstance(s.callCtx, params)
+	_, err := env.StartInstance(context.Background(), params)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
 		availabilitySetName: "mysql",
@@ -935,7 +930,7 @@ func (s *environSuite) TestStartInstanceWithSpaceConstraints(c *gc.C) {
 	}
 	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
 
-	_, err := env.StartInstance(s.callCtx, params)
+	_, err := env.StartInstance(context.Background(), params)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
 		imageReference:      &jammyImageReferenceGen2,
@@ -956,7 +951,7 @@ func (s *environSuite) TestStartInstanceWithInvalidPlacement(c *gc.C) {
 	params.Placement = "foo"
 	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
 
-	_, err := env.StartInstance(s.callCtx, params)
+	_, err := env.StartInstance(context.Background(), params)
 	c.Assert(err, gc.ErrorMatches, `creating virtual machine "juju-06f00d-0": unknown placement directive: foo`)
 }
 
@@ -967,7 +962,7 @@ func (s *environSuite) TestStartInstanceWithInvalidSubnet(c *gc.C) {
 	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
 	params.Placement = "subnet=foo"
 
-	_, err := env.StartInstance(s.callCtx, params)
+	_, err := env.StartInstance(context.Background(), params)
 	c.Assert(err, gc.ErrorMatches, `creating virtual machine "juju-06f00d-0": subnet "foo" not found`)
 }
 
@@ -995,7 +990,7 @@ func (s *environSuite) TestStartInstanceWithPlacementNoSpacesConstraint(c *gc.C)
 	params.Placement = "subnet=subnet2"
 	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
 
-	_, err := env.StartInstance(s.callCtx, params)
+	_, err := env.StartInstance(context.Background(), params)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
 		imageReference:  &jammyImageReferenceGen2,
@@ -1037,7 +1032,7 @@ func (s *environSuite) TestStartInstanceWithPlacement(c *gc.C) {
 	params.Placement = "subnet=subnet2"
 	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
 
-	_, err := env.StartInstance(s.callCtx, params)
+	_, err := env.StartInstance(context.Background(), params)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
 		imageReference:  &jammyImageReferenceGen2,
@@ -1549,16 +1544,14 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
 	s.sender = append(s.sender, s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: true})...)
 	s.requests = nil
-	result, err := env.Bootstrap(
-		ctx, s.callCtx, environs.BootstrapParams{
-			AuthorizedKeys:          authorizedKeys,
-			ControllerConfig:        testing.FakeControllerConfig(),
-			AvailableTools:          makeToolsList("ubuntu"),
-			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
-			BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
-			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
-		},
-	)
+	result, err := env.Bootstrap(ctx, environs.BootstrapParams{
+		AuthorizedKeys:          authorizedKeys,
+		ControllerConfig:        testing.FakeControllerConfig(),
+		AvailableTools:          makeToolsList("ubuntu"),
+		BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
+		BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
+		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
 	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
@@ -1589,16 +1582,14 @@ func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
 	s.sender = append(s.sender, s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: true})...)
 	s.requests = nil
-	result, err := env.Bootstrap(
-		ctx, s.callCtx, environs.BootstrapParams{
-			AuthorizedKeys:          authorizedKeys,
-			ControllerConfig:        testing.FakeControllerConfig(),
-			AvailableTools:          makeToolsList("ubuntu"),
-			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
-			BootstrapConstraints:    constraints.MustParse("mem=3.5G allocate-public-ip=false"),
-			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
-		},
-	)
+	result, err := env.Bootstrap(ctx, environs.BootstrapParams{
+		AuthorizedKeys:          authorizedKeys,
+		ControllerConfig:        testing.FakeControllerConfig(),
+		AvailableTools:          makeToolsList("ubuntu"),
+		BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
+		BootstrapConstraints:    constraints.MustParse("mem=3.5G allocate-public-ip=false"),
+		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
 	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
@@ -1628,16 +1619,14 @@ func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
 	s.sender = append(s.sender, s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: true, existingNetwork: "mynetwork"})...)
 	s.requests = nil
-	result, err := env.Bootstrap(
-		ctx, s.callCtx, environs.BootstrapParams{
-			AuthorizedKeys:          authorizedKeys,
-			ControllerConfig:        testing.FakeControllerConfig(),
-			AvailableTools:          makeToolsList("ubuntu"),
-			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
-			BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
-			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
-		},
-	)
+	result, err := env.Bootstrap(ctx, environs.BootstrapParams{
+		AuthorizedKeys:          authorizedKeys,
+		ControllerConfig:        testing.FakeControllerConfig(),
+		AvailableTools:          makeToolsList("ubuntu"),
+		BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
+		BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
+		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
 	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
@@ -1670,16 +1659,14 @@ func (s *environSuite) TestBootstrapUserSpecifiedManagedIdentity(c *gc.C) {
 	s.sender = s.initResourceGroupSenders(resourceGroupName)
 	s.sender = append(s.sender, s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: true})...)
 	s.requests = nil
-	result, err := env.Bootstrap(
-		ctx, s.callCtx, environs.BootstrapParams{
-			AuthorizedKeys:          authorizedKeys,
-			ControllerConfig:        testing.FakeControllerConfig(),
-			AvailableTools:          makeToolsList("ubuntu"),
-			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
-			BootstrapConstraints:    constraints.MustParse("mem=3.5G instance-role=myidentity"),
-			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
-		},
-	)
+	result, err := env.Bootstrap(ctx, environs.BootstrapParams{
+		AuthorizedKeys:          authorizedKeys,
+		ControllerConfig:        testing.FakeControllerConfig(),
+		AvailableTools:          makeToolsList("ubuntu"),
+		BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
+		BootstrapConstraints:    constraints.MustParse("mem=3.5G instance-role=myidentity"),
+		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
 	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
@@ -1713,16 +1700,14 @@ func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 	s.requests = nil
 
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
-	_, err := env.Bootstrap(
-		ctx, s.callCtx, environs.BootstrapParams{
-			AuthorizedKeys:          authorizedKeys,
-			ControllerConfig:        testing.FakeControllerConfig(),
-			AvailableTools:          makeToolsList("ubuntu"),
-			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
-			BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
-			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
-		},
-	)
+	_, err := env.Bootstrap(ctx, environs.BootstrapParams{
+		AuthorizedKeys:          authorizedKeys,
+		ControllerConfig:        testing.FakeControllerConfig(),
+		AvailableTools:          makeToolsList("ubuntu"),
+		BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
+		BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
+		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+	})
 	c.Assert(err, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
 
@@ -1746,7 +1731,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	s.sender = append(s.sender, s.startInstanceSendersNoSizes()...)
 	s.requests = nil
 	err := bootstrap.Bootstrap(
-		ctx, env, s.callCtx, bootstrap.BootstrapParams{
+		ctx, env, bootstrap.BootstrapParams{
 			ControllerModelAuthorizedKeys: authorizedKeys,
 			ControllerConfig:              testing.FakeControllerConfig(),
 			AdminSecret:                   jujutesting.AdminSecret,
@@ -1813,7 +1798,7 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 	s.sender = append(s.sender, s.startInstanceSendersNoSizes()...)
 	s.requests = nil
 	err := bootstrap.Bootstrap(
-		ctx, env, s.callCtx, bootstrap.BootstrapParams{
+		ctx, env, bootstrap.BootstrapParams{
 			ControllerModelAuthorizedKeys: authorizedKeys,
 			ControllerConfig:              testing.FakeControllerConfig(),
 			AdminSecret:                   jujutesting.AdminSecret,
@@ -1882,16 +1867,14 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 		authorizedKeys = append(authorizedKeys, *key.KeyData)
 	}
 
-	result, err := env.Bootstrap(
-		ctx, s.callCtx, environs.BootstrapParams{
-			AuthorizedKeys:          authorizedKeys,
-			ControllerConfig:        config,
-			AvailableTools:          makeToolsList("ubuntu"),
-			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
-			BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
-			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
-		},
-	)
+	result, err := env.Bootstrap(ctx, environs.BootstrapParams{
+		AuthorizedKeys:          authorizedKeys,
+		ControllerConfig:        config,
+		AvailableTools:          makeToolsList("ubuntu"),
+		BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
+		BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
+		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
 	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
@@ -1916,7 +1899,7 @@ func (s *environSuite) TestAllRunningInstancesResourceGroupNotFound(c *gc.C) {
 		"resource group not found", http.StatusNotFound,
 	), 2)
 	s.sender = azuretesting.Senders{sender, sender}
-	_, err := env.AllRunningInstances(s.callCtx)
+	_, err := env.AllRunningInstances(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1939,7 +1922,7 @@ func (s *environSuite) TestAllRunningInstancesIgnoresCommonDeployment(c *gc.C) {
 		makeSender("/virtualMachines", armcompute.VirtualMachineListResult{}),
 	}
 
-	instances, err := env.AllRunningInstances(s.callCtx)
+	instances, err := env.AllRunningInstances(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 0)
 }
@@ -1955,7 +1938,7 @@ func (s *environSuite) TestStopInstancesNotFound(c *gc.C) {
 		"vm not found", http.StatusNotFound,
 	), 2)
 	s.sender = azuretesting.Senders{sender0, sender1}
-	err := env.StopInstances(s.callCtx, "a", "b")
+	err := env.StopInstances(context.Background(), "a", "b")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1963,7 +1946,7 @@ func (s *environSuite) TestStopInstancesInvalidCredential(c *gc.C) {
 	env := s.openEnviron(c)
 	s.createSenderWithUnauthorisedStatusCode(c)
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
-	err := env.StopInstances(s.callCtx, "a")
+	err := env.StopInstances(context.Background(), "a")
 	c.Assert(err, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
 	c.Assert(s.requests, gc.HasLen, 1)
@@ -1996,7 +1979,7 @@ func (s *environSuite) TestStopInstancesNoSecurityGroup(c *gc.C) {
 		makeSender(".*/networkInterfaces/nic-0", nil),                              // DELETE
 		makeSenderWithStatus(".*/deployments/juju-06f00d-0", http.StatusNoContent), // DELETE
 	}
-	err := env.StopInstances(s.callCtx, "juju-06f00d-0")
+	err := env.StopInstances(context.Background(), "juju-06f00d-0")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2031,7 +2014,7 @@ func (s *environSuite) TestStopInstances(c *gc.C) {
 		makeSenderWithStatus(".*/deployments/juju-06f00d-0", http.StatusNoContent),                          // DELETE
 	}
 
-	err := env.StopInstances(s.callCtx, "juju-06f00d-0")
+	err := env.StopInstances(context.Background(), "juju-06f00d-0")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2053,7 +2036,7 @@ func (s *environSuite) TestStopInstancesMultiple(c *gc.C) {
 		vmDeleteSender0,
 		vmDeleteSender1,
 	}
-	err := env.StopInstances(s.callCtx, "juju-06f00d-0", "juju-06f00d-1")
+	err := env.StopInstances(context.Background(), "juju-06f00d-0", "juju-06f00d-1")
 	c.Assert(err, gc.ErrorMatches, `deleting instance "juju-06f00d-[01]":.*blargh`)
 }
 
@@ -2065,7 +2048,7 @@ func (s *environSuite) TestStopInstancesDeploymentNotFound(c *gc.C) {
 		"deployment not found", http.StatusNotFound,
 	), 2)
 	s.sender = azuretesting.Senders{cancelSender}
-	err := env.StopInstances(s.callCtx, "juju-06f00d-0")
+	err := env.StopInstances(context.Background(), "juju-06f00d-0")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2111,7 +2094,7 @@ func (s *environSuite) TestConstraintsConflict(c *gc.C) {
 func (s *environSuite) constraintsValidator(c *gc.C) constraints.Validator {
 	env := s.openEnviron(c)
 	s.sender = azuretesting.Senders{s.resourceSKUsSender()}
-	validator, err := env.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(context.Background()))
+	validator, err := env.ConstraintsValidator(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	return validator
 }
@@ -2132,7 +2115,7 @@ func (s *environSuite) TestDestroyHostedModel(c *gc.C) {
 	s.sender = azuretesting.Senders{
 		makeSender(".*/resourcegroups/juju-testmodel-"+testing.ModelTag.Id()[:8], nil), // DELETE
 	}
-	err := env.Destroy(s.callCtx)
+	err := env.Destroy(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.requests, gc.HasLen, 1)
 	c.Assert(s.requests[0].Method, gc.Equals, "DELETE")
@@ -2178,7 +2161,7 @@ func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *gc.C) {
 		makeSender("/networkSecurityGroups/nsg-0", nil),                                                                  // DELETE
 		makeSender(".*/vaults/secret-0", nil),                                                                            // DELETE
 	}
-	err := env.Destroy(s.callCtx)
+	err := env.Destroy(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.requests, gc.HasLen, 12)
 	c.Assert(s.requests[0].Method, gc.Equals, "GET")
@@ -2197,7 +2180,7 @@ func (s *environSuite) TestDestroyHostedModelWithInvalidCredential(c *gc.C) {
 	env := s.openEnviron(c, testing.Attrs{"controller-uuid": uuid.MustNewUUID().String()})
 	s.createSenderWithUnauthorisedStatusCode(c)
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
-	err := env.Destroy(s.callCtx)
+	err := env.Destroy(context.Background())
 	c.Assert(err, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
 	c.Assert(s.requests, gc.HasLen, 1)
@@ -2221,7 +2204,7 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 		makeSender(".*/roleAssignments*", nil),                         // GET
 		makeSender(".*/userAssignedIdentities/juju-controller-*", nil), // DELETE
 	}
-	err := env.DestroyController(s.callCtx, s.controllerUUID)
+	err := env.DestroyController(context.Background(), s.controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.requests, gc.HasLen, 6)
@@ -2251,7 +2234,7 @@ func (s *environSuite) TestDestroyControllerWithInvalidCredential(c *gc.C) {
 	s.createSenderWithUnauthorisedStatusCode(c)
 
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
-	err := env.DestroyController(s.callCtx, s.controllerUUID)
+	err := env.DestroyController(context.Background(), s.controllerUUID)
 	c.Assert(err, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
 
@@ -2282,7 +2265,7 @@ func (s *environSuite) TestDestroyControllerErrors(c *gc.C) {
 		makeErrorSender("foo"),                  // DELETE
 		makeErrorSender("bar"),                  // DELETE
 	}
-	destroyErr := env.DestroyController(s.callCtx, s.controllerUUID)
+	destroyErr := env.DestroyController(context.Background(), s.controllerUUID)
 	// checked below, once we know the order of deletions.
 
 	c.Assert(s.requests, gc.HasLen, 3)
@@ -2306,12 +2289,12 @@ func (s *environSuite) TestDestroyControllerErrors(c *gc.C) {
 func (s *environSuite) TestInstanceInformation(c *gc.C) {
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
-	types, err := env.InstanceTypes(s.callCtx, constraints.Value{})
+	types, err := env.InstanceTypes(context.Background(), constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(types.InstanceTypes, gc.HasLen, 6)
 
 	cons := constraints.MustParse("mem=4G")
-	types, err = env.InstanceTypes(s.callCtx, cons)
+	types, err = env.InstanceTypes(context.Background(), cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(types.InstanceTypes, gc.HasLen, 4)
 }
@@ -2321,7 +2304,7 @@ func (s *environSuite) TestInstanceInformationWithInvalidCredential(c *gc.C) {
 	s.createSenderWithUnauthorisedStatusCode(c)
 
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
-	_, err := env.InstanceTypes(s.callCtx, constraints.Value{})
+	_, err := env.InstanceTypes(context.Background(), constraints.Value{})
 	c.Assert(err, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
 }
@@ -2355,7 +2338,7 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 		makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
 	}
 
-	err := env.AdoptResources(s.callCtx, "new-controller", semversion.MustParse("1.2.4"))
+	err := env.AdoptResources(context.Background(), "new-controller", semversion.MustParse("1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that properties and tags are preserved and the correct
@@ -2479,7 +2462,7 @@ func (s *environSuite) TestAdoptResourcesErrorGettingGroup(c *gc.C) {
 		4)
 	s.sender = azuretesting.Senders{sender}
 
-	err := env.AdoptResources(s.callCtx, "new-controller", semversion.MustParse("1.0.0"))
+	err := env.AdoptResources(context.Background(), "new-controller", semversion.MustParse("1.0.0"))
 	c.Assert(err, gc.ErrorMatches, ".*uhoh$")
 	c.Assert(s.requests, gc.HasLen, 1)
 }
@@ -2495,7 +2478,7 @@ func (s *environSuite) TestAdoptResourcesErrorUpdatingGroup(c *gc.C) {
 		errorSender,
 	}
 
-	err := env.AdoptResources(s.callCtx, "new-controller", semversion.MustParse("1.0.0"))
+	err := env.AdoptResources(context.Background(), "new-controller", semversion.MustParse("1.0.0"))
 	c.Assert(err, gc.ErrorMatches, ".*uhoh$")
 	c.Assert(s.requests, gc.HasLen, 2)
 }
@@ -2512,7 +2495,7 @@ func (s *environSuite) TestAdoptResourcesErrorGettingVersions(c *gc.C) {
 		errorSender,
 	}
 
-	err := env.AdoptResources(s.callCtx, "new-controller", semversion.MustParse("1.0.0"))
+	err := env.AdoptResources(context.Background(), "new-controller", semversion.MustParse("1.0.0"))
 	c.Assert(err, gc.ErrorMatches, ".*uhoh$")
 	c.Assert(s.requests, gc.HasLen, 3)
 }
@@ -2530,7 +2513,7 @@ func (s *environSuite) TestAdoptResourcesErrorListingResources(c *gc.C) {
 		errorSender,
 	}
 
-	err := env.AdoptResources(s.callCtx, "new-controller", semversion.MustParse("1.0.0"))
+	err := env.AdoptResources(context.Background(), "new-controller", semversion.MustParse("1.0.0"))
 	c.Assert(err, gc.ErrorMatches, ".*ouch!$")
 	c.Assert(s.requests, gc.HasLen, 4)
 }
@@ -2540,7 +2523,7 @@ func (s *environSuite) TestAdoptResourcesWithInvalidCredential(c *gc.C) {
 	s.createSenderWithUnauthorisedStatusCode(c)
 
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
-	err := env.AdoptResources(s.callCtx, "new-controller", semversion.MustParse("1.0.0"))
+	err := env.AdoptResources(context.Background(), "new-controller", semversion.MustParse("1.0.0"))
 	c.Assert(err, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
 }
@@ -2567,7 +2550,7 @@ func (s *environSuite) TestAdoptResourcesNoUpdateNeeded(c *gc.C) {
 		makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
 	}
 
-	err := env.AdoptResources(s.callCtx, "new-controller", semversion.MustParse("1.2.4"))
+	err := env.AdoptResources(context.Background(), "new-controller", semversion.MustParse("1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(s.requests, gc.HasLen, 6)
 }
@@ -2598,7 +2581,7 @@ func (s *environSuite) TestAdoptResourcesErrorGettingFullResource(c *gc.C) {
 		makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
 	}
 
-	err := env.AdoptResources(s.callCtx, "new-controller", semversion.MustParse("1.2.4"))
+	err := env.AdoptResources(context.Background(), "new-controller", semversion.MustParse("1.2.4"))
 	c.Check(err, gc.ErrorMatches, `failed to update controller for some resources: \[boxing-day-blues\]`)
 	c.Check(s.requests, gc.HasLen, 7)
 }
@@ -2631,7 +2614,7 @@ func (s *environSuite) TestAdoptResourcesErrorUpdating(c *gc.C) {
 		makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
 	}
 
-	err := env.AdoptResources(s.callCtx, "new-controller", semversion.MustParse("1.2.4"))
+	err := env.AdoptResources(context.Background(), "new-controller", semversion.MustParse("1.2.4"))
 	c.Check(err, gc.ErrorMatches, `failed to update controller for some resources: \[boxing-day-blues\]`)
 	c.Check(s.requests, gc.HasLen, 8)
 }

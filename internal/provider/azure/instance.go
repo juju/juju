@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/azure/internal/errorutils"
 )
 
@@ -42,7 +41,7 @@ func (inst *azureInstance) Id() instance.Id {
 }
 
 // Status is specified in the Instance interface.
-func (inst *azureInstance) Status(ctx envcontext.ProviderCallContext) instance.Status {
+func (inst *azureInstance) Status(ctx context.Context) instance.Status {
 	var instanceStatus status.Status
 	message := string(inst.provisioningState)
 	switch inst.provisioningState {
@@ -146,7 +145,7 @@ func (env *azureEnviron) instancePublicIPAddresses(
 }
 
 // Addresses is specified in the Instance interface.
-func (inst *azureInstance) Addresses(ctx envcontext.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (inst *azureInstance) Addresses(ctx context.Context) (corenetwork.ProviderAddresses, error) {
 	addresses := make([]corenetwork.ProviderAddress, 0, len(inst.networkInterfaces)+len(inst.publicIPAddresses))
 	for _, nic := range inst.networkInterfaces {
 		if nic.Properties == nil {
@@ -265,7 +264,7 @@ func getSecurityGroupInfoForInterfaces(ctx context.Context, env *azureEnviron, n
 }
 
 // OpenPorts is specified in the Instance interface.
-func (inst *azureInstance) OpenPorts(ctx envcontext.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
+func (inst *azureInstance) OpenPorts(ctx context.Context, machineId string, rules firewall.IngressRules) error {
 	securityGroupInfos, err := inst.getSecurityGroupInfo(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -280,7 +279,7 @@ func (inst *azureInstance) OpenPorts(ctx envcontext.ProviderCallContext, machine
 }
 
 func (inst *azureInstance) openPortsOnGroup(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	machineId string, nsgInfo securityGroupInfo, rules firewall.IngressRules,
 ) error {
 	nsg := nsgInfo.securityGroup
@@ -370,7 +369,7 @@ func (inst *azureInstance) openPortsOnGroup(
 }
 
 // ClosePorts is specified in the Instance interface.
-func (inst *azureInstance) ClosePorts(ctx envcontext.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
+func (inst *azureInstance) ClosePorts(ctx context.Context, machineId string, rules firewall.IngressRules) error {
 	securityGroupInfos, err := inst.getSecurityGroupInfo(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -385,7 +384,7 @@ func (inst *azureInstance) ClosePorts(ctx envcontext.ProviderCallContext, machin
 }
 
 func (inst *azureInstance) closePortsOnGroup(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	machineId string, nsgInfo securityGroupInfo, rules firewall.IngressRules,
 ) error {
 	// Delete rules one at a time; this is necessary to avoid trampling
@@ -417,7 +416,7 @@ func (inst *azureInstance) closePortsOnGroup(
 }
 
 // IngressRules is specified in the Instance interface.
-func (inst *azureInstance) IngressRules(ctx envcontext.ProviderCallContext, machineId string) (firewall.IngressRules, error) {
+func (inst *azureInstance) IngressRules(ctx context.Context, machineId string) (firewall.IngressRules, error) {
 	// The rules to use will be those on the primary network interface.
 	var info *securityGroupInfo
 	for _, nic := range inst.networkInterfaces {
@@ -445,7 +444,7 @@ func (inst *azureInstance) IngressRules(ctx envcontext.ProviderCallContext, mach
 	return rules, nil
 }
 
-func (inst *azureInstance) ingressRulesForGroup(ctx envcontext.ProviderCallContext, machineId string, nsgInfo *securityGroupInfo) (rules firewall.IngressRules, err error) {
+func (inst *azureInstance) ingressRulesForGroup(ctx context.Context, machineId string, nsgInfo *securityGroupInfo) (rules firewall.IngressRules, err error) {
 	securityGroups, err := inst.env.securityGroupsClient()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -538,7 +537,7 @@ func (inst *azureInstance) ingressRulesForGroup(ctx envcontext.ProviderCallConte
 // i.e. both the ones opened by OpenPorts above, and the ones opened for API
 // access.
 func deleteInstanceNetworkSecurityRules(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	env *azureEnviron, id instance.Id,
 	networkInterfaces []*armnetwork.Interface,
 ) error {

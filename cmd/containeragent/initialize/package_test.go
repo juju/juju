@@ -80,7 +80,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"domain/secret/errors",
 		"domain/secretbackend/errors",
 		"environs/config",
-		"environs/envcontext",
 		"environs/tags",
 		"internal/charm",
 		"internal/charm/assumes",

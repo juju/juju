@@ -44,7 +44,6 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/cmd"
@@ -522,7 +521,7 @@ func parseControllerCharmChannel(channelStr string) (charm.Channel, error) {
 // BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.
 type BootstrapInterface interface {
 	// Bootstrap bootstraps a controller.
-	Bootstrap(ctx environs.BootstrapContext, environ environs.BootstrapEnviron, callCtx envcontext.ProviderCallContext,
+	Bootstrap(ctx environs.BootstrapContext, environ environs.BootstrapEnviron,
 		args bootstrap.BootstrapParams) error
 
 	// CloudDetector returns a CloudDetector for the given provider,
@@ -541,8 +540,8 @@ type BootstrapInterface interface {
 type bootstrapFuncs struct{}
 
 func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.BootstrapEnviron,
-	callCtx envcontext.ProviderCallContext, args bootstrap.BootstrapParams) error {
-	return bootstrap.Bootstrap(ctx, env, callCtx, args)
+	args bootstrap.BootstrapParams) error {
+	return bootstrap.Bootstrap(ctx, env, args)
 }
 
 func (b bootstrapFuncs) CloudDetector(provider environs.EnvironProvider) (environs.CloudDetector, bool) {
@@ -916,9 +915,8 @@ to create a new model to deploy %sworkloads.
 	// handleBootstrapErrorFunc is a function that will be called to clean up
 	// the environment if the bootstrap process fails.
 	handleBootstrapErrorFunc := func() error {
-		callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 		return environsDestroy(
-			c.controllerName, environ, callCtx, store,
+			c.controllerName, environ, ctx, store,
 		)
 	}
 
@@ -961,8 +959,7 @@ See `[1:]+"`juju kill-controller`"+`.`)
 		bootstrapParams.MetadataDir = ctx.AbsPath(c.MetadataSource)
 	}
 
-	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
-	constraintsValidator, err := environ.ConstraintsValidator(callCtx)
+	constraintsValidator, err := environ.ConstraintsValidator(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1033,13 +1030,12 @@ See `[1:]+"`juju kill-controller`"+`.`)
 	if err = bootstrapFuncs.Bootstrap(
 		bootstrapCtx,
 		environ,
-		callCtx,
 		bootstrapParams,
 	); err != nil {
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
-	if err = c.controllerDataRefresher(environ, callCtx, bootstrapCfg); err != nil {
+	if err = c.controllerDataRefresher(environ, ctx, bootstrapCfg); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1060,7 +1056,7 @@ See `[1:]+"`juju kill-controller`"+`.`)
 
 func (c *bootstrapCommand) controllerDataRefresher(
 	environ environs.BootstrapEnviron,
-	callCtx envcontext.ProviderCallContext,
+	ctx context.Context,
 	bootstrapCfg bootstrapConfigs,
 ) error {
 	agentVersion := jujuversion.Current
@@ -1074,14 +1070,14 @@ func (c *bootstrapCommand) controllerDataRefresher(
 	var err error
 	if env, ok := environ.(environs.InstanceBroker); ok {
 		// IAAS.
-		addrs, err = common.BootstrapEndpointAddresses(env, callCtx)
+		addrs, err = common.BootstrapEndpointAddresses(env, ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
 	} else if env, ok := environ.(caas.ServiceManager); ok {
 		// CAAS.
 		var svc *caas.Service
-		svc, err = env.GetService(callCtx, k8sconstants.JujuControllerStackName, false)
+		svc, err = env.GetService(ctx, k8sconstants.JujuControllerStackName, false)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1097,7 +1093,7 @@ func (c *bootstrapCommand) controllerDataRefresher(
 
 	var proxier proxy.Proxier
 	if conInfo, ok := environ.(environs.ConnectorInfo); ok {
-		proxier, err = conInfo.ConnectionProxyInfo(callCtx)
+		proxier, err = conInfo.ConnectionProxyInfo(ctx)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}

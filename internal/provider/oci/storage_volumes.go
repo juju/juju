@@ -14,7 +14,6 @@ import (
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/storage"
 )
@@ -50,7 +49,7 @@ func (v *volumeSource) getVolumeStatus(resourceID *string) (string, error) {
 	return string(response.Volume.LifecycleState), nil
 }
 
-func (v *volumeSource) createVolume(ctx envcontext.ProviderCallContext, p storage.VolumeParams, instanceMap map[instance.Id]*ociInstance) (_ *storage.Volume, err error) {
+func (v *volumeSource) createVolume(ctx context.Context, p storage.VolumeParams, instanceMap map[instance.Id]*ociInstance) (_ *storage.Volume, err error) {
 	var details ociCore.CreateVolumeResponse
 	defer func() {
 		if err != nil && details.Id != nil {
@@ -147,7 +146,7 @@ func makeVolumeInfo(vol ociCore.Volume) storage.VolumeInfo {
 	}
 }
 
-func (v *volumeSource) CreateVolumes(ctx envcontext.ProviderCallContext, params []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
+func (v *volumeSource) CreateVolumes(ctx context.Context, params []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
 	logger.Debugf(ctx, "Creating volumes: %v", params)
 	if params == nil {
 		return []storage.CreateVolumesResult{}, nil
@@ -194,7 +193,7 @@ func (v *volumeSource) allVolumes() (map[string]ociCore.Volume, error) {
 	return result, nil
 }
 
-func (v *volumeSource) ListVolumes(ctx envcontext.ProviderCallContext) ([]string, error) {
+func (v *volumeSource) ListVolumes(ctx context.Context) ([]string, error) {
 	var ids []string
 	volumes, err := v.allVolumes()
 	if err != nil {
@@ -207,7 +206,7 @@ func (v *volumeSource) ListVolumes(ctx envcontext.ProviderCallContext) ([]string
 	return ids, nil
 }
 
-func (v *volumeSource) DescribeVolumes(ctx envcontext.ProviderCallContext, volIds []string) ([]storage.DescribeVolumesResult, error) {
+func (v *volumeSource) DescribeVolumes(ctx context.Context, volIds []string) ([]storage.DescribeVolumesResult, error) {
 	result := make([]storage.DescribeVolumesResult, len(volIds), len(volIds))
 
 	allVolumes, err := v.allVolumes()
@@ -226,7 +225,7 @@ func (v *volumeSource) DescribeVolumes(ctx envcontext.ProviderCallContext, volId
 	return result, nil
 }
 
-func (v *volumeSource) DestroyVolumes(ctx envcontext.ProviderCallContext, volIds []string) ([]error, error) {
+func (v *volumeSource) DestroyVolumes(ctx context.Context, volIds []string) ([]error, error) {
 	volumes, err := v.allVolumes()
 	if err != nil {
 		return nil, v.env.HandleCredentialError(ctx, err)
@@ -273,7 +272,7 @@ func (v *volumeSource) DestroyVolumes(ctx envcontext.ProviderCallContext, volIds
 	return errs, nil
 }
 
-func (v *volumeSource) ReleaseVolumes(ctx envcontext.ProviderCallContext, volIds []string) ([]error, error) {
+func (v *volumeSource) ReleaseVolumes(ctx context.Context, volIds []string) ([]error, error) {
 	volumes, err := v.allVolumes()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -396,7 +395,7 @@ func makeVolumeAttachmentResult(attachment ociCore.IScsiVolumeAttachment, param 
 	return result, nil
 }
 
-func (v *volumeSource) attachVolume(ctx envcontext.ProviderCallContext, param storage.VolumeAttachmentParams) (_ storage.AttachVolumesResult, err error) {
+func (v *volumeSource) attachVolume(ctx context.Context, param storage.VolumeAttachmentParams) (_ storage.AttachVolumesResult, err error) {
 	var details ociCore.AttachVolumeResponse
 	defer func() {
 		volAttach := details.VolumeAttachment
@@ -512,7 +511,7 @@ func (v *volumeSource) getAttachmentStatus(resourceID *string) (string, error) {
 	return string(response.VolumeAttachment.GetLifecycleState()), nil
 }
 
-func (v *volumeSource) AttachVolumes(ctx envcontext.ProviderCallContext, params []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+func (v *volumeSource) AttachVolumes(ctx context.Context, params []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
 	var instanceIds []instance.Id
 	for _, val := range params {
 		instanceIds = append(instanceIds, val.InstanceId)
@@ -553,7 +552,7 @@ func (v *volumeSource) AttachVolumes(ctx envcontext.ProviderCallContext, params 
 	return ret, nil
 }
 
-func (v *volumeSource) DetachVolumes(ctx envcontext.ProviderCallContext, params []storage.VolumeAttachmentParams) ([]error, error) {
+func (v *volumeSource) DetachVolumes(ctx context.Context, params []storage.VolumeAttachmentParams) ([]error, error) {
 	var credErr error
 	ret := make([]error, len(params))
 	instanceAttachmentMap := map[instance.Id][]ociCore.IScsiVolumeAttachment{}

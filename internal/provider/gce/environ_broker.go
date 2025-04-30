@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
@@ -23,7 +22,7 @@ import (
 )
 
 // StartInstance implements environs.InstanceBroker.
-func (env *environ) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (env *environ) StartInstance(ctx context.Context, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	// Start a new instance.
 
 	spec, err := buildInstanceSpec(env, ctx, args)
@@ -60,11 +59,11 @@ func (env *environ) StartInstance(ctx envcontext.ProviderCallContext, args envir
 	return &result, nil
 }
 
-var buildInstanceSpec = func(env *environ, ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
+var buildInstanceSpec = func(env *environ, ctx context.Context, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
 	return env.buildInstanceSpec(ctx, args)
 }
 
-var newRawInstance = func(env *environ, ctx envcontext.ProviderCallContext, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
+var newRawInstance = func(env *environ, ctx context.Context, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
 	return env.newRawInstance(ctx, args, spec)
 }
 
@@ -84,7 +83,7 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams, spec
 // buildInstanceSpec builds an instance spec from the provided args
 // and returns it. This includes pulling the simplestreams data for the
 // machine type, region, and other constraints.
-func (env *environ) buildInstanceSpec(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
+func (env *environ) buildInstanceSpec(ctx context.Context, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
 	instTypesAndCosts, err := env.InstanceTypes(ctx, constraints.Value{})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -156,7 +155,7 @@ func (env *environ) imageURLBase(os ostype.OSType) (string, error) {
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *environ) newRawInstance(
-	ctx envcontext.ProviderCallContext, args environs.StartInstanceParams, spec *instances.InstanceSpec,
+	ctx context.Context, args environs.StartInstanceParams, spec *instances.InstanceSpec,
 ) (_ *google.Instance, err error) {
 	hostname, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
 	if err != nil {
@@ -317,7 +316,7 @@ func (env *environ) AllRunningInstances(ctx context.Context) ([]instances.Instan
 }
 
 // StopInstances implements environs.InstanceBroker.
-func (env *environ) StopInstances(ctx envcontext.ProviderCallContext, instances ...instance.Id) error {
+func (env *environ) StopInstances(ctx context.Context, instances ...instance.Id) error {
 	var ids []string
 	for _, id := range instances {
 		ids = append(ids, string(id))

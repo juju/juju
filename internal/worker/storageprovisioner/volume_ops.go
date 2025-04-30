@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
-	environscontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/rpc/params"
@@ -55,7 +54,7 @@ func createVolumes(ctx context.Context, deps *dependencies, ops map[names.Volume
 		if len(volumeParams) == 0 {
 			continue
 		}
-		results, err := volumeSource.CreateVolumes(deps.config.CloudCallContextFunc(context.Background()), volumeParams)
+		results, err := volumeSource.CreateVolumes(ctx, volumeParams)
 		if err != nil {
 			return errors.Annotatef(err, "creating volumes from source %q", sourceName)
 		}
@@ -150,7 +149,7 @@ func attachVolumes(ctx context.Context, deps *dependencies, ops map[params.Machi
 			// to do here.
 			continue
 		}
-		results, err := volumeSource.AttachVolumes(deps.config.CloudCallContextFunc(context.Background()), volumeAttachmentParams)
+		results, err := volumeSource.AttachVolumes(ctx, volumeAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "attaching volumes from source %q", sourceName)
 		}
@@ -279,11 +278,11 @@ func removeVolumes(ctx context.Context, deps *dependencies, ops map[names.Volume
 	var remove []names.Tag
 	var reschedule []scheduleOp
 	var statuses []params.EntityStatusArgs
-	removeVolumes := func(tags []names.VolumeTag, ids []string, f func(environscontext.ProviderCallContext, []string) ([]error, error)) error {
+	removeVolumes := func(tags []names.VolumeTag, ids []string, f func(context.Context, []string) ([]error, error)) error {
 		if len(ids) == 0 {
 			return nil
 		}
-		errs, err := f(deps.config.CloudCallContextFunc(context.Background()), ids)
+		errs, err := f(ctx, ids)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -376,7 +375,7 @@ func detachVolumes(ctx context.Context, deps *dependencies, ops map[params.Machi
 			// to do here.
 			continue
 		}
-		errs, err := volumeSource.DetachVolumes(deps.config.CloudCallContextFunc(context.Background()), volumeAttachmentParams)
+		errs, err := volumeSource.DetachVolumes(ctx, volumeAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "detaching volumes from source %q", sourceName)
 		}

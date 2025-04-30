@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -14,7 +15,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 // TODO(dimitern): The types below should be part of gomaasapi.
@@ -85,7 +85,7 @@ type maasSubnet struct {
 }
 
 // NetworkInterfaces implements Environ.NetworkInterfaces.
-func (env *maasEnviron) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
+func (env *maasEnviron) NetworkInterfaces(ctx context.Context, ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
 	switch len(ids) {
 	case 0:
 		return nil, environs.ErrNoInstances
@@ -136,7 +136,7 @@ func (env *maasEnviron) NetworkInterfaces(ctx envcontext.ProviderCallContext, id
 	return infos, err
 }
 
-func (env *maasEnviron) networkInterfacesForInstance(ctx envcontext.ProviderCallContext, instId instance.Id) (corenetwork.InterfaceInfos, error) {
+func (env *maasEnviron) networkInterfacesForInstance(ctx context.Context, instId instance.Id) (corenetwork.InterfaceInfos, error) {
 	inst, err := env.getInstance(ctx, instId)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -153,7 +153,7 @@ func (env *maasEnviron) networkInterfacesForInstance(ctx envcontext.ProviderCall
 }
 
 func maasNetworkInterfaces(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	instance *maasInstance,
 	subnetsMap map[string]corenetwork.Id,
 	dnsSearchDomains ...string,

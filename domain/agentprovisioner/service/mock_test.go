@@ -14,7 +14,6 @@ import (
 	reflect "reflect"
 
 	model "github.com/juju/juju/core/model"
-	envcontext "github.com/juju/juju/environs/envcontext"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -148,7 +147,7 @@ func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 }
 
 // SupportsContainerAddresses mocks base method.
-func (m *MockProvider) SupportsContainerAddresses(arg0 envcontext.ProviderCallContext) (bool, error) {
+func (m *MockProvider) SupportsContainerAddresses(arg0 context.Context) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SupportsContainerAddresses", arg0)
 	ret0, _ := ret[0].(bool)
@@ -175,13 +174,13 @@ func (c *MockProviderSupportsContainerAddressesCall) Return(arg0 bool, arg1 erro
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockProviderSupportsContainerAddressesCall) Do(f func(envcontext.ProviderCallContext) (bool, error)) *MockProviderSupportsContainerAddressesCall {
+func (c *MockProviderSupportsContainerAddressesCall) Do(f func(context.Context) (bool, error)) *MockProviderSupportsContainerAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockProviderSupportsContainerAddressesCall) DoAndReturn(f func(envcontext.ProviderCallContext) (bool, error)) *MockProviderSupportsContainerAddressesCall {
+func (c *MockProviderSupportsContainerAddressesCall) DoAndReturn(f func(context.Context) (bool, error)) *MockProviderSupportsContainerAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

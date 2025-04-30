@@ -14,7 +14,6 @@ import (
 
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/provider/azure/internal/imageutils"
 )
@@ -521,7 +520,7 @@ func mbToMib(mb uint64) uint64 {
 // NOTE(axw) for now we ignore simplestreams altogether, and go straight to
 // Azure's image registry.
 func (env *azureEnviron) findInstanceSpec(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	instanceTypesMap map[string]instances.InstanceType,
 	constraint *instances.InstanceConstraint,
 	imageStream string,

@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/semversion"
 	corestorage "github.com/juju/juju/core/storage"
-	"github.com/juju/juju/environs/envcontext"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
 	_ "github.com/juju/juju/internal/provider/manual"
@@ -58,7 +57,6 @@ type Suite struct {
 	agentService              *MockModelAgentService
 
 	facadeContext facadetest.ModelContext
-	callContext   envcontext.ProviderCallContext
 }
 
 var _ = gc.Suite(&Suite{})
@@ -458,7 +456,6 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
-	s.callContext = envcontext.WithoutCredentialInvalidator(context.Background())
 	s.facadeContext = facadetest.ModelContext{
 		State_:         s.State,
 		StatePool_:     s.StatePool,

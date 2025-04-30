@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
 )
@@ -444,7 +443,7 @@ func findRoleFromName(
 // applied. This function also waits for the instance profile to be associated
 // with the instance.
 func setInstanceProfileWithWait(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	client instanceProfileClient,
 	profile *iamtypes.InstanceProfile,
 	inst instances.Instance,
@@ -499,7 +498,7 @@ func setInstanceProfileWithWait(
 }
 
 func IsInstanceProfileAssociated(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	client instanceProfileClient,
 	associationId,
 	instanceId string,
@@ -556,7 +555,7 @@ func IsInstanceProfileAssociated(
 // state first otherwise a Juju NotProvisioned error returned. Use
 // setInstanceProfileWithWait to block on the instance status being running.
 func setInstanceProfile(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	client instanceProfileClient,
 	profile *iamtypes.InstanceProfile,
 	inst instances.Instance,

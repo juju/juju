@@ -47,7 +47,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/testing"
@@ -254,14 +253,13 @@ func (s *K8sBrokerSuite) TestBootstrapNoWorkloadStorage(c *gc.C) {
 	defer ctrl.Finish()
 
 	ctx := envtesting.BootstrapContext(context.Background(), c)
-	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 	bootstrapParams := environs.BootstrapParams{
 		ControllerConfig:        testing.FakeControllerConfig(),
 		BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
 		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	}
 
-	_, err := s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
+	_, err := s.broker.Bootstrap(ctx, bootstrapParams)
 	c.Assert(err, gc.NotNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(msg, gc.Matches, "config without workload-storage value not valid.*")
@@ -275,7 +273,6 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 	s.setupWorkloadStorageConfig(c)
 
 	ctx := envtesting.BootstrapContext(context.Background(), c)
-	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 	bootstrapParams := environs.BootstrapParams{
 		ControllerConfig:        testing.FakeControllerConfig(),
 		BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
@@ -291,13 +288,13 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-some-storage", v1.GetOptions{}).
 			Return(sc, nil),
 	)
-	result, err := s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
+	result, err := s.broker.Bootstrap(ctx, bootstrapParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "amd64")
 	c.Assert(result.CaasBootstrapFinalizer, gc.NotNil)
 
 	bootstrapParams.BootstrapBase = corebase.MustParseBaseFromString("ubuntu@22.04")
-	_, err = s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
+	_, err = s.broker.Bootstrap(ctx, bootstrapParams)
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
@@ -707,7 +704,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 
 func (s *K8sBrokerSuite) TestDestroyController(c *gc.C) {
 	s.assertDestroy(c, true, func() error {
-		return s.broker.DestroyController(envcontext.WithoutCredentialInvalidator(context.Background()), testing.ControllerTag.Id())
+		return s.broker.DestroyController(context.Background(), testing.ControllerTag.Id())
 	})
 }
 
@@ -752,7 +749,7 @@ func (s *K8sBrokerSuite) TestEnsureImageRepoSecret(c *gc.C) {
 
 func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
 	s.assertDestroy(c, false, func() error {
-		return s.broker.Destroy(envcontext.WithoutCredentialInvalidator(context.Background()))
+		return s.broker.Destroy(context.Background())
 	})
 }
 

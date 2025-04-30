@@ -122,7 +122,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"environs/cloudspec",
 		"environs/config",
 		"environs/dashboard",
-		"environs/envcontext",
 		"environs/filestorage",
 		"environs/imagemetadata",
 		"environs/instances",

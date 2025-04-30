@@ -18,28 +18,21 @@ import (
 	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/lxd"
 )
 
 type environPolicySuite struct {
 	lxd.EnvironSuite
 
-	svr     *lxd.MockServer
-	env     environs.Environ
-	callCtx envcontext.ProviderCallContext
+	svr *lxd.MockServer
+	env environs.Environ
 }
 
 var _ = gc.Suite(&environPolicySuite{})
 
-func (s *environPolicySuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
-}
-
 func (s *environPolicySuite) TestPrecheckInstanceDefaults(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase()})
+	err := s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase()})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -48,7 +41,7 @@ func (s *environPolicySuite) TestPrecheckInstanceHasInstanceType(c *gc.C) {
 
 	cons := constraints.MustParse("instance-type=some-instance-type")
 	err := s.env.PrecheckInstance(
-		s.callCtx, environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Constraints: cons})
+		context.Background(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -58,7 +51,7 @@ func (s *environPolicySuite) TestPrecheckInstanceDiskSize(c *gc.C) {
 
 	cons := constraints.MustParse("root-disk=1G")
 	err := s.env.PrecheckInstance(
-		s.callCtx, environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Constraints: cons})
+		context.Background(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -68,7 +61,7 @@ func (s *environPolicySuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 
 	cons := constraints.MustParse("arch=arm64")
 	err := s.env.PrecheckInstance(
-		s.callCtx, environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Constraints: cons})
+		context.Background(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -95,7 +88,7 @@ func (s *environPolicySuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 
 	placement := "zone=a-zone"
 	err := s.env.PrecheckInstance(
-		s.callCtx, environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Placement: placement})
+		context.Background(), environs.PrecheckInstanceParams{Base: version.DefaultSupportedLTSBase(), Placement: placement})
 
 	c.Check(err, gc.ErrorMatches, `availability zone "a-zone" not valid`)
 }
@@ -103,7 +96,7 @@ func (s *environPolicySuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 func (s *environPolicySuite) TestConstraintsValidatorArch(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	validator, err := s.env.ConstraintsValidator(s.callCtx)
+	validator, err := s.env.ConstraintsValidator(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
@@ -126,7 +119,7 @@ func (s *environPolicySuite) TestConstraintsValidatorArchWithUnsupportedArches(c
 
 	s.env = s.NewEnviron(c, s.svr, nil, environscloudspec.CloudSpec{}, invalidator)
 
-	validator, err := s.env.ConstraintsValidator(s.callCtx)
+	validator, err := s.env.ConstraintsValidator(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, arches := range []string{"arm64", "amd64"} {
@@ -141,7 +134,7 @@ func (s *environPolicySuite) TestConstraintsValidatorArchWithUnsupportedArches(c
 func (s *environPolicySuite) TestConstraintsValidatorVirtType(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	validator, err := s.env.ConstraintsValidator(s.callCtx)
+	validator, err := s.env.ConstraintsValidator(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("virt-type=container")
@@ -154,7 +147,7 @@ func (s *environPolicySuite) TestConstraintsValidatorVirtType(c *gc.C) {
 func (s *environPolicySuite) TestConstraintsValidatorEmptyVirtType(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	validator, err := s.env.ConstraintsValidator(s.callCtx)
+	validator, err := s.env.ConstraintsValidator(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("virt-type=")
@@ -167,7 +160,7 @@ func (s *environPolicySuite) TestConstraintsValidatorEmptyVirtType(c *gc.C) {
 func (s *environPolicySuite) TestConstraintsValidatorEmpty(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	validator, err := s.env.ConstraintsValidator(s.callCtx)
+	validator, err := s.env.ConstraintsValidator(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	unsupported, err := validator.Validate(constraints.Value{})
@@ -179,7 +172,7 @@ func (s *environPolicySuite) TestConstraintsValidatorEmpty(c *gc.C) {
 func (s *environPolicySuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	validator, err := s.env.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(context.Background()))
+	validator, err := s.env.ConstraintsValidator(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse(strings.Join([]string{
@@ -204,7 +197,7 @@ func (s *environPolicySuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 func (s *environPolicySuite) TestConstraintsValidatorVocabArchKnown(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	validator, err := s.env.ConstraintsValidator(s.callCtx)
+	validator, err := s.env.ConstraintsValidator(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
@@ -216,7 +209,7 @@ func (s *environPolicySuite) TestConstraintsValidatorVocabArchKnown(c *gc.C) {
 func (s *environPolicySuite) TestConstraintsValidatorVocabArchUnknown(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	validator, err := s.env.ConstraintsValidator(s.callCtx)
+	validator, err := s.env.ConstraintsValidator(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=ppc64el")
@@ -230,7 +223,7 @@ func (s *environPolicySuite) TestConstraintsValidatorVocabContainerUnknown(c *gc
 
 	defer s.setupMocks(c).Finish()
 
-	validator, err := s.env.ConstraintsValidator(s.callCtx)
+	validator, err := s.env.ConstraintsValidator(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("container=lxd")
@@ -242,7 +235,7 @@ func (s *environPolicySuite) TestConstraintsValidatorVocabContainerUnknown(c *gc
 func (s *environPolicySuite) TestConstraintsValidatorConflicts(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	validator, err := s.env.ConstraintsValidator(s.callCtx)
+	validator, err := s.env.ConstraintsValidator(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("instance-type=n1-standard-1")
@@ -259,8 +252,8 @@ func (s *environPolicySuite) TestSupportNetworks(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	isSupported := s.env.(interface {
-		SupportNetworks(envcontext.ProviderCallContext) bool
-	}).SupportNetworks(envcontext.WithoutCredentialInvalidator(context.Background()))
+		SupportNetworks(context.Context) bool
+	}).SupportNetworks(context.Background())
 
 	c.Check(isSupported, jc.IsFalse)
 }

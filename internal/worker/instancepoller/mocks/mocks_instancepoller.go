@@ -17,7 +17,6 @@ import (
 	life "github.com/juju/juju/core/life"
 	network "github.com/juju/juju/core/network"
 	status "github.com/juju/juju/core/status"
-	envcontext "github.com/juju/juju/environs/envcontext"
 	instances "github.com/juju/juju/environs/instances"
 	params "github.com/juju/juju/rpc/params"
 	gomock "go.uber.org/mock/gomock"
@@ -86,7 +85,7 @@ func (c *MockEnvironInstancesCall) DoAndReturn(f func(context.Context, []instanc
 }
 
 // NetworkInterfaces mocks base method.
-func (m *MockEnviron) NetworkInterfaces(arg0 envcontext.ProviderCallContext, arg1 []instance.Id) ([]network.InterfaceInfos, error) {
+func (m *MockEnviron) NetworkInterfaces(arg0 context.Context, arg1 []instance.Id) ([]network.InterfaceInfos, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NetworkInterfaces", arg0, arg1)
 	ret0, _ := ret[0].([]network.InterfaceInfos)
@@ -113,13 +112,13 @@ func (c *MockEnvironNetworkInterfacesCall) Return(arg0 []network.InterfaceInfos,
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironNetworkInterfacesCall) Do(f func(envcontext.ProviderCallContext, []instance.Id) ([]network.InterfaceInfos, error)) *MockEnvironNetworkInterfacesCall {
+func (c *MockEnvironNetworkInterfacesCall) Do(f func(context.Context, []instance.Id) ([]network.InterfaceInfos, error)) *MockEnvironNetworkInterfacesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironNetworkInterfacesCall) DoAndReturn(f func(envcontext.ProviderCallContext, []instance.Id) ([]network.InterfaceInfos, error)) *MockEnvironNetworkInterfacesCall {
+func (c *MockEnvironNetworkInterfacesCall) DoAndReturn(f func(context.Context, []instance.Id) ([]network.InterfaceInfos, error)) *MockEnvironNetworkInterfacesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

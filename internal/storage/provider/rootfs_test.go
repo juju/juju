@@ -12,7 +12,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/testing"
@@ -26,15 +25,12 @@ type rootfsSuite struct {
 	commands     *mockRunCommand
 	mockDirFuncs *provider.MockDirFuncs
 	fakeEtcDir   string
-
-	callCtx envcontext.ProviderCallContext
 }
 
 func (s *rootfsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.storageDir = c.MkDir()
 	s.fakeEtcDir = c.MkDir()
-	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *rootfsSuite) TearDownTest(c *gc.C) {
@@ -98,7 +94,7 @@ func (s *rootfsSuite) TestCreateFilesystems(c *gc.C) {
 	cmd = s.commands.expect("df", "--output=size", s.storageDir)
 	cmd.respond("1K-blocks\n4096", nil)
 
-	results, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
+	results, err := source.CreateFilesystems(context.Background(), []storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("6"),
 		Size: 2,
 	}, {
@@ -128,7 +124,7 @@ func (s *rootfsSuite) TestCreateFilesystems(c *gc.C) {
 
 func (s *rootfsSuite) TestCreateFilesystemsIsUse(c *gc.C) {
 	source := s.rootfsFilesystemSource(c)
-	results, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
+	results, err := source.CreateFilesystems(context.Background(), []storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("666"), // magic; see mockDirFuncs
 		Size: 1,
 	}})
@@ -138,7 +134,7 @@ func (s *rootfsSuite) TestCreateFilesystemsIsUse(c *gc.C) {
 
 func (s *rootfsSuite) TestAttachFilesystemsPathNotDir(c *gc.C) {
 	source := s.rootfsFilesystemSource(c)
-	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(context.Background(), []storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("6"),
 		FilesystemId: "6",
 		Path:         "file",
@@ -152,7 +148,7 @@ func (s *rootfsSuite) TestCreateFilesystemsNotEnoughSpace(c *gc.C) {
 	cmd := s.commands.expect("df", "--output=size", s.storageDir)
 	cmd.respond("1K-blocks\n2048", nil)
 
-	results, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
+	results, err := source.CreateFilesystems(context.Background(), []storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("6"),
 		Size: 4,
 	}})
@@ -165,7 +161,7 @@ func (s *rootfsSuite) TestCreateFilesystemsInvalidPath(c *gc.C) {
 	cmd := s.commands.expect("df", "--output=size", s.storageDir)
 	cmd.respond("", errors.New("error creating directory"))
 
-	results, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
+	results, err := source.CreateFilesystems(context.Background(), []storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("6"),
 		Size: 2,
 	}})
@@ -175,7 +171,7 @@ func (s *rootfsSuite) TestCreateFilesystemsInvalidPath(c *gc.C) {
 
 func (s *rootfsSuite) TestAttachFilesystemsNoPathSpecified(c *gc.C) {
 	source := s.rootfsFilesystemSource(c)
-	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(context.Background(), []storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("6"),
 		FilesystemId: "6",
 	}})
@@ -189,7 +185,7 @@ func (s *rootfsSuite) TestAttachFilesystemsBind(c *gc.C) {
 	cmd := s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv")
 	cmd.respond("", nil)
 
-	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(context.Background(), []storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("6"),
 		FilesystemId: "6",
 		Path:         "/srv",
@@ -210,7 +206,7 @@ func (s *rootfsSuite) TestAttachFilesystemsBound(c *gc.C) {
 	mountInfo := mountInfoLine(666, 0, filepath.Join(s.storageDir, "6"), "/srv", "/dev/sda1")
 	source := s.rootfsFilesystemSource(c, mountInfo)
 
-	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(context.Background(), []storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("6"),
 		FilesystemId: "6",
 		Path:         "/srv",
@@ -231,7 +227,7 @@ func (s *rootfsSuite) TestAttachFilesystemsBoundViaParent(c *gc.C) {
 	mountInfo2 := mountInfoLine(667, 668, "/some/parent/path", "/", "/dev/sda1")
 	source := s.rootfsFilesystemSource(c, mountInfo1, mountInfo2)
 
-	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(context.Background(), []storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("6"),
 		FilesystemId: "6",
 		Path:         "/srv",
@@ -253,7 +249,7 @@ func (s *rootfsSuite) TestAttachFilesystemsBoundViaMultipleParents(c *gc.C) {
 	mountInfo3 := mountInfoLine(668, 669, "/another/parent/path", "/", "/dev/sda1")
 	source := s.rootfsFilesystemSource(c, mountInfo1, mountInfo2, mountInfo3)
 
-	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(context.Background(), []storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("6"),
 		FilesystemId: "6",
 		Path:         "/srv",
@@ -277,7 +273,7 @@ func (s *rootfsSuite) TestAttachFilesystemsBindFailsDifferentFS(c *gc.C) {
 	cmd := s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv")
 	cmd.respond("", errors.New("mount --bind fails"))
 
-	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(context.Background(), []storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("6"),
 		FilesystemId: "6",
 		Path:         "/srv",
@@ -294,7 +290,7 @@ func (s *rootfsSuite) TestAttachFilesystemsBindSameFSEmptyDir(c *gc.C) {
 	cmd := s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv")
 	cmd.respond("", errors.New("mount --bind fails"))
 
-	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(context.Background(), []storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("6"),
 		FilesystemId: "6",
 		Path:         "/srv",
@@ -318,7 +314,7 @@ func (s *rootfsSuite) TestAttachFilesystemsBindSameFSNonEmptyDirUnclaimed(c *gc.
 	cmd := s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv/666")
 	cmd.respond("", errors.New("mount --bind fails"))
 
-	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(context.Background(), []storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("6"),
 		FilesystemId: "6",
 		Path:         "/srv/666",
@@ -337,7 +333,7 @@ func (s *rootfsSuite) TestAttachFilesystemsBindSameFSNonEmptyDirClaimed(c *gc.C)
 
 	s.mockDirFuncs.Dirs.Add(filepath.Join(s.storageDir, "6", "juju-target-claimed"))
 
-	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(context.Background(), []storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("6"),
 		FilesystemId: "6",
 		Path:         "/srv/666",
@@ -356,7 +352,7 @@ func (s *rootfsSuite) TestAttachFilesystemsBindSameFSNonEmptyDirClaimed(c *gc.C)
 func (s *rootfsSuite) TestDetachFilesystems(c *gc.C) {
 	mountInfo := mountInfoLine(666, 0, "/src/of/root", testMountPoint, "/dev/sda1")
 	source := s.rootfsFilesystemSource(c, mountInfo)
-	testDetachFilesystems(c, s.commands, source, s.callCtx, true, s.fakeEtcDir, "")
+	testDetachFilesystems(c, s.commands, source, true, s.fakeEtcDir, "")
 }
 
 func (s *rootfsSuite) TestDetachFilesystemsUnattached(c *gc.C) {
@@ -365,5 +361,5 @@ func (s *rootfsSuite) TestDetachFilesystemsUnattached(c *gc.C) {
 	// either case, there is no attachment-specific filesystem
 	// mount.
 	source := s.rootfsFilesystemSource(c)
-	testDetachFilesystems(c, s.commands, source, s.callCtx, false, s.fakeEtcDir, "")
+	testDetachFilesystems(c, s.commands, source, false, s.fakeEtcDir, "")
 }

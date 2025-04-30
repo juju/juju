@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/provider/lxd/lxdnames"
@@ -510,7 +509,7 @@ func (s *providerSuite) TestPingFailWithNoEndpoint(c *gc.C) {
 
 	p, err := environs.Provider("lxd")
 	c.Assert(err, jc.ErrorIsNil)
-	err = p.Ping(envcontext.WithoutCredentialInvalidator(context.Background()), server.URL)
+	err = p.Ping(context.Background(), server.URL)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
 		"no lxd server running at %[1]s: Failed to fetch %[1]s/1.0: 404 Not Found",
 		server.URL))
@@ -522,7 +521,7 @@ func (s *providerSuite) TestPingFailWithHTTP(c *gc.C) {
 
 	p, err := environs.Provider("lxd")
 	c.Assert(err, jc.ErrorIsNil)
-	err = p.Ping(envcontext.WithoutCredentialInvalidator(context.Background()), server.URL)
+	err = p.Ping(context.Background(), server.URL)
 	httpsURL := "https://" + strings.TrimPrefix(server.URL, "http://")
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
 		`no lxd server running at %[1]s: Get "%[1]s/1.0": http: server gave HTTP response to HTTPS client`,

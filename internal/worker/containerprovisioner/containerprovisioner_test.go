@@ -6,7 +6,7 @@ package containerprovisioner_test
 import (
 	"context"
 	"fmt"
-	reflect "reflect"
+	"reflect"
 	"sync"
 	"time"
 
@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	environmocks "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
@@ -117,7 +116,7 @@ func (s *lxdProvisionerSuite) newLXDProvisioner(c *gc.C, ctrl *gomock.Controller
 
 	w, err := containerprovisioner.NewContainerProvisioner(
 		instance.LXD, s.controllerAPI, s.machinesAPI, loggertesting.WrapCheckLog(c),
-		cfg, s.broker, &mockToolsFinder{}, &mockDistributionGroupFinder{}, &credentialAPIForTest{})
+		cfg, s.broker, &mockToolsFinder{}, &mockDistributionGroupFinder{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.waitForProvisioner(c)
@@ -191,7 +190,7 @@ func (s *lxdProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	s.sendMachineContainersChange(c, c666.Id())
 	s.checkStartInstance(c, c666)
 
-	s.broker.EXPECT().StopInstances(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx envcontext.ProviderCallContext, ids ...instance.Id) error {
+	s.broker.EXPECT().StopInstances(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, ids ...instance.Id) error {
 		c.Assert(len(ids), gc.Equals, 1)
 		c.Assert(ids[0], gc.DeepEquals, instance.Id("inst-666"))
 		return nil
@@ -331,12 +330,6 @@ func (s *lxdProvisionerSuite) sendModelConfigChange(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out sending model config change")
 	}
-}
-
-type credentialAPIForTest struct{}
-
-func (*credentialAPIForTest) InvalidateModelCredential(_ context.Context, reason string) error {
-	return nil
 }
 
 var (

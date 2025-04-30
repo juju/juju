@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/provisionertask"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -98,7 +97,6 @@ type environProvisioner struct {
 	distributionGroupFinder DistributionGroupFinder
 	toolsFinder             ToolsFinder
 	catacomb                catacomb.Catacomb
-	callContextFunc         common.CloudCallContextFunc
 }
 
 // configObserver is implemented so that tests can see when the environment
@@ -179,8 +177,7 @@ func (p *environProvisioner) getStartTask(ctx context.Context, harvestMode confi
 			RetryDelay: retryStrategyDelay,
 			RetryCount: retryStrategyCount,
 		},
-		CloudCallContextFunc: p.callContextFunc,
-		NumProvisionWorkers:  workerCount, // event callback is currently only being used by tests
+		NumProvisionWorkers: workerCount, // event callback is currently only being used by tests
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -265,7 +262,6 @@ func NewEnvironProvisioner(
 	agentConfig agent.Config,
 	logger logger.Logger,
 	environ Environ,
-	credentialAPI common.CredentialAPI,
 ) (Provisioner, error) {
 	if logger == nil {
 		return nil, errors.NotValidf("missing logger")
@@ -278,7 +274,6 @@ func NewEnvironProvisioner(
 		machinesAPI:             machinesAPI,
 		toolsFinder:             toolsFinder,
 		distributionGroupFinder: distributionGroupFinder,
-		callContextFunc:         common.NewCloudCallContextFunc(credentialAPI),
 		environ:                 environ,
 	}
 	p.broker = environ

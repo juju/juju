@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/internal/storage"
@@ -236,7 +235,7 @@ type lxdFilesystemSource struct {
 }
 
 // CreateFilesystems is specified on the storage.FilesystemSource interface.
-func (s *lxdFilesystemSource) CreateFilesystems(ctx envcontext.ProviderCallContext, args []storage.FilesystemParams) (_ []storage.CreateFilesystemsResult, err error) {
+func (s *lxdFilesystemSource) CreateFilesystems(ctx context.Context, args []storage.FilesystemParams) (_ []storage.CreateFilesystemsResult, err error) {
 	results := make([]storage.CreateFilesystemsResult, len(args))
 	for i, arg := range args {
 		if err := s.ValidateFilesystemParams(arg); err != nil {
@@ -354,7 +353,7 @@ func destroyFilesystems(env *environ, match func(api.StorageVolume) bool) error 
 }
 
 // DestroyFilesystems is specified on the storage.FilesystemSource interface.
-func (s *lxdFilesystemSource) DestroyFilesystems(ctx envcontext.ProviderCallContext, filesystemIds []string) ([]error, error) {
+func (s *lxdFilesystemSource) DestroyFilesystems(ctx context.Context, filesystemIds []string) ([]error, error) {
 	results := make([]error, len(filesystemIds))
 	for i, filesystemId := range filesystemIds {
 		err := s.destroyFilesystem(filesystemId)
@@ -379,7 +378,7 @@ func (s *lxdFilesystemSource) destroyFilesystem(filesystemId string) error {
 }
 
 // ReleaseFilesystems is specified on the storage.FilesystemSource interface.
-func (s *lxdFilesystemSource) ReleaseFilesystems(ctx envcontext.ProviderCallContext, filesystemIds []string) ([]error, error) {
+func (s *lxdFilesystemSource) ReleaseFilesystems(ctx context.Context, filesystemIds []string) ([]error, error) {
 	results := make([]error, len(filesystemIds))
 	for i, filesystemId := range filesystemIds {
 		err := s.releaseFilesystem(filesystemId)
@@ -422,7 +421,7 @@ func (s *lxdFilesystemSource) ValidateFilesystemParams(params storage.Filesystem
 }
 
 // AttachFilesystems is specified on the storage.FilesystemSource interface.
-func (s *lxdFilesystemSource) AttachFilesystems(ctx envcontext.ProviderCallContext, args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
+func (s *lxdFilesystemSource) AttachFilesystems(ctx context.Context, args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
 	var instanceIds []instance.Id
 	instanceIdsSeen := make(set.Strings)
 	for _, arg := range args {
@@ -500,7 +499,7 @@ func (s *lxdFilesystemSource) attachFilesystem(
 }
 
 // DetachFilesystems is specified on the storage.FilesystemSource interface.
-func (s *lxdFilesystemSource) DetachFilesystems(ctx envcontext.ProviderCallContext, args []storage.FilesystemAttachmentParams) ([]error, error) {
+func (s *lxdFilesystemSource) DetachFilesystems(ctx context.Context, args []storage.FilesystemAttachmentParams) ([]error, error) {
 	var instanceIds []instance.Id
 	instanceIdsSeen := make(set.Strings)
 	for _, arg := range args {

@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/azure"
 	"github.com/juju/juju/internal/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/internal/storage"
@@ -32,8 +31,6 @@ type storageSuite struct {
 	provider storage.Provider
 	requests []*http.Request
 	sender   azuretesting.Senders
-
-	cloudCallCtx envcontext.ProviderCallContext
 
 	credentialInvalidator environs.CredentialInvalidator
 	invalidatedCredential bool
@@ -57,7 +54,6 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	env := openEnviron(c, envProvider, s.credentialInvalidator, &s.sender)
 	s.provider, err = env.StorageProvider("azure")
 	c.Assert(err, jc.ErrorIsNil)
-	s.cloudCallCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 
 	s.invalidatedCredential = false
 	s.credentialInvalidator = azure.CredentialInvalidator(func(context.Context, environs.CredentialInvalidReason) error {
@@ -145,7 +141,7 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 		makeSender("volume-2", 1),
 	}
 
-	results, err := volumeSource.CreateVolumes(s.cloudCallCtx, params)
+	results, err := volumeSource.CreateVolumes(context.Background(), params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, len(params))
 	c.Check(results[0].Error, jc.ErrorIsNil)
@@ -236,7 +232,7 @@ func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *gc.C) {
 	s.createSenderWithUnauthorisedStatusCode()
 
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
-	results, err := volumeSource.CreateVolumes(s.cloudCallCtx, params)
+	results, err := volumeSource.CreateVolumes(context.Background(), params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, len(params))
 	c.Check(results[0].Error, gc.NotNil)
@@ -296,7 +292,7 @@ func (s *storageSuite) TestListVolumes(c *gc.C) {
 	volumeSender.PathPattern = `.*/Microsoft\.Compute/disks`
 	s.sender = azuretesting.Senders{volumeSender}
 
-	volumeIds, err := volumeSource.ListVolumes(s.cloudCallCtx)
+	volumeIds, err := volumeSource.ListVolumes(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeIds, jc.SameContents, []string{"volume-0", "volume-1"})
 }
@@ -306,7 +302,7 @@ func (s *storageSuite) TestListVolumesWithInvalidCredential(c *gc.C) {
 	s.createSenderWithUnauthorisedStatusCode()
 
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
-	_, err := volumeSource.ListVolumes(s.cloudCallCtx)
+	_, err := volumeSource.ListVolumes(context.Background())
 	c.Assert(err, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
 }
@@ -319,7 +315,7 @@ func (s *storageSuite) TestListVolumesErrors(c *gc.C) {
 		sender,
 		sender, // for the retry attempt
 	}
-	_, err := volumeSource.ListVolumes(s.cloudCallCtx)
+	_, err := volumeSource.ListVolumes(context.Background())
 	c.Assert(err, gc.ErrorMatches, ".*listing disks: no disks for you")
 }
 
@@ -333,7 +329,7 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 	volumeSender.PathPattern = `.*/Microsoft\.Compute/disks/volume-0`
 	s.sender = azuretesting.Senders{volumeSender}
 
-	results, err := volumeSource.DescribeVolumes(s.cloudCallCtx, []string{"volume-0"})
+	results, err := volumeSource.DescribeVolumes(context.Background(), []string{"volume-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []storage.DescribeVolumesResult{{
 		VolumeInfo: &storage.VolumeInfo{
@@ -349,9 +345,9 @@ func (s *storageSuite) TestDescribeVolumesWithInvalidCredential(c *gc.C) {
 	s.createSenderWithUnauthorisedStatusCode()
 
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
-	_, err := volumeSource.DescribeVolumes(s.cloudCallCtx, []string{"volume-0"})
+	_, err := volumeSource.DescribeVolumes(context.Background(), []string{"volume-0"})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := volumeSource.DescribeVolumes(s.cloudCallCtx, []string{"volume-0"})
+	results, err := volumeSource.DescribeVolumes(context.Background(), []string{"volume-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results[0].Error, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
@@ -367,7 +363,7 @@ func (s *storageSuite) TestDescribeVolumesNotFound(c *gc.C) {
 	)
 	volumeSender.AppendResponse(response)
 	s.sender = azuretesting.Senders{volumeSender}
-	results, err := volumeSource.DescribeVolumes(s.cloudCallCtx, []string{"volume-42"})
+	results, err := volumeSource.DescribeVolumes(context.Background(), []string{"volume-42"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Assert(results[0].Error, jc.ErrorIs, errors.NotFound)
@@ -381,7 +377,7 @@ func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
 	volume0Sender.PathPattern = `.*/Microsoft\.Compute/disks/volume-0`
 	s.sender = azuretesting.Senders{volume0Sender}
 
-	results, err := volumeSource.DestroyVolumes(s.cloudCallCtx, []string{"volume-0"})
+	results, err := volumeSource.DestroyVolumes(context.Background(), []string{"volume-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Assert(results[0], jc.ErrorIsNil)
@@ -392,7 +388,7 @@ func (s *storageSuite) TestDestroyVolumesWithInvalidCredential(c *gc.C) {
 
 	s.createSenderWithUnauthorisedStatusCode()
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
-	results, err := volumeSource.DestroyVolumes(s.cloudCallCtx, []string{"volume-0"})
+	results, err := volumeSource.DestroyVolumes(context.Background(), []string{"volume-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Assert(results[0], gc.NotNil)
@@ -408,7 +404,7 @@ func (s *storageSuite) TestDestroyVolumesNotFound(c *gc.C) {
 	))
 	s.sender = azuretesting.Senders{volume42Sender}
 
-	results, err := volumeSource.DestroyVolumes(s.cloudCallCtx, []string{"volume-42"})
+	results, err := volumeSource.DestroyVolumes(context.Background(), []string{"volume-42"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Assert(results[0], jc.ErrorIsNil)
@@ -485,7 +481,7 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 		updateVirtualMachine0Sender,
 	}
 
-	results, err := volumeSource.AttachVolumes(s.cloudCallCtx, params)
+	results, err := volumeSource.AttachVolumes(context.Background(), params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, len(params))
 
@@ -589,7 +585,7 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 		updateVirtualMachine0Sender,
 	}
 
-	results, err := volumeSource.DetachVolumes(s.cloudCallCtx, params)
+	results, err := volumeSource.DetachVolumes(context.Background(), params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, len(params))
 
@@ -655,7 +651,7 @@ func (s *storageSuite) TestDetachVolumesFinal(c *gc.C) {
 		updateVirtualMachine0Sender,
 	}
 
-	results, err := volumeSource.DetachVolumes(s.cloudCallCtx, params)
+	results, err := volumeSource.DetachVolumes(context.Background(), params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, len(params))
 	c.Assert(results[0], jc.ErrorIsNil)

@@ -36,7 +36,6 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	environmocks "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
@@ -259,7 +258,7 @@ func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) computeprovision
 		&mockDistributionGroupFinder{},
 		agentConfig,
 		loggertesting.WrapCheckLog(c),
-		s.broker, &credentialAPIForTest{})
+		s.broker)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.waitForProvisioner(c)
@@ -374,7 +373,7 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *gc.C) {
 	s.checkStartInstance(c, m666)
 
 	// ...and removed, along with the machine, when the machine is Dead.
-	s.broker.EXPECT().StopInstances(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx envcontext.ProviderCallContext, ids ...instance.Id) error {
+	s.broker.EXPECT().StopInstances(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, ids ...instance.Id) error {
 		c.Assert(len(ids), gc.Equals, 1)
 		c.Assert(ids[0], gc.DeepEquals, instance.Id("inst-666"))
 		return nil
@@ -698,11 +697,5 @@ func (m *testMachine) EnsureDead(context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.markForRemoval = true
-	return nil
-}
-
-type credentialAPIForTest struct{}
-
-func (*credentialAPIForTest) InvalidateModelCredential(_ context.Context, reason string) error {
 	return nil
 }

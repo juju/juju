@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -335,8 +334,6 @@ type BaseSuite struct {
 	FakeConn    *fakeConn
 	FakeCommon  *fakeCommon
 	FakeEnviron *fakeEnviron
-
-	CallCtx envcontext.ProviderCallContext
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -358,8 +355,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&newRawInstance, s.FakeEnviron.NewRawInstance)
 	s.PatchValue(&findInstanceSpec, s.FakeEnviron.FindInstanceSpec)
 	s.PatchValue(&getInstances, s.FakeEnviron.GetInstances)
-
-	s.CallCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *BaseSuite) CheckNoAPI(c *gc.C) {
@@ -409,7 +404,7 @@ type fakeCommon struct {
 	AZInstances []common.AvailabilityZoneInstances
 }
 
-func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, callCtx envcontext.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	fc.addCall("Bootstrap", FakeCallArgs{
 		"ctx":    ctx,
 		"switch": env,
@@ -424,7 +419,7 @@ func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Envi
 	return result, fc.err()
 }
 
-func (fc *fakeCommon) Destroy(env environs.Environ, ctx envcontext.ProviderCallContext) error {
+func (fc *fakeCommon) Destroy(env environs.Environ, ctx context.Context) error {
 	fc.addCall("Destroy", FakeCallArgs{
 		"switch": env,
 	})
@@ -447,7 +442,7 @@ func (fe *fakeEnviron) GetInstances(env *environ, ctx context.Context, statusFil
 	return fe.Insts, fe.err()
 }
 
-func (fe *fakeEnviron) BuildInstanceSpec(env *environ, ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
+func (fe *fakeEnviron) BuildInstanceSpec(env *environ, ctx context.Context, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
 	fe.addCall("BuildInstanceSpec", FakeCallArgs{
 		"switch": env,
 		"args":   args,
@@ -464,7 +459,7 @@ func (fe *fakeEnviron) GetHardwareCharacteristics(env *environ, spec *instances.
 	return fe.Hwc
 }
 
-func (fe *fakeEnviron) NewRawInstance(env *environ, ctx envcontext.ProviderCallContext, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
+func (fe *fakeEnviron) NewRawInstance(env *environ, ctx context.Context, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
 	fe.addCall("NewRawInstance", FakeCallArgs{
 		"switch": env,
 		"args":   args,

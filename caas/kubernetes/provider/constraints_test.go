@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 type ConstraintsSuite struct {
@@ -24,7 +23,7 @@ func (s *ConstraintsSuite) TestConstraintsValidatorOkay(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	validator, err := s.broker.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(context.Background()))
+	validator, err := s.broker.ConstraintsValidator(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("mem=64G")
@@ -38,7 +37,7 @@ func (s *ConstraintsSuite) TestConstraintsValidatorEmpty(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	validator, err := s.broker.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(context.Background()))
+	validator, err := s.broker.ConstraintsValidator(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	unsupported, err := validator.Validate(constraints.Value{})
@@ -51,7 +50,7 @@ func (s *ConstraintsSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	validator, err := s.broker.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(context.Background()))
+	validator, err := s.broker.ConstraintsValidator(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse(strings.Join([]string{

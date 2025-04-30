@@ -44,7 +44,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -446,11 +445,7 @@ func (k *kubernetesClient) validateControllerWorkloadStorage(ctx context.Context
 }
 
 // Bootstrap deploys controller with mongoDB together into k8s cluster.
-func (k *kubernetesClient) Bootstrap(
-	ctx environs.BootstrapContext,
-	callCtx envcontext.ProviderCallContext,
-	args environs.BootstrapParams,
-) (*environs.BootstrapResult, error) {
+func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 
 	if !args.BootstrapBase.Empty() {
 		return nil, errors.NotSupportedf("set base for bootstrapping to kubernetes")
@@ -516,7 +511,7 @@ func (k *kubernetesClient) Bootstrap(
 }
 
 // DestroyController implements the Environ interface.
-func (k *kubernetesClient) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
+func (k *kubernetesClient) DestroyController(ctx context.Context, controllerUUID string) error {
 	// ensures all annnotations are set correctly, then we will accurately find the controller namespace to destroy it.
 	k.annotations.Merge(
 		k8sannotations.New(nil).
@@ -560,7 +555,7 @@ func (*kubernetesClient) Provider() caas.ContainerEnvironProvider {
 }
 
 // Destroy is part of the Broker interface.
-func (k *kubernetesClient) Destroy(ctx envcontext.ProviderCallContext) (err error) {
+func (k *kubernetesClient) Destroy(ctx context.Context) (err error) {
 	defer func() {
 		if errors.Cause(err) == context.DeadlineExceeded {
 			logger.Warningf(ctx, "destroy k8s model timeout")

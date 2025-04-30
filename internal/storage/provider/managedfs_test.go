@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/blockdevice"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/testing"
@@ -29,15 +28,12 @@ type managedfsSuite struct {
 	blockDevices map[names.VolumeTag]blockdevice.BlockDevice
 	filesystems  map[names.FilesystemTag]storage.Filesystem
 	fakeEtcDir   string
-
-	callCtx envcontext.ProviderCallContext
 }
 
 func (s *managedfsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.blockDevices = make(map[names.VolumeTag]blockdevice.BlockDevice)
 	s.filesystems = make(map[names.FilesystemTag]storage.Filesystem)
-	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 	s.fakeEtcDir = c.MkDir()
 }
 
@@ -82,7 +78,7 @@ func (s *managedfsSuite) TestCreateFilesystems(c *gc.C) {
 		HardwareId: "weetbix",
 		SizeMiB:    3,
 	}
-	results, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
+	results, err := source.CreateFilesystems(context.Background(), []storage.FilesystemParams{{
 		Tag:    names.NewFilesystemTag("0/0"),
 		Volume: names.NewVolumeTag("0"),
 		Size:   2,
@@ -115,7 +111,7 @@ func (s *managedfsSuite) TestCreateFilesystems(c *gc.C) {
 
 func (s *managedfsSuite) TestCreateFilesystemsNoBlockDevice(c *gc.C) {
 	source := s.initSource(c)
-	results, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
+	results, err := source.CreateFilesystems(context.Background(), []storage.FilesystemParams{{
 		Tag:    names.NewFilesystemTag("0/0"),
 		Volume: names.NewVolumeTag("0"),
 		Size:   2,
@@ -209,7 +205,7 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool,
 		Volume: names.NewVolumeTag("0"),
 	}
 
-	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(context.Background(), []storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("0/0"),
 		FilesystemId: "filesystem-0-0",
 		AttachmentParams: storage.AttachmentParams{
@@ -245,10 +241,10 @@ func (s *managedfsSuite) TestDetachFilesystems(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mountInfo := mountInfoLine(666, 0, "/same/as/rootfs", testMountPoint, "/dev/sda1")
 	source := s.initSource(c, mountInfo)
-	testDetachFilesystems(c, s.commands, source, s.callCtx, true, s.fakeEtcDir, nonRelatedFstabEntry)
+	testDetachFilesystems(c, s.commands, source, true, s.fakeEtcDir, nonRelatedFstabEntry)
 }
 
 func (s *managedfsSuite) TestDetachFilesystemsUnattached(c *gc.C) {
 	source := s.initSource(c)
-	testDetachFilesystems(c, s.commands, source, s.callCtx, false, s.fakeEtcDir, "")
+	testDetachFilesystems(c, s.commands, source, false, s.fakeEtcDir, "")
 }

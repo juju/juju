@@ -19,16 +19,14 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/storage/provider"
-	"github.com/juju/juju/internal/worker/common"
 )
 
 // MachineManifoldConfig defines a storage provisioner's configuration and dependencies.
 type MachineManifoldConfig struct {
-	AgentName                    string
-	APICallerName                string
-	Clock                        clock.Clock
-	Logger                       logger.Logger
-	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
+	AgentName     string
+	APICallerName string
+	Clock         clock.Clock
+	Logger        logger.Logger
 }
 
 func (config MachineManifoldConfig) newWorker(_ context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
@@ -49,24 +47,18 @@ func (config MachineManifoldConfig) newWorker(_ context.Context, a agent.Agent, 
 		return nil, errors.Errorf("this manifold may only be used inside a machine agent")
 	}
 
-	credentialAPI, err := config.NewCredentialValidatorFacade(apiCaller)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	storageDir := filepath.Join(cfg.DataDir(), "storage")
 	w, err := NewStorageProvisioner(Config{
-		Scope:                tag,
-		StorageDir:           storageDir,
-		Volumes:              api,
-		Filesystems:          api,
-		Life:                 api,
-		Registry:             provider.CommonStorageProviders(),
-		Machines:             api,
-		Status:               api,
-		Clock:                config.Clock,
-		Logger:               config.Logger,
-		CloudCallContextFunc: common.NewCloudCallContextFunc(credentialAPI),
+		Scope:       tag,
+		StorageDir:  storageDir,
+		Volumes:     api,
+		Filesystems: api,
+		Life:        api,
+		Registry:    provider.CommonStorageProviders(),
+		Machines:    api,
+		Status:      api,
+		Clock:       config.Clock,
+		Logger:      config.Logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

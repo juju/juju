@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/worker/common"
 )
 
 // ModelManifoldConfig defines a storage provisioner's configuration and dependencies.
@@ -24,12 +23,11 @@ type ModelManifoldConfig struct {
 	APICallerName       string
 	StorageRegistryName string
 
-	Clock                        clock.Clock
-	Model                        names.ModelTag
-	StorageDir                   string
-	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
-	NewWorker                    func(config Config) (worker.Worker, error)
-	Logger                       logger.Logger
+	Clock      clock.Clock
+	Model      names.ModelTag
+	StorageDir string
+	NewWorker  func(config Config) (worker.Worker, error)
+	Logger     logger.Logger
 }
 
 // ModelManifold returns a dependency.Manifold that runs a storage provisioner.
@@ -52,24 +50,19 @@ func ModelManifold(config ModelManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			credentialAPI, err := config.NewCredentialValidatorFacade(apiCaller)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
 			w, err := config.NewWorker(Config{
-				Model:                config.Model,
-				Scope:                config.Model,
-				StorageDir:           config.StorageDir,
-				Applications:         api,
-				Volumes:              api,
-				Filesystems:          api,
-				Life:                 api,
-				Registry:             registry,
-				Machines:             api,
-				Status:               api,
-				Clock:                config.Clock,
-				Logger:               config.Logger,
-				CloudCallContextFunc: common.NewCloudCallContextFunc(credentialAPI),
+				Model:        config.Model,
+				Scope:        config.Model,
+				StorageDir:   config.StorageDir,
+				Applications: api,
+				Volumes:      api,
+				Filesystems:  api,
+				Life:         api,
+				Registry:     registry,
+				Machines:     api,
+				Status:       api,
+				Clock:        config.Clock,
+				Logger:       config.Logger,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)

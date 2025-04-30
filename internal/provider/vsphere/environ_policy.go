@@ -4,16 +4,17 @@
 package vsphere
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 // PrecheckInstance is part of the environs.Environ interface.
-func (env *environ) PrecheckInstance(ctx envcontext.ProviderCallContext, args environs.PrecheckInstanceParams) error {
+func (env *environ) PrecheckInstance(ctx context.Context, args environs.PrecheckInstanceParams) error {
 	if args.Placement == "" && args.Constraints.String() == "" {
 		return nil
 	}
@@ -23,7 +24,7 @@ func (env *environ) PrecheckInstance(ctx envcontext.ProviderCallContext, args en
 }
 
 // PrecheckInstance is part of the environs.Environ interface.
-func (senv *sessionEnviron) PrecheckInstance(ctx envcontext.ProviderCallContext, args environs.PrecheckInstanceParams) error {
+func (senv *sessionEnviron) PrecheckInstance(ctx context.Context, args environs.PrecheckInstanceParams) error {
 	if _, err := senv.parsePlacement(ctx, args.Placement); err != nil {
 		return errors.Trace(err)
 	}
@@ -38,7 +39,7 @@ func (senv *sessionEnviron) PrecheckInstance(ctx envcontext.ProviderCallContext,
 
 // checkZones ensures all the zones (in the constraints) are valid
 // availability zones.
-func (senv *sessionEnviron) checkZones(ctx envcontext.ProviderCallContext, zones *[]string) error {
+func (senv *sessionEnviron) checkZones(ctx context.Context, zones *[]string) error {
 	if zones == nil || len(*zones) == 0 {
 		return nil
 	}
@@ -58,7 +59,7 @@ constraintZones:
 	return nil
 }
 
-func (senv *sessionEnviron) checkDatastore(ctx envcontext.ProviderCallContext, datastore *string) error {
+func (senv *sessionEnviron) checkDatastore(ctx context.Context, datastore *string) error {
 	if datastore == nil || *datastore == "" {
 		return nil
 	}
@@ -84,7 +85,7 @@ var unsupportedConstraints = []string{
 
 // ConstraintsValidator returns a Validator value which is used to
 // validate and merge constraints.
-func (env *environ) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
+func (env *environ) ConstraintsValidator(ctx context.Context) (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
 	validator.RegisterVocabulary(constraints.Arch, []string{

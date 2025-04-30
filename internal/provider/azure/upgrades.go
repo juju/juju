@@ -4,19 +4,19 @@
 package azure
 
 import (
+	"context"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/provider/azure/internal/errorutils"
 )
 
 // UpgradeOperations is part of the upgrades.OperationSource interface.
-func (env *azureEnviron) UpgradeOperations(envcontext.ProviderCallContext, environs.UpgradeOperationsParams) []environs.UpgradeOperation {
+func (env *azureEnviron) UpgradeOperations(context.Context, environs.UpgradeOperationsParams) []environs.UpgradeOperation {
 	return []environs.UpgradeOperation{{
 		TargetVersion: providerVersion1,
 		Steps: []environs.UpgradeStep{
@@ -37,7 +37,7 @@ func (commonDeploymentUpgradeStep) Description() string {
 }
 
 // Run is part of the environs.UpgradeStep interface.
-func (step commonDeploymentUpgradeStep) Run(ctx envcontext.ProviderCallContext) error {
+func (step commonDeploymentUpgradeStep) Run(ctx context.Context) error {
 	env := step.env
 	isControllerEnviron, err := isControllerEnviron(env, ctx)
 	if err != nil {
@@ -80,7 +80,7 @@ func (step commonDeploymentUpgradeStep) Run(ctx envcontext.ProviderCallContext) 
 // security group has not been created, this function will return an error
 // satisfying errors.IsNotFound.
 func existingSecurityRules(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
 	nsgClient *armnetwork.SecurityGroupsClient,
 	resourceGroup string,
 ) ([]*armnetwork.SecurityRule, error) {
@@ -98,7 +98,7 @@ func existingSecurityRules(
 	return rules, nil
 }
 
-func isControllerEnviron(env *azureEnviron, ctx envcontext.ProviderCallContext) (bool, error) {
+func isControllerEnviron(env *azureEnviron, ctx context.Context) (bool, error) {
 	compute, err := env.computeClient()
 	if err != nil {
 		return false, errors.Trace(err)

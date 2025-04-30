@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/provider/azure"
 	"github.com/juju/juju/internal/provider/azure/internal/azuretesting"
@@ -39,8 +38,6 @@ type instanceSuite struct {
 	vms               []*armcompute.VirtualMachine
 	networkInterfaces []*armnetwork.Interface
 	publicIPAddresses []*armnetwork.PublicIPAddress
-
-	callCtx envcontext.ProviderCallContext
 
 	credentialInvalidator environs.CredentialInvalidator
 	invalidatedCredential bool
@@ -78,7 +75,6 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 		Properties: &armcompute.VirtualMachineProperties{
 			ProvisioningState: to.Ptr("Succeeded")},
 	}}
-	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 	s.credentialInvalidator = azure.CredentialInvalidator(func(context.Context, environs.CredentialInvalidReason) error {
 		s.invalidatedCredential = true
 		return nil
@@ -173,7 +169,7 @@ func (s *instanceSuite) getInstance(c *gc.C, instID instance.Id) instances.Insta
 
 func (s *instanceSuite) getInstances(c *gc.C, ids ...instance.Id) []instances.Instance {
 	s.sender = s.getInstancesSender()
-	instances, err := s.env.Instances(s.callCtx, ids)
+	instances, err := s.env.Instances(context.Background(), ids)
 	c.Assert(err, jc.ErrorIsNil)
 	s.sender = azuretesting.Senders{}
 	s.requests = nil
@@ -212,13 +208,13 @@ func networkSecurityGroupSender(rules []*armnetwork.SecurityRule) *azuretesting.
 
 func (s *instanceSuite) TestInstanceStatus(c *gc.C) {
 	inst := s.getInstance(c, "machine-0")
-	assertInstanceStatus(c, inst.Status(s.callCtx), status.Running, "")
+	assertInstanceStatus(c, inst.Status(context.Background()), status.Running, "")
 }
 
 func (s *instanceSuite) TestInstanceStatusDeploying(c *gc.C) {
 	s.deployments[1].Properties.ProvisioningState = to.Ptr(armresources.ProvisioningStateCreating)
 	inst := s.getInstance(c, "machine-1")
-	assertInstanceStatus(c, inst.Status(s.callCtx), status.Provisioning, "")
+	assertInstanceStatus(c, inst.Status(context.Background()), status.Provisioning, "")
 }
 
 func (s *instanceSuite) TestInstanceStatusDeploymentFailed(c *gc.C) {
@@ -229,19 +225,19 @@ func (s *instanceSuite) TestInstanceStatusDeploymentFailed(c *gc.C) {
 		}},
 	}
 	inst := s.getInstance(c, "machine-1")
-	assertInstanceStatus(c, inst.Status(s.callCtx), status.ProvisioningError, "boom")
+	assertInstanceStatus(c, inst.Status(context.Background()), status.ProvisioningError, "boom")
 }
 
 func (s *instanceSuite) TestInstanceStatusDeploymentCanceled(c *gc.C) {
 	s.deployments[1].Properties.ProvisioningState = to.Ptr(armresources.ProvisioningStateCanceled)
 	inst := s.getInstance(c, "machine-1")
-	assertInstanceStatus(c, inst.Status(s.callCtx), status.ProvisioningError, "Canceled")
+	assertInstanceStatus(c, inst.Status(context.Background()), status.ProvisioningError, "Canceled")
 }
 
 func (s *instanceSuite) TestInstanceStatusUnsetProvisioningState(c *gc.C) {
 	s.deployments[1].Properties.ProvisioningState = to.Ptr(armresources.ProvisioningStateNotSpecified)
 	inst := s.getInstance(c, "machine-1")
-	assertInstanceStatus(c, inst.Status(s.callCtx), status.Allocating, "")
+	assertInstanceStatus(c, inst.Status(context.Background()), status.Allocating, "")
 }
 
 func assertInstanceStatus(c *gc.C, actual instance.Status, status status.Status, message string) {
@@ -252,7 +248,7 @@ func assertInstanceStatus(c *gc.C, actual instance.Status, status status.Status,
 }
 
 func (s *instanceSuite) TestInstanceAddressesEmpty(c *gc.C) {
-	addresses, err := s.getInstance(c, "machine-0").Addresses(s.callCtx)
+	addresses, err := s.getInstance(c, "machine-0").Addresses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.HasLen, 0)
 }
@@ -278,7 +274,7 @@ func (s *instanceSuite) TestInstanceAddresses(c *gc.C) {
 		// unrelated PIP
 		makePublicIPAddress("pip-2", "machine-1", "1.2.3.6"),
 	}
-	addresses, err := s.getInstance(c, "machine-0").Addresses(s.callCtx)
+	addresses, err := s.getInstance(c, "machine-0").Addresses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, jc.DeepEquals, corenetwork.NewMachineAddresses([]string{
 		"10.0.0.4", "10.0.0.5", "1.2.3.4", "1.2.3.5",
@@ -299,13 +295,13 @@ func (s *instanceSuite) TestMultipleInstanceAddresses(c *gc.C) {
 	instances := s.getInstances(c, "machine-0", "machine-1")
 	c.Assert(instances, gc.HasLen, 2)
 
-	inst0Addresses, err := instances[0].Addresses(s.callCtx)
+	inst0Addresses, err := instances[0].Addresses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(inst0Addresses, jc.DeepEquals, corenetwork.NewMachineAddresses([]string{
 		"10.0.0.4", "1.2.3.4",
 	}).AsProviderAddresses())
 
-	inst1Addresses, err := instances[1].Addresses(s.callCtx)
+	inst1Addresses, err := instances[1].Addresses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(inst1Addresses, jc.DeepEquals, corenetwork.NewMachineAddresses([]string{
 		"10.0.0.5", "1.2.3.5",
@@ -318,7 +314,7 @@ func (s *instanceSuite) TestIngressRulesEmpty(c *gc.C) {
 	c.Assert(ok, gc.Equals, true)
 	nsgSender := networkSecurityGroupSender(nil)
 	s.sender = azuretesting.Senders{nsgSender}
-	rules, err := fwInst.IngressRules(s.callCtx, "0")
+	rules, err := fwInst.IngressRules(context.Background(), "0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, gc.HasLen, 0)
 }
@@ -446,7 +442,7 @@ func (s *instanceSuite) TestIngressRules(c *gc.C) {
 	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
-	rules, err := fwInst.IngressRules(s.callCtx, "0")
+	rules, err := fwInst.IngressRules(context.Background(), "0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, jc.DeepEquals, firewall.IngressRules{
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
@@ -469,7 +465,7 @@ func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
 	), 2)
 	s.sender = azuretesting.Senders{nsgSender, sender, notFoundSender, notFoundSender, notFoundSender}
 
-	err := fwInst.ClosePorts(s.callCtx, "0", firewall.IngressRules{
+	err := fwInst.ClosePorts(context.Background(), "0", firewall.IngressRules{
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000/tcp")),
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000-2000/udp")),
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000-2000/udp"), "192.168.1.0/24", "10.0.0.0/24"),
@@ -499,7 +495,7 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	okSender.AppendResponse(azuretesting.NewResponseWithContent("{}"))
 	s.sender = azuretesting.Senders{nsgSender, okSender, okSender, okSender, okSender}
 
-	err := fwInst.OpenPorts(s.callCtx, "0", firewall.IngressRules{
+	err := fwInst.OpenPorts(context.Background(), "0", firewall.IngressRules{
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000/tcp")),
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000-2000/udp")),
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000-2000/tcp"), "192.168.1.0/24", "10.0.0.0/24"),
@@ -591,7 +587,7 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 	okSender.AppendResponse(azuretesting.NewResponseWithContent("{}"))
 	s.sender = azuretesting.Senders{nsgSender, okSender, okSender}
 
-	err := fwInst.OpenPorts(s.callCtx, "0", firewall.IngressRules{
+	err := fwInst.OpenPorts(context.Background(), "0", firewall.IngressRules{
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000/tcp")),
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("1000-2000/udp")),
 	})
@@ -624,14 +620,14 @@ func (s *instanceSuite) TestInstanceOpenPortsNoInternalAddress(c *gc.C) {
 	inst := s.getInstance(c, "machine-0")
 	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
-	err := fwInst.OpenPorts(s.callCtx, "0", nil)
+	err := fwInst.OpenPorts(context.Background(), "0", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.requests, gc.HasLen, 0)
 }
 
 func (s *instanceSuite) TestAllInstances(c *gc.C) {
 	s.sender = s.getInstancesSender()
-	instances, err := s.env.AllInstances(s.callCtx)
+	instances, err := s.env.AllInstances(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 2)
 	c.Assert(instances[0].Id(), gc.Equals, instance.Id("machine-0"))
@@ -640,7 +636,7 @@ func (s *instanceSuite) TestAllInstances(c *gc.C) {
 
 func (s *instanceSuite) TestAllRunningInstances(c *gc.C) {
 	s.sender = s.getInstancesSender()
-	instances, err := s.env.AllRunningInstances(s.callCtx)
+	instances, err := s.env.AllRunningInstances(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 2)
 	c.Assert(instances[0].Id(), gc.Equals, instance.Id("machine-0"))
@@ -650,7 +646,7 @@ func (s *instanceSuite) TestAllRunningInstances(c *gc.C) {
 func (s *instanceSuite) TestControllerInstancesSomePending(c *gc.C) {
 	*((s.deployments[1].Properties.Dependencies)[0].DependsOn)[0].ResourceName = "juju-controller"
 	s.sender = s.getInstancesSender()
-	ids, err := s.env.ControllerInstances(s.callCtx, testing.ControllerTag.Id())
+	ids, err := s.env.ControllerInstances(context.Background(), testing.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, gc.HasLen, 2)
 	c.Assert(ids[0], gc.Equals, instance.Id("machine-0"))
@@ -659,7 +655,7 @@ func (s *instanceSuite) TestControllerInstancesSomePending(c *gc.C) {
 
 func (s *instanceSuite) TestControllerInstances(c *gc.C) {
 	s.sender = s.getInstancesSender()
-	ids, err := s.env.ControllerInstances(s.callCtx, testing.ControllerTag.Id())
+	ids, err := s.env.ControllerInstances(context.Background(), testing.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, gc.HasLen, 1)
 	c.Assert(ids[0], gc.Equals, instance.Id("machine-0"))

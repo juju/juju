@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/configschema"
@@ -351,7 +350,7 @@ func (e *environ) checkBroken(method string) error {
 }
 
 // PrecheckInstance is specified in the environs.InstancePrechecker interface.
-func (*environ) PrecheckInstance(ctx envcontext.ProviderCallContext, args environs.PrecheckInstanceParams) error {
+func (*environ) PrecheckInstance(ctx context.Context, args environs.PrecheckInstanceParams) error {
 	if args.Placement != "" && args.Placement != "valid" {
 		return fmt.Errorf("%s placement is invalid", args.Placement)
 	}
@@ -385,7 +384,7 @@ func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerN
 	return nil
 }
 
-func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	availableTools, err := args.AvailableTools.Match(coretools.Filter{OSType: "ubuntu"})
 	if err != nil {
 		return nil, err
@@ -466,7 +465,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.Pr
 	return bsResult, nil
 }
 
-func (e *environ) ControllerInstances(envcontext.ProviderCallContext, string) ([]instance.Id, error) {
+func (e *environ) ControllerInstances(context.Context, string) ([]instance.Id, error) {
 	estate, err := e.state()
 	if err != nil {
 		return nil, err
@@ -504,12 +503,12 @@ func (e *environ) SetConfig(ctx context.Context, cfg *config.Config) error {
 }
 
 // AdoptResources is part of the Environ interface.
-func (e *environ) AdoptResources(envcontext.ProviderCallContext, string, semversion.Number) error {
+func (e *environ) AdoptResources(context.Context, string, semversion.Number) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }
 
-func (e *environ) Destroy(envcontext.ProviderCallContext) (res error) {
+func (e *environ) Destroy(context.Context) (res error) {
 	defer delay()
 	estate, err := e.state()
 	if err != nil {
@@ -543,7 +542,7 @@ func (e *environ) Destroy(envcontext.ProviderCallContext) (res error) {
 	return nil
 }
 
-func (e *environ) DestroyController(ctx envcontext.ProviderCallContext, _ string) error {
+func (e *environ) DestroyController(ctx context.Context, _ string) error {
 	if err := e.Destroy(ctx); err != nil {
 		return err
 	}
@@ -557,7 +556,7 @@ var unsupportedConstraints = []string{
 }
 
 // ConstraintsValidator is defined on the Environs interface.
-func (e *environ) ConstraintsValidator(envcontext.ProviderCallContext) (constraints.Validator, error) {
+func (e *environ) ConstraintsValidator(context.Context) (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
 	validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
@@ -566,7 +565,7 @@ func (e *environ) ConstraintsValidator(envcontext.ProviderCallContext) (constrai
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (e *environ) StartInstance(ctx context.Context, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	defer delay()
 	machineId := args.InstanceConfig.MachineId
 	logger.Infof(ctx, "dummy startinstance, machine %s", machineId)
@@ -707,7 +706,7 @@ func (e *environ) StartInstance(ctx envcontext.ProviderCallContext, args environ
 	}, nil
 }
 
-func (e *environ) StopInstances(_ envcontext.ProviderCallContext, ids ...instance.Id) error {
+func (e *environ) StopInstances(_ context.Context, ids ...instance.Id) error {
 	defer delay()
 	if err := e.checkBroken("StopInstance"); err != nil {
 		return err
@@ -779,7 +778,7 @@ func (env *environ) SupportsSpaceDiscovery() (bool, error) {
 }
 
 // Spaces is specified on environs.Networking.
-func (env *environ) Spaces(_ envcontext.ProviderCallContext) (network.SpaceInfos, error) {
+func (env *environ) Spaces(_ context.Context) (network.SpaceInfos, error) {
 	if err := env.checkBroken("Spaces"); err != nil {
 		return []network.SpaceInfo{}, err
 	}
@@ -814,7 +813,7 @@ func (env *environ) Spaces(_ envcontext.ProviderCallContext) (network.SpaceInfos
 }
 
 // NetworkInterfaces implements Environ.NetworkInterfaces().
-func (env *environ) NetworkInterfaces(_ envcontext.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error) {
+func (env *environ) NetworkInterfaces(_ context.Context, ids []instance.Id) ([]network.InterfaceInfos, error) {
 	if err := env.checkBroken("NetworkInterfaces"); err != nil {
 		return nil, err
 	}
@@ -885,7 +884,7 @@ func (env *environ) AvailabilityZones(ctx context.Context) (network.Availability
 }
 
 // InstanceAvailabilityZoneNames implements environs.ZonedEnviron.
-func (env *environ) InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
+func (env *environ) InstanceAvailabilityZoneNames(ctx context.Context, ids []instance.Id) (map[instance.Id]string, error) {
 	if err := env.checkBroken("InstanceAvailabilityZoneNames"); err != nil {
 		return nil, errors.NotSupportedf("instance availability zones")
 	}
@@ -914,12 +913,12 @@ func (env *environ) InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallCon
 }
 
 // DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
-func (env *environ) DeriveAvailabilityZones(envcontext.ProviderCallContext, environs.StartInstanceParams) ([]string, error) {
+func (env *environ) DeriveAvailabilityZones(context.Context, environs.StartInstanceParams) ([]string, error) {
 	return nil, nil
 }
 
 // Subnets implements environs.Environ.Subnets.
-func (env *environ) Subnets(ctx envcontext.ProviderCallContext, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (env *environ) Subnets(ctx context.Context, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	if err := env.checkBroken("Subnets"); err != nil {
 		return nil, err
 	}
@@ -1034,7 +1033,7 @@ func (inst *dummyInstance) Id() instance.Id {
 	return inst.id
 }
 
-func (inst *dummyInstance) Status(envcontext.ProviderCallContext) instance.Status {
+func (inst *dummyInstance) Status(context.Context) instance.Status {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
 	// TODO(perrito666) add a provider status -> juju status mapping.
@@ -1081,7 +1080,7 @@ func (inst *dummyInstance) checkBroken(method string) error {
 	return nil
 }
 
-func (inst *dummyInstance) Addresses(envcontext.ProviderCallContext) (network.ProviderAddresses, error) {
+func (inst *dummyInstance) Addresses(context.Context) (network.ProviderAddresses, error) {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
 	if err := inst.checkBroken("Addresses"); err != nil {
@@ -1104,7 +1103,7 @@ func delay() {
 }
 
 // ProviderSpaceInfo implements NetworkingEnviron.
-func (*environ) ProviderSpaceInfo(envcontext.ProviderCallContext, *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+func (*environ) ProviderSpaceInfo(context.Context, *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("provider space info")
 }
 

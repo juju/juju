@@ -4,10 +4,11 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 // DefaultProvider exposes the various common implementations found in
@@ -19,8 +20,8 @@ type DefaultProvider struct {
 }
 
 // BootstrapEnv bootstraps the Juju environment.
-func (dp DefaultProvider) BootstrapEnv(ctx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	result, err := Bootstrap(ctx, dp.Env, callCtx, args)
+func (dp DefaultProvider) BootstrapEnv(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	result, err := Bootstrap(ctx, dp.Env, args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -28,7 +29,7 @@ func (dp DefaultProvider) BootstrapEnv(ctx environs.BootstrapContext, callCtx en
 }
 
 // DestroyEnv destroys the Juju environment.
-func (dp DefaultProvider) DestroyEnv(ctx envcontext.ProviderCallContext) error {
+func (dp DefaultProvider) DestroyEnv(ctx context.Context) error {
 	if err := Destroy(dp.Env, ctx); err != nil {
 		return errors.Trace(err)
 	}

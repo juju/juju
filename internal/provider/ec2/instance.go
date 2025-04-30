@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 )
 
@@ -48,7 +47,7 @@ func (inst *sdkInstance) AvailabilityZone() (string, bool) {
 }
 
 // Status returns the status of this EC2 instance.
-func (inst *sdkInstance) Status(_ envcontext.ProviderCallContext) instance.Status {
+func (inst *sdkInstance) Status(_ context.Context) instance.Status {
 	if inst.i.State == nil || inst.i.State.Name == "" {
 		return instance.Status{Status: status.Empty}
 	}
@@ -73,7 +72,7 @@ func (inst *sdkInstance) Status(_ envcontext.ProviderCallContext) instance.Statu
 
 // Addresses implements network.Addresses() returning generic address
 // details for the instance, and requerying the ec2 api if required.
-func (inst *sdkInstance) Addresses(_ envcontext.ProviderCallContext) (network.ProviderAddresses, error) {
+func (inst *sdkInstance) Addresses(_ context.Context) (network.ProviderAddresses, error) {
 	var addresses []network.ProviderAddress
 	if inst.i.Ipv6Address != nil {
 		addresses = append(addresses, network.ProviderAddress{
@@ -106,7 +105,7 @@ func (inst *sdkInstance) Addresses(_ envcontext.ProviderCallContext) (network.Pr
 }
 
 // OpenPorts implements instances.InstanceFirewaller.
-func (inst *sdkInstance) OpenPorts(ctx envcontext.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
+func (inst *sdkInstance) OpenPorts(ctx context.Context, machineId string, rules firewall.IngressRules) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
 			inst.e.Config().FirewallMode())
@@ -120,7 +119,7 @@ func (inst *sdkInstance) OpenPorts(ctx envcontext.ProviderCallContext, machineId
 }
 
 // ClosePorts implements instances.InstanceFirewaller.
-func (inst *sdkInstance) ClosePorts(ctx envcontext.ProviderCallContext, machineId string, ports firewall.IngressRules) error {
+func (inst *sdkInstance) ClosePorts(ctx context.Context, machineId string, ports firewall.IngressRules) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
 			inst.e.Config().FirewallMode())
@@ -134,7 +133,7 @@ func (inst *sdkInstance) ClosePorts(ctx envcontext.ProviderCallContext, machineI
 }
 
 // IngressRules implements instances.InstanceFirewaller.
-func (inst *sdkInstance) IngressRules(ctx envcontext.ProviderCallContext, machineId string) (firewall.IngressRules, error) {
+func (inst *sdkInstance) IngressRules(ctx context.Context, machineId string) (firewall.IngressRules, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ingress rules from instance",
 			inst.e.Config().FirewallMode())

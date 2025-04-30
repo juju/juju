@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -37,7 +36,6 @@ type baseProviderSuite struct {
 	envtesting.ToolsFixture
 	controllerUUID string
 
-	callCtx               envcontext.ProviderCallContext
 	credentialInvalidator credentialInvalidator
 	invalidCredential     bool
 }
@@ -63,7 +61,6 @@ func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 	s.credentialInvalidator = func(ctx context.Context, reason environs.CredentialInvalidReason) error {
 		s.invalidCredential = true
 		return nil

@@ -19,7 +19,6 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/worker/common"
 )
 
 // MachineService defines the methods that the worker assumes from the Machine
@@ -56,8 +55,7 @@ type ManifoldConfig struct {
 	GetMachineService  GetMachineServiceFunc
 	Logger             logger.Logger
 
-	NewProvisionerFunc           func(ControllerAPI, MachineService, MachinesAPI, ToolsFinder, DistributionGroupFinder, agent.Config, logger.Logger, Environ, common.CredentialAPI) (Provisioner, error)
-	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
+	NewProvisionerFunc func(ControllerAPI, MachineService, MachinesAPI, ToolsFinder, DistributionGroupFinder, agent.Config, logger.Logger, Environ) (Provisioner, error)
 }
 
 // Manifold creates a manifold that runs an environment provisioner. See the
@@ -92,17 +90,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			api := apiprovisioner.NewClient(apiCaller)
 			agentConfig := agent.CurrentConfig()
 
-			credentialAPI, err := config.NewCredentialValidatorFacade(apiCaller)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
 			machineService, err := config.GetMachineService(getter, config.DomainServicesName)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			w, err := config.NewProvisionerFunc(api, machineService, api, api, api, agentConfig, config.Logger, environ, credentialAPI)
+			w, err := config.NewProvisionerFunc(api, machineService, api, api, api, agentConfig, config.Logger, environ)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -133,9 +126,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewProvisionerFunc == nil {
 		return errors.NotValidf("nil NewProvisionerFunc")
-	}
-	if config.NewCredentialValidatorFacade == nil {
-		return errors.NotValidf("nil NewCredentialValidatorFacade")
 	}
 	return nil
 }

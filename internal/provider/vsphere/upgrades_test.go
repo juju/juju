@@ -4,13 +4,14 @@
 package vsphere_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 type environUpgradeSuite struct {
@@ -25,7 +26,7 @@ func (s *environUpgradeSuite) TestEnvironImplementsUpgrader(c *gc.C) {
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperations(c *gc.C) {
 	upgrader := s.env.(environs.Upgrader)
-	ops := upgrader.UpgradeOperations(s.callCtx, environs.UpgradeOperationsParams{})
+	ops := upgrader.UpgradeOperations(context.Background(), environs.UpgradeOperationsParams{})
 	c.Assert(ops, gc.HasLen, 1)
 	c.Assert(ops[0].TargetVersion, gc.Equals, 1)
 	c.Assert(ops[0].Steps, gc.HasLen, 2)
@@ -35,7 +36,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperations(c *gc.C) {
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperationUpdateExtraConfig(c *gc.C) {
 	upgrader := s.env.(environs.Upgrader)
-	step := upgrader.UpgradeOperations(s.callCtx,
+	step := upgrader.UpgradeOperations(context.Background(),
 		environs.UpgradeOperationsParams{
 			ControllerUUID: "foo",
 		})[0].Steps[0]
@@ -45,7 +46,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationUpdateExtraConfig(c *gc
 	vm3 := buildVM("vm-2").vm()
 	s.client.virtualMachines = []*mo.VirtualMachine{vm1, vm2, vm3}
 
-	err := step.Run(s.callCtx)
+	err := step.Run(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.client.CheckCallNames(c, "VirtualMachines", "UpdateVirtualMachineExtraConfig", "UpdateVirtualMachineExtraConfig", "Close")
@@ -68,7 +69,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationUpdateExtraConfig(c *gc
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperationModelFolders(c *gc.C) {
 	upgrader := s.env.(environs.Upgrader)
-	step := upgrader.UpgradeOperations(s.callCtx,
+	step := upgrader.UpgradeOperations(context.Background(),
 		environs.UpgradeOperationsParams{
 			ControllerUUID: "foo",
 		})[0].Steps[1]
@@ -78,7 +79,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationModelFolders(c *gc.C) {
 	vm3 := buildVM("vm-3").vm()
 	s.client.virtualMachines = []*mo.VirtualMachine{vm1, vm2, vm3}
 
-	err := step.Run(s.callCtx)
+	err := step.Run(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.client.CheckCallNames(c, "EnsureVMFolder", "VirtualMachines", "MoveVMsInto", "Close")
@@ -95,21 +96,21 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationModelFolders(c *gc.C) {
 
 func (s *environUpgradeSuite) TestExtraConfigPermissionError(c *gc.C) {
 	upgrader := s.env.(environs.Upgrader)
-	step := upgrader.UpgradeOperations(s.callCtx,
+	step := upgrader.UpgradeOperations(context.Background(),
 		environs.UpgradeOperationsParams{
 			ControllerUUID: "foo",
 		})[0].Steps[0]
-	AssertInvalidatesCredential(c, s.client, func(ctx envcontext.ProviderCallContext) error {
+	AssertInvalidatesCredential(c, s.client, func(ctx context.Context) error {
 		return step.Run(ctx)
 	})
 }
 func (s *environUpgradeSuite) TestModelFoldersPermissionError(c *gc.C) {
 	upgrader := s.env.(environs.Upgrader)
-	step := upgrader.UpgradeOperations(s.callCtx,
+	step := upgrader.UpgradeOperations(context.Background(),
 		environs.UpgradeOperationsParams{
 			ControllerUUID: "foo",
 		})[0].Steps[1]
-	AssertInvalidatesCredential(c, s.client, func(ctx envcontext.ProviderCallContext) error {
+	AssertInvalidatesCredential(c, s.client, func(ctx context.Context) error {
 		return step.Run(ctx)
 	})
 }

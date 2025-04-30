@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
@@ -26,16 +25,9 @@ import (
 
 type DestroySuite struct {
 	testing.BaseSuite
-
-	callCtx envcontext.ProviderCallContext
 }
 
 var _ = gc.Suite(&DestroySuite{})
-
-func (s *DestroySuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
-}
 
 func (s *DestroySuite) TestCannotGetInstances(c *gc.C) {
 	env := &mockEnviron{
@@ -44,7 +36,7 @@ func (s *DestroySuite) TestCannotGetInstances(c *gc.C) {
 		},
 		config: configGetter(c),
 	}
-	err := common.Destroy(env, s.callCtx)
+	err := common.Destroy(env, context.Background())
 	c.Assert(err, gc.ErrorMatches, "destroying instances: nope")
 }
 
@@ -56,7 +48,7 @@ func (s *DestroySuite) TestCannotStopInstances(c *gc.C) {
 				&mockInstance{id: "another"},
 			}, nil
 		},
-		stopInstances: func(ctx envcontext.ProviderCallContext, ids []instance.Id) error {
+		stopInstances: func(ctx context.Context, ids []instance.Id) error {
 			c.Assert(ids, gc.HasLen, 2)
 			c.Assert(ids[0], gc.Equals, instance.Id("one"))
 			c.Assert(ids[1], gc.Equals, instance.Id("another"))
@@ -64,7 +56,7 @@ func (s *DestroySuite) TestCannotStopInstances(c *gc.C) {
 		},
 		config: configGetter(c),
 	}
-	err := common.Destroy(env, s.callCtx)
+	err := common.Destroy(env, context.Background())
 	c.Assert(err, gc.ErrorMatches, "destroying instances: nah")
 }
 
@@ -79,7 +71,7 @@ func (s *DestroySuite) TestSuccessWhenStorageErrors(c *gc.C) {
 				&mockInstance{id: "another"},
 			}, nil
 		},
-		stopInstances: func(ctx envcontext.ProviderCallContext, ids []instance.Id) error {
+		stopInstances: func(ctx context.Context, ids []instance.Id) error {
 			c.Assert(ids, gc.HasLen, 2)
 			c.Assert(ids[0], gc.Equals, instance.Id("one"))
 			c.Assert(ids[1], gc.Equals, instance.Id("another"))
@@ -87,7 +79,7 @@ func (s *DestroySuite) TestSuccessWhenStorageErrors(c *gc.C) {
 		},
 		config: configGetter(c),
 	}
-	err := common.Destroy(env, s.callCtx)
+	err := common.Destroy(env, context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -104,14 +96,14 @@ func (s *DestroySuite) TestSuccess(c *gc.C) {
 				&mockInstance{id: "one"},
 			}, nil
 		},
-		stopInstances: func(ctx envcontext.ProviderCallContext, ids []instance.Id) error {
+		stopInstances: func(ctx context.Context, ids []instance.Id) error {
 			c.Assert(ids, gc.HasLen, 1)
 			c.Assert(ids[0], gc.Equals, instance.Id("one"))
 			return nil
 		},
 		config: configGetter(c),
 	}
-	err = common.Destroy(env, s.callCtx)
+	err = common.Destroy(env, context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// common.Destroy doesn't touch provider/object storage anymore.
@@ -133,16 +125,16 @@ func (s *DestroySuite) TestSuccessWhenNoInstances(c *gc.C) {
 		},
 		config: configGetter(c),
 	}
-	err = common.Destroy(env, s.callCtx)
+	err = common.Destroy(env, context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *DestroySuite) TestDestroyEnvScopedVolumes(c *gc.C) {
 	volumeSource := &dummy.VolumeSource{
-		ListVolumesFunc: func(ctx envcontext.ProviderCallContext) ([]string, error) {
+		ListVolumesFunc: func(ctx context.Context) ([]string, error) {
 			return []string{"vol-0", "vol-1", "vol-2"}, nil
 		},
-		DestroyVolumesFunc: func(ctx envcontext.ProviderCallContext, ids []string) ([]error, error) {
+		DestroyVolumesFunc: func(ctx context.Context, ids []string) ([]error, error) {
 			return make([]error, len(ids)), nil
 		},
 	}
@@ -165,23 +157,23 @@ func (s *DestroySuite) TestDestroyEnvScopedVolumes(c *gc.C) {
 			},
 		},
 	}
-	err := common.Destroy(env, s.callCtx)
+	err := common.Destroy(env, context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// common.Destroy will ignore machine-scoped storage providers.
 	storageProvider.CheckCallNames(c, "Dynamic", "Scope", "Supports", "VolumeSource")
 	volumeSource.CheckCalls(c, []jujutesting.StubCall{
-		{"ListVolumes", []interface{}{s.callCtx}},
-		{"DestroyVolumes", []interface{}{s.callCtx, []string{"vol-0", "vol-1", "vol-2"}}},
+		{"ListVolumes", []interface{}{context.Background()}},
+		{"DestroyVolumes", []interface{}{context.Background(), []string{"vol-0", "vol-1", "vol-2"}}},
 	})
 }
 
 func (s *DestroySuite) TestDestroyVolumeErrors(c *gc.C) {
 	volumeSource := &dummy.VolumeSource{
-		ListVolumesFunc: func(ctx envcontext.ProviderCallContext) ([]string, error) {
+		ListVolumesFunc: func(ctx context.Context) ([]string, error) {
 			return []string{"vol-0", "vol-1", "vol-2"}, nil
 		},
-		DestroyVolumesFunc: func(ctx envcontext.ProviderCallContext, ids []string) ([]error, error) {
+		DestroyVolumesFunc: func(ctx context.Context, ids []string) ([]error, error) {
 			return []error{
 				nil,
 				errors.New("cannot destroy vol-1"),
@@ -209,7 +201,7 @@ func (s *DestroySuite) TestDestroyVolumeErrors(c *gc.C) {
 			},
 		},
 	}
-	err := common.Destroy(env, s.callCtx)
+	err := common.Destroy(env, context.Background())
 	c.Assert(err, gc.ErrorMatches, "destroying storage: destroying volumes: cannot destroy vol-1, cannot destroy vol-2")
 }
 
@@ -230,7 +222,7 @@ func (s *DestroySuite) TestIgnoreStaticVolumes(c *gc.C) {
 			},
 		},
 	}
-	err := common.Destroy(env, s.callCtx)
+	err := common.Destroy(env, context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// common.Destroy will ignore static storage providers.
@@ -254,7 +246,7 @@ func (s *DestroySuite) TestIgnoreMachineScopedVolumes(c *gc.C) {
 			},
 		},
 	}
-	err := common.Destroy(env, s.callCtx)
+	err := common.Destroy(env, context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// common.Destroy will ignore machine-scoped storage providers.
@@ -281,7 +273,7 @@ func (s *DestroySuite) TestIgnoreNoVolumeSupport(c *gc.C) {
 			},
 		},
 	}
-	err := common.Destroy(env, s.callCtx)
+	err := common.Destroy(env, context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// common.Destroy will ignore storage providers that don't support

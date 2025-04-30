@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/filestorage"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
@@ -450,18 +449,17 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	err = env.PrepareForBootstrap(nullContext(), "controller-1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
 	s.AddCleanup(func(c *gc.C) {
-		err := env.DestroyController(callCtx, controllerCfg.ControllerUUID())
+		err := env.DestroyController(context.Background(), controllerCfg.ControllerUUID())
 		c.Assert(err, jc.ErrorIsNil)
 	})
 
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	envtesting.UploadFakeTools(c, s.toolsStorage, cfg.AgentStream(), cfg.AgentStream())
-	inst, _, _, err := jujutesting.StartInstance(env, callCtx, testing.FakeControllerConfig().ControllerUUID(), "0")
+	inst, _, _, err := jujutesting.StartInstance(env, testing.FakeControllerConfig().ControllerUUID(), "0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	addresses, err := inst.Addresses(callCtx)
+	addresses, err := inst.Addresses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	addr, _ := addresses.OneMatchingScope(network.ScopeMatchPublic)
 	s.bootstrapName = addr.Value

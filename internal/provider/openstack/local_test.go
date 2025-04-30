@@ -54,7 +54,6 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
@@ -228,7 +227,6 @@ type localServerSuite struct {
 	toolsMetadataStorage envstorage.Storage
 	imageMetadataStorage envstorage.Storage
 	storageAdaptor       *mockAdaptor
-	callCtx              envcontext.ProviderCallContext
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
@@ -298,7 +296,6 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	openstack.UseTestImageData(s.imageMetadataStorage, s.cred)
 	s.storageAdaptor = makeMockAdaptor()
 	overrideCinderProvider(&s.CleanupSuite, s.storageAdaptor)
-	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *localServerSuite) TearDownTest(c *gc.C) {
@@ -326,7 +323,7 @@ func (s *localServerSuite) openEnviron(c *gc.C, attrs coretesting.Attrs) environ
 
 func (s *localServerSuite) TestBootstrap(c *gc.C) {
 	// Tests uses Prepare, so destroy first.
-	err := environs.Destroy(s.env.Config().Name(), s.env, s.callCtx, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, context.Background(), s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 	s.Tests.TestBootstrap(c)
 }
@@ -340,24 +337,24 @@ func (t *localServerSuite) TestBootstrapMultiple(c *gc.C) {
 	}
 	// bootstrap.Bootstrap no longer raises errors if the environment is
 	// already up, this has been moved into the bootstrap command.
-	err := bootstrap.Bootstrap(t.BootstrapContext, t.Env, t.ProviderCallContext, args)
+	err := bootstrap.Bootstrap(t.BootstrapContext, t.Env, args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Logf("destroy env")
 	env := t.Env
-	err = environs.Destroy(t.Env.Config().Name(), t.Env, t.ProviderCallContext, t.ControllerStore)
+	err = environs.Destroy(t.Env.Config().Name(), t.Env, t.BootstrapContext, t.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.Destroy(t.ProviderCallContext) // Again, should work fine and do nothing.
+	err = env.Destroy(t.BootstrapContext) // Again, should work fine and do nothing.
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check that we can bootstrap after destroy
-	err = bootstrap.Bootstrap(t.BootstrapContext, t.Env, t.ProviderCallContext, args)
+	err = bootstrap.Bootstrap(t.BootstrapContext, t.Env, args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestStartStop(c *gc.C) {
 	// Tests uses Prepare, so destroy first.
-	err := environs.Destroy(s.env.Config().Name(), s.env, s.callCtx, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, context.Background(), s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 	s.Tests.TestStartStop(c)
 }
@@ -375,7 +372,7 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 	)
 	defer cleanup()
 
-	err := environs.Destroy(s.env.Config().Name(), s.env, s.callCtx, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, context.Background(), s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
 	env := s.openEnviron(c, coretesting.Attrs{})
@@ -391,12 +388,11 @@ func (s *localServerSuite) TestAddressesWithPublicIPConstraints(c *gc.C) {
 		ctx environs.BootstrapContext,
 		client ssh.Client,
 		env environs.Environ,
-		callCtx envcontext.ProviderCallContext,
 		inst instances.Instance,
 		instanceConfig *instancecfg.InstanceConfig,
 		_ environs.BootstrapDialOpts,
 	) error {
-		addr, err := inst.Addresses(s.callCtx)
+		addr, err := inst.Addresses(context.Background())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(addr, jc.SameContents, network.ProviderAddresses{
 			network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopePublic)).AsProviderAddress(),
@@ -424,12 +420,11 @@ func (s *localServerSuite) TestAddressesWithoutPublicIPConstraints(c *gc.C) {
 		ctx environs.BootstrapContext,
 		client ssh.Client,
 		env environs.Environ,
-		callCtx envcontext.ProviderCallContext,
 		inst instances.Instance,
 		instanceConfig *instancecfg.InstanceConfig,
 		_ environs.BootstrapDialOpts,
 	) error {
-		addr, err := inst.Addresses(s.callCtx)
+		addr, err := inst.Addresses(context.Background())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(addr, jc.SameContents, network.ProviderAddresses{
 			network.NewMachineAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)).AsProviderAddress(),
@@ -467,14 +462,14 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 	)
 	defer cleanup()
 
-	err := environs.Destroy(s.env.Config().Name(), s.env, s.callCtx, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, context.Background(), s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
 	env := s.Prepare(c)
 	err = bootstrapEnv(c, env)
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _ := testing.AssertStartInstance(c, env, s.callCtx, s.ControllerUUID, "100")
-	err = env.StopInstances(s.callCtx, inst.Id())
+	inst, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
+	err = env.StopInstances(context.Background(), inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -511,7 +506,7 @@ func (s *localServerSuite) TestStartInstanceWhenPublicIPError(c *gc.C) {
 		},
 	)
 	defer cleanup()
-	_, _, _, err := testing.StartInstanceWithConstraints(s.env, s.callCtx, s.ControllerUUID, "100", constraints.MustParse("allocate-public-ip=true"))
+	_, _, _, err := testing.StartInstanceWithConstraints(s.env, s.ControllerUUID, "100", constraints.MustParse("allocate-public-ip=true"))
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*cannot allocate a public IP as needed(.|\n)*")
 	c.Assert(removeServerCalled, jc.IsTrue)
 	c.Assert(removeServerID, gc.Equals, addServerID)
@@ -522,7 +517,7 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.ensureAMDImages(c)
 	err := bootstrapEnv(c, env)
 	c.Assert(err, jc.ErrorIsNil)
-	_, hc := testing.AssertStartInstanceWithConstraints(c, env, s.callCtx, s.ControllerUUID, "100", constraints.MustParse("mem=1024 arch=amd64"))
+	_, hc := testing.AssertStartInstanceWithConstraints(c, env, s.ControllerUUID, "100", constraints.MustParse("mem=1024 arch=amd64"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(2048))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
@@ -530,7 +525,7 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 }
 
 func (s *localServerSuite) TestInstanceName(c *gc.C) {
-	inst, _ := testing.AssertStartInstance(c, s.env, s.callCtx, s.ControllerUUID, "100")
+	inst, _ := testing.AssertStartInstance(c, s.env, s.ControllerUUID, "100")
 	serverDetail := openstack.InstanceServerDetail(inst)
 	envName := s.env.Config().Name()
 	c.Assert(serverDetail.Name, gc.Matches, "juju-06f00d-"+envName+"-100")
@@ -545,8 +540,8 @@ func (s *localServerSuite) TestStartInstanceNetwork(c *gc.C) {
 	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	inst, _ := testing.AssertStartInstance(c, s.env, s.callCtx, s.ControllerUUID, "100")
-	err = s.env.StopInstances(s.callCtx, inst.Id())
+	inst, _ := testing.AssertStartInstance(c, s.env, s.ControllerUUID, "100")
+	err = s.env.StopInstances(context.Background(), inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -559,7 +554,7 @@ func (s *localServerSuite) TestStartInstanceMultiNetworkFound(c *gc.C) {
 	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(inst, gc.NotNil)
 }
@@ -574,8 +569,8 @@ func (s *localServerSuite) TestStartInstanceExternalNetwork(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("allocate-public-ip=true")
-	inst, _ := testing.AssertStartInstanceWithConstraints(c, s.env, s.callCtx, s.ControllerUUID, "100", cons)
-	err = s.env.StopInstances(s.callCtx, inst.Id())
+	inst, _ := testing.AssertStartInstanceWithConstraints(c, s.env, s.ControllerUUID, "100", cons)
+	err = s.env.StopInstances(context.Background(), inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -588,7 +583,7 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownLabel(c *gc.C) {
 	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
 	c.Check(inst, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `unable to determine networks for configured list: \[no-network-with-this-label\]`)
 }
@@ -603,9 +598,9 @@ func (s *localServerSuite) TestStartInstanceExternalNetworkUnknownLabel(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("allocate-public-ip=true")
-	inst, _, _, err := testing.StartInstanceWithConstraints(s.env, s.callCtx, s.ControllerUUID, "100", cons)
+	inst, _, _, err := testing.StartInstanceWithConstraints(s.env, s.ControllerUUID, "100", cons)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.StopInstances(s.callCtx, inst.Id())
+	err = s.env.StopInstances(context.Background(), inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -618,7 +613,7 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownID(c *gc.C) {
 	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
 	c.Check(inst, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches,
 		`unable to determine networks for configured list: \[f81d4fae-7dec-11d0-a765-00a0c91e6bf6\]`)
@@ -641,7 +636,7 @@ func (s *localServerSuite) TestStartInstanceNoNetworksNetworkNotSetNoError(c *gc
 	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
 	c.Check(inst, gc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -671,7 +666,7 @@ func (s *localServerSuite) TestStartInstanceOneNetworkNetworkNotSetNoError(c *gc
 	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
 	c.Check(inst, gc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -689,9 +684,9 @@ func (s *localServerSuite) TestStartInstanceNetworksDifferentAZ(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("allocate-public-ip=true")
-	inst, _, _, err := testing.StartInstanceWithConstraints(s.env, s.callCtx, s.ControllerUUID, "100", cons)
+	inst, _, _, err := testing.StartInstanceWithConstraints(s.env, s.ControllerUUID, "100", cons)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.StopInstances(s.callCtx, inst.Id())
+	err = s.env.StopInstances(context.Background(), inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -732,9 +727,9 @@ func (s *localServerSuite) TestStartInstanceNetworksEmptyAZ(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("allocate-public-ip=true")
-	inst, _, _, err := testing.StartInstanceWithConstraints(s.env, s.callCtx, s.ControllerUUID, "100", cons)
+	inst, _, _, err := testing.StartInstanceWithConstraints(s.env, s.ControllerUUID, "100", cons)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.StopInstances(s.callCtx, inst.Id())
+	err = s.env.StopInstances(context.Background(), inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -747,7 +742,7 @@ func (s *localServerSuite) TestStartInstanceNetworkNoExternalNetInAZ(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("allocate-public-ip=true")
-	_, _, _, err = testing.StartInstanceWithConstraints(s.env, s.callCtx, s.ControllerUUID, "100", cons)
+	_, _, _, err = testing.StartInstanceWithConstraints(s.env, s.ControllerUUID, "100", cons)
 	c.Assert(err, gc.ErrorMatches, "cannot allocate a public IP as needed: could not find an external network in availability zone.*")
 }
 
@@ -759,7 +754,7 @@ func (s *localServerSuite) TestStartInstancePortSecurityEnabled(c *gc.C) {
 	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
 	c.Assert(err, jc.ErrorIsNil)
 	novaClient := openstack.GetNovaClient(s.env)
 	detail, err := novaClient.GetServer(string(inst.Id()))
@@ -775,7 +770,7 @@ func (s *localServerSuite) TestStartInstancePortSecurityDisabled(c *gc.C) {
 	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
 	c.Assert(err, jc.ErrorIsNil)
 	novaClient := openstack.GetNovaClient(s.env)
 	detail, err := novaClient.GetServer(string(inst.Id()))
@@ -792,7 +787,7 @@ func (s *localServerSuite) TestStartInstanceGetServerFail(c *gc.C) {
 		},
 	)
 	defer cleanup()
-	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
 	c.Check(inst, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "cannot run instance: "+
 		"request \\(.*/servers\\) returned unexpected status: "+
@@ -811,12 +806,12 @@ func (s *localServerSuite) TestStartInstanceWaitForActiveDetails(c *gc.C) {
 	clock := testclock.AutoAdvancingClock{Clock: clk, Advance: clk.Advance}
 	env.(*openstack.Environ).SetClock(&clock)
 
-	inst, _, _, err := testing.StartInstance(env, s.callCtx, s.ControllerUUID, "100")
+	inst, _, _, err := testing.StartInstance(env, s.ControllerUUID, "100")
 	c.Check(inst, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "cannot run instance: max duration exceeded: instance .* has status BUILD")
 
 	// Ensure that the started instance got terminated.
-	insts, err := env.AllInstances(s.callCtx)
+	insts, err := env.AllInstances(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 0, gc.Commentf("expected launched instance to be terminated if stuck in BUILD state"))
 }
@@ -832,7 +827,7 @@ func (s *localServerSuite) TestStartInstanceDeletesMachineSecurityGroupOnInstanc
 		},
 	)
 	defer cleanup()
-	inst, _, _, err := testing.StartInstance(env, s.callCtx, s.ControllerUUID, "100")
+	inst, _, _, err := testing.StartInstance(env, s.ControllerUUID, "100")
 	c.Check(inst, gc.IsNil)
 	c.Assert(err, gc.NotNil)
 
@@ -853,7 +848,7 @@ func (s *localServerSuite) TestStartInstanceDeletesSecurityGroupsOnFailure(c *gc
 	clock := testclock.AutoAdvancingClock{Clock: clk, Advance: clk.Advance}
 	env.(*openstack.Environ).SetClock(&clock)
 
-	_, _, _, err := testing.StartInstance(env, s.callCtx, s.ControllerUUID, "100")
+	_, _, _, err := testing.StartInstance(env, s.ControllerUUID, "100")
 	c.Assert(err, gc.NotNil)
 
 	assertSecurityGroups(c, env, []string{
@@ -911,8 +906,8 @@ func assertPorts(c *gc.C, env environs.Environ, expected []portAssertion) {
 	}
 }
 
-func assertInstanceIds(c *gc.C, env environs.Environ, callCtx envcontext.ProviderCallContext, expected ...instance.Id) {
-	allInstances, err := env.AllRunningInstances(callCtx)
+func assertInstanceIds(c *gc.C, env environs.Environ, ctx context.Context, expected ...instance.Id) {
+	allInstances, err := env.AllRunningInstances(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	instIds := make([]instance.Id, len(allInstances))
 	for i, inst := range allInstances {
@@ -924,7 +919,7 @@ func assertInstanceIds(c *gc.C, env environs.Environ, callCtx envcontext.Provide
 func (s *localServerSuite) TestStopInstance(c *gc.C) {
 	env := s.openEnviron(c, coretesting.Attrs{"firewall-mode": config.FwInstance})
 	instanceName := "100"
-	inst, _ := testing.AssertStartInstance(c, env, s.callCtx, s.ControllerUUID, instanceName)
+	inst, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, instanceName)
 	// Openstack now has three security groups for the server, the default
 	// group, one group for the entire environment, and another for the
 	// new instance.
@@ -934,7 +929,7 @@ func (s *localServerSuite) TestStopInstance(c *gc.C) {
 		fmt.Sprintf("juju-%v-%v-%v", s.ControllerUUID, modelUUID, instanceName),
 	}
 	assertSecurityGroups(c, env, allSecurityGroups)
-	err := env.StopInstances(s.callCtx, inst.Id())
+	err := env.StopInstances(context.Background(), inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	// The security group for this instance is now removed.
 	assertSecurityGroups(c, env, []string{
@@ -959,7 +954,7 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 	defer cleanup()
 	env := s.openEnviron(c, coretesting.Attrs{"firewall-mode": config.FwInstance})
 	instanceName := "100"
-	inst, _ := testing.AssertStartInstance(c, env, s.callCtx, s.ControllerUUID, instanceName)
+	inst, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, instanceName)
 	modelUUID := env.Config().UUID()
 	allSecurityGroups := []string{
 		"default", fmt.Sprintf("juju-%v-%v", s.ControllerUUID, modelUUID),
@@ -972,7 +967,7 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 	clock := testclock.AutoAdvancingClock{Clock: clk, Advance: clk.Advance}
 	env.(*openstack.Environ).SetClock(&clock)
 
-	err := env.StopInstances(s.callCtx, inst.Id())
+	err := env.StopInstances(context.Background(), inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	assertSecurityGroups(c, env, allSecurityGroups)
 }
@@ -980,14 +975,14 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeInstance(c *gc.C) {
 	env := s.openEnviron(c, coretesting.Attrs{"firewall-mode": config.FwInstance})
 	instanceName := "100"
-	testing.AssertStartInstance(c, env, s.callCtx, s.ControllerUUID, instanceName)
+	testing.AssertStartInstance(c, env, s.ControllerUUID, instanceName)
 	modelUUID := env.Config().UUID()
 	allSecurityGroups := []string{
 		"default", fmt.Sprintf("juju-%v-%v", s.ControllerUUID, modelUUID),
 		fmt.Sprintf("juju-%v-%v-%v", s.ControllerUUID, modelUUID, instanceName),
 	}
 	assertSecurityGroups(c, env, allSecurityGroups)
-	err := env.Destroy(s.callCtx)
+	err := env.Destroy(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	assertSecurityGroups(c, env, []string{"default"})
 }
@@ -995,14 +990,14 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeInst
 func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeGlobal(c *gc.C) {
 	env := s.openEnviron(c, coretesting.Attrs{"firewall-mode": config.FwGlobal})
 	instanceName := "100"
-	testing.AssertStartInstance(c, env, s.callCtx, s.ControllerUUID, instanceName)
+	testing.AssertStartInstance(c, env, s.ControllerUUID, instanceName)
 	modelUUID := env.Config().UUID()
 	allSecurityGroups := []string{
 		"default", fmt.Sprintf("juju-%v-%v", s.ControllerUUID, modelUUID),
 		fmt.Sprintf("juju-%v-%v-global", s.ControllerUUID, modelUUID),
 	}
 	assertSecurityGroups(c, env, allSecurityGroups)
-	err := env.Destroy(s.callCtx)
+	err := env.Destroy(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	assertSecurityGroups(c, env, []string{"default"})
 }
@@ -1012,9 +1007,9 @@ func (s *localServerSuite) TestDestroyController(c *gc.C) {
 	controllerEnv := s.env
 
 	controllerInstanceName := "100"
-	testing.AssertStartInstance(c, controllerEnv, s.callCtx, s.ControllerUUID, controllerInstanceName)
+	testing.AssertStartInstance(c, controllerEnv, s.ControllerUUID, controllerInstanceName)
 	hostedModelInstanceName := "200"
-	testing.AssertStartInstance(c, env, s.callCtx, s.ControllerUUID, hostedModelInstanceName)
+	testing.AssertStartInstance(c, env, s.ControllerUUID, hostedModelInstanceName)
 	modelUUID := env.Config().UUID()
 	allControllerSecurityGroups := []string{
 		"default", fmt.Sprintf("juju-%v-%v", s.ControllerUUID, controllerEnv.Config().UUID()),
@@ -1028,11 +1023,11 @@ func (s *localServerSuite) TestDestroyController(c *gc.C) {
 		allControllerSecurityGroups, allHostedModelSecurityGroups...,
 	))
 
-	err := controllerEnv.DestroyController(s.callCtx, s.ControllerUUID)
+	err := controllerEnv.DestroyController(context.Background(), s.ControllerUUID)
 	c.Check(err, jc.ErrorIsNil)
 	assertSecurityGroups(c, controllerEnv, []string{"default"})
-	assertInstanceIds(c, env, s.callCtx)
-	assertInstanceIds(c, controllerEnv, s.callCtx)
+	assertInstanceIds(c, env, context.Background())
+	assertInstanceIds(c, controllerEnv, context.Background())
 }
 
 func (s *localServerSuite) TestDestroyHostedModel(c *gc.C) {
@@ -1040,9 +1035,9 @@ func (s *localServerSuite) TestDestroyHostedModel(c *gc.C) {
 	controllerEnv := s.env
 
 	controllerInstanceName := "100"
-	controllerInstance, _ := testing.AssertStartInstance(c, controllerEnv, s.callCtx, s.ControllerUUID, controllerInstanceName)
+	controllerInstance, _ := testing.AssertStartInstance(c, controllerEnv, s.ControllerUUID, controllerInstanceName)
 	hostedModelInstanceName := "200"
-	testing.AssertStartInstance(c, env, s.callCtx, s.ControllerUUID, hostedModelInstanceName)
+	testing.AssertStartInstance(c, env, s.ControllerUUID, hostedModelInstanceName)
 	modelUUID := env.Config().UUID()
 	allControllerSecurityGroups := []string{
 		"default", fmt.Sprintf("juju-%v-%v", s.ControllerUUID, controllerEnv.Config().UUID()),
@@ -1056,11 +1051,11 @@ func (s *localServerSuite) TestDestroyHostedModel(c *gc.C) {
 		allControllerSecurityGroups, allHostedModelSecurityGroups...,
 	))
 
-	err := env.Destroy(s.callCtx)
+	err := env.Destroy(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	assertSecurityGroups(c, controllerEnv, allControllerSecurityGroups)
-	assertInstanceIds(c, env, s.callCtx)
-	assertInstanceIds(c, controllerEnv, s.callCtx, controllerInstance.Id())
+	assertInstanceIds(c, env, context.Background())
+	assertInstanceIds(c, controllerEnv, context.Background(), controllerInstance.Id())
 }
 
 func (s *localServerSuite) TestDestroyControllerSpaceConstraints(c *gc.C) {
@@ -1088,7 +1083,7 @@ func (s *localServerSuite) TestDestroyControllerSpaceConstraints(c *gc.C) {
 			},
 		},
 	}
-	_, err := testing.StartInstanceWithParams(env, s.callCtx, controllerInstanceName, params)
+	_, err := testing.StartInstanceWithParams(env, controllerInstanceName, params)
 	c.Assert(err, jc.ErrorIsNil)
 	assertPorts(c, env, []portAssertion{
 		{NamePrefix: fmt.Sprintf("juju-%s-", uuid), SubnetIDs: []string{"999-01"}},
@@ -1101,11 +1096,11 @@ func (s *localServerSuite) TestDestroyControllerSpaceConstraints(c *gc.C) {
 	// When moving to mocking of providers, this shouldn't be need or required.
 	s.assignDeviceIdToPort(c, "1", "1")
 
-	err = controllerEnv.DestroyController(s.callCtx, s.ControllerUUID)
+	err = controllerEnv.DestroyController(context.Background(), s.ControllerUUID)
 	c.Check(err, jc.ErrorIsNil)
 	assertSecurityGroups(c, controllerEnv, []string{"default"})
-	assertInstanceIds(c, env, s.callCtx)
-	assertInstanceIds(c, controllerEnv, s.callCtx)
+	assertInstanceIds(c, env, context.Background())
+	assertInstanceIds(c, controllerEnv, context.Background())
 	assertPorts(c, env, []portAssertion{})
 }
 
@@ -1179,9 +1174,9 @@ var instanceGathering = []struct {
 
 func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	// goose's test service always returns ACTIVE state.
-	inst, _ := testing.AssertStartInstance(c, s.env, s.callCtx, s.ControllerUUID, "100")
-	c.Assert(inst.Status(s.callCtx).Status, gc.Equals, status.Running)
-	err := s.env.StopInstances(s.callCtx, inst.Id())
+	inst, _ := testing.AssertStartInstance(c, s.env, s.ControllerUUID, "100")
+	c.Assert(inst.Status(context.Background()).Status, gc.Equals, status.Running)
+	err := s.env.StopInstances(context.Background(), inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1190,14 +1185,14 @@ func (s *localServerSuite) TestAllRunningInstancesFloatingIP(c *gc.C) {
 		"network": "private_999",
 	})
 	cons := constraints.MustParse("allocate-public-ip=true")
-	inst0, _ := testing.AssertStartInstanceWithConstraints(c, env, s.callCtx, s.ControllerUUID, "100", cons)
-	inst1, _ := testing.AssertStartInstanceWithConstraints(c, env, s.callCtx, s.ControllerUUID, "101", cons)
+	inst0, _ := testing.AssertStartInstanceWithConstraints(c, env, s.ControllerUUID, "100", cons)
+	inst1, _ := testing.AssertStartInstanceWithConstraints(c, env, s.ControllerUUID, "101", cons)
 	defer func() {
-		err := env.StopInstances(s.callCtx, inst0.Id(), inst1.Id())
+		err := env.StopInstances(context.Background(), inst0.Id(), inst1.Id())
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	allInstances, err := env.AllRunningInstances(s.callCtx)
+	allInstances, err := env.AllRunningInstances(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	for _, inst := range allInstances {
 		c.Assert(*openstack.InstanceFloatingIP(inst), gc.Equals, fmt.Sprintf("10.0.0.%v", inst.Id()))
@@ -1211,12 +1206,12 @@ func (s *localServerSuite) assertInstancesGathering(c *gc.C, withFloatingIP bool
 	if withFloatingIP {
 		cons = constraints.MustParse("allocate-public-ip=true")
 	}
-	inst0, _ := testing.AssertStartInstanceWithConstraints(c, env, s.callCtx, s.ControllerUUID, "100", cons)
+	inst0, _ := testing.AssertStartInstanceWithConstraints(c, env, s.ControllerUUID, "100", cons)
 	id0 := inst0.Id()
-	inst1, _ := testing.AssertStartInstanceWithConstraints(c, env, s.callCtx, s.ControllerUUID, "101", cons)
+	inst1, _ := testing.AssertStartInstanceWithConstraints(c, env, s.ControllerUUID, "101", cons)
 	id1 := inst1.Id()
 	defer func() {
-		err := env.StopInstances(s.callCtx, inst0.Id(), inst1.Id())
+		err := env.StopInstances(context.Background(), inst0.Id(), inst1.Id())
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
@@ -1231,7 +1226,7 @@ func (s *localServerSuite) assertInstancesGathering(c *gc.C, withFloatingIP bool
 				ids[j] = id1
 			}
 		}
-		insts, err := env.Instances(s.callCtx, ids)
+		insts, err := env.Instances(context.Background(), ids)
 		c.Assert(err, jc.ErrorIs, test.err)
 		if errors.Is(err, environs.ErrNoInstances) {
 			c.Assert(insts, gc.HasLen, 0)
@@ -1280,19 +1275,19 @@ func (s *localServerSuite) TestInstancesShutoffSuspended(c *gc.C) {
 		},
 	)
 	defer cleanup()
-	stateInst1, _ := testing.AssertStartInstance(c, s.env, s.callCtx, s.ControllerUUID, "100")
-	stateInst2, _ := testing.AssertStartInstance(c, s.env, s.callCtx, s.ControllerUUID, "101")
+	stateInst1, _ := testing.AssertStartInstance(c, s.env, s.ControllerUUID, "100")
+	stateInst2, _ := testing.AssertStartInstance(c, s.env, s.ControllerUUID, "101")
 	defer func() {
-		err := s.env.StopInstances(s.callCtx, stateInst1.Id(), stateInst2.Id())
+		err := s.env.StopInstances(context.Background(), stateInst1.Id(), stateInst2.Id())
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	twoInstances, err := s.env.Instances(s.callCtx, []instance.Id{stateInst1.Id(), stateInst2.Id()})
+	twoInstances, err := s.env.Instances(context.Background(), []instance.Id{stateInst1.Id(), stateInst2.Id()})
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(twoInstances, gc.HasLen, 2)
-	c.Assert(twoInstances[0].Status(s.callCtx).Message, gc.Equals, nova.StatusShutoff)
-	c.Assert(twoInstances[1].Status(s.callCtx).Message, gc.Equals, nova.StatusSuspended)
+	c.Assert(twoInstances[0].Status(context.Background()).Message, gc.Equals, nova.StatusShutoff)
+	c.Assert(twoInstances[1].Status(context.Background()).Message, gc.Equals, nova.StatusSuspended)
 }
 
 func (s *localServerSuite) TestInstancesErrorResponse(c *gc.C) {
@@ -1306,7 +1301,7 @@ func (s *localServerSuite) TestInstancesErrorResponse(c *gc.C) {
 	)
 	defer cleanup()
 
-	oneInstance, err := s.env.Instances(s.callCtx, []instance.Id{"1"})
+	oneInstance, err := s.env.Instances(context.Background(), []instance.Id{"1"})
 	c.Check(oneInstance, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "(?s).*strange error not instance.*")
 }
@@ -1322,7 +1317,7 @@ func (s *localServerSuite) TestInstancesMultiErrorResponse(c *gc.C) {
 	)
 	defer cleanup()
 
-	twoInstances, err := s.env.Instances(s.callCtx, []instance.Id{"1", "2"})
+	twoInstances, err := s.env.Instances(context.Background(), []instance.Id{"1", "2"})
 	c.Check(twoInstances, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "(?s).*strange error no instances.*")
 }
@@ -1334,16 +1329,16 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that ControllerInstances returns the ID of the bootstrap machine.
-	ids, err := s.env.ControllerInstances(s.callCtx, s.ControllerUUID)
+	ids, err := s.env.ControllerInstances(context.Background(), s.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, gc.HasLen, 1)
 
-	allInstances, err := s.env.AllRunningInstances(s.callCtx)
+	allInstances, err := s.env.AllRunningInstances(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allInstances, gc.HasLen, 1)
 	c.Check(allInstances[0].Id(), gc.Equals, ids[0])
 
-	addresses, err := allInstances[0].Addresses(s.callCtx)
+	addresses, err := allInstances[0].Addresses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 
@@ -1428,7 +1423,7 @@ func (s *localServerSuite) prepareNetworkingEnviron(c *gc.C, cfg *config.Config)
 func (s *localServerSuite) TestSubnetsFindAll(c *gc.C) {
 	env := s.prepareNetworkingEnviron(c, s.env.Config())
 	// the environ is opened with network:"private_999" which maps to network id "999"
-	obtainedSubnets, err := env.Subnets(s.callCtx, []network.Id{})
+	obtainedSubnets, err := env.Subnets(context.Background(), []network.Id{})
 	c.Assert(err, jc.ErrorIsNil)
 	neutronClient := openstack.GetNeutronClient(s.env)
 	openstackSubnets, err := neutronClient.ListSubnetsV2()
@@ -1466,7 +1461,7 @@ func (s *localServerSuite) TestSubnetsFindAllWithExternal(c *gc.C) {
 	env := s.prepareNetworkingEnviron(c, cfg)
 	// private_999 is the internal network, 998 is the external network
 	// the environ is opened with network:"private_999" which maps to network id "999"
-	obtainedSubnets, err := env.Subnets(s.callCtx, []network.Id{})
+	obtainedSubnets, err := env.Subnets(context.Background(), []network.Id{})
 	c.Assert(err, jc.ErrorIsNil)
 	neutronClient := openstack.GetNeutronClient(s.env)
 	openstackSubnets, err := neutronClient.ListSubnetsV2()
@@ -1527,7 +1522,7 @@ func (s *localServerSuite) testFindNetworks(c *gc.C, internal bool) {
 
 func (s *localServerSuite) TestSubnetsWithMissingSubnet(c *gc.C) {
 	env := s.prepareNetworkingEnviron(c, s.env.Config())
-	subnets, err := env.Subnets(s.callCtx, []network.Id{"missing"})
+	subnets, err := env.Subnets(context.Background(), []network.Id{"missing"})
 	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[missing\]`)
 	c.Assert(subnets, gc.HasLen, 0)
 }
@@ -1543,7 +1538,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 
 func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 	env := s.Open(c, context.Background(), s.env.Config())
-	validator, err := env.ConstraintsValidator(s.callCtx)
+	validator, err := env.ConstraintsValidator(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 cpu-power=10 virt-type=lxd")
 	unsupported, err := validator.Validate(cons)
@@ -1553,7 +1548,7 @@ func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 
 func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := s.Open(c, context.Background(), s.env.Config())
-	validator, err := env.ConstraintsValidator(s.callCtx)
+	validator, err := env.ConstraintsValidator(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("instance-type=foo")
@@ -1567,7 +1562,7 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 
 func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
 	env := s.Open(c, context.Background(), s.env.Config())
-	validator, err := env.ConstraintsValidator(s.callCtx)
+	validator, err := env.ConstraintsValidator(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	consA := constraints.MustParse("arch=amd64 mem=1G root-disk=10G")
 	consB := constraints.MustParse("instance-type=m1.small")
@@ -1662,46 +1657,46 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := s.Open(c, context.Background(), s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.small")
-	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Constraints: cons})
+	err := env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Constraints: cons})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := s.Open(c, context.Background(), s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.large")
-	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Constraints: cons})
+	err := env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Constraints: cons})
 	c.Assert(err, gc.ErrorMatches, `invalid Openstack flavour "m1.large" specified`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceInvalidRootDiskConstraint(c *gc.C) {
 	env := s.Open(c, context.Background(), s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.small root-disk=10G")
-	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Constraints: cons})
+	err := env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Constraints: cons})
 	c.Assert(err, gc.ErrorMatches, `constraint root-disk cannot be specified with instance-type unless constraint root-disk-source=volume`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	placement := "zone=test-available"
-	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Placement: placement})
+	err := s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Placement: placement})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	placement := "zone=test-unavailable"
-	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Placement: placement})
+	err := s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Placement: placement})
 	c.Assert(err, gc.ErrorMatches, `zone "test-unavailable" is unavailable`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	placement := "zone=test-unknown"
-	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Placement: placement})
+	err := s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Placement: placement})
 	c.Assert(err, gc.ErrorMatches, `availability zone "test-unknown" not valid`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
 	s.srv.Nova.SetAvailabilityZones() // no availability zone support
 	placement := "zone=test-unknown"
-	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Placement: placement})
+	err := s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Placement: placement})
 	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
 }
 
@@ -1734,7 +1729,7 @@ func (s *localServerSuite) testPrecheckInstanceVolumeAvailZones(c *gc.C, placeme
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
+	err = s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Base:              jujuversion.DefaultSupportedLTSBase(),
 		Placement:         placement,
 		VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
@@ -1769,7 +1764,7 @@ func (s *localServerSuite) TestPrecheckInstanceAvailZonesConflictsVolume(c *gc.C
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
+	err = s.env.PrecheckInstance(context.Background(), environs.PrecheckInstanceParams{
 		Base:              jujuversion.DefaultSupportedLTSBase(),
 		Placement:         "zone=az2",
 		VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
@@ -1781,7 +1776,7 @@ func (s *localServerSuite) TestDeriveAvailabilityZones(c *gc.C) {
 	placement := "zone=test-available"
 	env := s.env.(common.ZonedEnviron)
 	zones, err := env.DeriveAvailabilityZones(
-		s.callCtx,
+		context.Background(),
 		environs.StartInstanceParams{
 			Placement: placement,
 		})
@@ -1793,7 +1788,7 @@ func (s *localServerSuite) TestDeriveAvailabilityZonesUnavailable(c *gc.C) {
 	placement := "zone=test-unavailable"
 	env := s.env.(common.ZonedEnviron)
 	zones, err := env.DeriveAvailabilityZones(
-		s.callCtx,
+		context.Background(),
 		environs.StartInstanceParams{
 			Placement: placement,
 		})
@@ -1805,7 +1800,7 @@ func (s *localServerSuite) TestDeriveAvailabilityZonesUnknown(c *gc.C) {
 	placement := "zone=test-unknown"
 	env := s.env.(common.ZonedEnviron)
 	zones, err := env.DeriveAvailabilityZones(
-		s.callCtx,
+		context.Background(),
 		environs.StartInstanceParams{
 			Placement: placement,
 		})
@@ -1842,7 +1837,7 @@ func (s *localServerSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *gc.C)
 
 	env := s.env.(common.ZonedEnviron)
 	zones, err := env.DeriveAvailabilityZones(
-		s.callCtx,
+		context.Background(),
 		environs.StartInstanceParams{
 			VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
 		})
@@ -1879,7 +1874,7 @@ func (s *localServerSuite) TestDeriveAvailabilityZonesConflictsVolume(c *gc.C) {
 
 	env := s.env.(common.ZonedEnviron)
 	zones, err := env.DeriveAvailabilityZones(
-		s.callCtx,
+		context.Background(),
 		environs.StartInstanceParams{
 			Placement:         "zone=az2",
 			VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
@@ -1926,13 +1921,13 @@ func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
 // TestEnsureGroup checks that when creating a duplicate security group, the existing group is
 // returned.
 func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
-	group, err := openstack.EnsureGroup(s.env, s.callCtx, "test group", false)
+	group, err := openstack.EnsureGroup(s.env, context.Background(), "test group", false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(group.Name, gc.Equals, "test group")
 	id := group.Id
 
 	// Do it again and check that the existing group is returned
-	group, err = openstack.EnsureGroup(s.env, s.callCtx, "test group", false)
+	group, err = openstack.EnsureGroup(s.env, context.Background(), "test group", false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(group.Id, gc.Equals, id)
 	c.Assert(group.Name, gc.Equals, "test group")
@@ -1941,7 +1936,7 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 // TestEnsureModelGroup checks that when creating a model security group, the
 // group is created with the correct ingress rules
 func (s *localServerSuite) TestEnsureModelGroup(c *gc.C) {
-	group, err := openstack.EnsureGroup(s.env, s.callCtx, "test model group", true)
+	group, err := openstack.EnsureGroup(s.env, context.Background(), "test model group", true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(group.Name, gc.Equals, "test model group")
 
@@ -1988,50 +1983,50 @@ func (s *localServerSuite) TestEnsureModelGroup(c *gc.C) {
 func (s *localServerSuite) TestMatchingGroup(c *gc.C) {
 	err := bootstrapEnv(c, s.env)
 	c.Assert(err, jc.ErrorIsNil)
-	group1, err := openstack.EnsureGroup(s.env, s.callCtx,
+	group1, err := openstack.EnsureGroup(s.env, context.Background(),
 		openstack.MachineGroupName(s.env, s.ControllerUUID, "1"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	group2, err := openstack.EnsureGroup(s.env, s.callCtx,
+	group2, err := openstack.EnsureGroup(s.env, context.Background(),
 		openstack.MachineGroupName(s.env, s.ControllerUUID, "2"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = openstack.EnsureGroup(s.env, s.callCtx, openstack.MachineGroupName(s.env, s.ControllerUUID, "11"), false)
+	_, err = openstack.EnsureGroup(s.env, context.Background(), openstack.MachineGroupName(s.env, s.ControllerUUID, "11"), false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = openstack.EnsureGroup(s.env, s.callCtx, openstack.MachineGroupName(s.env, s.ControllerUUID, "12"), false)
+	_, err = openstack.EnsureGroup(s.env, context.Background(), openstack.MachineGroupName(s.env, s.ControllerUUID, "12"), false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineNameRegexp := openstack.MachineGroupRegexp(s.env, "1")
-	groupMatched, err := openstack.MatchingGroup(s.env, s.callCtx, machineNameRegexp)
+	groupMatched, err := openstack.MatchingGroup(s.env, context.Background(), machineNameRegexp)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(group1.Id, gc.Equals, groupMatched.Id)
 
 	machineNameRegexp = openstack.MachineGroupRegexp(s.env, "2")
-	groupMatched, err = openstack.MatchingGroup(s.env, s.callCtx, machineNameRegexp)
+	groupMatched, err = openstack.MatchingGroup(s.env, context.Background(), machineNameRegexp)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(group2.Id, gc.Equals, groupMatched.Id)
 }
 
 func (s *localServerSuite) TestPorts(c *gc.C) {
-	inst1, _ := testing.AssertStartInstance(c, s.env, s.ProviderCallContext, s.ControllerUUID, "1")
+	inst1, _ := testing.AssertStartInstance(c, s.env, s.ControllerUUID, "1")
 	c.Assert(inst1, gc.NotNil)
-	defer func() { _ = s.env.StopInstances(s.ProviderCallContext, inst1.Id()) }()
+	defer func() { _ = s.env.StopInstances(context.Background(), inst1.Id()) }()
 	fwInst1, ok := inst1.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
-	rules, err := fwInst1.IngressRules(s.ProviderCallContext, "1")
+	rules, err := fwInst1.IngressRules(context.Background(), "1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, gc.HasLen, 0)
 
-	inst2, _ := testing.AssertStartInstance(c, s.env, s.ProviderCallContext, s.ControllerUUID, "2")
+	inst2, _ := testing.AssertStartInstance(c, s.env, s.ControllerUUID, "2")
 	c.Assert(inst2, gc.NotNil)
 	fwInst2, ok := inst2.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
-	rules, err = fwInst2.IngressRules(s.ProviderCallContext, "2")
+	rules, err = fwInst2.IngressRules(context.Background(), "2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, gc.HasLen, 0)
-	defer func() { _ = s.env.StopInstances(s.ProviderCallContext, inst2.Id()) }()
+	defer func() { _ = s.env.StopInstances(context.Background(), inst2.Id()) }()
 
 	// Open some ports and check they're there.
-	err = fwInst1.OpenPorts(s.ProviderCallContext,
+	err = fwInst1.OpenPorts(context.Background(),
 		"1", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
@@ -2039,7 +2034,7 @@ func (s *localServerSuite) TestPorts(c *gc.C) {
 		})
 
 	c.Assert(err, jc.ErrorIsNil)
-	rules, err = fwInst1.IngressRules(s.ProviderCallContext, "1")
+	rules, err = fwInst1.IngressRules(context.Background(), "1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -2049,11 +2044,11 @@ func (s *localServerSuite) TestPorts(c *gc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("67/udp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		},
 	)
-	rules, err = fwInst2.IngressRules(s.ProviderCallContext, "2")
+	rules, err = fwInst2.IngressRules(context.Background(), "2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, gc.HasLen, 0)
 
-	err = fwInst2.OpenPorts(s.ProviderCallContext,
+	err = fwInst2.OpenPorts(context.Background(),
 		"2", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("89/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
@@ -2062,7 +2057,7 @@ func (s *localServerSuite) TestPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check there's no crosstalk to another machine
-	rules, err = fwInst2.IngressRules(s.ProviderCallContext, "2")
+	rules, err = fwInst2.IngressRules(context.Background(), "2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -2072,7 +2067,7 @@ func (s *localServerSuite) TestPorts(c *gc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		},
 	)
-	rules, err = fwInst1.IngressRules(s.ProviderCallContext, "1")
+	rules, err = fwInst1.IngressRules(context.Background(), "1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -2084,30 +2079,30 @@ func (s *localServerSuite) TestPorts(c *gc.C) {
 	)
 
 	// Check that opening the same port again is ok.
-	oldRules, err := fwInst2.IngressRules(s.ProviderCallContext, "2")
+	oldRules, err := fwInst2.IngressRules(context.Background(), "2")
 	c.Assert(err, jc.ErrorIsNil)
-	err = fwInst2.OpenPorts(s.ProviderCallContext,
+	err = fwInst2.OpenPorts(context.Background(),
 		"2", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	err = fwInst2.OpenPorts(s.ProviderCallContext,
+	err = fwInst2.OpenPorts(context.Background(),
 		"2", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("20-30/tcp")),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	rules, err = fwInst2.IngressRules(s.ProviderCallContext, "2")
+	rules, err = fwInst2.IngressRules(context.Background(), "2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, jc.DeepEquals, oldRules)
 
 	// Check that opening the same port again and another port is ok.
-	err = fwInst2.OpenPorts(s.ProviderCallContext,
+	err = fwInst2.OpenPorts(context.Background(),
 		"2", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("99/tcp")),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	rules, err = fwInst2.IngressRules(s.ProviderCallContext, "2")
+	rules, err = fwInst2.IngressRules(context.Background(), "2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -2118,7 +2113,7 @@ func (s *localServerSuite) TestPorts(c *gc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("99/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		},
 	)
-	err = fwInst2.ClosePorts(s.ProviderCallContext,
+	err = fwInst2.ClosePorts(context.Background(),
 		"2", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("99/tcp")),
@@ -2127,7 +2122,7 @@ func (s *localServerSuite) TestPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that we can close ports and that there's no crosstalk.
-	rules, err = fwInst2.IngressRules(s.ProviderCallContext, "2")
+	rules, err = fwInst2.IngressRules(context.Background(), "2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -2135,7 +2130,7 @@ func (s *localServerSuite) TestPorts(c *gc.C) {
 			firewall.NewIngressRule(network.MustParsePortRange("89/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		},
 	)
-	rules, err = fwInst1.IngressRules(s.ProviderCallContext, "1")
+	rules, err = fwInst1.IngressRules(context.Background(), "1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -2147,26 +2142,26 @@ func (s *localServerSuite) TestPorts(c *gc.C) {
 	)
 
 	// Check that we can close multiple ports.
-	err = fwInst1.ClosePorts(s.ProviderCallContext,
+	err = fwInst1.ClosePorts(context.Background(),
 		"1", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
 			firewall.NewIngressRule(network.MustParsePortRange("80-100/tcp")),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	rules, err = fwInst1.IngressRules(s.ProviderCallContext, "1")
+	rules, err = fwInst1.IngressRules(context.Background(), "1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, gc.HasLen, 0)
 
 	// Check that we can close ports that aren't there.
-	err = fwInst2.ClosePorts(s.ProviderCallContext,
+	err = fwInst2.ClosePorts(context.Background(),
 		"2", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("111/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("222/udp")),
 			firewall.NewIngressRule(network.MustParsePortRange("600-700/tcp")),
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	rules, err = fwInst2.IngressRules(s.ProviderCallContext, "2")
+	rules, err = fwInst2.IngressRules(context.Background(), "2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -2178,13 +2173,13 @@ func (s *localServerSuite) TestPorts(c *gc.C) {
 	// Check errors when acting on environment.
 	fwEnv, ok := s.env.(environs.Firewaller)
 	c.Assert(ok, gc.Equals, true)
-	err = fwEnv.OpenPorts(s.ProviderCallContext, firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
+	err = fwEnv.OpenPorts(context.Background(), firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for opening ports on model`)
 
-	err = fwEnv.ClosePorts(s.ProviderCallContext, firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
+	err = fwEnv.ClosePorts(context.Background(), firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for closing ports on model`)
 
-	_, err = fwEnv.IngressRules(s.ProviderCallContext)
+	_, err = fwEnv.IngressRules(context.Background())
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for retrieving ingress rules from model`)
 }
 
@@ -2204,23 +2199,23 @@ func (s *localServerSuite) TestGlobalPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create instances and check open ports on both instances.
-	inst1, _ := testing.AssertStartInstance(c, s.env, s.ProviderCallContext, s.ControllerUUID, "1")
-	defer func() { _ = s.env.StopInstances(s.ProviderCallContext, inst1.Id()) }()
+	inst1, _ := testing.AssertStartInstance(c, s.env, s.ControllerUUID, "1")
+	defer func() { _ = s.env.StopInstances(context.Background(), inst1.Id()) }()
 
 	fwEnv, ok := s.env.(environs.Firewaller)
 	c.Assert(ok, gc.Equals, true)
 
-	rules, err := fwEnv.IngressRules(s.ProviderCallContext)
+	rules, err := fwEnv.IngressRules(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, gc.HasLen, 0)
 
-	inst2, _ := testing.AssertStartInstance(c, s.env, s.ProviderCallContext, s.ControllerUUID, "2")
-	rules, err = fwEnv.IngressRules(s.ProviderCallContext)
+	inst2, _ := testing.AssertStartInstance(c, s.env, s.ControllerUUID, "2")
+	rules, err = fwEnv.IngressRules(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, gc.HasLen, 0)
-	defer func() { _ = s.env.StopInstances(s.ProviderCallContext, inst2.Id()) }()
+	defer func() { _ = s.env.StopInstances(context.Background(), inst2.Id()) }()
 
-	err = fwEnv.OpenPorts(s.ProviderCallContext,
+	err = fwEnv.OpenPorts(context.Background(),
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
@@ -2230,7 +2225,7 @@ func (s *localServerSuite) TestGlobalPorts(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	rules, err = fwEnv.IngressRules(s.ProviderCallContext)
+	rules, err = fwEnv.IngressRules(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -2244,14 +2239,14 @@ func (s *localServerSuite) TestGlobalPorts(c *gc.C) {
 	)
 
 	// Check closing some ports.
-	err = fwEnv.ClosePorts(s.ProviderCallContext,
+	err = fwEnv.ClosePorts(context.Background(),
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("99/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	rules, err = fwEnv.IngressRules(s.ProviderCallContext)
+	rules, err = fwEnv.IngressRules(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -2263,7 +2258,7 @@ func (s *localServerSuite) TestGlobalPorts(c *gc.C) {
 	)
 
 	// Check that we can close ports that aren't there.
-	err = fwEnv.ClosePorts(s.ProviderCallContext,
+	err = fwEnv.ClosePorts(context.Background(),
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("111/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("222/udp")),
@@ -2271,7 +2266,7 @@ func (s *localServerSuite) TestGlobalPorts(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	rules, err = fwEnv.IngressRules(s.ProviderCallContext)
+	rules, err = fwEnv.IngressRules(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -2285,21 +2280,21 @@ func (s *localServerSuite) TestGlobalPorts(c *gc.C) {
 	fwInst1, ok := inst1.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 	// Check errors when acting on instances.
-	err = fwInst1.OpenPorts(s.ProviderCallContext,
+	err = fwInst1.OpenPorts(context.Background(),
 		"1", firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for opening ports on instance`)
 
-	err = fwInst1.ClosePorts(s.ProviderCallContext,
+	err = fwInst1.ClosePorts(context.Background(),
 		"1", firewall.IngressRules{firewall.NewIngressRule(network.MustParsePortRange("80/tcp"))})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for closing ports on instance`)
 
-	_, err = fwInst1.IngressRules(s.ProviderCallContext, "1")
+	_, err = fwInst1.IngressRules(context.Background(), "1")
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for retrieving ingress rules from instance`)
 }
 
 func (s *localServerSuite) TestModelPorts(c *gc.C) {
 	err := bootstrap.Bootstrap(s.BootstrapContext, s.env,
-		s.callCtx, bootstrap.BootstrapParams{
+		bootstrap.BootstrapParams{
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             testing.AdminSecret,
 			CAPrivateKey:            coretesting.CAKey,
@@ -2310,7 +2305,7 @@ func (s *localServerSuite) TestModelPorts(c *gc.C) {
 	fwModelEnv, ok := s.env.(models.ModelFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
-	rules, err := fwModelEnv.ModelIngressRules(s.ProviderCallContext)
+	rules, err := fwModelEnv.ModelIngressRules(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, jc.SameContents, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
@@ -2318,7 +2313,7 @@ func (s *localServerSuite) TestModelPorts(c *gc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(coretesting.FakeControllerConfig().APIPort())), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 	})
 
-	err = fwModelEnv.OpenModelPorts(s.ProviderCallContext,
+	err = fwModelEnv.OpenModelPorts(context.Background(),
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
@@ -2326,7 +2321,7 @@ func (s *localServerSuite) TestModelPorts(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	rules, err = fwModelEnv.ModelIngressRules(s.ProviderCallContext)
+	rules, err = fwModelEnv.ModelIngressRules(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, jc.SameContents, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
@@ -2338,14 +2333,14 @@ func (s *localServerSuite) TestModelPorts(c *gc.C) {
 	})
 
 	// Check closing some ports.
-	err = fwModelEnv.CloseModelPorts(s.ProviderCallContext,
+	err = fwModelEnv.CloseModelPorts(context.Background(),
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("45/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("67/udp")),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	rules, err = fwModelEnv.ModelIngressRules(s.ProviderCallContext)
+	rules, err = fwModelEnv.ModelIngressRules(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, jc.SameContents, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
@@ -2355,7 +2350,7 @@ func (s *localServerSuite) TestModelPorts(c *gc.C) {
 	})
 
 	// Check that we can close ports that aren't there.
-	err = fwModelEnv.CloseModelPorts(s.ProviderCallContext,
+	err = fwModelEnv.CloseModelPorts(context.Background(),
 		firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("111/tcp")),
 			firewall.NewIngressRule(network.MustParsePortRange("222/udp")),
@@ -2363,7 +2358,7 @@ func (s *localServerSuite) TestModelPorts(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	rules, err = fwModelEnv.ModelIngressRules(s.ProviderCallContext)
+	rules, err = fwModelEnv.ModelIngressRules(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, jc.SameContents, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
@@ -2373,26 +2368,26 @@ func (s *localServerSuite) TestModelPorts(c *gc.C) {
 	})
 
 	// Cleanup
-	err = fwModelEnv.CloseModelPorts(s.ProviderCallContext, firewall.IngressRules{
+	err = fwModelEnv.CloseModelPorts(context.Background(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("100-110/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestIngressRulesWithPartiallyMatchingCIDRs(c *gc.C) {
-	inst1, _ := testing.AssertStartInstance(c, s.env, s.ProviderCallContext, s.ControllerUUID, "1")
+	inst1, _ := testing.AssertStartInstance(c, s.env, s.ControllerUUID, "1")
 	c.Assert(inst1, gc.NotNil)
-	defer func() { _ = s.env.StopInstances(s.ProviderCallContext, inst1.Id()) }()
+	defer func() { _ = s.env.StopInstances(context.Background(), inst1.Id()) }()
 	fwInst1, ok := inst1.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
-	rules, err := fwInst1.IngressRules(s.ProviderCallContext, "1")
+	rules, err := fwInst1.IngressRules(context.Background(), "1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, gc.HasLen, 0)
 
 	// Open ports with different CIDRs. Check that rules with same port range
 	// get merged.
-	err = fwInst1.OpenPorts(s.ProviderCallContext,
+	err = fwInst1.OpenPorts(context.Background(),
 		"1", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), firewall.AllNetworksIPV4CIDR),
 			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), "10.0.0.0/24"),
@@ -2400,7 +2395,7 @@ func (s *localServerSuite) TestIngressRulesWithPartiallyMatchingCIDRs(c *gc.C) {
 		})
 
 	c.Assert(err, jc.ErrorIsNil)
-	rules, err = fwInst1.IngressRules(s.ProviderCallContext, "1")
+	rules, err = fwInst1.IngressRules(context.Background(), "1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -2412,13 +2407,13 @@ func (s *localServerSuite) TestIngressRulesWithPartiallyMatchingCIDRs(c *gc.C) {
 
 	// Open same port with different CIDRs and check that the CIDR gets
 	// appended to the existing rule's CIDR list.
-	err = fwInst1.OpenPorts(s.ProviderCallContext,
+	err = fwInst1.OpenPorts(context.Background(),
 		"1", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), "192.168.0.0/24"),
 		})
 
 	c.Assert(err, jc.ErrorIsNil)
-	rules, err = fwInst1.IngressRules(s.ProviderCallContext, "1")
+	rules, err = fwInst1.IngressRules(context.Background(), "1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -2430,13 +2425,13 @@ func (s *localServerSuite) TestIngressRulesWithPartiallyMatchingCIDRs(c *gc.C) {
 
 	// Close port on a subset of the CIDRs and ensure that that CIDR gets
 	// removed from the ingress rules
-	err = fwInst1.ClosePorts(s.ProviderCallContext,
+	err = fwInst1.ClosePorts(context.Background(),
 		"1", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), "192.168.0.0/24"),
 		})
 
 	c.Assert(err, jc.ErrorIsNil)
-	rules, err = fwInst1.IngressRules(s.ProviderCallContext, "1")
+	rules, err = fwInst1.IngressRules(context.Background(), "1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -2448,13 +2443,13 @@ func (s *localServerSuite) TestIngressRulesWithPartiallyMatchingCIDRs(c *gc.C) {
 
 	// Remove all CIDRs from the rule and check that rules without CIDRs
 	// get dropped.
-	err = fwInst1.ClosePorts(s.ProviderCallContext,
+	err = fwInst1.ClosePorts(context.Background(),
 		"1", firewall.IngressRules{
 			firewall.NewIngressRule(network.MustParsePortRange("42/tcp"), firewall.AllNetworksIPV4CIDR, "10.0.0.0/24"),
 		})
 
 	c.Assert(err, jc.ErrorIsNil)
-	rules, err = fwInst1.IngressRules(s.ProviderCallContext, "1")
+	rules, err = fwInst1.IngressRules(context.Background(), "1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		rules, jc.DeepEquals,
@@ -2493,9 +2488,9 @@ func (s *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 		&params.ImageMetadata,
 	)
 	c.Check(err, jc.ErrorIsNil)
-	result, err := s.env.StartInstance(s.ProviderCallContext, params)
+	result, err := s.env.StartInstance(context.Background(), params)
 	if result != nil && result.Instance != nil {
-		err := s.env.StopInstances(s.ProviderCallContext, result.Instance.Id())
+		err := s.env.StopInstances(context.Background(), result.Instance.Id())
 		c.Check(err, jc.ErrorIsNil)
 	}
 	c.Assert(result, gc.IsNil)
@@ -2506,7 +2501,7 @@ func (s *localServerSuite) TestPrechecker(c *gc.C) {
 	// All implementations of InstancePrechecker should
 	// return nil for empty constraints (excluding the
 	// manual provider).
-	err := s.env.PrecheckInstance(s.ProviderCallContext,
+	err := s.env.PrecheckInstance(context.Background(),
 		environs.PrecheckInstanceParams{
 			Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
 		})
@@ -2519,11 +2514,11 @@ func (s *localServerSuite) assertStartInstanceDefaultSecurityGroup(c *gc.C, useD
 	}))
 
 	// Tests uses Prepare, so destroy first.
-	err := environs.Destroy(s.env.Config().Name(), s.env, s.callCtx, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, context.Background(), s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = s.Prepare(c)
 	err = bootstrap.Bootstrap(s.BootstrapContext, s.env,
-		s.callCtx, bootstrap.BootstrapParams{
+		bootstrap.BootstrapParams{
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             testing.AdminSecret,
 			CAPrivateKey:            coretesting.CAKey,
@@ -2531,7 +2526,7 @@ func (s *localServerSuite) assertStartInstanceDefaultSecurityGroup(c *gc.C, useD
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	inst, _ := testing.AssertStartInstance(c, s.env, envcontext.WithoutCredentialInvalidator(context.Background()), s.ControllerUUID, "100")
+	inst, _ := testing.AssertStartInstance(c, s.env, s.ControllerUUID, "100")
 	// Check whether the instance has the default security group assigned.
 	novaClient := openstack.GetNovaClient(s.env)
 	groups, err := novaClient.GetServerSecurityGroups(string(inst.Id()))
@@ -2561,11 +2556,10 @@ func (s *localServerSuite) TestStartInstanceWithoutDefaultSecurityGroup(c *gc.C)
 // local connection should be in localServerSuite
 type localHTTPSServerSuite struct {
 	coretesting.BaseSuite
-	attrs   map[string]interface{}
-	cred    *identity.Credentials
-	srv     localServer
-	env     environs.Environ
-	callCtx envcontext.ProviderCallContext
+	attrs map[string]interface{}
+	cred  *identity.Credentials
+	srv   localServer
+	env   environs.Environ
 }
 
 var _ = gc.Suite(&localHTTPSServerSuite{})
@@ -2620,12 +2614,11 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env.(environs.Environ)
 	s.attrs = s.env.Config().AllAttrs()
-	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *localHTTPSServerSuite) TearDownTest(c *gc.C) {
 	if s.env != nil {
-		err := s.env.Destroy(s.callCtx)
+		err := s.env.Destroy(context.Background())
 		c.Check(err, jc.ErrorIsNil)
 		s.env = nil
 	}
@@ -2638,7 +2631,7 @@ func (s *localHTTPSServerSuite) TestSSLVerify(c *gc.C) {
 	// a CA Certificate, then we can connect to the environment. Copy the attrs
 	// used by SetUp and force hostname verification.
 	env := s.envUsingCertificate(c)
-	_, err := env.AllRunningInstances(s.callCtx)
+	_, err := env.AllRunningInstances(context.Background())
 	c.Assert(err, gc.IsNil)
 }
 
@@ -2863,7 +2856,7 @@ func (s *localServerSuite) TestAllRunningInstancesIgnoresOtherMachines(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that we see 1 instance in the environment
-	insts, err := s.env.AllRunningInstances(s.callCtx)
+	insts, err := s.env.AllRunningInstances(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(insts, gc.HasLen, 1)
 
@@ -2891,7 +2884,7 @@ func (s *localServerSuite) TestAllRunningInstancesIgnoresOtherMachines(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(servers, gc.HasLen, 2)
 
-	insts, err = s.env.AllRunningInstances(s.callCtx)
+	insts, err = s.env.AllRunningInstances(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(insts, gc.HasLen, 1)
 }
@@ -2967,7 +2960,7 @@ func (s *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (ins
 		ControllerUUID:   s.ControllerUUID,
 		AvailabilityZone: zone,
 	}
-	result, err := testing.StartInstanceWithParams(s.env, s.callCtx, "1", params)
+	result, err := testing.StartInstanceWithParams(s.env, "1", params)
 	if err != nil {
 		return nil, err
 	}
@@ -2983,14 +2976,14 @@ func (s *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
 	env := s.env.(common.ZonedEnviron)
 
 	resultErr = fmt.Errorf("failed to get availability zones")
-	zones, err := env.AvailabilityZones(s.callCtx)
+	zones, err := env.AvailabilityZones(context.Background())
 	c.Assert(err, jc.ErrorIs, resultErr)
 	c.Assert(zones, gc.IsNil)
 
 	resultErr = nil
 	resultZones = make([]nova.AvailabilityZone, 1)
 	resultZones[0].Name = "whatever"
-	zones, err = env.AvailabilityZones(s.callCtx)
+	zones, err = env.AvailabilityZones(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.HasLen, 1)
 	c.Assert(zones[0].Name(), gc.Equals, "whatever")
@@ -3007,7 +3000,7 @@ func (s *localServerSuite) TestGetAvailabilityZonesCommon(c *gc.C) {
 	resultZones[1].Name = "az2"
 	resultZones[0].State.Available = true
 	resultZones[1].State.Available = false
-	zones, err := env.AvailabilityZones(s.callCtx)
+	zones, err := env.AvailabilityZones(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.HasLen, 2)
 	c.Assert(zones[0].Name(), gc.Equals, resultZones[0].Name)
@@ -3050,7 +3043,7 @@ func (s *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
 		},
 	)
 	defer cleanup()
-	_, err = testing.StartInstanceWithParams(s.env, s.callCtx, "1", environs.StartInstanceParams{
+	_, err = testing.StartInstanceWithParams(s.env, "1", environs.StartInstanceParams{
 		ControllerUUID:   s.ControllerUUID,
 		AvailabilityZone: "az2",
 	})
@@ -3062,7 +3055,7 @@ func (s *localServerSuite) testStartInstanceWithParamsDeriveAZ(
 	params environs.StartInstanceParams,
 ) (*environs.StartInstanceResult, error) {
 	zonedEnv := s.env.(common.ZonedEnviron)
-	zones, err := zonedEnv.DeriveAvailabilityZones(s.callCtx, params)
+	zones, err := zonedEnv.DeriveAvailabilityZones(context.Background(), params)
 	if err != nil {
 		return nil, err
 	}
@@ -3070,7 +3063,7 @@ func (s *localServerSuite) testStartInstanceWithParamsDeriveAZ(
 		return nil, errors.New("no zones found")
 	}
 	params.AvailabilityZone = zones[0]
-	return testing.StartInstanceWithParams(s.env, s.callCtx, "1", params)
+	return testing.StartInstanceWithParams(s.env, "1", params)
 }
 
 func (s *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *gc.C) {
@@ -3173,7 +3166,7 @@ func (s *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZoneConflictsP
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = testing.StartInstanceWithParams(s.env, s.callCtx, "1", environs.StartInstanceParams{
+	_, err = testing.StartInstanceWithParams(s.env, "1", environs.StartInstanceParams{
 		ControllerUUID:    s.ControllerUUID,
 		VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
 		AvailabilityZone:  "az2",
@@ -3195,7 +3188,7 @@ func (s *localServerSuite) TestStartInstanceWithImageIDConstraint(c *gc.C) {
 	cons, err := constraints.Parse("image-id=ubuntu-bf2")
 	c.Assert(err, jc.ErrorIsNil)
 
-	res, err := testing.StartInstanceWithParams(env, s.callCtx, "1", environs.StartInstanceParams{
+	res, err := testing.StartInstanceWithParams(env, "1", environs.StartInstanceParams{
 		ControllerUUID: s.ControllerUUID,
 		Constraints:    cons,
 	})
@@ -3219,7 +3212,7 @@ func (s *localServerSuite) TestStartInstanceVolumeRootBlockDevice(c *gc.C) {
 	cons, err := constraints.Parse("root-disk-source=volume arch=amd64")
 	c.Assert(err, jc.ErrorIsNil)
 
-	res, err := testing.StartInstanceWithParams(env, s.callCtx, "1", environs.StartInstanceParams{
+	res, err := testing.StartInstanceWithParams(env, "1", environs.StartInstanceParams{
 		ControllerUUID: s.ControllerUUID,
 		Constraints:    cons,
 	})
@@ -3251,7 +3244,7 @@ func (s *localServerSuite) TestStartInstanceVolumeRootBlockDeviceSized(c *gc.C) 
 	cons, err := constraints.Parse("root-disk-source=volume root-disk=10G arch=amd64")
 	c.Assert(err, jc.ErrorIsNil)
 
-	res, err := testing.StartInstanceWithParams(env, s.callCtx, "1", environs.StartInstanceParams{
+	res, err := testing.StartInstanceWithParams(env, "1", environs.StartInstanceParams{
 		ControllerUUID: s.ControllerUUID,
 		Constraints:    cons,
 	})
@@ -3286,7 +3279,7 @@ func (s *localServerSuite) TestStartInstanceLocalRootBlockDeviceConstraint(c *gc
 	c.Assert(cons.HasRootDisk(), jc.IsTrue)
 	c.Assert(*cons.RootDisk, gc.Equals, uint64(1024))
 
-	res, err := testing.StartInstanceWithParams(env, s.callCtx, "1", environs.StartInstanceParams{
+	res, err := testing.StartInstanceWithParams(env, "1", environs.StartInstanceParams{
 		ControllerUUID: s.ControllerUUID,
 		Constraints:    cons,
 	})
@@ -3323,7 +3316,7 @@ func (s *localServerSuite) TestStartInstanceLocalRootBlockDevice(c *gc.C) {
 	c.Assert(cons.HasRootDisk(), jc.IsTrue)
 	c.Assert(*cons.RootDisk, gc.Equals, uint64(1024))
 
-	res, err := testing.StartInstanceWithParams(env, s.callCtx, "1", environs.StartInstanceParams{
+	res, err := testing.StartInstanceWithParams(env, "1", environs.StartInstanceParams{
 		ControllerUUID: s.ControllerUUID,
 		Constraints:    cons,
 	})
@@ -3353,7 +3346,7 @@ func (s *localServerSuite) TestInstanceTags(c *gc.C) {
 	err := bootstrapEnv(c, s.env)
 	c.Assert(err, jc.ErrorIsNil)
 
-	allInstances, err := s.env.AllRunningInstances(s.callCtx)
+	allInstances, err := s.env.AllRunningInstances(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allInstances, gc.HasLen, 1)
 
@@ -3374,7 +3367,7 @@ func (s *localServerSuite) TestTagInstance(c *gc.C) {
 
 	assertMetadata := func(extraKey, extraValue string) {
 		// Refresh instance
-		allInstances, err := s.env.AllRunningInstances(s.callCtx)
+		allInstances, err := s.env.AllRunningInstances(context.Background())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(allInstances, gc.HasLen, 1)
 		c.Assert(
@@ -3389,14 +3382,14 @@ func (s *localServerSuite) TestTagInstance(c *gc.C) {
 		)
 	}
 
-	allInstances, err := s.env.AllRunningInstances(s.callCtx)
+	allInstances, err := s.env.AllRunningInstances(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allInstances, gc.HasLen, 1)
 
 	extraKey := "extra-k"
 	extraValue := "extra-v"
 	err = s.env.(environs.InstanceTagger).TagInstance(
-		s.callCtx,
+		context.Background(),
 		allInstances[0].Id(),
 		map[string]string{extraKey: extraValue},
 	)
@@ -3406,7 +3399,7 @@ func (s *localServerSuite) TestTagInstance(c *gc.C) {
 	// Ensure that a second call updates existing tags.
 	extraValue = "extra-v2"
 	err = s.env.(environs.InstanceTagger).TagInstance(
-		s.callCtx,
+		context.Background(),
 		allInstances[0].Id(),
 		map[string]string{extraKey: extraValue},
 	)
@@ -3429,11 +3422,11 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	originalController := coretesting.ControllerTag.Id()
-	_, _, _, err = testing.StartInstance(env, s.callCtx, originalController, "0")
+	_, _, _, err = testing.StartInstance(env, originalController, "0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	addVolume(c, s.env, s.callCtx, originalController, "99/9")
-	addVolume(c, env, s.callCtx, originalController, "23/9")
+	addVolume(c, s.env, originalController, "99/9")
+	addVolume(c, env, originalController, "23/9")
 
 	s.checkInstanceTags(c, s.env, originalController)
 	s.checkInstanceTags(c, env, originalController)
@@ -3445,7 +3438,7 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	// Needs to be a correctly formatted uuid so we can get it out of
 	// group names.
 	newController := "aaaaaaaa-bbbb-cccc-dddd-0123456789ab"
-	err = env.AdoptResources(s.callCtx, newController, semversion.MustParse("1.2.3"))
+	err = env.AdoptResources(context.Background(), newController, semversion.MustParse("1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkInstanceTags(c, s.env, originalController)
@@ -3475,7 +3468,7 @@ func (s *localServerSuite) TestAdoptResourcesNoStorage(c *gc.C) {
 	}, environs.NoopCredentialInvalidator())
 	c.Assert(err, jc.ErrorIsNil)
 	originalController := coretesting.ControllerTag.Id()
-	_, _, _, err = testing.StartInstance(env, s.callCtx, originalController, "0")
+	_, _, _, err = testing.StartInstance(env, originalController, "0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkInstanceTags(c, s.env, originalController)
@@ -3486,7 +3479,7 @@ func (s *localServerSuite) TestAdoptResourcesNoStorage(c *gc.C) {
 	// Needs to be a correctly formatted uuid so we can get it out of
 	// group names.
 	newController := "aaaaaaaa-bbbb-cccc-dddd-0123456789ab"
-	err = env.AdoptResources(s.callCtx, newController, semversion.MustParse("1.2.3"))
+	err = env.AdoptResources(context.Background(), newController, semversion.MustParse("1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkInstanceTags(c, s.env, originalController)
@@ -3496,13 +3489,13 @@ func (s *localServerSuite) TestAdoptResourcesNoStorage(c *gc.C) {
 }
 
 func addVolume(
-	c *gc.C, env environs.Environ, callCtx envcontext.ProviderCallContext, controllerUUID, name string,
+	c *gc.C, env environs.Environ, controllerUUID, name string,
 ) *storage.Volume {
 	storageAdaptor, err := (*openstack.NewOpenstackStorage)(env.(*openstack.Environ))
 	c.Assert(err, jc.ErrorIsNil)
 	modelUUID := env.Config().UUID()
 	source := openstack.NewCinderVolumeSourceForModel(storageAdaptor, modelUUID, env.(common.ZonedEnviron), env.(common.CredentialInvalidator))
-	result, err := source.CreateVolumes(callCtx, []storage.VolumeParams{{
+	result, err := source.CreateVolumes(context.Background(), []storage.VolumeParams{{
 		Tag: names.NewVolumeTag(name),
 		ResourceTags: tags.ResourceTags(
 			names.NewModelTag(modelUUID),
@@ -3516,7 +3509,7 @@ func addVolume(
 }
 
 func (s *localServerSuite) checkInstanceTags(c *gc.C, env environs.Environ, expectedController string) {
-	allInstances, err := env.AllRunningInstances(s.callCtx)
+	allInstances, err := env.AllRunningInstances(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allInstances, gc.Not(gc.HasLen), 0)
 	for _, inst := range allInstances {
@@ -3530,7 +3523,7 @@ func (s *localServerSuite) checkVolumeTags(c *gc.C, env environs.Environ, expect
 	stor, err := (*openstack.NewOpenstackStorage)(env.(*openstack.Environ))
 	c.Assert(err, jc.ErrorIsNil)
 	source := openstack.NewCinderVolumeSourceForModel(stor, env.Config().UUID(), s.env.(common.ZonedEnviron), s.env.(common.CredentialInvalidator))
-	volumeIds, err := source.ListVolumes(s.callCtx)
+	volumeIds, err := source.ListVolumes(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeIds, gc.Not(gc.HasLen), 0)
 	for _, volumeId := range volumeIds {
@@ -3567,7 +3560,7 @@ func (s *localServerSuite) TestUpdateGroupController(c *gc.C) {
 	))
 
 	firewaller := openstack.GetFirewaller(s.env)
-	err = firewaller.UpdateGroupController(s.callCtx, "aabbccdd-eeee-ffff-0000-0123456789ab")
+	err = firewaller.UpdateGroupController(context.Background(), "aabbccdd-eeee-ffff-0000-0123456789ab")
 	c.Assert(err, jc.ErrorIsNil)
 
 	groupNames, err = openstack.GetModelGroupNames(s.env)
@@ -3583,9 +3576,9 @@ func (s *localServerSuite) TestICMPFirewallRules(c *gc.C) {
 	err := bootstrapEnv(c, s.env)
 	c.Assert(err, jc.ErrorIsNil)
 
-	inst, _ := testing.AssertStartInstance(c, s.env, s.callCtx, s.ControllerUUID, "100")
+	inst, _ := testing.AssertStartInstance(c, s.env, s.ControllerUUID, "100")
 	firewaller := openstack.GetFirewaller(s.env)
-	err = firewaller.OpenInstancePorts(s.callCtx, inst, "100", firewall.IngressRules{
+	err = firewaller.OpenInstancePorts(context.Background(), inst, "100", firewall.IngressRules{
 		{
 			PortRange: network.PortRange{
 				FromPort: -1,
@@ -3605,7 +3598,7 @@ func (s *localServerSuite) TestICMPFirewallRules(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	rules, err := firewaller.InstanceIngressRules(s.callCtx, inst, "100")
+	rules, err := firewaller.InstanceIngressRules(context.Background(), inst, "100")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(len(rules), gc.Equals, 1)
@@ -3622,9 +3615,9 @@ func (s *localServerSuite) TestIPv6RuleCreationForEmptyCIDR(c *gc.C) {
 	err := bootstrapEnv(c, s.env)
 	c.Assert(err, jc.ErrorIsNil)
 
-	inst, _ := testing.AssertStartInstance(c, s.env, s.callCtx, s.ControllerUUID, "100")
+	inst, _ := testing.AssertStartInstance(c, s.env, s.ControllerUUID, "100")
 	firewaller := openstack.GetFirewaller(s.env)
-	err = firewaller.OpenInstancePorts(s.callCtx, inst, "100", firewall.IngressRules{
+	err = firewaller.OpenInstancePorts(context.Background(), inst, "100", firewall.IngressRules{
 		{
 			PortRange: network.PortRange{
 				FromPort: 443,
@@ -3636,7 +3629,7 @@ func (s *localServerSuite) TestIPv6RuleCreationForEmptyCIDR(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	rules, err := firewaller.InstanceIngressRules(s.callCtx, inst, "100")
+	rules, err := firewaller.InstanceIngressRules(context.Background(), inst, "100")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(len(rules), gc.Equals, 1)
@@ -3659,7 +3652,7 @@ func (s *localServerSuite) ensureAMDImages(c *gc.C) environs.Environ {
 		c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream(), amd64Version)
 
 	// Destroy the old Environ
-	err := environs.Destroy(s.env.Config().Name(), s.env, s.callCtx, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, context.Background(), s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Prepare a new Environ
@@ -3888,7 +3881,6 @@ func bootstrapEnv(c *gc.C, env environs.Environ) error {
 
 func bootstrapEnvWithConstraints(c *gc.C, env environs.Environ, cons constraints.Value) error {
 	return bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
-		envcontext.WithoutCredentialInvalidator(context.Background()),
 		bootstrap.BootstrapParams{
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             testing.AdminSecret,

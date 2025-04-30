@@ -22,7 +22,6 @@ import (
 	environs "github.com/juju/juju/environs"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
 	config "github.com/juju/juju/environs/config"
-	envcontext "github.com/juju/juju/environs/envcontext"
 	instances "github.com/juju/juju/environs/instances"
 	configschema "github.com/juju/juju/internal/configschema"
 	storage "github.com/juju/juju/internal/storage"
@@ -1558,7 +1557,7 @@ func (m *MockCloudDestroyer) EXPECT() *MockCloudDestroyerMockRecorder {
 }
 
 // Destroy mocks base method.
-func (m *MockCloudDestroyer) Destroy(arg0 envcontext.ProviderCallContext) error {
+func (m *MockCloudDestroyer) Destroy(arg0 context.Context) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Destroy", arg0)
 	ret0, _ := ret[0].(error)
@@ -1584,13 +1583,13 @@ func (c *MockCloudDestroyerDestroyCall) Return(arg0 error) *MockCloudDestroyerDe
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCloudDestroyerDestroyCall) Do(f func(envcontext.ProviderCallContext) error) *MockCloudDestroyerDestroyCall {
+func (c *MockCloudDestroyerDestroyCall) Do(f func(context.Context) error) *MockCloudDestroyerDestroyCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCloudDestroyerDestroyCall) DoAndReturn(f func(envcontext.ProviderCallContext) error) *MockCloudDestroyerDestroyCall {
+func (c *MockCloudDestroyerDestroyCall) DoAndReturn(f func(context.Context) error) *MockCloudDestroyerDestroyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1619,7 +1618,7 @@ func (m *MockEnviron) EXPECT() *MockEnvironMockRecorder {
 }
 
 // AdoptResources mocks base method.
-func (m *MockEnviron) AdoptResources(arg0 envcontext.ProviderCallContext, arg1 string, arg2 semversion.Number) error {
+func (m *MockEnviron) AdoptResources(arg0 context.Context, arg1 string, arg2 semversion.Number) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AdoptResources", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -1645,13 +1644,13 @@ func (c *MockEnvironAdoptResourcesCall) Return(arg0 error) *MockEnvironAdoptReso
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironAdoptResourcesCall) Do(f func(envcontext.ProviderCallContext, string, semversion.Number) error) *MockEnvironAdoptResourcesCall {
+func (c *MockEnvironAdoptResourcesCall) Do(f func(context.Context, string, semversion.Number) error) *MockEnvironAdoptResourcesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironAdoptResourcesCall) DoAndReturn(f func(envcontext.ProviderCallContext, string, semversion.Number) error) *MockEnvironAdoptResourcesCall {
+func (c *MockEnvironAdoptResourcesCall) DoAndReturn(f func(context.Context, string, semversion.Number) error) *MockEnvironAdoptResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1735,18 +1734,18 @@ func (c *MockEnvironAllRunningInstancesCall) DoAndReturn(f func(context.Context)
 }
 
 // Bootstrap mocks base method.
-func (m *MockEnviron) Bootstrap(arg0 environs.BootstrapContext, arg1 envcontext.ProviderCallContext, arg2 environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (m *MockEnviron) Bootstrap(arg0 environs.BootstrapContext, arg1 environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Bootstrap", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Bootstrap", arg0, arg1)
 	ret0, _ := ret[0].(*environs.BootstrapResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Bootstrap indicates an expected call of Bootstrap.
-func (mr *MockEnvironMockRecorder) Bootstrap(arg0, arg1, arg2 any) *MockEnvironBootstrapCall {
+func (mr *MockEnvironMockRecorder) Bootstrap(arg0, arg1 any) *MockEnvironBootstrapCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bootstrap", reflect.TypeOf((*MockEnviron)(nil).Bootstrap), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bootstrap", reflect.TypeOf((*MockEnviron)(nil).Bootstrap), arg0, arg1)
 	return &MockEnvironBootstrapCall{Call: call}
 }
 
@@ -1762,13 +1761,13 @@ func (c *MockEnvironBootstrapCall) Return(arg0 *environs.BootstrapResult, arg1 e
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironBootstrapCall) Do(f func(environs.BootstrapContext, envcontext.ProviderCallContext, environs.BootstrapParams) (*environs.BootstrapResult, error)) *MockEnvironBootstrapCall {
+func (c *MockEnvironBootstrapCall) Do(f func(environs.BootstrapContext, environs.BootstrapParams) (*environs.BootstrapResult, error)) *MockEnvironBootstrapCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironBootstrapCall) DoAndReturn(f func(environs.BootstrapContext, envcontext.ProviderCallContext, environs.BootstrapParams) (*environs.BootstrapResult, error)) *MockEnvironBootstrapCall {
+func (c *MockEnvironBootstrapCall) DoAndReturn(f func(environs.BootstrapContext, environs.BootstrapParams) (*environs.BootstrapResult, error)) *MockEnvironBootstrapCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1812,7 +1811,7 @@ func (c *MockEnvironConfigCall) DoAndReturn(f func() *config.Config) *MockEnviro
 }
 
 // ConstraintsValidator mocks base method.
-func (m *MockEnviron) ConstraintsValidator(arg0 envcontext.ProviderCallContext) (constraints.Validator, error) {
+func (m *MockEnviron) ConstraintsValidator(arg0 context.Context) (constraints.Validator, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConstraintsValidator", arg0)
 	ret0, _ := ret[0].(constraints.Validator)
@@ -1839,19 +1838,19 @@ func (c *MockEnvironConstraintsValidatorCall) Return(arg0 constraints.Validator,
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironConstraintsValidatorCall) Do(f func(envcontext.ProviderCallContext) (constraints.Validator, error)) *MockEnvironConstraintsValidatorCall {
+func (c *MockEnvironConstraintsValidatorCall) Do(f func(context.Context) (constraints.Validator, error)) *MockEnvironConstraintsValidatorCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironConstraintsValidatorCall) DoAndReturn(f func(envcontext.ProviderCallContext) (constraints.Validator, error)) *MockEnvironConstraintsValidatorCall {
+func (c *MockEnvironConstraintsValidatorCall) DoAndReturn(f func(context.Context) (constraints.Validator, error)) *MockEnvironConstraintsValidatorCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ControllerInstances mocks base method.
-func (m *MockEnviron) ControllerInstances(arg0 envcontext.ProviderCallContext, arg1 string) ([]instance.Id, error) {
+func (m *MockEnviron) ControllerInstances(arg0 context.Context, arg1 string) ([]instance.Id, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerInstances", arg0, arg1)
 	ret0, _ := ret[0].([]instance.Id)
@@ -1878,19 +1877,19 @@ func (c *MockEnvironControllerInstancesCall) Return(arg0 []instance.Id, arg1 err
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironControllerInstancesCall) Do(f func(envcontext.ProviderCallContext, string) ([]instance.Id, error)) *MockEnvironControllerInstancesCall {
+func (c *MockEnvironControllerInstancesCall) Do(f func(context.Context, string) ([]instance.Id, error)) *MockEnvironControllerInstancesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironControllerInstancesCall) DoAndReturn(f func(envcontext.ProviderCallContext, string) ([]instance.Id, error)) *MockEnvironControllerInstancesCall {
+func (c *MockEnvironControllerInstancesCall) DoAndReturn(f func(context.Context, string) ([]instance.Id, error)) *MockEnvironControllerInstancesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Destroy mocks base method.
-func (m *MockEnviron) Destroy(arg0 envcontext.ProviderCallContext) error {
+func (m *MockEnviron) Destroy(arg0 context.Context) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Destroy", arg0)
 	ret0, _ := ret[0].(error)
@@ -1916,19 +1915,19 @@ func (c *MockEnvironDestroyCall) Return(arg0 error) *MockEnvironDestroyCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironDestroyCall) Do(f func(envcontext.ProviderCallContext) error) *MockEnvironDestroyCall {
+func (c *MockEnvironDestroyCall) Do(f func(context.Context) error) *MockEnvironDestroyCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironDestroyCall) DoAndReturn(f func(envcontext.ProviderCallContext) error) *MockEnvironDestroyCall {
+func (c *MockEnvironDestroyCall) DoAndReturn(f func(context.Context) error) *MockEnvironDestroyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // DestroyController mocks base method.
-func (m *MockEnviron) DestroyController(arg0 envcontext.ProviderCallContext, arg1 string) error {
+func (m *MockEnviron) DestroyController(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DestroyController", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -1954,13 +1953,13 @@ func (c *MockEnvironDestroyControllerCall) Return(arg0 error) *MockEnvironDestro
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironDestroyControllerCall) Do(f func(envcontext.ProviderCallContext, string) error) *MockEnvironDestroyControllerCall {
+func (c *MockEnvironDestroyControllerCall) Do(f func(context.Context, string) error) *MockEnvironDestroyControllerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironDestroyControllerCall) DoAndReturn(f func(envcontext.ProviderCallContext, string) error) *MockEnvironDestroyControllerCall {
+func (c *MockEnvironDestroyControllerCall) DoAndReturn(f func(context.Context, string) error) *MockEnvironDestroyControllerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2044,7 +2043,7 @@ func (c *MockEnvironInstancesCall) DoAndReturn(f func(context.Context, []instanc
 }
 
 // PrecheckInstance mocks base method.
-func (m *MockEnviron) PrecheckInstance(arg0 envcontext.ProviderCallContext, arg1 environs.PrecheckInstanceParams) error {
+func (m *MockEnviron) PrecheckInstance(arg0 context.Context, arg1 environs.PrecheckInstanceParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrecheckInstance", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -2070,13 +2069,13 @@ func (c *MockEnvironPrecheckInstanceCall) Return(arg0 error) *MockEnvironPrechec
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironPrecheckInstanceCall) Do(f func(envcontext.ProviderCallContext, environs.PrecheckInstanceParams) error) *MockEnvironPrecheckInstanceCall {
+func (c *MockEnvironPrecheckInstanceCall) Do(f func(context.Context, environs.PrecheckInstanceParams) error) *MockEnvironPrecheckInstanceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironPrecheckInstanceCall) DoAndReturn(f func(envcontext.ProviderCallContext, environs.PrecheckInstanceParams) error) *MockEnvironPrecheckInstanceCall {
+func (c *MockEnvironPrecheckInstanceCall) DoAndReturn(f func(context.Context, environs.PrecheckInstanceParams) error) *MockEnvironPrecheckInstanceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2196,7 +2195,7 @@ func (c *MockEnvironSetConfigCall) DoAndReturn(f func(context.Context, *config.C
 }
 
 // StartInstance mocks base method.
-func (m *MockEnviron) StartInstance(arg0 envcontext.ProviderCallContext, arg1 environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (m *MockEnviron) StartInstance(arg0 context.Context, arg1 environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartInstance", arg0, arg1)
 	ret0, _ := ret[0].(*environs.StartInstanceResult)
@@ -2223,19 +2222,19 @@ func (c *MockEnvironStartInstanceCall) Return(arg0 *environs.StartInstanceResult
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironStartInstanceCall) Do(f func(envcontext.ProviderCallContext, environs.StartInstanceParams) (*environs.StartInstanceResult, error)) *MockEnvironStartInstanceCall {
+func (c *MockEnvironStartInstanceCall) Do(f func(context.Context, environs.StartInstanceParams) (*environs.StartInstanceResult, error)) *MockEnvironStartInstanceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironStartInstanceCall) DoAndReturn(f func(envcontext.ProviderCallContext, environs.StartInstanceParams) (*environs.StartInstanceResult, error)) *MockEnvironStartInstanceCall {
+func (c *MockEnvironStartInstanceCall) DoAndReturn(f func(context.Context, environs.StartInstanceParams) (*environs.StartInstanceResult, error)) *MockEnvironStartInstanceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // StopInstances mocks base method.
-func (m *MockEnviron) StopInstances(arg0 envcontext.ProviderCallContext, arg1 ...instance.Id) error {
+func (m *MockEnviron) StopInstances(arg0 context.Context, arg1 ...instance.Id) error {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0}
 	for _, a := range arg1 {
@@ -2266,13 +2265,13 @@ func (c *MockEnvironStopInstancesCall) Return(arg0 error) *MockEnvironStopInstan
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockEnvironStopInstancesCall) Do(f func(envcontext.ProviderCallContext, ...instance.Id) error) *MockEnvironStopInstancesCall {
+func (c *MockEnvironStopInstancesCall) Do(f func(context.Context, ...instance.Id) error) *MockEnvironStopInstancesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockEnvironStopInstancesCall) DoAndReturn(f func(envcontext.ProviderCallContext, ...instance.Id) error) *MockEnvironStopInstancesCall {
+func (c *MockEnvironStopInstancesCall) DoAndReturn(f func(context.Context, ...instance.Id) error) *MockEnvironStopInstancesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2379,7 +2378,7 @@ func (m *MockInstancePrechecker) EXPECT() *MockInstancePrecheckerMockRecorder {
 }
 
 // PrecheckInstance mocks base method.
-func (m *MockInstancePrechecker) PrecheckInstance(arg0 envcontext.ProviderCallContext, arg1 environs.PrecheckInstanceParams) error {
+func (m *MockInstancePrechecker) PrecheckInstance(arg0 context.Context, arg1 environs.PrecheckInstanceParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrecheckInstance", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -2405,13 +2404,13 @@ func (c *MockInstancePrecheckerPrecheckInstanceCall) Return(arg0 error) *MockIns
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockInstancePrecheckerPrecheckInstanceCall) Do(f func(envcontext.ProviderCallContext, environs.PrecheckInstanceParams) error) *MockInstancePrecheckerPrecheckInstanceCall {
+func (c *MockInstancePrecheckerPrecheckInstanceCall) Do(f func(context.Context, environs.PrecheckInstanceParams) error) *MockInstancePrecheckerPrecheckInstanceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockInstancePrecheckerPrecheckInstanceCall) DoAndReturn(f func(envcontext.ProviderCallContext, environs.PrecheckInstanceParams) error) *MockInstancePrecheckerPrecheckInstanceCall {
+func (c *MockInstancePrecheckerPrecheckInstanceCall) DoAndReturn(f func(context.Context, environs.PrecheckInstanceParams) error) *MockInstancePrecheckerPrecheckInstanceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2440,7 +2439,7 @@ func (m *MockFirewaller) EXPECT() *MockFirewallerMockRecorder {
 }
 
 // ClosePorts mocks base method.
-func (m *MockFirewaller) ClosePorts(arg0 envcontext.ProviderCallContext, arg1 firewall.IngressRules) error {
+func (m *MockFirewaller) ClosePorts(arg0 context.Context, arg1 firewall.IngressRules) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClosePorts", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -2466,19 +2465,19 @@ func (c *MockFirewallerClosePortsCall) Return(arg0 error) *MockFirewallerClosePo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFirewallerClosePortsCall) Do(f func(envcontext.ProviderCallContext, firewall.IngressRules) error) *MockFirewallerClosePortsCall {
+func (c *MockFirewallerClosePortsCall) Do(f func(context.Context, firewall.IngressRules) error) *MockFirewallerClosePortsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFirewallerClosePortsCall) DoAndReturn(f func(envcontext.ProviderCallContext, firewall.IngressRules) error) *MockFirewallerClosePortsCall {
+func (c *MockFirewallerClosePortsCall) DoAndReturn(f func(context.Context, firewall.IngressRules) error) *MockFirewallerClosePortsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // IngressRules mocks base method.
-func (m *MockFirewaller) IngressRules(arg0 envcontext.ProviderCallContext) (firewall.IngressRules, error) {
+func (m *MockFirewaller) IngressRules(arg0 context.Context) (firewall.IngressRules, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IngressRules", arg0)
 	ret0, _ := ret[0].(firewall.IngressRules)
@@ -2505,19 +2504,19 @@ func (c *MockFirewallerIngressRulesCall) Return(arg0 firewall.IngressRules, arg1
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFirewallerIngressRulesCall) Do(f func(envcontext.ProviderCallContext) (firewall.IngressRules, error)) *MockFirewallerIngressRulesCall {
+func (c *MockFirewallerIngressRulesCall) Do(f func(context.Context) (firewall.IngressRules, error)) *MockFirewallerIngressRulesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFirewallerIngressRulesCall) DoAndReturn(f func(envcontext.ProviderCallContext) (firewall.IngressRules, error)) *MockFirewallerIngressRulesCall {
+func (c *MockFirewallerIngressRulesCall) DoAndReturn(f func(context.Context) (firewall.IngressRules, error)) *MockFirewallerIngressRulesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // OpenPorts mocks base method.
-func (m *MockFirewaller) OpenPorts(arg0 envcontext.ProviderCallContext, arg1 firewall.IngressRules) error {
+func (m *MockFirewaller) OpenPorts(arg0 context.Context, arg1 firewall.IngressRules) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenPorts", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -2543,13 +2542,13 @@ func (c *MockFirewallerOpenPortsCall) Return(arg0 error) *MockFirewallerOpenPort
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFirewallerOpenPortsCall) Do(f func(envcontext.ProviderCallContext, firewall.IngressRules) error) *MockFirewallerOpenPortsCall {
+func (c *MockFirewallerOpenPortsCall) Do(f func(context.Context, firewall.IngressRules) error) *MockFirewallerOpenPortsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFirewallerOpenPortsCall) DoAndReturn(f func(envcontext.ProviderCallContext, firewall.IngressRules) error) *MockFirewallerOpenPortsCall {
+func (c *MockFirewallerOpenPortsCall) DoAndReturn(f func(context.Context, firewall.IngressRules) error) *MockFirewallerOpenPortsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2578,7 +2577,7 @@ func (m *MockInstanceTagger) EXPECT() *MockInstanceTaggerMockRecorder {
 }
 
 // TagInstance mocks base method.
-func (m *MockInstanceTagger) TagInstance(arg0 envcontext.ProviderCallContext, arg1 instance.Id, arg2 map[string]string) error {
+func (m *MockInstanceTagger) TagInstance(arg0 context.Context, arg1 instance.Id, arg2 map[string]string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TagInstance", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -2604,13 +2603,13 @@ func (c *MockInstanceTaggerTagInstanceCall) Return(arg0 error) *MockInstanceTagg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockInstanceTaggerTagInstanceCall) Do(f func(envcontext.ProviderCallContext, instance.Id, map[string]string) error) *MockInstanceTaggerTagInstanceCall {
+func (c *MockInstanceTaggerTagInstanceCall) Do(f func(context.Context, instance.Id, map[string]string) error) *MockInstanceTaggerTagInstanceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockInstanceTaggerTagInstanceCall) DoAndReturn(f func(envcontext.ProviderCallContext, instance.Id, map[string]string) error) *MockInstanceTaggerTagInstanceCall {
+func (c *MockInstanceTaggerTagInstanceCall) DoAndReturn(f func(context.Context, instance.Id, map[string]string) error) *MockInstanceTaggerTagInstanceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2701,7 +2700,7 @@ func (m *MockUpgrader) EXPECT() *MockUpgraderMockRecorder {
 }
 
 // UpgradeOperations mocks base method.
-func (m *MockUpgrader) UpgradeOperations(arg0 envcontext.ProviderCallContext, arg1 environs.UpgradeOperationsParams) []environs.UpgradeOperation {
+func (m *MockUpgrader) UpgradeOperations(arg0 context.Context, arg1 environs.UpgradeOperationsParams) []environs.UpgradeOperation {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpgradeOperations", arg0, arg1)
 	ret0, _ := ret[0].([]environs.UpgradeOperation)
@@ -2727,13 +2726,13 @@ func (c *MockUpgraderUpgradeOperationsCall) Return(arg0 []environs.UpgradeOperat
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUpgraderUpgradeOperationsCall) Do(f func(envcontext.ProviderCallContext, environs.UpgradeOperationsParams) []environs.UpgradeOperation) *MockUpgraderUpgradeOperationsCall {
+func (c *MockUpgraderUpgradeOperationsCall) Do(f func(context.Context, environs.UpgradeOperationsParams) []environs.UpgradeOperation) *MockUpgraderUpgradeOperationsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUpgraderUpgradeOperationsCall) DoAndReturn(f func(envcontext.ProviderCallContext, environs.UpgradeOperationsParams) []environs.UpgradeOperation) *MockUpgraderUpgradeOperationsCall {
+func (c *MockUpgraderUpgradeOperationsCall) DoAndReturn(f func(context.Context, environs.UpgradeOperationsParams) []environs.UpgradeOperation) *MockUpgraderUpgradeOperationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2800,7 +2799,7 @@ func (c *MockUpgradeStepDescriptionCall) DoAndReturn(f func() string) *MockUpgra
 }
 
 // Run mocks base method.
-func (m *MockUpgradeStep) Run(arg0 envcontext.ProviderCallContext) error {
+func (m *MockUpgradeStep) Run(arg0 context.Context) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Run", arg0)
 	ret0, _ := ret[0].(error)
@@ -2826,13 +2825,13 @@ func (c *MockUpgradeStepRunCall) Return(arg0 error) *MockUpgradeStepRunCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUpgradeStepRunCall) Do(f func(envcontext.ProviderCallContext) error) *MockUpgradeStepRunCall {
+func (c *MockUpgradeStepRunCall) Do(f func(context.Context) error) *MockUpgradeStepRunCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUpgradeStepRunCall) DoAndReturn(f func(envcontext.ProviderCallContext) error) *MockUpgradeStepRunCall {
+func (c *MockUpgradeStepRunCall) DoAndReturn(f func(context.Context) error) *MockUpgradeStepRunCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -3045,7 +3044,7 @@ func (m *MockNetworkingEnviron) EXPECT() *MockNetworkingEnvironMockRecorder {
 }
 
 // AdoptResources mocks base method.
-func (m *MockNetworkingEnviron) AdoptResources(arg0 envcontext.ProviderCallContext, arg1 string, arg2 semversion.Number) error {
+func (m *MockNetworkingEnviron) AdoptResources(arg0 context.Context, arg1 string, arg2 semversion.Number) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AdoptResources", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -3071,13 +3070,13 @@ func (c *MockNetworkingEnvironAdoptResourcesCall) Return(arg0 error) *MockNetwor
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkingEnvironAdoptResourcesCall) Do(f func(envcontext.ProviderCallContext, string, semversion.Number) error) *MockNetworkingEnvironAdoptResourcesCall {
+func (c *MockNetworkingEnvironAdoptResourcesCall) Do(f func(context.Context, string, semversion.Number) error) *MockNetworkingEnvironAdoptResourcesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkingEnvironAdoptResourcesCall) DoAndReturn(f func(envcontext.ProviderCallContext, string, semversion.Number) error) *MockNetworkingEnvironAdoptResourcesCall {
+func (c *MockNetworkingEnvironAdoptResourcesCall) DoAndReturn(f func(context.Context, string, semversion.Number) error) *MockNetworkingEnvironAdoptResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -3200,18 +3199,18 @@ func (c *MockNetworkingEnvironAllocateContainerAddressesCall) DoAndReturn(f func
 }
 
 // Bootstrap mocks base method.
-func (m *MockNetworkingEnviron) Bootstrap(arg0 environs.BootstrapContext, arg1 envcontext.ProviderCallContext, arg2 environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (m *MockNetworkingEnviron) Bootstrap(arg0 environs.BootstrapContext, arg1 environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Bootstrap", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Bootstrap", arg0, arg1)
 	ret0, _ := ret[0].(*environs.BootstrapResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Bootstrap indicates an expected call of Bootstrap.
-func (mr *MockNetworkingEnvironMockRecorder) Bootstrap(arg0, arg1, arg2 any) *MockNetworkingEnvironBootstrapCall {
+func (mr *MockNetworkingEnvironMockRecorder) Bootstrap(arg0, arg1 any) *MockNetworkingEnvironBootstrapCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bootstrap", reflect.TypeOf((*MockNetworkingEnviron)(nil).Bootstrap), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bootstrap", reflect.TypeOf((*MockNetworkingEnviron)(nil).Bootstrap), arg0, arg1)
 	return &MockNetworkingEnvironBootstrapCall{Call: call}
 }
 
@@ -3227,13 +3226,13 @@ func (c *MockNetworkingEnvironBootstrapCall) Return(arg0 *environs.BootstrapResu
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkingEnvironBootstrapCall) Do(f func(environs.BootstrapContext, envcontext.ProviderCallContext, environs.BootstrapParams) (*environs.BootstrapResult, error)) *MockNetworkingEnvironBootstrapCall {
+func (c *MockNetworkingEnvironBootstrapCall) Do(f func(environs.BootstrapContext, environs.BootstrapParams) (*environs.BootstrapResult, error)) *MockNetworkingEnvironBootstrapCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkingEnvironBootstrapCall) DoAndReturn(f func(environs.BootstrapContext, envcontext.ProviderCallContext, environs.BootstrapParams) (*environs.BootstrapResult, error)) *MockNetworkingEnvironBootstrapCall {
+func (c *MockNetworkingEnvironBootstrapCall) DoAndReturn(f func(environs.BootstrapContext, environs.BootstrapParams) (*environs.BootstrapResult, error)) *MockNetworkingEnvironBootstrapCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -3277,7 +3276,7 @@ func (c *MockNetworkingEnvironConfigCall) DoAndReturn(f func() *config.Config) *
 }
 
 // ConstraintsValidator mocks base method.
-func (m *MockNetworkingEnviron) ConstraintsValidator(arg0 envcontext.ProviderCallContext) (constraints.Validator, error) {
+func (m *MockNetworkingEnviron) ConstraintsValidator(arg0 context.Context) (constraints.Validator, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConstraintsValidator", arg0)
 	ret0, _ := ret[0].(constraints.Validator)
@@ -3304,19 +3303,19 @@ func (c *MockNetworkingEnvironConstraintsValidatorCall) Return(arg0 constraints.
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkingEnvironConstraintsValidatorCall) Do(f func(envcontext.ProviderCallContext) (constraints.Validator, error)) *MockNetworkingEnvironConstraintsValidatorCall {
+func (c *MockNetworkingEnvironConstraintsValidatorCall) Do(f func(context.Context) (constraints.Validator, error)) *MockNetworkingEnvironConstraintsValidatorCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkingEnvironConstraintsValidatorCall) DoAndReturn(f func(envcontext.ProviderCallContext) (constraints.Validator, error)) *MockNetworkingEnvironConstraintsValidatorCall {
+func (c *MockNetworkingEnvironConstraintsValidatorCall) DoAndReturn(f func(context.Context) (constraints.Validator, error)) *MockNetworkingEnvironConstraintsValidatorCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ControllerInstances mocks base method.
-func (m *MockNetworkingEnviron) ControllerInstances(arg0 envcontext.ProviderCallContext, arg1 string) ([]instance.Id, error) {
+func (m *MockNetworkingEnviron) ControllerInstances(arg0 context.Context, arg1 string) ([]instance.Id, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerInstances", arg0, arg1)
 	ret0, _ := ret[0].([]instance.Id)
@@ -3343,19 +3342,19 @@ func (c *MockNetworkingEnvironControllerInstancesCall) Return(arg0 []instance.Id
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkingEnvironControllerInstancesCall) Do(f func(envcontext.ProviderCallContext, string) ([]instance.Id, error)) *MockNetworkingEnvironControllerInstancesCall {
+func (c *MockNetworkingEnvironControllerInstancesCall) Do(f func(context.Context, string) ([]instance.Id, error)) *MockNetworkingEnvironControllerInstancesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkingEnvironControllerInstancesCall) DoAndReturn(f func(envcontext.ProviderCallContext, string) ([]instance.Id, error)) *MockNetworkingEnvironControllerInstancesCall {
+func (c *MockNetworkingEnvironControllerInstancesCall) DoAndReturn(f func(context.Context, string) ([]instance.Id, error)) *MockNetworkingEnvironControllerInstancesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Destroy mocks base method.
-func (m *MockNetworkingEnviron) Destroy(arg0 envcontext.ProviderCallContext) error {
+func (m *MockNetworkingEnviron) Destroy(arg0 context.Context) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Destroy", arg0)
 	ret0, _ := ret[0].(error)
@@ -3381,19 +3380,19 @@ func (c *MockNetworkingEnvironDestroyCall) Return(arg0 error) *MockNetworkingEnv
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkingEnvironDestroyCall) Do(f func(envcontext.ProviderCallContext) error) *MockNetworkingEnvironDestroyCall {
+func (c *MockNetworkingEnvironDestroyCall) Do(f func(context.Context) error) *MockNetworkingEnvironDestroyCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkingEnvironDestroyCall) DoAndReturn(f func(envcontext.ProviderCallContext) error) *MockNetworkingEnvironDestroyCall {
+func (c *MockNetworkingEnvironDestroyCall) DoAndReturn(f func(context.Context) error) *MockNetworkingEnvironDestroyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // DestroyController mocks base method.
-func (m *MockNetworkingEnviron) DestroyController(arg0 envcontext.ProviderCallContext, arg1 string) error {
+func (m *MockNetworkingEnviron) DestroyController(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DestroyController", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -3419,13 +3418,13 @@ func (c *MockNetworkingEnvironDestroyControllerCall) Return(arg0 error) *MockNet
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkingEnvironDestroyControllerCall) Do(f func(envcontext.ProviderCallContext, string) error) *MockNetworkingEnvironDestroyControllerCall {
+func (c *MockNetworkingEnvironDestroyControllerCall) Do(f func(context.Context, string) error) *MockNetworkingEnvironDestroyControllerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkingEnvironDestroyControllerCall) DoAndReturn(f func(envcontext.ProviderCallContext, string) error) *MockNetworkingEnvironDestroyControllerCall {
+func (c *MockNetworkingEnvironDestroyControllerCall) DoAndReturn(f func(context.Context, string) error) *MockNetworkingEnvironDestroyControllerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -3509,7 +3508,7 @@ func (c *MockNetworkingEnvironInstancesCall) DoAndReturn(f func(context.Context,
 }
 
 // NetworkInterfaces mocks base method.
-func (m *MockNetworkingEnviron) NetworkInterfaces(arg0 envcontext.ProviderCallContext, arg1 []instance.Id) ([]network.InterfaceInfos, error) {
+func (m *MockNetworkingEnviron) NetworkInterfaces(arg0 context.Context, arg1 []instance.Id) ([]network.InterfaceInfos, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NetworkInterfaces", arg0, arg1)
 	ret0, _ := ret[0].([]network.InterfaceInfos)
@@ -3536,19 +3535,19 @@ func (c *MockNetworkingEnvironNetworkInterfacesCall) Return(arg0 []network.Inter
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkingEnvironNetworkInterfacesCall) Do(f func(envcontext.ProviderCallContext, []instance.Id) ([]network.InterfaceInfos, error)) *MockNetworkingEnvironNetworkInterfacesCall {
+func (c *MockNetworkingEnvironNetworkInterfacesCall) Do(f func(context.Context, []instance.Id) ([]network.InterfaceInfos, error)) *MockNetworkingEnvironNetworkInterfacesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkingEnvironNetworkInterfacesCall) DoAndReturn(f func(envcontext.ProviderCallContext, []instance.Id) ([]network.InterfaceInfos, error)) *MockNetworkingEnvironNetworkInterfacesCall {
+func (c *MockNetworkingEnvironNetworkInterfacesCall) DoAndReturn(f func(context.Context, []instance.Id) ([]network.InterfaceInfos, error)) *MockNetworkingEnvironNetworkInterfacesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // PrecheckInstance mocks base method.
-func (m *MockNetworkingEnviron) PrecheckInstance(arg0 envcontext.ProviderCallContext, arg1 environs.PrecheckInstanceParams) error {
+func (m *MockNetworkingEnviron) PrecheckInstance(arg0 context.Context, arg1 environs.PrecheckInstanceParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrecheckInstance", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -3574,13 +3573,13 @@ func (c *MockNetworkingEnvironPrecheckInstanceCall) Return(arg0 error) *MockNetw
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkingEnvironPrecheckInstanceCall) Do(f func(envcontext.ProviderCallContext, environs.PrecheckInstanceParams) error) *MockNetworkingEnvironPrecheckInstanceCall {
+func (c *MockNetworkingEnvironPrecheckInstanceCall) Do(f func(context.Context, environs.PrecheckInstanceParams) error) *MockNetworkingEnvironPrecheckInstanceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkingEnvironPrecheckInstanceCall) DoAndReturn(f func(envcontext.ProviderCallContext, environs.PrecheckInstanceParams) error) *MockNetworkingEnvironPrecheckInstanceCall {
+func (c *MockNetworkingEnvironPrecheckInstanceCall) DoAndReturn(f func(context.Context, environs.PrecheckInstanceParams) error) *MockNetworkingEnvironPrecheckInstanceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -3662,7 +3661,7 @@ func (c *MockNetworkingEnvironProviderCall) DoAndReturn(f func() environs.Enviro
 }
 
 // ProviderSpaceInfo mocks base method.
-func (m *MockNetworkingEnviron) ProviderSpaceInfo(arg0 envcontext.ProviderCallContext, arg1 *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+func (m *MockNetworkingEnviron) ProviderSpaceInfo(arg0 context.Context, arg1 *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProviderSpaceInfo", arg0, arg1)
 	ret0, _ := ret[0].(*environs.ProviderSpaceInfo)
@@ -3689,19 +3688,19 @@ func (c *MockNetworkingEnvironProviderSpaceInfoCall) Return(arg0 *environs.Provi
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkingEnvironProviderSpaceInfoCall) Do(f func(envcontext.ProviderCallContext, *network.SpaceInfo) (*environs.ProviderSpaceInfo, error)) *MockNetworkingEnvironProviderSpaceInfoCall {
+func (c *MockNetworkingEnvironProviderSpaceInfoCall) Do(f func(context.Context, *network.SpaceInfo) (*environs.ProviderSpaceInfo, error)) *MockNetworkingEnvironProviderSpaceInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkingEnvironProviderSpaceInfoCall) DoAndReturn(f func(envcontext.ProviderCallContext, *network.SpaceInfo) (*environs.ProviderSpaceInfo, error)) *MockNetworkingEnvironProviderSpaceInfoCall {
+func (c *MockNetworkingEnvironProviderSpaceInfoCall) DoAndReturn(f func(context.Context, *network.SpaceInfo) (*environs.ProviderSpaceInfo, error)) *MockNetworkingEnvironProviderSpaceInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ReleaseContainerAddresses mocks base method.
-func (m *MockNetworkingEnviron) ReleaseContainerAddresses(arg0 envcontext.ProviderCallContext, arg1 []network.ProviderInterfaceInfo) error {
+func (m *MockNetworkingEnviron) ReleaseContainerAddresses(arg0 context.Context, arg1 []network.ProviderInterfaceInfo) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReleaseContainerAddresses", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -3727,13 +3726,13 @@ func (c *MockNetworkingEnvironReleaseContainerAddressesCall) Return(arg0 error) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkingEnvironReleaseContainerAddressesCall) Do(f func(envcontext.ProviderCallContext, []network.ProviderInterfaceInfo) error) *MockNetworkingEnvironReleaseContainerAddressesCall {
+func (c *MockNetworkingEnvironReleaseContainerAddressesCall) Do(f func(context.Context, []network.ProviderInterfaceInfo) error) *MockNetworkingEnvironReleaseContainerAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkingEnvironReleaseContainerAddressesCall) DoAndReturn(f func(envcontext.ProviderCallContext, []network.ProviderInterfaceInfo) error) *MockNetworkingEnvironReleaseContainerAddressesCall {
+func (c *MockNetworkingEnvironReleaseContainerAddressesCall) DoAndReturn(f func(context.Context, []network.ProviderInterfaceInfo) error) *MockNetworkingEnvironReleaseContainerAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -3777,7 +3776,7 @@ func (c *MockNetworkingEnvironSetConfigCall) DoAndReturn(f func(context.Context,
 }
 
 // Spaces mocks base method.
-func (m *MockNetworkingEnviron) Spaces(arg0 envcontext.ProviderCallContext) (network.SpaceInfos, error) {
+func (m *MockNetworkingEnviron) Spaces(arg0 context.Context) (network.SpaceInfos, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Spaces", arg0)
 	ret0, _ := ret[0].(network.SpaceInfos)
@@ -3804,19 +3803,19 @@ func (c *MockNetworkingEnvironSpacesCall) Return(arg0 network.SpaceInfos, arg1 e
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkingEnvironSpacesCall) Do(f func(envcontext.ProviderCallContext) (network.SpaceInfos, error)) *MockNetworkingEnvironSpacesCall {
+func (c *MockNetworkingEnvironSpacesCall) Do(f func(context.Context) (network.SpaceInfos, error)) *MockNetworkingEnvironSpacesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkingEnvironSpacesCall) DoAndReturn(f func(envcontext.ProviderCallContext) (network.SpaceInfos, error)) *MockNetworkingEnvironSpacesCall {
+func (c *MockNetworkingEnvironSpacesCall) DoAndReturn(f func(context.Context) (network.SpaceInfos, error)) *MockNetworkingEnvironSpacesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // StartInstance mocks base method.
-func (m *MockNetworkingEnviron) StartInstance(arg0 envcontext.ProviderCallContext, arg1 environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (m *MockNetworkingEnviron) StartInstance(arg0 context.Context, arg1 environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartInstance", arg0, arg1)
 	ret0, _ := ret[0].(*environs.StartInstanceResult)
@@ -3843,19 +3842,19 @@ func (c *MockNetworkingEnvironStartInstanceCall) Return(arg0 *environs.StartInst
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkingEnvironStartInstanceCall) Do(f func(envcontext.ProviderCallContext, environs.StartInstanceParams) (*environs.StartInstanceResult, error)) *MockNetworkingEnvironStartInstanceCall {
+func (c *MockNetworkingEnvironStartInstanceCall) Do(f func(context.Context, environs.StartInstanceParams) (*environs.StartInstanceResult, error)) *MockNetworkingEnvironStartInstanceCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkingEnvironStartInstanceCall) DoAndReturn(f func(envcontext.ProviderCallContext, environs.StartInstanceParams) (*environs.StartInstanceResult, error)) *MockNetworkingEnvironStartInstanceCall {
+func (c *MockNetworkingEnvironStartInstanceCall) DoAndReturn(f func(context.Context, environs.StartInstanceParams) (*environs.StartInstanceResult, error)) *MockNetworkingEnvironStartInstanceCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // StopInstances mocks base method.
-func (m *MockNetworkingEnviron) StopInstances(arg0 envcontext.ProviderCallContext, arg1 ...instance.Id) error {
+func (m *MockNetworkingEnviron) StopInstances(arg0 context.Context, arg1 ...instance.Id) error {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0}
 	for _, a := range arg1 {
@@ -3886,13 +3885,13 @@ func (c *MockNetworkingEnvironStopInstancesCall) Return(arg0 error) *MockNetwork
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkingEnvironStopInstancesCall) Do(f func(envcontext.ProviderCallContext, ...instance.Id) error) *MockNetworkingEnvironStopInstancesCall {
+func (c *MockNetworkingEnvironStopInstancesCall) Do(f func(context.Context, ...instance.Id) error) *MockNetworkingEnvironStopInstancesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkingEnvironStopInstancesCall) DoAndReturn(f func(envcontext.ProviderCallContext, ...instance.Id) error) *MockNetworkingEnvironStopInstancesCall {
+func (c *MockNetworkingEnvironStopInstancesCall) DoAndReturn(f func(context.Context, ...instance.Id) error) *MockNetworkingEnvironStopInstancesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -3976,7 +3975,7 @@ func (c *MockNetworkingEnvironStorageProviderTypesCall) DoAndReturn(f func() ([]
 }
 
 // Subnets mocks base method.
-func (m *MockNetworkingEnviron) Subnets(arg0 envcontext.ProviderCallContext, arg1 []network.Id) ([]network.SubnetInfo, error) {
+func (m *MockNetworkingEnviron) Subnets(arg0 context.Context, arg1 []network.Id) ([]network.SubnetInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Subnets", arg0, arg1)
 	ret0, _ := ret[0].([]network.SubnetInfo)
@@ -4003,13 +4002,13 @@ func (c *MockNetworkingEnvironSubnetsCall) Return(arg0 []network.SubnetInfo, arg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockNetworkingEnvironSubnetsCall) Do(f func(envcontext.ProviderCallContext, []network.Id) ([]network.SubnetInfo, error)) *MockNetworkingEnvironSubnetsCall {
+func (c *MockNetworkingEnvironSubnetsCall) Do(f func(context.Context, []network.Id) ([]network.SubnetInfo, error)) *MockNetworkingEnvironSubnetsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkingEnvironSubnetsCall) DoAndReturn(f func(envcontext.ProviderCallContext, []network.Id) ([]network.SubnetInfo, error)) *MockNetworkingEnvironSubnetsCall {
+func (c *MockNetworkingEnvironSubnetsCall) DoAndReturn(f func(context.Context, []network.Id) ([]network.SubnetInfo, error)) *MockNetworkingEnvironSubnetsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

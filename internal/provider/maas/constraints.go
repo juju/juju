@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs/envcontext"
 )
 
 var unsupportedConstraints = []string{
@@ -24,7 +23,7 @@ var unsupportedConstraints = []string{
 }
 
 // ConstraintsValidator is defined on the Environs interface.
-func (env *maasEnviron) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
+func (env *maasEnviron) ConstraintsValidator(ctx context.Context) (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
 	supportedArches, err := env.getSupportedArchitectures(ctx)

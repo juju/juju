@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
@@ -268,12 +267,12 @@ func (m *mockInstance) Id() instance.Id {
 }
 
 // Status implements instances.Instance.Status.
-func (m *mockInstance) Status(envcontext.ProviderCallContext) instance.Status {
+func (m *mockInstance) Status(context.Context) instance.Status {
 	return instance.Status{}
 }
 
 // Addresses implements instances.Instance.Addresses.
-func (m *mockInstance) Addresses(envcontext.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (m *mockInstance) Addresses(context.Context) (corenetwork.ProviderAddresses, error) {
 	return nil, nil
 }
 
@@ -323,7 +322,7 @@ func makeNoOpStatusCallback() func(ctx context.Context, settableStatus status.St
 }
 
 func callStartInstance(c *gc.C, s patcher, broker environs.InstanceBroker, machineId string) (*environs.StartInstanceResult, error) {
-	return broker.StartInstance(envcontext.WithoutCredentialInvalidator(context.Background()), environs.StartInstanceParams{
+	return broker.StartInstance(context.Background(), environs.StartInstanceParams{
 		Constraints:    constraints.Value{},
 		Tools:          makePossibleTools(),
 		InstanceConfig: makeInstanceConfig(c, s, machineId),

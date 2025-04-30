@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/envcontext"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/undertaker"
 	"github.com/juju/juju/rpc/params"
@@ -335,13 +334,10 @@ func (s *UndertakerSuite) TestExitOnModelChanged(c *gc.C) {
 		}, nil),
 	)
 
-	credentialAPI := NewMockCredentialAPI(ctrl)
-
 	w, err := undertaker.NewUndertaker(undertaker.Config{
-		Facade:        facade,
-		CredentialAPI: credentialAPI,
-		Logger:        loggertesting.WrapCheckLog(c),
-		Clock:         testclock.NewDilatedWallClock(testing.ShortWait),
+		Facade: facade,
+		Logger: loggertesting.WrapCheckLog(c),
+		Clock:  testclock.NewDilatedWallClock(testing.ShortWait),
 		NewCloudDestroyerFunc: func(ctx context.Context, op environs.OpenParams, _ environs.CredentialInvalidator) (environs.CloudDestroyer, error) {
 			return &waitDestroyer{}, nil
 		},
@@ -360,7 +356,7 @@ type waitDestroyer struct {
 	environs.Environ
 }
 
-func (w *waitDestroyer) Destroy(ctx envcontext.ProviderCallContext) error {
+func (w *waitDestroyer) Destroy(ctx context.Context) error {
 	<-ctx.Done()
 	return ctx.Err()
 }

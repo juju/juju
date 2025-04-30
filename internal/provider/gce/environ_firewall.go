@@ -4,8 +4,9 @@
 package gce
 
 import (
+	"context"
+
 	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/common"
 )
 
@@ -17,7 +18,7 @@ func (env *environ) globalFirewallName() string {
 // OpenPorts opens the given port ranges for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
-func (env *environ) OpenPorts(ctx envcontext.ProviderCallContext, rules firewall.IngressRules) error {
+func (env *environ) OpenPorts(ctx context.Context, rules firewall.IngressRules) error {
 	err := env.gce.OpenPorts(env.globalFirewallName(), rules)
 	return env.HandleCredentialError(ctx, err)
 }
@@ -25,7 +26,7 @@ func (env *environ) OpenPorts(ctx envcontext.ProviderCallContext, rules firewall
 // ClosePorts closes the given port ranges for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
-func (env *environ) ClosePorts(ctx envcontext.ProviderCallContext, rules firewall.IngressRules) error {
+func (env *environ) ClosePorts(ctx context.Context, rules firewall.IngressRules) error {
 	err := env.gce.ClosePorts(env.globalFirewallName(), rules)
 	return env.HandleCredentialError(ctx, err)
 }
@@ -33,12 +34,12 @@ func (env *environ) ClosePorts(ctx envcontext.ProviderCallContext, rules firewal
 // IngressRules returns the ingress rules applicable for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
-func (env *environ) IngressRules(ctx envcontext.ProviderCallContext) (firewall.IngressRules, error) {
+func (env *environ) IngressRules(ctx context.Context) (firewall.IngressRules, error) {
 	rules, err := env.gce.IngressRules(env.globalFirewallName())
 	return rules, env.HandleCredentialError(ctx, err)
 }
 
-func (env *environ) cleanupFirewall(ctx envcontext.ProviderCallContext) error {
+func (env *environ) cleanupFirewall(ctx context.Context) error {
 	err := env.gce.RemoveFirewall(env.globalFirewallName())
 	return env.HandleCredentialError(ctx, err)
 }

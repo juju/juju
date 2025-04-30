@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/cmd"
 )
 
@@ -126,12 +125,11 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "getting controller environ")
 	}
-	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 	// If we were unable to connect to the API, just destroy the controller through
 	// the environs interface.
 	if api == nil {
 		ctx.Infof("Unable to connect to the API server, destroying through provider")
-		return c.environsDestroy(controllerName, controllerEnviron, callCtx, store)
+		return c.environsDestroy(controllerName, controllerEnviron, ctx, store)
 	}
 
 	if c.DestroyConfirmationCommandBase.NeedsConfirmation() {
@@ -154,14 +152,14 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	})
 	if err != nil {
 		ctx.Infof("Unable to destroy controller through the API: %s\nDestroying through provider", err)
-		return c.environsDestroy(controllerName, controllerEnviron, callCtx, store)
+		return c.environsDestroy(controllerName, controllerEnviron, ctx, store)
 	}
 
 	ctx.Infof("Destroying controller %q\nWaiting for resources to be reclaimed", controllerName)
 
 	controllerCloudSpec, err := c.getControllerCloudSpecFromStore(ctx, store, controllerName)
 	if err != nil {
-		logger.Debugf(context.TODO(), "unable to get controller %q cloud spec from local store", controllerName)
+		logger.Debugf(ctx, "unable to get controller %q cloud spec from local store", controllerName)
 		controllerCloudSpec = cloudspec.CloudSpec{}
 	}
 
@@ -169,7 +167,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	if err := c.WaitForModels(ctx, api, uuid); err != nil {
 		c.DirectDestroyRemaining(ctx, api, controllerCloudSpec)
 	}
-	return c.environsDestroy(controllerName, controllerEnviron, callCtx, store)
+	return c.environsDestroy(controllerName, controllerEnviron, ctx, store)
 }
 
 func (c *killCommand) getControllerAPIWithTimeout(ctx context.Context, timeout time.Duration) (destroyControllerAPI, error) {
@@ -212,14 +210,14 @@ func (c *killCommand) DirectDestroyRemaining(
 	hostedConfig, err := api.HostedModelConfigs(ctx)
 	if err != nil {
 		hasErrors = true
-		logger.Warningf(context.TODO(), "unable to retrieve hosted model config: %v", err)
+		logger.Warningf(ctx, "unable to retrieve hosted model config: %v", err)
 	}
 	ctrlUUID := ""
 	// try to get controller UUID or just ignore.
 	if ctrlCfg, err := api.ControllerConfig(ctx.Context); err == nil {
 		ctrlUUID = ctrlCfg.ControllerUUID()
 	} else {
-		logger.Warningf(context.TODO(), "getting controller config from API: %v", err)
+		logger.Warningf(ctx, "getting controller config from API: %v", err)
 	}
 	for _, model := range hostedConfig {
 		if model.Error != nil {
@@ -229,26 +227,26 @@ func (c *killCommand) DirectDestroyRemaining(
 			// Only model name is guaranteed to be set in the result
 			// when an error is returned.
 			hasErrors = true
-			logger.Warningf(context.TODO(), "could not kill %s directly: %v", model.Name, model.Error)
+			logger.Warningf(ctx, "could not kill %s directly: %v", model.Name, model.Error)
 			continue
 		}
 		ctx.Infof("Killing %s/%s directly", model.Owner.Id(), model.Name)
 		cfg, err := config.New(config.NoDefaults, model.Config)
 		if err != nil {
-			logger.Warningf(context.TODO(), err.Error())
+			logger.Warningf(ctx, err.Error())
 			hasErrors = true
 			continue
 		}
 		p, err := environs.Provider(model.CloudSpec.Type)
 		if err != nil {
-			logger.Warningf(context.TODO(), err.Error())
+			logger.Warningf(ctx, err.Error())
 			hasErrors = true
 			continue
 		}
 
 		modelCloudSpec, err := transformModelCloudSpecForInstanceRoles(model.Name, model.CloudSpec, controllerCloudSpec)
 		if err != nil {
-			logger.Warningf(context.TODO(), "could not kill %s directly: %v", model.Name, err)
+			logger.Warningf(ctx, "could not kill %s directly: %v", model.Name, err)
 			continue
 		}
 
@@ -265,13 +263,12 @@ func (c *killCommand) DirectDestroyRemaining(
 				env, err = environs.Open(ctx, cloudProvider, openParams, environs.NoopCredentialInvalidator())
 			}
 			if err != nil {
-				logger.Warningf(context.TODO(), err.Error())
+				logger.Warningf(ctx, err.Error())
 				hasErrors = true
 				continue
 			}
-			callCtx := envcontext.WithoutCredentialInvalidator(ctx)
-			if err := env.Destroy(callCtx); err != nil {
-				logger.Warningf(context.TODO(), err.Error())
+			if err := env.Destroy(ctx); err != nil {
+				logger.Warningf(ctx, err.Error())
 				hasErrors = true
 				continue
 			}
@@ -279,7 +276,7 @@ func (c *killCommand) DirectDestroyRemaining(
 		ctx.Infof("  done")
 	}
 	if hasErrors {
-		logger.Warningf(context.TODO(), "there were problems destroying some models, manual intervention may be necessary to ensure resources are released")
+		logger.Warningf(ctx, "there were problems destroying some models, manual intervention may be necessary to ensure resources are released")
 	} else {
 		ctx.Infof("All models destroyed, cleaning up controller machines")
 	}

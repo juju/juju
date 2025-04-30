@@ -4,7 +4,6 @@
 package storageprovisioner_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -18,7 +17,6 @@ import (
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/environs/envcontext"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -72,9 +70,6 @@ func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
 		Status:      &mockStatusSetter{},
 		Clock:       &mockClock{},
 		Logger:      loggertesting.WrapCheckLog(c),
-		CloudCallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
-			return envcontext.WithoutCredentialInvalidator(ctx)
-		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2331,9 +2326,6 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 		Status:      args.statusSetter,
 		Clock:       args.clock,
 		Logger:      loggertesting.WrapCheckLog(c),
-		CloudCallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
-			return envcontext.WithoutCredentialInvalidator(ctx)
-		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return worker

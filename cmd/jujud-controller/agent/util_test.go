@@ -39,7 +39,6 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/cmd"
 	"github.com/juju/juju/internal/cmd/cmdtesting"
@@ -205,7 +204,7 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers se
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a machine and ensure it is provisioned.
-	inst, md := jujutesting.AssertStartInstance(c, s.Environ, envcontext.WithoutCredentialInvalidator(context.Background()), s.ControllerModel(c).ControllerUUID(), machineId)
+	inst, md := jujutesting.AssertStartInstance(c, s.Environ, s.ControllerModel(c).ControllerUUID(), machineId)
 	c.Assert(m.SetProvisioned(inst.Id(), "", agent.BootstrapNonce, md), jc.ErrorIsNil)
 	// Double write to machine domain.
 	machineService := s.ControllerDomainServices(c).Machine()
