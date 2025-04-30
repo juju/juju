@@ -173,8 +173,12 @@ func (p *sshJump) maybePopulateTargetViaField(target *resolvedTarget, fetchStatu
 	return errors.Errorf("not implemented for ssh jump provider.")
 }
 
-func (p *sshJump) getSSHOptions(_ bool, targets ...*resolvedTarget) (*ssh.Options, error) {
+func (p *sshJump) getSSHOptions(pty bool, targets ...*resolvedTarget) (*ssh.Options, error) {
 	var options ssh.Options
+	if pty {
+		options.EnablePTY()
+
+	}
 	// -o ProxyCommand is a substitute for the -J option.
 	options.SetProxyCommand(
 		"ssh",
