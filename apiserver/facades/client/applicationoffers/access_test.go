@@ -27,7 +27,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type offerAccessSuite struct {
@@ -101,31 +100,30 @@ func (s *offerAccessSuite) revoke(user names.UserTag, access params.OfferAccessP
 }
 
 func (s *offerAccessSuite) setupOffer(modelUUID, modelName, owner, offerName string) string {
-	m := &mockModel{uuid: modelUUID, name: modelName, owner: owner, modelType: state.ModelTypeIAAS}
+	ownerName := coreuser.NameFromTag(names.NewUserTag(owner))
+
 	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
 		[]coremodel.Model{
 			{
-				Name:      m.name,
-				OwnerName: coreuser.NameFromTag(names.NewUserTag(m.owner)),
-				UUID:      coremodel.UUID(m.uuid),
-				ModelType: coremodel.ModelType(m.modelType),
+				Name:      modelName,
+				OwnerName: ownerName,
+				UUID:      coremodel.UUID(modelUUID),
+				ModelType: coremodel.IAAS,
 			},
 		}, nil,
 	).AnyTimes()
-	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), m.name, coreuser.NameFromTag(m.Owner())).Return(
+	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), modelName, ownerName).Return(
 		coremodel.Model{
-			Name:      m.name,
-			OwnerName: coreuser.NameFromTag(m.Owner()),
-			UUID:      coremodel.UUID(m.uuid),
-			ModelType: coremodel.ModelType(m.modelType),
+			Name:      modelName,
+			OwnerName: ownerName,
+			UUID:      coremodel.UUID(modelUUID),
+			ModelType: coremodel.IAAS,
 		}, nil,
 	).AnyTimes()
 
-	s.mockState.allmodels = []applicationoffers.Model{m}
 	st := &mockState{
 		modelUUID:         modelUUID,
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
-		model:             m,
 	}
 	s.mockStatePool.st[modelUUID] = st
 	uuid := uuid.MustNewUUID().String()

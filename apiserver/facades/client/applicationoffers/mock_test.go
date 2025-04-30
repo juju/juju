@@ -24,8 +24,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 )
 
 const (
@@ -75,37 +73,6 @@ func (m *stubApplicationOffers) ApplicationOffer(name string) (*jujucrossmodel.A
 func (m *stubApplicationOffers) ApplicationOfferForUUID(uuid string) (*jujucrossmodel.ApplicationOffer, error) {
 	m.AddCall(offerCallUUID)
 	panic("not implemented")
-}
-
-type mockModel struct {
-	uuid      string
-	name      string
-	owner     string
-	modelType state.ModelType
-}
-
-func (m *mockModel) UUID() string {
-	return m.uuid
-}
-
-func (m *mockModel) ModelTag() names.ModelTag {
-	return names.NewModelTag(m.uuid)
-}
-
-func (m *mockModel) Type() state.ModelType {
-	return m.modelType
-}
-
-func (m *mockModel) Name() string {
-	return m.name
-}
-
-func (m *mockModel) Owner() names.UserTag {
-	return names.NewUserTag(m.owner)
-}
-
-func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
-	return jujutesting.DefaultCredentialTag, true
 }
 
 type mockApplication struct {
@@ -213,9 +180,7 @@ type mockState struct {
 	crossmodel.Backend
 	common.APIAddressAccessor
 	modelUUID         string
-	model             *mockModel
 	AdminTag          names.UserTag
-	allmodels         []applicationoffers.Model
 	applications      map[string]crossmodel.Application
 	applicationOffers map[string]jujucrossmodel.ApplicationOffer
 	relations         map[string]crossmodel.Relation
@@ -245,30 +210,6 @@ func (m *mockState) ApplicationOffer(name string) (*jujucrossmodel.ApplicationOf
 		return nil, errors.NotFoundf("application offer %q", name)
 	}
 	return &offer, nil
-}
-
-func (m *mockState) Model() (applicationoffers.Model, error) {
-	return m.model, nil
-}
-
-func (m *mockState) ModelUUID() string {
-	return m.modelUUID
-}
-
-func (m *mockState) ModelTag() names.ModelTag {
-	return names.NewModelTag(m.modelUUID)
-}
-
-func (m *mockState) AllModelUUIDs() ([]string, error) {
-	if len(m.allmodels) == 0 {
-		return []string{m.model.UUID()}, nil
-	}
-
-	var out []string
-	for _, model := range m.allmodels {
-		out = append(out, model.UUID())
-	}
-	return out, nil
 }
 
 func (m *mockState) KeyRelation(key string) (crossmodel.Relation, error) {
@@ -320,18 +261,6 @@ func (st *mockStatePool) Get(modelUUID string) (applicationoffers.Backend, func(
 		return nil, nil, errors.NotFoundf("model for uuid %s", modelUUID)
 	}
 	return backend, func() {}, nil
-}
-
-func (st *mockStatePool) GetModel(modelUUID string) (applicationoffers.Model, func(), error) {
-	backend, ok := st.st[modelUUID]
-	if !ok {
-		return nil, nil, errors.NotFoundf("model for uuid %s", modelUUID)
-	}
-	model, err := backend.Model()
-	if err != nil {
-		return nil, nil, err
-	}
-	return model, func() {}, nil
 }
 
 type mockBakeryService struct {

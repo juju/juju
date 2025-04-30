@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/state"
 )
 
 const (
@@ -125,29 +124,26 @@ func (s *baseSuite) setupOffersForUUID(c *gc.C, offerUUID, filterAppName string,
 			bindings: map[string]string{"db2": "myspace"}, // myspace
 		},
 	}
-	s.mockState.model = &mockModel{
-		uuid:      s.mockState.modelUUID,
-		name:      "prod",
-		owner:     "fred@external",
-		modelType: state.ModelTypeIAAS,
-	}
+	userFred, err := coreuser.NewName("fred@external")
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
 		[]coremodel.Model{
 			{
-				Name:      s.mockState.model.name,
-				OwnerName: coreuser.NameFromTag(s.mockState.model.Owner()),
-				UUID:      coremodel.UUID(s.mockState.model.uuid),
-				ModelType: coremodel.ModelType(s.mockState.model.modelType),
+				Name:      "prod",
+				OwnerName: userFred,
+				UUID:      coremodel.UUID(s.mockState.modelUUID),
+				ModelType: coremodel.IAAS,
 			},
 		}, nil,
 	).AnyTimes()
 
-	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), s.mockState.model.name, coreuser.NameFromTag(s.mockState.model.Owner())).Return(
+	s.mockModelService.EXPECT().GetModelByNameAndOwner(gomock.Any(), "prod", userFred).Return(
 		coremodel.Model{
-			Name:      s.mockState.model.name,
-			OwnerName: coreuser.NameFromTag(s.mockState.model.Owner()),
-			UUID:      coremodel.UUID(s.mockState.model.uuid),
-			ModelType: coremodel.ModelType(s.mockState.model.modelType),
+			Name:      "prod",
+			OwnerName: userFred,
+			UUID:      coremodel.UUID(s.mockState.modelUUID),
+			ModelType: coremodel.IAAS,
 		}, nil,
 	).AnyTimes()
 

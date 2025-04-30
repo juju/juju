@@ -5,7 +5,6 @@ package applicationoffers
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/core/crossmodel"
@@ -16,9 +15,6 @@ import (
 type StatePool interface {
 	// Get returns a State for a given model from the pool.
 	Get(modelUUID string) (Backend, func(), error)
-
-	// GetModel returns a Model from the pool.
-	GetModel(modelUUID string) (Model, func(), error)
 }
 
 var GetStatePool = func(sp *state.StatePool) StatePool {
@@ -41,19 +37,10 @@ func (pool statePoolShim) Get(modelUUID string) (Backend, func(), error) {
 	}, func() { st.Release() }, nil
 }
 
-func (pool statePoolShim) GetModel(modelUUID string) (Model, func(), error) {
-	m, ph, err := pool.StatePool.GetModel(modelUUID)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	return &modelShim{m}, func() { ph.Release() }, nil
-}
-
 // Backend provides selected methods off the state.State struct.
 type Backend interface {
 	commoncrossmodel.Backend
 	ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error)
-	Model() (Model, error)
 	OfferConnections(string) ([]OfferConnection, error)
 }
 
@@ -78,23 +65,6 @@ func (s *stateShim) OfferConnections(offerUUID string) ([]OfferConnection, error
 	// todo(gfouillet): cross model relations are disabled until backend
 	//   functionality is moved to domain, so we just return an empty list until it is done
 	return nil, nil
-}
-
-func (s *stateShim) Model() (Model, error) {
-	m, err := s.st.Model()
-	return &modelShim{m}, err
-}
-
-type Model interface {
-	UUID() string
-	ModelTag() names.ModelTag
-	Name() string
-	Type() state.ModelType
-	Owner() names.UserTag
-}
-
-type modelShim struct {
-	*state.Model
 }
 
 type OfferConnection interface {
