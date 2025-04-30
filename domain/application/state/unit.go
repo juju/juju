@@ -606,6 +606,45 @@ func (st *State) AddSubordinateUnit(
 	return unitName, nil
 }
 
+// GetUnitPrincipal gets the subordinates principal unit. If no principal unit
+// is found, for example, when the unit is not a subordinate, then false is
+// returned.
+func (st *State) GetUnitPrincipal(
+	ctx context.Context,
+	unitName coreunit.Name,
+) (coreunit.Name, bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", false, errors.Capture(err)
+	}
+
+	arg := getPrincipal{
+		SubordinateUnitName: unitName,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT principal.name AS &getPrincipal.principal_unit_name
+FROM   unit AS principal
+JOIN   unit_principal AS up ON principal.uuid = up.principal_uuid
+JOIN   unit AS sub ON up.unit_uuid = sub.uuid 
+WHERE  sub.name = $getPrincipal.subordinate_unit_name
+`, arg)
+	if err != nil {
+		return "", false, errors.Capture(err)
+	}
+
+	ok := true
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, arg).Get(&arg)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			ok = false
+			return nil
+		}
+		return err
+	})
+	return arg.PrincipalUnitName, ok, err
+}
+
 // checkNoSubordinateExists returns
 // [applicationerrors.UnitAlreadyHasSubordinate] if the specified unit already
 // has a subordinate for the given application.

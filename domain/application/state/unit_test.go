@@ -1529,6 +1529,42 @@ func (s *unitStateSubordinateSuite) TestIsSubordinateApplicationNotFound(c *gc.C
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
+func (s *unitStateSubordinateSuite) TestGetUnitPrincipal(c *gc.C) {
+	principalAppID := s.createApplication(c, "principal", life.Alive)
+	subAppID := s.createSubordinateApplication(c, "sub", life.Alive)
+	principalName := coreunittesting.GenNewName(c, "principal/0")
+	subName := coreunittesting.GenNewName(c, "sub/0")
+	principalUUID := s.addUnit(c, principalName, principalAppID)
+	subUUID := s.addUnit(c, subName, subAppID)
+	s.addUnitPrincipal(c, principalUUID, subUUID)
+
+	foundPrincipalName, ok, err := s.state.GetUnitPrincipal(context.Background(), subName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(foundPrincipalName, gc.Equals, principalName)
+	c.Check(ok, jc.IsTrue)
+}
+
+func (s *unitStateSubordinateSuite) TestGetUnitPrincipalSubordinateNotPrincipal(c *gc.C) {
+	principalAppID := s.createApplication(c, "principal", life.Alive)
+	subAppID := s.createSubordinateApplication(c, "sub", life.Alive)
+	principalName := coreunittesting.GenNewName(c, "principal/0")
+	subName := coreunittesting.GenNewName(c, "sub/0")
+	s.addUnit(c, principalName, principalAppID)
+	s.addUnit(c, subName, subAppID)
+
+	_, ok, err := s.state.GetUnitPrincipal(context.Background(), subName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ok, jc.IsFalse)
+}
+
+func (s *unitStateSubordinateSuite) TestGetUnitPrincipalNoUnitExists(c *gc.C) {
+	subName := coreunittesting.GenNewName(c, "sub/0")
+
+	_, ok, err := s.state.GetUnitPrincipal(context.Background(), subName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ok, jc.IsFalse)
+}
+
 func (s *unitStateSubordinateSuite) assertUnitMachinesMatch(c *gc.C, unit1, unit2 coreunit.Name) {
 	m1 := s.getUnitMachine(c, unit1)
 	m2 := s.getUnitMachine(c, unit2)
@@ -1551,7 +1587,19 @@ WHERE unit.name = ?
 	return machineName
 }
 
-func (s *unitStateSubordinateSuite) addUnit(c *gc.C, unitName coreunit.Name, appUUID coreapplication.ID) {
+func (s *unitStateSubordinateSuite) addUnitPrincipal(c *gc.C, principal, sub coreunit.UUID) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(`
+INSERT INTO unit_principal (principal_uuid, unit_uuid)
+VALUES (?, ?) 
+`, principal, sub)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *unitStateSubordinateSuite) addUnit(c *gc.C, unitName coreunit.Name, appUUID coreapplication.ID) coreunit.UUID {
+	unitUUID := coreunittesting.GenUnitUUID(c)
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		netNodeUUID := uuid.MustNewUUID().String()
 		_, err := tx.Exec(`
@@ -1561,8 +1609,6 @@ VALUES (?)
 		if err != nil {
 			return err
 		}
-
-		unitUUID := uuid.MustNewUUID().String()
 
 		_, err = tx.Exec(`
 INSERT INTO unit (uuid, name, life_id, net_node_uuid, application_uuid, charm_uuid)
@@ -1576,6 +1622,7 @@ WHERE uuid = ?
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	return unitUUID
 }
 
 func (s *unitStateSubordinateSuite) assertUnitPrincipal(c *gc.C, principalName, subordinateName coreunit.Name) {
