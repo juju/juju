@@ -1326,10 +1326,6 @@ func (a *Application) addUnitOpsWithCons(
 		Updated:    now.UnixNano(),
 	}
 
-	workloadVersionDoc := &statusDoc{
-		Status:  status.Unknown,
-		Updated: now.UnixNano(),
-	}
 	if m.Type() != ModelTypeCAAS {
 		unitStatusDoc.StatusInfo = status.MessageWaitForMachine
 	}
@@ -1354,11 +1350,10 @@ func (a *Application) addUnitOpsWithCons(
 	}
 
 	ops, err := addUnitOps(a.st, addUnitOpsArgs{
-		unitDoc:            udoc,
-		containerDoc:       containerDoc,
-		agentStatusDoc:     agentStatusDoc,
-		workloadStatusDoc:  unitStatusDoc,
-		workloadVersionDoc: workloadVersionDoc,
+		unitDoc:           udoc,
+		containerDoc:      containerDoc,
+		agentStatusDoc:    agentStatusDoc,
+		workloadStatusDoc: unitStatusDoc,
 	})
 	if err != nil {
 		return "", nil, errors.Trace(err)
@@ -1602,7 +1597,6 @@ func (a *Application) removeUnitOps(store objectstore.ObjectStore, u *Unit, asse
 		},
 		removeStatusOp(a.st, u.globalAgentKey()),
 		removeStatusOp(a.st, u.globalKey()),
-		removeStatusOp(a.st, u.globalWorkloadVersionKey()),
 		removeUnitStateOp(a.st, u.globalKey()),
 		removeStatusOp(a.st, u.globalCloudContainerKey()),
 		removeConstraintsOp(u.globalAgentKey()),

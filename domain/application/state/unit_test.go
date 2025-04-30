@@ -225,8 +225,8 @@ func (s *unitStateSuite) TestUpdateCAASUnitStatuses(c *gc.C) {
 			Data:    []byte(`{"foo": "bar"}`),
 			Since:   now,
 		}),
-		CloudContainerStatus: ptr(status.StatusInfo[status.CloudContainerStatusType]{
-			Status:  status.CloudContainerStatusRunning,
+		K8sPodStatus: ptr(status.StatusInfo[status.K8sPodStatusType]{
+			Status:  status.K8sPodStatusRunning,
 			Message: "container status",
 			Data:    []byte(`{"foo": "bar"}`),
 			Since:   now,
@@ -241,7 +241,7 @@ func (s *unitStateSuite) TestUpdateCAASUnitStatuses(c *gc.C) {
 		c, "unit_workload", unitUUID, int(status.WorkloadStatusWaiting), "workload status", now, []byte(`{"foo": "bar"}`),
 	)
 	s.assertUnitStatus(
-		c, "k8s_pod", unitUUID, int(status.CloudContainerStatusRunning), "container status", now, []byte(`{"foo": "bar"}`),
+		c, "k8s_pod", unitUUID, int(status.K8sPodStatusRunning), "container status", now, []byte(`{"foo": "bar"}`),
 	)
 }
 
@@ -413,7 +413,10 @@ func (s *unitStateSuite) TestRegisterCAASUnitExceedsScale(c *gc.C) {
 	})
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scale = ?, scale_target = ? WHERE application_uuid = ?", 1, 3, appUUID)
+		_, err := tx.ExecContext(ctx, `
+UPDATE application_scale
+SET scale = ?, scale_target = ?
+WHERE application_uuid = ?`, 1, 3, appUUID)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -439,7 +442,10 @@ func (s *unitStateSuite) TestRegisterCAASUnitExceedsScaleTarget(c *gc.C) {
 	})
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "UPDATE application_scale SET scaling = ?, scale = ?, scale_target = ? WHERE application_uuid = ?", true, 3, 1, appUUID)
+		_, err := tx.ExecContext(ctx, `
+UPDATE application_scale
+SET scaling = ?, scale = ?, scale_target = ?
+WHERE application_uuid = ?`, true, 3, 1, appUUID)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -571,8 +577,8 @@ func (s *unitStateSuite) TestDeleteUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		if err := s.state.setCloudContainerStatus(ctx, tx, unitUUID, &status.StatusInfo[status.CloudContainerStatusType]{
-			Status:  status.CloudContainerStatusBlocked,
+		if err := s.state.setK8sPodStatus(ctx, tx, unitUUID, &status.StatusInfo[status.K8sPodStatusType]{
+			Status:  status.K8sPodStatusRunning,
 			Message: "test",
 			Data:    []byte(`{"foo": "bar"}`),
 			Since:   ptr(time.Now()),
@@ -1163,6 +1169,83 @@ func (s *unitStateSuite) TestGetUnitNamesForNetNode(c *gc.C) {
 	c.Assert(names, jc.DeepEquals, []coreunit.Name{"foo/0", "foo/1"})
 }
 
+func (s *unitStateSuite) TestGetUnitWorkloadVersion(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u)
+
+	workloadVersion, err := s.state.GetUnitWorkloadVersion(context.Background(), u.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(workloadVersion, gc.Equals, "")
+}
+
+func (s *unitStateSuite) TestGetUnitWorkloadVersionNotFound(c *gc.C) {
+	_, err := s.state.GetUnitWorkloadVersion(context.Background(), coreunit.Name("foo/666"))
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitStateSuite) TestSetUnitWorkloadVersion(c *gc.C) {
+	u := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	s.createApplication(c, "foo", life.Alive, u)
+
+	err := s.state.SetUnitWorkloadVersion(context.Background(), u.UnitName, "v1.0.0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	workloadVersion, err := s.state.GetUnitWorkloadVersion(context.Background(), u.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(workloadVersion, gc.Equals, "v1.0.0")
+}
+
+func (s *unitStateSuite) TestSetUnitWorkloadVersionMultiple(c *gc.C) {
+	u1 := application.InsertUnitArg{
+		UnitName: "foo/666",
+	}
+	u2 := application.InsertUnitArg{
+		UnitName: "foo/667",
+	}
+	appID := s.createApplication(c, "foo", life.Alive, u1, u2)
+
+	s.assertApplicationWorkloadVersion(c, appID, "")
+
+	err := s.state.SetUnitWorkloadVersion(context.Background(), u1.UnitName, "v1.0.0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertApplicationWorkloadVersion(c, appID, "v1.0.0")
+
+	err = s.state.SetUnitWorkloadVersion(context.Background(), u2.UnitName, "v2.0.0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertApplicationWorkloadVersion(c, appID, "v2.0.0")
+
+	workloadVersion, err := s.state.GetUnitWorkloadVersion(context.Background(), u1.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(workloadVersion, gc.Equals, "v1.0.0")
+
+	workloadVersion, err = s.state.GetUnitWorkloadVersion(context.Background(), u2.UnitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(workloadVersion, gc.Equals, "v2.0.0")
+
+	s.assertApplicationWorkloadVersion(c, appID, "v2.0.0")
+}
+
+func (s *unitStateSuite) assertApplicationWorkloadVersion(c *gc.C, appID coreapplication.ID, expected string) {
+	var version string
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT version FROM application_workload_version WHERE application_uuid=?", appID).Scan(&version)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(version, gc.Equals, expected)
+}
+
+func (s *unitStateSuite) TestSetUnitWorkloadVersionNotFound(c *gc.C) {
+	err := s.state.SetUnitWorkloadVersion(context.Background(), coreunit.Name("foo/666"), "v1.0.0")
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
 type applicationSpace struct {
 	SpaceName    string `db:"space"`
 	SpaceExclude bool   `db:"exclude"`
@@ -1230,7 +1313,10 @@ func (s *unitStateSuite) assertUnitConstraints(c *gc.C, inUnitUUID coreunit.UUID
 			constraintZones = append(constraintZones, zone)
 		}
 
-		row := tx.QueryRowContext(ctx, "SELECT arch, cpu_cores, cpu_power, mem, root_disk, root_disk_source, instance_role, instance_type, virt_type, allocate_public_ip, image_id FROM \"constraint\" WHERE uuid=?", constraintUUID)
+		row := tx.QueryRowContext(ctx, `
+SELECT arch, cpu_cores, cpu_power, mem, root_disk, root_disk_source, instance_role, instance_type, virt_type, allocate_public_ip, image_id
+FROM "constraint"
+WHERE uuid=?`, constraintUUID)
 		err = row.Err()
 		if err != nil {
 			return err

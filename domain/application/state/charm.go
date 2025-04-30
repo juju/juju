@@ -646,7 +646,7 @@ func (s *State) SetCharm(ctx context.Context, ch charm.Charm, downloadInfo *char
 	var locator charmLocator
 	locatorQuery := `
 SELECT &charmLocator.*
-FROM v_charm_locator
+FROM charm
 WHERE uuid = $charmID.uuid;
 	`
 	locatorStmt, err := s.Prepare(locatorQuery, charmUUID, locator)
@@ -706,7 +706,7 @@ func (s *State) ListCharmLocators(ctx context.Context) ([]charm.CharmLocator, er
 
 	query := `
 SELECT &charmLocator.*
-FROM v_charm_locator;
+FROM charm;
 `
 	stmt, err := s.Prepare(query, charmLocator{})
 	if err != nil {
@@ -742,7 +742,7 @@ func (s *State) ListCharmLocatorsByNames(ctx context.Context, names []string) ([
 
 	query := `
 SELECT &charmLocator.*
-FROM v_charm_locator
+FROM charm
 WHERE reference_name IN ($nameSelector[:]);
 `
 	stmt, err := s.Prepare(query, charmLocator{}, nameSelector(names))
@@ -779,7 +779,7 @@ func (s *State) GetCharmLocatorByCharmID(ctx context.Context, id corecharm.ID) (
 
 	query := `
 SELECT &charmLocator.*
-FROM v_charm_locator
+FROM charm
 WHERE uuid = $charmID.uuid;
 `
 	stmt, err := s.Prepare(query, charmLocator{}, ident)
@@ -915,7 +915,7 @@ WHERE uuid = $charmID.uuid;`
 	var locator charmLocator
 	locatorQuery := `
 SELECT &charmLocator.*
-FROM v_charm_locator
+FROM charm
 WHERE uuid = $charmID.uuid;
 	`
 	locatorStmt, err := s.Prepare(locatorQuery, charmUUID, locator)
@@ -984,7 +984,7 @@ SELECT
     v.source_id AS &charmLocator.source_id,
     v.architecture_id AS &charmLocator.architecture_id,
     v.revision AS &charmLocator.revision
-FROM v_charm_locator AS v
+FROM charm AS v
 JOIN charm ON v.uuid = charm.uuid
 LEFT JOIN application ON application.charm_uuid = charm.uuid
 WHERE

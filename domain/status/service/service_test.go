@@ -14,6 +14,7 @@ import (
 
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	corelife "github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/machine"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
@@ -412,8 +413,8 @@ func (s *serviceSuite) TestGetUnitDisplayAndAgentStatus(c *gc.C) {
 			Present: true,
 		}, nil)
 
-	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.CloudContainerStatusType]{
-		Status: status.CloudContainerStatusUnset,
+	s.state.EXPECT().GetUnitK8sPodStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.K8sPodStatusType]{
+		Status: status.K8sPodStatusUnset,
 	}, nil)
 
 	agent, workload, err := s.service.GetUnitDisplayAndAgentStatus(context.Background(), coreunit.Name("foo/666"))
@@ -460,8 +461,8 @@ func (s *serviceSuite) TestGetUnitDisplayAndAgentStatusWithAllocatingPresence(c 
 			Present: true,
 		}, nil)
 
-	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.CloudContainerStatusType]{
-		Status: status.CloudContainerStatusUnset,
+	s.state.EXPECT().GetUnitK8sPodStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.K8sPodStatusType]{
+		Status: status.K8sPodStatusUnset,
 	}, nil)
 
 	agent, workload, err := s.service.GetUnitDisplayAndAgentStatus(context.Background(), coreunit.Name("foo/666"))
@@ -508,8 +509,8 @@ func (s *serviceSuite) TestGetUnitDisplayAndAgentStatusWithNoPresence(c *gc.C) {
 			Present: false,
 		}, nil)
 
-	s.state.EXPECT().GetUnitCloudContainerStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.CloudContainerStatusType]{
-		Status: status.CloudContainerStatusUnset,
+	s.state.EXPECT().GetUnitK8sPodStatus(gomock.Any(), unitUUID).Return(status.StatusInfo[status.K8sPodStatusType]{
+		Status: status.K8sPodStatusUnset,
 	}, nil)
 
 	agent, workload, err := s.service.GetUnitDisplayAndAgentStatus(context.Background(), coreunit.Name("foo/666"))
@@ -1243,6 +1244,42 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatuses(c *gc.C) {
 				Exposed:       true,
 				Scale:         ptr(2),
 				K8sProviderID: ptr("k8s-provider-id"),
+				Units: map[coreunit.Name]status.Unit{
+					"foo/666": {
+						Life: life.Alive,
+						WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+							Status:  status.WorkloadStatusActive,
+							Message: "it's active",
+							Data:    []byte(`{"foo": "bar"}`),
+						},
+						AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+							Status:  status.UnitAgentStatusIdle,
+							Message: "it's idle",
+							Data:    []byte(`{"foo": "bar"}`),
+						},
+						K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
+							Status:  status.K8sPodStatusUnset,
+							Message: "it's unset",
+						},
+						Present: true,
+						CharmLocator: charm.CharmLocator{
+							Name:         "foo",
+							Revision:     42,
+							Source:       "local",
+							Architecture: architecture.ARM64,
+						},
+						Subordinate: false,
+						MachineName: ptr(machine.Name("0")),
+						SubordinateNames: map[coreunit.Name]struct{}{
+							coreunit.Name("foo/667"): {},
+						},
+						ApplicationName: "foo",
+						PrincipalName:   ptr(coreunit.Name("foo/666")),
+						AgentVersion:    "1.0.0",
+						WorkloadVersion: ptr("v1.0.0"),
+						K8sProviderID:   ptr("k8s-provider-id"),
+					},
+				},
 			},
 		}, nil,
 	)
@@ -1282,6 +1319,42 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatuses(c *gc.C) {
 			Exposed:       true,
 			Scale:         ptr(2),
 			K8sProviderID: ptr("k8s-provider-id"),
+			Units: map[coreunit.Name]Unit{
+				"foo/666": {
+					Life: corelife.Alive,
+					WorkloadStatus: corestatus.StatusInfo{
+						Status:  corestatus.Active,
+						Message: "it's active",
+						Data:    map[string]any{"foo": "bar"},
+					},
+					AgentStatus: corestatus.StatusInfo{
+						Status:  corestatus.Idle,
+						Message: "it's idle",
+						Data:    map[string]any{"foo": "bar"},
+					},
+					K8sPodStatus: corestatus.StatusInfo{
+						Status:  corestatus.Unset,
+						Message: "it's unset",
+					},
+					Present: true,
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "local",
+						Architecture: architecture.ARM64,
+					},
+					Subordinate: false,
+					MachineName: ptr(machine.Name("0")),
+					SubordinateNames: []coreunit.Name{
+						coreunit.Name("foo/667"),
+					},
+					ApplicationName: "foo",
+					PrincipalName:   ptr(coreunit.Name("foo/666")),
+					AgentVersion:    "1.0.0",
+					WorkloadVersion: ptr("v1.0.0"),
+					K8sProviderID:   ptr("k8s-provider-id"),
+				},
+			},
 		},
 	})
 }

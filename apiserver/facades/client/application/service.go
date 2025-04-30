@@ -253,6 +253,9 @@ type ApplicationService interface {
 	// If no application is found, an error satisfying
 	// [applicationerrors.ApplicationNotFound] is returned.
 	MergeExposeSettings(ctx context.Context, appName string, exposedEndpoints map[string]application.ExposedEndpoint) error
+
+	// GetUnitWorkloadVersion returns the workload version for the given unit.
+	GetUnitWorkloadVersion(ctx context.Context, unitName unit.Name) (string, error)
 }
 
 type ResolveService interface {

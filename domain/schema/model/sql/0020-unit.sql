@@ -24,7 +24,6 @@ CREATE TABLE unit (
     REFERENCES password_hash_algorithm (id)
 );
 
-
 CREATE UNIQUE INDEX idx_unit_name
 ON unit (name);
 
@@ -40,7 +39,7 @@ ON unit (application_uuid);
 CREATE INDEX idx_unit_net_node
 ON unit (net_node_uuid);
 
--- unit_principal table is a table which is used to store the.
+-- unit_principal table is a table which is used to store the
 -- principal units for subordinate units.
 CREATE TABLE unit_principal (
     unit_uuid TEXT NOT NULL PRIMARY KEY,
@@ -50,6 +49,14 @@ CREATE TABLE unit_principal (
     REFERENCES unit (uuid),
     CONSTRAINT fk_unit_principal_principal
     FOREIGN KEY (principal_uuid)
+    REFERENCES unit (uuid)
+);
+
+CREATE TABLE unit_workload_version (
+    unit_uuid TEXT NOT NULL PRIMARY KEY,
+    version TEXT NOT NULL,
+    CONSTRAINT fk_unit_workload_version_unit
+    FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid)
 );
 
@@ -339,10 +346,10 @@ SELECT
     uas.message AS agent_message,
     uas.data AS agent_data,
     uas.updated_at AS agent_updated_at,
-    kps.status_id AS container_status_id,
-    kps.message AS container_message,
-    kps.data AS container_data,
-    kps.updated_at AS container_updated_at,
+    kps.status_id AS k8s_pod_status_id,
+    kps.message AS k8s_pod_message,
+    kps.data AS k8s_pod_data,
+    kps.updated_at AS k8s_pod_updated_at,
     EXISTS(
         SELECT 1 FROM unit_agent_presence AS uap
         WHERE u.uuid = uap.unit_uuid

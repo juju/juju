@@ -6,7 +6,6 @@ package client
 import (
 	"context"
 
-	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/port"
@@ -33,7 +33,7 @@ type ApplicationService interface {
 	// from the charmhub store. If there are no charms, returns is not found, as
 	// [applicationerrors.CharmNotFound]. If there are multiple charms, then the
 	// latest created at date is returned first.
-	GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch arch.Arch) (charm.CharmLocator, error)
+	GetLatestPendingCharmhubCharm(ctx context.Context, name string, arch architecture.Architecture) (charm.CharmLocator, error)
 
 	// GetExposedEndpoints returns map where keys are endpoint names (or the ""
 	// value which represents all endpoints) and values are ExposedEndpoint
@@ -45,15 +45,11 @@ type ApplicationService interface {
 	GetExposedEndpoints(ctx context.Context, appName string) (map[string]application.ExposedEndpoint, error)
 }
 
+// StatusService defines the methods that the facade assumes from the Status
+// service.
 type StatusService interface {
 	// GetAllRelationStatuses returns all the relation statuses of the given model.
 	GetAllRelationStatuses(ctx context.Context) (map[relation.UUID]status.StatusInfo, error)
-
-	// GetUnitDisplayAndAgentStatus returns the unit and agent display status of
-	// the specified unit. The display status a function of both the unit
-	// workload status and the cloud container status. It returns an error
-	// satisfying [applicationerrors.UnitNotFound] if the unit doesn't exist.
-	GetUnitDisplayAndAgentStatus(context.Context, unit.Name) (agent status.StatusInfo, workload status.StatusInfo, _ error)
 
 	// GetApplicationAndUnitStatuses returns the application statuses of all the
 	// applications in the model, indexed by application name.
@@ -62,6 +58,7 @@ type StatusService interface {
 
 // BlockDeviceService instances can fetch block devices for a machine.
 type BlockDeviceService interface {
+	// BlockDevices returns the block devices for a machine.
 	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
 }
 
@@ -116,7 +113,6 @@ type PortService interface {
 // RelationService provides methods to interact with and retrieve details of
 // relations within a model.
 type RelationService interface {
-
 	// GetAllRelationDetails return all uuid of all relation for the current model.
 	GetAllRelationDetails(ctx context.Context) ([]domainrelation.RelationDetailsResult, error)
 }

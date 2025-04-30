@@ -2279,10 +2279,6 @@ func (api *APIBase) unitResultForUnit(ctx context.Context, unit Unit) (*params.U
 		return nil, errors.NotValidf("application charm url")
 	}
 	machineId, _ := unit.AssignedMachineId()
-	workloadVersion, err := unit.WorkloadVersion()
-	if err != nil {
-		return nil, err
-	}
 
 	unitName, err := coreunit.NewName(unit.Name())
 	if err != nil {
@@ -2290,13 +2286,19 @@ func (api *APIBase) unitResultForUnit(ctx context.Context, unit Unit) (*params.U
 	}
 	unitUUID, err := api.applicationService.GetUnitUUID(ctx, unitName)
 	if errors.Is(err, applicationerrors.UnitNotFound) {
-		err = errors.NotFoundf("unit %s", unitName)
-	}
-	if err != nil {
+		return nil, errors.NotFoundf("unit %s", unitName)
+	} else if err != nil {
 		return nil, err
 	}
 	unitLife, err := api.applicationService.GetUnitLife(ctx, unitName)
 	if err != nil {
+		return nil, err
+	}
+
+	workloadVersion, err := api.applicationService.GetUnitWorkloadVersion(ctx, unitName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return nil, errors.NotFoundf("unit %s", unitName)
+	} else if err != nil {
 		return nil, err
 	}
 

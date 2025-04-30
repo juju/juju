@@ -16,16 +16,16 @@ type statusSuite struct {
 
 var _ = gc.Suite(&statusSuite{})
 
-// TestCloudContainerStatusDBValues ensures there's no skew between what's in the
+// TestK8sPodStatusDBValues ensures there's no skew between what's in the
 // database table for cloud container status and the typed consts used in the
 // state packages.
-func (s *statusSuite) TestCloudContainerStatusDBValues(c *gc.C) {
+func (s *statusSuite) TestK8sPodStatusDBValues(c *gc.C) {
 	db := s.DB()
 	rows, err := db.Query("SELECT id, status FROM k8s_pod_status_value")
 	c.Assert(err, jc.ErrorIsNil)
 	defer rows.Close()
 
-	dbValues := make(map[CloudContainerStatusType]string)
+	dbValues := make(map[K8sPodStatusType]string)
 	for rows.Next() {
 		var (
 			id   int
@@ -33,13 +33,13 @@ func (s *statusSuite) TestCloudContainerStatusDBValues(c *gc.C) {
 		)
 		err := rows.Scan(&id, &name)
 		c.Assert(err, jc.ErrorIsNil)
-		dbValues[CloudContainerStatusType(id)] = name
+		dbValues[K8sPodStatusType(id)] = name
 	}
-	c.Assert(dbValues, jc.DeepEquals, map[CloudContainerStatusType]string{
-		CloudContainerStatusUnset:   "unset",
-		CloudContainerStatusWaiting: "waiting",
-		CloudContainerStatusBlocked: "blocked",
-		CloudContainerStatusRunning: "running",
+	c.Assert(dbValues, jc.DeepEquals, map[K8sPodStatusType]string{
+		K8sPodStatusUnset:   "unset",
+		K8sPodStatusWaiting: "waiting",
+		K8sPodStatusBlocked: "blocked",
+		K8sPodStatusRunning: "running",
 	})
 }
 

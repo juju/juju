@@ -108,7 +108,6 @@ type Unit interface {
 	IsPrincipal() bool
 
 	AssignedMachineId() (string, error)
-	WorkloadVersion() (string, error)
 	AssignUnit() error
 	AssignWithPlacement(*instance.Placement, network.SpaceInfos) error
 	ContainerInfo() (state.CloudContainer, error)

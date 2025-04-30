@@ -131,10 +131,16 @@ type UnitState interface {
 	// IsSubordinateApplication returns true if the application is a subordinate application.
 	IsSubordinateApplication(context.Context, coreapplication.ID) (bool, error)
 
-	// GetMachineNetNodeUUIDFromName returns the net node UUID for the named machine.
-	// The following errors may be returned:
-	// - [applicationerrors.MachineNotFound] if the machine does not exist
+	// GetMachineNetNodeUUIDFromName returns the net node UUID for the named
+	// machine. The following errors may be returned: -
+	// [applicationerrors.MachineNotFound] if the machine does not exist
 	GetMachineNetNodeUUIDFromName(context.Context, machine.Name) (string, error)
+
+	// SetUnitWorkloadVersion sets the workload version for the given unit.
+	SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name, version string) error
+
+	// GetUnitWorkloadVersion returns the workload version for the given unit.
+	GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name) (string, error)
 }
 
 func (s *Service) makeUnitArgs(modelType coremodel.ModelType, units []AddUnitArg, constraints constraints.Constraints) ([]application.AddUnitArg, error) {
@@ -264,18 +270,18 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 	if err != nil {
 		return errors.Errorf("encoding workload status: %w", err)
 	}
-	cloudContainerStatus, err := encodeCloudContainerStatus(params.CloudContainerStatus)
+	k8sPodStatus, err := encodeK8sPodStatus(params.CloudContainerStatus)
 	if err != nil {
-		return errors.Errorf("encoding cloud container status: %w", err)
+		return errors.Errorf("encoding k8s pod status: %w", err)
 	}
 
 	cassUnitUpdate := application.UpdateCAASUnitParams{
-		ProviderID:           params.ProviderID,
-		Address:              params.Address,
-		Ports:                params.Ports,
-		AgentStatus:          agentStatus,
-		WorkloadStatus:       workloadStatus,
-		CloudContainerStatus: cloudContainerStatus,
+		ProviderID:     params.ProviderID,
+		Address:        params.Address,
+		Ports:          params.Ports,
+		AgentStatus:    agentStatus,
+		WorkloadStatus: workloadStatus,
+		K8sPodStatus:   k8sPodStatus,
 	}
 
 	if err := s.st.UpdateCAASUnit(ctx, unitName, cassUnitUpdate); err != nil {
@@ -465,4 +471,26 @@ func (s *Service) GetUnitNamesOnMachine(ctx context.Context, machineName machine
 		return nil, errors.Capture(err)
 	}
 	return names, nil
+}
+
+// SetUnitWorkloadVersion sets the workload version for the given unit.
+func (s *Service) SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name, version string) error {
+	if err := unitName.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+
+	return s.st.SetUnitWorkloadVersion(ctx, unitName, version)
+}
+
+// GetUnitWorkloadVersion returns the workload version for the given unit.
+func (s *Service) GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name) (string, error) {
+	if err := unitName.Validate(); err != nil {
+		return "", errors.Capture(err)
+	}
+
+	version, err := s.st.GetUnitWorkloadVersion(ctx, unitName)
+	if err != nil {
+		return "", errors.Errorf("getting workload version for %q: %w", unitName, err)
+	}
+	return version, nil
 }

@@ -400,22 +400,22 @@ WHERE  relation_uuid = ?
 	}
 }
 
-func (s *stateSuite) TestSetCloudContainerStatus(c *gc.C) {
+func (s *stateSuite) TestSetK8sPodStatus(c *gc.C) {
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
 	}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
-	status := status.StatusInfo[status.CloudContainerStatusType]{
-		Status:  status.CloudContainerStatusRunning,
+	status := status.StatusInfo[status.K8sPodStatusType]{
+		Status:  status.K8sPodStatusRunning,
 		Message: "it's running",
 		Data:    []byte(`{"foo": "bar"}`),
 		Since:   ptr(time.Now()),
 	}
 
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.setCloudContainerStatus(ctx, tx, unitUUID, status)
+		return s.state.setK8sPodStatus(ctx, tx, unitUUID, status)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitStatus(
@@ -683,37 +683,37 @@ func (s *stateSuite) TestSetUnitWorkloadStatusNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
 }
 
-func (s *stateSuite) TestGetUnitCloudContainerStatusUnset(c *gc.C) {
+func (s *stateSuite) TestGetUnitK8sPodStatusUnset(c *gc.C) {
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
 	}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Alive, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
-	sts, err := s.state.GetUnitCloudContainerStatus(context.Background(), unitUUID)
+	sts, err := s.state.GetUnitK8sPodStatus(context.Background(), unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sts, gc.DeepEquals, status.StatusInfo[status.CloudContainerStatusType]{
-		Status: status.CloudContainerStatusUnset,
+	c.Check(sts, gc.DeepEquals, status.StatusInfo[status.K8sPodStatusType]{
+		Status: status.K8sPodStatusUnset,
 	})
 }
 
-func (s *stateSuite) TestGetUnitCloudContainerStatusUnitNotFound(c *gc.C) {
-	_, err := s.state.GetUnitCloudContainerStatus(context.Background(), "missing-uuid")
+func (s *stateSuite) TestGetUnitK8sPodStatusUnitNotFound(c *gc.C) {
+	_, err := s.state.GetUnitK8sPodStatus(context.Background(), "missing-uuid")
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitNotFound)
 }
 
-func (s *stateSuite) TestGetUnitCloudContainerStatusDead(c *gc.C) {
+func (s *stateSuite) TestGetUnitK8sPodStatusDead(c *gc.C) {
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
 	}
 	_, unitUUIDs := s.createApplication(c, "foo", life.Dead, false, s.appStatus(time.Now()), u1)
 	unitUUID := unitUUIDs[0]
 
-	_, err := s.state.GetUnitCloudContainerStatus(context.Background(), unitUUID)
+	_, err := s.state.GetUnitK8sPodStatus(context.Background(), unitUUID)
 	c.Assert(err, jc.ErrorIs, statuserrors.UnitIsDead)
 }
 
-func (s *stateSuite) TestGetUnitCloudContainerStatus(c *gc.C) {
+func (s *stateSuite) TestGetUnitK8sPodStatus(c *gc.C) {
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
 	}
@@ -723,18 +723,18 @@ func (s *stateSuite) TestGetUnitCloudContainerStatus(c *gc.C) {
 	now := time.Now()
 
 	s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return s.state.setCloudContainerStatus(ctx, tx, unitUUID, status.StatusInfo[status.CloudContainerStatusType]{
-			Status:  status.CloudContainerStatusRunning,
+		return s.state.setK8sPodStatus(ctx, tx, unitUUID, status.StatusInfo[status.K8sPodStatusType]{
+			Status:  status.K8sPodStatusRunning,
 			Message: "it's running",
 			Data:    []byte(`{"foo": "bar"}`),
 			Since:   &now,
 		})
 	})
 
-	sts, err := s.state.GetUnitCloudContainerStatus(context.Background(), unitUUID)
+	sts, err := s.state.GetUnitK8sPodStatus(context.Background(), unitUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	assertStatusInfoEqual(c, sts, status.StatusInfo[status.CloudContainerStatusType]{
-		Status:  status.CloudContainerStatusRunning,
+	assertStatusInfoEqual(c, sts, status.StatusInfo[status.K8sPodStatusType]{
+		Status:  status.K8sPodStatusRunning,
 		Message: "it's running",
 		Data:    []byte(`{"foo": "bar"}`),
 		Since:   &now,
@@ -889,14 +889,14 @@ func (s *stateSuite) TestGetAllUnitStatusesForApplication(c *gc.C) {
 		Data:    []byte(`{"baz": "qux"}`),
 		Since:   ptr(time.Now()),
 	}
-	cloudContainerStatus := status.StatusInfo[status.CloudContainerStatusType]{
-		Status:  status.CloudContainerStatusRunning,
+	k8sPodStatus := status.StatusInfo[status.K8sPodStatusType]{
+		Status:  status.K8sPodStatusRunning,
 		Message: "it's running",
 		Data:    []byte(`{"foo": "bar"}`),
 		Since:   ptr(time.Now()),
 	}
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		err := s.state.setCloudContainerStatus(ctx, tx, unitUUID, cloudContainerStatus)
+		err := s.state.setK8sPodStatus(ctx, tx, unitUUID, k8sPodStatus)
 		if err != nil {
 			return err
 		}
@@ -920,10 +920,10 @@ func (s *stateSuite) TestGetAllUnitStatusesForApplication(c *gc.C) {
 
 	assertStatusInfoEqual(c, fullStatus.WorkloadStatus, workloadStatus)
 	assertStatusInfoEqual(c, fullStatus.AgentStatus, agentStatus)
-	assertStatusInfoEqual(c, fullStatus.ContainerStatus, cloudContainerStatus)
+	assertStatusInfoEqual(c, fullStatus.K8sPodStatus, k8sPodStatus)
 }
 
-func (s *stateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUnits(c *gc.C) {
+func (s *stateSuite) TestGetUnitK8sPodStatusForApplicationMultipleUnits(c *gc.C) {
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
 	}
@@ -941,8 +941,8 @@ func (s *stateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUnits(
 		Status: status.UnitAgentStatusIdle,
 	}
 
-	status1 := status.StatusInfo[status.CloudContainerStatusType]{
-		Status:  status.CloudContainerStatusRunning,
+	status1 := status.StatusInfo[status.K8sPodStatusType]{
+		Status:  status.K8sPodStatusRunning,
 		Message: "it's running!",
 		Data:    []byte(`{"foo": "bar"}`),
 		Since:   ptr(time.Now()),
@@ -956,12 +956,12 @@ func (s *stateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUnits(
 		if err != nil {
 			return err
 		}
-		return s.state.setCloudContainerStatus(ctx, tx, unitUUID1, status1)
+		return s.state.setK8sPodStatus(ctx, tx, unitUUID1, status1)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	status2 := status.StatusInfo[status.CloudContainerStatusType]{
-		Status:  status.CloudContainerStatusBlocked,
+	status2 := status.StatusInfo[status.K8sPodStatusType]{
+		Status:  status.K8sPodStatusBlocked,
 		Message: "it's blocked",
 		Data:    []byte(`{"bar": "foo"}`),
 		Since:   ptr(time.Now()),
@@ -975,7 +975,7 @@ func (s *stateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUnits(
 		if err != nil {
 			return err
 		}
-		return s.state.setCloudContainerStatus(ctx, tx, unitUUID2, status2)
+		return s.state.setK8sPodStatus(ctx, tx, unitUUID2, status2)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -984,11 +984,11 @@ func (s *stateSuite) TestGetUnitCloudContainerStatusForApplicationMultipleUnits(
 	c.Assert(fullStatuses, gc.HasLen, 2)
 	result1, ok := fullStatuses["foo/666"]
 	c.Assert(ok, jc.IsTrue)
-	assertStatusInfoEqual(c, result1.ContainerStatus, status1)
+	assertStatusInfoEqual(c, result1.K8sPodStatus, status1)
 
 	result2, ok := fullStatuses["foo/667"]
 	c.Assert(ok, jc.IsTrue)
-	assertStatusInfoEqual(c, result2.ContainerStatus, status2)
+	assertStatusInfoEqual(c, result2.K8sPodStatus, status2)
 }
 
 func (s *stateSuite) TestGetAllUnitStatusesForApplicationNotFound(c *gc.C) {
@@ -1310,18 +1310,69 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *gc.C) {
 				Branch: "branch",
 			},
 			Scale: ptr(2),
+			Units: map[coreunit.Name]status.Unit{
+				"foo/666": {
+					Life:            life.Alive,
+					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
+				},
+				"foo/667": {
+					Life:            life.Alive,
+					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
+				},
+			},
 		},
 	})
 }
 
 func (s *stateSuite) TestGetApplicationAndUnitStatuses(c *gc.C) {
+	now := time.Now()
+
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
+		UnitStatusArg: application.UnitStatusArg{
+			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusIdle,
+				Message: "it's idle",
+				Data:    []byte(`{"foo": "bar"}`),
+				Since:   ptr(now),
+			},
+			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusActive,
+				Message: "it's active",
+				Data:    []byte(`{"bar": "foo"}`),
+				Since:   ptr(now),
+			},
+		},
 	}
 	u2 := application.AddUnitArg{
 		UnitName: "foo/667",
+		UnitStatusArg: application.UnitStatusArg{
+			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusError,
+				Message: "error",
+				Data:    []byte(`{"error": "error"}`),
+				Since:   ptr(now),
+			},
+			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusError,
+				Message: "also in error",
+				Data:    []byte(`{"error": "oh noes"}`),
+				Since:   ptr(now),
+			},
+		},
 	}
-	now := time.Now()
 
 	appStatus := s.appStatus(now)
 	appUUID, _ := s.createApplication(c, "foo", life.Alive, false, appStatus, u1, u2)
@@ -1350,30 +1401,108 @@ func (s *stateSuite) TestGetApplicationAndUnitStatuses(c *gc.C) {
 				Branch: "branch",
 			},
 			Scale: ptr(2),
+			Units: map[coreunit.Name]status.Unit{
+				"foo/666": {
+					Life:            life.Alive,
+					ApplicationName: "foo",
+					AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+						Status:  status.UnitAgentStatusIdle,
+						Message: "it's idle",
+						Data:    []byte(`{"foo": "bar"}`),
+						Since:   ptr(now),
+					},
+					WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+						Status:  status.WorkloadStatusActive,
+						Message: "it's active",
+						Data:    []byte(`{"bar": "foo"}`),
+						Since:   ptr(now),
+					},
+					K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
+						Status: status.K8sPodStatusUnset,
+						Since:  ptr(now),
+					},
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
+				},
+				"foo/667": {
+					Life:            life.Alive,
+					ApplicationName: "foo",
+					AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+						Status:  status.UnitAgentStatusError,
+						Message: "error",
+						Data:    []byte(`{"error": "error"}`),
+						Since:   ptr(now),
+					},
+					WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+						Status:  status.WorkloadStatusError,
+						Message: "also in error",
+						Data:    []byte(`{"error": "oh noes"}`),
+						Since:   ptr(now),
+					},
+					K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
+						Status: status.K8sPodStatusUnset,
+						Since:  ptr(now),
+					},
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
+				},
+			},
 		},
 	})
 }
 
 func (s *stateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *gc.C) {
+	now := time.Now()
 	u1 := application.AddUnitArg{
 		UnitName: "foo/666",
 	}
 	u2 := application.AddUnitArg{
-		UnitName: "foo/667",
+		UnitName: "sub/667",
 	}
-	now := time.Now()
+	u3 := application.AddUnitArg{
+		UnitName: "sub/668",
+		UnitStatusArg: application.UnitStatusArg{
+			AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+				Status:  status.UnitAgentStatusError,
+				Message: "error",
+				Data:    []byte(`{"error": "error"}`),
+				Since:   ptr(now),
+			},
+			WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+				Status:  status.WorkloadStatusError,
+				Message: "also in error",
+				Data:    []byte(`{"error": "oh noes"}`),
+				Since:   ptr(now),
+			},
+		},
+	}
 
 	appStatus := s.appStatus(now)
-	appUUID, _ := s.createApplication(c, "foo", life.Alive, true, appStatus, u1, u2)
+	appUUID0, units0 := s.createApplication(c, "foo", life.Alive, false, appStatus, u1)
+	c.Assert(units0, gc.HasLen, 1)
+
+	appUUID1, units1 := s.createApplication(c, "sub", life.Alive, true, appStatus, u2, u3)
+	c.Assert(units1, gc.HasLen, 2)
+	for _, unit := range units1 {
+		s.setApplicationSubordinate(c, units0[0], unit)
+	}
 
 	statuses, err := s.state.GetApplicationAndUnitStatuses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(statuses, jc.DeepEquals, map[string]status.Application{
 		"foo": {
-			ID:          appUUID,
+			ID:          appUUID0,
 			Life:        life.Alive,
 			Status:      *appStatus,
-			Subordinate: true,
+			Subordinate: false,
 			CharmLocator: charm.CharmLocator{
 				Name:         "foo",
 				Revision:     42,
@@ -1390,7 +1519,88 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *gc.C) {
 				Risk:   "stable",
 				Branch: "branch",
 			},
+			Scale: ptr(1),
+			Units: map[coreunit.Name]status.Unit{
+				"foo/666": {
+					Life:            life.Alive,
+					ApplicationName: "foo",
+					SubordinateNames: map[coreunit.Name]struct{}{
+						"sub/667": {},
+						"sub/668": {},
+					},
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
+				},
+			},
+		},
+		"sub": {
+			ID:          appUUID1,
+			Life:        life.Alive,
+			Status:      *appStatus,
+			Subordinate: true,
+			CharmLocator: charm.CharmLocator{
+				Name:         "sub",
+				Revision:     42,
+				Source:       "charmhub",
+				Architecture: architecture.ARM64,
+			},
+			Platform: deployment.Platform{
+				OSType:       deployment.Ubuntu,
+				Channel:      "22.04/stable",
+				Architecture: architecture.ARM64,
+			},
+			Channel: &deployment.Channel{
+				Track:  "track",
+				Risk:   "stable",
+				Branch: "branch",
+			},
 			Scale: ptr(2),
+			Units: map[coreunit.Name]status.Unit{
+				"sub/667": {
+					Life:            life.Alive,
+					ApplicationName: "sub",
+					Subordinate:     true,
+					PrincipalName:   ptr(coreunit.Name("foo/666")),
+					CharmLocator: charm.CharmLocator{
+						Name:         "sub",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
+				},
+				"sub/668": {
+					Life:            life.Alive,
+					ApplicationName: "sub",
+					Subordinate:     true,
+					PrincipalName:   ptr(coreunit.Name("foo/666")),
+					AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
+						Status:  status.UnitAgentStatusError,
+						Message: "error",
+						Data:    []byte(`{"error": "error"}`),
+						Since:   ptr(now),
+					},
+					WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
+						Status:  status.WorkloadStatusError,
+						Message: "also in error",
+						Data:    []byte(`{"error": "oh noes"}`),
+						Since:   ptr(now),
+					},
+					K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
+						Status: status.K8sPodStatusUnset,
+						Since:  ptr(now),
+					},
+					CharmLocator: charm.CharmLocator{
+						Name:         "sub",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
+				},
+			},
 		},
 	})
 }
@@ -1433,8 +1643,109 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *gc.C) {
 			},
 			LXDProfile: []byte("{}"),
 			Scale:      ptr(2),
+			Units: map[coreunit.Name]status.Unit{
+				"foo/666": {
+					Life:            life.Alive,
+					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
+				},
+				"foo/667": {
+					Life:            life.Alive,
+					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
+				},
+			},
 		},
 	})
+}
+
+func (s *stateSuite) TestGetApplicationAndUnitStatusesWorkloadVersion(c *gc.C) {
+	u1 := application.AddUnitArg{
+		UnitName: "foo/666",
+	}
+	u2 := application.AddUnitArg{
+		UnitName: "foo/667",
+	}
+	now := time.Now()
+
+	appStatus := s.appStatus(now)
+	appUUID, unitUUDs := s.createApplication(c, "foo", life.Alive, false, appStatus, u1, u2)
+	c.Assert(unitUUDs, gc.HasLen, 2)
+	s.setWorkloadVersion(c, appUUID, unitUUDs[0], "blah")
+
+	statuses, err := s.state.GetApplicationAndUnitStatuses(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(statuses, jc.DeepEquals, map[string]status.Application{
+		"foo": {
+			ID:     appUUID,
+			Life:   life.Alive,
+			Status: *appStatus,
+			CharmLocator: charm.CharmLocator{
+				Name:         "foo",
+				Revision:     42,
+				Source:       "charmhub",
+				Architecture: architecture.ARM64,
+			},
+			Platform: deployment.Platform{
+				OSType:       deployment.Ubuntu,
+				Channel:      "22.04/stable",
+				Architecture: architecture.ARM64,
+			},
+			Channel: &deployment.Channel{
+				Track:  "track",
+				Risk:   "stable",
+				Branch: "branch",
+			},
+			Scale:           ptr(2),
+			WorkloadVersion: ptr("blah"),
+			Units: map[coreunit.Name]status.Unit{
+				"foo/666": {
+					Life:            life.Alive,
+					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
+					WorkloadVersion: ptr("blah"),
+				},
+				"foo/667": {
+					Life:            life.Alive,
+					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
+				},
+			},
+		},
+	})
+}
+
+func (s *stateSuite) setWorkloadVersion(c *gc.C, appUUID coreapplication.ID, unitUUID coreunit.UUID, version string) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `UPDATE application_workload_version SET version=? WHERE application_uuid=?`, version, appUUID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE unit_workload_version SET version=? WHERE unit_uuid=?`, version, unitUUID); err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *stateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *gc.C) {
@@ -1481,6 +1792,28 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *gc.C) {
 			},
 			Exposed: true,
 			Scale:   ptr(2),
+			Units: map[coreunit.Name]status.Unit{
+				"foo/666": {
+					Life:            life.Alive,
+					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
+				},
+				"foo/667": {
+					Life:            life.Alive,
+					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
+				},
+			},
 		},
 	})
 }
@@ -1534,6 +1867,28 @@ func (s *stateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations(c *g
 			},
 			Exposed: true,
 			Scale:   ptr(2),
+			Units: map[coreunit.Name]status.Unit{
+				"foo/666": {
+					Life:            life.Alive,
+					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
+				},
+				"foo/667": {
+					Life:            life.Alive,
+					ApplicationName: "foo",
+					CharmLocator: charm.CharmLocator{
+						Name:         "foo",
+						Revision:     42,
+						Source:       "charmhub",
+						Architecture: architecture.ARM64,
+					},
+				},
+			},
 		},
 	})
 }
@@ -1703,6 +2058,16 @@ func (s *stateSuite) setApplicationLXDProfile(c *gc.C, appUUID coreapplication.I
 		_, err := tx.ExecContext(ctx, `
 UPDATE charm SET lxd_profile = ? WHERE uuid = (SELECT charm_uuid FROM application WHERE uuid = ?)
 `, profile, appUUID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *stateSuite) setApplicationSubordinate(c *gc.C, principal coreunit.UUID, subordinate coreunit.UUID) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO unit_principal (unit_uuid, principal_uuid)
+VALUES (?, ?);`, subordinate, principal)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

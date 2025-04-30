@@ -607,12 +607,3 @@ SELECT
     cc.description
 FROM charm_config AS cc
 LEFT JOIN charm_config_type AS cct ON cc.type_id = cct.id;
-
-CREATE VIEW v_charm_locator AS
-SELECT
-    c.uuid,
-    c.reference_name,
-    c.revision,
-    c.source_id,
-    c.architecture_id
-FROM charm AS c;

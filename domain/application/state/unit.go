@@ -187,6 +187,7 @@ func (st *State) deleteSimpleUnitReferences(ctx context.Context, tx *sqlair.TX, 
 		"unit_state_relation",
 		"unit_agent_status",
 		"unit_workload_status",
+		"unit_workload_version",
 		"k8s_pod_status",
 	} {
 		deleteUnitReference := fmt.Sprintf(`DELETE FROM %s WHERE unit_uuid = $minimalUnit.uuid`, table)
@@ -1137,10 +1138,13 @@ func (st *State) insertUnit(
 		return errors.Errorf("setting constraints for unit %q: %w", args.UnitName, err)
 	}
 	if err := st.setUnitAgentStatus(ctx, tx, unitUUID, args.AgentStatus); err != nil {
-		return errors.Errorf("saving agent status for unit %q: %w", args.UnitName, err)
+		return errors.Errorf("setting agent status for unit %q: %w", args.UnitName, err)
 	}
 	if err := st.setUnitWorkloadStatus(ctx, tx, unitUUID, args.WorkloadStatus); err != nil {
-		return errors.Errorf("saving workload status for unit %q: %w", args.UnitName, err)
+		return errors.Errorf("setting workload status for unit %q: %w", args.UnitName, err)
+	}
+	if err := st.setUnitWorkloadVersion(ctx, tx, args.UnitName, ""); err != nil {
+		return errors.Errorf("setting workload version for unit %q: %w", args.UnitName, err)
 	}
 	return nil
 }
@@ -1189,8 +1193,8 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 		if err := st.setUnitWorkloadStatus(ctx, tx, toUpdate.UnitUUID, params.WorkloadStatus); err != nil {
 			return errors.Errorf("saving unit %q workload status: %w", unitName, err)
 		}
-		if err := st.setCloudContainerStatus(ctx, tx, toUpdate.UnitUUID, params.CloudContainerStatus); err != nil {
-			return errors.Errorf("saving unit %q cloud container status: %w", unitName, err)
+		if err := st.setK8sPodStatus(ctx, tx, toUpdate.UnitUUID, params.K8sPodStatus); err != nil {
+			return errors.Errorf("saving unit %q k8s pod status: %w", unitName, err)
 		}
 
 		return nil
@@ -1444,6 +1448,112 @@ func (st *State) GetUnitNamesForNetNode(ctx context.Context, uuid string) ([]cor
 	return transform.Slice(result, func(r unitName) coreunit.Name {
 		return r.Name
 	}), nil
+}
+
+// SetUnitWorkloadVersion sets the workload version for the given unit.
+func (st *State) SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name, version string) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.setUnitWorkloadVersion(ctx, tx, unitName, version)
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return nil
+}
+
+// setUnitWorkloadVersion workload version sets the denormalized workload
+// version on both the unit and the application. These are on separate tables,
+// so we need to do two separate queries. This prevents the workload version
+// from trigging a cascade of unwanted updates to the application and or unit
+// tables.
+func (st *State) setUnitWorkloadVersion(
+	ctx context.Context,
+	tx *sqlair.TX,
+	unitName coreunit.Name,
+	version string,
+) error {
+	unitQuery, err := st.Prepare(`
+INSERT INTO unit_workload_version (*)
+VALUES ($unitWorkloadVersion.*)
+ON CONFLICT (unit_uuid) DO UPDATE SET
+    version = excluded.version;
+`, unitWorkloadVersion{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	appQuery, err := st.Prepare(`
+INSERT INTO application_workload_version (*)
+VALUES ($applicationWorkloadVersion.*)
+ON CONFLICT (application_uuid) DO UPDATE SET
+	version = excluded.version;
+`, applicationWorkloadVersion{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	details, err := st.getUnitDetails(ctx, tx, unitName)
+	if err != nil {
+		return errors.Errorf("getting unit uuid for %q: %w", unitName, err)
+	}
+
+	if err := tx.Query(ctx, unitQuery, unitWorkloadVersion{
+		UnitUUID: details.UnitUUID,
+		Version:  version,
+	}).Run(); err != nil {
+		return errors.Errorf("setting workload version for unit %q: %w", unitName, err)
+	}
+
+	if err := tx.Query(ctx, appQuery, applicationWorkloadVersion{
+		ApplicationUUID: details.ApplicationID,
+		Version:         version,
+	}).Run(); err != nil {
+		return errors.Errorf("setting workload version for application %q: %w", details.ApplicationID, err)
+	}
+	return nil
+}
+
+// GetWorkloadVersion returns the workload version for the given unit.
+func (st *State) GetUnitWorkloadVersion(ctx context.Context, unitName coreunit.Name) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	query, err := st.Prepare(`
+SELECT &unitWorkloadVersion.version
+FROM   unit_workload_version
+WHERE  unit_uuid = $unitWorkloadVersion.unit_uuid
+	`, unitWorkloadVersion{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var version unitWorkloadVersion
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		unitUUID, err := st.getUnitUUIDByName(ctx, tx, unitName)
+		if err != nil {
+			return errors.Errorf("getting unit uuid for %q: %w", unitName, err)
+		}
+
+		if err := tx.Query(ctx, query, unitWorkloadVersion{
+			UnitUUID: unitUUID,
+		}).Get(&version); errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf("getting workload version for %q: %w", unitName, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return version.Version, nil
 }
 
 // newUnitName returns a new name for the unit. It increments the unit counter
@@ -2041,20 +2151,20 @@ WHERE unit_uuid = $minimalUnit.uuid
 	return nil
 }
 
-// SetCloudContainerStatusAtomic saves the given cloud container status, overwriting
+// setK8sPodStatus saves the given k8s pod status, overwriting
 // any current status data. If returns an error satisfying
 // [applicationerrors.UnitNotFound] if the unit doesn't exist.
-func (st *State) setCloudContainerStatus(
+func (st *State) setK8sPodStatus(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitUUID coreunit.UUID,
-	sts *status.StatusInfo[status.CloudContainerStatusType],
+	sts *status.StatusInfo[status.K8sPodStatusType],
 ) error {
 	if sts == nil {
 		return nil
 	}
 
-	statusID, err := status.EncodeCloudContainerStatus(sts.Status)
+	statusID, err := status.EncodeK8sPodStatus(sts.Status)
 	if err != nil {
 		return errors.Capture(err)
 	}

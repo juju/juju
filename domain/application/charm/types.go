@@ -234,6 +234,16 @@ func (c CharmLocator) IsZero() bool {
 	return c.Name == "" && c.Source == ""
 }
 
+// WithoutRevision returns a CharmLocator without the revision.
+func (c CharmLocator) WithoutRevision() CharmLocator {
+	return CharmLocator{
+		Name:         c.Name,
+		Source:       c.Source,
+		Architecture: c.Architecture,
+		Revision:     -1,
+	}
+}
+
 // Provenance represents the provenance of a charm download. Ideally this would
 // be called origin, but that's already used for an origin of a charm.
 type Provenance string

@@ -22,18 +22,18 @@ type StatusHistory interface {
 	RecordStatus(context.Context, statushistory.Namespace, corestatus.StatusInfo) error
 }
 
-// encodeCloudContainerStatusType converts a core status to a db cloud container
+// encodeK8sPodStatusType converts a core status to a db cloud container
 // status id.
-func encodeCloudContainerStatusType(s corestatus.Status) (status.CloudContainerStatusType, error) {
+func encodeK8sPodStatusType(s corestatus.Status) (status.K8sPodStatusType, error) {
 	switch s {
 	case corestatus.Unset:
-		return status.CloudContainerStatusUnset, nil
+		return status.K8sPodStatusUnset, nil
 	case corestatus.Waiting:
-		return status.CloudContainerStatusWaiting, nil
+		return status.K8sPodStatusWaiting, nil
 	case corestatus.Blocked:
-		return status.CloudContainerStatusBlocked, nil
+		return status.K8sPodStatusBlocked, nil
 	case corestatus.Running:
-		return status.CloudContainerStatusRunning, nil
+		return status.K8sPodStatusRunning, nil
 	default:
 		return -1, errors.Errorf("unknown cloud container status %q", s)
 	}
@@ -81,17 +81,17 @@ func decodeRelationStatusType(s status.RelationStatusType) (corestatus.Status, e
 	}
 }
 
-// decodeCloudContainerStatusType converts a db cloud container status id to a
+// decodeK8sPodStatusType converts a db cloud container status id to a
 // core status.
-func decodeCloudContainerStatusType(s status.CloudContainerStatusType) (corestatus.Status, error) {
+func decodeK8sPodStatusType(s status.K8sPodStatusType) (corestatus.Status, error) {
 	switch s {
-	case status.CloudContainerStatusUnset:
+	case status.K8sPodStatusUnset:
 		return corestatus.Unset, nil
-	case status.CloudContainerStatusWaiting:
+	case status.K8sPodStatusWaiting:
 		return corestatus.Waiting, nil
-	case status.CloudContainerStatusBlocked:
+	case status.K8sPodStatusBlocked:
 		return corestatus.Blocked, nil
-	case status.CloudContainerStatusRunning:
+	case status.K8sPodStatusRunning:
 		return corestatus.Running, nil
 	default:
 		return "", errors.Errorf("unknown cloud container status %q", s)
@@ -193,11 +193,11 @@ func decodeWorkloadStatusType(s status.WorkloadStatusType) (corestatus.Status, e
 	}
 }
 
-// encodeCloudContainerStatus converts a core status info to a db status info.
-func encodeCloudContainerStatus(s corestatus.StatusInfo) (status.StatusInfo[status.CloudContainerStatusType], error) {
-	encodedStatus, err := encodeCloudContainerStatusType(s.Status)
+// encodeK8sPodStatus converts a core status info to a db status info.
+func encodeK8sPodStatus(s corestatus.StatusInfo) (status.StatusInfo[status.K8sPodStatusType], error) {
+	encodedStatus, err := encodeK8sPodStatusType(s.Status)
 	if err != nil {
-		return status.StatusInfo[status.CloudContainerStatusType]{}, err
+		return status.StatusInfo[status.K8sPodStatusType]{}, err
 	}
 
 	var bytes []byte
@@ -205,11 +205,11 @@ func encodeCloudContainerStatus(s corestatus.StatusInfo) (status.StatusInfo[stat
 		var err error
 		bytes, err = json.Marshal(s.Data)
 		if err != nil {
-			return status.StatusInfo[status.CloudContainerStatusType]{}, errors.Errorf("marshalling status data: %w", err)
+			return status.StatusInfo[status.K8sPodStatusType]{}, errors.Errorf("marshalling status data: %w", err)
 		}
 	}
 
-	return status.StatusInfo[status.CloudContainerStatusType]{
+	return status.StatusInfo[status.K8sPodStatusType]{
 		Status:  encodedStatus,
 		Message: s.Message,
 		Data:    bytes,
@@ -217,9 +217,9 @@ func encodeCloudContainerStatus(s corestatus.StatusInfo) (status.StatusInfo[stat
 	}, nil
 }
 
-// decodeCloudContainerStatus converts a db status info to a core status info.
-func decodeCloudContainerStatus(s status.StatusInfo[status.CloudContainerStatusType]) (corestatus.StatusInfo, error) {
-	decodedStatus, err := decodeCloudContainerStatusType(s.Status)
+// decodeK8sPodStatus converts a db status info to a core status info.
+func decodeK8sPodStatus(s status.StatusInfo[status.K8sPodStatusType]) (corestatus.StatusInfo, error) {
+	decodedStatus, err := decodeK8sPodStatusType(s.Status)
 	if err != nil {
 		return corestatus.StatusInfo{}, err
 	}
@@ -464,7 +464,7 @@ func decodeUnitDisplayAndAgentStatus(
 		return corestatus.StatusInfo{}, corestatus.StatusInfo{}, errors.Capture(err)
 	}
 
-	workloadStatus, err := selectWorkloadOrContainerStatus(fullUnitStatus.WorkloadStatus, fullUnitStatus.ContainerStatus, fullUnitStatus.Present)
+	workloadStatus, err := selectWorkloadOrK8sPodStatus(fullUnitStatus.WorkloadStatus, fullUnitStatus.K8sPodStatus, fullUnitStatus.Present)
 	if err != nil {
 		return corestatus.StatusInfo{}, corestatus.StatusInfo{}, errors.Capture(err)
 	}
@@ -483,19 +483,18 @@ func decodeUnitWorkloadStatuses(statuses status.UnitWorkloadStatuses) (map[unit.
 	return ret, nil
 }
 
-// selectWorkloadOrContainerStatus determines which of the two statuses to use
+// selectWorkloadOrK8sPodStatus determines which of the two statuses to use
 // when displaying unit status. It is used in CAAS models where the status of
 // the unit could be overridden by the status of the container.
-func selectWorkloadOrContainerStatus(
+func selectWorkloadOrK8sPodStatus(
 	workloadStatus status.StatusInfo[status.WorkloadStatusType],
-	containerStatus status.StatusInfo[status.CloudContainerStatusType],
+	containerStatus status.StatusInfo[status.K8sPodStatusType],
 	present bool,
 ) (corestatus.StatusInfo, error) {
-
 	// container status is not set. This means that the unit is either a non-CAAS
 	// unit or the container status has not been updated yet. Either way, we
 	// should use the workload status.
-	if containerStatus.Status == status.CloudContainerStatusUnset {
+	if containerStatus.Status == status.K8sPodStatusUnset {
 		return decodeUnitWorkloadStatus(workloadStatus, present)
 	}
 
@@ -509,20 +508,19 @@ func selectWorkloadOrContainerStatus(
 
 	// NOTE: We now know implicitly that the workload status is either active,
 	// waiting or unknown.
-
-	if containerStatus.Status == status.CloudContainerStatusBlocked {
-		return decodeCloudContainerStatus(containerStatus)
+	if containerStatus.Status == status.K8sPodStatusBlocked {
+		return decodeK8sPodStatus(containerStatus)
 	}
 
-	if containerStatus.Status == status.CloudContainerStatusWaiting {
+	if containerStatus.Status == status.K8sPodStatusWaiting {
 		if workloadStatus.Status == status.WorkloadStatusActive {
-			return decodeCloudContainerStatus(containerStatus)
+			return decodeK8sPodStatus(containerStatus)
 		}
 	}
 
-	if containerStatus.Status == status.CloudContainerStatusRunning {
+	if containerStatus.Status == status.K8sPodStatusRunning {
 		if workloadStatus.Status == status.WorkloadStatusWaiting {
-			return decodeCloudContainerStatus(containerStatus)
+			return decodeK8sPodStatus(containerStatus)
 		}
 	}
 

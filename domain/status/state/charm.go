@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-func decodeCharmLocator(c applicationStatusDetails) (charm.CharmLocator, error) {
+func decodeCharmLocator(c CharmLocatorDetails) (charm.CharmLocator, error) {
 	source, err := decodeCharmSource(c.CharmSourceID)
 	if err != nil {
 		return charm.CharmLocator{}, errors.Errorf("decoding charm source: %w", err)
@@ -81,12 +81,12 @@ func decodePlatform(channel string, os, arch sql.NullInt64) (deployment.Platform
 	}, nil
 }
 
-func decodeChannel(track string, risk sql.NullString, branch string) (*deployment.Channel, error) {
+func decodeChannel(track string, risk sql.Null[string], branch string) (*deployment.Channel, error) {
 	if !risk.Valid {
 		return nil, nil
 	}
 
-	riskType, err := decodeRisk(risk.String)
+	riskType, err := decodeRisk(risk.V)
 	if err != nil {
 		return nil, errors.Errorf("decoding risk: %w", err)
 	}

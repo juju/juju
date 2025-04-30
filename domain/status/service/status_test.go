@@ -20,33 +20,33 @@ var _ = gc.Suite(&statusSuite{})
 
 var now = time.Now()
 
-func (s *statusSuite) TestEncodeCloudContainerStatus(c *gc.C) {
+func (s *statusSuite) TestEncodeK8sPodStatus(c *gc.C) {
 	testCases := []struct {
 		input  corestatus.StatusInfo
-		output status.StatusInfo[status.CloudContainerStatusType]
+		output status.StatusInfo[status.K8sPodStatusType]
 	}{
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Waiting,
 			},
-			output: status.StatusInfo[status.CloudContainerStatusType]{
-				Status: status.CloudContainerStatusWaiting,
+			output: status.StatusInfo[status.K8sPodStatusType]{
+				Status: status.K8sPodStatusWaiting,
 			},
 		},
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Blocked,
 			},
-			output: status.StatusInfo[status.CloudContainerStatusType]{
-				Status: status.CloudContainerStatusBlocked,
+			output: status.StatusInfo[status.K8sPodStatusType]{
+				Status: status.K8sPodStatusBlocked,
 			},
 		},
 		{
 			input: corestatus.StatusInfo{
 				Status: corestatus.Running,
 			},
-			output: status.StatusInfo[status.CloudContainerStatusType]{
-				Status: status.CloudContainerStatusRunning,
+			output: status.StatusInfo[status.K8sPodStatusType]{
+				Status: status.K8sPodStatusRunning,
 			},
 		},
 		{
@@ -56,8 +56,8 @@ func (s *statusSuite) TestEncodeCloudContainerStatus(c *gc.C) {
 				Data:    map[string]interface{}{"foo": "bar"},
 				Since:   &now,
 			},
-			output: status.StatusInfo[status.CloudContainerStatusType]{
-				Status:  status.CloudContainerStatusRunning,
+			output: status.StatusInfo[status.K8sPodStatusType]{
+				Status:  status.K8sPodStatusRunning,
 				Message: "I'm active!",
 				Data:    []byte(`{"foo":"bar"}`),
 				Since:   &now,
@@ -67,10 +67,10 @@ func (s *statusSuite) TestEncodeCloudContainerStatus(c *gc.C) {
 
 	for i, test := range testCases {
 		c.Logf("test %d: %v", i, test.input)
-		output, err := encodeCloudContainerStatus(test.input)
+		output, err := encodeK8sPodStatus(test.input)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(output, jc.DeepEquals, test.output)
-		result, err := decodeCloudContainerStatus(output)
+		result, err := decodeK8sPodStatus(output)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(result, jc.DeepEquals, test.input)
 	}
@@ -165,8 +165,8 @@ func (s *statusSuite) TestDecodeUnitDisplayAndAgentStatus(c *gc.C) {
 			Status: status.WorkloadStatusMaintenance,
 			Since:  &now,
 		},
-		ContainerStatus: status.StatusInfo[status.CloudContainerStatusType]{
-			Status: status.CloudContainerStatusUnset,
+		K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
+			Status: status.K8sPodStatusUnset,
 		},
 		Present: true,
 	})
@@ -277,9 +277,9 @@ func (s *statusSuite) TestEncodeWorkloadStatus(c *gc.C) {
 	}
 }
 
-func (s *statusSuite) TestSelectWorkloadOrContainerStatusWorkloadTerminatedBlockedMaintenanceDominates(c *gc.C) {
-	containerStatus := status.StatusInfo[status.CloudContainerStatusType]{
-		Status: status.CloudContainerStatusBlocked,
+func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusWorkloadTerminatedBlockedMaintenanceDominates(c *gc.C) {
+	containerStatus := status.StatusInfo[status.K8sPodStatusType]{
+		Status: status.K8sPodStatusBlocked,
 	}
 
 	workloadStatus := status.StatusInfo[status.WorkloadStatusType]{
@@ -296,36 +296,36 @@ func (s *statusSuite) TestSelectWorkloadOrContainerStatusWorkloadTerminatedBlock
 		Since:   &now,
 	}
 
-	info, err := selectWorkloadOrContainerStatus(workloadStatus, containerStatus, true)
+	info, err := selectWorkloadOrK8sPodStatus(workloadStatus, containerStatus, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 
 	workloadStatus.Status = status.WorkloadStatusBlocked
 	expected.Status = corestatus.Blocked
-	info, err = selectWorkloadOrContainerStatus(workloadStatus, containerStatus, true)
+	info, err = selectWorkloadOrK8sPodStatus(workloadStatus, containerStatus, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 
 	workloadStatus.Status = status.WorkloadStatusMaintenance
 	expected.Status = corestatus.Maintenance
-	info, err = selectWorkloadOrContainerStatus(workloadStatus, containerStatus, true)
+	info, err = selectWorkloadOrK8sPodStatus(workloadStatus, containerStatus, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 }
 
-func (s *statusSuite) TestSelectWorkloadOrContainerStatusContainerBlockedDominates(c *gc.C) {
+func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerBlockedDominates(c *gc.C) {
 	workloadStatus := status.StatusInfo[status.WorkloadStatusType]{
 		Status: status.WorkloadStatusWaiting,
 	}
 
-	containerStatus := status.StatusInfo[status.CloudContainerStatusType]{
-		Status:  status.CloudContainerStatusBlocked,
+	containerStatus := status.StatusInfo[status.K8sPodStatusType]{
+		Status:  status.K8sPodStatusBlocked,
 		Message: "msg",
 		Data:    []byte(`{"key":"value"}`),
 		Since:   &now,
 	}
 
-	info, err := selectWorkloadOrContainerStatus(workloadStatus, containerStatus, true)
+	info, err := selectWorkloadOrK8sPodStatus(workloadStatus, containerStatus, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Blocked,
@@ -335,19 +335,19 @@ func (s *statusSuite) TestSelectWorkloadOrContainerStatusContainerBlockedDominat
 	})
 }
 
-func (s *statusSuite) TestSelectWorkloadOrContainerStatusContainerWaitingDominatesActiveWorkload(c *gc.C) {
+func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerWaitingDominatesActiveWorkload(c *gc.C) {
 	workloadStatus := status.StatusInfo[status.WorkloadStatusType]{
 		Status: status.WorkloadStatusActive,
 	}
 
-	containerStatus := status.StatusInfo[status.CloudContainerStatusType]{
-		Status:  status.CloudContainerStatusWaiting,
+	containerStatus := status.StatusInfo[status.K8sPodStatusType]{
+		Status:  status.K8sPodStatusWaiting,
 		Message: "msg",
 		Data:    []byte(`{"key":"value"}`),
 		Since:   &now,
 	}
 
-	info, err := selectWorkloadOrContainerStatus(workloadStatus, containerStatus, true)
+	info, err := selectWorkloadOrK8sPodStatus(workloadStatus, containerStatus, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Waiting,
@@ -357,19 +357,19 @@ func (s *statusSuite) TestSelectWorkloadOrContainerStatusContainerWaitingDominat
 	})
 }
 
-func (s *statusSuite) TestSelectWorkloadOrContainerStatusContainerRunningDominatesWaitingWorkload(c *gc.C) {
+func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerRunningDominatesWaitingWorkload(c *gc.C) {
 	workloadStatus := status.StatusInfo[status.WorkloadStatusType]{
 		Status: status.WorkloadStatusWaiting,
 	}
 
-	containerStatus := status.StatusInfo[status.CloudContainerStatusType]{
-		Status:  status.CloudContainerStatusRunning,
+	containerStatus := status.StatusInfo[status.K8sPodStatusType]{
+		Status:  status.K8sPodStatusRunning,
 		Message: "msg",
 		Data:    []byte(`{"key":"value"}`),
 		Since:   &now,
 	}
 
-	info, err := selectWorkloadOrContainerStatus(workloadStatus, containerStatus, true)
+	info, err := selectWorkloadOrK8sPodStatus(workloadStatus, containerStatus, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Running,
@@ -379,18 +379,18 @@ func (s *statusSuite) TestSelectWorkloadOrContainerStatusContainerRunningDominat
 	})
 }
 
-func (s *statusSuite) TestSelectWorkloadOrContainerStatusDefaultsToWorkload(c *gc.C) {
+func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusDefaultsToWorkload(c *gc.C) {
 	workloadStatus := status.StatusInfo[status.WorkloadStatusType]{
 		Status:  status.WorkloadStatusActive,
 		Message: "I'm an active workload",
 	}
 
-	containerStatus := status.StatusInfo[status.CloudContainerStatusType]{
-		Status:  status.CloudContainerStatusRunning,
+	containerStatus := status.StatusInfo[status.K8sPodStatusType]{
+		Status:  status.K8sPodStatusRunning,
 		Message: "I'm a running container",
 	}
 
-	info, err := selectWorkloadOrContainerStatus(workloadStatus, containerStatus, true)
+	info, err := selectWorkloadOrK8sPodStatus(workloadStatus, containerStatus, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Active,
@@ -458,8 +458,8 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPreceden
 			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusIdle,
 			},
-			ContainerStatus: status.StatusInfo[status.CloudContainerStatusType]{
-				Status: status.CloudContainerStatusRunning,
+			K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
+				Status: status.K8sPodStatusRunning,
 			},
 			Present: true,
 		},
@@ -470,8 +470,8 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPreceden
 			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusIdle,
 			},
-			ContainerStatus: status.StatusInfo[status.CloudContainerStatusType]{
-				Status: status.CloudContainerStatusBlocked,
+			K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
+				Status: status.K8sPodStatusBlocked,
 			},
 			Present: true,
 		},
@@ -493,8 +493,8 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPreceden
 			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusIdle,
 			},
-			ContainerStatus: status.StatusInfo[status.CloudContainerStatusType]{
-				Status: status.CloudContainerStatusRunning,
+			K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
+				Status: status.K8sPodStatusRunning,
 			},
 			Present: true,
 		},
@@ -505,8 +505,8 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPicksGreatestPreceden
 			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusIdle,
 			},
-			ContainerStatus: status.StatusInfo[status.CloudContainerStatusType]{
-				Status: status.CloudContainerStatusBlocked,
+			K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
+				Status: status.K8sPodStatusBlocked,
 			},
 			Present: true,
 		},
@@ -528,8 +528,8 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPrioritisesUnitWithGr
 			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusIdle,
 			},
-			ContainerStatus: status.StatusInfo[status.CloudContainerStatusType]{
-				Status: status.CloudContainerStatusBlocked,
+			K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
+				Status: status.K8sPodStatusBlocked,
 			},
 			Present: true,
 		},
@@ -540,8 +540,8 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsPrioritisesUnitWithGr
 			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 				Status: status.UnitAgentStatusIdle,
 			},
-			ContainerStatus: status.StatusInfo[status.CloudContainerStatusType]{
-				Status: status.CloudContainerStatusRunning,
+			K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
+				Status: status.K8sPodStatusRunning,
 			},
 			Present: true,
 		},

@@ -14,7 +14,7 @@ import (
 
 // StatusID represents the status of an entity.
 type StatusID interface {
-	CloudContainerStatusType | RelationStatusType | UnitAgentStatusType | WorkloadStatusType
+	K8sPodStatusType | RelationStatusType | UnitAgentStatusType | WorkloadStatusType
 }
 
 // StatusInfo holds details about the status of an entity.
@@ -38,46 +38,46 @@ type UnitStatusInfo[T UnitStatusID] struct {
 	Present bool
 }
 
-// CloudContainerStatusType represents the status of a cloud container
+// K8sPodStatusType represents the status of a cloud container
 // as recorded in the k8s_pod_status_value lookup table.
-type CloudContainerStatusType int
+type K8sPodStatusType int
 
 const (
-	CloudContainerStatusUnset CloudContainerStatusType = iota
-	CloudContainerStatusWaiting
-	CloudContainerStatusBlocked
-	CloudContainerStatusRunning
+	K8sPodStatusUnset K8sPodStatusType = iota
+	K8sPodStatusWaiting
+	K8sPodStatusBlocked
+	K8sPodStatusRunning
 )
 
-// EncodeCloudContainerStatus encodes a CloudContainerStatusType into it's integer
+// EncodeK8sPodStatus encodes a K8sPodStatusType into it's integer
 // id, as recorded in the k8s_pod_status_value lookup table.
-func EncodeCloudContainerStatus(s CloudContainerStatusType) (int, error) {
+func EncodeK8sPodStatus(s K8sPodStatusType) (int, error) {
 	switch s {
-	case CloudContainerStatusUnset:
+	case K8sPodStatusUnset:
 		return 0, nil
-	case CloudContainerStatusWaiting:
+	case K8sPodStatusWaiting:
 		return 1, nil
-	case CloudContainerStatusBlocked:
+	case K8sPodStatusBlocked:
 		return 2, nil
-	case CloudContainerStatusRunning:
+	case K8sPodStatusRunning:
 		return 3, nil
 	default:
 		return -1, errors.Errorf("unknown status %d", s)
 	}
 }
 
-// DecodeCloudContainerStatus decodes a CloudContainerStatusType from it's integer
+// DecodeK8sPodStatus decodes a K8sPodStatusType from it's integer
 // id, as recorded in the k8s_pod_status_value lookup table.
-func DecodeCloudContainerStatus(s int) (CloudContainerStatusType, error) {
+func DecodeK8sPodStatus(s int) (K8sPodStatusType, error) {
 	switch s {
 	case 0:
-		return CloudContainerStatusUnset, nil
+		return K8sPodStatusUnset, nil
 	case 1:
-		return CloudContainerStatusWaiting, nil
+		return K8sPodStatusWaiting, nil
 	case 2:
-		return CloudContainerStatusBlocked, nil
+		return K8sPodStatusBlocked, nil
 	case 3:
-		return CloudContainerStatusRunning, nil
+		return K8sPodStatusRunning, nil
 	default:
 		return -1, errors.Errorf("unknown status %d", s)
 	}
@@ -310,9 +310,9 @@ type UnitWorkloadAgentStatus struct {
 
 // FullUnitStatus holds details about the workload, agent and container status of a unit.
 type FullUnitStatus struct {
-	WorkloadStatus  StatusInfo[WorkloadStatusType]
-	AgentStatus     StatusInfo[UnitAgentStatusType]
-	ContainerStatus StatusInfo[CloudContainerStatusType]
+	WorkloadStatus StatusInfo[WorkloadStatusType]
+	AgentStatus    StatusInfo[UnitAgentStatusType]
+	K8sPodStatus   StatusInfo[K8sPodStatusType]
 	// Present is true if the unit agent logged into the API server.
 	Present bool
 }
@@ -325,9 +325,9 @@ type UnitWorkloadStatuses map[unit.Name]UnitStatusInfo[WorkloadStatusType]
 // The statuses are indexed by unit name.
 type UnitAgentStatuses map[unit.Name]StatusInfo[UnitAgentStatusType]
 
-// UnitCloudContainerStatuses represents the cloud container statuses of a collection
+// UnitK8sPodStatuses represents the cloud container statuses of a collection
 // of units. The statuses are indexed by unit name.
-type UnitCloudContainerStatuses map[unit.Name]StatusInfo[CloudContainerStatusType]
+type UnitK8sPodStatuses map[unit.Name]StatusInfo[K8sPodStatusType]
 
 // UnitWorkloadAgentStatuses represents the workload and agent statuses of a
 // collection of units.
