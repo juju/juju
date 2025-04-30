@@ -8,10 +8,8 @@ This document is about our releases of Juju, that is, the `juju` CLI client and 
 - We release new minor version (the 'x' of m.x.p) approcimately every 3 months.
 - Patch releases for supported series are released every month
 - Once we release a new major version, the latest minor version of the previous release will become an LTS (Long Term Support) release.
-
 - Minor releases are supported with bug fixes for a period of 6 months from their release date, and a further 3 months of security fixes. LTS releases will receive security fixes for 5 years.
-
-- 4.0 is an exception to the rule, as it is still under development. We plan on releasing beta versions that are content driven and not time. 
+- 4.0 is an exception to the rule, as it is still under development. We plan on releasing beta versions that are content driven and not time.
 
 The rest of this document gives detailed information about each release.
 
@@ -49,6 +47,38 @@ See the full list in the [milestone page](https://launchpad.net/juju/+milestone/
 Juju 3.6 series is LTS
 ```
 
+### 🔸 **Juju 3.6.5** - 14 April 2025
+⚙️ Features:
+* feat(ssh-server-worker): add feature flag for ssh jump server by @SimoneDutto in [#19364](https://github.com/juju/juju/pull/19364)
+* feat: add facade to resolve virtual hostname by @SimoneDutto in [#18995](https://github.com/juju/juju/pull/18995)
+* feat: retrieve unit host keys by @ale8k in [#18973](https://github.com/juju/juju/pull/18973)
+* feat(state): add state method for ssh connection requests by @SimoneDutto in [#19212](https://github.com/juju/juju/pull/19212)
+* feat(state): add cleanup for expired ssh connection requests by @SimoneDutto in [#19239](https://github.com/juju/juju/pull/19239)
+* feat(sshworker): add max concurrent connections to ssh server by @SimoneDutto in [#19236](https://github.com/juju/juju/pull/19236)
+* feat(ssh-conn-req-facades): add controller and client facade to interact with ssh conn requests by @SimoneDutto in [#19301](https://github.com/juju/juju/pull/19301)
+* feat(ssh-server-worker): set unit hostkey for target host by @SimoneDutto in [#19299](https://github.com/juju/juju/pull/19299)
+
+🛠️ Fixes:
+* fix(apiserver): avoid splitting untrusted data by @jub0bs in [#18971](https://github.com/juju/juju/pull/18971)
+* fix(charmhub): resolve misleading output for info by @leyao-daily in [#19084](https://github.com/juju/juju/pull/19084)
+* fix: login to jaas controller by @kian99 in [#19136](https://github.com/juju/juju/pull/19136)
+* fix: avoid restart loop of ssh server worker by @kian99 in [#19152](https://github.com/juju/juju/pull/19152)
+* fix(bootstrap): support instance-role when bootstrapping by @xtrusia in [#19204](https://github.com/juju/juju/pull/19204)
+* fix: facade restriction for "sshserver" facade by @ale8k in [#19220](https://github.com/juju/juju/pull/19220)
+* fix(applicationoffer): fix authorization check for list/show offers by @alesstimec in [#19287](https://github.com/juju/juju/pull/19287)
+* fix: split model migration status message by @SimonRichardson in [#19255](https://github.com/juju/juju/pull/19255)
+* fix: update to use ctrl state & return public key in ssh wire format base64 std encoded by @ale8k in [#19324](https://github.com/juju/juju/pull/19324)
+* fix: prevent retry of a successful phase by @SimonRichardson in [#19257](https://github.com/juju/juju/pull/19257)
+* fix: close possible leak in ext controller worker by @wallyworld in [#19311](https://github.com/juju/juju/pull/19311)
+* fix: revert pull request #19287  by @SimoneDutto in [#19395](https://github.com/juju/juju/pull/19395)
+* fix: k8s cloud reuse across controllers by @hpidcock in [#19298](https://github.com/juju/juju/pull/19298)
+
+🥳 New Contributors:
+* @sinanawad made their first contribution in [#19179](https://github.com/juju/juju/pull/19179)
+* @ahmad-can made their first contribution in [#18784](https://github.com/juju/juju/pull/18784)
+* @pamudithaA made their first contribution in [#19155](https://github.com/juju/juju/pull/19155)
+* @vlad-apostol made their first contribution in [#19261](https://github.com/juju/juju/pull/19261)
+* @alexdlukens made their first contribution in [#19390](https://github.com/juju/juju/pull/19390)
 
 ### 🔸 **Juju 3.6.4** - 11 March 2025
 ⚙️ Features:
