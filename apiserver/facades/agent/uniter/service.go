@@ -90,6 +90,16 @@ type ApplicationService interface {
 	// GetUnitPrincipal returns the unit's principal unit if it exists
 	GetUnitPrincipal(ctx context.Context, unitName coreunit.Name) (coreunit.Name, bool, error)
 
+	// GetUnitMachineName gets the name of the unit's machine. If the unit's
+	// machine cannot be found [applicationerrors.UnitMachineNotAssigned] is
+	// returned.
+	GetUnitMachineName(ctx context.Context, unitName coreunit.Name) (coremachine.Name, error)
+
+	// GetUnitMachineUUID gets the uuid of the unit's machine. If the unit's
+	// machine cannot be found [applicationerrors.UnitMachineNotAssigned] is
+	// returned.
+	GetUnitMachineUUID(ctx context.Context, unitName coreunit.Name) (coremachine.UUID, error)
+
 	// EnsureUnitDead is called by the unit agent just before it terminates.
 	EnsureUnitDead(ctx context.Context, unitName coreunit.Name, leadershipRevoker leadership.Revoker) error
 

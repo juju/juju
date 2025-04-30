@@ -230,24 +230,6 @@ func (s *uniterLegacySuite) TestPublicAddress(c *gc.C) {
 func (s *uniterLegacySuite) TestPrivateAddress(c *gc.C) {
 }
 
-func (s *uniterLegacySuite) TestAvailabilityZone(c *gc.C) {
-	s.PatchValue(uniter.GetZone, func(ctx context.Context, st *state.State, machineService uniter.MachineService, tag names.Tag) (string, error) {
-		return "a_zone", nil
-	})
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "unit-wordpress-0"},
-	}}
-	result, err := s.uniter.AvailabilityZone(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(result, gc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{
-			{Result: "a_zone"},
-		},
-	})
-}
-
 func (s *uniterLegacySuite) TestResolvedAPIV6(c *gc.C) {
 }
 
@@ -540,37 +522,6 @@ func (s *uniterLegacySuite) TestWatchCAASUnitAddressesHash(c *gc.C) {
 
 func (s *uniterLegacySuite) TestStorageAttachments(c *gc.C) {
 	// We need to set up a unit that has storage metadata defined.
-}
-
-func (s *uniterLegacySuite) TestAssignedMachine(c *gc.C) {
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "unit-mysql-0"},
-		{Tag: "unit-wordpress-0"},
-		{Tag: "unit-foo-42"},
-		{Tag: "application-mysql"},
-		{Tag: "application-wordpress"},
-		{Tag: "machine-0"},
-		{Tag: "machine-1"},
-		{Tag: "machine-42"},
-		{Tag: "application-foo"},
-		{Tag: "relation-svc1.rel1#svc2.rel2"},
-	}}
-	result, err := s.uniter.AssignedMachine(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{
-			{Error: apiservertesting.ErrUnauthorized},
-			{Result: "machine-0"},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
 }
 
 func (s *uniterLegacySuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {

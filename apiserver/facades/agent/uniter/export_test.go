@@ -18,7 +18,6 @@ import (
 )
 
 var (
-	GetZone                = &getZone
 	WatchStorageAttachment = watchStorageAttachment
 
 	NewUniterAPI             = newUniterAPI

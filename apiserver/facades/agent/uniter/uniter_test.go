@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/transform"
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -21,6 +22,8 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/life"
+	coremachine "github.com/juju/juju/core/machine"
+	coremachinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	relationtesting "github.com/juju/juju/core/relation/testing"
@@ -31,6 +34,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/resolve"
@@ -48,6 +52,7 @@ type uniterSuite struct {
 	badTag names.Tag
 
 	applicationService *MockApplicationService
+	machineService     *MockMachineService
 	resolveService     *MockResolveService
 	watcherRegistry    *MockWatcherRegistry
 
@@ -346,19 +351,110 @@ func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 	})
 }
 
+func (s *uniterSuite) TestAvailabilityZone(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-postgresql-0"},
+		{Tag: "unit-riak-0"},
+		{Tag: "unit-foo-0"},
+	}}
+
+	machineUUID := coremachinetesting.GenUUID(c)
+	s.expectGetUnitMachineUUID("wordpress/0", machineUUID, nil)
+	s.expectedGetAvailabilityZone(machineUUID, "a_zone", nil)
+
+	s.expectGetUnitMachineUUID("mysql/0", machineUUID, applicationerrors.UnitMachineNotAssigned)
+
+	s.expectGetUnitMachineUUID("postgresql/0", machineUUID, applicationerrors.UnitNotFound)
+
+	s.expectGetUnitMachineUUID("riak/0", machineUUID, nil)
+	s.expectedGetAvailabilityZone(machineUUID, "a_zone", machineerrors.AvailabilityZoneNotFound)
+
+	s.badTag = names.NewUnitTag("foo/0")
+
+	// Act:
+	result, err := s.uniter.AvailabilityZone(context.Background(), args)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(result, gc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Result: "a_zone"},
+			{Error: apiservererrors.ServerError(applicationerrors.UnitMachineNotAssigned)},
+			{Error: apiservertesting.NotFoundError(`unit "postgresql/0"`)},
+			{Error: apiservererrors.ServerError(jujuerrors.NotProvisioned)},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestAssignedMachine(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange:
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-postgresql-0"},
+		{Tag: "unit-foo-42"},
+	}}
+
+	machineName := coremachine.Name("0")
+	s.expectGetUnitMachineName("mysql/0", machineName, nil)
+	s.expectGetUnitMachineName("wordpress/0", "", applicationerrors.UnitMachineNotAssigned)
+	s.expectGetUnitMachineName("postgresql/0", "", applicationerrors.UnitNotFound)
+	s.badTag = names.NewUnitTag("foo/42")
+
+	// Act:
+	result, err := s.uniter.AssignedMachine(context.Background(), args)
+
+	// Assert:
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, jc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Result: "machine-0"},
+			{Error: &params.Error{
+				Code:    params.CodeNotAssigned,
+				Message: applicationerrors.UnitMachineNotAssigned.Error(),
+			}},
+			{Error: apiservertesting.NotFoundError(`unit "postgresql/0"`)},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
 func (s *uniterSuite) expectGetUnitPrincipal(c *gc.C, unitName, principalName coreunit.Name, ok bool, err error) {
 	s.applicationService.EXPECT().GetUnitPrincipal(gomock.Any(), unitName).Return(principalName, ok, err)
+}
+
+func (s *uniterSuite) expectGetUnitMachineUUID(unitName coreunit.Name, machineUUID coremachine.UUID, err error) {
+	s.applicationService.EXPECT().GetUnitMachineUUID(gomock.Any(), unitName).Return(machineUUID, err)
+}
+
+func (s *uniterSuite) expectGetUnitMachineName(unitName coreunit.Name, machineName coremachine.Name, err error) {
+	s.applicationService.EXPECT().GetUnitMachineName(gomock.Any(), unitName).Return(machineName, err)
+}
+
+func (s *uniterSuite) expectedGetAvailabilityZone(machineUUID coremachine.UUID, az string, err error) {
+	s.machineService.EXPECT().AvailabilityZone(gomock.Any(), machineUUID.String()).Return(az, err)
 }
 
 func (s *uniterSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.applicationService = NewMockApplicationService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
 	s.resolveService = NewMockResolveService(ctrl)
 	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
 
 	s.uniter = &UniterAPI{
 		applicationService: s.applicationService,
+		machineService:     s.machineService,
 		resolveService:     s.resolveService,
 		accessUnit: func() (common.AuthFunc, error) {
 			return func(tag names.Tag) bool {
