@@ -47,51 +47,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func statusHistoryResultsError(err error, amount int) params.StatusHistoryResults {
-	results := make([]params.StatusHistoryResult, amount)
-	for i := range results {
-		results[i].Error = apiservererrors.ServerError(err)
-	}
-	return params.StatusHistoryResults{
-		Results: results,
-	}
-}
-
-func statusHistoryResultError(err error) params.StatusHistoryResults {
-	return statusHistoryResultsError(err, 1)
-}
-
-func matches(hr statushistory.HistoryRecord, req params.StatusHistoryRequest, now time.Time) (bool, error) {
-	// Check that the kinds match.
-	if status.HistoryKind(req.Kind) != hr.Kind {
-		return false, nil
-	}
-
-	// Check that the tag matches.
-	requestTag, err := names.ParseTag(req.Tag)
-	if err != nil {
-		return false, err
-	} else if hr.Tag != requestTag.Id() {
-		return false, nil
-	}
-
-	filter := req.Filter
-
-	// If the date is set on the filter, check that the record's date is
-	// after the filter date.
-	if filter.Date != nil && hr.Status.Since != nil && !hr.Status.Since.After(*filter.Date) {
-		return false, nil
-	}
-
-	// If the delta is set on the filter, check that the record's delta
-	// is after the filter delta.
-	if filter.Delta != nil && hr.Status.Since != nil && !hr.Status.Since.After(now.Add(-(*filter.Delta))) {
-		return false, nil
-	}
-
-	return true, nil
-}
-
 // StatusHistory returns a slice of past statuses for several entities.
 func (c *Client) StatusHistory(ctx context.Context, requests params.StatusHistoryRequests) params.StatusHistoryResults {
 	if err := c.checkCanRead(ctx); err != nil {
@@ -154,6 +109,77 @@ func (c *Client) StatusHistory(ctx context.Context, requests params.StatusHistor
 			},
 		}},
 	}
+}
+
+func statusHistoryResultsError(err error, amount int) params.StatusHistoryResults {
+	results := make([]params.StatusHistoryResult, amount)
+	for i := range results {
+		results[i].Error = apiservererrors.ServerError(err)
+	}
+	return params.StatusHistoryResults{
+		Results: results,
+	}
+}
+
+func statusHistoryResultError(err error) params.StatusHistoryResults {
+	return statusHistoryResultsError(err, 1)
+}
+
+func matchesUnit(hr statushistory.HistoryRecord, req params.StatusHistoryRequest) bool {
+	switch status.HistoryKind(req.Kind) {
+	case status.KindUnit:
+		return hr.Kind == status.KindUnit || hr.Kind == status.KindUnitAgent || hr.Kind == status.KindWorkload
+	case status.KindWorkload:
+		return hr.Kind == status.KindWorkload
+	case status.KindUnitAgent:
+		return hr.Kind == status.KindUnitAgent
+	default:
+		return false
+	}
+}
+
+func matches(hr statushistory.HistoryRecord, req params.StatusHistoryRequest, now time.Time) (bool, error) {
+	// Check that the kinds match.
+	switch status.HistoryKind(req.Kind) {
+	case status.KindApplication:
+		return hr.Kind == status.KindApplication, nil
+	case status.KindSAAS:
+		return hr.Kind == status.KindSAAS, nil
+	case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
+		if !matchesUnit(hr, req) {
+			return false, nil
+		}
+	case status.KindModel:
+		// TODO: implement model status history.
+	case status.KindMachine:
+		// TODO: implement machine status history.
+	default:
+		return false, internalerrors.Errorf("%q", req.Kind).Add(errors.NotImplemented)
+	}
+
+	// Check that the tag matches.
+	requestTag, err := names.ParseTag(req.Tag)
+	if err != nil {
+		return false, err
+	} else if hr.Tag != requestTag.Id() {
+		return false, nil
+	}
+
+	filter := req.Filter
+
+	// If the date is set on the filter, check that the record's date is
+	// after the filter date.
+	if filter.Date != nil && hr.Status.Since != nil && !hr.Status.Since.After(*filter.Date) {
+		return false, nil
+	}
+
+	// If the delta is set on the filter, check that the record's delta
+	// is after the filter delta.
+	if filter.Delta != nil && hr.Status.Since != nil && !hr.Status.Since.After(now.Add(-(*filter.Delta))) {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 type lifer interface {

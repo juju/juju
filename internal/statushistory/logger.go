@@ -37,24 +37,24 @@ func (r *logRecorder) Record(ctx context.Context, record Record) error {
 	}
 
 	labels := logger.Labels{
-		categoryKey:      statusHistoryCategory,
-		namespaceNameKey: record.Name,
-		namespaceIDKey:   record.ID,
-		statusKey:        record.Status,
-		messageKey:       record.Message,
-		sinceKey:         record.Time,
-		dataKey:          string(data),
+		categoryKey:    statusHistoryCategory,
+		kindKey:        record.Kind.String(),
+		namespaceIDKey: record.ID,
+		statusKey:      record.Status,
+		messageKey:     record.Message,
+		sinceKey:       record.Time,
+		dataKey:        string(data),
 	}
 	r.logger.Logf(ctx, logger.INFO, labels, "status-history (status: %q, status-message: %q)", record.Status, record.Message)
 	return nil
 }
 
 const (
-	categoryKey      = "category"
-	namespaceNameKey = "namespace_name"
-	namespaceIDKey   = "namespace_id"
-	statusKey        = "status"
-	messageKey       = "message"
-	sinceKey         = "since"
-	dataKey          = "data"
+	categoryKey    = "category"
+	kindKey        = "kind"
+	namespaceIDKey = "namespace_id"
+	statusKey      = "status"
+	messageKey     = "message"
+	sinceKey       = "since"
+	dataKey        = "data"
 )

@@ -152,7 +152,7 @@ func (s *serviceSuite) TestSetApplicationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.statusHistory.records, jc.DeepEquals, []statusHistoryRecord{{
-		ns: statushistory.Namespace{Name: "application", ID: applicationUUID.String()},
+		ns: statushistory.Namespace{Kind: corestatus.KindApplication, ID: applicationUUID.String()},
 		s: corestatus.StatusInfo{
 			Status:  corestatus.Active,
 			Message: "doink",
@@ -314,7 +314,7 @@ func (s *serviceSuite) TestSetWorkloadUnitStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.statusHistory.records, jc.DeepEquals, []statusHistoryRecord{{
-		ns: statushistory.Namespace{Name: "unit-workload", ID: "foo/666"},
+		ns: statushistory.Namespace{Kind: corestatus.KindWorkload, ID: "foo/666"},
 		s: corestatus.StatusInfo{
 			Status:  corestatus.Active,
 			Message: "doink",

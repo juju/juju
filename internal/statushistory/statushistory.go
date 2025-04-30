@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"time"
@@ -21,7 +20,7 @@ import (
 
 // Record represents a single record of status information.
 type Record struct {
-	Name    string
+	Kind    status.HistoryKind
 	ID      string
 	Message string
 	Status  string
@@ -37,23 +36,23 @@ type Recorder interface {
 
 // Namespace represents a namespace of the status we're recording.
 type Namespace struct {
-	Name string
+	Kind status.HistoryKind
 	ID   string
 }
 
 // WithID returns a new namespace with the given ID.
 func (n Namespace) WithID(id string) Namespace {
 	return Namespace{
-		Name: n.Name,
+		Kind: n.Kind,
 		ID:   id,
 	}
 }
 
 func (n Namespace) String() string {
 	if n.ID == "" {
-		return n.Name
+		return n.Kind.String()
 	}
-	return n.Name + " (" + n.ID + ")"
+	return n.Kind.String() + " (" + n.ID + ")"
 }
 
 // StatusHistory records status information into a generalized way.
@@ -82,7 +81,7 @@ func (s *StatusHistory) RecordStatus(ctx context.Context, ns Namespace, status s
 	}
 
 	return s.recorder.Record(ctx, Record{
-		Name:    ns.Name,
+		Kind:    ns.Kind,
 		ID:      ns.ID,
 		Message: status.Message,
 		Status:  status.Status.String(),
@@ -149,6 +148,8 @@ type jsonRecord struct {
 // Walk reads the status history records from the reader and applies the
 // given function to each record.
 func (r *StatusHistoryReader) Walk(fn func(HistoryRecord) (bool, error)) error {
+	kinds := status.AllHistoryKind()
+
 	// Read each line of the log file and unmarshal it into a LogRecord.
 	// Filter out records that do not match the requested entities.
 	for {
@@ -174,8 +175,8 @@ func (r *StatusHistoryReader) Walk(fn func(HistoryRecord) (bool, error)) error {
 			continue
 		}
 
-		kind, err := parseKind(rec.Labels[namespaceNameKey])
-		if err != nil {
+		kind := status.HistoryKind(rec.Labels[kindKey])
+		if _, valid := kinds[kind]; !valid {
 			continue
 		}
 
@@ -235,19 +236,6 @@ func (s scannerCloser) Close() error {
 		return s.Closer.Close()
 	}
 	return nil
-}
-
-func parseKind(kind string) (status.HistoryKind, error) {
-	switch kind {
-	case "machine":
-		return status.KindMachine, nil
-	case "unit":
-		return status.KindUnit, nil
-	case "application":
-		return status.KindApplication, nil
-	default:
-		return "", fmt.Errorf("unknown kind: %s", kind)
-	}
 }
 
 func ptr[T any](t T) *T {

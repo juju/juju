@@ -36,13 +36,13 @@ type statusHistorySuite struct {
 var _ = gc.Suite(&statusHistorySuite{})
 
 func (s *statusHistorySuite) TestNamespace(c *gc.C) {
-	ns := Namespace{Name: "foo", ID: "123"}
+	ns := Namespace{Kind: "foo", ID: "123"}
 	c.Assert(ns.String(), gc.Equals, "foo (123)")
 	c.Assert(ns.WithID("456").String(), gc.Equals, "foo (456)")
 }
 
 func (s *statusHistorySuite) TestNamespaceNoID(c *gc.C) {
-	ns := Namespace{Name: "foo"}
+	ns := Namespace{Kind: "foo"}
 	c.Assert(ns.String(), gc.Equals, "foo")
 	c.Assert(ns.WithID("").String(), gc.Equals, "foo")
 }
@@ -50,11 +50,11 @@ func (s *statusHistorySuite) TestNamespaceNoID(c *gc.C) {
 func (s *statusHistorySuite) TestRecordStatus(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	ns := Namespace{Name: "foo", ID: "123"}
+	ns := Namespace{Kind: "foo", ID: "123"}
 	now := time.Now()
 
 	s.recorder.EXPECT().Record(gomock.Any(), Record{
-		Name:    "foo",
+		Kind:    "foo",
 		ID:      "123",
 		Status:  "active",
 		Message: "foo",
@@ -79,11 +79,11 @@ func (s *statusHistorySuite) TestRecordStatus(c *gc.C) {
 func (s *statusHistorySuite) TestRecordStatusWithError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	ns := Namespace{Name: "foo", ID: "123"}
+	ns := Namespace{Kind: "foo", ID: "123"}
 	now := time.Now()
 
 	s.recorder.EXPECT().Record(gomock.Any(), Record{
-		Name:    "foo",
+		Kind:    "foo",
 		ID:      "123",
 		Status:  "active",
 		Message: "foo",
@@ -108,11 +108,11 @@ func (s *statusHistorySuite) TestRecordStatusWithError(c *gc.C) {
 func (s *statusHistorySuite) TestRecordStatusNoID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	ns := Namespace{Name: "foo"}
+	ns := Namespace{Kind: "foo"}
 	now := time.Now()
 
 	s.recorder.EXPECT().Record(gomock.Any(), Record{
-		Name:    "foo",
+		Kind:    "foo",
 		Status:  "active",
 		Message: "foo",
 		Time:    now.Format(time.RFC3339),
@@ -136,11 +136,11 @@ func (s *statusHistorySuite) TestRecordStatusNoID(c *gc.C) {
 func (s *statusHistorySuite) TestRecordStatusNoData(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	ns := Namespace{Name: "foo"}.WithID("123")
+	ns := Namespace{Kind: "foo"}.WithID("123")
 	now := time.Now()
 
 	s.recorder.EXPECT().Record(gomock.Any(), Record{
-		Name:    "foo",
+		Kind:    "foo",
 		ID:      "123",
 		Status:  "active",
 		Message: "foo",
@@ -159,7 +159,7 @@ func (s *statusHistorySuite) TestRecordStatusNoData(c *gc.C) {
 func (s *statusHistorySuite) TestRecordStatusNoSince(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	ns := Namespace{Name: "foo"}.WithID("123")
+	ns := Namespace{Kind: "foo"}.WithID("123")
 
 	var record Record
 	s.recorder.EXPECT().Record(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, r Record) error {
@@ -203,7 +203,7 @@ func (s *statusHistoryReaderSuite) TestWalk(c *gc.C) {
 		encoder := json.NewEncoder(w)
 		for i := range rnd {
 			record := Record{
-				Name:    "application",
+				Kind:    "application",
 				ID:      strconv.Itoa(i),
 				Status:  status.Active.String(),
 				Message: "foo",
@@ -212,13 +212,13 @@ func (s *statusHistoryReaderSuite) TestWalk(c *gc.C) {
 			data := `{"bar": "baz"}`
 
 			labels := logger.Labels{
-				categoryKey:      statusHistoryCategory,
-				namespaceNameKey: record.Name,
-				namespaceIDKey:   record.ID,
-				statusKey:        record.Status,
-				messageKey:       record.Message,
-				sinceKey:         record.Time,
-				dataKey:          string(data),
+				categoryKey:    statusHistoryCategory,
+				kindKey:        record.Kind.String(),
+				namespaceIDKey: record.ID,
+				statusKey:      record.Status,
+				messageKey:     record.Message,
+				sinceKey:       record.Time,
+				dataKey:        string(data),
 			}
 
 			err := encoder.Encode(logger.LogRecord{
@@ -276,7 +276,7 @@ func (s *statusHistoryReaderSuite) TestWalkWhilstAdding(c *gc.C) {
 		encoder := json.NewEncoder(w)
 		for i := range rnd {
 			record := Record{
-				Name:    "application",
+				Kind:    "application",
 				ID:      strconv.Itoa(i),
 				Status:  status.Active.String(),
 				Message: "foo",
@@ -285,13 +285,13 @@ func (s *statusHistoryReaderSuite) TestWalkWhilstAdding(c *gc.C) {
 			data := `{"bar": "baz"}`
 
 			labels := logger.Labels{
-				categoryKey:      statusHistoryCategory,
-				namespaceNameKey: record.Name,
-				namespaceIDKey:   record.ID,
-				statusKey:        record.Status,
-				messageKey:       record.Message,
-				sinceKey:         record.Time,
-				dataKey:          string(data),
+				categoryKey:    statusHistoryCategory,
+				kindKey:        record.Kind.String(),
+				namespaceIDKey: record.ID,
+				statusKey:      record.Status,
+				messageKey:     record.Message,
+				sinceKey:       record.Time,
+				dataKey:        string(data),
 			}
 
 			err := encoder.Encode(logger.LogRecord{
@@ -335,7 +335,7 @@ func (s *statusHistoryReaderSuite) TestWalkWhilstAdding(c *gc.C) {
 			encoder := json.NewEncoder(w)
 			for i := range rnd {
 				record := Record{
-					Name:    "application",
+					Kind:    "application",
 					ID:      strconv.Itoa(i),
 					Status:  status.Active.String(),
 					Message: "foo",
@@ -344,13 +344,13 @@ func (s *statusHistoryReaderSuite) TestWalkWhilstAdding(c *gc.C) {
 				data := `{"bar": "baz"}`
 
 				labels := logger.Labels{
-					categoryKey:      statusHistoryCategory,
-					namespaceNameKey: record.Name,
-					namespaceIDKey:   record.ID,
-					statusKey:        record.Status,
-					messageKey:       record.Message,
-					sinceKey:         record.Time,
-					dataKey:          string(data),
+					categoryKey:    statusHistoryCategory,
+					kindKey:        record.Kind.String(),
+					namespaceIDKey: record.ID,
+					statusKey:      record.Status,
+					messageKey:     record.Message,
+					sinceKey:       record.Time,
+					dataKey:        string(data),
 				}
 
 				err := encoder.Encode(logger.LogRecord{
@@ -383,7 +383,7 @@ func (s *statusHistoryReaderSuite) TestWalkWithDifferentLabel(c *gc.C) {
 		encoder := json.NewEncoder(w)
 		for i := range 10 {
 			record := Record{
-				Name:    "application",
+				Kind:    "application",
 				ID:      strconv.Itoa(i),
 				Status:  status.Active.String(),
 				Message: "foo",
@@ -392,13 +392,13 @@ func (s *statusHistoryReaderSuite) TestWalkWithDifferentLabel(c *gc.C) {
 			data := `{"bar": "baz"}`
 
 			labels := logger.Labels{
-				categoryKey:      "foo",
-				namespaceNameKey: record.Name,
-				namespaceIDKey:   record.ID,
-				statusKey:        record.Status,
-				messageKey:       record.Message,
-				sinceKey:         record.Time,
-				dataKey:          string(data),
+				categoryKey:    "foo",
+				kindKey:        record.Kind.String(),
+				namespaceIDKey: record.ID,
+				statusKey:      record.Status,
+				messageKey:     record.Message,
+				sinceKey:       record.Time,
+				dataKey:        string(data),
 			}
 
 			err := encoder.Encode(logger.LogRecord{
@@ -454,7 +454,7 @@ func (s *statusHistoryReaderSuite) TestWalkCorruptLine(c *gc.C) {
 		encoder := json.NewEncoder(w)
 		for i := range 10 {
 			record := Record{
-				Name:    "application",
+				Kind:    "application",
 				ID:      strconv.Itoa(i),
 				Status:  status.Active.String(),
 				Message: "foo",
@@ -463,13 +463,13 @@ func (s *statusHistoryReaderSuite) TestWalkCorruptLine(c *gc.C) {
 			data := `{"bar": "baz"}`
 
 			labels := logger.Labels{
-				categoryKey:      statusHistoryCategory,
-				namespaceNameKey: record.Name,
-				namespaceIDKey:   record.ID,
-				statusKey:        record.Status,
-				messageKey:       record.Message,
-				sinceKey:         record.Time,
-				dataKey:          string(data),
+				categoryKey:    statusHistoryCategory,
+				kindKey:        record.Kind.String(),
+				namespaceIDKey: record.ID,
+				statusKey:      record.Status,
+				messageKey:     record.Message,
+				sinceKey:       record.Time,
+				dataKey:        string(data),
 			}
 
 			err := encoder.Encode(logger.LogRecord{
