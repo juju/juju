@@ -18,12 +18,20 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/network"
+	internalerrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 var logger = internallogger.GetLogger("juju.apiserver.common.networkingcommon")
+
+// ModelInfoService is the interface that is used to ask questions about the
+// current model.
+type ModelInfoService interface {
+	// GetModelCloudType returns the type of the cloud that is in use by this model.
+	GetModelCloudType(context.Context) (string, error)
+}
 
 // NetworkService is the interface that is used to interact with the
 // network spaces/subnets.
@@ -43,25 +51,22 @@ type NetworkConfigAPI struct {
 
 // NewNetworkConfigAPI constructs a new common network configuration API
 // and returns its reference.
-func NewNetworkConfigAPI(ctx context.Context, st *state.State, cloudService common.CloudService, networkService NetworkService, getCanModify common.GetAuthFunc) (*NetworkConfigAPI, error) {
-	// TODO (manadart 2020-08-11): This is a second access of the model when
-	// being instantiated by the provisioner API.
-	// We should ameliorate repeat model access at some point,
-	// as it queries state each time.
-	mod, err := st.Model()
+func NewNetworkConfigAPI(
+	ctx context.Context,
+	st *state.State,
+	modelInfoService ModelInfoService,
+	networkService NetworkService,
+	getCanModify common.GetAuthFunc,
+) (*NetworkConfigAPI, error) {
+	cloudType, err := modelInfoService.GetModelCloudType(ctx)
 	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	cloud, err := cloudService.Cloud(ctx, mod.CloudName())
-	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, internalerrors.Errorf("getting model cloud type: %w", err)
 	}
 
 	getModelOp := func(machine LinkLayerMachine, incoming network.InterfaceInfos) state.ModelOperation {
 		// We discover subnets via reported link-layer devices for the
 		// manual provider, which allows us to use spaces there.
-		return newUpdateMachineLinkLayerOp(machine, networkService, incoming, strings.EqualFold(cloud.Type, "manual"))
+		return newUpdateMachineLinkLayerOp(machine, networkService, incoming, strings.EqualFold(cloudType, "manual"))
 	}
 
 	return &NetworkConfigAPI{

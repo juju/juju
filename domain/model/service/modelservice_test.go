@@ -575,6 +575,45 @@ func (s *modelServiceSuite) TestGetEnvironVersionFailedModelNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
+func (s *modelServiceSuite) TestGetModelCloudType(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+
+	s.mockModelState.EXPECT().GetModelCloudType(gomock.Any()).Return("ec2", nil)
+
+	cloudType, err := svc.GetModelCloudType(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cloudType, gc.Equals, "ec2")
+}
+
+func (s *modelServiceSuite) TestGetModelCloudTypeFailedModelNotFound(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelService(
+		modelUUID,
+		s.mockControllerState,
+		s.mockModelState,
+		s.environVersionProviderGetter(),
+		DefaultAgentBinaryFinder(),
+	)
+
+	s.mockModelState.EXPECT().GetModelCloudType(gomock.Any()).Return("", modelerrors.NotFound)
+
+	_, err := svc.GetModelCloudType(context.Background())
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
 type providerModelServiceSuite struct {
 	modelServiceSuite
 	mockProvider          *MockModelResourcesProvider

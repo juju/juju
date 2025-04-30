@@ -50,6 +50,13 @@ type MachineService interface {
 	IsMachineController(context.Context, machine.Name) (bool, error)
 }
 
+// ModelInfoService is the interface that is used to ask questions about the
+// current model.
+type ModelInfoService interface {
+	// GetModelCloudType returns the type of the cloud that is in use by this model.
+	GetModelCloudType(context.Context) (string, error)
+}
+
 // MachinerAPI implements the API used by the machiner worker.
 type MachinerAPI struct {
 	*common.LifeGetter
@@ -79,7 +86,7 @@ func NewMachinerAPIForState(
 	ctrlSt, st *state.State,
 	clock clock.Clock,
 	controllerConfigService ControllerConfigService,
-	cloudService common.CloudService,
+	modelInfoService ModelInfoService,
 	networkService NetworkService,
 	machineService MachineService,
 	watcherRegistry facade.WatcherRegistry,
@@ -94,7 +101,7 @@ func NewMachinerAPIForState(
 		return authorizer.AuthOwner, nil
 	}
 
-	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(ctx, st, cloudService, networkService, getCanAccess)
+	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(ctx, st, modelInfoService, networkService, getCanAccess)
 	if err != nil {
 		return nil, errors.Annotate(err, "instantiating network config API")
 	}
