@@ -180,7 +180,7 @@ func (ssw *serverWrapperWorker) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if port == config.SSHServerPort() && maxConns == config.SSHMaxConcurrentConnections() {
+			if maxConns == config.SSHMaxConcurrentConnections() {
 				ssw.config.Logger.Debugf(context.Background(), "controller configuration changed, but nothing changed for the ssh server.")
 				continue
 			}

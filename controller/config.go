@@ -597,7 +597,6 @@ var (
 		ObjectStoreS3StaticSecret,
 		ObjectStoreS3StaticSession,
 		SSHMaxConcurrentConnections,
-		SSHServerPort,
 	)
 
 	methodNameRE = regexp.MustCompile(`[[:alpha:]][[:alnum:]]*\.[[:alpha:]][[:alnum:]]*`)

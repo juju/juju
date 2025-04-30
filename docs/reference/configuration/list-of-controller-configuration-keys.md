@@ -753,7 +753,7 @@ connections to the controller.
 
 **Default value:** 17022
 
-**Can be changed after bootstrap:** yes
+**Can be changed after bootstrap:** no
 
 
 (controller-config-state-port)=
