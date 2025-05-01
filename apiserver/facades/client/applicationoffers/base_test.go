@@ -38,6 +38,7 @@ type baseSuite struct {
 	bakery                        *mockBakeryService
 	authContext                   *crossmodel.AuthContext
 	applicationOffers             *stubApplicationOffers
+	modelUUID                     coremodel.UUID
 	mockAccessService             *MockAccessService
 	mockModelDomainServicesGetter *MockModelDomainServicesGetter
 	mockModelDomainServices       *MockModelDomainServices
@@ -52,13 +53,13 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 		AdminTag: names.NewUserTag("admin"),
 	}
 
+	s.modelUUID = modeltesting.GenModelUUID(c)
 	s.mockState = &mockState{
-		modelUUID:         modeltesting.GenModelUUID(c).String(),
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
 		relations:         make(map[string]crossmodel.Relation),
 		relationNetworks:  &mockRelationNetworks{},
 	}
-	s.mockStatePool = &mockStatePool{map[string]applicationoffers.Backend{s.mockState.modelUUID: s.mockState}}
+	s.mockStatePool = &mockStatePool{map[string]applicationoffers.Backend{s.modelUUID.String(): s.mockState}}
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -132,7 +133,7 @@ func (s *baseSuite) setupOffersForUUID(c *gc.C, offerUUID, filterAppName string,
 			{
 				Name:      "prod",
 				OwnerName: userFred,
-				UUID:      coremodel.UUID(s.mockState.modelUUID),
+				UUID:      s.modelUUID,
 				ModelType: coremodel.IAAS,
 			},
 		}, nil,
@@ -142,7 +143,7 @@ func (s *baseSuite) setupOffersForUUID(c *gc.C, offerUUID, filterAppName string,
 		coremodel.Model{
 			Name:      "prod",
 			OwnerName: userFred,
-			UUID:      coremodel.UUID(s.mockState.modelUUID),
+			UUID:      s.modelUUID,
 			ModelType: coremodel.IAAS,
 		}, nil,
 	).AnyTimes()
@@ -161,7 +162,7 @@ func (s *baseSuite) setupOffersForUUID(c *gc.C, offerUUID, filterAppName string,
 	s.mockState.connections = []applicationoffers.OfferConnection{
 		&mockOfferConnection{
 			username:    "fred@external",
-			modelUUID:   s.mockState.modelUUID,
+			modelUUID:   s.modelUUID.String(),
 			relationKey: "hosted-db2:db wordpress:db",
 			relationId:  1,
 		},

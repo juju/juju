@@ -451,7 +451,7 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	otherDomainServices := s.ModelDomainServices(c, model.UUID(s.DomainServicesSuite.DefaultModelUUID))
+	otherDomainServices := s.ModelDomainServices(c, s.DomainServicesSuite.DefaultModelUUID)
 	otherBlockCommands := otherDomainServices.BlockCommand()
 	otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.ChangeBlock, "TestChangeBlock")
 	otherBlockCommands.SwitchBlockOn(context.Background(), blockcommand.DestroyBlock, "TestChangeBlock")
@@ -462,7 +462,7 @@ func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 
 	s.mockModelService.EXPECT().ListModelIDs(gomock.Any()).Return(
 		[]model.UUID{
-			model.UUID(s.DomainServicesSuite.DefaultModelUUID),
+			s.DomainServicesSuite.DefaultModelUUID,
 		}, nil,
 	)
 	err = s.controller.RemoveBlocks(context.Background(), params.RemoveBlocksArgs{All: true})

@@ -123,7 +123,6 @@ func (s *offerAccessSuite) setupOffer(c *gc.C, modelUUID, modelName, owner, offe
 	).AnyTimes()
 
 	st := &mockState{
-		modelUUID:         modelUUID,
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
 	}
 	s.mockStatePool.st[modelUUID] = st
@@ -201,7 +200,7 @@ func (s *offerAccessSuite) TestGrantPermissionAddRemoteUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	offerUUID := s.setupOffer("uuid", "test", "superuser-bob", "someoffer")
+	offerUUID := s.setupOffer(c, "uuid", "test", "superuser-bob", "someoffer")
 
 	apiUser := names.NewUserTag("superuser-bob")
 	s.authorizer.Tag = apiUser
@@ -259,7 +258,7 @@ func (s *offerAccessSuite) TestGrantToOfferAdminAccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	offerUUID := s.setupOffer("uuid", "test", "foobar", "someoffer")
+	offerUUID := s.setupOffer(c, "uuid", "test", "foobar", "someoffer")
 
 	user := names.NewUserTag("foobar")
 	s.authorizer.Tag = user
@@ -356,7 +355,7 @@ func (s *offerAccessSuite) TestModifyOfferAccessEmptyArgs(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	s.setupOffer("uuid", "test", "admin", "someoffer")
+	s.setupOffer(c, "uuid", "test", "admin", "someoffer")
 	args := params.ModifyOfferAccessRequest{
 		Changes: []params.ModifyOfferAccess{{OfferURL: "test.someoffer"}}}
 
@@ -390,10 +389,10 @@ func (s *offerAccessSuite) TestModifyOfferAccessInvalidAction(c *gc.C) {
 // TestModifyOfferAccessForModelAdminPermission tests modifying offer access when authorized as model admin.
 // It validates bugfix https://bugs.launchpad.net/juju/+bug/2082494
 func (s *offerAccessSuite) TestModifyOfferAccessForModelAdminPermission(c *gc.C) {
-	modelUUID := uuid.MustNewUUID().String()
-	s.setupOffer(modelUUID, "test", "admin", "someoffer")
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.setupOffer(c, modelUUID.String(), "test", "admin", "someoffer")
 
-	s.authorizer.Tag = names.NewUserTag("admin-model-" + modelUUID)
+	s.authorizer.Tag = names.NewUserTag("admin-model-" + modelUUID.String())
 	args := params.ModifyOfferAccessRequest{
 		Changes: []params.ModifyOfferAccess{{
 			UserTag:  "user-luke",

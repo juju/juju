@@ -179,7 +179,6 @@ func (m *mockApplicationOffers) Remove(name string, force bool) error {
 type mockState struct {
 	crossmodel.Backend
 	common.APIAddressAccessor
-	modelUUID         string
 	AdminTag          names.UserTag
 	applications      map[string]crossmodel.Application
 	applicationOffers map[string]jujucrossmodel.ApplicationOffer

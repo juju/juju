@@ -87,7 +87,7 @@ func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
 	applicationName := "test"
 	s.addApplication(c, applicationName)
 	one := params.AddApplicationOffer{
-		ModelTag:        names.NewModelTag(s.mockState.modelUUID).String(),
+		ModelTag:        names.NewModelTag(s.modelUUID.String()).String(),
 		OfferName:       "offer-test",
 		ApplicationName: applicationName,
 		Endpoints:       map[string]string{"db": "db"},
@@ -107,7 +107,7 @@ func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
 	}
 
 	if expectedErr == nil {
-		s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), coremodel.UUID(s.mockState.modelUUID)).Return(s.mockModelDomainServices, nil)
+		s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), s.modelUUID).Return(s.mockModelDomainServices, nil)
 		s.mockModelDomainServices.EXPECT().Application().Return(s.mockApplicationService)
 
 		locator := applicationcharm.CharmLocator{
@@ -155,7 +155,7 @@ func (s *applicationOffersSuite) TestAddOfferUpdatesExistingOffer(c *gc.C) {
 	applicationName := "test"
 	s.addApplication(c, applicationName)
 	one := params.AddApplicationOffer{
-		ModelTag:        names.NewModelTag(s.mockState.modelUUID).String(),
+		ModelTag:        names.NewModelTag(s.modelUUID.String()).String(),
 		OfferName:       "offer-test",
 		ApplicationName: applicationName,
 		Endpoints:       map[string]string{"db": "db"},
@@ -180,7 +180,7 @@ func (s *applicationOffersSuite) TestAddOfferUpdatesExistingOffer(c *gc.C) {
 		applicationName: &mockApplication{bindings: map[string]string{"db": "myspace"}},
 	}
 
-	modelUUID := coremodel.UUID(s.mockState.modelUUID)
+	modelUUID := coremodel.UUID(s.modelUUID.String())
 	s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), modelUUID).Return(s.mockModelDomainServices, nil)
 	s.mockModelDomainServices.EXPECT().Application().Return(s.mockApplicationService)
 
@@ -212,13 +212,13 @@ func (s *applicationOffersSuite) TestOfferSomeFail(c *gc.C) {
 
 	s.authorizer.Tag = names.NewUserTag("admin")
 	one := params.AddApplicationOffer{
-		ModelTag:        names.NewModelTag(s.mockState.modelUUID).String(),
+		ModelTag:        names.NewModelTag(s.modelUUID.String()).String(),
 		OfferName:       "offer-one",
 		ApplicationName: "one",
 		Endpoints:       map[string]string{"db": "db"},
 	}
 	two := params.AddApplicationOffer{
-		ModelTag:        names.NewModelTag(s.mockState.modelUUID).String(),
+		ModelTag:        names.NewModelTag(s.modelUUID.String()).String(),
 		OfferName:       "offer-two",
 		ApplicationName: "two",
 		Endpoints:       map[string]string{"db": "db"},
@@ -244,7 +244,7 @@ func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
 	applicationName := "test"
 	s.addApplication(c, applicationName)
 	one := params.AddApplicationOffer{
-		ModelTag:        names.NewModelTag(s.mockState.modelUUID).String(),
+		ModelTag:        names.NewModelTag(s.modelUUID.String()).String(),
 		OfferName:       "offer-test",
 		ApplicationName: applicationName,
 		Endpoints:       map[string]string{"db": "db"},
@@ -260,7 +260,7 @@ func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
 		applicationName: &mockApplication{bindings: map[string]string{"db": "myspace"}},
 	}
 
-	modelUUID := coremodel.UUID(s.mockState.modelUUID)
+	modelUUID := coremodel.UUID(s.modelUUID.String())
 	s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), modelUUID).Return(s.mockModelDomainServices, nil)
 	s.mockModelDomainServices.EXPECT().Application().Return(s.mockApplicationService)
 
@@ -285,7 +285,7 @@ func (s *applicationOffersSuite) TestOfferErrorApplicationError(c *gc.C) {
 	applicationName := "test"
 	s.addApplication(c, applicationName)
 	one := params.AddApplicationOffer{
-		ModelTag:        names.NewModelTag(s.mockState.modelUUID).String(),
+		ModelTag:        names.NewModelTag(s.modelUUID.String()).String(),
 		OfferName:       "offer-test",
 		ApplicationName: applicationName,
 		Endpoints:       map[string]string{"db": "db"},
@@ -299,7 +299,7 @@ func (s *applicationOffersSuite) TestOfferErrorApplicationError(c *gc.C) {
 		applicationName: &mockApplication{bindings: map[string]string{"db": "myspace"}},
 	}
 
-	modelUUID := coremodel.UUID(s.mockState.modelUUID)
+	modelUUID := coremodel.UUID(s.modelUUID.String())
 	s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), modelUUID).Return(s.mockModelDomainServices, nil)
 	s.mockModelDomainServices.EXPECT().Application().Return(s.mockApplicationService)
 
@@ -323,7 +323,7 @@ func (s *applicationOffersSuite) TestOfferErrorApplicationCharmError(c *gc.C) {
 	applicationName := "test"
 	s.addApplication(c, applicationName)
 	one := params.AddApplicationOffer{
-		ModelTag:        names.NewModelTag(s.mockState.modelUUID).String(),
+		ModelTag:        names.NewModelTag(s.modelUUID.String()).String(),
 		OfferName:       "offer-test",
 		ApplicationName: applicationName,
 		Endpoints:       map[string]string{"db": "db"},
@@ -337,7 +337,7 @@ func (s *applicationOffersSuite) TestOfferErrorApplicationCharmError(c *gc.C) {
 		applicationName: &mockApplication{bindings: map[string]string{"db": "myspace"}},
 	}
 
-	modelUUID := coremodel.UUID(s.mockState.modelUUID)
+	modelUUID := coremodel.UUID(s.modelUUID.String())
 	s.mockModelDomainServicesGetter.EXPECT().DomainServicesForModel(gomock.Any(), modelUUID).Return(s.mockModelDomainServices, nil)
 	s.mockModelDomainServices.EXPECT().Application().Return(s.mockApplicationService)
 
@@ -387,7 +387,7 @@ func (s *applicationOffersSuite) assertList(c *gc.C, offerUUID string, expectedC
 	expectedOfferDetails := []params.ApplicationOfferAdminDetailsV5{
 		{
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-				SourceModelTag:         names.NewModelTag(s.mockState.modelUUID).String(),
+				SourceModelTag:         names.NewModelTag(s.modelUUID.String()).String(),
 				ApplicationDescription: "description",
 				OfferName:              "hosted-db2",
 				OfferUUID:              offerUUID,
@@ -401,7 +401,7 @@ func (s *applicationOffersSuite) assertList(c *gc.C, offerUUID string, expectedC
 			ApplicationName: "test",
 			CharmURL:        "ch:db2-2",
 			Connections: []params.OfferConnection{{
-				SourceModelTag: names.NewModelTag(s.mockState.modelUUID).String(),
+				SourceModelTag: names.NewModelTag(s.modelUUID.String()).String(),
 				RelationId:     1,
 				Endpoint:       "db",
 				Username:       "fred@external",
@@ -539,7 +539,7 @@ func (s *applicationOffersSuite) TestShow(c *gc.C) {
 	expected := []params.ApplicationOfferResult{{
 		Result: &params.ApplicationOfferAdminDetailsV5{
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-				SourceModelTag:         names.NewModelTag(s.mockState.modelUUID).String(),
+				SourceModelTag:         names.NewModelTag(s.modelUUID.String()).String(),
 				ApplicationDescription: "description",
 				OfferURL:               "fred@external/prod.hosted-db2",
 				OfferName:              "hosted-db2",
@@ -553,7 +553,7 @@ func (s *applicationOffersSuite) TestShow(c *gc.C) {
 			ApplicationName: "test",
 			CharmURL:        "ch:db2-2",
 			Connections: []params.OfferConnection{{
-				SourceModelTag: names.NewModelTag(s.mockState.modelUUID).String(),
+				SourceModelTag: names.NewModelTag(s.modelUUID.String()).String(),
 				RelationId:     1, Username: "fred@external", Endpoint: "db",
 				Status:         params.EntityStatus{Status: "joined"},
 				IngressSubnets: []string{"192.168.1.0/32", "10.0.0.0/8"},
@@ -626,7 +626,7 @@ func (s *applicationOffersSuite) TestShowNonSuperuser(c *gc.C) {
 	expected := []params.ApplicationOfferResult{{
 		Result: &params.ApplicationOfferAdminDetailsV5{
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-				SourceModelTag:         names.NewModelTag(s.mockState.modelUUID).String(),
+				SourceModelTag:         names.NewModelTag(s.modelUUID.String()).String(),
 				ApplicationDescription: "description",
 				OfferURL:               "fred@external/prod.hosted-db2",
 				OfferName:              "hosted-db2",
@@ -660,7 +660,7 @@ func (s *applicationOffersSuite) TestShowNonSuperuserExternal(c *gc.C) {
 	expected := []params.ApplicationOfferResult{{
 		Result: &params.ApplicationOfferAdminDetailsV5{
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-				SourceModelTag:         names.NewModelTag(s.mockState.modelUUID).String(),
+				SourceModelTag:         names.NewModelTag(s.modelUUID.String()).String(),
 				ApplicationDescription: "description",
 				OfferURL:               "fred@external/prod.hosted-db2",
 				OfferName:              "hosted-db2",
@@ -701,7 +701,7 @@ func (s *applicationOffersSuite) TestShowError(c *gc.C) {
 		coremodel.Model{
 			Name:      "prod",
 			OwnerName: fredUser,
-			UUID:      coremodel.UUID(s.mockState.modelUUID),
+			UUID:      coremodel.UUID(s.modelUUID.String()),
 			ModelType: coremodel.IAAS,
 		}, nil,
 	)
@@ -729,7 +729,7 @@ func (s *applicationOffersSuite) TestShowNotFound(c *gc.C) {
 		coremodel.Model{
 			Name:      "prod",
 			OwnerName: fredUser,
-			UUID:      coremodel.UUID(s.mockState.modelUUID),
+			UUID:      coremodel.UUID(s.modelUUID.String()),
 			ModelType: coremodel.IAAS,
 		}, nil,
 	)
@@ -769,9 +769,7 @@ func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 		return nil, nil
 	}
 
-	s.mockStatePool.st["uuid2"] = &mockState{
-		modelUUID: "uuid2",
-	}
+	s.mockStatePool.st["uuid2"] = &mockState{}
 
 	// Expect getting api users display name from database.
 	s.mockAccessService.EXPECT().GetUserByName(gomock.Any(), coreuser.NameFromTag(s.authorizer.Tag.(names.UserTag))).Return(coreuser.User{
@@ -785,7 +783,7 @@ func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 		coremodel.Model{
 			Name:      "prod",
 			OwnerName: userFred,
-			UUID:      coremodel.UUID(s.mockState.modelUUID),
+			UUID:      s.modelUUID,
 			ModelType: coremodel.IAAS,
 		}, nil,
 	)
@@ -848,9 +846,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 	userName := coreuser.NameFromTag(user)
 	s.authorizer.Tag = user
 
-	anotherState := &mockState{
-		modelUUID: "uuid2",
-	}
+	anotherState := &mockState{}
 	anotherState.applications = map[string]crossmodel.Application{
 		"testagain": &mockApplication{
 			curl: "ch:mysql-2", bindings: map[string]string{"db2": "anotherspace"}},
@@ -876,7 +872,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 		coremodel.Model{
 			Name:      "prod",
 			OwnerName: coreuser.NameFromTag(names.NewUserTag("fred@external")),
-			UUID:      coremodel.UUID(s.mockState.modelUUID),
+			UUID:      s.modelUUID,
 			ModelType: coremodel.IAAS,
 		}, nil,
 	)
@@ -899,7 +895,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, []params.ApplicationOfferAdminDetailsV5{
 		{
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-				SourceModelTag:         names.NewModelTag(s.mockState.modelUUID).String(),
+				SourceModelTag:         names.NewModelTag(s.modelUUID.String()).String(),
 				ApplicationDescription: "description",
 				OfferName:              "hosted-" + name,
 				OfferUUID:              "hosted-" + name + "-uuid",
@@ -967,7 +963,7 @@ func (s *applicationOffersSuite) TestFind(c *gc.C) {
 	expected := []params.ApplicationOfferAdminDetailsV5{
 		{
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-				SourceModelTag:         names.NewModelTag(s.mockState.modelUUID).String(),
+				SourceModelTag:         names.NewModelTag(s.modelUUID.String()).String(),
 				ApplicationDescription: "description",
 				OfferName:              "hosted-db2",
 				OfferUUID:              offerUUID,
@@ -979,7 +975,7 @@ func (s *applicationOffersSuite) TestFind(c *gc.C) {
 			ApplicationName: "test",
 			CharmURL:        "ch:db2-2",
 			Connections: []params.OfferConnection{{
-				SourceModelTag: names.NewModelTag(s.mockState.modelUUID).String(),
+				SourceModelTag: names.NewModelTag(s.modelUUID.String()).String(),
 				RelationId:     1, Username: "fred@external", Endpoint: "db",
 				Status:         params.EntityStatus{Status: "joined"},
 				IngressSubnets: []string{"192.168.1.0/32", "10.0.0.0/8"},
@@ -1033,7 +1029,7 @@ func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
 	expected := []params.ApplicationOfferAdminDetailsV5{
 		{
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-				SourceModelTag:         names.NewModelTag(s.mockState.modelUUID).String(),
+				SourceModelTag:         names.NewModelTag(s.modelUUID.String()).String(),
 				ApplicationDescription: "description",
 				OfferName:              "hosted-db2",
 				OfferUUID:              offerUUID,
@@ -1136,9 +1132,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 		},
 	}
 
-	anotherState := &mockState{
-		modelUUID: "uuid2",
-	}
+	anotherState := &mockState{}
 	s.mockStatePool.st["uuid2"] = anotherState
 	anotherState.applications = map[string]crossmodel.Application{
 		"mysql": &mockApplication{
@@ -1169,7 +1163,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	s.mockState.connections = []applicationoffers.OfferConnection{
 		&mockOfferConnection{
 			username:    "fred@external",
-			modelUUID:   s.mockState.modelUUID,
+			modelUUID:   s.modelUUID.String(),
 			relationKey: "hosted-db2:db wordpress:db",
 			relationId:  1,
 		},
@@ -1229,7 +1223,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 		coremodel.Model{
 			Name:      "prod",
 			OwnerName: coreuser.NameFromTag(names.NewUserTag("fred@external")),
-			UUID:      coremodel.UUID(s.mockState.modelUUID),
+			UUID:      s.modelUUID,
 			ModelType: coremodel.IAAS,
 		}, nil,
 	)
@@ -1248,7 +1242,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 		Results: []params.ApplicationOfferAdminDetailsV5{
 			{
 				ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-					SourceModelTag:         names.NewModelTag(s.mockState.modelUUID).String(),
+					SourceModelTag:         names.NewModelTag(s.modelUUID.String()).String(),
 					ApplicationDescription: "db2 description",
 					OfferName:              "hosted-db2",
 					OfferUUID:              oneOfferUUID,
@@ -1320,7 +1314,7 @@ func (s *applicationOffersSuite) TestFindError(c *gc.C) {
 			{
 				Name:      "prod",
 				OwnerName: userFred,
-				UUID:      coremodel.UUID(s.mockState.modelUUID),
+				UUID:      coremodel.UUID(s.modelUUID.String()),
 				ModelType: coremodel.IAAS,
 			},
 		}, nil,
@@ -1329,7 +1323,7 @@ func (s *applicationOffersSuite) TestFindError(c *gc.C) {
 		coremodel.Model{
 			Name:      "prod",
 			OwnerName: userFred,
-			UUID:      coremodel.UUID(s.mockState.modelUUID),
+			UUID:      coremodel.UUID(s.modelUUID.String()),
 			ModelType: coremodel.IAAS,
 		}, nil,
 	)
@@ -1525,7 +1519,7 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	c.Assert(results.Results[0].Offer, jc.DeepEquals, &params.ApplicationOfferDetailsV5{
-		SourceModelTag:         names.NewModelTag(s.mockState.modelUUID).String(),
+		SourceModelTag:         names.NewModelTag(s.modelUUID.String()).String(),
 		OfferURL:               "fred@external/prod.hosted-mysql",
 		OfferName:              "hosted-mysql",
 		OfferUUID:              offerUUID,
@@ -1545,7 +1539,7 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(
 	cav := s.bakery.caveats[string(results.Results[0].Macaroon.Id())]
 	c.Check(cav, gc.HasLen, 4)
 	c.Check(strings.HasPrefix(cav[0].Condition, "time-before "), jc.IsTrue)
-	c.Check(cav[1].Condition, gc.Equals, fmt.Sprintf("declared source-model-uuid %v", s.mockState.modelUUID))
+	c.Check(cav[1].Condition, gc.Equals, fmt.Sprintf("declared source-model-uuid %v", s.modelUUID))
 	c.Check(cav[2].Condition, gc.Equals, "declared username someone")
 	c.Check(cav[3].Condition, gc.Equals, "declared offer-uuid "+offerUUID)
 }
@@ -1575,7 +1569,7 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 
 	offerUUID := s.setupOffer(c)
 
-	st := s.mockStatePool.st[s.mockState.modelUUID].(*mockState)
+	st := s.mockStatePool.st[s.modelUUID.String()].(*mockState)
 
 	delete(st.applications["mysql"].(*mockApplication).bindings, "database")
 
@@ -1610,7 +1604,7 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	c.Assert(results.Results[0].Offer, jc.DeepEquals, &params.ApplicationOfferDetailsV5{
-		SourceModelTag:         names.NewModelTag(s.mockState.modelUUID).String(),
+		SourceModelTag:         names.NewModelTag(s.modelUUID.String()).String(),
 		OfferURL:               "fred@external/prod.hosted-mysql",
 		OfferName:              "hosted-mysql",
 		OfferUUID:              offerUUID,
@@ -1623,7 +1617,7 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 }
 
 func (s *consumeSuite) setupOffer(c *gc.C) string {
-	modelUUID := s.mockState.modelUUID
+	modelUUID := s.modelUUID
 	offerName := "hosted-mysql"
 
 	userFred, err := coreuser.NewName("fred@external")
@@ -1634,7 +1628,7 @@ func (s *consumeSuite) setupOffer(c *gc.C) string {
 			{
 				Name:      "prod",
 				OwnerName: userFred,
-				UUID:      coremodel.UUID(modelUUID),
+				UUID:      modelUUID,
 				ModelType: coremodel.IAAS,
 			},
 		}, nil,
@@ -1643,17 +1637,16 @@ func (s *consumeSuite) setupOffer(c *gc.C) string {
 		coremodel.Model{
 			Name:      "prod",
 			OwnerName: userFred,
-			UUID:      coremodel.UUID(modelUUID),
+			UUID:      modelUUID,
 			ModelType: coremodel.IAAS,
 		}, nil,
 	).AnyTimes()
 	st := &mockState{
-		modelUUID:         modelUUID,
 		applications:      make(map[string]crossmodel.Application),
 		applicationOffers: make(map[string]jujucrossmodel.ApplicationOffer),
 		relations:         make(map[string]crossmodel.Relation),
 	}
-	s.mockStatePool.st[modelUUID] = st
+	s.mockStatePool.st[modelUUID.String()] = st
 	anOffer := jujucrossmodel.ApplicationOffer{
 		ApplicationName:        "mysql",
 		ApplicationDescription: "a database",
@@ -1702,7 +1695,7 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	c.Assert(results.Results, jc.DeepEquals, []params.RemoteApplicationInfoResult{
 		{Result: &params.RemoteApplicationInfo{
-			ModelTag:         names.NewModelTag(s.mockState.modelUUID).String(),
+			ModelTag:         names.NewModelTag(s.modelUUID.String()).String(),
 			Name:             "hosted-mysql",
 			Description:      "a database",
 			OfferURL:         "fred@external/prod.hosted-mysql",
@@ -1726,11 +1719,11 @@ func (s *consumeSuite) TestDestroyOffersNoForceV2(c *gc.C) {
 
 func (s *consumeSuite) assertDestroyOffersNoForce(c *gc.C) {
 	s.setupOffer(c)
-	st := s.mockStatePool.st[s.mockState.modelUUID]
+	st := s.mockStatePool.st[s.modelUUID.String()]
 	st.(*mockState).connections = []applicationoffers.OfferConnection{
 		&mockOfferConnection{
 			username:    "fred@external",
-			modelUUID:   s.mockState.modelUUID,
+			modelUUID:   s.modelUUID.String(),
 			relationKey: "hosted-db2:db wordpress:db",
 			relationId:  1,
 		},
@@ -1769,12 +1762,12 @@ func (s *consumeSuite) TestDestroyOffersForce(c *gc.C) {
 	s.setupAPI(c)
 
 	s.setupOffer(c)
-	st := s.mockStatePool.st[s.mockState.modelUUID]
+	st := s.mockStatePool.st[s.modelUUID.String()]
 
 	st.(*mockState).connections = []applicationoffers.OfferConnection{
 		&mockOfferConnection{
 			username:    "fred@external",
-			modelUUID:   s.mockState.modelUUID,
+			modelUUID:   s.modelUUID.String(),
 			relationKey: "hosted-db2:db wordpress:db",
 			relationId:  1,
 		},
