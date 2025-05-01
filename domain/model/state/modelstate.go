@@ -875,7 +875,10 @@ func InsertModelInfo(
 		return errors.Capture(err)
 	}
 
-	v := dbModelAgent{TargetVersion: args.AgentVersion.String()}
+	v := dbModelAgent{
+		StreamID:      int(args.AgentStream),
+		TargetVersion: args.AgentVersion.String(),
+	}
 	vStmt, err := preparer.Prepare("INSERT INTO agent_version (*) VALUES ($dbModelAgent.*)", v)
 	if err != nil {
 		return errors.Capture(err)

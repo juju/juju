@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/agentbinary"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
@@ -28,6 +29,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/domain/model/state/testing"
+	"github.com/juju/juju/domain/modelagent"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -151,7 +153,7 @@ func (s *modelBootstrapSuite) TestCreateModelDetails(c *gc.C) {
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	fn = CreateLocalModelRecord(modelUUID, controllerUUID, jujuversion.Current)
+	fn = CreateLocalModelRecord(modelUUID, controllerUUID, jujuversion.Current, agentbinary.AgentStreamReleased)
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -170,7 +172,10 @@ func (s *modelBootstrapSuite) TestCreateModelDetails(c *gc.C) {
 	c.Check(m.IsControllerModel, gc.Equals, true)
 
 	v := sqlair.M{}
-	stmt, err = sqlair.Prepare(`SELECT &M.target_version FROM agent_version`, v)
+	stmt, err = sqlair.Prepare(`
+SELECT &M.target_version,
+       &M.stream_id
+FROM agent_version`, v)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.ModelTxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -179,6 +184,7 @@ func (s *modelBootstrapSuite) TestCreateModelDetails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(v["target_version"], gc.DeepEquals, jujuversion.Current.String())
+	c.Check(v["stream_id"], gc.Equals, int64(modelagent.AgentStreamReleased))
 }
 
 // TestCreateModelUnsupportedCredential is asserting the fact that if we supply
@@ -269,7 +275,7 @@ func (s *modelBootstrapSuite) TestSetModelConstraints(c *gc.C) {
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	fn = CreateLocalModelRecord(modelUUID, controllerUUID, jujuversion.Current)
+	fn = CreateLocalModelRecord(modelUUID, controllerUUID, jujuversion.Current, agentbinary.AgentStreamReleased)
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -340,7 +346,7 @@ func (s *modelBootstrapSuite) TestSetModelConstraintsInvalidContainerType(c *gc.
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	fn = CreateLocalModelRecord(modelUUID, controllerUUID, jujuversion.Current)
+	fn = CreateLocalModelRecord(modelUUID, controllerUUID, jujuversion.Current, agentbinary.AgentStreamReleased)
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -383,7 +389,7 @@ func (s *modelBootstrapSuite) TestSetModelConstraintFailedSpaceDoesNotExist(c *g
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
-	fn = CreateLocalModelRecord(modelUUID, controllerUUID, jujuversion.Current)
+	fn = CreateLocalModelRecord(modelUUID, controllerUUID, jujuversion.Current, agentbinary.AgentStreamReleased)
 	err = fn(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 

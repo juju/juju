@@ -17,6 +17,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	coreagent "github.com/juju/juju/core/agent"
+	"github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/credential"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
@@ -268,7 +269,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (_ *state.Controller, r
 		modeldefaultsbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
 		secretbackendbootstrap.CreateDefaultBackends(model.ModelType(modelType)),
 		controllerModelCreateFunc,
-		modelbootstrap.CreateLocalModelRecord(controllerModelUUID, controllerUUID, agentVersion),
+		modelbootstrap.CreateLocalModelRecord(controllerModelUUID, controllerUUID, agentVersion, agentbinary.AgentStreamReleased),
 		modelbootstrap.SetModelConstraints(stateParams.ModelConstraints),
 		modelconfigbootstrap.SetModelConfig(
 			controllerModelUUID, stateParams.ControllerModelConfig.AllAttrs(), controllerModelDefaults),

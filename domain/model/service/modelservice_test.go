@@ -13,6 +13,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/agentbinary"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
@@ -24,6 +25,7 @@ import (
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/domain/modelagent"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/uuid"
@@ -340,7 +342,7 @@ func (s *modelServiceSuite) TestAgentVersionUnsupportedGreater(c *gc.C) {
 	)
 
 	err = svc.CreateModelForVersion(
-		context.Background(), uuid.MustNewUUID(), agentVersion,
+		context.Background(), uuid.MustNewUUID(), agentVersion, agentbinary.AgentStreamReleased,
 	)
 	c.Assert(err, jc.ErrorIs, modelerrors.AgentVersionNotSupported)
 }
@@ -368,7 +370,7 @@ func (s *modelServiceSuite) TestAgentVersionUnsupportedLess(c *gc.C) {
 		DefaultAgentBinaryFinder(),
 	)
 	err = svc.CreateModelForVersion(
-		context.Background(), uuid.MustNewUUID(), agentVersion,
+		context.Background(), uuid.MustNewUUID(), agentVersion, agentbinary.AgentStreamReleased,
 	)
 	// Add the correct error detail when restoring this test.
 	c.Assert(err, gc.NotNil)
@@ -651,6 +653,7 @@ func (s *providerModelServiceSuite) TestCreateModel(c *gc.C) {
 		Cloud:          "aws",
 		CloudType:      "ec2",
 		CloudRegion:    "myregion",
+		AgentStream:    modelagent.AgentStreamReleased,
 		AgentVersion:   jujuversion.Current,
 	}).Return(nil)
 
@@ -692,6 +695,7 @@ func (s *providerModelServiceSuite) TestCreateModelFailedErrorAlreadyExists(c *g
 		Cloud:          "aws",
 		CloudType:      "ec2",
 		CloudRegion:    "myregion",
+		AgentStream:    modelagent.AgentStreamReleased,
 		AgentVersion:   jujuversion.Current,
 	}).Return(modelerrors.AlreadyExists)
 

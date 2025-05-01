@@ -390,6 +390,10 @@ type dbPermission struct {
 
 // dbModelAgent represents a row from the controller model_agent table.
 type dbModelAgent struct {
+	// StreamID is the unique identifier for the agent stream that is being used
+	// for model agents.
+	StreamID int `db:"stream_id"`
+
 	// TargetVersion describes the desired agent version that should be
 	// being run in this model. It should not be considered "the" version that
 	// is being run for every agent as each agent needs to upgrade to this

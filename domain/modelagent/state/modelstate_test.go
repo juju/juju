@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	machinestate "github.com/juju/juju/domain/machine/state"
+	"github.com/juju/juju/domain/modelagent"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -159,9 +160,12 @@ func (s *modelStateSuite) setModelTargetAgentVersion(c *gc.C, vers string) {
 	db, err := domain.NewStateBase(s.TxnRunnerFactory()).DB()
 	c.Assert(err, jc.ErrorIsNil)
 
-	q := "INSERT INTO agent_version (target_version) values ($M.target_version)"
+	q := "INSERT INTO agent_version (*) VALUES ($M.stream_id, $M.target_version)"
 
-	args := sqlair.M{"target_version": vers}
+	args := sqlair.M{
+		"target_version": vers,
+		"stream_id":      modelagent.AgentStreamReleased,
+	}
 	stmt, err := sqlair.Prepare(q, args)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -12,6 +12,10 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// AgentStream is an identifier representing the stream that should be used for
+// agent binaries.
+type AgentStream string
+
 // Metadata describes the data around an available agent binary within the
 // system.
 type Metadata struct {
@@ -38,6 +42,19 @@ type Version struct {
 	// Arch is the architecture of the agent binary.
 	Arch arch.Arch
 }
+
+const (
+	// AgentStreamZero represents the zero value AgentStream
+	AgentStreamZero = AgentStream("")
+	// AgentStreamReleased represents the released stream for agent binaries.
+	AgentStreamReleased = AgentStream("released")
+	// AgentStreamTesting represents the testing stream for agent binaries.
+	AgentStreamTesting = AgentStream("testing")
+	// AgentStreamProposed represents the proposed stream for agent binaries.
+	AgentStreamProposed = AgentStream("proposed")
+	// AgentStreamDevel represents the devel stream for agent binaries.
+	AgentStreamDevel = AgentStream("devel")
+)
 
 // Validate checks that the version is valid by checking that the version
 // number is a non zero value and the architecture is supported. If these checks

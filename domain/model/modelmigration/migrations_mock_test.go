@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	controller "github.com/juju/juju/controller"
+	agentbinary "github.com/juju/juju/core/agentbinary"
 	constraints "github.com/juju/juju/core/constraints"
 	model "github.com/juju/juju/core/model"
 	semversion "github.com/juju/juju/core/semversion"
@@ -315,17 +316,17 @@ func (m *MockModelDetailService) EXPECT() *MockModelDetailServiceMockRecorder {
 }
 
 // CreateModelForVersion mocks base method.
-func (m *MockModelDetailService) CreateModelForVersion(arg0 context.Context, arg1 uuid.UUID, arg2 semversion.Number) error {
+func (m *MockModelDetailService) CreateModelForVersion(arg0 context.Context, arg1 uuid.UUID, arg2 semversion.Number, arg3 agentbinary.AgentStream) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateModelForVersion", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "CreateModelForVersion", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateModelForVersion indicates an expected call of CreateModelForVersion.
-func (mr *MockModelDetailServiceMockRecorder) CreateModelForVersion(arg0, arg1, arg2 any) *MockModelDetailServiceCreateModelForVersionCall {
+func (mr *MockModelDetailServiceMockRecorder) CreateModelForVersion(arg0, arg1, arg2, arg3 any) *MockModelDetailServiceCreateModelForVersionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateModelForVersion", reflect.TypeOf((*MockModelDetailService)(nil).CreateModelForVersion), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateModelForVersion", reflect.TypeOf((*MockModelDetailService)(nil).CreateModelForVersion), arg0, arg1, arg2, arg3)
 	return &MockModelDetailServiceCreateModelForVersionCall{Call: call}
 }
 
@@ -341,13 +342,13 @@ func (c *MockModelDetailServiceCreateModelForVersionCall) Return(arg0 error) *Mo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelDetailServiceCreateModelForVersionCall) Do(f func(context.Context, uuid.UUID, semversion.Number) error) *MockModelDetailServiceCreateModelForVersionCall {
+func (c *MockModelDetailServiceCreateModelForVersionCall) Do(f func(context.Context, uuid.UUID, semversion.Number, agentbinary.AgentStream) error) *MockModelDetailServiceCreateModelForVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelDetailServiceCreateModelForVersionCall) DoAndReturn(f func(context.Context, uuid.UUID, semversion.Number) error) *MockModelDetailServiceCreateModelForVersionCall {
+func (c *MockModelDetailServiceCreateModelForVersionCall) DoAndReturn(f func(context.Context, uuid.UUID, semversion.Number, agentbinary.AgentStream) error) *MockModelDetailServiceCreateModelForVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
