@@ -228,7 +228,7 @@ func (s *ModelConfigAPI) setAgentStream(ctx context.Context, agentStream string)
 		return nil
 	}
 
-	s.logger.Debugf(ctx, "setting agent stream to %q via model config", agentStream)
+	s.logger.Debugf(ctx, "setting agent stream to %q via model config facade", agentStream)
 
 	err := s.modelAgentService.SetModelAgentStream(
 		ctx, agentbinary.AgentStream(agentStream),
