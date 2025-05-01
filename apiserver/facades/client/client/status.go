@@ -69,7 +69,7 @@ func (c *Client) StatusHistory(ctx context.Context, requests params.StatusHistor
 
 	tag, err := names.ParseTag(request.Tag)
 	if err != nil {
-		return statusHistoryResultError(internalerrors.Errorf("invalid tag %q: %w", request.Tag, err))
+		return statusHistoryResultError(err)
 	}
 
 	history, err := c.statusService.GetStatusHistory(ctx, statusservice.StatusHistoryRequest{

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
@@ -15,28 +16,26 @@ import (
 
 	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	permission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	domainmodel "github.com/juju/juju/domain/model"
 	domainmodelerrors "github.com/juju/juju/domain/model/errors"
+	statusservice "github.com/juju/juju/domain/status/service"
 	"github.com/juju/juju/rpc/params"
 )
 
 type statusSuite struct {
 	testing.IsolationSuite
 
-	modelUUID        model.UUID
+	modelUUID model.UUID
+
+	authorizer       *MockAuthorizer
 	modelInfoService *MockModelInfoService
+	statusService    *MockStatusService
 }
 
 var _ = gc.Suite(&statusSuite{})
-
-func (s *statusSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.modelInfoService = NewMockModelInfoService(ctrl)
-	s.modelUUID = modeltesting.GenModelUUID(c)
-	return ctrl
-}
 
 func (s *statusSuite) TestModelStatus(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -89,4 +88,166 @@ func (s *statusSuite) TestModelStatusModelNotFound(c *gc.C) {
 	client := &Client{modelInfoService: s.modelInfoService}
 	_, err := client.modelStatus(context.Background())
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
+}
+
+func (s *statusSuite) TestStatusHistory(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag, err := names.ParseApplicationTag("application-foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.Any()).Return(nil)
+	s.statusService.EXPECT().GetStatusHistory(gomock.Any(), statusservice.StatusHistoryRequest{
+		Kind: status.KindApplication,
+		Tag:  tag.Id(),
+	}).Return([]status.DetailedStatus{{
+		Kind:   status.KindApplication,
+		Status: status.Allocating,
+	}}, nil)
+
+	client := &Client{
+		statusService: s.statusService,
+		auth:          s.authorizer,
+	}
+	results := client.StatusHistory(context.Background(), params.StatusHistoryRequests{
+		Requests: []params.StatusHistoryRequest{{
+			Kind: "application",
+			Tag:  tag.String(),
+		}},
+	})
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Check(results.Results, gc.DeepEquals, []params.StatusHistoryResult{{
+		History: params.History{
+			Statuses: []params.DetailedStatus{{
+				Kind:   "application",
+				Status: status.Allocating.String(),
+			}},
+		},
+	}})
+}
+
+func (s *statusSuite) TestStatusHistoryNoBulk(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag, err := names.ParseApplicationTag("application-foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.Any()).Return(nil)
+
+	client := &Client{
+		statusService: s.statusService,
+		auth:          s.authorizer,
+	}
+	results := client.StatusHistory(context.Background(), params.StatusHistoryRequests{
+		Requests: []params.StatusHistoryRequest{{
+			Kind: "application",
+			Tag:  tag.String(),
+		}, {
+			Kind: "application",
+			Tag:  tag.String(),
+		}},
+	})
+	c.Check(results.Results, gc.DeepEquals, []params.StatusHistoryResult{{
+		Error: &params.Error{
+			Message: "multiple requests are not supported",
+		},
+	}, {
+		Error: &params.Error{
+			Message: "multiple requests are not supported",
+		},
+	}})
+}
+
+func (s *statusSuite) TestStatusHistoryInvalidKind(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag, err := names.ParseApplicationTag("application-foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.Any()).Return(nil)
+
+	client := &Client{
+		statusService: s.statusService,
+		auth:          s.authorizer,
+	}
+	results := client.StatusHistory(context.Background(), params.StatusHistoryRequests{
+		Requests: []params.StatusHistoryRequest{{
+			Kind: "blah",
+			Tag:  tag.String(),
+		}},
+	})
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Check(results.Results, gc.DeepEquals, []params.StatusHistoryResult{{
+		Error: &params.Error{
+			Message: `invalid status history kind "blah"`,
+		},
+	}})
+}
+
+func (s *statusSuite) TestStatusHistoryInvalidTag(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.Any()).Return(nil)
+
+	client := &Client{
+		statusService: s.statusService,
+		auth:          s.authorizer,
+	}
+	results := client.StatusHistory(context.Background(), params.StatusHistoryRequests{
+		Requests: []params.StatusHistoryRequest{{
+			Kind: "application",
+			Tag:  "invalid-tag",
+		}},
+	})
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Check(results.Results, gc.DeepEquals, []params.StatusHistoryResult{{
+		Error: &params.Error{
+			Message: `"invalid-tag" is not a valid tag`,
+		},
+	}})
+}
+
+func (s *statusSuite) TestStatusHistoryError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag, err := names.ParseApplicationTag("application-foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.Any()).Return(nil)
+	s.statusService.EXPECT().GetStatusHistory(gomock.Any(), statusservice.StatusHistoryRequest{
+		Kind: status.KindApplication,
+		Tag:  tag.Id(),
+	}).Return([]status.DetailedStatus{{
+		Kind:   status.KindApplication,
+		Status: status.Allocating,
+	}}, errors.Errorf("boom"))
+
+	client := &Client{
+		statusService: s.statusService,
+		auth:          s.authorizer,
+	}
+	results := client.StatusHistory(context.Background(), params.StatusHistoryRequests{
+		Requests: []params.StatusHistoryRequest{{
+			Kind: "application",
+			Tag:  tag.String(),
+		}},
+	})
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Check(results.Results, gc.DeepEquals, []params.StatusHistoryResult{{
+		Error: &params.Error{
+			Message: `boom`,
+		},
+	}})
+}
+
+func (s *statusSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.modelInfoService = NewMockModelInfoService(ctrl)
+	s.statusService = NewMockStatusService(ctrl)
+	s.authorizer = NewMockAuthorizer(ctrl)
+
+	s.modelUUID = modeltesting.GenModelUUID(c)
+
+	return ctrl
 }

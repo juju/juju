@@ -687,6 +687,8 @@ func (s *serviceSuite) TestSetUnitAgentStatus(c *gc.C) {
 func (s *serviceSuite) TestSetUnitAgentStatusErrorWithNoMessage(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	now := time.Now()
+
 	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Error,
 		Message: "",
@@ -699,6 +701,8 @@ func (s *serviceSuite) TestSetUnitAgentStatusErrorWithNoMessage(c *gc.C) {
 func (s *serviceSuite) TestSetUnitAgentStatusLost(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	now := time.Now()
+
 	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Lost,
 		Message: "are you lost?",
@@ -710,6 +714,8 @@ func (s *serviceSuite) TestSetUnitAgentStatusLost(c *gc.C) {
 
 func (s *serviceSuite) TestSetUnitAgentStatusAllocating(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
 
 	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Allocating,

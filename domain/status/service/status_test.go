@@ -14,11 +14,15 @@ import (
 	"github.com/juju/juju/domain/status"
 )
 
-type statusSuite struct{}
+type statusSuite struct {
+	now time.Time
+}
 
 var _ = gc.Suite(&statusSuite{})
 
-var now = time.Now()
+func (s *statusSuite) SetUpTest(c *gc.C) {
+	s.now = time.Now()
+}
 
 func (s *statusSuite) TestEncodeK8sPodStatus(c *gc.C) {
 	testCases := []struct {
@@ -54,13 +58,13 @@ func (s *statusSuite) TestEncodeK8sPodStatus(c *gc.C) {
 				Status:  corestatus.Running,
 				Message: "I'm active!",
 				Data:    map[string]interface{}{"foo": "bar"},
-				Since:   &now,
+				Since:   &s.now,
 			},
 			output: status.StatusInfo[status.K8sPodStatusType]{
 				Status:  status.K8sPodStatusRunning,
 				Message: "I'm active!",
 				Data:    []byte(`{"foo":"bar"}`),
-				Since:   &now,
+				Since:   &s.now,
 			},
 		},
 	}
@@ -159,11 +163,11 @@ func (s *statusSuite) TestDecodeUnitDisplayAndAgentStatus(c *gc.C) {
 			Status:  status.UnitAgentStatusError,
 			Message: "hook failed: hook-name",
 			Data:    []byte(`{"foo":"bar"}`),
-			Since:   &now,
+			Since:   &s.now,
 		},
 		WorkloadStatus: status.StatusInfo[status.WorkloadStatusType]{
 			Status: status.WorkloadStatusMaintenance,
-			Since:  &now,
+			Since:  &s.now,
 		},
 		K8sPodStatus: status.StatusInfo[status.K8sPodStatusType]{
 			Status: status.K8sPodStatusUnset,
@@ -179,11 +183,11 @@ func (s *statusSuite) TestDecodeUnitDisplayAndAgentStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(agent, jc.DeepEquals, corestatus.StatusInfo{
 		Status: corestatus.Idle,
-		Since:  &now,
+		Since:  &s.now,
 	})
 	c.Assert(workload, jc.DeepEquals, corestatus.StatusInfo{
 		Status:  corestatus.Error,
-		Since:   &now,
+		Since:   &s.now,
 		Data:    map[string]interface{}{"foo": "bar"},
 		Message: "hook failed: hook-name",
 	})
@@ -255,13 +259,13 @@ func (s *statusSuite) TestEncodeWorkloadStatus(c *gc.C) {
 				Status:  corestatus.Active,
 				Message: "I'm active!",
 				Data:    map[string]interface{}{"foo": "bar"},
-				Since:   &now,
+				Since:   &s.now,
 			},
 			output: status.StatusInfo[status.WorkloadStatusType]{
 				Status:  status.WorkloadStatusActive,
 				Message: "I'm active!",
 				Data:    []byte(`{"foo":"bar"}`),
-				Since:   &now,
+				Since:   &s.now,
 			},
 		},
 	}
@@ -286,14 +290,14 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusWorkloadTerminatedBlockedM
 		Status:  status.WorkloadStatusTerminated,
 		Message: "msg",
 		Data:    []byte(`{"key":"value"}`),
-		Since:   &now,
+		Since:   &s.now,
 	}
 
 	expected := corestatus.StatusInfo{
 		Status:  corestatus.Terminated,
 		Message: "msg",
 		Data:    map[string]interface{}{"key": "value"},
-		Since:   &now,
+		Since:   &s.now,
 	}
 
 	info, err := selectWorkloadOrK8sPodStatus(workloadStatus, containerStatus, true)
@@ -322,7 +326,7 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerBlockedDominates(
 		Status:  status.K8sPodStatusBlocked,
 		Message: "msg",
 		Data:    []byte(`{"key":"value"}`),
-		Since:   &now,
+		Since:   &s.now,
 	}
 
 	info, err := selectWorkloadOrK8sPodStatus(workloadStatus, containerStatus, true)
@@ -331,7 +335,7 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerBlockedDominates(
 		Status:  corestatus.Blocked,
 		Message: "msg",
 		Data:    map[string]interface{}{"key": "value"},
-		Since:   &now,
+		Since:   &s.now,
 	})
 }
 
@@ -344,7 +348,7 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerWaitingDominatesA
 		Status:  status.K8sPodStatusWaiting,
 		Message: "msg",
 		Data:    []byte(`{"key":"value"}`),
-		Since:   &now,
+		Since:   &s.now,
 	}
 
 	info, err := selectWorkloadOrK8sPodStatus(workloadStatus, containerStatus, true)
@@ -353,7 +357,7 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerWaitingDominatesA
 		Status:  corestatus.Waiting,
 		Message: "msg",
 		Data:    map[string]interface{}{"key": "value"},
-		Since:   &now,
+		Since:   &s.now,
 	})
 }
 
@@ -366,7 +370,7 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerRunningDominatesW
 		Status:  status.K8sPodStatusRunning,
 		Message: "msg",
 		Data:    []byte(`{"key":"value"}`),
-		Since:   &now,
+		Since:   &s.now,
 	}
 
 	info, err := selectWorkloadOrK8sPodStatus(workloadStatus, containerStatus, true)
@@ -375,7 +379,7 @@ func (s *statusSuite) TestSelectWorkloadOrK8sPodStatusContainerRunningDominatesW
 		Status:  corestatus.Running,
 		Message: "msg",
 		Data:    map[string]interface{}{"key": "value"},
-		Since:   &now,
+		Since:   &s.now,
 	})
 }
 
@@ -561,13 +565,13 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsWithError(c *gc.C) {
 				Status:  status.WorkloadStatusMaintenance,
 				Data:    []byte(`{"foo":"bar"}`),
 				Message: "boink",
-				Since:   &now,
+				Since:   &s.now,
 			},
 			AgentStatus: status.StatusInfo[status.UnitAgentStatusType]{
 				Status:  status.UnitAgentStatusError,
 				Data:    []byte(`{"foo":"baz"}`),
 				Message: "hook failed: hook-name",
-				Since:   &now,
+				Since:   &s.now,
 			},
 		},
 	}
@@ -580,6 +584,6 @@ func (s *statusSuite) TestApplicationDisplayStatusFromUnitsWithError(c *gc.C) {
 			"foo": "baz",
 		},
 		Message: "hook failed: hook-name",
-		Since:   &now,
+		Since:   &s.now,
 	})
 }

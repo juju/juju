@@ -24,6 +24,14 @@ func (s *Service) GetStatusHistory(ctx context.Context, request StatusHistoryReq
 
 	var results []status.DetailedStatus
 	if err := reader.Walk(func(record statushistory.HistoryRecord) (bool, error) {
+		// Allow the context to cancel the walk.
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		default:
+		}
+
+		// Match the record against the request.
 		if ok, err := matches(record, request, now); !ok {
 			return false, nil
 		} else if err != nil {
@@ -33,13 +41,13 @@ func (s *Service) GetStatusHistory(ctx context.Context, request StatusHistoryReq
 		results = append(results, record.Status)
 
 		// If we have more than the requested limit, so we can stop reading.
-		if limit := request.Filter.Size; limit > 0 && len(results) > limit {
+		if limit := request.Filter.Size; limit > 0 && len(results) >= limit {
 			return true, nil
 		}
 
 		return false, nil
 	}); err != nil {
-		return nil, errors.Errorf("reading status history: %v", err)
+		return nil, errors.Errorf("reading status history: %w", err)
 	}
 
 	return results, nil
@@ -62,18 +70,15 @@ func matches(hr statushistory.HistoryRecord, req StatusHistoryRequest, now time.
 	// Check that the kinds match.
 	switch status.HistoryKind(req.Kind) {
 	case status.KindApplication:
-		return hr.Kind == status.KindApplication, nil
-	case status.KindSAAS:
-		return hr.Kind == status.KindSAAS, nil
+		if hr.Kind != status.KindApplication {
+			return false, nil
+		}
 	case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
 		if !matchesUnit(hr, req) {
 			return false, nil
 		}
-	case status.KindModel:
-		// TODO: implement model status history.
-	case status.KindMachine:
-		// TODO: implement machine status history.
 	default:
+		// TODO: support other kinds.
 		return false, errors.Errorf("%q", req.Kind)
 	}
 
