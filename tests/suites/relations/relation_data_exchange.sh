@@ -8,14 +8,12 @@ run_relation_data_exchange() {
 	ensure "${model_name}" "${file}"
 
 	echo "Deploy 2 dummy-sink instances and one dummy-source instance"
-	# shellcheck disable=SC2046
-	juju deploy $(pack_charm ./testcharms/charms/dummy-sink) -n 2
-	# shellcheck disable=SC2046
-	juju deploy $(pack_charm ./testcharms/charms/dummy-source)
+
+	juju deploy juju-qa-dummy-sink -n 2
+	juju deploy juju-qa-dummy-source --config token=becomegreen
 
 	echo "Establish relation"
 	juju relate dummy-sink dummy-source
-	juju config dummy-source token=becomegreen
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink" 0 0)"
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink" 0 1)"
