@@ -850,8 +850,8 @@ SELECT &agentVersionStream.* FROM agent_version
 		err := tx.Query(ctx, stmt).Get(&dbVal)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			// This should never happen but we write a specific error for the
-			// case here to lead us back to the source if something ever goes a
-			// miss.
+			// case here to lead us back to the source if something ever goes
+			// amiss.
 			return errors.New(
 				"agent version record has not been set for the model",
 			)

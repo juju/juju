@@ -641,8 +641,6 @@ func (s *suite) TestSetAgentStreamNotValidAgentStream(c *gc.C) {
 func (s *suite) TestSetAgentStream(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	agentStream := coreagentbinary.AgentStreamTesting
-
 	s.state.EXPECT().SetModelAgentStream(
 		gomock.Any(),
 		modelagent.AgentStreamTesting,
@@ -650,7 +648,7 @@ func (s *suite) TestSetAgentStream(c *gc.C) {
 
 	err := NewService(s.state).SetModelAgentStream(
 		context.Background(),
-		agentStream,
+		coreagentbinary.AgentStreamTesting,
 	)
 	c.Check(err, jc.ErrorIsNil)
 }

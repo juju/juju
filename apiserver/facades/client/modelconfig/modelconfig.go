@@ -239,7 +239,7 @@ func (s *ModelConfigAPI) setAgentStream(ctx context.Context, agentStream string)
 		).Add(coreerrors.NotValid)
 	} else if err != nil {
 		return internalerrors.Errorf(
-			"setting agent stream to value %q for model: %w", agentStream, err,
+			"updating agent stream with model config changes: %w", err,
 		)
 	}
 
