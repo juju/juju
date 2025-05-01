@@ -19,6 +19,9 @@ type ProviderState interface {
 	// CloudCredential returns the cloud credential for the given name, cloud, owner.
 	CloudCredential(ctx context.Context, key corecredential.Key) (credential.CloudCredentialResult, error)
 
+	// InvalidateCloudCredential marks the cloud credential for the given name, cloud, owner as invalid.
+	InvalidateCloudCredential(ctx context.Context, key corecredential.Key, reason string) error
+
 	// WatchCredential returns a new NotifyWatcher watching for changes to the specified credential.
 	WatchCredential(
 		ctx context.Context,
@@ -37,13 +40,6 @@ type ProviderState interface {
 // modify the credentials entities, only read them.
 type ProviderService struct {
 	st ProviderState
-}
-
-// NewProviderService returns a new service reference wrapping the input state.
-func NewProviderService(st ProviderState) *ProviderService {
-	return &ProviderService{
-		st: st,
-	}
 }
 
 // CloudCredential returns the cloud credential for the given tag.
@@ -86,4 +82,12 @@ func (s *WatchableProviderService) WatchCredential(ctx context.Context, key core
 		return nil, errors.Errorf("invalid id watching cloud credential: %w", err)
 	}
 	return s.st.WatchCredential(ctx, s.watcherFactory.NewNotifyWatcher, key)
+}
+
+// InvalidateCredential marks the cloud credential for the given name, cloud, owner as invalid.
+func (s *WatchableProviderService) InvalidateCredential(ctx context.Context, key corecredential.Key, reason string) error {
+	if err := key.Validate(); err != nil {
+		return errors.Errorf("invalid id invalidating cloud credential: %w", err)
+	}
+	return s.st.InvalidateCloudCredential(ctx, key, reason)
 }

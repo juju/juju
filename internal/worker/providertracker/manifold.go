@@ -44,7 +44,7 @@ type IAASProviderFunc func(ctx context.Context, args environs.OpenParams, invali
 type CAASProviderFunc func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (caas.Broker, error)
 
 // GetProviderFunc is a helper function that gets a provider from the manifold.
-type GetProviderFunc func(context.Context, ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error)
+type GetProviderFunc func(context.Context, ProviderConfigGetter, environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error)
 
 // GetProviderServicesGetterFunc is a helper function that gets a service
 // factory getter from the manifold.
@@ -161,12 +161,12 @@ func manifold(trackerType TrackerType, config ManifoldConfig) dependency.Manifol
 }
 
 // IAASGetProvider creates a new provider from the given args.
-func IAASGetProvider(newProvider IAASProviderFunc) func(ctx context.Context, getter ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
-	return func(ctx context.Context, getter ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
+func IAASGetProvider(newProvider IAASProviderFunc) func(ctx context.Context, getter ProviderConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
+	return func(ctx context.Context, getter ProviderConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
 		// We can't use newProvider directly, as type invariance prevents us
 		// from using it with the environs.GetEnvironAndCloud function.
 		// Just wrap it in a closure to work around this.
-		provider, spec, err := environs.GetEnvironAndCloud(ctx, getter, environs.NoopCredentialInvalidator(), func(ctx context.Context, op environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
+		provider, spec, err := environs.GetEnvironAndCloud(ctx, getter, invalidator, func(ctx context.Context, op environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
 			return newProvider(ctx, op, invalidator)
 		})
 		if err != nil {
@@ -177,8 +177,8 @@ func IAASGetProvider(newProvider IAASProviderFunc) func(ctx context.Context, get
 }
 
 // CAASGetProvider creates a new provider from the given args.
-func CAASGetProvider(newProvider CAASProviderFunc) func(ctx context.Context, getter ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
-	return func(ctx context.Context, getter ProviderConfigGetter) (Provider, cloudspec.CloudSpec, error) {
+func CAASGetProvider(newProvider CAASProviderFunc) func(ctx context.Context, getter ProviderConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
+	return func(ctx context.Context, getter ProviderConfigGetter, invalidator environs.CredentialInvalidator) (Provider, cloudspec.CloudSpec, error) {
 		cloudSpec, err := getter.CloudSpec(ctx)
 		if err != nil {
 			return nil, cloudspec.CloudSpec{}, errors.Annotate(err, "cannot get cloud information")
@@ -193,7 +193,7 @@ func CAASGetProvider(newProvider CAASProviderFunc) func(ctx context.Context, get
 			ControllerUUID: getter.ControllerUUID().String(),
 			Cloud:          cloudSpec,
 			Config:         cfg,
-		}, environs.NoopCredentialInvalidator())
+		}, invalidator)
 		if err != nil {
 			return nil, cloudspec.CloudSpec{}, errors.Annotate(err, "cannot create caas broker")
 		}

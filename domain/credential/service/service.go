@@ -40,9 +40,6 @@ type State interface {
 	// UpsertCloudCredential adds or updates a cloud credential with the given name, cloud, owner.
 	UpsertCloudCredential(ctx context.Context, key corecredential.Key, credential credential.CloudCredentialInfo) error
 
-	// InvalidateCloudCredential marks the cloud credential for the given name, cloud, owner as invalid.
-	InvalidateCloudCredential(ctx context.Context, key corecredential.Key, reason string) error
-
 	// CloudCredentialsForOwner returns the owner's cloud credentials for a given cloud,
 	// keyed by credential name.
 	CloudCredentialsForOwner(ctx context.Context, owner user.Name, cloudName string) (map[string]credential.CloudCredentialResult, error)

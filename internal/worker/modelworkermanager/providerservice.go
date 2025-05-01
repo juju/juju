@@ -44,6 +44,8 @@ type ProviderCredentialService interface {
 	// WatchCredential returns a watcher that observes changes to the specified
 	// credential.
 	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
+	// InvalidateCredential marks the cloud credential for the given name, cloud, owner as invalid.
+	InvalidateCredential(ctx context.Context, key credential.Key, reason string) error
 }
 
 // ProviderServices provides access to the services required by the

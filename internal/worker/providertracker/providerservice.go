@@ -50,7 +50,7 @@ type CloudService interface {
 type ConfigService interface {
 	// ModelConfig returns the model configuration for the given tag.
 	ModelConfig(ctx context.Context) (*config.Config, error)
-	// WatchModelConfig returns a watcher that observes changes to the specified
+	// Watch returns a watcher that observes changes to the specified
 	// model configuration.
 	Watch() (watcher.StringsWatcher, error)
 }
@@ -63,4 +63,6 @@ type CredentialService interface {
 	// WatchCredential returns a watcher that observes changes to the specified
 	// credential.
 	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
+	// InvalidateCredential marks the cloud credential for the given name, cloud, owner as invalid.
+	InvalidateCredential(ctx context.Context, key credential.Key, reason string) error
 }

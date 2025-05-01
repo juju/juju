@@ -62,21 +62,6 @@ func (c *Facade) ModelCredential(ctx context.Context) (base.StoredCredential, bo
 	}, true, nil
 }
 
-// InvalidateModelCredential invalidates cloud credential for the model that made a connection.
-func (c *Facade) InvalidateModelCredential(ctx context.Context, reason string) error {
-	in := params.InvalidateCredentialArg{reason}
-	var result params.ErrorResult
-	err := c.facade.FacadeCall(ctx, "InvalidateModelCredential", in, &result)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if result.Error != nil {
-		return errors.Trace(result.Error)
-	}
-	return nil
-}
-
 // WatchModelCredential provides a notify watcher that is responsive to changes
 // to a given cloud credential.
 func (c *Facade) WatchModelCredential(ctx context.Context) (watcher.NotifyWatcher, error) {

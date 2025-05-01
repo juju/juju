@@ -5,10 +5,10 @@ package credentialvalidator
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"gopkg.in/tomb.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -22,23 +22,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// CredentialValidatorV2 defines the methods on version 2 facade for the
-// credentialvalidator API endpoint.
-type CredentialValidatorV2 interface {
-	// InvalidateModelCredential marks the cloud credential for this model as invalid.
-	InvalidateModelCredential(context.Context, params.InvalidateCredentialArg) (params.ErrorResult, error)
-
-	// ModelCredential returns cloud credential information for a  model.
-	ModelCredential(context.Context) (params.ModelCredential, error)
-
-	// WatchCredential returns a NotifyWatcher that observes
-	// changes to a given cloud credential.
-	WatchCredential(context.Context, params.Entity) (params.NotifyWatchResult, error)
-
-	// WatchModelCredential returns a NotifyWatcher that watches what cloud credential a model uses.
-	WatchModelCredential(context.Context) (params.NotifyWatchResult, error)
-}
-
 // CredentialService provides access to perform credentials operations.
 type CredentialService interface {
 	// CloudCredential returns the cloud credential for the given tag.
@@ -46,10 +29,6 @@ type CredentialService interface {
 
 	// InvalidateCredential marks the cloud credential for the given name, cloud, owner as invalid.
 	InvalidateCredential(ctx context.Context, key credential.Key, reason string) error
-
-	// WatchCredential returns a watcher that observes changes to the specified
-	// credential.
-	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
 }
 
 // CloudService provides access to clouds.
@@ -77,6 +56,12 @@ type ModelInfoService interface {
 	GetModelInfo(ctx context.Context) (model.ModelInfo, error)
 }
 
+// CredentialValidatorAPIV2 implements the credential validator API V2.
+type CredentialValidatorAPIV2 struct {
+	*CredentialValidatorAPI
+}
+
+// CredentialValidatorAPI implements the credential validator API.
 type CredentialValidatorAPI struct {
 	logger                       logger.Logger
 	cloudService                 CloudService
@@ -87,23 +72,14 @@ type CredentialValidatorAPI struct {
 	watcherRegistry              facade.WatcherRegistry
 }
 
-var (
-	_ CredentialValidatorV2 = (*CredentialValidatorAPI)(nil)
-)
-
 func internalNewCredentialValidatorAPI(
 	cloudService CloudService, credentialService CredentialService,
-	authorizer facade.Authorizer,
 	modelService ModelService,
 	modelInfoService ModelInfoService,
 	modelCredentialWatcherGetter func(ctx context.Context) (watcher.NotifyWatcher, error),
 	watcherRegistry facade.WatcherRegistry,
 	logger logger.Logger,
-) (*CredentialValidatorAPI, error) {
-	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent()) {
-		return nil, apiservererrors.ErrPerm
-	}
-
+) *CredentialValidatorAPI {
 	return &CredentialValidatorAPI{
 		cloudService:                 cloudService,
 		credentialService:            credentialService,
@@ -112,50 +88,57 @@ func internalNewCredentialValidatorAPI(
 		modelCredentialWatcherGetter: modelCredentialWatcherGetter,
 		watcherRegistry:              watcherRegistry,
 		logger:                       logger,
-	}, nil
+	}
 }
 
-// WatchCredential returns a NotifyWatcher that observes
-// changes to a given cloud credential.
-func (api *CredentialValidatorAPI) WatchCredential(ctx context.Context, tag params.Entity) (params.NotifyWatchResult, error) {
-	fail := func(failure error) (params.NotifyWatchResult, error) {
-		return params.NotifyWatchResult{}, apiservererrors.ServerError(failure)
-	}
+// noopNotifyWatcher provides a notify watcher that fires the
+// first event and then sits dormant.
+// Used for a compatibility WatchCredential api method.
+type noopNotifyWatcher struct {
+	tomb tomb.Tomb
+	ch   <-chan struct{}
+}
 
-	credentialTag, err := names.ParseCloudCredentialTag(tag.Tag)
-	if err != nil {
-		return fail(err)
-	}
+func newNoopNotifyWatcher() *noopNotifyWatcher {
+	ch := make(chan struct{}, 1)
+	// Initial event.
+	ch <- struct{}{}
+	w := &noopNotifyWatcher{ch: ch}
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		return tomb.ErrDying
+	})
+	return w
+}
 
-	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
-	if err != nil {
-		return fail(err)
-	}
-	exists := modelInfo.CredentialName != ""
-	if !exists {
-		return fail(apiservererrors.ErrPerm)
-	}
+func (w *noopNotifyWatcher) Changes() <-chan struct{} {
+	return w.ch
+}
 
-	modelCredentialKey := credential.Key{
-		Cloud: modelInfo.Cloud,
-		Owner: modelInfo.CredentialOwner,
-		Name:  modelInfo.CredentialName,
-	}
-	credentialKey := credential.KeyFromTag(credentialTag)
-	if credentialKey != modelCredentialKey {
-		return fail(apiservererrors.ErrPerm)
-	}
+func (w *noopNotifyWatcher) Stop() error {
+	w.Kill()
+	return w.Wait()
+}
 
+func (w *noopNotifyWatcher) Kill() {
+	w.tomb.Kill(nil)
+}
+
+func (w *noopNotifyWatcher) Err() error {
+	return w.tomb.Err()
+}
+
+func (w *noopNotifyWatcher) Wait() error {
+	return w.tomb.Wait()
+}
+
+// WatchCredential returns a NotifyWatcher.
+// This is only called by 3.6 agents and is a noop since
+// [WatchModelCredential] is the only watcher needed for 4.x.
+func (api *CredentialValidatorAPIV2) WatchCredential(ctx context.Context, tag params.Entity) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	watcher, err := api.credentialService.WatchCredential(ctx, credentialKey)
-	if errors.Is(err, credentialerrors.NotFound) {
-		err = fmt.Errorf("credential %q %w", credentialTag, errors.NotFound)
-	}
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-	result.NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, watcher)
+	var err error
+	result.NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, newNoopNotifyWatcher())
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 	}
@@ -286,7 +269,9 @@ func (api *CredentialValidatorAPI) WatchModelCredential(ctx context.Context) (pa
 }
 
 // InvalidateModelCredential marks the cloud credential for this model as invalid.
-func (api *CredentialValidatorAPI) InvalidateModelCredential(ctx context.Context, args params.InvalidateCredentialArg) (params.ErrorResult, error) {
+// This is only used by 3.6 agents and can be dropped in 4.x when we no
+// longer need to support migrating 3.6 models.
+func (api *CredentialValidatorAPIV2) InvalidateModelCredential(ctx context.Context, args params.InvalidateCredentialArg) (params.ErrorResult, error) {
 	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
 		return params.ErrorResult{}, errors.Trace(err)
