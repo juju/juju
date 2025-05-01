@@ -27,37 +27,51 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 	}
 }
 
-// AgentVersion returns the current models agent version. If no agent version
-// can be found an error satisfying [errors.NotFound] will be returned.
-func (st *State) AgentVersion(ctx context.Context) (string, error) {
+// GetModelAgentVersionAndStream returns the current models set agent
+// version and stream. If no agent version or stream has ben set then an
+// error satisfying [github.com/juju/juju/core/errors.NotFound] is returned.
+//
+// Note (tlm): We purposely return the raw string values for version and stream
+// here instead of turning them into concrete types. This is because they are
+// directly composed in to the model's config as string values.
+func (st *State) GetModelAgentVersionAndStream(
+	ctx context.Context,
+) (string, string, error) {
 	db, err := st.DB()
 	if err != nil {
-		return "", errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
 
-	q := `SELECT &dbAgentVersion.target_version FROM agent_version`
+	rval := dbAgentVersionAndStream{}
 
-	rval := dbAgentVersion{}
-
-	stmt, err := st.Prepare(q, rval)
+	stmt, err := st.Prepare(`
+SELECT &dbAgentVersionAndStream.*
+FROM agent_version
+JOIN agent_stream ON agent_version.stream_id = agent_stream.id
+`, rval)
 	if err != nil {
-		return "", errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).Get(&rval)
 		if errors.Is(err, sql.ErrNoRows) {
-			return errors.Errorf("agent version %w", coreerrors.NotFound)
+			return errors.Errorf(
+				"agent version and stream are not set",
+			).Add(coreerrors.NotFound)
 		} else if err != nil {
-			return errors.Errorf("retrieving current agent version: %w", err)
+			return errors.Errorf(
+				"retrieving current agent version and stream for model: %w",
+				err,
+			)
 		}
 		return nil
 	})
 	if err != nil {
-		return "", errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
 
-	return rval.TargetAgentVersion, nil
+	return rval.TargetAgentVersion, rval.Stream, nil
 }
 
 // ModelConfigHasAttributes will take a set of model config attributes and

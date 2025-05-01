@@ -141,19 +141,20 @@ func (s *stateSuite) TestSetModelConfig(c *gc.C) {
 	}
 }
 
-// TestAgentVersionNotFound is testing that when we ask for the agent
-// version of the current model and that data has not been set that a
+// TestGetModelAgentVersionAndStreamNotFound is testing that when we ask for the agent
+// version and stream of the current model and that data has not been set that a
 // [errors.NotFound] error is returned.
-func (s *stateSuite) TestAgentVersionNotFound(c *gc.C) {
+func (s *stateSuite) TestGetModelAgentVersionAndStreamNotFound(c *gc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
-	version, err := st.AgentVersion(context.Background())
+	version, stream, err := st.GetModelAgentVersionAndStream(context.Background())
 	c.Check(err, jc.ErrorIs, coreerrors.NotFound)
 	c.Check(version, gc.Equals, "")
+	c.Check(stream, gc.Equals, "")
 }
 
-// TestAgentVersion is testing the happy path that when agent version is set it
-// is reported back correctly with no errors.
-func (s *stateSuite) TestAgentVersion(c *gc.C) {
+// TestGetModelAgentVersionAndStream is testing the happy path that when agent
+// version and stream is set it is reported back correctly with no errors.
+func (s *stateSuite) TestGetModelAgentVersionAndStream(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, "INSERT INTO agent_version (stream_id, target_version) VALUES (0, '1.2.3')")
 		return err
@@ -161,9 +162,10 @@ func (s *stateSuite) TestAgentVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := state.NewState(s.TxnRunnerFactory())
-	version, err := st.AgentVersion(context.Background())
+	version, stream, err := st.GetModelAgentVersionAndStream(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(version, gc.Equals, "1.2.3")
+	c.Check(stream, gc.Equals, "released")
 }
 
 func (s *stateSuite) TestCheckSpace(c *gc.C) {
