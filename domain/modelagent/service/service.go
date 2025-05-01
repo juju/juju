@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/changestream"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/domain/modelagent"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -116,6 +118,10 @@ type State interface {
 	// - [github.com/juju/juju/core/errors.NotSupported] if the architecture is
 	// not known to the database.
 	SetMachineRunningAgentBinaryVersion(context.Context, string, agentbinary.Version) error
+
+	// SetModelAgentStream is responsible for setting the agent stream that is
+	// in use by the current model.
+	SetModelAgentStream(context.Context, modelagent.AgentStream) error
 
 	// SetUnitRunningAgentBinaryVersion sets the running agent version for the unit.
 	// The following error types can be expected:
@@ -382,6 +388,30 @@ func (s *Service) SetMachineReportedAgentVersion(
 			machineUUID,
 			reportedVersion.Number.String(),
 			err,
+		)
+	}
+
+	return nil
+}
+
+// SetModelAgentStream is responsible for setting the agent stream that is in
+// use for the current model. If the agent stream supplied is not a recognised
+// value an error satisfying [coreerrors.NotValid] is returned.
+func (s *Service) SetModelAgentStream(
+	ctx context.Context,
+	agentStream agentbinary.AgentStream,
+) error {
+	domainAgentStream, err := modelagent.AgentStreamFromCoreAgentStream(agentStream)
+	if errors.Is(err, coreerrors.NotValid) {
+		return errors.Errorf(
+			"agent stream %q is not valid or understood", agentStream,
+		).Add(coreerrors.NotValid)
+	}
+
+	if err := s.st.SetModelAgentStream(ctx, domainAgentStream); err != nil {
+		return errors.Errorf(
+			"setting model agent stream %q to value %d in state: %w",
+			agentStream, domainAgentStream, err,
 		)
 	}
 

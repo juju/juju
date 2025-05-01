@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -34,20 +35,23 @@ func Register(registry facade.FacadeRegistry) {
 // makeFacade is used for API registration.
 func makeFacade(ctx facade.ModelContext) (*ModelConfigAPI, error) {
 	auth := ctx.Auth()
+	if !auth.AuthClient() {
+		return nil, apiservererrors.ErrPerm
+	}
 
 	domainServices := ctx.DomainServices()
-	modelSecretBackend := domainServices.ModelSecretBackend()
-
-	configService := domainServices.Config()
-	modelService := domainServices.ModelInfo()
-
 	return NewModelConfigAPI(
-		ctx.ModelUUID(),
+		auth,
 		ctx.ControllerUUID(),
+		ctx.ModelUUID(),
 		ctx.State(),
-		modelSecretBackend, configService, modelService, auth,
+		domainServices.Agent(),
 		domainServices.BlockCommand(),
-	)
+		domainServices.Config(),
+		domainServices.ModelSecretBackend(),
+		domainServices.ModelInfo(),
+		ctx.Logger().Child("modelconfig"),
+	), nil
 }
 
 // makeFacadeV3 is used for API registration.

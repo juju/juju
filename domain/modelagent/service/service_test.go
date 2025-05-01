@@ -19,6 +19,7 @@ import (
 	unittesting "github.com/juju/juju/core/unit/testing"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/domain/modelagent"
 	modelagenterrors "github.com/juju/juju/domain/modelagent/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -617,4 +618,37 @@ func (s *suite) TestGetUnitReportedAgentVersionMissingAgentBinaries(c *gc.C) {
 	svc := NewService(s.state)
 	_, err := svc.GetUnitsAgentBinaryMetadata(context.Background())
 	c.Check(err, jc.ErrorIs, modelagenterrors.MissingAgentBinaries)
+}
+
+// TestSetAgentStreamNotValidAgentStream is testing that if we supply an
+// unknown agent stream to [Service.SetModelAgentStream] we get back an error
+// satisfying [coreerrors.NotValid].
+func (s *suite) TestSetAgentStreamNotValidAgentStream(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// This is a fake stream that doesn't exist.
+	agentStream := coreagentbinary.AgentStream("bad value")
+
+	err := NewService(s.state).SetModelAgentStream(
+		context.Background(),
+		agentStream,
+	)
+	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestSetAgentStream is testing the happy path of setting the model's agent
+// stream.
+func (s *suite) TestSetAgentStream(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().SetModelAgentStream(
+		gomock.Any(),
+		modelagent.AgentStreamTesting,
+	).Return(nil)
+
+	err := NewService(s.state).SetModelAgentStream(
+		context.Background(),
+		coreagentbinary.AgentStreamTesting,
+	)
+	c.Check(err, jc.ErrorIsNil)
 }

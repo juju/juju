@@ -6,6 +6,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
@@ -40,4 +41,38 @@ func (s *agentStreamSuite) TestAgentStreamDBValues(c *gc.C) {
 		AgentStreamTesting:  "testing",
 		AgentStreamProposed: "proposed",
 	})
+}
+
+// TestAgentStreamFromCoreAgentStream tests that the conversion from
+// [coreagentbinary.AgentStream] to [AgentStream] works as expected. This test
+// won't pick up if there exists discrepencies in the number of enums that exist
+// across the packages.
+func (s *agentStreamSuite) TestAgentStreamFromCoreAgentStream(c *gc.C) {
+	tests := []struct {
+		in       coreagentbinary.AgentStream
+		expected AgentStream
+	}{
+		{
+			in:       coreagentbinary.AgentStreamReleased,
+			expected: AgentStreamReleased,
+		},
+		{
+			in:       coreagentbinary.AgentStreamTesting,
+			expected: AgentStreamTesting,
+		},
+		{
+			in:       coreagentbinary.AgentStreamProposed,
+			expected: AgentStreamProposed,
+		},
+		{
+			in:       coreagentbinary.AgentStreamDevel,
+			expected: AgentStreamDevel,
+		},
+	}
+
+	for _, test := range tests {
+		rval, err := AgentStreamFromCoreAgentStream(test.in)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(rval, gc.Equals, test.expected)
+	}
 }

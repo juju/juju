@@ -15,26 +15,33 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/agentbinary"
+	coreerrors "github.com/juju/juju/core/errors"
+	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	"github.com/juju/juju/environs/config"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
 // ModelConfigAPI provides the base implementation of the methods.
 type ModelConfigAPI struct {
-	backend                   Backend
-	controllerUUID            string
-	modelSecretBackendService ModelSecretBackendService
-	configService             ModelConfigService
-	modelSericve              ModelService
-	auth                      facade.Authorizer
-	check                     *common.BlockChecker
+	auth   facade.Authorizer
+	check  *common.BlockChecker
+	logger corelogger.Logger
 
-	modelUUID coremodel.UUID
+	controllerUUID string
+	modelUUID      coremodel.UUID
+
+	modelAgentService         ModelAgentService
+	backend                   Backend
+	modelConfigService        ModelConfigService
+	modelSecretBackendService ModelSecretBackendService
+	modelSericve              ModelService
 }
 
 // ModelConfigAPIV3 is currently the latest.
@@ -44,29 +51,31 @@ type ModelConfigAPIV3 struct {
 
 // NewModelConfigAPI creates a new instance of the ModelConfig Facade.
 func NewModelConfigAPI(
-	modelUUID coremodel.UUID,
-	controllerUUID string,
-	backend Backend,
-	modelSecretBackendService ModelSecretBackendService,
-	configService ModelConfigService,
-	modelSericve ModelService,
 	authorizer facade.Authorizer,
+	controllerUUID string,
+	modelUUID coremodel.UUID,
+	backend Backend,
+	modelAgentService ModelAgentService,
 	blockCommandService common.BlockCommandService,
-) (*ModelConfigAPI, error) {
-	if !authorizer.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
-
+	modelConfigService ModelConfigService,
+	modelSecretBackendService ModelSecretBackendService,
+	modelSericve ModelService,
+	logger corelogger.Logger,
+) *ModelConfigAPI {
 	return &ModelConfigAPI{
-		modelUUID:                 modelUUID,
+		auth:   authorizer,
+		check:  common.NewBlockChecker(blockCommandService),
+		logger: logger,
+
+		controllerUUID: controllerUUID,
+		modelUUID:      modelUUID,
+
+		modelAgentService:         modelAgentService,
 		backend:                   backend,
-		controllerUUID:            controllerUUID,
+		modelConfigService:        modelConfigService,
 		modelSecretBackendService: modelSecretBackendService,
-		configService:             configService,
 		modelSericve:              modelSericve,
-		auth:                      authorizer,
-		check:                     common.NewBlockChecker(blockCommandService),
-	}, nil
+	}
 }
 
 func (c *ModelConfigAPI) checkCanWrite(ctx context.Context) error {
@@ -126,7 +135,7 @@ func (c *ModelConfigAPI) ModelGet(ctx context.Context) (params.ModelConfigResult
 		return result, errors.Trace(err)
 	}
 
-	values, err := c.configService.ModelConfigValues(ctx)
+	values, err := c.modelConfigService.ModelConfigValues(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -182,8 +191,24 @@ func (c *ModelConfigAPI) ModelSet(ctx context.Context, args params.ModelSet) err
 
 	logValidator := LogTracingValidator(isLoggingAdmin)
 
+	if val, has := args.Config[config.AgentStreamKey]; has {
+		agentStreamStr, ok := val.(string)
+		if !ok {
+			return internalerrors.Errorf(
+				"cannot understand value for model config %q", config.AgentStreamKey,
+			).Add(coreerrors.NotValid)
+		}
+		err := c.setAgentStream(ctx, agentStreamStr)
+		if err != nil {
+			return err
+		}
+		// We remove the value from model config as we don't want it getting
+		// persisted into the model's config.
+		delete(args.Config, config.AgentStreamKey)
+	}
+
 	var validationError *config.ValidationError
-	err = c.configService.UpdateModelConfig(ctx, args.Config, nil, logValidator)
+	err = c.modelConfigService.UpdateModelConfig(ctx, args.Config, nil, logValidator)
 	if errors.As(err, &validationError) {
 		return fmt.Errorf("config key %q %w: %s",
 			validationError.InvalidAttrs,
@@ -192,6 +217,33 @@ func (c *ModelConfigAPI) ModelSet(ctx context.Context, args params.ModelSet) err
 	}
 
 	return err
+}
+
+// setAgentStream is responsible for setting the agent stream to use on the
+// current model. This exists because the way ask users to control this value is
+// still via model config as a user interface. If the value of agent stream
+// passed to this function is an empty string no operation will be performed.
+func (s *ModelConfigAPI) setAgentStream(ctx context.Context, agentStream string) error {
+	if agentStream == "" {
+		return nil
+	}
+
+	s.logger.Debugf(ctx, "setting agent stream to %q via model config facade", agentStream)
+
+	err := s.modelAgentService.SetModelAgentStream(
+		ctx, agentbinary.AgentStream(agentStream),
+	)
+	if errors.Is(err, coreerrors.NotValid) {
+		return internalerrors.Errorf(
+			"agent stream %q is not a valid value", agentStream,
+		).Add(coreerrors.NotValid)
+	} else if err != nil {
+		return internalerrors.Errorf(
+			"updating agent stream with model config changes: %w", err,
+		)
+	}
+
+	return nil
 }
 
 // LogTracingValidator is a logging config validator that checks if a logging
@@ -245,7 +297,7 @@ func (c *ModelConfigAPI) ModelUnset(ctx context.Context, args params.ModelUnset)
 	}
 
 	var validationError config.ValidationError
-	err := c.configService.UpdateModelConfig(ctx, nil, args.Keys)
+	err := c.modelConfigService.UpdateModelConfig(ctx, nil, args.Keys)
 	if errors.As(err, &validationError) {
 		return fmt.Errorf("removing config key %q %w: %s",
 			validationError.InvalidAttrs,
