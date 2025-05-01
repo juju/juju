@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/modelmigration"
+	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/rpc/params"
@@ -68,6 +69,18 @@ type ApplicationService interface {
 	// GetApplicationLife returns the life value of the application with the
 	// given name.
 	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
+}
+
+// RelationService provides access to the relation service.
+type RelationService interface {
+	// GetAllRelationDetails return RelationDetailResults for all relations
+	// for the current model.
+	GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error)
+
+	// RelationUnitInScopeByID returns a boolean to indicate whether the given
+	// unit is in scopen of a given relation
+	RelationUnitInScopeByID(ctx context.Context, relationID int, unitName unit.Name) (bool,
+		error)
 }
 
 type StatusService interface {
@@ -141,6 +154,7 @@ type API struct {
 	upgradeService UpgradeService
 
 	applicationService          ApplicationService
+	relationService             RelationService
 	statusService               StatusService
 	controllerConfigService     ControllerConfigService
 	externalControllerService   ExternalControllerService
@@ -163,6 +177,7 @@ func NewAPI(
 	controllerConfigService ControllerConfigService,
 	externalControllerService ExternalControllerService,
 	applicationService ApplicationService,
+	relationService RelationService,
 	statusService StatusService,
 	upgradeService UpgradeService,
 	modelAgentServiceGetter ModelAgentServiceGetter,
@@ -177,6 +192,7 @@ func NewAPI(
 		controllerConfigService:         controllerConfigService,
 		externalControllerService:       externalControllerService,
 		applicationService:              applicationService,
+		relationService:                 relationService,
 		statusService:                   statusService,
 		upgradeService:                  upgradeService,
 		modelAgentServiceGetter:         modelAgentServiceGetter,
@@ -275,17 +291,16 @@ with an earlier version of the target controller and try again.
 	if err := migration.TargetPrecheck(
 		ctx,
 		backend,
-		migration.PoolShim(api.pool),
-		coremigration.ModelInfo{
+		migration.PoolShim(api.pool), coremigration.ModelInfo{
 			UUID:                   model.UUID,
 			Name:                   model.Name,
 			Owner:                  ownerTag,
 			AgentVersion:           model.AgentVersion,
 			ControllerAgentVersion: model.ControllerAgentVersion,
 			ModelDescription:       modelDescription,
-		},
-		api.upgradeService,
+		}, api.upgradeService,
 		api.applicationService,
+		api.relationService,
 		api.statusService,
 		modelAgentService,
 	); err != nil {

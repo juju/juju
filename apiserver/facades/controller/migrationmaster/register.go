@@ -66,6 +66,7 @@ func newMigrationMasterFacade(stdCtx context.Context, ctx facade.ModelContext) (
 		domainServices.ModelInfo(),
 		domainServices.Model(),
 		domainServices.Application(),
+		domainServices.Relation(),
 		domainServices.Status(),
 		domainServices.Upgrade(),
 		domainServices.Agent(),

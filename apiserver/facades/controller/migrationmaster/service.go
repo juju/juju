@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/relation"
 )
 
 // UpgradeService provides a subset of the upgrade domain service methods.
@@ -46,6 +47,18 @@ type ApplicationService interface {
 	// GetApplicationLife returns the life value of the application with the
 	// given name.
 	GetApplicationLife(ctx context.Context, name string) (life.Value, error)
+}
+
+// RelationService provides access to the relation service.
+type RelationService interface {
+	// GetAllRelationDetails return RelationDetailResults for all relations
+	// for the current model.
+	GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error)
+
+	// RelationUnitInScopeByID returns a boolean to indicate whether the given
+	// unit is in scopen of a given relation
+	RelationUnitInScopeByID(ctx context.Context, relationID int, unitName unit.Name) (bool,
+		error)
 }
 
 type StatusService interface {

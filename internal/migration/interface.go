@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
@@ -29,7 +30,6 @@ type PrecheckBackend interface {
 	AllMachines() ([]PrecheckMachine, error)
 	AllMachinesCount() (int, error)
 	AllApplications() ([]PrecheckApplication, error)
-	AllRelations() ([]PrecheckRelation, error)
 	ControllerBackend() (PrecheckBackend, error)
 	MachineCountForBase(base ...state.Base) (map[string]int, error)
 	MongoCurrentStatus() (*replicaset.Status, error)
@@ -52,6 +52,18 @@ type ApplicationService interface {
 	// [applicationerrors.ApplicationNotFoundError] if the application is not
 	// found.
 	GetApplicationLife(context.Context, string) (life.Value, error)
+}
+
+// RelationService provides access to the relation service.
+type RelationService interface {
+	// GetAllRelationDetails return RelationDetailResults for all relations
+	// for the current model.
+	GetAllRelationDetails(ctx context.Context) ([]relation.RelationDetailsResult, error)
+
+	// RelationUnitInScopeByID returns a boolean to indicate whether the given
+	// unit is in scopen of a given relation
+	RelationUnitInScopeByID(ctx context.Context, relationID int, unitName unit.Name) (bool,
+		error)
 }
 
 type StatusService interface {
@@ -112,22 +124,4 @@ type PrecheckUnit interface {
 	Life() state.Life
 	CharmURL() *string
 	ShouldBeAssigned() bool
-}
-
-// PrecheckRelation describes the state interface for relations needed
-// for prechecks.
-type PrecheckRelation interface {
-	String() string
-	Endpoints() []relation.Endpoint
-	Unit(PrecheckUnit) (PrecheckRelationUnit, error)
-	AllRemoteUnits(appName string) ([]PrecheckRelationUnit, error)
-	RemoteApplication() (string, bool, error)
-}
-
-// PrecheckRelationUnit describes the interface for relation units
-// needed for migration prechecks.
-type PrecheckRelationUnit interface {
-	Valid() (bool, error)
-	InScope() (bool, error)
-	UnitName() string
 }

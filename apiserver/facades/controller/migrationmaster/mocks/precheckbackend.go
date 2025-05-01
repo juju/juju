@@ -197,45 +197,6 @@ func (c *MockPrecheckBackendAllModelUUIDsCall) DoAndReturn(f func() ([]string, e
 	return c
 }
 
-// AllRelations mocks base method.
-func (m *MockPrecheckBackend) AllRelations() ([]migration.PrecheckRelation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllRelations")
-	ret0, _ := ret[0].([]migration.PrecheckRelation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllRelations indicates an expected call of AllRelations.
-func (mr *MockPrecheckBackendMockRecorder) AllRelations() *MockPrecheckBackendAllRelationsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllRelations", reflect.TypeOf((*MockPrecheckBackend)(nil).AllRelations))
-	return &MockPrecheckBackendAllRelationsCall{Call: call}
-}
-
-// MockPrecheckBackendAllRelationsCall wrap *gomock.Call
-type MockPrecheckBackendAllRelationsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockPrecheckBackendAllRelationsCall) Return(arg0 []migration.PrecheckRelation, arg1 error) *MockPrecheckBackendAllRelationsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockPrecheckBackendAllRelationsCall) Do(f func() ([]migration.PrecheckRelation, error)) *MockPrecheckBackendAllRelationsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockPrecheckBackendAllRelationsCall) DoAndReturn(f func() ([]migration.PrecheckRelation, error)) *MockPrecheckBackendAllRelationsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // ControllerBackend mocks base method.
 func (m *MockPrecheckBackend) ControllerBackend() (migration.PrecheckBackend, error) {
 	m.ctrl.T.Helper()

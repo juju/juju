@@ -135,6 +135,13 @@ func (s *destroyControllerSuite) controllerAPI(c *gc.C) *controller.ControllerAP
 		}
 		return svc.Application(), nil
 	}
+	relationServiceGetter := func(c context.Context, modelUUID coremodel.UUID) (controller.RelationService, error) {
+		svc, err := ctx.DomainServicesForModel(c, modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return svc.Relation(), nil
+	}
 	statusServiceGetter := func(c context.Context, modelUUID coremodel.UUID) (controller.StatusService, error) {
 		svc, err := ctx.DomainServicesForModel(c, modelUUID)
 		if err != nil {
@@ -182,6 +189,7 @@ func (s *destroyControllerSuite) controllerAPI(c *gc.C) *controller.ControllerAP
 		domainServices.ModelInfo(),
 		domainServices.BlockCommand(),
 		applicationServiceGetter,
+		relationServiceGetter,
 		statusServiceGetter,
 		modelAgentServiceGetter,
 		modelConfigServiceGetter,

@@ -971,16 +971,18 @@ func (s *Service) RelationSuspendedReason(ctx context.Context, relationUUID core
 	return ""
 }
 
-// RelationUnitInScope returns a boolean to indicate whether the given
-// relation unit is in scope.
-func (s *Service) RelationUnitInScope(ctx context.Context, relationUnitUUID corerelation.UnitUUID) (bool, error) {
-	return false, coreerrors.NotImplemented
-}
-
-// RelationUnitValid returns a boolean to indicate whether the given
-// relation unit is in scope.
-func (s *Service) RelationUnitValid(ctx context.Context, relationUnitUUID corerelation.UnitUUID) (bool, error) {
-	return false, coreerrors.NotImplemented
+// RelationUnitInScopeByID returns a boolean to indicate whether the given
+// unit is in scopen of a given relation
+func (s *Service) RelationUnitInScopeByID(ctx context.Context, relationID int, unitName unit.Name) (bool,
+	error) {
+	_, err := s.GetRelationUnitByID(ctx, relationID, unitName)
+	if errors.Is(err, relationerrors.RelationUnitNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	return true, nil
 }
 
 // SetRelationSuspended marks the given relation as suspended. Providing a

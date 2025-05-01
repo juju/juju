@@ -50,6 +50,7 @@ type Suite struct {
 	domainServicesGetter      *MockDomainServicesGetter
 	externalControllerService *MockExternalControllerService
 	applicationService        *MockApplicationService
+	relationService           *MockRelationService
 	statusSerivce             *MockStatusService
 	upgradeService            *MockUpgradeService
 	modelImporter             *MockModelImporter
@@ -484,6 +485,7 @@ func (s *Suite) newAPI(versions facades.FacadeVersions, logDir string) (*migrati
 		s.controllerConfigService,
 		s.externalControllerService,
 		s.applicationService,
+		s.relationService,
 		s.statusSerivce,
 		s.upgradeService,
 		s.agentServiceGetter,
