@@ -564,7 +564,6 @@ var defaultConfigValues = map[string]any{
 	ImageStreamKey:                            "released",
 	ImageMetadataURLKey:                       "",
 	ImageMetadataDefaultsDisabledKey:          false,
-	AgentStreamKey:                            "released",
 	AgentMetadataURLKey:                       "",
 	ContainerImageStreamKey:                   "released",
 	ContainerImageMetadataURLKey:              "",

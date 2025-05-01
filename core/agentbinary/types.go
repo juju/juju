@@ -75,6 +75,12 @@ func (v Version) Validate() error {
 	return nil
 }
 
+// String returns the agent stream as a string. This  function implements the
+// stringer interface.
+func (a AgentStream) String() string {
+	return string(a)
+}
+
 // String returns the version as a string.
 // It formats the version number and architecture in the <version>-<arch> format.
 func (v Version) String() string {
