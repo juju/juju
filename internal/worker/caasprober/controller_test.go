@@ -4,6 +4,7 @@
 package caasprober_test
 
 import (
+	"bytes"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -155,6 +156,7 @@ func (s *ControllerSuite) TestControllerNotImplemented(c *gc.C) {
 
 func (s *ControllerSuite) TestControllerProbeError(c *gc.C) {
 	waitGroup := sync.WaitGroup{}
+	// We should trigger the handler 3 times, one for each probe type
 	waitGroup.Add(3)
 
 	mux := dummyMux{
@@ -163,6 +165,10 @@ func (s *ControllerSuite) TestControllerProbeError(c *gc.C) {
 			recorder := httptest.NewRecorder()
 			h.ServeHTTP(recorder, req)
 			c.Check(recorder.Result().StatusCode, gc.Equals, http.StatusInternalServerError)
+			body := &bytes.Buffer{}
+			_, err := recorder.Body.WriteTo(body)
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(body.String(), gc.Equals, "test error\n")
 			waitGroup.Done()
 			return nil
 		},
