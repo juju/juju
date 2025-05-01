@@ -10,7 +10,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/agentbinary"
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	corearch "github.com/juju/juju/core/arch"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -628,7 +627,7 @@ func (s *suite) TestSetAgentStreamNotValidAgentStream(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// This is a fake stream that doesn't exist.
-	agentStream := agentbinary.AgentStream("bad value")
+	agentStream := coreagentbinary.AgentStream("bad value")
 
 	err := NewService(s.state).SetModelAgentStream(
 		context.Background(),
@@ -642,7 +641,7 @@ func (s *suite) TestSetAgentStreamNotValidAgentStream(c *gc.C) {
 func (s *suite) TestSetAgentStream(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	agentStream := agentbinary.AgentStreamTesting
+	agentStream := coreagentbinary.AgentStreamTesting
 
 	s.state.EXPECT().SetModelAgentStream(
 		gomock.Any(),
