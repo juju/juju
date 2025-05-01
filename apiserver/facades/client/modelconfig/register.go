@@ -36,16 +36,16 @@ func makeFacade(ctx facade.ModelContext) (*ModelConfigAPI, error) {
 	auth := ctx.Auth()
 
 	domainServices := ctx.DomainServices()
-	modelSecretBackend := domainServices.ModelSecretBackend()
-
-	configService := domainServices.Config()
-	modelService := domainServices.ModelInfo()
 
 	return NewModelConfigAPI(
 		ctx.ModelUUID(),
 		ctx.ControllerUUID(),
 		ctx.State(),
-		modelSecretBackend, configService, modelService, auth,
+		domainServices.ModelSecretBackend(),
+		domainServices.Config(),
+		domainServices.Agent(),
+		domainServices.ModelInfo(),
+		auth,
 		domainServices.BlockCommand(),
 	)
 }

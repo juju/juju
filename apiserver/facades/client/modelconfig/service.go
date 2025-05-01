@@ -6,10 +6,21 @@ package modelconfig
 import (
 	"context"
 
+	"github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/domain/blockcommand"
 	"github.com/juju/juju/environs/config"
 )
+
+// ModelAgentService is the controller service for interacting with agent
+// information that runs on behalf of a model.
+type ModelAgentService interface {
+	// SetModelAgentStream is responsible for setting the agent stream that is
+	// in use for the current model. If the agent stream supplied is not a
+	// recognised value an error satisfying
+	// [github.com/juju/juju/core/errors.NotValid] is returned.
+	SetModelAgentStream(context.Context, agentbinary.AgentStream) error
+}
 
 // ModelConfigService is an interface for interacting with a model's underlying
 // model configuration values.
