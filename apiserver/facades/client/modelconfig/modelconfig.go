@@ -30,16 +30,18 @@ import (
 
 // ModelConfigAPI provides the base implementation of the methods.
 type ModelConfigAPI struct {
-	backend                   Backend
-	controllerUUID            string
-	modelSecretBackendService ModelSecretBackendService
-	configService             ModelConfigService
+	auth   facade.Authorizer
+	check  *common.BlockChecker
+	logger corelogger.Logger
+
+	controllerUUID string
+	modelUUID      coremodel.UUID
+
 	modelAgentService         ModelAgentService
+	backend                   Backend
+	modelConfigService        ModelConfigService
+	modelSecretBackendService ModelSecretBackendService
 	modelSericve              ModelService
-	auth                      facade.Authorizer
-	check                     *common.BlockChecker
-	logger                    corelogger.Logger
-	modelUUID                 coremodel.UUID
 }
 
 // ModelConfigAPIV3 is currently the latest.
@@ -49,33 +51,31 @@ type ModelConfigAPIV3 struct {
 
 // NewModelConfigAPI creates a new instance of the ModelConfig Facade.
 func NewModelConfigAPI(
-	modelUUID coremodel.UUID,
-	controllerUUID string,
-	backend Backend,
-	modelSecretBackendService ModelSecretBackendService,
-	configService ModelConfigService,
-	modelAgentService ModelAgentService,
-	modelSericve ModelService,
 	authorizer facade.Authorizer,
+	controllerUUID string,
+	modelUUID coremodel.UUID,
+	backend Backend,
+	modelAgentService ModelAgentService,
 	blockCommandService common.BlockCommandService,
+	modelConfigService ModelConfigService,
+	modelSecretBackendService ModelSecretBackendService,
+	modelSericve ModelService,
 	logger corelogger.Logger,
-) (*ModelConfigAPI, error) {
-	if !authorizer.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
-
+) *ModelConfigAPI {
 	return &ModelConfigAPI{
-		modelUUID:                 modelUUID,
-		backend:                   backend,
-		controllerUUID:            controllerUUID,
-		modelSecretBackendService: modelSecretBackendService,
-		configService:             configService,
+		auth:   authorizer,
+		check:  common.NewBlockChecker(blockCommandService),
+		logger: logger,
+
+		controllerUUID: controllerUUID,
+		modelUUID:      modelUUID,
+
 		modelAgentService:         modelAgentService,
+		backend:                   backend,
+		modelConfigService:        modelConfigService,
+		modelSecretBackendService: modelSecretBackendService,
 		modelSericve:              modelSericve,
-		auth:                      authorizer,
-		check:                     common.NewBlockChecker(blockCommandService),
-		logger:                    logger,
-	}, nil
+	}
 }
 
 func (c *ModelConfigAPI) checkCanWrite(ctx context.Context) error {
@@ -135,7 +135,7 @@ func (c *ModelConfigAPI) ModelGet(ctx context.Context) (params.ModelConfigResult
 		return result, errors.Trace(err)
 	}
 
-	values, err := c.configService.ModelConfigValues(ctx)
+	values, err := c.modelConfigService.ModelConfigValues(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -208,7 +208,7 @@ func (c *ModelConfigAPI) ModelSet(ctx context.Context, args params.ModelSet) err
 	}
 
 	var validationError *config.ValidationError
-	err = c.configService.UpdateModelConfig(ctx, args.Config, nil, logValidator)
+	err = c.modelConfigService.UpdateModelConfig(ctx, args.Config, nil, logValidator)
 	if errors.As(err, &validationError) {
 		return fmt.Errorf("config key %q %w: %s",
 			validationError.InvalidAttrs,
@@ -297,7 +297,7 @@ func (c *ModelConfigAPI) ModelUnset(ctx context.Context, args params.ModelUnset)
 	}
 
 	var validationError config.ValidationError
-	err := c.configService.UpdateModelConfig(ctx, nil, args.Keys)
+	err := c.modelConfigService.UpdateModelConfig(ctx, nil, args.Keys)
 	if errors.As(err, &validationError) {
 		return fmt.Errorf("removing config key %q %w: %s",
 			validationError.InvalidAttrs,

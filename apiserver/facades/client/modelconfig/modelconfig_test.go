@@ -64,7 +64,6 @@ func (s *modelconfigSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *modelconfigSuite) getAPI(c *gc.C) *ModelConfigAPI {
-	s.authorizer.EXPECT().AuthClient().Return(true)
 	s.mockModelConfigService.EXPECT().ModelConfigValues(gomock.Any()).Return(
 		config.ConfigValues{
 			"type":          {Value: "dummy", Source: "model"},
@@ -74,19 +73,18 @@ func (s *modelconfigSuite) getAPI(c *gc.C) *ModelConfigAPI {
 		}, nil,
 	).AnyTimes()
 
-	api, err := NewModelConfigAPI(
-		s.modelUUID,
-		s.controllerUUID,
-		s.backend,
-		s.mockModelSecretBackendService,
-		s.mockModelConfigService,
-		s.mockModelAgentService,
-		s.mockModelService,
+	api := NewModelConfigAPI(
 		s.authorizer,
+		s.controllerUUID,
+		s.modelUUID,
+		s.backend,
+		s.mockModelAgentService,
 		s.mockBlockCommandService,
+		s.mockModelConfigService,
+		s.mockModelSecretBackendService,
+		s.mockModelService,
 		loggertesting.WrapCheckLog(c),
 	)
-	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
 
