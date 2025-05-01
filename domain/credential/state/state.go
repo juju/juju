@@ -125,8 +125,7 @@ AND    cloud_name = $credentialKey.cloud_name
 		err = tx.Query(ctx, stmt, dbKey).Get(&result)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
-		}
-		if err != nil {
+		} else if err != nil {
 			if credential.Invalid || credential.InvalidReason != "" {
 				return errors.Errorf("adding invalid credential %w", coreerrors.NotSupported)
 			}
