@@ -361,7 +361,7 @@ func (s *uniterLegacySuite) TestCurrentModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := params.ModelResult{
 		Name: modelInfo.Name,
-		UUID: s.ControllerModelUUID(),
+		UUID: modelInfo.UUID.String(),
 		Type: "iaas",
 	}
 	c.Assert(result, gc.DeepEquals, expected)

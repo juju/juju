@@ -22,6 +22,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -99,8 +100,8 @@ func (s *offerAccessSuite) revoke(user names.UserTag, access params.OfferAccessP
 	return s.modifyAccess(user, params.RevokeOfferAccess, access, offerURL)
 }
 
-func (s *offerAccessSuite) setupOffer(modelUUID, modelName, owner, offerName string) string {
-	ownerName := coreuser.NameFromTag(names.NewUserTag(owner))
+func (s *offerAccessSuite) setupOffer(c *gc.C, modelUUID, modelName, owner, offerName string) string {
+	ownerName := usertesting.GenNewName(c, owner)
 
 	s.mockModelService.EXPECT().ListAllModels(gomock.Any()).Return(
 		[]coremodel.Model{
@@ -135,7 +136,7 @@ func (s *offerAccessSuite) TestGrantMissingUserFails(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	offerUUID := s.setupOffer("uuid", "test", "admin", "someoffer")
+	offerUUID := s.setupOffer(c, "uuid", "test", "admin", "someoffer")
 	user := names.NewUserTag("foobar")
 
 	s.mockAccessService.EXPECT().UpdatePermission(gomock.Any(), access.UpdatePermissionArgs{
@@ -153,7 +154,7 @@ func (s *offerAccessSuite) TestGrantMissingOfferFails(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	s.setupOffer("uuid", "test", "admin", "differentoffer")
+	s.setupOffer(c, "uuid", "test", "admin", "differentoffer")
 	user := names.NewUserTag("foobar")
 	err := s.grant(user, params.OfferReadAccess, "test.someoffer")
 	expectedErr := `.*application offer "someoffer" not found`
@@ -164,7 +165,7 @@ func (s *offerAccessSuite) TestRevokePermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	offerUUID := s.setupOffer("uuid", "test", "admin", "someoffer")
+	offerUUID := s.setupOffer(c, "uuid", "test", "admin", "someoffer")
 	user := names.NewUserTag("foobar")
 	userName := coreuser.NameFromTag(user)
 	s.mockAccessService.EXPECT().UpdatePermission(gomock.Any(), access.UpdatePermissionArgs{
@@ -181,7 +182,7 @@ func (s *offerAccessSuite) TestGrantPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	offerUUID := s.setupOffer("uuid", "test", "admin", "someoffer")
+	offerUUID := s.setupOffer(c, "uuid", "test", "admin", "someoffer")
 
 	user := names.NewUserTag("foobar")
 	userName := coreuser.NameFromTag(user)
@@ -218,7 +219,7 @@ func (s *offerAccessSuite) TestGrantPermissionAddRemoteUser(c *gc.C) {
 }
 
 func (s *offerAccessSuite) assertGrantToOffer(c *gc.C, userAccess permission.Access) {
-	offerUUID := s.setupOffer("uuid", "test", "bob@remote", "someoffer")
+	offerUUID := s.setupOffer(c, "uuid", "test", "bob@remote", "someoffer")
 
 	user := names.NewUserTag("bob@remote")
 	s.authorizer.Tag = user
@@ -284,7 +285,7 @@ func (s *offerAccessSuite) TestGrantOfferInvalidUserTag(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	s.setupOffer("uuid", "test", "admin", "someoffer")
+	s.setupOffer(c, "uuid", "test", "admin", "someoffer")
 	for _, testParam := range []struct {
 		tag      string
 		validTag bool
@@ -369,7 +370,7 @@ func (s *offerAccessSuite) TestModifyOfferAccessInvalidAction(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.setupAPI(c)
 
-	s.setupOffer("uuid", "test", "admin", "someoffer")
+	s.setupOffer(c, "uuid", "test", "admin", "someoffer")
 
 	var dance params.OfferAction = "dance"
 	args := params.ModifyOfferAccessRequest{

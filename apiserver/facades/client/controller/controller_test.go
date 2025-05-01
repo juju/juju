@@ -1080,7 +1080,6 @@ func (s *controllerSuite) TestWatchModelSummariesByNonAdmin(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	// TODO(dqlite) - implement me
 	c.Skip("watch model summaries to be implemented")
-	//s.makeBobsModel(c)
 
 	// Default authorizer is an admin. As a user, admin can't see
 	// Bob's model.
