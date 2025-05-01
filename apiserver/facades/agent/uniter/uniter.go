@@ -850,11 +850,9 @@ func (u *UniterAPI) SetCharmURL(ctx context.Context, args params.EntitiesCharmUR
 		}
 		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = u.getLegacyUnit(ctx, tag)
-			if err == nil {
-				err = unit.SetCharmURL(entity.CharmURL)
-			}
+			continue
+			// TODO(aflynn): SetCharmURL is currently a no-op. It will be
+			// addressed in the refresh epic.
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
