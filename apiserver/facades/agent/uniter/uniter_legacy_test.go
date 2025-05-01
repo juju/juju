@@ -255,9 +255,6 @@ func (s *uniterLegacySuite) TestDestroyAllSubordinates(c *gc.C) {
 	// Verify wordpressUnit's subordinates were destroyed.
 }
 
-func (s *uniterLegacySuite) TestSetCharmURL(c *gc.C) {
-}
-
 func (s *uniterLegacySuite) TestWorkloadVersion(c *gc.C) {
 }
 
