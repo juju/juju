@@ -47,6 +47,7 @@ func makeFacade(ctx facade.ModelContext) (*ModelConfigAPI, error) {
 		domainServices.ModelInfo(),
 		auth,
 		domainServices.BlockCommand(),
+		ctx.Logger().Child("modelconfig"),
 	)
 }
 

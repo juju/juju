@@ -27,6 +27,7 @@ import (
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
@@ -83,6 +84,7 @@ func (s *modelconfigSuite) getAPI(c *gc.C) *ModelConfigAPI {
 		s.mockModelService,
 		s.authorizer,
 		s.mockBlockCommandService,
+		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api

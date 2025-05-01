@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/agentbinary"
 	coreerrors "github.com/juju/juju/core/errors"
+	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -37,8 +38,8 @@ type ModelConfigAPI struct {
 	modelSericve              ModelService
 	auth                      facade.Authorizer
 	check                     *common.BlockChecker
-
-	modelUUID coremodel.UUID
+	logger                    corelogger.Logger
+	modelUUID                 coremodel.UUID
 }
 
 // ModelConfigAPIV3 is currently the latest.
@@ -57,6 +58,7 @@ func NewModelConfigAPI(
 	modelSericve ModelService,
 	authorizer facade.Authorizer,
 	blockCommandService common.BlockCommandService,
+	logger corelogger.Logger,
 ) (*ModelConfigAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -72,6 +74,7 @@ func NewModelConfigAPI(
 		modelSericve:              modelSericve,
 		auth:                      authorizer,
 		check:                     common.NewBlockChecker(blockCommandService),
+		logger:                    logger,
 	}, nil
 }
 
@@ -224,6 +227,8 @@ func (s *ModelConfigAPI) setAgentStream(ctx context.Context, agentStream string)
 	if agentStream == "" {
 		return nil
 	}
+
+	s.logger.Debugf(ctx, "setting agent stream to %q via model config", agentStream)
 
 	err := s.modelAgentService.SetModelAgentStream(
 		ctx, agentbinary.AgentStream(agentStream),
