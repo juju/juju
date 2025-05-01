@@ -187,10 +187,10 @@ func (r *StatusHistoryReader) Walk(fn func(HistoryRecord) (bool, error)) error {
 			}
 		}
 
-		var since time.Time
+		var since *time.Time
 		if sinceStr := rec.Labels[sinceKey]; len(sinceStr) > 0 {
 			if t, err := time.Parse(time.RFC3339, sinceStr); err == nil {
-				since = t
+				since = &t
 			}
 		}
 
@@ -198,7 +198,7 @@ func (r *StatusHistoryReader) Walk(fn func(HistoryRecord) (bool, error)) error {
 			Kind:   kind,
 			Status: status.Status(rec.Labels[statusKey]),
 			Info:   rec.Labels[messageKey],
-			Since:  ptr(since),
+			Since:  since,
 			Data:   data,
 		}
 
@@ -236,8 +236,4 @@ func (s scannerCloser) Close() error {
 		return s.Closer.Close()
 	}
 	return nil
-}
-
-func ptr[T any](t T) *T {
-	return &t
 }
