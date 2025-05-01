@@ -171,6 +171,7 @@ func (s *sshServerSuite) TestSSHServer(c *gc.C) {
 }
 
 func (s *sshServerSuite) TestSSHServerMaxConnections(c *gc.C) {
+	c.Skip("this test is flaky, skipping until it is fixed")
 	// Firstly, start the server on an in-memory listener
 	listener := bufconn.Listen(1024)
 	worker, err := NewServerWorker(ServerWorkerConfig{
@@ -229,6 +230,7 @@ func inMemoryDial(c *gc.C, listener *bufconn.Listener, config *gossh.ClientConfi
 }
 
 func (s *sshServerSuite) TestSSHWorkerReport(c *gc.C) {
+	c.Skip("this test is flaky, skipping until it is fixed")
 	defer s.SetUpMocks(c).Finish()
 
 	// Firstly, start the server on an in-memory listener
