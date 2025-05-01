@@ -275,16 +275,23 @@ func (u *UniterAPI) AssignedMachine(ctx context.Context, args params.Entities) (
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		unit, err := u.getLegacyUnit(ctx, tag)
+		unitName, err := coreunit.NewName(tag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		machineId, err := unit.AssignedMachineId()
-		if err != nil {
+		machineName, err := u.applicationService.GetUnitMachineName(ctx, unitName)
+		if errors.Is(err, applicationerrors.UnitMachineNotAssigned) {
+			result.Results[i].Error = &params.Error{
+				Code:    params.CodeNotAssigned,
+				Message: err.Error(),
+			}
+		} else if errors.Is(err, applicationerrors.UnitNotFound) {
+			result.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", unitName))
+		} else if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		} else {
-			result.Results[i].Result = names.NewMachineTag(machineId).String()
+			result.Results[i].Result = names.NewMachineTag(machineName.String()).String()
 		}
 	}
 	return result, nil
@@ -358,31 +365,6 @@ func (u *UniterAPI) PrivateAddress(ctx context.Context, args params.Entities) (p
 	return result, nil
 }
 
-// TODO(ericsnow) Factor out the common code amongst the many methods here.
-
-var getZone = func(ctx context.Context, st *state.State, machineService MachineService, tag names.Tag) (string, error) {
-	unit, err := st.Unit(tag.Id())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	machineID, err := unit.AssignedMachineId()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	machineUUID, err := machineService.GetMachineUUID(ctx, coremachine.Name(machineID))
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	az, err := machineService.AvailabilityZone(ctx, machineUUID)
-	if errors.Is(err, machineerrors.AvailabilityZoneNotFound) {
-		return "", errors.NotProvisioned
-	}
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return az, errors.Trace(err)
-}
-
 // AvailabilityZone returns the availability zone for each given unit, if applicable.
 func (u *UniterAPI) AvailabilityZone(ctx context.Context, args params.Entities) (params.StringResults, error) {
 	var results params.StringResults
@@ -406,15 +388,35 @@ func (u *UniterAPI) AvailabilityZone(ctx context.Context, args params.Entities) 
 			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		err = apiservererrors.ErrPerm
-		if canAccess(tag) {
-			var zone string
-			zone, err = getZone(ctx, u.st, u.machineService, tag)
-			if err == nil {
-				results.Results[i].Result = zone
-			}
+
+		if !canAccess(tag) {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
-		results.Results[i].Error = apiservererrors.ServerError(err)
+
+		unitName, err := coreunit.NewName(tag.Id())
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		machineUUID, err := u.applicationService.GetUnitMachineUUID(ctx, unitName)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			results.Results[i].Error = apiservererrors.ServerError(errors.NotFoundf("unit %q", unitName))
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		az, err := u.machineService.AvailabilityZone(ctx, machineUUID.String())
+		if errors.Is(err, machineerrors.AvailabilityZoneNotFound) {
+			results.Results[i].Error = apiservererrors.ServerError(errors.NotProvisioned)
+			continue
+		} else if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		results.Results[i].Result = az
 	}
 
 	return results, nil

@@ -88,6 +88,16 @@ type UnitState interface {
 	// returned.
 	GetUnitPrincipal(ctx context.Context, unitName coreunit.Name) (coreunit.Name, bool, error)
 
+	// GetUnitMachineUUID gets the unit's machine uuid. If the unit does not
+	// have a machine assigned, [applicationerrors.UnitMachineNotAssigned] is
+	// returned.
+	GetUnitMachineUUID(ctx context.Context, unitName coreunit.Name) (machine.UUID, error)
+
+	// GetUnitMachineName gets the unit's machine uuid. If the unit does not
+	// have a machine assigned, [applicationerrors.UnitMachineNotAssigned] is
+	// returned.
+	GetUnitMachineName(ctx context.Context, unitName coreunit.Name) (machine.Name, error)
+
 	// SetUnitLife sets the life of the specified unit.
 	SetUnitLife(context.Context, coreunit.Name, life.Life) error
 
@@ -411,6 +421,46 @@ func (s *Service) GetUnitPrincipal(ctx context.Context, unitName coreunit.Name) 
 	}
 
 	return s.st.GetUnitPrincipal(ctx, unitName)
+}
+
+// GetUnitMachineName gets the name of the unit's machine.
+//
+// The following errors may be returned:
+//   - [applicationerrors.UnitMachineNotAssigned] if the unit does not have a
+//     machine assigned.
+//   - [applicationerrors.UnitNotFound] if the unit cannot be found.
+//   - [applicationerrors.UnitIsDead] if the unit is dead.
+func (s *Service) GetUnitMachineName(ctx context.Context, unitName coreunit.Name) (machine.Name, error) {
+	if err := unitName.Validate(); err != nil {
+		return "", errors.Capture(err)
+	}
+
+	unitMachine, err := s.st.GetUnitMachineName(ctx, unitName)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return unitMachine, nil
+}
+
+// GetUnitMachineUUID gets the unit's machine UUID.
+//
+// The following errors may be returned:
+//   - [applicationerrors.UnitMachineNotAssigned] if the unit does not have a
+//     machine assigned.
+//   - [applicationerrors.UnitNotFound] if the unit cannot be found.
+//   - [applicationerrors.UnitIsDead] if the unit is dead.
+func (s *Service) GetUnitMachineUUID(ctx context.Context, unitName coreunit.Name) (machine.UUID, error) {
+	if err := unitName.Validate(); err != nil {
+		return "", errors.Capture(err)
+	}
+
+	unitMachine, err := s.st.GetUnitMachineUUID(ctx, unitName)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return unitMachine, nil
 }
 
 // DeleteUnit deletes the specified unit.

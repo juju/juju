@@ -18,6 +18,8 @@ import (
 	"github.com/juju/juju/core/application/testing"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/instance"
+	coremachine "github.com/juju/juju/core/machine"
+	coremachinetesting "github.com/juju/juju/core/machine/testing"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
@@ -764,7 +766,7 @@ func (s *unitStateSuite) TestAddUnitsApplicationNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *unitStateSuite) TestAddUnitsApplicationNotALive(c *gc.C) {
+func (s *unitStateSuite) TestAddUnitsApplicationNotAlive(c *gc.C) {
 	appID := s.createApplication(c, "foo", life.Dying)
 
 	charmUUID, err := s.state.GetCharmIDByApplicationName(context.Background(), "foo")
@@ -1231,6 +1233,78 @@ func (s *unitStateSuite) TestSetUnitWorkloadVersionMultiple(c *gc.C) {
 	s.assertApplicationWorkloadVersion(c, appID, "v2.0.0")
 }
 
+func (s *unitStateSuite) TestGetUnitMachineUUID(c *gc.C) {
+	unitName := coreunittesting.GenNewName(c, "foo/666")
+	appUUID := s.createApplication(c, "foo", life.Alive)
+	unitUUID := s.addUnit(c, unitName, appUUID)
+	_, machineUUID := s.addMachineToUnit(c, unitUUID)
+
+	machine, err := s.state.GetUnitMachineUUID(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine, gc.Equals, machineUUID)
+}
+
+func (s *unitStateSuite) TestGetUnitMachineUUIDNotAssigned(c *gc.C) {
+	unitName := coreunittesting.GenNewName(c, "foo/666")
+	appUUID := s.createApplication(c, "foo", life.Alive)
+	s.addUnit(c, unitName, appUUID)
+
+	_, err := s.state.GetUnitMachineUUID(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitMachineNotAssigned)
+}
+
+func (s *unitStateSuite) TestGetUnitMachineUUIDUnitNotFound(c *gc.C) {
+	unitName := coreunittesting.GenNewName(c, "foo/666")
+
+	_, err := s.state.GetUnitMachineUUID(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitStateSuite) TestGetUnitMachineUUIDIsDead(c *gc.C) {
+	unitName := coreunittesting.GenNewName(c, "foo/666")
+	appUUID := s.createApplication(c, "foo", life.Alive)
+	s.addUnitWithLife(c, unitName, appUUID, life.Dead)
+
+	_, err := s.state.GetUnitMachineUUID(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitIsDead)
+}
+
+func (s *unitStateSuite) TestGetUnitMachineName(c *gc.C) {
+	unitName := coreunittesting.GenNewName(c, "foo/666")
+	appUUID := s.createApplication(c, "foo", life.Alive)
+	unitUUID := s.addUnit(c, unitName, appUUID)
+	machineName, _ := s.addMachineToUnit(c, unitUUID)
+
+	machine, err := s.state.GetUnitMachineName(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine, gc.Equals, machineName)
+}
+
+func (s *unitStateSuite) TestGetUnitMachineNameNotAssigned(c *gc.C) {
+	unitName := coreunittesting.GenNewName(c, "foo/666")
+	appUUID := s.createApplication(c, "foo", life.Alive)
+	s.addUnit(c, unitName, appUUID)
+
+	_, err := s.state.GetUnitMachineName(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitMachineNotAssigned)
+}
+
+func (s *unitStateSuite) TestGetUnitMachineNameUnitNotFound(c *gc.C) {
+	unitName := coreunittesting.GenNewName(c, "foo/666")
+
+	_, err := s.state.GetUnitMachineName(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *unitStateSuite) TestGetUnitMachineNameIsDead(c *gc.C) {
+	unitName := coreunittesting.GenNewName(c, "foo/666")
+	appUUID := s.createApplication(c, "foo", life.Alive)
+	s.addUnitWithLife(c, unitName, appUUID, life.Dead)
+
+	_, err := s.state.GetUnitMachineName(context.Background(), unitName)
+	c.Assert(err, jc.ErrorIs, applicationerrors.UnitIsDead)
+}
+
 func (s *unitStateSuite) assertApplicationWorkloadVersion(c *gc.C, appID coreapplication.ID, expected string) {
 	var version string
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -1345,6 +1419,56 @@ WHERE uuid=?`, constraintUUID)
 	c.Check(imageID.String, gc.Equals, deptr(cons.ImageID))
 
 	return constraintSpaces, constraintTags, constraintZones
+}
+
+func (s *unitStateSuite) addUnit(c *gc.C, unitName coreunit.Name, appUUID coreapplication.ID) coreunit.UUID {
+	return s.addUnitWithLife(c, unitName, appUUID, life.Alive)
+}
+
+func (s *unitStateSuite) addUnitWithLife(c *gc.C, unitName coreunit.Name, appUUID coreapplication.ID, l life.Life) coreunit.UUID {
+	unitUUID := coreunittesting.GenUnitUUID(c)
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		netNodeUUID := uuid.MustNewUUID().String()
+		_, err := tx.Exec(`
+INSERT INTO net_node (uuid)
+VALUES (?)
+`, netNodeUUID)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.Exec(`
+INSERT INTO unit (uuid, name, life_id, net_node_uuid, application_uuid, charm_uuid)
+SELECT ?, ?, ?, ?, uuid, charm_uuid
+FROM application
+WHERE uuid = ?
+`, unitUUID, unitName, l, netNodeUUID, appUUID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return unitUUID
+}
+
+func (s *unitStateSuite) addMachineToUnit(c *gc.C, unitUUID coreunit.UUID) (coremachine.Name, coremachine.UUID) {
+	machineUUID := coremachinetesting.GenUUID(c)
+	machineName := coremachine.Name("0")
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(`
+INSERT INTO machine (uuid, name, life_id, net_node_uuid)
+SELECT ?, ?, ?, net_node_uuid
+FROM unit
+WHERE uuid = ?
+`, machineUUID, machineName, 0 /* alive */, unitUUID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return machineName, machineUUID
 }
 
 type unitStateSubordinateSuite struct {
@@ -1596,33 +1720,6 @@ VALUES (?, ?)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *unitStateSubordinateSuite) addUnit(c *gc.C, unitName coreunit.Name, appUUID coreapplication.ID) coreunit.UUID {
-	unitUUID := coreunittesting.GenUnitUUID(c)
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		netNodeUUID := uuid.MustNewUUID().String()
-		_, err := tx.Exec(`
-INSERT INTO net_node (uuid)
-VALUES (?)
-`, netNodeUUID)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.Exec(`
-INSERT INTO unit (uuid, name, life_id, net_node_uuid, application_uuid, charm_uuid)
-SELECT ?, ?, ?, ?, uuid, charm_uuid
-FROM application
-WHERE uuid = ?
-`, unitUUID, unitName, 0 /* alive */, netNodeUUID, appUUID)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return unitUUID
 }
 
 func (s *unitStateSubordinateSuite) assertUnitPrincipal(c *gc.C, principalName, subordinateName coreunit.Name) {

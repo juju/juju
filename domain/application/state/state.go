@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -1251,26 +1252,54 @@ ORDER BY array_index ASC;
 // - If the unit is not found, [applicationerrors.UnitNotFound] is returned.
 // - If the unit is dead, [applicationerrors.UnitIsDead] is returned.
 func (st *State) checkUnitNotDead(ctx context.Context, tx *sqlair.TX, ident unitUUID) error {
-	type life struct {
-		LifeID domainlife.Life `db:"life_id"`
-	}
-
 	query := `
-SELECT &life.*
+SELECT &lifeID.*
 FROM unit
 WHERE uuid = $unitUUID.uuid;
 `
-	stmt, err := st.Prepare(query, ident, life{})
+	stmt, err := st.Prepare(query, ident, lifeID{})
 	if err != nil {
 		return errors.Errorf("preparing query for unit %q: %w", ident.UnitUUID, err)
 	}
 
-	var result life
+	var result lifeID
 	err = tx.Query(ctx, stmt, ident).Get(&result)
 	if errors.Is(err, sql.ErrNoRows) {
 		return applicationerrors.UnitNotFound
 	} else if err != nil {
 		return errors.Errorf("checking unit %q exists: %w", ident.UnitUUID, err)
+	}
+
+	switch result.LifeID {
+	case domainlife.Dead:
+		return applicationerrors.UnitIsDead
+	default:
+		return nil
+	}
+}
+
+// checkUnitNotDeadByName checks if the unit exists and is not dead. It's
+// possible to access alive and dying units, but not dead ones:
+// - If the unit is not found, [applicationerrors.UnitNotFound] is returned.
+// - If the unit is dead, [applicationerrors.UnitIsDead] is returned.
+func (st *State) checkUnitNotDeadByName(ctx context.Context, tx *sqlair.TX, name unit.Name) error {
+	query := `
+SELECT &lifeID.*
+FROM unit
+WHERE name = $unitName.name;
+`
+	id := unitName{Name: name}
+	stmt, err := st.Prepare(query, id, lifeID{})
+	if err != nil {
+		return errors.Errorf("preparing query for unit %q: %w", id, err)
+	}
+
+	var result lifeID
+	err = tx.Query(ctx, stmt, id).Get(&result)
+	if errors.Is(err, sql.ErrNoRows) {
+		return applicationerrors.UnitNotFound
+	} else if err != nil {
+		return errors.Errorf("checking unit %q exists: %w", id, err)
 	}
 
 	switch result.LifeID {

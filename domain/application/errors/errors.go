@@ -253,6 +253,10 @@ const (
 	// operated on does not exist.
 	MachineNotFound = errors.ConstError("machine not found")
 
+	// UnitMachineNotAssigned describes an error that occurs when a unit is not
+	// assigned to a machine.
+	UnitMachineNotAssigned = errors.ConstError("unit machine not assigned")
+
 	// NetNodeNotFound describes an error that occurs when the net node being
 	// operated on does not exist.
 	NetNodeNotFound = errors.ConstError("net node not found")
