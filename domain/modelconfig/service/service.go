@@ -312,7 +312,7 @@ func (s *Service) UpdateModelConfig(
 	// changes that were made by the validators.
 	validatedUpdates := make(map[string]any, len(updates))
 	validatedCfgAttrs := validatedCfg.AllAttrs()
-	for k, _ := range updates {
+	for k := range updates {
 		validatedCfgVal, exists := validatedCfgAttrs[k]
 		if !exists {
 			continue
