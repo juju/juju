@@ -113,10 +113,6 @@ func ProbeHandler(name probe.ProbeType, probes *CAASProbes) http.Handler {
 		}
 
 		detail := &bytes.Buffer{}
-		if shouldDetailResponse {
-			// Start the detailed response on a clean line
-			detail.WriteString("\n")
-		}
 		good, n, err := aggProbe.ProbeWithResultCallback(
 			probe.ProbeResultCallback(func(probeKey string, val bool, err error) {
 				if !shouldDetailResponse {
@@ -177,12 +173,15 @@ func ProbeHandler(name probe.ProbeType, probes *CAASProbes) http.Handler {
 			http.Error(res, fmt.Sprintf("%s: probe %s",
 				http.StatusText(http.StatusTeapot), name),
 				http.StatusTeapot)
+			if shouldDetailResponse {
+				_, _ = io.Copy(res, detail)
+			}
 			return
 		}
 
 		res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		res.WriteHeader(http.StatusOK)
-		_, _ = fmt.Fprintf(res, "%s: probe %s", http.StatusText(http.StatusOK), name)
+		_, _ = fmt.Fprintf(res, "%s: probe %s\n", http.StatusText(http.StatusOK), name)
 		if shouldDetailResponse {
 			_, _ = io.Copy(res, detail)
 		}

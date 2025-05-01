@@ -67,7 +67,7 @@ var (
 	// indicates to its caller that it's not implemented. The resulting error
 	// should hold true with errors.IsNotImplemented(err)
 	NotImplemented Prober = ProberFn(func() (bool, error) {
-		return false, errors.NotImplementedf("probe not implemented")
+		return false, errors.NotImplementedf("probe")
 	})
 
 	// Success is a convenience wrapper probe that always evaluates to success.
