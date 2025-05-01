@@ -1251,3 +1251,8 @@ type getUnitMachineUUID struct {
 type lifeID struct {
 	LifeID life.Life `db:"life_id"`
 }
+
+type getCharmUpgradeOnError struct {
+	CharmUpgradeOnError bool   `db:"charm_upgrade_on_error"`
+	Name                string `db:"name"`
+}
