@@ -13,9 +13,3 @@ type OriginTarget struct {
 	// messages to.
 	Target string `yaml:"target"`
 }
-
-// LocalOnly represents a common structure where the subject is the
-// primary indicator and the message is local.
-type LocalOnly struct {
-	LocalOnly bool `yaml:"local-only"`
-}

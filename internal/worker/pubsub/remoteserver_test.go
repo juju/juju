@@ -48,7 +48,7 @@ func (s *RemoteServerSuite) SetUpTest(c *gc.C) {
 	tag := names.NewMachineTag("42")
 
 	s.clock = testclock.NewClock(time.Now())
-	s.hub = centralhub.New(tag, centralhub.PubsubNoOpMetrics{})
+	s.hub = centralhub.New(tag)
 	s.origin = tag.String()
 
 	s.config = psworker.RemoteServerConfig{
