@@ -14,12 +14,8 @@ import (
 type AgentStream int
 
 const (
-	// agentStreamZero represents the zero value for AgentStream. This is used
-	// to check if a value has been set/selected.
-	agentStreamZero AgentStream = 0
-
 	// AgentStreamReleased represents the released stream for agent binaries.
-	AgentStreamReleased AgentStream = iota - 1
+	AgentStreamReleased AgentStream = iota
 	// AgentStreamProposed represents the proposed stream for agent binaries.
 	AgentStreamProposed
 	// AgentStreamTesting represents the testing stream for agent binaries.
@@ -34,24 +30,18 @@ const (
 func AgentStreamFromCoreAgentStream(
 	agentStream coreagentbinary.AgentStream,
 ) (AgentStream, error) {
-	var rval AgentStream
-
 	switch agentStream {
 	case coreagentbinary.AgentStreamReleased:
-		rval = AgentStreamReleased
+		return AgentStreamReleased, nil
 	case coreagentbinary.AgentStreamTesting:
-		rval = AgentStreamTesting
+		return AgentStreamTesting, nil
 	case coreagentbinary.AgentStreamProposed:
-		rval = AgentStreamProposed
+		return AgentStreamProposed, nil
 	case coreagentbinary.AgentStreamDevel:
-		rval = AgentStreamDevel
+		return AgentStreamDevel, nil
 	}
 
-	if rval == agentStreamZero {
-		return rval, errors.Errorf(
-			"agent stream %q is not recognised as a valid value", agentStream,
-		).Add(coreerrors.NotValid)
-	}
-
-	return rval, nil
+	return AgentStream(-1), errors.Errorf(
+		"agent stream %q is not recognised as a valid value", agentStream,
+	).Add(coreerrors.NotValid)
 }
