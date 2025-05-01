@@ -15,7 +15,9 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/constraints"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
@@ -204,6 +206,60 @@ func (s *modelconfigSuite) TestModelSetModelAdmin(c *gc.C) {
 	)
 	err := api.ModelSet(context.Background(), params)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestSetModelConfigAgentStream tests that the agent stream can be set via
+// model config and the value is correctly abstracted from config and removed.
+func (s *modelconfigSuite) TestSetModelConfigAgentStream(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	api := s.getAPI(c)
+
+	s.expectModelWriteAccess()
+	s.expectModelAdminAccess()
+	s.expectNoControllerAdminAccess()
+	s.expectNoBlocks()
+
+	s.mockModelAgentService.EXPECT().SetModelAgentStream(
+		gomock.Any(),
+		coreagentbinary.AgentStreamReleased,
+	).Return(nil)
+	s.mockModelConfigService.EXPECT().UpdateModelConfig(
+		gomock.Any(),
+		map[string]any{},
+		nil,
+		gomock.Any(),
+	).Return(nil)
+
+	err := api.ModelSet(context.Background(), params.ModelSet{
+		Config: map[string]any{
+			"agent-stream": "released",
+		},
+	})
+	c.Check(err, jc.ErrorIsNil)
+}
+
+// TestSetModelConfigAgentStreamInvalid tests that an invalid agent stream
+// resultes in an error of not valid.
+func (s *modelconfigSuite) TestSetModelConfigAgentStreamInvalid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	api := s.getAPI(c)
+
+	s.expectModelWriteAccess()
+	s.expectModelAdminAccess()
+	s.expectNoControllerAdminAccess()
+	s.expectNoBlocks()
+
+	s.mockModelAgentService.EXPECT().SetModelAgentStream(
+		gomock.Any(),
+		coreagentbinary.AgentStream("invalid"),
+	).Return(coreerrors.NotValid)
+
+	err := api.ModelSet(context.Background(), params.ModelSet{
+		Config: map[string]any{
+			"agent-stream": "invalid",
+		},
+	})
+	c.Check(err, jc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *modelconfigSuite) assertBlocked(c *gc.C, err error, msg string) {
