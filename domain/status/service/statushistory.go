@@ -54,7 +54,7 @@ func (s *Service) GetStatusHistory(ctx context.Context, request StatusHistoryReq
 }
 
 func matchesUnit(hr statushistory.HistoryRecord, req StatusHistoryRequest) bool {
-	switch status.HistoryKind(req.Kind) {
+	switch req.Kind {
 	case status.KindUnit:
 		return hr.Kind == status.KindUnit || hr.Kind == status.KindUnitAgent || hr.Kind == status.KindWorkload
 	case status.KindWorkload:
@@ -68,7 +68,7 @@ func matchesUnit(hr statushistory.HistoryRecord, req StatusHistoryRequest) bool 
 
 func matches(hr statushistory.HistoryRecord, req StatusHistoryRequest, now time.Time) (bool, error) {
 	// Check that the kinds match.
-	switch status.HistoryKind(req.Kind) {
+	switch req.Kind {
 	case status.KindApplication:
 		if hr.Kind != status.KindApplication {
 			return false, nil

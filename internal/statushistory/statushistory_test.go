@@ -218,7 +218,7 @@ func (s *statusHistoryReaderSuite) TestWalk(c *gc.C) {
 				statusKey:      record.Status,
 				messageKey:     record.Message,
 				sinceKey:       record.Time,
-				dataKey:        string(data),
+				dataKey:        data,
 			}
 
 			err := encoder.Encode(logger.LogRecord{
@@ -291,7 +291,7 @@ func (s *statusHistoryReaderSuite) TestWalkWhilstAdding(c *gc.C) {
 				statusKey:      record.Status,
 				messageKey:     record.Message,
 				sinceKey:       record.Time,
-				dataKey:        string(data),
+				dataKey:        data,
 			}
 
 			err := encoder.Encode(logger.LogRecord{
@@ -350,7 +350,7 @@ func (s *statusHistoryReaderSuite) TestWalkWhilstAdding(c *gc.C) {
 					statusKey:      record.Status,
 					messageKey:     record.Message,
 					sinceKey:       record.Time,
-					dataKey:        string(data),
+					dataKey:        data,
 				}
 
 				err := encoder.Encode(logger.LogRecord{
@@ -398,7 +398,7 @@ func (s *statusHistoryReaderSuite) TestWalkWithDifferentLabel(c *gc.C) {
 				statusKey:      record.Status,
 				messageKey:     record.Message,
 				sinceKey:       record.Time,
-				dataKey:        string(data),
+				dataKey:        data,
 			}
 
 			err := encoder.Encode(logger.LogRecord{
@@ -469,7 +469,7 @@ func (s *statusHistoryReaderSuite) TestWalkCorruptLine(c *gc.C) {
 				statusKey:      record.Status,
 				messageKey:     record.Message,
 				sinceKey:       record.Time,
-				dataKey:        string(data),
+				dataKey:        data,
 			}
 
 			err := encoder.Encode(logger.LogRecord{
