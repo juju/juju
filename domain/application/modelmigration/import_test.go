@@ -156,7 +156,7 @@ func (s *importSuite) TestApplicationImportWithMinimalCharmForCAAS(c *gc.C) {
 	})
 
 	var importArgs service.ImportApplicationArgs
-	s.importService.EXPECT().ImportApplication(
+	s.importService.EXPECT().ImportCAASApplication(
 		gomock.Any(),
 		"prometheus",
 		gomock.Any(),
@@ -230,7 +230,7 @@ func (s *importSuite) TestApplicationImportWithMinimalCharmForIAAS(c *gc.C) {
 	})
 
 	var importArgs service.ImportApplicationArgs
-	s.importService.EXPECT().ImportApplication(
+	s.importService.EXPECT().ImportIAASApplication(
 		gomock.Any(),
 		"prometheus",
 		gomock.Any(),
@@ -298,7 +298,7 @@ func (s *importSuite) TestApplicationImportWithApplicationConfigAndSettings(c *g
 	})
 
 	var importArgs service.ImportApplicationArgs
-	s.importService.EXPECT().ImportApplication(
+	s.importService.EXPECT().ImportIAASApplication(
 		gomock.Any(),
 		"prometheus",
 		gomock.Any(),
@@ -372,7 +372,7 @@ func (s *importSuite) TestApplicationImportWithConstraints(c *gc.C) {
 		Zones:            []string{"zone0", "zone1"},
 	})
 
-	s.importService.EXPECT().ImportApplication(
+	s.importService.EXPECT().ImportIAASApplication(
 		gomock.Any(),
 		"prometheus",
 		gomock.Any(),
@@ -999,7 +999,7 @@ func (s *importSuite) TestImportEndpointBindings36(c *gc.C) {
 
 	var importArgs service.ImportApplicationArgs
 	// Arrange: Expect the import of the application.
-	s.importService.EXPECT().ImportApplication(
+	s.importService.EXPECT().ImportIAASApplication(
 		gomock.Any(),
 		"prometheus",
 		gomock.Any(),
@@ -1085,7 +1085,7 @@ func (s *importSuite) TestImportEndpointBindings40(c *gc.C) {
 
 	// Arrange: Expect the import of the application.
 	var importArgs service.ImportApplicationArgs
-	s.importService.EXPECT().ImportApplication(
+	s.importService.EXPECT().ImportIAASApplication(
 		gomock.Any(),
 		"prometheus",
 		gomock.Any(),
@@ -1170,7 +1170,7 @@ func (s *importSuite) TestImportEndpointBindingsDefaultSpace(c *gc.C) {
 
 	// Arrange: Expect the import of the application.
 	var importArgs service.ImportApplicationArgs
-	s.importService.EXPECT().ImportApplication(
+	s.importService.EXPECT().ImportIAASApplication(
 		gomock.Any(),
 		"prometheus",
 		gomock.Any(),
@@ -1246,7 +1246,7 @@ func (s *importSuite) TestImportExposedEndpointsFrom36(c *gc.C) {
 
 	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "beta").Return(network.Id("beta-space-uuid"), nil)
 
-	s.importService.EXPECT().ImportApplication(
+	s.importService.EXPECT().ImportIAASApplication(
 		gomock.Any(),
 		"prometheus",
 		gomock.Any(),
@@ -1318,7 +1318,7 @@ func (s *importSuite) TestImportExposedEndpointsFrom40(c *gc.C) {
 
 	s.importService.EXPECT().GetSpaceUUIDByName(gomock.Any(), "beta").Return(network.Id(spaceUUID.String()), nil)
 
-	s.importService.EXPECT().ImportApplication(
+	s.importService.EXPECT().ImportIAASApplication(
 		gomock.Any(),
 		"prometheus",
 		gomock.Any(),
@@ -1518,7 +1518,7 @@ func (s *importSuite) TestApplicationImportSubordinate(c *gc.C) {
 	})
 
 	var importArgs service.ImportApplicationArgs
-	s.importService.EXPECT().ImportApplication(
+	s.importService.EXPECT().ImportIAASApplication(
 		gomock.Any(),
 		"prometheus",
 		gomock.Any(),
@@ -1542,6 +1542,57 @@ func (s *importSuite) TestApplicationImportSubordinate(c *gc.C) {
 		Machine:      machine.Name("0"),
 		Principal:    "principal/0",
 	}})
+}
+
+func (s *importSuite) TestImportPeerRelations(c *gc.C) {
+	model := description.NewModel(description.ModelArgs{})
+
+	rel1 := model.AddRelation(description.RelationArgs{
+		Id: 1,
+	})
+	rel1.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "prometheus",
+		Name:            "testtwo",
+		Role:            "peer",
+	})
+	rel2 := model.AddRelation(description.RelationArgs{
+		Id: 7,
+	})
+	rel2.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "prometheus",
+		Name:            "testone",
+		Role:            "peer",
+	})
+	// rel3 is a peer relation for a different application
+	// should not be found.
+	rel3 := model.AddRelation(description.RelationArgs{
+		Id: 27,
+	})
+	rel3.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "failme",
+		Name:            "testone",
+		Role:            "peer",
+	})
+	rel4 := model.AddRelation(description.RelationArgs{
+		Id: 29,
+	})
+	// rel4 is a non peer relation with the application
+	// under test, should not be found.
+	rel4.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "prometheus",
+		Name:            "testone",
+		Role:            "provider",
+	})
+	rel4.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "failme",
+		Name:            "testone",
+		Role:            "requirer",
+	})
+	expected := map[string]int{"testone": 7, "testtwo": 1}
+
+	op := &importOperation{}
+	obtained := op.importPeerRelations("prometheus", model.Relations())
+	c.Check(obtained, jc.DeepEquals, expected)
 }
 
 func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {

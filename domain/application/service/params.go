@@ -216,9 +216,6 @@ type ImportApplicationArgs struct {
 	// via the name is use the proxy name.
 	ReferenceName string
 
-	// DownloadInfo contains the download information for the charm.
-	DownloadInfo *domaincharm.DownloadInfo
-
 	// ApplicationConfig contains the application config.
 	ApplicationConfig config.ConfigAttributes
 
@@ -248,6 +245,9 @@ type ImportApplicationArgs struct {
 
 	// ExposedEndpoints is the exposed endpoints for the application.
 	ExposedEndpoints map[string]application.ExposedEndpoint
+
+	// PeerRelations is a map of peer relation endpoint to relation id.
+	PeerRelations map[string]int
 }
 
 // ApplicationConfig represents the application config for the specified

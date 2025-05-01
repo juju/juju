@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/config"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -44,6 +43,13 @@ type MigrationState interface {
 	//
 	// space name doesn't exist.
 	GetSpaceUUIDByName(ctx context.Context, name string) (network.Id, error)
+
+	// InsertMigratingApplication inserts a migrating application. Returns as
+	// error satisfying [applicationerrors.ApplicationAlreadyExists] if the
+	// application already exists. If returns as error satisfying
+	// [applicationerrors.CharmNotFound] if the charm for the application is
+	// not found.
+	InsertMigratingApplication(context.Context, string, application.InsertApplicationArgs) (coreapplication.ID, error)
 }
 
 // MigrationService provides the API for migrating applications.
@@ -272,39 +278,25 @@ func (s *MigrationService) GetApplicationScaleState(ctx context.Context, name st
 	return s.st.GetApplicationScaleState(ctx, appID)
 }
 
-// ImportApplication imports the specified application and units if required,
-// returning an error satisfying [applicationerrors.ApplicationAlreadyExists]
-// if the application already exists.
-func (s *MigrationService) ImportApplication(ctx context.Context, name string, args ImportApplicationArgs) error {
-	if err := validateCharmAndApplicationParams(name, args.ReferenceName, args.Charm, args.CharmOrigin, args.DownloadInfo); err != nil {
-		return errors.Errorf("invalid application args: %w", err)
+// ImportCAASApplication imports the specified CAAS application and units
+// if required, returning an error satisfying
+// [applicationerrors.ApplicationAlreadyExists] if the application already
+// exists.
+func (s *MigrationService) ImportCAASApplication(ctx context.Context, name string, args ImportApplicationArgs) error {
+	appID, charmUUID, err := s.importApplication(ctx, name, args)
+	if err != nil {
+		return errors.Errorf("importing application %q: %w", name, err)
 	}
 
-	modelType, err := s.st.GetModelType(ctx)
-	if err != nil {
-		return errors.Errorf("getting model type: %w", err)
+	// TODO hml 1-May-25
+	// Improve the efficiency of importing caas applications by touching
+	// the application_scale table once, instead of three times. Once in
+	// st.ImportApplication and the following two methods.
+	if err := s.st.SetApplicationScalingState(ctx, name, args.ScaleState.ScaleTarget, args.ScaleState.Scaling); err != nil {
+		return errors.Errorf("setting scale state for application %q: %w", name, err)
 	}
-	appArg, err := makeCreateApplicationArgs(ctx, s.st, s.storageRegistryGetter, modelType, args.Charm, args.CharmOrigin, AddApplicationArgs{
-		ReferenceName:       args.ReferenceName,
-		DownloadInfo:        args.DownloadInfo,
-		ApplicationConfig:   args.ApplicationConfig,
-		ApplicationSettings: args.ApplicationSettings,
-		EndpointBindings:    args.EndpointBindings,
-	})
-	if err != nil {
-		return errors.Errorf("creating application args: %w", err)
-	}
-
-	appArg.Scale = len(args.Units)
-
-	appID, err := s.st.CreateApplication(ctx, name, appArg, nil)
-	if err != nil {
-		return errors.Errorf("creating application %q: %w", name, err)
-	}
-
-	charmUUID, err := s.st.GetCharmIDByApplicationName(ctx, name)
-	if err != nil {
-		return errors.Errorf("getting charm ID for application %q: %w", name, err)
+	if err := s.st.SetDesiredApplicationScale(ctx, appID, args.ScaleState.Scale); err != nil {
+		return errors.Errorf("setting desired scale for application %q: %w", name, err)
 	}
 
 	unitArgs, err := makeUnitArgs(args.Units, charmUUID)
@@ -312,30 +304,111 @@ func (s *MigrationService) ImportApplication(ctx context.Context, name string, a
 		return errors.Errorf("creating unit args: %w", err)
 	}
 
-	if modelType == model.IAAS {
-		err = s.st.InsertMigratingIAASUnits(ctx, appID, unitArgs...)
-	} else {
-		err = s.st.InsertMigratingCAASUnits(ctx, appID, unitArgs...)
-	}
+	return s.st.InsertMigratingCAASUnits(ctx, appID, unitArgs...)
+}
+
+// ImportIAASApplication imports the specified IAAS application and units
+// if required, returning an error satisfying
+// [applicationerrors.ApplicationAlreadyExists] if the application already
+// exists.
+func (s *MigrationService) ImportIAASApplication(ctx context.Context, name string, args ImportApplicationArgs) error {
+	appID, charmUUID, err := s.importApplication(ctx, name, args)
 	if err != nil {
-		return errors.Errorf("inserting units for application %q: %w", name, err)
+		return errors.Errorf("importing application %q: %w", name, err)
 	}
 
-	if err := s.st.SetDesiredApplicationScale(ctx, appID, args.ScaleState.Scale); err != nil {
-		return errors.Errorf("setting desired scale for application %q: %w", name, err)
+	unitArgs, err := makeUnitArgs(args.Units, charmUUID)
+	if err != nil {
+		return errors.Errorf("creating unit args: %w", err)
 	}
-	if err := s.st.SetApplicationScalingState(ctx, name, args.ScaleState.ScaleTarget, args.ScaleState.Scaling); err != nil {
-		return errors.Errorf("setting scale state for application %q: %w", name, err)
+
+	return s.st.InsertMigratingIAASUnits(ctx, appID, unitArgs...)
+}
+
+func (s *MigrationService) importApplication(
+	ctx context.Context,
+	name string,
+	args ImportApplicationArgs,
+) (coreapplication.ID, corecharm.ID, error) {
+	if err := validateCharmAndApplicationParams(name, args.ReferenceName, args.Charm, args.CharmOrigin); err != nil {
+		return "", "", errors.Errorf("invalid application args: %w", err)
 	}
+
+	appArg, err := makeInsertApplicationArg(args)
+	if err != nil {
+		return "", "", errors.Errorf("creating application args: %w", err)
+	}
+
+	appArg.Scale = len(args.Units)
+
+	appID, err := s.st.InsertMigratingApplication(ctx, name, appArg)
+	if err != nil {
+		return "", "", errors.Errorf("creating application %q: %w", name, err)
+	}
+
+	charmUUID, err := s.st.GetCharmIDByApplicationName(ctx, name)
+	if err != nil {
+		return "", "", errors.Errorf("getting charm ID for application %q: %w", name, err)
+	}
+
 	if err := s.st.MergeExposeSettings(ctx, appID, args.ExposedEndpoints); err != nil {
-		return errors.Errorf("setting expose settings for application %q: %w", name, err)
+		return "", "", errors.Errorf("setting expose settings for application %q: %w", name, err)
 	}
-
 	if err := s.st.SetApplicationConstraints(ctx, appID, constraints.DecodeConstraints(args.ApplicationConstraints)); err != nil {
-		return errors.Errorf("setting application constraints for application %q: %w", name, err)
+		return "", "", errors.Errorf("setting application constraints for application %q: %w", name, err)
 	}
 
-	return nil
+	return appID, charmUUID, nil
+}
+
+func makeInsertApplicationArg(
+	args ImportApplicationArgs,
+) (application.InsertApplicationArgs, error) {
+	// When encoding the charm, this will also validate the charm metadata,
+	// when parsing it.
+	ch, _, err := encodeCharm(args.Charm)
+	if err != nil {
+		return application.InsertApplicationArgs{}, errors.Errorf("encoding charm: %w", err)
+	}
+
+	revision := -1
+	origin := args.CharmOrigin
+	if origin.Revision != nil {
+		revision = *origin.Revision
+	}
+
+	source, err := encodeCharmSource(origin.Source)
+	if err != nil {
+		return application.InsertApplicationArgs{}, errors.Errorf("encoding charm source: %w", err)
+	}
+
+	ch.Source = source
+	ch.ReferenceName = args.ReferenceName
+	ch.Revision = revision
+	ch.Hash = origin.Hash
+	ch.Architecture = encodeArchitecture(origin.Platform.Architecture)
+
+	channelArg, platformArg, err := encodeChannelAndPlatform(origin)
+	if err != nil {
+		return application.InsertApplicationArgs{}, errors.Errorf("encoding charm origin: %w", err)
+	}
+
+	applicationConfig, err := encodeApplicationConfig(args.ApplicationConfig, ch.Config)
+	if err != nil {
+		return application.InsertApplicationArgs{}, errors.Errorf("encoding application config: %w", err)
+	}
+
+	return application.InsertApplicationArgs{
+		Charm:            ch,
+		Platform:         platformArg,
+		Channel:          channelArg,
+		EndpointBindings: args.EndpointBindings,
+		Resources:        makeResourcesArgs(args.ResolvedResources),
+		StorageParentDir: application.StorageParentDir,
+		Config:           applicationConfig,
+		Settings:         args.ApplicationSettings,
+		PeerRelations:    args.PeerRelations,
+	}, nil
 }
 
 // IsApplicationExposed returns whether the provided application is exposed or not.

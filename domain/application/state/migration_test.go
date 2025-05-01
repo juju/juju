@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -20,8 +21,11 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -393,6 +397,135 @@ func (s *migrationStateSuite) TestGetApplicationsForExportEndpointBindings(c *gc
 	})
 }
 
+func (s *migrationStateSuite) TestInsertMigratingApplication(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	platform := deployment.Platform{
+		Channel:      "666",
+		OSType:       deployment.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+	channel := &deployment.Channel{
+		Track:  "track",
+		Risk:   "risk",
+		Branch: "branch",
+	}
+	ctx := context.Background()
+	args := application.InsertApplicationArgs{
+		Platform: platform,
+		Charm: charm.Charm{
+			Metadata:      s.minimalMetadata(c, "666"),
+			Manifest:      s.minimalManifest(c),
+			Source:        charm.CharmHubSource,
+			ReferenceName: "666",
+			Revision:      42,
+			Architecture:  architecture.ARM64,
+		},
+		Scale:   1,
+		Channel: channel,
+		Config: map[string]application.ApplicationConfig{
+			"foo": {
+				Value: "bar",
+				Type:  charm.OptionString,
+			},
+		},
+		Settings: application.ApplicationSettings{
+			Trust: true,
+		},
+	}
+	id, err := st.InsertMigratingApplication(ctx, "666", args)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Failed to create application: %s", errors.ErrorStack(err)))
+	scale := application.ScaleState{Scale: 1}
+	s.assertApplication(c, "666", platform, channel, scale, false)
+	s.assertDownloadProvenance(c, id, charm.ProvenanceMigration)
+
+	// Ensure that config is empty and trust is false.
+	config, settings, err := st.GetApplicationConfigAndSettings(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, gc.DeepEquals, map[string]application.ApplicationConfig{
+		"foo": {
+			Value: "bar",
+			Type:  charm.OptionString,
+		},
+	})
+	c.Check(settings, gc.DeepEquals, application.ApplicationSettings{Trust: true})
+}
+
+func (s *migrationStateSuite) TestInsertMigratingApplicationPeerRelations(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	platform := deployment.Platform{
+		Channel:      "666",
+		OSType:       deployment.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+	channel := &deployment.Channel{
+		Track:  "track",
+		Risk:   "risk",
+		Branch: "branch",
+	}
+	ctx := context.Background()
+	meta := s.minimalMetadataWithPeerRelation(c, "666", "castor", "pollux")
+	meta.Provides = map[string]charm.Relation{
+		"no-relation": {
+			Name:  "no-relation",
+			Role:  charm.RoleProvider,
+			Scope: charm.ScopeGlobal,
+		},
+	}
+	args := application.InsertApplicationArgs{
+		Platform: platform,
+		Charm: charm.Charm{
+			Metadata:      meta,
+			Manifest:      s.minimalManifest(c),
+			Source:        charm.CharmHubSource,
+			ReferenceName: "666",
+			Revision:      42,
+			Architecture:  architecture.ARM64,
+		},
+		Scale:   1,
+		Channel: channel,
+		PeerRelations: map[string]int{
+			"pollux": 7,
+			"castor": 4,
+		},
+	}
+	_, err := st.InsertMigratingApplication(ctx, "666", args)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Failed to create application: %s", errors.ErrorStack(err)))
+	scale := application.ScaleState{Scale: 1}
+	s.assertApplication(c, "666", platform, channel, scale, false)
+	s.assertPeerRelation(c, "666", map[string]int{"pollux": 7, "castor": 4})
+	s.assertNoRelationEndpoint(c, "666", "no-relation")
+}
+
+func (s *migrationStateSuite) assertNoRelationEndpoint(c *gc.C, appName, endpointName string) {
+	values := []string{}
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT v.relation_endpoint_uuid
+FROM   v_relation_endpoint AS v
+WHERE  v.application_name = ?
+AND    v.endpoint_name = ?
+`, appName, endpointName)
+
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer func() { _ = rows.Close() }()
+
+		for rows.Next() {
+			var value string
+			if err := rows.Scan(&value); err != nil {
+				return errors.Capture(err)
+			}
+			values = append(values, value)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(values, jc.DeepEquals, []string{}, gc.Commentf("found relation_endpoint %q", strings.Join(values, ", ")))
+}
+
 // addSpace ensures a space with the given name exists in the database,
 // creating it if necessary, and returns its name.
 func (s *migrationStateSuite) addSpace(c *gc.C, name string) string {
@@ -427,6 +560,23 @@ WHERE  charm_relation_uuid = ?
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *migrationStateSuite) assertDownloadProvenance(c *gc.C, appID coreapplication.ID, expectedProvenance charm.Provenance) {
+	var obtainedProvenance string
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, `
+SELECT v.provenance
+FROM   v_application_charm_download_info AS v
+WHERE  v.application_uuid=?
+`, appID).Scan(&obtainedProvenance)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedProvenance, gc.Equals, string(expectedProvenance))
 }
 
 func (s *unitStateSuite) TestInsertMigratingIAASUnits(c *gc.C) {

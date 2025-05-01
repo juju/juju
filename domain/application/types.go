@@ -392,3 +392,38 @@ type UnitAttributes struct {
 	ProviderID  string
 	ResolveMode string
 }
+
+// InsertApplicationArgs contains arguments for importing an application to the
+// model.
+type InsertApplicationArgs struct {
+	// Charm is the charm to add to the application. This is required to
+	// be able to add the application.
+	Charm domaincharm.Charm
+	// Platform contains the platform information for the application. The
+	// operating system and architecture.
+	Platform deployment.Platform
+	// Channel contains the channel information for the application. The track,
+	// risk and branch of the charm when it was downloaded from the charm store.
+	Channel *deployment.Channel
+	// Resources defines the list of resources to add to an application.
+	// They should match all the resources defined in the Charm.
+	Resources []AddApplicationResourceArg
+	// Config contains the configuration for the application, overlaid on top
+	// of the charm's default configuration.
+	Config map[string]ApplicationConfig
+	// Settings contains the settings for the application. This includes the
+	// trust setting.
+	Settings ApplicationSettings
+	// Scale contains the scale information for the application.
+	Scale int
+	// StoragePoolKind holds a mapping of the kind of storage supported
+	// by the named storage pool / provider type.
+	StoragePoolKind map[string]storage.StorageKind
+	// StorageParentDir is the parent directory for mounting charm storage.
+	StorageParentDir string
+	// EndpointBindings is a map to bind application endpoint by name to a
+	// specific space. The default space is referenced by an empty key, if any.
+	EndpointBindings map[string]network.SpaceName
+	// PeerRelations is a map of peer relation endpoint to relation id.
+	PeerRelations map[string]int
+}

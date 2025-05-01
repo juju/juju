@@ -349,7 +349,6 @@ func validateCharmAndApplicationParams(
 	name, referenceName string,
 	charm internalcharm.Charm,
 	origin corecharm.Origin,
-	downloadInfo *charm.DownloadInfo,
 ) error {
 	if !isValidApplicationName(name) {
 		return applicationerrors.ApplicationNameNotValid
@@ -374,21 +373,29 @@ func validateCharmAndApplicationParams(
 		return errors.Errorf("reference name: %w", applicationerrors.CharmNameNotValid)
 	}
 
-	// If the origin is from charmhub, then we require the download info.
-	if origin.Source == corecharm.CharmHub {
-		if downloadInfo == nil {
-			return applicationerrors.CharmDownloadInfoNotFound
-		}
-		if err := downloadInfo.Validate(); err != nil {
-			return errors.Errorf("download info: %w", err)
-		}
-	}
-
 	// Validate the origin of the charm.
 	if err := origin.Validate(); err != nil {
 		return errors.Errorf("%w: %v", applicationerrors.CharmOriginNotValid, err)
 	}
 
+	return nil
+}
+
+func validateDownloadInfoParams(
+	source corecharm.Source,
+	downloadInfo *charm.DownloadInfo,
+) error {
+	// If the origin is from charmhub, then we require the download info
+	// to deploy.
+	if source != corecharm.CharmHub {
+		return nil
+	}
+	if downloadInfo == nil {
+		return applicationerrors.CharmDownloadInfoNotFound
+	}
+	if err := downloadInfo.Validate(); err != nil {
+		return errors.Errorf("download info: %w", err)
+	}
 	return nil
 }
 

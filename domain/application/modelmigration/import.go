@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/domain/application"
-	applicationcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -68,8 +67,11 @@ type importOperation struct {
 // ImportService defines the application service used to import applications
 // from another controller model to this controller.
 type ImportService interface {
-	// ImportApplication registers the existence of an application in the model.
-	ImportApplication(context.Context, string, service.ImportApplicationArgs) error
+	// ImportApplication registers the existence of an CAAS application in the model.
+	ImportCAASApplication(context.Context, string, service.ImportApplicationArgs) error
+
+	// ImportIAASApplication registers the existence of an IAAS application in the model.
+	ImportIAASApplication(context.Context, string, service.ImportApplicationArgs) error
 
 	// RemoveImportedApplication removes an application that was imported. The
 	// application might be in an incomplete state, so it's important to remove
@@ -188,7 +190,16 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			return errors.Errorf("importing exposed endpoints: %w", err)
 		}
 
-		err = i.service.ImportApplication(ctx, app.Name(), service.ImportApplicationArgs{
+		peerRelations := i.importPeerRelations(app.Name(), model.Relations())
+
+		// TODO hml 04-30-2024
+		// Investigate how device constraints for an application are
+		// migrated and implemented if necessary.
+
+		// TODO hml 04-30-2024
+		// Investigate how storage directives for an application are
+		// migrated and implemented if necessary.
+		args := service.ImportApplicationArgs{
 			Charm:                  charm,
 			CharmOrigin:            origin,
 			Units:                  unitArgs,
@@ -203,18 +214,18 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			// name and not the charm name in the metadata, but the name of
 			// the charm from the store if it's a charm from the store.
 			ReferenceName: chURL.Name,
-			// When importing a charm, we don't have all the information
-			// about the charm. We could call charmhub store directly, but
-			// that has the potential to block a migration if the charmhub
-			// store is down. If we require that information, then it's
-			// possible to fill this missing information in the charmhub
-			// store using the charmhub identifier.
-			// If the controllers do not have the same charmhub url, then
-			// all bets are off.
-			DownloadInfo: &applicationcharm.DownloadInfo{
-				Provenance: applicationcharm.ProvenanceMigration,
-			},
-		})
+
+			PeerRelations: peerRelations,
+		}
+
+		switch modelType {
+		case coremodel.CAAS:
+			err = i.service.ImportCAASApplication(ctx, app.Name(), args)
+		case coremodel.IAAS:
+			err = i.service.ImportIAASApplication(ctx, app.Name(), args)
+		default:
+			return errors.Errorf("unknown model type %q for import application", modelType)
+		}
 		if err != nil {
 			return errors.Errorf(
 				"import model application %q with %d units: %w",
@@ -769,6 +780,18 @@ func (i *importOperation) importExposedEndpoints(ctx context.Context, app descri
 		}
 	}
 	return exposedEndpoints, nil
+}
+
+func (i *importOperation) importPeerRelations(appName string, modelRelations []description.Relation) map[string]int {
+	result := make(map[string]int)
+	for _, rel := range modelRelations {
+		endpoints := rel.Endpoints()
+		if len(endpoints) != 1 || endpoints[0].ApplicationName() != appName {
+			continue
+		}
+		result[endpoints[0].Name()] = rel.Id()
+	}
+	return result
 }
 
 func importCharmUser(data description.CharmMetadata) (internalcharm.RunAs, error) {

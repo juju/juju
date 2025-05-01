@@ -26,7 +26,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainconstraints "github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
-	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -440,15 +439,6 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 		OSType:       deployment.Ubuntu,
 		Architecture: architecture.ARM64,
 	}
-	downloadInfo := &domaincharm.DownloadInfo{
-		Provenance:         domaincharm.ProvenanceDownload,
-		DownloadURL:        "http://example.com",
-		DownloadSize:       24,
-		CharmhubIdentifier: "foobar",
-	}
-
-	s.state.EXPECT().GetModelType(gomock.Any()).Return(modelType, nil)
-	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
 
 	var receivedUnitArgs []application.ImportUnitArg
 	if modelType == coremodel.IAAS {
@@ -457,6 +447,8 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 			return nil
 		})
 	} else {
+		s.state.EXPECT().SetDesiredApplicationScale(gomock.Any(), id, 1).Return(nil)
+		s.state.EXPECT().SetApplicationScalingState(gomock.Any(), "ubuntu", 42, true).Return(nil)
 		s.state.EXPECT().InsertMigratingCAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.ID, args ...application.ImportUnitArg) error {
 			receivedUnitArgs = args
 			return nil
@@ -486,11 +478,10 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 		},
 	}).MinTimes(1)
 
-	args := application.AddApplicationArg{
-		Charm:             ch,
-		Platform:          platform,
-		Scale:             1,
-		CharmDownloadInfo: downloadInfo,
+	args := application.InsertApplicationArgs{
+		Charm:    ch,
+		Platform: platform,
+		Scale:    1,
 		Config: map[string]application.ApplicationConfig{
 			"foo": {
 				Type:  domaincharm.OptionString,
@@ -502,7 +493,7 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 		},
 		StorageParentDir: application.StorageParentDir,
 	}
-	s.state.EXPECT().CreateApplication(gomock.Any(), "ubuntu", args, nil).Return(id, nil)
+	s.state.EXPECT().InsertMigratingApplication(gomock.Any(), "ubuntu", args).Return(id, nil)
 
 	unitArg := ImportUnitArg{
 		UnitName:       "ubuntu/666",
@@ -521,8 +512,6 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 
 	s.state.EXPECT().SetApplicationConstraints(gomock.Any(), id, domainconstraints.DecodeConstraints(cons)).Return(nil)
 
-	s.state.EXPECT().SetDesiredApplicationScale(gomock.Any(), id, 1).Return(nil)
-	s.state.EXPECT().SetApplicationScalingState(gomock.Any(), "ubuntu", 42, true).Return(nil)
 	s.state.EXPECT().GetCharmIDByApplicationName(gomock.Any(), "ubuntu").Return(charmUUID, nil)
 	s.state.EXPECT().MergeExposeSettings(gomock.Any(), id, map[string]application.ExposedEndpoint{
 		"": {
@@ -534,7 +523,14 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 		},
 	}).Return(nil)
 
-	err := s.service.ImportApplication(context.Background(), "ubuntu", ImportApplicationArgs{
+	var importFunc func(ctx context.Context, name string, args ImportApplicationArgs) error
+	if modelType == coremodel.IAAS {
+		importFunc = s.service.ImportIAASApplication
+	} else {
+		importFunc = s.service.ImportCAASApplication
+	}
+
+	err := importFunc(context.Background(), "ubuntu", ImportApplicationArgs{
 		Charm: s.charm,
 		CharmOrigin: corecharm.Origin{
 			Source:   corecharm.CharmHub,
@@ -543,7 +539,6 @@ func (s *migrationServiceSuite) assertImportApplication(c *gc.C, modelType corem
 		},
 		ApplicationConstraints: cons,
 		ReferenceName:          "ubuntu",
-		DownloadInfo:           downloadInfo,
 		ApplicationConfig: map[string]any{
 			"foo": "bar",
 		},

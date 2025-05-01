@@ -87,40 +87,78 @@ func (c *MockImportServiceGetSpaceUUIDByNameCall) DoAndReturn(f func(context.Con
 	return c
 }
 
-// ImportApplication mocks base method.
-func (m *MockImportService) ImportApplication(arg0 context.Context, arg1 string, arg2 service.ImportApplicationArgs) error {
+// ImportCAASApplication mocks base method.
+func (m *MockImportService) ImportCAASApplication(arg0 context.Context, arg1 string, arg2 service.ImportApplicationArgs) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ImportApplication", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ImportCAASApplication", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// ImportApplication indicates an expected call of ImportApplication.
-func (mr *MockImportServiceMockRecorder) ImportApplication(arg0, arg1, arg2 any) *MockImportServiceImportApplicationCall {
+// ImportCAASApplication indicates an expected call of ImportCAASApplication.
+func (mr *MockImportServiceMockRecorder) ImportCAASApplication(arg0, arg1, arg2 any) *MockImportServiceImportCAASApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportApplication", reflect.TypeOf((*MockImportService)(nil).ImportApplication), arg0, arg1, arg2)
-	return &MockImportServiceImportApplicationCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportCAASApplication", reflect.TypeOf((*MockImportService)(nil).ImportCAASApplication), arg0, arg1, arg2)
+	return &MockImportServiceImportCAASApplicationCall{Call: call}
 }
 
-// MockImportServiceImportApplicationCall wrap *gomock.Call
-type MockImportServiceImportApplicationCall struct {
+// MockImportServiceImportCAASApplicationCall wrap *gomock.Call
+type MockImportServiceImportCAASApplicationCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockImportServiceImportApplicationCall) Return(arg0 error) *MockImportServiceImportApplicationCall {
+func (c *MockImportServiceImportCAASApplicationCall) Return(arg0 error) *MockImportServiceImportCAASApplicationCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockImportServiceImportApplicationCall) Do(f func(context.Context, string, service.ImportApplicationArgs) error) *MockImportServiceImportApplicationCall {
+func (c *MockImportServiceImportCAASApplicationCall) Do(f func(context.Context, string, service.ImportApplicationArgs) error) *MockImportServiceImportCAASApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockImportServiceImportApplicationCall) DoAndReturn(f func(context.Context, string, service.ImportApplicationArgs) error) *MockImportServiceImportApplicationCall {
+func (c *MockImportServiceImportCAASApplicationCall) DoAndReturn(f func(context.Context, string, service.ImportApplicationArgs) error) *MockImportServiceImportCAASApplicationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ImportIAASApplication mocks base method.
+func (m *MockImportService) ImportIAASApplication(arg0 context.Context, arg1 string, arg2 service.ImportApplicationArgs) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ImportIAASApplication", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ImportIAASApplication indicates an expected call of ImportIAASApplication.
+func (mr *MockImportServiceMockRecorder) ImportIAASApplication(arg0, arg1, arg2 any) *MockImportServiceImportIAASApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportIAASApplication", reflect.TypeOf((*MockImportService)(nil).ImportIAASApplication), arg0, arg1, arg2)
+	return &MockImportServiceImportIAASApplicationCall{Call: call}
+}
+
+// MockImportServiceImportIAASApplicationCall wrap *gomock.Call
+type MockImportServiceImportIAASApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockImportServiceImportIAASApplicationCall) Return(arg0 error) *MockImportServiceImportIAASApplicationCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockImportServiceImportIAASApplicationCall) Do(f func(context.Context, string, service.ImportApplicationArgs) error) *MockImportServiceImportIAASApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockImportServiceImportIAASApplicationCall) DoAndReturn(f func(context.Context, string, service.ImportApplicationArgs) error) *MockImportServiceImportIAASApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

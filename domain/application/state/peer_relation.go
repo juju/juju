@@ -58,27 +58,66 @@ func (st *State) insertPeerRelations(ctx context.Context, tx *sqlair.TX, appUUID
 	}
 
 	for _, peer := range peerEndpoints {
-		// Insert a new relation with a new relation UUID.
-		relUUID, err := st.insertNewRelation(ctx, tx)
+		relID, err := sequencestate.NextValue(ctx, st, tx, relation.SequenceNamespace)
 		if err != nil {
-			return errors.Errorf("inserting new relation for peer endpoint %q: %w", peer.Name, err)
+			return errors.Errorf("getting next relation id: %w", err)
 		}
 
-		// Insert relation status.
-		if err := st.insertNewRelationStatus(ctx, tx, relUUID); err != nil {
-			return errors.Errorf("inserting new relation status for peer endpoint %q: %w", peer.Name, err)
-		}
-
-		// Insert the relation endpoint
-		if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, peer.UUID); err != nil {
-			return errors.Errorf("inserting new relation endpoint for %q: %w", peer.Name, err)
+		// Insert a new relation with a new relation ID and UUID.
+		if err := st.insertPeerRelation(ctx, tx, peer, relID); err != nil {
+			return errors.Errorf("inserting peer relation for peer %q: %w", peer.Name, err)
 		}
 	}
 	return nil
 }
 
+// insertMigratingPeerRelations inserts peer relations for the specified application UUID
+// within a transactional context, using the relation ID provided during migration.
+// It retrieves peer endpoints, creates new relations for them,
+// and inserts their statuses and endpoints. Returns an error if any step fails.
+func (st *State) insertMigratingPeerRelations(ctx context.Context, tx *sqlair.TX, appUUID coreapplication.ID, relations map[string]int) error {
+	peerEndpoints, err := st.getPeerEndpoints(ctx, tx, appUUID)
+	if err != nil {
+		return errors.Errorf("getting peer endpoints: %w", err)
+	}
+
+	for _, peer := range peerEndpoints {
+		// Find the relation ID of this endpoint.
+		id, ok := relations[peer.Name]
+		if !ok {
+			return errors.Errorf("relation id not found for peer relation: %q", peer.Name)
+		}
+
+		// Insert a new relation with a migrated relation ID and new relation UUID.
+		if err := st.insertPeerRelation(ctx, tx, peer, uint64(id)); err != nil {
+			return errors.Errorf("inserting peer relation for peer %q: %w", peer.Name, err)
+		}
+	}
+	return nil
+}
+
+// insertPeerRelation inserts a single peer relation.
+func (st *State) insertPeerRelation(ctx context.Context, tx *sqlair.TX, peer peerEndpoint, relID uint64) error {
+	relUUID, err := st.insertNewRelation(ctx, tx, relID)
+	if err != nil {
+		return errors.Errorf("inserting new relation for peer endpoint %q: %w", peer.Name, err)
+	}
+
+	// Insert relation status.
+	if err := st.insertNewRelationStatus(ctx, tx, relUUID); err != nil {
+		return errors.Errorf("inserting new relation status for peer endpoint %q: %w", peer.Name, err)
+	}
+
+	// Insert the relation endpoint
+	if err := st.insertNewRelationEndpoint(ctx, tx, relUUID, peer.UUID); err != nil {
+		return errors.Errorf("inserting new relation endpoint for %q: %w", peer.Name, err)
+	}
+
+	return nil
+}
+
 // insertNewRelation creates a new relation entry in the database and returns its UUID or an error if the operation fails.
-func (st *State) insertNewRelation(ctx context.Context, tx *sqlair.TX) (corerelation.UUID, error) {
+func (st *State) insertNewRelation(ctx context.Context, tx *sqlair.TX, relID uint64) (corerelation.UUID, error) {
 	relUUID, err := corerelation.NewUUID()
 	if err != nil {
 		return relUUID, errors.Errorf("generating new relation UUID: %w", err)
@@ -87,11 +126,6 @@ func (st *State) insertNewRelation(ctx context.Context, tx *sqlair.TX) (corerela
 	type relationIDAndUUID struct {
 		UUID corerelation.UUID `db:"uuid"`
 		ID   uint64            `db:"relation_id"`
-	}
-
-	id, err := sequencestate.NextValue(ctx, st, tx, relation.SequenceNamespace)
-	if err != nil {
-		return relUUID, errors.Errorf("getting next relation id: %w", err)
 	}
 
 	stmtInsert, err := st.Prepare(`
@@ -104,7 +138,7 @@ VALUES ($relationIDAndUUID.uuid, 0, $relationIDAndUUID.relation_id)
 
 	relUUIDArg := relationIDAndUUID{
 		UUID: relUUID,
-		ID:   id,
+		ID:   relID,
 	}
 
 	if err := tx.Query(ctx, stmtInsert, relUUIDArg).Run(); err != nil {
