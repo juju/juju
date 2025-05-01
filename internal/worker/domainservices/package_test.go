@@ -123,6 +123,7 @@ func NewModelDomainServices(
 	storageRegistry storage.ModelStorageRegistryGetter,
 	publicKeyImporter domainservices.PublicKeyImporter,
 	leaseManager lease.ModelLeaseManagerGetter,
+	logDir string,
 	clock clock.Clock,
 	logger logger.Logger,
 ) services.ModelDomainServices {
@@ -135,6 +136,7 @@ func NewModelDomainServices(
 		storageRegistry,
 		publicKeyImporter,
 		leaseManager,
+		logDir,
 		clock,
 		logger,
 	)

@@ -37,62 +37,66 @@ var _ = gc.Suite(&manifoldSuite{})
 func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cfg := s.getConfig()
+	cfg := s.getConfig(c)
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.Logger = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.DBAccessorName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.ProviderFactoryName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.ObjectStoreName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.ChangeStreamName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.StorageRegistryName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.HTTPClientName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.LeaseManagerName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.LogSinkName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.NewWorker = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.NewDomainServicesGetter = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.NewControllerDomainServices = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.NewModelDomainServices = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
+	cfg.LogDir = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
 	cfg.Clock = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
@@ -127,6 +131,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
+		LogDir:                      c.MkDir(),
 		Clock:                       s.clock,
 	})
 	w, err := manifold.Start(context.Background(), dt.StubGetter(getter))
@@ -152,6 +157,7 @@ func (s *manifoldSuite) TestOutputControllerDomainServices(c *gc.C) {
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
+		LogDir:                      c.MkDir(),
 		Clock:                       s.clock,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -180,6 +186,7 @@ func (s *manifoldSuite) TestOutputDomainServicesGetter(c *gc.C) {
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
+		LogDir:                      c.MkDir(),
 		Clock:                       s.clock,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -208,6 +215,7 @@ func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
 		NewDomainServicesGetter:     NewDomainServicesGetter,
 		NewControllerDomainServices: NewControllerDomainServices,
 		NewModelDomainServices:      NewProviderTrackerModelDomainServices,
+		LogDir:                      c.MkDir(),
 		Clock:                       s.clock,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -233,6 +241,7 @@ func (s *manifoldSuite) TestNewModelDomainServices(c *gc.C) {
 		s.modelStorageRegistryGetter,
 		s.publicKeyImporter,
 		s.modelLeaseManagerGetter,
+		c.MkDir(),
 		s.clock,
 		s.logger,
 	)
@@ -255,6 +264,7 @@ func (s *manifoldSuite) TestNewDomainServicesGetter(c *gc.C) {
 		s.storageRegistryGetter,
 		s.publicKeyImporter,
 		s.leaseManager,
+		c.MkDir(),
 		s.clock,
 		s.loggerContextGetter,
 	)
@@ -265,7 +275,7 @@ func (s *manifoldSuite) TestNewDomainServicesGetter(c *gc.C) {
 	c.Assert(modelFactory, gc.NotNil)
 }
 
-func (s *manifoldSuite) getConfig() ManifoldConfig {
+func (s *manifoldSuite) getConfig(c *gc.C) ManifoldConfig {
 	return ManifoldConfig{
 		DBAccessorName:      "dbaccessor",
 		ChangeStreamName:    "changestream",
@@ -275,6 +285,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		HTTPClientName:      "httpclient",
 		LeaseManagerName:    "leasemanager",
 		LogSinkName:         "logsink",
+		LogDir:              c.MkDir(),
 		Clock:               s.clock,
 		Logger:              s.logger,
 		NewWorker: func(Config) (worker.Worker, error) {
@@ -295,6 +306,7 @@ func noopDomainServicesGetter(
 	storage.StorageRegistryGetter,
 	domainservices.PublicKeyImporter,
 	lease.Manager,
+	string,
 	clock.Clock,
 	logger.LoggerContextGetter,
 ) services.DomainServicesGetter {
@@ -319,6 +331,7 @@ func noopModelDomainServices(
 	storage.ModelStorageRegistryGetter,
 	domainservices.PublicKeyImporter,
 	lease.ModelLeaseManagerGetter,
+	string,
 	clock.Clock,
 	logger.Logger,
 ) services.ModelDomainServices {

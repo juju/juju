@@ -42,6 +42,9 @@ func newFacadeV8(ctx facade.ModelContext) (*Client, error) {
 
 	domainServices := ctx.DomainServices()
 	client := &Client{
+		logDir: ctx.LogDir(),
+		clock:  ctx.Clock(),
+
 		controllerTag: names.NewControllerTag(ctx.ControllerUUID()),
 		modelTag:      names.NewModelTag(ctx.ModelUUID().String()),
 		stateAccessor: &stateShim{

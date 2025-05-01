@@ -15,6 +15,7 @@ import (
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
@@ -152,7 +153,7 @@ func (s *serviceSuite) TestSetApplicationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.statusHistory.records, jc.DeepEquals, []statusHistoryRecord{{
-		ns: statushistory.Namespace{Name: "application", ID: applicationUUID.String()},
+		ns: statushistory.Namespace{Kind: corestatus.KindApplication, ID: applicationUUID.String()},
 		s: corestatus.StatusInfo{
 			Status:  corestatus.Active,
 			Message: "doink",
@@ -314,7 +315,7 @@ func (s *serviceSuite) TestSetWorkloadUnitStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.statusHistory.records, jc.DeepEquals, []statusHistoryRecord{{
-		ns: statushistory.Namespace{Name: "unit-workload", ID: "foo/666"},
+		ns: statushistory.Namespace{Kind: corestatus.KindWorkload, ID: "foo/666"},
 		s: corestatus.StatusInfo{
 			Status:  corestatus.Active,
 			Message: "doink",
@@ -686,6 +687,8 @@ func (s *serviceSuite) TestSetUnitAgentStatus(c *gc.C) {
 func (s *serviceSuite) TestSetUnitAgentStatusErrorWithNoMessage(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	now := time.Now()
+
 	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Error,
 		Message: "",
@@ -698,6 +701,8 @@ func (s *serviceSuite) TestSetUnitAgentStatusErrorWithNoMessage(c *gc.C) {
 func (s *serviceSuite) TestSetUnitAgentStatusLost(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	now := time.Now()
+
 	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Lost,
 		Message: "are you lost?",
@@ -709,6 +714,8 @@ func (s *serviceSuite) TestSetUnitAgentStatusLost(c *gc.C) {
 
 func (s *serviceSuite) TestSetUnitAgentStatusAllocating(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	now := time.Now()
 
 	err := s.service.SetUnitAgentStatus(context.Background(), coreunit.Name("foo/666"), corestatus.StatusInfo{
 		Status:  corestatus.Allocating,
@@ -1424,9 +1431,13 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.service = NewService(
 		s.state,
+		model.UUID("test-model"),
+		s.statusHistory,
+		func() (StatusHistoryReader, error) {
+			return nil, errors.Errorf("status history reader not available")
+		},
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
-		s.statusHistory,
 	)
 
 	return ctrl

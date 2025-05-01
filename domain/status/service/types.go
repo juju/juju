@@ -4,6 +4,8 @@
 package service
 
 import (
+	"time"
+
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/relation"
@@ -48,4 +50,18 @@ type Unit struct {
 	AgentVersion     string
 	WorkloadVersion  *string
 	K8sProviderID    *string
+}
+
+// StatusHistoryFilter holds the parameters to filter a status history query.
+type StatusHistoryFilter struct {
+	Size  int
+	Date  *time.Time
+	Delta *time.Duration
+}
+
+// StatusHistoryRequest holds the parameters to filter a status history query.
+type StatusHistoryRequest struct {
+	Kind   status.HistoryKind
+	Filter StatusHistoryFilter
+	Tag    string
 }

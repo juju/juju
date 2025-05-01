@@ -47,6 +47,7 @@ require (
 	github.com/gosuri/uitable v0.0.4
 	github.com/hashicorp/vault/api v1.10.0
 	github.com/hpcloud/tail v1.0.0
+	github.com/icza/backscanner v0.0.0-20241124160932-dff01ac50250
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/clock v1.1.1

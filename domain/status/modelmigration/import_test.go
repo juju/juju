@@ -14,6 +14,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	coremodel "github.com/juju/juju/core/model"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 )
@@ -32,8 +33,10 @@ func (s *importSuite) TestImportBlank(c *gc.C) {
 	model := description.NewModel(description.ModelArgs{})
 
 	importOp := importOperation{
-		service: s.importService,
-		clock:   clock.WallClock,
+		serviceGetter: func(u coremodel.UUID) ImportService {
+			return s.importService
+		},
+		clock: clock.WallClock,
 	}
 
 	err := importOp.Execute(context.Background(), model)
@@ -64,8 +67,10 @@ func (s *importSuite) TestImportApplicationStatus(c *gc.C) {
 	})
 
 	importOp := importOperation{
-		service: s.importService,
-		clock:   clock.WallClock,
+		serviceGetter: func(u coremodel.UUID) ImportService {
+			return s.importService
+		},
+		clock: clock.WallClock,
 	}
 
 	err := importOp.Execute(context.Background(), model)
@@ -142,8 +147,10 @@ func (s *importSuite) TestImportUnitStatus(c *gc.C) {
 	})
 
 	importOp := importOperation{
-		service: s.importService,
-		clock:   clock.WallClock,
+		serviceGetter: func(u coremodel.UUID) ImportService {
+			return s.importService
+		},
+		clock: clock.WallClock,
 	}
 
 	err := importOp.Execute(context.Background(), model)
@@ -190,8 +197,10 @@ func (s *importSuite) TestImportRelationStatus(c *gc.C) {
 	})
 
 	importOp := importOperation{
-		service: s.importService,
-		clock:   clock,
+		serviceGetter: func(u coremodel.UUID) ImportService {
+			return s.importService
+		},
+		clock: clock,
 	}
 
 	err := importOp.Execute(context.Background(), model)

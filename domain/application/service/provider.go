@@ -202,7 +202,7 @@ func (s *ProviderService) CreateApplication(
 	s.logger.Infof(ctx, "created application %q with ID %q", name, appID)
 
 	if args.ApplicationStatus != nil {
-		if err := s.statusHistory.RecordStatus(ctx, status.ApplicationNamespace.WithID(appID.String()), *args.ApplicationStatus); err != nil {
+		if err := s.statusHistory.RecordStatus(ctx, status.ApplicationNamespace.WithID(name), *args.ApplicationStatus); err != nil {
 			s.logger.Infof(ctx, "failed recording application status history: %w", err)
 		}
 	}

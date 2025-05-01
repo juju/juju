@@ -290,7 +290,7 @@ func (c *statusHistoryCommand) formatTabular(writer io.Writer, value interface{}
 
 func (c *statusHistoryCommand) writeTabular(writer io.Writer, statuses History) {
 	tw := output.TabWriter(writer)
-	w := output.Wrapper{tw}
+	w := output.Wrapper{TabWriter: tw}
 
 	w.Println("Time", "Type", "Status", "Message")
 	for _, v := range statuses {

@@ -51,6 +51,9 @@ type Config struct {
 	// LoggerContextGetter is used to get the logger context per model.
 	LoggerContextGetter logger.LoggerContextGetter
 
+	// LogDir is the directory where logs are stored.
+	LogDir string
+
 	// Logger is used to log messages.
 	Logger logger.Logger
 
@@ -102,6 +105,9 @@ func (config Config) Validate() error {
 	if config.NewModelDomainServices == nil {
 		return errors.NotValidf("nil NewModelDomainServices")
 	}
+	if config.LogDir == "" {
+		return errors.NotValidf("empty LogDir")
+	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
@@ -138,6 +144,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 			config.StorageRegistryGetter,
 			config.PublicKeyImporter,
 			config.LeaseManager,
+			config.LogDir,
 			config.Clock,
 			config.LoggerContextGetter,
 		),
@@ -202,6 +209,7 @@ type domainServicesGetter struct {
 	storageRegistryGetter  storage.StorageRegistryGetter
 	publicKeyImporter      domainservices.PublicKeyImporter
 	leaseManager           lease.Manager
+	logDir                 string
 	clock                  clock.Clock
 	loggerContextGetter    logger.LoggerContextGetter
 }
@@ -232,6 +240,7 @@ func (s *domainServicesGetter) ServicesForModel(ctx context.Context, modelUUID c
 				modelUUID: modelUUID,
 				manager:   s.leaseManager,
 			},
+			s.logDir,
 			s.clock,
 			loggerContext.GetLogger("juju.services"),
 		),

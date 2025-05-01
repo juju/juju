@@ -14,12 +14,14 @@ import (
 
 	applicationtesting "github.com/juju/juju/core/application/testing"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/model"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -383,9 +385,13 @@ func (s *leaderServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.service = NewLeadershipService(
 		s.state,
 		s.leadership,
+		model.UUID("test-model"),
+		s.statusHistory,
+		func() (StatusHistoryReader, error) {
+			return nil, errors.Errorf("status history reader not available")
+		},
 		clock.WallClock,
 		loggertesting.WrapCheckLog(c),
-		s.statusHistory,
 	)
 
 	return ctrl

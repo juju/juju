@@ -290,6 +290,7 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *gc.C, o
 			modelApplicationLeaseManagerGetter(func() lease.Checker {
 				return leaseManager
 			}),
+			c.MkDir(),
 			clock,
 			logger,
 		)

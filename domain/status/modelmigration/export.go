@@ -10,6 +10,7 @@ import (
 	"github.com/juju/description/v9"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -50,7 +51,7 @@ type ExportService interface {
 type exportOperation struct {
 	modelmigration.BaseOperation
 
-	service ExportService
+	serviceGetter func(model.UUID) ExportService
 
 	clock  clock.Clock
 	logger logger.Logger
@@ -64,28 +65,37 @@ func (e *exportOperation) Name() string {
 // Setup the export operation.
 // This will create a new service instance.
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
-	e.service = service.NewService(
-		state.NewState(scope.ModelDB(), e.clock, e.logger),
-		e.clock,
-		e.logger,
-		// TODO(jack): This is currently the wrong logger. We should construct
-		// the StatusHistory using the model logger, however, at the moment, we
-		// cannot get the model logger until the model has been imported. Once
-		// this has changed, refactor this to use the model logger.
-		domain.NewStatusHistory(e.logger, e.clock),
-	)
+	e.serviceGetter = func(modelUUID model.UUID) ExportService {
+		return service.NewService(
+			state.NewState(scope.ModelDB(), e.clock, e.logger),
+			modelUUID,
+			// TODO(jack): This is currently the wrong logger. We should construct
+			// the StatusHistory using the model logger, however, at the moment, we
+			// cannot get the model logger until the model has been imported. Once
+			// this has changed, refactor this to use the model logger.
+			domain.NewStatusHistory(e.logger, e.clock),
+			func() (service.StatusHistoryReader, error) {
+				return nil, errors.Errorf("status history reader not available")
+			},
+			e.clock,
+			e.logger,
+		)
+	}
 	return nil
 }
 
 // Execute the export operation, loading the statuses of the various entities in
 // the model onto their description representation.
 func (e *exportOperation) Execute(ctx context.Context, m description.Model) error {
-	err := e.exportApplicationAndUnitStatus(ctx, m)
+	modelUUID := model.UUID(m.UUID())
+	service := e.serviceGetter(modelUUID)
+
+	err := e.exportApplicationAndUnitStatus(ctx, service, m)
 	if err != nil {
 		return errors.Errorf("exporting application and unit status: %w", err)
 	}
 
-	err = e.exportRelationStatus(ctx, m)
+	err = e.exportRelationStatus(ctx, service, m)
 	if err != nil {
 		return errors.Errorf("exporting reltaion status: %w", err)
 	}
@@ -95,14 +105,15 @@ func (e *exportOperation) Execute(ctx context.Context, m description.Model) erro
 
 func (e *exportOperation) exportApplicationAndUnitStatus(
 	ctx context.Context,
+	service ExportService,
 	m description.Model,
 ) error {
-	appStatuses, err := e.service.ExportApplicationStatuses(ctx)
+	appStatuses, err := service.ExportApplicationStatuses(ctx)
 	if err != nil {
 		return errors.Errorf("retrieving application statuses: %w", err)
 	}
 
-	unitWorkloadStatuses, unitAgentStatuses, err := e.service.ExportUnitStatuses(ctx)
+	unitWorkloadStatuses, unitAgentStatuses, err := service.ExportUnitStatuses(ctx)
 	if err != nil {
 		return errors.Errorf("retrieving unit statuses: %w", err)
 	}
@@ -141,9 +152,10 @@ func (e *exportOperation) exportApplicationAndUnitStatus(
 
 func (e *exportOperation) exportRelationStatus(
 	ctx context.Context,
+	service ExportService,
 	m description.Model,
 ) error {
-	relStatuses, err := e.service.ExportRelationStatuses(ctx)
+	relStatuses, err := service.ExportRelationStatuses(ctx)
 	if err != nil {
 		return errors.Errorf("retrieving relation statuses: %w", err)
 	}

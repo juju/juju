@@ -46,8 +46,77 @@ import (
 )
 
 // StatusHistory returns a slice of past statuses for several entities.
-func (c *Client) StatusHistory(ctx context.Context, request params.StatusHistoryRequests) params.StatusHistoryResults {
-	return params.StatusHistoryResults{}
+func (c *Client) StatusHistory(ctx context.Context, requests params.StatusHistoryRequests) params.StatusHistoryResults {
+	if err := c.checkCanRead(ctx); err != nil {
+		return statusHistoryResultsError(err, len(requests.Requests))
+	}
+
+	// This API officially supports bulk requests, but the client only sends
+	// single requests. This prevents excessive memory usage in the server.
+	if num := len(requests.Requests); num == 0 {
+		return statusHistoryResultsError(nil, num)
+	} else if num != 1 {
+		return statusHistoryResultsError(internalerrors.Errorf("multiple requests are not supported"), num)
+	}
+
+	// We know we only have one request, so we can just use the first one.
+	request := requests.Requests[0]
+
+	kind := status.HistoryKind(request.Kind)
+	if !kind.Valid() {
+		return statusHistoryResultError(internalerrors.Errorf("invalid status history kind %q", request.Kind))
+	}
+
+	tag, err := names.ParseTag(request.Tag)
+	if err != nil {
+		return statusHistoryResultError(err)
+	}
+
+	history, err := c.statusService.GetStatusHistory(ctx, statusservice.StatusHistoryRequest{
+		Kind: kind,
+		Filter: statusservice.StatusHistoryFilter{
+			Size:  request.Filter.Size,
+			Date:  request.Filter.Date,
+			Delta: request.Filter.Delta,
+		},
+		Tag: tag.Id(),
+	})
+	if err != nil {
+		return statusHistoryResultError(err)
+	}
+
+	results := make([]params.DetailedStatus, len(history))
+	for i, status := range history {
+		results[i] = params.DetailedStatus{
+			Status: status.Status.String(),
+			Info:   status.Info,
+			Since:  status.Since,
+			Kind:   status.Kind.String(),
+			Data:   status.Data,
+		}
+	}
+
+	return params.StatusHistoryResults{
+		Results: []params.StatusHistoryResult{{
+			History: params.History{
+				Statuses: results,
+			},
+		}},
+	}
+}
+
+func statusHistoryResultsError(err error, amount int) params.StatusHistoryResults {
+	results := make([]params.StatusHistoryResult, amount)
+	for i := range results {
+		results[i].Error = apiservererrors.ServerError(err)
+	}
+	return params.StatusHistoryResults{
+		Results: results,
+	}
+}
+
+func statusHistoryResultError(err error) params.StatusHistoryResults {
+	return statusHistoryResultsError(err, 1)
 }
 
 type lifer interface {

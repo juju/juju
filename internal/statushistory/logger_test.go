@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/status"
 )
 
 type loggerSuite struct {
@@ -26,13 +27,13 @@ func (s *loggerSuite) TestRecord(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	labels := logger.Labels{
-		categoryKey:      statusHistoryCategory,
-		namespaceNameKey: "foo",
-		namespaceIDKey:   "123",
-		statusKey:        "active",
-		messageKey:       "foo",
-		sinceKey:         "2019-01-01T00:00:00Z",
-		dataKey:          `{"bar":"baz"}`,
+		categoryKey:    statusHistoryCategory,
+		kindKey:        status.KindApplication.String(),
+		namespaceIDKey: "123",
+		statusKey:      "active",
+		messageKey:     "foo",
+		sinceKey:       "2019-01-01T00:00:00Z",
+		dataKey:        `{"bar":"baz"}`,
 	}
 
 	s.logger.EXPECT().Child("status-history", logger.STATUS_HISTORY).Return(s.logger)
@@ -40,7 +41,7 @@ func (s *loggerSuite) TestRecord(c *gc.C) {
 
 	logger := NewLogRecorder(s.logger)
 	err := logger.Record(context.Background(), Record{
-		Name:    "foo",
+		Kind:    status.KindApplication,
 		ID:      "123",
 		Status:  "active",
 		Message: "foo",

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/description/v9"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -40,7 +41,7 @@ func RegisterImport(
 type importOperation struct {
 	modelmigration.BaseOperation
 
-	service ImportService
+	serviceGetter func(model.UUID) ImportService
 
 	clock  clock.Clock
 	logger logger.Logger
@@ -78,28 +79,37 @@ func (i *importOperation) Name() string {
 // Setup the import operation.
 // This will create a new service instance.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
-	i.service = service.NewService(
-		state.NewState(scope.ModelDB(), i.clock, i.logger),
-		i.clock,
-		i.logger,
-		// TODO(jack): This is currently the wrong logger. We should construct
-		// the StatusHistory using the model logger, however, at the moment, we
-		// cannot get the model logger until the model has been imported. Once
-		// this has changed, refactor this to use the model logger.
-		domain.NewStatusHistory(i.logger, i.clock),
-	)
+	i.serviceGetter = func(modelUUID model.UUID) ImportService {
+		return service.NewService(
+			state.NewState(scope.ModelDB(), i.clock, i.logger),
+			modelUUID,
+			// TODO(jack): This is currently the wrong logger. We should construct
+			// the StatusHistory using the model logger, however, at the moment, we
+			// cannot get the model logger until the model has been imported. Once
+			// this has changed, refactor this to use the model logger.
+			domain.NewStatusHistory(i.logger, i.clock),
+			func() (service.StatusHistoryReader, error) {
+				return nil, errors.Errorf("status history reader not available")
+			},
+			i.clock,
+			i.logger,
+		)
+	}
 	return nil
 }
 
 // Execute the import, loading the statuses of the various entities out of the
 // description representation, into the domain.
-func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
-	err := i.importApplicationAndUnitStatus(ctx, model)
+func (i *importOperation) Execute(ctx context.Context, m description.Model) error {
+	modelUUID := model.UUID(m.UUID())
+	service := i.serviceGetter(modelUUID)
+
+	err := i.importApplicationAndUnitStatus(ctx, service, m)
 	if err != nil {
 		return errors.Errorf("importing application and unit status: %w", err)
 	}
 
-	err = i.importRelationStatus(ctx, model)
+	err = i.importRelationStatus(ctx, service, m)
 	if err != nil {
 		return errors.Errorf("importing relation status: %w", err)
 	}
@@ -109,11 +119,12 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 func (i *importOperation) importApplicationAndUnitStatus(
 	ctx context.Context,
-	model description.Model,
+	service ImportService,
+	m description.Model,
 ) error {
-	for _, app := range model.Applications() {
+	for _, app := range m.Applications() {
 		appStatus := i.importStatus(app.Status())
-		if err := i.service.SetApplicationStatus(ctx, app.Name(), appStatus); err != nil {
+		if err := service.SetApplicationStatus(ctx, app.Name(), appStatus); err != nil {
 			return err
 		}
 
@@ -123,12 +134,12 @@ func (i *importOperation) importApplicationAndUnitStatus(
 				return err
 			}
 			unitAgentStatus := i.importStatus(unit.AgentStatus())
-			if err := i.service.SetUnitAgentStatus(ctx, unitName, unitAgentStatus); err != nil {
+			if err := service.SetUnitAgentStatus(ctx, unitName, unitAgentStatus); err != nil {
 				return err
 			}
 
 			unitWorkloadStatus := i.importStatus(unit.WorkloadStatus())
-			if err := i.service.SetUnitWorkloadStatus(ctx, unitName, unitWorkloadStatus); err != nil {
+			if err := service.SetUnitWorkloadStatus(ctx, unitName, unitWorkloadStatus); err != nil {
 				return err
 			}
 		}
@@ -139,11 +150,13 @@ func (i *importOperation) importApplicationAndUnitStatus(
 
 func (i *importOperation) importRelationStatus(
 	ctx context.Context,
+	service ImportService,
 	model description.Model,
 ) error {
+
 	for _, relation := range model.Relations() {
 		relationStatus := i.importStatus(relation.Status())
-		if err := i.service.ImportRelationStatus(ctx, relation.Id(), relationStatus); err != nil {
+		if err := service.ImportRelationStatus(ctx, relation.Id(), relationStatus); err != nil {
 			return err
 		}
 	}
