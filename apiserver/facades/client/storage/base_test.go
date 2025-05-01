@@ -16,8 +16,10 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/blockcommand"
 	jujustorage "github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -38,7 +40,6 @@ type baseStorageSuite struct {
 	api                 *storage.StorageAPI
 	apiCaas             *storage.StorageAPI
 	storageAccessor     *mockStorageAccessor
-	state               *mockState
 	blockDeviceGetter   *mockBlockDeviceGetter
 	blockCommandService *storage.MockBlockCommandService
 
@@ -56,39 +57,47 @@ type baseStorageSuite struct {
 	filesystemAttachment *mockFilesystemAttachment
 	stub                 testing.Stub
 
-	storageService *storage.MockStorageService
-	registry       jujustorage.StaticProviderRegistry
-	poolsInUse     []string
+	storageService     *storage.MockStorageService
+	applicationService *storage.MockApplicationService
+	registry           jujustorage.StaticProviderRegistry
+	poolsInUse         []string
 }
 
 func (s *baseStorageSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.unitTag = names.NewUnitTag("mysql/0")
+	s.machineTag = names.NewMachineTag("1234")
+
 	s.resources = common.NewResources()
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin"), Controller: true}
 	s.stub.ResetCalls()
-	s.state = s.constructState()
 	s.storageAccessor = s.constructStorageAccessor()
 	s.blockDeviceGetter = &mockBlockDeviceGetter{}
 
 	s.blockCommandService = storage.NewMockBlockCommandService(ctrl)
 	s.storageService = storage.NewMockStorageService(ctrl)
+	s.applicationService = storage.NewMockApplicationService(ctrl)
+	s.applicationService.EXPECT().GetUnitMachineName(gomock.Any(), unit.Name("mysql/0")).DoAndReturn(func(ctx context.Context, u unit.Name) (machine.Name, error) {
+		c.Assert(u.String(), gc.Equals, s.unitTag.Id())
+		return machine.Name(s.machineTag.Id()), nil
+	}).AnyTimes()
 
 	s.registry = jujustorage.StaticProviderRegistry{Providers: map[jujustorage.ProviderType]jujustorage.Provider{}}
 	s.poolsInUse = []string{}
 
 	s.controllerUUID = uuid.MustNewUUID().String()
 	s.modelUUID = modeltesting.GenModelUUID(c)
-	s.api = storage.NewStorageAPIForTest(
+	s.api = storage.NewStorageAPI(
 		s.controllerUUID, s.modelUUID, coremodel.IAAS,
-		s.state, s.storageAccessor, s.blockDeviceGetter,
-		s.storageService, s.storageRegistryGetter, s.authorizer,
-		s.blockCommandService)
-	s.apiCaas = storage.NewStorageAPIForTest(
+		s.storageAccessor, s.blockDeviceGetter,
+		s.storageService, s.applicationService, s.storageRegistryGetter,
+		s.authorizer, s.blockCommandService)
+	s.apiCaas = storage.NewStorageAPI(
 		s.controllerUUID, s.modelUUID, coremodel.CAAS,
-		s.state, s.storageAccessor, s.blockDeviceGetter,
-		s.storageService, s.storageRegistryGetter, s.authorizer,
-		s.blockCommandService)
+		s.storageAccessor, s.blockDeviceGetter,
+		s.storageService, s.applicationService, s.storageRegistryGetter,
+		s.authorizer, s.blockCommandService)
 
 	return ctrl
 }
@@ -127,14 +136,6 @@ const (
 	releaseStorageInstanceCall              = "releaseStorageInstance"
 	addExistingFilesystemCall               = "addExistingFilesystem"
 )
-
-func (s *baseStorageSuite) constructState() *mockState {
-	s.unitTag = names.NewUnitTag("mysql/0")
-	return &mockState{
-		unitName:        s.unitTag.Id(),
-		assignedMachine: s.machineTag.Id(),
-	}
-}
 
 func (s *baseStorageSuite) constructStorageAccessor() *mockStorageAccessor {
 	s.storageTag = names.NewStorageTag("data/0")

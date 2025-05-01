@@ -107,22 +107,6 @@ var getStorageAccessor = func(
 	return sb, nil
 }
 
-type backend interface {
-	Unit(string) (Unit, error)
-}
-
 type blockDeviceGetter interface {
 	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
-}
-
-type Unit interface {
-	AssignedMachineId() (string, error)
-}
-
-type stateShim struct {
-	*state.State
-}
-
-func (s stateShim) Unit(name string) (Unit, error) {
-	return s.State.Unit(name)
 }

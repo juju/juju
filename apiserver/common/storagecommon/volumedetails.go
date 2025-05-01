@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/life"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -66,7 +67,7 @@ func VolumeDetails(
 		}
 		storageDetails, err := StorageDetails(ctx, sb, blockDeviceGetter, unitToMachine, storageInstance)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, internalerrors.Errorf("getting storage details for volume: %w", err)
 		}
 		details.Storage = storageDetails
 	}

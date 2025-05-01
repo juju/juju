@@ -382,27 +382,3 @@ func (va *mockVolumeAttachment) Info() (state.VolumeAttachmentInfo, error) {
 func (va *mockVolumeAttachment) Params() (state.VolumeAttachmentParams, bool) {
 	panic("not implemented for test")
 }
-
-type mockUnit struct {
-	assignedMachine string
-}
-
-func (u *mockUnit) AssignedMachineId() (string, error) {
-	return u.assignedMachine, nil
-}
-
-type mockState struct {
-	unitName        string
-	unitErr         string
-	assignedMachine string
-}
-
-func (st *mockState) Unit(unitName string) (storage.Unit, error) {
-	if st.unitErr != "" {
-		return nil, errors.New(st.unitErr)
-	}
-	if unitName == st.unitName {
-		return &mockUnit{assignedMachine: st.assignedMachine}, nil
-	}
-	return nil, errors.NotFoundf(unitName)
-}

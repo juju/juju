@@ -25,7 +25,7 @@ type DetailsBackend interface {
 	StorageAttachments(names.StorageTag) ([]state.StorageAttachment, error)
 }
 
-type UnitAssignedMachineFunc func(names.UnitTag) (names.MachineTag, error)
+type UnitAssignedMachineFunc func(context.Context, names.UnitTag) (names.MachineTag, error)
 
 // StorageDetails returns the storage instance as a params StorageDetails.
 func StorageDetails(
@@ -112,7 +112,7 @@ func storageAttachmentInfo(
 	a state.StorageAttachment,
 	unitToMachine UnitAssignedMachineFunc,
 ) (_ names.MachineTag, location string, _ error) {
-	machineTag, err := unitToMachine(a.Unit())
+	machineTag, err := unitToMachine(ctx, a.Unit())
 	if errors.Is(err, errors.NotAssigned) {
 		return names.MachineTag{}, "", nil
 	} else if err != nil {
